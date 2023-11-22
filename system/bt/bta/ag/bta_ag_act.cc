@@ -58,7 +58,7 @@ const tBTA_SERVICE_MASK bta_ag_svc_mask[BTA_AG_NUM_IDX] = {
     BTA_HSP_SERVICE_MASK, BTA_HFP_SERVICE_MASK};
 
 typedef void (*tBTA_AG_ATCMD_CBACK)(tBTA_AG_SCB* p_scb, uint16_t cmd,
-                                    uint8_t arg_type, char* p_arg,
+                                    uint8_t arg_type, char* p_arg, char* p_end,
                                     int16_t int_arg);
 
 const tBTA_AG_ATCMD_CBACK bta_ag_at_cback_tbl[BTA_AG_NUM_IDX] = {
@@ -174,15 +174,13 @@ void bta_ag_start_dereg(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
  *
  ******************************************************************************/
 void bta_ag_start_open(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
-  RawAddress pending_bd_addr = {};
-
-  /* store parameters */
   p_scb->peer_addr = data.api_open.bd_addr;
   p_scb->cli_sec_mask = data.api_open.sec_mask;
   p_scb->open_services = p_scb->reg_services;
 
   /* Check if RFCOMM has any incoming connection to avoid collision. */
-  if (PORT_IsOpening(pending_bd_addr)) {
+  RawAddress pending_bd_addr = RawAddress::kEmpty;
+  if (PORT_IsOpening(&pending_bd_addr)) {
     /* Let the incoming connection goes through.                        */
     /* Issue collision for this scb for now.                            */
     /* We will decide what to do when we find incoming connetion later. */
@@ -516,16 +514,15 @@ void bta_ag_rfc_open(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
  *
  ******************************************************************************/
 void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
+  APPL_TRACE_DEBUG("%s: serv_handle0 = %d serv_handle = %d", __func__,
+                   p_scb->serv_handle[0], p_scb->serv_handle[1]);
   /* set role */
   p_scb->role = BTA_AG_ACP;
-
-  APPL_TRACE_DEBUG("bta_ag_rfc_acp_open: serv_handle0 = %d serv_handle1 = %d",
-                   p_scb->serv_handle[0], p_scb->serv_handle[1]);
 
   /* get bd addr of peer */
   uint16_t lcid = 0;
   RawAddress dev_addr = RawAddress::kEmpty;
-  int status = PORT_CheckConnection(data.rfc.port_handle, dev_addr, &lcid);
+  int status = PORT_CheckConnection(data.rfc.port_handle, &dev_addr, &lcid);
   if (status != PORT_SUCCESS) {
     LOG(ERROR) << __func__ << ", PORT_CheckConnection returned " << status;
     return;
@@ -568,7 +565,7 @@ void bta_ag_rfc_acp_open(tBTA_AG_SCB* p_scb, const tBTA_AG_DATA& data) {
   p_scb->peer_addr = dev_addr;
 
   /* determine connected service from port handle */
-  for (int i = 0; i < BTA_AG_NUM_IDX; i++) {
+  for (uint8_t i = 0; i < BTA_AG_NUM_IDX; i++) {
     APPL_TRACE_DEBUG(
         "bta_ag_rfc_acp_open: i = %d serv_handle = %d port_handle = %d", i,
         p_scb->serv_handle[i], data.rfc.port_handle);

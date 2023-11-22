@@ -30,10 +30,13 @@ class MockNetlinkUtils : public NetlinkUtils {
   ~MockNetlinkUtils() override = default;
 
   MOCK_METHOD1(GetWiphyIndex, bool(uint32_t* out_wiphy_index));
+  MOCK_METHOD2(GetWiphyIndex,
+               bool(uint32_t* out_wiphy_index, const std::string& iface_name));
   MOCK_METHOD1(UnsubscribeMlmeEvent, void(uint32_t interface_index));
   MOCK_METHOD1(UnsubscribeRegDomainChange, void(uint32_t wiphy_index));
   MOCK_METHOD1(UnsubscribeStationEvent, void(uint32_t interface_index));
   MOCK_METHOD1(UnsubscribeChannelSwitchEvent, void(uint32_t interface_index));
+  MOCK_METHOD1(UnsubscribeFrameTxStatusEvent, void(uint32_t interface_index));
   MOCK_METHOD1(GetProtocolFeatures, bool(uint32_t* features));
 
   MOCK_METHOD2(SetInterfaceMode,
@@ -50,6 +53,9 @@ class MockNetlinkUtils : public NetlinkUtils {
   MOCK_METHOD2(SubscribeChannelSwitchEvent,
                void(uint32_t interface_index,
                     OnChannelSwitchEventHandler handler));
+  MOCK_METHOD2(SubscribeFrameTxStatusEvent,
+               void(uint32_t interface_index,
+                    OnFrameTxStatusEventHandler handler));
 
   MOCK_METHOD2(GetInterfaces,
                bool(uint32_t wiphy_index,
@@ -59,6 +65,11 @@ class MockNetlinkUtils : public NetlinkUtils {
                     BandInfo* band_info,
                     ScanCapabilities* scan_capabilities,
                     WiphyFeatures* wiphy_features));
+  MOCK_METHOD4(SendMgmtFrame,
+               bool(uint32_t interface_index,
+                    const std::vector<uint8_t>& frame,
+                    int32_t mcs,
+                    uint64_t* out_cookie));
 
 };  // class MockNetlinkUtils
 

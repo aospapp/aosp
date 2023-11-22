@@ -16,12 +16,15 @@
 
 package android.media.cts;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.AudioManager.OnAudioFocusChangeListener;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
@@ -168,23 +171,50 @@ public class AudioFocusTest extends CtsAndroidTestCase {
     }
 
     public void testAudioFocusRequestGainLossTransientDuck() throws Exception {
+        if (hasAutomotiveFeature(getContext())) {
+            Log.i(TAG,"Test testAudioFocusRequestGainLossTransientDuck "
+                    + "skipped: not required for Auto platform");
+            return;
+        }
+
         final AudioAttributes[] attributes = { ATTR_DRIVE_DIR, ATTR_MEDIA };
         doTestTwoPlayersGainLoss(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK, attributes,
                 false /*no handler*/);
     }
 
     public void testAudioFocusRequestGainLossTransientDuckHandler() throws Exception {
+        if (hasAutomotiveFeature(getContext())) {
+            Log.i(TAG,"Test testAudioFocusRequestGainLossTransientDuckHandler "
+                    + "skipped: not required for Auto platform");
+            return;
+        }
+
         final AudioAttributes[] attributes = { ATTR_DRIVE_DIR, ATTR_MEDIA };
         doTestTwoPlayersGainLoss(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK, attributes,
                 true /*with handler*/);
     }
 
     public void testAudioFocusRequestForceDuckNotA11y() throws Exception {
+        if (hasAutomotiveFeature(getContext())) {
+            Log.i(TAG,"Test testAudioFocusRequestForceDuckNotA11y "
+                    + "skipped: not required for Auto platform");
+            return;
+        }
+
         // verify a request that is "force duck"'d still causes loss of focus because it doesn't
         // come from an A11y service, and requests are from same uid
-        final AudioAttributes[] attributes = { ATTR_MEDIA, ATTR_A11Y };
+        final AudioAttributes[] attributes = {ATTR_MEDIA, ATTR_A11Y};
         doTestTwoPlayersGainLoss(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK, attributes,
                 false /*no handler*/, true /* forceDucking */);
+    }
+
+    /**
+     * Determine if automotive feature is available
+     * @param context context to query
+     * @return true if automotive feature is available
+     */
+    private static boolean hasAutomotiveFeature(Context context) {
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 
     //-----------------------------------

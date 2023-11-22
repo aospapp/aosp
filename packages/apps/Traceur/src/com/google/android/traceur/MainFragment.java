@@ -26,15 +26,16 @@ import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.v14.preference.MultiSelectListPreference;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v14.preference.PreferenceFragment;
-import android.support.v7.preference.PreferenceManager;
-import android.support.v7.preference.PreferenceScreen;
-import android.support.v14.preference.SwitchPreference;
+import androidx.preference.MultiSelectListPreference;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceFragment;
+import androidx.preference.PreferenceManager;
+import androidx.preference.PreferenceScreen;
+import androidx.preference.SwitchPreference;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -55,7 +56,7 @@ import java.util.TreeMap;
 
 public class MainFragment extends PreferenceFragment {
 
-    static final String TAG = AtraceUtils.TAG;
+    static final String TAG = TraceUtils.TAG;
 
     public static final String ACTION_REFRESH_TAGS = "com.android.traceur.REFRESH_TAGS";
 
@@ -66,11 +67,17 @@ public class MainFragment extends PreferenceFragment {
 
     private MultiSelectListPreference mTags;
 
-    private ListPreference mBufferSize;
-
     private boolean mRefreshing;
 
     private BroadcastReceiver mRefreshReceiver;
+
+    OnSharedPreferenceChangeListener mSharedPreferenceChangeListener =
+        new OnSharedPreferenceChangeListener () {
+              public void onSharedPreferenceChanged(
+                      SharedPreferences sharedPreferences, String key) {
+                  refreshUi();
+              }
+        };
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -96,7 +103,7 @@ public class MainFragment extends PreferenceFragment {
                     return true;
                 }
                 Set<String> set = (Set<String>) newValue;
-                TreeMap<String, String> available = AtraceUtils.atraceListCategories();
+                TreeMap<String, String> available = TraceUtils.listCategories();
                 ArrayList<String> clean = new ArrayList<>(set.size());
 
                 for (String s : set) {
@@ -110,15 +117,11 @@ public class MainFragment extends PreferenceFragment {
             }
         });
 
-        mBufferSize = (ListPreference) findPreference(getContext().getString(R.string.pref_key_buffer_size));
-        mBufferSize.setValue(mPrefs.getString(getContext().getString(R.string.pref_key_buffer_size),
-              getContext().getString(R.string.default_buffer_size)));
-
         findPreference("restore_default_tags").setOnPreferenceClickListener(
                 new Preference.OnPreferenceClickListener() {
                     @Override
                     public boolean onPreferenceClick(Preference preference) {
-                        refreshTags(/* restoreDefaultTags =*/ true);
+                        refreshUi(/* restoreDefaultTags =*/ true);
                         Toast.makeText(getContext(),
                             getContext().getString(R.string.default_categories_restored),
                                 Toast.LENGTH_SHORT).show();
@@ -146,7 +149,7 @@ public class MainFragment extends PreferenceFragment {
                             .setPositiveButton(R.string.clear,
                                 new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int which) {
-                                        AtraceUtils.clearSavedTraces();
+                                        TraceUtils.clearSavedTraces();
                                     }
                                 })
                             .setNegativeButton(android.R.string.no,
@@ -161,12 +164,12 @@ public class MainFragment extends PreferenceFragment {
                     }
                 });
 
-        refreshTags();
+        refreshUi();
 
         mRefreshReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                refreshTags();
+                refreshUi();
             }
         };
 
@@ -179,14 +182,18 @@ public class MainFragment extends PreferenceFragment {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
+        getPreferenceScreen().getSharedPreferences()
+            .registerOnSharedPreferenceChangeListener(mSharedPreferenceChangeListener);
         getActivity().registerReceiver(mRefreshReceiver, new IntentFilter(ACTION_REFRESH_TAGS));
         Receiver.updateTracing(getContext());
     }
 
     @Override
-    public void onPause() {
+    public void onStop() {
+        getPreferenceScreen().getSharedPreferences()
+            .unregisterOnSharedPreferenceChangeListener(mSharedPreferenceChangeListener);
         getActivity().unregisterReceiver(mRefreshReceiver);
 
         if (mAlertDialog != null) {
@@ -194,7 +201,7 @@ public class MainFragment extends PreferenceFragment {
             mAlertDialog = null;
         }
 
-        super.onPause();
+        super.onStop();
     }
 
     @Override
@@ -208,21 +215,23 @@ public class MainFragment extends PreferenceFragment {
             this.getClass().getName());
     }
 
-    private void refreshTags() {
-        refreshTags(/* restoreDefaultTags =*/ false);
+    private void refreshUi() {
+        refreshUi(/* restoreDefaultTags =*/ false);
     }
 
     /*
      * Refresh the preferences UI to make sure it reflects the current state of the preferences and
      * system.
      */
-    private void refreshTags(boolean restoreDefaultTags) {
+    private void refreshUi(boolean restoreDefaultTags) {
+        Context context = getContext();
+
         // Make sure the Record Trace toggle matches the preference value.
         mTracingOn.setChecked(mTracingOn.getPreferenceManager().getSharedPreferences().getBoolean(
                 mTracingOn.getKey(), false));
 
-        // Update category list to match the categories available on the system from atrace.
-        Set<Entry<String, String>> availableTags = AtraceUtils.atraceListCategories().entrySet();
+        // Update category list to match the categories available on the system.
+        Set<Entry<String, String>> availableTags = TraceUtils.listCategories().entrySet();
         ArrayList<String> entries = new ArrayList<String>(availableTags.size());
         ArrayList<String> values = new ArrayList<String>(availableTags.size());
         for (Entry<String, String> entry : availableTags) {
@@ -234,11 +243,39 @@ public class MainFragment extends PreferenceFragment {
         try {
             mTags.setEntries(entries.toArray(new String[0]));
             mTags.setEntryValues(values.toArray(new String[0]));
-            if (restoreDefaultTags || !mPrefs.contains(getContext().getString(R.string.pref_key_tags))) {
+            if (restoreDefaultTags || !mPrefs.contains(context.getString(R.string.pref_key_tags))) {
                 mTags.setValues(Receiver.getDefaultTagList());
             }
         } finally {
             mRefreshing = false;
+        }
+
+        // Update subtitles on this screen.
+        Set<String> categories = mTags.getValues();
+        mTags.setSummary(Receiver.getDefaultTagList().equals(categories)
+                         ? context.getString(R.string.default_categories)
+                         : context.getResources().getQuantityString(R.plurals.num_categories_selected,
+                              categories.size(), categories.size()));
+
+        ListPreference bufferSize = (ListPreference)findPreference(
+                context.getString(R.string.pref_key_buffer_size));
+        bufferSize.setSummary(bufferSize.getEntry());
+
+        // If we are not using the Perfetto trace backend,
+        // hide the unsupported preferences.
+        if (TraceUtils.currentTraceEngine().equals(PerfettoUtils.NAME)) {
+            ListPreference maxLongTraceSize = (ListPreference)findPreference(
+                    context.getString(R.string.pref_key_max_long_trace_size));
+            maxLongTraceSize.setSummary(maxLongTraceSize.getEntry());
+
+            ListPreference maxLongTraceDuration = (ListPreference)findPreference(
+                    context.getString(R.string.pref_key_max_long_trace_duration));
+            maxLongTraceDuration.setSummary(maxLongTraceDuration.getEntry());
+        } else {
+            Preference longTraceCategory = findPreference("long_trace_category");
+            if (longTraceCategory != null) {
+                getPreferenceScreen().removePreference(longTraceCategory);
+            }
         }
     }
 }

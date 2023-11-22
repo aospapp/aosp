@@ -24,11 +24,12 @@ LOCAL_SUITE_BUILD_NUMBER := $(BUILD_NUMBER_FROM_FILE)
 LOCAL_SUITE_TARGET_ARCH := $(TARGET_ARCH)
 LOCAL_SUITE_NAME := VTS
 LOCAL_SUITE_FULLNAME := "Vendor Test Suite"
-LOCAL_SUITE_VERSION := 9.0_R2
+LOCAL_SUITE_VERSION := 10_r1
 LOCAL_STATIC_JAVA_LIBRARIES := \
     libvts_protos_host \
 
 LOCAL_STATIC_JAVA_LIBRARIES += \
+    gson-prebuilt-jar \
     google-api-java-client-min-repackaged \
     cts-tradefed-harness
 

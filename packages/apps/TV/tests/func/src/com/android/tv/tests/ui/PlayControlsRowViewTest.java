@@ -22,11 +22,11 @@ import static com.android.tv.testing.uihelper.Constants.MENU;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 
-import android.support.test.filters.SmallTest;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
 import android.view.KeyEvent;
+import androidx.test.filters.SmallTest;
 import com.android.tv.R;
 import com.android.tv.testing.testinput.TvTestInputConstants;
 import com.android.tv.testing.uihelper.Constants;

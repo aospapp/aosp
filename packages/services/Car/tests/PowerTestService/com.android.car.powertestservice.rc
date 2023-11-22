@@ -16,6 +16,7 @@ service com.android.car.powertestservice /system/bin/com.android.car.powertestse
     class core
     user system
     group system
+    disabled
 
-on boot && property:boot.car_service_created=1
+on property:boot.car_service_created=1
     start com.android.car.powertestservice

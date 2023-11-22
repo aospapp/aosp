@@ -23,7 +23,7 @@ import java.io.PrintWriter
 
 interface FieldItem : MemberItem {
     /** The type of this field */
-    fun type(): TypeItem
+    override fun type(): TypeItem
 
     /**
      * The initial/constant value, if any. If [requireConstant] the initial value will
@@ -36,6 +36,19 @@ interface FieldItem : MemberItem {
      * to distinguish between them.
      */
     fun isEnumConstant(): Boolean
+
+    /**
+     * If this field is inherited from a hidden super class, this property is set.
+     * This is necessary because these fields should not be listed in signature files,
+     * whereas in stub files it's necessary for them to be included.
+     */
+    var inheritedField: Boolean
+
+    /**
+     * If this field is copied from a super class (typically via [duplicate]) this
+     * field points to the original class it was copied from
+     */
+    var inheritedFrom: ClassItem?
 
     /**
      * Duplicates this field item. Used when we need to insert inherited fields from

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -126,10 +126,6 @@ def gen_term_signal_handler(test_runners):
 def _parse_one_test_specifier(item):
     """Parse one test specifier from command line input.
 
-    This also verifies that the test class name and test case names follow
-    ACTS's naming conventions. A test class name has to end with "Test"; a test
-    case name has to start with "test".
-
     Args:
         item: A string that specifies a test class or test cases in one test
             class to run.
@@ -150,16 +146,7 @@ def _parse_one_test_specifier(item):
         # This should be considered a test class name followed by
         # a list of test case names.
         test_cls_name, test_case_names = tokens
-        clean_names = []
-        for elem in test_case_names.split(','):
-            test_case_name = elem.strip()
-            if not test_case_name.startswith("test_"):
-                raise ActsConfigError(
-                    ("Requested test case '%s' in test class "
-                     "'%s' does not follow the test case "
-                     "naming convention test_*.") % (test_case_name,
-                                                     test_cls_name))
-            clean_names.append(test_case_name)
+        clean_names = [elem.strip() for elem in test_case_names.split(',')]
         return test_cls_name, clean_names
 
 

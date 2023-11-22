@@ -25,7 +25,7 @@
     <dependency>com.android.support:recyclerview-v7:24.0.0</dependency>
 
     <!-- change minSdk if needed-->
-    <minSdk>7</minSdk>
+    <minSdk>14</minSdk>
 
 
     <strings>

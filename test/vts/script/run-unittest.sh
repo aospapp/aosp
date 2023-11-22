@@ -14,14 +14,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-pushd ${ANDROID_BUILD_TOP}/test/vts
-PYTHONPATH=$PYTHONPATH:.. python -m vts.runners.host.tcp_server.callback_server_test
-PYTHONPATH=$PYTHONPATH:.. python -m vts.utils.python.coverage.coverage_report_test
-PYTHONPATH=$PYTHONPATH:.. python -m vts.harnesses.host_controller.build.build_provider_pab_test
-PYTHONPATH=$PYTHONPATH:.. python -m vts.utils.python.controllers.android_device_test
-PYTHONPATH=$PYTHONPATH:.. python -m vts.utils.python.controllers.customflasher_test
-PYTHONPATH=$PYTHONPATH:..:../framework/harnesses/ python -m host_controller.build.build_flasher_test
-PYTHONPATH=$PYTHONPATH:..:../framework/harnesses/ python -m host_controller.build.build_provider_test
-PYTHONPATH=$PYTHONPATH:..:../framework/harnesses/ python -m host_controller.console_test
-PYTHONPATH=$PYTHONPATH:.. python -m vts.utils.python.io.file_util_test
-popd
+if [ -z "$ANDROID_BUILD_TOP" ]; then
+  echo "Missing ANDROID_BUILD_TOP env variable. Run 'lunch' first."
+  exit 1
+fi
+
+avoid_list=(
+  "./testcases/template/host_binary_test/host_binary_test.py"
+  "./testcases/template/llvmfuzzer_test/llvmfuzzer_test.py"
+  "./testcases/template/hal_hidl_replay_test/hal_hidl_replay_test.py"
+  "./testcases/template/binary_test/binary_test.py"
+  "./testcases/template/gtest_binary_test/gtest_binary_test.py"
+  "./testcases/template/hal_hidl_host_test/hal_hidl_host_test.py"
+  "./testcases/template/mobly/mobly_test.py"
+  "./testcases/template/param_test/param_test.py"
+  "./testcases/template/cts_test/cts_test.py"
+  "./runners/host/base_test.py"
+  "./utils/python/controllers/android_device_test.py"
+  )
+
+#######################################
+# Checks if a given file is included in the list of files to avoid
+# Globals:
+# Arguments:
+#   $1: list of files to avoid
+#   $2: the given file
+# Returns:
+#   SUCCESS, if the given file exists in the list
+#   FAILURE, otherwise
+#######################################
+function contains_file() {
+  local -n arr=$1
+  for avoid in "${arr[@]}"; do
+    if [ "$2" = "$avoid" ]; then
+      return  # contains
+    fi
+  done
+  false  # not contains
+}
+
+# Runs all unit tests under test/vts.
+for t in $(find $VTS_FRAMEWORK_DIR -type f -name "*_test.py"); do
+  if contains_file avoid_list $t; then
+    continue
+  fi
+  echo "UNIT TEST", $t
+  PYTHONPATH=$ANDROID_BUILD_TOP/test:$ANDROID_BUILD_TOP/tools/test/connectivity/acts/framework python $t;
+done

@@ -14,6 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import collections
 import json
 import logging
 import math
@@ -23,36 +24,54 @@ from acts import asserts
 from acts import base_test
 from acts import utils
 from acts.controllers import iperf_server as ipf
+from acts.metrics.loggers.blackbox import BlackboxMetricLogger
 from acts.test_decorators import test_tracker_info
-from acts.test_utils.wifi import wifi_power_test_utils as wputils
+from acts.test_utils.wifi import wifi_performance_test_utils as wputils
 from acts.test_utils.wifi import wifi_retail_ap as retail_ap
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
 
 class WifiRvrTest(base_test.BaseTestClass):
-    TEST_TIMEOUT = 10
+    """Class to test WiFi rate versus range.
+
+    This class implements WiFi rate versus range tests on single AP single STA
+    links. The class setups up the AP in the desired configurations, configures
+    and connects the phone to the AP, and runs iperf throughput test while
+    sweeping attenuation. For an example config file to run this test class see
+    example_connectivity_performance_ap_sta.json.
+    """
+
+    TEST_TIMEOUT = 5
     SHORT_SLEEP = 1
-    MED_SLEEP = 5
+    RSSI_POLL_INTERVAL = 1
+    MAX_CONSECUTIVE_ZEROS = 3
 
     def __init__(self, controllers):
         base_test.BaseTestClass.__init__(self, controllers)
+        self.failure_count_metric = BlackboxMetricLogger.for_test_case(
+            metric_name='failure_count')
 
     def setup_class(self):
+        """Initializes common test hardware and parameters.
+
+        This function initializes hardwares and compiles parameters that are
+        common to all tests in this class.
+        """
         self.client_dut = self.android_devices[-1]
-        req_params = ["rvr_test_params", "testbed_params"]
-        opt_params = [
-            "main_network", "RetailAccessPoints", "golden_files_list"
+        req_params = [
+            "RetailAccessPoints", "rvr_test_params", "testbed_params"
         ]
+        opt_params = ["main_network", "golden_files_list"]
         self.unpack_userparams(req_params, opt_params)
-        self.test_params = self.rvr_test_params
+        self.testclass_params = self.rvr_test_params
         self.num_atten = self.attenuators[0].instrument.num_atten
         self.iperf_server = self.iperf_servers[0]
-        if hasattr(self, "RetailAccessPoints"):
-            self.access_points = retail_ap.create(self.RetailAccessPoints)
-            self.access_point = self.access_points[0]
-            self.log.info("Access Point Configuration: {}".format(
-                self.access_point.ap_settings))
-        self.log_path = os.path.join(logging.log_path, "rvr_results")
+        self.iperf_client = self.iperf_clients[0]
+        self.access_points = retail_ap.create(self.RetailAccessPoints)
+        self.access_point = self.access_points[0]
+        self.log.info("Access Point Configuration: {}".format(
+            self.access_point.ap_settings))
+        self.log_path = os.path.join(logging.log_path, "results")
         utils.create_dir(self.log_path)
         if not hasattr(self, "golden_files_list"):
             self.golden_files_list = [
@@ -70,40 +89,45 @@ class WifiRvrTest(base_test.BaseTestClass):
         self.iperf_server.stop()
 
     def teardown_class(self):
-        """Saves plot with all test results to enable comparison.
-        """
         # Turn WiFi OFF
         for dev in self.android_devices:
             wutils.wifi_toggle_state(dev, False)
+        self.process_testclass_results()
+
+    def process_testclass_results(self):
+        """Saves plot with all test results to enable comparison."""
         # Plot and save all results
-        x_data = []
-        y_data = []
-        legends = []
+        plot_data = collections.OrderedDict()
+        plots = []
         for result in self.testclass_results:
+            testcase_params = self.parse_test_params(result["test_name"])
+            plot_id = (testcase_params["channel"], testcase_params["mode"])
+            if plot_id not in plot_data:
+                plot_data[plot_id] = {"x_data": [], "y_data": [], "legend": []}
             total_attenuation = [
                 att + result["fixed_attenuation"]
                 for att in result["attenuation"]
             ]
-            x_data.append(total_attenuation)
-            y_data.append(result["throughput_receive"])
-            legends.append(result["test_name"])
-        x_label = 'Attenuation (dB)'
-        y_label = 'Throughput (Mbps)'
-        data_sets = [x_data, y_data]
-        fig_property = {
-            "title": "RvR Results",
-            "x_label": x_label,
-            "y_label": y_label,
-            "linewidth": 3,
-            "markersize": 10
-        }
-        output_file_path = "{}/{}.html".format(self.log_path, "rvr_results")
-        wputils.bokeh_plot(
-            data_sets,
-            legends,
-            fig_property,
-            shaded_region=None,
-            output_file_path=output_file_path)
+            plot_data[plot_id]["x_data"].append(total_attenuation)
+            plot_data[plot_id]["y_data"].append(result["throughput_receive"])
+            plot_data[plot_id]["legend"].append(result["test_name"])
+        for plot_id, plot_data in plot_data.items():
+            data_set = [plot_data["x_data"], plot_data["y_data"]]
+            fig_property = {
+                "title": "Channel {} - {}".format(plot_id[0], plot_id[1]),
+                "x_label": 'Attenuation (dB)',
+                "y_label": 'Throughput (Mbps)',
+                "linewidth": 3,
+                "markersize": 10
+            }
+            plots.append(
+                wputils.bokeh_plot(
+                    data_set,
+                    plot_data["legend"],
+                    fig_property,
+                    shaded_region=None))
+        output_file_path = os.path.join(self.log_path, 'results.html')
+        wputils.save_bokeh_plots(plots, output_file_path)
 
     def pass_fail_check(self, rvr_result):
         """Check the test result and decide if it passed or failed.
@@ -116,15 +140,8 @@ class WifiRvrTest(base_test.BaseTestClass):
             rvr_result: dict containing attenuation, throughput and other meta
             data
         """
-        test_name = self.current_test_name
-        golden_path = [
-            file_name for file_name in self.golden_files_list
-            if test_name in file_name
-        ]
         try:
-            golden_path = golden_path[0]
-            throughput_limits = self.compute_throughput_limits(
-                golden_path, rvr_result)
+            throughput_limits = self.compute_throughput_limits(rvr_result)
         except:
             asserts.fail("Test failed: Golden file not found")
 
@@ -142,14 +159,15 @@ class WifiRvrTest(base_test.BaseTestClass):
                     format(current_att, current_throughput,
                            throughput_limits["lower_limit"][idx],
                            throughput_limits["upper_limit"][idx]))
-        if failure_count >= self.test_params["failure_count_tolerance"]:
+        self.failure_count_metric.metric_value = failure_count
+        if failure_count >= self.testclass_params["failure_count_tolerance"]:
             asserts.fail("Test failed. Found {} points outside limits.".format(
                 failure_count))
         asserts.explicit_pass(
             "Test passed. Found {} points outside throughput limits.".format(
                 failure_count))
 
-    def compute_throughput_limits(self, golden_path, rvr_result):
+    def compute_throughput_limits(self, rvr_result):
         """Compute throughput limits for current test.
 
         Checks the RvR test result and compares to a throughput limites for
@@ -157,12 +175,14 @@ class WifiRvrTest(base_test.BaseTestClass):
         config file.
 
         Args:
-            golden_path: path to golden file used to generate limits
             rvr_result: dict containing attenuation, throughput and other meta
             data
         Returns:
             throughput_limits: dict containing attenuation and throughput limit data
         """
+        test_name = self.current_test_name
+        golden_path = next(file_name for file_name in self.golden_files_list
+                           if test_name in file_name)
         with open(golden_path, 'r') as golden_file:
             golden_results = json.load(golden_file)
             golden_attenuation = [
@@ -190,12 +210,13 @@ class WifiRvrTest(base_test.BaseTestClass):
 
             attenuation.append(current_att)
             lower_limit.append(
-                max(closest_throughputs[0] - max(
-                    self.test_params["abs_tolerance"], closest_throughputs[0] *
-                    self.test_params["pct_tolerance"] / 100), 0))
+                max(closest_throughputs[0] -
+                    max(self.testclass_params["abs_tolerance"],
+                        closest_throughputs[0] *
+                        self.testclass_params["pct_tolerance"] / 100), 0))
             upper_limit.append(closest_throughputs[-1] + max(
-                self.test_params["abs_tolerance"], closest_throughputs[-1] *
-                self.test_params["pct_tolerance"] / 100))
+                self.testclass_params["abs_tolerance"], closest_throughputs[-1]
+                * self.testclass_params["pct_tolerance"] / 100))
         throughput_limits = {
             "attenuation": attenuation,
             "lower_limit": lower_limit,
@@ -203,7 +224,7 @@ class WifiRvrTest(base_test.BaseTestClass):
         }
         return throughput_limits
 
-    def post_process_results(self, rvr_result):
+    def process_test_results(self, rvr_result):
         """Saves plots and JSON formatted results.
 
         Args:
@@ -233,11 +254,9 @@ class WifiRvrTest(base_test.BaseTestClass):
             "markersize": 10
         }
         try:
-            golden_path = [
-                file_name for file_name in self.golden_files_list
-                if test_name in file_name
-            ]
-            golden_path = golden_path[0]
+            golden_path = next(file_name
+                               for file_name in self.golden_files_list
+                               if test_name in file_name)
             with open(golden_path, 'r') as golden_file:
                 golden_results = json.load(golden_file)
             legends.insert(0, "Golden Results")
@@ -247,8 +266,7 @@ class WifiRvrTest(base_test.BaseTestClass):
             ]
             data_sets[0].insert(0, golden_attenuation)
             data_sets[1].insert(0, golden_results["throughput_receive"])
-            throughput_limits = self.compute_throughput_limits(
-                golden_path, rvr_result)
+            throughput_limits = self.compute_throughput_limits(rvr_result)
             shaded_region = {
                 "x_vector": throughput_limits["attenuation"],
                 "lower_limit": throughput_limits["lower_limit"],
@@ -261,117 +279,173 @@ class WifiRvrTest(base_test.BaseTestClass):
         wputils.bokeh_plot(data_sets, legends, fig_property, shaded_region,
                            output_file_path)
 
-    def rvr_test(self):
+    def run_rvr_test(self, testcase_params):
         """Test function to run RvR.
 
         The function runs an RvR test in the current device/AP configuration.
         Function is called from another wrapper function that sets up the
         testbed for the RvR test
 
+        Args:
+            testcase_params: dict containing test-specific parameters
         Returns:
             rvr_result: dict containing rvr_results and meta data
         """
         self.log.info("Start running RvR")
-        rvr_result = []
-        for atten in self.rvr_atten_range:
+        zero_counter = 0
+        throughput = []
+        rssi = []
+        for atten in testcase_params["atten_range"]:
             # Set Attenuation
-            self.log.info("Setting attenuation to {} dB".format(atten))
-            [
-                self.attenuators[i].set_atten(atten)
-                for i in range(self.num_atten)
-            ]
+            for attenuator in self.attenuators:
+                attenuator.set_atten(atten, strict=False)
             # Start iperf session
             self.iperf_server.start(tag=str(atten))
-            try:
-                client_output = ""
-                client_status, client_output = self.client_dut.run_iperf_client(
-                    self.testbed_params["iperf_server_address"],
-                    self.iperf_args,
-                    timeout=self.test_params["iperf_duration"] +
-                    self.TEST_TIMEOUT)
-            except:
-                self.log.warning("TimeoutError: Iperf measurement timed out.")
-            client_output_path = os.path.join(
-                self.iperf_server.log_path, "iperf_client_output_{}_{}".format(
-                    self.current_test_name, str(atten)))
-            with open(client_output_path, 'w') as out_file:
-                out_file.write("\n".join(client_output))
-            self.iperf_server.stop()
+            rssi_future = wputils.get_connected_rssi_nb(
+                self.client_dut, testcase_params["iperf_duration"] - 1, 1, 1)
+            client_output_path = self.iperf_client.start(
+                testcase_params["iperf_server_address"],
+                testcase_params["iperf_args"], str(atten),
+                testcase_params["iperf_duration"] + self.TEST_TIMEOUT)
+            server_output_path = self.iperf_server.stop()
+            current_rssi = rssi_future.result()["signal_poll_rssi"]["mean"]
+            rssi.append(current_rssi)
             # Parse and log result
-            if self.use_client_output:
+            if testcase_params["use_client_output"]:
                 iperf_file = client_output_path
             else:
-                iperf_file = self.iperf_server.log_files[-1]
+                iperf_file = server_output_path
             try:
                 iperf_result = ipf.IPerfResult(iperf_file)
                 curr_throughput = (math.fsum(iperf_result.instantaneous_rates[
-                    self.test_params["iperf_ignored_interval"]:-1]) / len(
-                        iperf_result.instantaneous_rates[self.test_params[
+                    self.testclass_params["iperf_ignored_interval"]:-1]) / len(
+                        iperf_result.instantaneous_rates[self.testclass_params[
                             "iperf_ignored_interval"]:-1])) * 8 * (1.024**2)
             except:
                 self.log.warning(
                     "ValueError: Cannot get iperf result. Setting to 0")
                 curr_throughput = 0
-            rvr_result.append(curr_throughput)
-            self.log.info("Throughput at {0:.2f} dB is {1:.2f} Mbps".format(
-                atten, curr_throughput))
-        [self.attenuators[i].set_atten(0) for i in range(self.num_atten)]
+            throughput.append(curr_throughput)
+            self.log.info(
+                "Throughput at {0:.2f} dB is {1:.2f} Mbps. RSSI = {2:.2f}".
+                format(atten, curr_throughput, current_rssi))
+            if curr_throughput == 0:
+                zero_counter = zero_counter + 1
+            else:
+                zero_counter = 0
+            if zero_counter == self.MAX_CONSECUTIVE_ZEROS:
+                self.log.info(
+                    "Throughput stable at 0 Mbps. Stopping test now.")
+                throughput.extend(
+                    [0] *
+                    (len(testcase_params["atten_range"]) - len(throughput)))
+                break
+        for attenuator in self.attenuators:
+            attenuator.set_atten(0, strict=False)
+        # Compile test result and meta data
+        rvr_result = collections.OrderedDict()
+        rvr_result["test_name"] = self.current_test_name
+        rvr_result["ap_settings"] = self.access_point.ap_settings.copy()
+        rvr_result["fixed_attenuation"] = self.testbed_params[
+            "fixed_attenuation"][str(testcase_params["channel"])]
+        rvr_result["attenuation"] = list(testcase_params["atten_range"])
+        rvr_result["rssi"] = rssi
+        rvr_result["throughput_receive"] = throughput
         return rvr_result
 
-    def rvr_test_func(self, channel, mode):
-        """Main function to test RvR.
-
-        The function sets up the AP in the correct channel and mode
-        configuration and called run_rvr to sweep attenuation and measure
-        throughput
+    def setup_ap(self, testcase_params):
+        """Sets up the access point in the configuration required by the test.
 
         Args:
-            channel: Specifies AP's channel
-            mode: Specifies AP's bandwidth/mode (11g, VHT20, VHT40, VHT80)
-        Returns:
-            rvr_result: dict containing rvr_results and meta data
+            testcase_params: dict containing AP and other test params
         """
-        #Initialize RvR test parameters
-        num_atten_steps = int((self.test_params["rvr_atten_stop"] -
-                               self.test_params["rvr_atten_start"]) /
-                              self.test_params["rvr_atten_step"])
-        self.rvr_atten_range = [
-            self.test_params["rvr_atten_start"] +
-            x * self.test_params["rvr_atten_step"]
-            for x in range(0, num_atten_steps)
-        ]
-        rvr_result = {}
-        # Configure AP
-        band = self.access_point.band_lookup_by_channel(channel)
+        band = self.access_point.band_lookup_by_channel(
+            testcase_params["channel"])
         if "2G" in band:
-            frequency = wutils.WifiEnums.channel_2G_to_freq[channel]
+            frequency = wutils.WifiEnums.channel_2G_to_freq[testcase_params[
+                "channel"]]
         else:
-            frequency = wutils.WifiEnums.channel_5G_to_freq[channel]
+            frequency = wutils.WifiEnums.channel_5G_to_freq[testcase_params[
+                "channel"]]
         if frequency in wutils.WifiEnums.DFS_5G_FREQUENCIES:
             self.access_point.set_region(self.testbed_params["DFS_region"])
         else:
             self.access_point.set_region(self.testbed_params["default_region"])
-        self.access_point.set_channel(band, channel)
-        self.access_point.set_bandwidth(band, mode)
+        self.access_point.set_channel(band, testcase_params["channel"])
+        self.access_point.set_bandwidth(band, testcase_params["mode"])
         self.log.info("Access Point Configuration: {}".format(
             self.access_point.ap_settings))
-        # Set attenuator to 0 dB
-        [self.attenuators[i].set_atten(0) for i in range(self.num_atten)]
-        # Connect DUT to Network
+
+    def setup_dut(self, testcase_params):
+        """Sets up the DUT in the configuration required by the test.
+
+        Args:
+            testcase_params: dict containing AP and other test params
+        """
+        band = self.access_point.band_lookup_by_channel(
+            testcase_params["channel"])
         wutils.reset_wifi(self.client_dut)
-        self.main_network[band]["channel"] = channel
+        self.client_dut.droid.wifiSetCountryCode(
+            self.testclass_params["country_code"])
+        self.main_network[band]["channel"] = testcase_params["channel"]
         wutils.wifi_connect(
-            self.client_dut, self.main_network[band], num_of_tries=5)
-        time.sleep(self.MED_SLEEP)
-        # Run RvR and log result
-        rvr_result["test_name"] = self.current_test_name
-        rvr_result["ap_settings"] = self.access_point.ap_settings.copy()
-        rvr_result["attenuation"] = list(self.rvr_atten_range)
-        rvr_result["fixed_attenuation"] = self.testbed_params[
-            "fixed_attenuation"][str(channel)]
-        rvr_result["throughput_receive"] = self.rvr_test()
-        self.testclass_results.append(rvr_result)
-        return rvr_result
+            self.client_dut,
+            self.main_network[band],
+            num_of_tries=5,
+            check_connectivity=False)
+        self.dut_ip = self.client_dut.droid.connectivityGetIPv4Addresses(
+            'wlan0')[0]
+
+    def setup_rvr_test(self, testcase_params):
+        """Function that gets devices ready for the test.
+
+        Args:
+            testcase_params: dict containing test-specific parameters
+        """
+        # Configure AP
+        self.setup_ap(testcase_params)
+        # Set attenuator to 0 dB
+        for attenuator in self.attenuators:
+            attenuator.set_atten(0, strict=False)
+        # Reset, configure, and connect DUT
+        self.setup_dut(testcase_params)
+        # Get iperf_server address
+        if isinstance(self.iperf_server, ipf.IPerfServerOverAdb):
+            testcase_params["iperf_server_address"] = self.dut_ip
+        else:
+            testcase_params["iperf_server_address"] = self.testbed_params[
+                "iperf_server_address"]
+
+    def parse_test_params(self, test_name):
+        """Function that generates test params based on the test name."""
+        test_name_params = test_name.split("_")
+        testcase_params = collections.OrderedDict()
+        testcase_params["channel"] = int(test_name_params[4][2:])
+        testcase_params["mode"] = test_name_params[5]
+        num_atten_steps = int((self.testclass_params["atten_stop"] -
+                               self.testclass_params["atten_start"]) /
+                              self.testclass_params["atten_step"])
+        testcase_params["atten_range"] = [
+            self.testclass_params["atten_start"] +
+            x * self.testclass_params["atten_step"]
+            for x in range(0, num_atten_steps)
+        ]
+        testcase_params["iperf_args"] = '-i 1 -t {} -J '.format(
+            self.testclass_params["iperf_duration"])
+        if test_name_params[2] == "UDP":
+            testcase_params[
+                "iperf_args"] = testcase_params["iperf_args"] + "-u -b {}".format(
+                    self.testclass_params["UDP_rates"][testcase_params["mode"]])
+        if (test_name_params[3] == "DL"
+                and not isinstance(self.iperf_server, ipf.IPerfServerOverAdb)
+            ) or (test_name_params[3] == "UL"
+                  and isinstance(self.iperf_server, ipf.IPerfServerOverAdb)):
+            testcase_params[
+                "iperf_args"] = testcase_params["iperf_args"] + ' -R'
+            testcase_params["use_client_output"] = True
+        else:
+            testcase_params["use_client_output"] = False
+        return testcase_params
 
     def _test_rvr(self):
         """ Function that gets called for each test case
@@ -379,21 +453,17 @@ class WifiRvrTest(base_test.BaseTestClass):
         The function gets called in each rvr test case. The function customizes
         the rvr test based on the test name of the test that called it
         """
-        test_params = self.current_test_name.split("_")
-        channel = int(test_params[4][2:])
-        mode = test_params[5]
-        self.iperf_args = '-i 1 -t {} -J '.format(
-            self.test_params["iperf_duration"])
-        if test_params[2] == "UDP":
-            self.iperf_args = self.iperf_args + "-u -b {}".format(
-                self.test_params["UDP_rates"][mode])
-        if test_params[3] == "DL":
-            self.iperf_args = self.iperf_args + ' -R'
-            self.use_client_output = True
-        else:
-            self.use_client_output = False
-        rvr_result = self.rvr_test_func(channel, mode)
-        self.post_process_results(rvr_result)
+        # Compile test parameters from config and test name
+        testcase_params = self.parse_test_params(self.current_test_name)
+        testcase_params.update(self.testclass_params)
+
+        # Prepare devices and run test
+        self.setup_rvr_test(testcase_params)
+        rvr_result = self.run_rvr_test(testcase_params)
+
+        # Post-process results
+        self.testclass_results.append(rvr_result)
+        self.process_test_results(rvr_result)
         self.pass_fail_check(rvr_result)
 
     #Test cases
@@ -705,7 +775,7 @@ class WifiRvrTest(base_test.BaseTestClass):
 # Classes defining test suites
 class WifiRvr_2GHz_Test(WifiRvrTest):
     def __init__(self, controllers):
-        base_test.BaseTestClass.__init__(self, controllers)
+        super().__init__(controllers)
         self.tests = ("test_rvr_TCP_DL_ch1_VHT20", "test_rvr_TCP_UL_ch1_VHT20",
                       "test_rvr_TCP_DL_ch6_VHT20", "test_rvr_TCP_UL_ch6_VHT20",
                       "test_rvr_TCP_DL_ch11_VHT20",
@@ -714,7 +784,7 @@ class WifiRvr_2GHz_Test(WifiRvrTest):
 
 class WifiRvr_UNII1_Test(WifiRvrTest):
     def __init__(self, controllers):
-        base_test.BaseTestClass.__init__(self, controllers)
+        super().__init__(controllers)
         self.tests = (
             "test_rvr_TCP_DL_ch36_VHT20", "test_rvr_TCP_UL_ch36_VHT20",
             "test_rvr_TCP_DL_ch36_VHT40", "test_rvr_TCP_UL_ch36_VHT40",
@@ -727,7 +797,7 @@ class WifiRvr_UNII1_Test(WifiRvrTest):
 
 class WifiRvr_UNII3_Test(WifiRvrTest):
     def __init__(self, controllers):
-        base_test.BaseTestClass.__init__(self, controllers)
+        super().__init__(controllers)
         self.tests = (
             "test_rvr_TCP_DL_ch149_VHT20", "test_rvr_TCP_UL_ch149_VHT20",
             "test_rvr_TCP_DL_ch149_VHT40", "test_rvr_TCP_UL_ch149_VHT40",
@@ -740,7 +810,7 @@ class WifiRvr_UNII3_Test(WifiRvrTest):
 
 class WifiRvr_SampleDFS_Test(WifiRvrTest):
     def __init__(self, controllers):
-        base_test.BaseTestClass.__init__(self, controllers)
+        super().__init__(controllers)
         self.tests = (
             "test_rvr_TCP_DL_ch64_VHT20", "test_rvr_TCP_UL_ch64_VHT20",
             "test_rvr_TCP_DL_ch100_VHT20", "test_rvr_TCP_UL_ch100_VHT20",
@@ -753,7 +823,7 @@ class WifiRvr_SampleDFS_Test(WifiRvrTest):
 
 class WifiRvr_SampleUDP_Test(WifiRvrTest):
     def __init__(self, controllers):
-        base_test.BaseTestClass.__init__(self, controllers)
+        super().__init__(controllers)
         self.tests = (
             "test_rvr_UDP_DL_ch6_VHT20", "test_rvr_UDP_UL_ch6_VHT20",
             "test_rvr_UDP_DL_ch36_VHT20", "test_rvr_UDP_UL_ch36_VHT20",
@@ -766,7 +836,7 @@ class WifiRvr_SampleUDP_Test(WifiRvrTest):
 
 class WifiRvr_TCP_All_Test(WifiRvrTest):
     def __init__(self, controllers):
-        base_test.BaseTestClass.__init__(self, controllers)
+        super().__init__(controllers)
         self.tests = (
             "test_rvr_TCP_DL_ch1_VHT20", "test_rvr_TCP_UL_ch1_VHT20",
             "test_rvr_TCP_DL_ch6_VHT20", "test_rvr_TCP_UL_ch6_VHT20",
@@ -789,7 +859,7 @@ class WifiRvr_TCP_All_Test(WifiRvrTest):
 
 class WifiRvr_TCP_Downlink_Test(WifiRvrTest):
     def __init__(self, controllers):
-        base_test.BaseTestClass.__init__(self, controllers)
+        super().__init__(controllers)
         self.tests = (
             "test_rvr_TCP_DL_ch1_VHT20", "test_rvr_TCP_DL_ch6_VHT20",
             "test_rvr_TCP_DL_ch11_VHT20", "test_rvr_TCP_DL_ch36_VHT20",
@@ -804,7 +874,7 @@ class WifiRvr_TCP_Downlink_Test(WifiRvrTest):
 
 class WifiRvr_TCP_Uplink_Test(WifiRvrTest):
     def __init__(self, controllers):
-        base_test.BaseTestClass.__init__(self, controllers)
+        super().__init__(controllers)
         self.tests = (
             "test_rvr_TCP_UL_ch1_VHT20", "test_rvr_TCP_UL_ch6_VHT20",
             "test_rvr_TCP_UL_ch11_VHT20", "test_rvr_TCP_UL_ch36_VHT20",

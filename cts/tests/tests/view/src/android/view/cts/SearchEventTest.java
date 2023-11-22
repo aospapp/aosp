@@ -21,14 +21,16 @@ import static org.junit.Assert.assertNotNull;
 
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.hardware.input.InputManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.SearchEvent;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 
@@ -73,6 +75,10 @@ public class SearchEventTest {
 
     @Test
     public void testBasics() {
+        // Only run for non-watch devices
+        if (mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            return;
+        }
         mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_SEARCH);
         SearchEvent se = mActivity.getTestSearchEvent();
         assertNotNull(se);

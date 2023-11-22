@@ -26,5 +26,4 @@ include $(BUILD_NATIVE_TEST)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := VtsCodelabTargetBinary
-VTS_CONFIG_SRC_DIR := testcases/codelab/target_binary
 include test/vts/tools/build/Android.host_config.mk

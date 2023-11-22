@@ -26,7 +26,6 @@ import android.database.sqlite.SQLiteDiskIOException;
 import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteFullException;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -35,8 +34,6 @@ import android.provider.VoicemailContract.Status;
 import android.provider.VoicemailContract.Voicemails;
 import com.android.contacts.common.database.NoNullCursorAsyncQueryHandler;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.compat.AppCompatConstants;
-import com.android.dialer.compat.SdkVersionOverride;
 import com.android.dialer.phonenumbercache.CallLogQuery;
 import com.android.dialer.telecom.TelecomUtil;
 import com.android.dialer.util.PermissionsUtil;
@@ -114,6 +111,7 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
         .appendOmtpVoicemailStatusSelectionClause(context, where, selectionArgs);
 
     if (TelecomUtil.hasReadWriteVoicemailPermissions(context)) {
+      LogUtil.i("CallLogQueryHandler.fetchVoicemailStatus", "fetching voicemail status");
       startQuery(
           QUERY_VOICEMAIL_STATUS_TOKEN,
           null,
@@ -122,6 +120,10 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
           where.toString(),
           selectionArgs.toArray(new String[selectionArgs.size()]),
           null);
+    } else {
+      LogUtil.i(
+          "CallLogQueryHandler.fetchVoicemailStatus",
+          "fetching voicemail status failed due to permissions");
     }
   }
 
@@ -154,12 +156,10 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
 
     // Always hide blocked calls.
     where.append("(").append(Calls.TYPE).append(" != ?)");
-    selectionArgs.add(Integer.toString(AppCompatConstants.CALLS_BLOCKED_TYPE));
+    selectionArgs.add(Integer.toString(Calls.BLOCKED_TYPE));
 
     // Ignore voicemails marked as deleted
-    if (SdkVersionOverride.getSdkVersion(Build.VERSION_CODES.M) >= Build.VERSION_CODES.M) {
-      where.append(" AND (").append(Voicemails.DELETED).append(" = 0)");
-    }
+    where.append(" AND (").append(Voicemails.DELETED).append(" = 0)");
 
     if (newOnly) {
       where.append(" AND (").append(Calls.NEW).append(" = 1)");
@@ -170,7 +170,7 @@ public class CallLogQueryHandler extends NoNullCursorAsyncQueryHandler {
       selectionArgs.add(Integer.toString(callType));
     } else {
       where.append(" AND NOT ");
-      where.append("(" + Calls.TYPE + " = " + AppCompatConstants.CALLS_VOICEMAIL_TYPE + ")");
+      where.append("(" + Calls.TYPE + " = " + Calls.VOICEMAIL_TYPE + ")");
     }
 
     if (newerThan > 0) {

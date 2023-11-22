@@ -93,9 +93,9 @@ bool FuzzerExtended_android_hardware_nfc_V1_0_INfcClientCallback::CallFunction(
     }
     if (!strcmp(func_name, "sendEvent")) {
         ::android::hardware::nfc::V1_0::NfcEvent arg0;
-        arg0 = EnumValue__android__hardware__nfc__V1_0__NfcEvent(func_msg.arg(0).scalar_value());
+        MessageTo__android__hardware__nfc__V1_0__NfcEvent(func_msg.arg(0), &(arg0), callback_socket_name);
         ::android::hardware::nfc::V1_0::NfcStatus arg1;
-        arg1 = EnumValue__android__hardware__nfc__V1_0__NfcStatus(func_msg.arg(1).scalar_value());
+        MessageTo__android__hardware__nfc__V1_0__NfcStatus(func_msg.arg(1), &(arg1), callback_socket_name);
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->sendEvent(arg0, arg1);
         result_msg->set_name("sendEvent");

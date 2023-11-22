@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"Einrichtung des Arbeitsprofils"</string>
+    <string name="app_label" msgid="1527793174155125990">"Einrichtung des Arbeitsprofils"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Hoppla!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"Arbeitsprofil einrichten"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Dein Unternehmen verwaltet dieses Profil und sorgt für seine Sicherheit. Du verwaltest alle anderen Aspekte deines Geräts."</string>
@@ -28,13 +28,13 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Dein Gerät wird von der folgenden App verwaltet:"</string>
     <string name="next" msgid="1004321437324424398">"Weiter"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Arbeitsprofil wird eingerichtet…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Der Administrator kann die mit diesem Profil verbundenen Einstellungen, Unternehmenszugriffsrechte, Apps, Berechtigungen und Daten überwachen und verwalten, einschließlich der Netzwerkaktivitäten, der Standortinformationen, der Anrufliste und des Kontaktsuchverlaufs deines Geräts.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Weitere Informationen, unter anderem auch zur Datenschutzerklärung deiner Organisation, erhältst du von deinem Administrator."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Der Administrator kann die mit diesem Gerät verbundenen Einstellungen, Unternehmenszugriffsrechte, Apps, Berechtigungen und Daten überwachen und verwalten, einschließlich der Netzwerkaktivitäten, der Standortinformationen, der Anrufliste und des Kontaktsuchverlaufs deines Geräts.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Weitere Informationen, unter anderem auch zur Datenschutzerklärung deiner Organisation, erhältst du von deinem Administrator."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Dein IT-Administrator kann Einstellungen, Zugriffsrechte im Unternehmen, Apps, Berechtigungen und mit diesem Profil verknüpfte Daten einschließlich deiner Netzwerkaktivitäten sowie den Standort, die Anrufliste und den Kontaktsuchverlauf überwachen und verwalten.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Wende dich an deinen IT-Administrator, um weitere Informationen insbesondere zu den Datenschutzrichtlinien deiner Organisation zu erhalten."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Dein IT-Administrator kann Einstellungen, Zugriffsrechte im Unternehmen, Apps, Berechtigungen und mit diesem Gerät verknüpfte Daten einschließlich deiner Netzwerkaktivitäten sowie den Standort, die Anrufliste und den Kontaktsuchverlauf überwachen und verwalten.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Wende dich an deinen IT-Administrator, um weitere Informationen insbesondere zu den Datenschutzrichtlinien deiner Organisation zu erhalten."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Du benötigst eine passwortgeschützte Displaysperre, um die Funktionen zum Schutz vor Diebstahl verwenden zu können."</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Weitere Informationen, auch zur Datenschutzerklärung Ihres Unternehmens, erhältst du bei deinem Administrator."</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Weitere Informationen, auch zur Datenschutzerklärung deines Unternehmens, erhältst du bei deinem IT-Administrator."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Weitere Informationen"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Abbrechen"</string>
-    <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
+    <string name="ok_setup" msgid="4593707675416137504">"Ok"</string>
     <string name="user_consent_msg" msgid="8820951802130353584">"Ich stimme zu"</string>
     <string name="url_error" msgid="5958494012986243186">"Anzeige nicht möglich."</string>
     <string name="terms" msgid="8295436105384703903">"Nutzungsbedingungen"</string>
@@ -54,14 +54,14 @@
     <string name="encrypt" msgid="1749320161747489212">"Verschlüsseln"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Verschlüsselung abgeschlossen"</string>
     <string name="continue_provisioning_notify_text" msgid="1066841819786425980">"Tippe, um die Einrichtung des Arbeitsprofils fortzusetzen"</string>
-    <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Dein Arbeitsprofil konnte nicht eingerichtet werden. Bitte wende dich an deine IT-Abteilung oder versuche es später erneut."</string>
+    <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Dein Arbeitsprofil konnte nicht eingerichtet werden. Bitte wende dich an deine IT-Abteilung oder versuche es später noch einmal."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Arbeitsprofil kann nicht hinzugefügt werden"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Arbeitsprofil kann nicht ersetzt oder entfernt werden"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Diesem Gerät kann kein Arbeitsprofil hinzugefügt werden. Wende dich bei Fragen an deinen Administrator."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Diesem Gerät kann kein Arbeitsprofil hinzugefügt werden. Wende dich bei Fragen an deinen IT-Administrator."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Geräte-Launcher ändern"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Dein Arbeitsprofil wird von dieser Launcher-App nicht unterstützt"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Abbrechen"</string>
-    <string name="pick_launcher" msgid="4257084827403983845">"OK"</string>
+    <string name="pick_launcher" msgid="4257084827403983845">"Ok"</string>
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Nutzerverwaltungskonfiguration unvollständig"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Nutzer des Dienstgeräts"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Dienstgerät wird eingerichtet…"</string>
@@ -74,26 +74,26 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"Ein paar Kleinigkeiten werden angepasst…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"Geräteeigentümer wird eingerichtet…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"Gerät wird initialisiert…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"Auf dem Gerät ist keine Verschlüsselung möglich. Diese ist für die Einrichtung erforderlich. Bitte wende dich an den Administrator."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Auf dem Gerät ist keine Verschlüsselung möglich. Diese ist jedoch für die Einrichtung erforderlich. Bitte wende dich an den IT-Administrator."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Einrichtung unterbrechen und Gerät zurücksetzen?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Dein Gerät wird zurückgesetzt und der erste Bildschirm wird wieder angezeigt"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Einrichtung abbrechen und Daten von deinem Gerät löschen?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Abbrechen"</string>
-    <string name="device_owner_error_ok" msgid="2002250763093787051">"OK"</string>
+    <string name="device_owner_error_ok" msgid="2002250763093787051">"Ok"</string>
     <string name="reset" msgid="6467204151306265796">"Zurücksetzen"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Profil kann nicht eingerichtet werden"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Gerät kann nicht eingerichtet werden"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"Das Gerät konnte nicht eingerichtet werden. Bitte wende dich an den Administrator."</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Bitte wende dich an den Administrator"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"Das Gerät konnte nicht eingerichtet werden. Bitte wende dich an den IT-Administrator."</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Wenn du Hilfe brauchst, wende dich an deinen IT-Administrator"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Das Gerät ist bereits eingerichtet"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Es konnte keine WLAN-Verbindung hergestellt werden."</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"Auf dem Gerät ist der Schutz vor Zurücksetzen auf Werkseinstellungen aktiviert. Bitte wende dich an den Administrator."</string>
+    <string name="error_wifi" msgid="1850288843966836571">"WLAN-Verbindung nicht möglich"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Auf dem Gerät ist der Schutz vor dem Zurücksetzen auf die Werkseinstellungen aktiviert. Bitte wende dich an den IT-Administrator."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Löschen"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Bitte warten..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Die Admin-App konnte aufgrund eines Fehlers bei der Prüfsumme nicht verwendet werden. Bitte wende dich an den Administrator."</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"Die Admin-App konnte nicht heruntergeladen werden."</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"Die Admin-App kann nicht genutzt werden. Sie wurde beschädigt oder es fehlen Komponenten. Bitte wende dich an den Administrator."</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Die Admin-App konnte nicht installiert werden."</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"Die Admin-App konnte aufgrund eines Prüfsummenfehlers nicht verwendet werden. Bitte wende dich an den IT-Administrator."</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"Die Admin-App konnte nicht heruntergeladen werden"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"Die Admin-App kann nicht verwendet werden. Sie ist beschädigt oder es fehlen Komponenten. Bitte wende dich an den IT-Administrator."</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"Die Admin-App konnte nicht installiert werden"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"Einrichtung abbrechen?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Nein"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"\"Ja\""</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"Dieses Gerät wird von <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> verwaltet und überwacht. Die Organisation kümmert sich auch um den entsprechenden Schutz. Es gelten die Nutzungsbedingungen. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Dieses Gerät wird von <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> verwaltet und überwacht. Die Organisation kümmert sich auch um den entsprechenden Schutz. Es gelten die Nutzungsbedingungen von <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Dieser Link ist nicht sicher und kann erst geöffnet werden, wenn die Einrichtung des Geräts abgeschlossen ist: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"Bitte wende dich bei Fragen an den <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"Bitte wende dich bei Fragen an den Administrator deiner Organisation"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"Die Einrichtung ist nicht abgeschlossen. Bitte wende dich an den Administrator."</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"Bitte wende dich an den Administrator"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"Administrator der Organisation"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"Wende dich an deinen <xliff:g id="IT_ADMIN">%1$s</xliff:g>, um mehr zu erfahren."</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"Wende dich bei Fragen an deinen IT-Administrator"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Die Einrichtung wurde nicht abgeschlossen. Bitte wende dich an den IT-Administrator."</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"Bitte wende dich an den IT-Administrator"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"IT-Administrator"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> verwaltet und überwacht das Gerät mithilfe der folgenden App:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"Meine Organisation"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"meiner Organisation"</string>
     <string name="view_terms" msgid="7230493092383341605">"Nutzungsbedingungen ansehen"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Akzeptieren &amp; weiter"</string>
-    <string name="close" msgid="7208600934846389439">"Schließen"</string>
+    <string name="back" msgid="6455622465896147127">"Zurück"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Gerät einrichten"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"Arbeitsweise ändern"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"Geschäftliche und private Daten trennen"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"Dies kann einige Minuten dauern"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"In diesem Profil findest du deine Apps für die Arbeit. Sie werden von deiner Organisation verwaltet."</string>
     <string name="device_owner_description" msgid="168013145812679664">"Das Gerät wird von deiner Organisation geschützt und verwaltet"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"Einrichtung des Arbeitsgeräts wird vorbereitet…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Admin-App einrichten"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"Alles andere einrichten"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Jetzt richten wir den Rest ein"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"Dieses Gerät gehört deiner Organisation"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"Dieses Smartphone wird über die folgende App verwaltet und überwacht"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"Einrichtung des Arbeitsprofils wird vorbereitet…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Zuerst richten wir dein Arbeitsprofil ein"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Richten wir dein Arbeitsprofil ein"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"In deinem Arbeitsprofil werden Apps für die Arbeit abgelegt"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Apps für die Arbeit pausieren, wenn du für heute fertig bist"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Dein IT-Administrator kann nur Daten in deinem Arbeitsprofil ansehen"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Arbeitsprofil wird eingerichtet…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"In deinem Arbeitsprofil werden Apps für die Arbeit abgelegt. Wenn du deine Arbeit für den heutigen Tag beendet hast, kannst du deine Apps für die Arbeit pausieren. Dein IT-Administrator kann nur Daten in deinem Arbeitsprofil ansehen."</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Arbeitsgerät einrichten"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Deine Apps für die Arbeit – jederzeit zur Hand"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Dieses Gerät ist nicht privat"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Dein IT-Administrator kann deine Daten und deine Geräteaktivitäten möglicherweise sehen."</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Gerät wird eingerichtet…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Mit diesem Gerät kannst du jederzeit problemlos auf deine Apps für die Arbeit zugreifen. Das Gerät ist nicht privat, d. h., dein IT-Administrator kann deine Daten und Aktivitäten möglicherweise sehen. Wende dich an deinen IT-Administrator, um weitere Informationen zu erhalten."</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Hinweise zum Datenschutz"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Dein IT-Administrator kann deine Daten und deine Geräteaktivitäten möglicherweise sehen"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"Dein Gerät ist einsatzbereit."</string>
+    <string name="done" msgid="7755227776955952318">"Fertig"</string>
 </resources>

@@ -34,33 +34,32 @@ import com.android.tradefed.log.LogUtil;
 import java.util.List;
 
 /**
- * Statsd Anomaly Detection tests.
+ * Statsd Metadata tests.
  */
 public class MetadataTests extends MetadataTestCase {
 
     private static final String TAG = "Statsd.MetadataTests";
 
-    // Tests that anomaly detection for value works.
+    // Tests that the statsd config is reset after the specified ttl.
     public void testConfigTtl() throws Exception {
         if (statsdDisabled()) {
             return;
         }
         final int TTL_TIME_SEC = 8;
         StatsdConfig.Builder config = getBaseConfig();
-        config.setTtlInSeconds(TTL_TIME_SEC); // should reset in 3 seconds.
-        turnScreenOff();
+        config.setTtlInSeconds(TTL_TIME_SEC); // should reset in this many seconds.
 
         uploadConfig(config);
         long startTime = System.currentTimeMillis();
         Thread.sleep(WAIT_TIME_SHORT);
-        turnScreenOn();
+        doAppBreadcrumbReportedStart(/* irrelevant val */ 6); // Event, within < TTL_TIME_SEC secs.
         Thread.sleep(WAIT_TIME_SHORT);
         StatsdStatsReport report = getStatsdStatsReport(); // Has only been 1 second
         LogUtil.CLog.d("got following statsdstats report: " + report.toString());
         boolean foundActiveConfig = false;
         int creationTime = 0;
         for (ConfigStats stats: report.getConfigStatsList()) {
-            if (stats.getId() == CONFIG_ID) {
+            if (stats.getId() == CONFIG_ID && stats.getUid() == getHostUid()) {
                 if(!stats.hasDeletionTimeSec()) {
                     assertTrue("Found multiple active CTS configs!", foundActiveConfig == false);
                     foundActiveConfig = true;
@@ -70,17 +69,16 @@ public class MetadataTests extends MetadataTestCase {
         }
         assertTrue("Did not find an active CTS config", foundActiveConfig);
 
-        turnScreenOff();
         while(System.currentTimeMillis() - startTime < 8_000) {
             Thread.sleep(10);
         }
-        turnScreenOn(); // Force events to make sure the config TTLs.
+        doAppBreadcrumbReportedStart(/* irrelevant val */ 6); // Event, after TTL_TIME_SEC secs.
         report = getStatsdStatsReport();
         LogUtil.CLog.d("got following statsdstats report: " + report.toString());
         foundActiveConfig = false;
         int expectedTime = creationTime + TTL_TIME_SEC;
         for (ConfigStats stats: report.getConfigStatsList()) {
-            if (stats.getId() == CONFIG_ID) {
+            if (stats.getId() == CONFIG_ID && stats.getUid() == getHostUid()) {
                 // Original config should be TTL'd
                 if (stats.getCreationTimeSec() == creationTime) {
                     assertTrue("Config should have TTL'd but is still active",

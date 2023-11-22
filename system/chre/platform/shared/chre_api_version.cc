@@ -16,18 +16,25 @@
 
 #include "chre_api/chre/version.h"
 
-#include "chre/platform/platform_id.h"
 #include "chre/util/macros.h"
+
+static_assert(CHRE_API_VERSION <= UINT32_MAX,
+              "API version must fit in 32 bits");
+
+static_assert(CHRE_PATCH_VERSION <= UINT16_MAX,
+              "Patch version must fit in 16 bits");
+
+static_assert(CHRE_PLATFORM_ID <= UINT64_MAX,
+              "Platform ID must fit in 64 bits");
 
 DLL_EXPORT uint32_t chreGetApiVersion(void) {
   return CHRE_API_VERSION;
 }
 
 DLL_EXPORT uint32_t chreGetVersion(void) {
-  return chreGetApiVersion() | chre::kPatchVersion;
+  return chreGetApiVersion() | CHRE_PATCH_VERSION;
 }
 
 DLL_EXPORT uint64_t chreGetPlatformId(void) {
-  return chre::createPlatformIdFromVendorPlatform(chre::kVendorId,
-                                                  chre::kPlatformId);
+  return CHRE_PLATFORM_ID;
 }

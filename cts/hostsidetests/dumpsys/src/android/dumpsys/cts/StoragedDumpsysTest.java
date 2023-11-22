@@ -122,10 +122,29 @@ public class StoragedDumpsysTest extends BaseDumpsysTest {
                 }
 
                 if (parts[0].equals(DEVICE_SIDE_TEST_PACKAGE)) {
-                    if (Integer.parseInt(parts[6]) >= 8192 && Integer.parseInt(parts[8]) == 0) {
+                    /*
+                     * order of parts in StoragedService::dumpUidRecords
+                     *  [0] DEVICE_SIDE_TEST_PACKAGE
+                     *  [1] read foreground charger_off
+                     *  [2] write foreground charger_off
+                     *  [3] read background charger_off
+                     *  [4] write background charger_off
+                     *  [5] read foreground charger_on
+                     *  [6] write foreground charger_on
+                     *  [7] read background charger_on
+                     *  [8] write background charger_on
+                     */
+                    if ((Integer.parseInt(parts[6]) >= 8192 && Integer.parseInt(parts[8]) == 0) ||
+                        (Integer.parseInt(parts[2]) >= 8192 && Integer.parseInt(parts[4]) == 0)) {
                         System.out.print("WARNING: Background I/O was attributed to the "
                                 + "foreground. This could indicate a broken or malfunctioning "
                                 + "ActivityManager or UsageStatsService.\n");
+                    } else if ((Integer.parseInt(parts[2]) >= 4096 && Integer.parseInt(parts[4]) >= 4096) ||
+                                    Integer.parseInt(parts[4]) >= 8192) {
+                        System.out.print("WARNING: charger on I/O was attributed to "
+                                + "charger off. This could indicate a broken or malfunctioning "
+                                + "ADB USB connection, or device that refuses to charge at the "
+                                + "typical 500mA because it is less than 0.05C.\n");
                     } else {
                         assertTrue((Integer.parseInt(parts[6]) >= 4096 && Integer.parseInt(parts[8]) >= 4096) ||
                                     Integer.parseInt(parts[8]) >= 8192);

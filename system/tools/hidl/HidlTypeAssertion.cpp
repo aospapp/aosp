@@ -46,7 +46,7 @@ void HidlTypeAssertion::EmitAll(Formatter &out) {
                 return a.first < b.first;
             });
 
-    for (auto entry : registry()) {
+    for (const auto& entry : registry()) {
         out << "static_assert(sizeof(::android::hardware::"
             << entry.first
             << ") == "

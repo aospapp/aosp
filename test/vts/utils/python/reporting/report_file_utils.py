@@ -12,16 +12,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 import datetime
 import logging
 import os
 import shutil
+import tempfile
+
+from vts.utils.python.common import cmd_utils
+from vts.utils.python.gcs import gcs_api_utils
 
 
 def NotNoneStr(item):
-    '''Convert a veriable to string only if it is not None'''
+    '''Convert a variable to string only if it is not None'''
     return str(item) if item is not None else None
 
 
@@ -39,9 +42,12 @@ class ReportFileUtil(object):
         _use_destination_date_dir: bool, whether to create date directory
                                    in destination directory
         _source_dir: string, source directory that contains report files
-        _destination_dir: string, destination directory for report saving
+        _destination_dir: string, the GCS destination bucket name.
         _url_prefix: string, a prefix added to relative destination file paths.
                      If set to None, will use parent directory path.
+        _use_gcs: bool, whether or not this ReportFileUtil is using GCS.
+        _gcs_api_utils: GcsApiUtils object used by the ReportFileUtil object.
+        _gcs_available: bool, whether or not the GCS agent is available.
     '''
 
     def __init__(self,
@@ -49,7 +55,18 @@ class ReportFileUtil(object):
                  use_destination_date_dir=False,
                  source_dir=None,
                  destination_dir=None,
-                 url_prefix=None):
+                 url_prefix=None,
+                 gcs_key_path=None):
+        """Initializes the ReportFileUtils object.
+
+        Args:
+            flatten_source_dir: bool, whether or not flatten the directory structure.
+            use_destination_date_dir: bool, whether or not use date as part of name,
+            source_dir: string, path to the source directory.
+            destination_dir: string, path to the destination directory.
+            url_prefix: string, prefix of the url used to upload the link to dashboard.
+            gcs_key_path: string, path to the GCS key file.
+        """
         source_dir = NotNoneStr(source_dir)
         destination_dir = NotNoneStr(destination_dir)
         url_prefix = NotNoneStr(url_prefix)
@@ -59,6 +76,13 @@ class ReportFileUtil(object):
         self._source_dir = source_dir
         self._destination_dir = destination_dir
         self._url_prefix = url_prefix
+        self._use_gcs = False
+
+        if gcs_key_path is not None:
+            self._use_gcs = True
+            self._gcs_api_utils = gcs_api_utils.GcsApiUtils(
+                gcs_key_path, destination_dir)
+            self._gcs_available = self._gcs_api_utils.Enabled
 
     def _ConvertReportPath(self,
                            src_path,
@@ -96,12 +120,14 @@ class ReportFileUtil(object):
             date = now.strftime('%Y-%m-%d')
             relative_path = os.path.join(date, relative_path)
 
-        dest_path = os.path.join(self._destination_dir, relative_path)
+        if self._use_gcs:
+            dest_path = relative_path
+        else:
+            dest_path = os.path.join(self._destination_dir, relative_path)
 
         url = dest_path
         if self._url_prefix is not None:
             url = self._url_prefix + relative_path
-
         return dest_path, url
 
     def _PushReportFile(self, src_path, dest_path):
@@ -111,6 +137,8 @@ class ReportFileUtil(object):
             src_path: string, source path of report file
             dest_path: string, destination path of report file
         '''
+        logging.info('Uploading log %s to %s.', src_path, dest_path)
+
         src_path = NotNoneStr(src_path)
         dest_path = NotNoneStr(dest_path)
 
@@ -121,6 +149,39 @@ class ReportFileUtil(object):
             except OSError as e:
                 logging.exception(e)
         shutil.copy(src_path, dest_path)
+
+    def _PushReportFileGcs(self, src_path, dest_path):
+        """Upload args src file to the bucket in Google Cloud Storage.
+
+        Args:
+            src_path: string, source path of report file
+            dest_path: string, destination path of report file
+        """
+        if not self._gcs_available:
+            logging.error('Logs not being uploaded.')
+            return
+
+        logging.info('Uploading log %s to %s.', src_path, dest_path)
+
+        src_path = NotNoneStr(src_path)
+        dest_path = NotNoneStr(dest_path)
+
+        # Copy snapshot to temp as GCS will not handle dynamic files.
+        temp_dir = tempfile.mkdtemp()
+        shutil.copy(src_path, temp_dir)
+        src_path = os.path.join(temp_dir, os.path.basename(src_path))
+        logging.debug('Snapshot of logs: %s', src_path)
+
+        try:
+            self._gcs_api_utils.UploadFile(src_path, dest_path)
+        except IOError as e:
+            logging.exception(e)
+        finally:
+            logging.debug('removing temporary directory')
+            try:
+                shutil.rmtree(temp_dir)
+            except OSError as e:
+                logging.exception(e)
 
     def SaveReport(self, src_path, new_file_name=None, file_name_prefix=None):
         '''Save report file to destination.
@@ -147,7 +208,10 @@ class ReportFileUtil(object):
                 src_path,
                 new_file_name=new_file_name,
                 file_name_prefix=file_name_prefix)
-            self._PushReportFile(src_path, dest_path)
+            if self._use_gcs:
+                self._PushReportFileGcs(src_path, dest_path)
+            else:
+                self._PushReportFile(src_path, dest_path)
 
             return url
         except IOError as e:
@@ -156,7 +220,8 @@ class ReportFileUtil(object):
     def SaveReportsFromDirectory(self,
                                  source_dir=None,
                                  file_name_prefix=None,
-                                 file_path_filters=None):
+                                 file_path_filters=None,
+                                 dryrun=False):
         '''Save report files from source directory to destination.
 
         Args:
@@ -166,6 +231,7 @@ class ReportFileUtil(object):
             file_name_prefix: string, prefix added to destination file name
             file_path_filter: function, a functions that return True (pass) or
                               False (reject) given original file path.
+            dryrun: bool, whether to perform a dry run to get urls only.
 
         Returns:
             A list of string, containing destination URLs of saved report files.
@@ -194,7 +260,11 @@ class ReportFileUtil(object):
                         continue
 
                     #TODO(yuexima): handle duplicated destination file names
-                    self._PushReportFile(src_path, dest_path)
+                    if not dryrun:
+                        if self._use_gcs:
+                            self._PushReportFileGcs(src_path, dest_path)
+                        else:
+                            self._PushReportFile(src_path, dest_path)
                     urls.append(url)
 
             return urls

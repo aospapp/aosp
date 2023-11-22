@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "CarPowerManagerNative"
+#define LOG_TAG "CarPowerManagerNative: "
 
 #include <binder/IServiceManager.h>
 #include <binder/IBinder.h>
@@ -36,24 +36,6 @@ int CarPowerManager::clearListener() {
         mICarPower->unregisterListener(mListenerToService);
         mListenerToService = nullptr;
         retVal = 0;
-    }
-    return retVal;
-}
-
-int CarPowerManager::getBootReason(BootReason *bootReason) {
-    int retVal = -1;
-
-    if ((bootReason != nullptr) && connectToCarService()) {
-        int reason = -1;
-        mICarPower->getBootReason(&reason);
-
-        if ((reason >= static_cast<int>(BootReason::kFirst)) &&
-            (reason <= static_cast<int>(BootReason::kLast))) {
-            *bootReason = static_cast<BootReason>(reason);
-            retVal = 0;
-        } else {
-            ALOGE("Received unknown bootReason = %d", reason);
-        }
     }
     return retVal;
 }
@@ -95,37 +77,37 @@ bool CarPowerManager::connectToCarService() {
     const String16 ICarName("car_service");
     const String16 ICarPowerName("power");
 
-    ALOGI("Connecting to CarService" LOG_TAG);
+    ALOGI(LOG_TAG "Connecting to CarService");
 
     // Get ICar
     sp<IServiceManager> serviceManager = defaultServiceManager();
     if (serviceManager == nullptr) {
-        ALOGE("Cannot get defaultServiceManager");
+        ALOGE(LOG_TAG "Cannot get defaultServiceManager");
         return(false);
     }
 
     sp<IBinder> binder = (serviceManager->getService(ICarName));
     if (binder == nullptr) {
-        ALOGE("Cannot get ICar");
+        ALOGE(LOG_TAG "Cannot get ICar");
         return false;
     }
 
     // Get ICarPower
     sp<ICar> iCar = interface_cast<ICar>(binder);
     if (iCar == nullptr) {
-        ALOGW("car service unavailable");
+        ALOGW(LOG_TAG "car service unavailable");
         return false;
     }
 
     iCar->getCarService(ICarPowerName, &binder);
     if (binder == nullptr) {
-        ALOGE("Cannot get ICarPower");
+        ALOGE(LOG_TAG "Cannot get ICarPower");
         return false;
     }
 
     mICarPower = interface_cast<ICarPower>(binder);
     if (mICarPower == nullptr) {
-        ALOGW("car power management service unavailable");
+        ALOGW(LOG_TAG "car power management service unavailable");
         return false;
     }
     mIsConnected = true;

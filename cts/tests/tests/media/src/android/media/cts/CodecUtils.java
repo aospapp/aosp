@@ -54,6 +54,8 @@ public class CodecUtils  {
             for (int i = 0; i < planes.length; i++) {
                 mPlanes[i] = new PlaneWrapper(planes[i]);
             }
+
+            setCropRect(image.getCropRect());
         }
 
         public static ImageWrapper createFromImage(Image image) {

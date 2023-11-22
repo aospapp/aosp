@@ -15,13 +15,8 @@
  */
 package com.android.cts.managedprofile;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.UiAutomation;
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -29,11 +24,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
 import android.support.test.uiautomator.UiDevice;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
+
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+
+import com.google.common.collect.ImmutableList;
 
 import org.junit.After;
 import org.junit.Before;
@@ -41,6 +39,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -107,16 +106,16 @@ public class NotificationListenerTest {
         toggleNotificationListener(true);
 
         sendProfileNotification();
-        assertTrue(mReceiver.waitForNotificationPostedReceived());
+        assertThat(mReceiver.waitForNotificationPostedReceived()).isTrue();
         cancelProfileNotification();
-        assertTrue(mReceiver.waitForNotificationRemovedReceived());
+        assertThat(mReceiver.waitForNotificationRemovedReceived()).isTrue();
 
         mReceiver.reset();
 
         sendPersonalNotification();
-        assertTrue(mReceiver.waitForNotificationPostedReceived());
+        assertThat(mReceiver.waitForNotificationPostedReceived()).isTrue();
         cancelPersonalNotification();
-        assertTrue(mReceiver.waitForNotificationRemovedReceived());
+        assertThat(mReceiver.waitForNotificationRemovedReceived()).isTrue();
     }
 
     @Test
@@ -125,17 +124,29 @@ public class NotificationListenerTest {
 
         sendProfileNotification();
         // Don't see notification or cancellation from work profile.
-        assertFalse(mReceiver.waitForNotificationPostedReceived());
+        assertThat(mReceiver.waitForNotificationPostedReceived()).isFalse();
         cancelProfileNotification();
-        assertFalse(mReceiver.waitForNotificationRemovedReceived());
+        assertThat(mReceiver.waitForNotificationRemovedReceived()).isFalse();
 
         mReceiver.reset();
 
         // Do see the one from the personal side.
         sendPersonalNotification();
-        assertTrue(mReceiver.waitForNotificationPostedReceived());
+        assertThat(mReceiver.waitForNotificationPostedReceived()).isTrue();
         cancelPersonalNotification();
-        assertTrue(mReceiver.waitForNotificationRemovedReceived());
+        assertThat(mReceiver.waitForNotificationRemovedReceived()).isTrue();
+    }
+
+    @Test
+    public void testSetAndGetPermittedCrossProfileNotificationListeners() {
+        List<String> packageList = ImmutableList.of("package1", "package2");
+
+        mDpm.setPermittedCrossProfileNotificationListeners(
+                BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT, packageList);
+        List<String> actualPackageList = mDpm.getPermittedCrossProfileNotificationListeners(
+                BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT);
+
+        assertThat(actualPackageList).isEqualTo(packageList);
     }
 
     private void cancelProfileNotification() throws IOException {
@@ -170,7 +181,7 @@ public class NotificationListenerTest {
                 + testListener);
         Log.i(TAG, "Toggled notification listener state" + testListener + " to state " + enable);
         if (enable) {
-            assertTrue(mReceiver.waitForListenerConnected());
+            assertThat(mReceiver.waitForListenerConnected()).isTrue();
         }
     }
 

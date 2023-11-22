@@ -20,7 +20,7 @@ import static com.android.documentsui.services.FileOperationService.OPERATION_CO
 import static com.android.documentsui.services.FileOperationService.OPERATION_DELETE;
 import static com.android.documentsui.services.FileOperations.createBaseIntent;
 import static com.android.documentsui.services.FileOperations.createJobId;
-import static com.google.android.collect.Lists.newArrayList;
+
 import static org.junit.Assert.fail;
 
 import android.content.Context;
@@ -28,9 +28,10 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
 import android.test.ServiceTestCase;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
 
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
@@ -44,6 +45,7 @@ import com.android.documentsui.testing.TestHandler;
 import com.android.documentsui.testing.TestScheduledExecutorService;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @MediumTest
@@ -78,8 +80,8 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
         mExecutor = new TestScheduledExecutorService();
         mDeletionExecutor = new TestScheduledExecutorService();
         mHandler = new TestHandler();
-        mForegroundManager = new TestForegroundManager();
-        mTestNotificationManager = new TestNotificationManager(mForegroundManager);
+        mTestNotificationManager = new TestNotificationManager();
+        mForegroundManager = new TestForegroundManager(mTestNotificationManager);
         TestFeatures features = new TestFeatures();
         features.notificationChannel = InstrumentationRegistry.getTargetContext()
                 .getResources().getBoolean(R.bool.feature_notification_channel);
@@ -121,8 +123,8 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testRunsCopyJobs() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
-        startService(createCopyIntent(newArrayList(GAMMA_DOC), DELTA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(GAMMA_DOC), DELTA_DOC));
 
         mExecutor.runAll();
         assertAllCopyJobsStarted();
@@ -135,7 +137,7 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
         } catch(IllegalArgumentException expected) {
             // We're sending a naughty empty list that should result in an IllegalArgumentException.
         }
-        startService(createCopyIntent(newArrayList(GAMMA_DOC), DELTA_DOC));
+        startService(createCopyIntent(Arrays.asList(GAMMA_DOC), DELTA_DOC));
 
         assertJobsCreated(1);
 
@@ -144,8 +146,8 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testRunsCopyJobs_AfterFailure() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
-        startService(createCopyIntent(newArrayList(GAMMA_DOC), DELTA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(GAMMA_DOC), DELTA_DOC));
 
         mCopyJobs.get(0).fail(ALPHA_DOC);
 
@@ -154,30 +156,30 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testRunsCopyJobs_notRunsDeleteJobs() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
-        startService(createDeleteIntent(newArrayList(GAMMA_DOC)));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createDeleteIntent(Arrays.asList(GAMMA_DOC)));
 
         mExecutor.runAll();
         assertNoDeleteJobsStarted();
     }
 
     public void testRunsDeleteJobs() throws Exception {
-        startService(createDeleteIntent(newArrayList(ALPHA_DOC)));
+        startService(createDeleteIntent(Arrays.asList(ALPHA_DOC)));
 
         mDeletionExecutor.runAll();
         assertAllDeleteJobsStarted();
     }
 
     public void testRunsDeleteJobs_NotRunsCopyJobs() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
-        startService(createDeleteIntent(newArrayList(GAMMA_DOC)));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createDeleteIntent(Arrays.asList(GAMMA_DOC)));
 
         mDeletionExecutor.runAll();
         assertNoCopyJobsStarted();
     }
 
     public void testUpdatesNotification() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
         mExecutor.runAll();
 
         // Assert monitoring continues until job is done
@@ -187,7 +189,7 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testStopsUpdatingNotificationAfterFinished() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
         mExecutor.runAll();
 
         mHandler.dispatchNextMessage();
@@ -200,13 +202,13 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testHoldsWakeLockWhileWorking() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
 
         assertTrue(mService.holdsWakeLock());
     }
 
     public void testReleasesWakeLock_AfterSuccess() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
 
         assertTrue(mService.holdsWakeLock());
         mExecutor.runAll();
@@ -214,7 +216,7 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testReleasesWakeLock_AfterFailure() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
 
         assertTrue(mService.holdsWakeLock());
         mExecutor.runAll();
@@ -222,7 +224,7 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testShutdownStopsExecutor_AfterSuccess() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
 
         mExecutor.assertAlive();
         mDeletionExecutor.assertAlive();
@@ -234,8 +236,8 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testShutdownStopsExecutor_AfterMixedFailures() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
-        startService(createCopyIntent(newArrayList(GAMMA_DOC), DELTA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(GAMMA_DOC), DELTA_DOC));
 
         mCopyJobs.get(0).fail(ALPHA_DOC);
 
@@ -246,8 +248,8 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testShutdownStopsExecutor_AfterTotalFailure() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
-        startService(createCopyIntent(newArrayList(GAMMA_DOC), DELTA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(GAMMA_DOC), DELTA_DOC));
 
         mCopyJobs.get(0).fail(ALPHA_DOC);
         mCopyJobs.get(1).fail(GAMMA_DOC);
@@ -259,8 +261,8 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testRunsInForeground_MultipleJobs() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
-        startService(createCopyIntent(newArrayList(GAMMA_DOC), DELTA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(GAMMA_DOC), DELTA_DOC));
 
         mExecutor.run(0);
         mForegroundManager.assertInForeground();
@@ -270,8 +272,8 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testFinishesInBackground_MultipleJobs() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
-        startService(createCopyIntent(newArrayList(GAMMA_DOC), DELTA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(GAMMA_DOC), DELTA_DOC));
 
         mExecutor.run(0);
         mForegroundManager.assertInForeground();
@@ -285,8 +287,8 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     }
 
     public void testAllNotificationsDismissedAfterShutdown() throws Exception {
-        startService(createCopyIntent(newArrayList(ALPHA_DOC), BETA_DOC));
-        startService(createCopyIntent(newArrayList(GAMMA_DOC), DELTA_DOC));
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(GAMMA_DOC), DELTA_DOC));
 
         mExecutor.runAll();
 
@@ -294,7 +296,33 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
         mTestNotificationManager.assertNumberOfNotifications(0);
     }
 
-    private Intent createCopyIntent(ArrayList<DocumentInfo> files, DocumentInfo dest)
+    public void testNotificationUpdateAfterForegroundJobSwitch() throws Exception {
+        startService(createCopyIntent(Arrays.asList(ALPHA_DOC), BETA_DOC));
+        startService(createCopyIntent(Arrays.asList(GAMMA_DOC), DELTA_DOC));
+        Job job1 = mCopyJobs.get(0);
+        Job job2 = mCopyJobs.get(1);
+
+        mService.onStart(job1);
+        mTestNotificationManager.assertHasNotification(
+                FileOperationService.NOTIFICATION_ID_PROGRESS, null);
+
+        mService.onStart(job2);
+        mTestNotificationManager.assertHasNotification(
+                FileOperationService.NOTIFICATION_ID_PROGRESS, job2.id);
+
+        job1.cancel();
+        mService.onFinished(job1);
+        mTestNotificationManager.assertHasNotification(
+                FileOperationService.NOTIFICATION_ID_PROGRESS, null);
+        mTestNotificationManager.assertNoNotification(
+                FileOperationService.NOTIFICATION_ID_PROGRESS, job2.id);
+
+        job2.cancel();
+        mService.onFinished(job2);
+        mTestNotificationManager.assertNumberOfNotifications(0);
+    }
+
+    private Intent createCopyIntent(List<DocumentInfo> files, DocumentInfo dest)
             throws Exception {
         DocumentStack stack = new DocumentStack();
         stack.push(dest);
@@ -310,7 +338,7 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
         return createBaseIntent(getContext(), createJobId(), operation);
     }
 
-    private Intent createDeleteIntent(ArrayList<DocumentInfo> files) {
+    private Intent createDeleteIntent(List<DocumentInfo> files) {
         DocumentStack stack = new DocumentStack();
 
         List<Uri> uris = new ArrayList<>(files.size());
@@ -362,6 +390,7 @@ public class FileOperationServiceTest extends ServiceTestCase<FileOperationServi
     void assertJobsCreated(int expected) {
         assertEquals(expected, mCopyJobs.size() + mDeleteJobs.size());
     }
+
     private static DocumentInfo createDoc(Uri destination) {
         DocumentInfo destDoc = new DocumentInfo();
         destDoc.derivedUri = destination;

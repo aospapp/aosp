@@ -40,13 +40,64 @@ cc_defaults {
 }
 
 // -----------------------------------------------------------------------------
-// Library to test ELF TLS
+// Libraries and helper binaries for ELF TLS
 // -----------------------------------------------------------------------------
 cc_test_library {
-    name: "libelf-tls-library",
+    name: "libtest_elftls_shared_var",
     defaults: ["bionic_testlib_defaults"],
-    srcs: ["elf_tls_test_library.cpp"],
+    srcs: ["elftls_shared_var.cpp"],
     cflags: ["-fno-emulated-tls"],
+}
+
+cc_test_library {
+    name: "libtest_elftls_shared_var_ie",
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["elftls_shared_var_ie.cpp"],
+    cflags: ["-fno-emulated-tls"],
+    shared_libs: ["libtest_elftls_shared_var"],
+}
+
+cc_test_library {
+    name: "libtest_elftls_tprel",
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["elftls_tprel.cpp"],
+    cflags: ["-fno-emulated-tls"],
+}
+
+cc_test {
+    name: "elftls_dlopen_ie_error_helper",
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["elftls_dlopen_ie_error_helper.cpp"],
+    ldflags: ["-Wl,--rpath,${ORIGIN}/.."],
+}
+
+cc_test_library {
+    name: "libtest_elftls_dynamic",
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["elftls_dynamic.cpp"],
+    cflags: ["-fno-emulated-tls"],
+    shared_libs: ["libtest_elftls_shared_var"],
+}
+
+cc_test_library {
+    name: "libtest_elftls_dynamic_filler_1",
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["elftls_dynamic_filler.cpp"],
+    cflags: ["-fno-emulated-tls", "-DTLS_FILLER=100"],
+}
+
+cc_test_library {
+    name: "libtest_elftls_dynamic_filler_2",
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["elftls_dynamic_filler.cpp"],
+    cflags: ["-fno-emulated-tls", "-DTLS_FILLER=200"],
+}
+
+cc_test_library {
+    name: "libtest_elftls_dynamic_filler_3",
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["elftls_dynamic_filler.cpp"],
+    cflags: ["-fno-emulated-tls", "-DTLS_FILLER=300"],
 }
 
 // -----------------------------------------------------------------------------
@@ -236,6 +287,10 @@ cc_test_library {
         "libnstest_public",
         "libnstest_private",
     ],
+    // The dlext.ns_anonymous test copies the loaded segments of this shared
+    // object into a new mapping, so every segment must be readable. Turn off
+    // eXecute-Only-Memory. See http://b/123034666.
+    xom: false,
 }
 
 cc_test_library {
@@ -695,13 +750,33 @@ cc_test_library {
 }
 
 // -----------------------------------------------------------------------------
-// Library with non-trivial thread_local variable to test dlclose()
+// Libraries with non-trivial thread_local variable to test dlclose()
 // -----------------------------------------------------------------------------
 cc_test_library {
     name: "libtest_thread_local_dtor",
     defaults: ["bionic_testlib_defaults"],
     srcs: ["thread_local_dtor.cpp"],
 }
+
+cc_test_library {
+    name: "libtest_thread_local_dtor2",
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["thread_local_dtor2.cpp"],
+}
+
+// -----------------------------------------------------------------------------
+// Library dt_needs libtest_thread_local_dtor/2 (to check no-unload on load_group)
+// -----------------------------------------------------------------------------
+cc_test_library {
+    name: "libtest_indirect_thread_local_dtor",
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["empty.cpp"],
+    shared_libs: [
+        "libtest_thread_local_dtor",
+        "libtest_thread_local_dtor2",
+    ],
+}
+
 
 // -----------------------------------------------------------------------------
 // Tool to use to align the shared libraries in a zip file.
@@ -826,4 +901,35 @@ cc_test_library {
     host_supported: false,
     defaults: ["bionic_testlib_defaults"],
     srcs: ["ld_config_test_helper_lib3.cpp"],
+}
+
+cc_test {
+    name: "exec_linker_helper",
+    host_supported: false,
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["exec_linker_helper.cpp"],
+    shared_libs: ["exec_linker_helper_lib"],
+    ldflags: ["-Wl,--rpath,${ORIGIN}/.."],
+}
+
+cc_test_library {
+    name: "exec_linker_helper_lib",
+    host_supported: false,
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["exec_linker_helper_lib.cpp"],
+}
+
+cc_test_library {
+    name: "libsegment_gap_outer",
+    host_supported: false,
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["segment_gap_outer.cpp"],
+    ldflags: ["-Wl,-T,bionic/tests/libs/segment_gap_outer.lds"],
+}
+
+cc_test_library {
+    name: "libsegment_gap_inner",
+    host_supported: false,
+    defaults: ["bionic_testlib_defaults"],
+    srcs: ["segment_gap_inner.cpp"],
 }

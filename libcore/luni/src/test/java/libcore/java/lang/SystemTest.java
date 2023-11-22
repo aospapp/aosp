@@ -27,7 +27,16 @@ import java.util.Formatter;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import android.system.Os;
+
 public class SystemTest extends TestCase {
+
+    public void testOsName() throws Exception {
+        // Ensure os.name always matches the underlying OS.
+        String sysname = Os.uname().sysname;
+        String property = System.getProperty("os.name");
+        assertEquals(sysname, property);
+    }
 
     public void testLineSeparator() throws Exception {
         try {

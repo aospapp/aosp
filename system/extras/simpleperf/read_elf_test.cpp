@@ -21,7 +21,6 @@
 #include <map>
 
 #include <android-base/file.h>
-#include <android-base/test_utils.h>
 
 #include "get_test_data.h"
 #include "test_util.h"
@@ -155,8 +154,26 @@ TEST(read_elf, check_symbol_for_plt_section) {
 }
 
 TEST(read_elf, read_elf_with_broken_section_table) {
+  std::string elf_path = GetTestData("libsgmainso-6.4.36.so");
   std::map<std::string, ElfFileSymbol> symbols;
   ASSERT_EQ(ElfStatus::NO_SYMBOL_TABLE,
-            ParseSymbolsFromElfFile(GetTestData("libsgmainso-6.4.36.so"), BuildId(),
+            ParseSymbolsFromElfFile(elf_path, BuildId(),
                                     std::bind(ParseSymbol, std::placeholders::_1, &symbols)));
+  BuildId build_id;
+  ASSERT_EQ(ElfStatus::NO_BUILD_ID, GetBuildIdFromElfFile(elf_path, &build_id));
+  uint64_t min_vaddr;
+  uint64_t file_offset_of_min_vaddr;
+  ASSERT_EQ(ElfStatus::NO_ERROR, ReadMinExecutableVirtualAddressFromElfFile(
+      elf_path, BuildId(), &min_vaddr, &file_offset_of_min_vaddr));
+  ASSERT_EQ(min_vaddr, 0u);
+  ASSERT_EQ(file_offset_of_min_vaddr, 0u);
+}
+
+TEST(read_elf, ReadMinExecutableVirtualAddressFromElfFile) {
+  uint64_t min_vaddr;
+  uint64_t file_offset_of_min_vaddr;
+  ASSERT_EQ(ElfStatus::NO_ERROR, ReadMinExecutableVirtualAddressFromElfFile(
+      GetTestData("libc.so"), BuildId(), &min_vaddr, &file_offset_of_min_vaddr));
+  ASSERT_EQ(min_vaddr, 0x29000u);
+  ASSERT_EQ(file_offset_of_min_vaddr, 0x29000u);
 }

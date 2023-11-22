@@ -17,6 +17,7 @@ package android.cts.statsd.metric;
 
 import com.android.internal.os.StatsdConfigProto;
 import com.android.internal.os.StatsdConfigProto.AtomMatcher;
+import com.android.internal.os.StatsdConfigProto.EventActivation;
 import com.android.internal.os.StatsdConfigProto.FieldValueMatcher;
 import com.android.internal.os.StatsdConfigProto.SimpleAtomMatcher;
 import com.android.os.AtomsProto.Atom;
@@ -52,6 +53,10 @@ public class MetricsUtils {
           .build();
     }
 
+    public static AtomMatcher startAtomMatcherWithLabel(int id, int label) {
+        return appBreadcrumbMatcherWithLabelAndState(id, label, AppBreadcrumbReported.State.START);
+    }
+
     public static AtomMatcher stopAtomMatcher(int id) {
       return AtomMatcher.newBuilder()
           .setId(id)
@@ -62,6 +67,10 @@ public class MetricsUtils {
                                             .setField(AppBreadcrumbReported.STATE_FIELD_NUMBER)
                                             .setEqInt(AppBreadcrumbReported.State.STOP.ordinal())))
           .build();
+    }
+
+    public static AtomMatcher stopAtomMatcherWithLabel(int id, int label) {
+        return appBreadcrumbMatcherWithLabelAndState(id, label, AppBreadcrumbReported.State.STOP);
     }
 
     public static AtomMatcher unspecifiedAtomMatcher(int id) {
@@ -81,6 +90,54 @@ public class MetricsUtils {
           .setSimpleAtomMatcher(
               SimpleAtomMatcher.newBuilder().setAtomId(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER))
           .build();
+    }
+
+    public static AtomMatcher appBreadcrumbMatcherWithLabel(int id, int label) {
+        return AtomMatcher.newBuilder()
+                .setId(id)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(AppBreadcrumbReported.LABEL_FIELD_NUMBER)
+                                .setEqInt(label)))
+                .build();
+    }
+
+    public static AtomMatcher appBreadcrumbMatcherWithLabelAndState(int id, int label,
+            final AppBreadcrumbReported.State state) {
+
+        return AtomMatcher.newBuilder()
+                .setId(id)
+                .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                        .setAtomId(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER)
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(AppBreadcrumbReported.STATE_FIELD_NUMBER)
+                                .setEqInt(state.ordinal()))
+                        .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                                .setField(AppBreadcrumbReported.LABEL_FIELD_NUMBER)
+                                .setEqInt(label)))
+                .build();
+    }
+
+    public static AtomMatcher simpleAtomMatcher(int id, int label) {
+      return AtomMatcher.newBuilder()
+          .setId(id)
+          .setSimpleAtomMatcher(SimpleAtomMatcher.newBuilder()
+                  .setAtomId(Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER)
+                  .addFieldValueMatcher(FieldValueMatcher.newBuilder()
+                            .setField(AppBreadcrumbReported.LABEL_FIELD_NUMBER)
+                            .setEqInt(label)
+                  )
+          )
+          .build();
+    }
+
+    public static EventActivation.Builder createEventActivation(int ttlSecs, int matcherId,
+            int cancelMatcherId) {
+        return EventActivation.newBuilder()
+                .setAtomMatcherId(matcherId)
+                .setTtlSeconds(ttlSecs)
+                .setDeactivationAtomMatcherId(cancelMatcherId);
     }
 
     public static long StringToId(String str) {

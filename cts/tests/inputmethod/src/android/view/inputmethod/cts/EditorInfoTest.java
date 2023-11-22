@@ -26,12 +26,13 @@ import static org.mockito.Mockito.verify;
 import android.os.Bundle;
 import android.os.LocaleList;
 import android.os.Parcel;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.MoreAsserts;
 import android.text.TextUtils;
 import android.util.Printer;
 import android.view.inputmethod.EditorInfo;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

@@ -29,6 +29,7 @@ class TestMappingUnittests(unittest.TestCase):
         """Test creating TestDetail object"""
         detail = test_mapping.TestDetail(uc.TEST_MAPPING_TEST)
         self.assertEqual(uc.TEST_MAPPING_TEST['name'], detail.name)
+        self.assertTrue(detail.host)
         self.assertEqual([], detail.options)
 
     def test_parsing_with_option(self):
@@ -44,6 +45,12 @@ class TestMappingUnittests(unittest.TestCase):
         self.assertEqual(
             'Each option can only have one key.', str(context.exception))
 
+    def test_parsing_with_bad_host_value(self):
+        """Test creating TestDetail object with bad host value configured"""
+        with self.assertRaises(Exception) as context:
+            test_mapping.TestDetail(uc.TEST_MAPPING_TEST_WITH_BAD_HOST_VALUE)
+        self.assertEqual(
+            'host can only have boolean value.', str(context.exception))
 
 if __name__ == '__main__':
     unittest.main()

@@ -230,7 +230,8 @@ EFI_STATUS
 typedef
 EFI_STATUS
 (EFIAPI *EDKII_UFS_HC_PHY_SET_POWER_MODE)(
-  IN     EDKII_UFS_HOST_CONTROLLER_PROTOCOL        *This
+  IN     EDKII_UFS_HOST_CONTROLLER_PROTOCOL        *This,
+  IN     UINT32                                    DevQuirks
   );
 
 ///

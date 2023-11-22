@@ -25,6 +25,10 @@ import android.os.UserManager;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.nonrequiredapps.NonRequiredAppsLogic;
 
@@ -45,7 +49,10 @@ public class CreateManagedProfileTask extends AbstractProvisioningTask {
                 params,
                 callback,
                 context.getSystemService(UserManager.class),
-                new NonRequiredAppsLogic(context, true, params));
+                new NonRequiredAppsLogic(context, true, params),
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
     }
 
     @VisibleForTesting
@@ -54,8 +61,9 @@ public class CreateManagedProfileTask extends AbstractProvisioningTask {
             ProvisioningParams params,
             Callback callback,
             UserManager userManager,
-            NonRequiredAppsLogic logic) {
-        super(context, params, callback);
+            NonRequiredAppsLogic logic,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+        super(context, params, callback, provisioningAnalyticsTracker);
         mNonRequiredAppsLogic = checkNotNull(logic);
         mUserManager = checkNotNull(userManager);
     }

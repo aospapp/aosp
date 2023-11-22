@@ -24,6 +24,8 @@ btifCommonIncludes = [
     "system/bt/utils/include",
     "system/bt/include",
     "system/libhwbinder/include",
+    "system/security/keystore/include",
+    "hardware/interfaces/keymaster/4.0/support/include",
 ]
 
 // libbtif static library for target
@@ -39,7 +41,6 @@ cc_library_static {
         "co/bta_dm_co.cc",
         "co/bta_av_co.cc",
         "co/bta_hh_co.cc",
-        "co/bta_hl_co.cc",
         "co/bta_pan_co.cc",
         "co/bta_gatts_co.cc",
         // HAL layer
@@ -54,6 +55,7 @@ cc_library_static {
         "src/btif_avrcp_audio_track.cc",
         "src/btif_ble_advertiser.cc",
         "src/btif_ble_scanner.cc",
+        "src/btif_bqr.cc",
         "src/btif_config.cc",
         "src/btif_config_transcode.cc",
         "src/btif_core.cc",
@@ -71,7 +73,7 @@ cc_library_static {
         "src/btif_hf_client.cc",
         "src/btif_hh.cc",
         "src/btif_hd.cc",
-        "src/btif_hl.cc",
+        "src/btif_keystore.cc",
         "src/btif_mce.cc",
         "src/btif_pan.cc",
         "src/btif_profile_queue.cc",
@@ -93,21 +95,34 @@ cc_library_static {
     shared_libs: [
         "libaudioclient",
         "libcutils",
+        "libfmq",
         "liblog",
         "libz",
         "libtinyxml2",
         "android.hardware.bluetooth.a2dp@1.0",
+        "android.hardware.bluetooth.audio@2.0",
         "libhidlbase",
         "libhidltransport",
         "libhwbinder",
         "libutils",
+        "libcrypto",
+        "android.hardware.keymaster@4.0",
+        "android.hardware.keymaster@3.0",
+        "libkeymaster4support",
+        "libkeystore_aidl",
+        "libkeystore_binder",
+        "libkeystore_parcelables",
     ],
     whole_static_libs: [
         "avrcp-target-service",
         "libaudio-a2dp-hw-utils",
         "lib-bt-packets",
+        "libbt-audio-hal-interface",
     ],
-    cflags: ["-DBUILDCFG"],
+    cflags: [
+        "-DBUILDCFG",
+        "-Wno-implicit-fallthrough",
+    ],
 
 }
 
@@ -116,23 +131,44 @@ cc_library_static {
 cc_test {
     name: "net_test_btif",
     defaults: ["fluoride_defaults"],
+    test_suites: ["device-tests"],
     include_dirs: btifCommonIncludes,
-    srcs: ["test/btif_storage_test.cc"],
+    srcs: [
+        "test/btif_storage_test.cc",
+        "test/btif_keystore_test.cc"
+    ],
     header_libs: ["libbluetooth_headers"],
     shared_libs: [
         "libaudioclient",
+        "android.hardware.bluetooth.a2dp@1.0",
+        "android.hardware.bluetooth.audio@2.0",
+        "libfmq",
         "libhidlbase",
+        "libhidltransport",
         "liblog",
         "libprotobuf-cpp-lite",
         "libcutils",
+        "libprocessgroup",
         "libutils",
+        "libcrypto",
+        "android.hardware.keymaster@4.0",
+        "android.hardware.keymaster@3.0",
+        "libkeymaster4support",
+        "libkeystore_aidl",
+        "libkeystore_binder",
+        "libkeystore_parcelables",
+        "libbinder",
     ],
     static_libs: [
         "libbt-bta",
         "libbtcore",
+        "libbt-common",
         "libbt-stack",
+        "libbt-sbc-decoder",
         "libbt-sbc-encoder",
+        "libbt-utils",
         "libFraunhoferAAC",
+        "libg722codec",
         "libbtdevice",
         "libbt-hci",
         "libudrv-uipc",
@@ -145,6 +181,9 @@ cc_test {
         "libbluetooth-for-tests",
     ],
     cflags: ["-DBUILDCFG"],
+    sanitize: {
+        integer_overflow: true,
+    },
 }
 
 // btif profile queue unit tests for target
@@ -152,32 +191,11 @@ cc_test {
 cc_test {
     name: "net_test_btif_profile_queue",
     defaults: ["fluoride_defaults"],
+    test_suites: ["device-tests"],
     include_dirs: btifCommonIncludes,
     srcs: [
       "src/btif_profile_queue.cc",
       "test/btif_profile_queue_test.cc"
-    ],
-    header_libs: ["libbluetooth_headers"],
-    shared_libs: [
-        "liblog",
-        "libcutils",
-    ],
-    static_libs: [
-        "libbluetooth-types",
-        "libosi",
-    ],
-    cflags: ["-DBUILDCFG"],
-}
-
-// btif state machine unit tests for target
-// ========================================================
-cc_test {
-    name: "net_test_btif_state_machine",
-    defaults: ["fluoride_defaults"],
-    include_dirs: btifCommonIncludes,
-    host_supported: true,
-    srcs: [
-      "test/btif_state_machine_test.cc"
     ],
     header_libs: ["libbluetooth_headers"],
     shared_libs: [

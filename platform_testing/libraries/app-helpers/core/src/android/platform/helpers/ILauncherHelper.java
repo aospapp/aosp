@@ -16,7 +16,7 @@
 
 package android.platform.helpers;
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.support.test.uiautomator.Direction;
 
 /**

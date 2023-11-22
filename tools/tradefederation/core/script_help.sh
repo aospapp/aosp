@@ -44,8 +44,10 @@ checkPath java
 java_version_string=$(java -version 2>&1)
 JAVA_VERSION=$(echo "$java_version_string" | grep 'version [ "]\(1\.8\|9\).*[ "]')
 if [ "${JAVA_VERSION}" == "" ]; then
-    echo "Wrong java version. 1.8 or 9 is required."
-    exit
+    echo "Wrong java version. 1.8 or 9 is required. Found $java_version_string"
+    echo "PATH value:"
+    echo "$PATH"
+    exit 8
 fi
 
 # check debug flag and set up remote debugging

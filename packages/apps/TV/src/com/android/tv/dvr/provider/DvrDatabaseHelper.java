@@ -79,6 +79,8 @@ public class DvrDatabaseHelper extends SQLiteOpenHelper {
                     + " TEXT,"
                     + Schedules.COLUMN_STATE
                     + " TEXT NOT NULL,"
+                    + Schedules.COLUMN_FAILED_REASON
+                    + " TEXT,"
                     + Schedules.COLUMN_SERIES_RECORDING_ID
                     + " INTEGER,"
                     + "FOREIGN KEY("
@@ -261,6 +263,7 @@ public class DvrDatabaseHelper extends SQLiteOpenHelper {
             if (DEBUG) Log.d(TAG, "Executing SQL: " + SQL_DROP_SERIES_RECORDINGS);
             db.execSQL(SQL_DROP_SERIES_RECORDINGS);
             onCreate(db);
+            return;
         }
         if (oldVersion < 18) {
             db.execSQL("ALTER TABLE " + Schedules.TABLE_NAME + " ADD COLUMN "

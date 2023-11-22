@@ -230,7 +230,13 @@ void HalHidlCodeGen::GenerateDriverImplForMethod(Formatter& out,
       out << var_type << " " << cur_arg_name << " = nullptr;\n";
     } else if (arg.type() == TYPE_SCALAR) {
       out << var_type << " " << cur_arg_name << " = 0;\n";
-    } else if (arg.type() != TYPE_FMQ_SYNC && arg.type() != TYPE_FMQ_UNSYNC) {
+    } else if (arg.type() == TYPE_FMQ_SYNC || arg.type() == TYPE_FMQ_UNSYNC) {
+      // FMQ type, use pointer to store arguments because copy assignment
+      // is not allowed for fmq descriptor.
+      // Use const because getDesc() function in FMQ implementation
+      // returns const type.
+      out << "const " << var_type << "* " << cur_arg_name << ";\n";
+    } else {
       out << var_type << " " << cur_arg_name << ";\n";
     }
 
@@ -242,34 +248,21 @@ void HalHidlCodeGen::GenerateDriverImplForMethod(Formatter& out,
   out << "LOG(DEBUG) << \"local_device = \" << " << kInstanceVariableName
       << ".get();\n";
 
-  // Define the return results and call the HAL function.
-  for (int index = 0; index < func_msg.return_type_hidl_size(); index++) {
-    const auto& return_val = func_msg.return_type_hidl(index);
-    if (return_val.type() != TYPE_FMQ_SYNC &&
-        return_val.type() != TYPE_FMQ_UNSYNC) {
-      out << GetCppVariableType(return_val) << " result" << index << ";\n";
-    } else {
-      // Use pointer to store return results with fmq type as copy assignment
-      // is not allowed for fmq descriptor.
-      out << "std::unique_ptr<" << GetCppVariableType(return_val) << "> result"
-          << index << ";\n";
-    }
-  }
+  // Call the HAL function.
   if (CanElideCallback(func_msg)) {
-    out << "result0 = ";
+    out << GetCppVariableType(func_msg.return_type_hidl(0)) << " result0 = ";
     GenerateHalFunctionCall(out, func_msg);
+    // Set the return results value to the proto message.
+    for (int index = 0; index < func_msg.return_type_hidl_size(); index++) {
+      out << "VariableSpecificationMessage* result_val_" << index << " = "
+          << "result_msg->add_return_type_hidl();\n";
+      GenerateSetResultCodeForTypedVariable(
+          out, func_msg.return_type_hidl(index),
+          "result_val_" + std::to_string(index),
+          "result" + std::to_string(index));
+    }
   } else {
     GenerateHalFunctionCall(out, func_msg);
-  }
-
-  // Set the return results value to the proto message.
-  out << "result_msg->set_name(\"" << func_msg.name() << "\");\n";
-  for (int index = 0; index < func_msg.return_type_hidl_size(); index++) {
-    out << "VariableSpecificationMessage* result_val_" << index << " = "
-        << "result_msg->add_return_type_hidl();\n";
-    GenerateSetResultCodeForTypedVariable(out, func_msg.return_type_hidl(index),
-                                          "result_val_" + std::to_string(index),
-                                          "result" + std::to_string(index));
   }
 
   out << "return true;\n";
@@ -281,11 +274,18 @@ void HalHidlCodeGen::GenerateHalFunctionCall(Formatter& out,
     const FunctionSpecificationMessage& func_msg) {
   out << kInstanceVariableName << "->" << func_msg.name() << "(";
   for (int index = 0; index < func_msg.arg_size(); index++) {
-    out << "arg" << index;
+    if (func_msg.arg(index).type() == TYPE_FMQ_SYNC ||
+        func_msg.arg(index).type() == TYPE_FMQ_UNSYNC) {
+      // only FMQ types store arguments as pointers, dereference it now.
+      out << "*arg" << index;
+    } else {
+      out << "arg" << index;
+    }
     if (index != (func_msg.arg_size() - 1)) out << ", ";
   }
   if (func_msg.return_type_hidl_size()== 0 || CanElideCallback(func_msg)) {
     out << ");\n";
+    out << "result_msg->set_name(\"" << func_msg.name() << "\");\n";
   } else {
     out << (func_msg.arg_size() != 0 ? ", " : "");
     GenerateSyncCallbackFunctionImpl(out, func_msg);
@@ -299,7 +299,7 @@ void HalHidlCodeGen::GenerateSyncCallbackFunctionImpl(Formatter& out,
   for (int index = 0; index < func_msg.return_type_hidl_size(); index++) {
     const auto& return_val = func_msg.return_type_hidl(index);
     out << GetCppVariableType(return_val, IsConstType(return_val.type()))
-        << " arg" << index;
+        << " arg" << index << " __attribute__((__unused__))";
     if (index != (func_msg.return_type_hidl_size() - 1)) out << ",";
   }
   out << "){\n";
@@ -307,15 +307,14 @@ void HalHidlCodeGen::GenerateSyncCallbackFunctionImpl(Formatter& out,
   out << "LOG(INFO) << \"callback " << func_msg.name() << " called\""
       << ";\n";
 
+  // Set the return results value to the proto message.
+  out << "result_msg->set_name(\"" << func_msg.name() << "\");\n";
   for (int index = 0; index < func_msg.return_type_hidl_size(); index++) {
-    const auto& return_val = func_msg.return_type_hidl(index);
-    if (return_val.type() != TYPE_FMQ_SYNC &&
-        return_val.type() != TYPE_FMQ_UNSYNC) {
-      out << "result" << index << " = arg" << index << ";\n";
-    } else {
-      out << "result" << index << ".reset(new (std::nothrow) "
-          << GetCppVariableType(return_val) << "(arg" << index << "));\n";
-    }
+    out << "VariableSpecificationMessage* result_val_" << index << " = "
+        << "result_msg->add_return_type_hidl();\n";
+    GenerateSetResultCodeForTypedVariable(out, func_msg.return_type_hidl(index),
+                                          "result_val_" + std::to_string(index),
+                                          "arg" + std::to_string(index));
   }
   out.unindent();
   out << "}";
@@ -430,13 +429,13 @@ void HalHidlCodeGen::GenerateClassHeader(Formatter& out,
     const ComponentSpecificationMessage& message,
     const string& fuzzer_extended_class_name) {
   if (message.component_name() != "types") {
-    for (const auto attribute : message.interface().attribute()) {
+    for (const auto& attribute : message.interface().attribute()) {
       GenerateAllFunctionDeclForAttribute(out, attribute);
     }
     DriverCodeGenBase::GenerateClassHeader(out, message,
                                            fuzzer_extended_class_name);
   } else {
-    for (const auto attribute : message.attribute()) {
+    for (const auto& attribute : message.attribute()) {
       GenerateAllFunctionDeclForAttribute(out, attribute);
     };
   }
@@ -503,14 +502,14 @@ void HalHidlCodeGen::GenerateClassImpl(Formatter& out,
     const ComponentSpecificationMessage& message,
     const string& fuzzer_extended_class_name) {
   if (message.component_name() != "types") {
-    for (auto attribute : message.interface().attribute()) {
+    for (const auto& attribute : message.interface().attribute()) {
       GenerateAllFunctionImplForAttribute(out, attribute);
     }
     GenerateGetServiceImpl(out, message, fuzzer_extended_class_name);
     DriverCodeGenBase::GenerateClassImpl(out, message,
                                          fuzzer_extended_class_name);
   } else {
-    for (auto attribute : message.attribute()) {
+    for (const auto& attribute : message.attribute()) {
       GenerateAllFunctionImplForAttribute(out, attribute);
     }
   }
@@ -527,7 +526,11 @@ void HalHidlCodeGen::GenerateHeaderIncludeFiles(Formatter& out,
   out << "#include <hidl/HidlSupport.h>" << "\n";
 
   for (const auto& import : message.import()) {
-    FQName import_name = FQName(import);
+    FQName import_name;
+    if (!FQName::parse(import, &import_name)) {
+      abort();
+    }
+
     string import_package_name = import_name.package();
     string import_package_version = import_name.version();
     string import_component_name = import_name.name();
@@ -660,64 +663,64 @@ void HalHidlCodeGen::GenerateRandomFunctionImplForAttribute(Formatter& out,
 
 void HalHidlCodeGen::GenerateDriverDeclForAttribute(Formatter& out,
     const VariableSpecificationMessage& attribute) {
-  if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION) {
-    // Recursively generate SetResult method implementation for all sub_types.
-    for (const auto sub_struct : attribute.sub_struct()) {
-      GenerateDriverDeclForAttribute(out, sub_struct);
-    }
-    for (const auto sub_union : attribute.sub_union()) {
-      GenerateDriverDeclForAttribute(out, sub_union);
-    }
-    string func_name = "MessageTo"
-        + ClearStringWithNameSpaceAccess(attribute.name());
-    out << "void " << func_name
-        << "(const VariableSpecificationMessage& var_msg, " << attribute.name()
-        << "* arg, const string& callback_socket_name);\n";
-  } else if (attribute.type() == TYPE_ENUM) {
-    string func_name = "EnumValue"
-            + ClearStringWithNameSpaceAccess(attribute.name());
-    // Message to value converter
-    out << attribute.name() << " " << func_name
-        << "(const ScalarDataValueMessage& arg);\n";
-  } else {
-    cerr << __func__ << " unsupported attribute type " << attribute.type()
-         << "\n";
+  if (!IsUserDefinedType(attribute.type())) {
+    cerr << attribute.type() << " is not a user defined type\n";
     exit(-1);
   }
+  for (const auto& sub_struct : attribute.sub_struct()) {
+    GenerateDriverDeclForAttribute(out, sub_struct);
+  }
+  for (const auto& sub_union : attribute.sub_union()) {
+    GenerateDriverDeclForAttribute(out, sub_union);
+  }
+  for (const auto& sub_safe_union : attribute.sub_safe_union()) {
+    GenerateDriverDeclForAttribute(out, sub_safe_union);
+  }
+  string func_name =
+      "MessageTo" + ClearStringWithNameSpaceAccess(attribute.name());
+  // Add extern C to allow resource_manager to dynamically load this function.
+  out << "extern \"C\" ";
+  out << "void " << func_name
+      << "(const VariableSpecificationMessage& var_msg, " << attribute.name()
+      << "* arg, const string& callback_socket_name);\n";
 }
 
 void HalHidlCodeGen::GenerateDriverImplForAttribute(Formatter& out,
     const VariableSpecificationMessage& attribute) {
+  if (!IsUserDefinedType(attribute.type())) {
+    cerr << attribute.type() << " is not a user defined type\n";
+    exit(-1);
+  }
+  // Recursively generate driver implementation method for all sub_types.
+  for (const auto& sub_struct : attribute.sub_struct()) {
+    GenerateDriverImplForAttribute(out, sub_struct);
+  }
+  for (const auto& sub_union : attribute.sub_union()) {
+    GenerateDriverImplForAttribute(out, sub_union);
+  }
+  for (const auto& sub_safe_union : attribute.sub_safe_union()) {
+    GenerateDriverImplForAttribute(out, sub_safe_union);
+  }
+  string func_name =
+      "MessageTo" + ClearStringWithNameSpaceAccess(attribute.name());
+  // Add extern C to allow resource_manager to dynamically load this
+  // function.
+  out << "extern \"C\" ";
+  out << "void " << func_name
+      << "(const VariableSpecificationMessage& "
+         "var_msg __attribute__((__unused__)), "
+      << attribute.name() << "* arg __attribute__((__unused__)), "
+      << "const string& callback_socket_name __attribute__((__unused__))) {"
+      << "\n";
+  out.indent();
+
   switch (attribute.type()) {
-    case TYPE_ENUM:
-    {
-      string func_name = "EnumValue"
-          + ClearStringWithNameSpaceAccess(attribute.name());
-      // Message to value converter
-      out << attribute.name() << " " << func_name
-          << "(const ScalarDataValueMessage& arg) {\n";
-      out.indent();
-      out << "return (" << attribute.name() << ") arg."
+    case TYPE_ENUM: {
+      out << "*arg = (" << attribute.name() << ")var_msg.scalar_value()."
           << attribute.enum_value().scalar_type() << "();\n";
-      out.unindent();
-      out << "}" << "\n";
       break;
     }
-    case TYPE_STRUCT:
-    {
-      // Recursively generate driver implementation method for all sub_types.
-      for (const auto sub_struct : attribute.sub_struct()) {
-        GenerateDriverImplForAttribute(out, sub_struct);
-      }
-      string func_name = "MessageTo"
-          + ClearStringWithNameSpaceAccess(attribute.name());
-      out << "void " << func_name
-          << "(const VariableSpecificationMessage& "
-             "var_msg __attribute__((__unused__)), "
-          << attribute.name() << "* arg __attribute__((__unused__)), "
-          << "const string& callback_socket_name __attribute__((__unused__))) {"
-          << "\n";
-      out.indent();
+    case TYPE_STRUCT: {
       int struct_index = 0;
       for (const auto& struct_value : attribute.struct_value()) {
         GenerateDriverImplForTypedVariable(
@@ -725,47 +728,36 @@ void HalHidlCodeGen::GenerateDriverImplForAttribute(Formatter& out,
             "var_msg.struct_value(" + std::to_string(struct_index) + ")");
         struct_index++;
       }
-      out.unindent();
-      out << "}\n";
       break;
     }
-    case TYPE_UNION:
-    {
-      // Recursively generate driver implementation method for all sub_types.
-      for (const auto sub_union : attribute.sub_union()) {
-        GenerateDriverImplForAttribute(out, sub_union);
-      }
-      string func_name = "MessageTo"
-          + ClearStringWithNameSpaceAccess(attribute.name());
-      out << "void " << func_name
-          << "(const VariableSpecificationMessage& var_msg, "
-          << attribute.name() << "* arg, "
-          << "const string& callback_socket_name __attribute__((__unused__))) {"
-          << "\n";
-      out.indent();
+    case TYPE_UNION: {
       int union_index = 0;
       for (const auto& union_value : attribute.union_value()) {
         out << "if (var_msg.union_value(" << union_index << ").name() == \""
-            << union_value.name() << "\") {" << "\n";
+            << union_value.name() << "\") {"
+            << "\n";
         out.indent();
         GenerateDriverImplForTypedVariable(
             out, union_value, "arg->" + union_value.name(),
             "var_msg.union_value(" + std::to_string(union_index) + ")");
         union_index++;
         out.unindent();
-        out << "}" << "\n";
+        out << "}\n";
       }
-      out.unindent();
-      out << "}\n";
       break;
     }
-    default:
-    {
+    case TYPE_SAFE_UNION: {
+      out << "LOG(ERROR) << \"TYPE_SAFE_UNION is not supported yet. \";\n";
+      break;
+    }
+    default: {
       cerr << __func__ << " unsupported attribute type " << attribute.type()
            << "\n";
       exit(-1);
     }
   }
+  out.unindent();
+  out << "}\n";
 }
 
 void HalHidlCodeGen::GenerateGetServiceImpl(Formatter& out,
@@ -822,10 +814,10 @@ void HalHidlCodeGen::GenerateDriverImplForTypedVariable(Formatter& out,
     case TYPE_ENUM:
     {
       if (val.has_predefined_type()) {
-        string func_name = "EnumValue"
-            + ClearStringWithNameSpaceAccess(val.predefined_type());
-        out << arg_name << " = " << func_name << "(" << arg_value_name
-            << ".scalar_value());\n";
+        string func_name =
+            "MessageTo" + ClearStringWithNameSpaceAccess(val.predefined_type());
+        out << func_name << "(" << arg_value_name << ", &(" << arg_name
+            << "), callback_socket_name);\n";
       } else {
         out << arg_name << " = (" << val.name() << ")" << arg_value_name << "."
             << "enum_value().scalar_value(0)." << val.enum_value().scalar_type()
@@ -878,7 +870,7 @@ void HalHidlCodeGen::GenerateDriverImplForTypedVariable(Formatter& out,
             << "), callback_socket_name);\n";
       } else {
         int struct_index = 0;
-        for (const auto struct_field : val.struct_value()) {
+        for (const auto& struct_field : val.struct_value()) {
           string struct_field_name = arg_name + "." + struct_field.name();
           string struct_field_value_name = arg_value_name + ".struct_value("
               + std::to_string(struct_index) + ")";
@@ -899,7 +891,7 @@ void HalHidlCodeGen::GenerateDriverImplForTypedVariable(Formatter& out,
             << "), callback_socket_name);\n";
       } else {
         int union_index = 0;
-        for (const auto union_field : val.union_value()) {
+        for (const auto& union_field : val.union_value()) {
           string union_field_name = arg_name + "." + union_field.name();
           string union_field_value_name = arg_value_name + ".union_value("
               + std::to_string(union_index) + ")";
@@ -925,6 +917,15 @@ void HalHidlCodeGen::GenerateDriverImplForTypedVariable(Formatter& out,
     {
       out << "if (" << arg_value_name << ".has_handle_value()) {\n";
       out.indent();
+      out << "if (" << arg_value_name
+          << ".handle_value().has_hidl_handle_address()) {\n";
+      out.indent();  // if case starts: existing hidl_handle is specified.
+      out << arg_name
+          << " = *(reinterpret_cast<android::hardware::hidl_handle*>("
+          << arg_value_name << ".handle_value().hidl_handle_address()));\n";
+      out.unindent();  // if case ends.
+      out << "} else {\n";
+      out.indent();  // else case starts: create a new handle object.
       out << "native_handle_t* handle = native_handle_create(" << arg_value_name
           << ".handle_value().num_fds(), " << arg_value_name
           << ".handle_value().num_ints());\n";
@@ -1028,6 +1029,8 @@ void HalHidlCodeGen::GenerateDriverImplForTypedVariable(Formatter& out,
       out.unindent();
       out << "}\n";
       out << arg_name << " = handle;\n";
+      out.unindent();  // else case (create a new handle object) ends.
+      out << "}\n";
       out.unindent();
       out << "} else {\n";
       out.indent();
@@ -1047,7 +1050,7 @@ void HalHidlCodeGen::GenerateDriverImplForTypedVariable(Formatter& out,
       out << "} else {\n";
       out.indent();
       if (type_name.find("::android::hidl") == 0) {
-        out << "/* ERROR: general interface is not supported yet. */\n";
+        out << "LOG(ERROR) << \"general interface is not supported yet. \";\n";
       } else {
         ReplaceSubString(type_name, "::", "_");
         out << arg_name << " = VtsFuzzerCreateVts" << type_name
@@ -1059,6 +1062,15 @@ void HalHidlCodeGen::GenerateDriverImplForTypedVariable(Formatter& out,
     }
     case TYPE_HIDL_MEMORY:
     {
+      out << "if (" << arg_value_name
+          << ".hidl_memory_value().has_hidl_mem_address()) {\n";
+      out.indent();  // if case starts: existing hidl_memory is used.
+      out << arg_name
+          << " = *(reinterpret_cast<android::hardware::hidl_memory*>("
+          << arg_value_name << ".hidl_memory_value().hidl_mem_address()));\n";
+      out.unindent();  // if case ends.
+      out << "} else {\n";
+      out.indent();  // else case starts: allocates new memory region.
       out << "sp<::android::hidl::allocator::V1_0::IAllocator> ashmemAllocator"
           << " = ::android::hidl::allocator::V1_0::IAllocator::getService(\""
           << "ashmem\");\n";
@@ -1083,68 +1095,67 @@ void HalHidlCodeGen::GenerateDriverImplForTypedVariable(Formatter& out,
       out << arg_name << " = memory;\n";
       out.unindent();
       out << "});\n";
+      out.unindent();  // else case ends.
+      out << "}\n";
       break;
     }
     case TYPE_POINTER:
     {
-      out << "/* ERROR: TYPE_POINTER is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_POINTER is not supported yet. \";\n";
       break;
     }
     case TYPE_FMQ_SYNC:
-    {
+    case TYPE_FMQ_UNSYNC: {
       if (arg_name.find("->") != std::string::npos) {
-        cout << "Nested structure with fmq is not supported yet." << endl;
+        out << "LOG(ERROR) << \"Nested structure with fmq is not supported "
+               "yet. \";\n";
       } else {
-        std::string element_type = GetCppVariableType(val.fmq_value(0));
-        std::string queue_name = arg_name + "_sync_q";
         // TODO(zhuoyao): consider record and use the queue capacity.
+        std::string element_type = GetCppVariableType(val.fmq_value(0));
+        std::string queue_name =
+            arg_name + (val.type() == TYPE_FMQ_SYNC ? "_sync_q" : "_unsync_q");
+        std::string queue_descriptor_type = GetCppVariableType(val);
+
+        // When caller wants to reuse an existing queue.
+        out << "if (" << arg_value_name << ".fmq_value_size() > 0 && "
+            << arg_value_name << ".fmq_value(0).has_fmq_desc_address()) {\n";
+        out.indent();  // if case starts
+        out << arg_name << " = "
+            << "reinterpret_cast<" << queue_descriptor_type << "*>("
+            << arg_value_name << ".fmq_value(0).fmq_desc_address());\n";
+        out.unindent();  // if case ends
+
+        // When caller wants to create a brand new queue and write to it.
+        out << "} else {\n";
+        out.indent();  // else case starts
         out << "::android::hardware::MessageQueue<" << element_type
-            << ", ::android::hardware::kSynchronizedReadWrite> " << queue_name
-            << "(1024);\n";
+            << ", ::android::hardware::"
+            << (val.type() == TYPE_FMQ_SYNC ? "kSynchronizedReadWrite"
+                                            : "kUnsynchronizedWrite")
+            << "> " << queue_name << "(1024);\n";
         out << "for (int i = 0; i < (int)" << arg_value_name
             << ".fmq_value_size(); i++) {\n";
-        out.indent();
+        out.indent();  // for loop starts
         std::string fmq_item_name = queue_name + "_item";
         out << element_type << " " << fmq_item_name << ";\n";
         GenerateDriverImplForTypedVariable(out, val.fmq_value(0), fmq_item_name,
                                            arg_value_name + ".fmq_value(i)");
         out << queue_name << ".write(&" << fmq_item_name << ");\n";
-        out.unindent();
+        out.unindent();  // for loop ends
         out << "}\n";
-        out << GetCppVariableType(val) << " " << arg_name << "(*" << queue_name
-            << ".getDesc());\n";
-      }
-      break;
-    }
-    case TYPE_FMQ_UNSYNC:
-    {
-      if (arg_name.find("->") != std::string::npos) {
-        cout << "Nested structure with fmq is not supported yet." << endl;
-      } else {
-        std::string element_type = GetCppVariableType(val.fmq_value(0));
-        std::string queue_name = arg_name + "_unsync_q";
-        // TODO(zhuoyao): consider record and use the queue capacity.
-        out << "::android::hardware::MessageQueue<" << element_type << ", "
-            << "::android::hardware::kUnsynchronizedWrite> " << queue_name
-            << "(1024);\n";
-        out << "for (int i = 0; i < (int)" << arg_value_name
-            << ".fmq_value_size(); i++) {\n";
-        out.indent();
-        std::string fmq_item_name = queue_name + "_item";
-        out << element_type << " " << fmq_item_name << ";\n";
-        GenerateDriverImplForTypedVariable(out, val.fmq_value(0), fmq_item_name,
-                                           arg_value_name + ".fmq_value(i)");
-        out << queue_name << ".write(&" << fmq_item_name << ");\n";
-        out.unindent();
+        out << arg_name << " = " << queue_name << ".getDesc();\n";
+        out.unindent();  // else case ends
         out << "}\n";
-        out << GetCppVariableType(val) << " " << arg_name << "(*" << queue_name
-            << ".getDesc());\n";
       }
       break;
     }
     case TYPE_REF:
     {
-      out << "/* ERROR: TYPE_REF is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_REF is not supported yet. \";\n";
+      break;
+    }
+    case TYPE_SAFE_UNION: {
+      out << "LOG(ERROR) << \"TYPE_SAFE_UNION is not supported yet. \";\n";
       break;
     }
     default:
@@ -1169,7 +1180,7 @@ void HalHidlCodeGen::GenerateVerificationFunctionImpl(Formatter& out,
         << "\n";
     out << "const FunctionSpecificationMessage& actual_result "
            "__attribute__((__unused__))) {\n";
-    for (const FunctionSpecificationMessage api : message.interface().api()) {
+    for (const FunctionSpecificationMessage& api : message.interface().api()) {
       out << "if (!strcmp(actual_result.name().c_str(), \"" << api.name()
           << "\")) {\n";
       out.indent();
@@ -1321,42 +1332,46 @@ void HalHidlCodeGen::GenerateVerificationCodeForTypedVariable(Formatter& out,
     }
     case TYPE_HIDL_CALLBACK:
     {
-      out << "/* ERROR: TYPE_HIDL_CALLBACK is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_HILD_CALLBACK is not supported yet. \";\n";
       break;
     }
     case TYPE_HANDLE:
     {
-      out << "/* ERROR: TYPE_HANDLE is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_HANDLE is not supported yet. \";\n";
       break;
     }
     case TYPE_HIDL_INTERFACE:
     {
-      out << "/* ERROR: TYPE_HIDL_INTERFACE is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_HIDL_INTERFACE is not supported yet. \";\n";
       break;
     }
     case TYPE_HIDL_MEMORY:
     {
-      out << "/* ERROR: TYPE_HIDL_MEMORY is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_HIDL_MEMORY is not supported yet. \";\n";
       break;
     }
     case TYPE_POINTER:
     {
-      out << "/* ERROR: TYPE_POINTER is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_POINTER is not supported yet. \";\n";
       break;
     }
     case TYPE_FMQ_SYNC:
     {
-      out << "/* ERROR: TYPE_FMQ_SYNC is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_FMQ_SYNC is not supported yet. \";\n";
       break;
     }
     case TYPE_FMQ_UNSYNC:
     {
-      out << "/* ERROR: TYPE_FMQ_UNSYNC is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_FMQ_UNSYNC is not supported yet. \";\n";
       break;
     }
     case TYPE_REF:
     {
-      out << "/* ERROR: TYPE_REF is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_REF is not supported yet. \";\n";
+      break;
+    }
+    case TYPE_SAFE_UNION: {
+      out << "LOG(ERROR) << \"TYPE_SAFE_UNION is Not supported yet. \";\n";
       break;
     }
     default:
@@ -1371,10 +1386,10 @@ void HalHidlCodeGen::GenerateVerificationDeclForAttribute(Formatter& out,
     const VariableSpecificationMessage& attribute) {
   if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION) {
     // Recursively generate verification method implementation for all sub_types.
-    for (const auto sub_struct : attribute.sub_struct()) {
+    for (const auto& sub_struct : attribute.sub_struct()) {
       GenerateVerificationDeclForAttribute(out, sub_struct);
     }
-    for (const auto sub_union : attribute.sub_union()) {
+    for (const auto& sub_union : attribute.sub_union()) {
       GenerateVerificationDeclForAttribute(out, sub_union);
     }
   }
@@ -1388,10 +1403,10 @@ void HalHidlCodeGen::GenerateVerificationImplForAttribute(Formatter& out,
     const VariableSpecificationMessage& attribute) {
   if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION) {
     // Recursively generate verification method implementation for all sub_types.
-    for (const auto sub_struct : attribute.sub_struct()) {
+    for (const auto& sub_struct : attribute.sub_struct()) {
       GenerateVerificationImplForAttribute(out, sub_struct);
     }
-    for (const auto sub_union : attribute.sub_union()) {
+    for (const auto& sub_union : attribute.sub_union()) {
       GenerateVerificationImplForAttribute(out, sub_union);
     }
   }
@@ -1500,7 +1515,7 @@ void HalHidlCodeGen::GenerateSetResultCodeForTypedVariable(Formatter& out,
             + ClearStringWithNameSpaceAccess(val.predefined_type());
         out << func_name << "(" << result_msg << ", " << result_value << ");\n";
       } else {
-        for (const auto struct_field : val.struct_value()) {
+        for (const auto& struct_field : val.struct_value()) {
           string struct_field_name = result_msg + "_" + struct_field.name();
           out << "auto *" << struct_field_name << " = " << result_msg
               << "->add_struct_value();\n";
@@ -1523,13 +1538,17 @@ void HalHidlCodeGen::GenerateSetResultCodeForTypedVariable(Formatter& out,
             + ClearStringWithNameSpaceAccess(val.predefined_type());
         out << func_name << "(" << result_msg << ", " << result_value << ");\n";
       } else {
-        for (const auto union_field : val.union_value()) {
+        for (const auto& union_field : val.union_value()) {
           string union_field_name = result_msg + "_" + union_field.name();
           out << "auto *" << union_field_name << " = " << result_msg
               << "->add_union_value();\n";
           GenerateSetResultCodeForTypedVariable(
               out, union_field, union_field_name,
               result_value + "." + union_field.name());
+          if (union_field.has_name()) {
+            out << union_field_name << "->set_name(\"" << union_field.name()
+                << "\");\n";
+          }
         }
       }
       break;
@@ -1537,13 +1556,15 @@ void HalHidlCodeGen::GenerateSetResultCodeForTypedVariable(Formatter& out,
     case TYPE_HIDL_CALLBACK:
     {
       out << result_msg << "->set_type(TYPE_HIDL_CALLBACK);\n";
-      out << "/* ERROR: TYPE_HIDL_CALLBACK is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE HIDL_CALLBACK is not supported yet. \";\n";
       break;
     }
     case TYPE_HANDLE:
     {
       out << result_msg << "->set_type(TYPE_HANDLE);\n";
-      out << "/* ERROR: TYPE_HANDLE is not supported yet. */\n";
+      out << result_msg << "->mutable_handle_value()->set_hidl_handle_address"
+          << "(reinterpret_cast<size_t>(new android::hardware::hidl_handle("
+          << result_value << ")));\n";
       break;
     }
     case TYPE_HIDL_INTERFACE:
@@ -1573,31 +1594,69 @@ void HalHidlCodeGen::GenerateSetResultCodeForTypedVariable(Formatter& out,
     case TYPE_HIDL_MEMORY:
     {
       out << result_msg << "->set_type(TYPE_HIDL_MEMORY);\n";
-      out << "/* ERROR: TYPE_HIDL_MEMORY is not supported yet. */\n";
+      out << result_msg << "->mutable_hidl_memory_value()->set_hidl_mem_address"
+          << "(reinterpret_cast<size_t>(new android::hardware::hidl_memory("
+          << result_value << ")));\n";
       break;
     }
     case TYPE_POINTER:
     {
       out << result_msg << "->set_type(TYPE_POINTER);\n";
-      out << "/* ERROR: TYPE_POINTER is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_POINTER is not supported yet. \";\n";
       break;
     }
     case TYPE_FMQ_SYNC:
-    {
-      out << result_msg << "->set_type(TYPE_FMQ_SYNC);\n";
-      out << "/* ERROR: TYPE_FMQ_SYNC is not supported yet. */\n";
-      break;
-    }
     case TYPE_FMQ_UNSYNC:
     {
-      out << result_msg << "->set_type(TYPE_FMQ_UNSYNC);\n";
-      out << "/* ERROR: TYPE_FMQ_UNSYNC is not supported yet. */\n";
+      out << result_msg << "->set_type("
+          << (val.type() == TYPE_FMQ_SYNC ? "TYPE_FMQ_SYNC" : "TYPE_FMQ_UNSYNC")
+          << ");\n";
+      string item_name = result_msg + "_item";
+      out << "VariableSpecificationMessage* " << item_name << " = "
+          << result_msg << "->add_fmq_value();\n";
+      if (val.fmq_value(0).type() == TYPE_SCALAR) {
+        // This FMQ uses scalar type, stores type name in
+        // scalar_type field.
+        out << item_name << "->set_type(TYPE_SCALAR);\n";
+        out << item_name << "->set_scalar_type(\""
+            << val.fmq_value(0).scalar_type() << "\");\n";
+      } else if (val.fmq_value(0).type() == TYPE_ENUM) {
+        // This FMQ uses enum type, stores type name in
+        // predefined_type field.
+        out << item_name << "->set_type(TYPE_ENUM);\n";
+        out << item_name << "->set_predefined_type(\""
+            << val.fmq_value(0).predefined_type() << "\");\n";
+      } else if (val.fmq_value(0).type() == TYPE_STRUCT) {
+        // This FMQ uses struct type, stores type name in
+        // predefined_type field.
+        out << item_name << "->set_type(TYPE_STRUCT);\n";
+        out << item_name << "->set_predefined_type(\""
+            << val.fmq_value(0).predefined_type() << "\");\n";
+      } else if (val.fmq_value(0).type() == TYPE_UNION) {
+        // This FMQ uses union type, stores type name in
+        // predefined_type field.
+        out << item_name << "->set_type(TYPE_UNION);\n";
+        out << item_name << "->set_predefined_type(\""
+            << val.fmq_value(0).predefined_type() << "\");\n";
+      } else {
+        // FMQ doesn't support string, vector, or array type.
+        out << "LOG(ERROR) << \"Unsupport type of data in FMQ\";\n";
+      }
+      // Cast result into address, and save it in proto.
+      out << item_name << "->set_fmq_desc_address("
+          << "reinterpret_cast<size_t>(new (std::nothrow) "
+          << GetCppVariableType(val) << "(" << result_value << ")));\n";
       break;
     }
     case TYPE_REF:
     {
       out << result_msg << "->set_type(TYPE_REF);\n";
-      out << "/* ERROR: TYPE_REF is not supported yet. */\n";
+      out << "LOG(ERROR) << \"TYPE_REF is not supported yet. \";\n";
+      break;
+    }
+    case TYPE_SAFE_UNION: {
+      out << result_msg << "->set_type(TYPE_SAFE_UNION);\n";
+      out << "LOG(ERROR) << \"TYPE_SAFE_UNION is not supported yet. \";\n";
       break;
     }
     default:
@@ -1610,15 +1669,21 @@ void HalHidlCodeGen::GenerateSetResultCodeForTypedVariable(Formatter& out,
 
 void HalHidlCodeGen::GenerateSetResultDeclForAttribute(Formatter& out,
     const VariableSpecificationMessage& attribute) {
-  if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION) {
+  if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION ||
+      attribute.type() == TYPE_SAFE_UNION) {
     // Recursively generate SetResult method implementation for all sub_types.
-    for (const auto sub_struct : attribute.sub_struct()) {
+    for (const auto& sub_struct : attribute.sub_struct()) {
       GenerateSetResultDeclForAttribute(out, sub_struct);
     }
-    for (const auto sub_union : attribute.sub_union()) {
+    for (const auto& sub_union : attribute.sub_union()) {
       GenerateSetResultDeclForAttribute(out, sub_union);
     }
+    for (const auto& sub_safe_union : attribute.sub_safe_union()) {
+      GenerateSetResultDeclForAttribute(out, sub_safe_union);
+    }
   }
+  // Add extern C to allow resource_manager to dynamically load this function.
+  out << "extern \"C\" ";
   string func_name = "void SetResult"
       + ClearStringWithNameSpaceAccess(attribute.name());
   out << func_name << "(VariableSpecificationMessage* result_msg, "
@@ -1627,15 +1692,21 @@ void HalHidlCodeGen::GenerateSetResultDeclForAttribute(Formatter& out,
 
 void HalHidlCodeGen::GenerateSetResultImplForAttribute(Formatter& out,
     const VariableSpecificationMessage& attribute) {
-  if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION) {
+  if (attribute.type() == TYPE_STRUCT || attribute.type() == TYPE_UNION ||
+      attribute.type() == TYPE_SAFE_UNION) {
     // Recursively generate SetResult method implementation for all sub_types.
-    for (const auto sub_struct : attribute.sub_struct()) {
+    for (const auto& sub_struct : attribute.sub_struct()) {
       GenerateSetResultImplForAttribute(out, sub_struct);
     }
-    for (const auto sub_union : attribute.sub_union()) {
+    for (const auto& sub_union : attribute.sub_union()) {
       GenerateSetResultImplForAttribute(out, sub_union);
     }
+    for (const auto& sub_safe_union : attribute.sub_safe_union()) {
+      GenerateSetResultImplForAttribute(out, sub_safe_union);
+    }
   }
+  // Add extern C to allow resource_manager to dynamically load this function.
+  out << "extern \"C\" ";
   string func_name = "void SetResult"
       + ClearStringWithNameSpaceAccess(attribute.name());
   out << func_name << "(VariableSpecificationMessage* result_msg, "
@@ -1672,6 +1743,7 @@ void HalHidlCodeGen::GenerateDefaultReturnValForTypedVariable(
     case TYPE_ARRAY:
     case TYPE_STRUCT:
     case TYPE_UNION:
+    case TYPE_SAFE_UNION:
     case TYPE_HANDLE:
     case TYPE_HIDL_MEMORY:
     case TYPE_FMQ_SYNC:

@@ -16,53 +16,85 @@
 
 package android.autofillservice.cts;
 
+import com.android.compatibility.common.util.Timeout;
+
 /**
  * Timeouts for common tasks.
  */
-final class Timeouts {
+public final class Timeouts {
+
+    private static final long ONE_TIMEOUT_TO_RULE_THEN_ALL_MS = 20_000;
+    private static final long ONE_NAPTIME_TO_RULE_THEN_ALL_MS = 2_000;
+
+    static final long MOCK_IME_TIMEOUT_MS = 5_000;
 
     /**
      * Timeout until framework binds / unbinds from service.
      */
-    static final Timeout CONNECTION_TIMEOUT = new Timeout("CONNECTION_TIMEOUT", 5000, 2F, 10000);
+    public static final Timeout CONNECTION_TIMEOUT = new Timeout("CONNECTION_TIMEOUT",
+            ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
+
+    /**
+     * Timeout for {@link MyAutofillCallback#assertNotCalled()} - test will sleep for that amount of
+     * time as there is no callback that be received to assert it's not shown.
+     */
+    static final long CALLBACK_NOT_CALLED_TIMEOUT_MS = ONE_NAPTIME_TO_RULE_THEN_ALL_MS;
 
     /**
      * Timeout until framework unbinds from a service.
      */
     // TODO: must be higher than RemoteFillService.TIMEOUT_IDLE_BIND_MILLIS, so we should use a
     // @hidden @Testing constants instead...
-    static final Timeout IDLE_UNBIND_TIMEOUT = new Timeout("IDLE_UNBIND_TIMEOUT", 10000, 2F, 10000);
+    static final Timeout IDLE_UNBIND_TIMEOUT = new Timeout("IDLE_UNBIND_TIMEOUT",
+            ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     /**
      * Timeout to get the expected number of fill events.
      */
-    static final Timeout FILL_EVENTS_TIMEOUT = new Timeout("FILL_EVENTS_TIMEOUT", 5000, 2F, 10000);
+    static final Timeout FILL_EVENTS_TIMEOUT = new Timeout("FILL_EVENTS_TIMEOUT",
+            ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     /**
      * Timeout for expected autofill requests.
      */
-    static final Timeout FILL_TIMEOUT = new Timeout("FILL_TIMEOUT", 5000, 2F, 10000);
+    static final Timeout FILL_TIMEOUT = new Timeout("FILL_TIMEOUT", ONE_TIMEOUT_TO_RULE_THEN_ALL_MS,
+            2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     /**
      * Timeout for expected save requests.
      */
-    static final Timeout SAVE_TIMEOUT = new Timeout("SAVE_TIMEOUT", 5000, 2F, 10000);
+    static final Timeout SAVE_TIMEOUT = new Timeout("SAVE_TIMEOUT", ONE_TIMEOUT_TO_RULE_THEN_ALL_MS,
+            2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     /**
      * Timeout used when save is not expected to be shown - test will sleep for that amount of time
      * as there is no callback that be received to assert it's not shown.
      */
-    static final long SAVE_NOT_SHOWN_NAPTIME_MS = 5000;
+    static final long SAVE_NOT_SHOWN_NAPTIME_MS = ONE_NAPTIME_TO_RULE_THEN_ALL_MS;
 
     /**
      * Timeout for UI operations. Typically used by {@link UiBot}.
      */
-    static final Timeout UI_TIMEOUT = new Timeout("UI_TIMEOUT", 5000, 2F, 10000);
+    static final Timeout UI_TIMEOUT = new Timeout("UI_TIMEOUT", ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F,
+            ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
+
+    /**
+     * Timeout for a11y window change events.
+     */
+    static final long WINDOW_CHANGE_TIMEOUT_MS = ONE_TIMEOUT_TO_RULE_THEN_ALL_MS;
+
+    /**
+     * Timeout used when an a11y window change events is not expected to be generated - test will
+     * sleep for that amount of time as there is no callback that be received to assert it's not
+     * shown.
+     */
+    static final long WINDOW_CHANGE_NOT_GENERATED_NAPTIME_MS = ONE_NAPTIME_TO_RULE_THEN_ALL_MS;
 
     /**
      * Timeout for webview operations. Typically used by {@link UiBot}.
      */
-    static final Timeout WEBVIEW_TIMEOUT = new Timeout("WEBVIEW_TIMEOUT", 8000, 2F, 16000);
+    // TODO(b/80317628): switch back to ONE_TIMEOUT_TO_RULE_THEN_ALL_MS once fixed...
+    static final Timeout WEBVIEW_TIMEOUT = new Timeout("WEBVIEW_TIMEOUT", 3_000, 2F, 5_000);
 
     /**
      * Timeout for showing the autofill dataset picker UI.
@@ -72,26 +104,27 @@ final class Timeouts {
      *
      * <p>Typically used by {@link UiBot}.
      */
-    static final Timeout UI_DATASET_PICKER_TIMEOUT =
-            new Timeout("UI_DATASET_PICKER_TIMEOUT", 5000, 2F, 10000);
+    static final Timeout UI_DATASET_PICKER_TIMEOUT = new Timeout("UI_DATASET_PICKER_TIMEOUT",
+            ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     /**
      * Timeout used when the dataset picker is not expected to be shown - test will sleep for that
      * amount of time as there is no callback that be received to assert it's not shown.
      */
-    static final long DATASET_PICKER_NOT_SHOWN_NAPTIME_MS = 5000;
+    static final long DATASET_PICKER_NOT_SHOWN_NAPTIME_MS = ONE_NAPTIME_TO_RULE_THEN_ALL_MS;
 
     /**
      * Timeout (in milliseconds) for an activity to be brought out to top.
      */
-    static final Timeout ACTIVITY_RESURRECTION =
-            new Timeout("ACTIVITY_RESURRECTION", 6000, 3F, 20000);
+    static final Timeout ACTIVITY_RESURRECTION = new Timeout("ACTIVITY_RESURRECTION",
+            ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F, ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     /**
      * Timeout for changing the screen orientation.
      */
-    static final Timeout UI_SCREEN_ORIENTATION_TIMEOUT =
-            new Timeout("UI_SCREEN_ORIENTATION_TIMEOUT", 5000, 2F, 10000);
+    static final Timeout UI_SCREEN_ORIENTATION_TIMEOUT = new Timeout(
+            "UI_SCREEN_ORIENTATION_TIMEOUT", ONE_TIMEOUT_TO_RULE_THEN_ALL_MS, 2F,
+            ONE_TIMEOUT_TO_RULE_THEN_ALL_MS);
 
     private Timeouts() {
         throw new UnsupportedOperationException("contain static methods only");

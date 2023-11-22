@@ -19,8 +19,10 @@ package com.android.cts.splitapp;
 import static org.xmlpull.v1.XmlPullParser.END_DOCUMENT;
 import static org.xmlpull.v1.XmlPullParser.START_TAG;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -34,16 +36,16 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.Environment;
-import android.os.RemoteCallback;
 import android.system.Os;
 import android.system.StructStat;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.util.DisplayMetrics;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -233,8 +235,10 @@ public class SplitAppTest extends AndroidTestCase {
         assertEquals("base", getXmlTestValue(r.getXml(R.xml.my_activity_meta)));
 
         // And that we can access resources from feature
-        assertEquals("red", r.getString(r.getIdentifier("feature_string", "string", PKG)));
-        assertEquals(123, r.getInteger(r.getIdentifier("feature_integer", "integer", PKG)));
+        assertEquals("red", r.getString(r.getIdentifier(
+                "com.android.cts.splitapp.feature:feature_string", "string", PKG)));
+        assertEquals(123, r.getInteger(r.getIdentifier(
+                "com.android.cts.splitapp.feature:feature_integer", "integer", PKG)));
 
         final Class<?> featR = Class.forName("com.android.cts.splitapp.FeatureR");
         final int boolId = (int) featR.getDeclaredField("feature_receiver_enabled").get(null);
@@ -305,8 +309,39 @@ public class SplitAppTest extends AndroidTestCase {
         }
     }
 
+    private Intent createLaunchIntent() {
+        final boolean isInstant = Boolean.parseBoolean(
+                InstrumentationRegistry.getArguments().getString("is_instant", "false"));
+        if (isInstant) {
+            final Intent i = new Intent(Intent.ACTION_VIEW);
+            i.addCategory(Intent.CATEGORY_BROWSABLE);
+            i.setData(Uri.parse("https://cts.android.com/norestart"));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            return i;
+        } else {
+            final Intent i = new Intent("com.android.cts.norestart.START");
+            i.addCategory(Intent.CATEGORY_DEFAULT);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            return i;
+        }
+    }
+
     public void testBaseInstalled() throws Exception {
-        launchBaseActivity(1, 0);
+        final ConditionVariable cv = new ConditionVariable();
+        final BroadcastReceiver r = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                assertEquals(1, intent.getIntExtra("CREATE_COUNT", -1));
+                assertEquals(0, intent.getIntExtra("NEW_INTENT_COUNT", -1));
+                cv.open();
+            }
+        };
+        final IntentFilter filter = new IntentFilter("com.android.cts.norestart.BROADCAST");
+        getContext().registerReceiver(r, filter, Context.RECEIVER_VISIBLE_TO_INSTANT_APPS);
+        final Intent i = createLaunchIntent();
+        getContext().startActivity(i);
+        assertTrue(cv.block(2000L));
+        getContext().unregisterReceiver(r);
     }
 
     /**
@@ -316,27 +351,21 @@ public class SplitAppTest extends AndroidTestCase {
      * done in {@link #testBaseInstalled()}.
      */
     public void testFeatureInstalled() throws Exception {
-        launchBaseActivity(1, 1);
-    }
-
-    private void launchBaseActivity(int expectedCreateCount, int expectedNewIntentCount) {
         final ConditionVariable cv = new ConditionVariable();
-
-        final Intent i = new Intent(Intent.ACTION_VIEW);
-        i.setPackage("com.android.cts.norestart");
-        i.addCategory(Intent.CATEGORY_DEFAULT);
-        i.addCategory(Intent.CATEGORY_BROWSABLE);
-        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        i.setData(Uri.parse("https://foo.com/bar"));
-
-        i.putExtra("RESPONSE", new RemoteCallback((Bundle result) -> {
-            assertEquals(expectedCreateCount, result.getInt("CREATE_COUNT", -1));
-            assertEquals(expectedNewIntentCount, result.getInt("NEW_INTENT_COUNT", -1));
-            cv.open();
-        }));
-
+        final BroadcastReceiver r = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                assertEquals(1, intent.getIntExtra("CREATE_COUNT", -1));
+                assertEquals(1, intent.getIntExtra("NEW_INTENT_COUNT", -1));
+                cv.open();
+            }
+        };
+        final IntentFilter filter = new IntentFilter("com.android.cts.norestart.BROADCAST");
+        getContext().registerReceiver(r, filter, Context.RECEIVER_VISIBLE_TO_INSTANT_APPS);
+        final Intent i = createLaunchIntent();
         getContext().startActivity(i);
         assertTrue(cv.block(2000L));
+        getContext().unregisterReceiver(r);
     }
 
     public void testFeatureApi() throws Exception {
@@ -347,7 +376,8 @@ public class SplitAppTest extends AndroidTestCase {
         assertEquals(false, r.getBoolean(R.bool.my_receiver_enabled));
 
         // And that we can access resources from feature
-        assertEquals(321, r.getInteger(r.getIdentifier("feature_integer", "integer", PKG)));
+        assertEquals(321, r.getInteger(r.getIdentifier(
+                "com.android.cts.splitapp.feature:feature_integer", "integer", PKG)));
 
         final Class<?> featR = Class.forName("com.android.cts.splitapp.FeatureR");
         final int boolId = (int) featR.getDeclaredField("feature_receiver_enabled").get(null);

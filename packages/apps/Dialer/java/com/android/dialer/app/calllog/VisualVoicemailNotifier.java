@@ -33,12 +33,10 @@ import android.telecom.PhoneAccountHandle;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import com.android.contacts.common.util.ContactDisplayUtils;
-import com.android.dialer.app.DialtactsActivity;
 import com.android.dialer.app.MainComponent;
 import com.android.dialer.app.R;
 import com.android.dialer.app.calllog.CallLogNotificationsQueryHelper.NewCall;
 import com.android.dialer.app.contactinfo.ContactPhotoLoader;
-import com.android.dialer.app.list.DialtactsPagerAdapter;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.compat.android.provider.VoicemailCompat;
 import com.android.dialer.logging.DialerImpression;
@@ -48,6 +46,7 @@ import com.android.dialer.notification.NotificationChannelManager;
 import com.android.dialer.notification.NotificationManagerUtils;
 import com.android.dialer.phonenumbercache.ContactInfo;
 import com.android.dialer.telecom.TelecomUtil;
+import com.android.dialer.theme.base.ThemeComponent;
 import java.util.List;
 import java.util.Map;
 
@@ -145,7 +144,7 @@ final class VisualVoicemailNotifier {
   private static NotificationCompat.Builder createNotificationBuilder(@NonNull Context context) {
     return new NotificationCompat.Builder(context)
         .setSmallIcon(android.R.drawable.stat_notify_voicemail)
-        .setColor(context.getColor(R.color.dialer_theme_color))
+        .setColor(ThemeComponent.get(context).theme().getColorPrimary())
         .setGroup(GROUP_KEY)
         .setOnlyAlertOnce(true)
         .setAutoCancel(true);
@@ -233,9 +232,6 @@ final class VisualVoicemailNotifier {
   @Nullable
   private static Uri getVoicemailRingtoneUri(
       @NonNull Context context, @Nullable PhoneAccountHandle handle) {
-    if (VERSION.SDK_INT < VERSION_CODES.N) {
-      return null;
-    }
     if (handle == null) {
       LogUtil.i("VisualVoicemailNotifier.getVoicemailRingtoneUri", "null handle, getting fallback");
       handle = getFallbackAccount(context);
@@ -251,9 +247,6 @@ final class VisualVoicemailNotifier {
 
   private static int getNotificationDefaultFlags(
       @NonNull Context context, @Nullable PhoneAccountHandle handle) {
-    if (VERSION.SDK_INT < VERSION_CODES.N) {
-      return Notification.DEFAULT_ALL;
-    }
     if (handle == null) {
       LogUtil.i(
           "VisualVoicemailNotifier.getNotificationDefaultFlags", "null handle, getting fallback");
@@ -273,18 +266,12 @@ final class VisualVoicemailNotifier {
 
   private static PendingIntent newVoicemailIntent(
       @NonNull Context context, @Nullable NewCall voicemail) {
-    Intent intent;
-    if (MainComponent.isNuiComponentEnabled(context)) {
-      intent = MainComponent.getShowVoicemailIntent(context);
-    } else {
-      intent =
-          DialtactsActivity.getShowTabIntent(context, DialtactsPagerAdapter.TAB_INDEX_VOICEMAIL);
-    }
+    Intent intent = MainComponent.getShowVoicemailIntent(context);
+
     // TODO (a bug): scroll to this voicemail
     if (voicemail != null) {
       intent.setData(voicemail.voicemailUri);
     }
-    intent.putExtra(DialtactsActivity.EXTRA_CLEAR_NEW_VOICEMAILS, true);
     return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
   }
 

@@ -22,7 +22,6 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS := -Wall -Wextra -Werror
 LOCAL_LDFLAGS := 
 LOCAL_SHARED_LIBRARIES := libcutils liblog
-LOCAL_MODULE_TAGS := debug
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE := createns
 

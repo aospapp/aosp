@@ -16,11 +16,11 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="sip_settings" msgid="3768482698061677257">"SIP parametrləri"</string>
+    <string name="sip_settings" msgid="3768482698061677257">"SIP ayarları"</string>
     <string name="sip_accounts" msgid="85559497282185405">"SIP hesabları"</string>
     <string name="sip_accounts_title" msgid="2082527045326874519">"Hesablar"</string>
     <string name="sip_receive_calls" msgid="426678617137462173">"Daxil olan zəngləri qəbul et"</string>
-    <string name="sip_receive_calls_summary" msgid="946161517528227523">"Daha çox batareya istismar müddətindən istifadə edir"</string>
+    <string name="sip_receive_calls_summary" msgid="946161517528227523">"Daha çox batareya işlədəcək"</string>
     <string name="sip_call_options_title" msgid="8421210494703869806">"SIP zəngindən istifadə et"</string>
     <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"SIP zəngindən istifadə et (yalnız Wi-Fi)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Data şəbəkəsi əlçatımlı olanda bütün şəbəkələr üçün"</string>

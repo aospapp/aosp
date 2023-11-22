@@ -18,10 +18,12 @@ cc_library {
     vndk: {
         enabled: true,
     },
+    double_loadable: true,
     host_supported: true,
     defaults: ["audio_utils_defaults"],
 
     srcs: [
+        "Balance.cpp",
         "channels.c",
         "ErrorLog.cpp",
         "fifo.cpp",
@@ -34,6 +36,7 @@ cc_library {
         "PowerLog.cpp",
         "primitives.c",
         "roundup.c",
+        "sample.c",
     ],
 
     header_libs: [

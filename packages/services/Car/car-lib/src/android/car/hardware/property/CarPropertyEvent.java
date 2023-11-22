@@ -16,6 +16,7 @@
 
 package android.car.hardware.property;
 
+import android.annotation.NonNull;
 import android.car.hardware.CarPropertyValue;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -31,7 +32,8 @@ public class CarPropertyEvent implements Parcelable {
     private final int mEventType;
     private final CarPropertyValue<?> mCarPropertyValue;
 
-    // Getters.
+    // Use it as default value for error events.
+    private static final int ERROR_EVENT_VALUE = -1;
 
     /**
      * @return EventType field
@@ -68,9 +70,22 @@ public class CarPropertyEvent implements Parcelable {
     /**
      * Constructor for {@link CarPropertyEvent}.
      */
-    public CarPropertyEvent(int eventType, CarPropertyValue<?> carPropertyValue) {
+    public CarPropertyEvent(int eventType, @NonNull CarPropertyValue<?> carPropertyValue) {
         mEventType  = eventType;
         mCarPropertyValue = carPropertyValue;
+    }
+
+    /**
+     * Constructor for {@link CarPropertyEvent} when it is an error event.
+     *
+     * The status of {@link CarPropertyValue} should be {@link CarPropertyValue#STATUS_ERROR}.
+     * In {@link CarPropertyManager}, the value of {@link CarPropertyValue} will be dropped.
+     */
+    public static CarPropertyEvent createErrorEvent(int propertyId, int areaId) {
+        // valueWithErrorCode will not be propagated to listeners
+        CarPropertyValue<Integer> valueWithErrorCode = new CarPropertyValue<>(propertyId, areaId,
+                    CarPropertyValue.STATUS_ERROR, 0, ERROR_EVENT_VALUE);
+        return new CarPropertyEvent(PROPERTY_EVENT_ERROR, valueWithErrorCode);
     }
 
     private CarPropertyEvent(Parcel in) {

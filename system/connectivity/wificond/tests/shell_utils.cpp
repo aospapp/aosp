@@ -77,7 +77,7 @@ int RunShellCommand(const std::string& shell_command, std::string* output) {
     write_fd.reset();
     // Note that we're keeping parent stderr.
     execl(kShellPath, "sh", "-c", shell_command.c_str(), nullptr);
-    LOG(FATAL) << "exec() of child failed " << strerror(errno);
+    PLOG(FATAL) << "exec() of child failed";
   }
 
   // We are in the parent process.
@@ -115,8 +115,7 @@ int RunShellCommand(const std::string& shell_command, std::string* output) {
     if (waitpid_ret == 0) {
       waitpid_ret = waitpid(child_pid, &wait_status, WNOHANG);
       if (waitpid_ret == -1) {
-        LOG(ERROR) << "waitpid() returned -1 on error(" << errno << "): "
-                   << strerror(errno);
+        PLOG(ERROR) << "waitpid() failed";
       }
     }
     return waitpid_ret == 0;
@@ -133,7 +132,7 @@ int RunShellCommand(const std::string& shell_command, std::string* output) {
     // Allow kill to fail with ESRCH, since it indicated that the child may
     // have already died.
     if (kill_ret != 0 && errno != ESRCH) {
-      LOG(ERROR) << "Failed to send signal to child: " << strerror(errno);
+      PLOG(ERROR) << "Failed to send signal to child";
     }
 
     // Wait for the child to die after receiving that signal.

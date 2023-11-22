@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"Праграма %s запытала сертыфiкат. Выбар сертыфiката дазволiць праграме выкарыстоўваць гэту ідэнтыфікацыю на серверах цяпер i ў будучынi."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Праграма ідэнтыфікавала запытаны сервер як %s, але, калi вы давяраеце праграме, вам трэба даць ёй доступ да сертыфiката."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Сертыфікаты можна ўсталяваць з файла PKCS#12 з пашырэннем %1$s або %2$s, якi знаходзіцца на вонкавым сховішчы."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Усталяваць сертыфікат"</string>
     <string name="allow_button" msgid="3030990695030371561">"Выбраць"</string>
     <string name="deny_button" msgid="3766539809121892584">"Адмовіць"</string>
 </resources>

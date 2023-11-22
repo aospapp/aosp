@@ -99,6 +99,7 @@ void nfa_dm_init(void) {
   nfa_dm_cb.poll_disc_handle = NFA_HANDLE_INVALID;
   nfa_dm_cb.disc_cb.disc_duration = NFA_DM_DISC_DURATION_POLL;
   nfa_dm_cb.nfcc_pwr_mode = NFA_DM_PWR_MODE_FULL;
+  nfa_dm_cb.pending_power_state = SCREEN_STATE_INVALID;
 
   /* register message handler on NFA SYS */
   nfa_sys_register(NFA_ID_DM, &nfa_dm_sys_reg);
@@ -175,7 +176,8 @@ bool nfa_dm_is_protocol_supported(tNFC_PROTOCOL protocol, uint8_t sel_res) {
            (sel_res == NFC_SEL_RES_NFC_FORUM_T2T)) ||
           (protocol == NFC_PROTOCOL_T3T) ||
           (protocol == NFC_PROTOCOL_ISO_DEP) ||
-          (protocol == NFC_PROTOCOL_NFC_DEP) || (protocol == NFC_PROTOCOL_T5T));
+          (protocol == NFC_PROTOCOL_NFC_DEP) ||
+          (protocol == NFC_PROTOCOL_T5T) || (protocol == NFC_PROTOCOL_MIFARE));
 }
 /*******************************************************************************
 **
@@ -233,7 +235,7 @@ tNFA_STATUS nfa_dm_check_set_config(uint8_t tlv_list_len, uint8_t* p_tlv_list,
     type = *(p_tlv_list + xx);
     len = *(p_tlv_list + xx + 1);
     p_value = p_tlv_list + xx + 2;
-    p_cur_len = NULL;
+    p_cur_len = nullptr;
 
     switch (type) {
       /*
@@ -356,7 +358,7 @@ tNFA_STATUS nfa_dm_check_set_config(uint8_t tlv_list_len, uint8_t* p_tlv_list,
         } else {
           /* we don't stored this config items */
           update = true;
-          p_stored = NULL;
+          p_stored = nullptr;
         }
         break;
     }

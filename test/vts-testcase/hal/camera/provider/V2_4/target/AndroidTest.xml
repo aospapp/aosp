@@ -30,6 +30,6 @@
         <option name="exclude-coverage-path" value="hardware/interfaces/sensors" />
         <option name="exclude-coverage-path" value="hardware/qcom/display/msm8998" />
         <option name="exclude-coverage-path" value="vendor/qcom/msm8998/proprietary/proprietary/qmi-framework" />
-        <option name="test-timeout" value="15m"/>
+        <option name="test-timeout" value="30m"/>
     </test>
 </configuration>

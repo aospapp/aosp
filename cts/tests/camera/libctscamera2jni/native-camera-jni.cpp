@@ -29,6 +29,7 @@
 #include <jni.h>
 #include <stdio.h>
 #include <string.h>
+#include <set>
 
 #include <android/native_window_jni.h>
 
@@ -46,6 +47,11 @@ namespace {
     const int MAX_ERROR_STRING_LEN = 512;
     char errorString[MAX_ERROR_STRING_LEN];
 }
+
+template <>
+struct std::default_delete<ACameraMetadata> {
+    inline void operator()(ACameraMetadata* chars) const { ACameraMetadata_free(chars); }
+};
 
 class CameraServiceListener {
   public:
@@ -73,10 +79,23 @@ class CameraServiceListener {
         return;
     }
 
+
+    static void onCameraAccessPrioritiesChanged(void* obj) {
+        ALOGV("onCameraAccessPrioritiesChanged");
+        if (obj == nullptr) {
+            return;
+        }
+        CameraServiceListener* thiz = reinterpret_cast<CameraServiceListener*>(obj);
+        std::lock_guard<std::mutex> lock(thiz->mMutex);
+        thiz->mOnCameraAccessPrioritiesChangedCount++;
+        return;
+    }
+
     void resetCount() {
         std::lock_guard<std::mutex> lock(mMutex);
         mOnAvailableCount = 0;
         mOnUnavailableCount = 0;
+        mOnCameraAccessPrioritiesChangedCount = 0;
         return;
     }
 
@@ -88,6 +107,11 @@ class CameraServiceListener {
     int getUnavailableCount() {
         std::lock_guard<std::mutex> lock(mMutex);
         return mOnUnavailableCount;
+    }
+
+    int getCameraAccessPrioritiesChangedCount() {
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mOnCameraAccessPrioritiesChangedCount;
     }
 
     bool isAvailable(const char* cameraId) {
@@ -102,6 +126,7 @@ class CameraServiceListener {
     std::mutex mMutex;
     int mOnAvailableCount = 0;
     int mOnUnavailableCount = 0;
+    int mOnCameraAccessPrioritiesChangedCount = 0;
     std::map<std::string, bool> mAvailableMap;
 };
 
@@ -246,6 +271,7 @@ class CaptureResultListener {
     ~CaptureResultListener() {
         std::unique_lock<std::mutex> l(mMutex);
         clearSavedRequestsLocked();
+        clearFailedFrameNumbersLocked();
     }
 
     static void onCaptureStart(void* /*obj*/, ACameraCaptureSession* /*session*/,
@@ -273,6 +299,99 @@ class CaptureResultListener {
             return;
         }
 
+        ACameraMetadata* copy = ACameraMetadata_copy(result);
+        ACameraMetadata_const_entry entryCopy;
+        ret = ACameraMetadata_getConstEntry(copy, ACAMERA_SYNC_FRAME_NUMBER, &entryCopy);
+        if (ret != ACAMERA_OK) {
+            ALOGE("Error: Sync frame number missing from result copy!");
+            return;
+        }
+
+        if (entry.data.i64[0] != entryCopy.data.i64[0]) {
+            ALOGE("Error: Sync frame number %" PRId64 " mismatch result copy %" PRId64,
+                    entry.data.i64[0], entryCopy.data.i64[0]);
+            return;
+        }
+        ACameraMetadata_free(copy);
+
+        if (thiz->mSaveCompletedRequests) {
+            thiz->mCompletedRequests.push_back(ACaptureRequest_copy(request));
+        }
+
+        thiz->mLastCompletedFrameNumber = entry.data.i64[0];
+        thiz->mResultCondition.notify_one();
+    }
+
+    static void onLogicalCameraCaptureCompleted(void* obj, ACameraCaptureSession* /*session*/,
+            ACaptureRequest* request, const ACameraMetadata* result,
+            size_t physicalResultCount, const char** physicalCameraIds,
+            const ACameraMetadata** physicalResults) {
+        ALOGV("%s", __FUNCTION__);
+        if ((obj == nullptr) || (result == nullptr)) {
+            return;
+        }
+        CaptureResultListener* thiz = reinterpret_cast<CaptureResultListener*>(obj);
+        std::lock_guard<std::mutex> lock(thiz->mMutex);
+        ACameraMetadata_const_entry entry;
+        auto ret = ACameraMetadata_getConstEntry(result, ACAMERA_SYNC_FRAME_NUMBER, &entry);
+        if (ret != ACAMERA_OK) {
+            ALOGE("Error: Sync frame number missing from result!");
+            return;
+        }
+
+        ACameraMetadata* copy = ACameraMetadata_copy(result);
+        ACameraMetadata_const_entry entryCopy;
+        ret = ACameraMetadata_getConstEntry(copy, ACAMERA_SYNC_FRAME_NUMBER, &entryCopy);
+        if (ret != ACAMERA_OK) {
+            ALOGE("Error: Sync frame number missing from result copy!");
+            return;
+        }
+
+        if (entry.data.i64[0] != entryCopy.data.i64[0]) {
+            ALOGE("Error: Sync frame number %" PRId64 " mismatch result copy %" PRId64,
+                    entry.data.i64[0], entryCopy.data.i64[0]);
+            return;
+        }
+
+        if (thiz->mRegisteredPhysicalIds.size() != physicalResultCount) {
+            ALOGE("Error: Number of registered physical camera Ids %zu is different than received"
+                    " physical camera Ids %zu", thiz->mRegisteredPhysicalIds.size(),
+                    physicalResultCount);
+            return;
+        }
+        for (size_t i = 0; i < physicalResultCount; i++) {
+            if (physicalCameraIds[i] == nullptr) {
+                ALOGE("Error: Invalid physical camera id in capture result");
+                return;
+            }
+            if (physicalResults[i] == nullptr) {
+                ALOGE("Error: Invalid physical camera metadata in capture result");
+                return;
+            }
+            ACameraMetadata_const_entry physicalEntry;
+            auto ret = ACameraMetadata_getConstEntry(physicalResults[i], ACAMERA_SYNC_FRAME_NUMBER,
+                    &physicalEntry);
+            if (ret != ACAMERA_OK) {
+                ALOGE("Error: Sync frame number missing from physical camera result metadata!");
+                return;
+            }
+            if (physicalEntry.data.i64[0] != entryCopy.data.i64[0]) {
+                ALOGE("Error: Physical camera sync frame number %" PRId64
+                        " mismatch result copy %" PRId64,
+                        physicalEntry.data.i64[0], entryCopy.data.i64[0]);
+                return;
+            }
+
+            auto foundId = std::find(thiz->mRegisteredPhysicalIds.begin(),
+                    thiz->mRegisteredPhysicalIds.end(), physicalCameraIds[i]);
+            if (foundId == thiz->mRegisteredPhysicalIds.end()) {
+                ALOGE("Error: Returned physical camera Id %s is not registered",
+                        physicalCameraIds[i]);
+                return;
+            }
+        }
+        ACameraMetadata_free(copy);
+
         if (thiz->mSaveCompletedRequests) {
             thiz->mCompletedRequests.push_back(ACaptureRequest_copy(request));
         }
@@ -289,7 +408,22 @@ class CaptureResultListener {
         }
         CaptureResultListener* thiz = reinterpret_cast<CaptureResultListener*>(obj);
         std::lock_guard<std::mutex> lock(thiz->mMutex);
-        thiz->mLastFailedFrameNumber = failure->frameNumber;
+        thiz->mFailedFrameNumbers.insert(failure->frameNumber);
+        thiz->mResultCondition.notify_one();
+    }
+
+    static void onLogicalCameraCaptureFailed(void* obj, ACameraCaptureSession* /*session*/,
+            ACaptureRequest* /*request*/, ALogicalCameraCaptureFailure* failure) {
+        ALOGV("%s", __FUNCTION__);
+        if ((obj == nullptr) || (failure == nullptr)) {
+            return;
+        }
+        if (failure->physicalCameraId != nullptr) {
+            ALOGV("%s: physicalCameraId: %s", __FUNCTION__, failure->physicalCameraId);
+        }
+        CaptureResultListener* thiz = reinterpret_cast<CaptureResultListener*>(obj);
+        std::lock_guard<std::mutex> lock(thiz->mMutex);
+        thiz->mFailedFrameNumbers.insert(failure->captureFailure.frameNumber);
         thiz->mResultCondition.notify_one();
     }
 
@@ -347,8 +481,7 @@ class CaptureResultListener {
         std::unique_lock<std::mutex> l(mMutex);
 
         while ((mLastCompletedFrameNumber != frameNumber) &&
-                (mLastLostFrameNumber != frameNumber) &&
-                (mLastFailedFrameNumber != frameNumber)) {
+                (mLastLostFrameNumber != frameNumber) && !checkForFailureLocked(frameNumber)) {
             auto timeout = std::chrono::system_clock::now() +
                            std::chrono::seconds(timeoutSec);
             if (std::cv_status::timeout == mResultCondition.wait_until(l, timeout)) {
@@ -357,8 +490,7 @@ class CaptureResultListener {
         }
 
         if ((mLastCompletedFrameNumber == frameNumber) ||
-                (mLastLostFrameNumber == frameNumber) ||
-                (mLastFailedFrameNumber == frameNumber)) {
+                (mLastLostFrameNumber == frameNumber) || checkForFailureLocked(frameNumber)) {
             ret = true;
         }
 
@@ -379,15 +511,28 @@ class CaptureResultListener {
         *out = mCompletedRequests;
     }
 
+    void registerPhysicalResults(size_t physicalIdCnt, const char*const* physicalOutputs) {
+        std::unique_lock<std::mutex> l(mMutex);
+        mRegisteredPhysicalIds.clear();
+        for (size_t i = 0; i < physicalIdCnt; i++) {
+            mRegisteredPhysicalIds.push_back(physicalOutputs[i]);
+        }
+    }
+
+    bool checkForFailure(int64_t frameNumber) {
+        std::lock_guard<std::mutex> lock(mMutex);
+        return checkForFailureLocked(frameNumber);
+    }
+
     void reset() {
         std::lock_guard<std::mutex> lock(mMutex);
         mLastSequenceIdCompleted = -1;
         mLastSequenceFrameNumber = -1;
         mLastCompletedFrameNumber = -1;
         mLastLostFrameNumber = -1;
-        mLastFailedFrameNumber = -1;
         mSaveCompletedRequests = false;
         clearSavedRequestsLocked();
+        clearFailedFrameNumbersLocked();
     }
 
   private:
@@ -397,15 +542,25 @@ class CaptureResultListener {
     int64_t mLastSequenceFrameNumber = -1;
     int64_t mLastCompletedFrameNumber = -1;
     int64_t mLastLostFrameNumber = -1;
-    int64_t mLastFailedFrameNumber = -1;
+    std::set<int64_t> mFailedFrameNumbers;
     bool    mSaveCompletedRequests = false;
     std::vector<ACaptureRequest*> mCompletedRequests;
+    // Registered physical camera Ids that are being requested upon.
+    std::vector<std::string> mRegisteredPhysicalIds;
 
     void clearSavedRequestsLocked() {
         for (ACaptureRequest* req : mCompletedRequests) {
             ACaptureRequest_free(req);
         }
         mCompletedRequests.clear();
+    }
+
+    void clearFailedFrameNumbersLocked() {
+        mFailedFrameNumbers.clear();
+    }
+
+    bool checkForFailureLocked(int64_t frameNumber) {
+        return mFailedFrameNumbers.find(frameNumber) != mFailedFrameNumbers.end();
     }
 };
 
@@ -548,7 +703,121 @@ class StaticInfo {
         }
         return false;
     }
+
+    int64_t getMinFrameDurationFor(int64_t format, int64_t width, int64_t height) {
+        int32_t minFrameDurationTag = (format == AIMAGE_FORMAT_HEIC) ?
+                ACAMERA_HEIC_AVAILABLE_HEIC_MIN_FRAME_DURATIONS :
+                (format == AIMAGE_FORMAT_DEPTH_JPEG) ?
+                ACAMERA_DEPTH_AVAILABLE_DYNAMIC_DEPTH_MIN_FRAME_DURATIONS :
+                ACAMERA_SCALER_AVAILABLE_MIN_FRAME_DURATIONS;
+        return getDurationFor(minFrameDurationTag, format, width, height);
+    }
+
+    int64_t getStallDurationFor(int64_t format, int64_t width, int64_t height) {
+        int32_t stallDurationTag = (format == AIMAGE_FORMAT_HEIC) ?
+                ACAMERA_HEIC_AVAILABLE_HEIC_STALL_DURATIONS : (format == AIMAGE_FORMAT_DEPTH_JPEG) ?
+                ACAMERA_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STALL_DURATIONS :
+                ACAMERA_SCALER_AVAILABLE_STALL_DURATIONS;
+        return getDurationFor(stallDurationTag, format, width, height);
+    }
+
+    bool getMaxSizeForFormat(int32_t format, int32_t *width, int32_t *height) {
+        ACameraMetadata_const_entry entry;
+
+        int32_t streamConfigTag, streamConfigOutputTag;
+        switch (format) {
+            case AIMAGE_FORMAT_HEIC:
+                streamConfigTag = ACAMERA_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS;
+                streamConfigOutputTag = ACAMERA_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS_OUTPUT;
+                break;
+            case AIMAGE_FORMAT_DEPTH_JPEG:
+                streamConfigTag = ACAMERA_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STREAM_CONFIGURATIONS;
+                streamConfigOutputTag =
+                        ACAMERA_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STREAM_CONFIGURATIONS_OUTPUT;
+                break;
+            case AIMAGE_FORMAT_JPEG:
+            case AIMAGE_FORMAT_Y8:
+            default:
+                streamConfigTag = ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS;
+                streamConfigOutputTag = ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+                break;
+        }
+
+        bool supported = false;
+        camera_status_t status = ACameraMetadata_getConstEntry(mChars, streamConfigTag, &entry);
+        if (status == ACAMERA_ERROR_METADATA_NOT_FOUND) {
+            return supported;
+        }
+
+       int32_t w = 0, h = 0;
+        for (uint32_t i = 0; i < entry.count; i += 4) {
+            if (entry.data.i32[i] == format &&
+                    entry.data.i32[i+3] == streamConfigOutputTag &&
+                    entry.data.i32[i+1] * entry.data.i32[i+2] > w * h) {
+                w = entry.data.i32[i+1];
+                h = entry.data.i32[i+2];
+                supported = true;
+            }
+        }
+
+        if (supported) {
+            *width = w;
+            *height = h;
+        }
+        return supported;
+    }
+
+    bool isSizeSupportedForFormat(int32_t format, int32_t width, int32_t height) {
+        ACameraMetadata_const_entry entry;
+
+        int32_t streamConfigTag, streamConfigOutputTag;
+        switch (format) {
+            case AIMAGE_FORMAT_HEIC:
+                streamConfigTag = ACAMERA_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS;
+                streamConfigOutputTag = ACAMERA_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS_OUTPUT;
+                break;
+            case AIMAGE_FORMAT_JPEG:
+            case AIMAGE_FORMAT_Y8:
+            default:
+                streamConfigTag = ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS;
+                streamConfigOutputTag = ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT;
+                break;
+        }
+
+        ACameraMetadata_getConstEntry(mChars, streamConfigTag, &entry);
+        for (uint32_t i = 0; i < entry.count; i += 4) {
+            if (entry.data.i32[i] == format &&
+                    entry.data.i32[i+3] == streamConfigOutputTag &&
+                    entry.data.i32[i+1] == width &&
+                    entry.data.i32[i+2] == height) {
+                return true;
+            }
+        }
+        return false;
+    }
   private:
+    int64_t getDurationFor(uint32_t tag, int64_t format, int64_t width, int64_t height) {
+        if (tag != ACAMERA_SCALER_AVAILABLE_MIN_FRAME_DURATIONS &&
+                tag != ACAMERA_SCALER_AVAILABLE_STALL_DURATIONS &&
+                tag != ACAMERA_DEPTH_AVAILABLE_DEPTH_MIN_FRAME_DURATIONS &&
+                tag != ACAMERA_DEPTH_AVAILABLE_DEPTH_STALL_DURATIONS &&
+                tag != ACAMERA_HEIC_AVAILABLE_HEIC_MIN_FRAME_DURATIONS &&
+                tag != ACAMERA_HEIC_AVAILABLE_HEIC_STALL_DURATIONS &&
+                tag != ACAMERA_DEPTH_AVAILABLE_DYNAMIC_DEPTH_MIN_FRAME_DURATIONS &&
+                tag != ACAMERA_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STALL_DURATIONS) {
+            return -1;
+        }
+        ACameraMetadata_const_entry entry;
+        ACameraMetadata_getConstEntry(mChars, tag, &entry);
+        for (uint32_t i = 0; i < entry.count; i += 4) {
+            if (entry.data.i64[i] == format &&
+                    entry.data.i64[i+1] == width &&
+                    entry.data.i64[i+2] == height) {
+                return entry.data.i64[i+3];
+            }
+        }
+        return -1;
+    }
     const ACameraMetadata* mChars;
 };
 
@@ -673,6 +942,37 @@ class PreviewTestCase {
         return mCameraIdList->cameraIds[idx];
     }
 
+    // Caller is responsible to free returned characteristics metadata
+    ACameraMetadata* getCameraChars(int idx) {
+        if (!mMgrInited || !mCameraIdList || idx < 0 || idx >= mCameraIdList->numCameras) {
+            return nullptr;
+        }
+
+        ACameraMetadata* chars;
+        camera_status_t ret = ACameraManager_getCameraCharacteristics(
+                mCameraManager, mCameraIdList->cameraIds[idx], &chars);
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "Get camera characteristics failed: ret %d", ret);
+            return nullptr;
+        }
+        return chars;
+    }
+
+    // Caller is responsible to free returned characteristics metadata.
+    ACameraMetadata* getCameraChars(const char* id) {
+        if (!mMgrInited || id == nullptr) {
+            return nullptr;
+        }
+
+        ACameraMetadata* chars;
+        camera_status_t ret = ACameraManager_getCameraCharacteristics(mCameraManager, id, &chars);
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "Get camera characteristics failed: ret %d", ret);
+            return nullptr;
+        }
+        return chars;
+    }
+
     camera_status_t updateOutput(JNIEnv* env, ACaptureSessionOutput *output) {
         if (mSession == nullptr) {
             ALOGE("Testcase cannot update output configuration session %p",
@@ -713,34 +1013,49 @@ class PreviewTestCase {
             return AMEDIA_ERROR_UNKNOWN;
         }
 
+        media_status_t ret = initImageReaderWithErrorLog(
+                width, height, format, maxImages, listener, &mImgReader,
+                &mImgReaderAnw);
+        if (ret != AMEDIA_OK) {
+            return ret;
+        }
+
+        mImgReaderInited = true;
+        return AMEDIA_OK;
+    }
+
+    media_status_t initImageReaderWithErrorLog(
+            int32_t width, int32_t height, int32_t format, int32_t maxImages,
+            AImageReader_ImageListener* listener, AImageReader **imgReader,
+            ANativeWindow **imgReaderAnw) {
+
         media_status_t ret = AImageReader_new(
                 width, height, format,
-                maxImages, &mImgReader);
+                maxImages, imgReader);
         if (ret != AMEDIA_OK) {
             LOG_ERROR(errorString, "Create image reader. ret %d", ret);
             return ret;
         }
-        if (mImgReader == nullptr) {
+        if (*imgReader == nullptr) {
             LOG_ERROR(errorString, "null image reader created");
             return AMEDIA_ERROR_UNKNOWN;
         }
 
-        ret = AImageReader_setImageListener(mImgReader, listener);
+        ret = AImageReader_setImageListener(*imgReader, listener);
         if (ret != AMEDIA_OK) {
             LOG_ERROR(errorString, "Set AImageReader listener failed. ret %d", ret);
             return ret;
         }
 
-        ret = AImageReader_getWindow(mImgReader, &mImgReaderAnw);
+        ret = AImageReader_getWindow(*imgReader, imgReaderAnw);
         if (ret != AMEDIA_OK) {
             LOG_ERROR(errorString, "AImageReader_getWindow failed. ret %d", ret);
             return ret;
         }
-        if (mImgReaderAnw == nullptr) {
+        if (*imgReaderAnw == nullptr) {
             LOG_ERROR(errorString, "Null ANW from AImageReader!");
             return AMEDIA_ERROR_UNKNOWN;
         }
-        mImgReaderInited = true;
         return AMEDIA_OK;
     }
 
@@ -756,18 +1071,22 @@ class PreviewTestCase {
 
     camera_status_t createCaptureSessionWithLog(bool isPreviewShared = false,
             ACaptureRequest *sessionParameters = nullptr) {
-        if (mSession) {
-            LOG_ERROR(errorString, "Cannot create session before closing existing one");
+        std::vector<ACaptureSessionOutput*> extraOutputs;
+        return createCaptureSessionWithLog(extraOutputs, isPreviewShared, sessionParameters);
+    }
+
+    camera_status_t createCaptureSessionOutputContainer(
+            const std::vector<ACaptureSessionOutput*> extraOutputs,
+            ACaptureSessionOutputContainer** outputs,
+            bool isPreviewShared = false, ACaptureRequest *sessionParameters = nullptr) {
+        if (!mMgrInited || (!mImgReaderInited && !mPreviewInited) || !outputs) {
+            LOG_ERROR(errorString, "Cannot create session output container. mgrInit %d "
+                    "readerInit %d previewInit %d outputs %p",
+                    mMgrInited, mImgReaderInited, mPreviewInited, outputs);
             return ACAMERA_ERROR_UNKNOWN;
         }
 
-        if (!mMgrInited || (!mImgReaderInited && !mPreviewInited)) {
-            LOG_ERROR(errorString, "Cannot create session. mgrInit %d readerInit %d previewInit %d",
-                    mMgrInited, mImgReaderInited, mPreviewInited);
-            return ACAMERA_ERROR_UNKNOWN;
-        }
-
-        camera_status_t ret = ACaptureSessionOutputContainer_create(&mOutputs);
+        camera_status_t ret = ACaptureSessionOutputContainer_create(outputs);
         if (ret != ACAMERA_OK) {
             LOG_ERROR(errorString, "Create capture session output container failed. ret %d", ret);
             return ret;
@@ -777,7 +1096,7 @@ class PreviewTestCase {
             ret = ACaptureSessionOutput_create(mImgReaderAnw, &mImgReaderOutput);
             if (ret != ACAMERA_OK || mImgReaderOutput == nullptr) {
                 LOG_ERROR(errorString,
-                        "Sesssion image reader output create fail! ret %d output %p",
+                        "Session image reader output create fail! ret %d output %p",
                         ret, mImgReaderOutput);
                 if (ret == ACAMERA_OK) {
                     ret = ACAMERA_ERROR_UNKNOWN; // ret OK but output is null
@@ -785,9 +1104,17 @@ class PreviewTestCase {
                 return ret;
             }
 
-            ret = ACaptureSessionOutputContainer_add(mOutputs, mImgReaderOutput);
+            ret = ACaptureSessionOutputContainer_add(*outputs, mImgReaderOutput);
             if (ret != ACAMERA_OK) {
-                LOG_ERROR(errorString, "Sesssion image reader output add failed! ret %d", ret);
+                LOG_ERROR(errorString, "Session image reader output add failed! ret %d", ret);
+                return ret;
+            }
+        }
+
+        for (auto extraOutput : extraOutputs) {
+            ret = ACaptureSessionOutputContainer_add(*outputs, extraOutput);
+            if (ret != ACAMERA_OK) {
+                LOG_ERROR(errorString, "Session image reader output add failed! ret %d", ret);
                 return ret;
             }
         }
@@ -800,7 +1127,7 @@ class PreviewTestCase {
             }
             if (ret != ACAMERA_OK || mPreviewOutput == nullptr) {
                 LOG_ERROR(errorString,
-                        "Sesssion preview output create fail! ret %d output %p",
+                        "Session preview output create fail! ret %d output %p",
                         ret, mPreviewOutput);
                 if (ret == ACAMERA_OK) {
                     ret = ACAMERA_ERROR_UNKNOWN; // ret OK but output is null
@@ -808,11 +1135,43 @@ class PreviewTestCase {
                 return ret;
             }
 
-            ret = ACaptureSessionOutputContainer_add(mOutputs, mPreviewOutput);
+            ret = ACaptureSessionOutputContainer_add(*outputs, mPreviewOutput);
             if (ret != ACAMERA_OK) {
-                LOG_ERROR(errorString, "Sesssion preview output add failed! ret %d", ret);
+                LOG_ERROR(errorString, "Session preview output add failed! ret %d", ret);
                 return ret;
             }
+        }
+        return ret;
+    }
+
+    camera_status_t createCaptureSessionWithLog(
+            const std::vector<ACaptureSessionOutput*> extraOutputs,
+            bool isPreviewShared = false, ACaptureRequest *sessionParameters = nullptr,
+            bool sessionConfigurationDefault = true) {
+        if (mSession) {
+            LOG_ERROR(errorString, "Cannot create session before closing existing one");
+            return ACAMERA_ERROR_UNKNOWN;
+        }
+
+        camera_status_t ret = createCaptureSessionOutputContainer(
+                extraOutputs, &mOutputs, isPreviewShared, sessionParameters);
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "Failed to create session output container! ret %d", ret);
+            return ret;
+        }
+
+        ret = ACameraDevice_isSessionConfigurationSupported(mDevice, mOutputs);
+        if (ret != ACAMERA_OK && ret != ACAMERA_ERROR_UNSUPPORTED_OPERATION &&
+                ret != ACAMERA_ERROR_STREAM_CONFIGURE_FAIL) {
+            LOG_ERROR(errorString, "isSessionConfigurationSupported must return either OK "
+                    ", UNSUPPORTED_OPERATION, or STREAM_CONFIGURE_FAIL, but returns %d", ret);
+            return ret;
+        }
+
+        // If session configuration is not supported by default, return early
+        // when camera device doesn't explicitly claim support.
+        if (ret != ACAMERA_OK && !sessionConfigurationDefault) {
+            return ret;
         }
 
         ret = ACameraDevice_createCaptureSessionWithSessionParameters(
@@ -849,6 +1208,13 @@ class PreviewTestCase {
     }
 
     camera_status_t createRequestsWithErrorLog() {
+        std::vector<ACameraOutputTarget*> extraOutputs;
+        return createRequestsWithErrorLog(extraOutputs);
+    }
+
+    camera_status_t createRequestsWithErrorLog(
+                const std::vector<ACameraOutputTarget*> extraOutputs,
+                const ACameraIdList* physicalCameraIdList = nullptr) {
         if (mPreviewRequest || mStillRequest) {
             LOG_ERROR(errorString, "Cannot create requests before deleteing existing one");
             return ACAMERA_ERROR_UNKNOWN;
@@ -862,13 +1228,51 @@ class PreviewTestCase {
         }
 
         camera_status_t ret;
+        bool usePhysicalSettings = (physicalCameraIdList != nullptr);
         if (mPreviewInited) {
-            ret = ACameraDevice_createCaptureRequest(
-                    mDevice, TEMPLATE_PREVIEW, &mPreviewRequest);
+            if (!usePhysicalSettings) {
+                ret = ACameraDevice_createCaptureRequest(
+                        mDevice, TEMPLATE_PREVIEW, &mPreviewRequest);
+            } else {
+                ret = ACameraDevice_createCaptureRequest_withPhysicalIds(
+                        mDevice, TEMPLATE_PREVIEW, physicalCameraIdList, &mPreviewRequest);
+            }
             if (ret != ACAMERA_OK) {
                 LOG_ERROR(errorString, "Camera %s create preview request failed. ret %d",
                         mCameraId, ret);
                 return ret;
+            }
+
+            if (usePhysicalSettings) {
+                for (int i = 0; i < physicalCameraIdList->numCameras; i++) {
+                    // Check physical camera specific metadata functions.
+                    uint8_t aeMode = ACAMERA_CONTROL_AE_MODE_ON;
+                    ret = ACaptureRequest_setEntry_physicalCamera_u8(mPreviewRequest,
+                            physicalCameraIdList->cameraIds[i], ACAMERA_CONTROL_AE_MODE,
+                            1 /*count*/, &aeMode);
+                    if (ret != ACAMERA_OK) {
+                        LOG_ERROR(errorString,
+                            "Error: Camera %s update AE mode key fail. ret %d",
+                            physicalCameraIdList->cameraIds[i], ret);
+                        return ret;
+                    }
+
+                    ACameraMetadata_const_entry entry;
+                    ret = ACaptureRequest_getConstEntry_physicalCamera(mPreviewRequest,
+                                physicalCameraIdList->cameraIds[i],
+                                ACAMERA_CONTROL_AE_MODE, &entry);
+                    if (ret != ACAMERA_OK) {
+                        LOG_ERROR(errorString, "Get AE mode key for physicalCamera %s failed."
+                                " ret %d", physicalCameraIdList->cameraIds[i], ret);
+                        return ret;
+                    }
+                    if (entry.data.u8[0] != aeMode) {
+                        LOG_ERROR(errorString,
+                            "Error: AE mode key is not updated. expect %d but get %d",
+                            aeMode, entry.data.u8[0]);
+                        return ACAMERA_ERROR_UNKNOWN;
+                    }
+                }
             }
 
             ret = ACameraOutputTarget_create(mPreviewAnw, &mReqPreviewOutput);
@@ -884,6 +1288,16 @@ class PreviewTestCase {
                 LOG_ERROR(errorString, "Camera %s add preview request output failed. ret %d",
                         mCameraId, ret);
                 return ret;
+            }
+
+            // Add extraOutputs to the request
+            for (auto extraOutput : extraOutputs) {
+                ret = ACaptureRequest_addTarget(mPreviewRequest, extraOutput);
+                if (ret != ACAMERA_OK) {
+                    LOG_ERROR(errorString, "Camera %s add extra request output failed. ret %d",
+                            mCameraId, ret);
+                    return ret;
+                }
             }
         } else {
             ALOGI("Preview not inited. Will not create preview request!");
@@ -948,7 +1362,8 @@ class PreviewTestCase {
         return ACAMERA_OK;
     }
 
-    camera_status_t startPreview(int *sequenceId = nullptr) {
+    camera_status_t startPreview(int *sequenceId = nullptr, size_t physicalIdCnt = 0,
+            const char*const* extraPhysicalOutputs = nullptr) {
         if (mSession == nullptr || mPreviewRequest == nullptr) {
             ALOGE("Testcase cannot start preview: session %p, preview request %p",
                     mSession, mPreviewRequest);
@@ -959,11 +1374,41 @@ class PreviewTestCase {
         if (sequenceId == nullptr) {
             ret = ACameraCaptureSession_setRepeatingRequest(
                    mSession, nullptr, 1, &mPreviewRequest, &previewSeqId);
-        } else {
+        } else if (physicalIdCnt == 0) {
             ret = ACameraCaptureSession_setRepeatingRequest(
                    mSession, &mResultCb, 1, &mPreviewRequest, sequenceId);
+        } else {
+            if (extraPhysicalOutputs == nullptr) {
+                ALOGE("Testcase missing valid physical camera Ids for logical camera");
+                return ACAMERA_ERROR_INVALID_PARAMETER;
+            }
+            CaptureResultListener* resultListener =
+                    static_cast<CaptureResultListener*>(mLogicalCameraResultCb.context);
+            resultListener->registerPhysicalResults(physicalIdCnt, extraPhysicalOutputs);
+            ret = ACameraCaptureSession_logicalCamera_setRepeatingRequest(
+                    mSession, &mLogicalCameraResultCb, 1, &mPreviewRequest, sequenceId);
         }
         return ret;
+    }
+
+    camera_status_t startRepeatingRequest(int *sequenceId, ACaptureRequest *request,
+            ACameraCaptureSession_captureCallbacks *resultCb) {
+        if (mSession == nullptr || request == nullptr || resultCb == nullptr) {
+            ALOGE("Testcase cannot start repeating request: session %p, request %p resultCb %p",
+                    mSession, request, resultCb);
+            return ACAMERA_ERROR_UNKNOWN;
+        }
+
+        return ACameraCaptureSession_setRepeatingRequest(mSession, resultCb, 1, &request,
+                sequenceId);
+    }
+
+    camera_status_t stopPreview() {
+        if (mSession == nullptr) {
+            ALOGE("Testcase cannot stop preview: session %p", mSession);
+            return ACAMERA_ERROR_UNKNOWN;
+        }
+        return ACameraCaptureSession_stopRepeating(mSession);
     }
 
     camera_status_t updateRepeatingRequest(ACaptureRequest *updatedRequest,
@@ -1096,6 +1541,17 @@ class PreviewTestCase {
         CaptureResultListener::onCaptureProgressed,
         CaptureResultListener::onCaptureCompleted,
         CaptureResultListener::onCaptureFailed,
+        CaptureResultListener::onCaptureSequenceCompleted,
+        CaptureResultListener::onCaptureSequenceAborted,
+        CaptureResultListener::onCaptureBufferLost
+    };
+
+    ACameraCaptureSession_logicalCamera_captureCallbacks mLogicalCameraResultCb {
+        &mResultListener,
+        CaptureResultListener::onCaptureStart,
+        CaptureResultListener::onCaptureProgressed,
+        CaptureResultListener::onLogicalCameraCaptureCompleted,
+        CaptureResultListener::onLogicalCameraCaptureFailed,
         CaptureResultListener::onCaptureSequenceCompleted,
         CaptureResultListener::onCaptureSequenceAborted,
         CaptureResultListener::onCaptureBufferLost
@@ -1282,6 +1738,7 @@ testCameraManagerCharacteristicsNative(
     ACameraManager* mgr = ACameraManager_create();
     ACameraIdList *cameraIdList = nullptr;
     ACameraMetadata* chars = nullptr;
+    ACameraMetadata* copy = nullptr;
     int numCameras = 0;
     camera_status_t ret = ACameraManager_getCameraIdList(mgr, &cameraIdList);
     if (ret != ACAMERA_OK || cameraIdList == nullptr) {
@@ -1309,7 +1766,7 @@ testCameraManagerCharacteristicsNative(
 
         for (int tid = 0; tid < numTags; tid++) {
             uint32_t tagId = tags[tid];
-            ALOGV("%s capture request contains key %u", __FUNCTION__, tagId);
+            ALOGV("%s camera characteristics contains key %u", __FUNCTION__, tagId);
             uint32_t sectionId = tagId >> 16;
             if (sectionId >= ACAMERA_SECTION_COUNT && sectionId < ACAMERA_VENDOR) {
                 LOG_ERROR(errorString, "Unknown tagId %u, sectionId %u", tagId, sectionId);
@@ -1350,6 +1807,26 @@ testCameraManagerCharacteristicsNative(
             goto cleanup;
         }
 
+        // Check copy works
+        copy = ACameraMetadata_copy(chars);
+
+        // Compare copy with original
+        ACameraMetadata_const_entry entryCopy;
+        ret = ACameraMetadata_getConstEntry(
+                copy, ACAMERA_REQUEST_AVAILABLE_CAPABILITIES, &entryCopy);
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "Get const available capabilities key failed. ret %d", ret);
+            goto cleanup;
+        }
+        for (uint32_t i = 0; i < entry.count; i++) {
+            if (entry.data.u8[i] != entryCopy.data.u8[i]) {
+                LOG_ERROR(errorString,
+                    "Copy of available capability key[%d]: %d mismatches original %d",
+                    i, entryCopy.data.u8[i], entry.data.u8[i]);
+                goto cleanup;
+            }
+        }
+
         // Check get unknown value fails
         uint32_t badTag = (uint32_t) ACAMERA_VENDOR_START - 1;
         ret = ACameraMetadata_getConstEntry(chars, badTag, &entry);
@@ -1359,13 +1836,18 @@ testCameraManagerCharacteristicsNative(
         }
 
         ACameraMetadata_free(chars);
+        ACameraMetadata_free(copy);
         chars = nullptr;
+        copy = nullptr;
     }
 
     pass = true;
 cleanup:
     if (chars) {
         ACameraMetadata_free(chars);
+    }
+    if (copy) {
+        ACameraMetadata_free(copy);
     }
     ACameraManager_deleteCameraIdList(cameraIdList);
     ACameraManager_delete(mgr);
@@ -1544,6 +2026,20 @@ testCameraDeviceCreateCaptureRequestNative(
 
             // try get/set capture request fields
             ACameraMetadata_const_entry entry;
+            ret = ACaptureRequest_getConstEntry_physicalCamera(request, nullptr,
+                    ACAMERA_CONTROL_AE_MODE, &entry);
+            if (ret != ACAMERA_ERROR_INVALID_PARAMETER) {
+                LOG_ERROR(errorString, "Get AE mode key for null physical id should fail. ret %d",
+                        ret);
+                goto cleanup;
+            }
+            ret = ACaptureRequest_getConstEntry_physicalCamera(request, cameraId,
+                    ACAMERA_CONTROL_AE_MODE, &entry);
+            if (ret != ACAMERA_ERROR_INVALID_PARAMETER) {
+                LOG_ERROR(errorString, "Get AE mode key for physical id should fail. ret %d",
+                        ret);
+                goto cleanup;
+            }
             ret = ACaptureRequest_getConstEntry(request, ACAMERA_CONTROL_AE_MODE, &entry);
             if (ret != ACAMERA_OK) {
                 LOG_ERROR(errorString, "Get AE mode key failed. ret %d", ret);
@@ -1567,6 +2063,20 @@ testCameraDeviceCreateCaptureRequestNative(
                 }
                 // try set AE_MODE_ON
                 uint8_t aeMode = ACAMERA_CONTROL_AE_MODE_ON;
+                ret = ACaptureRequest_setEntry_physicalCamera_u8(
+                        request, nullptr, ACAMERA_CONTROL_AE_MODE, /*count*/ 1, &aeMode);
+                if (ret != ACAMERA_ERROR_INVALID_PARAMETER) {
+                    LOG_ERROR(errorString, "Error: camera %s setEntry_physicalCamera_u8 should "
+                            "fail. ret %d", cameraId, ret);
+                    goto cleanup;
+                }
+                ret = ACaptureRequest_setEntry_physicalCamera_u8(
+                        request, cameraId, ACAMERA_CONTROL_AE_MODE, /*count*/ 1, &aeMode);
+                if (ret != ACAMERA_ERROR_INVALID_PARAMETER) {
+                    LOG_ERROR(errorString, "Error: camera %s setEntry_physicalCamera_u8 should "
+                            "fail. ret %d", cameraId, ret);
+                    goto cleanup;
+                }
                 ret = ACaptureRequest_setEntry_u8(
                         request, ACAMERA_CONTROL_AE_MODE, /*count*/ 1, &aeMode);
                 if (ret != ACAMERA_OK) {
@@ -1682,6 +2192,18 @@ testCameraDeviceSessionOpenAndCloseNative(
         if (cameraId == nullptr) {
             LOG_ERROR(errorString, "Testcase returned null camera id for camera %d", i);
             goto cleanup;
+        }
+
+        {
+            ACameraMetadata* chars = testCase.getCameraChars(cameraId);
+            StaticInfo staticInfo(chars);
+            if (!staticInfo.isColorOutputSupported()) {
+                ALOGI("%s: camera %s does not support color output. skipping",
+                        __FUNCTION__, cameraId);
+                ACameraMetadata_free(chars);
+                continue;
+            }
+            ACameraMetadata_free(chars);
         }
 
         ret = testCase.openCamera(cameraId);
@@ -1819,6 +2341,18 @@ testCameraDeviceSharedOutputUpdate(
         if (cameraId == nullptr) {
             LOG_ERROR(errorString, "Testcase returned null camera id for camera %d", i);
             goto cleanup;
+        }
+
+        {
+            ACameraMetadata* chars = testCase.getCameraChars(cameraId);
+            StaticInfo staticInfo(chars);
+            if (!staticInfo.isColorOutputSupported()) {
+                ALOGI("%s: camera %s does not support color output. skipping",
+                        __FUNCTION__, cameraId);
+                ACameraMetadata_free(chars);
+                continue;
+            }
+            ACameraMetadata_free(chars);
         }
 
         ret = testCase.openCamera(cameraId);
@@ -2067,6 +2601,18 @@ testCameraDeviceSimplePreviewNative(
             goto cleanup;
         }
 
+        {
+            ACameraMetadata* chars = testCase.getCameraChars(cameraId);
+            StaticInfo staticInfo(chars);
+            if (!staticInfo.isColorOutputSupported()) {
+                ALOGI("%s: camera %s does not support color output. skipping",
+                        __FUNCTION__, cameraId);
+                ACameraMetadata_free(chars);
+                continue;
+            }
+            ACameraMetadata_free(chars);
+        }
+
         ret = testCase.openCamera(cameraId);
         if (ret != ACAMERA_OK) {
             LOG_ERROR(errorString, "Open camera device %s failure. ret %d", cameraId, ret);
@@ -2263,8 +2809,302 @@ cleanup:
     return pass;
 }
 
+bool nativeCameraDeviceLogicalPhysicalStreaming(
+        JNIEnv* env, jobject jPreviewSurface, bool usePhysicalSettings) {
+    const int NUM_TEST_IMAGES = 10;
+    const int TEST_WIDTH  = 640;
+    const int TEST_HEIGHT = 480;
+    ALOGV("%s", __FUNCTION__);
+    int numCameras = 0;
+    bool pass = false;
+    ACameraManager* mgr = ACameraManager_create();
+    ACameraMetadata* chars = nullptr;
+    media_status_t mediaRet = AMEDIA_ERROR_UNKNOWN;
+    PreviewTestCase testCase;
+    int64_t lastFrameNumber = 0;
+    bool frameArrived = false;
+    uint32_t timeoutSec = 1;
+    uint32_t runPreviewSec = 2;
+
+    camera_status_t ret = testCase.initWithErrorLog();
+    if (ret != ACAMERA_OK) {
+        // Don't log error here. testcase did it
+        goto cleanup;
+    }
+
+    numCameras = testCase.getNumCameras();
+    if (numCameras < 0) {
+        LOG_ERROR(errorString, "Testcase returned negavtive number of cameras: %d", numCameras);
+        goto cleanup;
+    }
+
+    for (int i = 0; i < numCameras; i++) {
+        const char* cameraId = testCase.getCameraId(i);
+        if (cameraId == nullptr) {
+            LOG_ERROR(errorString, "Testcase returned null camera id for camera %d", i);
+            goto cleanup;
+        }
+
+        if (chars != nullptr) {
+            ACameraMetadata_free(chars);
+            chars = nullptr;
+        }
+        chars = testCase.getCameraChars(i);
+        if (chars == nullptr) {
+            LOG_ERROR(errorString, "Get camera %s characteristics failure", cameraId);
+            goto cleanup;
+        }
+
+        size_t physicalCameraCnt = 0;
+        const char *const* physicalCameraIds = nullptr;
+        if (!ACameraMetadata_isLogicalMultiCamera(
+                chars, &physicalCameraCnt, &physicalCameraIds)) {
+            continue;
+        }
+        if (physicalCameraCnt < 2) {
+            LOG_ERROR(errorString, "Logical camera device %s only has %zu physical cameras",
+                   cameraId, physicalCameraCnt);
+            goto cleanup;
+        }
+
+        std::vector<const char*> candidateIds;
+        for (size_t i = 0; i < physicalCameraCnt && candidateIds.size() < 2; i++) {
+            ACameraMetadata* physicalChars = testCase.getCameraChars(physicalCameraIds[i]);
+            if (physicalChars == nullptr) {
+                LOG_ERROR(errorString,
+                        "Get camera %s characteristics failure", physicalCameraIds[i]);
+                goto cleanup;
+            }
+            StaticInfo info(physicalChars);
+            bool testSizeSupported = info.isSizeSupportedForFormat(AIMAGE_FORMAT_YUV_420_888,
+                    TEST_WIDTH, TEST_HEIGHT);
+            ACameraMetadata_free(physicalChars);
+            if (!testSizeSupported) {
+                continue;
+            }
+            candidateIds.push_back(physicalCameraIds[i]);
+        }
+        if (candidateIds.size() < 2) {
+            continue;
+        }
+
+        // Check physical camera request keys
+        if (usePhysicalSettings) {
+            ACameraMetadata_const_entry entry;
+            camera_status_t status = ACameraMetadata_getConstEntry(
+                    chars, ACAMERA_REQUEST_AVAILABLE_PHYSICAL_CAMERA_REQUEST_KEYS, &entry);
+            if (status == ACAMERA_ERROR_METADATA_NOT_FOUND) {
+                // No supported PHYSICAL_CAMERA_REQUEST_KEYS, skip test
+                continue;
+            } else if (status != ACAMERA_OK) {
+                // Do not log error here. testcase did it.
+                goto cleanup;
+            } else if (entry.count == 0) {
+                // No supported PHYSICAL_CAMERA_REQUEST_KEYS, skip test
+                continue;
+            }
+        }
+
+        ret = testCase.openCamera(cameraId);
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "Open camera device %s failure. ret %d", cameraId, ret);
+            goto cleanup;
+        }
+
+        usleep(100000); // sleep to give some time for callbacks to happen
+
+        if (testCase.isCameraAvailable(cameraId)) {
+            LOG_ERROR(errorString, "Camera %s should be unavailable now", cameraId);
+            goto cleanup;
+        }
+
+        std::vector<ImageReaderListener> readerListeners(2);
+        std::vector<AImageReader_ImageListener> readerCbs;
+        std::vector<AImageReader*> readers;
+        std::vector<ANativeWindow*> readerAnws;
+        std::vector<ACaptureSessionOutput*> readerSessionOutputs;
+        std::vector<ACameraOutputTarget*> readerOutputs;
+        for (size_t i = 0; i < 2; i++) {
+            AImageReader_ImageListener readerCb {
+                &readerListeners[i],
+                ImageReaderListener::validateImageCb
+            };
+            readerCbs.push_back(readerCb);
+
+            AImageReader* reader = nullptr;
+            ANativeWindow* readerAnw = nullptr;
+            ACaptureSessionOutput* readerSessionOutput = nullptr;
+            ACameraOutputTarget* readerOutput = nullptr;
+            mediaRet = testCase.initImageReaderWithErrorLog(
+                    TEST_WIDTH, TEST_HEIGHT, AIMAGE_FORMAT_YUV_420_888, NUM_TEST_IMAGES,
+                    &readerCb, &reader, &readerAnw);
+            if (mediaRet != AMEDIA_OK) {
+                // Don't log error here. testcase did it
+                goto cleanup;
+            }
+
+            camera_status_t ret = ACaptureSessionPhysicalOutput_create(readerAnw,
+                    candidateIds[i], &readerSessionOutput);
+            if (ret != ACAMERA_OK || readerSessionOutput == nullptr) {
+                if (ret == ACAMERA_OK) {
+                    ret = ACAMERA_ERROR_UNKNOWN; // ret OK but output is null
+                }
+                // Don't log error here. testcase did it
+                goto cleanup;
+            }
+
+            ret = ACameraOutputTarget_create(readerAnw, &readerOutput);
+            if (ret != ACAMERA_OK) {
+                // Don't log error here. testcase did it
+                goto cleanup;
+            }
+
+            readers.push_back(reader);
+            readerAnws.push_back(readerAnw);
+            readerSessionOutputs.push_back(readerSessionOutput);
+            readerOutputs.push_back(readerOutput);
+        }
+
+        ANativeWindow* previewAnw = testCase.initPreviewAnw(env, jPreviewSurface);
+        if (previewAnw == nullptr) {
+            LOG_ERROR(errorString, "Null ANW from preview surface!");
+            goto cleanup;
+        }
+
+        ret = testCase.createCaptureSessionWithLog(readerSessionOutputs, false /*isPreviewShared*/,
+                nullptr /*sessionParameters*/, false /*sessionConfigurationDefault*/);
+        if (ret == ACAMERA_ERROR_UNSUPPORTED_OPERATION ||
+                ret == ACAMERA_ERROR_STREAM_CONFIGURE_FAIL) {
+            // Camera device doesn't support the stream combination, skip the
+            // current camera.
+            testCase.closeCamera();
+            testCase.resetCamera();
+            continue;
+        } else if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto cleanup;
+        }
+
+        if (usePhysicalSettings) {
+            std::vector<const char*> twoNullStr = {nullptr, nullptr};
+            ACameraIdList nullCameraIdList = {2, twoNullStr.data()};
+            ret = testCase.createRequestsWithErrorLog(readerOutputs, &nullCameraIdList);
+            if (ret != ACAMERA_ERROR_INVALID_PARAMETER) {
+                LOG_ERROR(errorString, "Null physical camera ids must fail createCaptureRequest. "
+                        "ret %d", ret);
+                goto cleanup;
+            }
+
+            std::string invalidId = "";
+            std::vector<const char*> one0LengthStr = {invalidId.c_str()};
+            ACameraIdList invalidCameraIdList = {1, one0LengthStr.data()};
+            ret = testCase.createRequestsWithErrorLog(readerOutputs, &invalidCameraIdList);
+            if (ret != ACAMERA_ERROR_INVALID_PARAMETER) {
+                LOG_ERROR(errorString, "zero-length physical camera ids must fail "
+                        "createCaptureRequest. ret %d", ret);
+                goto cleanup;
+            }
+
+            ACameraIdList physicalCameraIdList = {2, candidateIds.data()};
+            ret = testCase.createRequestsWithErrorLog(readerOutputs, &physicalCameraIdList);
+        } else {
+            ret = testCase.createRequestsWithErrorLog(readerOutputs);
+        }
+        if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto cleanup;
+        }
+
+        ACaptureRequest *previewRequest = nullptr;
+        ret = testCase.getPreviewRequest(&previewRequest);
+        if ((ret != ACAMERA_OK) || (previewRequest == nullptr)) {
+            LOG_ERROR(errorString, "Preview request query failed!");
+            goto cleanup;
+        }
+
+        int sequenceId = 0;
+        ret = testCase.startPreview(&sequenceId, 2, candidateIds.data());
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "Start preview failed!");
+            goto cleanup;
+        }
+
+        sleep(runPreviewSec);
+
+        ret = testCase.stopPreview();
+        if (ret != ACAMERA_OK) {
+            ALOGE("%s: stopPreview failed", __FUNCTION__);
+            LOG_ERROR(errorString, "stopPreview failed!");
+            goto cleanup;
+        }
+
+        //Then wait for all old requests to flush
+        lastFrameNumber = testCase.getCaptureSequenceLastFrameNumber(sequenceId, timeoutSec);
+        if (lastFrameNumber < 0) {
+            LOG_ERROR(errorString, "Camera %s failed to acquire last frame number!",
+                    cameraId);
+            goto cleanup;
+        }
+
+        frameArrived = testCase.waitForFrameNumber(lastFrameNumber, timeoutSec);
+        if (!frameArrived) {
+            LOG_ERROR(errorString, "Camera %s timed out waiting on last frame number!",
+                    cameraId);
+            goto cleanup;
+        }
+
+        ret = testCase.resetWithErrorLog();
+        if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto cleanup;
+        }
+
+        usleep(100000); // sleep to give some time for callbacks to happen
+
+        if (!testCase.isCameraAvailable(cameraId)) {
+            LOG_ERROR(errorString, "Camera %s should be available now", cameraId);
+            goto cleanup;
+        }
+    }
+
+    ret = testCase.deInit();
+    if (ret != ACAMERA_OK) {
+        LOG_ERROR(errorString, "Testcase deInit failed: ret %d", ret);
+        goto cleanup;
+    }
+
+    pass = true;
+cleanup:
+    if (chars) {
+        ACameraMetadata_free(chars);
+    }
+    ACameraManager_delete(mgr);
+    ALOGI("%s %s", __FUNCTION__, pass ? "pass" : "failed");
+    if (!pass) {
+        throwAssertionError(env, errorString);
+    }
+    return pass;
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeCameraDeviceTest_\
+testCameraDeviceLogicalPhysicalStreamingNative(
+        JNIEnv* env, jclass /*clazz*/, jobject jPreviewSurface) {
+    return nativeCameraDeviceLogicalPhysicalStreaming(env,
+            jPreviewSurface, false /*usePhysicalSettings*/);
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeCameraDeviceTest_\
+testCameraDeviceLogicalPhysicalSettingsNative(
+        JNIEnv* env, jclass /*clazz*/, jobject jPreviewSurface) {
+    return nativeCameraDeviceLogicalPhysicalStreaming(env,
+            jPreviewSurface, true /*usePhysicalSettings*/);
+}
+
+
 bool nativeImageReaderTestBase(
-        JNIEnv* env, jstring jOutPath, AImageReader_ImageCallback cb) {
+        JNIEnv* env, jstring jOutPath, jint format, AImageReader_ImageCallback cb) {
     const int NUM_TEST_IMAGES = 10;
     const int TEST_WIDTH  = 640;
     const int TEST_HEIGHT = 480;
@@ -2272,6 +3112,7 @@ bool nativeImageReaderTestBase(
     int numCameras = 0;
     bool pass = false;
     PreviewTestCase testCase;
+    ACameraMetadata* chars = nullptr;
 
     const char* outPath = (jOutPath == nullptr) ? nullptr :
             env->GetStringUTFChars(jOutPath, nullptr);
@@ -2298,11 +3139,30 @@ bool nativeImageReaderTestBase(
             goto cleanup;
         }
 
+        {
+            ACameraMetadata* chars = testCase.getCameraChars(cameraId);
+            StaticInfo staticInfo(chars);
+            if (!staticInfo.isColorOutputSupported()) {
+                ALOGI("%s: camera %s does not support color output. skipping",
+                        __FUNCTION__, cameraId);
+                ACameraMetadata_free(chars);
+                continue;
+            }
+            ACameraMetadata_free(chars);
+        }
+
         ret = testCase.openCamera(cameraId);
         if (ret != ACAMERA_OK) {
             LOG_ERROR(errorString, "Open camera device %s failure. ret %d", cameraId, ret);
             goto cleanup;
         }
+
+        chars = testCase.getCameraChars(i);
+        if (chars == nullptr) {
+            LOG_ERROR(errorString, "Get camera %s characteristics failure", cameraId);
+            goto cleanup;
+        }
+        StaticInfo staticInfo(chars);
 
         usleep(100000); // sleep to give some time for callbacks to happen
 
@@ -2315,8 +3175,34 @@ bool nativeImageReaderTestBase(
         AImageReader_ImageListener readerCb { &readerListener, cb };
         readerListener.setDumpFilePathBase(outPath);
 
+        int32_t testWidth, testHeight;
+        switch (format) {
+            case AIMAGE_FORMAT_JPEG:
+                testWidth = TEST_WIDTH;
+                testHeight = TEST_HEIGHT;
+                break;
+            case AIMAGE_FORMAT_Y8:
+            case AIMAGE_FORMAT_HEIC:
+            case AIMAGE_FORMAT_DEPTH_JPEG:
+                if (!staticInfo.getMaxSizeForFormat(format, &testWidth, &testHeight)) {
+                    // No corresponding format support, skip this device.
+                    ACameraMetadata_free(chars);
+                    chars = nullptr;
+                    ret = testCase.closeCamera();
+                    if (ret != ACAMERA_OK) {
+                        LOG_ERROR(errorString, "Camera %s failed to close. ret %d ", cameraId, ret);
+                        goto cleanup;
+                    }
+
+                    continue;
+                }
+                break;
+            default:
+                LOG_ERROR(errorString, "Testcase doesn't yet support format %d", format);
+                goto cleanup;
+        }
         mediaRet = testCase.initImageReaderWithErrorLog(
-                TEST_WIDTH, TEST_HEIGHT, AIMAGE_FORMAT_JPEG, NUM_TEST_IMAGES,
+                testWidth, testHeight, format, NUM_TEST_IMAGES,
                 &readerCb);
         if (mediaRet != AMEDIA_OK) {
             // Don't log error here. testcase did it
@@ -2399,9 +3285,32 @@ bool nativeImageReaderTestBase(
             }
         }
 
+        int64_t minFrameDurationNs = staticInfo.getMinFrameDurationFor(
+                format, testWidth, testHeight);
+        if (minFrameDurationNs < 0) {
+            LOG_ERROR(errorString, "Get camera %s minFrameDuration failed", cameraId);
+            goto cleanup;
+        }
+        int64_t stallDurationNs = (format == AIMAGE_FORMAT_Y8) ? 0 :
+                staticInfo.getStallDurationFor(format, testWidth, testHeight);
+        if (stallDurationNs < 0) {
+            LOG_ERROR(errorString, "Get camera %s stallDuration failed", cameraId);
+            goto cleanup;
+        }
+
+        int64_t expectedDurationNs = (minFrameDurationNs + stallDurationNs) * NUM_TEST_IMAGES;
+        constexpr int64_t waitPerIterationUs = 100000;
+        constexpr int64_t usToNs = 1000;
+        int totalWaitIteration = 50;
+
+        // Allow 1.5x margin
+        if (expectedDurationNs * 3 / 2 > totalWaitIteration * waitPerIterationUs * usToNs) {
+            totalWaitIteration = expectedDurationNs * 3 / 2 / waitPerIterationUs / usToNs;
+        }
+
         // wait until all capture finished
-        for (int i = 0; i < 50; i++) {
-            usleep(100000); // sleep 100ms
+        for (int i = 0; i < totalWaitIteration; i++) {
+            usleep(waitPerIterationUs);
             if (readerListener.onImageAvailableCount() == NUM_TEST_IMAGES) {
                 ALOGI("Session take ~%d ms to capture %d images",
                         i*100, NUM_TEST_IMAGES);
@@ -2441,10 +3350,190 @@ cleanup:
     if (outPath != nullptr) {
         env->ReleaseStringUTFChars(jOutPath, outPath);
     }
+
+    if (chars != nullptr) {
+        ACameraMetadata_free(chars);
+        chars = nullptr;
+    }
+
     ALOGI("%s %s", __FUNCTION__, pass ? "pass" : "failed");
     if (!pass) {
         throwAssertionError(env, errorString);
     }
+    return pass;
+}
+
+// Test the camera NDK capture failure path by acquiring the maximum amount of ImageReader
+// buffers available. Since there is no circulation of camera images, the registered output
+// surface will eventually run out of free buffers and start reporting capture errors.
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeCameraDeviceTest_\
+testCameraDeviceCaptureFailureNative(JNIEnv* env) {
+    const size_t NUM_TEST_IMAGES = 10;
+    const size_t NUM_FAILED_FRAMES = 3; // Wait for at least 3 consecutive failed capture requests
+    const int64_t NUM_TOTAL_FRAMES = 60; // Avoid waiting for more than 60 frames
+    const size_t TEST_WIDTH  = 640;
+    const size_t TEST_HEIGHT = 480;
+    media_status_t mediaRet = AMEDIA_ERROR_UNKNOWN;
+    int numCameras = 0;
+    bool pass = false;
+    PreviewTestCase testCase;
+    uint32_t timeoutSec = 10; // It is important to keep this timeout bigger than the framework
+                              // timeout
+
+    camera_status_t ret = testCase.initWithErrorLog();
+    if (ret != ACAMERA_OK) {
+        // Don't log error here. testcase did it
+        goto exit;
+    }
+
+    numCameras = testCase.getNumCameras();
+    if (numCameras < 0) {
+        LOG_ERROR(errorString, "Testcase returned negative number of cameras: %d", numCameras);
+        goto exit;
+    }
+
+    for (int i = 0; i < numCameras; i++) {
+        const char* cameraId = testCase.getCameraId(i);
+        if (cameraId == nullptr) {
+            LOG_ERROR(errorString, "Testcase returned null camera id for camera %d", i);
+            goto exit;
+        }
+
+        std::unique_ptr<ACameraMetadata> chars(testCase.getCameraChars(i));
+        if (chars.get() == nullptr) {
+            LOG_ERROR(errorString, "Get camera %s characteristics failure", cameraId);
+            goto exit;
+        }
+        StaticInfo staticInfo(chars.get());
+
+        if (!staticInfo.isColorOutputSupported()) {
+            continue;
+        }
+
+        ret = testCase.openCamera(cameraId);
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "Open camera device %s failure. ret %d", cameraId, ret);
+            goto exit;
+        }
+
+        if (testCase.isCameraAvailable(cameraId)) {
+            LOG_ERROR(errorString, "Camera %s should be unavailable now", cameraId);
+            goto exit;
+        }
+
+        ImageReaderListener readerListener;
+        AImageReader_ImageListener readerCb =
+                { &readerListener, ImageReaderListener::acquireImageCb };
+        mediaRet = testCase.initImageReaderWithErrorLog(TEST_WIDTH, TEST_HEIGHT,
+                AIMAGE_FORMAT_YUV_420_888, NUM_TEST_IMAGES, &readerCb);
+        if (mediaRet != AMEDIA_OK) {
+            // Don't log error here. testcase did it
+            goto exit;
+        }
+
+        ret = testCase.createCaptureSessionWithLog();
+        if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto exit;
+        }
+
+        ret = testCase.createRequestsWithErrorLog();
+        if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto exit;
+        }
+
+        CaptureResultListener resultListener;
+        ACameraCaptureSession_captureCallbacks resultCb {
+            &resultListener,
+            CaptureResultListener::onCaptureStart,
+            CaptureResultListener::onCaptureProgressed,
+            CaptureResultListener::onCaptureCompleted,
+            CaptureResultListener::onCaptureFailed,
+            CaptureResultListener::onCaptureSequenceCompleted,
+            CaptureResultListener::onCaptureSequenceAborted,
+            CaptureResultListener::onCaptureBufferLost
+        };
+        ACaptureRequest* requestTemplate = nullptr;
+        ret = testCase.getStillRequest(&requestTemplate);
+        if (ret != ACAMERA_OK || requestTemplate == nullptr) {
+            // Don't log error here. testcase did it
+            goto exit;
+        }
+
+        int seqId;
+        ret = testCase.startRepeatingRequest(&seqId, requestTemplate, &resultCb);
+        if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto exit;
+        }
+
+        size_t failedRequestCount;
+        int64_t lastFrameNumber;
+        int64_t lastFailedRequestNumber = -1;
+        failedRequestCount = lastFrameNumber = 0;
+        while ((failedRequestCount < NUM_FAILED_FRAMES) && (lastFrameNumber < NUM_TOTAL_FRAMES)) {
+            auto frameArrived = resultListener.waitForFrameNumber(lastFrameNumber, timeoutSec);
+            if (!frameArrived) {
+                LOG_ERROR(errorString, "Camera %s timed out waiting on last frame number!",
+                        cameraId);
+                goto exit;
+            }
+            auto failedFrameNumber = resultListener.checkForFailure(lastFrameNumber) ?
+                    lastFrameNumber : -1;
+            if (lastFailedRequestNumber != failedFrameNumber) {
+                if ((lastFailedRequestNumber + 1) == failedFrameNumber) {
+                    failedRequestCount++;
+                } else {
+                    failedRequestCount = 1;
+                }
+                lastFailedRequestNumber = failedFrameNumber;
+            }
+            lastFrameNumber++;
+        }
+
+        ret = testCase.stopPreview();
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "stopPreview failed!");
+            goto exit;
+        }
+
+        ret = testCase.resetWithErrorLog();
+        if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto exit;
+        }
+
+        usleep(100000); // sleep to give some time for callbacks to happen
+
+        if (!testCase.isCameraAvailable(cameraId)) {
+            LOG_ERROR(errorString, "Camera %s should be available now", cameraId);
+            goto exit;
+        }
+
+        if (failedRequestCount < NUM_FAILED_FRAMES) {
+            LOG_ERROR(errorString, "Unable to receive %zu consecutive capture failures within"
+                    " %" PRId64 " capture requests", NUM_FAILED_FRAMES, NUM_TOTAL_FRAMES);
+            goto exit;
+        }
+    }
+
+    ret = testCase.deInit();
+    if (ret != ACAMERA_OK) {
+        LOG_ERROR(errorString, "Testcase deInit failed: ret %d", ret);
+        goto exit;
+    }
+
+    pass = true;
+
+exit:
+
+    ALOGI("%s %s", __FUNCTION__, pass ? "pass" : "failed");
+    if (!pass) {
+        throwAssertionError(env, errorString);
+    }
+
     return pass;
 }
 
@@ -2453,18 +3542,157 @@ Java_android_hardware_camera2_cts_NativeImageReaderTest_\
 testJpegNative(
         JNIEnv* env, jclass /*clazz*/, jstring jOutPath) {
     ALOGV("%s", __FUNCTION__);
-    return nativeImageReaderTestBase(env, jOutPath, ImageReaderListener::validateImageCb);
+    return nativeImageReaderTestBase(env, jOutPath, AIMAGE_FORMAT_JPEG,
+            ImageReaderListener::validateImageCb);
 }
 
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeImageReaderTest_\
+testY8Native(
+        JNIEnv* env, jclass /*clazz*/, jstring jOutPath) {
+    ALOGV("%s", __FUNCTION__);
+    return nativeImageReaderTestBase(env, jOutPath, AIMAGE_FORMAT_Y8,
+            ImageReaderListener::validateImageCb);
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeImageReaderTest_\
+testHeicNative(
+        JNIEnv* env, jclass /*clazz*/, jstring jOutPath) {
+    ALOGV("%s", __FUNCTION__);
+    return nativeImageReaderTestBase(env, jOutPath, AIMAGE_FORMAT_HEIC,
+            ImageReaderListener::validateImageCb);
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeImageReaderTest_\
+testDepthJpegNative(
+        JNIEnv* env, jclass /*clazz*/, jstring jOutPath) {
+    ALOGV("%s", __FUNCTION__);
+    return nativeImageReaderTestBase(env, jOutPath, AIMAGE_FORMAT_DEPTH_JPEG,
+            ImageReaderListener::validateImageCb);
+}
 
 extern "C" jboolean
 Java_android_hardware_camera2_cts_NativeImageReaderTest_\
 testImageReaderCloseAcquiredImagesNative(
         JNIEnv* env, jclass /*clazz*/) {
     ALOGV("%s", __FUNCTION__);
-    return nativeImageReaderTestBase(env, nullptr, ImageReaderListener::acquireImageCb);
+    return nativeImageReaderTestBase(env, nullptr, AIMAGE_FORMAT_JPEG,
+            ImageReaderListener::acquireImageCb);
 }
 
+template <>
+struct std::default_delete<ACameraManager> {
+    inline void operator()(ACameraManager* manager) const { ACameraManager_delete(manager); }
+};
+
+class AvailabilityContext {
+    public:
+        AvailabilityContext();
+        ~AvailabilityContext();
+
+        camera_status_t initialize();
+        int getAcessCallbackCountAndReset();
+
+    private:
+        std::unique_ptr<ACameraManager> mCameraManager;
+        std::unique_ptr<CameraServiceListener> mServiceListener;
+        std::unique_ptr<ACameraManager_ExtendedAvailabilityCallbacks> mServiceCb;
+};
+
+AvailabilityContext::AvailabilityContext() :
+    mCameraManager(ACameraManager_create()),
+    mServiceListener(std::make_unique<CameraServiceListener>()),
+    mServiceCb(std::make_unique<ACameraManager_ExtendedAvailabilityCallbacks>()) {
+        mServiceCb->availabilityCallbacks.context = mServiceListener.get();
+        mServiceCb->availabilityCallbacks.onCameraAvailable = CameraServiceListener::onAvailable;
+        mServiceCb->availabilityCallbacks.onCameraUnavailable =
+                CameraServiceListener::onUnavailable;
+        mServiceCb->onCameraAccessPrioritiesChanged =
+                CameraServiceListener::onCameraAccessPrioritiesChanged;
+}
+
+camera_status_t AvailabilityContext::initialize() {
+    auto rc = ACameraManager_registerExtendedAvailabilityCallback(mCameraManager.get(),
+            mServiceCb.get());
+    if (rc != ACAMERA_OK) {
+        LOG_ERROR(errorString, "Register availability callback failed: rc %d", rc);
+        return rc;
+    }
+
+    ACameraIdList* cameraIdList = nullptr;
+    rc = ACameraManager_getCameraIdList(mCameraManager.get(), &cameraIdList);
+    if (rc != ACAMERA_OK) {
+        LOG_ERROR(errorString, "Get camera id list failed: ret %d", rc);
+        return rc;
+    }
+    ACameraManager_deleteCameraIdList(cameraIdList);
+
+    return rc;
+}
+
+int AvailabilityContext::getAcessCallbackCountAndReset() {
+    auto ret = mServiceListener->getCameraAccessPrioritiesChangedCount();
+    mServiceListener->resetCount();
+    return ret;
+}
+
+AvailabilityContext::~AvailabilityContext() {
+    if (mServiceCb != nullptr) {
+        camera_status_t ret = ACameraManager_unregisterExtendedAvailabilityCallback(
+                mCameraManager.get(), mServiceCb.get());
+        if (ret != ACAMERA_OK) {
+            ALOGE("Unregister availability callback failed: ret %d", ret);
+        }
+    }
+}
+
+extern "C" jlong
+Java_android_hardware_multiprocess_camera_cts_CameraEvictionTest_\
+initializeAvailabilityCallbacksNative(
+        JNIEnv* env, jclass /*clazz*/) {
+    ALOGV("%s", __FUNCTION__);
+
+    AvailabilityContext *ctx = new AvailabilityContext();
+
+    auto rc = ctx->initialize();
+    if (rc != ACAMERA_OK) {
+        LOG_ERROR(errorString, "Availability context initialization failed: %d", rc);
+        return 0;
+    }
+
+    return (jlong) ctx;
+}
+
+extern "C" jint
+Java_android_hardware_multiprocess_camera_cts_CameraEvictionTest_\
+getAccessCallbacksCountAndResetNative(
+        JNIEnv* env, jclass /*clazz*/, jlong context) {
+    ALOGV("%s", __FUNCTION__);
+
+    if (context == 0) {
+        LOG_ERROR(errorString, "Invalid availability context");
+        return 0;
+    }
+
+    AvailabilityContext* ctx = reinterpret_cast<AvailabilityContext*>(context);
+    return ctx->getAcessCallbackCountAndReset();
+}
+
+extern "C" void
+Java_android_hardware_multiprocess_camera_cts_CameraEvictionTest_\
+releaseAvailabilityCallbacksNative(
+        JNIEnv* env, jclass /*clazz*/, jlong context) {
+    ALOGV("%s", __FUNCTION__);
+
+    if (context == 0) {
+        return;
+    }
+
+    AvailabilityContext* ctx = reinterpret_cast<AvailabilityContext*>(context);
+    delete ctx;
+}
 
 extern "C" jboolean
 Java_android_hardware_camera2_cts_NativeStillCaptureTest_\
@@ -2478,6 +3706,7 @@ testStillCaptureNative(
     int numCameras = 0;
     bool pass = false;
     PreviewTestCase testCase;
+    ACameraMetadata* chars = nullptr;
 
     const char* outPath = env->GetStringUTFChars(jOutPath, nullptr);
     ALOGI("%s: out path is %s", __FUNCTION__, outPath);
@@ -2501,11 +3730,30 @@ testStillCaptureNative(
             goto cleanup;
         }
 
+        {
+            ACameraMetadata* chars = testCase.getCameraChars(cameraId);
+            StaticInfo staticInfo(chars);
+            if (!staticInfo.isColorOutputSupported()) {
+                ALOGI("%s: camera %s does not support color output. skipping",
+                        __FUNCTION__, cameraId);
+                ACameraMetadata_free(chars);
+                continue;
+            }
+            ACameraMetadata_free(chars);
+        }
+
         ret = testCase.openCamera(cameraId);
         if (ret != ACAMERA_OK) {
             LOG_ERROR(errorString, "Open camera device %s failure. ret %d", cameraId, ret);
             goto cleanup;
         }
+
+        chars = testCase.getCameraChars(i);
+        if (chars == nullptr) {
+            LOG_ERROR(errorString, "Get camera %s characteristics failure", cameraId);
+            goto cleanup;
+        }
+        StaticInfo staticInfo(chars);
 
         usleep(100000); // sleep to give some time for callbacks to happen
 
@@ -2565,9 +3813,32 @@ testStillCaptureNative(
             }
         }
 
+        int64_t minFrameDurationNs = staticInfo.getMinFrameDurationFor(
+                AIMAGE_FORMAT_JPEG, TEST_WIDTH, TEST_HEIGHT);
+        if (minFrameDurationNs < 0) {
+            LOG_ERROR(errorString, "Get camera %s minFrameDuration failed", cameraId);
+            goto cleanup;
+        }
+        int64_t stallDurationNs = staticInfo.getStallDurationFor(
+                AIMAGE_FORMAT_JPEG, TEST_WIDTH, TEST_HEIGHT);
+        if (stallDurationNs < 0) {
+            LOG_ERROR(errorString, "Get camera %s stallDuration failed", cameraId);
+            goto cleanup;
+        }
+
+        int64_t expectedDurationNs = (minFrameDurationNs + stallDurationNs) * NUM_TEST_IMAGES;
+        constexpr int64_t waitPerIterationUs = 100000;
+        constexpr int64_t usToNs = 1000;
+        int totalWaitIteration = 50;
+
+        // Allow 1.5x margin
+        if (expectedDurationNs * 3 / 2 > totalWaitIteration * waitPerIterationUs * usToNs) {
+            totalWaitIteration = expectedDurationNs * 3 / 2 / waitPerIterationUs / usToNs;
+        }
+
         // wait until all capture finished
-        for (int i = 0; i < 50; i++) {
-            usleep(100000); // sleep 100ms
+        for (int i = 0; i < totalWaitIteration; i++) {
+            usleep(waitPerIterationUs);
             if (readerListener.onImageAvailableCount() == NUM_TEST_IMAGES) {
                 ALOGI("Session take ~%d ms to capture %d images",
                         i*100, NUM_TEST_IMAGES);
@@ -2604,6 +3875,12 @@ testStillCaptureNative(
     pass = true;
 cleanup:
     env->ReleaseStringUTFChars(jOutPath, outPath);
+
+    if (chars != nullptr) {
+        ACameraMetadata_free(chars);
+        chars = nullptr;
+    }
+
     ALOGI("%s %s", __FUNCTION__, pass ? "pass" : "failed");
     if (!pass) {
         throwAssertionError(env, errorString);

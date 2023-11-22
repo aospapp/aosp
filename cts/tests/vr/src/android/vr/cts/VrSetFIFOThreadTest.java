@@ -39,6 +39,10 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
     private static final int SCHED_RESET_ON_FORK = 0x40000000;
     public static final String ENABLED_VR_LISTENERS = "enabled_vr_listeners";
     private static final String TAG = "VrSetFIFOThreadTest";
+    // After setVrModeEnabled call, wait some time for change to take effect.
+    // Arbitrary timeout is set as there is no way to query the result from app
+    // see b/119819897
+    private static final int SLEEP_TIME_MS = 3000;
 
     public VrSetFIFOThreadTest() {
         super(OpenGLESActivity.class);
@@ -81,6 +85,7 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
                 PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE)) {
             int vr_thread = 0, policy = 0;
             mActivity.setVrModeEnabled(true, requestedComponent);
+            Thread.sleep(SLEEP_TIME_MS);
             vr_thread = Process.myTid();
             mActivityManager =
                   (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
@@ -103,6 +108,7 @@ public class VrSetFIFOThreadTest extends ActivityInstrumentationTestCase2<OpenGL
                 PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE)) {
             int vr_thread = 0, policy = 0;
             mActivity.setVrModeEnabled(false, requestedComponent);
+            Thread.sleep(SLEEP_TIME_MS);
             vr_thread = Process.myTid();
             mActivityManager =
                   (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);

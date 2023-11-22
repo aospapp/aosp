@@ -125,8 +125,8 @@ public class MockFontProvider extends ContentProvider {
 
         map.put(MULTIPLE_FAMILY_QUERY, new Font[] {
             new Font(id++, SAMPLE_FONT_FILE_0_ID, 0, null, 400, 0, Columns.RESULT_CODE_OK, true),
-            new Font(id++, SAMPLE_FONT_FILE_1_ID, 0, null, 400, 0, Columns.RESULT_CODE_OK, true),
-            new Font(id++, SAMPLE_FONT_FILE_0_ID, 0, null, 700, 1, Columns.RESULT_CODE_OK, true),
+            new Font(id++, SAMPLE_FONT_FILE_1_ID, 0, null, 400, 1, Columns.RESULT_CODE_OK, true),
+            new Font(id++, SAMPLE_FONT_FILE_0_ID, 0, null, 700, 0, Columns.RESULT_CODE_OK, true),
             new Font(id++, SAMPLE_FONT_FILE_1_ID, 0, null, 700, 1, Columns.RESULT_CODE_OK, true),
         });
 

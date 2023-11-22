@@ -17,10 +17,10 @@
 import sys
 import unittest
 
-from tests.controllers.sl4a_lib import rpc_client_test
-from tests.controllers.sl4a_lib import rpc_connection_test
-from tests.controllers.sl4a_lib import sl4a_manager_test
-from tests.controllers.sl4a_lib import sl4a_session_test
+import rpc_client_test
+import rpc_connection_test
+import sl4a_manager_test
+import sl4a_session_test
 
 
 def compile_suite():

@@ -63,13 +63,31 @@
               android:resource="@xml/appwidget_info_with_feature3" />
       </receiver>
 
+      <receiver android:name="android.appwidget.cts.provider.CollectionAppWidgetProvider" >
+          <intent-filter>
+              <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+          </intent-filter>
+          <meta-data android:name="android.appwidget.provider"
+              android:resource="@xml/collection_appwidget_info" />
+      </receiver>
+
       <service android:name="android.appwidget.cts.service.MyAppWidgetService"
           android:permission="android.permission.BIND_REMOTEVIEWS">
       </service>
 
+      <activity android:name="android.appwidget.cts.activity.EmptyActivity"
+                android:label="EmptyActivity">
+          <intent-filter>
+              <action android:name="android.intent.action.MAIN" />
+              <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+          </intent-filter>
+      </activity>
+
+      <activity android:name="android.appwidget.cts.activity.TransitionActivity"
+          android:label="TransitionActivity" />
   </application>
 
-  <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+  <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
       android:targetPackage="android.appwidget.cts"
       android:label="Tests for the app widget APIs.">
       <meta-data android:name="listener"

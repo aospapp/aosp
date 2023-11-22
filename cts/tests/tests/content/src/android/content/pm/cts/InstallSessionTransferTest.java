@@ -33,8 +33,10 @@ import android.content.pm.PackageInstaller.SessionParams;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AppModeFull;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import libcore.io.Streams;
 
@@ -49,6 +51,7 @@ import java.io.OutputStream;
 import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class InstallSessionTransferTest {
     /**
      * Get the sessionInfo if this package owns the session.

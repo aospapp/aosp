@@ -190,6 +190,11 @@ public class HidDeviceActivity extends PassFailButtons.Activity {
 
 
     private boolean getConnectedDevice() {
+        if (mBluetoothHidDevice == null) {
+            Log.w(TAG, "mBluetoothHidDevice is null");
+            return false;
+        }
+
         List<BluetoothDevice> connectedDevices = mBluetoothHidDevice.getConnectedDevices();
         if (connectedDevices.size() == 0) {
             return false;
@@ -199,6 +204,11 @@ public class HidDeviceActivity extends PassFailButtons.Activity {
     }
 
     private void testSendReport() {
+        if (mBluetoothHidDevice == null) {
+            Log.w(TAG, "mBluetoothHidDevice is null");
+            return;
+        }
+
         if (mHidHost == null) {
             if (mBluetoothHidDevice.getConnectedDevices().size() == 0) {
                 Log.w(TAG, "HID host not connected");
@@ -219,6 +229,11 @@ public class HidDeviceActivity extends PassFailButtons.Activity {
     }
 
     private void testReplyReport() {
+        if (mBluetoothHidDevice == null) {
+            Log.w(TAG, "mBluetoothHidDevice is null");
+            return;
+        }
+
         if (mHidHost == null) {
             if (mBluetoothHidDevice.getConnectedDevices().size() == 0) {
                 Log.w(TAG, "HID host not connected");
@@ -235,6 +250,11 @@ public class HidDeviceActivity extends PassFailButtons.Activity {
     }
 
     private void testReportError() {
+        if (mBluetoothHidDevice == null) {
+            Log.w(TAG, "mBluetoothHidDevice is null");
+            return;
+        }
+
         if (mHidHost == null) {
             if (mBluetoothHidDevice.getConnectedDevices().size() == 0) {
                 Log.w(TAG, "HID host not connected");

@@ -62,7 +62,7 @@ static void* AttachHelper(void* arg) {
   int attach_result = jvm->AttachCurrentThread(&env, &args);
   CHECK_EQ(attach_result, 0);
 
-  typedef void (*Fn)(JNIEnv*);
+  using Fn = void(*)(JNIEnv*);
   Fn fn = reinterpret_cast<Fn>(arg);
   fn(env);
 
@@ -704,7 +704,7 @@ class JniCallDefaultMethodsTest {
   }
 
  private:
-  void TestCalls(const char* declaring_class, std::vector<const char*> methods) {
+  void TestCalls(const char* declaring_class, const std::vector<const char*>& methods) {
     jmethodID new_method = env_->GetMethodID(concrete_class_, "<init>", "()V");
     jobject obj = env_->NewObject(concrete_class_, new_method);
     CHECK(!env_->ExceptionCheck());

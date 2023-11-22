@@ -339,6 +339,21 @@ public class SendTestBroadcastActivity extends Activity {
             }
         });
 
+        /* Send a GSM state/local test alert to app. */
+        Button GsmStateLocalTestAlertButton = findViewById(
+                R.id.button_gsm_state_local_test_alert);
+        GsmStateLocalTestAlertButton.setOnClickListener(new OnClickListener() {
+            public void onClick(View v) {
+                if (mDelayBeforeSending && v != null) {
+                    Message msg = mDelayHandler.obtainMessage(0, this);
+                    mDelayHandler.sendMessageDelayed(msg, DELAY_BEFORE_SENDING_MSEC);
+                } else {
+                    SendGsmCmasMessages.testSendStateLocalTestAlert(
+                            SendTestBroadcastActivity.this, getSerialNumber());
+                }
+            }
+        });
+
         /* Send a GSM 7-bit broadcast message to app. */
         Button gsm7bitTypeButton = (Button) findViewById(R.id.button_gsm_7bit_type);
         gsm7bitTypeButton.setOnClickListener(new OnClickListener() {

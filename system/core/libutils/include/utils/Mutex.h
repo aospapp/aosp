@@ -100,7 +100,7 @@ class CAPABILITY("mutex") Mutex {
 
     Mutex();
     explicit Mutex(const char* name);
-    explicit Mutex(int type, const char* name = NULL);
+    explicit Mutex(int type, const char* name = nullptr);
     ~Mutex();
 
     // lock or unlock the mutex
@@ -108,7 +108,7 @@ class CAPABILITY("mutex") Mutex {
     void unlock() RELEASE();
 
     // lock if possible; returns 0 on success, error otherwise
-    status_t tryLock() TRY_ACQUIRE(true);
+    status_t tryLock() TRY_ACQUIRE(0);
 
 #if defined(__ANDROID__)
     // Lock the mutex, but don't wait longer than timeoutNs (relative time).
@@ -122,7 +122,7 @@ class CAPABILITY("mutex") Mutex {
     // which is subject to NTP adjustments, and includes time during suspend,
     // so a timeout may occur even though no processes could run.
     // Not holding a partial wakelock may lead to a system suspend.
-    status_t timedLock(nsecs_t timeoutNs) TRY_ACQUIRE(true);
+    status_t timedLock(nsecs_t timeoutNs) TRY_ACQUIRE(0);
 #endif
 
     // Manages the mutex automatically. It'll be locked when Autolock is
@@ -160,10 +160,10 @@ class CAPABILITY("mutex") Mutex {
 #if !defined(_WIN32)
 
 inline Mutex::Mutex() {
-    pthread_mutex_init(&mMutex, NULL);
+    pthread_mutex_init(&mMutex, nullptr);
 }
 inline Mutex::Mutex(__attribute__((unused)) const char* name) {
-    pthread_mutex_init(&mMutex, NULL);
+    pthread_mutex_init(&mMutex, nullptr);
 }
 inline Mutex::Mutex(int type, __attribute__((unused)) const char* name) {
     if (type == SHARED) {
@@ -173,7 +173,7 @@ inline Mutex::Mutex(int type, __attribute__((unused)) const char* name) {
         pthread_mutex_init(&mMutex, &attr);
         pthread_mutexattr_destroy(&attr);
     } else {
-        pthread_mutex_init(&mMutex, NULL);
+        pthread_mutex_init(&mMutex, nullptr);
     }
 }
 inline Mutex::~Mutex() {
@@ -212,7 +212,7 @@ inline status_t Mutex::timedLock(nsecs_t timeoutNs) {
 typedef Mutex::Autolock AutoMutex;
 
 // ---------------------------------------------------------------------------
-}; // namespace android
+}  // namespace android
 // ---------------------------------------------------------------------------
 
 #endif // _LIBS_UTILS_MUTEX_H

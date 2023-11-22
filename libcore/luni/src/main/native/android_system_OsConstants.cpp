@@ -16,10 +16,6 @@
 
 #define LOG_TAG "OsConstants"
 
-#include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
-#include "Portability.h"
-
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -56,6 +52,11 @@
 #if defined(__BIONIC__)
 #include <linux/capability.h>
 #endif
+
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/jni_macros.h>
+
+#include "Portability.h"
 
 static void initConstant(JNIEnv* env, jclass c, const char* fieldName, int value) {
     jfieldID field = env->GetStaticFieldID(c, fieldName, "I");
@@ -385,6 +386,7 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "MS_SYNC", MS_SYNC);
     initConstant(env, c, "NETLINK_NETFILTER", NETLINK_NETFILTER);
     initConstant(env, c, "NETLINK_ROUTE", NETLINK_ROUTE);
+    initConstant(env, c, "NETLINK_INET_DIAG", NETLINK_INET_DIAG);
     initConstant(env, c, "NI_DGRAM", NI_DGRAM);
     initConstant(env, c, "NI_NAMEREQD", NI_NAMEREQD);
     initConstant(env, c, "NI_NOFQDN", NI_NOFQDN);
@@ -509,7 +511,9 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
     initConstant(env, c, "SIOCGIFBRDADDR", SIOCGIFBRDADDR);
     initConstant(env, c, "SIOCGIFDSTADDR", SIOCGIFDSTADDR);
     initConstant(env, c, "SIOCGIFNETMASK", SIOCGIFNETMASK);
+    initConstant(env, c, "SOCK_CLOEXEC", SOCK_CLOEXEC);
     initConstant(env, c, "SOCK_DGRAM", SOCK_DGRAM);
+    initConstant(env, c, "SOCK_NONBLOCK", SOCK_NONBLOCK);
     initConstant(env, c, "SOCK_RAW", SOCK_RAW);
     initConstant(env, c, "SOCK_SEQPACKET", SOCK_SEQPACKET);
     initConstant(env, c, "SOCK_STREAM", SOCK_STREAM);

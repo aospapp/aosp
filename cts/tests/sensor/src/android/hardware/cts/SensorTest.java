@@ -16,11 +16,6 @@
 
 package android.hardware.cts;
 
-import android.hardware.cts.helpers.sensorverification.ContinuousEventSanitizedVerification;
-import android.support.test.InstrumentationRegistry;
-import com.android.compatibility.common.util.SystemUtil;
-import junit.framework.Assert;
-
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
@@ -38,15 +33,24 @@ import android.hardware.cts.helpers.TestSensorEventListener;
 import android.hardware.cts.helpers.TestSensorManager;
 import android.hardware.cts.helpers.sensoroperations.ParallelSensorOperation;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
+import android.hardware.cts.helpers.sensorverification.ContinuousEventSanitizedVerification;
 import android.hardware.cts.helpers.sensorverification.EventGapVerification;
 import android.hardware.cts.helpers.sensorverification.EventOrderingVerification;
 import android.hardware.cts.helpers.sensorverification.EventTimestampSynchronizationVerification;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.PowerManager;
+import android.os.Process;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.SystemUtil;
+
+import junit.framework.Assert;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -155,23 +159,34 @@ public class SensorTest extends SensorTestCase {
             assertNull(sensor);
         }
 
-        sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE);
-        boolean hasHeartRate = getContext().getPackageManager().hasSystemFeature(
-                PackageManager.FEATURE_SENSOR_HEART_RATE);
-        // heartrate sensor is optional
-        if (hasHeartRate) {
-            assertEquals(Sensor.TYPE_HEART_RATE, sensor.getType());
-            assertSensorValues(sensor);
-        } else {
-            assertNull(sensor);
-        }
-
         sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         boolean hasCompass = getContext().getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_SENSOR_COMPASS);
         // compass sensor is optional
         if (hasCompass) {
             assertEquals(Sensor.TYPE_MAGNETIC_FIELD, sensor.getType());
+            assertSensorValues(sensor);
+        } else {
+            assertNull(sensor);
+        }
+
+        sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        boolean hasGyroscope = getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_SENSOR_GYROSCOPE);
+        // gyroscope sensor is optional
+        if (hasGyroscope) {
+            assertEquals(Sensor.TYPE_GYROSCOPE, sensor.getType());
+            assertSensorValues(sensor);
+        } else {
+            assertNull(sensor);
+        }
+
+        sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
+        boolean hasPressure = getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_SENSOR_BAROMETER);
+        // pressure sensor is optional
+        if (hasPressure) {
+            assertEquals(Sensor.TYPE_PRESSURE, sensor.getType());
             assertSensorValues(sensor);
         } else {
             assertNull(sensor);
@@ -189,6 +204,20 @@ public class SensorTest extends SensorTestCase {
         if (sensor != null) {
             assertEquals(Sensor.TYPE_TEMPERATURE, sensor.getType());
             assertSensorValues(sensor);
+        }
+    }
+
+    @AppModeFull(reason = "Instant apps cannot access body sensors")
+    public void testBodySensorOperations() {
+        Sensor sensor = mSensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE);
+        boolean hasHeartRate = getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_SENSOR_HEART_RATE);
+        // heartrate sensor is optional
+        if (hasHeartRate) {
+            assertEquals(Sensor.TYPE_HEART_RATE, sensor.getType());
+            assertSensorValues(sensor);
+        } else {
+            assertNull(sensor);
         }
     }
 
@@ -509,6 +538,14 @@ public class SensorTest extends SensorTestCase {
                 sensor.getName(), sensor.getPower() >= 0);
         assertTrue("Max resolution must be positive. Resolution=" + sensor.getResolution() +
                 " " + sensor.getName(), sensor.getResolution() >= 0);
+        boolean hasHifiSensors = getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_HIFI_SENSORS);
+        if (SensorCtsHelper.hasResolutionRequirement(sensor, hasHifiSensors)) {
+            float requiredResolution = SensorCtsHelper.getRequiredResolutionForSensor(sensor);
+            assertTrue("Resolution must be <= " + requiredResolution + ". Resolution=" +
+                    sensor.getResolution() + " " + sensor.getName(),
+                    sensor.getResolution() <= requiredResolution);
+        }
         assertNotNull("Vendor name must not be null " + sensor.getName(), sensor.getVendor());
         assertTrue("Version must be positive version=" + sensor.getVersion() + " " +
                 sensor.getName(), sensor.getVersion() > 0);
@@ -640,13 +677,15 @@ public class SensorTest extends SensorTestCase {
 
     private static void makeMyPackageActive() throws IOException {
         final String command = "cmd sensorservice reset-uid-state "
-                +  InstrumentationRegistry.getTargetContext().getPackageName();
+                +  InstrumentationRegistry.getTargetContext().getPackageName()
+                + " --user " + Process.myUserHandle().getIdentifier();
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
     }
 
     private void makeMyPackageIdle() throws IOException {
         final String command = "cmd sensorservice set-uid-state "
-                + InstrumentationRegistry.getTargetContext().getPackageName() + " idle";
+                + InstrumentationRegistry.getTargetContext().getPackageName() + " idle"
+                + " --user " + Process.myUserHandle().getIdentifier();
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(), command);
     }
 

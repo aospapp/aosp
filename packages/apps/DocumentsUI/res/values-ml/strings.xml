@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"പങ്കിടുക"</string>
     <string name="menu_delete" msgid="1022254131543256626">"ഇല്ലാതാക്കുക"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"എല്ലാം തിരഞ്ഞെടുക്കുക"</string>
+    <string name="menu_select" msgid="1366061076507142387">"തിരഞ്ഞെടുക്കുക"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"ഇപ്രകാരം അടുക്കുക..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"ഇതിൽ പകർത്തുക…"</string>
     <string name="menu_move" msgid="2310760789561129882">"ഇതിലേക്ക് നീക്കുക..."</string>
     <string name="menu_compress" msgid="37539111904724188">"കംപ്രസ്സുചെയ്യുക"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"തരം"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"വലുപ്പം"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"പരിഷ്‌ക്കരിച്ചു"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ഫയലിൻ്റെ പേര് (A - Z)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"ടൈപ്പ് ചെയ്യൂ (A - Z)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"വലുപ്പം (ചെറുത് ആദ്യം)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"പരിഷ്ക്കരിച്ചത് (പഴയത് ആദ്യം)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ഫയലിൻ്റെ പേര് (Z - A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"ടൈപ്പ് ചെയ്യൂ (Z - A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"വലുപ്പം (വലുത് ആദ്യം)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"പരിഷ്ക്കരിച്ചത് (പുതിയത് ആദ്യം)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"ഇപ്രകാരം അടുക്കുക"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"<xliff:g id="LABEL">%s</xliff:g>-ൻ്റെ അടിസ്ഥാനത്തിൽ അടുക്കിയിരിക്കുന്നു"</string>
     <string name="directory_items" msgid="6645621978998614003">"ഇനങ്ങളുടെ എണ്ണം"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ആരോഹണം"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"അവരോഹണം"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g> തുറക്കുക"</string>
     <string name="drawer_open" msgid="8071673398187261741">"റൂട്ടുകൾ ദൃശ്യമാക്കുക"</string>
     <string name="drawer_close" msgid="4263880768630848848">"റൂട്ടുകൾ മറയ്‌ക്കുക"</string>
     <string name="save_error" msgid="8631128801982095782">"പ്രമാണം സംരക്ഷിക്കുന്നതിൽ പരാജയപ്പെട്ടു"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="STORAGE"><i>^3</i></xliff:g> സ്റ്റോറേജിലെ <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> എന്ന ഡയറക്റ്ററിയിലേക്ക് <xliff:g id="APPNAME"><b>^1</b></xliff:g> ആപ്പിന് ആക്സസ് അനുവദിക്കണോ?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="DIRECTORY"><i>^2</i></xliff:g> എന്ന ഡയറക്ടറിയിലേക്ക് <xliff:g id="APPNAME"><b>^1</b></xliff:g> ആപ്പിന് ആക്സസ് അനുവദിക്കണോ?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="STORAGE"><i>^2</i></xliff:g> സ്റ്റോറേജിലെ ഫോട്ടോകളും വീഡിയോകളും ഉൾപ്പെടെ, നിങ്ങളുടെ ഡാറ്റയിലേക്ക് <xliff:g id="APPNAME"><b>^1</b></xliff:g> ആപ്പിന് ആക്സസ്സ് അനുവദിക്കണോ?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"വീണ്ടും ആവശ്യപ്പെടരുത്"</string>
     <string name="allow" msgid="1275746941353040309">"അനുവദിക്കുക"</string>
     <string name="deny" msgid="5127201668078153379">"നിരസിക്കുക"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"ആർക്കൈവ്<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g> മാറ്റിയെഴുതണോ?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"പശ്ചാത്തലത്തിൽ തുടരുക"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> തിരഞ്ഞെടുത്തു</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> തിരഞ്ഞെടുത്തു</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"ഫോണിലെ അടുത്തിടെയുള്ള ഫയലുകൾ"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"ഫോണിലെ ഫയലുകൾ"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"ഫോണിലെ <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g>-ലെ ഫയലുകൾ"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g> എന്നതിൽ നിന്നുള്ള ഫയലുകൾ"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g> എന്നതിൽ നിന്നുള്ള ഫയലുകൾ"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"ഫോണിലെ അടുത്തിടെയുള്ള ചിത്രങ്ങൾ"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"ഫോണിലെ ചിത്രങ്ങൾ"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g> എന്ന ഉപകരണത്തിലെ ചിത്രങ്ങൾ"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>-ലെ ചിത്രങ്ങൾ"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g> എന്നതിൽ നിന്നുള്ള ചിത്രങ്ങൾ"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"ചിത്രങ്ങൾ"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"ഓഡിയോ"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"വീഡിയോകൾ"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"ഡോക്യുമെന്റുകൾ"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"ഫോൾഡറിന്റെ പേര്"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"പുതിയ പേര്"</string>
+    <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> ഫയൽ പ്രിവ്യൂ ചെയ്യുക"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"ഫയലുകള്‍ മറ്റ് ആപ്പുകളില്‍ ബ്രൗസ് ചെയ്യുക"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"അജ്ഞാതം"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" എന്നതിലേക്ക് ആക്‌സസ് അനുവദിക്കുക"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"\"<xliff:g id="ROOT">%2$s</xliff:g>\" എന്നതിൽ \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" എന്നതിന് ആക്‌സസ് നൽകണോ?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"ഇത് \"<xliff:g id="APPNAME">%1$s</xliff:g>\" ആപ്പിന് ഈ ലൊക്കേഷനിൽ സംഭരിച്ചിരിക്കുന്ന എല്ലാ ഫയലുകളിലേക്കും ഭാവിയിൽ ഇവിടെ സംഭരിക്കപ്പെടുന്ന എല്ലാ ഉള്ളടക്കത്തിലേക്കും പൂർണ്ണ ആക്‌സസ് അനുവദിക്കും."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"ഈ ഫോണിൽ തിരയുക"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"തിരയൽ ചരിത്രം <xliff:g id="TEXT">%1$s</xliff:g> ഇല്ലാതാക്കുക"</string>
 </resources>

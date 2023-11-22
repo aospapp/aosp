@@ -32,5 +32,16 @@ public interface ILogcatReceiver {
     public InputStreamSource getLogcatData();
 
     public InputStreamSource getLogcatData(int maxBytes);
+
+    /**
+     * Returns the current logcat buffer given an offset.
+     *
+     * @param maxBytes The max size of the returned buffer
+     * @param offset The offset of the full buffer.
+     * @return The logcat buffer starting at the offset.
+     */
+    public default InputStreamSource getLogcatData(int maxBytes, int offset) {
+        return getLogcatData(maxBytes);
+    }
 }
 

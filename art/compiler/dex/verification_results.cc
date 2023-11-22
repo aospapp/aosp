@@ -20,7 +20,6 @@
 
 #include "base/mutex-inl.h"
 #include "base/stl_util.h"
-#include "driver/compiler_driver.h"
 #include "driver/compiler_options.h"
 #include "runtime.h"
 #include "thread-current-inl.h"
@@ -79,7 +78,7 @@ void VerificationResults::ProcessVerifiedMethod(verifier::MethodVerifier* method
   if (inserted) {
     // Successfully added, release the unique_ptr since we no longer have ownership.
     DCHECK_EQ(GetVerifiedMethod(ref), verified_method.get());
-    verified_method.release();
+    verified_method.release();  // NOLINT b/117926937
   } else {
     // TODO: Investigate why are we doing the work again for this method and try to avoid it.
     LOG(WARNING) << "Method processed more than once: " << ref.PrettyMethod();
@@ -97,7 +96,7 @@ void VerificationResults::ProcessVerifiedMethod(verifier::MethodVerifier* method
   }
 }
 
-const VerifiedMethod* VerificationResults::GetVerifiedMethod(MethodReference ref) {
+const VerifiedMethod* VerificationResults::GetVerifiedMethod(MethodReference ref) const {
   const VerifiedMethod* ret = nullptr;
   if (atomic_verified_methods_.Get(ref, &ret)) {
     return ret;
@@ -112,12 +111,12 @@ void VerificationResults::CreateVerifiedMethodFor(MethodReference ref) {
   // which have no verifier error, nor has methods that we know will throw
   // at runtime.
   std::unique_ptr<VerifiedMethod> verified_method = std::make_unique<VerifiedMethod>(
-      /* encountered_error_types */ 0, /* has_runtime_throw */ false);
+      /* encountered_error_types= */ 0, /* has_runtime_throw= */ false);
   if (atomic_verified_methods_.Insert(ref,
                                       /*expected*/ nullptr,
                                       verified_method.get()) ==
           AtomicMap::InsertResult::kInsertResultSuccess) {
-    verified_method.release();
+    verified_method.release();  // NOLINT b/117926937
   }
 }
 
@@ -129,13 +128,13 @@ void VerificationResults::AddRejectedClass(ClassReference ref) {
   DCHECK(IsClassRejected(ref));
 }
 
-bool VerificationResults::IsClassRejected(ClassReference ref) {
+bool VerificationResults::IsClassRejected(ClassReference ref) const {
   ReaderMutexLock mu(Thread::Current(), rejected_classes_lock_);
   return (rejected_classes_.find(ref) != rejected_classes_.end());
 }
 
 bool VerificationResults::IsCandidateForCompilation(MethodReference&,
-                                                    const uint32_t access_flags) {
+                                                    const uint32_t access_flags) const {
   if (!compiler_options_->IsAotCompilationEnabled()) {
     return false;
   }

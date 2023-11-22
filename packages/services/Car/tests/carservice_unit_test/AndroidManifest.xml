@@ -18,11 +18,12 @@
         xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
         package="com.android.car.carservice_unittest"
         android:sharedUserId="android.uid.system" >
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-            android:targetPackage="com.android.car"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
+            android:targetPackage="com.android.car.carservice_unittest"
             android:label="Unit Tests for Car APIs"/>
 
-    <application android:label="CarServiceUnitTest">
+    <application android:label="CarServiceUnitTest"
+            android:debuggable="true">
         <uses-library android:name="android.test.runner" />
     </application>
 </manifest>

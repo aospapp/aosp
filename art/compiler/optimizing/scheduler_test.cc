@@ -146,7 +146,9 @@ class SchedulerTest : public OptimizingUnitTest {
     environment->SetRawEnvAt(1, mul);
     mul->AddEnvUseAt(div_check->GetEnvironment(), 1);
 
-    SchedulingGraph scheduling_graph(scheduler, GetScopedAllocator());
+    SchedulingGraph scheduling_graph(scheduler,
+                                     GetScopedAllocator(),
+                                     /* heap_location_collector= */ nullptr);
     // Instructions must be inserted in reverse order into the scheduling graph.
     for (HInstruction* instr : ReverseRange(block_instructions)) {
       scheduling_graph.AddNode(instr);
@@ -169,7 +171,9 @@ class SchedulerTest : public OptimizingUnitTest {
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(array_set1, array_get1));
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(array_set2, array_get2));
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(array_get2, array_set1));
-    ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(array_set2, array_set1));
+    // Unnecessary dependency is not stored, we rely on transitive dependencies.
+    // The array_set2 -> array_get2 -> array_set1 dependencies are tested above.
+    ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(array_set2, array_set1));
 
     // Env dependency.
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(div_check, mul));
@@ -192,7 +196,9 @@ class SchedulerTest : public OptimizingUnitTest {
       HInstructionScheduling scheduling(graph, target_config.GetInstructionSet());
       scheduling.Run(/*only_optimize_loop_blocks*/ false, /*schedule_randomly*/ true);
 
+      OverrideInstructionSetFeatures(target_config.GetInstructionSet(), "default");
       RunCode(target_config,
+              *compiler_options_,
               graph,
               [](HGraph* graph_arg) { RemoveSuspendChecks(graph_arg); },
               has_result, expected);
@@ -274,11 +280,10 @@ class SchedulerTest : public OptimizingUnitTest {
       entry->AddInstruction(instr);
     }
 
-    SchedulingGraph scheduling_graph(scheduler, GetScopedAllocator());
     HeapLocationCollector heap_location_collector(graph_);
     heap_location_collector.VisitBasicBlock(entry);
     heap_location_collector.BuildAliasingMatrix();
-    scheduling_graph.SetHeapLocationCollector(heap_location_collector);
+    SchedulingGraph scheduling_graph(scheduler, GetScopedAllocator(), &heap_location_collector);
 
     for (HInstruction* instr : ReverseRange(block_instructions)) {
       // Build scheduling graph with memory access aliasing information
@@ -296,47 +301,53 @@ class SchedulerTest : public OptimizingUnitTest {
     size_t loc2 = HeapLocationCollector::kHeapLocationNotFound;
 
     // Test side effect dependency: array[0] and array[1]
-    loc1 = heap_location_collector.GetArrayHeapLocation(arr, c0);
-    loc2 = heap_location_collector.GetArrayHeapLocation(arr, c1);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr_set_0);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr_set_1);
     ASSERT_FALSE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_1, arr_set_0));
 
     // Test side effect dependency based on LSA analysis: array[i] and array[j]
-    loc1 = heap_location_collector.GetArrayHeapLocation(arr, i);
-    loc2 = heap_location_collector.GetArrayHeapLocation(arr, j);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr_set_i);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr_set_j);
     ASSERT_TRUE(heap_location_collector.MayAlias(loc1, loc2));
-    ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_i));
+    // Unnecessary dependency is not stored, we rely on transitive dependencies.
+    // The arr_set_j -> arr_set_sub0 -> arr_set_add0 -> arr_set_i dependencies are tested below.
+    ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_i));
 
     // Test side effect dependency based on LSA analysis: array[i] and array[i+0]
-    loc1 = heap_location_collector.GetArrayHeapLocation(arr, i);
-    loc2 = heap_location_collector.GetArrayHeapLocation(arr, add0);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr_set_i);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr_set_add0);
     ASSERT_TRUE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_add0, arr_set_i));
 
     // Test side effect dependency based on LSA analysis: array[i] and array[i-0]
-    loc1 = heap_location_collector.GetArrayHeapLocation(arr, i);
-    loc2 = heap_location_collector.GetArrayHeapLocation(arr, sub0);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr_set_i);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr_set_sub0);
     ASSERT_TRUE(heap_location_collector.MayAlias(loc1, loc2));
-    ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_sub0, arr_set_i));
+    // Unnecessary dependency is not stored, we rely on transitive dependencies.
+    ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_sub0, arr_set_i));
+    // Instead, we rely on arr_set_sub0 -> arr_set_add0 -> arr_set_i, the latter is tested above.
+    ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_sub0, arr_set_add0));
 
     // Test side effect dependency based on LSA analysis: array[i] and array[i+1]
-    loc1 = heap_location_collector.GetArrayHeapLocation(arr, i);
-    loc2 = heap_location_collector.GetArrayHeapLocation(arr, add1);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr_set_i);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr_set_add1);
     ASSERT_FALSE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_add1, arr_set_i));
 
     // Test side effect dependency based on LSA analysis: array[i+1] and array[i-1]
-    loc1 = heap_location_collector.GetArrayHeapLocation(arr, add1);
-    loc2 = heap_location_collector.GetArrayHeapLocation(arr, sub1);
+    loc1 = heap_location_collector.GetArrayHeapLocation(arr_set_add1);
+    loc2 = heap_location_collector.GetArrayHeapLocation(arr_set_sub1);
     ASSERT_FALSE(heap_location_collector.MayAlias(loc1, loc2));
     ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_sub1, arr_set_add1));
 
     // Test side effect dependency based on LSA analysis: array[j] and all others array accesses
-    ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_i));
-    ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_add0));
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_sub0));
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_add1));
     ASSERT_TRUE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_sub1));
+    // Unnecessary dependencies are not stored, we rely on transitive dependencies.
+    ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_i));
+    ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_j, arr_set_add0));
 
     // Test that ArraySet and FieldSet should not have side effect dependency
     ASSERT_FALSE(scheduling_graph.HasImmediateOtherDependency(arr_set_i, set_field10));
@@ -352,13 +363,13 @@ class SchedulerTest : public OptimizingUnitTest {
 #if defined(ART_ENABLE_CODEGEN_arm64)
 TEST_F(SchedulerTest, DependencyGraphAndSchedulerARM64) {
   CriticalPathSchedulingNodeSelector critical_path_selector;
-  arm64::HSchedulerARM64 scheduler(GetScopedAllocator(), &critical_path_selector);
+  arm64::HSchedulerARM64 scheduler(&critical_path_selector);
   TestBuildDependencyGraphAndSchedule(&scheduler);
 }
 
 TEST_F(SchedulerTest, ArrayAccessAliasingARM64) {
   CriticalPathSchedulingNodeSelector critical_path_selector;
-  arm64::HSchedulerARM64 scheduler(GetScopedAllocator(), &critical_path_selector);
+  arm64::HSchedulerARM64 scheduler(&critical_path_selector);
   TestDependencyGraphOnAliasingArrayAccesses(&scheduler);
 }
 #endif
@@ -367,14 +378,14 @@ TEST_F(SchedulerTest, ArrayAccessAliasingARM64) {
 TEST_F(SchedulerTest, DependencyGraphAndSchedulerARM) {
   CriticalPathSchedulingNodeSelector critical_path_selector;
   arm::SchedulingLatencyVisitorARM arm_latency_visitor(/*CodeGenerator*/ nullptr);
-  arm::HSchedulerARM scheduler(GetScopedAllocator(), &critical_path_selector, &arm_latency_visitor);
+  arm::HSchedulerARM scheduler(&critical_path_selector, &arm_latency_visitor);
   TestBuildDependencyGraphAndSchedule(&scheduler);
 }
 
 TEST_F(SchedulerTest, ArrayAccessAliasingARM) {
   CriticalPathSchedulingNodeSelector critical_path_selector;
   arm::SchedulingLatencyVisitorARM arm_latency_visitor(/*CodeGenerator*/ nullptr);
-  arm::HSchedulerARM scheduler(GetScopedAllocator(), &critical_path_selector, &arm_latency_visitor);
+  arm::HSchedulerARM scheduler(&critical_path_selector, &arm_latency_visitor);
   TestDependencyGraphOnAliasingArrayAccesses(&scheduler);
 }
 #endif

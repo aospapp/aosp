@@ -22,12 +22,20 @@ package libcore.util;
  *
  * See
  * http://www.mail-archive.com/javaposse@googlegroups.com/msg05984.html
+ *
+ * @hide
  */
+@libcore.api.CorePlatformApi
 public class SneakyThrow {
+
+    private SneakyThrow() {
+    }
+
     /**
      * A hacky method that always throws {@code t} even if {@code t} is a checked exception,
      * and is not declared to be thrown.
      */
+    @libcore.api.CorePlatformApi
     public static void sneakyThrow(Throwable t) {
         SneakyThrow.<RuntimeException>sneakyThrow_(t);
     }
@@ -36,4 +44,3 @@ public class SneakyThrow {
        throw (T) t;
     }
 }
-

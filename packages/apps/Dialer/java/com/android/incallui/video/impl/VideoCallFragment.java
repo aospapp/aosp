@@ -60,7 +60,6 @@ import android.widget.TextView;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.FragmentUtils;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.compat.ActivityCompat;
 import com.android.dialer.util.PermissionsUtil;
 import com.android.incallui.audioroute.AudioRouteSelectorDialogFragment;
 import com.android.incallui.audioroute.AudioRouteSelectorDialogFragment.AudioRouteSelectorPresenter;
@@ -99,6 +98,8 @@ public class VideoCallFragment extends Fragment
   @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
   static final String ARG_CALL_ID = "call_id";
 
+  private static final String TAG_VIDEO_CHARGES_ALERT = "tag_video_charges_alert";
+
   @VisibleForTesting static final float BLUR_PREVIEW_RADIUS = 16.0f;
   @VisibleForTesting static final float BLUR_PREVIEW_SCALE_FACTOR = 1.0f;
   private static final float BLUR_REMOTE_RADIUS = 25.0f;
@@ -108,6 +109,7 @@ public class VideoCallFragment extends Fragment
   private static final int CAMERA_PERMISSION_REQUEST_CODE = 1;
   private static final long CAMERA_PERMISSION_DIALOG_DELAY_IN_MILLIS = 2000L;
   private static final long VIDEO_OFF_VIEW_FADE_OUT_DELAY_IN_MILLIS = 2000L;
+  private static final long VIDEO_CHARGES_ALERT_DIALOG_DELAY_IN_MILLIS = 500L;
 
   private final ViewOutlineProvider circleOutlineProvider =
       new ViewOutlineProvider() {
@@ -162,6 +164,24 @@ public class VideoCallFragment extends Fragment
         }
       };
 
+  private final Runnable videoChargesAlertDialogRunnable =
+      () -> {
+        VideoChargesAlertDialogFragment existingVideoChargesAlertFragment =
+            (VideoChargesAlertDialogFragment)
+                getChildFragmentManager().findFragmentByTag(TAG_VIDEO_CHARGES_ALERT);
+        if (existingVideoChargesAlertFragment != null) {
+          LogUtil.i(
+              "VideoCallFragment.videoChargesAlertDialogRunnable", "already shown for this call");
+          return;
+        }
+
+        if (VideoChargesAlertDialogFragment.shouldShow(getContext(), getCallId())) {
+          LogUtil.i("VideoCallFragment.videoChargesAlertDialogRunnable", "showing dialog");
+          VideoChargesAlertDialogFragment.newInstance(getCallId())
+              .show(getChildFragmentManager(), TAG_VIDEO_CHARGES_ALERT);
+        }
+      };
+
   public static VideoCallFragment newInstance(String callId) {
     Bundle bundle = new Bundle();
     bundle.putString(ARG_CALL_ID, Assert.isNotNull(callId));
@@ -213,8 +233,7 @@ public class VideoCallFragment extends Fragment
         new ContactGridManager(view, null /* no avatar */, 0, false /* showAnonymousAvatar */);
 
     controls = view.findViewById(R.id.videocall_video_controls);
-    controls.setVisibility(
-        ActivityCompat.isInMultiWindowMode(getActivity()) ? View.GONE : View.VISIBLE);
+    controls.setVisibility(getActivity().isInMultiWindowMode() ? View.GONE : View.VISIBLE);
     controlsContainer = view.findViewById(R.id.videocall_video_controls_container);
     speakerButton = (CheckableImageButton) view.findViewById(R.id.videocall_speaker_button);
     muteButton = (CheckableImageButton) view.findViewById(R.id.videocall_mute_button);
@@ -228,8 +247,7 @@ public class VideoCallFragment extends Fragment
     swapCameraButton = (ImageButton) view.findViewById(R.id.videocall_switch_video);
     swapCameraButton.setOnClickListener(this);
     view.findViewById(R.id.videocall_switch_controls)
-        .setVisibility(
-            ActivityCompat.isInMultiWindowMode(getActivity()) ? View.GONE : View.VISIBLE);
+        .setVisibility(getActivity().isInMultiWindowMode() ? View.GONE : View.VISIBLE);
     switchOnHoldButton = view.findViewById(R.id.videocall_switch_on_hold);
     onHoldContainer = view.findViewById(R.id.videocall_on_hold_banner);
     remoteVideoOff = (TextView) view.findViewById(R.id.videocall_remote_video_off);
@@ -352,6 +370,8 @@ public class VideoCallFragment extends Fragment
     inCallButtonUiDelegate.refreshMuteState();
     videoCallScreenDelegate.onVideoCallScreenUiReady();
     getView().postDelayed(cameraPermissionDialogRunnable, CAMERA_PERMISSION_DIALOG_DELAY_IN_MILLIS);
+    getView()
+        .postDelayed(videoChargesAlertDialogRunnable, VIDEO_CHARGES_ALERT_DIALOG_DELAY_IN_MILLIS);
   }
 
   @Override
@@ -377,6 +397,7 @@ public class VideoCallFragment extends Fragment
 
   @Override
   public void onVideoScreenStop() {
+    getView().removeCallbacks(videoChargesAlertDialogRunnable);
     getView().removeCallbacks(cameraPermissionDialogRunnable);
     videoCallScreenDelegate.onVideoCallScreenUiUnready();
   }
@@ -516,7 +537,7 @@ public class VideoCallFragment extends Fragment
 
   private Point getPreviewOffsetStartShown() {
     // No insets in multiwindow mode, and rootWindowInsets will get the display's insets.
-    if (ActivityCompat.isInMultiWindowMode(getActivity())) {
+    if (getActivity().isInMultiWindowMode()) {
       return new Point();
     }
     if (isLandscape()) {
@@ -734,7 +755,7 @@ public class VideoCallFragment extends Fragment
     isInGreenScreenMode = shouldShowGreenScreen;
     isInFullscreenMode = shouldShowFullscreen;
 
-    if (getView().isAttachedToWindow() && !ActivityCompat.isInMultiWindowMode(getActivity())) {
+    if (getView().isAttachedToWindow() && !getActivity().isInMultiWindowMode()) {
       controlsContainer.onApplyWindowInsets(getView().getRootWindowInsets());
     }
     if (shouldShowGreenScreen) {
@@ -765,6 +786,11 @@ public class VideoCallFragment extends Fragment
   @NonNull
   public String getCallId() {
     return Assert.isNotNull(getArguments().getString(ARG_CALL_ID));
+  }
+
+  @Override
+  public void onHandoverFromWiFiToLte() {
+    getView().post(videoChargesAlertDialogRunnable);
   }
 
   @Override

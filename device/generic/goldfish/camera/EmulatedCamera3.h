@@ -66,6 +66,7 @@ public:
         YUV_REPROCESSING,
         DEPTH_OUTPUT,
         CONSTRAINED_HIGH_SPEED_VIDEO,
+        MOTION_TRACKING,
         // Levels
         FULL_LEVEL,
 

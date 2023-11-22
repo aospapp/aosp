@@ -16,7 +16,9 @@
 -->
 <resources>
 
+    <string name="app_name">PdfRendererBasic</string>
     <string name="app_name_with_index">PdfRendererBasic (%1$d/%2$d)</string>
+    <string name="intro_message">This sample demonstrates how to use PdfRenderer to display PDF documents on the screen.</string>
     <string name="info">Info</string>
     <string name="previous">Previous</string>
     <string name="next">Next</string>

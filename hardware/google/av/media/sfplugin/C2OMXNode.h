@@ -86,6 +86,16 @@ private:
     uint32_t mWidth;
     uint32_t mHeight;
     uint64_t mUsage;
+
+    // WORKAROUND: timestamp adjustment
+
+    // if >0: this is the max timestamp gap, if <0: this is -1 times the fixed timestamp gap
+    // if 0: no timestamp adjustment is made
+    // note that C2OMXNode can be recycled between encoding sessions.
+    int32_t mAdjustTimestampGapUs;
+    bool mFirstInputFrame; // true for first input
+    c2_cntr64_t mPrevInputTimestamp; // input timestamp for previous frame
+    c2_cntr64_t mPrevCodecTimestamp; // adjusted (codec) timestamp for previous frame
 };
 
 }  // namespace android

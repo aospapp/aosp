@@ -47,4 +47,6 @@
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Your tablet received a link through NFC:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Your phone received a link through NFC:"</string>
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Open link"</string>
+    <string name="tag_read_error" msgid="2485274498885877547">"NFC read error. Try again."</string>
+    <string name="tag_dispatch_failed" msgid="3562984995049738400">"No supported application for this NFC Tag"</string>
 </resources>

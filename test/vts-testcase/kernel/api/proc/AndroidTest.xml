@@ -25,5 +25,7 @@
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsKernelProcFileApi" />
         <option name="test-case-path" value="vts/testcases/kernel/api/proc/VtsKernelProcFileApiTest" />
+        <option name="test-timeout" value="10m" />
+        <option name="runtime-hint" value="3m"/>
     </test>
 </configuration>

@@ -56,8 +56,11 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         self.unpack_userparams(
             req_param_names=req_params, opt_param_names=opt_param)
 
-        if "AccessPoint" in self.user_params:
+        if hasattr(self, 'access_points'):
             self.legacy_configure_ap_and_start(ap_count=2)
+
+        if hasattr(self, 'packet_capture'):
+            self.configure_packet_capture()
 
     def setup_test(self):
         #reset and clear all saved networks on the DUT
@@ -70,12 +73,22 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         self.dut.droid.wakeUpNow()
         self.dut.ed.clear_all_events()
 
+        if hasattr(self, 'packet_capture'):
+            self.pcap_procs = wutils.start_pcap(
+                self.packet_capture, 'dual', self.test_name)
+
     def teardown_test(self):
         #turn off the screen
         self.dut.droid.wakeLockRelease()
         self.dut.droid.goToSleepNow()
 
+    def on_pass(self, test_name, begin_time):
+        if hasattr(self, 'packet_capture'):
+            wutils.stop_pcap(self.packet_capture, self.pcap_procs, True)
+
     def on_fail(self, test_name, begin_time):
+        if hasattr(self, 'packet_capture'):
+            wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
         self.dut.take_bug_report(test_name, begin_time)
         self.dut.cat_adb_log(test_name, begin_time)
 

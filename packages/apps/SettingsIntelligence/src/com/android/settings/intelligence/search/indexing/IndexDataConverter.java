@@ -20,11 +20,11 @@ package com.android.settings.intelligence.search.indexing;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.XmlResourceParser;
-import android.os.AsyncTask;
 import android.provider.SearchIndexableData;
 import android.provider.SearchIndexableResource;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.Nullable;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.Nullable;
+import androidx.collection.ArraySet;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -42,7 +42,6 @@ import org.xmlpull.v1.XmlPullParserException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -74,25 +73,32 @@ public class IndexDataConverter {
      */
     public List<IndexData> convertPreIndexDataToIndexData(PreIndexData preIndexData) {
         final long startConversion = System.currentTimeMillis();
-        final List<SearchIndexableData> indexableData = preIndexData.getDataToUpdate();
+        final Map<String, List<SearchIndexableData>> indexableDataMap =
+                preIndexData.getDataToUpdate();
         final Map<String, Set<String>> nonIndexableKeys = preIndexData.getNonIndexableKeys();
         final List<IndexData> indexData = new ArrayList<>();
 
-        for (SearchIndexableData data : indexableData) {
-            if (data instanceof SearchIndexableRaw) {
-                final SearchIndexableRaw rawData = (SearchIndexableRaw) data;
-                final Set<String> rawNonIndexableKeys = nonIndexableKeys.get(
-                        rawData.intentTargetPackage);
-                final IndexData convertedRaw = convertRaw(mContext, rawData, rawNonIndexableKeys);
-                if (convertedRaw != null) {
-                    indexData.add(convertedRaw);
+        for (Map.Entry<String, List<SearchIndexableData>> entry : indexableDataMap.entrySet()) {
+            final String authority = entry.getKey();
+            final List<SearchIndexableData> indexableData = entry.getValue();
+
+            for (SearchIndexableData data : indexableData) {
+                if (data instanceof SearchIndexableRaw) {
+                    final SearchIndexableRaw rawData = (SearchIndexableRaw) data;
+                    final Set<String> rawNonIndexableKeys = nonIndexableKeys.get(authority);
+                    final IndexData convertedRaw = convertRaw(mContext, authority, rawData,
+                            rawNonIndexableKeys);
+                    if (convertedRaw != null) {
+                        indexData.add(convertedRaw);
+                    }
+                } else if (data instanceof SearchIndexableResource) {
+                    final SearchIndexableResource sir = (SearchIndexableResource) data;
+                    final Set<String> resourceNonIndexableKeys =
+                            getNonIndexableKeysForResource(nonIndexableKeys, authority);
+                    final List<IndexData> resourceData = convertResource(sir, authority,
+                            resourceNonIndexableKeys);
+                    indexData.addAll(resourceData);
                 }
-            } else if (data instanceof SearchIndexableResource) {
-                final SearchIndexableResource sir = (SearchIndexableResource) data;
-                final Set<String> resourceNonIndexableKeys =
-                        getNonIndexableKeysForResource(nonIndexableKeys, sir.packageName);
-                final List<IndexData> resourceData = convertResource(sir, resourceNonIndexableKeys);
-                indexData.addAll(resourceData);
             }
         }
 
@@ -150,10 +156,10 @@ public class IndexDataConverter {
      * and there is some data sanitization in the conversion.
      */
     @Nullable
-    private IndexData convertRaw(Context context, SearchIndexableRaw raw,
+    private IndexData convertRaw(Context context, String authority, SearchIndexableRaw raw,
             Set<String> nonIndexableKeys) {
         if (TextUtils.isEmpty(raw.key)) {
-            Log.w(TAG, "Skipping null key for raw indexable " + raw.packageName + "/" + raw.title);
+            Log.w(TAG, "Skipping null key for raw indexable " + authority + "/" + raw.title);
             return null;
         }
         // A row is enabled if it does not show up as an nonIndexableKey
@@ -172,6 +178,7 @@ public class IndexDataConverter {
                 .setIntentTargetClass(raw.intentTargetClass)
                 .setEnabled(enabled)
                 .setPackageName(raw.packageName)
+                .setAuthority(authority)
                 .setKey(raw.key);
 
         return builder.build(context);
@@ -184,7 +191,7 @@ public class IndexDataConverter {
      *
      * TODO (b/33577327) simplify this method.
      */
-    private List<IndexData> convertResource(SearchIndexableResource sir,
+    private List<IndexData> convertResource(SearchIndexableResource sir, String authority,
             Set<String> nonIndexableKeys) {
         final Context context = sir.context;
         XmlResourceParser parser = null;
@@ -244,6 +251,7 @@ public class IndexDataConverter {
                     .setKeywords(headerKeywords)
                     .setClassName(sir.className)
                     .setPackageName(sir.packageName)
+                    .setAuthority(authority)
                     .setIntentAction(sir.intentAction)
                     .setIntentTargetPackage(sir.intentTargetPackage)
                     .setIntentTargetClass(sir.intentTargetClass)
@@ -285,6 +293,7 @@ public class IndexDataConverter {
                         .setScreenTitle(screenTitle)
                         .setIconResId(iconResId)
                         .setPackageName(sir.packageName)
+                        .setAuthority(authority)
                         .setIntentAction(sir.intentAction)
                         .setIntentTargetPackage(sir.intentTargetPackage)
                         .setIntentTargetClass(sir.intentTargetClass)
@@ -352,9 +361,8 @@ public class IndexDataConverter {
     }
 
     private Set<String> getNonIndexableKeysForResource(Map<String, Set<String>> nonIndexableKeys,
-            String packageName) {
-        return nonIndexableKeys.containsKey(packageName)
-                ? nonIndexableKeys.get(packageName)
-                : new HashSet<String>();
+            String authority) {
+        final Set<String> result = nonIndexableKeys.get(authority);
+        return result != null ? result : new ArraySet<>();
     }
 }

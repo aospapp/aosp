@@ -24,6 +24,8 @@ extern "C" {
 }  // extern "C"
 
 #include "chre/core/sensor_request.h"
+#include "chre/core/timer_pool.h"
+#include "chre/platform/atomic.h"
 
 namespace chre {
 
@@ -32,6 +34,8 @@ namespace chre {
  */
 class PlatformSensorBase {
  public:
+  PlatformSensorBase() : timerHandle(CHRE_TIMER_INVALID) {}
+
   /**
    * Copies the supplied event to the sensor's last event and marks last event
    * valid.
@@ -61,6 +65,10 @@ class PlatformSensorBase {
   //! Pointer to dynamically allocated memory to store the last event. Only
   //! non-null if this is an on-change sensor.
   ChreSensorData *lastEvent = nullptr;
+
+  //! The timer that is used to determine whether CHRE should issue passive
+  //! requests or not to avoid checking for every sensor status callback.
+  AtomicUint32 timerHandle;
 
   //! The amount of memory we've allocated in lastEvent (this varies depending
   //! on the sensor type)

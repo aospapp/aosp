@@ -29,8 +29,6 @@ using android::net::wifi::IApInterface;
 using android::net::wifi::IWificond;
 using android::wifi_system::InterfaceTool;
 using android::wificond::MockApInterfaceEventCallback;
-using android::wificond::tests::integration::HostapdIsDead;
-using android::wificond::tests::integration::HostapdIsRunning;
 using android::wificond::tests::integration::ScopedDevModeWificond;
 using android::wificond::tests::integration::WaitForTrue;
 using std::string;
@@ -40,8 +38,6 @@ namespace android {
 namespace wificond {
 namespace {
 const char kInterfaceName[] = "wlan0";
-constexpr int kHostapdStartupTimeoutSeconds = 3;
-constexpr int kHostapdDeathTimeoutSeconds = 3;
 }  // namespace
 
 TEST(ApInterfaceTest, CanCreateApInterfaces) {
@@ -78,60 +74,6 @@ TEST(ApInterfaceTest, CanCreateApInterfaces) {
 
   // Teardown everything at the end of the test.
   EXPECT_TRUE(service->tearDownInterfaces().isOk());
-}
-
-// TODO: b/30311493 this test fails because hostapd fails to set the driver
-//       channel every other time.
-TEST(ApInterfaceTest, CanStartStopHostapd) {
-  ScopedDevModeWificond dev_mode;
-  sp<IWificond> service = dev_mode.EnterDevModeOrDie();
-  sp<IApInterface> ap_interface;
-  EXPECT_TRUE(service->createApInterface(kInterfaceName, &ap_interface).isOk());
-  ASSERT_NE(nullptr, ap_interface.get());
-
-  // Interface should start out down.
-  string if_name;
-  EXPECT_TRUE(ap_interface->getInterfaceName(&if_name).isOk());
-  EXPECT_TRUE(!if_name.empty());
-  InterfaceTool if_tool;
-  EXPECT_FALSE(if_tool.GetUpState(if_name.c_str()));
-
-  sp<MockApInterfaceEventCallback> ap_interface_event_callback(
-      new MockApInterfaceEventCallback());
-
-  for (int iteration = 0; iteration < 4; iteration++) {
-    bool hostapd_started = false;
-    EXPECT_TRUE(
-        ap_interface
-            ->startHostapd(ap_interface_event_callback, &hostapd_started)
-            .isOk());
-    EXPECT_TRUE(hostapd_started);
-
-    EXPECT_TRUE(WaitForTrue(HostapdIsRunning, kHostapdStartupTimeoutSeconds))
-        << "Failed on iteration " << iteration;
-
-    // There are two reasons to do this:
-    //   1) We look for hostapd so quickly that we miss when it dies on startup
-    //   2) If we don't give hostapd enough time to get fully up, killing it
-    //      can leave the driver in a poor state.
-    // The latter points to an obvious race, where we cannot fully clean up the
-    // driver on quick transitions.
-    auto InterfaceIsUp = [&if_tool, &if_name] () {
-      return if_tool.GetUpState(if_name.c_str());
-    };
-    EXPECT_TRUE(WaitForTrue(InterfaceIsUp, kHostapdStartupTimeoutSeconds))
-        << "Failed on iteration " << iteration;
-    EXPECT_TRUE(HostapdIsRunning()) << "Failed on iteration " << iteration;
-
-    bool hostapd_stopped = false;
-    EXPECT_TRUE(ap_interface->stopHostapd(&hostapd_stopped).isOk());
-    EXPECT_TRUE(hostapd_stopped);
-    EXPECT_FALSE(if_tool.GetUpState(if_name.c_str()));
-
-
-    EXPECT_TRUE(WaitForTrue(HostapdIsDead, kHostapdDeathTimeoutSeconds))
-        << "Failed on iteration " << iteration;
-  }
 }
 }  // namespace wificond
 }  // namespace android

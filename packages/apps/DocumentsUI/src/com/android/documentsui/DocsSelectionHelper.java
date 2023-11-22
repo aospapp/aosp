@@ -16,50 +16,42 @@
 
 package com.android.documentsui;
 
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.widget.RecyclerView;
+import android.os.Bundle;
+import android.view.MotionEvent;
 
-import com.android.documentsui.selection.DefaultSelectionHelper;
-import com.android.documentsui.selection.DefaultSelectionHelper.SelectionMode;
-import com.android.documentsui.selection.MutableSelection;
-import com.android.documentsui.selection.Selection;
-import com.android.documentsui.selection.SelectionHelper;
+import androidx.annotation.VisibleForTesting;
+import androidx.recyclerview.selection.ItemDetailsLookup;
+import androidx.recyclerview.selection.ItemKeyProvider;
+import androidx.recyclerview.selection.MutableSelection;
+import androidx.recyclerview.selection.Selection;
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.recyclerview.widget.RecyclerView.AdapterDataObserver;
 
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 /**
  * DocumentsUI SelectManager implementation that creates delegate instances
  * each time reset is called.
  */
-public final class DocsSelectionHelper extends SelectionHelper {
+public final class DocsSelectionHelper extends SelectionTracker<String> {
 
     private final DelegateFactory mFactory;
-    private final @SelectionMode int mSelectionMode;
 
     // initialize to a dummy object incase we get some input
     // event drive calls before we're properly initialized.
     // See: b/69306667.
-    private SelectionHelper mDelegate = new DummySelectionHelper();
+    private SelectionTracker<String> mDelegate = new DummySelectionTracker<>();
 
     @VisibleForTesting
-    DocsSelectionHelper(DelegateFactory factory, @SelectionMode int mode) {
+    DocsSelectionHelper(DelegateFactory factory) {
         mFactory = factory;
-        mSelectionMode = mode;
     }
 
-    public SelectionHelper reset(
-            RecyclerView.Adapter<?> adapter,
-            StableIdProvider stableIds,
-            SelectionPredicate canSetState) {
-
+    public void reset(SelectionTracker<String> selectionTracker) {
         if (mDelegate != null) {
             mDelegate.clearSelection();
         }
-
-        mDelegate = mFactory.create(mSelectionMode, adapter, stableIds, canSetState);
-        return this;
+        mDelegate = mFactory.create(selectionTracker);
     }
 
     @Override
@@ -73,12 +65,12 @@ public final class DocsSelectionHelper extends SelectionHelper {
     }
 
     @Override
-    public Selection getSelection() {
+    public Selection<String> getSelection() {
         return mDelegate.getSelection();
     }
 
     @Override
-    public void copySelection(Selection dest) {
+    public void copySelection(MutableSelection<String> dest) {
         mDelegate.copySelection(dest);
     }
 
@@ -94,18 +86,13 @@ public final class DocsSelectionHelper extends SelectionHelper {
     }
 
     @Override
-    public void restoreSelection(Selection other) {
-        mDelegate.restoreSelection(other);
-    }
-
-    @Override
     public boolean setItemsSelected(Iterable<String> ids, boolean selected) {
         return mDelegate.setItemsSelected(ids, selected);
     }
 
     @Override
-    public void clearSelection() {
-        mDelegate.clearSelection();
+    public boolean clearSelection() {
+        return mDelegate.clearSelection();
     }
 
     @Override
@@ -129,26 +116,6 @@ public final class DocsSelectionHelper extends SelectionHelper {
     }
 
     @Override
-    public void extendProvisionalRange(int pos) {
-        mDelegate.extendProvisionalRange(pos);
-    }
-
-    @Override
-    public void clearProvisionalSelection() {
-        mDelegate.clearProvisionalSelection();
-    }
-
-    @Override
-    public void setProvisionalSelection(Set<String> newSelection) {
-        mDelegate.setProvisionalSelection(newSelection);
-    }
-
-    @Override
-    public void mergeProvisionalSelection() {
-        mDelegate.mergeProvisionalSelection();
-    }
-
-    @Override
     public void endRange() {
         mDelegate.endRange();
     }
@@ -163,16 +130,45 @@ public final class DocsSelectionHelper extends SelectionHelper {
         mDelegate.anchorRange(position);
     }
 
-    public static DocsSelectionHelper createMultiSelect() {
-        return new DocsSelectionHelper(
-                DelegateFactory.INSTANCE,
-                DefaultSelectionHelper.MODE_MULTIPLE);
+    @Override
+    public void onSaveInstanceState(Bundle state) {
+        mDelegate.onSaveInstanceState(state);
     }
 
-    public static DocsSelectionHelper createSingleSelect() {
-        return new DocsSelectionHelper(
-                DelegateFactory.INSTANCE,
-                DefaultSelectionHelper.MODE_SINGLE);
+    @Override
+    public void onRestoreInstanceState(Bundle state) {
+        mDelegate.onRestoreInstanceState(state);
+    }
+
+    // Below overridden protected methods are not used for delegation. These empty implementations
+    // are just required by abstract declaration of parent class.
+    @Override
+    protected void restoreSelection(Selection<String> selection) {
+    }
+
+    @Override
+    protected AdapterDataObserver getAdapterDataObserver() {
+        return null;
+    }
+
+    @Override
+    protected void extendProvisionalRange(int position) {
+    }
+
+    @Override
+    protected void setProvisionalSelection(Set<String> newSelection) {
+    }
+
+    @Override
+    protected void clearProvisionalSelection() {
+    }
+
+    @Override
+    protected void mergeProvisionalSelection() {
+    }
+
+    public static DocsSelectionHelper create() {
+        return new DocsSelectionHelper(DelegateFactory.INSTANCE);
     }
 
     /**
@@ -183,107 +179,30 @@ public final class DocsSelectionHelper extends SelectionHelper {
     static class DelegateFactory {
         static final DelegateFactory INSTANCE = new DelegateFactory();
 
-        SelectionHelper create(
-                @SelectionMode int mode,
-                RecyclerView.Adapter<?> adapter,
-                StableIdProvider stableIds,
-                SelectionPredicate canSetState) {
-
-            return new DefaultSelectionHelper(mode, adapter, stableIds, canSetState);
+        SelectionTracker<String> create(SelectionTracker<String> selectionTracker) {
+            return selectionTracker;
         }
     }
 
     /**
-     * A dummy SelectHelper used by DocsSelectionHelper before a real
-     * SelectionHelper has been initialized by DirectoryFragment.
+     * Facilitates the use of ItemDetailsLookup.
      */
-    private static final class DummySelectionHelper extends SelectionHelper {
+    public static abstract class DocDetailsLookup extends ItemDetailsLookup<String> {
 
+        // Override as public for usages in other packages.
         @Override
-        public void addObserver(SelectionObserver listener) {
+        public boolean overItemWithSelectionKey(MotionEvent e) {
+            return super.overItemWithSelectionKey(e);
         }
+    }
 
-        @Override
-        public boolean hasSelection() {
-            return false;
-        }
+    /**
+     * Facilitates the use of stable ids.
+     */
+    public static abstract class StableIdProvider extends ItemKeyProvider<String> {
 
-        @Override
-        public Selection getSelection() {
-            return new MutableSelection();
-        }
-
-        @Override
-        public void copySelection(Selection dest) {
-        }
-
-        @Override
-        public boolean isSelected(String id) {
-            return false;
-        }
-
-        @VisibleForTesting
-        public void replaceSelection(Iterable<String> ids) {
-        }
-
-        @Override
-        public void restoreSelection(Selection other) {
-        }
-
-        @Override
-        public boolean setItemsSelected(Iterable<String> ids, boolean selected) {
-            return false;
-        }
-
-        @Override
-        public void clearSelection() {
-        }
-
-        @Override
-        public boolean select(String modelId) {
-            return false;
-        }
-
-        @Override
-        public boolean deselect(String modelId) {
-            return false;
-        }
-
-        @Override
-        public void startRange(int pos) {
-        }
-
-        @Override
-        public void extendRange(int pos) {
-        }
-
-        @Override
-        public void extendProvisionalRange(int pos) {
-        }
-
-        @Override
-        public void clearProvisionalSelection() {
-        }
-
-        @Override
-        public void setProvisionalSelection(Set<String> newSelection) {
-        }
-
-        @Override
-        public void mergeProvisionalSelection() {
-        }
-
-        @Override
-        public void endRange() {
-        }
-
-        @Override
-        public boolean isRangeActive() {
-            return false;
-        }
-
-        @Override
-        public void anchorRange(int position) {
+        protected StableIdProvider() {
+            super(ItemKeyProvider.SCOPE_MAPPED);
         }
     }
 }

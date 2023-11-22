@@ -17,7 +17,7 @@
 #ifndef ART_RUNTIME_MIRROR_CLASS_LOADER_H_
 #define ART_RUNTIME_MIRROR_CLASS_LOADER_H_
 
-#include "base/mutex.h"
+#include "base/locks.h"
 #include "obj_ptr.h"
 #include "object.h"
 #include "object_reference.h"
@@ -40,13 +40,12 @@ class MANAGED ClassLoader : public Object {
     return sizeof(ClassLoader);
   }
 
-  ClassLoader* GetParent() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetFieldObject<ClassLoader>(OFFSET_OF_OBJECT_MEMBER(ClassLoader, parent_));
-  }
+  ObjPtr<ClassLoader> GetParent() REQUIRES_SHARED(Locks::mutator_lock_);
 
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
   ClassTable* GetClassTable() REQUIRES_SHARED(Locks::mutator_lock_) {
     return reinterpret_cast<ClassTable*>(
-        GetField64(OFFSET_OF_OBJECT_MEMBER(ClassLoader, class_table_)));
+        GetField64<kVerifyFlags>(OFFSET_OF_OBJECT_MEMBER(ClassLoader, class_table_)));
   }
 
   void SetClassTable(ClassTable* class_table) REQUIRES_SHARED(Locks::mutator_lock_) {

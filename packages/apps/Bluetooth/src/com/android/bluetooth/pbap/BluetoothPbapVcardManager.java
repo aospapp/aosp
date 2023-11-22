@@ -332,12 +332,18 @@ public class BluetoothPbapVcardManager {
             contactCursor = mResolver.query(myUri, PHONES_CONTACTS_PROJECTION, null, null,
                     Phone.CONTACT_ID);
 
+            ArrayList<String> contactNameIdList = new ArrayList<String>();
+            appendDistinctNameIdList(contactNameIdList,
+                    mContext.getString(android.R.string.unknownName), contactCursor);
+
             if (contactCursor != null) {
                 if (!composer.initWithCallback(contactCursor,
                         new EnterpriseRawContactEntitlesInfoCallback())) {
                     return nameList;
                 }
 
+                int i = 0;
+                contactCursor.moveToFirst();
                 while (!composer.isAfterLast()) {
                     String vcard = composer.createOneEntry();
                     if (vcard == null) {
@@ -362,8 +368,9 @@ public class BluetoothPbapVcardManager {
                         if (TextUtils.isEmpty(name)) {
                             name = mContext.getString(android.R.string.unknownName);
                         }
-                        nameList.add(name);
+                        nameList.add(contactNameIdList.get(i));
                     }
+                    i++;
                 }
                 if (orderByWhat == BluetoothPbapObexServer.ORDER_BY_INDEXED) {
                     if (V) {

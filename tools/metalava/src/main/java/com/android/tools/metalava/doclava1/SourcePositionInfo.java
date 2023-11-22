@@ -62,7 +62,7 @@ public class SourcePositionInfo implements Comparable {
         return this.line - that.line;
     }
 
-    public final String file;
-    public final int line;
-    public final int column;
+    private final String file;
+    private final int line;
+    private final int column;
 }

@@ -15,6 +15,8 @@
  */
 package com.android.cts.deviceowner;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.app.admin.ConnectEvent;
 import android.app.admin.DnsEvent;
 import android.app.admin.NetworkEvent;
@@ -22,9 +24,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.support.test.InstrumentationRegistry;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import android.os.Parcel;
 import android.util.Log;
+
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.test.InstrumentationRegistry;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -38,6 +42,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -193,6 +198,80 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
         verifyNetworkLogs(mNetworkEvents, eventsExpected);
     }
 
+    private void verifyDnsEvent(DnsEvent dnsEvent) {
+        // Verify that we didn't log a hostname lookup when network logging was disabled.
+        if (dnsEvent.getHostname().contains(NOT_LOGGED_URLS_LIST[0])
+                || dnsEvent.getHostname().contains(NOT_LOGGED_URLS_LIST[1])) {
+            fail("A hostname that was looked-up when network logging was disabled"
+                    + " was logged.");
+        }
+
+        // Verify that as many IP addresses were logged as were reported (max 10).
+        final List<InetAddress> ips = dnsEvent.getInetAddresses();
+        assertThat(ips.size()).isAtMost(MAX_IP_ADDRESSES_LOGGED);
+        final int expectedAddressCount = Math.min(MAX_IP_ADDRESSES_LOGGED,
+                dnsEvent.getTotalResolvedAddressCount());
+        assertThat(expectedAddressCount).isEqualTo(ips.size());
+
+        // Verify the IP addresses are valid IPv4 or IPv6 addresses.
+        for (final InetAddress ipAddress : ips) {
+            assertTrue(isIpv4OrIpv6Address(ipAddress));
+        }
+
+        //Verify writeToParcel.
+        Parcel parcel = Parcel.obtain();
+        try {
+            dnsEvent.writeToParcel(parcel, 0);
+            parcel.setDataPosition(0);
+            final DnsEvent dnsEventOut = DnsEvent.CREATOR.createFromParcel(parcel);
+            assertThat(dnsEventOut).isNotNull();
+            verifyDnsEventsEqual(dnsEvent, dnsEventOut);
+        } finally {
+            parcel.recycle();
+        }
+    }
+
+    private void verifyDnsEventsEqual(DnsEvent event1, DnsEvent event2) {
+        assertThat(event1.getHostname()).isEqualTo(event2.getHostname());
+        assertThat(new HashSet<InetAddress>(event1.getInetAddresses())).isEqualTo(
+                        new HashSet<InetAddress>(event2.getInetAddresses()));
+        assertThat(event1.getTotalResolvedAddressCount()).isEqualTo(
+                event2.getTotalResolvedAddressCount());
+        assertThat(event1.getPackageName()).isEqualTo(event2.getPackageName());
+        assertThat(event1.getTimestamp()).isEqualTo(event2.getTimestamp());
+        assertThat(event1.getId()).isEqualTo(event2.getId());
+    }
+
+    private void verifyConnectEvent(ConnectEvent connectEvent) {
+        // Verify the IP address is a valid IPv4 or IPv6 address.
+        final InetAddress ip = connectEvent.getInetAddress();
+        assertThat(isIpv4OrIpv6Address(ip)).isTrue();
+
+        // Verify that the port is a valid port.
+        assertThat(connectEvent.getPort()).isAtLeast(0);
+        assertThat(connectEvent.getPort()).isAtMost(65535);
+
+        // Verify writeToParcel.
+        Parcel parcel = Parcel.obtain();
+        try {
+            connectEvent.writeToParcel(parcel, 0);
+            parcel.setDataPosition(0);
+            final ConnectEvent connectEventOut = ConnectEvent.CREATOR.createFromParcel(parcel);
+            assertThat(connectEventOut).isNotNull();
+            verifyConnectEventsEqual(connectEvent, connectEventOut);
+        } finally {
+             parcel.recycle();
+        }
+    }
+
+    private void verifyConnectEventsEqual(ConnectEvent event1, ConnectEvent event2) {
+        assertThat(event1.getInetAddress()).isEqualTo(event2.getInetAddress());
+        assertThat(event1.getPort()).isEqualTo(event2.getPort());
+        assertThat(event1.getPackageName()).isEqualTo(event2.getPackageName());
+        assertThat(event1.getTimestamp()).isEqualTo(event2.getTimestamp());
+        assertThat(event1.getId()).isEqualTo(event2.getId());
+    }
+
     private void verifyNetworkLogs(List<NetworkEvent> networkEvents, int eventsExpected) {
         // allow a batch to be slightly smaller or larger.
         assertTrue(Math.abs(eventsExpected - networkEvents.size()) <= 50);
@@ -216,35 +295,18 @@ public class NetworkLoggingTest extends BaseDeviceOwnerTest {
                 ctsPackageNameCounter++;
                 if (currentEvent instanceof DnsEvent) {
                     final DnsEvent dnsEvent = (DnsEvent) currentEvent;
-                    // verify that we didn't log a hostname lookup when network logging was disabled
-                    if (dnsEvent.getHostname().contains(NOT_LOGGED_URLS_LIST[0])
-                            || dnsEvent.getHostname().contains(NOT_LOGGED_URLS_LIST[1])) {
-                        fail("A hostname that was looked-up when network logging was disabled"
-                                + " was logged.");
-                    }
-                    // count the frequencies of LOGGED_URLS_LIST's hostnames that were looked up
+                    // Mark which addresses from LOGGED_URLS_LIST were visited.
                     for (int j = 0; j < LOGGED_URLS_LIST.length; j++) {
                         if (dnsEvent.getHostname().contains(LOGGED_URLS_LIST[j])) {
                             visited[j] = true;
                             break;
                         }
                     }
-                    // verify that as many IP addresses were logged as were reported (max 10)
-                    final List<InetAddress> ips = dnsEvent.getInetAddresses();
-                    assertTrue(ips.size() <= MAX_IP_ADDRESSES_LOGGED);
-                    final int expectedAddressCount = Math.min(MAX_IP_ADDRESSES_LOGGED,
-                            dnsEvent.getTotalResolvedAddressCount());
-                    assertEquals(expectedAddressCount, ips.size());
-                    // verify the IP addresses are valid IPv4 or IPv6 addresses
-                    for (final InetAddress ipAddress : ips) {
-                        assertTrue(isIpv4OrIpv6Address(ipAddress));
-                    }
+
+                    verifyDnsEvent(dnsEvent);
                 } else if (currentEvent instanceof ConnectEvent) {
                     final ConnectEvent connectEvent = (ConnectEvent) currentEvent;
-                    // verify the IP address is a valid IPv4 or IPv6 address
-                    assertTrue(isIpv4OrIpv6Address(connectEvent.getInetAddress()));
-                    // verify that the port is a valid port
-                    assertTrue(connectEvent.getPort() >= 0 && connectEvent.getPort() <= 65535);
+                    verifyConnectEvent(connectEvent);
                 } else {
                     fail("An unknown NetworkEvent type logged: "
                             + currentEvent.getClass().getName());

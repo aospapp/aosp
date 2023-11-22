@@ -309,7 +309,7 @@ class Sl4aManagerTest(unittest.TestCase):
         try:
             manager.start_sl4a_service()
             self.fail('An error should have been thrown.')
-        except rpc_client.MissingSl4AError:
+        except rpc_client.Sl4aNotInstalledError:
             pass
 
     def test_start_sl4a_starts_sl4a_if_not_running(self):
@@ -324,7 +324,7 @@ class Sl4aManagerTest(unittest.TestCase):
         manager.is_sl4a_installed = lambda: True
         try:
             manager.start_sl4a_service()
-        except rpc_client.MissingSl4AError:
+        except rpc_client.Sl4aNotInstalledError:
             self.fail('An error should not have been thrown.')
         adb.shell.assert_called_with(sl4a_manager._SL4A_START_SERVICE_CMD)
 

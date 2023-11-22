@@ -20,15 +20,18 @@
 #include "android-base/logging.h"
 #include "art_field.h"
 #include "art_method.h"
+#include "base/locks.h"
 #include "base/macros.h"
-#include "base/mutex.h"
 #include "class_linker.h"
 #include "dex/code_item_accessors.h"
+#include "dex/dex_file_structs.h"
 #include "dex/primitive.h"
 #include "handle_scope-inl.h"
 #include "instrumentation.h"
+#include "interpreter/interpreter.h"
 #include "interpreter/shadow_frame.h"
 #include "interpreter/unstarted_runtime.h"
+#include "jvalue-inl.h"
 #include "mirror/class.h"
 #include "mirror/object.h"
 #include "obj_ptr-inl.h"
@@ -40,7 +43,7 @@ namespace art {
 
 namespace interpreter {
   void ArtInterpreterToInterpreterBridge(Thread* self,
-                                        const DexFile::CodeItem* code_item,
+                                        const dex::CodeItem* code_item,
                                         ShadowFrame* shadow_frame,
                                         JValue* result)
      REQUIRES_SHARED(Locks::mutator_lock_);
@@ -171,6 +174,14 @@ ALWAYS_INLINE bool DoFieldPutCommon(Thread* self,
     if (UNLIKELY(self->IsExceptionPending())) {
       return false;
     }
+    if (shadow_frame.GetForcePopFrame()) {
+      // We need to check this here since we expect that the FieldWriteEvent happens before the
+      // actual field write. If one pops the stack we should not modify the field.  The next
+      // instruction will force a pop. Return true.
+      DCHECK(Runtime::Current()->AreNonStandardExitsEnabled());
+      DCHECK(interpreter::PrevFrameWillRetry(self, shadow_frame));
+      return true;
+    }
   }
 
   switch (field_type) {
@@ -204,7 +215,12 @@ ALWAYS_INLINE bool DoFieldPutCommon(Thread* self,
           HandleWrapperObjPtr<mirror::Object> h_obj(hs.NewHandleWrapper(&obj));
           field_class = field->ResolveType();
         }
-        if (!reg->VerifierInstanceOf(field_class.Ptr())) {
+        // ArtField::ResolveType() may fail as evidenced with a dexing bug (b/78788577).
+        if (UNLIKELY(field_class.IsNull())) {
+          Thread::Current()->AssertPendingException();
+          return false;
+        }
+        if (UNLIKELY(!reg->VerifierInstanceOf(field_class.Ptr()))) {
           // This should never happen.
           std::string temp1, temp2, temp3;
           self->ThrowNewExceptionF("Ljava/lang/InternalError;",

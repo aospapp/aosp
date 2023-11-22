@@ -29,6 +29,18 @@ $ ./flash-all.sh
 After that completes, power the board off, and set the switches back
 to normal mode and boot the device.
 
+Known Issues:
+-------------
+When flashing ontop of the HiSi bootloader, you may see the following
+failure:
+  sending 'xloader' (151 KB)...
+  OKAY [  0.006s]
+  writing 'xloader'...
+  FAILED (remote: flash write back vrl failure)
+
+This is a transient error and can be ignored.
+
+
 Trouble shooting:
 -----------------
 If you have any trouble booting the device after running ./flash-all.sh

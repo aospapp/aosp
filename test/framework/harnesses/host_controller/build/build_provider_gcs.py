@@ -20,6 +20,7 @@ import re
 import zipfile
 
 from host_controller.build import build_provider
+from host_controller.utils.gcp import gcs_utils
 from vts.utils.python.common import cmd_utils
 
 _GCLOUD_AUTH_ENV_KEY = "run_gcs_key"
@@ -40,7 +41,6 @@ class BuildProviderGCS(build_provider.BuildProvider):
                 if ret_code == 0:
                     logging.info(stderr)
                 else:
-                    print(stderr)
                     logging.error(stderr)
 
     @staticmethod
@@ -55,38 +55,14 @@ class BuildProviderGCS(build_provider.BuildProvider):
                           "please install Google Cloud SDK before retrying.")
             return None
 
-    @staticmethod
-    def GetGsutilPath():
-        """Returns the gsutil file path if found; None otherwise."""
-        sh_stdout, sh_stderr, ret_code = cmd_utils.ExecuteOneShellCommand(
-            "which gsutil")
-        if ret_code == 0:
-            return sh_stdout.strip()
-        else:
-            logging.fatal("`gsutil` doesn't exist on the host; "
-                          "please install Google Cloud SDK before retrying.")
-            return None
-
-    @staticmethod
-    def IsGcsFile(gsutil_path, gs_path):
-        """Checks whether a given path is for a GCS file.
-
-        Args:
-            gsutil_path: string, the path of a gsutil binary.
-            gs_path: string, the GCS file path (e.g., gs://<bucket>/<file>.
-
-        Returns:
-            True if gs_path is a file, False otherwise.
-        """
-        check_command = "%s stat %s" % (gsutil_path, gs_path)
-        _, _, ret_code = cmd_utils.ExecuteOneShellCommand(check_command)
-        return ret_code == 0
-
-    def Fetch(self, path):
+    def Fetch(self, path, full_device_images=False, set_suite_as=None):
         """Fetches Android device artifact file(s) from GCS.
 
         Args:
             path: string, the path of a directory which keeps artifacts.
+            set_suite_as: string, the test suite name to use for the given
+                          artifact. Used when the file name does not follow
+                          the standard "android-*ts.zip" file name pattern.
 
         Returns:
             a dict containing the device image info.
@@ -96,18 +72,31 @@ class BuildProviderGCS(build_provider.BuildProvider):
         if not path.startswith("gs://"):
             path = "gs://" + re.sub("^/*", "", path)
         path = re.sub("/*$", "", path)
-        # make sure gsutil is available. Instead of a Python library,
-        # gsutil binary is used that is to avoid packaging GCS PIP package
-        # as part of VTS HC (Host Controller).
-        gsutil_path = BuildProviderGCS.GetGsutilPath()
+        gsutil_path = gcs_utils.GetGsutilPath()
         if gsutil_path:
             temp_dir_path = self.CreateNewTmpDir()
             # IsGcsFile returns False if path is directory or doesn't exist.
             # cp command returns non-zero if path doesn't exist.
-            if not BuildProviderGCS.IsGcsFile(gsutil_path, path):
+            if not gcs_utils.IsGcsFile(gsutil_path, path):
                 dest_path = temp_dir_path
-                copy_command = "%s cp -r %s/* %s" % (gsutil_path, path,
-                                                     temp_dir_path)
+                if "latest.zip" in path:
+                    gsutil_ls_path = re.sub("latest.zip", "*.zip", path)
+                    lines_gsutil_ls = gcs_utils.List(gsutil_path, gsutil_ls_path)
+                    if lines_gsutil_ls:
+                        lines_gsutil_ls.sort()
+                        path = lines_gsutil_ls[-1]
+                        copy_command = "%s cp %s %s" % (gsutil_path, path,
+                                                        temp_dir_path)
+                    else:
+                        logging.error(
+                            "There is no file(s) that matches the URL %s.",
+                            path)
+                        return (self.GetDeviceImage(),
+                                self.GetTestSuitePackage(),
+                                self.GetAdditionalFile())
+                else:
+                    copy_command = "%s cp -r %s/* %s" % (gsutil_path, path,
+                                                         temp_dir_path)
             else:
                 dest_path = os.path.join(temp_dir_path, os.path.basename(path))
                 copy_command = "%s cp %s %s" % (gsutil_path, path,
@@ -115,10 +104,10 @@ class BuildProviderGCS(build_provider.BuildProvider):
 
             _, _, ret_code = cmd_utils.ExecuteOneShellCommand(copy_command)
             if ret_code == 0:
-                self.SetFetchedFile(dest_path, temp_dir_path)
+                self.SetFetchedFile(dest_path, temp_dir_path,
+                                    full_device_images, set_suite_as)
             else:
-                logging.error("Error in copy file from GCS (code %s)." %
+                logging.error("Error in copy file from GCS (code %s).",
                               ret_code)
-        return (self.GetDeviceImage(),
-                self.GetTestSuitePackage(),
+        return (self.GetDeviceImage(), self.GetTestSuitePackage(),
                 self.GetAdditionalFile())

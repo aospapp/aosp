@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package com.android.car.settings.datetime;
@@ -22,6 +22,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TimePicker;
+
+import androidx.annotation.LayoutRes;
+import androidx.annotation.StringRes;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
@@ -36,14 +39,22 @@ public class TimePickerFragment extends BaseFragment {
 
     private TimePicker mTimePicker;
 
-    public static TimePickerFragment getInstance() {
-        TimePickerFragment timePickerFragment = new TimePickerFragment();
-        Bundle bundle = BaseFragment.getBundle();
-        bundle.putInt(EXTRA_TITLE_ID, R.string.time_picker_title);
-        bundle.putInt(EXTRA_LAYOUT, R.layout.time_picker);
-        bundle.putInt(EXTRA_ACTION_BAR_LAYOUT, R.layout.action_bar_with_button);
-        timePickerFragment.setArguments(bundle);
-        return timePickerFragment;
+    @Override
+    @LayoutRes
+    protected int getActionBarLayoutId() {
+        return R.layout.action_bar_with_button;
+    }
+
+    @Override
+    @LayoutRes
+    protected int getLayoutId() {
+        return R.layout.time_picker;
+    }
+
+    @Override
+    @StringRes
+    protected int getTitleId() {
+        return R.string.time_picker_title;
     }
 
     @Override

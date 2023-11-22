@@ -17,10 +17,11 @@
 package com.android.tv.settings.device.display.daydream;
 
 import android.content.Context;
-import android.support.annotation.Keep;
-import android.support.v7.preference.ListPreference;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+
+import androidx.annotation.Keep;
+import androidx.preference.ListPreference;
 
 @Keep
 public class DreamTimePreference extends ListPreference {

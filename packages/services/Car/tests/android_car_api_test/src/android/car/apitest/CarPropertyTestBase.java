@@ -27,10 +27,14 @@ import android.test.AndroidTestCase;
  */
 public class CarPropertyTestBase extends AndroidTestCase {
 
-    protected final static int PROPERTY_ID      = 0xBEEFBEEF;
-    protected final static int CAR_AREA_TYPE    = 0xDEADBEEF;
-    protected final static int WINDOW_DRIVER    = 0x00000001;
-    protected final static int WINDOW_PASSENGER = 0x00000002;
+    protected static final int FLOAT_PROPERTY_ID        = 0x1160BEEF;
+    protected static final int INT_ARRAY_PROPERTY_ID    = 0x0041BEEF;
+    protected static final int INT_PROPERTY_ID          = 0x0040BEFF;
+    protected static final int LONG_PROPERTY_ID         = 0x0050BEFF;
+
+    protected static final int CAR_AREA_TYPE    = 0xDEADBEEF;
+    protected static final int WINDOW_DRIVER    = 0x00000001;
+    protected static final int WINDOW_PASSENGER = 0x00000002;
 
     private Parcel mParcel;
 

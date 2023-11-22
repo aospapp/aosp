@@ -31,7 +31,7 @@ import java.util.Arrays;
  * @hide
  */
 @SystemApi
-public class AppBlockingPackageInfo implements Parcelable {
+public final class AppBlockingPackageInfo implements Parcelable {
 
     /** Package name for the package to block or allow. */
     public final String packageName;
@@ -45,7 +45,7 @@ public class AppBlockingPackageInfo implements Parcelable {
     @IntDef(flag = true,
             value = {FLAG_SYSTEM_APP, FLAG_WHOLE_ACTIVITY})
     @Retention(RetentionPolicy.SOURCE)
-    public @interface ConstrcutorFlags {}
+    public @interface ConstructorFlags {}
 
     /**
      * flags to give additional information on the package.
@@ -82,7 +82,7 @@ public class AppBlockingPackageInfo implements Parcelable {
 
 
     public AppBlockingPackageInfo(String packageName, int minRevisionCode, int maxRevisionCode,
-            @ConstrcutorFlags int flags, @Nullable Signature[] signatures,
+            @ConstructorFlags int flags, @Nullable Signature[] signatures,
             @Nullable String[] activities) {
         if (packageName == null) {
             throw new IllegalArgumentException("packageName cannot be null");
@@ -155,8 +155,6 @@ public class AppBlockingPackageInfo implements Parcelable {
         }
         return false;
     }
-
-
 
     @Override
     public int hashCode() {

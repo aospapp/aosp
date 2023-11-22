@@ -79,7 +79,12 @@ public class CommReceiver extends BroadcastRpcBase.ReceiverBase<Payload, Payload
                 context.startService(intent);
             }
             rb.setStartServiceAck(true);
-
+        } else if (request.getTestServiceRequest().getStopService()) {
+            final Intent intent = new Intent()
+                    .setComponent(getTestService(context.getPackageName()));
+            Log.d(TAG, "Stopping service " + intent);
+            context.stopService(intent);
+            rb.setStopServiceAck(true);
         } else if (request.getTestServiceRequest().hasSetAlarm()) {
             // Set an alarm with a given intent.
 

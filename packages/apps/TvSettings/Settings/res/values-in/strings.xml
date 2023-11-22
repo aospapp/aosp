@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrasi"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Pilih format"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Suara Surround"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Beberapa aplikasi tidak akan tersedia atau berfungsi dengan benar sampai drive dihubungkan kembali."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Ruang penyimpanan tidak cukup."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Aplikasi tidak ada."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Aplikasi dilindungi hak cipta."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Lokasi pemasangan tidak valid."</string>
     <string name="system_package" msgid="9200255718634512790">"Pembaruan sistem tidak dapat dipasang pada media eksternal."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Administrator Perangkat tidak dapat dipasang di media eksternal."</string>
@@ -482,7 +481,7 @@
     <string name="system_select_debug_app" msgid="8592021815119618485">"Memilih aplikasi debug"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"Tunggu debugger"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"Memverifikasi aplikasi melalui USB"</string>
-    <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"Memeriksa perilaku berbahaya pada aplikasi yang terpasang melalui ADB/ADT"</string>
+    <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"Memeriksa perilaku berbahaya pada aplikasi yang terinstal melalui ADB/ADT"</string>
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"Pencatatan log panjang Wi-Fi"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Mengaktifkan pencatatan log panjang Wi-Fi"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"Menampilkan sentuhan"</string>
@@ -729,7 +728,10 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Akses notifikasi"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Tidak ada aplikasi terinstal yang meminta akses notifikasi."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Aplikasi ini dapat membaca semua notifikasi, termasuk informasi pribadi seperti nama kontak dan teks pesan yang Anda terima. Aplikasi ini juga dapat menutup notifikasi atau memicu tombol tindakan yang dimilikinya."</string>
-    <string name="system_alert_window_settings" msgid="2069031369694448339">"Tampilkan di atas aplikasi lain"</string>
+    <string name="directory_access" msgid="7439168599298598101">"Akses direktori"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Aplikasi ini memiliki izin untuk mengakses direktori tertentu."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"Tampilkan di atas apl lain"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Izinkan ditampilkan di atas aplikasi lain"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Izinkan aplikasi ditampilkan di atas aplikasi lain yang sedang digunakan. Setelan ini dapat mengganggu penggunaan aplikasi tersebut atau mengubah cara tampilannya atau perilakunya."</string>
     <string name="write_system_settings" msgid="2730923656857824907">"Ubah setelan sistem"</string>

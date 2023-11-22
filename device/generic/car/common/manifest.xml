@@ -1,5 +1,5 @@
-<!-- A copy of the goldfish manifest with the addition of vehicle hal. -->
-<manifest version="1.0" type="device">
+<!-- A copy of the goldfish manifest with the addition of vehicle hals. -->
+<manifest version="1.0" type="device" target-level="3">
     <hal format="hidl">
         <name>android.hardware.drm</name>
         <transport>hwbinder</transport>
@@ -7,27 +7,20 @@
         <interface>
             <name>ICryptoFactory</name>
             <instance>default</instance>
-            <instance>widevine</instance>
         </interface>
         <interface>
             <name>IDrmFactory</name>
             <instance>default</instance>
-            <instance>widevine</instance>
         </interface>
-    </hal>
-    <hal format="hidl">
-        <name>android.hardware.soundtrigger</name>
-        <transport>hwbinder</transport>
-        <version>2.0</version>
-        <interface>
-            <name>ISoundTriggerHw</name>
-            <instance>default</instance>
-        </interface>
+        <fqname>@1.2::ICryptoFactory/clearkey</fqname>
+        <fqname>@1.2::IDrmFactory/clearkey</fqname>
+        <fqname>@1.2::ICryptoFactory/widevine</fqname>
+        <fqname>@1.2::IDrmFactory/widevine</fqname>
     </hal>
     <hal format="hidl">
         <name>android.hardware.audio.effect</name>
         <transport>hwbinder</transport>
-        <version>2.0</version>
+        <version>4.0</version>
         <interface>
             <name>IEffectsFactory</name>
             <instance>default</instance>
@@ -54,7 +47,7 @@
     <hal format="hidl">
         <name>android.hardware.audio</name>
         <transport>hwbinder</transport>
-        <version>2.0</version>
+        <version>4.0</version>
         <interface>
             <name>IDevicesFactory</name>
             <instance>default</instance>
@@ -99,19 +92,21 @@
     <hal format="hidl">
         <name>android.hardware.power</name>
         <transport>hwbinder</transport>
-        <version>1.0</version>
+        <version>1.1</version>
         <interface>
             <name>IPower</name>
             <instance>default</instance>
         </interface>
     </hal>
+    <!-- 2.0 for car builds -->
     <hal format="hidl">
         <name>android.hardware.broadcastradio</name>
         <transport>hwbinder</transport>
-        <version>1.0</version>
+        <version>2.0</version>
         <interface>
-            <name>IBroadcastRadioFactory</name>
-            <instance>default</instance>
+            <name>IBroadcastRadio</name>
+            <instance>amfm</instance>
+            <instance>dab</instance>
         </interface>
     </hal>
     <hal format="hidl">
@@ -191,6 +186,15 @@
         </interface>
     </hal>
     <hal format="hidl">
+        <name>android.hardware.wifi.hostapd</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+            <name>IHostapd</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
         <name>android.hardware.wifi.supplicant</name>
         <transport>hwbinder</transport>
         <version>1.0</version>
@@ -200,20 +204,40 @@
         </interface>
     </hal>
     <hal format="hidl">
-        <name>android.hardware.automotive.vehicle</name>
+        <name>android.hardware.health</name>
         <transport>hwbinder</transport>
         <version>2.0</version>
         <interface>
-            <name>IVehicle</name>
+            <name>IHealth</name>
             <instance>default</instance>
         </interface>
     </hal>
+    <hal format="hidl">
+        <name>android.hardware.thermal</name>
+        <transport>hwbinder</transport>
+        <version>2.0</version>
+        <interface>
+            <name>IThermal</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <!-- Added for automotive -->
     <hal format="hidl">
         <name>android.hardware.automotive.audiocontrol</name>
         <transport>hwbinder</transport>
         <version>1.0</version>
         <interface>
             <name>IAudioControl</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <!-- Added for automotive -->
+    <hal format="hidl">
+        <name>android.hardware.automotive.vehicle</name>
+        <transport>hwbinder</transport>
+        <version>2.0</version>
+        <interface>
+            <name>IVehicle</name>
             <instance>default</instance>
         </interface>
     </hal>

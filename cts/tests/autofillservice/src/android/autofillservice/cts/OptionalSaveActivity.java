@@ -25,6 +25,8 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 
+import androidx.annotation.Nullable;
+
 /**
  * Activity that has the following fields:
  *
@@ -105,12 +107,21 @@ public class OptionalSaveActivity extends AbstractAutoFillActivity {
      * Sets the expectation for an auto-fill request, so it can be asserted through
      * {@link #assertAutoFilled()} later.
      */
-    void expectAutoFill(String address1, String address2, String city, String favColor) {
+    void expectAutoFill(@Nullable String address1, @Nullable String address2, @Nullable String city,
+            @Nullable String favColor) {
         mExpectation = new FillExpectation(address1, address2, city, favColor);
-        mAddress1.addTextChangedListener(mExpectation.address1Watcher);
-        mAddress2.addTextChangedListener(mExpectation.address2Watcher);
-        mCity.addTextChangedListener(mExpectation.cityWatcher);
-        mFavoriteColor.addTextChangedListener(mExpectation.favoriteColorWatcher);
+        if (address1 != null) {
+            mAddress1.addTextChangedListener(mExpectation.address1Watcher);
+        }
+        if (address2 != null) {
+            mAddress2.addTextChangedListener(mExpectation.address2Watcher);
+        }
+        if (city != null) {
+            mCity.addTextChangedListener(mExpectation.cityWatcher);
+        }
+        if (favColor != null) {
+            mFavoriteColor.addTextChangedListener(mExpectation.favoriteColorWatcher);
+        }
     }
 
     /**
@@ -119,10 +130,18 @@ public class OptionalSaveActivity extends AbstractAutoFillActivity {
      */
     void assertAutoFilled() throws Exception {
         assertWithMessage("expectAutoFill() not called").that(mExpectation).isNotNull();
-        mExpectation.address1Watcher.assertAutoFilled();
-        mExpectation.address2Watcher.assertAutoFilled();
-        mExpectation.cityWatcher.assertAutoFilled();
-        mExpectation.favoriteColorWatcher.assertAutoFilled();
+        if (mExpectation.address1Watcher != null) {
+            mExpectation.address1Watcher.assertAutoFilled();
+        }
+        if (mExpectation.address2Watcher != null) {
+            mExpectation.address2Watcher.assertAutoFilled();
+        }
+        if (mExpectation.cityWatcher != null) {
+            mExpectation.cityWatcher.assertAutoFilled();
+        }
+        if (mExpectation.favoriteColorWatcher != null) {
+            mExpectation.favoriteColorWatcher.assertAutoFilled();
+        }
     }
 
     /**
@@ -134,11 +153,15 @@ public class OptionalSaveActivity extends AbstractAutoFillActivity {
         private final OneTimeTextWatcher cityWatcher;
         private final OneTimeTextWatcher favoriteColorWatcher;
 
-        private FillExpectation(String address1, String address2, String city, String favColor) {
-            address1Watcher = new OneTimeTextWatcher("address1", mAddress1, address1);
-            address2Watcher = new OneTimeTextWatcher("address2", mAddress2, address2);
-            cityWatcher = new OneTimeTextWatcher("city", mCity, city);
-            favoriteColorWatcher = new OneTimeTextWatcher("favColor", mFavoriteColor, favColor);
+        private FillExpectation(@Nullable String address1, @Nullable String address2,
+                @Nullable String city, @Nullable String favColor) {
+            address1Watcher = address1 == null ? null
+                    : new OneTimeTextWatcher("address1", mAddress1, address1);
+            address2Watcher = address2 == null ? null
+                    : new OneTimeTextWatcher("address2", mAddress2, address2);
+            cityWatcher = city == null ? null : new OneTimeTextWatcher("city", mCity, city);
+            favoriteColorWatcher = favColor == null ? null
+                    : new OneTimeTextWatcher("favColor", mFavoriteColor, favColor);
         }
     }
 }

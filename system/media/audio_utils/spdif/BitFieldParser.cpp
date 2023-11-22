@@ -20,7 +20,7 @@
 #include <string.h>
 #include <assert.h>
 
-#include <utils/Log.h>
+#include <log/log.h>
 #include "BitFieldParser.h"
 
 namespace android {

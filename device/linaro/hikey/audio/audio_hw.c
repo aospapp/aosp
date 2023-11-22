@@ -23,8 +23,9 @@
 #include <stdint.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <unistd.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/str_parms.h>
 #include <cutils/properties.h>
 
@@ -59,6 +60,33 @@
 #define CHANNEL_STEREO 2
 #define MIN_WRITE_SLEEP_US      5000
 
+#ifdef ENABLE_XAF_DSP_DEVICE
+#include "xaf-utils-test.h"
+#include "audio/xa_vorbis_dec_api.h"
+#include "audio/xa-audio-decoder-api.h"
+#define NUM_COMP_IN_GRAPH   1
+
+struct alsa_audio_device;
+
+struct xaf_dsp_device {
+    void *p_adev;
+    void *p_decoder;
+    xaf_info_t comp_info;
+    /* ...playback format */
+    xaf_format_t pb_format;
+    xaf_comp_status dec_status;
+    int dec_info[4];
+    void *dec_inbuf[2];
+    int read_length;
+    xf_id_t dec_id;
+    int xaf_started;
+    mem_obj_t* mem_handle;
+    int num_comp;
+    int (*dec_setup)(void *p_comp, struct alsa_audio_device *audio_device);
+    int xafinitdone;
+};
+#endif
+
 struct stub_stream_in {
     struct audio_stream_in stream;
 };
@@ -71,7 +99,10 @@ struct alsa_audio_device {
     struct alsa_stream_in *active_input;
     struct alsa_stream_out *active_output;
     bool mic_mute;
+#ifdef ENABLE_XAF_DSP_DEVICE
+    struct xaf_dsp_device dsp_device;
     int hifi_dsp_fd;
+#endif
 };
 
 struct alsa_stream_out {
@@ -87,6 +118,134 @@ struct alsa_stream_out {
     unsigned int written;
 };
 
+#ifdef ENABLE_XAF_DSP_DEVICE
+static int pcm_setup(void *p_pcm, struct alsa_audio_device *audio_device)
+{
+    int param[6];
+
+    param[0] = XA_CODEC_CONFIG_PARAM_SAMPLE_RATE;
+    param[1] = audio_device->dsp_device.pb_format.sample_rate;
+    param[2] = XA_CODEC_CONFIG_PARAM_CHANNELS;
+    param[3] = audio_device->dsp_device.pb_format.channels;
+    param[4] = XA_CODEC_CONFIG_PARAM_PCM_WIDTH;
+    param[5] = audio_device->dsp_device.pb_format.pcm_width;
+
+    XF_CHK_API(xaf_comp_set_config(p_pcm, 3, &param[0]));
+
+    return 0;
+}
+
+void xa_thread_exit_handler(int sig)
+{
+    /* ...unused arg */
+    (void) sig;
+
+    pthread_exit(0);
+}
+
+/*xtensa audio device init*/
+static int xa_device_init(struct alsa_audio_device *audio_device)
+{
+    /* ...initialize playback format */
+    audio_device->dsp_device.p_adev = NULL;
+    audio_device->dsp_device.pb_format.sample_rate = 48000;
+    audio_device->dsp_device.pb_format.channels    = 2;
+    audio_device->dsp_device.pb_format.pcm_width   = 16;
+    audio_device->dsp_device.xafinitdone = 0;
+    audio_frmwk_buf_size = 0; //unused
+    audio_comp_buf_size  = 0; //unused
+    audio_device->dsp_device.num_comp = NUM_COMP_IN_GRAPH;
+    struct sigaction actions;
+    memset(&actions, 0, sizeof(actions));
+    sigemptyset(&actions.sa_mask);
+    actions.sa_flags = 0;
+    actions.sa_handler = xa_thread_exit_handler;
+    sigaction(SIGUSR1,&actions,NULL);
+    /* ...initialize tracing facility */
+    audio_device->dsp_device.xaf_started =1;
+    audio_device->dsp_device.dec_id    = "audio-decoder/pcm";
+    audio_device->dsp_device.dec_setup = pcm_setup;
+    audio_device->dsp_device.mem_handle = mem_init(); //initialize memory handler
+    XF_CHK_API(xaf_adev_open(&audio_device->dsp_device.p_adev, audio_frmwk_buf_size, audio_comp_buf_size, mem_malloc, mem_free));
+    /* ...create decoder component */
+    XF_CHK_API(xaf_comp_create(audio_device->dsp_device.p_adev, &audio_device->dsp_device.p_decoder, audio_device->dsp_device.dec_id, 1, 1, &audio_device->dsp_device.dec_inbuf[0], XAF_DECODER));
+    XF_CHK_API(audio_device->dsp_device.dec_setup(audio_device->dsp_device.p_decoder,audio_device));
+
+    /* ...start decoder component */
+    XF_CHK_API(xaf_comp_process(audio_device->dsp_device.p_adev, audio_device->dsp_device.p_decoder, NULL, 0, XAF_START_FLAG));
+    return 0;
+}
+
+static int xa_device_run(struct audio_stream_out *stream, const void *buffer, size_t frame_size, size_t out_frames, size_t bytes)
+{
+    struct alsa_stream_out *out = (struct alsa_stream_out *)stream;
+    struct alsa_audio_device *adev = out->dev;
+    int ret=0;
+    void *p_comp=adev->dsp_device.p_decoder;
+    xaf_comp_status comp_status;
+    memcpy(adev->dsp_device.dec_inbuf[0],buffer,bytes);
+    adev->dsp_device.read_length=bytes;
+
+    if (adev->dsp_device.xafinitdone == 0) {
+        XF_CHK_API(xaf_comp_process(adev->dsp_device.p_adev, adev->dsp_device.p_decoder, adev->dsp_device.dec_inbuf[0], adev->dsp_device.read_length, XAF_INPUT_READY_FLAG));
+        XF_CHK_API(xaf_comp_get_status(adev->dsp_device.p_adev, adev->dsp_device.p_decoder, &adev->dsp_device.dec_status, &adev->dsp_device.comp_info));
+        ALOGE("PROXY:%s xaf_comp_get_status %d\n",__func__,adev->dsp_device.dec_status);
+        if (adev->dsp_device.dec_status == XAF_INIT_DONE) {
+            adev->dsp_device.xafinitdone = 1;
+            out->written += out_frames;
+            XF_CHK_API(xaf_comp_process(NULL, p_comp, NULL, 0, XAF_EXEC_FLAG));
+        }
+    } else {
+        XF_CHK_API(xaf_comp_process(NULL, adev->dsp_device.p_decoder, adev->dsp_device.dec_inbuf[0], adev->dsp_device.read_length, XAF_INPUT_READY_FLAG));
+        while (1) {
+            XF_CHK_API(xaf_comp_get_status(NULL, p_comp, &comp_status, &adev->dsp_device.comp_info));
+            if (comp_status == XAF_EXEC_DONE) break;
+            if (comp_status == XAF_NEED_INPUT) {
+                 ALOGV("PROXY:%s loop:XAF_NEED_INPUT\n",__func__);
+                 break;
+            }
+            if (comp_status == XAF_OUTPUT_READY) {
+                void *p_buf = (void *)adev->dsp_device.comp_info.buf;
+                int size    = adev->dsp_device.comp_info.length;
+                ret = pcm_mmap_write(out->pcm, p_buf, size);
+                if (ret == 0) {
+                    out->written += out_frames;
+                }
+                XF_CHK_API(xaf_comp_process(NULL, adev->dsp_device.p_decoder, (void *)adev->dsp_device.comp_info.buf, adev->dsp_device.comp_info.length, XAF_NEED_OUTPUT_FLAG));
+            }
+        }
+    }
+    return ret;
+}
+
+static int xa_device_close(struct alsa_audio_device *audio_device)
+{
+    if (audio_device->dsp_device.xaf_started) {
+        xaf_comp_status comp_status;
+        audio_device->dsp_device.xaf_started=0;
+        while (1) {
+            XF_CHK_API(xaf_comp_get_status(NULL, audio_device->dsp_device.p_decoder, &comp_status, &audio_device->dsp_device.comp_info));
+            ALOGV("PROXY:comp_status:%d,audio_device->dsp_device.comp_info.length:%d\n",(int)comp_status,audio_device->dsp_device.comp_info.length);
+            if (comp_status == XAF_EXEC_DONE)
+                break;
+            if (comp_status == XAF_NEED_INPUT) {
+                XF_CHK_API(xaf_comp_process(NULL, audio_device->dsp_device.p_decoder, NULL, 0, XAF_INPUT_OVER_FLAG));
+            }
+
+            if (comp_status == XAF_OUTPUT_READY) {
+                XF_CHK_API(xaf_comp_process(NULL, audio_device->dsp_device.p_decoder, (void *)audio_device->dsp_device.comp_info.buf, audio_device->dsp_device.comp_info.length, XAF_NEED_OUTPUT_FLAG));
+            }
+        }
+
+        /* ...exec done, clean-up */
+        XF_CHK_API(xaf_comp_delete(audio_device->dsp_device.p_decoder));
+        XF_CHK_API(xaf_adev_close(audio_device->dsp_device.p_adev, 0 /*unused*/));
+        mem_exit();
+        XF_CHK_API(print_mem_mcps_info(audio_device->dsp_device.mem_handle, audio_device->dsp_device.num_comp));
+    }
+    return 0;
+}
+#endif
 
 /* must be called with hw device and output stream mutexes locked */
 static int start_output_stream(struct alsa_stream_out *out)
@@ -181,6 +340,9 @@ static int out_standby(struct audio_stream *stream)
 
     pthread_mutex_lock(&out->dev->lock);
     pthread_mutex_lock(&out->lock);
+#ifdef ENABLE_XAF_DSP_DEVICE
+    xa_device_close(out->dev);
+#endif
     status = do_output_standby(out);
     pthread_mutex_unlock(&out->lock);
     pthread_mutex_unlock(&out->dev->lock);
@@ -249,7 +411,6 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     struct alsa_audio_device *adev = out->dev;
     size_t frame_size = audio_stream_out_frame_size(stream);
     size_t out_frames = bytes / frame_size;
-    struct misc_io_pcm_buf_param pcmbuf;
 
     /* acquiring hw device mutex systematically is useful if a low priority thread is waiting
      * on the output stream mutex - e.g. executing select_mode() while holding the hw device
@@ -258,6 +419,11 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     pthread_mutex_lock(&adev->lock);
     pthread_mutex_lock(&out->lock);
     if (out->standby) {
+#ifdef ENABLE_XAF_DSP_DEVICE
+        if (adev->hifi_dsp_fd >= 0) {
+            xa_device_init(adev);
+        }
+#endif
         ret = start_output_stream(out);
         if (ret != 0) {
             pthread_mutex_unlock(&adev->lock);
@@ -268,19 +434,19 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
 
     pthread_mutex_unlock(&adev->lock);
 
-    if (adev->hifi_dsp_fd >= 0) {
-        pcmbuf.buf = (uint64_t)buffer;
-        pcmbuf.buf_size = bytes;
-        ret = ioctl(adev->hifi_dsp_fd, HIFI_MISC_IOCTL_PCM_GAIN, &pcmbuf);
-        if (ret) {
-            ALOGV("hifi_dsp: Error buffer processing: %d", errno);
+#ifdef ENABLE_XAF_DSP_DEVICE
+    /*fallback to original audio processing*/
+    if (adev->dsp_device.p_adev != NULL) {
+        ret = xa_device_run(stream, buffer,frame_size, out_frames, bytes);
+    } else {
+#endif
+        ret = pcm_mmap_write(out->pcm, buffer, out_frames * frame_size);
+        if (ret == 0) {
+            out->written += out_frames;
         }
+#ifdef ENABLE_XAF_DSP_DEVICE
     }
-
-    ret = pcm_mmap_write(out->pcm, buffer, out_frames * frame_size);
-    if (ret == 0) {
-        out->written += out_frames;
-    }
+#endif
 exit:
     pthread_mutex_unlock(&out->lock);
 
@@ -638,11 +804,14 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
 
 static int adev_close(hw_device_t *device)
 {
+#ifdef ENABLE_XAF_DSP_DEVICE
     struct alsa_audio_device *adev = (struct alsa_audio_device *)device;
-
+#endif
     ALOGV("adev_close");
+#ifdef ENABLE_XAF_DSP_DEVICE
     if (adev->hifi_dsp_fd >= 0)
         close(adev->hifi_dsp_fd);
+#endif
     free(device);
     return 0;
 }
@@ -686,13 +855,14 @@ static int adev_open(const hw_module_t* module, const char* name,
     adev->devices = AUDIO_DEVICE_NONE;
 
     *device = &adev->hw_device.common;
-
+#ifdef ENABLE_XAF_DSP_DEVICE
     adev->hifi_dsp_fd = open(HIFI_DSP_MISC_DRIVER, O_WRONLY, 0);
     if (adev->hifi_dsp_fd < 0) {
         ALOGW("hifi_dsp: Error opening device %d", errno);
     } else {
         ALOGI("hifi_dsp: Open device");
     }
+#endif
     return 0;
 }
 

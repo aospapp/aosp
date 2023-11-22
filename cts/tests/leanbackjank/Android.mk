@@ -30,10 +30,10 @@ LOCAL_SDK_VERSION := current
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ub-uiautomator \
-    ub-janktesthelper
+    androidx.test.janktesthelper
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 

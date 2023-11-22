@@ -16,6 +16,8 @@
 
 #define TRACE_TAG TRANSPORT
 
+#include <memory>
+
 #include "sysdeps.h"
 #include "transport.h"
 
@@ -121,7 +123,7 @@ static int remote_read(apacket* p, usb_handle* usb) {
 // On Android devices, we rely on the kernel to provide buffered read.
 // So we can recover automatically from EOVERFLOW.
 static int remote_read(apacket* p, usb_handle* usb) {
-    if (usb_read(usb, &p->msg, sizeof(amessage))) {
+    if (usb_read(usb, &p->msg, sizeof(amessage)) != sizeof(amessage)) {
         PLOG(ERROR) << "remote usb: read terminated (message)";
         return -1;
     }
@@ -133,7 +135,8 @@ static int remote_read(apacket* p, usb_handle* usb) {
         }
 
         p->payload.resize(p->msg.data_length);
-        if (usb_read(usb, &p->payload[0], p->payload.size())) {
+        if (usb_read(usb, &p->payload[0], p->payload.size())
+                != static_cast<int>(p->payload.size())) {
             PLOG(ERROR) << "remote usb: terminated (data)";
             return -1;
         }
@@ -153,19 +156,24 @@ bool UsbConnection::Read(apacket* packet) {
 }
 
 bool UsbConnection::Write(apacket* packet) {
-    unsigned size = packet->msg.data_length;
+    int size = packet->msg.data_length;
 
-    if (usb_write(handle_, &packet->msg, sizeof(packet->msg)) != 0) {
+    if (usb_write(handle_, &packet->msg, sizeof(packet->msg)) != sizeof(packet->msg)) {
         PLOG(ERROR) << "remote usb: 1 - write terminated";
         return false;
     }
 
-    if (packet->msg.data_length != 0 && usb_write(handle_, packet->payload.data(), size) != 0) {
+    if (packet->msg.data_length != 0 && usb_write(handle_, packet->payload.data(), size) != size) {
         PLOG(ERROR) << "remote usb: 2 - write terminated";
         return false;
     }
 
     return true;
+}
+
+void UsbConnection::Reset() {
+    usb_reset(handle_);
+    usb_kick(handle_);
 }
 
 void UsbConnection::Close() {
@@ -174,9 +182,10 @@ void UsbConnection::Close() {
 
 void init_usb_transport(atransport* t, usb_handle* h) {
     D("transport: usb");
-    t->connection.reset(new UsbConnection(h));
-    t->sync_token = 1;
+    auto connection = std::make_unique<UsbConnection>(h);
+    t->SetConnection(std::make_unique<BlockingConnectionAdapter>(std::move(connection)));
     t->type = kTransportUsb;
+    t->SetUsbHandle(h);
 }
 
 int is_adb_interface(int usb_class, int usb_subclass, int usb_protocol) {

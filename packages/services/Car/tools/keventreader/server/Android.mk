@@ -42,6 +42,5 @@ LOCAL_MODULE := com.android.car.keventreader
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_CFLAGS += -Wall -Werror
-LOCAL_CPPFLAGS += -std=c++17
 
 include $(BUILD_EXECUTABLE)

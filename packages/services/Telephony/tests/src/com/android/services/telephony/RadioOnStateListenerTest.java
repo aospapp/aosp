@@ -16,33 +16,32 @@
 
 package com.android.services.telephony;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Matchers.isNull;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import android.os.AsyncResult;
 import android.os.Handler;
 import android.telephony.ServiceState;
-import android.support.test.runner.AndroidJUnit4;
-import android.support.test.filters.FlakyTest;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.TelephonyTestBase;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.internal.telephony.ServiceStateTracker;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Matchers.isNull;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.when;
 
 /**
  * Tests the RadioOnStateListener, which listens to one Phone and waits until its service
@@ -52,21 +51,26 @@ import static org.mockito.Mockito.when;
 @RunWith(AndroidJUnit4.class)
 public class RadioOnStateListenerTest extends TelephonyTestBase {
 
-    private static final long TIMEOUT_MS = 100;
+    private static final long TIMEOUT_MS = 1000;
 
     @Mock Phone mMockPhone;
     @Mock RadioOnStateListener.Callback mCallback;
     RadioOnStateListener mListener;
 
+    @Override
     @Before
     public void setUp() throws Exception {
         super.setUp();
         mListener = new RadioOnStateListener();
     }
 
+    @Override
     @After
     public void tearDown() throws Exception {
+        // Wait for the queue to clear...
+        waitForHandlerAction(mListener.getHandler(), TIMEOUT_MS /*ms timeout*/);
         mListener.getHandler().removeCallbacksAndMessages(null);
+        mListener = null;
         super.tearDown();
     }
 
@@ -86,8 +90,9 @@ public class RadioOnStateListenerTest extends TelephonyTestBase {
     }
 
     /**
-     * {@link RadioOnStateListener.Callback#isOkToCall(int)} returns true, so we are expecting
-     * {@link RadioOnStateListener.Callback#onComplete(boolean)} to return true.
+     *  {@link RadioOnStateListener.Callback#isOkToCall(Phone, int)} returns true, so we are
+     *  expecting {@link RadioOnStateListener.Callback#onComplete(RadioOnStateListener, boolean)} to
+     *  return true.
      */
     @Test
     @SmallTest
@@ -107,8 +112,9 @@ public class RadioOnStateListenerTest extends TelephonyTestBase {
     }
 
     /**
-     * We never receive a {@link RadioOnStateListener.Callback#onComplete(boolean)} because
-     * {@link RadioOnStateListener.Callback#isOkToCall(int)} returns false.
+     * We never receive a
+     * {@link RadioOnStateListener.Callback#onComplete(RadioOnStateListener, boolean)} because
+     * {@link RadioOnStateListener.Callback#isOkToCall(Phone, int)} returns false.
      */
     @Test
     @SmallTest
@@ -129,27 +135,27 @@ public class RadioOnStateListenerTest extends TelephonyTestBase {
     }
 
     /**
-     * Tests {@link RadioOnStateListener.Callback#isOkToCall(int)} returning false and hitting the
-     * max number of retries. This should result in
-     * {@link RadioOnStateListener.Callback#onComplete(boolean)} returning false.
+     * Tests {@link RadioOnStateListener.Callback#isOkToCall(Phone, int)} returning false and
+     * hitting the max number of retries. This should result in
+     * {@link RadioOnStateListener.Callback#onComplete(RadioOnStateListener, boolean)} returning
+     * false.
      */
     @Test
-    @FlakyTest
+    @SmallTest
     public void testTimeout_RetryFailure() {
         ServiceState state = new ServiceState();
         state.setState(ServiceState.STATE_POWER_OFF);
         when(mMockPhone.getState()).thenReturn(PhoneConstants.State.IDLE);
         when(mMockPhone.getServiceState()).thenReturn(state);
         when(mCallback.isOkToCall(eq(mMockPhone), anyInt())).thenReturn(false);
-        mListener.setTimeBetweenRetriesMillis(50);
+        mListener.setTimeBetweenRetriesMillis(0/*ms*/);
         mListener.setMaxNumRetries(2);
 
         // Wait for the timer to expire and check state manually in onRetryTimeout
         mListener.waitForRadioOn(mMockPhone, mCallback);
-        waitForHandlerActionDelayed(mListener.getHandler(), TIMEOUT_MS, 500);
+        waitForHandlerActionDelayed(mListener.getHandler(), TIMEOUT_MS, TIMEOUT_MS /*delay*/);
 
         verify(mCallback).onComplete(eq(mListener), eq(false));
         verify(mMockPhone, times(2)).setRadioPower(eq(true));
     }
-
 }

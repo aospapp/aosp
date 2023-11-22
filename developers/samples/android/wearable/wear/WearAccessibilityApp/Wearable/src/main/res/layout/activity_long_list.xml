@@ -14,7 +14,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-<android.support.wear.widget.drawer.WearableDrawerLayout
+<androidx.wear.widget.drawer.WearableDrawerLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -22,7 +22,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:deviceIds="wear">
-    <android.support.wear.widget.WearableRecyclerView
+    <androidx.wear.widget.WearableRecyclerView
         android:id="@+id/recycler_view_long_list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -30,12 +30,12 @@
         android:paddingBottom="?android:dialogPreferredPadding"
         android:clipToPadding="false"
         android:scrollbars="vertical"/>
-    <android.support.wear.widget.drawer.WearableActionDrawerView
+    <androidx.wear.widget.drawer.WearableActionDrawerView
         android:id="@+id/action_drawer_long_list"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="invisible"
         app:actionMenu="@menu/action_drawer_menu"
         app:show_overflow_in_peek="true">
-    </android.support.wear.widget.drawer.WearableActionDrawerView>
-</android.support.wear.widget.drawer.WearableDrawerLayout>
+    </androidx.wear.widget.drawer.WearableActionDrawerView>
+</androidx.wear.widget.drawer.WearableDrawerLayout>

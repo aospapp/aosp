@@ -25,34 +25,40 @@ public class QuotationAwareTokenizer {
     private static final String LOG_TAG = "TOKEN";
 
     /**
-     * Tokenizes the string, splitting on specified delimiter.  Does not split between consecutive,
+     * Tokenizes the string, splitting on specified delimiter. Does not split between consecutive,
      * unquoted double-quote marks.
-     * <p/>
-     * How the tokenizer works:
+     *
+     * <p>How the tokenizer works:
+     *
      * <ol>
-     *     <li> Split the string into "characters" where each "character" is either an escaped
-     *          character like \" (that is, "\\\"") or a single real character like f (just "f").
-     *     <li> For each "character"
-     *     <ol>
+     *   <li> Split the string into "characters" where each "character" is either an escaped
+     *       character like \" (that is, "\\\"") or a single real character like f (just "f").
+     *   <li> For each "character"
+     *       <ol>
      *         <li> If it's a space, finish a token unless we're being quoted
      *         <li> If it's a quotation mark, flip the "we're being quoted" bit
      *         <li> Otherwise, add it to the token being built
-     *     </ol>
-     *     <li> At EOL, we typically haven't added the final token to the (tokens) {@link ArrayList}
-     *     <ol>
+     *       </ol>
+     *
+     *   <li> At EOL, we typically haven't added the final token to the (tokens) {@link ArrayList}
+     *       <ol>
      *         <li> If the last "character" is an escape character, throw an exception; that's not
-     *              valid
+     *             valid
      *         <li> If we're in the middle of a quotation, throw an exception; that's not valid
      *         <li> Otherwise, add the final token to (tokens)
-     *     </ol>
-     *     <li> Return a String[] version of (tokens)
+     *       </ol>
+     *
+     *   <li> Return a String[] version of (tokens)
      * </ol>
      *
      * @param line A {@link String} to be tokenized
+     * @param delim the delimiter to split on
+     * @param logging whether or not to log operations
      * @return A tokenized version of the string
      * @throws IllegalArgumentException if the line cannot be parsed
      */
-    public static String[] tokenizeLine(String line, String delim) throws IllegalArgumentException {
+    public static String[] tokenizeLine(String line, String delim, boolean logging)
+            throws IllegalArgumentException {
         if (line == null) {
             throw new IllegalArgumentException("line is null");
         }
@@ -65,7 +71,7 @@ public class QuotationAwareTokenizer {
         String aChar = "";
         boolean quotation = false;
 
-        Log.d(LOG_TAG, String.format("Trying to tokenize the line '%s'", line));
+        log(String.format("Trying to tokenize the line '%s'", line), logging);
         while (charMatcher.find()) {
             aChar = charMatcher.group();
 
@@ -77,7 +83,7 @@ public class QuotationAwareTokenizer {
                     if (token.length() > 0) {
                         // this is the end of a non-empty token; dump it in our list of tokens,
                         // clear our temp storage, and keep rolling
-                        Log.d(LOG_TAG, String.format("Finished token '%s'", token.toString()));
+                        log(String.format("Finished token '%s'", token.toString()), logging);
                         tokens.add(token.toString());
                         token.delete(0, token.length());
                     }
@@ -85,7 +91,7 @@ public class QuotationAwareTokenizer {
                 }
             } else if ("\"".equals(aChar)) {
                 // unescaped quotation mark; flip quotation state
-                Log.v(LOG_TAG, "Flipped quotation state");
+                log("Flipped quotation state", logging);
                 quotation ^= true;
             } else {
                 // default case: add the character to the token being built
@@ -101,7 +107,7 @@ public class QuotationAwareTokenizer {
 
         // Add the final token to the tokens array.
         if (token.length() > 0) {
-            Log.v(LOG_TAG, String.format("Finished final token '%s'", token.toString()));
+            log(String.format("Finished final token '%s'", token.toString()), logging);
             tokens.add(token.toString());
             token.delete(0, token.length());
         }
@@ -117,7 +123,22 @@ public class QuotationAwareTokenizer {
      * See also {@link #tokenizeLine(String, String)}
      */
     public static String[] tokenizeLine(String line) throws IllegalArgumentException {
-        return tokenizeLine(line, " ");
+        return tokenizeLine(line, " ", true);
+    }
+
+    public static String[] tokenizeLine(String line, String delim) throws IllegalArgumentException {
+        return tokenizeLine(line, delim, true);
+    }
+
+    /**
+     * Tokenizes the string, splitting on spaces. Does not split between consecutive, unquoted
+     * double-quote marks.
+     *
+     * <p>See also {@link #tokenizeLine(String, String)}
+     */
+    public static String[] tokenizeLine(String line, boolean logging)
+            throws IllegalArgumentException {
+        return tokenizeLine(line, " ", logging);
     }
 
     /**
@@ -146,5 +167,11 @@ public class QuotationAwareTokenizer {
             }
         }
         return sb.toString();
+    }
+
+    private static void log(String message, boolean display) {
+        if (display) {
+            Log.v(LOG_TAG, message);
+        }
     }
 }

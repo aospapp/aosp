@@ -39,7 +39,7 @@ size_t FqInstance::getMinorVersion() const {
 }
 
 std::pair<size_t, size_t> FqInstance::getVersion() const {
-    return {getMajorVersion(), getMinorVersion()};
+    return mFqName.getVersion();
 }
 
 bool FqInstance::hasVersion() const {
@@ -62,11 +62,7 @@ bool FqInstance::hasInstance() const {
     return !mInstance.empty();
 }
 
-bool FqInstance::setTo(const std::string& s) {
-    auto pos = s.find(INSTANCE_SEP);
-    if (!mFqName.setTo(s.substr(0, pos))) return false;
-    mInstance = pos == std::string::npos ? std::string{} : s.substr(pos + 1);
-
+bool FqInstance::isValid() const {
     bool hasPkg = hasPackage();
     bool hasVer = hasVersion();
     bool hasIntf = hasInterface();
@@ -91,12 +87,19 @@ bool FqInstance::setTo(const std::string& s) {
     return !hasInst;
 }
 
+bool FqInstance::setTo(const std::string& s) {
+    auto pos = s.find(INSTANCE_SEP);
+    if (!mFqName.setTo(s.substr(0, pos))) return false;
+    mInstance = pos == std::string::npos ? std::string{} : s.substr(pos + 1);
+
+    return isValid();
+}
+
 bool FqInstance::setTo(const std::string& package, size_t majorVer, size_t minorVer,
                        const std::string& interface, const std::string& instance) {
-    std::stringstream ss;
-    ss << package << "@" << majorVer << "." << minorVer << "::" << interface << INSTANCE_SEP
-       << instance;
-    return setTo(ss.str());
+    if (!mFqName.setTo(package, majorVer, minorVer, interface)) return false;
+    mInstance = instance;
+    return isValid();
 }
 
 bool FqInstance::setTo(size_t majorVer, size_t minorVer, const std::string& interface,
@@ -105,7 +108,7 @@ bool FqInstance::setTo(size_t majorVer, size_t minorVer, const std::string& inte
 }
 
 bool FqInstance::setTo(const std::string& interface, const std::string& instance) {
-    return setTo(interface + INSTANCE_SEP + instance);
+    return setTo(0u, 0u, interface, instance);
 }
 
 std::string FqInstance::string() const {
@@ -124,6 +127,10 @@ bool FqInstance::operator==(const FqInstance& other) const {
 
 bool FqInstance::operator!=(const FqInstance& other) const {
     return !(*this == other);
+}
+
+bool FqInstance::inPackage(const std::string& package) const {
+    return mFqName.inPackage(package);
 }
 
 }  // namespace android

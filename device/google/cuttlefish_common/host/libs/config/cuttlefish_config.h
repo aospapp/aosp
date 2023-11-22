@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <set>
 
 namespace Json {
 class Value;
@@ -24,15 +25,21 @@ class Value;
 
 namespace vsoc {
 
+constexpr char kDefaultUuidPrefix[] = "699acfc4-c8c4-11e7-882b-5065f31dc1";
+constexpr char kCuttlefishConfigEnvVarName[] = "CUTTLEFISH_CONFIG_FILE";
+constexpr char kVsocUserPrefix[] = "vsoc-";
+
 // Holds the configuration of the cuttlefish instances.
 class CuttlefishConfig {
  public:
   static CuttlefishConfig* Get();
-  ~CuttlefishConfig() = default;
+
+  CuttlefishConfig();
+  ~CuttlefishConfig();
 
   // Saves the configuration object in a file, it can then be read in other
   // processes by passing the --config_file option.
-  bool SaveToFile(const std::string& file) const ;
+  bool SaveToFile(const std::string& file) const;
 
   // Returns the path to a file with the given name in the instance directory..
   std::string PerInstancePath(const char* file_name) const;
@@ -44,12 +51,14 @@ class CuttlefishConfig {
     set_usb_v1_socket_name("");
   }
 
-  // Reads the kernel command line from a file and appends extra arguments.
-  bool ReadKernelArgs(const std::string& cmdline_file,
-                      const std::string& extra_args);
-
   std::string instance_dir() const;
   void set_instance_dir(const std::string& instance_dir);
+
+  std::string vm_manager() const;
+  void set_vm_manager(const std::string& name);
+
+  std::string hardware_name() const;
+  void set_hardware_name(const std::string& name);
 
   std::string serial_number() const;
   void set_serial_number(const std::string& serial_number);
@@ -69,14 +78,44 @@ class CuttlefishConfig {
   int y_res() const;
   void set_y_res(int y_res);
 
+  int num_screen_buffers() const;
+  void set_num_screen_buffers(int num_screen_buffers);
+
   int refresh_rate_hz() const;
   void set_refresh_rate_hz(int refresh_rate_hz);
 
+  // Returns kernel image extracted from the boot image or the user-provided one
+  // if given by command line to the launcher. This function should not be used
+  // to get the kernel image the vmm should boot, GetKernelImageToUse() should
+  // be used instead.
   std::string kernel_image_path() const;
   void set_kernel_image_path(const std::string& kernel_image_path);
 
-  std::string kernel_args() const;
-  void set_kernel_args(const std::string& kernel_args);
+  bool decompress_kernel() const;
+  void set_decompress_kernel(bool decompress_kernel);
+
+  // Returns the path to the kernel image that should be given to the vm manager
+  // to boot, takes into account whether the original image was decompressed or
+  // not.
+  std::string GetKernelImageToUse() const {
+    return decompress_kernel() ? decompressed_kernel_image_path()
+                               : kernel_image_path();
+  }
+
+  std::string decompressed_kernel_image_path() const;
+  void set_decompressed_kernel_image_path(const std::string& path);
+
+  bool use_unpacked_kernel() const;
+  void set_use_unpacked_kernel(bool use_unpacked_kernel);
+
+  std::set<std::string> kernel_cmdline() const;
+  void set_kernel_cmdline(const std::set<std::string>& kernel_cmdline);
+  void add_kernel_cmdline(const std::string& arg);
+  void add_kernel_cmdline(const std::set<std::string>& kernel_cmdline);
+  std::string kernel_cmdline_as_string() const;
+
+  std::string gdb_flag() const;
+  void set_gdb_flag(const std::string& gdb);
 
   std::string ramdisk_image_path() const;
   void set_ramdisk_image_path(const std::string& ramdisk_image_path);
@@ -93,8 +132,20 @@ class CuttlefishConfig {
   std::string vendor_image_path() const;
   void set_vendor_image_path(const std::string& vendor_image_path);
 
+  std::string metadata_image_path() const;
+  void set_metadata_image_path(const std::string& metadata_image_path);
+
+  std::string product_image_path() const;
+  void set_product_image_path(const std::string& product_image_path);
+
+  std::string super_image_path() const;
+  void set_super_image_path(const std::string& super_image_path);
+
   std::string dtb_path() const;
   void set_dtb_path(const std::string& dtb_path);
+
+  std::string gsi_fstab_path() const;
+  void set_gsi_fstab_path(const std::string& path);
 
   std::string mempath() const;
   void set_mempath(const std::string& mempath);
@@ -124,17 +175,33 @@ class CuttlefishConfig {
   std::string kernel_log_socket_name() const;
   void set_kernel_log_socket_name(const std::string& kernel_log_socket_name);
 
+  bool deprecated_boot_completed() const;
+  void set_deprecated_boot_completed(bool deprecated_boot_completed);
+
   std::string console_path() const;
   void set_console_path(const std::string& console_path);
 
   std::string logcat_path() const;
   void set_logcat_path(const std::string& logcat_path);
 
+  std::string logcat_receiver_binary() const;
+  void set_logcat_receiver_binary(const std::string& binary);
+
+  std::string launcher_log_path() const;
+  void set_launcher_log_path(const std::string& launcher_log_path);
+
+  std::string launcher_monitor_socket_path() const;
+  void set_launcher_monitor_socket_path(
+      const std::string& launhcer_monitor_path);
+
   std::string mobile_bridge_name() const;
   void set_mobile_bridge_name(const std::string& mobile_bridge_name);
 
   std::string mobile_tap_name() const;
   void set_mobile_tap_name(const std::string& mobile_tap_name);
+
+  std::string wifi_tap_name() const;
+  void set_wifi_tap_name(const std::string& wifi_tap_name);
 
   std::string wifi_guest_mac_addr() const;
   void set_wifi_guest_mac_addr(const std::string& wifi_guest_mac_addr);
@@ -145,21 +212,117 @@ class CuttlefishConfig {
   std::string entropy_source() const;
   void set_entropy_source(const std::string& entropy_source);
 
+  void set_vsock_guest_cid(int vsock_guest_cid);
+  int vsock_guest_cid() const;
+
   std::string uuid() const;
   void set_uuid(const std::string& uuid);
 
-  bool disable_dac_security() const;
-  void set_disable_dac_security(bool disable_dac_security);
+  void set_cuttlefish_env_path(const std::string& path);
+  std::string cuttlefish_env_path() const;
 
-  bool disable_app_armor_security() const;
-  void set_disable_app_armor_security(bool disable_app_armor_security);
+  void set_adb_mode(const std::set<std::string>& modes);
+  std::set<std::string> adb_mode() const;
+
+  void set_adb_ip_and_port(const std::string& ip_port);
+  std::string adb_ip_and_port() const;
+
+  std::string adb_device_name() const;
+
+  void set_device_title(const std::string& title);
+  std::string device_title() const;
+
+  void set_setupwizard_mode(const std::string& title);
+  std::string setupwizard_mode() const;
+
+  void set_qemu_binary(const std::string& qemu_binary);
+  std::string qemu_binary() const;
+
+  void set_crosvm_binary(const std::string& crosvm_binary);
+  std::string crosvm_binary() const;
+
+  void set_ivserver_binary(const std::string& ivserver_binary);
+  std::string ivserver_binary() const;
+
+  void set_kernel_log_monitor_binary(
+      const std::string& kernel_log_monitor_binary);
+  std::string kernel_log_monitor_binary() const;
+
+  void set_enable_vnc_server(bool enable_vnc_server);
+  bool enable_vnc_server() const;
+
+  void set_vnc_server_port(int vnc_server_port);
+  int vnc_server_port() const;
+
+  void set_vnc_server_binary(const std::string& vnc_server_binary);
+  std::string vnc_server_binary() const;
+
+  void set_enable_stream_audio(bool enable_stream_audio);
+  bool enable_stream_audio() const;
+
+  void set_stream_audio_port(int stream_audio_port);
+  int stream_audio_port() const;
+
+  void set_stream_audio_binary(const std::string& stream_audio_binary);
+  std::string stream_audio_binary() const;
+
+  void set_restart_subprocesses(bool restart_subprocesses);
+  bool restart_subprocesses() const;
+
+  void set_run_adb_connector(bool run_adb_connector);
+  bool run_adb_connector() const;
+
+  void set_adb_connector_binary(const std::string& adb_connector_binary);
+  std::string adb_connector_binary() const;
+
+  void set_virtual_usb_manager_binary(const std::string& binary);
+  std::string virtual_usb_manager_binary() const;
+
+  void set_socket_forward_proxy_binary(const std::string& binary);
+  std::string socket_forward_proxy_binary() const;
+
+  void set_socket_vsock_proxy_binary(const std::string& binary);
+  std::string socket_vsock_proxy_binary() const;
+
+  void set_run_as_daemon(bool run_as_daemon);
+  bool run_as_daemon() const;
+
+  void set_run_e2e_test(bool run_e2e_test);
+  bool run_e2e_test() const;
+
+  void set_e2e_test_binary(const std::string& e2e_test_binary);
+  std::string e2e_test_binary() const;
+
+  void set_data_policy(const std::string& data_policy);
+  std::string data_policy() const;
+
+  void set_blank_data_image_mb(int blank_data_image_mb);
+  int blank_data_image_mb() const;
+
+  void set_blank_data_image_fmt(const std::string& blank_data_image_fmt);
+  std::string blank_data_image_fmt() const;
+
+  void set_logcat_mode(const std::string& mode);
+  std::string logcat_mode() const;
+
+  void set_logcat_vsock_port(int port);
+  int logcat_vsock_port() const;
+
+  void set_frames_vsock_port(int port);
+  int frames_vsock_port() const;
+
+  bool enable_ivserver() const;
+
+  std::string touch_socket_path() const;
+  std::string keyboard_socket_path() const;
 
  private:
   std::unique_ptr<Json::Value> dictionary_;
 
-  void LoadFromFile(const char* file);
+  void SetPath(const std::string& key, const std::string& path);
+  bool LoadFromFile(const char* file);
+  static CuttlefishConfig* BuildConfigImpl();
 
-  CuttlefishConfig();
   CuttlefishConfig(const CuttlefishConfig&) = delete;
   CuttlefishConfig& operator=(const CuttlefishConfig&) = delete;
 };
@@ -167,6 +330,9 @@ class CuttlefishConfig {
 // Returns the instance number as obtained from the CUTTLEFISH_INSTANCE
 // environment variable or the username.
 int GetInstance();
+// Returns a path where the launhcer puts a link to the config file which makes
+// it easily discoverable regardless of what vm manager is in use
+std::string GetGlobalConfigFileLink();
 
 // Returns the path to the ivserver's client socket.
 std::string GetDomain();
@@ -178,5 +344,13 @@ std::string GetPerInstanceDefault(const char* prefix);
 int GetPerInstanceDefault(int base);
 
 std::string GetDefaultPerInstanceDir();
+std::string GetDefaultMempath();
+int GetDefaultPerInstanceVsockCid();
 
+std::string DefaultHostArtifactsPath(const std::string& file);
+std::string DefaultGuestImagePath(const std::string& file);
+
+// Whether the host supports qemu
+bool HostSupportsQemuCli();
+bool HostSupportsVsock();
 }  // namespace vsoc

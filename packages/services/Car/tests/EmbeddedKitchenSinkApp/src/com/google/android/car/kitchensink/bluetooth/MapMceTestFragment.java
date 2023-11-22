@@ -32,8 +32,6 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.telecom.PhoneAccount;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -45,9 +43,13 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+
 import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
 
+import java.util.Date;
 import java.util.List;
 
 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
@@ -74,6 +76,7 @@ public class MapMceTestFragment extends Fragment {
     private KitchenSinkActivity mActivity;
     private Intent mSendIntent;
     private Intent mDeliveryIntent;
+    EditText mUploadingSupportedFeatureText;
 
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
@@ -94,6 +97,18 @@ public class MapMceTestFragment extends Fragment {
         mMessage = (TextView) v.findViewById(R.id.messageContent);
         mDevicePicker = (Button) v.findViewById(R.id.bluetooth_pick_device);
         mDeviceDisconnect = (Button) v.findViewById(R.id.bluetooth_disconnect_device);
+        Button uploadingFeatureValue = (Button) v.findViewById(R.id.uploading_supported_feature);
+        mUploadingSupportedFeatureText =
+            (EditText) v.findViewById(R.id.uploading_supported_feature_value);
+
+        uploadingFeatureValue.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                int value = getUploadingFeatureValue();
+                mUploadingSupportedFeatureText.setText(value + "");
+            }
+        });
+
         //TODO add manual entry option for phone number
         reply.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -190,6 +205,25 @@ public class MapMceTestFragment extends Fragment {
                 Log.d(TAG, "Getting Messages");
                 mMapProfile.getUnreadMessages(remoteDevice);
             }
+        }
+    }
+
+    private int getUploadingFeatureValue() {
+        synchronized (mLock) {
+            BluetoothDevice remoteDevice;
+            try {
+                remoteDevice = mBluetoothAdapter.getRemoteDevice(
+                        mBluetoothDevice.getText().toString());
+            } catch (java.lang.IllegalArgumentException e) {
+                Log.e(TAG, e.toString());
+                return -1;
+            }
+
+            if (mMapProfile != null) {
+                Log.d(TAG, "getUploadingFeatureValue");
+                return (mMapProfile.isUploadingSupported(remoteDevice)) ? 1 : 0;
+            }
+            return -1;
         }
     }
 
@@ -304,8 +338,15 @@ public class MapMceTestFragment extends Fragment {
                     if (senderName == null) {
                         senderName = "<null>";
                     }
-
-                    mMessage.setText(intent.getStringExtra(android.content.Intent.EXTRA_TEXT));
+                    Date msgTimestamp = new Date(intent.getLongExtra(
+                            BluetoothMapClient.EXTRA_MESSAGE_TIMESTAMP,
+                            System.currentTimeMillis()));
+                    boolean msgReadStatus = intent.getBooleanExtra(
+                            BluetoothMapClient.EXTRA_MESSAGE_READ_STATUS, false);
+                    String msgText = intent.getStringExtra(android.content.Intent.EXTRA_TEXT);
+                    String msg = "[" + msgTimestamp + "] " + "("
+                            + (msgReadStatus ? "READ" : "UNREAD") + ") " + msgText;
+                    mMessage.setText(msg);
                     mOriginator.setText(senderUri);
                     mOriginatorDisplayName.setText(senderName);
                 }
@@ -323,6 +364,10 @@ public class MapMceTestFragment extends Fragment {
             if (BluetoothDevicePicker.ACTION_DEVICE_SELECTED.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 Log.v(TAG, "mPickerReceiver got " + device);
+                if (device == null) {
+                    Toast.makeText(getContext(), "No device selected", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 mMapProfile.connect(device);
 
                 // The receiver can now be disabled.

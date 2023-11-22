@@ -15,7 +15,7 @@
  */
 package com.android.tradefed.testtype.junit4.builder;
 
-import android.longevity.core.LongevitySuite;
+import android.host.test.longevity.LongevitySuite;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.LongevityHostRunner;

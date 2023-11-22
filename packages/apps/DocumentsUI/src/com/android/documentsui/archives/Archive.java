@@ -24,19 +24,16 @@ import android.graphics.Point;
 import android.net.Uri;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
-import android.os.storage.StorageManager;
-import android.provider.DocumentsContract;
-import android.provider.MetadataReader;
 import android.provider.DocumentsContract.Document;
-import android.support.annotation.Nullable;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
 import android.text.TextUtils;
 import android.webkit.MimeTypeMap;
 
-import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.Preconditions;
+import androidx.annotation.GuardedBy;
+import androidx.annotation.Nullable;
+import androidx.core.util.Preconditions;
 
 import java.io.Closeable;
 import java.io.File;
@@ -45,8 +42,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.zip.ZipEntry;
+
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 
 /**
  * Provides basic implementation for creating, extracting and accessing
@@ -72,11 +70,11 @@ public abstract class Archive implements Closeable {
 
     // The container as well as values are guarded by mEntries.
     @GuardedBy("mEntries")
-    final Map<String, ZipEntry> mEntries;
+    final Map<String, ArchiveEntry> mEntries;
 
     // The container as well as values and elements of values are guarded by mEntries.
     @GuardedBy("mEntries")
-    final Map<String, List<ZipEntry>> mTree;
+    final Map<String, List<ArchiveEntry>> mTree;
 
     Archive(
             Context context,
@@ -95,9 +93,16 @@ public abstract class Archive implements Closeable {
     /**
      * Returns a valid, normalized path for an entry.
      */
-    public static String getEntryPath(ZipEntry entry) {
-        Preconditions.checkArgument(entry.isDirectory() == entry.getName().endsWith("/"),
-                "Ill-formated ZIP-file.");
+    public static String getEntryPath(ArchiveEntry entry) {
+        if (entry instanceof ZipArchiveEntry) {
+            /**
+             * Some of archive entry doesn't have the same naming rule.
+             * For example: The name of 7 zip directory entry doesn't end with '/'.
+             * Only check for Zip archive.
+             */
+            Preconditions.checkArgument(entry.isDirectory() == entry.getName().endsWith("/"),
+                    "Ill-formated ZIP-file.");
+        }
         if (entry.getName().startsWith("/")) {
             return entry.getName();
         } else {
@@ -138,11 +143,11 @@ public abstract class Archive implements Closeable {
         }
 
         synchronized (mEntries) {
-            final List<ZipEntry> parentList = mTree.get(parsedParentId.mPath);
+            final List<ArchiveEntry> parentList = mTree.get(parsedParentId.mPath);
             if (parentList == null) {
                 throw new FileNotFoundException();
             }
-            for (final ZipEntry entry : parentList) {
+            for (final ArchiveEntry entry : parentList) {
                 addCursorRow(result, entry);
             }
         }
@@ -160,7 +165,7 @@ public abstract class Archive implements Closeable {
                 "Mismatching archive Uri. Expected: %s, actual: %s.");
 
         synchronized (mEntries) {
-            final ZipEntry entry = mEntries.get(parsedId.mPath);
+            final ArchiveEntry entry = mEntries.get(parsedId.mPath);
             if (entry == null) {
                 throw new FileNotFoundException();
             }
@@ -181,12 +186,12 @@ public abstract class Archive implements Closeable {
                 "Mismatching archive Uri. Expected: %s, actual: %s.");
 
         synchronized (mEntries) {
-            final ZipEntry entry = mEntries.get(parsedId.mPath);
+            final ArchiveEntry entry = mEntries.get(parsedId.mPath);
             if (entry == null) {
                 return false;
             }
 
-            final ZipEntry parentEntry = mEntries.get(parsedParentId.mPath);
+            final ArchiveEntry parentEntry = mEntries.get(parsedParentId.mPath);
             if (parentEntry == null || !parentEntry.isDirectory()) {
                 return false;
             }
@@ -213,7 +218,7 @@ public abstract class Archive implements Closeable {
                 "Mismatching archive Uri. Expected: %s, actual: %s.");
 
         synchronized (mEntries) {
-            final ZipEntry entry = mEntries.get(parsedId.mPath);
+            final ArchiveEntry entry = mEntries.get(parsedId.mPath);
             if (entry == null) {
                 throw new FileNotFoundException();
             }
@@ -270,7 +275,7 @@ public abstract class Archive implements Closeable {
     /**
      * Not thread safe.
      */
-    void addCursorRow(MatrixCursor cursor, ZipEntry entry) {
+    void addCursorRow(MatrixCursor cursor, ArchiveEntry entry) {
         final MatrixCursor.RowBuilder row = cursor.newRow();
         final ArchiveId parsedId = createArchiveId(getEntryPath(entry));
         row.add(Document.COLUMN_DOCUMENT_ID, parsedId.toDocumentId());
@@ -289,7 +294,7 @@ public abstract class Archive implements Closeable {
         row.add(Document.COLUMN_FLAGS, flags);
     }
 
-    static String getMimeTypeForEntry(ZipEntry entry) {
+    static String getMimeTypeForEntry(ArchiveEntry entry) {
         if (entry.isDirectory()) {
             return Document.MIME_TYPE_DIR;
         }

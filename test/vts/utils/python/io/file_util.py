@@ -60,26 +60,57 @@ def Rmdirs(path, ignore_errors=False):
     return return_value
 
 
-def Makedirs(path, skip_if_exists=True):
-    '''Make directories lead to the given path.
+def Mkdir(path, skip_if_exists=True):
+    """Make a leaf directory.
+
+    This method only makes the leaf directory. This means if the parent directory
+    doesn't exist, the method will catch an OSError and return False.
 
     Args:
         path: string, directory to make
         skip_if_exists: bool, True for ignoring exisitng dir. False for throwing
-                        error from os.mkdirs. Defaults to True
+                        error from os.mkdir. Defaults to True
 
     Returns:
-        bool, True if directory is created.
-              False if errors occur or directory already exist.
+        bool, True if directory is created or directory already exists
+              (with skip_if_exists being True).
+              False if errors occur or directory already exists (with skip_if_exists being False).
+    """
+    if skip_if_exists and os.path.exists(path):
+        return True
+
+    try:
+        os.mkdir(path)
+        return True
+    except OSError as e:
+        logging.exception(e)
+        return False
+
+
+def Makedirs(path, skip_if_exists=True):
+    '''Make directories lead to the given path.
+
+    This method makes all parent directories if they don't exist.
+
+    Args:
+        path: string, directory to make
+        skip_if_exists: bool, True for ignoring exisitng dir. False for throwing
+                        error from os.makedirs. Defaults to True
+
+    Returns:
+        bool, True if directory is created or directory already exists
+              (with skip_if_exists being True).
+              False if errors occur or directory already exists (with skip_if_exists being False).
     '''
-    return_value = False
-    if not skip_if_exists or not os.path.exists(path):
-        try:
-            os.makedirs(path)
-            return_value = True
-        except OSError as e:
-            logging.exception(e)
-    return return_value
+    if skip_if_exists and os.path.exists(path):
+        return True
+
+    try:
+        os.makedirs(path)
+        return True
+    except OSError as e:
+        logging.exception(e)
+        return False
 
 
 def MakeTempDir(base_dir):

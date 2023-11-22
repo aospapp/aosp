@@ -26,30 +26,14 @@ class TextFieldItem(
     codebase: TextCodebase,
     name: String,
     containingClass: TextClassItem,
-    isPublic: Boolean,
-    isProtected: Boolean,
-    isPrivate: Boolean,
-    isInternal: Boolean,
-    isFinal: Boolean,
-    isStatic: Boolean,
-    isTransient: Boolean,
-    isVolatile: Boolean,
+    modifiers: TextModifiers,
     private val type: TextTypeItem,
     private val constantValue: Any?,
-    position: SourcePositionInfo,
-    annotations: List<String>?
-) : TextMemberItem(
-    codebase, name, containingClass, position,
-    TextModifiers(
-        codebase = codebase,
-        annotationStrings = annotations,
-        public = isPublic, protected = isProtected, private = isPrivate, internal = isInternal,
-        static = isStatic, final = isFinal, transient = isTransient, volatile = isVolatile
-    )
-), FieldItem {
+    position: SourcePositionInfo
+) : TextMemberItem(codebase, name, containingClass, position, modifiers), FieldItem {
 
     init {
-        (modifiers as TextModifiers).owner = this
+        modifiers.setOwner(this)
     }
 
     override fun equals(other: Any?): Boolean {
@@ -69,9 +53,32 @@ class TextFieldItem(
 
     override fun initialValue(requireConstant: Boolean): Any? = constantValue
 
-    override fun toString(): String = "Field ${containingClass().fullName()}.${name()}"
+    override fun toString(): String = "field ${containingClass().fullName()}.${name()}"
 
-    override fun duplicate(targetContainingClass: ClassItem): FieldItem = codebase.unsupported()
+    override fun duplicate(targetContainingClass: ClassItem): TextFieldItem {
+        val duplicated = TextFieldItem(
+            codebase, name(), targetContainingClass as TextClassItem,
+            modifiers.duplicate(), type, constantValue, position
+        )
+        duplicated.inheritedFrom = containingClass()
+        duplicated.inheritedField = inheritedField
+
+        // Preserve flags that may have been inherited (propagated) from surrounding packages
+        if (targetContainingClass.hidden) {
+            duplicated.hidden = true
+        }
+        if (targetContainingClass.removed) {
+            duplicated.removed = true
+        }
+        if (targetContainingClass.docOnly) {
+            duplicated.docOnly = true
+        }
+
+        return duplicated
+    }
+
+    override var inheritedFrom: ClassItem? = null
+    override var inheritedField: Boolean = false
 
     private var isEnumConstant = false
     override fun isEnumConstant(): Boolean = isEnumConstant

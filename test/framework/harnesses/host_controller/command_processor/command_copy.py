@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import logging
 import os
 import shutil
 
@@ -40,6 +41,6 @@ class CommandCopy(base_command_processor.BaseCommandProcessor):
         if dst == "{vts_tf_home}":
             dst = os.path.dirname(self.console.test_suite_info["vts"])
         elif "{" in dst:
-            print("unknown dst %s" % dst)
+            logging.error("unknown dst %s", dst)
             return
         shutil.copy(src, dst)

@@ -20,7 +20,7 @@
     <string name="sip_accounts" msgid="85559497282185405">"Contas SIP"</string>
     <string name="sip_accounts_title" msgid="2082527045326874519">"Contas"</string>
     <string name="sip_receive_calls" msgid="426678617137462173">"Receber chamadas"</string>
-    <string name="sip_receive_calls_summary" msgid="946161517528227523">"Usa mais bateria"</string>
+    <string name="sip_receive_calls_summary" msgid="946161517528227523">"Usa mais carga de bateria"</string>
     <string name="sip_call_options_title" msgid="8421210494703869806">"Usar chamadas SIP"</string>
     <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"Usar chamadas SIP (apenas Wi-Fi)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Para todas as chamadas, quando a rede de dados estiver disponível"</string>
@@ -59,7 +59,7 @@
     <string name="transport_title" msgid="889155457465372527">"Tipo de transporte"</string>
     <string name="send_keepalive_title" msgid="599627072150501159">"Enviar sinal de atividade"</string>
     <string name="advanced_settings" msgid="6622996380747040711">"Configurações opcionais"</string>
-    <string name="auth_username_title" msgid="8262491689004708265">"Nome de usuário da autenticação"</string>
+    <string name="auth_username_title" msgid="8262491689004708265">"Nome de usuário para autenticação"</string>
     <string name="auth_username_summary" msgid="941160241371436473">"Nome de usuário utilizado para autenticação"</string>
     <string name="default_preference_summary_username" msgid="8404717434312826082">"&lt;Não definido&gt;"</string>
     <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;Não definido&gt;"</string>

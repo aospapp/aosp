@@ -21,7 +21,7 @@ LOCAL_PRIVATE_PLATFORM_APIS := true
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     bouncycastle-unbundled \
-    cts-core-test-runner \
+    cts-core-test-runner-axt \
     okhttp-nojarjar \
     okhttp-tests-nojarjar
 

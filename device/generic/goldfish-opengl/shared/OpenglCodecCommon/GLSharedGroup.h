@@ -36,17 +36,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ErrorLog.h"
-#include <utils/KeyedVector.h>
-#include <utils/List.h>
-#include <utils/String8.h>
 #include <utils/threads.h>
 #include "FixedBuffer.h"
+#include "auto_goldfish_dma_context.h"
 #include "IndexRangeCache.h"
 #include "SmartPtr.h"
 
 struct BufferData {
     BufferData();
-    BufferData(GLsizeiptr size, void * data);
+    BufferData(GLsizeiptr size, const void* data);
 
     // General buffer state
     GLsizeiptr m_size;
@@ -57,10 +55,14 @@ struct BufferData {
     GLbitfield m_mappedAccess;
     GLintptr m_mappedOffset;
     GLsizeiptr m_mappedLength;
+    uint64_t m_guest_paddr;
 
     // Internal bookkeeping
     FixedBuffer m_fixedBuffer; // actual buffer is shadowed here
     IndexRangeCache m_indexRangeCache;
+
+    // DMA support
+    AutoGoldfishDmaContext dma_buffer;
 };
 
 class ProgramData {
@@ -80,7 +82,7 @@ private:
     bool m_initialized;
     bool m_locShiftWAR;
 
-    android::Vector<GLuint> m_shaders;
+    std::vector<GLuint> m_shaders;
 
 public:
     enum {
@@ -111,7 +113,7 @@ public:
 };
 
 struct ShaderData {
-    typedef android::List<android::String8> StringList;
+    typedef std::vector<std::string> StringList;
     StringList samplerExternalNames;
     int refcount;
     std::vector<std::string> sources;
@@ -119,31 +121,23 @@ struct ShaderData {
 
 class ShaderProgramData {
 public:
-    ShaderProgramData() {
-        shaderData = new ShaderData();
-        programData = new ProgramData();
-    }
-    ~ShaderProgramData() {
-        delete shaderData;
-        delete programData;
-    }
-    ShaderData* shaderData;
-    ProgramData* programData;
+    ShaderData shaderData;
+    ProgramData programData;
 };
 
 class GLSharedGroup {
 private:
     SharedTextureDataMap m_textureRecs;
-    android::DefaultKeyedVector<GLuint, BufferData*> m_buffers;
-    android::DefaultKeyedVector<GLuint, ProgramData*> m_programs;
-    android::DefaultKeyedVector<GLuint, ShaderData*> m_shaders;
-    android::DefaultKeyedVector<uint32_t, ShaderProgramData*> m_shaderPrograms;
+    std::map<GLuint, BufferData*> m_buffers;
+    std::map<GLuint, ProgramData*> m_programs;
+    std::map<GLuint, ShaderData*> m_shaders;
+    std::map<uint32_t, ShaderProgramData*> m_shaderPrograms;
     std::map<GLuint, uint32_t> m_shaderProgramIdMap;
 
     mutable android::Mutex m_lock;
 
-    void refShaderDataLocked(ssize_t shaderIdx);
-    void unrefShaderDataLocked(ssize_t shaderIdx);
+    void refShaderDataLocked(GLuint shader);
+    void unrefShaderDataLocked(GLuint shader);
 
     uint32_t m_shaderProgramId;
 
@@ -153,13 +147,13 @@ public:
     bool isShaderOrProgramObject(GLuint obj);
     BufferData * getBufferData(GLuint bufferId);
     SharedTextureDataMap* getTextureData();
-    void    addBufferData(GLuint bufferId, GLsizeiptr size, void * data);
-    void    updateBufferData(GLuint bufferId, GLsizeiptr size, void * data);
+    void    addBufferData(GLuint bufferId, GLsizeiptr size, const void* data);
+    void    updateBufferData(GLuint bufferId, GLsizeiptr size, const void* data);
     void    setBufferUsage(GLuint bufferId, GLenum usage);
     void    setBufferMapped(GLuint bufferId, bool mapped);
     GLenum    getBufferUsage(GLuint bufferId);
     bool    isBufferMapped(GLuint bufferId);
-    GLenum  subUpdateBufferData(GLuint bufferId, GLintptr offset, GLsizeiptr size, void * data);
+    GLenum  subUpdateBufferData(GLuint bufferId, GLintptr offset, GLsizeiptr size, const void* data);
     void    deleteBufferData(GLuint);
 
     bool    isProgram(GLuint program);

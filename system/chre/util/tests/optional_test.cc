@@ -22,6 +22,31 @@
 
 using chre::Optional;
 
+class DestructorTestingObject {
+ public:
+  ~DestructorTestingObject() {
+    if (valueToFlipWhenDestruct != nullptr) {
+      *valueToFlipWhenDestruct = !*valueToFlipWhenDestruct;
+    }
+  }
+
+  void setValueToFlipWhenDestruct(bool *value) {
+    valueToFlipWhenDestruct = value;
+  }
+
+ private:
+  bool *valueToFlipWhenDestruct = nullptr;
+};
+
+TEST(Optional, ShouldDestructContainedObject) {
+  bool destructed = false;
+  {
+    Optional<DestructorTestingObject> object(DestructorTestingObject{});
+    object.value().setValueToFlipWhenDestruct(&destructed);
+  }
+  EXPECT_TRUE(destructed);
+}
+
 TEST(Optional, NoValueByDefault) {
   Optional<int> myInt;
   EXPECT_FALSE(myInt.has_value());
@@ -37,6 +62,20 @@ TEST(Optional, NonDefaultMovedValueByDefault) {
   Optional<int> myInt(std::move(0x1337));
   EXPECT_TRUE(myInt.has_value());
   EXPECT_EQ(*myInt, 0x1337);
+}
+
+TEST(Optional, CopyConstruct) {
+  Optional<int> myInt(0x1337);
+  Optional<int> myNewInt(myInt);
+  EXPECT_TRUE(myNewInt.has_value());
+  EXPECT_EQ(*myNewInt, 0x1337);
+}
+
+TEST(Optional, CopyConstructConst) {
+  const Optional<int> myInt(0x1337);
+  Optional<int> myNewInt(myInt);
+  EXPECT_TRUE(myNewInt.has_value());
+  EXPECT_EQ(*myNewInt, 0x1337);
 }
 
 TEST(Optional, CopyAssignAndRead) {

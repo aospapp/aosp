@@ -20,7 +20,6 @@ import android.content.Context;
 import android.location.GnssMeasurementsEvent;
 import android.location.GnssNavigationMessage;
 import android.location.GnssStatus;
-import android.location.GpsStatus;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Handler;
@@ -140,31 +139,21 @@ public class TestLocationManager {
                 Looper.getMainLooper());
         }
     }
-    /**
-     * See {@link android.location.LocationManager#addGpsStatusListener (GpsStatus.Listener)}.
-     * @param listener the GpsStatus.Listener to add
-     */
-    public void addGpsStatusListener(final GpsStatus.Listener listener) {
-        Log.i(TAG, "Add Gps Status Listener.");
-        Handler mainThreadHandler = new Handler(Looper.getMainLooper());
-        // Add Gps status listener to the main thread, since the Gps Status updates will go to
-        // the main thread while the test thread is blocked by mGpsStatusListener.await()
-        mainThreadHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                mLocationManager.addGpsStatusListener(listener);
-            }
-        });
-    }
 
     /**
-     * See {@link android.location.LocationManager#removeGpsStatusListener (GpsStatus.Listener)}.
+     * See {@code LocationManager#requestLocationUpdates}.
      *
-     * @param listener the listener to remove
+     * @param locationListener location listener for request
      */
-    public void removeGpsStatusListener(GpsStatus.Listener listener) {
-        Log.i(TAG, "Remove Gps Status Listener.");
-        mLocationManager.removeGpsStatusListener(listener);
+    public void requestPassiveLocationUpdates(LocationListener locationListener, int minTimeMsec) {
+        if (mLocationManager.getProvider(LocationManager.PASSIVE_PROVIDER) != null) {
+            Log.i(TAG, "Request Passive Location updates.");
+            mLocationManager.requestLocationUpdates(LocationManager.PASSIVE_PROVIDER,
+                    minTimeMsec,
+                    0 /* minDistance */,
+                    locationListener,
+                    Looper.getMainLooper());
+        }
     }
 
     /**

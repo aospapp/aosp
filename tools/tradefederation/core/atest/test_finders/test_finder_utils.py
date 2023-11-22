@@ -16,7 +16,9 @@
 Utils for finder classes.
 """
 
+from __future__ import print_function
 import logging
+import multiprocessing
 import os
 import re
 import subprocess
@@ -33,33 +35,49 @@ import constants
 # We want to make sure we don't grab apks with paths in their name since we
 # assume the apk name is the build target.
 _APK_RE = re.compile(r'^[^/]+\.apk$', re.I)
-# Parse package name from the package declaration line of a java file.
-# Group matches "foo.bar" of line "package foo.bar;"
-_PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^;]+)\s*;\s*', re.I)
+# RE for check if TEST or TEST_F is in a cc file or not.
+_CC_CLASS_RE = re.compile(r'TEST(_F)?\(', re.I)
+# Parse package name from the package declaration line of a java or a kotlin file.
+# Group matches "foo.bar" of line "package foo.bar;" or "package foo.bar"
+_PACKAGE_RE = re.compile(r'\s*package\s+(?P<package>[^(;|\s)]+)\s*', re.I)
+# Matches install paths in module_info to install location(host or device).
+_HOST_PATH_RE = re.compile(r'.*\/host\/.*', re.I)
+_DEVICE_PATH_RE = re.compile(r'.*\/target\/.*', re.I)
 
 # Explanation of FIND_REFERENCE_TYPEs:
 # ----------------------------------
-# 0. CLASS: Name of a java class, usually file is named the same (HostTest lives
-#           in HostTest.java)
+# 0. CLASS: Name of a java/kotlin class, usually file is named the same (HostTest lives
+#           in HostTest.java or HostTest.kt)
 # 1. QUALIFIED_CLASS: Like CLASS but also contains the package in front like
 #.                    com.android.tradefed.testtype.HostTest.
 # 2. PACKAGE: Name of a java package.
 # 3. INTEGRATION: XML file name in one of the 4 integration config directories.
+# 4. CC_CLASS: Name of a cc class.
 
 FIND_REFERENCE_TYPE = atest_enum.AtestEnum(['CLASS', 'QUALIFIED_CLASS',
-                                            'PACKAGE', 'INTEGRATION', ])
-
+                                            'PACKAGE', 'INTEGRATION', 'CC_CLASS'])
+# Get cpu count.
+_CPU_COUNT = 1
+try:
+    _CPU_COUNT = multiprocessing.cpu_count()
+except NotImplementedError:
+    pass
 # Unix find commands for searching for test files based on test type input.
 # Note: Find (unlike grep) exits with status 0 if nothing found.
 FIND_CMDS = {
-    FIND_REFERENCE_TYPE.CLASS : r"find %s -type d %s -prune -o -type f -name "
-                                r"'%s.java' -print",
-    FIND_REFERENCE_TYPE.QUALIFIED_CLASS: r"find %s -type d %s -prune -o "
-                                         r"-wholename '*%s.java' -print",
-    FIND_REFERENCE_TYPE.PACKAGE: r"find %s -type d %s -prune -o -wholename "
-                                 r"'*%s' -type d -print",
-    FIND_REFERENCE_TYPE.INTEGRATION: r"find %s -type d %s -prune -o -wholename "
-                                     r"'*%s.xml' -print"
+    FIND_REFERENCE_TYPE.CLASS: r"find {0} -type d {1} -prune -o -type f "
+                               r"\( -name '*{2}.java' -o -name '*{2}.kt' \) -print",
+    FIND_REFERENCE_TYPE.QUALIFIED_CLASS: r"find {0} -type d {1} -prune -o "
+                                         r"\( -wholename '*{2}.java' "
+                                         r"-o -wholename '*{2}.kt' \) -print",
+    FIND_REFERENCE_TYPE.PACKAGE: r"find {0} -type d {1} -prune -o -wholename "
+                                 r"'*{2}' -type d -print",
+    FIND_REFERENCE_TYPE.INTEGRATION: r"find {0} -type d {1} -prune -o -wholename "
+                                     r"'*{2}.xml' -print",
+    FIND_REFERENCE_TYPE.CC_CLASS: r"find {0} -type d {1} -prune -o -type f "
+                                  r"\( -name '*.cpp' -o -name '*.cc' \)"
+                                  r" | xargs -P " + str(_CPU_COUNT) +
+                                  r" grep -s -H -E 'TEST(_F)?\({2},' {{}} + || true"
 }
 
 # XML parsing related constants.
@@ -89,8 +107,11 @@ _VTS_BITNESS = 'append-bitness'
 _VTS_BITNESS_TRUE = 'true'
 _VTS_BITNESS_32 = '32'
 _VTS_BITNESS_64 = '64'
+_VTS_TEST_FILE = 'test-file-name'
+_VTS_APK = 'apk'
 # Matches 'DATA/target' in '_32bit::DATA/target'
 _VTS_BINARY_SRC_DELIM_RE = re.compile(r'.*::(?P<target>.*)$')
+_VTS_OUT_DATA_APP_PATH = 'DATA/app'
 
 # pylint: disable=inconsistent-return-statements
 def split_methods(user_input):
@@ -147,7 +168,26 @@ def get_fully_qualified_class_name(test_path):
                 package = match.group('package')
                 cls = os.path.splitext(os.path.split(test_path)[1])[0]
                 return '%s.%s' % (package, cls)
-    raise atest_error.MissingPackageNameError(test_path)
+    raise atest_error.MissingPackageNameError('%s: Test class java file'
+                                              'does not contain a package'
+                                              'name.'% test_path)
+
+
+def has_cc_class(test_path):
+    """Find out if there is any test case in the cc file.
+
+    Args:
+        test_path: A string of absolute path to the cc file.
+
+    Returns:
+        Boolean: has cc class in test_path or not.
+    """
+    with open(test_path) as class_file:
+        for line in class_file:
+            match = _CC_CLASS_RE.match(line)
+            if match:
+                return True
+    return False
 
 
 def get_package_name(file_name):
@@ -166,7 +206,7 @@ def get_package_name(file_name):
                 return match.group('package')
 
 
-def extract_test_path(output):
+def extract_test_path(output, is_native_test=False):
     """Extract the test path from the output of a unix 'find' command.
 
     Example of find output for CLASS find cmd:
@@ -174,6 +214,8 @@ def extract_test_path(output):
 
     Args:
         output: A string output of a unix 'find' command.
+        is_native_test: A boolean variable of whether to search for a native
+        test or not.
 
     Returns:
         A string of the test path or None if output is '' or None.
@@ -181,12 +223,39 @@ def extract_test_path(output):
     if not output:
         return None
     tests = output.strip('\n').split('\n')
+    if is_native_test:
+        tests = list(set([path.split(":")[0] for path in tests]))
+    return extract_test_from_tests(tests)
+
+
+def extract_test_from_tests(tests):
+    """Extract the test path from the tests.
+
+    Return the test to run from tests. If more than one option, prompt the user
+    to select one.
+
+    Args:
+        tests: A string list which contains multiple test paths.
+
+    Returns:
+        A string of the test path or None if tests is out-of-index or ''.
+    """
     count = len(tests)
     test_index = 0
-    if count > 1:
+    if count == 0:
+        return None
+    elif count > 1:
         numbered_list = ['%s: %s' % (i, t) for i, t in enumerate(tests)]
-        print 'Multiple tests found:\n%s' % '\n'.join(numbered_list)
-        test_index = int(raw_input('Please enter number of test to use:'))
+        print('Multiple tests found:\n{0}'.format('\n'.join(numbered_list)))
+        try:
+            test_index = int(raw_input('Please enter number of test to use '
+                                       'or hit return to keep searching: '))
+            if test_index not in range(count):
+                logging.warn('The input %s is out-of-range(%s).',
+                             test_index, (count-1))
+                return None
+        except ValueError:
+            return None
     return tests[test_index]
 
 
@@ -271,26 +340,34 @@ def run_find_cmd(ref_type, search_dir, target):
         A string of the path to the target.
     """
     prune_cond = _get_prune_cond_of_ignored_dirs()
-    find_cmd = FIND_CMDS[ref_type] % (search_dir, prune_cond, target)
+    find_cmd = FIND_CMDS[ref_type].format(search_dir, prune_cond, target)
     start = time.time()
     ref_name = FIND_REFERENCE_TYPE[ref_type]
     logging.debug('Executing %s find cmd: %s', ref_name, find_cmd)
     out = subprocess.check_output(find_cmd, shell=True)
     logging.debug('%s find completed in %ss', ref_name, time.time() - start)
     logging.debug('%s find cmd out: %s', ref_name, out)
+    if ref_type == FIND_REFERENCE_TYPE.CC_CLASS:
+        return extract_test_path(out, True)
     return extract_test_path(out)
 
 
-def find_class_file(search_dir, class_name):
+def find_class_file(search_dir, class_name, is_native_test=False):
     """Find a path to a class file given a search dir and a class name.
 
     Args:
         search_dir: A string of the dirpath to search in.
         class_name: A string of the class to search for.
+        is_native_test: A boolean variable of whether to search for a native
+        test or not.
 
     Return:
-        A string of the path to the java file.
+        A string of the path to the java/cc file.
     """
+    if is_native_test:
+        find_target = class_name
+        ref_type = FIND_REFERENCE_TYPE.CC_CLASS
+        return run_find_cmd(ref_type, search_dir, find_target)
     if '.' in class_name:
         find_target = class_name.replace('.', '/')
         ref_type = FIND_REFERENCE_TYPE.QUALIFIED_CLASS
@@ -319,81 +396,46 @@ def is_equal_or_sub_dir(sub_dir, parent_dir):
     return os.path.commonprefix([sub_dir, parent_dir]) == parent_dir
 
 
-def is_robolectric_module(mod_info):
-    """Check if a module is a robolectric module.
-
-    Args:
-        mod_info: ModuleInfo to check.
-
-    Returns:
-        True if module is a robolectric module, False otherwise.
-    """
-    if mod_info:
-        return (mod_info.get(constants.MODULE_CLASS, [None])[0] ==
-                constants.MODULE_CLASS_ROBOLECTRIC)
-    return False
-
-def is_2nd_arch_module(module_info):
-    """Check if a codule is 2nd architecture module
-
-    Args:
-        module_info: ModuleInfo to check.
-
-    Returns:
-        True is the module is 2nd architecture module, False otherwise.
-
-    """
-    for_2nd_arch = module_info.get(constants.MODULE_FOR_2ND_ARCH, [])
-    return for_2nd_arch and for_2nd_arch[0]
-
 def find_parent_module_dir(root_dir, start_dir, module_info):
     """From current dir search up file tree until root dir for module dir.
 
     Args:
-      start_dir: A string of the dir to start searching up from.
-      root_dir: A string  of the dir that is the parent of the start dir.
-      module_info: ModuleInfo object containing module information from the
-                   build system.
+        root_dir: A string  of the dir that is the parent of the start dir.
+        start_dir: A string of the dir to start searching up from.
+        module_info: ModuleInfo object containing module information from the
+                     build system.
 
     Returns:
-        A string of the module dir relative to root.
+        A string of the module dir relative to root, None if no Module Dir
+        found. There may be multiple testable modules at this level.
 
     Exceptions:
         ValueError: Raised if cur_dir not dir or not subdir of root dir.
-        atest_error.TestWithNoModuleError: Raised if no Module Dir found.
     """
     if not is_equal_or_sub_dir(start_dir, root_dir):
         raise ValueError('%s not in repo %s' % (start_dir, root_dir))
-    module_dir = None
+    auto_gen_dir = None
     current_dir = start_dir
     while current_dir != root_dir:
-        # If we find an AndroidTest.xml, we know we found the right directory.
+        # TODO (b/112904944) - migrate module_finder functions to here and
+        # reuse them.
+        rel_dir = os.path.relpath(current_dir, root_dir)
+        # Check if actual config file here
         if os.path.isfile(os.path.join(current_dir, constants.MODULE_CONFIG)):
-            module_dir = os.path.relpath(current_dir, root_dir)
-            break
-        # If we haven't found a possible auto-generated config location, check
-        # now.
-        if not module_dir:
-            rel_dir = os.path.relpath(current_dir, root_dir)
-            module_list = module_info.path_to_module_info.get(rel_dir, [])
-            # Verify only one module at this level has an auto_test_config.
-            if len([x for x in module_list
-                    if x.get('auto_test_config') and not is_2nd_arch_module(x)]) == 1:
-                # We found a single test module!
-                module_dir = rel_dir
-                # But keep searching in case there's an AndroidTest.xml in a
-                # parent folder. Example: a class belongs to an test apk that's
-                # part of a hostside test setup (common in cts).
-            # Check if a robolectric module lives here.
-            for mod in module_list:
-                if is_robolectric_module(mod):
-                    module_dir = rel_dir
-                    break
+            return rel_dir
+        # Check module_info if auto_gen config or robo (non-config) here
+        for mod in module_info.path_to_module_info.get(rel_dir, []):
+            if module_info.is_robolectric_module(mod):
+                return rel_dir
+            for test_config in mod.get(constants.MODULE_TEST_CONFIG, []):
+                if os.path.isfile(os.path.join(root_dir, test_config)):
+                    return rel_dir
+            if mod.get('auto_test_config'):
+                auto_gen_dir = rel_dir
+                # Don't return for auto_gen, keep checking for real config, because
+                # common in cts for class in apk that's in hostside test setup.
         current_dir = os.path.dirname(current_dir)
-    if not module_dir:
-        raise atest_error.TestWithNoModuleError('No Parent Module Dir for: %s'
-                                                % start_dir)
-    return module_dir
+    return auto_gen_dir
 
 
 def get_targets_from_xml(xml_file, module_info):
@@ -578,17 +620,50 @@ def _get_vts_binary_src_target(value, rel_out_dir):
     return target
 
 
+def get_plans_from_vts_xml(xml_file):
+    """Get configs which are included by xml_file.
+
+    We're looking for option(include) to get all dependency plan configs.
+
+    Args:
+        xml_file: Absolute path to xml file.
+
+    Returns:
+        A set of plan config paths which are depended by xml_file.
+    """
+    if not os.path.exists(xml_file):
+        raise atest_error.XmlNotExistError('%s: The xml file does'
+                                           'not exist' % xml_file)
+    plans = set()
+    xml_root = ET.parse(xml_file).getroot()
+    plans.add(xml_file)
+    option_tags = xml_root.findall('.//include')
+    if not option_tags:
+        return plans
+    # Currently, all vts xmls live in the same dir :
+    # https://android.googlesource.com/platform/test/vts/+/master/tools/vts-tradefed/res/config/
+    # If the vts plans start using folders to organize the plans, the logic here
+    # should be changed.
+    xml_dir = os.path.dirname(xml_file)
+    for tag in option_tags:
+        name = tag.attrib[_XML_NAME].strip()
+        plans |= get_plans_from_vts_xml(os.path.join(xml_dir, name + ".xml"))
+    return plans
+
+
 def get_targets_from_vts_xml(xml_file, rel_out_dir, module_info):
     """Parse a vts xml for test dependencies we need to build.
 
     We have a separate vts parsing function because we make a big assumption
     on the targets (the way they're formatted and what they represent) and we
     also create these build targets in a very special manner as well.
-    The 4 options we're looking for are:
+    The 6 options we're looking for are:
       - binary-test-source
       - push-group
       - push
       - test-module-name
+      - test-file-name
+      - apk
 
     Args:
         module_info: ModuleInfo class used to verify targets are valid modules.
@@ -626,6 +701,23 @@ def get_targets_from_vts_xml(xml_file, rel_out_dir, module_info):
                 targets.add(os.path.join(rel_out_dir, push_target + _VTS_BITNESS_64))
             else:
                 targets.add(os.path.join(rel_out_dir, push_target))
+        elif name == _VTS_TEST_FILE:
+            # The _VTS_TEST_FILE values can be set in 2 possible ways:
+            #   1. test_file.apk
+            #   2. DATA/app/test_file/test_file.apk
+            # We'll assume that test_file.apk (#1) is in an expected path (but
+            # that is not true, see b/76158619) and create the full path for it
+            # and then append the _VTS_TEST_FILE value to targets to build.
+            target = os.path.join(rel_out_dir, value)
+            # If value is just an APK, specify the path that we expect it to be in
+            # e.g. out/host/linux-x86/vts/android-vts/testcases/DATA/app/test_file/test_file.apk
+            head, _ = os.path.split(value)
+            if not head:
+                target = os.path.join(rel_out_dir, _VTS_OUT_DATA_APP_PATH,
+                                      _get_apk_target(value), value)
+            targets.add(target)
+        elif name == _VTS_APK:
+            targets.add(os.path.join(rel_out_dir, value))
     logging.debug('Targets found in config file: %s', targets)
     return targets
 
@@ -644,3 +736,135 @@ def get_dir_path_and_filename(path):
     else:
         dir_path, file_path = path, None
     return dir_path, file_path
+
+
+def get_cc_filter(class_name, methods):
+    """Get the cc filter.
+
+    Args:
+        class_name: class name of the cc test.
+        methods: a list of method names.
+
+    Returns:
+        A formatted string for cc filter.
+        Ex: "class1.method1:class1.method2" or "class1.*"
+    """
+    if methods:
+        return ":".join(["%s.%s" % (class_name, x) for x in methods])
+    return "%s.*" % class_name
+
+
+def search_integration_dirs(name, int_dirs):
+    """Search integration dirs for name and return full path.
+
+    Args:
+        name: A string of plan name needed to be found.
+        int_dirs: A list of path needed to be searched.
+
+    Returns:
+        A string of the test path.
+        Ask user to select if multiple tests are found.
+        None if no matched test found.
+    """
+    root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+    test_files = []
+    for integration_dir in int_dirs:
+        abs_path = os.path.join(root_dir, integration_dir)
+        test_file = run_find_cmd(FIND_REFERENCE_TYPE.INTEGRATION, abs_path,
+                                 name)
+        if test_file:
+            test_files.append(test_file)
+    return extract_test_from_tests(test_files)
+
+
+def get_int_dir_from_path(path, int_dirs):
+    """Search integration dirs for the given path and return path of dir.
+
+    Args:
+        path: A string of path needed to be found.
+        int_dirs: A list of path needed to be searched.
+
+    Returns:
+        A string of the test dir. None if no matched path found.
+    """
+    root_dir = os.environ.get(constants.ANDROID_BUILD_TOP)
+    if not os.path.exists(path):
+        return None
+    dir_path, file_name = get_dir_path_and_filename(path)
+    int_dir = None
+    for possible_dir in int_dirs:
+        abs_int_dir = os.path.join(root_dir, possible_dir)
+        if is_equal_or_sub_dir(dir_path, abs_int_dir):
+            int_dir = abs_int_dir
+            break
+    if not file_name:
+        logging.warn('Found dir (%s) matching input (%s).'
+                     ' Referencing an entire Integration/Suite dir'
+                     ' is not supported. If you are trying to reference'
+                     ' a test by its path, please input the path to'
+                     ' the integration/suite config file itself.',
+                     int_dir, path)
+        return None
+    return int_dir
+
+
+def get_install_locations(installed_paths):
+    """Get install locations from installed paths.
+
+    Args:
+        installed_paths: List of installed_paths from module_info.
+
+    Returns:
+        Set of install locations from module_info installed_paths. e.g.
+        set(['host', 'device'])
+    """
+    install_locations = set()
+    for path in installed_paths:
+        if _HOST_PATH_RE.match(path):
+            install_locations.add(constants.DEVICELESS_TEST)
+        elif _DEVICE_PATH_RE.match(path):
+            install_locations.add(constants.DEVICE_TEST)
+    return install_locations
+
+
+def get_levenshtein_distance(test_name, module_name, dir_costs=constants.COST_TYPO):
+    """Return an edit distance between test_name and module_name.
+
+    Levenshtein Distance has 3 actions: delete, insert and replace.
+    dis_costs makes each action weigh differently.
+
+    Args:
+        test_name: A keyword from the users.
+        module_name: A testable module name.
+        dir_costs: A tuple which contains 3 integer, where dir represents
+                   Deletion, Insertion and Replacement respectively.
+                   For guessing typos: (1, 1, 1) gives the best result.
+                   For searching keywords, (8, 1, 5) gives the best result.
+
+    Returns:
+        An edit distance integer between test_name and module_name.
+    """
+    rows = len(test_name) + 1
+    cols = len(module_name) + 1
+    deletion, insertion, replacement = dir_costs
+
+    # Creating a Dynamic Programming Matrix and weighting accordingly.
+    dp_matrix = [[0 for _ in range(cols)] for _ in range(rows)]
+    # Weigh rows/deletion
+    for row in range(1, rows):
+        dp_matrix[row][0] = row * deletion
+    # Weigh cols/insertion
+    for col in range(1, cols):
+        dp_matrix[0][col] = col * insertion
+    # The core logic of LD
+    for col in range(1, cols):
+        for row in range(1, rows):
+            if test_name[row-1] == module_name[col-1]:
+                cost = 0
+            else:
+                cost = replacement
+            dp_matrix[row][col] = min(dp_matrix[row-1][col] + deletion,
+                                      dp_matrix[row][col-1] + insertion,
+                                      dp_matrix[row-1][col-1] + cost)
+
+    return dp_matrix[row][col]

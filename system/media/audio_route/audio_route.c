@@ -45,6 +45,7 @@ struct mixer_state {
     union ctl_values old_value;
     union ctl_values new_value;
     union ctl_values reset_value;
+    unsigned int active_count;
 };
 
 struct mixer_setting {
@@ -599,6 +600,7 @@ static int alloc_mixer_state(struct audio_route *ar)
 
         ar->mixer_state[i].ctl = ctl;
         ar->mixer_state[i].num_values = num_values;
+        ar->mixer_state[i].active_count = 0;
 
         /* Skip unsupported types that are not supported yet in XML */
         type = mixer_ctl_get_type(ctl);
@@ -797,7 +799,6 @@ static int audio_route_update_path(struct audio_route *ar, const char *name, boo
         return -1;
     }
 
-
     for (size_t i = 0; i < path->length; ++i) {
         unsigned int ctl_index;
         enum mixer_ctl_type type;
@@ -811,23 +812,53 @@ static int audio_route_update_path(struct audio_route *ar, const char *name, boo
             continue;
         }
 
+        if (reverse && ms->active_count > 0) {
+            ms->active_count--;
+        } else if (!reverse) {
+            ms->active_count++;
+        }
+
        size_t value_sz = sizeof_ctl_type(type);
         /* if any value has changed, update the mixer */
         for (j = 0; j < ms->num_values; j++) {
             if (type == MIXER_CTL_TYPE_BYTE) {
                 if (ms->old_value.bytes[j] != ms->new_value.bytes[j]) {
+                    if (reverse && ms->active_count > 0) {
+                        ALOGD("%s: skip to reset mixer control '%s' in path '%s' "
+                            "because it is still needed by other paths", __func__,
+                            mixer_ctl_get_name(ms->ctl), name);
+                        memcpy(ms->new_value.bytes, ms->old_value.bytes,
+                            ms->num_values * value_sz);
+                        break;
+                    }
                     mixer_ctl_set_array(ms->ctl, ms->new_value.bytes, ms->num_values);
                     memcpy(ms->old_value.bytes, ms->new_value.bytes, ms->num_values * value_sz);
                     break;
                 }
             } else if (type == MIXER_CTL_TYPE_ENUM) {
                 if (ms->old_value.enumerated[j] != ms->new_value.enumerated[j]) {
+                    if (reverse && ms->active_count > 0) {
+                        ALOGD("%s: skip to reset mixer control '%s' in path '%s' "
+                            "because it is still needed by other paths", __func__,
+                            mixer_ctl_get_name(ms->ctl), name);
+                        memcpy(ms->new_value.enumerated, ms->old_value.enumerated,
+                            ms->num_values * value_sz);
+                        break;
+                    }
                     mixer_ctl_set_value(ms->ctl, 0, ms->new_value.enumerated[0]);
                     memcpy(ms->old_value.enumerated, ms->new_value.enumerated,
                             ms->num_values * value_sz);
                     break;
                 }
             } else if (ms->old_value.integer[j] != ms->new_value.integer[j]) {
+                if (reverse && ms->active_count > 0) {
+                    ALOGD("%s: skip to reset mixer control '%s' in path '%s' "
+                        "because it is still needed by other paths", __func__,
+                        mixer_ctl_get_name(ms->ctl), name);
+                    memcpy(ms->new_value.integer, ms->old_value.integer,
+                        ms->num_values * value_sz);
+                    break;
+                }
                 mixer_ctl_set_array(ms->ctl, ms->new_value.integer, ms->num_values);
                 memcpy(ms->old_value.integer, ms->new_value.integer, ms->num_values * value_sz);
                 break;

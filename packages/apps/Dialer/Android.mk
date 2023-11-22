@@ -37,6 +37,11 @@ EXCLUDE_FILES := \
 EXCLUDE_FILES += \
 	$(BASE_DIR)/contacts/common/format/testing/SpannedTestUtils.java
 
+# Exclude rootcomponentgenerator
+EXCLUDE_FILES += \
+	$(call all-java-files-under, $(BASE_DIR)/dialer/rootcomponentgenerator) \
+	$(call all-java-files-under, $(BASE_DIR)/dialer/inject/demo)
+
 # Exclude build variants for now
 EXCLUDE_FILES += \
 	$(BASE_DIR)/dialer/constants/googledialer/ConstantsImpl.java \
@@ -71,7 +76,10 @@ LOCAL_FULL_LIBS_MANIFEST_FILES := \
 
 LOCAL_SRC_FILES := $(call all-java-files-under, $(BASE_DIR))
 LOCAL_SRC_FILES += $(call all-proto-files-under, $(BASE_DIR))
+LOCAL_SRC_FILES += $(call all-Iaidl-files-under, $(BASE_DIR))
 LOCAL_SRC_FILES := $(filter-out $(EXCLUDE_FILES),$(LOCAL_SRC_FILES))
+
+LOCAL_AIDL_INCLUDES := $(call all-Iaidl-files-under, $(BASE_DIR))
 
 LOCAL_PROTOC_FLAGS := --proto_path=$(LOCAL_PATH)
 
@@ -96,6 +104,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 	android-common \
 	android-support-dynamic-animation \
 	com.android.vcard \
+	dialer-animal-sniffer-annotations-target \
 	dialer-commons-io-target \
 	dialer-dagger2-target \
 	dialer-disklrucache-target \
@@ -107,11 +116,14 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 	dialer-grpc-okhttp-target \
 	dialer-grpc-protobuf-lite-target \
 	dialer-grpc-stub-target \
+	dialer-j2objc-annotations-target \
 	dialer-javax-annotation-api-target \
 	dialer-javax-inject-target \
 	dialer-libshortcutbadger-target \
 	dialer-mime4j-core-target \
 	dialer-mime4j-dom-target \
+	dialer-okhttp-target \
+	dialer-okio-target \
 	dialer-error-prone-target \
 	dialer-guava-target \
 	dialer-glide-target \
@@ -138,7 +150,7 @@ LOCAL_JAVA_LIBRARIES := \
 
 LOCAL_ANNOTATION_PROCESSORS := \
 	dialer-auto-value \
-	dialer-javapoet \
+	javapoet-prebuilt-jar \
 	dialer-dagger2 \
 	dialer-dagger2-compiler \
 	dialer-dagger2-producers \
@@ -147,37 +159,25 @@ LOCAL_ANNOTATION_PROCESSORS := \
 	dialer-guava \
 	dialer-javax-annotation-api \
 	dialer-javax-inject \
+	dialer-rootcomponentprocessor
 
 LOCAL_ANNOTATION_PROCESSOR_CLASSES := \
-  com.google.auto.value.processor.AutoValueProcessor,dagger.internal.codegen.ComponentProcessor,com.bumptech.glide.annotation.compiler.GlideAnnotationProcessor
-
-
-# Begin Bug: 37077388
-LOCAL_DX_FLAGS := --multi-dex
-LOCAL_JACK_FLAGS := --multi-dex native
-
-LOCAL_PROGUARD_ENABLED := disabled
-ifdef LOCAL_JACK_ENABLED
-
+  com.google.auto.value.processor.AutoValueProcessor,dagger.internal.codegen.ComponentProcessor,com.bumptech.glide.annotation.compiler.GlideAnnotationProcessor,com.android.dialer.rootcomponentgenerator.RootComponentProcessor
 
 # Proguard includes
-LOCAL_PROGUARD_FLAG_FILES := $(call all-named-files-under,proguard.*flags,$(BASE_DIR))
+LOCAL_PROGUARD_FLAG_FILES := proguard.flags $(call all-named-files-under,proguard.*flags,$(BASE_DIR))
 LOCAL_PROGUARD_ENABLED := custom
 
 LOCAL_PROGUARD_ENABLED += optimization
-endif
-
-# End Bug: 37077388
 
 LOCAL_SDK_VERSION := system_current
 LOCAL_MODULE_TAGS := optional
 LOCAL_PACKAGE_NAME := Dialer
 LOCAL_CERTIFICATE := shared
 LOCAL_PRIVILEGED_MODULE := true
+LOCAL_PRODUCT_MODULE := true
 LOCAL_USE_AAPT2 := true
-
-# b/37483961 - Jack Not Compiling Dagger Class Properly
-LOCAL_JACK_ENABLED := javac_frontend
+LOCAL_REQUIRED_MODULES := privapp_whitelist_com.android.dialer
 
 include $(BUILD_PACKAGE)
 
@@ -207,7 +207,8 @@ LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := \
     dialer-guava:../../../prebuilts/tools/common/m2/repository/com/google/guava/guava/23.0/guava-23.0.jar \
     dialer-javax-annotation-api:../../../prebuilts/tools/common/m2/repository/javax/annotation/javax.annotation-api/1.2/javax.annotation-api-1.2.jar \
     dialer-javax-inject:../../../prebuilts/tools/common/m2/repository/javax/inject/javax.inject/1/javax.inject-1.jar \
-    dialer-javapoet:../../../prebuilts/tools/common/m2/repository/com/squareup/javapoet/1.8.0/javapoet-1.8.0.jar \
+    dialer-auto-service:../../../prebuilts/tools/common/m2/repository/com/google/auto/service/auto-service/1.0-rc2/auto-service-1.0-rc2.jar \
+    dialer-auto-common:../../../prebuilts/tools/common/m2/repository/com/google/auto/auto-common/0.9/auto-common-0.9.jar \
 
 include $(BUILD_HOST_PREBUILT)
 
@@ -425,3 +426,71 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_MODULE := dialer-okhttp-target
+LOCAL_SDK_VERSION := current
+LOCAL_SRC_FILES := ../../../prebuilts/tools/common/m2/repository/com/squareup/okhttp/okhttp/2.7.4/okhttp-2.7.4.jar
+LOCAL_UNINSTALLABLE_MODULE := true
+
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_MODULE := dialer-okio-target
+LOCAL_SDK_VERSION := current
+LOCAL_SRC_FILES := ../../../prebuilts/tools/common/m2/repository/com/squareup/okio/okio/1.9.0/okio-1.9.0.jar
+LOCAL_UNINSTALLABLE_MODULE := true
+
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_MODULE := dialer-j2objc-annotations-target
+LOCAL_SDK_VERSION := current
+LOCAL_SRC_FILES := ../../../prebuilts/tools/common/m2/repository/com/google/j2objc/j2objc-annotations/1.1/j2objc-annotations-1.1.jar
+LOCAL_UNINSTALLABLE_MODULE := true
+
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_MODULE := dialer-animal-sniffer-annotations-target
+LOCAL_SDK_VERSION := current
+LOCAL_SRC_FILES := ../../../prebuilts/tools/common/m2/repository/org/codehaus/mojo/animal-sniffer-annotations/1.14/animal-sniffer-annotations-1.14.jar
+LOCAL_UNINSTALLABLE_MODULE := true
+
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := dialer-rootcomponentprocessor
+LOCAL_MODULE_CLASS := JAVA_LIBRARIES
+LOCAL_IS_HOST_MODULE := true
+BASE_DIR := java/com/android
+
+LOCAL_SRC_FILES := \
+	$(call all-java-files-under, $(BASE_DIR)/dialer/rootcomponentgenerator) \
+        $(BASE_DIR)/dialer/inject/DialerRootComponent.java \
+        $(BASE_DIR)/dialer/inject/DialerVariant.java \
+        $(BASE_DIR)/dialer/inject/HasRootComponent.java \
+        $(BASE_DIR)/dialer/inject/IncludeInDialerRoot.java \
+        $(BASE_DIR)/dialer/inject/InstallIn.java \
+        $(BASE_DIR)/dialer/inject/RootComponentGeneratorMetadata.java
+
+LOCAL_STATIC_JAVA_LIBRARIES := \
+	dialer-guava \
+	dialer-dagger2 \
+	javapoet-prebuilt-jar \
+	dialer-auto-service \
+	dialer-auto-common \
+	dialer-javax-annotation-api \
+	dialer-javax-inject
+
+LOCAL_JAVA_LANGUAGE_VERSION := 1.8
+
+include $(BUILD_HOST_JAVA_LIBRARY)
+
+include $(CLEAR_VARS)

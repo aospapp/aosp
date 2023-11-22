@@ -32,6 +32,7 @@ import com.android.tv.dvr.DvrScheduleManager.OnConflictStateChangeListener;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
+import com.android.tv.common.flags.BackendKnobsFlags;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -59,6 +60,7 @@ public class ProgramManager {
     private final ProgramDataManager mProgramDataManager;
     private final DvrDataManager mDvrDataManager; // Only set if DVR is enabled
     private final DvrScheduleManager mDvrScheduleManager;
+    private final BackendKnobsFlags mBackendKnobsFlags;
 
     private long mStartUtcMillis;
     private long mEndUtcMillis;
@@ -114,11 +116,25 @@ public class ProgramManager {
                 }
             };
 
-    private final ProgramDataManager.Listener mProgramDataManagerListener =
-            new ProgramDataManager.Listener() {
+    private final ProgramDataManager.Callback mProgramDataManagerCallback =
+            new ProgramDataManager.Callback() {
                 @Override
                 public void onProgramUpdated() {
                     updateTableEntries(true);
+                }
+
+                @Override
+                public void onSingleChannelUpdated(long channelId) {
+                    boolean parentalControlsEnabled =
+                            mTvInputManagerHelper
+                                    .getParentalControlSettings()
+                                    .isParentalControlsEnabled();
+                    // Inline the updating of the mChannelIdEntriesMap here so we can only call
+                    // getParentalControlSettings once.
+                    List<TableEntry> entries =
+                            createProgramEntries(channelId, parentalControlsEnabled);
+                    mChannelIdEntriesMap.put(channelId, entries);
+                    notifyTableEntriesUpdated();
                 }
             };
 
@@ -199,19 +215,21 @@ public class ProgramManager {
             ChannelDataManager channelDataManager,
             ProgramDataManager programDataManager,
             @Nullable DvrDataManager dvrDataManager,
-            @Nullable DvrScheduleManager dvrScheduleManager) {
+            @Nullable DvrScheduleManager dvrScheduleManager,
+            BackendKnobsFlags backendKnobsFlags) {
         mTvInputManagerHelper = tvInputManagerHelper;
         mChannelDataManager = channelDataManager;
         mProgramDataManager = programDataManager;
         mDvrDataManager = dvrDataManager;
         mDvrScheduleManager = dvrScheduleManager;
+        mBackendKnobsFlags = backendKnobsFlags;
     }
 
     void programGuideVisibilityChanged(boolean visible) {
         mProgramDataManager.setPauseProgramUpdate(visible);
         if (visible) {
             mChannelDataManager.addListener(mChannelDataManagerListener);
-            mProgramDataManager.addListener(mProgramDataManagerListener);
+            mProgramDataManager.addCallback(mProgramDataManagerCallback);
             if (mDvrDataManager != null) {
                 if (!mDvrDataManager.isDvrScheduleLoadFinished()) {
                     mDvrDataManager.addDvrScheduleLoadFinishedListener(mDvrLoadedListener);
@@ -224,7 +242,7 @@ public class ProgramManager {
             }
         } else {
             mChannelDataManager.removeListener(mChannelDataManagerListener);
-            mProgramDataManager.removeListener(mProgramDataManagerListener);
+            mProgramDataManager.removeCallback(mProgramDataManagerCallback);
             if (mDvrDataManager != null) {
                 mDvrDataManager.removeDvrScheduleLoadFinishedListener(mDvrLoadedListener);
                 mDvrDataManager.removeScheduledRecordingListener(mScheduledRecordingListener);
@@ -233,6 +251,7 @@ public class ProgramManager {
                 mDvrScheduleManager.removeOnConflictStateChangeListener(
                         mOnConflictStateChangeListener);
             }
+            mChannelIdEntriesMap.clear();
         }
     }
 
@@ -309,8 +328,8 @@ public class ProgramManager {
         long fromUtcMillis = mFromUtcMillis + timeMillisToScroll;
         long toUtcMillis = mToUtcMillis + timeMillisToScroll;
         if (fromUtcMillis < mStartUtcMillis) {
-            fromUtcMillis = mStartUtcMillis;
             toUtcMillis += mStartUtcMillis - fromUtcMillis;
+            fromUtcMillis = mStartUtcMillis;
         }
         if (toUtcMillis > mEndUtcMillis) {
             fromUtcMillis -= toUtcMillis - mEndUtcMillis;
@@ -345,10 +364,12 @@ public class ProgramManager {
     /** Returns the program index of the program at {@code time} or -1 if not found. */
     int getProgramIndexAtTime(long channelId, long time) {
         List<TableEntry> entries = mChannelIdEntriesMap.get(channelId);
-        for (int i = 0; i < entries.size(); ++i) {
-            TableEntry entry = entries.get(i);
-            if (entry.entryStartUtcMillis <= time && time < entry.entryEndUtcMillis) {
-                return i;
+        if (entries != null) {
+            for (int i = 0; i < entries.size(); ++i) {
+                TableEntry entry = entries.get(i);
+                if (entry.entryStartUtcMillis <= time && time < entry.entryEndUtcMillis) {
+                    return i;
+                }
             }
         }
         return -1;
@@ -401,7 +422,7 @@ public class ProgramManager {
      * given {@code channelId}.
      */
     int getTableEntryCount(long channelId) {
-        return mChannelIdEntriesMap.get(channelId).size();
+        return mChannelIdEntriesMap.isEmpty() ? 0 : mChannelIdEntriesMap.get(channelId).size();
     }
 
     /**
@@ -410,6 +431,9 @@ public class ProgramManager {
      * (e.g., whose channelId is INVALID_ID), when it corresponds to a gap between programs.
      */
     TableEntry getTableEntry(long channelId, int index) {
+        if (mBackendKnobsFlags.enablePartialProgramFetch()) {
+            mProgramDataManager.prefetchChannel(channelId);
+        }
         return mChannelIdEntriesMap.get(channelId).get(index);
     }
 
@@ -434,6 +458,14 @@ public class ProgramManager {
         // the listener can get the entries.
         notifyChannelsUpdated();
         notifyTableEntriesUpdated();
+        buildGenreFilters();
+    }
+
+    /** Sets the channel list for testing */
+    void setChannels(List<Channel> channels) {
+        mChannels = new ArrayList<>(channels);
+        mSelectedGenreId = GenreItems.ID_ALL_CHANNELS;
+        mFilteredChannels = mChannels;
         buildGenreFilters();
     }
 
@@ -544,6 +576,9 @@ public class ProgramManager {
 
     @Nullable
     private TableEntry getTableEntry(long channelId, long entryId) {
+        if (mChannelIdEntriesMap.isEmpty()) {
+            return null;
+        }
         List<TableEntry> entries = mChannelIdEntriesMap.get(channelId);
         if (entries != null) {
             for (TableEntry entry : entries) {

@@ -29,11 +29,13 @@ def from_config(config):
     host = config.get('host', None)
     port = config.get('port', 22)
     identity_file = config.get('identity_file', None)
+    ssh_config = config.get('ssh_config', None)
     if user is None or host is None:
         raise ValueError('Malformed SSH config did not include user and '
                          'host keys: %s' % config)
 
-    return SshSettings(host, user, port=port, identity_file=identity_file)
+    return SshSettings(host, user, port=port, identity_file=identity_file,
+                       ssh_config=ssh_config)
 
 
 class SshSettings(object):
@@ -61,7 +63,8 @@ class SshSettings(object):
                  connect_timeout=30,
                  alive_interval=300,
                  executable='/usr/bin/ssh',
-                 identity_file=None):
+                 identity_file=None,
+                 ssh_config=None):
         self.username = username
         self.hostname = hostname
         self.executable = executable
@@ -70,6 +73,7 @@ class SshSettings(object):
         self.connect_timeout = connect_timeout
         self.alive_interval = alive_interval
         self.identity_file = identity_file
+        self.ssh_config = ssh_config
 
     def construct_ssh_options(self):
         """Construct the ssh options.
@@ -102,4 +106,6 @@ class SshSettings(object):
         current_flags['-p'] = self.port
         if self.identity_file:
             current_flags['-i'] = self.identity_file
+        if self.ssh_config:
+            current_flags['-F'] = self.ssh_config
         return current_flags

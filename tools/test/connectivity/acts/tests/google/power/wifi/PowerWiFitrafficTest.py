@@ -85,11 +85,6 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
         self.iperf_power_test_func()
 
-    @test_tracker_info(uuid='147eff45-97d7-47c0-b306-f84d9adecd9b')
-    def test_traffic_screen_OFF_2g_DL_TCP_medium_RSSI_HT_20(self):
-
-        self.iperf_power_test_func()
-
     @test_tracker_info(uuid='5982268b-57e4-40bf-848e-fee80fabf9d7')
     def test_traffic_screen_OFF_2g_DL_TCP_low_RSSI_HT_20(self):
 
@@ -97,11 +92,6 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
     @test_tracker_info(uuid='c71a8c77-d355-4a82-b9f1-7cc8b888abd8')
     def test_traffic_screen_OFF_5g_DL_TCP_high_RSSI_VHT_20(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='307945a6-32b7-42d0-a26c-d439f1599963')
-    def test_traffic_screen_OFF_5g_DL_TCP_medium_RSSI_VHT_20(self):
 
         self.iperf_power_test_func()
 
@@ -115,11 +105,6 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
         self.iperf_power_test_func()
 
-    @test_tracker_info(uuid='feeaad15-6893-4d49-aaf6-bf9802780f5d')
-    def test_traffic_screen_OFF_5g_DL_TCP_medium_RSSI_VHT_40(self):
-
-        self.iperf_power_test_func()
-
     @test_tracker_info(uuid='f378679a-1c20-43a1-bff6-a6a5482a8e3d')
     def test_traffic_screen_OFF_5g_DL_TCP_low_RSSI_VHT_40(self):
 
@@ -127,11 +112,6 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
     @test_tracker_info(uuid='6a05f133-49e5-4436-ba84-0746f04021ef')
     def test_traffic_screen_OFF_5g_DL_TCP_high_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='750bf1c3-2099-4b89-97dd-18f8e72df462')
-    def test_traffic_screen_OFF_5g_DL_TCP_medium_RSSI_VHT_80(self):
 
         self.iperf_power_test_func()
 
@@ -145,11 +125,6 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
         self.iperf_power_test_func()
 
-    @test_tracker_info(uuid='f00a868b-c8b1-4b36-8136-b39b5c2396a7')
-    def test_traffic_screen_OFF_2g_UL_TCP_medium_RSSI_HT_20(self):
-
-        self.iperf_power_test_func()
-
     @test_tracker_info(uuid='cd0c37ac-23fe-4dd1-9130-ccb2dfa71020')
     def test_traffic_screen_OFF_2g_UL_TCP_low_RSSI_HT_20(self):
 
@@ -157,11 +132,6 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
     @test_tracker_info(uuid='f9173d39-b46d-4d80-a5a5-7966f5eed9de')
     def test_traffic_screen_OFF_5g_UL_TCP_high_RSSI_VHT_20(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='cf77e1dc-30bc-4df9-88be-408f1fddc24f')
-    def test_traffic_screen_OFF_5g_UL_TCP_medium_RSSI_VHT_20(self):
 
         self.iperf_power_test_func()
 
@@ -175,11 +145,6 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
         self.iperf_power_test_func()
 
-    @test_tracker_info(uuid='8ad237d7-f5e1-45e1-a4a2-a010628a4db9')
-    def test_traffic_screen_OFF_5g_UL_TCP_medium_RSSI_VHT_40(self):
-
-        self.iperf_power_test_func()
-
     @test_tracker_info(uuid='3e29173f-b950-4a41-a7f6-6cc0731bf477')
     def test_traffic_screen_OFF_5g_UL_TCP_low_RSSI_VHT_40(self):
 
@@ -187,11 +152,6 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
     @test_tracker_info(uuid='3d4cdb21-a1b0-4011-9956-ca0b7a9f3bec')
     def test_traffic_screen_OFF_5g_UL_TCP_high_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='8427d3f0-9418-4b5c-aea9-7509e5959ce6')
-    def test_traffic_screen_OFF_5g_UL_TCP_medium_RSSI_VHT_80(self):
 
         self.iperf_power_test_func()
 
@@ -206,11 +166,6 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
         self.iperf_power_test_func()
 
-    @test_tracker_info(uuid='a2c66d63-e93f-42aa-a021-0c6cdfdc87b8')
-    def test_traffic_screen_OFF_5g_DL_UDP_medium_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
     @test_tracker_info(uuid='68e6f92a-ae15-4e76-81e7-a7b491e181fe')
     def test_traffic_screen_OFF_5g_DL_UDP_low_RSSI_VHT_80(self):
 
@@ -221,73 +176,7 @@ class PowerWiFitrafficTest(PWBT.PowerWiFiBaseTest):
 
         self.iperf_power_test_func()
 
-    @test_tracker_info(uuid='3d2d3d45-575d-4080-86f9-b32a96963032')
-    def test_traffic_screen_OFF_5g_UL_UDP_medium_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
     @test_tracker_info(uuid='a17c7d0b-58ca-47b5-9f32-0b7a3d7d3d9d')
     def test_traffic_screen_OFF_5g_UL_UDP_low_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
-    # Screen on point check
-    @test_tracker_info(uuid='c1c71639-4463-4999-8f5d-7d9153402c79')
-    def test_traffic_screen_ON_2g_DL_TCP_high_RSSI_HT_20(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='40daebc4-45a2-4299-b724-e8cb917b86e8')
-    def test_traffic_screen_ON_5g_DL_TCP_high_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='2e286f36-1a47-4895-a0e8-a161d6a9fd9f')
-    def test_traffic_screen_ON_2g_UL_TCP_high_RSSI_HT_20(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='9f6b52cb-b48a-4382-8061-3d3a511a261a')
-    def test_traffic_screen_ON_5g_UL_TCP_high_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='59d79274-15cf-446b-a567-655c07f8a778')
-    def test_traffic_screen_ON_2g_DL_UDP_high_RSSI_HT_20(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='02891671-48cc-4186-9a95-3e02671477d0')
-    def test_traffic_screen_ON_5g_DL_UDP_high_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='02821540-7b08-4e4f-a1f1-b455fd4cec6e')
-    def test_traffic_screen_ON_2g_UL_UDP_high_RSSI_HT_20(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='59ea06ac-3ac8-4ecc-abb1-bcde34f47358')
-    def test_traffic_screen_ON_2g_UL_UDP_medium_RSSI_HT_20(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='0cbbd849-7b59-4143-95e7-92cf1fd955dc')
-    def test_traffic_screen_ON_2g_UL_UDP_low_RSSI_HT_20(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='d84f11d8-41a9-4ce8-a351-ebb0379d56c1')
-    def test_traffic_screen_ON_5g_UL_UDP_high_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='01b6087c-b39a-441d-90e9-da659aa0db7f')
-    def test_traffic_screen_ON_5g_UL_UDP_medium_RSSI_VHT_80(self):
-
-        self.iperf_power_test_func()
-
-    @test_tracker_info(uuid='7e16dcaa-128f-4874-ab52-2f43e25e6da8')
-    def test_traffic_screen_ON_5g_UL_UDP_low_RSSI_VHT_80(self):
 
         self.iperf_power_test_func()

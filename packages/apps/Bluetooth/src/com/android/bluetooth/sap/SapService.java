@@ -20,17 +20,17 @@ import android.os.Handler;
 import android.os.Message;
 import android.os.ParcelUuid;
 import android.os.PowerManager;
-import android.provider.Settings;
-import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.R;
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.MetricsLogger;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.sdp.SdpManager;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -539,7 +539,7 @@ public class SapService extends ProfileService {
     public boolean disconnect(BluetoothDevice device) {
         boolean result = false;
         synchronized (SapService.this) {
-            if (getRemoteDevice().equals(device)) {
+            if (mRemoteDevice != null && mRemoteDevice.equals(device)) {
                 switch (mState) {
                     case BluetoothSap.STATE_CONNECTED:
                         closeConnectionSocket();
@@ -596,19 +596,17 @@ public class SapService extends ProfileService {
     }
 
     public boolean setPriority(BluetoothDevice device, int priority) {
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothSapPriorityKey(device.getAddress()), priority);
         if (DEBUG) {
             Log.d(TAG, "Saved priority " + device + " = " + priority);
         }
+        AdapterService.getAdapterService().getDatabase()
+                .setProfilePriority(device, BluetoothProfile.SAP, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
-        int priority = Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothSapPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
-        return priority;
+        return AdapterService.getAdapterService().getDatabase()
+                .getProfilePriority(device, BluetoothProfile.SAP);
     }
 
     @Override

@@ -18,11 +18,12 @@ package com.android.documentsui.testing;
 
 import android.content.Intent;
 
+import androidx.recyclerview.selection.ItemDetailsLookup.ItemDetails;
+
 import com.android.documentsui.AbstractActionHandler;
 import com.android.documentsui.TestActivity;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.RootInfo;
-import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 
 import java.util.function.Consumer;
 
@@ -30,7 +31,7 @@ public class TestActionHandler extends AbstractActionHandler<TestActivity> {
 
     private final TestEnv mEnv;
 
-    public final TestEventHandler<ItemDetails> open = new TestEventHandler<>();
+    public final TestEventHandler<ItemDetails<String>> open = new TestEventHandler<>();
     public boolean mDeleteHappened;
 
     public DocumentInfo nextRootDocument;
@@ -53,7 +54,7 @@ public class TestActionHandler extends AbstractActionHandler<TestActivity> {
     }
 
     @Override
-    public boolean openItem(ItemDetails doc, @ViewType int type, @ViewType int fallback) {
+    public boolean openItem(ItemDetails<String> doc, @ViewType int type, @ViewType int fallback) {
         return open.accept(doc);
     }
 

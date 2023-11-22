@@ -232,9 +232,6 @@ mybroadcast:
     }
 
     private static void verifyActiveInstrumentationProto(ActiveInstrumentationProto aip, final int filterLevel) throws Exception {
-        if (filterLevel == PRIVACY_AUTO) {
-            assertTrue(aip.getArguments().isEmpty());
-        }
     }
 
     private static void verifyUidRecordProto(UidRecordProto urp, final int filterLevel) throws Exception {

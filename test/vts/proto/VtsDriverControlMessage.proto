@@ -16,6 +16,7 @@ syntax = "proto2";
 
 package android.vts;
 
+import "test/vts/proto/VtsResourceControllerMessage.proto";
 
 // Type of a command.
 enum VtsDriverCommandType {
@@ -44,6 +45,13 @@ enum VtsDriverCommandType {
 
   // To invoke a system call.
   INVOKE_SYSCALL = 202;
+
+  // To request FMQ resource.
+  FMQ_OPERATION = 301;
+  // To request hidl_memory resource.
+  HIDL_MEMORY_OPERATION = 302;
+  // To request hidl_handle resource.
+  HIDL_HANDLE_OPERATION = 303;
 }
 
 
@@ -77,13 +85,20 @@ message VtsDriverControlCommandMessage {
   optional int32 target_type = 1203;
   // target version (should be divided by 100) - float has a compatibility issue
   // between C/C++ and python protoc.
-  optional float target_version = 1204;
+  // Deprecated, use target_version_major and target_version_minor instead.
+  optional float target_version = 1204 [deprecated = true];
   // the name of a HAL module to open.
   optional bytes module_name = 1205;
   // the package of a HIDL HAL to open.
   optional bytes target_package = 1206;
   // the name of a target component (currently used for HIDL HALs only).
   optional bytes target_component_name = 1207;
+
+  // use two ints to represent major and minor versions separately.
+  // HAL major version of target component (e.g. 1.0 -> 1).
+  optional int32 target_version_major = 1208 [default = -1];
+  // HAL minor version of target component (e.g. 1.0 -> 0).
+  optional int32 target_version_minor = 1209 [default = -1];
 
   // the name of a HW Binder service to use (only needed for HIDL HAL).
   optional bytes hw_binder_service_name = 1221;
@@ -99,6 +114,13 @@ message VtsDriverControlCommandMessage {
 
   // for EXECUTE_COMMAND
   repeated bytes shell_command = 2001;
+
+  // Arguments for operation on FMQ
+  optional FmqRequestMessage fmq_request = 3001;
+  // Arguments for operation on hidl_memory
+  optional HidlMemoryRequestMessage hidl_memory_request = 3002;
+  // Arguments for operation on hidl_handle
+  optional HidlHandleRequestMessage hidl_handle_request = 3003;
 }
 
 
@@ -121,4 +143,11 @@ message VtsDriverControlResponseMessage {
 
   // The retrieved specifications.
   repeated bytes spec = 2001;
+
+  // read data and return values from FMQ driver
+  optional FmqResponseMessage fmq_response = 3001;
+  // response from hidl_memory driver
+  optional HidlMemoryResponseMessage hidl_memory_response = 3002;
+  // response from hidl_handle driver
+  optional HidlHandleResponseMessage hidl_handle_response = 3003;
 }

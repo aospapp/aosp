@@ -212,10 +212,11 @@ public:
     static Impl *Alloc(int ionFd, size_t size, size_t align, unsigned heapMask, unsigned flags, C2Allocator::id_t id) {
         int bufferFd = -1;
         ion_user_handle_t buffer = -1;
-        int ret = ion_alloc(ionFd, size, align, heapMask, flags, &buffer);
+        size_t alignedSize = align == 0 ? size : (size + align - 1) & ~(align - 1);
+        int ret = ion_alloc(ionFd, alignedSize, align, heapMask, flags, &buffer);
         ALOGV("ion_alloc(ionFd = %d, size = %zu, align = %zu, prot = %d, flags = %d) "
               "returned (%d) ; buffer = %d",
-              ionFd, size, align, heapMask, flags, ret, buffer);
+              ionFd, alignedSize, align, heapMask, flags, ret, buffer);
         if (ret == 0) {
             // get buffer fd for native handle constructor
             ret = ion_share(ionFd, buffer, &bufferFd);
@@ -224,7 +225,7 @@ public:
                 buffer = -1;
             }
         }
-        return new Impl(ionFd, size, bufferFd, buffer, id, ret);
+        return new Impl(ionFd, alignedSize, bufferFd, buffer, id, ret);
     }
 
     c2_status_t map(size_t offset, size_t size, C2MemoryUsage usage, C2Fence *fence, void **addr) {

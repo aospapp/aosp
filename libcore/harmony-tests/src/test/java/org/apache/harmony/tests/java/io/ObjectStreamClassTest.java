@@ -18,7 +18,6 @@
 package org.apache.harmony.tests.java.io;
 
 import dalvik.system.DexFile;
-import dalvik.system.VMRuntime;
 import java.io.Externalizable;
 import java.io.File;
 import java.io.IOException;
@@ -28,15 +27,21 @@ import java.io.ObjectOutput;
 import java.io.ObjectStreamClass;
 import java.io.ObjectStreamField;
 import java.io.Serializable;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import junit.framework.TestCase;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.SwitchTargetSdkVersionRule;
+import libcore.junit.util.SwitchTargetSdkVersionRule.TargetSdkVersion;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public class ObjectStreamClassTest extends TestCase {
+public class ObjectStreamClassTest extends TestCaseWithRules {
+
+    @Rule
+    public TestRule switchTargetSdkVersionRule = SwitchTargetSdkVersionRule.getInstance();
 
     static class DummyClass implements Serializable {
         private static final long serialVersionUID = 999999999999999L;
@@ -228,102 +233,55 @@ public class ObjectStreamClassTest extends TestCase {
     }
 
     // http://b/28106822
-    public void testBug28106822() throws Exception {
-        int savedTargetSdkVersion = VMRuntime.getRuntime().getTargetSdkVersion();
+    @TargetSdkVersion(24)
+    public void testBug28106822_target24() throws Exception {
+        // Assert behavior up to 24
+        Method getConstructorId = getConstructorIdMethod();
+
+        assertEquals(1189998819991197253L, getConstructorId.invoke(null, Object.class));
+        assertEquals(1189998819991197253L, getConstructorId.invoke(null, String.class));
+
+        Method newInstance = getNewInstanceMethod();
+
+        Object obj = newInstance.invoke(null, String.class, 0 /* ignored */);
+        assertNotNull(obj);
+        assertTrue(obj instanceof String);
+    }
+
+    // http://b/28106822
+    @TargetSdkVersion(25)
+    public void testBug28106822_target25() throws Exception {
+        // Assert behavior from API 25
+        Method getConstructorId = getConstructorIdMethod();
+
+        Method newInstance = getNewInstanceMethod();
+
         try {
-            // Assert behavior up to 24
-            VMRuntime.getRuntime().setTargetSdkVersion(24);
-            Method getConstructorId = ObjectStreamClass.class.getDeclaredMethod(
-                    "getConstructorId", Class.class);
-            getConstructorId.setAccessible(true);
-
-            assertEquals(1189998819991197253L, getConstructorId.invoke(null, Object.class));
-            assertEquals(1189998819991197253L, getConstructorId.invoke(null, String.class));
-
-            Method newInstance = ObjectStreamClass.class.getDeclaredMethod("newInstance",
-                    Class.class, Long.TYPE);
-            newInstance.setAccessible(true);
-
-            Object obj = newInstance.invoke(null, String.class, 0 /* ignored */);
-            assertNotNull(obj);
-            assertTrue(obj instanceof String);
-
-            // Assert behavior from API 25
-            VMRuntime.getRuntime().setTargetSdkVersion(25);
-            try {
-                getConstructorId.invoke(null, Object.class);
-                fail();
-            } catch (InvocationTargetException expected) {
-                assertTrue(expected.getCause() instanceof UnsupportedOperationException);
-            }
-            try {
-                newInstance.invoke(null, String.class, 0 /* ignored */);
-                fail();
-            } catch (InvocationTargetException expected) {
-                assertTrue(expected.getCause() instanceof UnsupportedOperationException);
-            }
-
-        } finally {
-            VMRuntime.getRuntime().setTargetSdkVersion(savedTargetSdkVersion);
+            getConstructorId.invoke(null, Object.class);
+            fail();
+        } catch (InvocationTargetException expected) {
+            assertTrue(expected.getCause() instanceof UnsupportedOperationException);
+        }
+        try {
+            newInstance.invoke(null, String.class, 0 /* ignored */);
+            fail();
+        } catch (InvocationTargetException expected) {
+            assertTrue(expected.getCause() instanceof UnsupportedOperationException);
         }
     }
 
-    // Class without <clinit> method
-    public static class NoClinitParent {
-    }
-    // Class without <clinit> method
-    public static class NoClinitChildWithNoClinitParent extends NoClinitParent {
-    }
-
-    // Class with <clinit> method
-    public static class ClinitParent {
-        // This field will trigger creation of <clinit> method for this class
-        private static final String TAG = ClinitParent.class.getName();
-        static {
-
-        }
-    }
-    // Class without <clinit> but with parent that has <clinit> method
-    public static class NoClinitChildWithClinitParent extends ClinitParent {
+    private Method getConstructorIdMethod() throws NoSuchMethodException {
+        Method getConstructorId = ObjectStreamClass.class.getDeclaredMethod(
+            "getConstructorId", Class.class);
+        getConstructorId.setAccessible(true);
+        return getConstructorId;
     }
 
-    // http://b/29064453
-    public void testHasClinit() throws Exception {
-        Method hasStaticInitializer =
-            ObjectStreamClass.class.getDeclaredMethod("hasStaticInitializer", Class.class,
-                                                      boolean.class);
-        hasStaticInitializer.setAccessible(true);
-
-        assertTrue((Boolean)
-                   hasStaticInitializer.invoke(null, ClinitParent.class,
-                                               false /* checkSuperclass */));
-
-        // RI will return correctly False in this case, but android has been returning true
-        // in this particular case. We're returning true to enable deserializing classes
-        // like NoClinitChildWithClinitParent without explicit serialVersionID field.
-        assertTrue((Boolean)
-                   hasStaticInitializer.invoke(null, NoClinitChildWithClinitParent.class,
-                                               false /* checkSuperclass */));
-        assertFalse((Boolean)
-                    hasStaticInitializer.invoke(null, NoClinitParent.class,
-                                                false /* checkSuperclass */));
-        assertFalse((Boolean)
-                    hasStaticInitializer.invoke(null, NoClinitChildWithNoClinitParent.class,
-                                                false /* checkSuperclass */));
-
-
-        assertTrue((Boolean)
-                   hasStaticInitializer.invoke(null, ClinitParent.class,
-                                               true /* checkSuperclass */));
-        assertFalse((Boolean)
-                   hasStaticInitializer.invoke(null, NoClinitChildWithClinitParent.class,
-                                               true /* checkSuperclass */));
-        assertFalse((Boolean)
-                    hasStaticInitializer.invoke(null, NoClinitParent.class,
-                                                true /* checkSuperclass */));
-        assertFalse((Boolean)
-                    hasStaticInitializer.invoke(null, NoClinitChildWithNoClinitParent.class,
-                                                true /* checkSuperclass */));
+    private Method getNewInstanceMethod() throws NoSuchMethodException {
+        Method newInstance = ObjectStreamClass.class.getDeclaredMethod("newInstance",
+            Class.class, Long.TYPE);
+        newInstance.setAccessible(true);
+        return newInstance;
     }
 
     // http://b/29721023

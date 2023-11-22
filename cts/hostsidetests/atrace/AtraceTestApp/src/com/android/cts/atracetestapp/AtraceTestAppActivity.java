@@ -15,15 +15,87 @@
  */
 package com.android.cts.atracetestapp;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.app.Activity;
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Trace;
+import android.view.View;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class AtraceTestAppActivity extends Activity {
+
+    private CountDownLatch mHasDrawnFence;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Trace.beginSection("traceable-app-test-section");
+        Trace.beginAsyncSection("AtraceActivity::created", 1);
         super.onCreate(savedInstanceState);
-        Trace.endSection();
+        mHasDrawnFence = new CountDownLatch(1);
+        MyView view = new MyView(this);
+        setContentView(view);
+        view.getViewTreeObserver().registerFrameCommitCallback(mHasDrawnFence::countDown);
+    }
+
+    @Override
+    protected void onStart() {
+        Trace.beginAsyncSection("AtraceActivity::started", 1);
+        super.onStart();
+    }
+
+    @Override
+    protected void onResume() {
+        Trace.beginAsyncSection("AtraceActivity::resumed", 1);
+        super.onResume();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Trace.endAsyncSection("AtraceActivity::resumed", 1);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Trace.endAsyncSection("AtraceActivity::started", 1);
+    }
+
+    @Override
+    protected void onDestroy() {
+        mHasDrawnFence = null;
+        super.onDestroy();
+        Trace.endAsyncSection("AtraceActivity::created", 1);
+    }
+
+    public void waitForDraw() {
+        try {
+            assertTrue(mHasDrawnFence.await(10, TimeUnit.SECONDS));
+        } catch (InterruptedException e) {
+            fail("Timed out: " + e.getMessage());
+        }
+    }
+
+    private static class MyView extends View {
+        private static int sDrawCount = 0;
+
+        public MyView(Context context) {
+            super(context);
+            setWillNotDraw(false);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            Trace.beginSection("MyView::onDraw");
+            Trace.setCounter("MyView::drawCount", ++sDrawCount);
+            canvas.drawColor(Color.BLUE);
+            Trace.endSection();
+        }
     }
 }

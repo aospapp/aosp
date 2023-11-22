@@ -20,6 +20,7 @@ import android.annotation.SystemApi;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -28,7 +29,7 @@ import java.lang.annotation.RetentionPolicy;
  * @hide
  */
 @SystemApi
-public class CarNavigationInstrumentCluster implements Parcelable {
+public final class CarNavigationInstrumentCluster implements Parcelable {
 
     /** Navigation Next Turn messages contain an image, as well as an enum. */
     public static final int CLUSTER_TYPE_CUSTOM_IMAGES_SUPPORTED = 1;

@@ -18,12 +18,13 @@
 
 #include "VtsHalHidlTargetTestEnvBase.h"
 
+#include <iostream>
 #include <string>
 
-#include <utils/Log.h>
+#include <hidl-util/FqInstance.h>
 
-static constexpr const char* kListFlag = "--list_registered_services";
-static constexpr const char* kServiceInstanceFlag = "--hal_service_instance";
+static const std::string kListFlag = "--list_registered_services";
+static const std::string kServiceInstanceFlag = "--hal_service_instance=";
 
 using namespace std;
 
@@ -31,8 +32,8 @@ namespace testing {
 
 void VtsHalHidlTargetTestEnvBase::SetUp() {
   if (!inited_) {
-    ALOGE("Environment not inited, did you forget to call init()?");
-    abort();
+    cerr << "Environment not inited, did you forget to call init()?" << endl;
+    exit(-1);
   }
   // Register services used in the test.
   registerTestServices();
@@ -73,15 +74,15 @@ bool VtsHalHidlTargetTestEnvBase::parseVtsTestOption(const char* arg) {
   // arg must not be NULL.
   if (arg == NULL) return false;
 
-  if (strncmp(arg, kListFlag, strlen(kListFlag)) == 0) {
+  if (arg == kListFlag) {
     listService_ = true;
     return true;
   }
 
-  if (strncmp(arg, kServiceInstanceFlag, strlen(kServiceInstanceFlag)) == 0) {
+  if (string(arg).find(kServiceInstanceFlag) == 0) {
     // value is the part after "--hal_service_instance="
-    const char* value = arg + strlen(kServiceInstanceFlag) + 1;
-    addHalServiceInstance(string(value));
+    string value = string(arg).substr(kServiceInstanceFlag.length());
+    addHalServiceInstance(value);
     return true;
   }
   return false;
@@ -90,20 +91,25 @@ bool VtsHalHidlTargetTestEnvBase::parseVtsTestOption(const char* arg) {
 void VtsHalHidlTargetTestEnvBase::addHalServiceInstance(
     const string& halServiceInstance) {
   // hal_service_instance follows the format:
-  // package@version::interface/service_name e.g.:
+  // package@version::interface/instance e.g.:
   // android.hardware.vibrator@1.0::IVibrator/default
+  if (!isValidInstance(halServiceInstance)) {
+    cerr << "Input instance " << halServiceInstance
+         << "does not confirm to the HAL instance format. "
+         << "Expect format: package@version::interface/instance." << endl;
+    exit(-1);
+  }
+  string halName = halServiceInstance.substr(0, halServiceInstance.find('/'));
   string instanceName =
-      halServiceInstance.substr(0, halServiceInstance.find('/'));
-  string serviceName =
       halServiceInstance.substr(halServiceInstance.find('/') + 1);
   // Fail the process if trying to pass multiple service names for the same
   // service instance.
-  if (halServiceInstances_.find(instanceName) != halServiceInstances_.end()) {
-    ALOGE("Exisitng instance %s with name %s", instanceName.c_str(),
-          halServiceInstances_[instanceName].c_str());
-    abort();
+  if (halServiceInstances_.find(halName) != halServiceInstances_.end()) {
+    cerr << "Existing instance " << halName << "with name "
+         << halServiceInstances_[halName] << endl;
+    exit(-1);
   }
-  halServiceInstances_[instanceName] = serviceName;
+  halServiceInstances_[halName] = instanceName;
 }
 
 string VtsHalHidlTargetTestEnvBase::getServiceName(const string& instanceName,
@@ -112,8 +118,8 @@ string VtsHalHidlTargetTestEnvBase::getServiceName(const string& instanceName,
     return halServiceInstances_[instanceName];
   }
   // Could not find the instance.
-  ALOGE("Does not find service name for %s, using default name: %s",
-        instanceName.c_str(), defaultName.c_str());
+  cerr << "Does not find service name for " << instanceName
+       << " using default name: " << defaultName << endl;
   return defaultName;
 }
 
@@ -122,10 +128,18 @@ void VtsHalHidlTargetTestEnvBase::registerTestService(const string& FQName) {
 }
 
 void VtsHalHidlTargetTestEnvBase::listRegisteredServices() {
-  for (string service : registeredHalServices_) {
-    printf("hal_service: %s\n", service.c_str());
+  for (const string& service : registeredHalServices_) {
+    cout << "hal_service: " << service << endl;
   }
-  printf("service_comb_mode: %d\n", mode_);
+  cout << "service_comb_mode: " << mode_ << endl;
+}
+
+bool VtsHalHidlTargetTestEnvBase::isValidInstance(
+    const string& halServiceInstance) {
+  ::android::FqInstance fqInstance;
+  return (fqInstance.setTo(halServiceInstance) && fqInstance.hasPackage() &&
+          fqInstance.hasVersion() && fqInstance.hasInterface() &&
+          fqInstance.hasInstance());
 }
 
 }  // namespace testing

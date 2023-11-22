@@ -20,7 +20,6 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.os.RemoteException;
 import android.util.Log;
 
@@ -40,7 +39,7 @@ public abstract class CarAppBlockingPolicyService extends Service {
     public static final String SERVICE_INTERFACE =
             "android.car.content.pm.CarAppBlockingPolicyService";
 
-    private final ICarAppBlockingPoicyImpl mBinder = new ICarAppBlockingPoicyImpl();
+    private final ICarAppBlockingPolicyImpl mBinder = new ICarAppBlockingPolicyImpl();
     private Handler mHandler;
 
     /**
@@ -68,7 +67,7 @@ public abstract class CarAppBlockingPolicyService extends Service {
     }
 
 
-    private class ICarAppBlockingPoicyImpl extends ICarAppBlockingPolicy.Stub {
+    private class ICarAppBlockingPolicyImpl extends ICarAppBlockingPolicy.Stub {
 
         @Override
         public void setAppBlockingPolicySetter(ICarAppBlockingPolicySetter setter) {
@@ -77,7 +76,7 @@ public abstract class CarAppBlockingPolicyService extends Service {
             try {
                 setter.setAppBlockingPolicy(policy);
             } catch (RemoteException e) {
-                // if car service crashed, it will retry later.
+                throw e.rethrowFromSystemServer();
             }
         }
     }

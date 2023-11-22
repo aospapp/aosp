@@ -86,7 +86,6 @@ GGLfixed gglRoundx(GGLfixed v) {
 GGLfixed gglPowx(GGLfixed x, GGLfixed y) CONST;
 GGLfixed gglSqrtx(GGLfixed a) CONST;
 GGLfixed gglSqrtRecipx(GGLfixed x) CONST;
-GGLfixed gglFastDivx(GGLfixed n, GGLfixed d) CONST;
 int32_t gglMulDivi(int32_t a, int32_t b, int32_t c);
 
 int32_t gglRecipQNormalized(int32_t x, int* exponent);
@@ -108,7 +107,7 @@ int32_t gglRecip28(GGLfixed x) {
 
 // inline ARM implementations
 inline GGLfixed gglMulx(GGLfixed x, GGLfixed y, int shift) CONST;
-inline GGLfixed gglMulx(GGLfixed x, GGLfixed y, int shift) {
+__attribute__((always_inline)) inline GGLfixed gglMulx(GGLfixed x, GGLfixed y, int shift) {
     GGLfixed result, t;
     if (__builtin_constant_p(shift)) {
     asm("smull  %[lo], %[hi], %[x], %[y]            \n"
@@ -131,7 +130,8 @@ inline GGLfixed gglMulx(GGLfixed x, GGLfixed y, int shift) {
 }
 
 inline GGLfixed gglMulAddx(GGLfixed x, GGLfixed y, GGLfixed a, int shift) CONST;
-inline GGLfixed gglMulAddx(GGLfixed x, GGLfixed y, GGLfixed a, int shift) {
+__attribute__((always_inline)) inline GGLfixed gglMulAddx(GGLfixed x, GGLfixed y, GGLfixed a,
+                                                          int shift) {
     GGLfixed result, t;
     if (__builtin_constant_p(shift)) {
     asm("smull  %[lo], %[hi], %[x], %[y]            \n"

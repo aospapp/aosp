@@ -24,6 +24,7 @@ cc_library_shared {
         "ComponentSpecificationMessage.proto",
         "VtsProfilingMessage.proto",
         "VtsReportMessage.proto",
+        "VtsResourceControllerMessage.proto",
     ],
 
     cflags: ["-Wall", "-Werror"],

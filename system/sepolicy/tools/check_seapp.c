@@ -204,7 +204,6 @@ key_map rules[] = {
                 /*Inputs*/
                 { .name = "isSystemServer", .dir = dir_in, .fn_validate = validate_bool },
                 { .name = "isEphemeralApp",  .dir = dir_in, .fn_validate = validate_bool },
-                { .name = "isV2App",        .dir = dir_in, .fn_validate = validate_bool },
                 { .name = "isOwner",        .dir = dir_in, .fn_validate = validate_bool },
                 { .name = "user",           .dir = dir_in,                              },
                 { .name = "seinfo",         .dir = dir_in,                              },
@@ -212,6 +211,7 @@ key_map rules[] = {
                 { .name = "path",           .dir = dir_in,                              },
                 { .name = "isPrivApp",      .dir = dir_in, .fn_validate = validate_bool },
                 { .name = "minTargetSdkVersion", .dir = dir_in, .fn_validate = validate_uint },
+                { .name = "fromRunAs",       .dir = dir_in, .fn_validate = validate_bool },
                 /*Outputs*/
                 { .name = "domain",         .dir = dir_out, .fn_validate = validate_selinux_type  },
                 { .name = "type",           .dir = dir_out, .fn_validate = validate_selinux_type  },
@@ -741,7 +741,7 @@ static rule_map *rule_map_new(kvp keys[], size_t num_of_keys, int lineno,
 
 			/* Only assign key name to map name */
 			if (strcasecmp(k->key, x->name)) {
-				if (i == KVP_NUM_OF_RULES) {
+				if (j == KVP_NUM_OF_RULES - 1) {
 					log_error("No match for key: %s\n", k->key);
 					goto err;
 				}
@@ -1127,6 +1127,9 @@ static void parse_file(file_info *in_file) {
 			if (!token)
 				break;
 
+			if (token_cnt == KVP_NUM_OF_RULES)
+				goto oob;
+
 		} /*End token parsing */
 
 		rule_map *r = rule_map_new(keys, token_cnt, lineno, in_file->name, is_never_allow);
@@ -1146,6 +1149,10 @@ err:
 	exit(EXIT_FAILURE);
 oom:
 	log_error("In function %s:  Out of memory\n", __FUNCTION__);
+	exit(EXIT_FAILURE);
+oob:
+	log_error("Reading file: \"%s\" line: %zu reason: the size of key pairs exceeds the MAX(%zu)\n",
+		in_file->name, lineno, KVP_NUM_OF_RULES);
 	exit(EXIT_FAILURE);
 }
 

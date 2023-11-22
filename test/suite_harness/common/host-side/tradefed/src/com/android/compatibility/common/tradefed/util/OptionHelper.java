@@ -118,9 +118,14 @@ public final class OptionHelper {
         while (matcher.find()) {
             String optionInput = cleanNameValueDelimiter(matcher.group());
             // split between the option name and value
-            String[] keyNameTokens = optionInput.split(" ", 2);
+            String[] keyNameTokens = optionInput.split("[ =]", 2);
             // remove initial hyphens and any starting double quote from option args
             String keyName = keyNameTokens[0].replaceFirst("^\"?--?", "");
+
+            // Convert "option=value a b" back into option="value a b"
+            if (optionInput.charAt(0) == '"') {
+              optionInput = keyNameTokens[0].substring(1) + " \"" + keyNameTokens[1];
+            }
 
             // add substrings only when the options are recognized
             if (optionShortNames.contains(keyName) || optionNames.contains(keyName)) {

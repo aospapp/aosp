@@ -32,8 +32,8 @@ LOCAL_JAVA_LIBRARIES := \
 
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ctstestserver \
     mockito-target-minus-junit4 \
     androidx.legacy_legacy-support-v4
@@ -46,5 +46,7 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_PACKAGE_NAME := CtsAppTestStubs
 LOCAL_PRIVATE_PLATFORM_APIS := true
+
+LOCAL_USE_AAPT2 := true
 
 include $(BUILD_CTS_SUPPORT_PACKAGE)

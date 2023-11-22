@@ -87,14 +87,14 @@ class NeighbourTest(multinetwork_base.MultiNetworkBaseTest):
     self.netid = random.choice(self.tuns.keys())
     self.ifindex = self.ifindices[self.netid]
 
-  def GetNeighbour(self, addr):
+  def GetNeighbour(self, addr, ifindex):
     version = csocket.AddressVersion(addr)
-    for msg, args in self.iproute.DumpNeighbours(version):
+    for msg, args in self.iproute.DumpNeighbours(version, ifindex):
       if args["NDA_DST"] == addr:
         return msg, args
 
   def GetNdEntry(self, addr):
-    return self.GetNeighbour(addr)
+    return self.GetNeighbour(addr, self.ifindex)
 
   def CheckNoNdEvents(self):
     self.assertRaisesErrno(errno.EAGAIN, self.sock.recvfrom, 4096, MSG_PEEK)

@@ -19,6 +19,7 @@
 
 #include <codec2/hidl/1.0/Component.h>
 
+#include <hardware/google/media/c2/1.0/IComponent.h>
 #include <hardware/google/media/c2/1.0/IInputSurfaceConnection.h>
 
 #include <media/stagefright/bqhelper/GraphicBufferSource.h>
@@ -52,6 +53,10 @@ protected:
     InputSurfaceConnection(
             const sp<GraphicBufferSource>& source,
             const std::shared_ptr<C2Component>& component);
+
+    InputSurfaceConnection(
+            const sp<GraphicBufferSource>& source,
+            const sp<IComponent>& component);
 
     bool init();
 

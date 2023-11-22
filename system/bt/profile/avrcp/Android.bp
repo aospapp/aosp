@@ -1,6 +1,9 @@
 cc_library_static {
     name: "avrcp-target-service",
-    defaults: ["fluoride_defaults"],
+    defaults: [
+        "fluoride_defaults",
+        "clang_file_coverage"
+    ],
     host_supported: true,
     include_dirs: [
         "system/bt",
@@ -18,11 +21,18 @@ cc_library_static {
         "libbluetooth-types",
         "libosi",
     ],
+    shared_libs: [
+        "libchrome",
+    ],
 }
 
 cc_test {
     name: "net_test_avrcp",
-    defaults: ["fluoride_defaults"],
+    test_suites: ["general-tests"],
+    defaults: [
+        "fluoride_defaults",
+        "clang_coverage_bin",
+    ],
     host_supported: true,
     include_dirs: [
         "system/bt",
@@ -38,7 +48,13 @@ cc_test {
         "libgmock",
         "lib-bt-packets",
         "libosi",
+        "liblog",
+        "libcutils",
+        "libbtdevice",
         "avrcp-target-service",
+    ],
+    shared_libs: [
+        "libchrome",
     ],
     sanitize: {
         cfi: false,

@@ -20,15 +20,16 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.documentsui.base.Procedure;
 import com.android.documentsui.dirlist.TestFocusHandler;
-import com.android.documentsui.selection.SelectionHelper;
-import com.android.documentsui.testing.SelectionHelpers;
+import com.android.documentsui.testing.TestDrawerController;
 import com.android.documentsui.testing.TestFeatures;
 
 import org.junit.Before;
@@ -40,9 +41,10 @@ import org.junit.runner.RunWith;
 public class SharedInputHandlerTest {
 
     private SharedInputHandler mSharedInputHandler;
-    private SelectionHelper mSelectionMgr = SelectionHelpers.createTestInstance();
+    private SelectionTracker<String> mSelectionMgr = SelectionHelpers.createTestInstance();
     private TestFeatures mFeatures = new TestFeatures();
     private TestFocusHandler mFocusHandler = new TestFocusHandler();
+    private TestDrawerController mDrawer = TestDrawerController.create();
     private boolean mDirPopHappened;
     private boolean mCanceledSearch;
     private Procedure mDirPopper = new Procedure() {
@@ -63,7 +65,8 @@ public class SharedInputHandlerTest {
                     return false;
                 },
                 mDirPopper,
-                mFeatures);
+                mFeatures,
+                mDrawer);
     }
 
     @Test
@@ -84,7 +87,8 @@ public class SharedInputHandlerTest {
                         return true;
                 },
                 mDirPopper,
-                new TestFeatures());
+                new TestFeatures(),
+                mDrawer);
         KeyEvent backEvent =
                 new KeyEvent(0, 0, MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0, 0);
         assertTrue(mSharedInputHandler.onKeyDown(backEvent.getKeyCode(), backEvent));
@@ -92,6 +96,7 @@ public class SharedInputHandlerTest {
         assertTrue(mCanceledSearch);
         assertEquals(mSelectionMgr.getSelection().size(), 1);
         assertFalse(mDirPopHappened);
+        mDrawer.assertWasClosed();
     }
 
     @Test
@@ -105,6 +110,7 @@ public class SharedInputHandlerTest {
         assertFalse(mCanceledSearch);
         assertEquals(mSelectionMgr.getSelection().size(), 0);
         assertFalse(mDirPopHappened);
+        mDrawer.assertWasClosed();
     }
 
     @Test
@@ -116,6 +122,16 @@ public class SharedInputHandlerTest {
         assertFalse(mCanceledSearch);
         assertEquals(mSelectionMgr.getSelection().size(), 0);
         assertTrue(mDirPopHappened);
+        mDrawer.assertWasClosed();
+    }
+
+    @Test
+    public void testBackButton_CloseDrawer() {
+        KeyEvent backEvent =
+                new KeyEvent(0, 0, MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0, 0);
+        mDrawer.openDrawer(true);
+        assertTrue(mSharedInputHandler.onKeyDown(backEvent.getKeyCode(), backEvent));
+        mDrawer.assertWasOpened();
     }
 
     @Test
@@ -129,7 +145,8 @@ public class SharedInputHandlerTest {
                         return true;
                 },
                 mDirPopper,
-                new TestFeatures());
+                new TestFeatures(),
+                mDrawer);
         KeyEvent escapeEvent =
                 new KeyEvent(0, 0, MotionEvent.ACTION_DOWN, KeyEvent.KEYCODE_ESCAPE, 0, 0);
         assertTrue(mSharedInputHandler.onKeyDown(escapeEvent.getKeyCode(), escapeEvent));

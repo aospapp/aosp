@@ -17,12 +17,15 @@
 package android.graphics.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.graphics.fonts.FontVariationAxis;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -163,5 +166,18 @@ public class FontVariationAxisTest {
             assertEquals(axes[i].getTag(), newAxes[i].getTag());
             assertEquals(axes[i].getStyleValue(), newAxes[i].getStyleValue(), FLOT_EQUALITY_PREC);
         }
+    }
+
+    @Test
+    public void testEquals() {
+        assertTrue(new FontVariationAxis("wght", 1.0f).equals(new FontVariationAxis("wght", 1.0f)));
+        assertFalse(new FontVariationAxis("wght", 1.0f).equals(
+                new FontVariationAxis("slnt", 1.0f)));
+    }
+
+    @Test
+    public void testHashCode() {
+        assertEquals(new FontVariationAxis("wght", 1.0f).hashCode(),
+                new FontVariationAxis("wght", 1.0f).hashCode());
     }
 }

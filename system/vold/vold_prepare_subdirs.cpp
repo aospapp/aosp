@@ -63,7 +63,8 @@ static bool prepare_dir(struct selabel_handle* sehandle, mode_t mode, uid_t uid,
         secontext.reset(tmp_secontext);
     }
     LOG(DEBUG) << "Setting up mode " << std::oct << mode << std::dec << " uid " << uid << " gid "
-               << gid << " context " << secontext.get() << " on path: " << path;
+               << gid << " context " << (secontext ? secontext.get() : "null")
+               << " on path: " << path;
     if (secontext) {
         if (setfscreatecon(secontext.get()) != 0) {
             PLOG(ERROR) << "Unable to read setfscreatecon for: " << path;
@@ -127,9 +128,14 @@ static bool prepare_subdirs(const std::string& volume_uuid, int user_id, int fla
             auto misc_de_path = android::vold::BuildDataMiscDePath(user_id);
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_de_path + "/vold")) return false;
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_de_path + "/storaged")) return false;
+            if (!prepare_dir(sehandle, 0700, 0, 0, misc_de_path + "/rollback")) return false;
 
             auto vendor_de_path = android::vold::BuildDataVendorDePath(user_id);
             if (!prepare_dir(sehandle, 0700, AID_SYSTEM, AID_SYSTEM, vendor_de_path + "/fpdata")) {
+                return false;
+            }
+            auto facedata_path = vendor_de_path + "/facedata";
+            if (!prepare_dir(sehandle, 0700, AID_SYSTEM, AID_SYSTEM, facedata_path)) {
                 return false;
             }
         }
@@ -137,6 +143,21 @@ static bool prepare_subdirs(const std::string& volume_uuid, int user_id, int fla
             auto misc_ce_path = android::vold::BuildDataMiscCePath(user_id);
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_ce_path + "/vold")) return false;
             if (!prepare_dir(sehandle, 0700, 0, 0, misc_ce_path + "/storaged")) return false;
+            if (!prepare_dir(sehandle, 0700, 0, 0, misc_ce_path + "/rollback")) return false;
+
+            auto system_ce_path = android::vold::BuildDataSystemCePath(user_id);
+            if (!prepare_dir(sehandle, 0700, AID_SYSTEM, AID_SYSTEM, system_ce_path + "/backup")) {
+                return false;
+            }
+            if (!prepare_dir(sehandle, 0700, AID_SYSTEM, AID_SYSTEM,
+                             system_ce_path + "/backup_stage")) {
+                return false;
+            }
+            auto vendor_ce_path = android::vold::BuildDataVendorCePath(user_id);
+            auto facedata_path = vendor_ce_path + "/facedata";
+            if (!prepare_dir(sehandle, 0700, AID_SYSTEM, AID_SYSTEM, facedata_path)) {
+                return false;
+            }
         }
     }
     return true;

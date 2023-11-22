@@ -169,6 +169,7 @@ typedef enum
     NAN_TLV_TYPE_NAN20_RANGING_REQUEST_RECEIVED = 26,
     NAN_TLV_TYPE_NAN_PASSPHRASE = 27,
     NAN_TLV_TYPE_SDEA_SERVICE_SPECIFIC_INFO = 28,
+    NAN_TLV_TYPE_DEV_CAP_ATTR_CAPABILITY = 29,
     NAN_TLV_TYPE_SDF_LAST = 4095,
 
     /* Configuration types */
@@ -431,6 +432,16 @@ typedef struct PACKED
      */
     u8 ptlv[];
 } NanPublishRepliedIndMsg, *pNanPublishRepliedIndMsg;
+
+/* NAN Device Capability Attribute */
+typedef struct PACKED
+{
+    u32 dfs_master:1;
+    u32 ext_key_id:1;
+    u32 simu_ndp_data_recept:1;
+    u32 ndpe_attr_supp:1;
+    u32 reserved:28;
+} NanDevCapAttrCap, *pNanDevCapAttrCap;
 
 /* NAN Subscribe Service Req */
 typedef struct PACKED
@@ -1048,7 +1059,10 @@ typedef struct PACKED
     u32 max_scid_len;
     u32 is_ndp_security_supported:1;
     u32 max_sdea_service_specific_info_len:16;
-    u32 reserved:15;
+    u32 reserved1:5;
+    u32 reserved2:5;
+    u32 ndpe_attr_supported:1;
+    u32 reserved:4;
     u32 max_subscribe_address;
 } NanCapabilitiesRspMsg, *pNanCapabilitiesRspMsg;
 

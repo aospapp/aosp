@@ -180,7 +180,7 @@ public class TimeZoneUpdateHostTest implements IDeviceTest, IBuildReceiver {
                 Thread.sleep(10000);
             }
         }
-        assertActiveRulesVersion(getSystemRulesVersion());
+        assertActiveRulesVersion(getBaseRulesVersion());
         assertEquals(STAGED_OPERATION_NONE, getStagedOperationType());
     }
 
@@ -308,8 +308,8 @@ public class TimeZoneUpdateHostTest implements IDeviceTest, IBuildReceiver {
         return waitForNoOperationInProgressAndReturn(StateType.STAGED_OPERATION_TYPE);
     }
 
-    private String getSystemRulesVersion() throws Exception {
-        return waitForNoOperationInProgressAndReturn(StateType.SYSTEM_RULES_VERSION);
+    private String getBaseRulesVersion() throws Exception {
+        return waitForNoOperationInProgressAndReturn(StateType.BASE_RULES_VERSION);
     }
 
     private boolean isOperationInProgress() {
@@ -365,7 +365,7 @@ public class TimeZoneUpdateHostTest implements IDeviceTest, IBuildReceiver {
 
     private enum StateType {
         OPERATION_IN_PROGRESS,
-        SYSTEM_RULES_VERSION,
+        BASE_RULES_VERSION,
         CURRENT_INSTALL_STATE,
         CURRENTLY_INSTALLED_VERSION,
         STAGED_OPERATION_TYPE,
@@ -377,8 +377,8 @@ public class TimeZoneUpdateHostTest implements IDeviceTest, IBuildReceiver {
             switch (this) {
                 case OPERATION_IN_PROGRESS:
                     return "p";
-                case SYSTEM_RULES_VERSION:
-                    return "s";
+                case BASE_RULES_VERSION:
+                    return "b";
                 case CURRENT_INSTALL_STATE:
                     return "c";
                 case CURRENTLY_INSTALLED_VERSION:

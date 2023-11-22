@@ -24,5 +24,9 @@ native_metric_tests := \
     minikin_perftests \
     mmapPerf \
     netd_benchmark \
-    perf-setup.sh \
-    skia_nanobench
+    skia_nanobench \
+    libhwbinder_benchmark
+
+ifneq ($(strip $(BOARD_PERFSETUP_SCRIPT)),)
+native_metric_tests += perf-setup.sh
+endif

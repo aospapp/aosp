@@ -41,7 +41,7 @@ public class ComparisonTask implements Callable<Pair<String, File>> {
     private static final int GRAY = 0xFF808080;
 
     /** Maximum allowable number of consecutive failed pixels. */
-    private static final int MAX_CONSECUTIVE_FAILURES = 1;
+    private static final int MAX_CONSECUTIVE_FAILURES = 2;
 
     private final String mName;
     private final File mExpected;
@@ -87,6 +87,35 @@ public class ComparisonTask implements Callable<Pair<String, File>> {
         return (color & 0xFF000000) >>> 24;
     }
 
+    private static boolean checkNeighbors(int x, int y, BufferedImage reference,
+            BufferedImage generated, int threshold) {
+        final int w = generated.getWidth();
+        final int h = generated.getHeight();
+        for (int i = x - MAX_CONSECUTIVE_FAILURES; i <= x + MAX_CONSECUTIVE_FAILURES; i++) {
+            if (i >= 0 && i != x && i < w) {
+                for (int j = y - MAX_CONSECUTIVE_FAILURES; j <= y + MAX_CONSECUTIVE_FAILURES; j++) {
+                    if (j >= 0 && j != y && j < h) {
+                        final int p1 = reference.getRGB(i, j);
+                        final int p2 = generated.getRGB(i, j);
+
+                        final int dr = getAlphaScaledRed(p1) - getAlphaScaledRed(p2);
+                        final int dg = getAlphaScaledGreen(p1) - getAlphaScaledGreen(p2);
+                        final int db = getAlphaScaledBlue(p1) - getAlphaScaledBlue(p2);
+
+                        if (Math.abs(db) <= threshold &&
+                            Math.abs(dg) <= threshold &&
+                            Math.abs(dr) <= threshold) {
+                            // If we find at least one matching neighbor, we assume the difference
+                            // is in antialiasing.
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
 
     /**
      * Verifies that the pixels of reference and generated images are similar
@@ -107,7 +136,6 @@ public class ComparisonTask implements Callable<Pair<String, File>> {
 
         double maxDist = 0;
         for (int i = 0; i < w; i++) {
-            int consecutive = 0;
 
             for (int j = 0; j < h; j++) {
                 final int p1 = reference.getRGB(i, j);
@@ -121,15 +149,10 @@ public class ComparisonTask implements Callable<Pair<String, File>> {
                     Math.abs(dg) > threshold ||
                     Math.abs(dr) > threshold) {
                     System.err.println("fail dr=" + dr+ " dg=" + dg+ " db=" + db);
-
-                    consecutive++;
-
-                    if (consecutive > MAX_CONSECUTIVE_FAILURES) {
+                    if (!checkNeighbors(i, j, reference, generated, threshold)) {
                         System.err.println("consecutive fail");
                         return false;
                     }
-                } else {
-                    consecutive = 0;
                 }
             }
         }

@@ -18,8 +18,8 @@ package com.android.tv.settings.inputmethod;
 
 import android.app.Fragment;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 /**
  * Wrapper activity for KeyboardFragment
@@ -28,25 +28,7 @@ public class KeyboardActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return SettingsFragment.newInstance();
-    }
-
-    /**
-     * SettingsFragment for KeyboardActivity
-     */
-    public static class SettingsFragment extends BaseSettingsFragment {
-
-        /**
-         * @return new SettingsFragment instance
-         */
-        public static SettingsFragment newInstance() {
-            return new SettingsFragment();
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final KeyboardFragment fragment = KeyboardFragment.newInstance();
-            startPreferenceFragment(fragment);
-        }
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+            .newSettingsFragment(KeyboardFragment.class.getName(), null);
     }
 }

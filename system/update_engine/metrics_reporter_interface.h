@@ -18,6 +18,7 @@
 #define UPDATE_ENGINE_METRICS_REPORTER_INTERFACE_H_
 
 #include <memory>
+#include <string>
 
 #include <base/time/time.h>
 
@@ -43,11 +44,19 @@ class MetricsReporterInterface {
 
   virtual void Initialize() = 0;
 
-  // Helper function to report metrics related to rollback. The
+  // Helper function to report metrics related to user-initiated rollback. The
   // following metrics are reported:
   //
   //  |kMetricRollbackResult|
   virtual void ReportRollbackMetrics(metrics::RollbackResult result) = 0;
+
+  // Helper function to report metrics related to enterprise (admin-initiated)
+  // rollback:
+  //
+  //  |kMetricEnterpriseRollbackSuccess|
+  //  |kMetricEnterpriseRollbackFailure|
+  virtual void ReportEnterpriseRollbackMetrics(
+      bool success, const std::string& rollback_version) = 0;
 
   // Helper function to report metrics reported once a day. The
   // following metrics are reported:
@@ -64,6 +73,8 @@ class MetricsReporterInterface {
   //  |kMetricCheckDownloadErrorCode|
   //  |kMetricCheckTimeSinceLastCheckMinutes|
   //  |kMetricCheckTimeSinceLastCheckUptimeMinutes|
+  //  |kMetricCheckTargetVersion|
+  //  |kMetricCheckRollbackTargetVersion|
   //
   // The |kMetricCheckResult| metric will only be reported if |result|
   // is not |kUnset|.
@@ -78,6 +89,10 @@ class MetricsReporterInterface {
   // |kMetricCheckTimeSinceLastCheckUptimeMinutes| metrics are
   // automatically reported and calculated by maintaining persistent
   // and process-local state variables.
+  //
+  // |kMetricCheckTargetVersion| reports the first section of the target version
+  // if it's set, |kMetricCheckRollbackTargetVersion| reports the same, but only
+  // if rollback is also allowed using enterprise policy.
   virtual void ReportUpdateCheckMetrics(
       SystemState* system_state,
       metrics::CheckResult result,
@@ -150,6 +165,7 @@ class MetricsReporterInterface {
   //  |kMetricSuccessfulUpdateDownloadSourcesUsed|
   //  |kMetricSuccessfulUpdateDownloadOverheadPercentage|
   //  |kMetricSuccessfulUpdateTotalDurationMinutes|
+  //  |kMetricSuccessfulUpdateTotalDurationUptimeMinutes|
   //  |kMetricSuccessfulUpdateRebootCount|
   //  |kMetricSuccessfulUpdateUrlSwitchCount|
   //
@@ -164,6 +180,7 @@ class MetricsReporterInterface {
       int64_t num_bytes_downloaded[kNumDownloadSources],
       int download_overhead_percentage,
       base::TimeDelta total_duration,
+      base::TimeDelta total_duration_uptime,
       int reboot_count,
       int url_switch_count) = 0;
 
@@ -193,6 +210,38 @@ class MetricsReporterInterface {
   //
   // |kMetricInstallDateProvisioningSource|
   virtual void ReportInstallDateProvisioningSource(int source, int max) = 0;
+
+  // Helper function to report an internal error code. The following metrics are
+  // reported:
+  //
+  // |kMetricAttemptInternalErrorCode|
+  virtual void ReportInternalErrorCode(ErrorCode error_code) = 0;
+
+  // Helper function to report metrics related to the verified boot key
+  // versions:
+  //
+  //  |kMetricKernelMinVersion|
+  //  |kMetricKernelMaxRollforwardVersion|
+  //  |kMetricKernelMaxRollforwardSetSuccess|
+  virtual void ReportKeyVersionMetrics(int kernel_min_version,
+                                       int kernel_max_rollforward_version,
+                                       bool kernel_max_rollforward_success) = 0;
+
+  // Helper function to report the duration between an update being seen by the
+  // client to the update being applied. Updates are not always immediately
+  // applied when seen, several enterprise policies can affect when an update
+  // would actually be downloaded and applied.
+  //
+  // This metric should only be reported for enterprise enrolled devices.
+  //
+  // The following metrics are reported from this function:
+  //   If |has_time_restriction_policy| is false:
+  //     |kMetricSuccessfulUpdateDurationFromSeenDays|
+  //   If |has_time_restriction_policy| is true:
+  //     |kMetricSuccessfulUpdateDurationFromSeenTimeRestrictedDays|
+  //
+  virtual void ReportEnterpriseUpdateSeenToDownloadDays(
+      bool has_time_restriction_policy, int time_to_update_days) = 0;
 };
 
 }  // namespace chromeos_update_engine

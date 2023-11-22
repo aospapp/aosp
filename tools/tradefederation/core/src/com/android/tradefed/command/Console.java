@@ -17,6 +17,8 @@
 package com.android.tradefed.command;
 
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.clearcut.ClearcutClient;
+import com.android.tradefed.clearcut.TerminateClearcutClient;
 import com.android.tradefed.config.ArgsOptionParser;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
@@ -26,12 +28,14 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.device.IDeviceManager;
 import com.android.tradefed.log.ConsoleReaderOutputStream;
 import com.android.tradefed.log.LogRegistry;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.ConfigCompletor;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.QuotationAwareTokenizer;
 import com.android.tradefed.util.RegexTrie;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.TimeUtil;
 import com.android.tradefed.util.VersionParser;
 import com.android.tradefed.util.ZipUtil;
@@ -39,8 +43,6 @@ import com.android.tradefed.util.keystore.IKeyStoreFactory;
 import com.android.tradefed.util.keystore.KeyStoreException;
 
 import com.google.common.annotations.VisibleForTesting;
-
-import jline.ConsoleReader;
 
 import java.io.File;
 import java.io.IOException;
@@ -56,6 +58,10 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
+
+import jline.ConsoleReader;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 /**
  * Main TradeFederation console providing user with the interface to interact
@@ -110,9 +116,7 @@ public class Console extends Thread {
         }
     }
 
-    /**
-     * A {@link Runnable} with a {@code run} method that can take an argument
-     */
+    /** A {@link Runnable} with a {@code run} method that can take an argument */
     protected abstract static class ArgRunnable<T> implements Runnable {
         @Override
         public void run() {
@@ -135,7 +139,6 @@ public class Console extends Thread {
         @Option(name = "wait-for-commands", shortName = 'c', description =
                 "only exit after all commands have executed ")
         private boolean mExitOnEmpty = false;
-
 
         @Override
         public void run(CaptureList args) {
@@ -180,7 +183,6 @@ public class Console extends Thread {
     private class ForceQuitRunnable extends QuitRunnable {
         @Override
         public void run(CaptureList args) {
-            super.run(args);
             mScheduler.shutdownHard();
         }
     }
@@ -242,6 +244,37 @@ public class Console extends Thread {
 
     void setKeyStoreFactory(IKeyStoreFactory factory) {
         mKeyStoreFactory = factory;
+    }
+
+    /**
+     * Register shutdown signals.
+     *
+     * <p>TSTP signal for quitting tradefed which waits all invocation finish. TERM signal for
+     * killing tradefed. We use TSTP and INT because these two signals are not used by JVM.
+     */
+    void registerShutdownSignals() {
+        Signal.handle(
+                new Signal("TSTP"),
+                new SignalHandler() {
+                    @Override
+                    public void handle(Signal sig) {
+                        CLog.logAndDisplay(
+                                LogLevel.INFO,
+                                String.format("Received signal %s. Quit.", sig.getName()));
+                        new QuitRunnable().run(new CaptureList());
+                    }
+                });
+        Signal.handle(
+                new Signal("TERM"),
+                new SignalHandler() {
+                    @Override
+                    public void handle(Signal sig) {
+                        CLog.logAndDisplay(
+                                LogLevel.INFO,
+                                String.format("Received signal %s. Kill.", sig.getName()));
+                        new ForceQuitRunnable().run(new CaptureList());
+                    }
+                });
     }
 
     /**
@@ -434,6 +467,7 @@ public class Console extends Thread {
                 "%s help:" + LINE_SEPARATOR +
                 "\ti[nvocations]         List all invocation threads" + LINE_SEPARATOR +
                 "\td[evices]             List all detected or known devices" + LINE_SEPARATOR +
+                "\td[devices] all        List all devices including placeholders" + LINE_SEPARATOR +
                 "\tc[ommands]            List all commands currently waiting to be executed" +
                 LINE_SEPARATOR +
                 "\tc[ommands] [pattern]  List all commands matching the pattern and currently " +
@@ -514,9 +548,17 @@ public class Console extends Thread {
                     public void run() {
                         IDeviceManager manager =
                                 GlobalConfiguration.getDeviceManagerInstance();
-                        manager.displayDevicesInfo(new PrintWriter(System.out, true));
+                        manager.displayDevicesInfo(new PrintWriter(System.out, true), false);
                     }
                 }, LIST_PATTERN, "d(?:evices)?");
+        trie.put(new Runnable() {
+            @Override
+            public void run() {
+                IDeviceManager manager =
+                        GlobalConfiguration.getDeviceManagerInstance();
+                manager.displayDevicesInfo(new PrintWriter(System.out, true), true);
+            }
+        }, LIST_PATTERN, "d(?:evices)?", "all");
         trie.put(new Runnable() {
                     @Override
                     public void run() {
@@ -641,29 +683,33 @@ public class Console extends Thread {
         }, DUMP_PATTERN, "e(?:nv)?");
 
         // Run commands
-        ArgRunnable<CaptureList> runRunCommand = new ArgRunnable<CaptureList>() {
-            @Override
-            public void run(CaptureList args) {
-                // The second argument "command" may also be missing, if the
-                // caller used the shortcut.
-                int startIdx = 1;
-                if (args.get(1).isEmpty()) {
-                    // Empty array (that is, not even containing an empty string) means that
-                    // we matched and skipped /(?:singleC|c)ommand/
-                    startIdx = 2;
-                }
+        ArgRunnable<CaptureList> runRunCommand =
+                new ArgRunnable<CaptureList>() {
+                    @Override
+                    public void run(CaptureList args) {
+                        // The second argument "command" may also be missing, if the
+                        // caller used the shortcut.
+                        int startIdx = 1;
+                        if (args.get(1).isEmpty()) {
+                            // Empty array (that is, not even containing an empty string) means that
+                            // we matched and skipped /(?:singleC|c)ommand/
+                            startIdx = 2;
+                        }
 
-                String[] flatArgs = new String[args.size() - startIdx];
-                for (int i = startIdx; i < args.size(); i++) {
-                    flatArgs[i - startIdx] = args.get(i).get(0);
-                }
-                try {
-                    mScheduler.addCommand(flatArgs);
-                } catch (ConfigurationException e) {
-                    printLine("Failed to run command: " + e.toString());
-                }
-            }
-        };
+                        String[] flatArgs = new String[args.size() - startIdx];
+                        for (int i = startIdx; i < args.size(); i++) {
+                            flatArgs[i - startIdx] = args.get(i).get(0);
+                        }
+                        try {
+                            mScheduler.addCommand(flatArgs);
+                        } catch (ConfigurationException e) {
+                            printLine(
+                                    String.format(
+                                            "Failed to run command: %s\n%s",
+                                            e.toString(), StreamUtil.getStackTrace(e)));
+                        }
+                    }
+                };
         trie.put(runRunCommand, RUN_PATTERN, "c(?:ommand)?", null);
         trie.put(runRunCommand, RUN_PATTERN, null);
         trie.put(new Runnable() {
@@ -991,6 +1037,7 @@ public class Console extends Thread {
             e.printStackTrace();
         } finally {
             mScheduler.shutdown();
+            GlobalConfiguration.getInstance().cleanup();
             // Make sure that we don't quit with messages still in the buffers
             System.err.flush();
             System.out.flush();
@@ -1098,16 +1145,24 @@ public class Console extends Thread {
      */
     public static void startConsole(Console console, String[] args) throws InterruptedException,
             ConfigurationException {
-        List<String> nonGlobalArgs = GlobalConfiguration.createGlobalConfiguration(args);
+        ClearcutClient client = new ClearcutClient();
+        Runtime.getRuntime().addShutdownHook(new TerminateClearcutClient(client));
+        client.notifyTradefedStartEvent();
 
+        List<String> nonGlobalArgs = GlobalConfiguration.createGlobalConfiguration(args);
+        GlobalConfiguration.getInstance().setup();
         console.setArgs(nonGlobalArgs);
         console.setCommandScheduler(GlobalConfiguration.getInstance().getCommandScheduler());
         console.setKeyStoreFactory(GlobalConfiguration.getInstance().getKeyStoreFactory());
         console.setDaemon(true);
+
+        GlobalConfiguration.getInstance().getCommandScheduler().setClearcutClient(client);
+
         console.start();
 
         // Wait for the CommandScheduler to get started before we exit the main thread.  See full
         // explanation near the top of #run()
         console.awaitScheduler();
+        console.registerShutdownSignals();
     }
 }

@@ -21,6 +21,7 @@ import com.android.ahat.heapdump.AhatHeap;
 import com.android.ahat.heapdump.AhatInstance;
 import com.android.ahat.heapdump.AhatSnapshot;
 import com.android.ahat.heapdump.PathElement;
+import com.android.ahat.heapdump.Reachability;
 import com.android.ahat.heapdump.Size;
 import com.android.ahat.heapdump.Value;
 import java.io.IOException;
@@ -216,7 +217,28 @@ public class InstanceTest {
     AhatInstance ref = dump.getDumpedAhatInstance("aSoftReference");
     AhatInstance referent = ref.getReferent();
     assertNotNull(referent);
+    assertEquals(Reachability.SOFT, referent.getReachability());
     assertTrue(referent.isWeaklyReachable());
+  }
+
+  @Test
+  public void reachability() throws IOException {
+    TestDump dump = TestDump.getTestDump();
+    AhatInstance strong1 = dump.getDumpedAhatInstance("reachabilityReferenceChain");
+    AhatInstance soft1 = strong1.getField("referent").asAhatInstance();
+    AhatInstance strong2 = soft1.getField("referent").asAhatInstance();
+    AhatInstance weak1 = strong2.getField("referent").asAhatInstance();
+    AhatInstance soft2 = weak1.getField("referent").asAhatInstance();
+    AhatInstance phantom1 = soft2.getField("referent").asAhatInstance();
+    AhatInstance obj = phantom1.getField("referent").asAhatInstance();
+
+    assertEquals(Reachability.STRONG, strong1.getReachability());
+    assertEquals(Reachability.STRONG, soft1.getReachability());
+    assertEquals(Reachability.SOFT, strong2.getReachability());
+    assertEquals(Reachability.SOFT, weak1.getReachability());
+    assertEquals(Reachability.WEAK, soft2.getReachability());
+    assertEquals(Reachability.WEAK, phantom1.getReachability());
+    assertEquals(Reachability.PHANTOM, obj.getReachability());
   }
 
   @Test
@@ -311,6 +333,28 @@ public class InstanceTest {
   }
 
   @Test
+  public void retainedSizeByRetained() throws IOException {
+    // The test dump program should never be under enough GC pressure for the
+    // soft reference to be cleared. The referent should be included in
+    // retained size if --retained is soft, but not if --retained is strong.
+    TestDump dumpStrong = TestDump.getTestDump("test-dump.hprof",
+                                               "test-dump-base.hprof",
+                                               "test-dump.map",
+                                               Reachability.STRONG);
+    AhatInstance refStrong = dumpStrong.getDumpedAhatInstance("aSoftReference");
+    long sizeStrong = refStrong.getTotalRetainedSize().getSize();
+
+    TestDump dumpSoft = TestDump.getTestDump("test-dump.hprof",
+                                             "test-dump-base.hprof",
+                                             "test-dump.map",
+                                             Reachability.SOFT);
+    AhatInstance refSoft = dumpSoft.getDumpedAhatInstance("aSoftReference");
+    long sizeSoft = refSoft.getTotalRetainedSize().getSize();
+
+    assertTrue(sizeStrong < sizeSoft);
+  }
+
+  @Test
   public void objectNotABitmap() throws IOException {
     TestDump dump = TestDump.getTestDump();
     AhatInstance obj = dump.getDumpedAhatInstance("anObject");
@@ -388,24 +432,31 @@ public class InstanceTest {
 
     // We had a bug in the past where weak references to GC roots caused the
     // roots to be incorrectly be considered weakly reachable.
+    assertEquals(Reachability.STRONG, root.getReachability());
     assertTrue(root.isStronglyReachable());
     assertFalse(root.isWeaklyReachable());
   }
 
   @Test
-  public void weakReferenceChain() throws IOException {
+  public void softReferenceChain() throws IOException {
     // If the only reference to a chain of strongly referenced objects is a
-    // weak reference, then all of the objects should be considered weakly
+    // soft reference, then all of the objects should be considered softly
     // reachable.
     TestDump dump = TestDump.getTestDump();
-    AhatInstance ref = dump.getDumpedAhatInstance("aWeakChain");
-    AhatInstance weak1 = ref.getField("referent").asAhatInstance();
-    AhatInstance weak2 = weak1.getField("referent").asAhatInstance();
-    AhatInstance weak3 = weak2.getField("referent").asAhatInstance();
+    AhatInstance ref = dump.getDumpedAhatInstance("aSoftChain");
+    AhatInstance soft1 = ref.getField("referent").asAhatInstance();
+    AhatInstance soft2 = soft1.getField("referent").asAhatInstance();
+    AhatInstance soft3 = soft2.getField("referent").asAhatInstance();
     assertTrue(ref.isStronglyReachable());
-    assertTrue(weak1.isWeaklyReachable());
-    assertTrue(weak2.isWeaklyReachable());
-    assertTrue(weak3.isWeaklyReachable());
+    assertEquals(Reachability.SOFT, soft1.getReachability());
+    assertEquals(Reachability.SOFT, soft2.getReachability());
+    assertEquals(Reachability.SOFT, soft3.getReachability());
+
+    // Test the deprecated isWeaklyReachable API, which interprets weak as any
+    // kind of phantom/finalizer/weak/soft reference.
+    assertTrue(soft1.isWeaklyReachable());
+    assertTrue(soft2.isWeaklyReachable());
+    assertTrue(soft3.isWeaklyReachable());
   }
 
   @Test
@@ -414,6 +465,8 @@ public class InstanceTest {
     AhatInstance obj = dump.getDumpedAhatInstance("anObject");
     AhatInstance ref = dump.getDumpedAhatInstance("aReference");
     AhatInstance weak = dump.getDumpedAhatInstance("aWeakReference");
+    assertTrue(obj.getReverseReferences().contains(ref));
+    assertTrue(obj.getReverseReferences().contains(weak));
     assertTrue(obj.getHardReverseReferences().contains(ref));
     assertFalse(obj.getHardReverseReferences().contains(weak));
     assertFalse(obj.getSoftReverseReferences().contains(ref));
@@ -425,7 +478,7 @@ public class InstanceTest {
     // On Android L, image strings were backed by a single big char array.
     // Verify we show just the relative part of the string, not the entire
     // char array.
-    TestDump dump = TestDump.getTestDump("L.hprof", null, null);
+    TestDump dump = TestDump.getTestDump("L.hprof", null, null, Reachability.STRONG);
     AhatSnapshot snapshot = dump.getAhatSnapshot();
 
     // java.lang.String@0x6fe17050 is an image string "char" backed by a
@@ -436,7 +489,7 @@ public class InstanceTest {
 
   @Test
   public void nonDefaultHeapRoot() throws IOException {
-    TestDump dump = TestDump.getTestDump("O.hprof", null, null);
+    TestDump dump = TestDump.getTestDump("O.hprof", null, null, Reachability.STRONG);
     AhatSnapshot snapshot = dump.getAhatSnapshot();
 
     // java.util.HashMap@6004fdb8 is marked as a VM INTERNAL root.
@@ -449,7 +502,7 @@ public class InstanceTest {
 
   @Test
   public void threadRoot() throws IOException {
-    TestDump dump = TestDump.getTestDump("O.hprof", null, null);
+    TestDump dump = TestDump.getTestDump("O.hprof", null, null, Reachability.STRONG);
     AhatSnapshot snapshot = dump.getAhatSnapshot();
 
     // java.lang.Thread@12c03470 is marked as a thread root.
@@ -472,7 +525,7 @@ public class InstanceTest {
 
   @Test
   public void nullValueString() throws IOException {
-    TestDump dump = TestDump.getTestDump("RI.hprof", null, null);
+    TestDump dump = TestDump.getTestDump("RI.hprof", null, null, Reachability.STRONG);
     AhatSnapshot snapshot = dump.getAhatSnapshot();
 
     // java.lang.String@500001a8 has a null 'value' field, which should not
@@ -480,5 +533,76 @@ public class InstanceTest {
     AhatInstance str = snapshot.findInstance(0x500001a8);
     assertEquals("java.lang.String", str.getClassName());
     assertNull(str.asString());
+  }
+
+  @Test
+  public void classOverhead() throws IOException {
+    TestDump dump = TestDump.getTestDump("O.hprof", null, null, Reachability.STRONG);
+    AhatSnapshot snapshot = dump.getAhatSnapshot();
+
+    // class libore.io.IoTracker has byte[124]@12c028d1 as its class overhead.
+    AhatInstance overhead = snapshot.findInstance(0x12c028d1);
+    AhatClassObj cls = overhead.getAssociatedClassForOverhead();
+    assertEquals(0x12c028d0, cls.getId());
+    assertEquals("libcore.io.IoTracker", cls.getName());
+
+    // Other kinds of objects should not have associated classes for overhead.
+    assertNull(cls.getAssociatedClassForOverhead());
+  }
+
+  @Test
+  public void binderProxy() throws IOException {
+    TestDump dump = TestDump.getTestDump();
+
+    AhatInstance correctObj = dump.getDumpedAhatInstance("correctBinderProxy");
+    assertEquals("DumpedStuff$IDumpedManager", correctObj.getBinderProxyInterfaceName());
+
+    AhatInstance imposedObj = dump.getDumpedAhatInstance("imposedBinderProxy");
+    assertNull(imposedObj.getBinderProxyInterfaceName());
+
+    AhatInstance carriedObj = dump.getDumpedAhatInstance("carriedBinderProxy");
+    assertNull(carriedObj.getBinderProxyInterfaceName());
+  }
+
+  @Test
+  public void binderToken() throws IOException {
+    TestDump dump = TestDump.getTestDump();
+
+    // Tokens without a descriptor return an empty string
+    AhatInstance binderToken = dump.getDumpedAhatInstance("binderToken");
+    assertEquals("", binderToken.getBinderTokenDescriptor());
+
+    // Named binder tokens return their descriptor
+    AhatInstance namedBinderToken = dump.getDumpedAhatInstance("namedBinderToken");
+    assertEquals("awesomeToken", namedBinderToken.getBinderTokenDescriptor());
+
+    // Binder stubs aren't considered binder tokens
+    AhatInstance binderService = dump.getDumpedAhatInstance("binderService");
+    assertEquals(null, binderService.getBinderTokenDescriptor());
+  }
+
+  @Test
+  public void binderStub() throws IOException {
+    TestDump dump = TestDump.getTestDump();
+
+    // Regular binder service returns the interface name and no token descriptor
+    AhatInstance binderService = dump.getDumpedAhatInstance("binderService");
+    assertEquals("DumpedStuff$IDumpedManager", binderService.getBinderStubInterfaceName());
+
+    // Binder tokens aren't considered binder services
+    AhatInstance binderToken = dump.getDumpedAhatInstance("binderToken");
+    assertEquals(null, binderToken.getBinderStubInterfaceName());
+
+    // Named binder tokens aren't considered binder services
+    AhatInstance namedBinderToken = dump.getDumpedAhatInstance("namedBinderToken");
+    assertEquals(null, namedBinderToken.getBinderStubInterfaceName());
+
+    // Fake service returns null
+    AhatInstance fakeService = dump.getDumpedAhatInstance("fakeBinderService");
+    assertNull(fakeService.getBinderStubInterfaceName());
+
+    // Random non-binder object returns null
+    AhatInstance nonBinderObject = dump.getDumpedAhatInstance("anObject");
+    assertNull(nonBinderObject.getBinderStubInterfaceName());
   }
 }

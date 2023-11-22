@@ -26,7 +26,7 @@
     <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"O‘tgan yili ishlatilmagan"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Oxirgi marta qachon ishlatilgani noaniq"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> bo‘shatish"</string>
-    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Surat va videolarning zaxira nusxalari"</string>
+    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Zaxiralangan surat va videolar"</string>
     <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"30 kundan ortiq"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
@@ -46,7 +46,7 @@
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"Avtomatik"</string>
-    <string name="deletion_helper_manual_title" msgid="3905192395039688529">"Qo‘lda"</string>
+    <string name="deletion_helper_manual_title" msgid="3905192395039688529">"Qoʻllanma"</string>
     <string name="deletion_helper_preference_title" msgid="803484286872745892">"Joy ochish"</string>
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"Xotirani avtomatik boshqarish xizmati"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"Telefoningiz xotirasida kam joy qoldi"</string>
@@ -56,7 +56,7 @@
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"Ha"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"Surat va videolarning zaxira nusxalari"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Suratlar topilmoqda…"</string>
-    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Barcha elementlarni ko‘rsatish"</string>
+    <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Hamma narsani chiqarish"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Oxirgi elementlarni berkitish"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Qurilmangizdan <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> hajmli kontent o‘chirib tashlanadi"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Xotirangiz hozirda xotira boshqaruvi tomonidan boshqarilmoqda"</string>

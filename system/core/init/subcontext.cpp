@@ -30,8 +30,7 @@
 #include "util.h"
 
 #if defined(__ANDROID__)
-#include <android-base/properties.h>
-
+#include <android/api-level.h>
 #include "property_service.h"
 #include "selinux.h"
 #else
@@ -39,7 +38,6 @@
 #endif
 
 using android::base::GetExecutablePath;
-using android::base::GetIntProperty;
 using android::base::Join;
 using android::base::Socketpair;
 using android::base::Split;
@@ -64,7 +62,9 @@ constexpr size_t kBufferSize = 4096;
 Result<std::string> ReadMessage(int socket) {
     char buffer[kBufferSize] = {};
     auto result = TEMP_FAILURE_RETRY(recv(socket, buffer, sizeof(buffer), 0));
-    if (result <= 0) {
+    if (result == 0) {
+        return Error();
+    } else if (result < 0) {
         return ErrnoError();
     }
     return std::string(buffer, result);
@@ -177,6 +177,12 @@ void SubcontextProcess::MainLoop() {
 
         auto init_message = ReadMessage(init_fd_);
         if (!init_message) {
+            if (init_message.error_errno() == 0) {
+                // If the init file descriptor was closed, let's exit quietly. If
+                // this was accidental, init will restart us. If init died, this
+                // avoids calling abort(3) unnecessarily.
+                return;
+            }
             LOG(FATAL) << "Could not read message from init: " << init_message.error();
         }
 
@@ -355,9 +361,10 @@ Result<std::vector<std::string>> Subcontext::ExpandArgs(const std::vector<std::s
 }
 
 static std::vector<Subcontext> subcontexts;
+static bool shutting_down;
 
 std::vector<Subcontext>* InitializeSubcontexts() {
-    if (SelinuxHasVendorInit()) {
+    if (SelinuxGetVendorAndroidVersion() >= __ANDROID_API_P__) {
         for (const auto& [path_prefix, secontext] : paths_and_secontexts) {
             subcontexts.emplace_back(path_prefix, secontext);
         }
@@ -368,11 +375,20 @@ std::vector<Subcontext>* InitializeSubcontexts() {
 bool SubcontextChildReap(pid_t pid) {
     for (auto& subcontext : subcontexts) {
         if (subcontext.pid() == pid) {
-            subcontext.Restart();
+            if (!shutting_down) {
+                subcontext.Restart();
+            }
             return true;
         }
     }
     return false;
+}
+
+void SubcontextTerminate() {
+    shutting_down = true;
+    for (auto& subcontext : subcontexts) {
+        kill(subcontext.pid(), SIGTERM);
+    }
 }
 
 }  // namespace init

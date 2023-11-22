@@ -16,14 +16,16 @@
 <configuration description="Config for CTS Display test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsDisplayTestCases.apk" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <!-- Use a non-standard pattern, must match values in tests/tests/display/.../DisplayTest.java -->
-        <option name="run-command" value="settings put global overlay_display_devices '181x161/214|181x161/214'" />
-        <option name="teardown-command" value="settings put global overlay_display_devices &quot;&quot;" />
+        <option name="run-command" value="settings put global overlay_display_devices '181x161/214|182x162/214'" />
+        <option name="teardown-command" value="settings delete global overlay_display_devices" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.display.cts" />

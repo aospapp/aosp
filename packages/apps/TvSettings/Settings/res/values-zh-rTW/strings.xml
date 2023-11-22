@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"校正"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"選取格式"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"環繞音效"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -143,10 +143,10 @@
     <string name="system_inputs" msgid="2413907183796651102">"輸入裝置"</string>
     <string name="system_inputs_devices" msgid="8700905419497948327">"輸入與裝置"</string>
     <string name="system_home_theater_control" msgid="2053198603790384368">"家庭劇院控制"</string>
-    <string name="system_accessibility" msgid="6215431399759498005">"協助工具"</string>
+    <string name="system_accessibility" msgid="6215431399759498005">"無障礙設定"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"開發人員選項"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"無"</string>
-    <string name="system_diagnostic" msgid="7269638365915225701">"使用情形與診斷資訊"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"使用狀況與診斷"</string>
     <string name="tutorials" msgid="3731493987558093244">"教學課程"</string>
     <string name="about_system_update" msgid="7282772247661356586">"系統更新"</string>
     <string name="about_preference" msgid="4131396784531360434">"關於"</string>
@@ -177,7 +177,7 @@
     <string name="device_status_summary" msgid="180586140242936323">"網路、序號和其他資訊"</string>
     <string name="manual" msgid="4957388668881541669">"使用者手冊"</string>
     <string name="regulatory_information" msgid="5448865708097003189">"法規資訊"</string>
-    <string name="device_feedback" msgid="209146642122579479">"傳送您對這個裝置的意見回饋"</string>
+    <string name="device_feedback" msgid="209146642122579479">"傳送你對這個裝置的意見"</string>
     <string name="fcc_equipment_id" msgid="8295142996591094301">"設備編號"</string>
     <string name="baseband_version" msgid="2229081246529676107">"基頻版本"</string>
     <string name="kernel_version" msgid="2418845475938044903">"核心版本"</string>
@@ -193,7 +193,7 @@
     <string name="copyright_title" msgid="5564228453228549353">"版權"</string>
     <string name="license_title" msgid="4482927105870812604">"授權"</string>
     <string name="terms_title" msgid="8480859222932736291">"條款及細則"</string>
-    <string name="webview_license_title" msgid="8843666223583780825">"系統 WebView 授權"</string>
+    <string name="webview_license_title" msgid="8843666223583780825">"System WebView 授權"</string>
   <string-array name="wifi_signal_strength">
     <item msgid="6926038943588801452">"劣"</item>
     <item msgid="5986166866411161790">"可"</item>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"部分應用程式將無法使用或無法正常運作，直到重新連接隨身碟為止。"</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"儲存空間不足。"</string>
     <string name="does_not_exist" msgid="4553235698171937217">"應用程式不存在。"</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"禁止複製應用程式。"</string>
     <string name="invalid_location" msgid="5269044848535157307">"安裝位置無效。"</string>
     <string name="system_package" msgid="9200255718634512790">"無法在外部媒體上安裝系統更新。"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"無法在外部媒體上安裝裝置管理員。"</string>
@@ -407,10 +406,10 @@
     <string name="system_services" msgid="7230571820151215779">"服務"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"服務設定"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"高對比文字"</string>
-    <string name="accessibility_shortcut" msgid="6726361991387558828">"協助工具快速鍵"</string>
-    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"啟用協助工具快速鍵"</string>
+    <string name="accessibility_shortcut" msgid="6726361991387558828">"無障礙快速鍵"</string>
+    <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"啟用無障礙快速鍵"</string>
     <string name="accessibility_shortcut_service" msgid="1978686501861996601">"快速鍵服務"</string>
-    <string name="accessibility_shortcut_description" msgid="514995490967241715">"啟用這組快速鍵後，你只需同時按下返回和向下按鈕達 3 秒，就能開啟協助工具功能。"</string>
+    <string name="accessibility_shortcut_description" msgid="514995490967241715">"啟用這組快速鍵後，你只需同時按下返回和向下按鈕達 3 秒，就能開啟無障礙功能。"</string>
     <string name="accessibility_captions" msgid="6133896463407851079">"字幕"</string>
     <string name="accessibility_captions_description" msgid="4290317621720499628">"影片字幕文字重疊設定"</string>
     <string name="captions_display" msgid="735692527287125548">"顯示"</string>
@@ -507,7 +506,7 @@
     <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"啟用藍牙 HCI 窺探記錄"</string>
     <string name="system_desc_usb_debugging" msgid="5168830368191788731">"連接 USB 時進入偵錯模式"</string>
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"執行受偵錯的應用程式之前，先等待偵錯程序附加完成"</string>
-    <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"顯示剪輯範圍、邊界等。"</string>
+    <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"顯示剪輯範圍、邊界等"</string>
     <string name="system_desc_show_gpu_view_updates" msgid="8045162296029336710">"使用 GPU 繪圖時在視窗中閃爍顯示畫面"</string>
     <string name="system_desc_show_hardware_layer" msgid="642854466995400529">"在硬體層更新時閃綠燈"</string>
     <string name="system_desc_show_gpu_overdraw" msgid="8204945204510618865">"從優到劣依序顯示為：藍色、綠色、淺紅色、紅色"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"通知存取權"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"沒有任何已安裝的應用程式要求「通知」存取權。"</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"這些應用程式將能讀取所有通知，包括聯絡人名稱以及你收到的訊息文字等個人資訊，而且還能關閉通知或觸發通知當中的動作按鈕。"</string>
+    <string name="directory_access" msgid="7439168599298598101">"目錄存取權"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"這些應用程式擁有存取特定目錄的權限。"</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"顯示在其他應用程式上層"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"允許顯示在其他應用程式上層"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"允許應用程式顯示在畫面上層 (覆蓋你使用的其他應用程式)。這可能會干擾你使用相關的應用程式，或是影響它們的顯示或運作方式。"</string>

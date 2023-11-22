@@ -22,7 +22,7 @@
 #include <memory>
 
 #define LOG_TAG "Keymaster1Engine"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/km_openssl/openssl_err.h>
@@ -41,10 +41,10 @@ Keymaster1Engine* Keymaster1Engine::instance_ = nullptr;
 
 Keymaster1Engine::Keymaster1Engine(const keymaster1_device_t* keymaster1_device)
     : keymaster1_device_(keymaster1_device), engine_(ENGINE_new()),
-      rsa_index_(RSA_get_ex_new_index(0 /* argl */, NULL /* argp */, NULL /* new_func */,
+      rsa_index_(RSA_get_ex_new_index(0 /* argl */, nullptr /* argp */, nullptr /* new_func */,
                                       Keymaster1Engine::duplicate_key_data,
                                       Keymaster1Engine::free_key_data)),
-      ec_key_index_(EC_KEY_get_ex_new_index(0 /* argl */, NULL /* argp */, NULL /* new_func */,
+      ec_key_index_(EC_KEY_get_ex_new_index(0 /* argl */, nullptr /* argp */, nullptr /* new_func */,
                                             Keymaster1Engine::duplicate_key_data,
                                             Keymaster1Engine::free_key_data)),
       rsa_method_(BuildRsaMethod()), ecdsa_method_(BuildEcdsaMethod()) {

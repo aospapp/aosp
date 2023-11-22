@@ -1,0 +1,6 @@
+cc_library_shared {
+    name: "hwcomposer.drm_hikey",
+    defaults: ["hwcomposer.drm_defaults"],
+    srcs: [":drm_hwcomposer_platformhisi"],
+    whole_static_libs: ["drm_hwcomposer"],
+}

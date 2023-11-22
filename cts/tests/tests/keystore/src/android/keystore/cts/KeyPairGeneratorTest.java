@@ -299,6 +299,13 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     }
 
     public void testGenerateHonorsRequestedAuthorizations() throws Exception {
+        testGenerateHonorsRequestedAuthorizationsHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testGenerateHonorsRequestedAuthorizationsHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testGenerateHonorsRequestedAuthorizationsHelper(boolean useStrongbox) {
         Date keyValidityStart = new Date(System.currentTimeMillis() - TestUtils.DAY_IN_MILLIS);
         Date keyValidityForOriginationEnd =
                 new Date(System.currentTimeMillis() + TestUtils.DAY_IN_MILLIS);
@@ -322,6 +329,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                         .setKeyValidityStart(keyValidityStart)
                         .setKeyValidityForOriginationEnd(keyValidityForOriginationEnd)
                         .setKeyValidityForConsumptionEnd(keyValidityForConsumptionEnd)
+                        .setIsStrongBoxBacked(useStrongbox)
                         .build());
                 KeyPair keyPair = generator.generateKeyPair();
                 assertEquals(algorithm, keyPair.getPrivate().getAlgorithm());
@@ -353,7 +361,8 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                 assertFalse(keyInfo.isUserAuthenticationRequired());
                 assertFalse(keyInfo.isUserAuthenticationRequirementEnforcedBySecureHardware());
             } catch (Throwable e) {
-                throw new RuntimeException("Failed for " + algorithm, e);
+                String specific = useStrongbox ? "Strongbox:" : "";
+                throw new RuntimeException(specific + "Failed for " + algorithm, e);
             }
         }
     }
@@ -562,8 +571,14 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                 KeyProperties.SIGNATURE_PADDING_RSA_PKCS1);
     }
 
-    public void testGenerate_ReplacesOldEntryWithSameAlias()
-            throws Exception {
+    public void testGenerate_ReplacesOldEntryWithSameAlias() throws Exception {
+        replacesOldEntryWithSameAliasHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            replacesOldEntryWithSameAliasHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void replacesOldEntryWithSameAliasHelper(boolean useStrongbox) throws Exception {
         // Generate the first key
         {
             KeyPairGenerator generator = getRsaGenerator();
@@ -579,6 +594,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                     .setCertificateSerialNumber(TEST_SERIAL_1)
                     .setCertificateNotBefore(NOW)
                     .setCertificateNotAfter(NOW_PLUS_10_YEARS)
+                    .setIsStrongBoxBacked(useStrongbox)
                     .build());
             assertGeneratedKeyPairAndSelfSignedCertificate(
                     generator.generateKeyPair(),
@@ -606,6 +622,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                     .setCertificateSerialNumber(TEST_SERIAL_2)
                     .setCertificateNotBefore(NOW)
                     .setCertificateNotAfter(NOW_PLUS_10_YEARS)
+                    .setIsStrongBoxBacked(useStrongbox)
                     .build());
             assertGeneratedKeyPairAndSelfSignedCertificate(
                     generator.generateKeyPair(),
@@ -619,8 +636,14 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         }
     }
 
-    public void testGenerate_DoesNotReplaceOtherEntries()
-            throws Exception {
+    public void testGenerate_DoesNotReplaceOtherEntries() throws Exception {
+        doesNotReplaceOtherEntriesHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            doesNotReplaceOtherEntriesHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void doesNotReplaceOtherEntriesHelper(boolean useStrongbox) throws Exception {
         // Generate the first key
         KeyPairGenerator generator = getRsaGenerator();
         generator.initialize(new KeyGenParameterSpec.Builder(
@@ -635,6 +658,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                 .setCertificateSerialNumber(TEST_SERIAL_1)
                 .setCertificateNotBefore(NOW)
                 .setCertificateNotAfter(NOW_PLUS_10_YEARS)
+                .setIsStrongBoxBacked(useStrongbox)
                 .build());
         KeyPair keyPair1 = generator.generateKeyPair();
         assertGeneratedKeyPairAndSelfSignedCertificate(
@@ -660,6 +684,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                 .setCertificateSerialNumber(TEST_SERIAL_2)
                 .setCertificateNotBefore(NOW)
                 .setCertificateNotAfter(NOW_PLUS_10_YEARS)
+                .setIsStrongBoxBacked(useStrongbox)
                 .build());
         KeyPair keyPair2 = generator.generateKeyPair();
         assertGeneratedKeyPairAndSelfSignedCertificate(
@@ -685,10 +710,18 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     }
 
     public void testGenerate_EC_ModernSpec_Defaults() throws Exception {
+        testGenerate_EC_ModernSpec_DefaultsHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testGenerate_EC_ModernSpec_DefaultsHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testGenerate_EC_ModernSpec_DefaultsHelper(boolean useStrongbox) throws Exception {
         KeyPairGenerator generator = getEcGenerator();
         generator.initialize(new KeyGenParameterSpec.Builder(
                 TEST_ALIAS_1,
                 KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                .setIsStrongBoxBacked(useStrongbox)
                 .build());
         KeyPair keyPair = generator.generateKeyPair();
         assertGeneratedKeyPairAndSelfSignedCertificate(
@@ -720,10 +753,18 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     }
 
     public void testGenerate_RSA_ModernSpec_Defaults() throws Exception {
+        testGenerate_RSA_ModernSpec_DefaultsHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testGenerate_RSA_ModernSpec_DefaultsHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testGenerate_RSA_ModernSpec_DefaultsHelper(boolean useStrongbox) throws Exception {
         KeyPairGenerator generator = getRsaGenerator();
         generator.initialize(new KeyGenParameterSpec.Builder(
                 TEST_ALIAS_1,
                 KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                .setIsStrongBoxBacked(useStrongbox)
                 .build());
         KeyPair keyPair = generator.generateKeyPair();
         assertGeneratedKeyPairAndSelfSignedCertificate(
@@ -818,14 +859,85 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertEquals(-1, keyInfo.getUserAuthenticationValidityDurationSeconds());
     }
 
+    // Strongbox has more restrictions on key properties than general keystore.
+    // This is a reworking of the generic test to still be as custom as possible while
+    // respecting the spec constraints.
+    // Test fails until the resolution of b/113276806
+    public void testGenerate_EC_ModernSpec_AsCustomAsPossibleStrongbox() throws Exception {
+        if (!TestUtils.hasStrongBox(getContext())) {
+            return;
+        }
+        KeyPairGenerator generator = getEcGenerator();
+        Date keyValidityStart = new Date(System.currentTimeMillis());
+        Date keyValidityEndDateForOrigination = new Date(System.currentTimeMillis() + 1000000);
+        Date keyValidityEndDateForConsumption = new Date(System.currentTimeMillis() + 10000000);
+
+        Date certNotBefore = new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 7);
+        Date certNotAfter = new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 7);
+        BigInteger certSerialNumber = new BigInteger("12345678");
+        X500Principal certSubject = new X500Principal("cn=hello");
+        generator.initialize(new KeyGenParameterSpec.Builder(
+                TEST_ALIAS_1,
+                KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY
+                        | KeyProperties.PURPOSE_ENCRYPT)
+                .setKeySize(256)
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .setKeyValidityStart(keyValidityStart)
+                .setKeyValidityForOriginationEnd(keyValidityEndDateForOrigination)
+                .setKeyValidityForConsumptionEnd(keyValidityEndDateForConsumption)
+                .setCertificateSerialNumber(certSerialNumber)
+                .setCertificateSubject(certSubject)
+                .setCertificateNotBefore(certNotBefore)
+                .setCertificateNotAfter(certNotAfter)
+                .setUnlockedDeviceRequired(true)
+                .setIsStrongBoxBacked(true)
+                .build());
+        KeyPair keyPair = generator.generateKeyPair();
+        assertGeneratedKeyPairAndSelfSignedCertificate(
+                keyPair,
+                TEST_ALIAS_1,
+                "EC",
+                256,
+                certSubject,
+                certSerialNumber,
+                certNotBefore,
+                certNotAfter);
+        TestUtils.assertECParameterSpecEqualsIgnoreSeedIfNotPresent(
+                ECCurves.NIST_P_256_SPEC, ((ECKey) keyPair.getPrivate()).getParams());
+        KeyInfo keyInfo = TestUtils.getKeyInfo(keyPair.getPrivate());
+        assertEquals(256, keyInfo.getKeySize());
+        assertEquals(TEST_ALIAS_1, keyInfo.getKeystoreAlias());
+        assertOneOf(keyInfo.getOrigin(),
+                KeyProperties.ORIGIN_GENERATED, KeyProperties.ORIGIN_UNKNOWN);
+        assertEquals(
+                KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY
+                        | KeyProperties.PURPOSE_ENCRYPT,
+                keyInfo.getPurposes());
+        assertEquals(keyValidityStart, keyInfo.getKeyValidityStart());
+        assertEquals(keyValidityEndDateForOrigination, keyInfo.getKeyValidityForOriginationEnd());
+        assertEquals(keyValidityEndDateForConsumption, keyInfo.getKeyValidityForConsumptionEnd());
+        MoreAsserts.assertEmpty(Arrays.asList(keyInfo.getBlockModes()));
+
+        List<String> actualDigests = new ArrayList<String>(Arrays.asList(keyInfo.getDigests()));
+        // Keystore may have added DIGEST_NONE, to allow software digesting.
+        actualDigests.remove(KeyProperties.DIGEST_NONE);
+        TestUtils.assertContentsInAnyOrder(
+                actualDigests, KeyProperties.DIGEST_SHA256);
+
+        MoreAsserts.assertEmpty(Arrays.asList(keyInfo.getSignaturePaddings()));
+        MoreAsserts.assertEmpty(Arrays.asList(keyInfo.getEncryptionPaddings()));
+        assertFalse(keyInfo.isUserAuthenticationRequired());
+        assertEquals(-1, keyInfo.getUserAuthenticationValidityDurationSeconds());
+    }
+
     public void testGenerate_RSA_ModernSpec_AsCustomAsPossible() throws Exception {
         KeyPairGenerator generator = getRsaGenerator();
         Date keyValidityStart = new Date(System.currentTimeMillis());
         Date keyValidityEndDateForOrigination = new Date(System.currentTimeMillis() + 1000000);
         Date keyValidityEndDateForConsumption = new Date(System.currentTimeMillis() + 10000000);
 
-        Date certNotBefore = new Date(System.currentTimeMillis() - 1000 * 60 * 60 * 24 * 210);
-        Date certNotAfter = new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24 * 210);
+        Date certNotBefore = new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24 * 210);
+        Date certNotAfter = new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24 * 210);
         BigInteger certSerialNumber = new BigInteger("1234567890");
         X500Principal certSubject = new X500Principal("cn=hello2");
         generator.initialize(new KeyGenParameterSpec.Builder(
@@ -900,12 +1012,110 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertEquals(-1, keyInfo.getUserAuthenticationValidityDurationSeconds());
     }
 
+    // Strongbox has more restrictions on key properties than general keystore.
+    // This is a reworking of the generic test to still be as custom as possible while
+    // respecting the spec constraints.
+    // Test fails until the resolution of b/113276806
+    public void testGenerate_RSA_ModernSpec_AsCustomAsPossibleStrongbox() throws Exception {
+        if (!TestUtils.hasStrongBox(getContext())) {
+            return;
+        }
+        KeyPairGenerator generator = getRsaGenerator();
+        Date keyValidityStart = new Date(System.currentTimeMillis());
+        Date keyValidityEndDateForOrigination = new Date(System.currentTimeMillis() + 1000000);
+        Date keyValidityEndDateForConsumption = new Date(System.currentTimeMillis() + 10000000);
+
+        Date certNotBefore = new Date(System.currentTimeMillis() - 1000L * 60 * 60 * 24 * 210);
+        Date certNotAfter = new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24 * 210);
+        BigInteger certSerialNumber = new BigInteger("1234567890");
+        X500Principal certSubject = new X500Principal("cn=hello2");
+        generator.initialize(new KeyGenParameterSpec.Builder(
+                TEST_ALIAS_1,
+                KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY
+                        | KeyProperties.PURPOSE_ENCRYPT)
+                .setAlgorithmParameterSpec(
+                        new RSAKeyGenParameterSpec(2048, RSAKeyGenParameterSpec.F0))
+                .setKeySize(2048)
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PSS,
+                        KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                .setBlockModes(KeyProperties.BLOCK_MODE_ECB)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP,
+                        KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
+                .setKeyValidityStart(keyValidityStart)
+                .setKeyValidityForOriginationEnd(keyValidityEndDateForOrigination)
+                .setKeyValidityForConsumptionEnd(keyValidityEndDateForConsumption)
+                .setCertificateSerialNumber(certSerialNumber)
+                .setCertificateSubject(certSubject)
+                .setCertificateNotBefore(certNotBefore)
+                .setCertificateNotAfter(certNotAfter)
+                .setUnlockedDeviceRequired(true)
+                .setIsStrongBoxBacked(true)
+                .build());
+        KeyPair keyPair = generator.generateKeyPair();
+        assertGeneratedKeyPairAndSelfSignedCertificate(
+                keyPair,
+                TEST_ALIAS_1,
+                "RSA",
+                2048,
+                certSubject,
+                certSerialNumber,
+                certNotBefore,
+                certNotAfter);
+        assertEquals(RSAKeyGenParameterSpec.F0,
+                ((RSAPublicKey) keyPair.getPublic()).getPublicExponent());
+        KeyInfo keyInfo = TestUtils.getKeyInfo(keyPair.getPrivate());
+        assertEquals(2048, keyInfo.getKeySize());
+        assertEquals(TEST_ALIAS_1, keyInfo.getKeystoreAlias());
+        assertOneOf(keyInfo.getOrigin(),
+                KeyProperties.ORIGIN_GENERATED, KeyProperties.ORIGIN_UNKNOWN);
+        assertEquals(
+                KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY
+                        | KeyProperties.PURPOSE_ENCRYPT,
+                keyInfo.getPurposes());
+        assertEquals(keyValidityStart, keyInfo.getKeyValidityStart());
+        assertEquals(keyValidityEndDateForOrigination, keyInfo.getKeyValidityForOriginationEnd());
+        assertEquals(keyValidityEndDateForConsumption, keyInfo.getKeyValidityForConsumptionEnd());
+
+        List<String> actualDigests =
+	    new ArrayList<String>(Arrays.asList(keyInfo.getDigests()));
+        // Keystore may have added DIGEST_NONE, to allow software digesting.
+        actualDigests.remove(KeyProperties.DIGEST_NONE);
+        TestUtils.assertContentsInAnyOrder(
+                actualDigests, KeyProperties.DIGEST_SHA256);
+
+        TestUtils.assertContentsInAnyOrder(Arrays.asList(keyInfo.getSignaturePaddings()),
+                KeyProperties.SIGNATURE_PADDING_RSA_PKCS1,
+                KeyProperties.SIGNATURE_PADDING_RSA_PSS);
+        MoreAsserts.assertContentsInAnyOrder(Arrays.asList(keyInfo.getBlockModes()),
+                KeyProperties.BLOCK_MODE_ECB);
+
+        List<String> actualEncryptionPaddings =
+                new ArrayList<String>(Arrays.asList(keyInfo.getEncryptionPaddings()));
+        // Keystore may have added ENCRYPTION_PADDING_NONE, to allow software padding.
+        actualEncryptionPaddings.remove(KeyProperties.ENCRYPTION_PADDING_NONE);
+        TestUtils.assertContentsInAnyOrder(actualEncryptionPaddings,
+                KeyProperties.ENCRYPTION_PADDING_RSA_OAEP,
+                KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1);
+
+        assertFalse(keyInfo.isUserAuthenticationRequired());
+        assertEquals(-1, keyInfo.getUserAuthenticationValidityDurationSeconds());
+    }
+
     public void testGenerate_EC_ModernSpec_UsableForTLSPeerAuth() throws Exception {
+        testGenerate_EC_ModernSpec_UsableForTLSPeerAuthHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testGenerate_EC_ModernSpec_UsableForTLSPeerAuthHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testGenerate_EC_ModernSpec_UsableForTLSPeerAuthHelper(boolean useStrongbox) throws Exception {
         KeyPairGenerator generator = getEcGenerator();
         generator.initialize(new KeyGenParameterSpec.Builder(
                 TEST_ALIAS_1,
                 KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
-                .setDigests(KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA384)
+                .setDigests(KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA256)
+                .setIsStrongBoxBacked(useStrongbox)
                 .build());
         KeyPair keyPair = generator.generateKeyPair();
         assertGeneratedKeyPairAndSelfSignedCertificate(
@@ -920,7 +1130,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         KeyInfo keyInfo = TestUtils.getKeyInfo(keyPair.getPrivate());
         MoreAsserts.assertEmpty(Arrays.asList(keyInfo.getBlockModes()));
         MoreAsserts.assertContentsInAnyOrder(Arrays.asList(keyInfo.getDigests()),
-                KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA384);
+                KeyProperties.DIGEST_NONE, KeyProperties.DIGEST_SHA256);
         MoreAsserts.assertEmpty(Arrays.asList(keyInfo.getSignaturePaddings()));
         MoreAsserts.assertEmpty(Arrays.asList(keyInfo.getEncryptionPaddings()));
         assertSelfSignedCertificateSignatureVerifies(TEST_ALIAS_1);
@@ -972,6 +1182,13 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     // that at least one fingerprint is enrolled.
 
     public void testGenerate_EC_ModernSpec_KeyNotYetValid() throws Exception {
+        testGenerate_EC_ModernSpec_KeyNotYetValidHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testGenerate_EC_ModernSpec_KeyNotYetValidHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testGenerate_EC_ModernSpec_KeyNotYetValidHelper(boolean useStrongbox) throws Exception {
         KeyPairGenerator generator = getEcGenerator();
         Date validityStart = new Date(System.currentTimeMillis() + DAY_IN_MILLIS);
         generator.initialize(new KeyGenParameterSpec.Builder(
@@ -980,6 +1197,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                 .setKeySize(256)
                 .setDigests(KeyProperties.DIGEST_SHA256)
                 .setKeyValidityStart(validityStart)
+                .setIsStrongBoxBacked(useStrongbox)
                 .build());
         KeyPair keyPair = generator.generateKeyPair();
         assertGeneratedKeyPairAndSelfSignedCertificate(
@@ -1025,27 +1243,47 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertKeyGenUsingECSizeOnlyUsesCorrectCurve(256, ECCurves.NIST_P_256_SPEC);
         assertKeyGenUsingECSizeOnlyUsesCorrectCurve(384, ECCurves.NIST_P_384_SPEC);
         assertKeyGenUsingECSizeOnlyUsesCorrectCurve(521, ECCurves.NIST_P_521_SPEC);
+        if (TestUtils.hasStrongBox(getContext())) {
+            assertKeyGenUsingECSizeOnlyUsesCorrectCurve(256, ECCurves.NIST_P_256_SPEC, true);
+        }
     }
 
+    //TODO: Fix b/113108008 so this test will pass for strongbox.
     public void testGenerate_EC_ModernSpec_UnsupportedSizesRejected() throws Exception {
         for (int keySizeBits = 0; keySizeBits <= 1024; keySizeBits++) {
+            testGenerate_EC_ModernSpec_UnsupportedSizesRejectedHelper(false, keySizeBits);
+            if (TestUtils.hasStrongBox(getContext())) {
+                testGenerate_EC_ModernSpec_UnsupportedSizesRejectedHelper(true, keySizeBits);
+            }
+        }
+    }
+
+    private void testGenerate_EC_ModernSpec_UnsupportedSizesRejectedHelper(boolean useStrongbox, int keySizeBits) throws Exception {
+        if (!useStrongbox) {
             if ((keySizeBits == 224) || (keySizeBits == 256) || (keySizeBits == 384)
                     || (keySizeBits == 521)) {
                 // Skip supported sizes
-                continue;
+                return;
             }
-            KeyPairGenerator generator = getEcGenerator();
+        } else {
+            // Strongbox only supports 256 bit EC key size
+            if (keySizeBits == 256) {
+                return;
+            }
+        }
+        KeyPairGenerator generator = getEcGenerator();
 
-            try {
-                generator.initialize(new KeyGenParameterSpec.Builder(
-                        TEST_ALIAS_1,
-                        KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
-                        .setKeySize(keySizeBits)
-                        .build());
-                fail("EC KeyPairGenerator initialized with unsupported key size: "
-                        + keySizeBits + " bits");
-            } catch (InvalidAlgorithmParameterException expected) {
-            }
+        try {
+            generator.initialize(new KeyGenParameterSpec.Builder(
+                    TEST_ALIAS_1,
+                    KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
+                    .setKeySize(keySizeBits)
+                    .setIsStrongBoxBacked(useStrongbox)
+                    .build());
+            fail("EC KeyPairGenerator initialized with unsupported key size: "
+                    + keySizeBits + " bits. useStrongbox: " + useStrongbox
+                    + "\nThis test will fail until b/113108008 is resolved");
+        } catch (InvalidAlgorithmParameterException expected) {
         }
     }
 
@@ -1061,6 +1299,15 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertKeyGenUsingECNamedCurveSupported("SECP256R1", ECCurves.NIST_P_256_SPEC);
         assertKeyGenUsingECNamedCurveSupported("prime256v1", ECCurves.NIST_P_256_SPEC);
         assertKeyGenUsingECNamedCurveSupported("PRIME256V1", ECCurves.NIST_P_256_SPEC);
+
+        if (TestUtils.hasStrongBox(getContext())) {
+            assertKeyGenUsingECNamedCurveSupported("P-256", ECCurves.NIST_P_256_SPEC, true);
+            assertKeyGenUsingECNamedCurveSupported("p-256", ECCurves.NIST_P_256_SPEC, true);
+            assertKeyGenUsingECNamedCurveSupported("secp256r1", ECCurves.NIST_P_256_SPEC, true);
+            assertKeyGenUsingECNamedCurveSupported("SECP256R1", ECCurves.NIST_P_256_SPEC, true);
+            assertKeyGenUsingECNamedCurveSupported("prime256v1", ECCurves.NIST_P_256_SPEC, true);
+            assertKeyGenUsingECNamedCurveSupported("PRIME256V1", ECCurves.NIST_P_256_SPEC, true);
+        }
 
         assertKeyGenUsingECNamedCurveSupported("P-384", ECCurves.NIST_P_384_SPEC);
         assertKeyGenUsingECNamedCurveSupported("p-384", ECCurves.NIST_P_384_SPEC);
@@ -1078,6 +1325,9 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
         assertKeyGenUsingRSASizeOnlySupported(768);
         assertKeyGenUsingRSASizeOnlySupported(1024);
         assertKeyGenUsingRSASizeOnlySupported(2048);
+        if (TestUtils.hasStrongBox(getContext())) {
+            assertKeyGenUsingRSASizeOnlySupported(2048, true);
+        }
         assertKeyGenUsingRSASizeOnlySupported(3072);
         assertKeyGenUsingRSASizeOnlySupported(4096);
 
@@ -1088,8 +1338,16 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     }
 
     public void testGenerate_RSA_IndCpaEnforced() throws Exception {
+        testGenerate_RSA_IndCpaEnforcedHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testGenerate_RSA_IndCpaEnforcedHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testGenerate_RSA_IndCpaEnforcedHelper(boolean useStrongbox) throws Exception {
         KeyGenParameterSpec.Builder goodBuilder = new KeyGenParameterSpec.Builder(
                 TEST_ALIAS_1, KeyProperties.PURPOSE_ENCRYPT)
+                .setIsStrongBoxBacked(useStrongbox)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP,
                         KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1);
         assertKeyGenInitSucceeds("RSA", goodBuilder.build());
@@ -1119,8 +1377,16 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     }
 
     public void testGenerate_EC_IndCpaEnforced() throws Exception {
+        testGenerate_EC_IndCpaEnforcedHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testGenerate_EC_IndCpaEnforcedHelper(true /* useStrongbox */);
+        }
+    }
+
+    public void testGenerate_EC_IndCpaEnforcedHelper(boolean useStrongbox) throws Exception {
         KeyGenParameterSpec.Builder goodBuilder = new KeyGenParameterSpec.Builder(
-                TEST_ALIAS_2, KeyProperties.PURPOSE_ENCRYPT);
+                TEST_ALIAS_2, KeyProperties.PURPOSE_ENCRYPT)
+                .setIsStrongBoxBacked(useStrongbox);
         assertKeyGenInitSucceeds("EC", goodBuilder.build());
 
         // Should be fine because IND-CPA restriction applies only to encryption keys
@@ -1143,6 +1409,13 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
 
     // http://b/28384942
     public void testGenerateWithFarsiLocale() throws Exception {
+        testGenerateWithFarsiLocaleHelper(false /* useStrongbox */);
+        if (TestUtils.hasStrongBox(getContext())) {
+            testGenerateWithFarsiLocaleHelper(true /* useStrongbox */);
+        }
+    }
+
+    private void testGenerateWithFarsiLocaleHelper(boolean useStrongbox) throws Exception {
         Locale defaultLocale = Locale.getDefault();
         // Note that we use farsi here because its number formatter doesn't use
         // arabic digits.
@@ -1159,6 +1432,7 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
                    TEST_ALIAS_1, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
                    .setBlockModes(KeyProperties.BLOCK_MODE_ECB)
                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_PKCS1)
+                   .setIsStrongBoxBacked(useStrongbox)
                    .build());
 
             keyGenerator.generateKeyPair();
@@ -1184,11 +1458,17 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
 
     private void assertKeyGenUsingECSizeOnlyUsesCorrectCurve(
             int keySizeBits, ECParameterSpec expectedParams) throws Exception {
+        assertKeyGenUsingECSizeOnlyUsesCorrectCurve(keySizeBits, expectedParams, false);
+    }
+
+    private void assertKeyGenUsingECSizeOnlyUsesCorrectCurve(
+            int keySizeBits, ECParameterSpec expectedParams, boolean useStrongbox) throws Exception {
         KeyPairGenerator generator = getEcGenerator();
         generator.initialize(new KeyGenParameterSpec.Builder(
                 TEST_ALIAS_1,
                 KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
                 .setKeySize(keySizeBits)
+                .setIsStrongBoxBacked(useStrongbox)
                 .build(),
                 mRng);
         mRng.resetCounters();
@@ -1214,11 +1494,16 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
 
     private void assertKeyGenUsingECNamedCurveSupported(
             String curveName, ECParameterSpec expectedParams) throws Exception {
+        assertKeyGenUsingECNamedCurveSupported(curveName, expectedParams, false);
+    }
+    private void assertKeyGenUsingECNamedCurveSupported(
+            String curveName, ECParameterSpec expectedParams, boolean useStrongbox) throws Exception {
         KeyPairGenerator generator = getEcGenerator();
         generator.initialize(new KeyGenParameterSpec.Builder(
                 TEST_ALIAS_1,
                 KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
                 .setAlgorithmParameterSpec(new ECGenParameterSpec(curveName))
+                .setIsStrongBoxBacked(useStrongbox)
                 .build(),
                 mRng);
         mRng.resetCounters();
@@ -1243,11 +1528,16 @@ public class KeyPairGeneratorTest extends AndroidTestCase {
     }
 
     private void assertKeyGenUsingRSASizeOnlySupported(int keySizeBits) throws Exception {
+        assertKeyGenUsingRSASizeOnlySupported(keySizeBits, false);
+    }
+
+    private void assertKeyGenUsingRSASizeOnlySupported(int keySizeBits, boolean useStrongbox) throws Exception {
         KeyPairGenerator generator = getRsaGenerator();
         generator.initialize(new KeyGenParameterSpec.Builder(
                 TEST_ALIAS_1,
                 KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_VERIFY)
                 .setKeySize(keySizeBits)
+                .setIsStrongBoxBacked(useStrongbox)
                 .build(),
                 mRng);
         mRng.resetCounters();

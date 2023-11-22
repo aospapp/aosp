@@ -26,7 +26,9 @@ import android.content.ComponentName;
 import android.graphics.Rect;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
+import android.util.SparseArray;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.android.server.am.nano.ActivityDisplayProto;
 import com.android.server.am.nano.ActivityManagerServiceDumpActivitiesProto;
@@ -380,13 +382,23 @@ public class ActivityManagerState {
     static class KeyguardControllerState {
 
         boolean keyguardShowing = false;
-        boolean keyguardOccluded = false;
+        SparseArray<Boolean> mKeyguardOccludedStates = new SparseArray<>();
 
         KeyguardControllerState(KeyguardControllerProto proto) {
             if (proto != null) {
                 keyguardShowing = proto.keyguardShowing;
-                keyguardOccluded = proto.keyguardOccluded;
+                for (int i = 0;  i < proto.keyguardOccludedStates.length; i++) {
+                    mKeyguardOccludedStates.append(proto.keyguardOccludedStates[i].displayId,
+                            proto.keyguardOccludedStates[i].keyguardOccluded);
+                }
             }
+        }
+
+        boolean isKeyguardOccluded(int displayId) {
+            if (mKeyguardOccludedStates.get(displayId) != null) {
+                return mKeyguardOccludedStates.get(displayId);
+            }
+            return false;
         }
     }
 }

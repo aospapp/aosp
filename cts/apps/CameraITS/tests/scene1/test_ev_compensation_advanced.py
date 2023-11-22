@@ -12,27 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
-import its.device
-import its.caps
-import its.objects
 import os.path
-from matplotlib import pylab
+import its.caps
+import its.device
+import its.image
+import its.objects
 import matplotlib
-import matplotlib.pyplot
+from matplotlib import pylab
 import numpy
 
-#AE must converge within this number of auto requests for EV
-THREASH_CONVERGE_FOR_EV = 8
+LOCKED = 3
+MAX_LUMA_DELTA_THRESH = 0.05
+NAME = os.path.basename(__file__).split('.')[0]
+THRESH_CONVERGE_FOR_EV = 8  # AE must converge in this num auto reqs for EV
+
 
 def main():
-    """Tests that EV compensation is applied.
-    """
-    LOCKED = 3
-
-    NAME = os.path.basename(__file__).split(".")[0]
-
-    MAX_LUMA_DELTA_THRESH = 0.05
+    """Tests that EV compensation is applied."""
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
@@ -76,34 +72,40 @@ def main():
             # by tone curves.
             req['android.tonemap.mode'] = 0
             req['android.tonemap.curve'] = {
-                'red': [0.0,0.0, 1.0,1.0],
-                'green': [0.0,0.0, 1.0,1.0],
-                'blue': [0.0,0.0, 1.0,1.0]}
-            caps = cam.do_capture([req]*THREASH_CONVERGE_FOR_EV, fmt)
+                    'red': [0.0, 0.0, 1.0, 1.0],
+                    'green': [0.0, 0.0, 1.0, 1.0],
+                    'blue': [0.0, 0.0, 1.0, 1.0]}
+            caps = cam.do_capture([req]*THRESH_CONVERGE_FOR_EV, fmt)
 
             for cap in caps:
-                if (cap['metadata']['android.control.aeState'] == LOCKED):
+                if cap['metadata']['android.control.aeState'] == LOCKED:
                     y = its.image.convert_capture_to_planes(cap)[0]
-                    tile = its.image.get_image_patch(y, 0.45,0.45,0.1,0.1)
+                    tile = its.image.get_image_patch(y, 0.45, 0.45, 0.1, 0.1)
                     lumas.append(its.image.compute_image_means(tile)[0])
                     break
-            assert(cap['metadata']['android.control.aeState'] == LOCKED)
+            assert cap['metadata']['android.control.aeState'] == LOCKED
 
-        print "ev_step_size_in_stops", ev_per_step
+        print 'ev_step_size_in_stops', ev_per_step
         shift_mid = ev_shifts[imid]
         luma_normal = lumas[imid] / shift_mid
-        expected_lumas = [min(1.0, luma_normal * ev_shift) for ev_shift in ev_shifts]
+        expected_lumas = [min(1.0, luma_normal*ev_shift) for ev_shift in ev_shifts]
 
-        pylab.plot(ev_steps, lumas, 'r')
-        pylab.plot(ev_steps, expected_lumas, 'b')
-        matplotlib.pyplot.savefig("%s_plot_means.png" % (NAME))
+        pylab.plot(ev_steps, lumas, '-ro')
+        pylab.plot(ev_steps, expected_lumas, '-bo')
+        pylab.title(NAME)
+        pylab.xlabel('EV Compensation')
+        pylab.ylabel('Mean Luma (Normalized)')
 
-        luma_diffs = [expected_lumas[i] - lumas[i] for i in range(len(ev_steps))]
+        matplotlib.pyplot.savefig('%s_plot_means.png' % (NAME))
+
+        luma_diffs = [expected_lumas[i]-lumas[i] for i in range(len(ev_steps))]
         max_diff = max(abs(i) for i in luma_diffs)
         avg_diff = abs(numpy.array(luma_diffs)).mean()
-        print "Max delta between modeled and measured lumas:", max_diff
-        print "Avg delta between modeled and measured lumas:", avg_diff
-        assert(max_diff < MAX_LUMA_DELTA_THRESH)
+        print 'Max delta between modeled and measured lumas:', max_diff
+        print 'Avg delta between modeled and measured lumas:', avg_diff
+        assert max_diff < MAX_LUMA_DELTA_THRESH, 'diff: %.3f, THRESH: %.2f' % (
+                max_diff, MAX_LUMA_DELTA_THRESH)
+
 
 if __name__ == '__main__':
     main()

@@ -22,9 +22,8 @@ import tempfile
 import threading
 import zipfile
 
-from xml.etree import ElementTree
-
 from host_controller.command_processor import base_command_processor
+from host_controller.utils.parser import xml_utils
 from vts.runners.host import utils
 
 
@@ -40,12 +39,18 @@ class CommandTest(base_command_processor.BaseCommandProcessor):
 
     command = "test"
     command_detail = "Executes a command on TF."
+    _RESULT_TAG = "Result"
     _RESULT_ATTRIBUTES = ["suite_plan"]
 
     # @Override
     def SetUp(self):
         """Initializes the parser for test command."""
         self._result_dir = None
+        self.arg_parser.add_argument(
+            "--suite",
+            default="vts",
+            choices=("vts", "cts", "gts", "sts"),
+            help="To specify the type of a test suite to be run.")
         self.arg_parser.add_argument(
             "--serial",
             "-s",
@@ -78,18 +83,18 @@ class CommandTest(base_command_processor.BaseCommandProcessor):
             shutil.rmtree(os.path.join(self._result_dir, file_name))
 
     @staticmethod
-    def _GenerateVtsCommand(bin_path, command, serials, result_dir=None):
-        """Generates a vts-tradefed command.
+    def _GenerateTestSuiteCommand(bin_path, command, serials, result_dir=None):
+        """Generates a *ts-tradefed command.
 
         Args:
-            bin_path: the path to vts-tradefed.
+            bin_path: the path to *ts-tradefed.
             command: a list of strings, the command arguments.
             serials: a list of strings, the serial numbers of the devices.
             result_dir: the path to the temporary directory where the result is
                         saved.
 
         Returns:
-            a list of strings, the vts-tradefed command.
+            a list of strings, the *ts-tradefed command.
         """
         cmd = [bin_path, "run", "commandAndExit"]
         cmd.extend(str(c) for c in command)
@@ -140,34 +145,9 @@ class CommandTest(base_command_processor.BaseCommandProcessor):
         out_thread.join()
         err_thread.join()
 
-    def _LoadReport(self, report_file):
-        """Loads information from a report.
-
-        Args:
-            report_file: The file object of the XML report.
-
-        Returns:
-            A dict containing the attributes loaded from the report.
-        """
-        result = {}
-        for event, elem in ElementTree.iterparse(report_file, ("start", )):
-            if elem.tag == "Result":
-                result = {
-                    key: elem.attrib[key]
-                    for key in self._RESULT_ATTRIBUTES if key in elem.attrib
-                }
-                if len(result) != len(self._RESULT_ATTRIBUTES):
-                    logging.warning("Incomplete <Result>: %s", elem.attrib)
-                break
-
-        if not result:
-            logging.warning("Nothing loaded from report.")
-
-        return result
-
     # @Override
     def Run(self, arg_line):
-        """Executes a command using a VTS-TF instance.
+        """Executes a command using a *TS-TF instance.
 
         Args:
             arg_line: string, line of command arguments.
@@ -181,9 +161,9 @@ class CommandTest(base_command_processor.BaseCommandProcessor):
             serials = []
 
         if args.test_exec_mode == "subprocess":
-            if "vts" not in self.console.test_suite_info:
-                print("test_suite_info doesn't have 'vts': %s" %
-                      self.console.test_suite_info)
+            if args.suite not in self.console.test_suite_info:
+                logging.error("test_suite_info doesn't have '%s': %s",
+                              args.suite, self.console.test_suite_info)
                 return
 
             if args.keep_result:
@@ -192,18 +172,19 @@ class CommandTest(base_command_processor.BaseCommandProcessor):
             else:
                 result_dir = None
 
-            cmd = self._GenerateVtsCommand(self.console.test_suite_info["vts"],
-                                           args.command, serials, result_dir)
+            cmd = self._GenerateTestSuiteCommand(
+                self.console.test_suite_info[args.suite], args.command,
+                serials, result_dir)
 
-            print("Command: %s" % cmd)
+            logging.info("Command: %s", cmd)
             self._ExecuteCommand(cmd)
 
             if result_dir:
                 result_paths = [
-                    os.path.join(dir_name, file_name) for
-                    dir_name, file_name in utils.iterate_files(result_dir) if
-                    file_name.startswith("log-result") and
-                    file_name.endswith(".zip")
+                    os.path.join(dir_name, file_name)
+                    for dir_name, file_name in utils.iterate_files(result_dir)
+                    if file_name.startswith("log-result")
+                    and file_name.endswith(".zip")
                 ]
 
                 if len(result_paths) != 1:
@@ -211,24 +192,31 @@ class CommandTest(base_command_processor.BaseCommandProcessor):
                                     result_paths)
 
                 self.console.test_result.clear()
+                result = {}
                 if len(result_paths) > 0:
                     with zipfile.ZipFile(
                             result_paths[0], mode="r") as result_zip:
                         with result_zip.open(
                                 "log-result.xml", mode="rU") as result_xml:
-                            result = self._LoadReport(result_xml)
+                            result = xml_utils.GetAttributes(
+                                result_xml, self._RESULT_TAG,
+                                self._RESULT_ATTRIBUTES)
+                            if not result:
+                                logging.warning("Nothing loaded from report.")
                     result["result_zip"] = result_paths[0]
 
                 result_paths_full = [
-                    os.path.join(dir_name, file_name) for
-                    dir_name, file_name in utils.iterate_files(result_dir) if
-                    file_name.endswith(".zip")]
+                    os.path.join(dir_name, file_name)
+                    for dir_name, file_name in utils.iterate_files(result_dir)
+                    if file_name.endswith(".zip")
+                ]
                 result["result_full"] = " ".join(result_paths_full)
+                result["suite_name"] = args.suite
 
                 logging.debug(result)
                 self.console.test_result.update(result)
         else:
-            print("unsupported exec mode: %s", args.test_exec_mode)
+            logging.error("unsupported exec mode: %s", args.test_exec_mode)
             return False
 
     # @Override

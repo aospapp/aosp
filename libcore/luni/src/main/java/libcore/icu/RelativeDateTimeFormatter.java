@@ -34,7 +34,10 @@ import static libcore.icu.DateUtilsBridge.FORMAT_SHOW_YEAR;
 
 /**
  * Exposes icu4j's RelativeDateTimeFormatter.
+ *
+ * @hide
  */
+@libcore.api.CorePlatformApi
 public final class RelativeDateTimeFormatter {
 
   public static final long SECOND_IN_MILLIS = 1000;
@@ -88,6 +91,7 @@ public final class RelativeDateTimeFormatter {
    * always // returns a string like '0 seconds/minutes/... ago' according to
    * minResolution.
    */
+  @libcore.api.CorePlatformApi
   public static String getRelativeTimeSpanString(Locale locale, java.util.TimeZone tz, long time,
       long now, long minResolution, int flags) {
     // Android has been inconsistent about capitalization in the past. e.g. bug http://b/20247811.
@@ -257,6 +261,7 @@ public final class RelativeDateTimeFormatter {
    * now - 2 hours, now, HOUR_IN_MILLIS, DAY_IN_MILLIS, 0), instead of '2
    * hours ago, 11:30 PM' even with minResolution being HOUR_IN_MILLIS.
    */
+  @libcore.api.CorePlatformApi
   public static String getRelativeDateTimeString(Locale locale, java.util.TimeZone tz, long time,
       long now, long minResolution, long transitionResolution, int flags) {
 

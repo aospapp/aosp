@@ -20,9 +20,12 @@
 #include <cstddef>
 
 #include <shared/send_message.h>
+#include <shared/time_util.h>
 
 #include <chre.h>
 
+using nanoapp_testing::kOneMillisecondInNanoseconds;
+using nanoapp_testing::kOneSecondInNanoseconds;
 using nanoapp_testing::sendFailureToHost;
 using nanoapp_testing::sendFatalFailureToHost;
 using nanoapp_testing::sendSuccessToHost;
@@ -49,10 +52,8 @@ namespace general_test {
 // Thus we make this "static const" instead of "constexpr", as we expect
 // them to have backing memory.
 
-// 5 seconds
-static const uint64_t kExhaustionDuration = UINT64_C(5000000000);
-// 10 milliseconds
-static const uint64_t kShortDuration = UINT64_C(10000000);
+static const uint64_t kExhaustionDuration = 5 * kOneSecondInNanoseconds;
+static const uint64_t kShortDuration = 10 * kOneMillisecondInNanoseconds;
 
 constexpr uint16_t kEventType = CHRE_EVENT_FIRST_USER_VALUE;
 

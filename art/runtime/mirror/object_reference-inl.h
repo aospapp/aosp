@@ -25,14 +25,28 @@ namespace art {
 namespace mirror {
 
 template<bool kPoisonReferences, class MirrorType>
+inline uint32_t PtrCompression<kPoisonReferences, MirrorType>::Compress(ObjPtr<MirrorType> ptr) {
+  return Compress(ptr.Ptr());
+}
+
+template <bool kPoisonReferences, class MirrorType>
+ALWAYS_INLINE
 void ObjectReference<kPoisonReferences, MirrorType>::Assign(ObjPtr<MirrorType> ptr) {
   Assign(ptr.Ptr());
 }
 
-template<class MirrorType>
+template <class MirrorType>
+ALWAYS_INLINE
 bool HeapReference<MirrorType>::CasWeakRelaxed(MirrorType* expected_ptr, MirrorType* new_ptr) {
   return reference_.CompareAndSetWeakRelaxed(Compression::Compress(expected_ptr),
                                              Compression::Compress(new_ptr));
+}
+
+template <typename MirrorType>
+template <bool kIsVolatile>
+ALWAYS_INLINE
+void HeapReference<MirrorType>::Assign(ObjPtr<MirrorType> ptr) {
+  Assign<kIsVolatile>(ptr.Ptr());
 }
 
 }  // namespace mirror

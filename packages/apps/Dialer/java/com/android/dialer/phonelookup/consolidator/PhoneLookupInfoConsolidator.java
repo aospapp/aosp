@@ -45,13 +45,19 @@ public final class PhoneLookupInfoConsolidator {
     NameSource.NONE,
     NameSource.CP2_DEFAULT_DIRECTORY,
     NameSource.CP2_EXTENDED_DIRECTORY,
-    NameSource.PEOPLE_API
+    NameSource.PEOPLE_API,
+    NameSource.CEQUINT,
+    NameSource.CNAP,
+    NameSource.PHONE_NUMBER_CACHE
   })
   @interface NameSource {
     int NONE = 0; // used when none of the other sources can provide the name
     int CP2_DEFAULT_DIRECTORY = 1;
     int CP2_EXTENDED_DIRECTORY = 2;
     int PEOPLE_API = 3;
+    int CEQUINT = 4;
+    int CNAP = 5;
+    int PHONE_NUMBER_CACHE = 6;
   }
 
   /**
@@ -75,7 +81,10 @@ public final class PhoneLookupInfoConsolidator {
       ImmutableList.of(
           NameSource.CP2_DEFAULT_DIRECTORY,
           NameSource.CP2_EXTENDED_DIRECTORY,
-          NameSource.PEOPLE_API);
+          NameSource.PEOPLE_API,
+          NameSource.CEQUINT,
+          NameSource.CNAP,
+          NameSource.PHONE_NUMBER_CACHE);
 
   private final @NameSource int nameSource;
   private final PhoneLookupInfo phoneLookupInfo;
@@ -103,6 +112,17 @@ public final class PhoneLookupInfoConsolidator {
         return ContactSource.Type.SOURCE_TYPE_EXTENDED;
       case NameSource.PEOPLE_API:
         return getRefinedPeopleApiSource();
+      case NameSource.CEQUINT:
+        return ContactSource.Type.SOURCE_TYPE_CEQUINT_CALLER_ID;
+      case NameSource.CNAP:
+        return ContactSource.Type.SOURCE_TYPE_CNAP;
+      case NameSource.PHONE_NUMBER_CACHE:
+        ContactSource.Type sourceType =
+            ContactSource.Type.forNumber(phoneLookupInfo.getMigratedInfo().getSourceType());
+        if (sourceType == null) {
+          sourceType = ContactSource.Type.UNKNOWN_SOURCE_TYPE;
+        }
+        return sourceType;
       case NameSource.NONE:
         return ContactSource.Type.UNKNOWN_SOURCE_TYPE;
       default:
@@ -141,6 +161,12 @@ public final class PhoneLookupInfoConsolidator {
         return Assert.isNotNull(firstExtendedCp2Contact).getName();
       case NameSource.PEOPLE_API:
         return phoneLookupInfo.getPeopleApiInfo().getDisplayName();
+      case NameSource.CEQUINT:
+        return phoneLookupInfo.getCequintInfo().getName();
+      case NameSource.CNAP:
+        return phoneLookupInfo.getCnapInfo().getName();
+      case NameSource.PHONE_NUMBER_CACHE:
+        return phoneLookupInfo.getMigratedInfo().getName();
       case NameSource.NONE:
         return "";
       default:
@@ -162,7 +188,11 @@ public final class PhoneLookupInfoConsolidator {
         return Assert.isNotNull(firstDefaultCp2Contact).getPhotoThumbnailUri();
       case NameSource.CP2_EXTENDED_DIRECTORY:
         return Assert.isNotNull(firstExtendedCp2Contact).getPhotoThumbnailUri();
+      case NameSource.PHONE_NUMBER_CACHE:
+        return phoneLookupInfo.getMigratedInfo().getPhotoUri();
       case NameSource.PEOPLE_API:
+      case NameSource.CEQUINT:
+      case NameSource.CNAP:
       case NameSource.NONE:
         return "";
       default:
@@ -184,7 +214,12 @@ public final class PhoneLookupInfoConsolidator {
         return Assert.isNotNull(firstDefaultCp2Contact).getPhotoUri();
       case NameSource.CP2_EXTENDED_DIRECTORY:
         return Assert.isNotNull(firstExtendedCp2Contact).getPhotoUri();
+      case NameSource.CEQUINT:
+        return phoneLookupInfo.getCequintInfo().getPhotoUri();
+      case NameSource.PHONE_NUMBER_CACHE:
+        return phoneLookupInfo.getMigratedInfo().getPhotoUri();
       case NameSource.PEOPLE_API:
+      case NameSource.CNAP:
       case NameSource.NONE:
         return "";
       default:
@@ -203,7 +238,10 @@ public final class PhoneLookupInfoConsolidator {
         return Math.max(Assert.isNotNull(firstDefaultCp2Contact).getPhotoId(), 0);
       case NameSource.CP2_EXTENDED_DIRECTORY:
         return Math.max(Assert.isNotNull(firstExtendedCp2Contact).getPhotoId(), 0);
+      case NameSource.PHONE_NUMBER_CACHE:
       case NameSource.PEOPLE_API:
+      case NameSource.CEQUINT:
+      case NameSource.CNAP:
       case NameSource.NONE:
         return 0;
       default:
@@ -225,6 +263,9 @@ public final class PhoneLookupInfoConsolidator {
         return Assert.isNotNull(firstExtendedCp2Contact).getLookupUri();
       case NameSource.PEOPLE_API:
         return Assert.isNotNull(phoneLookupInfo.getPeopleApiInfo().getLookupUri());
+      case NameSource.PHONE_NUMBER_CACHE:
+      case NameSource.CEQUINT:
+      case NameSource.CNAP:
       case NameSource.NONE:
         return "";
       default:
@@ -247,7 +288,35 @@ public final class PhoneLookupInfoConsolidator {
         return Assert.isNotNull(firstDefaultCp2Contact).getLabel();
       case NameSource.CP2_EXTENDED_DIRECTORY:
         return Assert.isNotNull(firstExtendedCp2Contact).getLabel();
+      case NameSource.PHONE_NUMBER_CACHE:
+        return phoneLookupInfo.getMigratedInfo().getLabel();
       case NameSource.PEOPLE_API:
+      case NameSource.CEQUINT:
+      case NameSource.CNAP:
+      case NameSource.NONE:
+        return "";
+      default:
+        throw Assert.createUnsupportedOperationFailException(
+            String.format("Unsupported name source: %s", nameSource));
+    }
+  }
+
+  /**
+   * The {@link PhoneLookupInfo} passed to the constructor is associated with a number. This method
+   * returns the number's geolocation (which is for display purpose only).
+   *
+   * <p>If no geolocation can be obtained from the {@link PhoneLookupInfo}, an empty string will be
+   * returned.
+   */
+  public String getGeolocation() {
+    switch (nameSource) {
+      case NameSource.CEQUINT:
+        return phoneLookupInfo.getCequintInfo().getGeolocation();
+      case NameSource.CP2_DEFAULT_DIRECTORY:
+      case NameSource.CP2_EXTENDED_DIRECTORY:
+      case NameSource.PEOPLE_API:
+      case NameSource.CNAP:
+      case NameSource.PHONE_NUMBER_CACHE:
       case NameSource.NONE:
         return "";
       default:
@@ -261,17 +330,21 @@ public final class PhoneLookupInfoConsolidator {
    * returns whether the number belongs to a business place.
    */
   public boolean isBusiness() {
-    return phoneLookupInfo.hasPeopleApiInfo()
-        && phoneLookupInfo.getPeopleApiInfo().getInfoType() == InfoType.NEARBY_BUSINESS;
-  }
-
-  /**
-   * The {@link PhoneLookupInfo} passed to the constructor is associated with a number. This method
-   * returns whether the number is a voicemail number.
-   */
-  public boolean isVoicemail() {
-    // TODO(twyen): implement
-    return false;
+    switch (nameSource) {
+      case NameSource.PEOPLE_API:
+        return phoneLookupInfo.getPeopleApiInfo().getInfoType() == InfoType.NEARBY_BUSINESS;
+      case NameSource.PHONE_NUMBER_CACHE:
+        return phoneLookupInfo.getMigratedInfo().getIsBusiness();
+      case NameSource.CP2_DEFAULT_DIRECTORY:
+      case NameSource.CP2_EXTENDED_DIRECTORY:
+      case NameSource.CEQUINT:
+      case NameSource.CNAP:
+      case NameSource.NONE:
+        return false;
+      default:
+        throw Assert.createUnsupportedOperationFailException(
+            String.format("Unsupported name source: %s", nameSource));
+    }
   }
 
   /**
@@ -287,10 +360,7 @@ public final class PhoneLookupInfoConsolidator {
           .getBlockedState()
           .equals(BlockedState.BLOCKED);
     }
-    return phoneLookupInfo
-        .getDialerBlockedNumberInfo()
-        .getBlockedState()
-        .equals(BlockedState.BLOCKED);
+    return false;
   }
 
   /**
@@ -311,6 +381,14 @@ public final class PhoneLookupInfoConsolidator {
 
   /**
    * The {@link PhoneLookupInfo} passed to the constructor is associated with a number. This method
+   * returns whether the number is an emergency number (e.g., 911 in the U.S.).
+   */
+  public boolean isEmergencyNumber() {
+    return phoneLookupInfo.getEmergencyInfo().getIsEmergencyNumber();
+  }
+
+  /**
+   * The {@link PhoneLookupInfo} passed to the constructor is associated with a number. This method
    * returns whether the number can be reported as invalid.
    *
    * <p>As we currently report invalid numbers via the People API, only numbers from the People API
@@ -320,11 +398,34 @@ public final class PhoneLookupInfoConsolidator {
     switch (nameSource) {
       case NameSource.CP2_DEFAULT_DIRECTORY:
       case NameSource.CP2_EXTENDED_DIRECTORY:
+      case NameSource.CEQUINT:
+      case NameSource.CNAP:
+      case NameSource.PHONE_NUMBER_CACHE:
+      case NameSource.NONE:
         return false;
       case NameSource.PEOPLE_API:
         PeopleApiInfo peopleApiInfo = phoneLookupInfo.getPeopleApiInfo();
         return peopleApiInfo.getInfoType() != InfoType.UNKNOWN
             && !peopleApiInfo.getPersonId().isEmpty();
+      default:
+        throw Assert.createUnsupportedOperationFailException(
+            String.format("Unsupported name source: %s", nameSource));
+    }
+  }
+
+  /**
+   * The {@link PhoneLookupInfo} passed to the constructor is associated with a number. This method
+   * returns whether the number can be reached via carrier video calls.
+   */
+  public boolean canSupportCarrierVideoCall() {
+    switch (nameSource) {
+      case NameSource.CP2_DEFAULT_DIRECTORY:
+        return Assert.isNotNull(firstDefaultCp2Contact).getCanSupportCarrierVideoCall();
+      case NameSource.CP2_EXTENDED_DIRECTORY:
+      case NameSource.PEOPLE_API:
+      case NameSource.CEQUINT:
+      case NameSource.CNAP:
+      case NameSource.PHONE_NUMBER_CACHE:
       case NameSource.NONE:
         return false;
       default:
@@ -375,6 +476,21 @@ public final class PhoneLookupInfoConsolidator {
           if (phoneLookupInfo.hasPeopleApiInfo()
               && !phoneLookupInfo.getPeopleApiInfo().getDisplayName().isEmpty()) {
             return NameSource.PEOPLE_API;
+          }
+          break;
+        case NameSource.CEQUINT:
+          if (!phoneLookupInfo.getCequintInfo().getName().isEmpty()) {
+            return NameSource.CEQUINT;
+          }
+          break;
+        case NameSource.CNAP:
+          if (!phoneLookupInfo.getCnapInfo().getName().isEmpty()) {
+            return NameSource.CNAP;
+          }
+          break;
+        case NameSource.PHONE_NUMBER_CACHE:
+          if (!phoneLookupInfo.getMigratedInfo().getName().isEmpty()) {
+            return NameSource.PHONE_NUMBER_CACHE;
           }
           break;
         default:

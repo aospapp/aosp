@@ -27,8 +27,9 @@ import static com.android.car.CarConfigurationService.SPEED_BUMP_PERMIT_FILL_DEL
 import static com.google.common.truth.Truth.assertThat;
 
 import android.car.settings.SpeedBumpConfiguration;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.json.JSONException;
 import org.json.JSONObject;

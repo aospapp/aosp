@@ -23,17 +23,17 @@
 
 #include <android/log.h>
 #include <android-base/stringprintf.h>
+
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/ScopedLocalRef.h>
 #include <nativehelper/ScopedPrimitiveArray.h>
 #include <nativehelper/ScopedStringChars.h>
 #include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/jni_macros.h>
 
-#include "jni.h"
+#include "JniConstants.h"
 #include "JniException.h"
 #include "unicode/unistr.h"
-
 
 #define BUCKET_COUNT 128
 
@@ -1346,7 +1346,7 @@ static void ExpatParser_staticInitialize(JNIEnv* env, jobject classObject, jstri
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
     if (unparsedEntityDeclMethod == NULL) return;
 
-    internMethod = env->GetMethodID(JniConstants::stringClass, "intern", "()Ljava/lang/String;");
+    internMethod = env->GetMethodID(JniConstants::GetStringClass(env), "intern", "()Ljava/lang/String;");
     if (internMethod == NULL) return;
 
     // Reference to "".

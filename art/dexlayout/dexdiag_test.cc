@@ -34,7 +34,7 @@ static const char* kDexDiagBinaryName = "dexdiag";
 
 class DexDiagTest : public CommonRuntimeTest {
  protected:
-  virtual void SetUp() {
+  void SetUp() override {
     CommonRuntimeTest::SetUp();
   }
 
@@ -68,14 +68,13 @@ class DexDiagTest : public CommonRuntimeTest {
     EXPECT_TRUE(!oat_location.empty());
     std::cout << "==" << oat_location << std::endl;
     std::string error_msg;
-    std::unique_ptr<OatFile> oat(OatFile::Open(/* zip_fd */ -1,
+    std::unique_ptr<OatFile> oat(OatFile::Open(/*zip_fd=*/ -1,
                                                oat_location.c_str(),
                                                oat_location.c_str(),
-                                               nullptr,
-                                               nullptr,
-                                               false,
-                                               /*low_4gb*/false,
-                                               nullptr,
+                                               /*executable=*/ false,
+                                               /*low_4gb=*/ false,
+                                               /*abs_dex_location=*/ nullptr,
+                                               /*reservation=*/ nullptr,
                                                &error_msg));
     EXPECT_TRUE(oat != nullptr) << error_msg;
     return oat;

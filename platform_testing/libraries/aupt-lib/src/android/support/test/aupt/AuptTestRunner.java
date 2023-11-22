@@ -31,6 +31,8 @@ import android.test.InstrumentationTestCase;
 import android.test.InstrumentationTestRunner;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+
 import junit.framework.AssertionFailedError;
 import junit.framework.Test;
 import junit.framework.TestCase;
@@ -114,6 +116,9 @@ public class AuptTestRunner extends InstrumentationTestRunner {
     /* Test Initialization */
     @Override
     public void onCreate(Bundle params) {
+        // Support the newer AndroidX test initialization.
+        InstrumentationRegistry.registerInstance(this, params);
+
         mParams = params;
 
         // Parse out primitive parameters

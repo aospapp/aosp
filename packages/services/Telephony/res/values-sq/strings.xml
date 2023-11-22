@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"Kodi USSD po punon…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"Kodi MMI u anulua"</string>
     <string name="cancel" msgid="5044513931633602634">"Anulo"</string>
-    <string name="enter_input" msgid="1810529547726803893">"Mesazhi USSD duhet të jetë mes karaktereve <xliff:g id="MIN_LEN">%d</xliff:g> dhe <xliff:g id="MAX_LEN">%d</xliff:g>. Provo sërish."</string>
+    <string name="enter_input" msgid="1810529547726803893">"Mesazhi USSD duhet të jetë mes karaktereve <xliff:g id="MIN_LEN">%1$d</xliff:g> dhe <xliff:g id="MAX_LEN">%2$d</xliff:g>. Provo sërish."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"Menaxho telefonatën-konferencë"</string>
     <string name="ok" msgid="3811371167865772377">"Në rregull"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"Altoparlant"</string>
@@ -77,6 +77,9 @@
     <string name="voicemail" msgid="8693759337917898954">"Posta zanore"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"Posta zanore (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
+    <string name="make_and_receive_calls" msgid="1258596928285972166">"Bëj dhe merr telefonata"</string>
+    <string name="smart_forwarding_settings_menu" msgid="3874243342391798449">"Transferimi inteligjent"</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="8962247659470565059">"Kur një numër nuk është i arritshëm, transferoji gjithmonë telefonatat te numri yt tjetër"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"Njoftimet"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"Transmetimet e urgjencës"</string>
     <string name="call_settings" msgid="6112441768261754562">"Cilësimet e telefonatës"</string>
@@ -170,6 +173,7 @@
     <string name="registration_done" msgid="495135664535876612">"Regjistruar në rrjet."</string>
     <string name="already_auto" msgid="6067116884321285507">"Tashmë në zgjedhjen automatike."</string>
     <string name="select_automatically" msgid="1046727200631770962">"Zgjidh automatikisht rrjetin"</string>
+    <string name="manual_mode_disallowed_summary" msgid="70662262085937277">"Nuk ofrohet kur është lidhur me %1$s"</string>
     <string name="network_select_title" msgid="7733107364757544558">"Rrjeti"</string>
     <string name="register_automatically" msgid="6017849844573519637">"Regjistrim automatik…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"Lloji i preferuar i rrjetit"</string>
@@ -235,8 +239,12 @@
     <string name="call_category" msgid="5863978196309462052">"Po telefonon"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"Rrjeti"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"Modaliteti i përparuar 4G LTE"</string>
-    <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"Telefonatë e avancuar"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"Përdor shërbimet LTE për të përmirësuar komunikimet zanore dhe të tjera (rekomandohet)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"Përdor shërbimet 4G për të përmirësuar komunikimet zanore dhe të tjera (rekomandohet)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"Të dhënat janë të aktivizuara"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"Lejo përdorimin e të dhënave"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"Kujdes!"</string>
@@ -392,7 +400,7 @@
     <string name="fdn_list_with_label" msgid="7437232552210469217">"Lista e FDN-së (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="fdn_activation" msgid="2156479741307463576">"Aktivizimi i FDN-së"</string>
     <string name="fdn_enabled" msgid="5238109009915521240">"Numrat me telefonim të përzgjedhur u aktivizuan"</string>
-    <string name="fdn_disabled" msgid="4700049736675368279">"Numrat me telefonim të përzgjedhur u çaktivizuan"</string>
+    <string name="fdn_disabled" msgid="4700049736675368279">"Numrat me telefonim të përzgjedhur janë të çaktivizuar"</string>
     <string name="enable_fdn" msgid="3740191529180493851">"Aktivizo FDN-në"</string>
     <string name="disable_fdn" msgid="7944020890722540616">"Çaktivizo FDN-në"</string>
     <string name="change_pin2" msgid="2153563695382176676">"Ndrysho PIN2-shin"</string>
@@ -482,7 +490,7 @@
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"Formo numrin <xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g>"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"Numri i postës zanore është i panjohur"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"Nuk ka shërbim"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"Rrjeti i përzgjedhur (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) nuk mundësohet"</string>
+    <string name="notification_network_selection_text" msgid="7550380440576731104">"Rrjeti i zgjedhur <xliff:g id="OPERATOR_NAME">%s</xliff:g> nuk ofrohet"</string>
     <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"Aktivizo rrjetin celular, çaktivizo modalitetin e aeroplanit ose modalitetin e kursyesit të baterisë për të bërë një telefonatë."</string>
     <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"Çaktivizo modalitetin e aeroplanit për të bërë telefonata."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"Çaktivizo modalitetin e aeroplanit ose lidhu me ndonjë rrjet interneti valor për të bërë telefonata."</string>
@@ -495,21 +503,32 @@
     <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"Telefonata nuk mund të shtohet në këtë moment. Mund të provosh të kontaktosh duke dërguar një mesazh."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"Shërbimi nuk mbështetet"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"Nuk mund të ndryshojë telefonatat."</string>
+    <string name="incall_error_supp_service_resume" msgid="7147983409782027448">"Telefonata nuk mund të vazhdojë."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"Nuk mund të ndajë telefonatën."</string>
     <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"Nuk mund të transferojë."</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"Nuk mund të kryejë telefonatë konference."</string>
+    <string name="incall_error_supp_service_conference" msgid="2530955482970678150">"Telefonatat nuk mund të shkrihen."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"Nuk mund të refuzojë telefonatën."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"Nuk mund të lëshojë telefonatën(at)."</string>
     <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"Telefonatat nuk mund të mbahen në pritje."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"Lidhu me një rrjet me valë për të bërë një telefonatë."</string>
     <string name="incall_error_promote_wfc" msgid="106510757624022064">"Aktivizo telefonatat nëpërmjet rrjetit Wi-Fi për të bërë një telefonatë."</string>
+    <string name="emergency_information_hint" msgid="399011533038204351">"Informacioni i urgjencës"</string>
+    <string name="emergency_information_owner_hint" msgid="688331472291637149">"Zotëruesi"</string>
+    <string name="emergency_information_confirm_hint" msgid="4039012670779853030">"Trokit përsëri për të shikuar informacionet"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"Telefonata e urgjencës"</string>
+    <string name="single_emergency_number_title" msgid="4959203129714396515">"Numri i urgjencës"</string>
+    <string name="numerous_emergency_numbers_title" msgid="754158099451343898">"Numrat e urgjencës"</string>
+    <string name="emergency_call_shortcut_hint" msgid="6506167229097004348">"Trokit përsëri për të telefonuar <xliff:g id="EMERGENCY_NUMBER">%s</xliff:g>"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"Po aktivizon radion…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"Nuk ka shërbim. Po provon sërish…"</string>
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"Nuk mund të hysh në modalitetin e aeroplanit gjatë telefonatave të urgjencës."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"Nuk mund të telefonohet. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> nuk është numër urgjence."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"Nuk mund të telefonohet. Formo një numër urgjence."</string>
     <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"Telefonatat e urgjencës nuk ofrohen"</string>
+    <string name="police_type_description" msgid="5324410799919829693">"Policia"</string>
+    <string name="ambulance_type_description" msgid="4114815025408089866">"Ambulancë"</string>
+    <string name="fire_type_description" msgid="7145996705197064710">"Zjarr"</string>
+    <string name="description_concat_format" msgid="7141070875487870177">"%1$s, %2$s"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"Përdor tastierën për të formuar numrin"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"Në pritje"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"Përfundo"</string>
@@ -595,6 +614,8 @@
     <string name="selectContact" msgid="781975788478987237">"përzgjidh kontaktin"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"Telefonata zanore nuk mbështetet"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"formo numrin"</string>
+    <string name="description_dialpad_button" msgid="5220006811894230590">"shfaq bllokun e formimit të numrit"</string>
+    <string name="pane_title_emergency_dialpad" msgid="1148505414688493134">"Blloku i formimit të numrit të urgjencës"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"Posta zanore vizuale"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"Konfiguro kodin PIN"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"Ndrysho kodin PIN"</string>
@@ -645,58 +666,58 @@
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"SHTO TË DHËNA"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"ANULO"</string>
     <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"Telefonata përfundoi"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"Radioja joaktive"</string>
-    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"Nuk ka kartë SIM ose gabim i kartës SIM"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="1049579267090569308">"Modaliteti i aeroplanit është aktiv"</string>
+    <string name="clh_callFailed_simError_txt" msgid="7273306159809203315">"Nuk ka qasje te karta SIM"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"Rrjeti celular nuk ofrohet"</string>
-    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"Numër jo i caktuar (i pashpërndarë)"</string>
-    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"Nuk ka asnjë itinerar për në vendmbërritje"</string>
-    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"Kanali i papranueshëm"</string>
-    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"Bllokimi i përcaktuar nga operatori"</string>
-    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"Pastrimi normal i telefonatave"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="4722164461846838251">"Problem me numrin e telefonit që po përpiqesh të telefonosh. Kodi i gabimit 1."</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="2259464183880140671">"Telefonata nuk mund të kryhej. Kodi i gabimit 3."</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="3159336281525222855">"Telefonata nuk mund të kryhej. Kodi i gabimit 6."</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="1831977101604817389">"Telefonata nuk mund të kryhej. Kodi i gabimit 8."</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="7369313431310446847">"Telefonata nuk mund të kryhej. Kodi i gabimit 16."</string>
     <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"Përdoruesi është i zënë"</string>
-    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"Nuk përgjigjet asnjë përdorues"</string>
-    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"Sinjalizimi i përdoruesit, pa përgjigje"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="3675206502567252162">"User not responding"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="363445537769733281">"Telefonata nuk mund të kryhej. Kodi i gabimit 19."</string>
     <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"Telefonata u refuzua"</string>
     <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"Numri u ndryshua"</string>
-    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"Marrje paraprake"</string>
-    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"Pastrimi i përdoruesit nuk është zgjedhur"</string>
-    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"Vendmbërritja jashtë shërbimit"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="1100414016302714854">"Telefonata nuk mund të kryhej. Kodi i gabimit 25."</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="6248192300127702626">"Telefonata nuk mund të kryhej. Kodi i gabimit 26."</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="4879936907430554772">"Telefonata nuk mund të kryhej. Kodi i gabimit 27."</string>
     <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"Formati i numrit i pavlefshëm (numri jo i plotë)"</string>
-    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"Shërbimi u refuzua"</string>
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"Përgjigjja për PYETJEN PËR STATUSIN"</string>
-    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"Normale, e paspecifikuar"</string>
-    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"Nuk ofrohet asnjë qark/kanal"</string>
-    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"Rrjeti jashtë shërbimit"</string>
-    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"Dështim i përkohshëm"</string>
-    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"Bllokim i ndërrimit të pajisjes"</string>
-    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"Informacionet e qasjes u hoqën"</string>
-    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"Qarku/kanali i kërkuar nuk ofrohet"</string>
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"Burimet nuk ofrohen, e paspecifikuar"</string>
-    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"Cilësia e shërbimit nuk ofrohet"</string>
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"Shërbimi i kërkuar nuk ka abonim"</string>
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"Telefonatat hyrëse janë bllokuar në CUG"</string>
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"Aftësia e mbajtësit nuk është e autorizuar"</string>
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"Aftësia e mbajtësit nuk ofrohet aktualisht"</string>
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"Shërbimi ose opsioni nuk ofrohet, i paspecifikuar"</string>
-    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"Shërbimi i mbajtësit nuk është zbatuar"</string>
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"Vlera e ACM-së e barabartë ose më e madhe se vlera maksimale e ACM-së"</string>
-    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"Shërbimi i kërkuar nuk u zbatua"</string>
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"Ofrohet vetëm aftësia e kufizuar e mbajtësit për informacionet dixhitale"</string>
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"Shërbimi ose opsioni nuk u zbatua, i paspecifikuar"</string>
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"Vlera e identifikuesit të transaksionit e pavlefshme"</string>
-    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"Përdoruesi nuk është anëtar i CUG"</string>
-    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"Vendmbërritja e papërputhshme"</string>
-    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"Zgjedhja e rrjetit të transitit e pavlefshme"</string>
-    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"Mesazh i pasaktë në aspektin semantik"</string>
-    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"Informacione të detyrueshme të pavlefshme"</string>
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"Lloji i mesazhit nuk ekziston ose nuk është zbatuar"</string>
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"Lloji i mesazhit nuk përputhet me gjendjen e protokollit"</string>
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"Elementi i informacioneve nuk ekziston ose nuk është zbatuar"</string>
-    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"Gabim i kushtëzuar i IE-së"</string>
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"Mesazhi nuk përputhet me gjendjen e protokollit"</string>
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"Rikuperimi pas skadimit të kohëmatësit"</string>
-    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"Gabim i protokollit, i paspecifikuar"</string>
-    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"Ndërlidhja, e paspecifikuar"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="1028912823639389563">"Telefonata nuk mund të kryhej. Kodi i gabimit 29."</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="1250833944238081212">"Telefonata nuk mund të kryhej. Kodi i gabimit 30."</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="8765640093649364786">"Telefonata nuk mund të kryhej. Kodi i gabimit 31."</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="6884477141997665736">"Telefonata nuk mund të kryhej. Kodi i gabimit 34."</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="76447023032000125">"Telefonata nuk mund të kryhej. Kodi i gabimit 38."</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="5057716306945664356">"Telefonata nuk mund të kryhej. Kodi i gabimit 41."</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="4958831706265227632">"Telefonata nuk mund të kryhej. Kodi i gabimit 42."</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="5033636666434831179">"Telefonata nuk mund të kryhej. Kodi i gabimit 43."</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="3221429183862933558">"Telefonata nuk mund të kryhej. Kodi i gabimit 44."</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="1385943395137055442">"Telefonata nuk mund të kryhej. Kodi i gabimit 47."</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="8464132603057397297">"Telefonata nuk mund të kryhej. Kodi i gabimit 49."</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="3853815238079666882">"Telefonata nuk mund të kryhej. Kodi i gabimit 50."</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="6791665425652545510">"Telefonata nuk mund të kryhej. Kodi i gabimit 55."</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="2975453855928450909">"Telefonata nuk mund të kryhej. Kodi i gabimit 57."</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="753763978405557873">"Telefonata nuk mund të kryhej. Kodi i gabimit 58."</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="1714515856150546668">"Telefonata nuk mund të kryhej. Kodi i gabimit 63."</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="5433179845809692163">"Telefonata nuk mund të kryhej. Kodi i gabimit 65."</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="4339523227014428123">"Telefonata nuk mund të kryhej. Kodi i gabimit 68."</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="5217500914101821728">"Telefonata nuk mund të kryhej. Kodi i gabimit 69."</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="2423146296631060723">"Telefonata nuk mund të kryhej. Kodi i gabimit 70."</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="873208782556277597">"Telefonata nuk mund të kryhej. Kodi i gabimit 79."</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3926779129494281620">"Telefonata nuk mund të kryhej. Kodi i gabimit 81."</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="2517559636224367413">"Telefonata nuk mund të kryhej. Kodi i gabimit 87."</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="7994154962189949306">"Telefonata nuk mund të kryhej. Kodi i gabimit 88."</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="5847046471813330674">"Telefonata nuk mund të kryhej. Kodi i gabimit 91."</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="5419940790658960361">"Telefonata nuk mund të kryhej. Kodi i gabimit 95."</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="3350178645665420102">"Telefonata nuk mund të kryhej. Kodi i gabimit 96."</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="7080310506268713895">"Telefonata nuk mund të kryhej. Kodi i gabimit 97."</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="5251558113020693277">"Telefonata nuk mund të kryhej. Kodi i gabimit 98."</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="1643642065908165846">"Telefonata nuk mund të kryhej. Kodi i gabimit 99."</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="1622467860490603665">"Telefonata nuk mund të kryhej. Kodi i gabimit 100."</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="3776039646804248109">"Telefonata nuk mund të kryhej. Kodi i gabimit 101."</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="4529313282997136028">"Telefonata nuk mund të kryhej. Kodi i gabimit 102."</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="4900075501687505296">"Telefonata nuk mund të kryhej. Kodi i gabimit 111."</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="6701560054199411045">"Telefonata nuk mund të kryhej. Kodi i gabimit 127."</string>
     <string name="labelCallBarring" msgid="3452870940716226978">"Bllokimi i telefonatave"</string>
     <string name="sum_call_barring_enabled" msgid="6804489690436703488">"Aktiv"</string>
     <string name="sum_call_barring_disabled" msgid="5900772179198857783">"Joaktiv"</string>
@@ -730,6 +751,8 @@
     <string name="messageCallBarring" msgid="2412123220272136055">"Fut fjalëkalimin"</string>
     <string name="call_barring_settings" msgid="80766145008623645">"Cilësimet e bllokimit të telefonatave"</string>
     <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"Të çaktivizohen të gjitha cilësimet e bllokimit të telefonatave?"</string>
+    <string name="callFailed_NetworkBusy" msgid="1068322087736565421">"Rrjeti është i zënë. Provo ta kryesh telefonatën përsëri më vonë."</string>
+    <string name="callFailed_NetworkCongested" msgid="3313449239735315125">"Rrjeti është i mbingarkuar. Kontakto me operatorin tënd celular për ndihmë."</string>
     <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"Telefonata u devijua."</string>
     <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"Telefonata u transferua."</string>
     <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"Telefonata është në pritje."</string>
@@ -747,4 +770,14 @@
     <string name="supp_service_forwarded_call" msgid="4509980341645679803">"Telefonatë e transferuar."</string>
     <string name="supp_service_conference_call" msgid="4448616364004466832">"Po bashkohesh në një telefonatë konferencë."</string>
     <string name="supp_service_held_call_released" msgid="2030677825038709779">"Telefonata në pritje u shkëput."</string>
+    <string name="callFailed_otasp_provisioning_in_process" msgid="6361786376484384454">"Telefonata nuk mund të kryhet sepse pajisja po përgatitet aktualisht."</string>
+    <string name="callFailed_already_dialing" msgid="4652915396769232226">"Nuk mund të kryhet një telefonatë pasi një telefonatë tjetër dalëse është duke u kryer tashmë."</string>
+    <string name="callFailed_already_ringing" msgid="7747655701540586943">"Nuk mund të kryhet një telefonatë sepse është një telefonatë hyrëse që nuk ka marrë përgjigje. Përgjigju ose refuzoje telefonatën hyrëse para se të kryesh një telefonatë të re."</string>
+    <string name="callFailed_calling_disabled" msgid="7257184079619449933">"Nuk mund të kryhet një telefonatë sepse telefonata është çaktivizuar duke përdorur vetinë e sistemit ro.telephony.disable-call."</string>
+    <string name="callFailed_too_many_calls" msgid="3023051919216926990">"Nuk mund të kryhet një telefonatë sepse janë tashmë dy telefonata në vazhdim. Shkëput një nga telefonatat ose shkriji ato në një konferencë para se të kryesh një telefonatë të re."</string>
+    <string name="supp_service_over_ut_precautions" msgid="2565837355815074278">"Për të përdorur <xliff:g id="SUPP_SERVICE">%s</xliff:g>, sigurohu që të dhënat celulare janë të aktivizuara. Mund ta ndryshosh këtë te cilësimet e rrjetit celular."</string>
+    <string name="supp_service_over_ut_precautions_roaming" msgid="1597142936802114092">"Për të përdorur <xliff:g id="SUPP_SERVICE">%s</xliff:g>, sigurohu që të dhënat celulare dhe roaming për të dhënat janë aktivizuar. Mund ta ndryshosh këtë te cilësimet e rrjetit celular."</string>
+    <string name="supp_service_over_ut_precautions_dual_sim" msgid="1682814794340311300">"Për të përdorur <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, sigurohu që të dhënat celulare janë të aktivizuara për kartën SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Mund ta ndryshosh këtë te cilësimet e rrjetit celular."</string>
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim" msgid="8062345092837168385">"Për të përdorur <xliff:g id="SUPP_SERVICE">%1$s</xliff:g>, sigurohu që të dhënat celulare dhe roaming për të dhënat janë aktivizuar për kartën SIM <xliff:g id="SIM_NUMBER">%2$d</xliff:g>. Mund ta ndryshosh këtë te cilësimet e rrjetit celular."</string>
+    <string name="supp_service_over_ut_precautions_dialog_dismiss" msgid="5061044213859557398">"Hiq"</string>
 </resources>

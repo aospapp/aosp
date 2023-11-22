@@ -20,13 +20,16 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.database.sqlite.SQLiteException;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.net.TrafficStats;
 import android.net.Uri;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 import com.android.tv.common.util.NetworkTrafficTags;
@@ -86,6 +89,19 @@ public final class BitmapUtils {
                 id,
                 scaleBitmap(bm, maxWidth, maxHeight),
                 calculateInSampleSize(bm.getWidth(), bm.getHeight(), maxWidth, maxHeight));
+    }
+
+    @Nullable
+    public static Bitmap drawableToBitmap(Drawable drawable) {
+        if (drawable == null) {
+            return null;
+        }
+        Bitmap bm = Bitmap.createBitmap(
+                drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Config.ARGB_8888);
+        Canvas canvas = new Canvas(bm);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return bm;
     }
 
     /** Decode large sized bitmap into requested size. */

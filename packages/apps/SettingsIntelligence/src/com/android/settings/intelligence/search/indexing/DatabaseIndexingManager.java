@@ -17,6 +17,7 @@
 package com.android.settings.intelligence.search.indexing;
 
 import static com.android.settings.intelligence.search.query.DatabaseResultTask.SELECT_COLUMNS;
+import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_AUTHORITY;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_PACKAGE;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.CLASS_NAME;
 import static com.android.settings.intelligence.search.indexing.IndexDatabaseHelper.IndexColumns.DATA_ENTRIES;
@@ -46,7 +47,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.os.AsyncTask;
 import android.provider.SearchIndexablesContract;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
@@ -220,6 +221,7 @@ public class DatabaseIndexingManager {
             values.put(DATA_ENTRIES, dataRow.entries);
             values.put(DATA_KEYWORDS, dataRow.spaceDelimitedKeywords);
             values.put(DATA_PACKAGE, dataRow.packageName);
+            values.put(DATA_AUTHORITY, dataRow.authority);
             values.put(CLASS_NAME, dataRow.className);
             values.put(SCREEN_TITLE, dataRow.screenTitle);
             values.put(INTENT_ACTION, dataRow.intentAction);
@@ -241,7 +243,7 @@ public class DatabaseIndexingManager {
      * All rows which are disabled but no longer a non-indexable key will become enabled.
      *
      * @param database         The database to validate.
-     * @param nonIndexableKeys A map between package name and the set of non-indexable keys for it.
+     * @param nonIndexableKeys A map between authority and the set of non-indexable keys for it.
      */
     @VisibleForTesting
     void updateDataInDatabase(SQLiteDatabase database,
@@ -255,17 +257,17 @@ public class DatabaseIndexingManager {
         final ContentValues enabledToDisabledValue = new ContentValues();
         enabledToDisabledValue.put(ENABLED, 0);
 
-        String packageName;
+        String authority;
         // TODO Refactor: Move these two loops into one method.
         while (enabledResults.moveToNext()) {
-            packageName = enabledResults.getString(enabledResults.getColumnIndexOrThrow(
-                    IndexDatabaseHelper.IndexColumns.DATA_PACKAGE));
+            authority = enabledResults.getString(enabledResults.getColumnIndexOrThrow(
+                    DATA_AUTHORITY));
             final String key = enabledResults.getString(enabledResults.getColumnIndexOrThrow(
-                    IndexDatabaseHelper.IndexColumns.DATA_KEY_REF));
-            final Set<String> packageKeys = nonIndexableKeys.get(packageName);
+                    DATA_KEY_REF));
+            final Set<String> authorityKeys = nonIndexableKeys.get(authority);
 
             // The indexed item is set to Enabled but is now non-indexable
-            if (packageKeys != null && packageKeys.contains(key)) {
+            if (authorityKeys != null && authorityKeys.contains(key)) {
                 final String whereClause = getKeyWhereClause(key);
                 database.update(TABLE_PREFS_INDEX, enabledToDisabledValue, whereClause, null);
             }
@@ -279,17 +281,17 @@ public class DatabaseIndexingManager {
         disabledToEnabledValue.put(ENABLED, 1);
 
         while (disabledResults.moveToNext()) {
-            packageName = disabledResults.getString(disabledResults.getColumnIndexOrThrow(
-                    IndexDatabaseHelper.IndexColumns.DATA_PACKAGE));
+            authority = disabledResults.getString(disabledResults.getColumnIndexOrThrow(
+                    DATA_AUTHORITY));
 
             final String key = disabledResults.getString(disabledResults.getColumnIndexOrThrow(
-                    IndexDatabaseHelper.IndexColumns.DATA_KEY_REF));
-            final Set<String> packageKeys = nonIndexableKeys.get(packageName);
+                    DATA_KEY_REF));
+            final Set<String> authorityKeys = nonIndexableKeys.get(authority);
 
             // The indexed item is set to Disabled but is no longer non-indexable.
-            // We do not enable keys when packageKeys is null because it means the keys came
-            // from an unrecognized package and therefore should not be surfaced as results.
-            if (packageKeys != null && !packageKeys.contains(key)) {
+            // We do not enable keys when authorityKeys is null because it means the keys came
+            // from an unrecognized authority and therefore should not be surfaced as results.
+            if (authorityKeys != null && !authorityKeys.contains(key)) {
                 final String whereClause = getKeyWhereClause(key);
                 database.update(TABLE_PREFS_INDEX, disabledToEnabledValue, whereClause, null);
             }

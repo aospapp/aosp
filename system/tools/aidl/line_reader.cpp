@@ -30,7 +30,7 @@ namespace aidl {
 class FileLineReader : public LineReader {
  public:
   FileLineReader() = default;
-  virtual ~FileLineReader() {
+  ~FileLineReader() override {
     input_stream_.close();
   }
 
@@ -57,7 +57,7 @@ class FileLineReader : public LineReader {
 class MemoryLineReader : public LineReader {
  public:
   explicit MemoryLineReader(const string& contents) : input_stream_(contents) {}
-  virtual ~MemoryLineReader() = default;
+  ~MemoryLineReader() override = default;
 
   bool ReadLine(string* line) override {
     if (!input_stream_.good()) {

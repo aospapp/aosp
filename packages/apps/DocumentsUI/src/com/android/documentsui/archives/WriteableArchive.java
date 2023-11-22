@@ -19,33 +19,30 @@ package com.android.documentsui.archives;
 import android.content.Context;
 import android.net.Uri;
 import android.os.CancellationSignal;
+import android.os.FileUtils;
 import android.os.OperationCanceledException;
-import android.os.ParcelFileDescriptor.AutoCloseOutputStream;
 import android.os.ParcelFileDescriptor;
+import android.os.ParcelFileDescriptor.AutoCloseOutputStream;
 import android.provider.DocumentsContract.Document;
-import android.support.annotation.Nullable;
 import android.util.Log;
 
-import com.android.internal.annotations.GuardedBy;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.GuardedBy;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
-import libcore.io.IoUtils;
-
-import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
+
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 
 /**
  * Provides basic implementation for creating archives.
@@ -59,7 +56,7 @@ public class WriteableArchive extends Archive {
     private final Set<String> mPendingEntries = new HashSet<>();
     private final ExecutorService mExecutor = Executors.newSingleThreadExecutor();
     @GuardedBy("mEntries")
-    private final ZipOutputStream mZipOutputStream;
+    private final ZipArchiveOutputStream mZipOutputStream;
     private final AutoCloseOutputStream mOutputStream;
 
     /**
@@ -77,17 +74,17 @@ public class WriteableArchive extends Archive {
             throw new IllegalStateException("Unsupported access mode.");
         }
 
-        addEntry(null /* no parent */, new ZipEntry("/"));  // Root entry.
+        addEntry(null /* no parent */, new ZipArchiveEntry("/"));  // Root entry.
         mOutputStream = new AutoCloseOutputStream(fd);
-        mZipOutputStream = new ZipOutputStream(mOutputStream);
+        mZipOutputStream = new ZipArchiveOutputStream(mOutputStream);
     }
 
-    private void addEntry(@Nullable ZipEntry parentEntry, ZipEntry entry) {
+    private void addEntry(@Nullable ZipArchiveEntry parentEntry, ZipArchiveEntry entry) {
         final String entryPath = getEntryPath(entry);
         synchronized (mEntries) {
             if (entry.isDirectory()) {
                 if (!mTree.containsKey(entryPath)) {
-                    mTree.put(entryPath, new ArrayList<ZipEntry>());
+                    mTree.put(entryPath, new ArrayList<>());
                 }
             }
             mEntries.put(entryPath, entry);
@@ -115,7 +112,7 @@ public class WriteableArchive extends Archive {
      * @param descriptor File descriptor for the archive's contents.
      * @param archiveUri Uri of the archive document.
      * @param accessMode Access mode for the archive {@see ParcelFileDescriptor}.
-     * @param Uri notificationUri Uri for notifying that the archive file has changed.
+     * @param notificationUri notificationUri Uri for notifying that the archive file has changed.
      */
     @VisibleForTesting
     public static WriteableArchive createForParcelFileDescriptor(
@@ -128,7 +125,7 @@ public class WriteableArchive extends Archive {
         } catch (Exception e) {
             // Since the method takes ownership of the passed descriptor, close it
             // on exception.
-            IoUtils.closeQuietly(descriptor);
+            FileUtils.closeQuietly(descriptor);
             throw e;
         }
     }
@@ -142,17 +139,19 @@ public class WriteableArchive extends Archive {
                 "Mismatching archive Uri. Expected: %s, actual: %s.");
 
         final boolean isDirectory = Document.MIME_TYPE_DIR.equals(mimeType);
-        ZipEntry entry;
+        ZipArchiveEntry entry;
         String entryPath;
 
         synchronized (mEntries) {
-            final ZipEntry parentEntry = mEntries.get(parsedParentId.mPath);
+            final ZipArchiveEntry parentEntry =
+                    (ZipArchiveEntry) mEntries.get(parsedParentId.mPath);
 
             if (parentEntry == null) {
                 throw new FileNotFoundException();
             }
 
-            if (displayName.indexOf("/") != -1 || ".".equals(displayName) || "..".equals(displayName)) {
+            if (displayName.indexOf("/") != -1 || ".".equals(displayName)
+                    || "..".equals(displayName)) {
                 throw new IllegalStateException("Display name contains invalid characters.");
             }
 
@@ -162,9 +161,10 @@ public class WriteableArchive extends Archive {
 
 
             assert(parentEntry.getName().endsWith("/"));
-            final String parentName = "/".equals(parentEntry.getName()) ? "" : parentEntry.getName();
+            final String parentName = "/".equals(parentEntry.getName())
+                    ? "" : parentEntry.getName();
             final String entryName = parentName + displayName + (isDirectory ? "/" : "");
-            entry = new ZipEntry(entryName);
+            entry = new ZipArchiveEntry(entryName);
             entryPath = getEntryPath(entry);
             entry.setSize(0);
 
@@ -185,7 +185,8 @@ public class WriteableArchive extends Archive {
         } else {
             try {
                 synchronized (mEntries) {
-                    mZipOutputStream.putNextEntry(entry);
+                    mZipOutputStream.putArchiveEntry(entry);
+                    mZipOutputStream.closeArchiveEntry();
                 }
             } catch (IOException e) {
                 throw new IllegalStateException(
@@ -206,9 +207,9 @@ public class WriteableArchive extends Archive {
         MorePreconditions.checkArgumentEquals(mArchiveUri, parsedId.mArchiveUri,
                 "Mismatching archive Uri. Expected: %s, actual: %s.");
 
-        final ZipEntry entry;
+        final ZipArchiveEntry entry;
         synchronized (mEntries) {
-            entry = mEntries.get(parsedId.mPath);
+            entry = (ZipArchiveEntry) mEntries.get(parsedId.mPath);
             if (entry == null) {
                 throw new FileNotFoundException();
             }
@@ -238,7 +239,7 @@ public class WriteableArchive extends Archive {
                                     new ParcelFileDescriptor.AutoCloseInputStream(inputPipe)) {
                                 try {
                                     synchronized (mEntries) {
-                                        mZipOutputStream.putNextEntry(entry);
+                                        mZipOutputStream.putArchiveEntry(entry);
                                         final byte buffer[] = new byte[32 * 1024];
                                         int bytes;
                                         long size = 0;
@@ -250,7 +251,7 @@ public class WriteableArchive extends Archive {
                                             size += bytes;
                                         }
                                         entry.setSize(size);
-                                        mZipOutputStream.closeEntry();
+                                        mZipOutputStream.closeArchiveEntry();
                                     }
                                 } catch (IOException e) {
                                     // Catch the exception before the outer try-with-resource closes
@@ -270,8 +271,8 @@ public class WriteableArchive extends Archive {
                         }
                     });
         } catch (RejectedExecutionException e) {
-            IoUtils.closeQuietly(pipe[0]);
-            IoUtils.closeQuietly(pipe[1]);
+            FileUtils.closeQuietly(pipe[0]);
+            FileUtils.closeQuietly(pipe[1]);
             throw new IllegalStateException("Failed to initialize pipe.");
         }
 
@@ -297,8 +298,8 @@ public class WriteableArchive extends Archive {
         synchronized (mEntries) {
             for (final String path : mPendingEntries) {
                 try {
-                    mZipOutputStream.putNextEntry(mEntries.get(path));
-                    mZipOutputStream.closeEntry();
+                    mZipOutputStream.putArchiveEntry(mEntries.get(path));
+                    mZipOutputStream.closeArchiveEntry();
                 } catch (IOException e) {
                     Log.e(TAG, "Failed to flush empty entries.", e);
                 }
@@ -311,6 +312,6 @@ public class WriteableArchive extends Archive {
             }
         }
 
-        IoUtils.closeQuietly(mOutputStream);
+        FileUtils.closeQuietly(mOutputStream);
     }
-};
+}

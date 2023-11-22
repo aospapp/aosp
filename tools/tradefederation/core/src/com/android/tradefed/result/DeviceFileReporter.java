@@ -156,34 +156,43 @@ public class DeviceFileReporter {
         for (Map.Entry<String, LogDataType> pat : mFilePatterns.entrySet()) {
             final String searchCmd = String.format("ls %s", pat.getKey());
             final String fileList = mDevice.executeShellCommand(searchCmd);
+            // Early bail out if we don't find anything
+            if (fileList.contains(": No such file or directory")) {
+                continue;
+            }
 
-            for (String filename : fileList.split("\r?\n")) {
-                filename = filename.trim();
-                if (filename.isEmpty() || filename.endsWith(": No such file or directory")) {
+            for (String line : fileList.split("\r?\n")) {
+                line = line.trim();
+                if (line.isEmpty()) {
                     continue;
                 }
-                if (mSkipRepeatFiles && mReportedFiles.contains(filename)) {
-                    CLog.v("Skipping already-reported file %s", filename);
-                    continue;
-                }
+                // If the command output files on the same line.
+                for (String filename : line.split("\\s+")) {
+                    if (mSkipRepeatFiles && mReportedFiles.contains(filename)) {
+                        CLog.v("Skipping already-reported file %s", filename);
+                        continue;
+                    }
 
-                File file = null;
-                InputStreamSource iss = null;
-                try {
-                    CLog.d("Trying to pull file '%s' from device %s", filename,
-                        mDevice.getSerialNumber());
-                    file = mDevice.pullFile(filename);
-                    iss = createIssForFile(file);
-                    final LogDataType type = getDataType(filename, pat.getValue());
-                    CLog.d("Local file %s has size %d and type %s", file, file.length(),
-                        type.getFileExt());
-                    mListener.testLog(filename, type, iss);
-                    filenames.add(filename);
-                    mReportedFiles.add(filename);
-                } finally {
-                    StreamUtil.cancel(iss);
-                    iss = null;
-                    FileUtil.deleteFile(file);
+                    File file = null;
+                    InputStreamSource iss = null;
+                    try {
+                        CLog.d(
+                                "Trying to pull file '%s' from device %s",
+                                filename, mDevice.getSerialNumber());
+                        file = mDevice.pullFile(filename);
+                        iss = createIssForFile(file);
+                        final LogDataType type = getDataType(filename, pat.getValue());
+                        CLog.d(
+                                "Local file %s has size %d and type %s",
+                                file, file.length(), type.getFileExt());
+                        mListener.testLog(filename, type, iss);
+                        filenames.add(filename);
+                        mReportedFiles.add(filename);
+                    } finally {
+                        StreamUtil.cancel(iss);
+                        iss = null;
+                        FileUtil.deleteFile(file);
+                    }
                 }
             }
         }

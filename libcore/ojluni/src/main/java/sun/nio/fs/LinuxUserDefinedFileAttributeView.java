@@ -70,10 +70,9 @@ class LinuxUserDefinedFileAttributeView
             if (unsafe.getByte(address + pos) == 0) {
                 int len = pos - start;
                 byte[] value = new byte[len];
+                // Android-changed: We don't have Unsafe.copyMemory yet, so we use getByte.
                 // unsafe.copyMemory(null, address+start, value,
                 //     Unsafe.ARRAY_BYTE_BASE_OFFSET, len);
-
-                // Android-changed: We don't have Unsafe.copyMemory yet, so we use getByte.
                 for (int i = 0; i < len; i++) {
                     value[i] = unsafe.getByte(address + start + i);
                 }

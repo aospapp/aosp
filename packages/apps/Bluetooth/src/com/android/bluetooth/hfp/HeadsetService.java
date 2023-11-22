@@ -39,9 +39,9 @@ import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.provider.Settings;
 import android.telecom.PhoneAccount;
 import android.util.Log;
+import android.util.StatsLog;
 
 import com.android.bluetooth.BluetoothMetricsProto;
 import com.android.bluetooth.Utils;
@@ -61,7 +61,8 @@ import java.util.Objects;
  * Provides Bluetooth Headset and Handsfree profile, as a service in the Bluetooth application.
  *
  * Three modes for SCO audio:
- * Mode 1: Telecom call through {@link #phoneStateChanged(int, int, int, String, int, boolean)}
+ * Mode 1: Telecom call through {@link #phoneStateChanged(int, int, int, String, int, String,
+ *         boolean)}
  * Mode 2: Virtual call through {@link #startScoUsingVirtualVoiceCall()}
  * Mode 3: Voice recognition through {@link #startVoiceRecognition(BluetoothDevice)}
  *
@@ -219,7 +220,9 @@ public class HeadsetService extends ProfileService {
         mStateMachinesThread.quitSafely();
         mStateMachinesThread = null;
         // Step 1: Clear
-        mAdapterService = null;
+        synchronized (mStateMachines) {
+            mAdapterService = null;
+        }
         return true;
     }
 
@@ -333,8 +336,8 @@ public class HeadsetService extends ProfileService {
                                 + ", scale=" + scale);
                         return;
                     }
-                    batteryLevel = batteryLevel * 5 / scale;
-                    mSystemInterface.getHeadsetPhoneState().setCindBatteryCharge(batteryLevel);
+                    int cindBatteryLevel = Math.round(batteryLevel * 5 / ((float) scale));
+                    mSystemInterface.getHeadsetPhoneState().setCindBatteryCharge(cindBatteryLevel);
                     break;
                 }
                 case AudioManager.VOLUME_CHANGED_ACTION: {
@@ -600,12 +603,12 @@ public class HeadsetService extends ProfileService {
 
         @Override
         public void phoneStateChanged(int numActive, int numHeld, int callState, String number,
-                int type) {
+                int type, String name) {
             HeadsetService service = getService();
             if (service == null) {
                 return;
             }
-            service.phoneStateChanged(numActive, numHeld, callState, number, type, false);
+            service.phoneStateChanged(numActive, numHeld, callState, number, type, name, false);
         }
 
         @Override
@@ -770,14 +773,14 @@ public class HeadsetService extends ProfileService {
     public List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
         ArrayList<BluetoothDevice> devices = new ArrayList<>();
-        if (states == null) {
-            return devices;
-        }
-        final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
-        if (bondedDevices == null) {
-            return devices;
-        }
         synchronized (mStateMachines) {
+            if (states == null || mAdapterService == null) {
+                return devices;
+            }
+            final BluetoothDevice[] bondedDevices = mAdapterService.getBondedDevices();
+            if (bondedDevices == null) {
+                return devices;
+            }
             for (BluetoothDevice device : bondedDevices) {
                 final ParcelUuid[] featureUuids = mAdapterService.getRemoteUuids(device);
                 if (!BluetoothUuid.containsAnyUuid(featureUuids, HEADSET_UUIDS)) {
@@ -808,18 +811,17 @@ public class HeadsetService extends ProfileService {
 
     public boolean setPriority(BluetoothDevice device, int priority) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()), priority);
         Log.i(TAG, "setPriority: device=" + device + ", priority=" + priority + ", "
                 + Utils.getUidPidString());
+        mAdapterService.getDatabase()
+                .setProfilePriority(device, BluetoothProfile.HEADSET, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_PERM, "Need BLUETOOTH permission");
-        return Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
+        return mAdapterService.getDatabase()
+                .getProfilePriority(device, BluetoothProfile.HEADSET);
     }
 
     boolean startVoiceRecognition(BluetoothDevice device) {
@@ -1004,6 +1006,36 @@ public class HeadsetService extends ProfileService {
             return stateMachines.get(0).getDevice();
         }
         return null;
+    }
+
+    /**
+     * Process a change in the silence mode for a {@link BluetoothDevice}.
+     *
+     * @param device the device to change silence mode
+     * @param silence true to enable silence mode, false to disable.
+     * @return true on success, false on error
+     */
+    @VisibleForTesting
+    public boolean setSilenceMode(BluetoothDevice device, boolean silence) {
+        Log.d(TAG, "setSilenceMode(" + device + "): " + silence);
+
+        if (silence && Objects.equals(mActiveDevice, device)) {
+            setActiveDevice(null);
+        } else if (!silence && mActiveDevice == null) {
+            // Set the device as the active device if currently no active device.
+            setActiveDevice(device);
+        }
+        synchronized (mStateMachines) {
+            final HeadsetStateMachine stateMachine = mStateMachines.get(device);
+            if (stateMachine == null) {
+                Log.w(TAG, "setSilenceMode: device " + device
+                        + " was never connected/connecting");
+                return false;
+            }
+            stateMachine.setSilenceDevice(silence);
+        }
+
+        return true;
     }
 
     /**
@@ -1221,9 +1253,9 @@ public class HeadsetService extends ProfileService {
             }
             mVirtualCallStarted = true;
             // Send virtual phone state changed to initialize SCO
-            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_DIALING, "", 0, true);
-            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_ALERTING, "", 0, true);
-            phoneStateChanged(1, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, true);
+            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_DIALING, "", 0, "", true);
+            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_ALERTING, "", 0, "", true);
+            phoneStateChanged(1, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, "", true);
             return true;
         }
     }
@@ -1239,7 +1271,7 @@ public class HeadsetService extends ProfileService {
             }
             mVirtualCallStarted = false;
             // 2. Send virtual phone state changed to close SCO
-            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, true);
+            phoneStateChanged(0, 0, HeadsetHalConstants.CALL_STATE_IDLE, "", 0, "", true);
         }
         return true;
     }
@@ -1452,7 +1484,7 @@ public class HeadsetService extends ProfileService {
     }
 
     private void phoneStateChanged(int numActive, int numHeld, int callState, String number,
-            int type, boolean isVirtualCall) {
+            int type, String name, boolean isVirtualCall) {
         enforceCallingOrSelfPermission(MODIFY_PHONE_STATE, "Need MODIFY_PHONE_STATE permission");
         synchronized (mStateMachines) {
             // Should stop all other audio mode in this case
@@ -1486,22 +1518,22 @@ public class HeadsetService extends ProfileService {
             }
         }
         mStateMachinesThread.getThreadHandler().post(() -> {
-            boolean shouldCallAudioBeActiveBefore = shouldCallAudioBeActive();
+            boolean isCallIdleBefore = mSystemInterface.isCallIdle();
             mSystemInterface.getHeadsetPhoneState().setNumActiveCall(numActive);
             mSystemInterface.getHeadsetPhoneState().setNumHeldCall(numHeld);
             mSystemInterface.getHeadsetPhoneState().setCallState(callState);
             // Suspend A2DP when call about is about to become active
             if (callState != HeadsetHalConstants.CALL_STATE_DISCONNECTED
-                    && shouldCallAudioBeActive() && !shouldCallAudioBeActiveBefore) {
+                    && !mSystemInterface.isCallIdle() && isCallIdleBefore) {
                 mSystemInterface.getAudioManager().setParameters("A2dpSuspended=true");
             }
         });
         doForEachConnectedStateMachine(
                 stateMachine -> stateMachine.sendMessage(HeadsetStateMachine.CALL_STATE_CHANGED,
-                        new HeadsetCallState(numActive, numHeld, callState, number, type)));
+                        new HeadsetCallState(numActive, numHeld, callState, number, type, name)));
         mStateMachinesThread.getThreadHandler().post(() -> {
             if (callState == HeadsetHalConstants.CALL_STATE_IDLE
-                    && !shouldCallAudioBeActive() && !isAudioOn()) {
+                    && mSystemInterface.isCallIdle() && !isAudioOn()) {
                 // Resume A2DP when call ended and SCO is not connected
                 mSystemInterface.getAudioManager().setParameters("A2dpSuspended=false");
             }
@@ -1668,6 +1700,8 @@ public class HeadsetService extends ProfileService {
 
     private void broadcastActiveDevice(BluetoothDevice device) {
         logD("broadcastActiveDevice: " + device);
+        StatsLog.write(StatsLog.BLUETOOTH_ACTIVE_DEVICE_CHANGED, BluetoothProfile.HEADSET,
+                mAdapterService.obfuscateAddress(device));
         Intent intent = new Intent(BluetoothHeadset.ACTION_ACTIVE_DEVICE_CHANGED);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
@@ -1688,24 +1722,18 @@ public class HeadsetService extends ProfileService {
             return false;
         }
         // Check priority and accept or reject the connection.
-        // Note: Logic can be simplified, but keeping it this way for readability
         int priority = getPriority(device);
         int bondState = mAdapterService.getBondState(device);
-        // If priority is undefined, it is likely that service discovery has not completed and peer
-        // initiated the connection. Allow this connection only if the device is bonded or bonding
-        boolean serviceDiscoveryPending = (priority == BluetoothProfile.PRIORITY_UNDEFINED) && (
-                bondState == BluetoothDevice.BOND_BONDING
-                        || bondState == BluetoothDevice.BOND_BONDED);
-        // Also allow connection when device is bonded/bonding and priority is ON/AUTO_CONNECT.
-        boolean isEnabled = (priority == BluetoothProfile.PRIORITY_ON
-                || priority == BluetoothProfile.PRIORITY_AUTO_CONNECT) && (
-                bondState == BluetoothDevice.BOND_BONDED
-                        || bondState == BluetoothDevice.BOND_BONDING);
-        if (!serviceDiscoveryPending && !isEnabled) {
-            // Otherwise, reject the connection if no service discovery is pending and priority is
-            // neither PRIORITY_ON nor PRIORITY_AUTO_CONNECT
-            Log.w(TAG,
-                    "okToConnect: return false, priority=" + priority + ", bondState=" + bondState);
+        // Allow this connection only if the device is bonded. Any attempt to connect while
+        // bonding would potentially lead to an unauthorized connection.
+        if (bondState != BluetoothDevice.BOND_BONDED) {
+            Log.w(TAG, "okToAcceptConnection: return false, bondState=" + bondState);
+            return false;
+        } else if (priority != BluetoothProfile.PRIORITY_UNDEFINED
+                && priority != BluetoothProfile.PRIORITY_ON
+                && priority != BluetoothProfile.PRIORITY_AUTO_CONNECT) {
+            // Otherwise, reject the connection if priority is not valid.
+            Log.w(TAG, "okToAcceptConnection: return false, priority=" + priority);
             return false;
         }
         List<BluetoothDevice> connectingConnectedDevices =

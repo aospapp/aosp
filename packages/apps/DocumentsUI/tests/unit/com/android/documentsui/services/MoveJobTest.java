@@ -21,7 +21,8 @@ import static com.google.common.collect.Lists.newArrayList;
 
 import android.net.Uri;
 import android.provider.DocumentsContract.Document;
-import android.support.test.filters.MediumTest;
+
+import androidx.test.filters.MediumTest;
 
 @MediumTest
 public class MoveJobTest extends AbstractCopyJobTest<MoveJob> {

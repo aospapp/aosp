@@ -15,6 +15,8 @@
  */
 package com.android.documentsui;
 
+import static android.content.ContentResolver.wrap;
+
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
 import android.content.ContentProviderClient;
@@ -25,6 +27,7 @@ import android.graphics.Point;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.CancellationSignal;
+import android.os.FileUtils;
 import android.os.OperationCanceledException;
 import android.provider.DocumentsContract;
 import android.util.Log;
@@ -104,7 +107,8 @@ public final class ThumbnailLoader extends AsyncTask<Uri, Void, Bitmap> implemen
         try {
             client = DocumentsApplication.acquireUnstableProviderOrThrow(
                 resolver, mUri.getAuthority());
-            result = DocumentsContract.getDocumentThumbnail(client, mUri, mThumbSize, mSignal);
+            result = DocumentsContract.getDocumentThumbnail(wrap(client),
+                    mUri, mThumbSize, mSignal);
             if (result != null && mAddToCache) {
                 final ThumbnailCache cache = DocumentsApplication.getThumbnailCache(context);
                 cache.putThumbnail(mUri, mThumbSize, result, mLastModified);
@@ -114,7 +118,7 @@ public final class ThumbnailLoader extends AsyncTask<Uri, Void, Bitmap> implemen
                 Log.w(TAG, "Failed to load thumbnail for " + mUri + ": " + e);
             }
         } finally {
-            ContentProviderClient.releaseQuietly(client);
+            FileUtils.closeQuietly(client);
         }
         return result;
     }

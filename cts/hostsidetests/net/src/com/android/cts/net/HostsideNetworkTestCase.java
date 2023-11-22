@@ -128,7 +128,7 @@ abstract class HostsideNetworkTestCase extends DeviceTestCase implements IAbiRec
     protected void runDeviceTests(String packageName, String testClassName, String methodName)
             throws DeviceNotAvailableException {
         RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(packageName,
-                "android.support.test.runner.AndroidJUnitRunner", getDevice().getIDevice());
+                "androidx.test.runner.AndroidJUnitRunner", getDevice().getIDevice());
 
         if (testClassName != null) {
             if (methodName != null) {

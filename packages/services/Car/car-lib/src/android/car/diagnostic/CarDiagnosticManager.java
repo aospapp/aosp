@@ -20,10 +20,8 @@ import android.annotation.IntDef;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.car.Car;
-import android.car.CarApiUtil;
 import android.car.CarLibLog;
 import android.car.CarManagerBase;
-import android.car.CarNotConnectedException;
 import android.car.diagnostic.ICarDiagnosticEventListener.Stub;
 import android.content.Context;
 import android.os.Handler;
@@ -133,13 +131,10 @@ public final class CarDiagnosticManager implements CarManagerBase {
      * @param frameType
      * @param rate
      * @return true if the registration was successful; false otherwise
-     * @throws CarNotConnectedException
      * @throws IllegalArgumentException
      */
-    public boolean registerListener(OnDiagnosticEventListener listener,
-            @FrameType int frameType,
-            int rate)
-                throws CarNotConnectedException, IllegalArgumentException {
+    public boolean registerListener(
+            OnDiagnosticEventListener listener, @FrameType int frameType, int rate) {
         assertFrameType(frameType);
         synchronized(mActiveListeners) {
             if (null == mListenerToService) {
@@ -189,29 +184,21 @@ public final class CarDiagnosticManager implements CarManagerBase {
                     mService.unregisterDiagnosticListener(frameType,
                         mListenerToService);
                 } catch (RemoteException e) {
-                    //ignore
+                    throw e.rethrowFromSystemServer();
                 }
                 mActiveListeners.remove(frameType);
             } else if (needsServerUpdate) {
-                try {
-                    registerOrUpdateDiagnosticListener(frameType, listeners.getRate());
-                } catch (CarNotConnectedException e) {
-                    // ignore
-                }
+                registerOrUpdateDiagnosticListener(frameType, listeners.getRate());
             }
         }
     }
 
-    private boolean registerOrUpdateDiagnosticListener(@FrameType int frameType, int rate)
-        throws CarNotConnectedException {
+    private boolean registerOrUpdateDiagnosticListener(@FrameType int frameType, int rate) {
         try {
             return mService.registerOrUpdateDiagnosticListener(frameType, rate, mListenerToService);
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return false;
     }
 
     // ICarDiagnostic forwards
@@ -220,18 +207,13 @@ public final class CarDiagnosticManager implements CarManagerBase {
      * Retrieve the most-recently acquired live frame data from the car.
      * @return A CarDiagnostic event for the most recently known live frame if one is present.
      *         null if no live frame has been recorded by the vehicle.
-     * @throws CarNotConnectedException
      */
-    public @Nullable
-    CarDiagnosticEvent getLatestLiveFrame() throws CarNotConnectedException {
+    public @Nullable CarDiagnosticEvent getLatestLiveFrame() {
         try {
             return mService.getLatestLiveFrame();
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return null;
     }
 
     /**
@@ -242,17 +224,13 @@ public final class CarDiagnosticManager implements CarManagerBase {
      * Because vehicles might have a limited amount of storage for frames, clients cannot
      * assume that a timestamp obtained via this call will be indefinitely valid for retrieval
      * of the actual diagnostic data, and must be prepared to handle a missing frame.
-     * @throws CarNotConnectedException
      */
-    public long[] getFreezeFrameTimestamps() throws CarNotConnectedException {
+    public long[] getFreezeFrameTimestamps() {
         try {
             return mService.getFreezeFrameTimestamps();
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return new long[]{};
     }
 
     /**
@@ -263,19 +241,13 @@ public final class CarDiagnosticManager implements CarManagerBase {
      * Storage constraints might cause frames to be deleted from vehicle memory.
      * For this reason it cannot be assumed that a timestamp will yield a valid frame,
      * even if it was initially obtained via a call to getFreezeFrameTimestamps().
-     * @throws CarNotConnectedException
      */
-    public @Nullable
-    CarDiagnosticEvent getFreezeFrame(long timestamp)
-        throws CarNotConnectedException {
+    public @Nullable CarDiagnosticEvent getFreezeFrame(long timestamp) {
         try {
             return mService.getFreezeFrame(timestamp);
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return null;
     }
 
     /**
@@ -287,65 +259,49 @@ public final class CarDiagnosticManager implements CarManagerBase {
      * Due to storage constraints, timestamps cannot be assumed to be indefinitely valid, and
      * a false return from this method should be used by the client as cause for invalidating
      * its local knowledge of the vehicle diagnostic state.
-     * @throws CarNotConnectedException
      */
-    public boolean clearFreezeFrames(long... timestamps) throws CarNotConnectedException {
+    public boolean clearFreezeFrames(long... timestamps) {
         try {
             return mService.clearFreezeFrames(timestamps);
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return false;
     }
 
     /**
      * Returns true if this vehicle supports sending live frame information.
      * @return
-     * @throws CarNotConnectedException
      */
-    public boolean isLiveFrameSupported() throws CarNotConnectedException {
+    public boolean isLiveFrameSupported() {
         try {
             return mService.isLiveFrameSupported();
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return false;
     }
 
     /**
      * Returns true if this vehicle supports supports sending notifications to
      * registered listeners when new freeze frames happen.
-     * @throws CarNotConnectedException
      */
-    public boolean isFreezeFrameNotificationSupported() throws CarNotConnectedException {
+    public boolean isFreezeFrameNotificationSupported() {
         try {
             return mService.isFreezeFrameNotificationSupported();
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return false;
     }
 
     /**
      * Returns whether the underlying HAL supports retrieving freeze frames
      * stored in vehicle memory using timestamp.
-     * @throws CarNotConnectedException
      */
-    public boolean isGetFreezeFrameSupported() throws CarNotConnectedException {
+    public boolean isGetFreezeFrameSupported() {
         try {
             return mService.isGetFreezeFrameSupported();
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return false;
     }
 
     /**
@@ -357,17 +313,13 @@ public final class CarDiagnosticManager implements CarManagerBase {
      * to delete all freeze frames stored in vehicle memory.
      *
      * @return
-     * @throws CarNotConnectedException
      */
-    public boolean isClearFreezeFramesSupported() throws CarNotConnectedException {
+    public boolean isClearFreezeFramesSupported() {
         try {
             return mService.isClearFreezeFramesSupported();
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return false;
     }
 
     /**
@@ -379,17 +331,13 @@ public final class CarDiagnosticManager implements CarManagerBase {
      * to delete the freeze frames stored for the provided input timestamps, provided any exist.
      *
      * @return
-     * @throws CarNotConnectedException
      */
-    public boolean isSelectiveClearFreezeFramesSupported() throws CarNotConnectedException {
+    public boolean isSelectiveClearFreezeFramesSupported() {
         try {
             return mService.isSelectiveClearFreezeFramesSupported();
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
         } catch (RemoteException e) {
-            throw new CarNotConnectedException();
+            throw e.rethrowFromSystemServer();
         }
-        return false;
     }
 
     private static class CarDiagnosticEventListenerToService

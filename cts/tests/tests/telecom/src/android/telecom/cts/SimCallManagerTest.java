@@ -16,7 +16,7 @@
 
 package android.telecom.cts;
 
-import static android.telecom.cts.TestUtils.ACCOUNT_ID;
+import static android.telecom.cts.TestUtils.ACCOUNT_ID_1;
 import static android.telecom.cts.TestUtils.ACCOUNT_LABEL;
 import static android.telecom.cts.TestUtils.COMPONENT;
 import static android.telecom.cts.TestUtils.PACKAGE;
@@ -40,7 +40,7 @@ import java.util.Arrays;
  */
 public class SimCallManagerTest extends InstrumentationTestCase {
     public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE =
-            new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID);
+            new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID_1);
 
     public static final PhoneAccount TEST_SIM_CALL_MANAGER_ACCOUNT = PhoneAccount.builder(
             TEST_PHONE_ACCOUNT_HANDLE, ACCOUNT_LABEL)

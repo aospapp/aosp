@@ -21,8 +21,10 @@ import java.util.List;
 import android.content.Context;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull(reason = "Cannot get WifiManager in instant app mode")
 public class WifiConfigurationTest extends AndroidTestCase {
     private  WifiManager mWifiManager;
     @Override

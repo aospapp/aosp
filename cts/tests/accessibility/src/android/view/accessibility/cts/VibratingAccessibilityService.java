@@ -16,42 +16,15 @@
 
 package android.view.accessibility.cts;
 
-import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.AccessibilityServiceInfo;
-import android.view.accessibility.AccessibilityEvent;
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
+import android.app.Instrumentation;
 
 /**
  * Stub accessibility service that reports itself as providing haptic feedback.
  */
-public class VibratingAccessibilityService extends AccessibilityService {
-    public static Object sWaitObjectForConnecting = new Object();
-
-    public static VibratingAccessibilityService sConnectedInstance;
-
-    @Override
-    public void onDestroy() {
-        sConnectedInstance = null;
-    }
-
-    @Override
-    protected void onServiceConnected() {
-        final AccessibilityServiceInfo info = getServiceInfo();
-        info.flags |= AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE;
-        setServiceInfo(info);
-
-        synchronized (sWaitObjectForConnecting) {
-            sConnectedInstance = this;
-            sWaitObjectForConnecting.notifyAll();
-        }
-    }
-
-    @Override
-    public void onAccessibilityEvent(AccessibilityEvent event) {
-        /* do nothing */
-    }
-
-    @Override
-    public void onInterrupt() {
-        /* do nothing */
+public class VibratingAccessibilityService extends InstrumentedAccessibilityService {
+    public static VibratingAccessibilityService enableSelf(Instrumentation instrumentation) {
+        return InstrumentedAccessibilityService.enableService(instrumentation,
+                VibratingAccessibilityService.class);
     }
 }

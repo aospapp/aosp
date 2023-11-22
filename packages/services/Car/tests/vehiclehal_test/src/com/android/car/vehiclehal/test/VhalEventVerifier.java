@@ -15,7 +15,7 @@
  */
 package com.android.car.vehiclehal.test;
 
-import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
+import android.car.hardware.CarPropertyValue;
 import android.os.ConditionVariable;
 
 import java.util.ArrayList;
@@ -28,7 +28,7 @@ import java.util.List;
  * The verifier will provide formatted result for all mismatched events in sequence.
  */
 class VhalEventVerifier {
-    private List<VehiclePropValue> mExpectedEvents;
+    private List<CarPropertyValue> mExpectedEvents;
     // A pointer to keep track of the next expected event in the list
     private int mIdx;
     private List<MismatchedEventPair> mMismatchedEvents;
@@ -37,10 +37,10 @@ class VhalEventVerifier {
 
     static class MismatchedEventPair {
         public final int idx;
-        public final VehiclePropValue expectedEvent;
-        public final VehiclePropValue mismatchedEvent;
+        public final CarPropertyValue expectedEvent;
+        public final CarPropertyValue mismatchedEvent;
 
-        MismatchedEventPair(VehiclePropValue expectedEvent, VehiclePropValue mismatchedEvent,
+        MismatchedEventPair(CarPropertyValue expectedEvent, CarPropertyValue mismatchedEvent,
                                    int idx) {
             this.idx = idx;
             this.expectedEvent = expectedEvent;
@@ -48,7 +48,7 @@ class VhalEventVerifier {
         }
     }
 
-    VhalEventVerifier(List<VehiclePropValue> expectedEvents) {
+    VhalEventVerifier(List<CarPropertyValue> expectedEvents) {
         mExpectedEvents = expectedEvents;
         mIdx = 0;
         mMismatchedEvents = new ArrayList<>();
@@ -62,12 +62,12 @@ class VhalEventVerifier {
      *
      * @param nextEvent to be verified
      */
-    public void verify(VehiclePropValue nextEvent) {
+    public void verify(CarPropertyValue nextEvent) {
         if (mIdx >= mExpectedEvents.size()) {
             return;
         }
-        VehiclePropValue expectedEvent = mExpectedEvents.get(mIdx);
-        if (!Utils.areVehiclePropValuesEqual(expectedEvent, nextEvent)) {
+        CarPropertyValue expectedEvent = mExpectedEvents.get(mIdx);
+        if (!Utils.areCarPropertyValuesEqual(expectedEvent, nextEvent)) {
             mMismatchedEvents.add(new MismatchedEventPair(expectedEvent, nextEvent, mIdx));
         }
         if (++mIdx == mExpectedEvents.size()) {
@@ -87,8 +87,8 @@ class VhalEventVerifier {
         StringBuilder resultBuilder = new StringBuilder();
         for (MismatchedEventPair pair : mMismatchedEvents) {
             resultBuilder.append("Index " + pair.idx + ": Expected "
-                    + Utils.vehiclePropValueToString(pair.expectedEvent) + ", Received "
-                    + Utils.vehiclePropValueToString(pair.mismatchedEvent) + "\n");
+                    + pair.expectedEvent + ", Received "
+                    + pair.mismatchedEvent + "\n");
         }
         return resultBuilder.toString();
     }

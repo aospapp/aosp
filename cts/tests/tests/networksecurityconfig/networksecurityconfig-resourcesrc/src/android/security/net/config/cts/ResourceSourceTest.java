@@ -18,7 +18,6 @@ package android.security.net.config.cts;
 
 import android.security.net.config.cts.CtsNetSecConfigResourcesSrcTestCases.R;
 
-import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -31,7 +30,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
-public class ResourceSourceTest extends AndroidTestCase {
+public class ResourceSourceTest extends BaseTestCase {
 
     public void testSingleDerPresent() throws Exception {
         Set<X509Certificate> trusted = getTrustedCertificates();

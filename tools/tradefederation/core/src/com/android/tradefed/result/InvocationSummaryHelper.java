@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.result;
 
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 
 import java.util.ArrayList;
@@ -26,6 +27,32 @@ import java.util.List;
 public class InvocationSummaryHelper {
 
     private InvocationSummaryHelper() {
+    }
+
+    public static void reportInvocationStarted(
+            List<ITestInvocationListener> listeners, IInvocationContext context) {
+        List<TestSummary> summaries = new ArrayList<TestSummary>(listeners.size());
+        for (ITestInvocationListener listener : listeners) {
+            String log = "putEarlySummary";
+            try {
+                if (listener instanceof ITestSummaryListener) {
+                    ((ITestSummaryListener) listener).putEarlySummary(summaries);
+                }
+                log = "invocationStarted";
+                listener.invocationStarted(context);
+                log = "getSummary";
+                TestSummary summary = listener.getSummary();
+                if (summary != null) {
+                    summary.setSource(listener.getClass().getName());
+                    summaries.add(summary);
+                }
+            } catch (RuntimeException e) {
+                CLog.e(
+                        "RuntimeException while invoking %s on %s",
+                        log, listener.getClass().getName());
+                CLog.e(e);
+            }
+        }
     }
 
     public static void reportInvocationEnded(List<ITestInvocationListener> listeners,

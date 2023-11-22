@@ -6,6 +6,11 @@
 	</projects>
 	<buildSpec>
 		<buildCommand>
+			<name>org.eclipse.xtext.ui.shared.xtextBuilder</name>
+			<arguments>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
 			<name>org.eclipse.jdt.core.javabuilder</name>
 			<arguments>
 			</arguments>
@@ -13,6 +18,7 @@
 	</buildSpec>
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
+		<nature>org.eclipse.xtext.ui.shared.xtextNature</nature>
 	</natures>
 	<linkedResources>
 		<link>
@@ -31,14 +37,9 @@
 			<locationURI>TRADEFED_ROOT/external/junit/src/main/java</locationURI>
 		</link>
 		<link>
-			<name>proto_gen</name>
+			<name>tradefedproto</name>
 			<type>2</type>
-			<locationURI>TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/tradefed-protos_intermediates/proto/src</locationURI>
-		</link>
-		<link>
-			<name>protobuf</name>
-			<type>2</type>
-			<locationURI>TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/host-libprotobuf-java-full_intermediates/proto/src</locationURI>
+                        <locationURI>TRADEFED_ROOT/out/soong/.intermediates/tools/tradefederation/core/tradefed-protos/linux_glibc_common/javac/srcjars</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

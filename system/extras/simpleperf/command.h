@@ -19,10 +19,13 @@
 
 #include <functional>
 #include <memory>
+#include <limits>
 #include <string>
 #include <vector>
 
+#include <android-base/logging.h>
 #include <android-base/macros.h>
+#include <android-base/parseint.h>
 
 class Command {
  public:
@@ -47,6 +50,24 @@ class Command {
   }
 
   virtual bool Run(const std::vector<std::string>& args) = 0;
+
+  template <typename T>
+  bool GetUintOption(const std::vector<std::string>& args, size_t* pi, T* value, uint64_t min = 0,
+                     uint64_t max = std::numeric_limits<T>::max(), bool allow_suffixes = false) {
+    if (!NextArgumentOrError(args, pi)) {
+      return false;
+    }
+    uint64_t tmp_value;
+    if (!android::base::ParseUint(args[*pi], &tmp_value, max, allow_suffixes) || tmp_value < min) {
+      LOG(ERROR) << "Invalid argument for option " << args[*pi - 1] << ": " << args[*pi];
+      return false;
+    }
+    *value = static_cast<T>(tmp_value);
+    return true;
+  }
+
+  bool GetDoubleOption(const std::vector<std::string>& args, size_t* pi, double* value,
+                       double min = 0, double max = std::numeric_limits<double>::max());
 
  protected:
   bool NextArgumentOrError(const std::vector<std::string>& args, size_t* pi);

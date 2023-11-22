@@ -16,12 +16,12 @@
 
 package com.android.tv.recommendation;
 
-import static android.support.test.InstrumentationRegistry.getContext;
+import static androidx.test.InstrumentationRegistry.getContext;
 import static com.google.common.truth.Truth.assertThat;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.MoreAsserts;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.data.api.Channel;
 import com.android.tv.recommendation.RecommendationUtils.ChannelRecordSortedMapHelper;
 import com.android.tv.testing.utils.Utils;

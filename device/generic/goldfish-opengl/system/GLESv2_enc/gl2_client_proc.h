@@ -6,6 +6,9 @@
 
 
 #include "gl2_types.h"
+#ifdef _MSC_VER
+#include <stdint.h>
+#endif
 #ifndef gl2_APIENTRY
 #define gl2_APIENTRY 
 #endif
@@ -420,6 +423,19 @@ typedef void (gl2_APIENTRY *glFramebufferParameteri_client_proc_t) (void * ctx, 
 typedef void (gl2_APIENTRY *glGetFramebufferParameteriv_client_proc_t) (void * ctx, GLenum, GLenum, GLint*);
 typedef void (gl2_APIENTRY *glGetTexLevelParameterfv_client_proc_t) (void * ctx, GLenum, GLint, GLenum, GLfloat*);
 typedef void (gl2_APIENTRY *glGetTexLevelParameteriv_client_proc_t) (void * ctx, GLenum, GLint, GLenum, GLint*);
+typedef void (gl2_APIENTRY *glMapBufferRangeDMA_client_proc_t) (void * ctx, GLenum, GLintptr, GLsizeiptr, GLbitfield, uint64_t);
+typedef void (gl2_APIENTRY *glUnmapBufferDMA_client_proc_t) (void * ctx, GLenum, GLintptr, GLsizeiptr, GLbitfield, uint64_t, GLboolean*);
+typedef uint64_t (gl2_APIENTRY *glMapBufferRangeDirect_client_proc_t) (void * ctx, GLenum, GLintptr, GLsizeiptr, GLbitfield, uint64_t);
+typedef void (gl2_APIENTRY *glUnmapBufferDirect_client_proc_t) (void * ctx, GLenum, GLintptr, GLsizeiptr, GLbitfield, uint64_t, uint64_t, GLboolean*);
+typedef void (gl2_APIENTRY *glFlushMappedBufferRangeDirect_client_proc_t) (void * ctx, GLenum, GLintptr, GLsizeiptr, GLbitfield);
+typedef GLenum (gl2_APIENTRY *glGetGraphicsResetStatusEXT_client_proc_t) (void * ctx);
+typedef void (gl2_APIENTRY *glReadnPixelsEXT_client_proc_t) (void * ctx, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, GLsizei, GLvoid*);
+typedef void (gl2_APIENTRY *glGetnUniformfvEXT_client_proc_t) (void * ctx, GLuint, GLint, GLsizei, GLfloat*);
+typedef void (gl2_APIENTRY *glGetnUniformivEXT_client_proc_t) (void * ctx, GLuint, GLint, GLsizei, GLint*);
+typedef void (gl2_APIENTRY *glDrawArraysNullAEMU_client_proc_t) (void * ctx, GLenum, GLint, GLsizei);
+typedef void (gl2_APIENTRY *glDrawElementsNullAEMU_client_proc_t) (void * ctx, GLenum, GLsizei, GLenum, const GLvoid*);
+typedef void (gl2_APIENTRY *glDrawElementsOffsetNullAEMU_client_proc_t) (void * ctx, GLenum, GLsizei, GLenum, GLuint);
+typedef void (gl2_APIENTRY *glDrawElementsDataNullAEMU_client_proc_t) (void * ctx, GLenum, GLsizei, GLenum, void*, GLuint);
 
 
 #endif

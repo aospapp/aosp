@@ -60,7 +60,7 @@
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Ocultar elementos recentes"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Contido que se eliminará do teu dispositivo: <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Agora o xestor de almacenamento administra o teu espazo"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"Non hai nada para eliminar"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"Nada para eliminar"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Revisar elementos recentes"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Non hai ningún ficheiro antigo para eliminar. Para liberar espazo, elimina fotos, vídeos e aplicacións recentes."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"A aplicación <xliff:g id="APP">%1$s</xliff:g> precisa <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> de espazo"</string>

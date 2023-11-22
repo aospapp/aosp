@@ -46,7 +46,7 @@ namespace chromeos_update_manager {
 
 State* DefaultStateFactory(
     policy::PolicyProvider* policy_provider,
-    org::chromium::LibCrosServiceInterfaceProxyInterface* libcros_proxy,
+    org::chromium::KioskAppServiceInterfaceProxyInterface* kiosk_app_proxy,
     chromeos_update_engine::SystemState* system_state) {
   chromeos_update_engine::ClockInterface* const clock = system_state->clock();
   unique_ptr<RealConfigProvider> config_provider(
@@ -70,20 +70,18 @@ State* DefaultStateFactory(
 #endif  // USE_SHILL
   unique_ptr<RealRandomProvider> random_provider(new RealRandomProvider());
   unique_ptr<RealSystemProvider> system_provider(new RealSystemProvider(
-      system_state->hardware(), system_state->boot_control(), libcros_proxy));
+      system_state->hardware(), system_state->boot_control(), kiosk_app_proxy));
 
   unique_ptr<RealTimeProvider> time_provider(new RealTimeProvider(clock));
   unique_ptr<RealUpdaterProvider> updater_provider(
       new RealUpdaterProvider(system_state));
 
-  if (!(config_provider->Init() &&
-        device_policy_provider->Init() &&
+  if (!(config_provider->Init() && device_policy_provider->Init() &&
         random_provider->Init() &&
 #if USE_SHILL
         shill_provider->Init() &&
 #endif  // USE_SHILL
-        system_provider->Init() &&
-        time_provider->Init() &&
+        system_provider->Init() && time_provider->Init() &&
         updater_provider->Init())) {
     LOG(ERROR) << "Error initializing providers";
     return nullptr;

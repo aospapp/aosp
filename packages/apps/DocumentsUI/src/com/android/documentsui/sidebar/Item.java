@@ -16,7 +16,7 @@
 
 package com.android.documentsui.sidebar;
 
-import android.annotation.LayoutRes;
+import androidx.annotation.LayoutRes;
 import android.view.DragEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -31,13 +31,15 @@ import com.android.documentsui.R;
  * Describes a root navigation point of documents. Each one of them is presented as an item in the
  * sidebar
  */
-abstract class Item {
+public abstract class Item {
     private final @LayoutRes int mLayoutId;
 
+    public final String title;
     final String stringId;
 
-    public Item(@LayoutRes int layoutId, String stringId) {
+    public Item(@LayoutRes int layoutId, String title, String stringId) {
         mLayoutId = layoutId;
+        this.title = title;
         this.stringId = stringId;
     }
 
@@ -57,6 +59,10 @@ abstract class Item {
     abstract boolean isRoot();
 
     abstract void open();
+
+    String getPackageName() {
+        return "";
+    }
 
     boolean isDropTarget() {
         return isRoot();

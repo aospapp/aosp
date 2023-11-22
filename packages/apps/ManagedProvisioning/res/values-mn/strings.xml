@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"Ажлын профайлын тохиргоо"</string>
+    <string name="app_label" msgid="1527793174155125990">"Ажлын тохируулга"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Алдаа!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"Ажлын профайл тохируулах"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Таны компани энэ профайлыг хянаж, аюулгүй байлгадаг. Та төхөөрөмж дээрх бусад зүйлсийг хянана."</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Дараах апп таны төхөөрөмжийг удирдах болно:"</string>
     <string name="next" msgid="1004321437324424398">"Дараах"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Ажлын профайлыг тохируулж байна..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Таны админ тохиргоо, байгууллагын хандалт, апп, зөвшөөрөл болон таны сүлжээний үйл ажиллагаа, төхөөрөмжийн байршил, дуудлагын түүх, харилцагч, хайлтын түүх зэрэг энэ профайлтай холбоотой өгөгдлийг хянах, удирдах боломжтой.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Байгууллагынхаа нууцлалын бодлого зэрэг дэлгэрэнгүй мэдээлэл авах бол админтайгаа холбогдоно уу."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Таны админ тохиргоо, байгууллагын хандалт, апп, зөвшөөрөл болон таны сүлжээний үйл ажиллагаа, төхөөрөмжийн байршил, дуудлагын түүх, харилцагчийн хайлтын түүх зэрэг энэ төхөөрөмжтэй холбоотой өгөгдлийг хянах, удирдах боломжтой.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Байгууллагынхаа нууцлалын бодлого зэрэг дэлгэрэнгүй мэдээлэл авах бол админтайгаа холбогдоно уу."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Таны IT админ тохиргоо, байгууллагын хандалт, апп, зөвшөөрөл болон таны сүлжээний үйл ажиллагаа, төхөөрөмжийн байршил, дуудлагын түүх, харилцагч, хайлтын түүх зэрэг энэ профайлтай холбоотой өгөгдлийг хянах, удирдах боломжтой.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Байгууллагынхаа нууцлалын бодлого зэрэг дэлгэрэнгүй мэдээллийг авахын тулд IT админтайгаа холбогдоно уу."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Таны IT админ тохиргоо, байгууллагын хандалт, апп, зөвшөөрөл болон таны сүлжээний үйл ажиллагаа, төхөөрөмжийн байршил, дуудлагын түүх, харилцагчийн хайлтын түүх зэрэг энэ төхөөрөмжтэй холбоотой өгөгдлийг хянах, удирдах боломжтой.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Байгууллагынхаа нууцлалын бодлого зэрэг дэлгэрэнгүй мэдээллийг авахын тулд IT админтайгаа холбогдоно уу."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Хулгайчаас хамгаалах онцлогийг хэрэглэхийн тулд төхөөрөмждөө нууц үг бүхий дэлгэцийн түгжээтэй байх хэрэгтэй."</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Админтайгаа холбогдож, байгууллагынхаа нууцлалын бодлого зэрэг дэлгэрэнгүй мэдээллийг авна уу."</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Байгууллагынхаа нууцлалын бодлого зэрэг нэмэлт мэдээлэл авахын тулд IT админтайгаа холбогдоно уу."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Дэлгэрэнгүй үзэх"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Цуцлах"</string>
     <string name="ok_setup" msgid="4593707675416137504">"ОК"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Таны ажлын профайлыг тохируулж чадсангүй. МТ хэлтэстэй холбогдох буюу дараа дахин оролдоно уу."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Ажлын профайл нэмэх боломжгүй байна"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Ажлын профайлыг өөрчлөх эсвэл устгах боломжгүй байна"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Ажлын профайлыг энэ төхөөрөмжид нэмэх боломжгүй. Хэрэв танд асуух зүйл байвал админтайгаа холбогдоно уу."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Ажлын профайлыг энэ төхөөрөмжид нэмэх боломжгүй. Хэрэв танд асуух зүйл байвал IT админтайгаа холбогдоно уу."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Төхөөрөмж эхлүүлэгчийг өөрчлөх"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Энэ эхлүүлэгч аппыг таны ажлын профайлаас ашиглах боломжгүй"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Цуцлах"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"Дуусгах хүрэлтийг оруулж байна…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"Төхөөрөмж эзэмшигчийг тохируулж байна…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"Төхөөрөмжийн анхны утгыг олж байна..."</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"Энэ төхөөрөмж тохируулгад шаардлагатай шифрийг зөвшөөрдөггүй. Тусламж авахын тулд админтайгаа холбогдоно уу."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Энэ төхөөрөмж тохируулгад шаардлагатай шифрлэлтийг зөвшөөрдөггүй. Тусламж авахын тулд IT админтайгаа холбогдоно уу."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Тохиргоог зогсоож, төхөөрөмжийг шинэчлэх үү?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Энэ нь таны төхөөрөмжийг шинэчилж анхны дэлгэцэд аваачих болно"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Төхөөрөмжийг тохируулахыг зогсоож, өгөгдлийг устгах уу?"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"Шинэчлэх"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Профайл тохируулах боломжгүй байна"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Төхөөрөмж тохируулах боломжгүй байна"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"Төхөөрөмжийг тохируулж чадсангүй. Тусламж авахын тулд админтайгаа холбогдоно уу."</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Тусламж авах бол админтайгаа холбогдоно уу"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"Төхөөрөмжийг тохируулж чадсангүй. Тусламж авахын тулд IT админтайгаа холбогдоно уу."</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Тусламж авахын тулд IT админтайгаа холбогдоно уу"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Төхөөрөмжийг аль хэдийн тохируулсан"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Wi-Fi-д холбогдож чадсангүй"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"Таны төхөөрөмжийн шинэчлэх хамгаалалт асаалттай байна. Тусламж авахын тулд админтайгаа холбогдоно уу."</string>
+    <string name="error_wifi" msgid="1850288843966836571">"Wi-Fi-д холбогдож чадсангүй"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Таны төхөөрөмжийн шинэчлэх хамгаалалт асаалттай байна. Тусламж авахын тулд IT админтайгаа холбогдоно уу."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Арилгаж байна"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Түр хүлээнэ үү..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Checksum алдааны улмаас админы аппыг ашиглах боломжгүй байна. Тусламж авах бол админтайгаа холбогдоно уу."</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"Админ апп-г татаж авч чадсангүй"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"Админ апп гэмтсэн эсвэл хэсэг нь дутуу байгаа тул үүнийг ашиглах боломжгүй байна. Тусламж авах бол админтайгаа холбогдоно уу."</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Админ апп-г суулгаж чадсангүй"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"Хяналтын нийлбэрийн алдааны улмаас админ аппыг ашиглах боломжгүй байна. Тусламж авахын тулд IT админтайгаа холбогдоно уу."</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"Админ аппыг татаж чадсангүй"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"Админ апп гэмтсэн эсвэл бүрэлдэхүүн хэсэг нь дутуу байгаа тул үүнийг ашиглах боломжгүй байна. Тусламж авахын тулд IT админтайгаа холбогдоно уу."</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"Админ аппыг суулгаж чадсангүй"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"Тохируулгыг зогсоох уу?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Үгүй"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Тийм"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"Энэ төхөөрөмжийг <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> удирдаж, хянаж, хамгаалах болно. Нөхцөл хэрэгжинэ. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Энэ төхөөрөмжийг <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> удирдаж, хянаж, хамгаалах болно. <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>-н нөхцөл хэрэгжинэ. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Энэ холбоос аюултай бөгөөд үүнийг төхөөрөмжийн тохиргоо дуусах хүртэл нээх боломжгүй: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"Хэрэв танд асуулт байвал <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>-тай холбогдоно уу."</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"Хэрэв танд асуулт байгаа бол байгууллагынхаа админтай холбогдоно уу"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"Тохиргоо дуусаагүй байна. Тусламж авах бол админтайгаа холбогдоно уу."</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"Тусламж авах бол админтайгаа холбогдоно уу"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"байгууллагын админ"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"Нэмэлт мэдээлэл авахын тулд <xliff:g id="IT_ADMIN">%1$s</xliff:g>-тайгаа холбогдоно уу."</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"Хэрэв танд асуух зүйл байвал IT админтайгаа холбогдоно уу"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Тохируулж дуусаагүй байна. Тусламж авахын тулд IT админтайгаа холбогдоно уу."</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"Тусламж авахын тулд IT админтайгаа холбогдоно уу"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"IT админ"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> дараах аппыг ашиглан төхөөрөмжийг удирдаж, хянах болно:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"Таны байгууллага"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"таны байгууллага"</string>
     <string name="view_terms" msgid="7230493092383341605">"Нөхцөлийг харах"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Зөвшөөрөөд, үргэлжлүүлэх"</string>
-    <string name="close" msgid="7208600934846389439">"Хаах"</string>
+    <string name="back" msgid="6455622465896147127">"Буцах"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Төхөөрөмжөө тохируулна уу"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"Ажиллах арга барилаа өөрчилнө үү"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"Ажлын болон хувийн өгөгдлийг тусгаарлах"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"Үүнд хэдэн хором шаардлагатай"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"Таны ажлын аппуудыг энэ профайлд хадгалах бөгөөд тэдгээрийг танай байгууллага удирдана"</string>
     <string name="device_owner_description" msgid="168013145812679664">"Танай байгууллага энэ төхөөрөмжийг аюулгүй байлгаж удирдах болно"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"Ажлын төхөөрөмжийг тохируулахаар бэлтгэж байна…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Админ аппыг тохируулж байна"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"Бусад зүйлсийг тохируулцгаая"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Одоо бусад зүйлсийг тохируулцгаая"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"Энэ төхөөрөмжийг танай байгууллага эзэмшдэг"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"Энэ утсыг удирдаж, хянахын тулд дараах аппыг ашиглана"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"Ажлын тохируулгад бэлтгэж байна…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Эхлээд таны ажлын профайлыг тохируулцгаая"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Таны ажлын профайлыг тохируулцгаая"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Ажлын аппуудыг таны ажлын профайлд хадгалдаг"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Ажлын аппуудаа тухайн өдөр ашиглаж болсон үедээ түр зогсоогоорой"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Tаны IT админд зөвхөн таны ажлын профайлын өгөгдөл харагдана"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Таны ажлын профайлыг тохируулж байна…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Ажлын аппуудыг таны ажлын профайлд хадгалдаг. Та ажлын аппуудаа тухайн өдөр ашиглахаа болихыг хүсвэл түр зогсоож болно. Таны IT админд зөвхөн таны ажлын профайлын өгөгдөл харагдана."</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Таны ажлын төхөөрөмжийг тохируулцгаая"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Ажлын аппуудаа ашиглахад ойр газар байлгаарай"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Энэ төхөөрөмж хувийнх биш байна"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Таны IT админ таны энэ төхөөрөмж дээрх өгөгдөл болон үйл ажиллагааг харах боломжтой байж магадгүй."</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Таны төхөөрөмжийг тохируулж байна…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Ажлын аппууддаа хялбар байдлаар хандахын тулд энэ төхөөрөмжийг ашиглана уу. Энэ төхөөрөмж хувийнх биш тул таны IT админ таны өгөгдөл болон үйл ажиллагааг харах боломжтой байж магадгүй. Нэмэлт мэдээлэл авахын тулд IT админтайгаа холбогдоно уу."</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Нууцлалын сануулагч"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Таны IT админ таны энэ төхөөрөмж дээрх өгөгдөл болон үйл ажиллагааг харах боломжтой байж магадгүй"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"Таны төхөөрөмж ашиглахад бэлэн боллоо!"</string>
+    <string name="done" msgid="7755227776955952318">"Болсон"</string>
 </resources>

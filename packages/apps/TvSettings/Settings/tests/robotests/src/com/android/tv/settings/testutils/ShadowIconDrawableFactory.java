@@ -23,7 +23,7 @@ import android.util.IconDrawableFactory;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
-@Implements(value = IconDrawableFactory.class, inheritImplementationMethods = true)
+@Implements(value = IconDrawableFactory.class)
 public class ShadowIconDrawableFactory {
 
     @Implementation

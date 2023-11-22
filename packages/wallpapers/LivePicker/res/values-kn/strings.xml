@@ -24,6 +24,8 @@
     <string name="live_wallpaper_picker_label" msgid="3218000114890071946">"ಲೈವ್ ವಾಲ್‌ಪೇಪರ್‌ಗಳು"</string>
     <string name="live_wallpaper_preview_title" msgid="1130080613611954763">"ಲೈವ್ ವಾಲ್‌ಪೇಪರ್ ಪೂರ್ವವೀಕ್ಷಣೆ"</string>
     <string name="configure_wallpaper" msgid="7396598925806288258">"ಸೆಟ್ಟಿಂಗ್‌ಗಳು..."</string>
+    <string name="delete_live_wallpaper" msgid="5127205073129449497">"ಅಳಿಸಿ"</string>
+    <string name="preview" msgid="5553971347768345401">"ಪೂರ್ವವೀಕ್ಷಣೆ"</string>
     <string name="wallpaper_instructions" msgid="4215640646180727542">"ವಾಲ್‌ಪೇಪರ್ ಹೊಂದಿಸಿ"</string>
     <string name="live_wallpaper_empty" msgid="4278728108785853407">"ಲೈವ್ ವಾಲ್‌ಪೇಪರ್‌ಗಳಿಲ್ಲ."</string>
     <string name="set_live_wallpaper" msgid="2381437614949033266">"ವಾಲ್‌ಪೇಪರ್ ಹೊಂದಿಸಿ"</string>
@@ -31,6 +33,10 @@
     <string name="live_wallpaper_loading" msgid="2488371303130330734">"ಲೈವ್ ವಾಲ್‌ಪೇಪರ್‌ ಅನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ…"</string>
     <string name="which_wallpaper_option_home_screen" msgid="6592329803583957023">"ಮುಖಪುಟದ ಪರದೆ"</string>
     <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="6170359719231147447">"ಮುಖಪುಟದ ಪರದೆ ಮತ್ತು ಲಾಕ್ ಪರದೆ"</string>
+    <string name="explore_further" msgid="2891466461738034935">"ಎಕ್ಸ್‌ಪ್ಲೋರ್"</string>
+    <string name="tab_info" msgid="2612717074705274392">"ಮಾಹಿತಿ"</string>
+    <string name="tab_customize" msgid="5282247400178296263">"ಕಸ್ಟಮೈಸ್ ಮಾಡಿ"</string>
+    <string name="delete_wallpaper_confirmation" msgid="6449356646369781400">"ನಿಮ್ಮ ಫೋನ್‌ನಿಂದ ಈ ವಾಲ್‌ಪೇಪರ್ ಅನ್ನು ಅಳಿಸುವುದೇ?"</string>
     <string name="collapse_attribution_panel" msgid="4998500891743118630">"ವಾಲ್‌ಪೇಪರ್ ಮಾಹಿತಿ ಫಲಕ ಸಂಕುಚಿಸಿ"</string>
     <string name="expand_attribution_panel" msgid="3151357815478885438">"ವಾಲ್‌ಪೇಪರ್ ಮಾಹಿತಿ ಫಲಕ ವಿಸ್ತರಿಸಿ"</string>
 </resources>

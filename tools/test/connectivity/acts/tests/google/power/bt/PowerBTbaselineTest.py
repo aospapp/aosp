@@ -14,16 +14,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from acts import base_test
 from acts.test_decorators import test_tracker_info
 import acts.test_utils.power.PowerBTBaseTest as PBtBT
 
 
 class PowerBTbaselineTest(PBtBT.PowerBTBaseTest):
-    def __init__(self, controllers):
-
-        base_test.BaseTestClass.__init__(self, controllers)
-
     def bt_baseline_test_func(self):
         """Base function for BT baseline measurement.
 

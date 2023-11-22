@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -72,6 +73,9 @@ struct OmahaResponse {
   // True if the Omaha rule instructs us to disable p2p for sharing.
   bool disable_p2p_for_sharing = false;
 
+  // True if the Omaha rule instructs us to powerwash.
+  bool powerwash_required = false;
+
   // If not blank, a base-64 encoded representation of the PEM-encoded
   // public key in the response.
   std::string public_key_rsa;
@@ -80,6 +84,24 @@ struct OmahaResponse {
   // PST, according to the Omaha Server's clock and timezone (PST8PDT,
   // aka "Pacific Time".)
   int install_date_days = -1;
+
+  // True if the returned image is a rollback for the device.
+  bool is_rollback = false;
+
+  struct RollbackKeyVersion {
+    // Kernel key version. 0xffff if the value is unknown.
+    uint16_t kernel_key = std::numeric_limits<uint16_t>::max();
+    // Kernel version. 0xffff if the value is unknown.
+    uint16_t kernel = std::numeric_limits<uint16_t>::max();
+    // Firmware key verison. 0xffff if the value is unknown.
+    uint16_t firmware_key = std::numeric_limits<uint16_t>::max();
+    // Firmware version. 0xffff if the value is unknown.
+    uint16_t firmware = std::numeric_limits<uint16_t>::max();
+  };
+
+  // Key versions of the returned rollback image. Values are 0xffff if the
+  // image not a rollback, or the fields were not present.
+  RollbackKeyVersion rollback_key_version;
 };
 static_assert(sizeof(off_t) == 8, "off_t not 64 bit");
 

@@ -16,8 +16,9 @@
 
 package com.android.documentsui.sidebar;
 
-import android.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.provider.DocumentsProvider;
 import android.text.TextUtils;
 import android.text.format.Formatter;
@@ -25,11 +26,11 @@ import android.view.DragEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.android.documentsui.ActionHandler;
+import com.android.documentsui.IconUtils;
 import com.android.documentsui.MenuManager;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
@@ -38,18 +39,24 @@ import com.android.documentsui.base.RootInfo;
 /**
  * An {@link Item} for each root provided by {@link DocumentsProvider}s.
  */
-class RootItem extends Item {
+public class RootItem extends Item {
     private static final String STRING_ID_FORMAT = "RootItem{%s/%s}";
 
     public final RootInfo root;
     public @Nullable DocumentInfo docInfo;
 
-    private final ActionHandler mActionHandler;
+    protected final ActionHandler mActionHandler;
+    private final String mPackageName;
 
     public RootItem(RootInfo root, ActionHandler actionHandler) {
-        super(R.layout.item_root, getStringId(root));
+        this(root, actionHandler, "" /* packageName */);
+    }
+
+    public RootItem(RootInfo root, ActionHandler actionHandler, String packageName) {
+        super(R.layout.item_root, root.title, getStringId(root));
         this.root = root;
         mActionHandler = actionHandler;
+        mPackageName = packageName;
     }
 
     private static String getStringId(RootInfo root) {
@@ -62,27 +69,12 @@ class RootItem extends Item {
 
     @Override
     public void bindView(View convertView) {
-        final ImageView icon = (ImageView) convertView.findViewById(android.R.id.icon);
-        final TextView title = (TextView) convertView.findViewById(android.R.id.title);
-        final TextView summary = (TextView) convertView.findViewById(android.R.id.summary);
-        final ImageView ejectIcon = (ImageView) convertView.findViewById(R.id.eject_icon);
-
         final Context context = convertView.getContext();
-        icon.setImageDrawable(root.loadDrawerIcon(context));
-        title.setText(root.title);
-
         if (root.supportsEject()) {
-            ejectIcon.setVisibility(View.VISIBLE);
-            ejectIcon.setImageDrawable(root.loadEjectIcon(context));
-            ejectIcon.setOnClickListener(new OnClickListener() {
-                @Override
-                public void onClick(View unmountIcon) {
-                    RootsFragment.ejectClicked(unmountIcon, root, mActionHandler);
-                }
-            });
+            bindAction(convertView, View.VISIBLE, R.drawable.ic_eject,
+                    context.getResources().getString(R.string.menu_eject_root));
         } else {
-            ejectIcon.setVisibility(View.GONE);
-            ejectIcon.setOnClickListener(null);
+            bindAction(convertView, View.GONE, -1 /* iconResource */, null /* description */);
         }
         // Show available space if no summary
         String summaryText = root.summary;
@@ -91,8 +83,50 @@ class RootItem extends Item {
                     Formatter.formatFileSize(context, root.availableBytes));
         }
 
-        summary.setText(summaryText);
-        summary.setVisibility(TextUtils.isEmpty(summaryText) ? View.GONE : View.VISIBLE);
+        bindIconAndTitle(convertView);
+        bindSummary(convertView, summaryText);
+    }
+
+    protected final void bindAction(View view, int visibility, int iconId, String description) {
+        final ImageView actionIcon = (ImageView) view.findViewById(R.id.action_icon);
+        final View verticalDivider = view.findViewById(R.id.vertical_divider);
+        final View actionIconArea = view.findViewById(R.id.action_icon_area);
+
+        verticalDivider.setVisibility(visibility);
+        actionIconArea.setVisibility(visibility);
+        actionIconArea.setOnClickListener(visibility == View.VISIBLE ? this::onActionClick : null);
+        if (description != null) {
+            actionIconArea.setContentDescription(description);
+        }
+        if (iconId > 0) {
+            actionIcon.setImageDrawable(IconUtils.applyTintColor(view.getContext(), iconId,
+                    R.color.item_action_icon));
+        }
+    }
+
+    protected void onActionClick(View view) {
+        RootsFragment.ejectClicked(view, root, mActionHandler);
+    }
+
+    protected final void bindIconAndTitle(View view) {
+        bindIcon(view, root.loadDrawerIcon(view.getContext()));
+        bindTitle(view);
+    }
+
+    protected void bindSummary(View view, String summary) {
+        final TextView summaryView = (TextView) view.findViewById(android.R.id.summary);
+        summaryView.setText(summary);
+        summaryView.setVisibility(TextUtils.isEmpty(summary) ? View.GONE : View.VISIBLE);
+    }
+
+    private void bindIcon(View view, Drawable drawable) {
+        final ImageView icon = (ImageView) view.findViewById(android.R.id.icon);
+        icon.setImageDrawable(drawable);
+    }
+
+    private void bindTitle(View view) {
+        final TextView titleView = (TextView) view.findViewById(android.R.id.title);
+        titleView.setText(title);
     }
 
     @Override
@@ -103,6 +137,11 @@ class RootItem extends Item {
     @Override
     void open() {
         mActionHandler.openRoot(root);
+    }
+
+    @Override
+    String getPackageName() {
+        return mPackageName;
     }
 
     @Override

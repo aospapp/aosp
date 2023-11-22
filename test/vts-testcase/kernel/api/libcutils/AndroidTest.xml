@@ -21,8 +21,8 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsKernelLibcutilsTest"/>
-        <option name="binary-test-source" value="_32bit::DATA/nativetest/libcutils_test/libcutils_test32" />
-        <option name="binary-test-source" value="_64bit::DATA/nativetest64/libcutils_test/libcutils_test64" />
+        <option name="binary-test-source" value="_32bit::DATA/nativetest/libcutils_test_static/libcutils_test_static" />
+        <option name="binary-test-source" value="_64bit::DATA/nativetest64/libcutils_test_static/libcutils_test_static" />
         <option name="binary-test-type" value="gtest"/>
         <option name="test-case-path" value="vts/testcases/kernel/api/libcutils/VtsKernelLibcutilsTest" />
         <option name="test-timeout" value="10m"/>

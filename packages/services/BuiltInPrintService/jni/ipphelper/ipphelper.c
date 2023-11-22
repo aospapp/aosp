@@ -643,8 +643,6 @@ void parse_getMediaSupported(ipp_t *response, media_supported_t *media_supported
         LOGD("media-supported  found; number of values %d", ippGetCount(attrptr));
         for (i = 0; i < ippGetCount(attrptr); i++) {
             idx = ipp_find_media_size(ippGetString(attrptr, i, NULL), &media_sizeTemp);
-            LOGD(" Temp - i: %d  idx %d keyword: %s PT_size %d", i, idx, ippGetString(
-                    attrptr, i, NULL), media_sizeTemp);
 
             // Modified since anytime the find media size returned 0 it could either mean
             // NOT found or na_letter.
@@ -784,6 +782,15 @@ void parse_printerAttributes(ipp_t *response, printer_capabilities_t *capabiliti
             if (strcmp("color", ippGetString(attrptr, i, NULL)) == 0) {
                 capabilities->color = 1;
             }
+        }
+    }
+    if ((attrptr = ippFindAttribute(response, "print-quality-supported", IPP_TAG_ENUM)) !=
+            NULL) {
+        for (i = 0; i < ippGetCount(attrptr) && capabilities->numSupportedQuality
+                < MAX_QUALITY_SUPPORTED; i++) {
+            LOGD("print-quality-supported: %d", ippGetInteger(attrptr, i));
+            capabilities->supportedQuality[capabilities->numSupportedQuality++] =
+                ippGetInteger(attrptr, i);
         }
     }
 
@@ -1171,10 +1178,28 @@ void debuglist_printerStatus(printer_state_dyn_t *printer_state_dyn) {
     }
 }
 
+/*
+ * Handle server certificate information.
+ */
+static int ipp_server_cert_cb(http_t *http, void *tls, cups_array_t *certs, void *user_data) {
+    wprint_connect_info_t *connect_info = (wprint_connect_info_t *)user_data;
+    int error = 0;
+    if (connect_info->validate_certificate) {
+        http_credential_t *credential = cupsArrayFirst(certs);
+        if (credential) {
+            LOGD("ipp_server_cert_cb: validate_certificate (len=%d)", credential->datalen);
+            error = connect_info->validate_certificate(connect_info, credential->data, credential->datalen);
+        }
+    }
+    return error;
+}
+
 http_t *ipp_cups_connect(const wprint_connect_info_t *connect_info, char *printer_uri,
         unsigned int uriLength) {
     const char *uri_path;
     http_t *curl_http = NULL;
+
+    cupsSetServerCertCB(ipp_server_cert_cb, (void *)connect_info);
 
     if ((connect_info->uri_path == NULL) || (strlen(connect_info->uri_path) == 0)) {
         uri_path = DEFAULT_IPP_URI_RESOURCE;
@@ -1202,6 +1227,8 @@ http_t *ipp_cups_connect(const wprint_connect_info_t *connect_info, char *printe
     if (curl_http == NULL) {
         LOGD("ipp_cups_connect failed addr=%s port=%d", connect_info->printer_addr, ippPortNumber);
     }
+
+    cupsSetServerCertCB(NULL, NULL);
     return curl_http;
 }
 

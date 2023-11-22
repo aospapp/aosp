@@ -19,7 +19,7 @@ package android.keystore.cts;
 import com.google.common.base.CharMatcher;
 import com.google.common.io.BaseEncoding;
 
-import com.android.org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.ASN1Sequence;
 
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;

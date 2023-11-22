@@ -21,9 +21,7 @@ import static android.os.SystemClock.elapsedRealtime;
 import android.annotation.Nullable;
 import android.app.Service;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.hardware.automotive.vehicle.V2_0.IVehicle;
-import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.IHwBinder.DeathRecipient;
@@ -34,7 +32,6 @@ import android.os.SystemProperties;
 import android.util.Log;
 
 import com.android.car.systeminterface.SystemInterface;
-
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.RingBufferIndices;
 
@@ -95,11 +92,11 @@ public class CarService extends Service {
                 mCanBusErrorNotifier,
                 mVehicleInterfaceName);
         mICarImpl.init();
-        SystemProperties.set("boot.car_service_created", "1");
 
         linkToDeath(mVehicle, mVehicleDeathRecipient);
 
         ServiceManager.addService("car_service", mICarImpl);
+        SystemProperties.set("boot.car_service_created", "1");
         super.onCreate();
     }
 

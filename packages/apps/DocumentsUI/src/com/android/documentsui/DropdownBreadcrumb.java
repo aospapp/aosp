@@ -21,6 +21,7 @@ import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.Spinner;
@@ -73,6 +74,14 @@ public final class DropdownBreadcrumb extends Spinner implements Breadcrumb {
                     @Override
                     public void onNothingSelected(AdapterView<?> parent) {}
                 });
+        setAccessibilityDelegate(new AccessibilityDelegate() {
+            @Override
+            public void onInitializeAccessibilityEvent(View host, AccessibilityEvent event) {
+                if (event.getEventType() != AccessibilityEvent.TYPE_VIEW_SELECTED) {
+                    super.onInitializeAccessibilityEvent(host, event);
+                }
+            }
+        });
     }
 
     @Override

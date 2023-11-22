@@ -82,7 +82,8 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         mock.patch('test_finder_handler._get_default_find_methods',
                    lambda x, y: [test_finder_base.Finder(
                        _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
-                       ExampleFinderA.unregistered_find_method_from_example_finder)]).start()
+                       ExampleFinderA.unregistered_find_method_from_example_finder,
+                       _EXAMPLE_FINDER_A)]).start()
 
     def tearDown(self):
         """Tear down."""
@@ -92,15 +93,27 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         """Test _get_test_reference_types parses reference types correctly."""
         self.assertEqual(
             test_finder_handler._get_test_reference_types('ModuleOrClassName'),
-            [REF_TYPE.INTEGRATION, REF_TYPE.MODULE, REF_TYPE.CLASS]
+            [REF_TYPE.INTEGRATION, REF_TYPE.MODULE, REF_TYPE.SUITE_PLAN,
+             REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Module_or_Class_name'),
-            [REF_TYPE.INTEGRATION, REF_TYPE.MODULE, REF_TYPE.CLASS]
+            [REF_TYPE.INTEGRATION, REF_TYPE.MODULE, REF_TYPE.SUITE_PLAN,
+             REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+        )
+        self.assertEqual(
+            test_finder_handler._get_test_reference_types('SuiteName'),
+            [REF_TYPE.INTEGRATION, REF_TYPE.MODULE, REF_TYPE.SUITE_PLAN,
+             REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
+        )
+        self.assertEqual(
+            test_finder_handler._get_test_reference_types('Suite-Name'),
+            [REF_TYPE.INTEGRATION, REF_TYPE.MODULE, REF_TYPE.SUITE_PLAN,
+             REF_TYPE.CLASS, REF_TYPE.CC_CLASS]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('some.package'),
-            [REF_TYPE.PACKAGE]
+            [REF_TYPE.MODULE, REF_TYPE.PACKAGE]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('fully.q.Class'),
@@ -108,10 +121,14 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Integration.xml'),
-            [REF_TYPE.INTEGRATION_FILE_PATH]
+            [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('SomeClass.java'),
+            [REF_TYPE.MODULE_FILE_PATH]
+        )
+        self.assertEqual(
+            test_finder_handler._get_test_reference_types('SomeClass.kt'),
             [REF_TYPE.MODULE_FILE_PATH]
         )
         self.assertEqual(
@@ -120,6 +137,18 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('Android.bp'),
+            [REF_TYPE.MODULE_FILE_PATH]
+        )
+        self.assertEqual(
+            test_finder_handler._get_test_reference_types('SomeTest.cc'),
+            [REF_TYPE.MODULE_FILE_PATH]
+        )
+        self.assertEqual(
+            test_finder_handler._get_test_reference_types('SomeTest.cpp'),
+            [REF_TYPE.MODULE_FILE_PATH]
+        )
+        self.assertEqual(
+            test_finder_handler._get_test_reference_types('SomeTest.cc#method'),
             [REF_TYPE.MODULE_FILE_PATH]
         )
         self.assertEqual(
@@ -136,39 +165,43 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('.'),
-            [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH]
+            [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('..'),
-            [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH]
+            [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('./rel/path/to/test'),
-            [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH]
+            [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('rel/path/to/test'),
             [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH,
-             REF_TYPE.INTEGRATION]
+             REF_TYPE.INTEGRATION, REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('/abs/path/to/test'),
-            [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH]
+            [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH,
+             REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int/test'),
             [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH,
-             REF_TYPE.INTEGRATION]
+             REF_TYPE.INTEGRATION, REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int/test:fully.qual.Class#m'),
             [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH,
-             REF_TYPE.INTEGRATION]
+             REF_TYPE.INTEGRATION, REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int/test:Class#method'),
             [REF_TYPE.INTEGRATION_FILE_PATH, REF_TYPE.MODULE_FILE_PATH,
-             REF_TYPE.INTEGRATION]
+             REF_TYPE.INTEGRATION, REF_TYPE.SUITE_PLAN_FILE_PATH]
         )
         self.assertEqual(
             test_finder_handler._get_test_reference_types('int_name_no_slash:Class#m'),
@@ -183,11 +216,13 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         should_equal = [
             test_finder_base.Finder(
                 example_finder_a_instance,
-                ExampleFinderA.registered_find_method_from_example_finder)]
+                ExampleFinderA.registered_find_method_from_example_finder,
+                _EXAMPLE_FINDER_A)]
         should_not_equal = [
             test_finder_base.Finder(
                 example_finder_a_instance,
-                ExampleFinderA.unregistered_find_method_from_example_finder)]
+                ExampleFinderA.unregistered_find_method_from_example_finder,
+                _EXAMPLE_FINDER_A)]
         # Let's make sure we see the registered method.
         self.assertEqual(
             should_equal,
@@ -207,11 +242,13 @@ class TestFinderHandlerUnittests(unittest.TestCase):
         registered_find_methods = [
             test_finder_base.Finder(
                 _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
-                ExampleFinderA.registered_find_method_from_example_finder)]
+                ExampleFinderA.registered_find_method_from_example_finder,
+                _EXAMPLE_FINDER_A)]
         default_find_methods = [
             test_finder_base.Finder(
                 _FINDER_INSTANCES[_EXAMPLE_FINDER_A],
-                ExampleFinderA.unregistered_find_method_from_example_finder)]
+                ExampleFinderA.unregistered_find_method_from_example_finder,
+                _EXAMPLE_FINDER_A)]
         should_equal = registered_find_methods + default_find_methods
         self.assertEqual(
             should_equal,

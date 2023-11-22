@@ -379,7 +379,7 @@ class WifiSoftApAcsTest(WifiBaseTest):
     @test_tracker_info(uuid="1280067c-389e-42e9-aa75-6bfbd61340f3")
     def test_softap_5G_avoid_channel_8(self):
         """Test to configure AP and bring up SoftAp on 5G."""
-        self.configure_ap(channel_2g=9)
+        self.configure_ap(channel_2g=8)
         network = self.reference_networks[0]["2g"]
         chan = self.start_traffic_and_softap(network, WIFI_CONFIG_APBAND_5G)
         avoid_chan = int(sys._getframe().f_code.co_name.split('_')[-1])

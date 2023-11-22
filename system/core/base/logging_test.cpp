@@ -206,12 +206,8 @@ static std::string make_log_pattern(android::base::LogSeverity severity,
 }
 #endif
 
-static void CheckMessage(const CapturedStderr& cap, android::base::LogSeverity severity,
+static void CheckMessage(const std::string& output, android::base::LogSeverity severity,
                          const char* expected, const char* expected_tag = nullptr) {
-  std::string output;
-  ASSERT_EQ(0, lseek(cap.fd(), 0, SEEK_SET));
-  android::base::ReadFdToString(cap.fd(), &output);
-
   // We can't usefully check the output of any of these on Windows because we
   // don't have std::regex, but we can at least make sure we printed at least as
   // many characters are in the log message.
@@ -233,20 +229,28 @@ static void CheckMessage(const CapturedStderr& cap, android::base::LogSeverity s
 #endif
 }
 
+static void CheckMessage(CapturedStderr& cap, android::base::LogSeverity severity,
+                         const char* expected, const char* expected_tag = nullptr) {
+  cap.Stop();
+  std::string output = cap.str();
+  return CheckMessage(output, severity, expected, expected_tag);
+}
 
-#define CHECK_LOG_STREAM_DISABLED(severity) \
-  { \
+#define CHECK_LOG_STREAM_DISABLED(severity)                      \
+  {                                                              \
     android::base::ScopedLogSeverity sls1(android::base::FATAL); \
-    CapturedStderr cap1; \
-    LOG_STREAM(severity) << "foo bar"; \
-    ASSERT_EQ(0, lseek(cap1.fd(), 0, SEEK_CUR)); \
-  } \
-  { \
+    CapturedStderr cap1;                                         \
+    LOG_STREAM(severity) << "foo bar";                           \
+    cap1.Stop();                                                 \
+    ASSERT_EQ("", cap1.str());                                   \
+  }                                                              \
+  {                                                              \
     android::base::ScopedLogSeverity sls1(android::base::FATAL); \
-    CapturedStderr cap1; \
-    LOG_STREAM(::android::base::severity) << "foo bar"; \
-    ASSERT_EQ(0, lseek(cap1.fd(), 0, SEEK_CUR)); \
-  } \
+    CapturedStderr cap1;                                         \
+    LOG_STREAM(::android::base::severity) << "foo bar";          \
+    cap1.Stop();                                                 \
+    ASSERT_EQ("", cap1.str());                                   \
+  }
 
 #define CHECK_LOG_STREAM_ENABLED(severity) \
   { \
@@ -267,7 +271,7 @@ TEST(logging, LOG_STREAM_FATAL_WITHOUT_ABORT_disabled) {
 }
 
 TEST(logging, LOG_STREAM_FATAL_WITHOUT_ABORT_enabled) {
-  CHECK_LOG_STREAM_ENABLED(FATAL_WITHOUT_ABORT);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_STREAM_ENABLED(FATAL_WITHOUT_ABORT));
 }
 
 TEST(logging, LOG_STREAM_ERROR_disabled) {
@@ -275,7 +279,7 @@ TEST(logging, LOG_STREAM_ERROR_disabled) {
 }
 
 TEST(logging, LOG_STREAM_ERROR_enabled) {
-  CHECK_LOG_STREAM_ENABLED(ERROR);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_STREAM_ENABLED(ERROR));
 }
 
 TEST(logging, LOG_STREAM_WARNING_disabled) {
@@ -283,7 +287,7 @@ TEST(logging, LOG_STREAM_WARNING_disabled) {
 }
 
 TEST(logging, LOG_STREAM_WARNING_enabled) {
-  CHECK_LOG_STREAM_ENABLED(WARNING);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_STREAM_ENABLED(WARNING));
 }
 
 TEST(logging, LOG_STREAM_INFO_disabled) {
@@ -291,7 +295,7 @@ TEST(logging, LOG_STREAM_INFO_disabled) {
 }
 
 TEST(logging, LOG_STREAM_INFO_enabled) {
-  CHECK_LOG_STREAM_ENABLED(INFO);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_STREAM_ENABLED(INFO));
 }
 
 TEST(logging, LOG_STREAM_DEBUG_disabled) {
@@ -299,7 +303,7 @@ TEST(logging, LOG_STREAM_DEBUG_disabled) {
 }
 
 TEST(logging, LOG_STREAM_DEBUG_enabled) {
-  CHECK_LOG_STREAM_ENABLED(DEBUG);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_STREAM_ENABLED(DEBUG));
 }
 
 TEST(logging, LOG_STREAM_VERBOSE_disabled) {
@@ -307,26 +311,27 @@ TEST(logging, LOG_STREAM_VERBOSE_disabled) {
 }
 
 TEST(logging, LOG_STREAM_VERBOSE_enabled) {
-  CHECK_LOG_STREAM_ENABLED(VERBOSE);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_STREAM_ENABLED(VERBOSE));
 }
 
 #undef CHECK_LOG_STREAM_DISABLED
 #undef CHECK_LOG_STREAM_ENABLED
 
-
-#define CHECK_LOG_DISABLED(severity) \
-  { \
+#define CHECK_LOG_DISABLED(severity)                             \
+  {                                                              \
     android::base::ScopedLogSeverity sls1(android::base::FATAL); \
-    CapturedStderr cap1; \
-    LOG(severity) << "foo bar"; \
-    ASSERT_EQ(0, lseek(cap1.fd(), 0, SEEK_CUR)); \
-  } \
-  { \
+    CapturedStderr cap1;                                         \
+    LOG(severity) << "foo bar";                                  \
+    cap1.Stop();                                                 \
+    ASSERT_EQ("", cap1.str());                                   \
+  }                                                              \
+  {                                                              \
     android::base::ScopedLogSeverity sls1(android::base::FATAL); \
-    CapturedStderr cap1; \
-    LOG(::android::base::severity) << "foo bar"; \
-    ASSERT_EQ(0, lseek(cap1.fd(), 0, SEEK_CUR)); \
-  } \
+    CapturedStderr cap1;                                         \
+    LOG(::android::base::severity) << "foo bar";                 \
+    cap1.Stop();                                                 \
+    ASSERT_EQ("", cap1.str());                                   \
+  }
 
 #define CHECK_LOG_ENABLED(severity) \
   { \
@@ -352,7 +357,7 @@ TEST(logging, LOG_FATAL_WITHOUT_ABORT_disabled) {
 }
 
 TEST(logging, LOG_FATAL_WITHOUT_ABORT_enabled) {
-  CHECK_LOG_ENABLED(FATAL_WITHOUT_ABORT);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_ENABLED(FATAL_WITHOUT_ABORT));
 }
 
 TEST(logging, LOG_ERROR_disabled) {
@@ -360,7 +365,7 @@ TEST(logging, LOG_ERROR_disabled) {
 }
 
 TEST(logging, LOG_ERROR_enabled) {
-  CHECK_LOG_ENABLED(ERROR);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_ENABLED(ERROR));
 }
 
 TEST(logging, LOG_WARNING_disabled) {
@@ -368,7 +373,7 @@ TEST(logging, LOG_WARNING_disabled) {
 }
 
 TEST(logging, LOG_WARNING_enabled) {
-  CHECK_LOG_ENABLED(WARNING);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_ENABLED(WARNING));
 }
 
 TEST(logging, LOG_INFO_disabled) {
@@ -376,7 +381,7 @@ TEST(logging, LOG_INFO_disabled) {
 }
 
 TEST(logging, LOG_INFO_enabled) {
-  CHECK_LOG_ENABLED(INFO);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_ENABLED(INFO));
 }
 
 TEST(logging, LOG_DEBUG_disabled) {
@@ -384,7 +389,7 @@ TEST(logging, LOG_DEBUG_disabled) {
 }
 
 TEST(logging, LOG_DEBUG_enabled) {
-  CHECK_LOG_ENABLED(DEBUG);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_ENABLED(DEBUG));
 }
 
 TEST(logging, LOG_VERBOSE_disabled) {
@@ -392,28 +397,28 @@ TEST(logging, LOG_VERBOSE_disabled) {
 }
 
 TEST(logging, LOG_VERBOSE_enabled) {
-  CHECK_LOG_ENABLED(VERBOSE);
+  ASSERT_NO_FATAL_FAILURE(CHECK_LOG_ENABLED(VERBOSE));
 }
 
 #undef CHECK_LOG_DISABLED
 #undef CHECK_LOG_ENABLED
 
-
 TEST(logging, LOG_complex_param) {
-#define CHECK_LOG_COMBINATION(use_scoped_log_severity_info, use_logging_severity_info)             \
-  {                                                                                                \
-    android::base::ScopedLogSeverity sls(                                                          \
-        (use_scoped_log_severity_info) ? ::android::base::INFO : ::android::base::WARNING);        \
-    CapturedStderr cap;                                                                            \
-    LOG((use_logging_severity_info) ? ::android::base::INFO : ::android::base::WARNING)            \
-        << "foobar";                                                                               \
-    if ((use_scoped_log_severity_info) || !(use_logging_severity_info)) {                          \
-      CheckMessage(cap,                                                                            \
-                   (use_logging_severity_info) ? ::android::base::INFO : ::android::base::WARNING, \
-                   "foobar");                                                                      \
-    } else {                                                                                       \
-      ASSERT_EQ(0, lseek(cap.fd(), 0, SEEK_CUR));                                                  \
-    }                                                                                              \
+#define CHECK_LOG_COMBINATION(use_scoped_log_severity_info, use_logging_severity_info)         \
+  {                                                                                            \
+    android::base::ScopedLogSeverity sls(                                                      \
+        (use_scoped_log_severity_info) ? ::android::base::INFO : ::android::base::WARNING);    \
+    CapturedStderr cap;                                                                        \
+    LOG((use_logging_severity_info) ? ::android::base::INFO : ::android::base::WARNING)        \
+        << "foobar";                                                                           \
+    if ((use_scoped_log_severity_info) || !(use_logging_severity_info)) {                      \
+      ASSERT_NO_FATAL_FAILURE(CheckMessage(                                                    \
+          cap, (use_logging_severity_info) ? ::android::base::INFO : ::android::base::WARNING, \
+          "foobar"));                                                                          \
+    } else {                                                                                   \
+      cap.Stop();                                                                              \
+      ASSERT_EQ("", cap.str());                                                                \
+    }                                                                                          \
   }
 
   CHECK_LOG_COMBINATION(false,false);
@@ -431,7 +436,7 @@ TEST(logging, LOG_does_not_clobber_errno) {
   LOG(INFO) << (errno = 67890);
   EXPECT_EQ(12345, errno) << "errno was not restored";
 
-  CheckMessage(cap, android::base::INFO, "67890");
+  ASSERT_NO_FATAL_FAILURE(CheckMessage(cap, android::base::INFO, "67890"));
 }
 
 TEST(logging, PLOG_does_not_clobber_errno) {
@@ -440,7 +445,7 @@ TEST(logging, PLOG_does_not_clobber_errno) {
   PLOG(INFO) << (errno = 67890);
   EXPECT_EQ(12345, errno) << "errno was not restored";
 
-  CheckMessage(cap, android::base::INFO, "67890");
+  ASSERT_NO_FATAL_FAILURE(CheckMessage(cap, android::base::INFO, "67890"));
 }
 
 TEST(logging, LOG_does_not_have_dangling_if) {
@@ -466,19 +471,21 @@ TEST(logging, LOG_does_not_have_dangling_if) {
   EXPECT_FALSE(flag) << "LOG macro probably has a dangling if with no else";
 }
 
-#define CHECK_PLOG_DISABLED(severity) \
-  { \
+#define CHECK_PLOG_DISABLED(severity)                            \
+  {                                                              \
     android::base::ScopedLogSeverity sls1(android::base::FATAL); \
-    CapturedStderr cap1; \
-    PLOG(severity) << "foo bar"; \
-    ASSERT_EQ(0, lseek(cap1.fd(), 0, SEEK_CUR)); \
-  } \
-  { \
+    CapturedStderr cap1;                                         \
+    PLOG(severity) << "foo bar";                                 \
+    cap1.Stop();                                                 \
+    ASSERT_EQ("", cap1.str());                                   \
+  }                                                              \
+  {                                                              \
     android::base::ScopedLogSeverity sls1(android::base::FATAL); \
-    CapturedStderr cap1; \
-    PLOG(severity) << "foo bar"; \
-    ASSERT_EQ(0, lseek(cap1.fd(), 0, SEEK_CUR)); \
-  } \
+    CapturedStderr cap1;                                         \
+    PLOG(severity) << "foo bar";                                 \
+    cap1.Stop();                                                 \
+    ASSERT_EQ("", cap1.str());                                   \
+  }
 
 #define CHECK_PLOG_ENABLED(severity) \
   { \
@@ -506,7 +513,7 @@ TEST(logging, PLOG_FATAL_WITHOUT_ABORT_disabled) {
 }
 
 TEST(logging, PLOG_FATAL_WITHOUT_ABORT_enabled) {
-  CHECK_PLOG_ENABLED(FATAL_WITHOUT_ABORT);
+  ASSERT_NO_FATAL_FAILURE(CHECK_PLOG_ENABLED(FATAL_WITHOUT_ABORT));
 }
 
 TEST(logging, PLOG_ERROR_disabled) {
@@ -514,7 +521,7 @@ TEST(logging, PLOG_ERROR_disabled) {
 }
 
 TEST(logging, PLOG_ERROR_enabled) {
-  CHECK_PLOG_ENABLED(ERROR);
+  ASSERT_NO_FATAL_FAILURE(CHECK_PLOG_ENABLED(ERROR));
 }
 
 TEST(logging, PLOG_WARNING_disabled) {
@@ -522,7 +529,7 @@ TEST(logging, PLOG_WARNING_disabled) {
 }
 
 TEST(logging, PLOG_WARNING_enabled) {
-  CHECK_PLOG_ENABLED(WARNING);
+  ASSERT_NO_FATAL_FAILURE(CHECK_PLOG_ENABLED(WARNING));
 }
 
 TEST(logging, PLOG_INFO_disabled) {
@@ -530,7 +537,7 @@ TEST(logging, PLOG_INFO_disabled) {
 }
 
 TEST(logging, PLOG_INFO_enabled) {
-  CHECK_PLOG_ENABLED(INFO);
+  ASSERT_NO_FATAL_FAILURE(CHECK_PLOG_ENABLED(INFO));
 }
 
 TEST(logging, PLOG_DEBUG_disabled) {
@@ -538,7 +545,7 @@ TEST(logging, PLOG_DEBUG_disabled) {
 }
 
 TEST(logging, PLOG_DEBUG_enabled) {
-  CHECK_PLOG_ENABLED(DEBUG);
+  ASSERT_NO_FATAL_FAILURE(CHECK_PLOG_ENABLED(DEBUG));
 }
 
 TEST(logging, PLOG_VERBOSE_disabled) {
@@ -546,7 +553,7 @@ TEST(logging, PLOG_VERBOSE_disabled) {
 }
 
 TEST(logging, PLOG_VERBOSE_enabled) {
-  CHECK_PLOG_ENABLED(VERBOSE);
+  ASSERT_NO_FATAL_FAILURE(CHECK_PLOG_ENABLED(VERBOSE));
 }
 
 #undef CHECK_PLOG_DISABLED
@@ -559,7 +566,7 @@ TEST(logging, UNIMPLEMENTED) {
   CapturedStderr cap;
   errno = ENOENT;
   UNIMPLEMENTED(ERROR);
-  CheckMessage(cap, android::base::ERROR, expected.c_str());
+  ASSERT_NO_FATAL_FAILURE(CheckMessage(cap, android::base::ERROR, expected.c_str()));
 }
 
 static void NoopAborter(const char* msg ATTRIBUTE_UNUSED) {
@@ -567,17 +574,19 @@ static void NoopAborter(const char* msg ATTRIBUTE_UNUSED) {
 }
 
 TEST(logging, LOG_FATAL_NOOP_ABORTER) {
+  CapturedStderr cap;
   {
     android::base::SetAborter(NoopAborter);
 
     android::base::ScopedLogSeverity sls(android::base::ERROR);
-    CapturedStderr cap;
     LOG(FATAL) << "foobar";
-    CheckMessage(cap, android::base::FATAL, "foobar");
-    CheckMessage(cap, android::base::ERROR, "called noop");
+    cap.Stop();
 
     android::base::SetAborter(android::base::DefaultAborter);
   }
+  std::string output = cap.str();
+  ASSERT_NO_FATAL_FAILURE(CheckMessage(output, android::base::FATAL, "foobar"));
+  ASSERT_NO_FATAL_FAILURE(CheckMessage(output, android::base::ERROR, "called noop"));
 
   ASSERT_DEATH({SuppressAbortUI(); LOG(FATAL) << "foobar";}, "foobar");
 }
@@ -621,5 +630,21 @@ TEST(logging, SetDefaultTag) {
     LOG(INFO) << expected_msg;
     android::base::SetDefaultTag(old_default_tag);
   }
-  CheckMessage(cap, android::base::LogSeverity::INFO, expected_msg, expected_tag);
+  ASSERT_NO_FATAL_FAILURE(
+      CheckMessage(cap, android::base::LogSeverity::INFO, expected_msg, expected_tag));
+}
+
+TEST(logging, StdioLogger) {
+  CapturedStderr cap_err;
+  CapturedStdout cap_out;
+  android::base::SetLogger(android::base::StdioLogger);
+  LOG(INFO) << "out";
+  LOG(ERROR) << "err";
+  cap_err.Stop();
+  cap_out.Stop();
+
+  // For INFO we expect just the literal "out\n".
+  ASSERT_EQ("out\n", cap_out.str());
+  // Whereas ERROR logging includes the program name.
+  ASSERT_EQ(android::base::Basename(android::base::GetExecutablePath()) + ": err\n", cap_err.str());
 }

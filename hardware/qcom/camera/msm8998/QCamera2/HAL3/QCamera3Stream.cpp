@@ -483,6 +483,17 @@ int32_t QCamera3Stream::init(cam_stream_type_t streamType,
     stream_config.stream_cb = dataNotifyCB;
     stream_config.stream_cb_sync = NULL;
 
+    if (mStreamInfo->stream_type == CAM_STREAM_TYPE_RAW &&
+        mStreamInfo->fmt == CAM_FORMAT_BAYER_MIPI_RAW_10BPP_GBRG) {
+        mStreamInfo->buf_stride =
+        NativeBufferInterface::GetInstance()->GetGrallocBufferStride(
+              mStreamInfo->dim.width,
+              mStreamInfo->dim.height,
+              mStreamInfo->fmt);
+    } else {
+        mStreamInfo->buf_stride = 0;
+    }
+
     rc = mCamOps->config_stream(mCamHandle,
             mChannelHandle, mHandle, &stream_config);
     if (rc < 0) {

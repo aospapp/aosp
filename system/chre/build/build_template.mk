@@ -255,8 +255,10 @@ endif
 
 # Template Invocation ##########################################################
 
+TARGET_CFLAGS_LOCAL = $(TARGET_CFLAGS)
+TARGET_CFLAGS_LOCAL += -DCHRE_PLATFORM_ID=$(TARGET_PLATFORM_ID)
 $(eval $(call BUILD_TEMPLATE, $(TARGET_NAME), \
-                              $(COMMON_CFLAGS) $(TARGET_CFLAGS), \
+                              $(COMMON_CFLAGS) $(TARGET_CFLAGS_LOCAL), \
                               $(TARGET_CC), \
                               $(TARGET_SO_LDFLAGS), \
                               $(TARGET_LD), \
@@ -273,7 +275,7 @@ $(eval $(call BUILD_TEMPLATE, $(TARGET_NAME), \
 
 $(eval $(call BUILD_TEMPLATE, $(TARGET_NAME)_debug, \
                               $(COMMON_CFLAGS) $(COMMON_DEBUG_CFLAGS) \
-                                  $(TARGET_CFLAGS) $(TARGET_DEBUG_CFLAGS), \
+                                  $(TARGET_CFLAGS_LOCAL) $(TARGET_DEBUG_CFLAGS), \
                               $(TARGET_CC), \
                               $(TARGET_SO_LDFLAGS), \
                               $(TARGET_LD), \

@@ -99,13 +99,13 @@ public class LineGraph extends Graph {
      */
     @Override
     public void addData(String id, ProfilingPointRunEntity profilingPoint) {
-        if (profilingPoint.values.size() == 0
-                || profilingPoint.values.size() != profilingPoint.labels.size())
+        if (profilingPoint.getValues().size() == 0
+                || profilingPoint.getValues().size() != profilingPoint.getLabels().size())
             return;
         ids.add(id);
         profilingRuns.add(profilingPoint);
-        xLabel = profilingPoint.xLabel;
-        yLabel = profilingPoint.yLabel;
+        xLabel = profilingPoint.getXLabel();
+        yLabel = profilingPoint.getYLabel();
     }
 
     /**
@@ -121,8 +121,8 @@ public class LineGraph extends Graph {
 
         List<String> axisTicks = new ArrayList<>();
         Map<String, Integer> tickIndexMap = new HashMap<>();
-        for (int i = 0; i < profilingRun.labels.size(); i++) {
-            String label = profilingRun.labels.get(i);
+        for (int i = 0; i < profilingRun.getLabels().size(); i++) {
+            String label = profilingRun.getLabels().get(i);
             axisTicks.add(label);
             tickIndexMap.put(label, i);
         }
@@ -130,15 +130,15 @@ public class LineGraph extends Graph {
         long[][] lineGraphValues = new long[axisTicks.size()][profilingRuns.size()];
         for (int reportIndex = 0; reportIndex < profilingRuns.size(); reportIndex++) {
             ProfilingPointRunEntity pt = profilingRuns.get(reportIndex);
-            for (int i = 0; i < pt.labels.size(); i++) {
-                String label = pt.labels.get(i);
+            for (int i = 0; i < pt.getLabels().size(); i++) {
+                String label = pt.getLabels().get(i);
 
                 // Skip value if its label is not present
                 if (!tickIndexMap.containsKey(label))
                     continue;
                 int labelIndex = tickIndexMap.get(label);
 
-                lineGraphValues[labelIndex][reportIndex] = pt.values.get(i);
+                lineGraphValues[labelIndex][reportIndex] = pt.getValues().get(i);
             }
         }
         json.add(VALUE_KEY, new Gson().toJsonTree(lineGraphValues).getAsJsonArray());

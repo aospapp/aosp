@@ -22,10 +22,10 @@
 namespace chre {
 
 //! The number of milliseconds in one min.
-constexpr uint64_t kOneMinuteInMillisecods(60000);
+constexpr uint64_t kOneMinuteInMilliseconds(60000);
 
 //! The number of milliseconds in one second.
-constexpr uint64_t kOneSecondInMillisecods(1000);
+constexpr uint64_t kOneSecondInMilliseconds(1000);
 
 //! The number of nanoseconds in one second.
 constexpr uint64_t kOneSecondInNanoseconds(1000000000);
@@ -59,6 +59,13 @@ class Seconds {
    * @return the value of seconds converted to nanoseconds
    */
   constexpr uint64_t toRawNanoseconds() const;
+
+  /**
+   * Obtains the number of Milliseconds stored by this time duration.
+   *
+   * @return the value of milliseconds.
+   */
+  constexpr uint64_t getMilliseconds() const;
 
  private:
   uint64_t mSeconds;

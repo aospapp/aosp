@@ -22,8 +22,8 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_DEX_PREOPT := false
 LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_STATIC_JAVA_LIBRARIES := \
-	compatibility-device-util \
-	android-support-test
+	compatibility-device-util-axt \
+	androidx.test.rules
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 LOCAL_SRC_FILES := $(call all-java-files-under, ../src)
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
@@ -34,5 +34,7 @@ LOCAL_MANIFEST_FILE := AndroidManifest.xml
 
 # Jarjar to make WrapTest unique.
 LOCAL_JARJAR_RULES := $(LOCAL_PATH)/jarjar-rules.txt
+
+LOCAL_USE_EMBEDDED_NATIVE_LIBS := false
 
 include $(BUILD_PACKAGE)

@@ -16,100 +16,338 @@
 
 package com.android.tradefed.util;
 
-import org.junit.AfterClass;
+import com.android.tradefed.build.BuildRetrievalError;
+
+import com.google.api.client.googleapis.batch.BatchCallback;
+import com.google.api.client.googleapis.batch.BatchRequest;
+import com.google.api.client.http.HttpHeaders;
+import com.google.api.client.http.InputStreamContent;
+import com.google.api.services.storage.Storage;
+import com.google.api.services.storage.Storage.Objects.List;
+import com.google.api.services.storage.model.Objects;
+import com.google.api.services.storage.model.StorageObject;
+
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Paths;
+import java.util.Collections;
 
 /** {@link GCSFileDownloader} functional test. */
 @RunWith(JUnit4.class)
 public class GCSFileDownloaderFuncTest {
 
-    private static final String GSUTIL = "gsutil";
-    private static final String BUCKET_NAME_PREFIX = "tradefed_function_test";
-    private static final String FILE_NAME = "a_host_config.xml";
+    private static final String BUCKET_NAME = "tradefed_function_test";
+    private static final String FILE_NAME1 = "a_host_config.xml";
+    private static final String FILE_NAME2 = "file2.txt";
+    private static final String FILE_NAME3 = "file3.txt";
+    private static final String FILE_NAME4 = "file4.txt";
+    private static final String FOLDER_NAME1 = "folder1";
+    private static final String FOLDER_NAME2 = "folder2";
     private static final String FILE_CONTENT = "Hello World!";
-    private static final String PROJECT_ID = "google.com:tradefed-cluster-staging";
-    private static final long TIMEOUT = 10000;
-    private static String sBucketName;
-    private static String sBucketUrl;
 
     private GCSFileDownloader mDownloader;
+    private String mRemoteRoot;
+    private File mLocalRoot;
+    private Storage mStorage;
 
-    @BeforeClass
-    public static void setUpBeforeClass() throws Exception {
-        File tempFile = FileUtil.createTempFile(BUCKET_NAME_PREFIX, "");
-        sBucketName = tempFile.getName();
-        FileUtil.deleteFile(tempFile);
-        sBucketUrl = "gs://" + sBucketName;
-        CommandResult cr =
-                RunUtil.getDefault()
-                        .runTimedCmd(TIMEOUT, GSUTIL, "mb", "-p", PROJECT_ID, sBucketUrl);
-        Assert.assertEquals(
-                String.format(
-                        "Filed to create bucket %s %s: %s",
-                        PROJECT_ID, sBucketName, cr.getStderr()),
-                CommandStatus.SUCCESS,
-                cr.getStatus());
-        cr =
-                RunUtil.getDefault()
-                        .runTimedCmdWithInput(
-                                TIMEOUT,
-                                FILE_CONTENT,
-                                GSUTIL,
-                                "cp",
-                                "-",
-                                String.format("gs://%s/%s", sBucketName, FILE_NAME));
-        Assert.assertEquals(
-                String.format(
-                        "Filed to create file %s %s: %s", sBucketName, FILE_NAME, cr.getStderr()),
-                CommandStatus.SUCCESS,
-                cr.getStatus());
-    }
-
-    @AfterClass
-    public static void tearDownAfterClass() throws Exception {
-        CommandResult cr =
-                RunUtil.getDefault()
-                        .runTimedCmd(
-                                TIMEOUT, GSUTIL, "rm", String.format("gs://%s/*", sBucketName));
-        Assert.assertEquals(
-                String.format("Filed to clear bucket %s: %s", sBucketName, cr.getStderr()),
-                CommandStatus.SUCCESS,
-                cr.getStatus());
-        cr = RunUtil.getDefault().runTimedCmd(TIMEOUT, GSUTIL, "rb", "-f", sBucketUrl);
-        Assert.assertEquals(
-                String.format("Filed to delete bucket %s: %s", sBucketName, cr.getStderr()),
-                CommandStatus.SUCCESS,
-                cr.getStatus());
+    private static void createFile(
+            Storage storage, String content, String bucketName, String... pathSegs)
+            throws IOException {
+        String path = String.join("/", pathSegs);
+        StorageObject object = new StorageObject();
+        object.setName(path);
+        storage.objects()
+                .insert(
+                        bucketName,
+                        object,
+                        new InputStreamContent(null, new ByteArrayInputStream(content.getBytes())))
+                .execute();
     }
 
     @Before
-    public void setUp() {
-        mDownloader = new GCSFileDownloader();
+    public void setUp() throws IOException {
+        File tempFile =
+                FileUtil.createTempFile(GCSFileDownloaderFuncTest.class.getSimpleName(), "");
+        mRemoteRoot = tempFile.getName();
+        FileUtil.deleteFile(tempFile);
+        mDownloader =
+                new GCSFileDownloader() {
+
+                    @Override
+                    File createTempFile(String remoteFilePath, File rootDir)
+                            throws BuildRetrievalError {
+                        try {
+                            File tmpFile =
+                                    FileUtil.createTempFileForRemote(remoteFilePath, mLocalRoot);
+                            tmpFile.delete();
+                            return tmpFile;
+                        } catch (IOException e) {
+                            throw new BuildRetrievalError(e.getMessage(), e);
+                        }
+                    }
+                };
+        mStorage =
+                mDownloader.getStorage(
+                        Collections.singleton(
+                                "https://www.googleapis.com/auth/devstorage.read_write"));
+        createFile(mStorage, FILE_CONTENT, BUCKET_NAME, mRemoteRoot, FILE_NAME1);
+        createFile(mStorage, FILE_NAME2, BUCKET_NAME, mRemoteRoot, FOLDER_NAME1, FILE_NAME2);
+        createFile(mStorage, FILE_NAME3, BUCKET_NAME, mRemoteRoot, FOLDER_NAME1, FILE_NAME3);
+        createFile(
+                mStorage,
+                FILE_NAME4,
+                BUCKET_NAME,
+                mRemoteRoot,
+                FOLDER_NAME1,
+                FOLDER_NAME2,
+                FILE_NAME4);
+        mLocalRoot = FileUtil.createTempDir(GCSFileDownloaderFuncTest.class.getSimpleName());
+    }
+
+    @After
+    public void tearDown() throws IOException {
+        FileUtil.recursiveDelete(mLocalRoot);
+        String pageToken = null;
+        BatchRequest batchRequest = mStorage.batch();
+
+        while (true) {
+            List listOperation = mStorage.objects().list(BUCKET_NAME).setPrefix(mRemoteRoot);
+            if (pageToken == null) {
+                listOperation.setPageToken(pageToken);
+            }
+            Objects objects = listOperation.execute();
+            for (StorageObject object : objects.getItems()) {
+                batchRequest.queue(
+                        mStorage.objects().delete(BUCKET_NAME, object.getName()).buildHttpRequest(),
+                        Void.class,
+                        IOException.class,
+                        new BatchCallback<Void, IOException>() {
+                            @Override
+                            public void onSuccess(Void arg0, HttpHeaders arg1) throws IOException {}
+
+                            @Override
+                            public void onFailure(IOException e, HttpHeaders arg1)
+                                    throws IOException {
+                                throw e;
+                            }
+                        });
+            }
+            pageToken = objects.getNextPageToken();
+            if (pageToken == null) {
+                batchRequest.execute();
+                return;
+            }
+        }
+    }
+
+    @Test
+    public void testDownloadFile_streamOutput() throws Exception {
+        InputStream inputStream =
+                mDownloader.downloadFile(BUCKET_NAME, mRemoteRoot + "/" + FILE_NAME1);
+        String content = StreamUtil.getStringFromStream(inputStream);
+        Assert.assertEquals(FILE_CONTENT, content);
+        inputStream.reset();
+    }
+
+    @Test
+    public void testDownloadFile_streamOutput_notExist() throws Exception {
+        try {
+            mDownloader.downloadFile(BUCKET_NAME, mRemoteRoot + "/" + "non_exist_file");
+            Assert.fail("Should throw IOException.");
+        } catch (IOException e) {
+            // Expect IOException
+        }
+    }
+
+    @Test
+    public void testGetRemoteFileMetaData() throws Exception {
+        String filename = mRemoteRoot + "/" + FILE_NAME1;
+        StorageObject object = mDownloader.getRemoteFileMetaData(BUCKET_NAME, filename);
+        Assert.assertEquals(filename, object.getName());
+    }
+
+    @Test
+    public void testGetRemoteFileMetaData_notExist() throws Exception {
+        String filename = mRemoteRoot + "/" + "not_exist";
+        StorageObject object = mDownloader.getRemoteFileMetaData(BUCKET_NAME, filename);
+        Assert.assertNull(object);
+    }
+
+    @Test
+    public void testIsRemoteFolder() throws Exception {
+        Assert.assertFalse(
+                mDownloader.isRemoteFolder(
+                        BUCKET_NAME, Paths.get(mRemoteRoot, FILE_NAME1).toString()));
+        Assert.assertTrue(
+                mDownloader.isRemoteFolder(
+                        BUCKET_NAME, Paths.get(mRemoteRoot, FOLDER_NAME1).toString()));
     }
 
     @Test
     public void testDownloadFile() throws Exception {
-        InputStream inputStream = mDownloader.downloadFile(sBucketName, FILE_NAME);
-        String content = StreamUtil.getStringFromStream(inputStream);
+        File localFile =
+                mDownloader.downloadFile(
+                        String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FILE_NAME1));
+        String content = FileUtil.readStringFromFile(localFile);
         Assert.assertEquals(FILE_CONTENT, content);
     }
 
     @Test
-    public void testDownloadFile_notExist() throws Exception {
+    public void testDownloadFile_nonExist() throws Exception {
         try {
-            mDownloader.downloadFile(sBucketName, "non_exist_file");
-            Assert.fail("Should throw IOExcepiton.");
-        } catch (IOException e) {
-            // Expect IOException
+            mDownloader.downloadFile(
+                    String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, "non_exist_file"));
+            Assert.fail("Should throw BuildRetrievalError.");
+        } catch (BuildRetrievalError e) {
+            // Expect BuildRetrievalError
         }
+    }
+
+    @Test
+    public void testDownloadFile_folder() throws Exception {
+        File localFile =
+                mDownloader.downloadFile(
+                        String.format("gs://%s/%s/%s/", BUCKET_NAME, mRemoteRoot, FOLDER_NAME1));
+        checkDownloadedFolder(localFile);
+    }
+
+    @Test
+    public void testDownloadFile_folderNotsanitize() throws Exception {
+        File localFile =
+                mDownloader.downloadFile(
+                        String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FOLDER_NAME1));
+        checkDownloadedFolder(localFile);
+    }
+
+    private void checkDownloadedFolder(File localFile) throws Exception {
+        Assert.assertTrue(localFile.isDirectory());
+        Assert.assertEquals(3, localFile.list().length);
+        for (String filename : localFile.list()) {
+            if (filename.equals(FILE_NAME2)) {
+                Assert.assertEquals(
+                        FILE_NAME2,
+                        FileUtil.readStringFromFile(
+                                new File(localFile.getAbsolutePath(), filename)));
+            } else if (filename.equals(FILE_NAME3)) {
+                Assert.assertEquals(
+                        FILE_NAME3,
+                        FileUtil.readStringFromFile(
+                                new File(localFile.getAbsolutePath(), filename)));
+            } else if (filename.equals(FOLDER_NAME2)) {
+                File subFolder = new File(localFile.getAbsolutePath(), filename);
+                Assert.assertTrue(subFolder.isDirectory());
+                Assert.assertEquals(1, subFolder.list().length);
+                Assert.assertEquals(
+                        FILE_NAME4,
+                        FileUtil.readStringFromFile(
+                                new File(subFolder.getAbsolutePath(), subFolder.list()[0])));
+            } else {
+                Assert.assertTrue(String.format("Unknonwn file %s", filename), false);
+            }
+        }
+    }
+
+    @Test
+    public void testDownloadFile_folder_nonExist() throws Exception {
+        try {
+            mDownloader.downloadFile(
+                    String.format("gs://%s/%s/%s/", BUCKET_NAME, "mRemoteRoot", "nonExistFolder"));
+            Assert.fail("Should throw BuildRetrievalError.");
+        } catch (BuildRetrievalError e) {
+            // Expect BuildRetrievalError
+        }
+    }
+
+    @Test
+    public void testCheckFreshness() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FILE_NAME1);
+        File localFile = mDownloader.downloadFile(remotePath);
+        Assert.assertTrue(mDownloader.isFresh(localFile, remotePath));
+    }
+
+    @Test
+    public void testCheckFreshness_notExist() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FILE_NAME1);
+        Assert.assertFalse(mDownloader.isFresh(new File("/not/exist"), remotePath));
+    }
+
+    @Test
+    public void testCheckFreshness_folderNotExist() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FOLDER_NAME1);
+        Assert.assertFalse(mDownloader.isFresh(new File("/not/exist"), remotePath));
+    }
+
+    @Test
+    public void testCheckFreshness_remoteNotExist() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FILE_NAME1);
+        String remoteNotExistPath = String.format("gs://%s/%s/no_exist", BUCKET_NAME, mRemoteRoot);
+        File localFile = mDownloader.downloadFile(remotePath);
+        Assert.assertFalse(mDownloader.isFresh(localFile, remoteNotExistPath));
+    }
+
+    @Test
+    public void testCheckFreshness_remoteFolderNotExist() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FOLDER_NAME1);
+        String remoteNotExistPath = String.format("gs://%s/%s/no_exist/", BUCKET_NAME, mRemoteRoot);
+        File localFolder = mDownloader.downloadFile(remotePath);
+        Assert.assertFalse(mDownloader.isFresh(localFolder, remoteNotExistPath));
+    }
+
+    @Test
+    public void testCheckFreshness_notFresh() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FILE_NAME1);
+        File localFile = mDownloader.downloadFile(remotePath);
+        // Change the remote file.
+        createFile(mStorage, "New content.", BUCKET_NAME, mRemoteRoot, FILE_NAME1);
+        Assert.assertFalse(mDownloader.isFresh(localFile, remotePath));
+    }
+
+    @Test
+    public void testCheckFreshness_folder() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FOLDER_NAME1);
+        File localFolder = mDownloader.downloadFile(remotePath);
+        Assert.assertTrue(mDownloader.isFresh(localFolder, remotePath));
+    }
+
+    @Test
+    public void testCheckFreshness_folder_addFile() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FOLDER_NAME1);
+        File localFolder = mDownloader.downloadFile(remotePath);
+        createFile(
+                mStorage,
+                "A new file",
+                BUCKET_NAME,
+                mRemoteRoot,
+                FOLDER_NAME1,
+                FOLDER_NAME2,
+                "new_file.txt");
+        Assert.assertFalse(mDownloader.isFresh(localFolder, remotePath));
+    }
+
+    @Test
+    public void testCheckFreshness_folder_removeFile() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FOLDER_NAME1);
+        File localFolder = mDownloader.downloadFile(remotePath);
+        mStorage.objects()
+                .delete(BUCKET_NAME, Paths.get(mRemoteRoot, FOLDER_NAME1, FILE_NAME3).toString())
+                .execute();
+        Assert.assertFalse(mDownloader.isFresh(localFolder, remotePath));
+    }
+
+    @Test
+    public void testCheckFreshness_folder_changeFile() throws Exception {
+        String remotePath = String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FOLDER_NAME1);
+        File localFolder = mDownloader.downloadFile(remotePath);
+        createFile(mStorage, "New content", BUCKET_NAME, mRemoteRoot, FOLDER_NAME1, FILE_NAME3);
+        Assert.assertFalse(mDownloader.isFresh(localFolder, remotePath));
     }
 }

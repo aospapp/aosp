@@ -22,6 +22,7 @@
 #include <stdbool.h>
 
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
+#include "audio_hal_interface/a2dp_encoding.h"
 #include "bt_common.h"
 #include "bta_av_api.h"
 #include "btif_a2dp.h"
@@ -45,60 +46,65 @@ void btif_a2dp_on_idle(void) {
   }
 }
 
-bool btif_a2dp_on_started(const RawAddress& peer_addr,
-                          tBTA_AV_START* p_av_start, bool pending_start) {
-  bool ack = false;
-
-  LOG_INFO(LOG_TAG,
-           "%s: ## ON A2DP STARTED ## peer %s pending_start:%s p_av_start:%p",
-           __func__, peer_addr.ToString().c_str(),
-           logbool(pending_start).c_str(), p_av_start);
+bool btif_a2dp_on_started(const RawAddress& peer_addr, tBTA_AV_START* p_av_start) {
+  LOG(INFO) << __func__ << ": ## ON A2DP STARTED ## peer " << peer_addr << " p_av_start:" << p_av_start;
 
   if (p_av_start == NULL) {
-    /* ack back a local start request */
-
-    if (!btif_av_is_a2dp_offload_enabled()) {
-      btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
-      return true;
-    } else if (bluetooth::headset::IsCallIdle()) {
-      btif_av_stream_start_offload();
+    tA2DP_CTRL_ACK status = A2DP_CTRL_ACK_SUCCESS;
+    if (!bluetooth::headset::IsCallIdle()) {
+      LOG(ERROR) << __func__ << ": peer " << peer_addr << " call in progress, do not start A2DP stream";
+      status = A2DP_CTRL_ACK_INCALL_FAILURE;
+    }
+    /* just ack back a local start request, do not start the media encoder since
+     * this is not for BTA_AV_START_EVT. */
+    if (bluetooth::audio::a2dp::is_hal_2_0_enabled()) {
+      bluetooth::audio::a2dp::ack_stream_started(status);
+    } else if (btif_av_is_a2dp_offload_enabled()) {
+      btif_a2dp_audio_on_started(status);
     } else {
-      LOG_ERROR(LOG_TAG, "%s: peer %s call in progress, do not start offload",
-                __func__, peer_addr.ToString().c_str());
-      btif_a2dp_audio_on_started(A2DP_CTRL_ACK_INCALL_FAILURE);
+      btif_a2dp_command_ack(status);
     }
     return true;
   }
 
-  LOG_INFO(LOG_TAG,
-           "%s: peer %s pending_start:%s status:%d suspending:%s initiator:%s",
-           __func__, peer_addr.ToString().c_str(),
-           logbool(pending_start).c_str(), p_av_start->status,
-           logbool(p_av_start->suspending).c_str(),
-           logbool(p_av_start->initiator).c_str());
+  LOG(INFO) << __func__ << ": peer " << peer_addr << " status:" << +p_av_start->status
+            << " suspending:" << logbool(p_av_start->suspending) << " initiator:" << logbool(p_av_start->initiator);
 
   if (p_av_start->status == BTA_AV_SUCCESS) {
-    if (!p_av_start->suspending) {
-      if (p_av_start->initiator) {
-        if (pending_start) {
-          if (btif_av_is_a2dp_offload_enabled()) {
-            btif_av_stream_start_offload();
-          } else {
-            btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
-          }
-          ack = true;
-        }
-      }
-
-      /* media task is autostarted upon a2dp audiopath connection */
+    if (p_av_start->suspending) {
+      LOG(WARNING) << __func__ << ": peer " << peer_addr << " A2DP is suspending and ignores the started event";
+      return false;
     }
-  } else if (pending_start) {
-    LOG_ERROR(LOG_TAG, "%s: peer %s A2DP start request failed: status = %d",
-              __func__, peer_addr.ToString().c_str(), p_av_start->status);
-    btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
-    ack = true;
+    if (btif_av_is_a2dp_offload_enabled()) {
+      btif_av_stream_start_offload();
+    } else if (bluetooth::audio::a2dp::is_hal_2_0_enabled()) {
+      if (btif_av_get_peer_sep() == AVDT_TSEP_SNK) {
+        /* Start the media encoder to do the SW audio stream */
+        btif_a2dp_source_start_audio_req();
+      }
+      if (p_av_start->initiator) {
+        bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_SUCCESS);
+        return true;
+      }
+    } else {
+      if (p_av_start->initiator) {
+        btif_a2dp_command_ack(A2DP_CTRL_ACK_SUCCESS);
+        return true;
+      }
+      /* media task is auto-started upon UIPC connection of a2dp audiopath */
+    }
+  } else if (p_av_start->initiator) {
+    LOG(ERROR) << __func__ << ": peer " << peer_addr << " A2DP start request failed: status = " << +p_av_start->status;
+    if (bluetooth::audio::a2dp::is_hal_2_0_enabled()) {
+      bluetooth::audio::a2dp::ack_stream_started(A2DP_CTRL_ACK_FAILURE);
+    } else if (btif_av_is_a2dp_offload_enabled()) {
+      btif_a2dp_audio_on_started(p_av_start->status);
+    } else {
+      btif_a2dp_command_ack(A2DP_CTRL_ACK_FAILURE);
+    }
+    return true;
   }
-  return ack;
+  return false;
 }
 
 void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
@@ -109,7 +115,8 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
     btif_a2dp_sink_on_stopped(p_av_suspend);
     return;
   }
-  if (!btif_av_is_a2dp_offload_enabled()) {
+  if (bluetooth::audio::a2dp::is_hal_2_0_enabled() ||
+      !btif_av_is_a2dp_offload_enabled()) {
     btif_a2dp_source_on_stopped(p_av_suspend);
   } else if (p_av_suspend != NULL) {
     btif_a2dp_audio_on_stopped(p_av_suspend->status);
@@ -119,13 +126,14 @@ void btif_a2dp_on_stopped(tBTA_AV_SUSPEND* p_av_suspend) {
 void btif_a2dp_on_suspended(tBTA_AV_SUSPEND* p_av_suspend) {
   LOG_INFO(LOG_TAG, "%s: ## ON A2DP SUSPENDED ## p_av_suspend=%p", __func__,
            p_av_suspend);
-  if (!btif_av_is_a2dp_offload_enabled()) {
-    if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
-      btif_a2dp_sink_on_suspended(p_av_suspend);
-    } else {
-      btif_a2dp_source_on_suspended(p_av_suspend);
-    }
-  } else {
+  if (btif_av_get_peer_sep() == AVDT_TSEP_SRC) {
+    btif_a2dp_sink_on_suspended(p_av_suspend);
+    return;
+  }
+  if (bluetooth::audio::a2dp::is_hal_2_0_enabled() ||
+      !btif_av_is_a2dp_offload_enabled()) {
+    btif_a2dp_source_on_suspended(p_av_suspend);
+  } else if (p_av_suspend != NULL) {
     btif_a2dp_audio_on_suspended(p_av_suspend->status);
   }
 }
@@ -152,7 +160,6 @@ void btif_a2dp_on_offload_started(const RawAddress& peer_addr,
       break;
   }
   if (btif_av_is_a2dp_offload_enabled()) {
-    btif_a2dp_audio_on_started(status);
     if (ack != BTA_AV_SUCCESS && btif_av_stream_started_ready()) {
       // Offload request will return with failure from btif_av sm if
       // suspend is triggered for remote start. Disconnect only if SoC
@@ -161,8 +168,12 @@ void btif_a2dp_on_offload_started(const RawAddress& peer_addr,
                 peer_addr.ToString().c_str());
       btif_av_src_disconnect_sink(peer_addr);
     }
+  }
+  if (bluetooth::audio::a2dp::is_hal_2_0_enabled()) {
+    bluetooth::audio::a2dp::ack_stream_started(ack);
   } else {
     btif_a2dp_command_ack(ack);
+    btif_a2dp_audio_on_started(status);
   }
 }
 

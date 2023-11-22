@@ -27,8 +27,6 @@
 extern "C" {
 #endif
 
-#define __ANDROID_USE_LIBLOG_EVENT_INTERFACE 1
-
 /*
  * The opaque context used to manipulate lists of events.
  */
@@ -62,6 +60,13 @@ int android_log_write_float32(android_log_context ctx, float value);
 /* Submit the composed list context to the specified logger id */
 /* NB: LOG_ID_EVENTS and LOG_ID_SECURITY only valid binary buffers */
 int android_log_write_list(android_log_context ctx, log_id_t id);
+
+/* Reset writer context */
+int android_log_reset(android_log_context ctx);
+
+/* Reset reader context */
+int android_log_parser_reset(android_log_context ctx,
+                             const char* msg, size_t len);
 
 /* Finished with reader or writer context */
 int android_log_destroy(android_log_context* ctx);

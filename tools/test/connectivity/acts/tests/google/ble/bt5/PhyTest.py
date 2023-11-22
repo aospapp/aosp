@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2017 The Android Open Source Project
 #
@@ -40,6 +40,7 @@ def lfmt(txPhy, rxPhy):
 
 class PhyTest(GattConnectedBaseTest):
     def setup_class(self):
+        super(PhyTest, self).setup_class()
         if not self.cen_ad.droid.bluetoothIsLe2MPhySupported():
             raise signals.TestSkipClass(
                 "Central device does not support LE 2M PHY")

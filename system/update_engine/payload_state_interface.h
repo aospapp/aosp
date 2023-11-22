@@ -155,6 +155,16 @@ class PayloadStateInterface {
   // Called at update_engine startup to do various house-keeping.
   virtual void UpdateEngineStarted() = 0;
 
+  // Returns whether a rollback happened since the last update check with policy
+  // present.
+  virtual bool GetRollbackHappened() = 0;
+
+  // Sets whether rollback has happened on this device since the last update
+  // check where policy was available. This info is preserved over powerwash.
+  // This prevents forced updates happening on a rolled back device before
+  // device policy is available.
+  virtual void SetRollbackHappened(bool rollback_happened) = 0;
+
   // Returns the version from before a rollback if our last update was a
   // rollback.
   virtual std::string GetRollbackVersion() = 0;
@@ -192,10 +202,12 @@ class PayloadStateInterface {
   // Sets/gets the P2P download URL, if one is to be used.
   virtual void SetP2PUrl(const std::string& url) = 0;
   virtual std::string GetP2PUrl() const = 0;
-  virtual ErrorCode GetAttemptErrorCode() const = 0;
 
   // Switch to next payload.
   virtual bool NextPayload() = 0;
+
+  // Sets and persists the staging wallclock-based wait period.
+  virtual void SetStagingWaitPeriod(base::TimeDelta wait_period) = 0;
 };
 
 }  // namespace chromeos_update_engine

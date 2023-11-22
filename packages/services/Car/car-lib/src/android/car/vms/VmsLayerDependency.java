@@ -16,12 +16,14 @@
 
 package android.car.vms;
 
+import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import com.android.internal.util.Preconditions;
+
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -29,7 +31,10 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A dependency for a VMS layer on other VMS layers.
+ * Layer dependencies for single Vehicle Map Service layer.
+ *
+ * Dependencies are treated as <b>hard</b> dependencies, meaning that an offered layer will not be
+ * reported as available until all dependent layers are also available.
  *
  * @hide
  */
@@ -39,28 +44,37 @@ public final class VmsLayerDependency implements Parcelable {
     private final Set<VmsLayer> mDependency;
 
     /**
-     * Construct a dependency for layer on other layers.
+     * Constructs a layer with a dependency on other layers.
+     *
+     * @param layer layer that has dependencies
+     * @param dependencies layers that the given layer depends on
      */
-    public VmsLayerDependency(VmsLayer layer, Set<VmsLayer> dependencies) {
-        mLayer = layer;
+    public VmsLayerDependency(@NonNull VmsLayer layer, @NonNull Set<VmsLayer> dependencies) {
+        mLayer = Preconditions.checkNotNull(layer, "layer cannot be null");
         mDependency = Collections.unmodifiableSet(dependencies);
     }
 
     /**
-     * Constructs a layer without a dependency.
+     * Constructs a layer without dependencies.
+     *
+     * @param layer layer that has no dependencies
      */
-    public VmsLayerDependency(VmsLayer layer) {
-        mLayer = layer;
-        mDependency = Collections.emptySet();
+    public VmsLayerDependency(@NonNull VmsLayer layer) {
+        this(layer, Collections.emptySet());
     }
 
+    /**
+     * @return layer that has zero or more dependencies
+     */
+    @NonNull
     public VmsLayer getLayer() {
         return mLayer;
     }
 
     /**
-     * Returns the dependencies.
+     * @return all layers that the layer depends on
      */
+    @NonNull
     public Set<VmsLayer> getDependencies() {
         return mDependency;
     }
@@ -76,6 +90,7 @@ public final class VmsLayerDependency implements Parcelable {
                 }
             };
 
+    @Override
     public String toString() {
         return "VmsLayerDependency{ Layer: " + mLayer + " Dependency: " + mDependency + "}";
     }

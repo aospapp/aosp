@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -41,7 +42,6 @@
 #include "linker_debug.h"
 #include "linker_utils.h"
 
-#include "private/bionic_prctl.h"
 #include "private/CFIShadow.h" // For kLibraryAlignment
 
 static int GetTargetElfMachine() {
@@ -166,14 +166,12 @@ bool ElfReader::Read(const char* name, int fd, off64_t file_offset, off64_t file
   return did_read_;
 }
 
-bool ElfReader::Load(const android_dlextinfo* extinfo) {
+bool ElfReader::Load(address_space_params* address_space) {
   CHECK(did_read_);
   if (did_load_) {
     return true;
   }
-  if (ReserveAddressSpace(extinfo) &&
-      LoadSegments() &&
-      FindPhdr()) {
+  if (ReserveAddressSpace(address_space) && LoadSegments() && FindPhdr()) {
     did_load_ = true;
   }
 
@@ -213,7 +211,8 @@ static const char* EM_to_string(int em) {
 
 bool ElfReader::VerifyElfHeader() {
   if (memcmp(header_.e_ident, ELFMAG, SELFMAG) != 0) {
-    DL_ERR("\"%s\" has bad ELF magic", name_.c_str());
+    DL_ERR("\"%s\" has bad ELF magic: %02x%02x%02x%02x", name_.c_str(),
+           header_.e_ident[0], header_.e_ident[1], header_.e_ident[2], header_.e_ident[3]);
     return false;
   }
 
@@ -256,8 +255,10 @@ bool ElfReader::VerifyElfHeader() {
   }
 
   if (header_.e_machine != GetTargetElfMachine()) {
-    DL_ERR("\"%s\" has unexpected e_machine: %d (%s)", name_.c_str(), header_.e_machine,
-           EM_to_string(header_.e_machine));
+    DL_ERR("\"%s\" is for %s (%d) instead of %s (%d)",
+           name_.c_str(),
+           EM_to_string(header_.e_machine), header_.e_machine,
+           EM_to_string(GetTargetElfMachine()), GetTargetElfMachine());
     return false;
   }
 
@@ -522,14 +523,10 @@ size_t phdr_table_get_load_size(const ElfW(Phdr)* phdr_table, size_t phdr_count,
 
 // Reserve a virtual address range such that if it's limits were extended to the next 2**align
 // boundary, it would not overlap with any existing mappings.
-static void* ReserveAligned(void* hint, size_t size, size_t align) {
+static void* ReserveAligned(size_t size, size_t align) {
   int mmap_flags = MAP_PRIVATE | MAP_ANONYMOUS;
-  // Address hint is only used in Art for the image mapping, and it is pretty important. Don't mess
-  // with it.
-  // FIXME: try an aligned allocation and fall back to plain mmap() if the former does not provide a
-  // mapping at the requested address?
-  if (align == PAGE_SIZE || hint != nullptr) {
-    void* mmap_ptr = mmap(hint, size, PROT_NONE, mmap_flags, -1, 0);
+  if (align == PAGE_SIZE) {
+    void* mmap_ptr = mmap(nullptr, size, PROT_NONE, mmap_flags, -1, 0);
     if (mmap_ptr == MAP_FAILED) {
       return nullptr;
     }
@@ -547,7 +544,10 @@ static void* ReserveAligned(void* hint, size_t size, size_t align) {
 
   uint8_t* first = align_up(mmap_ptr, align);
   uint8_t* last = align_down(mmap_ptr + mmap_size, align) - size;
-  size_t n = arc4random_uniform((last - first) / PAGE_SIZE + 1);
+
+  // arc4random* is not available in first stage init because /dev/urandom hasn't yet been
+  // created. Don't randomize then.
+  size_t n = is_first_stage_init() ? 0 : arc4random_uniform((last - first) / PAGE_SIZE + 1);
   uint8_t* start = first + n * PAGE_SIZE;
   munmap(mmap_ptr, start - mmap_ptr);
   munmap(start + size, mmap_ptr + mmap_size - (start + size));
@@ -557,7 +557,7 @@ static void* ReserveAligned(void* hint, size_t size, size_t align) {
 // Reserve a virtual address range big enough to hold all loadable
 // segments of a program header table. This is done by creating a
 // private anonymous mmap() with PROT_NONE.
-bool ElfReader::ReserveAddressSpace(const android_dlextinfo* extinfo) {
+bool ElfReader::ReserveAddressSpace(address_space_params* address_space) {
   ElfW(Addr) min_vaddr;
   load_size_ = phdr_table_get_load_size(phdr_table_, phdr_num_, &min_vaddr);
   if (load_size_ == 0) {
@@ -567,48 +567,25 @@ bool ElfReader::ReserveAddressSpace(const android_dlextinfo* extinfo) {
 
   uint8_t* addr = reinterpret_cast<uint8_t*>(min_vaddr);
   void* start;
-  size_t reserved_size = 0;
-  bool reserved_hint = true;
-  bool strict_hint = false;
-  // Assume position independent executable by default.
-  void* mmap_hint = nullptr;
 
-  if (extinfo != nullptr) {
-    if (extinfo->flags & ANDROID_DLEXT_RESERVED_ADDRESS) {
-      reserved_size = extinfo->reserved_size;
-      reserved_hint = false;
-    } else if (extinfo->flags & ANDROID_DLEXT_RESERVED_ADDRESS_HINT) {
-      reserved_size = extinfo->reserved_size;
-    }
-
-    if (addr != nullptr && (extinfo->flags & ANDROID_DLEXT_FORCE_FIXED_VADDR) != 0) {
-      mmap_hint = addr;
-    } else if ((extinfo->flags & ANDROID_DLEXT_LOAD_AT_FIXED_ADDRESS) != 0) {
-      mmap_hint = extinfo->reserved_addr;
-      strict_hint = true;
-    }
-  }
-
-  if (load_size_ > reserved_size) {
-    if (!reserved_hint) {
+  if (load_size_ > address_space->reserved_size) {
+    if (address_space->must_use_address) {
       DL_ERR("reserved address space %zd smaller than %zd bytes needed for \"%s\"",
-             reserved_size - load_size_, load_size_, name_.c_str());
+             load_size_ - address_space->reserved_size, load_size_, name_.c_str());
       return false;
     }
-    start = ReserveAligned(mmap_hint, load_size_, kLibraryAlignment);
+    start = ReserveAligned(load_size_, kLibraryAlignment);
     if (start == nullptr) {
       DL_ERR("couldn't reserve %zd bytes of address space for \"%s\"", load_size_, name_.c_str());
       return false;
     }
-    if (strict_hint && (start != mmap_hint)) {
-      munmap(start, load_size_);
-      DL_ERR("couldn't reserve %zd bytes of address space at %p for \"%s\"",
-             load_size_, mmap_hint, name_.c_str());
-      return false;
-    }
   } else {
-    start = extinfo->reserved_addr;
+    start = address_space->start_addr;
     mapped_by_caller_ = true;
+
+    // Update the reserved address space to subtract the space used by this library.
+    address_space->start_addr = reinterpret_cast<uint8_t*>(address_space->start_addr) + load_size_;
+    address_space->reserved_size -= load_size_;
   }
 
   load_start_ = start;
@@ -854,16 +831,17 @@ int phdr_table_protect_gnu_relro(const ElfW(Phdr)* phdr_table,
  *   phdr_count  -> number of entries in tables
  *   load_bias   -> load bias
  *   fd          -> writable file descriptor to use
+ *   file_offset -> pointer to offset into file descriptor to use/update
  * Return:
  *   0 on error, -1 on failure (error code in errno).
  */
 int phdr_table_serialize_gnu_relro(const ElfW(Phdr)* phdr_table,
                                    size_t phdr_count,
                                    ElfW(Addr) load_bias,
-                                   int fd) {
+                                   int fd,
+                                   size_t* file_offset) {
   const ElfW(Phdr)* phdr = phdr_table;
   const ElfW(Phdr)* phdr_limit = phdr + phdr_count;
-  ssize_t file_offset = 0;
 
   for (phdr = phdr_table; phdr < phdr_limit; phdr++) {
     if (phdr->p_type != PT_GNU_RELRO) {
@@ -879,11 +857,11 @@ int phdr_table_serialize_gnu_relro(const ElfW(Phdr)* phdr_table,
       return -1;
     }
     void* map = mmap(reinterpret_cast<void*>(seg_page_start), size, PROT_READ,
-                     MAP_PRIVATE|MAP_FIXED, fd, file_offset);
+                     MAP_PRIVATE|MAP_FIXED, fd, *file_offset);
     if (map == MAP_FAILED) {
       return -1;
     }
-    file_offset += size;
+    *file_offset += size;
   }
   return 0;
 }
@@ -901,13 +879,15 @@ int phdr_table_serialize_gnu_relro(const ElfW(Phdr)* phdr_table,
  *   phdr_count  -> number of entries in tables
  *   load_bias   -> load bias
  *   fd          -> readable file descriptor to use
+ *   file_offset -> pointer to offset into file descriptor to use/update
  * Return:
  *   0 on error, -1 on failure (error code in errno).
  */
 int phdr_table_map_gnu_relro(const ElfW(Phdr)* phdr_table,
                              size_t phdr_count,
                              ElfW(Addr) load_bias,
-                             int fd) {
+                             int fd,
+                             size_t* file_offset) {
   // Map the file at a temporary location so we can compare its contents.
   struct stat file_stat;
   if (TEMP_FAILURE_RETRY(fstat(fd, &file_stat)) != 0) {
@@ -921,7 +901,6 @@ int phdr_table_map_gnu_relro(const ElfW(Phdr)* phdr_table,
       return -1;
     }
   }
-  size_t file_offset = 0;
 
   // Iterate over the relro segments and compare/remap the pages.
   const ElfW(Phdr)* phdr = phdr_table;
@@ -935,12 +914,12 @@ int phdr_table_map_gnu_relro(const ElfW(Phdr)* phdr_table,
     ElfW(Addr) seg_page_start = PAGE_START(phdr->p_vaddr) + load_bias;
     ElfW(Addr) seg_page_end   = PAGE_END(phdr->p_vaddr + phdr->p_memsz) + load_bias;
 
-    char* file_base = static_cast<char*>(temp_mapping) + file_offset;
+    char* file_base = static_cast<char*>(temp_mapping) + *file_offset;
     char* mem_base = reinterpret_cast<char*>(seg_page_start);
     size_t match_offset = 0;
     size_t size = seg_page_end - seg_page_start;
 
-    if (file_size - file_offset < size) {
+    if (file_size - *file_offset < size) {
       // File is too short to compare to this segment. The contents are likely
       // different as well (it's probably for a different library version) so
       // just don't bother checking.
@@ -964,7 +943,7 @@ int phdr_table_map_gnu_relro(const ElfW(Phdr)* phdr_table,
       // Map over similar pages.
       if (mismatch_offset > match_offset) {
         void* map = mmap(mem_base + match_offset, mismatch_offset - match_offset,
-                         PROT_READ, MAP_PRIVATE|MAP_FIXED, fd, match_offset);
+                         PROT_READ, MAP_PRIVATE|MAP_FIXED, fd, *file_offset + match_offset);
         if (map == MAP_FAILED) {
           munmap(temp_mapping, file_size);
           return -1;
@@ -975,7 +954,7 @@ int phdr_table_map_gnu_relro(const ElfW(Phdr)* phdr_table,
     }
 
     // Add to the base file offset in case there are multiple relro segments.
-    file_offset += size;
+    *file_offset += size;
   }
   munmap(temp_mapping, file_size);
   return 0;

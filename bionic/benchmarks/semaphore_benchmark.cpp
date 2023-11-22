@@ -75,12 +75,12 @@ static void* BM_semaphore_sem_post_start_thread(void* arg) {
   while ((BM_semaphore_sem_post_running > 0) && !sem_wait(semaphore)) {
   }
   BM_semaphore_sem_post_running = -1;
-  return NULL;
+  return nullptr;
 }
 
 class SemaphoreFixture : public benchmark::Fixture {
  public:
-  void SetUp(const benchmark::State&) {
+  void SetUp(const benchmark::State&) override {
     sem_init(&semaphore, 0, 0);
 
     pthread_attr_t attr;
@@ -100,7 +100,7 @@ class SemaphoreFixture : public benchmark::Fixture {
     setup = true;
   }
 
-  ~SemaphoreFixture() {
+  ~SemaphoreFixture() override {
     if (setup) {
       // Only do this if the test was actually run.
       sched_setscheduler(0, SCHED_OTHER, &param);

@@ -90,7 +90,9 @@ class OatDumpTest : public CommonRuntimeTest {
 
   enum Mode {
     kModeOat,
+    kModeCoreOat,
     kModeOatWithBootImage,
+    kModeAppImage,
     kModeArt,
     kModeSymbolize,
   };
@@ -107,13 +109,16 @@ class OatDumpTest : public CommonRuntimeTest {
     return "ProfileTestMultiDex";
   }
 
+  std::string GetAppImageName() {
+    return tmp_dir_ + "/" + GetAppBaseName() + ".art";
+  }
+
   std::string GetAppOdexName() {
     return tmp_dir_ + "/" + GetAppBaseName() + ".odex";
   }
 
-  bool GenerateAppOdexFile(Flavor flavor,
-                           const std::vector<std::string>& args,
-                           /*out*/ std::string* error_msg) {
+  ::testing::AssertionResult GenerateAppOdexFile(Flavor flavor,
+                                                 const std::vector<std::string>& args) {
     std::string dex2oat_path = GetExecutableFilePath(flavor, "dex2oat");
     std::vector<std::string> exec_argv = {
         dex2oat_path,
@@ -123,6 +128,10 @@ class OatDumpTest : public CommonRuntimeTest {
         "-Xmx512m",
         "--runtime-arg",
         "-Xnorelocate",
+        "--runtime-arg",
+        GetClassPathOption("-Xbootclasspath:", GetLibCoreDexFileNames()),
+        "--runtime-arg",
+        GetClassPathOption("-Xbootclasspath-locations:", GetLibCoreDexLocations()),
         "--boot-image=" + GetCoreArtLocation(),
         "--instruction-set=" + std::string(GetInstructionSetString(kRuntimeISA)),
         "--dex-file=" + GetTestDexFileName(GetAppBaseName().c_str()),
@@ -131,18 +140,32 @@ class OatDumpTest : public CommonRuntimeTest {
     };
     exec_argv.insert(exec_argv.end(), args.begin(), args.end());
 
-    return ForkAndExecAndWait(exec_argv, error_msg);
+    auto post_fork_fn = []() {
+      setpgid(0, 0);  // Change process groups, so we don't get reaped by ProcessManager.
+                      // Ignore setpgid errors.
+      return setenv("ANDROID_LOG_TAGS", "*:e", 1) == 0;  // We're only interested in errors and
+                                                         // fatal logs.
+    };
+
+    std::string error_msg;
+    ForkAndExecResult res = ForkAndExec(exec_argv, post_fork_fn, &error_msg);
+    if (res.stage != ForkAndExecResult::kFinished) {
+      return ::testing::AssertionFailure() << strerror(errno);
+    }
+    return res.StandardSuccess() ? ::testing::AssertionSuccess()
+                                 : (::testing::AssertionFailure() << error_msg);
   }
 
   // Run the test with custom arguments.
-  bool Exec(Flavor flavor,
-            Mode mode,
-            const std::vector<std::string>& args,
-            Display display,
-            /*out*/ std::string* error_msg) {
+  ::testing::AssertionResult Exec(Flavor flavor,
+                                  Mode mode,
+                                  const std::vector<std::string>& args,
+                                  Display display) {
     std::string file_path = GetExecutableFilePath(flavor, "oatdump");
 
-    EXPECT_TRUE(OS::FileExists(file_path.c_str())) << file_path << " should be a valid file path";
+    if (!OS::FileExists(file_path.c_str())) {
+      return ::testing::AssertionFailure() << file_path << " should be a valid file path";
+    }
 
     // ScratchFile scratch;
     std::vector<std::string> exec_argv = { file_path };
@@ -151,10 +174,6 @@ class OatDumpTest : public CommonRuntimeTest {
       exec_argv.push_back("--symbolize=" + core_oat_location_);
       exec_argv.push_back("--output=" + core_oat_location_ + ".symbolize");
     } else {
-      expected_prefixes.push_back("Dex file data for");
-      expected_prefixes.push_back("Num string ids:");
-      expected_prefixes.push_back("Num field ids:");
-      expected_prefixes.push_back("Num method ids:");
       expected_prefixes.push_back("LOCATION:");
       expected_prefixes.push_back("MAGIC:");
       expected_prefixes.push_back("DEX FILE COUNT:");
@@ -162,10 +181,14 @@ class OatDumpTest : public CommonRuntimeTest {
         // Code and dex code do not show up if list only.
         expected_prefixes.push_back("DEX CODE:");
         expected_prefixes.push_back("CODE:");
-        expected_prefixes.push_back("CodeInfoEncoding");
-        expected_prefixes.push_back("CodeInfoInlineInfo");
+        expected_prefixes.push_back("InlineInfo");
       }
       if (mode == kModeArt) {
+        exec_argv.push_back("--runtime-arg");
+        exec_argv.push_back(GetClassPathOption("-Xbootclasspath:", GetLibCoreDexFileNames()));
+        exec_argv.push_back("--runtime-arg");
+        exec_argv.push_back(
+            GetClassPathOption("-Xbootclasspath-locations:", GetLibCoreDexLocations()));
         exec_argv.push_back("--image=" + core_art_location_);
         exec_argv.push_back("--instruction-set=" + std::string(
             GetInstructionSetString(kRuntimeISA)));
@@ -173,140 +196,159 @@ class OatDumpTest : public CommonRuntimeTest {
         expected_prefixes.push_back("IMAGE BEGIN:");
         expected_prefixes.push_back("kDexCaches:");
       } else if (mode == kModeOatWithBootImage) {
+        exec_argv.push_back("--runtime-arg");
+        exec_argv.push_back(GetClassPathOption("-Xbootclasspath:", GetLibCoreDexFileNames()));
+        exec_argv.push_back("--runtime-arg");
+        exec_argv.push_back(
+            GetClassPathOption("-Xbootclasspath-locations:", GetLibCoreDexLocations()));
         exec_argv.push_back("--boot-image=" + GetCoreArtLocation());
         exec_argv.push_back("--instruction-set=" + std::string(
             GetInstructionSetString(kRuntimeISA)));
         exec_argv.push_back("--oat-file=" + GetAppOdexName());
+      } else if (mode == kModeAppImage) {
+        exec_argv.push_back("--runtime-arg");
+        exec_argv.push_back(GetClassPathOption("-Xbootclasspath:", GetLibCoreDexFileNames()));
+        exec_argv.push_back("--runtime-arg");
+        exec_argv.push_back(
+            GetClassPathOption("-Xbootclasspath-locations:", GetLibCoreDexLocations()));
+        exec_argv.push_back("--image=" + GetCoreArtLocation());
+        exec_argv.push_back("--instruction-set=" + std::string(
+            GetInstructionSetString(kRuntimeISA)));
+        exec_argv.push_back("--app-oat=" + GetAppOdexName());
+        exec_argv.push_back("--app-image=" + GetAppImageName());
+      } else if (mode == kModeCoreOat) {
+        exec_argv.push_back("--oat-file=" + core_oat_location_);
       } else {
         CHECK_EQ(static_cast<size_t>(mode), static_cast<size_t>(kModeOat));
-        exec_argv.push_back("--oat-file=" + core_oat_location_);
+        exec_argv.push_back("--oat-file=" + GetAppOdexName());
       }
     }
     exec_argv.insert(exec_argv.end(), args.begin(), args.end());
 
-    pid_t pid;
-    int pipe_fd;
-    bool result = ForkAndExec(exec_argv, &pid, &pipe_fd, error_msg);
-    if (result) {
-      static const size_t kLineMax = 256;
-      char line[kLineMax] = {};
-      size_t line_len = 0;
-      size_t total = 0;
-      std::vector<bool> found(expected_prefixes.size(), false);
-      while (true) {
-        while (true) {
-          size_t spaces = 0;
-          // Trim spaces at the start of the line.
-          for (; spaces < line_len && isspace(line[spaces]); ++spaces) {}
-          if (spaces > 0) {
-            line_len -= spaces;
-            memmove(&line[0], &line[spaces], line_len);
-          }
-          ssize_t bytes_read =
-              TEMP_FAILURE_RETRY(read(pipe_fd, &line[line_len], kLineMax - line_len));
-          if (bytes_read <= 0) {
-            break;
-          }
-          line_len += bytes_read;
-          total += bytes_read;
-        }
-        if (line_len == 0) {
-          break;
-        }
-        // Check contents.
-        for (size_t i = 0; i < expected_prefixes.size(); ++i) {
-          const std::string& expected = expected_prefixes[i];
-          if (!found[i] &&
-              line_len >= expected.length() &&
-              memcmp(line, expected.c_str(), expected.length()) == 0) {
-            found[i] = true;
-          }
-        }
-        // Skip to next line.
-        size_t next_line = 0;
-        for (; next_line + 1 < line_len && line[next_line] != '\n'; ++next_line) {}
-        line_len -= next_line + 1;
-        memmove(&line[0], &line[next_line + 1], line_len);
+    std::vector<bool> found(expected_prefixes.size(), false);
+    auto line_handle_fn = [&found, &expected_prefixes](const char* line, size_t line_len) {
+      if (line_len == 0) {
+        return;
       }
-      if (mode == kModeSymbolize) {
-        EXPECT_EQ(total, 0u);
-      } else {
-        EXPECT_GT(total, 0u);
-      }
-      LOG(INFO) << "Processed bytes " << total;
-      close(pipe_fd);
-      int status = 0;
-      if (waitpid(pid, &status, 0) != -1) {
-        result = (status == 0);
-      }
-
+      // Check contents.
       for (size_t i = 0; i < expected_prefixes.size(); ++i) {
-        if (!found[i]) {
-          LOG(ERROR) << "Did not find prefix " << expected_prefixes[i];
-          result = false;
+        const std::string& expected = expected_prefixes[i];
+        if (!found[i] &&
+            line_len >= expected.length() &&
+            memcmp(line, expected.c_str(), expected.length()) == 0) {
+          found[i] = true;
         }
       }
-    }
+    };
 
-    return result;
-  }
+    static constexpr size_t kLineMax = 256;
+    char line[kLineMax] = {};
+    size_t line_len = 0;
+    size_t total = 0;
+    bool ignore_next_line = false;
+    std::vector<char> error_buf;  // Buffer for debug output on error. Limited to 1M.
+    auto line_buf_fn = [&](char* buf, size_t len) {
+      total += len;
 
-  bool ForkAndExec(const std::vector<std::string>& exec_argv,
-                   /*out*/ pid_t* pid,
-                   /*out*/ int* pipe_fd,
-                   /*out*/ std::string* error_msg) {
-    int link[2];
-    if (pipe(link) == -1) {
-      *error_msg = strerror(errno);
-      return false;
-    }
-
-    *pid = fork();
-    if (*pid == -1) {
-      *error_msg = strerror(errno);
-      close(link[0]);
-      close(link[1]);
-      return false;
-    }
-
-    if (*pid == 0) {
-      dup2(link[1], STDOUT_FILENO);
-      close(link[0]);
-      close(link[1]);
-      // change process groups, so we don't get reaped by ProcessManager
-      setpgid(0, 0);
-      // Use execv here rather than art::Exec to avoid blocking on waitpid here.
-      std::vector<char*> argv;
-      for (size_t i = 0; i < exec_argv.size(); ++i) {
-        argv.push_back(const_cast<char*>(exec_argv[i].c_str()));
+      if (len == 0 && line_len > 0 && !ignore_next_line) {
+        // Everything done, handle leftovers.
+        line_handle_fn(line, line_len);
       }
-      argv.push_back(nullptr);
-      UNUSED(execv(argv[0], &argv[0]));
-      const std::string command_line(android::base::Join(exec_argv, ' '));
-      PLOG(ERROR) << "Failed to execv(" << command_line << ")";
-      // _exit to avoid atexit handlers in child.
-      _exit(1);
-      UNREACHABLE();
+
+      if (len > 0) {
+        size_t pos = error_buf.size();
+        if (pos < MB) {
+          error_buf.insert(error_buf.end(), buf, buf + len);
+        }
+      }
+
+      while (len > 0) {
+        // Copy buf into the free tail of the line buffer, and move input buffer along.
+        size_t copy = std::min(kLineMax - line_len, len);
+        memcpy(&line[line_len], buf, copy);
+        buf += copy;
+        len -= copy;
+
+        // Skip spaces up to len, return count of removed spaces. Declare a lambda for reuse.
+        auto trim_space = [&line](size_t len) {
+          size_t spaces = 0;
+          for (; spaces < len && isspace(line[spaces]); ++spaces) {}
+          if (spaces > 0) {
+            memmove(&line[0], &line[spaces], len - spaces);
+          }
+          return spaces;
+        };
+        // There can only be spaces if we freshly started a line.
+        if (line_len == 0) {
+          copy -= trim_space(copy);
+        }
+
+        // Scan for newline characters.
+        size_t index = line_len;
+        line_len += copy;
+        while (index < line_len) {
+          if (line[index] == '\n') {
+            // Handle line.
+            if (!ignore_next_line) {
+              line_handle_fn(line, index);
+            }
+            // Move the rest to the front, but trim leading spaces.
+            line_len -= index + 1;
+            memmove(&line[0], &line[index + 1], line_len);
+            line_len -= trim_space(line_len);
+            index = 0;
+            ignore_next_line = false;
+          } else {
+            index++;
+          }
+        }
+
+        // Handle a full line without newline characters. Ignore the "next" line, as it is the
+        // tail end of this.
+        if (line_len == kLineMax) {
+          if (!ignore_next_line) {
+            line_handle_fn(line, kLineMax);
+          }
+          line_len = 0;
+          ignore_next_line = true;
+        }
+      }
+    };
+
+    auto post_fork_fn = []() {
+      setpgid(0, 0);  // Change process groups, so we don't get reaped by ProcessManager.
+      return true;    // Ignore setpgid failures.
+    };
+
+    ForkAndExecResult res = ForkAndExec(exec_argv, post_fork_fn, line_buf_fn);
+    if (res.stage != ForkAndExecResult::kFinished) {
+      return ::testing::AssertionFailure() << strerror(errno);
+    }
+    if (!res.StandardSuccess()) {
+      return ::testing::AssertionFailure() << "Did not terminate successfully: " << res.status_code;
+    }
+
+    if (mode == kModeSymbolize) {
+      EXPECT_EQ(total, 0u);
     } else {
-      close(link[1]);
-      *pipe_fd = link[0];
-      return true;
+      EXPECT_GT(total, 0u);
     }
-  }
 
-  bool ForkAndExecAndWait(const std::vector<std::string>& exec_argv,
-                          /*out*/ std::string* error_msg) {
-    pid_t pid;
-    int pipe_fd;
-    bool result = ForkAndExec(exec_argv, &pid, &pipe_fd, error_msg);
-    if (result) {
-      close(pipe_fd);
-      int status = 0;
-      if (waitpid(pid, &status, 0) != -1) {
-        result = (status == 0);
+    bool result = true;
+    std::ostringstream oss;
+    for (size_t i = 0; i < expected_prefixes.size(); ++i) {
+      if (!found[i]) {
+        oss << "Did not find prefix " << expected_prefixes[i] << std::endl;
+        result = false;
       }
     }
-    return result;
+    if (!result) {
+      oss << "Processed bytes " << total << ":" << std::endl;
+      error_buf.push_back(0);  // Make data a C string.
+    }
+
+    return result ? ::testing::AssertionSuccess()
+                  : (::testing::AssertionFailure() << oss.str() << error_buf.data());
   }
 
   std::string tmp_dir_;

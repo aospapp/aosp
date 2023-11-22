@@ -22,9 +22,10 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.os.Bundle;
-import android.support.v17.preference.LeanbackPreferenceFragment;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
+
+import androidx.leanback.preference.LeanbackPreferenceFragment;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
 
 import java.util.Arrays;
 import java.util.List;

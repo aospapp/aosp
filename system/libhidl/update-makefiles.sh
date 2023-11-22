@@ -5,7 +5,9 @@ packages=(
     android.hidl.base@1.0
     android.hidl.manager@1.0
     android.hidl.manager@1.1
+    android.hidl.manager@1.2
     android.hidl.memory@1.0
+    android.hidl.safe_union@1.0
     android.hidl.token@1.0
 )
 

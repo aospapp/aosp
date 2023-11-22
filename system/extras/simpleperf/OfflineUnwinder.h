@@ -22,8 +22,11 @@
 #include <unordered_map>
 
 #include "perf_regs.h"
+#include "thread_tree.h"
 
-#include <backtrace/BacktraceMap.h>
+#if defined(__linux__)
+#include <unwindstack/Maps.h>
+#endif
 
 namespace simpleperf {
 struct ThreadEntry;
@@ -52,6 +55,16 @@ struct UnwindingResult {
   uint64_t stack_end;
 };
 
+#if defined(__linux__)
+class UnwindMaps : public unwindstack::Maps {
+ public:
+  void UpdateMaps(const MapSet& map_set);
+
+ private:
+  uint64_t version_ = 0u;
+  std::vector<const MapEntry*> entries_;
+};
+
 class OfflineUnwinder {
  public:
   OfflineUnwinder(bool collect_stat);
@@ -67,18 +80,30 @@ class OfflineUnwinder {
     return unwinding_result_;
   }
 
+  bool IsCallChainBrokenForIncompleteJITDebugInfo() {
+    return is_callchain_broken_for_incomplete_jit_debug_info_;
+  }
+
  private:
   bool collect_stat_;
   UnwindingResult unwinding_result_;
+  bool is_callchain_broken_for_incomplete_jit_debug_info_;
 
-  // Cache of the most recently used map.
-  struct CachedMap {
-    uint64_t version = 0u;
-    std::unique_ptr<BacktraceMap> map;
-  };
-  // use unused attribute to pass mac build.
-  std::unordered_map<pid_t, CachedMap> cached_maps_  __attribute__((unused));
+  std::unordered_map<pid_t, UnwindMaps> cached_maps_;
 };
+
+#else  // defined(__linux__)
+
+class OfflineUnwinder {
+ public:
+  OfflineUnwinder(bool) {}
+  bool UnwindCallChain(const ThreadEntry&, const RegSet&, const char*, size_t,
+                       std::vector<uint64_t>*, std::vector<uint64_t>*) {
+    return false;
+  }
+};
+
+#endif  // !defined(__linux__)
 
 } // namespace simpleperf
 

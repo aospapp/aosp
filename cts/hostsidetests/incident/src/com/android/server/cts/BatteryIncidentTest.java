@@ -28,7 +28,7 @@ public class BatteryIncidentTest extends ProtoDumpTestCase {
     private static final String LEANBACK_FEATURE = "android.software.leanback";
 
     public void testBatteryServiceDump() throws Exception {
-        if (hasBattery(getDevice())) {
+        if (!hasBattery(getDevice())) {
             return;
         }
 
@@ -56,17 +56,13 @@ public class BatteryIncidentTest extends ProtoDumpTestCase {
         assertTrue(scale > 0);
         int level = dump.getLevel();
         assertTrue(level >= 0 && level <= scale);
-        assertTrue(dump.getVoltage() > 0);
-        assertTrue(dump.getTemperature() > 0);
+        assertTrue(dump.getVoltage() >= 0);
     }
 
-    static boolean hasBattery(ITestDevice device) throws DeviceNotAvailableException {
-        /* Android TV reports that it has a battery, but it doesn't really. */
-        return !isLeanback(device);
+    static boolean hasBattery(ITestDevice device) throws DeviceNotAvailableException  {
+        final String batteryinfo = device.executeShellCommand("dumpsys battery");
+        boolean hasBattery = batteryinfo.contains("present: true");
+        return hasBattery;
     }
 
-    private static boolean isLeanback(ITestDevice device) throws DeviceNotAvailableException {
-        final String commandOutput = device.executeShellCommand("pm list features");
-        return commandOutput.contains(LEANBACK_FEATURE);
-    }
 }

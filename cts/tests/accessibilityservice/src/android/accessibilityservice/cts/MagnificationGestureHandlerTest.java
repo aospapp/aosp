@@ -18,6 +18,7 @@ package android.accessibilityservice.cts;
 
 import static android.accessibilityservice.cts.utils.AsyncUtils.await;
 import static android.accessibilityservice.cts.utils.AsyncUtils.waitOn;
+import static android.accessibilityservice.cts.utils.CtsTestUtils.runIfNotNull;
 import static android.accessibilityservice.cts.utils.GestureUtils.add;
 import static android.accessibilityservice.cts.utils.GestureUtils.click;
 import static android.accessibilityservice.cts.utils.GestureUtils.dispatchGesture;
@@ -44,6 +45,7 @@ import static org.junit.Assert.fail;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.GestureDescription.StrokeDescription;
 import android.accessibilityservice.cts.AccessibilityGestureDispatchTest.GestureDispatchActivity;
@@ -54,11 +56,12 @@ import android.graphics.PointF;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.MotionEvent;
 import android.widget.TextView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -138,10 +141,7 @@ public class MagnificationGestureHandlerTest {
 
         setMagnificationEnabled(mOriginalIsMagnificationEnabled);
 
-        if (mService != null) {
-            mService.runOnServiceSync(() -> mService.disableSelfAndRemove());
-            mService = null;
-        }
+        runIfNotNull(mService, service -> service.runOnServiceSync(service::disableSelfAndRemove));
     }
 
     @Test
@@ -237,7 +237,7 @@ public class MagnificationGestureHandlerTest {
 
         dispatch(swipe(
                 mTapLocation,
-                add(mTapLocation, 31, 29)));
+                add(mTapLocation, 0, 29)));
         assertPropagated(ACTION_DOWN, ACTION_MOVE, ACTION_UP);
     }
 

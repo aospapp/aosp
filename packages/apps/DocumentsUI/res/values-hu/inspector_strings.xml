@@ -44,6 +44,4 @@
     <string name="metadata_composer" msgid="4696926808308256056">"Zeneszerző"</string>
     <string name="metadata_album" msgid="1661699531214720236">"Album"</string>
     <string name="metadata_address" msgid="1849921023707744640">"Helyadatok"</string>
-    <string name="debug_stream_types" msgid="2088565280360139333">"Streamtípusok"</string>
-    <string name="debug_raw_size" msgid="7487139640175650185">"RAW-méret (bájt)"</string>
 </resources>

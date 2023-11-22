@@ -35,22 +35,34 @@ cc_library_shared {
         "system/bt/embdrv/sbc/encoder/include",
         "system/bt/embdrv/sbc/decoder/include",
         "system/bt/utils/include",
+        "system/security/keystore/include",
+        "hardware/interfaces/keymaster/4.0/support/include",
     ],
     logtags: ["../EventLogTags.logtags"],
     shared_libs: [
         "android.hardware.bluetooth@1.0",
         "android.hardware.bluetooth.a2dp@1.0",
+        "android.hardware.bluetooth.audio@2.0",
         "libaudioclient",
         "libcutils",
         "libdl",
+        "libfmq",
         "libhidlbase",
         "libhidltransport",
         "libhwbinder",
         "liblog",
+        "libprocessgroup",
         "libprotobuf-cpp-lite",
         "libutils",
         "libtinyxml2",
         "libz",
+        "libcrypto",
+        "android.hardware.keymaster@4.0",
+        "android.hardware.keymaster@3.0",
+        "libkeymaster4support",
+        "libkeystore_aidl",
+        "libkeystore_binder",
+        "libkeystore_parcelables",
     ],
     static_libs: [
         "libbt-sbc-decoder",
@@ -61,6 +73,7 @@ cc_library_shared {
     ],
     whole_static_libs: [
         "libbt-bta",
+        "libbt-common",
         "libbtdevice",
         "libbtif",
         "libbt-hci",
@@ -85,6 +98,9 @@ cc_library_shared {
     cflags: [
         "-DBUILDCFG",
     ],
+    sanitize: {
+        scs: true,
+    },
 }
 
 cc_library_static {

@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Չափաբերում"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Ընտրել ձևաչափերը"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Ծավալային ձայն"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -144,11 +144,11 @@
     <string name="system_inputs_devices" msgid="8700905419497948327">"Մուտքեր և սարքեր"</string>
     <string name="system_home_theater_control" msgid="2053198603790384368">"Տնային կինոթատրոնի կառավարում"</string>
     <string name="system_accessibility" msgid="6215431399759498005">"Հատուկ գործառույթներ"</string>
-    <string name="system_developer_options" msgid="3237985523474863638">"Մշակողի ընտրանքներ"</string>
+    <string name="system_developer_options" msgid="3237985523474863638">"Ծրագրավորողի ընտրանքներ"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"Չկա"</string>
     <string name="system_diagnostic" msgid="7269638365915225701">"Օգտագործում և ախտորոշում"</string>
     <string name="tutorials" msgid="3731493987558093244">"Ուղեցույցներ"</string>
-    <string name="about_system_update" msgid="7282772247661356586">"Համակարգային թարմացում"</string>
+    <string name="about_system_update" msgid="7282772247661356586">"Համակարգի թարմացում"</string>
     <string name="about_preference" msgid="4131396784531360434">"Սարքի մասին"</string>
     <string name="device_name" msgid="2670488158531273028">"Սարքի անունը"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"Վերագործարկել"</string>
@@ -189,7 +189,7 @@
     <string name="imei_information_title" msgid="5208860549282877136">"IMEI կոդ"</string>
     <string name="status_bt_address" msgid="1571721865060122393">"Bluetooth-ի հասցեն"</string>
     <string name="status_up_time" msgid="1674116490191446110">"Աշխատած ժամանակը"</string>
-    <string name="legal_information" msgid="2346024659831852038">"Իրավական տեղեկատվություն"</string>
+    <string name="legal_information" msgid="2346024659831852038">"Իրավական տեղեկություններ"</string>
     <string name="copyright_title" msgid="5564228453228549353">"Հեղինակային իրավունք"</string>
     <string name="license_title" msgid="4482927105870812604">"Արտոնագիր"</string>
     <string name="terms_title" msgid="8480859222932736291">"Դրույթներն ու պայմանները"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Մինչև հիշասարքի վերակապակցումը որոշ հավելվածներ կարող են անհասանելի լինել կամ չաշխատել ինչպես հարկն է:"</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Բավարար տարածք չկա:"</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Հավելվածը առկա չէ:"</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Հավելվածը պաշտպանված է պատճենումից:"</string>
     <string name="invalid_location" msgid="5269044848535157307">"Տեղադրման տեղադրությունը սխալ է:"</string>
     <string name="system_package" msgid="9200255718634512790">"Համակարգի թարմացումները հնարավոր չէ տեղադրել արտաքին կրիչի վրա:"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Device Administrator-ը չի կարող տեղադրվել արտաքին կրիչի վրա:"</string>
@@ -456,7 +455,7 @@
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Սեղմեք Լավ` <xliff:g id="SERVICE">%1$s</xliff:g> ծառայությունն անջատելու համար:"</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Տեքստի հնչեցում"</string>
     <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"Համակարգի կազմաձևում"</string>
-    <string name="system_speak_passwords" msgid="5264650214879185873">"Արտասանել գաղտնաբառերը"</string>
+    <string name="system_speak_passwords" msgid="5264650214879185873">"Հնչեցնել գաղտնաբառերը"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"Կանխադրված համակարգ"</string>
     <string name="system_speech_rate" msgid="8099856582088545576">"Խոսքի արագությունը"</string>
     <string name="system_play_sample" msgid="7187293932891811148">"Նվագարկել նմուշը"</string>
@@ -476,7 +475,7 @@
     <string name="system_check_for_drm_content_only" msgid="8716366734950874267">"Ստուգել միայն DRM բովանդակությունը"</string>
     <string name="system_always_check" msgid="1866566828098009853">"Միշտ ստուգել"</string>
     <string name="system_bt_hci_log" msgid="2425757846046504431">"Bluetooth HCI գրանցում"</string>
-    <string name="system_email_address" msgid="8669468986250302378">"Էլփոստի հասցե"</string>
+    <string name="system_email_address" msgid="8669468986250302378">"Էլ․ հասցե"</string>
     <string name="system_usb_debugging" msgid="3777895294421924323">"USB վրիպազերծում"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"Թույլ տալ կեղծ տեղադրություններ"</string>
     <string name="system_select_debug_app" msgid="8592021815119618485">"Ընտրել վրիպազերծման հավելվածը"</string>
@@ -487,7 +486,7 @@
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"Միացնել մանրամասն տեղատվության գրառումը Wi-Fi գրանցամատյանում"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"Ցույց տալ հպումները"</string>
     <string name="system_pointer_location" msgid="2673764026490179227">"Նշիչի տեղադրությունը"</string>
-    <string name="system_show_layout_bounds" msgid="645732439882291943">"Ցույց տալ տարրերի չափսերը"</string>
+    <string name="system_show_layout_bounds" msgid="645732439882291943">"Ցույց տալ տարրերի չափերը"</string>
     <string name="system_show_gpu_view_updates" msgid="7936280271091152459">"Ցույց տալ GPU տեսքի թարմացումները"</string>
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"Ցույց տալ սարքաշարի մակարդակը"</string>
     <string name="system_show_gpu_overdraw" msgid="707861254106800199">"Ցույց տալ GPU ավելցուկը"</string>
@@ -504,7 +503,7 @@
     <string name="system_desc_stay_awake" msgid="229588006508356238">"Անջատել քնած ռեժիմը"</string>
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"Օգտագործել միայն DRM բովանդակությունը"</string>
     <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"Լավարկեք ցուցադրիչը` կարգավորելով առավելագույն լուծաչափը կամ շրջանակների առավելագույն հաճախականությունը: Դա կիրառվում է միայն Ultra HD ցուցադրիչների համար: Այս փոփոխությունից հետո ձեր սարքը կվերագործարկվի:"</string>
-    <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"Միացնել HCI snoop log-ը Bluetooth-ի համար"</string>
+    <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"Միացնել HCI մատյանի վարումը Bluetooth-ի համար"</string>
     <string name="system_desc_usb_debugging" msgid="5168830368191788731">"Վրիպազերծման ռեժիմ, երբ USB-ին միացված է"</string>
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"Ծրագիրը սպասում է վրիպազերծիչի միացմանը"</string>
     <string name="system_desc_show_layout_bounds" msgid="3449386884226708985">"Ցույց տալ կտրվածքի սահմանները, լուսանցքները և այլն"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Ծանուցումների օգտագործում"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Տեղադրված հավելվածներից ոչ մեկը ծանուցումների օգտագործման հարցում չի ուղարկել։"</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Այս հավելվածները կկարողանան կարդալ բոլոր ծանուցումները, ներառյալ անձնական տվյալները, ինչպիսիք են, օրինակ, կոնտակտների անունները և ձեզ ուղարկվող հաղորդագրությունների բովանդակությունը: Հավելվածները նաև կկարողանան փակել ծանուցումներն ու ակտիվացնել դրանցում պարունակվող գործողությունների կոճակները:"</string>
+    <string name="directory_access" msgid="7439168599298598101">"Մուտք գրացուցակներ"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Այս հավելվածներն ունեն որոշակի գրացուցակների մուտքի թույլտվություն:"</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Ցույց տալ մյուս հավելվածների վերևում"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Ցուցադրել մյուս հավելվածների վերևում"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Թույլատրել հավելվածների ցուցադրումը մյուս հավելվածների վերևում։ Դա կարող է խանգարել օգտագործել մյուս հավելվածները կամ փոխել դրանց տեսքը։"</string>

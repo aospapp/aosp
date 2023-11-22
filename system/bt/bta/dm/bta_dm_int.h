@@ -118,8 +118,8 @@ typedef struct {
 
 typedef struct {
   RawAddress bd_addr;
-  BT_OCTET16 c;
-  BT_OCTET16 r;
+  Octet16 c;
+  Octet16 r;
   bool accept;
 } tBTA_DM_CI_RMT_OOB;
 
@@ -150,7 +150,7 @@ typedef struct {
 typedef struct {
   RawAddress bd_addr;
   DEV_CLASS dc;
-  LINK_KEY link_key;
+  LinkKey link_key;
   tBTA_SERVICE_MASK tm;
   bool is_trusted;
   uint8_t key_type;
@@ -250,7 +250,7 @@ typedef struct {
 } tBTA_DM_SRVCS;
 
 #ifndef BTA_DM_NUM_CONN_SRVS
-#define BTA_DM_NUM_CONN_SRVS 10
+#define BTA_DM_NUM_CONN_SRVS 30
 #endif
 
 typedef struct {
@@ -510,9 +510,6 @@ extern void bta_dm_ble_update_conn_params(const RawAddress&, uint16_t, uint16_t,
                                           uint16_t, uint16_t, uint16_t,
                                           uint16_t);
 extern void bta_dm_ble_config_local_privacy(bool);
-extern void bta_dm_ble_set_adv_params(uint16_t adv_int_min,
-                                      uint16_t adv_int_max,
-                                      tBLE_BD_ADDR* p_dir_bda);
 
 extern void bta_dm_ble_set_data_length(const RawAddress&, uint16_t);
 

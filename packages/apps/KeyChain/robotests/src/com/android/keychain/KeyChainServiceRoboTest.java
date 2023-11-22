@@ -16,6 +16,8 @@
 
 package com.android.keychain;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,6 +36,7 @@ import android.content.pm.PackageManager;
 import android.security.IKeyChainService;
 
 import com.android.org.conscrypt.TrustedCertificateStore;
+import com.android.keychain.ShadowKeyStore;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -56,11 +59,10 @@ import java.security.cert.X509Certificate;
 import javax.security.auth.x500.X500Principal;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION,
-        shadows = {
-                ShadowTrustedCertificateStore.class,
-                ShadowPackageManager.class,
-        })
+@Config(shadows = {
+    ShadowTrustedCertificateStore.class,
+    ShadowKeyStore.class
+})
 public final class KeyChainServiceRoboTest {
     private IKeyChainService.Stub mKeyChain;
 
@@ -95,6 +97,8 @@ public final class KeyChainServiceRoboTest {
             "u0anJCN8pXo6IMglfMAsoton1J6o5/ae5uhC6caQU8bNUsCK570gpNfjkzo6rbP0\n" +
             "wQ==\n" +
             "-----END CERTIFICATE-----\n";
+
+    private static final String NON_EXISTING_ALIAS = "alias-does-not-exist-1";
 
     private X509Certificate mCert;
     private String mSubject;
@@ -138,8 +142,8 @@ public final class KeyChainServiceRoboTest {
         try {
             mKeyChain.installCaCertificate(TEST_CA.getBytes());
             fail("didn't propagate the exception");
-        } catch (IllegalStateException ignored) {
-            assertTrue(ignored.getCause() instanceof IOException);
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getCause() instanceof IOException);
         }
 
         verify(mockInjector, times(1)).writeSecurityEvent(
@@ -186,8 +190,8 @@ public final class KeyChainServiceRoboTest {
         try {
             mKeyChain.installCaCertificate(TEST_CA.getBytes());
             fail("didn't propagate the exception");
-        } catch (IllegalStateException ignored) {
-            assertTrue(ignored.getCause() instanceof IOException);
+        } catch (IllegalStateException expected) {
+            assertTrue(expected.getCause() instanceof IOException);
         }
         mKeyChain.deleteCaCertificate("alias");
 
@@ -215,6 +219,24 @@ public final class KeyChainServiceRoboTest {
             mKeyChain.installCaCertificate(TEST_CA.getBytes());
             fail("didn't throw the exception");
         } catch (SecurityException expected) {}
+    }
+
+    @Test
+    public void testRequestPrivateKeyReturnsNullForNonExistingAlias() throws Exception {
+        String privateKey = mKeyChain.requestPrivateKey(NON_EXISTING_ALIAS);
+        assertThat(privateKey).isNull();
+    }
+
+    @Test
+    public void testGetCertificateReturnsNullForNonExistingAlias() throws Exception {
+        byte[] certificate = mKeyChain.getCertificate(NON_EXISTING_ALIAS);
+        assertThat(certificate).isNull();
+    }
+
+    @Test
+    public void testGetCaCertificatesReturnsNullForNonExistingAlias() throws Exception {
+        byte[] certificate = mKeyChain.getCaCertificates(NON_EXISTING_ALIAS);
+        assertThat(certificate).isNull();
     }
 
     private void setUpLoggingAndAccess(boolean loggingEnabled) {

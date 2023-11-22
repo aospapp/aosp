@@ -30,25 +30,27 @@ import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.platform.test.annotations.AppModeFull;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 /**
  * Test case for an activity containing non-TextField views with initial values set on XML.
  */
-@AppModeFull // CheckoutActivityTest() is enough to test ephemeral apps support
-public class InitializedCheckoutActivityTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<InitializedCheckoutActivity> mActivityRule =
-        new AutofillActivityTestRule<InitializedCheckoutActivity>(InitializedCheckoutActivity.class);
+@AppModeFull(reason = "CheckoutActivityTest() is enough")
+public class InitializedCheckoutActivityTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<InitializedCheckoutActivity> {
 
     private InitializedCheckoutActivity mCheckoutActivity;
 
-    @Before
-    public void setActivity() {
-        mCheckoutActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<InitializedCheckoutActivity> getActivityRule() {
+        return new AutofillActivityTestRule<InitializedCheckoutActivity>(
+                InitializedCheckoutActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mCheckoutActivity = getActivity();
+            }
+        };
+
     }
 
     @Test

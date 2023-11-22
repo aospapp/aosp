@@ -22,7 +22,7 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.jmvti.attaching.cts"
                      android:label="CTS tests for attaching jvmti agents from inside the app">
         <meta-data android:name="listener"

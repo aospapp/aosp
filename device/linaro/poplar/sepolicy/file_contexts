@@ -1,0 +1,74 @@
+#############################
+# Devices
+#
+/dev/hi_sys             u:object_r:hi_sys_device:s0
+/dev/hi_ao              u:object_r:hi_ao_device:s0
+/dev/hi_ai              u:object_r:hi_ai_device:s0
+/dev/hi_pq              u:object_r:hi_pq_device:s0
+/dev/hi_hdmi            u:object_r:hi_hdmi_device:s0
+/dev/hi_vfmw            u:object_r:hi_vfmw_device:s0
+/dev/hi_vo              u:object_r:hi_vo_device:s0
+/dev/hi_disp            u:object_r:hi_disp_device:s0
+/dev/hi_omxvdec         u:object_r:hi_omxvdec_device:s0
+/dev/hi_log             u:object_r:hi_log_device:s0
+/dev/hi_mem             u:object_r:hi_mem_device:s0
+/dev/hi_module          u:object_r:hi_module_device:s0
+/dev/hi_stat            u:object_r:hi_stat_device:s0
+/dev/hi_tde             u:object_r:hi_tde_device:s0
+/dev/hi_gfx2d           u:object_r:hi_gfx2d_device:s0
+/dev/hi_userproc        u:object_r:hi_userproc_device:s0
+/dev/hi_pvr             u:object_r:hi_pvr_device:s0
+/dev/hi_sync            u:object_r:hi_sync_device:s0
+/dev/hi_adec            u:object_r:hi_adec_device:s0
+/dev/hi_vdec            u:object_r:hi_vdec_device:s0
+/dev/hi_gpio            u:object_r:hi_gpio_device:s0
+/dev/hi_smmu            u:object_r:hi_smmu_device:s0
+/dev/hi_vpss            u:object_r:hi_vpss_device:s0
+/dev/hi_adsp            u:object_r:hi_adsp_device:s0
+/dev/hi_mce             u:object_r:hi_mce_device:s0
+/dev/mali0              u:object_r:mali_device:s0
+/dev/mmz_userdev        u:object_r:mmz_userdev_device:s0
+# mtk bluetooth
+/dev/stpbt              u:object_r:uhid_device:s0
+# bcm bluetooth
+/dev/ttyAMA2            u:object_r:ttyAMA2_device:s0
+# rtk bluetooth
+/dev/rtkbt_dev          u:object_r:rtk_bt_device:s0
+
+/dev/block/mmcblk1p3    u:object_r:hi_system_block_device:s0
+/dev/block/mmcblk1p5    u:object_r:hi_vendor_block_device:s0
+/dev/block/mmcblk1p6    u:object_r:hi_cache_block_device:s0
+/dev/block/mmcblk1p7    u:object_r:hi_userdata_block_device:s0
+
+#############################
+# Vendor service
+#
+/(vendor|system/vendor)/bin/hiavplayer                     u:object_r:hiavplayer_exec:s0
+
+# optee files
+/vendor/bin/tee-supplicant  u:object_r:tee_exec:s0
+/vendor/bin/xtest      u:object_r:tee_exec:s0
+/dev/teepriv[0-9]*     u:object_r:tee_device:s0
+/dev/tee[0-9]*         u:object_r:tee_device:s0
+#/data/tee(/.*)?        u:object_r:tee_data_file:s0
+
+#############################
+# Same process HALs installed by hisi into /vendor
+#
+/(vendor|system/vendor)/lib(64)?/hw/overlay\.poplar\.so     u:object_r:same_process_hal_file:s0
+/(vendor|system/vendor)/lib(64)?/hw/gralloc\.poplar\.so    u:object_r:same_process_hal_file:s0
+/(vendor|system/vendor)/lib(64)?/libion_ext\.so            u:object_r:same_process_hal_file:s0
+
+
+#/(vendor|system/vendor)/lib(64)?/hw/overlay\.poplar\.so      u:object_r:hi_overlay_file:s0
+#/(vendor|system/vendor)/lib(64)?/libhi_msp\.so               u:object_r:hi_overlay_file:s0
+#/(vendor|system/vendor)/lib(64)?/libhi_common\.so            u:object_r:hi_overlay_file:s0
+
+/(vendor|system/vendor)/lib(64)?/libhi_msp\.so               u:object_r:same_process_hal_file:s0
+/(vendor|system/vendor)/lib(64)?/libhi_common\.so            u:object_r:same_process_hal_file:s0
+
+#/(vendor|system/vendor)/lib(64)?/libhi_vfmw\.so              u:object_r:same_process_hal_file:s0
+#/(vendor|system/vendor)/lib(64)?/libhi_vfmw\.so              u:object_r:hi_overlay_file:s0
+/(vendor|system/vendor)/lib(64)?/libhi_vfmw\.so              u:object_r:same_process_hal_file:s0
+
+

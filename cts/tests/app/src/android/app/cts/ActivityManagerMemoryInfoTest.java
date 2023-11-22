@@ -16,6 +16,7 @@
 package android.app.cts;
 
 import android.app.ActivityManager;
+import android.os.Debug;
 import android.os.Parcel;
 import android.os.Process;
 import android.test.AndroidTestCase;
@@ -84,4 +85,23 @@ public class ActivityManagerMemoryInfoTest extends AndroidTestCase {
         }
     }
 
+    public void testGetProcessMemoryInfo() {
+        // PID == 1 is the init process.
+        Debug.MemoryInfo[] result = getContext().getSystemService(ActivityManager.class)
+                .getProcessMemoryInfo(new int[]{1, Process.myPid(), 1});
+        assertEquals(3, result.length);
+        isEmpty(result[0]);
+        isEmpty(result[2]);
+        isNotEmpty(result[1]);
+    }
+
+    private static void isEmpty(Debug.MemoryInfo mi) {
+        assertEquals(0, mi.dalvikPss);
+        assertEquals(0, mi.nativePss);
+    }
+
+    private static void isNotEmpty(Debug.MemoryInfo mi) {
+        assertTrue(mi.dalvikPss > 0);
+        assertTrue(mi.nativePss > 0);
+    }
 }

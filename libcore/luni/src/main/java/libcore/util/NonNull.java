@@ -16,7 +16,6 @@
 package libcore.util;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
-import static java.lang.annotation.ElementType.TYPE_PARAMETER;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import java.lang.annotation.Documented;
@@ -27,10 +26,12 @@ import java.lang.annotation.Target;
  * Denotes that a type use can never be null.
  * <p>
  * This is a marker annotation and it has no specific attributes.
+ * @hide
  */
 @Documented
 @Retention(SOURCE)
 @Target({TYPE_USE})
+@libcore.api.IntraCoreApi
 public @interface NonNull {
    /**
     * Min Android API level (inclusive) to which this annotation is applied.

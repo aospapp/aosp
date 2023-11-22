@@ -48,8 +48,8 @@
     <string name="registration_status_invalid_credentials" msgid="8406872554323334182">"Registreringen af kontoen mislykkedes: Forkert brugernavn eller adgangskode."</string>
     <string name="registration_status_server_unreachable" msgid="7710275557045148634">"Registreringen af kontoen mislykkedes. Tjek servernavn."</string>
     <string name="third_party_account_summary" msgid="9041060473615403041">"Denne konto benyttes i øjeblikket af appen <xliff:g id="ACCOUNT_OWNER">%s</xliff:g>."</string>
-    <string name="sip_edit_title" msgid="1967247832635750410">"Oplysninger om SIP-konto"</string>
-    <string name="sip_edit_new_title" msgid="266414118302574305">"Oplysninger om SIP-konto"</string>
+    <string name="sip_edit_title" msgid="1967247832635750410">"Info om SIP-konto"</string>
+    <string name="sip_edit_new_title" msgid="266414118302574305">"Info om SIP-konto"</string>
     <string name="domain_address_title" msgid="1968479941328225423">"Server"</string>
     <string name="username_title" msgid="6770064611005663470">"Brugernavn"</string>
     <string name="password_title" msgid="5289013731515564295">"Adgangskode"</string>

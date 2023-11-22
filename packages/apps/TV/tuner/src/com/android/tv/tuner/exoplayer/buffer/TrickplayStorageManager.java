@@ -142,4 +142,8 @@ public class TrickplayStorageManager implements BufferManager.StorageManager {
     @Override
     public void writeIndexFile(
             String trackName, SortedMap<Long, Pair<SampleChunk, Integer>> index) {}
+
+    @Override
+    public void updateIndexFile(
+            String trackName, int size, long position, SampleChunk sampleChunk, int offset) {}
 }

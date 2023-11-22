@@ -31,8 +31,8 @@ public class Vp9Yuv422BitstreamsFullTest extends MediaBitstreamsTest {
     }
 
     public Vp9Yuv422BitstreamsFullTest(String prefix, String path,
-            BitstreamPackage pkg, BitstreamPackage packageToRun) {
-        super(prefix, path, pkg, packageToRun);
+            BitstreamPackage pkg, BitstreamPackage packageToRun, boolean enforce) {
+        super(prefix, path, pkg, packageToRun, enforce);
     }
 
     @Test

@@ -16,13 +16,16 @@
 package com.android.managedprovisioning.preprovisioning;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE;
-import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
+import static android.app.admin.DevicePolicyManager
+        .ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.CODE_MANAGED_USERS_NOT_SUPPORTED;
 import static android.app.admin.DevicePolicyManager.CODE_OK;
 import static android.nfc.NfcAdapter.ACTION_NDEF_DISCOVERED;
 
 import static com.android.managedprovisioning.common.Globals.ACTION_RESUME_PROVISIONING;
+
+import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
@@ -31,7 +34,6 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
 import static java.util.Collections.emptyList;
@@ -45,21 +47,24 @@ import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.VectorDrawable;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.service.persistentdata.PersistentDataBlockManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
 import android.test.AndroidTestCase;
 import android.text.TextUtils;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.TimeLogger;
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
+import com.android.managedprovisioning.model.PackageDownloadInfo;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.model.WifiInfo;
 import com.android.managedprovisioning.parser.MessageParser;
@@ -77,6 +82,14 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
     private static final String TEST_WIFI_SSID = "TestNet";
     private static final String MP_PACKAGE_NAME = "com.android.managedprovisioning";
     private static final int TEST_USER_ID = 10;
+    private static final PackageDownloadInfo PACKAGE_DOWNLOAD_INFO =
+            PackageDownloadInfo.Builder.builder()
+                    .setCookieHeader("COOKIE_HEADER")
+                    .setLocation("LOCATION")
+                    .setMinVersion(1)
+                    .setPackageChecksum(new byte[] {1})
+                    .setSignatureChecksum(new byte[] {1})
+                    .build();
 
     @Mock
     private Context mContext;
@@ -108,6 +121,8 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
     private EncryptionController mEncryptionController;
     @Mock
     private TimeLogger mTimeLogger;
+    @Mock
+    private ManagedProvisioningSharedPreferences mSharedPreferences;
 
     private ProvisioningParams mParams;
 
@@ -120,9 +135,16 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
 
         MockitoAnnotations.initMocks(this);
 
-        when(mContext.getSystemService(Context.DEVICE_POLICY_SERVICE))
+        when(mContext.getSystemServiceName(DevicePolicyManager.class))
+                .thenReturn(Context.DEVICE_POLICY_SERVICE);
+        when(mContext.getSystemService(DevicePolicyManager.class))
                 .thenReturn(mDevicePolicyManager);
-        when(mContext.getSystemService(Context.USER_SERVICE)).thenReturn(mUserManager);
+
+        when(mContext.getSystemServiceName(UserManager.class))
+                .thenReturn(Context.USER_SERVICE);
+        when(mContext.getSystemService(UserManager.class))
+                .thenReturn(mUserManager);
+
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mContext.getSystemService(Context.ACTIVITY_SERVICE)).thenReturn(mActivityManager);
         when(mContext.getSystemService(Context.KEYGUARD_SERVICE)).thenReturn(mKeyguardManager);
@@ -141,12 +163,14 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
 
         when(mPackageManager.getApplicationIcon(anyString())).thenReturn(new VectorDrawable());
         when(mPackageManager.getApplicationLabel(any())).thenReturn(TEST_MDM_PACKAGE_LABEL);
+        when(mPackageManager.resolveActivity(any(), anyInt())).thenReturn(new ResolveInfo());
 
         when(mKeyguardManager.inKeyguardRestrictedInputMode()).thenReturn(false);
         when(mDevicePolicyManager.getStorageEncryptionStatus())
                 .thenReturn(DevicePolicyManager.ENCRYPTION_STATUS_INACTIVE);
+        when(mSettingsFacade.isDuringSetupWizard(mContext)).thenReturn(false);
         mController = new PreProvisioningController(mContext, mUi, mTimeLogger, mMessageParser,
-                mUtils, mSettingsFacade, mEncryptionController);
+                mUtils, mSettingsFacade, mEncryptionController, mSharedPreferences);
     }
 
     public void testManagedProfile() throws Exception {
@@ -237,15 +261,7 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
         when(mUtils.alreadyHasManagedProfile(mContext)).thenReturn(TEST_USER_ID);
         // WHEN initiating managed profile provisioning
         mController.initiateProvisioning(mIntent, null, TEST_MDM_PACKAGE);
-        // THEN the UI elements should be updated accordingly and a dialog to remove the existing
-        // profile should be shown
-        verifyInitiateProfileOwnerUi();
         verify(mUi).showDeleteManagedProfileDialog(any(), any(), eq(TEST_USER_ID));
-        // WHEN the user consents
-        mController.continueProvisioningAfterUserConsent();
-        // THEN start profile provisioning
-        verify(mUi).startProvisioning(mUserManager.getUserHandle(), mParams);
-        verify(mEncryptionController).cancelEncryptionReminder();
         verifyNoMoreInteractions(mUi);
     }
 
@@ -313,7 +329,7 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
                 provisioningParams, "test.persistent.data");
 
         // THEN the check is successful despite the FRP data presence.
-        assertTrue(result);
+        assertThat(result).isTrue();
     }
 
     public void testManagedProfile_skipEncryption() throws Exception {
@@ -566,7 +582,7 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
 
     public void testNullParams() throws Exception {
         // THEN verifying params is null initially
-        assertNull(mController.getParams());
+        assertThat(mController.getParams()).isNull();
     }
 
     public void testDeviceOwner_frp() throws Exception {
@@ -629,6 +645,38 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
         mController.continueProvisioningAfterUserConsent();
         // THEN start profile owner provisioning
         verify(mUi).startProvisioning(mUserManager.getUserHandle(), mParams);
+    }
+
+    public void testInitiateProvisioning_doWithDownloadInfoAndUseMobileDataFalse_showsWifiPicker()
+            throws Exception {
+        final ProvisioningParams params = createProvisioningParamsBuilder()
+                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
+                .setDeviceAdminDownloadInfo(PACKAGE_DOWNLOAD_INFO)
+                .setUseMobileData(false)
+                .build();
+        initiateProvisioning(params);
+        verify(mUi).requestWifiPick();
+    }
+
+    public void testInitiateProvisioning_doWithNoDownloadInfoAndUseMobileDataFalse_noWifiPicker()
+            throws Exception {
+        final ProvisioningParams params = createProvisioningParamsBuilder()
+                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
+                .setUseMobileData(true)
+                .build();
+        initiateProvisioning(params);
+        verify(mUi, never()).requestWifiPick();
+    }
+
+    public void testInitiateProvisioning_doWithDownloadInfoAndUseMobileDataTrue_noWifiPicker()
+            throws Exception {
+        final ProvisioningParams params = createProvisioningParamsBuilder()
+                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
+                .setDeviceAdminDownloadInfo(PACKAGE_DOWNLOAD_INFO)
+                .setUseMobileData(true)
+                .build();
+        initiateProvisioning(params);
+        verify(mUi, never()).requestWifiPick();
     }
 
     private void prepareMocksForMaybeStartProvisioning(
@@ -719,14 +767,22 @@ public class PreProvisioningControllerTest extends AndroidTestCase {
     }
 
     private void verifyInitiateProfileOwnerUi() {
-        verify(mUi).initiateUi(eq(R.layout.intro_profile_owner),
-                eq(R.string.setup_profile), any(), any(), eq(true),
-                eq(false), eq(emptyList()), any());
+        verify(mUi).initiateUi(any());
     }
 
     private void verifyInitiateDeviceOwnerUi() {
-        verify(mUi).initiateUi(eq(R.layout.intro_device_owner),
-                eq(R.string.setup_device), eq(TEST_MDM_PACKAGE_LABEL), any(), eq(false),
-                eq(false), eq(emptyList()), any());
+        verify(mUi).initiateUi(any());
+    }
+
+    private ProvisioningParams.Builder createProvisioningParamsBuilder() {
+        return ProvisioningParams.Builder.builder()
+                .setProvisioningAction(ACTION_PROVISION_MANAGED_DEVICE)
+                .setStartedByTrustedSource(true)
+                .setSkipEncryption(true)
+                .setDeviceAdminComponentName(TEST_MDM_COMPONENT_NAME);
+    }
+
+    private void initiateProvisioning(ProvisioningParams provisioningParams) {
+        mController.initiateProvisioning(mIntent, provisioningParams, TEST_MDM_PACKAGE);
     }
 }

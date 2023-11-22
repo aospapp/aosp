@@ -117,7 +117,7 @@ public:
 private:
     status_t createDecoder();
     status_t setNumCores();
-    status_t setParams(size_t stride);
+    status_t setParams(size_t stride, IVD_VIDEO_DECODE_MODE_T dec_mode);
     void getVersion();
     status_t initDecoder();
     bool setDecodeArgs(ivd_video_decode_ip_t *ps_decode_ip,
@@ -128,13 +128,6 @@ private:
                        size_t inSize,
                        uint32_t tsMarker);
     bool getVuiParams();
-    // TODO:This is not the right place for colorAspects functions. These should
-    // be part of c2-vndk so that they can be accessed by all video plugins
-    // until then, make them feel at home
-    bool colorAspectsDiffer(const ColorAspects &a, const ColorAspects &b);
-    void updateFinalColorAspects(
-            const ColorAspects &otherAspects, const ColorAspects &preferredAspects);
-    status_t handleColorAspectsChange();
     c2_status_t ensureDecoderState(const std::shared_ptr<C2BlockPool> &pool);
     void finishWork(uint64_t index, const std::unique_ptr<C2Work> &work);
     status_t setFlushMode();
@@ -169,14 +162,24 @@ private:
     uint32_t mStride;
     bool mSignalledOutputEos;
     bool mSignalledError;
+    bool mHeaderDecoded;
+    // Color aspects. These are ISO values and are meant to detect changes in aspects to avoid
+    // converting them to C2 values for each frame
+    struct VuiColorAspects {
+        uint8_t primaries;
+        uint8_t transfer;
+        uint8_t coeffs;
+        uint8_t fullRange;
 
-    // ColorAspects
-    Mutex mColorAspectsLock;
-    int mPreference;
-    ColorAspects mDefaultColorAspects;
-    ColorAspects mBitstreamColorAspects;
-    ColorAspects mFinalColorAspects;
-    bool mUpdateColorAspects;
+        // default color aspects
+        VuiColorAspects()
+            : primaries(2), transfer(2), coeffs(2), fullRange(0) { }
+
+        bool operator==(const VuiColorAspects &o) {
+            return primaries == o.primaries && transfer == o.transfer && coeffs == o.coeffs
+                    && fullRange == o.fullRange;
+        }
+    } mBitstreamColorAspects;
 
     // profile
     struct timeval mTimeStart;

@@ -40,6 +40,10 @@ public final class SystemProperties {
     public static final BooleanSystemProperty USE_TRACKER =
             new BooleanSystemProperty("tv_use_tracker", true);
 
+    /** Allow third party inputs. */
+    public static final BooleanSystemProperty ALLOW_THIRD_PARTY_INPUTS =
+            new BooleanSystemProperty("ro.tv_allow_third_party_inputs", true);
+
     static {
         updateSystemProperties();
     }

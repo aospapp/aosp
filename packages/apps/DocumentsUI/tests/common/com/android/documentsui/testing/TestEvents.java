@@ -16,7 +16,7 @@
 
 package com.android.documentsui.testing;
 
-import android.annotation.IntDef;
+import androidx.annotation.IntDef;
 import android.graphics.Point;
 import android.view.KeyEvent;
 import android.view.MotionEvent;

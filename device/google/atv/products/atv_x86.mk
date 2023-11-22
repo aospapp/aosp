@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-PRODUCT_PACKAGES := \
+PRODUCT_HOST_PACKAGES := \
     bios.bin \
     vgabios-cirrus.bin
 

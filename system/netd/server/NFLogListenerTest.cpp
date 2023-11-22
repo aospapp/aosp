@@ -27,24 +27,19 @@
 #include <netdutils/MockSyscalls.h>
 #include "NFLogListener.h"
 
-using ::testing::ByMove;
+using ::testing::_;
+using ::testing::DoAll;
 using ::testing::Exactly;
 using ::testing::Invoke;
-using ::testing::Mock;
-using ::testing::SaveArg;
-using ::testing::DoAll;
 using ::testing::Return;
+using ::testing::SaveArg;
 using ::testing::StrictMock;
-using ::testing::_;
 
 namespace android {
 namespace net {
 
-using netdutils::Fd;
 using netdutils::Slice;
 using netdutils::StatusOr;
-using netdutils::UniqueFd;
-using netdutils::forEachNetlinkAttribute;
 using netdutils::makeSlice;
 using netdutils::status::ok;
 
@@ -55,10 +50,11 @@ class MockNetlinkListener : public NetlinkListenerInterface {
   public:
     ~MockNetlinkListener() override = default;
 
-    MOCK_METHOD1(send, netdutils::Status(const netdutils::Slice msg));
+    MOCK_METHOD1(send, netdutils::Status(const Slice msg));
     MOCK_METHOD2(subscribe, netdutils::Status(uint16_t type, const DispatchFn& fn));
     MOCK_METHOD1(unsubscribe, netdutils::Status(uint16_t type));
     MOCK_METHOD0(join, void());
+    MOCK_METHOD1(registerSkErrorHandler, void(const SkErrorHandler& handler));
 };
 
 class NFLogListenerTest : public testing::Test {
@@ -78,10 +74,10 @@ class NFLogListenerTest : public testing::Test {
 
     static StatusOr<size_t> sendOk(const Slice buf) { return buf.size(); }
 
-    void subscribe(uint16_t type, NFLogListenerInterface::DispatchFn fn) {
+    void subscribe(uint16_t type, const NFLogListenerInterface::DispatchFn& fn) {
         // Two sends for cfgCmdBind() & cfgMode(), one send at destruction time for cfgCmdUnbind()
         EXPECT_CALL(*mNLListener, send(_)).Times(Exactly(3)).WillRepeatedly(Invoke(sendOk));
-        mListener->subscribe(type, fn);
+        EXPECT_OK(mListener->subscribe(type, fn));
     }
 
     void sendEmptyMsg(uint16_t type) {
@@ -105,13 +101,13 @@ class NFLogListenerTest : public testing::Test {
 
 TEST_F(NFLogListenerTest, subscribe) {
     constexpr uint16_t kType = 38;
-    const auto dispatchFn = [](const nlmsghdr&, const nfgenmsg&, const netdutils::Slice) {};
+    const auto dispatchFn = [](const nlmsghdr&, const nfgenmsg&, const Slice) {};
     subscribe(kType, dispatchFn);
 }
 
 TEST_F(NFLogListenerTest, nlmsgDone) {
     constexpr uint16_t kType = 38;
-    const auto dispatchFn = [](const nlmsghdr&, const nfgenmsg&, const netdutils::Slice) {};
+    const auto dispatchFn = [](const nlmsghdr&, const nfgenmsg&, const Slice) {};
     subscribe(kType, dispatchFn);
     mDoneFn({}, {});
 }
@@ -120,7 +116,7 @@ TEST_F(NFLogListenerTest, dispatchOk) {
     int invocations = 0;
     constexpr uint16_t kType = 38;
     const auto dispatchFn = [&invocations, kType](const nlmsghdr&, const nfgenmsg& nfmsg,
-                                                  const netdutils::Slice) {
+                                                  const Slice) {
         EXPECT_EQ(kType, ntohs(nfmsg.res_id));
         ++invocations;
     };
@@ -132,7 +128,7 @@ TEST_F(NFLogListenerTest, dispatchOk) {
 TEST_F(NFLogListenerTest, dispatchUnknownType) {
     constexpr uint16_t kType = 38;
     constexpr uint16_t kBadType = kType + 1;
-    const auto dispatchFn = [](const nlmsghdr&, const nfgenmsg&, const netdutils::Slice) {
+    const auto dispatchFn = [](const nlmsghdr&, const nfgenmsg&, const Slice) {
         // Expect no invocations
         ASSERT_TRUE(false);
     };

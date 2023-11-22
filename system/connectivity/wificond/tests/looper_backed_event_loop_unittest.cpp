@@ -47,7 +47,7 @@ public:
   bool writeSignal() {
     ssize_t n_written = ::write(send_fd, "*", 1);
     if (n_written != 1) {
-      LOG(ERROR) << "Failed to write signal to pipe: " << strerror(errno);
+      PLOG(ERROR) << "Failed to write signal to pipe";
       return false;
     }
     return true;
@@ -60,7 +60,7 @@ public:
       if (n_read == 0) {
         LOG(ERROR) << "No data from pipe";
       } else {
-        LOG(ERROR) << "Failed to read signal from pipe: " << strerror(errno);
+        PLOG(ERROR) << "Failed to read signal from pipe";
       }
       return false;
     }

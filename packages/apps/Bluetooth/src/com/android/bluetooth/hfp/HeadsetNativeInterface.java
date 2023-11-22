@@ -18,10 +18,10 @@ package com.android.bluetooth.hfp;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
+import com.android.internal.annotations.VisibleForTesting;
 
 /**
  * Defines native calls that are used by state machine/service to either send or receive
@@ -127,9 +127,9 @@ public class HeadsetNativeInterface {
         sendMessageToService(event);
     }
 
-    private void onNoiceReductionEnable(boolean enable, byte[] address) {
+    private void onNoiseReductionEnable(boolean enable, byte[] address) {
         HeadsetStackEvent event =
-                new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_NOICE_REDUCTION, enable ? 1 : 0,
+                new HeadsetStackEvent(HeadsetStackEvent.EVENT_TYPE_NOISE_REDUCTION, enable ? 1 : 0,
                         getDevice(address));
         sendMessageToService(event);
     }
@@ -419,7 +419,7 @@ public class HeadsetNativeInterface {
     @VisibleForTesting
     public boolean phoneStateChange(BluetoothDevice device, HeadsetCallState callState) {
         return phoneStateChangeNative(callState.mNumActive, callState.mNumHeld,
-                callState.mCallState, callState.mNumber, callState.mType,
+                callState.mCallState, callState.mNumber, callState.mType, callState.mName,
                 Utils.getByteAddress(device));
     }
 
@@ -493,7 +493,7 @@ public class HeadsetNativeInterface {
     private native boolean copsResponseNative(String operatorName, byte[] address);
 
     private native boolean phoneStateChangeNative(int numActive, int numHeld, int callState,
-            String number, int type, byte[] address);
+            String number, int type, String name, byte[] address);
 
     private native boolean setScoAllowedNative(boolean value);
 

@@ -32,10 +32,13 @@ import android.platform.test.annotations.AppModeFull;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.Intents;
 import android.provider.ContactsContract.ProviderStatus;
-import android.support.test.InstrumentationRegistry;
 import android.test.AndroidTestCase;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.android.compatibility.common.util.TestUtils;
+
+import androidx.test.InstrumentationRegistry;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -126,17 +129,25 @@ public class ContactsContract_Wipe extends AndroidTestCase {
         return sb.toString().trim();
     }
 
-    private void wipeContactsProvider() {
+    private void wipeContactsProvider() throws Exception {
         final String providerPackage = getContactsProviderPackageName();
 
         Log.i(TAG, "Wiping "  + providerPackage + "...");
 
         final String result = concatResult(readAll(
                 InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
-                        "pm clear " + providerPackage)));
+                        "pm clear --user current " + providerPackage)));
         Log.i(TAG, "Result:" + result);
 
         assertEquals("Success", result);
+
+        // Wait until CP2 is ready to be used.
+        TestUtils.waitUntil("CP2 still not ready", () -> {
+            try (Cursor cursor = getContext().getContentResolver().query(
+                    ProviderStatus.CONTENT_URI, null, null, null, null)) {
+                return cursor != null;
+            }
+        });
     }
 
     public void testCreationTimestamp() throws Exception {

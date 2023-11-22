@@ -14,7 +14,7 @@
      limitations under the License.
 -->
 <configuration description="VTS Pair to Pair Test Plan">
-  <include name="vts-base-common" />
+  <include name="vts-base-multi-device" />
   <option name="plan" value="vts" />
   <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-p2p" />
@@ -22,6 +22,11 @@
 
   <device name="device1">
     <build_provider class="com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider" />
+    <target_preparer class="com.android.tradefed.targetprep.VtsDevicePreparer">
+      <option name="enable-adb-root" value="true"/>
+      <option name="start-framework" value="true"/>
+      <option name="restore-framework" value="true"/>
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.VtsDeviceInfoCollector" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="HostDrivenTest.push" />
@@ -37,6 +42,11 @@
 
   <device name="device2" >
     <build_provider class="com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider" />
+    <target_preparer class="com.android.tradefed.targetprep.VtsDevicePreparer">
+      <option name="enable-adb-root" value="true"/>
+      <option name="start-framework" value="true"/>
+      <option name="restore-framework" value="true"/>
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.VtsDeviceInfoCollector" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="push-group" value="HostDrivenTest.push" />

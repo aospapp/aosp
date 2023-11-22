@@ -16,11 +16,12 @@
 
 package com.android.tv.settings.connectivity.setup;
 
-import android.arch.lifecycle.ViewModel;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
-import android.support.annotation.IntDef;
 import android.text.TextUtils;
+
+import androidx.annotation.IntDef;
+import androidx.lifecycle.ViewModel;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+DEVICE_MANIFEST_FILE += device/google/cuttlefish/shared/config/manifest.xml
+
 $(call inherit-product, $(SRC_TARGET_DIR)/product/aosp_base_telephony.mk)
 $(call inherit-product, frameworks/native/build/phone-xhdpi-2048-dalvik-heap.mk)
 $(call inherit-product, device/google/cuttlefish/shared/device.mk)
@@ -22,14 +24,9 @@ PRODUCT_CHARACTERISTICS := tablet,nosdcard
 
 PRODUCT_PROPERTY_OVERRIDES += \
     keyguard.no_require_sim=true \
-    rild.libpath=libvsoc-ril.so \
     ro.cdma.home.operator.alpha=Android \
     ro.cdma.home.operator.numeric=302780 \
-    ro.gsm.home.operator.alpha=Android \
-    ro.gsm.home.operator.numeric=302780 \
-    gsm.sim.operator.numeric=302780 \
-    gsm.sim.operator.alpha=Android \
-    gsm.sim.operator.iso-country=us \
+    vendor.rild.libpath=libcuttlefish-ril.so \
 
 PRODUCT_PACKAGES += \
     MmsService \
@@ -37,7 +34,7 @@ PRODUCT_PACKAGES += \
     PhoneService \
     Telecom \
     TeleService \
-    libvsoc-ril \
+    libcuttlefish-ril \
     rild \
 
 PRODUCT_COPY_FILES += \

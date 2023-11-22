@@ -23,10 +23,13 @@
 
 #include "base/mutex-inl.h"
 #include "events.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
 #include "nativehelper/scoped_local_ref.h"
+#include "runtime-inl.h"
 #include "scoped_thread_state_change-inl.h"
+#include "stack.h"
 #include "ti_breakpoint.h"
+#include "ti_thread.h"
 
 #include "art_jvmti.h"
 
@@ -50,7 +53,7 @@ namespace impl {
 // pending exceptions since they can cause new ones to be thrown. In accordance with the JVMTI
 // specification we allow exceptions originating from events to overwrite the current exception,
 // including exceptions originating from earlier events.
-class ScopedEventDispatchEnvironment FINAL : public art::ValueObject {
+class ScopedEventDispatchEnvironment final : public art::ValueObject {
  public:
   ScopedEventDispatchEnvironment() : env_(nullptr), throw_(nullptr, nullptr) {
     DCHECK_EQ(art::Thread::Current()->GetState(), art::ThreadState::kNative);
@@ -359,6 +362,7 @@ inline bool EventHandler::ShouldDispatch<ArtJvmtiEvent::kFramePop>(
   // have to deal with use-after-free or the frames being reallocated later.
   art::WriterMutexLock lk(art::Thread::Current(), env->event_info_mutex_);
   return env->notify_frames.erase(frame) != 0 &&
+      !frame->GetForcePopFrame() &&
       ShouldDispatchOnThread<ArtJvmtiEvent::kFramePop>(env, thread);
 }
 
@@ -416,6 +420,67 @@ inline void EventHandler::ExecuteCallback<ArtJvmtiEvent::kFramePop>(
     jboolean is_exception,
     const art::ShadowFrame* frame ATTRIBUTE_UNUSED) {
   ExecuteCallback<ArtJvmtiEvent::kFramePop>(event, jnienv, jni_thread, jmethod, is_exception);
+}
+
+struct ScopedDisablePopFrame {
+ public:
+  explicit ScopedDisablePopFrame(art::Thread* thread) : thread_(thread) {
+    art::Locks::mutator_lock_->AssertSharedHeld(thread_);
+    art::MutexLock mu(thread_, *art::Locks::thread_list_lock_);
+    JvmtiGlobalTLSData* data = ThreadUtil::GetOrCreateGlobalTLSData(thread_);
+    current_top_frame_ = art::StackVisitor::ComputeNumFrames(
+        thread_, art::StackVisitor::StackWalkKind::kIncludeInlinedFrames);
+    old_disable_frame_pop_depth_ = data->disable_pop_frame_depth;
+    data->disable_pop_frame_depth = current_top_frame_;
+    DCHECK(old_disable_frame_pop_depth_ == JvmtiGlobalTLSData::kNoDisallowedPopFrame ||
+           current_top_frame_ > old_disable_frame_pop_depth_)
+        << "old: " << old_disable_frame_pop_depth_ << " current: " << current_top_frame_;
+  }
+
+  ~ScopedDisablePopFrame() {
+    art::Locks::mutator_lock_->AssertSharedHeld(thread_);
+    art::MutexLock mu(thread_, *art::Locks::thread_list_lock_);
+    JvmtiGlobalTLSData* data = ThreadUtil::GetGlobalTLSData(thread_);
+    DCHECK_EQ(data->disable_pop_frame_depth, current_top_frame_);
+    data->disable_pop_frame_depth = old_disable_frame_pop_depth_;
+  }
+
+ private:
+  art::Thread* thread_;
+  size_t current_top_frame_;
+  size_t old_disable_frame_pop_depth_;
+};
+// We want to prevent the use of PopFrame when reporting either of these events.
+template <ArtJvmtiEvent kEvent>
+inline void EventHandler::DispatchClassLoadOrPrepareEvent(art::Thread* thread,
+                                                          JNIEnv* jnienv,
+                                                          jthread jni_thread,
+                                                          jclass klass) const {
+  ScopedDisablePopFrame sdpf(thread);
+  art::ScopedThreadStateChange stsc(thread, art::ThreadState::kNative);
+  std::vector<impl::EventHandlerFunc<kEvent>> events = CollectEvents<kEvent>(thread,
+                                                                             jnienv,
+                                                                             jni_thread,
+                                                                             klass);
+
+  for (auto event : events) {
+    ExecuteCallback<kEvent>(event, jnienv, jni_thread, klass);
+  }
+}
+
+template <>
+inline void EventHandler::DispatchEvent<ArtJvmtiEvent::kClassLoad>(art::Thread* thread,
+                                                                   JNIEnv* jnienv,
+                                                                   jthread jni_thread,
+                                                                   jclass klass) const {
+  DispatchClassLoadOrPrepareEvent<ArtJvmtiEvent::kClassLoad>(thread, jnienv, jni_thread, klass);
+}
+template <>
+inline void EventHandler::DispatchEvent<ArtJvmtiEvent::kClassPrepare>(art::Thread* thread,
+                                                                      JNIEnv* jnienv,
+                                                                      jthread jni_thread,
+                                                                      jclass klass) const {
+  DispatchClassLoadOrPrepareEvent<ArtJvmtiEvent::kClassPrepare>(thread, jnienv, jni_thread, klass);
 }
 
 // Need to give a custom specialization for NativeMethodBind since it has to deal with an out
@@ -553,6 +618,7 @@ inline bool EventHandler::NeedsEventUpdate(ArtJvmTiEnv* env,
                               : ArtJvmtiEvent::kClassFileLoadHookRetransformable;
   return (added && caps.can_access_local_variables == 1) ||
       caps.can_generate_breakpoint_events == 1 ||
+      caps.can_pop_frame == 1 ||
       (caps.can_retransform_classes == 1 &&
        IsEventEnabledAnywhere(event) &&
        env->event_masks.IsEnabledAnywhere(event));
@@ -572,6 +638,11 @@ inline void EventHandler::HandleChangedCapabilities(ArtJvmTiEnv* env,
     }
     if (caps.can_generate_breakpoint_events == 1) {
       HandleBreakpointEventsChanged(added);
+    }
+    if (caps.can_pop_frame == 1 && added) {
+      // TODO We should keep track of how many of these have been enabled and remove it if there are
+      // no more possible users. This isn't expected to be too common.
+      art::Runtime::Current()->SetNonStandardExitsEnabled();
     }
   }
 }

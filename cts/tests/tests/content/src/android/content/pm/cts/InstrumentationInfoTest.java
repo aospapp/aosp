@@ -22,8 +22,10 @@ import android.content.pm.InstrumentationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class InstrumentationInfoTest extends AndroidTestCase {
     private static final String PACKAGE_NAME = "android.content.cts";
     private static final String INSTRUMENTATION_NAME =

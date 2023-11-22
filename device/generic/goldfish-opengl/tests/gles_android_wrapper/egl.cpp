@@ -27,7 +27,7 @@
 #include <dlfcn.h>
 #include "egl_dispatch.h"
 #include "egl_ftable.h"
-#include <cutils/log.h>
+#include <log/log.h>
 #include "ServerConnection.h"
 #include "ThreadInfo.h"
 #include <pthread.h>

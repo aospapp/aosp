@@ -36,8 +36,9 @@
 
 #include "devices.h"
 #include "firmware_handler.h"
-#include "log.h"
+#include "modalias_handler.h"
 #include "selinux.h"
+#include "uevent_handler.h"
 #include "uevent_listener.h"
 #include "ueventd_parser.h"
 #include "util.h"
@@ -107,9 +108,10 @@ namespace init {
 
 class ColdBoot {
   public:
-    ColdBoot(UeventListener& uevent_listener, DeviceHandler& device_handler)
+    ColdBoot(UeventListener& uevent_listener,
+             std::vector<std::unique_ptr<UeventHandler>>& uevent_handlers)
         : uevent_listener_(uevent_listener),
-          device_handler_(device_handler),
+          uevent_handlers_(uevent_handlers),
           num_handler_subprocesses_(std::thread::hardware_concurrency() ?: 4) {}
 
     void Run();
@@ -122,7 +124,7 @@ class ColdBoot {
     void WaitForSubProcesses();
 
     UeventListener& uevent_listener_;
-    DeviceHandler& device_handler_;
+    std::vector<std::unique_ptr<UeventHandler>>& uevent_handlers_;
 
     unsigned int num_handler_subprocesses_;
     std::vector<Uevent> uevent_queue_;
@@ -133,15 +135,16 @@ class ColdBoot {
 void ColdBoot::UeventHandlerMain(unsigned int process_num, unsigned int total_processes) {
     for (unsigned int i = process_num; i < uevent_queue_.size(); i += total_processes) {
         auto& uevent = uevent_queue_[i];
-        device_handler_.HandleDeviceEvent(uevent);
+
+        for (auto& uevent_handler : uevent_handlers_) {
+            uevent_handler->HandleUevent(uevent);
+        }
     }
     _exit(EXIT_SUCCESS);
 }
 
 void ColdBoot::RegenerateUevents() {
     uevent_listener_.RegenerateUevents([this](const Uevent& uevent) {
-        HandleFirmwareEvent(uevent);
-
         uevent_queue_.emplace_back(std::move(uevent));
         return ListenerAction::kContinue;
     });
@@ -164,7 +167,6 @@ void ColdBoot::ForkSubProcesses() {
 
 void ColdBoot::DoRestoreCon() {
     selinux_android_restorecon("/sys", SELINUX_ANDROID_RESTORECON_RECURSE);
-    device_handler_.set_skip_restorecon(false);
 }
 
 void ColdBoot::WaitForSubProcesses() {
@@ -173,7 +175,7 @@ void ColdBoot::WaitForSubProcesses() {
     //
     // When a subprocess crashes, we fatally abort from ueventd.  init will restart ueventd when
     // init reaps it, and the cold boot process will start again.  If this continues to fail, then
-    // since ueventd is marked as a critical service, init will reboot to recovery.
+    // since ueventd is marked as a critical service, init will reboot to bootloader.
     //
     // When a subprocess gets stuck, keep ueventd spinning waiting for it.  init has a timeout for
     // cold boot and will reboot to the bootloader if ueventd does not complete in time.
@@ -215,39 +217,6 @@ void ColdBoot::Run() {
     LOG(INFO) << "Coldboot took " << cold_boot_timer.duration().count() / 1000.0f << " seconds";
 }
 
-DeviceHandler CreateDeviceHandler() {
-    Parser parser;
-
-    std::vector<Subsystem> subsystems;
-    parser.AddSectionParser("subsystem", std::make_unique<SubsystemParser>(&subsystems));
-
-    using namespace std::placeholders;
-    std::vector<SysfsPermissions> sysfs_permissions;
-    std::vector<Permissions> dev_permissions;
-    parser.AddSingleLineParser("/sys/",
-                               std::bind(ParsePermissionsLine, _1, &sysfs_permissions, nullptr));
-    parser.AddSingleLineParser("/dev/",
-                               std::bind(ParsePermissionsLine, _1, nullptr, &dev_permissions));
-
-    parser.ParseConfig("/ueventd.rc");
-    parser.ParseConfig("/vendor/ueventd.rc");
-    parser.ParseConfig("/odm/ueventd.rc");
-
-    /*
-     * keep the current product name base configuration so
-     * we remain backwards compatible and allow it to override
-     * everything
-     * TODO: cleanup platform ueventd.rc to remove vendor specific
-     * device node entries (b/34968103)
-     */
-    std::string hardware = android::base::GetProperty("ro.hardware", "");
-    parser.ParseConfig("/ueventd." + hardware + ".rc");
-
-    auto boot_devices = fs_mgr_get_boot_devices();
-    return DeviceHandler(std::move(dev_permissions), std::move(sysfs_permissions),
-                         std::move(subsystems), std::move(boot_devices), true);
-}
-
 int ueventd_main(int argc, char** argv) {
     /*
      * init sets the umask to 077 for forked processes. We need to
@@ -256,19 +225,42 @@ int ueventd_main(int argc, char** argv) {
      */
     umask(000);
 
-    InitKernelLogging(argv);
+    android::base::InitLogging(argv, &android::base::KernelLogger);
 
     LOG(INFO) << "ueventd started!";
 
     SelinuxSetupKernelLogging();
     SelabelInitialize();
 
-    DeviceHandler device_handler = CreateDeviceHandler();
-    UeventListener uevent_listener;
+    std::vector<std::unique_ptr<UeventHandler>> uevent_handlers;
+
+    // Keep the current product name base configuration so we remain backwards compatible and
+    // allow it to override everything.
+    // TODO: cleanup platform ueventd.rc to remove vendor specific device node entries (b/34968103)
+    auto hardware = android::base::GetProperty("ro.hardware", "");
+
+    auto ueventd_configuration = ParseConfig({"/ueventd.rc", "/vendor/ueventd.rc",
+                                              "/odm/ueventd.rc", "/ueventd." + hardware + ".rc"});
+
+    uevent_handlers.emplace_back(std::make_unique<DeviceHandler>(
+            std::move(ueventd_configuration.dev_permissions),
+            std::move(ueventd_configuration.sysfs_permissions),
+            std::move(ueventd_configuration.subsystems), android::fs_mgr::GetBootDevices(), true));
+    uevent_handlers.emplace_back(std::make_unique<FirmwareHandler>(
+            std::move(ueventd_configuration.firmware_directories)));
+
+    if (ueventd_configuration.enable_modalias_handling) {
+        uevent_handlers.emplace_back(std::make_unique<ModaliasHandler>());
+    }
+    UeventListener uevent_listener(ueventd_configuration.uevent_socket_rcvbuf_size);
 
     if (access(COLDBOOT_DONE, F_OK) != 0) {
-        ColdBoot cold_boot(uevent_listener, device_handler);
+        ColdBoot cold_boot(uevent_listener, uevent_handlers);
         cold_boot.Run();
+    }
+
+    for (auto& uevent_handler : uevent_handlers) {
+        uevent_handler->ColdbootDone();
     }
 
     // We use waitpid() in ColdBoot, so we can't ignore SIGCHLD until now.
@@ -278,9 +270,10 @@ int ueventd_main(int argc, char** argv) {
     while (waitpid(-1, nullptr, WNOHANG) > 0) {
     }
 
-    uevent_listener.Poll([&device_handler](const Uevent& uevent) {
-        HandleFirmwareEvent(uevent);
-        device_handler.HandleDeviceEvent(uevent);
+    uevent_listener.Poll([&uevent_handlers](const Uevent& uevent) {
+        for (auto& uevent_handler : uevent_handlers) {
+            uevent_handler->HandleUevent(uevent);
+        }
         return ListenerAction::kContinue;
     });
 

@@ -35,16 +35,17 @@ using std::vector;
 
 namespace chromeos_update_engine {
 
-bool ABGenerator::GenerateOperations(
-    const PayloadGenerationConfig& config,
-    const PartitionConfig& old_part,
-    const PartitionConfig& new_part,
-    BlobFileWriter* blob_file,
-    vector<AnnotatedOperation>* aops) {
+bool ABGenerator::GenerateOperations(const PayloadGenerationConfig& config,
+                                     const PartitionConfig& old_part,
+                                     const PartitionConfig& new_part,
+                                     BlobFileWriter* blob_file,
+                                     vector<AnnotatedOperation>* aops) {
   TEST_AND_RETURN_FALSE(old_part.name == new_part.name);
 
-  ssize_t hard_chunk_blocks = (config.hard_chunk_size == -1 ? -1 :
-                               config.hard_chunk_size / config.block_size);
+  ssize_t hard_chunk_blocks =
+      (config.hard_chunk_size == -1
+           ? -1
+           : config.hard_chunk_size / config.block_size);
   size_t soft_chunk_blocks = config.soft_chunk_size / config.block_size;
 
   aops->clear();
@@ -57,8 +58,6 @@ bool ABGenerator::GenerateOperations(
                                                        blob_file));
   LOG(INFO) << "done reading " << new_part.name;
 
-  TEST_AND_RETURN_FALSE(
-      FragmentOperations(config.version, aops, new_part.path, blob_file));
   SortOperationsByDestination(aops);
 
   // Use the soft_chunk_size when merging operations to prevent merging all
@@ -69,8 +68,10 @@ bool ABGenerator::GenerateOperations(
     merge_chunk_blocks = hard_chunk_blocks;
   }
 
+  LOG(INFO) << "Merging " << aops->size() << " operations.";
   TEST_AND_RETURN_FALSE(MergeOperations(
       aops, config.version, merge_chunk_blocks, new_part.path, blob_file));
+  LOG(INFO) << aops->size() << " operations after merge.";
 
   if (config.version.minor >= kOpSrcHashMinorPayloadVersion)
     TEST_AND_RETURN_FALSE(AddSourceHash(aops, old_part.path));
@@ -107,9 +108,8 @@ bool ABGenerator::FragmentOperations(const PayloadVersion& version,
   return true;
 }
 
-bool ABGenerator::SplitSourceCopy(
-    const AnnotatedOperation& original_aop,
-    vector<AnnotatedOperation>* result_aops) {
+bool ABGenerator::SplitSourceCopy(const AnnotatedOperation& original_aop,
+                                  vector<AnnotatedOperation>* result_aops) {
   InstallOperation original_op = original_aop.op;
   TEST_AND_RETURN_FALSE(original_op.type() == InstallOperation::SOURCE_COPY);
   // Keeps track of the index of curr_src_ext.
@@ -167,13 +167,13 @@ bool ABGenerator::SplitAReplaceOp(const PayloadVersion& version,
   TEST_AND_RETURN_FALSE(IsAReplaceOperation(original_op.type()));
   const bool is_replace = original_op.type() == InstallOperation::REPLACE;
 
-  uint32_t data_offset = original_op.data_offset();
+  uint64_t data_offset = original_op.data_offset();
   for (int i = 0; i < original_op.dst_extents_size(); i++) {
     const Extent& dst_ext = original_op.dst_extents(i);
     // Make a new operation with only one dst extent.
     InstallOperation new_op;
     *(new_op.add_dst_extents()) = dst_ext;
-    uint32_t data_size = dst_ext.num_blocks() * kBlockSize;
+    uint64_t data_size = dst_ext.num_blocks() * kBlockSize;
     // If this is a REPLACE, attempt to reuse portions of the existing blob.
     if (is_replace) {
       new_op.set_type(InstallOperation::REPLACE);
@@ -231,9 +231,8 @@ bool ABGenerator::MergeOperations(vector<AnnotatedOperation>* aops,
       // merge), are contiguous, are fragmented to have one destination extent,
       // and their combined block count would be less than chunk size, merge
       // them.
-      last_aop.name = base::StringPrintf("%s,%s",
-                                         last_aop.name.c_str(),
-                                         curr_aop.name.c_str());
+      last_aop.name = base::StringPrintf(
+          "%s,%s", last_aop.name.c_str(), curr_aop.name.c_str());
 
       if (is_delta_op) {
         ExtendExtents(last_aop.op.mutable_src_extents(),
@@ -273,14 +272,11 @@ bool ABGenerator::AddDataAndSetType(AnnotatedOperation* aop,
   vector<Extent> dst_extents;
   ExtentsToVector(aop->op.dst_extents(), &dst_extents);
   brillo::Blob data(utils::BlocksInExtents(dst_extents) * kBlockSize);
-  TEST_AND_RETURN_FALSE(utils::ReadExtents(target_part_path,
-                                           dst_extents,
-                                           &data,
-                                           data.size(),
-                                           kBlockSize));
+  TEST_AND_RETURN_FALSE(utils::ReadExtents(
+      target_part_path, dst_extents, &data, data.size(), kBlockSize));
 
   brillo::Blob blob;
-  InstallOperation_Type op_type;
+  InstallOperation::Type op_type;
   TEST_AND_RETURN_FALSE(
       diff_utils::GenerateBestFullOperation(data, version, &blob, &op_type));
 

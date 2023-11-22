@@ -19,9 +19,9 @@ package com.android.tv.settings.accessories;
 import android.app.Fragment;
 import android.os.Bundle;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.R;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 public class BluetoothAccessoryActivity extends TvSettingsActivity {
 
@@ -43,32 +43,17 @@ public class BluetoothAccessoryActivity extends TvSettingsActivity {
             deviceName = getString(R.string.accessory_options);
             deviceImgId = R.drawable.ic_qs_bluetooth_not_connected;
         }
-
-        return SettingsFragment.newInstance(deviceAddress, deviceName, deviceImgId);
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+                .newSettingsFragment(BluetoothAccessoryFragment.class.getName(),
+                        getArguments(deviceAddress, deviceName, deviceImgId));
     }
 
-    public static class SettingsFragment extends BaseSettingsFragment {
-
-        public static SettingsFragment newInstance(String deviceAddress, String deviceName,
-                int deviceImgId) {
-            final Bundle b = new Bundle(3);
-            b.putString(EXTRA_ACCESSORY_ADDRESS, deviceAddress);
-            b.putString(EXTRA_ACCESSORY_NAME, deviceName);
-            b.putInt(EXTRA_ACCESSORY_ICON_ID, deviceImgId);
-            final SettingsFragment f = new SettingsFragment();
-            f.setArguments(b);
-            return f;
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final Bundle args = getArguments();
-            String deviceAddress = args.getString(EXTRA_ACCESSORY_ADDRESS);
-            String deviceName = args.getString(EXTRA_ACCESSORY_NAME);
-            int deviceImgId = args.getInt(EXTRA_ACCESSORY_ICON_ID);
-            startPreferenceFragment(
-                    BluetoothAccessoryFragment.newInstance(deviceAddress, deviceName, deviceImgId));
-
-        }
+    /** Arguments to be added when the fragment in constructed. */
+    public static Bundle getArguments(String deviceAddress, String deviceName, int deviceImgId) {
+        final Bundle b = new Bundle(3);
+        b.putString(EXTRA_ACCESSORY_ADDRESS, deviceAddress);
+        b.putString(EXTRA_ACCESSORY_NAME, deviceName);
+        b.putInt(EXTRA_ACCESSORY_ICON_ID, deviceImgId);
+        return b;
     }
 }

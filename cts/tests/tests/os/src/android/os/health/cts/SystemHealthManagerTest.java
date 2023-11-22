@@ -17,12 +17,11 @@
 package android.os.health.cts;
 
 import android.content.Context;
-import android.os.Parcel;
 import android.os.Process;
-import android.os.health.SystemHealthManager;
 import android.os.health.HealthStats;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.os.health.SystemHealthManager;
 import android.test.InstrumentationTestCase;
+import android.test.suitebuilder.annotation.SmallTest;
 
 import junit.framework.Assert;
 
@@ -36,7 +35,7 @@ public class SystemHealthManagerTest extends InstrumentationTestCase {
     @SmallTest
     public void testTakeMyUidSnapshot() throws Exception {
         final Context context = getInstrumentation().getTargetContext();
-        final SystemHealthManager healthy = SystemHealthManager.from(context);
+        final SystemHealthManager healthy = context.getSystemService(SystemHealthManager.class);
 
         Assert.assertNotNull(healthy.takeMyUidSnapshot());
     }
@@ -47,7 +46,7 @@ public class SystemHealthManagerTest extends InstrumentationTestCase {
     @SmallTest
     public void testTakeUidSnapshotWithMe() throws Exception {
         final Context context = getInstrumentation().getTargetContext();
-        final SystemHealthManager healthy = SystemHealthManager.from(context);
+        final SystemHealthManager healthy = context.getSystemService(SystemHealthManager.class);
 
         Assert.assertNotNull(healthy.takeUidSnapshot(Process.myUid()));
     }
@@ -58,7 +57,7 @@ public class SystemHealthManagerTest extends InstrumentationTestCase {
     @SmallTest
     public void testTakeMyUidSnapshotWithSystem() throws Exception {
         final Context context = getInstrumentation().getTargetContext();
-        final SystemHealthManager healthy = SystemHealthManager.from(context);
+        final SystemHealthManager healthy = context.getSystemService(SystemHealthManager.class);
 
         boolean threw = false;
         try {
@@ -76,7 +75,7 @@ public class SystemHealthManagerTest extends InstrumentationTestCase {
     @SmallTest
     public void testTakeUidSnapshotsWithEmptyArray() throws Exception {
         final Context context = getInstrumentation().getTargetContext();
-        final SystemHealthManager healthy = SystemHealthManager.from(context);
+        final SystemHealthManager healthy = context.getSystemService(SystemHealthManager.class);
 
         final HealthStats[] result = healthy.takeUidSnapshots(new int[0]);
         Assert.assertEquals(0, result.length);
@@ -88,7 +87,7 @@ public class SystemHealthManagerTest extends InstrumentationTestCase {
     @SmallTest
     public void testTakeUidSnapshotsWithMe() throws Exception {
         final Context context = getInstrumentation().getTargetContext();
-        final SystemHealthManager healthy = SystemHealthManager.from(context);
+        final SystemHealthManager healthy = context.getSystemService(SystemHealthManager.class);
 
         final HealthStats[] result = healthy.takeUidSnapshots(new int[] {
                     Process.myUid(),
@@ -105,7 +104,7 @@ public class SystemHealthManagerTest extends InstrumentationTestCase {
     @SmallTest
     public void testTakeMyUidSnapshotsWithSystem() throws Exception {
         final Context context = getInstrumentation().getTargetContext();
-        final SystemHealthManager healthy = SystemHealthManager.from(context);
+        final SystemHealthManager healthy = context.getSystemService(SystemHealthManager.class);
 
         boolean threw = false;
         try {

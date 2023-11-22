@@ -16,18 +16,23 @@
 
 package android.telephony2.cts;
 
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
+
+import static org.junit.Assert.fail;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.ParcelFileDescriptor;
 import android.telephony.TelephonyManager;
-import android.test.InstrumentationTestCase;
 import android.util.Log;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class PhoneNumberTest extends InstrumentationTestCase {
+import org.junit.Test;
+
+public class PhoneNumberTest {
     private static final String TAG = "PhoneNumberTest";
 
     private void setDefaultSmsApp(boolean setToSmsApp) {
@@ -49,6 +54,7 @@ public class PhoneNumberTest extends InstrumentationTestCase {
         }
     }
 
+    @Test
     public void testGetLine1Number() {
         Context context = getInstrumentation().getContext();
         PackageManager packageManager = context.getPackageManager();

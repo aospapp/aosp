@@ -16,7 +16,7 @@
 
 package com.android.settings.intelligence.suggestions.model;
 
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.format.DateUtils;
 
 import java.util.ArrayList;

@@ -16,12 +16,11 @@
 
 <resources>
 
-    <!-- Dimensions for the preview fragment. -->
-    <dimen name="preview_toolbar_up_button_padding">8dp</dimen>
-    <dimen name="preview_toolbar_set_wallpaper_button_padding">20dp</dimen>
+    <!-- Dimensions for the toolbar. -->
+    <dimen name="preview_toolbar_start_padding">8dp</dimen>
+    <dimen name="preview_toolbar_end_padding">20dp</dimen>
 
     <!-- Dimensions for the preview attribution pane. -->
-    <dimen name="preview_attribution_pane_content_side_margin">24dp</dimen>
-    <dimen name="preview_attribution_pane_explore_left_margin">10dp</dimen>
+    <dimen name="preview_attribution_pane_horizontal_padding">24dp</dimen>
 
 </resources>

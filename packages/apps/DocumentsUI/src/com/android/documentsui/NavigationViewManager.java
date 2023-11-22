@@ -18,15 +18,24 @@ package com.android.documentsui;
 
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
-import android.annotation.Nullable;
+import android.app.Activity;
+import android.content.res.Resources;
+import android.graphics.Outline;
 import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.View;
-import android.widget.Toolbar;
+import android.view.ViewOutlineProvider;
 
+import androidx.annotation.Nullable;
+import androidx.appcompat.widget.Toolbar;
+
+import com.android.documentsui.R;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
 import com.android.documentsui.dirlist.AnimationView;
+
+import com.google.android.material.appbar.AppBarLayout;
+import com.google.android.material.appbar.CollapsingToolbarLayout;
 
 import java.util.function.IntConsumer;
 
@@ -42,15 +51,20 @@ public class NavigationViewManager {
     private final State mState;
     private final NavigationViewManager.Environment mEnv;
     private final Breadcrumb mBreadcrumb;
+    private final View mSearchBarView;
+    private final CollapsingToolbarLayout mCollapsingBarLayout;
+    private final Drawable mDefaultActionBarBackground;
+    private final ViewOutlineProvider mSearchBarOutlineProvider;
+    private final boolean mShowSearchBar;
 
     public NavigationViewManager(
+            Activity activity,
             DrawerController drawer,
-            Toolbar toolbar,
             State state,
             NavigationViewManager.Environment env,
             Breadcrumb breadcrumb) {
 
-        mToolbar = toolbar;
+        mToolbar = activity.findViewById(R.id.toolbar);
         mDrawer = drawer;
         mState = state;
         mEnv = env;
@@ -64,6 +78,28 @@ public class NavigationViewManager {
                         onNavigationIconClicked();
                     }
                 });
+        mSearchBarView = activity.findViewById(R.id.searchbar_title);
+        mCollapsingBarLayout = activity.findViewById(R.id.collapsing_toolbar);
+        mDefaultActionBarBackground = mToolbar.getBackground();
+        mShowSearchBar = activity.getResources().getBoolean(R.bool.show_search_bar);
+
+        final Resources resources = mToolbar.getResources();
+        final int radius = resources.getDimensionPixelSize(R.dimen.search_bar_radius);
+        final int marginStart =
+                resources.getDimensionPixelSize(R.dimen.search_bar_background_margin_start);
+        final int marginEnd =
+                resources.getDimensionPixelSize(R.dimen.search_bar_background_margin_end);
+        mSearchBarOutlineProvider = new ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, Outline outline) {
+                outline.setRoundRect(marginStart, 0,
+                        view.getWidth() - marginEnd, view.getHeight(), radius);
+            }
+        };
+    }
+
+    public void setSearchBarClickListener(View.OnClickListener listener) {
+        mSearchBarView.setOnClickListener(listener);
     }
 
     private void onNavigationIconClicked() {
@@ -84,6 +120,8 @@ public class NavigationViewManager {
     }
 
     public void update() {
+        updateScrollFlag();
+        updateToolbar();
 
         // TODO: Looks to me like this block is never getting hit.
         if (mEnv.isSearchExpanded()) {
@@ -97,18 +135,60 @@ public class NavigationViewManager {
         mToolbar.setNavigationIcon(getActionBarIcon());
         mToolbar.setNavigationContentDescription(R.string.drawer_open);
 
-        if (mState.stack.size() <= 1) {
+        if (shouldShowSearchBar()) {
             mBreadcrumb.show(false);
+            mToolbar.setTitle(null);
+            mSearchBarView.setVisibility(View.VISIBLE);
+        } else if (mState.stack.size() <= 1) {
+            mBreadcrumb.show(false);
+            mSearchBarView.setVisibility(View.GONE);
             String title = mEnv.getCurrentRoot().title;
             if (VERBOSE) Log.v(TAG, "New toolbar title is: " + title);
             mToolbar.setTitle(title);
         } else {
             mBreadcrumb.show(true);
             mToolbar.setTitle(null);
+            mSearchBarView.setVisibility(View.GONE);
             mBreadcrumb.postUpdate();
         }
+    }
 
-        if (VERBOSE) Log.v(TAG, "Final toolbar title is: " + mToolbar.getTitle());
+    private void updateScrollFlag() {
+        if (mCollapsingBarLayout == null) {
+            return;
+        }
+
+        AppBarLayout.LayoutParams lp =
+                (AppBarLayout.LayoutParams) mCollapsingBarLayout.getLayoutParams();
+        if (shouldShowSearchBar()) {
+            lp.setScrollFlags(AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL
+                            | AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS
+                            | AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS_COLLAPSED);
+        } else {
+            lp.setScrollFlags(AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL
+                            | AppBarLayout.LayoutParams.SCROLL_FLAG_EXIT_UNTIL_COLLAPSED);
+        }
+        mCollapsingBarLayout.setLayoutParams(lp);
+    }
+
+    private void updateToolbar() {
+        if (shouldShowSearchBar()) {
+            mToolbar.setBackgroundResource(R.drawable.search_bar_background);
+            mToolbar.setOutlineProvider(mSearchBarOutlineProvider);
+        } else {
+            mToolbar.setBackground(mDefaultActionBarBackground);
+            mToolbar.setOutlineProvider(null);
+        }
+
+        if (mCollapsingBarLayout != null) {
+            View overlayBackground =
+                    mCollapsingBarLayout.findViewById(R.id.toolbar_background_layout);
+            overlayBackground.setVisibility(shouldShowSearchBar() ? View.GONE : View.VISIBLE);
+        }
+    }
+
+    private boolean shouldShowSearchBar() {
+        return mState.stack.isRecents() && !mEnv.isSearchExpanded() && mShowSearchBar;
     }
 
     // Hamburger if drawer is present, else sad nullness.

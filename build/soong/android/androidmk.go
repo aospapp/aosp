@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/google/blueprint"
+	"github.com/google/blueprint/bootstrap"
 )
 
 func init() {
@@ -39,6 +40,7 @@ type AndroidMkDataProvider interface {
 type AndroidMkData struct {
 	Class      string
 	SubName    string
+	DistFile   OptionalPath
 	OutputFile OptionalPath
 	Disabled   bool
 	Include    string
@@ -64,13 +66,15 @@ func (c *androidMkSingleton) GenerateBuildActions(ctx SingletonContext) {
 		return
 	}
 
-	var androidMkModulesList []Module
+	var androidMkModulesList []blueprint.Module
 
-	ctx.VisitAllModules(func(module Module) {
+	ctx.VisitAllModulesBlueprint(func(module blueprint.Module) {
 		androidMkModulesList = append(androidMkModulesList, module)
 	})
 
-	sort.Sort(AndroidModulesByName{androidMkModulesList, ctx})
+	sort.SliceStable(androidMkModulesList, func(i, j int) bool {
+		return ctx.ModuleName(androidMkModulesList[i]) < ctx.ModuleName(androidMkModulesList[j])
+	})
 
 	transMk := PathForOutput(ctx, "Android"+String(ctx.Config().productVariables.Make_suffix)+".mk")
 	if ctx.Failed() {
@@ -88,7 +92,7 @@ func (c *androidMkSingleton) GenerateBuildActions(ctx SingletonContext) {
 	})
 }
 
-func translateAndroidMk(ctx SingletonContext, mkFile string, mods []Module) error {
+func translateAndroidMk(ctx SingletonContext, mkFile string, mods []blueprint.Module) error {
 	buf := &bytes.Buffer{}
 
 	fmt.Fprintln(buf, "LOCAL_MODULE_MAKEFILE := $(lastword $(MAKEFILE_LIST))")
@@ -101,8 +105,8 @@ func translateAndroidMk(ctx SingletonContext, mkFile string, mods []Module) erro
 			return err
 		}
 
-		if ctx.PrimaryModule(mod) == mod {
-			type_stats[ctx.ModuleType(mod)] += 1
+		if amod, ok := mod.(Module); ok && ctx.PrimaryModule(amod) == amod {
+			type_stats[ctx.ModuleType(amod)] += 1
 		}
 	}
 
@@ -141,10 +145,36 @@ func translateAndroidMk(ctx SingletonContext, mkFile string, mods []Module) erro
 }
 
 func translateAndroidMkModule(ctx SingletonContext, w io.Writer, mod blueprint.Module) error {
-	provider, ok := mod.(AndroidMkDataProvider)
-	if !ok {
+	defer func() {
+		if r := recover(); r != nil {
+			panic(fmt.Errorf("%s in translateAndroidMkModule for module %s variant %s",
+				r, ctx.ModuleName(mod), ctx.ModuleSubDir(mod)))
+		}
+	}()
+
+	switch x := mod.(type) {
+	case AndroidMkDataProvider:
+		return translateAndroidModule(ctx, w, mod, x)
+	case bootstrap.GoBinaryTool:
+		return translateGoBinaryModule(ctx, w, mod, x)
+	default:
 		return nil
 	}
+}
+
+func translateGoBinaryModule(ctx SingletonContext, w io.Writer, mod blueprint.Module,
+	goBinary bootstrap.GoBinaryTool) error {
+
+	name := ctx.ModuleName(mod)
+	fmt.Fprintln(w, ".PHONY:", name)
+	fmt.Fprintln(w, name+":", goBinary.InstallPath())
+	fmt.Fprintln(w, "")
+
+	return nil
+}
+
+func translateAndroidModule(ctx SingletonContext, w io.Writer, mod blueprint.Module,
+	provider AndroidMkDataProvider) error {
 
 	name := provider.BaseModuleName()
 	amod := mod.(Module).base()
@@ -169,7 +199,7 @@ func translateAndroidMkModule(ctx SingletonContext, w io.Writer, mod blueprint.M
 		data.Include = "$(BUILD_PREBUILT)"
 	}
 
-	data.Required = amod.commonProperties.Required
+	data.Required = append(data.Required, amod.commonProperties.Required...)
 
 	// Make does not understand LinuxBionic
 	if amod.Os() == LinuxBionic {
@@ -188,8 +218,47 @@ func translateAndroidMkModule(ctx SingletonContext, w io.Writer, mod blueprint.M
 
 		}
 
-		if amod.Arch().ArchType != ctx.Config().Targets[amod.Os().Class][0].Arch.ArchType {
+		if amod.Arch().ArchType != ctx.Config().Targets[amod.Os()][0].Arch.ArchType {
 			prefix = "2ND_" + prefix
+		}
+	}
+
+	if len(amod.commonProperties.Dist.Targets) > 0 {
+		distFile := data.DistFile
+		if !distFile.Valid() {
+			distFile = data.OutputFile
+		}
+		if distFile.Valid() {
+			dest := filepath.Base(distFile.String())
+
+			if amod.commonProperties.Dist.Dest != nil {
+				var err error
+				dest, err = validateSafePath(*amod.commonProperties.Dist.Dest)
+				if err != nil {
+					// This was checked in ModuleBase.GenerateBuildActions
+					panic(err)
+				}
+			}
+
+			if amod.commonProperties.Dist.Suffix != nil {
+				ext := filepath.Ext(dest)
+				suffix := *amod.commonProperties.Dist.Suffix
+				dest = strings.TrimSuffix(dest, ext) + suffix + ext
+			}
+
+			if amod.commonProperties.Dist.Dir != nil {
+				var err error
+				dest, err = validateSafePath(*amod.commonProperties.Dist.Dir, dest)
+				if err != nil {
+					// This was checked in ModuleBase.GenerateBuildActions
+					panic(err)
+				}
+			}
+
+			goals := strings.Join(amod.commonProperties.Dist.Targets, " ")
+			fmt.Fprintln(&data.preamble, ".PHONY:", goals)
+			fmt.Fprintf(&data.preamble, "$(call dist-for-goals,%s,%s:%s)\n",
+				goals, distFile.String(), dest)
 		}
 	}
 
@@ -227,6 +296,9 @@ func translateAndroidMkModule(ctx SingletonContext, w io.Writer, mod blueprint.M
 		if len(amod.commonProperties.Init_rc) > 0 {
 			fmt.Fprintln(&data.preamble, "LOCAL_INIT_RC := ", strings.Join(amod.commonProperties.Init_rc, " "))
 		}
+		if len(amod.commonProperties.Vintf_fragments) > 0 {
+			fmt.Fprintln(&data.preamble, "LOCAL_VINTF_FRAGMENTS := ", strings.Join(amod.commonProperties.Vintf_fragments, " "))
+		}
 		if Bool(amod.commonProperties.Proprietary) {
 			fmt.Fprintln(&data.preamble, "LOCAL_PROPRIETARY_MODULE := true")
 		}
@@ -239,12 +311,16 @@ func translateAndroidMkModule(ctx SingletonContext, w io.Writer, mod blueprint.M
 		if Bool(amod.commonProperties.Product_specific) {
 			fmt.Fprintln(&data.preamble, "LOCAL_PRODUCT_MODULE := true")
 		}
+		if Bool(amod.commonProperties.Product_services_specific) {
+			fmt.Fprintln(&data.preamble, "LOCAL_PRODUCT_SERVICES_MODULE := true")
+		}
 		if amod.commonProperties.Owner != nil {
 			fmt.Fprintln(&data.preamble, "LOCAL_MODULE_OWNER :=", *amod.commonProperties.Owner)
 		}
-		if amod.commonProperties.Notice != nil {
-			fmt.Fprintln(&data.preamble, "LOCAL_NOTICE_FILE :=", "$(LOCAL_PATH)/"+*amod.commonProperties.Notice)
-		}
+	}
+
+	if amod.noticeFile.Valid() {
+		fmt.Fprintln(&data.preamble, "LOCAL_NOTICE_FILE :=", amod.noticeFile.String())
 	}
 
 	if host {

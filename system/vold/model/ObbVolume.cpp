@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#include "fs/Vfat.h"
+#include "ObbVolume.h"
 #include "Devmapper.h"
 #include "Loop.h"
-#include "ObbVolume.h"
 #include "Utils.h"
 #include "VoldUtil.h"
+#include "fs/Vfat.h"
 
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
-#include <android-base/unique_fd.h>
 #include <cutils/fs.h>
 #include <private/android_filesystem_config.h>
 
@@ -31,26 +30,25 @@
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/sysmacros.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 using android::base::StringPrintf;
-using android::base::unique_fd;
 
 namespace android {
 namespace vold {
 
 ObbVolume::ObbVolume(int id, const std::string& sourcePath, const std::string& sourceKey,
-        gid_t ownerGid) : VolumeBase(Type::kObb) {
+                     gid_t ownerGid)
+    : VolumeBase(Type::kObb) {
     setId(StringPrintf("obb:%d", id));
     mSourcePath = sourcePath;
     mSourceKey = sourceKey;
     mOwnerGid = ownerGid;
 }
 
-ObbVolume::~ObbVolume() {
-}
+ObbVolume::~ObbVolume() {}
 
 status_t ObbVolume::doCreate() {
     if (Loop::create(mSourcePath, mLoopPath)) {
@@ -59,24 +57,15 @@ status_t ObbVolume::doCreate() {
     }
 
     if (!mSourceKey.empty()) {
-        unsigned long nr_sec = 0;
-        {
-            unique_fd loop_fd(open(mLoopPath.c_str(), O_RDWR | O_CLOEXEC));
-            if (loop_fd.get() == -1) {
-                PLOG(ERROR) << getId() << " failed to open loop";
-                return -1;
-            }
-
-            get_blkdev_size(loop_fd.get(), &nr_sec);
-            if (nr_sec == 0) {
-                PLOG(ERROR) << getId() << " failed to get loop size";
-                return -1;
-            }
+        uint64_t nr_sec = 0;
+        if (GetBlockDev512Sectors(mLoopPath, &nr_sec) != OK) {
+            PLOG(ERROR) << getId() << " failed to get loop size";
+            return -1;
         }
 
         char tmp[PATH_MAX];
-        if (Devmapper::create(getId().c_str(), mLoopPath.c_str(), mSourceKey.c_str(), nr_sec,
-                tmp, PATH_MAX)) {
+        if (Devmapper::create(getId().c_str(), mLoopPath.c_str(), mSourceKey.c_str(), nr_sec, tmp,
+                              PATH_MAX)) {
             PLOG(ERROR) << getId() << " failed to create dm";
             return -1;
         }
@@ -108,8 +97,10 @@ status_t ObbVolume::doMount() {
         PLOG(ERROR) << getId() << " failed to create mount point";
         return -1;
     }
-    if (android::vold::vfat::Mount(mMountPath, path,
-            true, false, true, 0, mOwnerGid, 0227, false)) {
+    // clang-format off
+    if (android::vold::vfat::Mount(mMountPath, path, true, false, true,
+                                   0, mOwnerGid, 0227, false)) {
+        // clang-format on
         PLOG(ERROR) << getId() << " failed to mount";
         return -1;
     }

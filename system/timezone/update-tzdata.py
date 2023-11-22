@@ -16,6 +16,8 @@
 
 """Generates the timezone data files used by Android."""
 
+from __future__ import print_function
+
 import glob
 import os
 import re
@@ -58,7 +60,7 @@ def GenerateZicInputFile(extracted_iana_data_dir):
 
   zic_input_file = '%s/%s' % (extracted_iana_data_dir, zic_input_file_name)
   if not os.path.exists(zic_input_file):
-    print 'Could not find %s' % zic_input_file
+    print('Could not find %s' % zic_input_file)
     sys.exit(1)
   return zic_input_file
 
@@ -96,9 +98,14 @@ def BuildIcuData(iana_data_tar_file):
   # Create ICU system image files.
   icuutil.MakeAndCopyIcuDataFiles(icu_build_dir)
 
+  icu_overlay_dir = '%s/icu_overlay' % timezone_output_data_dir
+
   # Create the ICU overlay time zone file.
-  icu_overlay_dat_file = '%s/icu_overlay/icu_tzdata.dat' % timezone_output_data_dir
+  icu_overlay_dat_file = '%s/icu_tzdata.dat' % icu_overlay_dir
   icuutil.MakeAndCopyOverlayTzIcuData(icu_build_dir, icu_overlay_dat_file)
+
+  # Copy ICU license file(s)
+  icuutil.CopyLicenseFiles(icu_overlay_dir)
 
 
 def GetIanaVersion(iana_tar_file):
@@ -108,7 +115,7 @@ def GetIanaVersion(iana_tar_file):
 
 
 def ExtractTarFile(tar_file, dir):
-  print 'Extracting %s...' % tar_file
+  print('Extracting %s...' % tar_file)
   if not os.path.exists(dir):
     os.mkdir(dir)
   tar = tarfile.open(tar_file, 'r')
@@ -121,31 +128,31 @@ def BuildZic(iana_tools_dir):
   iana_zic_data_tar_file = tzdatautil.GetIanaTarFile(iana_tools_dir, 'data')
   iana_zic_data_version = GetIanaVersion(iana_zic_data_tar_file)
 
-  print 'Found IANA zic release %s/%s in %s/%s ...' \
-      % (iana_zic_code_version, iana_zic_data_version, iana_zic_code_tar_file, iana_zic_data_tar_file)
+  print('Found IANA zic release %s/%s in %s/%s ...' \
+      % (iana_zic_code_version, iana_zic_data_version, iana_zic_code_tar_file, iana_zic_data_tar_file))
 
   zic_build_dir = '%s/zic' % tmp_dir
   ExtractTarFile(iana_zic_code_tar_file, zic_build_dir)
   ExtractTarFile(iana_zic_data_tar_file, zic_build_dir)
 
   # zic
-  print 'Building zic...'
+  print('Building zic...')
   # VERSION_DEPS= is to stop the build process looking for files that might not
   # be present across different versions.
   subprocess.check_call(['make', '-C', zic_build_dir, 'zic'])
 
   zic_binary_file = '%s/zic' % zic_build_dir
   if not os.path.exists(zic_binary_file):
-    print 'Could not find %s' % zic_binary_file
+    print('Could not find %s' % zic_binary_file)
     sys.exit(1)
   return zic_binary_file
 
 
 def BuildTzdata(zic_binary_file, extracted_iana_data_dir, iana_data_version):
-  print 'Generating zic input file...'
+  print('Generating zic input file...')
   zic_input_file = GenerateZicInputFile(extracted_iana_data_dir)
 
-  print 'Calling zic...'
+  print('Calling zic...')
   zic_output_dir = '%s/data' % tmp_dir
   os.mkdir(zic_output_dir)
   zic_cmd = [zic_binary_file, '-d', zic_output_dir, zic_input_file]
@@ -154,7 +161,7 @@ def BuildTzdata(zic_binary_file, extracted_iana_data_dir, iana_data_version):
   # ZoneCompactor
   zone_compactor_setup_file = WriteSetupFile(zic_input_file)
 
-  print 'Calling ZoneCompactor to update tzdata to %s...' % iana_data_version
+  print('Calling ZoneCompactor to update tzdata to %s...' % iana_data_version)
   subprocess.check_call(['make', '-C', android_build_top, '-j30', 'zone_compactor'])
 
   # Create args for ZoneCompactor
@@ -162,7 +169,7 @@ def BuildTzdata(zic_binary_file, extracted_iana_data_dir, iana_data_version):
   jar_file = '%s/framework/zone_compactor.jar' % android_host_out
   header_string = 'tzdata%s' % iana_data_version
 
-  print 'Executing ZoneCompactor...'
+  print('Executing ZoneCompactor...')
   iana_output_data_dir = '%s/iana' % timezone_output_data_dir
   subprocess.check_call(['java', '-jar', jar_file,
                          zone_compactor_setup_file, zic_output_dir, zone_tab_file,
@@ -173,7 +180,7 @@ def BuildTzlookup(iana_data_dir):
   countryzones_source_file = '%s/android/countryzones.txt' % timezone_input_data_dir
   tzlookup_dest_file = '%s/android/tzlookup.xml' % timezone_output_data_dir
 
-  print 'Calling TzLookupGenerator to create tzlookup.xml...'
+  print('Calling TzLookupGenerator to create tzlookup.xml...')
   subprocess.check_call(['make', '-C', android_build_top, '-j30', 'tzlookup_generator'])
 
   jar_file = '%s/framework/tzlookup_generator.jar' % android_host_out
@@ -182,21 +189,17 @@ def BuildTzlookup(iana_data_dir):
                          countryzones_source_file, zone_tab_file, tzlookup_dest_file])
 
 
-def CreateDistroFiles(iana_data_version, output_dir):
+def CreateDistroFiles(iana_data_version, output_distro_dir, output_version_file):
   create_distro_script = '%s/distro/tools/create-distro.py' % timezone_dir
 
   tzdata_file = '%s/iana/tzdata' % timezone_output_data_dir
   icu_file = '%s/icu_overlay/icu_tzdata.dat' % timezone_output_data_dir
   tzlookup_file = '%s/android/tzlookup.xml' % timezone_output_data_dir
 
-  distro_file_pattern = '%s/*.zip' % output_dir
-  existing_distro_files = glob.glob(distro_file_pattern)
+  distro_file_pattern = '%s/*.zip' % output_distro_dir
+  existing_files = glob.glob(distro_file_pattern)
 
-  distro_file_metadata_pattern = '%s/*.txt' % output_dir
-  existing_distro_metadata_files = glob.glob(distro_file_metadata_pattern)
-  existing_files = existing_distro_files + existing_distro_metadata_files
-
-  print 'Removing %s' % existing_files
+  print('Removing %s' % existing_files)
   for existing_file in existing_files:
     os.remove(existing_file)
 
@@ -205,7 +208,8 @@ def CreateDistroFiles(iana_data_version, output_dir):
       '-tzdata', tzdata_file,
       '-icu', icu_file,
       '-tzlookup', tzlookup_file,
-      '-output', output_dir])
+      '-output_distro_dir', output_distro_dir,
+      '-output_version_file', output_version_file])
 
 def UpdateTestFiles():
   testing_data_dir = '%s/testing/data' % timezone_dir
@@ -216,17 +220,17 @@ def UpdateTestFiles():
 # Run with no arguments from any directory, with no special setup required.
 # See http://www.iana.org/time-zones/ for more about the source of this data.
 def main():
-  print 'Source data file structure: %s' % timezone_input_data_dir
-  print 'Source tools file structure: %s' % timezone_input_tools_dir
-  print 'Output data file structure: %s' % timezone_output_data_dir
+  print('Source data file structure: %s' % timezone_input_data_dir)
+  print('Source tools file structure: %s' % timezone_input_tools_dir)
+  print('Output data file structure: %s' % timezone_output_data_dir)
 
   iana_input_data_dir = '%s/iana' % timezone_input_data_dir
   iana_data_tar_file = tzdatautil.GetIanaTarFile(iana_input_data_dir, 'data')
   iana_data_version = GetIanaVersion(iana_data_tar_file)
-  print 'IANA time zone data release %s in %s ...' % (iana_data_version, iana_data_tar_file)
+  print('IANA time zone data release %s in %s ...' % (iana_data_version, iana_data_tar_file))
 
   icu_dir = icuutil.icuDir()
-  print 'Found icu in %s ...' % icu_dir
+  print('Found icu in %s ...' % icu_dir)
 
   BuildIcuData(iana_data_tar_file)
 
@@ -238,14 +242,15 @@ def main():
   BuildTzdata(zic_binary_file, iana_data_dir, iana_data_version)
   BuildTzlookup(iana_data_dir)
 
-  # Create a distro file from the output from prior stages.
-  distro_output_dir = '%s/distro' % timezone_output_data_dir
-  CreateDistroFiles(iana_data_version, distro_output_dir)
+  # Create a distro file and version file from the output from prior stages.
+  output_distro_dir = '%s/distro' % timezone_output_data_dir
+  output_version_file = '%s/version/tz_version' % timezone_output_data_dir
+  CreateDistroFiles(iana_data_version, output_distro_dir, output_version_file)
 
   # Update test versions of distro files too.
   UpdateTestFiles()
 
-  print 'Look in %s and %s for new files' % (timezone_output_data_dir, icu_dir)
+  print('Look in %s and %s for new files' % (timezone_output_data_dir, icu_dir))
   sys.exit(0)
 
 

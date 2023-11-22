@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
+<?xml version="1.0" encoding="utf-8"?><!--
  * Copyright (C) 2017 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +16,10 @@
 
 <resources>
     <string name="app_name">Autofill Sample</string>
+    <string name="edge_cases_page_title">Edge Cases</string>
+    <string name="common_cases_page_title">Common Cases</string>
     <string name="navigation_button_custom_virtual_view_login_label">Sample Login Using a Custom Virtual View</string>
+    <string name="navigation_button_custom_virtual_view_compat_mode_login_label">Sample Login Using a Custom Virtual View and Compatibility Mode</string>
     <string name="navigation_button_credit_card_label">Sample Credit Card Check Out Using EditTexts</string>
     <string name="navigation_button_spinners_credit_card_label">Sample Credit Card Check Out Using Spinners</string>
     <string name="navigation_button_edittext_login_label">Sample Login Using EditTexts</string>
@@ -25,9 +27,17 @@
     <string name="navigation_button_email_compose_label">Sample Email Compose Using EditTexts</string>
     <string name="navigation_button_compound_view_credit_card_label">Sample Credit Card Check Out Using Compound Views</string>
     <string name="navigation_button_date_picker_credit_card_label">Sample Credit Card Check Out Using Date Picker</string>
+    <string name="navigation_button_recycler_view_label">Sample Credit Card Form Using RecyclerView</string>
     <string name="navigation_button_multiple_partitions_label">Sample Page with Multiple Data Partitions</string>
     <string name="navigation_button_web_view_login_label">Sample Login Using a WebView</string>
     <string name="navigation_button_anti_pattern_credit_card_label">Sample Credit Card Anti Pattern</string>
+    <string name="navigation_button_anti_pattern_bad_view_structure_label">Bad View Structure Creation Anti Pattern</string>
+    <string name="navigation_button_multistep_signin_label">Multi-Step Sign In</string>
+    <string name="navigation_button_multistep_cc_label">Multi-Step Credit Card Check Out</string>
+    <string name="navigation_button_anti_pattern_multistep_signin_label">Multi-Step Sign In Anti Pattern</string>
+    <string name="navigation_button_anti_pattern_hintless_signin_label">Hintless Sign In Anti Pattern</string>
+    <string name="navigation_button_anti_pattern_callbackless_autocomplete_login_label">Auto Complete without Autofill Integration Anti Pattern</string>
+    <string name="navigation_button_custom_theme_login_label">Sign In Using Custom Theme</string>
     <string name="username_label">Username</string>
     <string name="password_label">Password</string>
     <string name="welcome_text">Success!</string>
@@ -66,6 +76,11 @@
         virtual children out of the box, it is necessary implement certain Autofill-specific methods
         and interface directly with AutofillManager.
     </string>
+    <string name="custom_virtual_compat_mode_login_info">This is a sample login page that uses a
+        custom View with virtual children. This view does not implement the Autofill APIs, but
+        it generates Accessibility events, which can be used to implement Autofill through a
+        'compatibility mode' feature introduced on Android Pie.
+    </string>
     <string name="credit_card_info">This is a sample credit card checkout page that uses
         EditTexts to input data into the form.
     </string>
@@ -100,6 +115,11 @@
         While the EditText is optimized out of the box for autofill, this example shows how to
         use it to autofill a date field.
     </string>
+    <string name="recycler_view_info">
+        This is a sample form that has a list of fields in a RecyclerView. It demos the new APIs in
+        API 28 that allow you to dynamically change the AutofillId associated with a View. This is
+        needed when Views are being recycled, as they are in a RecyclerView.
+    </string>
     <string name="multiple_partitions">
         This is a sample page that contains multiple partitions (login credentials, address,
         credit card info) and can be used to make sure that only one partition can be autofilled
@@ -116,6 +136,33 @@
         is through a View.AUTOFILL_TYPE_DATE value, which is what the other credit card sample
         activities use.
     </string>
+    <string name="anti_pattern_bad_view_structure_info">This is a simple login page where the view
+        structure is created onStart() instead of onCreate(), which causes autofill to misbehave
+        when the autofill service requires authentication.
+    </string>
+    <string name="anti_pattern_hintless_signin_info">This is a sample login page that uses standard EditTexts
+        from the UI toolkit, but without annotating them with android:autofillHints.
+    </string>
+
+    <string name="multi_step_signin_info">
+        <!--TODO-->
+    </string>
+
+    <string name="multi_step_cc_info">
+        <!--TODO-->
+    </string>
+
+    <string name="anti_pattern_multistep_signin_info">
+        <!--TODO-->
+    </string>
+
+    <string name="anti_pattern_callbackless_autocomplete_login_info">
+        <!--TODO-->
+    </string>
+
+    <string name="custom_theme_login_info">
+        <!--TODO-->
+    </string>
 
     <string name="partition_credentials">Credentials</string>
     <string name="partition_credit_card">Credit Card</string>
@@ -127,14 +174,21 @@
     <string name="message_autofill_invalid">INVALID</string>
     <string name="message_credit_card_expiration_type">Representing expiration dates as %1$s</string>
 
+    <string name="message_finished">Finished</string>
+    <string name="message_showing_step">Showing step %1$d</string>
+    <string name="message_step_description">%1$s: %2$s</string>
+
+    <string name="previous_label">Prev</string>
+    <string name="next_label">Next</string>
+    <string name="finish_label">Finish</string>
+
     <plurals name="welcome_page_countdown">
         <item quantity="one">Automatically return to main page in %d second.</item>
         <item quantity="other">Automatically return to main page in %d seconds.</item>
     </plurals>
 
     <string-array name="mock_autocomplete_sign_in_suggestions">
-        <item>user-1</item>
-        <item>user-2</item>
+        <item>app_provided_user</item>
     </string-array>
 
     <string-array name="month_array">
@@ -182,4 +236,18 @@
         <item>27</item>
     </string-array>
 
+    <string name="recycler_view_label_name">Name</string>
+    <string name="recycler_view_label_birthday_month">Birthday Month</string>
+    <string name="recycler_view_label_birthday_year">Birthday Year</string>
+    <string name="recycler_view_label_email">Email</string>
+    <string name="recycler_view_label_phone">Telephone</string>
+    <string name="recycler_view_label_tel_extension">Tel. Extension</string>
+    <string name="recycler_view_label_cc_number">CC Number</string>
+    <string name="recycler_view_label_cc_sc">CSC</string>
+    <string name="recycler_view_label_cc_exp_month">CC Exp Month</string>
+    <string name="recycler_view_label_cc_exp_year">CC Exp Year</string>
+    <string name="recycler_view_label_address_line_1">Address Line 1</string>
+    <string name="recycler_view_label_address_line_2">Address Line 2</string>
+    <string name="recycler_view_label_address_line_3">Address Line 3</string>
+    <string name="recycler_view_label_postal_code">Postal Code</string>
 </resources>

@@ -29,6 +29,18 @@ namespace android {
 namespace aidl {
 namespace cpp {
 
+std::string AstNode::ToString() {
+  std::string str;
+  Write(CodeWriter::ForString(&str).get());
+  return str;
+}
+
+LiteralDecl::LiteralDecl(const std::string& expression) : expression_(expression) {}
+
+void LiteralDecl::Write(CodeWriter* to) const {
+  to->Write("%s", expression_.c_str());
+}
+
 ClassDecl::ClassDecl(const std::string& name, const std::string& parent)
     : name_(name),
       parent_(parent) {}
@@ -52,14 +64,18 @@ void ClassDecl::Write(CodeWriter* to) const {
   if (!public_members_.empty())
       to->Write("public:\n");
 
+  to->Indent();
   for (const auto& dec : public_members_)
     dec->Write(to);
+  to->Dedent();
 
   if (!private_members_.empty())
       to->Write("private:\n");
 
+  to->Indent();
   for (const auto& dec : private_members_)
     dec->Write(to);
+  to->Dedent();
 
   to->Write("};  // class %s\n", name_.c_str());
 }
@@ -87,13 +103,15 @@ void Enum::Write(CodeWriter* to) const {
   } else {
     to->Write("enum %s : %s {\n", enum_name_.c_str(), underlying_type_.c_str());
   }
+  to->Indent();
   for (const auto& field : fields_) {
     if (field.value.empty()) {
-      to->Write("  %s,\n", field.key.c_str());
+      to->Write("%s,\n", field.key.c_str());
     } else {
-      to->Write("  %s = %s,\n", field.key.c_str(), field.value.c_str());
+      to->Write("%s = %s,\n", field.key.c_str(), field.value.c_str());
     }
   }
+  to->Dedent();
   to->Write("};\n");
 }
 
@@ -113,8 +131,7 @@ ArgList::ArgList(const std::vector<std::string>& arg_list) {
 ArgList::ArgList(std::vector<std::unique_ptr<AstNode>> arg_list)
     : arguments_(std::move(arg_list)) {}
 
-ArgList::ArgList(ArgList&& arg_list)
-    : arguments_(std::move(arg_list.arguments_)) {}
+ArgList::ArgList(ArgList&& arg_list) noexcept : arguments_(std::move(arg_list.arguments_)) {}
 
 void ArgList::Write(CodeWriter* to) const {
   to->Write("(");
@@ -172,9 +189,7 @@ MethodDecl::MethodDecl(const std::string& return_type,
                        ArgList&& arg_list)
     : MethodDecl(return_type, name, std::move(arg_list), 0u) {}
 
-MethodDecl::MethodDecl(const std::string& return_type,
-                       const std::string& name,
-                       ArgList&& arg_list,
+MethodDecl::MethodDecl(const std::string& return_type, const std::string& name, ArgList&& arg_list,
                        uint32_t modifiers)
     : return_type_(return_type),
       name_(name),
@@ -183,7 +198,8 @@ MethodDecl::MethodDecl(const std::string& return_type,
       is_virtual_(modifiers & IS_VIRTUAL),
       is_override_(modifiers & IS_OVERRIDE),
       is_pure_virtual_(modifiers & IS_PURE_VIRTUAL),
-      is_static_(modifiers & IS_STATIC) {}
+      is_static_(modifiers & IS_STATIC),
+      is_final_(modifiers & IS_FINAL) {}
 
 void MethodDecl::Write(CodeWriter* to) const {
   if (is_virtual_)
@@ -201,6 +217,8 @@ void MethodDecl::Write(CodeWriter* to) const {
 
   if (is_override_)
     to->Write(" override");
+
+  if (is_final_) to->Write(" final");
 
   if (is_pure_virtual_)
     to->Write(" = 0");
@@ -228,9 +246,11 @@ void StatementBlock::AddLiteral(const std::string& expression_str,
 
 void StatementBlock::Write(CodeWriter* to) const {
   to->Write("{\n");
+  to->Indent();
   for (const auto& statement : statements_) {
     statement->Write(to);
   }
+  to->Dedent();
   to->Write("}\n");
 }
 
@@ -417,9 +437,8 @@ void CppNamespace::Write(CodeWriter* to) const {
 }
 
 Document::Document(const std::vector<std::string>& include_list,
-                   unique_ptr<CppNamespace> a_namespace)
-    : include_list_(include_list),
-      namespace_(std::move(a_namespace)) {}
+                   std::vector<unique_ptr<Declaration>> declarations)
+    : include_list_(include_list), declarations_(std::move(declarations)) {}
 
 void Document::Write(CodeWriter* to) const {
   for (const auto& include : include_list_) {
@@ -427,14 +446,14 @@ void Document::Write(CodeWriter* to) const {
   }
   to->Write("\n");
 
-  namespace_->Write(to);
+  for (const auto& declaration : declarations_) {
+    declaration->Write(to);
+  }
 }
 
-CppHeader::CppHeader(const std::string& include_guard,
-                     const std::vector<std::string>& include_list,
-                     unique_ptr<CppNamespace> a_namespace)
-    : Document(include_list, std::move(a_namespace)),
-      include_guard_(include_guard) {}
+CppHeader::CppHeader(const std::string& include_guard, const std::vector<std::string>& include_list,
+                     std::vector<std::unique_ptr<Declaration>> declarations)
+    : Document(include_list, std::move(declarations)), include_guard_(include_guard) {}
 
 void CppHeader::Write(CodeWriter* to) const {
   to->Write("#ifndef %s\n", include_guard_.c_str());
@@ -447,8 +466,8 @@ void CppHeader::Write(CodeWriter* to) const {
 }
 
 CppSource::CppSource(const std::vector<std::string>& include_list,
-                     unique_ptr<CppNamespace> a_namespace)
-    : Document(include_list, std::move(a_namespace)) {}
+                     std::vector<std::unique_ptr<Declaration>> declarations)
+    : Document(include_list, std::move(declarations)) {}
 
 }  // namespace cpp
 }  // namespace aidl

@@ -15,6 +15,7 @@
 #
 
 import logging
+import os
 
 from host_controller import common
 from host_controller.command_processor import base_command_processor
@@ -77,6 +78,30 @@ class CommandFetch(base_command_processor.BaseCommandProcessor):
             default=False,
             type=bool,
             help="True to not use a local webserver for authentication.")
+        self.arg_parser.add_argument(
+            "--fetch_signed_build",
+            default=False,
+            type=bool,
+            help="True to fetch only signed build images.")
+        self.arg_parser.add_argument(
+            "--full_device_images",
+            default=False,
+            type=bool,
+            help="True to skip checking whether the fetched artifacts are "
+            "fully packaged device images.")
+        self.arg_parser.add_argument(
+            "--gsi",
+            default=False,
+            type=bool,
+            help="True if a target is GSI. Only system.img and "
+            "vbmeta.img are taken.")
+        self.arg_parser.add_argument(
+            "--set_suite_as",
+            default="",
+            choices=("", "vts", "cts", "gts", "sts"),
+            help="To specify the type of a test suite that is being fetched."
+            "Used when the artifact's file name does not follow the "
+            "standard naming convention.")
 
     # @Override
     def Run(self, arg_line):
@@ -84,7 +109,7 @@ class CommandFetch(base_command_processor.BaseCommandProcessor):
         args = self.arg_parser.ParseLine(arg_line)
 
         if args.type not in self.console._build_provider:
-            print("ERROR: uninitialized fetch type %s" % args.type)
+            logging.error("ERROR: uninitialized fetch type %s", args.type)
             return False
 
         provider = self.console._build_provider[args.type]
@@ -92,34 +117,74 @@ class CommandFetch(base_command_processor.BaseCommandProcessor):
             # do we want this somewhere else? No harm in doing multiple times
             provider.Authenticate(args.userinfo_file,
                                   args.noauth_local_webserver)
-            (device_images, test_suites, fetch_environment,
-             _) = provider.GetArtifact(
-                 account_id=args.account_id,
-                 branch=args.branch,
-                 target=args.target,
-                 artifact_name=args.artifact_name,
-                 build_id=args.build_id,
-                 method=args.method)
+            if not args.fetch_signed_build:
+                (device_images, test_suites, fetch_environment,
+                 _) = provider.GetArtifact(
+                     account_id=args.account_id,
+                     branch=args.branch,
+                     target=args.target,
+                     artifact_name=args.artifact_name,
+                     build_id=args.build_id,
+                     method=args.method,
+                     full_device_images=args.full_device_images)
+                self.console.fetch_info["fetch_signed_build"] = False
+            else:
+                (device_images, test_suites, fetch_environment,
+                 _) = provider.GetSignedBuildArtifact(
+                     account_id=args.account_id,
+                     branch=args.branch,
+                     target=args.target,
+                     artifact_name=args.artifact_name,
+                     build_id=args.build_id,
+                     method=args.method,
+                     full_device_images=args.full_device_images)
+                self.console.fetch_info["fetch_signed_build"] = True
+
             self.console.fetch_info["build_id"] = fetch_environment["build_id"]
         elif args.type == "local_fs":
-            device_images, test_suites = provider.Fetch(args.path)
+            device_images, test_suites = provider.Fetch(
+                args.path, args.full_device_images)
             self.console.fetch_info["build_id"] = None
         elif args.type == "gcs":
-            device_images, test_suites, tools = provider.Fetch(args.path)
+            device_images, test_suites, tools = provider.Fetch(
+                args.path, args.full_device_images, args.set_suite_as)
             self.console.fetch_info["build_id"] = None
         elif args.type == "ab":
             device_images, test_suites, fetch_environment = provider.Fetch(
                 branch=args.branch,
                 target=args.target,
                 artifact_name=args.artifact_name,
-                build_id=args.build_id)
+                build_id=args.build_id,
+                full_device_images=args.full_device_images)
             self.console.fetch_info["build_id"] = fetch_environment["build_id"]
         else:
-            print("ERROR: unknown fetch type %s" % args.type)
+            logging.error("ERROR: unknown fetch type %s", args.type)
             return False
 
-        self.console.fetch_info["branch"] = args.branch
-        self.console.fetch_info["target"] = args.target
+        if args.gsi:
+            filtered_images = {}
+            image_names = device_images.keys()
+            for image_name in image_names:
+                if image_name.endswith(".img") and image_name not in [
+                        "system.img", "vbmeta.img"
+                ]:
+                    provider.RemoveDeviceImage(image_name)
+                    continue
+                filtered_images[image_name] = device_images[image_name]
+            device_images = filtered_images
+
+        if args.type == "gcs":
+            gcs_path, filename = os.path.split(args.path)
+            self.console.fetch_info["branch"] = gcs_path
+            self.console.fetch_info["target"] = filename
+            self.console.fetch_info["build_id"] = "latest"
+            self.console.fetch_info["account_id"] = ""
+        else:
+            self.console.fetch_info["branch"] = args.branch
+            self.console.fetch_info["target"] = args.target
+            self.console.fetch_info["account_id"] = args.account_id
+
+        self.console.UpdateFetchInfo(provider.GetFetchedArtifactType())
 
         self.console.device_image_info.update(device_images)
         self.console.test_suite_info.update(test_suites)
@@ -135,6 +200,5 @@ class CommandFetch(base_command_processor.BaseCommandProcessor):
                 for suite, path in self.console.test_suite_info.iteritems()))
         if self.console.tools_info:
             logging.info("additional files:\n%s", "\n".join(
-                rel_path + ": " + full_path
-                for rel_path, full_path in
+                rel_path + ": " + full_path for rel_path, full_path in
                 self.console.tools_info.iteritems()))

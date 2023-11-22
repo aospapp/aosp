@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
+#include <array>
 #include <vector>
+
+#include <linux/if_ether.h>
 
 #include <gtest/gtest.h>
 
@@ -22,6 +25,7 @@
 
 using ::com::android::server::wifi::wificond::NativeScanResult;
 using ::com::android::server::wifi::wificond::RadioChainInfo;
+using std::array;
 using std::vector;
 
 namespace android {
@@ -32,7 +36,7 @@ namespace {
 
 const uint8_t kFakeSsid[] =
     {'G', 'o', 'o', 'g', 'l', 'e', 'G', 'u', 'e', 's', 't'};
-const uint8_t kFakeBssid[] = {0x45, 0x54, 0xad, 0x67, 0x98, 0xf6};
+const array<uint8_t, ETH_ALEN> kFakeBssid = {0x45, 0x54, 0xad, 0x67, 0x98, 0xf6};
 const uint8_t kFakeIE[] = {0x05, 0x11, 0x32, 0x11};
 constexpr uint32_t kFakeFrequency = 5240;
 constexpr int32_t kFakeSignalMbm= -32;
@@ -49,7 +53,7 @@ class ScanResultTest : public ::testing::Test {
 
 TEST_F(ScanResultTest, ParcelableTest) {
   std::vector<uint8_t> ssid(kFakeSsid, kFakeSsid + sizeof(kFakeSsid));
-  std::vector<uint8_t> bssid(kFakeBssid, kFakeBssid + sizeof(kFakeBssid));
+  array<uint8_t, ETH_ALEN> bssid = kFakeBssid;
   std::vector<uint8_t> ie(kFakeIE, kFakeIE + sizeof(kFakeIE));
   std::vector<RadioChainInfo> radio_chain_infos;
   radio_chain_infos.emplace_back(

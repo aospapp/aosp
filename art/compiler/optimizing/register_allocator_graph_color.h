@@ -90,11 +90,11 @@ class RegisterAllocatorGraphColor : public RegisterAllocator {
                               CodeGenerator* codegen,
                               const SsaLivenessAnalysis& analysis,
                               bool iterative_move_coalescing = true);
-  ~RegisterAllocatorGraphColor() OVERRIDE;
+  ~RegisterAllocatorGraphColor() override;
 
-  void AllocateRegisters() OVERRIDE;
+  void AllocateRegisters() override;
 
-  bool Validate(bool log_fatal_on_failure);
+  bool Validate(bool log_fatal_on_failure) override;
 
  private:
   // Collect all intervals and prepare for register allocation.

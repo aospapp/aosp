@@ -71,46 +71,19 @@ public class ContactsContract_ContactsTest extends AndroidTestCase {
         assertEquals(0, rawContact.getLong(Contacts.LAST_TIME_CONTACTED));
         assertEquals(0, rawContact.getLong(Contacts.TIMES_CONTACTED));
 
+        // Note we no longer support contact affinity as of Q, so times_contacted and
+        // last_time_contacted are always 0.
+
         for (int i = 1; i < 10; i++) {
             Contacts.markAsContacted(mResolver, contact.getId());
             contact.load();
             rawContact.load();
 
-            assertEquals(System.currentTimeMillis() / 86400 * 86400,
-                    contact.getLong(Contacts.LAST_TIME_CONTACTED));
-            assertEquals("#" + i, i, contact.getLong(Contacts.TIMES_CONTACTED));
+            assertEquals(0, contact.getLong(Contacts.LAST_TIME_CONTACTED));
+            assertEquals("#" + i, 0, contact.getLong(Contacts.TIMES_CONTACTED));
 
-            assertEquals(System.currentTimeMillis() / 86400 * 86400,
-                    rawContact.getLong(Contacts.LAST_TIME_CONTACTED));
-            assertEquals("#" + i, i, rawContact.getLong(Contacts.TIMES_CONTACTED));
-        }
-
-        for (int i = 0; i < 10; i++) {
-            Contacts.markAsContacted(mResolver, contact.getId());
-            contact.load();
-            rawContact.load();
-
-            assertEquals(System.currentTimeMillis() / 86400 * 86400,
-                    contact.getLong(Contacts.LAST_TIME_CONTACTED));
-            assertEquals("#" + i, 10, contact.getLong(Contacts.TIMES_CONTACTED));
-
-            assertEquals(System.currentTimeMillis() / 86400 * 86400,
-                    rawContact.getLong(Contacts.LAST_TIME_CONTACTED));
-            assertEquals("#" + i, 10, rawContact.getLong(Contacts.TIMES_CONTACTED));
-        }
-
-        for (int i = 0; i < 10; i++) {
-            Contacts.markAsContacted(mResolver, contact.getId());
-            contact.load();
-            rawContact.load();
-
-            assertEquals(System.currentTimeMillis() / 86400 * 86400,
-                    contact.getLong(Contacts.LAST_TIME_CONTACTED));
-            assertEquals("#" + i, 20, contact.getLong(Contacts.TIMES_CONTACTED));
-
-            assertEquals(System.currentTimeMillis() / 86400 * 86400,
-                    rawContact.getLong(Contacts.LAST_TIME_CONTACTED));
-            assertEquals("#" + i, 20, rawContact.getLong(Contacts.TIMES_CONTACTED));
+            assertEquals(0, rawContact.getLong(Contacts.LAST_TIME_CONTACTED));
+            assertEquals("#" + i, 0, rawContact.getLong(Contacts.TIMES_CONTACTED));
         }
     }
 
@@ -201,6 +174,10 @@ public class ContactsContract_ContactsTest extends AndroidTestCase {
         RawContactUtil.delete(mResolver, ids.mRawContactId, true);
     }
 
+    /**
+     * Note we no longer support contact affinity as of Q, so times_contacted and
+     * last_time_contacted are always 0.
+     */
     public void testContactUpdate_usageStats() throws Exception {
         final TestRawContact rawContact = mBuilder.newRawContact().insert().load();
         final TestContact contact = rawContact.getContact().load();
@@ -218,8 +195,8 @@ public class ContactsContract_ContactsTest extends AndroidTestCase {
         ContactUtil.update(mResolver, contact.getId(), values);
 
         contact.load();
-        assertEquals(3L, contact.getLong(Contacts.TIMES_CONTACTED));
-        assertEquals(now / 86400 * 86400, contact.getLong(Contacts.LAST_TIME_CONTACTED));
+        assertEquals(0, contact.getLong(Contacts.TIMES_CONTACTED));
+        assertEquals(0, contact.getLong(Contacts.LAST_TIME_CONTACTED));
 
         // This is also the same as markAsContacted().
         values.clear();
@@ -227,8 +204,8 @@ public class ContactsContract_ContactsTest extends AndroidTestCase {
         ContactUtil.update(mResolver, contact.getId(), values);
 
         contact.load();
-        assertEquals(4L, contact.getLong(Contacts.TIMES_CONTACTED));
-        assertEquals(now / 86400 * 86400, contact.getLong(Contacts.LAST_TIME_CONTACTED));
+        assertEquals(0, contact.getLong(Contacts.TIMES_CONTACTED));
+        assertEquals(0, contact.getLong(Contacts.LAST_TIME_CONTACTED));
 
         values.clear();
         values.put(Contacts.TIMES_CONTACTED, 10);
@@ -236,8 +213,8 @@ public class ContactsContract_ContactsTest extends AndroidTestCase {
         ContactUtil.update(mResolver, contact.getId(), values);
 
         contact.load();
-        assertEquals(10L, contact.getLong(Contacts.TIMES_CONTACTED));
-        assertEquals(now / 86400 * 86400, contact.getLong(Contacts.LAST_TIME_CONTACTED));
+        assertEquals(0, contact.getLong(Contacts.TIMES_CONTACTED));
+        assertEquals(0, contact.getLong(Contacts.LAST_TIME_CONTACTED));
     }
 
     /**
@@ -264,27 +241,11 @@ public class ContactsContract_ContactsTest extends AndroidTestCase {
         contact.load();
         rawContact.load();
 
-        assertEquals(now / 86400 * 86400, contact.getLong(Contacts.LAST_TIME_CONTACTED));
-        assertEquals(30, contact.getLong(Contacts.TIMES_CONTACTED));
+        assertEquals(0, contact.getLong(Contacts.LAST_TIME_CONTACTED));
+        assertEquals(0, contact.getLong(Contacts.TIMES_CONTACTED));
 
-        assertEquals(now / 86400 * 86400, rawContact.getLong(Contacts.LAST_TIME_CONTACTED));
-        assertEquals(30, rawContact.getLong(Contacts.TIMES_CONTACTED));
-
-        final ContentValues cv = new ContentValues();
-            cv.put(Contacts.STARRED, 1);
-
-        final String where =
-                (Contacts.LAST_TIME_CONTACTED + "=P1 AND " + Contacts.TIMES_CONTACTED + "=P2")
-                        .replaceAll("P1", String.valueOf(now / 86400 * 86400))
-                        .replaceAll("P2", "30");
-        assertEquals(1, mResolver.update(Contacts.CONTENT_URI, cv, where, null));
-        assertEquals(1, mResolver.update(RawContacts.CONTENT_URI, cv, where, null));
-
-        // Also delete.  This will actually delete the row, so we can test it only for one of the
-        // contact or the raw contact.
-        assertEquals(1, mResolver.delete(RawContacts.CONTENT_URI, where, null));
-        rawContact.setAlreadyDeleted();
-        contact.setAlreadyDeleted();
+        assertEquals(0, rawContact.getLong(Contacts.LAST_TIME_CONTACTED));
+        assertEquals(0, rawContact.getLong(Contacts.TIMES_CONTACTED));
     }
 
     public void testProjection() throws Exception {

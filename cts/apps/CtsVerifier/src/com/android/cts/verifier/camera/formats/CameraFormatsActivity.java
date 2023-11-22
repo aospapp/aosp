@@ -40,6 +40,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Spinner;
@@ -51,6 +52,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.TreeSet;
 
 /**
@@ -99,13 +101,43 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
     private boolean mProcessInProgress = false;
     private boolean mProcessingFirstFrame = false;
 
-    private TreeSet<String> mTestedCombinations = new TreeSet<String>();
-    private TreeSet<String> mUntestedCombinations = new TreeSet<String>();
+    private final TreeSet<CameraCombination> mTestedCombinations = new TreeSet<>(COMPARATOR);
+    private final TreeSet<CameraCombination> mUntestedCombinations = new TreeSet<>(COMPARATOR);
 
     private int mAllCombinationsSize = 0;
 
     // Menu to show the test progress
     private static final int MENU_ID_PROGRESS = Menu.FIRST + 1;
+
+    private class CameraCombination {
+        private final int mCameraIndex;
+        private final int mResolutionIndex;
+        private final int mFormatIndex;
+        private final int mResolutionWidth;
+        private final int mResolutionHeight;
+        private final String mFormatName;
+
+        private CameraCombination(int cameraIndex, int resolutionIndex, int formatIndex,
+            int resolutionWidth, int resolutionHeight, String formatName) {
+            this.mCameraIndex = cameraIndex;
+            this.mResolutionIndex = resolutionIndex;
+            this.mFormatIndex = formatIndex;
+            this.mResolutionWidth = resolutionWidth;
+            this.mResolutionHeight = resolutionHeight;
+            this.mFormatName = formatName;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Camera %d, %dx%d, %s",
+                mCameraIndex, mResolutionWidth, mResolutionHeight, mFormatName);
+        }
+    }
+
+    private static final Comparator<CameraCombination> COMPARATOR =
+        Comparator.<CameraCombination, Integer>comparing(c -> c.mCameraIndex)
+            .thenComparing(c -> c.mResolutionIndex)
+            .thenComparing(c -> c.mFormatIndex);
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -130,7 +162,6 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
         String[] cameraNames = new String[numCameras];
         for (int i = 0; i < numCameras; i++) {
             cameraNames[i] = "Camera " + i;
-            mUntestedCombinations.add("All combinations for Camera " + i + "\n");
         }
         mCameraSpinner = (Spinner) findViewById(R.id.cameras_selection);
         mCameraSpinner.setAdapter(
@@ -171,6 +202,35 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
         yTotal.setConcat(y2r, yOffset);
 
         mYuv2RgbFilter = new ColorMatrixColorFilter(yTotal);
+
+        Button mNextButton = findViewById(R.id.next_button);
+        mNextButton.setOnClickListener(v -> {
+                setUntestedCombination();
+                startPreview();
+        });
+    }
+
+    /**
+     * Set an untested combination of resolution and format for the current camera.
+     * Triggered by next button click.
+     */
+    private void setUntestedCombination() {
+        Optional<CameraCombination> combination = mUntestedCombinations.stream().filter(
+            c -> c.mCameraIndex == mCurrentCameraId).findFirst();
+        if (!combination.isPresent()) {
+            Toast.makeText(this, "All Camera " + mCurrentCameraId + " tests are done.",
+                Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // There is untested combination for the current camera, set the next untested combination.
+        int mNextResolutionIndex = combination.get().mResolutionIndex;
+        int mNextFormatIndex = combination.get().mFormatIndex;
+
+        mNextPreviewSize = mPreviewSizes.get(mNextResolutionIndex);
+        mResolutionSpinner.setSelection(mNextResolutionIndex);
+        mNextPreviewFormat = mPreviewFormats.get(mNextFormatIndex);
+        mFormatSpinner.setSelection(mNextFormatIndex);
     }
 
     @Override
@@ -183,13 +243,13 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
     public boolean onOptionsItemSelected(MenuItem item) {
         boolean ret = true;
         switch (item.getItemId()) {
-        case MENU_ID_PROGRESS:
-            showCombinationsDialog();
-            ret = true;
-            break;
-        default:
-            ret = super.onOptionsItemSelected(item);
-            break;
+            case MENU_ID_PROGRESS:
+                showCombinationsDialog();
+                ret = true;
+                break;
+            default:
+                ret = super.onOptionsItemSelected(item);
+                break;
         }
         return ret;
     }
@@ -222,16 +282,18 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
     public String getTestDetails() {
         StringBuilder reportBuilder = new StringBuilder();
         reportBuilder.append("Tested combinations:\n");
-        for (String combination: mTestedCombinations) {
+        for (CameraCombination combination: mTestedCombinations) {
             reportBuilder.append(combination);
+            reportBuilder.append("\n");
         }
+
         reportBuilder.append("Untested combinations:\n");
-        for (String combination: mUntestedCombinations) {
+        for (CameraCombination combination: mUntestedCombinations) {
             reportBuilder.append(combination);
+            reportBuilder.append("\n");
         }
         return reportBuilder.toString();
     }
-
 
     public void onSurfaceTextureAvailable(SurfaceTexture surface,
             int width, int height) {
@@ -240,7 +302,7 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
                 || mFormatView.getMeasuredHeight() != height) {
             mPreviewTexWidth = mFormatView.getMeasuredWidth();
             mPreviewTexHeight = mFormatView.getMeasuredHeight();
-         } else {
+        } else {
             mPreviewTexWidth = width;
             mPreviewTexHeight = height;
         }
@@ -310,8 +372,6 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
 
             };
 
-
-
     private void setUpCamera(int id) {
         shutdownCamera();
 
@@ -331,7 +391,7 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
                 if (lhs.height > rhs.height) return 1;
                 return 0;
             }
-        };
+        }
 
         SizeCompare s = new SizeCompare();
         TreeSet<Camera.Size> sortedResolutions = new TreeSet<Camera.Size>(s);
@@ -365,13 +425,14 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
 
         // Update untested entries
 
-        mUntestedCombinations.remove("All combinations for Camera " + id + "\n");
-        for (Camera.Size previewSize: mPreviewSizes) {
-            for (int previewFormat: mPreviewFormats) {
-                String combination = "Camera " + id + ", "
-                        + previewSize.width + "x" + previewSize.height
-                        + ", " + mPreviewFormatNames.get(previewFormat)
-                        + "\n";
+        for (int resolutionIndex = 0; resolutionIndex < mPreviewSizes.size(); resolutionIndex++) {
+            for (int formatIndex = 0; formatIndex < mPreviewFormats.size(); formatIndex++) {
+                CameraCombination combination = new CameraCombination(
+                    id, resolutionIndex, formatIndex,
+                    mPreviewSizes.get(resolutionIndex).width,
+                    mPreviewSizes.get(resolutionIndex).height,
+                    mPreviewFormatNames.get(mPreviewFormats.get(formatIndex)));
+
                 if (!mTestedCombinations.contains(combination)) {
                     mUntestedCombinations.add(combination);
                 }
@@ -571,14 +632,20 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
                 mFormatView.setImageBitmap(mCallbackBitmap);
                 if (mProcessingFirstFrame) {
                     mProcessingFirstFrame = false;
-                    String combination = "Camera " + mCurrentCameraId + ", "
-                            + mPreviewSize.width + "x" + mPreviewSize.height
-                            + ", " + mPreviewFormatNames.get(mPreviewFormat)
-                            + "\n";
+
+                    CameraCombination combination = new CameraCombination(
+                        mCurrentCameraId,
+                        mResolutionSpinner.getSelectedItemPosition(),
+                        mFormatSpinner.getSelectedItemPosition(),
+                        mPreviewSizes.get(mResolutionSpinner.getSelectedItemPosition()).width,
+                        mPreviewSizes.get(mResolutionSpinner.getSelectedItemPosition()).height,
+                        mPreviewFormatNames.get(
+                            mPreviewFormats.get(mFormatSpinner.getSelectedItemPosition())));
+
                     mUntestedCombinations.remove(combination);
                     mTestedCombinations.add(combination);
 
-                    displayToast(combination.replace("\n", ""));
+                    displayToast(combination.toString());
 
                     if (mTestedCombinations.size() == mAllCombinationsSize) {
                         setPassButtonEnabled(true);
@@ -617,7 +684,8 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
     }
 
     private void displayToast(String combination) {
-        Toast.makeText(this, "\"" + combination + "\"\n" + " has been tested.", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "\"" + combination + "\"\n" + " has been tested.", Toast.LENGTH_SHORT)
+            .show();
     }
 
     public void onPreviewFrame(byte[] data, Camera camera) {

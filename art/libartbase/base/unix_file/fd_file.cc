@@ -14,15 +14,24 @@
  * limitations under the License.
  */
 
-#include "base/unix_file/fd_file.h"
+#include "fd_file.h"
 
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#if defined(__BIONIC__)
+#include <android/fdsan.h>
+#endif
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 #include <limits>
 
+#include <android-base/file.h>
 #include <android-base/logging.h>
 
 // Includes needed for FdFile::Copy().
@@ -30,32 +39,130 @@
 #include <sys/sendfile.h>
 #else
 #include <algorithm>
-#include "base/stl_util.h"
 #include "base/globals.h"
+#include "base/stl_util.h"
 #endif
 
 namespace unix_file {
 
-FdFile::FdFile()
-    : guard_state_(GuardState::kClosed), fd_(-1), auto_close_(true), read_only_mode_(false) {
+#if defined(_WIN32)
+// RAII wrapper for an event object to allow asynchronous I/O to correctly signal completion.
+class ScopedEvent {
+ public:
+  ScopedEvent() {
+    handle_ = CreateEventA(/*lpEventAttributes*/ nullptr,
+                           /*bManualReset*/ true,
+                           /*bInitialState*/ false,
+                           /*lpName*/ nullptr);
+  }
+
+  ~ScopedEvent() { CloseHandle(handle_); }
+
+  HANDLE handle() { return handle_; }
+
+ private:
+  HANDLE handle_;
+  DISALLOW_COPY_AND_ASSIGN(ScopedEvent);
+};
+
+// Windows implementation of pread/pwrite. Note that these DO move the file descriptor's read/write
+// position, but do so atomically.
+static ssize_t pread(int fd, void* data, size_t byte_count, off64_t offset) {
+  ScopedEvent event;
+  if (event.handle() == INVALID_HANDLE_VALUE) {
+    PLOG(ERROR) << "Could not create event handle.";
+    errno = EIO;
+    return static_cast<ssize_t>(-1);
+  }
+
+  auto handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+  DWORD bytes_read = 0;
+  OVERLAPPED overlapped = {};
+  overlapped.Offset = static_cast<DWORD>(offset);
+  overlapped.OffsetHigh = static_cast<DWORD>(offset >> 32);
+  overlapped.hEvent = event.handle();
+  if (!ReadFile(handle, data, static_cast<DWORD>(byte_count), &bytes_read, &overlapped)) {
+    // If the read failed with other than ERROR_IO_PENDING, return an error.
+    // ERROR_IO_PENDING signals the write was begun asynchronously.
+    // Block until the asynchronous operation has finished or fails, and return
+    // result accordingly.
+    if (::GetLastError() != ERROR_IO_PENDING ||
+        !::GetOverlappedResult(handle, &overlapped, &bytes_read, TRUE)) {
+      // In case someone tries to read errno (since this is masquerading as a POSIX call).
+      errno = EIO;
+      return static_cast<ssize_t>(-1);
+    }
+  }
+  return static_cast<ssize_t>(bytes_read);
 }
+
+static ssize_t pwrite(int fd, const void* buf, size_t count, off64_t offset) {
+  ScopedEvent event;
+  if (event.handle() == INVALID_HANDLE_VALUE) {
+    PLOG(ERROR) << "Could not create event handle.";
+    errno = EIO;
+    return static_cast<ssize_t>(-1);
+  }
+
+  auto handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+  DWORD bytes_written = 0;
+  OVERLAPPED overlapped = {};
+  overlapped.Offset = static_cast<DWORD>(offset);
+  overlapped.OffsetHigh = static_cast<DWORD>(offset >> 32);
+  overlapped.hEvent = event.handle();
+  if (!::WriteFile(handle, buf, count, &bytes_written, &overlapped)) {
+    // If the write failed with other than ERROR_IO_PENDING, return an error.
+    // ERROR_IO_PENDING signals the write was begun asynchronously.
+    // Block until the asynchronous operation has finished or fails, and return
+    // result accordingly.
+    if (::GetLastError() != ERROR_IO_PENDING ||
+        !::GetOverlappedResult(handle, &overlapped, &bytes_written, TRUE)) {
+      // In case someone tries to read errno (since this is masquerading as a POSIX call).
+      errno = EIO;
+      return static_cast<ssize_t>(-1);
+    }
+  }
+  return static_cast<ssize_t>(bytes_written);
+}
+
+static int fsync(int fd) {
+  auto handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+  if (handle != INVALID_HANDLE_VALUE && ::FlushFileBuffers(handle)) {
+    return 0;
+  }
+  errno = EINVAL;
+  return -1;
+}
+#endif
+
+#if defined(__BIONIC__)
+static uint64_t GetFdFileOwnerTag(FdFile* fd_file) {
+  return android_fdsan_create_owner_tag(ANDROID_FDSAN_OWNER_TYPE_ART_FDFILE,
+                                        reinterpret_cast<uint64_t>(fd_file));
+}
+#endif
 
 FdFile::FdFile(int fd, bool check_usage)
-    : guard_state_(check_usage ? GuardState::kBase : GuardState::kNoCheck),
-      fd_(fd), auto_close_(true), read_only_mode_(false) {
-}
+    : FdFile(fd, std::string(), check_usage) {}
 
 FdFile::FdFile(int fd, const std::string& path, bool check_usage)
-    : FdFile(fd, path, check_usage, false) {
-}
+    : FdFile(fd, path, check_usage, false) {}
 
-FdFile::FdFile(int fd, const std::string& path, bool check_usage, bool read_only_mode)
+FdFile::FdFile(int fd, const std::string& path, bool check_usage,
+               bool read_only_mode)
     : guard_state_(check_usage ? GuardState::kBase : GuardState::kNoCheck),
-      fd_(fd), file_path_(path), auto_close_(true), read_only_mode_(read_only_mode) {
+      fd_(fd),
+      file_path_(path),
+      read_only_mode_(read_only_mode) {
+#if defined(__BIONIC__)
+  if (fd >= 0) {
+    android_fdsan_exchange_owner_tag(fd, 0, GetFdFileOwnerTag(this));
+  }
+#endif
 }
 
-FdFile::FdFile(const std::string& path, int flags, mode_t mode, bool check_usage)
-    : fd_(-1), auto_close_(true) {
+FdFile::FdFile(const std::string& path, int flags, mode_t mode,
+               bool check_usage) {
   Open(path, flags, mode);
   if (!check_usage || !IsOpened()) {
     guard_state_ = GuardState::kNoCheck;
@@ -72,14 +179,28 @@ void FdFile::Destroy() {
     }
     DCHECK_GE(guard_state_, GuardState::kClosed);
   }
-  if (auto_close_ && fd_ != -1) {
+  if (fd_ != -1) {
     if (Close() != 0) {
       PLOG(WARNING) << "Failed to close file with fd=" << fd_ << " path=" << file_path_;
     }
   }
 }
 
-FdFile& FdFile::operator=(FdFile&& other) {
+FdFile::FdFile(FdFile&& other) noexcept
+    : guard_state_(other.guard_state_),
+      fd_(other.fd_),
+      file_path_(std::move(other.file_path_)),
+      read_only_mode_(other.read_only_mode_) {
+#if defined(__BIONIC__)
+  if (fd_ >= 0) {
+    android_fdsan_exchange_owner_tag(fd_, GetFdFileOwnerTag(&other), GetFdFileOwnerTag(this));
+  }
+#endif
+  other.guard_state_ = GuardState::kClosed;
+  other.fd_ = -1;
+}
+
+FdFile& FdFile::operator=(FdFile&& other) noexcept {
   if (this == &other) {
     return *this;
   }
@@ -91,15 +212,53 @@ FdFile& FdFile::operator=(FdFile&& other) {
   guard_state_ = other.guard_state_;
   fd_ = other.fd_;
   file_path_ = std::move(other.file_path_);
-  auto_close_ = other.auto_close_;
   read_only_mode_ = other.read_only_mode_;
-  other.Release();  // Release other.
 
+#if defined(__BIONIC__)
+  if (fd_ >= 0) {
+    android_fdsan_exchange_owner_tag(fd_, GetFdFileOwnerTag(&other), GetFdFileOwnerTag(this));
+  }
+#endif
+  other.guard_state_ = GuardState::kClosed;
+  other.fd_ = -1;
   return *this;
 }
 
 FdFile::~FdFile() {
   Destroy();
+}
+
+int FdFile::Release() {
+  int tmp_fd = fd_;
+  fd_ = -1;
+  guard_state_ = GuardState::kNoCheck;
+#if defined(__BIONIC__)
+  if (tmp_fd >= 0) {
+    android_fdsan_exchange_owner_tag(tmp_fd, GetFdFileOwnerTag(this), 0);
+  }
+#endif
+  return tmp_fd;
+}
+
+void FdFile::Reset(int fd, bool check_usage) {
+  CHECK_NE(fd, fd_);
+
+  if (fd_ != -1) {
+    Destroy();
+  }
+  fd_ = fd;
+
+#if defined(__BIONIC__)
+  if (fd_ >= 0) {
+    android_fdsan_exchange_owner_tag(fd_, 0, GetFdFileOwnerTag(this));
+  }
+#endif
+
+  if (check_usage) {
+    guard_state_ = fd == -1 ? GuardState::kNoCheck : GuardState::kBase;
+  } else {
+    guard_state_ = GuardState::kNoCheck;
+  }
 }
 
 void FdFile::moveTo(GuardState target, GuardState warn_threshold, const char* warning) {
@@ -125,10 +284,6 @@ void FdFile::moveUp(GuardState target, const char* warning) {
   }
 }
 
-void FdFile::DisableAutoClose() {
-  auto_close_ = false;
-}
-
 bool FdFile::Open(const std::string& path, int flags) {
   return Open(path, flags, 0640);
 }
@@ -141,6 +296,11 @@ bool FdFile::Open(const std::string& path, int flags, mode_t mode) {
   if (fd_ == -1) {
     return false;
   }
+
+#if defined(__BIONIC__)
+  android_fdsan_exchange_owner_tag(fd_, 0, GetFdFileOwnerTag(this));
+#endif
+
   file_path_ = path;
   if (kCheckSafeUsage && (flags & (O_RDWR | O_CREAT | O_WRONLY)) != 0) {
     // Start in the base state (not flushed, not closed).
@@ -154,7 +314,11 @@ bool FdFile::Open(const std::string& path, int flags, mode_t mode) {
 }
 
 int FdFile::Close() {
+#if defined(__BIONIC__)
+  int result = android_fdsan_close_with_tag(fd_, GetFdFileOwnerTag(this));
+#else
   int result = close(fd_);
+#endif
 
   // Test here, so the file is closed and not leaked.
   if (kCheckSafeUsage) {
@@ -362,7 +526,7 @@ bool FdFile::Unlink() {
   bool is_current = false;
   {
     struct stat this_stat, current_stat;
-    int cur_fd = TEMP_FAILURE_RETRY(open(file_path_.c_str(), O_RDONLY));
+    int cur_fd = TEMP_FAILURE_RETRY(open(file_path_.c_str(), O_RDONLY | O_CLOEXEC));
     if (cur_fd > 0) {
       // File still exists.
       if (fstat(fd_, &this_stat) == 0 && fstat(cur_fd, &current_stat) == 0) {

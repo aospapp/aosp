@@ -286,7 +286,9 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
 
         @Override
         public void rejectWithMessage(String callId, String message,
-                Session.Info info) throws RemoteException { }
+                Session.Info info) throws RemoteException {
+            rejectedCallIds.add(callId);
+        }
 
         @Override
         public void disconnect(String callId, Session.Info info) throws RemoteException { }
@@ -572,7 +574,7 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 public IBinder asBinder() {
                     return this;
                 }
-            }, null /*Session.Info*/);
+            }, "" /* callingPackage */, null /*Session.Info*/);
         }
     }
 
@@ -668,7 +670,11 @@ public class ConnectionServiceFixture implements TestFixture<IConnectionService>
                 c.connectTimeMillis,
                 c.connectElapsedTimeMillis,
                 c.statusHints,
-                c.extras);
+                c.extras,
+                null,
+                0,
+                null,
+                0);
     }
 
     private ParcelableConnection parcelable(ConnectionInfo c) {

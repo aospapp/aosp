@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "android.hardware.light@2.0-service"
-
 #include <android/hardware/light/2.0/ILight.h>
 #include <hidl/LegacySupport.h>
 

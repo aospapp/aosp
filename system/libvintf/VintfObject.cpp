@@ -16,11 +16,6 @@
 
 #include "VintfObject.h"
 
-#include "CompatibilityMatrix.h"
-#include "parse_string.h"
-#include "parse_xml.h"
-#include "utils.h"
-
 #include <dirent.h>
 
 #include <functional>
@@ -28,6 +23,12 @@
 #include <mutex>
 
 #include <android-base/logging.h>
+
+#include "CompatibilityMatrix.h"
+#include "VintfObjectAfterUpdate.h"
+#include "parse_string.h"
+#include "parse_xml.h"
+#include "utils.h"
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -37,18 +38,11 @@ namespace vintf {
 
 using namespace details;
 
-template <typename T>
-struct LockedSharedPtr {
-    std::shared_ptr<T> object;
-    std::mutex mutex;
-    bool fetchedOnce = false;
-};
-
-struct LockedRuntimeInfoCache {
-    std::shared_ptr<RuntimeInfo> object;
-    std::mutex mutex;
-    RuntimeInfo::FetchFlags fetchedFlags = RuntimeInfo::FetchFlag::NONE;
-};
+#ifdef LIBVINTF_TARGET
+static constexpr bool kIsTarget = true;
+#else
+static constexpr bool kIsTarget = false;
+#endif
 
 template <typename T, typename F>
 static std::shared_ptr<const T> Get(
@@ -68,52 +62,97 @@ static std::shared_ptr<const T> Get(
     return ptr->object;
 }
 
-// static
+static std::unique_ptr<FileSystem> createDefaultFileSystem() {
+    std::unique_ptr<FileSystem> fileSystem;
+    if (kIsTarget) {
+        fileSystem = std::make_unique<details::FileSystemImpl>();
+    } else {
+        fileSystem = std::make_unique<details::FileSystemNoOp>();
+    }
+    return fileSystem;
+}
+
+static std::unique_ptr<PropertyFetcher> createDefaultPropertyFetcher() {
+    std::unique_ptr<PropertyFetcher> propertyFetcher;
+    if (kIsTarget) {
+        propertyFetcher = std::make_unique<details::PropertyFetcherImpl>();
+    } else {
+        propertyFetcher = std::make_unique<details::PropertyFetcherNoOp>();
+    }
+    return propertyFetcher;
+}
+
+details::LockedSharedPtr<VintfObject> VintfObject::sInstance{};
+std::shared_ptr<VintfObject> VintfObject::GetInstance() {
+    std::unique_lock<std::mutex> lock(sInstance.mutex);
+    if (sInstance.object == nullptr) {
+        sInstance.object = std::shared_ptr<VintfObject>(VintfObject::Builder().build().release());
+    }
+    return sInstance.object;
+}
+
 std::shared_ptr<const HalManifest> VintfObject::GetDeviceHalManifest(bool skipCache) {
-    static LockedSharedPtr<HalManifest> gVendorManifest;
-    return Get(&gVendorManifest, skipCache, &VintfObject::FetchDeviceHalManifest);
+    return GetInstance()->getDeviceHalManifest(skipCache);
 }
 
-// static
+std::shared_ptr<const HalManifest> VintfObject::getDeviceHalManifest(bool skipCache) {
+    return Get(&mDeviceManifest, skipCache,
+               std::bind(&VintfObject::fetchDeviceHalManifest, this, _1, _2));
+}
+
 std::shared_ptr<const HalManifest> VintfObject::GetFrameworkHalManifest(bool skipCache) {
-    static LockedSharedPtr<HalManifest> gFrameworkManifest;
-    return Get(&gFrameworkManifest, skipCache, &VintfObject::FetchFrameworkHalManifest);
+    return GetInstance()->getFrameworkHalManifest(skipCache);
 }
 
+std::shared_ptr<const HalManifest> VintfObject::getFrameworkHalManifest(bool skipCache) {
+    return Get(&mFrameworkManifest, skipCache,
+               std::bind(&VintfObject::fetchFrameworkHalManifest, this, _1, _2));
+}
 
-// static
 std::shared_ptr<const CompatibilityMatrix> VintfObject::GetDeviceCompatibilityMatrix(bool skipCache) {
-    static LockedSharedPtr<CompatibilityMatrix> gDeviceMatrix;
-    return Get(&gDeviceMatrix, skipCache, &VintfObject::FetchDeviceMatrix);
+    return GetInstance()->getDeviceCompatibilityMatrix(skipCache);
 }
 
-// static
+std::shared_ptr<const CompatibilityMatrix> VintfObject::getDeviceCompatibilityMatrix(
+    bool skipCache) {
+    return Get(&mDeviceMatrix, skipCache, std::bind(&VintfObject::fetchDeviceMatrix, this, _1, _2));
+}
+
 std::shared_ptr<const CompatibilityMatrix> VintfObject::GetFrameworkCompatibilityMatrix(bool skipCache) {
-    static LockedSharedPtr<CompatibilityMatrix> gFrameworkMatrix;
-    static LockedSharedPtr<CompatibilityMatrix> gCombinedFrameworkMatrix;
-    static std::mutex gFrameworkCompatibilityMatrixMutex;
+    return GetInstance()->getFrameworkCompatibilityMatrix(skipCache);
+}
 
+std::shared_ptr<const CompatibilityMatrix> VintfObject::getFrameworkCompatibilityMatrix(
+    bool skipCache) {
     // To avoid deadlock, get device manifest before any locks.
-    auto deviceManifest = GetDeviceHalManifest();
+    auto deviceManifest = getDeviceHalManifest();
 
-    std::unique_lock<std::mutex> _lock(gFrameworkCompatibilityMatrixMutex);
+    std::unique_lock<std::mutex> _lock(mFrameworkCompatibilityMatrixMutex);
 
     auto combined =
-        Get(&gCombinedFrameworkMatrix, skipCache,
-            std::bind(&VintfObject::GetCombinedFrameworkMatrix, deviceManifest, _1, _2));
+        Get(&mCombinedFrameworkMatrix, skipCache,
+            std::bind(&VintfObject::getCombinedFrameworkMatrix, this, deviceManifest, _1, _2));
     if (combined != nullptr) {
         return combined;
     }
 
-    return Get(&gFrameworkMatrix, skipCache,
-               std::bind(&CompatibilityMatrix::fetchAllInformation, _1, kSystemLegacyMatrix, _2));
+    return Get(&mFrameworkMatrix, skipCache,
+               std::bind(&CompatibilityMatrix::fetchAllInformation, _1, getFileSystem().get(),
+                         kSystemLegacyMatrix, _2));
 }
 
-status_t VintfObject::GetCombinedFrameworkMatrix(
+status_t VintfObject::getCombinedFrameworkMatrix(
     const std::shared_ptr<const HalManifest>& deviceManifest, CompatibilityMatrix* out,
     std::string* error) {
-    auto matrixFragments = GetAllFrameworkMatrixLevels(error);
+    std::vector<Named<CompatibilityMatrix>> matrixFragments;
+    auto matrixFragmentsStatus = getAllFrameworkMatrixLevels(&matrixFragments, error);
+    if (matrixFragmentsStatus != OK) {
+        return matrixFragmentsStatus;
+    }
     if (matrixFragments.empty()) {
+        if (error && error->empty()) {
+            *error = "Cannot get framework matrix for each FCM version for unknown error.";
+        }
         return NAME_NOT_FOUND;
     }
 
@@ -125,7 +164,7 @@ status_t VintfObject::GetCombinedFrameworkMatrix(
 
     // TODO(b/70628538): Do not infer from Shipping API level.
     if (deviceLevel == Level::UNSPECIFIED) {
-        auto shippingApi = getPropertyFetcher().getUintProperty("ro.product.first_api_level", 0u);
+        auto shippingApi = getPropertyFetcher()->getUintProperty("ro.product.first_api_level", 0u);
         if (shippingApi != 0u) {
             deviceLevel = details::convertFromApiLevel(shippingApi);
         }
@@ -152,8 +191,7 @@ status_t VintfObject::GetCombinedFrameworkMatrix(
         return NAME_NOT_FOUND;
     }
 
-    CompatibilityMatrix* combined =
-        CompatibilityMatrix::combine(deviceLevel, &matrixFragments, error);
+    auto combined = CompatibilityMatrix::combine(deviceLevel, &matrixFragments, error);
     if (combined == nullptr) {
         return BAD_VALUE;
     }
@@ -161,40 +199,80 @@ status_t VintfObject::GetCombinedFrameworkMatrix(
     return OK;
 }
 
+// Load and combine all of the manifests in a directory
+status_t VintfObject::addDirectoryManifests(const std::string& directory, HalManifest* manifest,
+                                            std::string* error) {
+    std::vector<std::string> fileNames;
+    status_t err = getFileSystem()->listFiles(directory, &fileNames, error);
+    // if the directory isn't there, that's okay
+    if (err == NAME_NOT_FOUND) return OK;
+    if (err != OK) return err;
+
+    for (const std::string& file : fileNames) {
+        // Only adds HALs because all other things are added by libvintf
+        // itself for now.
+        HalManifest fragmentManifest;
+        err = fetchOneHalManifest(directory + file, &fragmentManifest, error);
+        if (err != OK) return err;
+
+        if (!manifest->addAll(&fragmentManifest, error)) {
+            if (error) {
+                error->insert(0, "Cannot add manifest fragment " + directory + file + ":");
+            }
+            return UNKNOWN_ERROR;
+        }
+    }
+
+    return OK;
+}
+
 // Priority for loading vendor manifest:
-// 1. /vendor/etc/vintf/manifest.xml + ODM manifest
-// 2. /vendor/etc/vintf/manifest.xml
-// 3. ODM manifest
-// 4. /vendor/manifest.xml
+// 1. /vendor/etc/vintf/manifest.xml + device fragments + ODM manifest (optional) + odm fragments
+// 2. /vendor/etc/vintf/manifest.xml + device fragments
+// 3. ODM manifest (optional) + odm fragments
+// 4. /vendor/manifest.xml (legacy, no fragments)
 // where:
-// A + B means adding <hal> tags from B to A (so that <hal>s from B can override A)
-status_t VintfObject::FetchDeviceHalManifest(HalManifest* out, std::string* error) {
-    status_t vendorStatus = FetchOneHalManifest(kVendorManifest, out, error);
+// A + B means unioning <hal> tags from A and B. If B declares an override, then this takes priority
+// over A.
+status_t VintfObject::fetchDeviceHalManifest(HalManifest* out, std::string* error) {
+    status_t vendorStatus = fetchOneHalManifest(kVendorManifest, out, error);
     if (vendorStatus != OK && vendorStatus != NAME_NOT_FOUND) {
         return vendorStatus;
     }
 
+    if (vendorStatus == OK) {
+        status_t fragmentStatus = addDirectoryManifests(kVendorManifestFragmentDir, out, error);
+        if (fragmentStatus != OK) {
+            return fragmentStatus;
+        }
+    }
+
     HalManifest odmManifest;
-    status_t odmStatus = FetchOdmHalManifest(&odmManifest, error);
+    status_t odmStatus = fetchOdmHalManifest(&odmManifest, error);
     if (odmStatus != OK && odmStatus != NAME_NOT_FOUND) {
         return odmStatus;
     }
 
     if (vendorStatus == OK) {
         if (odmStatus == OK) {
-            out->addAllHals(&odmManifest);
+            if (!out->addAll(&odmManifest, error)) {
+                if (error) {
+                    error->insert(0, "Cannot add ODM manifest :");
+                }
+                return UNKNOWN_ERROR;
+            }
         }
-        return OK;
+        return addDirectoryManifests(kOdmManifestFragmentDir, out, error);
     }
 
     // vendorStatus != OK, "out" is not changed.
     if (odmStatus == OK) {
         *out = std::move(odmManifest);
-        return OK;
+        return addDirectoryManifests(kOdmManifestFragmentDir, out, error);
     }
 
     // Use legacy /vendor/manifest.xml
-    return out->fetchAllInformation(kVendorLegacyManifest, error);
+    return out->fetchAllInformation(getFileSystem().get(), kVendorLegacyManifest, error);
 }
 
 // "out" is written to iff return status is OK.
@@ -205,34 +283,34 @@ status_t VintfObject::FetchDeviceHalManifest(HalManifest* out, std::string* erro
 // 4. /odm/etc/manifest.xml
 // where:
 // {sku} is the value of ro.boot.product.hardware.sku
-status_t VintfObject::FetchOdmHalManifest(HalManifest* out, std::string* error) {
+status_t VintfObject::fetchOdmHalManifest(HalManifest* out, std::string* error) {
     status_t status;
 
     std::string productModel;
-    productModel = getPropertyFetcher().getProperty("ro.boot.product.hardware.sku", "");
+    productModel = getPropertyFetcher()->getProperty("ro.boot.product.hardware.sku", "");
 
     if (!productModel.empty()) {
         status =
-            FetchOneHalManifest(kOdmVintfDir + "manifest_" + productModel + ".xml", out, error);
+            fetchOneHalManifest(kOdmVintfDir + "manifest_" + productModel + ".xml", out, error);
         if (status == OK || status != NAME_NOT_FOUND) {
             return status;
         }
     }
 
-    status = FetchOneHalManifest(kOdmManifest, out, error);
+    status = fetchOneHalManifest(kOdmManifest, out, error);
     if (status == OK || status != NAME_NOT_FOUND) {
         return status;
     }
 
     if (!productModel.empty()) {
-        status = FetchOneHalManifest(kOdmLegacyVintfDir + "manifest_" + productModel + ".xml", out,
+        status = fetchOneHalManifest(kOdmLegacyVintfDir + "manifest_" + productModel + ".xml", out,
                                      error);
         if (status == OK || status != NAME_NOT_FOUND) {
             return status;
         }
     }
 
-    status = FetchOneHalManifest(kOdmLegacyManifest, out, error);
+    status = fetchOneHalManifest(kOdmLegacyManifest, out, error);
     if (status == OK || status != NAME_NOT_FOUND) {
         return status;
     }
@@ -242,102 +320,155 @@ status_t VintfObject::FetchOdmHalManifest(HalManifest* out, std::string* error) 
 
 // Fetch one manifest.xml file. "out" is written to iff return status is OK.
 // Returns NAME_NOT_FOUND if file is missing.
-status_t VintfObject::FetchOneHalManifest(const std::string& path, HalManifest* out,
+status_t VintfObject::fetchOneHalManifest(const std::string& path, HalManifest* out,
                                           std::string* error) {
     HalManifest ret;
-    status_t status = ret.fetchAllInformation(path, error);
+    status_t status = ret.fetchAllInformation(getFileSystem().get(), path, error);
     if (status == OK) {
         *out = std::move(ret);
     }
     return status;
 }
 
-status_t VintfObject::FetchDeviceMatrix(CompatibilityMatrix* out, std::string* error) {
+status_t VintfObject::fetchDeviceMatrix(CompatibilityMatrix* out, std::string* error) {
     CompatibilityMatrix etcMatrix;
-    if (etcMatrix.fetchAllInformation(kVendorMatrix, error) == OK) {
+    if (etcMatrix.fetchAllInformation(getFileSystem().get(), kVendorMatrix, error) == OK) {
         *out = std::move(etcMatrix);
         return OK;
     }
-    return out->fetchAllInformation(kVendorLegacyMatrix, error);
+    return out->fetchAllInformation(getFileSystem().get(), kVendorLegacyMatrix, error);
 }
 
-status_t VintfObject::FetchFrameworkHalManifest(HalManifest* out, std::string* error) {
-    HalManifest etcManifest;
-    if (etcManifest.fetchAllInformation(kSystemManifest, error) == OK) {
-        *out = std::move(etcManifest);
-        return OK;
+// Priority:
+// 1. /system/etc/vintf/manifest.xml
+//    + /system/etc/vintf/manifest/*.xml if they exist
+//    + /product/etc/vintf/manifest.xml if it exists
+//    + /product/etc/vintf/manifest/*.xml if they exist
+// 2. (deprecated) /system/manifest.xml
+status_t VintfObject::fetchFrameworkHalManifest(HalManifest* out, std::string* error) {
+    auto systemEtcStatus = fetchOneHalManifest(kSystemManifest, out, error);
+    if (systemEtcStatus == OK) {
+        auto dirStatus = addDirectoryManifests(kSystemManifestFragmentDir, out, error);
+        if (dirStatus != OK) {
+            return dirStatus;
+        }
+
+        HalManifest productManifest;
+        auto productStatus = fetchOneHalManifest(kProductManifest, &productManifest, error);
+        if (productStatus != OK && productStatus != NAME_NOT_FOUND) {
+            return productStatus;
+        }
+        if (productStatus == OK) {
+            if (!out->addAll(&productManifest, error)) {
+                if (error) {
+                    error->insert(0, "Cannot add " + kProductManifest + ":");
+                }
+                return UNKNOWN_ERROR;
+            }
+        }
+
+        return addDirectoryManifests(kProductManifestFragmentDir, out, error);
+    } else {
+        LOG(WARNING) << "Cannot fetch " << kSystemManifest << ": "
+                     << (error ? *error : strerror(-systemEtcStatus));
     }
-    return out->fetchAllInformation(kSystemLegacyManifest, error);
+
+    return out->fetchAllInformation(getFileSystem().get(), kSystemLegacyManifest, error);
 }
 
-std::vector<Named<CompatibilityMatrix>> VintfObject::GetAllFrameworkMatrixLevels(
-    std::string* error) {
-    std::vector<std::string> fileNames;
-    std::vector<Named<CompatibilityMatrix>> results;
+static void appendLine(std::string* error, const std::string& message) {
+    if (error != nullptr) {
+        if (!error->empty()) *error += "\n";
+        *error += message;
+    }
+}
 
-    if (details::gFetcher->listFiles(kSystemVintfDir, &fileNames, error) != OK) {
-        return {};
+status_t VintfObject::getOneMatrix(const std::string& path, Named<CompatibilityMatrix>* out,
+                                   std::string* error) {
+    std::string content;
+    status_t status = getFileSystem()->fetch(path, &content, error);
+    if (status != OK) {
+        return status;
+    }
+    if (!gCompatibilityMatrixConverter(&out->object, content, error)) {
+        if (error) {
+            error->insert(0, "Cannot parse " + path + ": ");
+        }
+        return BAD_VALUE;
+    }
+    out->name = path;
+    return OK;
+}
+
+status_t VintfObject::getAllFrameworkMatrixLevels(std::vector<Named<CompatibilityMatrix>>* results,
+                                                  std::string* error) {
+    std::vector<std::string> fileNames;
+
+    status_t listStatus = getFileSystem()->listFiles(kSystemVintfDir, &fileNames, error);
+    if (listStatus != OK) {
+        return listStatus;
     }
     for (const std::string& fileName : fileNames) {
         std::string path = kSystemVintfDir + fileName;
-
-        std::string content;
-        std::string fetchError;
-        status_t status = details::gFetcher->fetch(path, content, &fetchError);
-        if (status != OK) {
-            if (error) {
-                *error += "Framework Matrix: Ignore file " + path + ": " + fetchError + "\n";
-            }
+        Named<CompatibilityMatrix> namedMatrix;
+        std::string matrixError;
+        status_t matrixStatus = getOneMatrix(path, &namedMatrix, &matrixError);
+        if (matrixStatus != OK) {
+            // System manifests and matrices share the same dir. Client may not have enough
+            // permissions to read system manifests, or may not be able to parse it.
+            auto logLevel = matrixStatus == BAD_VALUE ? base::DEBUG : base::ERROR;
+            LOG(logLevel) << "Framework Matrix: Ignore file " << path << ": " << matrixError;
             continue;
         }
-
-        auto it = results.emplace(results.end());
-        if (!gCompatibilityMatrixConverter(&it->object, content, error)) {
-            if (error) {
-                *error += "Framework Matrix: Ignore file " + path + ": " + *error + "\n";
-            }
-            results.erase(it);
-            continue;
-        }
+        results->emplace_back(std::move(namedMatrix));
     }
 
-    if (results.empty()) {
-        if (error) {
-            *error = "No framework matrices under " + kSystemVintfDir +
-                     " can be fetched or parsed.\n" + *error;
-        }
+    Named<CompatibilityMatrix> productMatrix;
+    std::string productError;
+    status_t productStatus = getOneMatrix(kProductMatrix, &productMatrix, &productError);
+    if (productStatus == OK) {
+        results->emplace_back(std::move(productMatrix));
+    } else if (productStatus == NAME_NOT_FOUND) {
+        LOG(DEBUG) << "Framework Matrix: missing " << kProductMatrix;
     } else {
-        if (error && !error->empty()) {
-            LOG(WARNING) << *error;
-            *error = "";
-        }
+        if (error) *error = std::move(productError);
+        return productStatus;
     }
 
-    return results;
+    if (results->empty()) {
+        if (error) {
+            *error =
+                "No framework matrices under " + kSystemVintfDir + " can be fetched or parsed.\n";
+        }
+        return NAME_NOT_FOUND;
+    }
+    return OK;
 }
 
-// static
 std::shared_ptr<const RuntimeInfo> VintfObject::GetRuntimeInfo(bool skipCache,
                                                                RuntimeInfo::FetchFlags flags) {
-    static LockedRuntimeInfoCache gDeviceRuntimeInfo;
-    std::unique_lock<std::mutex> _lock(gDeviceRuntimeInfo.mutex);
+    return GetInstance()->getRuntimeInfo(skipCache, flags);
+}
+std::shared_ptr<const RuntimeInfo> VintfObject::getRuntimeInfo(bool skipCache,
+                                                               RuntimeInfo::FetchFlags flags) {
+    std::unique_lock<std::mutex> _lock(mDeviceRuntimeInfo.mutex);
 
     if (!skipCache) {
-        flags &= (~gDeviceRuntimeInfo.fetchedFlags);
+        flags &= (~mDeviceRuntimeInfo.fetchedFlags);
     }
 
-    if (gDeviceRuntimeInfo.object == nullptr) {
-        gDeviceRuntimeInfo.object = details::gRuntimeInfoFactory->make_shared();
+    if (mDeviceRuntimeInfo.object == nullptr) {
+        mDeviceRuntimeInfo.object = getRuntimeInfoFactory()->make_shared();
     }
 
-    status_t status = gDeviceRuntimeInfo.object->fetchAllInformation(flags);
+    status_t status = mDeviceRuntimeInfo.object->fetchAllInformation(flags);
     if (status != OK) {
-        gDeviceRuntimeInfo.fetchedFlags &= (~flags);  // mark the fields as "not fetched"
+        mDeviceRuntimeInfo.fetchedFlags &= (~flags);  // mark the fields as "not fetched"
         return nullptr;
     }
 
-    gDeviceRuntimeInfo.fetchedFlags |= flags;
-    return gDeviceRuntimeInfo.object;
+    mDeviceRuntimeInfo.fetchedFlags |= flags;
+    return mDeviceRuntimeInfo.object;
 }
 
 namespace details {
@@ -359,169 +490,95 @@ static std::string toString(ParseStatus status) {
     return "";
 }
 
-template<typename T>
-static ParseStatus tryParse(const std::string &xml, const XmlConverter<T> &parse,
-        std::shared_ptr<T> *fwk, std::shared_ptr<T> *dev) {
+template <typename T>
+static ParseStatus tryParse(const std::string& xml, const XmlConverter<T>& parse,
+                            VintfObjectAfterUpdate* afterUpdate) {
     std::shared_ptr<T> ret = std::make_shared<T>();
     if (!parse(ret.get(), xml, nullptr /* error */)) {
         return ParseStatus::PARSE_ERROR;
     }
-    if (ret->type() == SchemaType::FRAMEWORK) {
-        if (fwk->get() != nullptr) {
+    if (!afterUpdate->set(ret)) {
+        if (ret->type() == SchemaType::FRAMEWORK) {
             return ParseStatus::DUPLICATED_FWK_ENTRY;
-        }
-        *fwk = std::move(ret);
-    } else if (ret->type() == SchemaType::DEVICE) {
-        if (dev->get() != nullptr) {
+        } else if (ret->type() == SchemaType::DEVICE) {
             return ParseStatus::DUPLICATED_DEV_ENTRY;
         }
-        *dev = std::move(ret);
+        LOG(FATAL) << "unknown SchemaType: "
+                   << static_cast<std::underlying_type_t<SchemaType>>(ret->type());
     }
     return ParseStatus::OK;
 }
 
-template<typename T, typename GetFunction>
-static status_t getMissing(const std::shared_ptr<T>& pkg, bool mount,
-        std::function<status_t(void)> mountFunction,
-        std::shared_ptr<const T>* updated,
-        GetFunction getFunction) {
-    if (pkg != nullptr) {
-        *updated = pkg;
-    } else {
-        if (mount) {
-            (void)mountFunction(); // ignore mount errors
-        }
-        *updated = getFunction();
-    }
-    return OK;
-}
+}  // namespace details
 
-#define ADD_MESSAGE(__error__)  \
-    if (error != nullptr) {     \
-        *error += (__error__);  \
-    }                           \
-
-struct PackageInfo {
-    struct Pair {
-        std::shared_ptr<HalManifest>         manifest;
-        std::shared_ptr<CompatibilityMatrix> matrix;
-    };
-    Pair dev;
-    Pair fwk;
-};
-
-struct UpdatedInfo {
-    struct Pair {
-        std::shared_ptr<const HalManifest>         manifest;
-        std::shared_ptr<const CompatibilityMatrix> matrix;
-    };
-    Pair dev;
-    Pair fwk;
-    std::shared_ptr<const RuntimeInfo> runtimeInfo;
-};
-
-// Checks given compatibility info against info on the device. If no
-// compatability info is given then the device info will be checked against
-// itself.
-int32_t checkCompatibility(const std::vector<std::string>& xmls, bool mount,
-                           const PartitionMounter& mounter, std::string* error,
-                           DisabledChecks disabledChecks) {
-    status_t status;
-    ParseStatus parseStatus;
-    PackageInfo pkg; // All information from package.
-    UpdatedInfo updated; // All files and runtime info after the update.
+// Simulate applying xmls to VintfObject, then checkCompatibility as usual.
+int32_t VintfObject::checkCompatibility(const std::vector<std::string>& xmls, std::string* error,
+                                        CheckFlags::Type flags) {
+    VintfObjectAfterUpdate afterUpdate(this);
+    ParseStatus parseStatus = ParseStatus::OK;
 
     // parse all information from package
     for (const auto &xml : xmls) {
-        parseStatus = tryParse(xml, gHalManifestConverter, &pkg.fwk.manifest, &pkg.dev.manifest);
+        parseStatus = tryParse(xml, gHalManifestConverter, &afterUpdate);
         if (parseStatus == ParseStatus::OK) {
             continue; // work on next one
         }
         if (parseStatus != ParseStatus::PARSE_ERROR) {
-            ADD_MESSAGE(toString(parseStatus) + " manifest");
+            appendLine(error, toString(parseStatus) + " manifest");
             return ALREADY_EXISTS;
         }
-        parseStatus = tryParse(xml, gCompatibilityMatrixConverter, &pkg.fwk.matrix, &pkg.dev.matrix);
+        parseStatus = tryParse(xml, gCompatibilityMatrixConverter, &afterUpdate);
         if (parseStatus == ParseStatus::OK) {
             continue; // work on next one
         }
         if (parseStatus != ParseStatus::PARSE_ERROR) {
-            ADD_MESSAGE(toString(parseStatus) + " matrix");
+            appendLine(error, toString(parseStatus) + " matrix");
             return ALREADY_EXISTS;
         }
-        ADD_MESSAGE(toString(parseStatus)); // parse error
+        appendLine(error, toString(parseStatus));  // parse error
         return BAD_VALUE;
     }
 
-    // get missing info from device
-    // use functions instead of std::bind because std::bind doesn't work well with mock objects
-    auto mountSystem = [&mounter] { return mounter.mountSystem(); };
-    auto mountVendor = [&mounter] { return mounter.mountVendor(); };
-    if ((status = getMissing(
-             pkg.fwk.manifest, mount, mountSystem, &updated.fwk.manifest,
-             std::bind(VintfObject::GetFrameworkHalManifest, true /* skipCache */))) != OK) {
-        return status;
+    return afterUpdate.checkCompatibility(error, flags);
+}
+
+int32_t VintfObject::checkCompatibility(std::string* error, CheckFlags::Type flags) {
+    status_t status = OK;
+    // null checks for files and runtime info
+    if (getFrameworkHalManifest() == nullptr) {
+        appendLine(error, "No framework manifest file from device or from update package");
+        status = NO_INIT;
     }
-    if ((status = getMissing(
-             pkg.dev.manifest, mount, mountVendor, &updated.dev.manifest,
-             std::bind(VintfObject::GetDeviceHalManifest, true /* skipCache */))) != OK) {
-        return status;
+    if (getDeviceHalManifest() == nullptr) {
+        appendLine(error, "No device manifest file from device or from update package");
+        status = NO_INIT;
     }
-    if ((status = getMissing(
-             pkg.fwk.matrix, mount, mountSystem, &updated.fwk.matrix,
-             std::bind(VintfObject::GetFrameworkCompatibilityMatrix, true /* skipCache */))) !=
-        OK) {
-        return status;
+    if (getFrameworkCompatibilityMatrix() == nullptr) {
+        appendLine(error, "No framework matrix file from device or from update package");
+        status = NO_INIT;
     }
-    if ((status = getMissing(
-             pkg.dev.matrix, mount, mountVendor, &updated.dev.matrix,
-             std::bind(VintfObject::GetDeviceCompatibilityMatrix, true /* skipCache */))) != OK) {
-        return status;
+    if (getDeviceCompatibilityMatrix() == nullptr) {
+        appendLine(error, "No device matrix file from device or from update package");
+        status = NO_INIT;
     }
 
-    if (mount) {
-        (void)mounter.umountSystem(); // ignore errors
-        (void)mounter.umountVendor(); // ignore errors
-    }
-
-    if ((disabledChecks & DISABLE_RUNTIME_INFO) == 0) {
-        updated.runtimeInfo = VintfObject::GetRuntimeInfo(true /* skipCache */);
-    }
-
-    // null checks for files and runtime info after the update
-    if (updated.fwk.manifest == nullptr) {
-        ADD_MESSAGE("No framework manifest file from device or from update package");
-        return NO_INIT;
-    }
-    if (updated.dev.manifest == nullptr) {
-        ADD_MESSAGE("No device manifest file from device or from update package");
-        return NO_INIT;
-    }
-    if (updated.fwk.matrix == nullptr) {
-        ADD_MESSAGE("No framework matrix file from device or from update package");
-        return NO_INIT;
-    }
-    if (updated.dev.matrix == nullptr) {
-        ADD_MESSAGE("No device matrix file from device or from update package");
-        return NO_INIT;
-    }
-
-    if ((disabledChecks & DISABLE_RUNTIME_INFO) == 0) {
-        if (updated.runtimeInfo == nullptr) {
-            ADD_MESSAGE("No runtime info from device");
-            return NO_INIT;
+    if (flags.isRuntimeInfoEnabled()) {
+        if (getRuntimeInfo() == nullptr) {
+            appendLine(error, "No runtime info from device");
+            status = NO_INIT;
         }
     }
+    if (status != OK) return status;
 
     // compatiblity check.
-    if (!updated.dev.manifest->checkCompatibility(*updated.fwk.matrix, error)) {
+    if (!getDeviceHalManifest()->checkCompatibility(*getFrameworkCompatibilityMatrix(), error)) {
         if (error) {
             error->insert(0,
                           "Device manifest and framework compatibility matrix are incompatible: ");
         }
         return INCOMPATIBLE;
     }
-    if (!updated.fwk.manifest->checkCompatibility(*updated.dev.matrix, error)) {
+    if (!getFrameworkHalManifest()->checkCompatibility(*getDeviceCompatibilityMatrix(), error)) {
         if (error) {
             error->insert(0,
                           "Framework manifest and device compatibility matrix are incompatible: ");
@@ -529,8 +586,15 @@ int32_t checkCompatibility(const std::vector<std::string>& xmls, bool mount,
         return INCOMPATIBLE;
     }
 
-    if ((disabledChecks & DISABLE_RUNTIME_INFO) == 0) {
-        if (!updated.runtimeInfo->checkCompatibility(*updated.fwk.matrix, error, disabledChecks)) {
+    CheckFlags::Type runtimeInfoCheckFlags = flags;
+    if (!!getDeviceHalManifest()->kernel()) {
+        // Use kernel from incoming OTA package, but not on the device.
+        runtimeInfoCheckFlags = runtimeInfoCheckFlags.disableKernel();
+    }
+
+    if (flags.isRuntimeInfoEnabled()) {
+        if (!getRuntimeInfo()->checkCompatibility(*getFrameworkCompatibilityMatrix(), error,
+                                                  runtimeInfoCheckFlags)) {
             if (error) {
                 error->insert(0,
                               "Runtime info and framework compatibility matrix are incompatible: ");
@@ -542,14 +606,24 @@ int32_t checkCompatibility(const std::vector<std::string>& xmls, bool mount,
     return COMPATIBLE;
 }
 
+namespace details {
+
 const std::string kSystemVintfDir = "/system/etc/vintf/";
 const std::string kVendorVintfDir = "/vendor/etc/vintf/";
 const std::string kOdmVintfDir = "/odm/etc/vintf/";
+const std::string kProductVintfDir = "/product/etc/vintf/";
 
 const std::string kVendorManifest = kVendorVintfDir + "manifest.xml";
 const std::string kSystemManifest = kSystemVintfDir + "manifest.xml";
 const std::string kVendorMatrix = kVendorVintfDir + "compatibility_matrix.xml";
 const std::string kOdmManifest = kOdmVintfDir + "manifest.xml";
+const std::string kProductMatrix = kProductVintfDir + "compatibility_matrix.xml";
+const std::string kProductManifest = kProductVintfDir + "manifest.xml";
+
+const std::string kVendorManifestFragmentDir = kVendorVintfDir + "manifest/";
+const std::string kSystemManifestFragmentDir = kSystemVintfDir + "manifest/";
+const std::string kOdmManifestFragmentDir = kOdmVintfDir + "manifest/";
+const std::string kProductManifestFragmentDir = kProductVintfDir + "manifest/";
 
 const std::string kVendorLegacyManifest = "/vendor/manifest.xml";
 const std::string kVendorLegacyMatrix = "/vendor/compatibility_matrix.xml";
@@ -560,27 +634,33 @@ const std::string kOdmLegacyManifest = kOdmLegacyVintfDir + "manifest.xml";
 
 std::vector<std::string> dumpFileList() {
     return {
-        kSystemVintfDir,       kVendorVintfDir,     kOdmVintfDir,          kOdmLegacyVintfDir,
-
-        kVendorLegacyManifest, kVendorLegacyMatrix, kSystemLegacyManifest, kSystemLegacyMatrix,
+        // clang-format off
+        kSystemVintfDir,
+        kVendorVintfDir,
+        kOdmVintfDir,
+        kProductVintfDir,
+        kOdmLegacyVintfDir,
+        kVendorLegacyManifest,
+        kVendorLegacyMatrix,
+        kSystemLegacyManifest,
+        kSystemLegacyMatrix,
+        // clang-format on
     };
 }
 
-} // namespace details
+}  // namespace details
 
-// static
 int32_t VintfObject::CheckCompatibility(const std::vector<std::string>& xmls, std::string* error,
-                                        DisabledChecks disabledChecks) {
-    return details::checkCompatibility(xmls, false /* mount */, *details::gPartitionMounter, error,
-                                       disabledChecks);
+                                        CheckFlags::Type flags) {
+    return GetInstance()->checkCompatibility(xmls, error, flags);
 }
 
-bool VintfObject::isHalDeprecated(const MatrixHal& oldMatrixHal,
+bool VintfObject::IsHalDeprecated(const MatrixHal& oldMatrixHal,
                                   const CompatibilityMatrix& targetMatrix,
                                   const ListInstances& listInstances, std::string* error) {
     bool isDeprecated = false;
     oldMatrixHal.forEachInstance([&](const MatrixInstance& oldMatrixInstance) {
-        if (isInstanceDeprecated(oldMatrixInstance, targetMatrix, listInstances, error)) {
+        if (IsInstanceDeprecated(oldMatrixInstance, targetMatrix, listInstances, error)) {
             isDeprecated = true;
         }
         return !isDeprecated;  // continue if no deprecated instance is found.
@@ -594,7 +674,7 @@ bool VintfObject::isHalDeprecated(const MatrixHal& oldMatrixHal,
 // 1. package@x.?::interface/servedInstance is not in targetMatrix; OR
 // 2. package@x.z::interface/servedInstance is in targetMatrix but
 //    servedInstance is not in listInstances(package@x.z::interface)
-bool VintfObject::isInstanceDeprecated(const MatrixInstance& oldMatrixInstance,
+bool VintfObject::IsInstanceDeprecated(const MatrixInstance& oldMatrixInstance,
                                        const CompatibilityMatrix& targetMatrix,
                                        const ListInstances& listInstances, std::string* error) {
     const std::string& package = oldMatrixInstance.package();
@@ -646,11 +726,9 @@ bool VintfObject::isInstanceDeprecated(const MatrixInstance& oldMatrixInstance,
         }
 
         if (!targetVersionServed) {
-            if (error) {
-                *error += toFQNameString(package, servedVersion, interface, servedInstance) +
-                          " is deprecated; requires at least " + to_string(targetMatrixMinVer) +
-                          "\n";
-            }
+            appendLine(error, toFQNameString(package, servedVersion, interface, servedInstance) +
+                                  " is deprecated; requires at least " +
+                                  to_string(targetMatrixMinVer));
             return true;
         }
     }
@@ -659,13 +737,21 @@ bool VintfObject::isInstanceDeprecated(const MatrixInstance& oldMatrixInstance,
 }
 
 int32_t VintfObject::CheckDeprecation(const ListInstances& listInstances, std::string* error) {
-    auto matrixFragments = GetAllFrameworkMatrixLevels(error);
+    return GetInstance()->checkDeprecation(listInstances, error);
+}
+int32_t VintfObject::checkDeprecation(const ListInstances& listInstances, std::string* error) {
+    std::vector<Named<CompatibilityMatrix>> matrixFragments;
+    auto matrixFragmentsStatus = getAllFrameworkMatrixLevels(&matrixFragments, error);
+    if (matrixFragmentsStatus != OK) {
+        return matrixFragmentsStatus;
+    }
     if (matrixFragments.empty()) {
-        if (error && error->empty())
+        if (error && error->empty()) {
             *error = "Cannot get framework matrix for each FCM version for unknown error.";
+        }
         return NAME_NOT_FOUND;
     }
-    auto deviceManifest = GetDeviceHalManifest();
+    auto deviceManifest = getDeviceHalManifest();
     if (deviceManifest == nullptr) {
         if (error) *error = "No device manifest.";
         return NAME_NOT_FOUND;
@@ -695,7 +781,7 @@ int32_t VintfObject::CheckDeprecation(const ListInstances& listInstances, std::s
 
         const auto& oldMatrix = namedMatrix.object;
         for (const MatrixHal& hal : oldMatrix.getHals()) {
-            hasDeprecatedHals |= isHalDeprecated(hal, *targetMatrix, listInstances, error);
+            hasDeprecatedHals |= IsHalDeprecated(hal, *targetMatrix, listInstances, error);
         }
     }
 
@@ -703,8 +789,11 @@ int32_t VintfObject::CheckDeprecation(const ListInstances& listInstances, std::s
 }
 
 int32_t VintfObject::CheckDeprecation(std::string* error) {
+    return GetInstance()->checkDeprecation(error);
+}
+int32_t VintfObject::checkDeprecation(std::string* error) {
     using namespace std::placeholders;
-    auto deviceManifest = GetDeviceHalManifest();
+    auto deviceManifest = getDeviceHalManifest();
     ListInstances inManifest =
         [&deviceManifest](const std::string& package, Version version, const std::string& interface,
                           const std::vector<std::string>& /* hintInstances */) {
@@ -717,7 +806,47 @@ int32_t VintfObject::CheckDeprecation(std::string* error) {
                 });
             return ret;
         };
-    return CheckDeprecation(inManifest, error);
+    return checkDeprecation(inManifest, error);
+}
+
+const std::unique_ptr<FileSystem>& VintfObject::getFileSystem() {
+    return mFileSystem;
+}
+
+const std::unique_ptr<PropertyFetcher>& VintfObject::getPropertyFetcher() {
+    return mPropertyFetcher;
+}
+
+const std::unique_ptr<ObjectFactory<RuntimeInfo>>& VintfObject::getRuntimeInfoFactory() {
+    return mRuntimeInfoFactory;
+}
+
+// make_unique does not work because VintfObject constructor is private.
+VintfObject::Builder::Builder() : mObject(std::unique_ptr<VintfObject>(new VintfObject())) {}
+
+VintfObject::Builder& VintfObject::Builder::setFileSystem(std::unique_ptr<FileSystem>&& e) {
+    mObject->mFileSystem = std::move(e);
+    return *this;
+}
+
+VintfObject::Builder& VintfObject::Builder::setRuntimeInfoFactory(
+    std::unique_ptr<ObjectFactory<RuntimeInfo>>&& e) {
+    mObject->mRuntimeInfoFactory = std::move(e);
+    return *this;
+}
+
+VintfObject::Builder& VintfObject::Builder::setPropertyFetcher(
+    std::unique_ptr<PropertyFetcher>&& e) {
+    mObject->mPropertyFetcher = std::move(e);
+    return *this;
+}
+
+std::unique_ptr<VintfObject> VintfObject::Builder::build() {
+    if (!mObject->mFileSystem) mObject->mFileSystem = createDefaultFileSystem();
+    if (!mObject->mRuntimeInfoFactory)
+        mObject->mRuntimeInfoFactory = std::make_unique<ObjectFactory<RuntimeInfo>>();
+    if (!mObject->mPropertyFetcher) mObject->mPropertyFetcher = createDefaultPropertyFetcher();
+    return std::move(mObject);
 }
 
 } // namespace vintf

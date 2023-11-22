@@ -25,7 +25,8 @@
   </application>
 
   <uses-permission android:name="android.permission.INTERNET" />
-  <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+  <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                    android:targetPackage="android.security.net.config.cts.CtsNetSecConfigBasicDebugDisabledTestCases"
                    android:label="">
         <meta-data android:name="listener"

@@ -28,11 +28,12 @@ function do_copy() {
     log -p w -t cppreopts "Unable to copy file ${source_file} to ${temp_dest_name}!"
   else
     log -p i -t cppreopts "Copied file from ${source_file} to ${temp_dest_name}"
-    sync
+    fsync ${temp_dest_name}
     if ! mv ${temp_dest_name} ${dest_name} ; then
       log -p w -t cppreopts "Unable to rename temporary file from ${temp_dest_name} to ${dest_name}"
       rm ${temp_dest_name} || log -p w -t cppreopts "Unable to remove temporary file ${temp_dest_name}"
     else
+      fsync ${dest_name}
       log -p i -t cppreopts "Renamed temporary file from ${temp_dest_name} to ${dest_name}"
     fi
   fi

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Անհետաձգելի բուժօգնության տվյալներ"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Բժշկական տվյալներ"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Խմբագրել տվյալները"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Ավելացնել տվյալներ"</string>
     <string name="edit_info" msgid="5973929805855224805">"Փոփոխել անհետաձգելի բուժօգնության տվյալները"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Տեղեկություններ"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Կոնտակտներ"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Արտակարգ իրավիճակներում ձեր բժշկական տվյալներն ու կոնտակտները կարող են օգտակար լինել առաջին օգնություն ցուցաբերողներին և փրկարարներին:\n\nԱյս տեղեկությունները կցուցադրվեն ձեր կողպված սարքի էկրանին։ Ձեր կոնտակտներին զանգելու համար անհրաժեշտ կլինի պարզապես հպել նրանց անուններին:"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Ավելացրեք արտակարգ իրավիճակների տվյալներ"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Ձեր տվյալները կցուցադրվեն կողպված էկրանին"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Լուսանկարել"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Ընտրել պատկեր"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Ընտրել լուսանկար"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Կեղծանուն"</string>
 </resources>

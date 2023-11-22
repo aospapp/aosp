@@ -16,14 +16,41 @@
 
 package com.android.vts.entity;
 
-import com.google.appengine.api.datastore.Entity;
+import com.google.common.collect.Lists;
+import com.googlecode.objectify.Key;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static com.googlecode.objectify.ObjectifyService.ofy;
 
 /** Interface for interacting with VTS Dashboard entities in Cloud Datastore. */
-public interface DashboardEntity {
+public interface DashboardEntity extends Serializable {
     /**
-     * Serialize the DashboardEntity to an Entity object.
+     * Save the Entity to the datastore.
      *
-     * @return Entity object representing the properties defined in the DashboardEntity.
+     * @return The saved entity's key value.
      */
-    public Entity toEntity();
+    <T> Key<T> save();
+
+    /** Save List of entity through objectify entities method. */
+    static <T> Map<Key<T>, T> saveAll(List<T> entityList, int maxEntitySize) {
+        return ofy().transact(
+                        () -> {
+                            List<List<T>> partitionedList =
+                                    Lists.partition(entityList, maxEntitySize);
+                            return partitionedList
+                                    .stream()
+                                    .map(
+                                            subEntityList ->
+                                                    ofy().save().entities(subEntityList).now())
+                                    .flatMap(m -> m.entrySet().stream())
+                                    .collect(
+                                            Collectors.toMap(
+                                                    entry -> entry.getKey(),
+                                                    entry -> entry.getValue()));
+                        });
+    }
 }

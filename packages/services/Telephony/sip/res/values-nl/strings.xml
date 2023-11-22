@@ -19,13 +19,13 @@
     <string name="sip_settings" msgid="3768482698061677257">"SIP-instelllingen"</string>
     <string name="sip_accounts" msgid="85559497282185405">"SIP-accounts"</string>
     <string name="sip_accounts_title" msgid="2082527045326874519">"Accounts"</string>
-    <string name="sip_receive_calls" msgid="426678617137462173">"Binnenkomende oproepen ontvangen"</string>
+    <string name="sip_receive_calls" msgid="426678617137462173">"Binnenkomende gesprekken ontvangen"</string>
     <string name="sip_receive_calls_summary" msgid="946161517528227523">"Gebruikt meer batterijlading"</string>
-    <string name="sip_call_options_title" msgid="8421210494703869806">"SIP-oproepen gebruiken"</string>
-    <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"SIP-oproepen gebruiken (alleen wifi)"</string>
-    <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Voor alle oproepen indien gegevensnetwerk beschikbaar is"</string>
-    <string name="sip_call_options_entry_2" msgid="1815335903940609729">"Alleen voor SIP-oproepen"</string>
-    <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"Voor alle oproepen"</string>
+    <string name="sip_call_options_title" msgid="8421210494703869806">"SIP-gesprekken gebruiken"</string>
+    <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"SIP-gesprekken gebruiken (alleen wifi)"</string>
+    <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Voor alle gesprekken indien gegevensnetwerk beschikbaar is"</string>
+    <string name="sip_call_options_entry_2" msgid="1815335903940609729">"Alleen voor SIP-gesprekken"</string>
+    <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"Voor alle gesprekken"</string>
     <string name="add_sip_account" msgid="800843669753980091">"Account toevoegen"</string>
     <string name="remove_sip_account" msgid="1367664438506503690">"Account verwijderen"</string>
     <string name="sip_account_list" msgid="5610858485304821480">"SIP-accounts"</string>
@@ -39,11 +39,11 @@
     <string name="registration_status_checking_status" msgid="6136793741862200337">"Status controleren..."</string>
     <string name="registration_status_registering" msgid="2677183977796278749">"Registreren…"</string>
     <string name="registration_status_still_trying" msgid="7648151061205513458">"Nog steeds bezig…"</string>
-    <string name="registration_status_not_receiving" msgid="7620333886153361090">"Oproepen worden niet ontvangen."</string>
+    <string name="registration_status_not_receiving" msgid="7620333886153361090">"Gesprekken worden niet ontvangen."</string>
     <string name="registration_status_no_data" msgid="2541999976218192413">"Accountregistratie gestopt omdat er geen internetverbinding is."</string>
     <string name="registration_status_no_wifi_data" msgid="9154717387473039546">"Accountregistratie gestopt omdat er geen wifi-verbinding is."</string>
     <string name="registration_status_not_running" msgid="514205414303796800">"Accountregistratie mislukt."</string>
-    <string name="registration_status_done" msgid="3264961069247314253">"Oproepen worden ontvangen."</string>
+    <string name="registration_status_done" msgid="3264961069247314253">"Gesprekken worden ontvangen."</string>
     <string name="registration_status_failed_try_later" msgid="2199970021756384317">"Accountregistratie mislukt: (<xliff:g id="REGISTRATION_ERROR_MESSAGE">%s</xliff:g>). We proberen het later opnieuw."</string>
     <string name="registration_status_invalid_credentials" msgid="8406872554323334182">"Accountregistratie mislukt: gebruikersnaam of wachtwoord onjuist."</string>
     <string name="registration_status_server_unreachable" msgid="7710275557045148634">"Accountregistratie mislukt: controleer de servernaam."</string>
@@ -71,10 +71,10 @@
     <string name="all_empty_alert" msgid="4087734950375192387">"Geef details op voor nieuw SIP-account."</string>
     <string name="empty_alert" msgid="6659484914371384024">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> is verplicht en mag niet leeg worden gelaten."</string>
     <string name="not_a_valid_port" msgid="7931422555587011830">"Het poortnummer moet tussen 1000 en 65534 liggen."</string>
-    <string name="no_internet_available" msgid="5523747991760017298">"Als je een SIP-oproep wilt plaatsen, controleer je eerst je internetverbinding."</string>
-    <string name="no_wifi_available" msgid="1955023904229673488">"Je moet verbinding hebben met een wifi-netwerk voor SIP-oproepen (gebruik de instellingen bij \'Draadloos en netwerken\')."</string>
-    <string name="no_voip" msgid="3038021971231952704">"SIP-oproepen worden niet ondersteund"</string>
+    <string name="no_internet_available" msgid="5523747991760017298">"Als je een SIP-gesprek wilt plaatsen, controleer je eerst je internetverbinding."</string>
+    <string name="no_wifi_available" msgid="1955023904229673488">"Je moet verbinding hebben met een wifi-netwerk voor SIP-gesprekken (gebruik de instellingen bij \'Draadloos en netwerken\')."</string>
+    <string name="no_voip" msgid="3038021971231952704">"SIP-gesprekken worden niet ondersteund"</string>
     <string name="sip_system_decide" msgid="5577696249416700671">"Automatisch"</string>
     <string name="sip_always_send_keepalive" msgid="4773022409239823318">"Altijd verzenden"</string>
-    <string name="sip_connection_service_label" msgid="6935325004265884453">"Ingebouwde SIP-oproepen"</string>
+    <string name="sip_connection_service_label" msgid="6935325004265884453">"Ingebouwde SIP-gesprekken"</string>
 </resources>

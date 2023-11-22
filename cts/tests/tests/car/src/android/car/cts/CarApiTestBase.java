@@ -16,18 +16,26 @@
 
 package android.car.cts;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
+
 import android.car.Car;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.os.Looper;
-import android.test.AndroidTestCase;
+
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.FeatureUtil;
+
+import org.junit.After;
 
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-
-public class CarApiTestBase extends AndroidTestCase {
+public abstract class CarApiTestBase {
     protected static final long DEFAULT_WAIT_TIMEOUT_MS = 1000;
 
     private Car mCar;
@@ -39,18 +47,21 @@ public class CarApiTestBase extends AndroidTestCase {
         assertTrue(Looper.getMainLooper().isCurrentThread());
     }
 
-    @Override
     protected void setUp() throws Exception {
-        super.setUp();
-        mCar = Car.createCar(getContext(), mConnectionListener, null);
+        assumeTrue(FeatureUtil.isAutomotive());
+
+        Context context =
+                InstrumentationRegistry.getInstrumentation().getTargetContext();
+        mCar = Car.createCar(context, mConnectionListener, null);
         mCar.connect();
         mConnectionListener.waitForConnection(DEFAULT_WAIT_TIMEOUT_MS);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-        mCar.disconnect();
+    @After
+    public void disconnectCar() throws Exception {
+        if (mCar != null) {
+            mCar.disconnect();
+        }
     }
 
     protected synchronized Car getCar() {

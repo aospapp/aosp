@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"გაზიარება"</string>
     <string name="menu_delete" msgid="1022254131543256626">"წაშლა"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"ყველას არჩევა"</string>
+    <string name="menu_select" msgid="1366061076507142387">"არჩევა"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"სორტირება კრიტერიუმით..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"კოპირება…"</string>
     <string name="menu_move" msgid="2310760789561129882">"გადაადგილება..."</string>
     <string name="menu_compress" msgid="37539111904724188">"შეკუმშვა"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"ტიპი"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"ზომა"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"ცვლილება"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ფაილის სახელი (ა-ჰ)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"ტიპი (ა-ჰ)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"ზომა (ჯერ უმცირესი)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"ცვლილება (ჯერ უძველესი)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ფაილის სახელი (ჰ-ა)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"ტიპი (ჰ-ა)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"ზომა (ჯერ უდიდესი)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"ცვლილება (ჯერ უახლესი)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"დალაგება კრიტერიუმით:"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"დალ. კრიტერიუმი: <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"ერთეულების რაოდენობა"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ზრდადი"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"კლებადი"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g>-ის გახსნა"</string>
     <string name="drawer_open" msgid="8071673398187261741">"ფესვების ჩვენება"</string>
     <string name="drawer_close" msgid="4263880768630848848">"ფესვების დამალვა"</string>
     <string name="save_error" msgid="8631128801982095782">"დოკუმენტის შენახვა ვერ მოხერხდა"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"გსურთ, <xliff:g id="APPNAME"><b>^1</b></xliff:g> სარგებლობდეს <xliff:g id="STORAGE"><i>^3</i></xliff:g>-ის დირექტორიაზე „<xliff:g id="DIRECTORY"><i>^2</i></xliff:g>“ წვდომის უფლებით?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"გსურთ, <xliff:g id="APPNAME"><b>^1</b></xliff:g> სარგებლობდეს დირექტორიაზე „<xliff:g id="DIRECTORY"><i>^2</i></xliff:g>“ წვდომის უფლებით?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"გსურთ, <xliff:g id="APPNAME"><b>^1</b></xliff:g> სარგებლობდეს <xliff:g id="STORAGE"><i>^2</i></xliff:g>-ზე არსებულ მონაცემებზე, მათ შორის, ფოტოებსა და ვიდეოებზე, წვდომის უფლებით?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"აღარ მკითხოთ"</string>
     <string name="allow" msgid="1275746941353040309">"დაშვება"</string>
     <string name="deny" msgid="5127201668078153379">"უარყოფა"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"არქივი<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"გსურთ <xliff:g id="NAME">%1$s</xliff:g>-ზე გადაწერა?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"ფონურ რეჟიმში გაგრძელება"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other">არჩეულია <xliff:g id="COUNT_1">%1$d</xliff:g></item>
+      <item quantity="one">არჩეულია <xliff:g id="COUNT_0">%1$d</xliff:g></item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"ბოლოდროინდელი ფაილები ტელეფონზე"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"ფაილები ტელეფონზე"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> ტელეფონზე"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"ფაილები <xliff:g id="DEVICE">%1$s</xliff:g>-ზე"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"ფაილები <xliff:g id="LABEL">%1$s</xliff:g>-იდან"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"ფაილები <xliff:g id="LABEL">%1$s</xliff:g>-იდან / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"ბოლოდროინდელი სურათები ტელეფონზე"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"სურათები ტელეფონზე"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"სურათები <xliff:g id="DEVICE">%1$s</xliff:g>-ზე"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"სურათები <xliff:g id="LABEL">%1$s</xliff:g>-დან"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"სურათები <xliff:g id="LABEL">%1$s</xliff:g>-დან / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"სურათები"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"აუდიო"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"ვიდეოები"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"დოკუმენტები"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"საქაღალდის სახელი"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"ახალი სახელი"</string>
+    <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> ფაილის გადახედვა"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"ფაილების დათვალიერება სხვა აპებში"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"ანონიმური"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"„<xliff:g id="DIRECTORY">%1$s</xliff:g>“-ზე წვდომის დაშვება"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"დაიშვას წვდომა „<xliff:g id="DIRECTORY">%1$s</xliff:g>“-ზე „<xliff:g id="ROOT">%2$s</xliff:g>“-ში?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"ეს ქმედება მიანიჭებს „<xliff:g id="APPNAME">%1$s</xliff:g>“-ს სრულ წვდომას ყველა ფაილზე, რომელიც ამჟამად ინახება ამ მდებარეობაზე და რომელიც მომავალში შეინახება."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"ამ ტელეფონში ძიება"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"ძიების ისტორიის წაშლა <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

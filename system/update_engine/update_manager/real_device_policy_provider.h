@@ -20,6 +20,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 
 #include <brillo/message_loops/message_loop.h>
 #include <gtest/gtest_prod.h>  // for FRIEND_TEST
@@ -71,29 +72,41 @@ class RealDevicePolicyProvider : public DevicePolicyProvider {
     return &var_target_version_prefix_;
   }
 
+  Variable<RollbackToTargetVersion>* var_rollback_to_target_version() override {
+    return &var_rollback_to_target_version_;
+  }
+
+  Variable<int>* var_rollback_allowed_milestones() override {
+    return &var_rollback_allowed_milestones_;
+  }
+
   Variable<base::TimeDelta>* var_scatter_factor() override {
     return &var_scatter_factor_;
   }
 
   Variable<std::set<chromeos_update_engine::ConnectionType>>*
-      var_allowed_connection_types_for_update() override {
+  var_allowed_connection_types_for_update() override {
     return &var_allowed_connection_types_for_update_;
   }
 
-  Variable<std::string>* var_owner() override {
-    return &var_owner_;
-  }
+  Variable<std::string>* var_owner() override { return &var_owner_; }
 
   Variable<bool>* var_http_downloads_enabled() override {
     return &var_http_downloads_enabled_;
   }
 
-  Variable<bool>* var_au_p2p_enabled() override {
-    return &var_au_p2p_enabled_;
-  }
+  Variable<bool>* var_au_p2p_enabled() override { return &var_au_p2p_enabled_; }
 
   Variable<bool>* var_allow_kiosk_app_control_chrome_version() override {
     return &var_allow_kiosk_app_control_chrome_version_;
+  }
+
+  Variable<std::string>* var_auto_launched_kiosk_app_id() override {
+    return &var_auto_launched_kiosk_app_id_;
+  }
+
+  Variable<WeeklyTimeIntervalVector>* var_disallowed_time_intervals() override {
+    return &var_disallowed_time_intervals_;
   }
 
  private:
@@ -119,16 +132,21 @@ class RealDevicePolicyProvider : public DevicePolicyProvider {
 
   // Updates the async variable |var| based on the result value of the method
   // passed, which is a DevicePolicy getter method.
-  template<typename T>
+  template <typename T>
   void UpdateVariable(AsyncCopyVariable<T>* var,
                       bool (policy::DevicePolicy::*getter_method)(T*) const);
 
   // Updates the async variable |var| based on the result value of the getter
   // method passed, which is a wrapper getter on this class.
-  template<typename T>
-  void UpdateVariable(
-      AsyncCopyVariable<T>* var,
-      bool (RealDevicePolicyProvider::*getter_method)(T*) const);
+  template <typename T>
+  void UpdateVariable(AsyncCopyVariable<T>* var,
+                      bool (RealDevicePolicyProvider::*getter_method)(T*)
+                          const);
+
+  // Wrapper for DevicePolicy::GetRollbackToTargetVersion() that converts the
+  // result to RollbackToTargetVersion.
+  bool ConvertRollbackToTargetVersion(
+      RollbackToTargetVersion* rollback_to_target_version) const;
 
   // Wrapper for DevicePolicy::GetScatterFactorInSeconds() that converts the
   // result to a base::TimeDelta. It returns the same value as
@@ -139,6 +157,12 @@ class RealDevicePolicyProvider : public DevicePolicyProvider {
   // converts the result to a set of ConnectionType elements instead of strings.
   bool ConvertAllowedConnectionTypesForUpdate(
       std::set<chromeos_update_engine::ConnectionType>* allowed_types) const;
+
+  // Wrapper for DevicePolicy::GetUpdateTimeRestrictions() that converts
+  // the DevicePolicy::WeeklyTimeInterval structs to WeeklyTimeInterval objects,
+  // which offer more functionality.
+  bool ConvertDisallowedTimeIntervals(
+      WeeklyTimeIntervalVector* disallowed_intervals_out) const;
 
   // Used for fetching information about the device policy.
   policy::PolicyProvider* policy_provider_;
@@ -154,8 +178,8 @@ class RealDevicePolicyProvider : public DevicePolicyProvider {
 #endif  // USE_DBUS
 
   // Variable exposing whether the policy is loaded.
-  AsyncCopyVariable<bool> var_device_policy_is_loaded_{
-      "policy_is_loaded", false};
+  AsyncCopyVariable<bool> var_device_policy_is_loaded_{"policy_is_loaded",
+                                                       false};
 
   // Variables mapping the exposed methods from the policy::DevicePolicy.
   AsyncCopyVariable<std::string> var_release_channel_{"release_channel"};
@@ -164,6 +188,10 @@ class RealDevicePolicyProvider : public DevicePolicyProvider {
   AsyncCopyVariable<bool> var_update_disabled_{"update_disabled"};
   AsyncCopyVariable<std::string> var_target_version_prefix_{
       "target_version_prefix"};
+  AsyncCopyVariable<RollbackToTargetVersion> var_rollback_to_target_version_{
+      "rollback_to_target_version"};
+  AsyncCopyVariable<int> var_rollback_allowed_milestones_{
+      "rollback_allowed_milestones"};
   AsyncCopyVariable<base::TimeDelta> var_scatter_factor_{"scatter_factor"};
   AsyncCopyVariable<std::set<chromeos_update_engine::ConnectionType>>
       var_allowed_connection_types_for_update_{
@@ -173,6 +201,10 @@ class RealDevicePolicyProvider : public DevicePolicyProvider {
   AsyncCopyVariable<bool> var_au_p2p_enabled_{"au_p2p_enabled"};
   AsyncCopyVariable<bool> var_allow_kiosk_app_control_chrome_version_{
       "allow_kiosk_app_control_chrome_version"};
+  AsyncCopyVariable<WeeklyTimeIntervalVector> var_disallowed_time_intervals_{
+      "update_time_restrictions"};
+  AsyncCopyVariable<std::string> var_auto_launched_kiosk_app_id_{
+      "auto_launched_kiosk_app_id"};
 
   DISALLOW_COPY_AND_ASSIGN(RealDevicePolicyProvider);
 };

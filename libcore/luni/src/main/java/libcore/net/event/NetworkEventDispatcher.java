@@ -16,12 +16,16 @@
 
 package libcore.net.event;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * A singleton used to dispatch network events to registered listeners.
+ *
+ * @hide
  */
+@libcore.api.CorePlatformApi
 public class NetworkEventDispatcher {
 
   private static final NetworkEventDispatcher instance = new NetworkEventDispatcher();
@@ -32,6 +36,8 @@ public class NetworkEventDispatcher {
   /**
    * Returns the shared {@link NetworkEventDispatcher} instance.
    */
+  @UnsupportedAppUsage
+  @libcore.api.CorePlatformApi
   public static NetworkEventDispatcher getInstance() {
     return instance;
   }
@@ -44,6 +50,7 @@ public class NetworkEventDispatcher {
    * Registers a listener to be notified when network events occur.
    * It can be deregistered using {@link #removeListener(NetworkEventListener)}
    */
+  @UnsupportedAppUsage
   public void addListener(NetworkEventListener toAdd) {
     if (toAdd == null) {
       throw new NullPointerException("toAdd == null");
@@ -67,6 +74,7 @@ public class NetworkEventDispatcher {
   /**
    * Notifies registered listeners of a network configuration change.
    */
+  @libcore.api.CorePlatformApi
   public void onNetworkConfigurationChanged() {
     for (NetworkEventListener listener : listeners) {
       try {

@@ -14,13 +14,17 @@
 
 package android.accessibilityservice.cts;
 
-import static android.view.accessibility.AccessibilityNodeInfo
-        .EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH;
-import static android.view.accessibility.AccessibilityNodeInfo
-        .EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX;
-import static android.view.accessibility.AccessibilityNodeInfo
-        .EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
+import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityAndWaitForItToBeOnscreen;
+import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
+import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH;
+import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX;
+import static android.view.accessibility.AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -28,6 +32,7 @@ import static org.mockito.Mockito.verify;
 
 import android.accessibilityservice.cts.R;
 import android.accessibilityservice.cts.activities.AccessibilityTextTraversalActivity;
+import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.graphics.RectF;
 import android.os.Bundle;
@@ -46,6 +51,17 @@ import android.view.accessibility.AccessibilityRequestPreparer;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -54,33 +70,45 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Test cases for actions taken on text views.
  */
-public class AccessibilityTextActionTest extends
-        AccessibilityActivityTestCase<AccessibilityTextTraversalActivity> {
+@RunWith(AndroidJUnit4.class)
+public class AccessibilityTextActionTest {
+    private static Instrumentation sInstrumentation;
+    private static UiAutomation sUiAutomation;
     final Object mClickableSpanCallbackLock = new Object();
     final AtomicBoolean mClickableSpanCalled = new AtomicBoolean(false);
-    UiAutomation mUiAutomation;
+    
 
-    public AccessibilityTextActionTest() {
-        super(AccessibilityTextTraversalActivity.class);
+    private AccessibilityTextTraversalActivity mActivity;
+
+    @Rule
+    public ActivityTestRule<AccessibilityTextTraversalActivity> mActivityRule =
+            new ActivityTestRule<>(AccessibilityTextTraversalActivity.class, false, false);
+
+    @BeforeClass
+    public static void oneTimeSetup() throws Exception {
+        sInstrumentation = InstrumentationRegistry.getInstrumentation();
+        sUiAutomation = sInstrumentation.getUiAutomation();
     }
 
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
-        mUiAutomation = getInstrumentation().getUiAutomation();
+        mActivity = launchActivityAndWaitForItToBeOnscreen(
+                sInstrumentation, sUiAutomation, mActivityRule);
         mClickableSpanCalled.set(false);
     }
 
-    public void tearDown() throws Exception {
-        mUiAutomation.destroy();
-        super.tearDown();
+    @AfterClass
+    public static void postTestTearDown() {
+        sUiAutomation.destroy();
     }
 
+    @Test
     public void testNotEditableTextView_shouldNotExposeOrRespondToSetTextAction() {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
-        makeTextViewVisibleAndSetText(textView, getString(R.string.a_b));
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
+        makeTextViewVisibleAndSetText(textView, mActivity.getString(R.string.a_b));
 
-        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
-                .findAccessibilityNodeInfosByText(getString(R.string.a_b)).get(0);
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(mActivity.getString(R.string.a_b)).get(0);
 
         assertFalse("Standard text view should not support SET_TEXT", text.getActionList()
                 .contains(AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT));
@@ -88,27 +116,28 @@ public class AccessibilityTextActionTest extends
                 text.getActions() & AccessibilityNodeInfo.ACTION_SET_TEXT);
         Bundle args = new Bundle();
         args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                getString(R.string.text_input_blah));
+                mActivity.getString(R.string.text_input_blah));
         assertFalse(text.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args));
 
-        getInstrumentation().waitForIdleSync();
+        sInstrumentation.waitForIdleSync();
         assertTrue("Text view should not update on failed set text",
-                TextUtils.equals(getString(R.string.a_b), textView.getText()));
+                TextUtils.equals(mActivity.getString(R.string.a_b), textView.getText()));
     }
 
+    @Test
     public void testEditableTextView_shouldExposeAndRespondToSetTextAction() {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 textView.setVisibility(View.VISIBLE);
-                textView.setText(getString(R.string.a_b), TextView.BufferType.EDITABLE);
+                textView.setText(mActivity.getString(R.string.a_b), TextView.BufferType.EDITABLE);
             }
         });
 
-        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
-                .findAccessibilityNodeInfosByText(getString(R.string.a_b)).get(0);
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(mActivity.getString(R.string.a_b)).get(0);
 
         assertTrue("Editable text view should support SET_TEXT", text.getActionList()
                 .contains(AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT));
@@ -117,23 +146,24 @@ public class AccessibilityTextActionTest extends
                 text.getActions() & AccessibilityNodeInfo.ACTION_SET_TEXT);
 
         Bundle args = new Bundle();
-        String textToSet = getString(R.string.text_input_blah);
+        String textToSet = mActivity.getString(R.string.text_input_blah);
         args.putCharSequence(
                 AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, textToSet);
 
         assertTrue(text.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args));
 
-        getInstrumentation().waitForIdleSync();
+        sInstrumentation.waitForIdleSync();
         assertTrue("Editable text should update on set text",
                 TextUtils.equals(textToSet, textView.getText()));
     }
 
+    @Test
     public void testEditText_shouldExposeAndRespondToSetTextAction() {
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
-        makeTextViewVisibleAndSetText(editText, getString(R.string.a_b));
+        final EditText editText = (EditText) mActivity.findViewById(R.id.edit);
+        makeTextViewVisibleAndSetText(editText, mActivity.getString(R.string.a_b));
 
-        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
-                .findAccessibilityNodeInfosByText(getString(R.string.a_b)).get(0);
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(mActivity.getString(R.string.a_b)).get(0);
 
         assertTrue("EditText should support SET_TEXT", text.getActionList()
                 .contains(AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_TEXT));
@@ -142,19 +172,20 @@ public class AccessibilityTextActionTest extends
                 text.getActions() & AccessibilityNodeInfo.ACTION_SET_TEXT);
 
         Bundle args = new Bundle();
-        String textToSet = getString(R.string.text_input_blah);
+        String textToSet = mActivity.getString(R.string.text_input_blah);
         args.putCharSequence(
                 AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, textToSet);
 
         assertTrue(text.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args));
 
-        getInstrumentation().waitForIdleSync();
+        sInstrumentation.waitForIdleSync();
         assertTrue("EditText should update on set text",
                 TextUtils.equals(textToSet, editText.getText()));
     }
 
+    @Test
     public void testClickableSpan_shouldWorkFromAccessibilityService() {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
         final ClickableSpan clickableSpan = new ClickableSpan() {
             @Override
             public void onClick(View widget) {
@@ -162,7 +193,8 @@ public class AccessibilityTextActionTest extends
                 onClickCallback();
             }
         };
-        final SpannableString textWithClickableSpan = new SpannableString(getString(R.string.a_b));
+        final SpannableString textWithClickableSpan =
+                new SpannableString(mActivity.getString(R.string.a_b));
         textWithClickableSpan.setSpan(clickableSpan, 0, 1, 0);
         makeTextViewVisibleAndSetText(textView, textWithClickableSpan);
 
@@ -172,8 +204,9 @@ public class AccessibilityTextActionTest extends
         assertOnClickCalled();
     }
 
+    @Test
     public void testUrlSpan_shouldWorkFromAccessibilityService() {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
         final String url = "com.android.some.random.url";
         final URLSpan urlSpan = new URLSpan(url) {
             @Override
@@ -182,7 +215,8 @@ public class AccessibilityTextActionTest extends
                 onClickCallback();
             }
         };
-        final SpannableString textWithClickableSpan = new SpannableString(getString(R.string.a_b));
+        final SpannableString textWithClickableSpan =
+                new SpannableString(mActivity.getString(R.string.a_b));
         textWithClickableSpan.setSpan(urlSpan, 0, 1, 0);
         makeTextViewVisibleAndSetText(textView, textWithClickableSpan);
 
@@ -193,16 +227,16 @@ public class AccessibilityTextActionTest extends
         assertOnClickCalled();
     }
 
-
+    @Test
     public void testTextLocations_textViewShouldProvideWhenRequested() {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
         // Use text with a strong s, since that gets replaced with a double s for all caps.
         // That replacement requires us to properly handle the length of the string changing.
-        String stringToSet = getString(R.string.german_text_with_strong_s);
+        String stringToSet = mActivity.getString(R.string.german_text_with_strong_s);
         makeTextViewVisibleAndSetText(textView, stringToSet);
-        getInstrumentation().runOnMainSync(() -> textView.setAllCaps(true));
+        sInstrumentation.runOnMainSync(() -> textView.setAllCaps(true));
 
-        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
                 .findAccessibilityNodeInfosByText(stringToSet).get(0);
         List<String> textAvailableExtraData = text.getAvailableExtraData();
         assertTrue("Text view should offer text location to accessibility",
@@ -215,12 +249,13 @@ public class AccessibilityTextActionTest extends
         assertNodeContainsTextLocationInfoOnOneLineLTR(text);
     }
 
+    @Test
     public void testTextLocations_textOutsideOfViewBounds_locationsShouldBeNull() {
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
-        makeTextViewVisibleAndSetText(editText, getString(R.string.android_wiki));
+        final EditText editText = (EditText) mActivity.findViewById(R.id.edit);
+        makeTextViewVisibleAndSetText(editText, mActivity.getString(R.string.android_wiki));
 
-        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
-                .findAccessibilityNodeInfosByText(getString(R.string.android_wiki)).get(0);
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(mActivity.getString(R.string.android_wiki)).get(0);
         List<String> textAvailableExtraData = text.getAvailableExtraData();
         assertTrue("Text view should offer text location to accessibility",
                 textAvailableExtraData.contains(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY));
@@ -249,7 +284,7 @@ public class AccessibilityTextActionTest extends
         }
 
         // Scroll down one line
-        getInstrumentation().runOnMainSync(() -> {
+        sInstrumentation.runOnMainSync(() -> {
             int[] viewPosition = new int[2];
             editText.getLocationOnScreen(viewPosition);
             final int oneLineDownY = (int) locationsBeforeScroll[0].bottom - viewPosition[1];
@@ -268,12 +303,13 @@ public class AccessibilityTextActionTest extends
         assertNotNull(locationsAfterScroll[firstNullRectIndex]);
     }
 
+    @Test
     public void testTextLocations_withRequestPreparer_shouldHoldOffUntilReady() {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
-        makeTextViewVisibleAndSetText(textView, getString(R.string.a_b));
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
+        makeTextViewVisibleAndSetText(textView, mActivity.getString(R.string.a_b));
 
-        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
-                .findAccessibilityNodeInfosByText(getString(R.string.a_b)).get(0);
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(mActivity.getString(R.string.a_b)).get(0);
         final List<String> textAvailableExtraData = text.getAvailableExtraData();
         final Bundle getTextArgs = getTextLocationArguments(text);
 
@@ -284,7 +320,7 @@ public class AccessibilityTextActionTest extends
         Runnable mockRunnableForPrepare = mock(Runnable.class);
 
         AccessibilityManager a11yManager =
-                getActivity().getSystemService(AccessibilityManager.class);
+                mActivity.getSystemService(AccessibilityManager.class);
         AccessibilityRequestPreparer requestPreparer = new AccessibilityRequestPreparer(
                 textView, AccessibilityRequestPreparer.REQUEST_TYPE_EXTRA_DATA) {
             @Override
@@ -304,35 +340,33 @@ public class AccessibilityTextActionTest extends
 
         // Make the extra data request in another thread
         Runnable mockRunnableForData = mock(Runnable.class);
-        new Thread() {
-            @Override
-            public void run() {
+        new Thread(()-> {
                 assertTrue("Refresh failed", text.refreshWithExtraData(
                         EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs));
                 mockRunnableForData.run();
-            }
-        }.start();
+        }).start();
 
         // The extra data request should trigger the request preparer
-        verify(mockRunnableForPrepare, timeout(TIMEOUT_ASYNC_PROCESSING)).run();
+        verify(mockRunnableForPrepare, timeout(DEFAULT_TIMEOUT_MS)).run();
         // Verify that the request for extra data didn't return. This is a bit racy, as we may still
         // not catch it if it does return prematurely, but it does provide some protection.
-        getInstrumentation().waitForIdleSync();
+        sInstrumentation.waitForIdleSync();
         verify(mockRunnableForData, times(0)).run();
 
         // Declare preparation for the request complete, and verify that it runs to completion
         messageRefForPrepare.get().sendToTarget();
-        verify(mockRunnableForData, timeout(TIMEOUT_ASYNC_PROCESSING)).run();
+        verify(mockRunnableForData, timeout(DEFAULT_TIMEOUT_MS)).run();
         assertNodeContainsTextLocationInfoOnOneLineLTR(text);
         a11yManager.removeAccessibilityRequestPreparer(requestPreparer);
     }
 
+    @Test
     public void testTextLocations_withUnresponsiveRequestPreparer_shouldTimeout() {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
-        makeTextViewVisibleAndSetText(textView, getString(R.string.a_b));
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
+        makeTextViewVisibleAndSetText(textView, mActivity.getString(R.string.a_b));
 
-        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
-                .findAccessibilityNodeInfosByText(getString(R.string.a_b)).get(0);
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(mActivity.getString(R.string.a_b)).get(0);
         final List<String> textAvailableExtraData = text.getAvailableExtraData();
         final Bundle getTextArgs = getTextLocationArguments(text);
 
@@ -340,7 +374,7 @@ public class AccessibilityTextActionTest extends
         Runnable mockRunnableForPrepare = mock(Runnable.class);
 
         AccessibilityManager a11yManager =
-                getActivity().getSystemService(AccessibilityManager.class);
+                mActivity.getSystemService(AccessibilityManager.class);
         AccessibilityRequestPreparer requestPreparer = new AccessibilityRequestPreparer(
                 textView, AccessibilityRequestPreparer.REQUEST_TYPE_EXTRA_DATA) {
             @Override
@@ -354,23 +388,20 @@ public class AccessibilityTextActionTest extends
 
         // Make the extra data request in another thread
         Runnable mockRunnableForData = mock(Runnable.class);
-        new Thread() {
-            @Override
-            public void run() {
-                /*
-                 * Don't worry about the return value, as we're timing out. We're just making
-                 * sure that we don't hang the system.
-                 */
-                text.refreshWithExtraData(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs);
-                mockRunnableForData.run();
-            }
-        }.start();
+        new Thread(() -> {
+            /*
+             * Don't worry about the return value, as we're timing out. We're just making
+             * sure that we don't hang the system.
+             */
+            text.refreshWithExtraData(EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY, getTextArgs);
+            mockRunnableForData.run();
+        }).start();
 
         // The extra data request should trigger the request preparer
-        verify(mockRunnableForPrepare, timeout(TIMEOUT_ASYNC_PROCESSING)).run();
+        verify(mockRunnableForPrepare, timeout(DEFAULT_TIMEOUT_MS)).run();
 
         // Declare preparation for the request complete, and verify that it runs to completion
-        verify(mockRunnableForData, timeout(TIMEOUT_ASYNC_PROCESSING)).run();
+        verify(mockRunnableForData, timeout(DEFAULT_TIMEOUT_MS)).run();
         a11yManager.removeAccessibilityRequestPreparer(requestPreparer);
     }
 
@@ -388,8 +419,8 @@ public class AccessibilityTextActionTest extends
         assertEquals(info.getText().length(), locations.length);
         // The text should all be on one line, running left to right
         for (int i = 0; i < locations.length; i++) {
-            assertEquals(locations[0].top, locations[i].top);
-            assertEquals(locations[0].bottom, locations[i].bottom);
+            assertEquals(locations[0].top, locations[i].top, 0.01);
+            assertEquals(locations[0].bottom, locations[i].bottom, 0.01);
             assertTrue(locations[i].right > locations[i].left);
             if (i > 0) {
                 assertTrue(locations[i].left > locations[i-1].left);
@@ -406,7 +437,7 @@ public class AccessibilityTextActionTest extends
 
     private void assertOnClickCalled() {
         synchronized (mClickableSpanCallbackLock) {
-            long endTime = System.currentTimeMillis() + TIMEOUT_ASYNC_PROCESSING;
+            long endTime = System.currentTimeMillis() + DEFAULT_TIMEOUT_MS;
             while (!mClickableSpanCalled.get() && (System.currentTimeMillis() < endTime)) {
                 try {
                     mClickableSpanCallbackLock.wait(endTime - System.currentTimeMillis());
@@ -417,8 +448,8 @@ public class AccessibilityTextActionTest extends
     }
 
     private <T> T findSingleSpanInViewWithText(int stringId, Class<T> type) {
-        final AccessibilityNodeInfo text = mUiAutomation.getRootInActiveWindow()
-                .findAccessibilityNodeInfosByText(getString(stringId)).get(0);
+        final AccessibilityNodeInfo text = sUiAutomation.getRootInActiveWindow()
+                .findAccessibilityNodeInfosByText(mActivity.getString(stringId)).get(0);
         CharSequence accessibilityTextWithSpan = text.getText();
         // The span should work even with the node recycled
         text.recycle();
@@ -431,7 +462,7 @@ public class AccessibilityTextActionTest extends
     }
 
     private void makeTextViewVisibleAndSetText(final TextView textView, final CharSequence text) {
-        getInstrumentation().runOnMainSync(() -> {
+        sInstrumentation.runOnMainSync(() -> {
             textView.setVisibility(View.VISIBLE);
             textView.setText(text);
         });

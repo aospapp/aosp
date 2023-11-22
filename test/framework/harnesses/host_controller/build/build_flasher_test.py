@@ -128,7 +128,7 @@ class BuildFlasherTest(unittest.TestCase):
         ret = flasher.RepackageArtifacts(device_images, "incorrect")
         self.assertFalse(ret)
         mock_logger.error.assert_called_with(
-            "Please specify correct repackage form: --repackage=incorrect")
+            "Please specify correct repackage form: --repackage=%s" ,"incorrect")
 
 
 if __name__ == "__main__":

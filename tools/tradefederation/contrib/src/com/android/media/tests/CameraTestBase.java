@@ -97,8 +97,12 @@ public class CameraTestBase implements IDeviceTest, IRemoteTest, IConfigurationR
     @Option(name = "ru-key", description = "Result key to use when posting to the dashboard.")
     private String mRuKey = null;
 
-    @Option(name = "logcat-on-failure", description =
-            "take a logcat snapshot on every test failure.")
+    /** Rely on invocation level logcat capture rather than this. */
+    @Deprecated
+    @Option(
+        name = "logcat-on-failure",
+        description = "take a logcat snapshot on every test failure."
+    )
     private boolean mLogcatOnFailure = false;
 
     @Option(
@@ -189,7 +193,6 @@ public class CameraTestBase implements IDeviceTest, IRemoteTest, IConfigurationR
         instr.setClassName(getTestClass());
         instr.setTestTimeout(getTestTimeoutMs());
         instr.setShellTimeout(getShellTimeoutMs());
-        instr.setLogcatOnFailure(mLogcatOnFailure);
         instr.setRunName(getRuKey());
         instr.setRerunMode(false);
 

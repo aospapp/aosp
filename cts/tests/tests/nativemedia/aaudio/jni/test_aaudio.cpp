@@ -62,11 +62,12 @@ class AAudioInputStreamTest : public AAudioStreamTest<InputStreamBuilderHelper> 
 };
 
 void AAudioInputStreamTest::SetUp() {
+    mSetupSuccesful = false;
+    if (!deviceSupportsFeature(FEATURE_RECORDING)) return;
     mHelper.reset(new InputStreamBuilderHelper(
                     std::get<PARAM_SHARING_MODE>(GetParam()),
                     std::get<PARAM_PERF_MODE>(GetParam())));
     mHelper->initBuilder();
-    mSetupSuccesful = false;
     mHelper->createAndVerifyStream(&mSetupSuccesful);
     if (!mSetupSuccesful) return;
 
@@ -172,20 +173,20 @@ class AAudioOutputStreamTest : public AAudioStreamTest<OutputStreamBuilderHelper
 };
 
 void AAudioOutputStreamTest::SetUp() {
+    mSetupSuccesful = false;
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     mHelper.reset(new OutputStreamBuilderHelper(
                     std::get<PARAM_SHARING_MODE>(GetParam()),
                     std::get<PARAM_PERF_MODE>(GetParam())));
     mHelper->initBuilder();
 
-    mSetupSuccesful = false;
     mHelper->createAndVerifyStream(&mSetupSuccesful);
     if (!mSetupSuccesful) return;
 
     // Allocate a buffer for the audio data.
     // TODO handle possibility of other data formats
     size_t dataSizeSamples = framesPerBurst() * actual().channelCount;
-    mData.reset(new int16_t[dataSizeSamples]);
-    memset(&mData[0], 0, dataSizeSamples);
+    mData.reset(new int16_t[dataSizeSamples]{});
 }
 
 TEST_P(AAudioOutputStreamTest, testWriting) {
@@ -366,10 +367,3 @@ INSTANTIATE_TEST_CASE_P(SPM, AAudioOutputStreamTest,
                 std::make_tuple(
                         AAUDIO_SHARING_MODE_EXCLUSIVE, AAUDIO_PERFORMANCE_MODE_POWER_SAVING)),
         &getTestName);
-
-
-int main(int argc, char **argv) {
-    testing::InitGoogleTest(&argc, argv);
-
-    return RUN_ALL_TESTS();
-}

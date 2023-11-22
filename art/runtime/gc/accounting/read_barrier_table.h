@@ -20,10 +20,10 @@
 #include <sys/mman.h>  // For the PROT_* and MAP_* constants.
 
 #include "base/bit_utils.h"
-#include "base/mutex.h"
+#include "base/locks.h"
+#include "base/mem_map.h"
 #include "gc/space/space.h"
-#include "globals.h"
-#include "mem_map.h"
+#include "runtime_globals.h"
 
 namespace art {
 namespace gc {
@@ -39,11 +39,13 @@ class ReadBarrierTable {
     DCHECK_EQ(kHeapCapacity / kRegionSize,
               static_cast<uint64_t>(static_cast<size_t>(kHeapCapacity / kRegionSize)));
     std::string error_msg;
-    MemMap* mem_map = MemMap::MapAnonymous("read barrier table", nullptr, capacity,
-                                           PROT_READ | PROT_WRITE, false, false, &error_msg);
-    CHECK(mem_map != nullptr && mem_map->Begin() != nullptr)
+    mem_map_ = MemMap::MapAnonymous("read barrier table",
+                                    capacity,
+                                    PROT_READ | PROT_WRITE,
+                                    /*low_4gb=*/ false,
+                                    &error_msg);
+    CHECK(mem_map_.IsValid() && mem_map_.Begin() != nullptr)
         << "couldn't allocate read barrier table: " << error_msg;
-    mem_map_.reset(mem_map);
   }
   void ClearForSpace(space::ContinuousSpace* space) {
     uint8_t* entry_start = EntryFromAddr(space->Begin());
@@ -66,14 +68,14 @@ class ReadBarrierTable {
     return entry_value == kSetEntryValue;
   }
   void ClearAll() {
-    mem_map_->MadviseDontNeedAndZero();
+    mem_map_.MadviseDontNeedAndZero();
   }
   void SetAll() {
-    memset(mem_map_->Begin(), kSetEntryValue, mem_map_->Size());
+    memset(mem_map_.Begin(), kSetEntryValue, mem_map_.Size());
   }
   bool IsAllCleared() const {
-    for (uint32_t* p = reinterpret_cast<uint32_t*>(mem_map_->Begin());
-         p < reinterpret_cast<uint32_t*>(mem_map_->End()); ++p) {
+    for (uint32_t* p = reinterpret_cast<uint32_t*>(mem_map_.Begin());
+         p < reinterpret_cast<uint32_t*>(mem_map_.End()); ++p) {
       if (*p != 0) {
         return false;
       }
@@ -90,7 +92,7 @@ class ReadBarrierTable {
 
   uint8_t* EntryFromAddr(const void* heap_addr) const {
     DCHECK(IsValidHeapAddr(heap_addr)) << heap_addr;
-    uint8_t* entry_addr = mem_map_->Begin() + reinterpret_cast<uintptr_t>(heap_addr) / kRegionSize;
+    uint8_t* entry_addr = mem_map_.Begin() + reinterpret_cast<uintptr_t>(heap_addr) / kRegionSize;
     DCHECK(IsValidEntry(entry_addr)) << "heap_addr: " << heap_addr
                                      << " entry_addr: " << reinterpret_cast<void*>(entry_addr);
     return entry_addr;
@@ -106,12 +108,12 @@ class ReadBarrierTable {
   }
 
   bool IsValidEntry(const uint8_t* entry_addr) const {
-    uint8_t* begin = mem_map_->Begin();
-    uint8_t* end = mem_map_->End();
+    uint8_t* begin = mem_map_.Begin();
+    uint8_t* end = mem_map_.End();
     return entry_addr >= begin && entry_addr < end;
   }
 
-  std::unique_ptr<MemMap> mem_map_;
+  MemMap mem_map_;
 };
 
 }  // namespace accounting

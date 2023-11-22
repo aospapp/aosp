@@ -169,7 +169,7 @@ bool RecordFileWriter::WriteData(const void* buf, size_t len) {
 }
 
 bool RecordFileWriter::Write(const void* buf, size_t len) {
-  if (fwrite(buf, len, 1, record_fp_) != 1) {
+  if (len != 0u && fwrite(buf, len, 1, record_fp_) != 1) {
     PLOG(ERROR) << "failed to write to record file '" << filename_ << "'";
     return false;
   }
@@ -299,11 +299,14 @@ bool RecordFileWriter::WriteBranchStackFeature() {
 
 bool RecordFileWriter::WriteFileFeatures(const std::vector<Dso*>& files) {
   for (Dso* dso : files) {
-    if (!dso->HasDumpId()) {
+    // Always want to dump dex file offsets for DSO_DEX_FILE type.
+    if (!dso->HasDumpId() && dso->type() != DSO_DEX_FILE) {
       continue;
     }
     uint32_t dso_type = dso->type();
-    uint64_t min_vaddr = dso->MinVirtualAddress();
+    uint64_t min_vaddr;
+    uint64_t file_offset_of_min_vaddr;
+    dso->GetMinExecutableVaddr(&min_vaddr, &file_offset_of_min_vaddr);
 
     // Dumping all symbols in hit files takes too much space, so only dump
     // needed symbols.
@@ -316,7 +319,9 @@ bool RecordFileWriter::WriteFileFeatures(const std::vector<Dso*>& files) {
     }
     std::sort(dump_symbols.begin(), dump_symbols.end(), Symbol::CompareByAddr);
 
-    if (!WriteFileFeature(dso->Path(), dso_type, min_vaddr, dump_symbols)) {
+    const std::vector<uint64_t>* dex_file_offsets = dso->DexFileOffsets();
+    if (!WriteFileFeature(dso->Path(), dso_type, min_vaddr, file_offset_of_min_vaddr,
+                          dump_symbols, dex_file_offsets)) {
       return false;
     }
   }
@@ -326,11 +331,19 @@ bool RecordFileWriter::WriteFileFeatures(const std::vector<Dso*>& files) {
 bool RecordFileWriter::WriteFileFeature(const std::string& file_path,
                                         uint32_t file_type,
                                         uint64_t min_vaddr,
-                                        const std::vector<const Symbol*>& symbols) {
+                                        uint64_t file_offset_of_min_vaddr,
+                                        const std::vector<const Symbol*>& symbols,
+                                        const std::vector<uint64_t>* dex_file_offsets) {
   uint32_t size = file_path.size() + 1 + sizeof(uint32_t) * 2 +
       sizeof(uint64_t) + symbols.size() * (sizeof(uint64_t) + sizeof(uint32_t));
   for (const auto& symbol : symbols) {
     size += strlen(symbol->Name()) + 1;
+  }
+  if (dex_file_offsets != nullptr) {
+    size += sizeof(uint32_t) + sizeof(uint64_t) * dex_file_offsets->size();
+  }
+  if (file_type == DSO_ELF_FILE) {
+    size += sizeof(uint64_t);
   }
   std::vector<char> buf(sizeof(uint32_t) + size);
   char* p = buf.data();
@@ -345,6 +358,14 @@ bool RecordFileWriter::WriteFileFeature(const std::string& file_path,
     uint32_t len = symbol->len;
     MoveToBinaryFormat(len, p);
     MoveToBinaryFormat(symbol->Name(), strlen(symbol->Name()) + 1, p);
+  }
+  if (dex_file_offsets != nullptr) {
+    uint32_t offset_count = dex_file_offsets->size();
+    MoveToBinaryFormat(offset_count, p);
+    MoveToBinaryFormat(dex_file_offsets->data(), offset_count, p);
+  }
+  if (file_type == DSO_ELF_FILE) {
+    MoveToBinaryFormat(file_offset_of_min_vaddr, p);
   }
   CHECK_EQ(buf.size(), static_cast<size_t>(p - buf.data()));
 

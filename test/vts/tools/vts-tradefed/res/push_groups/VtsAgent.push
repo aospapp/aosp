@@ -1,6 +1,12 @@
 DATA/lib/libvts_common.so->/data/local/tmp/32/libvts_common.so
 DATA/lib64/libvts_common.so->/data/local/tmp/64/libvts_common.so
 
+DATA/lib/libvts_resource_driver.so->/data/local/tmp/32/libvts_resource_driver.so
+DATA/lib64/libvts_resource_driver.so->/data/local/tmp/64/libvts_resource_driver.so
+
+DATA/lib/libvts_resource_manager.so->/data/local/tmp/32/libvts_resource_manager.so
+DATA/lib64/libvts_resource_manager.so->/data/local/tmp/64/libvts_resource_manager.so
+
 DATA/lib/libvts_multidevice_proto.so->/data/local/tmp/32/libvts_multidevice_proto.so
 DATA/lib64/libvts_multidevice_proto.so->/data/local/tmp/64/libvts_multidevice_proto.so
 

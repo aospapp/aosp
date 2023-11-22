@@ -32,7 +32,7 @@ import javax.annotation.concurrent.GuardedBy;
  * them, keeping the application's view of the world sane.
  */
 public class DataStore {
-    private static final long COALESCE_TIME_MS = TimeUnit.SECONDS.toMillis(2);
+    private static final long COALESCE_TIME_MS = 0L;
 
     @GuardedBy("mTemperature")
     private SparseArray<Float> mTemperature = new SparseArray<Float>();

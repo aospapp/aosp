@@ -28,7 +28,7 @@ Certificate:
         Subject Public Key Info:
             Public Key Algorithm: id-ecPublicKey
                 Public-Key: (384 bit)
-                pub: 
+                pub:
                     04:92:a0:41:e8:4b:82:84:5c:e2:f8:31:11:99:86:
                     64:4e:09:25:2f:9d:41:2f:0a:ae:35:4f:74:95:b2:
                     51:64:6b:8d:6b:e6:3f:70:95:f0:05:44:47:a6:72:
@@ -37,6 +37,7 @@ Certificate:
                     b4:d7:fa:7b:7a:42:9c:6a:0a:56:5a:7c:69:0b:aa:
                     80:09:24:6c:7e:c1:46
                 ASN1 OID: secp384r1
+                NIST CURVE: P-384
         X509v3 extensions:
             X509v3 Basic Constraints: critical
                 CA:TRUE

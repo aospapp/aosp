@@ -16,8 +16,6 @@
 
 #include <cutils/sockets.h>
 
-#define LOG_TAG "socket-unix"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,42 +25,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <cutils/android_get_control_file.h>
-#include <log/log.h>
-
 #include "android_get_control_env.h"
-
-#ifndef TEMP_FAILURE_RETRY
-#define TEMP_FAILURE_RETRY(exp) (exp) // KISS implementation
-#endif
-
-#if defined(__ANDROID__)
-/* For the socket trust (credentials) check */
-#include <private/android_filesystem_config.h>
-#define __android_unused
-#else
-#define __android_unused __attribute__((__unused__))
-#endif
-
-bool socket_peer_is_trusted(int fd __android_unused) {
-#if defined(__ANDROID__)
-    ucred cr;
-    socklen_t len = sizeof(cr);
-    int n = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cr, &len);
-
-    if (n != 0) {
-        ALOGE("could not get socket credentials: %s\n", strerror(errno));
-        return false;
-    }
-
-    if ((cr.uid != AID_ROOT) && (cr.uid != AID_SHELL)) {
-        ALOGE("untrusted userid on other end of socket: userid %d\n", cr.uid);
-        return false;
-    }
-#endif
-
-    return true;
-}
 
 int socket_close(int sock) {
     return close(sock);
@@ -94,6 +57,7 @@ ssize_t socket_send_buffers(cutils_socket_t sock,
     return writev(sock, iovec_buffers, num_buffers);
 }
 
+#if defined(__ANDROID__)
 int android_get_control_socket(const char* name) {
     int fd = __android_get_control_from_env(ANDROID_SOCKET_ENV_PREFIX, name);
 
@@ -102,15 +66,20 @@ int android_get_control_socket(const char* name) {
     // Compare to UNIX domain socket name, must match!
     struct sockaddr_un addr;
     socklen_t addrlen = sizeof(addr);
-    int ret = TEMP_FAILURE_RETRY(getsockname(fd, (struct sockaddr *)&addr, &addrlen));
+    int ret = getsockname(fd, (struct sockaddr*)&addr, &addrlen);
     if (ret < 0) return -1;
-    char *path = NULL;
-    if (asprintf(&path, ANDROID_SOCKET_DIR "/%s", name) < 0) return -1;
-    if (!path) return -1;
-    int cmp = strcmp(addr.sun_path, path);
-    free(path);
-    if (cmp != 0) return -1;
 
-    // It is what we think it is
-    return fd;
+    constexpr char prefix[] = ANDROID_SOCKET_DIR "/";
+    constexpr size_t prefix_size = sizeof(prefix) - sizeof('\0');
+    if ((strncmp(addr.sun_path, prefix, prefix_size) == 0) &&
+        (strcmp(addr.sun_path + prefix_size, name) == 0)) {
+        // It is what we think it is
+        return fd;
+    }
+    return -1;
 }
+#else
+int android_get_control_socket(const char*) {
+    return -1;
+}
+#endif

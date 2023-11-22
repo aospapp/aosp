@@ -35,17 +35,17 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 LOCAL_RESOURCE_DIR :=  $(LOCAL_PATH)/version1/res
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ub-uiautomator \
     ShortcutManagerTestUtils
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := system_current
 
 include $(BUILD_CTS_PACKAGE)
 
@@ -68,16 +68,16 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src) \
 LOCAL_RESOURCE_DIR :=  $(LOCAL_PATH)/version2/res
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ub-uiautomator \
     ShortcutManagerTestUtils
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := system_current
 
 include $(BUILD_CTS_PACKAGE)

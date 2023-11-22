@@ -28,9 +28,9 @@ import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
-import android.support.v4.app.NotificationCompat;
-import android.support.v4.app.RemoteInput;
-import android.support.v4.app.TaskStackBuilder;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.RemoteInput;
+import androidx.core.app.TaskStackBuilder;
 import android.widget.RemoteViews;
 
 import com.android.mail.MailIntentService;
@@ -188,7 +188,7 @@ public class NotificationActionUtils {
 
     /**
      * Adds the appropriate notification actions to the specified
-     * {@link android.support.v4.app.NotificationCompat.Builder}
+     * {@link androidx.core.app.NotificationCompat.Builder}
      *
      * @param notificationIntent The {@link Intent} used when the notification is clicked
      * @param when The value passed into {@link android.app.Notification.Builder#setWhen(long)}.

@@ -115,9 +115,12 @@ public class ParcelFileDescriptorProcessTest extends AndroidTestCase {
         context.stopService(redIntent);
         context.stopService(blueIntent);
 
-        final ActivityManager am = (ActivityManager) mContext.getSystemService(
-                Context.ACTIVITY_SERVICE);
-        am.killBackgroundProcesses(context.getPackageName());
+        // Instant Apps don't have the KILL_BACKGROUND_PROCESSES permission
+        if (!context.getPackageManager().isInstantApp()) {
+            final ActivityManager am = (ActivityManager) mContext.getSystemService(
+                    Context.ACTIVITY_SERVICE);
+            am.killBackgroundProcesses(context.getPackageName());
+        }
     }
 
     public void testPullPipeNormal() throws Exception {

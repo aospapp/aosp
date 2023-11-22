@@ -29,7 +29,7 @@ public:
 
     // Creates a tun interface. Returns 0 on success or -errno on failure. Must succeed before it is
     // legal to call any of the other methods in this class.
-    int init();
+    int init(const std::string& ifName = "");
     void destroy();
 
     const std::string& name() const { return mIfName; }
@@ -37,7 +37,10 @@ public:
     const in6_addr& srcAddr() const { return mSrcAddr; }
     const in6_addr& dstAddr() const { return mDstAddr; }
 
-private:
+    int addAddress(const std::string& addr, int prefixlen);
+    int getFdForTesting() const { return mFd; }
+
+  private:
     int mFd = -1;
     std::string mIfName;
     int mIfIndex;

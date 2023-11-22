@@ -15,7 +15,8 @@
 package com.android.settings.enterprise;
 
 import android.content.Context;
-import android.support.annotation.VisibleForTesting;
+
+import androidx.annotation.VisibleForTesting;
 
 public class CaCertsManagedProfilePreferenceController extends CaCertsPreferenceControllerBase {
 

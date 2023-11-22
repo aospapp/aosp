@@ -26,13 +26,14 @@ import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.os.BatteryManager;
 import android.os.PowerManager;
-import android.support.test.InstrumentationRegistry;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.BeforeAfterRule;
 import com.android.compatibility.common.util.OnFailureRule;
 
-import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.rules.RuleChain;
 import org.junit.runner.Description;
@@ -60,9 +61,7 @@ public class BatterySavingTestBase {
     private final BeforeAfterRule mInitializeAndCleanupRule = new BeforeAfterRule() {
         @Override
         protected void onBefore(Statement base, Description description) throws Throwable {
-            // Don't run any battery saver tests on wear.
-            final PackageManager pm = getPackageManager();
-            Assume.assumeFalse(pm.hasSystemFeature(PackageManager.FEATURE_WATCH));
+            BatteryUtils.assumeBatterySaverFeature();
 
             turnOnScreen(true);
         }

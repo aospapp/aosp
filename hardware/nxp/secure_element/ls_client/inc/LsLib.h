@@ -23,6 +23,8 @@
 #include "LsClient.h"
 #include "phNxpEse_Api.h"
 
+extern const size_t HASH_DATA_LENGTH;
+
 typedef struct Lsc_ChannelInfo {
   uint8_t channel_id;
   bool isOpend;
@@ -48,7 +50,15 @@ typedef struct Lsc_ImageInfo {
   int bytes_wrote;
   Lsc_ChannelInfo_t Channel_Info[10];
   uint8_t channel_cnt;
+  uint8_t initChannelNum;
 } Lsc_ImageInfo_t;
+
+typedef struct Lsc_HashInfo {
+  uint16_t readHashLen;
+  uint8_t* lsRawScriptBuf = nullptr;
+  uint8_t* lsScriptHash = nullptr;
+  uint8_t* readBuffHash = nullptr;
+} Lsc_HashInfo_t;
 
 typedef enum {
   LS_Default = 0x00,
@@ -60,21 +70,13 @@ typedef enum {
 static uint8_t OpenChannel[] = {0x00, 0x70, 0x00, 0x00, 0x01};
 static uint8_t GetData[] = {0x80, 0xCA, 0x00, 0x46, 0x00};
 
-static uint8_t SelectLsc[] = {0x00, 0xA4, 0x04, 0x00, 0x0F, 0xA0, 0x00,
-                              0x00, 0x03, 0x96, 0x54, 0x43, 0x00, 0x00,
-                              0x00, 0x01, 0x00, 0x0B, 0x00, 0x01};
+static const uint8_t SelectLsc[] = {0xA4, 0x04, 0x00, 0x0E, 0xA0, 0x00,
+                                    0x00, 0x03, 0x96, 0x54, 0x43, 0x00,
+                                    0x00, 0x00, 0x01, 0x00, 0x0B, 0x00};
 
-/*LSC2*/
-#define NOOFAIDS 0x03
-#define LENOFAIDS 0x16
-
-static uint8_t ArrayOfAIDs[NOOFAIDS][LENOFAIDS] = {
-    {0x14, 0x00, 0xA4, 0x04, 0x00, 0x0F, 0xA0, 0x00, 0x00, 0x03, 0x96,
-     0x54, 0x43, 0x00, 0x00, 0x00, 0x01, 0x00, 0x0B, 0x00, 0x02, 0x00},
-    {0x14, 0x00, 0xA4, 0x04, 0x00, 0x0F, 0xA0, 0x00, 0x00, 0x03, 0x96,
-     0x54, 0x43, 0x00, 0x00, 0x00, 0x01, 0x00, 0x0B, 0x00, 0x01, 0x00},
-    {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
+static uint8_t SelectLscSlotHash[] = {0x00, 0xA4, 0x04, 0x00, 0x10, 0xA0, 0x00,
+                                      0x00, 0x03, 0x96, 0x54, 0x53, 0x00, 0x00,
+                                      0x00, 0x01, 0x00, 0x60, 0x00, 0x00, 0x00};
 
 #define TAG_CERTIFICATE 0x7F21
 #define TAG_LSES_RESP 0x4E
@@ -97,7 +99,6 @@ static uint8_t ArrayOfAIDs[NOOFAIDS][LENOFAIDS] = {
 
 #define LS_ABORT_SW1 0x69
 #define LS_ABORT_SW2 0x87
-#define AID_MEM_PATH "/data/vendor/secure_element/AID_MEM.txt"
 #define LS_STATUS_PATH "/data/vendor/secure_element/LS_Status.txt"
 #define LS_SRC_BACKUP "/data/vendor/secure_element/LS_Src_Backup.txt"
 #define LS_DST_BACKUP "/data/vendor/secure_element/LS_Dst_Backup.txt"
@@ -158,6 +159,19 @@ LSCSTATUS Perform_LSC(const char* path, const char* dest, const uint8_t* pdata,
 *******************************************************************************/
 static LSCSTATUS LSC_OpenChannel(Lsc_ImageInfo_t* pContext, LSCSTATUS status,
                                  Lsc_TranscieveInfo_t* pInfo)
+    __attribute__((unused));
+
+/*******************************************************************************
+**
+** Function:        LSC_ResetChannel
+**
+** Description:     Reset(Open & Close) next available logical channel
+**
+** Returns:         Success if ok.
+**
+*******************************************************************************/
+static LSCSTATUS LSC_ResetChannel(Lsc_ImageInfo_t* pContext, LSCSTATUS status,
+                                  Lsc_TranscieveInfo_t* pInfo)
     __attribute__((unused));
 
 /*******************************************************************************
@@ -448,6 +462,62 @@ LSCSTATUS Process_EseResponse(Lsc_TranscieveInfo_t* pTranscv_Info,
 **
 *******************************************************************************/
 LSCSTATUS Process_SelectRsp(uint8_t* Recv_data, int32_t Recv_len);
+
+/*******************************************************************************
+**
+** Function:        LSC_CloseAllLogicalChannels
+**
+** Description:     Close all opened logical channels
+**
+** Returns:         SUCCESS/FAILURE
+**
+*******************************************************************************/
+LSCSTATUS LSC_CloseAllLogicalChannels(Lsc_ImageInfo_t* Os_info);
+
+/*******************************************************************************
+**
+** Function:        LSC_SelectLsHash
+**
+** Description:     Selects LS Hash applet
+**
+** Returns:         SUCCESS/FAILURE
+**
+*******************************************************************************/
+
+LSCSTATUS LSC_SelectLsHash();
+
+/*******************************************************************************
+**
+** Function:        LSC_ReadLsHash
+**
+** Description:     Read the LS SHA1 for the intended slot
+**
+** Returns:         SUCCESS/FAILURE
+**
+*******************************************************************************/
+LSCSTATUS LSC_ReadLsHash(uint8_t* hash, uint16_t* readHashLen, uint8_t slotId);
+
+/*******************************************************************************
+**
+** Function:        LSC_UpdateLsHash
+**
+** Description:     Updates SHA1 of LS script to the respective Slot ID
+**
+** Returns:         Update status
+**
+*******************************************************************************/
+LSCSTATUS LSC_UpdateLsHash(uint8_t* hash, long hashLen, uint8_t slotId);
+
+/*******************************************************************************
+**
+** Function:        LSC_ReadLscInfo
+**
+** Description:     Read the info of LS applet
+**
+** Returns:         SUCCESS/FAILURE
+**
+*******************************************************************************/
+LSCSTATUS LSC_ReadLscInfo(uint8_t* state, uint16_t* version);
 
 /*******************************************************************************
 **

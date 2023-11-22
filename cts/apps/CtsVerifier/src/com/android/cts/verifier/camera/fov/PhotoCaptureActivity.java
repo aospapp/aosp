@@ -439,7 +439,7 @@ public class PhotoCaptureActivity extends Activity
         try {
             mCamera.setPreviewDisplay(mSurfaceHolder);
         } catch (Throwable t) {
-            Log.e("TAG", "Could not set preview display", t);
+            Log.e(TAG, "Could not set preview display", t);
             Toast.makeText(this, t.getMessage(), Toast.LENGTH_LONG).show();
             return;
         }
@@ -449,8 +449,14 @@ public class PhotoCaptureActivity extends Activity
 
         // Either use chosen preview size for current camera or automatically
         // choose preview size based on view dimensions.
-        Size selectedPreviewSize = (mPreviewSizes != null) ? mPreviewSizes[mSelectedResolution.cameraId] :
-            getBestPreviewSize(mSurfaceSize.width, mSurfaceSize.height, params);
+        Size selectedPreviewSize = null;
+        if (mPreviewSizes != null) {
+            selectedPreviewSize = mPreviewSizes[mSelectedResolution.cameraId];
+        } else if (mSurfaceSize != null) {
+            selectedPreviewSize = getBestPreviewSize(
+                    mSurfaceSize.width, mSurfaceSize.height, params);
+        }
+
         if (selectedPreviewSize != null) {
             params.setPreviewSize(selectedPreviewSize.width, selectedPreviewSize.height);
             mCamera.setParameters(params);
@@ -458,7 +464,10 @@ public class PhotoCaptureActivity extends Activity
         }
 
         if (startPreviewAfterInit) {
-          startPreview();
+            if (selectedPreviewSize == null) {
+                Log.w(TAG, "Preview started without setting preview size");
+            }
+            startPreview();
         }
     }
 

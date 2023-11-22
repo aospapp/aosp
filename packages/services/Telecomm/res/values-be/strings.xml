@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Хуткі адказ"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Паведамленне адпраўлена на нумар <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"Не ўдалося адправіць паведамленне на <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Уліковыя запісы для выклікаў"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Дазволены толькі экстранныя выклікі."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Гэта праграма не можа рабіць выходныя выклікі без дазволу тэлефона."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Задаць як стандартную"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Скасаваць"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> зможа вызначаць і кантраляваць усе аспекты выклікаў. Стандартнымі тэлефоннымі праграмамі павінны прызначацца толькі праграмы, якім вы давяраеце."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"Зрабіць <xliff:g id="NEW_APP">%s</xliff:g> стандартнай праграмай фільтравання выклікаў?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"Праграма <xliff:g id="OLD_APP">%s</xliff:g> больш не зможа фільтраваць выклікі."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"Праграма <xliff:g id="NEW_APP">%s</xliff:g> зможа бачыць інфармацыю аб абанентах, якія не ўключаны ў спіс вашых кантактаў, і блакіраваць іх выклікі. Прызначайце ў якасці стандартных тэлефонных праграмам толькі тыя, якім вы давяраеце."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Задаць як стандартную"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Скасаваць"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Заблакіраваныя нумары"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Вы не будзеце атрымліваць выклікі ці SMS з заблакіраваных нумароў."</string>
     <string name="block_number" msgid="1101252256321306179">"Дадаць нумар"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Адказ на гэты выклік завершыць ваш бягучы відэавыклік"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Адказаць"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Адхіліць"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Не ўдалося зрабіць выклік, бо на прыладзе няма ўліковых запісаў для гэтага тыпу выклікаў."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Выклік немагчыма выканаць, бо ідзе выклік <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Выклік немагчыма выканаць, бо ідуць выклікі <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Выклік немагчыма выканаць, бо ідзе выклік у іншай праграме."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Прапушчаныя выклікі"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Блакіраванне выклікаў"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Калі зрабіць гэты выклік, ваш выклік праз праграму <xliff:g id="OTHER_APP">%1$s</xliff:g> скончыцца."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Выберыце, праз які нумар зрабіць выклік"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Перанакіраваць выклік, выкарыстоўваючы нумар \"<xliff:g id="OTHER_APP">%1$s</xliff:g>\""</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Зрабіць выклік, выкарыстоўваючы мой нумар тэлефона"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"Не ўдалося зрабіць выклік праз праграму \"<xliff:g id="OTHER_APP">%1$s</xliff:g>\". Скарыстайце іншую праграму для перанакіравання выклікаў або звярніцеся да распрацоўшчыка па дапамогу."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Блакіраванне выклікаў"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Нумары не ў спісе кантактаў"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Блакіраваць нумары, якіх няма ў спісе вашых кантактаў"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Блакіраванне выклікаў адключана"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Зроблены экстранны выклік"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Блакіраванне выклікаў было адключана, каб дазволіць аварыйнай брыгадзе звязацца з вамі."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Меню распрацоўшчыка Telecom"</string>
 </resources>

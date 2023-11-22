@@ -45,7 +45,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /** Represents the notifications service which is automatically called on a fixed schedule. */
-public class VtsPerformanceJobServlet extends HttpServlet {
+public class VtsPerformanceJobServlet extends BaseJobServlet {
     protected static final Logger logger =
             Logger.getLogger(VtsPerformanceJobServlet.class.getName());
 

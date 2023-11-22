@@ -18,8 +18,8 @@ package com.android.settings.network;
 
 import static android.content.Context.TELEPHONY_SERVICE;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.settings.SettingsEnums;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -28,13 +28,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.provider.Telephony;
-import android.support.annotation.VisibleForTesting;
-import android.support.v14.preference.MultiSelectListPreference;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.EditTextPreference;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.Preference.OnPreferenceChangeListener;
 import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
@@ -48,7 +41,15 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnKeyListener;
 
-import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.app.AlertDialog;
+import androidx.preference.EditTextPreference;
+import androidx.preference.ListPreference;
+import androidx.preference.MultiSelectListPreference;
+import androidx.preference.Preference;
+import androidx.preference.Preference.OnPreferenceChangeListener;
+import androidx.preference.SwitchPreference;
+
 import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.util.ArrayUtils;
 import com.android.settings.R;
@@ -166,7 +167,7 @@ public class ApnEditor extends SettingsPreferenceFragment
             Telephony.Carriers.ROAMING_PROTOCOL, // 20
             Telephony.Carriers.MVNO_TYPE,   // 21
             Telephony.Carriers.MVNO_MATCH_DATA,  // 22
-            Telephony.Carriers.EDITED,   // 23
+            Telephony.Carriers.EDITED_STATUS,   // 23
             Telephony.Carriers.USER_EDITABLE    //24
     };
 
@@ -230,9 +231,13 @@ public class ApnEditor extends SettingsPreferenceFragment
 
         final Intent intent = getIntent();
         final String action = intent.getAction();
+        if (TextUtils.isEmpty(action)) {
+            finish();
+            return;
+        }
+
         mSubId = intent.getIntExtra(ApnSettings.SUB_ID,
                 SubscriptionManager.INVALID_SUBSCRIPTION_ID);
-
         mReadOnlyApn = false;
         mReadOnlyApnTypes = null;
         mReadOnlyApnFields = null;
@@ -240,7 +245,7 @@ public class ApnEditor extends SettingsPreferenceFragment
         CarrierConfigManager configManager = (CarrierConfigManager)
                 getSystemService(Context.CARRIER_CONFIG_SERVICE);
         if (configManager != null) {
-            PersistableBundle b = configManager.getConfig();
+            PersistableBundle b = configManager.getConfigForSubId(mSubId);
             if (b != null) {
                 mReadOnlyApnTypes = b.getStringArray(
                         CarrierConfigManager.KEY_READ_ONLY_APN_TYPES_STRING_ARRAY);
@@ -313,11 +318,21 @@ public class ApnEditor extends SettingsPreferenceFragment
     static String formatInteger(String value) {
         try {
             final int intValue = Integer.parseInt(value);
-            return String.format("%d", intValue);
+            return String.format(getCorrectDigitsFormat(value), intValue);
         } catch (NumberFormatException e) {
             return value;
         }
     }
+
+    /**
+     * Get the digits format so we preserve leading 0's.
+     * MCCs are 3 digits and MNCs are either 2 or 3.
+     */
+    static String getCorrectDigitsFormat(String value) {
+        if (value.length() == 2) return "%02d";
+        else return "%03d";
+    }
+
 
     /**
      * Check if passed in array of APN types indicates all APN types
@@ -468,7 +483,7 @@ public class ApnEditor extends SettingsPreferenceFragment
 
     @Override
     public int getMetricsCategory() {
-        return MetricsEvent.APN_EDITOR;
+        return SettingsEnums.APN_EDITOR;
     }
 
     @VisibleForTesting
@@ -1020,7 +1035,7 @@ public class ApnEditor extends SettingsPreferenceFragment
                 callUpdate,
                 CARRIER_ENABLED_INDEX);
 
-        values.put(Telephony.Carriers.EDITED, Telephony.Carriers.USER_EDITED);
+        values.put(Telephony.Carriers.EDITED_STATUS, Telephony.Carriers.USER_EDITED);
 
         if (callUpdate) {
             final Uri uri = mApnData.getUri() == null ? mCarrierUri : mApnData.getUri();
@@ -1149,7 +1164,8 @@ public class ApnEditor extends SettingsPreferenceFragment
                 // add APN type if it is not read-only and is not wild-cardable
                 if (!readOnlyApnTypes.contains(apnType)
                         && !apnType.equals(PhoneConstants.APN_TYPE_IA)
-                        && !apnType.equals(PhoneConstants.APN_TYPE_EMERGENCY)) {
+                        && !apnType.equals(PhoneConstants.APN_TYPE_EMERGENCY)
+                        && !apnType.equals(PhoneConstants.APN_TYPE_MCX)) {
                     if (first) {
                         first = false;
                     } else {
@@ -1187,7 +1203,7 @@ public class ApnEditor extends SettingsPreferenceFragment
 
         @Override
         public int getMetricsCategory() {
-            return MetricsEvent.DIALOG_APN_EDITOR_ERROR;
+            return SettingsEnums.DIALOG_APN_EDITOR_ERROR;
         }
     }
 

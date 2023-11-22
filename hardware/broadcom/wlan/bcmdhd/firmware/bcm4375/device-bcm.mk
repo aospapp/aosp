@@ -19,8 +19,12 @@
 
 BCM_FW_SRC_FILE_STA := fw_bcm4375.bin
 BCM_FW_SRC_FILE_AP  := fw_bcm4375_ap.bin
+BCM_FW_SRC_FILE_STA_B1 := fw_bcm4375_b1.bin
+BCM_FW_SRC_FILE_AP_B1  := fw_bcm4375_b1_ap.bin
 
 PRODUCT_COPY_FILES += \
     hardware/broadcom/wlan/bcmdhd/firmware/bcm4375/$(BCM_FW_SRC_FILE_STA):$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd.bin \
-    hardware/broadcom/wlan/bcmdhd/firmware/bcm4375/$(BCM_FW_SRC_FILE_AP):$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd_apsta.bin
+    hardware/broadcom/wlan/bcmdhd/firmware/bcm4375/$(BCM_FW_SRC_FILE_AP):$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd_apsta.bin \
+    hardware/broadcom/wlan/bcmdhd/firmware/bcm4375/$(BCM_FW_SRC_FILE_STA_B1):$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd_b1.bin \
+    hardware/broadcom/wlan/bcmdhd/firmware/bcm4375/$(BCM_FW_SRC_FILE_AP_B1):$(TARGET_COPY_OUT_VENDOR)/firmware/fw_bcmdhd_apsta_b1.bin
 ########################

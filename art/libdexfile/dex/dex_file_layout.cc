@@ -16,8 +16,9 @@
 
 #include "dex_file_layout.h"
 
-#include <sys/mman.h>
 
+#include "base/bit_utils.h"
+#include "base/mman.h"
 #include "dex_file.h"
 
 namespace art {
@@ -25,6 +26,12 @@ namespace art {
 int DexLayoutSection::MadviseLargestPageAlignedRegion(const uint8_t* begin,
                                                       const uint8_t* end,
                                                       int advice) {
+#ifdef _WIN32
+  UNUSED(begin);
+  UNUSED(end);
+  UNUSED(advice);
+  PLOG(WARNING) << "madvise is unsupported on Windows.";
+#else
   DCHECK_LE(begin, end);
   begin = AlignUp(begin, kPageSize);
   end = AlignDown(end, kPageSize);
@@ -36,6 +43,7 @@ int DexLayoutSection::MadviseLargestPageAlignedRegion(const uint8_t* begin,
     }
     return result;
   }
+#endif
   return 0;
 }
 
@@ -49,6 +57,11 @@ void DexLayoutSection::Subsection::Madvise(const DexFile* dex_file, int advice) 
 }
 
 void DexLayoutSections::Madvise(const DexFile* dex_file, MadviseState state) const {
+#ifdef _WIN32
+  UNUSED(dex_file);
+  UNUSED(state);
+  PLOG(WARNING) << "madvise is unsupported on Windows.";
+#else
   // The dex file is already defaulted to random access everywhere.
   for (const DexLayoutSection& section : sections_) {
     switch (state) {
@@ -78,6 +91,7 @@ void DexLayoutSections::Madvise(const DexFile* dex_file, MadviseState state) con
       }
     }
   }
+#endif
 }
 
 std::ostream& operator<<(std::ostream& os, const DexLayoutSection& section) {

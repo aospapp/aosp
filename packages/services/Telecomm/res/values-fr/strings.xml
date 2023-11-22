@@ -28,15 +28,16 @@
     <string name="notification_missedCall_message" msgid="3049928912736917988">"Message"</string>
     <string name="accessibility_call_muted" msgid="2776111226185342220">"Son coupé"</string>
     <string name="accessibility_speakerphone_enabled" msgid="1988512040421036359">"Haut-parleur activé"</string>
-    <string name="respond_via_sms_canned_response_1" msgid="2461606462788380215">"Je peux pas parler. Qu\'y a-t-il ?"</string>
+    <string name="respond_via_sms_canned_response_1" msgid="2461606462788380215">"Je ne peux pas répondre. Ça va ?"</string>
     <string name="respond_via_sms_canned_response_2" msgid="4074450431532859214">"Je te rappelle tout de suite."</string>
-    <string name="respond_via_sms_canned_response_3" msgid="3496079065723960450">"Je t\'appellerai plus tard."</string>
-    <string name="respond_via_sms_canned_response_4" msgid="1698989243040062190">"Peux pas parler. On se rappelle ?"</string>
+    <string name="respond_via_sms_canned_response_3" msgid="3496079065723960450">"Je t\'appelle plus tard."</string>
+    <string name="respond_via_sms_canned_response_4" msgid="1698989243040062190">"Peux pas répondre. On se rappelle ?"</string>
     <string name="respond_via_sms_setting_title" msgid="3754000371039709383">"Réponses rapides"</string>
     <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"Modifier les réponses rapides"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Réponse rapide"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Message envoyé à <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"Échec de l\'envoi du message au <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Comptes téléphoniques"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Seuls les appels d\'urgence sont autorisés."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Cette application ne peut pas passer d\'appels sortants sans l\'autorisation de l\'application Téléphone."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Définir l\'application par défaut"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Annuler"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> sera en mesure de passer des appels et d\'en contrôler tous les détails. Ne définissez qu\'une application de confiance comme application de téléphone par défaut."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"Utiliser <xliff:g id="NEW_APP">%s</xliff:g> comme appli de filtrage d\'appels par défaut ?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> ne sera plus en mesure de filtrer les appels."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> sera en mesure de voir les informations sur les appelants qui ne figurent pas dans vos contacts et de bloquer leurs appels. Seules les applications auxquelles vous faites confiance doivent être définies comme application de filtrage d\'appels par défaut."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Définir l\'application par défaut"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Annuler"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Numéros bloqués"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Vous ne recevrez plus les appels ni les SMS émis depuis les numéros bloqués."</string>
     <string name="block_number" msgid="1101252256321306179">"Ajouter un numéro"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Si vous répondez, vous mettrez fin à l\'appel vidéo en cours"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Répondre"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Refuser"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Impossible de passer cet appel, car aucun compte téléphonique ne prend en charge ce type d\'appel."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Vous ne pouvez pas passer cet appel, car vous avez une communication en cours dans <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Vous ne pouvez pas passer cet appel, car vous avez des communications en cours dans <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Vous ne pouvez pas passer cet appel, car vous avez une communication en cours dans une autre application."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Appels manqués"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Blocage d\'appels"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Si vous passez cet appel, vous mettrez fin à celui qui est en cours dans l\'application <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Choisissez comment passer cet appel"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Rediriger l\'appel avec <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Appeler avec mon numéro de téléphone"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"<xliff:g id="OTHER_APP">%1$s</xliff:g> ne peut pas passer d\'appel. Essayez d\'utiliser une autre application de redirection des appels ou contactez le développeur pour obtenir de l\'aide."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Blocage d\'appels"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Numéros non répertoriés dans Contacts"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Bloquez les numéros qui ne figurent pas dans votre annuaire Contacts"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Blocage d\'appels désactivé"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Appel d\'urgence"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Le blocage d\'appels a été désactivé pour que les services d\'urgence puissent vous contacter."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Menu Telecom Developer"</string>
 </resources>

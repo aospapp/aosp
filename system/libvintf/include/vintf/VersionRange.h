@@ -30,14 +30,13 @@ namespace vintf {
 
 // A version range with the same major version, e.g. 2.3-7
 struct VersionRange {
-    VersionRange() : VersionRange(0u, 0u, 0u) {};
-    VersionRange(size_t mjV, size_t miV)
-            : VersionRange(mjV, miV, miV) {};
+    VersionRange() : VersionRange(0u, 0u, 0u) {}
+    VersionRange(size_t mjV, size_t miV) : VersionRange(mjV, miV, miV) {}
     VersionRange(size_t mjV, size_t miM, size_t mxM)
             : majorVer(mjV), minMinor(miM), maxMinor(mxM) {}
     inline Version minVer() const { return Version(majorVer, minMinor); }
     inline Version maxVer() const { return Version(majorVer, maxMinor); }
-    inline bool isSingleVersion() const { return minMinor == maxMinor; };
+    inline bool isSingleVersion() const { return minMinor == maxMinor; }
 
     inline bool operator==(const VersionRange &other) const {
         return majorVer == other.majorVer

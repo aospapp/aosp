@@ -31,7 +31,7 @@
             android:authorities="android.app.componentfactory.cts" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.app.componentfactory.cts"
                      android:label="CTS tests of android.app">
         <meta-data android:name="listener"

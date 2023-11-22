@@ -22,8 +22,7 @@
             android:layout_alignParentTop="true">
         <TableRow>
             <android.view.cts.TestButton android:id="@+id/top_left_button"
-                    android:layout_width="20dp"
-                    android:layout_marginRight="40dp"
+                    android:layout_width="60dp"
                     android:layout_height="match_parent"
                     android:text="TL" />
             <android.view.cts.TestButton android:id="@+id/top_right_button"

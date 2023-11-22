@@ -29,16 +29,17 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.Keep;
-import android.support.annotation.NonNull;
-import android.support.v17.leanback.app.GuidedStepFragment;
-import android.support.v17.leanback.widget.GuidanceStylist;
-import android.support.v17.leanback.widget.GuidedAction;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.DrawableRes;
+import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
+import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.widget.GuidanceStylist;
+import androidx.leanback.widget.GuidedAction;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
@@ -53,6 +54,7 @@ import java.util.UUID;
 /**
  * The screen in TV settings that let's users rename or unpair a bluetooth device.
  */
+@Keep
 public class BluetoothAccessoryFragment extends SettingsPreferenceFragment {
 
     private static final boolean DEBUG = false;

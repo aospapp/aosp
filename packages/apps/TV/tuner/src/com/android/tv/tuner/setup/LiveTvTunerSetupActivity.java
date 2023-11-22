@@ -17,20 +17,37 @@
 package com.android.tv.tuner.setup;
 
 import android.app.FragmentManager;
+import android.content.pm.PackageManager;
 import android.os.AsyncTask;
+import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.view.KeyEvent;
-import com.android.tv.tuner.TunerHal;
+import com.android.tv.common.util.PostalCodeUtils;
+import dagger.android.ContributesAndroidInjector;
 
 /** An activity that serves tuner setup process. */
 public class LiveTvTunerSetupActivity extends BaseTunerSetupActivity {
     private static final String TAG = "LiveTvTunerSetupActivity";
 
     @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // TODO(shubang): use LocationFragment
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // No need to check the request result.
+            requestPermissions(
+                    new String[] {android.Manifest.permission.ACCESS_COARSE_LOCATION},
+                    PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION);
+        }
+    }
+
+    @Override
     protected void executeGetTunerTypeAndCountAsyncTask() {
         new AsyncTask<Void, Void, Integer>() {
             @Override
             protected Integer doInBackground(Void... arg0) {
-                return TunerHal.getTunerTypeAndCount(LiveTvTunerSetupActivity.this).first;
+                return mTunerFactory.getTunerTypeAndCount(LiveTvTunerSetupActivity.this).first;
             }
 
             @Override
@@ -71,5 +88,32 @@ public class LiveTvTunerSetupActivity extends BaseTunerSetupActivity {
             }
         }
         return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+            int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (requestCode == PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                try {
+                    // Updating postal code takes time, therefore we should update postal code
+                    // right after the permission is granted, so that the subsequent operations,
+                    // especially EPG fetcher, could get the newly updated postal code.
+                    PostalCodeUtils.updatePostalCode(this);
+                } catch (Exception e) {
+                    // Do nothing
+                }
+            }
+        }
+    }
+
+    /**
+     * Exports {@link LiveTvTunerSetupActivity} for Dagger codegen to create the appropriate
+     * injector.
+     */
+    @dagger.Module
+    public abstract static class Module {
+        @ContributesAndroidInjector
+        abstract LiveTvTunerSetupActivity contributeLiveTvTunerSetupActivityInjector();
     }
 }

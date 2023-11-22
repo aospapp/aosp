@@ -57,12 +57,7 @@ void IndexRangeCache::invalidateRange(size_t offset, size_t size) {
     size_t invalidateStart = offset;
     size_t invalidateEnd = offset + size;
 
-    IndexRangeMap::iterator it =
-        mIndexRangeCache.lower_bound(
-                IndexRangeKey(GL_UNSIGNED_BYTE,
-                              offset,
-                              size,
-                              false));
+    IndexRangeMap::iterator it = mIndexRangeCache.begin();
 
     while (it != mIndexRangeCache.end()) {
         size_t rangeStart = it->first.offset;

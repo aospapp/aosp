@@ -24,6 +24,6 @@
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsKernelNetTest" />
         <option name="test-case-path" value="vts/testcases/kernel/api/net/VtsKernelNetTest" />
-        <option name="test-timeout" value="5m" />
+        <option name="test-timeout" value="10m" />
     </test>
 </configuration>

@@ -92,10 +92,9 @@ bool VideoCapture::open(const char* deviceName) {
     // Set our desired output format
     v4l2_format format;
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    format.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY; // Could/should we request V4L2_PIX_FMT_NV21?
-    format.fmt.pix.width = 720;                     // TODO:  Can we avoid hard coding dimensions?
-    format.fmt.pix.height = 240;                    // For now, this works with available hardware
-    format.fmt.pix.field = V4L2_FIELD_ALTERNATE;    // TODO:  Do we need to specify this?
+    format.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
+    format.fmt.pix.width = 720;
+    format.fmt.pix.height = 240;
     ALOGI("Requesting format %c%c%c%c (0x%08X)",
           ((char*)&format.fmt.pix.pixelformat)[0],
           ((char*)&format.fmt.pix.pixelformat)[1],

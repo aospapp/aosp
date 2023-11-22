@@ -19,9 +19,17 @@ package libcore.java.lang;
 import dalvik.system.VMRuntime;
 import java.util.Arrays;
 import java.util.List;
-import junit.framework.TestCase;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.SwitchTargetSdkVersionRule;
+import libcore.junit.util.SwitchTargetSdkVersionRule.TargetSdkVersion;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
-public final class PackageTest extends TestCase {
+public final class PackageTest extends TestCaseWithRules {
+
+    @Rule
+    public TestRule switchTargetSdkVersionRule = SwitchTargetSdkVersionRule.getInstance();
+
     /** assign packages immediately so that Class.getPackage() calls cannot side-effect it */
     private static final List<Package> packages = Arrays.asList(Package.getPackages());
 
@@ -39,21 +47,17 @@ public final class PackageTest extends TestCase {
     }
 
     // http://b/28057303
-    public void test_toString() throws Exception {
-        int savedTargetSdkVersion = VMRuntime.getRuntime().getTargetSdkVersion();
-        try {
-            VMRuntime.getRuntime().setTargetSdkVersion(24);
-            Package libcoreJavaLang = Package.getPackage("libcore.java.lang");
-            assertEquals("package libcore.java.lang",
-                         libcoreJavaLang.toString());
+    @TargetSdkVersion(24)
+    public void test_toString_targetSdkVersion_24() throws Exception {
+        Package libcoreJavaLang = Package.getPackage("libcore.java.lang");
+        assertEquals("package libcore.java.lang", libcoreJavaLang.toString());
+    }
 
-            VMRuntime.getRuntime().setTargetSdkVersion(25);
-            libcoreJavaLang = Package.getPackage("libcore.java.lang");
-            assertEquals("package libcore.java.lang, Unknown, version 0.0",
-                         libcoreJavaLang.toString());
-        } finally {
-            VMRuntime.getRuntime().setTargetSdkVersion(savedTargetSdkVersion);
-        }
+    // http://b/28057303
+    @TargetSdkVersion(25)
+    public void test_toString_targetSdkVersion_25() throws Exception {
+        Package libcoreJavaLang = Package.getPackage("libcore.java.lang");
+        assertEquals("package libcore.java.lang, Unknown, version 0.0", libcoreJavaLang.toString());
     }
 
     // http://b/5171136

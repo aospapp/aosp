@@ -45,23 +45,25 @@
       android:layout_height="wrap_content"
       android:text="@string/open_voicemail_settings"/>
 
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/js_padding"
-        android:layout_marginBottom="@dimen/js_padding">
-        <Button
-            android:id="@+id/settings_hidden"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/ringtone_hidden"/>
-        <Button
-            android:id="@+id/settings_not_hidden"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/ringtone_not_hidden"
-        />
-    </LinearLayout>
+      <LinearLayout
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginTop="@dimen/js_padding"
+          android:layout_marginBottom="@dimen/js_padding"
+          android:orientation="vertical">
+
+          <Button
+              android:id="@+id/settings_hidden"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="@string/ringtone_hidden"/>
+
+          <Button
+              android:id="@+id/settings_not_hidden"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="@string/ringtone_not_hidden"/>
+      </LinearLayout>
 
     <LinearLayout
         android:layout_width="wrap_content"

@@ -17,24 +17,30 @@
 package com.android.car.systeminterface;
 
 import android.content.Context;
+
 import java.io.File;
 
 /**
  * Interface that abstracts I/O operations
  */
 public interface IOInterface {
-    File getFilesDir();
+    /**
+     * Returns directory for car service which is /data/system/car.
+     * This directory is always available but it should not keep user sensitive data.
+     * @return File for the directory.
+     */
+    File getSystemCarDir();
 
     class DefaultImpl implements IOInterface {
-        private final File mFilesDir;
+        private final File mSystemCarDir;
 
         DefaultImpl(Context context) {
-            mFilesDir = context.getFilesDir();
+            mSystemCarDir = new File("/data/system/car");
         }
 
         @Override
-        public File getFilesDir() {
-            return mFilesDir;
+        public File getSystemCarDir() {
+            return mSystemCarDir;
         }
     }
 }

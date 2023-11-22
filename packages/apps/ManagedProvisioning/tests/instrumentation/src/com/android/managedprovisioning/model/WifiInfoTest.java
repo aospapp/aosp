@@ -15,15 +15,10 @@
  */
 package com.android.managedprovisioning.model;
 
-import android.os.Bundle;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.SmallTest;
-
-import com.android.managedprovisioning.model.WifiInfo;
-
-import java.lang.Exception;
 
 /** Tests for {@link WifiInfo} */
 public class WifiInfoTest extends AndroidTestCase {
@@ -37,6 +32,13 @@ public class WifiInfoTest extends AndroidTestCase {
     private static final String TEST_PROXY_PORT_STR = Integer.toString(TEST_PROXY_PORT);
     private static final String TEST_PROXY_BYPASS_HOSTS = "http://host1.com;https://host2.com";
     private static final String TEST_PAC_URL = "pac.example.com";
+    private static final String TEST_EAP_METHOD = "TTLS";
+    private static final String TEST_PHASE2_AUTH = "PAP";
+    private static final String TEST_CA_CERT = "certificate";
+    private static final String TEST_USER_CERT = "certificate";
+    private static final String TEST_IDENTITY = "TestUser";
+    private static final String TEST_ANONYMOUS_IDENTITY = "TestAUser";
+    private static final String TEST_DOMAIN = "google.com";
 
     @SmallTest
     public void testBuilderWriteAndReadBack() {
@@ -46,6 +48,13 @@ public class WifiInfoTest extends AndroidTestCase {
                 .setHidden(TEST_HIDDEN)
                 .setSecurityType(TEST_SECURITY_TYPE)
                 .setPassword(TEST_PASSWORD)
+                .setEapMethod(TEST_EAP_METHOD)
+                .setPhase2Auth(TEST_PHASE2_AUTH)
+                .setCaCertificate(TEST_CA_CERT)
+                .setUserCertificate(TEST_USER_CERT)
+                .setIdentity(TEST_IDENTITY)
+                .setAnonymousIdentity(TEST_ANONYMOUS_IDENTITY)
+                .setDomain(TEST_DOMAIN)
                 .setProxyHost(TEST_PROXY_HOST)
                 .setProxyPort(TEST_PROXY_PORT)
                 .setProxyBypassHosts(TEST_PROXY_BYPASS_HOSTS)
@@ -56,6 +65,13 @@ public class WifiInfoTest extends AndroidTestCase {
         assertEquals(TEST_HIDDEN, wifiInfo.hidden);
         assertEquals(TEST_SECURITY_TYPE, wifiInfo.securityType);
         assertEquals(TEST_PASSWORD, wifiInfo.password);
+        assertEquals(TEST_EAP_METHOD, wifiInfo.eapMethod);
+        assertEquals(TEST_PHASE2_AUTH, wifiInfo.phase2Auth);
+        assertEquals(TEST_CA_CERT, wifiInfo.caCertificate);
+        assertEquals(TEST_USER_CERT, wifiInfo.userCertificate);
+        assertEquals(TEST_IDENTITY, wifiInfo.identity);
+        assertEquals(TEST_ANONYMOUS_IDENTITY, wifiInfo.anonymousIdentity);
+        assertEquals(TEST_DOMAIN, wifiInfo.domain);
         assertEquals(TEST_PROXY_HOST, wifiInfo.proxyHost);
         assertEquals(TEST_PROXY_PORT, wifiInfo.proxyPort);
         assertEquals(TEST_PROXY_BYPASS_HOSTS, wifiInfo.proxyBypassHosts);
@@ -70,6 +86,13 @@ public class WifiInfoTest extends AndroidTestCase {
                     .setHidden(TEST_HIDDEN)
                     .setSecurityType(TEST_SECURITY_TYPE)
                     .setPassword(TEST_PASSWORD)
+                    .setEapMethod(TEST_EAP_METHOD)
+                    .setPhase2Auth(TEST_PHASE2_AUTH)
+                    .setCaCertificate(TEST_CA_CERT)
+                    .setUserCertificate(TEST_USER_CERT)
+                    .setIdentity(TEST_IDENTITY)
+                    .setAnonymousIdentity(TEST_ANONYMOUS_IDENTITY)
+                    .setDomain(TEST_DOMAIN)
                     .setProxyHost(TEST_PROXY_HOST)
                     .setProxyPort(TEST_PROXY_PORT)
                     .setProxyBypassHosts(TEST_PROXY_BYPASS_HOSTS)
@@ -89,6 +112,13 @@ public class WifiInfoTest extends AndroidTestCase {
                 .setHidden(TEST_HIDDEN)
                 .setSecurityType(TEST_SECURITY_TYPE)
                 .setPassword(TEST_PASSWORD)
+                .setEapMethod(TEST_EAP_METHOD)
+                .setPhase2Auth(TEST_PHASE2_AUTH)
+                .setCaCertificate(TEST_CA_CERT)
+                .setUserCertificate(TEST_USER_CERT)
+                .setIdentity(TEST_IDENTITY)
+                .setAnonymousIdentity(TEST_ANONYMOUS_IDENTITY)
+                .setDomain(TEST_DOMAIN)
                 .setProxyHost(TEST_PROXY_HOST)
                 .setProxyPort(TEST_PROXY_PORT)
                 .setProxyBypassHosts(TEST_PROXY_BYPASS_HOSTS)
@@ -99,6 +129,13 @@ public class WifiInfoTest extends AndroidTestCase {
                 .setHidden(TEST_HIDDEN)
                 .setSecurityType(TEST_SECURITY_TYPE)
                 .setPassword(TEST_PASSWORD)
+                .setEapMethod(TEST_EAP_METHOD)
+                .setPhase2Auth(TEST_PHASE2_AUTH)
+                .setCaCertificate(TEST_CA_CERT)
+                .setUserCertificate(TEST_USER_CERT)
+                .setIdentity(TEST_IDENTITY)
+                .setAnonymousIdentity(TEST_ANONYMOUS_IDENTITY)
+                .setDomain(TEST_DOMAIN)
                 .setProxyHost(TEST_PROXY_HOST)
                 .setProxyPort(TEST_PROXY_PORT)
                 .setProxyBypassHosts(TEST_PROXY_BYPASS_HOSTS)
@@ -117,6 +154,13 @@ public class WifiInfoTest extends AndroidTestCase {
                 .setHidden(TEST_HIDDEN)
                 .setSecurityType(TEST_SECURITY_TYPE)
                 .setPassword(TEST_PASSWORD)
+                .setEapMethod(TEST_EAP_METHOD)
+                .setPhase2Auth(TEST_PHASE2_AUTH)
+                .setCaCertificate(TEST_CA_CERT)
+                .setUserCertificate(TEST_USER_CERT)
+                .setIdentity(TEST_IDENTITY)
+                .setAnonymousIdentity(TEST_ANONYMOUS_IDENTITY)
+                .setDomain(TEST_DOMAIN)
                 .setProxyHost(TEST_PROXY_HOST)
                 .setProxyPort(TEST_PROXY_PORT)
                 .setProxyBypassHosts(TEST_PROXY_BYPASS_HOSTS)
@@ -127,6 +171,13 @@ public class WifiInfoTest extends AndroidTestCase {
                 .setHidden(TEST_HIDDEN)
                 .setSecurityType(TEST_SECURITY_TYPE)
                 .setPassword(TEST_PASSWORD)
+                .setEapMethod(TEST_EAP_METHOD)
+                .setPhase2Auth(TEST_PHASE2_AUTH)
+                .setCaCertificate(TEST_CA_CERT)
+                .setUserCertificate(TEST_USER_CERT)
+                .setIdentity(TEST_IDENTITY)
+                .setAnonymousIdentity(TEST_ANONYMOUS_IDENTITY)
+                .setDomain(TEST_DOMAIN)
                 .setProxyHost(TEST_PROXY_HOST)
                 .setProxyPort(TEST_PROXY_PORT)
                 .setProxyBypassHosts(TEST_PROXY_BYPASS_HOSTS)
@@ -145,6 +196,13 @@ public class WifiInfoTest extends AndroidTestCase {
                 .setHidden(TEST_HIDDEN)
                 .setSecurityType(TEST_SECURITY_TYPE)
                 .setPassword(TEST_PASSWORD)
+                .setEapMethod(TEST_EAP_METHOD)
+                .setPhase2Auth(TEST_PHASE2_AUTH)
+                .setCaCertificate(TEST_CA_CERT)
+                .setUserCertificate(TEST_USER_CERT)
+                .setIdentity(TEST_IDENTITY)
+                .setAnonymousIdentity(TEST_ANONYMOUS_IDENTITY)
+                .setDomain(TEST_DOMAIN)
                 .setProxyHost(TEST_PROXY_HOST)
                 .setProxyPort(TEST_PROXY_PORT)
                 .setProxyBypassHosts(TEST_PROXY_BYPASS_HOSTS)

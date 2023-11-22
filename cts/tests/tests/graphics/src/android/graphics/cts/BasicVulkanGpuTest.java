@@ -16,8 +16,9 @@
 package android.graphics.cts;
 
 import android.content.res.AssetManager;
-import android.support.test.InstrumentationRegistry;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

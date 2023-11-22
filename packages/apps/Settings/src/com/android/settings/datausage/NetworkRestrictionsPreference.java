@@ -16,8 +16,9 @@ package com.android.settings.datausage;
 
 import android.content.Context;
 import android.net.NetworkTemplate;
-import android.support.v7.preference.Preference;
 import android.util.AttributeSet;
+
+import androidx.preference.Preference;
 
 public class NetworkRestrictionsPreference extends Preference implements TemplatePreference {
 

@@ -35,4 +35,13 @@ public class OsConstantsTest extends TestCase {
     public void testTcpUserTimeoutIsDefined() {
         assertTrue(OsConstants.TCP_USER_TIMEOUT > 0);
     }
+
+    /**
+     * Verifies equality assertions given in the documentation for
+     * {@link OsConstants#SOCK_CLOEXEC} and {@link OsConstants#SOCK_NONBLOCK}.
+     */
+    public void testConstantsEqual() {
+        assertEquals(OsConstants.O_CLOEXEC,  OsConstants.SOCK_CLOEXEC);
+        assertEquals(OsConstants.O_NONBLOCK, OsConstants.SOCK_NONBLOCK);
+    }
 }

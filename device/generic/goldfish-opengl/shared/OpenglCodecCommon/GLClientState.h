@@ -146,12 +146,16 @@ public:
 
     struct VAOState {
         VAOState(GLuint ibo, int nLoc, int nBindings) :
-            element_array_buffer_binding(ibo),
             attribState(nLoc),
-            bindingState(nBindings) { }
+            bindingState(nBindings),
+            element_array_buffer_binding(ibo),
+            element_array_buffer_binding_lastEncode(ibo) { }
         VertexAttribStateVector attribState;
         VertexAttribBindingVector bindingState;
         GLuint element_array_buffer_binding;
+        GLuint element_array_buffer_binding_lastEncode;
+        int attributesNeedingUpdateForDraw[CODEC_MAX_VERTEX_ATTRIBUTES];
+        int numAttributesNeedingUpdateForDraw;
     };
 
     typedef std::map<GLuint, VAOState> VAOStateMap;
@@ -159,12 +163,14 @@ public:
         VAOStateRef() { }
         VAOStateRef(
                 VAOStateMap::iterator iter) : it(iter) { }
+        VAOState& vaoState() { return it->second; }
         VertexAttribState& operator[](size_t k) { return it->second.attribState[k]; }
         BufferBinding& bufferBinding(size_t k) { return it->second.bindingState[k]; }
         VertexAttribBindingVector& bufferBindings() { return it->second.bindingState; }
         const VertexAttribBindingVector& bufferBindings_const() const { return it->second.bindingState; }
         GLuint vaoId() const { return it->first; }
         GLuint& iboId() { return it->second.element_array_buffer_binding; }
+        GLuint& iboIdLastEncode() { return it->second.element_array_buffer_binding_lastEncode; }
         VAOStateMap::iterator it;
     };
 
@@ -217,6 +223,8 @@ public:
     void setVertexAttribFormat(int location, int size, GLenum type, GLboolean normalized, GLuint reloffset, bool isInt = false);
     const VertexAttribState& getState(int location);
     const VertexAttribState& getStateAndEnableDirty(int location, bool *enableChanged);
+    void updateEnableDirtyArrayForDraw();
+    VAOState& currentVaoState();
     int getLocation(GLenum loc);
     void setActiveTexture(int texUnit) {m_activeTexture = texUnit; };
     int getActiveTexture() const { return m_activeTexture; }
@@ -233,8 +241,12 @@ public:
     int bindBuffer(GLenum target, GLuint id);
     void bindIndexedBuffer(GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size, GLintptr stride, GLintptr effectiveStride);
     int getMaxIndexedBufferBindings(GLenum target) const;
+    bool isNonIndexedBindNoOp(GLenum target, GLuint buffer);
+    bool isIndexedBindNoOp(GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size, GLintptr stride, GLintptr effectiveStride);
 
     int getBuffer(GLenum target);
+    GLuint getLastEncodedBufferBind(GLenum target);
+    void setLastEncodedBufferBind(GLenum target, GLuint id);
 
     size_t pixelDataSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int pack) const;
     size_t pboNeededDataSize(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, int pack) const;
@@ -296,6 +308,10 @@ public:
 
     // glDisable(GL_TEXTURE_(2D|EXTERNAL_OES))
     void disableTextureTarget(GLenum target);
+
+    void bindSampler(GLuint unit, GLuint sampler);
+    bool isSamplerBindNoOp(GLuint unit, GLuint sampler);
+    void onDeleteSamplers(GLsizei n, const GLuint* samplers);
 
     // Implements the target priority logic:
     // * Return GL_TEXTURE_EXTERNAL_OES if enabled, else
@@ -430,6 +446,7 @@ private:
 
     // GL_ARRAY_BUFFER_BINDING is separate from VAO state
     GLuint m_arrayBuffer;
+    GLuint m_arrayBuffer_lastEncode;
     VAOStateMap m_vaoMap;
     VAOStateRef m_currVaoState;
 
@@ -482,6 +499,7 @@ private:
     struct TextureUnit {
         unsigned int enables;
         GLuint texture[TEXTURE_TARGET_COUNT];
+        GLuint boundSampler;
     };
     struct TextureState {
         TextureUnit unit[MAX_TEXTURE_UNITS];

@@ -25,7 +25,6 @@
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalPowerV1_1TargetTest/VtsHalPowerV1_1TargetTest"/>
         <option name="binary-test-type" value="hal_hidl_gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
-        <option name="binary-test-stop-native-servers" value="true"/>
         <option name="disable-cpu-frequency-scaling" value="false"/>
         <option name="test-timeout" value="5m"/>
     </test>

@@ -25,19 +25,19 @@ public class FakeTunerHal extends TunerHal {
     }
 
     @Override
-    protected boolean openFirstAvailable() {
+    public boolean openFirstAvailable() {
         mDeviceOpened = true;
         getDeliverySystemTypeFromDevice();
         return true;
     }
 
     @Override
-    protected boolean isDeviceOpen() {
+    public boolean isDeviceOpen() {
         return mDeviceOpened;
     }
 
     @Override
-    protected long getDeviceId() {
+    public long getDeviceId() {
         return 0;
     }
 

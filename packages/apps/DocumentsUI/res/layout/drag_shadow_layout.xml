@@ -40,7 +40,7 @@
             android:maxLines="1"
             android:ellipsize="end"
             android:textAlignment="viewStart"
-            android:textColor="@color/item_title"
+            android:textAppearance="@android:style/TextAppearance.Material.Subhead"
             android:paddingStart="6dp"
             android:paddingBottom="1dp"/>
 

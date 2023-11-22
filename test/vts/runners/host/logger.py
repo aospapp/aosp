@@ -39,6 +39,9 @@ log_severity_map = {
     "DEBUG": logging.DEBUG,
 }
 
+# Directory name in the log path in which files will be included in TradeFed output
+PYTHON_CUSTOM_OUTPUT = 'custom_output_files'
+
 def _parse_logline_timestamp(t):
     """Parses a logline timestamp into a tuple.
 
@@ -137,14 +140,17 @@ def _initiateTestLogger(log_path, prefix=None, filename=None, log_severity="INFO
         filename: Name of the log file. The default is the time the logger
                   is requested.
         log_severity: string, set the log severity level, default is INFO.
+                      This value affects console stream log handler and the python runner
+                      part of TradeFed host_log.
     """
     log = logging.getLogger()
     # Clean up any remaining handlers.
     killTestLogger(log)
     log.propagate = False
 
-    log.setLevel(log_severity_map.get(log_severity, logging.INFO))
-    # Log info to stream
+    log.setLevel(logging.DEBUG)
+
+    # Log into stream
     terminal_format = log_line_format
     if prefix:
         terminal_format = "[{}] {}".format(prefix, log_line_format)
@@ -152,17 +158,25 @@ def _initiateTestLogger(log_path, prefix=None, filename=None, log_severity="INFO
     ch = logging.StreamHandler(sys.stdout)
     ch.setFormatter(c_formatter)
     ch.setLevel(log_severity_map.get(log_severity, logging.INFO))
+    log.addHandler(ch)
+
     # Log everything to file
     f_formatter = logging.Formatter(log_line_format, log_line_time_format)
+
     # All the logs of this test class go into one directory
     if filename is None:
         filename = getLogFileTimestamp()
         utils.create_dir(log_path)
-    fh = logging.FileHandler(os.path.join(log_path, 'test_run_details.txt'))
-    fh.setFormatter(f_formatter)
-    fh.setLevel(log_severity_map.get(log_severity, logging.INFO))
-    log.addHandler(ch)
-    log.addHandler(fh)
+
+    default_log_levels = ('ERROR', 'INFO', 'DEBUG')
+    for level in default_log_levels:
+        idx = filename.rfind('.')
+        if idx < 0:
+            idx = len(filename)
+        addLogFile(log_path=log_path,
+                   filename=filename[:idx] + '_' + level + filename[idx:],
+                   log_severity=level)
+
     log.log_path = log_path
     logging.log_path = log_path
 
@@ -200,21 +214,53 @@ def createLatestLogAlias(actual_path):
     os.symlink(actual_path, link_path)
 
 
-def setupTestLogger(log_path, prefix=None, filename=None, log_severity="INFO"):
+def setupTestLogger(log_path,
+                    prefix=None,
+                    filename=None,
+                    log_severity="INFO",
+                    create_symlink=True):
     """Customizes the root logger for a test run.
 
     Args:
         log_path: Location of the report file.
         prefix: A prefix for each log line in terminal.
         filename: Name of the files. The default is the time the objects
-            are requested.
+                  are requested.
+        create_symlink: bool. determines whether to create the symlink or not.
+                        set to True as default.
+
+    Returns:
+        A string, abs path to the created log file.
     """
     if filename is None:
         filename = getLogFileTimestamp()
     utils.create_dir(log_path)
     logger = _initiateTestLogger(log_path, prefix, filename, log_severity)
-    if isSymlinkSupported():
+    if create_symlink and isSymlinkSupported():
         createLatestLogAlias(log_path)
+    return os.path.join(log_path, filename)
+
+
+def addLogFile(log_path, filename=None, log_severity="INFO"):
+    """Creates a log file and adds the handler to the root logger.
+
+    Args:
+        log_path: Location of the report file.
+        filename: Name of the log file. The default is the time the logger
+                  is requested.
+
+    Returns:
+        A string, abs path to the created log file.
+        logging.FileHandler instance which is added to the logger.
+    """
+    if filename is None:
+        filename = getLogFileTimestamp()
+    f_formatter = logging.Formatter(log_line_format, log_line_time_format)
+    fh = logging.FileHandler(os.path.join(log_path, filename))
+    fh.setFormatter(f_formatter)
+    fh.setLevel(log_severity_map.get(log_severity, logging.INFO))
+    logging.getLogger().addHandler(fh)
+    return os.path.join(log_path, filename), fh
 
 
 def normalizeLogLineTimestamp(log_line_timestamp):

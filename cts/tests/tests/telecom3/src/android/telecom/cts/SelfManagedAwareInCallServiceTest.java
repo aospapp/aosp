@@ -179,7 +179,7 @@ public class SelfManagedAwareInCallServiceTest extends InstrumentationTestCase {
         assertNotNull(callbacks);
 
         // Call will first be dialing.
-        assertEquals(Call.STATE_DIALING, callbacks.waitOnStateChanged());
+        assertEquals(Call.STATE_DIALING, callbacks.waitDialingState());
 
         // Set active from the connection side.
         connection.setActive();

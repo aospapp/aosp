@@ -22,6 +22,7 @@ cc_library_host_static {
         "src",
     ],
     static_libs: [
+        "libbase",
         "libutils",
         "liblog",
         "libtinyalsa",

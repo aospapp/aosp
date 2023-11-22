@@ -132,7 +132,7 @@ int listRemove(struct listHead* pList, void* pData) {
 
   if (pList->pFirst == NULL) {
     /* Empty list */
-    NXPLOG_NCIHAL_E("Failed to deallocate (list empty)");
+    NXPLOG_NCIHAL_D("Failed to deallocate (list empty)");
     result = 0;
     goto clean_and_return;
   }

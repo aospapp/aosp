@@ -137,7 +137,7 @@
     <!-- DEPRECATED: Use CarrierConfigManager#KEY_PREFER_2G_BOOL -->
     <bool name="config_prefer_2g" translatable="false">true</bool>
     <!-- Show enabled lte option for lte device -->
-    <bool name="config_enabled_lte" translatable="false">false</bool>
+    <bool name="config_enabled_lte" translatable="false">true</bool>
     <!-- Show enabled tdscdma option for device -->
     <bool name="config_support_tdscdma" translatable="false">false</bool>
     <!-- Show enabled tdscdma option for device when connect roaming network -->
@@ -154,9 +154,9 @@
     <string name="dialer_default_class" translatable="false">com.android.dialer.DialtactsActivity</string>
 
     <!-- Package name for the mobile network settings [DO NOT TRANSLATE] -->
-    <string name="mobile_network_settings_package" translatable="false">com.android.phone</string>
+    <string name="mobile_network_settings_package" translatable="false">com.android.settings</string>
     <!-- Class name for the mobile network settings activity [DO NOT TRANSLATE] -->
-    <string name="mobile_network_settings_class" translatable="false">com.android.phone.MobileNetworkSettings</string>
+    <string name="mobile_network_settings_class" translatable="false">com.android.settings.network.telephony.MobileNetworkActivity</string>
 
     <!-- CDMA activation goes through HFA -->
     <!-- DEPRECATED: Use CarrierConfigManager#KEY_USE_HFA_FOR_PROVISIONING_BOOL -->
@@ -235,6 +235,9 @@
     <!-- Flag indicating whether the device supports RTT (real-time text) -->
     <bool name="config_support_rtt">false</bool>
 
+    <!-- The package name for the platform number verification supplier app. -->
+    <string name="platform_number_verification_package" translatable="false"></string>
+
     <!-- Flag indicating whether a system app can use video calling fallback if carrier video
          calling is not available. -->
     <bool name="config_support_video_calling_fallback">true</bool>
@@ -247,4 +250,15 @@
          When this is true, the Telephony stack is able to add additional audio to the outgoing
          audio stream which the remote party will be able to hear. -->
     <bool name="config_support_telephony_audio_device">false</bool>
+
+    <!-- The country list that shortcut view can be enabled. -->
+    <string-array name="config_countries_to_enable_shortcut_view" translatable="false">
+    </string-array>
+
+    <!-- When an emergency call is placed and the carrier supports network initiated SUPL requests
+         for location, this configuration dictates whether or not the modem supports SUPL requests
+         being handled on the logical slot that is not currently configured as the default data
+         slot. If true, telephony will always try to place the emergency call on the subscription
+         associated with default data first, instead of using the default voice configuration.-->
+    <bool name="config_gnss_supl_requires_default_data_for_emergency">false</bool>
 </resources>

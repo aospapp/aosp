@@ -65,6 +65,8 @@ public class PixelCopyViewProducerActivity extends Activity implements OnDrawLis
 
         mContent = new ColoredGrid(this);
         setContentView(mContent);
+        View view = this.getWindow().getDecorView();
+        view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         mContent.getViewTreeObserver().addOnDrawListener(this);
         mContent.setOnApplyWindowInsetsListener(this);
     }
@@ -155,22 +157,23 @@ public class PixelCopyViewProducerActivity extends Activity implements OnDrawLis
         protected void onDraw(Canvas canvas) {
             int cx = getWidth() / 2;
             int cy = getHeight() / 2;
+            final int BORDER_WIDTH = 2;
 
             canvas.drawColor(Color.YELLOW);
 
-            mRect.set(1, 1, cx, cy);
+            mRect.set(BORDER_WIDTH, BORDER_WIDTH, cx, cy);
             mPaint.setColor(Color.RED);
             canvas.drawRect(mRect, mPaint);
 
-            mRect.set(cx, 1, getWidth() - 1, cy);
+            mRect.set(cx, BORDER_WIDTH, getWidth() - BORDER_WIDTH, cy);
             mPaint.setColor(Color.GREEN);
             canvas.drawRect(mRect, mPaint);
 
-            mRect.set(1, cy, cx, getHeight() - 1);
+            mRect.set(BORDER_WIDTH, cy, cx, getHeight() - BORDER_WIDTH);
             mPaint.setColor(Color.BLUE);
             canvas.drawRect(mRect, mPaint);
 
-            mRect.set(cx, cy, getWidth() - 1, getHeight() - 1);
+            mRect.set(cx, cy, getWidth() - BORDER_WIDTH, getHeight() - BORDER_WIDTH);
             mPaint.setColor(Color.BLACK);
             canvas.drawRect(mRect, mPaint);
         }

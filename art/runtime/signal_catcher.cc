@@ -16,10 +16,10 @@
 
 #include "signal_catcher.h"
 
+#include <csignal>
+#include <cstdlib>
 #include <fcntl.h>
 #include <pthread.h>
-#include <signal.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -29,20 +29,15 @@
 
 #include <android-base/stringprintf.h>
 
-#if defined(ART_TARGET_ANDROID)
-#include <tombstoned/tombstoned.h>
-#endif
-
 #include "arch/instruction_set.h"
-#include "base/file_utils.h"
 #include "base/logging.h"  // For GetCmdLine.
 #include "base/os.h"
 #include "base/time_utils.h"
-#include "base/unix_file/fd_file.h"
 #include "base/utils.h"
 #include "class_linker.h"
 #include "gc/heap.h"
 #include "jit/profile_saver.h"
+#include "palette/palette.h"
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 #include "signal_set.h"
@@ -73,19 +68,10 @@ static void DumpCmdLine(std::ostream& os) {
 #endif
 }
 
-SignalCatcher::SignalCatcher(const std::string& stack_trace_file,
-                             bool use_tombstoned_stack_trace_fd)
-    : stack_trace_file_(stack_trace_file),
-      use_tombstoned_stack_trace_fd_(use_tombstoned_stack_trace_fd),
-      lock_("SignalCatcher lock"),
+SignalCatcher::SignalCatcher()
+    : lock_("SignalCatcher lock"),
       cond_("SignalCatcher::cond_", lock_),
       thread_(nullptr) {
-#if !defined(ART_TARGET_ANDROID)
-  // We're not running on Android, so we can't communicate with tombstoned
-  // to ask for an open file.
-  CHECK(!use_tombstoned_stack_trace_fd_);
-#endif
-
   SetHaltFlag(false);
 
   // Create a raw pthread; its start routine will attach to the runtime.
@@ -116,65 +102,15 @@ bool SignalCatcher::ShouldHalt() {
   return halt_;
 }
 
-bool SignalCatcher::OpenStackTraceFile(android::base::unique_fd* tombstone_fd,
-                                       android::base::unique_fd* output_fd) {
-  if (use_tombstoned_stack_trace_fd_) {
-#if defined(ART_TARGET_ANDROID)
-    return tombstoned_connect(getpid(), tombstone_fd, output_fd, kDebuggerdJavaBacktrace);
-#else
-    UNUSED(tombstone_fd);
-    UNUSED(output_fd);
-#endif
-  }
-
-  // The runtime is not configured to dump traces to a file, will LOG(INFO)
-  // instead.
-  if (stack_trace_file_.empty()) {
-    return false;
-  }
-
-  int fd = open(stack_trace_file_.c_str(), O_APPEND | O_CREAT | O_WRONLY, 0666);
-  if (fd == -1) {
-      PLOG(ERROR) << "Unable to open stack trace file '" << stack_trace_file_ << "'";
-      return false;
-  }
-
-  output_fd->reset(fd);
-  return true;
-}
-
 void SignalCatcher::Output(const std::string& s) {
-  android::base::unique_fd tombstone_fd;
-  android::base::unique_fd output_fd;
-  if (!OpenStackTraceFile(&tombstone_fd, &output_fd)) {
-    LOG(INFO) << s;
-    return;
-  }
-
   ScopedThreadStateChange tsc(Thread::Current(), kWaitingForSignalCatcherOutput);
-
-  std::unique_ptr<File> file(new File(output_fd.release(), true /* check_usage */));
-  bool success = file->WriteFully(s.data(), s.size());
-  if (success) {
-    success = file->FlushCloseOrErase() == 0;
+  PaletteStatus status = PaletteWriteCrashThreadStacks(s.data(), s.size());
+  if (status == PaletteStatus::kOkay) {
+    LOG(INFO) << "Wrote stack traces to tombstoned";
   } else {
-    file->Erase();
+    CHECK(status == PaletteStatus::kFailedCheckLog);
+    LOG(ERROR) << "Failed to write stack traces to tombstoned";
   }
-
-  const std::string output_path_msg = (use_tombstoned_stack_trace_fd_) ?
-      "[tombstoned]" : stack_trace_file_;
-
-  if (success) {
-    LOG(INFO) << "Wrote stack traces to '" << output_path_msg << "'";
-  } else {
-    PLOG(ERROR) << "Failed to write stack traces to '" << output_path_msg << "'";
-  }
-
-#if defined(ART_TARGET_ANDROID)
-  if (use_tombstoned_stack_trace_fd_ && !tombstoned_notify_completion(tombstone_fd)) {
-    PLOG(WARNING) << "Unable to notify tombstoned of dump completion";
-  }
-#endif
 }
 
 void SignalCatcher::HandleSigQuit() {
@@ -207,7 +143,7 @@ void SignalCatcher::HandleSigQuit() {
 
 void SignalCatcher::HandleSigUsr1() {
   LOG(INFO) << "SIGUSR1 forcing GC (no HPROF) and profile save";
-  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references */ false);
+  Runtime::Current()->GetHeap()->CollectGarbage(/* clear_soft_references= */ false);
   ProfileSaver::ForceProcessProfiles();
 }
 

@@ -376,7 +376,7 @@ public final class RingtonePickerActivity extends AlertActivity implements
         }
         // If external storage is available, add a button to install sounds from storage.
         if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-            addNewRingtoneItem(listView);
+            addNewSoundItem(listView);
         }
 
         // Enable context menu in ringtone items
@@ -440,9 +440,19 @@ public final class RingtonePickerActivity extends AlertActivity implements
         return addStaticItem(listView, com.android.internal.R.string.ringtone_silent);
     }
 
-    private void addNewRingtoneItem(ListView listView) {
-        listView.addFooterView(getLayoutInflater().inflate(R.layout.add_ringtone_item, listView,
-                false /* attachToRoot */));
+    private void addNewSoundItem(ListView listView) {
+        View view = getLayoutInflater().inflate(R.layout.add_new_sound_item, listView,
+                false /* attachToRoot */);
+        TextView text = (TextView)view.findViewById(R.id.add_new_sound_text);
+
+        if (mType == RingtoneManager.TYPE_ALARM) {
+            text.setText(R.string.add_alarm_text);
+        } else if (mType == RingtoneManager.TYPE_NOTIFICATION) {
+            text.setText(R.string.add_notification_text);
+        } else {
+            text.setText(R.string.add_ringtone_text);
+        }
+        listView.addFooterView(view);
     }
 
     private void initRingtoneManager() {
@@ -493,6 +503,11 @@ public final class RingtonePickerActivity extends AlertActivity implements
      * On item selected via keys
      */
     public void onItemSelected(AdapterView parent, View view, int position, long id) {
+        // footer view
+        if (position >= mCursor.getCount() + mStaticItemCount) {
+            return;
+        }
+
         playRingtone(position, DELAY_MS_SELECTION_PLAYED);
 
         // In the buttonless (watch-only) version, preemptively set our result since we won't

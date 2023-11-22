@@ -79,6 +79,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_BUFFER_FEATURES = "bufferFeatures";
     private static final String KEY_BUFFER_IMAGE_GRANULARITY = "bufferImageGranularity";
     private static final String KEY_COMPATIBLE_HANDLE_TYPES = "compatibleHandleTypes";
+    private static final String KEY_CONFORMANCE_VERSION = "conformanceVersion";
     private static final String KEY_DEPTH = "depth";
     private static final String KEY_DEPTH_BIAS_CLAMP = "depthBiasClamp";
     private static final String KEY_DEPTH_BOUNDS = "depthBounds";
@@ -95,8 +96,12 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_DEVICES = "devices";
     private static final String KEY_DISCRETE_QUEUE_PRIORITIES = "discreteQueuePriorities";
     private static final String KEY_DRAW_INDIRECT_FIRST_INSTANCE = "drawIndirectFirstInstance";
-    private static final String KEY_DRIVER_VERSION = "driverVersion";
+    private static final String KEY_DRIVER_ID = "driverID";
+    private static final String KEY_DRIVER_INFO = "driverInfo";
+    private static final String KEY_DRIVER_NAME = "driverName";
+    private static final String KEY_DRIVER_PROPERTIES_KHR = "driverPropertiesKHR";
     private static final String KEY_DRIVER_UUID = "driverUUID";
+    private static final String KEY_DRIVER_VERSION = "driverVersion";
     private static final String KEY_DUAL_SRC_BLEND = "dualSrcBlend";
     private static final String KEY_EXPORT_FROM_IMPORTED_HANDLE_TYPES = "exportFromImportedHandleTypes";
     private static final String KEY_EXTENSION_NAME = "extensionName";
@@ -132,6 +137,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_LINEAR_TILING_FEATURES = "linearTilingFeatures";
     private static final String KEY_LOGIC_OP = "logicOp";
     private static final String KEY_MAINTENANCE_3_PROPERTIES = "maintenance3Properties";
+    private static final String KEY_MAJOR = "major";
     private static final String KEY_MAX_BOUND_DESCRIPTOR_SETS = "maxBoundDescriptorSets";
     private static final String KEY_MAX_CLIP_DISTANCES = "maxClipDistances";
     private static final String KEY_MAX_COLOR_ATTACHMENTS = "maxColorAttachments";
@@ -219,6 +225,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_MIN_TEXEL_GATHER_OFFSET = "minTexelGatherOffset";
     private static final String KEY_MIN_TEXEL_OFFSET = "minTexelOffset";
     private static final String KEY_MIN_UNIFORM_BUFFER_OFFSET_ALIGNMENT = "minUniformBufferOffsetAlignment";
+    private static final String KEY_MINOR = "minor";
     private static final String KEY_MIPMAP_PRECISION_BITS = "mipmapPrecisionBits";
     private static final String KEY_MULTI_DRAW_INDIRECT = "multiDrawIndirect";
     private static final String KEY_MULTI_VIEWPORT = "multiViewport";
@@ -232,6 +239,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_OPTIMAL_BUFFER_COPY_OFFSET_ALIGNMENT = "optimalBufferCopyOffsetAlignment";
     private static final String KEY_OPTIMAL_BUFFER_COPY_ROW_PITCH_ALIGNMENT = "optimalBufferCopyRowPitchAlignment";
     private static final String KEY_OPTIMAL_TILING_FEATURES = "optimalTilingFeatures";
+    private static final String KEY_PATCH = "patch";
     private static final String KEY_PIPELINE_CACHE_UUID = "pipelineCacheUUID";
     private static final String KEY_PIPELINE_STATISTICS_QUERY = "pipelineStatisticsQuery";
     private static final String KEY_POINT_CLIPPING_BEHAVIOR = "pointClippingBehavior";
@@ -303,6 +311,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_SUB_TEXEL_PRECISION_BITS = "subTexelPrecisionBits";
     private static final String KEY_SUBGROUP_PROPERTIES = "subgroupProperties";
     private static final String KEY_SUBGROUP_SIZE = "subgroupSize";
+    private static final String KEY_SUBMINOR = "subminor";
     private static final String KEY_SUBSET_ALLOCATION = "subsetAllocation";
     private static final String KEY_SUPPORTED_OPERATIONS = "supportedOperations";
     private static final String KEY_SUPPORTED_STAGES = "supportedStages";
@@ -323,18 +332,21 @@ public final class VulkanDeviceInfo extends DeviceInfo {
     private static final String KEY_VERTEX_PIPELINE_STORES_AND_ATOMICS = "vertexPipelineStoresAndAtomics";
     private static final String KEY_VIEWPORT_BOUNDS_RANGE = "viewportBoundsRange";
     private static final String KEY_VIEWPORT_SUB_PIXEL_BITS = "viewportSubPixelBits";
+    private static final String KEY_VK_KHR_DRIVER_PROPERTIES = "VK_KHR_driver_properties";
     private static final String KEY_VK_KHR_VARIABLE_POINTERS = "VK_KHR_variable_pointers";
     private static final String KEY_WIDE_LINES = "wideLines";
     private static final String KEY_WIDTH = "width";
 
     private static final int VK_API_VERSION_1_1 = 4198400;
     private static final int ENUM_VK_KHR_VARIABLE_POINTERS = 0;
+    private static final int ENUM_VK_KHR_DRIVER_PROPERTIES = 1;
 
     private static HashMap<String, Integer> extensionNameToEnum;
 
     static {
         System.loadLibrary("ctsdeviceinfo");
         extensionNameToEnum = new HashMap<>();
+        extensionNameToEnum.put(KEY_VK_KHR_DRIVER_PROPERTIES, ENUM_VK_KHR_DRIVER_PROPERTIES);
         extensionNameToEnum.put(KEY_VK_KHR_VARIABLE_POINTERS, ENUM_VK_KHR_VARIABLE_POINTERS);
     }
 
@@ -811,6 +823,41 @@ public final class VulkanDeviceInfo extends DeviceInfo {
         store.endArray();
     }
 
+    private static void emitDriverPropertiesKHR(DeviceInfoStore store, JSONObject parent)
+            throws Exception {
+        try {
+            JSONObject extDriverProperties = parent.getJSONObject(KEY_VK_KHR_DRIVER_PROPERTIES);
+            try {
+                store.startGroup(convertName(KEY_VK_KHR_DRIVER_PROPERTIES));
+                {
+                    JSONObject driverPropertiesKHR = extDriverProperties.getJSONObject(KEY_DRIVER_PROPERTIES_KHR);
+                    store.startGroup(convertName(KEY_DRIVER_PROPERTIES_KHR));
+                    {
+                        emitLong(store, driverPropertiesKHR, KEY_DRIVER_ID);
+                        emitString(store, driverPropertiesKHR, KEY_DRIVER_NAME);
+                        emitString(store, driverPropertiesKHR, KEY_DRIVER_INFO);
+
+                        JSONObject conformanceVersion = driverPropertiesKHR.getJSONObject(KEY_CONFORMANCE_VERSION);
+                        store.startGroup(convertName(KEY_CONFORMANCE_VERSION));
+                        {
+                            emitLong(store, conformanceVersion, KEY_MAJOR);
+                            emitLong(store, conformanceVersion, KEY_MINOR);
+                            emitLong(store, conformanceVersion, KEY_SUBMINOR);
+                            emitLong(store, conformanceVersion, KEY_PATCH);
+                        }
+                        store.endGroup();
+                    }
+                    store.endGroup();
+                }
+                store.endGroup();
+            } catch (JSONException e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            }
+        } catch (JSONException ignored) {
+        }
+    }
+
     private static void emitVariablePointerFeaturesKHR(DeviceInfoStore store, JSONObject parent)
             throws Exception {
         try {
@@ -841,6 +888,9 @@ public final class VulkanDeviceInfo extends DeviceInfo {
         switch (extensionNameToEnum.get(key)) {
             case ENUM_VK_KHR_VARIABLE_POINTERS:
               emitVariablePointerFeaturesKHR(store, parent);
+              break;
+            case ENUM_VK_KHR_DRIVER_PROPERTIES:
+              emitDriverPropertiesKHR(store, parent);
               break;
         }
     }
@@ -917,6 +967,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_BUFFER_FEATURES: return "buffer_features";
             case KEY_BUFFER_IMAGE_GRANULARITY: return "buffer_image_granularity";
             case KEY_COMPATIBLE_HANDLE_TYPES: return "compatible_handle_types";
+            case KEY_CONFORMANCE_VERSION: return "conformance_version";
             case KEY_DEPTH: return "depth";
             case KEY_DEPTH_BIAS_CLAMP: return "depth_bias_clamp";
             case KEY_DEPTH_BOUNDS: return "depth_bounds";
@@ -933,8 +984,12 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_DEVICES: return "devices";
             case KEY_DISCRETE_QUEUE_PRIORITIES: return "discrete_queue_priorities";
             case KEY_DRAW_INDIRECT_FIRST_INSTANCE: return "draw_indirect_first_instance";
-            case KEY_DRIVER_VERSION: return "driver_version";
+            case KEY_DRIVER_ID: return "driver_id";
+            case KEY_DRIVER_INFO: return "driver_info";
+            case KEY_DRIVER_NAME: return "driver_name";
+            case KEY_DRIVER_PROPERTIES_KHR: return "driver_properties_khr";
             case KEY_DRIVER_UUID: return "driver_uuid";
+            case KEY_DRIVER_VERSION: return "driver_version";
             case KEY_DUAL_SRC_BLEND: return "dual_src_blend";
             case KEY_EXPORT_FROM_IMPORTED_HANDLE_TYPES: return "export_from_imported_handle_types";
             case KEY_EXTENSION_NAME: return "extension_name";
@@ -970,6 +1025,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_LINEAR_TILING_FEATURES: return "linear_tiling_features";
             case KEY_LOGIC_OP: return "logic_op";
             case KEY_MAINTENANCE_3_PROPERTIES: return "maintenance_3_properties";
+            case KEY_MAJOR: return "major";
             case KEY_MAX_BOUND_DESCRIPTOR_SETS: return "max_bound_descriptor_sets";
             case KEY_MAX_CLIP_DISTANCES: return "max_clip_distances";
             case KEY_MAX_COLOR_ATTACHMENTS: return "max_color_attachments";
@@ -1057,6 +1113,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_MIN_TEXEL_GATHER_OFFSET: return "min_texel_gather_offset";
             case KEY_MIN_TEXEL_OFFSET: return "min_texel_offset";
             case KEY_MIN_UNIFORM_BUFFER_OFFSET_ALIGNMENT: return "min_uniform_buffer_offset_alignment";
+            case KEY_MINOR: return "minor";
             case KEY_MIPMAP_PRECISION_BITS: return "mipmap_precision_bits";
             case KEY_MULTI_DRAW_INDIRECT: return "multi_draw_indirect";
             case KEY_MULTI_VIEWPORT: return "multi_viewport";
@@ -1070,6 +1127,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_OPTIMAL_BUFFER_COPY_OFFSET_ALIGNMENT: return "optimal_buffer_copy_offset_alignment";
             case KEY_OPTIMAL_BUFFER_COPY_ROW_PITCH_ALIGNMENT: return "optimal_buffer_copy_row_pitch_alignment";
             case KEY_OPTIMAL_TILING_FEATURES: return "optimal_tiling_features";
+            case KEY_PATCH: return "patch";
             case KEY_PIPELINE_CACHE_UUID: return "pipeline_cache_uuid";
             case KEY_PIPELINE_STATISTICS_QUERY: return "pipeline_statistics_query";
             case KEY_POINT_CLIPPING_BEHAVIOR: return "point_clipping_behavior";
@@ -1141,6 +1199,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_SUB_TEXEL_PRECISION_BITS: return "sub_texel_precision_bits";
             case KEY_SUBGROUP_PROPERTIES: return "subgroup_properties";
             case KEY_SUBGROUP_SIZE: return "subgroup_size";
+            case KEY_SUBMINOR: return "subminor";
             case KEY_SUBSET_ALLOCATION: return "subset_allocation";
             case KEY_SUPPORTED_OPERATIONS: return "supported_operations";
             case KEY_SUPPORTED_STAGES: return "supported_stages";
@@ -1161,6 +1220,7 @@ public final class VulkanDeviceInfo extends DeviceInfo {
             case KEY_VERTEX_PIPELINE_STORES_AND_ATOMICS: return "vertex_pipeline_stores_and_atomics";
             case KEY_VIEWPORT_BOUNDS_RANGE: return "viewport_bounds_range";
             case KEY_VIEWPORT_SUB_PIXEL_BITS: return "viewport_sub_pixel_bits";
+            case KEY_VK_KHR_DRIVER_PROPERTIES: return "vk_khr_driver_properties";
             case KEY_VK_KHR_VARIABLE_POINTERS: return "vk_khr_variable_pointers";
             case KEY_WIDE_LINES: return "wide_lines";
             case KEY_WIDTH: return "width";

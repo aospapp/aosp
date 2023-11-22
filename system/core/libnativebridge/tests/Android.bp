@@ -23,7 +23,7 @@ cc_defaults {
         "-Wextra",
         "-Werror",
     ],
-    header_libs: ["libnativebridge-dummy-headers"],
+    header_libs: ["libnativebridge-headers"],
     cppflags: ["-fvisibility=protected"],
 }
 
@@ -43,4 +43,68 @@ cc_library_shared {
     name: "libnativebridge3-dummy",
     srcs: ["DummyNativeBridge3.cpp"],
     defaults: ["libnativebridge-dummy-defaults"],
+}
+
+// Build the unit tests.
+cc_defaults {
+    name: "libnativebridge-tests-defaults",
+    test_per_src: true,
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+
+    srcs: [
+        "CodeCacheCreate_test.cpp",
+        "CodeCacheExists_test.cpp",
+        "CodeCacheStatFail_test.cpp",
+        "CompleteFlow_test.cpp",
+        "InvalidCharsNativeBridge_test.cpp",
+        "NativeBridge2Signal_test.cpp",
+        "NativeBridgeVersion_test.cpp",
+        "NeedsNativeBridge_test.cpp",
+        "PreInitializeNativeBridge_test.cpp",
+        "PreInitializeNativeBridgeFail1_test.cpp",
+        "PreInitializeNativeBridgeFail2_test.cpp",
+        "ReSetupNativeBridge_test.cpp",
+        "UnavailableNativeBridge_test.cpp",
+        "ValidNameNativeBridge_test.cpp",
+        "NativeBridge3UnloadLibrary_test.cpp",
+        "NativeBridge3GetError_test.cpp",
+        "NativeBridge3IsPathSupported_test.cpp",
+        "NativeBridge3InitAnonymousNamespace_test.cpp",
+        "NativeBridge3CreateNamespace_test.cpp",
+        "NativeBridge3LoadLibraryExt_test.cpp",
+    ],
+
+    shared_libs: [
+        "liblog",
+        "libnativebridge-dummy",
+    ],
+    header_libs: ["libbase_headers"],
+}
+
+cc_test {
+    name: "libnativebridge-tests",
+    defaults: ["libnativebridge-tests-defaults"],
+    host_supported: true,
+    shared_libs: ["libnativebridge"],
+}
+
+cc_test {
+    name: "libnativebridge-lazy-tests",
+    defaults: ["libnativebridge-tests-defaults"],
+    shared_libs: ["libnativebridge_lazy"],
+}
+
+// Build the test for the C API.
+cc_test {
+    name: "libnativebridge-api-tests",
+    host_supported: true,
+    test_per_src: true,
+    srcs: [
+        "NativeBridgeApi.c",
+    ],
+    header_libs: ["libnativebridge-headers"],
 }

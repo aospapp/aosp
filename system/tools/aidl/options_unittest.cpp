@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
+#include "options.h"
+
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
-
-#include "options.h"
 
 using std::cerr;
 using std::endl;
@@ -33,9 +34,9 @@ namespace aidl {
 namespace {
 
 const char kPreprocessCommandOutputFile[] = "output_file_name";
-const char kPreprocessCommandInput1[] = "input1";
-const char kPreprocessCommandInput2[] = "input2";
-const char kPreprocessCommandInput3[] = "input3";
+const char kPreprocessCommandInput1[] = "input1.aidl";
+const char kPreprocessCommandInput2[] = "input2.aidl";
+const char kPreprocessCommandInput3[] = "input3.aidl";
 const char* kPreprocessCommand[] = {
     "aidl", "--preprocess",
     kPreprocessCommandOutputFile,
@@ -56,7 +57,7 @@ const char* kCompileJavaCommand[] = {
 };
 const char kCompileCommandJavaOutput[] = "directory/ITool.java";
 
-const char kCompileDepFileNinja[] = "-ninja";
+const char kCompileDepFileNinja[] = "--ninja";
 const char* kCompileJavaCommandNinja[] = {
     "aidl",
     "-b",
@@ -67,7 +68,7 @@ const char* kCompileJavaCommandNinja[] = {
 };
 
 const char kCompileDepFile[] = "-doutput.deps";
-const char kCompileCommandHeaderDir[] = "output/dir";
+const char kCompileCommandHeaderDir[] = "output/dir/";
 const char kCompileCommandCppOutput[] = "some/file.cpp";
 const char* kCompileCppCommand[] = {
     "aidl-cpp",
@@ -89,119 +90,190 @@ const char* kCompileCppCommandNinja[] = {
     nullptr,
 };
 
-template <typename T>
-unique_ptr<T> GetOptions(const char* command[]) {
+unique_ptr<Options> GetOptions(const char* command[],
+                               Options::Language default_lang = Options::Language::JAVA) {
   int argc = 0;
   const char** command_part = command;
   for (; *command_part; ++argc, ++command_part) {}
-  unique_ptr<T> options(T::Parse(argc, command));
-  if (!options) {
+  unique_ptr<Options> ret(new Options(argc, command, default_lang));
+  if (!ret->Ok()) {
+    cerr << ret->GetErrorMessage();
     cerr << "Failed to parse command line:";
     for (int i = 0; i < argc; ++i) {
       cerr << " " << command[i];
       cerr << endl;
     }
   }
-  EXPECT_NE(options, nullptr) << "Failed to parse options!";
-  return options;
+  EXPECT_NE(ret, nullptr) << "Failed to parse options!";
+  return ret;
 }
 
 }  // namespace
 
-TEST(JavaOptionsTests, ParsesPreprocess) {
-  unique_ptr<JavaOptions> options = GetOptions<JavaOptions>(kPreprocessCommand);
-  EXPECT_EQ(JavaOptions::PREPROCESS_AIDL, options->task);
-  EXPECT_EQ(false, options->fail_on_parcelable_);
-  EXPECT_EQ(0u, options->import_paths_.size());
-  EXPECT_EQ(0u, options->preprocessed_files_.size());
-  EXPECT_EQ(string{}, options->input_file_name_);
-  EXPECT_EQ(string{kPreprocessCommandOutputFile}, options->output_file_name_);
-  EXPECT_EQ(false, options->auto_dep_file_);
+TEST(OptionsTests, ParsesPreprocess) {
+  unique_ptr<Options> options = GetOptions(kPreprocessCommand);
+  EXPECT_EQ(Options::Task::PREPROCESS, options->GetTask());
+  EXPECT_EQ(false, options->FailOnParcelable());
+  EXPECT_EQ(0u, options->ImportDirs().size());
+  EXPECT_EQ(0u, options->PreprocessedFiles().size());
+  EXPECT_EQ(string{kPreprocessCommandOutputFile}, options->OutputFile());
+  EXPECT_EQ(false, options->AutoDepFile());
   const vector<string> expected_input{kPreprocessCommandInput1,
                                       kPreprocessCommandInput2,
                                       kPreprocessCommandInput3};
-  EXPECT_EQ(expected_input, options->files_to_preprocess_);
+  EXPECT_EQ(expected_input, options->InputFiles());
 }
 
-TEST(JavaOptionsTests, ParsesCompileJava) {
-  unique_ptr<JavaOptions> options =
-      GetOptions<JavaOptions>(kCompileJavaCommand);
-  EXPECT_EQ(JavaOptions::COMPILE_AIDL_TO_JAVA, options->task);
-  EXPECT_EQ(true, options->fail_on_parcelable_);
-  EXPECT_EQ(1u, options->import_paths_.size());
-  EXPECT_EQ(0u, options->preprocessed_files_.size());
-  EXPECT_EQ(string{kCompileCommandInput}, options->input_file_name_);
-  EXPECT_EQ(string{kCompileCommandJavaOutput}, options->output_file_name_);
-  EXPECT_EQ(false, options->auto_dep_file_);
+TEST(OptionsTests, ParsesCompileJava) {
+  unique_ptr<Options> options = GetOptions(kCompileJavaCommand);
+  EXPECT_EQ(Options::Task::COMPILE, options->GetTask());
+  EXPECT_EQ(Options::Language::JAVA, options->TargetLanguage());
+  EXPECT_EQ(true, options->FailOnParcelable());
+  EXPECT_EQ(1u, options->ImportDirs().size());
+  EXPECT_EQ(0u, options->PreprocessedFiles().size());
+  EXPECT_EQ(string{kCompileCommandInput}, options->InputFiles().front());
+  EXPECT_EQ(string{kCompileCommandJavaOutput}, options->OutputFile());
+  EXPECT_EQ(false, options->AutoDepFile());
   EXPECT_EQ(false, options->DependencyFileNinja());
 }
 
-TEST(JavaOptionsTests, ParsesCompileJavaNinja) {
-  unique_ptr<JavaOptions> options =
-      GetOptions<JavaOptions>(kCompileJavaCommandNinja);
-  EXPECT_EQ(JavaOptions::COMPILE_AIDL_TO_JAVA, options->task);
-  EXPECT_EQ(true, options->fail_on_parcelable_);
-  EXPECT_EQ(1u, options->import_paths_.size());
-  EXPECT_EQ(0u, options->preprocessed_files_.size());
-  EXPECT_EQ(string{kCompileCommandInput}, options->input_file_name_);
-  EXPECT_EQ(string{kCompileCommandJavaOutput}, options->output_file_name_);
-  EXPECT_EQ(false, options->auto_dep_file_);
+TEST(OptionsTests, ParsesCompileJavaNinja) {
+  unique_ptr<Options> options = GetOptions(kCompileJavaCommandNinja);
+  EXPECT_EQ(Options::Task::COMPILE, options->GetTask());
+  EXPECT_EQ(Options::Language::JAVA, options->TargetLanguage());
+  EXPECT_EQ(true, options->FailOnParcelable());
+  EXPECT_EQ(1u, options->ImportDirs().size());
+  EXPECT_EQ(0u, options->PreprocessedFiles().size());
+  EXPECT_EQ(string{kCompileCommandInput}, options->InputFiles().front());
+  EXPECT_EQ(string{kCompileCommandJavaOutput}, options->OutputFile());
+  EXPECT_EQ(false, options->AutoDepFile());
   EXPECT_EQ(true, options->DependencyFileNinja());
 }
 
-TEST(CppOptionsTests, ParsesCompileCpp) {
-  unique_ptr<CppOptions> options = GetOptions<CppOptions>(kCompileCppCommand);
-  ASSERT_EQ(1u, options->import_paths_.size());
-  EXPECT_EQ(string{kCompileCommandIncludePath}.substr(2),
-            options->import_paths_[0]);
-  EXPECT_EQ(string{kCompileDepFile}.substr(2), options->dep_file_name_);
+TEST(OptionsTests, ParsesCompileCpp) {
+  unique_ptr<Options> options = GetOptions(kCompileCppCommand, Options::Language::CPP);
+  ASSERT_EQ(1u, options->ImportDirs().size());
+  EXPECT_EQ(string{kCompileCommandIncludePath}.substr(2), *options->ImportDirs().begin());
+  EXPECT_EQ(string{kCompileDepFile}.substr(2), options->DependencyFile());
   EXPECT_EQ(false, options->DependencyFileNinja());
-  EXPECT_EQ(kCompileCommandInput, options->InputFileName());
+  EXPECT_EQ(kCompileCommandInput, options->InputFiles().front());
   EXPECT_EQ(kCompileCommandHeaderDir, options->OutputHeaderDir());
-  EXPECT_EQ(kCompileCommandCppOutput, options->OutputCppFilePath());
+  EXPECT_EQ(kCompileCommandCppOutput, options->OutputFile());
 }
 
-TEST(CppOptionsTests, ParsesCompileCppNinja) {
-  unique_ptr<CppOptions> options = GetOptions<CppOptions>(kCompileCppCommandNinja);
-  ASSERT_EQ(1u, options->import_paths_.size());
-  EXPECT_EQ(string{kCompileCommandIncludePath}.substr(2),
-            options->import_paths_[0]);
-  EXPECT_EQ(string{kCompileDepFile}.substr(2), options->dep_file_name_);
+TEST(OptionsTests, ParsesCompileCppNinja) {
+  unique_ptr<Options> options = GetOptions(kCompileCppCommandNinja, Options::Language::CPP);
+  ASSERT_EQ(1u, options->ImportDirs().size());
+  EXPECT_EQ(string{kCompileCommandIncludePath}.substr(2), *options->ImportDirs().begin());
+  EXPECT_EQ(string{kCompileDepFile}.substr(2), options->DependencyFile());
   EXPECT_EQ(true, options->DependencyFileNinja());
-  EXPECT_EQ(kCompileCommandInput, options->InputFileName());
+  EXPECT_EQ(kCompileCommandInput, options->InputFiles().front());
   EXPECT_EQ(kCompileCommandHeaderDir, options->OutputHeaderDir());
-  EXPECT_EQ(kCompileCommandCppOutput, options->OutputCppFilePath());
+  EXPECT_EQ(kCompileCommandCppOutput, options->OutputFile());
 }
 
-TEST(OptionsTests, EndsWith) {
-  EXPECT_TRUE(EndsWith("foo", ""));
-  EXPECT_TRUE(EndsWith("foo", "o"));
-  EXPECT_TRUE(EndsWith("foo", "foo"));
-  EXPECT_FALSE(EndsWith("foo", "fooo"));
-  EXPECT_FALSE(EndsWith("", "o"));
-  EXPECT_TRUE(EndsWith("", ""));
+TEST(OptionsTests, ParsesCompileJavaMultiInput) {
+  const char* argv[] = {
+      "aidl",
+      "--lang=java",
+      kCompileCommandIncludePath,
+      "-o src_out",
+      "directory/input1.aidl",
+      "directory/input2.aidl",
+      "directory/input3.aidl",
+      nullptr,
+  };
+  unique_ptr<Options> options = GetOptions(argv);
+  EXPECT_EQ(Options::Task::COMPILE, options->GetTask());
+  EXPECT_EQ(Options::Language::JAVA, options->TargetLanguage());
+  EXPECT_EQ(false, options->FailOnParcelable());
+  EXPECT_EQ(1u, options->ImportDirs().size());
+  EXPECT_EQ(0u, options->PreprocessedFiles().size());
+  const vector<string> expected_input{"directory/input1.aidl", "directory/input2.aidl",
+                                      "directory/input3.aidl"};
+  EXPECT_EQ(expected_input, options->InputFiles());
+  EXPECT_EQ(string{""}, options->OutputFile());
+  EXPECT_EQ(false, options->AutoDepFile());
+  EXPECT_EQ(false, options->DependencyFileNinja());
+  EXPECT_EQ(string{""}, options->OutputHeaderDir());
+  EXPECT_EQ(string{"src_out/"}, options->OutputDir());
 }
 
-TEST(OptionsTests, ReplaceSuffix) {
-  struct test_case_t {
-    const char* input;
-    const char* old_suffix;
-    const char* new_suffix;
-    const char* result;
+TEST(OptionsTests, ParsesCompileJavaInvalid) {
+  // -o option is required
+  const char* arg_with_no_out_dir[] = {
+      "aidl",
+      "--lang=java",
+      kCompileCommandIncludePath,
+      "directory/input1.aidl",
+      "directory/input2.aidl",
+      "directory/input3.aidl",
+      nullptr,
   };
-  const size_t kNumCases = 3;
-  test_case_t kTestInput[kNumCases] = {
-    {"foo.bar", "bar", "foo", "foo.foo"},
-    {"whole", "whole", "new", "new"},
-    {"", "", "", ""},
+  EXPECT_EQ(false, GetOptions(arg_with_no_out_dir)->Ok());
+
+  // -h options is not for Java
+  const char* arg_with_header_dir[] = {
+      "aidl",          "--lang=java",           kCompileCommandIncludePath, "-o src_out",
+      "-h header_out", "directory/input1.aidl", "directory/input2.aidl",    "directory/input3.aidl",
+      nullptr,
   };
-  for (const auto& test_case : kTestInput) {
-    string mutated = test_case.input;
-    EXPECT_TRUE(ReplaceSuffix(test_case.old_suffix,
-                              test_case.new_suffix,
-                              &mutated));
-    EXPECT_EQ(mutated, test_case.result);
-  }
+  EXPECT_EQ(false, GetOptions(arg_with_header_dir)->Ok());
+}
+
+TEST(OptionsTests, ParsesCompileCppMultiInput) {
+  const char* argv[] = {
+      "aidl",
+      "--lang=cpp",
+      kCompileCommandIncludePath,
+      "-h header_out",
+      "-o src_out",
+      "directory/input1.aidl",
+      "directory/input2.aidl",
+      "directory/input3.aidl",
+      nullptr,
+  };
+  unique_ptr<Options> options = GetOptions(argv);
+  EXPECT_EQ(Options::Task::COMPILE, options->GetTask());
+  EXPECT_EQ(Options::Language::CPP, options->TargetLanguage());
+  EXPECT_EQ(false, options->FailOnParcelable());
+  EXPECT_EQ(1u, options->ImportDirs().size());
+  EXPECT_EQ(0u, options->PreprocessedFiles().size());
+  const vector<string> expected_input{"directory/input1.aidl", "directory/input2.aidl",
+                                      "directory/input3.aidl"};
+  EXPECT_EQ(expected_input, options->InputFiles());
+  EXPECT_EQ(string{""}, options->OutputFile());
+  EXPECT_EQ(false, options->AutoDepFile());
+  EXPECT_EQ(false, options->DependencyFileNinja());
+  EXPECT_EQ(string{"header_out/"}, options->OutputHeaderDir());
+  EXPECT_EQ(string{"src_out/"}, options->OutputDir());
+}
+
+TEST(OptionsTests, ParsesCompileCppInvalid) {
+  // -o option is required
+  const char* arg_with_no_out_dir[] = {
+      "aidl",
+      "--lang=cpp",
+      kCompileCommandIncludePath,
+      "directory/input1.aidl",
+      "directory/input2.aidl",
+      "directory/input3.aidl",
+      nullptr,
+  };
+  EXPECT_EQ(false, GetOptions(arg_with_no_out_dir)->Ok());
+
+  // -h options is required as well
+  const char* arg_with_no_header_dir[] = {
+      "aidl",
+      "--lang=cpp",
+      kCompileCommandIncludePath,
+      "-o src_out",
+      "directory/input1.aidl",
+      "directory/input2.aidl",
+      "directory/input3.aidl",
+      nullptr,
+  };
+  EXPECT_EQ(false, GetOptions(arg_with_no_header_dir)->Ok());
 }
 
 }  // namespace android

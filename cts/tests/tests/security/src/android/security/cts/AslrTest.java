@@ -20,6 +20,7 @@ import android.test.InstrumentationTestCase;
 import junit.framework.TestCase;
 
 import android.os.ParcelFileDescriptor;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.SecurityTest;
 import android.util.Log;
 import java.io.BufferedReader;
@@ -104,6 +105,7 @@ public class AslrTest extends InstrumentationTestCase {
         testMappingEntropy("/system/bin/");
     }
 
+    @AppModeFull // /system/bin/cat is not accessible to instant apps
     public void testOneExecutableIsPie() throws IOException {
         assertTrue(ReadElf.read(new File("/system/bin/cat")).isPIE());
     }

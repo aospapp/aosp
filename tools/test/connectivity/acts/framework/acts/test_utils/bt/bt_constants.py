@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -76,6 +76,7 @@ bluetooth_profile_connection_state_changed = \
     "BluetoothProfileConnectionStateChanged"
 bluetooth_le_on = "BleStateChangedOn"
 bluetooth_le_off = "BleStateChangedOff"
+bluetooth_a2dp_codec_config_changed = "BluetoothA2dpCodecConfigChanged"
 # End Callback Strings
 
 batch_scan_not_supported_list = [
@@ -180,6 +181,47 @@ bt_priority_levels = {
     "on": 100,
     "off": 0,
     "undefined": -1
+}
+
+# A2DP codec configuration constants as defined in
+# frameworks/base/core/java/android/bluetooth/BluetoothCodecConfig.java
+codec_types = {
+    'SBC': 0,
+    'AAC': 1,
+    'APTX': 2,
+    'APTX-HD': 3,
+    'LDAC': 4,
+    'MAX': 5,
+    'INVALID': 1000000
+}
+
+codec_priorities = {
+    'DISABLED': -1,
+    'DEFAULT': 0,
+    'HIGHEST': 1000000
+}
+
+sample_rates = {
+    'NONE': 0,
+    '44100': 0x1 << 0,
+    '48000': 0x1 << 1,
+    '88200': 0x1 << 2,
+    '96000': 0x1 << 3,
+    '176400': 0x1 << 4,
+    '192000': 0x1 << 5
+}
+
+bits_per_samples = {
+    'NONE': 0,
+    '16': 0x1 << 0,
+    '24': 0x1 << 1,
+    '32': 0x1 << 2
+}
+
+channel_modes = {
+    'NONE': 0,
+    'MONO': 0x1 << 0,
+    'STEREO': 0x1 << 1
 }
 
 # Bluetooth HID constants.
@@ -596,3 +638,101 @@ logcat_strings = {
 }
 
 ### End logcat strings dict"""
+
+### Begin Service Discovery UUIDS ###
+### Values match the Bluetooth SIG defined values: """
+""" https://www.bluetooth.com/specifications/assigned-numbers/service-discovery """
+sig_uuid_constants = {
+    "BASE_UUID": "0000{}-0000-1000-8000-00805F9B34FB",
+    "SDP": "0001",
+    "UDP": "0002",
+    "RFCOMM": "0003",
+    "TCP": "0004",
+    "TCS-BIN": "0005",
+    "TCS-AT": "0006",
+    "ATT": "0007",
+    "OBEX": "0008",
+    "IP": "0009",
+    "FTP": "000A",
+    "HTTP": "000C",
+    "WSP": "000E",
+    "BNEP": "000F",
+    "UPNP": "0010",
+    "HIDP": "0011",
+    "HardcopyControlChannel": "0012",
+    "HardcopyDataChannel": "0014",
+    "HardcopyNotification": "0016",
+    "AVCTP": "0017",
+    "AVDTP": "0019",
+    "CMTP": "001B",
+    "MCAPControlChannel": "001E",
+    "MCAPDataChannel": "001F",
+    "L2CAP": "0100",
+    "ServiceDiscoveryServerServiceClassID": "1000",
+    "BrowseGroupDescriptorServiceClassID": "1001",
+    "SerialPort": "1101",
+    "LANAccessUsingPPP": "1102",
+    "DialupNetworking": "1103",
+    "IrMCSync": "1104",
+    "OBEXObjectPush": "1105",
+    "OBEXFileTransfer": "1106",
+    "IrMCSyncCommand": "1107",
+    "Headset": "1108",
+    "CordlessTelephony": "1109",
+    "AudioSource": "110A",
+    "AudioSink": "110B",
+    "A/V_RemoteControlTarget": "110C",
+    "AdvancedAudioDistribution": "110D",
+    "A/V_RemoteControl": "110E",
+    "A/V_RemoteControlController": "110F",
+    "Intercom": "1110",
+    "Fax": "1111",
+    "Headset - Audio Gateway (AG)": "1112",
+    "WAP": "1113",
+    "WAP_CLIENT": "1114",
+    "PANU": "1115",
+    "NAP": "1116",
+    "GN": "1117",
+    "DirectPrinting": "1118",
+    "ReferencePrinting": "1119",
+    "ImagingResponder": "111B",
+    "ImagingAutomaticArchive": "111C",
+    "ImagingReferencedObjects": "111D",
+    "Handsfree": "111E",
+    "HandsfreeAudioGateway": "111F",
+    "DirectPrintingReferenceObjectsService": "1120",
+    "ReflectedUI": "1121",
+    "BasicPrinting": "1122",
+    "PrintingStatus": "1123",
+    "HumanInterfaceDeviceService": "1124",
+    "HardcopyCableReplacement": "1125",
+    "HCR_Print": "1126",
+    "HCR_Scan": "1127",
+    "Common_ISDN_Access": "1128",
+    "SIM_Access": "112D",
+    "Phonebook Access - PCE": "112E",
+    "Phonebook Access - PSE": "112F",
+    "Phonebook Access": "1130",
+    "Headset - HS": "1131",
+    "Message Access Server": "1132",
+    "Message Notification Server": "1133",
+    "Message Access Profile": "1134",
+    "GNSS": "1135",
+    "GNSS_Server": "1136",
+    "PnPInformation": "1200",
+    "GenericNetworking": "1201",
+    "GenericFileTransfer": "1202",
+    "GenericAudio": "1203",
+    "GenericTelephony": "1204",
+    "UPNP_Service": "1205",
+    "UPNP_IP_Service": "1206",
+    "ESDP_UPNP_IP_PAN": "1300",
+    "ESDP_UPNP_IP_LAP": "1301",
+    "ESDP_UPNP_L2CAP": "1302",
+    "VideoSource": "1303",
+    "VideoSink": "1304",
+    "VideoDistribution": "1305",
+    "HDP": "1400"
+}
+
+### End Service Discovery UUIDS ###

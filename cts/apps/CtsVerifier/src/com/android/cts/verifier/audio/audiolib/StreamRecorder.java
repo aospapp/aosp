@@ -120,22 +120,33 @@ public class StreamRecorder {
         mNumChannels = numChans;
         mSampleRate = sampleRate;
 
-        int chanPosMask = AudioUtils.countToInPositionMask(numChans);
-        int bufferSizeInBytes = 2048;   // Some, non-critical value
+        final int frameSize =
+                AudioUtils.calcFrameSizeInBytes(AudioFormat.ENCODING_PCM_FLOAT, mNumChannels);
+        final int bufferSizeInBytes = frameSize * 64;   // Some, non-critical value
+
+        AudioFormat.Builder formatBuilder = new AudioFormat.Builder();
+        formatBuilder.setEncoding(AudioFormat.ENCODING_PCM_FLOAT);
+        formatBuilder.setSampleRate(mSampleRate);
+
+        if (numChans <= 2) {
+            // There is currently a bug causing channel INDEX masks to fail.
+            // for channels counts of <= 2, use channel POSITION
+            final int chanPosMask = AudioUtils.countToInPositionMask(numChans);
+            formatBuilder.setChannelMask(chanPosMask);
+        } else {
+            // There are no INPUT channel-position masks for > 2 channels
+            final int chanIndexMask = AudioUtils.countToIndexMask(numChans);
+            formatBuilder.setChannelIndexMask(chanIndexMask);
+        }
+
+        AudioRecord.Builder builder = new AudioRecord.Builder();
+        builder.setAudioFormat(formatBuilder.build());
 
         try {
-            mAudioRecord = new AudioRecord.Builder()
-                    .setAudioFormat(new AudioFormat.Builder()
-                            .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
-                            .setSampleRate(mSampleRate)
-                            .setChannelMask(chanPosMask)
-                            .build())
-                    .setBufferSizeInBytes(bufferSizeInBytes)
-                    .build();
-
+            mAudioRecord = builder.build();
             return true;
         } catch (UnsupportedOperationException ex) {
-            Log.i(TAG, "Couldn't open AudioRecord: " + ex);
+            Log.e(TAG, "Couldn't open AudioRecord: " + ex);
             mAudioRecord = null;
             return false;
         }

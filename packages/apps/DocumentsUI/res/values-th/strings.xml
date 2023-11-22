@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"แชร์"</string>
     <string name="menu_delete" msgid="1022254131543256626">"ลบ"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"เลือกทั้งหมด"</string>
+    <string name="menu_select" msgid="1366061076507142387">"เลือก"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"จัดเรียงตาม..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"คัดลอกไปยัง…"</string>
     <string name="menu_move" msgid="2310760789561129882">"ย้ายไปที่…"</string>
     <string name="menu_compress" msgid="37539111904724188">"บีบอัด"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"ประเภท"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"ขนาด"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"แก้ไข"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ชื่อไฟล์ (A ไป Z)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"ประเภท (A ไป Z)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"ขนาด (เล็กที่สุดก่อน)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"การแก้ไข (เก่าสุดก่อน)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ชื่อไฟล์ (Z ไป A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"ประเภท (Z ไป A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"ขนาด (ใหญ่ที่สุดก่อน)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"การแก้ไข (ล่าสุดก่อน)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"จัดเรียงตาม"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"จัดเรียงตาม <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"จำนวนรายการ"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"จากน้อยไปมาก"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"จากมากไปน้อย"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"เปิด <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"แสดงราก"</string>
     <string name="drawer_close" msgid="4263880768630848848">"ซ่อนราก"</string>
     <string name="save_error" msgid="8631128801982095782">"การบันทึกเอกสารล้มเหลว"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"ให้สิทธิ์ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ในการเข้าถึงไดเรกทอรี <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ใน <xliff:g id="STORAGE"><i>^3</i></xliff:g> ไหม"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"ให้สิทธิ์ <xliff:g id="APPNAME"><b>^1</b></xliff:g> เข้าถึงไดเรกทอรี <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ไหม"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"ให้สิทธิ์ <xliff:g id="APPNAME"><b>^1</b></xliff:g> เข้าถึงข้อมูลของคุณ รวมถึงรูปภาพและวิดีโอใน <xliff:g id="STORAGE"><i>^2</i></xliff:g> ไหม"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"ไม่ต้องถามอีก"</string>
     <string name="allow" msgid="1275746941353040309">"อนุญาต"</string>
     <string name="deny" msgid="5127201668078153379">"ปฏิเสธ"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"ที่เก็บถาวร<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"เขียนทับ <xliff:g id="NAME">%1$s</xliff:g> ไหม"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"ดำเนินการต่อในพื้นหลัง"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other">เลือกไว้ <xliff:g id="COUNT_1">%1$d</xliff:g> รายการ</item>
+      <item quantity="one">เลือกไว้ <xliff:g id="COUNT_0">%1$d</xliff:g> รายการ</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"ไฟล์ล่าสุดในโทรศัพท์"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"ไฟล์ในโทรศัพท์"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g>ในโทรศัพท์"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"ไฟล์ใน <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"ไฟล์จาก <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"ไฟล์จาก <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"รูปภาพล่าสุดในโทรศัพท์"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"รูปภาพในโทรศัพท์"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"รูปภาพใน <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"รูปภาพจาก <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"รูปภาพจาก <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"รูปภาพ"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"เสียง"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"วิดีโอ"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"เอกสาร"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"ชื่อโฟลเดอร์"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"ชื่อใหม่"</string>
+    <string name="preview_file" msgid="4056622696305432343">"แสดงพรีวิวไฟล์ <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"เรียกดูไฟล์ในแอปอื่นๆ"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"ไม่ระบุชื่อ"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"อนุญาตให้เข้าถึง \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\""</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"อนุญาตให้เข้าถึง \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" ใน \"<xliff:g id="ROOT">%2$s</xliff:g>\" ใช่ไหม"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"การดำเนินการดังกล่าวจะอนุญาตให้ \"<xliff:g id="APPNAME">%1$s</xliff:g>\" เข้าถึงทุกไฟล์ที่จัดเก็บอยู่ในตำแหน่งนี้ และเนื้อหาอื่นๆ ที่จะจัดเก็บไว้ที่นี่ในอนาคตได้โดยสมบูรณ์"</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"ค้นหาโทรศัพท์เครื่องนี้"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"ลบประวัติการค้นหา <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

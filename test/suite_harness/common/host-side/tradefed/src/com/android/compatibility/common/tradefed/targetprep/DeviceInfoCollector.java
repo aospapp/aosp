@@ -16,11 +16,11 @@
 
 package com.android.compatibility.common.tradefed.targetprep;
 
-import com.android.compatibility.common.tradefed.testtype.CompatibilityTest;
 import com.android.compatibility.common.util.DeviceInfo;
 import com.android.compatibility.common.util.DevicePropertyInfo;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.ITestLogger;
@@ -36,10 +36,12 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Map.Entry;
 
-/**
- * An {@link ApkInstrumentationPreparer} that collects device info.
- */
+/** An {@link ApkInstrumentationPreparer} that collects device info. */
+@OptionClass(alias = "device-info-collector")
 public class DeviceInfoCollector extends ApkInstrumentationPreparer implements ITestLoggerReceiver {
+
+    public static final String DEVICE_INFO_DIR = "device_info_dir";
+    public static final String SKIP_DEVICE_INFO_OPTION = "skip-device-info";
 
     private static final String ABI = "ro.product.cpu.abi";
     private static final String ABI2 = "ro.product.cpu.abi2";
@@ -50,6 +52,7 @@ public class DeviceInfoCollector extends ApkInstrumentationPreparer implements I
     private static final String BRAND = "ro.product.brand";
     private static final String DEVICE = "ro.product.device";
     private static final String FINGERPRINT = "ro.build.fingerprint";
+    private static final String VENDOR_FINGERPRINT = "ro.vendor.build.fingerprint";
     private static final String ID = "ro.build.id";
     private static final String MANUFACTURER = "ro.product.manufacturer";
     private static final String MODEL = "ro.product.model";
@@ -66,7 +69,7 @@ public class DeviceInfoCollector extends ApkInstrumentationPreparer implements I
 
     private static final String PREFIX_TAG = "cts:build_";
 
-    @Option(name = CompatibilityTest.SKIP_DEVICE_INFO_OPTION,
+    @Option(name = SKIP_DEVICE_INFO_OPTION,
             shortName = 'd',
             description = "Whether device info collection should be skipped")
     private boolean mSkipDeviceInfo = false;
@@ -82,6 +85,7 @@ public class DeviceInfoCollector extends ApkInstrumentationPreparer implements I
     private String mTempDir;
 
     private ITestLogger mLogger;
+    private File deviceInfoDir = null;
 
     public DeviceInfoCollector() {
         mWhen = When.BEFORE;
@@ -90,22 +94,46 @@ public class DeviceInfoCollector extends ApkInstrumentationPreparer implements I
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
             BuildError, DeviceNotAvailableException {
-        DevicePropertyInfo devicePropertyInfo = new DevicePropertyInfo(ABI, ABI2, ABIS, ABIS_32,
-                ABIS_64, BOARD, BRAND, DEVICE, FINGERPRINT, ID, MANUFACTURER, MODEL, PRODUCT,
-                REFERENCE_FINGERPRINT, SERIAL, TAGS, TYPE, VERSION_BASE_OS, VERSION_RELEASE,
-                VERSION_SDK, VERSION_SECURITY_PATCH, VERSION_INCREMENTAL);
+        if (buildInfo.getFile(DEVICE_INFO_DIR) != null) {
+            CLog.i("Device info already collected, skipping DeviceInfoCollector.");
+            return;
+        }
+        DevicePropertyInfo devicePropertyInfo =
+                new DevicePropertyInfo(
+                        ABI,
+                        ABI2,
+                        ABIS,
+                        ABIS_32,
+                        ABIS_64,
+                        BOARD,
+                        BRAND,
+                        DEVICE,
+                        FINGERPRINT,
+                        VENDOR_FINGERPRINT,
+                        ID,
+                        MANUFACTURER,
+                        MODEL,
+                        PRODUCT,
+                        REFERENCE_FINGERPRINT,
+                        SERIAL,
+                        TAGS,
+                        TYPE,
+                        VERSION_BASE_OS,
+                        VERSION_RELEASE,
+                        VERSION_SDK,
+                        VERSION_SECURITY_PATCH,
+                        VERSION_INCREMENTAL);
 
         // add device properties to the result with a prefix tag for each key
         for (Entry<String, String> entry :
                 devicePropertyInfo.getPropertytMapWithPrefix(PREFIX_TAG).entrySet()) {
-            buildInfo.addBuildAttribute(
-                    entry.getKey(), nullToEmpty(device.getProperty(entry.getValue())));
+            String property = nullToEmpty(device.getProperty(entry.getValue()));
+            buildInfo.addBuildAttribute(entry.getKey(), property);
         }
         if (mSkipDeviceInfo) {
             return;
         }
         run(device, buildInfo);
-        File deviceInfoDir = null;
         try {
             deviceInfoDir = FileUtil.createTempDir(DeviceInfo.RESULT_DIR_NAME);
             if (device.pullDir(mSrcDir, deviceInfoDir)) {
@@ -114,15 +142,21 @@ public class DeviceInfoCollector extends ApkInstrumentationPreparer implements I
                         mLogger.testLog(deviceInfoFile.getName(), LogDataType.TEXT, source);
                     }
                 }
+                buildInfo.setFile(DEVICE_INFO_DIR, deviceInfoDir, /** version */ "v1");
             } else {
                 CLog.e("Failed to pull device-info files from device %s", device.getSerialNumber());
             }
         } catch (IOException e) {
             CLog.e("Failed to pull device-info files from device %s", device.getSerialNumber());
             CLog.e(e);
-        } finally {
-            FileUtil.recursiveDelete(deviceInfoDir);
         }
+    }
+
+    @Override
+    public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
+            throws DeviceNotAvailableException {
+        FileUtil.recursiveDelete(deviceInfoDir);
+        super.tearDown(device, buildInfo, e);
     }
 
     @Override

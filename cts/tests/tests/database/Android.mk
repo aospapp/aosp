@@ -22,9 +22,10 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-device-util-axt \
     android-common \
-    ctstestrunner \
-    ctstestrunner \
+    ctstestrunner-axt \
+    ctstestrunner-axt \
     ub-uiautomator \
     junit
 

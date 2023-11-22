@@ -522,9 +522,10 @@ DwMmcHcGetMaxCurrent (
 **/
 EFI_STATUS
 DwMmcHcCardDetect (
-  IN EFI_PCI_IO_PROTOCOL    *PciIo,
-  IN UINT8                  Slot,
-     OUT BOOLEAN            *MediaPresent
+  IN     EFI_PCI_IO_PROTOCOL  *PciIo,
+  IN     EFI_HANDLE           Controller,
+  IN     UINT8                Slot,
+     OUT BOOLEAN              *MediaPresent
   );
 
 /**

@@ -18,16 +18,12 @@ package android.location.cts;
 
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.Criteria;
 import android.location.GnssStatus;
-import android.location.GpsStatus;
-import android.location.GpsStatus.Listener;
-import android.location.GpsStatus.NmeaListener;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -38,9 +34,9 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.platform.test.annotations.AppModeFull;
-import android.provider.Settings;
+import android.os.UserManager;
 import android.test.UiThreadTest;
+import android.util.Log;
 
 import java.util.List;
 
@@ -52,6 +48,9 @@ import java.util.List;
  * android.permission.ACCESS_LOCATION_EXTRA_COMMANDS to send extra commands to GPS provider
  */
 public class LocationManagerTest extends BaseMockLocationTest {
+
+    private static final String TAG = "LocationManagerTest";
+
     private static final long TEST_TIME_OUT = 5000;
 
     private static final String TEST_MOCK_PROVIDER_NAME = "test_provider";
@@ -255,64 +254,6 @@ public class LocationManagerTest extends BaseMockLocationTest {
     }
 
     /**
-     * Tests that location mode is consistent with which providers are enabled. Sadly we can only
-     * passively test whatever mode happens to be selected--actually changing the mode would require
-     * the test to be system-signed, and CTS tests aren't. Also mode changes that enable NLP require
-     * user consent. Thus we will have a manual CTS verifier test that is similar to this test but
-     * tests every location mode. This test is just a "backup" for that since verifier tests are
-     * less reliable.
-     */
-    public void testModeAndProviderApisConsistent() {
-        ContentResolver cr = mContext.getContentResolver();
-
-        // Find out what the settings say about which providers are enabled
-        int mode = Settings.Secure.getInt(
-                cr, Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF);
-        boolean gps = Settings.Secure.isLocationProviderEnabled(cr, LocationManager.GPS_PROVIDER);
-        boolean nlp = Settings.Secure.isLocationProviderEnabled(
-                cr, LocationManager.NETWORK_PROVIDER);
-
-        // Find out location manager's opinion on the matter, making sure we dont' get spurious
-        // results from test versions of the two providers.
-        forceRemoveTestProvider(LocationManager.GPS_PROVIDER);
-        forceRemoveTestProvider(LocationManager.NETWORK_PROVIDER);
-        boolean lmGps = mManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
-        boolean lmNlp = mManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-
-        // Location Manager will report provider as off if it doesn't know about it
-        boolean expectedGps = gps && deviceHasProvider(LocationManager.GPS_PROVIDER);
-        boolean expectedNlp = nlp && deviceHasProvider(LocationManager.NETWORK_PROVIDER);
-
-        // Assert LocationManager returned the values from Settings.Secure (assuming the device has
-        // the appropriate hardware).
-        assertEquals("Inconsistent GPS values", expectedGps, lmGps);
-        assertEquals("Inconsistent NLP values", expectedNlp, lmNlp);
-
-        switch (mode) {
-            case Settings.Secure.LOCATION_MODE_OFF:
-                expectedGps = false;
-                expectedNlp = false;
-                break;
-            case Settings.Secure.LOCATION_MODE_SENSORS_ONLY:
-                expectedGps = true;
-                expectedNlp = false;
-                break;
-            case Settings.Secure.LOCATION_MODE_BATTERY_SAVING:
-                expectedGps = false;
-                expectedNlp = true;
-                break;
-            case Settings.Secure.LOCATION_MODE_HIGH_ACCURACY:
-                expectedGps = true;
-                expectedNlp = true;
-                break;
-        }
-
-        // Assert that isLocationProviderEnabled() values are consistent with the location mode
-        assertEquals("Bad GPS for mode " + mode, expectedGps, gps);
-        assertEquals("Bad NLP for mode " + mode, expectedNlp, nlp);
-    }
-
-    /**
      * Returns true if the {@link LocationManager} reports that the device includes this flavor
      * of location provider.
      */
@@ -357,13 +298,6 @@ public class LocationManagerTest extends BaseMockLocationTest {
         try {
             mManager.removeUpdates( (LocationListener) null );
             fail("Should throw IllegalArgumentException if listener is null!");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        try {
-            mManager.clearTestProviderLocation(UNKNOWN_PROVIDER_NAME);
-            fail("Should throw IllegalArgumentException if provider is unknown!");
         } catch (IllegalArgumentException e) {
             // expected
         }
@@ -901,16 +835,8 @@ public class LocationManagerTest extends BaseMockLocationTest {
         mManager.removeProximityAlert(pi);
     }
 
-
     @UiThreadTest
     public void testNmeaListener() {
-        MockNmeaListener listener = new MockNmeaListener();
-        mManager.addNmeaListener(listener);
-        mManager.removeNmeaListener(listener);
-
-        mManager.addNmeaListener((NmeaListener) null);
-        mManager.removeNmeaListener((NmeaListener) null);
-
         MockGnssNmeaListener gnssListener = new MockGnssNmeaListener();
         mManager.addNmeaListener(gnssListener);
         mManager.removeNmeaListener(gnssListener);
@@ -938,13 +864,6 @@ public class LocationManagerTest extends BaseMockLocationTest {
         try {
             mManager.isProviderEnabled(null);
             fail("Should throw IllegalArgumentException if provider is null!");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        try {
-            mManager.clearTestProviderEnabled(UNKNOWN_PROVIDER_NAME);
-            fail("Should throw IllegalArgumentException if provider is unknown!");
         } catch (IllegalArgumentException e) {
             // expected
         }
@@ -1016,22 +935,6 @@ public class LocationManagerTest extends BaseMockLocationTest {
     }
 
     @UiThreadTest
-    public void testGpsStatusListener() {
-        MockGpsStatusListener listener = new MockGpsStatusListener();
-        mManager.addGpsStatusListener(listener);
-        mManager.removeGpsStatusListener(listener);
-
-        mManager.addGpsStatusListener(null);
-        mManager.removeGpsStatusListener(null);
-    }
-
-    public void testGetGpsStatus() {
-        GpsStatus status = mManager.getGpsStatus(null);
-        assertNotNull(status);
-        assertSame(status, mManager.getGpsStatus(status));
-    }
-
-    @UiThreadTest
     public void testGnssStatusListener() {
         MockGnssStatusCallback callback = new MockGnssStatusCallback();
         mManager.registerGnssStatusCallback(callback);
@@ -1047,55 +950,14 @@ public class LocationManagerTest extends BaseMockLocationTest {
         mManager.unregisterGnssStatusCallback(callback);
     }
 
-    @AppModeFull(reason = "Requires use of extra LocationManager commands")
-    public void testSendExtraCommand() {
-        // this test assumes TEST_MOCK_PROVIDER_NAME was created in setUp.
-        assertNotNull(mManager.getProvider(TEST_MOCK_PROVIDER_NAME));
-        // Unknown command
-        assertFalse(mManager.sendExtraCommand(TEST_MOCK_PROVIDER_NAME, "unknown", new Bundle()));
-
-        assertNull(mManager.getProvider(UNKNOWN_PROVIDER_NAME));
-        assertFalse(mManager.sendExtraCommand(UNKNOWN_PROVIDER_NAME, "unknown", new Bundle()));
-    }
-
-    public void testSetTestProviderStatus() throws InterruptedException {
-        final int status = LocationProvider.TEMPORARILY_UNAVAILABLE;
-        final long updateTime = 1000;
-        final MockLocationListener listener = new MockLocationListener();
-
-        HandlerThread handlerThread = new HandlerThread("testStatusUpdates");
-        handlerThread.start();
-
-        // set status successfully
-        mManager.requestLocationUpdates(TEST_MOCK_PROVIDER_NAME, 0, 0, listener,
-                handlerThread.getLooper());
-        mManager.setTestProviderStatus(TEST_MOCK_PROVIDER_NAME, status, null, updateTime);
-        // setting the status alone is not sufficient to trigger a status update
-        updateLocation(10, 30);
-        assertTrue(listener.hasCalledOnStatusChanged(TEST_TIME_OUT));
-        assertEquals(TEST_MOCK_PROVIDER_NAME, listener.getProvider());
-        assertEquals(status, listener.getStatus());
-
-        try {
-            mManager.setTestProviderStatus(UNKNOWN_PROVIDER_NAME, 0, null,
-                    System.currentTimeMillis());
-            fail("Should throw IllegalArgumentException if provider is unknown!");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-
-        try {
-            mManager.clearTestProviderStatus(UNKNOWN_PROVIDER_NAME);
-            fail("Should throw IllegalArgumentException if provider is unknown!");
-        } catch (IllegalArgumentException e) {
-            // expected
-        }
-    }
-
     /**
      * Tests basic proximity alert when entering proximity
      */
     public void testEnterProximity() throws Exception {
+        if (!isSystemUser()) {
+            Log.i(TAG, "Skipping test on secondary user");
+            return;
+        }
         // need to mock the fused location provider for proximity tests
         mockFusedLocation();
 
@@ -1108,6 +970,10 @@ public class LocationManagerTest extends BaseMockLocationTest {
      * Tests proximity alert when entering proximity, with no expiration
      */
     public void testEnterProximity_noexpire() throws Exception {
+        if (!isSystemUser()) {
+            Log.i(TAG, "Skipping test on secondary user");
+            return;
+        }
         // need to mock the fused location provider for proximity tests
         mockFusedLocation();
 
@@ -1120,6 +986,10 @@ public class LocationManagerTest extends BaseMockLocationTest {
      * Tests basic proximity alert when exiting proximity
      */
     public void testExitProximity() throws Exception {
+        if (!isSystemUser()) {
+            Log.i(TAG, "Skipping test on secondary user");
+            return;
+        }
         // need to mock the fused location provider for proximity tests
         mockFusedLocation();
 
@@ -1139,6 +1009,10 @@ public class LocationManagerTest extends BaseMockLocationTest {
      * Tests basic proximity alert when initially within proximity
      */
     public void testInitiallyWithinProximity() throws Exception {
+        if (!isSystemUser()) {
+            Log.i(TAG, "Skipping test on secondary user");
+            return;
+        }
         // need to mock the fused location provider for proximity tests
         mockFusedLocation();
 
@@ -1460,23 +1334,6 @@ public class LocationManagerTest extends BaseMockLocationTest {
         }
     }
 
-    private static class MockNmeaListener implements NmeaListener {
-        private boolean mIsNmeaReceived;
-
-        @Override
-        public void onNmeaReceived(long timestamp, String nmea) {
-            mIsNmeaReceived = true;
-        }
-
-        public boolean isNmeaRecevied() {
-            return mIsNmeaReceived;
-        }
-
-        public void reset() {
-            mIsNmeaReceived = false;
-        }
-    }
-
     private static class MockGnssNmeaListener implements OnNmeaMessageListener {
         private boolean mIsNmeaReceived;
 
@@ -1494,22 +1351,6 @@ public class LocationManagerTest extends BaseMockLocationTest {
         }
     }
 
-    private static class MockGpsStatusListener implements Listener {
-        private boolean mHasCallOnGpsStatusChanged;
-
-        public boolean hasCallOnGpsStatusChanged() {
-            return mHasCallOnGpsStatusChanged;
-        }
-
-        public void reset(){
-            mHasCallOnGpsStatusChanged = false;
-        }
-
-        public void onGpsStatusChanged(int event) {
-            mHasCallOnGpsStatusChanged = true;
-        }
-    }
-
     private static class MockGnssStatusCallback extends GnssStatus.Callback {
         @Override
         public void onSatelliteStatusChanged(GnssStatus status) {
@@ -1524,5 +1365,10 @@ public class LocationManagerTest extends BaseMockLocationTest {
                 status.usedInFix(i);
             }
         }
+    }
+
+    private boolean isSystemUser() {
+        UserManager userManager = mContext.getSystemService(UserManager.class);
+        return userManager.isSystemUser();
     }
 }

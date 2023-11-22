@@ -15,7 +15,6 @@
  */
 package android.car.test;
 
-import android.annotation.SystemApi;
 import android.car.CarManagerBase;
 import android.os.IBinder;
 
@@ -23,7 +22,6 @@ import android.os.IBinder;
  * Only for system testing
  * @hide
  */
-@SystemApi
 public class CarTestManagerBinderWrapper implements CarManagerBase {
     public final IBinder binder;
 

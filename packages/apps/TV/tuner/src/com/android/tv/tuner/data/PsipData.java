@@ -22,7 +22,6 @@ import android.text.format.DateUtils;
 import com.android.tv.common.util.StringUtils;
 import com.android.tv.tuner.data.nano.Track.AtscAudioTrack;
 import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
-import com.android.tv.tuner.ts.SectionParser;
 import com.android.tv.tuner.util.ConvertUtils;
 import java.util.ArrayList;
 import java.util.HashMap;

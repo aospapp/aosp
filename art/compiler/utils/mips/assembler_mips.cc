@@ -18,9 +18,9 @@
 
 #include "base/bit_utils.h"
 #include "base/casts.h"
+#include "base/memory_region.h"
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "entrypoints/quick/quick_entrypoints_enum.h"
-#include "memory_region.h"
 #include "thread.h"
 
 namespace art {
@@ -179,7 +179,7 @@ void MipsAssembler::PatchCFI(size_t number_of_delayed_adjust_pcs) {
     return;
   }
 
-  typedef DebugFrameOpCodeWriterForAssembler::DelayedAdvancePC DelayedAdvancePC;
+  using DelayedAdvancePC = DebugFrameOpCodeWriterForAssembler::DelayedAdvancePC;
   const auto data = cfi().ReleaseStreamAndPrepareForDelayedAdvancePC();
   const std::vector<uint8_t>& old_stream = data.first;
   const std::vector<DelayedAdvancePC>& advances = data.second;
@@ -463,7 +463,7 @@ void MipsAssembler::Addiu(Register rt, Register rs, uint16_t imm16, MipsLabel* p
 }
 
 void MipsAssembler::Addiu(Register rt, Register rs, uint16_t imm16) {
-  Addiu(rt, rs, imm16, /* patcher_label */ nullptr);
+  Addiu(rt, rs, imm16, /* patcher_label= */ nullptr);
 }
 
 void MipsAssembler::Subu(Register rd, Register rs, Register rt) {
@@ -732,7 +732,7 @@ void MipsAssembler::Lw(Register rt, Register rs, uint16_t imm16, MipsLabel* patc
 }
 
 void MipsAssembler::Lw(Register rt, Register rs, uint16_t imm16) {
-  Lw(rt, rs, imm16, /* patcher_label */ nullptr);
+  Lw(rt, rs, imm16, /* patcher_label= */ nullptr);
 }
 
 void MipsAssembler::Lwl(Register rt, Register rs, uint16_t imm16) {
@@ -814,7 +814,7 @@ void MipsAssembler::Sw(Register rt, Register rs, uint16_t imm16, MipsLabel* patc
 }
 
 void MipsAssembler::Sw(Register rt, Register rs, uint16_t imm16) {
-  Sw(rt, rs, imm16, /* patcher_label */ nullptr);
+  Sw(rt, rs, imm16, /* patcher_label= */ nullptr);
 }
 
 void MipsAssembler::Swl(Register rt, Register rs, uint16_t imm16) {
@@ -2793,6 +2793,26 @@ void MipsAssembler::Hadd_uD(VectorRegister wd, VectorRegister ws, VectorRegister
   DsFsmInstr(EmitMsa3R(0x5, 0x3, wt, ws, wd, 0x15)).FprOuts(wd).FprIns(ws, wt);
 }
 
+void MipsAssembler::PcntB(VectorRegister wd, VectorRegister ws) {
+  CHECK(HasMsa());
+  DsFsmInstr(EmitMsa2R(0xc1, 0x0, ws, wd, 0x1e)).FprOuts(wd).FprIns(ws);
+}
+
+void MipsAssembler::PcntH(VectorRegister wd, VectorRegister ws) {
+  CHECK(HasMsa());
+  DsFsmInstr(EmitMsa2R(0xc1, 0x1, ws, wd, 0x1e)).FprOuts(wd).FprIns(ws);
+}
+
+void MipsAssembler::PcntW(VectorRegister wd, VectorRegister ws) {
+  CHECK(HasMsa());
+  DsFsmInstr(EmitMsa2R(0xc1, 0x2, ws, wd, 0x1e)).FprOuts(wd).FprIns(ws);
+}
+
+void MipsAssembler::PcntD(VectorRegister wd, VectorRegister ws) {
+  CHECK(HasMsa());
+  DsFsmInstr(EmitMsa2R(0xc1, 0x3, ws, wd, 0x1e)).FprOuts(wd).FprIns(ws);
+}
+
 void MipsAssembler::ReplicateFPToVectorRegister(VectorRegister dst,
                                                 FRegister src,
                                                 bool is_double) {
@@ -3590,7 +3610,7 @@ void MipsAssembler::FinalizeLabeledBranch(MipsLabel* label) {
     label->LinkTo(branch_id);
   }
   // Reserve space for the branch.
-  while (length--) {
+  for (; length != 0u; --length) {
     Nop();
   }
 }
@@ -3735,7 +3755,7 @@ void MipsAssembler::MoveInstructionToDelaySlot(Branch& branch) {
 
 void MipsAssembler::Buncond(MipsLabel* label, bool is_r6, bool is_bare) {
   uint32_t target = label->IsBound() ? GetLabelLocation(label) : Branch::kUnresolved;
-  branches_.emplace_back(is_r6, buffer_.Size(), target, /* is_call */ false, is_bare);
+  branches_.emplace_back(is_r6, buffer_.Size(), target, /* is_call= */ false, is_bare);
   MoveInstructionToDelaySlot(branches_.back());
   FinalizeLabeledBranch(label);
 }
@@ -3758,7 +3778,7 @@ void MipsAssembler::Bcond(MipsLabel* label,
 
 void MipsAssembler::Call(MipsLabel* label, bool is_r6, bool is_bare) {
   uint32_t target = label->IsBound() ? GetLabelLocation(label) : Branch::kUnresolved;
-  branches_.emplace_back(is_r6, buffer_.Size(), target, /* is_call */ true, is_bare);
+  branches_.emplace_back(is_r6, buffer_.Size(), target, /* is_call= */ true, is_bare);
   MoveInstructionToDelaySlot(branches_.back());
   FinalizeLabeledBranch(label);
 }
@@ -4280,43 +4300,43 @@ void MipsAssembler::EmitBranch(uint32_t branch_id) {
 }
 
 void MipsAssembler::B(MipsLabel* label, bool is_bare) {
-  Buncond(label, /* is_r6 */ (IsR6() && !is_bare), is_bare);
+  Buncond(label, /* is_r6= */ (IsR6() && !is_bare), is_bare);
 }
 
 void MipsAssembler::Bal(MipsLabel* label, bool is_bare) {
-  Call(label, /* is_r6 */ (IsR6() && !is_bare), is_bare);
+  Call(label, /* is_r6= */ (IsR6() && !is_bare), is_bare);
 }
 
 void MipsAssembler::Beq(Register rs, Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ (IsR6() && !is_bare), is_bare, kCondEQ, rs, rt);
+  Bcond(label, /* is_r6= */ (IsR6() && !is_bare), is_bare, kCondEQ, rs, rt);
 }
 
 void MipsAssembler::Bne(Register rs, Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ (IsR6() && !is_bare), is_bare, kCondNE, rs, rt);
+  Bcond(label, /* is_r6= */ (IsR6() && !is_bare), is_bare, kCondNE, rs, rt);
 }
 
 void MipsAssembler::Beqz(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ (IsR6() && !is_bare), is_bare, kCondEQZ, rt);
+  Bcond(label, /* is_r6= */ (IsR6() && !is_bare), is_bare, kCondEQZ, rt);
 }
 
 void MipsAssembler::Bnez(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ (IsR6() && !is_bare), is_bare, kCondNEZ, rt);
+  Bcond(label, /* is_r6= */ (IsR6() && !is_bare), is_bare, kCondNEZ, rt);
 }
 
 void MipsAssembler::Bltz(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ (IsR6() && !is_bare), is_bare, kCondLTZ, rt);
+  Bcond(label, /* is_r6= */ (IsR6() && !is_bare), is_bare, kCondLTZ, rt);
 }
 
 void MipsAssembler::Bgez(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ (IsR6() && !is_bare), is_bare, kCondGEZ, rt);
+  Bcond(label, /* is_r6= */ (IsR6() && !is_bare), is_bare, kCondGEZ, rt);
 }
 
 void MipsAssembler::Blez(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ (IsR6() && !is_bare), is_bare, kCondLEZ, rt);
+  Bcond(label, /* is_r6= */ (IsR6() && !is_bare), is_bare, kCondLEZ, rt);
 }
 
 void MipsAssembler::Bgtz(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ (IsR6() && !is_bare), is_bare, kCondGTZ, rt);
+  Bcond(label, /* is_r6= */ (IsR6() && !is_bare), is_bare, kCondGTZ, rt);
 }
 
 bool MipsAssembler::CanExchangeWithSlt(Register rs, Register rt) const {
@@ -4372,7 +4392,7 @@ void MipsAssembler::Blt(Register rs, Register rt, MipsLabel* label, bool is_bare
     Bcond(label, IsR6(), is_bare, kCondLT, rs, rt);
   } else if (!Branch::IsNop(kCondLT, rs, rt)) {
     // Synthesize the instruction (not available on R2).
-    GenerateSltForCondBranch(/* unsigned_slt */ false, rs, rt);
+    GenerateSltForCondBranch(/* unsigned_slt= */ false, rs, rt);
     Bnez(AT, label, is_bare);
   }
 }
@@ -4384,7 +4404,7 @@ void MipsAssembler::Bge(Register rs, Register rt, MipsLabel* label, bool is_bare
     B(label, is_bare);
   } else {
     // Synthesize the instruction (not available on R2).
-    GenerateSltForCondBranch(/* unsigned_slt */ false, rs, rt);
+    GenerateSltForCondBranch(/* unsigned_slt= */ false, rs, rt);
     Beqz(AT, label, is_bare);
   }
 }
@@ -4394,7 +4414,7 @@ void MipsAssembler::Bltu(Register rs, Register rt, MipsLabel* label, bool is_bar
     Bcond(label, IsR6(), is_bare, kCondLTU, rs, rt);
   } else if (!Branch::IsNop(kCondLTU, rs, rt)) {
     // Synthesize the instruction (not available on R2).
-    GenerateSltForCondBranch(/* unsigned_slt */ true, rs, rt);
+    GenerateSltForCondBranch(/* unsigned_slt= */ true, rs, rt);
     Bnez(AT, label, is_bare);
   }
 }
@@ -4406,7 +4426,7 @@ void MipsAssembler::Bgeu(Register rs, Register rt, MipsLabel* label, bool is_bar
     B(label, is_bare);
   } else {
     // Synthesize the instruction (not available on R2).
-    GenerateSltForCondBranch(/* unsigned_slt */ true, rs, rt);
+    GenerateSltForCondBranch(/* unsigned_slt= */ true, rs, rt);
     Beqz(AT, label, is_bare);
   }
 }
@@ -4417,7 +4437,7 @@ void MipsAssembler::Bc1f(MipsLabel* label, bool is_bare) {
 
 void MipsAssembler::Bc1f(int cc, MipsLabel* label, bool is_bare) {
   CHECK(IsUint<3>(cc)) << cc;
-  Bcond(label, /* is_r6 */ false, is_bare, kCondF, static_cast<Register>(cc), ZERO);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondF, static_cast<Register>(cc), ZERO);
 }
 
 void MipsAssembler::Bc1t(MipsLabel* label, bool is_bare) {
@@ -4426,71 +4446,71 @@ void MipsAssembler::Bc1t(MipsLabel* label, bool is_bare) {
 
 void MipsAssembler::Bc1t(int cc, MipsLabel* label, bool is_bare) {
   CHECK(IsUint<3>(cc)) << cc;
-  Bcond(label, /* is_r6 */ false, is_bare, kCondT, static_cast<Register>(cc), ZERO);
+  Bcond(label, /* is_r6= */ false, is_bare, kCondT, static_cast<Register>(cc), ZERO);
 }
 
 void MipsAssembler::Bc(MipsLabel* label, bool is_bare) {
-  Buncond(label, /* is_r6 */ true, is_bare);
+  Buncond(label, /* is_r6= */ true, is_bare);
 }
 
 void MipsAssembler::Balc(MipsLabel* label, bool is_bare) {
-  Call(label, /* is_r6 */ true, is_bare);
+  Call(label, /* is_r6= */ true, is_bare);
 }
 
 void MipsAssembler::Beqc(Register rs, Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondEQ, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondEQ, rs, rt);
 }
 
 void MipsAssembler::Bnec(Register rs, Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondNE, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondNE, rs, rt);
 }
 
 void MipsAssembler::Beqzc(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondEQZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondEQZ, rt);
 }
 
 void MipsAssembler::Bnezc(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondNEZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondNEZ, rt);
 }
 
 void MipsAssembler::Bltzc(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondLTZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondLTZ, rt);
 }
 
 void MipsAssembler::Bgezc(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondGEZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondGEZ, rt);
 }
 
 void MipsAssembler::Blezc(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondLEZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondLEZ, rt);
 }
 
 void MipsAssembler::Bgtzc(Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondGTZ, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondGTZ, rt);
 }
 
 void MipsAssembler::Bltc(Register rs, Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondLT, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondLT, rs, rt);
 }
 
 void MipsAssembler::Bgec(Register rs, Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondGE, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondGE, rs, rt);
 }
 
 void MipsAssembler::Bltuc(Register rs, Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondLTU, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondLTU, rs, rt);
 }
 
 void MipsAssembler::Bgeuc(Register rs, Register rt, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondGEU, rs, rt);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondGEU, rs, rt);
 }
 
 void MipsAssembler::Bc1eqz(FRegister ft, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondF, static_cast<Register>(ft), ZERO);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondF, static_cast<Register>(ft), ZERO);
 }
 
 void MipsAssembler::Bc1nez(FRegister ft, MipsLabel* label, bool is_bare) {
-  Bcond(label, /* is_r6 */ true, is_bare, kCondT, static_cast<Register>(ft), ZERO);
+  Bcond(label, /* is_r6= */ true, is_bare, kCondT, static_cast<Register>(ft), ZERO);
 }
 
 void MipsAssembler::AdjustBaseAndOffset(Register& base,
@@ -4781,10 +4801,9 @@ void MipsAssembler::BuildFrame(size_t frame_size,
 
   // Write out entry spills.
   int32_t offset = frame_size + kFramePointerSize;
-  for (size_t i = 0; i < entry_spills.size(); ++i) {
-    MipsManagedRegister reg = entry_spills.at(i).AsMips();
+  for (const ManagedRegisterSpill& spill : entry_spills) {
+    MipsManagedRegister reg = spill.AsMips();
     if (reg.IsNoRegister()) {
-      ManagedRegisterSpill spill = entry_spills.at(i);
       offset += spill.getSize();
     } else if (reg.IsCoreRegister()) {
       StoreToOffset(kStoreWord, reg.AsCoreRegister(), SP, offset);

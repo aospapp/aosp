@@ -28,21 +28,7 @@ namespace testing {
 // device manifest.
 class SystemVendorTest : public VtsTrebleVintfTestBase {
  public:
-  virtual ~SystemVendorTest() {}
-  virtual void SetUp() override {
-    VtsTrebleVintfTestBase::SetUp();
-
-    vendor_manifest_ = VintfObject::GetDeviceHalManifest();
-    ASSERT_NE(vendor_manifest_, nullptr)
-        << "Failed to get vendor HAL manifest." << endl;
-
-    fwk_manifest_ = VintfObject::GetFrameworkHalManifest();
-    ASSERT_NE(fwk_manifest_, nullptr)
-        << "Failed to get framework HAL manifest." << endl;
-  }
-
-  HalManifestPtr vendor_manifest_;
-  HalManifestPtr fwk_manifest_;
+  virtual ~SystemVendorTest(){};
 };
 
 }  // namespace testing

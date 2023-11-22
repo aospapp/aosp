@@ -16,6 +16,12 @@
 
 package libcore.libcore.io;
 
+import static android.system.OsConstants.AF_INET6;
+import static android.system.OsConstants.IPPROTO_TCP;
+import static android.system.OsConstants.IPPROTO_UDP;
+import static android.system.OsConstants.SOCK_DGRAM;
+import static android.system.OsConstants.SOCK_STREAM;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,10 +30,14 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import android.system.ErrnoException;
 import android.system.OsConstants;
 import android.system.StructAddrinfo;
 
+import java.io.FileDescriptor;
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -37,6 +47,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import libcore.io.BlockGuardOs;
+import libcore.io.IoUtils;
+import libcore.io.Libcore;
 import libcore.io.Os;
 
 import dalvik.system.BlockGuard;
@@ -46,6 +58,8 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,19 +71,39 @@ public class BlockGuardOsTest {
 
     @Mock private Os mockOsDelegate;
     @Mock private BlockGuard.Policy mockThreadPolicy;
+    @Mock private BlockGuard.VmPolicy mockVmPolicy;
 
     private BlockGuard.Policy savedThreadPolicy;
+    private BlockGuard.VmPolicy savedVmPolicy;
 
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         savedThreadPolicy = BlockGuard.getThreadPolicy();
+        savedVmPolicy = BlockGuard.getVmPolicy();
         BlockGuard.setThreadPolicy(mockThreadPolicy);
+        BlockGuard.setVmPolicy(mockVmPolicy);
     }
 
     @After
     public void tearDown() {
+        BlockGuard.setVmPolicy(savedVmPolicy);
         BlockGuard.setThreadPolicy(savedThreadPolicy);
+    }
+
+    @Test
+    public void test_blockguardOsIsNotifiedByDefault_rename() {
+        String oldPath = "BlockGuardOsTest/missing/old/path";
+        String newPath = "BlockGuardOsTest/missing/new/path";
+        try {
+            // We try not to be prescriptive about the exact default Os implementation.
+            // Whatever default Os is installed, we do expect BlockGuard to be called.
+            Os.getDefault().rename(oldPath, newPath);
+        } catch (ErrnoException ignored) {
+        }
+        verify(mockThreadPolicy).onWriteToDisk();
+        verify(mockVmPolicy).onPathAccess(oldPath);
+        verify(mockVmPolicy).onPathAccess(newPath);
     }
 
     @Test
@@ -108,6 +142,31 @@ public class BlockGuardOsTest {
         }
     }
 
+    @Test
+    public void test_connect_networkPolicy() throws ErrnoException, IOException {
+        BlockGuardOs blockGuardOs = new BlockGuardOs(mockOsDelegate);
+
+        // Test connect with a UDP socket that will not trigger a network policy check.
+        FileDescriptor udpSocket = Libcore.os.socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+        try {
+            blockGuardOs.connect(udpSocket, InetAddress.getLoopbackAddress(), 0);
+            verify(mockThreadPolicy, never()).onNetwork();
+            verify(mockOsDelegate, times(1)).connect(eq(udpSocket), any(), anyInt());
+        } finally {
+            IoUtils.closeQuietly(udpSocket);
+        }
+
+        // Test connect with a TCP socket that will trigger a network policy check.
+        FileDescriptor tcpSocket = Libcore.os.socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
+        try {
+            blockGuardOs.connect(tcpSocket, InetAddress.getLoopbackAddress(), 0);
+            verify(mockThreadPolicy, times(1)).onNetwork();
+            verify(mockOsDelegate, times(1)).connect(eq(tcpSocket), any(), anyInt());
+        } finally {
+            IoUtils.closeQuietly(tcpSocket);
+        }
+    }
+
     /**
      * Checks that BlockGuardOs is updated when the Os interface changes. BlockGuardOs extends
      * ForwardingOs so doing so isn't an obvious step and it can be missed. When adding methods to
@@ -119,6 +178,10 @@ public class BlockGuardOsTest {
     @Test
     public void test_checkNewMethodsInPosix() {
         List<String> methodsNotRequireBlockGuardChecks = Arrays.asList(
+                "android_fdsan_exchange_owner_tag(java.io.FileDescriptor,long,long)",
+                "android_fdsan_get_owner_tag(java.io.FileDescriptor)",
+                "android_fdsan_get_tag_type(long)",
+                "android_fdsan_get_tag_value(long)",
                 "bind(java.io.FileDescriptor,java.net.InetAddress,int)",
                 "bind(java.io.FileDescriptor,java.net.SocketAddress)",
                 "capget(android.system.StructCapUserHeader)",
@@ -211,7 +274,11 @@ public class BlockGuardOsTest {
 
         // Verify that all the methods in libcore.io.Os should either be overridden in BlockGuardOs
         // or else they should be in the "methodsNotRequiredBlockGuardCheckSet".
+        // We don't care about static methods because they can't be overridden.
         for (Method method : Os.class.getDeclaredMethods()) {
+            if (Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
             String methodSignature = method.toString();
             String methodNameAndParameters = getMethodNameAndParameters(methodSignature);
             if (!methodsNotRequiredBlockGuardCheckSet.contains(methodNameAndParameters) &&

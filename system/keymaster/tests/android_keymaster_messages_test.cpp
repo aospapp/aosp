@@ -35,7 +35,7 @@ Message* round_trip(int32_t ver, const Message& message, size_t expected_size) {
     size_t size = message.SerializedSize();
     EXPECT_EQ(expected_size, size);
     if (size == 0)
-        return NULL;
+        return nullptr;
 
     UniquePtr<uint8_t[]> buf(new uint8_t[size]);
     EXPECT_EQ(buf.get() + size, message.Serialize(buf.get(), buf.get() + size));
@@ -669,7 +669,7 @@ template <typename Message> void parse_garbage() {
         }
     }
 
-    time_t now = time(NULL);
+    time_t now = time(nullptr);
     std::cout << "Seeding rand() with " << now << " for fuzz test." << std::endl;
     srand(now);
 

@@ -18,6 +18,7 @@ package com.android.dialer.duo;
 
 import android.content.Context;
 import android.content.Intent;
+import android.support.annotation.DrawableRes;
 import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -26,9 +27,12 @@ import android.telecom.Call;
 import android.telecom.PhoneAccountHandle;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 
 /** Interface for Duo video call integration. */
+@SuppressWarnings("Guava")
 public interface Duo {
 
   /** @return true if the Duo integration is enabled on this device. */
@@ -59,7 +63,8 @@ public interface Duo {
 
   /** Starts a task to update the reachability of the parameter numbers asynchronously. */
   @MainThread
-  void updateReachability(@NonNull Context context, @NonNull List<String> numbers);
+  ListenableFuture<ImmutableMap<String, ReachabilityData>> updateReachability(
+      @NonNull Context context, @NonNull List<String> numbers);
 
   /**
    * Clears the current reachability data and starts a task to load the latest reachability data
@@ -69,11 +74,31 @@ public interface Duo {
   void reloadReachability(@NonNull Context context);
 
   /**
+   * Get the {@link PhoneAccountHandle} used by duo calls in the connection service and call log.
+   */
+  Optional<PhoneAccountHandle> getPhoneAccountHandle();
+
+  boolean isDuoAccount(PhoneAccountHandle phoneAccountHandle);
+
+  boolean isDuoAccount(String componentName);
+
+  /**
    * @return an Intent to start a Duo video call with the parameter number. Must be started using
    *     startActivityForResult.
    */
   @MainThread
-  Intent getIntent(@NonNull Context context, @NonNull String number);
+  Optional<Intent> getCallIntent(@NonNull String number);
+
+  /** @return an Intent to setup duo. Must be started using startActivityForResult. */
+  Optional<Intent> getActivateIntent();
+
+  /**
+   * @return an Intent to invite the parameter number to use duo. Must be started using
+   *     startActivityForResult.
+   */
+  Optional<Intent> getInviteIntent(String number);
+
+  Optional<Intent> getInstallDuoIntent();
 
   /** Requests upgrading the parameter ongoing call to a Duo video call. */
   @MainThread
@@ -97,18 +122,57 @@ public interface Duo {
   @MainThread
   int getIncomingCallTypeText();
 
+  /** The ID of the drawable resource of a Duo logo. */
+  @DrawableRes
+  @MainThread
+  int getLogo();
+
   /** Reachability information for a number. */
   @AutoValue
   abstract class ReachabilityData {
+    public enum Status {
+      UNKNOWN,
+
+      /**
+       * The number is callable. Apps should further look up “AUDIO_CALLABLE” and “VIDEO_CALLABLE”
+       * keys for supported modes.
+       */
+      CALL,
+
+      /** The number is not callable. Apps can send an invite to the contact via INVITE intent. */
+      INVITE,
+
+      /**
+       * Neither Tachystick nor Duo is registered. Apps should show “setup” icon and send REGISTER
+       * intent to.
+       */
+      SETUP,
+
+      /**
+       * Indicates that the number is callable but user needs to set up (Tachystick/Duo) before
+       * calling.
+       */
+      SETUP_AND_CALL
+    }
+
+    public abstract Status status();
+
     public abstract String number();
+
+    public abstract boolean audioCallable();
 
     public abstract boolean videoCallable();
 
     public abstract boolean supportsUpgrade();
 
     public static ReachabilityData create(
-        String number, boolean videoCallable, boolean supportsUpgrade) {
-      return new AutoValue_Duo_ReachabilityData(number, videoCallable, supportsUpgrade);
+        Status status,
+        String number,
+        boolean audioCallable,
+        boolean videoCallable,
+        boolean supportsUpgrade) {
+      return new AutoValue_Duo_ReachabilityData(
+          status, number, audioCallable, videoCallable, supportsUpgrade);
     }
   }
 }

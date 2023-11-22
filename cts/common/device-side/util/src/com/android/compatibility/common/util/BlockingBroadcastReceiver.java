@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class BlockingBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "BlockingBroadcast";
 
-    private static final int DEFAULT_TIMEOUT_SECONDS = 10;
+    private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
     private final BlockingQueue<Intent> mBlockingQueue;
     private final String mExpectedAction;
@@ -68,7 +68,7 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver {
 
     /**
      * Wait until the broadcast and return the received broadcast intent. {@code null} is returned
-     * if no broadcast with expected action is received within 10 seconds.
+     * if no broadcast with expected action is received within 30 seconds.
      */
     public @Nullable Intent awaitForBroadcast() {
         try {

@@ -19,21 +19,28 @@
 #ifndef ART_LIBDEXFILE_DEX_CODE_ITEM_ACCESSORS_H_
 #define ART_LIBDEXFILE_DEX_CODE_ITEM_ACCESSORS_H_
 
-#include "compact_dex_file.h"
-#include "dex_file.h"
+#include <android-base/logging.h>
+
 #include "dex_instruction_iterator.h"
-#include "standard_dex_file.h"
 
 namespace art {
 
+namespace dex {
+struct CodeItem;
+struct TryItem;
+}  // namespace dex
+
 class ArtMethod;
+class DexFile;
+template <typename Iter>
+class IterationRange;
 
 // Abstracts accesses to the instruction fields of code items for CompactDexFile and
 // StandardDexFile.
 class CodeItemInstructionAccessor {
  public:
   ALWAYS_INLINE CodeItemInstructionAccessor(const DexFile& dex_file,
-                                            const DexFile::CodeItem* code_item);
+                                            const dex::CodeItem* code_item);
 
   ALWAYS_INLINE explicit CodeItemInstructionAccessor(ArtMethod* method);
 
@@ -45,6 +52,11 @@ class CodeItemInstructionAccessor {
 
   uint32_t InsnsSizeInCodeUnits() const {
     return insns_size_in_code_units_;
+  }
+
+  uint32_t InsnsSizeInBytes() const {
+    static constexpr uint32_t kCodeUnitSizeInBytes = 2u;
+    return insns_size_in_code_units_ * kCodeUnitSizeInBytes;
   }
 
   const uint16_t* Insns() const {
@@ -66,23 +78,24 @@ class CodeItemInstructionAccessor {
   CodeItemInstructionAccessor() = default;
 
   ALWAYS_INLINE void Init(uint32_t insns_size_in_code_units, const uint16_t* insns);
-  ALWAYS_INLINE void Init(const CompactDexFile::CodeItem& code_item);
-  ALWAYS_INLINE void Init(const StandardDexFile::CodeItem& code_item);
-  ALWAYS_INLINE void Init(const DexFile& dex_file, const DexFile::CodeItem* code_item);
+  ALWAYS_INLINE void Init(const DexFile& dex_file, const dex::CodeItem* code_item);
+
+  template <typename DexFileCodeItemType>
+  ALWAYS_INLINE void Init(const DexFileCodeItemType& code_item);
 
  private:
   // size of the insns array, in 2 byte code units. 0 if there is no code item.
   uint32_t insns_size_in_code_units_ = 0;
 
   // Pointer to the instructions, null if there is no code item.
-  const uint16_t* insns_ = 0;
+  const uint16_t* insns_ = nullptr;
 };
 
 // Abstracts accesses to code item fields other than debug info for CompactDexFile and
 // StandardDexFile.
 class CodeItemDataAccessor : public CodeItemInstructionAccessor {
  public:
-  ALWAYS_INLINE CodeItemDataAccessor(const DexFile& dex_file, const DexFile::CodeItem* code_item);
+  ALWAYS_INLINE CodeItemDataAccessor(const DexFile& dex_file, const dex::CodeItem* code_item);
 
   uint16_t RegistersSize() const {
     return registers_size_;
@@ -100,20 +113,21 @@ class CodeItemDataAccessor : public CodeItemInstructionAccessor {
     return tries_size_;
   }
 
-  IterationRange<const DexFile::TryItem*> TryItems() const;
+  IterationRange<const dex::TryItem*> TryItems() const;
 
   const uint8_t* GetCatchHandlerData(size_t offset = 0) const;
 
-  const DexFile::TryItem* FindTryItem(uint32_t try_dex_pc) const;
+  const dex::TryItem* FindTryItem(uint32_t try_dex_pc) const;
 
   inline const void* CodeItemDataEnd() const;
 
  protected:
   CodeItemDataAccessor() = default;
 
-  ALWAYS_INLINE void Init(const CompactDexFile::CodeItem& code_item);
-  ALWAYS_INLINE void Init(const StandardDexFile::CodeItem& code_item);
-  ALWAYS_INLINE void Init(const DexFile& dex_file, const DexFile::CodeItem* code_item);
+  ALWAYS_INLINE void Init(const DexFile& dex_file, const dex::CodeItem* code_item);
+
+  template <typename DexFileCodeItemType>
+  ALWAYS_INLINE void Init(const DexFileCodeItemType& code_item);
 
  private:
   // Fields mirrored from the dex/cdex code item.
@@ -131,13 +145,13 @@ class CodeItemDebugInfoAccessor : public CodeItemDataAccessor {
 
   // Initialize with an existing offset.
   ALWAYS_INLINE CodeItemDebugInfoAccessor(const DexFile& dex_file,
-                                          const DexFile::CodeItem* code_item,
+                                          const dex::CodeItem* code_item,
                                           uint32_t dex_method_index) {
     Init(dex_file, code_item, dex_method_index);
   }
 
   ALWAYS_INLINE void Init(const DexFile& dex_file,
-                          const DexFile::CodeItem* code_item,
+                          const dex::CodeItem* code_item,
                           uint32_t dex_method_index);
 
   ALWAYS_INLINE explicit CodeItemDebugInfoAccessor(ArtMethod* method);
@@ -146,15 +160,24 @@ class CodeItemDebugInfoAccessor : public CodeItemDataAccessor {
     return debug_info_offset_;
   }
 
-  template<typename NewLocalCallback>
+  template<typename NewLocalVisitor>
   bool DecodeDebugLocalInfo(bool is_static,
                             uint32_t method_idx,
-                            NewLocalCallback new_local,
-                            void* context) const;
+                            const NewLocalVisitor& new_local) const;
+
+  // Visit each parameter in the debug information. Returns the line number.
+  // The argument of the Visitor is dex::StringIndex.
+  template <typename Visitor>
+  uint32_t VisitParameterNames(const Visitor& visitor) const;
+
+  template <typename Visitor>
+  bool DecodeDebugPositionInfo(const Visitor& visitor) const;
+
+  bool GetLineNumForPc(const uint32_t pc, uint32_t* line_num) const;
 
  protected:
-  ALWAYS_INLINE void Init(const CompactDexFile::CodeItem& code_item, uint32_t dex_method_index);
-  ALWAYS_INLINE void Init(const StandardDexFile::CodeItem& code_item);
+  template <typename DexFileCodeItemType>
+  ALWAYS_INLINE void Init(const DexFileCodeItemType& code_item, uint32_t dex_method_index);
 
  private:
   const DexFile* dex_file_ = nullptr;

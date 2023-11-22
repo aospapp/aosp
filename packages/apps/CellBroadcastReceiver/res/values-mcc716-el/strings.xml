@@ -18,4 +18,6 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="7237115648380675159">"Ενημερωτικό μήνυμα"</string>
     <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"Ενημερωτικό μήνυμα"</string>
+    <string name="cmas_required_monthly_test" msgid="9061179556831144678">"Ειδοποίηση έκτακτης ανάγκης: Δοκιμαστικό μήνυμα"</string>
+    <string name="cmas_exercise_alert" msgid="996644454768618214">"Ειδοποίηση έκτακτης ανάγκης: Μήνυμα άσκησης/προσομοίωσης"</string>
 </resources>

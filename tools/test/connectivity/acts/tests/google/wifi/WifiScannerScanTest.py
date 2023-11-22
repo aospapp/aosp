@@ -89,7 +89,7 @@ class WifiScannerScanTest(WifiBaseTest):
             req_param_names=req_params, opt_param_names=opt_param)
 
         if "AccessPoint" in self.user_params:
-            self.legacy_configure_ap_and_start()
+            self.legacy_configure_ap_and_start(ap_count=2, mirror_ap=False)
 
         self.leeway = 10
         self.stime_channel = SCAN_TIME_PASSIVE
@@ -111,7 +111,6 @@ class WifiScannerScanTest(WifiBaseTest):
         self.attenuators = wutils.group_attenuators(self.attenuators)
         self.attenuators[0].set_atten(0)
         self.attenuators[1].set_atten(0)
-        self.dut.droid.wifiEnableWifiConnectivityManager(False)
 
     def teardown_test(self):
         base_test.BaseTestClass.teardown_test(self)
@@ -125,7 +124,6 @@ class WifiScannerScanTest(WifiBaseTest):
         self.dut.cat_adb_log(test_name, begin_time)
 
     def teardown_class(self):
-        self.dut.droid.wifiEnableWifiConnectivityManager(True)
         if "AccessPoint" in self.user_params:
             del self.user_params["reference_networks"]
             del self.user_params["open_network"]
@@ -845,7 +843,7 @@ class WifiScannerScanTest(WifiBaseTest):
         self.wifi_scanner_single_scan(self.default_scan_setting)
         self.attenuators[ATTENUATOR].set_atten(0)
         self.log.info("Check connection through PNO for reference network")
-        time.sleep(30)  #wait for connection through PNO
+        time.sleep(60)  #wait for connection through PNO
         current_network = self.dut.droid.wifiGetConnectionInfo()
         self.log.info("Current network: {}".format(current_network))
         asserts.assert_true('network_id' in current_network, NETWORK_ID_ERROR)

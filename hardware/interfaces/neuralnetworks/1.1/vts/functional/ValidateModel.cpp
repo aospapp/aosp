@@ -33,8 +33,8 @@ using V1_0::OperandType;
 namespace vts {
 namespace functional {
 
-using ::android::hardware::neuralnetworks::V1_0::implementation::ExecutionCallback;
-using ::android::hardware::neuralnetworks::V1_0::implementation::PreparedModelCallback;
+using ::android::hardware::neuralnetworks::V1_2::implementation::ExecutionCallback;
+using ::android::hardware::neuralnetworks::V1_2::implementation::PreparedModelCallback;
 
 ///////////////////////// UTILITY FUNCTIONS /////////////////////////
 
@@ -299,7 +299,7 @@ static void mutateOperationOperandTypeTest(const sp<IDevice>& device, const V1_1
         if (mutateOperationOperandTypeSkip(operand, model)) {
             continue;
         }
-        for (OperandType invalidOperandType : hidl_enum_iterator<OperandType>{}) {
+        for (OperandType invalidOperandType : hidl_enum_range<OperandType>{}) {
             // Do not test OEM types
             if (invalidOperandType == model.operands[operand].type ||
                 invalidOperandType == OperandType::OEM ||

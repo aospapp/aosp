@@ -31,7 +31,7 @@ allowxperm location self:socket ioctl msm_sock_ipc_ioctls;
 # files in /sys
 r_dir_file(location, sysfs_type)
 
-allow location proc_net:file r_file_perms;
+allow location proc_net_type:file r_file_perms;
 
 # execute /vendor/bin/slim_daemon
 allow location vendor_file:file rx_file_perms;
@@ -60,11 +60,6 @@ typeattribute location socket_between_core_and_vendor_violators;
 
 # Added to enable XTRA download (from internet) per
 # audit2allow after a test that downloaded XTRA on boot
-allow location dnsproxyd_socket:sock_file write;
-allow location fwmarkd_socket:sock_file write;
-allow location netd:unix_stream_socket connectto;
-allow location port:tcp_socket name_connect;
-allow location self:tcp_socket { connect create read setopt write };
-allow location self:udp_socket { create ioctl read write };
+net_domain(location)
 
 get_prop(location, wifi_prop)

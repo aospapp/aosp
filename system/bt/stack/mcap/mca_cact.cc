@@ -22,6 +22,7 @@
  *  Functions.
  *
  ******************************************************************************/
+#include <log/log.h>
 #include <string.h>
 #include "bt_common.h"
 #include "bt_target.h"
@@ -128,7 +129,7 @@ void mca_ccb_snd_req(tMCA_CCB* p_ccb, tMCA_CCB_EVT* p_data) {
       p_msg->hdr.layer_specific = true; /* mark this message as sent */
       p_pkt->len = p - p_start;
       L2CA_DataWrite(p_ccb->lcid, p_pkt);
-      period_ms_t interval_ms = p_ccb->p_rcb->reg.rsp_tout * 1000;
+      uint64_t interval_ms = p_ccb->p_rcb->reg.rsp_tout * 1000;
       alarm_set_on_mloop(p_ccb->mca_ccb_timer, interval_ms,
                          mca_ccb_timer_timeout, p_ccb);
     }
@@ -251,8 +252,14 @@ void mca_ccb_hdl_req(tMCA_CCB* p_ccb, tMCA_CCB_EVT* p_data) {
   p_rx_msg = (tMCA_CCB_MSG*)p_pkt;
   p = (uint8_t*)(p_pkt + 1) + p_pkt->offset;
   evt_data.hdr.op_code = *p++;
-  BE_STREAM_TO_UINT16(evt_data.hdr.mdl_id, p);
   reject_opcode = evt_data.hdr.op_code + 1;
+
+  if (p_pkt->len >= 3) {
+    BE_STREAM_TO_UINT16(evt_data.hdr.mdl_id, p);
+  } else {
+    android_errorWriteLog(0x534e4554, "110791536");
+    evt_data.hdr.mdl_id = 0;
+  }
 
   MCA_TRACE_DEBUG("received mdl id: %d ", evt_data.hdr.mdl_id);
   if (p_ccb->status == MCA_CCB_STAT_PENDING) {
@@ -442,12 +449,23 @@ void mca_ccb_hdl_rsp(tMCA_CCB* p_ccb, tMCA_CCB_EVT* p_data) {
   tMCA_RESULT result = MCA_BAD_HANDLE;
   tMCA_TC_TBL* p_tbl;
 
-  if (p_ccb->p_tx_req) {
+  if (p_pkt->len < sizeof(evt_data.hdr.op_code) +
+                       sizeof(evt_data.rsp.rsp_code) +
+                       sizeof(evt_data.hdr.mdl_id)) {
+    android_errorWriteLog(0x534e4554, "116319076");
+    MCA_TRACE_ERROR("%s: Response packet is too short", __func__);
+  } else if (p_ccb->p_tx_req) {
     /* verify that the received response matches the sent request */
     p = (uint8_t*)(p_pkt + 1) + p_pkt->offset;
     evt_data.hdr.op_code = *p++;
-    if ((evt_data.hdr.op_code == 0) ||
-        ((p_ccb->p_tx_req->op_code + 1) == evt_data.hdr.op_code)) {
+    if ((evt_data.hdr.op_code == MCA_OP_MDL_CREATE_RSP) &&
+        (p_pkt->len <
+         sizeof(evt_data.hdr.op_code) + sizeof(evt_data.rsp.rsp_code) +
+             sizeof(evt_data.hdr.mdl_id) + sizeof(evt_data.create_cfm.cfg))) {
+      android_errorWriteLog(0x534e4554, "116319076");
+      MCA_TRACE_ERROR("%s: MDL Create Response packet is too short", __func__);
+    } else if ((evt_data.hdr.op_code == 0) ||
+               ((p_ccb->p_tx_req->op_code + 1) == evt_data.hdr.op_code)) {
       evt_data.rsp.rsp_code = *p++;
       mca_stop_timer(p_ccb);
       BE_STREAM_TO_UINT16(evt_data.hdr.mdl_id, p);

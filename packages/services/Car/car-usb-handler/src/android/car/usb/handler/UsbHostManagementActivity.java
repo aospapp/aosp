@@ -15,26 +15,34 @@
  */
 package android.car.usb.handler;
 
+import static android.content.Intent.ACTION_USER_UNLOCKED;
+
 import android.annotation.Nullable;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
+import android.os.UserHandle;
+import android.os.UserManager;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
+
 import java.util.List;
 
 /**
@@ -45,15 +53,48 @@ import java.util.List;
  * handlers will be captured, and user will be presented with choice to assign default handler.
  * After that handler will be launched.
  */
-public class UsbHostManagementActivity extends Activity
-        implements UsbHostController.UsbHostControllerCallbacks {
+public class UsbHostManagementActivity extends Activity {
     private static final String TAG = UsbHostManagementActivity.class.getSimpleName();
 
     private HandlersAdapter mListAdapter;
     private ListView mHandlersList;
-    private LinearLayout mProgressInfo;
+    private TextView mHandlerTitle;
+    private LinearLayout mUsbHandlersDialog;
     private UsbHostController mController;
     private PackageManager mPackageManager;
+
+    private final ResolveBroadcastReceiver mResolveBroadcastReceiver
+            = new ResolveBroadcastReceiver();
+    private boolean mReceiverRegistered = false;
+
+    private void unregisterResolveBroadcastReceiver() {
+        if (mReceiverRegistered) {
+            unregisterReceiver(mResolveBroadcastReceiver);
+            mReceiverRegistered = false;
+        }
+    }
+
+    private void processDevice() {
+        UsbDevice connectedDevice = getDevice();
+
+        if (connectedDevice != null) {
+            mController.processDevice(connectedDevice);
+        } else {
+            unregisterResolveBroadcastReceiver();
+            finish();
+        }
+    }
+
+    private class ResolveBroadcastReceiver extends BroadcastReceiver {
+        public void onReceive(Context context, Intent intent) {
+            // We could have been unregistered after receiving the intent but before processing it,
+            // so make sure we are still registered.
+            if (mReceiverRegistered) {
+                processDevice();
+                unregisterResolveBroadcastReceiver();
+            }
+        }
+    }
 
     private final AdapterView.OnItemClickListener mHandlerClickListener =
             new AdapterView.OnItemClickListener() {
@@ -68,13 +109,15 @@ public class UsbHostManagementActivity extends Activity
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.usb_host);
-        mHandlersList = (ListView) findViewById(R.id.usb_handlers_list);
-        mProgressInfo = (LinearLayout) findViewById(R.id.usb_handlers_progress);
+        mUsbHandlersDialog = findViewById(R.id.usb_handlers_dialog);
+        mHandlersList = findViewById(R.id.usb_handlers_list);
+        mHandlerTitle = findViewById(R.id.usb_handler_heading);
         mListAdapter = new HandlersAdapter(this);
         mHandlersList.setAdapter(mListAdapter);
         mHandlersList.setOnItemClickListener(mHandlerClickListener);
-        mController = new UsbHostController(this, this);
+        mController = new UsbHostController(this, new UsbCallbacks());
         mPackageManager = getPackageManager();
     }
 
@@ -85,57 +128,75 @@ public class UsbHostManagementActivity extends Activity
     }
 
     @Override
+    public void onPause() {
+        super.onPause();
+        unregisterResolveBroadcastReceiver();
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
-        UsbDevice connectedDevice = getDevice();
-        if (connectedDevice != null) {
-            mController.processDevice(connectedDevice);
+
+        UserManager userManager = getSystemService(UserManager.class);
+        if (userManager.isUserUnlocked() || getUserId() == UserHandle.USER_SYSTEM) {
+            processDevice();
         } else {
-            finish();
+            mReceiverRegistered = true;
+            registerReceiver(mResolveBroadcastReceiver, new IntentFilter(ACTION_USER_UNLOCKED));
+            // in case the car was unlocked while the receiver was being registered
+            if (userManager.isUserUnlocked()) {
+                mResolveBroadcastReceiver.onReceive(this, new Intent(ACTION_USER_UNLOCKED));
+            }
         }
     }
 
-    @Override
-    public void shutdown() {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                finish();
-            }
-        });
-    }
+    class UsbCallbacks implements UsbHostController.UsbHostControllerCallbacks {
+        private boolean mProcessing = false;
 
-    @Override
-    public void processingStateChanged(final boolean processing) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mProgressInfo.setVisibility(processing ? View.VISIBLE : View.GONE);
-            }
-        });
-    }
+        @Override
+        public void shutdown() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    finish();
+                }
+            });
+        }
 
-  @Override
-  public void titleChanged(final String title) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                setTitle(title);
-            }
-        });
-    }
+        @Override
+        public void processingStarted() {
+            mProcessing = true;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (mProcessing && !mListAdapter.isEmpty()) {
+                        mUsbHandlersDialog.setVisibility(View.VISIBLE);
+                    }
+                }
+            });
+        }
 
-  @Override
-  public void optionsUpdated(final List<UsbDeviceSettings> options) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mListAdapter.clear();
-                mListAdapter.addAll(options);
-            }
-        });
-    }
+        @Override
+        public void titleChanged(final String title) {
+            runOnUiThread(() -> mHandlerTitle.setText(title));
+        }
 
+        @Override
+        public void optionsUpdated(final List<UsbDeviceSettings> options) {
+            if (options != null && !options.isEmpty()) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mProcessing) {
+                            mUsbHandlersDialog.setVisibility(View.VISIBLE);
+                        }
+                        mListAdapter.clear();
+                        mListAdapter.addAll(options);
+                    }
+                });
+            }
+        }
+    }
 
     @Override
     public void onNewIntent(Intent intent) {

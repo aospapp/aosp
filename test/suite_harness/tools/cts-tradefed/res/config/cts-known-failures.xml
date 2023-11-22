@@ -22,15 +22,8 @@
     <!-- b/38182235 -->
     <option name="compatibility:exclude-filter" value="CtsLocationTestCases android.location.cts.GnssTtffTests#testTtffWithNetwork" />
 
-    <!-- b/35314835 -->
-    <option name="compatibility:exclude-filter" value="CtsActivityManagerDeviceTestCases android.server.am.ActivityManagerPinnedStackTests#testAlwaysFocusablePipActivity" />
-    <option name="compatibility:exclude-filter" value="CtsActivityManagerDeviceTestCases android.server.am.ActivityManagerPinnedStackTests#testLaunchIntoPinnedStack" />
-
     <!-- b/17989532 -->
     <option name="compatibility:exclude-filter" value="CtsCameraTestCases android.hardware.camera2.cts.SurfaceViewPreviewTest#testPreparePerformance" />
-
-    <!-- These test cases are only applicable to Android Auto Embedded targets.-->
-    <option name="compatibility:exclude-filter" value="CtsCarTestCases" />
 
     <!-- b/23776893 -->
     <option name="compatibility:exclude-filter" value="CtsDumpsysHostTestCases android.dumpsys.cts.DumpsysHostTest#testBatterystatsOutput" />
@@ -66,9 +59,6 @@
     <option name="compatibility:exclude-filter" value="CtsJobSchedulerTestCases android.jobscheduler.cts.ConnectivityConstraintTest#testConnectivityConstraintExecutes_withMobile" />
     <option name="compatibility:exclude-filter" value="CtsJobSchedulerTestCases android.jobscheduler.cts.ConnectivityConstraintTest#testUnmeteredConstraintFails_withMobile" />
 
-    <!-- b/62616944 -->
-    <option name="compatibility:exclude-filter" value="CtsLibcoreJavaUtilCollectionsTestCases" />
-
     <!-- b/18682315 -->
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_bind" />
     <option name="compatibility:exclude-filter" value="CtsNetTestCases android.net.cts.SSLCertificateSocketFactoryTest#test_createSocket_simple" />
@@ -77,6 +67,9 @@
     <!-- b/17394321 -->
     <option name="compatibility:exclude-filter" value="CtsOpenGlPerfTestCases android.openglperf.cts.GlAppSwitchTest#testGlActivitySwitchingFast" />
     <option name="compatibility:exclude-filter" value="CtsOpenGlPerfTestCases android.openglperf.cts.GlAppSwitchTest#testGlActivitySwitchingSlow" />
+
+    <!-- b/113071420-->
+    <option name="compatibility:exclude-filter" value="x86 CtsPerfettoTestCases PerfettoTest#TestFtraceProducer" />
 
     <!-- b/18461670 -->
     <option name="compatibility:exclude-filter" value="CtsSecurityTestCases android.security.cts.AudioPolicyBinderTest#test_getStreamVolumeLeak" />
@@ -93,7 +86,10 @@
     <option name="compatibility:exclude-filter" value="CtsTelecomTestCases android.telecom.cts.WiredHeadsetTest" />
 
     <!-- b/62302163 -->
-    <option name="compatibility:exclude-filter" value="CtsSecurityHostTestCases android.security.cts.Poc17_04#testPocCVE_2017_0564" />
+    <option name="compatibility:exclude-filter" value="CtsSecurityBulletinHostTestCases android.security.cts.Poc17_04#testPocCVE_2017_0564" />
+
+    <!-- b/72460579 -->
+    <option name="compatibility:exclude-filter" value="CtsSecurityBulletinHostTestCases android.security.cts.Poc17_05#testPocCVE_2017_0630" />
 
     <!-- b/27873815 -->
     <option name="compatibility:exclude-filter" value="arm64-v8a CtsRenderscriptLegacyTestCases" />
@@ -125,28 +121,8 @@
     <option name="compatibility:exclude-filter" value="CtsVideoTestCases android.video.cts.VideoEncoderDecoderTest#testVp9Goog0Perf1280x0720" />
     <option name="compatibility:exclude-filter" value="CtsVideoTestCases android.video.cts.VideoEncoderDecoderTest#testVp9Goog0Perf1920x1080" />
 
-    <!-- b/37482372 -->
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#multiWindowHistoryPreservePortraitTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#multiWindowInOutPortraitTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#multiWindowInitialHeaderOnBackPortraitTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#multiWindowInnerFragmentInOutPortraitTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#startWithFragmentAndInitTitleMultiWindowPortraitTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowPortraitTest#startWithFragmentNoHeadersMultiWindowPortraitTest" />
-
     <!-- b/63916274 -->
     <option name="compatibility:exclude-filter" value="CtsTelecomTestCases android.telecom.cts.WiredHeadsetTest" />
-
-    <!-- b/38177396 -->
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowLandscapeTest#multiWindowHistoryPreserveLandscapeTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowLandscapeTest#multiWindowInOutLandscapeTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowLandscapeTest#multiWindowInitialHeaderOnBackLandscapeTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowLandscapeTest#multiWindowInnerFragmentInOutLandscapeTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowLandscapeTest#startWithFragmentAndInitTitleMultiWindowLandscapeTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityFlowLandscapeTest#startWithFragmentNoHeadersMultiWindowLandscapeTest" />
-
-    <!-- b/62924649 -->
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityLegacyFlowTest#legacyActivityMultiWindowTest" />
-    <option name="compatibility:exclude-filter" value="CtsPreference2TestCases android.preference2.cts.PreferenceActivityLegacyFlowTest#legacyActivityMultiWindowToggleTest" />
 
     <!-- b/38224690 -->
     <option name="compatibility:exclude-filter" value="CtsMediaTestCases android.media.cts.NativeEncoderTest" />
@@ -205,10 +181,31 @@
 
     <!-- b/80309889 -->
     <option name="compatibility:exclude-filter" value="CtsStatsdHostTestCases android.cts.statsd.atom.UidAtomTests#testCpuActiveTime" />
+    <!-- b/132274449 -->
+    <option name="compatibility:exclude-filter" value="CtsStatsdHostTestCases android.cts.statsd.validation.BatteryStatsValidationTests#testConnectivityStateChange" />
 
-    <!-- b/110268476 -->
-    <option name="compatibility:exclude-filter" value="CtsDevicePolicyManagerTestCases com.android.cts.devicepolicy.MixedManagedProfileOwnerTestApi25#testResetPasswordFbe" />
 
     <!-- b/110354076 -->
     <option name="compatibility:exclude-filter" value="CtsDevicePolicyManagerTestCases com.android.cts.devicepolicy.DeviceOwnerTest#testCreateAndManageUser_DontSkipSetupWizard" />
+
+    <!-- b/123280814 -->
+    <option name="compatibility:exclude-filter" value="CtsLocation2TestCases android.location2.cts.LocationManagerTest#testGetCoarseLocationUpdates_withListener" />
+    <option name="compatibility:exclude-filter" value="CtsLocation2TestCases android.location2.cts.LocationManagerTest#testGetNetworkProviderLocationUpdates_withListener" />
+
+    <!-- b/116002979 -->
+    <option name="compatibility:exclude-filter" value="CtsSecurityTestCases android.security.cts.ListeningPortsTest" />
+
+    <!-- b/117107760 -->
+    <option name="compatibility:exclude-filter" value="CtsHarmfulAppWarningHostTestCases android.harmfulappwarning.cts.HarmfulAppWarningTest#testDismissDialog" />
+    <option name="compatibility:exclude-filter" value="CtsHarmfulAppWarningHostTestCases android.harmfulappwarning.cts.HarmfulAppWarningTest#testLaunchAnyway" />
+    <option name="compatibility:exclude-filter" value="CtsHarmfulAppWarningHostTestCases android.harmfulappwarning.cts.HarmfulAppWarningTest#testUninstall" />
+
+    <!-- b/119312212 -->
+    <option name="compatibility:exclude-filter" value="CtsAngleIntegrationHostTestCases android.angle.cts.CtsAngleDebugOptionHostTest#testDebugOptionOn" />
+
+    <!-- b/129859594 -->
+    <option name="compatibility:exclude-filter" value="CtsAtomicInstallTestCases com.android.tests.atomicinstall.AtomicInstallTest#testFailInconsistentMultiPackageCommit" />
+
+    <!-- b/126548816 -->
+    <option name="compatibility:exclude-filter" value="CtsRcsTestCases" />
 </configuration>

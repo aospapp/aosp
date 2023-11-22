@@ -15,53 +15,41 @@
  */
 package com.android.phone;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.when;
+import static com.google.common.truth.Truth.assertThat;
 
-import android.content.Context;
 import android.os.PersistableBundle;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.telephony.CarrierConfigManager;
 
-import com.android.internal.telephony.Phone;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.internal.telephony.PhoneConstants;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 @RunWith(AndroidJUnit4.class)
 public class CdmaOptionsTest {
-    @Mock
-    private Phone mMockPhone;
-
-    private CdmaOptions mCdmaOptions;
-    private Context mContext;
-
-    @Before
-    public void setUp() {
-        MockitoAnnotations.initMocks(this);
-        mContext = InstrumentationRegistry.getContext();
-        mCdmaOptions = new CdmaOptions(mMockPhone);
+    @Test
+    public void shouldAddApnExpandPreference_doesNotExpandOnGsm() {
+        PersistableBundle bundle = new PersistableBundle();
+        bundle.putBoolean(CarrierConfigManager.KEY_SHOW_APN_SETTING_CDMA_BOOL, true);
+        assertThat(CdmaOptions.shouldAddApnExpandPreference(PhoneConstants.PHONE_TYPE_GSM, bundle))
+                .isFalse();
     }
 
     @Test
-    public void shouldAddApnExpandPreference_doesNotExpandOnGsm() {
-        when(mMockPhone.getPhoneType()).thenReturn(PhoneConstants.PHONE_TYPE_GSM);
+    public void shouldAddApnExpandPreference_showExpandOnCdma() {
         PersistableBundle bundle = new PersistableBundle();
         bundle.putBoolean(CarrierConfigManager.KEY_SHOW_APN_SETTING_CDMA_BOOL, true);
-        assertFalse(mCdmaOptions.shouldAddApnExpandPreference(bundle));
+        assertThat(CdmaOptions.shouldAddApnExpandPreference(PhoneConstants.PHONE_TYPE_CDMA, bundle))
+                .isTrue();
+    }
 
-        when(mMockPhone.getPhoneType()).thenReturn(PhoneConstants.PHONE_TYPE_CDMA);
+    @Test
+    public void shouldAddApnExpandPreference_doesNotExpandOnCdmaIfCarrierConfigDisabled() {
+        PersistableBundle bundle = new PersistableBundle();
         bundle.putBoolean(CarrierConfigManager.KEY_SHOW_APN_SETTING_CDMA_BOOL, false);
-        assertFalse(mCdmaOptions.shouldAddApnExpandPreference(bundle));
-
-        when(mMockPhone.getPhoneType()).thenReturn(PhoneConstants.PHONE_TYPE_CDMA);
-        bundle.putBoolean(CarrierConfigManager.KEY_SHOW_APN_SETTING_CDMA_BOOL, true);
-        assertTrue(mCdmaOptions.shouldAddApnExpandPreference(bundle));
+        assertThat(CdmaOptions.shouldAddApnExpandPreference(PhoneConstants.PHONE_TYPE_CDMA, bundle))
+                .isFalse();
     }
 }

@@ -19,9 +19,10 @@ import static org.junit.Assert.assertEquals;
 
 import android.car.Car;
 import android.car.CarAppFocusManager;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,19 +43,12 @@ public class AppFocusTest extends MockedCarTestBase {
         FocusChangedListener listener = new FocusChangedListener();
         FocusOwnershipCallback ownershipListener = new FocusOwnershipCallback();
         manager.addFocusListener(listener, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
-        manager.addFocusListener(listener, CarAppFocusManager.APP_FOCUS_TYPE_VOICE_COMMAND);
         manager.requestAppFocus(CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION, ownershipListener);
         listener.waitForFocusChangeAndAssert(DEFAULT_WAIT_TIMEOUT_MS,
                 CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION, true);
-        manager.requestAppFocus(CarAppFocusManager.APP_FOCUS_TYPE_VOICE_COMMAND, ownershipListener);
-        listener.waitForFocusChangeAndAssert(DEFAULT_WAIT_TIMEOUT_MS,
-                CarAppFocusManager.APP_FOCUS_TYPE_VOICE_COMMAND, true);
         manager.abandonAppFocus(ownershipListener, CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
         listener.waitForFocusChangeAndAssert(DEFAULT_WAIT_TIMEOUT_MS,
                 CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION, false);
-        manager.abandonAppFocus(ownershipListener, CarAppFocusManager.APP_FOCUS_TYPE_VOICE_COMMAND);
-        listener.waitForFocusChangeAndAssert(DEFAULT_WAIT_TIMEOUT_MS,
-                CarAppFocusManager.APP_FOCUS_TYPE_VOICE_COMMAND, false);
         manager.removeFocusListener(listener);
     }
 

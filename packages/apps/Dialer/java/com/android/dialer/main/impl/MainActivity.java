@@ -19,9 +19,11 @@ package com.android.dialer.main.impl;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
+import com.android.dialer.blockreportspam.ShowBlockReportSpamDialogReceiver;
+import com.android.dialer.calllog.config.CallLogConfigComponent;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.configprovider.ConfigProviderBindings;
 import com.android.dialer.interactions.PhoneNumberInteraction.DisambigDialogDismissedListener;
 import com.android.dialer.interactions.PhoneNumberInteraction.InteractionErrorCode;
 import com.android.dialer.interactions.PhoneNumberInteraction.InteractionErrorListener;
@@ -39,13 +41,19 @@ public class MainActivity extends TransactionSafeActivity
 
   private MainActivityPeer activePeer;
 
+  /**
+   * {@link android.content.BroadcastReceiver} that shows a dialog to block a number and/or report
+   * it as spam when notified.
+   */
+  private ShowBlockReportSpamDialogReceiver showBlockReportSpamDialogReceiver;
+
   public static Intent getShowCallLogIntent(Context context) {
     return getShowTabIntent(context, TabIndex.CALL_LOG);
   }
 
   /** Returns intent that will open MainActivity to the specified tab. */
   public static Intent getShowTabIntent(Context context, @TabIndex int tabIndex) {
-    if (ConfigProviderBindings.get(context).getBoolean("nui_peer_enabled", false)) {
+    if (CallLogConfigComponent.get(context).callLogConfig().isNewPeerEnabled()) {
       // TODO(calderwoodra): implement this in NewMainActivityPeer
       return null;
     }
@@ -69,10 +77,13 @@ public class MainActivity extends TransactionSafeActivity
     // If peer was set by the super, don't reset it.
     activePeer = getNewPeer();
     activePeer.onActivityCreate(savedInstanceState);
+
+    showBlockReportSpamDialogReceiver =
+        new ShowBlockReportSpamDialogReceiver(getSupportFragmentManager());
   }
 
   protected MainActivityPeer getNewPeer() {
-    if (ConfigProviderBindings.get(this).getBoolean("nui_peer_enabled", false)) {
+    if (CallLogConfigComponent.get(this).callLogConfig().isNewPeerEnabled()) {
       return new NewMainActivityPeer(this);
     } else {
       return new OldMainActivityPeer(this);
@@ -90,6 +101,10 @@ public class MainActivity extends TransactionSafeActivity
   protected void onResume() {
     super.onResume();
     activePeer.onActivityResume();
+
+    LocalBroadcastManager.getInstance(this)
+        .registerReceiver(
+            showBlockReportSpamDialogReceiver, ShowBlockReportSpamDialogReceiver.getIntentFilter());
   }
 
   @Override
@@ -102,6 +117,8 @@ public class MainActivity extends TransactionSafeActivity
   protected void onPause() {
     super.onPause();
     activePeer.onActivityPause();
+
+    LocalBroadcastManager.getInstance(this).unregisterReceiver(showBlockReportSpamDialogReceiver);
   }
 
   @Override

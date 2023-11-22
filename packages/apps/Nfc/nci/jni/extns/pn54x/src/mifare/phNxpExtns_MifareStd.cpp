@@ -16,11 +16,11 @@
 
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
+#include <log/log.h>
 #include <nfc_api.h>
 #include <nfc_int.h>
 #include <phNfcCompId.h>
 #include <phNxpExtns_MifareStd.h>
-#include <phNxpLog.h>
 #include <rw_api.h>
 
 using android::base::StringPrintf;
@@ -145,10 +145,6 @@ NFCSTATUS phNxpExtns_MfcModuleDeInit(void) {
   pthread_mutex_lock(&SharedDataMutex);
 #endif
   if (NULL != NdefInfo.psUpperNdefMsg) {
-    if (NdefInfo.psUpperNdefMsg->buffer != NULL) {
-      free(NdefInfo.psUpperNdefMsg->buffer);
-      NdefInfo.psUpperNdefMsg->buffer = NULL;
-    }
     free(NdefInfo.psUpperNdefMsg);
     NdefInfo.psUpperNdefMsg = NULL;
   }
@@ -353,7 +349,7 @@ static void Mfc_CheckNdef_Completion_Routine(void* NdefCtxt, NFCSTATUS status) {
     NdefInfo.is_ndef = 1;
     NdefInfo.NdefActualSize = conn_evt_data.ndef_detect.cur_size;
     if (PH_NDEFMAP_CARD_STATE_READ_ONLY == NdefMap->CardState) {
-      DLOG_IF(INFO, gLog_level.extns_log_level >= NXPLOG_LOG_DEBUG_LOGLEVEL)
+      DLOG_IF(INFO, nfc_debug_enabled)
           << StringPrintf("Mfc_CheckNdef_Completion_Routine : READ_ONLY_CARD");
       conn_evt_data.ndef_detect.flags = RW_NDEF_FL_READ_ONLY;
     } else {
@@ -554,7 +550,7 @@ static void Mfc_SetRdOnly_Completion_Routine(void* NdefCtxt, NFCSTATUS status) {
 **
 *******************************************************************************/
 NFCSTATUS Mfc_SetReadOnly(uint8_t* secrtkey, uint8_t len) {
-  DLOG_IF(INFO, gLog_level.extns_log_level >= NXPLOG_LOG_DEBUG_LOGLEVEL)
+  DLOG_IF(INFO, nfc_debug_enabled)
       << StringPrintf("%s Entering ", __func__);
   NFCSTATUS status = NFCSTATUS_FAILED;
   uint8_t mif_secrete_key[6] = {0};
@@ -710,7 +706,7 @@ NFCSTATUS Mfc_PresenceCheck(void) {
   } else {
     status = NFCSTATUS_NOT_ALLOWED;
   }
-  DLOG_IF(INFO, gLog_level.extns_log_level >= NXPLOG_LOG_DEBUG_LOGLEVEL)
+  DLOG_IF(INFO, nfc_debug_enabled)
       << StringPrintf("%s status = 0x%x", __func__, status);
   return status;
 }
@@ -993,12 +989,21 @@ NFCSTATUS Mfc_Transceive(uint8_t* p_data, uint32_t len) {
   NFCSTATUS status = NFCSTATUS_FAILED;
   uint8_t i = 0x00;
 
+  if (len == 0) {
+    android_errorWriteLog(0x534e4554, "132082342");
+    return status;
+  }
+
   gphNxpExtns_Context.RawWriteCallBack = false;
   gphNxpExtns_Context.CallBackMifare = NULL;
   gphNxpExtns_Context.CallBackCtxt = NdefMap;
 
   EXTNS_SetCallBackFlag(true);
   if (p_data[0] == 0x60 || p_data[0] == 0x61) {
+    if (len < 12) {
+      android_errorWriteLog(0x534e4554, "125900276");
+      return status;
+    }
     NdefMap->Cmd.MfCmd = (phNfc_eMifareCmdList_t)p_data[0];
 
     NdefMap->SendRecvBuf[i++] = p_data[1];
@@ -1856,6 +1861,11 @@ NFCSTATUS phFriNfc_ExtnsTransceive(phNfc_sTransceiveInfo_t* pTransceiveInfo,
   uint8_t restore_payload[] = {
       0x00, 0x00, 0x00, 0x00,
   };
+
+  if (SendLength == 0) {
+    android_errorWriteLog(0x534e4554, "132083376");
+    return status;
+  }
 
   buff = (uint8_t*)malloc((uint32_t)MAX_BUFF_SIZE);
   if (NULL == buff) {

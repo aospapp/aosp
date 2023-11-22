@@ -27,13 +27,16 @@ import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
 
-import com.android.internal.telephony.Phone;
-
 /**
  * A dialog fragment that asks the user if they are sure they want to turn on data roaming
  * to avoid accidental charges.
  */
 public class RoamingDialogFragment extends DialogFragment implements OnClickListener {
+
+    public static final String SUB_ID_KEY = "sub_id_key";
+
+    private CarrierConfigManager mCarrierConfigManager;
+    private int mSubId;
 
     /**
      * The interface we expect a host activity to implement.
@@ -45,15 +48,13 @@ public class RoamingDialogFragment extends DialogFragment implements OnClickList
     // the host activity which implements the listening interface
     private RoamingDialogListener mListener;
 
-    private Phone mPhone;
-
-    public void setPhone(Phone phone) {
-        mPhone = phone;
-    }
-
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+        Bundle args = getArguments();
+        mSubId = args.getInt(SUB_ID_KEY);
+        mCarrierConfigManager = new CarrierConfigManager(context);
+
         // Verify host activity implemented callback interface
         FragmentManager fragmentManager = getFragmentManager();
         Fragment fragment = fragmentManager.findFragmentById(R.id.network_setting_content);
@@ -69,13 +70,10 @@ public class RoamingDialogFragment extends DialogFragment implements OnClickList
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         int title = R.string.roaming_alert_title;
-        if (mPhone != null) {
-            PersistableBundle carrierConfig =
-                    PhoneGlobals.getInstance().getCarrierConfigForSubId(mPhone.getSubId());
-            if (carrierConfig != null && carrierConfig.getBoolean(
-                    CarrierConfigManager.KEY_CHECK_PRICING_WITH_CARRIER_FOR_DATA_ROAMING_BOOL)) {
-                title = R.string.roaming_check_price_warning;
-            }
+        PersistableBundle carrierConfig = mCarrierConfigManager.getConfigForSubId(mSubId);
+        if (carrierConfig != null && carrierConfig.getBoolean(
+                CarrierConfigManager.KEY_CHECK_PRICING_WITH_CARRIER_FOR_DATA_ROAMING_BOOL)) {
+            title = R.string.roaming_check_price_warning;
         }
         builder.setMessage(getResources().getString(R.string.roaming_warning))
                 .setTitle(title)

@@ -47,7 +47,7 @@ import java.util.Map;
  */
 public class TaskSwitchingTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
     private static final String TAG = "TaskSwitchingTest";
-    private final static String RUNNER = "android.support.test.runner.AndroidJUnitRunner";
+    private final static String RUNNER = "androidx.test.runner.AndroidJUnitRunner";
     private static final String RESULT_KEY = "COMPATIBILITY_TEST_RESULT";
     private IBuildInfo mBuild;
     private ITestDevice mDevice;

@@ -15,5 +15,5 @@
   limitations under the License.
 -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:color="@color/car_tint_inverse" />
+    <item android:color="@color/icon_tint" />
 </selector>

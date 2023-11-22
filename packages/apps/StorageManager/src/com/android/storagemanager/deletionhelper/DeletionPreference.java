@@ -17,10 +17,10 @@
 package com.android.storagemanager.deletionhelper;
 
 import android.content.Context;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.Preference.OnPreferenceChangeListener;
-import android.support.v7.preference.CheckBoxPreference;
-import android.support.v7.preference.PreferenceViewHolder;
+import androidx.preference.Preference;
+import androidx.preference.Preference.OnPreferenceChangeListener;
+import androidx.preference.CheckBoxPreference;
+import androidx.preference.PreferenceViewHolder;
 import android.util.AttributeSet;
 
 import android.view.View;

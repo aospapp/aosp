@@ -15,19 +15,21 @@
  */
 package com.example.android.wearable.wear.wearaccessibilityapp;
 
-import android.app.Activity;
 import android.os.Bundle;
-import android.support.wear.ambient.AmbientMode;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import androidx.fragment.app.FragmentActivity;
+import androidx.wear.ambient.AmbientModeSupport;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class ProgressActivity extends Activity implements AmbientMode.AmbientCallbackProvider {
+public class ProgressActivity extends FragmentActivity implements
+        AmbientModeSupport.AmbientCallbackProvider {
     private List<ListsItem> mItems;
 
     @Override
@@ -35,7 +37,7 @@ public class ProgressActivity extends Activity implements AmbientMode.AmbientCal
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_lists);
 
-        AmbientMode.attachAmbientSupport(this);
+        AmbientModeSupport.attach(this);
 
         // Create a list of items for adapter to display.
         mItems = new ArrayList<>();
@@ -70,9 +72,9 @@ public class ProgressActivity extends Activity implements AmbientMode.AmbientCal
     }
 
     @Override
-    public AmbientMode.AmbientCallback getAmbientCallback() {
+    public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MyAmbientCallback();
     }
 
-    private class MyAmbientCallback extends AmbientMode.AmbientCallback {}
+    private class MyAmbientCallback extends AmbientModeSupport.AmbientCallback {}
 }

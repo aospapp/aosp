@@ -1,8 +1,8 @@
 # Longevity Library
 
 This library serves as a test runner for longevity suites, which exercise test cases repeatedly in
-order to exercise or stress the device under test. Annotate a collection of JUnit test classes as a
-`LongevitySuite`, and voila...you now have longevity tests!
+order to exercise or stress the device under test. Annotate a collection of JUnit test classes with
+a subclass of LongevitySuite, and voila...you now have longevity tests!
 
 ## Examples
 
@@ -19,39 +19,45 @@ Follow the samples directory to see how longevity suites are constructed.
 
 **Run simple test suite 50 times, and quit when an error is encountered.**
 
-`java -Diterations=5 -Dquitter=true out/host/linux-x86/framework/LongevityHostSamples.jar
-org.junit.runner.JUnitCore android.longevity.core.samples.SimpleSuite`
+`java -Diterations=5 -Dquitter=true -cp out/host/linux-x86/framework/LongevityHostSamples.jar
+org.junit.runner.JUnitCore android.host.test.longevity.samples.SimpleSuite`
 
 **Run simple test suite 10 times, shuffle all tests, and quit after 30 minutes.**
 
-`java -Diterations=10 -Dsuite-timeout_msec=1800000 -Dshuffle=true
+`java -Diterations=10 -Dsuite-timeout_msec=1800000 -Dshuffle=true -cp
 out/host/linux-x86/framework/LongevityHostSamples.jar
-org.junit.runner.JUnitCore android.longevity.core.samples.SimpleSuite`
+org.junit.runner.JUnitCore android.host.test.longevity.samples.SimpleSuite`
 
 ### Device
 
 **Template command with stubbed out options.**
 
 `adb shell am instrument -w -r -e <option> <value> -e class <suite>
-android.platform.longevity.samples/android.support.test.runner.AndroidJUnitRunner`
+android.platform.test.longevity.samples/androidx.runner.AndroidJUnitRunner`
 
 **Run simple test suite 50 times, and quit when an error is encountered.**
 
 `adb shell am instrument -w -r -e iterations 50 -e quitter true
--e class android.platform.longevity.samples.SimpleSuite
-android.platform.longevity.samples/android.support.test.runner.AndroidJUnitRunner`
+-e class android.platform.test.longevity.samples.SimpleSuite
+android.platform.test.longevity.samples/androidx.test.runner.AndroidJUnitRunner`
 
 **Run simple test suite 10 times, shuffle all tests, and quit after 30 minutes.**
 
 `adb shell am instrument -w -r -e iterations 10 -e shuffle true -e suite-timeout_msec 1800000
--e class android.platform.longevity.samples.SimpleSuite
-android.platform.longevity.samples/android.support.test.runner.AndroidJUnitRunner`
+-e class android.platform.test.longevity.samples.SimpleSuite
+android.platform.test.longevity.samples/androidx.test.runner.AndroidJUnitRunner`
 
 **Run simple test suite 100 times, and quit when battery drops below 5%.**
 
 `adb shell am instrument -w -r -e iterations 100 -e min-battery 0.05
--e class android.platform.longevity.samples.SimpleSuite
-android.platform.longevity.samples/android.support.test.runner.AndroidJUnitRunner`
+-e class android.platform.test.longevity.samples.SimpleSuite
+android.platform.test.longevity.samples/androidx.test.runner.AndroidJUnitRunner`
+
+**Run a suite using the sample profile under assets/**
+
+`adb shell am instrument -w -r -e profile sample_profile
+-e class android.platform.test.longevity.samples.SimpleProfile
+android.platform.test.longevity.samples/androidx.test.runner.AndroidJUnitRunner`
 
 ## Options
 
@@ -61,6 +67,9 @@ android.platform.longevity.samples/android.support.test.runner.AndroidJUnitRunne
 *   `suite-timeout_msec <long>` - an overall timeout for the suite.
 *   `timeout_msec <long>` - a timeout for individual test methods.
 *   `quitter <bool>` - quit the suite if any test errors are encountered.
+*   `profile <string>` - use a profile under assets/ or at your own path.
+*   `rename-iterations <bool>` - rename each iteration by appending the iteration number to the
+    class name.
 
 ## Tests
 
@@ -70,7 +79,7 @@ org.junit.runner.JUnitCore <test class>`.
 
 Device-side tests for the library can be built with the `LongevityLibTests` module under the
 `tests/` directory. Run them using `adb shell am instrument -w -r
-android.platform.longevity.tests/android.support.test.runner.AndroidJUnitRunner`.
+android.platform.test.longevity.tests/androidx.test.runner.AndroidJUnitRunner`.
 
 ## Issues
 

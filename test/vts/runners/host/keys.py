@@ -30,12 +30,15 @@ class ConfigKeys(object):
     KEY_TESTBED_NAME = "name"
     KEY_TEST_PATHS = "test_paths"
     KEY_TEST_SUITE = "test_suite"
-    KEY_TEST_MAX_TIMEOUT = "test_max_timeout"
+    KEY_TEST_TIMEOUT = "test_timeout"
 
     # Keys in test suite
     KEY_INCLUDE_FILTER = "include_filter"
     KEY_EXCLUDE_FILTER = "exclude_filter"
     KEY_EXCLUDE_OVER_INCLUDE = "exclude_over_include"
+
+    # Keys for base test.
+    IKEY_MAX_RETRY_COUNT = "max_retry_count"
 
     # Keys for binary tests
     IKEY_BINARY_TEST_SOURCE = "binary_test_source"
@@ -43,10 +46,15 @@ class ConfigKeys(object):
     IKEY_BINARY_TEST_ENVP = "binary_test_envp"
     IKEY_BINARY_TEST_ARGS = "binary_test_args"
     IKEY_BINARY_TEST_LD_LIBRARY_PATH = "binary_test_ld_library_path"
-    IKEY_BINARY_TEST_DISABLE_FRAMEWORK = "binary_test_disable_framework"
-    IKEY_BINARY_TEST_STOP_NATIVE_SERVERS = "binary_test_stop_native_servers"
     IKEY_NATIVE_SERVER_PROCESS_NAME = "native_server_process_name"
     IKEY_GTEST_BATCH_MODE = "gtest_batch_mode"
+
+    # @Deprecated use IKEY_DISABLE_FRAMEWORK
+    IKEY_BINARY_TEST_DISABLE_FRAMEWORK = "binary_test_disable_framework"
+    IKEY_DISABLE_FRAMEWORK = "DISABLE_FRAMEWORK"
+    # @Deprecated use IKEY_STOP_NATIVE_SERVERS
+    IKEY_BINARY_TEST_STOP_NATIVE_SERVERS = "binary_test_stop_native_servers"
+    IKEY_STOP_NATIVE_SERVERS = "STOP_NATIVE_SERVERS"
 
     # Internal keys, used internally, not exposed to user's config files.
     IKEY_USER_PARAM = "user_params"
@@ -86,6 +94,7 @@ class ConfigKeys(object):
     IKEY_PROFILING_TRACING_PATH = "profiling_trace_path"
     IKEY_TRACE_FILE_TOOL_NAME = "trace_file_tool_name"
     IKEY_SAVE_TRACE_FILE_REMOTE = "save_trace_file_remote"
+    IKEY_PROFILING_ARG_VALUE = "profiling_arg_value"
 
     # Keys for systrace (for hal tests)
     IKEY_ENABLE_SYSTRACE = "enable_systrace"
@@ -107,6 +116,7 @@ class ConfigKeys(object):
     IKEY_GCOV_RESOURCES_PATH = "gcov_resources_path"
     IKEY_COVERAGE_REPORT_PATH = "coverage_report_path"
     IKEY_EXCLUDE_COVERAGE_PATH = "exclude_coverage_path"
+    IKEY_FUZZING_GCS_BUCKET_NAME = "fuzzing_gcs_bucket_name"
 
     # Keys for the HAL HIDL GTest type (see VtsMultiDeviceTest.java).
     IKEY_PRECONDITION_HWBINDER_SERVICE = "precondition_hwbinder_service"
@@ -126,12 +136,20 @@ class ConfigKeys(object):
 
     # Keys for special test cases
     IKEY_FFMPEG_BINARY_PATH = "ffmpeg_binary_path"
+    IKEY_SYZKALLER_PACKAGES_PATH = "syzkaller_packages_path"
+    IKEY_SYZKALLER_TEMPLATE_PATH = "syzkaller_template_path"
 
     # Keys for log uploading
     IKEY_ENABLE_LOG_UPLOADING = "enable_log_uploading"
     IKEY_LOG_UPLOADING_PATH = "log_uploading_path"
     IKEY_LOG_UPLOADING_USE_DATE_DIRECTORY = "log_uploading_use_date_directory"
     IKEY_LOG_UPLOADING_URL_PREFIX = "log_uploading_url_prefix"
+    IKEY_LOG_UPLOADING_GCS_BUCKET_NAME = "log_uploading_gcs_bucket_name"
+
+    # Keys for general user config types
+    IKEY_USER_CONFIG_STR = 'CONFIG_STR'
+    IKEY_USER_CONFIG_INT = 'CONFIG_INT'
+    IKEY_USER_CONFIG_BOOL = 'CONFIG_BOOL'
 
     # A list of keys whose values in configs should not be passed to test
     # classes without unpacking first.
@@ -146,3 +164,6 @@ class ConfigKeys(object):
 
     # Mobly test related keys
     MOBLY_TEST_MODULE = "MOBLY_TEST_MODULE"
+
+    # Controller option keys
+    SHELL_DEFAULT_NOHUP = "shell_default_nohup"

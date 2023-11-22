@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"کالیبراسیون"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"انتخاب قالب"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"صدای فراگیر"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)‎"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)‎"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -146,14 +146,14 @@
     <string name="system_accessibility" msgid="6215431399759498005">"قابلیت دسترسی"</string>
     <string name="system_developer_options" msgid="3237985523474863638">"گزینه‌های برنامه‌نویسان"</string>
     <string name="accessibility_none" msgid="3441648940134070004">"هیچ‌‌کدام"</string>
-    <string name="system_diagnostic" msgid="7269638365915225701">"میزان استفاده و عیب‌یابی"</string>
+    <string name="system_diagnostic" msgid="7269638365915225701">"استفاده و عیب‌یابی"</string>
     <string name="tutorials" msgid="3731493987558093244">"آموزش‌های گام‌به‌گام"</string>
     <string name="about_system_update" msgid="7282772247661356586">"به‌روزرسانی سیستم"</string>
     <string name="about_preference" msgid="4131396784531360434">"درباره"</string>
     <string name="device_name" msgid="2670488158531273028">"نام دستگاه"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"راه‌اندازی مجدد"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"اطلاعات حقوقی"</string>
-    <string name="about_legal_license" msgid="7867205982113209033">"مجوزهای منبع آزاد"</string>
+    <string name="about_legal_license" msgid="7867205982113209033">"مجوزهای متن‌باز"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"شرایط حقوقی Google"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"داده مجوز در دسترس نیست"</string>
     <string name="about_model" msgid="6625269442206323995">"مدل"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"تا وقتی درایو دوباره متصل نشود، بعضی از برنامه‌ها در دسترس نیستند یا درست عمل نمی‌کنند."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"فضای ذخیره‌سازی کافی نیست."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"برنامه وجود ندارد."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"برنامه در برابر کپی‌برداری محافظت شده است."</string>
     <string name="invalid_location" msgid="5269044848535157307">"محل نصب معتبر نیست."</string>
     <string name="system_package" msgid="9200255718634512790">"به‌روز‌رسانی‌های سیستم بر روی رسانه‌های خارجی نصب نمی‌شود."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"نمی‌توان «سرپرست دستگاه» را در رسانه خارجی نصب کرد."</string>
@@ -399,11 +398,11 @@
     <string name="google_location_services_title" msgid="3382840371861269146">"سرویس‌های مبتنی بر مکان Google"</string>
     <string name="third_party_location_services_title" msgid="4089136801976399147">"سرویس‌های مبتنی بر مکان شخص ثالث"</string>
     <string name="location_reporting" msgid="3054236612250063073">"گزارش‌دهی موقعیت مکانی"</string>
-    <string name="location_history" msgid="2946680949724247804">"سابقه موقعیت مکانی"</string>
+    <string name="location_history" msgid="2946680949724247804">"سابقه مکان"</string>
     <string name="location_reporting_desc" msgid="6256424995139430823">"Google از این قابلیت در محصولاتی مانند Google Now و Google Maps استفاده می‌کند. روشن کردن گزارش‌گیری موقعیت مکانی به محصولات Google اجازه می‌دهد از این قابلیت برای ذخیره و استفاده از جدیدترین داده‌های مکانی دستگاه شما در ارتباط با حساب Google شما استفاده کنند."</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"هنگامی که سابقه موقعیت مکانی برای این حساب روشن است، Google می‌تواند داده‌های مکان دستگاهتان را ذخیره کند تا برنامه‌هایتان از آنها استفاده کنند.\n\nبه‌عنوان مثال، Google Maps می‌تواند مسیرها را به شما نشان دهد و Google Now می‌تواند شما را از ترافیک رفت و آمد مطلع سازد.\n\nمی‌توانید در هر زمان سابقه موقعیت مکانی را خاموش کنید، اما انجام این کار سابقه را حذف نمی‌کند. برای مشاهده و مدیریت سابقه موقعیت مکانی خود، از maps.google.com/locationhistory بازدید کنید."</string>
-    <string name="delete_location_history_title" msgid="5804802702252280549">"حذف سابقه موقعیت مکانی"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"این کار همه سابقه موقعیت مکانی که از این دستگاه برای این حساب Google ذخیره شده است را حذف خواهد کرد. نمی‌توانید این حذف را واگردانید و برخی از برنامه‌ها از جمله Google Now از کار خواهند ایستاد."</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"هنگامی که سابقه مکان برای این حساب روشن است، Google می‌تواند داده‌های مکان دستگاهتان را ذخیره کند تا برنامه‌هایتان از آنها استفاده کنند.\n\nبه‌عنوان مثال، Google Maps می‌تواند مسیرها را به شما نشان دهد و Google Now می‌تواند شما را از ترافیک رفت و آمد مطلع سازد.\n\nمی‌توانید در هر زمان سابقه مکان را خاموش کنید، اما انجام این کار سابقه را حذف نمی‌کند. برای مشاهده و مدیریت سابقه مکان خود، از maps.google.com/locationhistory بازدید کنید."</string>
+    <string name="delete_location_history_title" msgid="5804802702252280549">"حذف سابقه مکان"</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"این کار همه سابقه مکان که از این دستگاه برای این حساب Google ذخیره شده است را حذف خواهد کرد. نمی‌توانید این حذف را واگردانید و برخی از برنامه‌ها از جمله Google Now از کار خواهند ایستاد."</string>
     <string name="system_services" msgid="7230571820151215779">"سرویس‌ها"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"تنظیمات سرویس"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"نوشتار با کنتراست بالا"</string>
@@ -476,12 +475,12 @@
     <string name="system_check_for_drm_content_only" msgid="8716366734950874267">"فقط بررسی محتوای DRM"</string>
     <string name="system_always_check" msgid="1866566828098009853">"همیشه بررسی شود"</string>
     <string name="system_bt_hci_log" msgid="2425757846046504431">"گزارش‌گیری HCI بلوتوث"</string>
-    <string name="system_email_address" msgid="8669468986250302378">"نشانی رایانامه"</string>
+    <string name="system_email_address" msgid="8669468986250302378">"نشانی ایمیل"</string>
     <string name="system_usb_debugging" msgid="3777895294421924323">"اشکال‌زدایی USB"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"مکان‌های کاذب مجاز هستند"</string>
     <string name="system_select_debug_app" msgid="8592021815119618485">"انتخاب برنامه اشکال‌زدایی"</string>
-    <string name="system_wait_for_debugger" msgid="4007354935701089555">"انتظار برای اشکال‌زدا"</string>
-    <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"تأیید برنامه‌های نصب شده از طریق USB"</string>
+    <string name="system_wait_for_debugger" msgid="4007354935701089555">"منتظر اشکال‌زدا"</string>
+    <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"تأیید برنامه‌ها ازطریق USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"‫بررسی برنامه‌های نصب شده از طریق ADB/ADT از نظر رفتار مضر"</string>
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"گزارش‌گیری طولانی Wi‑Fi"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"فعال کردن گزارش‌گیری طولانی Wi‑Fi"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"دسترسی به اعلان"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"هیچ برنامه نصب‌شده‌ای دسترسی به اعلان را درخواست نکرده است."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"این برنامه‌ها می‌توانند همه اعلان‌ها از جمله اطلاعات شخصی شما مانند نام مخاطبین و نوشتار پیام‌هایی را که دریافت می‌کنید بخوانند. همچنین می‌توانند اعلان‌ها را نپذیرند یا دکمه‌های عمل موجود در آن‌ها را به‌کار بیاندازند."</string>
+    <string name="directory_access" msgid="7439168599298598101">"دسترسی به فهرست راهنما"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"این برنامه‌ها برای دسترسی به برخی از فهرست‌های راهنما مجوز دارند."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"نمایش روی سایر برنامه‌ها"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"مجاز کردن نمایش روی سایر برنامه‌ها"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"به برنامه‌‌‌ اجازه می‌دهد روی سایر برنامه‌هایی که درحال استفاده شدن هستند نشان داده شود. ممکن است این قابلیت در استفاده شما از آن برنامه‌ها تداخل ایجاد کند یا طرز نمایش یا عملکرد آنها را تغییر دهد."</string>

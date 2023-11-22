@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Врата су отворена"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Папир је заглављен"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Офлајн"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Неисправан сертификат"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Није шифровано"</string>
     <string name="printer_check" msgid="6428369671197132828">"Проверите штампач"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Чека се на слање"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Читање документа није успело"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Штампач није подржан"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Пронађи са Wi-Fi Direct-ом"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct штампање"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Штампачи са Wi-Fi Direct-ом"</string>
     <string name="searching" msgid="2114018057619514587">"Претражује се…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Можда треба да одобрите ову везу на предњој табли штампача"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Заборави"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Повезује се преко Wi-Fi Direct-а"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Повезује се преко тренутне мреже помоћу IP адресе <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="security" msgid="2279008326210305401">"Безбедност"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Овај штампач пружа нови безбедносни сертификат или се неки други уређај лажно представља као он. Желите ли да прихватите нови сертификат?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Овај штампач више не прихвата шифроване задатке. Желите ли да наставите са штампањем?"</string>
+    <string name="accept" msgid="4426153292469698134">"Прихвати"</string>
+    <string name="reject" msgid="24751635160440693">"Одбиј"</string>
+    <string name="connections" msgid="8895413761760117180">"Везе"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Услузи подразумеваног штампања треба дозвола за локацију да би пронашла уређаје у близини."</string>
+    <string name="fix" msgid="7784394272611365393">"Прикажи дозволу"</string>
 </resources>

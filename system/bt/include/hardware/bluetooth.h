@@ -38,7 +38,6 @@
 #define BT_PROFILE_HANDSFREE_CLIENT_ID "handsfree_client"
 #define BT_PROFILE_ADVANCED_AUDIO_ID "a2dp"
 #define BT_PROFILE_ADVANCED_AUDIO_SINK_ID "a2dp_sink"
-#define BT_PROFILE_HEALTH_ID "health"
 #define BT_PROFILE_SOCKETS_ID "socket"
 #define BT_PROFILE_HIDHOST_ID "hidhost"
 #define BT_PROFILE_HIDDEV_ID "hiddev"
@@ -49,9 +48,6 @@
 #define BT_PROFILE_AV_RC_ID "avrcp"
 #define BT_PROFILE_AV_RC_CTRL_ID "avrcp_ctrl"
 #define BT_PROFILE_HEARING_AID_ID "hearing_aid"
-
-/** Bluetooth test interface IDs */
-#define BT_TEST_INTERFACE_MCAP_ID "mcap_test"
 
 /** Bluetooth Device Name */
 typedef struct { uint8_t name[249]; } __attribute__((packed)) bt_bdname_t;
@@ -65,6 +61,18 @@ typedef enum {
 
 /** Bluetooth Adapter State */
 typedef enum { BT_STATE_OFF, BT_STATE_ON } bt_state_t;
+
+/** Bluetooth Adapter Input Output Capabilities which determine Pairing/Security
+ */
+typedef enum {
+  BT_IO_CAP_OUT,    /* DisplayOnly */
+  BT_IO_CAP_IO,     /* DisplayYesNo */
+  BT_IO_CAP_IN,     /* KeyboardOnly */
+  BT_IO_CAP_NONE,   /* NoInputNoOutput */
+  BT_IO_CAP_KBDISP, /* Keyboard display */
+  BT_IO_CAP_MAX,
+  BT_IO_CAP_UNKNOWN = 0xFF /* Unknown value */
+} bt_io_cap_t;
 
 /** Bluetooth Error Status */
 /** We need to build on this */
@@ -239,6 +247,20 @@ typedef enum {
    * Data type   - bt_local_le_features_t.
    */
   BT_PROPERTY_LOCAL_LE_FEATURES,
+
+  /**
+   * Description - Local Input/Output Capabilities for classic Bluetooth
+   * Access mode - GET and SET
+   * Data Type - bt_io_cap_t.
+   */
+  BT_PROPERTY_LOCAL_IO_CAPS,
+
+  /**
+   * Description - Local Input/Output Capabilities for BLE
+   * Access mode - GET and SET
+   * Data Type - bt_io_cap_t.
+   */
+  BT_PROPERTY_LOCAL_IO_CAPS_BLE,
 
   BT_PROPERTY_REMOTE_DEVICE_TIMESTAMP = 0xFF,
 } bt_property_type_t;
@@ -444,11 +466,16 @@ typedef struct {
   /**
    * Opens the interface and provides the callback routines
    * to the implemenation of this interface.
+   * The |start_restricted| flag inits the adapter in restricted mode. In
+   * restricted mode, bonds that are created are marked as restricted in the
+   * config file. These devices are deleted upon leaving restricted mode.
+   * The |is_single_user_mode| flag inits the adapter in NIAP mode.
    */
-  int (*init)(bt_callbacks_t* callbacks);
+  int (*init)(bt_callbacks_t* callbacks, bool guest_mode,
+              bool is_single_user_mode);
 
   /** Enable Bluetooth. */
-  int (*enable)(bool guest_mode);
+  int (*enable)();
 
   /** Disable Bluetooth. */
   int (*disable)(void);
@@ -590,6 +617,14 @@ typedef struct {
    * Get the AvrcpTarget Service interface to interact with the Avrcp Service
    */
   bluetooth::avrcp::ServiceInterface* (*get_avrcp_service)(void);
+
+  /**
+   * Obfuscate Bluetooth MAC address into a PII free ID string
+   *
+   * @param address Bluetooth MAC address to be obfuscated
+   * @return a string of uint8_t that is unique to this MAC address
+   */
+  std::string (*obfuscate_address)(const RawAddress& address);
 } bt_interface_t;
 
 #define BLUETOOTH_INTERFACE_STRING "bluetoothInterface"

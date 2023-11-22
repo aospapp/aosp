@@ -16,6 +16,9 @@
 
 package android.webkit.cts;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 
 import android.content.Context;
 import android.test.AndroidTestCase;
@@ -39,7 +42,9 @@ public class DateSorterTest extends AndroidTestCase {
 
     public void testConstants() {
         // according to DateSorter javadoc
-        assertTrue(DateSorter.DAY_COUNT >= 3);
+        assertThat("DAY_COUNT should be >= 3",
+                DateSorter.DAY_COUNT,
+                greaterThanOrEqualTo(3));
     }
 
     public void testGetLabel() {
@@ -48,9 +53,9 @@ public class DateSorterTest extends AndroidTestCase {
         for (int i = 0; i < DateSorter.DAY_COUNT; i++) {
             String label = dateSorter.getLabel(i);
             assertNotNull(label);
-            assertTrue(label.length() > 0);
+            assertThat(label.length(), greaterThan(0));
             // label must be unique
-            assertFalse(set.contains(label));
+            assertFalse("Set should not contain label", set.contains(label));
             set.add(label);
             // cannot assert actual label contents, since resources are not public
         }
@@ -74,7 +79,7 @@ public class DateSorterTest extends AndroidTestCase {
         DateSorter dateSorter = new DateSorter(mContext);
 
         for (int i = 0; i < DateSorter.DAY_COUNT - 1; i++) {
-            assertTrue(dateSorter.getBoundary(i) > dateSorter.getBoundary(i+1));
+            assertThat(dateSorter.getBoundary(i), greaterThan(dateSorter.getBoundary(i+1)));
         }
     }
 }

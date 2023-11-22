@@ -55,9 +55,15 @@ extern "C" {
 #define CHRE_PAL_GNSS_API_V1_2  CHRE_PAL_CREATE_API_VERSION(1, 2)
 
 /**
+ * Introduced alongside CHRE API v1.3, adding support for altitude/speed/bearing
+ * accuracy in chreGnssLocationEvent delivered by locationEventCallback.
+ */
+#define CHRE_PAL_GNSS_API_V1_3  CHRE_PAL_CREATE_API_VERSION(1, 3)
+
+/**
  * The version of the CHRE GNSS PAL defined in this header file.
  */
-#define CHRE_PAL_GNSS_API_CURRENT_VERSION  CHRE_PAL_GNSS_API_V1_2
+#define CHRE_PAL_GNSS_API_CURRENT_VERSION  CHRE_PAL_GNSS_API_V1_3
 
 struct chrePalGnssCallbacks {
     /**

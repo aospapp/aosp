@@ -33,6 +33,7 @@ import android.os.Looper;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import com.android.managedprovisioning.common.NotificationHelper;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
@@ -57,7 +58,7 @@ public class EncryptionControllerTest extends AndroidTestCase {
     @Mock private SettingsFacade mSettingsFacade;
     @Mock private Resources mResources;
     @Mock private PackageManager mPackageManager;
-    @Mock private EncryptionController.ResumeNotificationHelper mResumeNotificationHelper;
+    @Mock private NotificationHelper mNotificationHelper;
 
     private EncryptionController mController;
 
@@ -172,7 +173,7 @@ public class EncryptionControllerTest extends AndroidTestCase {
 
     private EncryptionController createEncryptionController() {
         return new EncryptionController(mContext, mUtils, mSettingsFacade, TEST_HOME_RECEIVER,
-                mResumeNotificationHelper, TEST_USER_ID);
+            mNotificationHelper, TEST_USER_ID);
     }
 
     private void setReminder(ProvisioningParams params) {
@@ -184,12 +185,12 @@ public class EncryptionControllerTest extends AndroidTestCase {
         verify(mContext).startActivity(intentCaptor.capture());
         assertEquals(params, intentCaptor.getValue().getParcelableExtra(
                 ProvisioningParams.EXTRA_PROVISIONING_PARAMS));
-        verify(mResumeNotificationHelper, never()).showResumeNotification(any(Intent.class));
+        verify(mNotificationHelper, never()).showResumeNotification(any(Intent.class));
     }
 
     private void verifyShowResumeNotification(ProvisioningParams params) throws Exception {
         ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
-        verify(mResumeNotificationHelper).showResumeNotification(intentCaptor.capture());
+        verify(mNotificationHelper).showResumeNotification(intentCaptor.capture());
         assertEquals(params, intentCaptor.getValue().getParcelableExtra(
                 ProvisioningParams.EXTRA_PROVISIONING_PARAMS));
         verify(mContext, never()).startActivity(any(Intent.class));
@@ -197,6 +198,6 @@ public class EncryptionControllerTest extends AndroidTestCase {
 
     private void verifyNothingStarted() throws Exception {
         verify(mContext, never()).startActivity(any(Intent.class));
-        verify(mResumeNotificationHelper, never()).showResumeNotification(any(Intent.class));
+        verify(mNotificationHelper, never()).showResumeNotification(any(Intent.class));
     }
 }

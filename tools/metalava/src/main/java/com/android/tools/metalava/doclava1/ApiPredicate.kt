@@ -2,7 +2,6 @@ package com.android.tools.metalava.doclava1
 
 import com.android.tools.metalava.Options
 import com.android.tools.metalava.model.ClassItem
-import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MemberItem
 import com.android.tools.metalava.model.PackageItem
@@ -17,7 +16,6 @@ import java.util.function.Predicate
  * signals on the member, all containing classes, and all containing packages.
  */
 class ApiPredicate(
-    val codebase: Codebase,
     /**
      * Set if the value of [MemberItem.hasShowAnnotation] should be
      * ignored. That is, this predicate will assume that all encountered members
@@ -26,7 +24,7 @@ class ApiPredicate(
      * This is typically useful when generating "current.txt", when no
      * [Options.showAnnotations] have been defined.
      */
-    private val ignoreShown: Boolean = options.showUnannotated,
+    val ignoreShown: Boolean = options.showUnannotated,
 
     /**
      * Set if the value of [MemberItem.removed] should be ignored.

@@ -263,27 +263,6 @@ bool VkAHardwareBufferImage::init(AHardwareBuffer *buffer, bool useExternalForma
   };
   VK_CALL(vkCreateImage(mInit->device(), &createInfo, nullptr, &mImage));
 
-  VkImageMemoryRequirementsInfo2 memReqsInfo;
-  memReqsInfo.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2;
-  memReqsInfo.pNext = nullptr;
-  memReqsInfo.image = mImage;
-
-  VkMemoryDedicatedRequirements dedicatedMemReqs;
-  dedicatedMemReqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
-  dedicatedMemReqs.pNext = nullptr;
-
-  VkMemoryRequirements2 memReqs;
-  memReqs.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
-  memReqs.pNext = &dedicatedMemReqs;
-
-  PFN_vkGetImageMemoryRequirements2KHR getImageMemoryRequirements =
-      (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(
-          mInit->device(), "vkGetImageMemoryRequirements2KHR");
-  ASSERT(getImageMemoryRequirements);
-  getImageMemoryRequirements(mInit->device(), &memReqsInfo, &memReqs);
-  ASSERT(VK_TRUE == dedicatedMemReqs.prefersDedicatedAllocation);
-  ASSERT(VK_TRUE == dedicatedMemReqs.requiresDedicatedAllocation);
-
   VkImportAndroidHardwareBufferInfoANDROID androidHardwareBufferInfo{
       .sType = VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID,
       .pNext = nullptr,
@@ -316,6 +295,27 @@ bool VkAHardwareBufferImage::init(AHardwareBuffer *buffer, bool useExternalForma
                                                      "vkBindImageMemory2KHR");
   ASSERT(bindImageMemory);
   VK_CALL(bindImageMemory(mInit->device(), 1, &bindImageInfo));
+
+  VkImageMemoryRequirementsInfo2 memReqsInfo;
+  memReqsInfo.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2;
+  memReqsInfo.pNext = nullptr;
+  memReqsInfo.image = mImage;
+
+  VkMemoryDedicatedRequirements dedicatedMemReqs;
+  dedicatedMemReqs.sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS;
+  dedicatedMemReqs.pNext = nullptr;
+
+  VkMemoryRequirements2 memReqs;
+  memReqs.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+  memReqs.pNext = &dedicatedMemReqs;
+
+  PFN_vkGetImageMemoryRequirements2KHR getImageMemoryRequirements =
+      (PFN_vkGetImageMemoryRequirements2KHR)vkGetDeviceProcAddr(
+          mInit->device(), "vkGetImageMemoryRequirements2KHR");
+  ASSERT(getImageMemoryRequirements);
+  getImageMemoryRequirements(mInit->device(), &memReqsInfo, &memReqs);
+  ASSERT(VK_TRUE == dedicatedMemReqs.prefersDedicatedAllocation);
+  ASSERT(VK_TRUE == dedicatedMemReqs.requiresDedicatedAllocation);
 
   if (useExternalFormat /* TODO: || explicit format requires conversion */) {
     VkSamplerYcbcrConversionCreateInfo conversionCreateInfo{

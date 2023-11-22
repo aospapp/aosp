@@ -104,8 +104,8 @@ public:
         processTerminated = true;
     }
 
-    const pid_t pid;
-    const int stdIn;
+    const pid_t pid;  // NOLINT(misc-non-private-member-variables-in-classes)
+    const int stdIn;  // NOLINT(misc-non-private-member-variables-in-classes)
 
     struct pollfd pollFds[2];
     std::string errBuf;
@@ -347,7 +347,7 @@ bool IptablesRestoreController::drainAndWaitForAck(const std::unique_ptr<Iptable
 
 int IptablesRestoreController::execute(const IptablesTarget target, const std::string& command,
                                        std::string *output) {
-    std::lock_guard<std::mutex> lock(mLock);
+    std::lock_guard lock(mLock);
 
     std::string buffer;
     if (output == nullptr) {

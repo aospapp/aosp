@@ -16,7 +16,6 @@
 
 package com.android.cts.deviceowner;
 
-import android.app.ActivityManager;
 import android.app.Service;
 import android.app.admin.DeviceAdminReceiver;
 import android.app.admin.DevicePolicyManager;
@@ -29,7 +28,6 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.PersistableBundle;
-import android.os.Process;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -54,31 +52,16 @@ import java.util.stream.Collectors;
 public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
     private static final String TAG = "CreateAndManageUserTest";
 
-    private static final String BROADCAST_EXTRA = "broadcastExtra";
-    private static final String ACTION_EXTRA = "actionExtra";
-    private static final String SERIAL_EXTRA = "serialExtra";
-    private static final String PROFILE_OWNER_EXTRA = "profileOwnerExtra";
-    private static final String SETUP_COMPLETE_EXTRA = "setupCompleteExtra";
-    private static final int BROADCAST_TIMEOUT = 15_000;
-    private static final int USER_SWITCH_DELAY = 10_000;
+    private static final int BROADCAST_TIMEOUT = 30_000;
 
     private static final String AFFILIATION_ID = "affiliation.id";
     private static final String EXTRA_AFFILIATION_ID = "affiliationIdExtra";
     private static final String EXTRA_METHOD_NAME = "methodName";
     private static final long ON_ENABLED_TIMEOUT_SECONDS = 120;
 
-
-    private PackageManager mPackageManager;
-    private ActivityManager mActivityManager;
-    private volatile boolean mReceived;
-    private volatile boolean mTestProfileOwnerWasUsed;
-    private volatile boolean mSetupComplete;
-
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mPackageManager = mContext.getPackageManager();
-        mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
     }
 
     @Override
@@ -88,122 +71,7 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
         super.tearDown();
     }
 
-    // This class is used by createAndManageUserTest as profile owner for the new user. When
-    // enabled, it sends a broadcast to signal success.
-    public static class TestProfileOwner extends DeviceAdminReceiver {
-        @Override
-        public void onEnabled(Context context, Intent intent) {
-            if (intent.getBooleanExtra(BROADCAST_EXTRA, false)) {
-                Intent i = new Intent(intent.getStringExtra(ACTION_EXTRA));
-                UserManager userManager = (UserManager)
-                        context.getSystemService(Context.USER_SERVICE);
-                long serial = intent.getLongExtra(SERIAL_EXTRA, 0);
-                UserHandle handle = userManager.getUserForSerialNumber(serial);
-                i.putExtra(PROFILE_OWNER_EXTRA, true);
-                // find value of user_setup_complete on new user, and send the result back
-                try {
-                    boolean setupComplete = (Settings.Secure.getInt(context.getContentResolver(),
-                            "user_setup_complete") == 1);
-                    i.putExtra(SETUP_COMPLETE_EXTRA, setupComplete);
-                } catch (Settings.SettingNotFoundException e) {
-                    fail("Did not find settings user_setup_complete");
-                }
-
-                context.sendBroadcastAsUser(i, handle);
-            }
-        }
-
-        public static ComponentName getComponentName() {
-            return new ComponentName(CreateAndManageUserTest.class.getPackage().getName(),
-                    TestProfileOwner.class.getName());
-        }
-    }
-
-    private void waitForBroadcastLocked() {
-        // Wait for broadcast. Time is measured in a while loop because of spurious wakeups.
-        final long initTime = System.currentTimeMillis();
-        while (!mReceived) {
-            try {
-                wait(BROADCAST_TIMEOUT - (System.currentTimeMillis() - initTime));
-            } catch (InterruptedException e) {
-                fail("InterruptedException: " + e.getMessage());
-            }
-            if (!mReceived && System.currentTimeMillis() - initTime > BROADCAST_TIMEOUT) {
-                fail("Timeout while waiting for broadcast after createAndManageUser.");
-            }
-        }
-    }
-
-    // This test will create a user that will get passed a bundle that we specify. The bundle will
-    // contain an action and a serial (for user handle) to broadcast to notify the test that the
-    // configuration was triggered.
-    private void createAndManageUserTest(final int flags) {
-        // This test sets a profile owner on the user, which requires the managed_users feature.
-        if (!mPackageManager.hasSystemFeature(PackageManager.FEATURE_MANAGED_USERS)) {
-            return;
-        }
-
-        final boolean expectedSetupComplete = (flags & DevicePolicyManager.SKIP_SETUP_WIZARD) != 0;
-        UserManager userManager = (UserManager) mContext.getSystemService(Context.USER_SERVICE);
-
-        UserHandle firstUser = Process.myUserHandle();
-        final String testUserName = "TestUser_" + System.currentTimeMillis();
-        String action = "com.android.cts.TEST_USER_ACTION";
-        PersistableBundle bundle = new PersistableBundle();
-        bundle.putBoolean(BROADCAST_EXTRA, true);
-        bundle.putLong(SERIAL_EXTRA, userManager.getSerialNumberForUser(firstUser));
-        bundle.putString(ACTION_EXTRA, action);
-
-        mReceived = false;
-        mTestProfileOwnerWasUsed = false;
-        mSetupComplete = !expectedSetupComplete;
-        BroadcastReceiver receiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                mReceived = true;
-                if (intent.getBooleanExtra(PROFILE_OWNER_EXTRA, false)) {
-                    mTestProfileOwnerWasUsed = true;
-                }
-                mSetupComplete = intent.getBooleanExtra(SETUP_COMPLETE_EXTRA,
-                        !expectedSetupComplete);
-                synchronized (CreateAndManageUserTest.this) {
-                    CreateAndManageUserTest.this.notify();
-                }
-            }
-        };
-
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(action);
-        mContext.registerReceiver(receiver, filter);
-
-        synchronized (this) {
-            UserHandle userHandle = mDevicePolicyManager.createAndManageUser(getWho(), testUserName,
-                    TestProfileOwner.getComponentName(), bundle, flags);
-            assertNotNull(userHandle);
-
-            mDevicePolicyManager.switchUser(getWho(), userHandle);
-            try {
-                wait(USER_SWITCH_DELAY);
-            } catch (InterruptedException e) {
-                fail("InterruptedException: " + e.getMessage());
-            }
-            mDevicePolicyManager.switchUser(getWho(), firstUser);
-
-            waitForBroadcastLocked();
-
-            assertTrue(mReceived);
-            assertTrue(mTestProfileOwnerWasUsed);
-            assertEquals(expectedSetupComplete, mSetupComplete);
-
-            assertTrue(mDevicePolicyManager.removeUser(getWho(), userHandle));
-
-            userHandle = null;
-        }
-
-        mContext.unregisterReceiver(receiver);
-    }
-
-    public void testCreateAndManageUser() throws Exception {
+    public void testCreateAndManageUser() {
         String testUserName = "TestUser_" + System.currentTimeMillis();
 
         UserHandle userHandle = mDevicePolicyManager.createAndManageUser(
@@ -215,7 +83,7 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
         Log.d(TAG, "User create: " + userHandle);
     }
 
-    public void testCreateAndManageUser_LowStorage() throws Exception {
+    public void testCreateAndManageUser_LowStorage() {
         String testUserName = "TestUser_" + System.currentTimeMillis();
 
         try {
@@ -231,7 +99,7 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
         }
     }
 
-    public void testCreateAndManageUser_MaxUsers() throws Exception {
+    public void testCreateAndManageUser_MaxUsers() {
         String testUserName = "TestUser_" + System.currentTimeMillis();
 
         try {
@@ -247,7 +115,20 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
         }
     }
 
-    public void testCreateAndManageUser_GetSecondaryUsers() throws Exception {
+    @SuppressWarnings("unused")
+    private static void assertSkipSetupWizard(Context context,
+            DevicePolicyManager devicePolicyManager, ComponentName componentName) throws Exception {
+        assertEquals("user setup not completed", 1,
+                Settings.Secure.getInt(context.getContentResolver(),
+                        Settings.Secure.USER_SETUP_COMPLETE));
+    }
+
+    public void testCreateAndManageUser_SkipSetupWizard() throws Exception {
+        runCrossUserVerification(DevicePolicyManager.SKIP_SETUP_WIZARD, "assertSkipSetupWizard");
+        PrimaryUserService.assertCrossUserCallArrived();
+    }
+
+    public void testCreateAndManageUser_GetSecondaryUsers() {
         String testUserName = "TestUser_" + System.currentTimeMillis();
 
         UserHandle userHandle = mDevicePolicyManager.createAndManageUser(
@@ -343,7 +224,7 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
         }
     }
 
-    public void testCreateAndManageUser_StartInBackground_MaxRunningUsers() throws Exception {
+    public void testCreateAndManageUser_StartInBackground_MaxRunningUsers() {
         String testUserName = "TestUser_" + System.currentTimeMillis();
 
         UserHandle userHandle = mDevicePolicyManager.createAndManageUser(
@@ -496,8 +377,7 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
         PrimaryUserService.assertCrossUserCallArrived();
     }
 
-    private UserHandle runCrossUserVerification(int createAndManageUserFlags, String methodName)
-            throws Exception {
+    private UserHandle runCrossUserVerification(int createAndManageUserFlags, String methodName) {
         String testUserName = "TestUser_" + System.currentTimeMillis();
 
         // Set affiliation id to allow communication.
@@ -519,18 +399,6 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
                 mDevicePolicyManager.startUserInBackground(getWho(), userHandle));
 
         return userHandle;
-    }
-
-    public void testCreateAndManageUser_SkipSetupWizard() {
-        createAndManageUserTest(DevicePolicyManager.SKIP_SETUP_WIZARD);
-    }
-
-    public void testCreateAndManageUser_DontSkipSetupWizard() {
-        if (!mActivityManager.isRunningInTestHarness()) {
-            // In test harness, the setup wizard will be disabled by default, so this test is always
-            // failing.
-            createAndManageUserTest(0);
-        }
     }
 
     // createAndManageUser should circumvent the DISALLOW_ADD_USER restriction
@@ -581,7 +449,7 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
     }
 
     static class LocalBroadcastReceiver extends BroadcastReceiver {
-        private LinkedBlockingQueue<UserHandle> mQueue = new LinkedBlockingQueue<UserHandle>(1);
+        private LinkedBlockingQueue<UserHandle> mQueue = new LinkedBlockingQueue<>(1);
 
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -592,7 +460,7 @@ public class CreateAndManageUserTest extends BaseDeviceOwnerTest {
 
         }
 
-        public UserHandle waitForBroadcastReceived() throws InterruptedException {
+        UserHandle waitForBroadcastReceived() throws InterruptedException {
             return mQueue.poll(BROADCAST_TIMEOUT, TimeUnit.MILLISECONDS);
         }
     }

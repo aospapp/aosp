@@ -26,6 +26,7 @@
 namespace art {
 
 class CompiledMethod;
+class CompiledMethodStorage;
 class InstructionSetFeatures;
 
 namespace linker {
@@ -34,11 +35,13 @@ namespace linker {
 // any number of oat files. It provides storage for method code offsets
 // and wraps RelativePatcher calls, adjusting relative offsets according
 // to the value set by SetAdjustment().
-class MultiOatRelativePatcher FINAL {
+class MultiOatRelativePatcher final {
  public:
   using const_iterator = SafeMap<MethodReference, uint32_t>::const_iterator;
 
-  MultiOatRelativePatcher(InstructionSet instruction_set, const InstructionSetFeatures* features);
+  MultiOatRelativePatcher(InstructionSet instruction_set,
+                          const InstructionSetFeatures* features,
+                          CompiledMethodStorage* storage);
 
   // Mark the start of a new oat file (for statistics retrieval) and set the
   // adjustment for a new oat file to apply to all relative offsets that are
@@ -129,14 +132,28 @@ class MultiOatRelativePatcher FINAL {
   uint32_t MiscThunksSize() const;
 
  private:
+  class ThunkProvider : public RelativePatcherThunkProvider {
+   public:
+    explicit ThunkProvider(CompiledMethodStorage* storage)
+        : storage_(storage) {}
+
+    void GetThunkCode(const LinkerPatch& patch,
+                      /*out*/ ArrayRef<const uint8_t>* code,
+                      /*out*/ std::string* debug_name) override;
+
+   private:
+    CompiledMethodStorage* storage_;
+  };
+
   // Map method reference to assigned offset.
   // Wrap the map in a class implementing RelativePatcherTargetProvider.
   class MethodOffsetMap : public RelativePatcherTargetProvider {
    public:
-    std::pair<bool, uint32_t> FindMethodOffset(MethodReference ref) OVERRIDE;
+    std::pair<bool, uint32_t> FindMethodOffset(MethodReference ref) override;
     SafeMap<MethodReference, uint32_t> map;
   };
 
+  ThunkProvider thunk_provider_;
   MethodOffsetMap method_offset_map_;
   std::unique_ptr<RelativePatcher> relative_patcher_;
   uint32_t adjustment_;

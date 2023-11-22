@@ -41,6 +41,7 @@ extern const char kPrefsCurrentUrlFailureCount[];
 extern const char kPrefsCurrentUrlIndex[];
 extern const char kPrefsDailyMetricsLastReportedAt[];
 extern const char kPrefsDeltaUpdateFailures[];
+extern const char kPrefsDynamicPartitionMetadataUpdated[];
 extern const char kPrefsFullPayloadAttemptNumber[];
 extern const char kPrefsInstallDateDays[];
 extern const char kPrefsLastActivePingDay[];
@@ -49,6 +50,7 @@ extern const char kPrefsManifestMetadataSize[];
 extern const char kPrefsManifestSignatureSize[];
 extern const char kPrefsMetricsAttemptLastReportingTime[];
 extern const char kPrefsMetricsCheckLastReportingTime[];
+extern const char kPrefsNoIgnoreBackoff[];
 extern const char kPrefsNumReboots[];
 extern const char kPrefsNumResponsesSeen[];
 extern const char kPrefsOmahaCohort[];
@@ -62,6 +64,7 @@ extern const char kPrefsPayloadAttemptNumber[];
 extern const char kPrefsPostInstallSucceeded[];
 extern const char kPrefsPreviousVersion[];
 extern const char kPrefsResumedUpdateFailures[];
+extern const char kPrefsRollbackHappened[];
 extern const char kPrefsRollbackVersion[];
 extern const char kPrefsChannelOnSlotPrefix[];
 extern const char kPrefsSystemUpdatedMarker[];
@@ -76,6 +79,8 @@ extern const char kPrefsUpdateCompletedOnBootId[];
 extern const char kPrefsUpdateDurationUptime[];
 extern const char kPrefsUpdateFirstSeenAt[];
 extern const char kPrefsUpdateOverCellularPermission[];
+extern const char kPrefsUpdateOverCellularTargetVersion[];
+extern const char kPrefsUpdateOverCellularTargetSize[];
 extern const char kPrefsUpdateServerCertificate[];
 extern const char kPrefsUpdateStateNextDataLength[];
 extern const char kPrefsUpdateStateNextDataOffset[];
@@ -84,9 +89,12 @@ extern const char kPrefsUpdateStatePayloadIndex[];
 extern const char kPrefsUpdateStateSHA256Context[];
 extern const char kPrefsUpdateStateSignatureBlob[];
 extern const char kPrefsUpdateStateSignedSHA256Context[];
+extern const char kPrefsUpdateBootTimestampStart[];
 extern const char kPrefsUpdateTimestampStart[];
 extern const char kPrefsUrlSwitchCount[];
-extern const char kPrefsWallClockWaitPeriod[];
+extern const char kPrefsVerityWritten[];
+extern const char kPrefsWallClockScatteringWaitPeriod[];
+extern const char kPrefsWallClockStagingWaitPeriod[];
 
 // Keys used when storing and loading payload properties.
 extern const char kPayloadPropertyFileSize[];
@@ -164,9 +172,10 @@ const int kDownloadP2PLowSpeedLimitBps = 25 * 1000;
 //
 // For non-official builds (e.g. typically built on a developer's
 // workstation and served via devserver) bump this since it takes time
-// for the workstation to generate the payload. For p2p, make this
-// relatively low since we want to fail fast.
-const int kDownloadLowSpeedTimeSeconds = 90;
+// for the workstation to generate the payload. For normal operation
+// and p2p, make this relatively low since we want to fail fast in
+// those cases.
+const int kDownloadLowSpeedTimeSeconds = 30;
 const int kDownloadDevModeLowSpeedTimeSeconds = 180;
 const int kDownloadP2PLowSpeedTimeSeconds = 60;
 
@@ -187,6 +196,9 @@ const int kDownloadP2PMaxRetryCount = 5;
 // the server is on the same LAN and we want to fail fast.
 const int kDownloadConnectTimeoutSeconds = 30;
 const int kDownloadP2PConnectTimeoutSeconds = 5;
+
+// Size in bytes of SHA256 hash.
+const int kSHA256Size = 32;
 
 }  // namespace chromeos_update_engine
 

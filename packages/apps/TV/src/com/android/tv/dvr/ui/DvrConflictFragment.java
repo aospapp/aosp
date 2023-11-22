@@ -205,7 +205,7 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
             if (description == null) {
                 dismissDialog();
             }
-            Drawable icon = getResources().getDrawable(R.drawable.ic_error_white_48dp, null);
+            Drawable icon = getResources().getDrawable(R.drawable.quantum_ic_error_white_48, null);
             return new Guidance(title, descriptionPrefix + " " + description, null, icon);
         }
 
@@ -265,7 +265,7 @@ public abstract class DvrConflictFragment extends DvrGuidedStepFragment {
             if (description == null) {
                 dismissDialog();
             }
-            Drawable icon = getResources().getDrawable(R.drawable.ic_error_white_48dp, null);
+            Drawable icon = getResources().getDrawable(R.drawable.quantum_ic_error_white_48, null);
             return new Guidance(title, descriptionPrefix + " " + description, null, icon);
         }
 

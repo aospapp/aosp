@@ -70,7 +70,7 @@ bool GetItemAttributesResponseBuilder::Serialize(
   if (status_ != Status::NO_ERROR) return true;
 
   AddPayloadOctets1(pkt, entries_.size());
-  for (auto entry : entries_) {
+  for (const auto& entry : entries_) {
     AddPayloadOctets4(pkt, base::ByteSwap((uint32_t)entry.attribute()));
     uint16_t character_set = 0x006a;  // UTF-8
     AddPayloadOctets2(pkt, base::ByteSwap(character_set));
@@ -91,12 +91,12 @@ Scope GetItemAttributesRequest::GetScope() const {
 
 uint64_t GetItemAttributesRequest::GetUid() const {
   auto it = begin() + BrowsePacket::kMinSize() + static_cast<size_t>(1);
-  return base::ByteSwap(it.extract<uint64_t>());
+  return it.extractBE<uint64_t>();
 }
 
 uint16_t GetItemAttributesRequest::GetUidCounter() const {
   auto it = begin() + BrowsePacket::kMinSize() + static_cast<size_t>(9);
-  return base::ByteSwap(it.extract<uint16_t>());
+  return it.extractBE<uint16_t>();
 }
 
 uint8_t GetItemAttributesRequest::GetNumAttributes() const {
@@ -111,7 +111,7 @@ std::vector<Attribute> GetItemAttributesRequest::GetAttributesRequested()
 
   std::vector<Attribute> attribute_list;
   for (size_t i = 0; i < number_of_attributes; i++) {
-    attribute_list.push_back((Attribute)base::ByteSwap(it.extract<uint32_t>()));
+    attribute_list.push_back((Attribute)it.extractBE<uint32_t>());
   }
 
   return attribute_list;

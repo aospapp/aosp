@@ -27,7 +27,6 @@ static_library("osi") {
     "src/future.cc",
     "src/hash_map_utils.cc",
     "src/list.cc",
-    "src/metrics_linux.cc",
     "src/mutex.cc",
     "src/osi.cc",
     "src/properties.cc",
@@ -41,17 +40,19 @@ static_library("osi") {
     "src/socket_utils/socket_local_client.cc",
     "src/socket_utils/socket_local_server.cc",
     "src/thread.cc",
-    "src/time.cc",
     "src/wakelock.cc",
   ]
 
   include_dirs = [
     "//",
+    "//linux_include",
+    "//internal_include",
     "//utils/include",
     "//stack/include",
   ]
 
   deps = [
+    "//common",
     "//third_party/libchrome:base",
   ]
 }
@@ -68,14 +69,12 @@ executable("net_test_osi") {
     "test/config_test.cc",
     "test/future_test.cc",
     "test/hash_map_utils_test.cc",
-    "test/leaky_bonded_queue_test.cc",
     "test/list_test.cc",
     "test/properties_test.cc",
     "test/rand_test.cc",
     "test/reactor_test.cc",
     "test/ringbuffer_test.cc",
     "test/thread_test.cc",
-    "test/time_test.cc",
   ]
 
   include_dirs = [

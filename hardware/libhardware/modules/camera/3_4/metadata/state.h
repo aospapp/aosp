@@ -17,7 +17,7 @@
 #ifndef V4L2_CAMERA_HAL_METADATA_STATE_H_
 #define V4L2_CAMERA_HAL_METADATA_STATE_H_
 
-#include "../common.h"
+#include "common.h"
 #include "metadata_common.h"
 #include "partial_metadata_interface.h"
 #include "state_delegate_interface.h"
@@ -54,7 +54,7 @@ class State : public PartialMetadataInterface {
 // -----------------------------------------------------------------------------
 
 template <typename T>
-int State<T>::PopulateStaticFields(android::CameraMetadata* metadata) const {
+int State<T>::PopulateStaticFields(android::CameraMetadata* /*metadata*/) const {
   HAL_LOG_ENTER();
   return 0;
 }
@@ -72,21 +72,21 @@ int State<T>::PopulateDynamicFields(android::CameraMetadata* metadata) const {
 };
 
 template <typename T>
-int State<T>::PopulateTemplateRequest(int template_type,
-                                      android::CameraMetadata* metadata) const {
+int State<T>::PopulateTemplateRequest(int /*template_type*/,
+                                      android::CameraMetadata* /*metadata*/) const {
   HAL_LOG_ENTER();
   return 0;
 };
 
 template <typename T>
 bool State<T>::SupportsRequestValues(
-    const android::CameraMetadata& metadata) const {
+    const android::CameraMetadata& /*metadata*/) const {
   HAL_LOG_ENTER();
   return true;
 };
 
 template <typename T>
-int State<T>::SetRequestValues(const android::CameraMetadata& metadata) {
+int State<T>::SetRequestValues(const android::CameraMetadata& /*metadata*/) {
   HAL_LOG_ENTER();
   return 0;
 };

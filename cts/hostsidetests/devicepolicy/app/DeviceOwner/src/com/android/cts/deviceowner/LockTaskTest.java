@@ -26,9 +26,9 @@ import static android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_SYSTEM_INF
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
-import static org.testng.Assert.assertThrows;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.testng.Assert.assertThrows;
 
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
@@ -39,9 +39,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;

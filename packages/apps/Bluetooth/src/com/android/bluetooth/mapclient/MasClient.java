@@ -104,7 +104,7 @@ public class MasClient {
                         + mSdpMasRecord.getRfcommCannelNumber());
             }
             mSocket = mRemoteDevice.createRfcommSocket(mSdpMasRecord.getRfcommCannelNumber());
-            Log.d(TAG, mRemoteDevice.toString() + "Socket: " + mSocket.toString());
+            if (DBG) Log.d(TAG, mRemoteDevice.toString() + "Socket: " + mSocket.toString());
             mSocket.connect();
             mTransport = new BluetoothObexTransport(mSocket);
 
@@ -118,7 +118,7 @@ public class MasClient {
             oap.addToHeaderSet(headerset);
 
             headerset = mSession.connect(headerset);
-            Log.d(TAG, "Connection results" + headerset.getResponseCode());
+            if (DBG) Log.d(TAG, "Connection results" + headerset.getResponseCode());
 
             if (headerset.getResponseCode() == ResponseCodes.OBEX_HTTP_OK) {
                 if (DBG) {
@@ -190,6 +190,10 @@ public class MasClient {
         NATIVE, UTF_8;
     }
 
+    SdpMasRecord getSdpMasRecord() {
+        return mSdpMasRecord;
+    }
+
     private static class MasClientHandler extends Handler {
         WeakReference<MasClient> mInst;
 
@@ -201,22 +205,23 @@ public class MasClient {
         @Override
         public void handleMessage(Message msg) {
             MasClient inst = mInst.get();
-            if (!inst.mConnected && msg.what != CONNECT) {
-                Log.w(TAG, "Cannot execute " + msg + " when not CONNECTED.");
-                return;
-            }
-
             switch (msg.what) {
                 case CONNECT:
-                    inst.connect();
+                    if (!inst.mConnected) {
+                        inst.connect();
+                    }
                     break;
 
                 case DISCONNECT:
-                    inst.disconnect();
+                    if (inst.mConnected) {
+                        inst.disconnect();
+                    }
                     break;
 
                 case REQUEST:
-                    inst.executeRequest((Request) msg.obj);
+                    if (inst.mConnected) {
+                        inst.executeRequest((Request) msg.obj);
+                    }
                     break;
             }
         }

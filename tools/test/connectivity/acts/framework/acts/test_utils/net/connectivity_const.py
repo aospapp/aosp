@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -41,6 +41,7 @@ NETWORK_CB_KEY_RSSI = "rssi"
 NETWORK_CB_KEY_INTERFACE_NAME = "interfaceName"
 NETWORK_CB_KEY_CREATE_TS = "creation_timestamp"
 NETWORK_CB_KEY_CURRENT_TS = "current_timestamp"
+NETWORK_CB_KEY_NETWORK_SPECIFIER = "network_specifier"
 
 # Constants for VPN connection status
 VPN_STATE_DISCONNECTED = 0
@@ -81,6 +82,7 @@ AUTH_HMAC_SHA384 = "hmac(sha384)"
 AUTH_HMAC_SHA512 = "hmac(sha512)"
 AUTH_CRYPT_AES_GCM = "rfc4106(gcm(aes))"
 
+
 # Constants for VpnProfile
 class VpnProfile(object):
     """ This class contains all the possible
@@ -102,6 +104,7 @@ class VpnProfile(object):
     IPSEC_CA_CERT = "ipsecCaCert"
     IPSEC_SERVER_CERT = "ipsecServerCert"
 
+
 # Enums for VPN profile types
 class VpnProfileType(enum.Enum):
     """ Integer constant for each type of VPN
@@ -113,14 +116,14 @@ class VpnProfileType(enum.Enum):
     IPSEC_XAUTH_RSA = 4
     IPSEC_HYBRID_RSA = 5
 
+
 # Constants for config file
 class VpnReqParams(object):
     """ Config file parameters required for
         VPN connection
     """
-    wifi_network = "wifi_network"
     vpn_server_addresses = "vpn_server_addresses"
-    vpn_verify_address = "vpn_verify_address"
+    vpn_verify_addresses = "vpn_verify_addresses"
     vpn_username = "vpn_username"
     vpn_password = "vpn_password"
     psk_secret = "psk_secret"

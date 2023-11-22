@@ -24,6 +24,9 @@ public class IncidentdTest extends ProtoDumpTestCase {
     private static final String TAG = "IncidentdTest";
 
     public void testIncidentReportDump(final int filterLevel, final String dest) throws Exception {
+        if (incidentdDisabled()) {
+            return;
+        }
         final String destArg = dest == null || dest.isEmpty() ? "" : "-p " + dest;
         final IncidentProto dump = getDump(IncidentProto.parser(), "incident " + destArg + " 2>/dev/null");
 

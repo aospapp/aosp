@@ -38,6 +38,7 @@ class AssembleVintf {
     virtual ~AssembleVintf() = default;
     virtual bool setHalsOnly() = 0;
     virtual bool setNoHals() = 0;
+    virtual bool setNoKernelRequirements() = 0;
     virtual void setOutputMatrix() = 0;
     virtual bool assemble() = 0;
 

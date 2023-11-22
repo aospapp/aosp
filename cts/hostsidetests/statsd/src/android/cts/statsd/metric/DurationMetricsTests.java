@@ -15,6 +15,8 @@
  */
 package android.cts.statsd.metric;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.cts.statsd.atom.DeviceAtomTestCase;
 
 import com.android.internal.os.StatsdConfigProto;
@@ -32,6 +34,9 @@ import com.android.os.StatsLog.ConfigMetricsReportList;
 import com.android.os.StatsLog.DurationBucketInfo;
 import com.android.os.StatsLog.StatsLogReport;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil;
+
+import com.google.common.collect.Range;
 
 import java.util.List;
 
@@ -46,17 +51,19 @@ public class DurationMetricsTests extends DeviceAtomTestCase {
         if (statsdDisabled()) {
             return;
         }
-        // Add AtomMatcher's.
+
+        final int label = 1;
+        // Add AtomMatchers.
         AtomMatcher startAtomMatcher =
-            MetricsUtils.startAtomMatcher(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID);
+            MetricsUtils.startAtomMatcherWithLabel(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID, label);
         AtomMatcher stopAtomMatcher =
-            MetricsUtils.stopAtomMatcher(APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID);
+            MetricsUtils.stopAtomMatcherWithLabel(APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID, label);
 
         StatsdConfigProto.StatsdConfig.Builder builder = createConfigBuilder();
         builder.addAtomMatcher(startAtomMatcher);
         builder.addAtomMatcher(stopAtomMatcher);
 
-        // Add Predicate's.
+        // Add Predicates.
         SimplePredicate simplePredicate = SimplePredicate.newBuilder()
                 .setStart(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID)
                 .setStop(APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID)
@@ -79,28 +86,412 @@ public class DurationMetricsTests extends DeviceAtomTestCase {
         uploadConfig(builder);
 
         // Create AppBreadcrumbReported Start/Stop events.
-        doAppBreadcrumbReportedStart(1);
+        doAppBreadcrumbReportedStart(label);
         Thread.sleep(2000);
-        doAppBreadcrumbReportedStop(1);
+        doAppBreadcrumbReportedStop(label);
 
         // Wait for the metrics to propagate to statsd.
         Thread.sleep(2000);
 
         StatsLogReport metricReport = getStatsLogReport();
-        assertEquals(MetricsUtils.DURATION_METRIC_ID, metricReport.getMetricId());
-        assertTrue(metricReport.hasDurationMetrics());
+        assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.DURATION_METRIC_ID);
+        LogUtil.CLog.d("Received the following data: " + metricReport.toString());
+        assertThat(metricReport.hasDurationMetrics()).isTrue();
         StatsLogReport.DurationMetricDataWrapper durationData
                 = metricReport.getDurationMetrics();
-        assertTrue(durationData.getDataCount() == 1);
-        assertTrue(durationData.getData(0).getBucketInfo(0).getDurationNanos() > 0);
-        assertTrue(durationData.getData(0).getBucketInfo(0).getDurationNanos() < 1e10);
+        assertThat(durationData.getDataCount()).isEqualTo(1);
+        assertThat(durationData.getData(0).getBucketInfo(0).getDurationNanos())
+                .isIn(Range.open(0L, (long)1e9));
+    }
+
+    public void testDurationMetricWithCondition() throws Exception {
+        if (statsdDisabled()) {
+            return;
+        }
+
+        final int durationLabel = 1;
+        final int conditionLabel = 2;
+
+        // Add AtomMatchers.
+        AtomMatcher startAtomMatcher = MetricsUtils.startAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_A_MATCH_START_ID, durationLabel);
+        AtomMatcher stopAtomMatcher = MetricsUtils.stopAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID, durationLabel);
+        AtomMatcher conditionStartAtomMatcher = MetricsUtils.startAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_B_MATCH_START_ID, conditionLabel);
+        AtomMatcher conditionStopAtomMatcher = MetricsUtils.stopAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_B_MATCH_STOP_ID, conditionLabel);
+
+        StatsdConfigProto.StatsdConfig.Builder builder = createConfigBuilder()
+                .addAtomMatcher(startAtomMatcher)
+                .addAtomMatcher(stopAtomMatcher)
+                .addAtomMatcher(conditionStartAtomMatcher)
+                .addAtomMatcher(conditionStopAtomMatcher);
+
+        // Add Predicates.
+        SimplePredicate simplePredicate = SimplePredicate.newBuilder()
+                .setStart(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID)
+                .setStop(APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID)
+                .build();
+        Predicate predicate = Predicate.newBuilder()
+                                  .setId(MetricsUtils.StringToId("Predicate"))
+                                  .setSimplePredicate(simplePredicate)
+                                  .build();
+
+        SimplePredicate conditionSimplePredicate = SimplePredicate.newBuilder()
+                .setStart(APP_BREADCRUMB_REPORTED_B_MATCH_START_ID)
+                .setStop(APP_BREADCRUMB_REPORTED_B_MATCH_STOP_ID)
+                .build();
+        Predicate conditionPredicate = Predicate.newBuilder()
+                                  .setId(MetricsUtils.StringToId("ConditionPredicate"))
+                                  .setSimplePredicate(conditionSimplePredicate)
+                                  .build();
+
+        builder
+            .addPredicate(predicate)
+            .addPredicate(conditionPredicate);
+
+        // Add DurationMetric.
+        builder
+                .addDurationMetric(StatsdConfigProto.DurationMetric.newBuilder()
+                        .setId(MetricsUtils.DURATION_METRIC_ID)
+                        .setWhat(predicate.getId())
+                        .setAggregationType(StatsdConfigProto.DurationMetric.AggregationType.SUM)
+                        .setBucket(StatsdConfigProto.TimeUnit.CTS)
+                        .setCondition(conditionPredicate.getId())
+                );
+
+        // Upload config.
+        uploadConfig(builder);
+
+        // Start uncounted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop uncounted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        // Set the condition to true.
+        doAppBreadcrumbReportedStart(conditionLabel);
+        Thread.sleep(10);
+
+        // Start counted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop counted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        // Set the condition to false.
+        doAppBreadcrumbReportedStop(conditionLabel);
+        Thread.sleep(10);
+
+        // Start uncounted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop uncounted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+        StatsLogReport metricReport = getStatsLogReport();
+        assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.DURATION_METRIC_ID);
+        LogUtil.CLog.d("Received the following data: " + metricReport.toString());
+        assertThat(metricReport.hasDurationMetrics()).isTrue();
+        StatsLogReport.DurationMetricDataWrapper durationData
+                = metricReport.getDurationMetrics();
+        assertThat(durationData.getDataCount()).isEqualTo(1);
+        long totalDuration = durationData.getData(0).getBucketInfoList().stream()
+                .mapToLong(bucketInfo -> bucketInfo.getDurationNanos())
+                .peek(durationNs -> assertThat(durationNs).isIn(Range.openClosed(0L, (long)1e9)))
+                .sum();
+        assertThat(totalDuration).isIn(Range.open((long)2e9, (long)3e9));
+    }
+
+    public void testDurationMetricWithActivation() throws Exception {
+        if (statsdDisabled()) {
+            return;
+        }
+
+        final int activationMatcherId = 5;
+        final int activationMatcherLabel = 5;
+        final int ttlSec = 5;
+        final int durationLabel = 1;
+
+        // Add AtomMatchers.
+        AtomMatcher startAtomMatcher = MetricsUtils.startAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_A_MATCH_START_ID, durationLabel);
+        AtomMatcher stopAtomMatcher = MetricsUtils.stopAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID, durationLabel);
+        StatsdConfigProto.AtomMatcher activationMatcher =
+                MetricsUtils.appBreadcrumbMatcherWithLabel(activationMatcherId,
+                                                           activationMatcherLabel);
+
+        StatsdConfigProto.StatsdConfig.Builder builder = createConfigBuilder()
+                .addAtomMatcher(startAtomMatcher)
+                .addAtomMatcher(stopAtomMatcher)
+                .addAtomMatcher(activationMatcher);
+
+        // Add Predicates.
+        SimplePredicate simplePredicate = SimplePredicate.newBuilder()
+                .setStart(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID)
+                .setStop(APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID)
+                .build();
+        Predicate predicate = Predicate.newBuilder()
+                                  .setId(MetricsUtils.StringToId("Predicate"))
+                                  .setSimplePredicate(simplePredicate)
+                                  .build();
+        builder.addPredicate(predicate);
+
+        // Add DurationMetric.
+        builder
+                .addDurationMetric(StatsdConfigProto.DurationMetric.newBuilder()
+                        .setId(MetricsUtils.DURATION_METRIC_ID)
+                        .setWhat(predicate.getId())
+                        .setAggregationType(StatsdConfigProto.DurationMetric.AggregationType.SUM)
+                        .setBucket(StatsdConfigProto.TimeUnit.CTS)
+                )
+                .addMetricActivation(StatsdConfigProto.MetricActivation.newBuilder()
+                        .setMetricId(MetricsUtils.DURATION_METRIC_ID)
+                        .addEventActivation(StatsdConfigProto.EventActivation.newBuilder()
+                                .setAtomMatcherId(activationMatcherId)
+                                .setActivationType(
+                                        StatsdConfigProto.ActivationType.ACTIVATE_IMMEDIATELY)
+                                .setTtlSeconds(ttlSec)));
+
+        // Upload config.
+        uploadConfig(builder);
+
+        // Start uncounted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop uncounted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        // Activate the metric.
+        doAppBreadcrumbReported(activationMatcherLabel);
+        Thread.sleep(10);
+
+        // Start counted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop counted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+        StatsLogReport metricReport = getStatsLogReport();
+        assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.DURATION_METRIC_ID);
+        LogUtil.CLog.d("Received the following data: " + metricReport.toString());
+        assertThat(metricReport.hasDurationMetrics()).isTrue();
+        StatsLogReport.DurationMetricDataWrapper durationData
+                = metricReport.getDurationMetrics();
+        assertThat(durationData.getDataCount()).isEqualTo(1);
+        long totalDuration = durationData.getData(0).getBucketInfoList().stream()
+                .mapToLong(bucketInfo -> bucketInfo.getDurationNanos())
+                .peek(durationNs -> assertThat(durationNs).isIn(Range.openClosed(0L, (long)1e9)))
+                .sum();
+        assertThat(totalDuration).isIn(Range.open((long)2e9, (long)3e9));
+    }
+
+    public void testDurationMetricWithConditionAndActivation() throws Exception {
+        if (statsdDisabled()) {
+            return;
+        }
+
+        final int durationLabel = 1;
+        final int conditionLabel = 2;
+        final int activationMatcherId = 5;
+        final int activationMatcherLabel = 5;
+        final int ttlSec = 5;
+
+        // Add AtomMatchers.
+        AtomMatcher startAtomMatcher = MetricsUtils.startAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_A_MATCH_START_ID, durationLabel);
+        AtomMatcher stopAtomMatcher = MetricsUtils.stopAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID, durationLabel);
+        AtomMatcher conditionStartAtomMatcher = MetricsUtils.startAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_B_MATCH_START_ID, conditionLabel);
+        AtomMatcher conditionStopAtomMatcher = MetricsUtils.stopAtomMatcherWithLabel(
+                APP_BREADCRUMB_REPORTED_B_MATCH_STOP_ID, conditionLabel);
+        StatsdConfigProto.AtomMatcher activationMatcher =
+                MetricsUtils.appBreadcrumbMatcherWithLabel(activationMatcherId,
+                                                           activationMatcherLabel);
+
+        StatsdConfigProto.StatsdConfig.Builder builder = createConfigBuilder()
+                .addAtomMatcher(startAtomMatcher)
+                .addAtomMatcher(stopAtomMatcher)
+                .addAtomMatcher(conditionStartAtomMatcher)
+                .addAtomMatcher(conditionStopAtomMatcher)
+                .addAtomMatcher(activationMatcher);
+
+        // Add Predicates.
+        SimplePredicate simplePredicate = SimplePredicate.newBuilder()
+                .setStart(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID)
+                .setStop(APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID)
+                .build();
+        Predicate predicate = Predicate.newBuilder()
+                                  .setId(MetricsUtils.StringToId("Predicate"))
+                                  .setSimplePredicate(simplePredicate)
+                                  .build();
+        builder.addPredicate(predicate);
+
+        SimplePredicate conditionSimplePredicate = SimplePredicate.newBuilder()
+                .setStart(APP_BREADCRUMB_REPORTED_B_MATCH_START_ID)
+                .setStop(APP_BREADCRUMB_REPORTED_B_MATCH_STOP_ID)
+                .build();
+        Predicate conditionPredicate = Predicate.newBuilder()
+                                  .setId(MetricsUtils.StringToId("ConditionPredicate"))
+                                  .setSimplePredicate(conditionSimplePredicate)
+                                  .build();
+        builder.addPredicate(conditionPredicate);
+
+        // Add DurationMetric.
+        builder
+                .addDurationMetric(StatsdConfigProto.DurationMetric.newBuilder()
+                        .setId(MetricsUtils.DURATION_METRIC_ID)
+                        .setWhat(predicate.getId())
+                        .setAggregationType(StatsdConfigProto.DurationMetric.AggregationType.SUM)
+                        .setBucket(StatsdConfigProto.TimeUnit.CTS)
+                        .setCondition(conditionPredicate.getId())
+                )
+                .addMetricActivation(StatsdConfigProto.MetricActivation.newBuilder()
+                        .setMetricId(MetricsUtils.DURATION_METRIC_ID)
+                        .addEventActivation(StatsdConfigProto.EventActivation.newBuilder()
+                                .setAtomMatcherId(activationMatcherId)
+                                .setActivationType(
+                                        StatsdConfigProto.ActivationType.ACTIVATE_IMMEDIATELY)
+                                .setTtlSeconds(ttlSec)));
+
+        // Upload config.
+        uploadConfig(builder);
+
+        // Activate the metric.
+        doAppBreadcrumbReported(activationMatcherLabel);
+        Thread.sleep(10);
+
+        // Set the condition to true.
+        doAppBreadcrumbReportedStart(conditionLabel);
+        Thread.sleep(10);
+
+        // Start counted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop counted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        // Set the condition to false.
+        doAppBreadcrumbReportedStop(conditionLabel);
+        Thread.sleep(10);
+
+        // Start uncounted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop uncounted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        // Let the metric deactivate.
+        Thread.sleep(ttlSec * 1000);
+        //doAppBreadcrumbReported(99); // TODO: maybe remove?
+        //Thread.sleep(10);
+
+        // Start uncounted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop uncounted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        // Set condition to true again.
+        doAppBreadcrumbReportedStart(conditionLabel);
+        Thread.sleep(10);
+
+        // Start uncounted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop uncounted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        // Activate the metric.
+        doAppBreadcrumbReported(activationMatcherLabel);
+        Thread.sleep(10);
+
+        // Start counted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop counted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        // Let the metric deactivate.
+        Thread.sleep(ttlSec * 1000);
+
+        // Start uncounted duration.
+        doAppBreadcrumbReportedStart(durationLabel);
+        Thread.sleep(10);
+
+        Thread.sleep(2_000);
+
+        // Stop uncounted duration.
+        doAppBreadcrumbReportedStop(durationLabel);
+        Thread.sleep(10);
+
+        // Wait for the metrics to propagate to statsd.
+        Thread.sleep(2000);
+
+        StatsLogReport metricReport = getStatsLogReport();
+        LogUtil.CLog.d("Received the following data: " + metricReport.toString());
+        assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.DURATION_METRIC_ID);
+        assertThat(metricReport.hasDurationMetrics()).isTrue();
+        StatsLogReport.DurationMetricDataWrapper durationData
+                = metricReport.getDurationMetrics();
+        assertThat(durationData.getDataCount()).isEqualTo(1);
+        long totalDuration = durationData.getData(0).getBucketInfoList().stream()
+                .mapToLong(bucketInfo -> bucketInfo.getDurationNanos())
+                .peek(durationNs -> assertThat(durationNs).isIn(Range.openClosed(0L, (long)1e9)))
+                .sum();
+        assertThat(totalDuration).isIn(Range.open((long)4e9, (long)5e9));
     }
 
     public void testDurationMetricWithDimension() throws Exception {
         if (statsdDisabled()) {
             return;
         }
-        // Add AtomMatcher's.
+        // Add AtomMatchers.
         AtomMatcher startAtomMatcherA =
             MetricsUtils.startAtomMatcher(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID);
         AtomMatcher stopAtomMatcherA =
@@ -116,7 +507,7 @@ public class DurationMetricsTests extends DeviceAtomTestCase {
         builder.addAtomMatcher(startAtomMatcherB);
         builder.addAtomMatcher(stopAtomMatcherB);
 
-        // Add Predicate's.
+        // Add Predicates.
         SimplePredicate simplePredicateA = SimplePredicate.newBuilder()
                 .setStart(APP_BREADCRUMB_REPORTED_A_MATCH_START_ID)
                 .setStop(APP_BREADCRUMB_REPORTED_A_MATCH_STOP_ID)
@@ -178,15 +569,14 @@ public class DurationMetricsTests extends DeviceAtomTestCase {
         Thread.sleep(2000);
 
         StatsLogReport metricReport = getStatsLogReport();
-        assertEquals(MetricsUtils.DURATION_METRIC_ID, metricReport.getMetricId());
-        assertTrue(metricReport.hasDurationMetrics());
+        assertThat(metricReport.getMetricId()).isEqualTo(MetricsUtils.DURATION_METRIC_ID);
+        assertThat(metricReport.hasDurationMetrics()).isTrue();
         StatsLogReport.DurationMetricDataWrapper durationData
                 = metricReport.getDurationMetrics();
-        assertTrue(durationData.getDataCount() == 1);
-        assertTrue(durationData.getData(0).getBucketInfoList().size() > 1);
+        assertThat(durationData.getDataCount()).isEqualTo(1);
+        assertThat(durationData.getData(0).getBucketInfoCount()).isGreaterThan(1);
         for (DurationBucketInfo bucketInfo : durationData.getData(0).getBucketInfoList()) {
-            assertTrue(bucketInfo.getDurationNanos() > 0);
-            assertTrue(bucketInfo.getDurationNanos() < 1e10);
+            assertThat(bucketInfo.getDurationNanos()).isIn(Range.openClosed(0L, (long)1e9));
         }
     }
 }

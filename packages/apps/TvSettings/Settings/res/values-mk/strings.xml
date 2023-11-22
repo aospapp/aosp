@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Калибрација"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Избор на формати"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Опкружувачки звук"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Некои апликации ќе бидат недостапни или нема да функционираат правилно сѐ додека повторно не се поврзе податочната единица."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Нема доволно меморија."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Апликацијата не постои."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Апликацијата е заштитена од копирање."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Локацијата за инсталација не е важечка."</string>
     <string name="system_package" msgid="9200255718634512790">"Ажурирањата на системот не може да се инсталираат на надворешни медиуми."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Администраторот на уредот не може да се инсталира на надворешни уреди."</string>
@@ -389,8 +388,8 @@
     <string name="location_mode_title" msgid="6573195849329396150">"Режим"</string>
     <string name="location_category_recent_location_requests" msgid="3437903422445812245">"Последни барања за локација"</string>
     <string name="location_no_recent_apps" msgid="4218851908476344030">"Нема апликации што скоро побарале локација"</string>
-    <string name="location_high_battery_use" msgid="576143332793626088">"Голема употреба на батеријата"</string>
-    <string name="location_low_battery_use" msgid="5756040390248358148">"Мала употреба на батеријата"</string>
+    <string name="location_high_battery_use" msgid="576143332793626088">"Голема искористеност на бат."</string>
+    <string name="location_low_battery_use" msgid="5756040390248358148">"Мала искористеност на бат."</string>
     <string name="location_mode_wifi_description" msgid="2778774510654527264">"Користи мрежи на Wi‑Fi за да утврдиш локација"</string>
     <string name="location_status" msgid="3456414279428237558">"Статус на локација"</string>
     <string name="location_services" msgid="5441085185119797200">"Услуги за локација"</string>
@@ -452,7 +451,7 @@
     <string name="system_accessibility_config" msgid="3216531917536720277">"Конфигурација"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"Употреби <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> може да го собира целиот текст што го внесувате, освен лозинки. Тоа вклучува лични податоци како на пример броеви на кредитни картички."</string>
-    <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Запри <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
+    <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"Сопри <xliff:g id="SERVICE">%1$s</xliff:g>?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"Со избирање на Во ред ќе запре <xliff:g id="SERVICE">%1$s</xliff:g>."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"Текст во говор"</string>
     <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"Конфигурација на двигателот за говор"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Пристап до известувањата"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Ниедна од инсталираните апликации не побара пристап до известувањата."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Апликацииве ќе може да ги читаат сите известувања, заедно со личните информации како што се имиња на контакти и текстот од пораките што ги добивате. Ќе може и да отфрлаат известувања или да активираат копчиња за дејство во нив."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Пристап до адресарот"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Овие апликации имаат дозвола за пристап до одредени адресари."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Прикажување врз други апликации"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Дозволи прикажување врз други апликации"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Дозволете ѝ на апликација да се прикажува врз другите апликации што ги користите. Тоа може да го попречи користењето на другите апликации или да го промени начинот на кој се појавуваат или однесуваат."</string>

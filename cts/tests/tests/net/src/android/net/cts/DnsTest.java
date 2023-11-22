@@ -287,7 +287,7 @@ public class DnsTest extends AndroidTestCase {
         final NetworkCallback callback = new NetworkCallback() {
             @Override
             public void onLinkPropertiesChanged(Network network, LinkProperties lp) {
-                if (lp.hasGlobalIPv6Address()) {
+                if (lp.hasGlobalIpv6Address()) {
                     latch.countDown();
                 }
             }

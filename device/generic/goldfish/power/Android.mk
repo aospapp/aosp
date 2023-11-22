@@ -1,4 +1,4 @@
-# Copyright (C) 2012 The Android Open Source Project
+# Copyright (C) 2017 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,33 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 LOCAL_PATH := $(call my-dir)
 
-# HAL module implemenation stored in
-# hw/<POWERS_HARDWARE_MODULE_ID>.<ro.hardware>.so
 include $(CLEAR_VARS)
 
 LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
-LOCAL_CFLAGS += -DQEMU_HARDWARE
-LOCAL_SHARED_LIBRARIES := liblog libcutils
-LOCAL_HEADER_LIBRARIES := libutils_headers libhardware_headers
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
-LOCAL_SRC_FILES := power_qemu.c
-LOCAL_MODULE := power.goldfish
-LOCAL_MODULE_TAGS := optional
-include $(BUILD_SHARED_LIBRARY)
 
-include $(CLEAR_VARS)
+LOCAL_MODULE := android.hardware.power@1.1-service.ranchu
+LOCAL_INIT_RC := android.hardware.power@1.1-service.ranchu.rc
+LOCAL_SRC_FILES := service.cpp Power.cpp
 
-LOCAL_VENDOR_MODULE := true
-LOCAL_MODULE_RELATIVE_PATH := hw
-LOCAL_CFLAGS += -DQEMU_HARDWARE
-LOCAL_SHARED_LIBRARIES := liblog libcutils
-LOCAL_HEADER_LIBRARIES := libutils_headers libhardware_headers
-LOCAL_C_INCLUDES += $(LOCAL_PATH)/../include
-LOCAL_SRC_FILES := power_qemu.c
-LOCAL_MODULE := power.ranchu
-LOCAL_MODULE_TAGS := optional
-include $(BUILD_SHARED_LIBRARY)
+LOCAL_HEADER_LIBRARIES := libhardware_headers
+
+LOCAL_SHARED_LIBRARIES := \
+    libbase \
+    libcutils \
+    libhidlbase \
+    libhidltransport \
+    liblog \
+    libutils \
+    android.hardware.power@1.1 \
+
+include $(BUILD_EXECUTABLE)

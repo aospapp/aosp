@@ -16,15 +16,17 @@
 
 #include "safe_copy.h"
 
+#ifdef __linux__
 #include <sys/uio.h>
 #include <sys/user.h>
+#endif
 #include <unistd.h>
 
 #include <algorithm>
 
 #include <android-base/macros.h>
 
-#include "base/bit_utils.h"
+#include "bit_utils.h"
 
 namespace art {
 

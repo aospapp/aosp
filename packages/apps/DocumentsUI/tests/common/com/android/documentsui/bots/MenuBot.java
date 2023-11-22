@@ -40,6 +40,10 @@ public class MenuBot extends Bots.BaseBot {
         return mDevice.findObject(By.text(menuLabel)) != null;
     }
 
+    public boolean hasMenuItemByDesc(String menuDesc) throws UiObjectNotFoundException {
+        return mDevice.findObject(By.desc(menuDesc)) != null;
+    }
+
     public void assertPresentMenuItems(Map<String, Boolean> menuStates) throws Exception {
         for (String key : menuStates.keySet()) {
             if (menuStates.get(key)) {

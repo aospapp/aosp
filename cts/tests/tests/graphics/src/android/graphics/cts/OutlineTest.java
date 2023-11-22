@@ -23,8 +23,9 @@ import static org.junit.Assert.assertTrue;
 import android.graphics.Outline;
 import android.graphics.Path;
 import android.graphics.Rect;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -185,6 +186,20 @@ public class OutlineTest {
         assertTrue(outline.isEmpty());
 
         path.addCircle(50, 50, 50, Path.Direction.CW);
+        outline.setConvexPath(path);
+        assertFalse(outline.isEmpty());
+    }
+
+    @Test
+    public void testSetConvexPathConcave() {
+        Outline outline = new Outline();
+        Path path = new Path();
+        path.addRect(0, 0, 100, 10, Path.Direction.CW);
+        path.addRect(0, 0, 10, 100, Path.Direction.CW);
+        assertFalse(path.isConvex()); // path is concave
+
+        assertTrue(outline.isEmpty());
+        // As of Q, this no longer throws an exception
         outline.setConvexPath(path);
         assertFalse(outline.isEmpty());
     }

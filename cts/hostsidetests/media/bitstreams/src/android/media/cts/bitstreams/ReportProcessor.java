@@ -19,6 +19,7 @@ package android.media.cts.bitstreams;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.testtype.AndroidJUnitTest;
@@ -123,6 +124,13 @@ abstract class ReportProcessor {
         }
 
         @Override
+        public void testEnded(TestDescription test, HashMap<String, Metric> metrics) {
+            for (Entry<String, Metric> e: metrics.entrySet()) {
+                mMetrics.put(e.getKey(), e.getValue().getMeasurements().getSingleString());
+            }
+        }
+
+        @Override
         public void testFailed(TestDescription test, String trace) {
             mFailureStackTrace = trace;
         }
@@ -143,6 +151,8 @@ abstract class ReportProcessor {
         instrTest.setShellTimeout(shellTimeout);
         // disable rerun mode to avoid collecting tests first then running.
         instrTest.setRerunMode(false);
+        // disable isolated storage to access sdcard
+        instrTest.setIsolatedStorage(false);
         for (Entry<String, String> e : getArgs().entrySet()) {
             instrTest.addInstrumentationArg(e.getKey(), e.getValue());
         }

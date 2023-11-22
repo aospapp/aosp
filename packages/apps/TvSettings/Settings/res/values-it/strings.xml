@@ -79,7 +79,7 @@
     <string name="all_apps_installed" msgid="54800379871111518">"App installate"</string>
     <string name="all_apps_other" msgid="8297097642727891911">"App di sistema"</string>
     <string name="all_apps_disabled" msgid="2016067533586741345">"App disattivate"</string>
-    <string name="device_daydream" msgid="3354366974209179614">"Screensaver"</string>
+    <string name="device_daydream" msgid="3354366974209179614">"Salvaschermo"</string>
     <string name="device_display" msgid="101455384386372747">"Display"</string>
     <string name="device_sound" msgid="9214182566287657481">"Audio"</string>
     <string name="device_surround_sound" msgid="6272196310566546860">"Audio surround"</string>
@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Calibrazione"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Seleziona i formati"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Audio surround"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Alcune app non saranno disponibili o non funzioneranno correttamente se l\'unità non è collegata."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Spazio di archiviazione insufficiente."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"L\'app non esiste."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"L\'app è protetta dalla copia."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Percorso di installazione non valido."</string>
     <string name="system_package" msgid="9200255718634512790">"Impossibile installare aggiornamenti di sistema su supporti esterni."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Impossibile installare l\'amministratore del dispositivo su supporti esterni."</string>
@@ -400,13 +399,13 @@
     <string name="third_party_location_services_title" msgid="4089136801976399147">"Servizi di geolocalizzazione di terze parti"</string>
     <string name="location_reporting" msgid="3054236612250063073">"Segnalazione della posizione"</string>
     <string name="location_history" msgid="2946680949724247804">"Cronologia delle posizioni"</string>
-    <string name="location_reporting_desc" msgid="6256424995139430823">"Google utilizza questa funzione in prodotti come Google Now e Google Maps. Se attivi la Segnalazione della posizione, ogni prodotto Google che utilizza questa funzione può memorizzare e utilizzare i dati sulla posizione più recenti del dispositivo associati al tuo account Google."</string>
+    <string name="location_reporting_desc" msgid="6256424995139430823">"Google utilizza questa funzione in prodotti come Google Now e Google Maps. Se attivi la Segnalazione della posizione, ogni prodotto Google che utilizza questa funzione può memorizzare e utilizzare i dati sulla posizione più recenti del dispositivo associati al tuo Account Google."</string>
     <string name="location_history_desc" msgid="3861249867748294369">"Quando la Cronologia delle posizioni è attiva per l\'account, Google può memorizzare i dati sulla posizione del dispositivo che verrano utilizzati dalle tue app.\n\nAd esempio, Google Maps può darti indicazioni stradali e Google Now può comunicarti il traffico lungo il tuo tragitto giornaliero.\n\nPuoi disattivare la Cronologia delle posizioni in qualsiasi momento, ma non verrà eliminata. Per visualizzare e gestire la Cronologia delle posizioni, visita il sito maps.google.com/locationhistory."</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"Elimina cronologia delle posizioni"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"Verrà eliminata l\'intera Cronologia delle posizioni memorizzata sul dispositivo per l\'account Google. Non puoi annullare l\'eliminazione. Alcune app, inclusa Google Now, non funzioneranno più."</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"Verrà eliminata l\'intera Cronologia delle posizioni memorizzata sul dispositivo per l\'Account Google. Non puoi annullare l\'eliminazione. Alcune app, inclusa Google Now, non funzioneranno più."</string>
     <string name="system_services" msgid="7230571820151215779">"Servizi"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"Impostazioni servizio"</string>
-    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Testo alto contrasto"</string>
+    <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"Testo ad alto contrasto"</string>
     <string name="accessibility_shortcut" msgid="6726361991387558828">"Scorciatoia Accessibilità"</string>
     <string name="accessibility_shortcut_enable" msgid="1801656084705223078">"Abilita Scorciatoia Accessibilità"</string>
     <string name="accessibility_shortcut_service" msgid="1978686501861996601">"Servizio scorciatoia"</string>
@@ -671,10 +670,10 @@
     <string name="settings_on" msgid="6892236264945435013">"On"</string>
     <string name="settings_off" msgid="449272161738237637">"Off"</string>
     <string name="device_daydreams_none" msgid="2767107052779579259">"Disattiva lo schermo"</string>
-    <string name="device_daydreams_select" msgid="2112338101206187695">"Screensaver"</string>
+    <string name="device_daydreams_select" msgid="2112338101206187695">"Salvaschermo"</string>
     <string name="device_daydreams_test" msgid="9038920213402659591">"Avvia adesso"</string>
     <string name="device_daydreams_sleep" msgid="7676938708373592766">"Quando avviare"</string>
-    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Lo screensaver viene attivato dopo il periodo di inattività selezionato. Se non selezioni uno screensaver, il display si spegne."</string>
+    <string name="device_daydreams_sleep_description" msgid="7655223016581708511">"Il salvaschermo viene attivato dopo il periodo di inattività selezionato. Se non selezioni un salvaschermo, il display si spegne."</string>
     <string name="device_daydreams_sleep_summary" msgid="7361113408939289262">"Dopo <xliff:g id="SLEEP_DESCRIPTION">%1$s</xliff:g> di inattività"</string>
     <string name="device_daydreams_screen_off" msgid="1765925964376076171">"Attiva sospensione dispositivo"</string>
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"Lo schermo si spegne dopo questo periodo di inattività."</string>
@@ -685,7 +684,7 @@
     <string name="privacy_backup_account" msgid="9059939814827165020">"Account di backup"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Ripristino automatico"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Reimposta dispositivo"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"Questa operazione comporta l\'eliminazione di tutti i dati dalla memoria interna del dispositivo, tra cui: il tuo account Google, dati e impostazioni del sistema e delle app, nonché le app scaricate."</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"Questa operazione comporta l\'eliminazione di tutti i dati dalla memoria interna del dispositivo, tra cui: il tuo Account Google, dati e impostazioni del sistema e delle app, nonché le app scaricate."</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Cancellare tutte le informazioni personali e le app scaricate? Questa azione è irreversibile."</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Cancella tutto"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Scegli un nome per il tuo dispositivo <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
@@ -723,12 +722,15 @@
     <string name="high_power_apps" msgid="7796096221999495077">"Ottimizzazione energia"</string>
     <string name="high_power_apps_description" msgid="1990016812115792282">"Ottimizza il consumo di energia delle app"</string>
     <string name="high_power_apps_empty" msgid="1355906551507153470">"Nessuna app da ottimizzare"</string>
-    <string name="high_power_on" msgid="7725180078784796673">"Non ottimizzate"</string>
+    <string name="high_power_on" msgid="7725180078784796673">"Senza ottimizzazione"</string>
     <string name="high_power_off" msgid="308272752152871252">"Ottimizzazione del consumo di energia"</string>
     <string name="high_power_system" msgid="7815843517656137656">"Ottimizzazione dell\'energia non disponibile"</string>
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Accesso alle notifiche"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Nessuna delle app installate ha richiesto l\'accesso alle notifiche."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Queste app potranno leggere tutte le notifiche, incluse le informazioni personali quali i nomi dei contatti e il testo dei messaggi ricevuti. Potranno inoltre ignorare le notifiche o attivare i pulsanti di azione inclusi."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Accesso alla directory"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Queste app sono autorizzate ad accedere a directory specifiche."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Mostra sopra altre app"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Consenti la visualizzazione sopra altre app"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Consenti di mostrare un\'app sopra le altre app in uso. Potrebbe interferire con il tuo utilizzo di queste app oppure modificarne la visualizzazione o il comportamento."</string>

@@ -17,8 +17,9 @@
 package com.android.settings.development;
 
 import android.content.Context;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.PreferenceScreen;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.PreferenceScreen;
 
 import com.android.settings.core.PreferenceControllerMixin;
 import com.android.settingslib.core.lifecycle.Lifecycle;
@@ -55,7 +56,7 @@ public class PictureColorModePreferenceController extends DeveloperOptionsPrefer
     @Override
     public void displayPreference(PreferenceScreen screen) {
         super.displayPreference(screen);
-        mPreference = (ColorModePreference) screen.findPreference(getPreferenceKey());
+        mPreference = screen.findPreference(getPreferenceKey());
         if (mPreference != null) {
             mPreference.updateCurrentAndSupported();
         }

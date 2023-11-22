@@ -77,7 +77,7 @@ public class CallAudioManagerTest extends TelecomTestCase {
             InCallTonePlayer mockInCallTonePlayer = mock(InCallTonePlayer.class);
             doAnswer((invocation2) -> {
                 mCallAudioManager.setIsTonePlaying(true);
-                return null;
+                return true;
             }).when(mockInCallTonePlayer).startTone();
             return mockInCallTonePlayer;
         }).when(mPlayerFactory).createPlayer(anyInt());
@@ -198,13 +198,16 @@ public class CallAudioManagerTest extends TelecomTestCase {
         Call call = createIncomingCall();
         when(call.can(android.telecom.Call.Details.CAPABILITY_SPEED_UP_MT_AUDIO))
                 .thenReturn(true);
+        when(call.getState()).thenReturn(CallState.ANSWERED);
 
         ArgumentCaptor<CallAudioModeStateMachine.MessageArgs> captor =
                 ArgumentCaptor.forClass(CallAudioModeStateMachine.MessageArgs.class);
         // Answer the incoming call
-        mCallAudioManager.onIncomingCallAnswered(call);
+        mCallAudioManager.onCallStateChanged(call, CallState.RINGING, CallState.ANSWERED);
         verify(mCallAudioModeStateMachine).sendMessageWithArgs(
-                eq(CallAudioModeStateMachine.MT_AUDIO_SPEEDUP_FOR_RINGING_CALL), captor.capture());
+                eq(CallAudioModeStateMachine.NEW_ACTIVE_OR_DIALING_CALL), captor.capture());
+        verify(mCallAudioModeStateMachine).sendMessageWithArgs(
+                eq(CallAudioModeStateMachine.NO_MORE_RINGING_CALLS), captor.capture());
         CallAudioModeStateMachine.MessageArgs correctArgs =
                 new CallAudioModeStateMachine.MessageArgs(
                         true, // hasActiveOrDialingCalls
@@ -217,7 +220,7 @@ public class CallAudioManagerTest extends TelecomTestCase {
         assertMessageArgEquality(correctArgs, captor.getValue());
         assertMessageArgEquality(correctArgs, captor.getValue());
         when(call.getState()).thenReturn(CallState.ACTIVE);
-        mCallAudioManager.onCallStateChanged(call, CallState.RINGING, CallState.ACTIVE);
+        mCallAudioManager.onCallStateChanged(call, CallState.ANSWERED, CallState.ACTIVE);
 
         disconnectCall(call);
         stopTone();

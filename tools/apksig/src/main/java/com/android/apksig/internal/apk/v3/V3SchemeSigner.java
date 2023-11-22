@@ -29,7 +29,7 @@ import com.android.apksig.internal.apk.ContentDigestAlgorithm;
 import com.android.apksig.internal.apk.SignatureAlgorithm;
 import com.android.apksig.internal.util.Pair;
 import com.android.apksig.util.DataSource;
-
+import com.android.apksig.util.RunnablesExecutor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -59,7 +59,7 @@ import java.util.Map;
  */
 public abstract class V3SchemeSigner {
 
-    private static final int APK_SIGNATURE_SCHEME_V3_BLOCK_ID = 0xf05368c0;
+    public static final int APK_SIGNATURE_SCHEME_V3_BLOCK_ID = 0xf05368c0;
 
     /** Hidden constructor to prevent instantiation. */
     private V3SchemeSigner() {}
@@ -128,6 +128,7 @@ public abstract class V3SchemeSigner {
     }
 
     public static Pair<byte[], Integer> generateApkSignatureSchemeV3Block(
+            RunnablesExecutor executor,
             DataSource beforeCentralDir,
             DataSource centralDir,
             DataSource eocd,
@@ -136,8 +137,8 @@ public abstract class V3SchemeSigner {
                             SignatureException {
         Pair<List<SignerConfig>,
                 Map<ContentDigestAlgorithm, byte[]>> digestInfo =
-                ApkSigningBlockUtils.computeContentDigests(beforeCentralDir, centralDir, eocd,
-                        signerConfigs);
+                ApkSigningBlockUtils.computeContentDigests(
+                        executor, beforeCentralDir, centralDir, eocd, signerConfigs);
         return generateApkSignatureSchemeV3Block(digestInfo.getFirst(), digestInfo.getSecond());
     }
 

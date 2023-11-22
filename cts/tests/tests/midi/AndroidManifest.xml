@@ -25,7 +25,7 @@
     <application>
         <uses-library android:name="android.test.runner" />
 
-        <service android:name="MidiEchoTestService"
+        <service android:name="com.android.midi.MidiEchoTestService"
                 android:permission="android.permission.BIND_MIDI_DEVICE_SERVICE">
             <intent-filter>
                 <action android:name="android.media.midi.MidiDeviceService" />
@@ -37,7 +37,7 @@
 
     <!--  self-instrumenting test package. -->
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="CTS MIDI tests"
         android:targetPackage="android.midi.cts" >
         <meta-data

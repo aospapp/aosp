@@ -16,21 +16,20 @@
 
 package com.android.cts.managedprofile;
 
+import static com.android.compatibility.common.util.WifiConfigCreator.SECURITY_TYPE_NONE;
+
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
-import android.content.Intent;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.SystemClock;
 import android.test.AndroidTestCase;
 
+import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.WifiConfigCreator;
+
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import static com.android.compatibility.common.util.WifiConfigCreator.ACTION_CREATE_WIFI_CONFIG;
-import static com.android.compatibility.common.util.WifiConfigCreator.ACTION_REMOVE_WIFI_CONFIG;
-import static com.android.compatibility.common.util.WifiConfigCreator.EXTRA_NETID;
-import static com.android.compatibility.common.util.WifiConfigCreator.EXTRA_SSID;
 
 /**
  * Driven by the host-side test: com.android.cts.devicepolicy.ManagedProfileTest
@@ -49,6 +48,8 @@ public class WifiTest extends AndroidTestCase {
     private static final long UPDATE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(5);
     private static final long UPDATE_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1);
 
+    private WifiConfigCreator mWifiConfigCreator;
+
     // Shared WifiManager instance.
     private WifiManager mWifiManager;
 
@@ -58,10 +59,11 @@ public class WifiTest extends AndroidTestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
+        mWifiConfigCreator = new WifiConfigCreator(getContext());
         mWifiManager = (WifiManager) getContext().getSystemService(Context.WIFI_SERVICE);
         mWifiEnabled = mWifiManager.isWifiEnabled();
         if (!mWifiEnabled) {
-            mWifiManager.setWifiEnabled(true);
+            SystemUtil.runShellCommand("svc wifi enable");
             awaitWifiEnabledState(true);
         }
     }
@@ -69,7 +71,7 @@ public class WifiTest extends AndroidTestCase {
     @Override
     public void tearDown() throws Exception {
         if (!mWifiEnabled) {
-            mWifiManager.setWifiEnabled(false);
+            SystemUtil.runShellCommand("svc wifi disable");
             awaitWifiEnabledState(false);
         }
         super.tearDown();
@@ -84,10 +86,7 @@ public class WifiTest extends AndroidTestCase {
      * </ul>
      */
     public void testAddWifiNetwork() throws Exception {
-        Intent intent = new Intent(ACTION_CREATE_WIFI_CONFIG);
-        intent.putExtra(EXTRA_SSID, NETWORK_SSID);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getContext().startActivity(intent);
+        mWifiConfigCreator.addNetwork(NETWORK_SSID, false, SECURITY_TYPE_NONE, null);
 
         // Wait for configuration to appear in networks list.
         assertTrue(awaitNetworkState(NETWORK_SSID, /* exists */ true));
@@ -106,10 +105,7 @@ public class WifiTest extends AndroidTestCase {
         WifiConfiguration config = getNetworkForSsid(NETWORK_SSID);
 
         if (config != null && config.networkId != -1) {
-            Intent intent = new Intent(ACTION_REMOVE_WIFI_CONFIG);
-            intent.putExtra(EXTRA_NETID, config.networkId);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
+            mWifiConfigCreator.removeNetwork(config.networkId);
         }
         assertTrue(awaitNetworkState(NETWORK_SSID, /* exists */ false));
     }

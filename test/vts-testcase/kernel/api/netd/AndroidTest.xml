@@ -13,19 +13,18 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Config for CTS-on-GSI CtsOnGsiKernelNetdTest.">
-    <option name="test-suite-tag" value="cts" />
-    <option name="config-descriptor:metadata" key="component" value="kernel" />
+<configuration description="Config for VtsKernelNetdTest">
+    <option name="config-descriptor:metadata" key="plan" value="vts-kernel" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
-        <option name="push" value="DATA/nativetest/netd_integration_test/netd_integration_test->/data/nativetest/CtsOnGsiKernelNetdTest"/>
-        <option name="push" value="DATA/nativetest64/netd_integration_test/netd_integration_test->/data/nativetest/CtsOnGsiKernelNetdTest"/>
-        <option name="append-bitness" value="true" />
+        <option name="push-group" value="HalHidlTargetTest.push"/>
     </target_preparer>
-    <test class="com.android.tradefed.testtype.GTest" >
-        <option name="module-name" value="CtsOnGsiKernelNetdTest" />
-        <option name="runtime-hint" value="1m" />
-        <option name="exclude-filter" value="ResolverTest.*:TransportTest.*" />
-        <option name="native-test-timeout" value="1m" />
+    <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
+        <option name="test-module-name" value="VtsKernelNetdTest"/>
+        <option name="binary-test-source" value="_32bit::DATA/nativetest/netd_integration_test/netd_integration_test32" />
+        <option name="binary-test-source" value="_64bit::DATA/nativetest64/netd_integration_test/netd_integration_test64" />
+        <option name="binary-test-type" value="gtest"/>
+        <option name="disable-framework" value="false"/>
+        <option name="test-timeout" value="10m"/>
     </test>
 </configuration>

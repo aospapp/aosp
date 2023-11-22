@@ -51,18 +51,28 @@ public class ActionDisabledByAdminDialog extends Activity
         mDialogHelper.updateDialog(restriction, admin);
     }
 
-    @android.support.annotation.VisibleForTesting
+    @androidx.annotation.VisibleForTesting
     EnforcedAdmin getAdminDetailsFromIntent(Intent intent) {
-        final EnforcedAdmin admin = new EnforcedAdmin(null, UserHandle.myUserId());
+        final EnforcedAdmin admin = new EnforcedAdmin(null, UserHandle.of(UserHandle.myUserId()));
         if (intent == null) {
             return admin;
         }
         admin.component = intent.getParcelableExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN);
-        admin.userId = intent.getIntExtra(Intent.EXTRA_USER_ID, UserHandle.myUserId());
+
+        if (intent.hasExtra(Intent.EXTRA_USER)) {
+            admin.user = intent.getParcelableExtra(Intent.EXTRA_USER);
+        } else {
+            int userId = intent.getIntExtra(Intent.EXTRA_USER_ID, UserHandle.myUserId());
+            if (userId == UserHandle.USER_NULL) {
+                admin.user = null;
+            } else {
+                admin.user = UserHandle.of(userId);
+            }
+        }
         return admin;
     }
 
-    @android.support.annotation.VisibleForTesting
+    @androidx.annotation.VisibleForTesting
     String getRestrictionFromIntent(Intent intent) {
         if (intent == null) return null;
         return intent.getStringExtra(DevicePolicyManager.EXTRA_RESTRICTION);

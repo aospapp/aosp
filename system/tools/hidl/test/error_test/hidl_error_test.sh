@@ -1,12 +1,17 @@
 #!/bin/bash
 
-if [ $# -ne 1 ]; then
+if [ $# -gt 1 ]; then
     echo "usage: hidl_error_test.sh hidl-gen_path"
     exit 1
 fi
 
-readonly HIDL_GEN_PATH=$1
-readonly HIDL_ERROR_TEST_DIR="$ANDROID_BUILD_TOP/system/tools/hidl/test/error_test"
+readonly HIDL_GEN_PATH=${1:-hidl-gen}
+readonly HIDL_ERROR_TEST_DIR="${ANDROID_BUILD_TOP:-.}/system/tools/hidl/test/error_test"
+
+if [ ! -d $HIDL_ERROR_TEST_DIR ]; then
+    echo "cannot find test directory: $HIDL_ERROR_TEST_DIR"
+    exit 1
+fi
 
 for dir in $(ls -d $HIDL_ERROR_TEST_DIR/*/); do
   package=$(basename $dir)

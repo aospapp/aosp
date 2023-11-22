@@ -1,0 +1,5 @@
+type sysfs_hisi, fs_type, sysfs_type;
+type proc_hisi, fs_type, proc_type;
+#type proc_slabinfo, fs_type, proc_type;
+type hi_overlay_file, file_type;
+

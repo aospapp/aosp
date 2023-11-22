@@ -18,7 +18,12 @@ package android.hardware.camera2.cts;
 
 import static com.android.ex.camera2.blocking.BlockingSessionCallback.SESSION_CLOSED;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import android.app.Instrumentation;
 import android.graphics.ImageFormat;
+import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
@@ -31,7 +36,7 @@ import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleImageReaderListener;
 import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
-import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
+import android.hardware.camera2.cts.testcases.Camera2AndroidTestCase;
 import android.hardware.camera2.params.InputConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
@@ -39,12 +44,13 @@ import android.media.ImageReader;
 import android.media.ImageWriter;
 import android.os.ConditionVariable;
 import android.os.SystemClock;
-import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Range;
 import android.util.Size;
 import android.view.Surface;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;
@@ -52,6 +58,8 @@ import com.android.compatibility.common.util.ResultUnit;
 import com.android.compatibility.common.util.Stat;
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
 import com.android.ex.camera2.exceptions.TimeoutRuntimeException;
+
+import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,8 +71,7 @@ import java.util.concurrent.TimeUnit;
  * Test camera2 API use case performance KPIs, such as camera open time, session creation time,
  * shutter lag etc. The KPI data will be reported in cts results.
  */
-@AppModeFull
-public class PerformanceTest extends Camera2SurfaceViewTestCase {
+public class PerformanceTest extends Camera2AndroidTestCase {
     private static final String TAG = "PerformanceTest";
     private static final String REPORT_LOG_NAME = "CtsCameraTestCases";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -79,6 +86,9 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
     // count to maintain reasonable number of candidate image for the worse-case.
     private final int MAX_ZSL_IMAGES = MAX_REPROCESS_IMAGES * 3 / 2;
     private final double REPROCESS_STALL_MARGIN = 0.1;
+    private static final int WAIT_FOR_RESULT_TIMEOUT_MS = 3000;
+    private static final int NUM_RESULTS_WAIT_TIMEOUT = 100;
+    private static final int NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY = 8;
 
     private DeviceReportLog mReportLog;
 
@@ -92,13 +102,19 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
     private ImageWriter mWriter;
     private SimpleCaptureCallback mZslResultListener;
 
+    private Instrumentation mInstrumentation;
+
+    private Surface mPreviewSurface;
+    private SurfaceTexture mPreviewSurfaceTexture;
+
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         super.tearDown();
     }
 
@@ -171,7 +187,8 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                         cameraLaunchTimes[i] = previewStartedTimeMs - startTimeMs;
 
                         // Let preview on for a couple of frames
-                        waitForNumResults(resultListener, NUM_RESULTS_WAIT);
+                        CameraTestUtils.waitForNumResults(resultListener, NUM_RESULTS_WAIT,
+                                WAIT_FOR_RESULT_TIMEOUT_MS);
 
                         // Blocking stop preview
                         startTimeMs = SystemClock.elapsedRealtime();
@@ -181,7 +198,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                     finally {
                         // Blocking camera close
                         startTimeMs = SystemClock.elapsedRealtime();
-                        closeDevice();
+                        closeDevice(id);
                         cameraCloseTimes[i] = SystemClock.elapsedRealtime() - startTimeMs;
                     }
                 }
@@ -203,10 +220,11 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                         ResultType.LOWER_BETTER, ResultUnit.MS);
             }
             finally {
-                closeImageReader();
+                closeDefaultImageReader();
+                closePreviewSurface();
             }
             counter++;
-            mReportLog.submit(getInstrumentation());
+            mReportLog.submit(mInstrumentation);
 
             if (VERBOSE) {
                 Log.v(TAG, "Camera " + id + " device open times(ms): "
@@ -246,14 +264,14 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
             mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
             mReportLog.setSummary("camera_launch_average_time_for_all_cameras",
                     Stat.getAverage(avgCameraLaunchTimes), ResultType.LOWER_BETTER, ResultUnit.MS);
-            mReportLog.submit(getInstrumentation());
+            mReportLog.submit(mInstrumentation);
         }
     }
 
     /**
-     * Test camera capture KPI for YUV_420_888 format: the time duration between
-     * sending out a single image capture request and receiving image data and
-     * capture result.
+     * Test camera capture KPI for YUV_420_888, PRIVATE, JPEG, RAW and RAW+JPEG
+     * formats: the time duration between sending out a single image capture request
+     * and receiving image data and capture result.
      * <p>
      * It enumerates the following metrics: capture latency, computed by
      * measuring the time between sending out the capture request and getting
@@ -264,26 +282,68 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
      * </p>
      */
     public void testSingleCapture() throws Exception {
+        int[] YUV_FORMAT = {ImageFormat.YUV_420_888};
+        testSingleCaptureForFormat(YUV_FORMAT, null, /*addPreviewDelay*/ false);
+        int[] PRIVATE_FORMAT = {ImageFormat.PRIVATE};
+        testSingleCaptureForFormat(PRIVATE_FORMAT, "private", /*addPreviewDelay*/ true);
+        int[] JPEG_FORMAT = {ImageFormat.JPEG};
+        testSingleCaptureForFormat(JPEG_FORMAT, "jpeg", /*addPreviewDelay*/ true);
+        int[] RAW_FORMAT = {ImageFormat.RAW_SENSOR};
+        testSingleCaptureForFormat(RAW_FORMAT, "raw", /*addPreviewDelay*/ true);
+        int[] RAW_JPEG_FORMATS = {ImageFormat.RAW_SENSOR, ImageFormat.JPEG};
+        testSingleCaptureForFormat(RAW_JPEG_FORMATS, "raw_jpeg", /*addPreviewDelay*/ true);
+    }
+
+    private String appendFormatDescription(String message, String formatDescription) {
+        if (message == null) {
+            return null;
+        }
+
+        String ret = message;
+        if (formatDescription != null) {
+            ret = String.format(ret + "_%s", formatDescription);
+        }
+
+        return ret;
+    }
+
+    private void testSingleCaptureForFormat(int[] formats, String formatDescription,
+            boolean addPreviewDelay) throws Exception {
         double[] avgResultTimes = new double[mCameraIds.length];
 
         int counter = 0;
         for (String id : mCameraIds) {
             // Do NOT move these variables to outer scope
             // They will be passed to DeviceReportLog and their references will be stored
-            String streamName = "test_single_capture";
+            String streamName = appendFormatDescription("test_single_capture", formatDescription);
             mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
             mReportLog.addValue("camera_id", id, ResultType.NEUTRAL, ResultUnit.NONE);
             double[] captureTimes = new double[NUM_TEST_LOOPS];
             double[] getPartialTimes = new double[NUM_TEST_LOOPS];
             double[] getResultTimes = new double[NUM_TEST_LOOPS];
+            ImageReader[] readers = null;
             try {
-                openDevice(id);
-
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(id).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
                     continue;
                 }
 
+                StreamConfigurationMap configMap = mAllStaticInfo.get(id).getCharacteristics().get(
+                        CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+                boolean formatsSupported = true;
+                for (int format : formats) {
+                    if (!configMap.isOutputSupportedFor(format)) {
+                        Log.i(TAG, "Camera " + id + " does not support output format: " + format +
+                                " skipping");
+                        formatsSupported = false;
+                        break;
+                    }
+                }
+                if (!formatsSupported) {
+                    continue;
+                }
+
+                openDevice(id);
 
                 boolean partialsExpected = mStaticInfo.getPartialResultCount() > 1;
                 long startTimeMs;
@@ -299,20 +359,27 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                             new SimpleCaptureCallback();
                     SimpleTimingResultListener captureResultListener =
                             new SimpleTimingResultListener();
-                    SimpleImageListener imageListener = new SimpleImageListener();
+                    SimpleImageListener[] imageListeners = new SimpleImageListener[formats.length];
+                    Size[] imageSizes = new Size[formats.length];
+                    for (int j = 0; j < formats.length; j++) {
+                        imageSizes[j] = CameraTestUtils.getSortedSizesForFormat(
+                                id, mCameraManager, formats[j], /*bound*/null).get(0);
+                        imageListeners[j] = new SimpleImageListener();
+                    }
 
-                    Size maxYuvSize = CameraTestUtils.getSortedSizesForFormat(
-                        id, mCameraManager, ImageFormat.YUV_420_888, /*bound*/null).get(0);
+                    readers = prepareStillCaptureAndStartPreview(previewBuilder, captureBuilder,
+                            mOrderedPreviewSizes.get(0), imageSizes, formats,
+                            previewResultListener, NUM_MAX_IMAGES, imageListeners,
+                            false /*isHeic*/);
 
-                    prepareCaptureAndStartPreview(previewBuilder, captureBuilder,
-                            mOrderedPreviewSizes.get(0), maxYuvSize,
-                            ImageFormat.YUV_420_888, previewResultListener,
-                            NUM_MAX_IMAGES, imageListener);
+                    if (addPreviewDelay) {
+                        Thread.sleep(500);
+                    }
 
                     // Capture an image and get image data
                     startTimeMs = SystemClock.elapsedRealtime();
                     CaptureRequest request = captureBuilder.build();
-                    mSession.capture(request, captureResultListener, mHandler);
+                    mCameraSession.capture(request, captureResultListener, mHandler);
 
                     Pair<CaptureResult, Long> partialResultNTime = null;
                     if (partialsExpected) {
@@ -327,10 +394,15 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                     Pair<CaptureResult, Long> captureResultNTime =
                             captureResultListener.getCaptureResultNTimeForRequest(
                                     request, NUM_RESULTS_WAIT);
-                    imageListener.waitForImageAvailable(
-                            CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
 
-                    captureTimes[i] = imageListener.getTimeReceivedImage() - startTimeMs;
+                    double [] imageTimes = new double[formats.length];
+                    for (int j = 0; j < formats.length; j++) {
+                        imageListeners[j].waitForImageAvailable(
+                                CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
+                        imageTimes[j] = imageListeners[j].getTimeReceivedImage();
+                    }
+
+                    captureTimes[i] = Stat.getAverage(imageTimes) - startTimeMs;
                     if (partialsExpected) {
                         getPartialTimes[i] = partialResultNTime.second - startTimeMs;
                         if (getPartialTimes[i] < 0) {
@@ -340,38 +412,51 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                     getResultTimes[i] = captureResultNTime.second - startTimeMs;
 
                     // simulate real scenario (preview runs a bit)
-                    waitForNumResults(previewResultListener, NUM_RESULTS_WAIT);
+                    CameraTestUtils.waitForNumResults(previewResultListener, NUM_RESULTS_WAIT,
+                            WAIT_FOR_RESULT_TIMEOUT_MS);
 
-                    stopPreview();
+                    stopPreviewAndDrain();
 
+                    CameraTestUtils.closeImageReaders(readers);
+                    readers = null;
                 }
-                mReportLog.addValues("camera_capture_latency", captureTimes,
-                        ResultType.LOWER_BETTER, ResultUnit.MS);
+                String message = appendFormatDescription("camera_capture_latency",
+                        formatDescription);
+                mReportLog.addValues(message, captureTimes, ResultType.LOWER_BETTER, ResultUnit.MS);
                 // If any of the partial results do not contain AE and AF state, then no report
                 if (isPartialTimingValid) {
-                    mReportLog.addValues("camera_partial_result_latency", getPartialTimes,
-                            ResultType.LOWER_BETTER, ResultUnit.MS);
+                    message = appendFormatDescription("camera_partial_result_latency",
+                            formatDescription);
+                    mReportLog.addValues(message, getPartialTimes, ResultType.LOWER_BETTER,
+                            ResultUnit.MS);
                 }
-                mReportLog.addValues("camera_capture_result_latency", getResultTimes,
-                        ResultType.LOWER_BETTER, ResultUnit.MS);
+                message = appendFormatDescription("camera_capture_result_latency",
+                        formatDescription);
+                mReportLog.addValues(message, getResultTimes, ResultType.LOWER_BETTER,
+                        ResultUnit.MS);
 
                 avgResultTimes[counter] = Stat.getAverage(getResultTimes);
             }
             finally {
-                closeImageReader();
-                closeDevice();
+                CameraTestUtils.closeImageReaders(readers);
+                readers = null;
+                closeDevice(id);
+                closePreviewSurface();
             }
             counter++;
-            mReportLog.submit(getInstrumentation());
+            mReportLog.submit(mInstrumentation);
         }
 
         // Result will not be reported in CTS report if no summary is printed.
         if (mCameraIds.length != 0) {
-            String streamName = "test_single_capture_average";
+            String streamName = appendFormatDescription("test_single_capture_average",
+                    formatDescription);
             mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
-            mReportLog.setSummary("camera_capture_result_average_latency_for_all_cameras",
-                    Stat.getAverage(avgResultTimes), ResultType.LOWER_BETTER, ResultUnit.MS);
-            mReportLog.submit(getInstrumentation());
+            String message = appendFormatDescription(
+                    "camera_capture_result_average_latency_for_all_cameras", formatDescription);
+            mReportLog.setSummary(message, Stat.getAverage(avgResultTimes),
+                    ResultType.LOWER_BETTER, ResultUnit.MS);
+            mReportLog.submit(mInstrumentation);
         }
     }
 
@@ -445,13 +530,12 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
             double[] getResultTimes = new double[NUM_MAX_IMAGES];
             double[] frameDurationMs = new double[NUM_MAX_IMAGES-1];
             try {
-                openDevice(id);
-
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(id).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
                     continue;
                 }
 
+                openDevice(id);
                 for (int i = 0; i < NUM_TEST_LOOPS; i++) {
 
                     // setup builders and listeners
@@ -475,8 +559,9 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                     final long minStillFrameDuration =
                             config.getOutputMinFrameDuration(ImageFormat.YUV_420_888, maxYuvSize);
                     if (minStillFrameDuration > 0) {
-                        Range<Integer> targetRange = getSuitableFpsRangeForDuration(id,
-                                minStillFrameDuration);
+                        Range<Integer> targetRange =
+                            CameraTestUtils.getSuitableFpsRangeForDuration(id,
+                                    minStillFrameDuration, mStaticInfo);
                         previewBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, targetRange);
                         captureBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, targetRange);
                     }
@@ -487,17 +572,21 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                             sessionListener, NUM_MAX_IMAGES, imageListener);
 
                     // Converge AE
-                    waitForAeStable(previewResultListener, NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY);
+                    CameraTestUtils.waitForAeStable(previewResultListener,
+                            NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY, mStaticInfo,
+                            WAIT_FOR_RESULT_TIMEOUT_MS, NUM_RESULTS_WAIT_TIMEOUT);
 
                     if (mStaticInfo.isAeLockSupported()) {
                         // Lock AE if possible to improve stability
                         previewBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
-                        mSession.setRepeatingRequest(previewBuilder.build(), previewResultListener,
-                                mHandler);
+                        mCameraSession.setRepeatingRequest(previewBuilder.build(),
+                                previewResultListener, mHandler);
                         if (mStaticInfo.isHardwareLevelAtLeastLimited()) {
                             // Legacy mode doesn't output AE state
-                            waitForResultValue(previewResultListener, CaptureResult.CONTROL_AE_STATE,
-                                    CaptureResult.CONTROL_AE_STATE_LOCKED, NUM_RESULTS_WAIT_TIMEOUT);
+                            CameraTestUtils.waitForResultValue(previewResultListener,
+                                    CaptureResult.CONTROL_AE_STATE,
+                                    CaptureResult.CONTROL_AE_STATE_LOCKED,
+                                    NUM_RESULTS_WAIT_TIMEOUT, WAIT_FOR_RESULT_TIMEOUT_MS);
                         }
                     }
 
@@ -507,7 +596,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                         // Capture an image and get image data
                         startTimes[j] = SystemClock.elapsedRealtime();
                         CaptureRequest request = captureBuilder.build();
-                        mSession.capture(request, captureResultListener, mHandler);
+                        mCameraSession.capture(request, captureResultListener, mHandler);
 
                         // Wait for capture queue empty for the current request
                         sessionListener.waitForCaptureQueueEmpty(
@@ -534,7 +623,8 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                     }
 
                     // simulate real scenario (preview runs a bit)
-                    waitForNumResults(previewResultListener, NUM_RESULTS_WAIT);
+                    CameraTestUtils.waitForNumResults(previewResultListener, NUM_RESULTS_WAIT,
+                            WAIT_FOR_RESULT_TIMEOUT_MS);
 
                     stopPreview();
                 }
@@ -558,11 +648,12 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                 avgDurationMs[counter] = Stat.getAverage(frameDurationMs);
             }
             finally {
-                closeImageReader();
-                closeDevice();
+                closeDefaultImageReader();
+                closeDevice(id);
+                closePreviewSurface();
             }
             counter++;
-            mReportLog.submit(getInstrumentation());
+            mReportLog.submit(mInstrumentation);
         }
 
         // Result will not be reported in CTS report if no summary is printed.
@@ -571,11 +662,11 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
             mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
             mReportLog.setSummary("camera_multiple_capture_result_average_latency_for_all_cameras",
                     Stat.getAverage(avgResultTimes), ResultType.LOWER_BETTER, ResultUnit.MS);
-            mReportLog.submit(getInstrumentation());
+            mReportLog.submit(mInstrumentation);
             mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
             mReportLog.setSummary("camera_multiple_capture_frame_duration_average_for_all_cameras",
                     Stat.getAverage(avgDurationMs), ResultType.LOWER_BETTER, ResultUnit.MS);
-            mReportLog.submit(getInstrumentation());
+            mReportLog.submit(mInstrumentation);
         }
     }
 
@@ -600,8 +691,9 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                             /*highQuality*/false);
                 } finally {
                     closeReaderWriters();
-                    closeDevice();
-                    mReportLog.submit(getInstrumentation());
+                    closeDevice(id);
+                    closePreviewSurface();
+                    mReportLog.submit(mInstrumentation);
                 }
             }
         }
@@ -629,8 +721,9 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                             /*highQuality*/false);
                 } finally {
                     closeReaderWriters();
-                    closeDevice();
-                    mReportLog.submit(getInstrumentation());
+                    closeDevice(id);
+                    closePreviewSurface();
+                    mReportLog.submit(mInstrumentation);
                 }
             }
         }
@@ -657,8 +750,9 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                             /*requireHighQuality*/true);
                 } finally {
                     closeReaderWriters();
-                    closeDevice();
-                    mReportLog.submit(getInstrumentation());
+                    closeDevice(id);
+                    closePreviewSurface();
+                    mReportLog.submit(mInstrumentation);
                 }
             }
         }
@@ -686,8 +780,9 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                             /*requireHighQuality*/true);
                 } finally {
                     closeReaderWriters();
-                    closeDevice();
-                    mReportLog.submit(getInstrumentation());
+                    closeDevice(id);
+                    closePreviewSurface();
+                    mReportLog.submit(mInstrumentation);
                 }
             }
         }
@@ -712,8 +807,9 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                     reprocessingCaptureStallTestByCamera(format);
                 } finally {
                     closeReaderWriters();
-                    closeDevice();
-                    mReportLog.submit(getInstrumentation());
+                    closeDevice(id);
+                    closePreviewSurface();
+                    mReportLog.submit(mInstrumentation);
                 }
             }
         }
@@ -753,7 +849,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
         for (int i = 0; i < NUM_REPROCESS_TESTED; i++) {
             mZslResultListener.drain();
             CaptureRequest reprocessRequest = reprocessReqs[i].build();
-            mSession.capture(reprocessRequest, reprocessResultListener, mHandler);
+            mCameraSession.capture(reprocessRequest, reprocessResultListener, mHandler);
             // Wait for reprocess output jpeg and result come back.
             reprocessResultListener.getCaptureResultForRequest(reprocessRequest,
                     CameraTestUtils.CAPTURE_RESULT_TIMEOUT_MS);
@@ -864,7 +960,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
 
             // Submit the requests
             for (int i = 0; i < MAX_REPROCESS_IMAGES; i++) {
-                mSession.capture(reprocessReqs[i].build(), null, null);
+                mCameraSession.capture(reprocessReqs[i].build(), null, null);
             }
 
             // Get images
@@ -886,7 +982,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
             for (int i = 0; i < MAX_REPROCESS_IMAGES; i++) {
                 startTimeMs = SystemClock.elapsedRealtime();
                 mWriter.queueInputImage(inputImages[i]);
-                mSession.capture(reprocessReqs[i].build(), null, null);
+                mCameraSession.capture(reprocessReqs[i].build(), null, null);
                 jpegImages[i] = mJpegListener.getImage(CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
                 getImageLatenciesMs[i] = SystemClock.elapsedRealtime() - startTimeMs;
             }
@@ -941,12 +1037,12 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                 mCamera.createCaptureRequest(CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG);
         zslBuilder.addTarget(mPreviewSurface);
         zslBuilder.addTarget(mCameraZslReader.getSurface());
-        mSession.setRepeatingRequest(zslBuilder.build(), mZslResultListener, mHandler);
+        mCameraSession.setRepeatingRequest(zslBuilder.build(), mZslResultListener, mHandler);
     }
 
     private void stopZslStreaming() throws Exception {
-        mSession.stopRepeating();
-        mSessionListener.getStateWaiter().waitForState(
+        mCameraSession.stopRepeating();
+        mCameraSessionListener.getStateWaiter().waitForState(
             BlockingSessionCallback.SESSION_READY, CameraTestUtils.CAMERA_IDLE_TIMEOUT_MS);
     }
 
@@ -1009,19 +1105,19 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
         outSurfaces.add(mJpegReader.getSurface());
         InputConfiguration inputConfig = new InputConfiguration(maxInputSize.getWidth(),
                 maxInputSize.getHeight(), inputFormat);
-        mSessionListener = new BlockingSessionCallback();
-        mSession = CameraTestUtils.configureReprocessableCameraSession(
-                mCamera, inputConfig, outSurfaces, mSessionListener, mHandler);
+        mCameraSessionListener = new BlockingSessionCallback();
+        mCameraSession = CameraTestUtils.configureReprocessableCameraSession(
+                mCamera, inputConfig, outSurfaces, mCameraSessionListener, mHandler);
 
         // 3. Create ImageWriter for input
         mWriter = CameraTestUtils.makeImageWriter(
-                mSession.getInputSurface(), MAX_INPUT_IMAGES, /*listener*/null, /*handler*/null);
+                mCameraSession.getInputSurface(), MAX_INPUT_IMAGES, /*listener*/null, /*handler*/null);
 
     }
 
     private void blockingStopPreview() throws Exception {
         stopPreview();
-        mSessionListener.getStateWaiter().waitForState(SESSION_CLOSED,
+        mCameraSessionListener.getStateWaiter().waitForState(SESSION_CLOSED,
                 CameraTestUtils.SESSION_CLOSE_TIMEOUT_MS);
     }
 
@@ -1037,8 +1133,195 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
             previewBuilder.addTarget(mPreviewSurface);
         }
         previewBuilder.addTarget(mReaderSurface);
-        mSession.setRepeatingRequest(previewBuilder.build(), listener, mHandler);
+        mCameraSession.setRepeatingRequest(previewBuilder.build(), listener, mHandler);
         imageListener.waitForImageAvailable(CameraTestUtils.CAPTURE_IMAGE_TIMEOUT_MS);
+    }
+
+    /**
+     * Setup still capture configuration and start preview.
+     *
+     * @param previewRequest The capture request to be used for preview
+     * @param stillRequest The capture request to be used for still capture
+     * @param previewSz Preview size
+     * @param captureSizes Still capture sizes
+     * @param formats The single capture image formats
+     * @param resultListener Capture result listener
+     * @param maxNumImages The max number of images set to the image reader
+     * @param imageListeners The single capture capture image listeners
+     * @param isHeic Capture HEIC image if true, JPEG image if false
+     */
+    private ImageReader[] prepareStillCaptureAndStartPreview(
+            CaptureRequest.Builder previewRequest, CaptureRequest.Builder stillRequest,
+            Size previewSz, Size[] captureSizes, int[] formats, CaptureCallback resultListener,
+            int maxNumImages, ImageReader.OnImageAvailableListener[] imageListeners,
+            boolean isHeic)
+            throws Exception {
+
+        if ((captureSizes == null) || (formats == null) || (imageListeners == null) &&
+                (captureSizes.length != formats.length) ||
+                (formats.length != imageListeners.length)) {
+            throw new IllegalArgumentException("Invalid capture sizes/formats or image listeners!");
+        }
+
+        if (VERBOSE) {
+            Log.v(TAG, String.format("Prepare still capture and preview (%s)",
+                    previewSz.toString()));
+        }
+
+        // Update preview size.
+        updatePreviewSurface(previewSz);
+
+        ImageReader[] readers = new ImageReader[captureSizes.length];
+        List<Surface> outputSurfaces = new ArrayList<Surface>();
+        outputSurfaces.add(mPreviewSurface);
+        for (int i = 0; i < captureSizes.length; i++) {
+            readers[i] = CameraTestUtils.makeImageReader(captureSizes[i], formats[i], maxNumImages,
+                    imageListeners[i], mHandler);
+            outputSurfaces.add(readers[i].getSurface());
+        }
+
+        mCameraSessionListener = new BlockingSessionCallback();
+        mCameraSession = CameraTestUtils.configureCameraSession(mCamera, outputSurfaces,
+                mCameraSessionListener, mHandler);
+
+        // Configure the requests.
+        previewRequest.addTarget(mPreviewSurface);
+        stillRequest.addTarget(mPreviewSurface);
+        for (int i = 0; i < readers.length; i++) {
+            stillRequest.addTarget(readers[i].getSurface());
+        }
+
+        // Start preview.
+        mCameraSession.setRepeatingRequest(previewRequest.build(), resultListener, mHandler);
+
+        return readers;
+    }
+
+    /**
+     * Setup single capture configuration and start preview.
+     *
+     * @param previewRequest The capture request to be used for preview
+     * @param stillRequest The capture request to be used for still capture
+     * @param previewSz Preview size
+     * @param captureSz Still capture size
+     * @param format The single capture image format
+     * @param resultListener Capture result listener
+     * @param sessionListener Session listener
+     * @param maxNumImages The max number of images set to the image reader
+     * @param imageListener The single capture capture image listener
+     */
+    private void prepareCaptureAndStartPreview(CaptureRequest.Builder previewRequest,
+            CaptureRequest.Builder stillRequest, Size previewSz, Size captureSz, int format,
+            CaptureCallback resultListener, CameraCaptureSession.StateCallback sessionListener,
+            int maxNumImages, ImageReader.OnImageAvailableListener imageListener) throws Exception {
+        if ((captureSz == null) || (imageListener == null)) {
+            throw new IllegalArgumentException("Invalid capture size or image listener!");
+        }
+
+        if (VERBOSE) {
+            Log.v(TAG, String.format("Prepare single capture (%s) and preview (%s)",
+                    captureSz.toString(), previewSz.toString()));
+        }
+
+        // Update preview size.
+        updatePreviewSurface(previewSz);
+
+        // Create ImageReader.
+        createDefaultImageReader(captureSz, format, maxNumImages, imageListener);
+
+        // Configure output streams with preview and jpeg streams.
+        List<Surface> outputSurfaces = new ArrayList<Surface>();
+        outputSurfaces.add(mPreviewSurface);
+        outputSurfaces.add(mReaderSurface);
+        if (sessionListener == null) {
+            mCameraSessionListener = new BlockingSessionCallback();
+        } else {
+            mCameraSessionListener = new BlockingSessionCallback(sessionListener);
+        }
+        mCameraSession = CameraTestUtils.configureCameraSession(mCamera, outputSurfaces,
+                mCameraSessionListener, mHandler);
+
+        // Configure the requests.
+        previewRequest.addTarget(mPreviewSurface);
+        stillRequest.addTarget(mPreviewSurface);
+        stillRequest.addTarget(mReaderSurface);
+
+        // Start preview.
+        mCameraSession.setRepeatingRequest(previewRequest.build(), resultListener, mHandler);
+    }
+
+    /**
+     * Update the preview surface size.
+     *
+     * @param size The preview size to be updated.
+     */
+    private void updatePreviewSurface(Size size) {
+        if ((mPreviewSurfaceTexture != null ) || (mPreviewSurface != null)) {
+            closePreviewSurface();
+        }
+
+        mPreviewSurfaceTexture = new SurfaceTexture(/*random int*/ 1);
+        mPreviewSurfaceTexture.setDefaultBufferSize(size.getWidth(), size.getHeight());
+        mPreviewSurface = new Surface(mPreviewSurfaceTexture);
+    }
+
+    /**
+     * Release preview surface and corresponding surface texture.
+     */
+    private void closePreviewSurface() {
+        if (mPreviewSurface != null) {
+            mPreviewSurface.release();
+            mPreviewSurface = null;
+        }
+
+        if (mPreviewSurfaceTexture != null) {
+            mPreviewSurfaceTexture.release();
+            mPreviewSurfaceTexture = null;
+        }
+    }
+
+    private boolean isReprocessSupported(String cameraId, int format)
+            throws CameraAccessException {
+        if (format != ImageFormat.YUV_420_888 && format != ImageFormat.PRIVATE) {
+            throw new IllegalArgumentException(
+                    "format " + format + " is not supported for reprocessing");
+        }
+
+        StaticMetadata info = new StaticMetadata(
+                mCameraManager.getCameraCharacteristics(cameraId), CheckLevel.ASSERT,
+                /*collector*/ null);
+        int cap = CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING;
+        if (format == ImageFormat.PRIVATE) {
+            cap = CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING;
+        }
+        return info.isCapabilitySupported(cap);
+    }
+
+    /**
+     * Stop preview for current camera device by closing the session.
+     * Does _not_ wait for the device to go idle
+     */
+    private void stopPreview() throws Exception {
+        // Stop repeat, wait for captures to complete, and disconnect from surfaces
+        if (mCameraSession != null) {
+            if (VERBOSE) Log.v(TAG, "Stopping preview");
+            mCameraSession.close();
+        }
+    }
+
+    /**
+     * Stop preview for current camera device by closing the session and waiting for it to close,
+     * resulting in an idle device.
+     */
+    private void stopPreviewAndDrain() throws Exception {
+        // Stop repeat, wait for captures to complete, and disconnect from surfaces
+        if (mCameraSession != null) {
+            if (VERBOSE) Log.v(TAG, "Stopping preview and waiting for idle");
+            mCameraSession.close();
+            mCameraSessionListener.getStateWaiter().waitForState(
+                    BlockingSessionCallback.SESSION_CLOSED,
+                    /*timeoutMs*/WAIT_FOR_RESULT_TIMEOUT_MS);
+        }
     }
 
     /**
@@ -1048,14 +1331,14 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
         if (mPreviewSurface == null || mReaderSurface == null) {
             throw new IllegalStateException("preview and reader surface must be initilized first");
         }
-        mSessionListener = new BlockingSessionCallback();
+        mCameraSessionListener = new BlockingSessionCallback();
         List<Surface> outputSurfaces = new ArrayList<>();
         if (mStaticInfo.isColorOutputSupported()) {
             outputSurfaces.add(mPreviewSurface);
         }
         outputSurfaces.add(mReaderSurface);
-        mSession = CameraTestUtils.configureCameraSession(mCamera, outputSurfaces,
-                mSessionListener, mHandler);
+        mCameraSession = CameraTestUtils.configureCameraSession(mCamera, outputSurfaces,
+                mCameraSessionListener, mHandler);
     }
 
     /**
@@ -1069,7 +1352,7 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
                 CameraTestUtils.getPreviewSizeBound(mWindowManager,
                     CameraTestUtils.PREVIEW_SIZE_BOUND));
         Size maxPreviewSize = mOrderedPreviewSizes.get(0);
-        createImageReader(maxPreviewSize, format, NUM_MAX_IMAGES, /*listener*/null);
+        createDefaultImageReader(maxPreviewSize, format, NUM_MAX_IMAGES, /*listener*/null);
         updatePreviewSurface(maxPreviewSize);
     }
 
@@ -1079,8 +1362,6 @@ public class PerformanceTest extends Camera2SurfaceViewTestCase {
         mCollector.setCameraId(cameraId);
         mStaticInfo = new StaticMetadata(mCameraManager.getCameraCharacteristics(cameraId),
                 CheckLevel.ASSERT, /*collector*/null);
-        mMinPreviewFrameDurationMap =
-                mStaticInfo.getAvailableMinFrameDurationsForFormatChecked(ImageFormat.YUV_420_888);
     }
 
     /**

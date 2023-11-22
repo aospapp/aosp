@@ -31,4 +31,14 @@ public interface IGoogleKeyboardHelper extends IAppHelper {
      * @param delayBetweenKeyPresses delay between key presses in milliseconds
      */
     public void typeText(String text, long delayBetweenKeyPresses);
+
+    /**
+     * Setup expectations: Google Keyboard is open and visible.
+     *
+     * This method clicks the action button in keyboard.
+     *
+     */
+    default public void clickActionButton() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

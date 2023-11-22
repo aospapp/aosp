@@ -15,8 +15,6 @@
 -->
 
 <resources>
-    <!-- Whether to enable ETWS settings (Japan) -->
-    <bool name="show_etws_settings">false</bool>
     <!-- Whether to always sound CBS alerts at full volume -->
     <bool name="use_full_volume">false</bool>
     <!-- Whether to enable CMAS settings (United States) -->
@@ -29,6 +27,8 @@
     <bool name="duplicate_compare_body">false</bool>
     <!-- Whether to enable audio alert for non emergency broadcasts on FEATURE_WATCH devices -->
     <bool name="watch_enable_non_emergency_audio">false</bool>
+    <!-- Whether to reset alert message duplicate detection after toggling airplane mode -->
+    <bool name="reset_duplicate_detection_on_airplane_mode">false</bool>
 
     <!-- 4370, 4383 -->
     <string-array name="cmas_presidential_alerts_channels_range_strings" translatable="false">
@@ -92,6 +92,8 @@
     <string-array name="emergency_alerts_channels_range_strings" translatable="false"></string-array>
     <!-- Channels to receive public safety messages -->
     <string-array name="public_safety_messages_channels_range_strings" translatable="false"></string-array>
+    <!-- Channels to receive state/local test messages -->
+    <string-array name="state_local_test_alert_range_strings" translatable="false"></string-array>
 
     <!-- Values that are retrieved from the ListPreference.
          These must match the alert_reminder_interval_entries list above. -->

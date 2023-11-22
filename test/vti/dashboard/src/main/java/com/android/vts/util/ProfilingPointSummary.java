@@ -80,15 +80,15 @@ public class ProfilingPointSummary implements Iterable<StatSummary> {
      * @param ppSummary The profiling point run entity object containing profiling data.
      */
     public void update(ProfilingPointSummaryEntity ppSummary) {
-        for (String label : ppSummary.labels) {
-            if (!ppSummary.labelStats.containsKey(label)) continue;
+        for (String label : ppSummary.getLabels()) {
+            if (!ppSummary.getLabelStats().containsKey(label)) continue;
             if (!labelIndices.containsKey(label)) {
                 labelIndices.put(label, statSummaries.size());
                 labels.add(label);
-                statSummaries.add(ppSummary.labelStats.get(label));
+                statSummaries.add(ppSummary.getLabelStats().get(label));
             } else {
                 StatSummary summary = getStatSummary(label);
-                summary.merge(ppSummary.labelStats.get(label));
+                summary.merge(ppSummary.getLabelStats().get(label));
             }
         }
     }
@@ -110,16 +110,16 @@ public class ProfilingPointSummary implements Iterable<StatSummary> {
             StatSummary stat =
                     new StatSummary(
                             label,
-                            ppSummary.globalStats.getMin(),
-                            ppSummary.globalStats.getMax(),
-                            ppSummary.globalStats.getMean(),
-                            ppSummary.globalStats.getSumSq(),
-                            ppSummary.globalStats.getCount(),
-                            ppSummary.globalStats.getRegressionMode());
+                            ppSummary.getGlobalStats().getMin(),
+                            ppSummary.getGlobalStats().getMax(),
+                            ppSummary.getGlobalStats().getMean(),
+                            ppSummary.getGlobalStats().getSumSq(),
+                            ppSummary.getGlobalStats().getCount(),
+                            ppSummary.getGlobalStats().getRegressionMode());
             statSummaries.add(stat);
         } else {
             StatSummary summary = getStatSummary(label);
-            summary.merge(ppSummary.globalStats);
+            summary.merge(ppSummary.getGlobalStats());
         }
     }
 

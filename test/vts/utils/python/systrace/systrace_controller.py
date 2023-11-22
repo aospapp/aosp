@@ -92,7 +92,8 @@ class SystraceController(object):
                 logging.warning('systrace output file is empty.')
                 return False
         except OSError:
-            logging.info('systrace output file does not exist.')
+            logging.error('systrace output file does not exist: %s',
+                          self._path_output)
             return False
         return True
 
@@ -177,7 +178,7 @@ class SystraceController(object):
             return False
 
         if not self._subprocess:
-            logging.info('Systrace already stopped.')
+            logging.debug('Systrace already stopped.')
             return True
 
         # Press enter to stop systrace script
@@ -187,8 +188,9 @@ class SystraceController(object):
         # TODO: use subprocess.TimeoutExpired after upgrading to python >3.3
         out, err = self._subprocess.communicate()
         logging.info('Systrace stopped for %s', self.process_name)
-        logging.info('Systrace stdout: %s', out)
-        logging.info('Systrace stderr: %s', err)
+        logging.debug('Systrace stdout: %s', out)
+        if err.strip():
+            logging.error('Systrace stderr: %s', err)
 
         self._subprocess = None
 
@@ -214,8 +216,8 @@ class SystraceController(object):
         try:
             with open(self._path_output, 'r') as f:
                 data = f.read()
-                logging.info('Systrace output length for %s: %s', process_name,
-                             len(data))
+                logging.debug('Systrace output length for %s: %s',
+                              process_name, len(data))
                 return data
         except Exception as e:
             logging.error('Cannot read output: file open failed, %s', e)

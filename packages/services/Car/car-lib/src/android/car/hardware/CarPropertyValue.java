@@ -19,7 +19,7 @@ package android.car.hardware;
 import static java.lang.Integer.toHexString;
 
 import android.annotation.IntDef;
-import android.annotation.SystemApi;
+import android.annotation.NonNull;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -33,10 +33,8 @@ import java.nio.charset.Charset;
  * @param <T> refer to Parcel#writeValue(Object) to get a list of all supported types. The class
  * should be visible to framework as default class loader is being used here.
  *
- * @hide
  */
-@SystemApi
-public class CarPropertyValue<T> implements Parcelable {
+public final class CarPropertyValue<T> implements Parcelable {
     private final static Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
 
     private final int mPropertyId;
@@ -45,7 +43,6 @@ public class CarPropertyValue<T> implements Parcelable {
     private final long mTimestamp;
     private final T mValue;
 
-    /** @hide */
     @IntDef({
         STATUS_AVAILABLE,
         STATUS_UNAVAILABLE,
@@ -54,19 +51,41 @@ public class CarPropertyValue<T> implements Parcelable {
     @Retention(RetentionPolicy.SOURCE)
     public @interface PropertyStatus {}
 
-    /** @hide */
+    /**
+     * CarPropertyValue is available.
+     */
     public static final int STATUS_AVAILABLE = 0;
 
-    /** @hide */
+    /**
+     * CarPropertyValue is unavailable.
+     */
     public static final int STATUS_UNAVAILABLE = 1;
 
-    /** @hide */
+    /**
+     * CarPropertyVale has an error.
+     */
     public static final int STATUS_ERROR = 2;
 
+    /**
+     * Get an instance of CarPropertyValue
+     * @param propertyId Property ID
+     * @param areaId Area ID of Property
+     * @param value Value of Property
+     * @hide
+     */
     public CarPropertyValue(int propertyId, int areaId, T value) {
         this(propertyId, areaId, 0, 0, value);
     }
 
+    /**
+     * Get an instance of CarPropertyValue
+     * @param propertyId Property ID
+     * @param areaId Area ID of Property
+     * @param status Status of Property
+     * @param timestamp Timestamp in nanosecond
+     * @param value Value of Property
+     * @hide
+     */
     public CarPropertyValue(int propertyId, int areaId, int status, long timestamp, T value) {
         mPropertyId = propertyId;
         mAreaId = areaId;
@@ -75,6 +94,11 @@ public class CarPropertyValue<T> implements Parcelable {
         mValue = value;
     }
 
+    /**
+     * Get an instance of CarPropertyValue
+     * @param in Parcel to read
+     * @hide
+     */
     @SuppressWarnings("unchecked")
     public CarPropertyValue(Parcel in) {
         mPropertyId = in.readInt();
@@ -136,26 +160,43 @@ public class CarPropertyValue<T> implements Parcelable {
         }
     }
 
+    /**
+     * @return Property id of CarPropertyValue
+     */
     public int getPropertyId() {
         return mPropertyId;
     }
 
+    /**
+     * @return Area id of CarPropertyValue
+     */
     public int getAreaId() {
         return mAreaId;
     }
 
+    /**
+     * @return Status of CarPropertyValue
+     */
     public @PropertyStatus int getStatus() {
         return mStatus;
     }
 
+    /**
+     * @return Timestamp of CarPropertyValue
+     */
     public long getTimestamp() {
         return mTimestamp;
     }
 
+    /**
+     * @return Value of CarPropertyValue
+     */
+    @NonNull
     public T getValue() {
         return mValue;
     }
 
+    /** @hide */
     @Override
     public String toString() {
         return "CarPropertyValue{" +

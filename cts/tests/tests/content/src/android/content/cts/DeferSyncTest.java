@@ -39,8 +39,10 @@ import static org.mockito.Mockito.when;
 import android.content.AbstractThreadedSyncAdapter;
 import android.content.ContentResolver;
 import android.os.Bundle;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AppModeFull;
+
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.cts.content.AlwaysSyncableSyncService;
 import com.android.cts.content.FlakyTestRule;
@@ -57,6 +59,7 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 
 @RunWith(AndroidJUnit4.class)
+@AppModeFull(reason = "Sync manage not supported")
 public class DeferSyncTest {
     @Rule
     public final TestRule flakyTestRule = new FlakyTestRule(3);

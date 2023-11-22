@@ -28,11 +28,13 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.ArrayMap;
 import android.util.Log;
-import com.android.car.hal.DiagnosticHalService.DiagnosticCapabilities;
-import com.android.car.internal.CarPermission;
+
 import com.android.car.Listeners.ClientWithRate;
 import com.android.car.hal.DiagnosticHalService;
+import com.android.car.hal.DiagnosticHalService.DiagnosticCapabilities;
+import com.android.car.internal.CarPermission;
 import com.android.internal.annotations.GuardedBy;
+
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.ConcurrentModificationException;
@@ -289,7 +291,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
                     if (mLiveFrameDiagnosticRecord.isEnabled()) {
                         return true;
                     }
-                    if (diagnosticHal.requestSensorStart(CarDiagnosticManager.FRAME_TYPE_LIVE,
+                    if (diagnosticHal.requestDiagnosticStart(CarDiagnosticManager.FRAME_TYPE_LIVE,
                             rate)) {
                         mLiveFrameDiagnosticRecord.enable();
                         return true;
@@ -299,7 +301,7 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
                     if (mFreezeFrameDiagnosticRecords.isEnabled()) {
                         return true;
                     }
-                    if (diagnosticHal.requestSensorStart(CarDiagnosticManager.FRAME_TYPE_FREEZE,
+                    if (diagnosticHal.requestDiagnosticStart(CarDiagnosticManager.FRAME_TYPE_FREEZE,
                             rate)) {
                         mFreezeFrameDiagnosticRecords.enable();
                         return true;
@@ -375,11 +377,11 @@ public class CarDiagnosticService extends ICarDiagnostic.Stub
         switch (frameType) {
             case CarDiagnosticManager.FRAME_TYPE_LIVE:
                 if (mLiveFrameDiagnosticRecord.disableIfNeeded())
-                    diagnosticHal.requestSensorStop(CarDiagnosticManager.FRAME_TYPE_LIVE);
+                    diagnosticHal.requestDiagnosticStop(CarDiagnosticManager.FRAME_TYPE_LIVE);
                 break;
             case CarDiagnosticManager.FRAME_TYPE_FREEZE:
                 if (mFreezeFrameDiagnosticRecords.disableIfNeeded())
-                    diagnosticHal.requestSensorStop(CarDiagnosticManager.FRAME_TYPE_FREEZE);
+                    diagnosticHal.requestDiagnosticStop(CarDiagnosticManager.FRAME_TYPE_FREEZE);
                 break;
         }
     }

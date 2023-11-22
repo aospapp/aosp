@@ -18,7 +18,6 @@ package com.android.support.car.lenspicker;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -91,7 +90,6 @@ public class ResolverAdapter extends RecyclerView.Adapter<ResolverListRow>
             List<LensPickerItem> items = new ArrayList<>();
 
             PackageManager packageManager = mContext.getPackageManager();
-            SharedPreferences sharedPref = LensPickerUtils.getFacetSharedPrefs(mContext);
 
             for (ResolveInfo info : mResolveInfos) {
                 String packageName = LensPickerUtils.getPackageName(info);
@@ -114,19 +112,21 @@ public class ResolverAdapter extends RecyclerView.Adapter<ResolverListRow>
                     if (displayName.equals("")) {
                         displayName = getComponentLabel(packageManager, aInfo);
                     }
-                    Intent launchIntent = LensPickerUtils.getLaunchIntent(packageName, info,
-                            packageManager);
-                    // If launchIntent is null, create an intent from the ResolverInfo
-                    if (launchIntent == null) {
-                        launchIntent = new Intent();
+
+                    Intent intent;
+                    if (LensPickerUtils.isMediaService(info)) {
+                        intent = LensPickerUtils.getMediaLaunchIntent(packageManager, packageName,
+                                info.serviceInfo.name);
+                    } else {
+                        intent = new Intent();
                         ActivityInfo activity = info.activityInfo;
-                        launchIntent.setComponent(
+                        intent.setComponent(
                                 new ComponentName(activity.applicationInfo.packageName,
-                                activity.name));
+                                        activity.name));
                     }
 
                     items.add(new LensPickerItem(displayName,
-                            getComponentIcon(packageManager, aInfo), launchIntent,
+                            getComponentIcon(packageManager, aInfo), intent,
                             null /* facetId */));
                 } catch (PackageManager.NameNotFoundException e) {
                     // skip this package.

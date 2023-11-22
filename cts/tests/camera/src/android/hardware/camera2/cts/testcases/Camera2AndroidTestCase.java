@@ -24,10 +24,12 @@ import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
+import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.OutputConfiguration;
+import android.hardware.camera2.params.SessionConfiguration;
 import android.util.Size;
 import android.hardware.camera2.cts.CameraTestUtils;
 import android.hardware.camera2.cts.helpers.CameraErrorCollector;
@@ -36,7 +38,6 @@ import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.media.Image;
 import android.media.Image.Plane;
 import android.media.ImageReader;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.test.AndroidTestCase;
@@ -47,6 +48,7 @@ import android.view.WindowManager;
 import com.android.ex.camera2.blocking.BlockingSessionCallback;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,8 +59,6 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
     private static final String TAG = "Camera2AndroidTestCase";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
 
-    protected static final String DEBUG_FILE_NAME_BASE =
-            Environment.getExternalStorageDirectory().getPath();
     // Default capture size: VGA size is required by CDD.
     protected static final Size DEFAULT_CAPTURE_SIZE = new Size(640, 480);
     protected static final int CAPTURE_WAIT_TIMEOUT_MS = 5000;
@@ -69,6 +69,8 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
     protected BlockingSessionCallback mCameraSessionListener;
     protected BlockingStateCallback mCameraListener;
     protected String[] mCameraIds;
+    // include both standalone camera IDs and "hidden" physical camera IDs
+    protected String[] mAllCameraIds;
     protected HashMap<String, StaticMetadata> mAllStaticInfo;
     protected ImageReader mReader;
     protected Surface mReaderSurface;
@@ -79,6 +81,7 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
     protected List<Size> mOrderedPreviewSizes; // In descending order.
     protected List<Size> mOrderedVideoSizes; // In descending order.
     protected List<Size> mOrderedStillSizes; // In descending order.
+    protected String mDebugFileNameBase;
 
     protected WindowManager mWindowManager;
 
@@ -114,12 +117,36 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
         mCameraListener = new BlockingStateCallback();
         mCollector = new CameraErrorCollector();
 
+        File filesDir = mContext.getPackageManager().isInstantApp()
+                ? mContext.getFilesDir()
+                : mContext.getExternalFilesDir(null);
+
+        mDebugFileNameBase = filesDir.getPath();
+
         mAllStaticInfo = new HashMap<String, StaticMetadata>();
+        List<String> hiddenPhysicalIds = new ArrayList<>();
         for (String cameraId : mCameraIds) {
-            StaticMetadata staticMetadata = new StaticMetadata(
-                    mCameraManager.getCameraCharacteristics(cameraId),
+            CameraCharacteristics props = mCameraManager.getCameraCharacteristics(cameraId);
+            StaticMetadata staticMetadata = new StaticMetadata(props,
                     CheckLevel.ASSERT, /*collector*/null);
             mAllStaticInfo.put(cameraId, staticMetadata);
+
+            for (String physicalId : props.getPhysicalCameraIds()) {
+                if (!Arrays.asList(mCameraIds).contains(physicalId) &&
+                        !hiddenPhysicalIds.contains(physicalId)) {
+                    hiddenPhysicalIds.add(physicalId);
+                    props = mCameraManager.getCameraCharacteristics(physicalId);
+                    staticMetadata = new StaticMetadata(
+                            mCameraManager.getCameraCharacteristics(physicalId),
+                            CheckLevel.ASSERT, /*collector*/null);
+                    mAllStaticInfo.put(physicalId, staticMetadata);
+                }
+            }
+        }
+        mAllCameraIds = new String[mCameraIds.length + hiddenPhysicalIds.size()];
+        System.arraycopy(mCameraIds, 0, mAllCameraIds, 0, mCameraIds.length);
+        for (int i = 0; i < hiddenPhysicalIds.size(); i++) {
+            mAllCameraIds[mCameraIds.length + i] = hiddenPhysicalIds.get(i);
         }
     }
 
@@ -210,8 +237,7 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
         mCamera = CameraTestUtils.openCamera(
                 mCameraManager, cameraId, listener, mHandler);
         mCollector.setCameraId(cameraId);
-        mStaticInfo = new StaticMetadata(mCameraManager.getCameraCharacteristics(cameraId),
-                CheckLevel.ASSERT, /*collector*/null);
+        mStaticInfo = mAllStaticInfo.get(cameraId);
         if (mStaticInfo.isColorOutputSupported()) {
             mOrderedPreviewSizes = getSupportedPreviewSizes(
                     cameraId, mCameraManager,
@@ -319,6 +345,31 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
     }
 
     /**
+     * Create an {@link ImageReader} object and get the surface.
+     * <p>
+     * This function creates {@link ImageReader} object and surface, then assign
+     * to the default {@link mReader} and {@link mReaderSurface}. It closes the
+     * current default active {@link ImageReader} if it exists.
+     * </p>
+     *
+     * @param size The size of this ImageReader to be created.
+     * @param format The format of this ImageReader to be created
+     * @param maxNumImages The max number of images that can be acquired
+     *            simultaneously.
+     * @param usage The usage flag of the ImageReader
+     * @param listener The listener used by this ImageReader to notify
+     *            callbacks.
+     */
+    protected void createDefaultImageReader(Size size, int format, int maxNumImages, long usage,
+            ImageReader.OnImageAvailableListener listener) throws Exception {
+        closeDefaultImageReader();
+
+        mReader = createImageReader(size, format, maxNumImages, usage, listener);
+        mReaderSurface = mReader.getSurface();
+        if (VERBOSE) Log.v(TAG, "Created ImageReader size " + size.toString());
+    }
+
+    /**
      * Create an {@link ImageReader} object.
      *
      * <p>This function creates image reader object for given format, maxImages, and size.</p>
@@ -335,6 +386,29 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
         ImageReader reader = null;
         reader = ImageReader.newInstance(size.getWidth(), size.getHeight(),
                 format, maxNumImages);
+
+        reader.setOnImageAvailableListener(listener, mHandler);
+        if (VERBOSE) Log.v(TAG, "Created ImageReader size " + size.toString());
+        return reader;
+    }
+
+    /**
+     * Create an {@link ImageReader} object.
+     *
+     * <p>This function creates image reader object for given format, maxImages, usage and size.</p>
+     *
+     * @param size The size of this ImageReader to be created.
+     * @param format The format of this ImageReader to be created
+     * @param maxNumImages The max number of images that can be acquired simultaneously.
+     * @param usage The usage flag of the ImageReader
+     * @param listener The listener used by this ImageReader to notify callbacks.
+     */
+
+    protected ImageReader createImageReader(Size size, int format, int maxNumImages, long usage,
+            ImageReader.OnImageAvailableListener listener) throws Exception {
+        ImageReader reader = null;
+        reader = ImageReader.newInstance(size.getWidth(), size.getHeight(),
+                format, maxNumImages, usage);
 
         reader.setOnImageAvailableListener(listener, mHandler);
         if (VERBOSE) Log.v(TAG, "Created ImageReader size " + size.toString());
@@ -370,12 +444,24 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
         }
     }
 
+    protected void checkImageReaderSessionConfiguration(String msg) throws Exception {
+        List<OutputConfiguration> outputConfigs = new ArrayList<OutputConfiguration>();
+        outputConfigs.add(new OutputConfiguration(mReaderSurface));
+
+        checkSessionConfigurationSupported(mCamera, mHandler, outputConfigs, /*inputConfig*/ null,
+                SessionConfiguration.SESSION_REGULAR, /*expectedResult*/ true, msg);
+    }
+
     protected CaptureRequest prepareCaptureRequest() throws Exception {
+        return prepareCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+    }
+
+    protected CaptureRequest prepareCaptureRequest(int template) throws Exception {
         List<Surface> outputSurfaces = new ArrayList<Surface>();
         Surface surface = mReader.getSurface();
         assertNotNull("Fail to get surface from ImageReader", surface);
         outputSurfaces.add(surface);
-        return prepareCaptureRequestForSurfaces(outputSurfaces, CameraDevice.TEMPLATE_PREVIEW)
+        return prepareCaptureRequestForSurfaces(outputSurfaces, template)
                 .build();
     }
 
@@ -389,6 +475,22 @@ public class Camera2AndroidTestCase extends AndroidTestCase {
         assertNotNull("Fail to get captureRequest", captureBuilder);
         for (Surface surface : surfaces) {
             captureBuilder.addTarget(surface);
+        }
+
+        return captureBuilder;
+    }
+
+    protected CaptureRequest.Builder prepareCaptureRequestForConfigs(
+            List<OutputConfiguration> outputConfigs, int template) throws Exception {
+        createSessionByConfigs(outputConfigs);
+
+        CaptureRequest.Builder captureBuilder =
+                mCamera.createCaptureRequest(template);
+        assertNotNull("Fail to get captureRequest", captureBuilder);
+        for (OutputConfiguration config : outputConfigs) {
+            for (Surface s : config.getSurfaces()) {
+                captureBuilder.addTarget(s);
+            }
         }
 
         return captureBuilder;

@@ -22,14 +22,15 @@ import android.content.ContentProvider;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.database.Cursor;
+import android.inputmethodservice.cts.DeviceEvent;
 import android.inputmethodservice.cts.common.EventProviderConstants.EventTableConstants;
 import android.inputmethodservice.cts.db.Database;
 import android.inputmethodservice.cts.db.Table;
-import android.inputmethodservice.cts.DeviceEvent;
 import android.net.Uri;
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import android.util.Log;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -66,9 +67,8 @@ public final class EventProvider extends ContentProvider {
     }
 
     @Override
-    public Cursor query(@NonNull final Uri uri, @Nullable final String[] projection,
-            final @Nullable String selection, @Nullable final String[] selectionArgs,
-            @Nullable final String orderBy) {
+    public Cursor query(@NonNull Uri uri, @Nullable String[] projection, @Nullable String selection,
+            @Nullable String[] selectionArgs, @Nullable String orderBy) {
         final UriHelper uriHelper = mUriFactory.newInstance(uri);
         if (DEBUG) {
             Log.d(TAG, "query:"
@@ -80,7 +80,7 @@ public final class EventProvider extends ContentProvider {
                     + " orderBy=" + orderBy);
         }
         final Cursor cursor = mDatabase.query(
-                uriHelper.table, projection, uriHelper.buildSelection(selection),
+                uriHelper.mTable, projection, uriHelper.buildSelection(selection),
                 uriHelper.buildSelectionArgs(selectionArgs), orderBy);
         if (DEBUG) {
             Log.d(TAG, "  query.count=" + cursor.getCount());
@@ -90,12 +90,12 @@ public final class EventProvider extends ContentProvider {
     }
 
     @Override
-    public Uri insert(@NonNull final Uri uri, @Nullable final ContentValues values) {
+    public Uri insert(@NonNull Uri uri, @Nullable ContentValues values) {
         final UriHelper uriHelper = mUriFactory.newInstance(uri);
         if (DEBUG) {
             Log.d(TAG, "insert: uri=" + uri + " values={" + values + "}");
         }
-        final long rowId = mDatabase.insert(uriHelper.table, values);
+        final long rowId = mDatabase.insert(uriHelper.mTable, values);
         final Uri insertedUri = ContentUris.withAppendedId(uri, rowId);
         if (DEBUG) {
             Log.d(TAG, "  insert.uri=" + insertedUri);
@@ -105,8 +105,8 @@ public final class EventProvider extends ContentProvider {
     }
 
     @Override
-    public int delete(@NonNull final Uri uri, @Nullable final String selection,
-            @Nullable final String[] selectionArgs) {
+    public int delete(@NonNull Uri uri, @Nullable String selection,
+            @Nullable String[] selectionArgs) {
         final UriHelper uriHelper = mUriFactory.newInstance(uri);
         if (DEBUG) {
             Log.d(TAG, "delete:"
@@ -115,7 +115,7 @@ public final class EventProvider extends ContentProvider {
                     + " selectionArgs=" + Arrays.toString(
                             uriHelper.buildSelectionArgs(selectionArgs)));
         }
-        final int count = mDatabase.delete(uriHelper.table, uriHelper.buildSelection(selection),
+        final int count = mDatabase.delete(uriHelper.mTable, uriHelper.buildSelection(selection),
                 uriHelper.buildSelectionArgs(selectionArgs));
         if (DEBUG) {
             Log.d(TAG, "  delete.count=" + count);
@@ -125,8 +125,8 @@ public final class EventProvider extends ContentProvider {
     }
 
     @Override
-    public int update(@NonNull final Uri uri, @Nullable final ContentValues values,
-            final @Nullable String selection, @Nullable final String[] selectionArgs) {
+    public int update(@NonNull Uri uri, @Nullable ContentValues values, @Nullable String selection,
+            @Nullable String[] selectionArgs) {
         final UriHelper uriHelper = mUriFactory.newInstance(uri);
         if (DEBUG) {
             Log.d(TAG, "update:"
@@ -136,7 +136,7 @@ public final class EventProvider extends ContentProvider {
                     + " selectionArgs=" + Arrays.toString(
                             uriHelper.buildSelectionArgs(selectionArgs)));
         }
-        final int count = mDatabase.update(uriHelper.table, values,
+        final int count = mDatabase.update(uriHelper.mTable, values,
                 uriHelper.buildSelection(selection), uriHelper.buildSelectionArgs(selectionArgs));
         if (DEBUG) {
             Log.d(TAG, "  update.count=" + count);
@@ -147,7 +147,7 @@ public final class EventProvider extends ContentProvider {
 
     @Override
     @Nullable
-    public String getType(@NonNull final Uri uri) {
+    public String getType(@NonNull Uri uri) {
         return mUriFactory.getTypeOf(uri);
     }
 

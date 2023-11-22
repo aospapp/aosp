@@ -19,9 +19,7 @@ package android.car.content.pm;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.util.Log;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
@@ -30,7 +28,7 @@ import java.util.Arrays;
  * @hide
  */
 @SystemApi
-public class CarAppBlockingPolicy implements Parcelable {
+public final class CarAppBlockingPolicy implements Parcelable {
     private static final String TAG = CarAppBlockingPolicy.class.getSimpleName();
 
     public final AppBlockingPackageInfo[] whitelists;

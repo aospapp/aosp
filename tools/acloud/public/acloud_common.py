@@ -16,7 +16,7 @@
 
 """Common code used by both acloud and acloud_kernel tools."""
 
-DEFAULT_CONFIG_FILE = "acloud.config"
+import argparse
 
 
 def AddCommonArguments(parser):
@@ -29,31 +29,53 @@ def AddCommonArguments(parser):
                         type=str,
                         dest="email",
                         help="Email account to use for authentcation.")
-    parser.add_argument(
-        "--config_file",
-        type=str,
-        dest="config_file",
-        default=DEFAULT_CONFIG_FILE,
-        help="Path to the config file, default to acloud.config"
-        "in the current working directory")
-    parser.add_argument("--report_file",
+    parser.add_argument("--config-file",
+                        type=str,
+                        dest="config_file",
+                        default=None,
+                        help="Path to the config file, default to "
+                        "acloud.config in the current working directory.")
+    parser.add_argument("--service-account-json-private-key-path",
+                        type=str,
+                        dest="service_account_json_private_key_path",
+                        help="Path to service account's json private key "
+                        "file.")
+    parser.add_argument("--report-file",
                         type=str,
                         dest="report_file",
                         default=None,
                         help="Dump the report this file in json format. "
-                        "If not specified, just log the report")
-    parser.add_argument("--log_file",
+                        "If not specified, just log the report.")
+    parser.add_argument("--log-file",
                         dest="log_file",
                         type=str,
                         default=None,
                         help="Path to log file.")
-    parser.add_argument("-v",
-                        dest="verbose",
-                        action="store_true",
-                        default=False,
-                        help="Verbose mode")
-    parser.add_argument("-vv",
-                        dest="very_verbose",
-                        action="store_true",
-                        default=False,
-                        help="Very verbose mode")
+    parser.add_argument('--verbose', '-v',
+                        action='count',
+                        default=0,
+                        help="Enable verbose log. Use --verbose or -v for "
+                        "logging at INFO level, and -vv for DEBUG level.")
+
+    # Allow for using the underscore args as well to keep it backward
+    # compatible with the infra use case. Remove when g3 acloud is
+    # deprecated (b/118439885).
+    parser.add_argument("--config_file",
+                        type=str,
+                        dest="config_file",
+                        default=None,
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--service_account_json_private_key_path",
+                        type=str,
+                        dest="service_account_json_private_key_path",
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--report_file",
+                        type=str,
+                        dest="report_file",
+                        default=None,
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--log_file",
+                        dest="log_file",
+                        type=str,
+                        default=None,
+                        help=argparse.SUPPRESS)

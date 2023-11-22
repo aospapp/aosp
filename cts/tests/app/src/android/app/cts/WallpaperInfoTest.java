@@ -20,13 +20,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import android.app.WallpaperInfo;
+import android.app.stubs.R;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.service.wallpaper.WallpaperService;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,12 +48,19 @@ public class WallpaperInfoTest {
         assertEquals(1, result.size());
         ResolveInfo info = result.get(0);
         WallpaperInfo wallpaperInfo = new WallpaperInfo(context, info);
-        assertEquals("Title", wallpaperInfo.loadLabel(pm));
-        assertEquals("Description", wallpaperInfo.loadDescription(pm));
-        assertEquals("Collection", wallpaperInfo.loadAuthor(pm));
-        assertEquals("Context", wallpaperInfo.loadContextDescription(pm));
-        assertEquals("http://android.com", wallpaperInfo.loadContextUri(pm).toString());
+        assertEquals(context.getString(R.string.wallpaper_title), wallpaperInfo.loadLabel(pm));
+        assertEquals(context.getString(R.string.wallpaper_description),
+            wallpaperInfo.loadDescription(pm));
+        assertEquals(context.getString(R.string.wallpaper_collection),
+            wallpaperInfo.loadAuthor(pm));
+        assertEquals(context.getString(R.string.wallpaper_context),
+            wallpaperInfo.loadContextDescription(pm));
+        assertEquals(context.getString(R.string.wallpaper_context_uri),
+            wallpaperInfo.loadContextUri(pm).toString());
+        assertEquals(context.getString(R.string.wallpaper_slice_uri),
+            wallpaperInfo.getSettingsSliceUri().toString());
         assertEquals(true, wallpaperInfo.getShowMetadataInPreview());
+        assertEquals(true, wallpaperInfo.supportsMultipleDisplays());
         assertNotNull(wallpaperInfo.loadIcon(pm));
         assertNotNull(wallpaperInfo.loadThumbnail(pm));
     }

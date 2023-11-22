@@ -16,7 +16,12 @@
 
 package android.database.sqlite.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteCursor;
@@ -26,38 +31,50 @@ import android.database.sqlite.SQLiteQuery;
 import android.database.sqlite.SQLiteQueryBuilder;
 import android.os.CancellationSignal;
 import android.os.OperationCanceledException;
-import android.test.AndroidTestCase;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 
-public class SQLiteQueryBuilderTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class SQLiteQueryBuilderTest {
     private SQLiteDatabase mDatabase;
     private final String TEST_TABLE_NAME = "test";
     private final String EMPLOYEE_TABLE_NAME = "employee";
     private static final String DATABASE_FILE = "database_test.db";
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
 
-        getContext().deleteDatabase(DATABASE_FILE);
-        mDatabase = getContext().openOrCreateDatabase(DATABASE_FILE, Context.MODE_PRIVATE, null);
-        assertNotNull(mDatabase);
+        context.deleteDatabase(DATABASE_FILE);
+        mDatabase = Objects.requireNonNull(
+                context.openOrCreateDatabase(DATABASE_FILE, Context.MODE_PRIVATE, null));
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
+
         mDatabase.close();
-        getContext().deleteDatabase(DATABASE_FILE);
-        super.tearDown();
+        context.deleteDatabase(DATABASE_FILE);
     }
 
+    @Test
     public void testConstructor() {
         new SQLiteQueryBuilder();
     }
 
+    @Test
     public void testSetDistinct() {
         String expected;
         SQLiteQueryBuilder sqliteQueryBuilder = new SQLiteQueryBuilder();
@@ -65,7 +82,7 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         sqliteQueryBuilder.setDistinct(false);
         sqliteQueryBuilder.appendWhere("age=20");
         String sql = sqliteQueryBuilder.buildQuery(new String[] { "age", "address" },
-                null, null, null, null, null, null);
+                null, null, null, null, null);
         assertEquals(TEST_TABLE_NAME, sqliteQueryBuilder.getTables());
         expected = "SELECT age, address FROM " + TEST_TABLE_NAME + " WHERE (age=20)";
         assertEquals(expected, sql);
@@ -75,7 +92,7 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         sqliteQueryBuilder.setDistinct(true);
         sqliteQueryBuilder.appendWhere("age>32");
         sql = sqliteQueryBuilder.buildQuery(new String[] { "age", "address" },
-                null, null, null, null, null, null);
+                null, null, null, null, null);
         assertEquals(EMPLOYEE_TABLE_NAME, sqliteQueryBuilder.getTables());
         expected = "SELECT DISTINCT age, address FROM " + EMPLOYEE_TABLE_NAME + " WHERE (age>32)";
         assertEquals(expected, sql);
@@ -85,13 +102,14 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         sqliteQueryBuilder.setDistinct(true);
         sqliteQueryBuilder.appendWhereEscapeString("age>32");
         sql = sqliteQueryBuilder.buildQuery(new String[] { "age", "address" },
-                null, null, null, null, null, null);
+                null, null, null, null, null);
         assertEquals(EMPLOYEE_TABLE_NAME, sqliteQueryBuilder.getTables());
         expected = "SELECT DISTINCT age, address FROM " + EMPLOYEE_TABLE_NAME
                 + " WHERE ('age>32')";
         assertEquals(expected, sql);
     }
 
+    @Test
     public void testSetProjectionMap() {
         String expected;
         Map<String, String> projectMap = new HashMap<String, String>();
@@ -103,12 +121,12 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         sqliteQueryBuilder.setDistinct(false);
         sqliteQueryBuilder.setProjectionMap(projectMap);
         String sql = sqliteQueryBuilder.buildQuery(new String[] { "EmployeeName", "EmployeeAge" },
-                null, null, null, null, null, null);
+                null, null, null, null, null);
         expected = "SELECT name, age FROM " + TEST_TABLE_NAME;
         assertEquals(expected, sql);
 
         sql = sqliteQueryBuilder.buildQuery(null, // projectionIn is null
-                null, null, null, null, null, null);
+                null, null, null, null, null);
         assertTrue(sql.matches("SELECT (age|name|address), (age|name|address), (age|name|address) "
                 + "FROM " + TEST_TABLE_NAME));
         assertTrue(sql.contains("age"));
@@ -117,13 +135,14 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
 
         sqliteQueryBuilder.setProjectionMap(null);
         sql = sqliteQueryBuilder.buildQuery(new String[] { "name", "address" },
-                null, null, null, null, null, null);
+                null, null, null, null, null);
         assertTrue(sql.matches("SELECT (name|address), (name|address) "
                 + "FROM " + TEST_TABLE_NAME));
         assertTrue(sql.contains("name"));
         assertTrue(sql.contains("address"));
     }
 
+    @Test
     public void testSetCursorFactory() {
         mDatabase.execSQL("CREATE TABLE test (_id INTEGER PRIMARY KEY, " +
                 "name TEXT, age INTEGER, address TEXT);");
@@ -138,9 +157,10 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         assertTrue(cursor instanceof SQLiteCursor);
 
         SQLiteDatabase.CursorFactory factory = new SQLiteDatabase.CursorFactory() {
+            @Override
             public Cursor newCursor(SQLiteDatabase db, SQLiteCursorDriver masterQuery,
                     String editTable, SQLiteQuery query) {
-                return new MockCursor(db, masterQuery, editTable, query);
+                return new MockCursor(masterQuery, editTable, query);
             }
         };
 
@@ -152,12 +172,13 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
     }
 
     private static class MockCursor extends SQLiteCursor {
-        public MockCursor(SQLiteDatabase db, SQLiteCursorDriver driver,
+        public MockCursor(SQLiteCursorDriver driver,
                 String editTable, SQLiteQuery query) {
-            super(db, driver, editTable, query);
+            super(driver, editTable, query);
         }
     }
 
+    @Test
     public void testBuildQueryString() {
         String expected;
         final String[] DEFAULT_TEST_PROJECTION = new String [] { "name", "age", "sum(salary)" };
@@ -176,6 +197,7 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         assertEquals(expected, sql);
     }
 
+    @Test
     public void testBuildQuery() {
         final String[] DEFAULT_TEST_PROJECTION = new String[] { "name", "sum(salary)" };
         final String DEFAULT_TEST_WHERE = "age > 25";
@@ -185,13 +207,14 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         sqliteQueryBuilder.setTables(TEST_TABLE_NAME);
         sqliteQueryBuilder.setDistinct(false);
         String sql = sqliteQueryBuilder.buildQuery(DEFAULT_TEST_PROJECTION,
-                DEFAULT_TEST_WHERE, null, "name", DEFAULT_HAVING, "name", "2");
+                DEFAULT_TEST_WHERE, "name", DEFAULT_HAVING, "name", "2");
         String expected = "SELECT name, sum(salary) FROM " + TEST_TABLE_NAME
                 + " WHERE (" + DEFAULT_TEST_WHERE + ") " +
                 "GROUP BY name HAVING " + DEFAULT_HAVING + " ORDER BY name LIMIT 2";
         assertEquals(expected, sql);
     }
 
+    @Test
     public void testAppendColumns() {
         StringBuilder sb = new StringBuilder();
         String[] columns = new String[] { "name", "age" };
@@ -201,6 +224,19 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         assertEquals("name, age ", sb.toString());
     }
 
+    @Test
+    public void testAppendWhereStandalone() {
+        SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+        qb.setTables("Employee");
+        qb.appendWhereStandalone("A");
+        qb.appendWhereStandalone("B");
+        qb.appendWhereStandalone("C");
+
+        final String query = qb.buildQuery(null, null, null, null, null, null);
+        assertTrue(query.contains("(A) AND (B) AND (C)"));
+    }
+
+    @Test
     public void testQuery() {
         createEmployeeTable();
 
@@ -240,6 +276,7 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         assertEquals(4000, cursor.getInt(COLUMN_SALARY_INDEX));
     }
 
+    @Test
     public void testUnionQuery() {
         String expected;
         String[] innerProjection = new String[] {"name", "age", "location"};
@@ -253,12 +290,12 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
                 "_id", innerProjection,
                 null, 2, "employee",
                 "age=25",
-                null, null, null);
+                null, null);
         String peopleSubQuery = peopleQueryBuilder.buildUnionSubQuery(
                 "_id", innerProjection,
                 null, 2, "people",
                 "location=LA",
-                null, null, null);
+                null, null);
         expected = "SELECT name, age, location FROM employee WHERE (age=25)";
         assertEquals(expected, employeeSubQuery);
         expected = "SELECT name, age, location FROM people WHERE (location=LA)";
@@ -275,6 +312,7 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         assertEquals(expected, unionQuery);
     }
 
+    @Test
     public void testCancelableQuery_WhenNotCanceled_ReturnsResultSet() {
         createEmployeeTable();
 
@@ -288,6 +326,7 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         assertEquals(3, cursor.getCount());
     }
 
+    @Test
     public void testCancelableQuery_WhenCanceledBeforeQuery_ThrowsImmediately() {
         createEmployeeTable();
 
@@ -306,6 +345,7 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testCancelableQuery_WhenCanceledAfterQuery_ThrowsWhenExecuted() {
         createEmployeeTable();
 
@@ -326,6 +366,7 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testCancelableQuery_WhenCanceledDueToContention_StopsWaitingAndThrows() {
         createEmployeeTable();
 
@@ -401,6 +442,7 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         fail("Could not prove that the query actually blocked before cancel() was called.");
     }
 
+    @Test
     public void testCancelableQuery_WhenCanceledDuringLongRunningQuery_CancelsQueryAndThrows() {
         // Populate a table with a bunch of integers.
         mDatabase.execSQL("CREATE TABLE x (v INTEGER);");
@@ -460,7 +502,153 @@ public class SQLiteQueryBuilderTest extends AndroidTestCase {
         fail("Could not prove that the query actually canceled midway during execution.");
     }
 
+    @Test
+    public void testUpdate() throws Exception {
+        createEmployeeTable();
+
+        final ContentValues values = new ContentValues();
+        values.put("name", "Anonymous");
+        values.put("salary", 0);
+
+        {
+            final SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+            qb.setTables("employee");
+            qb.appendWhere("month=3");
+            assertEquals(2, qb.update(mDatabase, values, null, null));
+        }
+        {
+            final SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+            qb.setTables("employee");
+            assertEquals(1, qb.update(mDatabase, values, "month=?", new String[] { "2" }));
+        }
+    }
+
+    @Test
+    public void testDelete() throws Exception {
+        createEmployeeTable();
+
+        {
+            final SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+            qb.setTables("employee");
+            qb.appendWhere("month=3");
+            assertEquals(2, qb.delete(mDatabase, null, null));
+            assertEquals(0, qb.delete(mDatabase, null, null));
+        }
+        {
+            final SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+            qb.setTables("employee");
+            assertEquals(1, qb.delete(mDatabase, "month=?", new String[] { "2" }));
+            assertEquals(0, qb.delete(mDatabase, "month=?", new String[] { "2" }));
+        }
+    }
+
+    @Test
+    public void testStrictQuery() throws Exception {
+        createEmployeeTable();
+
+        final SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+        qb.setTables("employee");
+        qb.setStrict(true);
+        qb.appendWhere("month=2");
+
+        // Should normally only be able to see one row
+        try (Cursor c = qb.query(mDatabase, null, null, null, null, null, null)) {
+            assertEquals(1, c.getCount());
+        }
+
+        // Trying sneaky queries should fail; even if they somehow succeed, we
+        // shouldn't get to see any other data.
+        try (Cursor c = qb.query(mDatabase, null, "1=1", null, null, null, null)) {
+            assertEquals(1, c.getCount());
+        } catch (Exception tolerated) {
+        }
+        try (Cursor c = qb.query(mDatabase, null, "1=1 --", null, null, null, null)) {
+            assertEquals(1, c.getCount());
+        } catch (Exception tolerated) {
+        }
+        try (Cursor c = qb.query(mDatabase, null, "1=1) OR (1=1", null, null, null, null)) {
+            assertEquals(1, c.getCount());
+        } catch (Exception tolerated) {
+        }
+        try (Cursor c = qb.query(mDatabase, null, "1=1)) OR ((1=1", null, null, null, null)) {
+            assertEquals(1, c.getCount());
+        } catch (Exception tolerated) {
+        }
+    }
+
+    @Test
+    public void testStrictUpdate() throws Exception {
+        createEmployeeTable();
+
+        final ContentValues values = new ContentValues();
+        values.put("name", "Anonymous");
+        values.put("salary", 0);
+
+        final SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+        qb.setTables("employee");
+        qb.setStrict(true);
+        qb.appendWhere("month=2");
+
+        // Should normally only be able to update one row
+        assertEquals(1, qb.update(mDatabase, values, null, null));
+
+        // Trying sneaky queries should fail; even if they somehow succeed, we
+        // shouldn't get to see any other data.
+        try {
+            assertEquals(1, qb.update(mDatabase, values, "1=1", null));
+        } catch (Exception tolerated) {
+        }
+        try {
+            assertEquals(1, qb.update(mDatabase, values, "1=1 --", null));
+        } catch (Exception tolerated) {
+        }
+        try {
+            assertEquals(1, qb.update(mDatabase, values, "1=1) OR (1=1", null));
+        } catch (Exception tolerated) {
+        }
+        try {
+            assertEquals(1, qb.update(mDatabase, values, "1=1)) OR ((1=1", null));
+        } catch (Exception tolerated) {
+        }
+    }
+
+    @Test
+    public void testStrictDelete() throws Exception {
+        final SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+        qb.setTables("employee");
+        qb.setStrict(true);
+        qb.appendWhere("month=2");
+
+        // Should normally only be able to update one row
+        createEmployeeTable();
+        assertEquals(1, qb.delete(mDatabase, null, null));
+
+        // Trying sneaky queries should fail; even if they somehow succeed, we
+        // shouldn't get to see any other data.
+        try {
+            createEmployeeTable();
+            assertEquals(1, qb.delete(mDatabase, "1=1", null));
+        } catch (Exception tolerated) {
+        }
+        try {
+            createEmployeeTable();
+            assertEquals(1, qb.delete(mDatabase, "1=1 --", null));
+        } catch (Exception tolerated) {
+        }
+        try {
+            createEmployeeTable();
+            assertEquals(1, qb.delete(mDatabase, "1=1) OR (1=1", null));
+        } catch (Exception tolerated) {
+        }
+        try {
+            createEmployeeTable();
+            assertEquals(1, qb.delete(mDatabase, "1=1)) OR ((1=1", null));
+        } catch (Exception tolerated) {
+        }
+    }
+
     private void createEmployeeTable() {
+        mDatabase.execSQL("DROP TABLE IF EXISTS employee;");
         mDatabase.execSQL("CREATE TABLE employee (_id INTEGER PRIMARY KEY, " +
                 "name TEXT, month INTEGER, salary INTEGER);");
         mDatabase.execSQL("INSERT INTO employee (name, month, salary) " +

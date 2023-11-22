@@ -33,3 +33,10 @@ BOARD_LISA_TARGET_SCRIPTS := device/google/wahoo/lisa/
 # VTS DTBO Verification. This kernel cmdline parameter should be added by the bootloader
 # for all future devices.
 BOARD_KERNEL_CMDLINE += androidboot.dtbo_idx=3
+
+BOARD_EXT4_SHARE_DUP_BLOCKS := true
+
+TARGET_RECOVERY_UI_LIB := \
+    librecovery_ui_walleye \
+    libbootloader_message \
+    libfstab

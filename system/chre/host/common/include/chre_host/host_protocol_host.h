@@ -34,6 +34,9 @@ namespace chre {
  * Checks that a string encapsulated as a byte vector is null-terminated, and
  * if it is, returns a pointer to the vector's data. Otherwise returns null.
  *
+ * This is similar to getStringFromByteVector in host_protocol_chre.h. Ensure
+ * that method's implementation is kept in sync with this.
+ *
  * @param vec Target vector, can be null
  *
  * @return Pointer to the vector's data, or null
@@ -184,7 +187,6 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
   static bool mutateHostClientId(void *message, size_t messageLen,
                                  uint16_t hostClientId);
 
- private:
   /**
    * Encodes a message requesting to load a nanoapp specified by the included
    * binary payload and metadata.
@@ -192,11 +194,23 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
    * @param builder A newly constructed FlatBufferBuilder that will be used to
    *        construct the message
    */
-  static void encodeLoadNanoappRequest(
+  static void encodeLoadNanoappRequestForBinary(
       flatbuffers::FlatBufferBuilder& builder, uint32_t transactionId,
       uint64_t appId, uint32_t appVersion, uint32_t targetApiVersion,
       const std::vector<uint8_t>& nanoappBinary, uint32_t fragmentId,
       size_t appTotalSizeBytes);
+
+  /**
+   * Encodes a message requesting to load a nanoapp specified by the included
+   * binary filename and metadata.
+   *
+   * @param builder A newly constructed FlatBufferBuilder that will be used to
+   *        construct the message
+   */
+  static void encodeLoadNanoappRequestForFile(
+      flatbuffers::FlatBufferBuilder& builder, uint32_t transactionId,
+      uint64_t appId, uint32_t appVersion, uint32_t targetApiVersion,
+      const char *nanoappBinaryName);
 };
 
 }  // namespace chre

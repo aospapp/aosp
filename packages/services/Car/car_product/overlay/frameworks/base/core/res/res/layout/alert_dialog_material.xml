@@ -17,22 +17,22 @@
 
 <com.android.internal.widget.AlertDialogLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/parentPanel"
+    android:id="@*android:id/parentPanel"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="start|top"
     android:orientation="vertical">
 
-    <include layout="@layout/alert_dialog_title_material" />
+    <include layout="@*android:layout/alert_dialog_title_material" />
 
     <FrameLayout
-        android:id="@+id/contentPanel"
+        android:id="@*android:id/contentPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="48dp">
 
         <ScrollView
-            android:id="@+id/scrollView"
+            android:id="@*android:id/scrollView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:clipToPadding="false">
@@ -42,24 +42,23 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- we don't need this spacer, but the id needs to be here for compatibility -->
                 <Space
-                    android:id="@+id/textSpacerNoTitle"
+                    android:id="@*android:id/textSpacerNoTitle"
                     android:visibility="gone"
                     android:layout_width="match_parent"
-                    android:layout_height="0dp" />
+                    android:layout_height="@*android:dimen/dialog_no_title_padding_top" />
 
                 <TextView
-                    android:id="@+id/message"
+                    android:id="@*android:id/message"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/car_keyline_1"
-                    android:layout_marginEnd="@dimen/car_keyline_1"
-                    style="@style/CarBody2"/>
+                    android:layout_marginStart="@*android:dimen/text_view_start_margin"
+                    android:layout_marginEnd="@*android:dimen/text_view_end_margin"
+                    style="@*android:style/CarBody2"/>
 
                 <!-- we don't need this spacer, but the id needs to be here for compatibility -->
                 <Space
-                    android:id="@+id/textSpacerNoButtons"
+                    android:id="@*android:id/textSpacerNoButtons"
                     android:visibility="gone"
                     android:layout_width="match_parent"
                     android:layout_height="0dp" />
@@ -68,13 +67,13 @@
     </FrameLayout>
 
     <FrameLayout
-        android:id="@+id/customPanel"
+        android:id="@*android:id/customPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="48dp">
 
         <FrameLayout
-            android:id="@+id/custom"
+            android:id="@*android:id/custom"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
     </FrameLayout>
@@ -82,5 +81,5 @@
     <include
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        layout="@layout/alert_dialog_button_bar_material" />
+        layout="@*android:layout/alert_dialog_button_bar_material" />
 </com.android.internal.widget.AlertDialogLayout>

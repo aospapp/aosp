@@ -17,4 +17,31 @@
 <resources>
     <!-- Album art scrim -->
     <color name="album_art_scrim">#000000</color>
+
+    <!-- app_switch_widget.xml -->
+    <color name="app_switch_widget_icon_tint">@color/primary_app_icon_color</color>
+
+    <!-- App selection background -->
+    <color name="app_selection_border">#40000000</color>
+    <color name="app_selection_background">#ff000000</color>
+    <!-- App icons selection background -->
+    <color name="appbar_view_icon_background_color">#66ffffff</color>
+
+    <!-- ColorChecker.java -->
+    <color name="media_tint_light">@*android:color/car_tint_light</color>
+    <color name="media_tint_dark">@*android:color/car_tint_dark</color>
+
+    <!-- Color used on the placeholder album art -->
+    <color name="album_art_placeholder_color">@*android:color/car_grey_800</color>
+
+    <!-- Media source's color if not provided -->
+    <color name="media_source_default_color">@android:color/background_dark</color>
+
+    <!-- Color used on the minimized progress bar background -->
+    <color name="minimized_progress_bar_background">#00000000</color>
+    <!-- Color used on the minimized progress bar -->
+    <color name="minimized_progress_bar_highlight">@color/media_source_default_color</color>
+
+    <!-- Color used on the fab spinner -->
+    <color name="fab_spinner_indeterminate_color">@color/media_source_default_color</color>
 </resources>

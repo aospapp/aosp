@@ -18,9 +18,7 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := libvts_protos_host
 LOCAL_SRC_FILES := $(call all-proto-files-under, ./)
-LOCAL_PROTOC_OPTIMIZE_TYPE := micro
-LOCAL_STATIC_JAVA_LIBRARIES := host-libprotobuf-java-micro
-LOCAL_NO_STANDARD_LIBRARIES := true
+LOCAL_PROTOC_OPTIMIZE_TYPE := full
 LOCAL_SOURCE_FILES_ALL_GENERATED := true
 LOCAL_MODULE_TAGS := optional
 

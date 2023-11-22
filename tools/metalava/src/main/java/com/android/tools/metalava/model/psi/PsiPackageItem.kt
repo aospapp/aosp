@@ -18,7 +18,6 @@ package com.android.tools.metalava.model.psi
 
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.PackageItem
-import com.android.tools.metalava.options
 import com.intellij.psi.PsiPackage
 
 class PsiPackageItem(
@@ -41,9 +40,12 @@ class PsiPackageItem(
 
     lateinit var containingPackageField: PsiPackageItem
 
-    override var hidden: Boolean = super.hidden || options.hidePackages.contains(qualifiedName)
+    override fun containingClass(strict: Boolean): ClassItem? = null
 
-    override fun containingPackage(): PackageItem? {
+    override fun containingPackage(strict: Boolean): PackageItem? {
+        if (!strict) {
+            return this
+        }
         return if (qualifiedName.isEmpty()) null else {
             if (!::containingPackageField.isInitialized) {
                 var parentPackage = qualifiedName
@@ -107,7 +109,7 @@ class PsiPackageItem(
 
     override fun hashCode(): Int = qualifiedName.hashCode()
 
-    override fun toString(): String = "Package $qualifiedName"
+    override fun toString(): String = "package $qualifiedName"
 
     override fun finishInitialization() {
         super.finishInitialization()

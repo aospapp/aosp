@@ -19,9 +19,6 @@
   <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-security" />
 
-  <!-- For Proof-of-Concept (PoC) Tests -->
-  <option name="compatibility:include-filter" value="SecurityPoCKernelTest" />
-  <!-- For system property Tests -->
-  <option name="compatibility:include-filter" value="VtsTrebleSysProp" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-security" />
 
 </configuration>

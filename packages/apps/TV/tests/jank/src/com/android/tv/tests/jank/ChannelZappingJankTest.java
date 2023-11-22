@@ -15,9 +15,9 @@
  */
 package com.android.tv.tests.jank;
 
-import android.support.test.filters.MediumTest;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
+import androidx.test.filters.MediumTest;
 
 /** Jank tests for channel zapping. */
 @MediumTest

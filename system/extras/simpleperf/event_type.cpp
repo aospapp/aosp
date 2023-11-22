@@ -50,7 +50,7 @@ bool SetTracepointEventsFilePath(const std::string& filepath) {
 
 std::string GetTracepointEvents() {
   std::string result;
-  for (const EventType& event : GetAllEventTypes()) {
+  for (auto& event : GetAllEventTypes()) {
     if (event.type != PERF_TYPE_TRACEPOINT) {
       continue;
     }
@@ -110,7 +110,7 @@ static std::vector<EventType> GetTracepointEventTypes() {
   return result;
 }
 
-static std::vector<EventType> event_type_array;
+static std::set<EventType> g_event_types;
 
 std::string ScopedEventTypes::BuildString(const std::vector<const EventType*>& event_types) {
   std::string result;
@@ -125,46 +125,50 @@ std::string ScopedEventTypes::BuildString(const std::vector<const EventType*>& e
 }
 
 ScopedEventTypes::ScopedEventTypes(const std::string& event_type_str) {
-  saved_event_types_ = std::move(event_type_array);
-  event_type_array.clear();
+  saved_event_types_ = std::move(g_event_types);
+  g_event_types.clear();
   for (auto& s : android::base::Split(event_type_str, "\n")) {
     std::string name = s.substr(0, s.find(','));
     uint32_t type;
     uint64_t config;
     sscanf(s.c_str() + name.size(), ",%u,%" PRIu64, &type, &config);
-    event_type_array.emplace_back(name, type, config, "", "");
+    g_event_types.emplace(name, type, config, "", "");
   }
 }
 
 ScopedEventTypes::~ScopedEventTypes() {
-  event_type_array = std::move(saved_event_types_);
+  g_event_types = std::move(saved_event_types_);
 }
 
-const std::vector<EventType>& GetAllEventTypes() {
-  if (event_type_array.empty()) {
-    event_type_array.insert(event_type_array.end(), static_event_type_array.begin(),
-                            static_event_type_array.end());
+const std::set<EventType>& GetAllEventTypes() {
+  if (g_event_types.empty()) {
+    g_event_types.insert(static_event_type_array.begin(), static_event_type_array.end());
     std::vector<EventType> tracepoint_array = GetTracepointEventTypes();
-    event_type_array.insert(event_type_array.end(), tracepoint_array.begin(),
-                            tracepoint_array.end());
+    g_event_types.insert(tracepoint_array.begin(), tracepoint_array.end());
   }
-  return event_type_array;
+  return g_event_types;
 }
 
 const EventType* FindEventTypeByName(const std::string& name, bool report_error) {
-  const EventType* result = nullptr;
-  for (auto& event_type : GetAllEventTypes()) {
-    if (android::base::EqualsIgnoreCase(event_type.name, name)) {
-      result = &event_type;
-      break;
+  const auto& event_types = GetAllEventTypes();
+  auto it = event_types.find(EventType(name, 0, 0, "", ""));
+  if (it != event_types.end()) {
+    return &*it;
+  }
+  if (!name.empty() && name[0] == 'r') {
+    char* end;
+    uint64_t config = strtoull(&name[1], &end, 16);
+    if (end != &name[1] && *end == '\0') {
+      auto result = g_event_types.emplace(name, PERF_TYPE_RAW, config, "", "");
+      CHECK(result.second);
+      return &*(result.first);
     }
   }
-  if (result == nullptr && report_error) {
+  if (report_error) {
     LOG(ERROR) << "Unknown event_type '" << name
                << "', try `simpleperf list` to list all possible event type names";
-    return nullptr;
   }
-  return result;
+  return nullptr;
 }
 
 std::unique_ptr<EventTypeAndModifier> ParseEventType(const std::string& event_type_str) {

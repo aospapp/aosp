@@ -38,7 +38,8 @@ class CommandInfo(base_command_processor.BaseCommandProcessor):
         Args:
             arg_line: string, line of command arguments
         '''
-        print('device image: %s' % self.console.device_image_info)
-        print('test suite: %s' % self.console.test_suite_info)
-        print('test result: %s' % self.console.test_results)
-        print('fetch info: %s' % self.console.fetch_info)
+        logging.info('device image: %s', self.console.device_image_info)
+        logging.info('test suite: %s', self.console.test_suite_info)
+        logging.info('test result: %s', self.console.test_results)
+        logging.info('fetch info: %s', self.console.fetch_info)
+        logging.info('detailed fetch info: %s', self.console.detailed_fetch_info)

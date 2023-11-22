@@ -7,6 +7,7 @@ bootstrap_go_package {
         "blueprint-proptools",
         "soong",
         "soong-android",
+        "soong-apex",
         "soong-cc",
     ],
     srcs: [
@@ -16,6 +17,42 @@ bootstrap_go_package {
     ],
     pluginFor: ["soong_build"],
 }
+
+art_clang_tidy_errors = [
+    "android-cloexec-dup",
+    "android-cloexec-open",
+    "bugprone-argument-comment",
+    "bugprone-lambda-function-name",
+    "bugprone-unused-raii",  // Protect scoped things like MutexLock.
+    "bugprone-unused-return-value",
+    "bugprone-virtual-near-miss",
+    "modernize-use-bool-literals",
+    "modernize-use-nullptr",
+    "modernize-use-using",
+    "performance-faster-string-find",
+    "performance-for-range-copy",
+    "performance-implicit-conversion-in-loop",
+    "performance-noexcept-move-constructor",
+    "performance-unnecessary-copy-initialization",
+    "performance-unnecessary-value-param",
+    "misc-unused-using-decls",
+]
+
+art_clang_tidy_disabled = [
+    "-google-default-arguments",
+    // We have local stores that are only used for debug checks.
+    "-clang-analyzer-deadcode.DeadStores",
+    // We are OK with some static globals and that they can, in theory, throw.
+    "-cert-err58-cpp",
+    // We have lots of C-style variadic functions, and are OK with them. JNI ensures
+    // that working around this warning would be extra-painful.
+    "-cert-dcl50-cpp",
+    // "Modernization" we don't agree with.
+    "-modernize-use-auto",
+    "-modernize-return-braced-init-list",
+    "-modernize-use-default-member-init",
+    "-modernize-pass-by-value",
+]
 
 art_global_defaults {
     // Additional flags are computed by art.go
@@ -59,6 +96,14 @@ art_global_defaults {
         "-Wunreachable-code-break",
         "-Wunreachable-code-return",
 
+        // Disable warning for use of offsetof on non-standard layout type.
+        // We use it to implement OFFSETOF_MEMBER - see macros.h.
+        "-Wno-invalid-offsetof",
+
+        // Enable inconsistent-missing-override warning. This warning is disabled by default in
+        // Android.
+        "-Winconsistent-missing-override",
+
         // Enable thread annotations for std::mutex, etc.
         "-D_LIBCPP_ENABLE_THREAD_SAFETY_ANNOTATIONS",
     ],
@@ -86,6 +131,9 @@ art_global_defaults {
                 // Apple, it's a pain.
                 "-Wmissing-noreturn",
             ],
+        },
+        darwin: {
+            enabled: false,
         },
         host: {
             cflags: [
@@ -127,23 +175,11 @@ art_global_defaults {
     },
 
     include_dirs: [
-        "external/valgrind/include",
-        "external/valgrind",
         "external/vixl/src",
     ],
 
-    tidy_checks: [
-        "-google-default-arguments",
-        // We have local stores that are only used for debug checks.
-        "-clang-analyzer-deadcode.DeadStores",
-        // We are OK with some static globals and that they can, in theory, throw.
-        "-cert-err58-cpp",
-        // We have lots of C-style variadic functions, and are OK with them. JNI ensures
-        // that working around this warning would be extra-painful.
-        "-cert-dcl50-cpp",
-        // No exceptions.
-        "-misc-noexcept-move-constructor",
-    ],
+    tidy_checks: art_clang_tidy_errors + art_clang_tidy_disabled,
+    tidy_checks_as_errors: art_clang_tidy_errors,
 
     tidy_flags: [
         // The static analyzer treats DCHECK as always enabled; we sometimes get
@@ -153,6 +189,11 @@ art_global_defaults {
         // void foo() { CHECK(kIsFooEnabled); /* do foo... */ }
         // not being marked noreturn if kIsFooEnabled is false.
         "-extra-arg=-Wno-missing-noreturn",
+        // Because tidy doesn't like our flow checks for compile-time configuration and thinks that
+        // the following code is dead (it is, but not for all configurations), disable unreachable
+        // code detection in Clang for tidy builds. It is still on for regular build steps, so we
+        // will still get the "real" errors.
+        "-extra-arg=-Wno-unreachable-code",
     ],
 }
 

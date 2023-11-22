@@ -16,7 +16,13 @@
 
 package com.android.cts.devicepolicy;
 
+import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
+
+import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
+import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper.Builder;
 import java.util.List;
+
+import android.stats.devicepolicy.EventId;
 
 /**
  * Tests for having both device owner and profile owner. Device owner is setup for you in
@@ -41,6 +47,11 @@ public class DeviceOwnerPlusProfileOwnerTest extends BaseDevicePolicyTest {
             "com.android.cts.comp.ManagementTest";
 
     private static final String COMP_DPC_PKG = "com.android.cts.comp";
+    private static final DevicePolicyEventWrapper WIPE_DATA_WITH_REASON_DEVICE_POLICY_EVENT =
+            new Builder(EventId.WIPE_DATA_WITH_REASON_VALUE)
+                    .setAdminPackageName(COMP_DPC_PKG)
+                    .setInt(0)
+                    .build();
     private static final String COMP_DPC_APK = "CtsCorpOwnedManagedProfile.apk";
     private static final String COMP_DPC_ADMIN =
             COMP_DPC_PKG + "/com.android.cts.comp.AdminReceiver";
@@ -314,6 +325,17 @@ public class DeviceOwnerPlusProfileOwnerTest extends BaseDevicePolicyTest {
         assertUserGetsRemoved(profileUserId);
     }
 
+    public void testWipeData_managedProfileLogged() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        int profileUserId = setupManagedProfile(COMP_DPC_APK, COMP_DPC_PKG, COMP_DPC_ADMIN);
+        addDisallowRemoveManagedProfileRestriction();
+        assertMetricsLogged(getDevice(), () -> {
+            runDeviceTestsAsUser(COMP_DPC_PKG, MANAGEMENT_TEST, "testWipeData", profileUserId);
+        }, WIPE_DATA_WITH_REASON_DEVICE_POLICY_EVENT);
+    }
+
     public void testWipeData_secondaryUser() throws Exception {
         if (!mHasFeature || !canCreateAdditionalUsers(1)) {
             return;
@@ -328,6 +350,17 @@ public class DeviceOwnerPlusProfileOwnerTest extends BaseDevicePolicyTest {
                 "testWipeData",
                 secondaryUserId);
         assertUserGetsRemoved(secondaryUserId);
+    }
+
+    public void testWipeData_secondaryUserLogged() throws Exception {
+        if (!mHasFeature || !canCreateAdditionalUsers(1)) {
+            return;
+        }
+        int secondaryUserId = setupManagedSecondaryUser();
+        addDisallowRemoveUserRestriction();
+        assertMetricsLogged(getDevice(), () -> {
+            runDeviceTestsAsUser(COMP_DPC_PKG, MANAGEMENT_TEST, "testWipeData", secondaryUserId);
+        }, WIPE_DATA_WITH_REASON_DEVICE_POLICY_EVENT);
     }
 
     public void testNetworkAndSecurityLoggingAvailableIfAffiliated() throws Exception {

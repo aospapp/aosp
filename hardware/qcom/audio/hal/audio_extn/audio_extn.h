@@ -42,6 +42,7 @@ void audio_extn_set_snd_card_split(const char* in_snd_card_name);
 #define audio_extn_spkr_prot_stop_processing(snd_device)     (0)
 #define audio_extn_spkr_prot_is_enabled() (false)
 #define audio_extn_get_spkr_prot_snd_device(snd_device) (snd_device)
+#define audio_extn_spkr_prot_deinit(adev)       (0)
 #else
 void audio_extn_spkr_prot_init(void *adev);
 int audio_extn_spkr_prot_start_processing(snd_device_t snd_device);
@@ -49,6 +50,8 @@ void audio_extn_spkr_prot_stop_processing(snd_device_t snd_device);
 bool audio_extn_spkr_prot_is_enabled();
 int audio_extn_get_spkr_prot_snd_device(snd_device_t snd_device);
 void audio_extn_spkr_prot_calib_cancel(void *adev);
+void audio_extn_spkr_prot_deinit(void *adev);
+
 #endif
 
 #ifndef HFP_ENABLED
@@ -83,6 +86,7 @@ int audio_extn_hfp_set_mic_mute(struct audio_device *adev, bool state);
 #define audio_extn_usb_alive(adev)                                     (false)
 #define audio_extn_usb_find_service_interval(m, p)      ((m), (p), 0) /* fix unused warn */
 #define audio_extn_usb_altset_for_service_interval(p, si, bw, sr, ch) (-1)
+#define audio_extn_usb_usbid()                                         (NULL)
 #else
 void audio_extn_usb_init(void *adev);
 void audio_extn_usb_deinit();
@@ -106,6 +110,7 @@ int audio_extn_usb_altset_for_service_interval(bool is_playback,
                                                uint32_t *bit_width,
                                                uint32_t *sample_rate,
                                                uint32_t *channel_count);
+char *audio_extn_usb_usbid(void);
 #endif
 
 

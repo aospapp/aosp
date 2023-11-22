@@ -42,6 +42,9 @@ const char* dev_path = "/dev/uhid";
 #define BTA_HH_NV_LOAD_MAX 16
 static tBTA_HH_RPT_CACHE_ENTRY sReportCache[BTA_HH_NV_LOAD_MAX];
 #endif
+#define GET_RPT_RSP_OFFSET 9
+#define THREAD_NORMAL_PRIORITY 0
+#define BT_HH_THREAD "bt_hh_thread"
 
 void uhid_set_non_blocking(int fd) {
   int opts = fcntl(fd, F_GETFL);
@@ -128,8 +131,8 @@ static int uhid_read_event(btif_hh_device_t* p_dev) {
         btif_hh_setreport(p_dev, BTHH_OUTPUT_REPORT, ev.u.output.size,
                           ev.u.output.data);
       else
-        btif_hh_setreport(p_dev, BTHH_INPUT_REPORT, ev.u.output.size,
-                          ev.u.output.data);
+        APPL_TRACE_ERROR("%s: UHID_OUTPUT: Invalid report type = %d", __func__,
+                         ev.u.output.rtype);
       break;
     case UHID_OUTPUT_EV:
       if (ret < (ssize_t)(sizeof(ev.type) + sizeof(ev.u.output_ev))) {
@@ -141,10 +144,24 @@ static int uhid_read_event(btif_hh_device_t* p_dev) {
       APPL_TRACE_DEBUG("UHID_OUTPUT_EV from uhid-dev\n");
       break;
     case UHID_FEATURE:
-      APPL_TRACE_DEBUG("UHID_FEATURE from uhid-dev\n");
-      break;
-    case UHID_FEATURE_ANSWER:
-      APPL_TRACE_DEBUG("UHID_FEATURE_ANSWER from uhid-dev\n");
+      if (ret < (ssize_t)(sizeof(ev.type) + sizeof(ev.u.feature))) {
+        APPL_TRACE_ERROR(
+            "%s: UHID_FEATURE: Invalid size read from uhid-dev: %zd < %zu",
+            __func__, ret, sizeof(ev.type) + sizeof(ev.u.feature));
+        return -EFAULT;
+      }
+      APPL_TRACE_DEBUG("UHID_FEATURE: Report type = %d", ev.u.feature.rtype);
+      p_dev->get_rpt_snt++;
+      if (p_dev->get_rpt_id_queue) {
+        uint32_t* get_rpt_id = (uint32_t*)osi_malloc(sizeof(uint32_t));
+        *get_rpt_id = ev.u.feature.id;
+        fixed_queue_enqueue(p_dev->get_rpt_id_queue, (void*)get_rpt_id);
+      }
+      if (ev.u.feature.rtype == UHID_FEATURE_REPORT)
+        btif_hh_getreport(p_dev, BTHH_FEATURE_REPORT, ev.u.feature.rnum, 0);
+      else
+        APPL_TRACE_ERROR("%s: UHID_FEATURE: Invalid report type = %d", __func__,
+                         ev.u.feature.rtype);
       break;
 
     default:
@@ -192,6 +209,17 @@ static void* btif_hh_poll_event_thread(void* arg) {
   btif_hh_device_t* p_dev = (btif_hh_device_t*)arg;
   APPL_TRACE_DEBUG("%s: Thread created fd = %d", __func__, p_dev->fd);
   struct pollfd pfds[1];
+
+  // This thread is created by bt_main_thread with RT priority. Lower the thread
+  // priority here since the tasks in this thread is not timing critical.
+  struct sched_param sched_params;
+  sched_params.sched_priority = THREAD_NORMAL_PRIORITY;
+  if (sched_setscheduler(gettid(), SCHED_OTHER, &sched_params)) {
+    APPL_TRACE_ERROR("%s: Failed to set thread priority to normal", __func__);
+    p_dev->hh_poll_thread_id = -1;
+    return 0;
+  }
+  pthread_setname_np(pthread_self(), BT_HH_THREAD);
 
   pfds[0].fd = p_dev->fd;
   pfds[0].events = POLLIN;
@@ -278,16 +306,10 @@ void bta_hh_co_open(uint8_t dev_handle, uint8_t sub_class,
         p_dev->dev_handle == dev_handle) {
       // We found a device with the same handle. Must be a device reconnected.
       APPL_TRACE_WARNING(
-          "%s: Found an existing device with the same handle "
-          "dev_status = %d",
-          __func__, p_dev->dev_status);
-      APPL_TRACE_WARNING("%s:     bd_addr = [%02X:%02X:%02X:%02X:%02X:]",
-                         __func__, p_dev->bd_addr.address[0],
-                         p_dev->bd_addr.address[1], p_dev->bd_addr.address[2],
-                         p_dev->bd_addr.address[3], p_dev->bd_addr.address[4]);
-      APPL_TRACE_WARNING(
-          "%s:     attr_mask = 0x%04x, sub_class = 0x%02x, app_id = %d",
-          __func__, p_dev->attr_mask, p_dev->sub_class, p_dev->app_id);
+          "%s: Found an existing device with the same handle dev_status=%d, "
+          "address=%s, attr_mask=0x%04x, sub_class=0x%02x, app_id=%d",
+          __func__, p_dev->dev_status, p_dev->bd_addr.ToString().c_str(),
+          p_dev->attr_mask, p_dev->sub_class, p_dev->app_id);
 
       if (p_dev->fd < 0) {
         p_dev->fd = open(dev_path, O_RDWR | O_CLOEXEC);
@@ -343,6 +365,9 @@ void bta_hh_co_open(uint8_t dev_handle, uint8_t sub_class,
   }
 
   p_dev->dev_status = BTHH_CONN_STATE_CONNECTED;
+  p_dev->get_rpt_id_queue = fixed_queue_new(SIZE_MAX);
+  CHECK(p_dev->get_rpt_id_queue);
+
   APPL_TRACE_DEBUG("%s: Return device status %d", __func__, p_dev->dev_status);
 }
 
@@ -372,6 +397,9 @@ void bta_hh_co_close(uint8_t dev_handle, uint8_t app_id) {
 
   for (i = 0; i < BTIF_HH_MAX_HID; i++) {
     p_dev = &btif_hh_cb.devices[i];
+    fixed_queue_flush(p_dev->get_rpt_id_queue, osi_free);
+    fixed_queue_free(p_dev->get_rpt_id_queue, NULL);
+    p_dev->get_rpt_id_queue = NULL;
     if (p_dev->dev_status != BTHH_CONN_STATE_UNKNOWN &&
         p_dev->dev_handle == dev_handle) {
       APPL_TRACE_WARNING(
@@ -496,6 +524,71 @@ void bta_hh_co_send_hid_info(btif_hh_device_t* p_dev, const char* dev_name,
     /* The HID report descriptor is corrupted. Close the driver. */
     close(p_dev->fd);
     p_dev->fd = -1;
+  }
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_hh_co_set_rpt_rsp
+ *
+ * Description      This callout function is executed by HH when Set Report
+ *                  Response is received on Control Channel.
+ *
+ * Returns          void.
+ *
+ ******************************************************************************/
+void bta_hh_co_set_rpt_rsp(uint8_t dev_handle, uint8_t status) {
+  APPL_TRACE_ERROR("%s: Error: UHID_SET_REPORT_REPLY not supported", __func__);
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_hh_co_get_rpt_rsp
+ *
+ * Description      This callout function is executed by HH when Get Report
+ *                  Response is received on Control Channel.
+ *
+ * Returns          void.
+ *
+ ******************************************************************************/
+void bta_hh_co_get_rpt_rsp(uint8_t dev_handle, uint8_t status, uint8_t* p_rpt,
+                           uint16_t len) {
+  struct uhid_event ev;
+  btif_hh_device_t* p_dev;
+
+  APPL_TRACE_VERBOSE("%s: dev_handle = %d", __func__, dev_handle);
+
+  p_dev = btif_hh_find_connected_dev_by_handle(dev_handle);
+  if (p_dev == NULL) {
+    APPL_TRACE_WARNING("%s: Error: unknown HID device handle %d", __func__,
+                       dev_handle);
+    return;
+  }
+
+  if (!p_dev->get_rpt_id_queue) {
+    APPL_TRACE_WARNING("%s: Error: missing UHID_GET_REPORT id queue", __func__);
+    return;
+  }
+
+  // Send the HID report to the kernel.
+  if (p_dev->fd >= 0 && p_dev->get_rpt_snt--) {
+    uint32_t* get_rpt_id =
+        (uint32_t*)fixed_queue_dequeue(p_dev->get_rpt_id_queue);
+    memset(&ev, 0, sizeof(ev));
+    ev.type = UHID_FEATURE_ANSWER;
+    ev.u.feature_answer.id = *get_rpt_id;
+    ev.u.feature_answer.err = status;
+    ev.u.feature_answer.size = len;
+    osi_free(get_rpt_id);
+    if (len > 0) {
+      if (len > UHID_DATA_MAX) {
+        APPL_TRACE_WARNING("%s: Report size greater than allowed size",
+                           __func__);
+        return;
+      }
+      memcpy(ev.u.feature_answer.data, p_rpt + GET_RPT_RSP_OFFSET, len);
+      uhid_write(p_dev->fd, &ev);
+    }
   }
 }
 

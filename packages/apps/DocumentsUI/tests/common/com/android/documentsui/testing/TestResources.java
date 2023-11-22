@@ -16,10 +16,10 @@
 
 package com.android.documentsui.testing;
 
-import android.annotation.BoolRes;
-import android.annotation.NonNull;
-import android.annotation.PluralsRes;
-import android.annotation.StringRes;
+import androidx.annotation.BoolRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.PluralsRes;
+import androidx.annotation.StringRes;
 import android.content.res.Resources;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;

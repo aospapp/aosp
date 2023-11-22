@@ -23,9 +23,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint.FontMetricsInt;
 import android.graphics.drawable.Drawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.Html;
 import android.text.Layout;
 import android.text.Spanned;
@@ -33,6 +30,10 @@ import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.cts.R;
 import android.text.style.DrawableMarginSpan;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;

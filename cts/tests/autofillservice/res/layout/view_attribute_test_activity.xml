@@ -19,6 +19,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
     android:id="@+id/rootContainer">
     <EditText android:id="@+id/editTextNoHint"
         android:layout_width="wrap_content"
@@ -69,21 +71,21 @@
                 android:layout_height="wrap_content"
                 android:layout_width="wrap_content"
                 android:paddingTop="23px"
-                android:paddingBottom="31px"
+                android:paddingBottom="11px"
                 android:paddingLeft="37px"
                 android:paddingRight="29px"
                 android:orientation="vertical"
                 android:background="#00F"
                 android:importantForAutofill="yes">
                 <EditText android:id="@+id/tripleNestedView"
-                    android:layout_height="41px"
+                    android:layout_height="11px"
                     android:layout_width="43px"
                     android:background="#FF0"
                     android:importantForAutofill="yes" />
             </LinearLayout>
 
             <EditText android:id="@+id/secondDoubleNestedView"
-                android:layout_height="47px"
+                android:layout_height="17px"
                 android:layout_width="53px"
                 android:background="#F0F"
                 android:importantForAutofill="yes" />

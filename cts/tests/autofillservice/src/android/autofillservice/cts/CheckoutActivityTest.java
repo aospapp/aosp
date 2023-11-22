@@ -30,6 +30,7 @@ import static android.autofillservice.cts.Helper.assertTextAndValue;
 import static android.autofillservice.cts.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.Helper.assertToggleIsSanitized;
 import static android.autofillservice.cts.Helper.assertToggleValue;
+import static android.autofillservice.cts.Helper.findAutofillIdByResourceId;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.Helper.getContext;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_CREDIT_CARD;
@@ -45,15 +46,15 @@ import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.CharSequenceTransformation;
 import android.service.autofill.CustomDescription;
+import android.service.autofill.FillContext;
 import android.service.autofill.ImageTransformation;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiObject2;
+import android.view.autofill.AutofillId;
 import android.widget.ArrayAdapter;
 import android.widget.RemoteViews;
 import android.widget.Spinner;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -62,17 +63,19 @@ import java.util.regex.Pattern;
 /**
  * Test case for an activity containing non-TextField views.
  */
-public class CheckoutActivityTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<CheckoutActivity> mActivityRule =
-        new AutofillActivityTestRule<CheckoutActivity>(CheckoutActivity.class);
+public class CheckoutActivityTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<CheckoutActivity> {
 
     private CheckoutActivity mActivity;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<CheckoutActivity> getActivityRule() {
+        return new AutofillActivityTestRule<CheckoutActivity>(CheckoutActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     @Test
@@ -115,7 +118,7 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofill() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofill() is enough")
     public void testAutofillDynamicAdapter() throws Exception {
         // Set activity.
         mActivity.onCcExpiration((v) -> v.setAdapter(new ArrayAdapter<String>(getContext(),
@@ -158,7 +161,7 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
     // TODO: this should be a pure unit test exercising onProvideAutofillStructure(),
     // but that would require creating a custom ViewStructure.
     @Test
-    @AppModeFull // Unit test
+    @AppModeFull(reason = "Unit test")
     public void testGetAutofillOptionsSorted() throws Exception {
         // Set service.
         enableService();
@@ -248,13 +251,13 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // Service-specific test
+    @AppModeFull(reason = "Service-specific test")
     public void testCustomizedSaveUi() throws Exception {
         customizedSaveUi(false);
     }
 
     @Test
-    @AppModeFull // Service-specific test
+    @AppModeFull(reason = "Service-specific test")
     public void testCustomizedSaveUiWithContentDescription() throws Exception {
         customizedSaveUi(true);
     }
@@ -269,31 +272,38 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
         // Set expectations.
         final String packageName = getContext().getPackageName();
 
-        final RemoteViews presentation = new RemoteViews(packageName,
-                R.layout.two_horizontal_text_fields);
-        final CharSequenceTransformation trans1 = new CharSequenceTransformation
-                .Builder(mActivity.getCcNumber().getAutofillId(), Pattern.compile("(.*)"), "$1")
-                .build();
-        final CharSequenceTransformation trans2 = new CharSequenceTransformation
-                .Builder(mActivity.getCcExpiration().getAutofillId(), Pattern.compile("(.*)"), "$1")
-                .build();
-        final ImageTransformation trans3 = (withContentDescription
-                ? new ImageTransformation.Builder(mActivity.getCcNumber().getAutofillId(),
-                        Pattern.compile("(.*)"), R.drawable.android,
-                        "One image is worth thousand words")
-                : new ImageTransformation.Builder(mActivity.getCcNumber().getAutofillId(),
-                        Pattern.compile("(.*)"), R.drawable.android))
-                .build();
-
-        final CustomDescription customDescription = new CustomDescription.Builder(presentation)
-                .addChild(R.id.first, trans1)
-                .addChild(R.id.second, trans2)
-                .addChild(R.id.img, trans3)
-                .build();
-
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_CREDIT_CARD, ID_CC_NUMBER, ID_CC_EXPIRATION)
-                .setCustomDescription(customDescription)
+                .setSaveInfoVisitor((contexts, builder) -> {
+                    final RemoteViews presentation = new RemoteViews(packageName,
+                            R.layout.two_horizontal_text_fields);
+                    final FillContext context = contexts.get(0);
+                    final AutofillId ccNumberId = findAutofillIdByResourceId(context,
+                            ID_CC_NUMBER);
+                    final AutofillId ccExpirationId = findAutofillIdByResourceId(context,
+                            ID_CC_EXPIRATION);
+                    final CharSequenceTransformation trans1 = new CharSequenceTransformation
+                            .Builder(ccNumberId, Pattern.compile("(.*)"), "$1")
+                            .build();
+                    final CharSequenceTransformation trans2 = new CharSequenceTransformation
+                            .Builder(ccExpirationId, Pattern.compile("(.*)"), "$1")
+                            .build();
+                    final ImageTransformation trans3 = (withContentDescription
+                            ? new ImageTransformation.Builder(ccNumberId,
+                                    Pattern.compile("(.*)"), R.drawable.android,
+                                    "One image is worth thousand words")
+                            : new ImageTransformation.Builder(ccNumberId,
+                                    Pattern.compile("(.*)"), R.drawable.android))
+                            .build();
+
+                    final CustomDescription customDescription =
+                            new CustomDescription.Builder(presentation)
+                            .addChild(R.id.first, trans1)
+                            .addChild(R.id.second, trans2)
+                            .addChild(R.id.img, trans3)
+                            .build();
+                    builder.setCustomDescription(customDescription);
+                })
                 .build());
 
         // Dynamically change view contents
@@ -349,22 +359,29 @@ public class CheckoutActivityTest extends AutoFillServiceTestCase {
 
         // Set expectations.
         final String packageName = getContext().getPackageName();
-        final RemoteViews presentation = new RemoteViews(packageName,
-                R.layout.two_horizontal_text_fields);
-        final CharSequenceTransformation trans1 = new CharSequenceTransformation
-                .Builder(mActivity.getCcNumber().getAutofillId(), Pattern.compile("(.*)"), "$1")
-                .build();
-        final CharSequenceTransformation trans2 = new CharSequenceTransformation
-                .Builder(mActivity.getCcExpiration().getAutofillId(), Pattern.compile("(.*)"), "$1")
-                .build();
-        final CustomDescription customDescription = new CustomDescription.Builder(presentation)
-                .addChild(R.id.first, trans1)
-                .addChild(R.id.second, trans2)
-                .build();
-
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_CREDIT_CARD, ID_CC_NUMBER, ID_CC_EXPIRATION)
-                .setCustomDescription(customDescription)
+                .setSaveInfoVisitor((contexts, builder) -> {
+                    final FillContext context = contexts.get(0);
+                    final AutofillId ccNumberId = findAutofillIdByResourceId(context,
+                            ID_CC_NUMBER);
+                    final AutofillId ccExpirationId = findAutofillIdByResourceId(context,
+                            ID_CC_EXPIRATION);
+                    final RemoteViews presentation = new RemoteViews(packageName,
+                            R.layout.two_horizontal_text_fields);
+                    final CharSequenceTransformation trans1 = new CharSequenceTransformation
+                            .Builder(ccNumberId, Pattern.compile("(.*)"), "$1")
+                            .build();
+                    final CharSequenceTransformation trans2 = new CharSequenceTransformation
+                            .Builder(ccExpirationId, Pattern.compile("(.*)"), "$1")
+                            .build();
+                    final CustomDescription customDescription =
+                            new CustomDescription.Builder(presentation)
+                            .addChild(R.id.first, trans1)
+                            .addChild(R.id.second, trans2)
+                            .build();
+                    builder.setCustomDescription(customDescription);
+                })
                 .build());
 
         // Dynamically change view contents

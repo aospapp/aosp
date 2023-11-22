@@ -93,7 +93,14 @@ class AnycastTest(multinetwork_base.MultiNetworkBaseTest):
     # This will hang if the kernel has the bug.
     thread = CloseFileDescriptorThread(self.tuns[netid])
     thread.start()
-    time.sleep(0.1)
+    # Wait up to 3 seconds for the thread to finish, but
+    # continue and fail the test if the thread hangs.
+
+    # For kernels with MPTCP ported, closing tun interface need more
+    # than 0.5 sec. DAD procedure within MPTCP fullmesh module takes
+    # more time, because duplicate address-timer takes a refcount
+    # on the IPv6-address, preventing it from getting closed.
+    thread.join(3)
 
     # Make teardown work.
     del self.tuns[netid]

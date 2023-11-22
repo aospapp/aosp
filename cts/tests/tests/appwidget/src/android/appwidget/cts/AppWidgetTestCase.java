@@ -20,14 +20,18 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Instrumentation;
+import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProviderInfo;
 import android.appwidget.cts.provider.FirstAppWidgetProvider;
 import android.appwidget.cts.provider.SecondAppWidgetProvider;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.ParcelFileDescriptor;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+import android.os.Process;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.runner.RunWith;
@@ -45,6 +49,12 @@ public abstract class AppWidgetTestCase {
 
     private static final String SECOND_APP_WIDGET_CONFIGURE_ACTIVITY =
             "android.appwidget.cts.provider.SecondAppWidgetConfigureActivity";
+
+    private static final String GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND =
+            "appwidget grantbind --package android.appwidget.cts --user 0";
+
+    private static final String REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND =
+            "appwidget revokebind --package android.appwidget.cts --user 0";
 
     @Before
     public void assumeHasWidgets() {
@@ -156,6 +166,27 @@ public abstract class AppWidgetTestCase {
                 SecondAppWidgetProvider.class.getName());
     }
 
+    public AppWidgetProviderInfo getProviderInfo(ComponentName componentName) {
+        List<AppWidgetProviderInfo> providers = getAppWidgetManager().getInstalledProviders();
+
+        final int providerCount = providers.size();
+        for (int i = 0; i < providerCount; i++) {
+            AppWidgetProviderInfo provider = providers.get(i);
+            if (componentName.equals(provider.provider)
+                    && Process.myUserHandle().equals(provider.getProfile())) {
+                return provider;
+
+            }
+        }
+
+        return null;
+    }
+
+    public AppWidgetManager getAppWidgetManager() {
+        return (AppWidgetManager) getInstrumentation().getTargetContext()
+                .getSystemService(Context.APPWIDGET_SERVICE);
+    }
+
     public ArrayList<String> runShellCommand(String command) throws Exception {
         ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation()
                 .executeShellCommand(command);
@@ -170,5 +201,13 @@ public abstract class AppWidgetTestCase {
             }
         }
         return ret;
+    }
+
+    protected void grantBindAppWidgetPermission() throws Exception {
+        runShellCommand(GRANT_BIND_APP_WIDGET_PERMISSION_COMMAND);
+    }
+
+    protected void revokeBindAppWidgetPermission() throws Exception {
+        runShellCommand(REVOKE_BIND_APP_WIDGET_PERMISSION_COMMAND);
     }
 }

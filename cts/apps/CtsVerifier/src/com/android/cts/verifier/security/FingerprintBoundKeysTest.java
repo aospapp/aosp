@@ -16,9 +16,6 @@
 
 package com.android.cts.verifier.security;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-
 import android.Manifest;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -26,20 +23,22 @@ import android.app.DialogFragment;
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
 import android.os.CancellationSignal;
-import android.util.Log;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
 import android.security.keystore.UserNotAuthenticatedException;
+import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.Toast;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
 
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
@@ -65,32 +64,43 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
     /** Alias for our key in the Android Key Store. */
     private static final String KEY_NAME = "my_key";
     private static final byte[] SECRET_BYTE_ARRAY = new byte[] {1, 2, 3, 4, 5, 6};
-    private static final int AUTHENTICATION_DURATION_SECONDS = 5;
+    private static final int AUTHENTICATION_DURATION_SECONDS = 2;
     private static final int CONFIRM_CREDENTIALS_REQUEST_CODE = 1;
-    private static final int FINGERPRINT_PERMISSION_REQUEST_CODE = 0;
+    private static final int BIOMETRIC_REQUEST_PERMISSION_CODE = 0;
+
+    protected boolean useStrongBox;
 
     private FingerprintManager mFingerprintManager;
     private KeyguardManager mKeyguardManager;
     private FingerprintAuthDialogFragment mFingerprintDialog;
     private Cipher mCipher;
 
+    protected int getTitleRes() {
+        return R.string.sec_fingerprint_bound_key_test;
+    }
+
+    protected int getDescriptionRes() {
+        return R.string.sec_fingerprint_bound_key_test_info;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.sec_screen_lock_keys_main);
         setPassFailButtonClickListeners();
-        setInfoResources(R.string.sec_fingerprint_bound_key_test, R.string.sec_fingerprint_bound_key_test_info, -1);
+        setInfoResources(getTitleRes(), getDescriptionRes(), -1);
         getPassButton().setEnabled(false);
-        requestPermissions(new String[]{Manifest.permission.USE_FINGERPRINT},
-                FINGERPRINT_PERMISSION_REQUEST_CODE);
+        requestPermissions(new String[]{Manifest.permission.USE_BIOMETRIC},
+                BIOMETRIC_REQUEST_PERMISSION_CODE);
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] state) {
-        if (requestCode == FINGERPRINT_PERMISSION_REQUEST_CODE && state[0] == PackageManager.PERMISSION_GRANTED) {
+        if (requestCode == BIOMETRIC_REQUEST_PERMISSION_CODE && state[0] == PackageManager.PERMISSION_GRANTED) {
+            useStrongBox = false;
             mFingerprintManager = (FingerprintManager) getSystemService(Context.FINGERPRINT_SERVICE);
-            mKeyguardManager = (KeyguardManager) getSystemService(KeyguardManager.class);
-            Button startTestButton = (Button) findViewById(R.id.sec_start_test_button);
+            mKeyguardManager = getSystemService(KeyguardManager.class);
+            Button startTestButton = findViewById(R.id.sec_start_test_button);
 
             if (!mKeyguardManager.isKeyguardSecure()) {
                 // Show a message that the user hasn't set up a lock screen.
@@ -98,33 +108,47 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
                                 + "Go to 'Settings -> Security -> Screen lock' to set up a lock screen");
                 startTestButton.setEnabled(false);
                 return;
-            } else if (!mFingerprintManager.hasEnrolledFingerprints()) {
-                showToast("No fingerprints enrolled.\n"
-                                + "Go to 'Settings -> Security -> Fingerprint' to set up a fingerprint");
-                startTestButton.setEnabled(false);
-                return;
             }
+
+            onPermissionsGranted();
 
             startTestButton.setOnClickListener(new OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    createKey();
-                    prepareEncrypt();
-                    if (tryEncrypt()) {
-                        showToast("Test failed. Key accessible without auth.");
-                    } else {
-                        showAuthenticationScreen();
-                    }
+                    startTest();
                 }
             });
         }
     }
 
     /**
-     * Creates a symmetric key in the Android Key Store which can only be used after the user has
-     * authenticated with device credentials within the last X seconds.
+     * Fingerprint-specific check before allowing test to be started
      */
-    private void createKey() {
+    protected void onPermissionsGranted() {
+        mFingerprintManager = getSystemService(FingerprintManager.class);
+        if (!mFingerprintManager.hasEnrolledFingerprints()) {
+            showToast("No fingerprints enrolled.\n"
+                    + "Go to 'Settings -> Security -> Fingerprint' to set up a fingerprint");
+            Button startTestButton = findViewById(R.id.sec_start_test_button);
+            startTestButton.setEnabled(false);
+        }
+    }
+
+    protected void startTest() {
+        createKey(false /* hasValidityDuration */);
+        prepareEncrypt();
+        if (tryEncrypt()) {
+            showToast("Test failed. Key accessible without auth.");
+        } else {
+            prepareEncrypt();
+            showAuthenticationScreen();
+        }
+    }
+
+    /**
+     * Creates a symmetric key in the Android Key Store which requires auth
+     */
+    private void createKey(boolean hasValidityDuration) {
         // Generate a key to decrypt payment credentials, tokens, etc.
         // This will most likely be a registration step for the user when they are setting up your app.
         try {
@@ -139,7 +163,10 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
                     KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
                     .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
                     .setUserAuthenticationRequired(true)
+                    .setUserAuthenticationValidityDurationSeconds(
+                        hasValidityDuration ? AUTHENTICATION_DURATION_SECONDS : -1)
                     .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+                    .setIsStrongBoxBacked(useStrongBox)
                     .build());
             keyGenerator.generateKey();
             if (DEBUG) {
@@ -175,15 +202,24 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
         return mCipher;
     }
 
+    protected boolean doValidityDurationTest(boolean useStrongBox) {
+        mCipher = null;
+        createKey(true /* hasValidityDuration */);
+        if (prepareEncrypt()) {
+            return tryEncrypt();
+        }
+        return false;
+    }
+
     private boolean encryptInternal(boolean doEncrypt) {
         try {
-            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
-            keyStore.load(null);
-            SecretKey secretKey = (SecretKey) keyStore.getKey(KEY_NAME, null);
-            if (DEBUG) {
-                Log.i(TAG, "encryptInternal: [1]: key retrieved");
-            }
             if (!doEncrypt) {
+                KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+                keyStore.load(null);
+                SecretKey secretKey = (SecretKey) keyStore.getKey(KEY_NAME, null);
+                if (DEBUG) {
+                    Log.i(TAG, "encryptInternal: [1]: key retrieved");
+                }
                 if (mCipher == null) {
                     mCipher = Cipher.getInstance(KeyProperties.KEY_ALGORITHM_AES + "/"
                             + KeyProperties.BLOCK_MODE_CBC + "/"
@@ -205,18 +241,22 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
             // All we want it to see the event in the log;
             // Extra exception info is not valuable
             if (DEBUG) {
-                Log.i(TAG, "encryptInternal: [4]: Encryption failed");
+                Log.w(TAG, "encryptInternal: [4]: Encryption failed", e);
             }
             return false;
         } catch (KeyPermanentlyInvalidatedException e) {
             // Extra exception info is not of big value, but let's have it,
             // since this is an unlikely sutuation and potential error condition
             Log.w(TAG, "encryptInternal: [5]: Key invalidated", e);
-            createKey();
+            createKey(false /* hasValidityDuration */);
             showToast("The key has been invalidated, please try again.\n");
             return false;
-        } catch (NoSuchPaddingException | KeyStoreException | CertificateException | UnrecoverableKeyException | IOException
-                | NoSuchAlgorithmException | InvalidKeyException e) {
+        } catch (UserNotAuthenticatedException e) {
+            Log.w(TAG, "encryptInternal: [6]: User not authenticated", e);
+            return false;
+        } catch (NoSuchPaddingException | KeyStoreException | CertificateException
+                 | UnrecoverableKeyException | IOException
+                 | NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Failed to init Cipher", e);
         }
     }
@@ -238,6 +278,7 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
         private FingerprintManager mFingerprintManager;
         private FingerprintManagerCallback mFingerprintManagerCallback;
         private boolean mSelfCancelled;
+        private boolean hasStrongBox;
 
         class FingerprintManagerCallback extends FingerprintManager.AuthenticationCallback {
             @Override
@@ -268,10 +309,27 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
                 if (DEBUG) {
                     Log.i(TAG,"onAuthenticationSucceeded");
                 }
-                if (mActivity.tryEncrypt()) {
-                    showToast("Test passed.");
-                    mActivity.getPassButton().setEnabled(true);
-                    FingerprintAuthDialogFragment.this.dismiss();
+                hasStrongBox = getContext().getPackageManager()
+                                    .hasSystemFeature(PackageManager.FEATURE_STRONGBOX_KEYSTORE);
+                if (mActivity.tryEncrypt() &&
+                    mActivity.doValidityDurationTest(false)) {
+                    try {
+                        Thread.sleep(3000);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Failed to sleep", e);
+                    }
+                    if (!mActivity.doValidityDurationTest(false)) {
+                        showToast(String.format("Test passed. useStrongBox: %b",
+                                                mActivity.useStrongBox));
+                        if (mActivity.useStrongBox || !hasStrongBox) {
+                            mActivity.getPassButton().setEnabled(true);
+                        } else {
+                            showToast("Rerunning with StrongBox");
+                        }
+                        FingerprintAuthDialogFragment.this.dismiss();
+                    } else {
+                        showToast("Test failed. Key accessible after validity time limit.");
+                    }
                 } else {
                     showToast("Test failed. Key not accessible after auth");
                 }
@@ -282,6 +340,11 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
         public void onDismiss(DialogInterface dialog) {
             mCancellationSignal.cancel();
             mSelfCancelled = true;
+            // Start the test again, but with StrongBox if supported
+            if (!mActivity.useStrongBox && hasStrongBox) {
+                mActivity.useStrongBox = true;
+                mActivity.startTest();
+            }
         }
 
         private void setActivity(FingerprintBoundKeysTest activity) {

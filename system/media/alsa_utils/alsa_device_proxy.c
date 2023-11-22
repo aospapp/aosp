@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <audio_utils/clock.h>
+
 #include "include/alsa_device_proxy.h"
 
 #include "include/alsa_logging.h"
@@ -231,6 +233,28 @@ int proxy_get_presentation_position(const alsa_device_proxy * proxy,
     return ret;
 }
 
+int proxy_get_capture_position(const alsa_device_proxy * proxy,
+        int64_t *frames, int64_t *time)
+{
+    int ret = -ENOSYS;
+    unsigned int avail;
+    struct timespec timestamp;
+    // TODO: add logging for tinyalsa errors.
+    if (proxy->pcm != NULL
+            && pcm_get_htimestamp(proxy->pcm, &avail, &timestamp) == 0) {
+        const size_t kernel_buffer_size =
+                proxy->alsa_config.period_size * proxy->alsa_config.period_count;
+        if (avail > kernel_buffer_size) {
+            ALOGE("available frames(%u) > buffer size(%zu)", avail, kernel_buffer_size);
+        } else {
+            *frames = proxy->transferred + avail;
+            *time = audio_utils_ns_from_timespec(&timestamp);
+            ret = 0;
+        }
+    }
+    return ret;
+}
+
 /*
  * I/O
  */
@@ -243,9 +267,13 @@ int proxy_write(alsa_device_proxy * proxy, const void *data, unsigned int count)
     return ret;
 }
 
-int proxy_read(const alsa_device_proxy * proxy, void *data, unsigned int count)
+int proxy_read(alsa_device_proxy * proxy, void *data, unsigned int count)
 {
-    return pcm_read(proxy->pcm, data, count);
+    int ret = pcm_read(proxy->pcm, data, count);
+    if (ret == 0) {
+        proxy->transferred += count / proxy->frame_size;
+    }
+    return ret;
 }
 
 /*

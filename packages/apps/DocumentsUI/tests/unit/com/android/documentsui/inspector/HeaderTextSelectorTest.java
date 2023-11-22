@@ -19,14 +19,16 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertTrue;
 
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
-
 import android.test.suitebuilder.annotation.SmallTest;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.widget.TextView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.documentsui.inspector.HeaderTextSelector.Selector;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

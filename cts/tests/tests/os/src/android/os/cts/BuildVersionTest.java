@@ -19,23 +19,23 @@ package android.os.cts;
 import android.content.res.AssetManager;
 import android.os.Build;
 import android.platform.test.annotations.RestrictedBuildTest;
-import android.support.test.InstrumentationRegistry;
 import android.util.Log;
 
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import androidx.test.InstrumentationRegistry;
 
 import junit.framework.TestCase;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class BuildVersionTest extends TestCase {
 
     private static final String LOG_TAG = "BuildVersionTest";
-    private static final int EXPECTED_SDK = 28;
+    private static final int EXPECTED_SDK = 29;
     private static final String EXPECTED_BUILD_VARIANT = "user";
     private static final String EXPECTED_TAG = "release-keys";
     private static final String PLATFORM_VERSIONS_FILE = "platform_versions.txt";
@@ -63,13 +63,12 @@ public class BuildVersionTest extends TestCase {
      */
     @RestrictedBuildTest
     public void testBuildFingerprint() {
-        final String fingerprint = Build.FINGERPRINT;
+        String fingerprint = Build.FINGERPRINT;
         Log.i(LOG_TAG, String.format("Testing fingerprint %s", fingerprint));
 
-        assertEquals("Build fingerprint must not include whitespace", -1,
-                fingerprint.indexOf(' '));
-        final String[] fingerprintSegs = fingerprint.split("/");
-        assertEquals("Build fingerprint does not match expected format", 6, fingerprintSegs.length);
+        verifyFingerprintStructure(fingerprint);
+
+        String[] fingerprintSegs = fingerprint.split("/");
         assertEquals(Build.BRAND, fingerprintSegs[0]);
         assertEquals(Build.PRODUCT, fingerprintSegs[1]);
 
@@ -80,11 +79,36 @@ public class BuildVersionTest extends TestCase {
 
         assertEquals(Build.ID, fingerprintSegs[3]);
 
-        assertTrue(fingerprintSegs[4].contains(":"));
         String[] buildNumberVariant = fingerprintSegs[4].split(":");
         String buildVariant = buildNumberVariant[1];
         assertEquals("Variant", EXPECTED_BUILD_VARIANT, buildVariant);
         assertEquals("Tag", EXPECTED_TAG, fingerprintSegs[5]);
+    }
+
+    public void testPartitions() {
+        List<Build.Partition> partitions = Build.getFingerprintedPartitions();
+        Set<String> seenPartitions = new HashSet<>();
+        for (Build.Partition partition : partitions) {
+            verifyFingerprintStructure(partition.getFingerprint());
+            assertTrue(partition.getBuildTimeMillis() > 0);
+            boolean unique = seenPartitions.add(partition.getName());
+            assertTrue("partitions not unique, " + partition.getName() + " is duplicated", unique);
+        }
+        assertTrue(seenPartitions.contains(Build.Partition.PARTITION_NAME_SYSTEM));
+    }
+
+    private void verifyFingerprintStructure(String fingerprint) {
+        assertEquals("Build fingerprint must not include whitespace", -1, fingerprint.indexOf(' '));
+
+        String[] segments = fingerprint.split("/");
+        assertEquals("Build fingerprint does not match expected format", 6, segments.length);
+
+        String[] devicePlatform = segments[2].split(":");
+        assertEquals(2, devicePlatform.length);
+
+        assertTrue(segments[4].contains(":"));
+        String buildVariant = segments[4].split(":")[1];
+        assertTrue(buildVariant.length() > 0);
     }
 
     private void assertNotEmpty(String value) {

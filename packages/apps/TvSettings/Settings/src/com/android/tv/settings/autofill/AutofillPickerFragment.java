@@ -20,19 +20,20 @@ import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.UserHandle;
-import android.support.annotation.Keep;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.Html;
 import android.widget.Button;
 
+import androidx.annotation.Keep;
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
+
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.DefaultAppInfo;
-import com.android.settingslib.wrapper.PackageManagerWrapper;
 import com.android.tv.settings.R;
 import com.android.tv.settings.RadioPreference;
 import com.android.tv.settings.SettingsPreferenceFragment;
@@ -52,7 +53,7 @@ public class AutofillPickerFragment extends SettingsPreferenceFragment {
 
     private static final int FINISH_ACTIVITY_DELAY = 300;
 
-    private PackageManagerWrapper mPm;
+    private PackageManager mPm;
 
     private final Handler mHandler = new Handler();
 
@@ -85,7 +86,7 @@ public class AutofillPickerFragment extends SettingsPreferenceFragment {
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
-        mPm = new PackageManagerWrapper(context.getPackageManager());
+        mPm = context.getPackageManager();
     }
 
     @Override

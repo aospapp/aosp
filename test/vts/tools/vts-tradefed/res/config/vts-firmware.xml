@@ -19,7 +19,6 @@
   <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-firmware" />
 
-  <option name="compatibility:include-filter" value="VtsFirmwareDtboVerification" />
-  <option name="compatibility:include-filter" value="VtsFirmwareBootHeaderVerification" />
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-firmware" />
 
 </configuration>

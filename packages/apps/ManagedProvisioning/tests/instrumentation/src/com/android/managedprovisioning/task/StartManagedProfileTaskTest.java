@@ -19,6 +19,7 @@ package com.android.managedprovisioning.task;
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
@@ -35,6 +36,7 @@ import android.os.UserHandle;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import org.mockito.ArgumentCaptor;
@@ -77,7 +79,8 @@ public class StartManagedProfileTaskTest extends AndroidTestCase {
         mHandlerThread = new HandlerThread("Test thread");
         mHandlerThread.start();
 
-        mTask = new StartManagedProfileTask(mIActivityManager, mContext, TEST_PARAMS, mCallback);
+        mTask = new StartManagedProfileTask(mIActivityManager, mContext, TEST_PARAMS, mCallback,
+                mock(ProvisioningAnalyticsTracker.class));
 
         // register a countdown latch for the success callback
         doAnswer((InvocationOnMock invocationOnMock) -> {

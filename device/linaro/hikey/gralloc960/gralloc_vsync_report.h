@@ -20,10 +20,8 @@
 #include "gralloc_helper.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
-
 
 typedef enum mali_vsync_event
 {
@@ -35,11 +33,11 @@ extern void _mali_base_arch_vsync_event_report(mali_vsync_event);
 
 inline void gralloc_mali_vsync_report(mali_vsync_event event)
 {
-	#ifdef MALI_VSYNC_EVENT_REPORT_ENABLE
+#ifdef MALI_VSYNC_EVENT_REPORT_ENABLE
 	_mali_base_arch_vsync_event_report(event);
-	#else
+#else
 	GRALLOC_UNUSED(event);
-	#endif
+#endif
 }
 
 #ifdef __cplusplus

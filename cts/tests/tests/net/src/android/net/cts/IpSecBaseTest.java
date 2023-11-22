@@ -19,19 +19,22 @@ package android.net.cts;
 import static org.junit.Assert.assertArrayEquals;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
 import android.net.IpSecAlgorithm;
 import android.net.IpSecManager;
 import android.net.IpSecTransform;
+import android.platform.test.annotations.AppModeFull;
 import android.system.Os;
 import android.system.OsConstants;
-import android.test.AndroidTestCase;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -41,7 +44,12 @@ import java.net.SocketException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class IpSecBaseTest extends AndroidTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(AndroidJUnit4.class)
+public class IpSecBaseTest {
 
     private static final String TAG = IpSecBaseTest.class.getSimpleName();
 
@@ -66,11 +74,19 @@ public class IpSecBaseTest extends AndroidTestCase {
     protected static final byte[] AUTH_KEY = getKey(256);
     protected static final byte[] CRYPT_KEY = getKey(256);
 
+    protected ConnectivityManager mCM;
     protected IpSecManager mISM;
 
-    protected void setUp() throws Exception {
-        super.setUp();
-        mISM = (IpSecManager) getContext().getSystemService(Context.IPSEC_SERVICE);
+    @Before
+    public void setUp() throws Exception {
+        mISM =
+                (IpSecManager)
+                        InstrumentationRegistry.getContext()
+                                .getSystemService(Context.IPSEC_SERVICE);
+        mCM =
+                (ConnectivityManager)
+                        InstrumentationRegistry.getContext()
+                                .getSystemService(Context.CONNECTIVITY_SERVICE);
     }
 
     protected static byte[] getKey(int bitLength) {
@@ -191,6 +207,17 @@ public class IpSecBaseTest extends AndroidTestCase {
 
     public static class JavaUdpSocket implements GenericUdpSocket {
         public final DatagramSocket mSocket;
+
+        public JavaUdpSocket(InetAddress localAddr, int port) {
+            try {
+                mSocket = new DatagramSocket(port, localAddr);
+                mSocket.setSoTimeout(SOCK_TIMEOUT);
+            } catch (SocketException e) {
+                // Fail loudly if we can't set up sockets properly. And without the timeout, we
+                // could easily end up in an endless wait.
+                throw new RuntimeException(e);
+            }
+        }
 
         public JavaUdpSocket(InetAddress localAddr) {
             try {
@@ -422,35 +449,36 @@ public class IpSecBaseTest extends AndroidTestCase {
     }
 
     protected static IpSecTransform buildIpSecTransform(
-            Context mContext,
+            Context context,
             IpSecManager.SecurityParameterIndex spi,
             IpSecManager.UdpEncapsulationSocket encapSocket,
             InetAddress remoteAddr)
             throws Exception {
-        String localAddr = (remoteAddr instanceof Inet4Address) ? IPV4_LOOPBACK : IPV6_LOOPBACK;
         IpSecTransform.Builder builder =
-                new IpSecTransform.Builder(mContext)
-                .setEncryption(new IpSecAlgorithm(IpSecAlgorithm.CRYPT_AES_CBC, CRYPT_KEY))
-                .setAuthentication(
-                        new IpSecAlgorithm(
-                                IpSecAlgorithm.AUTH_HMAC_SHA256,
-                                AUTH_KEY,
-                                AUTH_KEY.length * 4));
+                new IpSecTransform.Builder(context)
+                        .setEncryption(new IpSecAlgorithm(IpSecAlgorithm.CRYPT_AES_CBC, CRYPT_KEY))
+                        .setAuthentication(
+                                new IpSecAlgorithm(
+                                        IpSecAlgorithm.AUTH_HMAC_SHA256,
+                                        AUTH_KEY,
+                                        AUTH_KEY.length * 4));
 
         if (encapSocket != null) {
             builder.setIpv4Encapsulation(encapSocket, encapSocket.getPort());
         }
 
-        return builder.buildTransportModeTransform(InetAddress.getByName(localAddr), spi);
+        return builder.buildTransportModeTransform(remoteAddr, spi);
     }
 
     private IpSecTransform buildDefaultTransform(InetAddress localAddr) throws Exception {
         try (IpSecManager.SecurityParameterIndex spi =
                 mISM.allocateSecurityParameterIndex(localAddr)) {
-            return buildIpSecTransform(mContext, spi, null, localAddr);
+            return buildIpSecTransform(InstrumentationRegistry.getContext(), spi, null, localAddr);
         }
     }
 
+    @Test
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testJavaTcpSocketPair() throws Exception {
         for (String addr : LOOPBACK_ADDRS) {
             InetAddress local = InetAddress.getByName(addr);
@@ -461,6 +489,8 @@ public class IpSecBaseTest extends AndroidTestCase {
         }
     }
 
+    @Test
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testJavaUdpSocketPair() throws Exception {
         for (String addr : LOOPBACK_ADDRS) {
             InetAddress local = InetAddress.getByName(addr);
@@ -472,6 +502,8 @@ public class IpSecBaseTest extends AndroidTestCase {
         }
     }
 
+    @Test
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testJavaUdpSocketPairUnconnected() throws Exception {
         for (String addr : LOOPBACK_ADDRS) {
             InetAddress local = InetAddress.getByName(addr);
@@ -483,6 +515,8 @@ public class IpSecBaseTest extends AndroidTestCase {
         }
     }
 
+    @Test
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testNativeTcpSocketPair() throws Exception {
         for (String addr : LOOPBACK_ADDRS) {
             InetAddress local = InetAddress.getByName(addr);
@@ -494,6 +528,8 @@ public class IpSecBaseTest extends AndroidTestCase {
         }
     }
 
+    @Test
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testNativeUdpSocketPair() throws Exception {
         for (String addr : LOOPBACK_ADDRS) {
             InetAddress local = InetAddress.getByName(addr);
@@ -505,6 +541,8 @@ public class IpSecBaseTest extends AndroidTestCase {
         }
     }
 
+    @Test
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void testNativeUdpSocketPairUnconnected() throws Exception {
         for (String addr : LOOPBACK_ADDRS) {
             InetAddress local = InetAddress.getByName(addr);

@@ -83,7 +83,7 @@
             android:clickable="true"
             android:contentDescription="@string/dismiss_suggestion"
             android:focusable="true"
-            android:src="@drawable/ic_cancel"/>
+            android:src="@drawable/ic_dismiss"/>
 
         <LinearLayout
             android:id="@android:id/widget_frame"

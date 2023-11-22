@@ -58,7 +58,8 @@ emugl-end-module = \
     $(eval include $(_EMUGL_INCLUDE_TYPE))\
     $(eval _EMUGL_INCLUDE_TYPE :=) \
     $(eval _emugl_$(_emugl_HOST)modules += $(_emugl_MODULE))\
-    $(if $(EMUGL_DEBUG),$(call emugl-dump-module))
+    $(if $(EMUGL_DEBUG),$(call emugl-dump-module)) \
+    $(if $(CMAKE_GENERATE), $(call dump-json-module))
 
 # Managing module exports and imports.
 #

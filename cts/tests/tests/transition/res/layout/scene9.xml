@@ -20,7 +20,7 @@
                 android:transitionName="holder"
                 android:id="@+id/holder">
     <FrameLayout
-            android:layout_marginTop="50dp"
+            android:layout_marginTop="70dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content">
         <TextView

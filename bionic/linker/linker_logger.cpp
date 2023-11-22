@@ -106,8 +106,8 @@ void LinkerLogger::ResetState() {
   static CachedProperty debug_ld_all("debug.ld.all");
   flags_ |= ParseProperty(debug_ld_all.Get());
 
-  // Ignore processes started without argv (http://b/33276926).
-  if (g_argv[0] == nullptr) {
+  // Safeguard against a NULL g_argv. Ignore processes started without argv (http://b/33276926).
+  if (g_argv == nullptr || g_argv[0] == nullptr) {
     return;
   }
 
@@ -118,11 +118,7 @@ void LinkerLogger::ResetState() {
   flags_ |= ParseProperty(debug_ld_app);
 }
 
-void LinkerLogger::Log(uint32_t type, const char* format, ...) {
-  if ((flags_ & type) == 0) {
-    return;
-  }
-
+void LinkerLogger::Log(const char* format, ...) {
   va_list ap;
   va_start(ap, format);
   async_safe_format_log_va_list(ANDROID_LOG_DEBUG, "linker", format, ap);

@@ -20,7 +20,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include <utils/Log.h>
+#include <log/log.h>
 #include <audio_utils/spdif/FrameScanner.h>
 
 #include "BitFieldParser.h"

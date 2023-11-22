@@ -15,11 +15,11 @@
 # limitations under the License.
 
 # Modifies any import statements (to remove subdir path)
-pushd ${ANDROID_BUILD_TOP}/test/vti/test_serving
+pushd ${ANDROID_BUILD_TOP}/test
 
-protoc -I=proto --python_out=proto proto/TestLabConfigMessage.proto
-protoc -I=proto --python_out=proto proto/TestScheduleConfigMessage.proto
-protoc -I=proto --python_out=proto proto/GreenBuildScheduleConfigMessage.proto
+protoc -I=. --python_out=. ./vti/test_serving/proto/TestLabConfigMessage.proto
+protoc -I=. --python_out=. ./vti/test_serving/proto/TestScheduleConfigMessage.proto
+protoc -I=. --python_out=. ./vti/test_serving/proto/GreenBuildScheduleConfigMessage.proto
 
 # Compiles all the python source codes.
 python -m compileall .

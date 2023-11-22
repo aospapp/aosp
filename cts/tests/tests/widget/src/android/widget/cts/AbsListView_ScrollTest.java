@@ -24,11 +24,6 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.Suppress;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -40,9 +35,16 @@ import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.Suppress;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.compatibility.common.util.CtsTouchUtils.EventInjectionListener;
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -94,8 +96,8 @@ public class AbsListView_ScrollTest {
                 R.layout.listitemfixed_layout, COUNTRY_LIST);
 
         mListView = (ListView) activity.findViewById(R.id.listview_default);
-        mActivityRule.runOnUiThread(() -> mListView.setAdapter(mCountriesAdapter));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
+                () -> mListView.setAdapter(mCountriesAdapter));
 
         mRowHeightPx = activity.getResources().getDimensionPixelSize(R.dimen.listrow_height);
     }
@@ -515,7 +517,7 @@ public class AbsListView_ScrollTest {
         // Note that due to asynchronous nature of the moving pieces, we might still get one
         // more scroll frame as the injected motion events that constitute an emulated tap
         // are being processed by our list view.
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mListView);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mListView);
 
         // Sleep for a second
         SystemClock.sleep(1000);
@@ -546,7 +548,8 @@ public class AbsListView_ScrollTest {
         // gesture and verify that we're going to get to the IDLE state
         final CountDownLatch flingLatch = new CountDownLatch(1);
         mListView.setOnScrollListener(new ScrollIdleListListener(flingLatch));
-        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mListView, isDownwardsFlingGesture);
+        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mActivityRule, mListView,
+                isDownwardsFlingGesture);
 
         assertTrue("Timed out while waiting for the fling to complete",
                 flingLatch.await(5, TimeUnit.SECONDS));
@@ -607,7 +610,7 @@ public class AbsListView_ScrollTest {
                         flingLatch.countDown();
                     }
                 };
-        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mListView, false,
+        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mActivityRule, mListView, false,
                 eventInjectionListener);
 
         assertTrue("Timed out while waiting for the fling to complete",
@@ -672,13 +675,12 @@ public class AbsListView_ScrollTest {
     public void testFriction() throws Throwable {
         // Set an adapter with 100K items so that no matter how fast our fling is, we won't
         // get to the bottom of the list in one fling
-        mActivityRule.runOnUiThread(
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mListView,
                 () -> mListView.setAdapter(new LargeContentAdapter(mContext, 100000)));
-        mInstrumentation.waitForIdleSync();
 
         final CountDownLatch initialFlingLatch = new CountDownLatch(1);
         mListView.setOnScrollListener(new ScrollIdleListListener(initialFlingLatch));
-        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mListView, false);
+        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mActivityRule, mListView, false);
         assertTrue("Timed out while waiting for the fling to complete",
                 initialFlingLatch.await(5, TimeUnit.SECONDS));
 
@@ -691,7 +693,7 @@ public class AbsListView_ScrollTest {
         // and do the fling again
         final CountDownLatch fastFlingLatch = new CountDownLatch(1);
         mListView.setOnScrollListener(new ScrollIdleListListener(fastFlingLatch));
-        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mListView, false);
+        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mActivityRule, mListView, false);
         assertTrue("Timed out while waiting for the fling to complete",
                 fastFlingLatch.await(5, TimeUnit.SECONDS));
 
@@ -710,7 +712,7 @@ public class AbsListView_ScrollTest {
         // and do the fling again
         final CountDownLatch slowFlingLatch = new CountDownLatch(1);
         mListView.setOnScrollListener(new ScrollIdleListListener(slowFlingLatch));
-        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mListView, false);
+        CtsTouchUtils.emulateFlingGesture(mInstrumentation, mActivityRule, mListView, false);
         assertTrue("Timed out while waiting for the fling to complete",
                 slowFlingLatch.await(5, TimeUnit.SECONDS));
 

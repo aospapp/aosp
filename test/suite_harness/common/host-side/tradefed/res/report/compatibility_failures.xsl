@@ -128,6 +128,8 @@
                             <th>Module</th>
                             <th>Passed</th>
                             <th>Failed</th>
+                            <th>Assumption Failure</th>
+                            <th>Ignored</th>
                             <th>Total Tests</th>
                             <th>Done</th>
                         </tr>
@@ -149,7 +151,13 @@
                                     <xsl:value-of select="count(TestCase/Test[@result = 'fail'])"/>
                                 </td>
                                 <td>
-                                    <xsl:value-of select="count(TestCase/Test[@result = 'fail']) + @pass"/>
+                                    <xsl:value-of select="count(TestCase/Test[@result = 'ASSUMPTION_FAILURE'])"/>
+                                </td>
+                                <td>
+                                    <xsl:value-of select="count(TestCase/Test[@result = 'IGNORED'])"/>
+                                </td>
+                                <td>
+                                    <xsl:value-of select="@total_tests"/>
                                 </td>
                                 <td>
                                     <xsl:value-of select="@done"/>
@@ -210,8 +218,30 @@
                                             <td class="failuredetails"/>
                                         </xsl:if>
 
+                                        <xsl:if test="@result='IGNORED'">
+                                            <td class="pass">
+                                                <div style="text-align: center; margin-left:auto; margin-right:auto;">
+                                                    <xsl:value-of select="@result"/>
+                                                </div>
+                                            </td>
+                                            <td class="failuredetails"/>
+                                        </xsl:if>
+
                                         <xsl:if test="@result='fail'">
                                             <td class="failed">
+                                                <div style="text-align: center; margin-left:auto; margin-right:auto;">
+                                                    <xsl:value-of select="@result"/>
+                                                </div>
+                                            </td>
+                                            <td class="failuredetails">
+                                                <div class="details">
+                                                    <xsl:value-of select="Failure/@message"/>
+                                                </div>
+                                            </td>
+                                        </xsl:if>
+
+                                        <xsl:if test="@result='ASSUMPTION_FAILURE'">
+                                            <td class="pass">
                                                 <div style="text-align: center; margin-left:auto; margin-right:auto;">
                                                     <xsl:value-of select="@result"/>
                                                 </div>

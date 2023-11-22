@@ -43,37 +43,28 @@ enum Option : int {
 // command line arguments
 using Args = std::multimap<Option, std::string>;
 
-class HostFileFetcher : public FileFetcher {
+class HostFileSystem : public FileSystemUnderPath {
    public:
-    void setRootDir(const std::string& rootdir) {
-        mRootDir = rootdir;
-        if (!mRootDir.empty() && mRootDir.back() != '/') {
-            mRootDir.push_back('/');
-        }
+    HostFileSystem(const std::string& rootdir) : FileSystemUnderPath(rootdir) {}
+    status_t fetch(const std::string& path, std::string* fetched,
+                   std::string* error) const override {
+        status_t status = FileSystemUnderPath::fetch(path, fetched, error);
+        std::cerr << "Debug: Fetch '" << getRootDir() << path << "': " << toString(status)
+                  << std::endl;
+        return status;
     }
-    virtual status_t fetch(const std::string& path, std::string& fetched, std::string* error) {
-        return HostFileFetcher::fetchInternal(path, fetched, error);
-    }
-    virtual status_t fetch(const std::string& path, std::string& fetched) {
-        return HostFileFetcher::fetchInternal(path, fetched, nullptr);
-    }
-    virtual status_t listFiles(const std::string& path, std::vector<std::string>* out,
-                               std::string* error) {
-        status_t status = FileFetcher::listFiles(mRootDir + path, out, error);
-        std::cerr << "Debug: List '" << mRootDir << path << "': " << toString(status) << std::endl;
+    status_t listFiles(const std::string& path, std::vector<std::string>* out,
+                       std::string* error) const override {
+        status_t status = FileSystemUnderPath::listFiles(path, out, error);
+        std::cerr << "Debug: List '" << getRootDir() << path << "': " << toString(status)
+                  << std::endl;
         return status;
     }
 
    private:
-    status_t fetchInternal(const std::string& path, std::string& fetched, std::string* error) {
-        status_t status = FileFetcher::fetchInternal(mRootDir + path, fetched, error);
-        std::cerr << "Debug: Fetch '" << mRootDir << path << "': " << toString(status) << std::endl;
-        return status;
-    }
     static std::string toString(status_t status) {
         return status == OK ? "SUCCESS" : strerror(-status);
     }
-    std::string mRootDir;
 };
 
 class PresetPropertyFetcher : public PropertyFetcher {
@@ -111,27 +102,13 @@ class PresetPropertyFetcher : public PropertyFetcher {
     std::map<std::string, std::string> mProps;
 };
 
-// globals
-static HostFileFetcher hostFileFetcher;
-FileFetcher* gFetcher = &hostFileFetcher;
-
-static PartitionMounter partitionMounter;
-PartitionMounter* gPartitionMounter = &partitionMounter;
-
-static ObjectFactory<RuntimeInfo> runtimeInfoFactory;
-ObjectFactory<RuntimeInfo>* gRuntimeInfoFactory = &runtimeInfoFactory;
-
-static PresetPropertyFetcher hostPropertyFetcher;
-const PropertyFetcher& getPropertyFetcher() {
-    return hostPropertyFetcher;
-}
-
 // helper functions
 template <typename T>
-std::unique_ptr<T> readObject(const std::string& path, const XmlConverter<T>& converter) {
+std::unique_ptr<T> readObject(FileSystem* fileSystem, const std::string& path,
+                              const XmlConverter<T>& converter) {
     std::string xml;
     std::string error;
-    status_t err = details::gFetcher->fetch(path, xml, &error);
+    status_t err = fileSystem->fetch(path, &xml, &error);
     if (err != OK) {
         std::cerr << "Error: Cannot read '" << path << "' (" << strerror(-err) << "): " << error
                   << std::endl;
@@ -146,8 +123,9 @@ std::unique_ptr<T> readObject(const std::string& path, const XmlConverter<T>& co
 }
 
 int checkCompatibilityForFiles(const std::string& manifestPath, const std::string& matrixPath) {
-    auto manifest = readObject(manifestPath, gHalManifestConverter);
-    auto matrix = readObject(matrixPath, gCompatibilityMatrixConverter);
+    auto fileSystem = std::make_unique<FileSystemImpl>();
+    auto manifest = readObject(fileSystem.get(), manifestPath, gHalManifestConverter);
+    auto matrix = readObject(fileSystem.get(), matrixPath, gCompatibilityMatrixConverter);
     if (manifest == nullptr || matrix == nullptr) {
         return -1;
     }
@@ -242,10 +220,13 @@ int usage(const char* me) {
 }
 
 int checkAllFiles(const std::string& rootdir, const Properties& props, std::string* error) {
-    hostFileFetcher.setRootDir(rootdir);
-    hostPropertyFetcher.setProperties(props);
-
-    return VintfObject::CheckCompatibility({} /* packageInfo */, error, DISABLE_RUNTIME_INFO);
+    auto hostPropertyFetcher = std::make_unique<PresetPropertyFetcher>();
+    hostPropertyFetcher->setProperties(props);
+    auto vintfObject = VintfObject::Builder()
+                           .setFileSystem(std::make_unique<HostFileSystem>(rootdir))
+                           .setPropertyFetcher(std::move(hostPropertyFetcher))
+                           .build();
+    return vintfObject->checkCompatibility(error, CheckFlags::DISABLE_RUNTIME_INFO);
 }
 
 }  // namespace details

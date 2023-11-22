@@ -101,9 +101,9 @@ public class DvrSeriesScheduledFragment extends DvrGuidedStepFragment {
         String title = getString(R.string.dvr_series_recording_dialog_title);
         Drawable icon;
         if (!mHasConflict) {
-            icon = getResources().getDrawable(R.drawable.ic_check_circle_white_48dp, null);
+            icon = getResources().getDrawable(R.drawable.quantum_ic_check_circle_white_48, null);
         } else {
-            icon = getResources().getDrawable(R.drawable.ic_error_white_48dp, null);
+            icon = getResources().getDrawable(R.drawable.quantum_ic_error_white_48, null);
         }
         return new GuidanceStylist.Guidance(title, getDescription(), null, icon);
     }

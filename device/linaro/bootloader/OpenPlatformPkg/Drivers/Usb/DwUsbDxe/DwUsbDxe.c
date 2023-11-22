@@ -197,7 +197,7 @@ EpRx (
     RxDescBytes = Len;
   }
 
-  RxBuf = AllocatePool (DATA_SIZE);
+  RxBuf = AllocateZeroPool (DATA_SIZE);
   ASSERT (RxBuf != NULL);
 
   InvalidateDataCacheRange (RxBuf, Len);

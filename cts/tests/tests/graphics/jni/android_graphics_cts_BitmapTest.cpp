@@ -19,6 +19,8 @@
 
 #include <jni.h>
 #include <android/bitmap.h>
+#include <android/hardware_buffer.h>
+#include <android/hardware_buffer_jni.h>
 
 #include "NativeTestHelpers.h"
 
@@ -41,11 +43,50 @@ static void validateNdkAccessAfterRecycle(JNIEnv* env, jclass, jobject jbitmap) 
     ASSERT_EQ(err, ANDROID_BITMAP_RESULT_JNI_EXCEPTION);
 }
 
+static void fillRgbaHardwareBuffer(JNIEnv* env, jclass, jobject hwBuffer) {
+    AHardwareBuffer* hardware_buffer = AHardwareBuffer_fromHardwareBuffer(env, hwBuffer);
+    AHardwareBuffer_Desc description;
+    AHardwareBuffer_describe(hardware_buffer, &description);
+    ASSERT_EQ(AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM, description.format);
+
+    uint8_t* rgbaBytes;
+    AHardwareBuffer_lock(hardware_buffer,
+                         AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY,
+                         -1,
+                         nullptr,
+                         reinterpret_cast<void**>(&rgbaBytes));
+    int c = 0;
+    for (int y = 0; y < description.width; ++y) {
+        for (int x = 0; x < description.height; ++x) {
+            rgbaBytes[c++] = static_cast<uint8_t>(x % 255);
+            rgbaBytes[c++] = static_cast<uint8_t>(y % 255);
+            rgbaBytes[c++] = 42;
+            rgbaBytes[c++] = 255;
+        }
+    }
+    AHardwareBuffer_unlock(hardware_buffer, nullptr);
+}
+
+static jint getFormat(JNIEnv* env, jclass, jobject jbitmap) {
+    AndroidBitmapInfo info;
+    info.format = ANDROID_BITMAP_FORMAT_NONE;
+    int err = 0;
+    err = AndroidBitmap_getInfo(env, jbitmap, &info);
+    if (err != ANDROID_BITMAP_RESULT_SUCCESS) {
+        fail(env, "AndroidBitmap_getInfo failed, err=%d", err);
+        return ANDROID_BITMAP_FORMAT_NONE;
+    }
+    return info.format;
+}
+
 static JNINativeMethod gMethods[] = {
     { "nValidateBitmapInfo", "(Landroid/graphics/Bitmap;IIZ)V",
         (void*) validateBitmapInfo },
     { "nValidateNdkAccessAfterRecycle", "(Landroid/graphics/Bitmap;)V",
         (void*) validateNdkAccessAfterRecycle },
+    { "nFillRgbaHwBuffer", "(Landroid/hardware/HardwareBuffer;)V",
+        (void*) fillRgbaHardwareBuffer },
+    { "nGetFormat", "(Landroid/graphics/Bitmap;)I", (void*) getFormat },
 };
 
 int register_android_graphics_cts_BitmapTest(JNIEnv* env) {

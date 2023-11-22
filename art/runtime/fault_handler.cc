@@ -16,7 +16,6 @@
 
 #include "fault_handler.h"
 
-#include <setjmp.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/ucontext.h>
@@ -70,7 +69,7 @@ static mirror::Class* SafeGetDeclaringClass(ArtMethod* method)
   CHECK_NE(-1, rc);
 
   if (kVerifySafeImpls) {
-    mirror::Class* actual_class = method->GetDeclaringClassUnchecked<kWithoutReadBarrier>();
+    ObjPtr<mirror::Class> actual_class = method->GetDeclaringClassUnchecked<kWithoutReadBarrier>();
     CHECK_EQ(actual_class, cls.AsMirrorPtr());
   }
 
@@ -115,7 +114,7 @@ static bool SafeVerifyClassClass(mirror::Class* cls) REQUIRES_SHARED(Locks::muta
 
 static mirror::Class* SafeGetDeclaringClass(ArtMethod* method_obj)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  return method_obj->GetDeclaringClassUnchecked<kWithoutReadBarrier>();
+  return method_obj->GetDeclaringClassUnchecked<kWithoutReadBarrier>().Ptr();
 }
 
 static bool SafeVerifyClassClass(mirror::Class* cls) REQUIRES_SHARED(Locks::mutator_lock_) {

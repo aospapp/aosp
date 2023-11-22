@@ -2,7 +2,7 @@ package com.android.emergency.overlay;
 
 import android.content.Context;
 import android.net.Uri;
-import android.support.annotation.Keep;
+import androidx.annotation.Keep;
 
 import com.android.emergency.edit.EmergencyContactsFeatureProvider;
 import com.android.emergency.edit.EmergencyContactsFeatureProviderImpl;

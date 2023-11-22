@@ -122,16 +122,17 @@ import java.util.List;
     synchronized void addResult(int scannerId) {
         LastScan scan = getScanFromScannerId(scannerId);
         if (scan != null) {
-            int batteryStatsResults = ++scan.results;
+            scan.results++;
 
             // Only update battery stats after receiving 100 new results in order
             // to lower the cost of the binder transaction
-            if (batteryStatsResults % 100 == 0) {
+            if (scan.results % 100 == 0) {
                 try {
                     mBatteryStats.noteBleScanResults(mWorkSource, 100);
                 } catch (RemoteException e) {
                     /* ignore */
                 }
+                StatsLog.write(StatsLog.BLE_SCAN_RESULT_RECEIVED, mWorkSource, 100);
             }
         }
 
@@ -178,7 +179,9 @@ import java.util.List;
         } catch (RemoteException e) {
             /* ignore */
         }
-        writeToStatsLog(scan, StatsLog.BLE_SCAN_STATE_CHANGED__STATE__ON);
+        StatsLog.write(StatsLog.BLE_SCAN_STATE_CHANGED, mWorkSource,
+                StatsLog.BLE_SCAN_STATE_CHANGED__STATE__ON,
+                scan.filtered, scan.background, scan.opportunistic);
 
         mOngoingScans.put(scannerId, scan);
     }
@@ -221,15 +224,17 @@ import java.util.List;
         }
 
         try {
-            // Inform battery stats of any results it might be missing on
-            // scan stop
+            // Inform battery stats of any results it might be missing on scan stop
             boolean isUnoptimized = !(scan.filtered || scan.background || scan.opportunistic);
             mBatteryStats.noteBleScanResults(mWorkSource, scan.results % 100);
             mBatteryStats.noteBleScanStopped(mWorkSource, isUnoptimized);
         } catch (RemoteException e) {
             /* ignore */
         }
-        writeToStatsLog(scan, StatsLog.BLE_SCAN_STATE_CHANGED__STATE__OFF);
+        StatsLog.write(StatsLog.BLE_SCAN_RESULT_RECEIVED, mWorkSource, scan.results % 100);
+        StatsLog.write(StatsLog.BLE_SCAN_STATE_CHANGED, mWorkSource,
+                StatsLog.BLE_SCAN_STATE_CHANGED__STATE__OFF,
+                scan.filtered, scan.background, scan.opportunistic);
     }
 
     synchronized void recordScanSuspend(int scannerId) {
@@ -252,24 +257,6 @@ import java.util.List;
         suspendDuration = stopTime - scan.suspendStartTime;
         scan.suspendDuration += suspendDuration;
         mTotalSuspendTime += suspendDuration;
-    }
-
-    private void writeToStatsLog(LastScan scan, int statsLogState) {
-        for (int i = 0; i < mWorkSource.size(); i++) {
-            StatsLog.write_non_chained(StatsLog.BLE_SCAN_STATE_CHANGED,
-                    mWorkSource.get(i), null,
-                    statsLogState, scan.filtered, scan.background, scan.opportunistic);
-        }
-
-        final List<WorkSource.WorkChain> workChains = mWorkSource.getWorkChains();
-        if (workChains != null) {
-            for (int i = 0; i < workChains.size(); ++i) {
-                WorkSource.WorkChain workChain = workChains.get(i);
-                StatsLog.write(StatsLog.BLE_SCAN_STATE_CHANGED,
-                        workChain.getUids(), workChain.getTags(),
-                        statsLogState, scan.filtered, scan.background, scan.opportunistic);
-            }
-        }
     }
 
     synchronized void setScanTimeout(int scannerId) {

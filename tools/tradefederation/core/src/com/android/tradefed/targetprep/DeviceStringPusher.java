@@ -54,7 +54,7 @@ public class DeviceStringPusher extends BaseTargetPreparer implements ITargetCle
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
             throws DeviceNotAvailableException {
         if (mOldContents == null) {
-            device.executeShellCommand(String.format("rm -f %s", mFileName));
+            device.deleteFile(mFileName);
         } else {
             device.pushFile(mOldContents, mFileName);
         }

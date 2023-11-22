@@ -18,6 +18,7 @@ package com.android.server.telecom;
 
 import android.content.ContentResolver;
 import android.provider.Settings;
+import android.telecom.CallRedirectionService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -48,6 +49,18 @@ public final class Timeouts {
 
         public long getEmergencyCallbackWindowMillis(ContentResolver cr) {
             return Timeouts.getEmergencyCallbackWindowMillis(cr);
+        }
+
+        public long getUserDefinedCallRedirectionTimeoutMillis(ContentResolver cr) {
+            return Timeouts.getUserDefinedCallRedirectionTimeoutMillis(cr);
+        }
+
+        public long getCarrierCallRedirectionTimeoutMillis(ContentResolver cr) {
+            return Timeouts.getCarrierCallRedirectionTimeoutMillis(cr);
+        }
+
+        public long getPhoneAccountSuggestionServiceTimeout(ContentResolver cr) {
+            return Timeouts.getPhoneAccountSuggestionServiceTimeout(cr);
         }
     }
 
@@ -143,6 +156,14 @@ public final class Timeouts {
     }
 
     /**
+     * Returns the amount of time to wait for the phone account suggestion service to reply.
+     */
+    public static long getPhoneAccountSuggestionServiceTimeout(ContentResolver contentResolver) {
+        return get(contentResolver, "phone_account_suggestion_service_timeout",
+                5000L /* 5 seconds */);
+    }
+
+    /**
      * Returns the amount of time to wait for the call screening service to allow or disallow a
      * call.
      */
@@ -157,5 +178,24 @@ public final class Timeouts {
     public static long getEmergencyCallbackWindowMillis(ContentResolver contentResolver) {
       return get(contentResolver, "emergency_callback_window_millis",
           TimeUnit.MILLISECONDS.convert(5, TimeUnit.MINUTES));
+    }
+
+    /**
+     * Returns the amount of time for an user-defined {@link CallRedirectionService}.
+     *
+     * @param contentResolver The content resolved.
+     */
+    public static long getUserDefinedCallRedirectionTimeoutMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "user_defined_call_redirection_timeout",
+            5000L /* 5 seconds */);
+    }
+
+    /**
+     * Returns the amount of time for a carrier {@link CallRedirectionService}.
+     *
+     * @param contentResolver The content resolved.
+     */
+    public static long getCarrierCallRedirectionTimeoutMillis(ContentResolver contentResolver) {
+        return get(contentResolver, "carrier_call_redirection_timeout", 5000L /* 5 seconds */);
     }
 }

@@ -173,7 +173,7 @@ public class WifiConfigLockdownTest extends BaseDeviceOwnerTest {
         mContext.startActivity(createRegularConfig);
 
         // Give some time for the other app to finish the action
-        Thread.sleep(2000);
+        Thread.sleep(5000);
     }
 
     private boolean areMatchingSsids(String s1, String s2) {

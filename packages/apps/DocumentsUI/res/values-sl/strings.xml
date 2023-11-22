@@ -30,12 +30,14 @@
     <string name="menu_search" msgid="1876699106790719849">"Iskanje"</string>
     <string name="menu_settings" msgid="6520844520117939047">"Nastavitve shrambe"</string>
     <string name="menu_open" msgid="9092138100049759315">"Odpri"</string>
-    <string name="menu_open_with" msgid="5507647065467520229">"Odpiranje z aplikacijo"</string>
+    <string name="menu_open_with" msgid="5507647065467520229">"Odpri z aplikacijo"</string>
     <string name="menu_open_in_new_window" msgid="6686563636123311276">"Odpri v novem oknu"</string>
     <string name="menu_save" msgid="5195367497138965168">"Shrani"</string>
     <string name="menu_share" msgid="4307140947108068356">"Deli z drugimi"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Izbriši"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Izberi vse"</string>
+    <string name="menu_select" msgid="1366061076507142387">"Izberi"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"Razvrsti po …"</string>
     <string name="menu_copy" msgid="7404820171352314754">"Kopiraj v …"</string>
     <string name="menu_move" msgid="2310760789561129882">"Premakni v ..."</string>
     <string name="menu_compress" msgid="37539111904724188">"Stisni"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"Vrsta"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"Velikost"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Spremenjeno"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"Ime datoteke (od A do Ž)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"Vrsta (od A do Ž)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"Velikost (od najmanjše)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"Spremenjeno (od najstarejše)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"Ime datoteke (od Ž do A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"Vrsta (od Ž do A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"Velikost (od največje)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"Spremenjeno (od najnovejše)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"Razvrsti po"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"Razvrščeno po: <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"Število elementov"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Naraščajoče"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Padajoče"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"Odpri aplikacijo <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Pokaži korene"</string>
     <string name="drawer_close" msgid="4263880768630848848">"Skrij korene"</string>
     <string name="save_error" msgid="8631128801982095782">"Dokumenta ni bilo mogoče shraniti"</string>
@@ -204,7 +217,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"Želite aplikaciji <xliff:g id="APPNAME"><b>^1</b></xliff:g> dovoliti dostop do imenika <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> v shrambi <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"Želite aplikaciji <xliff:g id="APPNAME"><b>^1</b></xliff:g> dovoliti dostop do imenika <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"Želite aplikaciji dovoliti <xliff:g id="APPNAME"><b>^1</b></xliff:g> dostop do podatkov, vključno s fotografijami in videoposnetki, v shrambi <xliff:g id="STORAGE"><i>^2</i></xliff:g>?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"Ne sprašuj več"</string>
     <string name="allow" msgid="1275746941353040309">"Dovoli"</string>
     <string name="deny" msgid="5127201668078153379">"Zavrni"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -248,4 +260,35 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"arhiv<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Želite prepisati <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Nadaljuj v ozadju"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="one"><xliff:g id="COUNT_1">%1$d</xliff:g> izbran</item>
+      <item quantity="two"><xliff:g id="COUNT_1">%1$d</xliff:g> izbrana</item>
+      <item quantity="few"><xliff:g id="COUNT_1">%1$d</xliff:g> izbrani</item>
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> izbranih</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"Nedavne datoteke v telefonu"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"Datoteke v telefonu"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> v telefonu"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"Datoteke v napravi <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"Datoteke iz: <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Datoteke iz: <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Nedavne slike v telefonu"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Slike v telefonu"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"Slike v napravi <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"Slike iz storitve <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"Slike iz storitve <xliff:g id="LABEL">%1$s</xliff:g>/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"Slike"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"Zvok"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"Videoposnetki"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"Dokumenti"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"Ime mape"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"Novo ime"</string>
+    <string name="preview_file" msgid="4056622696305432343">"Predogled datoteke <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"Brskanje po datotekah v drugih aplikacijah"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"Anonimno"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"Dovoli dostop do imenika »<xliff:g id="DIRECTORY">%1$s</xliff:g>«"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"Želite dovoliti dostop do imenika »<xliff:g id="DIRECTORY">%1$s</xliff:g>« v korenskem imeniku »<xliff:g id="ROOT">%2$s</xliff:g>«?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"S tem bo aplikacija <xliff:g id="APPNAME">%1$s</xliff:g> imela poln dostop do vseh datotek, ki so trenutno shranjene na tej lokaciji, in vsebine, ki bo na tej lokaciji shranjena v prihodnje."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"Iščite v tem telefonu"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"Brisanje zgodovine iskanja <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

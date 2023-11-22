@@ -52,7 +52,7 @@
     <string name="account_sync" msgid="773808124331714965">"​ເລືອກ​ແອັບຯ​ທີ່​ຊິ້ງ​​​ຂໍ້​ມູນແລ້ວ"</string>
     <string name="sync_now" msgid="8732244492880016471">"ຊິ້ງຂໍ້ມູນດຽວນີ້"</string>
     <string name="sync_in_progress" msgid="1330721038775646022">"ກຳລັງຊິ້ງຂໍ້ມູນ..."</string>
-    <string name="last_synced" msgid="6178494892357077274">"ຊິ້ງຂໍ້​ມູນ​ເທື່ອ​ສຸດ​ທ້າຍ​ເມື່ອ <xliff:g id="TIME">%1s</xliff:g>"</string>
+    <string name="last_synced" msgid="6178494892357077274">"ຊິ້ງຂໍ້ມູນຫຼ້າສຸດ <xliff:g id="TIME">%1s</xliff:g>"</string>
     <string name="sync_disabled" msgid="3089360175872892781">"ປິດ​ນຳໃຊ້​ແລ້ວ"</string>
     <string name="account_remove" msgid="4313580520737295272">"ລຶບບັນຊີ"</string>
     <string name="account_remove_failed" msgid="980654375770693544">"ບໍ່​ສາ​ມາດ​ລຶບ​ບັ​ນ​ຊີ​ໄດ້"</string>
@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"ການ​ປັບ​ທຽບ"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"ເລືອກຮູບແບບ"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"ສຽງຮອບທິດທາງ"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"ບາງ​ແອັບ​ຈະ​ບໍ່​ມີ ຫຼື ບໍ່​ຟັງ​ຄ໌​ຊັນ​ໄດ້​ຖືກ​ຕ້ອງ​ຈົນ​ກ່​ວາ​ເຊື່ອມ​ຕໍ່​ດ​ຣ້າຍ​ເວີ​ຄືນ​ໃໝ່​ແລ້ວ."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"ພື້ນທີ່ຈັດເກັບຂໍ້ມູນບໍ່ພຽງພໍ."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"ບໍ່ມີແອັບຯ."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"ແອັບຯຖືກປ້ອງກັນການສຳເນົາ."</string>
     <string name="invalid_location" msgid="5269044848535157307">"ບ່ອນຕິດຕັ້ງບໍ່ຖືກຕ້ອງ."</string>
     <string name="system_package" msgid="9200255718634512790">"ການອັບເດດລະບົບ ບໍ່ສາມາດຖືກຕິດຕັ້ງໃສ່ບ່ອນຈັດເກັບຂໍ້ມູນພາຍນອກໄດ້."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"ບໍ່ສາມາດຕິດຕັ້ງຜູ້ເບິ່ງແຍງລະບົບອຸປະກອນໃສ່ໜ່ວຍຄວາມຈຳພາຍນອກໄດ້."</string>
@@ -492,8 +491,8 @@
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"​ສະ​ແດງ​ເລ​ເຢີ​ຮາດ​ແວ"</string>
     <string name="system_show_gpu_overdraw" msgid="707861254106800199">"ສະແດງການແຕ້ມ GPU ເກີນ"</string>
     <string name="system_show_surface_updates" msgid="8878834675712192327">"ສະແດງ​ການ​ອັບເດດ​ພື້ນຜິວ"</string>
-    <string name="system_window_animation_scale" msgid="3213952676672537856">"ຂະໜາດອະນິເມຊັນ"</string>
-    <string name="system_transition_animation_scale" msgid="2964817709721784757">"ຂະໜາດອະນິເມຊັນ"</string>
+    <string name="system_window_animation_scale" msgid="3213952676672537856">"ຂະໜາດໜ້າ​ຈໍ​ຂອງອະນິເມຊັນ"</string>
+    <string name="system_transition_animation_scale" msgid="2964817709721784757">"ອັດ​ຕາ​ການ​ສະຫຼັບ​ພາບ​ຂອ​ງ​ອາ​ນິ​ເມ​ຊັນ"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"ໄລຍະ​ເວລາ​ອະນິເມຊັນ"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"ເປີດໃຊ້ໂໝດເຂັ່ງຂັດ"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"ສະແດງຜົນ GPU ຕາມ​ໂປຣ​ໄຟລ໌"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"ການ​ເຂົ້າ​ເຖິງ​ການ​ແຈ້ງ​ເຕືອນ"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"ບໍ່​ມີ​ແອັບ​ທີ່​ຕິດ​ຕັ້ງ​ໃດ​​ຮ້ອງ​ຂໍ​ການ​ເຂົ້າ​ເຖິງ​ການ​ແຈ້ງ​ເຕືອນ."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"ແອັບເຫຼົ່ານີ້ຈະສາມາດອ່ານການແຈ້ງເຕືອນທັງໝົດ, ຮວມທັງຂໍ້ມູນສ່ວນຕົວ ເຊັ່ນ: ຊື່ລາຍຊື່ຕິດຕໍ່ ແລະ ຂໍ້ຄວາມທີ່ທ່ານໄດ້ຮັບ. ພວກມັນຈະສາມາດປິດການແຈ້ງເຕືອນ ຫຼື ໃຊ້ປຸ່ມຄຳສັ່ງພວກມັນມີໄດ້ນຳ."</string>
+    <string name="directory_access" msgid="7439168599298598101">"ການເຂົ້າເຖິງໄດເຣັກທໍຣີ"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"ແອັບເຫຼົ່ານີ້ມີການອະນຸຍາດເຂົ້າເຖິງບາງໄດເຣັກທໍຣີສະເພາະ."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"ສະແດງຜົນແອັບບັງແອັບອື່ນ"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"ອະນຸຍາດໃຫ້ສະແດງຜົນແອັບບັງແອັບອື່ນ"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"ອະນຸຍາດໃຫ້ແອັບນີ້ສະແດງຜົນບັງໜ້າແອັບອື່ນທີ່ທ່ານກຳລັງໃຊ້ຢູ່. ມັນອາດລົບກວນການນຳໃຊ້ແອັບເຫຼົ່ານັ້ນຂອງທ່ານ ຫຼື ປ່ຽນວິທີທີ່ພວກມັນປາກົດ ຫຼື ວິທີທີ່ພວກມັນເຮັດວຽກ."</string>

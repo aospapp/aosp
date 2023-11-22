@@ -28,6 +28,7 @@ extern "C" {
 
 #include "chre/platform/condition_variable.h"
 #include "chre/platform/mutex.h"
+#include "chre/platform/slpi/power_control_util.h"
 #include "chre/util/non_copyable.h"
 #include "chre/util/time.h"
 #include "chre/util/unique_ptr.h"
@@ -40,6 +41,10 @@ constexpr Nanoseconds kDefaultSmrTimeout = Seconds(2);
 //! Default timeout for waitForService. Have a longer timeout since there may be
 //! external dependencies blocking SMGR initialization.
 constexpr Nanoseconds kDefaultSmrWaitTimeout = Seconds(5);
+
+template<typename RespStruct>
+using SmrReqCallback = void (*)(UniquePtr<RespStruct> resp, void *callbackData,
+                                smr_err transpErr);
 
 /**
  * A helper class for making synchronous requests to SMR (Sensors Message
@@ -58,6 +63,57 @@ class SmrHelper : public NonCopyable {
    */
   smr_err releaseSync(smr_client_hndl clientHandle,
                       Nanoseconds timeout = kDefaultSmrTimeout);
+
+  /**
+   * Wrapper to send the async smr_client_send_req() call.
+   *
+   * @param ReqStruct QMI IDL-generated request structure
+   * @param RespStruct QMI IDL-generated response structure
+   * @param clientHandle SMR handle previously given by smr_client_init()
+   * @param msgId QMI message ID of the request to send
+   * @param req Pointer to populated request structure
+   * @param resp Pointer to structure to receive the response.
+   * @param callback Callback to be invoked upon completion of the request.
+   *     NOTE: This callback will be invoked on the CHRE thread.
+   * @param callbackData Data to be sent to the callback when invoked.
+   *
+   * @return Result code returned by smr_client_send_req()
+   */
+  template<typename ReqStruct, typename RespStruct>
+  smr_err sendReqAsync(
+      smr_client_hndl clientHandle, unsigned int msgId,
+      UniquePtr<ReqStruct> *req, UniquePtr<RespStruct> *resp,
+      SmrReqCallback<RespStruct> callback, void *callbackData) {
+    // Try to catch copy/paste errors at compile time - QMI always has a
+    // different struct definition for request and response
+    static_assert(!std::is_same<ReqStruct, RespStruct>::value,
+                  "Request and response structures must be different");
+
+    smr_err result;
+    auto reqData = MakeUnique<AsyncCallbackData<ReqStruct, RespStruct>>();
+    if (reqData.isNull()) {
+      LOG_OOM();
+      result = SMR_OUT_OF_MEMORY;
+    } else {
+      reqData->callback = callback;
+      reqData->reqCStruct = std::move(*req);
+      reqData->respCStruct = std::move(*resp);
+      reqData->data = callbackData;
+
+      result = sendReqAsyncUntyped(
+          clientHandle, msgId, reqData->reqCStruct.get(), sizeof(ReqStruct),
+          reqData->respCStruct.get(), sizeof(RespStruct), reqData.get(),
+          SmrHelper::smrAsyncRespCb<ReqStruct, RespStruct>);
+
+      if (result == SMR_NO_ERR) {
+        // Release ownership of the request callback data since it will be used
+        // by SMGR and the async callback after this function returns.
+        reqData.release();
+      }
+    }
+
+    return result;
+  }
 
   /**
    * Wrapper to convert the async smr_client_send_req() to a synchronous call.
@@ -138,6 +194,43 @@ class SmrHelper : public NonCopyable {
   };
 
   /**
+   * Struct used to store data needed once smr_client_send_req invokes the async
+   * request callback.
+   */
+  template<typename ReqStruct, typename RespStruct>
+  struct AsyncCallbackData {
+    //! Callback given by the client issuing the request.
+    SmrReqCallback<RespStruct> callback;
+
+    //! Error received from the SMGR response callback.
+    smr_err transpErr;
+
+    //! Arbitrary data to be given to the callback.
+    void *data;
+
+    //! ReqStruct info from the initial SMGR request.
+    UniquePtr<ReqStruct> reqCStruct;
+
+    //! RespStruct info from the SMGR response callback.
+    UniquePtr<RespStruct> respCStruct;
+  };
+
+  /**
+   * Implements sendReqAsync(), but accepts untyped (void*) buffers.
+   * snake_case parameters exactly match those given to smr_client_send_req().
+   *
+   * @return The error code returned by smr_client_send_req().
+   *
+   * @see sendReqAsync()
+   * @see smr_client_send_req()
+   */
+  static smr_err sendReqAsyncUntyped(
+      smr_client_hndl client_handle, unsigned int msg_id,
+      void *req_c_struct, unsigned int req_c_struct_len,
+      void *resp_c_struct, unsigned int resp_c_struct_len,
+      void *resp_cb_data, smr_client_resp_cb resp_cb);
+
+  /**
    * Implements sendReqSync(), but with accepting untyped (void*) buffers.
    * snake_case parameters exactly match those given to smr_client_send_req().
    *
@@ -180,13 +273,43 @@ class SmrHelper : public NonCopyable {
   static void smrReleaseCb(void *release_cb_data);
 
   /**
+   * Posts the asynchronous response back to the CHRE thread and then invokes
+   * the callback given by the client when the request was made with the
+   * appropriate parameters from the response.
+   *
+   * @see smr_client_resp_cb
+   */
+  template<typename ReqStruct, typename RespStruct>
+  static void smrAsyncRespCb(smr_client_hndl client_handle,
+                             unsigned int msg_id, void *resp_c_struct,
+                             unsigned int resp_c_struct_len,
+                             void *resp_cb_data, smr_err transp_err) {
+    auto callback = [](uint16_t /* type */, void *data) {
+      UniquePtr<AsyncCallbackData<ReqStruct, RespStruct>> cbData(
+          static_cast<AsyncCallbackData<ReqStruct, RespStruct> *>(data));
+      cbData->callback(std::move(cbData->respCStruct), cbData->data,
+                       cbData->transpErr);
+    };
+
+    auto *cbData =
+        static_cast<AsyncCallbackData<ReqStruct, RespStruct> *>(resp_cb_data);
+    cbData->transpErr = transp_err;
+
+    // Schedule a deferred callback to handle sensor status change on the
+    // main thread.
+    EventLoopManagerSingleton::get()->deferCallback(
+      SystemCallbackType::SensorStatusInfoResponse, resp_cb_data, callback);
+  }
+
+  /**
    * Extracts "this" from resp_cb_data and calls through to handleResp()
    *
    * @see smr_client_resp_cb
    */
-  static void smrRespCb(smr_client_hndl client_handle, unsigned int msg_id,
-                        void *resp_c_struct, unsigned int resp_c_struct_len,
-                        void *resp_cb_data, smr_err transp_err);
+  static void smrSyncRespCb(smr_client_hndl client_handle,
+                            unsigned int msg_id, void *resp_c_struct,
+                            unsigned int resp_c_struct_len,
+                            void *resp_cb_data, smr_err transp_err);
 
   /**
    * SMR wait for service callback used with waitForService()

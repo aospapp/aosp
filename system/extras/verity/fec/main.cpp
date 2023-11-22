@@ -71,7 +71,7 @@ static void decode_rs(struct image_proc_ctx *ctx)
         }
 
         memcpy(&data[fcx->rs_n], &fcx->fec[ctx->fec_pos], fcx->roots);
-        rv = decode_rs_char(ctx->rs, data, NULL, 0);
+        rv = decode_rs_char(ctx->rs, data, nullptr, 0);
 
         if (rv < 0) {
             FATAL("failed to recover [%" PRIu64 ", %" PRIu64 ")\n",
@@ -279,21 +279,21 @@ int main(int argc, char **argv)
 
     while (1) {
         const static struct option long_options[] = {
-            {"help", no_argument, 0, 'h'},
-            {"encode", no_argument, 0, 'e'},
-            {"decode", no_argument, 0, 'd'},
-            {"sparse", no_argument, 0, 'S'},
-            {"roots", required_argument, 0, 'r'},
-            {"inplace", no_argument, 0, 'i'},
-            {"threads", required_argument, 0, 'j'},
-            {"print-fec-size", required_argument, 0, 's'},
-            {"get-ecc-start", required_argument, 0, 'E'},
-            {"get-verity-start", required_argument, 0, 'V'},
-            {"padding", required_argument, 0, 'p'},
-            {"verbose", no_argument, 0, 'v'},
-            {NULL, 0, 0, 0}
+            {"help", no_argument, nullptr, 'h'},
+            {"encode", no_argument, nullptr, 'e'},
+            {"decode", no_argument, nullptr, 'd'},
+            {"sparse", no_argument, nullptr, 'S'},
+            {"roots", required_argument, nullptr, 'r'},
+            {"inplace", no_argument, nullptr, 'i'},
+            {"threads", required_argument, nullptr, 'j'},
+            {"print-fec-size", required_argument, nullptr, 's'},
+            {"get-ecc-start", required_argument, nullptr, 'E'},
+            {"get-verity-start", required_argument, nullptr, 'V'},
+            {"padding", required_argument, nullptr, 'p'},
+            {"verbose", no_argument, nullptr, 'v'},
+            {nullptr, 0, nullptr, 0}
         };
-        int c = getopt_long(argc, argv, "hedSr:ij:s:E:V:p:v", long_options, NULL);
+        int c = getopt_long(argc, argv, "hedSr:ij:s:E:V:p:v", long_options, nullptr);
         if (c < 0) {
             break;
         }

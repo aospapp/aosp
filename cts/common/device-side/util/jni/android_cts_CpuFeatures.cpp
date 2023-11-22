@@ -25,12 +25,6 @@ jboolean android_cts_CpuFeatures_isArmCpu(JNIEnv* env, jobject thiz)
     return cpuFamily == ANDROID_CPU_FAMILY_ARM;
 }
 
-jboolean android_cts_CpuFeatures_isArm7Compatible(JNIEnv* env, jobject thiz)
-{
-    uint64_t cpuFeatures = android_getCpuFeatures();
-    return (cpuFeatures & ANDROID_CPU_ARM_FEATURE_ARMv7) == ANDROID_CPU_ARM_FEATURE_ARMv7;
-}
-
 jboolean android_cts_CpuFeatures_isMipsCpu(JNIEnv* env, jobject thiz)
 {
     AndroidCpuFamily cpuFamily = android_getCpuFamily();
@@ -69,8 +63,6 @@ jint android_cts_CpuFeatures_getHwCaps(JNIEnv*, jobject)
 static JNINativeMethod gMethods[] = {
     {  "isArmCpu", "()Z",
             (void *) android_cts_CpuFeatures_isArmCpu  },
-    {  "isArm7Compatible", "()Z",
-            (void *) android_cts_CpuFeatures_isArm7Compatible  },
     {  "isMipsCpu", "()Z",
             (void *) android_cts_CpuFeatures_isMipsCpu  },
     {  "isX86Cpu", "()Z",

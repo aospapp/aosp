@@ -22,7 +22,7 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test compatibility-device-util
+LOCAL_STATIC_JAVA_LIBRARIES := androidx.test.rules compatibility-device-util-axt
 
 # Tag this module as test artifact for cts,
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests

@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"კალიბრაცია"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"აირჩიეთ ფორმატები"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"მოცულობითი ჟღერადობა"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"დრაივის ხელახლა დაკავშირებამდე ზოგიერთი აპი მიუწვდომელი იქნება ან არასათანადოდ იმუშავებს."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"არ არის საკმარისი სივრცე შესანახად."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"აპი არ არსებობს."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"აპი დაცულია კოპირებისგან"</string>
     <string name="invalid_location" msgid="5269044848535157307">"ინსტალაციის მდებარეობა არასწორია."</string>
     <string name="system_package" msgid="9200255718634512790">"სისტემის განახლებების ინსტალაცია გარე მედიაზე შეუძლებელია."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"მოწყობილობის ადმინისტრატორის გარე მედიაზე ინსტალაცია ვერ მოხერხდება."</string>
@@ -727,6 +726,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"შეტყობინებებზე წვდომა"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"შეტყობინებებზე წვდომა არც ერთ ინსტალირებულ აპს არ მოუთხოვია."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"ამ აპებისთვის შესაძლებელი იქნება ყველა შეტყობინების, მათ შორის, ისეთი პერსონალური ინფორმაციის წაკითხვა, როგორიცაა კონტაქტების სახელები და თქვენ მიერ მიღებული ტექსტური შეტყობინებები. აპები ასევე შეძლებს შეტყობინებათა დახურვას ან მათში არსებული მოქმედების ღილაკების გამოყენებას."</string>
+    <string name="directory_access" msgid="7439168599298598101">"კატალოგზე წვდომა"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"ამ აპებს გარკვეულ კატალოგებზე წვდომის ნებართვა აქვს."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"სხვა აპების ზემოდან გამოჩენა"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"სხვა აპების ზემოდან გამოჩენის დაშვება"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"ეს საშუალებას მისცემს აპს, გამოჩნდეს სხვა აპების ზემოდან. ამან შეიძლება გავლენა იქონიოს სხვა აპებით სარგებლობის პროცესზე, ან შეცვალოს მათი იერსახე თუ ქცევა."</string>

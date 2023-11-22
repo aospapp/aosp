@@ -15,12 +15,13 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="com.android.dynamiclinker">
+    package="com.android.dynamiclinker"
+    android:targetSandboxVersion="2">
 
     <application android:extractNativeLibs="false">
         <uses-library android:name="android.test.runner" />
     </application>
     <instrumentation
         android:targetPackage="com.android.dynamiclinker"
-        android:name="android.support.test.runner.AndroidJUnitRunner" />
+        android:name="androidx.test.runner.AndroidJUnitRunner" />
 </manifest>

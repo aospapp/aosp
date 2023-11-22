@@ -16,10 +16,10 @@
 
 package android.accessibilityservice.cts.utils;
 
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
 import android.accessibilityservice.AccessibilityService.GestureResultCallback;
 import android.accessibilityservice.GestureDescription;
 import android.accessibilityservice.GestureDescription.StrokeDescription;
-import android.accessibilityservice.cts.InstrumentedAccessibilityService;
 import android.graphics.Path;
 import android.graphics.PointF;
 import android.view.ViewConfiguration;

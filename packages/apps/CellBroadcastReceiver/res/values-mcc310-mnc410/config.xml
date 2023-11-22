@@ -17,4 +17,6 @@
 <resources>
     <!-- Whether to compare message body when performing message duplicate dection -->
     <bool name="duplicate_compare_body">true</bool>
+    <!-- Whether to reset alert message duplicate detection after toggling airplane mode -->
+    <bool name="reset_duplicate_detection_on_airplane_mode">true</bool>
 </resources>

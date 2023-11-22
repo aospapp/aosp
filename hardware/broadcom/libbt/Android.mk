@@ -63,17 +63,4 @@ include $(LOCAL_PATH)/vnd_buildcfg.mk
 
 include $(BUILD_SHARED_LIBRARY)
 
-ifeq ($(TARGET_PRODUCT), full_maguro)
-    include $(LOCAL_PATH)/conf/samsung/maguro/Android.mk
-endif
-ifeq ($(TARGET_PRODUCT), full_crespo)
-    include $(LOCAL_PATH)/conf/samsung/crespo/Android.mk
-endif
-ifeq ($(TARGET_PRODUCT), full_crespo4g)
-    include $(LOCAL_PATH)/conf/samsung/crespo4g/Android.mk
-endif
-ifeq ($(TARGET_PRODUCT), full_wingray)
-    include $(LOCAL_PATH)/conf/moto/wingray/Android.mk
-endif
-
 endif # BOARD_HAVE_BLUETOOTH_BCM

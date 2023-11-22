@@ -16,11 +16,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
        package="com.android.cts.externalstorageapp">
 
-    <application android:usesCleartextTraffic="true">
+    <application
+            android:usesCleartextTraffic="true"
+            android:requestLegacyExternalStorage="true">
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.externalstorageapp" />
 
     <uses-permission android:name="android.permission.INTERNET" />

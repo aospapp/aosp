@@ -25,7 +25,6 @@ import java.net.JarURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.net.URLEncoder;
 import java.net.URLStreamHandler;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
@@ -57,7 +56,7 @@ public class ClassPathURLStreamHandler extends Handler {
    * entry cannot be found under the exact name presented.
    */
   public URL getEntryUrlOrNull(String entryName) {
-    if (findEntryWithDirectoryFallback(jarFile, entryName) != null) {
+    if (jarFile.getEntry(entryName) != null) {
       try {
         // Encode the path to ensure that any special characters like # survive their trip through
         // the URL. Entry names must use / as the path separator.
@@ -87,19 +86,6 @@ public class ClassPathURLStreamHandler extends Handler {
   /** Used from tests to indicate this stream handler is finished with. */
   public void close() throws IOException {
     jarFile.close();
-  }
-
-  /**
-   * Finds an entry with the specified name in the {@code jarFile}. If an exact match isn't found it
-   * will also try with "/" appended, if appropriate. This is to maintain compatibility with
-   * {@link sun.net.www.protocol.jar.Handler} and its treatment of directory entries.
-   */
-  static ZipEntry findEntryWithDirectoryFallback(JarFile jarFile, String entryName) {
-    ZipEntry entry = jarFile.getEntry(entryName);
-    if (entry == null && !entryName.endsWith("/") ) {
-      entry = jarFile.getEntry(entryName + "/");
-    }
-    return entry;
   }
 
   private class ClassPathURLConnection extends JarURLConnection {
@@ -139,8 +125,7 @@ public class ClassPathURLStreamHandler extends Handler {
     @Override
     public void connect() throws IOException {
       if (!connected) {
-        this.jarEntry = findEntryWithDirectoryFallback(ClassPathURLStreamHandler.this.jarFile,
-            getEntryName());
+        this.jarEntry = jarFile.getEntry(getEntryName());
         if (jarEntry == null) {
           throw new FileNotFoundException(
               "URL does not correspond to an entry in the zip file. URL=" + url

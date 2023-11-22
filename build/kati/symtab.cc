@@ -30,7 +30,7 @@
 #include "var.h"
 
 struct SymbolData {
-  SymbolData() : gv(kUndefined) {}
+  SymbolData() : gv(Var::Undefined()) {}
 
   Var* gv;
 };
@@ -38,14 +38,15 @@ struct SymbolData {
 vector<string*>* g_symbols;
 static vector<SymbolData> g_symbol_data;
 
-Symbol kEmptySym = Symbol(Symbol::IsUninitialized());
-Symbol kShellSym = Symbol(Symbol::IsUninitialized());
+Symbol kEmptySym;
+Symbol kShellSym;
+Symbol kKatiReadonlySym;
 
 Symbol::Symbol(int v) : v_(v) {}
 
 Var* Symbol::PeekGlobalVar() const {
   if (static_cast<size_t>(v_) >= g_symbol_data.size()) {
-    return kUndefined;
+    return Var::Undefined();
   }
   return g_symbol_data[v_].gv;
 }
@@ -125,6 +126,7 @@ class Symtab {
 
     kEmptySym = Intern("");
     kShellSym = Intern("SHELL");
+    kKatiReadonlySym = Intern(".KATI_READONLY");
   }
 
   ~Symtab() {

@@ -21,7 +21,12 @@ LOCAL_MODULE_TAGS := optional
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := CtsVoiceInteractionCommon ctstestrunner compatibility-device-util
+LOCAL_STATIC_JAVA_LIBRARIES := \
+  CtsVoiceInteractionCommon \
+  ctstestrunner-axt \
+  compatibility-device-util-axt \
+  androidx.test.ext.junit
+
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
 
@@ -33,7 +38,7 @@ LOCAL_PACKAGE_NAME := CtsVoiceInteractionTestCases
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := test_current
 
 include $(BUILD_CTS_PACKAGE)
 include $(call all-makefiles-under,$(LOCAL_PATH))

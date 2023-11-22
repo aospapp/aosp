@@ -1,15 +1,28 @@
-// Copyright 2014 Google Inc. All Rights Reserved.
-// Author: pkanwar@google.com (Pankaj Kanwar)
-// Protos for uploading bluetooth metrics.
+/*
+ * Copyright (C) 2018 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 syntax = "proto2";
 
-package clearcut.connectivity;
+option optimize_for = LITE_RUNTIME;
 
-option java_package = "com.google.wireless.android.play.playlog.connectivity";
-// option (datapol.file_vetting_status) = "latest";
+// C++ namespace: bluetooth::metrics::BluetoothMetricsProto
+package bluetooth.metrics.BluetoothMetricsProto;
 
-// import "storage/datapol/annotations/proto/semantic_annotations.proto";
+option java_package = "com.android.bluetooth";
+option java_outer_classname = "BluetoothMetricsProto";
 
 message BluetoothLog {
   // Session information that gets logged for every BT connection.
@@ -38,6 +51,12 @@ message BluetoothLog {
 
   // Number of ScanEvent including discarded ones beyond capacity
   optional int64 num_scan_event = 9;
+
+  // Statistics about Bluetooth profile connections
+  repeated ProfileConnectionStats profile_connection_stats = 10;
+
+  // Statistics about Headset profile connections
+  repeated HeadsetProfileConnectionStats headset_profile_connection_stats = 11;
 }
 
 // The information about the device.
@@ -114,6 +133,15 @@ message RFCommSession {
   optional int32 tx_bytes = 2;
 }
 
+enum A2dpSourceCodec {
+  A2DP_SOURCE_CODEC_UNKNOWN = 0;
+  A2DP_SOURCE_CODEC_SBC = 1;
+  A2DP_SOURCE_CODEC_AAC = 2;
+  A2DP_SOURCE_CODEC_APTX = 3;
+  A2DP_SOURCE_CODEC_APTX_HD = 4;
+  A2DP_SOURCE_CODEC_LDAC = 5;
+}
+
 // Session information that gets logged for A2DP session.
 message A2DPSession {
   // Media timer in milliseconds.
@@ -139,11 +167,17 @@ message A2DPSession {
 
   // Total audio time in this A2DP session
   optional int64 audio_duration_millis = 8;
+
+  // Audio codec used in this A2DP session in A2DP source role
+  optional A2dpSourceCodec source_codec = 9;
+
+  // Whether A2DP offload is enabled in this A2DP session
+  optional bool is_a2dp_offload = 10;
 }
 
 message PairEvent {
   // The reason for disconnecting
-  // https://cs.corp.google.com/#android/system/bt/stack/include/hcidefs.h&q=failed_establish.
+  // See: system/bt/stack/include/hcidefs.h, HCI_ERR_CONN_FAILED_ESTABLISHMENT
   optional int32 disconnect_reason = 1;
 
   // Pair event time
@@ -157,12 +191,9 @@ message PairEvent {
 message WakeEvent {
   // Information about the wake event type.
   enum WakeEventType {
-    // Type is unknown.
     UNKNOWN = 0;
-
     // WakeLock was acquired.
     ACQUIRED = 1;
-
     // WakeLock was released.
     RELEASED = 2;
   }
@@ -171,7 +202,7 @@ message WakeEvent {
   optional WakeEventType wake_event_type = 1;
 
   // Initiator of the scan. Only the first three names will be stored.
-  // e.g. com.google.gms.
+  // e.g. com.company.app
   optional string requestor = 2;
 
   // Name of the wakelock (e.g. bluedroid_timer).
@@ -185,7 +216,6 @@ message WakeEvent {
 message ScanEvent {
   // Scan type.
   enum ScanTechnologyType {
-    // Scan Type is unknown.
     SCAN_TYPE_UNKNOWN = 0;
 
     SCAN_TECH_TYPE_LE = 1;
@@ -199,7 +229,6 @@ message ScanEvent {
   enum ScanEventType {
     // Scan started.
     SCAN_EVENT_START = 0;
-
     // Scan stopped.
     SCAN_EVENT_STOP = 1;
   }
@@ -208,7 +237,7 @@ message ScanEvent {
   optional ScanEventType scan_event_type = 1;
 
   // Initiator of the scan. Only the first three names will be stored.
-  // e.g. com.google.gms.
+  // e.g. com.company.app
   optional string initiator = 2;
 
   // Technology used for scanning.
@@ -220,4 +249,53 @@ message ScanEvent {
   // Time of the event.
   optional int64 event_time_millis =
       5;  // [(datapol.semantic_type) = ST_TIMESTAMP];
+}
+
+// Profile IDs defined in BluetoothProfile API class
+// Values must match API class values
+enum ProfileId {
+  PROFILE_UNKNOWN = 0;
+  HEADSET = 1;
+  A2DP = 2;
+  HEALTH = 3;
+  HID_HOST = 4;
+  PAN = 5;
+  PBAP = 6;
+  GATT = 7;
+  GATT_SERVER = 8;
+  MAP = 9;
+  SAP = 10;
+  A2DP_SINK = 11;
+  AVRCP_CONTROLLER = 12;
+  AVRCP = 13;
+  HEADSET_CLIENT = 16;
+  PBAP_CLIENT = 17;
+  MAP_CLIENT = 18;
+  HID_DEVICE = 19;
+  OPP = 20;
+  HEARING_AID = 21;
+}
+
+// Statistics about Bluetooth profile connections
+message ProfileConnectionStats {
+  // Profile id defined in BluetoothProfile.java
+  optional ProfileId profile_id = 1;
+
+  // Number of times that this profile is connected since last metrics dump
+  optional int32 num_times_connected = 2;
+}
+
+enum HeadsetProfileType {
+  HEADSET_PROFILE_UNKNOWN = 0;
+  HSP = 1;
+  HFP = 2;
+}
+
+// Statistics about headset profile connections
+message HeadsetProfileConnectionStats {
+  // Type of headset profile connected
+  optional HeadsetProfileType headset_profile_type = 1;
+
+  // Number of times this type of headset profile is connected
+  optional int32 num_times_connected = 2;
 }

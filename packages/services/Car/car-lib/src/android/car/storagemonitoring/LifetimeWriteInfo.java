@@ -19,10 +19,12 @@ import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.JsonWriter;
-import java.io.IOException;
-import java.util.Objects;
+
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Information about how many bytes were written to a filesystem during its lifetime.
@@ -30,7 +32,7 @@ import org.json.JSONObject;
  * @hide
  */
 @SystemApi
-public class LifetimeWriteInfo implements Parcelable {
+public final class LifetimeWriteInfo implements Parcelable {
     public static final Creator<IoStats> CREATOR = new Creator<IoStats>() {
         @Override
         public IoStats createFromParcel(Parcel in) {
@@ -62,6 +64,9 @@ public class LifetimeWriteInfo implements Parcelable {
         this.writtenBytes = in.readLong();
     }
 
+    /**
+     * @hide
+     */
     public LifetimeWriteInfo(JSONObject in) throws JSONException {
         partition = in.getString("partition");
         fstype = in.getString("fstype");
@@ -76,6 +81,9 @@ public class LifetimeWriteInfo implements Parcelable {
         dest.writeLong(writtenBytes);
     }
 
+    /**
+     * @hide
+     */
     public void writeToJson(JsonWriter jsonWriter) throws IOException {
         jsonWriter.beginObject();
         jsonWriter.name("partition").value(partition);

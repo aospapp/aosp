@@ -27,6 +27,7 @@ import android.hardware.cts.helpers.sensorverification.InitialValueVerificationT
 import android.hardware.cts.helpers.sensorverification.JitterVerificationTest;
 import android.hardware.cts.helpers.sensorverification.MagnitudeVerificationTest;
 import android.hardware.cts.helpers.sensorverification.MeanVerificationTest;
+import android.hardware.cts.helpers.sensorverification.OffsetVerificationTest;
 import android.hardware.cts.helpers.sensorverification.StandardDeviationVerificationTest;
 import android.hardware.cts.helpers.sensorverification.TimestampClockSourceVerificationTest;
 
@@ -50,6 +51,7 @@ public class FrameworkUnitTests extends TestSuite {
         addTestSuite(JitterVerificationTest.class);
         addTestSuite(MagnitudeVerificationTest.class);
         addTestSuite(MeanVerificationTest.class);
+        addTestSuite(OffsetVerificationTest.class);
         addTestSuite(StandardDeviationVerificationTest.class);
         addTestSuite(TimestampClockSourceVerificationTest.class);
 

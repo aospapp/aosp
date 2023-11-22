@@ -1,0 +1,21 @@
+Below lists the TEST_MAPPING tests to do TF integration tests to make sure
+the expectation of setup with different target_preparers + run are still good.
+
+* Gtest with FilePusher/ApkInstaller
+  * CtsPerfettoTestCases
+
+* Gtest with FilePusher to push the whole testdata(libs/files).
+  * ziparchive-tests
+
+* Instrumentation Test with Class Filter/ApkInstaller
+  * CtsDpiTestCases
+
+* Instrumentation Test with FilePusher/ApkInstaller/RumCommandTargetPreparer
+  * CtsApacheHttpLegacy27ApiSignatureTestCases
+
+* Instrumentation Test with Annotation Filter/PushFilePreparer/RumCommandTargetPreparer/
+* TestFilePushSetup
+  * HelloWorldTests
+
+* Jar Host with ApkInstaller
+  * CtsSampleHostTestCases

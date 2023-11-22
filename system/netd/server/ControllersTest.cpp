@@ -70,121 +70,127 @@ TEST_F(ControllersTest, TestFindExistingChildChains) {
 TEST_F(ControllersTest, TestInitIptablesRules) {
     // Test what happens when we boot and there are no rules.
     ExpectedIptablesCommands expected = {
-        { V4V6, "*filter\n"
-                ":INPUT -\n"
-                "-F INPUT\n"
-                ":bw_INPUT -\n"
-                "-A INPUT -j bw_INPUT\n"
-                ":fw_INPUT -\n"
-                "-A INPUT -j fw_INPUT\n"
-                "COMMIT\n"
-        },
-        { V4V6, "*filter\n"
-                ":FORWARD -\n"
-                "-F FORWARD\n"
-                ":oem_fwd -\n"
-                "-A FORWARD -j oem_fwd\n"
-                ":fw_FORWARD -\n"
-                "-A FORWARD -j fw_FORWARD\n"
-                ":bw_FORWARD -\n"
-                "-A FORWARD -j bw_FORWARD\n"
-                ":tetherctrl_FORWARD -\n"
-                "-A FORWARD -j tetherctrl_FORWARD\n"
-                "COMMIT\n"
-        },
-        { V4V6, "*raw\n"
-                ":PREROUTING -\n"
-                "-F PREROUTING\n"
-                ":bw_raw_PREROUTING -\n"
-                "-A PREROUTING -j bw_raw_PREROUTING\n"
-                ":idletimer_raw_PREROUTING -\n"
-                "-A PREROUTING -j idletimer_raw_PREROUTING\n"
-                ":tetherctrl_raw_PREROUTING -\n"
-                "-A PREROUTING -j tetherctrl_raw_PREROUTING\n"
-                "COMMIT\n"
-        },
-        { V4V6, "*mangle\n"
-                ":FORWARD -\n"
-                "-F FORWARD\n"
-                ":tetherctrl_mangle_FORWARD -\n"
-                "-A FORWARD -j tetherctrl_mangle_FORWARD\n"
-                "COMMIT\n"
-        },
-        { V4V6, "*mangle\n"
-                ":INPUT -\n"
-                "-F INPUT\n"
-                ":wakeupctrl_mangle_INPUT -\n"
-                "-A INPUT -j wakeupctrl_mangle_INPUT\n"
-                ":routectrl_mangle_INPUT -\n"
-                "-A INPUT -j routectrl_mangle_INPUT\n"
-                "COMMIT\n"
-        },
-        { V4,   "*nat\n"
-                ":PREROUTING -\n"
-                "-F PREROUTING\n"
-                ":oem_nat_pre -\n"
-                "-A PREROUTING -j oem_nat_pre\n"
-                "COMMIT\n"
-        },
-        { V4,   "*nat\n"
-                ":POSTROUTING -\n"
-                "-F POSTROUTING\n"
-                ":tetherctrl_nat_POSTROUTING -\n"
-                "-A POSTROUTING -j tetherctrl_nat_POSTROUTING\n"
-                "COMMIT\n"
-        },
-        { V4, "*filter\n"
-              "-S OUTPUT\n"
-              "COMMIT\n" },
-        { V4, "*filter\n"
-              ":oem_out -\n"
-              "-A OUTPUT -j oem_out\n"
-              ":fw_OUTPUT -\n"
-              "-A OUTPUT -j fw_OUTPUT\n"
-              ":st_OUTPUT -\n"
-              "-A OUTPUT -j st_OUTPUT\n"
-              ":bw_OUTPUT -\n"
-              "-A OUTPUT -j bw_OUTPUT\n"
-              "COMMIT\n"
-        },
-        { V6, "*filter\n"
-              "-S OUTPUT\n"
-              "COMMIT\n" },
-        { V6, "*filter\n"
-              ":oem_out -\n"
-              "-A OUTPUT -j oem_out\n"
-              ":fw_OUTPUT -\n"
-              "-A OUTPUT -j fw_OUTPUT\n"
-              ":st_OUTPUT -\n"
-              "-A OUTPUT -j st_OUTPUT\n"
-              ":bw_OUTPUT -\n"
-              "-A OUTPUT -j bw_OUTPUT\n"
-              "COMMIT\n"
-        },
-        { V4, "*mangle\n"
-              "-S POSTROUTING\n"
-              "COMMIT\n" },
-        { V4, "*mangle\n"
-              ":oem_mangle_post -\n"
-              "-A POSTROUTING -j oem_mangle_post\n"
-              ":bw_mangle_POSTROUTING -\n"
-              "-A POSTROUTING -j bw_mangle_POSTROUTING\n"
-              ":idletimer_mangle_POSTROUTING -\n"
-              "-A POSTROUTING -j idletimer_mangle_POSTROUTING\n"
-              "COMMIT\n"
-        },
-        { V6, "*mangle\n"
-              "-S POSTROUTING\n"
-              "COMMIT\n" },
-        { V6, "*mangle\n"
-              ":oem_mangle_post -\n"
-              "-A POSTROUTING -j oem_mangle_post\n"
-              ":bw_mangle_POSTROUTING -\n"
-              "-A POSTROUTING -j bw_mangle_POSTROUTING\n"
-              ":idletimer_mangle_POSTROUTING -\n"
-              "-A POSTROUTING -j idletimer_mangle_POSTROUTING\n"
-              "COMMIT\n"
-        },
+            {V4V6,
+             "*filter\n"
+             ":INPUT -\n"
+             "-F INPUT\n"
+             ":bw_INPUT -\n"
+             "-A INPUT -j bw_INPUT\n"
+             ":fw_INPUT -\n"
+             "-A INPUT -j fw_INPUT\n"
+             "COMMIT\n"},
+            {V4V6,
+             "*filter\n"
+             ":FORWARD -\n"
+             "-F FORWARD\n"
+             ":oem_fwd -\n"
+             "-A FORWARD -j oem_fwd\n"
+             ":fw_FORWARD -\n"
+             "-A FORWARD -j fw_FORWARD\n"
+             ":bw_FORWARD -\n"
+             "-A FORWARD -j bw_FORWARD\n"
+             ":tetherctrl_FORWARD -\n"
+             "-A FORWARD -j tetherctrl_FORWARD\n"
+             "COMMIT\n"},
+            {V4V6,
+             "*raw\n"
+             ":PREROUTING -\n"
+             "-F PREROUTING\n"
+             ":clat_raw_PREROUTING -\n"
+             "-A PREROUTING -j clat_raw_PREROUTING\n"
+             ":bw_raw_PREROUTING -\n"
+             "-A PREROUTING -j bw_raw_PREROUTING\n"
+             ":idletimer_raw_PREROUTING -\n"
+             "-A PREROUTING -j idletimer_raw_PREROUTING\n"
+             ":tetherctrl_raw_PREROUTING -\n"
+             "-A PREROUTING -j tetherctrl_raw_PREROUTING\n"
+             "COMMIT\n"},
+            {V4V6,
+             "*mangle\n"
+             ":FORWARD -\n"
+             "-F FORWARD\n"
+             ":tetherctrl_mangle_FORWARD -\n"
+             "-A FORWARD -j tetherctrl_mangle_FORWARD\n"
+             "COMMIT\n"},
+            {V4V6,
+             "*mangle\n"
+             ":INPUT -\n"
+             "-F INPUT\n"
+             ":wakeupctrl_mangle_INPUT -\n"
+             "-A INPUT -j wakeupctrl_mangle_INPUT\n"
+             ":routectrl_mangle_INPUT -\n"
+             "-A INPUT -j routectrl_mangle_INPUT\n"
+             "COMMIT\n"},
+            {V4,
+             "*nat\n"
+             ":PREROUTING -\n"
+             "-F PREROUTING\n"
+             ":oem_nat_pre -\n"
+             "-A PREROUTING -j oem_nat_pre\n"
+             "COMMIT\n"},
+            {V4,
+             "*nat\n"
+             ":POSTROUTING -\n"
+             "-F POSTROUTING\n"
+             ":tetherctrl_nat_POSTROUTING -\n"
+             "-A POSTROUTING -j tetherctrl_nat_POSTROUTING\n"
+             "COMMIT\n"},
+            {V4,
+             "*filter\n"
+             "-S OUTPUT\n"
+             "COMMIT\n"},
+            {V4,
+             "*filter\n"
+             ":oem_out -\n"
+             "-A OUTPUT -j oem_out\n"
+             ":fw_OUTPUT -\n"
+             "-A OUTPUT -j fw_OUTPUT\n"
+             ":st_OUTPUT -\n"
+             "-A OUTPUT -j st_OUTPUT\n"
+             ":bw_OUTPUT -\n"
+             "-A OUTPUT -j bw_OUTPUT\n"
+             "COMMIT\n"},
+            {V6,
+             "*filter\n"
+             "-S OUTPUT\n"
+             "COMMIT\n"},
+            {V6,
+             "*filter\n"
+             ":oem_out -\n"
+             "-A OUTPUT -j oem_out\n"
+             ":fw_OUTPUT -\n"
+             "-A OUTPUT -j fw_OUTPUT\n"
+             ":st_OUTPUT -\n"
+             "-A OUTPUT -j st_OUTPUT\n"
+             ":bw_OUTPUT -\n"
+             "-A OUTPUT -j bw_OUTPUT\n"
+             "COMMIT\n"},
+            {V4,
+             "*mangle\n"
+             "-S POSTROUTING\n"
+             "COMMIT\n"},
+            {V4,
+             "*mangle\n"
+             ":oem_mangle_post -\n"
+             "-A POSTROUTING -j oem_mangle_post\n"
+             ":bw_mangle_POSTROUTING -\n"
+             "-A POSTROUTING -j bw_mangle_POSTROUTING\n"
+             ":idletimer_mangle_POSTROUTING -\n"
+             "-A POSTROUTING -j idletimer_mangle_POSTROUTING\n"
+             "COMMIT\n"},
+            {V6,
+             "*mangle\n"
+             "-S POSTROUTING\n"
+             "COMMIT\n"},
+            {V6,
+             "*mangle\n"
+             ":oem_mangle_post -\n"
+             "-A POSTROUTING -j oem_mangle_post\n"
+             ":bw_mangle_POSTROUTING -\n"
+             "-A POSTROUTING -j bw_mangle_POSTROUTING\n"
+             ":idletimer_mangle_POSTROUTING -\n"
+             "-A POSTROUTING -j idletimer_mangle_POSTROUTING\n"
+             "COMMIT\n"},
     };
 
     // Check that we run these commands and these only.

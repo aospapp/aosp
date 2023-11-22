@@ -1,0 +1,7 @@
+./.cargo/registry/index/github.com-1ecc6299db9ec823  HEAD
+./build/third_party/virglrenderer https://android.googlesource.com/platform/external/virglrenderer 584039fdf2f425fb3dd853dd7d77f71531438e26
+./build/third_party/minijail https://android.googlesource.com/platform/external/minijail b7c57cdfe578230d4dedd5d44cf5503eb21f1ca6
+./build/third_party/libepoxy https://android.googlesource.com/platform/external/libepoxy 707f50e680ab4f1861b1e54ca6e2907aaca56c12
+./build/third_party/adhd https://android.googlesource.com/platform/external/adhd fbae35ac5395a321262a76d2d56a3f6ff5086de5
+./build/third_party/minigbm https://android.googlesource.com/platform/external/minigbm 5d215249f4660982631128381f4dc6ad2730fc06
+./build/platform/crosvm https://android.googlesource.com/platform/external/crosvm 6bfc6a0304910701e55e56c4feaf0d73c07d33e5

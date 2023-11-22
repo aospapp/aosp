@@ -25,8 +25,9 @@ import android.graphics.Rect;
 import android.graphics.pdf.PdfDocument;
 import android.print.PrintAttributes;
 import android.print.pdf.PrintedPdfDocument;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.BeforeClass;
 import org.junit.Test;

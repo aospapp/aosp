@@ -15,7 +15,7 @@
   ~ limitations under the License
    -->
 
-<resources xmlns:android="http://schemas.android.com/apk/res/android"
+<resources
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assisted_dialing_setting_title" msgid="3397624434500805193">"전화번호 도우미"</string>
     <string name="assisted_dialing_setting_summary" msgid="2121165095086134903">"해외여행 중 전화를 걸면 국가 코드를 예측하여 추가"</string>

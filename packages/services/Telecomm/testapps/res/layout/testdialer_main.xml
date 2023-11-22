@@ -30,6 +30,16 @@
         android:layout_height="wrap_content"
         android:text="@string/placeCallButton" />
     <Button
+        android:id="@+id/report_nuisance_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Report Nuisance" />
+    <Button
+        android:id="@+id/report_not_nuisance_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Report Not Nuisance" />
+    <Button
         android:id="@+id/set_default_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

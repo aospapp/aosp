@@ -24,6 +24,7 @@ import javax.net.SocketFactory;
 import javax.net.ssl.SSLPeerUnverifiedException;
 
 import android.net.SSLCertificateSocketFactory;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import libcore.javax.net.ssl.SSLConfigurationAsserts;
@@ -91,7 +92,7 @@ public class SSLCertificateSocketFactoryTest extends AndroidTestCase {
 
     // a host and port that are expected to be available but have
     // a cert with a different CN, in this case CN=mail.google.com
-    private static String TEST_CREATE_SOCKET_HOST = "googlemail.com";
+    private static String TEST_CREATE_SOCKET_HOST = "www3.l.google.com";
     private static int TEST_CREATE_SOCKET_PORT = 443;
 
     /**
@@ -101,6 +102,7 @@ public class SSLCertificateSocketFactoryTest extends AndroidTestCase {
      *
      * NOTE: Test will fail if external server is not available.
      */
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void test_createSocket_simple() throws Exception {
         try {
             mFactory.createSocket(TEST_CREATE_SOCKET_HOST, TEST_CREATE_SOCKET_PORT);
@@ -117,6 +119,7 @@ public class SSLCertificateSocketFactoryTest extends AndroidTestCase {
      *
      * NOTE: Test will fail if external server is not available.
      */
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void test_createSocket_wrapping() throws Exception {
         try {
             Socket underlying = new Socket(TEST_CREATE_SOCKET_HOST, TEST_CREATE_SOCKET_PORT);
@@ -135,6 +138,7 @@ public class SSLCertificateSocketFactoryTest extends AndroidTestCase {
      *
      * NOTE: Test will fail if external server is not available.
      */
+    @AppModeFull(reason = "Socket cannot bind in instant app mode")
     public void test_createSocket_bind() throws Exception {
         try {
             mFactory.createSocket(TEST_CREATE_SOCKET_HOST, TEST_CREATE_SOCKET_PORT, null, 0);

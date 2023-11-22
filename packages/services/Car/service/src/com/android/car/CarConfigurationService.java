@@ -130,6 +130,7 @@ public class CarConfigurationService extends ICarConfigurationManager.Stub
 
     @Override
     public void dump(PrintWriter writer) {
+        writer.println("*CarConfigurationService*");
         writer.println("Config value initialized: " + (mConfigFile != null));
         if (mConfigFile != null) {
             try {

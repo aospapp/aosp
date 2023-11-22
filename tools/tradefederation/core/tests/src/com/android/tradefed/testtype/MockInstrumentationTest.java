@@ -16,7 +16,10 @@
 package com.android.tradefed.testtype;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.metric.IMetricCollector;
 import com.android.tradefed.result.ITestInvocationListener;
+
+import java.util.List;
 
 /**
  * Mock for InstrumentationTest.
@@ -25,7 +28,8 @@ public class MockInstrumentationTest extends InstrumentationTest {
 
     private ITestInvocationListener mListener = null;
     private DeviceNotAvailableException mException = null;
-
+    private List<IMetricCollector> mCollectors = null;
+    
     @Override
     public void run(final ITestInvocationListener listener)
             throws DeviceNotAvailableException {
@@ -45,5 +49,15 @@ public class MockInstrumentationTest extends InstrumentationTest {
 
     public void setException(DeviceNotAvailableException e) {
         mException = e;
+    }
+
+    @Override
+    public void setMetricCollectors(List<IMetricCollector> collectors) {
+        super.setMetricCollectors(collectors);
+        mCollectors = collectors;
+    }
+
+    public List<IMetricCollector> getCollectors() {
+        return mCollectors;
     }
 }

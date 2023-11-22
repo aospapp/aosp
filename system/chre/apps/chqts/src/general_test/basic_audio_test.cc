@@ -17,15 +17,14 @@
 #include <general_test/basic_audio_test.h>
 
 #include <shared/send_message.h>
+#include <shared/time_util.h>
 
+using nanoapp_testing::kOneSecondInNanoseconds;
 using nanoapp_testing::sendFatalFailureToHost;
 using nanoapp_testing::sendSuccessToHost;
 
 namespace general_test {
 namespace {
-
-//! Unit conversion nanoseconds per second.
-constexpr uint64_t kNanosecondsPerSecond = 1000000000;
 
 //! This is a reasonably high limit on the number of audio sources that a system
 //! would expose. Use this to verify that there are no gaps in the source
@@ -50,12 +49,12 @@ constexpr uint32_t kMinAudioSampleRate = 4000;
 //! sample rate possible, a minimum number of samples will be delivered in
 //! a batch.
 constexpr uint64_t kMinBufferDuration =
-    (kNanosecondsPerSecond / kMaxAudioSampleRate) * 10;
+    (kOneSecondInNanoseconds / kMaxAudioSampleRate) * 10;
 
 //! Provide a ceiling for the maximum buffer duration. This is to catch buggy
 //! descriptors of audio sources who expose very long buffers of data which are
 //! not practical for always-on, low-power use-cases.
-constexpr uint64_t kMaxBufferDuration = kNanosecondsPerSecond * 120;
+constexpr uint64_t kMaxBufferDuration = kOneSecondInNanoseconds * 120;
 
 /**
  * @return true if the character is ASCII printable.
@@ -126,7 +125,7 @@ bool validateAudioSource(uint32_t handle,
 bool validateMinimumAudioSource(const struct chreAudioSource& source) {
   // CHQTS requires a 16kHz, PCM-format, 2 second buffer.
   constexpr uint32_t kRequiredSampleRate = 16000;
-  constexpr uint64_t kRequiredBufferDuration = 2 * kNanosecondsPerSecond;
+  constexpr uint64_t kRequiredBufferDuration = 2 * kOneSecondInNanoseconds;
 
   // Ensure that the minimum buffer size is less than or equal to the required
   // size.

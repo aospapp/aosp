@@ -22,7 +22,9 @@ import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
+
 import org.junit.Test;
 
 /**

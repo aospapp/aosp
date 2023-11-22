@@ -41,60 +41,54 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
   }
 
  private:
-  void VisitAdd(HAdd* add) OVERRIDE {
+  void VisitAdd(HAdd* add) override {
     BinaryFP(add);
   }
 
-  void VisitSub(HSub* sub) OVERRIDE {
+  void VisitSub(HSub* sub) override {
     BinaryFP(sub);
   }
 
-  void VisitMul(HMul* mul) OVERRIDE {
+  void VisitMul(HMul* mul) override {
     BinaryFP(mul);
   }
 
-  void VisitDiv(HDiv* div) OVERRIDE {
+  void VisitDiv(HDiv* div) override {
     BinaryFP(div);
   }
 
-  void VisitCompare(HCompare* compare) OVERRIDE {
+  void VisitCompare(HCompare* compare) override {
     BinaryFP(compare);
   }
 
-  void VisitReturn(HReturn* ret) OVERRIDE {
+  void VisitReturn(HReturn* ret) override {
     HConstant* value = ret->InputAt(0)->AsConstant();
     if ((value != nullptr && DataType::IsFloatingPointType(value->GetType()))) {
       ReplaceInput(ret, value, 0, true);
     }
   }
 
-  void VisitInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke) OVERRIDE {
+  void VisitInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke) override {
     HandleInvoke(invoke);
   }
 
-  void VisitInvokeVirtual(HInvokeVirtual* invoke) OVERRIDE {
+  void VisitInvokeVirtual(HInvokeVirtual* invoke) override {
     HandleInvoke(invoke);
   }
 
-  void VisitInvokeInterface(HInvokeInterface* invoke) OVERRIDE {
+  void VisitInvokeInterface(HInvokeInterface* invoke) override {
     HandleInvoke(invoke);
   }
 
-  void VisitLoadClass(HLoadClass* load_class) OVERRIDE {
-    HLoadClass::LoadKind load_kind = load_class->GetLoadKind();
-    if (load_kind == HLoadClass::LoadKind::kBootImageLinkTimePcRelative ||
-        load_kind == HLoadClass::LoadKind::kBootImageClassTable ||
-        load_kind == HLoadClass::LoadKind::kBssEntry) {
+  void VisitLoadClass(HLoadClass* load_class) override {
+    if (load_class->HasPcRelativeLoadKind()) {
       HX86ComputeBaseMethodAddress* method_address = GetPCRelativeBasePointer(load_class);
       load_class->AddSpecialInput(method_address);
     }
   }
 
-  void VisitLoadString(HLoadString* load_string) OVERRIDE {
-    HLoadString::LoadKind load_kind = load_string->GetLoadKind();
-    if (load_kind == HLoadString::LoadKind::kBootImageLinkTimePcRelative ||
-        load_kind == HLoadString::LoadKind::kBootImageInternTable ||
-        load_kind == HLoadString::LoadKind::kBssEntry) {
+  void VisitLoadString(HLoadString* load_string) override {
+    if (load_string->HasPcRelativeLoadKind()) {
       HX86ComputeBaseMethodAddress* method_address = GetPCRelativeBasePointer(load_string);
       load_string->AddSpecialInput(method_address);
     }
@@ -107,31 +101,31 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
     }
   }
 
-  void VisitEqual(HEqual* cond) OVERRIDE {
+  void VisitEqual(HEqual* cond) override {
     BinaryFP(cond);
   }
 
-  void VisitNotEqual(HNotEqual* cond) OVERRIDE {
+  void VisitNotEqual(HNotEqual* cond) override {
     BinaryFP(cond);
   }
 
-  void VisitLessThan(HLessThan* cond) OVERRIDE {
+  void VisitLessThan(HLessThan* cond) override {
     BinaryFP(cond);
   }
 
-  void VisitLessThanOrEqual(HLessThanOrEqual* cond) OVERRIDE {
+  void VisitLessThanOrEqual(HLessThanOrEqual* cond) override {
     BinaryFP(cond);
   }
 
-  void VisitGreaterThan(HGreaterThan* cond) OVERRIDE {
+  void VisitGreaterThan(HGreaterThan* cond) override {
     BinaryFP(cond);
   }
 
-  void VisitGreaterThanOrEqual(HGreaterThanOrEqual* cond) OVERRIDE {
+  void VisitGreaterThanOrEqual(HGreaterThanOrEqual* cond) override {
     BinaryFP(cond);
   }
 
-  void VisitNeg(HNeg* neg) OVERRIDE {
+  void VisitNeg(HNeg* neg) override {
     if (DataType::IsFloatingPointType(neg->GetType())) {
       // We need to replace the HNeg with a HX86FPNeg in order to address the constant area.
       HX86ComputeBaseMethodAddress* method_address = GetPCRelativeBasePointer(neg);
@@ -146,7 +140,7 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
     }
   }
 
-  void VisitPackedSwitch(HPackedSwitch* switch_insn) OVERRIDE {
+  void VisitPackedSwitch(HPackedSwitch* switch_insn) override {
     if (switch_insn->GetNumEntries() <=
         InstructionCodeGeneratorX86::kPackedSwitchJumpTableThreshold) {
       return;
@@ -199,18 +193,19 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
   }
 
   void HandleInvoke(HInvoke* invoke) {
-    // If this is an invoke-static/-direct with PC-relative dex cache array
-    // addressing, we need the PC-relative address base.
     HInvokeStaticOrDirect* invoke_static_or_direct = invoke->AsInvokeStaticOrDirect();
-    // We can't add a pointer to the constant area if we already have a current
-    // method pointer. This may arise when sharpening doesn't remove the current
-    // method pointer from the invoke.
-    if (invoke_static_or_direct != nullptr &&
-        invoke_static_or_direct->HasCurrentMethodInput()) {
+
+    // We can't add the method address if we already have a current method pointer.
+    // This may arise when sharpening doesn't remove the current method pointer from the invoke.
+    if (invoke_static_or_direct != nullptr && invoke_static_or_direct->HasCurrentMethodInput()) {
+      // Note: This happens only for recursive calls (including compiling an intrinsic
+      // by faking a call to itself; we use kRuntimeCall for this case).
       DCHECK(!invoke_static_or_direct->HasPcRelativeMethodLoadKind());
       return;
     }
 
+    // If this is an invoke-static/-direct with PC-relative addressing (within boot image
+    // or using .bss or .data.bimg.rel.ro), we need the PC-relative address base.
     bool base_added = false;
     if (invoke_static_or_direct != nullptr &&
         invoke_static_or_direct->HasPcRelativeMethodLoadKind() &&
@@ -230,15 +225,16 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
       }
     }
 
-    // These intrinsics need the constant area.
     switch (invoke->GetIntrinsic()) {
-      case Intrinsics::kMathAbsDouble:
-      case Intrinsics::kMathAbsFloat:
-      case Intrinsics::kMathMaxDoubleDouble:
-      case Intrinsics::kMathMaxFloatFloat:
-      case Intrinsics::kMathMinDoubleDouble:
-      case Intrinsics::kMathMinFloatFloat:
+      case Intrinsics::kIntegerValueOf:
+        // This intrinsic can be call free if it loads the address of the boot image object.
+        // If we're compiling PIC, we need the address base for loading from .data.bimg.rel.ro.
+        if (!codegen_->GetCompilerOptions().GetCompilePic()) {
+          break;
+        }
+        FALLTHROUGH_INTENDED;
       case Intrinsics::kMathRoundFloat:
+        // This intrinsic needs the constant area.
         if (!base_added) {
           DCHECK(invoke_static_or_direct != nullptr);
           DCHECK(!invoke_static_or_direct->HasCurrentMethodInput());
@@ -259,10 +255,11 @@ class PCRelativeHandlerVisitor : public HGraphVisitor {
   HX86ComputeBaseMethodAddress* base_;
 };
 
-void PcRelativeFixups::Run() {
+bool PcRelativeFixups::Run() {
   PCRelativeHandlerVisitor visitor(graph_, codegen_);
   visitor.VisitInsertionOrder();
   visitor.MoveBaseIfNeeded();
+  return true;
 }
 
 }  // namespace x86

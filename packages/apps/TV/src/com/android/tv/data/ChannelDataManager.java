@@ -23,7 +23,6 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.content.res.AssetFileDescriptor;
 import android.database.ContentObserver;
-import android.database.sqlite.SQLiteException;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Channels;
 import android.media.tv.TvInputManager.TvInputCallback;
@@ -47,7 +46,7 @@ import com.android.tv.data.api.Channel;
 import com.android.tv.util.AsyncDbTask;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
-import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -515,7 +514,7 @@ public class ChannelDataManager {
         if (mChannelsUpdateTask != null) {
             mChannelsUpdateTask.cancel(true);
         }
-        mChannelsUpdateTask = new QueryAllChannelsTask(mContentResolver);
+        mChannelsUpdateTask = new QueryAllChannelsTask();
         mChannelsUpdateTask.executeOnDbThread();
     }
 
@@ -599,8 +598,10 @@ public class ChannelDataManager {
                             .openAssetFileDescriptor(
                                     TvContract.buildChannelLogoUri(mChannel.getId()), "r")) {
                 return true;
-            } catch (SQLiteException | IOException | NullPointerException e) {
-                // File not found or asset file not found.
+            } catch (FileNotFoundException e) {
+                // no need to log just return false
+            } catch (Exception e) {
+                Log.w(TAG, "Unable to find logo for " + mChannel, e);
             }
             return false;
         }
@@ -616,8 +617,8 @@ public class ChannelDataManager {
 
     private final class QueryAllChannelsTask extends AsyncDbTask.AsyncChannelQueryTask {
 
-        QueryAllChannelsTask(ContentResolver contentResolver) {
-            super(mDbExecutor, contentResolver);
+        QueryAllChannelsTask() {
+            super(mDbExecutor, mContext);
         }
 
         @Override
@@ -736,15 +737,12 @@ public class ChannelDataManager {
             return;
         }
         mDbExecutor.execute(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        String selection = Utils.buildSelectionForIds(Channels._ID, ids);
-                        ContentValues values = new ContentValues();
-                        values.put(columnName, columnValue);
-                        mContentResolver.update(
-                                TvContract.Channels.CONTENT_URI, values, selection, null);
-                    }
+                () -> {
+                    String selection = Utils.buildSelectionForIds(Channels._ID, ids);
+                    ContentValues values = new ContentValues();
+                    values.put(columnName, columnValue);
+                    mContentResolver.update(
+                            TvContract.Channels.CONTENT_URI, values, selection, null);
                 });
     }
 

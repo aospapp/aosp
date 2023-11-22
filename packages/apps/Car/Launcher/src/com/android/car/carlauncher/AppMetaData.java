@@ -17,30 +17,48 @@
 package com.android.car.carlauncher;
 
 import android.annotation.Nullable;
+import android.content.Intent;
 import android.graphics.drawable.Drawable;
 
 /**
- * Meta data of an app including the display name, the full package name, and the icon drawable.
+ * Meta data of an app including the display name, the full package name, the icon drawable, and an
+ * intent to either open the app or the media center (for media services).
  */
 
 final class AppMetaData {
     // The display name of the app
     @Nullable
-    private String mDisplayName;
+    private final String mDisplayName;
     // The package name of the app
-    private String mPackageName;
-    private Drawable mIcon;
-    private boolean mIsDistractionOptimized;
+    private final String mPackageName;
+    private final Drawable mIcon;
+    private final boolean mIsDistractionOptimized;
+    private final Intent mMainLaunchIntent;
+    private final Intent mAlternateLaunchIntent;
 
-    public AppMetaData(
+    /**
+     * AppMetaData
+     * @param displayName the name to display in the launcher
+     * @param packageName the application's package
+     * @param icon the application's icon
+     * @param isDistractionOptimized whether mainLaunchIntent is safe for driving
+     * @param mainLaunchIntent what to open by default (goes to the media center for media apps)
+     * @param alternateLaunchIntent temporary allowance for media apps that still need to show UI
+     *                              beyond sign in and settings
+     */
+    AppMetaData(
             CharSequence displayName,
             String packageName,
             Drawable icon,
-            boolean isDistractionOptimized) {
+            boolean isDistractionOptimized,
+            Intent mainLaunchIntent,
+            @Nullable Intent alternateLaunchIntent) {
         mDisplayName = displayName == null ? "" : displayName.toString();
         mPackageName = packageName == null ? "" : packageName;
         mIcon = icon;
         mIsDistractionOptimized = isDistractionOptimized;
+        mMainLaunchIntent = mainLaunchIntent;
+        mAlternateLaunchIntent = alternateLaunchIntent;
     }
 
     public String getDisplayName() {
@@ -51,11 +69,19 @@ final class AppMetaData {
         return mPackageName;
     }
 
+    Intent getMainLaunchIntent() {
+        return mMainLaunchIntent;
+    }
+
+    Intent getAlternateLaunchIntent() {
+        return mAlternateLaunchIntent;
+    }
+
     public Drawable getIcon() {
         return mIcon;
     }
 
-    public boolean getIsDistractionOptimized() {
+    boolean getIsDistractionOptimized() {
         return mIsDistractionOptimized;
     }
 

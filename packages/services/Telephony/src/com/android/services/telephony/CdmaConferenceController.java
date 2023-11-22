@@ -16,12 +16,12 @@
 
 package com.android.services.telephony;
 
-import com.android.phone.PhoneUtils;
-
 import android.os.Handler;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
+
+import com.android.phone.PhoneUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -211,6 +211,7 @@ final class CdmaConferenceController {
             // 4) Add the conference to the connection service if it is new.
             if (isNewlyCreated) {
                 Log.d(this, "Adding the conference call");
+                mConference.updateCallRadioTechAfterCreation();
                 mConnectionService.addConference(mConference);
             }
         } else if (conferenceConnections.isEmpty()) {

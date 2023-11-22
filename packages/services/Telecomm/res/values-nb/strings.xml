@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Hurtigsvar"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Melding er sendt til <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"Kunne ikke sende meldingen til <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Ringekontoer"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Kun nødanrop er mulig."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Denne appen kan ikke ringe uten tillatelse fra telefonen."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Angi som standard"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Avbryt"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> kan håndtere alt som har med telefonanrop å gjøre. Bruk bare apper du stoler på som standard telefonapp."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"Vil du angi <xliff:g id="NEW_APP">%s</xliff:g> som standardapp for anropsutvelgelse?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> kan ikke lenger utføre anropsutvelgelse."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> kan se informasjon om oppringere som ikke står i kontaktene dine, og kan blokkere disse anropene. Bare apper du stoler på, bør angis som standardapp for anropsutvelgelse."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Angi som standard"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Avbryt"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Blokkerte numre"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Du mottar ingen anrop eller tekstmeldinger fra blokkerte numre."</string>
     <string name="block_number" msgid="1101252256321306179">"Legg til et nummer"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Hvis du svarer, avsluttes videosamtalen du er i nå"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Svar"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Avvis"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Anropet kan ikke utføres fordi du ikke har noen ringekontoer som støtter denne typen anrop."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Kan ikke ringe ut på grunn av <xliff:g id="OTHER_CALL">%1$s</xliff:g>-samtalen din."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Kan ikke ringe ut på grunn av <xliff:g id="OTHER_CALL">%1$s</xliff:g>-samtalene dine."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Kan ikke ringe ut på grunn av en samtale i en annen app."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Tapte anrop"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Anropsblokkering"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Samtalen din i <xliff:g id="OTHER_APP">%1$s</xliff:g> avsluttes hvis du foretar dette anropet."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Velg hvordan du vil ringe"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Viderekoble anropet med <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Ring med telefonnummeret mitt"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"Anrop kan ikke utføres av <xliff:g id="OTHER_APP">%1$s</xliff:g>. Prøv å bruke en annen app for viderekobling av anrop eller ta kontakt med utvikleren for å få hjelp."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Anropsblokkering"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Numre som ikke står i Kontakter"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Blokkér numre som ikke står i kontaktene mine"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Anropsblokkering er slått av"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Nødanrop utført"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Anropsblokkering er slått av for å gjøre det mulig for nødtjenester å kontakte deg."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Meny for telekommunikasjonsutviklere"</string>
 </resources>

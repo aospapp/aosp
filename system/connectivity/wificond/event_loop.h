@@ -57,7 +57,7 @@ class EventLoop {
   // This returns true upon success and returns false when it failed to
   // remove the file descriptor, or this file descriptor was not registered
   // for watching.
-  virtual bool StopWatchFileDescriptor(int fd);
+  virtual bool StopWatchFileDescriptor(int fd) = 0;
 };
 
 }  // namespace wificond

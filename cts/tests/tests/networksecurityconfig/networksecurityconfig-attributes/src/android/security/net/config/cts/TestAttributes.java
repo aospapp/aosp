@@ -17,9 +17,8 @@
 package android.security.net.config.cts;
 
 import android.security.NetworkSecurityPolicy;
-import junit.framework.TestCase;
 
-public class TestAttributes extends TestCase {
+public class TestAttributes extends BaseTestCase {
     public void testCleartextTrafficPermitted() throws Exception {
         NetworkSecurityPolicy instance = NetworkSecurityPolicy.getInstance();
         // Since there are some configs that do not allow cleartext the non-hostname aware version

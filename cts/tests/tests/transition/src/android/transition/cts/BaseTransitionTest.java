@@ -19,14 +19,14 @@ import static com.android.compatibility.common.util.CtsMockitoUtils.within;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.animation.Animator;
 import android.animation.ObjectAnimator;
 import android.app.Instrumentation;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.rule.ActivityTestRule;
+import android.graphics.PointF;
 import android.transition.Scene;
 import android.transition.Transition;
 import android.transition.TransitionManager;
@@ -34,14 +34,20 @@ import android.transition.TransitionValues;
 import android.transition.Visibility;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.FrameLayout;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
+import org.mockito.Mockito;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public abstract class BaseTransitionTest {
     protected Instrumentation mInstrumentation;
@@ -147,6 +153,32 @@ public abstract class BaseTransitionTest {
     public void setAnimatedValue(float animatedValue) {
         mAnimatedValue = animatedValue;
     }
+
+    List<PointF> captureTranslations(View view) throws Throwable {
+        final ArrayList<PointF> points = Mockito.spy(new ArrayList<>());
+        mActivityRule.runOnUiThread(() -> {
+            ViewTreeObserver.OnDrawListener listener = new ViewTreeObserver.OnDrawListener() {
+                @Override
+                public void onDraw() {
+                    float x = view.getTranslationX();
+                    float y = view.getTranslationY();
+                    if (points.isEmpty() || !points.get(points.size() - 1).equals(x, y)) {
+                        points.add(new PointF(x, y));
+                    }
+                    if (points.size() > 3 && x == 0f && y == 0f) {
+                        view.post(() -> {
+                            view.getViewTreeObserver().removeOnDrawListener(this);
+                        });
+                    }
+                }
+            };
+            view.getViewTreeObserver().addOnDrawListener(listener);
+            view.invalidate();
+        });
+        verify(points, timeout(1000).times(1)).add(any());
+        return points;
+    }
+
 
     public class TestTransition extends Visibility {
 

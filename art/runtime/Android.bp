@@ -23,7 +23,7 @@ JIT_DEBUG_REGISTER_CODE_LDFLAGS = [
     "-Wl,--keep-unique,__dex_debug_register_code"
 ]
 
-cc_defaults {
+libart_cc_defaults {
     name: "libart_defaults",
     defaults: ["art_defaults"],
     host_supported: true,
@@ -31,25 +31,24 @@ cc_defaults {
         "aot_class_linker.cc",
         "art_field.cc",
         "art_method.cc",
+        "backtrace_helper.cc",
         "barrier.cc",
-        "base/arena_allocator.cc",
-        "base/arena_bit_vector.cc",
-        "base/file_utils.cc",
+        "base/locks.cc",
+        "base/mem_map_arena_pool.cc",
         "base/mutex.cc",
         "base/quasi_atomic.cc",
-        "base/scoped_arena_allocator.cc",
         "base/timing_logger.cc",
         "cha.cc",
-        "check_jni.cc",
         "class_linker.cc",
         "class_loader_context.cc",
+        "class_root.cc",
         "class_table.cc",
         "common_throws.cc",
         "compiler_filter.cc",
         "debug_print.cc",
         "debugger.cc",
-        "dex/art_dex_file_loader.cc",
         "dex/dex_file_annotations.cc",
+        "dex_register_location.cc",
         "dex_to_dex_decompiler.cc",
         "elf_file.cc",
         "exec_utils.cc",
@@ -67,7 +66,6 @@ cc_defaults {
         "gc/collector/garbage_collector.cc",
         "gc/collector/immune_region.cc",
         "gc/collector/immune_spaces.cc",
-        "gc/collector/mark_compact.cc",
         "gc/collector/mark_sweep.cc",
         "gc/collector/partial_mark_sweep.cc",
         "gc/collector/semi_space.cc",
@@ -96,14 +94,17 @@ cc_defaults {
         "instrumentation.cc",
         "intern_table.cc",
         "interpreter/interpreter.cc",
+        "interpreter/interpreter_cache.cc",
         "interpreter/interpreter_common.cc",
         "interpreter/interpreter_intrinsics.cc",
-        "interpreter/interpreter_switch_impl.cc",
+        "interpreter/interpreter_switch_impl0.cc",
+        "interpreter/interpreter_switch_impl1.cc",
+        "interpreter/interpreter_switch_impl2.cc",
+        "interpreter/interpreter_switch_impl3.cc",
         "interpreter/lock_count_data.cc",
         "interpreter/shadow_frame.cc",
         "interpreter/unstarted_runtime.cc",
         "java_frame_root_info.cc",
-        "java_vm_ext.cc",
         "jdwp/jdwp_event.cc",
         "jdwp/jdwp_expand_buf.cc",
         "jdwp/jdwp_handler.cc",
@@ -111,22 +112,19 @@ cc_defaults {
         "jdwp/jdwp_request.cc",
         "jdwp/jdwp_socket.cc",
         "jdwp/object_registry.cc",
-        "jni_env_ext.cc",
         "jit/debugger_interface.cc",
         "jit/jit.cc",
         "jit/jit_code_cache.cc",
-        "jit/profile_compilation_info.cc",
         "jit/profiling_info.cc",
         "jit/profile_saver.cc",
-        "jni_internal.cc",
-        "jobject_comparator.cc",
+        "jni/check_jni.cc",
+        "jni/java_vm_ext.cc",
+        "jni/jni_env_ext.cc",
+        "jni/jni_internal.cc",
         "linear_alloc.cc",
         "managed_stack.cc",
-        "mem_map.cc",
-        "memory_region.cc",
         "method_handles.cc",
         "mirror/array.cc",
-        "mirror/call_site.cc",
         "mirror/class.cc",
         "mirror/class_ext.cc",
         "mirror/dex_cache.cc",
@@ -138,12 +136,12 @@ cc_defaults {
         "mirror/method_handles_lookup.cc",
         "mirror/method_type.cc",
         "mirror/object.cc",
-        "mirror/reference.cc",
         "mirror/stack_trace_element.cc",
         "mirror/string.cc",
         "mirror/throwable.cc",
         "mirror/var_handle.cc",
         "monitor.cc",
+        "monitor_objects_stack_visitor.cc",
         "native_bridge_art_interface.cc",
         "native_stack_dump.cc",
         "native/dalvik_system_DexFile.cc",
@@ -203,8 +201,9 @@ cc_defaults {
         "ti/agent.cc",
         "trace.cc",
         "transaction.cc",
-        "type_lookup_table.cc",
+        "var_handles.cc",
         "vdex_file.cc",
+        "verifier/class_verifier.cc",
         "verifier/instruction_flags.cc",
         "verifier/method_verifier.cc",
         "verifier/reg_type.cc",
@@ -213,10 +212,8 @@ cc_defaults {
         "verifier/verifier_deps.cc",
         "verify_object.cc",
         "well_known_classes.cc",
-        "zip_archive.cc",
 
         "arch/context.cc",
-        "arch/instruction_set.cc",
         "arch/instruction_set_features.cc",
         "arch/memcmp16.cc",
         "arch/arm/instruction_set_features_arm.cc",
@@ -250,10 +247,9 @@ cc_defaults {
 
     arch: {
         arm: {
-            clang_asflags: ["-no-integrated-as"],
             srcs: [
                 "interpreter/mterp/mterp.cc",
-                "interpreter/mterp/out/mterp_arm.S",
+                ":libart_mterp.arm",
                 "arch/arm/context_arm.cc",
                 "arch/arm/entrypoints_init_arm.cc",
                 "arch/arm/instruction_set_features_assembly_tests.S",
@@ -268,7 +264,7 @@ cc_defaults {
         arm64: {
             srcs: [
                 "interpreter/mterp/mterp.cc",
-                "interpreter/mterp/out/mterp_arm64.S",
+                ":libart_mterp.arm64",
                 "arch/arm64/context_arm64.cc",
                 "arch/arm64/entrypoints_init_arm64.cc",
                 "arch/arm64/jni_entrypoints_arm64.S",
@@ -282,7 +278,7 @@ cc_defaults {
         x86: {
             srcs: [
                 "interpreter/mterp/mterp.cc",
-                "interpreter/mterp/out/mterp_x86.S",
+                ":libart_mterp.x86",
                 "arch/x86/context_x86.cc",
                 "arch/x86/entrypoints_init_x86.cc",
                 "arch/x86/jni_entrypoints_x86.S",
@@ -297,7 +293,7 @@ cc_defaults {
                 // Note that the fault_handler_x86.cc is not a mistake.  This file is
                 // shared between the x86 and x86_64 architectures.
                 "interpreter/mterp/mterp.cc",
-                "interpreter/mterp/out/mterp_x86_64.S",
+                ":libart_mterp.x86_64",
                 "arch/x86_64/context_x86_64.cc",
                 "arch/x86_64/entrypoints_init_x86_64.cc",
                 "arch/x86_64/jni_entrypoints_x86_64.S",
@@ -311,7 +307,7 @@ cc_defaults {
         mips: {
             srcs: [
                 "interpreter/mterp/mterp.cc",
-                "interpreter/mterp/out/mterp_mips.S",
+                ":libart_mterp.mips",
                 "arch/mips/context_mips.cc",
                 "arch/mips/entrypoints_init_mips.cc",
                 "arch/mips/jni_entrypoints_mips.S",
@@ -324,7 +320,7 @@ cc_defaults {
         mips64: {
             srcs: [
                 "interpreter/mterp/mterp.cc",
-                "interpreter/mterp/out/mterp_mips64.S",
+                ":libart_mterp.mips64",
                 "arch/mips64/context_mips64.cc",
                 "arch/mips64/entrypoints_init_mips64.cc",
                 "arch/mips64/jni_entrypoints_mips64.S",
@@ -345,14 +341,15 @@ cc_defaults {
                 "thread_android.cc",
             ],
             shared_libs: [
-                // For android::FileMap used by libziparchive.
-                "libutils",
-                "libtombstoned_client",
+                "libdl_android",
             ],
             static_libs: [
-                // ZipArchive support, the order matters here to get all symbols.
-                "libziparchive",
-                "libz",
+                "libz",  // For adler32.
+            ],
+            cflags: [
+                // ART is allowed to link to libicuuc directly
+                // since they are in the same module
+                "-DANDROID_LINK_SHARED_ICU4C",
             ],
         },
         android_arm: {
@@ -374,8 +371,7 @@ cc_defaults {
                 "thread_linux.cc",
             ],
             shared_libs: [
-                "libziparchive",
-                "libz",
+                "libz",  // For adler32.
             ],
         },
     },
@@ -387,24 +383,21 @@ cc_defaults {
     export_generated_headers: ["cpp-define-generator-asm-support"],
     include_dirs: [
         "art/sigchainlib",
-        "external/icu/icu4c/source/common",
-        "external/lz4/lib",
         "external/zlib",
     ],
     header_libs: [
         "art_cmdlineparser_headers",
+        "cpp-define-generator-definitions",
+        "libicuuc_headers",
         "libnativehelper_header_only",
         "jni_platform_headers",
     ],
     shared_libs: [
+        "libartpalette",
         "libnativebridge",
         "libnativeloader",
         "libbacktrace",
-        "liblz4",
         "liblog",
-        "libmetricslogger",
-        // For atrace, properties, ashmem, set_sched_policy and socket_peer_is_trusted.
-        "libcutils",
         // For common macros.
         "libbase",
     ],
@@ -421,13 +414,59 @@ cc_defaults {
     export_shared_lib_headers: ["libbase"],
 }
 
+libart_static_cc_defaults {
+    name: "libart_static_base_defaults",
+    static_libs: [
+        "libartpalette",
+        "libbacktrace",
+        "libbase",
+        "libdexfile_external",  // libunwindstack dependency
+        "libdexfile_support",  // libunwindstack dependency
+        "liblog",
+        "libnativebridge",
+        "libnativeloader",
+        "libsigchain_dummy",
+        "libunwindstack",
+        "libz",
+    ],
+}
+
+cc_defaults {
+    name: "libart_static_defaults",
+    defaults: [
+        "libart_static_base_defaults",
+        "libartbase_static_defaults",
+        "libdexfile_static_defaults",
+        "libprofile_static_defaults",
+    ],
+    static_libs: [
+        "libart",
+        "libelffile",
+    ],
+}
+
+cc_defaults {
+    name: "libartd_static_defaults",
+    defaults: [
+        "libart_static_base_defaults",
+        "libartbased_static_defaults",
+        "libdexfiled_static_defaults",
+        "libprofiled_static_defaults",
+    ],
+    static_libs: [
+        "libartd",
+        "libelffiled",
+    ],
+}
+
 gensrcs {
     name: "art_operator_srcs",
     cmd: "$(location generate_operator_out) art/runtime $(in) > $(out)",
     tools: ["generate_operator_out"],
     srcs: [
-        "arch/instruction_set.h",
-        "base/mutex.h",
+        "base/callee_save_type.h",
+        "base/locks.h",
+        "class_loader_context.h",
         "class_status.h",
         "debugger.h",
         "gc_root.h",
@@ -454,6 +493,7 @@ gensrcs {
         "thread.h",
         "thread_state.h",
         "ti/agent.h",
+        "trace.h",
         "verifier/verifier_enums.h",
     ],
     output_extension: "operator_out.cc",
@@ -471,10 +511,14 @@ art_cc_library {
         keep_symbols: true,
     },
     whole_static_libs: [
-        "libartbase",
+    ],
+    static_libs: [
+        "libelffile",
     ],
     shared_libs: [
+        "libartbase",
         "libdexfile",
+        "libprofile",
     ],
     export_shared_lib_headers: [
         "libdexfile",
@@ -495,10 +539,14 @@ art_cc_library {
         "libart_defaults",
     ],
     whole_static_libs: [
-        "libartbased",
+    ],
+    static_libs: [
+        "libelffiled",
     ],
     shared_libs: [
+        "libartbased",
         "libdexfiled",
+        "libprofiled",
     ],
     export_shared_lib_headers: [
         "libdexfiled",
@@ -514,14 +562,12 @@ art_cc_library {
     ],
     shared_libs: [
         "libartd",
+        "libartbase-art-gtest",
         "libbase",
         "libbacktrace",
     ],
     header_libs: [
         "libnativehelper_header_only",
-    ],
-    include_dirs: [
-        "external/icu/icu4c/source/common",
     ],
 }
 
@@ -532,7 +578,6 @@ art_cc_test {
     ],
     srcs: [
         "arch/arch_test.cc",
-        "arch/instruction_set_test.cc",
         "arch/instruction_set_features_test.cc",
         "arch/memcmp16_test.cc",
         "arch/stub_test.cc",
@@ -543,8 +588,6 @@ art_cc_test {
         "arch/x86/instruction_set_features_x86_test.cc",
         "arch/x86_64/instruction_set_features_x86_64_test.cc",
         "barrier_test.cc",
-        "base/arena_allocator_test.cc",
-        "base/file_utils_test.cc",
         "base/mutex_test.cc",
         "base/timing_logger_test.cc",
         "cha_test.cc",
@@ -552,7 +595,6 @@ art_cc_test {
         "class_loader_context_test.cc",
         "class_table_test.cc",
         "compiler_filter_test.cc",
-        "dex/art_dex_file_loader_test.cc",
         "entrypoints/math_entrypoints_test.cc",
         "entrypoints/quick/quick_trampoline_entrypoints_test.cc",
         "entrypoints_order_test.cc",
@@ -577,17 +619,15 @@ art_cc_test {
         "handle_scope_test.cc",
         "hidden_api_test.cc",
         "imtable_test.cc",
-        "indenter_test.cc",
         "indirect_reference_table_test.cc",
         "instrumentation_test.cc",
         "intern_table_test.cc",
         "interpreter/safe_math_test.cc",
         "interpreter/unstarted_runtime_test.cc",
         "jdwp/jdwp_options_test.cc",
-        "java_vm_ext_test.cc",
-        "jit/profile_compilation_info_test.cc",
-        "mem_map_test.cc",
-        "memory_region_test.cc",
+        "jit/profiling_info_test.cc",
+        "jni/java_vm_ext_test.cc",
+        "jni/jni_internal_test.cc",
         "method_handles_test.cc",
         "mirror/dex_cache_test.cc",
         "mirror/method_type_test.cc",
@@ -599,21 +639,21 @@ art_cc_test {
         "oat_file_assistant_test.cc",
         "parsed_options_test.cc",
         "prebuilt_tools_test.cc",
+        "proxy_test.cc",
         "reference_table_test.cc",
         "runtime_callbacks_test.cc",
+        "runtime_test.cc",
         "subtype_check_info_test.cc",
         "subtype_check_test.cc",
         "thread_pool_test.cc",
         "transaction_test.cc",
-        "type_lookup_table_test.cc",
+        "two_runtimes_test.cc",
         "vdex_file_test.cc",
         "verifier/method_verifier_test.cc",
         "verifier/reg_type_test.cc",
-        "zip_archive_test.cc",
     ],
     shared_libs: [
         "libbacktrace",
-        "libziparchive",
     ],
     header_libs: [
         "art_cmdlineparser_headers", // For parsed_options_test.
@@ -629,14 +669,12 @@ art_cc_test {
         "art_gtest_defaults",
     ],
     srcs: [
-        "jni_internal_test.cc",
-        "proxy_test.cc",
         "reflection_test.cc",
+        "module_exclusion_test.cc",
     ],
     shared_libs: [
         "libartd-compiler",
-        "libvixld-arm",
-        "libvixld-arm64",
+        "libvixld",
     ],
 }
 
@@ -644,4 +682,52 @@ cc_library_headers {
     name: "libart_runtime_headers",
     host_supported: true,
     export_include_dirs: ["."],
+}
+
+genrule {
+  name: "libart_mterp.arm",
+  out: ["mterp_arm.S"],
+  srcs: ["interpreter/mterp/arm/*.S"],
+  tool_files: ["interpreter/mterp/gen_mterp.py", "interpreter/mterp/common/gen_setup.py"],
+  cmd: "$(location interpreter/mterp/gen_mterp.py) $(out) $(in)",
+}
+
+genrule {
+  name: "libart_mterp.arm64",
+  out: ["mterp_arm64.S"],
+  srcs: ["interpreter/mterp/arm64/*.S"],
+  tool_files: ["interpreter/mterp/gen_mterp.py", "interpreter/mterp/common/gen_setup.py"],
+  cmd: "$(location interpreter/mterp/gen_mterp.py) $(out) $(in)",
+}
+
+genrule {
+  name: "libart_mterp.mips",
+  out: ["mterp_mips.S"],
+  srcs: ["interpreter/mterp/mips/*.S"],
+  tool_files: ["interpreter/mterp/gen_mterp.py", "interpreter/mterp/common/gen_setup.py"],
+  cmd: "$(location interpreter/mterp/gen_mterp.py) $(out) $(in)",
+}
+
+genrule {
+  name: "libart_mterp.mips64",
+  out: ["mterp_mips64.S"],
+  srcs: ["interpreter/mterp/mips64/*.S"],
+  tool_files: ["interpreter/mterp/gen_mterp.py", "interpreter/mterp/common/gen_setup.py"],
+  cmd: "$(location interpreter/mterp/gen_mterp.py) $(out) $(in)",
+}
+
+genrule {
+  name: "libart_mterp.x86",
+  out: ["mterp_x86.S"],
+  srcs: ["interpreter/mterp/x86/*.S"],
+  tool_files: ["interpreter/mterp/gen_mterp.py", "interpreter/mterp/common/gen_setup.py"],
+  cmd: "$(location interpreter/mterp/gen_mterp.py) $(out) $(in)",
+}
+
+genrule {
+  name: "libart_mterp.x86_64",
+  out: ["mterp_x86_64.S"],
+  srcs: ["interpreter/mterp/x86_64/*.S"],
+  tool_files: ["interpreter/mterp/gen_mterp.py", "interpreter/mterp/common/gen_setup.py"],
+  cmd: "$(location interpreter/mterp/gen_mterp.py) $(out) $(in)",
 }

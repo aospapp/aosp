@@ -16,3 +16,6 @@
 
 PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/m_e_arm.mk
+
+COMMON_LUNCH_CHOICES := \
+    m_e_arm-userdebug

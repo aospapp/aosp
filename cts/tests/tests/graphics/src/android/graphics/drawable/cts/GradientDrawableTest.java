@@ -23,24 +23,29 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.content.res.XmlResourceParser;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
+import android.graphics.Insets;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.cts.R;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.GradientDrawable.Orientation;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
+import android.view.ContextThemeWrapper;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -367,9 +372,9 @@ public class GradientDrawableTest {
         gradientDrawable.setColor(color);
         assertEquals("Color was set to RED", color, gradientDrawable.getColor());
 
-        color = null;
-        gradientDrawable.setColor(color);
-        assertEquals("Color was set to null (TRANSPARENT)", color, gradientDrawable.getColor());
+        gradientDrawable.setColor(null);
+        assertEquals("Color was set to null (TRANSPARENT)",
+                ColorStateList.valueOf(Color.TRANSPARENT), gradientDrawable.getColor());
     }
 
     @Test
@@ -452,6 +457,126 @@ public class GradientDrawableTest {
         } catch (NullPointerException e) {
             // expected, test success
         }
+    }
+
+    @Test
+    public void testGradientPadding() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setPadding(1, 2, 3, 4);
+
+        Rect padding = new Rect();
+        drawable.getPadding(padding);
+
+        assertEquals(1, padding.left);
+        assertEquals(2, padding.top);
+        assertEquals(3, padding.right);
+        assertEquals(4, padding.bottom);
+    }
+
+    @Test
+    public void testGradientThickness() {
+        GradientDrawable drawable = new GradientDrawable();
+        int thickness = 17;
+
+        drawable.setThickness(thickness);
+        assertEquals(thickness, drawable.getThickness());
+    }
+
+    @Test
+    public void testNegativeGradientThickness() {
+        try {
+            new GradientDrawable().setThicknessRatio(-1);
+            fail("Did not throw IllegalArgumentException with negative thickness ratio");
+        } catch (IllegalArgumentException e) {
+            // expected, test success
+        }
+    }
+
+    @Test
+    public void testZeroGradientThickness() {
+        try {
+            new GradientDrawable().setThicknessRatio(0);
+            fail("Did not throw IllegalArgumentException with zero thickness ratio");
+        } catch (IllegalArgumentException e) {
+            // expected, test success
+        }
+
+    }
+
+    @Test
+    public void testGradientThicknessRatio() {
+        GradientDrawable drawable = new GradientDrawable();
+
+        float thicknessRatio = 3.9f;
+
+        drawable.setThicknessRatio(thicknessRatio);
+        assertEquals(0, Float.compare(thicknessRatio, drawable.getThicknessRatio()));
+    }
+
+    @Test
+    public void testGradientInnerRadius() {
+        GradientDrawable drawable = new GradientDrawable();
+        int innerRadius = 12;
+        drawable.setInnerRadius(innerRadius);
+
+        assertEquals(innerRadius, drawable.getInnerRadius());
+    }
+
+    @Test
+    public void testNegativeInnerRadiusRatio() {
+        try {
+            new GradientDrawable().setInnerRadiusRatio(-1);
+            fail("Did not throw IllegalArgumentException with negative thickness ratio");
+        } catch (IllegalArgumentException e) {
+            // expected, test success
+        }
+    }
+
+    @Test
+    public void testZeroInnerRadiusRatio() {
+        try {
+            new GradientDrawable().setInnerRadiusRatio(0);
+            fail("Did not throw IllegalArgumentException with zero thickness ratio");
+        } catch (IllegalArgumentException e) {
+            // expected, test success
+        }
+    }
+
+    @Test
+    public void testGradientInnerRadiusRatio() {
+        GradientDrawable drawable = new GradientDrawable();
+        float innerRadiusRatio = 3.8f;
+        drawable.setInnerRadiusRatio(innerRadiusRatio);
+
+        assertEquals(0, Float.compare(innerRadiusRatio, drawable.getInnerRadiusRatio()));
+    }
+
+    @Test
+    public void testGradientPositions() throws XmlPullParserException, IOException {
+        GradientDrawable gradientDrawable = new GradientDrawable();
+        XmlPullParser parser = mResources.getXml(R.drawable.gradientdrawable);
+        AttributeSet attrs = Xml.asAttributeSet(parser);
+
+        // find the START_TAG
+        int type;
+        while ((type = parser.next()) != XmlPullParser.START_TAG
+                && type != XmlPullParser.END_DOCUMENT) {
+            // Empty loop
+        }
+        assertEquals(XmlPullParser.START_TAG, type);
+
+        // padding is set in gradientdrawable.xml
+        gradientDrawable.inflate(mResources, parser, attrs);
+
+        gradientDrawable.setColors(new int[]{ Color.RED, Color.BLUE});
+
+        Canvas canvas = new Canvas(Bitmap.createBitmap(100, 100,
+                Bitmap.Config.ARGB_8888));
+
+        gradientDrawable.setBounds(0, 0, 100, 100);
+        // Verify that calling draw does not crash
+        gradientDrawable.draw(canvas);
+
     }
 
     @Test
@@ -555,6 +680,94 @@ public class GradientDrawableTest {
         } finally {
             DrawableTestUtils.setResourcesDensity(mResources, densityDpi);
         }
+    }
+
+    @Test
+    public void testOpticalInsets() {
+        GradientDrawable drawable =
+                (GradientDrawable) mResources.getDrawable(R.drawable.gradientdrawable);
+        assertEquals(Insets.of(1, 2, 3, 4), drawable.getOpticalInsets());
+    }
+
+    @Test
+    public void testInflationWithThemeAndNonThemeResources() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Theme theme = context.getResources().newTheme();
+        theme.applyStyle(R.style.Theme_MixedGradientTheme, true);
+        final Theme ctxTheme = context.getTheme();
+        ctxTheme.setTo(theme);
+
+        GradientDrawable drawable = (GradientDrawable)
+                ctxTheme.getDrawable(R.drawable.gradientdrawable_mix_theme);
+
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        drawable.setBounds(0, 0, 10, 10);
+        drawable.draw(canvas);
+        int[] colors = drawable.getColors();
+        assertEquals(3, colors.length);
+        assertEquals(0, colors[0]);
+        assertEquals(context.getColor(R.color.colorPrimary), colors[1]);
+        assertEquals(context.getColor(R.color.colorPrimaryDark), colors[2]);
+    }
+
+    @Test
+    public void testRadialInflationWithThemeAndNonThemeResources() {
+        final Context context = new ContextThemeWrapper(InstrumentationRegistry.getTargetContext(),
+                R.style.Theme_MixedGradientTheme);
+
+        GradientDrawable drawable = (GradientDrawable)
+                context.getDrawable(R.drawable.gradientdrawable_mix_theme);
+
+        // Verify that despite multiple inflation passes are done to inflate both
+        // the non-theme attributes as well as the themed attributes
+        assertEquals(GradientDrawable.RADIAL_GRADIENT, drawable.getGradientType());
+        assertEquals(87.0f, drawable.getGradientRadius(), 0.0f);
+    }
+
+    @Test
+    public void testRadialGradientWithInvalidRadius() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        GradientDrawable radiusDrawable = (GradientDrawable)
+                context.getDrawable(R.drawable.gradientdrawable_invalid_radius);
+
+        Bitmap bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+
+        try {
+            radiusDrawable.setBounds(0, 0, 10, 10);
+            radiusDrawable.draw(canvas);
+        } catch (Exception e) {
+            fail("Threw exception: " + e + " with negative radius");
+        }
+    }
+
+    @Test
+    public void testGradientNegativeAngle() {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        GradientDrawable drawable = (GradientDrawable)
+                context.getDrawable(R.drawable.gradientdrawable_negative_angle);
+        assertEquals(Orientation.TOP_BOTTOM, drawable.getOrientation());
+    }
+
+    @Test
+    public void testGradientDrawableOrientationConstructor() {
+        GradientDrawable drawable = new GradientDrawable(Orientation.TOP_BOTTOM, null);
+        assertEquals(Orientation.TOP_BOTTOM, drawable.getOrientation());
+    }
+
+    @Test
+    public void testInflatedGradientOrientationUpdated() {
+        final Context context = new ContextThemeWrapper(InstrumentationRegistry.getTargetContext(),
+                R.style.Theme_MixedGradientTheme);
+
+        GradientDrawable drawable = (GradientDrawable)
+                context.getDrawable(R.drawable.gradientdrawable);
+
+        assertEquals(Orientation.BL_TR, drawable.getOrientation());
+
+        drawable.setOrientation(Orientation.BOTTOM_TOP);
+        assertEquals(Orientation.BOTTOM_TOP, drawable.getOrientation());
     }
 
     private void verifyPreloadDensityInner(Resources res, int densityDpi)

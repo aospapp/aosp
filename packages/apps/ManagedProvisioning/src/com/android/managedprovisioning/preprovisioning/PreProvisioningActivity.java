@@ -16,87 +16,90 @@
 
 package com.android.managedprovisioning.preprovisioning;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.unmodifiableList;
+import static android.app.admin.DevicePolicyManager.ACTION_ADMIN_POLICY_COMPLIANCE;
+import static android.app.admin.DevicePolicyManager.ACTION_GET_PROVISIONING_MODE;
 
-import android.annotation.NonNull;
+import static com.android.managedprovisioning.model.ProvisioningParams.PROVISIONING_MODE_FULLY_MANAGED_DEVICE_LEGACY;
+
+import android.annotation.IntDef;
+import android.annotation.Nullable;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.DialogFragment;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.content.res.ColorStateList;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
-import android.support.annotation.VisibleForTesting;
-import android.text.Spannable;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.TextUtils;
-import android.text.method.LinkMovementMethod;
-import android.text.style.ClickableSpan;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.common.AccessibilityContextMenuMaker;
-import com.android.managedprovisioning.common.ClickableSpanFactory;
 import com.android.managedprovisioning.common.LogoUtils;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.common.SetupGlifLayoutActivity;
 import com.android.managedprovisioning.common.SimpleDialog;
-import com.android.managedprovisioning.common.StringConcatenator;
-import com.android.managedprovisioning.common.TouchTargetEnforcer;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.CustomizationParams;
 import com.android.managedprovisioning.model.ProvisioningParams;
-import com.android.managedprovisioning.preprovisioning.anim.BenefitsAnimation;
-import com.android.managedprovisioning.preprovisioning.anim.ColorMatcher;
-import com.android.managedprovisioning.preprovisioning.anim.SwiperThemeMatcher;
-import com.android.managedprovisioning.preprovisioning.terms.TermsActivity;
+import com.android.managedprovisioning.preprovisioning.PreProvisioningController.UiParams;
+import com.android.managedprovisioning.preprovisioning.consent.ConsentUiHelperFactory;
+import com.android.managedprovisioning.preprovisioning.consent.ConsentUiHelper;
+import com.android.managedprovisioning.preprovisioning.consent.ConsentUiHelperCallback;
+import com.android.managedprovisioning.provisioning.LandingActivity;
 import com.android.managedprovisioning.provisioning.ProvisioningActivity;
+import com.google.android.setupcompat.util.WizardManagerHelper;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
-        SimpleDialog.SimpleDialogListener, PreProvisioningController.Ui {
-    private static final List<Integer> SLIDE_CAPTIONS = createImmutableList(
-            R.string.info_anim_title_0,
-            R.string.info_anim_title_1,
-            R.string.info_anim_title_2);
-    private static final List<Integer> SLIDE_CAPTIONS_COMP = createImmutableList(
-            R.string.info_anim_title_0,
-            R.string.one_place_for_work_apps,
-            R.string.info_anim_title_2);
+        SimpleDialog.SimpleDialogListener, PreProvisioningController.Ui, ConsentUiHelperCallback {
+
+    private static final String KEY_ACTIVITY_STATE = "activity-state";
 
     private static final int ENCRYPT_DEVICE_REQUEST_CODE = 1;
     @VisibleForTesting
     protected static final int PROVISIONING_REQUEST_CODE = 2;
     private static final int WIFI_REQUEST_CODE = 3;
     private static final int CHANGE_LAUNCHER_REQUEST_CODE = 4;
+    private static final int ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE = 5;
+    private static final int GET_PROVISIONING_MODE_REQUEST_CODE = 6;
 
     // Note: must match the constant defined in HomeSettings
     private static final String EXTRA_SUPPORT_MANAGED_PROFILES = "support_managed_profiles";
     private static final String SAVED_PROVISIONING_PARAMS = "saved_provisioning_params";
 
     private static final String ERROR_AND_CLOSE_DIALOG = "PreProvErrorAndCloseDialog";
-    private static final String BACK_PRESSED_DIALOG = "PreProvBackPressedDialog";
-    private static final String CANCELLED_CONSENT_DIALOG = "PreProvCancelledConsentDialog";
+    private static final String BACK_PRESSED_DIALOG_RESET = "PreProvBackPressedDialogReset";
+    private static final String BACK_PRESSED_DIALOG_CLOSE_ACTIVITY =
+            "PreProvBackPressedDialogCloseActivity";
     private static final String LAUNCHER_INVALID_DIALOG = "PreProvCurrentLauncherInvalidDialog";
     private static final String DELETE_MANAGED_PROFILE_DIALOG = "PreProvDeleteManagedProfileDialog";
 
     private PreProvisioningController mController;
     private ControllerProvider mControllerProvider;
     private final AccessibilityContextMenuMaker mContextMenuMaker;
-    private BenefitsAnimation mBenefitsAnimation;
-    private ClickableSpanFactory mClickableSpanFactory;
-    private TouchTargetEnforcer mTouchTargetEnforcer;
+    private ConsentUiHelper mConsentUiHelper;
+
+    static final int STATE_PREPROVISIONING_INTIIALIZING = 1;
+    static final int STATE_PROVISIONING_STARTED = 2;
+    static final int STATE_PROVISIONING_FINALIZED = 3;
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({STATE_PREPROVISIONING_INTIIALIZING,
+            STATE_PROVISIONING_STARTED,
+            STATE_PROVISIONING_FINALIZED})
+    private @interface PreProvisioningState {}
+
+    private @PreProvisioningState int mState;
+
+    private static final String ERROR_DIALOG_RESET = "ErrorDialogReset";
 
     public PreProvisioningActivity() {
         this(activity -> new PreProvisioningController(activity, activity), null, new Utils());
@@ -104,8 +107,7 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
 
     @VisibleForTesting
     public PreProvisioningActivity(ControllerProvider controllerProvider,
-            AccessibilityContextMenuMaker contextMenuMaker,
-            Utils utils) {
+            AccessibilityContextMenuMaker contextMenuMaker, Utils utils) {
         super(utils);
         mControllerProvider = controllerProvider;
         mContextMenuMaker =
@@ -116,12 +118,20 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mClickableSpanFactory = new ClickableSpanFactory(getColor(R.color.blue));
-        mTouchTargetEnforcer = new TouchTargetEnforcer(getResources().getDisplayMetrics().density);
+
+        mState = savedInstanceState == null
+                ? STATE_PREPROVISIONING_INTIIALIZING
+                : savedInstanceState.getInt(KEY_ACTIVITY_STATE, STATE_PREPROVISIONING_INTIIALIZING);
+
         mController = mControllerProvider.getInstance(this);
-        ProvisioningParams params = savedInstanceState == null ? null
-                : savedInstanceState.getParcelable(SAVED_PROVISIONING_PARAMS);
-        mController.initiateProvisioning(getIntent(), params, getCallingPackage());
+        mConsentUiHelper = ConsentUiHelperFactory.getInstance(
+                /* activity */ this, /* contextMenuMaker */ mContextMenuMaker,
+                /* callback */ this, /* utils */ mUtils, mController.getSettingsFacade());
+        if (mState == STATE_PREPROVISIONING_INTIIALIZING) {
+            ProvisioningParams params = savedInstanceState == null ? null
+                    : savedInstanceState.getParcelable(SAVED_PROVISIONING_PARAMS);
+            mController.initiateProvisioning(getIntent(), params, getCallingPackage());
+        }
     }
 
     @Override
@@ -140,6 +150,7 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putParcelable(SAVED_PROVISIONING_PARAMS, mController.getParams());
+        outState.putInt(KEY_ACTIVITY_STATE, mState);
     }
 
     @Override
@@ -151,6 +162,7 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
                 }
                 break;
             case PROVISIONING_REQUEST_CODE:
+                mState = STATE_PROVISIONING_FINALIZED;
                 setResult(resultCode);
                 finish();
                 break;
@@ -160,11 +172,36 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
             case WIFI_REQUEST_CODE:
                 if (resultCode == RESULT_CANCELED) {
                     ProvisionLogger.loge("User canceled wifi picking.");
-                } else if (resultCode == RESULT_OK) {
-                    ProvisionLogger.logd("Wifi request result is OK");
+                    setResult(resultCode);
+                    finish();
+                } else {
+                    if (resultCode == RESULT_OK) {
+                        ProvisionLogger.logd("Wifi request result is OK");
+                    }
+                    mController.initiateProvisioning(getIntent(), null /* cached params */,
+                            getCallingPackage());
                 }
-                mController.initiateProvisioning(getIntent(), null /* cached params */,
-                        getCallingPackage());
+                break;
+            case ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE:
+                if (resultCode == RESULT_OK) {
+                    maybeShowAdminGetProvisioningModeScreen();
+                } else {
+                    setResult(resultCode);
+                    finish();
+                }
+                break;
+            case GET_PROVISIONING_MODE_REQUEST_CODE:
+                if (resultCode == RESULT_OK) {
+                    if(data != null && mController.updateProvisioningParamsFromIntent(data)) {
+                        mController.showUserConsentScreen();
+                    } else {
+                        showFactoryResetDialog(R.string.cant_set_up_device,
+                                R.string.contact_your_admin_for_help);
+                    }
+                } else {
+                    showFactoryResetDialog(R.string.cant_set_up_device,
+                            R.string.contact_your_admin_for_help);
+                }
                 break;
             default:
                 ProvisionLogger.logw("Unknown result code :" + resultCode);
@@ -187,8 +224,8 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
     @Override
     public void onNegativeButtonClick(DialogFragment dialog) {
         switch (dialog.getTag()) {
-            case CANCELLED_CONSENT_DIALOG:
-            case BACK_PRESSED_DIALOG:
+            case BACK_PRESSED_DIALOG_CLOSE_ACTIVITY:
+            case BACK_PRESSED_DIALOG_RESET:
                 // user chose to continue. Do nothing
                 break;
             case LAUNCHER_INVALID_DIALOG:
@@ -207,15 +244,13 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
     public void onPositiveButtonClick(DialogFragment dialog) {
         switch (dialog.getTag()) {
             case ERROR_AND_CLOSE_DIALOG:
-            case BACK_PRESSED_DIALOG:
-                // Close activity
-                setResult(Activity.RESULT_CANCELED);
-                // TODO: Move logging to close button, if we finish provisioning there.
-                mController.logPreProvisioningCancelled();
-                finish();
+            case BACK_PRESSED_DIALOG_CLOSE_ACTIVITY:
+                onProvisioningAborted();
                 break;
-            case CANCELLED_CONSENT_DIALOG:
-                mUtils.sendFactoryResetBroadcast(this, "Device owner setup cancelled");
+            case BACK_PRESSED_DIALOG_RESET:
+                mUtils.sendFactoryResetBroadcast(this,
+                        "Provisioning cancelled by user on consent screen");
+                onProvisioningAborted();
                 break;
             case LAUNCHER_INVALID_DIALOG:
                 requestLauncherPick();
@@ -223,26 +258,38 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
             case DELETE_MANAGED_PROFILE_DIALOG:
                 DeleteManagedProfileDialog d = (DeleteManagedProfileDialog) dialog;
                 mController.removeUser(d.getUserId());
-                // TODO: refactor as evil - logic should be less spread out
-                // Check if we are in the middle of silent provisioning and were got blocked by an
-                // existing user profile. If so, we can now resume.
-                mController.checkResumeSilentProvisioning();
+                mController.initiateProvisioning(getIntent(), /* cached params */ null,
+                        getCallingPackage());
+                break;
+            case ERROR_DIALOG_RESET:
+                getUtils().sendFactoryResetBroadcast(this, "Error during preprovisioning");
+                setResult(Activity.RESULT_CANCELED);
+                finish();
                 break;
             default:
                 SimpleDialog.throwButtonClickHandlerNotImplemented(dialog);
         }
     }
 
+    private void onProvisioningAborted() {
+        setResult(Activity.RESULT_CANCELED);
+        mController.logPreProvisioningCancelled();
+        finish();
+    }
+
     @Override
     public void requestEncryption(ProvisioningParams params) {
         Intent encryptIntent = new Intent(this, EncryptDeviceActivity.class);
+        WizardManagerHelper.copyWizardManagerExtras(getIntent(), encryptIntent);
         encryptIntent.putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, params);
         startActivityForResult(encryptIntent, ENCRYPT_DEVICE_REQUEST_CODE);
     }
 
     @Override
     public void requestWifiPick() {
-        startActivityForResult(mUtils.getWifiPickIntent(), WIFI_REQUEST_CODE);
+        final Intent intent = mUtils.getWifiPickIntent();
+        WizardManagerHelper.copyWizardManagerExtras(getIntent(), intent);
+        startActivityForResult(intent, WIFI_REQUEST_CODE);
     }
 
     @Override
@@ -263,119 +310,59 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
     }
 
     public void startProvisioning(int userId, ProvisioningParams params) {
+        mState = STATE_PROVISIONING_STARTED;
         Intent intent = new Intent(this, ProvisioningActivity.class);
+        WizardManagerHelper.copyWizardManagerExtras(getIntent(), intent);
         intent.putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, params);
         startActivityForResultAsUser(intent, PROVISIONING_REQUEST_CODE, new UserHandle(userId));
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
 
-    @Override
-    public void initiateUi(int layoutId, int titleId, String packageLabel, Drawable packageIcon,
-            boolean isProfileOwnerProvisioning, boolean isComp, List<String> termsHeaders,
-            CustomizationParams customization) {
-        initializeLayoutParams(
-                layoutId,
-                isProfileOwnerProvisioning ? null : R.string.set_up_your_device,
-                customization.mainColor,
-                customization.statusBarColor);
-
-        // set up the 'accept and continue' button
-        Button nextButton = (Button) findViewById(R.id.next_button);
-        nextButton.setOnClickListener(v -> {
-            ProvisionLogger.logi("Next button (next_button) is clicked.");
-            mController.continueProvisioningAfterUserConsent();
-        });
-        nextButton.setBackgroundTintList(ColorStateList.valueOf(customization.mainColor));
-        if (mUtils.isBrightColor(customization.mainColor)) {
-            nextButton.setTextColor(getColor(R.color.gray_button_text));
-        }
-
-        // set the activity title
-        setTitle(titleId);
-
-        // set up terms headers
-        String headers = new StringConcatenator(getResources()).join(termsHeaders);
-
-        // initiate UI for MP / DO
-        if (isProfileOwnerProvisioning) {
-            initiateUIProfileOwner(headers, isComp, customization);
+    private void maybeShowAdminGetProvisioningModeScreen() {
+        final String adminPackage = mController.getParams().inferDeviceAdminPackageName();
+        final Intent intentGetMode = new Intent(ACTION_GET_PROVISIONING_MODE);
+        intentGetMode.setPackage(adminPackage);
+        final Intent intentPolicy = new Intent(ACTION_ADMIN_POLICY_COMPLIANCE);
+        intentPolicy.setPackage(adminPackage);
+        final ActivityManager activityManager = getSystemService(ActivityManager.class);
+        if (!activityManager.isLowRamDevice()
+                && !mController.getParams().isNfc
+                && intentGetMode.resolveActivity(getPackageManager()) != null
+                && intentPolicy.resolveActivity(getPackageManager()) != null) {
+            mController.putExtrasIntoGetModeIntent(intentGetMode);
+            startActivityForResult(intentGetMode, GET_PROVISIONING_MODE_REQUEST_CODE);
         } else {
-            initiateUIDeviceOwner(packageLabel, packageIcon, headers, customization);
+            startManagedDeviceLegacyFlow();
         }
     }
 
-    private void initiateUIProfileOwner(
-            @NonNull String termsHeaders, boolean isComp, CustomizationParams customizationParams) {
-        // set up the cancel button
-        Button cancelButton = (Button) findViewById(R.id.close_button);
-        cancelButton.setOnClickListener(v -> {
-            ProvisionLogger.logi("Close button (close_button) is clicked.");
-            PreProvisioningActivity.this.onBackPressed();
-        });
-
-        int messageId = isComp ? R.string.profile_owner_info_comp : R.string.profile_owner_info;
-        int messageWithTermsId = isComp ? R.string.profile_owner_info_with_terms_headers_comp
-                : R.string.profile_owner_info_with_terms_headers;
-
-        // set the short info text
-        TextView shortInfo = (TextView) findViewById(R.id.profile_owner_short_info);
-        shortInfo.setText(termsHeaders.isEmpty()
-                ? getString(messageId)
-                : getResources().getString(messageWithTermsId, termsHeaders));
-
-        // set up show terms button
-        View viewTermsButton = findViewById(R.id.show_terms_button);
-        viewTermsButton.setOnClickListener(this::startViewTermsActivity);
-        mTouchTargetEnforcer.enforce(viewTermsButton, (View) viewTermsButton.getParent());
-
-        // show the intro animation
-        mBenefitsAnimation = new BenefitsAnimation(
-                this,
-                isComp
-                        ? SLIDE_CAPTIONS_COMP
-                        : SLIDE_CAPTIONS,
-                isComp
-                        ? R.string.comp_profile_benefits_description
-                        : R.string.profile_benefits_description,
-                customizationParams);
+    private void startManagedDeviceLegacyFlow() {
+        mController.setProvisioningMode(PROVISIONING_MODE_FULLY_MANAGED_DEVICE_LEGACY);
+        mController.showUserConsentScreen();
     }
 
-    private void initiateUIDeviceOwner(String packageName, Drawable packageIcon,
-            @NonNull String termsHeaders, CustomizationParams customization) {
-        // short terms info text with clickable 'view terms' link
-        TextView shortInfoText = (TextView) findViewById(R.id.device_owner_terms_info);
-        shortInfoText.setText(assembleDOTermsMessage(termsHeaders, customization.orgName));
-        shortInfoText.setMovementMethod(LinkMovementMethod.getInstance()); // make clicks work
-        mContextMenuMaker.registerWithActivity(shortInfoText);
+    @Override
+    public void showFactoryResetDialog(Integer titleId, int messageId) {
+        SimpleDialog.Builder dialogBuilder = new SimpleDialog.Builder()
+                .setTitle(titleId)
+                .setMessage(messageId)
+                .setCancelable(false)
+                .setPositiveButtonMessage(R.string.reset);
 
-        // if you have any questions, contact your device's provider
-        //
-        // TODO: refactor complex localized string assembly to an abstraction http://b/34288292
-        // there is a bit of copy-paste, and some details easy to forget (e.g. setMovementMethod)
-        if (customization.supportUrl != null) {
-            TextView info = (TextView) findViewById(R.id.device_owner_provider_info);
-            info.setVisibility(View.VISIBLE);
-            String deviceProvider = getString(R.string.organization_admin);
-            String contactDeviceProvider = getString(R.string.contact_device_provider,
-                    deviceProvider);
-            SpannableString spannableString = new SpannableString(contactDeviceProvider);
+        showDialog(dialogBuilder, ERROR_DIALOG_RESET);
+    }
 
-            Intent intent = WebActivity.createIntent(this, customization.supportUrl,
-                    customization.statusBarColor);
-            if (intent != null) {
-                ClickableSpan span = mClickableSpanFactory.create(intent);
-                int startIx = contactDeviceProvider.indexOf(deviceProvider);
-                int endIx = startIx + deviceProvider.length();
-                spannableString.setSpan(span, startIx, endIx, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                info.setMovementMethod(LinkMovementMethod.getInstance()); // make clicks work
-            }
+    @Override
+    public void initiateUi(UiParams uiParams) {
+        mConsentUiHelper.initiateUi(uiParams);
+    }
 
-            info.setText(spannableString);
-            mContextMenuMaker.registerWithActivity(info);
-        }
-
-        // set up DPC icon and label
-        setDpcIconAndLabel(packageName, packageIcon, customization.orgName);
+    @Override
+    public void prepareAdminIntegratedFlow(ProvisioningParams params) {
+        Intent intent = new Intent(this, LandingActivity.class);
+        WizardManagerHelper.copyWizardManagerExtras(getIntent(), intent);
+        intent.putExtra(ProvisioningParams.EXTRA_PROVISIONING_PARAMS, params);
+        startActivityForResult(intent, ADMIN_INTEGRATED_FLOW_PREPARE_REQUEST_CODE);
     }
 
     @Override
@@ -384,59 +371,6 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
         if (v instanceof TextView) {
             mContextMenuMaker.populateMenuContent(menu, (TextView) v);
         }
-    }
-
-    private void startViewTermsActivity(@SuppressWarnings("unused") View view) {
-        startActivity(createViewTermsIntent());
-    }
-
-    private Intent createViewTermsIntent() {
-        return new Intent(this, TermsActivity.class).putExtra(
-                ProvisioningParams.EXTRA_PROVISIONING_PARAMS, mController.getParams());
-    }
-
-    // TODO: refactor complex localized string assembly to an abstraction http://b/34288292
-    // there is a bit of copy-paste, and some details easy to forget (e.g. setMovementMethod)
-    private Spannable assembleDOTermsMessage(@NonNull String termsHeaders, String orgName) {
-        String linkText = getString(R.string.view_terms);
-
-        if (TextUtils.isEmpty(orgName)) {
-            orgName = getString(R.string.your_organization_middle);
-        }
-        String messageText = termsHeaders.isEmpty()
-                ? getString(R.string.device_owner_info, orgName, linkText)
-                : getString(R.string.device_owner_info_with_terms_headers, orgName, termsHeaders,
-                        linkText);
-
-        Spannable result = new SpannableString(messageText);
-        int start = messageText.indexOf(linkText);
-
-        ClickableSpan span = mClickableSpanFactory.create(createViewTermsIntent());
-        result.setSpan(span, start, start + linkText.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        return result;
-    }
-
-    private void setDpcIconAndLabel(@NonNull String appName, Drawable packageIcon, String orgName) {
-        if (packageIcon == null || TextUtils.isEmpty(appName)) {
-            return;
-        }
-
-        // make a container with all parts of DPC app description visible
-        findViewById(R.id.intro_device_owner_app_info_container).setVisibility(View.VISIBLE);
-
-        if (TextUtils.isEmpty(orgName)) {
-            orgName = getString(R.string.your_organization_beginning);
-        }
-        String message = getString(R.string.your_org_app_used, orgName);
-        TextView appInfoText = (TextView) findViewById(R.id.device_owner_app_info_text);
-        appInfoText.setText(message);
-
-        ImageView imageView = (ImageView) findViewById(R.id.device_manager_icon_view);
-        imageView.setImageDrawable(packageIcon);
-        imageView.setContentDescription(getResources().getString(R.string.mdm_icon_label, appName));
-
-        TextView deviceManagerName = (TextView) findViewById(R.id.device_manager_name);
-        deviceManagerName.setText(appName);
     }
 
     @Override
@@ -448,35 +382,36 @@ public class PreProvisioningActivity extends SetupGlifLayoutActivity implements
 
     @Override
     public void onBackPressed() {
-        mController.logPreProvisioningCancelled();
-        super.onBackPressed();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (mBenefitsAnimation != null) {
-            mBenefitsAnimation.start();
+        if (mController.getParams().isOrganizationOwnedProvisioning) {
+            showDialog(mUtils.createCancelProvisioningResetDialogBuilder(),
+                    BACK_PRESSED_DIALOG_RESET);
+        } else {
+            showDialog(mUtils.createCancelProvisioningDialogBuilder(),
+                    BACK_PRESSED_DIALOG_CLOSE_ACTIVITY);
         }
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-        if (mBenefitsAnimation != null) {
-            mBenefitsAnimation.stop();
-        }
+    protected void onStart() {
+        super.onStart();
+        mConsentUiHelper.onStart();
     }
 
-    private static List<Integer> createImmutableList(int... values) {
-        if (values == null || values.length == 0) {
-            return emptyList();
-        }
-        List<Integer> result = new ArrayList<>(values.length);
-        for (int value : values) {
-            result.add(value);
-        }
-        return unmodifiableList(result);
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mConsentUiHelper.onStop();
+    }
+
+    @Override
+    public void nextAfterUserConsent() {
+        mController.continueProvisioningAfterUserConsent();
+    }
+
+    @Override
+    public void initializeLayoutParams(int layoutResourceId, @Nullable Integer headerResourceId,
+            CustomizationParams params) {
+        super.initializeLayoutParams(layoutResourceId, headerResourceId, params);
     }
 
     /**

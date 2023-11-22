@@ -15,8 +15,11 @@
  */
 package com.android.timezone.distro.tools;
 
+import libcore.timezone.TzDataSetVersion;
+
 import com.android.timezone.distro.DistroVersion;
 import com.android.timezone.distro.TimeZoneDistro;
+import com.android.timezone.distro.builder.TimeZoneDistroBuilder;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -28,14 +31,13 @@ import java.io.Reader;
 import java.util.Properties;
 
 /**
- * A command-line tool for creating a time zone update distro file.
+ * A command-line tool for creating a time zone update distro and associated
+ * files.
  *
  * <p>Args:
  * <dl>
  *     <dt>input properties file</dt>
- *     <dd>the file describing the distro</dd>
- *     <dt>output dir</dt>
- *     <dd>the directory to generate files into</dd>
+ *     <dd>the file describing the distro and output dirs</dd>
  * </dl>
  *
  * <p>The input properties file must have the entries:
@@ -50,12 +52,17 @@ import java.util.Properties;
  *     <dd>The location of the ICU overlay .dat file.</dd>
  *     <dt>tzlookup.file</dt>
  *     <dd>The location of the tzlookup.xml file.</dd>
+ *     <dt>output.distro.dir</dt>
+ *     <dd>The directory to write the distro.zip file to.</dd>
+ *     <dt>output.version.file</dt>
+ *     <dd>The location to write the version file to.</dd>
  * </dl>
  *
  * <p>The output consists of:
  * <ul>
  *     <li>A distro .zip containing the input files. See
  *     {@link com.android.timezone.distro.TimeZoneDistro}</li>
+ *     <li>A version file (same as contained in the distro .zip).</li>
  * </ul>
  */
 public class CreateTimeZoneDistro {
@@ -63,7 +70,7 @@ public class CreateTimeZoneDistro {
     private CreateTimeZoneDistro() {}
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
+        if (args.length != 1) {
             printUsage();
             System.exit(1);
         }
@@ -73,25 +80,42 @@ public class CreateTimeZoneDistro {
             printUsage();
             System.exit(2);
         }
-        Properties inputProperties = loadProperties(f);
-        String ianaRulesVersion = getMandatoryProperty(inputProperties, "rules.version");
-        int revision = Integer.parseInt(getMandatoryProperty(inputProperties, "revision"));
-        DistroVersion distroVersion = new DistroVersion(
-                DistroVersion.CURRENT_FORMAT_MAJOR_VERSION,
-                DistroVersion.CURRENT_FORMAT_MINOR_VERSION,
+        Properties properties = loadProperties(f);
+        String ianaRulesVersion = getMandatoryProperty(properties, "rules.version");
+        int revision = Integer.parseInt(getMandatoryProperty(properties, "revision"));
+
+        // Create an object to hold version metadata for the tz data.
+        TzDataSetVersion tzDataSetVersion = new TzDataSetVersion(
+                TzDataSetVersion.currentFormatMajorVersion(),
+                TzDataSetVersion.currentFormatMinorVersion(),
                 ianaRulesVersion,
                 revision);
+        byte[] tzDataSetVersionBytes = tzDataSetVersion.toBytes();
+
+        // Create a DistroVersion from the TzDataSetVersion.
+        DistroVersion distroVersion = new DistroVersion(
+                tzDataSetVersion.formatMajorVersion,
+                tzDataSetVersion.formatMinorVersion,
+                tzDataSetVersion.rulesVersion,
+                tzDataSetVersion.revision);
         TimeZoneDistroBuilder builder = new TimeZoneDistroBuilder()
                 .setDistroVersion(distroVersion)
-                .setTzDataFile(getMandatoryPropertyFile(inputProperties, "tzdata.file"))
-                .setIcuDataFile(getMandatoryPropertyFile(inputProperties, "icu.file"))
-                .setTzLookupFile(getMandatoryPropertyFile(inputProperties, "tzlookup.file"));
-
+                .setTzDataFile(getMandatoryPropertyFile(properties, "tzdata.file"))
+                .setIcuDataFile(getMandatoryPropertyFile(properties, "icu.file"))
+                .setTzLookupFile(getMandatoryPropertyFile(properties, "tzlookup.file"));
         byte[] distroBytes = builder.buildBytes();
 
+        File outputDistroDir = getMandatoryPropertyFile(properties, "output.distro.dir");
+        File outputVersionFile = new File(getMandatoryProperty(properties, "output.version.file"));
+
+        // Write the tz data set version file.
+        try (OutputStream os = new FileOutputStream(outputVersionFile)) {
+            os.write(tzDataSetVersionBytes);
+        }
+        System.out.println("Wrote " + outputVersionFile);
+
         // Write the distro file.
-        File outputDir = new File(args[1]);
-        File outputDistroFile = new File(outputDir, TimeZoneDistro.FILE_NAME);
+        File outputDistroFile = new File(outputDistroDir, TimeZoneDistro.FILE_NAME);
         try (OutputStream os = new FileOutputStream(outputDistroFile)) {
             os.write(distroBytes);
         }
@@ -131,6 +155,6 @@ public class CreateTimeZoneDistro {
     private static void printUsage() {
         System.out.println("Usage:");
         System.out.println("\t" + CreateTimeZoneDistro.class.getName() +
-                " <tzupdate.properties file> <output dir>");
+                " <tzupdate.properties file>");
     }
 }

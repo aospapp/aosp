@@ -6,3 +6,7 @@ bin
 .idea
 *.iml
 *.pyc
+
+# python coverage generated files.
+.coverage
+**/htmlcov

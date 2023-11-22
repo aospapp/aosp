@@ -16,7 +16,7 @@
 
 package android.server.wm;
 
-import static android.server.am.ComponentNameUtils.getWindowName;
+import static android.server.wm.ComponentNameUtils.getWindowName;
 import static android.server.wm.DialogFrameTestActivity.DIALOG_WINDOW_NAME;
 import static android.server.wm.DialogFrameTestActivity.TEST_EXPLICIT_POSITION_MATCH_PARENT;
 import static android.server.wm.DialogFrameTestActivity.TEST_EXPLICIT_POSITION_MATCH_PARENT_NO_LIMITS;
@@ -30,6 +30,8 @@ import static android.server.wm.DialogFrameTestActivity.TEST_OVER_SIZED_DIMENSIO
 import static android.server.wm.DialogFrameTestActivity.TEST_OVER_SIZED_DIMENSIONS_NO_LIMITS;
 import static android.server.wm.DialogFrameTestActivity.TEST_WITH_MARGINS;
 
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
+
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertEquals;
@@ -37,11 +39,10 @@ import static org.junit.Assert.assertEquals;
 import android.content.ComponentName;
 import android.graphics.Rect;
 import android.platform.test.annotations.AppModeFull;
-import android.server.am.WaitForValidActivityState;
-import android.server.am.WindowManagerState;
-import android.server.am.WindowManagerState.WindowState;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.rule.ActivityTestRule;
+import android.platform.test.annotations.Presubmit;
+import android.server.wm.WindowManagerState.WindowState;
+
+import androidx.test.rule.ActivityTestRule;
 
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -56,10 +57,11 @@ import java.util.List;
  * TODO: Consolidate this class with {@link ParentChildTestBase}.
  */
 @AppModeFull(reason = "Requires android.permission.MANAGE_ACTIVITY_STACKS")
+@Presubmit
 public class DialogFrameTests extends ParentChildTestBase<DialogFrameTestActivity> {
 
     private static final ComponentName DIALOG_FRAME_TEST_ACTIVITY = new ComponentName(
-            InstrumentationRegistry.getContext(), DialogFrameTestActivity.class);
+            getInstrumentation().getContext(), DialogFrameTestActivity.class);
 
     @Rule
     public final ActivityTestRule<DialogFrameTestActivity> mDialogTestActivity =
@@ -104,6 +106,10 @@ public class DialogFrameTests extends ParentChildTestBase<DialogFrameTestActivit
     // If we have LAYOUT_IN_SCREEN and LAYOUT_IN_OVERSCAN with MATCH_PARENT,
     // we will not be constrained to the insets and so we will be the same size
     // as the main window main frame.
+    // TODO: b/80262496
+    // LAYOUT_IN_OVERSCAN isn't allowing windows to extend in to cutouts. We will have
+    // to revisit whether to modify the behavior, or this test.
+    @Ignore
     @Test
     public void testMatchParentDialogLayoutInOverscan() throws Exception {
         doParentChildTest(TEST_MATCH_PARENT_LAYOUT_IN_OVERSCAN, (parent, dialog) ->

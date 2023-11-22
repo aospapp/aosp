@@ -18,7 +18,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
-LOCAL_SDK_VERSION := 7
+LOCAL_MIN_SDK_VERSION := 7
+LOCAL_SDK_VERSION := current
 LOCAL_PACKAGE_NAME := WifiUtil
 
 include $(BUILD_PACKAGE)

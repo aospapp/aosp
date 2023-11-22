@@ -51,6 +51,36 @@ public interface ITestLifeCycleReceiver {
     public default void testRunStarted(String runName, int testCount) {}
 
     /**
+     * Reports the start of a test run.
+     *
+     * @param runName the test run name
+     * @param testCount total number of tests in test run
+     * @param attemptNumber order number, identifying the different attempts of the same runName
+     *     that run multiple times. The attemptNumber is 0-indexed and should increment everytime
+     *     a new run happens. e.g. A test is granular retried 3 times, it should have 4 total
+     *     runs under the same runName and the attemptNumber is from 0 to 3.
+     */
+    public default void testRunStarted(String runName, int testCount, int attemptNumber) {
+        testRunStarted(runName, testCount);
+    }
+
+    /**
+     * Reports the start of a test run.
+     *
+     * @param runName the test run name
+     * @param testCount total number of tests in test run
+     * @param attemptNumber order number, identifying the different attempts of the same runName
+     *     that run multiple times. The attemptNumber is 0-indexed and should increment everytime a
+     *     new run happens. e.g. A test is granular retried 3 times, it should have 4 total runs
+     *     under the same runName and the attemptNumber is from 0 to 3.
+     * @param startTime the time the run started, measured via {@link System#currentTimeMillis()}
+     */
+    public default void testRunStarted(
+            String runName, int testCount, int attemptNumber, long startTime) {
+        testRunStarted(runName, testCount);
+    }
+
+    /**
      * Reports test run failed to complete due to a fatal error.
      *
      * @param errorMessage {@link String} describing reason for run failure.

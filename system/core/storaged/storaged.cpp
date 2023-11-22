@@ -30,6 +30,7 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/unique_fd.h>
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <batteryservice/BatteryServiceConstants.h>
 #include <cutils/properties.h>
@@ -193,7 +194,7 @@ void storaged_t::load_proto(userid_t user_id) {
         return;
     }
 
-    mUidm.load_uid_io_proto(proto.uid_io_usage());
+    mUidm.load_uid_io_proto(user_id, proto.uid_io_usage());
 
     if (user_id == USER_SYSTEM) {
         storage_info->load_perf_history_proto(proto.perf_history());
@@ -340,20 +341,14 @@ void storaged_t::event_checked(void) {
     if (mConfig.event_time_check_usec &&
         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start_ts) < 0) {
         check_time = false;
-        static time_t state_a;
-        IF_ALOG_RATELIMIT_LOCAL(300, &state_a) {
-            PLOG_TO(SYSTEM, ERROR) << "clock_gettime() failed";
-        }
+        PLOG_TO(SYSTEM, ERROR) << "clock_gettime() failed";
     }
 
     event();
 
     if (mConfig.event_time_check_usec && check_time) {
         if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end_ts) < 0) {
-            static time_t state_b;
-            IF_ALOG_RATELIMIT_LOCAL(300, &state_b) {
-                PLOG_TO(SYSTEM, ERROR) << "clock_gettime() failed";
-            }
+            PLOG_TO(SYSTEM, ERROR) << "clock_gettime() failed";
             return;
         }
         int64_t cost = (end_ts.tv_sec - start_ts.tv_sec) * SEC_TO_USEC +

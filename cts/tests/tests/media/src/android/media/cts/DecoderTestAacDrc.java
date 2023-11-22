@@ -16,25 +16,24 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.app.Instrumentation;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
-import android.media.cts.DecoderTest.AudioParameter;
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
-import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.support.test.InstrumentationRegistry;
+import android.media.cts.DecoderTest.AudioParameter;
+import android.media.cts.R;
 import android.util.Log;
 
-import com.android.compatibility.common.util.CtsAndroidTestCase;
+import androidx.test.InstrumentationRegistry;
 
-import static org.junit.Assert.*;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.IOException;

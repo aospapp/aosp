@@ -17,8 +17,10 @@
 package android.content.pm.cts;
 
 import android.content.pm.PackageManager;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class PermissionFeatureTest extends AndroidTestCase {
     public void testPermissionRequiredFeatureDefined() {
         PackageManager pm = getContext().getPackageManager();

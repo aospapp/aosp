@@ -23,14 +23,14 @@
       android:id="@+id/table"
       android:layout_width="match_parent"
       android:layout_height="match_parent"
-      android:background="@+drawable/table"
+      android:background="@drawable/table"
       android:focusable="true" >
 
      <View
          android:id="@+id/scrim"
          android:layout_width="match_parent"
          android:layout_height="match_parent"
-         android:background="@+drawable/table"
+         android:background="@drawable/table"
          android:alpha="0"
          android:visibility="gone"
          />
@@ -50,13 +50,13 @@
 
      </com.android.dreams.phototable.PhotoTable>
   <!-- View
-     android:background="@+drawable/vignette_br"
+     android:background="@drawable/vignette_br"
      android:layout_gravity="bottom|right"
      android:layout_width="300dp"
      android:layout_height="300dp"
      / -->
   <!-- View
-     android:background="@+drawable/vignette_tl"
+     android:background="@drawable/vignette_tl"
      android:layout_gravity="top|left"
      android:layout_width="300dp"
      android:layout_height="300dp"

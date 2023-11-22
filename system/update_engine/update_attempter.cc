@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -31,6 +30,7 @@
 #include <base/rand_util.h>
 #include <base/strings/string_util.h>
 #include <base/strings/stringprintf.h>
+#include <base/time/time.h>
 #include <brillo/data_encoding.h>
 #include <brillo/errors/error_codes.h>
 #include <brillo/message_loops/message_loop.h>
@@ -42,6 +42,7 @@
 #include "update_engine/common/boot_control_interface.h"
 #include "update_engine/common/clock_interface.h"
 #include "update_engine/common/constants.h"
+#include "update_engine/common/dlcservice_interface.h"
 #include "update_engine/common/hardware_interface.h"
 #include "update_engine/common/platform_constants.h"
 #include "update_engine/common/prefs_interface.h"
@@ -59,7 +60,9 @@
 #include "update_engine/payload_state_interface.h"
 #include "update_engine/power_manager_interface.h"
 #include "update_engine/system_state.h"
+#include "update_engine/update_boot_flags_action.h"
 #include "update_engine/update_manager/policy.h"
+#include "update_engine/update_manager/policy_utils.h"
 #include "update_engine/update_manager/update_manager.h"
 #include "update_engine/update_status_utils.h"
 
@@ -69,11 +72,11 @@ using base::Time;
 using base::TimeDelta;
 using base::TimeTicks;
 using brillo::MessageLoop;
+using chromeos_update_manager::CalculateStagingCase;
 using chromeos_update_manager::EvalStatus;
 using chromeos_update_manager::Policy;
+using chromeos_update_manager::StagingCase;
 using chromeos_update_manager::UpdateCheckParams;
-using std::set;
-using std::shared_ptr;
 using std::string;
 using std::vector;
 using update_engine::UpdateAttemptFlags;
@@ -97,12 +100,7 @@ const char kAUTestURLRequest[] = "autest";
 const char kScheduledAUTestURLRequest[] = "autest-scheduled";
 }  // namespace
 
-// Turns a generic ErrorCode::kError to a generic error code specific
-// to |action| (e.g., ErrorCode::kFilesystemVerifierError). If |code| is
-// not ErrorCode::kError, or the action is not matched, returns |code|
-// unchanged.
-ErrorCode GetErrorCodeForAction(AbstractAction* action,
-                                     ErrorCode code) {
+ErrorCode GetErrorCodeForAction(AbstractAction* action, ErrorCode code) {
   if (code != ErrorCode::kError)
     return code;
 
@@ -123,7 +121,8 @@ UpdateAttempter::UpdateAttempter(SystemState* system_state,
                                  CertificateChecker* cert_checker)
     : processor_(new ActionProcessor()),
       system_state_(system_state),
-      cert_checker_(cert_checker) {}
+      cert_checker_(cert_checker),
+      is_install_(false) {}
 
 UpdateAttempter::~UpdateAttempter() {
   // CertificateChecker might not be initialized in unittests.
@@ -152,19 +151,20 @@ void UpdateAttempter::Init() {
     status_ = UpdateStatus::IDLE;
 }
 
-void UpdateAttempter::ScheduleUpdates() {
+bool UpdateAttempter::ScheduleUpdates() {
   if (IsUpdateRunningOrScheduled())
-    return;
+    return false;
 
   chromeos_update_manager::UpdateManager* const update_manager =
       system_state_->update_manager();
   CHECK(update_manager);
-  Callback<void(EvalStatus, const UpdateCheckParams&)> callback = Bind(
-      &UpdateAttempter::OnUpdateScheduled, base::Unretained(this));
+  Callback<void(EvalStatus, const UpdateCheckParams&)> callback =
+      Bind(&UpdateAttempter::OnUpdateScheduled, base::Unretained(this));
   // We limit the async policy request to a reasonably short time, to avoid a
   // starvation due to a transient bug.
   update_manager->AsyncPolicyRequest(callback, &Policy::UpdateCheckAllowed);
   waiting_for_scheduled_check_ = true;
+  return true;
 }
 
 void UpdateAttempter::CertificateChecked(ServerToCheck server_to_check,
@@ -189,7 +189,7 @@ bool UpdateAttempter::CheckAndReportDailyMetrics() {
                    << "is wrong.";
       // In this case, report daily metrics to reset.
     } else {
-      if (time_reported_since.InSeconds() < 24*60*60) {
+      if (time_reported_since.InSeconds() < 24 * 60 * 60) {
         LOG(INFO) << "Last reported daily metrics "
                   << utils::FormatTimeDelta(time_reported_since) << " ago.";
         return false;
@@ -221,7 +221,7 @@ void UpdateAttempter::ReportOSAge() {
     return;
   }
 
-  Time lsb_release_timestamp = utils::TimeFromStructTimespec(&sb.st_ctim);
+  Time lsb_release_timestamp = Time::FromTimeSpec(sb.st_ctim);
   Time now = system_state_->clock()->GetWallclockTime();
   TimeDelta age = now - lsb_release_timestamp;
   if (age.InSeconds() < 0) {
@@ -238,6 +238,7 @@ void UpdateAttempter::Update(const string& app_version,
                              const string& omaha_url,
                              const string& target_channel,
                              const string& target_version_prefix,
+                             bool rollback_allowed,
                              bool obey_proxies,
                              bool interactive) {
   // This is normally called frequently enough so it's appropriate to use as a
@@ -245,10 +246,6 @@ void UpdateAttempter::Update(const string& app_version,
   // TODO(garnold) This should be hooked to a separate (reliable and consistent)
   // timeout event.
   CheckAndReportDailyMetrics();
-
-  // Notify of the new update attempt, clearing prior interactive requests.
-  if (forced_update_pending_callback_.get())
-    forced_update_pending_callback_->Run(false, false);
 
   fake_update_success_ = false;
   if (status_ == UpdateStatus::UPDATED_NEED_REBOOT) {
@@ -276,6 +273,7 @@ void UpdateAttempter::Update(const string& app_version,
                              omaha_url,
                              target_channel,
                              target_version_prefix,
+                             rollback_allowed,
                              obey_proxies,
                              interactive)) {
     return;
@@ -290,10 +288,7 @@ void UpdateAttempter::Update(const string& app_version,
   // checks in the case where a response is not received.
   UpdateLastCheckedTime();
 
-  // Just in case we didn't update boot flags yet, make sure they're updated
-  // before any update processing starts.
-  start_action_processor_ = true;
-  UpdateBootFlags();
+  ScheduleProcessingStart();
 }
 
 void UpdateAttempter::RefreshDevicePolicy() {
@@ -351,6 +346,7 @@ bool UpdateAttempter::CalculateUpdateParams(const string& app_version,
                                             const string& omaha_url,
                                             const string& target_channel,
                                             const string& target_version_prefix,
+                                            bool rollback_allowed,
                                             bool obey_proxies,
                                             bool interactive) {
   http_response_code_ = 0;
@@ -359,10 +355,21 @@ bool UpdateAttempter::CalculateUpdateParams(const string& app_version,
   // Refresh the policy before computing all the update parameters.
   RefreshDevicePolicy();
 
+  // Check whether we need to clear the rollback-happened preference after
+  // policy is available again.
+  UpdateRollbackHappened();
+
   // Update the target version prefix.
   omaha_request_params_->set_target_version_prefix(target_version_prefix);
 
-  CalculateScatteringParams(interactive);
+  // Set whether rollback is allowed.
+  omaha_request_params_->set_rollback_allowed(rollback_allowed);
+
+  CalculateStagingParams(interactive);
+  // If staging_wait_time_ wasn't set, staging is off, use scattering instead.
+  if (staging_wait_time_.InSeconds() == 0) {
+    CalculateScatteringParams(interactive);
+  }
 
   CalculateP2PParams(interactive);
   if (payload_state->GetUsingP2PForDownloading() ||
@@ -377,9 +384,7 @@ bool UpdateAttempter::CalculateUpdateParams(const string& app_version,
     }
   }
 
-  if (!omaha_request_params_->Init(app_version,
-                                   omaha_url,
-                                   interactive)) {
+  if (!omaha_request_params_->Init(app_version, omaha_url, interactive)) {
     LOG(ERROR) << "Unable to initialize Omaha request params.";
     return false;
   }
@@ -392,8 +397,8 @@ bool UpdateAttempter::CalculateUpdateParams(const string& app_version,
     // Pass in false for powerwash_allowed until we add it to the policy
     // protobuf.
     string error_message;
-    if (!omaha_request_params_->SetTargetChannel(target_channel, false,
-                                                 &error_message)) {
+    if (!omaha_request_params_->SetTargetChannel(
+            target_channel, false, &error_message)) {
       LOG(ERROR) << "Setting the channel failed: " << error_message;
     }
 
@@ -404,9 +409,14 @@ bool UpdateAttempter::CalculateUpdateParams(const string& app_version,
     // target channel.
     omaha_request_params_->UpdateDownloadChannel();
   }
+  // Set the DLC module ID list.
+  omaha_request_params_->set_dlc_module_ids(dlc_module_ids_);
+  omaha_request_params_->set_is_install(is_install_);
 
   LOG(INFO) << "target_version_prefix = "
             << omaha_request_params_->target_version_prefix()
+            << ", rollback_allowed = "
+            << omaha_request_params_->rollback_allowed()
             << ", scatter_factor_in_seconds = "
             << utils::FormatSecs(scatter_factor_.InSeconds());
 
@@ -414,8 +424,9 @@ bool UpdateAttempter::CalculateUpdateParams(const string& app_version,
             << omaha_request_params_->wall_clock_based_wait_enabled()
             << ", Update Check Count Wait Enabled = "
             << omaha_request_params_->update_check_count_wait_enabled()
-            << ", Waiting Period = " << utils::FormatSecs(
-               omaha_request_params_->waiting_period().InSeconds());
+            << ", Waiting Period = "
+            << utils::FormatSecs(
+                   omaha_request_params_->waiting_period().InSeconds());
 
   LOG(INFO) << "Use p2p For Downloading = "
             << payload_state->GetUsingP2PForDownloading()
@@ -435,9 +446,9 @@ bool UpdateAttempter::CalculateUpdateParams(const string& app_version,
   } else if (base::RandInt(0, 4) == 0) {
     obeying_proxies_ = false;
   }
-  LOG_IF(INFO, !obeying_proxies_) << "To help ensure updates work, this update "
-      "check we are ignoring the proxy settings and using "
-      "direct connections.";
+  LOG_IF(INFO, !obeying_proxies_)
+      << "To help ensure updates work, this update check we are ignoring the "
+      << "proxy settings and using direct connections.";
 
   DisableDeltaUpdateIfNeeded();
   return true;
@@ -452,7 +463,7 @@ void UpdateAttempter::CalculateScatteringParams(bool interactive) {
     int64_t new_scatter_factor_in_secs = 0;
     device_policy->GetScatterFactorInSeconds(&new_scatter_factor_in_secs);
     if (new_scatter_factor_in_secs < 0)  // sanitize input, just in case.
-      new_scatter_factor_in_secs  = 0;
+      new_scatter_factor_in_secs = 0;
     scatter_factor_ = TimeDelta::FromSeconds(new_scatter_factor_in_secs);
   }
 
@@ -482,7 +493,8 @@ void UpdateAttempter::CalculateScatteringParams(bool interactive) {
     if (omaha_request_params_->waiting_period().InSeconds() == 0) {
       // First case. Check if we have a suitable value to set for
       // the waiting period.
-      if (prefs_->GetInt64(kPrefsWallClockWaitPeriod, &wait_period_in_secs) &&
+      if (prefs_->GetInt64(kPrefsWallClockScatteringWaitPeriod,
+                           &wait_period_in_secs) &&
           wait_period_in_secs > 0 &&
           wait_period_in_secs <= scatter_factor_.InSeconds()) {
         // This means:
@@ -492,10 +504,10 @@ void UpdateAttempter::CalculateScatteringParams(bool interactive) {
         // generating a new random value to improve the chances of a good
         // distribution for scattering.
         omaha_request_params_->set_waiting_period(
-          TimeDelta::FromSeconds(wait_period_in_secs));
-        LOG(INFO) << "Using persisted wall-clock waiting period: " <<
-            utils::FormatSecs(
-                omaha_request_params_->waiting_period().InSeconds());
+            TimeDelta::FromSeconds(wait_period_in_secs));
+        LOG(INFO) << "Using persisted wall-clock waiting period: "
+                  << utils::FormatSecs(
+                         omaha_request_params_->waiting_period().InSeconds());
       } else {
         // This means there's no persisted value for the waiting period
         // available or its value is invalid given the new scatter_factor value.
@@ -515,9 +527,9 @@ void UpdateAttempter::CalculateScatteringParams(bool interactive) {
     } else {
       // Neither the first time scattering is enabled nor the scattering value
       // changed. Nothing to do.
-      LOG(INFO) << "Keeping current wall-clock waiting period: " <<
-          utils::FormatSecs(
-              omaha_request_params_->waiting_period().InSeconds());
+      LOG(INFO) << "Keeping current wall-clock waiting period: "
+                << utils::FormatSecs(
+                       omaha_request_params_->waiting_period().InSeconds());
     }
 
     // The invariant at this point is that omaha_request_params_->waiting_period
@@ -533,7 +545,7 @@ void UpdateAttempter::CalculateScatteringParams(bool interactive) {
     // the update check count value, we'll turn that on as well.
     bool decrement_succeeded = DecrementUpdateCheckCount();
     omaha_request_params_->set_update_check_count_wait_enabled(
-      decrement_succeeded);
+        decrement_succeeded);
   } else {
     // This means the scattering feature is turned off or disabled for
     // this particular update check. Make sure to disable
@@ -542,7 +554,7 @@ void UpdateAttempter::CalculateScatteringParams(bool interactive) {
     omaha_request_params_->set_wall_clock_based_wait_enabled(false);
     omaha_request_params_->set_update_check_count_wait_enabled(false);
     omaha_request_params_->set_waiting_period(TimeDelta::FromSeconds(0));
-    prefs_->Delete(kPrefsWallClockWaitPeriod);
+    prefs_->Delete(kPrefsWallClockScatteringWaitPeriod);
     prefs_->Delete(kPrefsUpdateCheckCount);
     // Don't delete the UpdateFirstSeenAt file as we don't want manual checks
     // that result in no-updates (e.g. due to server side throttling) to
@@ -552,11 +564,12 @@ void UpdateAttempter::CalculateScatteringParams(bool interactive) {
 }
 
 void UpdateAttempter::GenerateNewWaitingPeriod() {
-  omaha_request_params_->set_waiting_period(TimeDelta::FromSeconds(
-      base::RandInt(1, scatter_factor_.InSeconds())));
+  omaha_request_params_->set_waiting_period(
+      TimeDelta::FromSeconds(base::RandInt(1, scatter_factor_.InSeconds())));
 
-  LOG(INFO) << "Generated new wall-clock waiting period: " << utils::FormatSecs(
-                omaha_request_params_->waiting_period().InSeconds());
+  LOG(INFO) << "Generated new wall-clock waiting period: "
+            << utils::FormatSecs(
+                   omaha_request_params_->waiting_period().InSeconds());
 
   // Do a best-effort to persist this in all cases. Even if the persistence
   // fails, we'll still be able to scatter based on our in-memory value.
@@ -566,15 +579,43 @@ void UpdateAttempter::GenerateNewWaitingPeriod() {
       omaha_request_params_->waiting_period());
 }
 
-void UpdateAttempter::BuildPostInstallActions(
-    InstallPlanAction* previous_action) {
-  shared_ptr<PostinstallRunnerAction> postinstall_runner_action(
-      new PostinstallRunnerAction(system_state_->boot_control(),
-                                  system_state_->hardware()));
-  postinstall_runner_action->set_delegate(this);
-  actions_.push_back(shared_ptr<AbstractAction>(postinstall_runner_action));
-  BondActions(previous_action,
-              postinstall_runner_action.get());
+void UpdateAttempter::CalculateStagingParams(bool interactive) {
+  bool oobe_complete = system_state_->hardware()->IsOOBEEnabled() &&
+                       system_state_->hardware()->IsOOBEComplete(nullptr);
+  auto device_policy = system_state_->device_policy();
+  StagingCase staging_case = StagingCase::kOff;
+  if (device_policy && !interactive && oobe_complete) {
+    staging_wait_time_ = omaha_request_params_->waiting_period();
+    staging_case = CalculateStagingCase(
+        device_policy, prefs_, &staging_wait_time_, &staging_schedule_);
+  }
+  switch (staging_case) {
+    case StagingCase::kOff:
+      // Staging is off, get rid of persisted value.
+      prefs_->Delete(kPrefsWallClockStagingWaitPeriod);
+      // Set |staging_wait_time_| to its default value so scattering can still
+      // be turned on
+      staging_wait_time_ = TimeDelta();
+      break;
+    // Let the cases fall through since they just add, and never remove, steps
+    // to turning staging on.
+    case StagingCase::kNoSavedValue:
+      prefs_->SetInt64(kPrefsWallClockStagingWaitPeriod,
+                       staging_wait_time_.InDays());
+    case StagingCase::kSetStagingFromPref:
+      omaha_request_params_->set_waiting_period(staging_wait_time_);
+    case StagingCase::kNoAction:
+      // Staging is on, enable wallclock based wait so that its values get used.
+      omaha_request_params_->set_wall_clock_based_wait_enabled(true);
+      // Use UpdateCheckCount if possible to prevent devices updating all at
+      // once.
+      omaha_request_params_->set_update_check_count_wait_enabled(
+          DecrementUpdateCheckCount());
+      // Scattering should not be turned on if staging is on, delete the
+      // existing scattering configuration.
+      prefs_->Delete(kPrefsWallClockScatteringWaitPeriod);
+      scatter_factor_ = TimeDelta();
+  }
 }
 
 void UpdateAttempter::BuildUpdateActions(bool interactive) {
@@ -582,85 +623,79 @@ void UpdateAttempter::BuildUpdateActions(bool interactive) {
   processor_->set_delegate(this);
 
   // Actions:
-  std::unique_ptr<LibcurlHttpFetcher> update_check_fetcher(
-      new LibcurlHttpFetcher(GetProxyResolver(), system_state_->hardware()));
+  auto update_check_fetcher = std::make_unique<LibcurlHttpFetcher>(
+      GetProxyResolver(), system_state_->hardware());
   update_check_fetcher->set_server_to_check(ServerToCheck::kUpdate);
   // Try harder to connect to the network, esp when not interactive.
   // See comment in libcurl_http_fetcher.cc.
   update_check_fetcher->set_no_network_max_retries(interactive ? 1 : 3);
-  shared_ptr<OmahaRequestAction> update_check_action(
-      new OmahaRequestAction(system_state_,
-                             nullptr,
-                             std::move(update_check_fetcher),
-                             false));
-  shared_ptr<OmahaResponseHandlerAction> response_handler_action(
-      new OmahaResponseHandlerAction(system_state_));
-
-  shared_ptr<OmahaRequestAction> download_started_action(new OmahaRequestAction(
+  auto update_check_action = std::make_unique<OmahaRequestAction>(
+      system_state_, nullptr, std::move(update_check_fetcher), false);
+  auto response_handler_action =
+      std::make_unique<OmahaResponseHandlerAction>(system_state_);
+  auto update_boot_flags_action =
+      std::make_unique<UpdateBootFlagsAction>(system_state_->boot_control());
+  auto download_started_action = std::make_unique<OmahaRequestAction>(
       system_state_,
       new OmahaEvent(OmahaEvent::kTypeUpdateDownloadStarted),
       std::make_unique<LibcurlHttpFetcher>(GetProxyResolver(),
                                            system_state_->hardware()),
-      false));
+      false);
 
   LibcurlHttpFetcher* download_fetcher =
       new LibcurlHttpFetcher(GetProxyResolver(), system_state_->hardware());
   download_fetcher->set_server_to_check(ServerToCheck::kDownload);
   if (interactive)
     download_fetcher->set_max_retry_count(kDownloadMaxRetryCountInteractive);
-  shared_ptr<DownloadAction> download_action(
-      new DownloadAction(prefs_,
-                         system_state_->boot_control(),
-                         system_state_->hardware(),
-                         system_state_,
-                         download_fetcher,  // passes ownership
-                         interactive));
-  shared_ptr<OmahaRequestAction> download_finished_action(
-      new OmahaRequestAction(
-          system_state_,
-          new OmahaEvent(OmahaEvent::kTypeUpdateDownloadFinished),
-          std::make_unique<LibcurlHttpFetcher>(GetProxyResolver(),
-                                               system_state_->hardware()),
-          false));
-  shared_ptr<FilesystemVerifierAction> filesystem_verifier_action(
-      new FilesystemVerifierAction());
-  shared_ptr<OmahaRequestAction> update_complete_action(
-      new OmahaRequestAction(system_state_,
-                             new OmahaEvent(OmahaEvent::kTypeUpdateComplete),
-                             std::make_unique<LibcurlHttpFetcher>(
-                                 GetProxyResolver(), system_state_->hardware()),
-                             false));
-
+  auto download_action =
+      std::make_unique<DownloadAction>(prefs_,
+                                       system_state_->boot_control(),
+                                       system_state_->hardware(),
+                                       system_state_,
+                                       download_fetcher,  // passes ownership
+                                       interactive);
   download_action->set_delegate(this);
-  response_handler_action_ = response_handler_action;
-  download_action_ = download_action;
 
-  actions_.push_back(shared_ptr<AbstractAction>(update_check_action));
-  actions_.push_back(shared_ptr<AbstractAction>(response_handler_action));
-  actions_.push_back(shared_ptr<AbstractAction>(download_started_action));
-  actions_.push_back(shared_ptr<AbstractAction>(download_action));
-  actions_.push_back(shared_ptr<AbstractAction>(download_finished_action));
-  actions_.push_back(shared_ptr<AbstractAction>(filesystem_verifier_action));
+  auto download_finished_action = std::make_unique<OmahaRequestAction>(
+      system_state_,
+      new OmahaEvent(OmahaEvent::kTypeUpdateDownloadFinished),
+      std::make_unique<LibcurlHttpFetcher>(GetProxyResolver(),
+                                           system_state_->hardware()),
+      false);
+  auto filesystem_verifier_action =
+      std::make_unique<FilesystemVerifierAction>();
+  auto update_complete_action = std::make_unique<OmahaRequestAction>(
+      system_state_,
+      new OmahaEvent(OmahaEvent::kTypeUpdateComplete),
+      std::make_unique<LibcurlHttpFetcher>(GetProxyResolver(),
+                                           system_state_->hardware()),
+      false);
+
+  auto postinstall_runner_action = std::make_unique<PostinstallRunnerAction>(
+      system_state_->boot_control(), system_state_->hardware());
+  postinstall_runner_action->set_delegate(this);
 
   // Bond them together. We have to use the leaf-types when calling
   // BondActions().
-  BondActions(update_check_action.get(),
-              response_handler_action.get());
-  BondActions(response_handler_action.get(),
-              download_action.get());
-  BondActions(download_action.get(),
-              filesystem_verifier_action.get());
-  BuildPostInstallActions(filesystem_verifier_action.get());
+  BondActions(update_check_action.get(), response_handler_action.get());
+  BondActions(response_handler_action.get(), download_action.get());
+  BondActions(download_action.get(), filesystem_verifier_action.get());
+  BondActions(filesystem_verifier_action.get(),
+              postinstall_runner_action.get());
 
-  actions_.push_back(shared_ptr<AbstractAction>(update_complete_action));
-
-  // Enqueue the actions
-  for (const shared_ptr<AbstractAction>& action : actions_) {
-    processor_->EnqueueAction(action.get());
-  }
+  processor_->EnqueueAction(std::move(update_check_action));
+  processor_->EnqueueAction(std::move(response_handler_action));
+  processor_->EnqueueAction(std::move(update_boot_flags_action));
+  processor_->EnqueueAction(std::move(download_started_action));
+  processor_->EnqueueAction(std::move(download_action));
+  processor_->EnqueueAction(std::move(download_finished_action));
+  processor_->EnqueueAction(std::move(filesystem_verifier_action));
+  processor_->EnqueueAction(std::move(postinstall_runner_action));
+  processor_->EnqueueAction(std::move(update_complete_action));
 }
 
 bool UpdateAttempter::Rollback(bool powerwash) {
+  is_install_ = false;
   if (!CanRollback()) {
     return false;
   }
@@ -688,39 +723,32 @@ bool UpdateAttempter::Rollback(bool powerwash) {
   }
 
   LOG(INFO) << "Setting rollback options.";
-  InstallPlan install_plan;
-
-  install_plan.target_slot = GetRollbackSlot();
-  install_plan.source_slot = system_state_->boot_control()->GetCurrentSlot();
+  install_plan_.reset(new InstallPlan());
+  install_plan_->target_slot = GetRollbackSlot();
+  install_plan_->source_slot = system_state_->boot_control()->GetCurrentSlot();
 
   TEST_AND_RETURN_FALSE(
-      install_plan.LoadPartitionsFromSlots(system_state_->boot_control()));
-  install_plan.powerwash_required = powerwash;
+      install_plan_->LoadPartitionsFromSlots(system_state_->boot_control()));
+  install_plan_->powerwash_required = powerwash;
 
   LOG(INFO) << "Using this install plan:";
-  install_plan.Dump();
+  install_plan_->Dump();
 
-  shared_ptr<InstallPlanAction> install_plan_action(
-      new InstallPlanAction(install_plan));
-  actions_.push_back(shared_ptr<AbstractAction>(install_plan_action));
-
-  BuildPostInstallActions(install_plan_action.get());
-
-  // Enqueue the actions
-  for (const shared_ptr<AbstractAction>& action : actions_) {
-    processor_->EnqueueAction(action.get());
-  }
+  auto install_plan_action =
+      std::make_unique<InstallPlanAction>(*install_plan_);
+  auto postinstall_runner_action = std::make_unique<PostinstallRunnerAction>(
+      system_state_->boot_control(), system_state_->hardware());
+  postinstall_runner_action->set_delegate(this);
+  BondActions(install_plan_action.get(), postinstall_runner_action.get());
+  processor_->EnqueueAction(std::move(install_plan_action));
+  processor_->EnqueueAction(std::move(postinstall_runner_action));
 
   // Update the payload state for Rollback.
   system_state_->payload_state()->Rollback();
 
   SetStatusAndNotify(UpdateStatus::ATTEMPTING_ROLLBACK);
 
-  // Just in case we didn't update boot flags yet, make sure they're updated
-  // before any update processing starts. This also schedules the start of the
-  // actions we just posted.
-  start_action_processor_ = true;
-  UpdateBootFlags();
+  ScheduleProcessingStart();
   return true;
 }
 
@@ -762,6 +790,8 @@ BootControlInterface::Slot UpdateAttempter::GetRollbackSlot() const {
 bool UpdateAttempter::CheckForUpdate(const string& app_version,
                                      const string& omaha_url,
                                      UpdateAttemptFlags flags) {
+  dlc_module_ids_.clear();
+  is_install_ = false;
   bool interactive = !(flags & UpdateAttemptFlags::kFlagNonInteractive);
 
   if (interactive && status_ != UpdateStatus::IDLE) {
@@ -803,6 +833,9 @@ bool UpdateAttempter::CheckForUpdate(const string& app_version,
   }
 
   if (forced_update_pending_callback_.get()) {
+    if (!system_state_->dlcservice()->GetInstalled(&dlc_module_ids_)) {
+      dlc_module_ids_.clear();
+    }
     // Make sure that a scheduling request is made prior to calling the forced
     // update pending callback.
     ScheduleUpdates();
@@ -812,12 +845,45 @@ bool UpdateAttempter::CheckForUpdate(const string& app_version,
   return true;
 }
 
+bool UpdateAttempter::CheckForInstall(const vector<string>& dlc_module_ids,
+                                      const string& omaha_url) {
+  dlc_module_ids_ = dlc_module_ids;
+  is_install_ = true;
+  forced_omaha_url_.clear();
+
+  // Certain conditions must be met to allow setting custom version and update
+  // server URLs. However, kScheduledAUTestURLRequest and kAUTestURLRequest are
+  // always allowed regardless of device state.
+  if (IsAnyUpdateSourceAllowed()) {
+    forced_omaha_url_ = omaha_url;
+  }
+  if (omaha_url == kScheduledAUTestURLRequest) {
+    forced_omaha_url_ = constants::kOmahaDefaultAUTestURL;
+  } else if (omaha_url == kAUTestURLRequest) {
+    forced_omaha_url_ = constants::kOmahaDefaultAUTestURL;
+  }
+
+  if (!ScheduleUpdates()) {
+    if (forced_update_pending_callback_.get()) {
+      // Make sure that a scheduling request is made prior to calling the forced
+      // update pending callback.
+      ScheduleUpdates();
+      forced_update_pending_callback_->Run(true, true);
+      return true;
+    }
+    return false;
+  }
+  return true;
+}
+
 bool UpdateAttempter::RebootIfNeeded() {
+#ifdef __ANDROID__
   if (status_ != UpdateStatus::UPDATED_NEED_REBOOT) {
     LOG(INFO) << "Reboot requested, but status is "
               << UpdateStatusToString(status_) << ", so not rebooting.";
     return false;
   }
+#endif  // __ANDROID__
 
   if (system_state_->power_manager()->RequestReboot())
     return true;
@@ -863,11 +929,10 @@ void UpdateAttempter::OnUpdateScheduled(EvalStatus status,
       return;
     }
 
-    LOG(INFO) << "Running "
-              << (params.is_interactive ? "interactive" : "periodic")
+    LOG(INFO) << "Running " << (params.interactive ? "interactive" : "periodic")
               << " update.";
 
-    if (!params.is_interactive) {
+    if (!params.interactive) {
       // Cache the update attempt flags that will be used by this update attempt
       // so that they can't be changed mid-way through.
       current_update_attempt_flags_ = update_attempt_flags_;
@@ -876,8 +941,13 @@ void UpdateAttempter::OnUpdateScheduled(EvalStatus status,
     LOG(INFO) << "Update attempt flags in use = 0x" << std::hex
               << current_update_attempt_flags_;
 
-    Update(forced_app_version_, forced_omaha_url_, params.target_channel,
-           params.target_version_prefix, false, params.is_interactive);
+    Update(forced_app_version_,
+           forced_omaha_url_,
+           params.target_channel,
+           params.target_version_prefix,
+           params.rollback_allowed,
+           /*obey_proxies=*/false,
+           params.interactive);
     // Always clear the forced app_version and omaha_url after an update attempt
     // so the next update uses the defaults.
     forced_app_version_.clear();
@@ -900,17 +970,33 @@ void UpdateAttempter::UpdateLastCheckedTime() {
   last_checked_time_ = system_state_->clock()->GetWallclockTime().ToTimeT();
 }
 
+void UpdateAttempter::UpdateRollbackHappened() {
+  DCHECK(system_state_);
+  DCHECK(system_state_->payload_state());
+  DCHECK(policy_provider_);
+  if (system_state_->payload_state()->GetRollbackHappened() &&
+      (policy_provider_->device_policy_is_loaded() ||
+       policy_provider_->IsConsumerDevice())) {
+    // Rollback happened, but we already went through OOBE and policy is
+    // present or it's a consumer device.
+    system_state_->payload_state()->SetRollbackHappened(false);
+  }
+}
+
 // Delegate methods:
 void UpdateAttempter::ProcessingDone(const ActionProcessor* processor,
                                      ErrorCode code) {
   LOG(INFO) << "Processing Done.";
-  actions_.clear();
 
   // Reset cpu shares back to normal.
   cpu_limiter_.StopLimiter();
 
   // reset the state that's only valid for a single update pass
   current_update_attempt_flags_ = UpdateAttemptFlags::kNone;
+
+  if (forced_update_pending_callback_.get())
+    // Clear prior interactive requests once the processor is done.
+    forced_update_pending_callback_->Run(false, false);
 
   if (status_ == UpdateStatus::REPORTING_ERROR_EVENT) {
     LOG(INFO) << "Error event sent.";
@@ -923,11 +1009,18 @@ void UpdateAttempter::ProcessingDone(const ActionProcessor* processor,
       return;
     }
     LOG(INFO) << "Booted from FW B and tried to install new firmware, "
-        "so requesting reboot from user.";
+                 "so requesting reboot from user.";
   }
 
+  attempt_error_code_ = utils::GetBaseErrorCode(code);
+
   if (code == ErrorCode::kSuccess) {
-    WriteUpdateCompletedMarker();
+    // For install operation, we do not mark update complete since we do not
+    // need reboot.
+    if (!is_install_)
+      WriteUpdateCompletedMarker();
+    ReportTimeToUpdateAppliedMetric();
+
     prefs_->SetInt64(kPrefsDeltaUpdateFailures, 0);
     prefs_->SetString(kPrefsPreviousVersion,
                       omaha_request_params_->app_version());
@@ -946,24 +1039,37 @@ void UpdateAttempter::ProcessingDone(const ActionProcessor* processor,
     // way.
     prefs_->Delete(kPrefsUpdateCheckCount);
     system_state_->payload_state()->SetScatteringWaitPeriod(TimeDelta());
+    system_state_->payload_state()->SetStagingWaitPeriod(TimeDelta());
     prefs_->Delete(kPrefsUpdateFirstSeenAt);
+
+    if (is_install_) {
+      LOG(INFO) << "DLC successfully installed, no reboot needed.";
+      SetStatusAndNotify(UpdateStatus::IDLE);
+      ScheduleUpdates();
+      return;
+    }
 
     SetStatusAndNotify(UpdateStatus::UPDATED_NEED_REBOOT);
     ScheduleUpdates();
     LOG(INFO) << "Update successfully applied, waiting to reboot.";
 
-    // This pointer is null during rollback operations, and the stats
-    // don't make much sense then anyway.
-    if (response_handler_action_) {
-      const InstallPlan& install_plan =
-          response_handler_action_->install_plan();
-
+    // |install_plan_| is null during rollback operations, and the stats don't
+    // make much sense then anyway.
+    if (install_plan_) {
       // Generate an unique payload identifier.
       string target_version_uid;
-      for (const auto& payload : install_plan.payloads) {
+      for (const auto& payload : install_plan_->payloads) {
         target_version_uid +=
             brillo::data_encoding::Base64Encode(payload.hash) + ":" +
             payload.metadata_signature + ":";
+      }
+
+      // If we just downloaded a rollback image, we should preserve this fact
+      // over the following powerwash.
+      if (install_plan_->is_rollback) {
+        system_state_->payload_state()->SetRollbackHappened(true);
+        system_state_->metrics_reporter()->ReportEnterpriseRollbackMetrics(
+            /*success=*/true, install_plan_->version);
       }
 
       // Expect to reboot into the new version to send the proper metric during
@@ -974,8 +1080,7 @@ void UpdateAttempter::ProcessingDone(const ActionProcessor* processor,
       // If we just finished a rollback, then we expect to have no Omaha
       // response. Otherwise, it's an error.
       if (system_state_->payload_state()->GetRollbackVersion().empty()) {
-        LOG(ERROR) << "Can't send metrics because expected "
-            "response_handler_action_ missing.";
+        LOG(ERROR) << "Can't send metrics because there was no Omaha response";
       }
     }
     return;
@@ -993,9 +1098,11 @@ void UpdateAttempter::ProcessingStopped(const ActionProcessor* processor) {
   // Reset cpu shares back to normal.
   cpu_limiter_.StopLimiter();
   download_progress_ = 0.0;
+  if (forced_update_pending_callback_.get())
+    // Clear prior interactive requests once the processor is done.
+    forced_update_pending_callback_->Run(false, false);
   SetStatusAndNotify(UpdateStatus::IDLE);
   ScheduleUpdates();
-  actions_.clear();
   error_event_.reset(nullptr);
 }
 
@@ -1028,9 +1135,23 @@ void UpdateAttempter::ActionCompleted(ActionProcessor* processor,
         consecutive_failed_update_checks_ = 0;
       }
 
+      const OmahaResponse& omaha_response =
+          omaha_request_action->GetOutputObject();
       // Store the server-dictated poll interval, if any.
       server_dictated_poll_interval_ =
-          std::max(0, omaha_request_action->GetOutputObject().poll_interval);
+          std::max(0, omaha_response.poll_interval);
+
+      // This update is ignored by omaha request action because update over
+      // cellular connection is not allowed. Needs to ask for user's permissions
+      // to update.
+      if (code == ErrorCode::kOmahaUpdateIgnoredOverCellular) {
+        new_version_ = omaha_response.version;
+        new_payload_size_ = 0;
+        for (const auto& package : omaha_response.packages) {
+          new_payload_size_ += package.size;
+        }
+        SetStatusAndNotify(UpdateStatus::NEED_PERMISSION_TO_UPDATE);
+      }
     }
   } else if (type == OmahaResponseHandlerAction::StaticType()) {
     // Depending on the returned error code, note that an update is available.
@@ -1041,13 +1162,15 @@ void UpdateAttempter::ActionCompleted(ActionProcessor* processor,
       // callback is invoked. This avoids notifying the user that a download
       // has started in cases when the server and the client are unable to
       // initiate the download.
-      CHECK(action == response_handler_action_.get());
-      auto plan = response_handler_action_->install_plan();
+      auto omaha_response_handler_action =
+          static_cast<OmahaResponseHandlerAction*>(action);
+      install_plan_.reset(
+          new InstallPlan(omaha_response_handler_action->install_plan()));
       UpdateLastCheckedTime();
-      new_version_ = plan.version;
-      new_system_version_ = plan.system_version;
+      new_version_ = install_plan_->version;
+      new_system_version_ = install_plan_->system_version;
       new_payload_size_ = 0;
-      for (const auto& payload : plan.payloads)
+      for (const auto& payload : install_plan_->payloads)
         new_payload_size_ += payload.size;
       cpu_limiter_.StartLimiter();
       SetStatusAndNotify(UpdateStatus::UPDATE_AVAILABLE);
@@ -1058,12 +1181,28 @@ void UpdateAttempter::ActionCompleted(ActionProcessor* processor,
     // If the current state is at or past the download phase, count the failure
     // in case a switch to full update becomes necessary. Ignore network
     // transfer timeouts and failures.
-    if (status_ >= UpdateStatus::DOWNLOADING &&
-        code != ErrorCode::kDownloadTransferError) {
-      MarkDeltaUpdateFailure();
+    if (code != ErrorCode::kDownloadTransferError) {
+      switch (status_) {
+        case UpdateStatus::IDLE:
+        case UpdateStatus::CHECKING_FOR_UPDATE:
+        case UpdateStatus::UPDATE_AVAILABLE:
+        case UpdateStatus::NEED_PERMISSION_TO_UPDATE:
+          break;
+        case UpdateStatus::DOWNLOADING:
+        case UpdateStatus::VERIFYING:
+        case UpdateStatus::FINALIZING:
+        case UpdateStatus::UPDATED_NEED_REBOOT:
+        case UpdateStatus::REPORTING_ERROR_EVENT:
+        case UpdateStatus::ATTEMPTING_ROLLBACK:
+        case UpdateStatus::DISABLED:
+          MarkDeltaUpdateFailure();
+          break;
+      }
     }
-    // On failure, schedule an error event to be sent to Omaha.
-    CreatePendingErrorEvent(action, code);
+    if (code != ErrorCode::kNoUpdate) {
+      // On failure, schedule an error event to be sent to Omaha.
+      CreatePendingErrorEvent(action, code);
+    }
     return;
   }
   // Find out which action completed (successfully).
@@ -1124,7 +1263,7 @@ bool UpdateAttempter::ResetStatus() {
       // no-op.
       return true;
 
-    case UpdateStatus::UPDATED_NEED_REBOOT:  {
+    case UpdateStatus::UPDATED_NEED_REBOOT: {
       bool ret_value = true;
       status_ = UpdateStatus::IDLE;
 
@@ -1142,7 +1281,7 @@ bool UpdateAttempter::ResetStatus() {
       // Mark the current slot as successful again, since marking it as active
       // may reset the successful bit. We ignore the result of whether marking
       // the current slot as successful worked.
-      if (!boot_control->MarkBootSuccessfulAsync(Bind([](bool successful){})))
+      if (!boot_control->MarkBootSuccessfulAsync(Bind([](bool successful) {})))
         ret_value = false;
 
       // Notify the PayloadState that the successful payload was canceled.
@@ -1176,38 +1315,6 @@ bool UpdateAttempter::GetStatus(UpdateEngineStatus* out_status) {
   return true;
 }
 
-void UpdateAttempter::UpdateBootFlags() {
-  if (update_boot_flags_running_) {
-    LOG(INFO) << "Update boot flags running, nothing to do.";
-    return;
-  }
-  if (updated_boot_flags_) {
-    LOG(INFO) << "Already updated boot flags. Skipping.";
-    if (start_action_processor_) {
-      ScheduleProcessingStart();
-    }
-    return;
-  }
-  // This is purely best effort. Failures should be logged by Subprocess. Run
-  // the script asynchronously to avoid blocking the event loop regardless of
-  // the script runtime.
-  update_boot_flags_running_ = true;
-  LOG(INFO) << "Marking booted slot as good.";
-  if (!system_state_->boot_control()->MarkBootSuccessfulAsync(Bind(
-          &UpdateAttempter::CompleteUpdateBootFlags, base::Unretained(this)))) {
-    LOG(ERROR) << "Failed to mark current boot as successful.";
-    CompleteUpdateBootFlags(false);
-  }
-}
-
-void UpdateAttempter::CompleteUpdateBootFlags(bool successful) {
-  update_boot_flags_running_ = false;
-  updated_boot_flags_ = true;
-  if (start_action_processor_) {
-    ScheduleProcessingStart();
-  }
-}
-
 void UpdateAttempter::BroadcastStatus() {
   UpdateEngineStatus broadcast_status;
   // Use common method for generating the current status.
@@ -1219,21 +1326,19 @@ void UpdateAttempter::BroadcastStatus() {
   last_notify_time_ = TimeTicks::Now();
 }
 
-uint32_t UpdateAttempter::GetErrorCodeFlags()  {
+uint32_t UpdateAttempter::GetErrorCodeFlags() {
   uint32_t flags = 0;
 
   if (!system_state_->hardware()->IsNormalBootMode())
     flags |= static_cast<uint32_t>(ErrorCode::kDevModeFlag);
 
-  if (response_handler_action_.get() &&
-      response_handler_action_->install_plan().is_resume)
+  if (install_plan_ && install_plan_->is_resume)
     flags |= static_cast<uint32_t>(ErrorCode::kResumedFlag);
 
   if (!system_state_->hardware()->IsOfficialBuild())
     flags |= static_cast<uint32_t>(ErrorCode::kTestImageFlag);
 
-  if (omaha_request_params_->update_url() !=
-      constants::kOmahaDefaultProductionURL) {
+  if (!omaha_request_params_->IsUpdateUrlOfficial()) {
     flags |= static_cast<uint32_t>(ErrorCode::kTestOmahaUrlFlag);
   }
 
@@ -1263,19 +1368,9 @@ void UpdateAttempter::SetStatusAndNotify(UpdateStatus status) {
 
 void UpdateAttempter::CreatePendingErrorEvent(AbstractAction* action,
                                               ErrorCode code) {
-  if (error_event_.get()) {
+  if (error_event_.get() || status_ == UpdateStatus::REPORTING_ERROR_EVENT) {
     // This shouldn't really happen.
     LOG(WARNING) << "There's already an existing pending error event.";
-    return;
-  }
-
-  // For now assume that a generic Omaha response action failure means that
-  // there's no update so don't send an event. Also, double check that the
-  // failure has not occurred while sending an error event -- in which case
-  // don't schedule another. This shouldn't really happen but just in case...
-  if ((action->Type() == OmahaResponseHandlerAction::StaticType() &&
-       code == ErrorCode::kError) ||
-      status_ == UpdateStatus::REPORTING_ERROR_EVENT) {
     return;
   }
 
@@ -1300,11 +1395,10 @@ void UpdateAttempter::CreatePendingErrorEvent(AbstractAction* action,
   fake_update_success_ = code == ErrorCode::kPostinstallBootedFromFirmwareB;
 
   // Compute the final error code with all the bit flags to be sent to Omaha.
-  code = static_cast<ErrorCode>(
-      static_cast<uint32_t>(code) | GetErrorCodeFlags());
-  error_event_.reset(new OmahaEvent(OmahaEvent::kTypeUpdateComplete,
-                                    event_result,
-                                    code));
+  code =
+      static_cast<ErrorCode>(static_cast<uint32_t>(code) | GetErrorCodeFlags());
+  error_event_.reset(
+      new OmahaEvent(OmahaEvent::kTypeUpdateComplete, event_result, code));
 }
 
 bool UpdateAttempter::ScheduleErrorEventAction() {
@@ -1314,16 +1408,21 @@ bool UpdateAttempter::ScheduleErrorEventAction() {
   LOG(ERROR) << "Update failed.";
   system_state_->payload_state()->UpdateFailed(error_event_->error_code);
 
+  // Send metrics if it was a rollback.
+  if (install_plan_ && install_plan_->is_rollback) {
+    system_state_->metrics_reporter()->ReportEnterpriseRollbackMetrics(
+        /*success=*/false, install_plan_->version);
+  }
+
   // Send it to Omaha.
   LOG(INFO) << "Reporting the error event";
-  shared_ptr<OmahaRequestAction> error_event_action(
-      new OmahaRequestAction(system_state_,
-                             error_event_.release(),  // Pass ownership.
-                             std::make_unique<LibcurlHttpFetcher>(
-                                 GetProxyResolver(), system_state_->hardware()),
-                             false));
-  actions_.push_back(shared_ptr<AbstractAction>(error_event_action));
-  processor_->EnqueueAction(error_event_action.get());
+  auto error_event_action = std::make_unique<OmahaRequestAction>(
+      system_state_,
+      error_event_.release(),  // Pass ownership.
+      std::make_unique<LibcurlHttpFetcher>(GetProxyResolver(),
+                                           system_state_->hardware()),
+      false);
+  processor_->EnqueueAction(std::move(error_event_action));
   SetStatusAndNotify(UpdateStatus::REPORTING_ERROR_EVENT);
   processor_->StartProcessing();
   return true;
@@ -1331,7 +1430,6 @@ bool UpdateAttempter::ScheduleErrorEventAction() {
 
 void UpdateAttempter::ScheduleProcessingStart() {
   LOG(INFO) << "Scheduling an action processor start.";
-  start_action_processor_ = false;
   MessageLoop::current()->PostTask(
       FROM_HERE,
       Bind([](ActionProcessor* processor) { processor->StartProcessing(); },
@@ -1361,15 +1459,14 @@ void UpdateAttempter::MarkDeltaUpdateFailure() {
 
 void UpdateAttempter::PingOmaha() {
   if (!processor_->IsRunning()) {
-    shared_ptr<OmahaRequestAction> ping_action(new OmahaRequestAction(
+    auto ping_action = std::make_unique<OmahaRequestAction>(
         system_state_,
         nullptr,
         std::make_unique<LibcurlHttpFetcher>(GetProxyResolver(),
                                              system_state_->hardware()),
-        true));
-    actions_.push_back(shared_ptr<OmahaRequestAction>(ping_action));
+        true);
     processor_->set_delegate(nullptr);
-    processor_->EnqueueAction(ping_action.get());
+    processor_->EnqueueAction(std::move(ping_action));
     // Call StartProcessing() synchronously here to avoid any race conditions
     // caused by multiple outstanding ping Omaha requests.  If we call
     // StartProcessing() asynchronously, the device can be suspended before we
@@ -1394,7 +1491,6 @@ void UpdateAttempter::PingOmaha() {
   SetStatusAndNotify(UpdateStatus::UPDATED_NEED_REBOOT);
   ScheduleUpdates();
 }
-
 
 bool UpdateAttempter::DecrementUpdateCheckCount() {
   int64_t update_check_count_value;
@@ -1427,7 +1523,7 @@ bool UpdateAttempter::DecrementUpdateCheckCount() {
 
     // Write out the new value of update_check_count_value.
     if (prefs_->SetInt64(kPrefsUpdateCheckCount, update_check_count_value)) {
-      // We successfully wrote out te new value, so enable the
+      // We successfully wrote out the new value, so enable the
       // update check based wait.
       LOG(INFO) << "New update check count = " << update_check_count_value;
       return true;
@@ -1443,7 +1539,6 @@ bool UpdateAttempter::DecrementUpdateCheckCount() {
   prefs_->Delete(kPrefsUpdateCheckCount);
   return false;
 }
-
 
 void UpdateAttempter::UpdateEngineStarted() {
   // If we just booted into a new update, keep the previous OS version
@@ -1505,7 +1600,7 @@ bool UpdateAttempter::StartP2PAndPerformHousekeeping() {
   return true;
 }
 
-bool UpdateAttempter::GetBootTimeAtUpdate(Time *out_boot_time) {
+bool UpdateAttempter::GetBootTimeAtUpdate(Time* out_boot_time) {
   // In case of an update_engine restart without a reboot, we stored the boot_id
   // when the update was completed by setting a pref, so we can check whether
   // the last update was on this boot or a previous one.
@@ -1537,7 +1632,7 @@ bool UpdateAttempter::IsUpdateRunningOrScheduled() {
           waiting_for_scheduled_check_);
 }
 
-bool UpdateAttempter::IsAnyUpdateSourceAllowed() {
+bool UpdateAttempter::IsAnyUpdateSourceAllowed() const {
   // We allow updates from any source if either of these are true:
   //  * The device is running an unofficial (dev/test) image.
   //  * The debugd dev features are accessible (i.e. in devmode with no owner).
@@ -1556,6 +1651,28 @@ bool UpdateAttempter::IsAnyUpdateSourceAllowed() {
   LOG(INFO)
       << "Developer features disabled; disallowing custom update sources.";
   return false;
+}
+
+void UpdateAttempter::ReportTimeToUpdateAppliedMetric() {
+  const policy::DevicePolicy* device_policy = system_state_->device_policy();
+  if (device_policy && device_policy->IsEnterpriseEnrolled()) {
+    vector<policy::DevicePolicy::WeeklyTimeInterval> parsed_intervals;
+    bool has_time_restrictions =
+        device_policy->GetDisallowedTimeIntervals(&parsed_intervals);
+
+    int64_t update_first_seen_at_int;
+    if (system_state_->prefs()->Exists(kPrefsUpdateFirstSeenAt)) {
+      if (system_state_->prefs()->GetInt64(kPrefsUpdateFirstSeenAt,
+                                           &update_first_seen_at_int)) {
+        TimeDelta update_delay =
+            system_state_->clock()->GetWallclockTime() -
+            Time::FromInternalValue(update_first_seen_at_int);
+        system_state_->metrics_reporter()
+            ->ReportEnterpriseUpdateSeenToDownloadDays(has_time_restrictions,
+                                                       update_delay.InDays());
+      }
+    }
+  }
 }
 
 }  // namespace chromeos_update_engine

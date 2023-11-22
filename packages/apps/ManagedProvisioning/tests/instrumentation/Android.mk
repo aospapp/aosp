@@ -12,10 +12,11 @@ LOCAL_PRIVATE_PLATFORM_APIS := true
 LOCAL_CERTIFICATE := platform
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     mockito-target-minus-junit4 \
-    espresso-core \
-    espresso-intents
+    androidx.test.espresso.core \
+    androidx.test.espresso.intents \
+    truth-prebuilt
 
 LOCAL_INSTRUMENTATION_FOR := ManagedProvisioning
 LOCAL_COMPATIBILITY_SUITE := device-tests

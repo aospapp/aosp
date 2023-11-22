@@ -15,7 +15,7 @@
  */
 package com.android.documentsui.base;
 
-import android.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.provider.DocumentsContract.Document;
 
 import java.util.List;
@@ -25,16 +25,17 @@ public final class MimeTypes {
     private MimeTypes() {}
 
     public static final String APK_TYPE = "application/vnd.android.package-archive";
+    public static final String GENERIC_TYPE = "application/*";
 
-    public static final String IMAGE_PREFIX = "image";
-    public static final String AUDIO_PREFIX = "audio";
-    public static final String VIDEO_PREFIX = "video";
+    public static final String IMAGE_MIME = "image/*";
+    public static final String AUDIO_MIME = "audio/*";
+    public static final String VIDEO_MIME = "video/*";
 
     /**
      * MIME types that are visual in nature. For example, they should always be
      * shown as thumbnails in list mode.
      */
-    public static final String[] VISUAL_MIMES = new String[] { "image/*", "video/*" };
+    public static final String[] VISUAL_MIMES = new String[] { IMAGE_MIME, VIDEO_MIME };
 
     public static @Nullable String[] splitMimeType(String mimeType) {
         final String[] groups = mimeType.split("/");

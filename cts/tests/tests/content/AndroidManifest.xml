@@ -25,12 +25,17 @@
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.READ_SYNC_STATS" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.BROADCAST_STICKY" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.content.cts.permission.TEST_GRANTED" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+
+    <!-- Used for ContextTest#testCreatePackageContextAsUser -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
 
     <!-- Used for PackageManager test, don't delete this INTERNET permission -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -127,6 +132,8 @@
                 android:resource="@xml/alias" />
             <meta-data android:name="android.app.intent.filter"
                 android:resource="@xml/intentfilter" />
+            <meta-data android:name="android.app.intent"
+                       android:resource="@xml/intent" />
             <intent-filter>
                 <action android:name="android.content.cts.action.TEST_ACTION" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -144,9 +151,9 @@
 
         <uses-library android:name="android.test.runner" />
 
-        <service android:name="android.content.cts.MockContextWrapperService" />
-        <activity android:name=".content.ContextWrapperCtsActivity"
-            android:label="ContextWrapperCtsActivity">
+        <service android:name="android.content.cts.MockContextService" />
+        <activity android:name=".content.ContextCtsActivity"
+            android:label="ContextCtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
@@ -167,7 +174,7 @@
             <intent-filter android:priority="1">
                 <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_MOCKTEST" />
                 <action android:name="android.content.cts.BroadcastReceiverTest.BROADCAST_TESTABORT" />
-                <action android:name="android.content.cts.ContextWrapperTest.BROADCAST_TESTORDER" />
+                <action android:name="android.content.cts.ContextTest.BROADCAST_TESTORDER" />
             </intent-filter>
         </receiver>
 
@@ -189,7 +196,8 @@
 
         <!--Test for PackageManager-->
         <activity android:name="android.content.pm.cts.TestPmActivity"
-                android:icon="@drawable/start">
+                android:icon="@drawable/start"
+                android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.PMTEST" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -203,7 +211,8 @@
             </intent-filter>
         </activity>
         <!--Test for PackageManager-->
-        <service android:name="android.content.pm.cts.TestPmService">
+        <service android:name="android.content.pm.cts.TestPmService"
+            android:permission="android.content.cts.CALL_ABROAD_PERMISSION">
             <intent-filter>
                 <action android:name="android.content.pm.cts.activity.PMTEST_SERVICE" />
             </intent-filter>
@@ -214,6 +223,15 @@
                 <action android:name="android.content.pm.cts.PackageManagerTest.PMTEST_RECEIVER" />
             </intent-filter>
         </receiver>
+
+        <activity android:name="android.content.pm.cts.LauncherMockActivity"
+                  android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Used for PackageManager test, don't delete this MockContentProvider provider -->
         <provider android:name="android.content.cts.MockContentProvider" android:authorities="ctstest"
@@ -310,7 +328,7 @@
 
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.content.cts"
                      android:label="CTS tests of android.content">
         <meta-data android:name="listener"

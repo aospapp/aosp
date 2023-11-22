@@ -22,34 +22,37 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.assist.AssistStructure;
 import android.platform.test.annotations.AppModeFull;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.autofill.AutofillValue;
 import android.widget.EditText;
 
+
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.function.Consumer;
 
 @RunWith(AndroidJUnit4.class)
-@AppModeFull // Unit test
-public class ViewAttributesTest extends AutoFillServiceTestCase {
-    @Rule
-    public final AutofillActivityTestRule<ViewAttributesTestActivity> mActivityRule =
-            new AutofillActivityTestRule<>(ViewAttributesTestActivity.class);
+@AppModeFull(reason = "Unit test")
+public class ViewAttributesTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<ViewAttributesTestActivity> {
 
     private ViewAttributesTestActivity mActivity;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<ViewAttributesTestActivity> getActivityRule() {
+        return new AutofillActivityTestRule<ViewAttributesTestActivity>(
+                ViewAttributesTestActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     @Nullable private String[] getHintsFromView(@IdRes int resId) {
@@ -178,19 +181,21 @@ public class ViewAttributesTest extends AutoFillServiceTestCase {
 
     @Test
     public void checkViewLocationInAssistStructure() throws Exception {
+        // If screen is not large enough to contain child, the height/weight will be the residual
+        // space instead of the specific size.
+        mUiBot.assumeMinimumResolution(500);
         onAssistStructure(false, (structure) -> {
                     // check size of outerView
                     AssistStructure.ViewNode outerView = findNodeByResourceId(structure,
                             "outerView");
-
                     // The size of the view should include all paddings and size of all children
                     assertThat(outerView.getHeight()).isEqualTo(
                             2             // outerView.top
                                     + 11  // nestedView.top
                                     + 23  // doubleNestedView.top
-                                    + 41  // tripleNestedView.height
-                                    + 47  // secondDoubleNestedView.height
-                                    + 31  // doubleNestedView.bottom
+                                    + 11  // tripleNestedView.height
+                                    + 17  // secondDoubleNestedView.height
+                                    + 11  // doubleNestedView.bottom
                                     + 17  // nestedView.bottom
                                     + 5); // outerView.bottom
                     assertThat(outerView.getWidth()).isEqualTo(

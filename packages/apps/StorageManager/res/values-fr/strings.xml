@@ -23,7 +23,7 @@
     <string name="deletion_helper_app_summary" msgid="4904590040180275237">"Il y a <xliff:g id="DAYS">%1$d</xliff:g> jours"</string>
     <!-- no translation found for deletion_helper_app_summary_item_size (3770886184921427886) -->
     <skip />
-    <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Non utilisée au cours de l\'année passée"</string>
+    <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"Non utilisé au cours de l\'année passée"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"Date de la dernière utilisation inconnue"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"Libérer <xliff:g id="FREEABLE">%1$s</xliff:g>"</string>
     <string name="deletion_helper_photos_title" msgid="2602723121486729972">"Photos et vidéos sauvegardées"</string>
@@ -36,7 +36,7 @@
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"Libérer de l\'espace"</string>
-    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"Des contenus (<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>) seront supprimés de votre appareil"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"Des contenus (<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>) seront supprimés de votre appareil."</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Libérer de l\'espace"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Gérer l\'espace de stockage automatiquement ?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"Vous venez de libérer <xliff:g id="USED">%1$s</xliff:g>. Souhaitez-vous autoriser le gestionnaire d\'espace de stockage à libérer automatiquement de l\'espace en supprimant le contenu sauvegardé sur votre appareil ?"</string>
@@ -58,10 +58,10 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Recherche de contenus…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Afficher tous les éléments"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Masquer les éléments récents"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Des contenus (<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>) seront supprimés de votre appareil"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Des contenus (<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>) seront supprimés de votre appareil."</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Votre espace de stockage est désormais géré par le gestionnaire d\'espace de stockage."</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Rien à supprimer"</string>
-    <string name="empty_state_review_items_link" msgid="8411186441239304545">"Vérifier les éléments récents"</string>
+    <string name="empty_state_review_items_link" msgid="8411186441239304545">"Voir les éléments récents"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"Il n\'y a aucun ancien fichier à supprimer. Pour libérer de l\'espace, supprimez des photos, des vidéos et des applications récentes."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> nécessite <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> d\'espace de stockage"</string>
 </resources>

@@ -558,7 +558,7 @@ struct chreSensorThreeAxisData {
  */
 struct chreSensorOccurrenceData {
     struct chreSensorDataHeader header;
-    struct chreSensorOccurenceSampleData {
+    struct chreSensorOccurrenceSampleData {
         uint32_t timestampDelta;
         // This space intentionally left blank.
         // Only the timestamp is meaningful here, there

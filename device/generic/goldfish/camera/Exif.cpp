@@ -16,7 +16,7 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_Exif"
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/properties.h>
 
 #include <inttypes.h>
@@ -151,12 +151,12 @@ static bool createEntry(ExifData* exifData,
 
 // Create an entry and place it in |exifData|, the entry is initialized with a
 // single byte in |value|
-static bool createEntry(ExifData* exifData,
-                        ExifIfd ifd,
-                        int tag,
-                        uint8_t value) {
-    return createEntry(exifData, ifd, tag, &value, 1, EXIF_FORMAT_BYTE);
-}
+//static bool createEntry(ExifData* exifData,
+//                        ExifIfd ifd,
+//                        int tag,
+//                        uint8_t value) {
+//    return createEntry(exifData, ifd, tag, &value, 1, EXIF_FORMAT_BYTE);
+//}
 
 // Create an entry and place it in |exifData|, the entry is default initialized
 // by the exif library based on |tag|

@@ -17,8 +17,8 @@
 #ifndef NETUTILS_STATUS_H
 #define NETUTILS_STATUS_H
 
-#include "binder/Status.h"
 #include <cassert>
+#include <limits>
 #include <ostream>
 
 namespace android {
@@ -28,19 +28,25 @@ namespace netdutils {
 // or moderate performance code. This can definitely be improved but
 // for now short string optimization is expected to keep the common
 // success case fast.
-class Status {
+//
+// Status is implicitly movable via the default noexcept move constructor
+// and noexcept move-assignment operator.
+class [[nodiscard]] Status {
   public:
     Status() = default;
-
     explicit Status(int code) : mCode(code) {}
 
-    Status(int code, const std::string& msg) : mCode(code), mMsg(msg) { assert(!ok()); }
+    // Constructs an error Status, |code| must be non-zero.
+    Status(int code, std::string msg) : mCode(code), mMsg(std::move(msg)) { assert(!ok()); }
 
     int code() const { return mCode; }
 
     bool ok() const { return code() == 0; }
 
     const std::string& msg() const { return mMsg; }
+
+    // Explicitly ignores the Status without triggering [[nodiscard]] errors.
+    void ignoreError() const {}
 
     bool operator==(const Status& other) const { return code() == other.code(); }
     bool operator!=(const Status& other) const { return !(*this == other); }
@@ -67,10 +73,14 @@ inline bool isOk(const Status& status) {
     return status.ok();
 }
 
-// Document that status is expected to be ok. This function may log
-// (or assert when running in debug mode) if status has an unexpected
-// value.
-void expectOk(const Status& status);
+// For use only in tests.
+#define EXPECT_OK(status) EXPECT_TRUE((status).ok())
+
+// Documents that status is expected to be ok. This function may log
+// (or assert when running in debug mode) if status has an unexpected value.
+inline void expectOk(const Status& /*status*/) {
+    // TODO: put something here, for now this function serves solely as documentation.
+}
 
 // Convert POSIX errno to a Status object.
 // If Status is extended to have more features, this mapping may
@@ -80,9 +90,6 @@ Status statusFromErrno(int err, const std::string& msg);
 // Helper that checks Status-like object (notably StatusOr) against a
 // value in the errno space.
 bool equalToErrno(const Status& status, int err);
-
-// Converts netdutils Status into binder Status.
-binder::Status asBinderStatus(const netdutils::Status& status);
 
 // Helper that converts Status-like object (notably StatusOr) to a
 // message.

@@ -16,8 +16,6 @@
 
 package android.signature.cts.api;
 
-import android.signature.cts.DexMemberChecker;
-
 public class WhitelistKillswitchTest extends BaseKillswitchTest {
     @Override
     protected void setUp() throws Exception {

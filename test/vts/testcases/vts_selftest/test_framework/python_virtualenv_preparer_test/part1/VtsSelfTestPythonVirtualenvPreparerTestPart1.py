@@ -31,12 +31,12 @@ class VtsSelfTestPythonVirtualenvPreparerTestPart1(base_test.BaseTestClass):
         # must be set to False.
         self.run_as_vts_self_test = False
 
-    def testVirtualenvPreparerTestPart1(self):
-        '''If there's no error at this point, then test pass.'''
+    def testInstalledModule(self):
+        '''Test a module installed in this test.'''
         try:
             import numpy
         except ImportError:
-            asserts.fail('numpy is not installed from plan level preparer.')
+            asserts.fail('numpy should have been installed.')
 
 
 if __name__ == "__main__":

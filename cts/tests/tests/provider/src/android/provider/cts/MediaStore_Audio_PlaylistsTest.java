@@ -16,54 +16,69 @@
 
 package android.provider.cts;
 
+import static android.provider.cts.MediaStoreTest.TAG;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.net.Uri;
-import android.os.Environment;
+import android.platform.test.annotations.Presubmit;
 import android.provider.MediaStore.Audio.Playlists;
-import android.test.InstrumentationTestCase;
+import android.util.Log;
 
-import java.util.regex.Pattern;
+import androidx.test.InstrumentationRegistry;
 
-public class MediaStore_Audio_PlaylistsTest extends InstrumentationTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+
+import java.io.File;
+
+@Presubmit
+@RunWith(Parameterized.class)
+public class MediaStore_Audio_PlaylistsTest {
+    private Context mContext;
     private ContentResolver mContentResolver;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Parameter(0)
+    public String mVolumeName;
 
-        mContentResolver = getInstrumentation().getContext().getContentResolver();
+    @Parameters
+    public static Iterable<? extends Object> data() {
+        return ProviderTestUtils.getSharedVolumeNames();
     }
 
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mContentResolver = mContext.getContentResolver();
+
+        Log.d(TAG, "Using volume " + mVolumeName);
+    }
+
+    @Test
     public void testGetContentUri() {
         Cursor c = null;
         assertNotNull(c = mContentResolver.query(
-                Playlists.getContentUri(MediaStoreAudioTestHelper.EXTERNAL_VOLUME_NAME), null, null,
+                Playlists.getContentUri(mVolumeName), null, null,
                 null, null));
         c.close();
-
-        // can not accept any other volume names
-        try {
-            assertNotNull(c = mContentResolver.query(
-                    Playlists.getContentUri(MediaStoreAudioTestHelper.INTERNAL_VOLUME_NAME), null,
-                    null, null, null));
-            c.close();
-            fail("Should throw SQLException as the internal datatbase has no playlist");
-        } catch (SQLException e) {
-            // expected
-        }
-
-        String volume = "fakeVolume";
-        assertNull(mContentResolver.query(Playlists.getContentUri(volume), null, null, null,
-                null));
     }
 
-    public void testStoreAudioPlaylistsExternal() {
-        final String externalPlaylistPath = Environment.getExternalStorageDirectory().getPath() +
-            "/my_favorites.pl";
+    @Test
+    public void testStoreAudioPlaylistsExternal() throws Exception {
+        final String externalPlaylistPath = new File(ProviderTestUtils.stageDir(mVolumeName),
+                "my_favorites.pl").getAbsolutePath();
         ContentValues values = new ContentValues();
         values.put(Playlists.NAME, "My favourites");
         values.put(Playlists.DATA, externalPlaylistPath);
@@ -71,7 +86,7 @@ public class MediaStore_Audio_PlaylistsTest extends InstrumentationTestCase {
         long dateModified = System.currentTimeMillis() / 1000;
         values.put(Playlists.DATE_MODIFIED, dateModified);
         // insert
-        Uri uri = mContentResolver.insert(Playlists.EXTERNAL_CONTENT_URI, values);
+        Uri uri = mContentResolver.insert(Playlists.getContentUri(mVolumeName), values);
         assertNotNull(uri);
 
         try {
@@ -88,44 +103,7 @@ public class MediaStore_Audio_PlaylistsTest extends InstrumentationTestCase {
             assertEquals(dateModified, c.getLong(c.getColumnIndex(Playlists.DATE_MODIFIED)));
             assertTrue(c.getLong(c.getColumnIndex(Playlists._ID)) > 0);
             c.close();
-
-            // update
-            values.clear();
-            values.put(Playlists.NAME, "xxx");
-            dateModified = System.currentTimeMillis();
-            values.put(Playlists.DATE_MODIFIED, dateModified);
-            assertEquals(1, mContentResolver.update(uri, values, null, null));
-            c = mContentResolver.query(uri, null, null, null, null);
-            c.moveToFirst();
-            assertEquals("xxx", c.getString(c.getColumnIndex(Playlists.NAME)));
-            assertEquals(externalPlaylistPath,
-                    c.getString(c.getColumnIndex(Playlists.DATA)));
-
-            assertEquals(realDateAdded, c.getLong(c.getColumnIndex(Playlists.DATE_ADDED)));
-            assertEquals(dateModified, c.getLong(c.getColumnIndex(Playlists.DATE_MODIFIED)));
-            c.close();
         } finally {
-            assertEquals(1, mContentResolver.delete(uri, null, null));
-        }
-    }
-
-    public void testStoreAudioPlaylistsInternal() {
-        ContentValues values = new ContentValues();
-        values.put(Playlists.NAME, "My favourites");
-        values.put(Playlists.DATA, "/data/data/android.provider.cts/files/my_favorites.pl");
-        long dateAdded = System.currentTimeMillis();
-        values.put(Playlists.DATE_ADDED, dateAdded);
-        long dateModified = System.currentTimeMillis();
-        values.put(Playlists.DATE_MODIFIED, dateModified);
-        // insert
-        Uri uri = mContentResolver.insert(Playlists.INTERNAL_CONTENT_URI, values);
-        assertNotNull(uri);
-
-        try {
-            assertTrue(Pattern.matches("content://media/internal/audio/playlists/\\d+",
-                    uri.toString()));
-        } finally {
-            // delete the playlists
             assertEquals(1, mContentResolver.delete(uri, null, null));
         }
     }

@@ -20,14 +20,13 @@ import com.android.tools.metalava.doclava1.SourcePositionInfo
 import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.MemberItem
-import com.android.tools.metalava.model.ModifierList
 
 abstract class TextMemberItem(
     codebase: TextCodebase,
     private val name: String,
     private val containingClass: TextClassItem,
     position: SourcePositionInfo,
-    override var modifiers: ModifierList
+    override var modifiers: TextModifiers
 ) : TextItem(codebase, position = position, modifiers = modifiers), MemberItem {
 
     override fun name(): String = name

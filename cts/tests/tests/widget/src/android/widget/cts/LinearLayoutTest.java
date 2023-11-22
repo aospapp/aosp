@@ -30,13 +30,6 @@ import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import androidx.annotation.ColorInt;
-import androidx.annotation.Nullable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.ViewAsserts;
 import android.util.AttributeSet;
 import android.util.Xml;
@@ -51,6 +44,14 @@ import android.widget.LinearLayout.LayoutParams;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.cts.util.TestUtils;
+
+import androidx.annotation.ColorInt;
+import androidx.annotation.Nullable;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.WidgetTestUtils;
 
@@ -445,8 +446,8 @@ public class LinearLayoutTest {
         TextView centerView = (TextView) parent.findViewById(R.id.weight_0_5);
         TextView rightView = (TextView) parent.findViewById(R.id.weight_0_3);
 
-        mActivityRule.runOnUiThread(() -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
+                () -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
 
         int originalLeftViewLeft = leftView.getLeft();
         int originalLeftViewRight = leftView.getRight();
@@ -455,8 +456,8 @@ public class LinearLayoutTest {
         int originalRightViewLeft = rightView.getLeft();
         int originalRightViewRight = rightView.getRight();
 
-        mActivityRule.runOnUiThread(() -> parent.setVerticalGravity(Gravity.CENTER_VERTICAL));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
+                () -> parent.setVerticalGravity(Gravity.CENTER_VERTICAL));
 
         assertEquals(Gravity.CENTER_VERTICAL, parent.getGravity() & Gravity.VERTICAL_GRAVITY_MASK);
 
@@ -492,8 +493,8 @@ public class LinearLayoutTest {
         TextView centerView = (TextView) parent.findViewById(R.id.weight_0_5);
         TextView rightView = (TextView) parent.findViewById(R.id.weight_0_3);
 
-        mActivityRule.runOnUiThread(() -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
+                () -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
 
         int originalLeftViewLeft = leftView.getLeft();
         int originalLeftViewRight = leftView.getRight();
@@ -502,8 +503,8 @@ public class LinearLayoutTest {
         int originalRightViewLeft = rightView.getLeft();
         int originalRightViewRight = rightView.getRight();
 
-        mActivityRule.runOnUiThread(() -> parent.setVerticalGravity(Gravity.BOTTOM));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
+                () -> parent.setVerticalGravity(Gravity.BOTTOM));
 
         assertEquals(Gravity.BOTTOM, parent.getGravity() & Gravity.VERTICAL_GRAVITY_MASK);
 
@@ -536,8 +537,8 @@ public class LinearLayoutTest {
         TextView centerView = (TextView) parent.findViewById(R.id.weight_0_4);
         TextView bottomView = (TextView) parent.findViewById(R.id.weight_0_5);
 
-        mActivityRule.runOnUiThread(() -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
+                () -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
 
         final int parentWidth = parent.getHeight();
 
@@ -548,9 +549,8 @@ public class LinearLayoutTest {
         int originalBottomViewTop = bottomView.getTop();
         int originalBottomViewBottom = bottomView.getBottom();
 
-        mActivityRule.runOnUiThread(
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
                 () -> parent.setHorizontalGravity(Gravity.CENTER_HORIZONTAL));
-        mInstrumentation.waitForIdleSync();
 
         assertEquals(Gravity.CENTER_HORIZONTAL,
                 parent.getGravity() & Gravity.HORIZONTAL_GRAVITY_MASK);
@@ -585,8 +585,8 @@ public class LinearLayoutTest {
         TextView centerView = (TextView) parent.findViewById(R.id.weight_0_4);
         TextView bottomView = (TextView) parent.findViewById(R.id.weight_0_5);
 
-        mActivityRule.runOnUiThread(() -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
+                () -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
 
         final int parentWidth = parent.getHeight();
 
@@ -597,8 +597,8 @@ public class LinearLayoutTest {
         int originalBottomViewTop = bottomView.getTop();
         int originalBottomViewBottom = bottomView.getBottom();
 
-        mActivityRule.runOnUiThread(() -> parent.setHorizontalGravity(Gravity.RIGHT));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
+                () -> parent.setHorizontalGravity(Gravity.RIGHT));
 
         assertEquals(Gravity.RIGHT, parent.getGravity() & Gravity.HORIZONTAL_GRAVITY_MASK);
 
@@ -1090,8 +1090,8 @@ public class LinearLayoutTest {
         final LinearLayout parent =
                 (LinearLayout) mActivity.findViewById(R.id.linear_horizontal_with_divider);
 
-        mActivityRule.runOnUiThread(() -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
+                () -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
 
         final Resources res = mActivity.getResources();
         final int dividerSize = res.getDimensionPixelSize(R.dimen.linear_layout_divider_size);

@@ -59,16 +59,6 @@ interface IWificond {
     // Returrns null on failure.
     @nullable int[] getAvailableDFSChannels();
 
-    // Enable wpa_supplicant.
-    // Returns true if supplicant was successfully enabled,
-    // or is already enabled.
-    boolean enableSupplicant();
-
-    // Disable wpa_supplicant.
-    // Returns true if supplicant was successfully disabled,
-    // or is already disabled.
-    boolean disableSupplicant();
-
     // Register a callback to receive interface status updates.
     //
     // Multiple callbacks can be registered simultaneously.

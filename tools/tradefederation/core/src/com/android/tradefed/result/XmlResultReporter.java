@@ -159,7 +159,7 @@ public class XmlResultReporter extends CollectingTestListener implements ILogSav
         serializer.startTag(NS, PROPERTIES);
         serializer.endTag(NS, PROPERTIES);
 
-        for (TestRunResult runResult : getRunResults()) {
+        for (TestRunResult runResult : getMergedTestRunResults()) {
             // TODO: add test run summaries as TESTSUITES ?
             Map<TestDescription, TestResult> testResults = runResult.getTestResults();
             for (Map.Entry<TestDescription, TestResult> testEntry : testResults.entrySet()) {

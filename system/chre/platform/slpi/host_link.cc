@@ -18,7 +18,6 @@
 #define FARF_MEDIUM 1
 #endif
 
-#include "ash/debug.h"
 #include "HAP_farf.h"
 #include "timer.h"
 
@@ -30,6 +29,7 @@
 #include "chre/platform/system_time.h"
 #include "chre/platform/system_timer.h"
 #include "chre/platform/shared/host_protocol_chre.h"
+#include "chre/platform/slpi/debug_dump.h"
 #include "chre/platform/slpi/fastrpc.h"
 #include "chre/platform/slpi/power_control_util.h"
 #include "chre/platform/slpi/nanoapp_load_manager.h"
@@ -404,7 +404,7 @@ void sendDebugDumpResponse(DebugDumpCallbackData *data) {
 }
 
 /**
- * @see ashDebugDumpReadyCbFunc
+ * @see debugDumpReadyCbFunc
  */
 void onDebugDumpDataReady(void *cookie, const char *debugStr,
                           size_t debugStrSize, bool complete) {
@@ -487,6 +487,97 @@ void setTimeSyncRequestTimer(Nanoseconds delay) {
   if (!sTimeSyncRequestTimer.set(callback, nullptr /* data */, delay)) {
     LOGE("Failed to set time sync request timer.");
   }
+}
+
+/**
+ * Helper function that prepares a nanoapp that can be loaded into the system
+ * from a file stored on disk.
+ *
+ * @param hostClientId the ID of client that originated this transaction
+ * @param transactionId the ID of the transaction
+ * @param appId the ID of the app to load
+ * @param appVersion the version of the app to load
+ * @param targetApiVersion the API version this nanoapp is targeted for
+ * @param appFilename Null-terminated ASCII string containing the file name that
+ *     contains the app binary to be loaded.
+ *
+ * @return A valid pointer to a nanoapp that can be loaded into the system. A
+ *     nullptr if the preparation process fails.
+ */
+UniquePtr<Nanoapp> handleLoadNanoappFile(
+    uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
+    uint32_t appVersion, uint32_t targetApiVersion, const char *appFilename) {
+  LOGD("Load nanoapp request for app ID 0x%016" PRIx64 " ver 0x%" PRIx32
+       " target API 0x%08" PRIx32 " (txnId %" PRIu32 " client %"
+       PRIu16 ")", appId, appVersion, targetApiVersion, transactionId,
+       hostClientId);
+
+  auto nanoapp = MakeUnique<Nanoapp>();
+
+  if (nanoapp.isNull()) {
+    LOG_OOM();
+  } else if (!nanoapp->setAppInfo(appId, appVersion, appFilename)
+      || !nanoapp->isLoaded()) {
+    nanoapp.reset(nullptr);
+  }
+
+  return nanoapp;
+}
+
+/**
+ * Helper function that prepares a nanoapp that can be loaded into the system
+ * from a buffer sent over in 1 or more fragments.
+ *
+ * @param hostClientId the ID of client that originated this transaction
+ * @param transactionId the ID of the transaction
+ * @param appId the ID of the app to load
+ * @param appVersion the version of the app to load
+ * @param targetApiVersion the API version this nanoapp is targeted for
+ * @param buffer the nanoapp binary data. May be only part of the nanoapp's
+ *     binary if it's being sent over multiple fragments
+ * @param bufferLen the size of buffer in bytes
+ * @param fragmentId the identifier indicating which fragment is being loaded
+ * @param appBinaryLen the full size of the nanoapp binary to be loaded
+ *
+ * @return A valid pointer to a nanoapp that can be loaded into the system. A
+ *     nullptr if the preparation process fails.
+ */
+UniquePtr<Nanoapp> handleLoadNanoappData(
+    uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
+    uint32_t appVersion, uint32_t targetApiVersion, const void *buffer,
+    size_t bufferLen, uint32_t fragmentId, size_t appBinaryLen) {
+  static NanoappLoadManager sLoadManager;
+
+  bool success = true;
+  if (fragmentId == 0 || fragmentId == 1) { // first fragment
+    size_t totalAppBinaryLen = (fragmentId == 0) ? bufferLen : appBinaryLen;
+    LOGD("Load nanoapp request for app ID 0x%016" PRIx64 " ver 0x%" PRIx32
+         " target API 0x%08" PRIx32 " size %zu (txnId %" PRIu32 " client %"
+         PRIu16 ")", appId, appVersion, targetApiVersion, totalAppBinaryLen,
+         transactionId, hostClientId);
+
+    if (sLoadManager.hasPendingLoadTransaction()) {
+      FragmentedLoadInfo info = sLoadManager.getTransactionInfo();
+      sendFragmentResponse(
+          info.hostClientId, info.transactionId, 0 /* fragmentId */,
+          false /* success */);
+      sLoadManager.markFailure();
+    }
+
+    success = sLoadManager.prepareForLoad(
+        hostClientId, transactionId, appId, appVersion, totalAppBinaryLen);
+  }
+  success &= sLoadManager.copyNanoappFragment(
+      hostClientId, transactionId, (fragmentId == 0) ? 1 : fragmentId, buffer,
+      bufferLen);
+
+  UniquePtr<Nanoapp> nanoapp;
+  if (!sLoadManager.isLoadComplete()) {
+    sendFragmentResponse(hostClientId, transactionId, fragmentId, success);
+  } else {
+    nanoapp = sLoadManager.releaseNanoapp();
+  }
+  return nanoapp;
 }
 
 /**
@@ -609,7 +700,6 @@ bool HostLink::sendMessage(const MessageToHost *message) {
 }
 
 bool HostLinkBase::flushOutboundQueue() {
-  // This function is used in preFatalError() so it must never call FATAL_ERROR
   int waitCount = 5;
 
   FARF(MEDIUM, "Draining message queue");
@@ -683,13 +773,13 @@ void HostMessageHandlers::handleNanoappMessage(
 
 void HostMessageHandlers::handleHubInfoRequest(uint16_t hostClientId) {
   // We generate the response in the context of chre_slpi_get_message_to_host
-  LOGD("Got hub info request from client ID %" PRIu16, hostClientId);
+  LOGD("Hub info request from client ID %" PRIu16, hostClientId);
   enqueueMessage(PendingMessage(
       PendingMessageType::HubInfoResponse, hostClientId));
 }
 
 void HostMessageHandlers::handleNanoappListRequest(uint16_t hostClientId) {
-  LOGD("Got nanoapp list request from client ID %" PRIu16, hostClientId);
+  LOGD("Nanoapp list request from client ID %" PRIu16, hostClientId);
   HostClientIdCallbackData cbData = {};
   cbData.hostClientId = hostClientId;
   EventLoopManagerSingleton::get()->deferCallback(
@@ -700,37 +790,20 @@ void HostMessageHandlers::handleNanoappListRequest(uint16_t hostClientId) {
 void HostMessageHandlers::handleLoadNanoappRequest(
     uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
     uint32_t appVersion, uint32_t targetApiVersion, const void *buffer,
-    size_t bufferLen, uint32_t fragmentId, size_t appBinaryLen) {
-  static NanoappLoadManager sLoadManager;
-
-  LOGD("Got load nanoapp request (client %" PRIu16 " txnId %" PRIu32
-       " fragment %" PRIu32 ") for appId 0x%016" PRIx64 " version 0x%"
-       PRIx32 " target API version 0x%08" PRIx32 " size %zu",
-       hostClientId, transactionId, fragmentId, appId, appVersion,
-       targetApiVersion, bufferLen);
-
-  bool success = true;
-  if (fragmentId == 0 || fragmentId == 1) { // first fragment
-    if (sLoadManager.hasPendingLoadTransaction()) {
-      FragmentedLoadInfo info = sLoadManager.getTransactionInfo();
-      sendFragmentResponse(
-          info.hostClientId, info.transactionId, 0 /* fragmentId */,
-          false /* success */);
-      sLoadManager.markFailure();
-    }
-
-    size_t totalAppBinaryLen = (fragmentId == 0) ? bufferLen : appBinaryLen;
-    success = sLoadManager.prepareForLoad(
-        hostClientId, transactionId, appId, appVersion, totalAppBinaryLen);
-  }
-  success &= sLoadManager.copyNanoappFragment(
-      hostClientId, transactionId, (fragmentId == 0) ? 1 : fragmentId, buffer,
-      bufferLen);
-
-  if (!sLoadManager.isLoadComplete()) {
-    sendFragmentResponse(hostClientId, transactionId, fragmentId, success);
+    size_t bufferLen, const char *appFileName, uint32_t fragmentId,
+    size_t appBinaryLen) {
+  UniquePtr<Nanoapp> pendingNanoapp;
+  if (appFileName != nullptr) {
+    pendingNanoapp = handleLoadNanoappFile(
+        hostClientId, transactionId, appId, appVersion, targetApiVersion,
+        appFileName);
   } else {
-    UniquePtr<Nanoapp> nanoapp = sLoadManager.releaseNanoapp();
+    pendingNanoapp = handleLoadNanoappData(
+        hostClientId, transactionId, appId, appVersion, targetApiVersion,
+        buffer, bufferLen, fragmentId, appBinaryLen);
+  }
+
+  if (!pendingNanoapp.isNull()) {
     auto cbData = MakeUnique<LoadNanoappCallbackData>();
     if (cbData.isNull()) {
       LOG_OOM();
@@ -739,7 +812,7 @@ void HostMessageHandlers::handleLoadNanoappRequest(
       cbData->hostClientId  = hostClientId;
       cbData->appId = appId;
       cbData->fragmentId = fragmentId;
-      cbData->nanoapp = std::move(nanoapp);
+      cbData->nanoapp = std::move(pendingNanoapp);
 
       // Note that if this fails, we'll generate the error response in
       // the normal deferred callback
@@ -753,11 +826,11 @@ void HostMessageHandlers::handleLoadNanoappRequest(
 void HostMessageHandlers::handleUnloadNanoappRequest(
     uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
     bool allowSystemNanoappUnload) {
-  LOGD("Got unload nanoapp request (txnID %" PRIu32 ") for appId 0x%016" PRIx64
+  LOGD("Unload nanoapp request (txnID %" PRIu32 ") for appId 0x%016" PRIx64
        " system %d", transactionId, appId, allowSystemNanoappUnload);
   auto *cbData = memoryAlloc<UnloadNanoappCallbackData>();
   if (cbData == nullptr) {
-    LOGE("Couldn't allocate unload nanoapp callback data");
+    LOG_OOM();
   } else {
     cbData->appId = appId;
     cbData->transactionId = transactionId;
@@ -781,11 +854,11 @@ void HostMessageHandlers::handleTimeSyncMessage(int64_t offset) {
 void HostMessageHandlers::handleDebugDumpRequest(uint16_t hostClientId) {
   auto *cbData = memoryAlloc<DebugDumpCallbackData>();
   if (cbData == nullptr) {
-    LOGE("Couldn't allocate debug dump callback data");
+    LOG_OOM();
   } else {
     cbData->hostClientId = hostClientId;
     cbData->dataCount = 0;
-    cbData->success = ashTriggerDebugDump(onDebugDumpDataReady, cbData);
+    cbData->success = chre::triggerDebugDump(onDebugDumpDataReady, cbData);
 
     if (!cbData->success) {
       LOGE("Couldn't post callback to complete debug dump");

@@ -18,10 +18,90 @@ package art;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Random;
 
 public class Test906 {
   public static void run() throws Exception {
     doTest();
+  }
+
+  // Number of times we will try to count the heap in various ways. If we are unlucky and end up in
+  // the middle of a GC we could incorrectly fail. This is expected to be incredibly rare so 10
+  // retries should be more than sufficient.
+  private static final int ITERATE_RETRIES = 10;
+  private static void testHeapCount() throws Exception {
+    IllegalStateException lastThrow = new IllegalStateException(
+        "Failed to get consistent counts after " + ITERATE_RETRIES + " retries");
+    for (int i = 0; i < ITERATE_RETRIES; i++) {
+      try {
+        int all = iterateThroughHeapCount(0, null, Integer.MAX_VALUE);
+        int tagged = iterateThroughHeapCount(HEAP_FILTER_OUT_UNTAGGED, null, Integer.MAX_VALUE);
+        int untagged = iterateThroughHeapCount(HEAP_FILTER_OUT_TAGGED, null, Integer.MAX_VALUE);
+        int taggedClass = iterateThroughHeapCount(HEAP_FILTER_OUT_CLASS_UNTAGGED, null,
+            Integer.MAX_VALUE);
+        int untaggedClass = iterateThroughHeapCount(HEAP_FILTER_OUT_CLASS_TAGGED, null,
+            Integer.MAX_VALUE);
+
+        if (all != tagged + untagged) {
+          throw new IllegalStateException("Instances: " + all + " != " + tagged + " + " + untagged);
+        }
+        if (all != taggedClass + untaggedClass) {
+          throw new IllegalStateException("By class: " + all + " != " + taggedClass + " + " +
+              untaggedClass);
+        }
+        if (tagged != 6) {
+          throw new IllegalStateException(tagged + " tagged objects");
+        }
+        if (taggedClass != 2) {
+          throw new IllegalStateException(tagged + " objects with tagged class");
+        }
+        if (all == tagged) {
+          throw new IllegalStateException("All objects tagged");
+        }
+        if (all == taggedClass) {
+          throw new IllegalStateException("All objects have tagged class");
+        }
+        // Everything worked!
+        return;
+      } catch (IllegalStateException e) {
+        lastThrow.addSuppressed(e);
+      }
+    }
+    throw lastThrow;
+  }
+
+  private static Object[] GenTs(Class<?> k) throws Exception {
+    Object[] ret = new Object[new Random().nextInt(100) + 10];
+    for (int i = 0; i < ret.length; i++) {
+      ret[i] = k.newInstance();
+    }
+    return ret;
+  }
+
+  private static void checkEq(int a, int b) {
+    if (a != b) {
+      Error e = new Error("Failed: Expected equal " + a + " and " + b);
+      System.out.println(e);
+      e.printStackTrace(System.out);
+    }
+  }
+
+  public static class Foo {}
+  public static class Bar extends Foo {}
+  public static class Baz extends Bar {}
+  public static class Alpha extends Bar {}
+  public static class MISSING extends Baz {}
+  private static void testIterateOverInstances() throws Exception {
+    Object[] foos = GenTs(Foo.class);
+    Object[] bars = GenTs(Bar.class);
+    Object[] bazs = GenTs(Baz.class);
+    Object[] alphas = GenTs(Alpha.class);
+    checkEq(0, iterateOverInstancesCount(MISSING.class));
+    checkEq(alphas.length, iterateOverInstancesCount(Alpha.class));
+    checkEq(bazs.length, iterateOverInstancesCount(Baz.class));
+    checkEq(bazs.length + alphas.length + bars.length, iterateOverInstancesCount(Bar.class));
+    checkEq(bazs.length + alphas.length + bars.length + foos.length,
+        iterateOverInstancesCount(Foo.class));
   }
 
   public static void doTest() throws Exception {
@@ -39,33 +119,9 @@ public class Test906 {
     setTag(s, 5);
     setTag(B.class, 100);
 
-    int all = iterateThroughHeapCount(0, null, Integer.MAX_VALUE);
-    int tagged = iterateThroughHeapCount(HEAP_FILTER_OUT_UNTAGGED, null, Integer.MAX_VALUE);
-    int untagged = iterateThroughHeapCount(HEAP_FILTER_OUT_TAGGED, null, Integer.MAX_VALUE);
-    int taggedClass = iterateThroughHeapCount(HEAP_FILTER_OUT_CLASS_UNTAGGED, null,
-        Integer.MAX_VALUE);
-    int untaggedClass = iterateThroughHeapCount(HEAP_FILTER_OUT_CLASS_TAGGED, null,
-        Integer.MAX_VALUE);
+    testHeapCount();
 
-    if (all != tagged + untagged) {
-      throw new IllegalStateException("Instances: " + all + " != " + tagged + " + " + untagged);
-    }
-    if (all != taggedClass + untaggedClass) {
-      throw new IllegalStateException("By class: " + all + " != " + taggedClass + " + " +
-          untaggedClass);
-    }
-    if (tagged != 6) {
-      throw new IllegalStateException(tagged + " tagged objects");
-    }
-    if (taggedClass != 2) {
-      throw new IllegalStateException(tagged + " objects with tagged class");
-    }
-    if (all == tagged) {
-      throw new IllegalStateException("All objects tagged");
-    }
-    if (all == taggedClass) {
-      throw new IllegalStateException("All objects have tagged class");
-    }
+    testIterateOverInstances();
 
     long classTags[] = new long[100];
     long sizes[] = new long[100];
@@ -288,6 +344,8 @@ public class Test906 {
   private static long getTag(Object o) {
     return Main.getTag(o);
   }
+
+  private static native int iterateOverInstancesCount(Class<?> klass);
 
   private static native boolean checkInitialized(Class<?> klass);
   private static native int iterateThroughHeapCount(int heapFilter,

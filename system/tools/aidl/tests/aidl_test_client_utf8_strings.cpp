@@ -47,11 +47,12 @@ namespace client {
 
 bool ConfirmUtf8InCppStringRepeat(const sp<ITestService>& s) {
   const vector<string> utf8_inputs = {
-    string("Deliver us from evil."),
-    string(),
-    string("\0\0", 2),
-    // Similarly, the utf8 encodings of the small letter yee and euro sign.
-    string("\xF0\x90\x90\xB7\xE2\x82\xAC"),
+      string("Deliver us from evil."),
+      string(),
+      string("\0\0", 2),
+      // Similarly, the utf8 encodings of the small letter yee and euro sign.
+      string("\xF0\x90\x90\xB7\xE2\x82\xAC"),
+      ITestService::STRING_TEST_CONSTANT_UTF8(),
   };
   LOG(INFO) << "Confirming repeating utf8 strings works.";
 

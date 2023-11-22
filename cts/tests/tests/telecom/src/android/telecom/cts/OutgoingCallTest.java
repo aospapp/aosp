@@ -31,6 +31,7 @@ public class OutgoingCallTest extends BaseTelecomTestWithMockServices {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        NewOutgoingCallBroadcastReceiver.reset();
         if (mShouldTestTelecom) {
             setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
         }

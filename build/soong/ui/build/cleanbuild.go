@@ -20,6 +20,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"android/soong/ui/metrics"
 )
 
 func removeGlobs(ctx Context, globs ...string) {
@@ -102,12 +104,14 @@ func installClean(ctx Context, config Config, what int) {
 		productOut("skin"),
 		productOut("obj/NOTICE_FILES"),
 		productOut("obj/PACKAGING"),
+		productOut("ramdisk"),
 		productOut("recovery"),
 		productOut("root"),
 		productOut("system"),
 		productOut("system_other"),
 		productOut("vendor"),
 		productOut("product"),
+		productOut("product_services"),
 		productOut("oem"),
 		productOut("obj/FAKE"),
 		productOut("breakpad"),
@@ -156,7 +160,7 @@ func installCleanIfNecessary(ctx Context, config Config) {
 		return
 	}
 
-	ctx.BeginTrace("installclean")
+	ctx.BeginTrace(metrics.PrimaryNinja, "installclean")
 	defer ctx.EndTrace()
 
 	prevConfig := strings.TrimPrefix(strings.TrimSuffix(string(prev), suffix), prefix)

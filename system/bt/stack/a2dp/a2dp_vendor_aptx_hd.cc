@@ -171,7 +171,16 @@ static tA2DP_STATUS A2DP_ParseInfoAptxHd(tA2DP_APTX_HD_CIE* p_ie,
   p_ie->acl_sprint_reserved2 = *(p_codec_info++);
   p_ie->acl_sprint_reserved3 = *(p_codec_info++);
 
-  if (is_capability) return A2DP_SUCCESS;
+  if (is_capability) {
+    // NOTE: The checks here are very liberal. We should be using more
+    // pedantic checks specific to the SRC or SNK as specified in the spec.
+    if (A2DP_BitsSet(p_ie->sampleRate) == A2DP_SET_ZERO_BIT)
+      return A2DP_BAD_SAMP_FREQ;
+    if (A2DP_BitsSet(p_ie->channelMode) == A2DP_SET_ZERO_BIT)
+      return A2DP_BAD_CH_MODE;
+
+    return A2DP_SUCCESS;
+  }
 
   if (A2DP_BitsSet(p_ie->sampleRate) != A2DP_SET_ONE_BIT)
     return A2DP_BAD_SAMP_FREQ;
@@ -319,6 +328,22 @@ int A2DP_VendorGetTrackSampleRateAptxHd(const uint8_t* p_codec_info) {
   return -1;
 }
 
+int A2DP_VendorGetTrackBitsPerSampleAptxHd(const uint8_t* p_codec_info) {
+  tA2DP_APTX_HD_CIE aptx_hd_cie;
+
+  // Check whether the codec info contains valid data
+  tA2DP_STATUS a2dp_status =
+      A2DP_ParseInfoAptxHd(&aptx_hd_cie, p_codec_info, false);
+  if (a2dp_status != A2DP_SUCCESS) {
+    LOG_ERROR(LOG_TAG, "%s: cannot decode codec information: %d", __func__,
+              a2dp_status);
+    return -1;
+  }
+
+  // NOTE: The bits per sample never changes for aptX-HD
+  return 24;
+}
+
 int A2DP_VendorGetTrackChannelCountAptxHd(const uint8_t* p_codec_info) {
   tA2DP_APTX_HD_CIE aptx_hd_cie;
 
@@ -436,8 +461,8 @@ bool A2DP_VendorInitCodecConfigAptxHd(AvdtpSepConfig* p_cfg) {
 
 A2dpCodecConfigAptxHd::A2dpCodecConfigAptxHd(
     btav_a2dp_codec_priority_t codec_priority)
-    : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD, "aptX-HD",
-                      codec_priority) {
+    : A2dpCodecConfig(BTAV_A2DP_CODEC_INDEX_SOURCE_APTX_HD,
+                      A2DP_VendorCodecIndexStrAptxHd(), codec_priority) {
   // Compute the local capability
   if (a2dp_aptx_hd_source_caps.sampleRate & A2DP_APTX_HD_SAMPLERATE_44100) {
     codec_local_capability_.sample_rate |= BTAV_A2DP_CODEC_SAMPLE_RATE_44100;

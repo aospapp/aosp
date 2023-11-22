@@ -65,14 +65,20 @@ VeriMethod VeriClass::getClass_ = nullptr;
 VeriMethod VeriClass::loadClass_ = nullptr;
 VeriField VeriClass::sdkInt_ = nullptr;
 
+static const char* kDexFileOption = "--dex-file=";
+static const char* kStubsOption = "--core-stubs=";
+static const char* kFlagsOption = "--api-flags=";
+static const char* kImprecise = "--imprecise";
+static const char* kTargetSdkVersion = "--target-sdk-version=";
+static const char* kOnlyReportSdkUses = "--only-report-sdk-uses";
+
 struct VeridexOptions {
   const char* dex_file = nullptr;
   const char* core_stubs = nullptr;
-  const char* blacklist = nullptr;
-  const char* light_greylist = nullptr;
-  const char* dark_greylist = nullptr;
+  const char* flags_file = nullptr;
   bool precise = true;
   int target_sdk_version = 28; /* P */
+  bool only_report_sdk_uses = false;
 };
 
 static const char* Substr(const char* str, int index) {
@@ -88,29 +94,19 @@ static void ParseArgs(VeridexOptions* options, int argc, char** argv) {
   argv++;
   argc--;
 
-  static const char* kDexFileOption = "--dex-file=";
-  static const char* kStubsOption = "--core-stubs=";
-  static const char* kBlacklistOption = "--blacklist=";
-  static const char* kDarkGreylistOption = "--dark-greylist=";
-  static const char* kLightGreylistOption = "--light-greylist=";
-  static const char* kImprecise = "--imprecise";
-  static const char* kTargetSdkVersion = "--target-sdk-version=";
-
   for (int i = 0; i < argc; ++i) {
     if (StartsWith(argv[i], kDexFileOption)) {
       options->dex_file = Substr(argv[i], strlen(kDexFileOption));
     } else if (StartsWith(argv[i], kStubsOption)) {
       options->core_stubs = Substr(argv[i], strlen(kStubsOption));
-    } else if (StartsWith(argv[i], kBlacklistOption)) {
-      options->blacklist = Substr(argv[i], strlen(kBlacklistOption));
-    } else if (StartsWith(argv[i], kDarkGreylistOption)) {
-      options->dark_greylist = Substr(argv[i], strlen(kDarkGreylistOption));
-    } else if (StartsWith(argv[i], kLightGreylistOption)) {
-      options->light_greylist = Substr(argv[i], strlen(kLightGreylistOption));
+    } else if (StartsWith(argv[i], kFlagsOption)) {
+      options->flags_file = Substr(argv[i], strlen(kFlagsOption));
     } else if (strcmp(argv[i], kImprecise) == 0) {
       options->precise = false;
     } else if (StartsWith(argv[i], kTargetSdkVersion)) {
       options->target_sdk_version = atoi(Substr(argv[i], strlen(kTargetSdkVersion)));
+    } else if (strcmp(argv[i], kOnlyReportSdkUses) == 0) {
+      options->only_report_sdk_uses = true;
     }
   }
 }
@@ -130,6 +126,13 @@ class Veridex {
   static int Run(int argc, char** argv) {
     VeridexOptions options;
     ParseArgs(&options, argc, argv);
+    android::base::InitLogging(argv);
+
+    if (!options.dex_file) {
+      LOG(ERROR) << "Required argument '" << kDexFileOption << "' not provided.";
+      return 1;
+    }
+
     gTargetSdkVersion = options.target_sdk_version;
 
     std::vector<std::string> boot_content;
@@ -216,7 +219,7 @@ class Veridex {
     Resolve(app_dex_files, resolver_map, type_map, &app_resolvers);
 
     // Find and log uses of hidden APIs.
-    HiddenApi hidden_api(options.blacklist, options.dark_greylist, options.light_greylist);
+    HiddenApi hidden_api(options.flags_file, options.only_report_sdk_uses);
     HiddenApiStats stats;
 
     HiddenApiFinder api_finder(hidden_api);
@@ -229,7 +232,7 @@ class Veridex {
       precise_api_finder.Dump(std::cout, &stats);
     }
 
-    DumpSummaryStats(std::cout, stats);
+    DumpSummaryStats(std::cout, stats, options);
 
     if (options.precise) {
       std::cout << "To run an analysis that can give more reflection accesses, " << std::endl
@@ -240,17 +243,24 @@ class Veridex {
   }
 
  private:
-  static void DumpSummaryStats(std::ostream& os, const HiddenApiStats& stats) {
+  static void DumpSummaryStats(std::ostream& os,
+                               const HiddenApiStats& stats,
+                               const VeridexOptions& options) {
     static const char* kPrefix = "       ";
-    os << stats.count << " hidden API(s) used: "
-       << stats.linking_count << " linked against, "
-       << stats.reflection_count << " through reflection" << std::endl;
-    os << kPrefix << stats.api_counts[HiddenApiAccessFlags::kBlacklist]
-       << " in blacklist" << std::endl;
-    os << kPrefix << stats.api_counts[HiddenApiAccessFlags::kDarkGreylist]
-       << " in dark greylist" << std::endl;
-    os << kPrefix << stats.api_counts[HiddenApiAccessFlags::kLightGreylist]
-       << " in light greylist" << std::endl;
+    if (options.only_report_sdk_uses) {
+      os << stats.api_counts[hiddenapi::ApiList::Whitelist().GetIntValue()]
+         << " SDK API uses." << std::endl;
+    } else {
+      os << stats.count << " hidden API(s) used: "
+         << stats.linking_count << " linked against, "
+         << stats.reflection_count << " through reflection" << std::endl;
+      for (size_t i = 0; i < hiddenapi::ApiList::kValueCount; ++i) {
+        hiddenapi::ApiList api_list = hiddenapi::ApiList(i);
+        if (api_list != hiddenapi::ApiList::Whitelist()) {
+          os << kPrefix << stats.api_counts[i] << " in " << api_list << std::endl;
+        }
+      }
+    }
   }
 
   static bool Load(const std::string& filename,
@@ -269,6 +279,7 @@ class Veridex {
     }
 
     const DexFileLoader dex_file_loader;
+    DexFileLoaderErrorCode error_code;
     static constexpr bool kVerifyChecksum = true;
     static constexpr bool kRunDexFileVerifier = true;
     if (!dex_file_loader.OpenAll(reinterpret_cast<const uint8_t*>(content.data()),
@@ -276,8 +287,13 @@ class Veridex {
                                  filename.c_str(),
                                  kRunDexFileVerifier,
                                  kVerifyChecksum,
+                                 &error_code,
                                  error_msg,
                                  dex_files)) {
+      if (error_code == DexFileLoaderErrorCode::kEntryNotFound) {
+        LOG(INFO) << "No .dex found, skipping analysis.";
+        return true;
+      }
       return false;
     }
 
@@ -306,4 +322,3 @@ class Veridex {
 int main(int argc, char** argv) {
   return art::Veridex::Run(argc, argv);
 }
-

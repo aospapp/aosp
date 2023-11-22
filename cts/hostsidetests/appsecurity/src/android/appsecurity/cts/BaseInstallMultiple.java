@@ -47,6 +47,7 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
 
     private final List<String> mArgs = new ArrayList<>();
     private final List<File> mApks = new ArrayList<>();
+    private final List<String> mSplits = new ArrayList<>();
     private boolean mUseNaturalAbi;
 
     public BaseInstallMultiple(ITestDevice device, IBuildInfo buildInfo, IAbi abi) {
@@ -67,6 +68,11 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
         return (T) this;
     }
 
+    T removeSplit(String split) {
+        mSplits.add(split);
+        return (T) this;
+    }
+
     T inheritFrom(String packageName) {
         addArg("-r");
         addArg("-p " + packageName);
@@ -75,6 +81,11 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
 
     T useNaturalAbi() {
         mUseNaturalAbi = true;
+        return (T) this;
+    }
+
+    T allowTest() {
+        addArg("-t");
         return (T) this;
     }
 
@@ -98,15 +109,24 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
         return (T) this;
     }
 
+    T forUser(int userId) {
+        addArg("--user " + userId);
+        return (T) this;
+    }
+
     void run() throws DeviceNotAvailableException {
-        run(true);
+        run(true, null);
     }
 
     void runExpectingFailure() throws DeviceNotAvailableException {
-        run(false);
+        run(false, null);
     }
 
-    private void run(boolean expectingSuccess) throws DeviceNotAvailableException {
+    void runExpectingFailure(String failure) throws DeviceNotAvailableException {
+        run(false, failure);
+    }
+
+    private void run(boolean expectingSuccess, String failure) throws DeviceNotAvailableException {
         final ITestDevice device = mDevice;
 
         // Create an install session
@@ -154,16 +174,32 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
             TestCase.assertTrue(result, result.startsWith("Success"));
         }
 
+        for (int i = 0; i < mSplits.size(); i++) {
+            final String split = mSplits.get(i);
+
+            cmd.setLength(0);
+            cmd.append("pm install-remove");
+            cmd.append(' ').append(sessionId);
+            cmd.append(' ').append(split);
+
+            result = device.executeShellCommand(cmd.toString());
+            TestCase.assertTrue(result, result.startsWith("Success"));
+        }
+
         // Everything staged; let's pull trigger
         cmd.setLength(0);
         cmd.append("pm install-commit");
         cmd.append(' ').append(sessionId);
 
-        result = device.executeShellCommand(cmd.toString());
-        if (expectingSuccess) {
-            TestCase.assertTrue(result, result.startsWith("Success"));
+        result = device.executeShellCommand(cmd.toString()).trim();
+        if (failure == null) {
+            if (expectingSuccess) {
+                TestCase.assertTrue(result, result.startsWith("Success"));
+            } else {
+                TestCase.assertFalse(result, result.startsWith("Success"));
+            }
         } else {
-            TestCase.assertFalse(result, result.startsWith("Success"));
+            TestCase.assertTrue(result, result.contains(failure));
         }
     }
 }

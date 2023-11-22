@@ -18,6 +18,7 @@ package com.example.android.mediasession.service;
 
 import android.app.Notification;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
@@ -49,6 +50,8 @@ public class MusicService extends MediaBrowserServiceCompat {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        MusicLibrary.createAllMedia(this);
 
         // Create a new MediaSession.
         mSession = new MediaSessionCompat(this, "MusicService");
@@ -92,6 +95,35 @@ public class MusicService extends MediaBrowserServiceCompat {
             @NonNull final String parentMediaId,
             @NonNull final Result<List<MediaBrowserCompat.MediaItem>> result) {
         result.sendResult(MusicLibrary.getMediaItems());
+    }
+
+    @Override
+    public void onLoadItem(String itemId, @NonNull Result<MediaBrowserCompat.MediaItem> result) {
+        for (MediaBrowserCompat.MediaItem item : MusicLibrary.getMediaItems()) {
+            if (item.getDescription().getMediaId().equals(itemId)) {
+                result.sendResult(item);
+                return;
+            }
+        }
+        result.sendResult(null);
+    }
+
+    @Override
+    public void onSearch(
+            @NonNull String query,
+            Bundle extras,
+            @NonNull Result<List<MediaBrowserCompat.MediaItem>> result) {
+        final List<MediaBrowserCompat.MediaItem> searchResults = new ArrayList<>();
+        for (MediaBrowserCompat.MediaItem item : MusicLibrary.getMediaItems()) {
+            final MediaDescriptionCompat description = item.getDescription();
+            final String mediaTitle = description.getTitle().toString().toLowerCase();
+            final String mediaArtist = description.getSubtitle().toString().toLowerCase();
+            query = query.toLowerCase();
+            if (mediaTitle.contains(query) || mediaArtist.contains(query)) {
+                searchResults.add(item);
+            }
+        }
+        result.sendResult(searchResults);
     }
 
     // MediaSession Callback: Transport Controls -> MediaPlayerAdapter
@@ -143,6 +175,17 @@ public class MusicService extends MediaBrowserServiceCompat {
 
             mPlayback.playFromMedia(mPreparedMedia);
             Log.d(TAG, "onPlayFromMediaId: MediaSession active");
+        }
+
+        @Override
+        public void onPlayFromMediaId(String mediaId, Bundle extras) {
+            mPreparedMedia = MusicLibrary.getMetadata(MusicService.this, mediaId);
+            mPlayback.playFromMedia(mPreparedMedia);
+        }
+
+        @Override
+        public void onPlayFromUri(Uri uri, Bundle extras) {
+            onPlayFromMediaId(uri.toString(), extras);
         }
 
         @Override

@@ -61,6 +61,14 @@ tag_info_t *tag_info[ANDROID_SECTION_COUNT] = {
   % endfor
 };
 
+static int32_t tag_permission_needed[${permission_needed_count(metadata)}] = {
+% for sec in find_all_sections(metadata):
+  % for entry in remove_synthetic(filter_has_permission_needed(find_unique_entries(sec))):
+    ${entry.name | csym},
+  % endfor
+% endfor
+};
+
 int camera_metadata_enum_snprint(uint32_t tag,
                                  uint32_t value,
                                  char *dst,

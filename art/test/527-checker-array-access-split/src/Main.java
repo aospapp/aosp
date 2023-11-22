@@ -400,7 +400,7 @@ public class Main {
   /// CHECK:                                    ArraySet [<<Address>>,<<Index>>,<<Div>>]
 
   public static int canMergeAfterBCE1() {
-    int[] array = {0, 7, 14, 21};
+    int[] array = {0, 7, 14, 21, 28, 35, 42};
     for (int i = 0; i < array.length; i++) {
       array[i] = array[i] / 7;
     }
@@ -513,7 +513,7 @@ public class Main {
   /// CHECK-NOT:                                IntermediateAddress
 
   public static int canMergeAfterBCE2() {
-    int[] array = {64, 8, 4, 2 };
+    int[] array = {128, 64, 32, 8, 4, 2 };
     for (int i = 0; i < array.length - 1; i++) {
       array[i + 1] = array[i] << array[i + 1];
     }
@@ -552,6 +552,97 @@ public class Main {
     return (int)s;
   }
 
+  //
+  //  Check that IntermediateAddress can be shared across BoundsCheck, DivZeroCheck and NullCheck -
+  //  instruction which have fatal slow paths.
+  //
+  /// CHECK-START-{ARM,ARM64}: void Main.checkGVNForFatalChecks(int, int, char[], int[]) GVN$after_arch (before)
+  /// CHECK:                       IntermediateAddress
+  /// CHECK:                       IntermediateAddress
+  //
+  /// CHECK-NOT:                   IntermediateAddress
+
+  /// CHECK-START-{ARM,ARM64}: void Main.checkGVNForFatalChecks(int, int, char[], int[]) GVN$after_arch (after)
+  /// CHECK:                       IntermediateAddress
+  //
+  /// CHECK-NOT:                   IntermediateAddress
+  public final static void checkGVNForFatalChecks(int begin, int end, char[] buf1, int[] buf2) {
+    buf1[begin] = 'a';
+    buf2[0] = begin / end;
+    buf1[end] = 'n';
+  }
+
+  //
+  // Check that IntermediateAddress can be shared for object ArrayGets.
+  //
+  /// CHECK-START-ARM64: int Main.checkObjectArrayGet(int, java.lang.Integer[], java.lang.Integer[]) instruction_simplifier_arm64 (before)
+  /// CHECK: <<Parameter:l\d+>>     ParameterValue
+  /// CHECK: <<Array:l\d+>>         NullCheck [<<Parameter>>]
+  /// CHECK:                        ArrayGet [<<Array>>,{{i\d+}}]
+  /// CHECK:                        ArrayGet [<<Array>>,{{i\d+}}]
+  /// CHECK:                        ArraySet [<<Array>>,{{i\d+}},{{l\d+}}]
+  /// CHECK:                        ArrayGet [<<Array>>,{{i\d+}}]
+  /// CHECK:                        ArraySet [<<Array>>,{{i\d+}},{{l\d+}}]
+  /// CHECK:                        ArraySet [<<Array>>,{{i\d+}},{{l\d+}}]
+
+  /// CHECK-START-ARM64: int Main.checkObjectArrayGet(int, java.lang.Integer[], java.lang.Integer[]) instruction_simplifier_arm64 (after)
+  /// CHECK: <<Parameter:l\d+>>     ParameterValue
+  /// CHECK: <<DataOffset:i\d+>>    IntConstant 12
+  /// CHECK: <<Array:l\d+>>         NullCheck [<<Parameter>>]
+  /// CHECK: <<IntAddr1:i\d+>>      IntermediateAddress [<<Array>>,<<DataOffset>>]
+  /// CHECK:                        ArrayGet [<<IntAddr1>>,{{i\d+}}]
+  /// CHECK: <<IntAddr2:i\d+>>      IntermediateAddress [<<Array>>,<<DataOffset>>]
+  /// CHECK:                        ArrayGet [<<IntAddr2>>,{{i\d+}}]
+  /// CHECK:                        ArraySet [<<Array>>,{{i\d+}},{{l\d+}}]
+  /// CHECK: <<IntAddr3:i\d+>>      IntermediateAddress [<<Array>>,<<DataOffset>>]
+  /// CHECK:                        ArrayGet [<<IntAddr3>>,{{i\d+}}]
+  /// CHECK:                        ArraySet [<<Array>>,{{i\d+}},{{l\d+}}]
+  /// CHECK:                        ArraySet [<<Array>>,{{i\d+}},{{l\d+}}]
+  //
+  /// CHECK-NOT:                    IntermediateAddress
+
+  /// CHECK-START-ARM64: int Main.checkObjectArrayGet(int, java.lang.Integer[], java.lang.Integer[]) GVN$after_arch (after)
+  /// CHECK: <<Parameter:l\d+>>     ParameterValue
+  /// CHECK: <<DataOffset:i\d+>>    IntConstant 12
+  /// CHECK: <<Array:l\d+>>         NullCheck [<<Parameter>>]
+  /// CHECK: <<IntAddr1:i\d+>>      IntermediateAddress [<<Array>>,<<DataOffset>>]
+  /// CHECK:                        ArrayGet [<<IntAddr1>>,{{i\d+}}]
+  /// CHECK:                        ArrayGet [<<IntAddr1>>,{{i\d+}}]
+  /// CHECK:                        ArraySet [<<Array>>,{{i\d+}},{{l\d+}}]
+  /// CHECK: <<IntAddr3:i\d+>>      IntermediateAddress [<<Array>>,<<DataOffset>>]
+  /// CHECK:                        ArrayGet [<<IntAddr3>>,{{i\d+}}]
+  /// CHECK:                        ArraySet [<<Array>>,{{i\d+}},{{l\d+}}]
+  /// CHECK:                        ArraySet [<<Array>>,{{i\d+}},{{l\d+}}]
+  //
+  /// CHECK-NOT:                    IntermediateAddress
+  public final static int checkObjectArrayGet(int index, Integer[] a, Integer[] b) {
+    Integer five = Integer.valueOf(5);
+    int tmp1 = a[index];
+    tmp1 += a[index + 1];
+    a[index + 1] = five;
+    tmp1 += a[index + 2];
+    a[index + 2] = five;
+    a[index + 3] = five;
+    return tmp1;
+  }
+
+  /// CHECK-START-ARM64: int Main.testIntAddressObjDisasm(java.lang.Integer[], int) disassembly (after)
+  /// CHECK: <<IntAddr:i\d+>>       IntermediateAddress
+  /// CHECK:                          add w<<AddrReg:\d+>>, {{w\d+}}, #0xc
+  /// CHECK:                        ArrayGet [<<IntAddr>>,{{i\d+}}]
+  /// CHECK:                          ldr {{w\d+}}, [x<<AddrReg>>, x{{\d+}}, lsl #2]
+  /// CHECK:                        ArrayGet [<<IntAddr>>,{{i\d+}}]
+  /// CHECK:                          ldr {{w\d+}}, [x<<AddrReg>>, x{{\d+}}, lsl #2]
+
+  /// CHECK-START-ARM64: int Main.testIntAddressObjDisasm(java.lang.Integer[], int) disassembly (after)
+  /// CHECK:                          add {{w\d+}}, {{w\d+}}, #0xc
+  /// CHECK-NOT:                      add {{w\d+}}, {{w\d+}}, #0xc
+  private int testIntAddressObjDisasm(Integer[] obj, int x) {
+    return obj[x] + obj[x + 1];
+  }
+
+  public final static int ARRAY_SIZE = 128;
+
   public static void main(String[] args) {
     int[] array = {123, 456, 789};
 
@@ -571,9 +662,14 @@ public class Main {
     accrossGC(array, 0);
     assertIntEquals(125, array[0]);
 
-    assertIntEquals(3, canMergeAfterBCE1());
-    assertIntEquals(1048576, canMergeAfterBCE2());
+    assertIntEquals(6, canMergeAfterBCE1());
+    assertIntEquals(2097152, canMergeAfterBCE2());
 
     assertIntEquals(18, checkLongFloatDouble());
+
+    char[] c1 = new char[ARRAY_SIZE];
+    int[] i1 = new int[ARRAY_SIZE];
+    checkGVNForFatalChecks(1, 2, c1, i1);
+    assertIntEquals('n', c1[2]);
   }
 }

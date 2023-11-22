@@ -35,16 +35,19 @@ import java.util.concurrent.TimeUnit;
  */
 public class AirplaneModeRestrictionTest extends BaseDeviceOwnerTest {
     private static final int TIMEOUT_SEC = 5;
+    private static final int SLEEP_MS = 3000;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
         mDevicePolicyManager.clearUserRestriction(getWho(), UserManager.DISALLOW_AIRPLANE_MODE);
+        Thread.sleep(SLEEP_MS);
     }
 
     @Override
     protected void tearDown() throws Exception {
         mDevicePolicyManager.clearUserRestriction(getWho(), UserManager.DISALLOW_AIRPLANE_MODE);
+        Thread.sleep(SLEEP_MS);
         super.tearDown();
     }
 
@@ -74,15 +77,15 @@ public class AirplaneModeRestrictionTest extends BaseDeviceOwnerTest {
     }
 
     public void testAirplaneModeCannotBeTurnedOnWithRestrictionOn()
-            throws SettingNotFoundException {
+            throws Exception {
         mDevicePolicyManager.addUserRestriction(getWho(), UserManager.DISALLOW_AIRPLANE_MODE);
+        Thread.sleep(SLEEP_MS);
         Settings.Global.putInt(mContext.getContentResolver(), AIRPLANE_MODE_ON, 1);
         assertEquals(0, Settings.Global.getInt(
                 mContext.getContentResolver(), AIRPLANE_MODE_ON));
     }
 
     public void testAirplaneModeCanBeTurnedOnWithRestrictionOff() throws SettingNotFoundException {
-        mDevicePolicyManager.clearUserRestriction(getWho(), UserManager.DISALLOW_AIRPLANE_MODE);
         Settings.Global.putInt(mContext.getContentResolver(), AIRPLANE_MODE_ON, 1);
         assertEquals(1, Settings.Global.getInt(
                 mContext.getContentResolver(), AIRPLANE_MODE_ON));

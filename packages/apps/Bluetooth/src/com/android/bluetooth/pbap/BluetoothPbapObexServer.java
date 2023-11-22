@@ -817,49 +817,64 @@ public class BluetoothPbapObexServer extends ServerRequestHandler {
         }
 
         if (type.equals("number")) {
+            ArrayList<Integer> savedPosList = new ArrayList<>();
+            ArrayList<String> selectedNameList = new ArrayList<String>();
             // query the number, to get the names
             ArrayList<String> names =
                     mVcardManager.getContactNamesByNumber(appParamValue.searchValue);
             if (mOrderBy == ORDER_BY_ALPHABETICAL) Collections.sort(names);
             for (int i = 0; i < names.size(); i++) {
                 compareValue = names.get(i).trim();
-                if (D) {
-                    Log.d(TAG, "compareValue=" + compareValue);
-                }
-                for (int pos = appParamValue.listStartOffset;
-                        pos < listSize && itemsFound < requestSize; pos++) {
+                if (D) Log.d(TAG, "compareValue=" + compareValue);
+                for (int pos = 0; pos < listSize; pos++) {
                     currentValue = nameList.get(pos);
                     if (V) {
                         Log.d(TAG, "currentValue=" + currentValue);
                     }
                     if (currentValue.equals(compareValue)) {
-                        itemsFound++;
                         if (currentValue.contains(",")) {
                             currentValue = currentValue.substring(0, currentValue.lastIndexOf(','));
                         }
-                        writeVCardEntry(pos, currentValue, result);
+                        selectedNameList.add(currentValue);
+                        savedPosList.add(pos);
                     }
                 }
-                if (itemsFound >= requestSize) {
-                    break;
-                }
             }
+
+            for (int j = appParamValue.listStartOffset;
+                    j < selectedNameList.size() && itemsFound < requestSize; j++) {
+                itemsFound++;
+                writeVCardEntry(savedPosList.get(j), selectedNameList.get(j), result);
+            }
+
         } else {
+            ArrayList<Integer> savedPosList = new ArrayList<>();
+            ArrayList<String> selectedNameList = new ArrayList<String>();
             if (appParamValue.searchValue != null) {
                 compareValue = appParamValue.searchValue.trim().toLowerCase();
             }
-            for (int pos = appParamValue.listStartOffset;
-                    pos < listSize && itemsFound < requestSize; pos++) {
+
+            for (int pos = 0; pos < listSize; pos++) {
                 currentValue = nameList.get(pos);
+
                 if (currentValue.contains(",")) {
                     currentValue = currentValue.substring(0, currentValue.lastIndexOf(','));
                 }
 
-                if (appParamValue.searchValue.isEmpty() || ((currentValue.toLowerCase()).startsWith(
-                        compareValue))) {
-                    itemsFound++;
-                    writeVCardEntry(pos, currentValue, result);
+                if (appParamValue.searchValue != null) {
+                    if (appParamValue.searchValue.isEmpty()
+                            || ((currentValue.toLowerCase())
+                                               .startsWith(compareValue.toLowerCase()))) {
+                        selectedNameList.add(currentValue);
+                        savedPosList.add(pos);
+                    }
                 }
+            }
+
+            for (int i = appParamValue.listStartOffset;
+                    i < selectedNameList.size() && itemsFound < requestSize; i++) {
+                itemsFound++;
+                writeVCardEntry(savedPosList.get(i), selectedNameList.get(i), result);
             }
         }
         return itemsFound;

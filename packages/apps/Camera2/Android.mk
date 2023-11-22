@@ -5,9 +5,9 @@ include $(CLEAR_VARS)
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    android-support-v13 \
-    android-support-v4 \
-    android-support-compat
+    androidx.legacy_legacy-support-v13 \
+    androidx.legacy_legacy-support-v4 \
+    androidx.core_core
 
 LOCAL_STATIC_JAVA_LIBRARIES := android-ex-camera2-portability
 LOCAL_STATIC_JAVA_LIBRARIES += xmp_toolkit
@@ -35,6 +35,8 @@ LOCAL_USE_AAPT2 := true
 LOCAL_PACKAGE_NAME := Camera2
 
 LOCAL_SDK_VERSION := current
+
+LOCAL_PRODUCT_MODULE := true
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 

@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"பகிர்"</string>
     <string name="menu_delete" msgid="1022254131543256626">"நீக்கு"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"எல்லாம் தேர்ந்தெடு"</string>
+    <string name="menu_select" msgid="1366061076507142387">"தேர்ந்தெடு"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"இதன்படி வரிசைப்படுத்து..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"இங்கு நகலெடு…"</string>
     <string name="menu_move" msgid="2310760789561129882">"இங்கு நகர்த்து…"</string>
     <string name="menu_compress" msgid="37539111904724188">"அளவைக் குறை"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"வகை"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"அளவு"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"மாற்றியது"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ஃபைல் பெயர் (A முதல் Z)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"வகை (A முதல் Z)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"அளவு (சிறியது முதலில்)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"திருத்தியது (பழையது முதலில்)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ஃபைல் பெயர் (Z முதல் A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"வகை (Z முதல் A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"அளவு (பெரியது முதலில்)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"திருத்தியது (புதியது முதலில்)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"இதன்படி வரிசைப்படுத்து"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"<xliff:g id="LABEL">%s</xliff:g> வரிசைப்படி"</string>
     <string name="directory_items" msgid="6645621978998614003">"உருப்படிகளின் எண்ணிக்கை"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ஏறுவரிசையில்"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"இறங்குவரிசையில்"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g> ஆப்ஸைத் திறக்கும்"</string>
     <string name="drawer_open" msgid="8071673398187261741">"சேமித்த இடத்தைக் காட்டு"</string>
     <string name="drawer_close" msgid="4263880768630848848">"சேமித்த இடத்தை மறை"</string>
     <string name="save_error" msgid="8631128801982095782">"ஆவணத்தைச் சேமிக்க முடியவில்லை"</string>
@@ -76,7 +89,7 @@
     <string name="root_recent" msgid="1080156975424341623">"சமீபத்தியவை"</string>
     <string name="root_available_bytes" msgid="8269870862691408864">"பயன்படுத்தாத அளவு: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="root_type_service" msgid="6521366147466512289">"சேமிப்பகச் சேவைகள்"</string>
-    <string name="root_type_shortcut" msgid="6059343175525442279">"குறுக்குவழிகள்"</string>
+    <string name="root_type_shortcut" msgid="6059343175525442279">"ஷார்ட்கட்கள்"</string>
     <string name="root_type_device" msgid="1713604128005476585">"சாதனங்கள்"</string>
     <string name="root_type_apps" msgid="8646073235029886342">"மேலும் பயன்பாடுகள்"</string>
     <string name="empty" msgid="5300254272613103004">"எதுவும் இல்லை"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="STORAGE"><i>^3</i></xliff:g> இல் உள்ள <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> கோப்பகத்தை அணுக, <xliff:g id="APPNAME"><b>^1</b></xliff:g>ஐ அனுமதிக்கவா?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="DIRECTORY"><i>^2</i></xliff:g> கோப்பகத்தை அணுக, <xliff:g id="APPNAME"><b>^1</b></xliff:g>ஐ அனுமதிக்கவா?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="STORAGE"><i>^2</i></xliff:g> இல் உள்ள படங்கள், வீடியோக்கள் உட்பட எல்லா தரவையும் அணுக, <xliff:g id="APPNAME"><b>^1</b></xliff:g>ஐ அனுமதிக்கவா?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"மீண்டும் கேட்காதே"</string>
     <string name="allow" msgid="1275746941353040309">"அனுமதி"</string>
     <string name="deny" msgid="5127201668078153379">"நிராகரி"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"காப்பகம்<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g>ஐ மேலெழுதவா?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"பின்னணியில் தொடர்க"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> தேர்ந்தெடுக்கப்பட்டன</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> தேர்ந்தெடுக்கப்பட்டது</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"மொபைலில் உள்ள சமீபத்திய ஃபைல்கள்"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"மொபைலில் உள்ள ஃபைல்கள்"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"மொபைலில் உள்ள <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g> இலுள்ள ஃபைல்கள்"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g> இலிருந்து ஃபைல்கள்"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g> இலிருந்து ஃபைல்கள்"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"மொபைலிலுள்ள சமீபத்திய படங்கள்"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"மொபைலில் உள்ள படங்கள்"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g>ல் உள்ள படங்கள்"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>ல் இருந்த படங்கள்"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>ல் இருந்த படங்கள்"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"படங்கள்"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"ஆடியோ"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"வீடியோக்கள்"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"ஆவணங்கள்"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"கோப்புறையின் பெயர்"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"புதிய பெயர்"</string>
+    <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> என்ற ஃபைல் மாதிரிக்காட்சியாகத் தெரியும்"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"ஃபைல்களை வேறு ஆப்ஸில் தேடவும்"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"பெயர் குறிப்பிடாதது"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"க்கு அணுகல் வழங்கு"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"\"<xliff:g id="ROOT">%2$s</xliff:g>\"ல் \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"க்கான அணுகலை அனுமதிக்கவா?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"இந்த இருப்பிடத்தில் தற்போது சேமிக்கப்பட்டிருப்பவை, எதிர்காலத்தில் சேமிக்கப்படுபவை என எல்லாக் கோப்புகளுக்குமான முழு அணுகலையும் \"<xliff:g id="APPNAME">%1$s</xliff:g>\"க்கு அனுமதிக்கும்."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"இந்த மொபைலில் தேடவும்"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"தேடல் வரலாற்றை நீக்கும் பட்டன் <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

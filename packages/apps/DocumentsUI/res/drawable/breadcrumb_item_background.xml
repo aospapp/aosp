@@ -16,7 +16,7 @@
 
 <ripple
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res/com.android.documentsui"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:color="?attr/colorControlHighlight">
     <item
         android:id="@android:id/mask"

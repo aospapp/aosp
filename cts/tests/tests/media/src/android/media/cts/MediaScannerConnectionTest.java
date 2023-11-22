@@ -16,9 +16,6 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
-
 import android.content.ComponentName;
 import android.content.Context;
 import android.media.MediaScannerConnection;
@@ -32,8 +29,6 @@ import com.android.compatibility.common.util.FileCopyHelper;
 import com.android.compatibility.common.util.PollingCheck;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
 
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaScannerConnectionTest extends AndroidTestCase {
@@ -50,8 +45,8 @@ public class MediaScannerConnectionTest extends AndroidTestCase {
         // prepare the media file.
 
         FileCopyHelper copier = new FileCopyHelper(mContext);
-        String fileName = "test" + System.currentTimeMillis();
-        File dir = getContext().getExternalFilesDir(null);
+        String fileName = "test" + System.currentTimeMillis() + ".mp3";
+        File dir = getContext().getExternalMediaDirs()[0];
         mMediaFile = new File(dir, fileName);
         copier.copyToExternalStorage(R.raw.testmp3, mMediaFile);
 

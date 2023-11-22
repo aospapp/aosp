@@ -71,6 +71,19 @@ void emitGetService(
         const std::string& ifaceName,
         const std::string& fqName,
         bool isRetry) {
+    if (isRetry) {
+        DocComment(
+                "This will invoke the equivalent of the C++ getService(std::string) if retry is\n"
+                "true or tryGetService(std::string) if retry is false. If the service is\n"
+                "available on the device and retry is true, this will wait for the service to\n"
+                "start. Otherwise, it will return immediately even if the service is null.")
+                .emit(out);
+    } else {
+        DocComment(
+                "Warning: this will not wait for the interface to come up if it hasn't yet\n"
+                "started. See getService(String,boolean) instead.")
+                .emit(out);
+    }
     out << "public static "
         << ifaceName
         << " getService(String serviceName";
@@ -90,6 +103,14 @@ void emitGetService(
         out << "));\n";
     }).endl().endl();
 
+    if (isRetry) {
+        DocComment("Calls getService(\"default\",retry).").emit(out);
+    } else {
+        DocComment(
+                "Warning: this will not wait for the interface to come up if it hasn't yet "
+                "started. See getService(String,boolean) instead.")
+                .emit(out);
+    }
     out << "public static "
         << ifaceName
         << " getService(";
@@ -128,9 +149,11 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
 
     const Interface *superType = iface->superType();
 
+    iface->emitDocComment(out);
+
     out << "public interface " << ifaceName << " extends ";
 
-    if (superType != NULL) {
+    if (superType != nullptr) {
         out << superType->fullJavaName();
     } else {
         out << "android.os.IHwInterface";
@@ -139,12 +162,14 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
     out << " {\n";
     out.indent();
 
+    DocComment("Fully-qualified interface name for this interface.").emit(out);
     out << "public static final String kInterfaceName = \""
         << mPackage.string()
         << "::"
         << ifaceName
         << "\";\n\n";
 
+    DocComment("Does a checked conversion from a binder to this class.").emit(out);
     out << "/* package private */ static "
         << ifaceName
         << " asInterface(android.os.IHwBinder binder) {\n";
@@ -196,6 +221,7 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
     out.unindent();
     out << "}\n\n";
 
+    DocComment("Does a checked conversion from any interface to this class.").emit(out);
     out << "public static "
         << ifaceName
         << " castFrom(android.os.IHwInterface iface) {\n";
@@ -213,13 +239,9 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
     emitGetService(out, ifaceName, iface->fqName().string(), true /* isRetry */);
     emitGetService(out, ifaceName, iface->fqName().string(), false /* isRetry */);
 
-    emitJavaTypeDeclarations(out);
+    iface->emitJavaTypeDeclarations(out, false /* atTopLevel */);
 
     for (const auto &method : iface->methods()) {
-        if (method->isHiddenFromJava()) {
-            continue;
-        }
-
         const bool returnsValue = !method->results().empty();
         const bool needsCallback = method->results().size() > 1;
 
@@ -312,10 +334,6 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
     for (const auto &tuple : iface->allMethodsFromRoot()) {
         const Method *method = tuple.method();
 
-        if (method->isHiddenFromJava()) {
-            continue;
-        }
-
         const Interface *superInterface = tuple.interface();
         if (prevInterface != superInterface) {
             out << "// Methods from "
@@ -383,7 +401,7 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
                 << " */, _hidl_request, _hidl_reply, ";
 
             if (method->isOneway()) {
-                out << Interface::FLAG_ONEWAY << " /* oneway */";
+                out << Interface::FLAG_ONE_WAY->javaValue();
             } else {
                 out << "0 /* flags */";
             }
@@ -457,19 +475,15 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
     out << "}\n\n";
 
     for (Method *method : iface->hidlReservedMethods()) {
-        if (method->isHiddenFromJava()) {
-            continue;
-        }
-
         // b/32383557 this is a hack. We need to change this if we have more reserved methods.
         CHECK_LE(method->results().size(), 1u);
         std::string resultType = method->results().size() == 0 ? "void" :
                 method->results()[0]->type().getJavaType();
-        out << "@Override\npublic final "
-            << resultType
-            << " "
-            << method->name()
-            << "(";
+
+        bool canBeOverriden = method->name() == "debug";
+
+        out << "@Override\npublic " << (canBeOverriden ? "" : "final ") << resultType << " "
+            << method->name() << "(";
         method->emitJavaArgSignature(out);
         out << ") {\n";
 
@@ -535,8 +549,8 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
 
         out.indent();
 
-        out << "boolean _hidl_is_oneway = (_hidl_flags & " << Interface::FLAG_ONEWAY
-            << " /* oneway */) != 0\n;";
+        out << "boolean _hidl_is_oneway = (_hidl_flags & " << Interface::FLAG_ONE_WAY->javaValue()
+            << ") != 0;\n";
         out << "if (_hidl_is_oneway != " << (method->isOneway() ? "true" : "false") << ") ";
         out.block([&] {
             out << "_hidl_reply.writeStatus(" << UNKNOWN_ERROR << ");\n";
@@ -555,19 +569,6 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
         out << "_hidl_request.enforceInterface("
             << superInterface->fullJavaName()
             << ".kInterfaceName);\n\n";
-
-        if (method->isHiddenFromJava()) {
-            // This is a method hidden from the Java side of things, it must not
-            // return any value and will simply signal success.
-            CHECK(!returnsValue);
-
-            out << "_hidl_reply.writeStatus(android.os.HwParcel.STATUS_SUCCESS);\n";
-            out << "_hidl_reply.send();\n";
-            out << "break;\n";
-            out.unindent();
-            out << "}\n\n";
-            continue;
-        }
 
         for (const auto &arg : method->args()) {
             emitJavaReaderWriter(
@@ -669,10 +670,6 @@ void AST::generateJava(Formatter& out, const std::string& limitToType) const {
 
     out.unindent();
     out << "}\n";
-}
-
-void AST::emitJavaTypeDeclarations(Formatter& out) const {
-    mRootScope.emitJavaTypeDeclarations(out, false /* atTopLevel */);
 }
 
 }  // namespace android

@@ -36,6 +36,7 @@ import com.android.tv.common.TvContentRatingCache;
 import com.android.tv.common.util.PermissionUtils;
 import com.android.tv.search.LocalSearchProvider.SearchResult;
 import com.android.tv.util.Utils;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -270,7 +271,7 @@ public class TvProviderSearch implements SearchInterface {
                     result.setIntentData(buildIntentData(id));
                     result.setContentType(Programs.CONTENT_ITEM_TYPE);
                     result.setIsLive(true);
-                    result.setProgressPercentage(LocalSearchProvider.PROGRESS_PERCENTAGE_HIDE);
+                    result.setProgressPercentage(SearchInterface.PROGRESS_PERCENTAGE_HIDE);
 
                     searchResults.add(result.build());
 
@@ -343,7 +344,7 @@ public class TvProviderSearch implements SearchInterface {
     private int getProgressPercentage(long startUtcMillis, long endUtcMillis) {
         long current = System.currentTimeMillis();
         if (startUtcMillis > current || endUtcMillis <= current) {
-            return LocalSearchProvider.PROGRESS_PERCENTAGE_HIDE;
+            return SearchInterface.PROGRESS_PERCENTAGE_HIDE;
         }
         return (int) (100 * (current - startUtcMillis) / (endUtcMillis - startUtcMillis));
     }
@@ -481,7 +482,7 @@ public class TvProviderSearch implements SearchInterface {
         if (TextUtils.isEmpty(ratings) || !mTvInputManager.isParentalControlsEnabled()) {
             return false;
         }
-        TvContentRating[] ratingArray = mTvContentRatingCache.getRatings(ratings);
+        ImmutableList<TvContentRating> ratingArray = mTvContentRatingCache.getRatings(ratings);
         if (ratingArray != null) {
             for (TvContentRating r : ratingArray) {
                 if (mTvInputManager.isRatingBlocked(r)) {

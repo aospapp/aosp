@@ -36,7 +36,6 @@
     <option name="compatibility:include-filter" value="CtsHostsideNetworkTests" />
     <option name="compatibility:include-filter" value="CtsIcuTestCases" />
     <option name="compatibility:include-filter" value="CtsKeystoreTestCases" />
-    <option name="compatibility:include-filter" value="CtsLibcoreJavaUtilCollectionsTestCases" />
     <option name="compatibility:include-filter" value="CtsLibcoreOjTestCases" />
     <option name="compatibility:include-filter" value="CtsLibcoreTestCases" />
     <option name="compatibility:include-filter" value="CtsLocationTestCases" />

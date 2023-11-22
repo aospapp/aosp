@@ -16,20 +16,20 @@
 
 package android.os.storage.cts;
 
-import android.os.cts.R;
-
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.Resources.NotFoundException;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.ProxyFileDescriptorCallback;
 import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
+import android.os.ProxyFileDescriptorCallback;
+import android.os.cts.R;
 import android.os.storage.OnObbStateChangeListener;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
+import android.platform.test.annotations.AppModeFull;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
@@ -39,24 +39,23 @@ import android.util.Log;
 
 import com.android.compatibility.common.util.FileUtils;
 
-import libcore.io.Streams;
+import junit.framework.AssertionFailedError;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.io.FileDescriptor;
 import java.io.SyncFailedException;
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
-import junit.framework.AssertionFailedError;
 
 public class StorageManagerTest extends AndroidTestCase {
 
@@ -77,6 +76,7 @@ public class StorageManagerTest extends AndroidTestCase {
         mStorageManager = (StorageManager) mContext.getSystemService(Context.STORAGE_SERVICE);
     }
 
+    @AppModeFull(reason = "Instant apps cannot access external storage")
     public void testMountAndUnmountObbNormal() throws IOException {
         for (File target : getTargetFiles()) {
             target = new File(target, "test1_new.obb");
@@ -103,6 +103,7 @@ public class StorageManagerTest extends AndroidTestCase {
         }
     }
 
+    @AppModeFull(reason = "Instant apps cannot access external storage")
     public void testAttemptMountNonObb() {
         for (File target : getTargetFiles()) {
             target = new File(target, "test1_nosig.obb");
@@ -112,7 +113,12 @@ public class StorageManagerTest extends AndroidTestCase {
     }
 
     private void doAttemptMountNonObb(File outFile) {
-        mountObb(R.raw.test1_nosig, outFile, OnObbStateChangeListener.ERROR_INTERNAL);
+        try {
+            mountObb(R.raw.test1_nosig, outFile, OnObbStateChangeListener.ERROR_INTERNAL);
+            fail("mountObb should've failed with an exception");
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
 
         assertFalse("OBB should not be mounted",
                 mStorageManager.isObbMounted(outFile.getPath()));
@@ -121,6 +127,7 @@ public class StorageManagerTest extends AndroidTestCase {
                 mStorageManager.getMountedObbPath(outFile.getPath()));
     }
 
+    @AppModeFull(reason = "Instant apps cannot access external storage")
     public void testAttemptMountObbWrongPackage() {
         for (File target : getTargetFiles()) {
             target = new File(target, "test1_wrongpackage.obb");
@@ -140,6 +147,7 @@ public class StorageManagerTest extends AndroidTestCase {
                 mStorageManager.getMountedObbPath(outFile.getPath()));
     }
 
+    @AppModeFull(reason = "Instant apps cannot access external storage")
     public void testMountAndUnmountTwoObbs() throws IOException {
         for (File target : getTargetFiles()) {
             Log.d(TAG, "Testing target " + target);
@@ -236,11 +244,12 @@ public class StorageManagerTest extends AndroidTestCase {
             }
         }
         assertNotNull("No primary volume on  " + volumes, primary);
-        assertStorageVolumesEquals(primary, mStorageManager.getPrimaryVolume());
+        assertStorageVolumesEquals(primary, mStorageManager.getPrimaryStorageVolume());
     }
 
     public void testGetStorageVolume() throws Exception {
-        assertNull("Should not get volume for null path", mStorageManager.getStorageVolume(null));
+        assertNull("Should not get volume for null path",
+                mStorageManager.getStorageVolume((File) null));
         assertNull("Should not get volume for invalid path",
                 mStorageManager.getStorageVolume(new File("/system")));
         assertNull("Should not get volume for storage directory",
@@ -272,6 +281,12 @@ public class StorageManagerTest extends AndroidTestCase {
         assertEquals(StorageManager.UUID_DEFAULT,
                 mStorageManager.getUuidForPath(mContext.getDataDir()));
 
+        assertNoUuid(new File("/"));
+        assertNoUuid(new File("/proc/"));
+    }
+
+    @AppModeFull(reason = "Instant apps cannot access external storage")
+    public void testGetExternalUuidForPath() throws Exception {
         final UUID extUuid = mStorageManager
                 .getUuidForPath(Environment.getExternalStorageDirectory());
         if (Environment.isExternalStorageEmulated()) {
@@ -280,9 +295,6 @@ public class StorageManagerTest extends AndroidTestCase {
 
         assertEquals(extUuid, mStorageManager.getUuidForPath(mContext.getExternalCacheDir()));
         assertEquals(extUuid, mStorageManager.getUuidForPath(new File("/sdcard/")));
-
-        assertNoUuid(new File("/"));
-        assertNoUuid(new File("/proc/"));
     }
 
     private static class TestProxyFileDescriptorCallback extends ProxyFileDescriptorCallback {
@@ -685,6 +697,25 @@ public class StorageManagerTest extends AndroidTestCase {
         }
     }
 
+    public void testIsAllocationSupported() throws Exception {
+        FileDescriptor good = Os.open(
+            File.createTempFile("StorageManagerTest", "").getAbsolutePath(),
+            OsConstants.O_RDONLY, 0);
+        FileDescriptor bad = Os.open("/proc/self/cmdline", OsConstants.O_RDONLY, 0);
+        try {
+            assertTrue(mStorageManager.isAllocationSupported(good));
+            assertFalse(mStorageManager.isAllocationSupported(bad));
+        } finally {
+            try {
+                Os.close(good);
+            } catch (ErrnoException ignored) {}
+
+            try {
+                Os.close(bad);
+            } catch (ErrnoException ignored) {}
+        }
+    }
+
     private void assertStorageVolumesEquals(StorageVolume volume, StorageVolume clone)
             throws Exception {
         // Asserts equals() method.
@@ -706,7 +737,7 @@ public class StorageManagerTest extends AndroidTestCase {
     }
 
     private static void assertFileContains(File file, String contents) throws IOException {
-        byte[] actual = Streams.readFully(new FileInputStream(file));
+        byte[] actual = readFully(new FileInputStream(file));
         byte[] expected = contents.getBytes("UTF-8");
         assertEquals("unexpected size", expected.length, actual.length);
         for (int i = 0; i < expected.length; i++) {
@@ -859,5 +890,25 @@ public class StorageManagerTest extends AndroidTestCase {
         if (expectedState == OnObbStateChangeListener.UNMOUNTED) {
             assertFalse("OBB should not be mounted", mStorageManager.isObbMounted(file.getPath()));
         }
+    }
+
+    public static byte[] readFully(InputStream in) throws IOException {
+        // Shamelessly borrowed from libcore.io.Streams
+        try {
+            return readFullyNoClose(in);
+        } finally {
+            in.close();
+        }
+    }
+
+    public static byte[] readFullyNoClose(InputStream in) throws IOException {
+        // Shamelessly borrowed from libcore.io.Streams
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int count;
+        while ((count = in.read(buffer)) != -1) {
+            bytes.write(buffer, 0, count);
+        }
+        return bytes.toByteArray();
     }
 }

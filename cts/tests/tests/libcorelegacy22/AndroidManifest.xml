@@ -24,7 +24,7 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.libcorelegacy22.cts"
                      android:label="CTS tests of android APIs last available in API 22">
         <meta-data android:name="listener"

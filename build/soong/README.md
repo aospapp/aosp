@@ -4,6 +4,10 @@ Soong is the replacement for the old Android make-based build system.  It
 replaces Android.mk files with Android.bp files, which are JSON-like simple
 declarative descriptions of modules to build.
 
+See [Simple Build
+Configuration](https://source.android.com/compatibility/tests/development/blueprints)
+on source.android.com to read how Soong is configured for testing.
+
 ## Android.bp file format
 
 By design, Android.bp files are very simple.  There are no conditionals or
@@ -30,7 +34,15 @@ Every module must have a `name` property, and the value must be unique across
 all Android.bp files.
 
 For a list of valid module types and their properties see
-[$OUT_DIR/soong/.bootstrap/docs/soong_build.html](https://go/Android.bp).
+[$OUT_DIR/soong/docs/soong_build.html](https://ci.android.com/builds/latest/branches/aosp-build-tools/targets/linux/view/soong_build.html).
+
+### Globs
+
+Properties that take a list of files can also take glob patterns.  Glob
+patterns can contain the normal Unix wildcard `*`, for example "*.java". Glob
+patterns can also contain a single `**` wildcard as a path element, which will
+match zero or more path elements.  For example, `java/**/*.java` will match
+`java/Main.java` and `java/com/android/Main.java`.
 
 ### Variables
 
@@ -175,6 +187,7 @@ written to a [ninja](http://ninja-build.org) build file.
 * [Best Practices](docs/best_practices.md)
 * [Build Performance](docs/perf.md)
 * [Generating CLion Projects](docs/clion.md)
+* [Generating YouCompleteMe/VSCode compile\_commands.json file](docs/compdb.md)
 * Make-specific documentation: [build/make/README.md](https://android.googlesource.com/platform/build/+/master/README.md)
 
 ## FAQ
@@ -207,6 +220,18 @@ cc_library {
 See [art/build/art.go](https://android.googlesource.com/platform/art/+/master/build/art.go)
 or [external/llvm/soong/llvm.go](https://android.googlesource.com/platform/external/llvm/+/master/soong/llvm.go)
 for examples of more complex conditionals on product variables or environment variables.
+
+## Developing for Soong
+
+To load Soong code in a Go-aware IDE, create a directory outside your android tree and then:
+```bash
+apt install bindfs
+export GOPATH=<path to the directory you created>
+build/soong/scripts/setup_go_workspace_for_soong.sh
+```
+
+This will bind mount the Soong source directories into the directory in the layout expected by
+the IDE.
 
 ## Contact
 

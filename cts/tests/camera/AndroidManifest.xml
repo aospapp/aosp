@@ -78,7 +78,7 @@
 
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.camera.cts"
                      android:label="CTS tests of android camera">
         <meta-data android:name="listener"

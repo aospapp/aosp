@@ -6,14 +6,15 @@
 	<classpathentry kind="src" path="res"/>
 	<classpathentry kind="src" path="tests/src"/>
 	<classpathentry kind="lib" path="tests/res/testtype/testJar1.jar"/>
-	<classpathentry kind="lib" path="tests/res/testtype/testJar2.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/ddmlib"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/tradefederation"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/cts-common-util"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
-	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/jsonlib_intermediates/classes.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/cts-hostside-util"/>
-	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/google-api-java-client-min-repackaged_intermediates/classes.jar"/>
 	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/host-libprotobuf-java-full_intermediates/classes.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/cts/libs/json/json/linux_glibc_common/javac/json.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/tools/tradefederation/core/tradefed-protos/linux_glibc_common/combined/tradefed-protos.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/prebuilts/tools/common/google-api-java-client/1.23.0/google-api-java-client-min-repackaged-1.23.0.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/prebuilts/tools/common/m2/repository/com/google/code/gson/gson/2.8.0/gson-2.8.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

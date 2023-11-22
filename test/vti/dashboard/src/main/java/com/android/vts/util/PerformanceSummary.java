@@ -69,32 +69,32 @@ public class PerformanceSummary {
                 ProfilingPointSummaryEntity.fromEntity(profilingRun);
         if (ppSummary == null) return;
 
-        String name = profilingPoint.profilingPointName;
-        if (ppSummary.labels != null && ppSummary.labels.size() > 0) {
-            if (!ppSummary.series.equals("")) {
-                name += " (" + ppSummary.series + ")";
+        String name = profilingPoint.getProfilingPointName();
+        if (ppSummary.getLabels() != null && ppSummary.getLabels().size() > 0) {
+            if (!ppSummary.getSeries().equals("")) {
+                name += " (" + ppSummary.getSeries() + ")";
             }
             if (!summaryMap.containsKey(name)) {
                 summaryMap.put(
                         name,
                         new ProfilingPointSummary(
-                                profilingPoint.xLabel,
-                                profilingPoint.yLabel,
-                                profilingPoint.regressionMode));
+                                profilingPoint.getXLabel(),
+                                profilingPoint.getYLabel(),
+                            profilingPoint.getVtsProfilingRegressionMode(profilingPoint.getRegressionMode())));
             }
             summaryMap.get(name).update(ppSummary);
         } else {
             // Use the option suffix as the table name.
             // Group all profiling points together into one table
-            if (!summaryMap.containsKey(ppSummary.series)) {
+            if (!summaryMap.containsKey(ppSummary.getSeries())) {
                 summaryMap.put(
-                        ppSummary.series,
+                        ppSummary.getSeries(),
                         new ProfilingPointSummary(
-                                profilingPoint.xLabel,
-                                profilingPoint.yLabel,
-                                profilingPoint.regressionMode));
+                                profilingPoint.getXLabel(),
+                                profilingPoint.getYLabel(),
+                            profilingPoint.getVtsProfilingRegressionMode(profilingPoint.getRegressionMode())));
             }
-            summaryMap.get(ppSummary.series).updateLabel(ppSummary, name);
+            summaryMap.get(ppSummary.getSeries()).updateLabel(ppSummary, name);
         }
     }
 

@@ -11,83 +11,33 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package com.android.car.settings.common;
 
-import android.annotation.NonNull;
 import android.car.drivingstate.CarUxRestrictions;
+import android.car.drivingstate.CarUxRestrictionsManager;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.annotation.LayoutRes;
-import android.support.annotation.StringRes;
-import android.support.v4.app.Fragment;
-import android.support.v7.app.ActionBar;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
-import com.android.car.settings.R;
+import androidx.annotation.LayoutRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.StringRes;
+import androidx.fragment.app.Fragment;
 
-import java.util.Set;
+import com.android.car.settings.R;
 
 /**
  * Base fragment for setting activity.
  */
-public abstract class BaseFragment extends Fragment {
-    public static final String EXTRA_TITLE_ID = "extra_title_id";
-    public static final String EXTRA_LAYOUT = "extra_layout";
-    public static final String EXTRA_ACTION_BAR_LAYOUT = "extra_action_bar_layout";
-    /**
-     * For indicating a fragment is running in Setup Wizard
-     */
-    public static final String EXTRA_RUNNING_IN_SETUP_WIZARD = "extra_running_in_setup_wizard";
-
-    /**
-     * Controls the transition of fragment.
-     */
-    public interface FragmentController {
-        /**
-         * Launches fragment in the main container of current activity.
-         */
-        void launchFragment(BaseFragment fragment);
-
-        /**
-         * Pops the top off the fragment stack.
-         * @return {@code false} if there's no stack to pop, {@code true} otherwise
-         */
-        void goBack();
-
-        /**
-         * Shows a message that current feature is not available when driving.
-         */
-        void showDOBlockingMessage();
-    }
-
-    /**
-     * Provides current CarUxRestrictions.
-     */
-    public interface UXRestrictionsProvider {
-
-        /**
-         * Fetches current CarUxRestrictions
-         */
-        @NonNull
-        CarUxRestrictions getCarUxRestrictions();
-    }
-
-    @LayoutRes
-    protected int mLayout;
-
-    @LayoutRes
-    private int mActionBarLayout;
-
-    @StringRes
-    private int mTitleId;
+public abstract class BaseFragment extends Fragment implements
+        CarUxRestrictionsManager.OnUxRestrictionsChangedListener {
 
     /**
      * Assume The activity holds this fragment also implements the FragmentController.
@@ -98,17 +48,11 @@ public abstract class BaseFragment extends Fragment {
     }
 
     /**
-     * Assume The activity holds this fragment also implements the UXRestrictionsProvider.
+     * Assume The activity holds this fragment also implements the UxRestrictionsProvider.
      * This function should be called after onAttach()
      */
     protected final CarUxRestrictions getCurrentRestrictions() {
-        return ((UXRestrictionsProvider) getActivity()).getCarUxRestrictions();
-    }
-
-    protected static Bundle getBundle() {
-        Bundle bundle = new Bundle();
-        bundle.putInt(EXTRA_ACTION_BAR_LAYOUT, R.layout.action_bar);
-        return bundle;
+        return ((UxRestrictionsProvider) getActivity()).getCarUxRestrictions();
     }
 
     /**
@@ -119,60 +63,87 @@ public abstract class BaseFragment extends Fragment {
         return !CarUxRestrictionsHelper.isNoSetup(carUxRestrictions);
     }
 
+    @Override
+    public void onUxRestrictionsChanged(CarUxRestrictions restrictionInfo) {
+    }
+
     /**
-     * Notifies the fragment with the latest CarUxRestrictions change.
+     * Returns the layout id to use with the {@link ActionBar}. Subclasses should override this
+     * method to customize the action bar layout. The default action bar contains a back button
+     * and the title.
      */
-    protected void onUxRestrictionChanged(@NonNull CarUxRestrictions carUxRestrictions) {
+    @LayoutRes
+    protected int getActionBarLayoutId() {
+        return R.layout.action_bar;
+    }
+
+    /**
+     * Returns the layout id of the current Fragment.
+     */
+    @LayoutRes
+    protected abstract int getLayoutId();
+
+    /**
+     * Returns the string id for the current Fragment title. Subclasses should override this
+     * method to set the title to display. Use {@link #setTitle(CharSequence)} to update the
+     * displayed title while resumed. The default title is the Settings Activity label.
+     */
+    @StringRes
+    protected int getTitleId() {
+        return R.string.settings_label;
+    }
+
+    /**
+     * Should be used to override fragment's title. This should only be called after
+     * {@link #onActivityCreated(Bundle)}.
+     *
+     * @param title CharSequence to set as the new title.
+     */
+    protected final void setTitle(CharSequence title) {
+        TextView titleView = requireActivity().findViewById(R.id.title);
+        if (titleView != null) {
+            titleView.setText(title);
+        }
     }
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
         if (!(getActivity() instanceof FragmentController)) {
-            throw new IllegalArgumentException("Must attach to an FragmentController");
+            throw new IllegalStateException("Must attach to a FragmentController");
         }
-        if (!(getActivity() instanceof UXRestrictionsProvider)) {
-            throw new IllegalArgumentException("Must attach to an UXRestrictionsProvider");
+        if (!(getActivity() instanceof UxRestrictionsProvider)) {
+            throw new IllegalStateException("Must attach to a UxRestrictionsProvider");
         }
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        Set<String> extraKeys = getArguments().keySet();
-        if (extraKeys.contains(EXTRA_ACTION_BAR_LAYOUT)) {
-            mActionBarLayout = getArguments().getInt(EXTRA_ACTION_BAR_LAYOUT);
-        } else {
-            throw new IllegalArgumentException("must specify a actionBar layout");
-        }
-        if (extraKeys.contains(EXTRA_LAYOUT)) {
-            mLayout = getArguments().getInt(EXTRA_LAYOUT);
-        } else {
-            throw new IllegalArgumentException("must specify a layout");
-        }
-        if (extraKeys.contains(EXTRA_TITLE_ID)) {
-            mTitleId = getArguments().getInt(EXTRA_TITLE_ID);
-        } else {
-            throw new IllegalArgumentException("must specify a title");
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
+            Bundle savedInstanceState) {
+        @LayoutRes int layoutId = getLayoutId();
+        return inflater.inflate(layoutId, container, false);
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        FrameLayout actionBarContainer = requireActivity().findViewById(R.id.action_bar);
+        if (actionBarContainer != null) {
+            actionBarContainer.removeAllViews();
+            getLayoutInflater().inflate(getActionBarLayoutId(), actionBarContainer);
+
+            TextView titleView = actionBarContainer.requireViewById(R.id.title);
+            titleView.setText(getTitleId());
+            actionBarContainer.requireViewById(R.id.action_bar_icon_container).setOnClickListener(
+                    v -> onBackPressed());
         }
     }
+
 
     @Override
     public void onStart() {
         super.onStart();
-        onUxRestrictionChanged(getCurrentRestrictions());
-    }
-
-    /**
-     * Should be used to override fragment's title.
-     * Should be called after {@code super.onActivityCreated}, so that it's called AFTER the default title
-     * setter.
-     *
-     * @param title CharSequence to set as the new title.
-     */
-    protected final void setTitle(CharSequence title) {
-        TextView titleView = getActivity().findViewById(R.id.title);
-        titleView.setText(title);
+        onUxRestrictionsChanged(getCurrentRestrictions());
     }
 
     /**
@@ -180,27 +151,5 @@ public abstract class BaseFragment extends Fragment {
      */
     protected void onBackPressed() {
         getFragmentController().goBack();
-    }
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-            Bundle savedInstanceState) {
-        return inflater.inflate(mLayout, container, false);
-    }
-
-    @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
-        actionBar.setDisplayHomeAsUpEnabled(false);
-        actionBar.setCustomView(mActionBarLayout);
-        actionBar.setDisplayShowCustomEnabled(true);
-        // make the toolbar take the whole width.
-        Toolbar toolbar = (Toolbar) actionBar.getCustomView().getParent();
-        toolbar.setPadding(0, 0, 0, 0);
-        getActivity().findViewById(R.id.action_bar_icon_container).setOnClickListener(
-                v -> onBackPressed());
-        TextView titleView = getActivity().findViewById(R.id.title);
-        titleView.setText(mTitleId);
     }
 }

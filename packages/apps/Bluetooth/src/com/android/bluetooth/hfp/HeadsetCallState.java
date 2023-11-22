@@ -42,13 +42,19 @@ class HeadsetCallState extends HeadsetMessageObject {
      * Phone number type
      */
     int mType;
+    /**
+     * Caller display name
+     */
+    String mName;
 
-    HeadsetCallState(int numActive, int numHeld, int callState, String number, int type) {
+    HeadsetCallState(int numActive, int numHeld, int callState, String number, int type,
+            String name) {
         mNumActive = numActive;
         mNumHeld = numHeld;
         mCallState = callState;
         mNumber = number;
         mType = type;
+        mName = name;
     }
 
     @Override
@@ -69,7 +75,13 @@ class HeadsetCallState extends HeadsetMessageObject {
         } else {
             builder.append("***");
         }
-        builder.append(mNumber).append(", type=").append(mType).append("]");
+        builder.append(", type=").append(mType).append(", name=");
+        if (mName == null) {
+            builder.append("null");
+        } else {
+            builder.append("***");
+        }
+        builder.append("]");
     }
 
     @Override
@@ -83,11 +95,11 @@ class HeadsetCallState extends HeadsetMessageObject {
         HeadsetCallState that = (HeadsetCallState) object;
         return mNumActive == that.mNumActive && mNumHeld == that.mNumHeld
                 && mCallState == that.mCallState && Objects.equals(mNumber, that.mNumber)
-                && mType == that.mType;
+                && mType == that.mType && Objects.equals(mName, that.mName);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mNumActive, mNumHeld, mCallState, mNumber, mType);
+        return Objects.hash(mNumActive, mNumHeld, mCallState, mNumber, mType, mName);
     }
 }

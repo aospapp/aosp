@@ -27,11 +27,13 @@
 package sun.nio.ch;
 
 import java.io.*;
+import java.lang.ref.*;
 import java.net.*;
 import java.nio.*;
 import java.nio.channels.*;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
+import java.util.*;
 
 
 // Make a socket channel look like a socket.
@@ -57,6 +59,7 @@ public class SocketAdaptor
     private volatile int timeout = 0;
 
     private SocketAdaptor(SocketChannelImpl sc) throws SocketException {
+        // Android-changed: Conscrypt compatibility, ensure fd is not null. http://b/25857624
         super(new FileDescriptorHolderSocketImpl(sc.getFD()));
         this.sc = sc;
     }
@@ -92,7 +95,8 @@ public class SocketAdaptor
             try {
 
                 if (timeout == 0) {
-                    // Android-changed: Be consistent
+                    // Android-changed: Translate exceptions consistently.
+                    // sc.connect(remote);
                     try {
                         sc.connect(remote);
                     } catch (Exception ex) {
@@ -144,8 +148,7 @@ public class SocketAdaptor
     }
 
     public InetAddress getInetAddress() {
-        // Use #remoteAddress and do manual isConnected check. #getRemoteAddress() returns
-        // non-null result before connection.
+        // Android-changed: remoteAddress() returns non-null before connection. http://b/26140820
         if (!isConnected()) {
             return null;
         }
@@ -168,8 +171,7 @@ public class SocketAdaptor
     }
 
     public int getPort() {
-        // Use #remoteAddress and do manual isConnected check. #getRemoteAddress() returns
-        // non-null result before connection.
+        // Android-changed: remoteAddress() returns non-null before connection. http://b/26140820
         if (!isConnected()) {
           return 0;
         }

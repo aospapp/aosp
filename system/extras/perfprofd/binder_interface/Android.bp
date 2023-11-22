@@ -24,16 +24,18 @@ cc_library_static {
     ],
 
     export_include_dirs: ["."],
+    shared_libs: [
+        "libbinder",
+    ],
     static_libs: [
         "libbase",
-        "libbinder",
         "libperfprofdcore",
+        "libperfprofd_proto_config",
         "libprotobuf-cpp-lite",
     ],
     srcs: [
         "perfprofd_binder.cc",
         ":perfprofd_aidl",
-        "perfprofd_config.proto",
     ],
 }
 

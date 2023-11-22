@@ -19,13 +19,13 @@
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/param.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include <fstream>
 #include <iostream>
 #include <set>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <vector>
 
@@ -34,24 +34,25 @@
 
 #include "base/dumpable.h"
 #include "base/logging.h"  // For InitLogging.
-#include "base/mutex.h"
+#include "base/mem_map.h"
 #include "base/scoped_flock.h"
-#include "base/stringpiece.h"
+#include "base/stl_util.h"
+#include "base/string_view_cpp20.h"
 #include "base/time_utils.h"
 #include "base/unix_file/fd_file.h"
 #include "base/utils.h"
+#include "base/zip_archive.h"
 #include "boot_image_profile.h"
 #include "dex/art_dex_file_loader.h"
 #include "dex/bytecode_utils.h"
+#include "dex/class_accessor-inl.h"
 #include "dex/code_item_accessors-inl.h"
 #include "dex/dex_file.h"
 #include "dex/dex_file_loader.h"
 #include "dex/dex_file_types.h"
 #include "dex/type_reference.h"
-#include "jit/profile_compilation_info.h"
+#include "profile/profile_compilation_info.h"
 #include "profile_assistant.h"
-#include "runtime.h"
-#include "zip_archive.h"
 
 namespace art {
 
@@ -60,6 +61,7 @@ static char** original_argv;
 
 static std::string CommandLine() {
   std::vector<std::string> command;
+  command.reserve(original_argc);
   for (int i = 0; i < original_argc; ++i) {
     command.push_back(original_argv[i]);
   }
@@ -156,6 +158,9 @@ NO_RETURN static void Usage(const char *fmt, ...) {
   UsageError("      the file passed with --profile-fd(file) to the profile passed with");
   UsageError("      --reference-profile-fd(file) and update at the same time the profile-key");
   UsageError("      of entries corresponding to the apks passed with --apk(-fd).");
+  UsageError("  --store-aggregation-counters: if present, profman will compute and store");
+  UsageError("      the aggregation counters of classes and methods in the output profile.");
+  UsageError("      In this case the profile will have a different version.");
   UsageError("");
 
   exit(EXIT_FAILURE);
@@ -179,9 +184,41 @@ static constexpr char kMethodFlagStringHot = 'H';
 static constexpr char kMethodFlagStringStartup = 'S';
 static constexpr char kMethodFlagStringPostStartup = 'P';
 
+NO_RETURN static void Abort(const char* msg) {
+  LOG(ERROR) << msg;
+  exit(1);
+}
+
+template <typename T>
+static void ParseUintOption(const char* raw_option,
+                            std::string_view option_prefix,
+                            T* out) {
+  DCHECK(EndsWith(option_prefix, "="));
+  DCHECK(StartsWith(raw_option, option_prefix)) << raw_option << " " << option_prefix;
+  const char* value_string = raw_option + option_prefix.size();
+  int64_t parsed_integer_value = 0;
+  if (!android::base::ParseInt(value_string, &parsed_integer_value)) {
+    std::string option_name(option_prefix.substr(option_prefix.size() - 1u));
+    Usage("Failed to parse %s '%s' as an integer", option_name.c_str(), value_string);
+  }
+  if (parsed_integer_value < 0) {
+    std::string option_name(option_prefix.substr(option_prefix.size() - 1u));
+    Usage("%s passed a negative value %" PRId64, option_name.c_str(), parsed_integer_value);
+  }
+  if (static_cast<uint64_t>(parsed_integer_value) >
+      static_cast<std::make_unsigned_t<T>>(std::numeric_limits<T>::max())) {
+    std::string option_name(option_prefix.substr(option_prefix.size() - 1u));
+    Usage("%s passed a value %" PRIu64 " above max (%" PRIu64 ")",
+          option_name.c_str(),
+          static_cast<uint64_t>(parsed_integer_value),
+          static_cast<uint64_t>(std::numeric_limits<T>::max()));
+  }
+  *out = dchecked_integral_cast<T>(parsed_integer_value);
+}
+
 // TODO(calin): This class has grown too much from its initial design. Split the functionality
 // into smaller, more contained pieces.
-class ProfMan FINAL {
+class ProfMan final {
  public:
   ProfMan() :
       reference_profile_file_fd_(kInvalidFd),
@@ -194,7 +231,8 @@ class ProfMan FINAL {
       test_profile_class_percentage_(kDefaultTestProfileClassPercentage),
       test_profile_seed_(NanoTime()),
       start_ns_(NanoTime()),
-      copy_and_update_profile_key_(false) {}
+      copy_and_update_profile_key_(false),
+      store_aggregation_counters_(false) {}
 
   ~ProfMan() {
     LogCompletionTime();
@@ -204,8 +242,8 @@ class ProfMan FINAL {
     original_argc = argc;
     original_argv = argv;
 
-    Locks::Init();
-    InitLogging(argv, Runtime::Abort);
+    MemMap::Init();
+    InitLogging(argv, Abort);
 
     // Skip over the command name.
     argv++;
@@ -216,7 +254,8 @@ class ProfMan FINAL {
     }
 
     for (int i = 0; i < argc; ++i) {
-      const StringPiece option(argv[i]);
+      const char* raw_option = argv[i];
+      const std::string_view option(raw_option);
       const bool log_options = false;
       if (log_options) {
         LOG(INFO) << "profman: option[" << i << "]=" << argv[i];
@@ -225,64 +264,60 @@ class ProfMan FINAL {
         dump_only_ = true;
       } else if (option == "--dump-classes-and-methods") {
         dump_classes_and_methods_ = true;
-      } else if (option.starts_with("--create-profile-from=")) {
-        create_profile_from_file_ = option.substr(strlen("--create-profile-from=")).ToString();
-      } else if (option.starts_with("--dump-output-to-fd=")) {
-        ParseUintOption(option, "--dump-output-to-fd", &dump_output_to_fd_, Usage);
+      } else if (StartsWith(option, "--create-profile-from=")) {
+        create_profile_from_file_ = std::string(option.substr(strlen("--create-profile-from=")));
+      } else if (StartsWith(option, "--dump-output-to-fd=")) {
+        ParseUintOption(raw_option, "--dump-output-to-fd=", &dump_output_to_fd_);
       } else if (option == "--generate-boot-image-profile") {
         generate_boot_image_profile_ = true;
-      } else if (option.starts_with("--boot-image-class-threshold=")) {
-        ParseUintOption(option,
-                        "--boot-image-class-threshold",
-                        &boot_image_options_.image_class_theshold,
-                        Usage);
-      } else if (option.starts_with("--boot-image-clean-class-threshold=")) {
-        ParseUintOption(option,
-                        "--boot-image-clean-class-threshold",
-                        &boot_image_options_.image_class_clean_theshold,
-                        Usage);
-      } else if (option.starts_with("--boot-image-sampled-method-threshold=")) {
-        ParseUintOption(option,
-                        "--boot-image-sampled-method-threshold",
-                        &boot_image_options_.compiled_method_threshold,
-                        Usage);
-      } else if (option.starts_with("--profile-file=")) {
-        profile_files_.push_back(option.substr(strlen("--profile-file=")).ToString());
-      } else if (option.starts_with("--profile-file-fd=")) {
-        ParseFdForCollection(option, "--profile-file-fd", &profile_files_fd_);
-      } else if (option.starts_with("--reference-profile-file=")) {
-        reference_profile_file_ = option.substr(strlen("--reference-profile-file=")).ToString();
-      } else if (option.starts_with("--reference-profile-file-fd=")) {
-        ParseUintOption(option, "--reference-profile-file-fd", &reference_profile_file_fd_, Usage);
-      } else if (option.starts_with("--dex-location=")) {
-        dex_locations_.push_back(option.substr(strlen("--dex-location=")).ToString());
-      } else if (option.starts_with("--apk-fd=")) {
-        ParseFdForCollection(option, "--apk-fd", &apks_fd_);
-      } else if (option.starts_with("--apk=")) {
-        apk_files_.push_back(option.substr(strlen("--apk=")).ToString());
-      } else if (option.starts_with("--generate-test-profile=")) {
-        test_profile_ = option.substr(strlen("--generate-test-profile=")).ToString();
-      } else if (option.starts_with("--generate-test-profile-num-dex=")) {
-        ParseUintOption(option,
-                        "--generate-test-profile-num-dex",
-                        &test_profile_num_dex_,
-                        Usage);
-      } else if (option.starts_with("--generate-test-profile-method-percentage")) {
-        ParseUintOption(option,
-                        "--generate-test-profile-method-percentage",
-                        &test_profile_method_percerntage_,
-                        Usage);
-      } else if (option.starts_with("--generate-test-profile-class-percentage")) {
-        ParseUintOption(option,
-                        "--generate-test-profile-class-percentage",
-                        &test_profile_class_percentage_,
-                        Usage);
-      } else if (option.starts_with("--generate-test-profile-seed=")) {
-        ParseUintOption(option, "--generate-test-profile-seed", &test_profile_seed_, Usage);
-      } else if (option.starts_with("--copy-and-update-profile-key")) {
+      } else if (StartsWith(option, "--boot-image-class-threshold=")) {
+        ParseUintOption(raw_option,
+                        "--boot-image-class-threshold=",
+                        &boot_image_options_.image_class_theshold);
+      } else if (StartsWith(option, "--boot-image-clean-class-threshold=")) {
+        ParseUintOption(raw_option,
+                        "--boot-image-clean-class-threshold=",
+                        &boot_image_options_.image_class_clean_theshold);
+      } else if (StartsWith(option, "--boot-image-sampled-method-threshold=")) {
+        ParseUintOption(raw_option,
+                        "--boot-image-sampled-method-threshold=",
+                        &boot_image_options_.compiled_method_threshold);
+      } else if (StartsWith(option, "--profile-file=")) {
+        profile_files_.push_back(std::string(option.substr(strlen("--profile-file="))));
+      } else if (StartsWith(option, "--profile-file-fd=")) {
+        ParseFdForCollection(raw_option, "--profile-file-fd=", &profile_files_fd_);
+      } else if (StartsWith(option, "--reference-profile-file=")) {
+        reference_profile_file_ = std::string(option.substr(strlen("--reference-profile-file=")));
+      } else if (StartsWith(option, "--reference-profile-file-fd=")) {
+        ParseUintOption(raw_option, "--reference-profile-file-fd=", &reference_profile_file_fd_);
+      } else if (StartsWith(option, "--dex-location=")) {
+        dex_locations_.push_back(std::string(option.substr(strlen("--dex-location="))));
+      } else if (StartsWith(option, "--apk-fd=")) {
+        ParseFdForCollection(raw_option, "--apk-fd=", &apks_fd_);
+      } else if (StartsWith(option, "--apk=")) {
+        apk_files_.push_back(std::string(option.substr(strlen("--apk="))));
+      } else if (StartsWith(option, "--generate-test-profile=")) {
+        test_profile_ = std::string(option.substr(strlen("--generate-test-profile=")));
+      } else if (StartsWith(option, "--generate-test-profile-num-dex=")) {
+        ParseUintOption(raw_option,
+                        "--generate-test-profile-num-dex=",
+                        &test_profile_num_dex_);
+      } else if (StartsWith(option, "--generate-test-profile-method-percentage=")) {
+        ParseUintOption(raw_option,
+                        "--generate-test-profile-method-percentage=",
+                        &test_profile_method_percerntage_);
+      } else if (StartsWith(option, "--generate-test-profile-class-percentage=")) {
+        ParseUintOption(raw_option,
+                        "--generate-test-profile-class-percentage=",
+                        &test_profile_class_percentage_);
+      } else if (StartsWith(option, "--generate-test-profile-seed=")) {
+        ParseUintOption(raw_option, "--generate-test-profile-seed=", &test_profile_seed_);
+      } else if (option == "--copy-and-update-profile-key") {
         copy_and_update_profile_key_ = true;
+      } else if (option == "--store-aggregation-counters") {
+        store_aggregation_counters_ = true;
       } else {
-        Usage("Unknown argument '%s'", option.data());
+        Usage("Unknown argument '%s'", raw_option);
       }
     }
 
@@ -357,12 +392,14 @@ class ProfMan FINAL {
       File file(reference_profile_file_fd_, false);
       result = ProfileAssistant::ProcessProfiles(profile_files_fd_,
                                                  reference_profile_file_fd_,
-                                                 filter_fn);
+                                                 filter_fn,
+                                                 store_aggregation_counters_);
       CloseAllFds(profile_files_fd_, "profile_files_fd_");
     } else {
       result = ProfileAssistant::ProcessProfiles(profile_files_,
                                                  reference_profile_file_,
-                                                 filter_fn);
+                                                 filter_fn,
+                                                 store_aggregation_counters_);
     }
     return result;
   }
@@ -385,7 +422,7 @@ class ProfMan FINAL {
   }
 
   bool OpenApkFilesFromLocations(
-      std::function<void(std::unique_ptr<const DexFile>&&)> process_fn) {
+      const std::function<void(std::unique_ptr<const DexFile>&&)>& process_fn) {
     bool use_apk_fd_list = !apks_fd_.empty();
     if (use_apk_fd_list) {
       // Get the APKs from the collection of FDs.
@@ -422,7 +459,7 @@ class ProfMan FINAL {
       if (use_apk_fd_list) {
         if (dex_file_loader.OpenZip(apks_fd_[i],
                                     dex_locations_[i],
-                                    /* verify */ false,
+                                    /* verify= */ false,
                                     kVerifyChecksum,
                                     &error_msg,
                                     &dex_files_for_location)) {
@@ -433,7 +470,7 @@ class ProfMan FINAL {
       } else {
         if (dex_file_loader.Open(apk_files_[i].c_str(),
                                  dex_locations_[i],
-                                 /* verify */ false,
+                                 /* verify= */ false,
                                  kVerifyChecksum,
                                  &error_msg,
                                  &dex_files_for_location)) {
@@ -453,6 +490,10 @@ class ProfMan FINAL {
   // The methods reads the links from /proc/self/fd/ to find the original apk paths
   // and puts them in the dex_locations_ vector.
   bool ComputeDexLocationsFromApkFds() {
+#ifdef _WIN32
+    PLOG(ERROR) << "ComputeDexLocationsFromApkFds is unsupported on Windows.";
+    return false;
+#else
     // We can't use a char array of PATH_MAX size without exceeding the frame size.
     // So we use a vector as the buffer for the path.
     std::vector<char> buffer(PATH_MAX, 0);
@@ -468,13 +509,19 @@ class ProfMan FINAL {
       dex_locations_.push_back(buffer.data());
     }
     return true;
+#endif
   }
 
   std::unique_ptr<const ProfileCompilationInfo> LoadProfile(const std::string& filename, int fd) {
     if (!filename.empty()) {
-      fd = open(filename.c_str(), O_RDWR);
+#ifdef _WIN32
+      int flags = O_RDWR;
+#else
+      int flags = O_RDWR | O_CLOEXEC;
+#endif
+      fd = open(filename.c_str(), flags);
       if (fd < 0) {
-        LOG(ERROR) << "Cannot open " << filename << strerror(errno);
+        PLOG(ERROR) << "Cannot open " << filename;
         return nullptr;
       }
     }
@@ -496,7 +543,7 @@ class ProfMan FINAL {
       LOG(ERROR) << "Cannot load profile info from filename=" << filename << " fd=" << fd;
       return -1;
     }
-    *dump += banner + "\n" + info->DumpInfo(dex_files) + "\n";
+    *dump += banner + "\n" + info->DumpInfo(MakeNonOwningPointerVector(*dex_files)) + "\n";
     return 0;
   }
 
@@ -509,10 +556,23 @@ class ProfMan FINAL {
     static const char* kEmptyString = "";
     static const char* kOrdinaryProfile = "=== profile ===";
     static const char* kReferenceProfile = "=== reference profile ===";
+    static const char* kDexFiles = "=== Dex files  ===";
 
     std::vector<std::unique_ptr<const DexFile>> dex_files;
     OpenApkFilesFromLocations(&dex_files);
+
     std::string dump;
+
+    // Dump checkfiles and corresponding checksums.
+    dump += kDexFiles;
+    dump += "\n";
+    for (const std::unique_ptr<const DexFile>& dex_file : dex_files) {
+      std::ostringstream oss;
+      oss << dex_file->GetLocation()
+          << " [checksum=" << std::hex << dex_file->GetLocationChecksum() << "]\n";
+      dump += oss.str();
+    }
+
     // Dump individual profile files.
     if (!profile_files_fd_.empty()) {
       for (int profile_file_fd : profile_files_fd_) {
@@ -526,12 +586,10 @@ class ProfMan FINAL {
         }
       }
     }
-    if (!profile_files_.empty()) {
-      for (const std::string& profile_file : profile_files_) {
-        int ret = DumpOneProfile(kOrdinaryProfile, profile_file, kInvalidFd, &dex_files, &dump);
-        if (ret != 0) {
-          return ret;
-        }
+    for (const std::string& profile_file : profile_files_) {
+      int ret = DumpOneProfile(kOrdinaryProfile, profile_file, kInvalidFd, &dex_files, &dump);
+      if (ret != 0) {
+        return ret;
       }
     }
     // Dump reference profile file.
@@ -558,7 +616,7 @@ class ProfMan FINAL {
     if (!FdIsValid(dump_output_to_fd_)) {
       std::cout << dump;
     } else {
-      unix_file::FdFile out_fd(dump_output_to_fd_, false /*check_usage*/);
+      unix_file::FdFile out_fd(dump_output_to_fd_, /*check_usage=*/ false);
       if (!out_fd.WriteFully(dump.c_str(), dump.length())) {
         return -1;
       }
@@ -590,14 +648,14 @@ class ProfMan FINAL {
                                             &startup_methods,
                                             &post_startup_methods)) {
         for (const dex::TypeIndex& type_index : class_types) {
-          const DexFile::TypeId& type_id = dex_file->GetTypeId(type_index);
+          const dex::TypeId& type_id = dex_file->GetTypeId(type_index);
           out_lines->insert(std::string(dex_file->GetTypeDescriptor(type_id)));
         }
         combined_methods = hot_methods;
         combined_methods.insert(startup_methods.begin(), startup_methods.end());
         combined_methods.insert(post_startup_methods.begin(), post_startup_methods.end());
         for (uint16_t dex_method_idx : combined_methods) {
-          const DexFile::MethodId& id = dex_file->GetMethodId(dex_method_idx);
+          const dex::MethodId& id = dex_file->GetMethodId(dex_method_idx);
           std::string signature_string(dex_file->GetMethodSignature(id).ToString());
           std::string type_string(dex_file->GetTypeDescriptor(dex_file->GetTypeId(id.class_idx_)));
           std::string method_name(dex_file->GetMethodName(id));
@@ -625,9 +683,14 @@ class ProfMan FINAL {
   bool GetClassNamesAndMethods(const std::string& profile_file,
                                std::vector<std::unique_ptr<const DexFile>>* dex_files,
                                std::set<std::string>* out_lines) {
-    int fd = open(profile_file.c_str(), O_RDONLY);
+#ifdef _WIN32
+    int flags = O_RDONLY;
+#else
+    int flags = O_RDONLY | O_CLOEXEC;
+#endif
+    int fd = open(profile_file.c_str(), flags);
     if (!FdIsValid(fd)) {
-      LOG(ERROR) << "Cannot open " << profile_file << strerror(errno);
+      PLOG(ERROR) << "Cannot open " << profile_file;
       return false;
     }
     if (!GetClassNamesAndMethods(fd, dex_files, out_lines)) {
@@ -684,7 +747,7 @@ class ProfMan FINAL {
     if (!FdIsValid(dump_output_to_fd_)) {
       std::cout << dump;
     } else {
-      unix_file::FdFile out_fd(dump_output_to_fd_, false /*check_usage*/);
+      unix_file::FdFile out_fd(dump_output_to_fd_, /*check_usage=*/ false);
       if (!out_fd.WriteFully(dump.c_str(), dump.length())) {
         return -1;
       }
@@ -757,7 +820,7 @@ class ProfMan FINAL {
         }
       }
 
-      const DexFile::TypeId* type_id = dex_file->FindTypeId(klass_descriptor.c_str());
+      const dex::TypeId* type_id = dex_file->FindTypeId(klass_descriptor.c_str());
       if (type_id == nullptr) {
         continue;
       }
@@ -793,7 +856,7 @@ class ProfMan FINAL {
     const std::string& name = name_and_signature[0];
     const std::string& signature = kProfileParsingFirstCharInSignature + name_and_signature[1];
 
-    const DexFile::StringId* name_id = dex_file->FindStringId(name.c_str());
+    const dex::StringId* name_id = dex_file->FindStringId(name.c_str());
     if (name_id == nullptr) {
       LOG(WARNING) << "Could not find name: "  << name;
       return dex::kDexNoIndex;
@@ -804,12 +867,12 @@ class ProfMan FINAL {
       LOG(WARNING) << "Could not create type list" << signature;
       return dex::kDexNoIndex;
     }
-    const DexFile::ProtoId* proto_id = dex_file->FindProtoId(return_type_idx, param_type_idxs);
+    const dex::ProtoId* proto_id = dex_file->FindProtoId(return_type_idx, param_type_idxs);
     if (proto_id == nullptr) {
       LOG(WARNING) << "Could not find proto_id: " << name;
       return dex::kDexNoIndex;
     }
-    const DexFile::MethodId* method_id = dex_file->FindMethodId(
+    const dex::MethodId* method_id = dex_file->FindMethodId(
         dex_file->GetTypeId(class_ref.TypeIndex()), *name_id, *proto_id);
     if (method_id == nullptr) {
       LOG(WARNING) << "Could not find method_id: " << name;
@@ -832,11 +895,12 @@ class ProfMan FINAL {
     uint32_t offset = dex_file->FindCodeItemOffset(
         *dex_file->FindClassDef(class_ref.TypeIndex()),
         method_index);
-    const DexFile::CodeItem* code_item = dex_file->GetCodeItem(offset);
+    const dex::CodeItem* code_item = dex_file->GetCodeItem(offset);
 
     bool found_invoke = false;
     for (const DexInstructionPcPair& inst : CodeItemInstructionAccessor(*dex_file, code_item)) {
-      if (inst->Opcode() == Instruction::INVOKE_VIRTUAL) {
+      if (inst->Opcode() == Instruction::INVOKE_VIRTUAL ||
+          inst->Opcode() == Instruction::INVOKE_VIRTUAL_RANGE) {
         if (found_invoke) {
           LOG(ERROR) << "Multiple invoke INVOKE_VIRTUAL found: "
                      << dex_file->PrettyMethod(method_index);
@@ -907,7 +971,7 @@ class ProfMan FINAL {
       flags |= ProfileCompilationInfo::MethodHotness::kFlagPostStartup;
     }
 
-    TypeReference class_ref(/* dex_file */ nullptr, dex::TypeIndex());
+    TypeReference class_ref(/* dex_file= */ nullptr, dex::TypeIndex());
     if (!FindClass(dex_files, klass, &class_ref)) {
       LOG(WARNING) << "Could not find class: " << klass;
       return false;
@@ -925,19 +989,13 @@ class ProfMan FINAL {
       dex_resolved_classes.first->AddClass(class_ref.TypeIndex());
       std::vector<ProfileMethodInfo> methods;
       if (method_str == kClassAllMethods) {
-        // Add all of the methods.
-        const DexFile::ClassDef* class_def = dex_file->FindClassDef(class_ref.TypeIndex());
-        const uint8_t* class_data = dex_file->GetClassData(*class_def);
-        if (class_data != nullptr) {
-          ClassDataItemIterator it(*dex_file, class_data);
-          it.SkipAllFields();
-          while (it.HasNextMethod()) {
-            if (it.GetMethodCodeItemOffset() != 0) {
-              // Add all of the methods that have code to the profile.
-              const uint32_t method_idx = it.GetMemberIndex();
-              methods.push_back(ProfileMethodInfo(MethodReference(dex_file, method_idx)));
-            }
-            it.Next();
+        ClassAccessor accessor(
+            *dex_file,
+            dex_file->GetIndexForClassDef(*dex_file->FindClassDef(class_ref.TypeIndex())));
+        for (const ClassAccessor::Method& method : accessor.GetMethods()) {
+          if (method.GetCodeItemOffset() != 0) {
+            // Add all of the methods that have code to the profile.
+            methods.push_back(ProfileMethodInfo(method.GetReference()));
           }
         }
       }
@@ -982,7 +1040,7 @@ class ProfMan FINAL {
         return false;
       }
       std::vector<TypeReference> classes(inline_cache_elems.size(),
-                                         TypeReference(/* dex_file */ nullptr, dex::TypeIndex()));
+                                         TypeReference(/* dex_file= */ nullptr, dex::TypeIndex()));
       size_t class_it = 0;
       for (const std::string& ic_class : inline_cache_elems) {
         if (!FindClass(dex_files, ic_class, &(classes[class_it++]))) {
@@ -1011,9 +1069,14 @@ class ProfMan FINAL {
     int fd = reference_profile_file_fd_;
     if (!FdIsValid(fd)) {
       CHECK(!reference_profile_file_.empty());
-      fd = open(reference_profile_file_.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0644);
+#ifdef _WIN32
+      int flags = O_CREAT | O_TRUNC | O_WRONLY;
+#else
+      int flags = O_CREAT | O_TRUNC | O_WRONLY | O_CLOEXEC;
+#endif
+      fd = open(reference_profile_file_.c_str(), flags, 0644);
       if (fd < 0) {
-        LOG(ERROR) << "Cannot open " << reference_profile_file_ << strerror(errno);
+        PLOG(ERROR) << "Cannot open " << reference_profile_file_;
         return kInvalidFd;
       }
     }
@@ -1144,9 +1207,14 @@ class ProfMan FINAL {
       }
     }
     // ShouldGenerateTestProfile confirms !test_profile_.empty().
-    int profile_test_fd = open(test_profile_.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0644);
+#ifdef _WIN32
+    int flags = O_CREAT | O_TRUNC | O_WRONLY;
+#else
+    int flags = O_CREAT | O_TRUNC | O_WRONLY | O_CLOEXEC;
+#endif
+    int profile_test_fd = open(test_profile_.c_str(), flags, 0644);
     if (profile_test_fd < 0) {
-      LOG(ERROR) << "Cannot open " << test_profile_ << strerror(errno);
+      PLOG(ERROR) << "Cannot open " << test_profile_;
       return -1;
     }
     bool result;
@@ -1202,7 +1270,7 @@ class ProfMan FINAL {
     // Do not clear if invalid. The input might be an archive.
     bool load_ok = use_fds
         ? profile.Load(profile_files_fd_[0])
-        : profile.Load(profile_files_[0], /*clear_if_invalid*/ false);
+        : profile.Load(profile_files_[0], /*clear_if_invalid=*/ false);
     if (load_ok) {
       // Open the dex files to look up classes and methods.
       std::vector<std::unique_ptr<const DexFile>> dex_files;
@@ -1212,7 +1280,7 @@ class ProfMan FINAL {
       }
       bool result = use_fds
           ? profile.Save(reference_profile_file_fd_)
-          : profile.Save(reference_profile_file_, /*bytes_written*/ nullptr);
+          : profile.Save(reference_profile_file_, /*bytes_written=*/ nullptr);
       return result ? 0 : kErrorFailedToSaveProfile;
     } else {
       return kErrorFailedToLoadProfile;
@@ -1220,11 +1288,11 @@ class ProfMan FINAL {
   }
 
  private:
-  static void ParseFdForCollection(const StringPiece& option,
-                                   const char* arg_name,
+  static void ParseFdForCollection(const char* raw_option,
+                                   std::string_view option_prefix,
                                    std::vector<int>* fds) {
     int fd;
-    ParseUintOption(option, arg_name, &fd, Usage);
+    ParseUintOption(raw_option, option_prefix, &fd);
     fds->push_back(fd);
   }
 
@@ -1265,6 +1333,7 @@ class ProfMan FINAL {
   uint32_t test_profile_seed_;
   uint64_t start_ns_;
   bool copy_and_update_profile_key_;
+  bool store_aggregation_counters_;
 };
 
 // See ProfileAssistant::ProcessingResult for return codes.
@@ -1308,4 +1377,3 @@ static int profman(int argc, char** argv) {
 int main(int argc, char **argv) {
   return art::profman(argc, argv);
 }
-

@@ -18,29 +18,32 @@
 #include <set>
 #include <string>
 
-#include <android-base/strings.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
+#include <netdutils/Stopwatch.h>
 
 #define LOG_TAG "Netd"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include "Controllers.h"
 #include "IdletimerController.h"
 #include "NetworkController.h"
 #include "RouteController.h"
-#include "Stopwatch.h"
-#include "oem_iptables_hook.h"
 #include "XfrmController.h"
+#include "oem_iptables_hook.h"
 
 namespace android {
 namespace net {
 
-using android::base::Join;
-using android::base::StringPrintf;
 using android::base::StringAppendF;
+using android::base::StringPrintf;
+using android::netdutils::Stopwatch;
 
 auto Controllers::execIptablesRestore  = ::execIptablesRestore;
 auto Controllers::execIptablesRestoreWithOutput = ::execIptablesRestoreWithOutput;
+
+netdutils::Log gLog("netd");
+netdutils::Log gUnsolicitedLog("netdUnsolicited");
 
 namespace {
 
@@ -70,6 +73,7 @@ static const std::vector<const char*> FILTER_OUTPUT = {
 };
 
 static const std::vector<const char*> RAW_PREROUTING = {
+        ClatdController::LOCAL_RAW_PREROUTING,
         BandwidthController::LOCAL_RAW_PREROUTING,
         IdletimerController::LOCAL_RAW_PREROUTING,
         TetherController::LOCAL_RAW_PREROUTING,
@@ -189,20 +193,20 @@ void Controllers::createChildChains(IptablesTarget target, const char* table,
 Controllers::Controllers()
     : clatdCtrl(&netCtrl),
       wakeupCtrl(
-          [this](const WakeupController::ReportArgs& args) {
-              const auto listener = eventReporter.getNetdEventListener();
-              if (listener == nullptr) {
-                  ALOGE("getNetdEventListener() returned nullptr. dropping wakeup event");
-                  return;
-              }
-              String16 prefix = String16(args.prefix.c_str());
-              String16 srcIp = String16(args.srcIp.c_str());
-              String16 dstIp = String16(args.dstIp.c_str());
-              listener->onWakeupEvent(prefix, args.uid, args.ethertype, args.ipNextHeader,
-                                      args.dstHw, srcIp, dstIp, args.srcPort, args.dstPort,
-                                      args.timestampNs);
-          },
-          &iptablesRestoreCtrl) {
+              [this](const WakeupController::ReportArgs& args) {
+                  const auto listener = eventReporter.getNetdEventListener();
+                  if (listener == nullptr) {
+                      gLog.error("getNetdEventListener() returned nullptr. dropping wakeup event");
+                      return;
+                  }
+                  String16 prefix = String16(args.prefix.c_str());
+                  String16 srcIp = String16(args.srcIp.c_str());
+                  String16 dstIp = String16(args.dstIp.c_str());
+                  listener->onWakeupEvent(prefix, args.uid, args.ethertype, args.ipNextHeader,
+                                          args.dstHw, srcIp, dstIp, args.srcPort, args.dstPort,
+                                          args.timestampNs);
+              },
+              &iptablesRestoreCtrl) {
     InterfaceController::initializeAll();
 }
 
@@ -235,57 +239,68 @@ void Controllers::initChildChains() {
 void Controllers::initIptablesRules() {
     Stopwatch s;
     initChildChains();
-    ALOGI("Creating child chains: %.1fms", s.getTimeAndReset());
+    gLog.info("Creating child chains: %.1fms", s.getTimeAndReset());
 
     // Let each module setup their child chains
     setupOemIptablesHook();
-    ALOGI("Setting up OEM hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up OEM hooks: %.1fms", s.getTimeAndReset());
 
     /* When enabled, DROPs all packets except those matching rules. */
     firewallCtrl.setupIptablesHooks();
-    ALOGI("Setting up FirewallController hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up FirewallController hooks: %.1fms", s.getTimeAndReset());
 
     /* Does DROPs in FORWARD by default */
     tetherCtrl.setupIptablesHooks();
-    ALOGI("Setting up TetherController hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up TetherController hooks: %.1fms", s.getTimeAndReset());
 
     /*
      * Does REJECT in INPUT, OUTPUT. Does counting also.
      * No DROP/REJECT allowed later in netfilter-flow hook order.
      */
     bandwidthCtrl.setupIptablesHooks();
-    ALOGI("Setting up BandwidthController hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up BandwidthController hooks: %.1fms", s.getTimeAndReset());
 
     /*
      * Counts in nat: PREROUTING, POSTROUTING.
      * No DROP/REJECT allowed later in netfilter-flow hook order.
      */
     idletimerCtrl.setupIptablesHooks();
-    ALOGI("Setting up IdletimerController hooks: %.1fms", s.getTimeAndReset());
+    gLog.info("Setting up IdletimerController hooks: %.1fms", s.getTimeAndReset());
+
+    /*
+     * Add rules for detecting IPv6/IPv4 TCP/UDP connections with TLS/DTLS header
+     */
+    strictCtrl.setupIptablesHooks();
+    gLog.info("Setting up StrictController hooks: %.1fms", s.getTimeAndReset());
 }
 
 void Controllers::init() {
     initIptablesRules();
     Stopwatch s;
+
+    clatdCtrl.init();
+    gLog.info("Initializing ClatdController: %.1fms", s.getTimeAndReset());
+
     netdutils::Status tcStatus = trafficCtrl.start();
     if (!isOk(tcStatus)) {
-        ALOGE("failed to start trafficcontroller: (%s)", toString(tcStatus).c_str());
+        gLog.error("Failed to start trafficcontroller: (%s)", toString(tcStatus).c_str());
     }
-    ALOGI("initializing traffic control: %.1fms", s.getTimeAndReset());
+    gLog.info("Initializing traffic control: %.1fms", s.getTimeAndReset());
 
-    bandwidthCtrl.enableBandwidthControl(false);
-    ALOGI("Disabling bandwidth control: %.1fms", s.getTimeAndReset());
+    bandwidthCtrl.setBpfEnabled(trafficCtrl.getBpfLevel() != android::bpf::BpfLevel::NONE);
+    bandwidthCtrl.enableBandwidthControl();
+    gLog.info("Enabling bandwidth control: %.1fms", s.getTimeAndReset());
 
     if (int ret = RouteController::Init(NetworkController::LOCAL_NET_ID)) {
-        ALOGE("failed to initialize RouteController (%s)", strerror(-ret));
+        gLog.error("Failed to initialize RouteController (%s)", strerror(-ret));
     }
-    ALOGI("Initializing RouteController: %.1fms", s.getTimeAndReset());
+    gLog.info("Initializing RouteController: %.1fms", s.getTimeAndReset());
 
     netdutils::Status xStatus = XfrmController::Init();
     if (!isOk(xStatus)) {
-        ALOGE("Failed to initialize XfrmController (%s)", netdutils::toString(xStatus).c_str());
+        gLog.error("Failed to initialize XfrmController (%s)", netdutils::toString(xStatus).c_str());
     };
-    ALOGI("Initializing XfrmController: %.1fms", s.getTimeAndReset());
+    gLog.info("Initializing XfrmController: %.1fms", s.getTimeAndReset());
 }
 
 Controllers* gCtls = nullptr;

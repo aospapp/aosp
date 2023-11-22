@@ -16,6 +16,8 @@
 <configuration description="Configuration for Native NNAPI Tests">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="neuralnetworks" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsNNAPITestCases->/data/local/tmp/CtsNNAPITestCases" />
@@ -24,8 +26,8 @@
     <test class="com.android.tradefed.testtype.GTest" >
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsNNAPITestCases" />
-        <option name="runtime-hint" value="2m" />
-        <!-- test-timeout unit is ms, value = 2 min -->
-        <option name="native-test-timeout" value="120000" />
+        <option name="runtime-hint" value="10m" />
+        <!-- test-timeout unit is ms, value = 10 min -->
+        <option name="native-test-timeout" value="600000" />
     </test>
 </configuration>

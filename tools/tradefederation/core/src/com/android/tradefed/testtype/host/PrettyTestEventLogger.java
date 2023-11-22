@@ -16,6 +16,7 @@
 package com.android.tradefed.testtype.host;
 
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.StubDevice;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -35,6 +36,7 @@ public class PrettyTestEventLogger implements ITestInvocationListener {
 
     private static final String TAG = "TradefedEventsTag";
     private final List<ITestDevice> mDevices;
+    private String mTrace = null;
 
     public PrettyTestEventLogger(List<ITestDevice> devices) {
         mDevices = devices;
@@ -43,12 +45,18 @@ public class PrettyTestEventLogger implements ITestInvocationListener {
     @Override
     public void testStarted(TestDescription test) {
         Date date = new Date();
+        mTrace = null;
         String message =
                 String.format(
                         "==================== %s STARTED: %s ====================",
                         test.toString(), date.toString());
-        CLog.d(message);
+        CLog.d("\n" + message);
         logOnAllDevices(message);
+    }
+
+    @Override
+    public void testFailed(TestDescription test, String trace) {
+        mTrace = trace;
     }
 
     @Override
@@ -58,7 +66,12 @@ public class PrettyTestEventLogger implements ITestInvocationListener {
                 String.format(
                         "==================== %s ENDED: %s ====================",
                         test.toString(), date.toString());
-        CLog.d(message);
+        CLog.d("\n" + message);
+        if (mTrace != null
+                && mTrace.contains(DeviceNotAvailableException.class.getCanonicalName())) {
+            CLog.d("Skip logging device side, device was unavailable.");
+            return;
+        }
         logOnAllDevices(message);
     }
 

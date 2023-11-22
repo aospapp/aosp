@@ -16,16 +16,16 @@
 
 #define LOG_TAG "NetlinkListener"
 
+#include "NetlinkListener.h"
+
 #include <sstream>
 #include <vector>
 
 #include <linux/netfilter/nfnetlink.h>
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include <netdutils/Misc.h>
 #include <netdutils/Syscalls.h>
-
-#include "NetlinkListener.h"
 
 namespace android {
 namespace net {
@@ -57,14 +57,21 @@ const NetlinkListener::DispatchFn kDefaultDispatchFn = [](const nlmsghdr& nlmsg,
 
 }  // namespace
 
-NetlinkListener::NetlinkListener(UniqueFd event, UniqueFd sock)
-    : mEvent(std::move(event)), mSock(std::move(sock)), mWorker([this]() { run(); }) {
+NetlinkListener::NetlinkListener(UniqueFd event, UniqueFd sock, const std::string& name)
+    : mEvent(std::move(event)), mSock(std::move(sock)), mThreadName(name) {
     const auto rxErrorHandler = [](const nlmsghdr& nlmsg, const Slice msg) {
         std::stringstream ss;
         ss << nlmsg << " " << msg << " " << netdutils::toHex(msg, 32);
         ALOGE("unhandled netlink message: %s", ss.str().c_str());
     };
     expectOk(NetlinkListener::subscribe(kNetlinkMsgErrorType, rxErrorHandler));
+
+    mErrorHandler = [& name = mThreadName](const int fd, const int err) {
+        ALOGE("Error on NetlinkListener(%s) fd=%d: %s", name.c_str(), fd, strerror(err));
+    };
+
+    // Start the thread
+    mWorker = std::thread([this]() { run().ignoreError(); });
 }
 
 NetlinkListener::~NetlinkListener() {
@@ -85,29 +92,39 @@ Status NetlinkListener::send(const Slice msg) {
 }
 
 Status NetlinkListener::subscribe(uint16_t type, const DispatchFn& fn) {
-    std::lock_guard<std::mutex> guard(mMutex);
+    std::lock_guard guard(mMutex);
     mDispatchMap[type] = fn;
     return ok;
 }
 
 Status NetlinkListener::unsubscribe(uint16_t type) {
-    std::lock_guard<std::mutex> guard(mMutex);
+    std::lock_guard guard(mMutex);
     mDispatchMap.erase(type);
     return ok;
+}
+
+void NetlinkListener::registerSkErrorHandler(const SkErrorHandler& handler) {
+    mErrorHandler = handler;
 }
 
 Status NetlinkListener::run() {
     std::vector<char> rxbuf(4096);
 
     const auto rxHandler = [this](const nlmsghdr& nlmsg, const Slice& buf) {
-        std::lock_guard<std::mutex> guard(mMutex);
+        std::lock_guard guard(mMutex);
         const auto& fn = findWithDefault(mDispatchMap, nlmsg.nlmsg_type, kDefaultDispatchFn);
         fn(nlmsg, buf);
     };
 
+    if (mThreadName.length() > 0) {
+        int ret = pthread_setname_np(pthread_self(), mThreadName.c_str());
+        if (ret) {
+            ALOGE("thread name set failed, name: %s, ret: %s", mThreadName.c_str(), strerror(ret));
+        }
+    }
     const auto& sys = sSyscalls.get();
     const std::array<Fd, 2> fds{{{mEvent}, {mSock}}};
-    const int events = POLLIN | POLLRDHUP | POLLERR | POLLHUP;
+    const int events = POLLIN;
     const double timeout = 3600;
     while (true) {
         ASSIGN_OR_RETURN(auto revents, sys.ppoll(fds, events, timeout));
@@ -115,11 +132,15 @@ Status NetlinkListener::run() {
         if (revents[0] & POLLIN) {
             break;
         }
-        if (revents[1] & POLLIN) {
+        if (revents[1] & (POLLIN|POLLERR)) {
             auto rx = sys.recvfrom(mSock, makeSlice(rxbuf), 0);
-            if (rx.status().code() == ENOBUFS) {
-                // Ignore ENOBUFS - the socket is still usable
-                // TODO: Users other than NFLOG may need to know about this
+            int err = rx.status().code();
+            if (err) {
+                // Ignore errors. The only error we expect to see here is ENOBUFS, and there's
+                // nothing we can do about that. The recvfrom above will already have cleared the
+                // error indication and ensured we won't get EPOLLERR again.
+                // TODO: Consider using NETLINK_NO_ENOBUFS.
+                mErrorHandler(((Fd) mSock).get(), err);
                 continue;
             }
             forEachNetlinkMessage(rx.value(), rxHandler);

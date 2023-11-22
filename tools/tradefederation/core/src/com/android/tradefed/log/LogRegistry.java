@@ -96,15 +96,6 @@ public class LogRegistry implements ILogRegistry {
      * {@inheritDoc}
      */
     @Override
-    public void setGlobalLogTagDisplay(Collection<String> logTagsDisplay) {
-        mGlobalLogger.addLogTagsDisplay(logTagsDisplay);
-        mHistoryLogger.addLogTagsDisplay(logTagsDisplay);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public LogLevel getGlobalLogDisplayLevel() {
         return mGlobalLogger.getLogLevelDisplay();
     }
@@ -187,9 +178,10 @@ public class LogRegistry implements ILogRegistry {
     /**
      * Gets the underlying logger associated with this thread.
      *
-     * @return the logger for this thread, or null if one has not been registered.
+     * @return the logger for this thread group, or the global logger if one has not been registered
+     *     for the thread group.
      */
-    ILeveledLogOutput getLogger() {
+    public ILeveledLogOutput getLogger() {
         synchronized (mLogTable) {
             ILeveledLogOutput log = mLogTable.get(getCurrentThreadGroup());
             if (log == null) {
@@ -270,7 +262,13 @@ public class LogRegistry implements ILogRegistry {
         try {
             File tradefedLog = FileUtil.createTempFile(filePrefix, ".txt", parentdir);
             FileUtil.writeToFile(logData.createInputStream(), tradefedLog);
-            System.out.println(String.format("Saved log to %s", tradefedLog.getAbsolutePath()));
+            // Align format to our standard logger
+            String message =
+                    LogUtil.getLogFormatString(
+                            LogLevel.VERBOSE,
+                            this.getClass().getSimpleName(),
+                            String.format("Saved log to %s", tradefedLog.getAbsolutePath()));
+            System.out.println(message);
         } catch (IOException e) {
             // ignore
         }

@@ -24,7 +24,7 @@ LOCAL_MODULE_TAGS := tests
 # and when built explicitly put it in the data partition
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner compatibility-device-util
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt compatibility-device-util-axt
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 

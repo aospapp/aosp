@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cache.h"
 
 #ifndef MEMCPY
-# define MEMCPY	memcpy
+# define MEMCPY	memcpy_atom
 #endif
 
 #ifndef L

@@ -15,8 +15,10 @@
 -->
 <configuration description="Config for CTS VM test cases">
     <option name="test-suite-tag" value="cts" />
+    <!-- Jar test -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="component" value="art" />
-    <option name="not-strict-shardable" value= "true" />
     <target_preparer class="android.core.vm.targetprep.VmTestPreparer" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="android.core.vm-tests-tf.jar" />

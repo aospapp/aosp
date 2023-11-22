@@ -27,8 +27,9 @@ import android.graphics.Path;
 import android.graphics.Path.Direction;
 import android.graphics.PathDashPathEffect;
 import android.graphics.RectF;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

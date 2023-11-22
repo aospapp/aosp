@@ -23,13 +23,11 @@ import android.content.Loader;
 import android.database.Cursor;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 import com.android.dialer.app.R;
 import com.android.dialer.blocking.BlockedNumbersMigrator;
@@ -40,6 +38,7 @@ import com.android.dialer.blocking.FilteredNumbersUtil.CheckForSendToVoicemailCo
 import com.android.dialer.blocking.FilteredNumbersUtil.ImportSendToVoicemailContactsListener;
 import com.android.dialer.database.FilteredNumberContract;
 import com.android.dialer.lettertile.LetterTileDrawable;
+import com.android.dialer.theme.base.ThemeComponent;
 import com.android.dialer.voicemailstatus.VisualVoicemailEnabledChecker;
 
 /** TODO(calderwoodra): documentation */
@@ -73,13 +72,10 @@ public class BlockedNumbersFragment extends ListFragment
     getListView().addHeaderView(inflater.inflate(R.layout.blocked_number_header, null));
     getListView().addFooterView(inflater.inflate(R.layout.blocked_number_footer, null));
     //replace the icon for add number with LetterTileDrawable(), so it will have identical style
-    ImageView addNumberIcon = (ImageView) getActivity().findViewById(R.id.add_number_icon);
     LetterTileDrawable drawable = new LetterTileDrawable(getResources());
     drawable.setLetter(ADD_BLOCKED_NUMBER_ICON_LETTER);
-    drawable.setColor(
-        ActivityCompat.getColor(getActivity(), R.color.add_blocked_number_icon_color));
+    drawable.setColor(ThemeComponent.get(getContext()).theme().getColorIcon());
     drawable.setIsCircular(true);
-    addNumberIcon.setImageDrawable(drawable);
 
     if (adapter == null) {
       adapter =
@@ -97,7 +93,6 @@ public class BlockedNumbersFragment extends ListFragment
     blockedNumberListDivider = getActivity().findViewById(R.id.blocked_number_list_divider);
     getListView().findViewById(R.id.import_button).setOnClickListener(this);
     getListView().findViewById(R.id.view_numbers_button).setOnClickListener(this);
-    getListView().findViewById(R.id.add_number_linear_layout).setOnClickListener(this);
 
     footerText = (TextView) getActivity().findViewById(R.id.blocked_number_footer_textview);
     voicemailEnabledChecker = new VisualVoicemailEnabledChecker(getContext(), this);
@@ -123,7 +118,7 @@ public class BlockedNumbersFragment extends ListFragment
 
     ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
     ColorDrawable backgroundDrawable =
-        new ColorDrawable(ActivityCompat.getColor(getActivity(), R.color.dialer_theme_color));
+        new ColorDrawable(ThemeComponent.get(getContext()).theme().getColorPrimary());
     actionBar.setBackgroundDrawable(backgroundDrawable);
     actionBar.setDisplayShowCustomEnabled(false);
     actionBar.setDisplayHomeAsUpEnabled(true);
@@ -137,8 +132,6 @@ public class BlockedNumbersFragment extends ListFragment
     if (FilteredNumberCompat.canUseNewFiltering()) {
       migratePromoView.setVisibility(View.VISIBLE);
       blockedNumbersText.setVisibility(View.GONE);
-      getListView().findViewById(R.id.add_number_linear_layout).setVisibility(View.GONE);
-      getListView().findViewById(R.id.add_number_linear_layout).setOnClickListener(null);
       blockedNumberListDivider.setVisibility(View.GONE);
       importSettings.setVisibility(View.GONE);
       getListView().findViewById(R.id.import_button).setOnClickListener(null);
@@ -218,9 +211,7 @@ public class BlockedNumbersFragment extends ListFragment
     }
 
     int resId = view.getId();
-    if (resId == R.id.add_number_linear_layout) {
-      activity.showSearchUi();
-    } else if (resId == R.id.view_numbers_button) {
+    if (resId == R.id.view_numbers_button) {
       activity.showNumbersToImportPreviewUi();
     } else if (resId == R.id.import_button) {
       FilteredNumbersUtil.importSendToVoicemailContacts(

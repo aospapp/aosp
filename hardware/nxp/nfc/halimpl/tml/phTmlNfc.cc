@@ -43,7 +43,6 @@ static uint8_t bCurrentRetryCount = (2000 / PHTMLNFC_MAXTIME_RETRANSMIT) + 1;
 phTmlNfc_Context_t* gpphTmlNfc_Context = NULL;
 /* Local Function prototypes */
 static NFCSTATUS phTmlNfc_StartThread(void);
-static void phTmlNfc_CleanUp(void);
 static void phTmlNfc_ReadDeferredCb(void* pParams);
 static void phTmlNfc_WriteDeferredCb(void* pParams);
 static void * phTmlNfc_TmlThread(void* pParam);
@@ -451,14 +450,14 @@ static void * phTmlNfc_TmlWriterThread(void* pParam) {
         if (-1 == dwNoBytesWrRd) {
           if (getDownloadFlag() == true) {
             if (retry_cnt++ < MAX_WRITE_RETRY_COUNT) {
-              NXPLOG_NCIHAL_E("PN54X - Error in I2C Write  - Retry 0x%x",
+              NXPLOG_TML_D("PN54X - Error in I2C Write  - Retry 0x%x",
                               retry_cnt);
               // Add a 10 ms delay to ensure NFCC is not still in stand by mode.
               usleep(10 * 1000);
               goto retry;
             }
           }
-          NXPLOG_TML_E("PN54X - Error in I2C Write.....\n");
+          NXPLOG_TML_D("PN54X - Error in I2C Write.....\n");
           wStatus = PHNFCSTVAL(CID_NFC_TML, NFCSTATUS_FAILED);
         } else {
           phNxpNciHal_print_packet("SEND",
@@ -543,7 +542,7 @@ static void * phTmlNfc_TmlWriterThread(void* pParam) {
 ** Returns          None
 **
 *******************************************************************************/
-static void phTmlNfc_CleanUp(void) {
+void phTmlNfc_CleanUp(void) {
   if (NULL == gpphTmlNfc_Context) {
     return;
   }
@@ -606,7 +605,6 @@ NFCSTATUS phTmlNfc_Shutdown(void) {
     }
     NXPLOG_TML_D("bThreadDone == 0");
 
-    phTmlNfc_CleanUp();
   } else {
     wShutdownStatus = PHNFCSTVAL(CID_NFC_TML, NFCSTATUS_NOT_INITIALISED);
   }
@@ -974,4 +972,21 @@ void phTmlNfc_set_fragmentation_enabled(phTmlNfc_i2cfragmentation_t result) {
 
 phTmlNfc_i2cfragmentation_t phTmlNfc_get_fragmentation_enabled() {
   return fragmentation_enabled;
+}
+
+/*******************************************************************************
+**
+** Function         phTmlNfc_Shutdown_CleanUp
+**
+** Description      wrapper function  for shutdown  and cleanup of resources
+**
+** Parameters       None
+**
+** Returns          NFCSTATUS
+**
+*******************************************************************************/
+NFCSTATUS phTmlNfc_Shutdown_CleanUp() {
+  NFCSTATUS wShutdownStatus = phTmlNfc_Shutdown();
+  phTmlNfc_CleanUp();
+  return wShutdownStatus;
 }

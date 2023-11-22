@@ -18,6 +18,7 @@ vts_apk_packages := \
   VtsAgentApp \
   CtsVerifier \
   sl4a \
+  VtsHalNeuralnetworksV1_2BenchmarkTestCases \
 
 # Other tests APKs included as part of VTS.
 vts_apk_packages += \

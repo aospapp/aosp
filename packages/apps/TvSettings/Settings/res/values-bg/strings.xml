@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Калибриране"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Избиране на формати"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Обемен звук"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Някои приложения няма да са налице или няма да работят правилно, докато хранилището не бъде свързано отново."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Няма достатъчно място в хранилището."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Приложението не съществува."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Приложението е защитено срещу копиране."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Мястото за инсталиране не е валидно."</string>
     <string name="system_package" msgid="9200255718634512790">"Системните актуализации не могат да се инсталират на външен носител."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Администраторът на устройството не може да се инсталира на външен носител."</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Достъп до известията"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Няма инсталирани приложения, които са заявили достъп до известията."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Тези приложения ще могат да четат всички известия, включително личната информация, като например имената на контактите и текстовете на съобщенията, които получавате. Те ще са в състояние и да отхвърлят известия или да задействат бутоните за действие в тях."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Достъп до директории"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Тези приложения имат разрешение за достъп до определени директории."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Показване върху други приложения"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Разрешаване на показв. върху други приложения"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Разрешаване на приложението да се показва върху другите използвани от вас приложения. Това може да възпрепятства работата ви с тях или да промени поведението им или начина, по който ги виждате."</string>

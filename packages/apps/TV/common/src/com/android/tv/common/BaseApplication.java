@@ -17,10 +17,7 @@
 package com.android.tv.common;
 
 import android.annotation.TargetApi;
-import android.app.Application;
 import android.content.Context;
-import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.StrictMode;
 import android.support.annotation.VisibleForTesting;
@@ -30,9 +27,10 @@ import com.android.tv.common.util.Clock;
 import com.android.tv.common.util.CommonUtils;
 import com.android.tv.common.util.Debug;
 import com.android.tv.common.util.SystemProperties;
+import dagger.android.DaggerApplication;
 
 /** The base application class for Live TV applications. */
-public abstract class BaseApplication extends Application implements BaseSingletons {
+public abstract class BaseApplication extends DaggerApplication implements BaseSingletons {
     private RecordingStorageStatusManager mRecordingStorageStatusManager;
 
     /**
@@ -41,7 +39,13 @@ public abstract class BaseApplication extends Application implements BaseSinglet
      */
     @VisibleForTesting public static BaseSingletons sSingletons;
 
-    /** Returns the {@link BaseSingletons} using the application context. */
+    /**
+     * Returns the {@link BaseSingletons} using the application context.
+     *
+     * @deprecated use {@link com.android.tv.common.singletons.HasSingletons#get(Class, Context)}
+     *     instead
+     */
+    @Deprecated
     public static BaseSingletons getSingletons(Context context) {
         // STOP-SHIP: changing the method to protected once the Tuner application is created.
         // No need to be "synchronized" because this doesn't create any instance.
@@ -65,8 +69,15 @@ public abstract class BaseApplication extends Application implements BaseSinglet
             StrictMode.ThreadPolicy.Builder threadPolicyBuilder =
                     new StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog();
             // TODO(b/69565157): Turn penaltyDeath on for VMPolicy when tests are fixed.
+            // TODO(b/120840665): Restore detecting untagged network sockets
             StrictMode.VmPolicy.Builder vmPolicyBuilder =
-                    new StrictMode.VmPolicy.Builder().detectAll().penaltyLog();
+                    new StrictMode.VmPolicy.Builder()
+                            .detectActivityLeaks()
+                            .detectLeakedClosableObjects()
+                            .detectLeakedRegistrationObjects()
+                            .detectFileUriExposure()
+                            .detectContentUriWithoutPermission()
+                            .penaltyLog();
 
             if (!CommonUtils.isRunningInTest()) {
                 threadPolicyBuilder.penaltyDialog();
@@ -77,14 +88,6 @@ public abstract class BaseApplication extends Application implements BaseSinglet
         if (CommonFeatures.DVR.isEnabled(this)) {
             getRecordingStorageStatusManager();
         }
-        new AsyncTask<Void, Void, Void>() {
-            @Override
-            protected Void doInBackground(Void... params) {
-                // Fetch remote config
-                getRemoteConfig().fetch(null);
-                return null;
-            }
-        }.execute();
     }
 
     @Override
@@ -101,7 +104,4 @@ public abstract class BaseApplication extends Application implements BaseSinglet
         }
         return mRecordingStorageStatusManager;
     }
-
-    @Override
-    public abstract Intent getTunerSetupIntent(Context context);
 }

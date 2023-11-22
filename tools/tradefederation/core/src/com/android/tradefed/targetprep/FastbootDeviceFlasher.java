@@ -19,6 +19,7 @@ package com.android.tradefed.targetprep;
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.command.remote.DeviceDescriptor;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.IManagedTestDevice;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.TestDeviceState;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 public class FastbootDeviceFlasher implements IDeviceFlasher  {
     public static final String BASEBAND_IMAGE_NAME = "radio";
 
+    private static final String FASTBOOT_VERSION = "fastboot_version";
     private static final int MAX_RETRY_ATTEMPTS = 3;
     private static final int RETRY_SLEEP = 2 * 1000; // 2s sleep between retries
 
@@ -149,6 +151,12 @@ public class FastbootDeviceFlasher implements IDeviceFlasher  {
 
         downloadFlashingResources(device, deviceBuild);
         preFlashSetup(device, deviceBuild);
+        if (device instanceof IManagedTestDevice) {
+            String fastbootVersion = ((IManagedTestDevice) device).getFastbootVersion();
+            if (fastbootVersion != null) {
+                deviceBuild.addBuildAttribute(FASTBOOT_VERSION, fastbootVersion);
+            }
+        }
         handleUserDataFlashing(device, deviceBuild);
         checkAndFlashBootloader(device, deviceBuild);
         checkAndFlashBaseband(device, deviceBuild);

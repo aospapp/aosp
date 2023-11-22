@@ -39,8 +39,8 @@ class InstructionSimplifierMipsVisitor : public HGraphVisitor {
   bool TryExtractArrayAccessIndex(HInstruction* access,
                                   HInstruction* index,
                                   DataType::Type packed_type);
-  void VisitArrayGet(HArrayGet* instruction) OVERRIDE;
-  void VisitArraySet(HArraySet* instruction) OVERRIDE;
+  void VisitArrayGet(HArrayGet* instruction) override;
+  void VisitArraySet(HArraySet* instruction) override;
 
   OptimizingCompilerStats* stats_;
   CodeGeneratorMIPS* codegen_;
@@ -131,9 +131,10 @@ void InstructionSimplifierMipsVisitor::VisitArraySet(HArraySet* instruction) {
   }
 }
 
-void InstructionSimplifierMips::Run() {
+bool InstructionSimplifierMips::Run() {
   InstructionSimplifierMipsVisitor visitor(graph_, codegen_, stats_);
   visitor.VisitReversePostOrder();
+  return true;
 }
 
 }  // namespace mips

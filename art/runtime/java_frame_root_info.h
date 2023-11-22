@@ -19,20 +19,20 @@
 
 #include <iosfwd>
 
+#include "base/locks.h"
 #include "base/macros.h"
-#include "base/mutex.h"
 #include "gc_root.h"
 
 namespace art {
 
 class StackVisitor;
 
-class JavaFrameRootInfo FINAL : public RootInfo {
+class JavaFrameRootInfo final : public RootInfo {
  public:
   JavaFrameRootInfo(uint32_t thread_id, const StackVisitor* stack_visitor, size_t vreg)
      : RootInfo(kRootJavaFrame, thread_id), stack_visitor_(stack_visitor), vreg_(vreg) {
   }
-  void Describe(std::ostream& os) const OVERRIDE
+  void Describe(std::ostream& os) const override
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   size_t GetVReg() const {

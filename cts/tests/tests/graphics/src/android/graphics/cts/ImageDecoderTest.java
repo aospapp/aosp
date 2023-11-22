@@ -24,9 +24,9 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import android.app.ActivityManager;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -44,14 +44,14 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.NinePatchDrawable;
 import android.net.Uri;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.DisplayMetrics;
 import android.util.Size;
 import android.util.TypedValue;
 
 import androidx.core.content.FileProvider;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.BitmapUtils;
 
@@ -66,6 +66,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.concurrent.Callable;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
@@ -102,6 +103,7 @@ public class ImageDecoderTest {
         new Record(R.drawable.google_chrome, 256, 256, "image/x-ico", sSRGB),
         new Record(R.drawable.color_wheel, 128, 128, "image/x-ico", sSRGB),
         new Record(R.raw.sample_1mp, 600, 338, "image/x-adobe-dng", sSRGB),
+        new Record(R.raw.heifwriter_input, 1920, 1080, "image/heif", sSRGB),
     };
 
     // offset is how many bytes to offset the beginning of the image.
@@ -200,6 +202,14 @@ public class ImageDecoderTest {
                 .build();
     }
 
+    private Callable<AssetFileDescriptor> getAsCallable(int resId) {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Uri uri = getAsContentUri(resId);
+        return () -> {
+            return context.getContentResolver().openAssetFileDescriptor(uri, "r");
+        };
+    }
+
     private interface SourceCreator extends IntFunction<ImageDecoder.Source> {};
 
     private SourceCreator[] mCreators = new SourceCreator[] {
@@ -207,6 +217,7 @@ public class ImageDecoderTest {
             resId -> ImageDecoder.createSource(getAsDirectByteBuffer(resId)),
             resId -> ImageDecoder.createSource(getAsReadOnlyByteBuffer(resId)),
             resId -> ImageDecoder.createSource(getAsFile(resId)),
+            resId -> ImageDecoder.createSource(getAsCallable(resId)),
     };
 
     private interface UriCreator extends IntFunction<Uri> {};
@@ -311,7 +322,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testSetBogusAllocator() {
         ImageDecoder.Source src = mCreators[0].apply(RECORDS[0].resId);
         try {
@@ -652,7 +663,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testPostProcessorTRANSPARENT() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -664,7 +675,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testPostProcessorInvalidReturn() {
         ImageDecoder.Source src = mCreators[0].apply(RECORDS[0].resId);
         try {
@@ -676,7 +687,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
     public void testPostProcessorAndUnpremul() {
         ImageDecoder.Source src = mCreators[0].apply(RECORDS[0].resId);
         try {
@@ -955,7 +966,8 @@ public class ImageDecoderTest {
             byte[] bytes = getAsByteArray(record.resId);
             int truncatedLength = bytes.length / 2;
             if (record.mimeType.equals("image/x-ico")
-                    || record.mimeType.equals("image/x-adobe-dng")) {
+                    || record.mimeType.equals("image/x-adobe-dng")
+                    || record.mimeType.equals("image/heif")) {
                 // FIXME (scroggo): Some codecs currently do not support incomplete images.
                 continue;
             }
@@ -1108,7 +1120,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
     public void testMutableHardware() {
         ImageDecoder.Source src = mCreators[0].apply(RECORDS[0].resId);
         try {
@@ -1121,7 +1133,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
     public void testMutableDrawable() {
         ImageDecoder.Source src = mCreators[0].apply(RECORDS[0].resId);
         try {
@@ -1172,7 +1184,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testZeroSampleSize() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1182,7 +1194,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testNegativeSampleSize() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1286,7 +1298,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
     public void testResizeWebpLarger() {
         // libwebp does not upscale, so there is no way to get unpremul.
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.google_logo_2);
@@ -1301,7 +1313,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
     public void testResizeUnpremul() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.alpha);
         try {
@@ -1391,7 +1403,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testResizeZeroX() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1402,7 +1414,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testResizeZeroY() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1413,7 +1425,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testResizeNegativeX() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1424,7 +1436,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalArgumentException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testResizeNegativeY() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1435,7 +1447,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
     public void testStoreImageDecoder() {
         class CachingCallback implements ImageDecoder.OnHeaderDecodedListener {
             ImageDecoder cachedDecoder;
@@ -1455,7 +1467,7 @@ public class ImageDecoderTest {
         l.cachedDecoder.setTargetSampleSize(2);
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
     public void testDecodeUnpremulDrawable() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1466,7 +1478,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
     public void testCropNegativeLeft() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1479,7 +1491,20 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
+    public void testCropNegativeLeftAnimated() {
+        ImageDecoder.Source src = mCreators[0].apply(R.drawable.animated);
+        try {
+            ImageDecoder.decodeDrawable(src, (decoder, info, s) -> {
+                decoder.setCrop(new Rect(-1, 0, info.getSize().getWidth(),
+                                                info.getSize().getHeight()));
+            });
+        } catch (IOException e) {
+            fail("Failed with exception " + e);
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
     public void testCropNegativeTop() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1492,7 +1517,20 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
+    public void testCropNegativeTopAnimated() {
+        ImageDecoder.Source src = mCreators[0].apply(R.drawable.animated);
+        try {
+            ImageDecoder.decodeDrawable(src, (decoder, info, s) -> {
+                decoder.setCrop(new Rect(0, -1, info.getSize().getWidth(),
+                                                info.getSize().getHeight()));
+            });
+        } catch (IOException e) {
+            fail("Failed with exception " + e);
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
     public void testCropTooWide() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1505,7 +1543,20 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
+    public void testCropTooWideAnimated() {
+        ImageDecoder.Source src = mCreators[0].apply(R.drawable.animated);
+        try {
+            ImageDecoder.decodeDrawable(src, (decoder, info, s) -> {
+                decoder.setCrop(new Rect(1, 0, info.getSize().getWidth() + 1,
+                                               info.getSize().getHeight()));
+            });
+        } catch (IOException e) {
+            fail("Failed with exception " + e);
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
     public void testCropTooTall() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
         try {
@@ -1518,9 +1569,24 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test(expected = IllegalStateException.class)
     public void testCropResize() {
         ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
+        try {
+            ImageDecoder.decodeDrawable(src, (decoder, info, s) -> {
+                Size size = info.getSize();
+                decoder.setTargetSize(size.getWidth() / 2, size.getHeight() / 2);
+                decoder.setCrop(new Rect(0, 0, size.getWidth(),
+                                               size.getHeight()));
+            });
+        } catch (IOException e) {
+            fail("Failed with exception " + e);
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testCropResizeAnimated() {
+        ImageDecoder.Source src = mCreators[0].apply(R.drawable.animated);
         try {
             ImageDecoder.decodeDrawable(src, (decoder, info, s) -> {
                 Size size = info.getSize();
@@ -1549,10 +1615,28 @@ public class ImageDecoderTest {
         } catch (IOException e) {
             fail("Failed with exception " + e);
         }
-
     }
 
-    @Test(expected=IllegalStateException.class)
+    @Test
+    public void testAlphaPlusSetTargetColorSpace() {
+        // TargetColorSpace is ignored for ALPHA_8
+        ImageDecoder.Source src = mCreators[0].apply(R.drawable.grayscale_png);
+        for (ColorSpace cs : BitmapTest.getRgbColorSpaces()) {
+            try {
+                Bitmap bm = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+                    decoder.setDecodeAsAlphaMaskEnabled(true);
+                    decoder.setTargetColorSpace(cs);
+                });
+                assertNotNull(bm);
+                assertEquals(Bitmap.Config.ALPHA_8, bm.getConfig());
+                assertNull(bm.getColorSpace());
+            } catch (IOException e) {
+                fail("Failed with exception " + e);
+            }
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
     public void testAlphaMaskPlusHardware() {
         SourceCreator f = mCreators[0];
         ImageDecoder.Source src = f.apply(R.drawable.png_test);
@@ -1562,6 +1646,24 @@ public class ImageDecoderTest {
                 decoder.setDecodeAsAlphaMaskEnabled(true);
                 decoder.setAllocator(ImageDecoder.ALLOCATOR_HARDWARE);
             });
+        } catch (IOException e) {
+            fail("Failed with exception " + e);
+        }
+    }
+
+    @Test
+    public void testAlphaMaskPlusHardwareAnimated() {
+        // AnimatedImageDrawable ignores both of these settings, so it is okay
+        // to combine them.
+        SourceCreator f = mCreators[0];
+        ImageDecoder.Source src = f.apply(R.drawable.animated);
+        assertNotNull(src);
+        try {
+            Drawable d = ImageDecoder.decodeDrawable(src, (decoder, info, s) -> {
+                decoder.setDecodeAsAlphaMaskEnabled(true);
+                decoder.setAllocator(ImageDecoder.ALLOCATOR_HARDWARE);
+            });
+            assertNotNull(d);
         } catch (IOException e) {
             fail("Failed with exception " + e);
         }
@@ -1622,7 +1724,7 @@ public class ImageDecoderTest {
             // By default, this will decode to HARDWARE
             ImageDecoder.Source src = f.apply(resId);
             try {
-                Bitmap bm  = ImageDecoder.decodeBitmap(src);
+                Bitmap bm = ImageDecoder.decodeBitmap(src);
                 assertEquals(Bitmap.Config.HARDWARE, bm.getConfig());
             } catch (IOException e) {
                 fail("Failed with exception " + e);
@@ -1638,7 +1740,8 @@ public class ImageDecoderTest {
                         src = f.apply(resId);
                         try {
                             Bitmap bm = ImageDecoder.decodeBitmap(src, l);
-                            assertNotEquals(Bitmap.Config.HARDWARE, bm.getConfig());
+                            assertEquals(Bitmap.Config.ALPHA_8, bm.getConfig());
+                            assertNull(bm.getColorSpace());
                         } catch (IOException e) {
                             fail("Failed with exception " + e);
                         }
@@ -1680,16 +1783,19 @@ public class ImageDecoderTest {
         };
         Listener l = new Listener();
         SourceCreator f = mCreators[0];
-        for (int resId : new int[] { R.drawable.png_test, R.raw.basi6a16 }) {
+        for (int resId : new int[] { R.drawable.png_test, R.raw.f16 }) {
             Bitmap normal = null;
             try {
-                normal = ImageDecoder.decodeBitmap(f.apply(resId));
+                normal = ImageDecoder.decodeBitmap(f.apply(resId), ((decoder, info, source) -> {
+                    decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+                }));
             } catch (IOException e) {
                 fail("Failed with exception " + e);
             }
             assertNotNull(normal);
             int normalByteCount = normal.getAllocationByteCount();
-            for (int allocator : ALLOCATORS) {
+            int[] allocators = { ImageDecoder.ALLOCATOR_HARDWARE, ImageDecoder.ALLOCATOR_DEFAULT };
+            for (int allocator : allocators) {
                 l.allocator = allocator;
                 Bitmap test = null;
                 try {
@@ -1700,39 +1806,14 @@ public class ImageDecoderTest {
                 assertNotNull(test);
                 int byteCount = test.getAllocationByteCount();
 
-                if (allocator == ImageDecoder.ALLOCATOR_HARDWARE
-                        || allocator == ImageDecoder.ALLOCATOR_DEFAULT) {
-                    if (resId == R.drawable.png_test) {
-                        // We do not support 565 in HARDWARE, so no RAM savings
-                        // are possible.
-                        assertEquals(normalByteCount, byteCount);
-                    } else { // R.raw.basi6a16
-                        // This image defaults to F16. MEMORY_POLICY_LOW_RAM
-                        // forces "test" to decode to 8888. But if the device
-                        // does not support F16 in HARDWARE, "normal" is also
-                        // 8888. Its Config is HARDWARE either way, but we can
-                        // detect its underlying pixel format by checking the
-                        // ColorSpace, which is always LINEAR_EXTENDED_SRGB for
-                        // F16.
-                        if (normal.getColorSpace().equals(
-                                    ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB))) {
-                            // F16. "test" should be smaller.
-                            assertTrue(byteCount < normalByteCount);
-                        } else {
-                            // 8888. No RAM savings possible.
-                            assertEquals(normalByteCount, byteCount);
-                        }
-                    }
-                } else {
-                    // Not decoding to HARDWARE, but |normal| was. Again, if basi6a16
-                    // was decoded to 8888, which we can detect by looking at the color
-                    // space, no savings are possible.
-                    if (resId == R.raw.basi6a16 && !normal.getColorSpace().equals(
-                                ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB))) {
-                        assertEquals(normalByteCount, byteCount);
-                    } else {
-                        assertTrue(byteCount < normalByteCount);
-                    }
+                if (resId == R.drawable.png_test) {
+                    // We do not support 565 in HARDWARE, so no RAM savings
+                    // are possible.
+                    assertEquals(normalByteCount, byteCount);
+                } else { // R.raw.f16
+                    // This image defaults to F16. MEMORY_POLICY_LOW_RAM
+                    // forces "test" to decode to 8888.
+                    assertTrue(byteCount < normalByteCount);
                 }
             }
         }
@@ -1765,8 +1846,8 @@ public class ImageDecoderTest {
                                    // If this were stored in drawable/, it would
                                    // be converted from 16-bit to 8. FIXME: Is
                                    // behavior still desirable now that we have
-                                   // F16?
-                                   R.raw.basi6a16 };
+                                   // F16? b/119760146
+                                   R.raw.f16 };
         // An opaque image can be converted to 565, but postProcess will promote
         // to 8888 in case alpha is added. The third image defaults to F16, so
         // even with postProcess it will only be promoted to 8888.
@@ -1854,7 +1935,7 @@ public class ImageDecoderTest {
         }
     }
 
-    @Test(expected=IOException.class)
+    @Test(expected = IOException.class)
     public void testZeroLengthByteBuffer() throws IOException {
         Drawable drawable = ImageDecoder.decodeDrawable(
             ImageDecoder.createSource(ByteBuffer.wrap(new byte[10], 0, 0)));
@@ -1997,16 +2078,31 @@ public class ImageDecoderTest {
                 assertTrue(drawable.getIntrinsicHeight() > record.height);
 
                 // Set a low density. This will result in a smaller drawable and
-                // Bitmap.
+                // Bitmap, unless the true density is DENSITY_MEDIUM, which matches
+                // the density of the asset.
                 mRes.getDisplayMetrics().densityDpi = DisplayMetrics.DENSITY_LOW;
                 drawable = decodeBitmapDrawable(resId);
-
                 bm = drawable.getBitmap();
-                assertTrue(bm.getWidth() < record.width);
-                assertTrue(bm.getHeight() < record.height);
 
-                assertEquals(bm.getWidth(), drawable.getIntrinsicWidth());
-                assertEquals(bm.getHeight(), drawable.getIntrinsicHeight());
+                if (originalDensity == DisplayMetrics.DENSITY_MEDIUM) {
+                    // Although we've modified |densityDpi|, ImageDecoder knows the
+                    // true density matches the asset, so it will not downscale at
+                    // decode time.
+                    assertEquals(bm.getWidth(), record.width);
+                    assertEquals(bm.getHeight(), record.height);
+
+                    // The drawable should still be smaller.
+                    assertTrue(bm.getWidth() > drawable.getIntrinsicWidth());
+                    assertTrue(bm.getHeight() > drawable.getIntrinsicHeight());
+                } else {
+                    // The bitmap is scaled down at decode time, so it matches the
+                    // drawable size, and is smaller than the original.
+                    assertTrue(bm.getWidth() < record.width);
+                    assertTrue(bm.getHeight() < record.height);
+
+                    assertEquals(bm.getWidth(), drawable.getIntrinsicWidth());
+                    assertEquals(bm.getHeight(), drawable.getIntrinsicHeight());
+                }
             }
         } finally {
             mRes.getDisplayMetrics().densityDpi = originalDensity;
@@ -2018,21 +2114,31 @@ public class ImageDecoderTest {
         public final int width;
         public final int height;
         public final boolean isF16;
+        public final boolean isGray;
         private final ColorSpace mColorSpace;
 
-        AssetRecord(String name, int width, int height, boolean isF16, ColorSpace colorSpace) {
+        AssetRecord(String name, int width, int height, boolean isF16, boolean isGray,
+                ColorSpace colorSpace) {
             this.name = name;
             this.width = width;
             this.height = height;
             this.isF16 = isF16;
+            this.isGray = isGray;
             mColorSpace = colorSpace;
         }
 
         public void checkColorSpace(ColorSpace requested, ColorSpace actual) {
-            assertNotNull(actual);
-            if (this.isF16) {
-                assertSame(ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB), actual);
+            assertNotNull("Null ColorSpace for " + this.name, actual);
+            if (this.isF16 && requested != null) {
+                if (requested == ColorSpace.get(ColorSpace.Named.LINEAR_SRGB)) {
+                    assertSame(ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB), actual);
+                } else if (requested == ColorSpace.get(ColorSpace.Named.SRGB)) {
+                    assertSame(ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB), actual);
+                } else {
+                    assertSame(requested, actual);
+                }
             } else if (requested != null) {
+                // If the asset is *not* 16 bit, requesting EXTENDED will promote to 16 bit.
                 assertSame(requested, actual);
             } else if (mColorSpace == null) {
                 assertEquals(this.name, "Unknown", actual.getName());
@@ -2044,18 +2150,22 @@ public class ImageDecoderTest {
 
     private static final AssetRecord[] ASSETS = new AssetRecord[] {
             // A null ColorSpace means that the color space is "Unknown".
-            new AssetRecord("almost-red-adobe.png", 1, 1, false, null),
-            new AssetRecord("green-p3.png", 64, 64, false,
+            new AssetRecord("almost-red-adobe.png", 1, 1, false, false, null),
+            new AssetRecord("green-p3.png", 64, 64, false, false,
                     ColorSpace.get(ColorSpace.Named.DISPLAY_P3)),
-            new AssetRecord("green-srgb.png", 64, 64, false, sSRGB),
-            new AssetRecord("prophoto-rgba16f.png", 64, 64, true,
-                    ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB)),
-            new AssetRecord("purple-cmyk.png", 64, 64, false, sSRGB),
-            new AssetRecord("purple-displayprofile.png", 64, 64, false, null),
-            new AssetRecord("red-adobergb.png", 64, 64, false,
+            new AssetRecord("green-srgb.png", 64, 64, false, false, sSRGB),
+            new AssetRecord("blue-16bit-prophoto.png", 100, 100, true, false,
+                    ColorSpace.get(ColorSpace.Named.PRO_PHOTO_RGB)),
+            new AssetRecord("blue-16bit-srgb.png", 64, 64, true, false,
+                    ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB)),
+            new AssetRecord("purple-cmyk.png", 64, 64, false, false, sSRGB),
+            new AssetRecord("purple-displayprofile.png", 64, 64, false, false, null),
+            new AssetRecord("red-adobergb.png", 64, 64, false, false,
                     ColorSpace.get(ColorSpace.Named.ADOBE_RGB)),
-            new AssetRecord("translucent-green-p3.png", 64, 64, false,
+            new AssetRecord("translucent-green-p3.png", 64, 64, false, false,
                     ColorSpace.get(ColorSpace.Named.DISPLAY_P3)),
+            new AssetRecord("grayscale-linearSrgb.png", 32, 32, false, true,
+                    ColorSpace.get(ColorSpace.Named.LINEAR_SRGB)),
     };
 
     @Test
@@ -2087,22 +2197,7 @@ public class ImageDecoderTest {
         AssetManager assets = mRes.getAssets();
         for (AssetRecord record : ASSETS) {
             ImageDecoder.Source src = ImageDecoder.createSource(assets, record.name);
-            for (ColorSpace cs : new ColorSpace[] {
-                    sSRGB,
-                    ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB),
-                    ColorSpace.get(ColorSpace.Named.DISPLAY_P3),
-                    ColorSpace.get(ColorSpace.Named.ADOBE_RGB),
-                    ColorSpace.get(ColorSpace.Named.BT709),
-                    ColorSpace.get(ColorSpace.Named.BT2020),
-                    ColorSpace.get(ColorSpace.Named.DCI_P3),
-                    ColorSpace.get(ColorSpace.Named.NTSC_1953),
-                    ColorSpace.get(ColorSpace.Named.SMPTE_C),
-                    ColorSpace.get(ColorSpace.Named.PRO_PHOTO_RGB),
-                    // FIXME: These will not match due to b/77276533.
-                    // ColorSpace.get(ColorSpace.Named.LINEAR_SRGB),
-                    // ColorSpace.get(ColorSpace.Named.ACES),
-                    // ColorSpace.get(ColorSpace.Named.ACESCG),
-            }) {
+            for (ColorSpace cs : BitmapTest.getRgbColorSpaces()) {
                 try {
                     Bitmap bm = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
                         if (record.isF16) {
@@ -2120,24 +2215,120 @@ public class ImageDecoderTest {
         }
     }
 
+    private boolean isExtended(ColorSpace colorSpace) {
+        return colorSpace == ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB)
+            || colorSpace == ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB);
+    }
+
     @Test
-    public void testTargetColorSpaceNonRGB() {
-        ImageDecoder.Source src = mCreators[0].apply(R.drawable.png_test);
-        for (ColorSpace cs : new ColorSpace[] {
-                ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB),
-                ColorSpace.get(ColorSpace.Named.CIE_LAB),
-                ColorSpace.get(ColorSpace.Named.CIE_XYZ),
-        }) {
-            try {
-                ImageDecoder.decodeDrawable(src, (decoder, info, s) -> {
-                    decoder.setTargetColorSpace(cs);
-                });
-                fail("Should have thrown an IllegalArgumentException for setTargetColorSpace("
-                        + cs + ")!");
-            } catch (IOException e) {
-                fail("Failed to decode png_test with " + e);
-            } catch (IllegalArgumentException illegal) {
-                // This is expected.
+    public void testTargetColorSpaceUpconvert() {
+        // Verify that decoding an asset to EXTENDED upconverts to F16.
+        AssetManager assets = mRes.getAssets();
+        boolean[] trueFalse = new boolean[] { true, false };
+        final ColorSpace linearExtended = ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB);
+        final ColorSpace linearSrgb = ColorSpace.get(ColorSpace.Named.LINEAR_SRGB);
+
+        for (AssetRecord record : ASSETS) {
+            if (record.isF16) {
+                // These assets decode to F16 by default.
+                continue;
+            }
+            ImageDecoder.Source src = ImageDecoder.createSource(assets, record.name);
+            for (ColorSpace cs : BitmapTest.getRgbColorSpaces()) {
+                for (boolean alphaMask : trueFalse) {
+                    try {
+                        Bitmap bm = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+                            // Force software so we can check the Config.
+                            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+                            decoder.setTargetColorSpace(cs);
+                            // This has no effect on non-gray assets.
+                            decoder.setDecodeAsAlphaMaskEnabled(alphaMask);
+                        });
+
+                        if (record.isGray && alphaMask) {
+                            assertSame(Bitmap.Config.ALPHA_8, bm.getConfig());
+                            assertNull(bm.getColorSpace());
+                        } else {
+                            assertSame(cs, bm.getColorSpace());
+                            if (isExtended(cs)) {
+                                assertSame(Bitmap.Config.RGBA_F16, bm.getConfig());
+                            } else {
+                                assertSame(Bitmap.Config.ARGB_8888, bm.getConfig());
+                            }
+                        }
+                    } catch (IOException e) {
+                        fail("Failed to decode asset " + record.name + " to " + cs + " with " + e);
+                    }
+
+                    // Using MEMORY_POLICY_LOW_RAM prevents upconverting.
+                    try {
+                        Bitmap bm = ImageDecoder.decodeBitmap(src, (decoder, info, s) -> {
+                            // Force software so we can check the Config.
+                            decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+                            decoder.setTargetColorSpace(cs);
+                            decoder.setMemorySizePolicy(ImageDecoder.MEMORY_POLICY_LOW_RAM);
+                            // This has no effect on non-gray assets.
+                            decoder.setDecodeAsAlphaMaskEnabled(alphaMask);
+                        });
+
+                        assertNotEquals(Bitmap.Config.RGBA_F16, bm.getConfig());
+
+                        if (record.isGray && alphaMask) {
+                            assertSame(Bitmap.Config.ALPHA_8, bm.getConfig());
+                            assertNull(bm.getColorSpace());
+                        } else {
+                            ColorSpace actual = bm.getColorSpace();
+                            if (isExtended(cs)) {
+                                if (cs == ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB)) {
+                                    assertSame(ColorSpace.get(ColorSpace.Named.SRGB), actual);
+                                } else if (cs == linearExtended) {
+                                    assertSame(linearSrgb, actual);
+                                } else {
+                                    fail("Test error: did isExtended() change?");
+                                }
+                            } else {
+                                assertSame(cs, actual);
+                                if (bm.hasAlpha()) {
+                                    assertSame(Bitmap.Config.ARGB_8888, bm.getConfig());
+                                } else {
+                                    assertSame(Bitmap.Config.RGB_565, bm.getConfig());
+                                }
+                            }
+                        }
+                    } catch (IOException e) {
+                        fail("Failed to decode asset " + record.name
+                                + " with MEMORY_POLICY_LOW_RAM to " + cs + " with " + e);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testTargetColorSpaceIllegal() {
+        ColorSpace noTransferParamsCS = new ColorSpace.Rgb("NoTransferParams",
+                new float[]{ 0.640f, 0.330f, 0.300f, 0.600f, 0.150f, 0.060f },
+                ColorSpace.ILLUMINANT_D50,
+                x -> Math.pow(x, 1.0f / 2.2f), x -> Math.pow(x, 2.2f),
+                0, 1);
+        for (int resId : new int[] { R.drawable.png_test, R.drawable.animated }) {
+            ImageDecoder.Source src = mCreators[0].apply(resId);
+            for (ColorSpace cs : new ColorSpace[] {
+                    ColorSpace.get(ColorSpace.Named.CIE_LAB),
+                    ColorSpace.get(ColorSpace.Named.CIE_XYZ),
+                    noTransferParamsCS,
+            }) {
+                try {
+                    ImageDecoder.decodeDrawable(src, (decoder, info, s) -> {
+                        decoder.setTargetColorSpace(cs);
+                    });
+                    fail("Should have thrown an IllegalArgumentException for setTargetColorSpace("
+                            + cs + ")!");
+                } catch (IOException e) {
+                    fail("Failed to decode png_test with " + e);
+                } catch (IllegalArgumentException illegal) {
+                    // This is expected.
+                }
             }
         }
     }
@@ -2178,9 +2369,26 @@ public class ImageDecoderTest {
     }
 
     @Test
+    public void testJpegInfiniteLoop() {
+        ImageDecoder.Source src = mCreators[0].apply(R.raw.b78329453);
+        try {
+            ImageDecoder.decodeDrawable(src, (decoder, info, s) -> {
+                decoder.setTargetSampleSize(19);
+            });
+        } catch (IOException e) {
+            fail();
+        }
+    }
+
+    @Test
     @LargeTest
     public void testReuse() {
         for (Record record : RECORDS) {
+            if (record.mimeType.equals("image/heif")) {
+                // This image takes too long for this test.
+                continue;
+            }
+
             String name = getAsResourceUri(record.resId).toString();
             for (SourceCreator f : mCreators) {
                 ImageDecoder.Source src = f.apply(record.resId);
@@ -2216,25 +2424,28 @@ public class ImageDecoderTest {
     }
 
     @Test
-    public void testWarpedDng() {
-        Context context = InstrumentationRegistry.getTargetContext();
-        ActivityManager activityManager = (ActivityManager) context
-                .getSystemService(Context.ACTIVITY_SERVICE);
-        ActivityManager.MemoryInfo info = new ActivityManager.MemoryInfo();
-        activityManager.getMemoryInfo(info);
-
-        // Decoding this image requires a lot of memory. Only attempt if the
-        // device has a total memory of at least 2 Gigs.
-        if (info.totalMem < 2 * 1024 * 1024 * 1024) {
-            return;
+    public void testIsMimeTypeSupported() {
+        for (Record record : RECORDS) {
+            assertTrue(record.mimeType, ImageDecoder.isMimeTypeSupported(record.mimeType));
         }
 
-        String name = "b78120086.dng";
-        ImageDecoder.Source src = ImageDecoder.createSource(mRes.getAssets(), name);
-        try {
-            ImageDecoder.decodeDrawable(src);
-        } catch (IOException e) {
-            fail("Failed to decode " + name + " with exception " + e);
+        for (String mimeType : new String[] {
+                "image/heic",
+                "image/vnd.wap.wbmp",
+                "image/x-sony-arw",
+                "image/x-canon-cr2",
+                "image/x-adobe-dng",
+                "image/x-nikon-nef",
+                "image/x-nikon-nrw",
+                "image/x-olympus-orf",
+                "image/x-fuji-raf",
+                "image/x-panasonic-rw2",
+                "image/x-pentax-pef",
+                "image/x-samsung-srw",
+        }) {
+            assertTrue(mimeType, ImageDecoder.isMimeTypeSupported(mimeType));
         }
+
+        assertFalse(ImageDecoder.isMimeTypeSupported("image/x-does-not-exist"));
     }
 }

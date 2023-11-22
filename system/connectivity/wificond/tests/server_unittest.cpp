@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
+#include <array>
 #include <memory>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <wifi_system_test/mock_hostapd_manager.h>
 #include <wifi_system_test/mock_interface_tool.h>
-#include <wifi_system_test/mock_supplicant_manager.h>
 
 #include "android/net/wifi/IApInterface.h"
 #include "wificond/tests/mock_netlink_manager.h"
@@ -30,12 +29,8 @@
 
 using android::net::wifi::IApInterface;
 using android::net::wifi::IClientInterface;
-using android::wifi_system::HostapdManager;
 using android::wifi_system::InterfaceTool;
-using android::wifi_system::MockHostapdManager;
 using android::wifi_system::MockInterfaceTool;
-using android::wifi_system::MockSupplicantManager;
-using android::wifi_system::SupplicantManager;
 using std::unique_ptr;
 using std::vector;
 using testing::Eq;
@@ -59,9 +54,9 @@ const char kFateInterfaceNameInvalid[] = "testif-invalid";
 const uint32_t kFakeInterfaceIndex = 34;
 const uint32_t kFakeInterfaceIndex1 = 36;
 const uint32_t kFakeInterfaceIndexP2p = 36;
-const uint8_t kFakeInterfaceMacAddress[] = {0x45, 0x54, 0xad, 0x67, 0x98, 0xf6};
-const uint8_t kFakeInterfaceMacAddress1[] = {0x05, 0x04, 0xef, 0x27, 0x12, 0xff};
-const uint8_t kFakeInterfaceMacAddressP2p[] = {0x15, 0x24, 0xef, 0x27, 0x12, 0xff};
+const std::array<uint8_t, ETH_ALEN> kFakeInterfaceMacAddress = {0x45, 0x54, 0xad, 0x67, 0x98, 0xf6};
+const std::array<uint8_t, ETH_ALEN> kFakeInterfaceMacAddress1 = {0x05, 0x04, 0xef, 0x27, 0x12, 0xff};
+const std::array<uint8_t, ETH_ALEN> kFakeInterfaceMacAddressP2p = {0x15, 0x24, 0xef, 0x27, 0x12, 0xff};
 
 // This is a helper function to mock the behavior of
 // NetlinkUtils::GetInterfaces().
@@ -74,7 +69,7 @@ bool MockGetInterfacesResponse(
     bool mock_return_value,
     uint32_t wiphy_index,
     vector<InterfaceInfo>* response) {
-  for (auto interface : mock_response) {
+  for (const auto& interface : mock_response) {
     response->emplace_back(interface);
   }
   return mock_return_value;
@@ -85,16 +80,13 @@ class ServerTest : public ::testing::Test {
   void SetUp() override {
     ON_CALL(*if_tool_, SetUpState(_, _)).WillByDefault(Return(true));
     ON_CALL(*netlink_utils_, GetWiphyIndex(_)).WillByDefault(Return(true));
+    ON_CALL(*netlink_utils_, GetWiphyIndex(_, _)).WillByDefault(Return(true));
     ON_CALL(*netlink_utils_, GetInterfaces(_, _))
       .WillByDefault(Invoke(bind(
           MockGetInterfacesResponse, mock_interfaces, true, _1, _2)));
   }
 
   NiceMock<MockInterfaceTool>* if_tool_ = new NiceMock<MockInterfaceTool>;
-  NiceMock<MockSupplicantManager>* supplicant_manager_ =
-      new NiceMock<MockSupplicantManager>;
-  NiceMock<MockHostapdManager>* hostapd_manager_ =
-      new NiceMock<MockHostapdManager>;
 
   unique_ptr<NiceMock<MockNetlinkManager>> netlink_manager_{
       new NiceMock<MockNetlinkManager>()};
@@ -108,28 +100,20 @@ class ServerTest : public ::testing::Test {
       InterfaceInfo(
           kFakeInterfaceIndex,
           std::string(kFakeInterfaceName),
-          vector<uint8_t>(
-              kFakeInterfaceMacAddress,
-              kFakeInterfaceMacAddress + sizeof(kFakeInterfaceMacAddress))),
+          std::array<uint8_t, ETH_ALEN>(kFakeInterfaceMacAddress)),
       // AP Interface
       InterfaceInfo(
           kFakeInterfaceIndex1,
           std::string(kFakeInterfaceName1),
-          vector<uint8_t>(
-              kFakeInterfaceMacAddress1,
-              kFakeInterfaceMacAddress1 + sizeof(kFakeInterfaceMacAddress1))),
+          std::array<uint8_t, ETH_ALEN>(kFakeInterfaceMacAddress1)),
       // p2p interface
       InterfaceInfo(
           kFakeInterfaceIndexP2p,
           std::string(kFakeInterfaceNameP2p),
-           vector<uint8_t>(
-               kFakeInterfaceMacAddressP2p,
-               kFakeInterfaceMacAddressP2p + sizeof(kFakeInterfaceMacAddressP2p)))
+          std::array<uint8_t, ETH_ALEN>(kFakeInterfaceMacAddressP2p))
   };
 
   Server server_{unique_ptr<InterfaceTool>(if_tool_),
-                 unique_ptr<SupplicantManager>(supplicant_manager_),
-                 unique_ptr<HostapdManager>(hostapd_manager_),
                  netlink_utils_.get(),
                  scan_utils_.get()};
 };  // class ServerTest
@@ -172,9 +156,6 @@ TEST_F(ServerTest, CanDestroyInterfaces) {
 TEST_F(ServerTest, CanTeardownApInterface) {
   sp<IApInterface> ap_if;
 
-  // When we tear down the interface, we expect the iface to be unloaded.
-  EXPECT_CALL(*if_tool_, SetUpState(StrEq(kFakeInterfaceName), Eq(false)));
-
   EXPECT_TRUE(server_.createApInterface(kFakeInterfaceName, &ap_if).isOk());
   EXPECT_NE(nullptr, ap_if.get());
 
@@ -191,9 +172,6 @@ TEST_F(ServerTest, CanTeardownApInterface) {
 TEST_F(ServerTest, CanTeardownClientInterface) {
   sp<IClientInterface> client_if;
 
-  // When we tear down the interface, we expect the iface to be unloaded.
-  EXPECT_CALL(*if_tool_, SetUpState(StrEq(kFakeInterfaceName), Eq(false)));
-
   EXPECT_TRUE(server_.createClientInterface(
       kFakeInterfaceName, &client_if).isOk());
   EXPECT_NE(nullptr, client_if.get());
@@ -209,38 +187,6 @@ TEST_F(ServerTest, CanTeardownClientInterface) {
   EXPECT_TRUE(success);
 }
 
-TEST_F(ServerTest, ShouldReportEnableFailure) {
-  EXPECT_CALL(*supplicant_manager_, StartSupplicant())
-      .WillOnce(Return(false));
-  bool success = true;
-  EXPECT_TRUE(server_.enableSupplicant(&success).isOk());
-  EXPECT_FALSE(success);
-}
-
-TEST_F(ServerTest, ShouldReportenableSuccess) {
-  EXPECT_CALL(*supplicant_manager_, StartSupplicant())
-      .WillOnce(Return(true));
-  bool success = false;
-  EXPECT_TRUE(server_.enableSupplicant(&success).isOk());
-  EXPECT_TRUE(success);
-}
-
-TEST_F(ServerTest, ShouldReportDisableFailure) {
-  EXPECT_CALL(*supplicant_manager_, StopSupplicant())
-      .WillOnce(Return(false));
-  bool success = true;
-  EXPECT_TRUE(server_.disableSupplicant(&success).isOk());
-  EXPECT_FALSE(success);
-}
-
-TEST_F(ServerTest, ShouldReportDisableSuccess) {
-  EXPECT_CALL(*supplicant_manager_, StopSupplicant())
-      .WillOnce(Return(true));
-  bool success = false;
-  EXPECT_TRUE(server_.disableSupplicant(&success).isOk());
-  EXPECT_TRUE(success);
-}
-
 TEST_F(ServerTest, CanCreateTeardownApAndClientInterface) {
   sp<IClientInterface> client_if;
   sp<IApInterface> ap_if;
@@ -250,10 +196,6 @@ TEST_F(ServerTest, CanCreateTeardownApAndClientInterface) {
 
   EXPECT_TRUE(server_.createApInterface(kFakeInterfaceName1, &ap_if).isOk());
   EXPECT_NE(nullptr, ap_if.get());
-
-  // When we tear down the interfaces, we expect the iface to be unloaded.
-  EXPECT_CALL(*if_tool_, SetUpState(StrEq(kFakeInterfaceName), Eq(false)));
-  EXPECT_CALL(*if_tool_, SetUpState(StrEq(kFakeInterfaceName1), Eq(false)));
 
   bool success = true;
   // Try to remove an invalid iface name, this should fail.

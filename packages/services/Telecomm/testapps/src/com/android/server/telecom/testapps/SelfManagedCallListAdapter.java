@@ -104,6 +104,16 @@ public class SelfManagedCallListAdapter extends BaseAdapter {
         }
     };
 
+    private View.OnClickListener mBluetoothListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            View parent = (View) v.getParent().getParent();
+            SelfManagedConnection connection = (SelfManagedConnection) parent.getTag();
+            connection.setAudioRoute(CallAudioState.ROUTE_BLUETOOTH);
+            notifyDataSetChanged();
+        }
+    };
+
     private View.OnClickListener mHoldableListener = new View.OnClickListener() {
         @Override
         public void onClick (View v) {
@@ -221,6 +231,8 @@ public class SelfManagedCallListAdapter extends BaseAdapter {
         speakerButton.setOnClickListener(mSpeakerListener);
         View earpieceButton = view.findViewById(R.id.earpieceButton);
         earpieceButton.setOnClickListener(mEarpieceListener);
+        View bluetoothButton = view.findViewById(R.id.bluetoothButton);
+        bluetoothButton.setOnClickListener(mBluetoothListener);
         View missedButton = view.findViewById(R.id.missedButton);
         missedButton.setOnClickListener(mMissedListener);
         missedButton.setVisibility(isRinging ? View.VISIBLE : View.GONE);

@@ -17,7 +17,7 @@
 #ifndef ART_RUNTIME_GC_SCOPED_GC_CRITICAL_SECTION_H_
 #define ART_RUNTIME_GC_SCOPED_GC_CRITICAL_SECTION_H_
 
-#include "base/mutex.h"
+#include "base/locks.h"
 #include "collector_type.h"
 #include "gc_cause.h"
 
@@ -26,6 +26,24 @@ namespace art {
 class Thread;
 
 namespace gc {
+
+// The use of ScopedGCCriticalSection should be preferred whenever possible.
+class GCCriticalSection {
+ public:
+  GCCriticalSection(Thread* self, const char* name)
+      : self_(self), section_name_(name) {}
+  ~GCCriticalSection() {}
+
+  // Starts a GCCriticalSection. Returns the previous no-suspension reason.
+  const char* Enter(GcCause cause, CollectorType type) ACQUIRE(Roles::uninterruptible_);
+
+  // Ends a GCCriticalSection. Takes the old no-suspension reason.
+  void Exit(const char* old_reason) RELEASE(Roles::uninterruptible_);
+
+ private:
+  Thread* const self_;
+  const char* section_name_;
+};
 
 // Wait until the GC is finished and then prevent the GC from starting until the destructor. Used
 // to prevent deadlocks in places where we call ClassLinker::VisitClass with all the threads
@@ -37,8 +55,8 @@ class ScopedGCCriticalSection {
   ~ScopedGCCriticalSection() RELEASE(Roles::uninterruptible_);
 
  private:
-  Thread* const self_;
-  const char* old_cause_;
+  GCCriticalSection critical_section_;
+  const char* old_no_suspend_reason_;
 };
 
 }  // namespace gc

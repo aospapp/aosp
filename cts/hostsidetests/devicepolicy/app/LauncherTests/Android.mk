@@ -24,17 +24,18 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_JAVA_LIBRARIES := cts-junit android.test.base.stubs
+LOCAL_JAVA_LIBRARIES := junit android.test.base.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES = \
 	androidx.legacy_legacy-support-v4 \
-	ctstestrunner \
-	android-support-test \
-	compatibility-device-util \
+	ctstestrunner-axt \
+	androidx.test.rules \
+	compatibility-device-util-axt \
 	ShortcutManagerTestUtils \
 	testng
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := system_current
+LOCAL_MIN_SDK_VERSION := 21
 
 # tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests

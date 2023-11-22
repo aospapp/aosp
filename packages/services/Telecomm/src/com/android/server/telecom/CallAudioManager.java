@@ -105,11 +105,10 @@ public class CallAudioManager extends CallsManagerListenerBase {
         Log.d(LOG_TAG, "Call state changed for TC@%s: %s -> %s", call.getId(),
                 CallState.toString(oldState), CallState.toString(newState));
 
-        for (int i = 0; i < mCallStateToCalls.size(); i++) {
-            mCallStateToCalls.valueAt(i).remove(call);
-        }
-        if (mCallStateToCalls.get(newState) != null) {
-            mCallStateToCalls.get(newState).add(call);
+        removeCallFromAllBins(call);
+        HashSet<Call> newBinForCall = getBinForCall(call);
+        if (newBinForCall != null) {
+            newBinForCall.add(call);
         }
 
         updateForegroundCall();
@@ -148,8 +147,9 @@ public class CallAudioManager extends CallsManagerListenerBase {
         Log.d(LOG_TAG, "Call added with id TC@%s in state %s", call.getId(),
                 CallState.toString(call.getState()));
 
-        if (mCallStateToCalls.get(call.getState()) != null) {
-            mCallStateToCalls.get(call.getState()).add(call);
+        HashSet<Call> newBinForCall = getBinForCall(call);
+        if (newBinForCall != null) {
+            newBinForCall.add(call);
         }
         updateForegroundCall();
         mCalls.add(call);
@@ -168,9 +168,7 @@ public class CallAudioManager extends CallsManagerListenerBase {
         Log.d(LOG_TAG, "Call removed with id TC@%s in state %s", call.getId(),
                 CallState.toString(call.getState()));
 
-        for (int i = 0; i < mCallStateToCalls.size(); i++) {
-            mCallStateToCalls.valueAt(i).remove(call);
-        }
+        removeCallFromAllBins(call);
 
         updateForegroundCall();
         mCalls.remove(call);
@@ -224,24 +222,6 @@ public class CallAudioManager extends CallsManagerListenerBase {
     public void onIncomingCallAnswered(Call call) {
         if (!mCalls.contains(call)) {
             return;
-        }
-
-        // This is called after the UI answers the call, but before the connection service
-        // sets the call to active. Only thing to handle for mode here is the audio speedup thing.
-
-        if (call.can(android.telecom.Call.Details.CAPABILITY_SPEED_UP_MT_AUDIO)) {
-            if (mForegroundCall == call) {
-                Log.i(LOG_TAG, "Invoking the MT_AUDIO_SPEEDUP mechanism. Transitioning into " +
-                        "an active in-call audio state before connection service has " +
-                        "connected the call.");
-                if (mCallStateToCalls.get(call.getState()) != null) {
-                    mCallStateToCalls.get(call.getState()).remove(call);
-                }
-                mActiveDialingOrConnectingCalls.add(call);
-                mCallAudioModeStateMachine.sendMessageWithArgs(
-                        CallAudioModeStateMachine.MT_AUDIO_SPEEDUP_FOR_RINGING_CALL,
-                        makeArgsForModeStateMachine());
-            }
         }
 
         // Turn off mute when a new incoming call is answered iff it's not a handover.
@@ -325,10 +305,7 @@ public class CallAudioManager extends CallsManagerListenerBase {
             onCallAdded(call);
         } else {
             // The call joined a conference, so stop tracking it.
-            if (mCallStateToCalls.get(call.getState()) != null) {
-                mCallStateToCalls.get(call.getState()).remove(call);
-            }
-
+            removeCallFromAllBins(call);
             updateForegroundCall();
             mCalls.remove(call);
         }
@@ -469,9 +446,9 @@ public class CallAudioManager extends CallsManagerListenerBase {
     }
 
     @VisibleForTesting
-    public void startCallWaiting() {
+    public void startCallWaiting(String reason) {
         if (mRingingCalls.size() == 1) {
-            mRinger.startCallWaiting(mRingingCalls.iterator().next());
+            mRinger.startCallWaiting(mRingingCalls.iterator().next(), reason);
         }
     }
 
@@ -557,6 +534,7 @@ public class CallAudioManager extends CallsManagerListenerBase {
                 onCallLeavingActiveDialingOrConnecting();
                 break;
             case CallState.RINGING:
+            case CallState.ANSWERED:
                 onCallLeavingRinging();
                 break;
             case CallState.ON_HOLD:
@@ -590,6 +568,11 @@ public class CallAudioManager extends CallsManagerListenerBase {
             case CallState.DIALING:
                 onCallEnteringActiveDialingOrConnecting();
                 playRingbackForCall(call);
+                break;
+            case CallState.ANSWERED:
+                if (call.can(android.telecom.Call.Details.CAPABILITY_SPEED_UP_MT_AUDIO)) {
+                    onCallEnteringActiveDialingOrConnecting();
+                }
                 break;
         }
     }
@@ -681,6 +664,24 @@ public class CallAudioManager extends CallsManagerListenerBase {
                 Log.createSubsession());
     }
 
+    private HashSet<Call> getBinForCall(Call call) {
+        if (call.getState() == CallState.ANSWERED) {
+            // If the call has the speed-up-mt-audio capability, treat answered state as active
+            // for audio purposes.
+            if (call.can(android.telecom.Call.Details.CAPABILITY_SPEED_UP_MT_AUDIO)) {
+                return mActiveDialingOrConnectingCalls;
+            }
+            return mRingingCalls;
+        }
+        return mCallStateToCalls.get(call.getState());
+    }
+
+    private void removeCallFromAllBins(Call call) {
+        for (int i = 0; i < mCallStateToCalls.size(); i++) {
+            mCallStateToCalls.valueAt(i).remove(call);
+        }
+    }
+
     private void playToneForDisconnectedCall(Call call) {
         // If this call is being disconnected as a result of being handed over to another call,
         // we will not play a disconnect tone.
@@ -727,9 +728,11 @@ public class CallAudioManager extends CallsManagerListenerBase {
             Log.d(this, "Found a disconnected call with tone to play %d.", toneToPlay);
 
             if (toneToPlay != InCallTonePlayer.TONE_INVALID) {
-                mPlayerFactory.createPlayer(toneToPlay).startTone();
-                mCallsManager.onDisconnectedTonePlaying(true);
-                mIsDisconnectedTonePlaying = true;
+                boolean didToneStart = mPlayerFactory.createPlayer(toneToPlay).startTone();
+                if (didToneStart) {
+                    mCallsManager.onDisconnectedTonePlaying(true);
+                    mIsDisconnectedTonePlaying = true;
+                }
             }
         }
     }

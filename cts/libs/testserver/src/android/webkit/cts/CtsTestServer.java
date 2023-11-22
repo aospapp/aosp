@@ -15,6 +15,15 @@
  */
 package android.webkit.cts;
 
+import android.content.Context;
+import android.content.res.AssetManager;
+import android.content.res.Resources;
+import android.net.Uri;
+import android.os.Environment;
+import android.util.Base64;
+import android.util.Log;
+import android.webkit.MimeTypeMap;
+
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpEntityEnclosingRequest;
@@ -38,15 +47,6 @@ import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.CoreProtocolPNames;
 import org.apache.http.params.HttpParams;
 
-import android.content.Context;
-import android.content.res.AssetManager;
-import android.content.res.Resources;
-import android.net.Uri;
-import android.os.Environment;
-import android.util.Base64;
-import android.util.Log;
-import android.webkit.MimeTypeMap;
-
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -62,9 +62,9 @@ import java.security.KeyStore;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Hashtable;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -710,7 +710,7 @@ public class CtsTestServer {
             }
             response.setEntity(createPage(agent, agent));
         } else if (path.equals(TEST_DOWNLOAD_PATH)) {
-            response = createTestDownloadResponse(Uri.parse(uriString));
+            response = createTestDownloadResponse(mContext, Uri.parse(uriString));
         } else if (path.equals(APPCACHE_PATH)) {
             response = createResponse(HttpStatus.SC_OK);
             response.setEntity(createEntity("<!DOCTYPE HTML>" +
@@ -811,21 +811,23 @@ public class CtsTestServer {
                 "<body>" + bodyContent + "</body></html>");
     }
 
-    private static HttpResponse createTestDownloadResponse(Uri uri) throws IOException {
+    private static HttpResponse createTestDownloadResponse(Context context, Uri uri)
+            throws IOException {
         String downloadId = uri.getQueryParameter(DOWNLOAD_ID_PARAMETER);
         int numBytes = uri.getQueryParameter(NUM_BYTES_PARAMETER) != null
                 ? Integer.parseInt(uri.getQueryParameter(NUM_BYTES_PARAMETER))
                 : 0;
         HttpResponse response = createResponse(HttpStatus.SC_OK);
         response.setHeader("Content-Length", Integer.toString(numBytes));
-        response.setEntity(createFileEntity(downloadId, numBytes));
+        response.setEntity(createFileEntity(context, downloadId, numBytes));
         return response;
     }
 
-    private static FileEntity createFileEntity(String downloadId, int numBytes) throws IOException {
+    private static FileEntity createFileEntity(Context context, String downloadId, int numBytes)
+            throws IOException {
         String storageState = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equalsIgnoreCase(storageState)) {
-            File storageDir = Environment.getExternalStorageDirectory();
+            File storageDir = context.getExternalFilesDir(null);
             File file = new File(storageDir, downloadId + ".bin");
             BufferedOutputStream stream = new BufferedOutputStream(new FileOutputStream(file));
             byte data[] = new byte[1024];

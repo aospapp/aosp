@@ -32,7 +32,8 @@ L4ysEr3vQCj8KWefshNPZiTEUxnpHikV7+ZtsH8tZ/3zbBt1RqPlShfppNcL
 Certificate:
     Data:
         Version: 3 (0x2)
-        Serial Number: 10572350602393338211 (0x92b888dbb08ac163)
+        Serial Number:
+            92:b8:88:db:b0:8a:c1:63
     Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=SK, L=Bratislava, O=Disig a.s., CN=CA Disig Root R2
         Validity

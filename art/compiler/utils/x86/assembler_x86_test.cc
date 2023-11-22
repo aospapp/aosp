@@ -17,13 +17,14 @@
 #include "assembler_x86.h"
 
 #include "base/arena_allocator.h"
+#include "base/malloc_arena_pool.h"
 #include "base/stl_util.h"
 #include "utils/assembler_test.h"
 
 namespace art {
 
 TEST(AssemblerX86, CreateBuffer) {
-  ArenaPool pool;
+  MallocArenaPool pool;
   ArenaAllocator allocator(&pool);
   AssemblerBuffer buffer(&allocator);
   AssemblerBuffer::EnsureCapacity ensured(&buffer);
@@ -43,26 +44,26 @@ class AssemblerX86Test : public AssemblerTest<x86::X86Assembler,
                                               x86::XmmRegister,
                                               x86::Immediate> {
  public:
-  typedef AssemblerTest<x86::X86Assembler,
-                        x86::Address,
-                        x86::Register,
-                        x86::XmmRegister,
-                        x86::Immediate> Base;
+  using Base = AssemblerTest<x86::X86Assembler,
+                             x86::Address,
+                             x86::Register,
+                             x86::XmmRegister,
+                             x86::Immediate>;
 
  protected:
-  std::string GetArchitectureString() OVERRIDE {
+  std::string GetArchitectureString() override {
     return "x86";
   }
 
-  std::string GetAssemblerParameters() OVERRIDE {
+  std::string GetAssemblerParameters() override {
     return " --32";
   }
 
-  std::string GetDisassembleParameters() OVERRIDE {
+  std::string GetDisassembleParameters() override {
     return " -D -bbinary -mi386 --no-show-raw-insn";
   }
 
-  void SetUpHelpers() OVERRIDE {
+  void SetUpHelpers() override {
     if (addresses_singleton_.size() == 0) {
       // One addressing mode to test the repeat drivers.
       addresses_singleton_.push_back(x86::Address(x86::EAX, x86::EBX, x86::TIMES_1, 2));
@@ -117,25 +118,25 @@ class AssemblerX86Test : public AssemblerTest<x86::X86Assembler,
     }
   }
 
-  void TearDown() OVERRIDE {
+  void TearDown() override {
     AssemblerTest::TearDown();
     STLDeleteElements(&registers_);
     STLDeleteElements(&fp_registers_);
   }
 
-  std::vector<x86::Address> GetAddresses() OVERRIDE {
+  std::vector<x86::Address> GetAddresses() override {
     return addresses_;
   }
 
-  std::vector<x86::Register*> GetRegisters() OVERRIDE {
+  std::vector<x86::Register*> GetRegisters() override {
     return registers_;
   }
 
-  std::vector<x86::XmmRegister*> GetFPRegisters() OVERRIDE {
+  std::vector<x86::XmmRegister*> GetFPRegisters() override {
     return fp_registers_;
   }
 
-  x86::Immediate CreateImmediate(int64_t imm_value) OVERRIDE {
+  x86::Immediate CreateImmediate(int64_t imm_value) override {
     return x86::Immediate(imm_value);
   }
 
@@ -346,6 +347,18 @@ TEST_F(AssemblerX86Test, RepMovsw) {
   GetAssembler()->rep_movsw();
   const char* expected = "rep movsw\n";
   DriverStr(expected, "rep_movsw");
+}
+
+TEST_F(AssemblerX86Test, Blsmask) {
+  DriverStr(RepeatRR(&x86::X86Assembler::blsmsk, "blsmsk %{reg2}, %{reg1}"), "blsmsk");
+}
+
+TEST_F(AssemblerX86Test, Blsi) {
+  DriverStr(RepeatRR(&x86::X86Assembler::blsi, "blsi %{reg2}, %{reg1}"), "blsi");
+}
+
+TEST_F(AssemblerX86Test, Blsr) {
+  DriverStr(RepeatRR(&x86::X86Assembler::blsr, "blsr %{reg2}, %{reg1}"), "blsr");
 }
 
 TEST_F(AssemblerX86Test, Bsfl) {
@@ -600,6 +613,38 @@ TEST_F(AssemblerX86Test, PSubQ) {
   DriverStr(RepeatFF(&x86::X86Assembler::psubq, "psubq %{reg2}, %{reg1}"), "psubq");
 }
 
+TEST_F(AssemblerX86Test, PAddUSB) {
+  DriverStr(RepeatFF(&x86::X86Assembler::paddusb, "paddusb %{reg2}, %{reg1}"), "paddusb");
+}
+
+TEST_F(AssemblerX86Test, PAddSB) {
+  DriverStr(RepeatFF(&x86::X86Assembler::paddsb, "paddsb %{reg2}, %{reg1}"), "paddsb");
+}
+
+TEST_F(AssemblerX86Test, PAddUSW) {
+  DriverStr(RepeatFF(&x86::X86Assembler::paddusw, "paddusw %{reg2}, %{reg1}"), "paddusw");
+}
+
+TEST_F(AssemblerX86Test, PAddSW) {
+  DriverStr(RepeatFF(&x86::X86Assembler::psubsw, "psubsw %{reg2}, %{reg1}"), "psubsw");
+}
+
+TEST_F(AssemblerX86Test, PSubUSB) {
+  DriverStr(RepeatFF(&x86::X86Assembler::psubusb, "psubusb %{reg2}, %{reg1}"), "psubusb");
+}
+
+TEST_F(AssemblerX86Test, PSubSB) {
+  DriverStr(RepeatFF(&x86::X86Assembler::psubsb, "psubsb %{reg2}, %{reg1}"), "psubsb");
+}
+
+TEST_F(AssemblerX86Test, PSubUSW) {
+  DriverStr(RepeatFF(&x86::X86Assembler::psubusw, "psubusw %{reg2}, %{reg1}"), "psubusw");
+}
+
+TEST_F(AssemblerX86Test, PSubSW) {
+  DriverStr(RepeatFF(&x86::X86Assembler::psubsw, "psubsw %{reg2}, %{reg1}"), "psubsw");
+}
+
 TEST_F(AssemblerX86Test, XorPD) {
   DriverStr(RepeatFF(&x86::X86Assembler::xorpd, "xorpd %{reg2}, %{reg1}"), "xorpd");
 }
@@ -622,6 +667,10 @@ TEST_F(AssemblerX86Test, AndPS) {
 
 TEST_F(AssemblerX86Test, PAnd) {
   DriverStr(RepeatFF(&x86::X86Assembler::pand, "pand %{reg2}, %{reg1}"), "pand");
+}
+
+TEST_F(AssemblerX86Test, Andn) {
+  DriverStr(RepeatRRR(&x86::X86Assembler::andn, "andn %{reg3}, %{reg2}, %{reg1}"), "andn");
 }
 
 TEST_F(AssemblerX86Test, AndnPD) {

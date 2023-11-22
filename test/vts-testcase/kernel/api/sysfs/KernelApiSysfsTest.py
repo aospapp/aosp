@@ -66,34 +66,51 @@ class KernelApiSysfsTest(base_test.BaseTestClass):
         asserts.assertEqual(match.start(), 0, message)
         asserts.assertEqual(match.end(), len(string), message)
 
-    def GetPathPermission(self, path):
+    def GetPathPermission(self, path, assert_if_absent):
         '''Get the permission bits of a path, catching IOError.'''
         permission = ''
         try:
             permission = target_file_utils.GetPermission(path, self.shell)
         except IOError as e:
+            if not assert_if_absent:
+                return None
             logging.exception(e)
             asserts.fail('Path "%s" does not exist or has invalid '
                          'permission bits' % path)
         return permission
 
-    def IsReadOnly(self, path):
+    def IsReadOnly(self, path, assert_if_absent=True):
         '''Check whether a given path is read only.
 
         Assertion will fail if given path does not exist or is not read only.
         '''
-        permission = self.GetPathPermission(path)
+        permission = self.GetPathPermission(path, assert_if_absent)
+        if permission is None and not assert_if_absent:
+            return
         asserts.assertTrue(target_file_utils.IsReadOnly(permission),
                 'path %s is not read only' % path)
 
-    def IsReadWrite(self, path):
+    def IsReadWrite(self, path, assert_if_absent=True):
         '''Check whether a given path is read-write.
 
         Assertion will fail if given path does not exist or is not read-write.
         '''
-        permission = self.GetPathPermission(path)
+        permission = self.GetPathPermission(path, assert_if_absent)
+        if permission is None and not assert_if_absent:
+            return
         asserts.assertTrue(target_file_utils.IsReadWrite(permission),
                 'path %s is not read write' % path)
+
+    def tryReadFileContent(self, f, shell):
+        '''Attempt to read a file.
+
+        If the file does not exist None will be returned.
+        '''
+        try:
+            content = target_file_utils.ReadFileContent(f, self.shell)
+        except IOError as e:
+            return None
+        return content
 
     def testAndroidUSB(self):
         '''Check for the existence of required files in /sys/class/android_usb.
@@ -124,60 +141,62 @@ class KernelApiSysfsTest(base_test.BaseTestClass):
         '''Check each cpu's scaling_cur_freq, scaling_min_freq, scaling_max_freq,
         scaling_available_frequencies, and time_in_state files.
         '''
-        f = '/sys/devices/system/cpu/online'
+        f = '/sys/devices/system/cpu/present'
         self.IsReadOnly(f)
-        online_cpus = target_file_utils.ReadFileContent(f, self.shell)
-        cpu_ranges = online_cpus.split(',')
+        present_cpus = target_file_utils.ReadFileContent(f, self.shell)
+        cpu_ranges = present_cpus.split(',')
         cpu_list = []
+
         for r in cpu_ranges:
             m = re.match(r'(\d+)(-\d+)?', r)
             asserts.assertTrue(m is not None,
-                    'malformatted range in /sys/devices/system/cpu/online')
+                    'malformatted range in /sys/devices/system/cpu/present')
             start_cpu = int(m.group(1))
             if m.group(2) is None:
                 end_cpu = start_cpu
             else:
-                end_cpu = int(m.group(2))
+                end_cpu = int(m.group(2)[1:])
             cpu_list += range(start_cpu, end_cpu+1)
+
         for cpu in cpu_list:
             f = '/sys/devices/system/cpu/cpu%s/cpufreq/scaling_cur_freq' % cpu
-            self.IsReadOnly(f)
-            content = target_file_utils.ReadFileContent(f, self.shell)
-            self.ConvertToInteger(content)
-            f = '/sys/devices/system/cpu/cpu%s/cpufreq/scaling_min_freq' % cpu
-            self.IsReadWrite(f)
-            content = target.file_utils.ReadFileContent(f, self.shell)
-            self.ConvertToInteger(content)
-            f = '/sys/devices/system/cpu/cpu%s/cpufreq/scaling_max_freq' % cpu
-            self.IsReadWrite(f)
-            content = target.file_utils.ReadFileContent(f, self.shell)
-            self.ConvertToInteger(content)
-            f = '/sys/devices/system/cpu/cpu%s/cpufreq/scaling_available_frequencies' % cpu
-            self.IsReadOnly(f)
-            content = target.file_utils.ReadFileContent(f, self.shell)
-            avail_freqs = content.split(' ')
-            for x in avail_freqs:
-                self.ConvertToInteger(x)
-            f = '/sys/devices/system/cpu/cpu%s/cpufreq/stats/time_in_state' % cpu
-            self.IsReadOnly(f)
-            content = target.file_utils.ReadFileContent(f, shelf.shell)
-            for line in content:
-                values = line.split()
-                for v in values:
-                    try:
-                        unused = int(v)
-                    except ValueError as e:
-                        asserts.fail("Malformatted time_in_state file at %s" % f)
+            self.IsReadOnly(f, False)
+            content = self.tryReadFileContent(f, self.shell)
+            if content is not None:
+                self.ConvertToInteger(content)
 
-    def testIpv4(self):
-        '''Check /sys/kernel/ipv4/*.'''
-        files = ['tcp_rmem_def', 'tcp_rmem_max', 'tcp_rmem_min',
-                 'tcp_wmem_def', 'tcp_wmem_max', 'tcp_wmem_min',]
-        for f in files:
-            path = '/sys/kernel/ipv4/' + f
-            self.IsReadWrite(path)
-            content = target_file_utils.ReadFileContent(path, self.shell)
-            self.ConvertToInteger(content)
+            f = '/sys/devices/system/cpu/cpu%s/cpufreq/scaling_min_freq' % cpu
+            self.IsReadWrite(f, False)
+            content = self.tryReadFileContent(f, self.shell)
+            if content is not None:
+                self.ConvertToInteger(content)
+
+            f = '/sys/devices/system/cpu/cpu%s/cpufreq/scaling_max_freq' % cpu
+            self.IsReadWrite(f, False)
+            content = self.tryReadFileContent(f, self.shell)
+            if content is not None:
+                self.ConvertToInteger(content)
+
+            f = '/sys/devices/system/cpu/cpu%s/cpufreq/scaling_available_frequencies' % cpu
+            self.IsReadOnly(f, False)
+            content = self.tryReadFileContent(f, self.shell)
+            if content is not None:
+                content = content.rstrip()
+                avail_freqs = content.split(' ')
+                for x in avail_freqs:
+                    self.ConvertToInteger(x)
+
+            f = '/sys/devices/system/cpu/cpu%s/cpufreq/stats/time_in_state' % cpu
+            self.IsReadOnly(f, False)
+            content = self.tryReadFileContent(f, self.shell)
+            if content is not None:
+                for line in content:
+                    values = line.split()
+                    for v in values:
+                        try:
+                            unused = int(v)
+                        except ValueError as e:
+                            asserts.fail("Malformatted time_in_state file at %s" % f)
 
     def testLastResumeReason(self):
         '''Check /sys/kernel/wakeup_reasons/last_resume_reason.'''

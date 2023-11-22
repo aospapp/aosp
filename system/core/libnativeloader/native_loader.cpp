@@ -21,7 +21,6 @@
 #ifdef __ANDROID__
 #define LOG_TAG "libnativeloader"
 #include "nativeloader/dlext_namespaces.h"
-#include "cutils/properties.h"
 #include "log/log.h"
 #endif
 #include <dirent.h>
@@ -29,8 +28,10 @@
 #include "nativebridge/native_bridge.h"
 
 #include <algorithm>
+#include <list>
 #include <memory>
 #include <mutex>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -51,7 +52,7 @@ using namespace std::string_literals;
 namespace android {
 
 #if defined(__ANDROID__)
-class NativeLoaderNamespace {
+struct NativeLoaderNamespace {
  public:
   NativeLoaderNamespace()
       : android_ns_(nullptr), native_bridge_ns_(nullptr) { }
@@ -102,6 +103,11 @@ static constexpr const char kLlndkNativeLibrariesSystemConfigPathFromRoot[] =
 static constexpr const char kVndkspNativeLibrariesSystemConfigPathFromRoot[] =
     "/etc/vndksp.libraries.txt";
 
+static const std::vector<const std::string> kRuntimePublicLibraries = {
+    "libicuuc.so",
+    "libicui18n.so",
+};
+
 // The device may be configured to have the vendor libraries loaded to a separate namespace.
 // For historical reasons this namespace was named sphal but effectively it is intended
 // to use to load vendor libraries to separate namespace with controlled interface between
@@ -110,7 +116,20 @@ static constexpr const char* kVendorNamespaceName = "sphal";
 
 static constexpr const char* kVndkNamespaceName = "vndk";
 
+static constexpr const char* kDefaultNamespaceName = "default";
+static constexpr const char* kPlatformNamespaceName = "platform";
+static constexpr const char* kRuntimeNamespaceName = "runtime";
+
+// classloader-namespace is a linker namespace that is created for the loaded
+// app. To be specific, it is created for the app classloader. When
+// System.load() is called from a Java class that is loaded from the
+// classloader, the classloader-namespace namespace associated with that
+// classloader is selected for dlopen. The namespace is configured so that its
+// search path is set to the app-local JNI directory and it is linked to the
+// default namespace with the names of libs listed in the public.libraries.txt.
+// This way an app can only load its own JNI libraries along with the public libs.
 static constexpr const char* kClassloaderNamespaceName = "classloader-namespace";
+// Same thing for vendor APKs.
 static constexpr const char* kVendorClassloaderNamespaceName = "vendor-classloader-namespace";
 
 // (http://b/27588281) This is a workaround for apps using custom classloaders and calling
@@ -118,10 +137,34 @@ static constexpr const char* kVendorClassloaderNamespaceName = "vendor-classload
 // This list includes all directories app is allowed to access this way.
 static constexpr const char* kWhitelistedDirectories = "/data:/mnt/expand";
 
+static constexpr const char* kApexPath = "/apex/";
+
+#if defined(__LP64__)
+static constexpr const char* kRuntimeApexLibPath = "/apex/com.android.runtime/lib64";
+static constexpr const char* kVendorLibPath = "/vendor/lib64";
+static constexpr const char* kProductLibPath = "/product/lib64:/system/product/lib64";
+#else
+static constexpr const char* kRuntimeApexLibPath = "/apex/com.android.runtime/lib";
+static constexpr const char* kVendorLibPath = "/vendor/lib";
+static constexpr const char* kProductLibPath = "/product/lib:/system/product/lib";
+#endif
+
+static const std::regex kVendorDexPathRegex("(^|:)/vendor/");
+static const std::regex kProductDexPathRegex("(^|:)(/system)?/product/");
+
+// Define origin of APK if it is from vendor partition or product partition
+typedef enum {
+  APK_ORIGIN_DEFAULT = 0,
+  APK_ORIGIN_VENDOR = 1,
+  APK_ORIGIN_PRODUCT = 2,
+} ApkOrigin;
+
 static bool is_debuggable() {
-  char debuggable[PROP_VALUE_MAX];
-  property_get("ro.debuggable", debuggable, "0");
-  return std::string(debuggable) == "1";
+  bool debuggable = false;
+#ifdef __BIONIC__
+  debuggable = android::base::GetBoolProperty("ro.debuggable", false);
+#endif
+  return debuggable;
 }
 
 static std::string vndk_version_str() {
@@ -150,21 +193,17 @@ class LibraryNamespaces {
  public:
   LibraryNamespaces() : initialized_(false) { }
 
-  bool Create(JNIEnv* env,
-              uint32_t target_sdk_version,
-              jobject class_loader,
-              bool is_shared,
-              bool is_for_vendor,
-              jstring java_library_path,
-              jstring java_permitted_path,
-              NativeLoaderNamespace* ns,
-              std::string* error_msg) {
+  NativeLoaderNamespace* Create(JNIEnv* env, uint32_t target_sdk_version, jobject class_loader,
+                                bool is_shared, jstring dex_path, jstring java_library_path,
+                                jstring java_permitted_path, std::string* error_msg) {
     std::string library_path; // empty string by default.
 
     if (java_library_path != nullptr) {
       ScopedUtfChars library_path_utf_chars(env, java_library_path);
       library_path = library_path_utf_chars.c_str();
     }
+
+    ApkOrigin apk_origin = GetApkOriginFromDexPath(env, dex_path);
 
     // (http://b/27588281) This is a workaround for apps using custom
     // classloaders and calling System.load() with an absolute path which
@@ -181,11 +220,13 @@ class LibraryNamespaces {
       }
     }
 
-    if (!initialized_ && !InitPublicNamespace(library_path.c_str(), error_msg)) {
-      return false;
+    // Initialize the anonymous namespace with the first non-empty library path.
+    if (!library_path.empty() && !initialized_ &&
+        !InitPublicNamespace(library_path.c_str(), error_msg)) {
+      return nullptr;
     }
 
-    bool found = FindNamespaceByClassLoader(env, class_loader, nullptr);
+    bool found = FindNamespaceByClassLoader(env, class_loader);
 
     LOG_ALWAYS_FATAL_IF(found,
                         "There is already a namespace associated with this classloader");
@@ -199,13 +240,12 @@ class LibraryNamespaces {
       namespace_type |= ANDROID_NAMESPACE_TYPE_GREYLIST_ENABLED;
     }
 
-    NativeLoaderNamespace parent_ns;
-    bool found_parent_namespace = FindParentNamespaceByClassLoader(env, class_loader, &parent_ns);
+    NativeLoaderNamespace* parent_ns = FindParentNamespaceByClassLoader(env, class_loader);
 
     bool is_native_bridge = false;
 
-    if (found_parent_namespace) {
-      is_native_bridge = !parent_ns.is_android_namespace();
+    if (parent_ns != nullptr) {
+      is_native_bridge = !parent_ns->is_android_namespace();
     } else if (!library_path.empty()) {
       is_native_bridge = NativeBridgeIsPathSupported(library_path.c_str());
     }
@@ -213,31 +253,51 @@ class LibraryNamespaces {
     std::string system_exposed_libraries = system_public_libraries_;
     const char* namespace_name = kClassloaderNamespaceName;
     android_namespace_t* vndk_ns = nullptr;
-    if (is_for_vendor && !is_shared) {
-      LOG_FATAL_IF(is_native_bridge, "Unbundled vendor apk must not use translated architecture");
+    if ((apk_origin == APK_ORIGIN_VENDOR ||
+         (apk_origin == APK_ORIGIN_PRODUCT && target_sdk_version > 29)) &&
+        !is_shared) {
+      LOG_FATAL_IF(is_native_bridge,
+                   "Unbundled vendor / product apk must not use translated architecture");
 
-      // For vendor apks, give access to the vendor lib even though
+      // For vendor / product apks, give access to the vendor / product lib even though
       // they are treated as unbundled; the libs and apks are still bundled
-      // together in the vendor partition.
-#if defined(__LP64__)
-      std::string vendor_lib_path = "/vendor/lib64";
-#else
-      std::string vendor_lib_path = "/vendor/lib";
-#endif
-      library_path = library_path + ":" + vendor_lib_path.c_str();
-      permitted_path = permitted_path + ":" + vendor_lib_path.c_str();
+      // together in the vendor / product partition.
+      const char* origin_partition;
+      const char* origin_lib_path;
+
+      switch (apk_origin) {
+        case APK_ORIGIN_VENDOR:
+          origin_partition = "vendor";
+          origin_lib_path = kVendorLibPath;
+          break;
+        case APK_ORIGIN_PRODUCT:
+          origin_partition = "product";
+          origin_lib_path = kProductLibPath;
+          break;
+        default:
+          origin_partition = "unknown";
+          origin_lib_path = "";
+      }
+
+      LOG_FATAL_IF(is_native_bridge, "Unbundled %s apk must not use translated architecture",
+                   origin_partition);
+
+      library_path = library_path + ":" + origin_lib_path;
+      permitted_path = permitted_path + ":" + origin_lib_path;
 
       // Also give access to LLNDK libraries since they are available to vendors
       system_exposed_libraries = system_exposed_libraries + ":" + system_llndk_libraries_.c_str();
 
       // Give access to VNDK-SP libraries from the 'vndk' namespace.
       vndk_ns = android_get_exported_namespace(kVndkNamespaceName);
-      LOG_ALWAYS_FATAL_IF(vndk_ns == nullptr,
-                          "Cannot find \"%s\" namespace for vendor apks", kVndkNamespaceName);
+      if (vndk_ns == nullptr) {
+        ALOGW("Cannot find \"%s\" namespace for %s apks", kVndkNamespaceName, origin_partition);
+      }
 
       // Different name is useful for debugging
       namespace_name = kVendorClassloaderNamespaceName;
-      ALOGD("classloader namespace configured for unbundled vendor apk. library_path=%s", library_path.c_str());
+      ALOGD("classloader namespace configured for unbundled %s apk. library_path=%s",
+            origin_partition, library_path.c_str());
     } else {
       // oem and product public libraries are NOT available to vendor apks, otherwise it
       // would be system->vendor violation.
@@ -249,17 +309,32 @@ class LibraryNamespaces {
       }
     }
 
+    std::string runtime_exposed_libraries = base::Join(kRuntimePublicLibraries, ":");
+
     NativeLoaderNamespace native_loader_ns;
     if (!is_native_bridge) {
+      android_namespace_t* android_parent_ns;
+      if (parent_ns != nullptr) {
+        android_parent_ns = parent_ns->get_android_ns();
+      } else {
+        // Fall back to the platform namespace if no parent is found. It is
+        // called "default" for binaries in /system and "platform" for those in
+        // the Runtime APEX. Try "platform" first since "default" always exists.
+        android_parent_ns = android_get_exported_namespace(kPlatformNamespaceName);
+        if (android_parent_ns == nullptr) {
+          android_parent_ns = android_get_exported_namespace(kDefaultNamespaceName);
+        }
+      }
+
       android_namespace_t* ns = android_create_namespace(namespace_name,
                                                          nullptr,
                                                          library_path.c_str(),
                                                          namespace_type,
                                                          permitted_path.c_str(),
-                                                         parent_ns.get_android_ns());
+                                                         android_parent_ns);
       if (ns == nullptr) {
         *error_msg = dlerror();
-        return false;
+        return nullptr;
       }
 
       // Note that when vendor_ns is not configured this function will return nullptr
@@ -267,51 +342,79 @@ class LibraryNamespaces {
       // which is expected behavior in this case.
       android_namespace_t* vendor_ns = android_get_exported_namespace(kVendorNamespaceName);
 
+      android_namespace_t* runtime_ns = android_get_exported_namespace(kRuntimeNamespaceName);
+
       if (!android_link_namespaces(ns, nullptr, system_exposed_libraries.c_str())) {
         *error_msg = dlerror();
-        return false;
+        return nullptr;
+      }
+
+      // Runtime apex does not exist in host, and under certain build conditions.
+      if (runtime_ns != nullptr) {
+        if (!android_link_namespaces(ns, runtime_ns, runtime_exposed_libraries.c_str())) {
+          *error_msg = dlerror();
+          return nullptr;
+        }
       }
 
       if (vndk_ns != nullptr && !system_vndksp_libraries_.empty()) {
         // vendor apks are allowed to use VNDK-SP libraries.
         if (!android_link_namespaces(ns, vndk_ns, system_vndksp_libraries_.c_str())) {
           *error_msg = dlerror();
-          return false;
+          return nullptr;
         }
       }
 
       if (!vendor_public_libraries_.empty()) {
         if (!android_link_namespaces(ns, vendor_ns, vendor_public_libraries_.c_str())) {
           *error_msg = dlerror();
-          return false;
+          return nullptr;
         }
       }
 
       native_loader_ns = NativeLoaderNamespace(ns);
     } else {
+      native_bridge_namespace_t* native_bridge_parent_namespace;
+      if (parent_ns != nullptr) {
+        native_bridge_parent_namespace = parent_ns->get_native_bridge_ns();
+      } else {
+        native_bridge_parent_namespace = NativeBridgeGetExportedNamespace(kPlatformNamespaceName);
+        if (native_bridge_parent_namespace == nullptr) {
+          native_bridge_parent_namespace = NativeBridgeGetExportedNamespace(kDefaultNamespaceName);
+        }
+      }
+
       native_bridge_namespace_t* ns = NativeBridgeCreateNamespace(namespace_name,
                                                                   nullptr,
                                                                   library_path.c_str(),
                                                                   namespace_type,
                                                                   permitted_path.c_str(),
-                                                                  parent_ns.get_native_bridge_ns());
-
+                                                                  native_bridge_parent_namespace);
       if (ns == nullptr) {
         *error_msg = NativeBridgeGetError();
-        return false;
+        return nullptr;
       }
 
-      native_bridge_namespace_t* vendor_ns = NativeBridgeGetVendorNamespace();
+      native_bridge_namespace_t* vendor_ns = NativeBridgeGetExportedNamespace(kVendorNamespaceName);
+      native_bridge_namespace_t* runtime_ns =
+          NativeBridgeGetExportedNamespace(kRuntimeNamespaceName);
 
       if (!NativeBridgeLinkNamespaces(ns, nullptr, system_exposed_libraries.c_str())) {
         *error_msg = NativeBridgeGetError();
-        return false;
+        return nullptr;
       }
 
+      // Runtime apex does not exist in host, and under certain build conditions.
+      if (runtime_ns != nullptr) {
+        if (!NativeBridgeLinkNamespaces(ns, runtime_ns, runtime_exposed_libraries.c_str())) {
+          *error_msg = NativeBridgeGetError();
+          return nullptr;
+        }
+      }
       if (!vendor_public_libraries_.empty()) {
         if (!NativeBridgeLinkNamespaces(ns, vendor_ns, vendor_public_libraries_.c_str())) {
           *error_msg = NativeBridgeGetError();
-          return false;
+          return nullptr;
         }
       }
 
@@ -320,24 +423,19 @@ class LibraryNamespaces {
 
     namespaces_.push_back(std::make_pair(env->NewWeakGlobalRef(class_loader), native_loader_ns));
 
-    *ns = native_loader_ns;
-    return true;
+    return &(namespaces_.back().second);
   }
 
-  bool FindNamespaceByClassLoader(JNIEnv* env, jobject class_loader, NativeLoaderNamespace* ns) {
+  NativeLoaderNamespace* FindNamespaceByClassLoader(JNIEnv* env, jobject class_loader) {
     auto it = std::find_if(namespaces_.begin(), namespaces_.end(),
                 [&](const std::pair<jweak, NativeLoaderNamespace>& value) {
                   return env->IsSameObject(value.first, class_loader);
                 });
     if (it != namespaces_.end()) {
-      if (ns != nullptr) {
-        *ns = it->second;
-      }
-
-      return true;
+      return &it->second;
     }
 
-    return false;
+    return nullptr;
   }
 
   void Initialize() {
@@ -376,6 +474,14 @@ class LibraryNamespaces {
                   std::back_inserter(sonames));
       }
     }
+
+    // Remove the public libs in the runtime namespace.
+    // These libs are listed in public.android.txt, but we don't want the rest of android
+    // in default namespace to dlopen the libs.
+    // For example, libicuuc.so is exposed to classloader namespace from runtime namespace.
+    // Unfortunately, it does not have stable C symbols, and default namespace should only use
+    // stable symbols in libandroidicu.so. http://b/120786417
+    removePublicLibsIfExistsInRuntimeApex(sonames);
 
     // android_init_namespaces() expects all the public libraries
     // to be loaded so that they can be found by soname alone.
@@ -471,6 +577,27 @@ class LibraryNamespaces {
     }
   }
 
+  /**
+   * Remove the public libs in runtime namespace
+   */
+  void removePublicLibsIfExistsInRuntimeApex(std::vector<std::string>& sonames) {
+    for (const std::string& lib_name : kRuntimePublicLibraries) {
+      std::string path(kRuntimeApexLibPath);
+      path.append("/").append(lib_name);
+
+      struct stat s;
+      // Do nothing if the path in /apex does not exist.
+      // Runtime APEX must be mounted since libnativeloader is in the same APEX
+      if (stat(path.c_str(), &s) != 0) {
+        continue;
+      }
+
+      auto it = std::find(sonames.begin(), sonames.end(), lib_name);
+      if (it != sonames.end()) {
+        sonames.erase(it);
+      }
+    }
+  }
 
   bool ReadConfig(const std::string& configFile, std::vector<std::string>* sonames,
                   const std::function<bool(const std::string& /* soname */,
@@ -557,24 +684,45 @@ class LibraryNamespaces {
     return env->CallObjectMethod(class_loader, get_parent);
   }
 
-  bool FindParentNamespaceByClassLoader(JNIEnv* env,
-                                        jobject class_loader,
-                                        NativeLoaderNamespace* ns) {
+  NativeLoaderNamespace* FindParentNamespaceByClassLoader(JNIEnv* env, jobject class_loader) {
     jobject parent_class_loader = GetParentClassLoader(env, class_loader);
 
     while (parent_class_loader != nullptr) {
-      if (FindNamespaceByClassLoader(env, parent_class_loader, ns)) {
-        return true;
+      NativeLoaderNamespace* ns;
+      if ((ns = FindNamespaceByClassLoader(env, parent_class_loader)) != nullptr) {
+        return ns;
       }
 
       parent_class_loader = GetParentClassLoader(env, parent_class_loader);
     }
 
-    return false;
+    return nullptr;
+  }
+
+  ApkOrigin GetApkOriginFromDexPath(JNIEnv* env, jstring dex_path) {
+    ApkOrigin apk_origin = APK_ORIGIN_DEFAULT;
+
+    if (dex_path != nullptr) {
+      ScopedUtfChars dex_path_utf_chars(env, dex_path);
+
+      if (std::regex_search(dex_path_utf_chars.c_str(), kVendorDexPathRegex)) {
+        apk_origin = APK_ORIGIN_VENDOR;
+      }
+
+      if (std::regex_search(dex_path_utf_chars.c_str(), kProductDexPathRegex)) {
+        LOG_ALWAYS_FATAL_IF(apk_origin == APK_ORIGIN_VENDOR,
+                            "Dex path contains both vendor and product partition : %s",
+                            dex_path_utf_chars.c_str());
+
+        apk_origin = APK_ORIGIN_PRODUCT;
+      }
+    }
+
+    return apk_origin;
   }
 
   bool initialized_;
-  std::vector<std::pair<jweak, NativeLoaderNamespace>> namespaces_;
+  std::list<std::pair<jweak, NativeLoaderNamespace>> namespaces_;
   std::string system_public_libraries_;
   std::string vendor_public_libraries_;
   std::string oem_public_libraries_;
@@ -603,91 +751,93 @@ void ResetNativeLoader() {
 #endif
 }
 
-jstring CreateClassLoaderNamespace(JNIEnv* env,
-                                   int32_t target_sdk_version,
-                                   jobject class_loader,
-                                   bool is_shared,
-                                   bool is_for_vendor,
-                                   jstring library_path,
+jstring CreateClassLoaderNamespace(JNIEnv* env, int32_t target_sdk_version, jobject class_loader,
+                                   bool is_shared, jstring dex_path, jstring library_path,
                                    jstring permitted_path) {
 #if defined(__ANDROID__)
   std::lock_guard<std::mutex> guard(g_namespaces_mutex);
 
   std::string error_msg;
-  NativeLoaderNamespace ns;
-  bool success = g_namespaces->Create(env,
-                                      target_sdk_version,
-                                      class_loader,
-                                      is_shared,
-                                      is_for_vendor,
-                                      library_path,
-                                      permitted_path,
-                                      &ns,
-                                      &error_msg);
+  bool success = g_namespaces->Create(env, target_sdk_version, class_loader, is_shared, dex_path,
+                                      library_path, permitted_path, &error_msg) != nullptr;
   if (!success) {
     return env->NewStringUTF(error_msg.c_str());
   }
 #else
-  UNUSED(env, target_sdk_version, class_loader, is_shared, is_for_vendor,
-         library_path, permitted_path);
+  UNUSED(env, target_sdk_version, class_loader, is_shared, dex_path, library_path, permitted_path);
 #endif
   return nullptr;
 }
 
-void* OpenNativeLibrary(JNIEnv* env,
-                        int32_t target_sdk_version,
-                        const char* path,
-                        jobject class_loader,
-                        jstring library_path,
-                        bool* needs_native_bridge,
-                        std::string* error_msg) {
+#if defined(__ANDROID__)
+static android_namespace_t* FindExportedNamespace(const char* caller_location) {
+  std::string location = caller_location;
+  // Lots of implicit assumptions here: we expect `caller_location` to be of the form:
+  // /apex/com.android...modulename/...
+  //
+  // And we extract from it 'modulename', which is the name of the linker namespace.
+  if (android::base::StartsWith(location, kApexPath)) {
+    size_t slash_index = location.find_first_of('/', strlen(kApexPath));
+    LOG_ALWAYS_FATAL_IF((slash_index == std::string::npos),
+                        "Error finding namespace of apex: no slash in path %s", caller_location);
+    size_t dot_index = location.find_last_of('.', slash_index);
+    LOG_ALWAYS_FATAL_IF((dot_index == std::string::npos),
+                        "Error finding namespace of apex: no dot in apex name %s", caller_location);
+    std::string name = location.substr(dot_index + 1, slash_index - dot_index - 1);
+    android_namespace_t* boot_namespace = android_get_exported_namespace(name.c_str());
+    LOG_ALWAYS_FATAL_IF((boot_namespace == nullptr),
+                        "Error finding namespace of apex: no namespace called %s", name.c_str());
+    return boot_namespace;
+  }
+  return nullptr;
+}
+#endif
+
+void* OpenNativeLibrary(JNIEnv* env, int32_t target_sdk_version, const char* path,
+                        jobject class_loader, const char* caller_location, jstring library_path,
+                        bool* needs_native_bridge, char** error_msg) {
 #if defined(__ANDROID__)
   UNUSED(target_sdk_version);
   if (class_loader == nullptr) {
     *needs_native_bridge = false;
-    return dlopen(path, RTLD_NOW);
+    if (caller_location != nullptr) {
+      android_namespace_t* boot_namespace = FindExportedNamespace(caller_location);
+      if (boot_namespace != nullptr) {
+        const android_dlextinfo dlextinfo = {
+            .flags = ANDROID_DLEXT_USE_NAMESPACE,
+            .library_namespace = boot_namespace,
+        };
+        void* handle = android_dlopen_ext(path, RTLD_NOW, &dlextinfo);
+        if (handle == nullptr) {
+          *error_msg = strdup(dlerror());
+        }
+        return handle;
+      }
+    }
+    void* handle = dlopen(path, RTLD_NOW);
+    if (handle == nullptr) {
+      *error_msg = strdup(dlerror());
+    }
+    return handle;
   }
 
   std::lock_guard<std::mutex> guard(g_namespaces_mutex);
-  NativeLoaderNamespace ns;
+  NativeLoaderNamespace* ns;
 
-  if (!g_namespaces->FindNamespaceByClassLoader(env, class_loader, &ns)) {
+  if ((ns = g_namespaces->FindNamespaceByClassLoader(env, class_loader)) == nullptr) {
     // This is the case where the classloader was not created by ApplicationLoaders
     // In this case we create an isolated not-shared namespace for it.
-    if (!g_namespaces->Create(env,
-                              target_sdk_version,
-                              class_loader,
-                              false /* is_shared */,
-                              false /* is_for_vendor */,
-                              library_path,
-                              nullptr,
-                              &ns,
-                              error_msg)) {
+    std::string create_error_msg;
+    if ((ns = g_namespaces->Create(env, target_sdk_version, class_loader, false /* is_shared */,
+                                   nullptr, library_path, nullptr, &create_error_msg)) == nullptr) {
+      *error_msg = strdup(create_error_msg.c_str());
       return nullptr;
     }
   }
 
-  if (ns.is_android_namespace()) {
-    android_dlextinfo extinfo;
-    extinfo.flags = ANDROID_DLEXT_USE_NAMESPACE;
-    extinfo.library_namespace = ns.get_android_ns();
-
-    void* handle = android_dlopen_ext(path, RTLD_NOW, &extinfo);
-    if (handle == nullptr) {
-      *error_msg = dlerror();
-    }
-    *needs_native_bridge = false;
-    return handle;
-  } else {
-    void* handle = NativeBridgeLoadLibraryExt(path, RTLD_NOW, ns.get_native_bridge_ns());
-    if (handle == nullptr) {
-      *error_msg = NativeBridgeGetError();
-    }
-    *needs_native_bridge = true;
-    return handle;
-  }
+  return OpenNativeLibraryInNamespace(ns, path, needs_native_bridge, error_msg);
 #else
-  UNUSED(env, target_sdk_version, class_loader);
+  UNUSED(env, target_sdk_version, class_loader, caller_location);
 
   // Do some best effort to emulate library-path support. It will not
   // work for dependencies.
@@ -726,32 +876,76 @@ void* OpenNativeLibrary(JNIEnv* env,
       if (handle != nullptr) {
         return handle;
       }
-      *error_msg = NativeBridgeGetError();
+      *error_msg = strdup(NativeBridgeGetError());
     } else {
-      *error_msg = dlerror();
+      *error_msg = strdup(dlerror());
     }
   }
   return nullptr;
 #endif
 }
 
-bool CloseNativeLibrary(void* handle, const bool needs_native_bridge) {
-    return needs_native_bridge ? NativeBridgeUnloadLibrary(handle) :
-                                 dlclose(handle);
+bool CloseNativeLibrary(void* handle, const bool needs_native_bridge, char** error_msg) {
+  bool success;
+  if (needs_native_bridge) {
+    success = (NativeBridgeUnloadLibrary(handle) == 0);
+    if (!success) {
+      *error_msg = strdup(NativeBridgeGetError());
+    }
+  } else {
+    success = (dlclose(handle) == 0);
+    if (!success) {
+      *error_msg = strdup(dlerror());
+    }
+  }
+
+  return success;
+}
+
+void NativeLoaderFreeErrorMessage(char* msg) {
+  // The error messages get allocated through strdup, so we must call free on them.
+  free(msg);
 }
 
 #if defined(__ANDROID__)
+void* OpenNativeLibraryInNamespace(NativeLoaderNamespace* ns, const char* path,
+                                   bool* needs_native_bridge, char** error_msg) {
+  if (ns->is_android_namespace()) {
+    android_dlextinfo extinfo;
+    extinfo.flags = ANDROID_DLEXT_USE_NAMESPACE;
+    extinfo.library_namespace = ns->get_android_ns();
+
+    void* handle = android_dlopen_ext(path, RTLD_NOW, &extinfo);
+    if (handle == nullptr) {
+      *error_msg = strdup(dlerror());
+    }
+    *needs_native_bridge = false;
+    return handle;
+  } else {
+    void* handle = NativeBridgeLoadLibraryExt(path, RTLD_NOW, ns->get_native_bridge_ns());
+    if (handle == nullptr) {
+      *error_msg = strdup(NativeBridgeGetError());
+    }
+    *needs_native_bridge = true;
+    return handle;
+  }
+}
+
 // native_bridge_namespaces are not supported for callers of this function.
 // This function will return nullptr in the case when application is running
 // on native bridge.
 android_namespace_t* FindNamespaceByClassLoader(JNIEnv* env, jobject class_loader) {
   std::lock_guard<std::mutex> guard(g_namespaces_mutex);
-  NativeLoaderNamespace ns;
-  if (g_namespaces->FindNamespaceByClassLoader(env, class_loader, &ns)) {
-    return ns.is_android_namespace() ? ns.get_android_ns() : nullptr;
+  NativeLoaderNamespace* ns = g_namespaces->FindNamespaceByClassLoader(env, class_loader);
+  if (ns != nullptr) {
+    return ns->is_android_namespace() ? ns->get_android_ns() : nullptr;
   }
 
   return nullptr;
+}
+NativeLoaderNamespace* FindNativeLoaderNamespaceByClassLoader(JNIEnv* env, jobject class_loader) {
+  std::lock_guard<std::mutex> guard(g_namespaces_mutex);
+  return g_namespaces->FindNamespaceByClassLoader(env, class_loader);
 }
 #endif
 

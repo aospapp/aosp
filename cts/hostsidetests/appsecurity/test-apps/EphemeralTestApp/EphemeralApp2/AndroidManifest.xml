@@ -15,10 +15,9 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.ephemeralapp2"
-    android:targetSandboxVersion="2">
+  package="com.android.cts.ephemeralapp2" >
     <uses-sdk
-        android:minSdkVersion="24" />
+        android:minSdkVersion="24" android:targetSdkVersion="26" />
 
     <!-- TEST: exists only for testing ephemeral app1 can't see this app -->
     <application
@@ -78,6 +77,6 @@
     </application>
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.ephemeralapp2" />
 </manifest>

@@ -40,7 +40,7 @@ class TestCasesParser(object):
         self._data_path = data_path
         self._filter_func = filter_func
         self._ltp_tests_filter = filter_utils.Filter(
-            stable_tests.STABLE_TESTS,
+            [ i[0] for i in stable_tests.STABLE_TESTS ],
             disabled_tests.DISABLED_TESTS,
             enable_regex=True)
         self._ltp_tests_filter.ExpandBitness()
@@ -148,6 +148,12 @@ class TestCasesParser(object):
                 if run_staging:
                     # Skip stable tests in staging run
                     continue
+
+            if not testcase.is_staging:
+                for x in stable_tests.STABLE_TESTS:
+                    if x[0] == test_display_name and x[1]:
+                        testcase.is_mandatory = True
+                        break
 
             logging.info("[Parser] Adding test case %s." % testcase.fullname)
             yield testcase

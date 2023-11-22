@@ -951,12 +951,15 @@ MACRO3(THREE_ARG_REF_DOWNCALL, c_name, cxx_name, return_macro)
     END_FUNCTION VAR(c_name)
 END_MACRO
 
-// Macro for string and type resolution and initialization.
+    /*
+     * Macro for resolution and initialization of indexed DEX file
+     * constants such as classes and strings.
+     */
 MACRO3(ONE_ARG_SAVE_EVERYTHING_DOWNCALL, c_name, cxx_name, runtime_method_offset = RUNTIME_SAVE_EVERYTHING_METHOD_OFFSET)
     DEFINE_FUNCTION VAR(c_name)
     SETUP_SAVE_EVERYTHING_FRAME \runtime_method_offset  // save everything for GC
     // Outgoing argument set up
-    movl %eax, %edi                               // pass string index
+    movl %eax, %edi                               // pass the index of the constant as arg0
     movq %gs:THREAD_SELF_OFFSET, %rsi             // pass Thread::Current()
     call CALLVAR(cxx_name)                        // cxx_name(arg0, Thread*)
     testl %eax, %eax                              // If result is null, deliver the OOME.
@@ -1008,6 +1011,7 @@ GENERATE_ALLOC_ENTRYPOINTS_FOR_NON_TLAB_ALLOCATORS
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_region_tlab, RegionTLAB)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_OBJECT(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED8(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED16(_region_tlab, RegionTLAB)
@@ -1020,6 +1024,7 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_tlab, TLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_tlab, TLAB)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_OBJECT(_tlab, TLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_tlab, TLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED8(_tlab, TLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED16(_tlab, TLAB)
@@ -1296,8 +1301,10 @@ DEFINE_FUNCTION art_quick_alloc_object_initialized_region_tlab
 END_FUNCTION art_quick_alloc_object_initialized_region_tlab
 
 ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT art_quick_initialize_static_storage, artInitializeStaticStorageFromCode
-ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT art_quick_initialize_type, artInitializeTypeFromCode
-ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_type_and_verify_access, artInitializeTypeAndVerifyAccessFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT art_quick_resolve_type, artResolveTypeFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_type_and_verify_access, artResolveTypeAndVerifyAccessFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_method_handle, artResolveMethodHandleFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_method_type, artResolveMethodTypeFromCode
 ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_string, artResolveStringFromCode
 
 TWO_ARG_REF_DOWNCALL art_quick_handle_fill_data, artHandleFillArrayDataFromCode, RETURN_IF_EAX_ZERO
@@ -1307,7 +1314,7 @@ DEFINE_FUNCTION art_quick_lock_object
     jz   .Lslow_lock
 .Lretry_lock:
     movl MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi), %ecx  // ecx := lock word.
-    test LITERAL(LOCK_WORD_STATE_MASK), %ecx         // Test the 2 high bits.
+    test LITERAL(LOCK_WORD_STATE_MASK_SHIFTED), %ecx  // Test the 2 high bits.
     jne  .Lslow_lock                      // Slow path if either of the two high bits are set.
     movl %ecx, %edx                       // save lock word (edx) to keep read barrier bits.
     andl LITERAL(LOCK_WORD_GC_STATE_MASK_SHIFTED_TOGGLED), %ecx  // zero the gc bits.
@@ -1357,7 +1364,7 @@ DEFINE_FUNCTION art_quick_unlock_object
 .Lretry_unlock:
     movl MIRROR_OBJECT_LOCK_WORD_OFFSET(%edi), %ecx  // ecx := lock word
     movl %gs:THREAD_ID_OFFSET, %edx       // edx := thread id
-    test LITERAL(LOCK_WORD_STATE_MASK), %ecx
+    test LITERAL(LOCK_WORD_STATE_MASK_SHIFTED), %ecx
     jnz  .Lslow_unlock                    // lock word contains a monitor
     cmpw %cx, %dx                         // does the thread id match?
     jne  .Lslow_unlock
@@ -1403,6 +1410,10 @@ DEFINE_FUNCTION art_quick_unlock_object_no_inline
 END_FUNCTION art_quick_unlock_object_no_inline
 
 DEFINE_FUNCTION art_quick_check_instance_of
+    // Type check using the bit string passes null as the target class. In that case just throw.
+    testl %esi, %esi
+    jz .Lthrow_class_cast_exception_for_bitstring_check
+
     // We could check the super classes here but that is usually already checked in the caller.
     PUSH rdi                          // Save args for exc
     PUSH rsi
@@ -1426,6 +1437,7 @@ DEFINE_FUNCTION art_quick_check_instance_of
     POP rsi                           // Pop arguments
     POP rdi
 
+.Lthrow_class_cast_exception_for_bitstring_check:
     SETUP_SAVE_ALL_CALLEE_SAVES_FRAME // save all registers as basis for long jump context
     mov %gs:THREAD_SELF_OFFSET, %rdx  // pass Thread::Current()
     call SYMBOL(artThrowClassCastExceptionForObject)  // (Object* src, Class* dest, Thread*)
@@ -1642,7 +1654,7 @@ END_FUNCTION art_quick_proxy_invoke_handler
      * rdi is the conflict ArtMethod.
      * rax is a hidden argument that holds the target interface method's dex method index.
      *
-     * Note that this stub writes to r10 and rdi.
+     * Note that this stub writes to r10, r11, rax and rdi.
      */
 DEFINE_FUNCTION art_quick_imt_conflict_trampoline
 #if defined(__APPLE__)
@@ -1650,6 +1662,8 @@ DEFINE_FUNCTION art_quick_imt_conflict_trampoline
     int3
 #else
     movq __SIZEOF_POINTER__(%rsp), %r10 // Load referrer.
+    mov %eax, %r11d             // Remember method index in R11.
+    PUSH rdx                    // Preserve RDX as we need to clobber it by LOCK CMPXCHG16B.
     // If the method is obsolete, just go through the dex cache miss slow path.
     // The obsolete flag is set with suspended threads, so we do not need an acquire operation here.
     testl LITERAL(ACC_OBSOLETE_METHOD), ART_METHOD_ACCESS_FLAGS_OFFSET(%r10)
@@ -1658,11 +1672,9 @@ DEFINE_FUNCTION art_quick_imt_conflict_trampoline
     movl MIRROR_CLASS_DEX_CACHE_OFFSET(%r10), %r10d    // Load the DexCache (without read barrier).
     UNPOISON_HEAP_REF r10d
     movq MIRROR_DEX_CACHE_RESOLVED_METHODS_OFFSET(%r10), %r10  // Load the resolved methods.
-    mov %eax, %r11d  // Remember method index in R11.
     andl LITERAL(METHOD_DEX_CACHE_SIZE_MINUS_ONE), %eax  // Calculate DexCache method slot index.
     shll LITERAL(1), %eax       // Multiply by 2 as entries have size 2 * __SIZEOF_POINTER__.
     leaq 0(%r10, %rax, __SIZEOF_POINTER__), %r10 // Load DexCache method slot address.
-    PUSH rdx                    // Preserve RDX as we need to clobber it by LOCK CMPXCHG16B.
     mov %rcx, %rdx              // Make RDX:RAX == RCX:RBX so that LOCK CMPXCHG16B makes no changes.
     mov %rbx, %rax              // (The actual value does not matter.)
     lock cmpxchg16b (%r10)      // Relaxed atomic load RDX:RAX from the dex cache slot.
@@ -2408,80 +2420,28 @@ DEFINE_FUNCTION art_quick_osr_stub
 END_FUNCTION art_quick_osr_stub
 
 DEFINE_FUNCTION art_quick_invoke_polymorphic
+                                                   // On entry: RDI := unused, RSI := receiver
     SETUP_SAVE_REFS_AND_ARGS_FRAME                 // save callee saves
-    movq %gs:THREAD_SELF_OFFSET, %rdx              // pass Thread
-    movq %rsp, %rcx                                // pass SP
-    subq LITERAL(16), %rsp                         // make space for JValue result
-    CFI_ADJUST_CFA_OFFSET(16)
-    movq LITERAL(0), (%rsp)                        // initialize result
-    movq %rsp, %rdi                                // store pointer to JValue result
-    call SYMBOL(artInvokePolymorphic)              // artInvokePolymorphic(result, receiver, Thread*, SP)
+    movq %rsi, %rdi                                // RDI := receiver
+    movq %gs:THREAD_SELF_OFFSET, %rsi              // RSI := Thread (self)
+    movq %rsp, %rdx                                // RDX := pass SP
+    call SYMBOL(artInvokePolymorphic)              // invoke with (receiver, self, SP)
                                                    // save the code pointer
-    subq LITERAL('A'), %rax                        // Convert type descriptor character value to a zero based index.
-    cmpb LITERAL('Z' - 'A'), %al                   // Eliminate out of bounds options
-    ja .Lcleanup_and_return
-    movzbq %al, %rax
-    leaq .Lhandler_table(%rip), %rcx               // Get the address of the handler table
-    movslq (%rcx, %rax, 4), %rax                   // Lookup handler offset relative to table
-    addq %rcx, %rax                                // Add table address to yield handler address.
-    jmpq *%rax                                     // Jump to handler.
-
-.align 4
-.Lhandler_table:                                   // Table of type descriptor to handlers.
-MACRO1(HANDLER_TABLE_OFFSET, handle_label)
-    // NB some tools require 32-bits for relocations. Shouldn't need adjusting.
-    .long RAW_VAR(handle_label) - .Lhandler_table
-END_MACRO
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // A
-    HANDLER_TABLE_OFFSET(.Lstore_long_result)      // B (byte)
-    HANDLER_TABLE_OFFSET(.Lstore_char_result)      // C (char)
-    HANDLER_TABLE_OFFSET(.Lstore_double_result)    // D (double)
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // E
-    HANDLER_TABLE_OFFSET(.Lstore_float_result)     // F (float)
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // G
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // H
-    HANDLER_TABLE_OFFSET(.Lstore_long_result)      // I (int)
-    HANDLER_TABLE_OFFSET(.Lstore_long_result)      // J (long)
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // K
-    HANDLER_TABLE_OFFSET(.Lstore_long_result)      // L (object - references are compressed and only 32-bits)
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // M
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // N
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // O
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // P
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // Q
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // R
-    HANDLER_TABLE_OFFSET(.Lstore_long_result)      // S (short)
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // T
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // U
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // V (void)
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // W
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // X
-    HANDLER_TABLE_OFFSET(.Lcleanup_and_return)     // Y
-    HANDLER_TABLE_OFFSET(.Lstore_boolean_result)   // Z (boolean)
-
-.Lstore_boolean_result:
-    movzbq (%rsp), %rax                            // Copy boolean result to the accumulator
-    jmp .Lcleanup_and_return
-.Lstore_char_result:
-    movzwq (%rsp), %rax                            // Copy char result to the accumulator
-    jmp .Lcleanup_and_return
-.Lstore_float_result:
-    movd (%rsp), %xmm0                             // Copy float result to the context restored by
-    movd %xmm0, 32(%rsp)                           // RESTORE_SAVE_REFS_AND_ARGS_FRAME.
-    jmp .Lcleanup_and_return
-.Lstore_double_result:
-    movsd (%rsp), %xmm0                            // Copy double result to the context restored by
-    movsd %xmm0, 32(%rsp)                          // RESTORE_SAVE_REFS_AND_ARGS_FRAME.
-    jmp .Lcleanup_and_return
-.Lstore_long_result:
-    movq (%rsp), %rax                              // Copy long result to the accumulator.
-     // Fall-through
-.Lcleanup_and_return:
-    addq LITERAL(16), %rsp                         // Pop space for JValue result.
-    CFI_ADJUST_CFA_OFFSET(16)
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
+    movq %rax, %xmm0                               // Result is in RAX. Copy to FP result register.
     RETURN_OR_DELIVER_PENDING_EXCEPTION
 END_FUNCTION art_quick_invoke_polymorphic
+
+DEFINE_FUNCTION art_quick_invoke_custom
+    SETUP_SAVE_REFS_AND_ARGS_FRAME                 // save callee saves
+                                                   // RDI := call_site_index
+    movq %gs:THREAD_SELF_OFFSET, %rsi              // RSI := Thread::Current()
+    movq %rsp, %rdx                                // RDX := SP
+    call SYMBOL(artInvokeCustom)                   // artInvokeCustom(Thread*, SP)
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
+    movq %rax, %xmm0                               // Result is in RAX. Copy to FP result register.
+    RETURN_OR_DELIVER_PENDING_EXCEPTION
+END_FUNCTION art_quick_invoke_custom
 
 // Wrap ExecuteSwitchImpl in assembly method which specifies DEX PC for unwinding.
 //  Argument 0: RDI: The context pointer for ExecuteSwitchImpl.

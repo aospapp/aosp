@@ -15,10 +15,11 @@
  */
 package android.car.navigation;
 
-import android.car.CarApiUtil;
+import android.annotation.RequiresPermission;
+import android.annotation.SystemApi;
+import android.car.Car;
 import android.car.CarLibLog;
 import android.car.CarManagerBase;
-import android.car.CarNotConnectedException;
 import android.car.cluster.renderer.IInstrumentClusterNavigation;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -27,7 +28,9 @@ import android.util.Log;
 
 /**
  * API for providing navigation status for instrument cluster.
+ * @hide
  */
+@SystemApi
 public final class CarNavigationStatusManager implements CarManagerBase {
     private static final String TAG = CarLibLog.TAG_NAV;
 
@@ -44,46 +47,43 @@ public final class CarNavigationStatusManager implements CarManagerBase {
     /**
      * Sends events from navigation app to instrument cluster.
      *
-     * <p>The event type and bundle can be populated by
-     * {@link android.support.car.navigation.CarNavigationStatusEvent}.
-     *
-     * @param eventType event type
-     * @param bundle object that holds data about the event
-     * @throws CarNotConnectedException if the connection to the car service has been lost.
+     * @deprecated use {@link #sendEvent(Bundle)} instead.
      */
-    public void sendEvent(int eventType, Bundle bundle) throws CarNotConnectedException {
+    @Deprecated
+    @RequiresPermission(Car.PERMISSION_CAR_NAVIGATION_MANAGER)
+    public void sendEvent(int eventType, Bundle bundle) {
+        sendNavigationStateChange(bundle);
+    }
+
+    /**
+     * Sends events from navigation app to instrument cluster.
+     *
+     * @param bundle object holding data about the navigation event. This information is
+     *               generated using <a href="https://developer.android.com/reference/androidx/car/cluster/navigation/NavigationState.html#toParcelable()">
+     *               androidx.car.cluster.navigation.NavigationState#toParcelable()</a>
+     */
+    @RequiresPermission(Car.PERMISSION_CAR_NAVIGATION_MANAGER)
+    public void sendNavigationStateChange(Bundle bundle) {
         try {
-            mService.onEvent(eventType, bundle);
-        } catch (IllegalStateException e) {
-            CarApiUtil.checkCarNotConnectedExceptionFromCarService(e);
+            mService.onNavigationStateChanged(bundle);
         } catch (RemoteException e) {
-            handleCarServiceRemoteExceptionAndThrow(e);
+            throw e.rethrowFromSystemServer();
         }
     }
 
     /** @hide */
     @Override
-    public void onCarDisconnected() {}
+    public void onCarDisconnected() {
+        Log.e(TAG, "Car service disconnected");
+    }
 
     /** Returns navigation features of instrument cluster */
-    public CarNavigationInstrumentCluster getInstrumentClusterInfo()
-            throws CarNotConnectedException {
+    @RequiresPermission(Car.PERMISSION_CAR_NAVIGATION_MANAGER)
+    public CarNavigationInstrumentCluster getInstrumentClusterInfo() {
         try {
             return mService.getInstrumentClusterInfo();
         } catch (RemoteException e) {
-            handleCarServiceRemoteExceptionAndThrow(e);
+            throw e.rethrowFromSystemServer();
         }
-        return null;
-    }
-
-    private void handleCarServiceRemoteExceptionAndThrow(RemoteException e)
-            throws CarNotConnectedException {
-        handleCarServiceRemoteException(e);
-        throw new CarNotConnectedException();
-    }
-
-    private void handleCarServiceRemoteException(RemoteException e) {
-        Log.w(TAG, "RemoteException from car service:" + e.getMessage());
-        // nothing to do for now
     }
 }

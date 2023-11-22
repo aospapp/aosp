@@ -20,7 +20,6 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;
-import android.net.dns.ResolvUtil;
 import android.os.Bundle;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SmsManager;
@@ -29,6 +28,7 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.util.Log;
+
 import com.android.mms.service.exception.MmsHttpException;
 
 import java.io.BufferedInputStream;
@@ -75,6 +75,9 @@ public class MmsHttpClient {
             "application/vnd.wap.mms-message";
     private static final String HEADER_CONNECTION_CLOSE = "close";
 
+    // Used for configs that specify a UA_PROF_URL, but not a name
+    private static final String UA_PROF_TAG_NAME_DEFAULT = "x-wap-profile";
+
     private static final int IPV4_WAIT_ATTEMPTS = 15;
     private static final long IPV4_WAIT_DELAY_MS = 1000; // 1 seconds
 
@@ -84,32 +87,32 @@ public class MmsHttpClient {
 
     /**
      * Constructor
-     *  @param context The Context object
+     *
+     * @param context The Context object
      * @param network The Network for creating an OKHttp client
-     * @param connectivityManager
      */
     public MmsHttpClient(Context context, Network network,
             ConnectivityManager connectivityManager) {
         mContext = context;
         // Mms server is on a carrier private network so it may not be resolvable using 3rd party
         // private dns
-        mNetwork = ResolvUtil.makeNetworkWithPrivateDnsBypass(network);
+        mNetwork = network.getPrivateDnsBypassingCopy();
         mConnectivityManager = connectivityManager;
     }
 
     /**
      * Execute an MMS HTTP request, either a POST (sending) or a GET (downloading)
      *
-     * @param urlString The request URL, for sending it is usually the MMSC, and for downloading
-     *                  it is the message URL
-     * @param pdu For POST (sending) only, the PDU to send
-     * @param method HTTP method, POST for sending and GET for downloading
+     * @param urlString  The request URL, for sending it is usually the MMSC, and for downloading
+     *                   it is the message URL
+     * @param pdu        For POST (sending) only, the PDU to send
+     * @param method     HTTP method, POST for sending and GET for downloading
      * @param isProxySet Is there a proxy for the MMSC
-     * @param proxyHost The proxy host
-     * @param proxyPort The proxy port
-     * @param mmsConfig The MMS config to use
-     * @param subId The subscription ID used to get line number, etc.
-     * @param requestId The request ID for logging
+     * @param proxyHost  The proxy host
+     * @param proxyPort  The proxy port
+     * @param mmsConfig  The MMS config to use
+     * @param subId      The subscription ID used to get line number, etc.
+     * @param requestId  The request ID for logging
      * @return The HTTP response body
      * @throws MmsHttpException For any failures
      */
@@ -134,6 +137,8 @@ public class MmsHttpClient {
             connection.setDoInput(true);
             connection.setConnectTimeout(
                     mmsConfig.getInt(SmsManager.MMS_CONFIG_HTTP_SOCKET_TIMEOUT));
+            connection.setReadTimeout(
+                    mmsConfig.getInt(SmsManager.MMS_CONFIG_HTTP_SOCKET_TIMEOUT));
             // ------- COMMON HEADERS ---------
             // Header: Accept
             connection.setRequestProperty(HEADER_ACCEPT, HEADER_VALUE_ACCEPT);
@@ -145,11 +150,18 @@ public class MmsHttpClient {
             LogUtil.i(requestId, "HTTP: User-Agent=" + userAgent);
             connection.setRequestProperty(HEADER_USER_AGENT, userAgent);
             // Header: x-wap-profile
-            final String uaProfUrlTagName =
+            String uaProfUrlTagName =
                     mmsConfig.getString(SmsManager.MMS_CONFIG_UA_PROF_TAG_NAME);
             final String uaProfUrl = mmsConfig.getString(SmsManager.MMS_CONFIG_UA_PROF_URL);
-            if (uaProfUrl != null) {
-                LogUtil.i(requestId, "HTTP: UaProfUrl=" + uaProfUrl);
+
+            if (!TextUtils.isEmpty(uaProfUrl)) {
+                if (TextUtils.isEmpty(uaProfUrlTagName)) {
+                    uaProfUrlTagName = UA_PROF_TAG_NAME_DEFAULT;
+                }
+
+                LogUtil.i(requestId,
+                        "HTTP: UaProfUrl=" + uaProfUrl + ", UaProfUrlTagName=" + uaProfUrlTagName);
+
                 connection.setRequestProperty(uaProfUrlTagName, uaProfUrl);
             }
             // Header: Connection: close (if needed)
@@ -351,8 +363,8 @@ public class MmsHttpClient {
      * macros like "##LINE1##" or "##NAI##" which is resolved with methods in this class
      *
      * @param connection The HttpURLConnection that we add headers to
-     * @param mmsConfig The MmsConfig object
-     * @param subId The subscription ID used to get line number, etc.
+     * @param mmsConfig  The MmsConfig object
+     * @param subId      The subscription ID used to get line number, etc.
      */
     private void addExtraHeaders(HttpURLConnection connection, Bundle mmsConfig, int subId) {
         final String extraHttpParams = mmsConfig.getString(SmsManager.MMS_CONFIG_HTTP_PARAMS);
@@ -375,6 +387,7 @@ public class MmsHttpClient {
     }
 
     private static final Pattern MACRO_P = Pattern.compile("##(\\S+)##");
+
     /**
      * Resolve the macro in HTTP param value text
      * For example, "something##LINE1##something" is resolved to "something9139531419something"
@@ -414,9 +427,6 @@ public class MmsHttpClient {
     /**
      * Redact the URL for non-VERBOSE logging. Replace url with only the host part and the length
      * of the input URL string.
-     *
-     * @param urlString
-     * @return
      */
     public static String redactUrlForNonVerbose(String urlString) {
         if (LogUtil.isLoggable(Log.VERBOSE)) {
@@ -451,13 +461,14 @@ public class MmsHttpClient {
     private static final String MACRO_LINE1NOCOUNTRYCODE = "LINE1NOCOUNTRYCODE";
     // NAI (Network Access Identifier), used by Sprint for authentication
     private static final String MACRO_NAI = "NAI";
+
     /**
      * Return the HTTP param macro value.
      * Example: "LINE1" returns the phone number, etc.
      *
-     * @param macro The macro name
+     * @param macro     The macro name
      * @param mmsConfig The MMS config which contains NAI suffix.
-     * @param subId The subscription ID used to get line number, etc.
+     * @param subId     The subscription ID used to get line number, etc.
      * @return The value of the defined macro
      */
     private static String getMacroValue(Context context, String macro, Bundle mmsConfig,

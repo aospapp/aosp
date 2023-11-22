@@ -26,15 +26,11 @@ interface IApInterface {
   const int ENCRYPTION_TYPE_WPA = 1;
   const int ENCRYPTION_TYPE_WPA2 = 2;
 
-  // Start up an instance of hostapd associated with this interface.
+  // Register a callback object for this interface.
   //
   // @param callback Object to add a set of event callbacks.
   // @return true on success.
-  boolean startHostapd(IApInterfaceEventCallback callback);
-
-  // Stop a previously started instance of hostapd.
-  // @return true on success.
-  boolean stopHostapd();
+  boolean registerCallback(IApInterfaceEventCallback callback);
 
   // Retrieve the name of the network interface corresponding to this
   // IApInterface instance (e.g. "wlan0")

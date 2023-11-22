@@ -20,7 +20,7 @@ import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.util.Log;
-
+import android.view.Surface;
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
 
@@ -82,7 +82,7 @@ public class CodecState {
         mPresentationTimeUs = 0;
 
         String mime = mFormat.getString(MediaFormat.KEY_MIME);
-        Log.d(TAG, "CodecState::onOutputFormatChanged " + mime);
+        Log.d(TAG, "CodecState::CodecState " + mime);
         mIsAudio = mime.startsWith("audio/");
     }
 
@@ -338,12 +338,12 @@ public class CodecState {
 
         if (mAudioTrack != null) {
             ByteBuffer buffer = mCodecOutputBuffers[index];
+            byte[] audioArray = new byte[info.size];
+            buffer.get(audioArray);
             buffer.clear();
-            ByteBuffer audioBuffer = ByteBuffer.allocate(buffer.remaining());
-            audioBuffer.put(buffer);
-            audioBuffer.clear();
 
-            mAudioTrack.write(audioBuffer, info.size, info.presentationTimeUs*1000);
+            mAudioTrack.write(ByteBuffer.wrap(audioArray), info.size,
+                    info.presentationTimeUs*1000);
 
             mCodec.releaseOutputBuffer(index, false /* render */);
 
@@ -393,5 +393,12 @@ public class CodecState {
         if (mAudioTrack != null) {
             mAudioTrack.stop();
         }
+    }
+
+    public void setOutputSurface(Surface surface) {
+        if (mAudioTrack != null) {
+            throw new UnsupportedOperationException("Cannot set surface on audio codec");
+        }
+        mCodec.setOutputSurface(surface);
     }
 }

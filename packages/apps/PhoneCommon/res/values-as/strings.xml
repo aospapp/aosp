@@ -52,7 +52,7 @@
     <string name="callFailed_unobtainable_number" msgid="124621797631734731">"অমান্য নম্বৰ"</string>
     <string name="incall_error_missing_voicemail_number" msgid="3651090591812220874">"ভইচমেইলৰ নম্বৰ অজ্ঞাত।"</string>
     <string name="callFailed_video_call_tty_enabled" msgid="186585701668604271">"TTY সক্ষম হৈ কৰি থোৱা অৱস্থাত ভিডিঅ\' কল কৰিব নোৱাৰি।"</string>
-    <string name="callEnded_pulled" msgid="437630601519502587">"কল অইন এটা ডিভাইচলৈ স্থানান্তৰ কৰা হ\'ল।"</string>
+    <string name="callEnded_pulled" msgid="437630601519502587">"কল অইন এটা ডিভাইচলৈ স্থানান্তৰ কৰা হ’ল।"</string>
     <string name="ringtone_silent" msgid="249805466934178869">"নাই"</string>
     <string name="ringtone_unknown" msgid="2303463713486734520">"অজ্ঞাত ৰিংট\'ন"</string>
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"উপলব্ধ সকলো লাইনৰ ব্যৱহাৰ হৈ আছে। কল কৰিবলৈ এইটো ডিভাইচটোত বা আপোনাৰ অইন কোনো ডিভাইচত চলি থকা কোনো কল বন্ধ কৰক।"</string>

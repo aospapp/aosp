@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Bukas ang takip"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Na-stuck"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Offline"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Invalid ang certificate"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Hindi naka-encrypt"</string>
     <string name="printer_check" msgid="6428369671197132828">"Suriin ang printer"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Naghihintay upang ipadala"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Hindi mabasa ang dokumento"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Hindi sinusuportahan ang printer"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Humanap ng mga Wi-Fi Direct na printer"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Pag-print sa Wi-Fi Direct"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Mga Wi-Fi Direct na printer"</string>
     <string name="searching" msgid="2114018057619514587">"Naghahanap…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Maaaring kailanganin mong aprubahan ang koneksyong ito sa harapang panel ng iyong printer"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Kalimutan"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Kumokonekta sa pamamagitan ng Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Kumokonekta sa pamamagitan ng kasalukuyang network sa <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="security" msgid="2279008326210305401">"Seguridad"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Nagbigay ang printer na ito ng bagong certificate ng seguridad, o may ibang device na nagpapanggap bilang ito. Tanggapin ang bagong certificate?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Hindi na tumatanggap ng mga naka-encrypt na gawa ang printer na ito. Ipagpatuloy ang pag-print?"</string>
+    <string name="accept" msgid="4426153292469698134">"Tanggapin"</string>
+    <string name="reject" msgid="24751635160440693">"Tanggihan"</string>
+    <string name="connections" msgid="8895413761760117180">"Mga Koneksyon"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Kailangan ng Default na Serbisyo sa Pag-print ng pahintulot sa lokayson para maghanap ng mga device sa malapit."</string>
+    <string name="fix" msgid="7784394272611365393">"Pahintulot na sumuri"</string>
 </resources>

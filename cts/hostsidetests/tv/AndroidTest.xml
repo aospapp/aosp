@@ -16,6 +16,9 @@
 <configuration description="Config for CTS tv host test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="tv" />
+    <!-- Instant apps for TV is not supported. -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsHostsideTvTests.jar" />
         <option name="runtime-hint" value="8m10s" />

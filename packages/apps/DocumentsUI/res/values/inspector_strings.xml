@@ -87,9 +87,9 @@
     <string name="metadata_address">Location</string>
 
     <!-- String label for developer/debug file details, specifying which stream types are available. -->
-    <string name="debug_stream_types">Stream types</string>
+    <string name="debug_stream_types" translatable="false">Stream types</string>
     <!-- String label for developer/debug file details, specifying the size of the file in bytes. -->
-    <string name="debug_raw_size">Raw size (bytes)</string>
+    <string name="debug_raw_size" translatable="false">Raw size (bytes)</string>
     <!-- String label for developer/debug file details, specifying a file's uri/content address. -->
     <string name="debug_content_uri" translatable="false">Uri</string>
     <!-- String label for developer/debug file details, specifying document id. -->
@@ -110,6 +110,8 @@
     <string name="debug_supports_delete" translatable="false">Supports delete</string>
     <!-- String label for developer/debug file details, specifying that a file has associated metadata. -->
     <string name="debug_supports_metadata" translatable="false">Supports metadata</string>
+    <!-- String label for developer/debug file details, specifying that a file can be moved. -->
+    <string name="debug_supports_move" translatable="false">Supports move</string>
     <!-- String label for developer/debug file details, specifying that a file can be removed. -->
     <string name="debug_supports_remove" translatable="false">Supports remove</string>
     <!-- String label for developer/debug file details, specifying that a file can be renamed. -->

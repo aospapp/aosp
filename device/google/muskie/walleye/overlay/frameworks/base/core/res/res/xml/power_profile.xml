@@ -169,7 +169,7 @@
     </array>
 
     <!-- Additional power used when screen is ambient mode -->
-    <item name="ambient.on">23.69</item>
+    <item name="ambient.on">19</item>
 
     <!-- Additional power used when screen is turned on at minimum brightness -->
     <item name="screen.on">131.397</item>
@@ -191,7 +191,7 @@
     <item name="audio">74.758</item>
 
     <!-- Idle current for wifi radio in mA.-->
-    <item name="wifi.controller.idle">2</item>
+    <item name="wifi.controller.idle">79</item>
     <!-- Rx current for wifi radio in mA.-->
     <item name="wifi.controller.rx">166</item>
     <!-- Tx current for wifi radio in mA-->

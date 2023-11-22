@@ -62,11 +62,7 @@ public class ShowTestAcknowledgmentServlet extends BaseServlet {
             testAcks.add(ack.toJson());
         }
 
-        List<String> allTestNames = new ArrayList<>();
-        Query query = new Query(TestEntity.KIND).setKeysOnly();
-        for (Entity test : datastore.prepare(query).asIterable()) {
-            allTestNames.add(test.getKey().getName());
-        }
+        List<String> allTestNames = TestEntity.getAllTestNames();
 
         request.setAttribute("testAcknowledgments", new Gson().toJson(testAcks));
         request.setAttribute("allTests", new Gson().toJson(allTestNames));

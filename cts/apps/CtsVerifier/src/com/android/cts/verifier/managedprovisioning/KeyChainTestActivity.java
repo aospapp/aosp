@@ -208,6 +208,11 @@ public class KeyChainTestActivity extends PassFailButtons.Activity {
             logStatus("Got right alias.");
             try {
                 PrivateKey privateKey = KeyChain.getPrivateKey(KeyChainTestActivity.this, alias);
+                if (privateKey == null) {
+                    logStatus("FAILED (key unavailable)");
+                    return;
+                }
+
                 byte[] data = new String("hello").getBytes();
                 Signature sign = Signature.getInstance("SHA256withRSA");
                 sign.initSign(privateKey);
@@ -228,7 +233,7 @@ public class KeyChainTestActivity extends PassFailButtons.Activity {
         @Override
         public void onClick(View v) {
             Log.i(TAG, "Selecting certificate");
-            mLogView.setText("Waiting for prompt");
+            mLogView.setText("Prompt should not appear.");
             selectCertificate(this);
         }
 

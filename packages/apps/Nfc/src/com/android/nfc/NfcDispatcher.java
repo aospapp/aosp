@@ -70,6 +70,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 
+import android.util.StatsLog;
 /**
  * Dispatch of NFC events to start activities
  */
@@ -87,7 +88,6 @@ class NfcDispatcher {
     private final ContentResolver mContentResolver;
     private final HandoverDataParser mHandoverDataParser;
     private final String[] mProvisioningMimes;
-    private final String[] mLiveCaseMimes;
     private final ScreenStateHelper mScreenStateHelper;
     private final NfcUnlockManager mNfcUnlockManager;
     private final boolean mDeviceSupportsBluetooth;
@@ -103,8 +103,7 @@ class NfcDispatcher {
 
     NfcDispatcher(Context context,
                   HandoverDataParser handoverDataParser,
-                  boolean provisionOnly,
-                  boolean isLiveCaseEnabled) {
+                  boolean provisionOnly) {
         mContext = context;
         mIActivityManager = ActivityManager.getService();
         mTechListFilters = new RegisteredComponentCache(mContext,
@@ -129,18 +128,6 @@ class NfcDispatcher {
             }
         }
         mProvisioningMimes = provisionMimes;
-
-        String[] liveCaseMimes = null;
-        if (isLiveCaseEnabled) {
-            try {
-                // Get accepted mime-types
-                liveCaseMimes = context.getResources().
-                        getStringArray(R.array.live_case_mime_types);
-            } catch (NotFoundException e) {
-               liveCaseMimes = null;
-            }
-        }
-        mLiveCaseMimes = liveCaseMimes;
 
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
         mContext.registerReceiver(mBluetoothStatusReceiver, filter);
@@ -223,6 +210,11 @@ class NfcDispatcher {
             return intent;
         }
 
+        public boolean hasIntentReceiver() {
+            return packageManager.queryIntentActivitiesAsUser(intent, 0,
+                    ActivityManager.getCurrentUser()).size() > 0;
+        }
+
         public boolean isWebIntent() {
             return ndefUri != null && ndefUri.normalizeScheme().getScheme() != null &&
                 ndefUri.normalizeScheme().getScheme().startsWith("http");
@@ -249,6 +241,7 @@ class NfcDispatcher {
                     ActivityManager.getCurrentUser());
             if (activities.size() > 0) {
                 context.startActivityAsUser(rootIntent, UserHandle.CURRENT);
+                StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__APP_LAUNCH);
                 return true;
             }
             return false;
@@ -260,6 +253,7 @@ class NfcDispatcher {
             if (activities.size() > 0) {
                 rootIntent.putExtra(NfcRootActivity.EXTRA_LAUNCH_INTENT, intentToStart);
                 context.startActivityAsUser(rootIntent, UserHandle.CURRENT);
+                StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__APP_LAUNCH);
                 return true;
             }
             return false;
@@ -278,9 +272,9 @@ class NfcDispatcher {
         IntentFilter[] overrideFilters;
         String[][] overrideTechLists;
         String[] provisioningMimes;
-        String[] liveCaseMimes;
-        NdefMessage message = null;
         boolean provisioningOnly;
+        NdefMessage message = null;
+        Ndef ndef = Ndef.get(tag);
 
         synchronized (this) {
             overrideFilters = mOverrideFilters;
@@ -288,28 +282,13 @@ class NfcDispatcher {
             overrideTechLists = mOverrideTechLists;
             provisioningOnly = mProvisioningOnly;
             provisioningMimes = mProvisioningMimes;
-            liveCaseMimes = mLiveCaseMimes;
         }
 
         boolean screenUnlocked = false;
-        boolean liveCaseDetected = false;
-        Ndef ndef = Ndef.get(tag);
         if (!provisioningOnly &&
                 mScreenStateHelper.checkScreenState() == ScreenStateHelper.SCREEN_STATE_ON_LOCKED) {
             screenUnlocked = handleNfcUnlock(tag);
-
-            if (ndef != null) {
-                message = ndef.getCachedNdefMessage();
-                if (message != null) {
-                    String ndefMimeType = message.getRecords()[0].toMimeType();
-                    if (liveCaseMimes != null &&
-                            Arrays.asList(liveCaseMimes).contains(ndefMimeType)) {
-                        liveCaseDetected = true;
-                    }
-                }
-            }
-
-            if (!screenUnlocked && !liveCaseDetected)
+            if (!screenUnlocked)
                 return DISPATCH_FAIL;
         }
 
@@ -330,20 +309,24 @@ class NfcDispatcher {
 
         if (tryOverrides(dispatch, tag, message, overrideIntent, overrideFilters,
                 overrideTechLists)) {
+            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__APP_LAUNCH);
             return screenUnlocked ? DISPATCH_UNLOCK : DISPATCH_SUCCESS;
         }
 
         if (tryPeripheralHandover(message)) {
             if (DBG) Log.i(TAG, "matched BT HANDOVER");
+            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__BT_PAIRING);
             return screenUnlocked ? DISPATCH_UNLOCK : DISPATCH_SUCCESS;
         }
 
         if (NfcWifiProtectedSetup.tryNfcWifiSetup(ndef, mContext)) {
             if (DBG) Log.i(TAG, "matched NFC WPS TOKEN");
+            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__WIFI_CONNECT);
             return screenUnlocked ? DISPATCH_UNLOCK : DISPATCH_SUCCESS;
         }
 
         if (provisioningOnly) {
+            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__PROVISION);
             if (message == null) {
                 // We only allow NDEF-message dispatch in provisioning mode
                 return DISPATCH_FAIL;
@@ -378,6 +361,7 @@ class NfcDispatcher {
         }
 
         if (DBG) Log.i(TAG, "no match");
+        StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__OTHERS);
         return DISPATCH_FAIL;
     }
 
@@ -575,9 +559,10 @@ class NfcDispatcher {
         // regular launch
         dispatch.intent.setPackage(null);
 
-        if (dispatch.isWebIntent()) {
+        if (dispatch.isWebIntent() && dispatch.hasIntentReceiver()) {
             if (DBG) Log.i(TAG, "matched Web link - prompting user");
             showWebLinkConfirmation(dispatch);
+            StatsLog.write(StatsLog.NFC_TAG_OCCURRED, StatsLog.NFC_TAG_OCCURRED__TYPE__URL);
             return true;
         }
 

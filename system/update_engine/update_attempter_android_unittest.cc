@@ -111,22 +111,24 @@ TEST_F(UpdateAttempterAndroidTest, UpdatePrefsBuildVersionChangeOnInit) {
   update_attempter_android_.Init();
   // Check that we reset the metric prefs.
   EXPECT_FALSE(prefs_.Exists(kPrefsNumReboots));
-  EXPECT_FALSE(prefs_.Exists(kPrefsPayloadAttemptNumber));
   EXPECT_FALSE(prefs_.Exists(kPrefsUpdateTimestampStart));
   EXPECT_FALSE(prefs_.Exists(kPrefsSystemUpdatedMarker));
+  // PayloadAttemptNumber should persist across reboots.
+  EXPECT_TRUE(prefs_.Exists(kPrefsPayloadAttemptNumber));
 }
 
 TEST_F(UpdateAttempterAndroidTest, ReportMetricsOnUpdateTerminated) {
   prefs_.SetInt64(kPrefsNumReboots, 3);
   prefs_.SetInt64(kPrefsPayloadAttemptNumber, 2);
   prefs_.SetString(kPrefsPreviousVersion, "56789");
+  prefs_.SetInt64(kPrefsUpdateBootTimestampStart, 10000);
   prefs_.SetInt64(kPrefsUpdateTimestampStart, 12345);
 
   Time boot_time = Time::FromInternalValue(22345);
   Time up_time = Time::FromInternalValue(21345);
   clock_->SetBootTime(boot_time);
   clock_->SetMonotonicTime(up_time);
-  TimeDelta duration = boot_time - Time::FromInternalValue(12345);
+  TimeDelta duration = boot_time - Time::FromInternalValue(10000);
   TimeDelta duration_uptime = up_time - Time::FromInternalValue(12345);
   EXPECT_CALL(
       *metrics_reporter_,
@@ -140,7 +142,8 @@ TEST_F(UpdateAttempterAndroidTest, ReportMetricsOnUpdateTerminated) {
                                  ErrorCode::kSuccess))
       .Times(1);
   EXPECT_CALL(*metrics_reporter_,
-              ReportSuccessfulUpdateMetrics(2, 0, _, _, _, _, duration, 3, _))
+              ReportSuccessfulUpdateMetrics(
+                  2, 0, _, _, _, _, duration, duration_uptime, 3, _))
       .Times(1);
 
   SetUpdateStatus(UpdateStatus::UPDATE_AVAILABLE);
@@ -181,10 +184,11 @@ TEST_F(UpdateAttempterAndroidTest, ReportMetricsForBytesDownloaded) {
                   125,
                   _,
                   _,
+                  _,
                   _))
       .Times(1);
 
-  // The first update fails after receving 50 bytes in total.
+  // The first update fails after receiving 50 bytes in total.
   update_attempter_android_.BytesReceived(30, 50, 200);
   update_attempter_android_.ProcessingDone(nullptr, ErrorCode::kError);
   EXPECT_EQ(

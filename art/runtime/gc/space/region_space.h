@@ -31,20 +31,35 @@ class ReadBarrierTable;
 
 namespace space {
 
+// Cyclic region allocation strategy. If `true`, region allocation
+// will not try to allocate a new region from the beginning of the
+// region space, but from the last allocated region. This allocation
+// strategy reduces region reuse and should help catch some GC bugs
+// earlier. However, cyclic region allocation can also create memory
+// fragmentation at the region level (see b/33795328); therefore, we
+// only enable it in debug mode.
+static constexpr bool kCyclicRegionAllocation = kIsDebugBuild;
+
 // A space that consists of equal-sized regions.
-class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
+class RegionSpace final : public ContinuousMemMapAllocSpace {
  public:
   typedef void(*WalkCallback)(void *start, void *end, size_t num_bytes, void* callback_arg);
 
-  SpaceType GetType() const OVERRIDE {
+  enum EvacMode {
+    kEvacModeNewlyAllocated,
+    kEvacModeLivePercentNewlyAllocated,
+    kEvacModeForceAll,
+  };
+
+  SpaceType GetType() const override {
     return kSpaceTypeRegionSpace;
   }
 
   // Create a region space mem map with the requested sizes. The requested base address is not
   // guaranteed to be granted, if it is required, the caller should call Begin on the returned
   // space to confirm the request was granted.
-  static MemMap* CreateMemMap(const std::string& name, size_t capacity, uint8_t* requested_begin);
-  static RegionSpace* Create(const std::string& name, MemMap* mem_map);
+  static MemMap CreateMemMap(const std::string& name, size_t capacity, uint8_t* requested_begin);
+  static RegionSpace* Create(const std::string& name, MemMap&& mem_map, bool use_generational_cc);
 
   // Allocate `num_bytes`, returns null if the space is full.
   mirror::Object* Alloc(Thread* self,
@@ -52,14 +67,14 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
                         /* out */ size_t* bytes_allocated,
                         /* out */ size_t* usable_size,
                         /* out */ size_t* bytes_tl_bulk_allocated)
-      OVERRIDE REQUIRES(!region_lock_);
+      override REQUIRES(!region_lock_);
   // Thread-unsafe allocation for when mutators are suspended, used by the semispace collector.
   mirror::Object* AllocThreadUnsafe(Thread* self,
                                     size_t num_bytes,
                                     /* out */ size_t* bytes_allocated,
                                     /* out */ size_t* usable_size,
                                     /* out */ size_t* bytes_tl_bulk_allocated)
-      OVERRIDE REQUIRES(Locks::mutator_lock_) REQUIRES(!region_lock_);
+      override REQUIRES(Locks::mutator_lock_) REQUIRES(!region_lock_);
   // The main allocation routine.
   template<bool kForEvac>
   ALWAYS_INLINE mirror::Object* AllocNonvirtual(size_t num_bytes,
@@ -77,29 +92,40 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
   void FreeLarge(mirror::Object* large_obj, size_t bytes_allocated) REQUIRES(!region_lock_);
 
   // Return the storage space required by obj.
-  size_t AllocationSize(mirror::Object* obj, size_t* usable_size) OVERRIDE
+  size_t AllocationSize(mirror::Object* obj, size_t* usable_size) override
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!region_lock_) {
     return AllocationSizeNonvirtual(obj, usable_size);
   }
   size_t AllocationSizeNonvirtual(mirror::Object* obj, size_t* usable_size)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!region_lock_);
 
-  size_t Free(Thread*, mirror::Object*) OVERRIDE {
+  size_t Free(Thread*, mirror::Object*) override {
     UNIMPLEMENTED(FATAL);
     return 0;
   }
-  size_t FreeList(Thread*, size_t, mirror::Object**) OVERRIDE {
+  size_t FreeList(Thread*, size_t, mirror::Object**) override {
     UNIMPLEMENTED(FATAL);
     return 0;
   }
-  accounting::ContinuousSpaceBitmap* GetLiveBitmap() const OVERRIDE {
+  accounting::ContinuousSpaceBitmap* GetLiveBitmap() const override {
     return mark_bitmap_.get();
   }
-  accounting::ContinuousSpaceBitmap* GetMarkBitmap() const OVERRIDE {
+  accounting::ContinuousSpaceBitmap* GetMarkBitmap() const override {
     return mark_bitmap_.get();
   }
 
-  void Clear() OVERRIDE REQUIRES(!region_lock_);
+  void Clear() override REQUIRES(!region_lock_);
+
+  // Remove read and write memory protection from the whole region space,
+  // i.e. make memory pages backing the region area not readable and not
+  // writable.
+  void Protect();
+
+  // Remove memory protection from the whole region space, i.e. make memory
+  // pages backing the region area readable and writable. This method is useful
+  // to avoid page protection faults when dumping information about an invalid
+  // reference.
+  void Unprotect();
 
   // Change the non growth limit capacity to new capacity by shrinking or expanding the map.
   // Currently, only shrinking is supported.
@@ -108,15 +134,15 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
   // growth limit.
   void ClampGrowthLimit(size_t new_capacity) REQUIRES(!region_lock_);
 
-  void Dump(std::ostream& os) const;
+  void Dump(std::ostream& os) const override;
   void DumpRegions(std::ostream& os) REQUIRES(!region_lock_);
   // Dump region containing object `obj`. Precondition: `obj` is in the region space.
   void DumpRegionForObject(std::ostream& os, mirror::Object* obj) REQUIRES(!region_lock_);
   void DumpNonFreeRegions(std::ostream& os) REQUIRES(!region_lock_);
 
-  size_t RevokeThreadLocalBuffers(Thread* thread) REQUIRES(!region_lock_);
+  size_t RevokeThreadLocalBuffers(Thread* thread) override REQUIRES(!region_lock_);
   void RevokeThreadLocalBuffersLocked(Thread* thread) REQUIRES(region_lock_);
-  size_t RevokeAllThreadLocalBuffers()
+  size_t RevokeAllThreadLocalBuffers() override
       REQUIRES(!Locks::runtime_shutdown_lock_, !Locks::thread_list_lock_, !region_lock_);
   void AssertThreadLocalBuffersAreRevoked(Thread* thread) REQUIRES(!region_lock_);
   void AssertAllThreadLocalBuffersAreRevoked()
@@ -139,10 +165,10 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
 
   template<RegionType kRegionType> uint64_t GetBytesAllocatedInternal() REQUIRES(!region_lock_);
   template<RegionType kRegionType> uint64_t GetObjectsAllocatedInternal() REQUIRES(!region_lock_);
-  uint64_t GetBytesAllocated() REQUIRES(!region_lock_) {
+  uint64_t GetBytesAllocated() override REQUIRES(!region_lock_) {
     return GetBytesAllocatedInternal<RegionType::kRegionTypeAll>();
   }
-  uint64_t GetObjectsAllocated() REQUIRES(!region_lock_) {
+  uint64_t GetObjectsAllocated() override REQUIRES(!region_lock_) {
     return GetObjectsAllocatedInternal<RegionType::kRegionTypeAll>();
   }
   uint64_t GetBytesAllocatedInFromSpace() REQUIRES(!region_lock_) {
@@ -164,34 +190,38 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
     return num_regions_;
   }
 
-  bool CanMoveObjects() const OVERRIDE {
+  bool CanMoveObjects() const override {
     return true;
   }
 
-  bool Contains(const mirror::Object* obj) const {
+  bool Contains(const mirror::Object* obj) const override {
     const uint8_t* byte_obj = reinterpret_cast<const uint8_t*>(obj);
     return byte_obj >= Begin() && byte_obj < Limit();
   }
 
-  RegionSpace* AsRegionSpace() OVERRIDE {
+  RegionSpace* AsRegionSpace() override {
     return this;
   }
 
   // Go through all of the blocks and visit the continuous objects.
   template <typename Visitor>
-  ALWAYS_INLINE void Walk(Visitor&& visitor) REQUIRES(Locks::mutator_lock_) {
-    WalkInternal<false /* kToSpaceOnly */>(visitor);
-  }
+  ALWAYS_INLINE void Walk(Visitor&& visitor) REQUIRES(Locks::mutator_lock_);
   template <typename Visitor>
-  ALWAYS_INLINE void WalkToSpace(Visitor&& visitor)
-      REQUIRES(Locks::mutator_lock_) {
-    WalkInternal<true /* kToSpaceOnly */>(visitor);
-  }
+  ALWAYS_INLINE void WalkToSpace(Visitor&& visitor) REQUIRES(Locks::mutator_lock_);
 
-  accounting::ContinuousSpaceBitmap::SweepCallback* GetSweepCallback() OVERRIDE {
+  // Scans regions and calls visitor for objects in unevac-space corresponding
+  // to the bits set in 'bitmap'.
+  // Cannot acquire region_lock_ as visitor may need to acquire it for allocation.
+  // Should not be called concurrently with functions (like SetFromSpace()) which
+  // change regions' type.
+  template <typename Visitor>
+  ALWAYS_INLINE void ScanUnevacFromSpace(accounting::ContinuousSpaceBitmap* bitmap,
+                                         Visitor&& visitor) NO_THREAD_SAFETY_ANALYSIS;
+
+  accounting::ContinuousSpaceBitmap::SweepCallback* GetSweepCallback() override {
     return nullptr;
   }
-  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) OVERRIDE
+  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) override
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!region_lock_);
 
   // Object alignment within the space.
@@ -207,6 +237,11 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
     return false;
   }
 
+  bool IsRegionNewlyAllocated(size_t idx) const NO_THREAD_SAFETY_ANALYSIS {
+    DCHECK_LT(idx, num_regions_);
+    return regions_[idx].IsNewlyAllocated();
+  }
+
   bool IsInNewlyAllocatedRegion(mirror::Object* ref) {
     if (HasAddress(ref)) {
       Region* r = RefToRegionUnlocked(ref);
@@ -219,6 +254,14 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
     if (HasAddress(ref)) {
       Region* r = RefToRegionUnlocked(ref);
       return r->IsInUnevacFromSpace();
+    }
+    return false;
+  }
+
+  bool IsLargeObject(mirror::Object* ref) {
+    if (HasAddress(ref)) {
+      Region* r = RefToRegionUnlocked(ref);
+      return r->IsLarge();
     }
     return false;
   }
@@ -248,15 +291,23 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
     return r->Type();
   }
 
+  // Zero live bytes for a large object, used by young gen CC for marking newly allocated large
+  // objects.
+  void ZeroLiveBytesForLargeObject(mirror::Object* obj) REQUIRES_SHARED(Locks::mutator_lock_);
+
   // Determine which regions to evacuate and tag them as
   // from-space. Tag the rest as unevacuated from-space.
-  void SetFromSpace(accounting::ReadBarrierTable* rb_table, bool force_evacuate_all)
+  void SetFromSpace(accounting::ReadBarrierTable* rb_table,
+                    EvacMode evac_mode,
+                    bool clear_live_bytes)
       REQUIRES(!region_lock_);
 
   size_t FromSpaceSize() REQUIRES(!region_lock_);
   size_t UnevacFromSpaceSize() REQUIRES(!region_lock_);
   size_t ToSpaceSize() REQUIRES(!region_lock_);
-  void ClearFromSpace(/* out */ uint64_t* cleared_bytes, /* out */ uint64_t* cleared_objects)
+  void ClearFromSpace(/* out */ uint64_t* cleared_bytes,
+                      /* out */ uint64_t* cleared_objects,
+                      const bool clear_bitmap)
       REQUIRES(!region_lock_);
 
   void AddLiveBytes(mirror::Object* ref, size_t alloc_size) {
@@ -275,7 +326,43 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
     }
   }
 
+  void SetAllRegionLiveBytesZero() REQUIRES(!region_lock_) {
+    MutexLock mu(Thread::Current(), region_lock_);
+    const size_t iter_limit = kUseTableLookupReadBarrier
+        ? num_regions_
+        : std::min(num_regions_, non_free_region_index_limit_);
+    for (size_t i = 0; i < iter_limit; ++i) {
+      Region* r = &regions_[i];
+      // Newly allocated regions don't need up-to-date live_bytes_ for deciding
+      // whether to be evacuated or not. See Region::ShouldBeEvacuated().
+      if (!r->IsFree() && !r->IsNewlyAllocated()) {
+        r->ZeroLiveBytes();
+      }
+    }
+  }
+
+  size_t RegionIdxForRefUnchecked(mirror::Object* ref) const NO_THREAD_SAFETY_ANALYSIS {
+    DCHECK(HasAddress(ref));
+    uintptr_t offset = reinterpret_cast<uintptr_t>(ref) - reinterpret_cast<uintptr_t>(Begin());
+    size_t reg_idx = offset / kRegionSize;
+    DCHECK_LT(reg_idx, num_regions_);
+    Region* reg = &regions_[reg_idx];
+    DCHECK_EQ(reg->Idx(), reg_idx);
+    DCHECK(reg->Contains(ref));
+    return reg_idx;
+  }
+  // Return -1 as region index for references outside this region space.
+  size_t RegionIdxForRef(mirror::Object* ref) const NO_THREAD_SAFETY_ANALYSIS {
+    if (HasAddress(ref)) {
+      return RegionIdxForRefUnchecked(ref);
+    } else {
+      return static_cast<size_t>(-1);
+    }
+  }
+
+  // Increment object allocation count for region containing ref.
   void RecordAlloc(mirror::Object* ref) REQUIRES(!region_lock_);
+
   bool AllocNewTlab(Thread* self, size_t min_bytes) REQUIRES(!region_lock_);
 
   uint32_t Time() {
@@ -283,28 +370,32 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
   }
 
  private:
-  RegionSpace(const std::string& name, MemMap* mem_map);
-
-  template<bool kToSpaceOnly, typename Visitor>
-  ALWAYS_INLINE void WalkInternal(Visitor&& visitor) NO_THREAD_SAFETY_ANALYSIS;
+  RegionSpace(const std::string& name, MemMap&& mem_map, bool use_generational_cc);
 
   class Region {
    public:
     Region()
         : idx_(static_cast<size_t>(-1)),
-          begin_(nullptr), top_(nullptr), end_(nullptr),
-          state_(RegionState::kRegionStateAllocated), type_(RegionType::kRegionTypeToSpace),
-          objects_allocated_(0), alloc_time_(0), live_bytes_(static_cast<size_t>(-1)),
-          is_newly_allocated_(false), is_a_tlab_(false), thread_(nullptr) {}
+          live_bytes_(static_cast<size_t>(-1)),
+          begin_(nullptr),
+          thread_(nullptr),
+          top_(nullptr),
+          end_(nullptr),
+          objects_allocated_(0),
+          alloc_time_(0),
+          is_newly_allocated_(false),
+          is_a_tlab_(false),
+          state_(RegionState::kRegionStateAllocated),
+          type_(RegionType::kRegionTypeToSpace) {}
 
     void Init(size_t idx, uint8_t* begin, uint8_t* end) {
       idx_ = idx;
       begin_ = begin;
-      top_.StoreRelaxed(begin);
+      top_.store(begin, std::memory_order_relaxed);
       end_ = end;
       state_ = RegionState::kRegionStateFree;
       type_ = RegionType::kRegionTypeNone;
-      objects_allocated_.StoreRelaxed(0);
+      objects_allocated_.store(0, std::memory_order_relaxed);
       alloc_time_ = 0;
       live_bytes_ = static_cast<size_t>(-1);
       is_newly_allocated_ = false;
@@ -334,7 +425,7 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
       if (is_free) {
         DCHECK(IsInNoSpace());
         DCHECK_EQ(begin_, Top());
-        DCHECK_EQ(objects_allocated_.LoadRelaxed(), 0U);
+        DCHECK_EQ(objects_allocated_.load(std::memory_order_relaxed), 0U);
       }
       return is_free;
     }
@@ -372,6 +463,10 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
       return is_large;
     }
 
+    void ZeroLiveBytes() {
+      live_bytes_ = 0;
+    }
+
     // Large-tail allocated.
     bool IsLargeTail() const {
       bool is_large_tail = (state_ == RegionState::kRegionStateLargeTail);
@@ -387,6 +482,10 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
 
     bool IsNewlyAllocated() const {
       return is_newly_allocated_;
+    }
+
+    bool IsTlab() const {
+      return is_a_tlab_;
     }
 
     bool IsInFromSpace() const {
@@ -411,6 +510,18 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
     void SetAsFromSpace() {
       DCHECK(!IsFree() && IsInToSpace());
       type_ = RegionType::kRegionTypeFromSpace;
+      if (IsNewlyAllocated()) {
+        // Clear the "newly allocated" status here, as we do not want the
+        // GC to see it when encountering references in the from-space.
+        //
+        // Invariant: There should be no newly-allocated region in the
+        // from-space (when the from-space exists, which is between the calls
+        // to RegionSpace::SetFromSpace and RegionSpace::ClearFromSpace).
+        is_newly_allocated_ = false;
+      }
+      // Set live bytes to an invalid value, as we have made an
+      // evacuation decision (possibly based on the percentage of live
+      // bytes).
       live_bytes_ = static_cast<size_t>(-1);
     }
 
@@ -418,11 +529,7 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
     // collection, RegionSpace::ClearFromSpace will preserve the space
     // used by this region, and tag it as to-space (see
     // Region::SetUnevacFromSpaceAsToSpace below).
-    void SetAsUnevacFromSpace() {
-      DCHECK(!IsFree() && IsInToSpace());
-      type_ = RegionType::kRegionTypeUnevacFromSpace;
-      live_bytes_ = 0U;
-    }
+    void SetAsUnevacFromSpace(bool clear_live_bytes);
 
     // Set this region as to-space. Used by RegionSpace::ClearFromSpace.
     // This is only valid if it is currently an unevac from-space region.
@@ -432,14 +539,13 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
     }
 
     // Return whether this region should be evacuated. Used by RegionSpace::SetFromSpace.
-    ALWAYS_INLINE bool ShouldBeEvacuated();
+    ALWAYS_INLINE bool ShouldBeEvacuated(EvacMode evac_mode);
 
     void AddLiveBytes(size_t live_bytes) {
-      DCHECK(IsInUnevacFromSpace());
+      DCHECK(GetUseGenerationalCC() || IsInUnevacFromSpace());
       DCHECK(!IsLargeTail());
       DCHECK_NE(live_bytes_, static_cast<size_t>(-1));
-      // For large allocations, we always consider all bytes in the
-      // regions live.
+      // For large allocations, we always consider all bytes in the regions live.
       live_bytes_ += IsLarge() ? Top() - begin_ : live_bytes;
       DCHECK_LE(live_bytes_, BytesAllocated());
     }
@@ -452,6 +558,7 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
       return live_bytes_;
     }
 
+    // Returns the number of allocated bytes.  "Bulk allocated" bytes in active TLABs are excluded.
     size_t BytesAllocated() const;
 
     size_t ObjectsAllocated() const;
@@ -461,11 +568,11 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
     }
 
     ALWAYS_INLINE uint8_t* Top() const {
-      return top_.LoadRelaxed();
+      return top_.load(std::memory_order_relaxed);
     }
 
     void SetTop(uint8_t* new_top) {
-      top_.StoreRelaxed(new_top);
+      top_.store(new_top, std::memory_order_relaxed);
     }
 
     uint8_t* End() const {
@@ -480,34 +587,48 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
 
     void RecordThreadLocalAllocations(size_t num_objects, size_t num_bytes) {
       DCHECK(IsAllocated());
-      DCHECK_EQ(objects_allocated_.LoadRelaxed(), 0U);
+      DCHECK_EQ(objects_allocated_.load(std::memory_order_relaxed), 0U);
       DCHECK_EQ(Top(), end_);
-      objects_allocated_.StoreRelaxed(num_objects);
-      top_.StoreRelaxed(begin_ + num_bytes);
+      objects_allocated_.store(num_objects, std::memory_order_relaxed);
+      top_.store(begin_ + num_bytes, std::memory_order_relaxed);
       DCHECK_LE(Top(), end_);
     }
 
+    uint64_t GetLongestConsecutiveFreeBytes() const;
+
    private:
+    static bool GetUseGenerationalCC();
+
     size_t idx_;                        // The region's index in the region space.
+    size_t live_bytes_;                 // The live bytes. Used to compute the live percent.
     uint8_t* begin_;                    // The begin address of the region.
+    Thread* thread_;                    // The owning thread if it's a tlab.
     // Note that `top_` can be higher than `end_` in the case of a
     // large region, where an allocated object spans multiple regions
     // (large region + one or more large tail regions).
     Atomic<uint8_t*> top_;              // The current position of the allocation.
     uint8_t* end_;                      // The end address of the region.
-    RegionState state_;                 // The region state (see RegionState).
-    RegionType type_;                   // The region type (see RegionType).
+    // objects_allocated_ is accessed using memory_order_relaxed. Treat as approximate when there
+    // are concurrent updates.
     Atomic<size_t> objects_allocated_;  // The number of objects allocated.
     uint32_t alloc_time_;               // The allocation time of the region.
     // Note that newly allocated and evacuated regions use -1 as
     // special value for `live_bytes_`.
-    size_t live_bytes_;                 // The live bytes. Used to compute the live percent.
     bool is_newly_allocated_;           // True if it's allocated after the last collection.
     bool is_a_tlab_;                    // True if it's a tlab.
-    Thread* thread_;                    // The owning thread if it's a tlab.
+    RegionState state_;                 // The region state (see RegionState).
+    RegionType type_;                   // The region type (see RegionType).
 
     friend class RegionSpace;
   };
+
+  template<bool kToSpaceOnly, typename Visitor>
+  ALWAYS_INLINE void WalkInternal(Visitor&& visitor) NO_THREAD_SAFETY_ANALYSIS;
+
+  // Visitor will be iterating on objects in increasing address order.
+  template<typename Visitor>
+  ALWAYS_INLINE void WalkNonLargeRegion(Visitor&& visitor, const Region* r)
+      NO_THREAD_SAFETY_ANALYSIS;
 
   Region* RefToRegion(mirror::Object* ref) REQUIRES(!region_lock_) {
     MutexLock mu(Thread::Current(), region_lock_);
@@ -543,7 +664,7 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
   // - the region containing `obj` is fully used; and
   // - `obj` is not the last object of that region;
   // the returned location is not guaranteed to be a valid object.
-  mirror::Object* GetNextObject(mirror::Object* obj)
+  static mirror::Object* GetNextObject(mirror::Object* obj)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void AdjustNonFreeRegionLimit(size_t new_non_free_region_index) REQUIRES(region_lock_) {
@@ -571,8 +692,37 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
 
   Region* AllocateRegion(bool for_evac) REQUIRES(region_lock_);
 
+  // Scan region range [`begin`, `end`) in increasing order to try to
+  // allocate a large region having a size of `num_regs_in_large_region`
+  // regions. If there is no space in the region space to allocate this
+  // large region, return null.
+  //
+  // If argument `next_region` is not null, use `*next_region` to
+  // return the index to the region next to the allocated large region
+  // returned by this method.
+  template<bool kForEvac>
+  mirror::Object* AllocLargeInRange(size_t begin,
+                                    size_t end,
+                                    size_t num_regs_in_large_region,
+                                    /* out */ size_t* bytes_allocated,
+                                    /* out */ size_t* usable_size,
+                                    /* out */ size_t* bytes_tl_bulk_allocated,
+                                    /* out */ size_t* next_region = nullptr) REQUIRES(region_lock_);
+
+  // Check that the value of `r->LiveBytes()` matches the number of
+  // (allocated) bytes used by live objects according to the live bits
+  // in the region space bitmap range corresponding to region `r`.
+  void CheckLiveBytesAgainstRegionBitmap(Region* r);
+
+  // Poison memory areas used by dead objects within unevacuated
+  // region `r`. This is meant to detect dangling references to dead
+  // objects earlier in debug mode.
+  void PoisonDeadObjectsInUnevacuatedRegion(Region* r);
+
   Mutex region_lock_ DEFAULT_MUTEX_ACQUIRED_AFTER;
 
+  // Cached version of Heap::use_generational_cc_.
+  const bool use_generational_cc_;
   uint32_t time_;                  // The time as the number of collections since the startup.
   size_t num_regions_;             // The number of regions in this space.
   // The number of non-free regions in this space.
@@ -599,6 +749,11 @@ class RegionSpace FINAL : public ContinuousMemMapAllocSpace {
   Region* current_region_;         // The region currently used for allocation.
   Region* evac_region_;            // The region currently used for evacuation.
   Region full_region_;             // The dummy/sentinel region that looks full.
+
+  // Index into the region array pointing to the starting region when
+  // trying to allocate a new region. Only used when
+  // `kCyclicRegionAllocation` is true.
+  size_t cyclic_alloc_region_index_ GUARDED_BY(region_lock_);
 
   // Mark bitmap used by the GC.
   std::unique_ptr<accounting::ContinuousSpaceBitmap> mark_bitmap_;

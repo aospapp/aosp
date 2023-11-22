@@ -17,21 +17,129 @@
 package com.android.phone.testapps.imstestapp;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
+import android.telephony.AccessNetworkConstants;
+import android.telephony.SubscriptionManager;
+import android.telephony.ims.ImsException;
+import android.telephony.ims.ImsMmTelManager;
+import android.telephony.ims.ImsReasonInfo;
 import android.telephony.ims.stub.ImsRegistrationImplBase;
 import android.util.ArrayMap;
+import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
-import android.telephony.ims.ImsReasonInfo;
 
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.Objects;
 
 public class ImsRegistrationActivity extends Activity {
+
+    private static final String PREFIX_ITEM = "Registration Event: ";
+    private static final String PREFIX_VALUE = "Value: ";
+
+
+    private static class RegItem {
+        public String key;
+        public String value;
+
+        RegItem(String key, int value) {
+            this.key = key;
+            this.value = String.valueOf(value);
+        }
+
+        RegItem(String key, String value) {
+            this.key = key;
+            this.value = value;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            RegItem regItem = (RegItem) o;
+            return Objects.equals(key, regItem.key)
+                    && Objects.equals(value, regItem.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(key, value);
+        }
+    }
+
+    private static class RegItemAdapter extends ArrayAdapter<RegItem> {
+        RegItemAdapter(Context context, ArrayList<RegItem> regItems) {
+            super(context, 0, regItems);
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            RegItem regItem = getItem(position);
+
+            if (convertView == null) {
+                convertView = LayoutInflater.from(getContext()).inflate(R.layout.config_item,
+                        parent, false);
+            }
+
+            TextView textItem = (TextView) convertView.findViewById(R.id.configItem);
+            TextView textValue = (TextView) convertView.findViewById(R.id.configValue);
+
+            textItem.setText(PREFIX_ITEM + regItem.key);
+            textValue.setText(PREFIX_VALUE + regItem.value);
+
+            return convertView;
+        }
+    }
+
+
+    private final ImsMmTelManager.RegistrationCallback mRegistrationCallback =
+            new ImsMmTelManager.RegistrationCallback() {
+
+        @Override
+        public void onRegistered(int imsRadioTech) {
+            Log.i("ImsRegistrationActivity", "onRegistered: " + imsRadioTech);
+            mRegItems.add(new RegItem("Registered", REG_TECH_STRING.get(imsRadioTech)));
+            triggerAdapterChange();
+        }
+
+        @Override
+        public void onRegistering(int imsRadioTech) {
+            Log.i("ImsRegistrationActivity", "onRegistering: " + imsRadioTech);
+            mRegItems.add(new RegItem("Registering", REG_TECH_STRING.get(imsRadioTech)));
+            triggerAdapterChange();
+        }
+
+        @Override
+        public void onUnregistered(ImsReasonInfo info) {
+            Log.i("ImsRegistrationActivity", "onUnregistered: " + info);
+            mRegItems.add(new RegItem("Deregistered", info.toString()));
+            triggerAdapterChange();
+        }
+
+        @Override
+        public void onTechnologyChangeFailed(int imsRadioTech, ImsReasonInfo info) {
+            mRegItems.add(new RegItem("TechnologyChangeFailed", REG_TECH_STRING.get(imsRadioTech)
+                    + " reason: " + info));
+            triggerAdapterChange();
+        }
+
+        private void triggerAdapterChange() {
+            mRegItemAdapter.notifyDataSetChanged();
+        }
+    };
+
+
 
     private int mSelectedRegTech = ImsRegistrationImplBase.REGISTRATION_TECH_LTE;
 
@@ -40,15 +148,43 @@ public class ImsRegistrationActivity extends Activity {
         REG_TECH.put("LTE", ImsRegistrationImplBase.REGISTRATION_TECH_LTE);
         REG_TECH.put("IWLAN", ImsRegistrationImplBase.REGISTRATION_TECH_IWLAN);
     }
+    private static final Map<Integer, String> REG_TECH_STRING = new ArrayMap<>(2);
+    static {
+        REG_TECH_STRING.put(ImsRegistrationImplBase.REGISTRATION_TECH_NONE, "NONE");
+        REG_TECH_STRING.put(AccessNetworkConstants.TRANSPORT_TYPE_WWAN, "WWAN");
+        REG_TECH_STRING.put(AccessNetworkConstants.TRANSPORT_TYPE_WLAN, "WLAN");
+    }
+
+
+
+    private ArrayList<RegItem> mRegItems = new ArrayList<>();
+    RegItemAdapter mRegItemAdapter;
+    ListView mListView;
 
     private View mDeregisteredReason;
     private View mRegChangeFailedReason;
+    private ImsMmTelManager mImsManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_registration);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mRegItemAdapter = new RegItemAdapter(this, mRegItems);
+        mListView = (ListView) findViewById(R.id.reg_cb_list);
+        mListView.setAdapter(mRegItemAdapter);
+        try {
+            mImsManager = ImsMmTelManager.createForSubscriptionId(
+                    SubscriptionManager.getDefaultVoiceSubscriptionId());
+            mImsManager.registerImsRegistrationCallback(getMainExecutor(), mRegistrationCallback);
+        } catch (IllegalArgumentException | ImsException e) {
+            Log.w("ImsCallingActivity", "illegal subscription ID.");
+        }
 
         //Set up registration tech spinner
         Spinner regTechDropDown = findViewById(R.id.reg_tech_selector);
@@ -80,6 +216,13 @@ public class ImsRegistrationActivity extends Activity {
 
         mDeregisteredReason = findViewById(R.id.deregistered_imsreasoninfo);
         mRegChangeFailedReason = findViewById(R.id.regchangefail_imsreasoninfo);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mImsManager.unregisterImsRegistrationCallback(mRegistrationCallback);
+        mImsManager = null;
     }
 
     private void onRegisteredClicked() {

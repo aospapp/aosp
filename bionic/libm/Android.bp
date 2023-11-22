@@ -6,7 +6,10 @@ bionic_coverage = false
 cc_library {
     name: "libm",
     defaults: ["linux_bionic_supported"],
+    recovery_available: true,
     static_ndk_lib: true,
+
+    whole_static_libs: ["libarm-optimized-routines"],
 
     srcs: [
         "upstream-freebsd/lib/msun/bsdsrc/b_exp.c",
@@ -26,8 +29,6 @@ cc_library {
         "upstream-freebsd/lib/msun/src/e_atanhf.c",
         "upstream-freebsd/lib/msun/src/e_cosh.c",
         "upstream-freebsd/lib/msun/src/e_coshf.c",
-        "upstream-freebsd/lib/msun/src/e_exp.c",
-        "upstream-freebsd/lib/msun/src/e_expf.c",
         "upstream-freebsd/lib/msun/src/e_fmod.c",
         "upstream-freebsd/lib/msun/src/e_fmodf.c",
         "upstream-freebsd/lib/msun/src/e_gamma.c",
@@ -48,12 +49,6 @@ cc_library {
         "upstream-freebsd/lib/msun/src/e_lgamma_r.c",
         "upstream-freebsd/lib/msun/src/e_log10.c",
         "upstream-freebsd/lib/msun/src/e_log10f.c",
-        "upstream-freebsd/lib/msun/src/e_log2.c",
-        "upstream-freebsd/lib/msun/src/e_log2f.c",
-        "upstream-freebsd/lib/msun/src/e_log.c",
-        "upstream-freebsd/lib/msun/src/e_logf.c",
-        "upstream-freebsd/lib/msun/src/e_pow.c",
-        "upstream-freebsd/lib/msun/src/e_powf.c",
         "upstream-freebsd/lib/msun/src/e_remainder.c",
         "upstream-freebsd/lib/msun/src/e_remainderf.c",
         "upstream-freebsd/lib/msun/src/e_rem_pio2.c",
@@ -91,13 +86,17 @@ cc_library {
         "upstream-freebsd/lib/msun/src/s_cimag.c",
         "upstream-freebsd/lib/msun/src/s_cimagf.c",
         "upstream-freebsd/lib/msun/src/s_cimagl.c",
+        "upstream-freebsd/lib/msun/src/s_clog.c",
+        "upstream-freebsd/lib/msun/src/s_clogf.c",
         "upstream-freebsd/lib/msun/src/s_conj.c",
         "upstream-freebsd/lib/msun/src/s_conjf.c",
         "upstream-freebsd/lib/msun/src/s_conjl.c",
         "upstream-freebsd/lib/msun/src/s_copysign.c",
         "upstream-freebsd/lib/msun/src/s_copysignf.c",
         "upstream-freebsd/lib/msun/src/s_cos.c",
-        "upstream-freebsd/lib/msun/src/s_cosf.c",
+        "upstream-freebsd/lib/msun/src/s_cpow.c",
+        "upstream-freebsd/lib/msun/src/s_cpowf.c",
+        "upstream-freebsd/lib/msun/src/s_cpowl.c",
         "upstream-freebsd/lib/msun/src/s_cproj.c",
         "upstream-freebsd/lib/msun/src/s_cprojf.c",
         "upstream-freebsd/lib/msun/src/s_cprojl.c",
@@ -108,13 +107,10 @@ cc_library {
         "upstream-freebsd/lib/msun/src/s_csinhf.c",
         "upstream-freebsd/lib/msun/src/s_csqrt.c",
         "upstream-freebsd/lib/msun/src/s_csqrtf.c",
-        "upstream-freebsd/lib/msun/src/s_csqrtl.c",
         "upstream-freebsd/lib/msun/src/s_ctanh.c",
         "upstream-freebsd/lib/msun/src/s_ctanhf.c",
         "upstream-freebsd/lib/msun/src/s_erf.c",
         "upstream-freebsd/lib/msun/src/s_erff.c",
-        "upstream-freebsd/lib/msun/src/s_exp2.c",
-        "upstream-freebsd/lib/msun/src/s_exp2f.c",
         "upstream-freebsd/lib/msun/src/s_expm1.c",
         "upstream-freebsd/lib/msun/src/s_expm1f.c",
         "upstream-freebsd/lib/msun/src/s_fdim.c",
@@ -163,7 +159,7 @@ cc_library {
         "upstream-freebsd/lib/msun/src/s_significand.c",
         "upstream-freebsd/lib/msun/src/s_significandf.c",
         "upstream-freebsd/lib/msun/src/s_sin.c",
-        "upstream-freebsd/lib/msun/src/s_sinf.c",
+        "upstream-freebsd/lib/msun/src/s_sincos.c",
         "upstream-freebsd/lib/msun/src/s_tan.c",
         "upstream-freebsd/lib/msun/src/s_tanf.c",
         "upstream-freebsd/lib/msun/src/s_tanh.c",
@@ -180,22 +176,10 @@ cc_library {
         // The FreeBSD complex functions appear to be better, but they're incomplete.
         // We take the FreeBSD implementations when they exist, but fill out the rest
         // of <complex.h> from NetBSD...
-        "upstream-netbsd/lib/libm/complex/cacoshl.c",
-        "upstream-netbsd/lib/libm/complex/cacosl.c",
-        "upstream-netbsd/lib/libm/complex/casinhl.c",
-        "upstream-netbsd/lib/libm/complex/casinl.c",
-        "upstream-netbsd/lib/libm/complex/catanhl.c",
-        "upstream-netbsd/lib/libm/complex/catanl.c",
         "upstream-netbsd/lib/libm/complex/ccoshl.c",
         "upstream-netbsd/lib/libm/complex/ccosl.c",
         "upstream-netbsd/lib/libm/complex/cephes_subrl.c",
         "upstream-netbsd/lib/libm/complex/cexpl.c",
-        "upstream-netbsd/lib/libm/complex/clog.c",
-        "upstream-netbsd/lib/libm/complex/clogf.c",
-        "upstream-netbsd/lib/libm/complex/clogl.c",
-        "upstream-netbsd/lib/libm/complex/cpow.c",
-        "upstream-netbsd/lib/libm/complex/cpowf.c",
-        "upstream-netbsd/lib/libm/complex/cpowl.c",
         "upstream-netbsd/lib/libm/complex/csinhl.c",
         "upstream-netbsd/lib/libm/complex/csinl.c",
         "upstream-netbsd/lib/libm/complex/ctanhl.c",
@@ -208,7 +192,6 @@ cc_library {
 
         // Functionality not in the BSDs.
         "significandl.c",
-        "sincos.c",
         "fake_long_double.c",
 
         // Home-grown stuff.
@@ -219,6 +202,7 @@ cc_library {
     multilib: {
         lib64: {
             srcs: [
+                "upstream-freebsd/lib/msun/src/catrigl.c",
                 "upstream-freebsd/lib/msun/src/e_acosl.c",
                 "upstream-freebsd/lib/msun/src/e_acoshl.c",
                 "upstream-freebsd/lib/msun/src/e_asinl.c",
@@ -233,9 +217,11 @@ cc_library {
                 "upstream-freebsd/lib/msun/src/s_atanl.c",
                 "upstream-freebsd/lib/msun/src/s_cbrtl.c",
                 "upstream-freebsd/lib/msun/src/s_ceill.c",
+                "upstream-freebsd/lib/msun/src/s_clogl.c",
                 "upstream-freebsd/lib/msun/src/s_copysignl.c",
                 "upstream-freebsd/lib/msun/src/e_coshl.c",
                 "upstream-freebsd/lib/msun/src/s_cosl.c",
+                "upstream-freebsd/lib/msun/src/s_csqrtl.c",
                 "upstream-freebsd/lib/msun/src/s_floorl.c",
                 "upstream-freebsd/lib/msun/src/s_fmal.c",
                 "upstream-freebsd/lib/msun/src/s_fmaxl.c",
@@ -255,6 +241,7 @@ cc_library {
                 "upstream-freebsd/lib/msun/src/s_rintl.c",
                 "upstream-freebsd/lib/msun/src/s_roundl.c",
                 "upstream-freebsd/lib/msun/src/s_scalbnl.c",
+                "upstream-freebsd/lib/msun/src/s_sincosl.c",
                 "upstream-freebsd/lib/msun/src/e_sinhl.c",
                 "upstream-freebsd/lib/msun/src/s_sinl.c",
                 "upstream-freebsd/lib/msun/src/s_tanhl.c",
@@ -263,6 +250,7 @@ cc_library {
 
                 "upstream-freebsd/lib/msun/ld128/invtrig.c",
                 "upstream-freebsd/lib/msun/ld128/e_lgammal_r.c",
+                "upstream-freebsd/lib/msun/ld128/e_powl.c",
                 "upstream-freebsd/lib/msun/ld128/k_cosl.c",
                 "upstream-freebsd/lib/msun/ld128/k_sinl.c",
                 "upstream-freebsd/lib/msun/ld128/k_tanl.c",
@@ -295,19 +283,16 @@ cc_library {
                 ],
             },
             instruction_set: "arm",
+            pack_relocations: false,
             ldflags: ["-Wl,--hash-style=both"],
-            version_script: "libm.arm.map",
+            version_script: ":libm.arm.map",
         },
 
         arm64: {
             srcs: [
-                "arm64/ceil.S",
                 "arm64/fenv.c",
-                "arm64/floor.S",
                 "arm64/lrint.S",
-                "arm64/rint.S",
                 "arm64/sqrt.S",
-                "arm64/trunc.S",
             ],
             exclude_srcs: [
                 "upstream-freebsd/lib/msun/src/e_sqrt.c",
@@ -333,17 +318,7 @@ cc_library {
                 "upstream-freebsd/lib/msun/src/s_trunc.c",
                 "upstream-freebsd/lib/msun/src/s_truncf.c",
             ],
-            version_script: "libm.arm64.map",
-        },
-
-        mips: {
-            srcs: ["mips/fenv.c"],
-            version_script: "libm.mips.map",
-        },
-
-        mips64: {
-            srcs: ["mips/fenv.c"],
-            version_script: "libm.mips64.map",
+            version_script: ":libm.arm64.map",
         },
 
         x86: {
@@ -355,11 +330,8 @@ cc_library {
                 "x86/e_asin.S",
                 "x86/e_atan2.S",
                 "x86/e_cosh.S",
-                "x86/e_exp.S",
                 "x86/e_hypot.S",
                 "x86/e_log10.S",
-                "x86/e_log.S",
-                "x86/e_pow.S",
                 "x86/e_sinh.S",
                 "x86/libm_reduce_pi04l.S",
                 "x86/libm_sincos_huge.S",
@@ -380,11 +352,8 @@ cc_library {
                 "upstream-freebsd/lib/msun/src/e_asin.c",
                 "upstream-freebsd/lib/msun/src/e_atan2.c",
                 "upstream-freebsd/lib/msun/src/e_cosh.c",
-                "upstream-freebsd/lib/msun/src/e_exp.c",
                 "upstream-freebsd/lib/msun/src/e_hypot.c",
-                "upstream-freebsd/lib/msun/src/e_log.c",
                 "upstream-freebsd/lib/msun/src/e_log10.c",
-                "upstream-freebsd/lib/msun/src/e_pow.c",
                 "upstream-freebsd/lib/msun/src/e_sinh.c",
                 "upstream-freebsd/lib/msun/src/e_sqrt.c",
                 "upstream-freebsd/lib/msun/src/e_sqrtf.c",
@@ -422,8 +391,9 @@ cc_library {
                 ],
             },
             local_include_dirs: ["i387"],
+            pack_relocations: false,
             ldflags: ["-Wl,--hash-style=both"],
-            version_script: "libm.x86.map",
+            version_script: ":libm.x86.map",
         },
 
         x86_64: {
@@ -435,11 +405,8 @@ cc_library {
                 "x86_64/e_asin.S",
                 "x86_64/e_atan2.S",
                 "x86_64/e_cosh.S",
-                "x86_64/e_exp.S",
                 "x86_64/e_hypot.S",
                 "x86_64/e_log10.S",
-                "x86_64/e_log.S",
-                "x86_64/e_pow.S",
                 "x86_64/e_sinh.S",
                 "x86_64/lrint.S",
                 "x86_64/lrintf.S",
@@ -457,11 +424,8 @@ cc_library {
                 "upstream-freebsd/lib/msun/src/e_asin.c",
                 "upstream-freebsd/lib/msun/src/e_atan2.c",
                 "upstream-freebsd/lib/msun/src/e_cosh.c",
-                "upstream-freebsd/lib/msun/src/e_exp.c",
                 "upstream-freebsd/lib/msun/src/e_hypot.c",
-                "upstream-freebsd/lib/msun/src/e_log.c",
                 "upstream-freebsd/lib/msun/src/e_log10.c",
-                "upstream-freebsd/lib/msun/src/e_pow.c",
                 "upstream-freebsd/lib/msun/src/e_sinh.c",
                 "upstream-freebsd/lib/msun/src/e_sqrt.c",
                 "upstream-freebsd/lib/msun/src/e_sqrtf.c",
@@ -500,7 +464,7 @@ cc_library {
                     "upstream-freebsd/lib/msun/src/s_truncf.c",
                 ],
             },
-            version_script: "libm.x86_64.map",
+            version_script: ":libm.x86_64.map",
         },
     },
 
@@ -515,13 +479,23 @@ cc_library {
         "-D_BSD_SOURCE",
         "-DFLT_EVAL_METHOD=0",
         "-include freebsd-compat.h",
+        "-fno-math-errno",
+        "-Wall",
         "-Werror",
         "-Wno-missing-braces",
         "-Wno-parentheses",
         "-Wno-sign-compare",
-        "-Wno-uninitialized",
         "-Wno-unknown-pragmas",
+        "-Wno-unused-const-variable",
+        "-Wno-unused-variable",
     ],
+
+    ldflags: [
+        "-Wl,--Bsymbolic-functions",
+    ],
+
+    // b/120614316, non-critical readibility check
+    tidy_checks: ["-cert-dcl16-c"],
 
     include_dirs: ["bionic/libc"],
     system_shared_libs: ["libc"],
@@ -533,6 +507,11 @@ cc_library {
         integer_overflow: false,
     },
     stl: "none",
+
+    stubs: {
+        symbol_file: "libm.map.txt",
+        versions: ["10000"],
+    },
 }
 
 ndk_library {
@@ -544,4 +523,36 @@ ndk_library {
 llndk_library {
     name: "libm",
     symbol_file: "libm.map.txt",
+}
+
+genrule {
+    name: "libm.arm.map",
+    out: ["libm.arm.map"],
+    srcs: ["libm.map.txt"],
+    tool_files: [":bionic-generate-version-script"],
+    cmd: "$(location :bionic-generate-version-script) arm $(in) $(out)",
+}
+
+genrule {
+    name: "libm.arm64.map",
+    out: ["libm.arm64.map"],
+    srcs: ["libm.map.txt"],
+    tool_files: [":bionic-generate-version-script"],
+    cmd: "$(location :bionic-generate-version-script) arm64 $(in) $(out)",
+}
+
+genrule {
+    name: "libm.x86.map",
+    out: ["libm.x86.map"],
+    srcs: ["libm.map.txt"],
+    tool_files: [":bionic-generate-version-script"],
+    cmd: "$(location :bionic-generate-version-script) x86 $(in) $(out)",
+}
+
+genrule {
+    name: "libm.x86_64.map",
+    out: ["libm.x86_64.map"],
+    srcs: ["libm.map.txt"],
+    tool_files: [":bionic-generate-version-script"],
+    cmd: "$(location :bionic-generate-version-script) x86_64 $(in) $(out)",
 }

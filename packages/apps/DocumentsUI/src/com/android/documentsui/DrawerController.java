@@ -18,20 +18,17 @@ package com.android.documentsui;
 
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
-import android.annotation.IntDef;
 import android.app.Activity;
-import android.support.annotation.ColorRes;
-import android.support.v4.app.ActionBarDrawerToggle;
-import android.support.v4.widget.DrawerLayout;
-import android.support.v4.widget.DrawerLayout.DrawerListener;
 import android.util.Log;
 import android.view.View;
-import android.widget.Toolbar;
+
+import androidx.annotation.ColorRes;
+import androidx.appcompat.widget.Toolbar;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.drawerlayout.widget.DrawerLayout.DrawerListener;
+import androidx.legacy.app.ActionBarDrawerToggle;
 
 import com.android.documentsui.base.Display;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 
 /**
  * A facade over the various pieces comprising "roots fragment in a Drawer".
@@ -60,7 +57,6 @@ public abstract class DrawerController implements DrawerListener {
 
         View drawer = activity.findViewById(R.id.drawer_roots);
         Toolbar toolbar = (Toolbar) activity.findViewById(R.id.roots_toolbar);
-
         drawer.getLayoutParams().width = calculateDrawerWidth(activity);
 
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
@@ -134,7 +130,7 @@ public abstract class DrawerController implements DrawerListener {
         public void setDropTargetHighlight(View v, boolean highlight) {
             assert (v.getId() == R.id.drawer_edge);
 
-            @ColorRes int id = highlight ? R.color.item_doc_background_selected :
+            @ColorRes int id = highlight ? R.color.secondary :
                 android.R.color.transparent;
             v.setBackgroundColor(id);
         }

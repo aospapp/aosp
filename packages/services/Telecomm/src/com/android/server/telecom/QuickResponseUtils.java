@@ -117,4 +117,48 @@ public class QuickResponseUtils {
         Log.d(LOG_TAG, "maybeMigrateLegacyQuickResponses() - Done.");
         return;
     }
+
+    /**
+     * Determine if the user has changed any of the quick responses back to exactly the same text as
+     * the default text.  If they did, clear the preference so we'll rely on the default value and
+     * still be able to re-translate automatically when language changes occur.
+     *
+     * @param context The current context.
+     * @param prefs   The quick response shared prefs.
+     */
+    public static void maybeResetQuickResponses(Context context, SharedPreferences prefs) {
+        final Resources res = context.getResources();
+
+        String defaultResponse1 = res.getString(R.string.respond_via_sms_canned_response_1);
+        String currentValue1 = prefs.getString(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_1, "");
+        if (currentValue1.equals(defaultResponse1)) {
+            prefs.edit().remove(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_1).apply();
+            Log.i(QuickResponseUtils.class,
+                    "maybeResetQuickResponses: response 1 is identical to default; clear pref.");
+        }
+
+        String defaultResponse2 = res.getString(R.string.respond_via_sms_canned_response_2);
+        String currentValue2 = prefs.getString(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_2, "");
+        if (currentValue2.equals(defaultResponse2)) {
+            prefs.edit().remove(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_2).apply();
+            Log.i(QuickResponseUtils.class,
+                    "maybeResetQuickResponses: response 2 is identical to default; clear pref.");
+        }
+
+        String defaultResponse3 = res.getString(R.string.respond_via_sms_canned_response_3);
+        String currentValue3 = prefs.getString(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_3, "");
+        if (currentValue3.equals(defaultResponse3)) {
+            prefs.edit().remove(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_3).apply();
+            Log.i(QuickResponseUtils.class,
+                    "maybeResetQuickResponses: response 3 is identical to default; clear pref.");
+        }
+
+        String defaultResponse4 = res.getString(R.string.respond_via_sms_canned_response_4);
+        String currentValue4 = prefs.getString(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_4, "");
+        if (currentValue4.equals(defaultResponse4)) {
+            prefs.edit().remove(QuickResponseUtils.KEY_CANNED_RESPONSE_PREF_4).apply();
+            Log.i(QuickResponseUtils.class,
+                    "maybeResetQuickResponses: response 4 is identical to default; clear pref.");
+        }
+    }
 }

@@ -16,6 +16,7 @@
 
 package com.android.tradefed.config.gcs;
 
+import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfigurationServer;
 import com.android.tradefed.config.Option;
@@ -24,6 +25,7 @@ import com.android.tradefed.util.GCSFileDownloader;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
@@ -49,36 +51,75 @@ public class GCSConfigurationServer implements IConfigurationServer {
     )
     private String mHostConfigMapping = DEFAULT_MAPPING;
 
-    private GCSFileDownloader mGCSFileDownloader = null;
+    @Option(
+        name = "cluster",
+        description = "The cluster name mapping to the actual config the host will use."
+    )
+    private String mCluster = null;
+
+    @Option(
+        name = "config-path",
+        description = "The config path relative to the bucket the host will use."
+    )
     private String mCurrentHostConfig = null;
+
+    private GCSFileDownloader mGCSFileDownloader = null;
+    private String mHostname = null;
 
     /** {@inheritDoc} */
     @Override
     public String getCurrentHostConfig() throws ConfigurationException {
         if (mCurrentHostConfig == null) {
-            String currentHostname = currentHostname();
-            System.out.format("Downloading %s.\n", mHostConfigMapping);
-            InputStream hostConfigMapping = downloadFile(mHostConfigMapping);
-            mCurrentHostConfig = getHostConfig(currentHostname, hostConfigMapping);
+            mCurrentHostConfig = getHostConfig(currentHostname(), mCluster);
         }
         return mCurrentHostConfig;
     }
 
+    interface IMatcher {
+        boolean match(String key, String candidate);
+    }
+
     /**
-     * Get a host's config file name from the mapping file. Each line in the host config mapping
-     * file has the format: "hostname,instance-name,host-config-file-name,host-command-file".
+     * Get tradefed global config for host. Use cluster name if cluster name if provided, otherwise
+     * use hostname.
      *
-     * @param hostname is the hostname to get host config for
-     * @param hostConfigMappingFile is a mapping file that maps hostname to host config name.
-     * @return host config name is the host's config name.
+     * @param hostname host name
+     * @param cluster cluster name.
+     * @return path relative to gcs bucket.
      * @throws ConfigurationException
      */
-    private String getHostConfig(String hostname, InputStream hostConfigMappingFile)
+    protected String getHostConfig(String hostname, String cluster) throws ConfigurationException {
+        System.out.format("Downloading %s.\n", mHostConfigMapping);
+        InputStream hostConfigMapping = downloadFileToInputStream(mHostConfigMapping);
+        if (cluster == null) {
+            // Hostname uses prefix match,
+            // e.g. apct-001 should match apct-001.mtv.corp.google.com
+            System.out.printf("Use hostname %s to get config.\n", hostname);
+            return getHostConfig(
+                    hostConfigMapping, hostname, (key, candidate) -> sameHost(key, candidate));
+        } else {
+            // Cluster name uses equal match.
+            System.out.printf("Use cluster name %s to get config.\n", cluster);
+            return getHostConfig(
+                    hostConfigMapping, cluster, (key, candidate) -> key.equals(candidate));
+        }
+    }
+
+    /**
+     * Get a host's config file name from the mapping file. Each line in the host config mapping
+     * file has the format: "config-key,instance-name,host-config-file-name,host-command-file".
+     *
+     * @param hostConfigMappingFile is a mapping file that maps config key to host config name.
+     * @param key is the config's key to map to proper config file.
+     * @return host config name is the host's config path.
+     * @throws ConfigurationException
+     */
+    private String getHostConfig(InputStream hostConfigMappingFile, String key, IMatcher matcher)
             throws ConfigurationException {
         Scanner scanner = new Scanner(hostConfigMappingFile);
         try {
             while (scanner.hasNextLine()) {
-                // "hostname,instance-name,host-config-file-name,host-command-file"
+                // "config-key,instance-name,host-config-file-name,host-command-file"
                 String line = scanner.nextLine().trim();
                 if (line.startsWith("#") || line.isEmpty() || line.startsWith("[")) {
                     // Ignore comments, empty line and cluster name line.
@@ -89,19 +130,25 @@ public class GCSConfigurationServer implements IConfigurationServer {
                     // Ignore invalid lines.
                     continue;
                 }
-                if (sameHost(hostname, hostMap[0])) {
-                    System.out.format("%s's config is %s\n", hostname, hostMap[2]);
+                if (matcher.match(key, hostMap[0])) {
                     return hostMap[2];
                 }
             }
-            throw new ConfigurationException(
-                    String.format("Host %s doesn't have configure.", hostname));
+            throw new ConfigurationException(String.format("There is no config for %s.", key));
         } finally {
             scanner.close();
         }
     }
 
-    private boolean sameHost(String currentHostname, String hostname) {
+    /**
+     * Check if two hostnames are for the same host. In config files, we sometimes use short name
+     * for host.
+     *
+     * @param currentHostname current host's name
+     * @param hostname the hostname in config.
+     * @return true if they are the same host, otherwise false;
+     */
+    protected boolean sameHost(String currentHostname, String hostname) {
         return currentHostname.startsWith(hostname);
     }
 
@@ -113,18 +160,21 @@ public class GCSConfigurationServer implements IConfigurationServer {
      */
     @VisibleForTesting
     String currentHostname() throws ConfigurationException {
-        try {
-            return InetAddress.getLocalHost().getHostName();
-        } catch (UnknownHostException e) {
-            throw new ConfigurationException(e.getMessage(), e.getCause());
+        if (mHostname == null) {
+            try {
+                mHostname = InetAddress.getLocalHost().getHostName();
+            } catch (UnknownHostException e) {
+                throw new ConfigurationException(e.getMessage(), e.getCause());
+            }
         }
+        return mHostname;
     }
 
     /** {@inheritDoc} */
     @Override
     public InputStream getConfig(String name) throws ConfigurationException {
         System.out.format("Downloading %s.\n", name);
-        return downloadFile(name);
+        return downloadFileToInputStream(name);
     }
 
     /**
@@ -135,7 +185,7 @@ public class GCSConfigurationServer implements IConfigurationServer {
      * @throws ConfigurationException
      */
     @VisibleForTesting
-    InputStream downloadFile(String name) throws ConfigurationException {
+    InputStream downloadFileToInputStream(String name) throws ConfigurationException {
         try {
             return getFileDownloader().downloadFile(mBucketName, name);
         } catch (IOException e) {
@@ -143,7 +193,15 @@ public class GCSConfigurationServer implements IConfigurationServer {
         }
     }
 
-    private GCSFileDownloader getFileDownloader() {
+    protected File downloadFile(String name) throws ConfigurationException {
+        try {
+            return getFileDownloader().downloadFile(String.format("gs://%s/%s", mBucketName, name));
+        } catch (BuildRetrievalError e) {
+            throw new ConfigurationException(e.getMessage(), e.getCause());
+        }
+    }
+
+    GCSFileDownloader getFileDownloader() {
         if (mGCSFileDownloader == null) {
             mGCSFileDownloader = new GCSFileDownloader();
         }

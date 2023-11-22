@@ -30,6 +30,29 @@ using android::base::StringAppendF;
 namespace android {
 namespace net {
 
+namespace {
+
+bool compUidRangeParcel(const UidRangeParcel& lhs, const UidRangeParcel& rhs) {
+    return lhs.start != rhs.start ? (lhs.start < rhs.start) : (lhs.stop < rhs.stop);
+};
+
+UidRangeParcel makeUidRangeParcel(int start, int stop) {
+    UidRangeParcel res;
+    res.start = start;
+    res.stop = stop;
+
+    return res;
+}
+
+uint32_t length(const UidRangeParcel& t) {
+    if (t.start == -1 || t.stop == -1) {
+        return 0;
+    }
+    return static_cast<uint32_t>(t.stop - t.start + 1);
+}
+
+}  // namespace
+
 bool UidRanges::hasUid(uid_t uid) const {
     if (uid > (unsigned) INT32_MAX) {
         ALOGW("UID larger than 32 bits: %" PRIu64, static_cast<uint64_t>(uid));
@@ -37,12 +60,13 @@ bool UidRanges::hasUid(uid_t uid) const {
     }
     const int32_t intUid = static_cast<int32_t>(uid);
 
-    auto iter = std::lower_bound(mRanges.begin(), mRanges.end(), UidRange(intUid, intUid));
-    return (iter != mRanges.end() && iter->getStart() == intUid) ||
-           (iter != mRanges.begin() && (--iter)->getStop() >= intUid);
+    auto iter = std::lower_bound(mRanges.begin(), mRanges.end(), makeUidRangeParcel(intUid, intUid),
+                                 compUidRangeParcel);
+    return (iter != mRanges.end() && iter->start == intUid) ||
+           (iter != mRanges.begin() && (--iter)->stop >= intUid);
 }
 
-const std::vector<UidRange>& UidRanges::getRanges() const {
+const std::vector<UidRangeParcel>& UidRanges::getRanges() const {
     return mRanges;
 }
 
@@ -81,37 +105,37 @@ bool UidRanges::parseFrom(int argc, char* argv[]) {
             // Invalid UIDs.
             return false;
         }
-        mRanges.push_back(UidRange(uidStart, uidEnd));
+        mRanges.push_back(makeUidRangeParcel(uidStart, uidEnd));
     }
-    std::sort(mRanges.begin(), mRanges.end());
+    std::sort(mRanges.begin(), mRanges.end(), compUidRangeParcel);
     return true;
 }
 
-UidRanges::UidRanges(const std::vector<UidRange>& ranges) {
+UidRanges::UidRanges(const std::vector<UidRangeParcel>& ranges) {
     mRanges = ranges;
-    std::sort(mRanges.begin(), mRanges.end());
+    std::sort(mRanges.begin(), mRanges.end(), compUidRangeParcel);
 }
 
 void UidRanges::add(const UidRanges& other) {
     auto middle = mRanges.insert(mRanges.end(), other.mRanges.begin(), other.mRanges.end());
-    std::inplace_merge(mRanges.begin(), middle, mRanges.end());
+    std::inplace_merge(mRanges.begin(), middle, mRanges.end(), compUidRangeParcel);
 }
 
 void UidRanges::remove(const UidRanges& other) {
     auto end = std::set_difference(mRanges.begin(), mRanges.end(), other.mRanges.begin(),
-                                   other.mRanges.end(), mRanges.begin());
+                                   other.mRanges.end(), mRanges.begin(), compUidRangeParcel);
     mRanges.erase(end, mRanges.end());
 }
 
 std::string UidRanges::toString() const {
     std::string s("UidRanges{ ");
     for (const auto &range : mRanges) {
-        if (range.length() == 0) {
-            StringAppendF(&s, "<BAD: %u-%u> ", range.getStart(), range.getStop());
-        } else if (range.length() == 1) {
-            StringAppendF(&s, "%u ", range.getStart());
+        if (length(range) == 0) {
+            StringAppendF(&s, "<BAD: %u-%u> ", range.start, range.stop);
+        } else if (length(range) == 1) {
+            StringAppendF(&s, "%u ", range.start);
         } else {
-            StringAppendF(&s, "%u-%u ", range.getStart(), range.getStop());
+            StringAppendF(&s, "%u-%u ", range.start, range.stop);
         }
     }
     StringAppendF(&s, "}");

@@ -18,18 +18,18 @@
 -->
 <resources>
     <!-- Semi-transparent background color of blocking activity. -->
-    <!-- In Call background scrim: grey 200 @ 90% -->
-    <color name="activity_blocking_activity_background">#e6eeeeee</color>
+    <!-- In Call background scrim: grey 200 -->
+    <color name="activity_blocking_activity_background">#ffeeeeee</color>
 
     <!-- Color of text in blocking activity. -->
     <color name="blocking_text">#ff212121</color>
 
-    <!-- Background color of exit button. -->
-    <color name="exit_button_background">#ff00796b</color>
+    <!-- Background color of button. -->
+    <color name="button_background">#ff00796b</color>
 
-    <!-- Color of exit button text. -->
-    <color name="exit_button_text">#fffafafa</color>
+    <!-- Color of button text. -->
+    <color name="button_text">#fffafafa</color>
 
-    <!-- Ripple color of exit button background. -->
+    <!-- Ripple color of button background. -->
     <color name="ripple_background">#3d000000</color>
 </resources>

@@ -44,4 +44,16 @@ public interface ITestAnnotationFilterReceiver {
      * Adds a {@link Set} of annotations to exclude if a tests if marked with it.
      */
     void addAllExcludeAnnotation(Set<String> notAnnotations);
+
+    /** Returns the current {@link Set} of annotations to include. */
+    Set<String> getIncludeAnnotations();
+
+    /** Returns the current {@link Set} of annotations to exclude. */
+    Set<String> getExcludeAnnotations();
+
+    /** Delete all the include annotations currently tracked. */
+    void clearIncludeAnnotations();
+
+    /** Delete all the exclude annotations currently tracked. */
+    void clearExcludeAnnotations();
 }

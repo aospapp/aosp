@@ -349,15 +349,10 @@ public class UtilsTest extends AndroidTestCase {
         // GIVEN the file's Sha256 hash
         byte[] sha256 = new byte[] {-64, 83, 94, 75, -30, -73, -97, -3, -109, 41, 19, 5, 67, 107,
                 -8, -119, 49, 78, 74, 63, -82, -64, 94, -49, -4, -69, 125, -13, 26, -39, -27, 26};
-        // GIVEN the file's Sha1 hash
-        byte[] sha1 = new byte[] {-45, 72, 106, -23, 19, 110, 120, 86, -68, 66, 33, 35, -123, -22,
-                121, 112, -108, 71, 88, 2};
 
         //THEN the Sha256 hash is correct
         assertTrue(
                 Arrays.equals(sha256, mUtils.computeHashOfFile(fileLocation, Utils.SHA256_TYPE)));
-        //THEN the Sha1 hash is correct
-        assertTrue(Arrays.equals(sha1, mUtils.computeHashOfFile(fileLocation, Utils.SHA1_TYPE)));
     }
 
     public void testComputeHashOfFile_NotPresent() {
@@ -367,7 +362,6 @@ public class UtilsTest extends AndroidTestCase {
 
         // THEN computeHashOfFile should return null
         assertNull(mUtils.computeHashOfFile(fileLocation, Utils.SHA256_TYPE));
-        assertNull(mUtils.computeHashOfFile(fileLocation, Utils.SHA1_TYPE));
     }
 
     public void testBrightColors() {

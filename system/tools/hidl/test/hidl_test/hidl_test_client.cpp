@@ -3,10 +3,11 @@
 #include "FooCallback.h"
 #include "hidl_test.h"
 
+#include <android-base/file.h>
 #include <android-base/logging.h>
 
-#include <android/hidl/manager/1.1/IServiceManager.h>
 #include <android/hidl/manager/1.0/IServiceNotification.h>
+#include <android/hidl/manager/1.2/IServiceManager.h>
 
 #include <android/hidl/allocator/1.0/IAllocator.h>
 #include <android/hidl/memory/1.0/IMemory.h>
@@ -19,6 +20,7 @@
 #include <android/hardware/tests/bar/1.0/IComplicated.h>
 #include <android/hardware/tests/bar/1.0/IImportRules.h>
 #include <android/hardware/tests/baz/1.0/IBaz.h>
+#include <android/hardware/tests/expression/1.0/IExpression.h>
 #include <android/hardware/tests/foo/1.0/BnHwSimple.h>
 #include <android/hardware/tests/foo/1.0/BpHwSimple.h>
 #include <android/hardware/tests/foo/1.0/BsSimple.h>
@@ -32,6 +34,9 @@
 #include <android/hardware/tests/multithread/1.0/IMultithread.h>
 #include <android/hardware/tests/pointer/1.0/IGraph.h>
 #include <android/hardware/tests/pointer/1.0/IPointer.h>
+#include <android/hardware/tests/safeunion/1.0/IOtherInterface.h>
+#include <android/hardware/tests/safeunion/1.0/ISafeUnion.h>
+#include <android/hardware/tests/safeunion/cpp/1.0/ICppSafeUnion.h>
 #include <android/hardware/tests/trie/1.0/ITrie.h>
 
 #include <gtest/gtest.h>
@@ -51,10 +56,12 @@
 #include <condition_variable>
 #include <fstream>
 #include <future>
+#include <limits>
 #include <mutex>
 #include <random>
 #include <set>
 #include <sstream>
+#include <sys/stat.h>
 #include <thread>
 #include <type_traits>
 #include <unordered_set>
@@ -63,6 +70,7 @@
 
 #include <hidl-test/FooHelper.h>
 #include <hidl-test/PointerHelper.h>
+#include <hidl-util/FQName.h>
 
 #include <hidl/ServiceManagement.h>
 #include <hidl/Status.h>
@@ -90,55 +98,69 @@ enum TestMode {
 
 static HidlEnvironment *gHidlEnvironment = nullptr;
 
+using ::android::Condition;
+using ::android::DELAY_NS;
+using ::android::DELAY_S;
+using ::android::FQName;
+using ::android::MultiDimensionalToString;
+using ::android::Mutex;
+using ::android::ONEWAY_TOLERANCE_NS;
+using ::android::sp;
+using ::android::to_string;
+using ::android::TOLERANCE_NS;
+using ::android::wp;
+using ::android::hardware::GrantorDescriptor;
+using ::android::hardware::hidl_array;
+using ::android::hardware::hidl_death_recipient;
+using ::android::hardware::hidl_handle;
+using ::android::hardware::hidl_memory;
+using ::android::hardware::hidl_string;
+using ::android::hardware::hidl_vec;
+using ::android::hardware::HidlMemory;
+using ::android::hardware::MQDescriptor;
+using ::android::hardware::MQFlavor;
+using ::android::hardware::Return;
+using ::android::hardware::Void;
+using ::android::hardware::tests::bar::V1_0::IBar;
+using ::android::hardware::tests::bar::V1_0::IComplicated;
+using ::android::hardware::tests::baz::V1_0::IBaz;
+using ::android::hardware::tests::expression::V1_0::IExpression;
 using ::android::hardware::tests::foo::V1_0::Abc;
 using ::android::hardware::tests::foo::V1_0::IFoo;
 using ::android::hardware::tests::foo::V1_0::IFooCallback;
 using ::android::hardware::tests::foo::V1_0::ISimple;
 using ::android::hardware::tests::foo::V1_0::implementation::FooCallback;
-using ::android::hardware::tests::bar::V1_0::IBar;
-using ::android::hardware::tests::bar::V1_0::IComplicated;
-using ::android::hardware::tests::baz::V1_0::IBaz;
 using ::android::hardware::tests::hash::V1_0::IHash;
+using ::android::hardware::tests::inheritance::V1_0::IChild;
 using ::android::hardware::tests::inheritance::V1_0::IFetcher;
 using ::android::hardware::tests::inheritance::V1_0::IGrandparent;
 using ::android::hardware::tests::inheritance::V1_0::IParent;
-using ::android::hardware::tests::inheritance::V1_0::IChild;
-using ::android::hardware::tests::pointer::V1_0::IGraph;
-using ::android::hardware::tests::pointer::V1_0::IPointer;
 using ::android::hardware::tests::memory::V1_0::IMemoryTest;
 using ::android::hardware::tests::multithread::V1_0::IMultithread;
+using ::android::hardware::tests::pointer::V1_0::IGraph;
+using ::android::hardware::tests::pointer::V1_0::IPointer;
+using ::android::hardware::tests::safeunion::cpp::V1_0::ICppSafeUnion;
+using ::android::hardware::tests::safeunion::V1_0::IOtherInterface;
+using ::android::hardware::tests::safeunion::V1_0::ISafeUnion;
 using ::android::hardware::tests::trie::V1_0::ITrie;
 using ::android::hardware::tests::trie::V1_0::TrieNode;
-using ::android::hardware::Return;
-using ::android::hardware::Void;
-using ::android::hardware::hidl_array;
-using ::android::hardware::hidl_death_recipient;
-using ::android::hardware::hidl_memory;
-using ::android::hardware::HidlMemory;
-using ::android::hardware::hidl_string;
-using ::android::hardware::hidl_vec;
 using ::android::hidl::allocator::V1_0::IAllocator;
 using ::android::hidl::base::V1_0::IBase;
-using ::android::hidl::manager::V1_1::IServiceManager;
 using ::android::hidl::manager::V1_0::IServiceNotification;
-using ::android::hidl::memory::V1_0::IMemory;
-using ::android::hidl::memory::token::V1_0::IMemoryToken;
+using ::android::hidl::manager::V1_2::IServiceManager;
 using ::android::hidl::memory::block::V1_0::MemoryBlock;
+using ::android::hidl::memory::token::V1_0::IMemoryToken;
+using ::android::hidl::memory::V1_0::IMemory;
 using ::android::hidl::token::V1_0::ITokenManager;
-using ::android::sp;
-using ::android::wp;
-using ::android::to_string;
-using ::android::Mutex;
-using ::android::MultiDimensionalToString;
-using ::android::Condition;
-using ::android::DELAY_S;
-using ::android::DELAY_NS;
-using ::android::TOLERANCE_NS;
-using ::android::ONEWAY_TOLERANCE_NS;
 using std::to_string;
 
+using HandleTypeSafeUnion = ISafeUnion::HandleTypeSafeUnion;
+using InterfaceTypeSafeUnion = ISafeUnion::InterfaceTypeSafeUnion;
+using LargeSafeUnion = ISafeUnion::LargeSafeUnion;
+using SmallSafeUnion = ISafeUnion::SmallSafeUnion;
+
 template <typename T>
-using hidl_enum_iterator = ::android::hardware::hidl_enum_iterator<T>;
+using hidl_enum_range = ::android::hardware::hidl_enum_range<T>;
 
 template <typename T>
 static inline ::testing::AssertionResult isOk(const ::android::hardware::Return<T> &ret) {
@@ -174,6 +196,32 @@ std::string to_string(std::set<T> set) {
     ss << "}";
 
     return ss.str();
+}
+
+// does not check for fd equality
+static void checkNativeHandlesDataEquality(const native_handle_t* reference,
+                                           const native_handle_t* result) {
+    if (reference == nullptr || result == nullptr) {
+        EXPECT_EQ(reference, result);
+        return;
+    }
+
+    ASSERT_EQ(reference->version, result->version);
+    EXPECT_EQ(reference->numFds, result->numFds);
+    EXPECT_EQ(reference->numInts, result->numInts);
+
+    int offset = reference->numFds;
+    int numInts = reference->numInts;
+    EXPECT_ARRAYEQ(&(reference->data[offset]), &(result->data[offset]), numInts);
+}
+
+template <typename T, MQFlavor flavor>
+static void checkMQDescriptorEquality(const MQDescriptor<T, flavor>& expected,
+                                      const MQDescriptor<T, flavor>& actual) {
+    checkNativeHandlesDataEquality(expected.handle(), actual.handle());
+    EXPECT_EQ(expected.grantors().size(), actual.grantors().size());
+    EXPECT_EQ(expected.getQuantum(), actual.getQuantum());
+    EXPECT_EQ(expected.getFlags(), actual.getFlags());
 }
 
 struct Simple : public ISimple {
@@ -270,6 +318,16 @@ private:
     int32_t mCookie;
 };
 
+struct OtherInterface : public IOtherInterface {
+    Return<void> concatTwoStrings(const hidl_string& a, const hidl_string& b,
+                                  concatTwoStrings_cb _hidl_cb) override {
+        hidl_string result = std::string(a) + std::string(b);
+        _hidl_cb(result);
+
+        return Void();
+    }
+};
+
 struct ServiceNotification : public IServiceNotification {
     std::mutex mutex;
     std::condition_variable condition;
@@ -308,6 +366,7 @@ public:
     sp<IMemoryTest> memoryTest;
     sp<IFetcher> fetcher;
     sp<IFoo> foo;
+    sp<IBaz> baz;
     sp<IBaz> dyingBaz;
     sp<IBar> bar;
     sp<IGraph> graphInterface;
@@ -315,6 +374,8 @@ public:
     sp<IPointer> validationPointerInterface;
     sp<IMultithread> multithreadInterface;
     sp<ITrie> trieInterface;
+    sp<ICppSafeUnion> cppSafeunionInterface;
+    sp<ISafeUnion> safeunionInterface;
     TestMode mode;
     bool enableDelayMeasurementTests;
     HidlEnvironment(TestMode mode, bool enableDelayMeasurementTests) :
@@ -352,9 +413,13 @@ public:
         ASSERT_NE(foo, nullptr);
         ASSERT_EQ(foo->isRemote(), mode == BINDERIZED);
 
+        baz = IBaz::getService("baz", mode == PASSTHROUGH /* getStub */);
+        ASSERT_NE(baz, nullptr);
+        ASSERT_EQ(baz->isRemote(), mode == BINDERIZED);
+
         dyingBaz = IBaz::getService("dyingBaz", mode == PASSTHROUGH /* getStub */);
-        ASSERT_NE(foo, nullptr);
-        ASSERT_EQ(foo->isRemote(), mode == BINDERIZED);
+        ASSERT_NE(dyingBaz, nullptr);
+        ASSERT_EQ(dyingBaz->isRemote(), mode == BINDERIZED);
 
         bar = IBar::getService("foo", mode == PASSTHROUGH /* getStub */);
         ASSERT_NE(bar, nullptr);
@@ -380,9 +445,18 @@ public:
         trieInterface = ITrie::getService("trie", mode == PASSTHROUGH /* getStub */);
         ASSERT_NE(trieInterface, nullptr);
         ASSERT_EQ(trieInterface->isRemote(), mode == BINDERIZED);
+
+        cppSafeunionInterface =
+            ICppSafeUnion::getService("default", mode == PASSTHROUGH /* getStub */);
+        ASSERT_NE(cppSafeunionInterface, nullptr);
+        ASSERT_EQ(cppSafeunionInterface->isRemote(), mode == BINDERIZED);
+
+        safeunionInterface = ISafeUnion::getService("safeunion", mode == PASSTHROUGH /* getStub */);
+        ASSERT_NE(safeunionInterface, nullptr);
+        ASSERT_EQ(safeunionInterface->isRemote(), mode == BINDERIZED);
     }
 
-    virtual void SetUp() {
+    void SetUp() override {
         ALOGI("Environment setup beginning...");
         getServices();
         ALOGI("Environment setup complete.");
@@ -397,15 +471,18 @@ public:
     sp<IMemoryTest> memoryTest;
     sp<IFetcher> fetcher;
     sp<IFoo> foo;
+    sp<IBaz> baz;
     sp<IBaz> dyingBaz;
     sp<IBar> bar;
     sp<IGraph> graphInterface;
     sp<IPointer> pointerInterface;
     sp<IPointer> validationPointerInterface;
     sp<ITrie> trieInterface;
+    sp<ICppSafeUnion> cppSafeunionInterface;
+    sp<ISafeUnion> safeunionInterface;
     TestMode mode = TestMode::PASSTHROUGH;
 
-    virtual void SetUp() override {
+    void SetUp() override {
         ALOGI("Test setup beginning...");
         manager = gHidlEnvironment->manager;
         tokenManager = gHidlEnvironment->tokenManager;
@@ -413,12 +490,15 @@ public:
         memoryTest = gHidlEnvironment->memoryTest;
         fetcher = gHidlEnvironment->fetcher;
         foo = gHidlEnvironment->foo;
+        baz = gHidlEnvironment->baz;
         dyingBaz = gHidlEnvironment->dyingBaz;
         bar = gHidlEnvironment->bar;
         graphInterface = gHidlEnvironment->graphInterface;
         pointerInterface = gHidlEnvironment->pointerInterface;
         validationPointerInterface = gHidlEnvironment->validationPointerInterface;
         trieInterface = gHidlEnvironment->trieInterface;
+        cppSafeunionInterface = gHidlEnvironment->cppSafeunionInterface;
+        safeunionInterface = gHidlEnvironment->safeunionInterface;
         mode = gHidlEnvironment->mode;
         ALOGI("Test setup complete");
     }
@@ -435,24 +515,34 @@ TEST_F(HidlTest, ToStringTest) {
     auto handle2 = native_handle_create(0, 1);
     handle->data[0] = 5;
     handle2->data[0] = 6;
-    IFoo::Everything e {
-        .u = {.p = reinterpret_cast<void *>(0x5)},
+    IFoo::Everything e{
+        .u = {.number = 3},
         .number = 10,
         .h = handle,
         .descSync = {std::vector<GrantorDescriptor>(), handle, 5},
         .descUnsync = {std::vector<GrantorDescriptor>(), handle2, 6},
         .mem = hidl_memory("mymem", handle, 5),
-        .p = reinterpret_cast<void *>(0x6),
+        .p = reinterpret_cast<void*>(0x6),
         .vs = {"hello", "world"},
         .multidimArray = hidl_vec<hidl_string>{"hello", "great", "awesome", "nice"}.data(),
         .sArray = hidl_vec<hidl_string>{"awesome", "thanks", "you're welcome"}.data(),
         .anotherStruct = {.first = "first", .last = "last"},
-        .bf = IFoo::BitField::V0 | IFoo::BitField::V2
-    };
+        .bf = IFoo::BitField::V0 | IFoo::BitField::V2};
     LOG(INFO) << toString(e);
     LOG(INFO) << toString(foo);
     // toString is for debugging purposes only; no good EXPECT
     // statement can be written here.
+}
+
+TEST_F(HidlTest, ConstantExpressionTest) {
+    // these tests are written so that these always evaluate to one
+
+    for (const auto value : hidl_enum_range<IExpression::OperatorSanityCheck>()) {
+        EXPECT_EQ(1, static_cast<int32_t>(value));
+    }
+    for (const auto value : hidl_enum_range<IExpression::EnumTagTest>()) {
+        EXPECT_EQ(1, static_cast<int32_t>(value));
+    }
 }
 
 TEST_F(HidlTest, PassthroughLookupTest) {
@@ -472,30 +562,52 @@ TEST_F(HidlTest, EnumIteratorTest) {
     using SkipsValues = ::android::hardware::tests::foo::V1_0::EnumIterators::SkipsValues;
     using MultipleValues = ::android::hardware::tests::foo::V1_0::EnumIterators::MultipleValues;
 
-    for (const auto value : hidl_enum_iterator<Empty>()) {
+    for (const auto value : hidl_enum_range<Empty>()) {
         (void)value;
-        EXPECT_TRUE(false) << "Empty iterator should not iterate";
+        ADD_FAILURE() << "Empty range should not iterate";
     }
 
-    auto it1 = hidl_enum_iterator<Grandchild>().begin();
+    EXPECT_EQ(hidl_enum_range<Grandchild>().begin(), hidl_enum_range<Grandchild>().cbegin());
+    EXPECT_EQ(hidl_enum_range<Grandchild>().end(), hidl_enum_range<Grandchild>().cend());
+    EXPECT_EQ(hidl_enum_range<Grandchild>().rbegin(), hidl_enum_range<Grandchild>().crbegin());
+    EXPECT_EQ(hidl_enum_range<Grandchild>().rend(), hidl_enum_range<Grandchild>().crend());
+
+    auto it1 = hidl_enum_range<Grandchild>().begin();
     EXPECT_EQ(Grandchild::A, *it1++);
     EXPECT_EQ(Grandchild::B, *it1++);
-    EXPECT_EQ(hidl_enum_iterator<Grandchild>().end(), it1);
+    EXPECT_EQ(hidl_enum_range<Grandchild>().end(), it1);
+    auto it1r = hidl_enum_range<Grandchild>().rbegin();
+    EXPECT_EQ(Grandchild::B, *it1r++);
+    EXPECT_EQ(Grandchild::A, *it1r++);
+    EXPECT_EQ(hidl_enum_range<Grandchild>().rend(), it1r);
 
-    auto it2 = hidl_enum_iterator<SkipsValues>().begin();
+    auto it2 = hidl_enum_range<SkipsValues>().begin();
     EXPECT_EQ(SkipsValues::A, *it2++);
     EXPECT_EQ(SkipsValues::B, *it2++);
     EXPECT_EQ(SkipsValues::C, *it2++);
     EXPECT_EQ(SkipsValues::D, *it2++);
     EXPECT_EQ(SkipsValues::E, *it2++);
-    EXPECT_EQ(hidl_enum_iterator<SkipsValues>().end(), it2);
+    EXPECT_EQ(hidl_enum_range<SkipsValues>().end(), it2);
+    auto it2r = hidl_enum_range<SkipsValues>().rbegin();
+    EXPECT_EQ(SkipsValues::E, *it2r++);
+    EXPECT_EQ(SkipsValues::D, *it2r++);
+    EXPECT_EQ(SkipsValues::C, *it2r++);
+    EXPECT_EQ(SkipsValues::B, *it2r++);
+    EXPECT_EQ(SkipsValues::A, *it2r++);
+    EXPECT_EQ(hidl_enum_range<SkipsValues>().rend(), it2r);
 
-    auto it3 = hidl_enum_iterator<MultipleValues>().begin();
+    auto it3 = hidl_enum_range<MultipleValues>().begin();
     EXPECT_EQ(MultipleValues::A, *it3++);
     EXPECT_EQ(MultipleValues::B, *it3++);
     EXPECT_EQ(MultipleValues::C, *it3++);
     EXPECT_EQ(MultipleValues::D, *it3++);
-    EXPECT_EQ(hidl_enum_iterator<MultipleValues>().end(), it3);
+    EXPECT_EQ(hidl_enum_range<MultipleValues>().end(), it3);
+    auto it3r = hidl_enum_range<MultipleValues>().rbegin();
+    EXPECT_EQ(MultipleValues::D, *it3r++);
+    EXPECT_EQ(MultipleValues::C, *it3r++);
+    EXPECT_EQ(MultipleValues::B, *it3r++);
+    EXPECT_EQ(MultipleValues::A, *it3r++);
+    EXPECT_EQ(hidl_enum_range<MultipleValues>().rend(), it3r);
 }
 
 TEST_F(HidlTest, EnumToStringTest) {
@@ -534,28 +646,6 @@ TEST_F(HidlTest, TryGetServiceTest) {
 
     sp<IServiceManager> manager = IServiceManager::tryGetService();
     ASSERT_NE(manager, nullptr);
-}
-
-TEST_F(HidlTest, HashTest) {
-    static constexpr uint64_t kHashSize = 32u;
-    // unreleased interface has an empty hash
-    uint8_t ihash[kHashSize] = {0};
-    uint8_t ibase[kHashSize] = {189, 218, 182, 24,  77,  122, 52,  109, 166, 160, 125,
-                                192, 130, 140, 241, 154, 105, 111, 76,  170, 54,  17,
-                                197, 31,  46,  20,  86,  90,  20,  180, 15,  217};
-    auto service = IHash::getService(mode == PASSTHROUGH /* getStub */);
-    EXPECT_OK(service->getHashChain([&](const auto& chain) {
-        ASSERT_EQ(chain.size(), 2u);
-        EXPECT_EQ(chain[0].size(), kHashSize);
-        EXPECT_ARRAYEQ(ihash, chain[0], kHashSize);
-        EXPECT_EQ(chain[1].size(), kHashSize);
-        EXPECT_ARRAYEQ(ibase, chain[1], kHashSize);
-    }));
-    EXPECT_OK(manager->getHashChain([&](const auto& managerChain) {
-        EXPECT_EQ(managerChain[managerChain.size() - 1].size(), kHashSize);
-        EXPECT_ARRAYEQ(ibase, managerChain[managerChain.size() - 1], kHashSize)
-            << "Hash for IBase doesn't match!";
-    }));
 }
 
 TEST_F(HidlTest, ServiceListTest) {
@@ -632,6 +722,30 @@ TEST_F(HidlTest, ServiceListByInterfaceTest) {
         }));
 }
 
+TEST_F(HidlTest, ServiceListManifestByInterfaceTest) {
+    // system service
+    EXPECT_OK(manager->listManifestByInterface(IServiceManager::descriptor,
+                                               [](const hidl_vec<hidl_string>& registered) {
+                                                   ASSERT_EQ(1, registered.size());
+                                                   EXPECT_EQ("default", registered[0]);
+                                               }));
+    // vendor service (this is required on all devices)
+    EXPECT_OK(
+        manager->listManifestByInterface("android.hardware.configstore@1.0::ISurfaceFlingerConfigs",
+                                         [](const hidl_vec<hidl_string>& registered) {
+                                             ASSERT_EQ(1, registered.size());
+                                             EXPECT_EQ("default", registered[0]);
+                                         }));
+    // test service that will never be in a manifest
+    EXPECT_OK(manager->listManifestByInterface(
+        IParent::descriptor,
+        [](const hidl_vec<hidl_string>& registered) { ASSERT_EQ(0, registered.size()); }));
+    // invalid service
+    EXPECT_OK(manager->listManifestByInterface(
+        "!(*#&$ASDASLKDJasdlkjfads",
+        [](const hidl_vec<hidl_string>& registered) { ASSERT_EQ(0, registered.size()); }));
+}
+
 TEST_F(HidlTest, SubInterfaceServiceRegistrationTest) {
     using ::android::hardware::interfacesEqual;
 
@@ -675,7 +789,7 @@ TEST_F(HidlTest, ServiceNotificationTest) {
 
     std::unique_lock<std::mutex> lock(notification->mutex);
 
-    notification->condition.wait_for(lock, std::chrono::milliseconds(2), [&notification]() {
+    notification->condition.wait_for(lock, std::chrono::milliseconds(500), [&notification]() {
         return notification->getRegistrations().size() >= 2;
     });
 
@@ -731,7 +845,7 @@ TEST_F(HidlTest, ServiceAllNotificationTest) {
 
     std::unique_lock<std::mutex> lock(notification->mutex);
 
-    notification->condition.wait_for(lock, std::chrono::milliseconds(2), [&notification]() {
+    notification->condition.wait_for(lock, std::chrono::milliseconds(500), [&notification]() {
         return notification->getRegistrations().size() >= 2;
     });
 
@@ -745,6 +859,16 @@ TEST_F(HidlTest, ServiceAllNotificationTest) {
     EXPECT_EQ(
         to_string(registrations.data(), registrations.size()),
         "['" + descriptor + "/" + instanceOne + "', '" + descriptor + "/" + instanceTwo + "']");
+}
+
+TEST_F(HidlTest, DebugDumpTest) {
+    EXPECT_OK(manager->debugDump([](const auto& list) {
+        for (const auto& debugInfo : list) {
+            FQName name;
+            EXPECT_TRUE(FQName::parse(debugInfo.interfaceName, &name)) << debugInfo.interfaceName;
+            EXPECT_TRUE(debugInfo.instanceName.size() > 0);
+        }
+    }));
 }
 
 TEST_F(HidlTest, InterfacesEqualTest) {
@@ -1196,7 +1320,7 @@ TEST_F(HidlTest, FooHaveATypeFromAnotherFileTest) {
     EXPECT_OK(foo->haveATypeFromAnotherFile(abcParam));
     ALOGI("CLIENT haveATypeFromAnotherFile returned.");
     native_handle_delete(handle);
-    abcParam.z = NULL;
+    abcParam.z = nullptr;
 }
 
 TEST_F(HidlTest, FooHaveSomeStringsTest) {
@@ -1404,6 +1528,26 @@ TEST_F(HidlTest, FooNullCallbackTest) {
                 }));
 }
 
+TEST_F(HidlTest, StructWithFmq) {
+    IFoo::WithFmq w = {
+        .scatterGathered =
+            {
+                .descSync = {std::vector<GrantorDescriptor>(), native_handle_create(0, 1), 5},
+            },
+        .containsPointer =
+            {
+                .descSync = {std::vector<GrantorDescriptor>(), native_handle_create(0, 1), 5},
+                .foo = nullptr,
+            },
+    };
+    EXPECT_OK(foo->repeatWithFmq(w, [&](const IFoo::WithFmq& returned) {
+        checkMQDescriptorEquality(w.scatterGathered.descSync, returned.scatterGathered.descSync);
+        checkMQDescriptorEquality(w.containsPointer.descSync, returned.containsPointer.descSync);
+
+        EXPECT_EQ(w.containsPointer.foo, returned.containsPointer.foo);
+    }));
+}
+
 TEST_F(HidlTest, FooNonNullCallbackTest) {
     hidl_array<hidl_string, 5, 3> in;
 
@@ -1512,6 +1656,41 @@ TEST_F(HidlTest, FooHandleVecTest) {
     EXPECT_OK(foo->closeHandles());
 }
 
+TEST_F(HidlTest, BazStructWithInterfaceTest) {
+    using ::android::hardware::interfacesEqual;
+
+    const std::string testString = "Hello, World!";
+    const std::array<int8_t, 7> testArray{-1, -2, -3, 0, 1, 2, 3};
+    const hidl_vec<hidl_string> testStrings{"So", "Many", "Words"};
+    const hidl_vec<bool> testVector{false, true, false, true, true, true};
+
+    hidl_vec<bool> goldenResult(testVector.size());
+    for (size_t i = 0; i < testVector.size(); i++) {
+        goldenResult[i] = !testVector[i];
+    }
+
+    IBaz::StructWithInterface swi;
+    swi.number = 42;
+    swi.array = testArray;
+    swi.oneString = testString;
+    swi.vectorOfStrings = testStrings;
+    swi.dummy = baz;
+
+    EXPECT_OK(baz->haveSomeStructWithInterface(swi, [&](const IBaz::StructWithInterface& swiBack) {
+        EXPECT_EQ(42, swiBack.number);
+        for (size_t i = 0; i < testArray.size(); i++) {
+            EXPECT_EQ(testArray[i], swiBack.array[i]);
+        }
+
+        EXPECT_EQ(testString, std::string(swiBack.oneString));
+        EXPECT_EQ(testStrings, swiBack.vectorOfStrings);
+
+        EXPECT_TRUE(interfacesEqual(swi.dummy, swiBack.dummy));
+        EXPECT_OK(swiBack.dummy->someBoolVectorMethod(
+            testVector, [&](const hidl_vec<bool>& result) { EXPECT_EQ(goldenResult, result); }));
+    }));
+}
+
 struct HidlDeathRecipient : hidl_death_recipient {
     std::mutex mutex;
     std::condition_variable condition;
@@ -1519,7 +1698,7 @@ struct HidlDeathRecipient : hidl_death_recipient {
     bool fired = false;
     uint64_t cookie = 0;
 
-    virtual void serviceDied(uint64_t cookie, const wp<IBase>& who) {
+    void serviceDied(uint64_t cookie, const wp<IBase>& who) override {
         std::unique_lock<std::mutex> lock(mutex);
         fired = true;
         this->cookie = cookie;
@@ -1533,6 +1712,10 @@ TEST_F(HidlTest, DeathRecipientTest) {
     sp<HidlDeathRecipient> recipient2 = new HidlDeathRecipient();
 
     EXPECT_TRUE(dyingBaz->linkToDeath(recipient, 0x1481));
+
+    EXPECT_TRUE(dyingBaz->linkToDeath(recipient, 0x1482));
+    EXPECT_TRUE(dyingBaz->unlinkToDeath(recipient));
+
     EXPECT_TRUE(dyingBaz->linkToDeath(recipient2, 0x2592));
     EXPECT_TRUE(dyingBaz->unlinkToDeath(recipient2));
 
@@ -1548,6 +1731,9 @@ TEST_F(HidlTest, DeathRecipientTest) {
     if (!ret.isOk()) {
         //do nothing, this is expected
     }
+
+    // further calls fail
+    EXPECT_FAIL(dyingBaz->ping());
 
     std::unique_lock<std::mutex> lock(recipient->mutex);
     recipient->condition.wait_for(lock, std::chrono::milliseconds(100), [&recipient]() {
@@ -1709,31 +1895,44 @@ TEST_F(HidlTest, EnumEqualTest) {
 
 TEST_F(HidlTest, InvalidTransactionTest) {
     using ::android::hardware::tests::bar::V1_0::BnHwBar;
-    using ::android::hardware::tests::bar::V1_0::BpHwBar;
     using ::android::hardware::IBinder;
     using ::android::hardware::Parcel;
-    using ::android::status_t;
-    using ::android::OK;
+
+    sp<IBinder> binder = ::android::hardware::toBinder(bar);
 
     Parcel request, reply;
-    sp<IBinder> binder;
-    status_t status = request.writeInterfaceToken(::android::hardware::tests::bar::V1_0::IBar::descriptor);
+    EXPECT_EQ(::android::OK, request.writeInterfaceToken(IBar::descriptor));
+    EXPECT_EQ(::android::UNKNOWN_TRANSACTION, binder->transact(1234, request, &reply));
 
-    EXPECT_EQ(status, OK);
+    EXPECT_OK(bar->ping());  // still works
+}
 
-    if (mode == BINDERIZED) {
-        EXPECT_TRUE(bar->isRemote());
-        binder = ::android::hardware::toBinder<IBar>(bar);
-    } else {
-        // For a local test, just wrap the implementation with a BnHwBar
-        binder = new BnHwBar(bar);
-    }
+TEST_F(HidlTest, EmptyTransactionTest) {
+    using ::android::hardware::IBinder;
+    using ::android::hardware::Parcel;
+    using ::android::hardware::tests::bar::V1_0::BnHwBar;
 
-    status = binder->transact(1234, request, &reply);
+    sp<IBinder> binder = ::android::hardware::toBinder(bar);
 
-    EXPECT_EQ(status, ::android::UNKNOWN_TRANSACTION);
-    // Try another call, to make sure nothing is messed up
-    EXPECT_OK(bar->thisIsNew());
+    Parcel request, reply;
+    EXPECT_EQ(::android::BAD_TYPE, binder->transact(2 /*someBoolMethod*/, request, &reply));
+
+    EXPECT_OK(bar->ping());  // still works
+}
+
+TEST_F(HidlTest, WrongDescriptorTest) {
+    using ::android::hardware::IBinder;
+    using ::android::hardware::Parcel;
+    using ::android::hardware::tests::bar::V1_0::BnHwBar;
+
+    sp<IBinder> binder = ::android::hardware::toBinder(bar);
+
+    Parcel request, reply;
+    // wrong descriptor
+    EXPECT_EQ(::android::OK, request.writeInterfaceToken("not a real descriptor"));
+    EXPECT_EQ(::android::BAD_TYPE, binder->transact(2 /*someBoolMethod*/, request, &reply));
+
+    EXPECT_OK(bar->ping());  // still works
 }
 
 TEST_F(HidlTest, TrieSimpleTest) {
@@ -1802,12 +2001,528 @@ TEST_F(HidlTest, TrieStressTest) {
     });
 }
 
+TEST_F(HidlTest, SafeUnionNoInitTest) {
+    EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& safeUnion) {
+        EXPECT_EQ(LargeSafeUnion::hidl_discriminator::noinit, safeUnion.getDiscriminator());
+    }));
+}
+
+TEST_F(HidlTest, SafeUnionSimpleTest) {
+    EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& safeUnion) {
+        EXPECT_OK(safeunionInterface->setA(safeUnion, -5, [&](const LargeSafeUnion& safeUnion) {
+            EXPECT_EQ(LargeSafeUnion::hidl_discriminator::a, safeUnion.getDiscriminator());
+            EXPECT_EQ(-5, safeUnion.a());
+
+            uint64_t max = std::numeric_limits<uint64_t>::max();
+            EXPECT_OK(
+                safeunionInterface->setD(safeUnion, max, [&](const LargeSafeUnion& safeUnion) {
+                    EXPECT_EQ(LargeSafeUnion::hidl_discriminator::d, safeUnion.getDiscriminator());
+                    EXPECT_EQ(max, safeUnion.d());
+                }));
+        }));
+    }));
+}
+
+TEST_F(HidlTest, SafeUnionArrayLikeTypesTest) {
+    const std::array<int64_t, 5> testArray{1, -2, 3, -4, 5};
+    const hidl_vec<uint64_t> testVector{std::numeric_limits<uint64_t>::max()};
+
+    EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& safeUnion) {
+        EXPECT_OK(
+            safeunionInterface->setF(safeUnion, testArray, [&](const LargeSafeUnion& safeUnion) {
+                EXPECT_EQ(LargeSafeUnion::hidl_discriminator::f, safeUnion.getDiscriminator());
+
+                for (size_t i = 0; i < testArray.size(); i++) {
+                    EXPECT_EQ(testArray[i], safeUnion.f()[i]);
+                }
+            }));
+
+        EXPECT_OK(
+            safeunionInterface->setI(safeUnion, testVector, [&](const LargeSafeUnion& safeUnion) {
+                EXPECT_EQ(LargeSafeUnion::hidl_discriminator::i, safeUnion.getDiscriminator());
+                EXPECT_EQ(testVector, safeUnion.i());
+            }));
+    }));
+}
+
+TEST_F(HidlTest, SafeUnionStringTypeTest) {
+    const std::string testString =
+        "This is an inordinately long test string to exercise hidl_string types in safe unions.";
+
+    EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& safeUnion) {
+        EXPECT_OK(safeunionInterface->setG(
+            safeUnion, hidl_string(testString), [&](const LargeSafeUnion& safeUnion) {
+                EXPECT_EQ(LargeSafeUnion::hidl_discriminator::g, safeUnion.getDiscriminator());
+                EXPECT_EQ(testString, std::string(safeUnion.g()));
+            }));
+    }));
+}
+
+TEST_F(HidlTest, SafeUnionCopyConstructorTest) {
+    const hidl_vec<bool> testVector{true, false, true, false, false, false, true,  false,
+                                    true, true,  true, false, false, true,  false, true};
+
+    EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& safeUnion) {
+        EXPECT_OK(
+            safeunionInterface->setH(safeUnion, testVector, [&](const LargeSafeUnion& safeUnion) {
+                LargeSafeUnion safeUnionCopy(safeUnion);
+
+                EXPECT_EQ(LargeSafeUnion::hidl_discriminator::h, safeUnionCopy.getDiscriminator());
+                EXPECT_EQ(testVector, safeUnionCopy.h());
+            }));
+    }));
+}
+
+template <typename T>
+void testZeroInit(const std::string& header) {
+    uint8_t buf[sizeof(T)];
+    memset(buf, 0xFF, sizeof(buf));
+
+    T* t = new (buf) T;
+
+    for (size_t i = 0; i < sizeof(T); i++) {
+        EXPECT_EQ(0, buf[i]) << header << " at offset: " << i;
+    }
+
+    t->~T();
+    t = nullptr;
+
+    memset(buf, 0xFF, sizeof(buf));
+    t = new (buf) T(T());  // copy constructor
+
+    for (size_t i = 0; i < sizeof(T); i++) {
+        EXPECT_EQ(0, buf[i]) << header << " at offset: " << i;
+    }
+
+    t->~T();
+    t = nullptr;
+
+    memset(buf, 0xFF, sizeof(buf));
+    const T aT = T();
+    t = new (buf) T(std::move(aT));  // move constructor
+
+    for (size_t i = 0; i < sizeof(T); i++) {
+        EXPECT_EQ(0, buf[i]) << header << " at offset: " << i;
+    }
+
+    t->~T();
+    t = nullptr;
+}
+
+TEST_F(HidlTest, SafeUnionUninit) {
+    testZeroInit<SmallSafeUnion>("SmallSafeUnion");
+    testZeroInit<LargeSafeUnion>("LargeSafeUnion");
+    testZeroInit<InterfaceTypeSafeUnion>("InterfaceTypeSafeUnion");
+    testZeroInit<HandleTypeSafeUnion>("HandleTypeSafeUnion");
+}
+
+TEST_F(HidlTest, SafeUnionMoveConstructorTest) {
+    sp<IOtherInterface> otherInterface = new OtherInterface();
+    ASSERT_EQ(1, otherInterface->getStrongCount());
+
+    InterfaceTypeSafeUnion safeUnion;
+    safeUnion.c(otherInterface);
+    EXPECT_EQ(2, otherInterface->getStrongCount());
+
+    InterfaceTypeSafeUnion anotherSafeUnion(std::move(safeUnion));
+    EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::c,
+              anotherSafeUnion.getDiscriminator());
+    EXPECT_EQ(2, otherInterface->getStrongCount());
+}
+
+TEST_F(HidlTest, SafeUnionCopyAssignmentTest) {
+    const hidl_vec<hidl_string> testVector{"So", "Many", "Words"};
+    InterfaceTypeSafeUnion safeUnion;
+    safeUnion.e(testVector);
+
+    InterfaceTypeSafeUnion anotherSafeUnion;
+    anotherSafeUnion = safeUnion;
+
+    EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::e, anotherSafeUnion.getDiscriminator());
+    EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::e, safeUnion.getDiscriminator());
+    EXPECT_NE(&(safeUnion.e()), &(anotherSafeUnion.e()));
+    EXPECT_EQ(testVector, anotherSafeUnion.e());
+    EXPECT_EQ(testVector, safeUnion.e());
+}
+
+TEST_F(HidlTest, SafeUnionMoveAssignmentTest) {
+    sp<IOtherInterface> otherInterface = new OtherInterface();
+    ASSERT_EQ(1, otherInterface->getStrongCount());
+
+    InterfaceTypeSafeUnion safeUnion;
+    safeUnion.c(otherInterface);
+    EXPECT_EQ(2, otherInterface->getStrongCount());
+
+    InterfaceTypeSafeUnion anotherSafeUnion;
+    anotherSafeUnion.a(255);
+    anotherSafeUnion = std::move(safeUnion);
+
+    EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::c,
+              anotherSafeUnion.getDiscriminator());
+    EXPECT_EQ(2, otherInterface->getStrongCount());
+}
+
+TEST_F(HidlTest, SafeUnionMutateTest) {
+    const std::array<int64_t, 5> testArray{-1, -2, -3, -4, -5};
+    const std::string testString = "Test string";
+    LargeSafeUnion safeUnion;
+
+    safeUnion.f(testArray);
+    safeUnion.f()[0] += 10;
+    EXPECT_EQ(testArray[0] + 10, safeUnion.f()[0]);
+
+    safeUnion.j(ISafeUnion::J());
+    safeUnion.j().j3 = testString;
+    EXPECT_EQ(testString, std::string(safeUnion.j().j3));
+}
+
+TEST_F(HidlTest, SafeUnionNestedTest) {
+    SmallSafeUnion smallSafeUnion;
+    smallSafeUnion.a(1);
+
+    EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& safeUnion) {
+        EXPECT_OK(safeunionInterface->setL(
+            safeUnion, smallSafeUnion, [&](const LargeSafeUnion& safeUnion) {
+                EXPECT_EQ(LargeSafeUnion::hidl_discriminator::l, safeUnion.getDiscriminator());
+
+                EXPECT_EQ(SmallSafeUnion::hidl_discriminator::a, safeUnion.l().getDiscriminator());
+                EXPECT_EQ(1, safeUnion.l().a());
+            }));
+    }));
+}
+
+TEST_F(HidlTest, SafeUnionEnumTest) {
+    EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& safeUnion) {
+        EXPECT_OK(safeunionInterface->setM(
+            safeUnion, ISafeUnion::BitField::V1, [&](const LargeSafeUnion& safeUnion) {
+                EXPECT_EQ(LargeSafeUnion::hidl_discriminator::m, safeUnion.getDiscriminator());
+                EXPECT_EQ(ISafeUnion::BitField::V1, safeUnion.m());
+            }));
+    }));
+}
+
+TEST_F(HidlTest, SafeUnionBitFieldTest) {
+    EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& safeUnion) {
+        EXPECT_OK(safeunionInterface->setN(
+            safeUnion, 0 | ISafeUnion::BitField::V1, [&](const LargeSafeUnion& safeUnion) {
+                EXPECT_EQ(LargeSafeUnion::hidl_discriminator::n, safeUnion.getDiscriminator());
+                EXPECT_EQ(0 | ISafeUnion::BitField::V1, safeUnion.n());
+            }));
+    }));
+}
+
+TEST_F(HidlTest, SafeUnionInterfaceTest) {
+    const std::array<int8_t, 7> testArray{-1, -2, -3, 0, 1, 2, 3};
+    const hidl_vec<hidl_string> testVector{"So", "Many", "Words"};
+    const std::string testStringA = "Hello";
+    const std::string testStringB = "World";
+
+    const std::string serviceName = "otherinterface";
+    sp<IOtherInterface> otherInterface = new OtherInterface();
+    EXPECT_EQ(::android::OK, otherInterface->registerAsService(serviceName));
+
+    EXPECT_OK(
+        safeunionInterface->newInterfaceTypeSafeUnion([&](const InterfaceTypeSafeUnion& safeUnion) {
+            EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::noinit,
+                      safeUnion.getDiscriminator());
+
+            isOk(safeunionInterface->setInterfaceB(
+                safeUnion, testArray, [&](const InterfaceTypeSafeUnion& safeUnion) {
+                    EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::b,
+                              safeUnion.getDiscriminator());
+
+                    for (size_t i = 0; i < testArray.size(); i++) {
+                        EXPECT_EQ(testArray[i], safeUnion.b()[i]);
+                    }
+
+                    EXPECT_OK(safeunionInterface->setInterfaceC(
+                        safeUnion, otherInterface, [&](const InterfaceTypeSafeUnion& safeUnion) {
+                            EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::c,
+                                      safeUnion.getDiscriminator());
+
+                            EXPECT_OK(safeUnion.c()->concatTwoStrings(
+                                testStringA, testStringB, [&](const hidl_string& result) {
+                                    EXPECT_EQ(testStringA + testStringB, std::string(result));
+                                }));
+                        }));
+                }));
+
+            EXPECT_OK(safeunionInterface->setInterfaceD(
+                safeUnion, testStringA, [&](const InterfaceTypeSafeUnion& safeUnion) {
+                    EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::d,
+                              safeUnion.getDiscriminator());
+                    EXPECT_EQ(testStringA, safeUnion.d());
+                }));
+
+            EXPECT_OK(safeunionInterface->setInterfaceE(
+                safeUnion, testVector, [&](const InterfaceTypeSafeUnion& safeUnion) {
+                    EXPECT_EQ(InterfaceTypeSafeUnion::hidl_discriminator::e,
+                              safeUnion.getDiscriminator());
+                    EXPECT_EQ(testVector, safeUnion.e());
+                }));
+        }));
+}
+
+TEST_F(HidlTest, SafeUnionNullHandleTest) {
+    HandleTypeSafeUnion safeUnion;
+
+    EXPECT_OK(safeunionInterface->setHandleA(
+        safeUnion, hidl_handle(nullptr), [&](const HandleTypeSafeUnion& safeUnion) {
+            EXPECT_EQ(HandleTypeSafeUnion::hidl_discriminator::a,
+                      safeUnion.getDiscriminator());
+
+            checkNativeHandlesDataEquality(nullptr, safeUnion.a().getNativeHandle());
+        }));
+}
+
+TEST_F(HidlTest, SafeUnionSimpleHandleTest) {
+    const std::array<int, 6> testData{2, -32, 10, -4329454, 11, 24};
+    native_handle_t* h = native_handle_create(0, testData.size());
+    ASSERT_EQ(sizeof(testData), testData.size() * sizeof(int));
+    std::memcpy(h->data, testData.data(), sizeof(testData));
+
+    std::array<hidl_handle, 5> testArray;
+    for (size_t i = 0; i < testArray.size(); i++) {
+        testArray[i].setTo(native_handle_clone(h), true /* shouldOwn */);
+    }
+
+    std::vector<hidl_handle> testVector(256);
+    for (size_t i = 0; i < testVector.size(); i++) {
+        testVector[i].setTo(native_handle_clone(h), true /* shouldOwn */);
+    }
+
+    EXPECT_OK(
+        safeunionInterface->newHandleTypeSafeUnion([&](const HandleTypeSafeUnion& safeUnion) {
+            EXPECT_OK(safeunionInterface->setHandleA(
+                safeUnion, hidl_handle(h), [&](const HandleTypeSafeUnion& safeUnion) {
+                    EXPECT_EQ(HandleTypeSafeUnion::hidl_discriminator::a,
+                              safeUnion.getDiscriminator());
+
+                    checkNativeHandlesDataEquality(h, safeUnion.a().getNativeHandle());
+                }));
+
+            EXPECT_OK(safeunionInterface->setHandleB(
+                safeUnion, testArray, [&](const HandleTypeSafeUnion& safeUnion) {
+                    EXPECT_EQ(HandleTypeSafeUnion::hidl_discriminator::b,
+                              safeUnion.getDiscriminator());
+
+                    for (size_t i = 0; i < testArray.size(); i++) {
+                        checkNativeHandlesDataEquality(h, safeUnion.b()[i].getNativeHandle());
+                    }
+                }));
+
+            EXPECT_OK(safeunionInterface->setHandleC(
+                safeUnion, testVector, [&](const HandleTypeSafeUnion& safeUnion) {
+                    EXPECT_EQ(HandleTypeSafeUnion::hidl_discriminator::c,
+                              safeUnion.getDiscriminator());
+
+                    for (size_t i = 0; i < testVector.size(); i++) {
+                        checkNativeHandlesDataEquality(h, safeUnion.c()[i].getNativeHandle());
+                    }
+                }));
+        }));
+
+    native_handle_delete(h);
+}
+
+TEST_F(HidlTest, SafeUnionVecOfHandlesWithOneFdTest) {
+    const std::vector<std::string> testStrings{"This ", "is ", "so ", "much ", "data!\n"};
+    const std::string testFileName = "/data/local/tmp/SafeUnionVecOfHandlesWithOneFdTest";
+    const std::array<int, 6> testData{2, -32, 10, -4329454, 11, 24};
+    ASSERT_EQ(sizeof(testData), testData.size() * sizeof(int));
+
+    const std::string goldenResult = std::accumulate(testStrings.begin(),
+                                                     testStrings.end(),
+                                                     std::string());
+
+    int fd = open(testFileName.c_str(), (O_RDWR | O_TRUNC | O_CREAT), (S_IRUSR | S_IWUSR));
+    ASSERT_TRUE(fd >= 0);
+
+    native_handle* h = native_handle_create(1 /* numFds */, testData.size() /* numInts */);
+    std::memcpy(&(h->data[1]), testData.data(), sizeof(testData));
+    h->data[0] = fd;
+
+    hidl_vec<hidl_handle> testHandles(testStrings.size());
+    for (size_t i = 0; i < testHandles.size(); i++) {
+        testHandles[i].setTo(native_handle_clone(h), true /* shouldOwn */);
+    }
+
+    EXPECT_OK(
+        safeunionInterface->newHandleTypeSafeUnion([&](const HandleTypeSafeUnion& safeUnion) {
+            EXPECT_OK(safeunionInterface->setHandleC(
+                safeUnion, testHandles, [&](const HandleTypeSafeUnion& safeUnion) {
+                    EXPECT_EQ(HandleTypeSafeUnion::hidl_discriminator::c,
+                              safeUnion.getDiscriminator());
+
+                    for (size_t i = 0; i < safeUnion.c().size(); i++) {
+                        const native_handle_t* reference = testHandles[i].getNativeHandle();
+                        const native_handle_t* result = safeUnion.c()[i].getNativeHandle();
+                        checkNativeHandlesDataEquality(reference, result);
+
+                        // Original FDs should be dup'd
+                        int resultFd = result->data[0];
+                        EXPECT_NE(reference->data[0], resultFd);
+
+                        EXPECT_TRUE(android::base::WriteStringToFd(testStrings[i], resultFd));
+                        EXPECT_EQ(0, fsync(resultFd));
+                    }
+                }));
+        }));
+
+    std::string result;
+    lseek(fd, 0, SEEK_SET);
+
+    EXPECT_TRUE(android::base::ReadFdToString(fd, &result));
+    EXPECT_EQ(goldenResult, result);
+
+    native_handle_delete(h);
+    EXPECT_EQ(0, close(fd));
+    EXPECT_EQ(0, remove(testFileName.c_str()));
+}
+
+TEST_F(HidlTest, SafeUnionHandleWithMultipleFdsTest) {
+    const std::vector<std::string> testStrings{"This ", "is ", "so ", "much ", "data!\n"};
+    const std::string testFileName = "/data/local/tmp/SafeUnionHandleWithMultipleFdsTest";
+    const std::array<int, 6> testData{2, -32, 10, -4329454, 11, 24};
+    ASSERT_EQ(sizeof(testData), testData.size() * sizeof(int));
+
+    const std::string goldenResult = std::accumulate(testStrings.begin(),
+                                                     testStrings.end(),
+                                                     std::string());
+
+    int fd = open(testFileName.c_str(), (O_RDWR | O_TRUNC | O_CREAT), (S_IRUSR | S_IWUSR));
+    ASSERT_TRUE(fd >= 0);
+
+    const int numFds = testStrings.size();
+    native_handle* h = native_handle_create(numFds, testData.size() /* numInts */);
+    std::memcpy(&(h->data[numFds]), testData.data(), sizeof(testData));
+    for (size_t i = 0; i < numFds; i++) {
+        h->data[i] = fd;
+    }
+
+    hidl_handle testHandle;
+    testHandle.setTo(h, false /* shouldOwn */);
+
+    EXPECT_OK(
+        safeunionInterface->newHandleTypeSafeUnion([&](const HandleTypeSafeUnion& safeUnion) {
+            EXPECT_OK(safeunionInterface->setHandleA(
+                safeUnion, testHandle, [&](const HandleTypeSafeUnion& safeUnion) {
+                    EXPECT_EQ(HandleTypeSafeUnion::hidl_discriminator::a,
+                              safeUnion.getDiscriminator());
+
+                    const native_handle_t* result = safeUnion.a().getNativeHandle();
+                    checkNativeHandlesDataEquality(h, result);
+
+                    for (size_t i = 0; i < result->numFds; i++) {
+                        // Original FDs should be dup'd
+                        int resultFd = result->data[i];
+                        EXPECT_NE(h->data[i], resultFd);
+
+                        EXPECT_TRUE(android::base::WriteStringToFd(testStrings[i], resultFd));
+                        EXPECT_EQ(0, fsync(resultFd));
+                    }
+                }));
+        }));
+
+    std::string result;
+    lseek(fd, 0, SEEK_SET);
+
+    EXPECT_TRUE(android::base::ReadFdToString(fd, &result));
+    EXPECT_EQ(goldenResult, result);
+
+    native_handle_delete(h);
+    EXPECT_EQ(0, close(fd));
+    EXPECT_EQ(0, remove(testFileName.c_str()));
+}
+
+TEST_F(HidlTest, SafeUnionEqualityTest) {
+    EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& one) {
+        EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& two) {
+            EXPECT_TRUE(one == two);
+            EXPECT_FALSE(one != two);
+        }));
+
+        EXPECT_OK(safeunionInterface->setA(one, 1, [&](const LargeSafeUnion& one) {
+            EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& two) {
+                EXPECT_FALSE(one == two);
+                EXPECT_TRUE(one != two);
+            }));
+
+            EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& two) {
+                EXPECT_OK(safeunionInterface->setB(two, 1, [&](const LargeSafeUnion& two) {
+                    EXPECT_FALSE(one == two);
+                    EXPECT_TRUE(one != two);
+                }));
+            }));
+
+            EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& two) {
+                EXPECT_OK(safeunionInterface->setA(two, 2, [&](const LargeSafeUnion& two) {
+                    EXPECT_FALSE(one == two);
+                    EXPECT_TRUE(one != two);
+                }));
+            }));
+
+            EXPECT_OK(safeunionInterface->newLargeSafeUnion([&](const LargeSafeUnion& two) {
+                EXPECT_OK(safeunionInterface->setA(two, 1, [&](const LargeSafeUnion& two) {
+                    EXPECT_TRUE(one == two);
+                    EXPECT_FALSE(one != two);
+                }));
+            }));
+        }));
+    }));
+}
+
+TEST_F(HidlTest, SafeUnionSimpleDestructorTest) {
+    sp<IOtherInterface> otherInterface = new OtherInterface();
+    ASSERT_EQ(1, otherInterface->getStrongCount());
+
+    {
+        InterfaceTypeSafeUnion safeUnion;
+        safeUnion.c(otherInterface);
+        EXPECT_EQ(2, otherInterface->getStrongCount());
+    }
+
+    EXPECT_EQ(1, otherInterface->getStrongCount());
+}
+
+TEST_F(HidlTest, SafeUnionSwitchActiveComponentsDestructorTest) {
+    sp<IOtherInterface> otherInterface = new OtherInterface();
+    ASSERT_EQ(1, otherInterface->getStrongCount());
+
+    InterfaceTypeSafeUnion safeUnion;
+    safeUnion.c(otherInterface);
+    EXPECT_EQ(2, otherInterface->getStrongCount());
+
+    safeUnion.a(1);
+    EXPECT_EQ(1, otherInterface->getStrongCount());
+}
+
+TEST_F(HidlTest, SafeUnionCppSpecificTest) {
+    ICppSafeUnion::PointerFmqSafeUnion pointerFmqSafeUnion;
+    pointerFmqSafeUnion.fmqSync({std::vector<GrantorDescriptor>(), native_handle_create(0, 1), 5});
+
+    EXPECT_OK(cppSafeunionInterface->repeatPointerFmqSafeUnion(
+        pointerFmqSafeUnion, [&](const ICppSafeUnion::PointerFmqSafeUnion& fmq) {
+            ASSERT_EQ(pointerFmqSafeUnion.getDiscriminator(), fmq.getDiscriminator());
+            checkMQDescriptorEquality(pointerFmqSafeUnion.fmqSync(), fmq.fmqSync());
+        }));
+
+    ICppSafeUnion::FmqSafeUnion fmqSafeUnion;
+    fmqSafeUnion.fmqUnsync({std::vector<GrantorDescriptor>(), native_handle_create(0, 1), 5});
+
+    EXPECT_OK(cppSafeunionInterface->repeatFmqSafeUnion(
+        fmqSafeUnion, [&](const ICppSafeUnion::FmqSafeUnion& fmq) {
+            ASSERT_EQ(fmqSafeUnion.getDiscriminator(), fmq.getDiscriminator());
+            checkMQDescriptorEquality(fmqSafeUnion.fmqUnsync(), fmq.fmqUnsync());
+        }));
+}
+
 class HidlMultithreadTest : public ::testing::Test {
    public:
     sp<IMultithread> multithreadInterface;
     TestMode mode = TestMode::PASSTHROUGH;
 
-    virtual void SetUp() override {
+    void SetUp() override {
         ALOGI("Test setup beginning...");
         multithreadInterface = gHidlEnvironment->multithreadInterface;
         mode = gHidlEnvironment->mode;
@@ -2213,9 +2928,9 @@ int main(int argc, char **argv) {
     bool b = false;
     bool p = false;
     bool d = false;
-    struct option longopts[] = {{0,0,0,0}};
+    struct option longopts[] = {{nullptr,0,nullptr,0}};
     int res;
-    while ((res = getopt_long(argc, argv, "hbpd", longopts, NULL)) >= 0) {
+    while ((res = getopt_long(argc, argv, "hbpd", longopts, nullptr)) >= 0) {
         switch (res) {
             case 'h': {
                 usage(me);

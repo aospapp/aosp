@@ -15,15 +15,15 @@
  */
 package com.android.tv.menu;
 
-import static android.support.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import android.media.tv.TvTrackInfo;
 import android.os.SystemClock;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.TextUtils;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.testing.activities.BaseMainActivityTestCase;
 import com.android.tv.testing.constants.Constants;
 import com.android.tv.testing.testinput.ChannelState;

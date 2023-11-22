@@ -16,16 +16,12 @@
 
 package com.android.dialer.blocking;
 
-import android.annotation.TargetApi;
 import android.app.FragmentManager;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
-import android.os.UserManager;
 import android.preference.PreferenceManager;
 import android.provider.BlockedNumberContract;
 import android.provider.BlockedNumberContract.BlockedNumbers;
@@ -34,7 +30,7 @@ import android.support.annotation.VisibleForTesting;
 import android.telecom.TelecomManager;
 import android.telephony.PhoneNumberUtils;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
 import com.android.dialer.database.FilteredNumberContract.FilteredNumber;
 import com.android.dialer.database.FilteredNumberContract.FilteredNumberColumns;
 import com.android.dialer.database.FilteredNumberContract.FilteredNumberSources;
@@ -52,6 +48,7 @@ import java.util.Objects;
  * referencing columns from either contract class in situations where both blocking solutions may be
  * used.
  */
+@Deprecated
 public class FilteredNumberCompat {
 
   private static Boolean canAttemptBlockOperationsForTest;
@@ -110,7 +107,7 @@ public class FilteredNumberCompat {
    *     otherwise.
    */
   public static boolean canUseNewFiltering() {
-    return VERSION.SDK_INT >= VERSION_CODES.N;
+    return true;
   }
 
   /**
@@ -118,7 +115,9 @@ public class FilteredNumberCompat {
    *     migration has been performed, {@code false} otherwise.
    */
   public static boolean useNewFiltering(Context context) {
-    return !ConfigProviderBindings.get(context).getBoolean("debug_force_dialer_filtering", false)
+    return !ConfigProviderComponent.get(context)
+            .getConfigProvider()
+            .getBoolean("debug_force_dialer_filtering", false)
         && canUseNewFiltering()
         && hasMigratedToNewBlocking(context);
   }
@@ -162,16 +161,14 @@ public class FilteredNumberCompat {
 
   private static Uri getBaseUri(Context context) {
     // Explicit version check to aid static analysis
-    return useNewFiltering(context) && VERSION.SDK_INT >= VERSION_CODES.N
-        ? BlockedNumbers.CONTENT_URI
-        : FilteredNumber.CONTENT_URI;
+    return useNewFiltering(context) ? BlockedNumbers.CONTENT_URI : FilteredNumber.CONTENT_URI;
   }
 
   /**
    * Removes any null column names from the given projection array. This method is intended to be
    * used to strip out any column names that aren't available in every version of number blocking.
    * Example: {@literal getContext().getContentResolver().query( someUri, // Filtering ensures that
-   * no non-existant columns are queried FilteredNumberCompat.filter(new String[]
+   * no non-existent columns are queried FilteredNumberCompat.filter(new String[]
    * {FilteredNumberCompat.getIdColumnName(), FilteredNumberCompat.getTypeColumnName()},
    * FilteredNumberCompat.getE164NumberColumnName() + " = ?", new String[] {e164Number}); }
    *
@@ -249,9 +246,7 @@ public class FilteredNumberCompat {
    */
   public static Intent createManageBlockedNumbersIntent(Context context) {
     // Explicit version check to aid static analysis
-    if (canUseNewFiltering()
-        && hasMigratedToNewBlocking(context)
-        && VERSION.SDK_INT >= VERSION_CODES.N) {
+    if (canUseNewFiltering() && hasMigratedToNewBlocking(context)) {
       return context.getSystemService(TelecomManager.class).createManageBlockedNumbersIntent();
     }
     Intent intent = new Intent("com.android.dialer.action.BLOCKED_NUMBERS_SETTINGS");
@@ -268,11 +263,6 @@ public class FilteredNumberCompat {
   public static boolean canAttemptBlockOperations(Context context) {
     if (canAttemptBlockOperationsForTest != null) {
       return canAttemptBlockOperationsForTest;
-    }
-
-    if (VERSION.SDK_INT < VERSION_CODES.N) {
-      // Dialer blocking, must be primary user
-      return context.getSystemService(UserManager.class).isSystemUser();
     }
 
     // Great Wall blocking, must be primary user and the default or system dialer
@@ -294,10 +284,6 @@ public class FilteredNumberCompat {
    *     otherwise.
    */
   public static boolean canCurrentUserOpenBlockSettings(Context context) {
-    if (VERSION.SDK_INT < VERSION_CODES.N) {
-      // Dialer blocking, must be primary user
-      return context.getSystemService(UserManager.class).isSystemUser();
-    }
     // BlockedNumberContract blocking, verify through Contract API
     return TelecomUtil.isDefaultDialer(context)
         && safeBlockedNumbersContractCanCurrentUserBlockNumbers(context);
@@ -312,7 +298,6 @@ public class FilteredNumberCompat {
    * @return the result of BlockedNumberContract#canCurrentUserBlockNumbers, or {@code false} if an
    *     exception was thrown.
    */
-  @TargetApi(VERSION_CODES.N)
   private static boolean safeBlockedNumbersContractCanCurrentUserBlockNumbers(Context context) {
     try {
       return BlockedNumberContract.canCurrentUserBlockNumbers(context);

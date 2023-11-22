@@ -24,10 +24,11 @@ import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import libcore.util.BasicLruCache;
-import libcore.util.ZoneInfoDB;
+import libcore.timezone.ZoneInfoDB;
 
 /**
  * Provides access to ICU's time zone name data.
+ * @hide
  */
 public final class TimeZoneNames {
     private static final String[] availableTimeZoneIds = TimeZone.getAvailableIDs();
@@ -44,6 +45,7 @@ public final class TimeZoneNames {
 
     private static final ZoneStringsCache cachedZoneStrings = new ZoneStringsCache();
 
+    /** @hide */
     public static class ZoneStringsCache extends BasicLruCache<Locale, String[][]> {
         public ZoneStringsCache() {
             super(5); // Room for a handful of locales.
@@ -150,29 +152,6 @@ public final class TimeZoneNames {
             locale = Locale.getDefault();
         }
         return cachedZoneStrings.get(locale);
-    }
-
-    /**
-     * Returns an array containing the time zone ids in use in the country corresponding to
-     * the given locale. This is not necessary for Java API, but is used by telephony as a
-     * fallback. We retrieve these strings from zone.tab rather than icu4c because the latter
-     * supplies them in alphabetical order where zone.tab has them in a kind of "importance"
-     * order (as defined in the zone.tab header).
-     */
-    public static String[] forLocale(Locale locale) {
-        String countryCode = locale.getCountry();
-        ArrayList<String> ids = new ArrayList<String>();
-        for (String line : ZoneInfoDB.getInstance().getZoneTab().split("\n")) {
-            if (line.startsWith(countryCode)) {
-                int olsonIdStart = line.indexOf('\t', 4) + 1;
-                int olsonIdEnd = line.indexOf('\t', olsonIdStart);
-                if (olsonIdEnd == -1) {
-                    olsonIdEnd = line.length(); // Not all zone.tab lines have a comment.
-                }
-                ids.add(line.substring(olsonIdStart, olsonIdEnd));
-            }
-        }
-        return ids.toArray(new String[ids.size()]);
     }
 
     private static native void fillZoneStrings(String locale, String[][] result);

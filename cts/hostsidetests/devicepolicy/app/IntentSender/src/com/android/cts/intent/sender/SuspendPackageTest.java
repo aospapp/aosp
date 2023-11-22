@@ -29,6 +29,10 @@ public class SuspendPackageTest extends InstrumentationTestCase {
             .res("android:id/button1")
             .pkg("com.android.settings");
 
+    private static final BySelector SUSPEND_BUTTON_SELECTOR = By
+            .clazz(android.widget.Button.class.getName())
+            .res("android:id/button1");
+
     private IntentSenderActivity mActivity;
     private Context mContext;
     private PackageManager mPackageManager;
@@ -52,23 +56,31 @@ public class SuspendPackageTest extends InstrumentationTestCase {
     }
 
     public void testPackageSuspended() throws Exception {
-        assertPackageSuspended(true);
+        assertPackageSuspended(true, false);
     }
 
     public void testPackageNotSuspended() throws Exception {
-        assertPackageSuspended(false);
+        assertPackageSuspended(false, false);
+    }
+
+    public void testPackageSuspendedWithPackageManager() throws Exception {
+        assertPackageSuspended(true, true);
     }
 
     /**
      * Verify that the package is suspended by trying to start the activity inside it. If the
      * package is not suspended, the target activity will return the result.
      */
-    private void assertPackageSuspended(boolean suspended) throws Exception {
+    private void assertPackageSuspended(boolean suspended, boolean customDialog) throws Exception {
         Intent intent = new Intent();
         intent.setClassName(INTENT_RECEIVER_PKG, TARGET_ACTIVITY_NAME);
         Intent result = mActivity.getResult(intent);
         if (suspended) {
-            dismissPolicyTransparencyDialog();
+            if (customDialog) {
+                dismissCustomDialog();
+            } else {
+                dismissPolicyTransparencyDialog();
+            }
             assertNull(result);
         } else {
             assertNotNull(result);
@@ -96,6 +108,14 @@ public class SuspendPackageTest extends InstrumentationTestCase {
             assertNotNull("OK button not found", button);
             button.click();
         }
+    }
+
+    private void dismissCustomDialog() {
+        final UiDevice device = UiDevice.getInstance(getInstrumentation());
+        device.wait(Until.hasObject(SUSPEND_BUTTON_SELECTOR), WAIT_DIALOG_TIMEOUT_IN_MS);
+
+        final UiObject2 button = device.findObject(SUSPEND_BUTTON_SELECTOR);
+        assertNotNull("OK button not found", button);
     }
 
     private boolean isWatch() {

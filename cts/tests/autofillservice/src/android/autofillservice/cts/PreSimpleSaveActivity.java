@@ -59,20 +59,24 @@ public class PreSimpleSaveActivity extends AbstractAutoFillActivity {
         });
     }
 
-    FillExpectation expectAutoFill(String input) {
+    public FillExpectation expectAutoFill(String input) {
         final FillExpectation expectation = new FillExpectation(input);
         mPreInput.addTextChangedListener(expectation.mInputWatcher);
         return expectation;
     }
 
-    final class FillExpectation {
+    public EditText getPreInput() {
+        return mPreInput;
+    }
+
+    public final class FillExpectation {
         private final OneTimeTextWatcher mInputWatcher;
 
         private FillExpectation(String input) {
             mInputWatcher = new OneTimeTextWatcher("input", mPreInput, input);
         }
 
-        void assertAutoFilled() throws Exception {
+        public void assertAutoFilled() throws Exception {
             mInputWatcher.assertAutoFilled();
         }
     }

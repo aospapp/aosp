@@ -28,7 +28,6 @@
 namespace art {
 
 template <typename T> class ArrayRef;
-class CompilerDriver;
 class CompiledMethodStorage;
 template<typename T> class LengthPrefixedArray;
 
@@ -39,7 +38,7 @@ class LinkerPatch;
 class CompiledCode {
  public:
   // For Quick to supply an code blob
-  CompiledCode(CompilerDriver* compiler_driver,
+  CompiledCode(CompiledMethodStorage* storage,
                InstructionSet instruction_set,
                const ArrayRef<const uint8_t>& quick_code);
 
@@ -78,8 +77,8 @@ class CompiledCode {
   template <typename T>
   static ArrayRef<const T> GetArray(const LengthPrefixedArray<T>* array);
 
-  CompilerDriver* GetCompilerDriver() {
-    return compiler_driver_;
+  CompiledMethodStorage* GetStorage() {
+    return storage_;
   }
 
   template <typename BitFieldType>
@@ -96,7 +95,7 @@ class CompiledCode {
  private:
   using InstructionSetField = BitField<InstructionSet, 0u, kInstructionSetFieldSize>;
 
-  CompilerDriver* const compiler_driver_;
+  CompiledMethodStorage* const storage_;
 
   // Used to store the compiled code.
   const LengthPrefixedArray<uint8_t>* const quick_code_;
@@ -104,18 +103,14 @@ class CompiledCode {
   uint32_t packed_fields_;
 };
 
-class CompiledMethod FINAL : public CompiledCode {
+class CompiledMethod final : public CompiledCode {
  public:
   // Constructs a CompiledMethod.
   // Note: Consider using the static allocation methods below that will allocate the CompiledMethod
   //       in the swap space.
-  CompiledMethod(CompilerDriver* driver,
+  CompiledMethod(CompiledMethodStorage* storage,
                  InstructionSet instruction_set,
                  const ArrayRef<const uint8_t>& quick_code,
-                 const size_t frame_size_in_bytes,
-                 const uint32_t core_spill_mask,
-                 const uint32_t fp_spill_mask,
-                 const ArrayRef<const uint8_t>& method_info,
                  const ArrayRef<const uint8_t>& vmap_table,
                  const ArrayRef<const uint8_t>& cfi_info,
                  const ArrayRef<const linker::LinkerPatch>& patches);
@@ -123,18 +118,14 @@ class CompiledMethod FINAL : public CompiledCode {
   virtual ~CompiledMethod();
 
   static CompiledMethod* SwapAllocCompiledMethod(
-      CompilerDriver* driver,
+      CompiledMethodStorage* storage,
       InstructionSet instruction_set,
       const ArrayRef<const uint8_t>& quick_code,
-      const size_t frame_size_in_bytes,
-      const uint32_t core_spill_mask,
-      const uint32_t fp_spill_mask,
-      const ArrayRef<const uint8_t>& method_info,
       const ArrayRef<const uint8_t>& vmap_table,
       const ArrayRef<const uint8_t>& cfi_info,
       const ArrayRef<const linker::LinkerPatch>& patches);
 
-  static void ReleaseSwapAllocatedCompiledMethod(CompilerDriver* driver, CompiledMethod* m);
+  static void ReleaseSwapAllocatedCompiledMethod(CompiledMethodStorage* storage, CompiledMethod* m);
 
   bool IsIntrinsic() const {
     return GetPackedField<IsIntrinsicField>();
@@ -145,22 +136,8 @@ class CompiledMethod FINAL : public CompiledCode {
   // This affects debug information generated at link time.
   void MarkAsIntrinsic() {
     DCHECK(!IsIntrinsic());
-    SetPackedField<IsIntrinsicField>(/* value */ true);
+    SetPackedField<IsIntrinsicField>(/* value= */ true);
   }
-
-  size_t GetFrameSizeInBytes() const {
-    return frame_size_in_bytes_;
-  }
-
-  uint32_t GetCoreSpillMask() const {
-    return core_spill_mask_;
-  }
-
-  uint32_t GetFpSpillMask() const {
-    return fp_spill_mask_;
-  }
-
-  ArrayRef<const uint8_t> GetMethodInfo() const;
 
   ArrayRef<const uint8_t> GetVmapTable() const;
 
@@ -177,14 +154,6 @@ class CompiledMethod FINAL : public CompiledCode {
 
   using IsIntrinsicField = BitField<bool, kIsIntrinsicLsb, kIsIntrinsicSize>;
 
-  // For quick code, the size of the activation used by the code.
-  const size_t frame_size_in_bytes_;
-  // For quick code, a bit mask describing spilled GPR callee-save registers.
-  const uint32_t core_spill_mask_;
-  // For quick code, a bit mask describing spilled FPR callee-save registers.
-  const uint32_t fp_spill_mask_;
-  // For quick code, method specific information that is not very dedupe friendly (method indices).
-  const LengthPrefixedArray<uint8_t>* const method_info_;
   // For quick code, holds code infos which contain stack maps, inline information, and etc.
   const LengthPrefixedArray<uint8_t>* const vmap_table_;
   // For quick code, a FDE entry for the debug_frame section.

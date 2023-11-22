@@ -16,11 +16,13 @@
 
 package com.android.vts.job;
 
+import static com.googlecode.objectify.ObjectifyService.factory;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.android.vts.entity.DeviceInfoEntity;
 import com.android.vts.entity.TestAcknowledgmentEntity;
+import com.android.vts.util.ObjectifyTestBase;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
 import com.google.appengine.api.users.User;
@@ -31,11 +33,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 
-public class VtsAlertJobServletTest {
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+
+public class VtsAlertJobServletTest extends ObjectifyTestBase {
     private final LocalServiceTestHelper userHelper =
             new LocalServiceTestHelper(new LocalUserServiceTestConfig())
                     .setEnvIsAdmin(true)
@@ -48,8 +51,11 @@ public class VtsAlertJobServletTest {
     private Set<String> allTestCases;
     private List<DeviceInfoEntity> allDevices;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUpExtra() {
+        factory().register(DeviceInfoEntity.class);
+        factory().register(TestAcknowledgmentEntity.class);
+
         userHelper.setUp();
         user = UserServiceFactory.getUserService().getCurrentUser();
 
@@ -71,7 +77,7 @@ public class VtsAlertJobServletTest {
         allDevices.add(device2);
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         userHelper.tearDown();
     }
@@ -79,6 +85,7 @@ public class VtsAlertJobServletTest {
     /** Test that acknowledge-all works correctly. */
     @Test
     public void testSeparateAcknowledgedAll() {
+
         Set<String> testCases = new HashSet<>(allTestCases);
         List<TestAcknowledgmentEntity> acks = new ArrayList<>();
         TestAcknowledgmentEntity ack =
@@ -95,6 +102,7 @@ public class VtsAlertJobServletTest {
     /** Test that specific branch/device/test case acknowledgement works correctly. */
     @Test
     public void testSeparateAcknowledgedSpecific() {
+
         Set<String> testCases = new HashSet<>(allTestCases);
         List<TestAcknowledgmentEntity> acks = new ArrayList<>();
         List<String> branches = new ArrayList<>();
@@ -120,6 +128,7 @@ public class VtsAlertJobServletTest {
     /** Test that specific branch/device/test case acknowledgement skips device mismatches. */
     @Test
     public void testSeparateAcknowledgedSpecificMismatch() {
+
         Set<String> testCases = new HashSet<>(allTestCases);
         List<TestAcknowledgmentEntity> acks = new ArrayList<>();
         List<String> branches = new ArrayList<>();

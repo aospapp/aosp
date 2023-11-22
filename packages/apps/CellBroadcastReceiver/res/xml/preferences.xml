@@ -58,11 +58,17 @@
                           android:summary="@string/enable_public_safety_messages_summary"
                           android:title="@string/enable_public_safety_messages_title" />
 
-        <!-- Enable receive monthly test -->
+        <!-- Enable required monthly test alerts -->
         <SwitchPreference android:defaultValue="false"
                           android:key="enable_test_alerts"
                           android:summary="@string/enable_cmas_test_alerts_summary"
                           android:title="@string/enable_cmas_test_alerts_title" />
+
+        <!-- Enable state/local test alerts -->
+        <SwitchPreference android:defaultValue="false"
+                          android:key="enable_state_local_test_alerts"
+                          android:summary="@string/enable_state_local_test_alerts_summary"
+                          android:title="@string/enable_state_local_test_alerts_title" />
 
         <!-- Default value is true for Brazil and India. This preference is ignored and hidden
         unless the boolean "config_showAreaUpdateInfoSettings" is set to true in the global resource. -->

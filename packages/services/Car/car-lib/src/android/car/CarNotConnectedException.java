@@ -19,21 +19,32 @@ package android.car;
 
 /**
  * Exception thrown when car is not connected for the API which requires car connection.
+ *
+ * @deprecated No longer thrown by the Android API. Do not use in new code.
  */
-public class CarNotConnectedException extends Exception {
-    private static final long serialVersionUID = -5629175439268813047L;
+@Deprecated
+public class CarNotConnectedException extends RuntimeException {
+    private static final long serialVersionUID = 4377819074553367406L;
 
+    /** @deprecated Do not use in new code. */
+    @Deprecated
     public CarNotConnectedException() {
     }
 
+    /** @deprecated Do not use in new code. */
+    @Deprecated
     public CarNotConnectedException(String name) {
         super(name);
     }
 
+    /** @deprecated Do not use in new code. */
+    @Deprecated
     public CarNotConnectedException(String name, Throwable cause) {
         super(name, cause);
     }
 
+    /** @deprecated Do not use in new code. */
+    @Deprecated
     public CarNotConnectedException(Exception cause) {
         super(cause);
     }

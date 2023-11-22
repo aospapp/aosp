@@ -16,14 +16,6 @@
 
 package android.opengl.cts;
 
-import android.support.test.filters.SmallTest;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.BlockJUnit4ClassRunner;
-
-import java.nio.Buffer;
-import java.nio.ByteBuffer;
-
 import static android.opengl.GLES30.GL_BUFFER_MAP_POINTER;
 import static android.opengl.GLES30.GL_DYNAMIC_READ;
 import static android.opengl.GLES30.GL_MAP_READ_BIT;
@@ -35,8 +27,18 @@ import static android.opengl.GLES30.glGenBuffers;
 import static android.opengl.GLES30.glGetBufferPointerv;
 import static android.opengl.GLES30.glMapBufferRange;
 import static android.opengl.GLES30.glUnmapBuffer;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+
+import androidx.test.filters.SmallTest;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.BlockJUnit4ClassRunner;
+
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
 
 /**
  * Tests for functions that return a ByteBuffer.

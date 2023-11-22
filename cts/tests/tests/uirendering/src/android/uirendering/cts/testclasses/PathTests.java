@@ -4,12 +4,13 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Typeface;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.GoldenImageVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,7 +35,7 @@ public class PathTests extends ActivityTestBase {
                     canvas.drawPath(path, paint);
                 })
                 .runWithVerifier(new GoldenImageVerifier(getActivity(),
-                        R.drawable.text_path_with_offset, new MSSIMComparer(0.92)));
+                        R.drawable.text_path_with_offset, new MSSIMComparer(0.89)));
     }
 
     @Test

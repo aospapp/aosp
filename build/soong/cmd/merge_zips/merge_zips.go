@@ -19,12 +19,14 @@ import (
 	"flag"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
+
+	"github.com/google/blueprint/pathtools"
 
 	"android/soong/jar"
 	"android/soong/third_party/zip"
@@ -63,19 +65,20 @@ var (
 	zipsToNotStrip   = make(zipsToNotStripSet)
 	stripDirEntries  = flag.Bool("D", false, "strip directory entries from the output zip file")
 	manifest         = flag.String("m", "", "manifest file to insert in jar")
-	entrypoint       = flag.String("e", "", "par entrypoint file to insert in par")
+	pyMain           = flag.String("pm", "", "__main__.py file to insert in par")
+	prefix           = flag.String("prefix", "", "A file to prefix to the zip file")
 	ignoreDuplicates = flag.Bool("ignore-duplicates", false, "take each entry from the first zip it exists in and don't warn")
 )
 
 func init() {
-	flag.Var(&stripDirs, "stripDir", "the prefix of file path to be excluded from the output zip")
-	flag.Var(&stripFiles, "stripFile", "filenames to be excluded from the output zip, accepts wildcards")
+	flag.Var(&stripDirs, "stripDir", "directories to be excluded from the output zip, accepts wildcards")
+	flag.Var(&stripFiles, "stripFile", "files to be excluded from the output zip, accepts wildcards")
 	flag.Var(&zipsToNotStrip, "zipToNotStrip", "the input zip file which is not applicable for stripping")
 }
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: merge_zips [-jpsD] [-m manifest] [-e entrypoint] output [inputs...]")
+		fmt.Fprintln(os.Stderr, "usage: merge_zips [-jpsD] [-m manifest] [--prefix script] [-pm __main__.py] output [inputs...]")
 		flag.PrintDefaults()
 	}
 
@@ -97,6 +100,19 @@ func main() {
 		log.Fatal(err)
 	}
 	defer output.Close()
+
+	var offset int64
+	if *prefix != "" {
+		prefixFile, err := os.Open(*prefix)
+		if err != nil {
+			log.Fatal(err)
+		}
+		offset, err = io.Copy(output, prefixFile)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	writer := zip.NewWriter(output)
 	defer func() {
 		err := writer.Close()
@@ -104,6 +120,7 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
+	writer.SetOffset(offset)
 
 	// make readers
 	readers := []namedZipReader{}
@@ -113,7 +130,7 @@ func main() {
 			log.Fatal(err)
 		}
 		defer reader.Close()
-		namedReader := namedZipReader{path: input, reader: reader}
+		namedReader := namedZipReader{path: input, reader: &reader.Reader}
 		readers = append(readers, namedReader)
 	}
 
@@ -121,13 +138,13 @@ func main() {
 		log.Fatal(errors.New("must specify -j when specifying a manifest via -m"))
 	}
 
-	if *entrypoint != "" && !*emulatePar {
-		log.Fatal(errors.New("must specify -p when specifying a entrypoint via -e"))
+	if *pyMain != "" && !*emulatePar {
+		log.Fatal(errors.New("must specify -p when specifying a Python __main__.py via -pm"))
 	}
 
 	// do merge
-	err = mergeZips(readers, writer, *manifest, *entrypoint, *sortEntries, *emulateJar, *emulatePar,
-		*stripDirEntries, *ignoreDuplicates)
+	err = mergeZips(readers, writer, *manifest, *pyMain, *sortEntries, *emulateJar, *emulatePar,
+		*stripDirEntries, *ignoreDuplicates, []string(stripFiles), []string(stripDirs), map[string]bool(zipsToNotStrip))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -136,7 +153,7 @@ func main() {
 // a namedZipReader reads a .zip file and can say which file it's reading
 type namedZipReader struct {
 	path   string
-	reader *zip.ReadCloser
+	reader *zip.Reader
 }
 
 // a zipEntryPath refers to a file contained in a zip
@@ -167,6 +184,10 @@ func (ze zipEntry) CRC32() uint32 {
 	return ze.content.FileHeader.CRC32
 }
 
+func (ze zipEntry) Size() uint64 {
+	return ze.content.FileHeader.UncompressedSize64
+}
+
 func (ze zipEntry) WriteToZip(dest string, zw *zip.Writer) error {
 	return zw.CopyFrom(ze.content, dest)
 }
@@ -189,6 +210,10 @@ func (be bufferEntry) CRC32() uint32 {
 	return crc32.ChecksumIEEE(be.content)
 }
 
+func (be bufferEntry) Size() uint64 {
+	return uint64(len(be.content))
+}
+
 func (be bufferEntry) WriteToZip(dest string, zw *zip.Writer) error {
 	w, err := zw.CreateHeader(be.fh)
 	if err != nil {
@@ -209,6 +234,7 @@ type zipSource interface {
 	String() string
 	IsDir() bool
 	CRC32() uint32
+	Size() uint64
 	WriteToZip(dest string, zw *zip.Writer) error
 }
 
@@ -218,8 +244,9 @@ type fileMapping struct {
 	source zipSource
 }
 
-func mergeZips(readers []namedZipReader, writer *zip.Writer, manifest, entrypoint string,
-	sortEntries, emulateJar, emulatePar, stripDirEntries, ignoreDuplicates bool) error {
+func mergeZips(readers []namedZipReader, writer *zip.Writer, manifest, pyMain string,
+	sortEntries, emulateJar, emulatePar, stripDirEntries, ignoreDuplicates bool,
+	stripFiles, stripDirs []string, zipsToNotStrip map[string]bool) error {
 
 	sourceByDest := make(map[string]zipSource, 0)
 	orderedMappings := []fileMapping{}
@@ -243,7 +270,12 @@ func mergeZips(readers []namedZipReader, writer *zip.Writer, manifest, entrypoin
 			addMapping(jar.MetaDir, dirSource)
 		}
 
-		fh, buf, err := jar.ManifestFileContents(manifest)
+		contents, err := ioutil.ReadFile(manifest)
+		if err != nil {
+			return err
+		}
+
+		fh, buf, err := jar.ManifestFileContents(contents)
 		if err != nil {
 			return err
 		}
@@ -252,20 +284,20 @@ func mergeZips(readers []namedZipReader, writer *zip.Writer, manifest, entrypoin
 		addMapping(jar.ManifestFile, fileSource)
 	}
 
-	if entrypoint != "" {
-		buf, err := ioutil.ReadFile(entrypoint)
+	if pyMain != "" {
+		buf, err := ioutil.ReadFile(pyMain)
 		if err != nil {
 			return err
 		}
 		fh := &zip.FileHeader{
-			Name:               "entry_point.txt",
+			Name:               "__main__.py",
 			Method:             zip.Store,
 			UncompressedSize64: uint64(len(buf)),
 		}
 		fh.SetMode(0700)
 		fh.SetModTime(jar.DefaultTime)
 		fileSource := bufferEntry{fh, buf}
-		addMapping("entry_point.txt", fileSource)
+		addMapping("__main__.py", fileSource)
 	}
 
 	if emulatePar {
@@ -317,8 +349,12 @@ func mergeZips(readers []namedZipReader, writer *zip.Writer, manifest, entrypoin
 	for _, namedReader := range readers {
 		_, skipStripThisZip := zipsToNotStrip[namedReader.path]
 		for _, file := range namedReader.reader.File {
-			if !skipStripThisZip && shouldStripFile(emulateJar, file.Name) {
-				continue
+			if !skipStripThisZip {
+				if skip, err := shouldStripEntry(emulateJar, stripFiles, stripDirs, file.Name); err != nil {
+					return err
+				} else if skip {
+					continue
+				}
 			}
 
 			if stripDirEntries && file.FileInfo().IsDir() {
@@ -337,25 +373,27 @@ func mergeZips(readers []namedZipReader, writer *zip.Writer, manifest, entrypoin
 					return fmt.Errorf("Directory/file mismatch at %v from %v and %v\n",
 						dest, existingSource, source)
 				}
+
 				if ignoreDuplicates {
 					continue
 				}
+
 				if emulateJar &&
 					file.Name == jar.ManifestFile || file.Name == jar.ModuleInfoClass {
 					// Skip manifest and module info files that are not from the first input file
 					continue
 				}
-				if !source.IsDir() {
-					if emulateJar {
-						if existingSource.CRC32() != source.CRC32() {
-							fmt.Fprintf(os.Stdout, "WARNING: Duplicate path %v found in %v and %v\n",
-								dest, existingSource, source)
-						}
-					} else {
-						return fmt.Errorf("Duplicate path %v found in %v and %v\n",
-							dest, existingSource, source)
-					}
+
+				if source.IsDir() {
+					continue
 				}
+
+				if existingSource.CRC32() == source.CRC32() && existingSource.Size() == source.Size() {
+					continue
+				}
+
+				return fmt.Errorf("Duplicate path %v found in %v and %v\n",
+					dest, existingSource, source)
 			}
 		}
 	}
@@ -398,26 +436,41 @@ func pathBeforeLastSlash(path string) string {
 	return ret
 }
 
-func shouldStripFile(emulateJar bool, name string) bool {
+func shouldStripEntry(emulateJar bool, stripFiles, stripDirs []string, name string) (bool, error) {
 	for _, dir := range stripDirs {
-		if strings.HasPrefix(name, dir+"/") {
-			if emulateJar {
-				if name != jar.MetaDir && name != jar.ManifestFile {
-					return true
+		dir = filepath.Clean(dir)
+		patterns := []string{
+			dir + "/",      // the directory itself
+			dir + "/**/*",  // files recursively in the directory
+			dir + "/**/*/", // directories recursively in the directory
+		}
+
+		for _, pattern := range patterns {
+			match, err := pathtools.Match(pattern, name)
+			if err != nil {
+				return false, fmt.Errorf("%s: %s", err.Error(), pattern)
+			} else if match {
+				if emulateJar {
+					// When merging jar files, don't strip META-INF/MANIFEST.MF even if stripping META-INF is
+					// requested.
+					// TODO(ccross): which files does this affect?
+					if name != jar.MetaDir && name != jar.ManifestFile {
+						return true, nil
+					}
 				}
-			} else {
-				return true
+				return true, nil
 			}
 		}
 	}
+
 	for _, pattern := range stripFiles {
-		if match, err := filepath.Match(pattern, filepath.Base(name)); err != nil {
-			panic(fmt.Errorf("%s: %s", err.Error(), pattern))
+		if match, err := pathtools.Match(pattern, name); err != nil {
+			return false, fmt.Errorf("%s: %s", err.Error(), pattern)
 		} else if match {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func jarSort(files []fileMapping) {

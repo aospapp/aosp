@@ -169,11 +169,7 @@ bool DebugUnwindCommand::ParseOptions(const std::vector<std::string>& args) {
         return false;
       }
     } else if (args[i] == "--time") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      if (!android::base::ParseUint(args[i].c_str(), &selected_time_)) {
-        LOG(ERROR) << "Invalid option for " << args[i-1] << ": " << args[i];
+      if (!GetUintOption(args, &i, &selected_time_)) {
         return false;
       }
     } else {
@@ -190,6 +186,7 @@ bool DebugUnwindCommand::UnwindRecordFile() {
   if (!reader_) {
     return false;
   }
+  reader_->LoadBuildIdAndFileFeatures(thread_tree_);
   std::string record_cmd = android::base::Join(reader_->ReadCmdlineFeature(), " ");
   if (record_cmd.find("--no-unwind") == std::string::npos ||
       (record_cmd.find("-g") == std::string::npos &&
@@ -232,8 +229,6 @@ bool DebugUnwindCommand::ProcessRecord(Record* record) {
     if (selected_time_ != 0u && r.Timestamp() != selected_time_) {
       return true;
     }
-    r.AdjustCallChainGeneratedByKernel();
-    r.RemoveInvalidStackData();
     uint64_t need_type = PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_REGS_USER | PERF_SAMPLE_STACK_USER;
     if ((r.sample_type & need_type) == need_type && r.regs_user_data.reg_mask != 0 &&
         r.GetValidStackSize() > 0) {
@@ -279,7 +274,7 @@ void DebugUnwindCommand::CollectHitFileInfo(const SampleRecord& r,
   for (auto ip : ips) {
     const MapEntry* map = thread_tree_.FindMap(thread, ip, false);
     Dso* dso = map->dso;
-    if (!dso->HasDumpId()) {
+    if (!dso->HasDumpId() && dso->type() != DSO_UNKNOWN_FILE) {
       dso->CreateDumpId();
     }
     const Symbol* symbol = thread_tree_.FindSymbol(map, ip, nullptr, &dso);
@@ -341,7 +336,7 @@ bool DebugUnwindCommand::JoinCallChains() {
     sr.UpdateUserCallChain(ips);
     return writer_->WriteRecord(sr);
   };
-  return reader->ReadDataSection(record_callback, false);
+  return reader->ReadDataSection(record_callback);
 }
 
 bool DebugUnwindCommand::WriteFeatureSections() {

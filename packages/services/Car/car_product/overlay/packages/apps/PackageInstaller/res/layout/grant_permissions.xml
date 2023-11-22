@@ -33,10 +33,10 @@
             android:id="@+id/desc_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/car_padding_4"
-            android:layout_marginStart="@dimen/car_keyline_1"
-            android:layout_marginBottom="@dimen/car_padding_2"
-            android:layout_marginEnd="@dimen/car_keyline_1">
+            android:layout_marginTop="@dimen/permission_description_top_margin"
+            android:layout_marginStart="@dimen/permission_description_start_margin"
+            android:layout_marginBottom="@dimen/permission_description_bottom_margin"
+            android:layout_marginEnd="@dimen/permission_description_end_margin">
 
             <include
                 layout="@layout/permission_description" />
@@ -50,15 +50,14 @@
             <CheckBox
                 android:id="@+id/do_not_ask_checkbox"
                 android:layout_width="wrap_content"
-                android:layout_height="@dimen/car_single_line_list_item_height"
-                android:layout_marginStart="@dimen/car_keyline_1"
-                android:layout_marginEnd="@dimen/car_keyline_1"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/checkbox_start_margin"
+                android:layout_marginEnd="@dimen/checkbox_end_margin"
                 android:gravity="center_vertical"
-                android:paddingLeft="@dimen/car_keyline_1_keyline_3_diff"
+                android:paddingLeft="@dimen/checkbox_left_padding"
                 android:button="@drawable/ic_check_box"
+                android:textAppearance="@style/PermissionDialogCheckboxText"
                 android:text="@string/never_ask_again"
-                android:textColor="?android:attr/textColorSecondary"
-                android:textSize="@dimen/car_action1_size"
                 android:visibility="gone">
             </CheckBox>
 
@@ -66,7 +65,7 @@
                 android:id="@+id/button_group"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/car_padding_2"
+                android:layout_marginTop="@dimen/permission_dialog_button_margin_top"
                 android:layoutDirection="locale"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
@@ -74,27 +73,17 @@
                 <Button
                     android:id="@+id/permission_deny_button"
                     android:layout_width="wrap_content"
-                    android:layout_height="@dimen/car_dialog_action_bar_height"
-                    android:background="@drawable/dialog_button_background"
-                    android:paddingStart="@dimen/car_keyline_1"
-                    android:paddingEnd="@dimen/car_padding_4"
+                    android:layout_height="wrap_content"
                     android:text="@string/grant_dialog_button_deny"
-                    android:textColor="@color/car_highlight"
-                    android:textSize="@dimen/car_action1_size"
-                    android:textStyle="bold">
+                    style="?android:attr/buttonBarButtonStyle">
                 </Button>
 
                 <Button
                     android:id="@+id/permission_allow_button"
                     android:layout_width="wrap_content"
-                    android:layout_height="@dimen/car_dialog_action_bar_height"
-                    android:background="@drawable/dialog_button_background"
-                    android:paddingStart="@dimen/car_padding_4"
-                    android:paddingEnd="@dimen/car_padding_4"
+                    android:layout_height="@dimen/permission_dialog_allow_button_height"
                     android:text="@string/grant_dialog_button_allow"
-                    android:textColor="@color/car_highlight"
-                    android:textSize="@dimen/car_action1_size"
-                    android:textStyle="bold">
+                    style="?android:attr/buttonBarButtonStyle">
                 </Button>
 
                 <Space
@@ -109,9 +98,9 @@
                     android:id="@+id/current_page_text"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:paddingEnd="@dimen/car_keyline_1"
+                    android:paddingEnd="@dimen/permission_dialog_appearance_padding_end"
                     android:maxLines="1"
-                    android:textAppearance="@style/TextAppearance.Car.Body2"
+                    android:textAppearance="?android:attr/textAppearanceMedium"
                     android:visibility="invisible">
                 </TextView>
 

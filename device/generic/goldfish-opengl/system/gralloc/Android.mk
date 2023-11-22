@@ -12,9 +12,11 @@ LOCAL_CFLAGS += -Wno-missing-field-initializers
 
 LOCAL_SRC_FILES := gralloc.cpp
 
+ifneq (true,$(GOLDFISH_OPENGL_BUILD_FOR_HOST))
 # Need to access the special OPENGL TLS Slot
 LOCAL_C_INCLUDES += bionic/libc/private
 LOCAL_SHARED_LIBRARIES += libdl
+endif
 
 $$(call emugl-end-module)
 endef  # define gralloc_recipe

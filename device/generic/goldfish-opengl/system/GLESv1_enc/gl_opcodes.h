@@ -294,7 +294,9 @@
 #define OP_glExtGetProgramBinarySourceQCOM 					1312
 #define OP_glStartTilingQCOM 					1313
 #define OP_glEndTilingQCOM 					1314
-#define OP_last 					1315
+#define OP_glGetGraphicsResetStatusEXT 					1315
+#define OP_glReadnPixelsEXT 					1316
+#define OP_last 					1317
 
 
 #endif

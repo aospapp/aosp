@@ -40,7 +40,7 @@
 
   </application>
 
-  <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+  <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
       android:targetPackage="android.appwidget.cts"
       android:label="CTS Tests for the dumpsys protobuf protocol">
       <meta-data android:name="listener"

@@ -18,7 +18,6 @@
 
 #include <utils/Log.h>
 #include "gscan_event_handler.h"
-#include "vendor_definitions.h"
 
 /* This function implements creation of Vendor command event handler. */
 wifi_error GScanCommandEventHandler::create() {

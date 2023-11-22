@@ -26,7 +26,7 @@
 #include <unistd.h>
 #include <atomic>
 
-#include "ScopedSignalHandler.h"
+#include "SignalUtils.h"
 #include "utils.h"
 
 #include "private/bionic_constants.h"
@@ -59,7 +59,7 @@ TEST(time, time) {
 TEST(time, gmtime) {
   time_t t = 0;
   tm* broken_down = gmtime(&t);
-  ASSERT_TRUE(broken_down != NULL);
+  ASSERT_TRUE(broken_down != nullptr);
   ASSERT_EQ(0, broken_down->tm_sec);
   ASSERT_EQ(0, broken_down->tm_min);
   ASSERT_EQ(0, broken_down->tm_hour);
@@ -86,11 +86,11 @@ static void* gmtime_no_stack_overflow_14313703_fn(void*) {
   // Ensure we'll actually have to enter tzload by using a time zone that doesn't exist.
   setenv("TZ", "gmtime_stack_overflow_14313703", 1);
   tzset();
-  if (original_tz != NULL) {
+  if (original_tz != nullptr) {
     setenv("TZ", original_tz, 1);
   }
   tzset();
-  return NULL;
+  return nullptr;
 }
 
 TEST(time, gmtime_no_stack_overflow_14313703) {
@@ -102,7 +102,7 @@ TEST(time, gmtime_no_stack_overflow_14313703) {
   ASSERT_EQ(0, pthread_attr_setstacksize(&a, PTHREAD_STACK_MIN));
 
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, &a, gmtime_no_stack_overflow_14313703_fn, NULL));
+  ASSERT_EQ(0, pthread_create(&t, &a, gmtime_no_stack_overflow_14313703_fn, nullptr));
   ASSERT_EQ(0, pthread_join(t, nullptr));
 }
 
@@ -242,7 +242,7 @@ TEST(time, strftime_null_tm_zone) {
 }
 
 TEST(time, strftime_l) {
-  locale_t cloc = newlocale(LC_ALL, "C.UTF-8", 0);
+  locale_t cloc = newlocale(LC_ALL, "C.UTF-8", nullptr);
   locale_t old_locale = uselocale(cloc);
 
   setenv("TZ", "UTC", 1);
@@ -296,13 +296,76 @@ TEST(time, strptime_l) {
   EXPECT_STREQ("09:41:53", buf);
 }
 
+TEST(time, strptime_F) {
+  setenv("TZ", "UTC", 1);
+
+  struct tm tm = {};
+  ASSERT_EQ('\0', *strptime("2019-03-26", "%F", &tm));
+  EXPECT_EQ(119, tm.tm_year);
+  EXPECT_EQ(2, tm.tm_mon);
+  EXPECT_EQ(26, tm.tm_mday);
+}
+
+TEST(time, strptime_P_p) {
+  setenv("TZ", "UTC", 1);
+
+  // For parsing, %P and %p are the same: case doesn't matter.
+
+  struct tm tm = {.tm_hour = 12};
+  ASSERT_EQ('\0', *strptime("AM", "%p", &tm));
+  EXPECT_EQ(0, tm.tm_hour);
+
+  tm = {.tm_hour = 12};
+  ASSERT_EQ('\0', *strptime("am", "%p", &tm));
+  EXPECT_EQ(0, tm.tm_hour);
+
+  tm = {.tm_hour = 12};
+  ASSERT_EQ('\0', *strptime("AM", "%P", &tm));
+  EXPECT_EQ(0, tm.tm_hour);
+
+  tm = {.tm_hour = 12};
+  ASSERT_EQ('\0', *strptime("am", "%P", &tm));
+  EXPECT_EQ(0, tm.tm_hour);
+}
+
+TEST(time, strptime_u) {
+  setenv("TZ", "UTC", 1);
+
+  struct tm tm = {};
+  ASSERT_EQ('\0', *strptime("2", "%u", &tm));
+  EXPECT_EQ(2, tm.tm_wday);
+}
+
+TEST(time, strptime_v) {
+  setenv("TZ", "UTC", 1);
+
+  struct tm tm = {};
+  ASSERT_EQ('\0', *strptime("26-Mar-1980", "%v", &tm));
+  EXPECT_EQ(80, tm.tm_year);
+  EXPECT_EQ(2, tm.tm_mon);
+  EXPECT_EQ(26, tm.tm_mday);
+}
+
+TEST(time, strptime_V_G_g) {
+  setenv("TZ", "UTC", 1);
+
+  // %V (ISO-8601 week number), %G (year of week number, without century), and
+  // %g (year of week number) have no effect when parsed, and are supported
+  // solely so that it's possible for strptime(3) to parse everything that
+  // strftime(3) can output.
+  struct tm tm = {};
+  ASSERT_EQ('\0', *strptime("1 2 3", "%V %G %g", &tm));
+  struct tm zero = {};
+  EXPECT_TRUE(memcmp(&tm, &zero, sizeof(tm)) == 0);
+}
+
 void SetTime(timer_t t, time_t value_s, time_t value_ns, time_t interval_s, time_t interval_ns) {
   itimerspec ts;
   ts.it_value.tv_sec = value_s;
   ts.it_value.tv_nsec = value_ns;
   ts.it_interval.tv_sec = interval_s;
   ts.it_interval.tv_nsec = interval_ns;
-  ASSERT_EQ(0, timer_settime(t, 0, &ts, NULL));
+  ASSERT_EQ(0, timer_settime(t, 0, &ts, nullptr));
 }
 
 static void NoOpNotifyFunction(sigval_t) {
@@ -356,7 +419,7 @@ TEST(time, timer_create_SIGEV_SIGNAL) {
   ts.it_value.tv_nsec = 1;
   ts.it_interval.tv_sec = 0;
   ts.it_interval.tv_nsec = 0;
-  ASSERT_EQ(0, timer_settime(timer_id, 0, &ts, NULL));
+  ASSERT_EQ(0, timer_settime(timer_id, 0, &ts, nullptr));
 
   usleep(500000);
   ASSERT_EQ(1, timer_create_SIGEV_SIGNAL_signal_handler_invocation_count);
@@ -405,8 +468,8 @@ struct Counter {
 
   bool ValueUpdated() {
     int current_value = value;
-    time_t start = time(NULL);
-    while (current_value == value && (time(NULL) - start) < 5) {
+    time_t start = time(nullptr);
+    while (current_value == value && (time(nullptr) - start) < 5) {
     }
     return current_value != value;
   }
@@ -458,7 +521,7 @@ static void timer_create_NULL_signal_handler(int signal_number) {
 TEST(time, timer_create_NULL) {
   // A NULL sigevent* is equivalent to asking for SIGEV_SIGNAL for SIGALRM.
   timer_t timer_id;
-  ASSERT_EQ(0, timer_create(CLOCK_MONOTONIC, NULL, &timer_id));
+  ASSERT_EQ(0, timer_create(CLOCK_MONOTONIC, nullptr, &timer_id));
 
   timer_create_NULL_signal_handler_invocation_count = 0;
   ScopedSignalHandler ssh(SIGALRM, timer_create_NULL_signal_handler);
@@ -476,7 +539,7 @@ TEST(time, timer_create_EINVAL) {
 
   // A SIGEV_SIGNAL timer is easy; the kernel does all that.
   timer_t timer_id;
-  ASSERT_EQ(-1, timer_create(invalid_clock, NULL, &timer_id));
+  ASSERT_EQ(-1, timer_create(invalid_clock, nullptr, &timer_id));
   ASSERT_EQ(EINVAL, errno);
 
   // A SIGEV_THREAD timer is more interesting because we have stuff to clean up.
@@ -485,23 +548,6 @@ TEST(time, timer_create_EINVAL) {
   se.sigev_notify = SIGEV_THREAD;
   se.sigev_notify_function = NoOpNotifyFunction;
   ASSERT_EQ(-1, timer_create(invalid_clock, &se, &timer_id));
-  ASSERT_EQ(EINVAL, errno);
-}
-
-TEST(time, timer_delete_multiple) {
-  timer_t timer_id;
-  ASSERT_EQ(0, timer_create(CLOCK_MONOTONIC, NULL, &timer_id));
-  ASSERT_EQ(0, timer_delete(timer_id));
-  ASSERT_EQ(-1, timer_delete(timer_id));
-  ASSERT_EQ(EINVAL, errno);
-
-  sigevent_t se;
-  memset(&se, 0, sizeof(se));
-  se.sigev_notify = SIGEV_THREAD;
-  se.sigev_notify_function = NoOpNotifyFunction;
-  ASSERT_EQ(0, timer_create(CLOCK_MONOTONIC, &se, &timer_id));
-  ASSERT_EQ(0, timer_delete(timer_id));
-  ASSERT_EQ(-1, timer_delete(timer_id));
   ASSERT_EQ(EINVAL, errno);
 }
 
@@ -593,10 +639,10 @@ TEST(time, timer_delete_from_timer_thread) {
   ts.it_value.tv_nsec = 0;
   ts.it_interval.tv_sec = 0;
   ts.it_interval.tv_nsec = 0;
-  ASSERT_EQ(0, timer_settime(tdd.timer_id, 0, &ts, NULL));
+  ASSERT_EQ(0, timer_settime(tdd.timer_id, 0, &ts, nullptr));
 
-  time_t cur_time = time(NULL);
-  while (!tdd.complete && (time(NULL) - cur_time) < 5);
+  time_t cur_time = time(nullptr);
+  while (!tdd.complete && (time(nullptr) - cur_time) < 5);
   ASSERT_TRUE(tdd.complete);
 
 #if defined(__BIONIC__)
@@ -624,9 +670,9 @@ TEST(time, clock_gettime) {
     ts2.tv_nsec += NS_PER_S;
   }
 
-  // Should be less than (a very generous, to try to avoid flakiness) 1000000ns.
+  // To try to avoid flakiness we'll accept answers within 10,000,000ns (0.01s).
   ASSERT_EQ(0, ts2.tv_sec);
-  ASSERT_LT(ts2.tv_nsec, 1000000);
+  ASSERT_LT(ts2.tv_nsec, 10'000'000);
 }
 
 TEST(time, clock_gettime_CLOCK_REALTIME) {
@@ -921,4 +967,14 @@ TEST(time, strftime_strptime_s) {
 TEST(time, strptime_s_nothing) {
   struct tm tm;
   ASSERT_EQ(nullptr, strptime("x", "%s", &tm));
+}
+
+TEST(time, timespec_get) {
+#if __BIONIC__
+  timespec ts = {};
+  ASSERT_EQ(0, timespec_get(&ts, 123));
+  ASSERT_EQ(TIME_UTC, timespec_get(&ts, TIME_UTC));
+#else
+  GTEST_SKIP() << "glibc doesn't have timespec_get until 2.21";
+#endif
 }

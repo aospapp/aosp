@@ -25,5 +25,7 @@
     <option name="plan" value="cts-dev" />
     <option name="compatibility:skip-all-system-status-check" value="true" />
     <option name="compatibility:primary-abi-only" value="true" />
+    <!-- Avoid module parameterization in cts-dev -->
+    <option name="compatibility:enable-parameterized-modules" value="false" />
 
 </configuration>

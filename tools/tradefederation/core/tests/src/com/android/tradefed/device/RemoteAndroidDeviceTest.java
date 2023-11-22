@@ -15,19 +15,26 @@
  */
 package com.android.tradefed.device;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import com.android.ddmlib.IDevice;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.IRunUtil;
 
-import junit.framework.TestCase;
-
 import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link RemoteAndroidDevice}.
- */
-public class RemoteAndroidDeviceTest extends TestCase {
+/** Unit tests for {@link RemoteAndroidDevice}. */
+@RunWith(JUnit4.class)
+public class RemoteAndroidDeviceTest {
 
     private static final String MOCK_DEVICE_SERIAL = "localhost:1234";
     private IDevice mMockIDevice;
@@ -51,12 +58,8 @@ public class RemoteAndroidDeviceTest extends TestCase {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mMockIDevice = EasyMock.createMock(IDevice.class);
         EasyMock.expect(mMockIDevice.getSerialNumber()).andReturn(MOCK_DEVICE_SERIAL).anyTimes();
         mMockRecovery = EasyMock.createMock(IDeviceRecovery.class);
@@ -69,9 +72,8 @@ public class RemoteAndroidDeviceTest extends TestCase {
         mTestDevice.setRecovery(mMockRecovery);
     }
 
-    /**
-     * Test {@link RemoteAndroidDevice#adbTcpConnect(String, String)} in a success case.
-     */
+    /** Test {@link RemoteAndroidDevice#adbTcpConnect(String, String)} in a success case. */
+    @Test
     public void testAdbConnect() {
         CommandResult adbResult = new CommandResult();
         adbResult.setStatus(CommandStatus.SUCCESS);
@@ -89,9 +91,8 @@ public class RemoteAndroidDeviceTest extends TestCase {
         assertTrue(mTestDevice.adbTcpConnect("localhost", "1234"));
     }
 
-    /**
-     * Test {@link RemoteAndroidDevice#adbTcpConnect(String, String)} in a failure case.
-     */
+    /** Test {@link RemoteAndroidDevice#adbTcpConnect(String, String)} in a failure case. */
+    @Test
     public void testAdbConnect_fails() {
         CommandResult adbResult = new CommandResult();
         adbResult.setStatus(CommandStatus.SUCCESS);
@@ -110,6 +111,7 @@ public class RemoteAndroidDeviceTest extends TestCase {
      * always return connect success (never really connected so confirmation: "already connected"
      * fails.
      */
+    @Test
     public void testAdbConnect_fails_confirmation() {
         CommandResult adbResult = new CommandResult();
         adbResult.setStatus(CommandStatus.SUCCESS);
@@ -123,9 +125,8 @@ public class RemoteAndroidDeviceTest extends TestCase {
         assertFalse(mTestDevice.adbTcpConnect("localhost", "1234"));
     }
 
-    /**
-     * Test {@link RemoteAndroidDevice#adbTcpDisconnect(String, String)}.
-     */
+    /** Test {@link RemoteAndroidDevice#adbTcpDisconnect(String, String)}. */
+    @Test
     public void testAdbDisconnect() {
         CommandResult adbResult = new CommandResult();
         adbResult.setStatus(CommandStatus.SUCCESS);
@@ -136,9 +137,8 @@ public class RemoteAndroidDeviceTest extends TestCase {
         assertTrue(mTestDevice.adbTcpDisconnect("localhost", "1234"));
     }
 
-    /**
-     * Test {@link RemoteAndroidDevice#adbTcpDisconnect(String, String)} in a failure case.
-     */
+    /** Test {@link RemoteAndroidDevice#adbTcpDisconnect(String, String)} in a failure case. */
+    @Test
     public void testAdbDisconnect_fails() {
         CommandResult adbResult = new CommandResult();
         adbResult.setStatus(CommandStatus.FAILED);
@@ -149,12 +149,14 @@ public class RemoteAndroidDeviceTest extends TestCase {
         assertFalse(mTestDevice.adbTcpDisconnect("localhost", "1234"));
     }
 
+    @Test
     public void testCheckSerial() {
         EasyMock.replay(mMockIDevice);
         assertEquals("localhost", mTestDevice.getHostName());
         assertEquals("1234", mTestDevice.getPortNum());
     }
 
+    @Test
     public void testCheckSerial_invalid() {
         mMockIDevice = EasyMock.createMock(IDevice.class);
         EasyMock.expect(mMockIDevice.getSerialNumber()).andReturn("wrongserial").anyTimes();
@@ -167,6 +169,21 @@ public class RemoteAndroidDeviceTest extends TestCase {
         fail("Wrong Serial should throw a RuntimeException");
     }
 
+    /** Reject placeholder style device */
+    @Test
+    public void testCheckSerial_placeholder() {
+        mMockIDevice = EasyMock.createMock(IDevice.class);
+        EasyMock.expect(mMockIDevice.getSerialNumber()).andReturn("gce-device:3").anyTimes();
+        try {
+            mTestDevice.getHostName();
+        } catch (RuntimeException e) {
+            // expected
+            return;
+        }
+        fail("Wrong Serial should throw a RuntimeException");
+    }
+
+    @Test
     public void testGetMacAddress() {
         assertNull(mTestDevice.getMacAddress());
     }

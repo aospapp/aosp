@@ -27,7 +27,7 @@ public final class TestInfo {
     public final String testClass;
     public final String testMethod;
 
-    public TestInfo(final String testPackage, final String testClass, final String testMethod) {
+    public TestInfo(String testPackage, String testClass, String testMethod) {
         this.testPackage = testPackage;
         this.testClass = testClass;
         this.testMethod = testMethod;

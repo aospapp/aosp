@@ -18,4 +18,5 @@ limitations under the License.
     <dimen name="car_keyline_2">96dp</dimen>
     <dimen name="car_keyline_3">112dp</dimen>
     <dimen name="car_keyline_4">148dp</dimen>
+    <dimen name="car_margin">112dp</dimen>
 </resources>

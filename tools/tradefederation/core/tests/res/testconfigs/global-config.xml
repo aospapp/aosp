@@ -23,4 +23,5 @@
     <key_store class="com.android.tradefed.util.keystore.JSONFileKeyStoreFactory">
         <option name="json-key-store-file" value="key_store.json" />
     </key_store>
+    <object type="remote-manager" class="com.android.tradefed.command.remote.RemoteManager"/>
 </configuration>

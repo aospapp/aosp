@@ -36,7 +36,7 @@
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"Uvoľniť miesto"</string>
-    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"Z vášho zariadenia bude odstránený obsah o veľkosti <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"Z vášho zariadenia bude odstránený obsah veľkosti <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Uvoľniť miesto"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Spravovať úložisko automaticky?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"Uvoľnili ste <xliff:g id="USED">%1$s</xliff:g>. Povoliť Správcovi úložiska automaticky uvoľňovať miesto odstraňovaním zálohovaného obsahu z vášho zariadenia?"</string>
@@ -58,7 +58,7 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"Vyhľadávajú sa položky…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Zobraziť všetky položky"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Skryť nedávne položky"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Z vášho zariadenia bude odstránený obsah o veľkosti <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Z vášho zariadenia bude odstránený obsah veľkosti <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Vaše úložisko odteraz riadi správca úložiska"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"Niet čo odstrániť"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Skontrolovať nedávne položky"</string>

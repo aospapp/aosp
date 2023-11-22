@@ -18,9 +18,12 @@
 #define ART_COMPILER_COMMON_COMPILER_TEST_H_
 
 #include <list>
-#include <unordered_set>
 #include <vector>
 
+#include <jni.h>
+
+#include "arch/instruction_set.h"
+#include "arch/instruction_set_features.h"
 #include "common_runtime_test.h"
 #include "compiler.h"
 #include "oat_file.h"
@@ -30,10 +33,11 @@ namespace mirror {
 class ClassLoader;
 }  // namespace mirror
 
-class CompilerDriver;
+class CompiledMethod;
 class CompilerOptions;
 class CumulativeLogger;
-class ProfileCompilationInfo;
+class DexFile;
+class TimingLogger;
 class VerificationResults;
 
 template<class T> class Handle;
@@ -43,48 +47,24 @@ class CommonCompilerTest : public CommonRuntimeTest {
   CommonCompilerTest();
   ~CommonCompilerTest();
 
-  // Create an OatMethod based on pointers (for unit tests).
-  OatFile::OatMethod CreateOatMethod(const void* code);
-
-  void MakeExecutable(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
+  void MakeExecutable(ArtMethod* method, const CompiledMethod* compiled_method)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   static void MakeExecutable(const void* code_start, size_t code_length);
 
-  void MakeExecutable(ObjPtr<mirror::ClassLoader> class_loader, const char* class_name)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
  protected:
-  virtual void SetUp();
+  void SetUp() override;
 
-  virtual void SetUpRuntimeOptions(RuntimeOptions* options);
+  void SetUpRuntimeOptions(RuntimeOptions* options) override;
 
   Compiler::Kind GetCompilerKind() const;
   void SetCompilerKind(Compiler::Kind compiler_kind);
-
-  InstructionSet GetInstructionSet() const;
-
-  // Get the set of image classes given to the compiler-driver in SetUp. Note: the compiler
-  // driver assumes ownership of the set, so the test should properly release the set.
-  virtual std::unordered_set<std::string>* GetImageClasses();
-
-  // Get the set of compiled classes given to the compiler-driver in SetUp. Note: the compiler
-  // driver assumes ownership of the set, so the test should properly release the set.
-  virtual std::unordered_set<std::string>* GetCompiledClasses();
-
-  // Get the set of compiled methods given to the compiler-driver in SetUp. Note: the compiler
-  // driver assumes ownership of the set, so the test should properly release the set.
-  virtual std::unordered_set<std::string>* GetCompiledMethods();
-
-  virtual ProfileCompilationInfo* GetProfileCompilationInfo();
 
   virtual CompilerFilter::Filter GetCompilerFilter() const {
     return CompilerFilter::kDefaultCompilerFilter;
   }
 
-  virtual void TearDown();
-
-  void CompileClass(mirror::ClassLoader* class_loader, const char* class_name)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  void TearDown() override;
 
   void CompileMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -96,22 +76,23 @@ class CommonCompilerTest : public CommonRuntimeTest {
                             const char* method_name, const char* signature)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void CreateCompilerDriver(Compiler::Kind kind, InstructionSet isa, size_t number_of_threads = 2U);
+  void ApplyInstructionSet();
+  void OverrideInstructionSetFeatures(InstructionSet instruction_set, const std::string& variant);
 
-  void ReserveImageSpace();
-
-  void UnreserveImageSpace();
+  void ClearBootImageOption();
 
   Compiler::Kind compiler_kind_ = Compiler::kOptimizing;
+
+  InstructionSet instruction_set_ =
+      (kRuntimeISA == InstructionSet::kArm) ? InstructionSet::kThumb2 : kRuntimeISA;
+  // Take the default set of instruction features from the build.
+  std::unique_ptr<const InstructionSetFeatures> instruction_set_features_
+      = InstructionSetFeatures::FromCppDefines();
+
   std::unique_ptr<CompilerOptions> compiler_options_;
   std::unique_ptr<VerificationResults> verification_results_;
-  std::unique_ptr<CompilerDriver> compiler_driver_;
-  std::unique_ptr<const InstructionSetFeatures> instruction_set_features_;
-
 
  private:
-  std::unique_ptr<MemMap> image_reservation_;
-
   // Chunks must not move their storage after being created - use the node-based std::list.
   std::list<std::vector<uint8_t>> header_code_and_maps_chunks_;
 };

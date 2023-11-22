@@ -19,7 +19,11 @@
 
     <uses-sdk android:minSdkVersion="22"/>
 
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
     <application>
+        <uses-library android:name="android.test.runner" />
+
         <receiver android:name=".CertInstallerReceiver">
             <intent-filter>
                 <action android:name="com.android.cts.certinstaller.install_cert" />
@@ -29,6 +33,26 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
+        <activity
+            android:name="android.app.Activity"
+            android:exported="true">
+        </activity>
+        <receiver
+            android:name=".CertSelectionDelegateTest$CertSelectionReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <intent-filter>
+                <action android:name="android.app.action.CHOOSE_PRIVATE_KEY_ALIAS"/>
+            </intent-filter>
+        </receiver>
     </application>
+
+    <instrumentation
+        android:name="androidx.test.runner.AndroidJUnitRunner"
+        android:label="Delegated Cert Installer CTS test"
+        android:targetPackage="com.android.cts.certinstaller">
+        <meta-data
+            android:name="listener"
+            android:value="com.android.cts.runner.CtsTestRunListener"/>
+    </instrumentation>
 
 </manifest>

@@ -23,11 +23,12 @@ import android.os.storage.DiskInfo;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.os.storage.VolumeRecord;
-import android.support.annotation.Keep;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
 import android.util.ArraySet;
 import android.util.Log;
+
+import androidx.annotation.Keep;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;

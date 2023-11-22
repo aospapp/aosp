@@ -12,7 +12,7 @@ LOCAL_SRC_FILES := \
         gl_enc.cpp \
         gl_entry.cpp
 
-$(call emugl-import,libOpenglCodecCommon)
+$(call emugl-import,libOpenglCodecCommon$(GOLDFISH_OPENGL_LIB_SUFFIX))
 $(call emugl-export,C_INCLUDES,$(LOCAL_PATH))
 $(call emugl-export,C_INCLUDES,$(intermediates))
 

@@ -20,8 +20,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.Html;
 import android.text.Layout;
 import android.text.SpanWatcher;
@@ -34,6 +32,9 @@ import android.text.method.TransformationMethod;
 import android.text.style.AlignmentSpan;
 import android.text.style.ParagraphStyle;
 import android.text.style.QuoteSpan;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

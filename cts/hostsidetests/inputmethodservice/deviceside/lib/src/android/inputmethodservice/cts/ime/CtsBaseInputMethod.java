@@ -11,38 +11,51 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package android.inputmethodservice.cts.ime;
 
-import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType
-        .ON_BIND_INPUT;
+import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_BIND_INPUT;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_CREATE;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_DESTROY;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_FINISH_INPUT;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_FINISH_INPUT_VIEW;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_START_INPUT;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_START_INPUT_VIEW;
-
-
-import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType
-        .ON_UNBIND_INPUT;
+import static android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType.ON_UNBIND_INPUT;
 
 import android.content.Intent;
 import android.inputmethodservice.InputMethodService;
 import android.inputmethodservice.cts.DeviceEvent;
 import android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType;
 import android.inputmethodservice.cts.ime.ImeCommandReceiver.ImeCommandCallbacks;
+import android.os.Bundle;
+import android.os.Process;
 import android.util.Log;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 
 import java.util.function.Consumer;
 
+/**
+ * Base class to create test {@link InputMethodService}.
+ */
 public abstract class CtsBaseInputMethod extends InputMethodService implements ImeCommandCallbacks {
 
     protected static final boolean DEBUG = false;
+
+    public static final String EDITOR_INFO_KEY_REPLY_USER_HANDLE_SESSION_ID =
+            "android.inputmethodservice.cts.ime.ReplyUserHandleSessionId";
+
+    public static final String ACTION_KEY_REPLY_USER_HANDLE =
+            "android.inputmethodservice.cts.ime.ReplyUserHandle";
+
+    public static final String BUNDLE_KEY_REPLY_USER_HANDLE =
+            "android.inputmethodservice.cts.ime.ReplyUserHandle";
+
+    public static final String BUNDLE_KEY_REPLY_USER_HANDLE_SESSION_ID =
+            "android.inputmethodservice.cts.ime.ReplyUserHandleSessionId";
 
     private final ImeCommandReceiver<CtsBaseInputMethod> mImeCommandReceiver =
             new ImeCommandReceiver<>();
@@ -80,6 +93,18 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
         sendEvent(ON_START_INPUT, editorInfo, restarting);
 
         super.onStartInput(editorInfo, restarting);
+
+        if (editorInfo.extras != null) {
+            final String sessionKey =
+                    editorInfo.extras.getString(EDITOR_INFO_KEY_REPLY_USER_HANDLE_SESSION_ID, null);
+            if (sessionKey != null) {
+                final Bundle bundle = new Bundle();
+                bundle.putString(BUNDLE_KEY_REPLY_USER_HANDLE_SESSION_ID, sessionKey);
+                bundle.putParcelable(BUNDLE_KEY_REPLY_USER_HANDLE, Process.myUserHandle());
+                getCurrentInputConnection().performPrivateCommand(
+                        ACTION_KEY_REPLY_USER_HANDLE, bundle);
+            }
+        }
     }
 
     @Override
@@ -140,7 +165,7 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
     //
 
     @Override
-    public void commandCommitText(final CharSequence text, final int newCursorPosition) {
+    public void commandCommitText(CharSequence text, int newCursorPosition) {
         executeOnInputConnection(ic -> {
             // TODO: Log the return value of {@link InputConnection#commitText(CharSequence,int)}.
             ic.commitText(text, newCursorPosition);
@@ -148,16 +173,16 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
     }
 
     @Override
-    public void commandSwitchInputMethod(final String imeId) {
+    public void commandSwitchInputMethod(String imeId) {
         switchInputMethod(imeId);
     }
 
     @Override
-    public void commandRequestHideSelf(final int flags) {
+    public void commandRequestHideSelf(int flags) {
         requestHideSelf(flags);
     }
 
-    private void executeOnInputConnection(final Consumer<InputConnection> consumer) {
+    private void executeOnInputConnection(Consumer<InputConnection> consumer) {
         final InputConnection ic = getCurrentInputConnection();
         // TODO: Check and log whether {@code ic} is null or equals to
         // {@link #getCurrentInputBindin().getConnection()}.
@@ -166,7 +191,7 @@ public abstract class CtsBaseInputMethod extends InputMethodService implements I
         }
     }
 
-    private void sendEvent(final DeviceEventType type, final Object... args) {
+    private void sendEvent(DeviceEventType type, Object... args) {
         final String sender = getClass().getName();
         final Intent intent = DeviceEvent.newDeviceEventIntent(sender, type);
         // TODO: Send arbitrary {@code args} in {@code intent}.

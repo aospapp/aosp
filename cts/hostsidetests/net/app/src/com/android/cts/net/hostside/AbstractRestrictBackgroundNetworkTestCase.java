@@ -26,10 +26,6 @@ import static android.os.BatteryManager.BATTERY_PLUGGED_WIRELESS;
 
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
-
 import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.NotificationManager;
@@ -38,6 +34,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
@@ -47,11 +44,18 @@ import android.os.BatteryManager;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.provider.Settings;
 import android.service.notification.NotificationListenerService;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.android.compatibility.common.util.BatteryUtils;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Superclass for tests related to background network restrictions.
@@ -92,7 +96,8 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     private static final String NETWORK_STATUS_SEPARATOR = "\\|";
     private static final int SECOND_IN_MS = 1000;
     static final int NETWORK_TIMEOUT_MS = 15 * SECOND_IN_MS;
-    private static final int PROCESS_STATE_FOREGROUND_SERVICE = 3;
+    private static int PROCESS_STATE_FOREGROUND_SERVICE;
+
     private static final int PROCESS_STATE_TOP = 2;
 
     private static final String KEY_NETWORK_STATE_OBSERVER = TEST_PKG + ".observer";
@@ -131,6 +136,8 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
     protected void setUp() throws Exception {
         super.setUp();
 
+        PROCESS_STATE_FOREGROUND_SERVICE = (Integer) ActivityManager.class
+                .getDeclaredField("PROCESS_STATE_FOREGROUND_SERVICE").get(null);
         mInstrumentation = getInstrumentation();
         mContext = mInstrumentation.getContext();
         mCm = (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -150,7 +157,14 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         Log.i(TAG, "Apps status on " + getName() + ":\n"
                 + "\ttest app: uid=" + mMyUid + ", state=" + getProcessStateByUid(mMyUid) + "\n"
                 + "\tapp2: uid=" + mUid + ", state=" + getProcessStateByUid(mUid));
-        executeShellCommand("settings get global app_idle_constants");
+
+        // app_idle_constants set in NetPolicyTestsPreparer.setUp() is not always sucessful (suspect
+        // timing issue), here we set it again to make sure.
+        final String appIdleConstants = "parole_duration=0,stable_charging_threshold=0";
+        executeShellCommand("settings put global app_idle_constants " + appIdleConstants);
+        final String currentConstants =
+                executeShellCommand("settings get global app_idle_constants");
+        assertEquals(appIdleConstants, currentConstants);
    }
 
     @Override
@@ -201,7 +215,7 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         do {
             attempts++;
             count = getNumberBroadcastsReceived(receiverName, ACTION_RESTRICT_BACKGROUND_CHANGED);
-            if (count == expectedCount) {
+            if (count >= expectedCount) {
                 break;
             }
             Log.d(TAG, "Expecting count " + expectedCount + " but actual is " + count + " after "
@@ -301,6 +315,10 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         return mSupported;
     }
 
+    protected boolean isBatterySaverSupported() {
+        return BatteryUtils.isBatterySaverSupported();
+    }
+
     /**
      * Asserts that an app always have access while on foreground or running a foreground service.
      *
@@ -367,6 +385,23 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             SystemClock.sleep(SECOND_IN_MS);
         }
         fail("App2 is not on foreground service state after " + maxTries + " attempts: " + state );
+    }
+
+    /**
+     * As per CDD requirements, if the device doesn't support data saver mode then
+     * ConnectivityManager.getRestrictBackgroundStatus() will always return
+     * RESTRICT_BACKGROUND_STATUS_DISABLED. So, enable the data saver mode and check if
+     * ConnectivityManager.getRestrictBackgroundStatus() for an app in background returns
+     * RESTRICT_BACKGROUND_STATUS_DISABLED or not.
+     */
+    protected boolean isDataSaverSupported() throws Exception {
+        assertMyRestrictBackgroundStatus(RESTRICT_BACKGROUND_STATUS_DISABLED);
+        try {
+            setRestrictBackground(true);
+            return !isMyRestrictBackgroundStatus(RESTRICT_BACKGROUND_STATUS_DISABLED);
+        } finally {
+            setRestrictBackground(false);
+        }
     }
 
     /**
@@ -744,6 +779,20 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
         assertRestrictBackground("restrict-background-blacklist", uid, expected);
     }
 
+    protected void addAppIdleWhitelist(int uid) throws Exception {
+        executeShellCommand("cmd netpolicy add app-idle-whitelist " + uid);
+        assertAppIdleWhitelist(uid, true);
+    }
+
+    protected void removeAppIdleWhitelist(int uid) throws Exception {
+        executeShellCommand("cmd netpolicy remove app-idle-whitelist " + uid);
+        assertAppIdleWhitelist(uid, false);
+    }
+
+    protected void assertAppIdleWhitelist(int uid, boolean expected) throws Exception {
+        assertRestrictBackground("app-idle-whitelist", uid, expected);
+    }
+
     private void assertRestrictBackground(String list, int uid, boolean expected) throws Exception {
         final int maxTries = 5;
         boolean actual = false;
@@ -960,6 +1009,10 @@ abstract class AbstractRestrictBackgroundNetworkTestCase extends Instrumentation
             SystemClock.sleep(SECOND_IN_MS);
         }
         fail("app2 receiver is not ready");
+    }
+
+    protected void registerNetworkCallback(INetworkCallback cb) throws Exception {
+        mServiceClient.registerNetworkCallback(cb);
     }
 
     /**

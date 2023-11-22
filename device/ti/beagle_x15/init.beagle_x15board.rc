@@ -1,0 +1,17 @@
+import /vendor/etc/init/hw/init.beagle_x15board.usb.rc
+
+on post-fs-data
+
+    setprop vold.post_fs_data_done 1
+
+    #enabling thermal zone for mpu
+    write /sys/class/thermal/thermal_zone0/mode enabled
+
+on fs
+    mount_all /vendor/etc/fstab.beagle_x15board
+
+service pvrsrvinit /vendor/bin/pvrsrvctl --start
+    class core
+    user root
+    group root
+    oneshot

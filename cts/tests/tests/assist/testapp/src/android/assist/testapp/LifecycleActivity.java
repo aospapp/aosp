@@ -16,42 +16,25 @@
 
 package android.assist.testapp;
 
-import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
+import android.assist.common.Utils;
 import android.os.Bundle;
 import android.util.Log;
 
-public class LifecycleActivity extends Activity {
+public class LifecycleActivity extends BaseThirdPartyActivity {
     private static final String TAG = "LifecycleActivity";
-
-    private BroadcastReceiver mReceiver;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.i(TAG, "LifecycleActivity created");
-        mReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                String action = intent.getAction();
-                if (action.equals("android.intent.action.hide_lifecycle_activity")) {
-                    finish();
-                }
-            }
-        };
-        IntentFilter filter = new IntentFilter();
-        filter.addAction("android.intent.action.hide_lifecycle_activity");
-        registerReceiver(mReceiver, filter);
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        Log.i(TAG, "Activity has resumed");
-        sendBroadcast(new Intent("android.intent.action.lifecycle_hasResumed"));
+    protected void onReceivedEventFromCaller(Bundle results, String action) {
+        super.onReceivedEventFromCaller(results, action);
+        if (action.equals(Utils.HIDE_LIFECYCLE_ACTIVITY)) {
+            finish();
+        }
     }
 
     @Override
@@ -59,31 +42,30 @@ public class LifecycleActivity extends Activity {
         super.onWindowFocusChanged(hasFocus);
         Log.i(TAG, "Activity focus changed: " + hasFocus);
         if (hasFocus) {
-            sendBroadcast(new Intent("android.intent.action.lifecycle_hasFocus"));
+            notify("android.intent.action.lifecycle_hasFocus");
         } else {
-            sendBroadcast(new Intent("android.intent.action.lifecycle_lostFocus"));
+            notify("android.intent.action.lifecycle_lostFocus");
         }
     }
 
     @Override
     protected void onPause() {
         Log.i(TAG, "activity was paused");
-        sendBroadcast(new Intent("android.intent.action.lifecycle_onpause"));
+        notify("android.intent.action.lifecycle_onpause");
         super.onPause();
     }
 
     @Override
     protected void onStop() {
         Log.i(TAG, "activity was stopped");
-        sendBroadcast(new Intent("android.intent.action.lifecycle_onstop"));
+        notify("android.intent.action.lifecycle_onstop");
         super.onStop();
     }
 
     @Override
     protected void onDestroy() {
         Log.i(TAG, "activity was destroyed");
-        sendBroadcast(new Intent("android.intent.action.lifecycle_ondestroy"));
-        unregisterReceiver(mReceiver);
+        notify("android.intent.action.lifecycle_ondestroy");
         super.onDestroy();
     }
 }

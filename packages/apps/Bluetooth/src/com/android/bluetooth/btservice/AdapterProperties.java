@@ -24,6 +24,7 @@ import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothHeadsetClient;
+import android.bluetooth.BluetoothHearingAid;
 import android.bluetooth.BluetoothHidDevice;
 import android.bluetooth.BluetoothHidHost;
 import android.bluetooth.BluetoothMap;
@@ -40,10 +41,11 @@ import android.content.IntentFilter;
 import android.os.ParcelUuid;
 import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.provider.Settings.Secure;
 import android.util.Log;
 import android.util.Pair;
 import android.util.StatsLog;
+
+import androidx.annotation.VisibleForTesting;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.btservice.RemoteDevices.DeviceProperties;
@@ -76,6 +78,9 @@ class AdapterProperties {
     private volatile int mScanMode;
     private volatile int mDiscoverableTimeout;
     private volatile ParcelUuid[] mUuids;
+    private volatile int mLocalIOCapability = BluetoothAdapter.IO_CAPABILITY_UNKNOWN;
+    private volatile int mLocalIOCapabilityBLE = BluetoothAdapter.IO_CAPABILITY_UNKNOWN;
+
     private CopyOnWriteArrayList<BluetoothDevice> mBondedDevices =
             new CopyOnWriteArrayList<BluetoothDevice>();
 
@@ -128,6 +133,9 @@ class AdapterProperties {
                     break;
                 case BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED:
                     sendConnectionStateChange(BluetoothProfile.HEADSET_CLIENT, intent);
+                    break;
+                case BluetoothHearingAid.ACTION_CONNECTION_STATE_CHANGED:
+                    sendConnectionStateChange(BluetoothProfile.HEARING_AID, intent);
                     break;
                 case BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED:
                     sendConnectionStateChange(BluetoothProfile.A2DP_SINK, intent);
@@ -202,6 +210,7 @@ class AdapterProperties {
         IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothHeadset.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothHeadsetClient.ACTION_CONNECTION_STATE_CHANGED);
+        filter.addAction(BluetoothHearingAid.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothA2dpSink.ACTION_CONNECTION_STATE_CHANGED);
         filter.addAction(BluetoothHidDevice.ACTION_CONNECTION_STATE_CHANGED);
@@ -283,6 +292,45 @@ class AdapterProperties {
     BluetoothClass getBluetoothClass() {
         synchronized (mObject) {
             return mBluetoothClass;
+        }
+    }
+
+    boolean setIoCapability(int capability) {
+        synchronized (mObject) {
+            boolean result = mService.setAdapterPropertyNative(
+                    AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS, Utils.intToByteArray(capability));
+
+            if (result) {
+                mLocalIOCapability = capability;
+            }
+
+            return result;
+        }
+    }
+
+    int getIoCapability() {
+        synchronized (mObject) {
+            return mLocalIOCapability;
+        }
+    }
+
+    boolean setLeIoCapability(int capability) {
+        synchronized (mObject) {
+            boolean result = mService.setAdapterPropertyNative(
+                    AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE,
+                    Utils.intToByteArray(capability));
+
+            if (result) {
+                mLocalIOCapabilityBLE = capability;
+            }
+
+            return result;
+        }
+    }
+
+    int getLeIoCapability() {
+        synchronized (mObject) {
+            return mLocalIOCapabilityBLE;
         }
     }
 
@@ -462,6 +510,7 @@ class AdapterProperties {
 
     // This function shall be invoked from BondStateMachine whenever the bond
     // state changes.
+    @VisibleForTesting
     void onBondStateChanged(BluetoothDevice device, int state) {
         if (device == null) {
             Log.w(TAG, "onBondStateChanged, device is null");
@@ -531,11 +580,9 @@ class AdapterProperties {
         Log.d(TAG,
                 "PROFILE_CONNECTION_STATE_CHANGE: profile=" + profile + ", device=" + device + ", "
                         + prevState + " -> " + state);
-        String ssaid = Secure.getString(mService.getContentResolver(), Secure.ANDROID_ID);
-        String combined = ssaid + device.getAddress();
-        int obfuscated_id = combined.hashCode() & 0xFFFF; // Last two bytes only
-        StatsLog.write(StatsLog.BLUETOOTH_CONNECTION_STATE_CHANGED,
-                state, obfuscated_id, profile);
+        StatsLog.write(StatsLog.BLUETOOTH_CONNECTION_STATE_CHANGED, state, 0 /* deprecated */,
+                profile, mService.obfuscateAddress(device));
+
         if (!isNormalStateTransition(prevState, state)) {
             Log.w(TAG,
                     "PROFILE_CONNECTION_STATE_CHANGE: unexpected transition for profile=" + profile
@@ -792,6 +839,16 @@ class AdapterProperties {
                         updateFeatureSupport(val);
                         break;
 
+                    case AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS:
+                        mLocalIOCapability = Utils.byteArrayToInt(val);
+                        debugLog("mLocalIOCapability set to " + mLocalIOCapability);
+                        break;
+
+                    case AbstractionLayer.BT_PROPERTY_LOCAL_IO_CAPS_BLE:
+                        mLocalIOCapabilityBLE = Utils.byteArrayToInt(val);
+                        debugLog("mLocalIOCapabilityBLE set to " + mLocalIOCapabilityBLE);
+                        break;
+
                     default:
                         errorLog("Property change not handled in Java land:" + type);
                 }
@@ -874,6 +931,7 @@ class AdapterProperties {
             Intent intent;
             if (state == AbstractionLayer.BT_DISCOVERY_STOPPED) {
                 mDiscovering = false;
+                mService.clearDiscoveringPackages();
                 mDiscoveryEndMs = System.currentTimeMillis();
                 intent = new Intent(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
                 mService.sendBroadcast(intent, AdapterService.BLUETOOTH_PERM);

@@ -20,14 +20,17 @@ import static org.mockito.Mockito.*;
 
 import android.bluetooth.BluetoothA2dp;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothCodecConfig;
+import android.bluetooth.BluetoothCodecStatus;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
 import android.os.HandlerThread;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
@@ -54,6 +57,9 @@ public class A2dpStateMachineTest {
     private BluetoothDevice mTestDevice;
     private static final int TIMEOUT_MS = 1000;    // 1s
 
+    private BluetoothCodecConfig mCodecConfigSbc;
+    private BluetoothCodecConfig mCodecConfigAac;
+
     @Mock private AdapterService mAdapterService;
     @Mock private A2dpService mA2dpService;
     @Mock private A2dpNativeInterface mA2dpNativeInterface;
@@ -71,6 +77,22 @@ public class A2dpStateMachineTest {
 
         // Get a device for testing
         mTestDevice = mAdapter.getRemoteDevice("00:01:02:03:04:05");
+
+        // Set up sample codec config
+        mCodecConfigSbc = new BluetoothCodecConfig(
+            BluetoothCodecConfig.SOURCE_CODEC_TYPE_SBC,
+            BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT,
+            BluetoothCodecConfig.SAMPLE_RATE_44100,
+            BluetoothCodecConfig.BITS_PER_SAMPLE_16,
+            BluetoothCodecConfig.CHANNEL_MODE_STEREO,
+            0, 0, 0, 0);       // Codec-specific fields
+        mCodecConfigAac = new BluetoothCodecConfig(
+            BluetoothCodecConfig.SOURCE_CODEC_TYPE_AAC,
+            BluetoothCodecConfig.CODEC_PRIORITY_DEFAULT,
+            BluetoothCodecConfig.SAMPLE_RATE_48000,
+            BluetoothCodecConfig.BITS_PER_SAMPLE_16,
+            BluetoothCodecConfig.CHANNEL_MODE_STEREO,
+            0, 0, 0, 0);       // Codec-specific fields
 
         // Set up thread and looper
         mHandlerThread = new HandlerThread("A2dpStateMachineTestHandlerThread");
@@ -254,5 +276,88 @@ public class A2dpStateMachineTest {
         // Check that we are in Disconnected state
         Assert.assertThat(mA2dpStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(A2dpStateMachine.Disconnected.class));
+    }
+
+    /**
+     * Test that codec config change been reported to A2dpService properly.
+     */
+    @Test
+    public void testProcessCodecConfigEvent() {
+        testProcessCodecConfigEventCase(false);
+    }
+
+    /**
+     * Test that codec config change been reported to A2dpService properly when
+     * A2DP hardware offloading is enabled.
+     */
+    @Test
+    public void testProcessCodecConfigEvent_OffloadEnabled() {
+        testProcessCodecConfigEventCase(true);
+    }
+
+    /**
+     * Helper methold to test processCodecConfigEvent()
+     */
+    public void testProcessCodecConfigEventCase(boolean offloadEnabled) {
+        if (offloadEnabled) {
+            mA2dpStateMachine.mA2dpOffloadEnabled = true;
+        }
+
+        doNothing().when(mA2dpService).codecConfigUpdated(any(BluetoothDevice.class),
+                any(BluetoothCodecStatus.class), anyBoolean());
+        doNothing().when(mA2dpService).updateOptionalCodecsSupport(any(BluetoothDevice.class));
+        allowConnection(true);
+
+        BluetoothCodecConfig[] codecsSelectableSbc;
+        codecsSelectableSbc = new BluetoothCodecConfig[1];
+        codecsSelectableSbc[0] = mCodecConfigSbc;
+
+        BluetoothCodecConfig[] codecsSelectableSbcAac;
+        codecsSelectableSbcAac = new BluetoothCodecConfig[2];
+        codecsSelectableSbcAac[0] = mCodecConfigSbc;
+        codecsSelectableSbcAac[1] = mCodecConfigAac;
+
+        BluetoothCodecStatus codecStatusSbcAndSbc = new BluetoothCodecStatus(mCodecConfigSbc,
+                codecsSelectableSbcAac, codecsSelectableSbc);
+        BluetoothCodecStatus codecStatusSbcAndSbcAac = new BluetoothCodecStatus(mCodecConfigSbc,
+                codecsSelectableSbcAac, codecsSelectableSbcAac);
+        BluetoothCodecStatus codecStatusAacAndSbcAac = new BluetoothCodecStatus(mCodecConfigAac,
+                codecsSelectableSbcAac, codecsSelectableSbcAac);
+
+        // Set default codec status when device disconnected
+        // Selected codec = SBC, selectable codec = SBC
+        mA2dpStateMachine.processCodecConfigEvent(codecStatusSbcAndSbc);
+        verify(mA2dpService).codecConfigUpdated(mTestDevice, codecStatusSbcAndSbc, false);
+
+        // Inject an event to change state machine to connected state
+        A2dpStackEvent connStCh =
+                new A2dpStackEvent(A2dpStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.device = mTestDevice;
+        connStCh.valueInt = A2dpStackEvent.CONNECTION_STATE_CONNECTED;
+        mA2dpStateMachine.sendMessage(A2dpStateMachine.STACK_EVENT, connStCh);
+
+        // Verify that the expected number of broadcasts are executed:
+        // - two calls to broadcastConnectionState(): Disconnected -> Conecting -> Connected
+        // - one call to broadcastAudioState() when entering Connected state
+        ArgumentCaptor<Intent> intentArgument2 = ArgumentCaptor.forClass(Intent.class);
+        verify(mA2dpService, timeout(TIMEOUT_MS).times(2)).sendBroadcast(intentArgument2.capture(),
+                anyString());
+
+        // Verify that state machine update optional codec when enter connected state
+        verify(mA2dpService, times(1)).updateOptionalCodecsSupport(mTestDevice);
+
+        // Change codec status when device connected.
+        // Selected codec = SBC, selectable codec = SBC+AAC
+        mA2dpStateMachine.processCodecConfigEvent(codecStatusSbcAndSbcAac);
+        if (!offloadEnabled) {
+            verify(mA2dpService).codecConfigUpdated(mTestDevice, codecStatusSbcAndSbcAac, true);
+        }
+        verify(mA2dpService, times(2)).updateOptionalCodecsSupport(mTestDevice);
+
+        // Update selected codec with selectable codec unchanged.
+        // Selected codec = AAC, selectable codec = SBC+AAC
+        mA2dpStateMachine.processCodecConfigEvent(codecStatusAacAndSbcAac);
+        verify(mA2dpService).codecConfigUpdated(mTestDevice, codecStatusAacAndSbcAac, false);
+        verify(mA2dpService, times(2)).updateOptionalCodecsSupport(mTestDevice);
     }
 }

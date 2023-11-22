@@ -23,7 +23,7 @@ import com.android.dialer.CoalescedIds;
 import com.android.dialer.calldetails.CallDetailsEntries.CallDetailsEntry;
 import com.android.dialer.calllog.database.contract.AnnotatedCallLogContract.AnnotatedCallLog;
 import com.android.dialer.common.Assert;
-import com.android.dialer.duo.DuoConstants;
+import com.android.dialer.duo.DuoComponent;
 
 /**
  * A {@link CursorLoader} that loads call detail entries from {@link AnnotatedCallLog} for {@link
@@ -42,7 +42,8 @@ public final class CallDetailsCursorLoader extends CursorLoader {
         AnnotatedCallLog.TIMESTAMP,
         AnnotatedCallLog.DURATION,
         AnnotatedCallLog.DATA_USAGE,
-        AnnotatedCallLog.PHONE_ACCOUNT_COMPONENT_NAME
+        AnnotatedCallLog.PHONE_ACCOUNT_COMPONENT_NAME,
+        AnnotatedCallLog.CALL_MAPPING_ID
       };
 
   // Indexes for COLUMNS_FOR_CALL_DETAILS
@@ -53,6 +54,7 @@ public final class CallDetailsCursorLoader extends CursorLoader {
   private static final int DURATION = 4;
   private static final int DATA_USAGE = 5;
   private static final int PHONE_ACCOUNT_COMPONENT_NAME = 6;
+  private static final int CALL_MAPPING_ID = 7;
 
   CallDetailsCursorLoader(Context context, CoalescedIds coalescedIds) {
     super(
@@ -73,8 +75,8 @@ public final class CallDetailsCursorLoader extends CursorLoader {
     // the data loading but no data can be fetched and we want to ensure the data set is not empty
     // when building CallDetailsEntries proto (see toCallDetailsEntries(Cursor)).
     //
-    // CallDetailsActivity doesn't respond to underlying data changes when launched from the old
-    // call log and we decided to keep it that way when launched from the new call log.
+    // OldCallDetailsActivity doesn't respond to underlying data changes and we decided to keep it
+    // that way in CallDetailsActivity.
   }
 
   /**
@@ -117,21 +119,21 @@ public final class CallDetailsCursorLoader extends CursorLoader {
    *     the cursor is not null and the data set it points to is not empty.
    * @return A {@link CallDetailsEntries} proto.
    */
-  static CallDetailsEntries toCallDetailsEntries(Cursor cursor) {
+  static CallDetailsEntries toCallDetailsEntries(Context context, Cursor cursor) {
     Assert.isNotNull(cursor);
     Assert.checkArgument(cursor.moveToFirst());
 
     CallDetailsEntries.Builder entries = CallDetailsEntries.newBuilder();
 
     do {
-      entries.addEntries(toCallDetailsEntry(cursor));
+      entries.addEntries(toCallDetailsEntry(context, cursor));
     } while (cursor.moveToNext());
 
     return entries.build();
   }
 
   /** Creates a new {@link CallDetailsEntry} from the provided cursor using its current position. */
-  private static CallDetailsEntry toCallDetailsEntry(Cursor cursor) {
+  private static CallDetailsEntry toCallDetailsEntry(Context context, Cursor cursor) {
     CallDetailsEntry.Builder entry = CallDetailsEntry.newBuilder();
     entry
         .setCallId(cursor.getLong(ID))
@@ -139,13 +141,11 @@ public final class CallDetailsCursorLoader extends CursorLoader {
         .setFeatures(cursor.getInt(FEATURES))
         .setDate(cursor.getLong(TIMESTAMP))
         .setDuration(cursor.getLong(DURATION))
-        .setDataUsage(cursor.getLong(DATA_USAGE));
+        .setDataUsage(cursor.getLong(DATA_USAGE))
+        .setCallMappingId(cursor.getString(CALL_MAPPING_ID));
 
     String phoneAccountComponentName = cursor.getString(PHONE_ACCOUNT_COMPONENT_NAME);
-    entry.setIsDuoCall(
-        DuoConstants.PHONE_ACCOUNT_COMPONENT_NAME
-            .flattenToString()
-            .equals(phoneAccountComponentName));
+    entry.setIsDuoCall(DuoComponent.get(context).getDuo().isDuoAccount(phoneAccountComponentName));
 
     return entry.build();
   }

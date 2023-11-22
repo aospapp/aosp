@@ -145,7 +145,8 @@ public class ITestSuiteMultiTest {
 
         mTestSuite.setSystemStatusChecker(new ArrayList<>());
         mMockListener.testModuleStarted(EasyMock.anyObject());
-        mMockListener.testRunStarted("test1", 2);
+        mMockListener.testRunStarted(
+                EasyMock.eq("test1"), EasyMock.eq(2), EasyMock.eq(0), EasyMock.anyLong());
         TestDescription test1 =
                 new TestDescription(MultiDeviceStubTest.class.getSimpleName(), "test0");
         mMockListener.testStarted(test1, 0l);
@@ -155,7 +156,7 @@ public class ITestSuiteMultiTest {
         mMockListener.testStarted(test2, 0l);
         mMockListener.testEnded(test2, 5l, new HashMap<String, Metric>());
         mMockListener.testRunEnded(
-                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         mMockListener.testModuleEnded();
 
         // Target preparation is triggered against the preparer in the second device.

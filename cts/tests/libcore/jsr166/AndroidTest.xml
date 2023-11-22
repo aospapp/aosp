@@ -16,6 +16,8 @@
 <configuration description="Config for CTS Libcore JSR166 test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="libcore" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/ctslibcore/java.io.tmpdir" />
         <option name="run-command" value="mkdir -p /data/local/tmp/ctslibcore/user.home" />
@@ -36,4 +38,8 @@
         <option name="shell-timeout" value="12000000"/>
         <option name="hidden-api-checks" value="false"/>
     </test>
+
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.TestFailureModuleController">
+        <option name="screenshot-on-failure" value="false" />
+    </object>
 </configuration>

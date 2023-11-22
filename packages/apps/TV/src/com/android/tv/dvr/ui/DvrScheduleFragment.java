@@ -34,7 +34,6 @@ import com.android.tv.dvr.DvrManager;
 import com.android.tv.dvr.data.ScheduledRecording;
 import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.DvrConflictFragment.DvrProgramConflictFragment;
-import com.android.tv.util.Utils;
 import java.util.Collections;
 import java.util.List;
 
@@ -104,12 +103,7 @@ public class DvrScheduleFragment extends DvrGuidedStepFragment {
                                     mProgram.getEndTimeUtcMillis(),
                                     DateUtils.FORMAT_SHOW_TIME));
         } else {
-            description =
-                    Utils.getDurationString(
-                            context,
-                            mProgram.getStartTimeUtcMillis(),
-                            mProgram.getEndTimeUtcMillis(),
-                            true);
+            description = mProgram.getDurationString(context);
         }
         actions.add(
                 new GuidedAction.Builder(context)

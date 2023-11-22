@@ -15,13 +15,14 @@
  */
 package android.mediastress.cts.preconditions.app;
 
-import com.android.compatibility.common.util.DynamicConfigDeviceSide;
-import com.android.compatibility.common.util.MediaUtils;
-
 import android.app.Instrumentation;
 import android.media.MediaFormat;
 import android.os.Bundle;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.DynamicConfigDeviceSide;
+import com.android.compatibility.common.util.MediaUtils;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

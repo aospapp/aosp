@@ -19,7 +19,7 @@ package com.android.documentsui.testing;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import android.annotation.StringRes;
+import androidx.annotation.StringRes;
 import android.view.MenuItem;
 import android.view.View;
 

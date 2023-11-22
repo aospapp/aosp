@@ -18,30 +18,47 @@ package android.inputmethodservice.cts.db;
 
 import android.content.ContentValues;
 import android.database.Cursor;
+
 import androidx.annotation.NonNull;
 
 import java.util.stream.Stream;
 
 /**
  * Abstraction of SQLite database table.
+ * @param <E> type of table entities.
  */
 public abstract class Table<E> {
 
     public final String mName;
     private final Entity<E> mEntity;
 
-    protected Table(final String name, final Entity<E> entity) {
+    protected Table(String name, Entity<E> entity) {
         mName = name;
         mEntity = entity;
     }
 
+    /**
+     * @return name of this table.
+     */
     public String name() {
         return mName;
     }
 
-    public abstract ContentValues buildContentValues(final E entity);
+    /**
+     * Build {@link ContentValues} object from {@code entity}.
+     *
+     * @param entity an input data to be converted.
+     * @return a converted {@link ContentValues} object.
+     */
+    public abstract ContentValues buildContentValues(E entity);
 
-    public abstract Stream<E> buildStream(final Cursor cursor);
+    /**
+     * Build {@link Stream} object from {@link Cursor} comes from Content Provider.
+     *
+     * @param cursor a {@link Cursor} object to be converted.
+     * @return a converted {@link Stream} object.
+     */
+    public abstract Stream<E> buildStream(Cursor cursor);
 
     /**
      * Returns SQL statement to create this table, such that
@@ -53,7 +70,7 @@ public abstract class Table<E> {
         return "CREATE TABLE IF NOT EXISTS " + mName + " " + mEntity.createEntitySql();
     }
 
-    protected Field getField(final String fieldName) {
+    protected Field getField(String fieldName) {
         return mEntity.getField(fieldName);
     }
 }

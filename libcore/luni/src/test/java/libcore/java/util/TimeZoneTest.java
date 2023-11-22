@@ -20,17 +20,11 @@ import junit.framework.TestCase;
 
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 import java.util.SimpleTimeZone;
 import java.util.TimeZone;
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class TimeZoneTest extends TestCase {
     // http://code.google.com/p/android/issues/detail?id=877
@@ -64,7 +58,30 @@ public class TimeZoneTest extends TestCase {
     }
 
     // http://code.google.com/p/android/issues/detail?id=14395
-    public void testPreHistoricInDaylightTime() throws Exception {
+    public void testPreHistoricInDaylightTime() {
+        // A replacement for testPreHistoricInDaylightTime_old() using a zone that still lacks an
+        // explicit transition at Integer.MIN_VALUE with zic 2019a and 2019a data.
+        TimeZone tz = TimeZone.getTimeZone("CET");
+
+        long firstTransitionTimeMillis = -1693706400000L; // Apr 30, 1916 22:00:00 GMT
+        assertEquals(7200000L, tz.getOffset(firstTransitionTimeMillis));
+        assertTrue(tz.inDaylightTime(new Date(firstTransitionTimeMillis)));
+
+        long beforeFirstTransitionTimeMillis = firstTransitionTimeMillis - 1;
+        assertEquals(3600000L, tz.getOffset(beforeFirstTransitionTimeMillis));
+        assertFalse(tz.inDaylightTime(new Date(beforeFirstTransitionTimeMillis)));
+    }
+
+    // http://code.google.com/p/android/issues/detail?id=14395
+    public void testPreHistoricInDaylightTime_old() throws Exception {
+        // Originally this test was intended to assert what happens when the first transition for a
+        // time zone was a "to DST" transition. i.e. that the (implicit) offset / DST state before
+        // the first was treated as a non-DST state. Since zic version 2014c some zones have an
+        // explicit non-DST transition at time -2^31 seconds so it is no longer possible to test
+        // this with America/Los_Angeles.
+        // This regression test has been kept in case that changes again in future and to prove the
+        // behavior has remained consistent.
+
         Locale.setDefault(Locale.US);
         TimeZone tz = TimeZone.getTimeZone("America/Los_Angeles");
         TimeZone.setDefault(tz);
@@ -75,7 +92,7 @@ public class TimeZoneTest extends TestCase {
         assertFalse(tz.inDaylightTime(date));
         assertEquals("Fri Oct 31 08:00:00 PST 1902", date.toString());
         assertEquals("31 Oct 1902 16:00:00 GMT", date.toGMTString());
-        // Any time before we have transition data is considered non-daylight, even in summer.
+        // For zic versions <= 2014b, this would be before the first transition.
         date = sdf.parse("1902-06-01T00:00:00.000+0800");
         assertEquals(-28800000, tz.getOffset(date.getTime()));
         assertFalse(tz.inDaylightTime(date));
@@ -88,33 +105,47 @@ public class TimeZoneTest extends TestCase {
     }
 
     public void testPreHistoricOffsets() throws Exception {
-        // "Africa/Bissau" has just a few transitions and hasn't changed in a long time.
-        // 1912-01-01 00:02:19-0100 ... 1912-01-01 00:02:20-0100
-        // 1974-12-31 23:59:59-0100 ... 1975-01-01 01:00:00+0000
+        // Note: This test changed after P to account for previously incorrect handling of
+        // prehistoric offsets. http://b/118835133
+        // "Africa/Bissau" has just a few known transitions:
+        // Transition time             : Offset    : DST / non-DST
+        // <Integer.MIN_VALUE secs>[1] : -01:02:20 : non-DST
+        // 1912-01-01 01:00:00 GMT     : -01:00:00 : non-DST
+        // 1975-01-01 01:00:00 GMT     :  00:00:00 : non-DST
+        //
+        // [1] This transition can be implicit or explicit depending on the version of zic used to
+        // generate the data. When implicit, the first non-DST type defn should be used.
         TimeZone tz = TimeZone.getTimeZone("Africa/Bissau");
 
-        // Times before our first transition should assume we're still following that transition.
-        assertNonDaylightOffset(-3600, parseIsoTime("1911-01-01T00:00:00.0+0000"), tz);
+        // Times before Integer.MIN_VALUE should assume we're using the first non-DST type.
+        assertNonDaylightOffset(-3740, parseIsoTime("1900-01-01T00:00:00.0+0000"), tz);
 
+        // Time before 1912-01-01 01:00:00 but after Integer.MIN_VALUE.
+        assertNonDaylightOffset(-3740, parseIsoTime("1911-01-01T00:00:00.0+0000"), tz);
+
+        // Times after 1912-01-01 01:00:00 should use that transition.
         assertNonDaylightOffset(-3600, parseIsoTime("1912-01-01T12:00:00.0-0100"), tz);
 
-        // Times after our last transition should assume we're still following that transition.
+        // Times after 1975-01-01 01:00:00 should use that transition.
         assertNonDaylightOffset(0, parseIsoTime("1980-01-01T00:00:00.0+0000"), tz);
     }
 
-    private static void assertNonDaylightOffset(int expectedOffsetSeconds, long epochSeconds, TimeZone tz) {
-        assertEquals(expectedOffsetSeconds, tz.getOffset(epochSeconds * 1000) / 1000);
-        assertFalse(tz.inDaylightTime(new Date(epochSeconds * 1000)));
+    private static void assertNonDaylightOffset(
+            int expectedOffsetSeconds, long epochMillis, TimeZone tz) {
+        assertEquals(expectedOffsetSeconds, tz.getOffset(epochMillis) / 1000);
+        assertFalse(tz.inDaylightTime(new Date(epochMillis)));
     }
 
+    /** Returns the millis elapsed since the beginning of the Unix epoch. */
     private static long parseIsoTime(String isoTime) throws Exception {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         Date date = sdf.parse(isoTime);
-        return date.getTime() / 1000;
+        return date.getTime();
     }
 
-    public void testZeroTransitionZones() throws Exception {
-        // Zones with no transitions historical or future seem ideal for testing.
+    public void testMinimalTransitionZones() throws Exception {
+        // Zones with minimal transitions, historical or future, seem ideal for testing.
+        // UTC is also included, although it may be implemented differently from the others.
         String[] ids = new String[] { "Africa/Bujumbura", "Indian/Cocos", "Pacific/Wake", "UTC" };
         for (String id : ids) {
             TimeZone tz = TimeZone.getTimeZone(id);
@@ -288,31 +319,6 @@ public class TimeZoneTest extends TestCase {
         assertEquals("", failures.toString());
     }
 
-    // http://b/30527513
-    public void testDisplayNamesWithScript() throws Exception {
-        Locale latinLocale = Locale.forLanguageTag("sr-Latn-RS");
-        Locale cyrillicLocale = Locale.forLanguageTag("sr-Cyrl-RS");
-        Locale noScriptLocale = Locale.forLanguageTag("sr-RS");
-        TimeZone tz = TimeZone.getTimeZone("Europe/London");
-
-        final String latinName = "Srednje vreme po Griniču";
-        final String cyrillicName = "Средње време по Гриничу";
-
-        // Check java.util.TimeZone
-        assertEquals(latinName, tz.getDisplayName(latinLocale));
-        assertEquals(cyrillicName, tz.getDisplayName(cyrillicLocale));
-        assertEquals(cyrillicName, tz.getDisplayName(noScriptLocale));
-
-        // Check ICU TimeZoneNames
-        // The one-argument getDisplayName() override uses LONG_GENERIC style which is different
-        // from what java.util.TimeZone uses. Force the LONG style to get equivalent results.
-        final int style = android.icu.util.TimeZone.LONG;
-        android.icu.util.TimeZone utz = android.icu.util.TimeZone.getTimeZone(tz.getID());
-        assertEquals(latinName, utz.getDisplayName(false, style, latinLocale));
-        assertEquals(cyrillicName, utz.getDisplayName(false, style, cyrillicLocale));
-        assertEquals(cyrillicName, utz.getDisplayName(false, style, noScriptLocale));
-    }
-
     // http://b/7955614
     public void testApia() throws Exception {
         TimeZone tz = TimeZone.getTimeZone("Pacific/Apia");
@@ -340,18 +346,42 @@ public class TimeZoneTest extends TestCase {
         return String.format("GMT%c%02d:%02d", sign, offset / 60, offset % 60);
     }
 
-    // http://b/18839557
+    /**
+     * This test is to check for 32-bit integer overflow / underflow in TimeZone offset
+     * calculations. A bug (http://b/18839557) was reported when someone noticed that Android's
+     * TimeZone didn't produce the same answers as other libraries at times just outside the range
+     * of Integer seconds. The reason was because of int overflow / underflow which has been fixed.
+     * At the time of writing, Android's java.util.TimeZone implementation only supports reading
+     * TZif version 1 data (32-bit times) and provides one additional "before first transition"
+     * type. This makes Android's time zone information outside of the Integer range unreliable and
+     * unlikely to match libraries that use 64-bit times for transitions and/or calculate times
+     * outside of the range using rules (e.g. like ICU4J does).
+     */
     public void testOverflowing32BitUnixDates() {
         final TimeZone tz = TimeZone.getTimeZone("America/New_York");
 
-        // This timezone didn't have any daylight savings prior to 1917 and this
-        // date is sometime in 1901.
-        assertFalse(tz.inDaylightTime(new Date(-2206292400000L)));
-        assertEquals(-18000000, tz.getOffset(-2206292400000L));
+        // These times are significant because they are outside the 32-bit range for seconds.
+        final long beforeInt32Seconds = -2206292400L; // Thu, 01 Feb 1900 05:00:00 GMT
+        final long afterInt32Seconds = 2206292400L; // Wed, 30 Nov 2039 19:00:00 GMT
+
+        final long lowerTimeMillis = beforeInt32Seconds * 1000L;
+        final long upperTimeMillis = afterInt32Seconds * 1000L;
+
+        // This timezone didn't have any daylight savings prior to 1917 and this date is in 1900.
+        assertFalse(tz.inDaylightTime(new Date(lowerTimeMillis)));
+
+        // http://b/118835133:
+        // zic <= 2014b produces data that suggests before -1633280400 seconds (Sun, 31 Mar 1918
+        // 07:00:00 GMT) the offset was -18000000.
+        // zic > 2014b produces data that suggests before Integer.MIN_VALUE seconds the offset was
+        // -17762000 and between Integer.MIN_VALUE and -1633280400 it was -18000000. Once Android
+        // moves to zic > 2014b the -18000000 can be removed. http://b/73719425
+        int actualOffset = tz.getOffset(lowerTimeMillis);
+        assertTrue(-18000000 == actualOffset || -17762000 == actualOffset);
 
         // Nov 30th 2039, no daylight savings as per current rules.
-        assertFalse(tz.inDaylightTime(new Date(2206292400000L)));
-        assertEquals(-18000000, tz.getOffset(2206292400000L));
+        assertFalse(tz.inDaylightTime(new Date(upperTimeMillis)));
+        assertEquals(-18000000, tz.getOffset(upperTimeMillis));
     }
 
     public void testTimeZoneIDLocalization() {
@@ -368,22 +398,6 @@ public class TimeZoneTest extends TestCase {
         }
     }
 
-    // http://b/28949992
-    public void testSetDefaultAppliesToIcuTimezone() {
-        TimeZone origTz = TimeZone.getDefault();
-        try {
-            android.icu.util.TimeZone origIcuTz = android.icu.util.TimeZone.getDefault();
-            assertEquals(origTz.getID(), origIcuTz.getID());
-
-            TimeZone tz = TimeZone.getTimeZone("GMT-05:00");
-            TimeZone.setDefault(tz);
-            android.icu.util.TimeZone icuTz = android.icu.util.TimeZone.getDefault();
-            assertEquals(tz.getID(), icuTz.getID());
-        } finally {
-            TimeZone.setDefault(origTz);
-        }
-    }
-
     // http://b/33197219
     public void testDisplayNameForNonCanonicalTimezones() {
         TimeZone canonical = TimeZone.getTimeZone("Europe/London");
@@ -394,108 +408,5 @@ public class TimeZoneTest extends TestCase {
 
         assertEquals(canonical.getDisplayName(true, TimeZone.LONG, Locale.ENGLISH),
                 nonCanonical.getDisplayName(true, TimeZone.LONG, Locale.ENGLISH));
-    }
-
-    // http://b/30937209
-    public void testSetDefaultDeadlock() throws InterruptedException, BrokenBarrierException {
-        // Since this tests a deadlock, the test has two fundamental problems:
-        // - it is probabilistic: it's not guaranteed to fail if the problem exists
-        // - if it fails, it will effectively hang the current runtime, as no other thread will
-        //   be able to call TimeZone.getDefault()/setDefault() successfully any more.
-
-        // 10 was too low to be reliable, 100 failed more than half the time (on a bullhead).
-        final int iterations = 100;
-        TimeZone otherTimeZone = TimeZone.getTimeZone("Europe/London");
-        AtomicInteger setterCount = new AtomicInteger();
-        CyclicBarrier startBarrier = new CyclicBarrier(2);
-        Thread setter = new Thread(() -> {
-            waitFor(startBarrier);
-            for (int i = 0; i < iterations; i++) {
-                TimeZone.setDefault(otherTimeZone);
-                TimeZone.setDefault(null);
-                setterCount.set(i+1);
-            }
-        });
-        setter.setName("testSetDefaultDeadlock setter");
-
-        AtomicInteger getterCount = new AtomicInteger();
-        Thread getter = new Thread(() -> {
-            waitFor(startBarrier);
-            for (int i = 0; i < iterations; i++) {
-                android.icu.util.TimeZone.getDefault();
-                getterCount.set(i+1);
-            }
-        });
-        getter.setName("testSetDefaultDeadlock getter");
-
-        setter.start();
-        getter.start();
-
-        // 2 seconds is plenty: If successful, we usually complete much faster.
-        setter.join(1000);
-        getter.join(1000);
-        if (setter.isAlive() || getter.isAlive()) {
-            fail("Threads are still alive. Getter iteration count: " + getterCount.get()
-                    + ", setter iteration count: " + setterCount.get());
-        }
-        // Guard against unexpected uncaught exceptions.
-        assertEquals("Setter iterations", iterations, setterCount.get());
-        assertEquals("Getter iterations", iterations, getterCount.get());
-    }
-
-    // http://b/30979219
-    public void testSetDefaultRace() throws InterruptedException {
-        // Since this tests a race condition, the test is probabilistic: it's not guaranteed to
-        // fail if the problem exists
-
-        // These iterations are significantly faster than the ones in #testSetDefaultDeadlock
-        final int iterations = 10000;
-        List<Throwable> exceptions = Collections.synchronizedList(new ArrayList<>());
-        Thread.UncaughtExceptionHandler handler = (t, e) -> exceptions.add(e);
-
-        CyclicBarrier startBarrier = new CyclicBarrier(2);
-        Thread clearer = new Thread(() -> {
-            waitFor(startBarrier);
-            for (int i = 0; i < iterations; i++) {
-                // This is not public API but can effectively be invoked via
-                // java.util.TimeZone.setDefault. Call it directly to reduce the amount of code
-                // involved in this test.
-                android.icu.util.TimeZone.setICUDefault(null);
-            }
-        });
-        clearer.setName("testSetDefaultRace clearer");
-        clearer.setUncaughtExceptionHandler(handler);
-
-        Thread getter = new Thread(() -> {
-            waitFor(startBarrier);
-            for (int i = 0; i < iterations; i++) {
-                android.icu.util.TimeZone.getDefault();
-            }
-        });
-        getter.setName("testSetDefaultRace getter");
-        getter.setUncaughtExceptionHandler(handler);
-
-        clearer.start();
-        getter.start();
-
-        // 20 seconds is plenty: If successful, we usually complete much faster.
-        clearer.join(10000);
-        getter.join(10000);
-
-        if (!exceptions.isEmpty()) {
-            Throwable firstException = exceptions.get(0);
-            firstException.printStackTrace();
-            fail("Threads did not succeed successfully: " + firstException);
-        }
-        assertFalse("clearer thread is still alive", clearer.isAlive());
-        assertFalse("getter thread is still alive", getter.isAlive());
-    }
-
-    private static void waitFor(CyclicBarrier barrier) {
-        try {
-            barrier.await();
-        } catch (InterruptedException | BrokenBarrierException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

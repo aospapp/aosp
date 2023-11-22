@@ -18,10 +18,12 @@
 #define ANDROID_VINTF_COMPATIBILITY_MATRIX_H
 
 #include <map>
+#include <memory>
 #include <string>
 
 #include <utils/Errors.h>
 
+#include "FileSystem.h"
 #include "HalGroup.h"
 #include "Level.h"
 #include "MapValueIterator.h"
@@ -42,7 +44,7 @@ namespace vintf {
 // Compatibility matrix defines what hardware does the framework requires.
 struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<MatrixXmlFile> {
     // Create a framework compatibility matrix.
-    CompatibilityMatrix() : mType(SchemaType::FRAMEWORK) {};
+    CompatibilityMatrix() : mType(SchemaType::FRAMEWORK) {}
 
     SchemaType type() const;
     Level level() const;
@@ -63,9 +65,35 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<Mat
         const std::string& package, const Version& expectVersion,
         const std::function<bool(const MatrixInstance&)>& func) const override;
 
+    std::string getVendorNdkVersion() const;
+
    private:
-    bool add(MatrixHal &&hal);
-    bool add(MatrixKernel &&kernel);
+    // Add everything in inputMatrix to "this" as requirements.
+    bool addAll(Named<CompatibilityMatrix>* inputMatrix, std::string* error);
+
+    // Add all <kernel> from other to "this". Error if there is a conflict.
+    bool addAllKernels(CompatibilityMatrix* other, std::string* error);
+
+    // Add a <kernel> tag to "this". Error if there is a conflict.
+    bool addKernel(MatrixKernel&& kernel, std::string* error);
+
+    // Merge <sepolicy> with other's <sepolicy>. Error if there is a conflict.
+    bool addSepolicy(CompatibilityMatrix* other, std::string* error);
+
+    // Merge <avb><vbmeta-version> with other's <avb><vbmeta-version>. Error if there is a conflict.
+    bool addAvbMetaVersion(CompatibilityMatrix* other, std::string* error);
+
+    // Merge <vndk> with other's <vndk>. Error if there is a conflict.
+    bool addVndk(CompatibilityMatrix* other, std::string* error);
+
+    // Merge <vendor-ndk> with other's <vendor-ndk>. Error if there is a conflict.
+    bool addVendorNdk(CompatibilityMatrix* other, std::string* error);
+
+    // Merge <system-sdk> with other's <system-sdk>.
+    bool addSystemSdk(CompatibilityMatrix* other, std::string* error);
+
+    // Add everything in inputMatrix to "this" as optional.
+    bool addAllAsOptional(Named<CompatibilityMatrix>* inputMatrix, std::string* error);
 
     // Add all HALs as optional HALs from "other". This function moves MatrixHal objects
     // from "other".
@@ -78,21 +106,26 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<Mat
     // Similar to addAllHalsAsOptional but on <kernel> entries.
     bool addAllKernelsAsOptional(CompatibilityMatrix* other, std::string* error);
 
-    status_t fetchAllInformation(const std::string& path, std::string* error = nullptr);
-
-    // Combine a subset of "matrices". For each CompatibilityMatrix in matrices,
-    // - If level() == UNSPECIFIED, use it as the base matrix (for non-HAL, non-XML-file
-    //   requirements).
+    // Combine a set of framework compatibility matrices. For each CompatibilityMatrix in matrices
+    // (in the order of level(), where UNSPECIFIED (empty) is treated as deviceLevel)
     // - If level() < deviceLevel, ignore
-    // - If level() == deviceLevel, all HAL versions and XML files are added as is
-    //   (optionality is kept)
-    // - If level() > deviceLevel, all HAL versions and XML files are added as optional.
-    // Return a pointer into one of the elements in "matrices".
-    static CompatibilityMatrix* combine(Level deviceLevel,
-                                        std::vector<Named<CompatibilityMatrix>>* matrices,
-                                        std::string* error);
-    static CompatibilityMatrix* findOrInsertBaseMatrix(
+    // - If level() == UNSPECIFIED or level() == deviceLevel,
+    //   - Add as hard requirements. See combineSameFcmVersion
+    // - If level() > deviceLevel,
+    //   - all <hal> versions and <xmlfile>s are added as optional.
+    //   - <kernel minlts="x.y.z"> is added only if x.y does not exist in a file
+    //     with lower level()
+    //   - <sepolicy>, <avb><vbmeta-version> is ignored
+    // Return the combined matrix, nullptr if any error (e.g. conflict of information).
+    static std::unique_ptr<CompatibilityMatrix> combine(
+        Level deviceLevel, std::vector<Named<CompatibilityMatrix>>* matrices, std::string* error);
+
+    // Combine a set of device compatibility matrices.
+    static std::unique_ptr<CompatibilityMatrix> combineDeviceMatrices(
         std::vector<Named<CompatibilityMatrix>>* matrices, std::string* error);
+
+    status_t fetchAllInformation(const FileSystem* fileSystem, const std::string& path,
+                                 std::string* error = nullptr);
 
     MatrixHal* splitInstance(MatrixHal* existingHal, const std::string& interface,
                              const std::string& instance, bool isRegex);
@@ -106,6 +139,8 @@ struct CompatibilityMatrix : public HalGroup<MatrixHal>, public XmlFileGroup<Mat
     friend struct RuntimeInfo;
     friend struct CompatibilityMatrixConverter;
     friend struct LibVintfTest;
+    friend struct FrameworkCompatibilityMatrixCombineTest;
+    friend struct DeviceCompatibilityMatrixCombineTest;
     friend class VintfObject;
     friend class AssembleVintfImpl;
     friend bool operator==(const CompatibilityMatrix &, const CompatibilityMatrix &);

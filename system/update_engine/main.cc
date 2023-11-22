@@ -108,9 +108,8 @@ void SetupLogSymlink(const string& symlink_path, const string& log_path) {
   // we stop caring about the old-style logs.
   if (utils::FileExists(symlink_path.c_str()) &&
       !utils::IsSymlink(symlink_path.c_str())) {
-    base::ReplaceFile(base::FilePath(symlink_path),
-                      base::FilePath(log_path),
-                      nullptr);
+    base::ReplaceFile(
+        base::FilePath(symlink_path), base::FilePath(log_path), nullptr);
   }
   base::DeleteFile(base::FilePath(symlink_path), true);
   if (symlink(log_path.c_str(), symlink_path.c_str()) == -1) {
@@ -160,13 +159,13 @@ void SetupLogging(bool log_to_system, bool log_to_file) {
 
 int main(int argc, char** argv) {
   DEFINE_bool(logtofile, false, "Write logs to a file in log_dir.");
-  DEFINE_bool(logtostderr, false,
+  DEFINE_bool(logtostderr,
+              false,
               "Write logs to stderr instead of to a file in log_dir.");
-  DEFINE_bool(foreground, false,
-              "Don't daemon()ize; run in foreground.");
+  DEFINE_bool(foreground, false, "Don't daemon()ize; run in foreground.");
 
   chromeos_update_engine::Terminator::Init();
-  brillo::FlagHelper::Init(argc, argv, "Chromium OS Update Engine");
+  brillo::FlagHelper::Init(argc, argv, "A/B Update Engine");
 
   // We have two logging flags "--logtostderr" and "--logtofile"; and the logic
   // to choose the logging destination is:
@@ -179,7 +178,7 @@ int main(int argc, char** argv) {
   if (!FLAGS_foreground)
     PLOG_IF(FATAL, daemon(0, 0) == 1) << "daemon() failed";
 
-  LOG(INFO) << "Chrome OS Update Engine starting";
+  LOG(INFO) << "A/B Update Engine starting";
 
   // xz-embedded requires to initialize its CRC-32 table once on startup.
   xz_crc32_init();
@@ -194,7 +193,8 @@ int main(int argc, char** argv) {
   chromeos_update_engine::UpdateEngineDaemon update_engine_daemon;
   int exit_code = update_engine_daemon.Run();
 
-  LOG(INFO) << "Chrome OS Update Engine terminating with exit code "
-            << exit_code;
+  chromeos_update_engine::Subprocess::Get().FlushBufferedLogsAtExit();
+
+  LOG(INFO) << "A/B Update Engine terminating with exit code " << exit_code;
   return exit_code;
 }

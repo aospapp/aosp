@@ -37,6 +37,7 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.telecom.Log;
 import android.telecom.PhoneAccountHandle;
 
@@ -96,6 +97,8 @@ public class TelecomSystem {
                 .addDataAuthority(DialerCodeReceiver.TELECOM_SECRET_CODE_DEBUG_OFF, null);
         DIALER_SECRET_CODE_FILTER
                 .addDataAuthority(DialerCodeReceiver.TELECOM_SECRET_CODE_MARK, null);
+        DIALER_SECRET_CODE_FILTER
+                .addDataAuthority(DialerCodeReceiver.TELECOM_SECRET_CODE_MENU, null);
     }
 
     private static TelecomSystem INSTANCE = null;
@@ -193,14 +196,16 @@ public class TelecomSystem {
             PhoneNumberUtilsAdapter phoneNumberUtilsAdapter,
             IncomingCallNotifier incomingCallNotifier,
             InCallTonePlayer.ToneGeneratorFactory toneGeneratorFactory,
-            ClockProxy clockProxy) {
+            CallAudioRouteStateMachine.Factory callAudioRouteStateMachineFactory,
+            ClockProxy clockProxy,
+            RoleManagerAdapter roleManagerAdapter) {
         mContext = context.getApplicationContext();
         LogUtils.initLogging(mContext);
         DefaultDialerManagerAdapter defaultDialerAdapter =
                 new DefaultDialerCache.DefaultDialerManagerAdapterImpl();
 
         DefaultDialerCache defaultDialerCache = new DefaultDialerCache(mContext,
-                defaultDialerAdapter, mLock);
+                defaultDialerAdapter, roleManagerAdapter, mLock);
 
         Log.startSession("TS.init");
         mPhoneAccountRegistrar = new PhoneAccountRegistrar(mContext, defaultDialerCache,
@@ -227,7 +232,7 @@ public class TelecomSystem {
                     }
                 });
         BluetoothDeviceManager bluetoothDeviceManager = new BluetoothDeviceManager(mContext,
-                new BluetoothAdapterProxy(), mLock);
+                new BluetoothAdapterProxy());
         BluetoothRouteManager bluetoothRouteManager = new BluetoothRouteManager(mContext, mLock,
                 bluetoothDeviceManager, new Timeouts.Adapter());
         BluetoothStateReceiver bluetoothStateReceiver = new BluetoothStateReceiver(
@@ -235,18 +240,22 @@ public class TelecomSystem {
         mContext.registerReceiver(bluetoothStateReceiver, BluetoothStateReceiver.INTENT_FILTER);
 
         WiredHeadsetManager wiredHeadsetManager = new WiredHeadsetManager(mContext);
-        SystemStateProvider systemStateProvider = new SystemStateProvider(mContext);
+        SystemStateHelper systemStateHelper = new SystemStateHelper(mContext);
 
         mMissedCallNotifier = missedCallNotifierImplFactory
                 .makeMissedCallNotifierImpl(mContext, mPhoneAccountRegistrar, defaultDialerCache);
 
+        CallerInfoLookupHelper callerInfoLookupHelper =
+                new CallerInfoLookupHelper(context, callerInfoAsyncQueryFactory,
+                        mContactsAsyncHelper, mLock);
+
         EmergencyCallHelper emergencyCallHelper = new EmergencyCallHelper(mContext,
-                mContext.getResources().getString(R.string.ui_default_package), timeoutsAdapter);
+                TelecomServiceImpl.getSystemDialerPackage(mContext), timeoutsAdapter);
 
         InCallControllerFactory inCallControllerFactory = new InCallControllerFactory() {
             @Override
             public InCallController create(Context context, SyncRoot lock,
-                    CallsManager callsManager, SystemStateProvider systemStateProvider,
+                    CallsManager callsManager, SystemStateHelper systemStateProvider,
                     DefaultDialerCache defaultDialerCache, Timeouts.Adapter timeoutsAdapter,
                     EmergencyCallHelper emergencyCallHelper) {
                 return new InCallController(context, lock, callsManager, systemStateProvider,
@@ -257,8 +266,7 @@ public class TelecomSystem {
         mCallsManager = new CallsManager(
                 mContext,
                 mLock,
-                mContactsAsyncHelper,
-                callerInfoAsyncQueryFactory,
+                callerInfoLookupHelper,
                 mMissedCallNotifier,
                 mPhoneAccountRegistrar,
                 headsetMediaButtonFactory,
@@ -268,7 +276,7 @@ public class TelecomSystem {
                 audioServiceFactory,
                 bluetoothRouteManager,
                 wiredHeadsetManager,
-                systemStateProvider,
+                systemStateHelper,
                 defaultDialerCache,
                 timeoutsAdapter,
                 asyncRingtonePlayer,
@@ -277,18 +285,25 @@ public class TelecomSystem {
                 toneGeneratorFactory,
                 clockProxy,
                 bluetoothStateReceiver,
-                inCallControllerFactory);
+                callAudioRouteStateMachineFactory,
+                new CallAudioModeStateMachine.Factory(),
+                inCallControllerFactory,
+                roleManagerAdapter);
 
         mIncomingCallNotifier = incomingCallNotifier;
         incomingCallNotifier.setCallsManagerProxy(new IncomingCallNotifier.CallsManagerProxy() {
             @Override
-            public boolean hasCallsForOtherPhoneAccount(PhoneAccountHandle phoneAccountHandle) {
-                return mCallsManager.hasCallsForOtherPhoneAccount(phoneAccountHandle);
+            public boolean hasUnholdableCallsForOtherConnectionService(
+                    PhoneAccountHandle phoneAccountHandle) {
+                return mCallsManager.hasUnholdableCallsForOtherConnectionService(
+                        phoneAccountHandle);
             }
 
             @Override
-            public int getNumCallsForOtherPhoneAccount(PhoneAccountHandle phoneAccountHandle) {
-                return mCallsManager.getNumCallsForOtherPhoneAccount(phoneAccountHandle);
+            public int getNumUnholdableCallsForOtherConnectionService(
+                    PhoneAccountHandle phoneAccountHandle) {
+                return mCallsManager.getNumUnholdableCallsForOtherConnectionService(
+                        phoneAccountHandle);
             }
 
             @Override
@@ -316,6 +331,8 @@ public class TelecomSystem {
         mContext.registerReceiver(mDialerCodeReceiver, DIALER_SECRET_CODE_FILTER,
                 Manifest.permission.CONTROL_INCALL_EXPERIENCE, null);
 
+        // There is no USER_SWITCHED broadcast for user 0, handle it here explicitly.
+        final UserManager userManager = UserManager.get(mContext);
         mTelecomServiceImpl = new TelecomServiceImpl(
                 mContext, mCallsManager, mPhoneAccountRegistrar,
                 new CallIntentProcessor.AdapterImpl(),
@@ -327,6 +344,7 @@ public class TelecomSystem {
                 },
                 defaultDialerCache,
                 new TelecomServiceImpl.SubscriptionManagerAdapterImpl(),
+                new TelecomServiceImpl.SettingsSecureAdapterImpl(),
                 mLock);
         Log.endSession();
     }

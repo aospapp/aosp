@@ -19,27 +19,67 @@ art_cc_defaults {
     defaults: ["art_defaults"],
     host_supported: true,
     srcs: [
+        "dex/dex_to_dex_compiler.cc",
+        "dex/quick_compiler_callbacks.cc",
+        "driver/compiler_driver.cc",
         "linker/elf_writer.cc",
         "linker/elf_writer_quick.cc",
         "linker/image_writer.cc",
         "linker/multi_oat_relative_patcher.cc",
         "linker/oat_writer.cc",
+        "linker/relative_patcher.cc",
     ],
+
+    codegen: {
+        arm: {
+            srcs: [
+                "linker/arm/relative_patcher_arm_base.cc",
+                "linker/arm/relative_patcher_thumb2.cc",
+            ],
+        },
+        arm64: {
+            srcs: [
+                "linker/arm64/relative_patcher_arm64.cc",
+            ],
+        },
+        mips: {
+            srcs: [
+                "linker/mips/relative_patcher_mips.cc",
+            ],
+        },
+        mips64: {
+            srcs: [
+                "linker/mips64/relative_patcher_mips64.cc",
+            ],
+        },
+        x86: {
+            srcs: [
+                "linker/x86/relative_patcher_x86.cc",
+                "linker/x86/relative_patcher_x86_base.cc",
+            ],
+        },
+        x86_64: {
+            srcs: [
+                "linker/x86_64/relative_patcher_x86_64.cc",
+            ],
+        },
+    },
+
     target: {
         android: {
-            // For atrace.
-            shared_libs: ["libcutils"],
+            static_libs: [
+                "libz",
+            ],
+        },
+        host: {
+            shared_libs: [
+                "libz",
+            ],
         },
     },
     generated_sources: ["art_dex2oat_operator_srcs"],
     shared_libs: [
         "libbase",
-        "liblz4",
-        "liblzma",
-    ],
-    include_dirs: [
-        "external/lz4/lib",
-        "external/zlib",
     ],
     export_include_dirs: ["."],
 
@@ -52,27 +92,53 @@ art_cc_defaults {
     },
 }
 
+cc_defaults {
+    name: "libart-dex2oat_static_base_defaults",
+    static_libs: [
+        "libbase",
+        "libz",
+    ],
+}
+
 gensrcs {
     name: "art_dex2oat_operator_srcs",
     cmd: "$(location generate_operator_out) art/dex2oat $(in) > $(out)",
     tools: ["generate_operator_out"],
     srcs: [
+        "dex/dex_to_dex_compiler.h",
+        "driver/compiler_driver.h",
         "linker/image_writer.h",
     ],
     output_extension: "operator_out.cc",
 }
 
-art_cc_static_library {
+art_cc_library_static {
     name: "libart-dex2oat",
     defaults: ["libart-dex2oat-defaults"],
     shared_libs: [
         "libart-compiler",
         "libart-dexlayout",
         "libart",
+        "libartpalette",
+        "libprofile",
     ],
 }
 
-art_cc_static_library {
+cc_defaults {
+    name: "libart-dex2oat_static_defaults",
+    defaults: [
+        "libart-dex2oat_static_base_defaults",
+        "libart_static_defaults",
+        "libprofile_static_defaults",
+    ],
+    static_libs: [
+        "libart-compiler",
+        "libart-dexlayout",
+        "libart-dex2oat",
+    ],
+}
+
+art_cc_library_static {
     name: "libartd-dex2oat",
     defaults: [
         "art_debug_defaults",
@@ -82,6 +148,22 @@ art_cc_static_library {
         "libartd-compiler",
         "libartd-dexlayout",
         "libartd",
+        "libartpalette",
+        "libprofiled",
+    ],
+}
+
+cc_defaults {
+    name: "libartd-dex2oat_static_defaults",
+    defaults: [
+        "libart-dex2oat_static_base_defaults",
+        "libartd_static_defaults",
+        "libprofiled_static_defaults",
+    ],
+    static_libs: [
+        "libartd-compiler",
+        "libartd-dexlayout",
+        "libartd-dex2oat",
     ],
 }
 
@@ -102,7 +184,7 @@ cc_defaults {
 
     target: {
         android: {
-            // Use the 32-bit version of dex2oat on devices
+            // Use the 32-bit version of dex2oat on devices.
             compile_multilib: "prefer32",
         },
     },
@@ -159,12 +241,14 @@ art_cc_binary {
         "dex2oat-pgo-defaults",
     ],
     shared_libs: [
+        "libprofile",
         "libart-compiler",
         "libart-dexlayout",
         "libart",
         "libdexfile",
+        "libartbase",
+        "libartpalette",
         "libbase",
-        "liblz4",
         "libsigchain",
     ],
     static_libs: [
@@ -184,6 +268,14 @@ art_cc_binary {
             lto: {
                  thin: true,
             },
+            static_libs: [
+                "libz",
+            ],
+        },
+        host: {
+            shared_libs: [
+                "libz",
+            ],
         },
     },
 }
@@ -195,54 +287,50 @@ art_cc_binary {
         "dex2oat-defaults",
     ],
     shared_libs: [
+        "libprofiled",
         "libartd-compiler",
         "libartd-dexlayout",
         "libartd",
         "libdexfiled",
+        "libartbased",
+        "libartpalette",
         "libbase",
-        "liblz4",
         "libsigchain",
     ],
     static_libs: [
         "libartd-dex2oat",
     ],
-}
-
-art_cc_binary {
-    name: "dex2oats",
-    device_supported: false,
-    static_executable: true,
-    defaults: ["dex2oat-defaults"],
     target: {
-        darwin: {
-            enabled: false,
+        android: {
+            static_libs: [
+                "libz",
+            ],
+            compile_multilib: "prefer32",
+        },
+        host: {
+            shared_libs: [
+                "libz",
+            ],
+            compile_multilib: "both",
+            symlink_preferred_arch: true,
+        },
+        linux_glibc_x86: {
+            suffix: "32",
+        },
+        linux_glibc_x86_64: {
+            suffix: "64",
+        },
+        linux_bionic_x86_64: {
+            suffix: "64",
         },
     },
-    ldflags: [
-        // We need this because GC stress mode makes use of
-        // _Unwind_GetIP and _Unwind_Backtrace and the symbols are also
-        // defined in libgcc_eh.a(unwind-dw2.o)
-        // TODO: Having this is not ideal as it might obscure errors.
-        // Try to get rid of it.
-        "-z muldefs",
-    ],
-    static_libs: [
-        "libart-dex2oat",
-        "libart-compiler",
-        "libart-dexlayout",
-        "libart",
-        "libdexfile",
-        "libvixl-arm",
-        "libvixl-arm64",
-    ] + art_static_dependencies,
 }
 
-art_cc_binary {
-    name: "dex2oatds",
+cc_defaults {
+    name: "dex2oats-defaults",
     device_supported: false,
     static_executable: true,
     defaults: [
-        "art_debug_defaults",
         "dex2oat-defaults",
     ],
     target: {
@@ -259,14 +347,62 @@ art_cc_binary {
         "-z muldefs",
     ],
     static_libs: [
-        "libartd-dex2oat",
+        "libbase",
+        "libsigchain_dummy",
+        "libz",
+    ],
+}
+
+art_cc_binary {
+    name: "dex2oats",
+    defaults: [
+        "dex2oats-defaults",
+        "libart_static_defaults",
+        "libart-compiler_static_defaults",
+        "libart-dexlayout_static_defaults",
+        "libartbase_static_defaults",
+        "libdexfile_static_defaults",
+        "libprofile_static_defaults",
+        "libart-dex2oat_static_defaults",
+    ],
+}
+
+art_cc_binary {
+    name: "dex2oatds",
+    defaults: [
+        "art_debug_defaults",
+        "dex2oats-defaults",
+        "libartd_static_defaults",
+        "libartd-compiler_static_defaults",
+        "libartd-dexlayout_static_defaults",
+        "libartbased_static_defaults",
+        "libdexfiled_static_defaults",
+        "libprofiled_static_defaults",
+        "libartd-dex2oat_static_defaults",
+    ],
+    target: {
+        linux_glibc_x86_64: {
+            use_clang_lld: true,
+        },
+    },
+}
+
+art_cc_library_static {
+    name: "libart-dex2oat-gtest",
+    defaults: ["libart-gtest-defaults"],
+    srcs: [
+        "common_compiler_driver_test.cc",
+    ],
+    shared_libs: [
         "libartd-compiler",
-        "libartd-dexlayout",
-        "libartd",
-        "libdexfiled",
-        "libvixld-arm",
-        "libvixld-arm64",
-    ] + art_static_dependencies,
+        "libartd-disassembler",
+        "libart-compiler-gtest",
+        "libart-runtime-gtest",
+        "libbase",
+    ],
+    static_libs: [
+        "libartd-dex2oat",
+    ],
 }
 
 art_cc_test {
@@ -277,26 +413,67 @@ art_cc_test {
     srcs: [
         "dex2oat_test.cc",
         "dex2oat_image_test.cc",
+        "dex/dex_to_dex_decompiler_test.cc",
+        "driver/compiler_driver_test.cc",
         "linker/elf_writer_test.cc",
         "linker/image_test.cc",
         "linker/image_write_read_test.cc",
         "linker/index_bss_mapping_encoder_test.cc",
         "linker/multi_oat_relative_patcher_test.cc",
         "linker/oat_writer_test.cc",
+        "verifier_deps_test.cc",
     ],
+
+    codegen: {
+        arm: {
+            srcs: [
+                "linker/arm/relative_patcher_thumb2_test.cc",
+            ],
+        },
+        arm64: {
+            srcs: [
+                "linker/arm64/relative_patcher_arm64_test.cc",
+            ],
+        },
+        mips: {
+            srcs: [
+                "linker/mips/relative_patcher_mips_test.cc",
+                "linker/mips/relative_patcher_mips32r6_test.cc",
+            ],
+        },
+        mips64: {
+            srcs: [
+                "linker/mips64/relative_patcher_mips64_test.cc",
+            ],
+        },
+        x86: {
+            srcs: [
+                "linker/x86/relative_patcher_x86_test.cc",
+            ],
+        },
+        x86_64: {
+            srcs: [
+                "linker/x86_64/relative_patcher_x86_64_test.cc",
+            ],
+        },
+    },
+
     header_libs: ["dex2oat_headers"],
     include_dirs: [
         "external/zlib",
     ],
     shared_libs: [
+        "libartbased",
         "libartd-compiler",
         "libartd-dexlayout",
+        "libartpalette",
         "libbase",
-        "liblz4",
+        "libprofiled",
         "libsigchain",
         "libziparchive",
     ],
     static_libs: [
+        "libart-dex2oat-gtest",
         "libartd-dex2oat",
     ],
 }

@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -14,12 +14,20 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+"""
+Test script to check Wlan performance with MultiProfile Connection.
+
+Test Setup:
+
+Two Android deivce.
+One A2DP and HFP Headset connected to Relay.
+"""
 import time
 
 from acts.test_utils.bt import BtEnum
 from acts.test_utils.bt.bt_test_utils import clear_bonded_devices
 from acts.test_utils.car.tel_telecom_utils import wait_for_dialing
-from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
+from acts.test_utils.coex.CoexPerformanceBaseTest import CoexPerformanceBaseTest
 from acts.test_utils.coex.coex_test_utils import connect_dev_to_headset
 from acts.test_utils.coex.coex_test_utils import music_play_and_check_via_app
 from acts.test_utils.coex.coex_test_utils import pair_and_connect_headset
@@ -30,21 +38,23 @@ from acts.test_utils.tel.tel_test_utils import initiate_call
 from acts.test_utils.tel.tel_test_utils import wait_and_answer_call
 
 
-class CoexBtMultiProfilePerformanceTest(CoexBaseTest):
+class CoexBtMultiProfilePerformanceTest(CoexPerformanceBaseTest):
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
 
     def setup_class(self):
-        CoexBaseTest.setup_class(self)
-        req_params = ["sim_conf_file", "music_play_time"]
+        super().setup_class()
+        req_params = ["sim_conf_file", "music_file"]
         self.unpack_userparams(req_params)
         self.ag_phone_number, self.re_phone_number = setup_tel_config(
             self.pri_ad, self.sec_ad, self.sim_conf_file)
+        if hasattr(self, "music_file"):
+            self.push_music_to_android_device(self.pri_ad)
 
     def setup_test(self):
-        CoexBaseTest.setup_test(self)
-        self.audio_receiver.pairing_mode()
+        super().setup_test()
+        self.audio_receiver.enter_pairing_mode()
         if not pair_and_connect_headset(
                 self.pri_ad, self.audio_receiver.mac_address,
                 set([BtEnum.BluetoothProfile.HEADSET.value]) and
@@ -54,11 +64,12 @@ class CoexBtMultiProfilePerformanceTest(CoexBaseTest):
 
     def teardown_test(self):
         clear_bonded_devices(self.pri_ad)
-        CoexBaseTest.teardown_test(self)
+        super().teardown_test()
         self.audio_receiver.clean_up()
 
     def initiate_call_when_a2dp_streaming_on(self):
-        """Initiates HFP call, then check for call is present or not.
+        """Initiates HFP call when a2dp is streaming, then check for call is
+        present or not.
 
         Disconnect a2dp profile and then connect HFP profile and
         answer the call from reference device.
@@ -66,6 +77,9 @@ class CoexBtMultiProfilePerformanceTest(CoexBaseTest):
         Returns:
             True if successful, False otherwise.
         """
+        if not self.play_music_and_connect_wifi():
+            return False
+
         if not initiate_call(self.log, self.pri_ad, self.re_phone_number):
             self.log.error("Failed to initiate call")
             return False
@@ -74,8 +88,8 @@ class CoexBtMultiProfilePerformanceTest(CoexBaseTest):
                 self.audio_receiver.mac_address,
                 [BtEnum.BluetoothProfile.A2DP.value])
             if not connect_dev_to_headset(
-                    self.pri_ad, self.audio_receiver.mac_address,
-                    [BtEnum.BluetoothProfile.HEADSET.value]):
+                self.pri_ad, self.audio_receiver.mac_address,
+                [BtEnum.BluetoothProfile.HEADSET.value]):
                 return False
         if not wait_and_answer_call(self.log, self.sec_ad):
             self.log.error("Failed to answer call in second device")
@@ -105,15 +119,14 @@ class CoexBtMultiProfilePerformanceTest(CoexBaseTest):
         """Wrapper function to initiate call when a2dp streaming and starts
          iperf.
          """
-        if not self.play_music_and_connect_wifi():
-            return False
-        self.run_iperf_and_get_result()
-        if not self.initiate_call_when_a2dp_streaming_on():
+        tasks = [(self.initiate_call_when_a2dp_streaming_on, ()),
+                 (self.run_iperf_and_get_result, ())]
+        if not self.set_attenuation_and_run_iperf(tasks):
             return False
         return self.teardown_result()
 
     def test_performance_a2dp_streaming_hfp_call_tcp_ul(self):
-        """Check performance when a2dp streaming and hfp call..
+        """Check performance when a2dp streaming and hfp call.
 
         This test is to check wifi performance when a2dp streaming and
         hfp call performed sequentially with TCP-uplink traffic.
@@ -134,7 +147,7 @@ class CoexBtMultiProfilePerformanceTest(CoexBaseTest):
         return True
 
     def test_performance_a2dp_streaming_hfp_call_tcp_dl(self):
-        """Check performance when a2dp streaming and hfp call..
+        """Check performance when a2dp streaming and hfp call.
 
         This test is to check wifi performance when a2dp streaming and
         hfp call performed sequentially with TCP-downlink traffic.
@@ -155,7 +168,7 @@ class CoexBtMultiProfilePerformanceTest(CoexBaseTest):
         return True
 
     def test_performance_a2dp_streaming_hfp_call_udp_ul(self):
-        """Check performance when a2dp streaming and hfp call..
+        """Check performance when a2dp streaming and hfp call.
 
         This test is to check wifi performance when a2dp streaming and
         hfp call performed sequentially with UDP-uplink traffic.
@@ -176,7 +189,7 @@ class CoexBtMultiProfilePerformanceTest(CoexBaseTest):
         return True
 
     def test_performance_a2dp_streaming_hfp_call_udp_dl(self):
-        """Check performance when a2dp streaming and hfp call..
+        """Check performance when a2dp streaming and hfp call.
 
         This test is to check wifi performance when a2dp streaming and
         hfp call performed sequentially with UDP-uplink traffic.

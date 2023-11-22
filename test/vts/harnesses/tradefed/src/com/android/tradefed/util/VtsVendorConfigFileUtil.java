@@ -73,10 +73,10 @@ public class VtsVendorConfigFileUtil {
         if (configPath == null || configPath.length() == 0) {
             configPath = GetVendorConfigFilePath();
         }
-        CLog.i("Loading vendor test config %s", configPath);
+        CLog.d("Loading vendor test config %s", configPath);
         InputStream config = getClass().getResourceAsStream(configPath);
         if (config == null) {
-            CLog.e("Vendor test config file %s does not exist", configPath);
+            CLog.d("Vendor test config file %s does not exist", configPath);
             return false;
         }
         try {
@@ -85,7 +85,7 @@ public class VtsVendorConfigFileUtil {
                 CLog.e("Loaded vendor test config is empty");
                 return false;
             }
-            CLog.i("Loaded vendor test config %s", content);
+            CLog.d("Loaded vendor test config %s", content);
             vendorConfigJson = new JSONObject(content);
         } catch (IOException e) {
             throw new RuntimeException("Failed to read vendor config json file");
@@ -121,7 +121,7 @@ public class VtsVendorConfigFileUtil {
         if (attrs.containsKey(KEY_VENDOR_TEST_CONFIG_DEFAULT_TYPE)) {
             mDefaultType = attrs.get(KEY_VENDOR_TEST_CONFIG_DEFAULT_TYPE);
         } else {
-            CLog.i("No default vendor test configuration provided. Defaulting to prod.");
+            CLog.d("No default vendor test configuration provided. Defaulting to prod.");
         }
         mVendorConfigFilePath = attrs.get(KEY_VENDOR_TEST_CONFIG_FILE_PATH);
         return LoadVendorConfig(mDefaultType, mVendorConfigFilePath);

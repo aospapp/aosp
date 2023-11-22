@@ -84,7 +84,7 @@ RADIOModeCommand* RADIOModeCommand::instance(wifi_handle handle,
     }
     mRADIOModeCommandInstance = new RADIOModeCommand(handle, id,
                 OUI_QCA,
-                QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_MODE);
+                QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_INFO);
     return mRADIOModeCommandInstance;
 }
 
@@ -97,12 +97,13 @@ int RADIOModeCommand::handleEvent(WifiEvent &event)
     int num_of_mac = 0;
     wifi_mac_info mode_info;
 
+    memset(&mode_info, 0, sizeof(mode_info));
     WifiVendorCommand::handleEvent(event);
 
     /* Parse the vendordata and get the attribute */
     switch(mSubcmd)
     {
-        case QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_MODE:
+        case QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_INFO:
         {
             struct nlattr *mtb_vendor[QCA_WLAN_VENDOR_ATTR_MAC_MAX + 1];
             struct nlattr *modeInfo;
@@ -155,17 +156,17 @@ int RADIOModeCommand::handleEvent(WifiEvent &event)
                             nla_parse(tb3, QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_MAX,
                                       (struct nlattr *) nla_data(tb_iface), nla_len(tb_iface), NULL);
 
-                            if (!tb3[QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_ID])
+                            if (!tb3[QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_IFINDEX])
                             {
-                                ALOGE("%s: QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_ID"
+                                ALOGE("%s: QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_IFINDEX"
                                       " NOT FOUND", __FUNCTION__);
                                 return WIFI_ERROR_INVALID_ARGS;
                             }
-                            if (if_indextoname(nla_get_u32(tb3[QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_ID]),
+                            if (if_indextoname(nla_get_u32(tb3[QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_IFINDEX]),
                                                miface_info.iface_name) == NULL)
                             {
                                 ALOGE("%s: Failed to convert %d IFINDEX to IFNAME", __FUNCTION__,
-                                      nla_get_u32(tb3[QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_ID]));
+                                      nla_get_u32(tb3[QCA_WLAN_VENDOR_ATTR_MAC_IFACE_INFO_IFINDEX]));
                             }
                             ALOGV("ifname[%d]: %s ", num_of_iface, miface_info.iface_name);
 
@@ -233,7 +234,7 @@ wifi_error wifi_set_radio_mode_change_handler(wifi_request_id id,
     RADIOModeCommand *radiomodeCommand;
 
     ret = initialize_vendor_cmd(iface, id,
-                                QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_MODE,
+                                QCA_NL80211_VENDOR_SUBCMD_WLAN_MAC_INFO,
                                 &vCommand);
     if (ret != WIFI_SUCCESS) {
         ALOGE("%s: Initialization failed", __FUNCTION__);

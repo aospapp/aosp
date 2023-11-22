@@ -15,10 +15,9 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.cts.ephemeralapp1"
-    android:targetSandboxVersion="2">
+  package="com.android.cts.ephemeralapp1" >
     <uses-sdk
-        android:minSdkVersion="25" />
+        android:minSdkVersion="24" android:targetSdkVersion="26" />
 
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
@@ -125,6 +124,6 @@
     </application>
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.ephemeralapp1" />
 </manifest>

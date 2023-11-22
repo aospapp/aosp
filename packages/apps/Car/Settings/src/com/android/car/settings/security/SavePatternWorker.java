@@ -26,9 +26,9 @@ import java.util.List;
 public class SavePatternWorker extends SaveLockWorkerBase {
 
     private List<LockPatternView.Cell> mChosenPattern;
-    private String mCurrentPattern;
+    private byte[] mCurrentPattern;
 
-    void start(int userId, List<LockPatternView.Cell> chosenPattern, String currentPattern) {
+    void start(int userId, List<LockPatternView.Cell> chosenPattern, byte[] currentPattern) {
         init(userId);
         mCurrentPattern = currentPattern;
         mChosenPattern = chosenPattern;

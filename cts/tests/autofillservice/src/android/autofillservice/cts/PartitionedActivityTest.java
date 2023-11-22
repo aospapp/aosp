@@ -50,52 +50,13 @@ import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.FillResponse;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-
-import java.util.concurrent.TimeoutException;
 
 /**
  * Test case for an activity containing multiple partitions.
  */
-@AppModeFull // Service-specific test
-public class PartitionedActivityTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<GridActivity> mActivityRule =
-        new AutofillActivityTestRule<GridActivity>(GridActivity.class);
-
-    private GridActivity mActivity;
-
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
-    }
-
-    /**
-     * Focus to a cell and expect window event
-     */
-    void focusCell(int row, int column) throws TimeoutException {
-        mUiBot.waitForWindowChange(() -> mActivity.focusCell(row, column),
-                Timeouts.UI_TIMEOUT.getMaxValue());
-    }
-
-    /**
-     * Focus to a cell and expect no window event.
-     */
-    void focusCellNoWindowChange(int row, int column) {
-        try {
-            // TODO: define a small value in Timeout
-            mUiBot.waitForWindowChange(() -> mActivity.focusCell(row, column),
-                    Timeouts.UI_TIMEOUT.ms());
-        } catch (TimeoutException ex) {
-            // no window events! looking good
-            return;
-        }
-        throw new IllegalStateException(String.format("Expect no window event when focusing to"
-                + " column %d row %d, but event happened", row, column));
-    }
+@AppModeFull(reason = "Service-specific test")
+public class PartitionedActivityTest extends AbstractGridActivityTestCase {
 
     @Test
     public void testAutofillTwoPartitionsSkipFirst() throws Exception {

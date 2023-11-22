@@ -16,6 +16,8 @@
 
 package com.android.ahat.heapdump;
 
+import com.android.ahat.progress.NullProgress;
+import com.android.ahat.progress.Progress;
 import com.android.ahat.proguard.ProguardMap;
 import java.io.File;
 import java.io.IOException;
@@ -33,35 +35,104 @@ import java.util.Map;
 
 /**
  * Provides methods for parsing heap dumps.
+ * <p>
+ * The heap dump should be a heap dump in the J2SE HPROF format optionally
+ * with Android extensions and satisfying the following additional
+ * constraints:
+ * <ul>
+ * <li>
+ * Class serial numbers, stack frames, and stack traces individually satisfy
+ * the following:
+ * <ul>
+ *   <li> All elements are defined before they are referenced.
+ *   <li> Ids are densely packed in some range [a, b] where a is not necessarily 0.
+ *   <li> There are not more than 2^31 elements defined.
+ * </ul>
+ * <li> All classes are defined via a LOAD CLASS record before the first
+ * heap dump segment.
+ * </ul>
  */
 public class Parser {
-  private static final int ID_SIZE = 4;
+  private HprofBuffer hprof = null;
+  private ProguardMap map = new ProguardMap();
+  private Progress progress = new NullProgress();
+  private Reachability retained = Reachability.SOFT;
 
-  private Parser() {
+  /**
+   * Creates an hprof Parser that parses a heap dump from a byte buffer.
+   *
+   * @param hprof byte buffer to parse the heap dump from.
+   */
+  public Parser(ByteBuffer hprof) {
+    this.hprof = new HprofBuffer(hprof);
   }
 
   /**
-   * Parses a heap dump from a File.
-   * <p>
-   * The heap dump should be a heap dump in the J2SE HPROF format optionally
-   * with Android extensions and satisfying the following additional
-   * constraints:
-   * <ul>
-   * <li>
-   * Class serial numbers, stack frames, and stack traces individually satisfy
-   * the following:
-   * <ul>
-   *   <li> All elements are defined before they are referenced.
-   *   <li> Ids are densely packed in some range [a, b] where a is not necessarily 0.
-   *   <li> There are not more than 2^31 elements defined.
-   * </ul>
-   * <li> All classes are defined via a LOAD CLASS record before the first
-   * heap dump segment.
-   * <li> The ID size used in the heap dump is 4 bytes.
-   * </ul>
-   * <p>
-   * The given proguard map will be used to deobfuscate class names, field
-   * names, and stack traces in the heap dump.
+   * Creates an hprof Parser that parses a heap dump from a file.
+   *
+   * @param hprof file to parse the heap dump from.
+   * @throws IOException if the file cannot be accessed.
+   */
+  public Parser(File hprof) throws IOException {
+    this.hprof = new HprofBuffer(hprof);
+  }
+
+  /**
+   * Sets the proguard map to use for deobfuscating the heap.
+   *
+   * @param map proguard map to use to deobfuscate the heap.
+   * @return this Parser instance.
+   */
+  public Parser map(ProguardMap map) {
+    if (map == null) {
+      throw new NullPointerException("map == null");
+    }
+    this.map = map;
+    return this;
+  }
+
+  /**
+   * Sets the progress indicator to use when parsing the heap.
+   *
+   * @param progress progress indicator to use when parsing the heap.
+   * @return this Parser instance.
+   */
+  public Parser progress(Progress progress) {
+    if (progress == null) {
+      throw new NullPointerException("progress == null");
+    }
+    this.progress = progress;
+    return this;
+  }
+
+  /**
+   * Specify the weakest reachability of instances to treat as retained.
+   *
+   * @param retained the weakest reachability of instances to treat as retained.
+   * @return this Parser instance.
+   */
+  public Parser retained(Reachability retained) {
+    this.retained = retained;
+    return this;
+  }
+
+  /**
+   * Parse the heap dump.
+   *
+   * @throws IOException if the heap dump could not be read
+   * @throws HprofFormatException if the heap dump is not properly formatted
+   * @return the parsed heap dump
+   */
+  public AhatSnapshot parse() throws IOException, HprofFormatException {
+    try {
+      return parseInternal();
+    } catch (BufferUnderflowException e) {
+      throw new HprofFormatException("Unexpected end of file", e);
+    }
+  }
+
+  /**
+   * Parses a heap dump from a File with given proguard map.
    *
    * @param hprof the hprof file to parse
    * @param map the proguard map for deobfuscation
@@ -71,35 +142,11 @@ public class Parser {
    */
   public static AhatSnapshot parseHeapDump(File hprof, ProguardMap map)
     throws IOException, HprofFormatException {
-    try {
-      return parseHeapDump(new HprofBuffer(hprof), map);
-    } catch (BufferUnderflowException e) {
-      throw new HprofFormatException("Unexpected end of file", e);
-    }
+    return new Parser(hprof).map(map).parse();
   }
 
   /**
-   * Parses a heap dump from a byte buffer.
-   * <p>
-   * The heap dump should be a heap dump in the J2SE HPROF format optionally
-   * with Android extensions and satisfying the following additional
-   * constraints:
-   * <ul>
-   * <li>
-   * Class serial numbers, stack frames, and stack traces individually satisfy
-   * the following:
-   * <ul>
-   *   <li> All elements are defined before they are referenced.
-   *   <li> Ids are densely packed in some range [a, b] where a is not necessarily 0.
-   *   <li> There are not more than 2^31 elements defined.
-   * </ul>
-   * <li> All classes are defined via a LOAD CLASS record before the first
-   * heap dump segment.
-   * <li> The ID size used in the heap dump is 4 bytes.
-   * </ul>
-   * <p>
-   * The given proguard map will be used to deobfuscate class names, field
-   * names, and stack traces in the heap dump.
+   * Parses a heap dump from a byte buffer with given proguard map.
    *
    * @param hprof the bytes of the hprof file to parse
    * @param map the proguard map for deobfuscation
@@ -109,16 +156,12 @@ public class Parser {
    */
   public static AhatSnapshot parseHeapDump(ByteBuffer hprof, ProguardMap map)
     throws IOException, HprofFormatException {
-    try {
-      return parseHeapDump(new HprofBuffer(hprof), map);
-    } catch (BufferUnderflowException e) {
-      throw new HprofFormatException("Unexpected end of file", e);
-    }
+    return new Parser(hprof).map(map).parse();
   }
 
-  private static AhatSnapshot parseHeapDump(HprofBuffer hprof, ProguardMap map)
-    throws IOException, HprofFormatException, BufferUnderflowException {
+  private AhatSnapshot parseInternal() throws IOException, HprofFormatException {
     // Read, and mostly ignore, the hprof header info.
+    int idSize;
     {
       StringBuilder format = new StringBuilder();
       int b;
@@ -126,8 +169,10 @@ public class Parser {
         format.append((char)b);
       }
 
-      int idSize = hprof.getU4();
-      if (idSize != ID_SIZE) {
+      idSize = hprof.getU4();
+      if (idSize == 8) {
+        hprof.setIdSize8();
+      } else if (idSize != 4) {
         throw new HprofFormatException("Id size " + idSize + " not supported.");
       }
       int hightime = hprof.getU4();
@@ -144,8 +189,10 @@ public class Parser {
     HeapList heaps = new HeapList();
     {
       // Note: Strings do not satisfy the DenseMap requirements on heap dumps
-      // from Android K.
+      // from Android K. And the RI seems to use string id 0 to refer to a
+      // null string?
       UnDenseMap<String> strings = new UnDenseMap<String>("String");
+      strings.put(0, "???");
       DenseMap<ProguardMap.Frame> frames = new DenseMap<ProguardMap.Frame>("Stack Frame");
       DenseMap<Site> sites = new DenseMap<Site>("Stack Trace");
       DenseMap<String> classNamesBySerial = new DenseMap<String>("Class Serial Number");
@@ -154,14 +201,16 @@ public class Parser {
       ArrayList<AhatClassObj> classes = new ArrayList<AhatClassObj>();
       Instances<AhatClassObj> classById = null;
 
+      progress.start("Reading hprof", hprof.size());
       while (hprof.hasRemaining()) {
+        progress.update(hprof.tell());
         int tag = hprof.getU1();
         int time = hprof.getU4();
         int recordLength = hprof.getU4();
         switch (tag) {
           case 0x01: { // STRING
             long id = hprof.getId();
-            byte[] bytes = new byte[recordLength - ID_SIZE];
+            byte[] bytes = new byte[recordLength - idSize];
             hprof.getBytes(bytes);
             String str = new String(bytes, StandardCharsets.UTF_8);
             strings.put(id, str);
@@ -173,7 +222,8 @@ public class Parser {
             long objectId = hprof.getId();
             int stackSerialNumber = hprof.getU4();
             long classNameStringId = hprof.getId();
-            String obfClassName = strings.get(classNameStringId);
+            String rawClassName = strings.get(classNameStringId);
+            String obfClassName = normalizeClassName(rawClassName);
             String clrClassName = map.getClassName(obfClassName);
             AhatClassObj classObj = new AhatClassObj(objectId, clrClassName);
             classNamesBySerial.put(classSerialNumber, clrClassName);
@@ -224,12 +274,15 @@ public class Parser {
             break;
           }
 
+          case 0x0C:   // HEAP DUMP
           case 0x1C: { // HEAP DUMP SEGMENT
+            int endOfRecord = hprof.tell() + recordLength;
             if (classById == null) {
               classById = new Instances<AhatClassObj>(classes);
             }
-            int subtag;
-            while (!isEndOfHeapDumpSegment(subtag = hprof.getU1())) {
+            while (hprof.tell() < endOfRecord) {
+              progress.update(hprof.tell());
+              int subtag = hprof.getU1();
               switch (subtag) {
                 case 0x01: { // ROOT JNI GLOBAL
                   long objectId = hprof.getId();
@@ -303,7 +356,7 @@ public class Parser {
                   for (int i = 0; i < constantPoolSize; ++i) {
                     int index = hprof.getU2();
                     Type type = hprof.getType();
-                    hprof.skip(type.size);
+                    hprof.skip(type.size(idSize));
                   }
                   int numStaticFields = hprof.getU2();
                   data.staticFields = new FieldValue[numStaticFields];
@@ -315,7 +368,7 @@ public class Parser {
                     String clrName = map.getFieldName(clrClassName, obfName);
                     Type type = hprof.getType();
                     Value value = hprof.getDeferredValue(type);
-                    staticFieldsSize += type.size;
+                    staticFieldsSize += type.size(idSize);
                     data.staticFields[i] = new FieldValue(clrName, type, value);
                   }
                   AhatClassObj superClass = classById.get(superClassId);
@@ -359,11 +412,11 @@ public class Parser {
                   int length = hprof.getU4();
                   long classId = hprof.getId();
                   ObjArrayData data = new ObjArrayData(length, hprof.tell());
-                  hprof.skip(length * ID_SIZE);
+                  hprof.skip(length * idSize);
 
                   Site site = sites.get(stackSerialNumber);
                   AhatClassObj classObj = classById.get(classId);
-                  AhatArrayInstance obj = new AhatArrayInstance(objectId);
+                  AhatArrayInstance obj = new AhatArrayInstance(objectId, idSize);
                   obj.initialize(heaps.getCurrentHeap(), site, classObj);
                   obj.setTemporaryUserData(data);
                   instances.add(obj);
@@ -383,7 +436,7 @@ public class Parser {
                         "No class definition found for " + type.name + "[]");
                   }
 
-                  AhatArrayInstance obj = new AhatArrayInstance(objectId);
+                  AhatArrayInstance obj = new AhatArrayInstance(objectId, idSize);
                   obj.initialize(heaps.getCurrentHeap(), site, classObj);
                   instances.add(obj);
                   switch (type) {
@@ -510,10 +563,6 @@ public class Parser {
                       String.format("Unsupported heap dump sub tag 0x%02x", subtag));
               }
             }
-
-            // Reset the file pointer back because we read the first byte into
-            // the next record.
-            hprof.skip(-1);
             break;
           }
 
@@ -524,6 +573,7 @@ public class Parser {
             break;
         }
       }
+      progress.done();
 
       instances.addAll(classes);
     }
@@ -542,9 +592,11 @@ public class Parser {
     // that we couldn't previously resolve.
     SuperRoot superRoot = new SuperRoot();
     {
+      progress.start("Resolving references", mInstances.size());
       Iterator<RootData> ri = roots.iterator();
       RootData root = ri.next();
       for (AhatInstance inst : mInstances) {
+        progress.advance();
         long id = inst.getId();
 
         // Skip past any roots that don't have associated instances.
@@ -613,15 +665,12 @@ public class Parser {
           ((AhatArrayInstance)inst).initialize(array);
         }
       }
+      progress.done();
     }
 
     hprof = null;
     roots = null;
-    return new AhatSnapshot(superRoot, mInstances, heaps.heaps, rootSite);
-  }
-
-  private static boolean isEndOfHeapDumpSegment(int subtag) {
-    return subtag == 0x1C || subtag == 0x2C;
+    return new AhatSnapshot(superRoot, mInstances, heaps.heaps, rootSite, progress, retained);
   }
 
   private static class RootData {
@@ -850,7 +899,8 @@ public class Parser {
    * accessing data from an hprof file.
    */
   private static class HprofBuffer {
-    private ByteBuffer mBuffer;
+    private boolean mIdSize8;
+    private final ByteBuffer mBuffer;
 
     public HprofBuffer(File path) throws IOException {
       FileChannel channel = FileChannel.open(path.toPath(), StandardOpenOption.READ);
@@ -862,8 +912,19 @@ public class Parser {
       mBuffer = buffer;
     }
 
+    public void setIdSize8() {
+      mIdSize8 = true;
+    }
+
     public boolean hasRemaining() {
       return mBuffer.hasRemaining();
+    }
+
+    /**
+     * Returns the size of the file in bytes.
+     */
+    public int size() {
+      return mBuffer.capacity();
     }
 
     /**
@@ -901,7 +962,11 @@ public class Parser {
     }
 
     public long getId() {
-      return mBuffer.getInt() & 0xFFFFFFFFL;
+      if (mIdSize8) {
+        return mBuffer.getLong();
+      } else {
+        return mBuffer.getInt() & 0xFFFFFFFFL;
+      }
     }
 
     public boolean getBool() {
@@ -1001,5 +1066,45 @@ public class Parser {
         default: throw new AssertionError("unsupported enum member");
       }
     }
+  }
+
+  // ART outputs class names such as:
+  //   "java.lang.Class", "java.lang.Class[]", "byte", "byte[]"
+  // RI outputs class names such as:
+  //   "java/lang/Class", '[Ljava/lang/Class;", N/A, "[B"
+  //
+  // This function converts all class names to match the ART format, which is
+  // assumed elsewhere in ahat.
+  private static String normalizeClassName(String name) throws HprofFormatException {
+    int numDimensions = 0;
+    while (name.startsWith("[")) {
+      numDimensions++;
+      name = name.substring(1);
+    }
+
+    if (numDimensions > 0) {
+      // If there was an array type signature to start, then interpret the
+      // class name as a type signature.
+      switch (name.charAt(0)) {
+        case 'Z': name = "boolean"; break;
+        case 'B': name = "byte"; break;
+        case 'C': name = "char"; break;
+        case 'S': name = "short"; break;
+        case 'I': name = "int"; break;
+        case 'J': name = "long"; break;
+        case 'F': name = "float"; break;
+        case 'D': name = "double"; break;
+        case 'L': name = name.substring(1, name.length() - 1); break;
+        default: throw new HprofFormatException("Invalid type signature in class name: " + name);
+      }
+    }
+
+    name = name.replace('/', '.');
+
+    for (int i = 0; i < numDimensions; ++i) {
+      name += "[]";
+    }
+
+    return name;
   }
 }

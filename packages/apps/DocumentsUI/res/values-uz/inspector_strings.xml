@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="inspector_title" msgid="1924760928091740238">"Ma’lumot"</string>
+    <string name="inspector_title" msgid="1924760928091740238">"Axborot"</string>
     <string name="inspector_load_error" msgid="7522190243413249291">"Fayl haqida ma’lumotni yuklab bo‘lmadi"</string>
     <string name="inspector_debug_section" msgid="2576052661505700421">"Xatoliklarni tuzatish (faqat dasturchilar uchun)"</string>
     <string name="inspector_debug_metadata_section" msgid="5875140675600744846">"RAW fayli meta-axboroti: <xliff:g id="METADATATYPE">%1$s</xliff:g>"</string>
@@ -44,6 +44,4 @@
     <string name="metadata_composer" msgid="4696926808308256056">"Bastakor"</string>
     <string name="metadata_album" msgid="1661699531214720236">"Albom"</string>
     <string name="metadata_address" msgid="1849921023707744640">"Joylashuv"</string>
-    <string name="debug_stream_types" msgid="2088565280360139333">"Strim turlari"</string>
-    <string name="debug_raw_size" msgid="7487139640175650185">"RAW fayl hajmi (bayt)"</string>
 </resources>

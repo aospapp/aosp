@@ -1,4 +1,4 @@
-#./usr/bin/env python3.4
+#!/usr/bin/env python3.4
 #
 #   Copyright 2017 - The Android Open Source Project
 #
@@ -24,7 +24,7 @@ import time
 import acts.signals
 from acts.test_utils.wifi import wifi_power_test_utils as wputils
 # http://www.secdev.org/projects/scapy/
-# On ubuntu, sudo pip3 install scapy-python3
+# On ubuntu, sudo pip3 install scapy
 import scapy.all as scapy
 
 ACTS_CONTROLLER_CONFIG_NAME = 'PacketSender'
@@ -53,6 +53,14 @@ MDNS_V4_MAC_DST = '01:00:5E:00:00:FB'
 MDNS_RECURSIVE = 1
 MDNS_V6_IP_DST = 'FF02::FB'
 MDNS_V6_MAC_DST = '33:33:00:00:00:FB'
+ETH_TYPE_IP = 2048
+SAP_SPANNING_TREE = 0x42
+SNAP_OUI = 12
+SNAP_SSAP = 170
+SNAP_DSAP = 170
+SNAP_CTRL = 3
+LLC_XID_CONTROL = 191
+PAD_LEN_BYTES = 128
 
 
 def create(configs):
@@ -281,11 +289,19 @@ class ArpGenerator(object):
         else:
             self.src_ipv4 = config_params['src_ipv4']
 
-    def generate(self, ip_dst=None, hwsrc=None, hwdst=None, eth_dst=None):
+    def generate(self,
+                 op='who-has',
+                 ip_dst=None,
+                 ip_src=None,
+                 hwsrc=None,
+                 hwdst=None,
+                 eth_dst=None):
         """Generates a custom ARP packet.
 
         Args:
+            op: ARP type (request or reply)
             ip_dst: ARP ipv4 destination (Optional)
+            ip_src: ARP ipv4 source address (Optional)
             hwsrc: ARP hardware source address (Optional)
             hwdst: ARP hardware destination address (Optional)
             eth_dst: Ethernet (layer 2) destination address (Optional)
@@ -294,8 +310,9 @@ class ArpGenerator(object):
         hw_src = (hwsrc if hwsrc is not None else self.src_mac)
         hw_dst = (hwdst if hwdst is not None else ARP_DST)
         ipv4_dst = (ip_dst if ip_dst is not None else self.dst_ipv4)
+        ipv4_src = (ip_src if ip_src is not None else self.src_ipv4)
         ip4 = scapy.ARP(
-            pdst=ipv4_dst, psrc=self.src_ipv4, hwdst=hw_dst, hwsrc=hw_src)
+            op=op, pdst=ipv4_dst, psrc=ipv4_src, hwdst=hw_dst, hwsrc=hw_src)
 
         # Create Ethernet layer
         mac_dst = (eth_dst if eth_dst is not None else MAC_BROADCAST)
@@ -777,4 +794,119 @@ class Mdns4Generator(object):
         ethernet = scapy.Ether(src=self.src_mac, dst=sta_hw)
 
         self.packet = ethernet / ip4 / udp / mDNS
+        return self.packet
+
+
+class Dot3Generator(object):
+    """Creates a custom 802.3 Ethernet Frame
+
+    Attributes:
+        packet: desired built custom packet
+        src_mac: MAC address (Layer 2) of the source node
+        src_ipv4: IPv4 address (Layer 3) of the source node
+    """
+
+    def __init__(self, **config_params):
+        """Initialize the class with the required network and packet params.
+
+        Args:
+            config_params: contains all the necessary packet parameters.
+              Some fields can be generated automatically. For example:
+              {'subnet_mask': '255.255.255.0',
+               'dst_ipv4': '192.168.1.3',
+               'src_ipv4: 'get_local', ...
+              The key can also be 'get_local' which means the code will read
+              and use the local interface parameters
+        """
+        interf = config_params['interf']
+        self.packet = None
+        self.dst_mac = config_params['dst_mac']
+        if config_params['src_mac'] == GET_FROM_LOCAL_INTERFACE:
+            self.src_mac = scapy.get_if_hwaddr(interf)
+        else:
+            self.src_mac = config_params['src_mac']
+
+    def _build_ether(self, eth_dst=None):
+        """Creates the basic frame for 802.3
+
+        Args:
+            eth_dst: Ethernet (layer 2) destination address (Optional)
+        """
+        # Overwrite standard fields if desired
+        sta_hw = (eth_dst if eth_dst is not None else self.dst_mac)
+        # Create Ethernet layer
+        dot3_base = scapy.Dot3(src=self.src_mac, dst=sta_hw)
+
+        return dot3_base
+
+    def _pad_frame(self, frame):
+        """Pads the frame with default length and values
+
+        Args:
+            frame: Ethernet (layer 2) to be padded
+        """
+        frame.len = PAD_LEN_BYTES
+        pad = scapy.Padding()
+        pad.load = '\x00' * PAD_LEN_BYTES
+        return frame / pad
+
+    def generate(self, eth_dst=None):
+        """Generates the basic 802.3 frame and adds padding
+
+        Args:
+            eth_dst: Ethernet (layer 2) destination address (Optional)
+        """
+        # Create 802.3 Base
+        ethernet = self._build_ether(eth_dst)
+
+        self.packet = self._pad_frame(ethernet)
+        return self.packet
+
+    def generate_llc(self, eth_dst=None, dsap=2, ssap=3, ctrl=LLC_XID_CONTROL):
+        """Generates the 802.3 frame with LLC and adds padding
+
+        Args:
+            eth_dst: Ethernet (layer 2) destination address (Optional)
+            dsap: Destination Service Access Point (Optional)
+            ssap: Source Service Access Point (Optional)
+            ctrl: Control (Optional)
+        """
+        # Create 802.3 Base
+        ethernet = self._build_ether(eth_dst)
+
+        # Create LLC layer
+        llc = scapy.LLC(dsap=dsap, ssap=ssap, ctrl=ctrl)
+
+        # Append and create packet
+        self.packet = self._pad_frame(ethernet / llc)
+        return self.packet
+
+    def generate_snap(self,
+                      eth_dst=None,
+                      dsap=SNAP_DSAP,
+                      ssap=SNAP_SSAP,
+                      ctrl=SNAP_CTRL,
+                      oui=SNAP_OUI,
+                      code=ETH_TYPE_IP):
+        """Generates the 802.3 frame with LLC and SNAP and adds padding
+
+        Args:
+            eth_dst: Ethernet (layer 2) destination address (Optional)
+            dsap: Destination Service Access Point (Optional)
+            ssap: Source Service Access Point (Optional)
+            ctrl: Control (Optional)
+            oid: Protocol Id or Org Code (Optional)
+            code: EtherType (Optional)
+        """
+        # Create 802.3 Base
+        ethernet = self._build_ether(eth_dst)
+
+        # Create 802.2 LLC header
+        llc = scapy.LLC(dsap=dsap, ssap=ssap, ctrl=ctrl)
+
+        # Create 802.3 SNAP header
+        snap = scapy.SNAP(OUI=oui, code=code)
+
+        # Append and create packet
+        self.packet = self._pad_frame(ethernet / llc / snap)
         return self.packet

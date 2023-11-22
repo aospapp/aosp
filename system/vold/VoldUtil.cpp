@@ -14,13 +14,6 @@
  * limitations under the License.
  */
 
-#include <sys/ioctl.h>
-#include <linux/fs.h>
+#include "VoldUtil.h"
 
-struct fstab *fstab_default;
-
-void get_blkdev_size(int fd, unsigned long* nr_sec) {
-  if ((ioctl(fd, BLKGETSIZE, nr_sec)) == -1) {
-    *nr_sec = 0;
-  }
-}
+android::fs_mgr::Fstab fstab_default;

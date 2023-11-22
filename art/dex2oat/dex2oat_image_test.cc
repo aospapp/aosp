@@ -34,7 +34,7 @@
 #include "dex/dex_file-inl.h"
 #include "dex/dex_file_loader.h"
 #include "dex/method_reference.h"
-#include "jit/profile_compilation_info.h"
+#include "profile/profile_compilation_info.h"
 #include "runtime.h"
 
 namespace art {
@@ -52,7 +52,7 @@ std::ostream& operator<<(std::ostream& os, const ImageSizes& sizes) {
 
 class Dex2oatImageTest : public CommonRuntimeTest {
  public:
-  virtual void TearDown() OVERRIDE {}
+  void TearDown() override {}
 
  protected:
   // Visitors take method and type references
@@ -186,52 +186,24 @@ class Dex2oatImageTest : public CommonRuntimeTest {
     return RunDex2Oat(argv, error_msg);
   }
 
-  int RunDex2Oat(const std::vector<std::string>& args, std::string* error_msg) {
-    int link[2];
-
-    if (pipe(link) == -1) {
+  bool RunDex2Oat(const std::vector<std::string>& args, std::string* error_msg) {
+    // We only want fatal logging for the error message.
+    auto post_fork_fn = []() { return setenv("ANDROID_LOG_TAGS", "*:f", 1) == 0; };
+    ForkAndExecResult res = ForkAndExec(args, post_fork_fn, error_msg);
+    if (res.stage != ForkAndExecResult::kFinished) {
+      *error_msg = strerror(errno);
       return false;
     }
-
-    pid_t pid = fork();
-    if (pid == -1) {
-      return false;
-    }
-
-    if (pid == 0) {
-      // We need dex2oat to actually log things.
-      setenv("ANDROID_LOG_TAGS", "*:f", 1);
-      dup2(link[1], STDERR_FILENO);
-      close(link[0]);
-      close(link[1]);
-      std::vector<const char*> c_args;
-      for (const std::string& str : args) {
-        c_args.push_back(str.c_str());
-      }
-      c_args.push_back(nullptr);
-      execv(c_args[0], const_cast<char* const*>(c_args.data()));
-      exit(1);
-      UNREACHABLE();
-    } else {
-      close(link[1]);
-      char buffer[128];
-      memset(buffer, 0, 128);
-      ssize_t bytes_read = 0;
-
-      while (TEMP_FAILURE_RETRY(bytes_read = read(link[0], buffer, 128)) > 0) {
-        *error_msg += std::string(buffer, bytes_read);
-      }
-      close(link[0]);
-      int status = -1;
-      if (waitpid(pid, &status, 0) != -1) {
-        return (status == 0);
-      }
-      return false;
-    }
+    return res.StandardSuccess();
   }
 };
 
 TEST_F(Dex2oatImageTest, TestModesAndFilters) {
+  // This test crashes on the gtest-heap-poisoning configuration
+  // (AddressSanitizer + CMS/RosAlloc + heap-poisoning); see b/111061592.
+  // Temporarily disable this test on this configuration to keep
+  // our automated build/testing green while we work on a fix.
+  TEST_DISABLED_FOR_MEMORY_TOOL_WITH_HEAP_POISONING_WITHOUT_READ_BARRIERS();
   if (kIsTargetBuild) {
     // This test is too slow for target builds.
     return;
@@ -239,9 +211,7 @@ TEST_F(Dex2oatImageTest, TestModesAndFilters) {
   ImageSizes base_sizes = CompileImageAndGetSizes({});
   ImageSizes image_classes_sizes;
   ImageSizes compiled_classes_sizes;
-  ImageSizes compiled_all_classes_sizes;
   ImageSizes compiled_methods_sizes;
-  ImageSizes compiled_all_methods_sizes;
   ImageSizes profile_sizes;
   std::cout << "Base compile sizes " << base_sizes << std::endl;
   // Test image classes
@@ -257,65 +227,28 @@ TEST_F(Dex2oatImageTest, TestModesAndFilters) {
     // Sanity check that dex is the same size.
     EXPECT_EQ(image_classes_sizes.vdex_size, base_sizes.vdex_size);
   }
-  // Test compiled classes with all the classes.
-  {
-    ScratchFile classes;
-    // Only compile every even class.
-    GenerateClasses(classes.GetFile(), /*frequency*/ 1u);
-    compiled_all_classes_sizes = CompileImageAndGetSizes(
-        {"--compiled-classes=" + classes.GetFilename()});
-    classes.Close();
-    std::cout << "Compiled all classes sizes " << compiled_all_classes_sizes << std::endl;
-    // Check that oat size is smaller since we didn't compile everything.
-    EXPECT_EQ(compiled_all_classes_sizes.art_size, base_sizes.art_size);
-    // TODO(mathieuc): Find a reliable way to check compiled code.
-    // EXPECT_EQ(compiled_all_classes_sizes.oat_size, base_sizes.oat_size);
-    EXPECT_EQ(compiled_all_classes_sizes.vdex_size, base_sizes.vdex_size);
-  }
   // Test compiled classes.
   {
     ScratchFile classes;
     // Only compile every even class.
     GenerateClasses(classes.GetFile(), /*frequency*/ 2u);
     compiled_classes_sizes = CompileImageAndGetSizes(
-        {"--image-classes=" + classes.GetFilename(),
-         "--compiled-classes=" + classes.GetFilename()});
+        {"--image-classes=" + classes.GetFilename()});
     classes.Close();
     std::cout << "Compiled classes sizes " << compiled_classes_sizes << std::endl;
-    // Check that oat size is smaller since we didn't compile everything.
-    // TODO(mathieuc): Find a reliable way to check compiled code.
-    // EXPECT_LT(compiled_classes_sizes.oat_size, base_sizes.oat_size);
     // Art file should be smaller than image classes version since we included fewer classes in the
     // list.
     EXPECT_LT(compiled_classes_sizes.art_size, image_classes_sizes.art_size);
-  }
-  // Test compiled methods.
-  {
-    ScratchFile methods;
-    // Only compile every even class.
-    GenerateMethods(methods.GetFile(), /*frequency*/ 1u);
-    compiled_all_methods_sizes = CompileImageAndGetSizes(
-        {"--compiled-methods=" + methods.GetFilename()});
-    methods.Close();
-    std::cout << "Compiled all methods sizes " << compiled_all_methods_sizes << std::endl;
-    EXPECT_EQ(compiled_all_classes_sizes.art_size, base_sizes.art_size);
-    // TODO(mathieuc): Find a reliable way to check compiled code. b/63746626
-    // EXPECT_EQ(compiled_all_classes_sizes.oat_size, base_sizes.oat_size);
-    EXPECT_EQ(compiled_all_classes_sizes.vdex_size, base_sizes.vdex_size);
   }
   static size_t kMethodFrequency = 3;
   static size_t kTypeFrequency = 4;
   // Test compiling fewer methods and classes.
   {
-    ScratchFile methods;
     ScratchFile classes;
     // Only compile every even class.
-    GenerateMethods(methods.GetFile(), kMethodFrequency);
     GenerateClasses(classes.GetFile(), kTypeFrequency);
     compiled_methods_sizes = CompileImageAndGetSizes(
-        {"--image-classes=" + classes.GetFilename(),
-         "--compiled-methods=" + methods.GetFilename()});
-    methods.Close();
+        {"--image-classes=" + classes.GetFilename()});
     classes.Close();
     std::cout << "Compiled fewer methods sizes " << compiled_methods_sizes << std::endl;
   }

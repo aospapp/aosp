@@ -18,6 +18,9 @@
 #
 # Everything in this directory will become public
 
+# Installs gsi keys into ramdisk, to boot a GSI with verified boot.
+$(call inherit-product, $(SRC_TARGET_DIR)/product/gsi_keys.mk)
+
 ifeq ($(TARGET_PREBUILT_KERNEL),)
     LOCAL_KERNEL := device/google/marlin-kernel/Image.lz4-dtb
 else
@@ -25,6 +28,11 @@ LOCAL_KERNEL := $(TARGET_PREBUILT_KERNEL)
 endif
 
 PRODUCT_SHIPPING_API_LEVEL := 25
+
+PRODUCT_SOONG_NAMESPACES += \
+    device/google/marlin \
+    vendor/google/camera \
+    hardware/google/pixel
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_KERNEL):kernel \
@@ -50,13 +58,8 @@ PRODUCT_COPY_FILES += \
     device/google/marlin/media_profiles_V1_0.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_profiles_V1_0.xml \
     device/google/marlin/media_codecs.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs.xml
 
-ifneq ($(findstring marlin_svelte, $(TARGET_PRODUCT)),)
-PRODUCT_COPY_FILES += \
-    device/google/marlin/media_codecs_performance_svelte.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_performance.xml
-else
 PRODUCT_COPY_FILES += \
     device/google/marlin/media_codecs_performance.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_performance.xml
-endif
 
 # Override heap growth limit due to high display density on device
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -110,8 +113,11 @@ PRODUCT_COPY_FILES += \
     device/google/marlin/sound_trigger_platform_info.xml:$(TARGET_COPY_OUT_VENDOR)/etc/sound_trigger_platform_info.xml \
     device/google/marlin/audio_platform_info_tasha_t50.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_platform_info_tasha_t50.xml \
     device/google/marlin/audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration.xml \
+    device/google/marlin/audio_policy_configuration_bluetooth_legacy_hal.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_configuration_bluetooth_legacy_hal.xml \
     device/google/marlin/audio_policy_volumes_drc.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_policy_volumes_drc.xml \
     frameworks/av/services/audiopolicy/config/a2dp_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/a2dp_audio_policy_configuration.xml \
+    frameworks/av/services/audiopolicy/config/a2dp_in_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/a2dp_in_audio_policy_configuration.xml \
+    frameworks/av/services/audiopolicy/config/bluetooth_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/bluetooth_audio_policy_configuration.xml \
     frameworks/av/services/audiopolicy/config/hearing_aid_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/hearing_aid_audio_policy_configuration.xml \
     frameworks/av/services/audiopolicy/config/r_submix_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/r_submix_audio_policy_configuration.xml \
     frameworks/av/services/audiopolicy/config/usb_audio_policy_configuration.xml:$(TARGET_COPY_OUT_VENDOR)/etc/usb_audio_policy_configuration.xml \
@@ -136,6 +142,7 @@ PRODUCT_PROPERTY_OVERRIDES += aaudio.hw_burst_min_usec=2000
 PRODUCT_FULL_TREBLE_OVERRIDE := true
 PRODUCT_PACKAGES += \
     android.hardware.audio@2.0-service \
+    android.hardware.bluetooth.audio@2.0-impl \
     android.hardware.contexthub@1.0-service \
     android.hardware.gnss@1.0-service \
     android.hardware.drm@1.0-service \
@@ -179,9 +186,9 @@ PRODUCT_PACKAGES += \
     sound_trigger.primary.msm8996
 
 PRODUCT_PACKAGES += \
-    android.hardware.audio@4.0-impl:32 \
-    android.hardware.audio.effect@4.0-impl:32 \
-    android.hardware.soundtrigger@2.1-impl:32
+    android.hardware.audio@5.0-impl:32 \
+    android.hardware.audio.effect@5.0-impl:32 \
+    android.hardware.soundtrigger@2.2-impl:32
 
 PRODUCT_PACKAGES += \
     android.hardware.drm@1.0-impl:32
@@ -233,7 +240,6 @@ PRODUCT_PACKAGES += \
     libwpa_client \
     hostapd \
     wificond \
-    wifilogd \
     wpa_supplicant \
     wpa_supplicant.conf
 
@@ -448,10 +454,6 @@ PRODUCT_PACKAGES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.cp_system_other_odex=1
 
-# Script that copies preloads directory from system_other to data partition
-PRODUCT_COPY_FILES += \
-    device/google/marlin/preloads_copy.sh:system/bin/preloads_copy.sh
-
 PRODUCT_PACKAGES_DEBUG += \
     update_engine_client
 
@@ -499,6 +501,16 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.vibrator@1.0-service.marlin \
 
+# Thermal HAL
+PRODUCT_PACKAGES += \
+    android.hardware.thermal@2.0-service.pixel
+
+PRODUCT_COPY_FILES += \
+    device/google/marlin/thermal_info_config.json:$(TARGET_COPY_OUT_VENDOR)/etc/thermal_info_config.json
+
+PRODUCT_PROPERTY_OVERRIDES += \
+    vendor.thermal.config=thermal_info_config.json
+
 # VR
 PRODUCT_PACKAGES += \
     android.hardware.vr@1.0-impl:64
@@ -507,7 +519,7 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     android.hardware.graphics.allocator@2.0-impl:64 \
     android.hardware.graphics.allocator@2.0-service \
-    android.hardware.graphics.mapper@2.0-impl
+    android.hardware.graphics.mapper@2.0-impl-2.1
 
 # HW Composer
 PRODUCT_PACKAGES += \
@@ -532,7 +544,7 @@ PRODUCT_PROPERTY_OVERRIDES += \
     ro.camera.notify_nfc=1
 
 PRODUCT_COPY_FILES += \
-    device/google/marlin/nfc/libnfc-nci.conf:$(TARGET_COPY_OUT_SYSTEM)/etc/libnfc-nci.conf \
+    device/google/marlin/nfc/libnfc-nci.conf:$(TARGET_COPY_OUT_PRODUCT)/etc/libnfc-nci.conf \
     device/google/marlin/nfc/libpn551_fw.so:$(TARGET_COPY_OUT_VENDOR)/lib/libpn551_fw.so
 
 # Bootloader HAL used for A/B updates.
@@ -601,13 +613,6 @@ endif
 PRODUCT_PACKAGES += \
     toybox_static
 
-ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
-ifeq (,$(filter aosp_marlin aosp_sailfish, $(TARGET_PRODUCT)))
-PRODUCT_PACKAGES += \
-    NexusLogger
-endif # filter it out for aosp build
-endif
-
 # b/30349163
 # Set Marlin/Sailfish default log size on userdebug/eng build to 1M
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
@@ -645,3 +650,14 @@ PRODUCT_PROPERTY_OVERRIDES += \
 # health HAL
 PRODUCT_PACKAGES += \
     android.hardware.health@2.0-service.marlin
+
+# default atrace HAL
+PRODUCT_PACKAGES += \
+    android.hardware.atrace@1.0-service
+
+# a_sns_test for sensor testing
+PRODUCT_PACKAGES_DEBUG += a_sns_test
+
+# Write flags to the vendor space in /misc partition.
+PRODUCT_PACKAGES += \
+    misc_writer

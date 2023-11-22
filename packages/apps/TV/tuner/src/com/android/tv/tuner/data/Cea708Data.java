@@ -18,7 +18,6 @@ package com.android.tv.tuner.data;
 
 import android.graphics.Color;
 import android.support.annotation.NonNull;
-import com.android.tv.tuner.cc.Cea708Parser;
 
 /** Collection of CEA-708 structures. */
 public class Cea708Data {

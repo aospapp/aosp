@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Pokrywa otwarta"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Zakleszczenie"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Tryb offline"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Zły certyfikat"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Niezaszyfrowana"</string>
     <string name="printer_check" msgid="6428369671197132828">"Sprawdź drukarkę"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Czeka na wysłanie"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Nie można odczytać dokumentu"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Drukarka nieobsługiwana"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Znajdź drukarki obsługujące Wi-Fi Direct"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Drukowanie Wi-Fi Direct"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Drukarki obsługujące Wi-Fi Direct"</string>
     <string name="searching" msgid="2114018057619514587">"Wyszukuję…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Być może konieczne będzie zatwierdzenie tego połączenia na panelu przednim drukarki"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Zapomnij"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Łączenie przez Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Łączenie przez bieżącą sieć, adres: <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="security" msgid="2279008326210305401">"Zabezpieczenia"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Ta drukarka przekazała nowy certyfikat bezpieczeństwa lub inne urządzenie podszywa się pod nią. Zaakceptować nowy certyfikat?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Ta drukarka nie przyjmuje już zaszyfrowanych zadań. Kontynuować drukowanie?"</string>
+    <string name="accept" msgid="4426153292469698134">"Zaakceptuj"</string>
+    <string name="reject" msgid="24751635160440693">"Odrzuć"</string>
+    <string name="connections" msgid="8895413761760117180">"Połączenia"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Domyślna usługa drukowania wymaga dostępu do lokalizacji, by znaleźć urządzenia w pobliżu."</string>
+    <string name="fix" msgid="7784394272611365393">"Sprawdź uprawnienia"</string>
 </resources>

@@ -16,6 +16,7 @@
 
 package dalvik.system;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import dalvik.annotation.optimization.FastNative;
 
 /**
@@ -24,21 +25,33 @@ import dalvik.annotation.optimization.FastNative;
  *
  * @hide
  */
+@libcore.api.CorePlatformApi
 public final class VMStack {
+
+    private VMStack() {
+    }
+
     /**
      * Returns the defining class loader of the caller's caller.
      *
      * @return the requested class loader, or {@code null} if this is the
      *         bootstrap class loader.
+     * @deprecated Use {@code ClassLoader.getClassLoader(sun.reflect.Reflection.getCallerClass())}.
+     *         Note that that can return {@link BootClassLoader} on Android where the RI
+     *         would have returned null.
      */
+    @UnsupportedAppUsage
     @FastNative
+    @Deprecated
     native public static ClassLoader getCallingClassLoader();
 
     /**
      * Returns the class of the caller's caller.
      *
      * @return the requested class, or {@code null}.
+     * @deprecated Use {@link sun.reflect.Reflection#getCallerClass()}.
      */
+    @Deprecated
     public static Class<?> getStackClass1() {
         return getStackClass2();
     }
@@ -48,6 +61,7 @@ public final class VMStack {
      *
      * @return the requested class, or {@code null}.
      */
+    @UnsupportedAppUsage
     @FastNative
     native public static Class<?> getStackClass2();
 
@@ -66,6 +80,7 @@ public final class VMStack {
      * @return an array of stack trace elements, or null if the thread
      *      doesn't have a stack trace (e.g. because it exited)
      */
+    @UnsupportedAppUsage
     @FastNative
     native public static StackTraceElement[] getThreadStackTrace(Thread t);
 
@@ -77,6 +92,7 @@ public final class VMStack {
      * @return an array of annotated stack frames, or null if the thread
      *      doesn't have a stack trace (e.g. because it exited)
      */
+    @libcore.api.CorePlatformApi
     @FastNative
     native public static AnnotatedStackTraceElement[]
             getAnnotatedThreadStackTrace(Thread t);
@@ -92,6 +108,7 @@ public final class VMStack {
      *      desired. Unused elements will be filled with null values.
      * @return the number of elements filled
      */
+    @UnsupportedAppUsage
     @FastNative
     native public static int fillStackTraceElements(Thread t,
         StackTraceElement[] stackTraceElements);

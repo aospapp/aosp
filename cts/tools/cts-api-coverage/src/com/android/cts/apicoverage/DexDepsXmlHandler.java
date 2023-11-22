@@ -39,8 +39,6 @@ class DexDepsXmlHandler extends DefaultHandler {
 
     private String mCurrentMethodName;
 
-    private String mCurrentMethodReturnType;
-
     private List<String> mCurrentParameterTypes = new ArrayList<String>();
 
     DexDepsXmlHandler(ApiCoverage packageMap, String testApkName) {
@@ -61,7 +59,6 @@ class DexDepsXmlHandler extends DefaultHandler {
             mCurrentParameterTypes.clear();
         }  else if ("method".equalsIgnoreCase(localName)) {
             mCurrentMethodName = CurrentXmlHandler.getValue(attributes, "name");
-            mCurrentMethodReturnType = CurrentXmlHandler.getValue(attributes, "return");
             mCurrentParameterTypes.clear();
         } else if ("parameter".equalsIgnoreCase(localName)) {
             mCurrentParameterTypes.add(CurrentXmlHandler.getValue(attributes, "type"));
@@ -85,8 +82,7 @@ class DexDepsXmlHandler extends DefaultHandler {
                 ApiClass apiClass = apiPackage.getClass(mCurrentClassName);
                 if (apiClass != null) {
                     apiClass.markMethodCovered(
-                            mCurrentMethodName, mCurrentParameterTypes, mCurrentMethodReturnType,
-                                    mTestApkName);
+                            mCurrentMethodName, mCurrentParameterTypes, mTestApkName);
                 }
             }
         }

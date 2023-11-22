@@ -19,18 +19,21 @@
 
     <uses-permission android:name="android.Manifest.permission.MODIFY_AUDIO_ROUTING" />
     <uses-permission android:name="android.car.permission.CONTROL_CAR_CLIMATE" />
-    <uses-permission android:name="android.car.permission.ADJUST_CAR_CABIN" />
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_DOORS" />
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_WINDOWS" />
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_MIRRORS" />
+    <uses-permission android:name="android.car.permission.CONTROL_CAR_SEATS" />
     <uses-permission android:name="android.car.permission.CAR_ENERGY" />
     <uses-permission android:name="android.car.permission.CONTROL_APP_BLOCKING" />
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_VOLUME" />
     <uses-permission android:name="android.car.permission.CAR_CONTROL_AUDIO_SETTINGS" />
     <uses-permission android:name="android.car.permission.STORAGE_MONITORING" />
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.car.test"
             android:label="Tests for Car APIs"/>
 
-        <application android:label="CarServiceTest" android:name=".CarServiceTestApp"
+    <application android:label="CarServiceTest" android:name=".CarServiceTestApp"
             android:debuggable="true">
         <uses-library android:name="android.test.runner" />
         <service android:name="com.android.car.TestAppBlockingPolicyService"
@@ -39,14 +42,23 @@
                 <action android:name="android.car.content.pm.CarAppBlockingPolicyService"/>
             </intent-filter>
         </service>
-        <service android:name="com.android.car.SimpleVmsPublisherClientService"
-                 android:exported="true" />
-        <service android:name="com.android.car.VmsPublisherClientMockService"
-                 android:exported="true" />
+        <service android:name="com.android.car.MockedVmsTestBase$MockPublisherClient"
+             android:exported="true"
+             android:permission="android.car.permission.BIND_VMS_CLIENT"/>
+
+        <service android:name="com.android.car.VmsPublisherClientPermissionTest$PublisherClientExpectedPermission"
+                 android:exported="true"
+                 android:permission="android.car.permission.BIND_VMS_CLIENT"/>
+        <service android:name="com.android.car.VmsPublisherClientPermissionTest$PublisherClientWrongPermission"
+                 android:exported="true"
+                 android:permission="android.car.permission.VMS_PUBLISHER"/>
+        <service android:name="com.android.car.VmsPublisherClientPermissionTest$PublisherClientMissingPermission"
+                 android:exported="true"/>
 
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityA"/>
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityB"/>
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityC"/>
+        <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$ActivityThatFinishesImmediately"/>
         <activity android:name="com.android.car.SystemActivityMonitoringServiceTest$BlockingActivity"
                   android:taskAffinity="com.android.car.carservicetest.block"/>
 

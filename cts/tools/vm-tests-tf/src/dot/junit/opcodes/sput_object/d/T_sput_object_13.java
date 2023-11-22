@@ -17,6 +17,7 @@
 package dot.junit.opcodes.sput_object.d;
 
 class StubInitError {
+    @SuppressWarnings("ConstantOverflow")
     static short t = (short)(5 / 0);
     static Object value;
 }

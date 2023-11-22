@@ -16,17 +16,18 @@
 
 package com.android.tv.settings.util;
 
-import android.support.v17.leanback.app.GuidedStepFragment;
-import android.support.v17.leanback.widget.BaseGridView;
-import android.support.v17.leanback.widget.FacetProvider;
-import android.support.v17.leanback.widget.GuidanceStylist;
-import android.support.v17.leanback.widget.GuidedActionsStylist;
-import android.support.v17.leanback.widget.ItemAlignmentFacet;
-import android.support.v17.leanback.widget.ItemAlignmentFacet.ItemAlignmentDef;
-import android.support.v17.leanback.widget.VerticalGridView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.leanback.app.GuidedStepFragment;
+import androidx.leanback.widget.BaseGridView;
+import androidx.leanback.widget.FacetProvider;
+import androidx.leanback.widget.GuidanceStylist;
+import androidx.leanback.widget.GuidedActionsStylist;
+import androidx.leanback.widget.ItemAlignmentFacet;
+import androidx.leanback.widget.ItemAlignmentFacet.ItemAlignmentDef;
+import androidx.leanback.widget.VerticalGridView;
 
 import com.android.tv.settings.R;
 
@@ -56,7 +57,7 @@ public class GuidedActionsAlignUtil {
                 ItemAlignmentFacet.ItemAlignmentDef alignedDef =
                         new ItemAlignmentFacet.ItemAlignmentDef();
                 alignedDef.setItemAlignmentViewId(
-                        android.support.v17.leanback.R.id.guidedactions_item_title);
+                        androidx.leanback.R.id.guidedactions_item_title);
                 alignedDef.setAlignedToTextViewBaseline(false);
                 alignedDef.setItemAlignmentOffset(0);
                 alignedDef.setItemAlignmentOffsetWithPadding(true);
@@ -102,7 +103,7 @@ public class GuidedActionsAlignUtil {
     }
 
     /**
-     * Create a customized view for {@link android.support.v17.leanback.app.GuidedStepFragment} used
+     * Create a customized view for {@link androidx.leanback.app.GuidedStepFragment} used
      * in device name setup.
      */
     public static View createView(View view, GuidedStepFragment guidedStepFragment) {

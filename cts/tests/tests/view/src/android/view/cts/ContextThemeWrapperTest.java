@@ -26,10 +26,11 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.Resources.Theme;
 import android.content.res.TypedArray;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.ContextThemeWrapper;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -79,6 +80,19 @@ public class ContextThemeWrapperTest {
             contextThemeWrapper.getTheme().obtainStyledAttributes(R.styleable.TextAppearance);
 
         // assert theme style of TextAppearance
+        verifyIdenticalTextAppearanceStyle(ta);
+    }
+
+    @Test
+    public void testSetTheme() {
+        ContextThemeWrapper contextThemeWrapper = new ContextThemeWrapper(
+                mContext, SYSTEM_DEFAULT_THEME);
+        Theme theme = mContext.getResources().newTheme();
+        theme.applyStyle(R.style.TextAppearance, true);
+        contextThemeWrapper.setTheme(theme);
+
+        TypedArray ta =
+                contextThemeWrapper.getTheme().obtainStyledAttributes(R.styleable.TextAppearance);
         verifyIdenticalTextAppearanceStyle(ta);
     }
 

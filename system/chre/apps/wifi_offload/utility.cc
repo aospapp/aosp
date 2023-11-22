@@ -90,20 +90,20 @@ int Ieee80211FrequencyToChannel(int freq) {
 
 void LogSsid(const uint8_t *ssid, uint8_t ssid_len) {
   const char *ssid_str = "<non-printable>";
-  char ssid_buffer[kMaxSsidStrLen];
+  char ssid_buffer[std::max<size_t>(kMaxSsidStrLen,
+                                    CHRE_WIFI_SSID_MAX_LEN * 3)];
   if (ssid_len == 0) {
     ssid_str = "<empty>";
   } else if (ParseSsidToStr(ssid, ssid_len, ssid_buffer, kMaxSsidStrLen)) {
     ssid_str = ssid_buffer;
   } else {
     // ssid has non-printable ASCII chars, parse in hex format
-    char ssid_hex_buffer[CHRE_WIFI_SSID_MAX_LEN * 3];
-    char *buf_ptr = ssid_hex_buffer;
+    char *buf_ptr = ssid_buffer;
     for (size_t i = 0; i < ssid_len; i++) {
       buf_ptr += std::sprintf(buf_ptr, "%02" PRIx8 ":", ssid[i]);
     }
     buf_ptr[-1] = '\0';
-    ssid_str = ssid_hex_buffer;
+    ssid_str = ssid_buffer;
   }
   LOGI("  ssid: %s", ssid_str);
 }

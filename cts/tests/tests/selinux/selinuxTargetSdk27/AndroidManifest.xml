@@ -26,7 +26,7 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.selinuxtargetsdk27.cts"
                      android:label="CTS tests for permissions enforce by selinux based on targetSdkVersion">
         <meta-data android:name="listener"

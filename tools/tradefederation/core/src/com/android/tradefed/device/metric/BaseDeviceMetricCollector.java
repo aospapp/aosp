@@ -43,6 +43,9 @@ public class BaseDeviceMetricCollector implements IMetricCollector {
     public static final String TEST_CASE_INCLUDE_GROUP_OPTION = "test-case-include-group";
     public static final String TEST_CASE_EXCLUDE_GROUP_OPTION = "test-case-exclude-group";
 
+    @Option(name = "disable", description = "disables the metrics collector")
+    private boolean mDisable = false;
+
     @Option(
         name = TEST_CASE_INCLUDE_GROUP_OPTION,
         description =
@@ -108,6 +111,16 @@ public class BaseDeviceMetricCollector implements IMetricCollector {
 
     @Override
     public void onTestStart(DeviceMetricData testData) {
+        // Does nothing
+    }
+
+    @Override
+    public void onTestFail(DeviceMetricData testData, TestDescription test) {
+        // Does nothing
+    }
+
+    @Override
+    public void onTestAssumptionFailure(DeviceMetricData testData, TestDescription test) {
         // Does nothing
     }
 
@@ -198,6 +211,15 @@ public class BaseDeviceMetricCollector implements IMetricCollector {
 
     @Override
     public final void testFailed(TestDescription test, String trace) {
+        mSkipTestCase = shouldSkip(test);
+        if (!mSkipTestCase) {
+            try {
+                onTestFail(mTestData, test);
+            } catch (Throwable t) {
+                // Prevent exception from messing up the status reporting.
+                CLog.e(t);
+            }
+        }
         mForwarder.testFailed(test, trace);
     }
 
@@ -225,12 +247,33 @@ public class BaseDeviceMetricCollector implements IMetricCollector {
 
     @Override
     public final void testAssumptionFailure(TestDescription test, String trace) {
+        mSkipTestCase = shouldSkip(test);
+        if (!mSkipTestCase) {
+            try {
+                onTestAssumptionFailure(mTestData, test);
+            } catch (Throwable t) {
+                // Prevent exception from messing up the status reporting.
+                CLog.e(t);
+            }
+        }
         mForwarder.testAssumptionFailure(test, trace);
     }
 
     @Override
     public final void testIgnored(TestDescription test) {
         mForwarder.testIgnored(test);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public final boolean isDisabled() {
+        return mDisable;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public final void setDisable(boolean isDisabled) {
+        mDisable = isDisabled;
     }
 
     /**

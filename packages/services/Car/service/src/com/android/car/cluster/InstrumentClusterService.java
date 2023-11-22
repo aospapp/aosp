@@ -15,53 +15,39 @@
  */
 package com.android.car.cluster;
 
-import static android.content.pm.PackageManager.PERMISSION_GRANTED;
-
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
-import android.car.Car;
 import android.car.CarAppFocusManager;
-import android.car.cluster.CarInstrumentClusterManager;
 import android.car.cluster.IInstrumentClusterManagerCallback;
 import android.car.cluster.IInstrumentClusterManagerService;
 import android.car.cluster.renderer.IInstrumentCluster;
-import android.car.cluster.renderer.IInstrumentClusterCallback;
 import android.car.cluster.renderer.IInstrumentClusterNavigation;
-import android.car.cluster.renderer.InstrumentClusterRenderingService;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.os.Binder;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.IBinder.DeathRecipient;
 import android.os.Message;
-import android.os.Process;
 import android.os.RemoteException;
+import android.os.UserHandle;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.Pair;
 import android.view.KeyEvent;
 
 import com.android.car.AppFocusService;
 import com.android.car.AppFocusService.FocusOwnershipCallback;
 import com.android.car.CarInputService;
 import com.android.car.CarInputService.KeyEventListener;
+import com.android.car.CarLocalServices;
 import com.android.car.CarLog;
 import com.android.car.CarServiceBase;
 import com.android.car.R;
+import com.android.car.user.CarUserService;
 import com.android.internal.annotations.GuardedBy;
 
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.Objects;
 
 /**
  * Service responsible for interaction with car's instrument cluster.
@@ -69,41 +55,39 @@ import java.util.Set;
  * @hide
  */
 @SystemApi
-public class InstrumentClusterService implements CarServiceBase,
-        FocusOwnershipCallback, KeyEventListener {
-
+public class InstrumentClusterService implements CarServiceBase, FocusOwnershipCallback,
+        KeyEventListener {
     private static final String TAG = CarLog.TAG_CLUSTER;
-    private static final Boolean DBG = false;
+    private static final ContextOwner NO_OWNER = new ContextOwner(0, 0);
 
     private final Context mContext;
-
     private final AppFocusService mAppFocusService;
     private final CarInputService mCarInputService;
-    private final PackageManager mPackageManager;
-    private final Object mSync = new Object();
-
-    private final ClusterServiceCallback mClusterCallback = new ClusterServiceCallback();
+    /**
+     * TODO: (b/121277787) Remove this on master.
+     * @deprecated CarInstrumentClusterManager is being deprecated.
+     */
+    @Deprecated
     private final ClusterManagerService mClusterManagerService = new ClusterManagerService();
-
+    private final Object mSync = new Object();
     @GuardedBy("mSync")
-    private ContextOwner mNavContextOwner;
+    private ContextOwner mNavContextOwner = NO_OWNER;
     @GuardedBy("mSync")
     private IInstrumentCluster mRendererService;
-    @GuardedBy("mSync")
-    private final HashMap<String, ClusterActivityInfo> mActivityInfoByCategory = new HashMap<>();
-    @GuardedBy("mSync")
-    private final HashMap<IBinder, ManagerCallbackInfo> mManagerCallbacks = new HashMap<>();
-
     // If renderer service crashed / stopped and this class fails to rebind with it immediately,
     // we should wait some time before next attempt. This may happen during APK update for example.
     private DeferredRebinder mDeferredRebinder;
-
+    // Whether {@link android.car.cluster.renderer.InstrumentClusterRendererService} is bound
+    // (although not necessarily connected)
     private boolean mRendererBound = false;
 
+    /**
+     * Connection to {@link android.car.cluster.renderer.InstrumentClusterRendererService}
+     */
     private final ServiceConnection mRendererServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder binder) {
-            if (DBG) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
                 Log.d(TAG, "onServiceConnected, name: " + name + ", binder: " + binder);
             }
             IInstrumentCluster service = IInstrumentCluster.Stub.asInterface(binder);
@@ -112,14 +96,17 @@ public class InstrumentClusterService implements CarServiceBase,
                 mRendererService = service;
                 navContextOwner = mNavContextOwner;
             }
-            if (navContextOwner !=  null && service != null) {
-                notifyNavContextOwnerChanged(service, navContextOwner.uid, navContextOwner.pid);
+            if (navContextOwner != null && service != null) {
+                notifyNavContextOwnerChanged(service, navContextOwner);
             }
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
-            Log.d(TAG, "onServiceDisconnected, name: " + name);
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                Log.d(TAG, "onServiceDisconnected, name: " + name);
+            }
+            mContext.unbindService(this);
             mRendererBound = false;
 
             synchronized (mSync) {
@@ -138,23 +125,26 @@ public class InstrumentClusterService implements CarServiceBase,
         mContext = context;
         mAppFocusService = appFocusService;
         mCarInputService = carInputService;
-        mPackageManager = mContext.getPackageManager();
     }
 
     @Override
     public void init() {
-        if (DBG) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "init");
         }
 
         mAppFocusService.registerContextOwnerChangedCallback(this /* FocusOwnershipCallback */);
         mCarInputService.setInstrumentClusterKeyListener(this /* KeyEventListener */);
-        mRendererBound = bindInstrumentClusterRendererService();
+        // TODO(b/124246323) Start earlier once data storage for cluster is clarified
+        //  for early boot.
+        CarLocalServices.getService(CarUserService.class).runOnUser0Unlock(() -> {
+            mRendererBound = bindInstrumentClusterRendererService();
+        });
     }
 
     @Override
     public void release() {
-        if (DBG) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "release");
         }
 
@@ -170,51 +160,51 @@ public class InstrumentClusterService implements CarServiceBase,
         writer.println("**" + getClass().getSimpleName() + "**");
         writer.println("bound with renderer: " + mRendererBound);
         writer.println("renderer service: " + mRendererService);
+        writer.println("context owner: " + mNavContextOwner);
     }
 
     @Override
     public void onFocusAcquired(int appType, int uid, int pid) {
-        if (appType != CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION) {
-            return;
-        }
-
-        IInstrumentCluster service;
-        synchronized (mSync) {
-            mNavContextOwner = new ContextOwner(uid, pid);
-            service = mRendererService;
-        }
-
-        if (service != null) {
-            notifyNavContextOwnerChanged(service, uid, pid);
-        }
+        changeNavContextOwner(appType, uid, pid, true);
     }
 
     @Override
     public void onFocusAbandoned(int appType, int uid, int pid) {
+        changeNavContextOwner(appType, uid, pid, false);
+    }
+
+    private void changeNavContextOwner(int appType, int uid, int pid, boolean acquire) {
         if (appType != CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION) {
             return;
         }
 
         IInstrumentCluster service;
+        ContextOwner requester = new ContextOwner(uid, pid);
+        ContextOwner newOwner = acquire ? requester : NO_OWNER;
         synchronized (mSync) {
-            if (mNavContextOwner == null
-                    || mNavContextOwner.uid != uid
-                    || mNavContextOwner.pid != pid) {
-                return;  // Nothing to do here, no active focus or not owned by this client.
+            if ((acquire && Objects.equals(mNavContextOwner, requester))
+                    || (!acquire && !Objects.equals(mNavContextOwner, requester))) {
+                // Nothing to do here. Either the same owner is acquiring twice, or someone is
+                // abandoning a focus they didn't have.
+                Log.w(TAG, "Invalid nav context owner change (acquiring: " + acquire
+                        + "), current owner: [" + mNavContextOwner
+                        + "], requester: [" + requester + "]");
+                return;
             }
 
-            mNavContextOwner = null;
+            mNavContextOwner = newOwner;
             service = mRendererService;
         }
 
         if (service != null) {
-            notifyNavContextOwnerChanged(service, 0, 0);
+            notifyNavContextOwnerChanged(service, newOwner);
         }
     }
 
-    private static void notifyNavContextOwnerChanged(IInstrumentCluster service, int uid, int pid) {
+    private static void notifyNavContextOwnerChanged(IInstrumentCluster service,
+            ContextOwner owner) {
         try {
-            service.setNavigationContextOwner(uid, pid);
+            service.setNavigationContextOwner(owner.uid, owner.pid);
         } catch (RemoteException e) {
             Log.e(TAG, "Failed to call setNavigationContextOwner", e);
         }
@@ -231,23 +221,14 @@ public class InstrumentClusterService implements CarServiceBase,
 
         Intent intent = new Intent();
         intent.setComponent(ComponentName.unflattenFromString(rendererService));
-        Bundle extras = new Bundle();
-        extras.putBinder(
-                InstrumentClusterRenderingService.EXTRA_KEY_CALLBACK_SERVICE,
-                mClusterCallback);
-        intent.putExtras(extras);
-        return mContext.bindService(intent, mRendererServiceConnection,
-                Context.BIND_AUTO_CREATE | Context.BIND_IMPORTANT);
+        return mContext.bindServiceAsUser(intent, mRendererServiceConnection,
+                Context.BIND_AUTO_CREATE | Context.BIND_IMPORTANT, UserHandle.SYSTEM);
     }
 
     @Nullable
     public IInstrumentClusterNavigation getNavigationService() {
-        IInstrumentCluster service;
-        synchronized (mSync) {
-            service = mRendererService;
-        }
-
         try {
+            IInstrumentCluster service = getInstrumentClusterRendererService();
             return service == null ? null : service.getNavigationService();
         } catch (RemoteException e) {
             Log.e(TAG, "getNavigationServiceBinder" , e);
@@ -255,21 +236,21 @@ public class InstrumentClusterService implements CarServiceBase,
         }
     }
 
+    /**
+     * @deprecated {@link android.car.cluster.CarInstrumentClusterManager} is now deprecated.
+     */
+    @Deprecated
     public IInstrumentClusterManagerService.Stub getManagerService() {
         return mClusterManagerService;
     }
 
     @Override
-    public boolean onKeyEvent(KeyEvent event) {
-        if (DBG) {
+    public void onKeyEvent(KeyEvent event) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
             Log.d(TAG, "InstrumentClusterService#onKeyEvent: " + event);
         }
 
-        IInstrumentCluster service;
-        synchronized (mSync) {
-            service = mRendererService;
-        }
-
+        IInstrumentCluster service = getInstrumentClusterRendererService();
         if (service != null) {
             try {
                 service.onKeyEvent(event);
@@ -277,7 +258,14 @@ public class InstrumentClusterService implements CarServiceBase,
                 Log.e(TAG, "onKeyEvent", e);
             }
         }
-        return true;
+    }
+
+    private IInstrumentCluster getInstrumentClusterRendererService() {
+        IInstrumentCluster service;
+        synchronized (mSync) {
+            service = mRendererService;
+        }
+        return service;
     }
 
     private static class ContextOwner {
@@ -288,249 +276,47 @@ public class InstrumentClusterService implements CarServiceBase,
             this.uid = uid;
             this.pid = pid;
         }
-    }
 
-    private static class ClusterActivityInfo {
-        Bundle launchOptions;  // ActivityOptions
-        Bundle state;          // ClusterActivityState
-    }
-
-    private void enforcePermission(String permission) {
-        int callingUid = Binder.getCallingUid();
-        int callingPid = Binder.getCallingPid();
-        if (Binder.getCallingUid() == Process.myUid()) {
-            if (mContext.checkCallingOrSelfPermission(permission) != PERMISSION_GRANTED) {
-                throw new SecurityException("Permission " + permission + " is not granted to "
-                        + "client {uid: " + callingUid + ", pid: " + callingPid + "}");
-            }
-        }
-    }
-
-    private void enforceClusterControlPermission() {
-        enforcePermission(Car.PERMISSION_CAR_INSTRUMENT_CLUSTER_CONTROL);
-    }
-
-    private void doStartClusterActivity(Intent intent) {
-        enforceClusterControlPermission();
-
-        // Category from given intent should match category from cluster vendor implementation.
-        List<ResolveInfo> resolveList = mPackageManager.queryIntentActivities(intent,
-                PackageManager.GET_RESOLVED_FILTER);
-        if (resolveList == null || resolveList.isEmpty()) {
-            Log.w(TAG, "Failed to resolve an intent: " + intent);
-            return;
-        }
-
-        resolveList = checkPermission(resolveList, Car.PERMISSION_CAR_DISPLAY_IN_CLUSTER);
-        if (resolveList.isEmpty()) {
-            return;
-        }
-
-        // TODO(b/63861009): we may have multiple navigation apps that eligible to be launched in
-        // the cluster. We need to resolve intent that may have multiple activity candidates, right
-        // now we pickup the first one that matches registered category (resolveList is sorted
-        // priority).
-        Pair<ResolveInfo, ClusterActivityInfo> attributedResolveInfo =
-                findClusterActivityOptions(resolveList);
-        if (attributedResolveInfo == null) {
-            Log.w(TAG, "Unable to start an activity with intent: " + intent + " in the cluster: "
-                    + "category intent didn't match with any categories from vendor "
-                    + "implementation");
-            return;
-        }
-        ClusterActivityInfo opts = attributedResolveInfo.second;
-
-        // Intent was already checked for permission and resolved, make it explicit.
-        intent.setComponent(attributedResolveInfo.first.getComponentInfo().getComponentName());
-
-        intent.putExtra(CarInstrumentClusterManager.KEY_EXTRA_ACTIVITY_STATE, opts.state);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        // Virtual display could be private and not available to calling process.
-        final long token = Binder.clearCallingIdentity();
-        try {
-            mContext.startActivity(intent, opts.launchOptions);
-        } finally {
-            Binder.restoreCallingIdentity(token);
-        }
-    }
-
-    private List<ResolveInfo> checkPermission(List<ResolveInfo> resolveList,
-            String permission) {
-        List<ResolveInfo> permittedResolveList = new ArrayList<>(resolveList.size());
-        for (ResolveInfo info : resolveList) {
-            String pkgName = info.getComponentInfo().packageName;
-            if (mPackageManager.checkPermission(permission, pkgName) == PERMISSION_GRANTED) {
-                permittedResolveList.add(info);
-            } else {
-                Log.w(TAG, "Permission " + permission + " not granted for "
-                        + info.getComponentInfo());
-            }
-
-        }
-        return permittedResolveList;
-    }
-
-    private void doRegisterManagerCallback(IInstrumentClusterManagerCallback callback)
-            throws RemoteException {
-        enforceClusterControlPermission();
-        IBinder binder = callback.asBinder();
-
-        List<Pair<String, Bundle>> knownActivityStates = null;
-        ManagerCallbackDeathRecipient deathRecipient = new ManagerCallbackDeathRecipient(binder);
-        synchronized (mSync) {
-            if (mManagerCallbacks.containsKey(binder)) {
-                Log.w(TAG, "Manager callback already registered for binder: " + binder);
-                return;
-            }
-            mManagerCallbacks.put(binder, new ManagerCallbackInfo(callback, deathRecipient));
-            if (!mActivityInfoByCategory.isEmpty()) {
-                knownActivityStates = new ArrayList<>(mActivityInfoByCategory.size());
-                for (Map.Entry<String, ClusterActivityInfo> it : mActivityInfoByCategory.entrySet()) {
-                    knownActivityStates.add(new Pair<>(it.getKey(), it.getValue().state));
-                }
-            }
-        }
-        binder.linkToDeath(deathRecipient, 0);
-
-        // Notify manager immediately with known states.
-        if (knownActivityStates != null) {
-            for (Pair<String, Bundle> it : knownActivityStates) {
-                callback.setClusterActivityState(it.first, it.second);
-            }
-        }
-    }
-
-    private void doUnregisterManagerCallback(IBinder binder) throws RemoteException {
-        enforceClusterControlPermission();
-        ManagerCallbackInfo info;
-        synchronized (mSync) {
-            info = mManagerCallbacks.get(binder);
-            if (info == null) {
-                Log.w(TAG, "Unable to unregister manager callback binder: " + binder + " because "
-                        + "it wasn't previously registered.");
-                return;
-            }
-            mManagerCallbacks.remove(binder);
-        }
-        binder.unlinkToDeath(info.deathRecipient, 0);
-    }
-
-    @Nullable
-    private Pair<ResolveInfo, ClusterActivityInfo> findClusterActivityOptions(
-            List<ResolveInfo> resolveList) {
-        synchronized (mSync) {
-            Set<String> registeredCategories = mActivityInfoByCategory.keySet();
-
-            for (ResolveInfo resolveInfo : resolveList) {
-                for (String category : registeredCategories) {
-                    if (resolveInfo.filter != null && resolveInfo.filter.hasCategory(category)) {
-                        ClusterActivityInfo categoryInfo = mActivityInfoByCategory.get(category);
-                        return new Pair<>(resolveInfo, categoryInfo);
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    private class ManagerCallbackDeathRecipient implements DeathRecipient {
-        private final IBinder mBinder;
-
-        ManagerCallbackDeathRecipient(IBinder binder) {
-            mBinder = binder;
+        @Override
+        public String toString() {
+            return "uid: " + uid + ", pid: " + pid;
         }
 
         @Override
-        public void binderDied() {
-            try {
-                doUnregisterManagerCallback(mBinder);
-            } catch (RemoteException e) {
-                // Ignore, shutdown route.
-            }
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ContextOwner that = (ContextOwner) o;
+            return uid == that.uid && pid == that.pid;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(uid, pid);
         }
     }
 
+    /**
+     * TODO: (b/121277787) Remove on master
+     * @deprecated CarClusterManager is being deprecated.
+     */
+    @Deprecated
     private class ClusterManagerService extends IInstrumentClusterManagerService.Stub {
-
         @Override
         public void startClusterActivity(Intent intent) throws RemoteException {
-            doStartClusterActivity(intent);
+            // No op.
         }
 
         @Override
         public void registerCallback(IInstrumentClusterManagerCallback callback)
                 throws RemoteException {
-            doRegisterManagerCallback(callback);
+            // No op.
         }
 
         @Override
         public void unregisterCallback(IInstrumentClusterManagerCallback callback)
                 throws RemoteException {
-            doUnregisterManagerCallback(callback.asBinder());
-        }
-    }
-
-    @GuardedBy("mSync")
-    private ClusterActivityInfo getOrCreateActivityInfoLocked(String category) {
-        return mActivityInfoByCategory.computeIfAbsent(category, k -> new ClusterActivityInfo());
-    }
-
-    /** This is communication channel from vendor cluster implementation to Car Service. */
-    private class ClusterServiceCallback extends IInstrumentClusterCallback.Stub {
-
-        @Override
-        public void setClusterActivityLaunchOptions(String category, Bundle activityOptions)
-                throws RemoteException {
-            doSetActivityLaunchOptions(category, activityOptions);
-        }
-
-        @Override
-        public void setClusterActivityState(String category, Bundle clusterActivityState)
-                throws RemoteException {
-            doSetClusterActivityState(category, clusterActivityState);
-        }
-    }
-
-    /** Called from cluster vendor implementation */
-    private void doSetActivityLaunchOptions(String category, Bundle activityOptions) {
-        if (DBG) {
-            Log.d(TAG, "doSetActivityLaunchOptions, category: " + category
-                    + ", options: " + activityOptions);
-        }
-        synchronized (mSync) {
-            ClusterActivityInfo info = getOrCreateActivityInfoLocked(category);
-            info.launchOptions = activityOptions;
-        }
-    }
-
-    /** Called from cluster vendor implementation */
-    private void doSetClusterActivityState(String category, Bundle clusterActivityState)
-            throws RemoteException {
-        if (DBG) {
-            Log.d(TAG, "doSetClusterActivityState, category: " + category
-                    + ", state: " + clusterActivityState);
-        }
-
-        List<ManagerCallbackInfo> managerCallbacks;
-        synchronized (mSync) {
-            ClusterActivityInfo info = getOrCreateActivityInfoLocked(category);
-            info.state = clusterActivityState;
-            managerCallbacks = new ArrayList<>(mManagerCallbacks.values());
-        }
-
-        for (ManagerCallbackInfo cbInfo : managerCallbacks) {
-            cbInfo.callback.setClusterActivityState(category, clusterActivityState);
-        }
-    }
-
-    private static class ManagerCallbackInfo {
-        final IInstrumentClusterManagerCallback callback;
-        final ManagerCallbackDeathRecipient deathRecipient;
-
-        ManagerCallbackInfo(IInstrumentClusterManagerCallback callback,
-                ManagerCallbackDeathRecipient deathRecipient) {
-            this.callback = callback;
-            this.deathRecipient = deathRecipient;
+            // No op.
         }
     }
 

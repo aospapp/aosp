@@ -16,15 +16,17 @@
 
 package com.android.documentsui.bots;
 
-import static android.support.test.espresso.Espresso.onView;
-import static android.support.test.espresso.action.ViewActions.typeText;
-import static android.support.test.espresso.matcher.ViewMatchers.hasDescendant;
-import static android.support.test.espresso.matcher.ViewMatchers.isClickable;
-import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static android.support.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.typeText;
+import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
+import static androidx.test.espresso.matcher.ViewMatchers.isClickable;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
+
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.anyOf;
 
@@ -32,8 +34,9 @@ import android.content.Context;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.v7.recyclerview.R;
 import android.view.View;
+
+import androidx.recyclerview.R;
 
 import org.hamcrest.Matcher;
 
@@ -44,8 +47,6 @@ import org.hamcrest.Matcher;
  * Support for working directly with Roots and Directory view can be found in the respective bots.
  */
 public class SearchBot extends Bots.BaseBot {
-
-    public static final String TARGET_PKG = "com.android.documentsui";
 
     // Dumb search layout changes substantially between Ryu and Angler.
     @SuppressWarnings("unchecked")
@@ -58,7 +59,7 @@ public class SearchBot extends Bots.BaseBot {
     // require this input be not clickable.
     @SuppressWarnings("unchecked")
     private static final Matcher<View> SEARCH_INPUT = allOf(
-            withId(R.id.option_menu_search),
+            withId(R.id.search_src_text),
             isDisplayed());
 
     public SearchBot(UiDevice device, Context context, int timeout) {
@@ -68,7 +69,19 @@ public class SearchBot extends Bots.BaseBot {
     public void clickIcon() throws UiObjectNotFoundException {
         UiObject searchView = findSearchView();
         searchView.click();
-        assertTrue(searchView.exists());
+
+        UiObject fragmentSearchView = findFragmentSearchView();
+        assertTrue(fragmentSearchView.exists());
+    }
+
+    public void clickSearchViewClearButton() throws UiObjectNotFoundException {
+        UiObject clear = findSearchViewClearButton();
+        clear.click();
+    }
+
+    public void clickFragmentSearchViewClearButton() throws UiObjectNotFoundException {
+        UiObject clear = findFragmentSearchClearButton();
+        clear.click();
     }
 
     public void setInputText(String query) throws UiObjectNotFoundException {
@@ -108,17 +121,51 @@ public class SearchBot extends Bots.BaseBot {
         assertEquals(exists, findSearchViewTextField().exists());
     }
 
+    public void assertFragmentInputFocused(boolean focused)
+            throws UiObjectNotFoundException {
+        UiObject textField = findFragmentSearchViewTextField();
+
+        assertTrue(textField.exists());
+        assertEquals(focused, textField.isFocused());
+    }
+
+    public void assertFragmentInputExists(boolean exists)
+            throws UiObjectNotFoundException {
+        assertEquals(exists, findFragmentSearchViewTextField().exists());
+    }
+
     private UiObject findSearchView() {
-        return findObject("com.android.documentsui:id/option_menu_search");
+        return findObject(mTargetPackage + ":id/option_menu_search");
     }
 
     private UiObject findSearchViewTextField() {
-        return findObject("com.android.documentsui:id/option_menu_search", "android:id/search_src_text");
+        return findObject(mTargetPackage + ":id/option_menu_search",
+                mTargetPackage + ":id/search_src_text");
+    }
+
+    private UiObject findSearchViewClearButton() {
+        return findObject(mTargetPackage + ":id/option_menu_search",
+                mTargetPackage + ":id/search_close_btn");
+    }
+
+    private UiObject findFragmentSearchView() {
+        return findObject(mTargetPackage + ":id/search_view");
+    }
+
+    private UiObject findFragmentSearchViewTextField() {
+        return findObject(mTargetPackage + ":id/search_view",
+                mTargetPackage + ":id/search_src_text");
+    }
+
+    private UiObject findFragmentSearchClearButton() {
+        return findObject(mTargetPackage + ":id/search_view",
+                mTargetPackage + ":id/search_close_btn");
     }
 
     private UiObject findSearchViewIcon() {
         return mContext.getResources().getBoolean(R.bool.full_bar_search_view)
-                ? findObject("com.android.documentsui:id/option_menu_search")
-                : findObject("com.android.documentsui:id/option_menu_search", "android:id/search_button");
+                ? findObject(mTargetPackage + ":id/option_menu_search")
+                : findObject(mTargetPackage + ":id/option_menu_search",
+                        "android:id/search_button");
     }
 }

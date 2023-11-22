@@ -15,6 +15,7 @@
  */
 
 #include "IdleMaint.h"
+#include "FileDeviceUtils.h"
 #include "Utils.h"
 #include "VolumeManager.h"
 #include "model/PrivateVolume.h"
@@ -23,18 +24,20 @@
 
 #include <android-base/chrono_utils.h>
 #include <android-base/file.h>
-#include <android-base/stringprintf.h>
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
+#include <android/hardware/health/storage/1.0/IStorage.h>
 #include <fs_mgr.h>
-#include <private/android_filesystem_config.h>
 #include <hardware_legacy/power.h>
+#include <private/android_filesystem_config.h>
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <fcntl.h>
 
 using android::base::Basename;
 using android::base::ReadFileToString;
@@ -42,6 +45,13 @@ using android::base::Realpath;
 using android::base::StringPrintf;
 using android::base::Timer;
 using android::base::WriteStringToFile;
+using android::fs_mgr::Fstab;
+using android::fs_mgr::ReadDefaultFstab;
+using android::hardware::Return;
+using android::hardware::Void;
+using android::hardware::health::storage::V1_0::IStorage;
+using android::hardware::health::storage::V1_0::IGarbageCollectCallback;
+using android::hardware::health::storage::V1_0::Result;
 
 namespace android {
 namespace vold {
@@ -72,8 +82,7 @@ static IdleMaintStats idle_maint_stat(IdleMaintStats::kStopped);
 static std::condition_variable cv_abort, cv_stop;
 static std::mutex cv_m;
 
-static void addFromVolumeManager(std::list<std::string>* paths,
-                                 PathTypes path_type) {
+static void addFromVolumeManager(std::list<std::string>* paths, PathTypes path_type) {
     VolumeManager* vm = VolumeManager::Instance();
     std::list<std::string> privateIds;
     vm->listVolumes(VolumeBase::Type::kPrivate, privateIds);
@@ -85,58 +94,53 @@ static void addFromVolumeManager(std::list<std::string>* paths,
             } else if (path_type == PathTypes::kBlkDevice) {
                 std::string gc_path;
                 const std::string& fs_type = vol->getFsType();
-                if (fs_type == "f2fs" &&
-                    Realpath(vol->getRawDevPath(), &gc_path)) {
-                    paths->push_back(std::string("/sys/fs/") + fs_type +
-                                     "/" + Basename(gc_path));
+                if (fs_type == "f2fs" && (Realpath(vol->getRawDmDevPath(), &gc_path) ||
+                                          Realpath(vol->getRawDevPath(), &gc_path))) {
+                    paths->push_back(std::string("/sys/fs/") + fs_type + "/" + Basename(gc_path));
                 }
             }
-
         }
     }
 }
 
 static void addFromFstab(std::list<std::string>* paths, PathTypes path_type) {
-    std::unique_ptr<fstab, decltype(&fs_mgr_free_fstab)> fstab(fs_mgr_read_fstab_default(),
-                                                               fs_mgr_free_fstab);
-    struct fstab_rec *prev_rec = NULL;
+    Fstab fstab;
+    ReadDefaultFstab(&fstab);
 
-    for (int i = 0; i < fstab->num_entries; i++) {
-        auto fs_type = std::string(fstab->recs[i].fs_type);
-        /* Skip raw partitions */
-        if (fs_type == "emmc" || fs_type == "mtd") {
+    std::string previous_mount_point;
+    for (const auto& entry : fstab) {
+        // Skip raw partitions.
+        if (entry.fs_type == "emmc" || entry.fs_type == "mtd") {
             continue;
         }
-        /* Skip read-only filesystems */
-        if (fstab->recs[i].flags & MS_RDONLY) {
+        // Skip read-only filesystems
+        if (entry.flags & MS_RDONLY) {
             continue;
         }
-        if (fs_mgr_is_voldmanaged(&fstab->recs[i])) {
-            continue; /* Should we trim fat32 filesystems? */
+        if (entry.fs_mgr_flags.vold_managed) {
+            continue;  // Should we trim fat32 filesystems?
         }
-        if (fs_mgr_is_notrim(&fstab->recs[i])) {
+        if (entry.fs_mgr_flags.no_trim) {
             continue;
         }
 
-        /* Skip the multi-type partitions, which are required to be following each other.
-         * See fs_mgr.c's mount_with_alternatives().
-         */
-        if (prev_rec && !strcmp(prev_rec->mount_point, fstab->recs[i].mount_point)) {
+        // Skip the multi-type partitions, which are required to be following each other.
+        // See fs_mgr.c's mount_with_alternatives().
+        if (entry.mount_point == previous_mount_point) {
             continue;
         }
 
         if (path_type == PathTypes::kMountPoint) {
-            paths->push_back(fstab->recs[i].mount_point);
+            paths->push_back(entry.mount_point);
         } else if (path_type == PathTypes::kBlkDevice) {
             std::string gc_path;
-            if (std::string(fstab->recs[i].fs_type) == "f2fs" &&
-                Realpath(fstab->recs[i].blk_device, &gc_path)) {
-                paths->push_back(std::string("/sys/fs/") + fstab->recs[i].fs_type +
-                                 "/" + Basename(gc_path));
+            if (entry.fs_type == "f2fs" &&
+                Realpath(android::vold::BlockDeviceForPath(entry.mount_point + "/"), &gc_path)) {
+                paths->push_back("/sys/fs/" + entry.fs_type + "/" + Basename(gc_path));
             }
         }
 
-        prev_rec = &fstab->recs[i];
+        previous_mount_point = entry.mount_point;
     }
 }
 
@@ -175,8 +179,8 @@ void Trim(const android::sp<android::os::IVoldTaskListener>& listener) {
             }
         } else {
             nsecs_t time = systemTime(SYSTEM_TIME_BOOTTIME) - start;
-            LOG(INFO) << "Trimmed " << range.len << " bytes on " << path
-                    << " in " << nanoseconds_to_milliseconds(time) << "ms";
+            LOG(INFO) << "Trimmed " << range.len << " bytes on " << path << " in "
+                      << nanoseconds_to_milliseconds(time) << "ms";
             extras.putLong(String16("bytes"), range.len);
             extras.putLong(String16("time"), time);
             if (listener) {
@@ -221,8 +225,8 @@ static bool waitForGc(const std::list<std::string>& paths) {
         }
 
         lk.lock();
-        aborted = cv_abort.wait_for(lk, 10s, []{
-            return idle_maint_stat == IdleMaintStats::kAbort;});
+        aborted =
+            cv_abort.wait_for(lk, 10s, [] { return idle_maint_stat == IdleMaintStats::kAbort; });
         lk.unlock();
     }
 
@@ -232,9 +236,6 @@ static bool waitForGc(const std::list<std::string>& paths) {
 static int startGc(const std::list<std::string>& paths) {
     for (const auto& path : paths) {
         LOG(DEBUG) << "Start GC on " << path;
-        if (!WriteStringToFile("1", path + "/discard_granularity")) {
-            PLOG(WARNING) << "Set discard gralunarity failed on" << path;
-        }
         if (!WriteStringToFile("1", path + "/gc_urgent")) {
             PLOG(WARNING) << "Start GC failed on " << path;
         }
@@ -248,30 +249,26 @@ static int stopGc(const std::list<std::string>& paths) {
         if (!WriteStringToFile("0", path + "/gc_urgent")) {
             PLOG(WARNING) << "Stop GC failed on " << path;
         }
-        if (!WriteStringToFile("16", path + "/discard_granularity")) {
-            PLOG(WARNING) << "Set discard gralunarity failed on" << path;
-        }
     }
     return android::OK;
 }
 
-static void runDevGc(void) {
-    std::unique_ptr<fstab, decltype(&fs_mgr_free_fstab)> fstab(fs_mgr_read_fstab_default(),
-                                                               fs_mgr_free_fstab);
-    struct fstab_rec *rec = NULL;
+static void runDevGcFstab(void) {
+    Fstab fstab;
+    ReadDefaultFstab(&fstab);
 
-    for (int i = 0; i < fstab->num_entries; i++) {
-        if (fs_mgr_has_sysfs_path(&fstab->recs[i])) {
-            rec = &fstab->recs[i];
+    std::string path;
+    for (const auto& entry : fstab) {
+        if (!entry.sysfs_path.empty()) {
+            path = entry.sysfs_path;
             break;
         }
     }
-    if (!rec) {
+
+    if (path.empty()) {
         return;
     }
 
-    std::string path;
-    path.append(rec->sysfs_path);
     path = path + "/manual_gc";
     Timer timer;
 
@@ -282,7 +279,7 @@ static void runDevGc(void) {
             PLOG(WARNING) << "Reading manual_gc failed in " << path;
             break;
         }
-
+        require = android::base::Trim(require);
         if (require == "" || require == "off" || require == "disabled") {
             LOG(DEBUG) << "No more to do Dev GC";
             break;
@@ -305,6 +302,57 @@ static void runDevGc(void) {
         PLOG(WARNING) << "Stop Dev GC failed on " << path;
     }
     return;
+}
+
+class GcCallback : public IGarbageCollectCallback {
+  public:
+    Return<void> onFinish(Result result) override {
+        std::unique_lock<std::mutex> lock(mMutex);
+        mFinished = true;
+        mResult = result;
+        lock.unlock();
+        mCv.notify_all();
+        return Void();
+    }
+    void wait(uint64_t seconds) {
+        std::unique_lock<std::mutex> lock(mMutex);
+        mCv.wait_for(lock, std::chrono::seconds(seconds), [this] { return mFinished; });
+
+        if (!mFinished) {
+            LOG(WARNING) << "Dev GC on HAL timeout";
+        } else if (mResult != Result::SUCCESS) {
+            LOG(WARNING) << "Dev GC on HAL failed with " << toString(mResult);
+        } else {
+            LOG(INFO) << "Dev GC on HAL successful";
+        }
+    }
+
+  private:
+    std::mutex mMutex;
+    std::condition_variable mCv;
+    bool mFinished{false};
+    Result mResult{Result::UNKNOWN_ERROR};
+};
+
+static void runDevGcOnHal(sp<IStorage> service) {
+    LOG(DEBUG) << "Start Dev GC on HAL";
+    sp<GcCallback> cb = new GcCallback();
+    auto ret = service->garbageCollect(DEVGC_TIMEOUT_SEC, cb);
+    if (!ret.isOk()) {
+        LOG(WARNING) << "Cannot start Dev GC on HAL: " << ret.description();
+        return;
+    }
+    cb->wait(DEVGC_TIMEOUT_SEC);
+}
+
+static void runDevGc(void) {
+    auto service = IStorage::getService();
+    if (service != nullptr) {
+        runDevGcOnHal(service);
+    } else {
+        // fallback to legacy code path
+        runDevGcFstab();
+    }
 }
 
 int RunIdleMaint(const android::sp<android::os::IVoldTaskListener>& listener) {
@@ -367,8 +415,7 @@ int AbortIdleMaint(const android::sp<android::os::IVoldTaskListener>& listener) 
         cv_abort.notify_one();
         lk.lock();
         LOG(DEBUG) << "aborting idle maintenance";
-        cv_stop.wait(lk, []{
-            return idle_maint_stat == IdleMaintStats::kStopped;});
+        cv_stop.wait(lk, [] { return idle_maint_stat == IdleMaintStats::kStopped; });
     }
     lk.unlock();
 

@@ -117,19 +117,7 @@ public class BasePackageInstallTest extends InstrumentationTestCase {
 
     protected void assertInstallPackage() throws Exception {
         assertFalse(isPackageInstalled(TEST_APP_PKG));
-        synchronized (mPackageInstallerTimeoutLock) {
-            mCallbackReceived = false;
-            mCallbackStatus = PACKAGE_INSTALLER_STATUS_UNDEFINED;
-        }
-        installPackage(TEST_APP_LOCATION);
-        synchronized (mPackageInstallerTimeoutLock) {
-            try {
-                mPackageInstallerTimeoutLock.wait(PACKAGE_INSTALLER_TIMEOUT_MS);
-            } catch (InterruptedException e) {
-            }
-            assertTrue(mCallbackReceived);
-            assertEquals(PackageInstaller.STATUS_SUCCESS, mCallbackStatus);
-        }
+        assertTrue(executeAndWaitForPckageInstallCallback(() -> installPackage(TEST_APP_LOCATION)));
         assertTrue(isPackageInstalled(TEST_APP_PKG));
     }
 
@@ -178,4 +166,29 @@ public class BasePackageInstallTest extends InstrumentationTestCase {
             return false;
         }
     }
-}
+
+    protected boolean tryUninstallPackage() throws Exception {
+        assertTrue(isPackageInstalled(TEST_APP_PKG));
+        return executeAndWaitForPckageInstallCallback(
+                () -> mPackageInstaller.uninstall(TEST_APP_PKG, getCommitCallback(0)));
+    }
+
+    private interface ExceptionRunnable {
+        void run() throws Exception;
+    }
+    private boolean executeAndWaitForPckageInstallCallback(ExceptionRunnable task) throws Exception {
+        synchronized (mPackageInstallerTimeoutLock) {
+            mCallbackReceived = false;
+            mCallbackStatus = PACKAGE_INSTALLER_STATUS_UNDEFINED;
+        }
+        task.run();
+        synchronized (mPackageInstallerTimeoutLock) {
+            try {
+                mPackageInstallerTimeoutLock.wait(PACKAGE_INSTALLER_TIMEOUT_MS);
+            } catch (InterruptedException e) {
+            }
+            assertTrue(mCallbackReceived);
+            return mCallbackStatus == PackageInstaller.STATUS_SUCCESS;
+        }
+    }
+ }

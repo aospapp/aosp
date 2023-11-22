@@ -18,6 +18,8 @@ package android.media.cts;
 import static android.media.AudioAttributes.USAGE_GAME;
 import static android.media.cts.Utils.compareRemoteUserInfo;
 
+import static org.junit.Assert.fail;
+
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
@@ -26,6 +28,7 @@ import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaDescription;
 import android.media.MediaMetadata;
+import android.media.MediaSession2;
 import android.media.Rating;
 import android.media.VolumeProvider;
 import android.media.session.MediaController;
@@ -528,6 +531,45 @@ public class MediaSessionTest extends AndroidTestCase {
         QueueItem other = QueueItem.CREATOR.createFromParcel(p);
         assertEquals(item.toString(), other.toString());
         p.recycle();
+    }
+
+    public void testSessionInfoWithFrameworkParcelable() {
+        final String testKey = "test_key";
+        final AudioAttributes frameworkParcelable = new AudioAttributes.Builder().build();
+
+        Bundle sessionInfo = new Bundle();
+        sessionInfo.putParcelable(testKey, frameworkParcelable);
+
+        MediaSession session = null;
+        try {
+            session = new MediaSession(
+                    mContext, "testSessionInfoWithFrameworkParcelable", sessionInfo);
+            Bundle sessionInfoOut = session.getController().getSessionInfo();
+            assertTrue(sessionInfoOut.containsKey(testKey));
+            assertEquals(frameworkParcelable, sessionInfoOut.getParcelable(testKey));
+        } finally {
+            if (session != null) {
+                session.release();
+            }
+        }
+
+    }
+
+    public void testSessionInfoWithCustomParcelable() {
+        final String testKey = "test_key";
+        final MediaSession2Test.CustomParcelable customParcelable =
+                new MediaSession2Test.CustomParcelable(1);
+
+        Bundle sessionInfo = new Bundle();
+        sessionInfo.putParcelable(testKey, customParcelable);
+
+        try {
+            MediaSession session = new MediaSession(
+                    mContext, "testSessionInfoWithCustomParcelable", sessionInfo);
+            fail("Custom Parcelable shouldn't be accepted!");
+        } catch (IllegalArgumentException e) {
+            // Expected
+        }
     }
 
     /**

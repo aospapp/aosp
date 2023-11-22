@@ -20,15 +20,14 @@ import static android.system.OsConstants.O_RDWR;
 
 import android.annotation.Nullable;
 import android.car.Car;
-import android.car.CarNotConnectedException;
 import android.car.storagemonitoring.CarStorageMonitoringManager;
 import android.car.storagemonitoring.CarStorageMonitoringManager.IoStatsListener;
 import android.car.storagemonitoring.IoStats;
 import android.car.storagemonitoring.IoStatsEntry;
 import android.os.Bundle;
 import android.os.StatFs;
-import android.support.v4.app.Fragment;
 import android.system.ErrnoException;
+import android.system.Os;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -37,10 +36,10 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import androidx.fragment.app.Fragment;
+
 import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
-
-import libcore.io.Libcore;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -87,13 +86,7 @@ public class StorageLifetimeFragment extends Fragment {
                             fsyncCalls));
                     }
                 });
-                final List<IoStatsEntry> totals;
-                try {
-                    totals = mStorageManager.getAggregateIoStats();
-                } catch (CarNotConnectedException e) {
-                    Log.e(TAG, "Car not connected or not supported", e);
-                    return;
-                }
+                final List<IoStatsEntry> totals = mStorageManager.getAggregateIoStats();
 
                 final long totalBytesWrittenToStorage = totals.stream()
                         .mapToLong(stats -> stats.foreground.bytesWrittenToStorage +
@@ -147,16 +140,16 @@ public class StorageLifetimeFragment extends Fragment {
     private void fsyncFile() {
         try {
             final Path filePath = getFilePath();
-            FileDescriptor fd = Libcore.os.open(filePath.toString(), O_APPEND | O_RDWR, 0);
+            FileDescriptor fd = Os.open(filePath.toString(), O_APPEND | O_RDWR, 0);
             if (!fd.valid()) {
                 Log.w(TAG, "file descriptor is invalid");
                 return;
             }
             // fill byteBuffer with arbitrary data in order to make an fsync() meaningful
             ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[] {101, 110, 114, 105, 99, 111});
-            Libcore.os.write(fd, byteBuffer);
-            Libcore.os.fsync(fd);
-            Libcore.os.close(fd);
+            Os.write(fd, byteBuffer);
+            Os.fsync(fd);
+            Os.close(fd);
         } catch (ErrnoException | IOException e) {
             Log.w(TAG, "could not fsync data", e);
         }
@@ -188,45 +181,33 @@ public class StorageLifetimeFragment extends Fragment {
     }
 
     private void reloadInfo() {
-        try {
-            mStatFs = new StatFs(mActivity.getFilesDir().getAbsolutePath());
+        mStatFs = new StatFs(mActivity.getFilesDir().getAbsolutePath());
 
-            mStorageManager =
-                (CarStorageMonitoringManager) mActivity.getCar().getCarManager(
-                        Car.STORAGE_MONITORING_SERVICE);
+        mStorageManager =
+            (CarStorageMonitoringManager) mActivity.getCar().getCarManager(
+                    Car.STORAGE_MONITORING_SERVICE);
 
-            mStorageWearInfo.setText("Wear estimate: " +
-                mStorageManager.getWearEstimate() + "\nPre EOL indicator: " +
-                preEolToString(mStorageManager.getPreEolIndicatorStatus()));
+        mStorageWearInfo.setText("Wear estimate: " + mStorageManager.getWearEstimate()
+                + "\nPre EOL indicator: "
+                + preEolToString(mStorageManager.getPreEolIndicatorStatus()));
 
-            mStorageChangesHistory.setAdapter(new ArrayAdapter(mActivity,
-                    R.layout.wear_estimate_change_textview,
-                    mStorageManager.getWearEstimateHistory().toArray()));
+        mStorageChangesHistory.setAdapter(new ArrayAdapter(mActivity,
+                R.layout.wear_estimate_change_textview,
+                mStorageManager.getWearEstimateHistory().toArray()));
 
-            mFreeSpaceInfo.setText("Available blocks: " + mStatFs.getAvailableBlocksLong() +
-                "\nBlock size: " + mStatFs.getBlockSizeLong() + " bytes" +
-                "\nfor a total free space of: " +
-                (mStatFs.getBlockSizeLong() * mStatFs.getAvailableBlocksLong() / MEGABYTE) + "MB");
-        } catch (android.car.CarNotConnectedException|
-                 android.support.car.CarNotConnectedException e) {
-            Log.e(TAG, "Car not connected or not supported", e);
-        }
+        mFreeSpaceInfo.setText("Available blocks: " + mStatFs.getAvailableBlocksLong()
+                + "\nBlock size: " + mStatFs.getBlockSizeLong() + " bytes"
+                + "\nfor a total free space of: "
+                + (mStatFs.getBlockSizeLong() * mStatFs.getAvailableBlocksLong() / MEGABYTE)
+                + "MB");
     }
 
     private void registerListener() {
-        try {
-            mStorageManager.registerListener(mIoListener);
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "Car not connected or not supported", e);
-        }
+        mStorageManager.registerListener(mIoListener);
     }
 
     private void unregisterListener() {
-        try {
-            mStorageManager.unregisterListener(mIoListener);
-        } catch (CarNotConnectedException e) {
-            Log.e(TAG, "Car not connected or not supported", e);
-        }
+        mStorageManager.unregisterListener(mIoListener);
     }
 
     @Override

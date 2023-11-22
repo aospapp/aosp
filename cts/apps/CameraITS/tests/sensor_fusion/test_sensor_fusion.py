@@ -226,7 +226,7 @@ def get_best_alignment_offset(cam_times, cam_rots, gyro_events):
     if abs(best_shift - exact_best_shift) > 2.0 or a <= 0 or c <= 0:
         print "Test failed; bad fit to time-shift curve"
         print "best_shift %f, exact_best_shift %f, a %f, c %f" % (
-            best_shift, exact_best_shift, a, c)
+                best_shift, exact_best_shift, a, c)
         assert 0
 
     xfit = numpy.arange(candidates[0], candidates[-1], 0.05).tolist()
@@ -343,12 +343,13 @@ def get_cam_rotations(frames, facing, h):
         p0_filtered = p0[mask]
         num_features = len(p0_filtered)
         if num_features < MIN_FEATURE_PTS:
-            print "Not enough feature points in frame", i
+            print "Not enough feature points in frame %s" % str(i-1).zfill(3)
             print "Need at least %d features, got %d" % (
-                MIN_FEATURE_PTS, num_features)
+                    MIN_FEATURE_PTS, num_features)
             assert 0
         else:
-            print "Number of features in frame %d is %d" % (i, num_features)
+            print "Number of features in frame %s is %d" % (
+                    str(i-1).zfill(3), num_features)
         p1, st, _ = cv2.calcOpticalFlowPyrLK(gframe0, gframe1, p0_filtered,
                                              None, **LK_PARAMS)
         tform = procrustes_rotation(p0_filtered[st == 1], p1[st == 1])
@@ -428,9 +429,11 @@ def collect_data(fps, w, h, test_length):
     """
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.sensor_fusion(props) and
-                             its.caps.manual_sensor(props) and
-                             props["android.lens.facing"] != FACING_EXTERNAL)
+        props = cam.override_with_hidden_physical_camera_props(props)
+        its.caps.skip_unless(its.caps.read_3a and
+                             its.caps.sensor_fusion(props) and
+                             props["android.lens.facing"] != FACING_EXTERNAL and
+                             cam.get_sensors().get("gyro"))
 
         print "Starting sensor event collection"
         cam.start_sensor_events()
@@ -447,11 +450,17 @@ def collect_data(fps, w, h, test_length):
         fmt = {"format": "yuv", "width": w, "height": h}
         s, e, _, _, _ = cam.do_3a(get_results=True, do_af=False)
         req = its.objects.manual_capture_request(s, e)
-        req["android.lens.focusDistance"] = 1 / (CHART_DISTANCE * CM_TO_M)
+        its.objects.turn_slow_filters_off(props, req)
+        fd_min = props["android.lens.info.minimumFocusDistance"]
+        fd_chart = 1 / (CHART_DISTANCE * CM_TO_M)
+        if fd_min < fd_chart:
+            req["android.lens.focusDistance"] = fd_min
+        else:
+            req["android.lens.focusDistance"] = fd_chart
         req["android.control.aeTargetFpsRange"] = [fps, fps]
         req["android.sensor.frameDuration"] = int(1000.0/fps * MSEC_TO_NSEC)
         print "Capturing %dx%d with sens. %d, exp. time %.1fms at %dfps" % (
-            w, h, s, e*NSEC_TO_MSEC, fps)
+                w, h, s, e*NSEC_TO_MSEC, fps)
         caps = cam.do_capture([req]*int(fps*test_length), fmt)
 
         # Capture a bit more gyro samples for use in

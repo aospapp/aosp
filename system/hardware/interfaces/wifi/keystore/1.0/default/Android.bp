@@ -15,8 +15,10 @@ cc_library_shared {
         "libhidltransport",
         "libkeystore_aidl",
         "libkeystore_binder",
+        "libkeystore_parcelables",
         "liblog",
         "libutils",
     ],
     export_include_dirs: ["include"],
+    cpp_std: "c++17",
 }

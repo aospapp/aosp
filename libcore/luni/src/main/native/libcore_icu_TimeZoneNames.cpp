@@ -19,9 +19,9 @@
 #include <memory>
 
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/ScopedLocalRef.h>
 #include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/jni_macros.h>
 
 #include "IcuUtilities.h"
 #include "JniException.h"

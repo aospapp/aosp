@@ -23,7 +23,7 @@ class BuildProviderLocalFS(build_provider.BuildProvider):
     def __init__(self):
         super(BuildProviderLocalFS, self).__init__()
 
-    def Fetch(self, path):
+    def Fetch(self, path, full_device_images=False):
         """Fetches Android device artifact file(s) from a local path.
 
         Args:
@@ -36,5 +36,5 @@ class BuildProviderLocalFS(build_provider.BuildProvider):
         if path.endswith(".tar.md5"):
             self.SetDeviceImage("img", path)
         else:
-            self.SetFetchedFile(path)
+            self.SetFetchedFile(path, full_device_images=full_device_images)
         return self.GetDeviceImage(), self.GetTestSuitePackage()

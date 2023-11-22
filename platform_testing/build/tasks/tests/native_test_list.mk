@@ -14,9 +14,14 @@
 
 native_tests := \
     adbd_test \
+    apex_file_test \
+    apex_manifest_test \
+    apexservice_test \
+    backtrace_test \
     bionic-unit-tests \
     bionic-unit-tests-static \
     bluetoothtbd_test \
+    bluetooth_test_common \
     bootstat_tests \
     boringssl_crypto_test \
     boringssl_ssl_test \
@@ -26,6 +31,8 @@ native_tests := \
     bugreportz_test \
     bsdiff_unittest \
     camera_client_test \
+    clatd_test \
+    confirmationui_invocation_test \
     crashcollector \
     debuggerd_test \
     dumpstate_test \
@@ -40,8 +47,7 @@ native_tests := \
     incident_helper_test \
     incidentd_test \
     init_tests \
-    inputflinger_tests_InputDispatcher_test \
-    inputflinger_tests_InputReader_test \
+    inputflinger_tests \
     installd_cache_test \
     installd_dexopt_test \
     installd_otapreopt_test \
@@ -51,22 +57,23 @@ native_tests := \
     libandroidfw_tests \
     libappfuse_test \
     libbase_test \
+    libbpf_android_test \
     libcutils_test \
     libcutils_test_static \
+    libdemangle_test \
     libgui_test \
     libhidl_test \
-    libinput_tests_InputChannel_test \
-    libinput_tests_InputEvent_test \
-    libinput_tests_InputPublisherAndConsumer_test \
-    libinput_tests_VelocityTracker_test \
+    libinput_tests \
     libjavacore-unit-tests \
     liblog-unit-tests \
     libminijail_unittest_gtest \
+    libnetdbpf_test \
     libperfmgr_test \
+    libprocinfo_test \
     libtextclassifier_tests \
     libsurfaceflinger_unittest \
+    libunwindstack_test \
     libvintf_test \
-    libwifi-system_tests \
     linker-unit-tests \
     logcat-unit-tests \
     logd-unit-tests \
@@ -79,6 +86,7 @@ native_tests := \
     mj_system_unittest_gtest \
     mj_util_unittest_gtest \
     mtp_ffs_handle_test \
+    net_test_audio_a2dp_hw \
     net_test_avrcp \
     net_test_bluetooth \
     net_test_bta \
@@ -94,18 +102,22 @@ native_tests := \
     net_test_stack \
     net_test_stack_ad_parser \
     net_test_stack_multi_adv \
+    net_test_stack_rfcomm \
     net_test_stack_smp \
     net_test_types \
     netd_integration_test \
     netd_unit_test \
+    netdutils_test \
     nfc_test_utils \
-    pagemap_test \
     perfetto_integrationtests \
     perfprofd_test \
     posix_async_io_test \
     prioritydumper_test \
+    puffin_unittest \
     recovery_component_test \
     recovery_unit_test \
+    resolv_integration_test \
+    resolv_unit_test \
     scrape_mmap_addr \
     simpleperf_cpu_hotplug_test \
     simpleperf_unit_test \
@@ -115,22 +127,34 @@ native_tests := \
     update_engine_unittests \
     vintf_object_test \
     wificond_unit_test \
-    wifilogd_unit_test \
     ziparchive-tests \
+    BufferHub_test \
+    BufferHubServer_test \
+    GraphicBuffer_test \
+    NeuralNetworksTest_mt_static \
+    NeuralNetworksTest_operations \
     NeuralNetworksTest_static \
+    NeuralNetworksTest_static_asan \
     SurfaceFlinger_test \
-    lmkd_unit_test
+    lmkd_unit_test \
+    vrflinger_test
 
 # Android Things specific tests
 ifeq ($(PRODUCT_IOT),true)
 
 native_tests += \
+    audiomap_test \
+    coprocman_tests \
     crash_reporter_tests \
     libandroidthings_pio_tests \
+    libaudiodevicedriver_test \
+    libbootanimation_iot_test \
     libbrillo_test \
     libchrome_test \
     libusersensors_binder_test \
+    metricsd_tests \
     peripheralman_unittests \
+    pio_unittests \
     sensors_userdriver_test \
     userinputdriver_test
 

@@ -16,21 +16,28 @@
 
 package android.car.vms;
 
+import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-
-import java.util.Set;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.HashSet;
 import java.util.Collections;
-
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
- * VMS Layers that can be subscribed to by VMS clients.
+ * Availability of Vehicle Map Service layers.
+ *
+ * The layer availability is used by subscribers to determine which {@link VmsLayer}s are available
+ * for subscription and which publishers are offering to publish data for those layers. However,
+ * the Vehicle Map Service will allow subscription requests for unavailable layers.
+ *
+ * Sequence numbers are used to indicate the succession of availability states, and increase
+ * monotonically with each change in layer availability. They must be used by clients to ignore
+ * states that are received out-of-order.
  *
  * @hide
  */
@@ -43,16 +50,28 @@ public final class VmsAvailableLayers implements Parcelable {
     // The list of AssociatedLayers
     private final Set<VmsAssociatedLayer> mAssociatedLayers;
 
-    public VmsAvailableLayers(Set<VmsAssociatedLayer> associatedLayers, int sequence) {
+    /**
+     * Constructs a new layer availability.
+     *
+     * @param associatedLayers set of layers available for subscription
+     * @param sequence         sequence number of the availability state
+     */
+    public VmsAvailableLayers(@NonNull Set<VmsAssociatedLayer> associatedLayers, int sequence) {
         mSeq = sequence;
-
         mAssociatedLayers = Collections.unmodifiableSet(associatedLayers);
     }
 
+    /**
+     * @return sequence number of the availability state
+     */
     public int getSequence() {
         return mSeq;
     }
 
+    /**
+     * @return set of layers available for subscription
+     */
+    @NonNull
     public Set<VmsAssociatedLayer> getAssociatedLayers() {
         return mAssociatedLayers;
     }

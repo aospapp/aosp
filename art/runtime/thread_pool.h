@@ -18,11 +18,12 @@
 #define ART_RUNTIME_THREAD_POOL_H_
 
 #include <deque>
+#include <functional>
 #include <vector>
 
 #include "barrier.h"
+#include "base/mem_map.h"
 #include "base/mutex.h"
-#include "mem_map.h"
 
 namespace art {
 
@@ -32,6 +33,17 @@ class Closure {
  public:
   virtual ~Closure() { }
   virtual void Run(Thread* self) = 0;
+};
+
+class FunctionClosure : public Closure {
+ public:
+  explicit FunctionClosure(std::function<void(Thread*)>&& f) : func_(std::move(f)) {}
+  void Run(Thread* self) override {
+    func_(self);
+  }
+
+ private:
+  std::function<void(Thread*)> func_;
 };
 
 class Task : public Closure {
@@ -48,13 +60,25 @@ class SelfDeletingTask : public Task {
   }
 };
 
+class FunctionTask : public SelfDeletingTask {
+ public:
+  explicit FunctionTask(std::function<void(Thread*)>&& func) : func_(std::move(func)) {}
+
+  void Run(Thread* self) override {
+    func_(self);
+  }
+
+ private:
+  std::function<void(Thread*)> func_;
+};
+
 class ThreadPoolWorker {
  public:
   static const size_t kDefaultStackSize = 1 * MB;
 
   size_t GetStackSize() const {
-    DCHECK(stack_.get() != nullptr);
-    return stack_->Size();
+    DCHECK(stack_.IsValid());
+    return stack_.Size();
   }
 
   virtual ~ThreadPoolWorker();
@@ -71,7 +95,7 @@ class ThreadPoolWorker {
 
   ThreadPool* const thread_pool_;
   const std::string name_;
-  std::unique_ptr<MemMap> stack_;
+  MemMap stack_;
   pthread_t pthread_;
   Thread* thread_;
 
@@ -88,9 +112,7 @@ class ThreadPool {
     return threads_.size();
   }
 
-  const std::vector<ThreadPoolWorker*>& GetWorkers() const {
-    return threads_;
-  }
+  const std::vector<ThreadPoolWorker*>& GetWorkers();
 
   // Broadcast to the workers and tell them to empty out the work queue.
   void StartWorkers(Thread* self) REQUIRES(!task_queue_lock_);
@@ -110,8 +132,17 @@ class ThreadPool {
   // If create_peers is true, all worker threads will have a Java peer object. Note that if the
   // pool is asked to do work on the current thread (see Wait), a peer may not be available. Wait
   // will conservatively abort if create_peers and do_work are true.
-  ThreadPool(const char* name, size_t num_threads, bool create_peers = false);
+  ThreadPool(const char* name,
+             size_t num_threads,
+             bool create_peers = false,
+             size_t worker_stack_size = ThreadPoolWorker::kDefaultStackSize);
   virtual ~ThreadPool();
+
+  // Create the threads of this pool.
+  void CreateThreads();
+
+  // Stops and deletes all threads in this pool.
+  void DeleteThreads();
 
   // Wait for all tasks currently on queue to get completed. If the pool has been stopped, only
   // wait till all already running tasks are done.
@@ -131,6 +162,9 @@ class ThreadPool {
 
   // Set the "nice" priorty for threads in the pool.
   void SetPthreadPriority(int priority);
+
+  // Wait for workers to be created.
+  void WaitForWorkersToBeCreated();
 
  protected:
   // get a task to run, blocks if there are no tasks left
@@ -158,7 +192,6 @@ class ThreadPool {
   // How many worker threads are waiting on the condition.
   volatile size_t waiting_count_ GUARDED_BY(task_queue_lock_);
   std::deque<Task*> tasks_ GUARDED_BY(task_queue_lock_);
-  // TODO: make this immutable/const?
   std::vector<ThreadPoolWorker*> threads_;
   // Work balance detection.
   uint64_t start_time_ GUARDED_BY(task_queue_lock_);
@@ -166,6 +199,7 @@ class ThreadPool {
   Barrier creation_barier_;
   size_t max_active_workers_ GUARDED_BY(task_queue_lock_);
   const bool create_peers_;
+  const size_t worker_stack_size_;
 
  private:
   friend class ThreadPoolWorker;

@@ -179,12 +179,16 @@
         <item>8</item>
     </integer-array>
 
-    <!-- Boolean indicating whether framework needs to set the tx power limit for meeting SAR requirements
-         during voice calls -->
-    <bool translatable="false" name="config_wifi_framework_enable_voice_call_sar_tx_power_limit">true</bool>
+    <!-- Boolean indicating whether framework needs to set the tx power limit for meeting SAR
+         requirements -->
+    <bool translatable="false" name="config_wifi_framework_enable_sar_tx_power_limit">true</bool>
 
     <!-- Whether the display blanks itself when transitioning from a doze to a non-doze state -->
     <bool name="config_displayBlanksAfterDoze">true</bool>
+
+    <!-- Delay that allows some content to arrive at the display before switching
+         from DOZE to ON. -->
+    <integer name="config_wakeUpDelayDoze">50</integer>
 
     <!-- If true, the doze component is not started until after the screen has been
          turned off and the screen off animation has been performed. -->

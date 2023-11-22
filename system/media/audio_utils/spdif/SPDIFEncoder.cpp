@@ -18,7 +18,7 @@
 #include <string.h>
 
 #define LOG_TAG "AudioSPDIF"
-#include <utils/Log.h>
+#include <log/log.h>
 #include <audio_utils/spdif/SPDIFEncoder.h>
 
 #include "AC3FrameScanner.h"

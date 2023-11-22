@@ -17,6 +17,22 @@
 package android.platform.helpers;
 
 public interface IAlarmHelper extends IAppHelper {
+    public enum AmPm {
+        AM("am_label"),
+        PM("pm_label");
+
+        private String mDisplayName;
+
+        AmPm(String displayName) {
+            mDisplayName = displayName;
+        }
+
+        @Override
+        public String toString() {
+            return mDisplayName;
+        }
+    }
+
     /**
      * Setup expectation: Alarm app is open
      *
@@ -37,4 +53,53 @@ public interface IAlarmHelper extends IAppHelper {
      * Dismiss alarm
      */
     public void dismissAlarm();
+
+    /**
+     * Setup expectations: on alarm time picker page.
+     *
+     * Sets alarm by the specific hour, minute and AM/PM. The minute will be adjusted to a multiple
+     * of five that is less than or equal to the argument since only the multiple of five displayed.
+     *
+     * @param hour The hour of alarm to set.
+     * @param minute The minute of alarm to set.
+     * @param amPm The AM/PM of alarm to set.
+     *
+     */
+    default public void setAlarmTime(int hour, int minute, IAlarmHelper.AmPm amPm) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: on Alarm page.
+     *
+     * Expands the specific alarm.
+     *
+     * @param index The index of alarm to expand.
+     *
+     */
+    default public void selectAlarm(int index) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: on Alarm page.
+     *
+     * Checks if an alarm exists or not.
+     *
+     * @return true if an alarm exists, false otherwise.
+     *
+     */
+    default public Boolean hasAlarm() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: on Alarm page and an alarm is on.
+     *
+     * Clicks the switch button to turn off the alarm.
+     *
+     */
+    default public void setAlarmOff() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

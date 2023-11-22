@@ -42,18 +42,24 @@ type variableAssignmentContext struct {
 
 var rewriteProperties = map[string](func(variableAssignmentContext) error){
 	// custom functions
+	"LOCAL_32_BIT_ONLY":           local32BitOnly,
 	"LOCAL_AIDL_INCLUDES":         localAidlIncludes,
+	"LOCAL_ASSET_DIR":             localizePathList("asset_dirs"),
 	"LOCAL_C_INCLUDES":            localIncludeDirs,
 	"LOCAL_EXPORT_C_INCLUDE_DIRS": exportIncludeDirs,
+	"LOCAL_JARJAR_RULES":          localizePath("jarjar_rules"),
 	"LOCAL_LDFLAGS":               ldflags,
 	"LOCAL_MODULE_CLASS":          prebuiltClass,
 	"LOCAL_MODULE_STEM":           stem,
 	"LOCAL_MODULE_HOST_OS":        hostOs,
+	"LOCAL_RESOURCE_DIR":          localizePathList("resource_dirs"),
 	"LOCAL_SANITIZE":              sanitize(""),
 	"LOCAL_SANITIZE_DIAG":         sanitize("diag."),
+	"LOCAL_STRIP_MODULE":          strip(),
 	"LOCAL_CFLAGS":                cflags,
 	"LOCAL_UNINSTALLABLE_MODULE":  invert("installable"),
 	"LOCAL_PROGUARD_ENABLED":      proguardEnabled,
+	"LOCAL_MODULE_PATH":           prebuiltModulePath,
 
 	// composite functions
 	"LOCAL_MODULE_TAGS": includeVariableIf(bpVariable{"tags", bpparser.ListType}, not(valueDumpEquals("optional"))),
@@ -67,6 +73,11 @@ var rewriteProperties = map[string](func(variableAssignmentContext) error){
 	"LOCAL_BUILT_MODULE_STEM":       skip,
 	"LOCAL_USE_AAPT2":               skip, // Always enabled in Soong
 	"LOCAL_JAR_EXCLUDE_FILES":       skip, // Soong never excludes files from jars
+
+	"LOCAL_ANNOTATION_PROCESSOR_CLASSES": skip, // Soong gets the processor classes from the plugin
+	"LOCAL_CTS_TEST_PACKAGE":             skip, // Obsolete
+	"LOCAL_JACK_ENABLED":                 skip, // Obselete
+	"LOCAL_JACK_FLAGS":                   skip, // Obselete
 }
 
 // adds a group of properties all having the same type
@@ -81,13 +92,12 @@ func init() {
 		map[string]string{
 			"LOCAL_MODULE":                  "name",
 			"LOCAL_CXX_STL":                 "stl",
-			"LOCAL_STRIP_MODULE":            "strip",
 			"LOCAL_MULTILIB":                "compile_multilib",
 			"LOCAL_ARM_MODE_HACK":           "instruction_set",
 			"LOCAL_SDK_VERSION":             "sdk_version",
+			"LOCAL_MIN_SDK_VERSION":         "min_sdk_version",
 			"LOCAL_NDK_STL_VARIANT":         "stl",
 			"LOCAL_JAR_MANIFEST":            "manifest",
-			"LOCAL_JARJAR_RULES":            "jarjar_rules",
 			"LOCAL_CERTIFICATE":             "certificate",
 			"LOCAL_PACKAGE_NAME":            "name",
 			"LOCAL_MODULE_RELATIVE_PATH":    "relative_install_path",
@@ -100,6 +110,7 @@ func init() {
 			"LOCAL_MANIFEST_FILE":           "manifest",
 
 			"LOCAL_DEX_PREOPT_PROFILE_CLASS_LISTING": "dex_preopt.profile",
+			"LOCAL_TEST_CONFIG":                      "test_config",
 		})
 	addStandardProperties(bpparser.ListType,
 		map[string]string{
@@ -125,6 +136,7 @@ func init() {
 			"LOCAL_EXPORT_SHARED_LIBRARY_HEADERS": "export_shared_lib_headers",
 			"LOCAL_EXPORT_STATIC_LIBRARY_HEADERS": "export_static_lib_headers",
 			"LOCAL_INIT_RC":                       "init_rc",
+			"LOCAL_VINTF_FRAGMENTS":               "vintf_fragments",
 			"LOCAL_TIDY_FLAGS":                    "tidy_flags",
 			// TODO: This is comma-separated, not space-separated
 			"LOCAL_TIDY_CHECKS":           "tidy_checks",
@@ -132,51 +144,64 @@ func init() {
 			"LOCAL_RENDERSCRIPT_FLAGS":    "renderscript.flags",
 
 			"LOCAL_JAVA_RESOURCE_DIRS":    "java_resource_dirs",
-			"LOCAL_RESOURCE_DIR":          "resource_dirs",
 			"LOCAL_JAVACFLAGS":            "javacflags",
 			"LOCAL_ERROR_PRONE_FLAGS":     "errorprone.javacflags",
 			"LOCAL_DX_FLAGS":              "dxflags",
 			"LOCAL_JAVA_LIBRARIES":        "libs",
 			"LOCAL_STATIC_JAVA_LIBRARIES": "static_libs",
+			"LOCAL_JNI_SHARED_LIBRARIES":  "jni_libs",
 			"LOCAL_AAPT_FLAGS":            "aaptflags",
 			"LOCAL_PACKAGE_SPLITS":        "package_splits",
 			"LOCAL_COMPATIBILITY_SUITE":   "test_suites",
+			"LOCAL_OVERRIDES_PACKAGES":    "overrides",
 
-			"LOCAL_ANNOTATION_PROCESSORS":        "annotation_processors",
-			"LOCAL_ANNOTATION_PROCESSOR_CLASSES": "annotation_processor_classes",
+			"LOCAL_ANNOTATION_PROCESSORS": "plugins",
 
 			"LOCAL_PROGUARD_FLAGS":      "optimize.proguard_flags",
-			"LOCAL_PROGUARD_FLAG_FILES": "optimize.proguard_flag_files",
+			"LOCAL_PROGUARD_FLAG_FILES": "optimize.proguard_flags_files",
 
 			// These will be rewritten to libs/static_libs by bpfix, after their presence is used to convert
 			// java_library_static to android_library.
 			"LOCAL_SHARED_ANDROID_LIBRARIES": "android_libs",
 			"LOCAL_STATIC_ANDROID_LIBRARIES": "android_static_libs",
+			"LOCAL_ADDITIONAL_CERTIFICATES":  "additional_certificates",
+
+			// Jacoco filters:
+			"LOCAL_JACK_COVERAGE_INCLUDE_FILTER": "jacoco.include_filter",
+			"LOCAL_JACK_COVERAGE_EXCLUDE_FILTER": "jacoco.exclude_filter",
 		})
 
 	addStandardProperties(bpparser.BoolType,
 		map[string]string{
 			// Bool properties
-			"LOCAL_IS_HOST_MODULE":           "host",
-			"LOCAL_CLANG":                    "clang",
-			"LOCAL_FORCE_STATIC_EXECUTABLE":  "static_executable",
-			"LOCAL_NATIVE_COVERAGE":          "native_coverage",
-			"LOCAL_NO_CRT":                   "nocrt",
-			"LOCAL_ALLOW_UNDEFINED_SYMBOLS":  "allow_undefined_symbols",
-			"LOCAL_RTTI_FLAG":                "rtti",
-			"LOCAL_NO_STANDARD_LIBRARIES":    "no_standard_libs",
-			"LOCAL_PACK_MODULE_RELOCATIONS":  "pack_relocations",
-			"LOCAL_TIDY":                     "tidy",
-			"LOCAL_PROPRIETARY_MODULE":       "proprietary",
-			"LOCAL_VENDOR_MODULE":            "vendor",
-			"LOCAL_ODM_MODULE":               "device_specific",
-			"LOCAL_PRODUCT_MODULE":           "product_specific",
-			"LOCAL_EXPORT_PACKAGE_RESOURCES": "export_package_resources",
-			"LOCAL_PRIVILEGED_MODULE":        "privileged",
+			"LOCAL_IS_HOST_MODULE":             "host",
+			"LOCAL_CLANG":                      "clang",
+			"LOCAL_FORCE_STATIC_EXECUTABLE":    "static_executable",
+			"LOCAL_NATIVE_COVERAGE":            "native_coverage",
+			"LOCAL_NO_CRT":                     "nocrt",
+			"LOCAL_ALLOW_UNDEFINED_SYMBOLS":    "allow_undefined_symbols",
+			"LOCAL_RTTI_FLAG":                  "rtti",
+			"LOCAL_NO_STANDARD_LIBRARIES":      "no_standard_libs",
+			"LOCAL_PACK_MODULE_RELOCATIONS":    "pack_relocations",
+			"LOCAL_TIDY":                       "tidy",
+			"LOCAL_USE_CLANG_LLD":              "use_clang_lld",
+			"LOCAL_PROPRIETARY_MODULE":         "proprietary",
+			"LOCAL_VENDOR_MODULE":              "vendor",
+			"LOCAL_ODM_MODULE":                 "device_specific",
+			"LOCAL_PRODUCT_MODULE":             "product_specific",
+			"LOCAL_PRODUCT_SERVICES_MODULE":    "product_services_specific",
+			"LOCAL_EXPORT_PACKAGE_RESOURCES":   "export_package_resources",
+			"LOCAL_PRIVILEGED_MODULE":          "privileged",
+			"LOCAL_AAPT_INCLUDE_ALL_RESOURCES": "aapt_include_all_resources",
+			"LOCAL_USE_EMBEDDED_NATIVE_LIBS":   "use_embedded_native_libs",
+			"LOCAL_USE_EMBEDDED_DEX":           "use_embedded_dex",
 
 			"LOCAL_DEX_PREOPT":                  "dex_preopt.enabled",
 			"LOCAL_DEX_PREOPT_APP_IMAGE":        "dex_preopt.app_image",
 			"LOCAL_DEX_PREOPT_GENERATE_PROFILE": "dex_preopt.profile_guided",
+
+			"LOCAL_PRIVATE_PLATFORM_APIS": "platform_apis",
+			"LOCAL_JETIFIER_ENABLED":      "jetifier",
 		})
 }
 
@@ -350,8 +375,80 @@ func exportIncludeDirs(ctx variableAssignmentContext) error {
 	return splitAndAssign(ctx, classifyLocalOrGlobalPath, map[string]string{"global": "export_include_dirs", "local": "export_include_dirs"})
 }
 
+func local32BitOnly(ctx variableAssignmentContext) error {
+	val, err := makeVariableToBlueprint(ctx.file, ctx.mkvalue, bpparser.BoolType)
+	if err != nil {
+		return err
+	}
+	if val.(*bpparser.Bool).Value {
+		thirtyTwo := &bpparser.String{
+			Value: "32",
+		}
+		setVariable(ctx.file, false, ctx.prefix, "compile_multilib", thirtyTwo, true)
+	}
+	return nil
+}
+
 func localAidlIncludes(ctx variableAssignmentContext) error {
 	return splitAndAssign(ctx, classifyLocalOrGlobalPath, map[string]string{"global": "aidl.include_dirs", "local": "aidl.local_include_dirs"})
+}
+
+func localizePathList(attribute string) func(ctx variableAssignmentContext) error {
+	return func(ctx variableAssignmentContext) error {
+		paths, err := localizePaths(ctx)
+		if err == nil {
+			err = setVariable(ctx.file, ctx.append, ctx.prefix, attribute, paths, true)
+		}
+		return err
+	}
+}
+
+func localizePath(attribute string) func(ctx variableAssignmentContext) error {
+	return func(ctx variableAssignmentContext) error {
+		paths, err := localizePaths(ctx)
+		if err == nil {
+			pathList, ok := paths.(*bpparser.List)
+			if !ok {
+				panic("Expected list")
+			}
+			switch len(pathList.Values) {
+			case 0:
+				err = setVariable(ctx.file, ctx.append, ctx.prefix, attribute, &bpparser.List{}, true)
+			case 1:
+				err = setVariable(ctx.file, ctx.append, ctx.prefix, attribute, pathList.Values[0], true)
+			default:
+				err = fmt.Errorf("Expected single value for %s", attribute)
+			}
+		}
+		return err
+	}
+}
+
+// Convert the "full" paths (that is, from the top of the source tree) to the relative one
+// (from the directory containing the blueprint file) and set given attribute to it.
+// This is needed for some of makefile variables (e.g., LOCAL_RESOURCE_DIR).
+// At the moment only the paths of the `$(LOCAL_PATH)/foo/bar` format can be converted
+// (to `foo/bar` in this case) as we cannot convert a literal path without
+// knowing makefiles's location in the source tree. We just issue a warning in the latter case.
+func localizePaths(ctx variableAssignmentContext) (bpparser.Expression, error) {
+	bpvalue, err := makeVariableToBlueprint(ctx.file, ctx.mkvalue, bpparser.ListType)
+	var result bpparser.Expression
+	if err != nil {
+		return result, err
+	}
+	classifiedPaths, err := splitBpList(bpvalue, classifyLocalOrGlobalPath)
+	if err != nil {
+		return result, err
+	}
+	for pathClass, path := range classifiedPaths {
+		switch pathClass {
+		case "local":
+			result = path
+		default:
+			err = fmt.Errorf("Only $(LOCAL_PATH)/.. values are allowed")
+		}
+	}
+	return result, err
 }
 
 func stem(ctx variableAssignmentContext) error {
@@ -455,15 +552,87 @@ func sanitize(sub string) func(ctx variableAssignmentContext) error {
 	}
 }
 
+func strip() func(ctx variableAssignmentContext) error {
+	return func(ctx variableAssignmentContext) error {
+		val, err := makeVariableToBlueprint(ctx.file, ctx.mkvalue, bpparser.StringType)
+		if err != nil {
+			return err
+		}
+
+		if _, ok := val.(*bpparser.String); !ok {
+			return fmt.Errorf("unsupported strip expression")
+		}
+
+		bpTrue := &bpparser.Bool{
+			Value: true,
+		}
+		v := val.(*bpparser.String).Value
+		sub := (map[string]string{"false": "none", "true": "all", "keep_symbols": "keep_symbols"})[v]
+		if sub == "" {
+			return fmt.Errorf("unexpected strip option: %s", v)
+		}
+		return setVariable(ctx.file, false, ctx.prefix, "strip."+sub, bpTrue, true)
+	}
+}
+
 func prebuiltClass(ctx variableAssignmentContext) error {
 	class := ctx.mkvalue.Value(ctx.file.scope)
-	if v, ok := prebuiltTypes[class]; ok {
-		ctx.file.scope.Set("BUILD_PREBUILT", v)
+	if _, ok := prebuiltTypes[class]; ok {
+		ctx.file.scope.Set("BUILD_PREBUILT", class)
 	} else {
 		// reset to default
 		ctx.file.scope.Set("BUILD_PREBUILT", "prebuilt")
 	}
 	return nil
+}
+
+func makeBlueprintStringAssignment(file *bpFile, prefix string, suffix string, value string) error {
+	val, err := makeVariableToBlueprint(file, mkparser.SimpleMakeString(value, mkparser.NoPos), bpparser.StringType)
+	if err == nil {
+		err = setVariable(file, false, prefix, suffix, val, true)
+	}
+	return err
+}
+
+// If variable is a literal variable name, return the name, otherwise return ""
+func varLiteralName(variable mkparser.Variable) string {
+	if len(variable.Name.Variables) == 0 {
+		return variable.Name.Strings[0]
+	}
+	return ""
+}
+
+func prebuiltModulePath(ctx variableAssignmentContext) error {
+	// Cannot handle appending
+	if ctx.append {
+		return fmt.Errorf("Cannot handle appending to LOCAL_MODULE_PATH")
+	}
+	// Analyze value in order to set the correct values for the 'device_specific',
+	// 'product_specific', 'product_services_specific' 'vendor'/'soc_specific',
+	// 'product_services_specific' attribute. Two cases are allowed:
+	//   $(VAR)/<literal-value>
+	//   $(PRODUCT_OUT)/$(TARGET_COPY_OUT_VENDOR)/<literal-value>
+	// The last case is equivalent to $(TARGET_OUT_VENDOR)/<literal-value>
+	// Map the variable name if present to `local_module_path_var`
+	// Map literal-path to local_module_path_fixed
+	varname := ""
+	fixed := ""
+	val := ctx.mkvalue
+	if len(val.Variables) == 1 && varLiteralName(val.Variables[0]) != "" && len(val.Strings) == 2 && val.Strings[0] == "" {
+		fixed = val.Strings[1]
+		varname = val.Variables[0].Name.Strings[0]
+	} else if len(val.Variables) == 2 && varLiteralName(val.Variables[0]) == "PRODUCT_OUT" && varLiteralName(val.Variables[1]) == "TARGET_COPY_OUT_VENDOR" &&
+		len(val.Strings) == 3 && val.Strings[0] == "" && val.Strings[1] == "/" {
+		fixed = val.Strings[2]
+		varname = "TARGET_OUT_VENDOR"
+	} else {
+		return fmt.Errorf("LOCAL_MODULE_PATH value should start with $(<some-varaible>)/ or $(PRODUCT_OUT)/$(TARGET_COPY_VENDOR)/")
+	}
+	err := makeBlueprintStringAssignment(ctx.file, "local_module_path", "var", varname)
+	if err == nil && fixed != "" {
+		err = makeBlueprintStringAssignment(ctx.file, "local_module_path", "fixed", fixed)
+	}
+	return err
 }
 
 func ldflags(ctx variableAssignmentContext) error {
@@ -706,27 +875,31 @@ var conditionalTranslations = map[string]map[bool]string{
 		true: "product_variables.pdk"},
 }
 
-func mydir(args []string) string {
-	return "."
+func mydir(args []string) []string {
+	return []string{"."}
 }
 
-func allFilesUnder(wildcard string) func(args []string) string {
-	return func(args []string) string {
-		dir := ""
+func allFilesUnder(wildcard string) func(args []string) []string {
+	return func(args []string) []string {
+		dirs := []string{""}
 		if len(args) > 0 {
-			dir = strings.TrimSpace(args[0])
+			dirs = strings.Fields(args[0])
 		}
 
-		return fmt.Sprintf("%s/**/"+wildcard, dir)
+		paths := make([]string, len(dirs))
+		for i := range paths {
+			paths[i] = fmt.Sprintf("%s/**/"+wildcard, dirs[i])
+		}
+		return paths
 	}
 }
 
-func allSubdirJavaFiles(args []string) string {
-	return "**/*.java"
+func allSubdirJavaFiles(args []string) []string {
+	return []string{"**/*.java"}
 }
 
-func includeIgnored(args []string) string {
-	return include_ignored
+func includeIgnored(args []string) []string {
+	return []string{include_ignored}
 }
 
 var moduleTypes = map[string]string{
@@ -742,11 +915,17 @@ var moduleTypes = map[string]string{
 	"BUILD_NATIVE_BENCHMARK":      "cc_benchmark",
 	"BUILD_HOST_NATIVE_BENCHMARK": "cc_benchmark_host",
 
-	"BUILD_JAVA_LIBRARY":             "java_library",
-	"BUILD_STATIC_JAVA_LIBRARY":      "java_library_static",
+	"BUILD_JAVA_LIBRARY":             "java_library_installable", // will be rewritten to java_library by bpfix
+	"BUILD_STATIC_JAVA_LIBRARY":      "java_library",
 	"BUILD_HOST_JAVA_LIBRARY":        "java_library_host",
 	"BUILD_HOST_DALVIK_JAVA_LIBRARY": "java_library_host_dalvik",
 	"BUILD_PACKAGE":                  "android_app",
+
+	"BUILD_CTS_EXECUTABLE":          "cc_binary",               // will be further massaged by bpfix depending on the output path
+	"BUILD_CTS_SUPPORT_PACKAGE":     "cts_support_package",     // will be rewritten to android_test by bpfix
+	"BUILD_CTS_PACKAGE":             "cts_package",             // will be rewritten to android_test by bpfix
+	"BUILD_CTS_TARGET_JAVA_LIBRARY": "cts_target_java_library", // will be rewritten to java_library by bpfix
+	"BUILD_CTS_HOST_JAVA_LIBRARY":   "cts_host_java_library",   // will be rewritten to java_library_host by bpfix
 }
 
 var prebuiltTypes = map[string]string{
@@ -754,9 +933,23 @@ var prebuiltTypes = map[string]string{
 	"STATIC_LIBRARIES": "cc_prebuilt_library_static",
 	"EXECUTABLES":      "cc_prebuilt_binary",
 	"JAVA_LIBRARIES":   "java_import",
+	"ETC":              "prebuilt_etc",
 }
 
 var soongModuleTypes = map[string]bool{}
+
+var includePathToModule = map[string]string{
+	"test/vts/tools/build/Android.host_config.mk": "vts_config",
+	// The rest will be populated dynamically in androidScope below
+}
+
+func mapIncludePath(path string) (string, bool) {
+	if path == clear_vars || path == include_ignored {
+		return path, true
+	}
+	module, ok := includePathToModule[path]
+	return module, ok
+}
 
 func androidScope() mkparser.Scope {
 	globalScope := mkparser.NewScope(nil)
@@ -773,12 +966,16 @@ func androidScope() mkparser.Scope {
 	globalScope.SetFunc("all-named-subdir-makefiles", includeIgnored)
 	globalScope.SetFunc("all-subdir-makefiles", includeIgnored)
 
-	for k, v := range moduleTypes {
-		globalScope.Set(k, v)
-		soongModuleTypes[v] = true
+	// The scope maps each known variable to a path, and then includePathToModule maps a path
+	// to a module. We don't care what the actual path value is so long as the value in scope
+	// is mapped, so we might as well use variable name as key, too.
+	for varName, moduleName := range moduleTypes {
+		path := varName
+		globalScope.Set(varName, path)
+		includePathToModule[path] = moduleName
 	}
-	for _, v := range prebuiltTypes {
-		soongModuleTypes[v] = true
+	for varName, moduleName := range prebuiltTypes {
+		includePathToModule[varName] = moduleName
 	}
 
 	return globalScope

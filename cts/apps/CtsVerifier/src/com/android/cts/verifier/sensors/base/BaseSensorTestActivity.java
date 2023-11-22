@@ -92,9 +92,18 @@ public abstract class BaseSensorTestActivity
     private Button mNextButton;
     private Button mPassButton;
     private Button mFailButton;
+    private Button mRetryButton;
 
     private GLSurfaceView mGLSurfaceView;
     private boolean mUsingGlSurfaceView;
+
+    // Flag for sensor tests with retry.
+    protected boolean mEnableRetry = false;
+    // Flag for Retry button appearance.
+    protected boolean mShouldRetry = false;
+    // Flag for the last sub-test to show Finish button.
+    protected boolean mIsLastSubtest = false;
+    protected int mRetryCount = 0;
 
     /**
      * Constructor to be used by subclasses.
@@ -132,7 +141,10 @@ public abstract class BaseSensorTestActivity
         mPassButton = (Button) findViewById(R.id.pass_button);
         mFailButton = (Button) findViewById(R.id.fail_button);
         mGLSurfaceView = (GLSurfaceView) findViewById(R.id.gl_surface_view);
+        mRetryButton = (Button) findViewById(R.id.retry_button);
+        mRetryButton.setOnClickListener(this);
 
+        mRetryButton.setVisibility(View.GONE);
         updateNextButton(false /*enabled*/);
         mExecutorService.execute(this);
     }
@@ -161,6 +173,15 @@ public abstract class BaseSensorTestActivity
 
     @Override
     public void onClick(View target) {
+        switch (target.getId()) {
+            case R.id.next_button:
+                mShouldRetry = false;
+                break;
+            case R.id.retry_button:
+                mShouldRetry = true;
+                break;
+        }
+
         synchronized (mWaitForUserLatches) {
             for (CountDownLatch latch : mWaitForUserLatches) {
                 latch.countDown();
@@ -301,6 +322,18 @@ public abstract class BaseSensorTestActivity
      */
     protected void waitForUserToBegin() throws InterruptedException {
         waitForUser(R.string.snsr_wait_to_begin);
+    }
+
+    /**
+     * Waits for the operator to acknowledge to retry execution.
+     * If the execution is for the last subtest, will notify user by Finish button.
+     */
+    protected void waitForUserToRetry() throws InterruptedException {
+        if (mIsLastSubtest) {
+            waitForUser(R.string.snsr_wait_to_finish);
+        } else {
+            waitForUser(R.string.snsr_wait_to_retry);
+        }
     }
 
     /**
@@ -526,9 +559,45 @@ public abstract class BaseSensorTestActivity
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                mNextButton.setText(getNextButtonText());
+                updateRetryButton(enabled);
                 mNextButton.setEnabled(enabled);
             }
         });
+    }
+
+    /**
+     * Get the text for next button.
+     * During retry, next button text is changed to notify users.
+     */
+    private int getNextButtonText() {
+        int nextButtonText = R.string.next_button_text;
+        if (mShouldRetry) {
+            if (mIsLastSubtest){
+                nextButtonText = R.string.finish_button_text;
+            } else {
+                nextButtonText = R.string.fail_and_next_button_text;
+            }
+        }
+        return nextButtonText;
+    }
+
+    /**
+     * Update the retry button status.
+     * During retry, show retry execution count. If not to retry, make retry button invisible.
+     *
+     * @param enabled The status of button.
+     */
+    private void updateRetryButton(boolean enabled) {
+        String showRetryCount = String.format(
+            "%s (%d)", getResources().getText(R.string.retry_button_text), mRetryCount);
+        if (mShouldRetry) {
+            mRetryButton.setText(showRetryCount);
+            mRetryButton.setVisibility(View.VISIBLE);
+            mRetryButton.setEnabled(enabled);
+        } else {
+            mRetryButton.setVisibility(View.GONE);
+        }
     }
 
     private void enableTestResultButton(

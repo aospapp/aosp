@@ -37,6 +37,7 @@ import com.android.internal.telephony.cdma.CdmaCallWaitingNotification;
 import com.android.internal.telephony.imsphone.ImsExternalCallTracker;
 import com.android.internal.telephony.imsphone.ImsExternalConnection;
 import com.android.internal.telephony.imsphone.ImsPhoneConnection;
+import com.android.phone.NumberVerificationManager;
 import com.android.phone.PhoneUtils;
 
 import com.google.common.base.Preconditions;
@@ -126,6 +127,19 @@ final class PstnIncomingCallNotifier {
         Connection connection = (Connection) asyncResult.result;
         if (connection != null) {
             Call call = connection.getCall();
+            // Check if we have a pending number verification request.
+            if (connection.getAddress() != null) {
+                if (NumberVerificationManager.getInstance()
+                        .checkIncomingCall(connection.getAddress())) {
+                    // Disconnect the call if it matches
+                    try {
+                        connection.hangup();
+                    } catch (CallStateException e) {
+                        Log.e(this, e, "Error hanging up potential number verification call");
+                    }
+                    return;
+                }
+            }
 
             // Final verification of the ringing state before sending the intent to Telecom.
             if (call != null && call.getState().isRinging()) {

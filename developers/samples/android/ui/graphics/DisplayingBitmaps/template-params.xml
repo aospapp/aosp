@@ -20,7 +20,7 @@
     <package>com.example.android.displayingbitmaps</package>
 
     <!-- change minSdk if needed-->
-    <minSdk>9</minSdk>
+    <minSdk>14</minSdk>
     <targetSdkVersion>22</targetSdkVersion>
 
     <strings>

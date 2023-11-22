@@ -17,7 +17,7 @@
 
 package com.android.settings.intelligence.search;
 
-import android.support.annotation.IntDef;
+import androidx.annotation.IntDef;
 import android.content.Intent;
 import android.os.Parcel;
 import android.os.Parcelable;

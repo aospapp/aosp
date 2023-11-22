@@ -16,7 +16,6 @@
 
 #include <binder/IPCThreadState.h>
 #include <hidl/HidlTransportSupport.h>
-#include <hwbinder/IPCThreadState.h>
 #include "Controllers.h"
 #include "Fwmark.h"
 #include "NetdHwService.h"
@@ -24,7 +23,6 @@
 #include "TetherController.h"
 
 using android::hardware::configureRpcThreadpool;
-using android::hardware::IPCThreadState;
 using android::hardware::Void;
 
 // Tells TetherController::enableForwarding who is requesting forwarding, so that TetherController
@@ -140,7 +138,7 @@ Return <StatusCode> NetdHwService::removeInterfaceFromOemNetwork(uint64_t networ
 }
 
 Return <StatusCode> NetdHwService::setIpForwardEnable(bool enable) {
-    android::RWLock::AutoWLock _lock(gCtls->tetherCtrl.lock);
+    std::lock_guard _lock(gCtls->tetherCtrl.lock);
 
     bool success = enable ? gCtls->tetherCtrl.enableForwarding(FORWARDING_REQUESTER) :
                             gCtls->tetherCtrl.disableForwarding(FORWARDING_REQUESTER);
@@ -150,7 +148,7 @@ Return <StatusCode> NetdHwService::setIpForwardEnable(bool enable) {
 
 Return <StatusCode> NetdHwService::setForwardingBetweenInterfaces(
         const hidl_string& inputIfName, const hidl_string& outputIfName, bool enable) {
-    android::RWLock::AutoWLock _lock(gCtls->tetherCtrl.lock);
+    std::lock_guard _lock(gCtls->tetherCtrl.lock);
 
     // TODO: check that one interface is an OEM interface and the other is another OEM interface, an
     // IPsec interface or a dummy interface.

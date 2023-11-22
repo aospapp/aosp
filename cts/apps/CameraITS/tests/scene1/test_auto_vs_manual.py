@@ -12,12 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
+import math
+import os.path
 import its.caps
 import its.device
+import its.image
 import its.objects
-import os.path
-import math
+import numpy as np
+
+NAME = os.path.basename(__file__).split(".")[0]
+
 
 def main():
     """Capture auto and manual shots that should look the same.
@@ -28,12 +32,10 @@ def main():
     however there can be variations in brightness/contrast due to different
     "auto" ISP blocks that may be disabled in the manual flows.
     """
-    NAME = os.path.basename(__file__).split(".")[0]
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.manual_sensor(props) and
-                             its.caps.manual_post_proc(props) and
+        its.caps.skip_unless(its.caps.read_3a(props) and
                              its.caps.per_frame_control(props))
         mono_camera = its.caps.mono_camera(props)
 
@@ -43,7 +45,7 @@ def main():
         if debug:
             fmt = largest_yuv
         else:
-            match_ar = (largest_yuv['width'], largest_yuv['height'])
+            match_ar = (largest_yuv["width"], largest_yuv["height"])
             fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
         sens, exp, gains, xform, focus = cam.do_3a(get_results=True,
                                                    mono_camera=mono_camera)
@@ -78,10 +80,10 @@ def main():
         print "Manual wb transform:", xform_m1
 
         # Manual capture 2: WB + tonemap
-        gamma = sum([[i/63.0,math.pow(i/63.0,1/2.2)] for i in xrange(64)],[])
+        gamma = sum([[i/63.0, math.pow(i/63.0, 1/2.2)] for i in xrange(64)], [])
         req["android.tonemap.mode"] = 0
         req["android.tonemap.curve"] = {
-            "red": gamma, "green": gamma, "blue": gamma}
+                "red": gamma, "green": gamma, "blue": gamma}
         cap_man2 = cam.do_capture(req, fmt)
         img_man2 = its.image.convert_capture_to_rgb_image(cap_man2)
         its.image.write_image(img_man2, "%s_manual_wb_tm.jpg" % (NAME))
@@ -93,10 +95,14 @@ def main():
 
         # Check that the WB gains and transform reported in each capture
         # result match with the original AWB estimate from do_3a.
-        for g,x in [(gains_a,xform_a),(gains_m1,xform_m1),(gains_m2,xform_m2)]:
-            assert(all([abs(xform[i] - x[i]) < 0.05 for i in range(9)]))
-            assert(all([abs(gains[i] - g[i]) < 0.05 for i in range(4)]))
+        for g, x in [(gains_m1, xform_m1), (gains_m2, xform_m2)]:
+            assert all([abs(xform[i] - x[i]) < 0.05 for i in range(9)])
+            assert all([abs(gains[i] - g[i]) < 0.05 for i in range(4)])
 
-if __name__ == '__main__':
+        # Check that auto AWB settings are close
+        assert all([np.isclose(xform_a[i], xform[i], rtol=0.25, atol=0.1) for i in range(9)])
+        assert all([np.isclose(gains_a[i], gains[i], rtol=0.25, atol=0.1) for i in range(4)])
+
+if __name__ == "__main__":
     main()
 

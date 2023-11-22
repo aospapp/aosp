@@ -31,11 +31,13 @@ import android.content.pm.ProviderInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.UserHandle;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceGroup;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
+
+import androidx.annotation.Keep;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceGroup;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.accounts.AuthenticatorHelper;
@@ -51,6 +53,7 @@ import java.util.List;
 /**
  * The account sync settings screen in TV Settings.
  */
+@Keep
 public class AccountSyncFragment extends SettingsPreferenceFragment implements
         AuthenticatorHelper.OnAccountsUpdateListener {
     private static final String TAG = "AccountSyncFragment";

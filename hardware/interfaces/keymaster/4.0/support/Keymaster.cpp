@@ -106,6 +106,19 @@ std::vector<std::unique_ptr<Keymaster>> enumerateDevices(
     return result;
 }
 
+void Keymaster::logIfKeymasterVendorError(ErrorCode ec) const {
+    static constexpr int32_t k_keymaster_vendor_error_code_range_max = -10000;
+    if (static_cast<int32_t>(ec) <= k_keymaster_vendor_error_code_range_max) {
+        const auto& versionInfo = halVersion();
+        LOG(ERROR) << "Keymaster reported error: " << static_cast<int32_t>(ec) << "\n"
+                   << "NOTE: This is an error in the vendor specific error range.\n"
+                   << "      Refer to the vendor of the implementation for details.\n"
+                   << "      Implementation name: " << versionInfo.keymasterName << "\n"
+                   << "      Vendor name:         " << versionInfo.authorName << "\n"
+                   << "      MajorVersion:        " << versionInfo.majorVersion;
+    }
+}
+
 Keymaster::KeymasterSet Keymaster::enumerateAvailableDevices() {
     auto serviceManager = IServiceManager::getService();
     CHECK(serviceManager) << "Could not retrieve ServiceManager";
@@ -164,10 +177,10 @@ static void computeHmac(const Keymaster::KeymasterSet& keymasters,
                     sharingCheck = curSharingCheck;
                     firstKeymaster = false;
                 }
-                CHECK(curSharingCheck == sharingCheck)
-                    << "HMAC computation failed for " << *keymaster  //
-                    << " Expected: " << sharingCheck                 //
-                    << " got: " << curSharingCheck;
+                if (curSharingCheck != sharingCheck)
+                    LOG(WARNING) << "HMAC computation failed for " << *keymaster  //
+                                 << " Expected: " << sharingCheck                 //
+                                 << " got: " << curSharingCheck;
             });
         CHECK(rc.isOk()) << "Failed to communicate with " << *keymaster
                          << " error: " << rc.description();

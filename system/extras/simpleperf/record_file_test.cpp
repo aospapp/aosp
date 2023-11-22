@@ -20,7 +20,7 @@
 
 #include <memory>
 
-#include <android-base/test_utils.h>
+#include <android-base/file.h>
 
 #include "environment.h"
 #include "event_attr.h"
@@ -95,41 +95,6 @@ TEST_F(RecordFileTest, smoke) {
   std::vector<BuildIdRecord> read_build_id_records = reader->ReadBuildIdFeature();
   ASSERT_EQ(1u, read_build_id_records.size());
   CheckRecordEqual(read_build_id_records[0], build_id_records[0]);
-
-  ASSERT_TRUE(reader->Close());
-}
-
-TEST_F(RecordFileTest, records_sorted_by_time) {
-  // Write to a record file.
-  std::unique_ptr<RecordFileWriter> writer = RecordFileWriter::CreateInstance(tmpfile_.path);
-  ASSERT_TRUE(writer != nullptr);
-
-  // Write attr section.
-  AddEventType("cpu-cycles");
-  attrs_[0]->sample_id_all = 1;
-  attrs_[0]->sample_type |= PERF_SAMPLE_TIME;
-  ASSERT_TRUE(writer->WriteAttrSection(attr_ids_));
-
-  // Write data section.
-  MmapRecord r1(*(attr_ids_[0].attr), true, 1, 1, 0x100, 0x2000, 0x3000, "mmap_record1",
-                attr_ids_[0].ids[0], 2);
-  MmapRecord r2(*(attr_ids_[0].attr), true, 1, 1, 0x100, 0x2000, 0x3000, "mmap_record1",
-                attr_ids_[0].ids[0], 1);
-  MmapRecord r3(*(attr_ids_[0].attr), true, 1, 1, 0x100, 0x2000, 0x3000, "mmap_record1",
-                attr_ids_[0].ids[0], 3);
-  ASSERT_TRUE(writer->WriteRecord(r1));
-  ASSERT_TRUE(writer->WriteRecord(r2));
-  ASSERT_TRUE(writer->WriteRecord(r3));
-  ASSERT_TRUE(writer->Close());
-
-  // Read from a record file.
-  std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile_.path);
-  ASSERT_TRUE(reader != nullptr);
-  std::vector<std::unique_ptr<Record>> records = reader->DataSection();
-  ASSERT_EQ(3u, records.size());
-  CheckRecordEqual(r2, *records[0]);
-  CheckRecordEqual(r1, *records[1]);
-  CheckRecordEqual(r3, *records[2]);
 
   ASSERT_TRUE(reader->Close());
 }

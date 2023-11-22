@@ -24,9 +24,7 @@ import android.telecom.ConnectionService;
 import android.telecom.Log;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
-import android.telecom.VideoProfile;
 
-import java.util.Objects;
 import java.util.Random;
 
 /**
@@ -45,13 +43,25 @@ public class SelfManagedConnectionService extends ConnectionService {
             PhoneAccountHandle connectionManagerAccount,
             final ConnectionRequest request) {
 
-        return createSelfManagedConnection(request, false);
+        return createSelfManagedConnection(request, false, false /* isHandover */);
     }
 
     @Override
     public Connection onCreateIncomingConnection(PhoneAccountHandle connectionManagerPhoneAccount,
             ConnectionRequest request) {
-        return createSelfManagedConnection(request, true);
+        return createSelfManagedConnection(request, true, false /* isHandover */);
+    }
+
+    @Override
+    public Connection onCreateOutgoingHandoverConnection(PhoneAccountHandle fromPhoneAccountHandle,
+            ConnectionRequest request) {
+        return createSelfManagedConnection(request, false, true /* isHandover */);
+    }
+
+    @Override
+    public Connection onCreateIncomingHandoverConnection(PhoneAccountHandle fromPhoneAccountHandle,
+            ConnectionRequest request) {
+        return createSelfManagedConnection(request, true, true /* isHandover */);
     }
 
     @Override
@@ -77,13 +87,15 @@ public class SelfManagedConnectionService extends ConnectionService {
         mCallList.notifyConnectionServiceFocusGained();
     }
 
-    private Connection createSelfManagedConnection(ConnectionRequest request, boolean isIncoming) {
+    private Connection createSelfManagedConnection(ConnectionRequest request, boolean isIncoming,
+            boolean isHandover) {
         SelfManagedConnection connection = new SelfManagedConnection(mCallList,
                 getApplicationContext(), isIncoming);
         connection.setListener(mCallList.getConnectionListener());
         connection.setConnectionProperties(Connection.PROPERTY_SELF_MANAGED);
         connection.setAddress(request.getAddress(), TelecomManager.PRESENTATION_ALLOWED);
-        connection.setAudioModeIsVoip(true);
+        // Purposely do not set the audio mode to voip since we expect this to be the default:
+        // connection.setAudioModeIsVoip(true);
         connection.setVideoState(request.getVideoState());
         Random random = new Random();
         connection.setCallerDisplayName(TEST_NAMES[random.nextInt(TEST_NAMES.length)],
@@ -92,16 +104,17 @@ public class SelfManagedConnectionService extends ConnectionService {
         if (isIncoming) {
             connection.setIsIncomingCallUiShowing(request.shouldShowIncomingCallUi());
             connection.setRinging();
+        } else {
+            connection.setDialing();
         }
         Bundle requestExtras = request.getExtras();
         if (requestExtras != null) {
             boolean isHoldable = requestExtras.getBoolean(EXTRA_HOLDABLE, false);
             Log.i(this, "createConnection: isHandover=%b, handoverFrom=%s, holdable=%b",
-                    requestExtras.getBoolean(TelecomManager.EXTRA_IS_HANDOVER),
+                    isHandover,
                     requestExtras.getString(TelecomManager.EXTRA_HANDOVER_FROM_PHONE_ACCOUNT),
                     isHoldable);
-            connection.setIsHandover(requestExtras.getBoolean(TelecomManager.EXTRA_IS_HANDOVER,
-                    false));
+            connection.setIsHandover(isHandover);
             if (isHoldable) {
                 connection.setConnectionCapabilities(connection.getConnectionCapabilities() |
                         Connection.CAPABILITY_HOLD | Connection.CAPABILITY_SUPPORT_HOLD);

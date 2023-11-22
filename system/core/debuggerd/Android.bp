@@ -9,7 +9,6 @@ cc_defaults {
         "-Wno-nullability-completeness",
         "-Os",
     ],
-    cpp_std: "gnu++17",
 
     local_include_dirs: ["include"],
 }
@@ -17,6 +16,7 @@ cc_defaults {
 cc_library_headers {
     name: "libdebuggerd_common_headers",
     export_include_dirs: ["common/include"],
+    recovery_available: true,
 }
 
 cc_library_shared {
@@ -42,10 +42,11 @@ cc_library_shared {
     export_include_dirs: ["tombstoned/include"],
 }
 
-// Utility library to tombstoned and get an output fd.
+// Utility library to talk to tombstoned and get an output fd.
 cc_library_static {
     name: "libtombstoned_client_static",
     defaults: ["debuggerd_defaults"],
+    recovery_available: true,
     srcs: [
         "tombstoned/tombstoned_client.cpp",
         "util.cpp",
@@ -67,6 +68,7 @@ cc_library_static {
 cc_library_static {
     name: "libdebuggerd_handler_core",
     defaults: ["debuggerd_defaults"],
+    recovery_available: true,
     srcs: ["handler/debuggerd_handler.cpp"],
 
     header_libs: [
@@ -101,6 +103,7 @@ cc_library_static {
 cc_library_static {
     name: "libdebuggerd_handler_fallback",
     defaults: ["debuggerd_defaults"],
+    recovery_available: true,
     srcs: [
         "handler/debuggerd_fallback.cpp",
     ],
@@ -111,13 +114,18 @@ cc_library_static {
         "libasync_safe",
         "libbase",
         "libdebuggerd",
-        "libbacktrace",
-        "libunwind",
         "libunwindstack",
-        "libdexfile",
+        "libdexfile_support_static",  // libunwindstack dependency
         "liblzma",
         "libcutils",
     ],
+    target: {
+        recovery: {
+            exclude_static_libs: [
+                "libdexfile_support_static",
+            ],
+        },
+    },
 
     export_include_dirs: ["include"],
 }
@@ -135,6 +143,7 @@ cc_library {
     shared_libs: [
         "libbase",
         "libcutils",
+        "libprocinfo",
     ],
 
     export_header_lib_headers: ["libdebuggerd_common_headers"],
@@ -144,10 +153,10 @@ cc_library {
 cc_library_static {
     name: "libdebuggerd",
     defaults: ["debuggerd_defaults"],
+    recovery_available: true,
 
     srcs: [
         "libdebuggerd/backtrace.cpp",
-        "libdebuggerd/elf_utils.cpp",
         "libdebuggerd/open_files_list.cpp",
         "libdebuggerd/tombstone.cpp",
         "libdebuggerd/utility.cpp",
@@ -156,15 +165,30 @@ cc_library_static {
     local_include_dirs: ["libdebuggerd/include"],
     export_include_dirs: ["libdebuggerd/include"],
 
+    // Needed for private/bionic_fdsan.h
+    include_dirs: ["bionic/libc"],
+
     static_libs: [
-        "libbacktrace",
-        "libunwind",
+        "libdexfile_support_static",  // libunwindstack dependency
         "libunwindstack",
         "liblzma",
         "libbase",
         "libcutils",
         "liblog",
     ],
+    target: {
+        recovery: {
+            exclude_static_libs: [
+                "libdexfile_support_static",
+            ],
+        },
+    },
+
+    product_variables: {
+        debuggable: {
+            cflags: ["-DROOT_POSSIBLE"],
+        },
+    },
 }
 
 cc_test {
@@ -194,18 +218,17 @@ cc_test {
     },
 
     shared_libs: [
-        "libbacktrace",
         "libbase",
         "libcutils",
         "libdebuggerd_client",
         "liblog",
         "libminijail",
         "libnativehelper",
+        "libunwindstack",
     ],
 
     static_libs: [
         "libdebuggerd",
-        "libunwindstack",
     ],
 
     local_include_dirs: [
@@ -221,6 +244,8 @@ cc_test {
             stem: "debuggerd_test64",
         },
     },
+
+    test_suites: ["device-tests"],
 }
 
 cc_benchmark {
@@ -258,7 +283,6 @@ cc_binary {
     ],
 
     shared_libs: [
-        "libbacktrace",
         "libbase",
         "liblog",
         "libprocinfo",

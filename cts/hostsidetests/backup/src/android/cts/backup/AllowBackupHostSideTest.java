@@ -18,6 +18,8 @@ package android.cts.backup;
 
 import static org.junit.Assert.assertNull;
 
+import android.platform.test.annotations.AppModeFull;
+
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -48,6 +50,7 @@ import org.junit.runner.RunWith;
  * android.cts.backup.backupnotallowedapp.AllowBackupTest.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
+@AppModeFull
 public class AllowBackupHostSideTest extends BaseBackupHostSideTest {
 
     private static final String ALLOWBACKUP_APP_NAME = "android.cts.backup.backupnotallowedapp";
@@ -87,10 +90,7 @@ public class AllowBackupHostSideTest extends BaseBackupHostSideTest {
         // Generate the files that are going to be backed up.
         checkAllowBackupDeviceTest("createFiles");
 
-        // Do a backup
-        String backupnowOutput = backupNow(ALLOWBACKUP_APP_NAME);
-
-        assertBackupIsNotAllowed(ALLOWBACKUP_APP_NAME, backupnowOutput);
+        getBackupUtils().backupNowAndAssertBackupNotAllowed(ALLOWBACKUP_APP_NAME);
 
         assertNull(uninstallPackage(ALLOWBACKUP_APP_NAME));
 
@@ -112,9 +112,7 @@ public class AllowBackupHostSideTest extends BaseBackupHostSideTest {
         checkAllowBackupDeviceTest("createFiles");
 
         // Do a backup
-        String backupnowOutput = backupNow(ALLOWBACKUP_APP_NAME);
-
-        assertBackupIsSuccessful(ALLOWBACKUP_APP_NAME, backupnowOutput);
+        getBackupUtils().backupNowAndAssertSuccess(ALLOWBACKUP_APP_NAME);
 
         assertNull(uninstallPackage(ALLOWBACKUP_APP_NAME));
 

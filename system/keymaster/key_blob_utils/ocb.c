@@ -239,7 +239,7 @@ static inline block double_block(block b) {
 }
 #elif __ARM_NEON__
 #include <arm_neon.h>
-typedef int8x16_t block; /* Yay! Endian-neutral reads! */
+typedef int8x16_t block __attribute__ ((aligned (16))); /* Yay! Endian-neutral reads! */
 #define xor_block(x, y) veorq_s8(x, y)
 #define zero_block() vdupq_n_s8(0)
 static inline int unequal_blocks(block a, block b) {
@@ -672,6 +672,8 @@ ae_ctx* ae_allocate(void* misc) {
 #elif(__ALTIVEC__ && !__PPC64__)
     if (posix_memalign(&p, 16, sizeof(ae_ctx)) != 0)
         p = NULL;
+#elif __ARM_NEON__
+    p = memalign(16, sizeof(ae_ctx));
 #else
     p = malloc(sizeof(ae_ctx));
 #endif

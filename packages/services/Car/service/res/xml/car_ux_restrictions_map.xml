@@ -55,7 +55,6 @@ Note:
         <DrivingState car:state="moving" car:minSpeed="5.0">
             <Restrictions car:requiresDistractionOptimization="true" car:uxr="fully_restricted"/>
         </DrivingState>
-
     </RestrictionMapping>
 
     <!-- Configure restriction parameters here-->

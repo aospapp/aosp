@@ -46,13 +46,19 @@ status_t OperationResult::readFromParcel(const Parcel* inn) {
 }
 
 status_t OperationResult::writeToParcel(Parcel* out) const {
-    out->writeInt32(resultCode);
+    out->writeInt32(resultCode.getErrorCode());
     out->writeStrongBinder(token);
     out->writeInt64(handle);
     out->writeInt32(inputConsumed);
     keystore::writeKeymasterBlob(data, out);
     keystore::writeParamSetToParcel(outParams, out);
     return OK;
+}
+
+OperationResult operationFailed(const ::keystore::KeyStoreServiceReturnCode& error) {
+    OperationResult opResult = {};
+    opResult.resultCode = error;
+    return opResult;
 }
 
 }  // namespace keymaster

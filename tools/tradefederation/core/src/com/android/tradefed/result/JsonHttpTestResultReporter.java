@@ -60,7 +60,7 @@ public class JsonHttpTestResultReporter extends CollectingTestListener {
     /** timeout for HTTP connection to posting endpoint */
     private final static int CONNECTION_TIMEOUT_MS = 60 * 1000;
 
-    @Option(name="include-run-name", description="include test run name in reporting unit")
+    @Option(name = "include-run-name", description = "include test run name in reporting unit")
     private boolean mIncludeRunName = false;
 
     @Option(name = "posting-endpoint", description = "url for the HTTP data posting endpoint",
@@ -75,6 +75,11 @@ public class JsonHttpTestResultReporter extends CollectingTestListener {
             description = "suffix to append after the regular reporting unit key")
     private String mReportingUnitKeySuffix = null;
 
+    @Option(
+        name = "skip-failed-runs",
+        description = "flag to skip reporting results from failed runs"
+    )
+    private boolean mSkipFailedRuns = false;
 
     private boolean mHasInvocationFailures = false;
     private IInvocationContext mInvocationContext = null;
@@ -101,7 +106,7 @@ public class JsonHttpTestResultReporter extends CollectingTestListener {
             CLog.d("Skipping reporting beacuse there are invocation failures.");
         } else {
             try {
-                postResults(convertMetricsToJson(getRunResults()));
+                postResults(convertMetricsToJson(getMergedTestRunResults()));
             } catch (JSONException e) {
                 CLog.e("JSONException while converting test metrics.");
                 CLog.e(e);
@@ -153,6 +158,10 @@ public class JsonHttpTestResultReporter extends CollectingTestListener {
         StringBuffer resultsName = new StringBuffer();
         // loops over all test runs
         for (TestRunResult runResult : runResults) {
+            // If the option to skip failed runs is set, skip failed runs.
+            if (mSkipFailedRuns && runResult.isRunFailure()) {
+                continue;
+            }
 
             // Parse run metrics
             if (runResult.getRunMetrics().size() > 0) {
@@ -191,9 +200,8 @@ public class JsonHttpTestResultReporter extends CollectingTestListener {
         // get build info, and throw an exception if there are multiple (not supporting multi-device
         // result reporting
         List<IBuildInfo> buildInfos = mInvocationContext.getBuildInfos();
-        if (buildInfos.size() != 1) {
-            throw new IllegalArgumentException(String.format(
-                    "Only expected 1 build info, actual: [%d]", buildInfos.size()));
+        if (buildInfos.isEmpty()) {
+            throw new IllegalArgumentException("There is no build info");
         }
         IBuildInfo buildInfo = buildInfos.get(0);
         JSONObject result = new JSONObject();

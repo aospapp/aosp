@@ -39,6 +39,22 @@
         <item name="typeUndefined">@null</item>
     </style>
 
+    <style name="StyleA" parent="StyleB">
+        <item name="type1">true</item>
+        <item name="type17">@color/testcolor_orientation</item>
+    </style>
+    <style name="StyleB" parent="StyleC">
+        <item name="type1">false</item>
+        <item name="type2">false</item>
+        <item name="type4">@color/testcolor1</item>
+    </style>
+
+    <style name="StyleC">
+        <item name="type1">false</item>
+        <item name="type2">true</item>
+        <item name="type3">#ff0000ff</item>
+    </style>
+
     <style name="TextViewWithoutColorAndAppearance">
         <item name="android:textSize">18sp</item>
     </style>

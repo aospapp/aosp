@@ -31,8 +31,8 @@ class StrictController {
 public:
     StrictController();
 
-    int enableStrict(void);
-    int disableStrict(void);
+    int setupIptablesHooks(void);
+    int resetChains(void);
 
     int setUidCleartextPenalty(uid_t, StrictPenalty);
 
@@ -41,8 +41,9 @@ public:
     static const char* LOCAL_CLEAR_CAUGHT;
     static const char* LOCAL_PENALTY_LOG;
     static const char* LOCAL_PENALTY_REJECT;
+    std::mutex lock;
 
-protected:
+  protected:
     // For testing.
     friend class StrictControllerTest;
     static int (*execIptablesRestore)(IptablesTarget target, const std::string& commands);

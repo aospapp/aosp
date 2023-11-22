@@ -17,8 +17,6 @@
 package com.android.documentsui;
 
 import android.content.Context;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.KeyEvent;
@@ -27,6 +25,9 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.documentsui.NavigationViewManager.Breadcrumb;
 import com.android.documentsui.NavigationViewManager.Environment;
@@ -77,7 +78,7 @@ public final class HorizontalBreadcrumb extends RecyclerView
         // for more details on how we are routing these a11y events.
         setAccessibilityDelegateCompat(
                 new AccessibilityEventRouter(this,
-                        (View child) -> onAccessibilityClick(child)));
+                        (View child) -> onAccessibilityClick(child), null));
 
         setLayoutManager(mLayoutManager);
         addOnItemTouchListener(new ClickListener(getContext(), this::onSingleTapUp));

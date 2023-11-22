@@ -145,10 +145,10 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
   ret_Select =
       select((int)((intptr_t)pDevHandle + (int)1), &rfds, NULL, NULL, &tv);
   if (ret_Select < 0) {
-    NXPLOG_TML_E("i2c select() errno : %x", errno);
+    NXPLOG_TML_D("i2c select() errno : %x", errno);
     return -1;
   } else if (ret_Select == 0) {
-    NXPLOG_TML_E("i2c select() Timeout");
+    NXPLOG_TML_D("i2c select() Timeout");
     return -1;
   } else {
     ret_Read = read((intptr_t)pDevHandle, pBuffer, totalBtyesToRead - numRead);
@@ -195,7 +195,7 @@ int phTmlNfc_i2c_read(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToRead) {
         return -1;
       } else {
         if (bFwDnldFlag == false) {
-          NXPLOG_TML_E("_i2c_read() [hdr] received");
+          NXPLOG_TML_D("_i2c_read() [hdr] received");
           phNxpNciHal_print_packet("RECV", pBuffer, NORMAL_MODE_HEADER_LEN);
         }
         NXPLOG_TML_E("_i2c_read() [pyld] errno : %x", errno);
@@ -233,7 +233,7 @@ int phTmlNfc_i2c_write(void* pDevHandle, uint8_t* pBuffer,
   }
   if (fragmentation_enabled == I2C_FRAGMENATATION_DISABLED &&
       nNbBytesToWrite > FRAGMENTSIZE_MAX) {
-    NXPLOG_TML_E(
+    NXPLOG_TML_D(
         "i2c_write() data larger than maximum I2C  size,enable I2C "
         "fragmentation");
     return -1;
@@ -255,10 +255,10 @@ int phTmlNfc_i2c_write(void* pDevHandle, uint8_t* pBuffer,
         usleep(500);
       }
     } else if (ret == 0) {
-      NXPLOG_TML_E("_i2c_write() EOF");
+      NXPLOG_TML_D("_i2c_write() EOF");
       return -1;
     } else {
-      NXPLOG_TML_E("_i2c_write() errno : %x", errno);
+      NXPLOG_TML_D("_i2c_write() errno : %x", errno);
       if (errno == EINTR || errno == EAGAIN) {
         continue;
       }

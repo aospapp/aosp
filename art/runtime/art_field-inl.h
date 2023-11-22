@@ -21,7 +21,7 @@
 
 #include <android-base/logging.h>
 
-#include "class_linker.h"
+#include "class_linker-inl.h"
 #include "dex/dex_file-inl.h"
 #include "dex/primitive.h"
 #include "gc/accounting/card_table-inl.h"
@@ -29,17 +29,23 @@
 #include "jvalue.h"
 #include "mirror/dex_cache-inl.h"
 #include "mirror/object-inl.h"
-#include "scoped_thread_state_change-inl.h"
+#include "obj_ptr-inl.h"
 #include "thread-current-inl.h"
 
 namespace art {
+
+inline bool ArtField::IsProxyField() {
+  // No read barrier needed, we're reading the constant declaring class only to read
+  // the constant proxy flag. See ReadBarrierOption.
+  return GetDeclaringClass<kWithoutReadBarrier>()->IsProxyClass<kVerifyNone>();
+}
 
 template<ReadBarrierOption kReadBarrierOption>
 inline ObjPtr<mirror::Class> ArtField::GetDeclaringClass() {
   GcRootSource gc_root_source(this);
   ObjPtr<mirror::Class> result = declaring_class_.Read<kReadBarrierOption>(&gc_root_source);
   DCHECK(result != nullptr);
-  DCHECK(result->IsLoaded() || result->IsErroneous()) << result->GetStatus();
+  DCHECK(result->IsIdxLoaded() || result->IsErroneous()) << result->GetStatus();
   return result;
 }
 
@@ -269,7 +275,7 @@ inline void ArtField::SetObject(ObjPtr<mirror::Object> object, ObjPtr<mirror::Ob
 
 inline const char* ArtField::GetName() REQUIRES_SHARED(Locks::mutator_lock_) {
   uint32_t field_index = GetDexFieldIndex();
-  if (UNLIKELY(GetDeclaringClass()->IsProxyClass())) {
+  if (UNLIKELY(IsProxyField())) {
     DCHECK(IsStatic());
     DCHECK_LT(field_index, 2U);
     return field_index == 0 ? "interfaces" : "throws";
@@ -280,14 +286,14 @@ inline const char* ArtField::GetName() REQUIRES_SHARED(Locks::mutator_lock_) {
 
 inline const char* ArtField::GetTypeDescriptor() REQUIRES_SHARED(Locks::mutator_lock_) {
   uint32_t field_index = GetDexFieldIndex();
-  if (UNLIKELY(GetDeclaringClass()->IsProxyClass())) {
+  if (UNLIKELY(IsProxyField())) {
     DCHECK(IsStatic());
     DCHECK_LT(field_index, 2U);
     // 0 == Class[] interfaces; 1 == Class[][] throws;
     return field_index == 0 ? "[Ljava/lang/Class;" : "[[Ljava/lang/Class;";
   }
   const DexFile* dex_file = GetDexFile();
-  const DexFile::FieldId& field_id = dex_file->GetFieldId(field_index);
+  const dex::FieldId& field_id = dex_file->GetFieldId(field_index);
   return dex_file->GetFieldTypeDescriptor(field_id);
 }
 
@@ -302,25 +308,21 @@ inline bool ArtField::IsPrimitiveType() REQUIRES_SHARED(Locks::mutator_lock_) {
 
 inline ObjPtr<mirror::Class> ArtField::LookupResolvedType() {
   ScopedAssertNoThreadSuspension ants(__FUNCTION__);
-  const uint32_t field_index = GetDexFieldIndex();
-  ObjPtr<mirror::Class> declaring_class = GetDeclaringClass();
-  if (UNLIKELY(declaring_class->IsProxyClass())) {
+  if (UNLIKELY(IsProxyField())) {
     return ProxyFindSystemClass(GetTypeDescriptor());
   }
   ObjPtr<mirror::Class> type = Runtime::Current()->GetClassLinker()->LookupResolvedType(
-      declaring_class->GetDexFile().GetFieldId(field_index).type_idx_, declaring_class);
+      GetDexFile()->GetFieldId(GetDexFieldIndex()).type_idx_, this);
   DCHECK(!Thread::Current()->IsExceptionPending());
   return type;
 }
 
 inline ObjPtr<mirror::Class> ArtField::ResolveType() {
-  const uint32_t field_index = GetDexFieldIndex();
-  ObjPtr<mirror::Class> declaring_class = GetDeclaringClass();
-  if (UNLIKELY(declaring_class->IsProxyClass())) {
+  if (UNLIKELY(IsProxyField())) {
     return ProxyFindSystemClass(GetTypeDescriptor());
   }
   ObjPtr<mirror::Class> type = Runtime::Current()->GetClassLinker()->ResolveType(
-      declaring_class->GetDexFile().GetFieldId(field_index).type_idx_, declaring_class);
+      GetDexFile()->GetFieldId(GetDexFieldIndex()).type_idx_, this);
   DCHECK_EQ(type == nullptr, Thread::Current()->IsExceptionPending());
   return type;
 }
@@ -329,24 +331,21 @@ inline size_t ArtField::FieldSize() REQUIRES_SHARED(Locks::mutator_lock_) {
   return Primitive::ComponentSize(GetTypeAsPrimitiveType());
 }
 
+template <ReadBarrierOption kReadBarrierOption>
 inline ObjPtr<mirror::DexCache> ArtField::GetDexCache() REQUIRES_SHARED(Locks::mutator_lock_) {
-  return GetDeclaringClass()->GetDexCache();
+  ObjPtr<mirror::Class> klass = GetDeclaringClass<kReadBarrierOption>();
+  return klass->GetDexCache<kDefaultVerifyFlags, kReadBarrierOption>();
 }
 
 inline const DexFile* ArtField::GetDexFile() REQUIRES_SHARED(Locks::mutator_lock_) {
-  return GetDexCache()->GetDexFile();
+  return GetDexCache<kWithoutReadBarrier>()->GetDexFile();
 }
 
-inline ObjPtr<mirror::String> ArtField::GetStringName(Thread* self, bool resolve) {
-  auto dex_field_index = GetDexFieldIndex();
+inline ObjPtr<mirror::String> ArtField::ResolveNameString() {
+  uint32_t dex_field_index = GetDexFieldIndex();
   CHECK_NE(dex_field_index, dex::kDexNoIndex);
-  ObjPtr<mirror::DexCache> dex_cache = GetDexCache();
-  const DexFile::FieldId& field_id = dex_cache->GetDexFile()->GetFieldId(dex_field_index);
-  ObjPtr<mirror::String> name = dex_cache->GetResolvedString(field_id.name_idx_);
-  if (resolve && name == nullptr) {
-    name = ResolveGetStringName(self, field_id.name_idx_, dex_cache);
-  }
-  return name;
+  const dex::FieldId& field_id = GetDexFile()->GetFieldId(dex_field_index);
+  return Runtime::Current()->GetClassLinker()->ResolveString(field_id.name_idx_, this);
 }
 
 template <typename Visitor>
@@ -400,6 +399,10 @@ inline ArtField* ArtField::FindStaticFieldWithOffset(ObjPtr<mirror::Class> klass
                                                      uint32_t field_offset) {
   DCHECK(klass != nullptr);
   return FindFieldWithOffset<kExactOffset>(klass->GetSFields(), field_offset);
+}
+
+inline ObjPtr<mirror::ClassLoader> ArtField::GetClassLoader() {
+  return GetDeclaringClass()->GetClassLoader();
 }
 
 }  // namespace art

@@ -18,6 +18,8 @@
 # Replace "include $(BUILD_PACKAGE)" with "include $(BUILD_CTS_SUPPORT_PACKAGE)"
 #
 
+# !!! Any changes to this file need to be reflected in cts/Android.bp "cts_support_defaults"
+
 # Disable by default so "m cts" will work in emulator builds
 LOCAL_DEX_PREOPT := false
 LOCAL_PROGUARD_ENABLED := disabled

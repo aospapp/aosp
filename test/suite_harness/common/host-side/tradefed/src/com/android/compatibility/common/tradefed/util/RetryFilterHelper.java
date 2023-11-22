@@ -24,6 +24,7 @@ import com.android.compatibility.common.util.IInvocationResult;
 import com.android.compatibility.common.util.LightInvocationResult;
 import com.android.compatibility.common.util.ResultHandler;
 import com.android.compatibility.common.util.TestFilter;
+import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.ArgsOptionParser;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -102,12 +103,12 @@ public class RetryFilterHelper {
     public void validateBuildFingerprint(ITestDevice device) throws DeviceNotAvailableException {
         String oldBuildFingerprint = new LightInvocationResult(getResult()).getBuildFingerprint();
         if (oldBuildFingerprint == null) {
-            throw new IllegalArgumentException(
+            throw new FingerprintComparisonException(
                     "Could not find the build_fingerprint field in the result xml.");
         }
         String currentBuildFingerprint = device.getProperty("ro.build.fingerprint");
         if (!oldBuildFingerprint.equals(currentBuildFingerprint)) {
-            throw new IllegalArgumentException(String.format(
+            throw new FingerprintComparisonException(String.format(
                     "Device build fingerprint must match %s to retry session %d",
                     oldBuildFingerprint, mSessionId));
         }
@@ -158,6 +159,16 @@ public class RetryFilterHelper {
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    /**
+     * Set the retry command line args on the {@link IBuildInfo} to carry the original command
+     * across retries.
+     */
+    public void setBuildInfoRetryCommand(IBuildInfo info) {
+        IInvocationResult result = new LightInvocationResult(getResult());
+        String retryCommandLineArgs = result.getCommandLineArgs();
+        new CompatibilityBuildHelper(info).setRetryCommandLineArgs(retryCommandLineArgs);
     }
 
     /**

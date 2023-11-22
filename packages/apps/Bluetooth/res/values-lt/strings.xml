@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"<xliff:g id="RECIPIENT">%1$s</xliff:g> siunčiamas failas"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="RECIPIENT">%2$s</xliff:g> siunčiami (-a) <xliff:g id="NUMBER">%1$s</xliff:g> failai (-ų)"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Sustabdytas failo siuntimas <xliff:g id="RECIPIENT">%1$s</xliff:g>"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"USB atmintyje nėra pakankamai vietos išsaugoti failą iš „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"SD kortelėje nepakanka vietos išsaugoti failą iš „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"USB atmintyje nėra pakankamai vietos išsaugoti failą iš „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"SD kortelėje nepakanka vietos išsaugoti failą iš „<xliff:g id="SENDER">%1$s</xliff:g>“"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Reikalinga vieta: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Apdorojama per daug užklausų. Vėliau bandykite dar kartą."</string>
     <string name="status_pending" msgid="2503691772030877944">"Failo perkėlimas dar nepradėtas."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"Perkėlimas draudžiamas paskirties įrenginyje."</string>
     <string name="status_canceled" msgid="6664490318773098285">"Perkėlimą atšaukė naudotojas."</string>
     <string name="status_file_error" msgid="3671917770630165299">"Atmintinės problema."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"Nėra USB atmintinės."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"Nėra SD kortelės. Įdėkite SD kortelę, kurioje išsaugosite perkeltus failus."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"Nėra USB atminties."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"Nėra SD kortelės. Įdėkite SD kortelę, kurioje išsaugosite perkeltus failus."</string>
     <string name="status_connection_error" msgid="947681831523219891">"Nepavyko užmegzti ryšio."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Nepavyksta tinkamai apdoroti užklausos."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Nežinoma klaida."</string>
@@ -126,6 +126,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Atidaryti"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Išvalyti iš sąrašo"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Išvalyti"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Dabar leidžiama"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Išsaugoti"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Atšaukti"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Pasirinkite o paskyras, kurias norite bendrinti per „Bluetooth“. Jungiantis vis tiek reikės suteikti prieigą prie paskyrų."</string>

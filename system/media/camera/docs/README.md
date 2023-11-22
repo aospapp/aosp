@@ -8,7 +8,7 @@ C code, Java code, and even XML itself (as a sanity check).
 
 ## Dependencies
 * Python 2.7.x+
-* Beautiful Soup 4+ - HTML/XML parser, used to parse `metadata_properties.xml`
+* Beautiful Soup 4+ - HTML/XML parser, used to parse `metadata_definitions.xml`
 * Mako 0.7+         - Template engine, needed to do file generation.
 * Markdown 2.1+     - Plain text to HTML converter, for docs formatting.
 * Tidy              - Cleans up the XML/HTML files.

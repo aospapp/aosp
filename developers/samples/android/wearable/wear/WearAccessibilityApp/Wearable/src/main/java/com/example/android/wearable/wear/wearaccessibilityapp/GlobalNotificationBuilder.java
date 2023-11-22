@@ -15,7 +15,7 @@
  */
 package com.example.android.wearable.wear.wearaccessibilityapp;
 
-import android.support.v4.app.NotificationCompat;
+import androidx.core.app.NotificationCompat;
 
 /**
  * We use a Singleton for a global copy of the NotificationCompat.Builder to update active

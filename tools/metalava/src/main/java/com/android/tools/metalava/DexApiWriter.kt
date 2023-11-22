@@ -28,7 +28,9 @@ class DexApiWriter(
     private val writer: PrintWriter,
     filterEmit: Predicate<Item>,
     filterReference: Predicate<Item>,
-    inlineInheritedFields: Boolean = true
+    inlineInheritedFields: Boolean = true,
+    private val membersOnly: Boolean = false,
+    private val includePositions: Boolean = false
 ) : ApiVisitor(
     visitConstructorsAsMethods = true,
     nestInnerClasses = false,
@@ -37,9 +39,16 @@ class DexApiWriter(
     filterReference = filterReference
 ) {
     override fun visitClass(cls: ClassItem) {
+        if (membersOnly) {
+            return
+        }
+
         if (filterEmit.test(cls)) {
             writer.print(cls.toType().internalName())
             writer.print("\n")
+        }
+        if (includePositions) {
+            writeLocation(cls)
         }
     }
 
@@ -63,6 +72,9 @@ class DexApiWriter(
             writer.print(returnType?.internalName() ?: "V")
         }
         writer.print("\n")
+        if (includePositions) {
+            writeLocation(method)
+        }
     }
 
     override fun visitField(field: FieldItem) {
@@ -74,5 +86,15 @@ class DexApiWriter(
         writer.print(":")
         writer.print(field.type().internalName())
         writer.print("\n")
+        if (includePositions) {
+            writeLocation(field)
+        }
+    }
+
+    private fun writeLocation(item: Item) {
+        val psiItem =
+            item.psi() ?: throw DriverException(stderr = "$ARG_DEX_API_MAPPING should only be used on source trees")
+        val location = reporter.elementToLocation(psiItem, false)
+        writer.println(location ?: "<unknown>:-1")
     }
 }

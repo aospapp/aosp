@@ -64,7 +64,7 @@
             android:name="android.permission.ACCESS_NETWORK_STATE"
             android:maxSdkVersion="9000"/>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.permission2.cts"
                      android:label="More CTS tests for permissions">
         <meta-data android:name="listener"

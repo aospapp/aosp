@@ -154,12 +154,12 @@
     </style>
 
     <style name="SettingsLight" parent="android:Theme.Material.Light">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:windowBackground">@color/phone_settings_background_color</item>
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:actionBarStyle">@style/DialtactsActionBarStyle</item>
         <item name="android:actionMenuTextColor">@color/phone_settings_actionbar_text_color</item>
         <item name="android:actionOverflowButtonStyle">@style/DialtactsActionBarOverflow</item>
-        <item name="android:homeAsUpIndicator">@drawable/ic_back_arrow</item>
         <item name="android:windowActionBarOverlay">false</item>
         <item name="android:colorPrimaryDark">@color/actionbar_background_color_dark</item>
         <!-- Setting text. -->
@@ -169,17 +169,28 @@
     </style>
 
     <style name="DialerSettingsLight" parent="SettingsLight">
+        <!-- Action bar.-->
+        <item name="android:tint">@color/dialer_secondary_text_color</item>
+        <item name="android:windowBackground">@color/dialer_background_color</item>
+        <item name="android:actionModeBackground">@color/dialer_background_color</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <!-- Navigation bar.-->
+        <item name="android:navigationBarColor">@color/dialer_background_color</item>
+        <item name="android:navigationBarDividerColor">@color/dialer_divider_color</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="android:colorAccent">@color/dialer_theme_color</item>
         <item name="android:dialogTheme">@style/DialerAlertDialogTheme</item>
     </style>
 
     <style name="DialerAlertDialogTheme"
         parent="@android:style/Theme.Material.Light.Dialog">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:colorAccent">@color/dialer_theme_color</item>
         <item name="android:textColor">?android:attr/textColorPrimaryInverseDisableOnly</item>
     </style>
 
     <style name="NetworkOperatorsSettingsTheme" parent="@android:style/Theme.DeviceDefault.Settings">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:switchPreferenceStyle">@style/SettingsSwitchPreference</item>
         <item name="android:preferenceCategoryStyle">@style/SettingsPreferenceCategory</item>
         <item name="android:preferenceStyle">@style/SettingsPreference</item>
@@ -194,6 +205,7 @@
     </style>
 
     <style name="Empty" parent="@android:style/Theme.Material.Light">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>
@@ -248,7 +260,9 @@
     <!-- Text in the action bar at the top of the screen.  Should be kept in sync with Dialer. -->
     <style name="DialtactsActionBarTitleText"
            parent="@android:style/TextAppearance.Material.Widget.ActionBar.Title">
-        <item name="android:textColor">@color/phone_settings_actionbar_text_color</item>
+        <item name="android:textColor">@color/dialer_primary_text_color</item>
+        <item name="android:textSize">@dimen/dialer_head1_font_size</item>
+        <item name="android:fontFamily">sans-serif-regular</item>
     </style>
 
     <!-- Action bar overflow menu icon. -->
@@ -258,6 +272,7 @@
     </style>
 
     <style name="EmergencyDialerTheme" parent="@*android:style/Theme.DeviceDefault.Settings.Dark.NoActionBar">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:colorPrimaryDark">?android:attr/colorPrimary</item>
         <item name="android:colorBackgroundCacheHint">@null</item>
         <item name="android:windowShowWallpaper">true</item>
@@ -269,17 +284,21 @@
     </style>
 
     <style name="EmergencyDialerThemeDark" parent="@style/EmergencyDialerTheme">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:textColor">?android:attr/textColorPrimaryInverse</item>
         <item name="emergencyButtonBackgroundColor">#19414549</item>
+        <item name="android:colorControlHighlight">#40000000</item>
         <item name="dialpadTheme">@style/Dialpad_LightTransparent</item>
     </style>
 
     <style name="EmergencyDialerAlertDialogTheme"
            parent="@android:style/Theme.Material.Dialog">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:textColor">?android:attr/textColorPrimary</item>
     </style>
 
     <style name="SimImportTheme" parent="@android:style/Theme.Material.Light">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:actionBarStyle">@style/TelephonyActionBarStyle</item>
         <item name="android:colorPrimaryDark">@color/dialer_theme_color_dark</item>
         <item name="android:homeAsUpIndicator">@drawable/ic_back_arrow</item>
@@ -287,6 +306,7 @@
     </style>
 
     <style name="OutgoingCallBroadcasterTheme" parent="@android:style/Theme.Holo.NoActionBar">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:windowBackground">@android:color/black</item>
 
         <item name="*android:windowAnimationStyle">@style/OutgoingAnimationStyle</item>
@@ -311,6 +331,29 @@
     </style>
 
     <style name="CallSettingsWithoutDividerTheme" parent="SettingsLight">
+        <item name="android:forceDarkAllowed">true</item>
         <item name="android:listDivider">@null</item>
+    </style>
+
+    <style name="HeadlineTextAppearance">
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">22sp</item>
+    </style>
+
+    <style name="SubtitleTextAppearance" parent="@style/HeadlineTextAppearance">
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="PhoneNumberTextAppearance">
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:textSize">32sp</item>
+    </style>
+
+    <style name="PhoneCallHintTextAppearance" parent="@style/PhoneNumberTextAppearance">
+        <item name="android:textSize">18sp</item>
+    </style>
+
+    <style name="ShortcutsHintTextAppearance" parent="@style/HeadlineTextAppearance">
+        <item name="android:textSize">16sp</item>
     </style>
 </resources>

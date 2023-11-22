@@ -16,7 +16,8 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.android.cts.isolatedsplitapp"
-    android:isolatedSplits="true">
+    android:isolatedSplits="true"
+    android:targetSandboxVersion="2">
 
     <application android:label="IsolatedSplitApp">
 
@@ -39,7 +40,7 @@
 
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.isolatedsplitapp" />
 
 </manifest>

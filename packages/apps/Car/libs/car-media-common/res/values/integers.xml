@@ -23,4 +23,7 @@
 
     <!-- The amount of time it takes for a new album image to fade in. -->
     <integer name="new_album_art_fade_in_duration">250</integer>
+
+    <!-- Number of columns in app selector -->
+    <integer name="num_app_selector_columns">3</integer>
 </resources>

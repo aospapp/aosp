@@ -40,8 +40,3 @@ cc_library_shared {
 
     ldflags: ["-Wl,-Bsymbolic"],
 }
-
-subdirs = [
-    "tests",
-    "vndk",
-]

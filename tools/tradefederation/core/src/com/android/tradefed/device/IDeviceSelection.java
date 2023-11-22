@@ -20,6 +20,7 @@ import com.android.ddmlib.IDevice;
 import com.android.tradefed.util.ConditionPriorityBlockingQueue.IMatcher;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -34,6 +35,9 @@ public interface IDeviceSelection extends IMatcher<IDevice> {
      * @return a {@link Collection} of serial numbers
      */
     public Collection<String> getSerials(IDevice device);
+
+    /** Returns the list of requested serials. */
+    public List<String> getSerials();
 
     /**
      * Gets a copy of the serial numbers exclusion list
@@ -76,6 +80,12 @@ public interface IDeviceSelection extends IMatcher<IDevice> {
      * @return <code>true</code> if a null device (aka no device required) has been requested
      */
     public boolean nullDeviceRequested();
+
+    /** @return <code>true</code> if a tcp device (aka a adb connected device) has been requested */
+    public boolean tcpDeviceRequested();
+
+    /** @return <code>true</code> if a gce device (aka a remote device) has been requested */
+    public boolean gceDeviceRequested();
 
     /**
      * Gets the given devices product type

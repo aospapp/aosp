@@ -148,13 +148,10 @@ public class KeypadChannelSwitchView extends LinearLayout
                         mChannelItemListView.setFocusable(false);
                         final Channel channel = ((Channel) mAdapter.getItem(position));
                         postDelayed(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        mChannelItemListView.setFocusable(true);
-                                        mMainActivity.tuneToChannel(channel);
-                                        mTracker.sendChannelNumberItemClicked();
-                                    }
+                                () -> {
+                                    mChannelItemListView.setFocusable(true);
+                                    mMainActivity.tuneToChannel(channel);
+                                    mTracker.sendChannelNumberItemClicked();
                                 },
                                 mRippleAnimDurationMillis);
                     }

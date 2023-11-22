@@ -18,4 +18,5 @@ package com.android.tools.metalava.model
 
 interface TypeParameterItem : ClassItem {
     fun bounds(): List<ClassItem>
+    fun isReified(): Boolean
 }

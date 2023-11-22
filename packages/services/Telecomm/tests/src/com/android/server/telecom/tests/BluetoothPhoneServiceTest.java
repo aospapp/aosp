@@ -273,6 +273,26 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
 
     @MediumTest
     @Test
+    public void testListCurrentCallsSilentRinging() throws Exception {
+        ArrayList<Call> calls = new ArrayList<>();
+        Call silentRingingCall = createActiveCall();
+        when(silentRingingCall.getState()).thenReturn(CallState.RINGING);
+        when(silentRingingCall.isSilentRingingRequested()).thenReturn(true);
+        calls.add(silentRingingCall);
+        when(silentRingingCall.isConference()).thenReturn(false);
+        when(silentRingingCall.getHandle()).thenReturn(Uri.parse("tel:555-000"));
+        when(mMockCallsManager.getCalls()).thenReturn(calls);
+        when(mMockCallsManager.getRingingCall()).thenReturn(silentRingingCall);
+
+        mBluetoothPhoneService.mBinder.listCurrentCalls();
+
+        verify(mMockBluetoothHeadset, never()).clccResponse(eq(1), eq(0), eq(0), eq(0), eq(false),
+            eq("555000"), eq(PhoneNumberUtils.TOA_Unknown));
+        verify(mMockBluetoothHeadset).clccResponse(0, 0, 0, 0, false, null, 0);
+    }
+
+    @MediumTest
+    @Test
     public void testConferenceInProgressCDMA() throws Exception {
         // If two calls are being conferenced and updateHeadsetWithCallState runs while this is
         // still occuring, it will look like there is an active and held call still while we are
@@ -309,17 +329,18 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
 
         mBluetoothPhoneService.mBinder.queryPhoneState();
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(1), eq(1), eq(CALL_STATE_IDLE),
-                eq(""), eq(128));
+                eq(""), eq(128), nullable(String.class));
         when(parentCall.wasConferencePreviouslyMerged()).thenReturn(true);
         mBluetoothPhoneService.mCallsManagerListener.onIsConferencedChanged(parentCall);
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(1), eq(0), eq(CALL_STATE_IDLE),
-                eq(""), eq(128));
+                eq(""), eq(128), nullable(String.class));
         when(mMockCallsManager.getHeldCall()).thenReturn(null);
         // Spurious call to onIsConferencedChanged.
         mBluetoothPhoneService.mCallsManagerListener.onIsConferencedChanged(parentCall);
         // Make sure the call has only occurred collectively 2 times (not on the third)
         verify(mMockBluetoothHeadset, times(2)).phoneStateChanged(any(int.class),
-                any(int.class), any(int.class), nullable(String.class), any(int.class));
+                any(int.class), any(int.class), nullable(String.class), any(int.class),
+                nullable(String.class));
     }
 
     @MediumTest
@@ -611,7 +632,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
         mBluetoothPhoneService.mBinder.queryPhoneState();
 
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_INCOMING),
-                eq("5550000"), eq(PhoneNumberUtils.TOA_Unknown));
+                eq("5550000"), eq(PhoneNumberUtils.TOA_Unknown), nullable(String.class));
     }
 
     @MediumTest
@@ -632,7 +653,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
 
         mBluetoothPhoneService.mBinder.queryPhoneState();
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(1), eq(0), eq(CALL_STATE_IDLE),
-                eq(""), eq(128));
+                eq(""), eq(128), nullable(String.class));
     }
 
     @MediumTest
@@ -681,7 +702,8 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
                 CHLD_TYPE_RELEASEACTIVE_ACCEPTHELD);
 
         verify(mMockCallsManager).disconnectCall(eq(activeCall));
-        verify(mMockCallsManager).unholdCall(eq(heldCall));
+        // Call unhold will occur as part of CallsManager auto-unholding the background call on its
+        // own.
         assertEquals(didProcess, true);
     }
 
@@ -771,7 +793,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
 
         verify(parentCall).swapConference();
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(1), eq(1), eq(CALL_STATE_IDLE), eq(""),
-                eq(128));
+                eq(128), nullable(String.class));
         assertEquals(didProcess, true);
     }
 
@@ -785,8 +807,20 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
         mBluetoothPhoneService.mCallsManagerListener.onCallAdded(ringingCall);
 
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_INCOMING),
-                eq("555000"), eq(PhoneNumberUtils.TOA_Unknown));
+                eq("555000"), eq(PhoneNumberUtils.TOA_Unknown), nullable(String.class));
+    }
 
+    @MediumTest
+    @Test
+    public void testSilentRingingCallState() throws Exception {
+        Call ringingCall = createRingingCall();
+        when(ringingCall.isSilentRingingRequested()).thenReturn(true);
+        when(ringingCall.getHandle()).thenReturn(Uri.parse("tel:555000"));
+
+        mBluetoothPhoneService.mCallsManagerListener.onCallAdded(ringingCall);
+
+        verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_IDLE),
+            eq(""), eq(128), nullable(String.class));
     }
 
     @MediumTest
@@ -807,8 +841,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
         mBluetoothPhoneService.mCallsManagerListener.onCallAdded(parentCall);
 
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(1), eq(1), eq(CALL_STATE_IDLE),
-                eq(""), eq(128));
-
+                eq(""), eq(128), nullable(String.class));
     }
 
     @MediumTest
@@ -820,7 +853,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
         mBluetoothPhoneService.mCallsManagerListener.onCallRemoved(activeCall);
 
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_IDLE),
-                eq(""), eq(128));
+                eq(""), eq(128), nullable(String.class));
     }
 
     @MediumTest
@@ -838,7 +871,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
                 CallState.ACTIVE, CallState.ON_HOLD);
 
         verify(mMockBluetoothHeadset, never()).phoneStateChanged(anyInt(), anyInt(), anyInt(),
-                anyString(), anyInt());
+                anyString(), anyInt(), nullable(String.class));
     }
 
     @MediumTest
@@ -850,7 +883,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
                 CallState.CONNECTING, CallState.DIALING);
 
         verify(mMockBluetoothHeadset, never()).phoneStateChanged(anyInt(), anyInt(), anyInt(),
-                anyString(), anyInt());
+                anyString(), anyInt(), nullable(String.class));
     }
 
     @MediumTest
@@ -861,8 +894,10 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
         mBluetoothPhoneService.mCallsManagerListener.onCallStateChanged(outgoingCall,
                 CallState.NEW, CallState.DIALING);
 
-        verify(mMockBluetoothHeadset).phoneStateChanged(0, 0, CALL_STATE_DIALING, "", 128);
-        verify(mMockBluetoothHeadset).phoneStateChanged(0, 0, CALL_STATE_ALERTING, "", 128);
+        verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_DIALING),
+                eq(""), eq(128), nullable(String.class));
+        verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_ALERTING),
+                eq(""), eq(128), nullable(String.class));
     }
 
     @MediumTest
@@ -873,16 +908,16 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
         mBluetoothPhoneService.mCallsManagerListener.onCallStateChanged(disconnectedCall,
                 CallState.DISCONNECTING, CallState.DISCONNECTED);
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_DISCONNECTED),
-                eq(""), eq(128));
+                eq(""), eq(128), nullable(String.class));
 
         doReturn(false).when(mMockCallsManager).hasOnlyDisconnectedCalls();
         mBluetoothPhoneService.mCallsManagerListener.onDisconnectedTonePlaying(true);
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_DISCONNECTED),
-                eq(""), eq(128));
+                eq(""), eq(128), nullable(String.class));
 
         mBluetoothPhoneService.mCallsManagerListener.onDisconnectedTonePlaying(false);
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_IDLE),
-                eq(""), eq(128));
+                eq(""), eq(128), nullable(String.class));
     }
 
     @MediumTest
@@ -893,7 +928,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
         mBluetoothPhoneService.mCallsManagerListener.onCallAdded(ringingCall);
 
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_INCOMING),
-                eq("555-0000"), eq(PhoneNumberUtils.TOA_Unknown));
+                eq("555-0000"), eq(PhoneNumberUtils.TOA_Unknown), nullable(String.class));
 
         //Switch to active
         doReturn(null).when(mMockCallsManager).getRingingCall();
@@ -903,7 +938,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
                 CallState.RINGING, CallState.ACTIVE);
 
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(1), eq(0), eq(CALL_STATE_IDLE),
-                eq(""), eq(128));
+                eq(""), eq(128), nullable(String.class));
     }
 
     @MediumTest
@@ -916,7 +951,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
                 CallState.ACTIVE, CallState.ON_HOLD);
 
         verify(mMockBluetoothHeadset, never()).phoneStateChanged(eq(0), eq(2), eq(CALL_STATE_HELD),
-                eq("5550000"), eq(PhoneNumberUtils.TOA_Unknown));
+                eq("5550000"), eq(PhoneNumberUtils.TOA_Unknown), nullable(String.class));
     }
 
     @MediumTest
@@ -942,18 +977,18 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
         // CDMA "conference"
         mBluetoothPhoneService.mCallsManagerListener.onIsConferencedChanged(activeCall);
         verify(mMockBluetoothHeadset, never()).phoneStateChanged(anyInt(), anyInt(), anyInt(),
-                anyString(), anyInt());
+                anyString(), anyInt(), nullable(String.class));
         mBluetoothPhoneService.mCallsManagerListener.onIsConferencedChanged(heldCall);
         verify(mMockBluetoothHeadset, never()).phoneStateChanged(anyInt(), anyInt(), anyInt(),
-                anyString(), anyInt());
+                anyString(), anyInt(), nullable(String.class));
         mBluetoothPhoneService.mCallsManagerListener.onIsConferencedChanged(parentCall);
         verify(mMockBluetoothHeadset, never()).phoneStateChanged(anyInt(), anyInt(), anyInt(),
-                anyString(), anyInt());
+                anyString(), anyInt(), nullable(String.class));
 
         calls.add(heldCall);
         mBluetoothPhoneService.mCallsManagerListener.onIsConferencedChanged(parentCall);
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(1), eq(1), eq(CALL_STATE_IDLE),
-                eq(""), eq(128));
+                eq(""), eq(128), nullable(String.class));
     }
 
     @MediumTest
@@ -967,7 +1002,7 @@ public class BluetoothPhoneServiceTest extends TelecomTestCase {
         mBluetoothPhoneService.mBluetoothAdapterReceiver.onReceive(mContext, intent);
 
         verify(mMockBluetoothHeadset).phoneStateChanged(eq(0), eq(0), eq(CALL_STATE_INCOMING),
-                eq("5550000"), eq(PhoneNumberUtils.TOA_Unknown));
+                eq("5550000"), eq(PhoneNumberUtils.TOA_Unknown), nullable(String.class));
     }
 
     private void addCallCapability(Call call, int capability) {

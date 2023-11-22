@@ -34,7 +34,7 @@
     <string name="incoming_file_confirm_content" msgid="2752605552743148036">"Eingehende Datei annehmen?"</string>
     <string name="incoming_file_confirm_cancel" msgid="2973321832477704805">"Ablehnen"</string>
     <string name="incoming_file_confirm_ok" msgid="281462442932231475">"Akzeptieren"</string>
-    <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"OK"</string>
+    <string name="incoming_file_confirm_timeout_ok" msgid="1414676773249857278">"Ok"</string>
     <string name="incoming_file_confirm_timeout_content" msgid="172779756093975981">"Die Zeit zum Empfang der eingehenden Datei von \"<xliff:g id="SENDER">%1$s</xliff:g>\" ist abgelaufen."</string>
     <string name="incoming_file_confirm_Notification_title" msgid="5573329005298936903">"Eingehende Datei"</string>
     <string name="incoming_file_confirm_Notification_content" msgid="3359694069319644738">"<xliff:g id="SENDER">%1$s</xliff:g> kann jetzt <xliff:g id="FILE">%2$s</xliff:g> senden."</string>
@@ -59,19 +59,19 @@
     <string name="download_fail_line1" msgid="3846450148862894552">"Datei nicht empfangen"</string>
     <string name="download_fail_line2" msgid="8950394574689971071">"Datei: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="download_fail_line3" msgid="3451040656154861722">"Grund: <xliff:g id="REASON">%1$s</xliff:g>"</string>
-    <string name="download_fail_ok" msgid="1521733664438320300">"OK"</string>
+    <string name="download_fail_ok" msgid="1521733664438320300">"Ok"</string>
     <string name="download_succ_line5" msgid="4509944688281573595">"Datei empfangen"</string>
     <string name="download_succ_ok" msgid="7053688246357050216">"Öffnen"</string>
     <string name="upload_line1" msgid="2055952074059709052">"An: \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="upload_line3" msgid="4920689672457037437">"Dateityp: <xliff:g id="TYPE">%1$s</xliff:g> (<xliff:g id="SIZE">%2$s</xliff:g>)"</string>
     <string name="upload_line5" msgid="7759322537674229752">"Datei wird gesendet..."</string>
     <string name="upload_succ_line5" msgid="5687317197463383601">"Die Datei wurde gesendet."</string>
-    <string name="upload_succ_ok" msgid="7705428476405478828">"OK"</string>
+    <string name="upload_succ_ok" msgid="7705428476405478828">"Ok"</string>
     <string name="upload_fail_line1" msgid="7899394672421491701">"Die Datei wurde nicht an \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" gesendet."</string>
     <string name="upload_fail_line1_2" msgid="2108129204050841798">"Datei: <xliff:g id="FILE">%1$s</xliff:g>"</string>
     <string name="upload_fail_ok" msgid="5807702461606714296">"Wiederholen"</string>
     <string name="upload_fail_cancel" msgid="9118496285835687125">"Schließen"</string>
-    <string name="bt_error_btn_ok" msgid="5965151173011534240">"OK"</string>
+    <string name="bt_error_btn_ok" msgid="5965151173011534240">"Ok"</string>
     <string name="unknown_file" msgid="6092727753965095366">"Unbekannte Datei"</string>
     <string name="unknown_file_desc" msgid="480434281415453287">"Dieser Dateityp kann von keiner App verarbeitet werden. \n"</string>
     <string name="not_exist_file" msgid="3489434189599716133">"Keine Datei"</string>
@@ -84,10 +84,10 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Datei wird an \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" gesendet..."</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g> Dateien werden an \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" gesendet."</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Die Übertragung der Datei an \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" wurde abgebrochen"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"Der USB-Speicher verfügt nicht über genügend Speicherplatz, um die Datei von \"<xliff:g id="SENDER">%1$s</xliff:g>\" zu speichern."</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"Die SD-Karte verfügt über zu wenig Speicherplatz für die Datei von \"<xliff:g id="SENDER">%1$s</xliff:g>\"."</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Der USB-Speicher verfügt nicht über genügend Speicherplatz für die Datei von \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Die SD-Karte verfügt über zu wenig Speicherplatz für die Datei von \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Erforderlicher Speicherplatz: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
-    <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Es werden zurzeit zu viele Anfragen verarbeitet. Versuche es später erneut."</string>
+    <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Es werden zurzeit zu viele Anfragen verarbeitet. Bitte versuche es später noch einmal."</string>
     <string name="status_pending" msgid="2503691772030877944">"Die Dateiübertragung wurde noch nicht gestartet."</string>
     <string name="status_running" msgid="6562808920311008696">"Dateiübertragung läuft."</string>
     <string name="status_success" msgid="239573225847565868">"Die Dateiübertragung wurde abgeschlossen."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"Übertragung wird durch das Zielgerät verhindert."</string>
     <string name="status_canceled" msgid="6664490318773098285">"Übertragung wurde vom Nutzer abgebrochen."</string>
     <string name="status_file_error" msgid="3671917770630165299">"Speicherproblem"</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"Kein USB-Speicher"</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"Keine SD-Karte. Lege eine SD-Karte ein, um die übertragenen Dateien zu speichern."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"Kein USB-Speicher."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"Keine SD-Karte. Lege eine SD-Karte ein, um die übertragenen Dateien zu speichern."</string>
     <string name="status_connection_error" msgid="947681831523219891">"Verbindung fehlgeschlagen"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Die Anfrage kann nicht richtig verarbeitet werden."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Unbekannter Fehler"</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Öffnen"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Aus Liste löschen"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Löschen"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Now Playing"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Speichern"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Abbrechen"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Wähle die Konten aus, die du über Bluetooth freigeben möchtest. Du musst jedoch weiterhin jedem Zugriff auf die Konten zustimmen, wenn eine Verbindung hergestellt wird."</string>

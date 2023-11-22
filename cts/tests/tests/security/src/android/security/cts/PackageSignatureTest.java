@@ -75,17 +75,19 @@ public class PackageSignatureTest extends AndroidTestCase {
         wellKnownSignatures.add(getSignature(R.raw.sig_shared));
         wellKnownSignatures.add(getSignature(R.raw.sig_testkey));
         wellKnownSignatures.add(getSignature(R.raw.sig_devkeys));
+        wellKnownSignatures.add(getSignature(R.raw.sig_networkstack));
         wellKnownSignatures.add(getSignature(R.raw.sig_devkeys_media));
         wellKnownSignatures.add(getSignature(R.raw.sig_devkeys_platform));
         wellKnownSignatures.add(getSignature(R.raw.sig_devkeys_shared));
+        wellKnownSignatures.add(getSignature(R.raw.sig_devkeys_networkstack));
         return wellKnownSignatures;
     }
 
     private static final Set<String> WHITELISTED_PACKAGES = new HashSet<String>(Arrays.asList(
             // APKS are installed before beigning test
-            "android.netsecpolicy.usescleartext.false.cts",
-            "android.netsecpolicy.usescleartext.unspecified.cts",
-            "android.netsecpolicy.usescleartext.true.cts",
+            "android.netsecpolicy.usescleartext_false.cts",
+            "android.netsecpolicy.usescleartext_unspecified.cts",
+            "android.netsecpolicy.usescleartext_true.cts",
 
             // The accessibility APK required to be installed while running CTS
             "android.accessibilityservice.delegate",
@@ -96,8 +98,9 @@ public class PackageSignatureTest extends AndroidTestCase {
             // APK for an activity that collects information printed in the CTS report header
             "android.tests.devicesetup",
 
-            // Wifi test utility used by Tradefed...
+            // Test utilities used by Tradefed harness
             "com.android.tradefed.utils.wifi",
+            "android.tradefed.contentprovider",
 
             // Game used for CTS testing...
             "com.replica.replicaisland",
@@ -113,7 +116,10 @@ public class PackageSignatureTest extends AndroidTestCase {
 
             // Test package to verify upgrades to privileged applications
             "com.android.cts.priv.ctsshim",
-            "com.android.cts.ctsshim"
+            "com.android.cts.ctsshim",
+
+            // Oom Catcher package to prevent tests from ooming device.
+            "com.android.cts.oomcatcher"
 
             ));
 

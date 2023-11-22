@@ -98,7 +98,7 @@ TEST_F(GateKeeperDeviceTest, EnrollAndVerify) {
     hat = reinterpret_cast<hw_auth_token_t *>(auth_token);
 
     ASSERT_EQ(HW_AUTH_TOKEN_VERSION, hat->version);
-    ASSERT_EQ(htonl(HW_AUTH_PASSWORD), hat->authenticator_type);
+    ASSERT_EQ(htobe32(HW_AUTH_PASSWORD), hat->authenticator_type);
 }
 
 TEST_F(GateKeeperDeviceTest, EnrollAndVerifyTimeout) {

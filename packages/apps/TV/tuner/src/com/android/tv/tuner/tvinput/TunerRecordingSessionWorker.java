@@ -16,6 +16,8 @@
 
 package com.android.tv.tuner.tvinput;
 
+import static com.android.tv.tuner.features.TunerFeatures.TVPROVIDER_ALLOWS_COLUMN_CREATION;
+
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -26,16 +28,18 @@ import android.media.tv.TvContract.RecordedPrograms;
 import android.media.tv.TvInputManager;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.support.annotation.IntDef;
 import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
-import android.support.media.tv.Program;
 import android.util.Log;
 import android.util.Pair;
+import androidx.tvprovider.media.tv.Program;
 import com.android.tv.common.BaseApplication;
+import com.android.tv.common.data.RecordedProgramState;
 import com.android.tv.common.recording.RecordingCapability;
 import com.android.tv.common.recording.RecordingStorageStatusManager;
 import com.android.tv.common.util.CommonUtils;
@@ -48,23 +52,31 @@ import com.android.tv.tuner.exoplayer.ExoPlayerSampleExtractor;
 import com.android.tv.tuner.exoplayer.SampleExtractor;
 import com.android.tv.tuner.exoplayer.buffer.BufferManager;
 import com.android.tv.tuner.exoplayer.buffer.DvrStorageManager;
+import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
 import com.android.tv.tuner.source.TsDataSource;
 import com.android.tv.tuner.source.TsDataSourceManager;
+import com.android.tv.tuner.ts.EventDetector.EventListener;
+import com.android.tv.tuner.tvinput.datamanager.ChannelDataManager;
 import com.google.android.exoplayer.C;
+import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /** Implements a DVR feature. */
 public class TunerRecordingSessionWorker
         implements PlaybackBufferListener,
-                EventDetector.EventListener,
+                EventListener,
                 SampleExtractor.OnCompletionListener,
                 Handler.Callback {
     private static final String TAG = "TunerRecordingSessionW";
@@ -87,6 +99,14 @@ public class TunerRecordingSessionWorker
     private static final int MSG_MONITOR_STORAGE_STATUS = 5;
     private static final int MSG_RELEASE = 6;
     private static final int MSG_UPDATE_CC_INFO = 7;
+    private static final int MSG_UPDATE_PARTIAL_STATE = 8;
+    private static final String COLUMN_SERIES_ID = "series_id";
+    private static final String COLUMN_STATE = "state";
+
+    private boolean mProgramHasSeriesIdColumn;
+    private boolean mRecordedProgramHasSeriesIdColumn;
+    private boolean mRecordedProgramHasStateColumn;
+
     private final RecordingCapability mCapabilities;
 
     private static final String[] PROGRAM_PROJECTION = {
@@ -108,6 +128,9 @@ public class TunerRecordingSessionWorker
         TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA
     };
 
+    private static final String[] PROGRAM_PROJECTION_WITH_SERIES_ID =
+            createProjectionWithSeriesId();
+
     @IntDef({STATE_IDLE, STATE_TUNING, STATE_TUNED, STATE_RECORDING})
     @Retention(RetentionPolicy.SOURCE)
     public @interface DvrSessionState {}
@@ -119,6 +142,7 @@ public class TunerRecordingSessionWorker
 
     private static final long CHANNEL_ID_NONE = -1;
     private static final int MAX_TUNING_RETRY = 6;
+    private final ConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags;
 
     private final Context mContext;
     private final ChannelDataManager mChannelDataManager;
@@ -132,12 +156,14 @@ public class TunerRecordingSessionWorker
     private File mStorageDir;
     private long mRecordStartTime;
     private long mRecordEndTime;
+    private Uri mRecordedProgramUri;
     private boolean mRecorderRunning;
     private SampleExtractor mRecorder;
     private final TunerRecordingSession mSession;
     @DvrSessionState private int mSessionState = STATE_IDLE;
     private final String mInputId;
     private Uri mProgramUri;
+    private String mSeriesId;
 
     private PsipData.EitItem mCurrenProgram;
     private List<AtscCaptionTrack> mCaptionTracks;
@@ -147,7 +173,10 @@ public class TunerRecordingSessionWorker
             Context context,
             String inputId,
             ChannelDataManager dataManager,
-            TunerRecordingSession session) {
+            TunerRecordingSession session,
+            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlags,
+            TsDataSourceManager.Factory tsDataSourceManagerFactory) {
+        mConcurrentDvrPlaybackFlags = concurrentDvrPlaybackFlags;
         mRandom.setSeed(System.nanoTime());
         mContext = context;
         HandlerThread handlerThread = new HandlerThread(TAG);
@@ -157,7 +186,7 @@ public class TunerRecordingSessionWorker
                 BaseApplication.getSingletons(context).getRecordingStorageStatusManager();
         mChannelDataManager = dataManager;
         mChannelDataManager.checkDataVersion(context);
-        mSourceManager = TsDataSourceManager.createSourceManager(true);
+        mSourceManager = tsDataSourceManagerFactory.create(true);
         mCapabilities = new DvbDeviceAccessor(context).getRecordingCapability(inputId);
         mInputId = inputId;
         if (DEBUG) Log.d(TAG, mCapabilities.toString());
@@ -306,6 +335,7 @@ public class TunerRecordingSessionWorker
                         }
                         new DeleteRecordingTask().execute(mStorageDir);
                         mSession.onError(TvInputManager.RECORDING_ERROR_INSUFFICIENT_SPACE);
+                        mContext.getContentResolver().delete(mRecordedProgramUri, null, null);
                         reset();
                     } else {
                         mHandler.sendEmptyMessageDelayed(
@@ -328,6 +358,11 @@ public class TunerRecordingSessionWorker
                     Pair<TunerChannel, List<EitItem>> pair =
                             (Pair<TunerChannel, List<EitItem>>) msg.obj;
                     updateCaptionTracks(pair.first, pair.second);
+                    return true;
+                }
+            case MSG_UPDATE_PARTIAL_STATE:
+                {
+                    updateRecordedProgram(RecordedProgramState.PARTIAL, -1, -1);
                     return true;
                 }
         }
@@ -422,15 +457,44 @@ public class TunerRecordingSessionWorker
         mDvrStorageManager = new DvrStorageManager(mStorageDir, true);
         mRecorder =
                 new ExoPlayerSampleExtractor(
-                        Uri.EMPTY, mTunerSource, new BufferManager(mDvrStorageManager), this, true);
+                        Uri.EMPTY,
+                        mTunerSource,
+                        new BufferManager(mDvrStorageManager),
+                        this,
+                        true,
+                        mConcurrentDvrPlaybackFlags);
         mRecorder.setOnCompletionListener(this, mHandler);
         mProgramUri = programUri;
         mSessionState = STATE_RECORDING;
         mRecorderRunning = true;
+        if (mConcurrentDvrPlaybackFlags.enabled()) {
+            mRecordedProgramUri =
+                    insertRecordedProgram(
+                            getRecordedProgram(),
+                            mChannel.getChannelId(),
+                            Uri.fromFile(mStorageDir).toString(),
+                            calculateRecordingSizeInBytes(),
+                            mRecordStartTime,
+                            mRecordStartTime);
+            if (mRecordedProgramUri == null) {
+                new DeleteRecordingTask().execute(mStorageDir);
+                mSession.onError(TvInputManager.RECORDING_ERROR_UNKNOWN);
+                Log.e(TAG, "Inserting a recording to DB failed");
+                return false;
+            }
+            mSession.onRecordingUri(mRecordedProgramUri.toString());
+            mHandler.sendEmptyMessageDelayed(
+                    MSG_UPDATE_PARTIAL_STATE, MIN_PARTIAL_RECORDING_DURATION_MS);
+        }
         mHandler.sendEmptyMessage(MSG_PREPARE_RECODER);
         mHandler.removeMessages(MSG_MONITOR_STORAGE_STATUS);
         mHandler.sendEmptyMessageDelayed(MSG_MONITOR_STORAGE_STATUS, STORAGE_MONITOR_INTERVAL_MS);
         return true;
+    }
+
+    private int calculateRecordingSizeInBytes() {
+        // TODO(b/121153491): calcute recording size using mStorageDir
+        return 1024 * 1024;
     }
 
     private void stopRecorder() {
@@ -485,9 +549,15 @@ public class TunerRecordingSessionWorker
             long avg = mRecordStartTime / 2 + mRecordEndTime / 2;
             programUri = TvContract.buildProgramsUriForChannel(mChannel.getChannelId(), avg, avg);
         }
-        try (Cursor c = resolver.query(programUri, PROGRAM_PROJECTION, null, null, SORT_BY_TIME)) {
+        String[] projection =
+                checkProgramTable() ? PROGRAM_PROJECTION_WITH_SERIES_ID : PROGRAM_PROJECTION;
+        try (Cursor c = resolver.query(programUri, projection, null, null, SORT_BY_TIME)) {
             if (c != null && c.moveToNext()) {
                 Program result = Program.fromCursor(c);
+                int index;
+                if ((index = c.getColumnIndex(COLUMN_SERIES_ID)) >= 0 && !c.isNull(index)) {
+                    mSeriesId = c.getString(index);
+                }
                 if (DEBUG) {
                     Log.v(TAG, "Finished query for " + this);
                 }
@@ -516,14 +586,34 @@ public class TunerRecordingSessionWorker
         values.put(RecordedPrograms.COLUMN_RECORDING_DATA_URI, storageUri);
         values.put(RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS, endTime - startTime);
         values.put(RecordedPrograms.COLUMN_RECORDING_DATA_BYTES, totalBytes);
-        // startTime and endTime could be overridden by program's start and end value.
+        // startTime could be overridden by program's start value.
         values.put(RecordedPrograms.COLUMN_START_TIME_UTC_MILLIS, startTime);
         values.put(RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS, endTime);
+        if (checkRecordedProgramTable(COLUMN_SERIES_ID)) {
+            values.put(COLUMN_SERIES_ID, mSeriesId);
+        }
+        if (mConcurrentDvrPlaybackFlags.enabled() && checkRecordedProgramTable(COLUMN_STATE)) {
+            values.put(COLUMN_STATE, RecordedProgramState.STARTED.name());
+        }
         if (program != null) {
             values.putAll(program.toContentValues());
         }
         return mContext.getContentResolver()
                 .insert(TvContract.RecordedPrograms.CONTENT_URI, values);
+    }
+
+    private void updateRecordedProgram(RecordedProgramState state, long endTime, long totalBytes) {
+        ContentValues values = new ContentValues();
+        if (checkRecordedProgramTable(COLUMN_STATE)) {
+            values.put(COLUMN_STATE, state.name());
+        }
+        if (state.equals(RecordedProgramState.FINISHED)) {
+            values.put(RecordedPrograms.COLUMN_RECORDING_DATA_BYTES, totalBytes);
+            values.put(
+                    RecordedPrograms.COLUMN_RECORDING_DURATION_MILLIS, endTime - mRecordStartTime);
+            values.put(RecordedPrograms.COLUMN_END_TIME_UTC_MILLIS, endTime);
+        }
+        mContext.getContentResolver().update(mRecordedProgramUri, values, null, null);
     }
 
     private void onRecordingResult(boolean success, long lastExtractedPositionUs) {
@@ -541,6 +631,7 @@ public class TunerRecordingSessionWorker
                         < TimeUnit.MILLISECONDS.toMicros(MIN_PARTIAL_RECORDING_DURATION_MS)) {
             new DeleteRecordingTask().execute(mStorageDir);
             mSession.onError(TvInputManager.RECORDING_ERROR_UNKNOWN);
+            mContext.getContentResolver().delete(mRecordedProgramUri, null, null);
             Log.w(TAG, "Recording failed during recording");
             return;
         }
@@ -549,22 +640,120 @@ public class TunerRecordingSessionWorker
                 (lastExtractedPositionUs == C.UNKNOWN_TIME_US)
                         ? System.currentTimeMillis()
                         : mRecordStartTime + lastExtractedPositionUs / 1000;
-        Uri uri =
-                insertRecordedProgram(
-                        getRecordedProgram(),
-                        mChannel.getChannelId(),
-                        Uri.fromFile(mStorageDir).toString(),
-                        1024 * 1024,
-                        mRecordStartTime,
-                        recordEndTime);
-        if (uri == null) {
-            new DeleteRecordingTask().execute(mStorageDir);
-            mSession.onError(TvInputManager.RECORDING_ERROR_UNKNOWN);
-            Log.e(TAG, "Inserting a recording to DB failed");
-            return;
+        if (!mConcurrentDvrPlaybackFlags.enabled()) {
+            mRecordedProgramUri =
+                    insertRecordedProgram(
+                            getRecordedProgram(),
+                            mChannel.getChannelId(),
+                            Uri.fromFile(mStorageDir).toString(),
+                            calculateRecordingSizeInBytes(),
+                            mRecordStartTime,
+                            recordEndTime);
+            if (mRecordedProgramUri == null) {
+                new DeleteRecordingTask().execute(mStorageDir);
+                mSession.onError(TvInputManager.RECORDING_ERROR_UNKNOWN);
+                Log.e(TAG, "Inserting a recording to DB failed");
+                return;
+            }
+        } else {
+            updateRecordedProgram(
+                    RecordedProgramState.FINISHED, recordEndTime, calculateRecordingSizeInBytes());
         }
         mDvrStorageManager.writeCaptionInfoFiles(mCaptionTracks);
-        mSession.onRecordFinished(uri);
+        mSession.onRecordFinished(mRecordedProgramUri);
+    }
+
+    private boolean checkProgramTable() {
+        boolean canCreateColumn = TVPROVIDER_ALLOWS_COLUMN_CREATION.isEnabled(mContext);
+        if (!canCreateColumn) {
+            return false;
+        }
+        Uri uri = TvContract.Programs.CONTENT_URI;
+        if (!mProgramHasSeriesIdColumn) {
+            if (getExistingColumns(uri).contains(COLUMN_SERIES_ID)) {
+                mProgramHasSeriesIdColumn = true;
+            } else if (addColumnToTable(uri, COLUMN_SERIES_ID)) {
+                mProgramHasSeriesIdColumn = true;
+            }
+        }
+        return mProgramHasSeriesIdColumn;
+    }
+
+    private boolean checkRecordedProgramTable(String column) {
+        boolean canCreateColumn = TVPROVIDER_ALLOWS_COLUMN_CREATION.isEnabled(mContext);
+        if (!canCreateColumn) {
+            return false;
+        }
+        Uri uri = TvContract.RecordedPrograms.CONTENT_URI;
+        switch (column) {
+            case COLUMN_SERIES_ID:
+                {
+                    if (!mRecordedProgramHasSeriesIdColumn) {
+                        if (getExistingColumns(uri).contains(COLUMN_SERIES_ID)) {
+                            mRecordedProgramHasSeriesIdColumn = true;
+                        } else if (addColumnToTable(uri, COLUMN_SERIES_ID)) {
+                            mRecordedProgramHasSeriesIdColumn = true;
+                        }
+                    }
+                    return mRecordedProgramHasSeriesIdColumn;
+                }
+            case COLUMN_STATE:
+                {
+                    if (!mRecordedProgramHasStateColumn) {
+                        if (getExistingColumns(uri).contains(COLUMN_STATE)) {
+                            mRecordedProgramHasStateColumn = true;
+                        } else if (addColumnToTable(uri, COLUMN_STATE)) {
+                            mRecordedProgramHasStateColumn = true;
+                        }
+                    }
+                    return mRecordedProgramHasStateColumn;
+                }
+            default:
+                return false;
+        }
+    }
+
+    private Set<String> getExistingColumns(Uri uri) {
+        Bundle result =
+                mContext.getContentResolver()
+                        .call(uri, TvContract.METHOD_GET_COLUMNS, uri.toString(), null);
+        if (result != null) {
+            String[] columns = result.getStringArray(TvContract.EXTRA_EXISTING_COLUMN_NAMES);
+            if (columns != null) {
+                return new HashSet<>(Arrays.asList(columns));
+            }
+        }
+        Log.e(TAG, "Query existing column names from " + uri + " returned null");
+        return Collections.emptySet();
+    }
+
+    /**
+     * Add a column to the table
+     *
+     * @return {@code true} if the column is added successfully; {@code false} otherwise.
+     */
+    private boolean addColumnToTable(Uri contentUri, String columnName) {
+        Bundle extra = new Bundle();
+        extra.putCharSequence(TvContract.EXTRA_COLUMN_NAME, columnName);
+        extra.putCharSequence(TvContract.EXTRA_DATA_TYPE, "TEXT");
+        // If the add operation fails, the following just returns null without crashing.
+        Bundle allColumns =
+                mContext.getContentResolver()
+                        .call(
+                                contentUri,
+                                TvContract.METHOD_ADD_COLUMN,
+                                contentUri.toString(),
+                                extra);
+        if (allColumns == null) {
+            Log.w(TAG, "Adding new column failed. Uri=" + contentUri);
+        }
+        return allColumns != null;
+    }
+
+    private static String[] createProjectionWithSeriesId() {
+        List<String> projectionList = new ArrayList<>(Arrays.asList(PROGRAM_PROJECTION));
+        projectionList.add(COLUMN_SERIES_ID);
+        return projectionList.toArray(new String[0]);
     }
 
     private static class DeleteRecordingTask extends AsyncTask<File, Void, Void> {
@@ -575,7 +764,9 @@ public class TunerRecordingSessionWorker
                 return null;
             }
             for (File file : files) {
-                CommonUtils.deleteDirOrFile(file);
+                if (!CommonUtils.deleteDirOrFile(file)) {
+                    Log.w(TAG, "Unable to delete recording data at " + file);
+                }
             }
             return null;
         }

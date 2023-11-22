@@ -24,8 +24,6 @@ import static org.junit.Assert.fail;
 import android.content.Context;
 import android.graphics.Path;
 import android.graphics.PathMeasure;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.transition.ArcMotion;
 import android.transition.AutoTransition;
 import android.transition.ChangeBounds;
@@ -49,6 +47,9 @@ import android.util.AttributeSet;
 import android.view.Gravity;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -162,6 +163,8 @@ public class TransitionInflaterTest extends BaseTransitionTest {
         assertTrue(transition instanceof TransitionSet);
         TransitionSet set = (TransitionSet) transition;
         assertEquals(TransitionSet.ORDERING_SEQUENTIAL, set.getOrdering());
+        assertEquals(300, set.getDuration());
+        assertNotNull(set.getPathMotion());
         assertEquals(2, set.getTransitionCount());
         assertTrue(set.getTransitionAt(0) instanceof ChangeBounds);
         assertTrue(set.getTransitionAt(1) instanceof Fade);

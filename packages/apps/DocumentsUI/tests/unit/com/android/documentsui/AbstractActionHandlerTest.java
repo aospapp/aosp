@@ -18,6 +18,7 @@ package com.android.documentsui;
 
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
+
 import static org.junit.Assert.assertEquals;
 
 import android.content.Intent;
@@ -25,14 +26,15 @@ import android.net.Uri;
 import android.os.Parcelable;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Path;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.recyclerview.selection.ItemDetailsLookup.ItemDetails;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.files.LauncherActivity;
-import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
 import com.android.documentsui.sorting.SortDimension;
 import com.android.documentsui.sorting.SortModel;
 import com.android.documentsui.testing.DocumentStackAsserts;
@@ -46,6 +48,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A unit test *for* AbstractActionHandler, not an abstract test baseclass.
@@ -77,7 +81,8 @@ public class AbstractActionHandlerTest {
             }
 
             @Override
-            public boolean openItem(ItemDetails doc, @ViewType int type, @ViewType int fallback) {
+            public boolean openItem(
+                    ItemDetails<String> doc, @ViewType int type, @ViewType int fallback) {
                 throw new UnsupportedOperationException();
             }
 
@@ -255,8 +260,11 @@ public class AbstractActionHandlerTest {
                 .setNextChildDocumentsReturns(TestEnv.FILE_APK, TestEnv.FILE_GIF);
 
         mHandler.loadDocumentsForCurrentStack();
-        mActivity.loaderManager.runAsyncTaskLoader(AbstractActionHandler.LOADER_ID);
+        CountDownLatch latch = new CountDownLatch(1);
+        mEnv.model.addUpdateListener(event -> latch.countDown());
+        mActivity.supportLoaderManager.runAsyncTaskLoader(AbstractActionHandler.LOADER_ID);
 
+        latch.await(1, TimeUnit.SECONDS);
         assertEquals(2, mEnv.model.getItemCount());
         String[] modelIds = mEnv.model.getModelIds();
         assertEquals(TestEnv.FILE_APK, mEnv.model.getDocument(modelIds[0]));
@@ -276,5 +284,14 @@ public class AbstractActionHandlerTest {
         mHandler.loadDocumentsForCurrentStack();
 
         assertTrue(listener.getLastValue().hasException());
+    }
+
+    @Test
+    public void testPreviewItem_throwException() throws Exception {
+        try {
+            mHandler.previewItem(null);
+            fail("Should have thrown UnsupportedOperationException.");
+        } catch (UnsupportedOperationException expected) {
+        }
     }
 }

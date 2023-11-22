@@ -176,8 +176,11 @@ static void fillEmptyWork(const std::unique_ptr<C2Work> &work) {
 void C2SoftFlacEnc::process(
         const std::unique_ptr<C2Work> &work,
         const std::shared_ptr<C2BlockPool> &pool) {
+    // Initialize output work
     work->result = C2_OK;
     work->workletsProcessed = 1u;
+    work->worklets.front()->output.flags = work->input.flags;
+
     if (mSignalledError || mSignalledOutputEos) {
         work->result = C2_BAD_VALUE;
         return;
@@ -208,7 +211,12 @@ void C2SoftFlacEnc::process(
     if (!mWroteHeader) {
         std::unique_ptr<C2StreamCsdInfo::output> csd =
             C2StreamCsdInfo::output::AllocUnique(mHeaderOffset, 0u);
-        // TODO: check NO_MEMORY
+        if (!csd) {
+            ALOGE("CSD allocation failed");
+            mSignalledError = true;
+            work->result = C2_NO_MEMORY;
+            return;
+        }
         memcpy(csd->m.value, mHeader, mHeaderOffset);
         ALOGV("put csd, %d bytes", mHeaderOffset);
 

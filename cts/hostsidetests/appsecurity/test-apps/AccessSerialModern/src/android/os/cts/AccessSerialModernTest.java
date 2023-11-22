@@ -16,16 +16,19 @@
 
 package android.os.cts;
 
+import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
 import android.os.Build;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.Test;
 
 /**
- * Test that legacy apps can access the device serial without the phone permission.
+ * Test that modern apps cannot access the device serial number even with the phone permission as
+ * 3P apps are now restricted from accessing persistent device identifiers.
  */
 public class AccessSerialModernTest {
     @Test
@@ -51,12 +54,18 @@ public class AccessSerialModernTest {
         assertTrue("Build.SERIAL must not work for modern apps",
                 Build.UNKNOWN.equals(Build.SERIAL));
 
-        // We have the READ_PHONE_STATE permission, so this should not throw
+        // To prevent breakage an app targeting pre-Q with the READ_PHONE_STATE permission will
+        // receive Build.UNKNOWN; once the app is targeting Q+ a SecurityException will be thrown
+        // even if the app has the READ_PHONE_STATE permission.
         try {
-            assertTrue("Build.getSerial() must work for apps holding READ_PHONE_STATE",
-                    !Build.UNKNOWN.equals(Build.getSerial()));
+            assertEquals("Build.getSerial() must return " + Build.UNKNOWN
+                            + " for an app targeting pre-Q with the READ_PHONE_STATE permission",
+                    Build.UNKNOWN, Build.getSerial());
         } catch (SecurityException e) {
-            fail("getSerial() must be gated on the READ_PHONE_STATE permission");
+            fail("Build.getSerial() must return " + Build.UNKNOWN
+                    + " for an app targeting pre-Q with the READ_PHONE_STATE permission, caught "
+                    + "SecurityException: "
+                    + e);
         }
     }
 

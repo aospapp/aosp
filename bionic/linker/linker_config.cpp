@@ -39,7 +39,9 @@
 
 #include <async_safe/log.h>
 
+#include <limits.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <string>
 #include <unordered_map>
@@ -58,7 +60,7 @@ class ConfigParser {
   };
 
   explicit ConfigParser(std::string&& content)
-      : content_(content), p_(0), lineno_(0), was_end_of_file_(false) {}
+      : content_(std::move(content)), p_(0), lineno_(0), was_end_of_file_(false) {}
 
   /*
    * Possible return values
@@ -78,7 +80,7 @@ class ConfigParser {
         continue;
       }
 
-      if (line[0] == '[' && line[line.size() - 1] == ']') {
+      if (line[0] == '[' && line.back() == ']') {
         *name = line.substr(1, line.size() - 2);
         return kSection;
       }
@@ -145,7 +147,7 @@ class PropertyValue {
   PropertyValue() = default;
 
   PropertyValue(std::string&& value, size_t lineno)
-    : value_(value), lineno_(lineno) {}
+    : value_(std::move(value)), lineno_(lineno) {}
 
   const std::string& value() const {
     return value_;
@@ -223,8 +225,8 @@ static bool parse_config_file(const char* ld_config_file_path,
       }
 
       // remove trailing '/'
-      while (value[value.size() - 1] == '/') {
-        value = value.substr(0, value.size() - 1);
+      while (!value.empty() && value.back() == '/') {
+        value.pop_back();
       }
 
       if (value.empty()) {
@@ -234,12 +236,40 @@ static bool parse_config_file(const char* ld_config_file_path,
         continue;
       }
 
-      if (file_is_under_dir(binary_realpath, value)) {
+      // If the path can be resolved, resolve it
+      char buf[PATH_MAX];
+      std::string resolved_path;
+      if (access(value.c_str(), R_OK) != 0) {
+        if (errno == ENOENT) {
+          // no need to test for non-existing path. skip.
+          continue;
+        }
+        // If not accessible, don't call realpath as it will just cause
+        // SELinux denial spam. Use the path unresolved.
+        resolved_path = value;
+      } else if (realpath(value.c_str(), buf)) {
+        resolved_path = buf;
+      } else {
+        // realpath is expected to fail with EPERM in some situations, so log
+        // the failure with INFO rather than DL_WARN. e.g. A binary in
+        // /data/local/tmp may attempt to stat /postinstall. See
+        // http://b/120996057.
+        INFO("%s:%zd: warning: path \"%s\" couldn't be resolved: %s",
+             ld_config_file_path,
+             cp.lineno(),
+             value.c_str(),
+             strerror(errno));
+        resolved_path = value;
+      }
+
+      if (file_is_under_dir(binary_realpath, resolved_path)) {
         section_name = name.substr(4);
         break;
       }
     }
   }
+
+  INFO("[ Using config section \"%s\" ]", section_name.c_str());
 
   // skip everything until we meet a correct section
   while (true) {
@@ -332,7 +362,7 @@ static constexpr const char* kLibParamValue = "lib";
 class Properties {
  public:
   explicit Properties(std::unordered_map<std::string, PropertyValue>&& properties)
-      : properties_(properties), target_sdk_version_(__ANDROID_API__) {}
+      : properties_(std::move(properties)), target_sdk_version_(__ANDROID_API__) {}
 
   std::vector<std::string> get_strings(const std::string& name, size_t* lineno = nullptr) const {
     auto it = find_property(name, lineno);
@@ -381,7 +411,7 @@ class Properties {
     static std::string vndk = Config::get_vndk_version_string('-');
     params.push_back({ "VNDK_VER", vndk });
 
-    for (auto&& path : paths) {
+    for (auto& path : paths) {
       format_string(&path, params);
     }
 
@@ -471,7 +501,7 @@ bool Config::read_binary_config(const char* ld_config_file_path,
 
   g_config.set_target_sdk_version(target_sdk_version);
 
-  for (auto ns_config_it : namespace_configs) {
+  for (const auto& ns_config_it : namespace_configs) {
     auto& name = ns_config_it.first;
     NamespaceConfig* ns_config = ns_config_it.second;
 
@@ -521,6 +551,12 @@ bool Config::read_binary_config(const char* ld_config_file_path,
 
     ns_config->set_isolated(properties.get_bool(property_name_prefix + ".isolated"));
     ns_config->set_visible(properties.get_bool(property_name_prefix + ".visible"));
+
+    std::string whitelisted =
+        properties.get_string(property_name_prefix + ".whitelisted", &lineno);
+    if (!whitelisted.empty()) {
+      ns_config->set_whitelisted_libs(android::base::Split(whitelisted, ":"));
+    }
 
     // these are affected by is_asan flag
     if (is_asan) {

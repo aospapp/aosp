@@ -32,6 +32,8 @@ class CurrentXmlHandler extends DefaultHandler {
 
     private String mCurrentClassName;
 
+    private String mCurrentInterfaceName;
+
     private boolean mIgnoreCurrentClass;
 
     private String mCurrentMethodName;
@@ -67,7 +69,8 @@ class CurrentXmlHandler extends DefaultHandler {
             ApiPackage apiPackage = new ApiPackage(mCurrentPackageName);
             mApiCoverage.addPackage(apiPackage);
 
-        } else if ("class".equalsIgnoreCase(localName)) {
+        } else if ("class".equalsIgnoreCase(localName) ||
+                "interface".equalsIgnoreCase(localName)) {
             if (isEnum(attributes)) {
                 mIgnoreCurrentClass = true;
                 return;
@@ -80,9 +83,8 @@ class CurrentXmlHandler extends DefaultHandler {
                     mCurrentClassName, mDeprecated, is(attributes, "abstract"), superClass);
             ApiPackage apiPackage = mApiCoverage.getPackage(mCurrentPackageName);
             apiPackage.addClass(apiClass);
-        } else if ("interface".equalsIgnoreCase(localName)) {
-            // don't add interface
-            mIgnoreCurrentClass = true;
+        } else if ("implements".equalsIgnoreCase(localName)) {
+            mCurrentInterfaceName = attributes.getValue("name");
         } else if ("constructor".equalsIgnoreCase(localName)) {
             mDeprecated = isDeprecated(attributes);
             mCurrentParameterTypes.clear();
@@ -104,20 +106,20 @@ class CurrentXmlHandler extends DefaultHandler {
     public void endElement(String uri, String localName, String name) throws SAXException {
         super.endElement(uri, localName, name);
         if (mIgnoreCurrentClass) {
-            // do not add anything for interface
+            // do not add anything for enum
             return;
         }
         if ("constructor".equalsIgnoreCase(localName)) {
-            if (mCurrentParameterTypes.isEmpty()) {
-                // Don't add empty default constructors...
-                return;
-            }
             ApiConstructor apiConstructor = new ApiConstructor(mCurrentClassName,
                     mCurrentParameterTypes, mDeprecated);
             ApiPackage apiPackage = mApiCoverage.getPackage(mCurrentPackageName);
             ApiClass apiClass = apiPackage.getClass(mCurrentClassName);
             apiClass.addConstructor(apiConstructor);
-        }  else if ("method".equalsIgnoreCase(localName)) {
+        } else if ("implements".equalsIgnoreCase(localName)) {
+            ApiPackage apiPackage = mApiCoverage.getPackage(mCurrentPackageName);
+            ApiClass apiClass = apiPackage.getClass(mCurrentClassName);
+            apiClass.addInterface(mCurrentInterfaceName);
+        } else if ("method".equalsIgnoreCase(localName)) {
             ApiMethod apiMethod = new ApiMethod(
                     mCurrentMethodName,
                     mCurrentParameterTypes,

@@ -18,6 +18,7 @@
 #define INPUT_SURFACE_WRAPPER_H_
 
 #include <codec2/hidl/client.h>
+#include <system/graphics.h>
 
 namespace android {
 
@@ -26,10 +27,14 @@ namespace android {
  */
 class InputSurfaceWrapper {
 public:
+    InputSurfaceWrapper()
+        : mDataSpace(HAL_DATASPACE_UNKNOWN) {
+    }
+
     virtual ~InputSurfaceWrapper() = default;
 
     /**
-     * Connect the surface with |comp| and start pushing buffers. A surface can
+     * Connect the surface with |comp|. A surface can
      * connect to at most one component at a time.
      *
      * \return OK               successfully connected to |comp|
@@ -44,6 +49,11 @@ public:
     virtual void disconnect() = 0;
 
     /**
+     * Start pushing buffers to the surface.
+     */
+    virtual status_t start() = 0;
+
+    /**
      * Ref: GraphicBufferSource::signalEndOfInputStream.
      */
     virtual status_t signalEndOfInputStream() = 0;
@@ -54,6 +64,7 @@ public:
         float mMinFps; // minimum fps (repeat frame to achieve this)
         float mMaxFps; // max fps (via frame drop)
         float mCaptureFps; // capture fps
+        float mCodedFps;   // coded fps
         bool mSuspended; // suspended
         int64_t mTimeOffsetUs; // time offset (input => codec)
         int64_t mSuspendAtUs; // suspend/resume time
@@ -77,6 +88,18 @@ public:
      *               reconfiguring)
      */
     virtual status_t configure(Config &config) = 0;
+
+    /**
+     * Configures desired data space.
+     *
+     * \param dataSpace desired data space
+     */
+    inline void setDataSpace(android_dataspace dataSpace) {
+        mDataSpace = dataSpace;
+    }
+
+protected:
+    android_dataspace mDataSpace;
 };
 
 }  // namespace android

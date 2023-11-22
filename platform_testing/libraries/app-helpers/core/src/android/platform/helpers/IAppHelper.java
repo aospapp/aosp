@@ -18,6 +18,7 @@ package android.platform.helpers;
 
 import android.content.pm.PackageManager.NameNotFoundException;
 
+import android.support.test.uiautomator.UiWatcher;
 import java.io.IOException;
 
 public interface IAppHelper {
@@ -94,4 +95,21 @@ public interface IAppHelper {
      * @return true if successful, false otherwise
      */
     abstract boolean sendTextEvents(String text, long delay);
+
+    /**
+     * Setup expectations: None
+     * <p>
+     * Registers a UiWatcher.
+     * @param name the name of the UiWatcher to register
+     * @param watcher the UiWatcher to register
+     */
+    abstract void registerWatcher(String name, UiWatcher watcher);
+
+    /**
+     * Setup expectations: None
+     * <p>
+     * Removes a previously registered UiWatcher.
+     * @param name the name of the UiWatcher to register
+     */
+    abstract void removeWatcher(String name);
 }

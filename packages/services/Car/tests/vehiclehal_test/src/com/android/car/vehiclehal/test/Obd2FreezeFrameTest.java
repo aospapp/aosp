@@ -18,6 +18,7 @@ package com.android.car.vehiclehal.test;
 
 import static com.android.car.vehiclehal.test.Utils.isVhalPropertyAvailable;
 import static com.android.car.vehiclehal.test.Utils.readVhalProperty;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assume.assumeTrue;
@@ -37,12 +38,12 @@ import org.junit.Test;
 /** Test retrieving the OBD2_FREEZE_FRAME property from VHAL */
 public class Obd2FreezeFrameTest {
     private static final String TAG = Utils.concatTag(Obd2FreezeFrameTest.class);
-
+    private static final int DEFAULT_WAIT_TIMEOUT_MS = 5000;
     private IVehicle mVehicle = null;
 
     @Before
     public void setUp() throws Exception {
-        mVehicle = Utils.getVehicle();
+        mVehicle = Utils.getVehicleWithTimeout(DEFAULT_WAIT_TIMEOUT_MS);
         assumeTrue("Freeze frame not available, test-case ignored.", isFreezeFrameAvailable());
     }
 

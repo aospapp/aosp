@@ -54,6 +54,15 @@ EmojiCompat.init(new FontRequestEmojiCompatConfig(getApplicationContext(), fontR
                     });)
 ```
 
+##### Preloading the font during application install
+You can add the following meta-data to your AndroidManifest.xml in order to download the font when
+your application is installed from Play Store.  This way the font will be downloaded and ready when
+your application starts for the first time.
+
+```xml
+    <meta-data android:name="fontProviderRequests" android:value="Noto Color Emoji Compat"/>
+```
+
 #### Use bundled font
 
 In order the use the bundled font, call init() method of [EmojiCompat][2] with an instance of
@@ -96,7 +105,7 @@ Pre-requisites
 --------------
 
 - Android SDK 27
-- Android Build Tools v27.0.2
+- Android Build Tools v27.0.3
 - Android Support Repository
 
 Screenshots

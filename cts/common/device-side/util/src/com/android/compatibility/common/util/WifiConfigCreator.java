@@ -247,7 +247,7 @@ public class WifiConfigCreator {
         try {
             // In case wifi is not already enabled, wait for it to come up
             if (!mWifiManager.isWifiEnabled()) {
-                mWifiManager.setWifiEnabled(true);
+                SystemUtil.runShellCommand("svc wifi enable");
                 enabledLatch.await(ENABLE_WIFI_WAIT_SEC, TimeUnit.SECONDS);
             }
         } finally {

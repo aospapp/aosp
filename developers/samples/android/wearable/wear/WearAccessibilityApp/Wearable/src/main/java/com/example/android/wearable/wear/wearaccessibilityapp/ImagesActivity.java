@@ -15,15 +15,17 @@
  */
 package com.example.android.wearable.wear.wearaccessibilityapp;
 
-import android.app.Activity;
 import android.graphics.drawable.Animatable2.AnimationCallback;
 import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.support.wear.ambient.AmbientMode;
 import android.widget.ImageView;
 
-public class ImagesActivity extends Activity implements AmbientMode.AmbientCallbackProvider {
+import androidx.fragment.app.FragmentActivity;
+import androidx.wear.ambient.AmbientModeSupport;
+
+public class ImagesActivity extends FragmentActivity implements
+        AmbientModeSupport.AmbientCallbackProvider {
     private AnimatedVectorDrawable mAnimatedVectorDrawableSwipe;
     private AnimatedVectorDrawable mAnimatedVectorDrawableTap;
     private AnimationCallback mAnimationCallback;
@@ -33,7 +35,7 @@ public class ImagesActivity extends Activity implements AmbientMode.AmbientCallb
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_images);
 
-        AmbientMode.attachAmbientSupport(this);
+        AmbientModeSupport.attach(this);
 
         // Used to repeat animation from the beginning.
         mAnimationCallback =
@@ -66,9 +68,9 @@ public class ImagesActivity extends Activity implements AmbientMode.AmbientCallb
     }
 
     @Override
-    public AmbientMode.AmbientCallback getAmbientCallback() {
+    public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MyAmbientCallback();
     }
 
-    private class MyAmbientCallback extends AmbientMode.AmbientCallback {}
+    private class MyAmbientCallback extends AmbientModeSupport.AmbientCallback {}
 }

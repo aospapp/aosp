@@ -63,8 +63,12 @@ class NeuralnetworksHidlTest : public ::testing::VtsHalHidlTargetTestBase {
 // Tag for the validation tests
 class ValidationTest : public NeuralnetworksHidlTest {
    protected:
-    void validateModel(const Model& model);
-    void validateRequests(const Model& model, const std::vector<Request>& request);
+     void validateEverything(const Model& model, const std::vector<Request>& request);
+
+   private:
+     void validateModel(const Model& model);
+     void validateRequests(const sp<IPreparedModel>& preparedModel,
+                           const std::vector<Request>& requests);
 };
 
 // Tag for the generated tests
@@ -72,14 +76,17 @@ class GeneratedTest : public NeuralnetworksHidlTest {};
 
 }  // namespace functional
 }  // namespace vts
+}  // namespace V1_0
+}  // namespace neuralnetworks
+}  // namespace hardware
+}  // namespace android
+
+namespace android::hardware::neuralnetworks::V1_0 {
 
 // pretty-print values for error messages
 ::std::ostream& operator<<(::std::ostream& os, ErrorStatus errorStatus);
 ::std::ostream& operator<<(::std::ostream& os, DeviceStatus deviceStatus);
 
-}  // namespace V1_0
-}  // namespace neuralnetworks
-}  // namespace hardware
-}  // namespace android
+}  // namespace android::hardware::neuralnetworks::V1_0
 
 #endif  // VTS_HAL_NEURALNETWORKS_V1_0_TARGET_TESTS_H

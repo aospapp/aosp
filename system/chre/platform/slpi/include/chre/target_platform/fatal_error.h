@@ -22,20 +22,6 @@
 #include "chre/util/macros.h"
 
 #define FATAL_ERROR_QUIT() \
-  ::chre::preFatalError(); \
   ERR_FATAL("CHRE fatal@" CHRE_FILENAME ":" STRINGIFY(__LINE__), 0, 0, 0)
-
-namespace chre {
-
-/**
- * Do preparation for an impending fatal error, including flushing pending
- * messages to the host, etc.
- *
- * It must not be possible for FATAL_ERROR() to be called by this function or
- * any of its callees.
- */
-void preFatalError();
-
-}  // namespace chre
 
 #endif  // CHRE_PLATFORM_SLPI_FATAL_ERROR_H_

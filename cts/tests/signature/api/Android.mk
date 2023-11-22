@@ -23,7 +23,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := cts-$(subst .,-,$(1))
 LOCAL_MODULE_STEM := $(1)
 LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_PATH = $(TARGET_OUT_DATA_ETC)
 LOCAL_COMPATIBILITY_SUITE := arcts cts vts general-tests
 include $(BUILD_SYSTEM)/base_rules.mk
 $$(LOCAL_BUILT_MODULE): $(2) | $(APICHECK)
@@ -39,37 +38,20 @@ endef
 $(eval $(call build_xml_api_file,current.api,frameworks/base/api/current.txt))
 $(eval $(call build_xml_api_file,system-current.api,frameworks/base/api/system-current.txt))
 $(eval $(call build_xml_api_file,system-removed.api,frameworks/base/api/system-removed.txt))
-$(eval $(call build_xml_api_file,android-test-base-current.api,frameworks/base/test-base/api/android-test-base-current.txt))
-$(eval $(call build_xml_api_file,android-test-mock-current.api,frameworks/base/test-mock/api/android-test-mock-current.txt))
-$(eval $(call build_xml_api_file,android-test-runner-current.api,frameworks/base/test-runner/api/android-test-runner-current.txt))
+$(eval $(call build_xml_api_file,apache-http-legacy-current.api,external/apache-http/api/current.txt))
+$(eval $(call build_xml_api_file,android-test-base-current.api,frameworks/base/test-base/api/current.txt))
+$(eval $(call build_xml_api_file,android-test-mock-current.api,frameworks/base/test-mock/api/current.txt))
+$(eval $(call build_xml_api_file,android-test-runner-current.api,frameworks/base/test-runner/api/current.txt))
+$(eval $(call build_xml_api_file,car-system-current.api,packages/services/Car/car-lib/api/system-current.txt))
+$(eval $(call build_xml_api_file,car-system-removed.api,packages/services/Car/car-lib/api/system-removed.txt))
 $(foreach ver,$(PLATFORM_SYSTEMSDK_VERSIONS),\
   $(if $(call math_is_number,$(ver)),\
-    $(eval $(call build_xml_api_file,system-$(ver).api,prebuilts/sdk/system-api/$(ver).txt))\
+    $(eval $(call build_xml_api_file,system-$(ver).api,prebuilts/sdk/$(ver)/system/api/android.txt))\
   )\
 )
 
-# current apache-http-legacy minus current api, in text format.
-# =============================================================
-# Removes any classes from the org.apache.http.legacy API description that are
-# also part of the Android API description.
-include $(CLEAR_VARS)
-LOCAL_MODULE_CLASS := ETC
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_ETC)
-
-# Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
-
-LOCAL_MODULE := cts-apache-http-legacy-minus-current-api
-LOCAL_MODULE_STEM := apache-http-legacy-minus-current.api
-
-include $(BUILD_SYSTEM)/base_rules.mk
-$(LOCAL_BUILT_MODULE) : \
-        frameworks/base/api/current.txt \
-        external/apache-http/api/apache-http-legacy-current.txt \
-        | $(APICHECK)
-	@echo "Generate unique Apache Http Legacy API file -> $@"
-	@mkdir -p $(dir $@)
-	$(hide) $(APICHECK_COMMAND) -new_api_no_strip \
-	        frameworks/base/api/current.txt \
-            external/apache-http/api/apache-http-legacy-current.txt \
-            $@
+$(foreach ver,$(call int_range_list,28,$(PLATFORM_SDK_VERSION)),\
+  $(foreach api_level,public system,\
+    $(foreach lib,$(filter-out android,$(filter-out %removed,\
+      $(basename $(notdir $(wildcard $(HISTORICAL_SDK_VERSIONS_ROOT)/$(ver)/$(api_level)/api/*.txt))))),\
+        $(eval $(call build_xml_api_file,$(lib)-$(ver)-$(api_level).api,prebuilts/sdk/$(ver)/$(api_level)/api/$(lib).txt)))))

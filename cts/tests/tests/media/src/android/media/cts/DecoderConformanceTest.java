@@ -138,6 +138,7 @@ public class DecoderConformanceTest extends MediaPlayerTestBase {
         mExtractor.setDataSource(testFd.getFileDescriptor(), testFd.getStartOffset(), testFd.getLength());
         mExtractor.selectTrack(0);
 
+        mDecoder = MediaCodec.createByCodecName(decoderName);
         MediaCodecInfo codecInfo = mDecoder.getCodecInfo();
         MediaCodecInfo.CodecCapabilities caps = codecInfo.getCapabilitiesForType(mime);
         if (!caps.isFormatSupported(mExtractor.getTrackFormat(0))) {
@@ -153,7 +154,6 @@ public class DecoderConformanceTest extends MediaPlayerTestBase {
         }
 
         try {
-            mDecoder = MediaCodec.createByCodecName(decoderName);
             if (MediaUtils.verifyDecoder(mDecoder, mExtractor, frameMD5Sums)) {
                 return Status.PASS;
             }

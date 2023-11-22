@@ -161,8 +161,7 @@ public class RemoteVvmTaskManager extends Service {
                 continue;
             }
             bindIntent.setPackage(packageName);
-            ResolveInfo info = context.getPackageManager()
-                    .resolveService(bindIntent, PackageManager.MATCH_ALL);
+            ResolveInfo info = context.getPackageManager().resolveService(bindIntent, 0);
             if (info == null) {
                 continue;
             }

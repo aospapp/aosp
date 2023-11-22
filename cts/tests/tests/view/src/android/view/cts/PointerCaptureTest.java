@@ -35,14 +35,15 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.app.Instrumentation;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsMouseUtil.ActionMatcher;
 import com.android.compatibility.common.util.CtsTouchUtils;
@@ -88,9 +89,13 @@ public class PointerCaptureTest {
     }
 
     private void requestCaptureSync(View view) throws Throwable {
-        mActivityRule.runOnUiThread(view::requestPointerCapture);
-        PollingCheck.waitFor(TIMEOUT_DELTA,
-                () -> view.hasPointerCapture() && mActivity.hasPointerCapture());
+        PollingCheck.waitFor(TIMEOUT_DELTA, () -> {
+            try {
+                mActivityRule.runOnUiThread(view::requestPointerCapture);
+            } catch (Throwable e) {
+            }
+            return view.hasPointerCapture() && mActivity.hasPointerCapture();
+        });
     }
 
     private void requestCaptureSync() throws Throwable {
@@ -232,7 +237,7 @@ public class PointerCaptureTest {
         // TODO(kaznacheev) replace the below line with a call to showContextMenu once b/65487689
         // is fixed. Meanwhile, emulate a long press which takes long enough time to avoid the race
         // condition.
-        CtsTouchUtils.emulateLongPressOnView(mInstrumentation, mTarget, 0, 0);
+        CtsTouchUtils.emulateLongPressOnView(mInstrumentation, mActivityRule, mTarget, 0, 0);
         PollingCheck.waitFor(TIMEOUT_DELTA, () -> !mOuter.hasWindowFocus());
         PollingCheck.waitFor(TIMEOUT_DELTA,
                 () -> !mTarget.hasPointerCapture() && !mActivity.hasPointerCapture());

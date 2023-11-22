@@ -15,41 +15,45 @@
  */
 package android.media.cts;
 
+import static android.media.MediaCodecInfo.CodecProfileLevel.*;
+
 import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.hardware.Camera;
+import android.media.AudioFormat;
+import android.media.AudioRecordingConfiguration;
 import android.media.CamcorderProfile;
 import android.media.EncoderCapabilities;
+import android.media.EncoderCapabilities.VideoEncoderCap;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaRecorder;
-import android.media.EncoderCapabilities.VideoEncoderCap;
-import android.media.MediaCodecInfo.CodecCapabilities;
-import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaRecorder.OnErrorListener;
 import android.media.MediaRecorder.OnInfoListener;
-import android.media.MediaMetadataRetriever;
 import android.media.MicrophoneInfo;
+import android.media.cts.AudioRecordingConfigurationTest.MyAudioRecordingCallback;
 import android.opengl.GLES20;
 import android.os.ConditionVariable;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
 import android.platform.test.annotations.AppModeFull;
-import android.support.test.filters.SmallTest;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
+import android.util.Log;
 import android.view.Surface;
 
-import android.util.Log;
+import androidx.test.filters.SmallTest;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
@@ -57,15 +61,13 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.lang.InterruptedException;
 import java.lang.Runnable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-
-import static android.media.MediaCodecInfo.CodecProfileLevel.*;
 
 @SmallTest
 @RequiresDevice
@@ -79,6 +81,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
     private static final int RECORD_TIME_LAPSE_MS = 6000;
     private static final int RECORD_TIME_LONG_MS = 20000;
     private static final int RECORDED_DUR_TOLERANCE_MS = 1000;
+    private static final int TEST_TIMING_TOLERANCE_MS = 70;
     // Tolerate 4 frames off at maximum
     private static final float RECORDED_DUR_TOLERANCE_FRAMES = 4f;
     private static final int VIDEO_WIDTH = 176;
@@ -610,16 +613,23 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         return 1;
     }
 
+    private void configureDefaultMediaRecorder() {
+        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+        mMediaRecorder.setAudioChannels(AUDIO_NUM_CHANNELS);
+        mMediaRecorder.setAudioSamplingRate(AUDIO_SAMPLE_RATE_HZ);
+        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+        mMediaRecorder.setOutputFile(OUTPUT_PATH);
+        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+        mMediaRecorder.setMaxFileSize(MAX_FILE_SIZE * 10);
+    }
+
+    @CddTest(requirement="5.4.4/C-4-1")
     public void testGetActiveMicrophones() throws Exception {
         if (!hasMicrophone() || !hasAac()) {
             MediaUtils.skipTest("no audio codecs or microphone");
             return;
         }
-        mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-        mMediaRecorder.setOutputFile(OUTPUT_PATH);
-        mMediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-        mMediaRecorder.setMaxFileSize(MAX_FILE_SIZE * 10);
+        configureDefaultMediaRecorder();
         mMediaRecorder.prepare();
         mMediaRecorder.start();
         Thread.sleep(1000);
@@ -675,6 +685,7 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         assertTrue(MediaRecorder.AudioSource.VOICE_RECOGNITION <= max);
         assertTrue(MediaRecorder.AudioSource.VOICE_UPLINK <= max);
         assertTrue(MediaRecorder.AudioSource.UNPROCESSED <= max);
+        assertTrue(MediaRecorder.AudioSource.VOICE_PERFORMANCE <= max);
     }
 
     public void testRecorderAudio() throws Exception {
@@ -1634,4 +1645,63 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             // expected
         }
     }
+
+    public void testAudioRecordInfoCallback() throws Exception {
+        if (!hasMicrophone() || !hasAac()) {
+            MediaUtils.skipTest("no audio codecs or microphone");
+            return;
+        }
+        AudioRecordingConfigurationTest.MyAudioRecordingCallback callback =
+                new AudioRecordingConfigurationTest.MyAudioRecordingCallback(
+                        0 /*unused*/, MediaRecorder.AudioSource.DEFAULT);
+        mMediaRecorder.registerAudioRecordingCallback(mExec, callback);
+        configureDefaultMediaRecorder();
+        mMediaRecorder.prepare();
+        mMediaRecorder.start();
+        callback.await(TEST_TIMING_TOLERANCE_MS);
+        assertTrue(callback.mCalled);
+        assertTrue(callback.mConfigs.size() <= 1);
+        if (callback.mConfigs.size() == 1) {
+            checkRecordingConfig(callback.mConfigs.get(0));
+        }
+        Thread.sleep(RECORD_TIME_MS);
+        mMediaRecorder.stop();
+        mMediaRecorder.unregisterAudioRecordingCallback(callback);
+    }
+
+    public void testGetActiveRecordingConfiguration() throws Exception {
+        if (!hasMicrophone() || !hasAac()) {
+            MediaUtils.skipTest("no audio codecs or microphone");
+            return;
+        }
+        configureDefaultMediaRecorder();
+        mMediaRecorder.prepare();
+        mMediaRecorder.start();
+        Thread.sleep(1000);
+        AudioRecordingConfiguration config = mMediaRecorder.getActiveRecordingConfiguration();
+        checkRecordingConfig(config);
+        mMediaRecorder.stop();
+    }
+
+    private Executor mExec = new Executor() {
+        @Override
+        public void execute(Runnable command) {
+            command.run();
+        }
+    };
+
+    private static void checkRecordingConfig(AudioRecordingConfiguration config) {
+        assertNotNull(config);
+        AudioFormat format = config.getClientFormat();
+        assertEquals(AUDIO_NUM_CHANNELS, format.getChannelCount());
+        assertEquals(AUDIO_SAMPLE_RATE_HZ, format.getSampleRate());
+        assertEquals(MediaRecorder.AudioSource.MIC, config.getAudioSource());
+        assertNotNull(config.getAudioDevice());
+        assertNotNull(config.getClientEffects());
+        assertNotNull(config.getEffects());
+        // no requirement here, just testing the API
+        config.isClientSilenced();
+    }
+
+
 }

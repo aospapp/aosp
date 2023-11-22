@@ -47,7 +47,7 @@ TEST(sched, clone) {
 // See https://sourceware.org/bugzilla/show_bug.cgi?id=10311 for more details.
 TEST(sched, clone) {
   // In order to enumerate all possible tests for CTS, create an empty test.
-  GTEST_LOG_(INFO) << "This test does nothing.\n";
+  GTEST_SKIP() << "glibc is broken";
 }
 #endif
 
@@ -56,7 +56,7 @@ TEST(sched, clone_errno) {
   uintptr_t fake_child_stack[16];
   errno = 0;
   // If CLONE_THREAD is set, CLONE_SIGHAND must be set too.
-  ASSERT_EQ(-1, clone(child_fn, &fake_child_stack[16], CLONE_THREAD, NULL));
+  ASSERT_EQ(-1, clone(child_fn, &fake_child_stack[16], CLONE_THREAD, nullptr));
   ASSERT_EQ(EINVAL, errno);
 }
 

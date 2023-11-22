@@ -20,12 +20,15 @@
 #include "base/scoped_arena_allocator.h"
 #include "base/scoped_arena_containers.h"
 #include "induction_var_range.h"
+#include "loop_analysis.h"
 #include "nodes.h"
 #include "optimization.h"
+#include "superblock_cloner.h"
 
 namespace art {
 
-class CompilerDriver;
+class CompilerOptions;
+class ArchNoOptsLoopHelper;
 
 /**
  * Loop optimizations. Builds a loop hierarchy and applies optimizations to
@@ -35,12 +38,12 @@ class CompilerDriver;
 class HLoopOptimization : public HOptimization {
  public:
   HLoopOptimization(HGraph* graph,
-                    CompilerDriver* compiler_driver,
+                    const CompilerOptions* compiler_options,
                     HInductionVarAnalysis* induction_analysis,
                     OptimizingCompilerStats* stats,
                     const char* name = kLoopOptimizationPassName);
 
-  void Run() OVERRIDE;
+  bool Run() override;
 
   static constexpr const char* kLoopOptimizationPassName = "loop_optimization";
 
@@ -75,11 +78,11 @@ class HLoopOptimization : public HOptimization {
     kNoSignedHAdd    = 1 << 5,   // no signed halving add
     kNoUnroundedHAdd = 1 << 6,   // no unrounded halving add
     kNoAbs           = 1 << 7,   // no absolute value
-    kNoMinMax        = 1 << 8,   // no min/max
-    kNoStringCharAt  = 1 << 9,   // no StringCharAt
-    kNoReduction     = 1 << 10,  // no reduction
-    kNoSAD           = 1 << 11,  // no sum of absolute differences (SAD)
-    kNoWideSAD       = 1 << 12,  // no sum of absolute differences (SAD) with operand widening
+    kNoStringCharAt  = 1 << 8,   // no StringCharAt
+    kNoReduction     = 1 << 9,   // no reduction
+    kNoSAD           = 1 << 10,  // no sum of absolute differences (SAD)
+    kNoWideSAD       = 1 << 11,  // no sum of absolute differences (SAD) with operand widening
+    kNoDotProd       = 1 << 12,  // no dot product
   };
 
   /*
@@ -119,7 +122,7 @@ class HLoopOptimization : public HOptimization {
   // Loop setup and traversal.
   //
 
-  void LocalRun();
+  bool LocalRun();
   void AddLoop(HLoopInformation* loop_info);
   void RemoveLoop(LoopNode* node);
 
@@ -134,9 +137,33 @@ class HLoopOptimization : public HOptimization {
   void SimplifyInduction(LoopNode* node);
   void SimplifyBlocks(LoopNode* node);
 
-  // Performs optimizations specific to inner loop (empty loop removal,
+  // Performs optimizations specific to inner loop with finite header logic (empty loop removal,
   // unrolling, vectorization). Returns true if anything changed.
+  bool TryOptimizeInnerLoopFinite(LoopNode* node);
+
+  // Performs optimizations specific to inner loop. Returns true if anything changed.
   bool OptimizeInnerLoop(LoopNode* node);
+
+  // Tries to apply loop unrolling for branch penalty reduction and better instruction scheduling
+  // opportunities. Returns whether transformation happened. 'generate_code' determines whether the
+  // optimization should be actually applied.
+  bool TryUnrollingForBranchPenaltyReduction(LoopAnalysisInfo* analysis_info,
+                                             bool generate_code = true);
+
+  // Tries to apply loop peeling for loop invariant exits elimination. Returns whether
+  // transformation happened. 'generate_code' determines whether the optimization should be
+  // actually applied.
+  bool TryPeelingForLoopInvariantExitsElimination(LoopAnalysisInfo* analysis_info,
+                                                  bool generate_code = true);
+
+  // Tries to perform whole loop unrolling for a small loop with a small trip count to eliminate
+  // the loop check overhead and to have more opportunities for inter-iteration optimizations.
+  // Returns whether transformation happened. 'generate_code' determines whether the optimization
+  // should be actually applied.
+  bool TryFullUnrolling(LoopAnalysisInfo* analysis_info, bool generate_code = true);
+
+  // Tries to apply scalar loop peeling and unrolling.
+  bool TryPeelingAndUnrolling(LoopNode* node);
 
   //
   // Vectorization analysis and synthesis.
@@ -173,10 +200,14 @@ class HLoopOptimization : public HOptimization {
   void GenerateVecOp(HInstruction* org,
                      HInstruction* opa,
                      HInstruction* opb,
-                     DataType::Type type,
-                     bool is_unsigned = false);
+                     DataType::Type type);
 
   // Vectorization idioms.
+  bool VectorizeSaturationIdiom(LoopNode* node,
+                                HInstruction* instruction,
+                                bool generate_code,
+                                DataType::Type type,
+                                uint64_t restrictions);
   bool VectorizeHalvingAddIdiom(LoopNode* node,
                                 HInstruction* instruction,
                                 bool generate_code,
@@ -187,6 +218,11 @@ class HLoopOptimization : public HOptimization {
                          bool generate_code,
                          DataType::Type type,
                          uint64_t restrictions);
+  bool VectorizeDotProdIdiom(LoopNode* node,
+                             HInstruction* instruction,
+                             bool generate_code,
+                             DataType::Type type,
+                             uint64_t restrictions);
 
   // Vectorization heuristics.
   Alignment ComputeAlignment(HInstruction* offset,
@@ -197,7 +233,6 @@ class HLoopOptimization : public HOptimization {
                             const ArrayReference* peeling_candidate);
   uint32_t MaxNumberPeeled();
   bool IsVectorizationProfitable(int64_t trip_count);
-  uint32_t GetUnrollingFactor(HBasicBlock* block, int64_t trip_count);
 
   //
   // Helpers.
@@ -227,8 +262,8 @@ class HLoopOptimization : public HOptimization {
   void RemoveDeadInstructions(const HInstructionList& list);
   bool CanRemoveCycle();  // Whether the current 'iset_' is removable.
 
-  // Compiler driver (to query ISA features).
-  const CompilerDriver* compiler_driver_;
+  // Compiler options (to query ISA features).
+  const CompilerOptions* compiler_options_;
 
   // Range information based on prior induction variable analysis.
   InductionVarRange induction_range_;
@@ -290,6 +325,9 @@ class HLoopOptimization : public HOptimization {
   HBasicBlock* vector_header_;  // header of the new loop
   HBasicBlock* vector_body_;  // body of the new loop
   HInstruction* vector_index_;  // normalized index of the new loop
+
+  // Helper for target-specific behaviour for loop optimizations.
+  ArchNoOptsLoopHelper* arch_loop_helper_;
 
   friend class LoopOptimizationTest;
 

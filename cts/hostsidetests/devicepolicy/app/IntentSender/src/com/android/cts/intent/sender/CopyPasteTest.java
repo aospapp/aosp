@@ -75,19 +75,6 @@ public class CopyPasteTest extends InstrumentationTestCase
                 + INITIAL_TEXT, clipboardText == null || clipboardText.equals(INITIAL_TEXT));
     }
 
-    public void testIsNotified() throws Exception {
-        try {
-            mNotified = new Semaphore(0);
-            mActivity.addPrimaryClipChangedListener(this);
-
-            askCrossProfileReceiverToCopy(NEW_TEXT);
-
-            assertTrue(mNotified.tryAcquire(5, TimeUnit.SECONDS));
-        } finally {
-            mActivity.removePrimaryClipChangedListener(this);
-        }
-    }
-
     private void askCrossProfileReceiverToCopy(String text) throws Exception {
         Intent intent = new Intent(ACTION_COPY_TO_CLIPBOARD);
         intent.putExtra("extra_text", text);

@@ -17,11 +17,11 @@
 #ifndef __VTS_HAL_HIDL_TARGET_TEST_BASE_H
 #define __VTS_HAL_HIDL_TARGET_TEST_BASE_H
 
+#include <VtsHalHidlTargetTestEnvBase.h>
 #include <gtest/gtest.h>
 #include <hidl/HidlSupport.h>
-#include <utils/Log.h>
+#include <log/log.h>
 #include <utils/RefBase.h>
-#include <VtsHalHidlTargetTestEnvBase.h>
 
 #define VTS_HAL_HIDL_GET_STUB "VTS_HAL_HIDL_GET_STUB"
 

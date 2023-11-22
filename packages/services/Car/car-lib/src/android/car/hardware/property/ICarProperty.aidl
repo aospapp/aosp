@@ -34,4 +34,8 @@ interface ICarProperty {
     CarPropertyValue getProperty(int prop, int zone) = 3;
 
     void setProperty(in CarPropertyValue prop) = 4;
+
+    String getReadPermission(int propId) = 5;
+
+    String getWritePermission(int propId) = 6;
 }

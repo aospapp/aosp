@@ -31,16 +31,17 @@ import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Pair;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroupOverlay;
 import android.view.cts.util.DrawingUtils;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
 
@@ -266,7 +267,8 @@ public class ViewGroupOverlayTest {
         mActivityRule.runOnUiThread(() -> mViewGroupOverlay.add(redView));
 
         // Emulate a tap in the center of the view we've added to the overlay
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mViewGroupWithOverlay);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
+                mViewGroupWithOverlay);
 
         // Verify that our mock listener hasn't been called
         verify(mockClickListener, never()).onClick(any(View.class));

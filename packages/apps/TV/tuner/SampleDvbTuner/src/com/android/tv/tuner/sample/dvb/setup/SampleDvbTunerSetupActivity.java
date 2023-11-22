@@ -20,6 +20,7 @@ import android.app.FragmentManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.media.tv.TvInputInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -29,26 +30,28 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.view.KeyEvent;
-import com.android.tv.common.BaseApplication;
 import com.android.tv.common.feature.CommonFeatures;
+import com.android.tv.common.singletons.HasSingletons;
 import com.android.tv.common.ui.setup.SetupFragment;
 import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.common.util.PostalCodeUtils;
-import com.android.tv.tuner.TunerHal;
 import com.android.tv.tuner.sample.dvb.R;
 import com.android.tv.tuner.setup.BaseTunerSetupActivity;
 import com.android.tv.tuner.setup.ConnectionTypeFragment;
 import com.android.tv.tuner.setup.LineupFragment;
+import com.android.tv.tuner.setup.LocationFragment;
 import com.android.tv.tuner.setup.PostalCodeFragment;
 import com.android.tv.tuner.setup.ScanFragment;
 import com.android.tv.tuner.setup.ScanResultFragment;
 import com.android.tv.tuner.setup.WelcomeFragment;
+import com.android.tv.tuner.singletons.TunerSingletons;
 import com.google.android.tv.partner.support.EpgContract;
 import com.google.android.tv.partner.support.EpgInput;
 import com.google.android.tv.partner.support.EpgInputs;
 import com.google.android.tv.partner.support.Lineup;
 import com.google.android.tv.partner.support.Lineups;
 import com.google.android.tv.partner.support.TunerSetupUtils;
+import dagger.android.ContributesAndroidInjector;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -72,23 +75,19 @@ public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
     private EpgInput epgInput;
     private String postalCode;
     private final Handler handler = new Handler();
-    private final Runnable cancelFetchLineupTaskRunnable =
-            new Runnable() {
-                @Override
-                public void run() {
-                    cancelFetchLineup();
-                }
-            };
+    private final Runnable cancelFetchLineupTaskRunnable = this::cancelFetchLineup;
     private String embeddedInputId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
         if (DEBUG) {
             Log.d(TAG, "onCreate");
         }
-        embeddedInputId = BaseApplication.getSingletons(this).getEmbeddedTunerInputId();
+        embeddedInputId =
+                HasSingletons.get(TunerSingletons.class, getApplicationContext())
+                        .getEmbeddedTunerInputId();
         new QueryEpgInputTask(embeddedInputId).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-        super.onCreate(savedInstanceState);
     }
 
     @Override
@@ -96,7 +95,7 @@ public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
         new AsyncTask<Void, Void, Integer>() {
             @Override
             protected Integer doInBackground(Void... arg0) {
-                return TunerHal.getTunerTypeAndCount(SampleDvbTunerSetupActivity.this).first;
+                return mTunerFactory.getTunerTypeAndCount(SampleDvbTunerSetupActivity.this).first;
             }
 
             @Override
@@ -125,10 +124,16 @@ public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
                         break;
                     default:
                         String postalCode = PostalCodeUtils.getLastPostalCode(this);
-                        if (mNeedToShowPostalCodeFragment
-                                || (CommonFeatures.ENABLE_CLOUD_EPG_REGION.isEnabled(
+                        boolean needLocation =
+                                CommonFeatures.ENABLE_CLOUD_EPG_REGION.isEnabled(
                                                 getApplicationContext())
-                                        && TextUtils.isEmpty(postalCode))) {
+                                        && TextUtils.isEmpty(postalCode);
+                        if (needLocation
+                                && checkSelfPermission(
+                                                android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                                        != PackageManager.PERMISSION_GRANTED) {
+                            showLocationFragment();
+                        } else if (mNeedToShowPostalCodeFragment || needLocation) {
                             // We cannot get postal code automatically. Postal code input fragment
                             // should always be shown even if users have input some valid postal
                             // code in this activity before.
@@ -142,6 +147,26 @@ public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
                             showConnectionTypeFragment();
                         }
                         break;
+                }
+                return true;
+            case LocationFragment.ACTION_CATEGORY:
+                switch (actionId) {
+                    case LocationFragment.ACTION_ALLOW_PERMISSION:
+                        String postalCode =
+                                params == null
+                                        ? null
+                                        : params.getString(LocationFragment.KEY_POSTAL_CODE);
+                        if (postalCode == null) {
+                            showPostalCodeFragment();
+                        } else {
+                            this.postalCode = postalCode;
+                            restartFetchLineupTask();
+                            showConnectionTypeFragment();
+                        }
+                        break;
+                    default:
+                        cancelFetchLineup();
+                        showConnectionTypeFragment();
                 }
                 return true;
             case PostalCodeFragment.ACTION_CATEGORY:
@@ -220,8 +245,7 @@ public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
             case ScanResultFragment.ACTION_CATEGORY:
                 switch (actionId) {
                     case SetupMultiPaneFragment.ACTION_DONE:
-                        new SampleDvbTunerSetupActivity.InsertOrModifyEpgInputTask(
-                                        selectedLineup, embeddedInputId)
+                        new InsertOrModifyEpgInputTask(selectedLineup, embeddedInputId)
                                 .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                         break;
                     default:
@@ -340,7 +364,9 @@ public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
 
     private void restartFetchLineupTask() {
         if (!CommonFeatures.ENABLE_CLOUD_EPG_REGION.isEnabled(getApplicationContext())
-                || TextUtils.isEmpty(postalCode)) {
+                || TextUtils.isEmpty(postalCode)
+                || checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         if (fetchLineupTask != null) {
@@ -439,6 +465,16 @@ public class SampleDvbTunerSetupActivity extends BaseTunerSetupActivity {
             setResult(RESULT_OK, data);
             finish();
         }
+    }
+
+    /**
+     * Exports {@link SampleDvbTunerSetupActivity} for Dagger codegen to create the appropriate
+     * injector.
+     */
+    @dagger.Module
+    public abstract static class Module {
+        @ContributesAndroidInjector
+        abstract SampleDvbTunerSetupActivity contributeSampleDvbTunerSetupActivityInjector();
     }
 
     private class QueryEpgInputTask extends AsyncTask<Void, Void, EpgInput> {

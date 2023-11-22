@@ -20,6 +20,7 @@ import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.graphics.Point;
 import android.os.SystemClock;
+import android.support.test.rule.ActivityTestRule;
 import android.util.SparseArray;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -65,8 +66,10 @@ public final class CtsTouchUtils {
      * @param instrumentation the instrumentation used to run the test
      * @param view the view to "tap"
      */
-    public static void emulateTapOnViewCenter(Instrumentation instrumentation, View view) {
-        emulateTapOnView(instrumentation, view, view.getWidth() / 2, view.getHeight() / 2);
+    public static void emulateTapOnViewCenter(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule, View view) {
+        emulateTapOnView(instrumentation, activityTestRule, view, view.getWidth() / 2,
+                view.getHeight() / 2);
     }
 
     /**
@@ -78,7 +81,8 @@ public final class CtsTouchUtils {
      * @param offsetX extra X offset for the tap
      * @param offsetY extra Y offset for the tap
      */
-    public static void emulateTapOnView(Instrumentation instrumentation, View anchorView,
+    public static void emulateTapOnView(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule, View anchorView,
             int offsetX, int offsetY) {
         final int touchSlop = ViewConfiguration.get(anchorView.getContext()).getScaledTouchSlop();
         // Get anchor coordinates on the screen
@@ -94,7 +98,12 @@ public final class CtsTouchUtils {
         injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen, null);
 
         // Wait for the system to process all events in the queue
-        instrumentation.waitForIdleSync();
+        if (activityTestRule != null) {
+            WidgetTestUtils.runOnMainAndDrawSync(activityTestRule,
+                    activityTestRule.getActivity().getWindow().getDecorView(), null);
+        } else {
+            instrumentation.waitForIdleSync();
+        }
     }
 
     /**
@@ -103,8 +112,10 @@ public final class CtsTouchUtils {
      * @param instrumentation the instrumentation used to run the test
      * @param view the view to "double tap"
      */
-    public static void emulateDoubleTapOnViewCenter(Instrumentation instrumentation, View view) {
-        emulateDoubleTapOnView(instrumentation, view, view.getWidth() / 2, view.getHeight() / 2);
+    public static void emulateDoubleTapOnViewCenter(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule, View view) {
+        emulateDoubleTapOnView(instrumentation, activityTestRule, view, view.getWidth() / 2,
+                view.getHeight() / 2);
     }
 
     /**
@@ -116,7 +127,8 @@ public final class CtsTouchUtils {
      * @param offsetX extra X offset for the taps
      * @param offsetY extra Y offset for the taps
      */
-    public static void emulateDoubleTapOnView(Instrumentation instrumentation, View anchorView,
+    public static void emulateDoubleTapOnView(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule, View anchorView,
             int offsetX, int offsetY) {
         final int touchSlop = ViewConfiguration.get(anchorView.getContext()).getScaledTouchSlop();
         // Get anchor coordinates on the screen
@@ -135,7 +147,12 @@ public final class CtsTouchUtils {
         injectUpEvent(uiAutomation, downTime, false, xOnScreen, yOnScreen, null);
 
         // Wait for the system to process all events in the queue
-        instrumentation.waitForIdleSync();
+        if (activityTestRule != null) {
+            WidgetTestUtils.runOnMainAndDrawSync(activityTestRule,
+                    activityTestRule.getActivity().getWindow().getDecorView(), null);
+        } else {
+            instrumentation.waitForIdleSync();
+        }
     }
 
     /**
@@ -148,19 +165,24 @@ public final class CtsTouchUtils {
      * @param dragAmountY Y amount of the emulated drag gesture
      */
     public static void emulateDragGesture(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule,
             int dragStartX, int dragStartY, int dragAmountX, int dragAmountY) {
-        emulateDragGesture(instrumentation, dragStartX, dragStartY, dragAmountX, dragAmountY,
+        emulateDragGesture(instrumentation, activityTestRule,
+                dragStartX, dragStartY, dragAmountX, dragAmountY,
                 2000, 20, null);
     }
 
     private static void emulateDragGesture(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule,
             int dragStartX, int dragStartY, int dragAmountX, int dragAmountY,
             int dragDurationMs, int moveEventCount) {
-        emulateDragGesture(instrumentation, dragStartX, dragStartY, dragAmountX, dragAmountY,
+        emulateDragGesture(instrumentation, activityTestRule,
+                dragStartX, dragStartY, dragAmountX, dragAmountY,
                 dragDurationMs, moveEventCount, null);
     }
 
     private static void emulateDragGesture(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule,
             int dragStartX, int dragStartY, int dragAmountX, int dragAmountY,
             int dragDurationMs, int moveEventCount,
             EventInjectionListener eventInjectionListener) {
@@ -181,7 +203,12 @@ public final class CtsTouchUtils {
                 dragStartY + dragAmountY, eventInjectionListener);
 
         // Wait for the system to process all events in the queue
-        instrumentation.waitForIdleSync();
+        if (activityTestRule != null) {
+            WidgetTestUtils.runOnMainAndDrawSync(activityTestRule,
+                    activityTestRule.getActivity().getWindow().getDecorView(), null);
+        } else {
+            instrumentation.waitForIdleSync();
+        }
     }
 
     /**
@@ -193,11 +220,12 @@ public final class CtsTouchUtils {
      * @param coordinates the ordered list of points for the drag gesture
      */
     public static void emulateDragGesture(Instrumentation instrumentation,
-            SparseArray<Point> coordinates) {
-        emulateDragGesture(instrumentation, coordinates, 2000, 20);
+            ActivityTestRule<?> activityTestRule, SparseArray<Point> coordinates) {
+        emulateDragGesture(instrumentation, activityTestRule, coordinates, 2000, 20);
     }
 
     private static void emulateDragGesture(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule,
             SparseArray<Point> coordinates, int dragDurationMs, int moveEventCount) {
         final int coordinatesSize = coordinates.size();
         if (coordinatesSize < 2) {
@@ -234,7 +262,12 @@ public final class CtsTouchUtils {
                 null);
 
         // Wait for the system to process all events in the queue
-        instrumentation.waitForIdleSync();
+        if (activityTestRule != null) {
+            WidgetTestUtils.runOnMainAndDrawSync(activityTestRule,
+                    activityTestRule.getActivity().getWindow().getDecorView(), null);
+        } else {
+            instrumentation.waitForIdleSync();
+        }
     }
 
     private static long injectDownEvent(UiAutomation uiAutomation, long downTime, int xOnScreen,
@@ -357,8 +390,9 @@ public final class CtsTouchUtils {
      * @return The vertical amount of emulated fling in pixels
      */
     public static int emulateFlingGesture(Instrumentation instrumentation,
-            View view, boolean isDownwardsFlingGesture) {
-        return emulateFlingGesture(instrumentation, view, isDownwardsFlingGesture, null);
+            ActivityTestRule<?> activityTestRule, View view, boolean isDownwardsFlingGesture) {
+        return emulateFlingGesture(instrumentation, activityTestRule,
+                view, isDownwardsFlingGesture, null);
     }
 
     /**
@@ -372,7 +406,7 @@ public final class CtsTouchUtils {
      * @return The vertical amount of emulated fling in pixels
      */
     public static int emulateFlingGesture(Instrumentation instrumentation,
-            View view, boolean isDownwardsFlingGesture,
+            ActivityTestRule<?> activityTestRule, View view, boolean isDownwardsFlingGesture,
             EventInjectionListener eventInjectionListener) {
         final ViewConfiguration configuration = ViewConfiguration.get(view.getContext());
         final int flingVelocity = (configuration.getScaledMinimumFlingVelocity() +
@@ -394,7 +428,8 @@ public final class CtsTouchUtils {
         final int durationMs = (1000 * viewHeight) / (2 * flingVelocity);
 
         // And do the same event injection sequence as our generic drag gesture
-        emulateDragGesture(instrumentation, x, startY, 0, amountY, durationMs, durationMs / 16,
+        emulateDragGesture(instrumentation, activityTestRule,
+                x, startY, 0, amountY, durationMs, durationMs / 16,
             eventInjectionListener);
 
         return amountY;
@@ -453,7 +488,8 @@ public final class CtsTouchUtils {
      * @param instrumentation the instrumentation used to run the test
      * @param viewGroup View group
      */
-    public static void emulateScrollToBottom(Instrumentation instrumentation, ViewGroup viewGroup) {
+    public static void emulateScrollToBottom(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule, ViewGroup viewGroup) {
         final int[] viewGroupOnScreenXY = new int[2];
         viewGroup.getLocationOnScreen(viewGroupOnScreenXY);
 
@@ -465,8 +501,8 @@ public final class CtsTouchUtils {
         ViewStateSnapshot next = new ViewStateSnapshot(viewGroup);
         do {
             prev = next;
-            emulateDragGesture(instrumentation, emulatedX, emulatedStartY, 0, -swipeAmount,
-                    300, 10);
+            emulateDragGesture(instrumentation, activityTestRule,
+                    emulatedX, emulatedStartY, 0, -swipeAmount, 300, 10);
             next = new ViewStateSnapshot(viewGroup);
         } while (!prev.equals(next));
     }
@@ -477,8 +513,9 @@ public final class CtsTouchUtils {
      * @param instrumentation the instrumentation used to run the test
      * @param view the view to "long press"
      */
-    public static void emulateLongPressOnViewCenter(Instrumentation instrumentation, View view) {
-        emulateLongPressOnViewCenter(instrumentation, view, 0);
+    public static void emulateLongPressOnViewCenter(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule, View view) {
+        emulateLongPressOnViewCenter(instrumentation, activityTestRule, view, 0);
     }
 
     /**
@@ -489,8 +526,8 @@ public final class CtsTouchUtils {
      * @param extraWaitMs the duration of emulated "long press" in milliseconds starting
      *      after system-level long press timeout.
      */
-    public static void emulateLongPressOnViewCenter(Instrumentation instrumentation, View view,
-            long extraWaitMs) {
+    public static void emulateLongPressOnViewCenter(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule, View view, long extraWaitMs) {
         final int touchSlop = ViewConfiguration.get(view.getContext()).getScaledTouchSlop();
         // Use instrumentation to emulate a tap on the spinner to bring down its popup
         final int[] viewOnScreenXY = new int[2];
@@ -498,8 +535,8 @@ public final class CtsTouchUtils {
         int xOnScreen = viewOnScreenXY[0] + view.getWidth() / 2;
         int yOnScreen = viewOnScreenXY[1] + view.getHeight() / 2;
 
-        emulateLongPressOnScreen(
-                instrumentation, xOnScreen, yOnScreen, touchSlop, extraWaitMs, true);
+        emulateLongPressOnScreen(instrumentation, activityTestRule,
+                xOnScreen, yOnScreen, touchSlop, extraWaitMs, true);
     }
 
     /**
@@ -512,15 +549,16 @@ public final class CtsTouchUtils {
      * @param offsetX extra X offset for the tap
      * @param offsetY extra Y offset for the tap
      */
-    public static void emulateLongPressOnView(Instrumentation instrumentation, View view,
-            int offsetX, int offsetY) {
+    public static void emulateLongPressOnView(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule, View view, int offsetX, int offsetY) {
         final int touchSlop = ViewConfiguration.get(view.getContext()).getScaledTouchSlop();
         final int[] viewOnScreenXY = new int[2];
         view.getLocationOnScreen(viewOnScreenXY);
         int xOnScreen = viewOnScreenXY[0] + offsetX;
         int yOnScreen = viewOnScreenXY[1] + offsetY;
 
-        emulateLongPressOnScreen(instrumentation, xOnScreen, yOnScreen, touchSlop, 0, true);
+        emulateLongPressOnScreen(instrumentation, activityTestRule,
+                xOnScreen, yOnScreen, touchSlop, 0, true);
     }
 
     /**
@@ -534,10 +572,12 @@ public final class CtsTouchUtils {
      * @param dragAmountY Y amount of the emulated drag gesture
      */
     public static void emulateLongPressAndDragGesture(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule,
             int dragStartX, int dragStartY, int dragAmountX, int dragAmountY) {
-        emulateLongPressOnScreen(instrumentation, dragStartX, dragStartY,
+        emulateLongPressOnScreen(instrumentation, activityTestRule, dragStartX, dragStartY,
                 0 /* touchSlop */, 0 /* extraWaitMs */, false /* upGesture */);
-        emulateDragGesture(instrumentation, dragStartX, dragStartY, dragAmountX, dragAmountY);
+        emulateDragGesture(instrumentation, activityTestRule, dragStartX, dragStartY, dragAmountX,
+                dragAmountY);
     }
 
     /**
@@ -551,6 +591,7 @@ public final class CtsTouchUtils {
      * @param upGesture whether to include an up event.
      */
     private static void emulateLongPressOnScreen(Instrumentation instrumentation,
+            ActivityTestRule<?> activityTestRule,
             int xOnScreen, int yOnScreen, int touchSlop, long extraWaitMs, boolean upGesture) {
         final UiAutomation uiAutomation = instrumentation.getUiAutomation();
         final long downTime = SystemClock.uptimeMillis();
@@ -563,6 +604,11 @@ public final class CtsTouchUtils {
         }
 
         // Wait for the system to process all events in the queue
-        instrumentation.waitForIdleSync();
+        if (activityTestRule != null) {
+            WidgetTestUtils.runOnMainAndDrawSync(activityTestRule,
+                    activityTestRule.getActivity().getWindow().getDecorView(), null);
+        } else {
+            instrumentation.waitForIdleSync();
+        }
     }
 }

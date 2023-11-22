@@ -18,13 +18,13 @@ package com.android.documentsui.dirlist;
 
 import static org.junit.Assert.assertTrue;
 
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.RecyclerView.AdapterDataObserver;
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.AdapterDataObserver;
 import android.view.ViewGroup;
 
 import com.android.documentsui.Model.Update;
 import com.android.documentsui.base.EventListener;
-import com.android.documentsui.selection.SelectionHelper;
 import com.android.documentsui.testing.TestEventListener;
 
 import java.util.ArrayList;
@@ -51,7 +51,7 @@ public class TestDocumentsAdapter extends DocumentsAdapter {
 
             @Override
             public void onItemRangeChanged(int startPosition, int itemCount, Object payload) {
-                if (SelectionHelper.SELECTION_CHANGED_MARKER.equals(payload)) {
+                if (SelectionTracker.SELECTION_CHANGED_MARKER.equals(payload)) {
                     int last = startPosition + itemCount;
                     for (int i = startPosition; i < last; i++) {
                         mSelectionChanged.add(i);

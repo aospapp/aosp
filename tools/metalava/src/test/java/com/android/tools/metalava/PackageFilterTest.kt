@@ -21,12 +21,48 @@ import org.junit.Test
 
 class PackageFilterTest {
     @Test
-    fun test() {
-        val filter = PackageFilter(mutableListOf("foo.bar", "bar.baz"))
+    fun testExact() {
+        val filter = PackageFilter()
+        filter.addPackages("foo.bar:bar.baz")
         assertThat(filter.matches("foo.bar")).isTrue()
         assertThat(filter.matches("bar.baz")).isTrue()
-        assertThat(filter.matches("foo.bar.baz")).isTrue()
+        assertThat(filter.matches("foo.bar.baz")).isFalse()
+        assertThat(filter.matches("foo")).isFalse()
         assertThat(filter.matches("foo.barf")).isFalse()
+    }
+
+    @Test
+    fun testWildcard() {
+        val filter = PackageFilter()
+        filter.addPackages("foo.bar*:bar.baz.*")
+        assertThat(filter.matches("foo.bar")).isTrue()
+        assertThat(filter.matches("foo.bars")).isTrue()
+        assertThat(filter.matches("foo.bar.baz")).isTrue()
+        assertThat(filter.matches("bar.baz")).isTrue() // different from doclava behavior
+        assertThat(filter.matches("bar.bazz")).isFalse()
+        assertThat(filter.matches("foo.bar.baz")).isTrue()
+        assertThat(filter.matches("foo")).isFalse()
+    }
+
+    @Test
+    fun testBoth() {
+        val filter = PackageFilter()
+        filter.addPackages("foo.bar:foo.bar.*")
+        assertThat(filter.matches("foo.bar")).isTrue()
+        assertThat(filter.matches("foo.bar.sub")).isTrue()
+        assertThat(filter.matches("foo.bar.sub.sub")).isTrue()
+        assertThat(filter.matches("foo.bars")).isFalse()
+        assertThat(filter.matches("foo")).isFalse()
+    }
+
+    @Test
+    fun testImplicit() {
+        val filter = PackageFilter()
+        filter.addPackages("foo.bar.*")
+        assertThat(filter.matches("foo.bar")).isTrue()
+        assertThat(filter.matches("foo.bar.sub")).isTrue()
+        assertThat(filter.matches("foo.bar.sub.sub")).isTrue()
+        assertThat(filter.matches("foo.bars")).isFalse()
         assertThat(filter.matches("foo")).isFalse()
     }
 }

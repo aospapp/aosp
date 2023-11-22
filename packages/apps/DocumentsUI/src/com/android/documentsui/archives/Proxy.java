@@ -16,28 +16,29 @@
 
 package com.android.documentsui.archives;
 
+import android.os.FileUtils;
 import android.os.ProxyFileDescriptorCallback;
 import android.system.ErrnoException;
 import android.system.OsConstants;
-import android.util.Log;
-import android.util.jar.StrictJarFile;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.zip.ZipEntry;
 
-import libcore.io.IoUtils;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveException;
+import org.apache.commons.compress.compressors.CompressorException;
 
 /**
  * Provides a backend for a seekable file descriptors for files in archives.
  */
 public class Proxy extends ProxyFileDescriptorCallback {
-    private final StrictJarFile mFile;
-    private final ZipEntry mEntry;
+    private final ArchiveHandle mFile;
+    private final ArchiveEntry mEntry;
     private InputStream mInputStream = null;
     private long mOffset = 0;
 
-    Proxy(StrictJarFile file, ZipEntry entry) throws IOException {
+    Proxy(ArchiveHandle file, ArchiveEntry entry)
+            throws IOException, CompressorException, ArchiveException {
         mFile = file;
         mEntry = entry;
         recreateInputStream();
@@ -56,6 +57,12 @@ public class Proxy extends ProxyFileDescriptorCallback {
                 recreateInputStream();
             } catch (IOException e) {
                 throw new ErrnoException("onRead", OsConstants.EIO);
+            } catch (ArchiveException e) {
+                throw new ErrnoException("onRead archive exception. " + e.getMessage(),
+                        OsConstants.EIO);
+            } catch (CompressorException e) {
+                throw new ErrnoException("onRead uncompress exception. " + e.getMessage(),
+                        OsConstants.EIO);
             }
         }
 
@@ -82,14 +89,15 @@ public class Proxy extends ProxyFileDescriptorCallback {
         }
 
         return size - remainingSize;
-   }
-
-    @Override public void onRelease() {
-        IoUtils.closeQuietly(mInputStream);
     }
 
-    private void recreateInputStream() throws IOException {
-        IoUtils.closeQuietly(mInputStream);
+    @Override public void onRelease() {
+        FileUtils.closeQuietly(mInputStream);
+    }
+
+    private void recreateInputStream()
+            throws IOException, CompressorException, ArchiveException {
+        FileUtils.closeQuietly(mInputStream);
         mInputStream = mFile.getInputStream(mEntry);
         mOffset = 0;
     }

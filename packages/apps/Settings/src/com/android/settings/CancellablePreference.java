@@ -16,12 +16,13 @@
 package com.android.settings;
 
 import android.content.Context;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceViewHolder;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ImageView;
+
+import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
 
 public class CancellablePreference extends Preference implements OnClickListener {
 

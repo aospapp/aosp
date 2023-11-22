@@ -17,11 +17,11 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="5128188288358721369">"টেগবোৰ"</string>
-    <string name="title_scanned_tag" msgid="4347835407095551450">"নতুন টেগ সংগ্ৰহ কৰা হ\'ল"</string>
+    <string name="title_scanned_tag" msgid="4347835407095551450">"নতুন টেগ সংগ্ৰহ কৰা হ’ল"</string>
     <string name="title_existing_tag" msgid="5656560272594190244">"টেগ"</string>
     <string name="tag_unknown" msgid="2897956823877728783">"টেগৰ প্ৰকাৰ অজ্ঞাত"</string>
     <string name="tag_empty" msgid="3726529819932095782">"খালী টেগ"</string>
-    <string name="button_done" msgid="7048822758098308158">"সম্পন্ন হ\'ল"</string>
+    <string name="button_done" msgid="7048822758098308158">"সম্পন্ন হ’ল"</string>
     <string name="action_text" msgid="577417996159152923">"<xliff:g id="PHONE_NUMBER">%s</xliff:g>ত বাৰ্তা পঠাওক"</string>
     <string name="action_call" msgid="6226253647953184035">"<xliff:g id="PHONE_NUMBER">%s</xliff:g>ত কল কৰক"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"এই টেগটো খালী আছে৷"</string>

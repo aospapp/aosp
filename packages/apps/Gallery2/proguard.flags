@@ -47,6 +47,9 @@
 -keep interface com.actionbarsherlock.** { *; }
 -keepattributes *Annotation*
 
+# Required for JobIntentService
+-keep class androidx.core.app.CoreComponentFactory { *; }
+
 # Required for mp4parser
 -keep public class * implements com.coremedia.iso.boxes.Box
 

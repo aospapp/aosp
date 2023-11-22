@@ -23,9 +23,10 @@
 
 namespace art {
 
-void SsaDeadPhiElimination::Run() {
+bool SsaDeadPhiElimination::Run() {
   MarkDeadPhis();
   EliminateDeadPhis();
+  return true;
 }
 
 void SsaDeadPhiElimination::MarkDeadPhis() {
@@ -122,7 +123,7 @@ void SsaDeadPhiElimination::EliminateDeadPhis() {
   }
 }
 
-void SsaRedundantPhiElimination::Run() {
+bool SsaRedundantPhiElimination::Run() {
   // Use local allocator for allocating memory used by this optimization.
   ScopedArenaAllocator allocator(graph_->GetArenaStack());
 
@@ -140,7 +141,7 @@ void SsaRedundantPhiElimination::Run() {
 
   ArenaBitVector visited_phis_in_cycle(&allocator,
                                        graph_->GetCurrentInstructionId(),
-                                       /* expandable */ false,
+                                       /* expandable= */ false,
                                        kArenaAllocSsaPhiElimination);
   visited_phis_in_cycle.ClearAllBits();
   ScopedArenaVector<HPhi*> cycle_worklist(allocator.Adapter(kArenaAllocSsaPhiElimination));
@@ -255,6 +256,7 @@ void SsaRedundantPhiElimination::Run() {
       current->GetBlock()->RemovePhi(current);
     }
   }
+  return true;
 }
 
 }  // namespace art

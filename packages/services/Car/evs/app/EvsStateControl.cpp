@@ -16,12 +16,20 @@
 #include "EvsStateControl.h"
 #include "RenderDirectView.h"
 #include "RenderTopView.h"
+#include "RenderPixelCopy.h"
 
 #include <stdio.h>
 #include <string.h>
 
 #include <log/log.h>
+#include <inttypes.h>
+#include <utils/SystemClock.h>
+#include <binder/IServiceManager.h>
 
+static bool isSfReady() {
+    const android::String16 serviceName("SurfaceFlinger");
+    return android::defaultServiceManager()->checkService(serviceName) != nullptr;
+}
 
 // TODO:  Seems like it'd be nice if the Vehicle HAL provided such helpers (but how & where?)
 inline constexpr VehiclePropertyType getPropType(VehicleProperty prop) {
@@ -50,7 +58,8 @@ EvsStateControl::EvsStateControl(android::sp <IVehicle>       pVnet,
     mGearValue.prop       = static_cast<int32_t>(VehicleProperty::GEAR_SELECTION);
     mTurnSignalValue.prop = static_cast<int32_t>(VehicleProperty::TURN_SIGNAL_STATE);
 
-#if 0 // This way we only ever deal with cameras which exist in the system
+#if 1
+    // This way we only ever deal with cameras which exist in the system
     // Build our set of cameras for the states we support
     ALOGD("Requesting camera list");
     mEvs->getCameraList([this, &config](hidl_vec<CameraDesc> cameraList) {
@@ -151,8 +160,7 @@ void EvsStateControl::updateLoop() {
                     // Just running selectStateForCurrentConditions below will take care of this
                     break;
                 case Op::TOUCH_EVENT:
-                    // TODO:  Implement this given the x/y location of the touch event
-                    // Ignore for now
+                    // Implement this given the x/y location of the touch event
                     break;
                 }
                 mCommandQueue.pop();
@@ -271,6 +279,8 @@ StatusCode EvsStateControl::invokeGet(VehiclePropValue *pRequestedPropValue) {
 
 
 bool EvsStateControl::configureEvsPipeline(State desiredState) {
+    static bool isGlReady = false;
+
     if (mCurrentState == desiredState) {
         // Nothing to do here...
         return true;
@@ -282,46 +292,70 @@ bool EvsStateControl::configureEvsPipeline(State desiredState) {
     ALOGD("  Desired state %d has %zu cameras", desiredState,
           mCameraList[desiredState].size());
 
+    if (!isGlReady && !isSfReady()) {
+        // Graphics is not ready yet; using CPU renderer.
+        if (mCameraList[desiredState].size() >= 1) {
+            mDesiredRenderer = std::make_unique<RenderPixelCopy>(mEvs,
+                                                                 mCameraList[desiredState][0]);
+            if (!mDesiredRenderer) {
+                ALOGE("Failed to construct Pixel Copy renderer.  Skipping state change.");
+                return false;
+            }
+        } else {
+            ALOGD("Unsupported, desiredState %d has %u cameras.",
+                  desiredState, static_cast<unsigned int>(mCameraList[desiredState].size()));
+        }
+    } else {
+        // Assumes that SurfaceFlinger is available always after being launched.
+
+        // Do we need a new direct view renderer?
+        if (mCameraList[desiredState].size() == 1) {
+            // We have a camera assigned to this state for direct view.
+            mDesiredRenderer = std::make_unique<RenderDirectView>(mEvs,
+                                                                  mCameraList[desiredState][0]);
+            if (!mDesiredRenderer) {
+                ALOGE("Failed to construct direct renderer.  Skipping state change.");
+                return false;
+            }
+        } else if (mCameraList[desiredState].size() > 1 || desiredState == PARKING) {
+            mDesiredRenderer = std::make_unique<RenderTopView>(mEvs,
+                                                               mCameraList[desiredState],
+                                                               mConfig);
+            if (!mDesiredRenderer) {
+                ALOGE("Failed to construct top view renderer.  Skipping state change.");
+                return false;
+            }
+        } else {
+            ALOGD("Unsupported, desiredState %d has %u cameras.",
+                  desiredState, static_cast<unsigned int>(mCameraList[desiredState].size()));
+        }
+
+        // GL renderer is now ready.
+        isGlReady = true;
+    }
+
     // Since we're changing states, shut down the current renderer
     if (mCurrentRenderer != nullptr) {
         mCurrentRenderer->deactivate();
         mCurrentRenderer = nullptr; // It's a smart pointer, so destructs on assignment to null
     }
 
-    // Do we need a new direct view renderer?
-    if (mCameraList[desiredState].size() > 1 || desiredState == PARKING) {
-        // TODO:  DO we want other kinds of compound view or else sequentially selected views?
-        mCurrentRenderer = std::make_unique<RenderTopView>(mEvs,
-                                                           mCameraList[desiredState],
-                                                           mConfig);
-        if (!mCurrentRenderer) {
-            ALOGE("Failed to construct top view renderer.  Skipping state change.");
-            return false;
-        }
-    } else if (mCameraList[desiredState].size() == 1) {
-        // We have a camera assigned to this state for direct view
-        mCurrentRenderer = std::make_unique<RenderDirectView>(mEvs,
-                                                              mCameraList[desiredState][0]);
-        if (!mCurrentRenderer) {
-            ALOGE("Failed to construct direct renderer.  Skipping state change.");
-            return false;
-        }
-    }
-
     // Now set the display state based on whether we have a video feed to show
-    if (mCurrentRenderer == nullptr) {
+    if (mDesiredRenderer == nullptr) {
         ALOGD("Turning off the display");
         mDisplay->setDisplayState(DisplayState::NOT_VISIBLE);
     } else {
+        mCurrentRenderer = std::move(mDesiredRenderer);
+
         // Start the camera stream
-        ALOGD("Starting camera stream");
+        ALOGD("EvsStartCameraStreamTiming start time: %" PRId64 "ms", android::elapsedRealtime());
         if (!mCurrentRenderer->activate()) {
             ALOGE("New renderer failed to activate");
             return false;
         }
 
         // Activate the display
-        ALOGD("Arming the display");
+        ALOGD("EvsActivateDisplayTiming start time: %" PRId64 "ms", android::elapsedRealtime());
         Return<EvsResult> result = mDisplay->setDisplayState(DisplayState::VISIBLE_ON_NEXT_FRAME);
         if (result != EvsResult::OK) {
             ALOGE("setDisplayState returned an error (%d)", (EvsResult)result);

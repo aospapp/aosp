@@ -20,6 +20,7 @@ import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.CompilationUnit
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MemberItem
+import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.visitors.ItemVisitor
 import com.google.common.collect.ArrayListMultimap
 import com.google.common.collect.Multimap
@@ -27,13 +28,19 @@ import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiClassOwner
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiField
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiJavaFile
+import com.intellij.psi.PsiMethod
+import com.intellij.psi.PsiPackage
 import com.intellij.psi.PsiWhiteSpace
 import org.jetbrains.kotlin.kdoc.psi.api.KDoc
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.psiUtil.startOffset
 import java.util.function.Predicate
+
+/** Whether we should limit import statements to symbols found in class docs  */
+private const val ONLY_IMPORT_CLASSES_REFERENCED_IN_DOCS = true
 
 class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile) : CompilationUnit(containingFile) {
     override fun getHeaderComments(): String? {
@@ -67,7 +74,6 @@ class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile
         val imports = mutableListOf<Item>()
 
         if (file is PsiJavaFile) {
-            // TODO: Do we need to deal with static imports?
             val importList = file.importList
             if (importList != null) {
                 for (importStatement in importList.importStatements) {
@@ -77,13 +83,28 @@ class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile
                         if (predicate.test(classItem)) {
                             imports.add(classItem)
                         }
+                    } else if (resolved is PsiPackage) {
+                        val pkgItem = codebase.findPackage(resolved.qualifiedName) ?: continue
+                        if (predicate.test(pkgItem) &&
+                            // Also make sure it isn't an empty package (after applying the filter)
+                            // since in that case we'd have an invalid import
+                            pkgItem.topLevelClasses().any { it.emit && predicate.test(it) }
+                        ) {
+                            imports.add(pkgItem)
+                        }
+                    } else if (resolved is PsiMethod) {
+                        codebase.findClass(resolved.containingClass ?: continue) ?: continue
+                        val methodItem = codebase.findMethod(resolved)
+                        if (predicate.test(methodItem)) {
+                            imports.add(methodItem)
+                        }
+                    } else if (resolved is PsiField) {
+                        val classItem = codebase.findClass(resolved.containingClass ?: continue) ?: continue
+                        val fieldItem = classItem.findField(resolved.name, true, false) ?: continue
+                        if (predicate.test(fieldItem)) {
+                            imports.add(fieldItem)
+                        }
                     }
-                }
-            }
-
-            for (psiClass in file.classes) {
-                val classItem = codebase.findClass(psiClass) ?: continue
-                if (predicate.test(classItem)) {
                 }
             }
         } else if (file is KtFile) {
@@ -113,39 +134,50 @@ class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile
             // Compute set of import statements that are actually referenced
             // from the documentation (we do inexact matching here; we don't
             // need to have an exact set of imports since it's okay to have
-            // some extras)
-            val result = mutableListOf<Item>()
-            for (cls in classes(predicate)) {
-                cls.accept(object : ItemVisitor() {
-                    override fun visitItem(item: Item) {
-                        val doc = item.documentation
-                        if (doc.isNotBlank()) {
-                            var found: MutableList<String>? = null
-                            for (name in map.keys()) {
-                                if (doc.contains(name)) {
-                                    if (found == null) {
-                                        found = mutableListOf()
-                                    }
-                                    found.add(name)
-                                }
-                            }
-                            found?.let {
-                                for (name in found) {
-                                    val all = map.get(name) ?: continue
-                                    for (referenced in all) {
-                                        if (!result.contains(referenced)) {
-                                            result.add(referenced)
+            // some extras). This isn't a big problem since our codestyle
+            // forbids/discourages wildcards, so it shows up in fewer places,
+            // but we need to handle it when it does -- such as in ojluni.
+
+            @Suppress("ConstantConditionIf")
+            return if (ONLY_IMPORT_CLASSES_REFERENCED_IN_DOCS) {
+                val result = mutableListOf<Item>()
+
+                // We keep the wildcard imports since we don't know which ones of those are relevant
+                imports.filter { it is PackageItem }.forEach { result.add(it) }
+
+                for (cls in classes(predicate)) {
+                    cls.accept(object : ItemVisitor() {
+                        override fun visitItem(item: Item) {
+                            val doc = item.documentation
+                            if (doc.isNotBlank()) {
+                                var found: MutableList<String>? = null
+                                for (name in map.keys()) {
+                                    if (docContainsWord(doc, name)) {
+                                        if (found == null) {
+                                            found = mutableListOf()
                                         }
+                                        found.add(name)
                                     }
-                                    map.removeAll(name)
+                                }
+                                found?.let {
+                                    for (name in found) {
+                                        val all = map.get(name) ?: continue
+                                        for (referenced in all) {
+                                            if (!result.contains(referenced)) {
+                                                result.add(referenced)
+                                            }
+                                        }
+                                        map.removeAll(name)
+                                    }
                                 }
                             }
                         }
-                    }
-                })
+                    })
+                }
+                result
+            } else {
+                imports
             }
-
-            return result
         }
 
         return emptyList()
@@ -163,5 +195,23 @@ class PsiCompilationUnit(val codebase: PsiBasedCodebase, containingFile: PsiFile
         }
 
         return topLevel
+    }
+
+    companion object {
+        // Cache pattern compilation across source files
+        private val regexMap = HashMap<String, Regex>()
+
+        private fun docContainsWord(doc: String, word: String): Boolean {
+            if (!doc.contains(word)) {
+                return false
+            }
+
+            val regex = regexMap[word] ?: run {
+                val new = Regex("""\b$word\b""")
+                regexMap[word] = new
+                new
+            }
+            return regex.find(doc) != null
+        }
     }
 }

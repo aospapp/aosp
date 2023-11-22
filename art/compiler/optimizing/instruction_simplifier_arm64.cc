@@ -45,11 +45,11 @@ class InstructionSimplifierArm64Visitor : public HGraphVisitor {
                                   HInstruction* bitfield_op,
                                   bool do_merge);
   bool CanMergeIntoShifterOperand(HInstruction* use, HInstruction* bitfield_op) {
-    return TryMergeIntoShifterOperand(use, bitfield_op, /* do_merge */ false);
+    return TryMergeIntoShifterOperand(use, bitfield_op, /* do_merge= */ false);
   }
   bool MergeIntoShifterOperand(HInstruction* use, HInstruction* bitfield_op) {
     DCHECK(CanMergeIntoShifterOperand(use, bitfield_op));
-    return TryMergeIntoShifterOperand(use, bitfield_op, /* do_merge */ true);
+    return TryMergeIntoShifterOperand(use, bitfield_op, /* do_merge= */ true);
   }
 
   /**
@@ -58,7 +58,7 @@ class InstructionSimplifierArm64Visitor : public HGraphVisitor {
    * (2) Since statements can be removed in a "forward" fashion,
    *     the visitor should test if each statement is still there.
    */
-  void VisitBasicBlock(HBasicBlock* block) OVERRIDE {
+  void VisitBasicBlock(HBasicBlock* block) override {
     // TODO: fragile iteration, provide more robust iterators?
     for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
       HInstruction* instruction = it.Current();
@@ -69,18 +69,18 @@ class InstructionSimplifierArm64Visitor : public HGraphVisitor {
   }
 
   // HInstruction visitors, sorted alphabetically.
-  void VisitAnd(HAnd* instruction) OVERRIDE;
-  void VisitArrayGet(HArrayGet* instruction) OVERRIDE;
-  void VisitArraySet(HArraySet* instruction) OVERRIDE;
-  void VisitMul(HMul* instruction) OVERRIDE;
-  void VisitOr(HOr* instruction) OVERRIDE;
-  void VisitShl(HShl* instruction) OVERRIDE;
-  void VisitShr(HShr* instruction) OVERRIDE;
-  void VisitTypeConversion(HTypeConversion* instruction) OVERRIDE;
-  void VisitUShr(HUShr* instruction) OVERRIDE;
-  void VisitXor(HXor* instruction) OVERRIDE;
-  void VisitVecLoad(HVecLoad* instruction) OVERRIDE;
-  void VisitVecStore(HVecStore* instruction) OVERRIDE;
+  void VisitAnd(HAnd* instruction) override;
+  void VisitArrayGet(HArrayGet* instruction) override;
+  void VisitArraySet(HArraySet* instruction) override;
+  void VisitMul(HMul* instruction) override;
+  void VisitOr(HOr* instruction) override;
+  void VisitShl(HShl* instruction) override;
+  void VisitShr(HShr* instruction) override;
+  void VisitTypeConversion(HTypeConversion* instruction) override;
+  void VisitUShr(HUShr* instruction) override;
+  void VisitXor(HXor* instruction) override;
+  void VisitVecLoad(HVecLoad* instruction) override;
+  void VisitVecStore(HVecStore* instruction) override;
 
   OptimizingCompilerStats* stats_;
 };
@@ -278,9 +278,10 @@ void InstructionSimplifierArm64Visitor::VisitVecStore(HVecStore* instruction) {
   }
 }
 
-void InstructionSimplifierArm64::Run() {
+bool InstructionSimplifierArm64::Run() {
   InstructionSimplifierArm64Visitor visitor(graph_, stats_);
   visitor.VisitReversePostOrder();
+  return true;
 }
 
 }  // namespace arm64

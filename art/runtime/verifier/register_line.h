@@ -17,11 +17,13 @@
 #ifndef ART_RUNTIME_VERIFIER_REGISTER_LINE_H_
 #define ART_RUNTIME_VERIFIER_REGISTER_LINE_H_
 
+#include <limits>
 #include <memory>
 #include <vector>
 
 #include <android-base/logging.h>
 
+#include "base/locks.h"
 #include "base/safe_map.h"
 #include "base/scoped_arena_containers.h"
 
@@ -33,6 +35,7 @@ namespace verifier {
 
 class MethodVerifier;
 class RegType;
+class RegTypeCache;
 
 /*
  * Register type categories, for type checking.
@@ -61,11 +64,19 @@ enum class LockOp {
 // stack of entered monitors (identified by code unit offset).
 class RegisterLine {
  public:
+  using RegisterStackMask = uint32_t;
   // A map from register to a bit vector of indices into the monitors_ stack.
-  using RegToLockDepthsMap = ScopedArenaSafeMap<uint32_t, uint32_t>;
+  using RegToLockDepthsMap = ScopedArenaSafeMap<uint32_t, RegisterStackMask>;
+
+  // Maximum number of nested monitors to track before giving up and
+  // taking the slow path.
+  static constexpr size_t kMaxMonitorStackDepth =
+      std::numeric_limits<RegisterStackMask>::digits;
 
   // Create a register line of num_regs registers.
-  static RegisterLine* Create(size_t num_regs, MethodVerifier* verifier);
+  static RegisterLine* Create(size_t num_regs,
+                              ScopedArenaAllocator& allocator,
+                              RegTypeCache* reg_types);
 
   // Implement category-1 "move" instructions. Copy a 32-bit value from "vsrc" to "vdst".
   void CopyRegister1(MethodVerifier* verifier, uint32_t vdst, uint32_t vsrc, TypeCategory cat)
@@ -87,7 +98,7 @@ class RegisterLine {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Set the invisible result register to unknown
-  void SetResultTypeToUnknown(MethodVerifier* verifier) REQUIRES_SHARED(Locks::mutator_lock_);
+  void SetResultTypeToUnknown(RegTypeCache* reg_types) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Set the type of register N, verifying that the register is valid.  If "newType" is the "Lo"
   // part of a 64-bit value, register N+1 will be set to "newType+1".
@@ -390,7 +401,7 @@ class RegisterLine {
   }
 
   bool SetRegToLockDepth(size_t reg, size_t depth) {
-    CHECK_LT(depth, 32u);
+    CHECK_LT(depth, kMaxMonitorStackDepth);
     if (IsSetLockDepth(reg, depth)) {
       return false;  // Register already holds lock so locking twice is erroneous.
     }
@@ -409,7 +420,7 @@ class RegisterLine {
     reg_to_lock_depths_.erase(reg);
   }
 
-  RegisterLine(size_t num_regs, MethodVerifier* verifier);
+  RegisterLine(size_t num_regs, ScopedArenaAllocator& allocator, RegTypeCache* reg_types);
 
   // Storage for the result register's type, valid after an invocation.
   uint16_t result_[2];

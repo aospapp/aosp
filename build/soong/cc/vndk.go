@@ -15,11 +15,13 @@
 package cc
 
 import (
+	"errors"
 	"sort"
 	"strings"
 	"sync"
 
 	"android/soong/android"
+	"android/soong/cc/config"
 )
 
 type VndkProperties struct {
@@ -151,50 +153,55 @@ func (vndk *vndkdep) vndkCheckLinkType(ctx android.ModuleContext, to *Module, ta
 	}
 
 	// Check the dependencies of VNDK shared libraries.
-	if !vndkIsVndkDepAllowed(vndk, to.vndkdep) {
-		ctx.ModuleErrorf("(%s) should not link to %q (%s)",
-			vndk.typeName(), to.Name(), to.vndkdep.typeName())
+	if err := vndkIsVndkDepAllowed(vndk, to.vndkdep); err != nil {
+		ctx.ModuleErrorf("(%s) should not link to %q (%s): %v",
+			vndk.typeName(), to.Name(), to.vndkdep.typeName(), err)
 		return
 	}
 }
 
-func vndkIsVndkDepAllowed(from *vndkdep, to *vndkdep) bool {
+func vndkIsVndkDepAllowed(from *vndkdep, to *vndkdep) error {
 	// Check the dependencies of VNDK, VNDK-Ext, VNDK-SP, VNDK-SP-Ext and vendor modules.
 	if from.isVndkExt() {
 		if from.isVndkSp() {
-			// VNDK-SP-Ext may depend on VNDK-SP, VNDK-SP-Ext, or vendor libs (excluding
-			// VNDK and VNDK-Ext).
-			return to.isVndkSp() || !to.isVndk()
+			if to.isVndk() && !to.isVndkSp() {
+				return errors.New("VNDK-SP extensions must not depend on VNDK or VNDK extensions")
+			}
+			return nil
 		}
 		// VNDK-Ext may depend on VNDK, VNDK-Ext, VNDK-SP, VNDK-SP-Ext, or vendor libs.
-		return true
+		return nil
 	}
 	if from.isVndk() {
 		if to.isVndkExt() {
-			// VNDK-core and VNDK-SP must not depend on VNDK extensions.
-			return false
+			return errors.New("VNDK-core and VNDK-SP must not depend on VNDK extensions")
 		}
 		if from.isVndkSp() {
-			// VNDK-SP must only depend on VNDK-SP.
-			return to.isVndkSp()
+			if !to.isVndkSp() {
+				return errors.New("VNDK-SP must only depend on VNDK-SP")
+			}
+			return nil
 		}
-		// VNDK-core may depend on VNDK-core or VNDK-SP.
-		return to.isVndk()
+		if !to.isVndk() {
+			return errors.New("VNDK-core must only depend on VNDK-core or VNDK-SP")
+		}
+		return nil
 	}
 	// Vendor modules may depend on VNDK, VNDK-Ext, VNDK-SP, VNDK-SP-Ext, or vendor libs.
-	return true
+	return nil
 }
 
 var (
-	vndkCoreLibraries    []string
-	vndkSpLibraries      []string
-	llndkLibraries       []string
-	vndkPrivateLibraries []string
-	vndkLibrariesLock    sync.Mutex
+	vndkCoreLibraries             []string
+	vndkSpLibraries               []string
+	llndkLibraries                []string
+	vndkPrivateLibraries          []string
+	vndkUsingCoreVariantLibraries []string
+	vndkLibrariesLock             sync.Mutex
 )
 
 // gather list of vndk-core, vndk-sp, and ll-ndk libs
-func vndkMutator(mctx android.BottomUpMutatorContext) {
+func VndkMutator(mctx android.BottomUpMutatorContext) {
 	if m, ok := mctx.Module().(*Module); ok && m.Enabled() {
 		if lib, ok := m.linker.(*llndkStubDecorator); ok {
 			vndkLibrariesLock.Lock()
@@ -218,6 +225,12 @@ func vndkMutator(mctx android.BottomUpMutatorContext) {
 				if m.vndkdep.isVndk() && !m.vndkdep.isVndkExt() {
 					vndkLibrariesLock.Lock()
 					defer vndkLibrariesLock.Unlock()
+					if mctx.DeviceConfig().VndkUseCoreVariant() && !inList(name, config.VndkMustUseVendorVariantList) {
+						if !inList(name, vndkUsingCoreVariantLibraries) {
+							vndkUsingCoreVariantLibraries = append(vndkUsingCoreVariantLibraries, name)
+							sort.Strings(vndkUsingCoreVariantLibraries)
+						}
+					}
 					if m.vndkdep.isVndkSp() {
 						if !inList(name, vndkSpLibraries) {
 							vndkSpLibraries = append(vndkSpLibraries, name)

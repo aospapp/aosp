@@ -29,6 +29,7 @@ import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetFileDescriptor.AutoCloseInputStream;
 import android.database.Cursor;
@@ -54,11 +55,22 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
     protected UiDevice mDevice;
     protected MyActivity mActivity;
 
-    private String[] mDisabledImes;
+    private String mDocumentsUiPackageId;
+
+    private static final String COMPONENT_NAME_DUMMY_IME = "com.android.cts.dummyime/.CtsDummyIme";
 
     @Override
     public void setUp() throws Exception {
         super.setUp();
+
+        final PackageManager pm = getInstrumentation().getContext().getPackageManager();
+
+        final Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        final ResolveInfo ri = pm.resolveActivity(intent, 0);
+        mDocumentsUiPackageId = ri.activityInfo.packageName;
+
 
         // Wake up the device and dismiss the keyguard before the test starts.
         executeShellCommand("input keyevent KEYCODE_WAKEUP");
@@ -69,7 +81,7 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
         // Disable IME's to avoid virtual keyboards from showing up. Occasionally IME draws some UI
         // controls out of its boundary for some first time setup that obscures the text edit and/or
         // save/select button. This will constantly fail some of our tests.
-        disableImes();
+        enableDummyIme();
 
         mDevice = UiDevice.getInstance(getInstrumentation());
         mActivity = launchActivity(getInstrumentation().getTargetContext().getPackageName(),
@@ -82,7 +94,11 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
         super.tearDown();
         mActivity.finish();
 
-        enableImes();
+        executeShellCommand("ime reset");
+    }
+
+    protected String getDocumentsUiPackageId() {
+        return mDocumentsUiPackageId;
     }
 
     protected String getColumn(Uri uri, String column) {
@@ -146,10 +162,16 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
 
     protected boolean supportedHardwareForScopedDirectoryAccess() {
         final PackageManager pm = getInstrumentation().getContext().getPackageManager();
-        if (pm.hasSystemFeature("android.hardware.type.watch")) {
+        if (pm.hasSystemFeature("android.hardware.type.watch")
+                || pm.hasSystemFeature("android.hardware.type.automotive")) {
             return false;
         }
         return true;
+    }
+
+    protected boolean isTelevision() {
+        final PackageManager pm = getInstrumentation().getContext().getPackageManager();
+        return pm.hasSystemFeature("android.hardware.type.television");
     }
 
     protected void assertActivityFailed() {
@@ -182,19 +204,14 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
             Log.d(TAG, "Not clearing DocumentsUI due to test name: " + testName);
             return;
         }
-        executeShellCommand("pm clear com.android.documentsui");
+        executeShellCommand("pm clear " + getDocumentsUiPackageId());
     }
 
-    private void disableImes() throws Exception {
-        mDisabledImes = executeShellCommand("ime list -s").split("\n");
-        for (String ime : mDisabledImes) {
-            executeShellCommand("ime disable " + ime);
-        }
-    }
+    private void enableDummyIme() throws Exception {
+        String enableDummyCommand = "ime enable " + COMPONENT_NAME_DUMMY_IME;
+        executeShellCommand(enableDummyCommand);
 
-    private void enableImes() throws Exception {
-        for (String ime : mDisabledImes) {
-            executeShellCommand("ime enable " + ime);
-        }
+        String setDummyCommand = "ime set " + COMPONENT_NAME_DUMMY_IME;
+        executeShellCommand(setDummyCommand);
     }
 }

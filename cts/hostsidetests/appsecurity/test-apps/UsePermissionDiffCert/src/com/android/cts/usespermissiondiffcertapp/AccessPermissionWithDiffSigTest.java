@@ -42,6 +42,8 @@ import android.provider.ContactsContract;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+
 import com.android.cts.permissiondeclareapp.UtilsProvider;
 
 import java.io.IOException;
@@ -139,6 +141,16 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
         } catch (SecurityException expected) {
             assertNotNull("security exception's error message.", expected.getMessage());
         }
+    }
+
+    private void assertContentUriAllowed(Uri uri) {
+        assertReadingContentUriAllowed(uri);
+        assertWritingContentUriAllowed(uri);
+    }
+
+    private void assertContentUriNotAllowed(Uri uri, String msg) {
+        assertReadingContentUriNotAllowed(uri, msg);
+        assertWritingContentUriNotAllowed(uri, msg);
     }
 
     private void assertWritingContentUriNotAllowed(Uri uri, String msg) {
@@ -487,10 +499,18 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
     }
 
     private void doTestGrantUriPermissionFail(Uri uri) {
-        grantUriPermissionFail(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION, false);
-        grantUriPermissionFail(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION, false);
-        grantUriPermissionFail(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION, true);
-        grantUriPermissionFail(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION, true);
+        for (boolean service : new boolean[] { false, true }) {
+            for (int flags : new int[] {
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION, Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            }) {
+                grantUriPermissionFail(uri,
+                        flags, service);
+                grantUriPermissionFail(uri,
+                        flags | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION, service);
+                grantUriPermissionFail(uri,
+                        flags | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION, service);
+            }
+        }
     }
     
     /**
@@ -1162,6 +1182,26 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
     }
 
     /**
+     * Test that shady {@link Uri} are blocked by {@code path-permission}.
+     */
+    public void testRestrictingProviderMatchingShadyPaths() {
+        assertContentUriAllowed(
+                Uri.parse("content://ctspermissionwithsignaturepathrestricting/"));
+        assertContentUriAllowed(
+                Uri.parse("content://ctspermissionwithsignaturepathrestricting//"));
+        assertContentUriAllowed(
+                Uri.parse("content://ctspermissionwithsignaturepathrestricting///"));
+        assertContentUriNotAllowed(
+                Uri.parse("content://ctspermissionwithsignaturepathrestricting/foo"), null);
+        assertContentUriNotAllowed(
+                Uri.parse("content://ctspermissionwithsignaturepathrestricting//foo"), null);
+        assertContentUriNotAllowed(
+                Uri.parse("content://ctspermissionwithsignaturepathrestricting///foo"), null);
+        assertContentUriNotAllowed(
+                Uri.parse("content://ctspermissionwithsignaturepathrestricting/foo//baz"), null);
+    }
+
+    /**
      * Verify that at least one {@code path-permission} rule will grant access,
      * even if the caller doesn't hold another matching {@code path-permission}.
      */
@@ -1582,10 +1622,19 @@ public class AccessPermissionWithDiffSigTest extends AndroidTestCase {
             assertReadingClipNotAllowed(clip);
             assertWritingClipNotAllowed(clip);
 
-            // But if someone puts it on the clipboard, we can read it
-            setPrimaryClip(clip);
-            final ClipData clipFromClipboard = getContext().getSystemService(ClipboardManager.class)
-                    .getPrimaryClip();
+            // Use shell's permissions to ensure we can access the clipboard
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .adoptShellPermissionIdentity();
+            ClipData clipFromClipboard;
+            try {
+                // But if someone puts it on the clipboard, we can read it
+                setPrimaryClip(clip);
+                clipFromClipboard = getContext()
+                        .getSystemService(ClipboardManager.class).getPrimaryClip();
+            } finally {
+                InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                        .dropShellPermissionIdentity();
+            }
             assertClipDataEquals(clip, clipFromClipboard);
             assertReadingClipAllowed(clipFromClipboard);
             assertWritingClipNotAllowed(clipFromClipboard);

@@ -441,8 +441,11 @@ public class VisualizerTest extends PostProcTestBase {
                     energy += tmp*tmp;
                 }
             } else {
-                energy = (int)data[0] * (int)data[0];
-                for (int i = 2; i < data.length; i += 2) {
+                // Note that data[0] is real part of FFT at DC
+                // and data[1] is real part of FFT at Nyquist,
+                // but for the purposes of energy calculation we
+                // don't need to treat them specially.
+                for (int i = 0; i < data.length; i += 2) {
                     int real = (int)data[i];
                     int img = (int)data[i + 1];
                     energy += real * real + img * img;

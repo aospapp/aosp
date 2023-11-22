@@ -16,6 +16,9 @@
 
 import mock
 import unittest
+
+import os
+
 from acts.controllers import android_device
 from acts.libs.ota.ota_runners import ota_runner
 from acts.libs.ota.ota_tools import ota_tool
@@ -54,7 +57,11 @@ class AdbSideloadOtaToolTest(unittest.TestCase):
         # This test could have a bunch of verify statements,
         # but its probably not worth it.
         device = get_mock_android_device()
-        tool = adb_sideload_ota_tool.AdbSideloadOtaTool('')
-        runner = ota_runner.SingleUseOtaRunner(tool, device, '', '')
+        ota_package_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.realpath(__file__))),
+            'dummy_ota_package.zip')
+        tool = adb_sideload_ota_tool.AdbSideloadOtaTool(ota_package_path)
+        runner = ota_runner.SingleUseOtaRunner(tool, device, ota_package_path,
+                                               '')
         runner.android_device.adb.getprop = mock.Mock(side_effect=['a', 'b'])
         runner.update()

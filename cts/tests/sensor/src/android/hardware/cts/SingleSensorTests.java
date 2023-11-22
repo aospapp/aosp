@@ -599,7 +599,7 @@ public class SingleSensorTests extends SensorTestCase {
                     "single_%s_%s.txt",
                     SensorStats.getSanitizedSensorName(environment.getSensor()),
                     environment.getFrequencyString());
-            stats.logToFile(fileName);
+            stats.logToFile(environment.getContext(), fileName);
         }
     }
 }

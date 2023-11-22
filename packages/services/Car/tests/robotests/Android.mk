@@ -34,6 +34,7 @@ LOCAL_INSTRUMENTATION_FOR := CarService
 
 LOCAL_JAVA_LIBRARIES := \
     android.car \
+    android.car.userlib \
     robolectric_android-all-stub \
     Robolectric_all-target \
     mockito-robolectric-prebuilt \

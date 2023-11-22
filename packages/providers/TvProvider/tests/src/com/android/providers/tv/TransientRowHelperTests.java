@@ -42,6 +42,8 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
+import com.android.providers.tv.TvProvider.DatabaseHelper;
+
 public class TransientRowHelperTests extends AndroidTestCase {
     private static final String FAKE_INPUT_ID = "TransientRowHelperTests";
 
@@ -69,7 +71,8 @@ public class TransientRowHelperTests extends AndroidTestCase {
         final ProviderInfo info = new ProviderInfo();
         info.authority = TvContract.AUTHORITY;
         mProvider.attachInfoForTesting(getContext(), info);
-        mTransientRowHelper = new RebootSimulatingTransientRowHelper(getContext());
+        mTransientRowHelper =
+                new RebootSimulatingTransientRowHelper(getContext(), mProvider.getDatabaseHelper());
         mProvider.setTransientRowHelper(mTransientRowHelper);
         Utils.clearTvProvider(mResolver);
     }
@@ -208,8 +211,8 @@ public class TransientRowHelperTests extends AndroidTestCase {
         private int mLastDeletionBootCount;
         private int mBootCount = 1;
 
-        private RebootSimulatingTransientRowHelper(Context context) {
-            super(context);
+        private RebootSimulatingTransientRowHelper(Context context, DatabaseHelper helper) {
+            super(context, helper);
         }
 
         @Override

@@ -43,9 +43,13 @@
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.MOUNT_UNMOUNT_FILESYSTEMS" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
+    <uses-permission android:name="android.permission.POWER_SAVER" />
+    <uses-permission android:name="android.permission.INSTALL_DYNAMIC_SYSTEM" />
     <uses-permission android:name="android.os.cts.permission.TEST_GRANTED" />
 
-    <application android:usesCleartextTraffic="true">
+    <application
+            android:usesCleartextTraffic="true"
+            android:requestLegacyExternalStorage="true">
         <activity android:name="android.os.cts.LaunchpadActivity"
                   android:configChanges="keyboardHidden|orientation|screenSize"
                   android:multiprocess="true">
@@ -80,6 +84,14 @@
             android:name="android.os.cts.SharedMemoryService"
             android:process=":sharedmem"
             android:exported="false" />
+        <service
+            android:name="android.os.cts.ParcelExceptionService"
+            android:process=":remote"
+            android:exported="true" />
+        <service
+            android:name="android.os.cts.ParcelTest$ParcelObjectFreeService"
+            android:process=":remote"
+            android:exported="true" />
 
         <service android:name="android.os.cts.LocalService">
             <intent-filter>
@@ -139,7 +151,7 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.os.cts"
                      android:label="CTS tests of android.os">
         <meta-data android:name="listener"

@@ -16,8 +16,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
        package="com.android.cts.storageapp_a">
 
-    <application android:appCategory="video">
+    <application android:requestLegacyExternalStorage="true" android:appCategory="video">
         <uses-library android:name="android.test.runner" />
+        <activity android:name="com.android.cts.storageapp.UtilsActivity"  />
         <receiver android:name="com.android.cts.storageapp.UtilsReceiver" android:exported="true" />
         <provider
             android:name="com.android.cts.storageapp.UtilsProvider"
@@ -25,7 +26,7 @@
             android:exported="true" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.storageapp_a" />
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />

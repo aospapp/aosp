@@ -24,21 +24,38 @@
           dynamic audio routing is disabled and audio works in legacy mode. It may be useful
           during initial development where audio hal does not support bus based addressing yet. -->
     <bool name="audioUseDynamicRouting">false</bool>
+
+    <!--  Configuration to persist master mute state. If this is set to true,
+          Android will restore the master mute state on boot. -->
+    <bool name="audioPersistMasterMuteState">true</bool>
     <!-- Whether to block other audio while media audio is muted with display off. When set to true,
          other sounds cannot be played either while display is off. If false, only media is muted
          and other sounds can be still played. -->
     <bool name="displayOffMuteLockAllAudio">true</bool>
 
-    <string name="inputService">android.car.input.service/.DefaultInputService</string>
+    <!--  Configuration to enable or disable the default Bluetooth Device Connection Policy. This
+          policy determines when to initiate device connections, but does not control the actual
+          connection process. Disable this default to implement your own policy. -->
+    <bool name="useDefaultBluetoothConnectionPolicy">true</bool>
 
-    <string name="instrumentClusterRendererService">android.car.cluster.sample/.SampleClusterServiceImpl</string>
+    <string name="inputService" translatable="false">android.car.input.service/.DefaultInputService</string>
+
+    <!--  Service responsible for displaying information on the car instrument cluster. -->
+    <string name="instrumentClusterRendererService" translatable="false">android.car.cluster/.ClusterRenderingService</string>
 
     <!--  Whether to enable Activity blocking for safety. When Activity blocking is enabled,
           only whitelisted safe Activities will be allowed while car is not parked. -->
     <bool name="enableActivityBlockingForSafety">true</bool>
     <!--  Activity to be presented when un-safe activity is launched. Take a look at the javadoc of the
           default implementation. -->
-    <string name="activityBlockingActivity">com.android.car/com.android.car.pm.ActivityBlockingActivity</string>
+    <string name="activityBlockingActivity" translatable="false">com.android.car/com.android.car.pm.ActivityBlockingActivity</string>
+    <!--  Comma separated list of activities that need to be exempted from getting
+          blocked in a UX restricted state.
+          Format of each entry is either to specify package name to whitelist the whole package or
+          use format of "packagename/activity_classname" for tagging each activities.
+          For general guidelines to design distraction optimized apps, please refer
+          to Android Auto Driver Distraction Guidelines. -->
+    <string name="activityWhitelist" translatable="false"></string>
     <!--  Comma separated list of activities that need to be exempted from getting
           blocked in a UX restricted state.
           Format of each entry is either to specify package name to whitelist the whole package or
@@ -46,21 +63,22 @@
           The current implementations expects the following system packages/activities to be
           whitelisted. For general guidelines to design distraction optimized apps, please refer
           to Android Auto Driver Distraction Guidelines. -->
-    <string name="activityWhitelist">com.android.systemui,com.google.android.packageinstaller/com.android.packageinstaller.permission.ui.GrantPermissionsActivity</string>
+    <string name="systemActivityWhitelist" translatable="false">com.android.systemui,com.google.android.permissioncontroller/com.android.packageinstaller.permission.ui.GrantPermissionsActivity,android/com.android.internal.app.ResolverActivity,com.android.mtp/com.android.mtp.ReceiverActivity</string>
     <!--  Comma separated list of activities that will be blocked during restricted state.
           Format of each entry is either to specify package name to whitelist the whole package
           or use format of "packagename/activity_classname" for tagging each activities.-->
-    <string name="activityBlacklist"></string>
+    <string name="activityBlacklist" translatable="false"></string>
+    <!-- List of play store package names that are allowed sources of app installation-->
+    <string-array translatable="false" name="allowedAppInstallSources">
+    </string-array>
     <!-- Default home activity -->
-    <string name="defaultHomeActivity"><!--com.your.package/com.your.package.Activity--></string>
-    <!--  The com.android.car.VmsPublisherService will bind to this list of clients -->
-    <string-array translatable="false" name="vmsPublisherClients">
+    <string name="defaultHomeActivity" translatable="false"><!--com.your.package/com.your.package.Activity--></string>
+    <!--  The com.android.car.vms.VmsClientManager will bind to this list of clients running as system user -->
+    <string-array translatable="false" name="vmsPublisherSystemClients">
     </string-array>
-    <!--  Permissions that the com.android.car.VmsPublisherService is allowed to grant to publishers -->
-    <string-array translatable="false" name="vmsSafePermissions">
-        <item>"android.permission.ACCESS_FINE_LOCATION"</item>
+    <!--  The com.android.car.vms.VmsClientManager will bind to this list of clients running as current user -->
+    <string-array translatable="false" name="vmsPublisherUserClients">
     </string-array>
-
     <!-- Number of milliseconds to wait before trying re-bind to a crashed publisher. -->
     <integer name="millisecondsBeforeRebindToVmsPublisher">10000</integer>
 
@@ -78,7 +96,7 @@
          no activity shall be launched, or must be in the format of a flattened ComponentName and
          reference a valid activity. It is strongly recommended that the chosen activity be
          protected with the android.car.permission.STORAGE_MONITORING permission. -->
-    <string name="activityHandlerForFlashWearChanges">com.google.android.car.defaultstoragemonitoringcompanionapp/.MainActivity</string>
+    <string name="activityHandlerForFlashWearChanges" translatable="false">com.google.android.car.defaultstoragemonitoringcompanionapp/.MainActivity</string>
 
     <!-- How often (in seconds) CarService will update I/O metrics from the kernel. -->
     <integer name="ioStatsRefreshRateSeconds">60</integer>
@@ -111,11 +129,15 @@
          must be registered in its containing app's AndroidManifest.xml and it is
          strongly recommended that it be protected with the
          android.car.permission.STORAGE_MONITORING permission. -->
-    <string name="intentReceiverForUnacceptableIoMetrics">com.google.android.car.defaultstoragemonitoringcompanionapp/.ExcessiveIoIntentReceiver</string>
+    <string name="intentReceiverForUnacceptableIoMetrics" translatable="false">com.google.android.car.defaultstoragemonitoringcompanionapp/.ExcessiveIoIntentReceiver</string>
 
     <!-- The Model ID to advertise Bluetooth Fast Pair connections with.  Must be overlayed with
          device specific model id. -->
     <integer name="fastPairModelId">0x000000</integer>
+
+    <!-- Maximum allowed time to run garage mode. Note that 15 min (=900sec) is the minimum required
+         duration and this should not be made shorter. -->
+    <integer name="maxGarageModeRunningDurationInSecs">900</integer>
 
     <!-- The garage mode configuration, specifying the time after shutdown to reboot into garage
          mode and the number of attempts at that time to try before moving to the next wake up
@@ -128,5 +150,71 @@
         <item>3d,2</item>
         <item>7d,3</item>
     </string-array>
+
+    <!-- The services that needs to be started earlier in the boot sequence and in particular order.
+         Every item in this array contains a flatten component name of a service that needs to be
+         started and a list of parameters after hashtag symbol. Here's the format:
+
+         <item>com.bar.foo/.Service#bind={bind|start|startForeground},user={all|system|foreground},
+         trigger={asap,userUnlocked}</item>
+
+         bind: bind - start service with Context#bindService
+               start - start service with Context#startService
+               startForeground - start service with Context#startForegroundService
+               If service was bound it will be restarted unless it is constantly crashing.
+               The default value is 'start'
+         user: all - the service will be bound/started for system and all foreground users
+               system - the service will be started/bound only for system user (u0)
+               foreground - the service will be bound/started only for foreground users
+               The default value is 'all'
+         trigger: indicates when the service needs to be started/bound
+               asap - the service might be bound when user is not fully loaded, be careful with
+                      this value, the service also needs to have directBootAware flag set to true
+               userUnlocked - start service when user unlocked the device
+               The default value is 'userUnlocked'
+
+         If the service bound/started for foreground user it will be unbound/stopped when user
+         is no longer foreground.
+     -->
+    <string-array translatable="false" name="config_earlyStartupServices">
+        <item>com.android.car.messenger/.MessengerService#bind=startForeground,user=foreground,trigger=userUnlocked</item>
+    </string-array>
+
+    <!-- The consent activity that must be shown for every unknown mobile device before projection
+         gets started.  The format is: com.your.package/com.your.Activity  -->
+    <string name="config_projectionConsentActivity" translatable="false"/>
+
+    <!-- Display Id where projection rendering activity needs to be shown, Specify -1 to use system
+         defaults -->
+    <integer name="config_projectionActivityDisplayId" translatable="false">-1</integer>
+
+    <!-- Bounds of the projection activity on the screen. It should be in the pixels and screen
+         coordinates in the following order: left, top, right, bottom. -->
+    <integer-array name="config_projectionActivityLaunchBounds" translatable="false"/>
+
+    <!-- UI mode for projection activity. See ProjectionOptions class for possible values. -->
+    <integer name="config_projectionUiMode" translatable="false">0</integer>
+
+    <!-- Configure whether access point created for wireless projection should be in tethered mode.
+         This will allow mobile device to use Internet provided by the vehicle during projection.
+         If this value is true then tethering is enabled. Otherwise, local-only hotspot will be
+         created. -->
+    <bool name="config_projectionAccessPointTethering" translatable="false">false</bool>
+
+    <!-- service/characteristics uuid for adding new escrow token -->
+    <string name="enrollment_service_uuid" translatable="false">5e2a68a4-27be-43f9-8d1e-4546976fabd7</string>
+    <string name="enrollment_server_write_uuid" translatable="false">5e2a68a5-27be-43f9-8d1e-4546976fabd7</string>
+    <string name="enrollment_client_write_uuid" translatable="false">5e2a68a6-27be-43f9-8d1e-4546976fabd7</string>
+
+    <!-- service/characteristics uuid for unlocking a device -->
+    <string name="unlock_service_uuid" translatable="false">00003ac5-0000-1000-8000-00805f9b34fb</string>
+    <string name="unlock_client_write_uuid" translatable="false">5e2a68a2-27be-43f9-8d1e-4546976fabd7</string>
+    <string name="unlock_server_write_uuid" translatable="false">5e2a68a3-27be-43f9-8d1e-4546976fabd7</string>
+
+    <string name="token_handle_shared_preferences" translatable="false">com.android.car.trust.TOKEN_HANDLE</string>
+
+    <!-- The package name of the default bugreport application that can use CarBugreportServiceManager.
+         There is no default bugreporting app.-->
+    <string name="config_car_bugreport_application" translatable="false"></string>
 
 </resources>

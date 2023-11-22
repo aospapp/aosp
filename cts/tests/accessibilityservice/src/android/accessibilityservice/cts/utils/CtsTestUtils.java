@@ -17,6 +17,9 @@
 package android.accessibilityservice.cts.utils;
 
 
+import java.util.Optional;
+import java.util.function.Consumer;
+
 public class CtsTestUtils {
     private CtsTestUtils() {}
 
@@ -34,5 +37,9 @@ public class CtsTestUtils {
             }
             throw new RuntimeException(e);
         }
+    }
+
+    public static <T> void runIfNotNull(T callee, Consumer<T> action) {
+        Optional.ofNullable(callee).ifPresent(action);
     }
 }

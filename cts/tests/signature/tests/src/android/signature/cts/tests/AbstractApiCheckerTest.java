@@ -24,13 +24,13 @@ import android.signature.cts.ResultObserver;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.function.Consumer;
-import junit.framework.Assert;
-import junit.framework.TestCase;
+
+import org.junit.Assert;
 
 /**
  * Base class for tests of implementations of {@link AbstractApiChecker}.
  */
-public abstract class AbstractApiCheckerTest<T extends AbstractApiChecker> extends TestCase {
+public abstract class AbstractApiCheckerTest<T extends AbstractApiChecker> {
 
     static final String VALUE = "VALUE";
 

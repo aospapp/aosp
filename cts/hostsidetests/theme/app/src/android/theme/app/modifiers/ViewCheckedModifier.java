@@ -22,8 +22,7 @@ import android.widget.CheckBox;
 public class ViewCheckedModifier extends AbstractLayoutModifier {
 
     @Override
-    public View modifyView(View view) {
+    public void modifyViewBeforeAdd(View view) {
         ((CheckBox) view).setChecked(true);
-        return view;
     }
 }

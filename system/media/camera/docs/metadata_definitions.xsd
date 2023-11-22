@@ -243,6 +243,14 @@
             </simpleType>
         </attribute>
         <attribute name="hal_version" type="decimal" default="3.2" />
+        <attribute name="permission_needed" default="false">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="true" />
+                    <enumeration value="false" />
+                </restriction>
+            </simpleType>
+        </attribute>
     </complexType>
 
     <complexType name="EnumType">

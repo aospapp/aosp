@@ -28,55 +28,59 @@
 
 #include "bootimg_utils.h"
 
-#include "fastboot.h"
+#include "util.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-void bootimg_set_cmdline(boot_img_hdr_v1* h, const char* cmdline) {
-    if (strlen(cmdline) >= sizeof(h->cmdline)) die("command line too large: %zu", strlen(cmdline));
-    strcpy(reinterpret_cast<char*>(h->cmdline), cmdline);
+void bootimg_set_cmdline(boot_img_hdr_v2* h, const std::string& cmdline) {
+    if (cmdline.size() >= sizeof(h->cmdline)) die("command line too large: %zu", cmdline.size());
+    strcpy(reinterpret_cast<char*>(h->cmdline), cmdline.c_str());
 }
 
-boot_img_hdr_v1* mkbootimg(void* kernel, int64_t kernel_size, off_t kernel_offset, void* ramdisk,
-                           int64_t ramdisk_size, off_t ramdisk_offset, void* second,
-                           int64_t second_size, off_t second_offset, size_t page_size, size_t base,
-                           off_t tags_offset, uint32_t header_version, int64_t* bootimg_size) {
-    size_t page_mask = page_size - 1;
+boot_img_hdr_v2* mkbootimg(const std::vector<char>& kernel, const std::vector<char>& ramdisk,
+                           const std::vector<char>& second, const std::vector<char>& dtb,
+                           size_t base, const boot_img_hdr_v2& src, std::vector<char>* out) {
+    const size_t page_mask = src.page_size - 1;
 
     int64_t header_actual = (sizeof(boot_img_hdr_v1) + page_mask) & (~page_mask);
-    int64_t kernel_actual = (kernel_size + page_mask) & (~page_mask);
-    int64_t ramdisk_actual = (ramdisk_size + page_mask) & (~page_mask);
-    int64_t second_actual = (second_size + page_mask) & (~page_mask);
+    int64_t kernel_actual = (kernel.size() + page_mask) & (~page_mask);
+    int64_t ramdisk_actual = (ramdisk.size() + page_mask) & (~page_mask);
+    int64_t second_actual = (second.size() + page_mask) & (~page_mask);
+    int64_t dtb_actual = (dtb.size() + page_mask) & (~page_mask);
 
-    *bootimg_size = header_actual + kernel_actual + ramdisk_actual + second_actual;
+    int64_t bootimg_size =
+            header_actual + kernel_actual + ramdisk_actual + second_actual + dtb_actual;
+    out->resize(bootimg_size);
 
-    boot_img_hdr_v1* hdr = reinterpret_cast<boot_img_hdr_v1*>(calloc(*bootimg_size, 1));
-    if (hdr == nullptr) {
-        return hdr;
-    }
+    boot_img_hdr_v2* hdr = reinterpret_cast<boot_img_hdr_v2*>(out->data());
 
+    *hdr = src;
     memcpy(hdr->magic, BOOT_MAGIC, BOOT_MAGIC_SIZE);
 
-    hdr->kernel_size =  kernel_size;
-    hdr->ramdisk_size = ramdisk_size;
-    hdr->second_size =  second_size;
+    hdr->kernel_size = kernel.size();
+    hdr->ramdisk_size = ramdisk.size();
+    hdr->second_size = second.size();
 
-    hdr->kernel_addr =  base + kernel_offset;
-    hdr->ramdisk_addr = base + ramdisk_offset;
-    hdr->second_addr =  base + second_offset;
-    hdr->tags_addr =    base + tags_offset;
+    hdr->kernel_addr += base;
+    hdr->ramdisk_addr += base;
+    hdr->second_addr += base;
+    hdr->tags_addr += base;
 
-    hdr->page_size =    page_size;
-
-    if (header_version) {
-        hdr->header_version = header_version;
+    if (hdr->header_version == 1) {
         hdr->header_size = sizeof(boot_img_hdr_v1);
+    } else if (hdr->header_version == 2) {
+        hdr->header_size = sizeof(boot_img_hdr_v2);
+        hdr->dtb_size = dtb.size();
+        hdr->dtb_addr += base;
     }
 
-    memcpy(hdr->magic + page_size, kernel, kernel_size);
-    memcpy(hdr->magic + page_size + kernel_actual, ramdisk, ramdisk_size);
-    memcpy(hdr->magic + page_size + kernel_actual + ramdisk_actual, second, second_size);
+    memcpy(hdr->magic + hdr->page_size, kernel.data(), kernel.size());
+    memcpy(hdr->magic + hdr->page_size + kernel_actual, ramdisk.data(), ramdisk.size());
+    memcpy(hdr->magic + hdr->page_size + kernel_actual + ramdisk_actual, second.data(),
+           second.size());
+    memcpy(hdr->magic + hdr->page_size + kernel_actual + ramdisk_actual + second_actual, dtb.data(),
+           dtb.size());
     return hdr;
 }

@@ -21,12 +21,15 @@ import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.net.Uri;
 import android.os.Parcel;
+import android.service.notification.ZenPolicy;
 import android.test.AndroidTestCase;
 
 public class AutomaticZenRuleTest extends AndroidTestCase {
 
     private final String mName = "name";
     private final ComponentName mOwner = new ComponentName("pkg", "cls");
+    private final ComponentName mConfigActivity = new ComponentName("pkg", "act");
+    private final ZenPolicy mPolicy = new ZenPolicy.Builder().allowAlarms(true).build();
     private final Uri mConditionId = new Uri.Builder().scheme("scheme")
             .authority("authority")
             .appendPath("path")
@@ -48,8 +51,8 @@ public class AutomaticZenRuleTest extends AndroidTestCase {
     }
 
     public void testWriteToParcel() {
-        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConditionId,
-                mInterruptionFilter, mEnabled);
+        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConfigActivity, mConditionId,
+                mPolicy, mInterruptionFilter, mEnabled);
         Parcel parcel = Parcel.obtain();
         rule.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
@@ -59,6 +62,8 @@ public class AutomaticZenRuleTest extends AndroidTestCase {
         assertEquals(mConditionId, rule1.getConditionId());
         assertEquals(mInterruptionFilter, rule1.getInterruptionFilter());
         assertEquals(mEnabled, rule1.isEnabled());
+        assertEquals(mPolicy, rule1.getZenPolicy());
+        assertEquals(mConfigActivity, rule1.getConfigurationActivity());
 
         rule.setName(null);
         parcel = Parcel.obtain();
@@ -74,22 +79,22 @@ public class AutomaticZenRuleTest extends AndroidTestCase {
                 .appendPath("3path")
                 .appendPath("test4")
                 .build();
-        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConditionId,
-                mInterruptionFilter, mEnabled);
+        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConfigActivity, mConditionId,
+                mPolicy, mInterruptionFilter, mEnabled);
         rule.setConditionId(newConditionId);
         assertEquals(newConditionId, rule.getConditionId());
     }
 
     public void testSetEnabled() {
-        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConditionId,
-                mInterruptionFilter, mEnabled);
+        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConfigActivity, mConditionId,
+                mPolicy, mInterruptionFilter, mEnabled);
         rule.setEnabled(!mEnabled);
         assertEquals(!mEnabled, rule.isEnabled());
     }
 
     public void testSetInterruptionFilter() {
-        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConditionId,
-                mInterruptionFilter, mEnabled);
+        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConfigActivity, mConditionId,
+                mPolicy, mInterruptionFilter, mEnabled);
         for (int i = NotificationManager.INTERRUPTION_FILTER_UNKNOWN;
              i <= NotificationManager.INTERRUPTION_FILTER_ALARMS; i++) {
             rule.setInterruptionFilter(i);
@@ -98,9 +103,27 @@ public class AutomaticZenRuleTest extends AndroidTestCase {
     }
 
     public void testSetName() {
-        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConditionId,
-                mInterruptionFilter, mEnabled);
+        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConfigActivity, mConditionId,
+                mPolicy, mInterruptionFilter, mEnabled);
         rule.setName(mName + "new");
         assertEquals(mName + "new", rule.getName());
+    }
+
+    public void testSetConfigurationActivity() {
+        ComponentName newConfigActivity = new ComponentName("pkg", "new!");
+        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConfigActivity, mConditionId,
+                mPolicy, mInterruptionFilter, mEnabled);
+        rule.setConfigurationActivity(newConfigActivity);
+        assertEquals(newConfigActivity, rule.getConfigurationActivity());
+    }
+
+    public void testCreateRuleWithZenPolicy() {
+        ZenPolicy.Builder builder = new ZenPolicy.Builder();
+        ZenPolicy policy = builder.build();
+        builder.allowAlarms(true);
+        AutomaticZenRule rule = new AutomaticZenRule(mName, mOwner, mConfigActivity, mConditionId,
+                policy, mInterruptionFilter, mEnabled);
+        assertEquals(mInterruptionFilter, rule.getInterruptionFilter());
+        assertEquals(rule.getZenPolicy(), policy);
     }
 }

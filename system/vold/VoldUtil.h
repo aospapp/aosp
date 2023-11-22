@@ -14,16 +14,11 @@
  * limitations under the License.
  */
 
-#ifndef _VOLDUTIL_H
-#define _VOLDUTIL_H
+#pragma once
 
 #include <fstab/fstab.h>
 #include <sys/cdefs.h>
 
-extern struct fstab *fstab_default;
+extern android::fs_mgr::Fstab fstab_default;
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
-
-void get_blkdev_size(int fd, unsigned long* nr_sec);
-
-#endif

@@ -16,7 +16,7 @@
 
 package com.android.car.settings.users;
 
-import android.car.user.CarUserManagerHelper;
+import android.car.userlib.CarUserManagerHelper;
 import android.content.pm.UserInfo;
 import android.os.AsyncTask;
 
@@ -34,21 +34,19 @@ public class AddNewUserTask extends AsyncTask<String, Void, UserInfo> {
 
     @Override
     protected UserInfo doInBackground(String... userNames) {
-        // Default to create a non admin user for now. Need to add logic
-        // for user to choose whether they want to create an admin or non-admin
-        // user later.
         return mCarUserManagerHelper.createNewNonAdminUser(userNames[0]);
     }
 
     @Override
-    protected void onPreExecute() {
-    }
+    protected void onPreExecute() { }
 
     @Override
     protected void onPostExecute(UserInfo user) {
-        mAddNewUserListener.onUserAdded();
         if (user != null) {
+            mAddNewUserListener.onUserAddedSuccess();
             mCarUserManagerHelper.switchToUser(user);
+        } else {
+            mAddNewUserListener.onUserAddedFailure();
         }
     }
 
@@ -57,8 +55,13 @@ public class AddNewUserTask extends AsyncTask<String, Void, UserInfo> {
      */
     public interface AddNewUserListener {
         /**
-         * Invoked in AddNewUserTask.onPostExecute after the task has been completed.
+         * Invoked in AddNewUserTask.onPostExecute after the user has been created successfully.
          */
-        void onUserAdded();
+        void onUserAddedSuccess();
+
+        /**
+         * Invoked in AddNewUserTask.onPostExecute if new user creation failed.
+         */
+        void onUserAddedFailure();
     }
 }

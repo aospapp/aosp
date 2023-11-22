@@ -19,7 +19,7 @@ package com.android.messaging.ui.conversation;
 import android.app.Activity;
 import android.app.Fragment;
 import android.database.Cursor;
-import android.support.v7.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView;
 import android.test.suitebuilder.annotation.LargeTest;
 
 import com.android.messaging.FakeFactory;
@@ -91,6 +91,9 @@ public class ConversationFragmentTest extends FragmentTestCase<ConversationFragm
         Mockito.doReturn(mockDraftMessageData)
             .when(mockDataModel)
             .createDraftMessageData(Mockito.anyString());
+        Mockito.doReturn(mockDraftMessageData)
+            .when(mockDataModel)
+            .createDraftMessageData(null);
         Mockito.when(mockDataModel.createConversationData(
                 Matchers.any(Activity.class),
                 Matchers.any(ConversationDataListener.class),

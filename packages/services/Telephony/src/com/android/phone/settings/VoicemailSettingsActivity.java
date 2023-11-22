@@ -29,7 +29,6 @@ import android.os.UserManager;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceScreen;
-import android.preference.SwitchPreference;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.Settings;
 import android.telecom.PhoneAccountHandle;
@@ -568,12 +567,12 @@ public class VoicemailSettingsActivity extends PreferenceActivity
     private boolean getBooleanCarrierConfig(String key) {
         PersistableBundle b = PhoneGlobals.getInstance()
                 .getCarrierConfigForSubId(mPhone.getSubId());
-        if (b != null) {
-            return b.getBoolean(key);
-        } else {
-            // Return static default defined in CarrierConfigManager.
-            return CarrierConfigManager.getDefaultConfig().getBoolean(key);
+
+        if (b == null) {
+            b = PhoneGlobals.getInstance().getCarrierConfig();
         }
+
+        return b.getBoolean(key);
     }
 
 

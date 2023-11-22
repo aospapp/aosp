@@ -60,6 +60,8 @@ const char *camera_metadata_section_names[ANDROID_SECTION_COUNT] = {
     [ANDROID_LOGICAL_MULTI_CAMERA] = "android.logicalMultiCamera",
     [ANDROID_DISTORTION_CORRECTION]
                                     = "android.distortionCorrection",
+    [ANDROID_HEIC]                 = "android.heic",
+    [ANDROID_HEIC_INFO]            = "android.heic.info",
 };
 
 unsigned int camera_metadata_section_bounds[ANDROID_SECTION_COUNT][2] = {
@@ -120,6 +122,10 @@ unsigned int camera_metadata_section_bounds[ANDROID_SECTION_COUNT][2] = {
     [ANDROID_DISTORTION_CORRECTION]
                                     = { ANDROID_DISTORTION_CORRECTION_START,
                                        ANDROID_DISTORTION_CORRECTION_END },
+    [ANDROID_HEIC]                 = { ANDROID_HEIC_START,
+                                       ANDROID_HEIC_END },
+    [ANDROID_HEIC_INFO]            = { ANDROID_HEIC_INFO_START,
+                                       ANDROID_HEIC_INFO_END },
 };
 
 static tag_info_t android_color_correction[ANDROID_COLOR_CORRECTION_END -
@@ -417,6 +423,9 @@ static tag_info_t android_request[ANDROID_REQUEST_END -
     [ ANDROID_REQUEST_AVAILABLE_PHYSICAL_CAMERA_REQUEST_KEYS - ANDROID_REQUEST_START ] =
     { "availablePhysicalCameraRequestKeys",
                                         TYPE_INT32  },
+    [ ANDROID_REQUEST_CHARACTERISTIC_KEYS_NEEDING_PERMISSION - ANDROID_REQUEST_START ] =
+    { "characteristicKeysNeedingPermission",
+                                        TYPE_INT32  },
 };
 
 static tag_info_t android_scaler[ANDROID_SCALER_END -
@@ -451,6 +460,12 @@ static tag_info_t android_scaler[ANDROID_SCALER_END -
     { "availableStallDurations",       TYPE_INT64  },
     [ ANDROID_SCALER_CROPPING_TYPE - ANDROID_SCALER_START ] =
     { "croppingType",                  TYPE_BYTE   },
+    [ ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS - ANDROID_SCALER_START ] =
+    { "availableRecommendedStreamConfigurations",
+                                        TYPE_INT32  },
+    [ ANDROID_SCALER_AVAILABLE_RECOMMENDED_INPUT_OUTPUT_FORMATS_MAP - ANDROID_SCALER_START ] =
+    { "availableRecommendedInputOutputFormatsMap",
+                                        TYPE_INT32  },
 };
 
 static tag_info_t android_sensor[ANDROID_SENSOR_END -
@@ -666,6 +681,9 @@ static tag_info_t android_info[ANDROID_INFO_END -
     { "supportedHardwareLevel",        TYPE_BYTE   },
     [ ANDROID_INFO_VERSION - ANDROID_INFO_START ] =
     { "version",                       TYPE_BYTE   },
+    [ ANDROID_INFO_SUPPORTED_BUFFER_MANAGEMENT_VERSION - ANDROID_INFO_START ] =
+    { "supportedBufferManagementVersion",
+                                        TYPE_BYTE   },
 };
 
 static tag_info_t android_black_level[ANDROID_BLACK_LEVEL_END -
@@ -704,6 +722,18 @@ static tag_info_t android_depth[ANDROID_DEPTH_END -
     { "availableDepthStallDurations",  TYPE_INT64  },
     [ ANDROID_DEPTH_DEPTH_IS_EXCLUSIVE - ANDROID_DEPTH_START ] =
     { "depthIsExclusive",              TYPE_BYTE   },
+    [ ANDROID_DEPTH_AVAILABLE_RECOMMENDED_DEPTH_STREAM_CONFIGURATIONS - ANDROID_DEPTH_START ] =
+    { "availableRecommendedDepthStreamConfigurations",
+                                        TYPE_INT32  },
+    [ ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STREAM_CONFIGURATIONS - ANDROID_DEPTH_START ] =
+    { "availableDynamicDepthStreamConfigurations",
+                                        TYPE_INT32  },
+    [ ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_MIN_FRAME_DURATIONS - ANDROID_DEPTH_START ] =
+    { "availableDynamicDepthMinFrameDurations",
+                                        TYPE_INT64  },
+    [ ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STALL_DURATIONS - ANDROID_DEPTH_START ] =
+    { "availableDynamicDepthStallDurations",
+                                        TYPE_INT64  },
 };
 
 static tag_info_t android_logical_multi_camera[ANDROID_LOGICAL_MULTI_CAMERA_END -
@@ -712,6 +742,8 @@ static tag_info_t android_logical_multi_camera[ANDROID_LOGICAL_MULTI_CAMERA_END 
     { "physicalIds",                   TYPE_BYTE   },
     [ ANDROID_LOGICAL_MULTI_CAMERA_SENSOR_SYNC_TYPE - ANDROID_LOGICAL_MULTI_CAMERA_START ] =
     { "sensorSyncType",                TYPE_BYTE   },
+    [ ANDROID_LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID - ANDROID_LOGICAL_MULTI_CAMERA_START ] =
+    { "activePhysicalId",              TYPE_BYTE   },
 };
 
 static tag_info_t android_distortion_correction[ANDROID_DISTORTION_CORRECTION_END -
@@ -720,6 +752,26 @@ static tag_info_t android_distortion_correction[ANDROID_DISTORTION_CORRECTION_EN
     { "mode",                          TYPE_BYTE   },
     [ ANDROID_DISTORTION_CORRECTION_AVAILABLE_MODES - ANDROID_DISTORTION_CORRECTION_START ] =
     { "availableModes",                TYPE_BYTE   },
+};
+
+static tag_info_t android_heic[ANDROID_HEIC_END -
+        ANDROID_HEIC_START] = {
+    [ ANDROID_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS - ANDROID_HEIC_START ] =
+    { "availableHeicStreamConfigurations",
+                                        TYPE_INT32  },
+    [ ANDROID_HEIC_AVAILABLE_HEIC_MIN_FRAME_DURATIONS - ANDROID_HEIC_START ] =
+    { "availableHeicMinFrameDurations",
+                                        TYPE_INT64  },
+    [ ANDROID_HEIC_AVAILABLE_HEIC_STALL_DURATIONS - ANDROID_HEIC_START ] =
+    { "availableHeicStallDurations",   TYPE_INT64  },
+};
+
+static tag_info_t android_heic_info[ANDROID_HEIC_INFO_END -
+        ANDROID_HEIC_INFO_START] = {
+    [ ANDROID_HEIC_INFO_SUPPORTED - ANDROID_HEIC_INFO_START ] =
+    { "supported",                     TYPE_BYTE   },
+    [ ANDROID_HEIC_INFO_MAX_JPEG_APP_SEGMENTS_COUNT - ANDROID_HEIC_INFO_START ] =
+    { "maxJpegAppSegmentsCount",       TYPE_BYTE   },
 };
 
 
@@ -752,6 +804,27 @@ tag_info_t *tag_info[ANDROID_SECTION_COUNT] = {
     android_depth,
     android_logical_multi_camera,
     android_distortion_correction,
+    android_heic,
+    android_heic_info,
+};
+
+static int32_t tag_permission_needed[16] = {
+    ANDROID_LENS_POSE_ROTATION,
+    ANDROID_LENS_POSE_TRANSLATION,
+    ANDROID_LENS_INTRINSIC_CALIBRATION,
+    ANDROID_LENS_RADIAL_DISTORTION,
+    ANDROID_LENS_POSE_REFERENCE,
+    ANDROID_LENS_DISTORTION,
+    ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
+    ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
+    ANDROID_SENSOR_REFERENCE_ILLUMINANT1,
+    ANDROID_SENSOR_REFERENCE_ILLUMINANT2,
+    ANDROID_SENSOR_CALIBRATION_TRANSFORM1,
+    ANDROID_SENSOR_CALIBRATION_TRANSFORM2,
+    ANDROID_SENSOR_COLOR_TRANSFORM1,
+    ANDROID_SENSOR_COLOR_TRANSFORM2,
+    ANDROID_SENSOR_FORWARD_MATRIX1,
+    ANDROID_SENSOR_FORWARD_MATRIX2,
 };
 
 int camera_metadata_enum_snprint(uint32_t tag,
@@ -1930,6 +2003,10 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     msg = "MONOCHROME";
                     ret = 0;
                     break;
+                case ANDROID_REQUEST_AVAILABLE_CAPABILITIES_SECURE_IMAGE_DATA:
+                    msg = "SECURE_IMAGE_DATA";
+                    ret = 0;
+                    break;
                 default:
                     msg = "error: enum value out of range";
             }
@@ -1948,6 +2025,9 @@ int camera_metadata_enum_snprint(uint32_t tag,
             break;
         }
         case ANDROID_REQUEST_AVAILABLE_PHYSICAL_CAMERA_REQUEST_KEYS: {
+            break;
+        }
+        case ANDROID_REQUEST_CHARACTERISTIC_KEYS_NEEDING_PERMISSION: {
             break;
         }
 
@@ -1982,6 +2062,18 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     break;
                 case ANDROID_SCALER_AVAILABLE_FORMATS_BLOB:
                     msg = "BLOB";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_FORMATS_RAW10:
+                    msg = "RAW10";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_FORMATS_RAW12:
+                    msg = "RAW12";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_FORMATS_Y8:
+                    msg = "Y8";
                     ret = 0;
                     break;
                 default:
@@ -2047,6 +2139,52 @@ int camera_metadata_enum_snprint(uint32_t tag,
                 default:
                     msg = "error: enum value out of range";
             }
+            break;
+        }
+        case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS: {
+            switch (value) {
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_PREVIEW:
+                    msg = "PREVIEW";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_RECORD:
+                    msg = "RECORD";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_VIDEO_SNAPSHOT:
+                    msg = "VIDEO_SNAPSHOT";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_SNAPSHOT:
+                    msg = "SNAPSHOT";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_ZSL:
+                    msg = "ZSL";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_RAW:
+                    msg = "RAW";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_LOW_LATENCY_SNAPSHOT:
+                    msg = "LOW_LATENCY_SNAPSHOT";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_PUBLIC_END:
+                    msg = "PUBLIC_END";
+                    ret = 0;
+                    break;
+                case ANDROID_SCALER_AVAILABLE_RECOMMENDED_STREAM_CONFIGURATIONS_VENDOR_START:
+                    msg = "VENDOR_START";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_SCALER_AVAILABLE_RECOMMENDED_INPUT_OUTPUT_FORMATS_MAP: {
             break;
         }
 
@@ -2278,6 +2416,14 @@ int camera_metadata_enum_snprint(uint32_t tag,
                     break;
                 case ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGB:
                     msg = "RGB";
+                    ret = 0;
+                    break;
+                case ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_MONO:
+                    msg = "MONO";
+                    ret = 0;
+                    break;
+                case ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_NIR:
+                    msg = "NIR";
                     ret = 0;
                     break;
                 default:
@@ -2662,6 +2808,17 @@ int camera_metadata_enum_snprint(uint32_t tag,
         case ANDROID_INFO_VERSION: {
             break;
         }
+        case ANDROID_INFO_SUPPORTED_BUFFER_MANAGEMENT_VERSION: {
+            switch (value) {
+                case ANDROID_INFO_SUPPORTED_BUFFER_MANAGEMENT_VERSION_HIDL_DEVICE_3_5:
+                    msg = "HIDL_DEVICE_3_5";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
 
         case ANDROID_BLACK_LEVEL_LOCK: {
             switch (value) {
@@ -2756,6 +2913,30 @@ int camera_metadata_enum_snprint(uint32_t tag,
             }
             break;
         }
+        case ANDROID_DEPTH_AVAILABLE_RECOMMENDED_DEPTH_STREAM_CONFIGURATIONS: {
+            break;
+        }
+        case ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STREAM_CONFIGURATIONS: {
+            switch (value) {
+                case ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STREAM_CONFIGURATIONS_OUTPUT:
+                    msg = "OUTPUT";
+                    ret = 0;
+                    break;
+                case ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STREAM_CONFIGURATIONS_INPUT:
+                    msg = "INPUT";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_MIN_FRAME_DURATIONS: {
+            break;
+        }
+        case ANDROID_DEPTH_AVAILABLE_DYNAMIC_DEPTH_STALL_DURATIONS: {
+            break;
+        }
 
         case ANDROID_LOGICAL_MULTI_CAMERA_PHYSICAL_IDS: {
             break;
@@ -2773,6 +2954,9 @@ int camera_metadata_enum_snprint(uint32_t tag,
                 default:
                     msg = "error: enum value out of range";
             }
+            break;
+        }
+        case ANDROID_LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID: {
             break;
         }
 
@@ -2796,6 +2980,47 @@ int camera_metadata_enum_snprint(uint32_t tag,
             break;
         }
         case ANDROID_DISTORTION_CORRECTION_AVAILABLE_MODES: {
+            break;
+        }
+
+        case ANDROID_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS: {
+            switch (value) {
+                case ANDROID_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS_OUTPUT:
+                    msg = "OUTPUT";
+                    ret = 0;
+                    break;
+                case ANDROID_HEIC_AVAILABLE_HEIC_STREAM_CONFIGURATIONS_INPUT:
+                    msg = "INPUT";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_HEIC_AVAILABLE_HEIC_MIN_FRAME_DURATIONS: {
+            break;
+        }
+        case ANDROID_HEIC_AVAILABLE_HEIC_STALL_DURATIONS: {
+            break;
+        }
+
+        case ANDROID_HEIC_INFO_SUPPORTED: {
+            switch (value) {
+                case ANDROID_HEIC_INFO_SUPPORTED_FALSE:
+                    msg = "FALSE";
+                    ret = 0;
+                    break;
+                case ANDROID_HEIC_INFO_SUPPORTED_TRUE:
+                    msg = "TRUE";
+                    ret = 0;
+                    break;
+                default:
+                    msg = "error: enum value out of range";
+            }
+            break;
+        }
+        case ANDROID_HEIC_INFO_MAX_JPEG_APP_SEGMENTS_COUNT: {
             break;
         }
 

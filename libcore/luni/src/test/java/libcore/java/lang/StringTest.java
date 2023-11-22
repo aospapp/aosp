@@ -781,4 +781,18 @@ public class StringTest extends TestCase {
             fail();
         } catch (NullPointerException expected) {}
     }
+
+    /**
+     * Check that String.format() does not throw when the default locale is invalid.
+     * http://b/129070579
+     */
+    public void testFormat_invalidLocale() {
+        Locale defaultLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(new Locale("invalidLocale"));
+            String.format("%s", "");
+        } finally {
+            Locale.setDefault(defaultLocale);
+        }
+    }
 }

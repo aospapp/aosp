@@ -35,10 +35,9 @@ public class BaseLauncherAppsTest extends BaseDevicePolicyTest {
             "com.android.cts.launchertests.support";
     protected static final String LAUNCHER_TESTS_SUPPORT_APK = "CtsLauncherAppsTestsSupport.apk";
 
-    protected void installTestApps() throws Exception {
-        uninstallTestApps();
-        installAppAsUser(LAUNCHER_TESTS_APK, mPrimaryUserId);
-        installAppAsUser(LAUNCHER_TESTS_SUPPORT_APK, mPrimaryUserId);
+    protected void installTestApps(int userId) throws Exception {
+        installAppAsUser(LAUNCHER_TESTS_APK, userId);
+        installAppAsUser(LAUNCHER_TESTS_SUPPORT_APK, userId);
     }
 
     protected void uninstallTestApps() throws Exception {
@@ -47,8 +46,8 @@ public class BaseLauncherAppsTest extends BaseDevicePolicyTest {
         getDevice().uninstallPackage(SIMPLE_APP_PKG);
     }
 
-    protected void startCallbackService() throws Exception {
-        String command = "am startservice --user " + mPrimaryUserId
+    protected void startCallbackService(int userId) throws Exception {
+        String command = "am startservice --user " + userId
                 + " -a " + LAUNCHER_TESTS_SUPPORT_PKG + ".REGISTER_CALLBACK "
                 + LAUNCHER_TESTS_SUPPORT_PKG + "/.LauncherCallbackTestsService";
         CLog.d("Output for command " + command + ": " + getDevice().executeShellCommand(command));

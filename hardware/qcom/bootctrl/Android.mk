@@ -1,6 +1,11 @@
+# Preset TARGET_USES_HARDWARE_QCOM_BOOTCTRL for existing platforms.
+ifneq ($(filter msm8996 msm8998 sdm710,$(TARGET_BOARD_PLATFORM)),)
+TARGET_USES_HARDWARE_QCOM_BOOTCTRL := true
+endif
+
+ifeq ($(strip $(TARGET_USES_HARDWARE_QCOM_BOOTCTRL)),true)
 # TODO:  Find a better way to separate build configs for ADP vs non-ADP devices
 ifneq ($(BOARD_IS_AUTOMOTIVE),true)
-ifneq ($(filter msm8996 msm8998 sdm845,$(TARGET_BOARD_PLATFORM)),)
 LOCAL_PATH := $(call my-dir)
 
 # HAL Shared library for the target. Used by libhardware.

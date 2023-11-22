@@ -65,6 +65,9 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
         "/odm/{LIB}/hw", "/odm/{LIB}/egl", "/odm/{LIB}",
         "/vendor/{LIB}/hw", "/vendor/{LIB}/egl", "/vendor/{LIB}"
     ]
+    _DEFAULT_PROGRAM_INTERPRETERS = [
+        "/system/bin/linker", "/system/bin/linker64"
+    ]
 
     class ElfObject(object):
         """Contains dependencies of an ELF file on target device.
@@ -108,11 +111,7 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
 
         sp_hal_strings = vndk_lists[0]
         self._sp_hal = [re.compile(x) for x in sp_hal_strings]
-        (self._ll_ndk,
-         self._vndk,
-         self._vndk_sp) = (
-            set(path_utils.TargetBaseName(path) for path in vndk_list)
-            for vndk_list in vndk_lists[1:])
+        (self._ll_ndk, self._vndk, self._vndk_sp) = vndk_lists[1:]
 
         logging.debug("LL_NDK: %s", self._ll_ndk)
         logging.debug("SP_HAL: %s", sp_hal_strings)
@@ -123,6 +122,79 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
         """Deletes the temporary directory."""
         logging.info("Delete %s", self._temp_dir)
         shutil.rmtree(self._temp_dir)
+
+    def _IsElfObjectForAp(self, elf, target_path, abi_list):
+        """Checks whether an ELF object is for application processor.
+
+        Args:
+            elf: The object of elf_parser.ElfParser.
+            target_path: The path to the ELF file on target.
+            abi_list: A list of strings, the ABIs of the application processor.
+
+        Returns:
+            A boolean, whether the ELF object is for application processor.
+        """
+        if not any(elf.MatchCpuAbi(x) for x in abi_list):
+            logging.debug("%s does not match the ABI", target_path)
+            return False
+
+        # b/115567177 Skip an ELF file if it meets the following 3 conditions:
+        # The ELF type is executable.
+        if not elf.IsExecutable():
+            return True
+
+        # It requires special program interpreter.
+        interp = elf.GetProgramInterpreter()
+        if not interp or interp in self._DEFAULT_PROGRAM_INTERPRETERS:
+            return True
+
+        # It does not have execute permission in the file system.
+        permissions = target_file_utils.GetPermission(target_path,
+                                                      self._dut.shell)
+        if target_file_utils.IsExecutable(permissions):
+            return True
+
+        return False
+
+    def _IsElfObjectBuiltForAndroid(self, elf, target_path):
+        """Checks whether an ELF object is built for Android.
+
+        Some ELF objects in vendor partition require special program
+        interpreters. Such executable files have .interp sections, but shared
+        libraries don't. As there is no reliable way to identify those
+        libraries. This method checks .note.android.ident section which is
+        created by Android build system.
+
+        Args:
+            elf: The object of elf_parser.ElfParser.
+            target_path: The path to the ELF file on target.
+
+        Returns:
+            A boolean, whether the ELF object is built for Android.
+        """
+        # b/133399940 Skip an ELF file if it does not have .note.android.ident
+        # section and meets one of the following conditions:
+        if elf.HasAndroidIdent():
+            return True
+
+        # It's in the specific directory and is a shared library.
+        if (target_path.startswith("/vendor/arib/lib/") and
+                ".so" in target_path and
+                elf.IsSharedObject()):
+            return False
+
+        # It's in the specific directory, requires special program interpreter,
+        # and is executable.
+        if target_path.startswith("/vendor/arib/bin/"):
+            interp = elf.GetProgramInterpreter()
+            if interp and interp not in self._DEFAULT_PROGRAM_INTERPRETERS:
+                permissions = target_file_utils.GetPermission(target_path,
+                                                              self._dut.shell)
+                if (elf.IsExecutable() or
+                        target_file_utils.IsExecutable(permissions)):
+                    return False
+
+        return True
 
     def _LoadElfObjects(self, host_dir, target_dir, abi_list,
                         elf_error_handler):
@@ -150,11 +222,15 @@ class VtsVndkDependencyTest(base_test.BaseTestClass):
             except elf_parser.ElfError:
                 logging.debug("%s is not an ELF file", target_path)
                 continue
-            if not any(elf.MatchCpuAbi(x) for x in abi_list):
-                logging.debug("%s does not match the ABI", target_path)
-                elf.Close()
-                continue
             try:
+                if not self._IsElfObjectForAp(elf, target_path, abi_list):
+                    logging.info("%s is not for application processor",
+                                 target_path)
+                    continue
+                if not self._IsElfObjectBuiltForAndroid(elf, target_path):
+                    logging.info("%s is not built for Android", target_path)
+                    continue
+
                 deps = elf.ListDependencies()
             except elf_parser.ElfError as e:
                 elf_error_handler(target_path, e)

@@ -272,7 +272,7 @@ public class SendersFormattingTests extends AndroidTestCase {
             final Map<String, Object> map = new HashMap<>(2);
             map.put(UIProvider.AccountColumns.NAME, "Fred Flintstone");
             map.put(UIProvider.AccountColumns.ACCOUNT_MANAGER_NAME, "fflintstone@example.com");
-            map.put(UIProvider.AccountColumns.TYPE, "IMAP");
+            map.put(UIProvider.AccountColumns.TYPE, "POP3");
             map.put(UIProvider.AccountColumns.PROVIDER_VERSION, 1);
             map.put(UIProvider.AccountColumns.CAPABILITIES, 0);
 

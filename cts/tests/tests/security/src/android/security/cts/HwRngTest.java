@@ -16,6 +16,7 @@
 
 package android.security.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.SecurityTest;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
@@ -73,6 +74,9 @@ public class HwRngTest extends CtsAndroidTestCase {
      * Asserts that the {@code /dev/hw_random} device is configured in an acceptable way or is not
      * present at all.
      */
+    // the /sys files necessary for this test to pass are not
+    // accessible to instant apps, hence AppModeFull
+    @AppModeFull
     public void testConfigurationIfFilePresent() throws Exception {
         if (!DEV_HW_RANDOM.exists()) {
             // The device is not present

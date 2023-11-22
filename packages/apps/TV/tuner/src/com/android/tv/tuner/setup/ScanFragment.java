@@ -37,21 +37,21 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import com.android.tv.common.SoftPreconditions;
 import com.android.tv.common.ui.setup.SetupFragment;
-import com.android.tv.tuner.ChannelScanFileParser;
 import com.android.tv.tuner.R;
-import com.android.tv.tuner.TunerHal;
-import com.android.tv.tuner.TunerPreferences;
+import com.android.tv.tuner.api.ScanChannel;
+import com.android.tv.tuner.api.Tuner;
 import com.android.tv.tuner.data.PsipData;
 import com.android.tv.tuner.data.TunerChannel;
 import com.android.tv.tuner.data.nano.Channel;
 
 
+import com.android.tv.tuner.prefs.TunerPreferences;
 import com.android.tv.tuner.source.FileTsStreamer;
 import com.android.tv.tuner.source.TsDataSource;
 import com.android.tv.tuner.source.TsStreamer;
 import com.android.tv.tuner.source.TunerTsStreamer;
-import com.android.tv.tuner.tvinput.ChannelDataManager;
-import com.android.tv.tuner.tvinput.EventDetector;
+import com.android.tv.tuner.ts.EventDetector;
+import com.android.tv.tuner.tvinput.datamanager.ChannelDataManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -99,7 +99,7 @@ public class ScanFragment extends SetupFragment {
         if (DEBUG) Log.d(TAG, "onCreateView");
         View view = super.onCreateView(inflater, container, savedInstanceState);
         mChannelNumbers = new ArrayList<>();
-        mChannelDataManager = new ChannelDataManager(getActivity());
+        mChannelDataManager = new ChannelDataManager(getActivity().getApplicationContext());
         mChannelDataManager.checkDataVersion(getActivity());
         mAdapter = new ChannelAdapter();
         mProgressBar = (ProgressBar) view.findViewById(R.id.tune_progress);
@@ -126,10 +126,10 @@ public class ScanFragment extends SetupFragment {
         startScan(args == null ? 0 : args.getInt(EXTRA_FOR_CHANNEL_SCAN_FILE, 0));
         TextView scanTitleView = (TextView) view.findViewById(R.id.tune_title);
         switch (tunerType) {
-            case TunerHal.TUNER_TYPE_USB:
+            case Tuner.TUNER_TYPE_USB:
                 scanTitleView.setText(R.string.ut_channel_scan);
                 break;
-            case TunerHal.TUNER_TYPE_NETWORK:
+            case Tuner.TUNER_TYPE_NETWORK:
                 scanTitleView.setText(R.string.nt_channel_scan);
                 break;
             default:
@@ -176,12 +176,9 @@ public class ScanFragment extends SetupFragment {
             // Notifies a user of waiting to finish the scanning process.
             new Handler()
                     .postDelayed(
-                            new Runnable() {
-                                @Override
-                                public void run() {
-                                    if (mChannelScanTask != null) {
-                                        mChannelScanTask.showFinishingProgressDialog();
-                                    }
+                            () -> {
+                                if (mChannelScanTask != null) {
+                                    mChannelScanTask.showFinishingProgressDialog();
                                 }
                             },
                             SHOW_PROGRESS_DIALOG_DELAY_MS);
@@ -248,7 +245,7 @@ public class ScanFragment extends SetupFragment {
     }
 
     private class ChannelScanTask extends AsyncTask<Void, Integer, Void>
-            implements EventDetector.EventListener, ChannelDataManager.ChannelScanListener {
+            implements EventDetector.EventListener, ChannelDataManager.ChannelHandlingDoneListener {
         private static final int MAX_PROGRESS = 100;
 
         private final Activity mActivity;
@@ -257,7 +254,7 @@ public class ScanFragment extends SetupFragment {
         private final TsStreamer mFileTsStreamer;
         private final ConditionVariable mConditionStopped;
 
-        private final List<ChannelScanFileParser.ScanChannel> mScanChannelList = new ArrayList<>();
+        private final List<ScanChannel> mScanChannelList = new ArrayList<>();
         private boolean mIsCanceled;
         private boolean mIsFinished;
         private ProgressDialog mFinishingProgressDialog;
@@ -269,7 +266,7 @@ public class ScanFragment extends SetupFragment {
             if (FAKE_MODE) {
                 mScanTsStreamer = new FakeTsStreamer(this);
             } else {
-                TunerHal hal = ((BaseTunerSetupActivity) mActivity).getTunerHal();
+                Tuner hal = ((BaseTunerSetupActivity) mActivity).getTunerHal();
                 if (hal == null) {
                     throw new RuntimeException("Failed to open a DVB device");
                 }
@@ -282,41 +279,35 @@ public class ScanFragment extends SetupFragment {
 
         private void maybeSetChannelListVisible() {
             mActivity.runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            int channelsFound = mAdapter.getCount();
-                            if (!mChannelListVisible && channelsFound > 0) {
-                                String format =
-                                        getResources()
-                                                .getQuantityString(
-                                                        R.plurals.ut_channel_scan_message,
-                                                        channelsFound,
-                                                        channelsFound);
-                                mScanningMessage.setText(String.format(format, channelsFound));
-                                mChannelHolder.setVisibility(View.VISIBLE);
-                                mChannelListVisible = true;
-                            }
+                    () -> {
+                        int channelsFound = mAdapter.getCount();
+                        if (!mChannelListVisible && channelsFound > 0) {
+                            String format =
+                                    getResources()
+                                            .getQuantityString(
+                                                    R.plurals.ut_channel_scan_message,
+                                                    channelsFound,
+                                                    channelsFound);
+                            mScanningMessage.setText(String.format(format, channelsFound));
+                            mChannelHolder.setVisibility(View.VISIBLE);
+                            mChannelListVisible = true;
                         }
                     });
         }
 
         private void addChannel(final TunerChannel channel) {
             mActivity.runOnUiThread(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            mAdapter.add(channel);
-                            if (mChannelListVisible) {
-                                int channelsFound = mAdapter.getCount();
-                                String format =
-                                        getResources()
-                                                .getQuantityString(
-                                                        R.plurals.ut_channel_scan_message,
-                                                        channelsFound,
-                                                        channelsFound);
-                                mScanningMessage.setText(String.format(format, channelsFound));
-                            }
+                    () -> {
+                        mAdapter.add(channel);
+                        if (mChannelListVisible) {
+                            int channelsFound = mAdapter.getCount();
+                            String format =
+                                    getResources()
+                                            .getQuantityString(
+                                                    R.plurals.ut_channel_scan_message,
+                                                    channelsFound,
+                                                    channelsFound);
+                            mScanningMessage.setText(String.format(format, channelsFound));
                         }
                     });
         }
@@ -366,7 +357,7 @@ public class ScanFragment extends SetupFragment {
 
             long startMs = System.currentTimeMillis();
             int i = 1;
-            for (ChannelScanFileParser.ScanChannel scanChannel : mScanChannelList) {
+            for (ScanChannel scanChannel : mScanChannelList) {
                 int frequency = scanChannel.frequency;
                 String modulation = scanChannel.modulation;
                 Log.i(TAG, "Tuning to " + frequency + " " + modulation);
@@ -403,7 +394,7 @@ public class ScanFragment extends SetupFragment {
             if (DEBUG) Log.i(TAG, "Channel scan ended");
         }
 
-        private void addChannelsWithoutVct(ChannelScanFileParser.ScanChannel scanChannel) {
+        private void addChannelsWithoutVct(ScanChannel scanChannel) {
             if (scanChannel.radioFrequencyNumber == null
                     || !(mScanTsStreamer instanceof TunerTsStreamer)) {
                 return;
@@ -515,7 +506,7 @@ public class ScanFragment extends SetupFragment {
         }
 
         @Override
-        public boolean startStream(ChannelScanFileParser.ScanChannel channel) {
+        public boolean startStream(ScanChannel channel) {
             if (++mProgramNumber % 2 == 1) {
                 return true;
             }

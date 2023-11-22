@@ -18,14 +18,21 @@ package android.content.cts;
 
 import static org.junit.Assert.fail;
 
+import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.content.Intent;
+import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.UiDevice;
+import android.support.test.uiautomator.Until;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -37,7 +44,19 @@ import java.util.Calendar;
  */
 @SmallTest
 @RunWith(AndroidJUnit4.class)
+//@AppModeFull // TODO(Instant) Should clip board data be visible?
 public class ClipDescriptionTest {
+    private UiDevice mUiDevice;
+    private Context mContext;
+
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        mUiDevice.wakeUp();
+        launchActivity(MockActivity.class);
+    }
+
     @UiThreadTest
     @Test
     public void testGetTimestamp() {
@@ -72,5 +91,13 @@ public class ClipDescriptionTest {
         } else {
             return Long.toString(millis);
         }
+    }
+
+    private void launchActivity(Class<? extends Activity> clazz) {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setClassName(mContext.getPackageName(), clazz.getName());
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+        mUiDevice.wait(Until.hasObject(By.clazz(clazz)), 5000);
     }
 }

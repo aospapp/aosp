@@ -8,3 +8,4 @@
 gen/
 *.iml
 *.class
+*.sw*

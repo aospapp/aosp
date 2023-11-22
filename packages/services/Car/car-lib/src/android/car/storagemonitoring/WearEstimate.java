@@ -21,10 +21,12 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.JsonReader;
 import android.util.JsonWriter;
-import java.io.IOException;
-import java.util.Objects;
+
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Wear-out information for flash storage.
@@ -38,7 +40,7 @@ import org.json.JSONObject;
  * @hide
  */
 @SystemApi
-public class WearEstimate implements Parcelable {
+public final class WearEstimate implements Parcelable {
     public static final int UNKNOWN = -1;
 
     /** @hide */
@@ -83,6 +85,9 @@ public class WearEstimate implements Parcelable {
         typeB = validateWearValue(in.readInt());
     }
 
+    /**
+     * @hide
+     */
     public WearEstimate(JsonReader in) throws IOException {
         int typeA = UNKNOWN;
         int typeB = UNKNOWN;
@@ -119,6 +124,9 @@ public class WearEstimate implements Parcelable {
         dest.writeInt(typeB);
     }
 
+    /**
+     * @hide
+     */
     public void writeToJson(JsonWriter jsonWriter) throws IOException {
         jsonWriter.beginObject();
         jsonWriter.name("wearEstimateTypeA").value(typeA);

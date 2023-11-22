@@ -20,9 +20,6 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 
 public interface InputCallback {
-    public void onKeyEvent(KeyEvent ev);
-    public void onMotionEvent(MotionEvent ev);
-    public void onInputDeviceAdded(int deviceId);
-    public void onInputDeviceRemoved(int deviceId);
-    public void onInputDeviceChanged(int deviceId);
+    void onKeyEvent(KeyEvent ev);
+    void onMotionEvent(MotionEvent ev);
 }

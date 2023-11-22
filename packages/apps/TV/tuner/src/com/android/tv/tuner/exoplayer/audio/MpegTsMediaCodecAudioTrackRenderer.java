@@ -69,13 +69,7 @@ public class MpegTsMediaCodecAudioTrackRenderer extends MediaCodecAudioTrackRend
 
     private void notifyAudioTrackSetPlaybackParamsError(final IllegalArgumentException e) {
         if (eventHandler != null && mListener != null) {
-            eventHandler.post(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            mListener.onAudioTrackSetPlaybackParamsError(e);
-                        }
-                    });
+            eventHandler.post(() -> mListener.onAudioTrackSetPlaybackParamsError(e));
         }
     }
 

@@ -28,33 +28,27 @@ fun printUsage() {
     println("""
 Usage: hidl-doc [-i path]
  -i=path  Add input HAL file or directory to parse
- -o=dir   Output directory of generated HTML [${config.outDir}]
+ -o=dir   Output directory of generated HTML
  -x=path  Exclude file or directory from files to parse
  -v       Verbose mode, print parsing info
  -h       Print this help and exit
  Error modes:
  -w       Warn on errors instead of exiting
  -l       Lint. Warn-only and do not generate files
- -e       Error and exit on warnings
- -s       Skip files that encounter parse errors
 """.trim())
 }
 
 object config {
     val files = mutableListOf<File>()
-    var outDir = toPath("~/out/hidl-doc/html")
+    lateinit var outDir: Path
     var verbose = false
     var lintMode = false
     var warnOnly = false
-    var errorOnly = false
-    var skipError = false
 
     override fun toString(): String {
         return """
 verbose: $verbose
 warnOnly: $warnOnly
-errorOnly: $errorOnly
-skipError: $skipError
 outDir: $outDir
 files: $files
 """
@@ -71,26 +65,24 @@ files: $files
         val dirPathArgs = mutableListOf<Path>()
         val filePathArgs = mutableListOf<Path>()
         val excludedPathArgs = mutableListOf<Path>()
+        var maybeOutDir: Path? = null
 
         val iter = args.iterator()
-        var arg: String
 
         //parse command-line arguments
         while (iter.hasNext()) {
-            arg = iter.next()
+            var arg = iter.next()
 
             when (arg) {
                 "-i" -> {
-                    val path = toPath(iter.next())
+                    val path = Paths.get(iter.next())
                     if (Files.isDirectory(path)) dirPathArgs.add(path) else filePathArgs.add(path)
                 }
-                "-x" -> excludedPathArgs.add(toPath(iter.next()).toAbsolutePath())
-                "-o" -> outDir = toPath(iter.next())
+                "-x" -> excludedPathArgs.add(Paths.get(iter.next()).toAbsolutePath())
+                "-o" -> maybeOutDir = Paths.get(iter.next())
                 "-v" -> verbose = true
                 "-l" -> { lintMode = true; warnOnly = true }
                 "-w" -> warnOnly = true
-                "-e" -> errorOnly = true
-                "-s" -> skipError = true
                 "-h" -> {
                     printUsage()
                     exitProcess(0)
@@ -102,6 +94,12 @@ files: $files
                 }
             }
         }
+
+        if (maybeOutDir == null) {
+            System.err.println("Error: No output directory supplied (-o)")
+            exitProcess(1)
+        }
+        outDir = maybeOutDir
 
         //collect files (explicitly passed and search directories)
         val allFiles = mutableListOf<File>()
@@ -147,10 +145,5 @@ files: $files
                         files.add(fp)
                     }
                 }
-    }
-
-    private fun toPath(string: String): Path {
-        //replace shell expansion for HOME
-        return Paths.get(string.replaceFirst("~", System.getProperty("user.home")))
     }
 }

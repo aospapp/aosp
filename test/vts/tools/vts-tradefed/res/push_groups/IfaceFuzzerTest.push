@@ -30,3 +30,6 @@ DATA/asan/system/lib64/libvts_proto_fuzzer.so->/data/local/tmp/64/libvts_proto_f
 
 DATA/asan/system/lib/libvts_proto_fuzzer_proto.so->/data/local/tmp/32/libvts_proto_fuzzer_proto.so
 DATA/asan/system/lib64/libvts_proto_fuzzer_proto.so->/data/local/tmp/64/libvts_proto_fuzzer_proto.so
+
+DATA/bin/vts_hal_agent32->/data/local/tmp/32/vts_hal_agent32
+DATA/bin/vts_hal_agent64->/data/local/tmp/64/vts_hal_agent64

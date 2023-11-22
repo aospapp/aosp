@@ -41,6 +41,7 @@ cc_defaults {
         "ti_field.cc",
         "ti_heap.cc",
         "ti_jni.cc",
+        "ti_logging.cc",
         "ti_method.cc",
         "ti_monitor.cc",
         "ti_object.cc",
@@ -71,6 +72,7 @@ art_cc_library {
         "libart-compiler",
         "libart-dexlayout",
         "libdexfile",
+        "libartbase",
     ],
 }
 
@@ -85,5 +87,6 @@ art_cc_library {
         "libartd-compiler",
         "libartd-dexlayout",
         "libdexfiled",
+        "libartbased",
     ],
 }

@@ -16,43 +16,42 @@
 
 package com.android.tradefed.util;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.util.CommandResult;
-import com.android.tradefed.util.CommandStatus;
-import com.android.tradefed.util.IRunUtil;
-import com.android.tradefed.util.ProcessHelper;
-import com.android.tradefed.util.RunInterruptedException;
-import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.targetprep.VtsPythonVirtualenvPreparer;
+
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 /**
  * A helper class for executing VTS python scripts.
  */
 public class VtsPythonRunnerHelper {
-    static final String OS_NAME = "os.name";
-    static final String WINDOWS = "Windows"; // Not officially supported OS.
-    static final String LINUX = "Linux";
-    static final String PYTHONPATH = "PYTHONPATH";
-    static final String VIRTUAL_ENV_PATH = "VIRTUALENVPATH";
+    // The timeout for the runner's teardown prodedure.
+    public static final long TEST_ABORT_TIMEOUT_MSECS = 1000 * 40;
+
+    static final String PATH = "PATH";
+    static final String PYTHONHOME = "PYTHONHOME";
     static final String VTS = "vts";
-    static final String ANDROID_BUILD_TOP = "ANDROID_BUILD_TOP";
-    static final long TEST_ABORT_TIMEOUT_MSECS = 1000 * 15;
 
-    private IBuildInfo mBuildInfo = null;
-    private String mPythonVersion = "";
-    private IRunUtil mRunUtil = null;
-    private String mPythonPath = null;
+    // Python virtual environment root path
+    private File mVirtualenvPath;
+    protected IRunUtil mRunUtil;
 
-    public VtsPythonRunnerHelper(IBuildInfo buildInfo) {
-        mBuildInfo = buildInfo;
-        mPythonPath = buildPythonPath();
+    public VtsPythonRunnerHelper(IBuildInfo buildInfo, File workingDir) {
+        this(buildInfo.getBuildAttributes().get(VtsPythonVirtualenvPreparer.VIRTUAL_ENV),
+                workingDir);
+    }
+
+    public VtsPythonRunnerHelper(String virtualEnvPath, File workingDir) {
+        this(virtualEnvPath == null ? null : new File(virtualEnvPath), workingDir);
+    }
+
+    public VtsPythonRunnerHelper(File virtualEnvPath, File workingDir) {
+        mVirtualenvPath = virtualEnvPath;
         mRunUtil = new RunUtil();
-        mRunUtil.setEnvVariable(PYTHONPATH, mPythonPath);
-        mRunUtil.setEnvVariable("VTS", "1");
+        activateVirtualenv(mRunUtil, getPythonVirtualEnv());
+        mRunUtil.setWorkingDir(workingDir);
     }
 
     /**
@@ -68,9 +67,9 @@ public class VtsPythonRunnerHelper {
     /**
      * Run VTS Python runner and handle interrupt from TradeFed.
      *
-     * @param cmd: the command to start VTS Python runner.
-     * @param commandResult: the object containing the command result.
-     * @param timeout: command timeout value.
+     * @param cmd the command to start VTS Python runner.
+     * @param commandResult the object containing the command result.
+     * @param timeout command timeout value.
      * @return null if the command terminates or times out; a message string if the command is
      * interrupted by TradeFed.
      */
@@ -119,118 +118,52 @@ public class VtsPythonRunnerHelper {
     }
 
     /**
-     * This method returns whether the OS is Windows.
-     */
-    private static boolean isOnWindows() {
-        return System.getProperty(OS_NAME).contains(WINDOWS);
-    }
-
-    /**
-     * This method builds the python path based on the following values:
-     * 1) System environment $PYTHONPATH.
-     * 2) VTS testcase root directory (e.g. android-vts/testcases/).
-     * 3) Value passed in buildInfo attribute PYTHONPATH (for tests started
-     *    using PythonVirtualenvPreparer).
-     * 4) System environment $ANDROID_BUILD_TOP/test.
+     * Gets python bin directory path.
      *
-     * @throws RuntimeException.
+     * This method will check the directory existence.
+     *
+     * @return python bin directory; null if not exist.
      */
-    private String buildPythonPath() throws RuntimeException {
-        StringBuilder sb = new StringBuilder();
-        String separator = File.pathSeparator;
-        if (System.getenv(PYTHONPATH) != null) {
-            sb.append(separator);
-            sb.append(System.getenv(PYTHONPATH));
+    public static String getPythonBinDir(String virtualenvPath) {
+        if (virtualenvPath == null) {
+            return null;
         }
-
-        // to get the path for android-vts/testcases/ which keeps the VTS python code under vts.
-        if (mBuildInfo != null) {
-            CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mBuildInfo);
-
-            File testDir = null;
-            try {
-                testDir = buildHelper.getTestsDir();
-            } catch (FileNotFoundException e) {
-                /* pass */
-            }
-            if (testDir != null) {
-                sb.append(separator);
-                String testCaseDataDir = testDir.getAbsolutePath();
-                sb.append(testCaseDataDir);
-            } else if (mBuildInfo.getFile(VTS) != null) {
-                sb.append(separator);
-                sb.append(mBuildInfo.getFile(VTS).getAbsolutePath()).append("/..");
-            }
-
-            // for when one uses PythonVirtualenvPreparer.
-            if (mBuildInfo.getFile(PYTHONPATH) != null) {
-                sb.append(separator);
-                sb.append(mBuildInfo.getFile(PYTHONPATH).getAbsolutePath());
-            }
+        String binDirName = EnvUtil.isOnWindows() ? "Scripts" : "bin";
+        File res = new File(virtualenvPath, binDirName);
+        if (!res.exists()) {
+            return null;
         }
-
-        if (System.getenv(ANDROID_BUILD_TOP) != null) {
-            sb.append(separator);
-            sb.append(System.getenv(ANDROID_BUILD_TOP)).append("/test");
-        }
-        if (sb.length() == 0) {
-            throw new RuntimeException("Could not find python path on host machine");
-        }
-        return sb.substring(1);
+        return res.getAbsolutePath();
     }
 
     /**
-     * This method gets the python binary.
+     * Get python virtualenv path
+     * @return virutalenv path. null if doesn't exist
      */
-    public String getPythonBinary() {
-        boolean isWindows = isOnWindows();
-        String python = (isWindows ? "python.exe" : "python" + mPythonVersion);
-        if (mBuildInfo != null) {
-            File venvDir = mBuildInfo.getFile(VIRTUAL_ENV_PATH);
-            if (venvDir != null) {
-                String binDir = (isWindows ? "Scripts" : "bin");
-                File pythonBinaryFile =
-                        new File(venvDir.getAbsolutePath(), binDir + File.separator + python);
-                String pythonBinPath = pythonBinaryFile.getAbsolutePath();
-                if (pythonBinaryFile.exists()) {
-                    CLog.i("Python path " + pythonBinPath + ".\n");
-                    return pythonBinPath;
-                }
-                CLog.e(python + " doesn't exist under the "
-                        + "created virtualenv dir (" + pythonBinPath + ").\n");
-            } else {
-                CLog.e(VIRTUAL_ENV_PATH + " not available in BuildInfo. "
-                        + "Please use VtsPythonVirtualenvPreparer tartget preparer.\n");
-            }
+    public String getPythonVirtualEnv() {
+        if (mVirtualenvPath == null) {
+            return null;
         }
+        return mVirtualenvPath.getAbsolutePath();
+    }
 
-        CommandResult c = mRunUtil.runTimedCmd(1000, (isWindows ? "where" : "which"), python);
-        String pythonBin = c.getStdout().trim();
-        if (pythonBin.length() == 0) {
-            throw new RuntimeException("Could not find python binary on host "
-                    + "machine");
+    /**
+     * Activate virtualenv for a RunUtil.
+     *
+     * This method will check for python bin directory existence
+     *
+     * @param runUtil
+     * @param virtualenvPath
+     */
+    public static void activateVirtualenv(IRunUtil runUtil, String virtualenvPath) {
+        String pythonBinDir = getPythonBinDir(virtualenvPath);
+        if (pythonBinDir == null || !new File(pythonBinDir).exists()) {
+            CLog.e("Invalid python virtualenv path. Using python from system path.");
+        } else {
+            String separater = EnvUtil.isOnWindows() ? ";" : ":";
+            runUtil.setEnvVariable(PATH, pythonBinDir + separater + System.getenv().get(PATH));
+            runUtil.setEnvVariable(VtsPythonVirtualenvPreparer.VIRTUAL_ENV, virtualenvPath);
+            runUtil.unsetEnvVariable(PYTHONHOME);
         }
-        return pythonBin;
-    }
-
-    /**
-     * Gets mPythonPath.
-     */
-    public String getPythonPath() {
-        return mPythonPath;
-    }
-
-    /**
-     * Sets mPythonVersion.
-     */
-    public void setPythonVersion(String pythonVersion) {
-        mPythonVersion = pythonVersion;
-    }
-
-    /**
-     * Sets mRunUtil, should only be used in tests.
-     */
-    public void setRunUtil(IRunUtil runUtil) {
-        mRunUtil = runUtil;
     }
 }

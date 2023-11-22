@@ -23,8 +23,11 @@ import android.graphics.Paint;
 import android.icu.lang.UCharacter;
 import android.icu.lang.UCharacterCategory;
 import android.icu.text.UnicodeSet;
-import android.support.test.filters.LargeTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.LargeTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,6 +35,7 @@ import org.junit.runner.RunWith;
 import java.util.HashMap;
 import java.util.Locale;
 
+@CddTest(requirement="3.8.13/C-1-1")
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class FontCoverageTest {
@@ -365,7 +369,9 @@ public class FontCoverageTest {
                 + "\u9CEF\u9CF4\u9D8F\u9E7F\u9E97\u9EA6\u9EBB\u9EC4\u9ED2\u9ED9"
                 + "\u9F13\u9F20\u9F3B\u9F62\uFF01-\uFF03\uFF05-\uFF0A\uFF0C-\uFF0F"
                 + "\uFF1A\uFF1B\uFF1F\uFF20\uFF3B-\uFF3D\uFF3F\uFF5B\uFF5D\uFF61-\uFF65]"));
-        EXEMPLAR_MAP.put("ka", new UnicodeSet("[\u10A0-\u10C5\u10D0-\u10FB\u2116\u2D00-\u2D25]"));
+        EXEMPLAR_MAP.put("ka", new UnicodeSet("[\u10A0-\u10C5\u10C7\u10CD\u10D0-\u10FF"
+                + "\u2D00-\u2D25\u2D27\u2D2D"
+                + "\u1C90-\u1CBA\u1CBD-\u1CBF]"));
         EXEMPLAR_MAP.put("kkj", new UnicodeSet("[\u2039\u203A{A\u0327}{I\u0327}{U\u0327}{a\u0327}"
                 + "{i\u0327}{u\u0327}{\u0186\u0302}{\u0186\u0327}{\u0190\u0302}{\u0190\u0327}"
                 + "{\u0254\u0302}{\u0254\u0327}{\u025B\u0302}{\u025B\u0327}]"));

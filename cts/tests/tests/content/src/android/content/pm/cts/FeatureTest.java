@@ -25,6 +25,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.BatteryManager;
 import android.os.Environment;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -33,6 +34,7 @@ import android.view.WindowManager;
 import java.util.Arrays;
 import java.util.Comparator;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class FeatureTest extends AndroidTestCase {
 
     private static final String TAG = "FeatureTest";

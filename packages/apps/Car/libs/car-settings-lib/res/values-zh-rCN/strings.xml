@@ -19,4 +19,6 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="language_picker_list_suggested_header" msgid="8931437200168779395">"建议"</string>
     <string name="language_picker_list_all_header" msgid="3907663373765943630">"所有语言"</string>
+    <string name="name_input_blank_error" msgid="5460631644831377461">"此字段不能留空。"</string>
+    <string name="name_input_invalid_error" msgid="8735081597199782922">"输入的用户名无效。"</string>
 </resources>

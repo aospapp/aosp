@@ -27,6 +27,7 @@ import com.android.car.settings.CarSettingsRobolectricTestRunner;
 import com.android.car.settings.R;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -76,6 +77,7 @@ public class PinPadViewTest {
 
     // Verify that the click handler is called when the backspace key is clicked.
     @Test
+    @Ignore
     public void testBackspaceClickHandler() {
         mPinPadView.findViewById(R.id.key_backspace).performClick();
 

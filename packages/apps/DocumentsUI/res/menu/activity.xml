@@ -14,7 +14,9 @@
      limitations under the License.
 -->
 
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
+<menu
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 <!-- showAsAction flag impacts the behavior of SearchView.
      When set to collapseActionView, collapsing SearchView to icon is the
      default behavior. It would fit UX, however after expanding SearchView is
@@ -27,10 +29,10 @@
         android:id="@+id/option_menu_search"
         android:title="@string/menu_search"
         android:icon="@drawable/ic_menu_search"
-        android:showAsAction="always"
-        android:actionViewClass="android.widget.SearchView"
         android:imeOptions="actionSearch"
-        android:visible="false" />
+        android:visible="false"
+        app:showAsAction="always|collapseActionView"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"/>
 <!-- This group is being hidden when searching is in full bar mode-->
     <group android:id="@+id/group_hide_when_searching">
         <item
@@ -38,49 +40,43 @@
             android:title="Debug"
             android:icon="@drawable/ic_debug_menu"
             android:visible="false"
-            android:showAsAction="always" />
-        <item
-            android:id="@+id/option_menu_grid"
-            android:title="@string/menu_grid"
-            android:icon="@drawable/ic_menu_view_grid"
-            android:showAsAction="always" />
-        <item
-            android:id="@+id/option_menu_list"
-            android:title="@string/menu_list"
-            android:icon="@drawable/ic_menu_view_list"
-            android:showAsAction="always" />
+            app:showAsAction="always"/>
         <item
             android:id="@+id/option_menu_new_window"
             android:title="@string/menu_new_window"
             android:alphabeticShortcut="n"
-            android:showAsAction="never"
-            android:visible="false" />
+            android:visible="false"
+            app:showAsAction="never"/>
         <item
             android:id="@+id/option_menu_create_dir"
             android:title="@string/menu_create_dir"
-            android:icon="@drawable/ic_menu_new_folder"
             android:alphabeticShortcut="e"
+            android:visible="false"
+            app:showAsAction="never"/>
+        <item
+            android:id="@+id/option_menu_sort"
+            android:title="@string/menu_sort"
             android:showAsAction="never"
             android:visible="false" />
         <item
             android:id="@+id/option_menu_select_all"
             android:title="@string/menu_select_all"
             android:alphabeticShortcut="a"
-            android:showAsAction="never"
-            android:visible="false" />
+            android:visible="false"
+            app:showAsAction="never"/>
         <item
             android:id="@+id/option_menu_advanced"
-            android:showAsAction="never"
-            android:visible="false" />
+            android:visible="false"
+            app:showAsAction="never"/>
         <item
             android:id="@+id/option_menu_settings"
             android:title="@string/menu_settings"
-            android:showAsAction="never"
-            android:visible="false" />
+            android:visible="false"
+            app:showAsAction="never"/>
        <item
            android:id="@+id/option_menu_inspect"
            android:title="@string/menu_inspect"
-           android:showAsAction="never"
-           android:visible="false" />
+           android:visible="false"
+           app:showAsAction="never"/>
     </group>
 </menu>

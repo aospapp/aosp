@@ -43,19 +43,16 @@ public final class NetworkTrafficTags {
 
         @Override
         public void execute(final @NonNull Runnable command) {
-            // TODO(b/62038127): robolectric does not support lamdas in unbundled apps
-            delegateExecutor.execute(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            TrafficStats.setThreadStatsTag(tag);
-                            try {
-                                command.run();
-                            } finally {
-                                TrafficStats.clearThreadStatsTag();
-                            }
-                        }
-                    });
+      // TODO(b/62038127): robolectric does not support lamdas in unbundled apps
+      delegateExecutor.execute(
+          () -> {
+            TrafficStats.setThreadStatsTag(tag);
+            try {
+              command.run();
+            } finally {
+              TrafficStats.clearThreadStatsTag();
+            }
+          });
         }
     }
 

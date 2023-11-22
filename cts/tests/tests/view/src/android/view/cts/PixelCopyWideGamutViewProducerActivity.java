@@ -64,6 +64,8 @@ public class PixelCopyWideGamutViewProducerActivity extends Activity implements 
 
         mContent = new WideGamutBitmapView(this);
         setContentView(mContent);
+        View view = this.getWindow().getDecorView();
+        view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         mContent.getViewTreeObserver().addOnDrawListener(this);
     }
 

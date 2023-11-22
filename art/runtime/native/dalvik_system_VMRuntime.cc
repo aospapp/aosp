@@ -21,17 +21,22 @@
 #include <sys/time.h>
 extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #endif
+#include <inttypes.h>
+#include <limits>
 #include <limits.h>
 #include "nativehelper/scoped_utf_chars.h"
 
-#include "android-base/stringprintf.h"
+#include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
 #include "arch/instruction_set.h"
 #include "art_method-inl.h"
 #include "base/enums.h"
+#include "base/sdk_version.h"
 #include "class_linker-inl.h"
 #include "common_throws.h"
 #include "debugger.h"
+#include "dex/class_accessor-inl.h"
 #include "dex/dex_file-inl.h"
 #include "dex/dex_file_types.h"
 #include "gc/accounting/card_table-inl.h"
@@ -41,8 +46,9 @@ extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #include "gc/space/image_space.h"
 #include "gc/task_processor.h"
 #include "intern_table.h"
-#include "java_vm_ext.h"
-#include "jni_internal.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_internal.h"
+#include "mirror/array-alloc-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/dex_cache-inl.h"
 #include "mirror/object-inl.h"
@@ -72,10 +78,6 @@ static void VMRuntime_startJitCompilation(JNIEnv*, jobject) {
 }
 
 static void VMRuntime_disableJitCompilation(JNIEnv*, jobject) {
-}
-
-static jboolean VMRuntime_hasUsedHiddenApi(JNIEnv*, jobject) {
-  return Runtime::Current()->HasPendingHiddenApiWarning() ? JNI_TRUE : JNI_FALSE;
 }
 
 static void VMRuntime_setHiddenApiExemptions(JNIEnv* env,
@@ -111,7 +113,7 @@ static jobject VMRuntime_newNonMovableArray(JNIEnv* env, jobject, jclass javaEle
   }
   Runtime* runtime = Runtime::Current();
   ObjPtr<mirror::Class> array_class =
-      runtime->GetClassLinker()->FindArrayClass(soa.Self(), &element_class);
+      runtime->GetClassLinker()->FindArrayClass(soa.Self(), element_class);
   if (UNLIKELY(array_class == nullptr)) {
     return nullptr;
   }
@@ -138,7 +140,7 @@ static jobject VMRuntime_newUnpaddedArray(JNIEnv* env, jobject, jclass javaEleme
   }
   Runtime* runtime = Runtime::Current();
   ObjPtr<mirror::Class> array_class = runtime->GetClassLinker()->FindArrayClass(soa.Self(),
-                                                                                &element_class);
+                                                                                element_class);
   if (UNLIKELY(array_class == nullptr)) {
     return nullptr;
   }
@@ -223,7 +225,8 @@ static const char* DefaultToDot(const std::string& class_path) {
 }
 
 static jstring VMRuntime_bootClassPath(JNIEnv* env, jobject) {
-  return env->NewStringUTF(DefaultToDot(Runtime::Current()->GetBootClassPathString()));
+  std::string boot_class_path = android::base::Join(Runtime::Current()->GetBootClassPath(), ':');
+  return env->NewStringUTF(DefaultToDot(boot_class_path));
 }
 
 static jstring VMRuntime_classPath(JNIEnv* env, jobject) {
@@ -258,40 +261,68 @@ static void VMRuntime_setTargetSdkVersionNative(JNIEnv*, jobject, jint target_sd
   // where workarounds can be enabled.
   // Note that targetSdkVersion may be CUR_DEVELOPMENT (10000).
   // Note that targetSdkVersion may be 0, meaning "current".
-  Runtime::Current()->SetTargetSdkVersion(target_sdk_version);
+  uint32_t uint_target_sdk_version =
+      target_sdk_version <= 0 ? static_cast<uint32_t>(SdkVersion::kUnset)
+                              : static_cast<uint32_t>(target_sdk_version);
+  Runtime::Current()->SetTargetSdkVersion(uint_target_sdk_version);
 
 #ifdef ART_TARGET_ANDROID
   // This part is letting libc/dynamic linker know about current app's
   // target sdk version to enable compatibility workarounds.
-  android_set_application_target_sdk_version(static_cast<uint32_t>(target_sdk_version));
+  android_set_application_target_sdk_version(uint_target_sdk_version);
 #endif
 }
 
-static void VMRuntime_registerNativeAllocation(JNIEnv* env, jobject, jint bytes) {
+static inline size_t clamp_to_size_t(jlong n) {
+  if (sizeof(jlong) > sizeof(size_t)
+      && UNLIKELY(n > static_cast<jlong>(std::numeric_limits<size_t>::max()))) {
+    return std::numeric_limits<size_t>::max();
+  } else {
+    return n;
+  }
+}
+
+static void VMRuntime_registerNativeAllocation(JNIEnv* env, jobject, jlong bytes) {
   if (UNLIKELY(bytes < 0)) {
     ScopedObjectAccess soa(env);
-    ThrowRuntimeException("allocation size negative %d", bytes);
+    ThrowRuntimeException("allocation size negative %" PRId64, bytes);
     return;
   }
-  Runtime::Current()->GetHeap()->RegisterNativeAllocation(env, static_cast<size_t>(bytes));
+  Runtime::Current()->GetHeap()->RegisterNativeAllocation(env, clamp_to_size_t(bytes));
+}
+
+static void VMRuntime_registerNativeFree(JNIEnv* env, jobject, jlong bytes) {
+  if (UNLIKELY(bytes < 0)) {
+    ScopedObjectAccess soa(env);
+    ThrowRuntimeException("allocation size negative %" PRId64, bytes);
+    return;
+  }
+  Runtime::Current()->GetHeap()->RegisterNativeFree(env, clamp_to_size_t(bytes));
+}
+
+static jint VMRuntime_getNotifyNativeInterval(JNIEnv*, jclass) {
+  return Runtime::Current()->GetHeap()->GetNotifyNativeInterval();
+}
+
+static void VMRuntime_notifyNativeAllocationsInternal(JNIEnv* env, jobject) {
+  Runtime::Current()->GetHeap()->NotifyNativeAllocations(env);
+}
+
+static jlong VMRuntime_getFinalizerTimeoutMs(JNIEnv*, jobject) {
+  return Runtime::Current()->GetFinalizerTimeoutMs();
 }
 
 static void VMRuntime_registerSensitiveThread(JNIEnv*, jobject) {
   Runtime::Current()->RegisterSensitiveThread();
 }
 
-static void VMRuntime_registerNativeFree(JNIEnv* env, jobject, jint bytes) {
-  if (UNLIKELY(bytes < 0)) {
-    ScopedObjectAccess soa(env);
-    ThrowRuntimeException("allocation size negative %d", bytes);
-    return;
-  }
-  Runtime::Current()->GetHeap()->RegisterNativeFree(env, static_cast<size_t>(bytes));
-}
-
 static void VMRuntime_updateProcessState(JNIEnv*, jobject, jint process_state) {
   Runtime* runtime = Runtime::Current();
   runtime->UpdateProcessState(static_cast<ProcessState>(process_state));
+}
+
+static void VMRuntime_notifyStartupCompleted(JNIEnv*, jobject) {
+  Runtime::Current()->NotifyStartupCompleted();
 }
 
 static void VMRuntime_trimHeap(JNIEnv* env, jobject) {
@@ -324,14 +355,14 @@ static void VMRuntime_runHeapTasks(JNIEnv* env, jobject) {
   Runtime::Current()->GetHeap()->GetTaskProcessor()->RunAllTasks(ThreadForEnv(env));
 }
 
-typedef std::map<std::string, ObjPtr<mirror::String>> StringTable;
+using StringTable = std::map<std::string, ObjPtr<mirror::String>>;
 
 class PreloadDexCachesStringsVisitor : public SingleRootVisitor {
  public:
   explicit PreloadDexCachesStringsVisitor(StringTable* table) : table_(table) { }
 
   void VisitRoot(mirror::Object* root, const RootInfo& info ATTRIBUTE_UNUSED)
-      OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+      override REQUIRES_SHARED(Locks::mutator_lock_) {
     ObjPtr<mirror::String> string = root->AsString();
     table_->operator[](string->ToModifiedUtf8()) = string;
   }
@@ -373,7 +404,7 @@ static void PreloadDexCachesResolveType(Thread* self,
   const char* class_name = dex_file->StringByTypeIdx(type_idx);
   ClassLinker* linker = Runtime::Current()->GetClassLinker();
   ObjPtr<mirror::Class> klass = (class_name[1] == '\0')
-      ? linker->FindPrimitiveClass(class_name[0])
+      ? linker->LookupPrimitiveClass(class_name[0])
       : linker->LookupClass(self, class_name, nullptr);
   if (klass == nullptr) {
     return;
@@ -401,9 +432,9 @@ static void PreloadDexCachesResolveField(ObjPtr<mirror::DexCache> dex_cache,
     return;  // The entry already contains some ArtField.
   }
   const DexFile* dex_file = dex_cache->GetDexFile();
-  const DexFile::FieldId& field_id = dex_file->GetFieldId(field_idx);
+  const dex::FieldId& field_id = dex_file->GetFieldId(field_idx);
   ObjPtr<mirror::Class> klass = Runtime::Current()->GetClassLinker()->LookupResolvedType(
-      field_id.class_idx_, dex_cache, /* class_loader */ nullptr);
+      field_id.class_idx_, dex_cache, /* class_loader= */ nullptr);
   if (klass == nullptr) {
     return;
   }
@@ -427,16 +458,16 @@ static void PreloadDexCachesResolveMethod(ObjPtr<mirror::DexCache> dex_cache, ui
     return;  // The entry already contains some ArtMethod.
   }
   const DexFile* dex_file = dex_cache->GetDexFile();
-  const DexFile::MethodId& method_id = dex_file->GetMethodId(method_idx);
+  const dex::MethodId& method_id = dex_file->GetMethodId(method_idx);
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
 
   ObjPtr<mirror::Class> klass = class_linker->LookupResolvedType(
-      method_id.class_idx_, dex_cache, /* class_loader */ nullptr);
+      method_id.class_idx_, dex_cache, /* class_loader= */ nullptr);
   if (klass == nullptr) {
     return;
   }
   // Call FindResolvedMethod to populate the dex cache.
-  class_linker->FindResolvedMethod(klass, dex_cache, /* class_loader */ nullptr, method_idx);
+  class_linker->FindResolvedMethod(klass, dex_cache, /* class_loader= */ nullptr, method_idx);
 }
 
 struct DexCacheStats {
@@ -492,7 +523,7 @@ static void PreloadDexCachesStatsFilled(DexCacheStats* filled)
     if (!class_linker->IsDexFileRegistered(self, *dex_file)) {
       continue;
     }
-    ObjPtr<mirror::DexCache> const dex_cache = class_linker->FindDexCache(self, *dex_file);
+    const ObjPtr<mirror::DexCache> dex_cache = class_linker->FindDexCache(self, *dex_file);
     DCHECK(dex_cache != nullptr);  // Boot class path dex caches are never unloaded.
     for (size_t j = 0, num_strings = dex_cache->NumStrings(); j < num_strings; ++j) {
       auto pair = dex_cache->GetStrings()[j].load(std::memory_order_relaxed);
@@ -573,30 +604,12 @@ static void VMRuntime_preloadDexCaches(JNIEnv* env, jobject) {
     }
 
     if (kPreloadDexCachesFieldsAndMethods) {
-      for (size_t class_def_index = 0;
-           class_def_index < dex_file->NumClassDefs();
-           class_def_index++) {
-        const DexFile::ClassDef& class_def = dex_file->GetClassDef(class_def_index);
-        const uint8_t* class_data = dex_file->GetClassData(class_def);
-        if (class_data == nullptr) {
-          continue;
+      for (ClassAccessor accessor : dex_file->GetClasses()) {
+        for (const ClassAccessor::Field& field : accessor.GetFields()) {
+          PreloadDexCachesResolveField(dex_cache, field.GetIndex(), field.IsStatic());
         }
-        ClassDataItemIterator it(*dex_file, class_data);
-        for (; it.HasNextStaticField(); it.Next()) {
-          uint32_t field_idx = it.GetMemberIndex();
-          PreloadDexCachesResolveField(dex_cache, field_idx, true);
-        }
-        for (; it.HasNextInstanceField(); it.Next()) {
-          uint32_t field_idx = it.GetMemberIndex();
-          PreloadDexCachesResolveField(dex_cache, field_idx, false);
-        }
-        for (; it.HasNextDirectMethod(); it.Next()) {
-          uint32_t method_idx = it.GetMemberIndex();
-          PreloadDexCachesResolveMethod(dex_cache, method_idx);
-        }
-        for (; it.HasNextVirtualMethod(); it.Next()) {
-          uint32_t method_idx = it.GetMemberIndex();
-          PreloadDexCachesResolveMethod(dex_cache, method_idx);
+        for (const ClassAccessor::Method& method : accessor.GetMethods()) {
+          PreloadDexCachesResolveMethod(dex_cache, method.GetIndex());
         }
       }
     }
@@ -655,8 +668,9 @@ static jboolean VMRuntime_isBootClassPathOnDisk(JNIEnv* env, jclass, jstring jav
     return JNI_FALSE;
   }
   std::string error_msg;
+  Runtime* runtime = Runtime::Current();
   std::unique_ptr<ImageHeader> image_header(gc::space::ImageSpace::ReadImageHeader(
-      Runtime::Current()->GetImageLocation().c_str(), isa, &error_msg));
+      runtime->GetImageLocation().c_str(), isa, runtime->GetImageSpaceLoadingOrder(), &error_msg));
   return image_header.get() != nullptr;
 }
 
@@ -699,6 +713,16 @@ static void VMRuntime_setProcessPackageName(JNIEnv* env,
   Runtime::Current()->SetProcessPackageName(package_name.c_str());
 }
 
+static void VMRuntime_setProcessDataDirectory(JNIEnv* env, jclass, jstring java_data_dir) {
+  ScopedUtfChars data_dir(env, java_data_dir);
+  Runtime::Current()->SetProcessDataDirectory(data_dir.c_str());
+}
+
+static jboolean VMRuntime_hasBootImageSpaces(JNIEnv* env ATTRIBUTE_UNUSED,
+                                             jclass klass ATTRIBUTE_UNUSED) {
+  return Runtime::Current()->GetHeap()->HasBootImageSpace() ? JNI_TRUE : JNI_FALSE;
+}
+
 static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(VMRuntime, addressOf, "(Ljava/lang/Object;)J"),
   NATIVE_METHOD(VMRuntime, bootClassPath, "()Ljava/lang/String;"),
@@ -707,7 +731,7 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, clearGrowthLimit, "()V"),
   NATIVE_METHOD(VMRuntime, concurrentGC, "()V"),
   NATIVE_METHOD(VMRuntime, disableJitCompilation, "()V"),
-  NATIVE_METHOD(VMRuntime, hasUsedHiddenApi, "()Z"),
+  FAST_NATIVE_METHOD(VMRuntime, hasBootImageSpaces, "()Z"),  // Could be CRITICAL.
   NATIVE_METHOD(VMRuntime, setHiddenApiExemptions, "([Ljava/lang/String;)V"),
   NATIVE_METHOD(VMRuntime, setHiddenApiAccessLogSamplingRate, "(I)V"),
   NATIVE_METHOD(VMRuntime, getTargetHeapUtilization, "()F"),
@@ -719,9 +743,13 @@ static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(VMRuntime, newUnpaddedArray, "(Ljava/lang/Class;I)Ljava/lang/Object;"),
   NATIVE_METHOD(VMRuntime, properties, "()[Ljava/lang/String;"),
   NATIVE_METHOD(VMRuntime, setTargetSdkVersionNative, "(I)V"),
-  NATIVE_METHOD(VMRuntime, registerNativeAllocation, "(I)V"),
+  NATIVE_METHOD(VMRuntime, registerNativeAllocation, "(J)V"),
+  NATIVE_METHOD(VMRuntime, registerNativeFree, "(J)V"),
+  NATIVE_METHOD(VMRuntime, getNotifyNativeInterval, "()I"),
+  NATIVE_METHOD(VMRuntime, getFinalizerTimeoutMs, "()J"),
+  NATIVE_METHOD(VMRuntime, notifyNativeAllocationsInternal, "()V"),
+  NATIVE_METHOD(VMRuntime, notifyStartupCompleted, "()V"),
   NATIVE_METHOD(VMRuntime, registerSensitiveThread, "()V"),
-  NATIVE_METHOD(VMRuntime, registerNativeFree, "(I)V"),
   NATIVE_METHOD(VMRuntime, requestConcurrentGC, "()V"),
   NATIVE_METHOD(VMRuntime, requestHeapTrim, "()V"),
   NATIVE_METHOD(VMRuntime, runHeapTasks, "()V"),
@@ -743,6 +771,7 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, setSystemDaemonThreadPriority, "()V"),
   NATIVE_METHOD(VMRuntime, setDedupeHiddenApiWarnings, "(Z)V"),
   NATIVE_METHOD(VMRuntime, setProcessPackageName, "(Ljava/lang/String;)V"),
+  NATIVE_METHOD(VMRuntime, setProcessDataDirectory, "(Ljava/lang/String;)V"),
 };
 
 void register_dalvik_system_VMRuntime(JNIEnv* env) {

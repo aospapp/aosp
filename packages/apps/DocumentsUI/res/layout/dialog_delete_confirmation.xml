@@ -21,6 +21,5 @@
     android:paddingTop="24dp"
     android:paddingStart="24dp"
     android:paddingEnd="24dp"
-    android:textAppearance="@android:style/TextAppearance.Material.Subhead"
-    android:textColor="@color/dialog_title">
+    android:textAppearance="@android:style/TextAppearance.Material.Subhead">
 </TextView>

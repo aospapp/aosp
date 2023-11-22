@@ -204,9 +204,9 @@ function search(e) {
 }
 
 let selected;
-document.onkeydown = function handle_keyboard_input(e) {
+document.addEventListener('keydown', (e) => {
     if (!selected) {
-        return;
+        return false;
     }
 
     let nav = selected.attributes['nav'].value.split(',');
@@ -238,7 +238,7 @@ document.onkeydown = function handle_keyboard_input(e) {
     let target_element = selected.ownerSVGElement.getElementById(nav[navigation_index]);
     select(target_element);
     return false;
-};
+});
 
 function select(e) {
     if (selected) {

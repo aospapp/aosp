@@ -114,4 +114,21 @@ public class PackageUtil {
     private static PackageManager getPackageManager() {
         return InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageManager();
     }
+
+    private static boolean hasDeviceFeature(final String requiredFeature) {
+        return InstrumentationRegistry.getContext()
+                .getPackageManager()
+                .hasSystemFeature(requiredFeature);
+    }
+
+    /**
+     * Rotation support is indicated by explicitly having both landscape and portrait
+     * features or not listing either at all.
+     */
+    public static boolean supportsRotation() {
+        final boolean supportsLandscape = hasDeviceFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE);
+        final boolean supportsPortrait = hasDeviceFeature(PackageManager.FEATURE_SCREEN_PORTRAIT);
+        return (supportsLandscape && supportsPortrait)
+                || (!supportsLandscape && !supportsPortrait);
+    }
 }

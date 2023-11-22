@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
+//#define LOG_NDEBUG 0
+#define LOG_TAG "V4L2MetadataFactory"
+
 #include "v4l2_metadata_factory.h"
 
 #include <camera/CameraMetadata.h>
-
 #include "common.h"
 #include "format_metadata_factory.h"
 #include "metadata/boottime_state_delegate.h"
 #include "metadata/control.h"
 #include "metadata/enum_converter.h"
-#include "metadata/metadata_common.h"
 #include "metadata/partial_metadata_factory.h"
 #include "metadata/property.h"
 #include "metadata/scaling_converter.h"

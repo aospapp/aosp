@@ -147,20 +147,28 @@ KeymasterEnforcement::AuthorizeUpdateOrFinish(const AuthProxy& auth_set,
                                               const AuthorizationSet& operation_params,
                                               keymaster_operation_handle_t op_handle) {
     int auth_type_index = -1;
+    int trusted_confirmation_index = -1;
     for (size_t pos = 0; pos < auth_set.size(); ++pos) {
         switch (auth_set[pos].tag) {
-        case KM_TAG_NO_AUTH_REQUIRED:
-        case KM_TAG_AUTH_TIMEOUT:
-            // If no auth is required or if auth is timeout-based, we have nothing to check.
-            return KM_ERROR_OK;
-
         case KM_TAG_USER_AUTH_TYPE:
             auth_type_index = pos;
             break;
 
+        case KM_TAG_TRUSTED_CONFIRMATION_REQUIRED:
+            trusted_confirmation_index = pos;
+            break;
+        case KM_TAG_NO_AUTH_REQUIRED:
+        case KM_TAG_AUTH_TIMEOUT:
+        // If no auth is required or if auth is timeout-based, we have nothing to check.
         default:
             break;
         }
+    }
+
+    // TODO verify trusted confirmation mac once we have a shared secret established
+    // For now, since we do not have such a service, any token offered here must be invalid.
+    if (trusted_confirmation_index != -1) {
+        return KM_ERROR_NO_USER_CONFIRMATION;
     }
 
     // Note that at this point we should be able to assume that authentication is required, because
@@ -345,6 +353,7 @@ keymaster_error_t KeymasterEnforcement::AuthorizeBegin(const keymaster_purpose_t
         case KM_TAG_UNIQUE_ID:
         case KM_TAG_RESET_SINCE_ID_ROTATION:
         case KM_TAG_ALLOW_WHILE_ON_BODY:
+        case KM_TAG_TRUSTED_CONFIRMATION_REQUIRED:
             break;
 
         /* TODO(bcyoung): This is currently handled in keystore, but may move to keymaster in the

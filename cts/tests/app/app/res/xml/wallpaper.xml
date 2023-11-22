@@ -20,6 +20,8 @@
     android:author="@string/wallpaper_collection"
     android:description="@string/wallpaper_description"
     android:showMetadataInPreview="true"
+    android:supportsMultipleDisplays="true"
     android:contextDescription="@string/wallpaper_context"
     android:contextUri="@string/wallpaper_context_uri"
+    android:settingsSliceUri="@string/wallpaper_slice_uri"
 />

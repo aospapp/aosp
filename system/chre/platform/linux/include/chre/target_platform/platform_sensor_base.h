@@ -17,6 +17,10 @@
 #ifndef CHRE_PLATFORM_LINUX_PLATFORM_SENSOR_BASE_H_
 #define CHRE_PLATFORM_LINUX_PLATFORM_SENSOR_BASE_H_
 
+#include <cstddef>
+
+#include "chre/core/sensor_type.h"
+
 namespace chre {
 
 /**

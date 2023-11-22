@@ -19,6 +19,7 @@ package com.android.incallui;
 import static android.telecom.Call.Details.PROPERTY_HIGH_DEF_AUDIO;
 import static com.android.contacts.common.compat.CallCompat.Details.PROPERTY_ENTERPRISE_CALL;
 import static com.android.incallui.NotificationBroadcastReceiver.ACTION_ACCEPT_VIDEO_UPGRADE_REQUEST;
+import static com.android.incallui.NotificationBroadcastReceiver.ACTION_ANSWER_SPEAKEASY_CALL;
 import static com.android.incallui.NotificationBroadcastReceiver.ACTION_ANSWER_VIDEO_INCOMING_CALL;
 import static com.android.incallui.NotificationBroadcastReceiver.ACTION_ANSWER_VOICE_INCOMING_CALL;
 import static com.android.incallui.NotificationBroadcastReceiver.ACTION_DECLINE_INCOMING_CALL;
@@ -57,17 +58,17 @@ import android.telecom.VideoProfile;
 import android.text.BidiFormatter;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
 import com.android.contacts.common.ContactsUtils;
 import com.android.contacts.common.ContactsUtils.UserType;
-import com.android.contacts.common.preference.ContactsPreferences;
-import com.android.contacts.common.util.ContactDisplayUtils;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
 import com.android.dialer.contactphoto.BitmapUtil;
+import com.android.dialer.contacts.ContactsComponent;
 import com.android.dialer.enrichedcall.EnrichedCallManager;
 import com.android.dialer.enrichedcall.Session;
 import com.android.dialer.lettertile.LetterTileDrawable;
@@ -75,6 +76,7 @@ import com.android.dialer.lettertile.LetterTileDrawable.ContactType;
 import com.android.dialer.multimedia.MultimediaData;
 import com.android.dialer.notification.NotificationChannelId;
 import com.android.dialer.oem.MotorolaUtils;
+import com.android.dialer.theme.base.ThemeComponent;
 import com.android.dialer.util.DrawableConverter;
 import com.android.incallui.ContactInfoCache.ContactCacheEntry;
 import com.android.incallui.ContactInfoCache.ContactInfoCacheCallback;
@@ -85,10 +87,13 @@ import com.android.incallui.call.CallList;
 import com.android.incallui.call.DialerCall;
 import com.android.incallui.call.DialerCallListener;
 import com.android.incallui.call.TelecomAdapter;
+import com.android.incallui.call.state.DialerCallState;
 import com.android.incallui.ringtone.DialerRingtoneManager;
 import com.android.incallui.ringtone.InCallTonePlayer;
 import com.android.incallui.ringtone.ToneGeneratorFactory;
+import com.android.incallui.speakeasy.SpeakEasyComponent;
 import com.android.incallui.videotech.utils.SessionModificationState;
+import com.google.common.base.Optional;
 import java.util.Objects;
 
 /** This class adds Notifications to the status bar for the in-call experience. */
@@ -115,9 +120,8 @@ public class StatusBarNotifier
   private final Context context;
   private final ContactInfoCache contactInfoCache;
   private final DialerRingtoneManager dialerRingtoneManager;
-  @Nullable private ContactsPreferences contactsPreferences;
   private int currentNotification = NOTIFICATION_NONE;
-  private int callState = DialerCall.State.INVALID;
+  private int callState = DialerCallState.INVALID;
   private int videoState = VideoProfile.STATE_AUDIO_ONLY;
   private int savedIcon = 0;
   private String savedContent = null;
@@ -130,7 +134,6 @@ public class StatusBarNotifier
   public StatusBarNotifier(@NonNull Context context, @NonNull ContactInfoCache contactInfoCache) {
     Trace.beginSection("StatusBarNotifier.Constructor");
     this.context = Assert.isNotNull(context);
-    contactsPreferences = ContactsPreferencesFactory.newContactsPreferences(this.context);
     this.contactInfoCache = contactInfoCache;
     dialerRingtoneManager =
         new DialerRingtoneManager(
@@ -244,8 +247,8 @@ public class StatusBarNotifier
   private void showNotification(final DialerCall call) {
     Trace.beginSection("StatusBarNotifier.showNotification");
     final boolean isIncoming =
-        (call.getState() == DialerCall.State.INCOMING
-            || call.getState() == DialerCall.State.CALL_WAITING);
+        (call.getState() == DialerCallState.INCOMING
+            || call.getState() == DialerCallState.CALL_WAITING);
     setStatusBarCallListener(new StatusBarCallListener(call));
 
     // we make a call to the contact info cache to query for supplemental data to what the
@@ -287,10 +290,11 @@ public class StatusBarNotifier
         call.getVideoTech().getSessionModificationState()
             == SessionModificationState.RECEIVED_UPGRADE_TO_VIDEO_REQUEST;
     final int notificationType;
-    if (callState == DialerCall.State.INCOMING
-        || callState == DialerCall.State.CALL_WAITING
+    if (callState == DialerCallState.INCOMING
+        || callState == DialerCallState.CALL_WAITING
         || isVideoUpgradeRequest) {
-      if (ConfigProviderBindings.get(context)
+      if (ConfigProviderComponent.get(context)
+          .getConfigProvider()
           .getBoolean("quiet_incoming_call_if_ui_showing", true)) {
         notificationType =
             InCallPresenter.getInstance().isShowingInCallUi()
@@ -332,7 +336,7 @@ public class StatusBarNotifier
     Notification.Builder publicBuilder = new Notification.Builder(context);
     publicBuilder
         .setSmallIcon(iconResId)
-        .setColor(context.getResources().getColor(R.color.dialer_theme_color, context.getTheme()))
+        .setColor(ThemeComponent.get(context).theme().getColorPrimary())
         // Hide work call state for the lock screen notification
         .setContentTitle(getContentString(call, ContactsUtils.USER_TYPE_CURRENT));
     setNotificationWhen(call, callState, publicBuilder);
@@ -437,17 +441,18 @@ public class StatusBarNotifier
     setNotificationWhen(call, state, builder);
 
     // Add hang up option for any active calls (active | onhold), outgoing calls (dialing).
-    if (state == DialerCall.State.ACTIVE
-        || state == DialerCall.State.ONHOLD
-        || DialerCall.State.isDialing(state)) {
+    if (state == DialerCallState.ACTIVE
+        || state == DialerCallState.ONHOLD
+        || DialerCallState.isDialing(state)) {
       addHangupAction(builder);
       addSpeakerAction(builder, callAudioState);
-    } else if (state == DialerCall.State.INCOMING || state == DialerCall.State.CALL_WAITING) {
+    } else if (state == DialerCallState.INCOMING || state == DialerCallState.CALL_WAITING) {
       addDismissAction(builder);
       if (call.isVideoCall()) {
         addVideoCallAction(builder);
       } else {
         addAnswerAction(builder);
+        addSpeakeasyAnswerAction(builder, call);
       }
     }
   }
@@ -458,7 +463,7 @@ public class StatusBarNotifier
    * at which the notification was created.
    */
   private void setNotificationWhen(DialerCall call, int state, Notification.Builder builder) {
-    if (state == DialerCall.State.ACTIVE) {
+    if (state == DialerCallState.ACTIVE) {
       builder.setUsesChronometer(true);
       builder.setWhen(call.getConnectTimeMillis());
     } else {
@@ -557,8 +562,9 @@ public class StatusBarNotifier
     }
 
     String preferredName =
-        ContactDisplayUtils.getPreferredDisplayName(
-            contactInfo.namePrimary, contactInfo.nameAlternative, contactsPreferences);
+        ContactsComponent.get(context)
+            .contactDisplayPreferences()
+            .getDisplayName(contactInfo.namePrimary, contactInfo.nameAlternative);
     if (TextUtils.isEmpty(preferredName)) {
       return TextUtils.isEmpty(contactInfo.number)
           ? null
@@ -642,12 +648,12 @@ public class StatusBarNotifier
     // different calls.  So if both lines are in use, display info
     // from the foreground call.  And if there's a ringing call,
     // display that regardless of the state of the other calls.
-    if (call.getState() == DialerCall.State.ONHOLD) {
+    if (call.getState() == DialerCallState.ONHOLD) {
       return R.drawable.quantum_ic_phone_paused_vd_theme_24;
     } else if (call.getVideoTech().getSessionModificationState()
             == SessionModificationState.RECEIVED_UPGRADE_TO_VIDEO_REQUEST
         || call.isVideoCall()) {
-      return R.drawable.quantum_ic_videocam_white_24;
+      return R.drawable.quantum_ic_videocam_vd_white_24;
     } else if (call.hasProperty(PROPERTY_HIGH_DEF_AUDIO)
         && MotorolaUtils.shouldShowHdIconInNotification(context)) {
       // Normally when a call is ongoing the status bar displays an icon of a phone. This is a
@@ -657,8 +663,8 @@ public class StatusBarNotifier
     } else if (call.hasProperty(Details.PROPERTY_HAS_CDMA_VOICE_PRIVACY)) {
       return R.drawable.quantum_ic_phone_locked_vd_theme_24;
     }
-    // If NewReturnToCall is enabled, use the static icon. The animated one will show in the bubble.
-    if (NewReturnToCallController.isEnabled(context)) {
+    // If ReturnToCall is enabled, use the static icon. The animated one will show in the bubble.
+    if (ReturnToCallController.isEnabled(context)) {
       return R.drawable.quantum_ic_call_vd_theme_24;
     } else {
       return R.drawable.on_going_call;
@@ -668,8 +674,8 @@ public class StatusBarNotifier
   /** Returns the message to use with the notification. */
   private CharSequence getContentString(DialerCall call, @UserType long userType) {
     boolean isIncomingOrWaiting =
-        call.getState() == DialerCall.State.INCOMING
-            || call.getState() == DialerCall.State.CALL_WAITING;
+        call.getState() == DialerCallState.INCOMING
+            || call.getState() == DialerCallState.CALL_WAITING;
 
     if (isIncomingOrWaiting
         && call.getNumberPresentation() == TelecomManager.PRESENTATION_ALLOWED) {
@@ -701,15 +707,15 @@ public class StatusBarNotifier
       } else {
         resId = R.string.notification_incoming_call;
       }
-    } else if (call.getState() == DialerCall.State.ONHOLD) {
+    } else if (call.getState() == DialerCallState.ONHOLD) {
       resId = R.string.notification_on_hold;
+    } else if (DialerCallState.isDialing(call.getState())) {
+      resId = R.string.notification_dialing;
     } else if (call.isVideoCall()) {
       resId =
           call.getVideoTech().isPaused()
               ? R.string.notification_ongoing_paused_video_call
               : R.string.notification_ongoing_video_call;
-    } else if (DialerCall.State.isDialing(call.getState())) {
-      resId = R.string.notification_dialing;
     } else if (call.getVideoTech().getSessionModificationState()
         == SessionModificationState.RECEIVED_UPGRADE_TO_VIDEO_REQUEST) {
       resId = R.string.notification_requesting_video_call;
@@ -803,6 +809,9 @@ public class StatusBarNotifier
   private CharSequence getMultiSimIncomingText(DialerCall call) {
     PhoneAccount phoneAccount =
         context.getSystemService(TelecomManager.class).getPhoneAccount(call.getAccountHandle());
+    if (phoneAccount == null) {
+      return context.getString(R.string.notification_incoming_call);
+    }
     SpannableString string =
         new SpannableString(
             context.getString(
@@ -863,6 +872,48 @@ public class StatusBarNotifier
             .build());
   }
 
+  private void addSpeakeasyAnswerAction(Notification.Builder builder, DialerCall call) {
+    if (!call.isSpeakEasyEligible()) {
+      return;
+    }
+
+    if (!ConfigProviderComponent.get(context)
+        .getConfigProvider()
+        .getBoolean("enable_speakeasy_notification_button", false)) {
+      return;
+    }
+
+    if (!SpeakEasyComponent.get(context).speakEasyCallManager().isAvailable(context)) {
+      return;
+    }
+
+    Optional<Integer> buttonText = SpeakEasyComponent.get(context).speakEasyTextResource();
+    if (!buttonText.isPresent()) {
+      return;
+    }
+
+    LogUtil.d("StatusBarNotifier.addSpeakeasyAnswerAction", "showing button");
+    PendingIntent answerVoicePendingIntent =
+        createNotificationPendingIntent(context, ACTION_ANSWER_SPEAKEASY_CALL);
+
+    Spannable spannable = new SpannableString(context.getText(buttonText.get()));
+    // TODO(erfanian): Migrate these color values to somewhere more permanent in subsequent
+    // implementation.
+    spannable.setSpan(
+        new ForegroundColorSpan(
+            context.getColor(R.color.DO_NOT_USE_OR_I_WILL_BREAK_YOU_text_span_tertiary_button)),
+        0,
+        spannable.length(),
+        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+    builder.addAction(
+        new Notification.Action.Builder(
+                Icon.createWithResource(context, R.drawable.quantum_ic_call_white_24),
+                spannable,
+                answerVoicePendingIntent)
+            .build());
+  }
+
   private void addDismissAction(Notification.Builder builder) {
     LogUtil.d(
         "StatusBarNotifier.addDismissAction",
@@ -913,7 +964,7 @@ public class StatusBarNotifier
         createNotificationPendingIntent(context, ACTION_TURN_ON_SPEAKER);
     builder.addAction(
         new Notification.Action.Builder(
-                Icon.createWithResource(context, R.drawable.quantum_ic_volume_up_white_24),
+                Icon.createWithResource(context, R.drawable.quantum_ic_volume_up_vd_theme_24),
                 context.getText(R.string.notification_action_speaker_on),
                 speakerOnPendingIntent)
             .build());
@@ -927,7 +978,7 @@ public class StatusBarNotifier
         createNotificationPendingIntent(context, ACTION_TURN_OFF_SPEAKER);
     builder.addAction(
         new Notification.Action.Builder(
-                Icon.createWithResource(context, R.drawable.quantum_ic_phone_in_talk_white_24),
+                Icon.createWithResource(context, R.drawable.quantum_ic_phone_in_talk_vd_theme_24),
                 context.getText(R.string.notification_action_speaker_off),
                 speakerOffPendingIntent)
             .build());
@@ -941,7 +992,7 @@ public class StatusBarNotifier
         createNotificationPendingIntent(context, ACTION_ANSWER_VIDEO_INCOMING_CALL);
     builder.addAction(
         new Notification.Action.Builder(
-                Icon.createWithResource(context, R.drawable.quantum_ic_videocam_white_24),
+                Icon.createWithResource(context, R.drawable.quantum_ic_videocam_vd_white_24),
                 getActionText(
                     R.string.notification_action_answer_video,
                     R.color.notification_action_answer_video),
@@ -957,7 +1008,7 @@ public class StatusBarNotifier
         createNotificationPendingIntent(context, ACTION_ACCEPT_VIDEO_UPGRADE_REQUEST);
     builder.addAction(
         new Notification.Action.Builder(
-                Icon.createWithResource(context, R.drawable.quantum_ic_videocam_white_24),
+                Icon.createWithResource(context, R.drawable.quantum_ic_videocam_vd_white_24),
                 getActionText(
                     R.string.notification_action_accept, R.color.notification_action_accept),
                 acceptVideoPendingIntent)
@@ -972,7 +1023,7 @@ public class StatusBarNotifier
         createNotificationPendingIntent(context, ACTION_DECLINE_VIDEO_UPGRADE_REQUEST);
     builder.addAction(
         new Notification.Action.Builder(
-                Icon.createWithResource(context, R.drawable.quantum_ic_videocam_white_24),
+                Icon.createWithResource(context, R.drawable.quantum_ic_videocam_vd_white_24),
                 getActionText(
                     R.string.notification_action_dismiss, R.color.notification_action_dismiss),
                 declineVideoPendingIntent)

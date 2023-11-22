@@ -20,7 +20,6 @@ import android.Manifest;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.net.Uri;
-import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
@@ -33,14 +32,13 @@ import android.telecom.VideoProfile;
 import android.text.TextUtils;
 import android.view.Surface;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telecom.IVideoCallback;
 import com.android.internal.telecom.IVideoProvider;
 
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
-import static android.Manifest.permission.CALL_PHONE;
 
 /**
  * Proxies video provider messages from {@link InCallService.VideoCall}
@@ -55,7 +53,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
     /**
      * Listener for Telecom components interested in callbacks from the video provider.
      */
-    interface Listener {
+    public interface Listener {
         void onSessionModifyRequestReceived(Call call, VideoProfile videoProfile);
     }
 
@@ -112,7 +110,7 @@ public class VideoProviderProxy extends Connection.VideoProvider {
      * @param call The current call.
      * @throws RemoteException Remote exception.
      */
-    VideoProviderProxy(TelecomSystem.SyncRoot lock,
+    public VideoProviderProxy(TelecomSystem.SyncRoot lock,
             IVideoProvider videoProvider, Call call, CurrentUserProxy currentUserProxy)
             throws RemoteException {
 
@@ -136,11 +134,16 @@ public class VideoProviderProxy extends Connection.VideoProvider {
         }
     }
 
+    @VisibleForTesting
+    public VideoCallListenerBinder getVideoCallListenerBinder() {
+        return mVideoCallListenerBinder;
+    }
+
     /**
      * IVideoCallback stub implementation.  An instance of this class receives callbacks from the
      * {@code ConnectionService}'s video provider.
      */
-    private final class VideoCallListenerBinder extends IVideoCallback.Stub {
+    public final class VideoCallListenerBinder extends IVideoCallback.Stub {
         /**
          * Proxies a request from the {@link #mConectionServiceVideoProvider} to the
          * {@link InCallService} when a session modification request is received.
@@ -160,13 +163,14 @@ public class VideoProviderProxy extends Connection.VideoProvider {
                             Analytics.RECEIVE_REMOTE_SESSION_MODIFY_REQUEST,
                             videoProfile.getVideoState());
 
-                    if (!mCall.isVideoCallingSupported() &&
-                            VideoProfile.isVideo(videoProfile.getVideoState())) {
-                        // If video calling is not supported by the phone account, and we receive
-                        // a request to upgrade to video, automatically reject it without informing
-                        // the InCallService.
-
-                        Log.addEvent(mCall, LogUtils.Events.SEND_VIDEO_RESPONSE, "video not supported");
+                    if ((!mCall.isVideoCallingSupportedByPhoneAccount()
+                            || !mCall.isLocallyVideoCapable())
+                            && VideoProfile.isVideo(videoProfile.getVideoState())) {
+                        // If video calling is not supported by the phone account, or is not
+                        // locally video capable and we receive a request to upgrade to video,
+                        // automatically reject it without informing the InCallService.
+                        Log.addEvent(mCall, LogUtils.Events.SEND_VIDEO_RESPONSE,
+                                "video not supported");
                         VideoProfile responseProfile = new VideoProfile(
                                 VideoProfile.STATE_AUDIO_ONLY);
                         try {
@@ -434,6 +438,11 @@ public class VideoProviderProxy extends Connection.VideoProvider {
             logFromInCall("sendSessionModifyRequest: from=" + fromProfile + " to=" + toProfile);
             Log.addEvent(mCall, LogUtils.Events.SEND_VIDEO_REQUEST,
                     VideoProfile.videoStateToString(toProfile.getVideoState()));
+            if (!VideoProfile.isVideo(fromProfile.getVideoState())
+                    && VideoProfile.isVideo(toProfile.getVideoState())) {
+                // Upgrading to video; change to speaker potentially.
+                mCall.maybeEnableSpeakerForVideoUpgrade(toProfile.getVideoState());
+            }
             mCall.getAnalytics().addVideoEvent(
                     Analytics.SEND_LOCAL_SESSION_MODIFY_REQUEST,
                     toProfile.getVideoState());

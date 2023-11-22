@@ -46,7 +46,6 @@ import android.media.ImageReader;
 import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Range;
 import android.view.Surface;
@@ -77,7 +76,6 @@ import java.util.concurrent.TimeUnit;
 /**
  * <p>Basic test for CameraDevice APIs.</p>
  */
-@AppModeFull
 public class CameraDeviceTest extends Camera2AndroidTestCase {
     private static final String TAG = "CameraDeviceTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -153,8 +151,6 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                     any(CameraDevice.class));
 
         mCameraListener = mCameraMockListener;
-        createDefaultImageReader(DEFAULT_CAPTURE_SIZE, ImageFormat.YUV_420_888, MAX_NUM_IMAGES,
-                new ImageDropperListener());
     }
 
     @Override
@@ -449,7 +445,6 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     public void testChainedOperation() throws Throwable {
 
         final ArrayList<Surface> outputs = new ArrayList<>();
-        outputs.add(mReaderSurface);
 
         // A queue for the chained listeners to push results to
         // A success Throwable indicates no errors; other Throwables detail a test failure;
@@ -591,49 +586,60 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         // Actual test code
 
         for (int i = 0; i < mCameraIds.length; i++) {
-            Throwable result;
+            try {
+                Throwable result;
 
-            if (!(new StaticMetadata(mCameraManager.getCameraCharacteristics(mCameraIds[i]))).
-                    isColorOutputSupported()) {
-                Log.i(TAG, "Camera " + mCameraIds[i] + " does not support color outputs, skipping");
-                continue;
-            }
-
-            // Start chained cascade
-            ChainedCameraListener cameraListener = new ChainedCameraListener();
-            mCameraManager.openCamera(mCameraIds[i], cameraListener, mHandler);
-
-            // Check if open succeeded
-            result = results.poll(CAMERA_OPEN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            if (result != success) {
-                if (cameraListener.cameraDevice != null) cameraListener.cameraDevice.close();
-                if (result == null) {
-                    fail("Timeout waiting for camera open");
-                } else {
-                    throw result;
+                if (!(new StaticMetadata(mCameraManager.getCameraCharacteristics(mCameraIds[i]))).
+                        isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
                 }
-            }
 
-            // Check if configure succeeded
-            result = results.poll(SESSION_CONFIGURE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            if (result != success) {
-                if (cameraListener.cameraDevice != null) cameraListener.cameraDevice.close();
-                if (result == null) {
-                    fail("Timeout waiting for session configure");
-                } else {
-                    throw result;
-                }
-            }
+                createDefaultImageReader(DEFAULT_CAPTURE_SIZE, ImageFormat.YUV_420_888,
+                        MAX_NUM_IMAGES, new ImageDropperListener());
+                outputs.add(mReaderSurface);
 
-            // Check if capture succeeded
-            result = results.poll(CAPTURE_RESULT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            if (result != success) {
-                if (cameraListener.cameraDevice != null) cameraListener.cameraDevice.close();
-                if (result == null) {
-                    fail("Timeout waiting for capture completion");
-                } else {
-                    throw result;
+                // Start chained cascade
+                ChainedCameraListener cameraListener = new ChainedCameraListener();
+                mCameraManager.openCamera(mCameraIds[i], cameraListener, mHandler);
+
+                // Check if open succeeded
+                result = results.poll(CAMERA_OPEN_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                if (result != success) {
+                    if (cameraListener.cameraDevice != null) cameraListener.cameraDevice.close();
+                    if (result == null) {
+                        fail("Timeout waiting for camera open");
+                    } else {
+                        throw result;
+                    }
                 }
+
+                // Check if configure succeeded
+                result = results.poll(SESSION_CONFIGURE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                if (result != success) {
+                    if (cameraListener.cameraDevice != null) cameraListener.cameraDevice.close();
+                    if (result == null) {
+                        fail("Timeout waiting for session configure");
+                    } else {
+                        throw result;
+                    }
+                }
+
+                // Check if capture succeeded
+                result = results.poll(CAPTURE_RESULT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                if (result != success) {
+                    if (cameraListener.cameraDevice != null) cameraListener.cameraDevice.close();
+                    if (result == null) {
+                        fail("Timeout waiting for capture completion");
+                    } else {
+                        throw result;
+                    }
+                }
+
+            } finally {
+                closeDefaultImageReader();
+                outputs.clear();
             }
         }
     }
@@ -645,13 +651,13 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     public void testPrepare() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                openDevice(mCameraIds[i], mCameraMockListener);
-                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
 
                 prepareTestByCamera();
             }
@@ -668,17 +674,18 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     public void testPrepareForSharedSurfaces() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                openDevice(mCameraIds[i], mCameraMockListener);
-                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
-                if (mStaticInfo.isHardwareLevelLegacy()) {
+                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIds[i]);
+                if (staticInfo.isHardwareLevelLegacy()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] + " is legacy, skipping");
                     continue;
                 }
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!staticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
 
                 prepareTestForSharedSurfacesByCamera();
             }
@@ -694,13 +701,13 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     public void testCreateSessions() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                openDevice(mCameraIds[i], mCameraMockListener);
-                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
 
                 testCreateSessionsByCamera(mCameraIds[i]);
             }
@@ -716,13 +723,13 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     public void testCreateCustomSession() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                openDevice(mCameraIds[i], mCameraMockListener);
-                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
 
                 testCreateCustomSessionByCamera(mCameraIds[i]);
             }
@@ -851,6 +858,11 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
 
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIds[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
                 openDevice(mCameraIds[i], mCameraMockListener);
                 waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
 
@@ -880,13 +892,14 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     public void testSessionParametersStateLeak() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                openDevice(mCameraIds[i], mCameraMockListener);
-                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
+
                 testSessionParametersStateLeakByCamera(mCameraIds[i]);
             }
             finally {
@@ -1049,13 +1062,13 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
     public void testCreateSessionWithParameters() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                openDevice(mCameraIds[i], mCameraMockListener);
-                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i], mCameraMockListener);
+                waitForDeviceState(STATE_OPENED, CAMERA_OPEN_TIMEOUT_MS);
 
                 testCreateSessionWithParametersByCamera(mCameraIds[i], /*reprocessable*/false);
                 testCreateSessionWithParametersByCamera(mCameraIds[i], /*reprocessable*/true);
@@ -1097,7 +1110,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             }
 
             for (int inFormat : inputFormats) {
-                int outputFormats [] = config.getValidOutputFormatsForInput(inputFormat);
+                int outputFormats [] = config.getValidOutputFormatsForInput(inFormat);
                 for (int outFormat : outputFormats) {
                     if (inFormat == outFormat) {
                         inputFormat = inFormat;
@@ -1836,6 +1849,9 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
         if (!mStaticInfo.isColorOutputSupported()) {
             createDefaultImageReader(getMaxDepthSize(mCamera.getId(), mCameraManager),
                     ImageFormat.DEPTH16, MAX_NUM_IMAGES, new ImageDropperListener());
+        } else {
+            createDefaultImageReader(DEFAULT_CAPTURE_SIZE, ImageFormat.YUV_420_888, MAX_NUM_IMAGES,
+                    new ImageDropperListener());
         }
 
         List<Surface> outputSurfaces = new ArrayList<>(Arrays.asList(mReaderSurface));
@@ -2474,6 +2490,12 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                 break;
             default:
                 // Skip unknown templates here
+        }
+
+        // Check distortion correction mode
+        if (mStaticInfo.isDistortionCorrectionSupported()) {
+            mCollector.expectKeyValueNotEquals(request, DISTORTION_CORRECTION_MODE,
+                    CaptureRequest.DISTORTION_CORRECTION_MODE_OFF);
         }
 
         // TODO: use the list of keys from CameraCharacteristics to avoid expecting

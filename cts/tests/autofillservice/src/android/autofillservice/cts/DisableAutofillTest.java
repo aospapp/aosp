@@ -16,37 +16,25 @@
 
 package android.autofillservice.cts;
 
+import static android.autofillservice.cts.Timeouts.ACTIVITY_RESURRECTION;
+import static android.autofillservice.cts.Timeouts.CALLBACK_NOT_CALLED_TIMEOUT_MS;
+
 import android.autofillservice.cts.CannedFillResponse.CannedDataset;
-import android.content.Intent;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.FillResponse;
 import android.util.Log;
+
+import com.android.compatibility.common.util.RetryableException;
 
 import org.junit.Test;
 
 /**
  * Tests for the {@link android.service.autofill.FillResponse.Builder#disableAutofill(long)} API.
  */
-public class DisableAutofillTest extends AutoFillServiceTestCase {
+public class DisableAutofillTest extends AutoFillServiceTestCase.ManualActivityLaunch {
 
     private static final String TAG = "DisableAutofillTest";
-
-    private SimpleSaveActivity startSimpleSaveActivity() throws Exception {
-        final Intent intent = new Intent(mContext, SimpleSaveActivity.class)
-                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        mContext.startActivity(intent);
-        mUiBot.assertShownByRelativeId(SimpleSaveActivity.ID_LABEL);
-        return SimpleSaveActivity.getInstance();
-    }
-
-    private PreSimpleSaveActivity startPreSimpleSaveActivity() throws Exception {
-        final Intent intent = new Intent(mContext, PreSimpleSaveActivity.class)
-                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        mContext.startActivity(intent);
-        mUiBot.assertShownByRelativeId(PreSimpleSaveActivity.ID_PRE_LABEL);
-        return PreSimpleSaveActivity.getInstance();
-    }
 
     /**
      * Defines what to do after the activity being tested is launched.
@@ -81,7 +69,10 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
         ASSERT_ENABLED_AND_AUTOFILL
     }
 
-    private void launchSimpleSaveActivity(PostLaunchAction action) throws Exception {
+    /**
+     * Launches and finishes {@link SimpleSaveActivity}, returning how long it took.
+     */
+    private long launchSimpleSaveActivity(PostLaunchAction action) throws Exception {
         Log.v(TAG, "launchPreSimpleSaveActivity(): " + action);
         sReplier.assertNoUnhandledFillRequests();
 
@@ -96,6 +87,7 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
 
         }
 
+        final long before = SystemClock.elapsedRealtime();
         final SimpleSaveActivity activity = startSimpleSaveActivity();
         final MyAutofillCallback callback = activity.registerCallback();
 
@@ -128,9 +120,13 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
         } finally {
             activity.finish();
         }
+        return SystemClock.elapsedRealtime() - before;
     }
 
-    private void launchPreSimpleSaveActivity(PostLaunchAction action) throws Exception {
+    /**
+     * Launches and finishes {@link PreSimpleSaveActivity}, returning how long it took.
+     */
+    private long launchPreSimpleSaveActivity(PostLaunchAction action) throws Exception {
         Log.v(TAG, "launchPreSimpleSaveActivity(): " + action);
         sReplier.assertNoUnhandledFillRequests();
 
@@ -143,6 +139,7 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
                     .build());
         }
 
+        final long before = SystemClock.elapsedRealtime();
         final PreSimpleSaveActivity activity = startPreSimpleSaveActivity();
         final MyAutofillCallback callback = activity.registerCallback();
 
@@ -170,6 +167,7 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
         } finally {
             activity.finish();
         }
+        return SystemClock.elapsedRealtime() - before;
     }
 
     @Test
@@ -192,25 +190,25 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testDisableApp() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDisableApp() is enough")
     public void testDisableAppThenWaitToReenableIt() throws Exception {
         // Set service.
         enableService();
 
         // Need to wait the equivalent of launching 2 activities, plus some extra legging room
-        final long duration = 2 * Timeouts.ACTIVITY_RESURRECTION.ms() + 500;
+        final long duration = 2 * ACTIVITY_RESURRECTION.ms() + 500;
 
         // Set expectations.
         sReplier.addResponse(new CannedFillResponse.Builder().disableAutofill(duration).build());
 
         // Trigger autofill for the first time.
-        launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLING);
+        long passedTime = launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLING);
 
         // Launch activity again.
-        launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLED);
+        passedTime += launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLED);
 
         // Wait for the timeout, then try again, autofilling it this time.
-        SystemClock.sleep(duration + 1);
+        sleep(passedTime, duration);
         launchSimpleSaveActivity(PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
 
         // Also try it on another activity.
@@ -218,7 +216,7 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testDisableApp() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDisableApp() is enough")
     public void testDisableAppThenResetServiceToReenableIt() throws Exception {
         enableService();
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -262,13 +260,13 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testDisableActivity() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDisableActivity() is enough")
     public void testDisableActivityThenWaitToReenableIt() throws Exception {
         // Set service.
         enableService();
 
         // Need to wait the equivalent of launching 2 activities, plus some extra legging room
-        final long duration = 2 * Timeouts.ACTIVITY_RESURRECTION.ms() + 500;
+        final long duration = 2 * ACTIVITY_RESURRECTION.ms() + 500;
 
         // Set expectations.
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -277,21 +275,21 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
                 .build());
 
         // Trigger autofill for the first time.
-        launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLING);
+        long passedTime = launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLING);
 
         // Launch activity again.
-        launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLED);
+        passedTime += launchSimpleSaveActivity(PostLaunchAction.ASSERT_DISABLED);
 
         // Make sure other app is working.
-        launchPreSimpleSaveActivity(PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
+        passedTime += launchPreSimpleSaveActivity(PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
 
         // Wait for the timeout, then try again, autofilling it this time.
-        SystemClock.sleep(duration + 1);
+        sleep(passedTime, duration);
         launchSimpleSaveActivity(PostLaunchAction.ASSERT_ENABLED_AND_AUTOFILL);
     }
 
     @Test
-    @AppModeFull // testDisableActivity() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDisableActivity() is enough")
     public void testDisableActivityThenResetServiceToReenableIt() throws Exception {
         enableService();
         sReplier.addResponse(new CannedFillResponse.Builder()
@@ -317,11 +315,26 @@ public class DisableAutofillTest extends AutoFillServiceTestCase {
 
     private void assertAutofillEnabled(AbstractAutoFillActivity activity, boolean expected)
             throws Exception {
-        Timeouts.ACTIVITY_RESURRECTION.run(
+        ACTIVITY_RESURRECTION.run(
                 "assertAutofillEnabled(" + activity.getComponentName().flattenToShortString() + ")",
                 () -> {
                     return activity.getAutofillManager().isEnabled() == expected
                             ? Boolean.TRUE : null;
                 });
+    }
+
+    private void sleep(long passedTime, long disableDuration) {
+        final long napTime = disableDuration - passedTime + 500;
+        if (napTime <= 0) {
+            // Throw an exception so ACTIVITY_RESURRECTION is increased
+            throw new RetryableException("took longer than expcted to launch activities: "
+                            + "passedTime=" + passedTime + "ms, disableDuration=" + disableDuration
+                            + ", ACTIVITY_RESURRECTION=" + ACTIVITY_RESURRECTION
+                            + ", CALLBACK_NOT_CALLED_TIMEOUT_MS=" + CALLBACK_NOT_CALLED_TIMEOUT_MS);
+        }
+        Log.v(TAG, "Sleeping for " + napTime + "ms (duration=" + disableDuration + "ms, passedTime="
+                + passedTime + ")");
+
+        SystemClock.sleep(napTime);
     }
 }

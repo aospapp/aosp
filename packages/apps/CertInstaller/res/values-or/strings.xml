@@ -4,9 +4,9 @@
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
      You may obtain a copy of the License at
-  
+
           http://www.apache.org/licenses/LICENSE-2.0
-  
+
      Unless required by applicable law or agreed to in writing, software
      distributed under the License is distributed on an "AS IS" BASIS,
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,6 +27,7 @@
     <string name="credential_info" msgid="2436768402308470397">"ଏହି ପ୍ୟାକେଜ୍‌ରେ ରହିଛି:"</string>
     <string name="p12_description" msgid="4128352087331630024">"PKCS12 କୀ’ଷ୍ଟୋରରେ ସର୍ଟିଫିକେଟ୍‍।"</string>
     <string name="one_userkey" msgid="3500697912370644881">"ଗୋଟିଏ ୟୁଜର୍‍ କୀ\'"</string>
+    <string name="userkey_type" msgid="6214833257030657106">"ଆଲଗୋରିଦମ୍:"</string>
     <string name="one_usercrt" msgid="7690798336332403106">"ଜଣେ ୟୁଜରଙ୍କ ସର୍ଟିଫିକେଟ୍‍"</string>
     <string name="one_cacrt" msgid="2667950425420663146">"ଏକ CA ସର୍ଟିଫିକେଟ୍‍"</string>
     <string name="n_cacrts" msgid="2141498640685639208">"%d CA ସର୍ଟିଫିକେଟ୍‍"</string>
@@ -38,14 +39,12 @@
     <string name="cert_not_saved" msgid="4037698479662830270">"ସର୍ଟିଫିକେଟ୍‌ଟି ଇନଷ୍ଟଲ୍‌ ହୋଇନାହିଁ।"</string>
     <string name="no_cert_to_saved" msgid="5708884372817309068">"ଇନଷ୍ଟଲ୍‌ କରାଯିବାକୁ କୌଣସି ସର୍ଟିଫିକେଟ୍‍ ନାହିଁ।"</string>
     <string name="invalid_cert" msgid="7704228670980743590">"ଏହି ସର୍ଟିଫିକେଟ୍‍ ବୈଧ ନୁହେଁ।"</string>
+    <string name="action_missing_private_key" msgid="7543470057312920042">"ଗୋଟିଏ ସର୍ଟିଫିକେଟ୍‍କୁ ଇନଷ୍ଟଲ୍ କରିବା ପାଇଁ ବ୍ୟକ୍ତିଗତ କୀ\' ଆବଶ୍ୟକ"</string>
+    <string name="action_missing_user_cert" msgid="3727411730202316771">"ଗୋଟିଏ ବ୍ୟକ୍ତିଗତ କୀ’କୁ ଇନଷ୍ଟଲ୍ କରିବା ପାଇଁ ସର୍ଟିଫିକେଟ୍ ଆବଶ୍ୟକ"</string>
     <string name="cert_is_added" msgid="6996557598167000500">"<xliff:g id="CREDENTIAL">%s</xliff:g> ଇନଷ୍ଟଲ୍‌ ହୋଇଛି।"</string>
     <string name="cert_too_large_error" msgid="8715414972725646285">"ଇନଷ୍ଟଲ୍‌ କରିହେଉନାହିଁ, କାରଣ ସର୍ଟିଫିକେଟ୍‌ର ଆକାର ବହୁତ ବଡ଼ ଅଟେ।"</string>
     <string name="cert_missing_error" msgid="7040527352278728220">"ଇନଷ୍ଟଲ୍‌ କରିହେଉନାହିଁ, କାରଣ ସର୍ଟିଫିକେଟ୍‌ ଫାଇଲ୍‍ ମିଳୁନାହିଁ।"</string>
     <string name="cert_read_error" msgid="7353463360652419796">"ଇନଷ୍ଟଲ୍‌ କରିହେଉନାହିଁ, କାରଣ ସର୍ଟିଫିକେଟ୍‌ ଫାଇଲ୍‍ ପଢ଼ି ହେଉନାହିଁ।"</string>
-    <string name="no_cert_file_found" product="nosdcard" msgid="3555332946357131929">"USB ଷ୍ଟୋରେଜରେ କୌଣସି ସର୍ଟିଫିକେଟ୍‍ ଫାଇଲ୍ ମିଳୁନାହିଁ।"</string>
-    <string name="no_cert_file_found" product="default" msgid="1942077544887243999">"SD କାର୍ଡରେ କୌଣସି ସର୍ଟିଫିକେଟ୍‍ ଫାଇଲ୍ ମିଳୁନାହିଁ।"</string>
-    <string name="sdcard_not_present" product="nosdcard" msgid="9197143240492611196">"USB ଷ୍ଟୋରେଜ୍ ଉପଲବ୍ଧ ନାହିଁ।"</string>
-    <string name="sdcard_not_present" product="default" msgid="3866952732541932947">"ଏଥିରେ SD କାର୍ଡ ନାହିଁ।"</string>
     <string name="only_primary_user_allowed" msgid="4005084935023047716">"କେବଳ ଏହି ଡିଭାଇସ୍‌‍ର ମାଲିକ ହିଁ ସର୍ଟିଫିକେଟ୍‌ ଇନଷ୍ଟଲ୍‍ କରିପାରିବେ।"</string>
     <string name="credential_usage_label" msgid="1513892208033156805">"ତଥ୍ୟର ବ୍ୟବହାର:"</string>
   <string-array name="credential_usage">

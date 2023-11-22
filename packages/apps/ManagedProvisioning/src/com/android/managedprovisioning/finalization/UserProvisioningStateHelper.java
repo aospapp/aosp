@@ -49,7 +49,7 @@ public class UserProvisioningStateHelper {
     private final SettingsFacade mSettingsFacade;
     private final int mMyUserId;
 
-    UserProvisioningStateHelper(Context context) {
+    public UserProvisioningStateHelper(Context context) {
         this(context, new Utils(), new SettingsFacade(), UserHandle.myUserId());
     }
 

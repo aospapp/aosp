@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Informações de emergência"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Informações médicas"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Editar informações"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Adicionar informações"</string>
     <string name="edit_info" msgid="5973929805855224805">"Edita as informações de emergência"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Informações"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Contatos"</string>
@@ -77,11 +77,11 @@
     <string name="medications" msgid="644428945685557183">"Medicamentos"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"Desconhecidos"</string>
     <string name="medications_hint" msgid="3221620025945593723">"Por exemplo, aspirina"</string>
-    <string name="medical_conditions" msgid="3555690011498283592">"Anotações médicas"</string>
+    <string name="medical_conditions" msgid="3555690011498283592">"Informações de saúde"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"Desconhecidas"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"Por exemplo, asma"</string>
     <string name="organ_donor" msgid="5953509460007124827">"Doador de órgãos"</string>
-    <string name="unknown_organ_donor" msgid="2780515342875494225">"Desconhecido"</string>
+    <string name="unknown_organ_donor" msgid="2780515342875494225">"Não declarado"</string>
     <string name="yes" msgid="5829765567799916128">"Sim"</string>
     <string name="no" msgid="1681689233660683509">"Não"</string>
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Adicionar informações médicas e contatos de emergência pode ajudar os socorristas em uma emergência.\n\nQualquer pessoa pode ler essas informações na tela de bloqueio e ligar para seus contatos tocando no nome deles sem desbloquear o smartphone."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Adicionar informações de emergência"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Permita que os socorristas vejam suas informações"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Tirar uma foto"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Escolher uma imagem"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Selecionar foto"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Apelido"</string>
 </resources>

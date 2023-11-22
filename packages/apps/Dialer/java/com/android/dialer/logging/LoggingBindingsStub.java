@@ -16,6 +16,7 @@ package com.android.dialer.logging;
 
 import android.app.Activity;
 import android.widget.QuickContactBadge;
+import java.util.Collection;
 
 /** Default implementation for logging bindings. */
 public class LoggingBindingsStub implements LoggingBindings {
@@ -61,4 +62,16 @@ public class LoggingBindingsStub implements LoggingBindings {
 
   @Override
   public void logSuccessfulPeopleApiLookupReport(long latency, int httpResponseCode) {}
+
+  @Override
+  public void logAutoBlockedCall(String phoneNumber) {}
+
+  @Override
+  public void logAnnotatedCallLogMetrics(int invalidNumbersInCallLog) {}
+
+  @Override
+  public void logAnnotatedCallLogMetrics(int numberRowsThatDidPop, int numberRowsThatDidNotPop) {}
+
+  @Override
+  public void logContactsProviderMetrics(Collection<ContactsProviderMatchInfo> matchInfos) {}
 }

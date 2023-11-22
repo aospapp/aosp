@@ -22,31 +22,6 @@
  * This set of benchmarks measures the throughput of getaddrinfo() on between 1 and 32 threads for
  * the purpose of keeping track of the maximum load that netd can reasonably handle.
  *
- * The benchmark fixture runs in 3 different modes:
- *
- *  - getaddrinfo_log_nothing
- *
- *      The control case. Switches all kinds of DNS events reporting off and runs getaddrinfo() in a
- *      loop until the timer expires.
- *
- *      This was the default and only mode in all versions before 7.0.
- *
- *  - getaddrinfo_log_metrics
- *
- *      DNS Logging Lite™ includes staple favourites such as event type (getaddrinfo/gethostbyname),
- *      return code, and latency, but misses out in-depth information such as resolved IP addresses.
- *
- *      It is expected that this is a little slower than getaddrinfo_log_nothing because of the
- *      overhead, but not particularly worse, since it is a oneway binder call without too much data
- *      being sent per event.
- *
- *      This was the default mode between versions 7.0 and 7.1 inclusive.
- *
- *  - getaddrinfo_log_everything
- *
- *      DNS Logging, in full HD, includes extra non-metrics fields such as hostname, a truncated
- *      list of resolved addresses, total resolved address count, and originating UID.
- *
  * Useful measurements
  * ===================
  *
@@ -66,15 +41,12 @@
 
 #include <android-base/stringprintf.h>
 #include <benchmark/benchmark.h>
-#include <utils/String16.h>
-#include <utils/StrongPointer.h>
 
-#include "dns_responder_client.h"
 #include "NetdClient.h"
-#include "android/net/metrics/INetdEventListener.h"
+#include "dns_responder_client.h"
+#include "netd_resolv/params.h"  // MAXNS
 
 using android::base::StringPrintf;
-using android::net::metrics::INetdEventListener;
 
 constexpr int MIN_THREADS = 1;
 constexpr int MAX_THREADS = 32;
@@ -97,14 +69,13 @@ public:
 
             dns.SetupDNSServers(MAXNS, mappings, &mDns, &servers);
 
-            const std::vector<int> mDefaultParams_Binder = { 300, 25, 8, 8 };
+            const std::vector<int> mDefaultParams_Binder = {300, 25, 8, 8, 1000};
             dns.SetResolversForNetwork(servers, domains, mDefaultParams_Binder);
         }
     }
 
     void TearDown(const ::benchmark::State& state) override {
         if (state.thread_index == 0) {
-            dns.ShutdownDNSServers(&mDns);
             dns.TearDown();
         }
     }
@@ -113,11 +84,7 @@ public:
         return mappings;
     }
 
-    android::sp<android::net::INetd> getNetd() const {
-        return dns.mNetdSrv;
-    }
-
-    void getaddrinfo_until_done(benchmark::State &state) {
+    void benchmark(benchmark::State& state) {
         while (state.KeepRunning()) {
             const uint32_t ofs = arc4random_uniform(getMappings().size());
             const auto& mapping = getMappings()[ofs];
@@ -133,62 +100,11 @@ public:
             }
         }
     }
-
-    void benchmark_at_reporting_level(benchmark::State &state, int metricsLevel) {
-        const bool isMaster = (state.thread_index == 0);
-        int oldMetricsLevel;
-
-        // SETUP
-        if (isMaster) {
-            auto rv = getNetd()->getMetricsReportingLevel(&oldMetricsLevel);
-            if (!rv.isOk()) {
-                state.SkipWithError(StringPrintf("Failed saving metrics reporting level: %s",
-                        rv.toString8().string()).c_str());
-                return;
-            }
-            rv = getNetd()->setMetricsReportingLevel(metricsLevel);
-            if (!rv.isOk()) {
-                state.SkipWithError(StringPrintf("Failed changing metrics reporting: %s",
-                        rv.toString8().string()).c_str());
-                return;
-            }
-        }
-
-        // TEST
-        getaddrinfo_until_done(state);
-
-        // TEARDOWN
-        if (isMaster) {
-            auto rv = getNetd()->setMetricsReportingLevel(oldMetricsLevel);
-            if (!rv.isOk()) {
-                state.SkipWithError(StringPrintf("Failed restoring metrics reporting level: %s",
-                        rv.toString8().string()).c_str());
-                return;
-            }
-        }
-    }
 };
 
-// DNS calls without any metrics logged or sent.
-BENCHMARK_DEFINE_F(DnsFixture, getaddrinfo_log_nothing)(benchmark::State& state) {
-    benchmark_at_reporting_level(state, INetdEventListener::REPORTING_LEVEL_NONE);
+BENCHMARK_DEFINE_F(DnsFixture, getaddrinfo)(benchmark::State& state) {
+    benchmark(state);
 }
-BENCHMARK_REGISTER_F(DnsFixture, getaddrinfo_log_nothing)
-    ->ThreadRange(MIN_THREADS, MAX_THREADS)
-    ->UseRealTime();
-
-// DNS calls with metrics only (netId, latency, return code) sent to the system server.
-BENCHMARK_DEFINE_F(DnsFixture, getaddrinfo_log_metrics)(benchmark::State& state) {
-    benchmark_at_reporting_level(state, INetdEventListener::REPORTING_LEVEL_METRICS);
-}
-BENCHMARK_REGISTER_F(DnsFixture, getaddrinfo_log_metrics)
-    ->ThreadRange(MIN_THREADS, MAX_THREADS)
-    ->UseRealTime();
-
-// DNS calls with all information logged and sent to the system server.
-BENCHMARK_DEFINE_F(DnsFixture, getaddrinfo_log_everything)(benchmark::State& state) {
-    benchmark_at_reporting_level(state, INetdEventListener::REPORTING_LEVEL_FULL);
-}
-BENCHMARK_REGISTER_F(DnsFixture, getaddrinfo_log_everything)
+BENCHMARK_REGISTER_F(DnsFixture, getaddrinfo)
     ->ThreadRange(MIN_THREADS, MAX_THREADS)
     ->UseRealTime();

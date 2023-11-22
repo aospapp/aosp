@@ -15,19 +15,15 @@
  */
 package android.sample.cts;
 
+import android.sample.SampleDeviceActivity;
+
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Assert;
-import org.junit.runner.RunWith;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-
-import android.app.Activity;
-import android.sample.SampleDeviceActivity;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
-import android.test.ActivityInstrumentationTestCase2;
+import org.junit.runner.RunWith;
 
 /**
  * A simple compatibility test which tests the SharedPreferences API.

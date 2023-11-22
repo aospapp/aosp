@@ -71,7 +71,9 @@ public class MockConnectionService extends ConnectionService {
         connection.setAddress(request.getAddress(), CONNECTION_PRESENTATION);
         connection.setPhoneAccountHandle(connectionManagerPhoneAccount);
         connection.setConnectionCapabilities(Connection.CAPABILITY_SUPPORT_HOLD |
-                Connection.CAPABILITY_HOLD);
+                Connection.CAPABILITY_HOLD
+                | Connection.CAPABILITY_SUPPORTS_VT_LOCAL_BIDIRECTIONAL
+                | Connection.CAPABILITY_SUPPORTS_VT_REMOTE_BIDIRECTIONAL);
         if (mCreateVideoProvider) {
             connection.createMockVideoProvider();
         } else {

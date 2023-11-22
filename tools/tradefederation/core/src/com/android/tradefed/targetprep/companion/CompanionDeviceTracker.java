@@ -59,7 +59,7 @@ public class CompanionDeviceTracker {
      * @return the device allocated or <code>null</code> if none available
      */
     public ITestDevice allocateCompanionDevice(ITestDevice device, DeviceSelectionOptions opt) {
-        ITestDevice companion = getDeviceManager().allocateDevice(opt);
+        ITestDevice companion = getDeviceManager().allocateDevice(opt, false);
         if (companion != null) {
             if (mDeviceMapping.containsKey(device)) {
                 CLog.w("device %s already has an allocated companion %s",

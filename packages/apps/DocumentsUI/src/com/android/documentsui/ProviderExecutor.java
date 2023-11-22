@@ -18,7 +18,7 @@ package com.android.documentsui;
 
 import android.os.AsyncTask;
 
-import com.android.internal.annotations.GuardedBy;
+import androidx.annotation.GuardedBy;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;

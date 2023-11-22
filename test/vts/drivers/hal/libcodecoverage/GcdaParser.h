@@ -31,9 +31,8 @@ namespace vts {
 // Parses a GCDA file and extracts raw coverage info.
 class GcdaRawCoverageParser {
  public:
-  GcdaRawCoverageParser(const char* filename)
-    : filename_(filename),
-      gcda_file_(new GcdaFile(filename_)) {}
+  explicit GcdaRawCoverageParser(const char* filename)
+      : filename_(filename), gcda_file_(new GcdaFile(filename_)) {}
 
   virtual ~GcdaRawCoverageParser() {}
 

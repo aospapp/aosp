@@ -26,6 +26,10 @@
 
 namespace chre {
 
+#ifdef CHRE_SLPI_UIMG_ENABLED
+constexpr Seconds IslandVoteClient::kSeeMaxBigImageDuration;
+#endif  // CHRE_SLPI_UIMG_ENABLED
+
 IslandVoteClient::IslandVoteClient(const char *clientName) {
 #ifdef CHRE_SLPI_UIMG_ENABLED
   mClientHandle = sns_island_aggregator_register_client(clientName);
@@ -75,6 +79,8 @@ void IslandVoteClient::incrementBigImageRefCount() {
       voteSnsPowerMode(true /* bigImage */);
       mLastBigImageVote = true;
     }
+  } else {
+    checkBigImageDuration();
   }
 }
 
@@ -83,10 +89,8 @@ void IslandVoteClient::decrementBigImageRefCount() {
   CHRE_ASSERT_LOG(mBigImageRefCount > 0,
                   "Tried to decrement big image ref count when it's 0");
 
+  uint64_t duration = checkBigImageDuration();
   if (--mBigImageRefCount == 0) {
-    uint64_t duration =
-        Milliseconds(SystemTime::getMonotonicTime()).getMilliseconds()
-        - mRefCountStart.getMilliseconds();
     LOGW("Big image ref count ends: %" PRIu64 " ms", duration);
 
     // There's no big image activity now, restore the intended uimg power state.
@@ -104,11 +108,25 @@ bool IslandVoteClient::voteSnsPowerMode(bool bigImage) {
   // TODO: (b/74524281) define success = (rc == SNS_RC_SUCCESS).
   bool success = (rc != SNS_RC_FAILED);
   if (!success) {
-    // Note that FATAL_ERROR must not be used here, because this can be called
-    // from preFatalError() (not that we should use it here regardless)
     LOGE("Failed to vote for bigImage %d with result %d", bigImage, rc);
   }
   return success;
+}
+
+uint64_t IslandVoteClient::checkBigImageDuration() const {
+  uint64_t duration = 0;
+  if (mBigImageRefCount > 0) {
+    duration = Milliseconds(SystemTime::getMonotonicTime()).getMilliseconds()
+               - mRefCountStart.getMilliseconds();
+  }
+
+  // Bimg memory fallback only intends to handle a surge of uimg memory
+  // requests. If there's a prolonged period of memory fallback, this might
+  // indicate a memory leak or inadequate uimg heap size.
+  if (duration > kSeeMaxBigImageDuration.getMilliseconds()) {
+    FATAL_ERROR("Forced into big image for %" PRIu64 " msec", duration);
+  }
+  return duration;
 }
 #endif  // CHRE_SLPI_UIMG_ENABLED
 

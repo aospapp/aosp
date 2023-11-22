@@ -30,6 +30,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -38,6 +39,7 @@
 #include <list>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 
 #include <android-base/file.h>
@@ -89,7 +91,7 @@ struct usb_handle : public ::usb_handle {
 static auto& g_usb_handles_mutex = *new std::mutex();
 static auto& g_usb_handles = *new std::list<usb_handle*>();
 
-static int is_known_device(const char* dev_name) {
+static int is_known_device(std::string_view dev_name) {
     std::lock_guard<std::mutex> lock(g_usb_handles_mutex);
     for (usb_handle* usb : g_usb_handles) {
         if (usb->path == dev_name) {
@@ -128,7 +130,7 @@ static void find_usb_device(const std::string& base,
     if (!bus_dir) return;
 
     dirent* de;
-    while ((de = readdir(bus_dir.get())) != 0) {
+    while ((de = readdir(bus_dir.get())) != nullptr) {
         if (contains_non_digit(de->d_name)) continue;
 
         std::string bus_name = base + "/" + de->d_name;
@@ -151,11 +153,11 @@ static void find_usb_device(const std::string& base,
             if (contains_non_digit(de->d_name)) continue;
 
             std::string dev_name = bus_name + "/" + de->d_name;
-            if (is_known_device(dev_name.c_str())) {
+            if (is_known_device(dev_name)) {
                 continue;
             }
 
-            int fd = unix_open(dev_name.c_str(), O_RDONLY | O_CLOEXEC);
+            int fd = unix_open(dev_name, O_RDONLY | O_CLOEXEC);
             if (fd == -1) {
                 continue;
             }
@@ -418,11 +420,11 @@ int usb_write(usb_handle *h, const void *_data, int len)
     if (h->zero_mask && !(len & h->zero_mask)) {
         // If we need 0-markers and our transfer is an even multiple of the packet size,
         // then send a zero marker.
-        return usb_bulk_write(h, _data, 0);
+        return usb_bulk_write(h, _data, 0) == 0 ? n : -1;
     }
 
     D("-- usb_write --");
-    return 0;
+    return n;
 }
 
 int usb_read(usb_handle *h, void *_data, int len)
@@ -454,6 +456,11 @@ int usb_read(usb_handle *h, void *_data, int len)
 
     D("-- usb_read --");
     return orig_len - len;
+}
+
+void usb_reset(usb_handle* h) {
+    ioctl(h->fd, USBDEVFS_RESET);
+    usb_kick(h);
 }
 
 void usb_kick(usb_handle* h) {
@@ -534,10 +541,10 @@ static void register_device(const char* dev_name, const char* dev_path, unsigned
     // Initialize mark so we don't get garbage collected after the device scan.
     usb->mark = true;
 
-    usb->fd = unix_open(usb->path.c_str(), O_RDWR | O_CLOEXEC);
+    usb->fd = unix_open(usb->path, O_RDWR | O_CLOEXEC);
     if (usb->fd == -1) {
         // Opening RW failed, so see if we have RO access.
-        usb->fd = unix_open(usb->path.c_str(), O_RDONLY | O_CLOEXEC);
+        usb->fd = unix_open(usb->path, O_RDONLY | O_CLOEXEC);
         if (usb->fd == -1) {
             D("[ usb open %s failed: %s]", usb->path.c_str(), strerror(errno));
             return;

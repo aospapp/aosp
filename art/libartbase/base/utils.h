@@ -24,42 +24,14 @@
 #include <string>
 
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
 
-#include "base/casts.h"
-#include "base/enums.h"
-#include "base/globals.h"
-#include "base/macros.h"
-#include "base/stringpiece.h"
+#include "casts.h"
+#include "enums.h"
+#include "globals.h"
+#include "macros.h"
 
 namespace art {
-
-template <typename T>
-bool ParseUint(const char *in, T* out) {
-  char* end;
-  unsigned long long int result = strtoull(in, &end, 0);  // NOLINT(runtime/int)
-  if (in == end || *end != '\0') {
-    return false;
-  }
-  if (std::numeric_limits<T>::max() < result) {
-    return false;
-  }
-  *out = static_cast<T>(result);
-  return true;
-}
-
-template <typename T>
-bool ParseInt(const char* in, T* out) {
-  char* end;
-  long long int result = strtoll(in, &end, 0);  // NOLINT(runtime/int)
-  if (in == end || *end != '\0') {
-    return false;
-  }
-  if (result < std::numeric_limits<T>::min() || std::numeric_limits<T>::max() < result) {
-    return false;
-  }
-  *out = static_cast<T>(result);
-  return true;
-}
 
 static inline uint32_t PointerToLowMemUInt32(const void* p) {
   uintptr_t intp = reinterpret_cast<uintptr_t>(p);
@@ -118,44 +90,6 @@ static inline const void* EntryPointToCodePointer(const void* entry_point) {
   return reinterpret_cast<const void*>(code);
 }
 
-using UsageFn = void (*)(const char*, ...);
-
-template <typename T>
-static void ParseIntOption(const StringPiece& option,
-                            const std::string& option_name,
-                            T* out,
-                            UsageFn usage,
-                            bool is_long_option = true) {
-  std::string option_prefix = option_name + (is_long_option ? "=" : "");
-  DCHECK(option.starts_with(option_prefix)) << option << " " << option_prefix;
-  const char* value_string = option.substr(option_prefix.size()).data();
-  int64_t parsed_integer_value = 0;
-  if (!ParseInt(value_string, &parsed_integer_value)) {
-    usage("Failed to parse %s '%s' as an integer", option_name.c_str(), value_string);
-  }
-  *out = dchecked_integral_cast<T>(parsed_integer_value);
-}
-
-template <typename T>
-static void ParseUintOption(const StringPiece& option,
-                            const std::string& option_name,
-                            T* out,
-                            UsageFn usage,
-                            bool is_long_option = true) {
-  ParseIntOption(option, option_name, out, usage, is_long_option);
-  if (*out < 0) {
-    usage("%s passed a negative value %d", option_name.c_str(), *out);
-    *out = 0;
-  }
-}
-
-void ParseDouble(const std::string& option,
-                 char after_char,
-                 double min,
-                 double max,
-                 double* parsed_value,
-                 UsageFn Usage);
-
 #if defined(__BIONIC__)
 struct Arc4RandomGenerator {
   typedef uint32_t result_type;
@@ -179,15 +113,8 @@ static T GetRandomNumber(T min, T max) {
 // Sleep forever and never come back.
 NO_RETURN void SleepForever();
 
-inline void FlushInstructionCache(char* begin, char* end) {
-  __builtin___clear_cache(begin, end);
-}
-
-inline void FlushDataCache(char* begin, char* end) {
-  // Same as FlushInstructionCache for lack of other builtin. __builtin___clear_cache
-  // flushes both caches.
-  __builtin___clear_cache(begin, end);
-}
+// Flush CPU caches. Returns true on success, false if flush failed.
+WARN_UNUSED bool FlushCpuCaches(void* begin, void* end);
 
 template <typename T>
 constexpr PointerSize ConvertToPointerSize(T any) {
@@ -197,30 +124,6 @@ constexpr PointerSize ConvertToPointerSize(T any) {
     LOG(FATAL);
     UNREACHABLE();
   }
-}
-
-// Returns a type cast pointer if object pointed to is within the provided bounds.
-// Otherwise returns nullptr.
-template <typename T>
-inline static T BoundsCheckedCast(const void* pointer,
-                                  const void* lower,
-                                  const void* upper) {
-  const uint8_t* bound_begin = static_cast<const uint8_t*>(lower);
-  const uint8_t* bound_end = static_cast<const uint8_t*>(upper);
-  DCHECK(bound_begin <= bound_end);
-
-  T result = reinterpret_cast<T>(pointer);
-  const uint8_t* begin = static_cast<const uint8_t*>(pointer);
-  const uint8_t* end = begin + sizeof(*result);
-  if (begin < bound_begin || end > bound_end || begin > end) {
-    return nullptr;
-  }
-  return result;
-}
-
-template <typename T, size_t size>
-constexpr size_t ArrayCount(const T (&)[size]) {
-  return size;
 }
 
 // Return -1 if <, 0 if ==, 1 if >.
@@ -239,24 +142,14 @@ template <typename Func, typename... Args>
 static inline void CheckedCall(const Func& function, const char* what, Args... args) {
   int rc = function(args...);
   if (UNLIKELY(rc != 0)) {
-    errno = rc;
     PLOG(FATAL) << "Checked call failed for " << what;
   }
 }
 
-// Hash bytes using a relatively fast hash.
-static inline size_t HashBytes(const uint8_t* data, size_t len) {
-  size_t hash = 0x811c9dc5;
-  for (uint32_t i = 0; i < len; ++i) {
-    hash = (hash * 16777619) ^ data[i];
-  }
-  hash += hash << 13;
-  hash ^= hash >> 7;
-  hash += hash << 3;
-  hash ^= hash >> 17;
-  hash += hash << 5;
-  return hash;
-}
+// Lookup value for a given key in /proc/self/status. Keys and values are separated by a ':' in
+// the status file. Returns value found on success and "<unknown>" if the key is not found or
+// there is an I/O error.
+std::string GetProcessStatus(const char* key);
 
 }  // namespace art
 

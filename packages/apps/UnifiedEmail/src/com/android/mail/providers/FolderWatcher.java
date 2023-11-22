@@ -21,7 +21,7 @@ import android.app.LoaderManager;
 import android.content.Loader;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 
 import com.android.mail.content.ObjectCursor;
 import com.android.mail.content.ObjectCursorLoader;

@@ -22,12 +22,13 @@
  *
  ******************************************************************************/
 
-#include <log/log.h>
 #include "bt_target.h"
 #include "bt_utils.h"
 #include "osi/include/osi.h"
 
+#include <log/log.h>
 #include <string.h>
+
 #include "gatt_int.h"
 #include "l2c_api.h"
 #include "l2c_int.h"
@@ -335,7 +336,7 @@ void gatt_process_exec_write_req(tGATT_TCB& tcb, uint8_t op_code, uint16_t len,
   } else /* nothing needs to be executed , send response now */
   {
     LOG(ERROR) << "gatt_process_exec_write_req: no prepare write pending";
-    gatt_send_error_rsp(tcb, GATT_INVALID_OFFSET, GATT_REQ_EXEC_WRITE, 0, false);
+    gatt_send_error_rsp(tcb, GATT_ERROR, GATT_REQ_EXEC_WRITE, 0, false);
   }
 }
 
@@ -749,7 +750,7 @@ static void gatts_process_mtu_req(tGATT_TCB& tcb, uint16_t len,
   else
     tcb.payload_size = mtu;
 
-  LOG(ERROR) << "MTU request PDU with MTU size " << +tcb.payload_size;
+  LOG(INFO) << "MTU request PDU with MTU size " << +tcb.payload_size;
 
   l2cble_set_fixed_channel_tx_data_length(tcb.peer_bda, L2CAP_ATT_CID,
                                           tcb.payload_size);
@@ -884,13 +885,13 @@ void gatts_process_write_req(tGATT_TCB& tcb, tGATT_SRV_LIST_ELEM& el,
       sr_data.write_req.is_prep = true;
       STREAM_TO_UINT16(sr_data.write_req.offset, p);
       len -= 2;
-    /* fall through */
+      FALLTHROUGH_INTENDED; /* FALLTHROUGH */
     case GATT_SIGN_CMD_WRITE:
       if (op_code == GATT_SIGN_CMD_WRITE) {
         VLOG(1) << "Write CMD with data sigining";
         len -= GATT_AUTH_SIGN_LEN;
       }
-    /* fall through */
+      FALLTHROUGH_INTENDED; /* FALLTHROUGH */
     case GATT_CMD_WRITE:
     case GATT_REQ_WRITE:
       if (op_code == GATT_REQ_WRITE || op_code == GATT_REQ_PREPARE_WRITE)
@@ -1076,7 +1077,7 @@ void gatts_process_attribute_req(tGATT_TCB& tcb, uint8_t op_code, uint16_t len,
  * Returns          void
  *
  ******************************************************************************/
-static void gatts_proc_srv_chg_ind_ack(tGATT_TCB tcb) {
+void gatts_proc_srv_chg_ind_ack(tGATT_TCB tcb) {
   tGATTS_SRV_CHG_REQ req;
   tGATTS_SRV_CHG* p_buf = NULL;
 

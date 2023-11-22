@@ -79,6 +79,10 @@
         a text response. [CHAR LIMIT=40] -->
     <string name="respond_via_sms_confirmation_format">Message sent to <xliff:g id="phone_number">%s</xliff:g>.</string>
 
+    <!-- "Respond via SMS": Error toast shown after failing to send
+        a text response. [CHAR LIMIT=40] -->
+    <string name="respond_via_sms_failure_format">Message failed to send to <xliff:g id="phone_number">%s</xliff:g>.</string>
+
     <!-- Title of settings screen that allows user to enable and disable phone-accounts.
          Each method for placing a call (SIM1, SIM2, SIP account, etc) has a phone-account.
          Phone-accounts that are created by third party apps can be disabled and enabled by user.
@@ -107,7 +111,7 @@
     <!-- Button label on the "Missing voicemail number" dialog -->
     <string name="add_vm_number_str">Add number</string>
 
-    <!-- Title of dialog used to comfirm whether the user intends to change the default dialer
+    <!-- Title of dialog used to confirm whether the user intends to change the default dialer
             application [CHAR LIMIT=55]-->
     <string name="change_default_dialer_dialog_title">Make <xliff:g id="new_app">%s</xliff:g> your default Phone app?</string>
     <!-- Confirmation text that a user taps on to change the Default Phone App-->
@@ -116,6 +120,18 @@
     <string name="change_default_dialer_dialog_negative">Cancel</string>
     <!-- Warning message indicating what may happen if a user allows a 3rd party app to become the default dialer.-->
     <string name="change_default_dialer_warning_message"><xliff:g id="new_app">%s</xliff:g> will be able to place and control all aspects of calls. Only apps you trust should be set as the default Phone app.</string>
+
+    <!-- Title of dialog used to confirm whether the user intends to change the default call screening
+            application [CHAR LIMIT=55]-->
+    <string name="change_default_call_screening_dialog_title">Make <xliff:g id="new_app">%s</xliff:g> your default call screening app?</string>
+    <!-- Warning message indicating the old call screening app will no longer be able to screen calls.-->
+    <string name="change_default_call_screening_warning_message_for_disable_old_app"><xliff:g id="old_app">%s</xliff:g> will no longer be able to screen calls.</string>
+    <!-- Warning message indicating what may happen if a user allows a 3rd party app to become the default call screening.-->
+    <string name="change_default_call_screening_warning_message"><xliff:g id="new_app">%s</xliff:g> will be able to see information about callers not in your contacts and will be able to block these calls. Only apps you trust should be set as the default call screening app.</string>
+    <!-- Confirmation text that a user taps on to change the Default call screening App-->
+    <string name="change_default_call_screening_dialog_affirmative">Set Default</string>
+    <!-- Cancel text that a user taps on to not change the Default call screening App-->
+    <string name="change_default_call_screening_dialog_negative">Cancel</string>
 
     <!-- Blocked numbers -->
     <string name="blocked_numbers">Blocked numbers</string>
@@ -233,6 +249,12 @@
     <!-- The "decline" button for an incoming call. [CHAR LIMIT=60] -->
     <string name="decline_incoming_call">Decline</string>
 
+    <!-- Error message shown to the user when an outgoing call cannot be placed because there no
+         calling service is present on the device which supports this call type.
+         This is typically encountered when the user tries to dial a SIP/VOIP call, but there are
+         no calling services present which support SIP calling. [CHAR LIMIT=none] -->
+    <string name="cant_call_due_to_no_supported_service">Call cannot be placed because there are no calling accounts which support calls of this type.</string>
+
     <!-- Error message shown to the user when an outgoing call cannot be placed due to an ongoing
          phone call in a third-party app.  For example:
          Call cannot be placed due to your Duo call. [CHAR LIMIT=none] -->
@@ -258,6 +280,18 @@
     <!-- Alert dialog content used to inform the user that placing a new outgoing call will end the
          ongoing call in the app "other_app". -->
     <string name="alert_outgoing_call">Placing this call will end your <xliff:g id="other_app">%1$s</xliff:g> call.</string>
+
+    <!-- Alert dialog content used to ask the user to confirm if they want to place a new outgoing call redirected by the app "other_app". -->
+    <string name="alert_redirect_outgoing_call_or_not">Choose how to place this call</string>
+
+    <!-- A button in the alert dialog "alert_redirect_outgoing_call" to place the call with the redirected number provided by App. -->
+    <string name="alert_place_outgoing_call_with_redirection">Redirect call using <xliff:g id="other_app">%1$s</xliff:g></string>
+
+    <!-- A button in the alert dialog "alert_redirect_outgoing_call" to place the call without the redirected number provided by App. -->
+    <string name="alert_place_unredirect_outgoing_call">Call using my phone number</string>
+
+    <!-- Alert dialog content used to tell the user the call is canceled because no response from the call redirection app "other_app". -->
+    <string name="alert_redirect_outgoing_call_timeout">Call can\'t be placed by <xliff:g id="other_app">%1$s</xliff:g>. Try using a different call redirecting app or contacting the developer for help.</string>
 
     <!-- The name of a feature available under the Call settings. -->
     <string name="phone_settings_call_blocking_txt">Call Blocking</string>
@@ -285,4 +319,10 @@
     <string name="phone_strings_emergency_call_made_dialog_title_txt">Emergency call made</string>
     <!-- Notification details that appear when the user taps the notification "phone_strings_call_blocking_turned_off_notification_text_txt". -->
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt">Call Blocking has been disabled to allow emergency responders to contact you.</string>
+    <!-- Window title used for the Telecom Developer Menu -->
+    <string name="developer_title">Telecom Developer Menu</string>
+    <!-- Label for a switch in the Telecom Developer Menu which is used to enable the enhanced call
+         blocking functionality (for test purposes).
+         DO NOT TRANSLATE -->
+    <string name="developer_enhanced_call_blocking" translatable="false">Enhanced Call Blocking</string>
 </resources>

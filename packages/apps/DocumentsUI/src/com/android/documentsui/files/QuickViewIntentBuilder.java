@@ -31,7 +31,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Range;
@@ -67,6 +67,9 @@ public final class QuickViewIntentBuilder {
             QuickViewConstants.FEATURE_DOWNLOAD,
             QuickViewConstants.FEATURE_PRINT
     };
+    private static final String[] PICKER_FEATURES = {
+            QuickViewConstants.FEATURE_VIEW
+    };
 
     private final DocumentInfo mDocument;
     private final Model mModel;
@@ -74,11 +77,14 @@ public final class QuickViewIntentBuilder {
     private final PackageManager mPackageMgr;
     private final Resources mResources;
 
+    private final boolean mFromPicker;
+
     public QuickViewIntentBuilder(
             PackageManager packageMgr,
             Resources resources,
             DocumentInfo doc,
-            Model model) {
+            Model model,
+            boolean fromPicker) {
 
         assert(packageMgr != null);
         assert(resources != null);
@@ -89,14 +95,17 @@ public final class QuickViewIntentBuilder {
         mResources = resources;
         mDocument = doc;
         mModel = model;
+        mFromPicker = fromPicker;
     }
 
     /**
      * Builds the intent for quick viewing. Short circuits building if a handler cannot
      * be resolved; in this case {@code null} is returned.
      */
-    @Nullable Intent build() {
-        if (DEBUG) Log.d(TAG, "Preparing intent for doc:" + mDocument.documentId);
+    @Nullable public Intent build() {
+        if (DEBUG) {
+            Log.d(TAG, "Preparing intent for doc:" + mDocument.documentId);
+        }
 
         String trustedPkg = getQuickViewPackage();
 
@@ -107,7 +116,7 @@ public final class QuickViewIntentBuilder {
                     | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             intent.setPackage(trustedPkg);
             if (hasRegisteredHandler(intent)) {
-                includeQuickViewFeaturesFlag(intent, mDocument);
+                includeQuickViewFeaturesFlag(intent, mDocument, mFromPicker);
 
                 final ArrayList<Uri> uris = new ArrayList<>();
                 final int documentLocation = collectViewableUris(uris);
@@ -119,7 +128,9 @@ public final class QuickViewIntentBuilder {
                 for (int i = range.getLower(); i <= range.getUpper(); i++) {
                     uri = uris.get(i);
                     item = new ClipData.Item(uri);
-                    if (DEBUG) Log.d(TAG, "Including file: " + uri);
+                    if (DEBUG) {
+                        Log.d(TAG, "Including file: " + uri);
+                    }
                     if (clipData == null) {
                         clipData = new ClipData(
                                 "URIs", new String[] { ClipDescription.MIMETYPE_TEXT_URILIST },
@@ -154,12 +165,11 @@ public final class QuickViewIntentBuilder {
 
         // Allow users of debug devices to override default quick viewer
         // for the purposes of testing.
-        if (Build.IS_DEBUGGABLE) {
+        if (DEBUG) {
             String quickViewer = DebugFlags.getQuickViewer();
             if (quickViewer != null) {
                 return quickViewer;
             }
-            return android.os.SystemProperties.get("debug.quick_viewer", resValue);
         }
         return resValue;
     }
@@ -180,17 +190,21 @@ public final class QuickViewIntentBuilder {
             cursor = mModel.getItem(siblingIds[i]);
 
             if (cursor == null) {
-                if (DEBUG) Log.d(TAG,
+                if (DEBUG) {
+                    Log.d(TAG,
                         "Unable to obtain cursor for sibling document, modelId: "
-                        + siblingIds[i]);
+                            + siblingIds[i]);
+                }
                 continue;
             }
 
             mimeType = getCursorString(cursor, Document.COLUMN_MIME_TYPE);
             if (Document.MIME_TYPE_DIR.equals(mimeType)) {
-                if (DEBUG) Log.d(TAG,
+                if (DEBUG) {
+                    Log.d(TAG,
                         "Skipping directory, not supported by quick view. modelId: "
-                        + siblingIds[i]);
+                            + siblingIds[i]);
+                }
                 continue;
             }
 
@@ -202,7 +216,9 @@ public final class QuickViewIntentBuilder {
 
             if (id.equals(mDocument.documentId)) {
                 documentLocation = uris.size() - 1;  // Position in "uris", not in the model.
-                if (DEBUG) Log.d(TAG, "Found starting point for QV. " + documentLocation);
+                if (DEBUG) {
+                    Log.d(TAG, "Found starting point for QV. " + documentLocation);
+                }
             }
         }
 
@@ -214,10 +230,12 @@ public final class QuickViewIntentBuilder {
         return intent.resolveActivity(mPackageMgr) != null;
     }
 
-    private static void includeQuickViewFeaturesFlag(Intent intent, DocumentInfo doc) {
+    private static void includeQuickViewFeaturesFlag(Intent intent, DocumentInfo doc,
+            boolean fromPicker) {
         intent.putExtra(
                 Intent.EXTRA_QUICK_VIEW_FEATURES,
-                doc.isInArchive() ? IN_ARCHIVE_FEATURES : FULL_FEATURES);
+                doc.isInArchive() ? IN_ARCHIVE_FEATURES
+                        : fromPicker ? PICKER_FEATURES : FULL_FEATURES);
     }
 
     private static Range<Integer> computeSiblingsRange(List<Uri> uris, int documentLocation) {
@@ -234,8 +252,10 @@ public final class QuickViewIntentBuilder {
             firstSibling = Math.max(0, lastSibling - MAX_DOCS_IN_INTENT + 1);
         }
 
-        if (DEBUG) Log.d(TAG, "Copmuted siblings from index: " + firstSibling
+        if (DEBUG) {
+            Log.d(TAG, "Copmuted siblings from index: " + firstSibling
                 + " to: " + lastSibling);
+        }
 
         return new Range(firstSibling, lastSibling);
     }

@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
 
     private static final String EXTRA_MESSENGER = "messenger";
     private static final int MSG_NOTIFY_NETWORK_STATE = 1;
+    private static final int WAIT_TO_ALLOW_CONNECTING_MS = 2000;
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -60,6 +61,15 @@ public class MainActivity extends Activity {
     private NetworkInfo getActiveNetworkInfo() {
         final ConnectivityManager cm = (ConnectivityManager) getSystemService(
                 Context.CONNECTIVITY_SERVICE);
+        waitToAllowConnecting();
         return cm.getActiveNetworkInfo();
+    }
+
+    private void waitToAllowConnecting() {
+        try {
+            Thread.sleep(WAIT_TO_ALLOW_CONNECTING_MS);
+        } catch (InterruptedException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

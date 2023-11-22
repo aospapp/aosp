@@ -16,7 +16,6 @@
 
 package com.android.car;
 
-import static java.lang.Integer.toHexString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -37,11 +36,12 @@ import android.car.diagnostic.IntegerSensorIndex;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.os.SystemClock;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.JsonReader;
 import android.util.JsonWriter;
 import android.util.Log;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.vehiclehal.DiagnosticEventBuilder;
 import com.android.car.vehiclehal.DiagnosticJson;
@@ -50,6 +50,8 @@ import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandle
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import static java.lang.Integer.toHexString;
 
 import java.io.StringReader;
 import java.io.StringWriter;

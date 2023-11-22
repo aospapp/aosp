@@ -17,7 +17,7 @@
 <!DOCTYPE xsl:stylesheet [ <!ENTITY nbsp "&#160;"> ]>
 <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
 
-    <xsl:output method="html" version="1.0" encoding="UTF-8" indent="yes"/>
+    <xsl:output method="html" version="5.0" encoding="UTF-8" indent="yes"/>
 
     <xsl:template match="/">
 
@@ -128,6 +128,8 @@
                             <th>Module</th>
                             <th>Passed</th>
                             <th>Failed</th>
+                            <th>Assumption Failure</th>
+                            <th>Ignored</th>
                             <th>Total Tests</th>
                             <th>Done</th>
                         </tr>
@@ -142,6 +144,12 @@
                                 </td>
                                 <td>
                                     <xsl:value-of select="count(TestCase/Test[@result = 'fail'])"/>
+                                </td>
+                                <td>
+                                    <xsl:value-of select="count(TestCase/Test[@result = 'ASSUMPTION_FAILURE'])"/>
+                                </td>
+                                <td>
+                                    <xsl:value-of select="count(TestCase/Test[@result = 'IGNORED'])"/>
                                 </td>
                                 <td>
                                     <xsl:value-of select="count(TestCase/Test)"/>
@@ -224,6 +232,15 @@
                                             <td class="failuredetails"/>
                                         </xsl:if>
 
+                                        <xsl:if test="@result='IGNORED'">
+                                            <td class="pass">
+                                                <div style="text-align: center; margin-left:auto; margin-right:auto;">
+                                                    <xsl:value-of select="@result"/>
+                                                </div>
+                                            </td>
+                                            <td class="failuredetails"/>
+                                        </xsl:if>
+
                                         <xsl:if test="@result='fail'">
                                             <td class="failed">
                                                 <div style="text-align: center; margin-left:auto; margin-right:auto;">
@@ -233,7 +250,27 @@
                                             <td class="failuredetails">
                                                 <div class="details">
                                                     <xsl:choose>
-                                                        <xsl:when test="$fullStackTrace=true()">
+                                                        <xsl:when test="boolean($fullStackTrace)=true()">
+                                                            <xsl:value-of select="Failure/StackTrace" />
+                                                        </xsl:when>
+                                                        <xsl:otherwise>
+                                                            <xsl:value-of select="Failure/@message"/>
+                                                        </xsl:otherwise>
+                                                    </xsl:choose>
+                                                </div>
+                                            </td>
+                                        </xsl:if>
+
+                                        <xsl:if test="@result='ASSUMPTION_FAILURE'">
+                                            <td class="pass">
+                                                <div style="text-align: center; margin-left:auto; margin-right:auto;">
+                                                    <xsl:value-of select="@result"/>
+                                                </div>
+                                            </td>
+                                            <td class="failuredetails">
+                                                <div class="details">
+                                                    <xsl:choose>
+                                                        <xsl:when test="boolean($fullStackTrace)=true()">
                                                             <xsl:value-of select="Failure/StackTrace" />
                                                         </xsl:when>
                                                         <xsl:otherwise>

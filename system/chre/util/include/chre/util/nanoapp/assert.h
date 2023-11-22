@@ -45,6 +45,11 @@
 #define CHRE_ASSERT(condition) ((void) (condition))
 #endif  // CHRE_ASSERTIONS_ENABLED
 
+#ifdef GTEST
+// Mocks are not supported in standalone mode. Just skip the statement entirely.
+#define EXPECT_CHRE_ASSERT(statement)
+#endif  // GTEST
+
 #else
 // When compiling as a static nanoapp, use the platform implementation of
 // CHRE_ASSERT.

@@ -24,7 +24,7 @@
     <string name="header_category_quick_settings" msgid="6626141045575946920">"Rychlé nastavení"</string>
     <string name="header_category_general_settings" msgid="1208946854116876918">"Obecná nastavení"</string>
     <string name="dismiss_suggestion" msgid="8288127823132069828">"Zavřít návrh"</string>
-    <string name="hotwording_title" msgid="1984130766527626626">"Zjištění příkazu „Ok Google“"</string>
+    <string name="hotwording_title" msgid="1984130766527626626">"Zjišťování příkazu „Ok Google“"</string>
     <string name="hotwording_summary" msgid="2863751845299261441">"Oslovte Asistenta Google kdykoli"</string>
     <string name="header_category_device" msgid="4855983928659541345">"Zařízení"</string>
     <string name="header_category_preferences" msgid="175105555164713972">"Nastavení"</string>
@@ -96,8 +96,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrace"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Vybrat formáty"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Prostorový zvuk"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -366,7 +366,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Dokud jednotka nebude znovu připojena, některé aplikace nebudou dostupné nebo nebudou fungovat správně."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Nedostatek místa v úložišti."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Aplikace neexistuje."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Aplikace je chráněna proti kopírování."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Umístění instalace není platné."</string>
     <string name="system_package" msgid="9200255718634512790">"Aktualizace systému nelze nainstalovat na externí média."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Administrátora zařízení nelze nainstalovat na externí média."</string>
@@ -483,7 +482,7 @@
     <string name="system_always_check" msgid="1866566828098009853">"Vždy kontrolovat"</string>
     <string name="system_bt_hci_log" msgid="2425757846046504431">"Protokolování Bluetooth HCI"</string>
     <string name="system_email_address" msgid="8669468986250302378">"E-mailová adresa"</string>
-    <string name="system_usb_debugging" msgid="3777895294421924323">"Ladění USB"</string>
+    <string name="system_usb_debugging" msgid="3777895294421924323">"Ladění přes USB"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"Povolit simulované polohy"</string>
     <string name="system_select_debug_app" msgid="8592021815119618485">"Vybrat aplikaci pro ladění"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"Počkat na ladicí program"</string>
@@ -743,6 +742,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Přístup k oznámením"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Žádné nainstalované aplikace o přístup k oznámením nepožádaly."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Tyto aplikace budou moci číst všechna oznámení včetně osobních údajů, jako jsou jména kontaktů a přijaté SMS. Budou také moci oznámení zavřít nebo aktivovat tlačítka akcí, která obsahují."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Přístup k adresářům"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Tyto aplikace mají oprávnění k přístupu k určitým adresářům."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Zobrazení přes ostatní aplikace"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Povolit zobrazení přes jiné aplikace"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Umožní aplikaci zobrazovat se přes ostatní aplikace, které používáte. Může tak narušit vaši práci s těmito aplikacemi a změnit způsob jejich zobrazování nebo chování."</string>

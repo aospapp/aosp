@@ -89,6 +89,12 @@ public interface ProvidersAccess {
                 continue;
             }
 
+            if (state.action == State.ACTION_OPEN_TREE && root.isRecents()) {
+                if (VERBOSE) Log.v(
+                        tag, "Excluding recent root because: ACTION_OPEN_TREE.");
+                continue;
+            }
+
             if (!state.showAdvanced && root.isAdvanced()) {
                 if (VERBOSE) Log.v(tag, "Excluding root because: unwanted advanced device.");
                 continue;
@@ -133,7 +139,9 @@ public interface ProvidersAccess {
             matching.add(root);
         }
 
-        if (DEBUG) Log.d(tag, "Matched roots: " + matching);
+        if (DEBUG) {
+            Log.d(tag, "Matched roots: " + matching);
+        }
         return matching;
     }
 }

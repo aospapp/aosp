@@ -30,7 +30,7 @@ import android.telecom.PhoneAccountHandle;
 import android.telephony.TelephonyManager;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
 import com.android.voicemail.PinChanger;
 import com.android.voicemail.VisualVoicemailTypeExtensions;
 import com.android.voicemail.VoicemailClient;
@@ -105,7 +105,9 @@ public class VoicemailClientImpl implements VoicemailClient {
       return false;
     }
 
-    if (!ConfigProviderBindings.get(context).getBoolean(ALLOW_VOICEMAIL_ARCHIVE, false)) {
+    if (!ConfigProviderComponent.get(context)
+        .getConfigProvider()
+        .getBoolean(ALLOW_VOICEMAIL_ARCHIVE, false)) {
       LogUtil.i(
           "VoicemailClientImpl.isVoicemailArchiveAllowed",
           "feature disabled by config: %s",
@@ -123,10 +125,30 @@ public class VoicemailClientImpl implements VoicemailClient {
   }
 
   @Override
-  public boolean isVoicemailTranscriptionAvailable(Context context) {
+  public boolean isVoicemailTranscriptionAvailable(
+      Context context, PhoneAccountHandle phoneAccountHandle) {
+    if (phoneAccountHandle == null) {
+      LogUtil.i(
+          "VoicemailClientImpl.isVoicemailTranscriptionAvailable", "phone account handle is null");
+    }
+
     if (!BuildCompat.isAtLeastO()) {
       LogUtil.i(
           "VoicemailClientImpl.isVoicemailTranscriptionAvailable", "not running on O or later");
+      return false;
+    }
+
+    if (!isVoicemailEnabled(context, phoneAccountHandle)) {
+      LogUtil.i(
+          "VoicemailClientImpl.isVoicemailTranscriptionAvailable",
+          "visual voicemail is not enabled");
+      return false;
+    }
+
+    if (!isActivated(context, phoneAccountHandle)) {
+      LogUtil.i(
+          "VoicemailClientImpl.isVoicemailTranscriptionAvailable",
+          "visual voicemail is not activated");
       return false;
     }
 
@@ -141,9 +163,21 @@ public class VoicemailClientImpl implements VoicemailClient {
   }
 
   @Override
-  public boolean isVoicemailDonationAvailable(Context context) {
-    if (!isVoicemailTranscriptionAvailable(context)) {
+  public boolean isVoicemailTranscriptionEnabled(Context context, PhoneAccountHandle account) {
+    return isVoicemailTranscriptionAvailable(context, account)
+        && VisualVoicemailSettingsUtil.isVoicemailTranscriptionEnabled(context, account);
+  }
+
+  @Override
+  public boolean isVoicemailDonationAvailable(
+      Context context, PhoneAccountHandle phoneAccountHandle) {
+    if (!isVoicemailTranscriptionAvailable(context, phoneAccountHandle)) {
       LogUtil.i("VoicemailClientImpl.isVoicemailDonationAvailable", "transcription not available");
+      return false;
+    }
+
+    if (!isVoicemailTranscriptionEnabled(context, phoneAccountHandle)) {
+      LogUtil.i("VoicemailClientImpl.isVoicemailDonationAvailable", "transcription not enabled");
       return false;
     }
 
@@ -158,13 +192,37 @@ public class VoicemailClientImpl implements VoicemailClient {
 
   @Override
   public boolean isVoicemailDonationEnabled(Context context, PhoneAccountHandle account) {
-    return isVoicemailTranscriptionAvailable(context)
+    return isVoicemailTranscriptionEnabled(context, account)
+        && isVoicemailDonationAvailable(context, account)
         && VisualVoicemailSettingsUtil.isVoicemailDonationEnabled(context, account);
+  }
+
+  @Override
+  public void setVoicemailTranscriptionEnabled(
+      Context context, PhoneAccountHandle phoneAccountHandle, boolean enabled) {
+    Assert.checkArgument(
+        isVoicemailTranscriptionAvailable(context, phoneAccountHandle),
+        "transcription must be available before enabling/disabling it");
+    VisualVoicemailSettingsUtil.setVoicemailTranscriptionEnabled(
+        context, phoneAccountHandle, enabled);
+    if (enabled) {
+      TranscriptionBackfillService.scheduleTask(context, phoneAccountHandle);
+    }
   }
 
   @Override
   public void setVoicemailDonationEnabled(
       Context context, PhoneAccountHandle phoneAccountHandle, boolean enabled) {
+    if (enabled) {
+      Assert.checkArgument(
+          isVoicemailTranscriptionAvailable(context, phoneAccountHandle)
+              && isVoicemailTranscriptionEnabled(context, phoneAccountHandle),
+          "should not be able to enable donation without transcription "
+              + "available(value: %b) and enabled (value:%b) for account:%s",
+          isVoicemailTranscriptionAvailable(context, phoneAccountHandle),
+          isVoicemailTranscriptionEnabled(context, phoneAccountHandle),
+          phoneAccountHandle.toString());
+    }
     VisualVoicemailSettingsUtil.setVoicemailDonationEnabled(context, phoneAccountHandle, enabled);
   }
 

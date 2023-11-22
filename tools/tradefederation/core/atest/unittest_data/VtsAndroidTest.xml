@@ -22,4 +22,9 @@
         <option name="binary-test-type" value="gtest"/>
         <option name="test-timeout" value="5m"/>
     </test>
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceInfoCollector">
+        <option name="apk" value="CtsDeviceInfo.apk"/>
+        <option name="test-file-name" value="DeviceHealthTests.apk" />
+        <option name="test-file-name" value="DATA/app/sl4a/sl4a.apk" />
+    </target_preparer>
 </configuration>

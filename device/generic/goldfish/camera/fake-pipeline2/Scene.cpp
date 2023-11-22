@@ -16,7 +16,7 @@
 
 //#define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_Scene"
-#include <utils/Log.h>
+#include <log/log.h>
 #include <stdlib.h>
 #include <cmath>
 #include "Scene.h"
@@ -87,8 +87,8 @@ Scene::Scene(
         mSensorWidth(sensorWidthPx),
         mSensorHeight(sensorHeightPx),
         mHour(12),
-        mExposureDuration(0.033f),
-        mSensorSensitivity(sensorSensitivity)
+        mExposureDuration(0.033f)
+        //mSensorSensitivity(sensorSensitivity)
 {
     // Map scene to sensor pixels
     if (mSensorWidth > mSensorHeight) {

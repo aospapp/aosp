@@ -31,9 +31,10 @@ from acts.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
 from acts.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
 from acts.test_utils.net import socket_test_utils as sutils
 from acts.test_utils.net import arduino_test_utils as dutils
+from acts.test_utils.net import net_test_utils as nutils
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
-WAIT_TIME = 2
+WAIT_TIME = 5
 
 class WifiTetheringTest(base_test.BaseTestClass):
     """ Tests for Wifi Tethering """
@@ -47,29 +48,18 @@ class WifiTetheringTest(base_test.BaseTestClass):
         self.unpack_userparams(req_params)
         self.new_ssid = "wifi_tethering_test2"
 
-        wutils.wifi_toggle_state(self.hotspot_device, False)
-        self.hotspot_device.droid.telephonyToggleDataConnection(True)
-        wait_for_cell_data_connection(self.log, self.hotspot_device, True)
-        asserts.assert_true(
-            verify_http_connection(self.log, self.hotspot_device),
-            "HTTP verification failed on cell data connection")
-        asserts.assert_true(
-            self.hotspot_device.droid.connectivityIsTetheringSupported(),
-            "Tethering is not supported for the provider")
+        nutils.verify_lte_data_and_tethering_supported(self.hotspot_device)
         for ad in self.tethered_devices:
-            ad.droid.telephonyToggleDataConnection(False)
             wutils.wifi_test_device_init(ad)
 
     def teardown_class(self):
         """ Reset devices """
-        wutils.wifi_toggle_state(self.hotspot_device, True)
         for ad in self.tethered_devices:
-            ad.droid.telephonyToggleDataConnection(True)
+            wutils.reset_wifi(ad)
 
     def on_fail(self, test_name, begin_time):
         """ Collect bug report on failure """
-        self.hotspot_device.take_bug_report(test_name, begin_time)
-        for ad in self.tethered_devices:
+        for ad in self.android_devices:
             ad.take_bug_report(test_name, begin_time)
 
     """ Helper functions """
@@ -200,7 +190,7 @@ class WifiTetheringTest(base_test.BaseTestClass):
         """ Connect disconnect tethered devices to wifi hotspot """
         num_android_devices = len(self.tethered_devices)
         num_wifi_dongles = 0
-        if self.arduino_wifi_dongles:
+        if hasattr(self, 'arduino_wifi_dongles'):
             num_wifi_dongles = len(self.arduino_wifi_dongles)
         total_devices = num_android_devices + num_wifi_dongles
         device_connected = [False] * total_devices
@@ -389,6 +379,8 @@ class WifiTetheringTest(base_test.BaseTestClass):
             2. Connect 2 tethered devices to the hotspot device
             3. Ping interfaces between the tethered devices
         """
+        asserts.skip_if(not hasattr(self, 'arduino_wifi_dongles'),
+                        "No wifi dongles connected. Skipping test")
         wutils.toggle_wifi_off_and_on(self.hotspot_device)
         self._start_wifi_tethering(WIFI_CONFIG_APBAND_2G)
         self._test_traffic_between_two_tethered_devices(self.tethered_devices[0],

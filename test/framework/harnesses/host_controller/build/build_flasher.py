@@ -47,7 +47,7 @@ class BuildFlasher(object):
                                 binary to flash a device
         """
         if serial != "":
-          self.device = android_device.AndroidDevice(
+            self.device = android_device.AndroidDevice(
                 serial, device_callback_port=-1)
         else:
             serials = android_device.list_adb_devices()
@@ -57,8 +57,8 @@ class BuildFlasher(object):
                     raise android_device.AndroidDeviceError(
                         "ADB and fastboot could not find any target devices.")
             if len(serials) > 1:
-                print(
-                    "ADB or fastboot found more than one device: %s" % serials)
+                logging.info("ADB or fastboot found more than one device: %s",
+                             serials)
             self.device = android_device.AndroidDevice(
                 serials[0], device_callback_port=-1)
             if customflasher_path:
@@ -74,14 +74,18 @@ class BuildFlasher(object):
             True if successful; False otherwise.
         """
         if not serial:
-            print("no serial is given to BuildFlasher.SetSerial.")
+            logging.error("no serial is given to BuildFlasher.SetSerial.")
             return False
 
         self.device = android_device.AndroidDevice(
             serial, device_callback_port=-1)
         return True
 
-    def FlashGSI(self, system_img, vbmeta_img=None, skip_check=False):
+    def FlashGSI(self,
+                 system_img,
+                 vbmeta_img=None,
+                 skip_check=False,
+                 skip_vbmeta=False):
         """Flash the Generic System Image to the device.
 
         Args:
@@ -89,6 +93,9 @@ class BuildFlasher(object):
             vbmeta_img: string, optional, path to vbmeta image for new devices
             skip_check: boolean, set True to skip adb-based checks when
                         the DUT is already running its bootloader.
+            skip_vbmeta: bool, whether to skip flashing the vbmeta.img or not.
+                         If the device has the vbmeta slot then flash vbmeta.img
+                         even if the skip_vbmeta is set to True.
         """
         if not os.path.exists(system_img):
             raise ValueError("Couldn't find system image at %s" % system_img)
@@ -97,8 +104,9 @@ class BuildFlasher(object):
             if not self.device.isBootloaderMode:
                 self.device.log.info(self.device.adb.reboot_bootloader())
         if vbmeta_img is not None:
-            self.device.log.info(
-                self.device.fastboot.flash('vbmeta', vbmeta_img))
+            if skip_vbmeta == False or self.device.hasVbmetaSlot:
+                self.device.log.info(
+                    self.device.fastboot.flash('vbmeta', vbmeta_img))
         self.device.log.info(self.device.fastboot.erase('system'))
         self.device.log.info(self.device.fastboot.flash('system', system_img))
         self.device.log.info(self.device.fastboot.erase('metadata'))
@@ -119,12 +127,13 @@ class BuildFlasher(object):
             self.device.log.info(self.device.adb.reboot_bootloader())
         self.device.log.info(self.device.fastboot.flashall())
 
-    def Flash(self, device_images):
+    def Flash(self, device_images, skip_vbmeta=False):
         """Flash the Generic System Image to the device.
 
         Args:
             device_images: dict, where the key is partition name and value is
                            image file path.
+            skip_vbmeta: bool, whether to skip flashing the vbmeta.img or not.
 
         Returns:
             True if succesful; False otherwise
@@ -135,32 +144,38 @@ class BuildFlasher(object):
 
         if not self.device.isBootloaderMode:
             self.device.adb.wait_for_device()
-            print("rebooting to bootloader")
+            logging.info("rebooting to bootloader")
             self.device.log.info(self.device.adb.reboot_bootloader())
 
-        print("checking to flash bootloader.img and radio.img")
+        logging.info("checking to flash bootloader.img and radio.img")
         for partition in ["bootloader", "radio"]:
             if partition in device_images:
                 image_path = device_images[partition]
-                self.device.log.info("fastboot flash %s %s",
-                                     partition, image_path)
+                self.device.log.info("fastboot flash %s %s", partition,
+                                     image_path)
                 self.device.log.info(
                     self.device.fastboot.flash(partition, image_path))
                 self.device.log.info("fastboot reboot_bootloader")
                 self.device.log.info(self.device.fastboot.reboot_bootloader())
 
-        print("starting to flash vendor and other images...")
+        logging.info("starting to flash vendor and other images...")
+        full_zipfile = False
         if common.FULL_ZIPFILE in device_images:
-            print("fastboot update %s --skip-reboot" %
-                  (device_images[common.FULL_ZIPFILE]))
+            logging.info("fastboot update %s --skip-reboot",
+                         (device_images[common.FULL_ZIPFILE]))
             self.device.log.info(
-                self.device.fastboot.update(
-                    device_images[common.FULL_ZIPFILE],
-                    "--skip-reboot"))
+                self.device.fastboot.update(device_images[common.FULL_ZIPFILE],
+                                            "--skip-reboot"))
+            full_zipfile = True
 
         for partition, image_path in device_images.iteritems():
-            if partition in (common.FULL_ZIPFILE, "system", "vbmeta",
-                             "bootloader", "radio"):
+            if partition in (common.FULL_ZIPFILE, common.FULL_ZIPFILE_DIR,
+                             "system", "vbmeta", "bootloader", "radio",
+                             "metadata", "userdata"):
+                continue
+            if full_zipfile and partition in ("vendor", "boot"):
+                logging.info("%s skipped because full zipfile was updated.",
+                             partition)
                 continue
             if not image_path:
                 self.device.log.warning("%s image is empty", partition)
@@ -169,23 +184,29 @@ class BuildFlasher(object):
             self.device.log.info(
                 self.device.fastboot.flash(partition, image_path))
 
-        print("starting to flash system and other images...")
+        logging.info("starting to flash system and other images...")
         if "system" in device_images and device_images["system"]:
             system_img = device_images["system"]
             vbmeta_img = device_images["vbmeta"] if (
                 "vbmeta" in device_images
                 and device_images["vbmeta"]) else None
-            self.FlashGSI(system_img, vbmeta_img, skip_check=True)
+            self.FlashGSI(
+                system_img,
+                vbmeta_img,
+                skip_check=True,
+                skip_vbmeta=skip_vbmeta)
         else:
             self.device.log.info(self.device.fastboot.reboot())
         return True
 
-    def FlashImage(self, device_images, reboot=False):
+    def FlashImage(self, device_images, image_partition=None, reboot=False):
         """Flash specified image(s) to the device.
 
         Args:
             device_images: dict, where the key is partition name and value is
                            image file path.
+            image_partition: string, set to flash only an image in a specified
+                             partition.
             reboot: boolean, true to reboot the device.
 
         Returns:
@@ -200,6 +221,8 @@ class BuildFlasher(object):
             self.device.log.info(self.device.adb.reboot_bootloader())
 
         for partition, image_path in device_images.iteritems():
+            if image_partition and image_partition != partition:
+                continue
             if partition.endswith(".img"):
                 partition = partition[:-4]
             self.device.log.info(
@@ -250,14 +273,14 @@ class BuildFlasher(object):
 
         if not self.device.isBootloaderMode:
             self.device.adb.wait_for_device()
-            print("rebooting to %s mode" % reboot_mode)
+            logging.info("rebooting to %s mode", reboot_mode)
             self.device.log.info(self.device.adb.reboot(reboot_mode))
 
         start = time.time()
         while not self.device.customflasher._l():
             if time.time() - start >= timeout_secs_for_reboot:
                 logging.error(
-                    "Timeout while waiting for %s mode boot completion." %
+                    "Timeout while waiting for %s mode boot completion.",
                     reboot_mode)
                 return False
             time.sleep(1)
@@ -334,7 +357,7 @@ class BuildFlasher(object):
             os.chdir(current_dir)
         else:
             logging.error(
-                "Please specify correct repackage form: --repackage=%s" %
+                "Please specify correct repackage form: --repackage=%s",
                 repackage_form)
             return False
 

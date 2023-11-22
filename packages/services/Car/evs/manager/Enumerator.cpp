@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+#include <hwbinder/IPCThreadState.h>
+#include <cutils/android_filesystem_config.h>
+
 #include "Enumerator.h"
+#include "HalDisplay.h"
 
 namespace android {
 namespace automotive {
@@ -34,9 +38,23 @@ bool Enumerator::init(const char* hardwareServiceName) {
 }
 
 
+bool Enumerator::checkPermission() {
+    hardware::IPCThreadState *ipc = hardware::IPCThreadState::self();
+    if (AID_AUTOMOTIVE_EVS != ipc->getCallingUid()) {
+        ALOGE("EVS access denied: pid = %d, uid = %d", ipc->getCallingPid(), ipc->getCallingUid());
+        return false;
+    }
+
+    return true;
+}
+
+
 // Methods from ::android::hardware::automotive::evs::V1_0::IEvsEnumerator follow.
 Return<void> Enumerator::getCameraList(getCameraList_cb list_cb)  {
     ALOGD("getCameraList");
+    if (!checkPermission()) {
+        return Void();
+    }
 
     // Simply pass through to hardware layer
     return mHwEnumerator->getCameraList(list_cb);
@@ -45,6 +63,9 @@ Return<void> Enumerator::getCameraList(getCameraList_cb list_cb)  {
 
 Return<sp<IEvsCamera>> Enumerator::openCamera(const hidl_string& cameraId) {
     ALOGD("openCamera");
+    if (!checkPermission()) {
+        return nullptr;
+    }
 
     // Is the underlying hardware camera already open?
     sp<HalCamera> hwCamera;
@@ -129,6 +150,10 @@ Return<void> Enumerator::closeCamera(const ::android::sp<IEvsCamera>& clientCame
 Return<sp<IEvsDisplay>> Enumerator::openDisplay() {
     ALOGD("openDisplay");
 
+    if (!checkPermission()) {
+        return nullptr;
+    }
+
     // We simply keep track of the most recently opened display instance.
     // In the underlying layers we expect that a new open will cause the previous
     // object to be destroyed.  This avoids any race conditions associated with
@@ -138,28 +163,34 @@ Return<sp<IEvsDisplay>> Enumerator::openDisplay() {
     sp<IEvsDisplay> pActiveDisplay = mHwEnumerator->openDisplay();
     if (pActiveDisplay == nullptr) {
         ALOGE("EVS Display unavailable");
+
+        return nullptr;
     }
 
     // Remember (via weak pointer) who we think the most recently opened display is so that
     // we can proxy state requests from other callers to it.
-    mActiveDisplay = pActiveDisplay;
-    return pActiveDisplay;
+    // TODO: Because of b/129284474, an additional class, HalDisplay, has been defined and
+    // wraps the IEvsDisplay object the driver returns.  We may want to remove this
+    // additional class when it is fixed properly.
+    sp<IEvsDisplay> pHalDisplay = new HalDisplay(pActiveDisplay);
+    mActiveDisplay = pHalDisplay;
+
+    return pHalDisplay;
 }
 
 
 Return<void> Enumerator::closeDisplay(const ::android::sp<IEvsDisplay>& display) {
     ALOGD("closeDisplay");
 
-    // Do we still have a display object we think should be active?
     sp<IEvsDisplay> pActiveDisplay = mActiveDisplay.promote();
 
     // Drop the active display
     if (display.get() != pActiveDisplay.get()) {
-        ALOGW("Ignoring call to closeDisplay with unrecognzied display object.");
-        ALOGI("Got %p while active display is %p.", display.get(), pActiveDisplay.get());
+        ALOGW("Ignoring call to closeDisplay with unrecognized display object.");
     } else {
         // Pass this request through to the hardware layer
-        mHwEnumerator->closeDisplay(display);
+        sp<HalDisplay> halDisplay = reinterpret_cast<HalDisplay *>(pActiveDisplay.get());
+        mHwEnumerator->closeDisplay(halDisplay->getHwDisplay());
         mActiveDisplay = nullptr;
     }
 
@@ -169,6 +200,9 @@ Return<void> Enumerator::closeDisplay(const ::android::sp<IEvsDisplay>& display)
 
 Return<DisplayState> Enumerator::getDisplayState()  {
     ALOGD("getDisplayState");
+    if (!checkPermission()) {
+        return DisplayState::DEAD;
+    }
 
     // Do we have a display object we think should be active?
     sp<IEvsDisplay> pActiveDisplay = mActiveDisplay.promote();

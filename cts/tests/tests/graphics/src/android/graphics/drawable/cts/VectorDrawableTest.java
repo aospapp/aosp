@@ -27,19 +27,20 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.cts.R;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.graphics.drawable.VectorDrawable;
-import androidx.annotation.Nullable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.Xml;
+
+import androidx.annotation.Nullable;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -47,8 +48,6 @@ import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 
 @SmallTest
@@ -423,6 +422,13 @@ public class VectorDrawableTest {
         } finally {
             DrawableTestUtils.setResourcesDensity(mResources, densityDpi);
         }
+    }
+
+    @Test
+    public void testOpticalInsets() {
+        VectorDrawable drawable =
+                (VectorDrawable) mResources.getDrawable(R.drawable.vector_icon_create);
+        assertEquals(Insets.of(1, 2, 3, 4), drawable.getOpticalInsets());
     }
 
     private void verifyPreloadDensityInner(Resources res, int densityDpi)

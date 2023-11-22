@@ -23,7 +23,7 @@
     android:elevation="@dimen/panel_z"
     android:orientation="horizontal" >
 
-    <android.support.v17.leanback.widget.VerticalGridView
+    <androidx.leanback.widget.VerticalGridView
         android:id="@+id/main_panel_list"
         android:layout_width="@dimen/main_panel_text_width"
         android:layout_height="@dimen/main_panel_height"

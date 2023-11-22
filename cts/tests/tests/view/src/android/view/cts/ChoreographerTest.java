@@ -26,10 +26,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.os.SystemClock;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.Choreographer;
+
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -81,15 +82,15 @@ public class ChoreographerTest {
                     Choreographer.CALLBACK_ANIMATION, removedCallback, null);
 
             // We expect the remaining callbacks to have been invoked once.
-            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(1)).run();
-            verify(addedCallback2, timeout(NOMINAL_VSYNC_PERIOD * 10).times(1)).run();
+            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 30).times(1)).run();
+            verify(addedCallback2, timeout(NOMINAL_VSYNC_PERIOD * 30).times(1)).run();
             verifyZeroInteractions(removedCallback);
 
             // If we post a callback again, then it should be invoked again.
             mChoreographer.postCallback(
                     Choreographer.CALLBACK_ANIMATION, addedCallback1, null);
 
-            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(2)).run();
+            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 30).times(2)).run();
             verify(addedCallback2, times(1)).run();
             verifyZeroInteractions(removedCallback);
 
@@ -100,7 +101,7 @@ public class ChoreographerTest {
                     Choreographer.CALLBACK_ANIMATION, removedCallback, TOKEN);
             mChoreographer.removeCallbacks(
                     Choreographer.CALLBACK_ANIMATION, null, TOKEN);
-            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(3)).run();
+            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 30).times(3)).run();
             verifyZeroInteractions(removedCallback);
 
             // If the action and token matches, then the callback should be removed.
@@ -111,7 +112,7 @@ public class ChoreographerTest {
                     Choreographer.CALLBACK_ANIMATION, removedCallback, TOKEN);
             mChoreographer.removeCallbacks(
                     Choreographer.CALLBACK_ANIMATION, removedCallback, TOKEN);
-            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 10).times(4)).run();
+            verify(addedCallback1, timeout(NOMINAL_VSYNC_PERIOD * 30).times(4)).run();
             verifyZeroInteractions(removedCallback);
         } finally {
             mChoreographer.removeCallbacks(

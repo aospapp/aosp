@@ -20,7 +20,7 @@ import android.test.AndroidTestCase;
 import java.io.IOException;
 
 /**
- * Verify the selinux domain for apps running with 25<targetSdkVersion<=27
+ * Verify the selinux domain for apps running with 25&lt;targetSdkVersion&lt;=27
  */
 public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase
 {
@@ -33,7 +33,7 @@ public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase
 
     /**
      * Verify that selinux context is the expected domain based on
-     * targetSdkVersion = 27
+     * targetSdkVersion = 26-27
      */
     public void testAppDomainContext() throws IOException {
         String context = "u:r:untrusted_app_27:s0:c[0-9]+,c[0-9]+";
@@ -48,16 +48,24 @@ public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase
 
     /**
      * Verify that selinux context is the expected type based on
-     * targetSdkVersion = current
+     * targetSdkVersion = 26-27
      */
     public void testAppDataContext() throws Exception {
         String context = "u:object_r:app_data_file:s0:c[0-9]+,c[0-9]+";
         String msg = "Untrusted apps with targetSdkVersion in range 26-27 " +
-            "must use the app_data_file selinux context and use the levelFrom=all " +
-            "selector in SELinux seapp_contexts which adds four category types " +
+            "must use the app_data_file selinux context and use the levelFrom=user " +
+            "selector in SELinux seapp_contexts which adds two category types " +
             "to the app_data_file context.\n" +
             "Example expected value: u:object_r:app_data_file:s0:c512,c768\n" +
             "Actual value: ";
         appDataContext(context, msg);
+    }
+
+    public void testDex2oat() throws Exception {
+        checkDex2oatAccess(true);
+    }
+
+    public void testNoExecuteOnly() throws IOException {
+        noExecuteOnly();
     }
 }

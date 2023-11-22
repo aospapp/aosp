@@ -60,4 +60,30 @@ public class ListsHelper {
 
         return true;
     }
+
+    static public String textFormatHex(int[] list) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int index = 0; index < list.length; index++) {
+            sb.append("0x" + Integer.toHexString(list[index]));
+            if (index < list.length-1) {
+                sb.append(", ");
+            }
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    static public String textFormatDecimal(int[] list) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        for (int index = 0; index < list.length; index++) {
+            sb.append("0x" + list[index]);
+            if (index < list.length-1) {
+                sb.append(", ");
+            }
+        }
+        sb.append("]");
+        return sb.toString();
+    }
 }

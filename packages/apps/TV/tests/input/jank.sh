@@ -17,7 +17,7 @@
 # text fixture setup for unit tests
 
 
-echo "text fixture setup for func tests"
+echo "text fixture setup for jank tests"
 
 am instrument \
   -e testSetupMode jank \

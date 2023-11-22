@@ -21,7 +21,7 @@
 
 
     <!-- change minSdk if needed-->
-    <minSdk>7</minSdk>
+    <minSdk>14</minSdk>
 
 
     <strings>

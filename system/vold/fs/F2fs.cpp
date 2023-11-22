@@ -20,10 +20,10 @@
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
-#include <ext4_utils/ext4_crypt.h>
+#include <fscrypt/fscrypt.h>
 
-#include <vector>
 #include <string>
+#include <vector>
 
 #include <sys/mount.h>
 
@@ -37,9 +37,8 @@ static const char* kMkfsPath = "/system/bin/make_f2fs";
 static const char* kFsckPath = "/system/bin/fsck.f2fs";
 
 bool IsSupported() {
-    return access(kMkfsPath, X_OK) == 0
-            && access(kFsckPath, X_OK) == 0
-            && IsFilesystemSupported("f2fs");
+    return access(kMkfsPath, X_OK) == 0 && access(kFsckPath, X_OK) == 0 &&
+           IsFilesystemSupported("f2fs");
 }
 
 status_t Check(const std::string& source) {
@@ -49,7 +48,7 @@ status_t Check(const std::string& source) {
     cmd.push_back(source);
 
     // f2fs devices are currently always trusted
-    return ForkExecvp(cmd, sFsckContext);
+    return ForkExecvp(cmd, nullptr, sFsckContext);
 }
 
 status_t Mount(const std::string& source, const std::string& target) {
@@ -82,7 +81,7 @@ status_t Format(const std::string& source) {
         cmd.push_back("-O");
         cmd.push_back("quota");
     }
-    if (e4crypt_is_native()) {
+    if (fscrypt_is_native()) {
         cmd.push_back("-O");
         cmd.push_back("encrypt");
     }

@@ -29,7 +29,8 @@ import com.android.cts.managedprofile.BaseManagedProfileTest.BasicAdminReceiver;
  */
 public class ProfileTimeoutTestHelper extends InstrumentationTestCase {
     // This should be sufficiently smaller than ManagedProfileTest.PROFILE_TIMEOUT_DELAY_SEC.
-    private static final int TIMEOUT_MS = 5_000;
+    // This should also be sufficiently larger than time required to run "input tap" on emulator.
+    private static final int TIMEOUT_MS = 30_000;
     private static final ComponentName ADMIN_COMPONENT = new ComponentName(
             BasicAdminReceiver.class.getPackage().getName(), BasicAdminReceiver.class.getName());
 

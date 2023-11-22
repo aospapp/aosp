@@ -25,12 +25,24 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.testtype.IAbi;
+import com.android.tradefed.testtype.IAbiReceiver;
+import com.android.tradefed.testtype.IInvocationContextReceiver;
+import com.android.tradefed.testtype.suite.ModuleDefinition;
+import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.FileUtil;
-
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * A {@link ITargetPreparer} that attempts to push any number of files from any host path to any
@@ -40,16 +52,34 @@ import java.util.Collection;
  * enabled)
  */
 @OptionClass(alias = "push-file")
-public class PushFilePreparer extends BaseTargetPreparer implements ITargetCleaner {
+public class PushFilePreparer extends BaseTargetPreparer
+        implements ITargetCleaner, IAbiReceiver, IInvocationContextReceiver {
     private static final String LOG_TAG = "PushFilePreparer";
     private static final String MEDIA_SCAN_INTENT =
             "am broadcast -a android.intent.action.MEDIA_MOUNTED -d file://%s "
                     + "--receiver-include-background";
 
-    @Option(name="push", description=
-            "A push-spec, formatted as '/path/to/srcfile.txt->/path/to/destfile.txt' or " +
-            "'/path/to/srcfile.txt->/path/to/destdir/'. May be repeated.")
+    private IAbi mAbi;
+
+    @Option(
+        name = "push",
+        description =
+                "A push-spec, formatted as "
+                        + "'/localpath/to/srcfile.txt->/devicepath/to/destfile.txt' "
+                        + "or '/localpath/to/srcfile.txt->/devicepath/to/destdir/'. "
+                        + "May be repeated. The local path may be relative to the test cases "
+                        + "build out directories "
+                        + "($ANDROID_HOST_OUT_TESTCASES / $ANDROID_TARGET_OUT_TESTCASES)."
+    )
     private Collection<String> mPushSpecs = new ArrayList<>();
+
+    @Option(
+        name = "push-file",
+        description =
+                "A push-spec, specifying the local file to the path where it should be pushed on "
+                        + "device. May be repeated."
+    )
+    private Map<File, String> mPushFileSpecs = new HashMap<>();
 
     @Option(name="post-push", description=
             "A command to run on the device (with `adb shell (yourcommand)`) after all pushes " +
@@ -74,7 +104,9 @@ public class PushFilePreparer extends BaseTargetPreparer implements ITargetClean
             + "so that files could be pushed there too")
     private boolean mRemount = false;
 
-    private Collection<String> mFilesPushed = null;
+    private Set<String> mFilesPushed = null;
+    /** If the preparer is part of a module, we can use the test module name as a search criteria */
+    private String mModuleName = null;
 
     /**
      * Helper method to only throw if mAbortOnFailure is enabled.  Callers should behave as if this
@@ -86,6 +118,28 @@ public class PushFilePreparer extends BaseTargetPreparer implements ITargetClean
         } else {
             // Log the error and return
             Log.w(LOG_TAG, message);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setAbi(IAbi abi) {
+        mAbi = abi;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public IAbi getAbi() {
+        return mAbi;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setInvocationContext(IInvocationContext invocationContext) {
+        if (invocationContext.getAttributes().get(ModuleDefinition.MODULE_NAME) != null) {
+            // Only keep the module name
+            mModuleName =
+                    invocationContext.getAttributes().get(ModuleDefinition.MODULE_NAME).get(0);
         }
     }
 
@@ -104,22 +158,80 @@ public class PushFilePreparer extends BaseTargetPreparer implements ITargetClean
                 return src;
             }
         }
-
         if (buildInfo instanceof IDeviceBuildInfo) {
             IDeviceBuildInfo deviceBuild = (IDeviceBuildInfo) buildInfo;
-            // If it exists always look first in the ANDROID_TARGET_OUT_TESTCASES
+            File testDir = deviceBuild.getTestsDir();
+            List<File> scanDirs = new ArrayList<>();
+            // If it exists, always look first in the ANDROID_TARGET_OUT_TESTCASES
             File targetTestCases = deviceBuild.getFile(BuildInfoFileKey.TARGET_LINKED_DIR);
             if (targetTestCases != null) {
-                src = FileUtil.findFile(targetTestCases, fileName);
+                scanDirs.add(targetTestCases);
             }
-            if (src != null && src.exists()) {
-                return src;
+            if (testDir != null) {
+                scanDirs.add(testDir);
             }
-            // Search the full tests dir if no target dir is available.
-            File testsDir = deviceBuild.getTestsDir();
-            return FileUtil.findFile(testsDir, fileName);
+
+            if (mModuleName != null) {
+                // Use module name as a discriminant to find some files
+                if (testDir != null) {
+                    try {
+                        File moduleDir =
+                                FileUtil.findDirectory(
+                                        mModuleName, scanDirs.toArray(new File[] {}));
+                        if (moduleDir != null) {
+                            // If the spec is pushing the module itself
+                            if (mModuleName.equals(fileName)) {
+                                // If that's the main binary generated by the target, we push the
+                                // full directory
+                                return moduleDir;
+                            }
+                            // Search the module directory if it exists use it in priority
+                            src = FileUtil.findFile(fileName, null, moduleDir);
+                            if (src != null) {
+                                return src;
+                            }
+                        } else {
+                            CLog.e("Did not find any module directory for '%s'", mModuleName);
+                        }
+                    } catch (IOException e) {
+                        CLog.w(
+                                "Something went wrong while searching for the module '%s' "
+                                        + "directory.",
+                                mModuleName);
+                    }
+                }
+            }
+            // Search top-level matches
+            for (File searchDir : scanDirs) {
+                try {
+                    Set<File> allMatch = FileUtil.findFilesObject(searchDir, fileName);
+                    if (allMatch.size() > 1) {
+                        CLog.d(
+                                "Several match for filename '%s', searching for top-level match.",
+                                fileName);
+                        for (File f : allMatch) {
+                            // Bias toward direct child / top level nodes
+                            if (f.getParent().equals(searchDir.getAbsolutePath())) {
+                                return f;
+                            }
+                        }
+                    } else if (allMatch.size() == 1) {
+                        return allMatch.iterator().next();
+                    }
+                } catch (IOException e) {
+                    CLog.w("Failed to find test files from directory.");
+                }
+            }
+            // Fall-back to searching everything
+            try {
+                // Search the full tests dir if no target dir is available.
+                src = FileUtil.findFile(fileName, null, scanDirs.toArray(new File[] {}));
+            } catch (IOException e) {
+                CLog.w("Failed to find test files from directory.");
+                src = null;
+            }
         }
-        return null;
+        return src;
     }
 
     /**
@@ -128,7 +240,7 @@ public class PushFilePreparer extends BaseTargetPreparer implements ITargetClean
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError, BuildError,
             DeviceNotAvailableException {
-        mFilesPushed = new ArrayList<>();
+        mFilesPushed = new HashSet<>();
         if (mRemount) {
             device.remountSystemWritable();
         }
@@ -140,32 +252,18 @@ public class PushFilePreparer extends BaseTargetPreparer implements ITargetClean
             }
             Log.d(LOG_TAG, String.format("Trying to push local '%s' to remote '%s'", pair[0],
                     pair[1]));
-
             File src = new File(pair[0]);
-            if (!src.isAbsolute()) {
-                src = resolveRelativeFilePath(buildInfo, pair[0]);
-            }
-            if (src == null || !src.exists()) {
-                fail(String.format("Local source file '%s' does not exist", pair[0]), device);
-                continue;
-            }
-            if (src.isDirectory()) {
-                if (!device.pushDir(src, pair[1])) {
-                    fail(String.format("Failed to push local '%s' to remote '%s'", pair[0],
-                            pair[1]), device);
-                    continue;
-                } else {
-                    mFilesPushed.add(pair[1]);
-                }
-            } else {
-                if (!device.pushFile(src, pair[1])) {
-                    fail(String.format("Failed to push local '%s' to remote '%s'", pair[0],
-                            pair[1]), device);
-                    continue;
-                } else {
-                    mFilesPushed.add(pair[1]);
-                }
-            }
+            String remotePath = pair[1];
+            evaluatePushingPair(device, buildInfo, src, remotePath);
+        }
+        // Push the file structure
+        for (File src : mPushFileSpecs.keySet()) {
+            String remotePath = mPushFileSpecs.get(src);
+            Log.d(
+                    LOG_TAG,
+                    String.format(
+                            "Trying to push local '%s' to remote '%s'", src.getPath(), remotePath));
+            evaluatePushingPair(device, buildInfo, src, remotePath);
         }
 
         for (String command : mPostPushCommands) {
@@ -189,7 +287,75 @@ public class PushFilePreparer extends BaseTargetPreparer implements ITargetClean
                 device.remountSystemWritable();
             }
             for (String devicePath : mFilesPushed) {
-                device.executeShellCommand("rm -r " + devicePath);
+                device.deleteFile(devicePath);
+            }
+        }
+    }
+
+    private void addPushedFile(ITestDevice device, String remotePath) throws TargetSetupError {
+        if (mFilesPushed.contains(remotePath)) {
+            throw new TargetSetupError(
+                    String.format(
+                            "We pushed two files to the %s location. Check "
+                                    + "your configuration of this target_preparer",
+                            remotePath),
+                    device.getDeviceDescriptor());
+        }
+        mFilesPushed.add(remotePath);
+    }
+
+    private void evaluatePushingPair(
+            ITestDevice device, IBuildInfo buildInfo, File src, String remotePath)
+            throws TargetSetupError, DeviceNotAvailableException {
+        String localPath = src.getPath();
+        if (!src.isAbsolute()) {
+            src = resolveRelativeFilePath(buildInfo, localPath);
+        }
+        if (src == null || !src.exists()) {
+            fail(String.format("Local source file '%s' does not exist", localPath), device);
+            return;
+        }
+        if (src.isDirectory()) {
+            boolean deleteContentOnly = true;
+            if (!device.doesFileExist(remotePath)) {
+                device.executeShellCommand(String.format("mkdir -p \"%s\"", remotePath));
+                deleteContentOnly = false;
+            } else if (!device.isDirectory(remotePath)) {
+                // File exists and is not a directory
+                throw new TargetSetupError(
+                        String.format(
+                                "Attempting to push dir '%s' to an existing device file '%s'",
+                                src.getAbsolutePath(), remotePath),
+                        device.getDeviceDescriptor());
+            }
+            Set<String> filter = new HashSet<>();
+            if (mAbi != null) {
+                String currentArch = AbiUtils.getArchForAbi(mAbi.getName());
+                filter.addAll(AbiUtils.getArchSupported());
+                filter.remove(currentArch);
+            }
+            // TODO: Look into using syncFiles but that requires improving sync to work for unroot
+            if (!device.pushDir(src, remotePath, filter)) {
+                fail(
+                        String.format(
+                                "Failed to push local '%s' to remote '%s'", localPath, remotePath),
+                        device);
+                return;
+            } else {
+                if (deleteContentOnly) {
+                    remotePath += "/*";
+                }
+                addPushedFile(device, remotePath);
+            }
+        } else {
+            if (!device.pushFile(src, remotePath)) {
+                fail(
+                        String.format(
+                                "Failed to push local '%s' to remote '%s'", localPath, remotePath),
+                        device);
+                return;
+            } else {
+                addPushedFile(device, remotePath);
             }
         }
     }

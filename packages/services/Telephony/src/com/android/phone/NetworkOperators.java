@@ -19,7 +19,6 @@ package com.android.phone;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
 import android.preference.Preference;
@@ -30,12 +29,11 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
-import com.android.internal.telephony.CommandException;
-import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneFactory;
+import com.android.settingslib.utils.ThreadUtils;
 
 /**
  * "Networks" settings UI for the Phone app.
@@ -55,16 +53,14 @@ public class NetworkOperators extends PreferenceCategory
     public static final String BUTTON_CHOOSE_NETWORK_KEY = "button_choose_network_key";
     public static final String CATEGORY_NETWORK_OPERATORS_KEY = "network_operators_category_key";
 
-    int mPhoneId = SubscriptionManager.INVALID_PHONE_INDEX;
-    private static final int ALREADY_IN_AUTO_SELECTION = 1;
-
     //preference objects
     private NetworkSelectListPreference mNetworkSelect;
     private TwoStatePreference mAutoSelect;
     private Preference mChooseNetwork;
+    private ProgressDialog mProgressDialog;
 
     private int mSubId;
-    private ProgressDialog mProgressDialog;
+    private TelephonyManager mTelephonyManager;
 
     // There's two sets of Auto-Select UI in this class.
     // If {@code com.android.internal.R.bool.config_enableNewAutoSelectNetworkUI} set as true
@@ -94,17 +90,17 @@ public class NetworkOperators extends PreferenceCategory
             removePreference(mChooseNetwork);
         }
         mProgressDialog = new ProgressDialog(getContext());
+        mTelephonyManager = TelephonyManager.from(getContext());
     }
 
     /**
-     * Update NetworkOperators instance if like subId or queryService are updated.
+     * Update NetworkOperators instance if like subId is updated.
      *
      * @param subId Corresponding subscription ID of this network.
-     * @param queryService The service to do network queries.
      */
-    protected void update(final int subId, INetworkQueryService queryService) {
+    protected void update(final int subId) {
         mSubId = subId;
-        mPhoneId = SubscriptionManager.getPhoneId(mSubId);
+        mTelephonyManager = TelephonyManager.from(getContext()).createForSubscriptionId(mSubId);
 
         if (mAutoSelect != null) {
             mAutoSelect.setOnPreferenceChangeListener(this);
@@ -112,18 +108,16 @@ public class NetworkOperators extends PreferenceCategory
 
         if (mEnableNewManualSelectNetworkUI) {
             if (mChooseNetwork != null) {
-                TelephonyManager telephonyManager = (TelephonyManager)
-                        getContext().getSystemService(Context.TELEPHONY_SERVICE);
-                if (DBG) logd("data connection status " + telephonyManager.getDataState());
-                if (telephonyManager.getDataState() == telephonyManager.DATA_CONNECTED) {
-                    mChooseNetwork.setSummary(telephonyManager.getNetworkOperatorName());
+                ServiceState ss = mTelephonyManager.getServiceState();
+                if (ss != null && ss.getState() == ServiceState.STATE_IN_SERVICE) {
+                    mChooseNetwork.setSummary(mTelephonyManager.getNetworkOperatorName());
                 } else {
                     mChooseNetwork.setSummary(R.string.network_disconnected);
                 }
             }
         } else {
             if (mNetworkSelect != null) {
-                mNetworkSelect.initialize(mSubId, queryService, this, mProgressDialog);
+                mNetworkSelect.initialize(mSubId, this, mProgressDialog);
             }
         }
         getNetworkSelectionMode();
@@ -134,7 +128,7 @@ public class NetworkOperators extends PreferenceCategory
      * changes specifically on auto select button.
      *
      * @param preference is the preference to be changed, should be auto select button.
-     * @param newValue should be the value of whether autoSelect is checked.
+     * @param newValue   should be the value of whether autoSelect is checked.
      */
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
@@ -152,48 +146,44 @@ public class NetworkOperators extends PreferenceCategory
     private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
-            AsyncResult ar;
             switch (msg.what) {
                 case EVENT_AUTO_SELECT_DONE:
                     mAutoSelect.setEnabled(true);
                     dismissProgressBar();
 
-                    ar = (AsyncResult) msg.obj;
-                    if (ar.exception != null) {
-                        if (DBG) logd("automatic network selection: failed!");
-                        displayNetworkSelectionFailed(ar.exception);
-                    } else {
+                    boolean isSuccessed = (boolean) msg.obj;
+
+                    if (isSuccessed) {
                         if (DBG) logd("automatic network selection: succeeded!");
-                        displayNetworkSelectionSucceeded(msg.arg1);
+                        displayNetworkSelectionSucceeded();
+                    } else {
+                        if (DBG) logd("automatic network selection: failed!");
+                        displayNetworkSelectionFailed();
                     }
 
                     break;
                 case EVENT_GET_NETWORK_SELECTION_MODE_DONE:
-                    ar = (AsyncResult) msg.obj;
-                    if (ar.exception != null) {
+                    int networkSelectionMode = msg.arg1;
+                    if (networkSelectionMode == TelephonyManager.NETWORK_SELECTION_MODE_UNKNOWN) {
                         if (DBG) logd("get network selection mode: failed!");
-                    } else if (ar.result != null) {
-                        try {
-                            int[] modes = (int[]) ar.result;
-                            boolean autoSelect = (modes[0] == 0);
-                            if (DBG) {
-                                logd("get network selection mode: "
-                                        + (autoSelect ? "auto" : "manual") + " selection");
+                    } else {
+                        boolean autoSelect = networkSelectionMode
+                                == TelephonyManager.NETWORK_SELECTION_MODE_AUTO;
+                        if (DBG) {
+                            logd("get network selection mode: "
+                                    + (autoSelect ? "auto" : "manual") + " selection");
+                        }
+                        if (mAutoSelect != null) {
+                            mAutoSelect.setChecked(autoSelect);
+                        }
+                        if (mEnableNewManualSelectNetworkUI) {
+                            if (mChooseNetwork != null) {
+                                mChooseNetwork.setEnabled(!autoSelect);
                             }
-                            if (mAutoSelect != null) {
-                                mAutoSelect.setChecked(autoSelect);
+                        } else {
+                            if (mNetworkSelect != null) {
+                                mNetworkSelect.setEnabled(!autoSelect);
                             }
-                            if (mEnableNewManualSelectNetworkUI) {
-                                if (mChooseNetwork != null) {
-                                    mChooseNetwork.setEnabled(!autoSelect);
-                                }
-                            } else {
-                                if (mNetworkSelect != null) {
-                                    mNetworkSelect.setEnabled(!autoSelect);
-                                }
-                            }
-                        } catch (Exception e) {
-                            if (DBG) loge("get network selection mode: unable to parse result.");
                         }
                     }
             }
@@ -202,42 +192,13 @@ public class NetworkOperators extends PreferenceCategory
     };
 
     // Used by both mAutoSelect and mNetworkSelect buttons.
-    protected void displayNetworkSelectionFailed(Throwable ex) {
-        String status;
-        if ((ex != null && ex instanceof CommandException)
-                && ((CommandException) ex).getCommandError()
-                == CommandException.Error.ILLEGAL_SIM_OR_ME) {
-            status = getContext().getResources().getString(R.string.not_allowed);
-        } else {
-            status = getContext().getResources().getString(R.string.connect_later);
-        }
-
-        final PhoneGlobals app = PhoneGlobals.getInstance();
-        app.notificationMgr.postTransientNotification(
-                NotificationMgr.NETWORK_SELECTION_NOTIFICATION, status);
-
-        TelephonyManager tm = (TelephonyManager) app.getSystemService(Context.TELEPHONY_SERVICE);
-        Phone phone = PhoneFactory.getPhone(mPhoneId);
-        if (phone != null) {
-            ServiceState ss = tm.getServiceStateForSubscriber(phone.getSubId());
-            if (ss != null) {
-                app.notificationMgr.updateNetworkSelection(ss.getState(), phone.getSubId());
-            }
-        }
+    protected void displayNetworkSelectionFailed() {
+        Toast.makeText(getContext(), R.string.connect_later, Toast.LENGTH_LONG).show();
     }
 
     // Used by both mAutoSelect and mNetworkSelect buttons.
-    protected void displayNetworkSelectionSucceeded(int msgArg1) {
-        String status = null;
-        if (msgArg1 == ALREADY_IN_AUTO_SELECTION) {
-            status = getContext().getResources().getString(R.string.already_auto);
-        } else {
-            status = getContext().getResources().getString(R.string.registration_done);
-        }
-
-        final PhoneGlobals app = PhoneGlobals.getInstance();
-        app.notificationMgr.postTransientNotification(
-                NotificationMgr.NETWORK_SELECTION_NOTIFICATION, status);
+    protected void displayNetworkSelectionSucceeded() {
+        Toast.makeText(getContext(), R.string.registration_done, Toast.LENGTH_LONG).show();
     }
 
     private void selectNetworkAutomatic(boolean autoSelect) {
@@ -256,10 +217,17 @@ public class NetworkOperators extends PreferenceCategory
             if (DBG) logd("select network automatically...");
             showAutoSelectProgressBar();
             mAutoSelect.setEnabled(false);
-            Message msg = mHandler.obtainMessage(EVENT_AUTO_SELECT_DONE);
-            Phone phone = PhoneFactory.getPhone(mPhoneId);
-            if (phone != null) {
-                phone.setNetworkSelectionModeAutomatic(msg);
+            if (SubscriptionManager.isValidSubscriptionId(mSubId)) {
+                ThreadUtils.postOnBackgroundThread(() -> {
+                    mTelephonyManager.setNetworkSelectionModeAutomatic();
+                    // Because TelephonyManager#setNetworkSelectionModeAutomatic doesn't have a
+                    // return value, we query the current network selection mode to tell if the
+                    // TelephonyManager#setNetworkSelectionModeAutomatic is successed.
+                    int networkSelectionMode = mTelephonyManager.getNetworkSelectionMode();
+                    Message msg = mHandler.obtainMessage(EVENT_AUTO_SELECT_DONE);
+                    msg.obj = networkSelectionMode == TelephonyManager.NETWORK_SELECTION_MODE_AUTO;
+                    msg.sendToTarget();
+                });
             }
         } else {
             if (mEnableNewManualSelectNetworkUI) {
@@ -277,11 +245,12 @@ public class NetworkOperators extends PreferenceCategory
 
     protected void getNetworkSelectionMode() {
         if (DBG) logd("getting network selection mode...");
-        Message msg = mHandler.obtainMessage(EVENT_GET_NETWORK_SELECTION_MODE_DONE);
-        Phone phone = PhoneFactory.getPhone(mPhoneId);
-        if (phone != null) {
-            phone.getNetworkSelectionMode(msg);
-        }
+        ThreadUtils.postOnBackgroundThread(() -> {
+            int networkSelectionMode = mTelephonyManager.getNetworkSelectionMode();
+            Message msg = mHandler.obtainMessage(EVENT_GET_NETWORK_SELECTION_MODE_DONE);
+            msg.arg1 = networkSelectionMode;
+            msg.sendToTarget();
+        });
     }
 
     private void dismissProgressBar() {
@@ -300,10 +269,10 @@ public class NetworkOperators extends PreferenceCategory
     }
 
     /**
-     * Open the Choose netwotk page via {@alink NetworkSelectSettingActivity}
+     * Open the Choose network page via {@alink NetworkSelectSettingActivity}
      */
     public void openChooseNetworkPage() {
-        Intent intent = NetworkSelectSettingActivity.getIntent(getContext(), mPhoneId);
+        Intent intent = NetworkSelectSettingActivity.getIntent(getContext(), mSubId);
         getContext().startActivity(intent);
     }
 

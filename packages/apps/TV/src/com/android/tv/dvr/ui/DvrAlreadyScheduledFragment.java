@@ -78,7 +78,7 @@ public class DvrAlreadyScheduledFragment extends DvrGuidedStepFragment {
                                 getContext(),
                                 mDuplicate.getStartTimeMs(),
                                 DateUtils.FORMAT_SHOW_TIME | DateUtils.FORMAT_SHOW_DATE));
-        Drawable image = getResources().getDrawable(R.drawable.ic_warning_white_96dp, null);
+        Drawable image = getResources().getDrawable(R.drawable.quantum_ic_warning_white_96, null);
         return new Guidance(title, description, null, image);
     }
 

@@ -30,7 +30,7 @@
 #include <string>
 #include <vector>
 
-#include <android-base/test_utils.h>
+#include <android-base/file.h>
 
 #include "build_id.h"
 #include "perf_regs.h"
@@ -52,7 +52,10 @@ struct ThreadMmap {
   uint64_t len;
   uint64_t pgoff;
   std::string name;
-  bool executable;
+  uint32_t prot;
+  ThreadMmap() {}
+  ThreadMmap(uint64_t start, uint64_t len, uint64_t pgoff, const char* name, uint32_t prot)
+      : start_addr(start), len(len), pgoff(pgoff), name(name), prot(prot) {}
 };
 
 bool GetThreadMmapsInProcess(pid_t pid, std::vector<ThreadMmap>* thread_mmaps);
@@ -71,7 +74,13 @@ bool GetThreadName(pid_t tid, std::string* name);
 bool GetValidThreadsFromThreadString(const std::string& tid_str, std::set<pid_t>* tid_set);
 
 bool CheckPerfEventLimit();
+bool SetPerfEventLimits(uint64_t sample_freq, size_t cpu_percent, uint64_t mlock_kb);
 bool GetMaxSampleFrequency(uint64_t* max_sample_freq);
+bool SetMaxSampleFrequency(uint64_t max_sample_freq);
+bool GetCpuTimeMaxPercent(size_t* percent);
+bool SetCpuTimeMaxPercent(size_t percent);
+bool GetPerfEventMlockKb(uint64_t* mlock_kb);
+bool SetPerfEventMlockKb(uint64_t mlock_kb);
 bool CheckKernelSymbolAddresses();
 bool CanRecordRawData();
 
@@ -94,13 +103,11 @@ ArchType GetMachineArch();
 void PrepareVdsoFile();
 
 std::set<pid_t> WaitForAppProcesses(const std::string& package_name);
+bool IsAppDebuggable(const std::string& package_name);
 bool RunInAppContext(const std::string& app_package_name, const std::string& cmd,
                      const std::vector<std::string>& args, size_t workload_args_size,
                      const std::string& output_filepath, bool need_tracepoint_events);
 
-// Below two functions are only used in cts tests, to force stat/record cmd to run in app's context.
-void SetDefaultAppPackageName(const std::string& package_name);
-const std::string& GetDefaultAppPackageName();
 void AllowMoreOpenedFiles();
 
 class ScopedTempFiles {
@@ -117,5 +124,15 @@ class ScopedTempFiles {
 };
 
 bool SignalIsIgnored(int signo);
+// Return 0 if no android version.
+int GetAndroidVersion();
+
+constexpr int kAndroidVersionP = 9;
+
+std::string GetHardwareFromCpuInfo(const std::string& cpu_info);
+
+bool MappedFileOnlyExistInMemory(const char* filename);
+
+std::string GetCompleteProcessName(pid_t pid);
 
 #endif  // SIMPLE_PERF_ENVIRONMENT_H_

@@ -22,14 +22,12 @@ import (
 	"hash/crc32"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
-	"runtime/pprof"
-	"runtime/trace"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode"
 
@@ -68,29 +66,112 @@ type pathMapping struct {
 	zipMethod uint16
 }
 
-type uniqueSet map[string]bool
-
-func (u *uniqueSet) String() string {
-	return `""`
-}
-
-func (u *uniqueSet) Set(s string) error {
-	if _, found := (*u)[s]; found {
-		return fmt.Errorf("File %q was specified twice as a file to not deflate", s)
-	} else {
-		(*u)[s] = true
-	}
-
-	return nil
-}
-
 type FileArg struct {
 	PathPrefixInZip, SourcePrefixToStrip string
 	SourceFiles                          []string
+	JunkPaths                            bool
 	GlobDir                              string
 }
 
-type FileArgs []FileArg
+type FileArgsBuilder struct {
+	state FileArg
+	err   error
+	fs    pathtools.FileSystem
+
+	fileArgs []FileArg
+}
+
+func NewFileArgsBuilder() *FileArgsBuilder {
+	return &FileArgsBuilder{
+		fs: pathtools.OsFs,
+	}
+}
+
+func (b *FileArgsBuilder) JunkPaths(v bool) *FileArgsBuilder {
+	b.state.JunkPaths = v
+	b.state.SourcePrefixToStrip = ""
+	return b
+}
+
+func (b *FileArgsBuilder) SourcePrefixToStrip(prefixToStrip string) *FileArgsBuilder {
+	b.state.JunkPaths = false
+	b.state.SourcePrefixToStrip = prefixToStrip
+	return b
+}
+
+func (b *FileArgsBuilder) PathPrefixInZip(rootPrefix string) *FileArgsBuilder {
+	b.state.PathPrefixInZip = rootPrefix
+	return b
+}
+
+func (b *FileArgsBuilder) File(name string) *FileArgsBuilder {
+	if b.err != nil {
+		return b
+	}
+
+	arg := b.state
+	arg.SourceFiles = []string{name}
+	b.fileArgs = append(b.fileArgs, arg)
+	return b
+}
+
+func (b *FileArgsBuilder) Dir(name string) *FileArgsBuilder {
+	if b.err != nil {
+		return b
+	}
+
+	arg := b.state
+	arg.GlobDir = name
+	b.fileArgs = append(b.fileArgs, arg)
+	return b
+}
+
+func (b *FileArgsBuilder) List(name string) *FileArgsBuilder {
+	if b.err != nil {
+		return b
+	}
+
+	f, err := b.fs.Open(name)
+	if err != nil {
+		b.err = err
+		return b
+	}
+	defer f.Close()
+
+	list, err := ioutil.ReadAll(f)
+	if err != nil {
+		b.err = err
+		return b
+	}
+
+	arg := b.state
+	arg.SourceFiles = strings.Split(string(list), "\n")
+	b.fileArgs = append(b.fileArgs, arg)
+	return b
+}
+
+func (b *FileArgsBuilder) Error() error {
+	if b == nil {
+		return nil
+	}
+	return b.err
+}
+
+func (b *FileArgsBuilder) FileArgs() []FileArg {
+	if b == nil {
+		return nil
+	}
+	return b.fileArgs
+}
+
+type IncorrectRelativeRootError struct {
+	RelativeRoot string
+	Path         string
+}
+
+func (x IncorrectRelativeRootError) Error() string {
+	return fmt.Sprintf("path %q is outside relative root %q", x.Path, x.RelativeRoot)
+}
 
 type ZipWriter struct {
 	time         time.Time
@@ -106,6 +187,12 @@ type ZipWriter struct {
 
 	compressorPool sync.Pool
 	compLevel      int
+
+	followSymlinks     pathtools.ShouldFollowSymlinks
+	ignoreMissingFiles bool
+
+	stderr io.Writer
+	fs     pathtools.FileSystem
 }
 
 type zipEntry struct {
@@ -120,10 +207,8 @@ type zipEntry struct {
 }
 
 type ZipArgs struct {
-	FileArgs                 FileArgs
+	FileArgs                 []FileArg
 	OutputFilePath           string
-	CpuProfileFilePath       string
-	TraceFilePath            string
 	EmulateJar               bool
 	AddDirectoryEntriesToZip bool
 	CompressionLevel         int
@@ -131,6 +216,11 @@ type ZipArgs struct {
 	NumParallelJobs          int
 	NonDeflatedFiles         map[string]bool
 	WriteIfChanged           bool
+	StoreSymlinks            bool
+	IgnoreMissingFiles       bool
+
+	Stderr     io.Writer
+	Filesystem pathtools.FileSystem
 }
 
 const NOQUOTE = '\x00'
@@ -176,61 +266,110 @@ func ReadRespFile(bytes []byte) []string {
 	return args
 }
 
-func Run(args ZipArgs) (err error) {
-	if args.CpuProfileFilePath != "" {
-		f, err := os.Create(args.CpuProfileFilePath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
-		defer f.Close()
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
-
-	if args.TraceFilePath != "" {
-		f, err := os.Create(args.TraceFilePath)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
-		defer f.Close()
-		err = trace.Start(f)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
-		defer trace.Stop()
-	}
-
-	if args.OutputFilePath == "" {
-		return fmt.Errorf("output file path must be nonempty")
-	}
-
+func ZipTo(args ZipArgs, w io.Writer) error {
 	if args.EmulateJar {
 		args.AddDirectoryEntriesToZip = true
 	}
 
-	w := &ZipWriter{
-		time:         jar.DefaultTime,
-		createdDirs:  make(map[string]string),
-		createdFiles: make(map[string]string),
-		directories:  args.AddDirectoryEntriesToZip,
-		compLevel:    args.CompressionLevel,
+	// Have Glob follow symlinks if they are not being stored as symlinks in the zip file.
+	followSymlinks := pathtools.ShouldFollowSymlinks(!args.StoreSymlinks)
+
+	z := &ZipWriter{
+		time:               jar.DefaultTime,
+		createdDirs:        make(map[string]string),
+		createdFiles:       make(map[string]string),
+		directories:        args.AddDirectoryEntriesToZip,
+		compLevel:          args.CompressionLevel,
+		followSymlinks:     followSymlinks,
+		ignoreMissingFiles: args.IgnoreMissingFiles,
+		stderr:             args.Stderr,
+		fs:                 args.Filesystem,
 	}
+
+	if z.fs == nil {
+		z.fs = pathtools.OsFs
+	}
+
+	if z.stderr == nil {
+		z.stderr = os.Stderr
+	}
+
 	pathMappings := []pathMapping{}
 
+	noCompression := args.CompressionLevel == 0
+
 	for _, fa := range args.FileArgs {
-		srcs := fa.SourceFiles
+		var srcs []string
+		for _, s := range fa.SourceFiles {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				continue
+			}
+
+			globbed, _, err := z.fs.Glob(s, nil, followSymlinks)
+			if err != nil {
+				return err
+			}
+			if len(globbed) == 0 {
+				err := &os.PathError{
+					Op:   "lstat",
+					Path: s,
+					Err:  os.ErrNotExist,
+				}
+				if args.IgnoreMissingFiles {
+					fmt.Fprintln(z.stderr, "warning:", err)
+				} else {
+					return err
+				}
+			}
+			srcs = append(srcs, globbed...)
+		}
 		if fa.GlobDir != "" {
-			srcs = append(srcs, recursiveGlobFiles(fa.GlobDir)...)
+			if exists, isDir, err := z.fs.Exists(fa.GlobDir); err != nil {
+				return err
+			} else if !exists && !args.IgnoreMissingFiles {
+				err := &os.PathError{
+					Op:   "lstat",
+					Path: fa.GlobDir,
+					Err:  os.ErrNotExist,
+				}
+				if args.IgnoreMissingFiles {
+					fmt.Fprintln(z.stderr, "warning:", err)
+				} else {
+					return err
+				}
+			} else if !isDir && !args.IgnoreMissingFiles {
+				err := &os.PathError{
+					Op:   "lstat",
+					Path: fa.GlobDir,
+					Err:  syscall.ENOTDIR,
+				}
+				if args.IgnoreMissingFiles {
+					fmt.Fprintln(z.stderr, "warning:", err)
+				} else {
+					return err
+				}
+			}
+			globbed, _, err := z.fs.Glob(filepath.Join(fa.GlobDir, "**/*"), nil, followSymlinks)
+			if err != nil {
+				return err
+			}
+			srcs = append(srcs, globbed...)
 		}
 		for _, src := range srcs {
-			if err := fillPathPairs(fa.PathPrefixInZip,
-				fa.SourcePrefixToStrip, src, &pathMappings, args.NonDeflatedFiles); err != nil {
-				log.Fatal(err)
+			err := fillPathPairs(fa, src, &pathMappings, args.NonDeflatedFiles, noCompression)
+			if err != nil {
+				return err
 			}
 		}
+	}
+
+	return z.write(w, pathMappings, args.ManifestSourcePath, args.EmulateJar, args.NumParallelJobs)
+}
+
+func Zip(args ZipArgs) error {
+	if args.OutputFilePath == "" {
+		return fmt.Errorf("output file path must be nonempty")
 	}
 
 	buf := &bytes.Buffer{}
@@ -252,7 +391,7 @@ func Run(args ZipArgs) (err error) {
 		out = f
 	}
 
-	err = w.write(out, pathMappings, args.ManifestSourcePath, args.EmulateJar, args.NumParallelJobs)
+	err := ZipTo(args, out)
 	if err != nil {
 		return err
 	}
@@ -267,20 +406,31 @@ func Run(args ZipArgs) (err error) {
 	return nil
 }
 
-func fillPathPairs(prefix, rel, src string, pathMappings *[]pathMapping, nonDeflatedFiles map[string]bool) error {
-	src = strings.TrimSpace(src)
-	if src == "" {
-		return nil
+func fillPathPairs(fa FileArg, src string, pathMappings *[]pathMapping,
+	nonDeflatedFiles map[string]bool, noCompression bool) error {
+
+	var dest string
+
+	if fa.JunkPaths {
+		dest = filepath.Base(src)
+	} else {
+		var err error
+		dest, err = filepath.Rel(fa.SourcePrefixToStrip, src)
+		if err != nil {
+			return err
+		}
+		if strings.HasPrefix(dest, "../") {
+			return IncorrectRelativeRootError{
+				Path:         src,
+				RelativeRoot: fa.SourcePrefixToStrip,
+			}
+		}
+
 	}
-	src = filepath.Clean(src)
-	dest, err := filepath.Rel(rel, src)
-	if err != nil {
-		return err
-	}
-	dest = filepath.Join(prefix, dest)
+	dest = filepath.Join(fa.PathPrefixInZip, dest)
 
 	zipMethod := zip.Deflate
-	if _, found := nonDeflatedFiles[dest]; found {
+	if _, found := nonDeflatedFiles[dest]; found || noCompression {
 		zipMethod = zip.Store
 	}
 	*pathMappings = append(*pathMappings,
@@ -294,13 +444,6 @@ func jarSort(mappings []pathMapping) {
 		return jar.EntryNamesLess(mappings[i].dest, mappings[j].dest)
 	}
 	sort.SliceStable(mappings, less)
-}
-
-type readerSeekerCloser interface {
-	io.Reader
-	io.ReaderAt
-	io.Closer
-	io.Seeker
 }
 
 func (z *ZipWriter) write(f io.Writer, pathMappings []pathMapping, manifest string, emulateJar bool, parallelJobs int) error {
@@ -449,7 +592,19 @@ func (z *ZipWriter) addFile(dest, src string, method uint16, emulateJar bool) er
 	var fileSize int64
 	var executable bool
 
-	if s, err := os.Lstat(src); err != nil {
+	var s os.FileInfo
+	var err error
+	if z.followSymlinks {
+		s, err = z.fs.Stat(src)
+	} else {
+		s, err = z.fs.Lstat(src)
+	}
+
+	if err != nil {
+		if os.IsNotExist(err) && z.ignoreMissingFiles {
+			fmt.Fprintln(z.stderr, "warning:", err)
+			return nil
+		}
 		return err
 	} else if s.IsDir() {
 		if z.directories {
@@ -480,7 +635,7 @@ func (z *ZipWriter) addFile(dest, src string, method uint16, emulateJar bool) er
 		executable = s.Mode()&0100 != 0
 	}
 
-	r, err := os.Open(src)
+	r, err := z.fs.Open(src)
 	if err != nil {
 		return err
 	}
@@ -510,7 +665,21 @@ func (z *ZipWriter) addManifest(dest string, src string, method uint16) error {
 		return err
 	}
 
-	fh, buf, err := jar.ManifestFileContents(src)
+	var contents []byte
+	if src != "" {
+		f, err := z.fs.Open(src)
+		if err != nil {
+			return err
+		}
+
+		contents, err = ioutil.ReadAll(f)
+		f.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	fh, buf, err := jar.ManifestFileContents(contents)
 	if err != nil {
 		return err
 	}
@@ -520,7 +689,7 @@ func (z *ZipWriter) addManifest(dest string, src string, method uint16) error {
 	return z.writeFileContents(fh, reader)
 }
 
-func (z *ZipWriter) writeFileContents(header *zip.FileHeader, r readerSeekerCloser) (err error) {
+func (z *ZipWriter) writeFileContents(header *zip.FileHeader, r pathtools.ReaderAtSeekerCloser) (err error) {
 
 	header.SetModTime(z.time)
 
@@ -788,12 +957,15 @@ func (z *ZipWriter) writeSymlink(rel, file string) error {
 		Name: rel,
 	}
 	fileHeader.SetModTime(z.time)
-	fileHeader.SetMode(0700 | os.ModeSymlink)
+	fileHeader.SetMode(0777 | os.ModeSymlink)
 
-	dest, err := os.Readlink(file)
+	dest, err := z.fs.Readlink(file)
 	if err != nil {
 		return err
 	}
+
+	fileHeader.UncompressedSize64 = uint64(len(dest))
+	fileHeader.CRC32 = crc32.ChecksumIEEE([]byte(dest))
 
 	ze := make(chan *zipEntry, 1)
 	futureReaders := make(chan chan io.Reader, 1)
@@ -811,16 +983,4 @@ func (z *ZipWriter) writeSymlink(rel, file string) error {
 	z.writeOps <- ze
 
 	return nil
-}
-
-func recursiveGlobFiles(path string) []string {
-	var files []string
-	filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
-			files = append(files, path)
-		}
-		return nil
-	})
-
-	return files
 }

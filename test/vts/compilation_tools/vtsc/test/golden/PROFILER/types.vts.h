@@ -8,6 +8,11 @@
 #include <test/vts/proto/ComponentSpecificationMessage.pb.h>
 #include "VtsProfilingInterface.h"
 
+// HACK: NAN is #defined by math.h which gets included by
+// ComponentSpecificationMessage.pb.h, but some HALs use
+// enums called NAN.  Undefine NAN to work around it.
+#undef NAN
+
 #include <android/hardware/nfc/1.0/types.h>
 
 

@@ -63,7 +63,7 @@ class _C2EnumUtils {
 
     static std::vector<C2String> sanitizeEnumValueNames(
             const std::vector<C2StringLiteral> names,
-            C2StringLiteral _prefix = NULL);
+            C2StringLiteral _prefix = nullptr);
 
     friend class C2UtilTest_EnumUtilsTest_Test;
 
@@ -75,7 +75,7 @@ public:
     static C2_HIDE C2FieldDescriptor::NamedValuesType sanitizeEnumValues(
             std::vector<T> values,
             std::vector<C2StringLiteral> names,
-            C2StringLiteral prefix = NULL) {
+            C2StringLiteral prefix = nullptr) {
         C2FieldDescriptor::NamedValuesType namedValues;
         std::vector<C2String> sanitizedNames = sanitizeEnumValueNames(names, prefix);
         for (size_t i = 0; i < values.size() && i < sanitizedNames.size(); ++i) {
@@ -147,7 +147,7 @@ C2FieldDescriptor::NamedValuesType C2FieldDescriptor::namedValuesFor(const name 
  */
 #define C2ENUM(name, type, ...) \
 enum name : type { __VA_ARGS__ }; \
-DEFINE_C2_ENUM_VALUE_AUTO_HELPER(name, type, NULL, __VA_ARGS__)
+DEFINE_C2_ENUM_VALUE_AUTO_HELPER(name, type, nullptr, __VA_ARGS__)
 
 /**
  * Defines an enum type with the default named value mapper but custom prefix. The default

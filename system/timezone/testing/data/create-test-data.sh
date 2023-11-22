@@ -31,13 +31,15 @@ TEST_DIR=test1
 
 # Create the distro .zip
 mkdir -p ${TEST_DIR}/output_data/distro
+mkdir -p ${TEST_DIR}/output_data/version
 ${DISTRO_TOOLS_DIR}/create-distro.py \
     -iana_version ${IANA_VERSION} \
     -revision 1 \
     -tzdata ${TEST_DIR}/output_data/iana/tzdata \
     -icu ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat \
     -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
-    -output ${TEST_DIR}/output_data/distro
+    -output_distro_dir ${TEST_DIR}/output_data/distro \
+    -output_version_file ${TEST_DIR}/output_data/version/tz_version
 
 # Test 2: A set of data older than the system-image data from ${TIMEZONE_DIR}
 IANA_VERSION=2016a
@@ -48,12 +50,14 @@ TEST_DIR=test2
 
 # Create the distro .zip
 mkdir -p ${TEST_DIR}/output_data/distro
+mkdir -p ${TEST_DIR}/output_data/version
 ${DISTRO_TOOLS_DIR}/create-distro.py \
     -iana_version ${IANA_VERSION} \
     -revision 1 \
     -tzdata ${TEST_DIR}/output_data/iana/tzdata \
     -icu ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat \
     -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
-    -output ${TEST_DIR}/output_data/distro
+    -output_distro_dir ${TEST_DIR}/output_data/distro \
+    -output_version_file ${TEST_DIR}/output_data/version/tz_version
 
 

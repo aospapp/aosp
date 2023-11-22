@@ -15,9 +15,5 @@
   ~ limitations under the License
   -->
 <resources>
-    <dimen name="car_card_view_elevation">8dp</dimen>
     <dimen name="notification_contact_photo_size">300dp</dimen>
-    <dimen name="voice_plate_button_margin">32dp</dimen>
-    <dimen name="big_btn_bg_width">614dp</dimen>
-    <dimen name="car_emoji_size">56dp</dimen>
 </resources>

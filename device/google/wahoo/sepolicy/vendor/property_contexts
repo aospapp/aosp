@@ -1,4 +1,6 @@
 persist.camera.            u:object_r:camera_prop:s0
+ro.camera.req.fmq.size     u:object_r:vendor_ro_camera_prop:s0
+ro.camera.res.fmq.size     u:object_r:vendor_ro_camera_prop:s0
 htc.camera.                u:object_r:camera_prop:s0
 persist.vendor.sys.cnd     u:object_r:cnd_prop:s0
 persist.sys.cnd            u:object_r:cnd_prop:s0
@@ -16,20 +18,24 @@ vendor.debug.ssrdump       u:object_r:vendor_ssr_prop:s0
 persist.sys.cnss.          u:object_r:cnss_diag_prop:s0
 sys.listeners.registered   u:object_r:tee_listener_prop:s0
 wc_transport.              u:object_r:wc_prop:s0
-sys.qcom.thermalcfg        u:object_r:thermal_prop:s0
-ctl.vendor.thermal-engine  u:object_r:thermal_prop:s0
+vendor.qcom.thermalcfg     u:object_r:thermal_prop:s0
+vendor.thermal.config      u:object_r:thermal_prop:s0
 persist.sys.modem.diag.    u:object_r:modem_diag_prop:s0
 sys.modem.diag.            u:object_r:modem_diag_prop:s0
 sys.time.set               u:object_r:sys_time_prop:s0
 persist.radio.atfwd.start  u:object_r:atfwd_start_prop:s0
 sys.logger.bluetooth       u:object_r:bluetooth_log_prop:s0
-vendor.powerhal.state      u:object_r:power_prop:s0
-vendor.powerhal.audio      u:object_r:power_prop:s0
-sys.wlan.driver.version    u:object_r:vendor_wifi_version:s0
-sys.wlan.firmware.version  u:object_r:vendor_wifi_version:s0
+vendor.powerhal.state                           u:object_r:power_prop:s0
+vendor.powerhal.audio                           u:object_r:power_prop:s0
+vendor.powerhal.lpm                             u:object_r:power_prop:s0
+vendor.powerhal.init                            u:object_r:power_prop:s0
+vendor.powerhal.rendering                       u:object_r:power_prop:s0
+vendor.wlan.driver.version    u:object_r:vendor_wifi_version:s0
+vendor.wlan.firmware.version  u:object_r:vendor_wifi_version:s0
 persist.vendor.usb.config  u:object_r:vendor_usb_config_prop:s0
 vendor.usb.config          u:object_r:vendor_usb_config_prop:s0
 persist.vendor.charge.     u:object_r:vendor_charge_prop:s0
+persist.factoryota.reboot  u:object_r:exported_system_prop:s0
 
 # public_vendor_default_prop
 # They are public_vendor_default_props for vendor-specific extension.
@@ -50,6 +56,10 @@ ro.vendor.graphics.memory  u:object_r:public_vendor_default_prop:s0
 vendor.debug.egl.changepixelformat  u:object_r:public_vendor_default_prop:s0
 vendor.debug.prerotation.disable  u:object_r:public_vendor_default_prop:s0
 vendor.debug.rs.           u:object_r:public_vendor_default_prop:s0
+vendor.debug.egl.swapinterval      u:object_r:public_vendor_default_prop:s0
+vendor.gralloc.disable_ubwc u:object_r:public_vendor_default_prop:s0
+vendor.debug.egl.profiler   u:object_r:public_vendor_default_prop:s0
+vendor.gralloc.enable_ahardware_buffer  u:object_r:public_vendor_default_prop:s0
 
 # public_vendor_system_prop
 # They are public_vendor_system_props for vendor-specific extension.
@@ -193,6 +203,7 @@ persist.radio.snapshot_timer  u:object_r:vendor_radio_prop:s0
 persist.radio.videopause.mode  u:object_r:vendor_radio_prop:s0
 persist.radio.VT_ENABLE    u:object_r:vendor_radio_prop:s0
 persist.radio.VT_HYBRID_ENABLE  u:object_r:vendor_radio_prop:s0
+vendor.radio.pwr.curb_backoff  u:object_r:vendor_radio_prop:s0
 
 # vendor_bluetooth_prop
 persist.vendor.bluetooth.a4wp           u:object_r:vendor_bluetooth_prop:s0
@@ -205,5 +216,12 @@ persist.vendor.service.bdroid.ssrlvl    u:object_r:vendor_bluetooth_prop:s0
 ro.vendor.bluetooth.emb_wp_mode         u:object_r:vendor_bluetooth_prop:s0
 ro.vendor.bluetooth.wipower             u:object_r:vendor_bluetooth_prop:s0
 
-# persist_nfc_prop
-persist.nfc. u:object_r:persist_nfc_prop:s0
+# vendor_nfc_prop
+persist.vendor.nfc.                     u:object_r:vendor_nfc_prop:s0
+
+# ramoops
+vendor.ramoops.                    u:object_r:vendor_ramoops_prop:s0
+
+# fingerprint
+vendor.fps.init.succeed               u:object_r:vendor_fingerprint_prop:s0
+vendor.fps.init_retry.count           u:object_r:vendor_fingerprint_prop:s0

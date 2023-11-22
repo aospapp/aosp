@@ -15,23 +15,24 @@
  */
 package android.content.pm.cts.shortcuthost;
 
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@RunWith(DeviceJUnit4ClassRunner.class)
 public class ShortcutManagerMultiuserTest extends BaseShortcutManagerHostTest {
     private static final String TARGET_APK = "CtsShortcutMultiuserTest.apk";
     private static final String TARGET_PKG = "android.content.pm.cts.shortcut.multiuser";
 
     @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         getDevice().uninstallPackage(TARGET_PKG);
 
         super.tearDown();
     }
 
+    @Test
     public void testManagedUser() throws Exception {
         if (!mIsMultiuserSupported || !mIsManagedUserSupported) {
             return;
@@ -45,7 +46,7 @@ public class ShortcutManagerMultiuserTest extends BaseShortcutManagerHostTest {
         runDeviceTestsAsUser(TARGET_PKG, ".ShortcutManagerManagedUserTest",
                 "test01_managedProfileNotStarted", getPrimaryUserId());
 
-        getDevice().startUser(profileId);
+        getDevice().startUser(profileId, /* wait */ true);
 
         runDeviceTestsAsUser(TARGET_PKG, ".ShortcutManagerManagedUserTest",
                 "test02_createShortuctsOnPrimaryUser", getPrimaryUserId());
@@ -54,15 +55,14 @@ public class ShortcutManagerMultiuserTest extends BaseShortcutManagerHostTest {
 
         runDeviceTestsAsUser(TARGET_PKG, ".ShortcutManagerManagedUserTest",
                 "test04_getAndLaunch_primary", getPrimaryUserId());
-        runDeviceTestsAsUser(TARGET_PKG, ".ShortcutManagerManagedUserTest",
-                "test05_getAndLaunch_managed", profileId);
     }
 
+    @Test
     public void testSecondaryUser() throws Exception {
         if (!mIsMultiuserSupported) {
             return;
         }
-        final int secondUserID = createUser();
+        final int secondUserID = getOrCreateSecondaryUser();
 
         getDevice().startUser(secondUserID);
         getDevice().switchUser(secondUserID);

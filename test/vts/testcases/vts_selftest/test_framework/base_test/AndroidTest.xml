@@ -21,6 +21,12 @@
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsSelfTestBaseTest"/>
         <option name="test-case-path" value="vts/testcases/vts_selftest/test_framework/base_test/VtsSelfTestBaseTest" />
+        <option name="config-str" key="a" value="a"/>
+        <option name="config-str" key="b" value="b"/>
+        <option name="config-int" key="a" value="1"/>
+        <option name="config-int" key="b" value="2"/>
+        <option name="config-bool" key="a" value="true"/>
+        <option name="config-bool" key="b" value="false"/>
     </test>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsSelfTestBaseTestFilterInclude"/>

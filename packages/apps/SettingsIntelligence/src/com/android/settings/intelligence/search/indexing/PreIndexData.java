@@ -32,12 +32,12 @@ import java.util.Set;
  */
 public class PreIndexData {
 
-    private final List<SearchIndexableData> mDataToUpdate;
+    private final Map<String, List<SearchIndexableData>> mDataToUpdate;
     private final Map<String, Set<String>> mNonIndexableKeys;
     private final List<Pair<String, String>> mSiteMapPairs;
 
     public PreIndexData() {
-        mDataToUpdate = new ArrayList<>();
+        mDataToUpdate = new HashMap<>();
         mNonIndexableKeys = new HashMap<>();
         mSiteMapPairs = new ArrayList<>();
     }
@@ -46,7 +46,7 @@ public class PreIndexData {
         return mNonIndexableKeys;
     }
 
-    public List<SearchIndexableData> getDataToUpdate() {
+    public Map<String, List<SearchIndexableData>> getDataToUpdate() {
         return mDataToUpdate;
     }
 
@@ -58,8 +58,17 @@ public class PreIndexData {
         mNonIndexableKeys.put(authority, keys);
     }
 
-    public void addDataToUpdate(List<? extends SearchIndexableData> data) {
-        mDataToUpdate.addAll(data);
+    public void addDataToUpdate(String authority, List<? extends SearchIndexableData> data) {
+        if (data.isEmpty()) {
+            return;
+        }
+
+        List<SearchIndexableData> indexableData = mDataToUpdate.get(authority);
+        if (indexableData == null) {
+            mDataToUpdate.put(authority, new ArrayList<>(data));
+        } else {
+            indexableData.addAll(data);
+        }
     }
 
     public void addSiteMapPairs(List<Pair<String, String>> siteMapPairs) {

@@ -20,16 +20,20 @@
 #include "eglDisplay.h"
 #include "eglSync.h"
 #include "egl_ftable.h"
+#if PLATFORM_SDK_VERSION < 26
 #include <cutils/log.h>
+#else
+#include <log/log.h>
+#endif
 #include <cutils/properties.h>
 #include "goldfish_sync.h"
-#include "gralloc_cb.h"
 #include "GLClientState.h"
 #include "GLSharedGroup.h"
 #include "eglContext.h"
 #include "ClientAPIExts.h"
 #include "EGLImage.h"
 #include "ProcessPipe.h"
+#include "qemu_pipe.h"
 
 #include "GLEncoder.h"
 #ifdef WITH_GLES2
@@ -96,12 +100,12 @@ const char *  eglStrError(EGLint err)
 
 #define setErrorReturn(error, retVal)     \
     {                                                \
-        ALOGE("tid %d: %s(%d): error 0x%x (%s)", gettid(), __FUNCTION__, __LINE__, error, eglStrError(error));     \
+        ALOGE("tid %d: %s(%d): error 0x%x (%s)", getCurrentThreadId(), __FUNCTION__, __LINE__, error, eglStrError(error));     \
         return setErrorFunc(error, retVal);            \
     }
 
 #define RETURN_ERROR(ret,err)           \
-    ALOGE("tid %d: %s(%d): error 0x%x (%s)", gettid(), __FUNCTION__, __LINE__, err, eglStrError(err));    \
+    ALOGE("tid %d: %s(%d): error 0x%x (%s)", getCurrentThreadId(), __FUNCTION__, __LINE__, err, eglStrError(err));    \
     getEGLThreadInfo()->eglError = err;    \
     return ret;
 
@@ -145,6 +149,11 @@ const char *  eglStrError(EGLint err)
     if (!rcEnc) { \
         ALOGE("egl: Failed to get renderControl encoder context\n"); \
         return ret; \
+    } \
+    Gralloc *grallocHelper = hostCon->grallocHelper(); \
+    if (!grallocHelper) { \
+        ALOGE("egl: Failed to get grallocHelper\n"); \
+        return ret; \
     }
 
 #define DEFINE_AND_VALIDATE_HOST_CONNECTION_FOR_TLS(ret, tls) \
@@ -156,6 +165,11 @@ const char *  eglStrError(EGLint err)
     ExtendedRCEncoderContext *rcEnc = hostCon->rcEncoder(); \
     if (!rcEnc) { \
         ALOGE("egl: Failed to get renderControl encoder context\n"); \
+        return ret; \
+    } \
+    Gralloc const* grallocHelper = hostCon->grallocHelper(); \
+    if (!grallocHelper) { \
+        ALOGE("egl: Failed to get grallocHelper\n"); \
         return ret; \
     }
 
@@ -282,7 +296,7 @@ struct egl_surface_t {
     void        setTextureTarget(EGLint _texTarget) { texTarget = _texTarget; }
     EGLint      getTextureTarget() { return texTarget; }
 
-    virtual     void setCollectingTimestamps(EGLint collect) { }
+    virtual     void setCollectingTimestamps(EGLint) { }
     virtual     EGLint isCollectingTimestamps() const { return EGL_FALSE; }
     EGLint      deletePending;
     void        setIsCurrent(bool isCurrent) { mIsCurrent = isCurrent; }
@@ -312,8 +326,8 @@ protected:
 };
 
 egl_surface_t::egl_surface_t(EGLDisplay dpy, EGLConfig config, EGLint surfaceType)
-    : dpy(dpy), config(config), surfaceType(surfaceType), rcSurface(0),
-      deletePending(0), mIsCurrent(false)
+    : dpy(dpy), config(config), deletePending(0), mIsCurrent(false),
+      surfaceType(surfaceType), rcSurface(0)
 {
     width = 0;
     height = 0;
@@ -396,12 +410,13 @@ EGLBoolean egl_window_surface_t::init()
     DEFINE_AND_VALIDATE_HOST_CONNECTION(EGL_FALSE);
     rcSurface = rcEnc->rcCreateWindowSurface(rcEnc, (uintptr_t)config,
             getWidth(), getHeight());
+
     if (!rcSurface) {
         ALOGE("rcCreateWindowSurface returned 0");
         return EGL_FALSE;
     }
     rcEnc->rcSetWindowColorBuffer(rcEnc, rcSurface,
-            ((cb_handle_t*)(buffer->handle))->hostHandle);
+            grallocHelper->getHostHandle(buffer->handle));
 
     return EGL_TRUE;
 }
@@ -424,6 +439,7 @@ egl_window_surface_t::~egl_window_surface_t() {
     if (rcSurface && rcEnc) {
         rcEnc->rcDestroyWindowSurface(rcEnc, rcSurface);
     }
+
     if (buffer) {
         nativeWindow->cancelBuffer_DEPRECATED(nativeWindow, buffer);
     }
@@ -467,6 +483,8 @@ static uint64_t createNativeSync(EGLenum type,
                     sync_handle,
                     thread_handle,
                     fd_out);
+
+        (void)queue_work_err;
 
         DPRINT("got native fence fd=%d queue_work_err=%d",
                *fd_out, queue_work_err);
@@ -560,7 +578,7 @@ EGLBoolean egl_window_surface_t::swapBuffers()
 #endif
 
     rcEnc->rcSetWindowColorBuffer(rcEnc, rcSurface,
-            ((cb_handle_t *)(buffer->handle))->hostHandle);
+            grallocHelper->getHostHandle(buffer->handle));
 
     setWidth(buffer->width);
     setHeight(buffer->height);
@@ -588,12 +606,13 @@ private:
     EGLBoolean init(GLenum format);
 
     uint32_t rcColorBuffer;
+    QEMU_PIPE_HANDLE refcountPipeFd;
 };
 
 egl_pbuffer_surface_t::egl_pbuffer_surface_t(EGLDisplay dpy, EGLConfig config,
         EGLint surfType, int32_t w, int32_t h)
 :   egl_surface_t(dpy, config, surfType),
-    rcColorBuffer(0)
+    rcColorBuffer(0), refcountPipeFd(QEMU_PIPE_INVALID_HANDLE)
 {
     setWidth(w);
     setHeight(h);
@@ -603,7 +622,13 @@ egl_pbuffer_surface_t::~egl_pbuffer_surface_t()
 {
     DEFINE_HOST_CONNECTION;
     if (rcEnc) {
-        if (rcColorBuffer) rcEnc->rcCloseColorBuffer(rcEnc, rcColorBuffer);
+        if (rcColorBuffer){
+            if(qemu_pipe_valid(refcountPipeFd)) {
+                qemu_pipe_close(refcountPipeFd);
+            } else {
+                rcEnc->rcCloseColorBuffer(rcEnc, rcColorBuffer);
+            }
+        }
         if (rcSurface)     rcEnc->rcDestroyWindowSurface(rcEnc, rcSurface);
     }
 }
@@ -611,7 +636,10 @@ egl_pbuffer_surface_t::~egl_pbuffer_surface_t()
 // Destroy a pending surface and set it to NULL.
 
 static void s_destroyPendingSurfaceAndSetNull(EGLSurface* surface) {
-    if (!s_display.isSurface(surface)) {
+    if (!surface)
+        return;
+
+    if (!s_display.isSurface(*surface)) {
         *surface = NULL;
         return;
     }
@@ -651,6 +679,12 @@ EGLBoolean egl_pbuffer_surface_t::init(GLenum pixelFormat)
     if (!rcColorBuffer) {
         ALOGE("rcCreateColorBuffer returned 0");
         return EGL_FALSE;
+    } else {
+        refcountPipeFd = qemu_pipe_open("refcount");
+        //Send color buffer handle in case RefCountPipe feature is turned on.
+        if (qemu_pipe_valid(refcountPipeFd)) {
+            qemu_pipe_write(refcountPipeFd, &rcColorBuffer, 4);
+        }
     }
 
     rcEnc->rcSetWindowColorBuffer(rcEnc, rcSurface, rcColorBuffer);
@@ -705,6 +739,8 @@ static std::vector<std::string> getExtStringArray() {
             hostStr = NULL;
         }
     }
+    // push guest strings
+    res.push_back("GL_EXT_robustness");
 
     if (!hostStr || !strlen(hostStr)) { return res; }
 
@@ -712,14 +748,14 @@ static std::vector<std::string> getExtStringArray() {
     int extStart = 0;
     int extEnd = 0;
     int currentExtIndex = 0;
-    int numExts = 0;
 
     if (sWantES30OrAbove(hostStr) &&
         !strstr(hostStr, kOESEGLImageExternalEssl3)) {
         res.push_back(kOESEGLImageExternalEssl3);
     }
 
-    while (extEnd < strlen(hostStr)) {
+    const int hostStrLen = strlen(hostStr);
+    while (extEnd < hostStrLen) {
         if (hostStr[extEnd] == ' ') {
             int extSz = extEnd - extStart;
             res.push_back(std::string(hostStr + extStart, extSz));
@@ -777,7 +813,7 @@ static const char *getGLString(int glEnum)
         std::vector<std::string> exts = getExtStringArray();
 
         int totalSz = 1; // null terminator
-        for (int i = 0; i < exts.size(); i++) {
+        for (unsigned int i = 0; i < exts.size(); i++) {
             totalSz += exts[i].size() + 1; // for space
         }
 
@@ -787,7 +823,7 @@ static const char *getGLString(int glEnum)
         memset(hostStr, 0, totalSz);
 
         char* current = hostStr;
-        for (int i = 0; i < exts.size(); i++) {
+        for (unsigned int i = 0; i < exts.size(); i++) {
             memcpy(current, exts[i].c_str(), exts[i].size());
             current += exts[i].size();
             *current = ' ';
@@ -818,6 +854,7 @@ static const char *getGLString(int glEnum)
 
 // ----------------------------------------------------------------------------
 
+// Note: C99 syntax was tried here but does not work for all compilers.
 static EGLClient_eglInterface s_eglIface = {
     getThreadInfo: getEGLThreadInfo,
     getGLString: getGLString,
@@ -883,7 +920,11 @@ __eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname)
 
 const char* eglQueryString(EGLDisplay dpy, EGLint name)
 {
-    VALIDATE_DISPLAY_INIT(dpy, NULL);
+    // EGL_BAD_DISPLAY is generated if display is not an EGL display connection, unless display is
+    // EGL_NO_DISPLAY and name is EGL_EXTENSIONS.
+    if (dpy || name != EGL_EXTENSIONS) {
+        VALIDATE_DISPLAY_INIT(dpy, NULL);
+    }
 
     return s_display.queryString(name);
 }
@@ -1103,7 +1144,6 @@ EGLBoolean eglDestroySurface(EGLDisplay dpy, EGLSurface eglSurface)
     VALIDATE_DISPLAY_INIT(dpy, EGL_FALSE);
     VALIDATE_SURFACE_RETURN(eglSurface, EGL_FALSE);
 
-    EGLThreadInfo* tInfo = getEGLThreadInfo();
     egl_surface_t* surface(static_cast<egl_surface_t*>(eglSurface));
     if (surface->isCurrent()) {
         surface->deletePending = 1;
@@ -1274,7 +1314,10 @@ static EGLBoolean s_eglReleaseThreadImpl(EGLThreadInfo* tInfo) {
     tInfo->eglError = EGL_SUCCESS;
     EGLContext_t* context = tInfo->currentContext;
 
-    if (!context || !s_display.isContext(context)) return EGL_TRUE;
+    if (!context || !s_display.isContext(context)) {
+        HostConnection::exit();
+        return EGL_TRUE;
+    }
 
     // The following code is doing pretty much the same thing as
     // eglMakeCurrent(&s_display, EGL_NO_CONTEXT, EGL_NO_SURFACE, EGL_NO_SURFACE)
@@ -1295,6 +1338,8 @@ static EGLBoolean s_eglReleaseThreadImpl(EGLThreadInfo* tInfo) {
         delete context;
     }
     tInfo->currentContext = 0;
+
+    HostConnection::exit();
 
     return EGL_TRUE;
 }
@@ -1436,7 +1481,6 @@ EGLContext eglCreateContext(EGLDisplay dpy, EGLConfig config, EGLContext share_c
     EGLint minorVersion = 0;
     EGLint context_flags = 0;
     EGLint profile_mask = 0;
-    EGLint reset_notification_strategy = 0;
 
     bool wantedMajorVersion = false;
     bool wantedMinorVersion = false;
@@ -1642,9 +1686,9 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
         return EGL_TRUE;
     }
 
+    // Destroy surfaces while the previous context is still current.
+    EGLContext_t* prevCtx = tInfo->currentContext;
     if (tInfo->currentContext) {
-        EGLContext_t* prevCtx = tInfo->currentContext;
-
         if (prevCtx->draw) {
             static_cast<egl_surface_t *>(prevCtx->draw)->setIsCurrent(false);
         }
@@ -1652,11 +1696,6 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
             static_cast<egl_surface_t *>(prevCtx->read)->setIsCurrent(false);
         }
         s_destroyPendingSurfacesInContext(tInfo->currentContext);
-
-        if (prevCtx->deletePending && prevCtx != context) {
-            tInfo->currentContext = 0;
-            eglDestroyContext(dpy, prevCtx);
-        }
     }
 
     if (context && (context->flags & EGLContext_t::IS_CURRENT) && (context != tInfo->currentContext)) {
@@ -1768,11 +1807,15 @@ EGLBoolean eglMakeCurrent(EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLC
 
     }
 
+    // Delete the previous context here
     if (tInfo->currentContext && (tInfo->currentContext != context)) {
         tInfo->currentContext->flags &= ~EGLContext_t::IS_CURRENT;
+        if (tInfo->currentContext->deletePending && tInfo->currentContext != context) {
+            eglDestroyContext(dpy, tInfo->currentContext);
+        }
     }
 
-    //Now make current
+    // Now the new context is current in tInfo
     tInfo->currentContext = context;
 
     //Check maybe we need to init the encoder, if it's first eglMakeCurrent
@@ -1950,17 +1993,22 @@ EGLImageKHR eglCreateImageKHR(EGLDisplay dpy, EGLContext ctx, EGLenum target, EG
         if (native_buffer->common.version != sizeof(android_native_buffer_t))
             setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);
 
-        cb_handle_t *cb = (cb_handle_t *)(native_buffer->handle);
-
-        switch (cb->format) {
+        DEFINE_AND_VALIDATE_HOST_CONNECTION(EGL_FALSE);
+        int format = grallocHelper->getFormat(native_buffer->handle);
+        switch (format) {
             case HAL_PIXEL_FORMAT_RGBA_8888:
             case HAL_PIXEL_FORMAT_RGBX_8888:
             case HAL_PIXEL_FORMAT_RGB_888:
             case HAL_PIXEL_FORMAT_RGB_565:
             case HAL_PIXEL_FORMAT_YV12:
             case HAL_PIXEL_FORMAT_BGRA_8888:
+#if PLATFORM_SDK_VERSION >= 26
             case HAL_PIXEL_FORMAT_RGBA_FP16:
             case HAL_PIXEL_FORMAT_RGBA_1010102:
+#endif
+#if PLATFORM_SDK_VERSION >= 28
+            case HAL_PIXEL_FORMAT_YCBCR_420_888:
+#endif
                 break;
             default:
                 setErrorReturn(EGL_BAD_PARAMETER, EGL_NO_IMAGE_KHR);

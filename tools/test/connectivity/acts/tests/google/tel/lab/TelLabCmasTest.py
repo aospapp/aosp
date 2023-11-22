@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -77,13 +77,14 @@ class TelLabCmasTest(TelephonyBaseTest):
         self.md8475a_ip_address = self.user_params[
             "anritsu_md8475a_ip_address"]
         self.wlan_option = self.user_params.get("anritsu_wlan_option", False)
+        self.md8475_version = self.user_params.get("md8475", "A")
         self.wait_time_between_reg_and_msg = self.user_params.get(
             "wait_time_between_reg_and_msg", WAIT_TIME_BETWEEN_REG_AND_MSG)
 
     def setup_class(self):
         try:
             self.anritsu = MD8475A(self.md8475a_ip_address, self.log,
-                                   self.wlan_option)
+                                   self.wlan_option, self.md8475_version)
         except AnritsuError:
             self.log.error("Error in connecting to Anritsu Simulator")
             return False
@@ -195,6 +196,24 @@ class TelLabCmasTest(TelephonyBaseTest):
             self.log.error("Exception during CMAS send/receive: " + str(e))
             return False
         return True
+
+    def test_carrier_tmobile(self):
+        """ Sets the Carrier to TMO.
+        Returns: None
+        """
+        setattr(self.ad, "sim_card", "FiTMO")
+
+    def test_carrier_sprint(self):
+        """ Sets the Carrier to SPR.
+        Returns: None
+        """
+        setattr(self.ad, "sim_card", "FiSPR")
+
+    def test_carrier_uscc(self):
+        """ Sets the Carrier to USCC.
+        Returns: None
+        """
+        setattr(self.ad, "sim_card", "FiUSCC")
 
     """ Tests Begin """
 

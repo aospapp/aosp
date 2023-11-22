@@ -38,34 +38,41 @@ class RosAllocSpace : public MallocSpace {
   // base address is not guaranteed to be granted, if it is required,
   // the caller should call Begin on the returned space to confirm the
   // request was granted.
-  static RosAllocSpace* Create(const std::string& name, size_t initial_size, size_t growth_limit,
-                               size_t capacity, uint8_t* requested_begin, bool low_memory_mode,
+  static RosAllocSpace* Create(const std::string& name,
+                               size_t initial_size,
+                               size_t growth_limit,
+                               size_t capacity,
+                               bool low_memory_mode,
                                bool can_move_objects);
-  static RosAllocSpace* CreateFromMemMap(MemMap* mem_map, const std::string& name,
-                                         size_t starting_size, size_t initial_size,
-                                         size_t growth_limit, size_t capacity,
-                                         bool low_memory_mode, bool can_move_objects);
+  static RosAllocSpace* CreateFromMemMap(MemMap&& mem_map,
+                                         const std::string& name,
+                                         size_t starting_size,
+                                         size_t initial_size,
+                                         size_t growth_limit,
+                                         size_t capacity,
+                                         bool low_memory_mode,
+                                         bool can_move_objects);
 
   mirror::Object* AllocWithGrowth(Thread* self, size_t num_bytes, size_t* bytes_allocated,
                                   size_t* usable_size, size_t* bytes_tl_bulk_allocated)
-      OVERRIDE REQUIRES(!lock_);
+      override REQUIRES(!lock_);
   mirror::Object* Alloc(Thread* self, size_t num_bytes, size_t* bytes_allocated,
-                        size_t* usable_size, size_t* bytes_tl_bulk_allocated) OVERRIDE {
+                        size_t* usable_size, size_t* bytes_tl_bulk_allocated) override {
     return AllocNonvirtual(self, num_bytes, bytes_allocated, usable_size,
                            bytes_tl_bulk_allocated);
   }
   mirror::Object* AllocThreadUnsafe(Thread* self, size_t num_bytes, size_t* bytes_allocated,
                                     size_t* usable_size, size_t* bytes_tl_bulk_allocated)
-      OVERRIDE REQUIRES(Locks::mutator_lock_) {
+      override REQUIRES(Locks::mutator_lock_) {
     return AllocNonvirtualThreadUnsafe(self, num_bytes, bytes_allocated, usable_size,
                                        bytes_tl_bulk_allocated);
   }
-  size_t AllocationSize(mirror::Object* obj, size_t* usable_size) OVERRIDE {
+  size_t AllocationSize(mirror::Object* obj, size_t* usable_size) override {
     return AllocationSizeNonvirtual<true>(obj, usable_size);
   }
-  size_t Free(Thread* self, mirror::Object* ptr) OVERRIDE
+  size_t Free(Thread* self, mirror::Object* ptr) override
       REQUIRES_SHARED(Locks::mutator_lock_);
-  size_t FreeList(Thread* self, size_t num_ptrs, mirror::Object** ptrs) OVERRIDE
+  size_t FreeList(Thread* self, size_t num_ptrs, mirror::Object** ptrs) override
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   mirror::Object* AllocNonvirtual(Thread* self, size_t num_bytes, size_t* bytes_allocated,
@@ -89,7 +96,7 @@ class RosAllocSpace : public MallocSpace {
   // run without allocating a new run.
   ALWAYS_INLINE mirror::Object* AllocThreadLocal(Thread* self, size_t num_bytes,
                                                  size_t* bytes_allocated);
-  size_t MaxBytesBulkAllocatedFor(size_t num_bytes) OVERRIDE {
+  size_t MaxBytesBulkAllocatedFor(size_t num_bytes) override {
     return MaxBytesBulkAllocatedForNonvirtual(num_bytes);
   }
   ALWAYS_INLINE size_t MaxBytesBulkAllocatedForNonvirtual(size_t num_bytes);
@@ -103,34 +110,39 @@ class RosAllocSpace : public MallocSpace {
     return rosalloc_;
   }
 
-  size_t Trim() OVERRIDE;
-  void Walk(WalkCallback callback, void* arg) OVERRIDE REQUIRES(!lock_);
-  size_t GetFootprint() OVERRIDE;
-  size_t GetFootprintLimit() OVERRIDE;
-  void SetFootprintLimit(size_t limit) OVERRIDE;
+  size_t Trim() override;
+  void Walk(WalkCallback callback, void* arg) override REQUIRES(!lock_);
+  size_t GetFootprint() override;
+  size_t GetFootprintLimit() override;
+  void SetFootprintLimit(size_t limit) override;
 
-  void Clear() OVERRIDE;
+  void Clear() override;
 
-  MallocSpace* CreateInstance(MemMap* mem_map, const std::string& name, void* allocator,
-                              uint8_t* begin, uint8_t* end, uint8_t* limit, size_t growth_limit,
-                              bool can_move_objects) OVERRIDE;
+  MallocSpace* CreateInstance(MemMap&& mem_map,
+                              const std::string& name,
+                              void* allocator,
+                              uint8_t* begin,
+                              uint8_t* end,
+                              uint8_t* limit,
+                              size_t growth_limit,
+                              bool can_move_objects) override;
 
-  uint64_t GetBytesAllocated() OVERRIDE;
-  uint64_t GetObjectsAllocated() OVERRIDE;
+  uint64_t GetBytesAllocated() override;
+  uint64_t GetObjectsAllocated() override;
 
-  size_t RevokeThreadLocalBuffers(Thread* thread);
-  size_t RevokeAllThreadLocalBuffers();
+  size_t RevokeThreadLocalBuffers(Thread* thread) override;
+  size_t RevokeAllThreadLocalBuffers() override;
   void AssertThreadLocalBuffersAreRevoked(Thread* thread);
   void AssertAllThreadLocalBuffersAreRevoked();
 
   // Returns the class of a recently freed object.
   mirror::Class* FindRecentFreedObject(const mirror::Object* obj);
 
-  bool IsRosAllocSpace() const OVERRIDE {
+  bool IsRosAllocSpace() const override {
     return true;
   }
 
-  RosAllocSpace* AsRosAllocSpace() OVERRIDE {
+  RosAllocSpace* AsRosAllocSpace() override {
     return this;
   }
 
@@ -140,16 +152,23 @@ class RosAllocSpace : public MallocSpace {
 
   virtual ~RosAllocSpace();
 
-  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) OVERRIDE {
+  void LogFragmentationAllocFailure(std::ostream& os, size_t failed_alloc_bytes) override {
     rosalloc_->LogFragmentationAllocFailure(os, failed_alloc_bytes);
   }
 
   void DumpStats(std::ostream& os);
 
  protected:
-  RosAllocSpace(MemMap* mem_map, size_t initial_size, const std::string& name,
-                allocator::RosAlloc* rosalloc, uint8_t* begin, uint8_t* end, uint8_t* limit,
-                size_t growth_limit, bool can_move_objects, size_t starting_size,
+  RosAllocSpace(MemMap&& mem_map,
+                size_t initial_size,
+                const std::string& name,
+                allocator::RosAlloc* rosalloc,
+                uint8_t* begin,
+                uint8_t* end,
+                uint8_t* limit,
+                size_t growth_limit,
+                bool can_move_objects,
+                size_t starting_size,
                 bool low_memory_mode);
 
  private:
@@ -158,9 +177,9 @@ class RosAllocSpace : public MallocSpace {
                               size_t* usable_size, size_t* bytes_tl_bulk_allocated);
 
   void* CreateAllocator(void* base, size_t morecore_start, size_t initial_size,
-                        size_t maximum_size, bool low_memory_mode) OVERRIDE {
-    return CreateRosAlloc(base, morecore_start, initial_size, maximum_size, low_memory_mode,
-                          RUNNING_ON_MEMORY_TOOL != 0);
+                        size_t maximum_size, bool low_memory_mode) override {
+    return CreateRosAlloc(
+        base, morecore_start, initial_size, maximum_size, low_memory_mode, kRunningOnMemoryTool);
   }
   static allocator::RosAlloc* CreateRosAlloc(void* base, size_t morecore_start, size_t initial_size,
                                              size_t maximum_size, bool low_memory_mode,

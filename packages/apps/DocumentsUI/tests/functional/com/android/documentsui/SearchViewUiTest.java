@@ -19,11 +19,12 @@ package com.android.documentsui;
 import static com.android.documentsui.StubProvider.ROOT_0_ID;
 import static com.android.documentsui.StubProvider.ROOT_1_ID;
 
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.Suppress;
-import android.support.v7.recyclerview.R;
+import androidx.recyclerview.R;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.Suppress;
 
 import com.android.documentsui.files.FilesActivity;
+import com.android.documentsui.filters.HugeLongTest;
 
 @LargeTest
 public class SearchViewUiTest extends ActivityTest<FilesActivity> {
@@ -46,25 +47,41 @@ public class SearchViewUiTest extends ActivityTest<FilesActivity> {
     public void testSearchIconVisible() throws Exception {
         // The default root (root 0) supports search
         bots.search.assertInputExists(false);
+        bots.search.assertFragmentInputExists(false);
         bots.search.assertIconVisible(true);
     }
 
+    @HugeLongTest
     public void testSearchIconHidden() throws Exception {
         bots.roots.openRoot(ROOT_1_ID);  // root 1 doesn't support search
 
         bots.search.assertIconVisible(false);
         bots.search.assertInputExists(false);
+        bots.search.assertFragmentInputExists(false);
     }
 
     public void testSearchView_ExpandsOnClick() throws Exception {
         bots.search.clickIcon();
         device.waitForIdle();
 
-        bots.search.assertInputExists(true);
-        bots.search.assertInputFocused(true);
+        bots.search.assertFragmentInputExists(true);
+        bots.search.assertFragmentInputFocused(true);
 
         // FIXME: Matchers fail the not-present check if we've ever clicked this.
         // bots.search.assertIconVisible(false);
+    }
+
+    public void testSearchView_ShouldHideOptionMenuOnExpanding() throws Exception {
+        bots.search.clickIcon();
+        device.waitForIdle();
+
+        bots.search.assertFragmentInputExists(true);
+        bots.search.assertFragmentInputFocused(true);
+        device.waitForIdle();
+
+        assertFalse(bots.menu.hasMenuItem("Grid view"));
+        assertFalse(bots.menu.hasMenuItem("List view"));
+        assertFalse(bots.menu.hasMenuItemByDesc("More options"));
     }
 
     public void testSearchView_CollapsesOnBack() throws Exception {
@@ -74,6 +91,7 @@ public class SearchViewUiTest extends ActivityTest<FilesActivity> {
 
         bots.search.assertIconVisible(true);
         bots.search.assertInputExists(false);
+        bots.search.assertFragmentInputExists(false);
     }
 
     public void testSearchView_ClearsTextOnBack() throws Exception {
@@ -88,6 +106,34 @@ public class SearchViewUiTest extends ActivityTest<FilesActivity> {
 
         bots.search.assertIconVisible(true);
         bots.search.assertInputExists(false);
+        bots.search.assertFragmentInputExists(false);
+    }
+
+    public void testSearchView_ClearsSearchOnBack() throws Exception {
+        bots.search.clickIcon();
+        bots.search.setInputText("file1");
+        bots.keyboard.pressEnter();
+        device.waitForIdle();
+
+        device.pressBack();
+
+        bots.search.assertIconVisible(true);
+        bots.search.assertInputExists(false);
+        bots.search.assertFragmentInputExists(false);
+    }
+
+    public void testSearchView_ClearsAutoSearchOnBack() throws Exception {
+        bots.search.clickIcon();
+        bots.search.setInputText("chocolate");
+        //Wait for auto search result, it should be no results and show holder message.
+        bots.directory.waitForHolderMessage();
+
+        device.pressBack();
+        device.pressBack();
+
+        bots.search.assertIconVisible(true);
+        bots.search.assertInputExists(false);
+        bots.search.assertFragmentInputExists(false);
     }
 
     public void testSearchView_StateAfterSearch() throws Exception {
@@ -164,5 +210,34 @@ public class SearchViewUiTest extends ActivityTest<FilesActivity> {
         device.waitForIdle();
 
         assertDefaultContentOfTestDir0();
+    }
+
+    public void testSearchHistory_showAfterSearchViewClear() throws Exception {
+        bots.search.clickIcon();
+        bots.search.setInputText("chocolate");
+
+        bots.keyboard.pressEnter();
+        device.waitForIdle();
+
+        bots.search.clickSearchViewClearButton();
+        device.waitForIdle();
+
+        bots.search.assertFragmentInputExists(true);
+        bots.search.assertFragmentInputFocused(true);
+    }
+
+    public void testSearchHistory_showAfterFragmentSearchViewClear() throws Exception {
+        bots.search.clickIcon();
+        bots.search.setInputText("chocolate");
+
+        bots.keyboard.pressEnter();
+        device.waitForIdle();
+
+        bots.search.clickIcon();
+        bots.search.clickFragmentSearchViewClearButton();
+        device.waitForIdle();
+
+        bots.search.assertFragmentInputExists(true);
+        bots.search.assertFragmentInputFocused(true);
     }
 }

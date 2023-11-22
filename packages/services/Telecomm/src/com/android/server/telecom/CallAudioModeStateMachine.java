@@ -29,6 +29,13 @@ import com.android.internal.util.State;
 import com.android.internal.util.StateMachine;
 
 public class CallAudioModeStateMachine extends StateMachine {
+    public static class Factory {
+        public CallAudioModeStateMachine create(SystemStateHelper systemStateHelper,
+                AudioManager am) {
+            return new CallAudioModeStateMachine(systemStateHelper, am);
+        }
+    }
+
     public static class MessageArgs {
         public boolean hasActiveOrDialingCalls;
         public boolean hasRingingCalls;
@@ -80,7 +87,6 @@ public class CallAudioModeStateMachine extends StateMachine {
     public static final int NEW_ACTIVE_OR_DIALING_CALL = 2001;
     public static final int NEW_RINGING_CALL = 2002;
     public static final int NEW_HOLDING_CALL = 2003;
-    public static final int MT_AUDIO_SPEEDUP_FOR_RINGING_CALL = 2004;
 
     public static final int TONE_STARTED_PLAYING = 3001;
     public static final int TONE_STOPPED_PLAYING = 3002;
@@ -103,7 +109,6 @@ public class CallAudioModeStateMachine extends StateMachine {
         put(NEW_ACTIVE_OR_DIALING_CALL, "NEW_ACTIVE_OR_DIALING_CALL");
         put(NEW_RINGING_CALL, "NEW_RINGING_CALL");
         put(NEW_HOLDING_CALL, "NEW_HOLDING_CALL");
-        put(MT_AUDIO_SPEEDUP_FOR_RINGING_CALL, "MT_AUDIO_SPEEDUP_FOR_RINGING_CALL");
         put(TONE_STARTED_PLAYING, "TONE_STARTED_PLAYING");
         put(TONE_STOPPED_PLAYING, "TONE_STOPPED_PLAYING");
         put(FOREGROUND_VOIP_MODE_CHANGE, "FOREGROUND_VOIP_MODE_CHANGE");
@@ -273,15 +278,6 @@ public class CallAudioModeStateMachine extends StateMachine {
                             " Args are: " + args.toString());
                     transitionTo(mOtherFocusState);
                     return HANDLED;
-                case MT_AUDIO_SPEEDUP_FOR_RINGING_CALL:
-                    // This happens when an IMS call is answered by the in-call UI. Special case
-                    // that we have to deal with for some reason.
-
-                    // The IMS audio routing may be via modem or via RTP stream. In case via RTP
-                    // stream, the state machine should transit to mVoipCallFocusState.
-                    transitionTo(args.foregroundCallIsVoip
-                            ? mVoipCallFocusState : mSimCallFocusState);
-                    return HANDLED;
                 case RINGER_MODE_CHANGE: {
                     Log.i(LOG_TAG, "RINGING state, received RINGER_MODE_CHANGE");
                     tryStartRinging();
@@ -338,7 +334,7 @@ public class CallAudioModeStateMachine extends StateMachine {
                     return HANDLED;
                 case NEW_RINGING_CALL:
                     // Don't make a call ring over an active call, but do play a call waiting tone.
-                    mCallAudioManager.startCallWaiting();
+                    mCallAudioManager.startCallWaiting("call already active");
                     return HANDLED;
                 case NEW_HOLDING_CALL:
                     // Don't do anything now. Putting an active call on hold will be handled when
@@ -393,7 +389,7 @@ public class CallAudioModeStateMachine extends StateMachine {
                     return HANDLED;
                 case NEW_RINGING_CALL:
                     // Don't make a call ring over an active call, but do play a call waiting tone.
-                    mCallAudioManager.startCallWaiting();
+                    mCallAudioManager.startCallWaiting("call already active");
                     return HANDLED;
                 case NEW_HOLDING_CALL:
                     // Don't do anything now. Putting an active call on hold will be handled when
@@ -447,8 +443,14 @@ public class CallAudioModeStateMachine extends StateMachine {
                             ? mVoipCallFocusState : mSimCallFocusState);
                     return HANDLED;
                 case NEW_RINGING_CALL:
-                    // Apparently this is current behavior. Should this be the case?
-                    transitionTo(mRingingFocusState);
+                    // TODO: consider whether to move this into MessageArgs if more things start
+                    // to use it.
+                    if (args.hasHoldingCalls && mSystemStateHelper.isDeviceAtEar()) {
+                        mCallAudioManager.startCallWaiting(
+                                "Device is at ear with held call");
+                    } else {
+                        transitionTo(mRingingFocusState);
+                    }
                     return HANDLED;
                 case NEW_HOLDING_CALL:
                     // Do nothing.
@@ -475,14 +477,17 @@ public class CallAudioModeStateMachine extends StateMachine {
     private final BaseState mOtherFocusState = new OtherFocusState();
 
     private final AudioManager mAudioManager;
+    private final SystemStateHelper mSystemStateHelper;
     private CallAudioManager mCallAudioManager;
 
     private int mMostRecentMode;
     private boolean mIsInitialized = false;
 
-    public CallAudioModeStateMachine(AudioManager audioManager) {
+    public CallAudioModeStateMachine(SystemStateHelper systemStateHelper,
+            AudioManager audioManager) {
         super(CallAudioModeStateMachine.class.getSimpleName());
         mAudioManager = audioManager;
+        mSystemStateHelper = systemStateHelper;
         mMostRecentMode = AudioManager.MODE_NORMAL;
 
         addState(mUnfocusedState);

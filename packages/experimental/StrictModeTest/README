@@ -1,6 +1,0 @@
-StrictModeTest.apk:
-
-A small test utility to intentionally violate StrictMode in different
-ways, and let you try out the various penalties.
-
-Owner: Brad Fitzpatrick <bradfitz@google.com>

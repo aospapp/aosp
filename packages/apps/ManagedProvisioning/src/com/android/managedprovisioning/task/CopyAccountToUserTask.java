@@ -30,9 +30,13 @@ import android.content.Context;
 import android.os.UserHandle;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.analytics.MetricsWriter;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 import java.io.IOException;
@@ -56,10 +60,22 @@ public class CopyAccountToUserTask extends AbstractProvisioningTask {
             Context context,
             ProvisioningParams provisioningParams,
             Callback callback) {
-        super(context, provisioningParams, callback);
+        this(sourceUserId, context, provisioningParams, callback,
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
+    }
 
+    @VisibleForTesting
+    CopyAccountToUserTask(
+            int sourceUserId,
+            Context context,
+            ProvisioningParams provisioningParams,
+            Callback callback,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+        super(context, provisioningParams, callback, provisioningAnalyticsTracker);
         mSourceUserId = sourceUserId;
-        mProvisioningAnalyticsTracker = ProvisioningAnalyticsTracker.getInstance();
+        mProvisioningAnalyticsTracker = provisioningAnalyticsTracker;
     }
 
     @Override

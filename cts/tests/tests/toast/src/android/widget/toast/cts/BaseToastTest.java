@@ -21,10 +21,12 @@ import android.app.UiAutomation;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
 import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.test.InstrumentationRegistry;
+
 import org.junit.Before;
 
 /**

@@ -22,9 +22,11 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Printer;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class ResolveInfoTest extends AndroidTestCase {
     private static final String PACKAGE_NAME = "android.content.cts";
     private static final String MAIN_ACTION_NAME = "android.intent.action.MAIN";

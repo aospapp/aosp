@@ -20,12 +20,14 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.DisplayMetrics;
 import android.view.Display;
-import android.view.ViewConfiguration;
 import android.view.WindowManager;
+
+import androidx.test.InstrumentationRegistry;
 
 public class ConfigurationScreenLayoutTest
         extends ActivityInstrumentationTestCase2<OrientationActivity> {
@@ -42,6 +44,19 @@ public class ConfigurationScreenLayoutTest
     }
 
     public void testScreenLayout() throws Exception {
+        if (!supportsRotation()) {
+            // test has no effect if device does not support rotation
+            tearDown();
+            return;
+        }
+        if (isPC()) {
+            // The test skips mainly for Chromebook clamshell mode. For Chromebook clamshell mode
+            // with non-rotated landscape physical screen, the portrait window/activity has special
+            // behavior with black background on both sides to make the window/activity look
+            // portrait, which returns smaller screen layout size.
+            tearDown();
+            return;
+        }
         int expectedScreenLayout = computeScreenLayout();
         int expectedSize = expectedScreenLayout & Configuration.SCREENLAYOUT_SIZE_MASK;
         int expectedLong = expectedScreenLayout & Configuration.SCREENLAYOUT_LONG_MASK;
@@ -84,6 +99,12 @@ public class ConfigurationScreenLayoutTest
             tearDown();
         }
         return screenLayout;
+    }
+
+    private boolean hasDeviceFeature(final String requiredFeature) {
+        return InstrumentationRegistry.getContext()
+                .getPackageManager()
+                .hasSystemFeature(requiredFeature);
     }
 
     private Activity startOrientationActivity(int orientation) {
@@ -138,5 +159,21 @@ public class ConfigurationScreenLayoutTest
                     | screenLayoutSize;
         }
         return screenLayout;
+    }
+
+    /**
+     * Rotation support is indicated by explicitly having both landscape and portrait
+     * features or not listing either at all.
+     */
+    private boolean supportsRotation() {
+        final boolean supportsLandscape = hasDeviceFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE);
+        final boolean supportsPortrait = hasDeviceFeature(PackageManager.FEATURE_SCREEN_PORTRAIT);
+        return (supportsLandscape && supportsPortrait)
+                || (!supportsLandscape && !supportsPortrait);
+    }
+
+    // Check if it is a PC device
+    private boolean isPC() {
+        return hasDeviceFeature(PackageManager.FEATURE_PC);
     }
 }

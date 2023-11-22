@@ -18,7 +18,8 @@
         package="android.server.wm.dndtargetapp"
         android:targetSandboxVersion="2">
     <application android:label="CtsDnDTarget">
-        <activity android:name="android.server.wm.dndtargetapp.DropTarget">
+        <activity android:name="android.server.wm.dndtargetapp.DropTarget"
+                android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

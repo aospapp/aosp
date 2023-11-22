@@ -61,20 +61,6 @@
 .search-bar .search-wrapper .run-type-wrapper [type="checkbox"]+label {
     margin-right: 35px;
 }
-.search-bar .search-wrapper .input-field .filter-input+label {
-    text-overflow: ellipsis;
-    overflow-x: hidden;
-    white-space: nowrap;
-    width: calc(100% - 1.5rem);
-    pointer-events: none;
-}
-.search-bar .search-wrapper .input-field .filter-input:focus+label.active {
-    background-color: white;
-    z-index: 10000;
-    text-overflow: inherit;
-    overflow-x: visible;
-    width:auto;
-}
 .search-bar-menu.ui-menu {
     overflow: auto;
     z-index: 100;

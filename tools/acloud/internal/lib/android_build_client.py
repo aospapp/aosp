@@ -18,12 +18,11 @@
 
 import io
 import logging
-import os
 
 import apiclient
 
+from acloud import errors
 from acloud.internal.lib import base_cloud_client
-from acloud.public import errors
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +37,21 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
 
     # other variables.
     DEFAULT_RESOURCE_ID = "0"
-    # TODO(fdeng): We should use "latest".
+    # TODO(b/27269552): We should use "latest".
     DEFAULT_ATTEMPT_ID = "0"
     DEFAULT_CHUNK_SIZE = 20 * 1024 * 1024
     NO_ACCESS_ERROR_PATTERN = "does not have storage.objects.create access"
+    # LKGB variables.
+    BUILD_STATUS_COMPLETE = "complete"
+    BUILD_TYPE_SUBMITTED = "submitted"
+    ONE_RESULT = 1
+    BUILD_SUCCESSFUL = True
 
     # Message constant
     COPY_TO_MSG = ("build artifact (target: %s, build_id: %s, "
                    "artifact: %s, attempt_id: %s) to "
                    "google storage (bucket: %s, path: %s)")
-
+    # pylint: disable=invalid-name
     def DownloadArtifact(self,
                          build_target,
                          build_id,
@@ -57,7 +61,7 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
         """Get Android build attempt information.
 
         Args:
-            build_target: Target name, e.g. "gce_x86-userdebug"
+            build_target: Target name, e.g. "aosp_cf_x86_phone-userdebug"
             build_id: Build id, a string, e.g. "2263051", "P2804227"
             resource_id: Id of the resource, e.g "avd-system.tar.gz".
             local_dest: A local path where the artifact should be stored.
@@ -81,7 +85,7 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
                 while not done:
                     _, done = downloader.next_chunk()
             logger.info("Downloaded artifact: %s", local_dest)
-        except OSError as e:
+        except (OSError, apiclient.errors.HttpError) as e:
             logger.error("Downloading artifact failed: %s", str(e))
             raise errors.DriverError(str(e))
 
@@ -95,7 +99,7 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
         """Copy an Android Build artifact to a storage bucket.
 
         Args:
-            build_target: Target name, e.g. "gce_x86-userdebug"
+            build_target: Target name, e.g. "aosp_cf_x86_phone-userdebug"
             build_id: Build id, a string, e.g. "2263051", "P2804227"
             artifact_name: Name of the artifact, e.g "avd-system.tar.gz".
             destination_bucket: String, a google storage bucket name.
@@ -126,3 +130,50 @@ class AndroidBuildClient(base_cloud_client.BaseCloudApiClient):
                     error_msg %= (destination_bucket, str(e))
                     raise errors.HttpError(e.code, message=error_msg)
             raise
+
+    def GetBranch(self, build_target, build_id):
+        """Derives branch name.
+
+        Args:
+            build_target: Target name, e.g. "aosp_cf_x86_phone-userdebug"
+            build_id: Build ID, a string, e.g. "2263051", "P2804227"
+
+        Returns:
+            A string, the name of the branch
+        """
+        api = self.service.build().get(buildId=build_id, target=build_target)
+        build = self.Execute(api)
+        return build.get("branch", "")
+
+    def GetLKGB(self, build_target, build_branch):
+        """Get latest successful build id.
+
+        From branch and target, we can use api to query latest successful build id.
+        e.g. {u'nextPageToken':..., u'builds': [{u'completionTimestamp':u'1534157869286',
+        ... u'buildId': u'4949805', u'machineName'...}]}
+
+        Args:
+            build_target: String, target name, e.g. "aosp_cf_x86_phone-userdebug"
+            build_branch: String, git branch name, e.g. "aosp-master"
+
+        Returns:
+            A string, string of build id number.
+
+        Raises:
+            errors.CreateError: Can't get build id.
+        """
+        api = self.service.build().list(
+            branch=build_branch,
+            target=build_target,
+            buildAttemptStatus=self.BUILD_STATUS_COMPLETE,
+            buildType=self.BUILD_TYPE_SUBMITTED,
+            maxResults=self.ONE_RESULT,
+            successful=self.BUILD_SUCCESSFUL)
+        build = self.Execute(api)
+        logger.info("GetLKGB build API response: %s", build)
+        if build:
+            return str(build.get("builds")[0].get("buildId"))
+        raise errors.GetBuildIDError(
+            "No available good builds for branch: %s target: %s"
+            % (build_branch, build_target)
+        )

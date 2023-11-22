@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "5723540"
+    target: "kernel_debug_locking"
+    source_file: "Image.gz-dtb.sailfish"
+  }
+  dest_file: "debug/Image.gz-dtb.sailfish_debug_locking"
+  version: "Linux version 3.18.137-g382d7256ce44 (android-build@abfarm700) (gcc version 4.9.x 20150123 (prerelease) (GCC) ) #1 SMP PREEMPT Fri Jul 12 06:00:07 UTC 2019"
+  version_group: "kernel"
+  git_project: "device/google/marlin-kernel"
+}

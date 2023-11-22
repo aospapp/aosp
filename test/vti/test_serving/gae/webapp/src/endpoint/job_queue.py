@@ -18,10 +18,13 @@ import endpoints
 import logging
 import re
 
-from protorpc import remote
-
-from webapp.src.proto import model
 from webapp.src import vtslab_status as Status
+from webapp.src.endpoint import endpoint_base
+from webapp.src.proto import model
+from webapp.src.utils import email_util
+from webapp.src.utils import model_util
+
+from google.appengine.ext import ndb
 
 JOB_QUEUE_RESOURCE = endpoints.ResourceContainer(model.JobMessage)
 GCS_URL_PREFIX = "gs://"
@@ -29,17 +32,17 @@ HTTP_HTTPS_REGEX = "^https?://"
 STORAGE_API_URL = "https://storage.cloud.google.com/"
 
 
-@endpoints.api(name='job_queue', version='v1')
-class JobQueueApi(remote.Service):
+@endpoints.api(name='job', version='v1')
+class JobQueueApi(endpoint_base.EndpointBase):
     """Endpoint API for job_queue."""
 
     @endpoints.method(
         JOB_QUEUE_RESOURCE,
         model.JobLeaseResponse,
-        path='get',
+        path='lease',
         http_method='POST',
-        name='get')
-    def get(self, request):
+        name='lease')
+    def lease(self, request):
         """Gets the job(s) based on the condition specified in `request`."""
         job_query = model.JobModel.query(
             model.JobModel.hostname == request.hostname,
@@ -48,71 +51,35 @@ class JobQueueApi(remote.Service):
 
         priority_sorted_jobs = sorted(
             existing_jobs,
-            key=lambda x: (Status.PrioritySortHelper(x.priority), x.timestamp))
-
-        job_message = model.JobMessage()
-        job_message.hostname = ""
-        job_message.priority = ""
-        job_message.test_name = ""
-        job_message.require_signed_device_build = False
-        job_message.device = ""
-        job_message.serial = [""]
-        job_message.manifest_branch = ""
-        job_message.build_target = ""
-        job_message.shards = 0
-        job_message.param = [""]
-        job_message.build_id = ""
-        job_message.status = 0
-        job_message.period = 0
-        job_message.retry_count = 0
+            key=lambda x: (Status.GetPriorityValue(x.priority), x.timestamp))
 
         if priority_sorted_jobs:
             job = priority_sorted_jobs[0]
             job.status = Status.JOB_STATUS_DICT["leased"]
             job.put()
 
-            job_message.hostname = job.hostname
-            job_message.priority = job.priority
-            job_message.test_name = job.test_name
-            job_message.require_signed_device_build = (
-                job.require_signed_device_build)
-            job_message.device = job.device
-            job_message.serial = job.serial
-            job_message.build_storage_type = job.build_storage_type
-            job_message.manifest_branch = job.manifest_branch
-            job_message.build_target = job.build_target
-            job_message.shards = job.shards
-            job_message.param = job.param
-            job_message.build_id = job.build_id
-            job_message.pab_account_id = job.pab_account_id
-            job_message.status = job.status
-            job_message.period = job.period
-            job_message.retry_count = job.retry_count
-            job_message.gsi_storage_type = job.gsi_storage_type
-            job_message.gsi_branch = job.gsi_branch
-            job_message.gsi_build_target = job.gsi_build_target
-            job_message.gsi_build_id = job.gsi_build_id
-            job_message.gsi_pab_account_id = job.gsi_pab_account_id
-            job_message.test_storage_type = job.test_storage_type
-            job_message.test_branch = job.test_branch
-            job_message.test_build_target = job.test_build_target
-            job_message.test_build_id = job.test_build_id
-            job_message.test_pab_account_id = job.test_pab_account_id
+            job_message = model.JobMessage()
+            common_attributes = self.GetCommonAttributes(job, model.JobMessage)
+            for attr in common_attributes:
+                setattr(job_message, attr, getattr(job, attr))
 
             device_query = model.DeviceModel.query(
                 model.DeviceModel.serial.IN(job.serial))
             devices = device_query.fetch()
+            devices_to_put = []
             for device in devices:
                 device.scheduling_status = Status.DEVICE_SCHEDULING_STATUS_DICT[
                     "use"]
-                device.put()
+                devices_to_put.append(device)
+            if devices_to_put:
+                ndb.put_multi(devices_to_put)
 
             return model.JobLeaseResponse(
                 return_code=model.ReturnCodeMessage.SUCCESS,
                 jobs=[job_message])
         else:
             return model.JobLeaseResponse(
-                return_code=model.ReturnCodeMessage.FAIL, jobs=[job_message])
+                return_code=model.ReturnCodeMessage.FAIL, jobs=[])
 
     @endpoints.method(
         JOB_QUEUE_RESOURCE,
@@ -134,9 +101,6 @@ class JobQueueApi(remote.Service):
             x for x in existing_jobs if set(x.serial) == set(request.serial)
         ]
 
-        job_message = model.JobMessage()
-        job_messages = []
-
         if len(same_jobs) > 1:
             logging.warning("[heartbeat] more than one job is found!")
             logging.warning(
@@ -147,22 +111,11 @@ class JobQueueApi(remote.Service):
 
         if same_jobs:
             job = same_jobs[0]
-            job_message.hostname = job.hostname
-            job_message.priority = job.priority
-            job_message.test_name = job.test_name
-            job_message.require_signed_device_build = (
-                job.require_signed_device_build)
-            job_message.device = job.device
-            job_message.serial = job.serial
-            job_message.manifest_branch = job.manifest_branch
-            job_message.build_target = job.build_target
-            job_message.shards = job.shards
-            job_message.param = job.param
-            job_message.build_id = job.build_id
-            job_message.status = job.status
-            job_message.period = job.period
-            job_message.retry_count = job.retry_count
-            job_messages.append(job_message)
+            job_message = model.JobMessage()
+            common_attributes = self.GetCommonAttributes(job, model.JobMessage)
+            for attr in common_attributes:
+                setattr(job_message, attr, getattr(job, attr))
+
             device_query = model.DeviceModel.query(
                 model.DeviceModel.serial.IN(job.serial))
             devices = device_query.fetch()
@@ -173,25 +126,35 @@ class JobQueueApi(remote.Service):
                 request.status))
             logging.debug("[heartbeat]  - devices = {}".format(
                 ", ".join([device.serial for device in devices])))
+            devices_to_put = []
             if request.status == Status.JOB_STATUS_DICT["complete"]:
+                job.status = request.status
                 for device in devices:
                     device.scheduling_status = (
                         Status.DEVICE_SCHEDULING_STATUS_DICT["free"])
-                    device.put()
-            elif request.status == Status.JOB_STATUS_DICT["infra-err"]:
+                    devices_to_put.append(device)
+            elif (request.status in [
+                    Status.JOB_STATUS_DICT["infra-err"],
+                    Status.JOB_STATUS_DICT["bootup-err"]
+            ]):
+                job.status = request.status
+                email_util.send_job_notification(job)
                 for device in devices:
                     device.scheduling_status = (
                         Status.DEVICE_SCHEDULING_STATUS_DICT["free"])
                     device.status = Status.DEVICE_STATUS_DICT["unknown"]
-                    device.put()
+                    devices_to_put.append(device)
             elif request.status == Status.JOB_STATUS_DICT["leased"]:
+                job.status = request.status
                 for device in devices:
                     device.timestamp = datetime.datetime.now()
-                    device.put()
+                    devices_to_put.append(device)
             else:
                 logging.error(
                     "[heartbeat] Unexpected job status is received. - {}".
                     format(request.serial))
+            if devices_to_put:
+                ndb.put_multi(devices_to_put)
 
             if request.infra_log_url:
                 if request.infra_log_url.startswith(GCS_URL_PREFIX):
@@ -203,11 +166,41 @@ class JobQueueApi(remote.Service):
                     job.infra_log_url = request.infra_log_url
                 else:
                     logging.debug("[heartbeat] Wrong infra_log_url address.")
-            job.status = request.status
+
             job.heartbeat_stamp = datetime.datetime.now()
             job.put()
+            model_util.UpdateParentSchedule(job, request.status)
             return model.JobLeaseResponse(
-                return_code=model.ReturnCodeMessage.SUCCESS, jobs=job_messages)
+                return_code=model.ReturnCodeMessage.SUCCESS,
+                jobs=[job_message])
 
         return model.JobLeaseResponse(
-            return_code=model.ReturnCodeMessage.FAIL, jobs=job_messages)
+            return_code=model.ReturnCodeMessage.FAIL, jobs=[])
+
+    @endpoints.method(
+        endpoint_base.GET_REQUEST_RESOURCE,
+        model.JobResponseMessage,
+        path="get",
+        http_method="POST",
+        name="get")
+    def get(self, request):
+        """Gets the jobs from datastore."""
+        return_list, more = self.Get(request=request,
+                                     metaclass=model.JobModel,
+                                     message=model.JobMessage)
+
+        return model.JobResponseMessage(jobs=return_list, has_next=more)
+
+    @endpoints.method(
+        endpoint_base.COUNT_REQUEST_RESOURCE,
+        model.CountResponseMessage,
+        path="count",
+        http_method="POST",
+        name="count")
+    def count(self, request):
+        """Gets total number of JobModel entities stored in datastore."""
+        filters = self.CreateFilterList(
+            filter_string=request.filter, metaclass=model.JobModel)
+        count = self.Count(metaclass=model.JobModel, filters=filters)
+
+        return model.CountResponseMessage(count=count)

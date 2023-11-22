@@ -55,9 +55,53 @@ fluoride_defaults {
 
 fluoride_defaults {
     name: "fluoride_defaults",
+    target: {
+        android: {
+            test_config_template: ":BluetoothTestConfigTemplate",
+        }
+    },
     defaults: ["fluoride_types_defaults"],
     header_libs: ["libbluetooth_headers"],
+    shared_libs: ["libstatslog"],
     static_libs: [
         "libbluetooth-types",
+        "libbt-platform-protos-lite",
     ],
+    cpp_std: "c++17",
+    sanitize: {
+        misc_undefined: ["bounds"],
+    },
+}
+
+// Enables code coverage for a set of source files. Must be combined with
+// "clang_coverage_bin" in order to work. See //test/gen_coverage.py for more information
+// on generating code coverage.
+cc_defaults {
+    name: "clang_file_coverage",
+    target: {
+        host: {
+            clang_cflags: [
+                "-fprofile-instr-generate",
+                "-fcoverage-mapping",
+            ],
+        },
+    },
+}
+
+// Enabled code coverage on a binary. These flags allow libraries that were
+// compiled with "clang_file_coverage" to be properly linked together in
+// order to create a binary that will create a profraw file when ran. Note
+// these flags themselves don't enable code coverage for the source files
+// compiled in the binary. See //test/gen_coverage.py for more information
+// on generating code coverage.
+cc_defaults {
+    name: "clang_coverage_bin",
+    target: {
+        host: {
+            ldflags: [
+                "-fprofile-instr-generate",
+                "-fcoverage-mapping",
+            ],
+        },
+    },
 }

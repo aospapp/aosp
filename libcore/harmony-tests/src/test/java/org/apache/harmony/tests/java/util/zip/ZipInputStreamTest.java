@@ -234,7 +234,7 @@ public class ZipInputStreamTest extends TestCaseWithRules {
         if (i != entrySize) {
             fail("ZipInputStream.available or ZipInputStream.skip does not " +
                     "working properly. Only skipped " + i +
-                    " bytes instead of " + entrySize);
+                    " bytes instead of " + entrySize + " for entry " + entry.getName());
         }
         assertEquals(0, zis1.skip(1));
         assertEquals(0, zis1.available());

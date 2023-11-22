@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"공유"</string>
     <string name="menu_delete" msgid="1022254131543256626">"삭제"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"모두 선택"</string>
+    <string name="menu_select" msgid="1366061076507142387">"선택"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"정렬 기준"</string>
     <string name="menu_copy" msgid="7404820171352314754">"다음으로 복사:"</string>
     <string name="menu_move" msgid="2310760789561129882">"다음으로 이동:"</string>
     <string name="menu_compress" msgid="37539111904724188">"압축"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"형식"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"크기"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"마지막 수정 시간"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"파일 이름(A~Z)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"형식(A~Z)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"크기(작은 파일순)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"수정된 날짜(오래된 날짜순)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"파일 이름(Z~A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"형식(Z~A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"크기(큰 파일순)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"수정된 날짜(최근 날짜순)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"정렬 기준"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"<xliff:g id="LABEL">%s</xliff:g>순으로 정렬됨"</string>
     <string name="directory_items" msgid="6645621978998614003">"항목 수"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"오름차순"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"내림차순"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g> 열기"</string>
     <string name="drawer_open" msgid="8071673398187261741">"루트 표시"</string>
     <string name="drawer_close" msgid="4263880768630848848">"루트 숨기기"</string>
     <string name="save_error" msgid="8631128801982095782">"문서를 저장하지 못했습니다."</string>
@@ -169,10 +182,9 @@
     <string name="rename_error" msgid="6700093173508118635">"문서 이름을 변경하지 못했습니다."</string>
     <string name="menu_eject_root" msgid="9215040039374893613">"꺼내기"</string>
     <string name="notification_copy_files_converted_title" msgid="6916768494891833365">"일부 파일이 변환되었습니다."</string>
-    <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>이(가) <xliff:g id="STORAGE"><i>^3</i></xliff:g>에서 <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> 디렉토리에 액세스하도록 허용하시겠습니까?"</string>
-    <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>에서 <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> 디렉토리에 액세스하도록 허용하시겠습니까?"</string>
+    <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>이(가) <xliff:g id="STORAGE"><i>^3</i></xliff:g>에서 <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> 디렉터리에 액세스하도록 허용하시겠습니까?"</string>
+    <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>에서 <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> 디렉터리에 액세스하도록 허용하시겠습니까?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="APPNAME"><b>^1</b></xliff:g>에서 사진, 동영상 등 <xliff:g id="STORAGE"><i>^2</i></xliff:g>의 내 데이터에 액세스하도록 허용하시겠습니까?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"다시 묻지 않음"</string>
     <string name="allow" msgid="1275746941353040309">"허용"</string>
     <string name="deny" msgid="5127201668078153379">"거부"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -200,10 +212,39 @@
     <string name="images_shortcut_label" msgid="2545168016070493574">"이미지"</string>
     <string name="archive_loading_failed" msgid="7243436722828766996">"보관 파일을 열어 탐색할 수 없습니다. 파일이 손상되었거나 지원되지 않는 형식입니다."</string>
     <string name="name_conflict" msgid="28407269328862986">"이름이 같은 파일이 이미 존재합니다."</string>
-    <string name="authentication_required" msgid="8030880723643436099">"이 디렉토리를 보려면 <xliff:g id="NAME">%1$s</xliff:g>에 로그인하세요."</string>
+    <string name="authentication_required" msgid="8030880723643436099">"이 디렉터리를 보려면 <xliff:g id="NAME">%1$s</xliff:g>에 로그인하세요."</string>
     <string name="cant_display_content" msgid="8633226333229417237">"콘텐츠를 표시할 수 없습니다."</string>
     <string name="sign_in" msgid="6253762676723505592">"로그인"</string>
     <string name="new_archive_file_name" msgid="1604650338077249838">"보관처리<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g>을(를) 덮어쓰시겠습니까?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"백그라운드에서 계속"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g>개 선택됨</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g>개 선택됨</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"휴대전화의 최근 파일"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"휴대전화의 파일"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"휴대전화의 <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g>의 파일"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g>의 파일"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g>의 파일/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"휴대전화에 있는 최근 이미지"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"휴대전화에 있는 이미지"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g>에 있는 이미지"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>의 이미지"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g>의 이미지/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"이미지"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"오디오"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"동영상"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"문서"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"폴더 이름"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"새 이름"</string>
+    <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> 파일 미리보기"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"다른 앱의 파일 탐색"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"익명"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"\'<xliff:g id="DIRECTORY">%1$s</xliff:g>\'에 액세스하도록 허용"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"<xliff:g id="ROOT">%2$s</xliff:g>의 <xliff:g id="DIRECTORY">%1$s</xliff:g>에 액세스하도록 허용하시겠습니까?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"\'<xliff:g id="APPNAME">%1$s</xliff:g>\'이(가) 현재 이 위치에 저장된 모든 파일과 향후 여기에 저장되는 모든 콘텐츠에 대해 완전한 액세스 권한을 갖게 됩니다."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"이 휴대전화 검색"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"검색 기록 삭제 <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

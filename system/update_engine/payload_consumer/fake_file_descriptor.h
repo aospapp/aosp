@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include <brillo/secure_blob.h>
+
 #include "update_engine/payload_consumer/file_descriptor.h"
 
 namespace chromeos_update_engine {
@@ -67,9 +69,7 @@ class FakeFileDescriptor : public FileDescriptor {
     return false;
   }
 
-  bool Flush() override {
-    return open_;
-  }
+  bool Flush() override { return open_; }
 
   bool Close() override {
     if (!open_)
@@ -120,6 +120,9 @@ class FakeFileDescriptor : public FileDescriptor {
 
   DISALLOW_COPY_AND_ASSIGN(FakeFileDescriptor);
 };
+
+// Return a blob with the first |size| bytes of a FakeFileDescriptor stream.
+brillo::Blob FakeFileDescriptorData(size_t size);
 
 }  // namespace chromeos_update_engine
 

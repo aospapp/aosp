@@ -33,6 +33,9 @@ public class DynamicConfigTest extends TestCase {
     private static final String CORRECT_CONFIG =
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
             "<dynamicConfig>\n" +
+            "    <entry key=\"remote_config_required\">\n" +
+            "        <value>false</value>\n" +
+            "    </entry>\n" +
             "    <entry key=\"test-config-1\">\n" +
             "        <value>test config 1</value>\n" +
             "    </entry>\n" +
@@ -58,6 +61,9 @@ public class DynamicConfigTest extends TestCase {
     private static final String CONFIG_WRONG_NODE_NAME =
             "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
             "<dynamicCsonfig>\n" +  //The node name dynamicConfig is intentionally mistyped
+            "    <entry key=\"remote_config_required\">\n" +
+            "        <value>false</value>\n" +
+            "    </entry>\n" +
             "    <entry key=\"test-config-1\">\n" +
             "        <value>test config 1</value>\n" +
             "    </entry>\n" +

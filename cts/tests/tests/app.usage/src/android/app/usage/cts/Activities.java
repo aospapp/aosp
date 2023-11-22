@@ -18,14 +18,33 @@ package android.app.usage.cts;
 import android.annotation.Nullable;
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.ArraySet;
+import android.util.Log;
 import android.view.WindowManager;
 
 public final class Activities {
+
+    public static final ArraySet<Activity> startedActivities = new ArraySet();
+
     private static class KeepScreenOnActivity extends Activity {
         @Override
         protected void onCreate(@Nullable Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+        @Override
+        protected void onStart() {
+            super.onStart();
+            synchronized (startedActivities) {
+                startedActivities.add(this);
+            }
+        }
+        @Override
+        protected void onStop() {
+            super.onStop();
+            synchronized (startedActivities) {
+                startedActivities.remove(this);
+            }
         }
     }
 

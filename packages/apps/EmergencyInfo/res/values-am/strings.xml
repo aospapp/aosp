@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"የአስቸኳይ ጊዜ መረጃ"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"የህክምና መረጃ"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"የአርትዖት መረጃ"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"መረጃ ያክሉ"</string>
     <string name="edit_info" msgid="5973929805855224805">"የአስቸኳይ አደጋ ጊዜ መረጃን ያርትዑ"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"መረጃ"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"እውቂያዎች"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"የሕክምና መረጃ እና የድንገተኛ አደጋ ጊዜ ተጠሪን ማከል በድንገተኛ አደጋ ጊዜ ላይ መጀመሪያ ለሚደርሱ ሰዎች ሊያግዛቸው ይችላል።\n\nማንኛውም ሰው የእርስዎን ስልክ ሳይከፍት ይህን መረጃ ከማያ ገጽ ቁልፍዎ ማንበብ እና ስማቸውን እውቂያዎችዎን መታ በማድረግ ሊደውልላቸው ይችላል።"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"የድንገተኛ አደጋ ጊዜ ተጠሪ መረጃን ያክሉ"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"የመጀመሪያ ደረጃ ምላሽ ሰጪዎች መረጃዎን ይመልከቱ"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"ፎቶ ያንሱ"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"ምስል ይምረጡ"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"ፎቶ ይምረጡ"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"ቅጽል ስም"</string>
 </resources>

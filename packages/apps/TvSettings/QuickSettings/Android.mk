@@ -13,13 +13,13 @@ LOCAL_SRC_FILES := \
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
 
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    android-support-v4 \
-    android-support-v7-recyclerview \
-    android-support-v7-preference \
-    android-support-v7-appcompat \
-    android-support-v14-preference \
-    android-support-v17-preference-leanback \
-    android-support-v17-leanback
+    androidx.legacy_legacy-support-v4 \
+    androidx.recyclerview_recyclerview \
+    androidx.preference_preference \
+    androidx.appcompat_appcompat \
+    androidx.legacy_legacy-preference-v14 \
+    androidx.leanback_leanback-preference \
+    androidx.leanback_leanback
 
 LOCAL_USE_AAPT2 := true
 

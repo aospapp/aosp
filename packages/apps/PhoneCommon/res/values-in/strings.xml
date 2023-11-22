@@ -58,5 +58,5 @@
     <string name="callFailed_maximum_reached" msgid="4823790040422765056">"Semua saluran yang tersedia sedang digunakan. Untuk melakukan panggilan, putuskan salah satu panggilan pada perangkat ini atau pada salah satu perangkat Anda yang lain."</string>
     <string name="callFailed_data_disabled" msgid="3885826754435317856">"Panggilan berakhir karena data seluler dinonaktifkan."</string>
     <string name="callFailed_data_limit_reached_description" msgid="1439284832802552582">"Panggilan berakhir karena batas data seluler telah tercapai."</string>
-    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Batas data tercapai. Panggilan berakhir."</string>
+    <string name="callFailed_data_limit_reached" msgid="7045770594965160282">"Batas kuota tercapai. Panggilan berakhir."</string>
 </resources>

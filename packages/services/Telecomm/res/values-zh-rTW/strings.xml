@@ -32,11 +32,12 @@
     <string name="respond_via_sms_canned_response_2" msgid="4074450431532859214">"我待會就回電。"</string>
     <string name="respond_via_sms_canned_response_3" msgid="3496079065723960450">"我晚點回電。"</string>
     <string name="respond_via_sms_canned_response_4" msgid="1698989243040062190">"我現在不方便講話，晚點再打來好嗎？"</string>
-    <string name="respond_via_sms_setting_title" msgid="3754000371039709383">"應答短訊"</string>
-    <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"編輯應答短訊"</string>
+    <string name="respond_via_sms_setting_title" msgid="3754000371039709383">"快速回應"</string>
+    <string name="respond_via_sms_setting_title_2" msgid="6104662227299493906">"編輯快速回應"</string>
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"快速回應"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"訊息已傳送至 <xliff:g id="PHONE_NUMBER">%s</xliff:g>。"</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"無法將訊息傳送到 <xliff:g id="PHONE_NUMBER">%s</xliff:g>。"</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"通話帳戶"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"只能撥打緊急電話。"</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"這個應用程式不具備電話應用程式存取權限，無法撥出電話。"</string>
@@ -49,8 +50,13 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"設為預設電話應用程式"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"取消"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"這樣一來，<xliff:g id="NEW_APP">%s</xliff:g> 將能撥打電話及控管所有通話設定。請務必只將您信任的應用程式設為預設電話應用程式。"</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"要將「<xliff:g id="NEW_APP">%s</xliff:g>」設為預設來電過濾應用程式嗎？"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"「<xliff:g id="OLD_APP">%s</xliff:g>」將無法再過濾來電。"</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"「<xliff:g id="NEW_APP">%s</xliff:g>」將可查看聯絡人以外的來電者資訊及封鎖這些人的來電。請務必只將你信任的應用程式設為預設來電過濾應用程式。"</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"設為預設來電過濾應用程式"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"取消"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"已封鎖的號碼"</string>
-    <string name="blocked_numbers_msg" msgid="1045015186124965643">"您不會收到已封鎖號碼的來電或簡訊。"</string>
+    <string name="blocked_numbers_msg" msgid="1045015186124965643">"你不會收到已封鎖號碼的來電或簡訊。"</string>
     <string name="block_number" msgid="1101252256321306179">"新增號碼"</string>
     <string name="unblock_dialog_body" msgid="1614238499771862793">"要解除封鎖 <xliff:g id="NUMBER_TO_BLOCK">%1$s</xliff:g> 嗎？"</string>
     <string name="unblock_button" msgid="3078048901972674170">"解除封鎖"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"接聽之後，你正在進行的視訊通話就會結束"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"接聽"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"拒接"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"你尚未設定支援這類通話的通話帳戶，因此無法撥打電話。"</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"你正在進行 <xliff:g id="OTHER_CALL">%1$s</xliff:g> 通話，因此無法撥打電話。"</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"你正在進行 <xliff:g id="OTHER_CALL">%1$s</xliff:g> 通話，所以無法撥打電話。"</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"你正在使用其他應用程式進行通話，因此無法撥打電話。"</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"未接來電"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"來電封鎖"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"撥打這通電話將結束你的「<xliff:g id="OTHER_APP">%1$s</xliff:g>」通話。"</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"選擇撥打這通電話的方式"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"使用「<xliff:g id="OTHER_APP">%1$s</xliff:g>」轉接電話"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"使用我的電話號碼撥打電話"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"無法使用「<xliff:g id="OTHER_APP">%1$s</xliff:g>」撥打電話。請嘗試使用其他的通話轉接應用程式，或向開發人員尋求協助。"</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"來電封鎖"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"不屬於聯絡人的號碼"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"封鎖不屬於聯絡人的號碼"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"已停用來電封鎖"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"已撥打緊急電話"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"系統已停用來電封鎖功能，以便緊急應變人員與你聯絡。"</string>
+    <string name="developer_title" msgid="1816273446906554627">"電信開發人員選單"</string>
 </resources>

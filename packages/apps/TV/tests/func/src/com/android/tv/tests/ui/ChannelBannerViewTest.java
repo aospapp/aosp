@@ -16,8 +16,8 @@
 
 package com.android.tv.tests.ui;
 
-import android.support.test.filters.MediumTest;
 import android.support.test.uiautomator.Until;
+import androidx.test.filters.MediumTest;
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.Constants;
 import org.junit.Before;

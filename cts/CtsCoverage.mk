@@ -22,12 +22,7 @@ dexdeps_exe := $(HOST_OUT_EXECUTABLES)/dexdeps
 
 coverage_out := $(HOST_OUT)/cts-api-coverage
 
-api_text_description := frameworks/base/api/current.txt
-api_xml_description := $(coverage_out)/api.xml
-$(api_xml_description) : $(api_text_description) $(APICHECK)
-	$(hide) echo "Converting API file to XML: $@"
-	$(hide) mkdir -p $(dir $@)
-	$(hide) $(APICHECK_COMMAND) -convert2xml $< $@
+api_xml_description := $(TARGET_OUT_COMMON_INTERMEDIATES)/api.xml
 
 napi_text_description := cts/tools/cts-api-coverage/etc/ndk-api.xml
 napi_xml_description := $(coverage_out)/ndk-api.xml
@@ -94,7 +89,7 @@ cts-combined-coverage : $(cts-combined-coverage-report)
 .PHONY: cts-combined-xml-coverage
 cts-combined-xml-coverage : $(cts-combined-xml-coverage-report)
 
-.PHONY: cts-api-coverage
+.PHONY: cts-coverage-report-all cts-api-coverage
 cts-coverage-report-all: cts-test-coverage cts-verifier-coverage cts-combined-coverage cts-combined-xml-coverage
 
 # Put the test coverage report in the dist dir if "cts-api-coverage" is among the build goals.

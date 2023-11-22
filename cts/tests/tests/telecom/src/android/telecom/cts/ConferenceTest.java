@@ -18,6 +18,8 @@ package android.telecom.cts;
 
 import static android.telecom.cts.TestUtils.*;
 
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
 import android.os.Bundle;
 import android.telecom.Call;
 import android.telecom.Conference;
@@ -34,6 +36,8 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Extended suite of tests that use {@link CtsConnectionService} and {@link MockInCallService} to
@@ -87,6 +91,17 @@ public class ConferenceTest extends BaseTelecomTestWithMockServices {
         assertConnectionState(mConferenceObject.getConnections().get(0), Connection.STATE_ACTIVE);
         assertConnectionState(mConferenceObject.getConnections().get(1), Connection.STATE_ACTIVE);
         assertConferenceState(mConferenceObject, Connection.STATE_ACTIVE);
+
+        LinkedBlockingQueue<Connection> queue = new LinkedBlockingQueue(1);
+        runWithShellPermissionIdentity(() ->
+                queue.put(mConferenceObject.getPrimaryConnection()));
+        try {
+            Connection primaryConnection = queue.poll(TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                    TimeUnit.MILLISECONDS);
+            assertEquals(mConferenceObject.getConnections().get(0), primaryConnection);
+        } catch (InterruptedException e) {
+            fail("Couldn't get TTY mode.");
+        }
     }
 
     public void testConferenceSplit() {

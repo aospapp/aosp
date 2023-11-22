@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <map>
+#include <utility>
 
 #include <base/strings/stringprintf.h>
 
@@ -40,10 +41,8 @@ namespace {
 
 struct DeltaObject {
   DeltaObject(const string& in_name, const int in_type, const off_t in_size)
-      : name(in_name),
-        type(in_type),
-        size(in_size) {}
-  bool operator <(const DeltaObject& object) const {
+      : name(in_name), type(in_type), size(in_size) {}
+  bool operator<(const DeltaObject& object) const {
     return (size != object.size) ? (size < object.size) : (name < object.name);
   }
   string name;
@@ -74,6 +73,13 @@ bool PayloadFile::Init(const PayloadGenerationConfig& config) {
 
   manifest_.set_block_size(config.block_size);
   manifest_.set_max_timestamp(config.max_timestamp);
+
+  if (major_version_ == kBrilloMajorPayloadVersion) {
+    if (config.target.dynamic_partition_metadata != nullptr)
+      *(manifest_.mutable_dynamic_partition_metadata()) =
+          *(config.target.dynamic_partition_metadata);
+  }
+
   return true;
 }
 
@@ -82,8 +88,8 @@ bool PayloadFile::AddPartition(const PartitionConfig& old_conf,
                                const vector<AnnotatedOperation>& aops) {
   // Check partitions order for Chrome OS
   if (major_version_ == kChromeOSMajorPayloadVersion) {
-    const vector<const char*> part_order = { kLegacyPartitionNameRoot,
-                                             kLegacyPartitionNameKernel };
+    const vector<const char*> part_order = {kPartitionNameRoot,
+                                            kPartitionNameKernel};
     TEST_AND_RETURN_FALSE(part_vec_.size() < part_order.size());
     TEST_AND_RETURN_FALSE(new_conf.name == part_order[part_vec_.size()]);
   }
@@ -91,12 +97,13 @@ bool PayloadFile::AddPartition(const PartitionConfig& old_conf,
   part.name = new_conf.name;
   part.aops = aops;
   part.postinstall = new_conf.postinstall;
+  part.verity = new_conf.verity;
   // Initialize the PartitionInfo objects if present.
   if (!old_conf.path.empty())
-    TEST_AND_RETURN_FALSE(diff_utils::InitializePartitionInfo(old_conf,
-                                                              &part.old_info));
-  TEST_AND_RETURN_FALSE(diff_utils::InitializePartitionInfo(new_conf,
-                                                            &part.new_info));
+    TEST_AND_RETURN_FALSE(
+        diff_utils::InitializePartitionInfo(old_conf, &part.old_info));
+  TEST_AND_RETURN_FALSE(
+      diff_utils::InitializePartitionInfo(new_conf, &part.new_info));
   part_vec_.push_back(std::move(part));
   return true;
 }
@@ -108,9 +115,7 @@ bool PayloadFile::WritePayload(const string& payload_file,
   // Reorder the data blobs with the manifest_.
   string ordered_blobs_path;
   TEST_AND_RETURN_FALSE(utils::MakeTempFile(
-      "CrAU_temp_data.ordered.XXXXXX",
-      &ordered_blobs_path,
-      nullptr));
+      "CrAU_temp_data.ordered.XXXXXX", &ordered_blobs_path, nullptr));
   ScopedPathUnlinker ordered_blobs_unlinker(ordered_blobs_path);
   TEST_AND_RETURN_FALSE(ReorderDataBlobs(data_blobs_path, ordered_blobs_path));
 
@@ -121,8 +126,8 @@ bool PayloadFile::WritePayload(const string& payload_file,
       if (!aop.op.has_data_offset())
         continue;
       if (aop.op.data_offset() != next_blob_offset) {
-        LOG(FATAL) << "bad blob offset! " << aop.op.data_offset() << " != "
-                   << next_blob_offset;
+        LOG(FATAL) << "bad blob offset! " << aop.op.data_offset()
+                   << " != " << next_blob_offset;
       }
       next_blob_offset += aop.op.data_length();
     }
@@ -144,6 +149,22 @@ bool PayloadFile::WritePayload(const string& payload_file,
           partition->set_filesystem_type(part.postinstall.filesystem_type);
         partition->set_postinstall_optional(part.postinstall.optional);
       }
+      if (!part.verity.IsEmpty()) {
+        if (part.verity.hash_tree_extent.num_blocks() != 0) {
+          *partition->mutable_hash_tree_data_extent() =
+              part.verity.hash_tree_data_extent;
+          *partition->mutable_hash_tree_extent() = part.verity.hash_tree_extent;
+          partition->set_hash_tree_algorithm(part.verity.hash_tree_algorithm);
+          if (!part.verity.hash_tree_salt.empty())
+            partition->set_hash_tree_salt(part.verity.hash_tree_salt.data(),
+                                          part.verity.hash_tree_salt.size());
+        }
+        if (part.verity.fec_extent.num_blocks() != 0) {
+          *partition->mutable_fec_data_extent() = part.verity.fec_data_extent;
+          *partition->mutable_fec_extent() = part.verity.fec_extent;
+          partition->set_fec_roots(part.verity.fec_roots);
+        }
+      }
       for (const AnnotatedOperation& aop : part.aops) {
         *partition->add_operations() = aop.op;
       }
@@ -153,7 +174,7 @@ bool PayloadFile::WritePayload(const string& payload_file,
         *(partition->mutable_new_partition_info()) = part.new_info;
     } else {
       // major_version_ == kChromeOSMajorPayloadVersion
-      if (part.name == kLegacyPartitionNameKernel) {
+      if (part.name == kPartitionNameKernel) {
         for (const AnnotatedOperation& aop : part.aops)
           *manifest_.add_kernel_install_operations() = aop.op;
         if (part.old_info.has_size() || part.old_info.has_hash())
@@ -175,17 +196,18 @@ bool PayloadFile::WritePayload(const string& payload_file,
   // manifest_.
   uint64_t signature_blob_length = 0;
   if (!private_key_path.empty()) {
-    TEST_AND_RETURN_FALSE(
-        PayloadSigner::SignatureBlobLength(vector<string>(1, private_key_path),
-                                           &signature_blob_length));
+    TEST_AND_RETURN_FALSE(PayloadSigner::SignatureBlobLength(
+        {private_key_path}, &signature_blob_length));
     PayloadSigner::AddSignatureToManifest(
-        next_blob_offset, signature_blob_length,
-        major_version_ == kChromeOSMajorPayloadVersion, &manifest_);
+        next_blob_offset,
+        signature_blob_length,
+        major_version_ == kChromeOSMajorPayloadVersion,
+        &manifest_);
   }
 
   // Serialize protobuf
   string serialized_manifest;
-  TEST_AND_RETURN_FALSE(manifest_.AppendToString(&serialized_manifest));
+  TEST_AND_RETURN_FALSE(manifest_.SerializeToString(&serialized_manifest));
 
   uint64_t metadata_size =
       sizeof(kDeltaMagic) + 2 * sizeof(uint64_t) + serialized_manifest.size();
@@ -204,8 +226,8 @@ bool PayloadFile::WritePayload(const string& payload_file,
   TEST_AND_RETURN_FALSE(WriteUint64AsBigEndian(&writer, major_version_));
 
   // Write protobuf length
-  TEST_AND_RETURN_FALSE(WriteUint64AsBigEndian(&writer,
-                                               serialized_manifest.size()));
+  TEST_AND_RETURN_FALSE(
+      WriteUint64AsBigEndian(&writer, serialized_manifest.size()));
 
   // Write metadata signature size.
   uint32_t metadata_signature_size = 0;
@@ -229,14 +251,12 @@ bool PayloadFile::WritePayload(const string& payload_file,
   // Write metadata signature blob.
   if (major_version_ == kBrilloMajorPayloadVersion &&
       !private_key_path.empty()) {
-    brillo::Blob metadata_hash, metadata_signature;
-    TEST_AND_RETURN_FALSE(HashCalculator::RawHashOfFile(payload_file,
-                                                             metadata_size,
-                                                             &metadata_hash));
-    TEST_AND_RETURN_FALSE(
-        PayloadSigner::SignHashWithKeys(metadata_hash,
-                                        vector<string>(1, private_key_path),
-                                        &metadata_signature));
+    brillo::Blob metadata_hash;
+    TEST_AND_RETURN_FALSE(HashCalculator::RawHashOfFile(
+        payload_file, metadata_size, &metadata_hash));
+    string metadata_signature;
+    TEST_AND_RETURN_FALSE(PayloadSigner::SignHashWithKeys(
+        metadata_hash, {private_key_path}, &metadata_signature));
     TEST_AND_RETURN_FALSE_ERRNO(
         writer.Write(metadata_signature.data(), metadata_signature.size()));
   }
@@ -260,16 +280,16 @@ bool PayloadFile::WritePayload(const string& payload_file,
   // Write payload signature blob.
   if (!private_key_path.empty()) {
     LOG(INFO) << "Signing the update...";
-    brillo::Blob signature_blob;
+    string signature;
     TEST_AND_RETURN_FALSE(PayloadSigner::SignPayload(
         payload_file,
-        vector<string>(1, private_key_path),
+        {private_key_path},
         metadata_size,
         metadata_signature_size,
         metadata_size + metadata_signature_size + manifest_.signatures_offset(),
-        &signature_blob));
+        &signature));
     TEST_AND_RETURN_FALSE_ERRNO(
-        writer.Write(signature_blob.data(), signature_blob.size()));
+        writer.Write(signature.data(), signature.size()));
   }
 
   ReportPayloadUsage(metadata_size);
@@ -277,9 +297,8 @@ bool PayloadFile::WritePayload(const string& payload_file,
   return true;
 }
 
-bool PayloadFile::ReorderDataBlobs(
-    const string& data_blobs_path,
-    const string& new_data_blobs_path) {
+bool PayloadFile::ReorderDataBlobs(const string& data_blobs_path,
+                                   const string& new_data_blobs_path) {
   int in_fd = open(data_blobs_path.c_str(), O_RDONLY, 0);
   TEST_AND_RETURN_FALSE_ERRNO(in_fd >= 0);
   ScopedFdCloser in_fd_closer(&in_fd);
@@ -325,37 +344,39 @@ bool PayloadFile::AddOperationHash(InstallOperation* op,
 void PayloadFile::ReportPayloadUsage(uint64_t metadata_size) const {
   std::map<DeltaObject, int> object_counts;
   off_t total_size = 0;
+  int total_op = 0;
 
   for (const auto& part : part_vec_) {
+    string part_prefix = "<" + part.name + ">:";
     for (const AnnotatedOperation& aop : part.aops) {
-      DeltaObject delta(aop.name, aop.op.type(), aop.op.data_length());
+      DeltaObject delta(
+          part_prefix + aop.name, aop.op.type(), aop.op.data_length());
       object_counts[delta]++;
       total_size += aop.op.data_length();
     }
+    total_op += part.aops.size();
   }
 
   object_counts[DeltaObject("<manifest-metadata>", -1, metadata_size)] = 1;
   total_size += metadata_size;
 
-  static const char kFormatString[] = "%6.2f%% %10jd %-13s %s %d";
+  constexpr char kFormatString[] = "%6.2f%% %10jd %-13s %s %d\n";
   for (const auto& object_count : object_counts) {
     const DeltaObject& object = object_count.first;
-    LOG(INFO) << base::StringPrintf(
-        kFormatString,
-        object.size * 100.0 / total_size,
-        static_cast<intmax_t>(object.size),
-        (object.type >= 0 ? InstallOperationTypeName(
-                                static_cast<InstallOperation_Type>(object.type))
-                          : "-"),
-        object.name.c_str(),
-        object_count.second);
+    // Use printf() instead of LOG(INFO) because timestamp makes it difficult to
+    // compare two reports.
+    printf(kFormatString,
+           object.size * 100.0 / total_size,
+           object.size,
+           (object.type >= 0
+                ? InstallOperationTypeName(
+                      static_cast<InstallOperation::Type>(object.type))
+                : "-"),
+           object.name.c_str(),
+           object_count.second);
   }
-  LOG(INFO) << base::StringPrintf(kFormatString,
-                                  100.0,
-                                  static_cast<intmax_t>(total_size),
-                                  "",
-                                  "<total>",
-                                  1);
+  printf(kFormatString, 100.0, total_size, "", "<total>", total_op);
+  fflush(stdout);
 }
 
 }  // namespace chromeos_update_engine

@@ -49,7 +49,7 @@ bool ExtentEquals(const Extent& ext,
 }
 
 // Tests splitting of a REPLACE/REPLACE_BZ operation.
-void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
+void TestSplitReplaceOrReplaceBzOperation(InstallOperation::Type orig_type,
                                           bool compressible) {
   const size_t op_ex1_start_block = 2;
   const size_t op_ex1_num_blocks = 2;
@@ -58,10 +58,6 @@ void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
   const size_t part_num_blocks = 7;
 
   // Create the target partition data.
-  string part_path;
-  EXPECT_TRUE(utils::MakeTempFile(
-      "SplitReplaceOrReplaceBzTest_part.XXXXXX", &part_path, nullptr));
-  ScopedPathUnlinker part_path_unlinker(part_path);
   const size_t part_size = part_num_blocks * kBlockSize;
   brillo::Blob part_data;
   if (compressible) {
@@ -74,7 +70,9 @@ void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
       part_data.push_back(dis(gen));
   }
   ASSERT_EQ(part_size, part_data.size());
-  ASSERT_TRUE(utils::WriteFile(part_path.c_str(), part_data.data(), part_size));
+  test_utils::ScopedTempFile part_file(
+      "SplitReplaceOrReplaceBzTest_part.XXXXXX");
+  ASSERT_TRUE(test_utils::WriteFileVector(part_file.path(), part_data));
 
   // Create original operation and blob data.
   const size_t op_ex1_offset = op_ex1_start_block * kBlockSize;
@@ -83,10 +81,10 @@ void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
   const size_t op_ex2_size = op_ex2_num_blocks * kBlockSize;
   InstallOperation op;
   op.set_type(orig_type);
-  *(op.add_dst_extents()) = ExtentForRange(op_ex1_start_block,
-                                           op_ex1_num_blocks);
-  *(op.add_dst_extents()) = ExtentForRange(op_ex2_start_block,
-                                           op_ex2_num_blocks);
+  *(op.add_dst_extents()) =
+      ExtentForRange(op_ex1_start_block, op_ex1_num_blocks);
+  *(op.add_dst_extents()) =
+      ExtentForRange(op_ex2_start_block, op_ex2_num_blocks);
 
   brillo::Blob op_data;
   op_data.insert(op_data.end(),
@@ -109,15 +107,12 @@ void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
   aop.name = "SplitTestOp";
 
   // Create the data file.
-  string data_path;
-  EXPECT_TRUE(utils::MakeTempFile(
-      "SplitReplaceOrReplaceBzTest_data.XXXXXX", &data_path, nullptr));
-  ScopedPathUnlinker data_path_unlinker(data_path);
-  int data_fd = open(data_path.c_str(), O_RDWR, 000);
+  test_utils::ScopedTempFile data_file(
+      "SplitReplaceOrReplaceBzTest_data.XXXXXX");
+  EXPECT_TRUE(test_utils::WriteFileVector(data_file.path(), op_blob));
+  int data_fd = open(data_file.path().c_str(), O_RDWR, 000);
   EXPECT_GE(data_fd, 0);
   ScopedFdCloser data_fd_closer(&data_fd);
-  EXPECT_TRUE(utils::WriteFile(data_path.c_str(), op_blob.data(),
-                               op_blob.size()));
   off_t data_file_size = op_blob.size();
   BlobFileWriter blob_file(data_fd, &data_file_size);
 
@@ -126,10 +121,10 @@ void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
   PayloadVersion version(kChromeOSMajorPayloadVersion,
                          kSourceMinorPayloadVersion);
   ASSERT_TRUE(ABGenerator::SplitAReplaceOp(
-      version, aop, part_path, &result_ops, &blob_file));
+      version, aop, part_file.path(), &result_ops, &blob_file));
 
   // Check the result.
-  InstallOperation_Type expected_type =
+  InstallOperation::Type expected_type =
       compressible ? InstallOperation::REPLACE_BZ : InstallOperation::REPLACE;
 
   ASSERT_EQ(2U, result_ops.size());
@@ -140,8 +135,8 @@ void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
   EXPECT_FALSE(first_op.has_src_length());
   EXPECT_FALSE(first_op.has_dst_length());
   EXPECT_EQ(1, first_op.dst_extents().size());
-  EXPECT_TRUE(ExtentEquals(first_op.dst_extents(0), op_ex1_start_block,
-                           op_ex1_num_blocks));
+  EXPECT_TRUE(ExtentEquals(
+      first_op.dst_extents(0), op_ex1_start_block, op_ex1_num_blocks));
   // Obtain the expected blob.
   brillo::Blob first_expected_data(
       part_data.begin() + op_ex1_offset,
@@ -170,8 +165,8 @@ void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
   EXPECT_FALSE(second_op.has_src_length());
   EXPECT_FALSE(second_op.has_dst_length());
   EXPECT_EQ(1, second_op.dst_extents().size());
-  EXPECT_TRUE(ExtentEquals(second_op.dst_extents(0), op_ex2_start_block,
-                           op_ex2_num_blocks));
+  EXPECT_TRUE(ExtentEquals(
+      second_op.dst_extents(0), op_ex2_start_block, op_ex2_num_blocks));
   // Obtain the expected blob.
   brillo::Blob second_expected_data(
       part_data.begin() + op_ex2_offset,
@@ -196,7 +191,8 @@ void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
   // Check relative layout of data blobs.
   EXPECT_EQ(first_op.data_offset() + first_op.data_length(),
             second_op.data_offset());
-  EXPECT_EQ(second_op.data_offset() + second_op.data_length(), data_file_size);
+  EXPECT_EQ(second_op.data_offset() + second_op.data_length(),
+            static_cast<uint64_t>(data_file_size));
   // If we split a REPLACE into multiple ones, ensure reuse of preexisting blob.
   if (!compressible && orig_type == InstallOperation::REPLACE) {
     EXPECT_EQ(0U, first_op.data_offset());
@@ -204,7 +200,7 @@ void TestSplitReplaceOrReplaceBzOperation(InstallOperation_Type orig_type,
 }
 
 // Tests merging of REPLACE/REPLACE_BZ operations.
-void TestMergeReplaceOrReplaceBzOperations(InstallOperation_Type orig_type,
+void TestMergeReplaceOrReplaceBzOperations(InstallOperation::Type orig_type,
                                            bool compressible) {
   const size_t first_op_num_blocks = 1;
   const size_t second_op_num_blocks = 2;
@@ -212,10 +208,6 @@ void TestMergeReplaceOrReplaceBzOperations(InstallOperation_Type orig_type,
   const size_t part_num_blocks = total_op_num_blocks + 2;
 
   // Create the target partition data.
-  string part_path;
-  EXPECT_TRUE(utils::MakeTempFile(
-      "MergeReplaceOrReplaceBzTest_part.XXXXXX", &part_path, nullptr));
-  ScopedPathUnlinker part_path_unlinker(part_path);
   const size_t part_size = part_num_blocks * kBlockSize;
   brillo::Blob part_data;
   if (compressible) {
@@ -228,7 +220,9 @@ void TestMergeReplaceOrReplaceBzOperations(InstallOperation_Type orig_type,
       part_data.push_back(dis(gen));
   }
   ASSERT_EQ(part_size, part_data.size());
-  ASSERT_TRUE(utils::WriteFile(part_path.c_str(), part_data.data(), part_size));
+  test_utils::ScopedTempFile part_file(
+      "MergeReplaceOrReplaceBzTest_part.XXXXXX");
+  ASSERT_TRUE(test_utils::WriteFileVector(part_file.path(), part_data));
 
   // Create original operations and blob data.
   vector<AnnotatedOperation> aops;
@@ -240,7 +234,7 @@ void TestMergeReplaceOrReplaceBzOperations(InstallOperation_Type orig_type,
   const size_t first_op_size = first_op_num_blocks * kBlockSize;
   *(first_op.add_dst_extents()) = ExtentForRange(0, first_op_num_blocks);
   brillo::Blob first_op_data(part_data.begin(),
-                               part_data.begin() + first_op_size);
+                             part_data.begin() + first_op_size);
   brillo::Blob first_op_blob;
   if (orig_type == InstallOperation::REPLACE) {
     first_op_blob = first_op_data;
@@ -257,10 +251,10 @@ void TestMergeReplaceOrReplaceBzOperations(InstallOperation_Type orig_type,
 
   InstallOperation second_op;
   second_op.set_type(orig_type);
-  *(second_op.add_dst_extents()) = ExtentForRange(first_op_num_blocks,
-                                                  second_op_num_blocks);
+  *(second_op.add_dst_extents()) =
+      ExtentForRange(first_op_num_blocks, second_op_num_blocks);
   brillo::Blob second_op_data(part_data.begin() + first_op_size,
-                                part_data.begin() + total_op_size);
+                              part_data.begin() + total_op_size);
   brillo::Blob second_op_blob;
   if (orig_type == InstallOperation::REPLACE) {
     second_op_blob = second_op_data;
@@ -269,34 +263,31 @@ void TestMergeReplaceOrReplaceBzOperations(InstallOperation_Type orig_type,
   }
   second_op.set_data_offset(first_op_blob.size());
   second_op.set_data_length(second_op_blob.size());
-  blob_data.insert(blob_data.end(), second_op_blob.begin(),
-                   second_op_blob.end());
+  blob_data.insert(
+      blob_data.end(), second_op_blob.begin(), second_op_blob.end());
   AnnotatedOperation second_aop;
   second_aop.op = second_op;
   second_aop.name = "second";
   aops.push_back(second_aop);
 
   // Create the data file.
-  string data_path;
-  EXPECT_TRUE(utils::MakeTempFile(
-      "MergeReplaceOrReplaceBzTest_data.XXXXXX", &data_path, nullptr));
-  ScopedPathUnlinker data_path_unlinker(data_path);
-  int data_fd = open(data_path.c_str(), O_RDWR, 000);
+  test_utils::ScopedTempFile data_file(
+      "MergeReplaceOrReplaceBzTest_data.XXXXXX");
+  EXPECT_TRUE(test_utils::WriteFileVector(data_file.path(), blob_data));
+  int data_fd = open(data_file.path().c_str(), O_RDWR, 000);
   EXPECT_GE(data_fd, 0);
   ScopedFdCloser data_fd_closer(&data_fd);
-  EXPECT_TRUE(utils::WriteFile(data_path.c_str(), blob_data.data(),
-                               blob_data.size()));
   off_t data_file_size = blob_data.size();
   BlobFileWriter blob_file(data_fd, &data_file_size);
 
   // Merge the operations.
   PayloadVersion version(kChromeOSMajorPayloadVersion,
                          kSourceMinorPayloadVersion);
-  EXPECT_TRUE(
-      ABGenerator::MergeOperations(&aops, version, 5, part_path, &blob_file));
+  EXPECT_TRUE(ABGenerator::MergeOperations(
+      &aops, version, 5, part_file.path(), &blob_file));
 
   // Check the result.
-  InstallOperation_Type expected_op_type =
+  InstallOperation::Type expected_op_type =
       compressible ? InstallOperation::REPLACE_BZ : InstallOperation::REPLACE;
   EXPECT_EQ(1U, aops.size());
   InstallOperation new_op = aops[0].op;
@@ -309,7 +300,7 @@ void TestMergeReplaceOrReplaceBzOperations(InstallOperation_Type orig_type,
 
   // Check to see if the blob pointed to in the new extent has what we expect.
   brillo::Blob expected_data(part_data.begin(),
-                               part_data.begin() + total_op_size);
+                             part_data.begin() + total_op_size);
   brillo::Blob expected_blob;
   if (compressible) {
     ASSERT_TRUE(BzipCompress(expected_data, &expected_blob));
@@ -570,16 +561,12 @@ TEST_F(ABGeneratorTest, AddSourceHashTest) {
   second_aop.op = second_op;
   aops.push_back(second_aop);
 
-  string src_part_path;
-  EXPECT_TRUE(utils::MakeTempFile("AddSourceHashTest_src_part.XXXXXX",
-                                  &src_part_path, nullptr));
-  ScopedPathUnlinker src_part_path_unlinker(src_part_path);
+  test_utils::ScopedTempFile src_part_file("AddSourceHashTest_src_part.XXXXXX");
   brillo::Blob src_data(kBlockSize);
   test_utils::FillWithData(&src_data);
-  ASSERT_TRUE(utils::WriteFile(src_part_path.c_str(), src_data.data(),
-                               src_data.size()));
+  ASSERT_TRUE(test_utils::WriteFileVector(src_part_file.path(), src_data));
 
-  EXPECT_TRUE(ABGenerator::AddSourceHash(&aops, src_part_path));
+  EXPECT_TRUE(ABGenerator::AddSourceHash(&aops, src_part_file.path()));
 
   EXPECT_TRUE(aops[0].op.has_src_sha256_hash());
   EXPECT_FALSE(aops[1].op.has_src_sha256_hash());

@@ -409,6 +409,7 @@ public:
         kind_t kind; ///< component kind
         rank_t rank; ///< component rank
         C2String mediaType; ///< media type supported by the component
+        C2String owner; ///< name of the component store owning this component
 
         /**
          * name alias(es) for backward compatibility.

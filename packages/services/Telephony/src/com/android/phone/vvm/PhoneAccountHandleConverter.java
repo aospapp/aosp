@@ -19,10 +19,10 @@ package com.android.phone.vvm;
 import android.annotation.Nullable;
 import android.telecom.PhoneAccountHandle;
 import android.telephony.SubscriptionManager;
+
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.phone.PhoneUtils;
-import com.android.phone.vvm.VvmLog;
 
 /**
  * Utility to convert between PhoneAccountHandle and subId, which is a common operation in OMTP

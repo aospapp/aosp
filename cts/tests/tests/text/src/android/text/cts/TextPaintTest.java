@@ -27,7 +27,7 @@ import android.text.TextPaint;
  */
 public class TextPaintTest extends AndroidTestCase {
     private static final int DEFAULT_PAINT_FLAGS = TextPaint.DEV_KERN_TEXT_FLAG
-            | TextPaint.EMBEDDED_BITMAP_TEXT_FLAG;
+            | TextPaint.EMBEDDED_BITMAP_TEXT_FLAG | TextPaint.FILTER_BITMAP_FLAG;
 
     public void testConstructor() {
         TextPaint textPaint;
@@ -53,6 +53,8 @@ public class TextPaintTest extends AndroidTestCase {
         textPaintSrc.linkColor = Color.BLUE;
         textPaintSrc.drawableState = drawableState;
         textPaintSrc.setTypeface(Typeface.DEFAULT_BOLD);
+        textPaintSrc.underlineColor = 0x00112233;
+        textPaintSrc.underlineThickness = 12.0f;
 
         TextPaint textPaint = new TextPaint();
         assertEquals(0, textPaint.bgColor);
@@ -60,6 +62,8 @@ public class TextPaintTest extends AndroidTestCase {
         assertEquals(0, textPaint.linkColor);
         assertNull(textPaint.drawableState);
         assertNull(textPaint.getTypeface());
+        assertEquals(0, textPaint.underlineColor);
+        assertEquals(0.0f, textPaint.underlineThickness, 0.0f);
 
         textPaint.set(textPaintSrc);
         assertEquals(textPaintSrc.bgColor, textPaint.bgColor);
@@ -68,6 +72,8 @@ public class TextPaintTest extends AndroidTestCase {
         assertSame(textPaintSrc.drawableState, textPaint.drawableState);
         assertEquals(textPaintSrc.getTypeface(), textPaint.getTypeface());
         assertEquals(textPaintSrc.getFlags(), textPaint.getFlags());
+        assertEquals(0x00112233, textPaint.underlineColor);
+        assertEquals(12.0f, textPaint.underlineThickness, 0.0f);
 
         try {
             textPaint.set(null);

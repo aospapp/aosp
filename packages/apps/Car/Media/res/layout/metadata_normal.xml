@@ -14,69 +14,70 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<android.support.constraint.ConstraintLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/metadata_subcontainer"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:focusable="false">
+    android:layout_height="wrap_content">
+
+    <ImageView
+        android:id="@+id/album_art"
+        android:layout_width="@dimen/playback_album_art_size"
+        android:layout_height="@dimen/playback_album_art_size"
+        android:contentDescription="@string/album_art"
+        android:background="@color/album_art_background"
+        android:scaleType="centerCrop"
+        android:transitionName="@string/album_art"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"/>
 
     <TextView
         android:id="@+id/title"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/car_padding_1"
-        android:ellipsize="end"
-        android:includeFontPadding="false"
-        android:maxLines="@integer/playback_title_text_max_lines"
-        android:textAppearance="@style/TextAppearance.Car.Body1.Light"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="Body 1 Header"/>
-    <TextView
-        android:id="@+id/subtitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/car_padding_2"
-        android:layout_marginTop="@dimen/car_padding_1"
-        android:ellipsize="end"
-        android:includeFontPadding="false"
-        android:maxLines="@integer/playback_subtitle_text_max_lines"
-        android:textAppearance="@style/TextAppearance.Car.Body2.Light"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/title"
-        tools:text="Body 2"/>
-    <TextView
-        android:id="@+id/time"
-        android:layout_width="160dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/car_padding_1"
-        android:ellipsize="end"
-        android:includeFontPadding="false"
-        android:maxLines="@integer/playback_subtitle_text_max_lines"
-        android:gravity="end"
-        android:textAppearance="@style/TextAppearance.Car.Body2.Light"
+        android:layout_marginStart="@dimen/art_metadata_margin"
+        style="@style/MetadataPlaybackTitleStyle"
+        app:layout_constraintStart_toEndOf="@id/album_art"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/title"
-        tools:text="3:27 / 4:03"/>
-    <SeekBar
-        android:id="@+id/seek_bar"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/playback_seekbar_height"
-        android:layout_marginTop="@dimen/car_padding_2"
-        android:clickable="false"
-        android:focusable="false"
-        android:paddingEnd="0dp"
-        android:paddingStart="0dp"
-        android:progressDrawable="@drawable/seekbar_background"
-        android:thumb="@drawable/seekbar_thumb"
-        android:background="@null"
-        android:visibility="invisible"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/subtitle"
-        tools:progress="70"
-        tools:visibility="visible"/>
+        app:layout_constraintTop_toTopOf="@id/album_art"
+        app:layout_constraintBottom_toTopOf="@+id/artist"
+        app:layout_constraintVertical_chainStyle="packed"/>
 
-</android.support.constraint.ConstraintLayout>
+    <TextView
+        android:id="@+id/artist"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/metadata_title_subtitle_margin"
+        style="@style/MetadataPlaybackSubtitleStyle"
+        app:layout_constraintStart_toStartOf="@id/title"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/title"
+        app:layout_constraintBottom_toTopOf="@+id/album_title"/>
+
+    <TextView
+        android:id="@+id/album_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/metadata_subtitles_margin"
+        style="@style/MetadataPlaybackSubtitleStyle"
+        app:layout_goneMarginTop="@dimen/metadata_title_subtitle_margin"
+        app:layout_constraintStart_toStartOf="@id/title"
+        app:layout_constraintEnd_toStartOf="@+id/progress_text_container"
+        app:layout_constraintTop_toBottomOf="@id/artist"
+        app:layout_constraintBottom_toBottomOf="@id/album_art"
+        app:layout_constraintHorizontal_chainStyle="packed"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constrainedWidth="true"/>
+
+    <include
+        android:id="@+id/progress_text_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toEndOf="@+id/album_title"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/album_title"
+        app:layout_constraintBottom_toBottomOf="@+id/album_title"
+        layout="@layout/time_progress_text"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

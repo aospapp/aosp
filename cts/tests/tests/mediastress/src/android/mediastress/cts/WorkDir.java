@@ -18,11 +18,12 @@ package android.mediastress.cts;
 
 import android.os.Bundle;
 import android.os.Environment;
-import android.support.test.InstrumentationRegistry;
 
-import java.io.File;
+import androidx.test.InstrumentationRegistry;
 
 import junit.framework.Assert;
+
+import java.io.File;
 
 public class WorkDir {
 

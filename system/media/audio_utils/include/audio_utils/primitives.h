@@ -364,6 +364,18 @@ void memcpy_to_i16_from_q8_23(int16_t *dst, const int32_t *src, size_t count);
 void memcpy_to_float_from_q8_23(float *dst, const int32_t *src, size_t count);
 
 /**
+ * Expand and copy samples from unsigned 8-bit offset by 0x80 to signed 32-bit.
+ *
+ *  \param dst     Destination buffer
+ *  \param src     Source buffer
+ *  \param count   Number of samples to copy
+ *
+ * The destination and source buffers must either be completely separate (non-overlapping), or
+ * they must both start at the same address.  Partially overlapping buffers are not supported.
+ */
+void memcpy_to_i32_from_u8(int32_t *dst, const uint8_t *src, size_t count);
+
+/**
  * Copy samples from signed fixed point 16-bit Q0.15 to signed fixed-point 32-bit Q0.31.
  * The output data range is [0x80000000, 0x7fff0000] at intervals of 0x10000.
  *

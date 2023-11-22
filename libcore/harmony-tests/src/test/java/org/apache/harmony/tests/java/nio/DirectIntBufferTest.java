@@ -20,11 +20,10 @@ import java.nio.ByteOrder;
 import java.nio.DirectByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.NIOAccess;
-import libcore.io.SizeOf;
 
 public class DirectIntBufferTest extends IntBufferTest {
     public void setUp(){
-        buf = ByteBuffer.allocateDirect(BUFFER_LENGTH*4).asIntBuffer();
+        buf = ByteBuffer.allocateDirect(BUFFER_LENGTH*Integer.BYTES).asIntBuffer();
         loadTestData1(buf);
         baseBuf = buf;
     }
@@ -66,7 +65,7 @@ public class DirectIntBufferTest extends IntBufferTest {
 
         // Check if the NIOAccess method adds up the current position value.
         intBuffer.put(1);
-        assertEquals(intBufferBasePointer + SizeOf.INT, NIOAccess.getBasePointer(intBuffer));
+        assertEquals(intBufferBasePointer + Integer.BYTES, NIOAccess.getBasePointer(intBuffer));
     }
 
     public void testIsDirect() {

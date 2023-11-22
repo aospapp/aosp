@@ -31,15 +31,18 @@ namespace {
 
 void AddSymbolInfo(PerfprofdRecord* record,
                    ::quipper::PerfParser& perf_parser,
-                   ::perfprofd::Symbolizer* symbolizer) {
+                   ::perfprofd::Symbolizer* symbolizer,
+                   bool symbolize_everything) {
   std::unordered_set<std::string> filenames_w_build_id;
-  for (auto& perf_build_id : record->perf_data().build_ids()) {
-    filenames_w_build_id.insert(perf_build_id.filename());
+  if (!symbolize_everything) {
+    for (auto& perf_build_id : record->build_ids()) {
+      filenames_w_build_id.insert(perf_build_id.filename());
+    }
   }
 
   std::unordered_set<std::string> files_wo_build_id;
   {
-    quipper::MmapEventIterator it(record->perf_data());
+    quipper::MmapEventIterator it(*record);
     for (; it != it.end(); ++it) {
       const ::quipper::PerfDataProto_MMapEvent* mmap_event = &it->mmap_event();
       if (!mmap_event->has_filename() || !mmap_event->has_start() || !mmap_event->has_len()) {
@@ -63,8 +66,8 @@ void AddSymbolInfo(PerfprofdRecord* record,
   };
   std::unordered_map<std::string, Dso> files;
 
-  auto it = record->perf_data().events().begin();
-  auto end = record->perf_data().events().end();
+  auto it = record->events().begin();
+  auto end = record->events().end();
   auto parsed_it = perf_parser.parsed_events().begin();
   auto parsed_end = perf_parser.parsed_events().end();
   for (; it != end; ++it, ++parsed_it) {
@@ -132,6 +135,7 @@ void AddSymbolInfo(PerfprofdRecord* record,
 
   if (!files.empty()) {
     // We have extra symbol info, create proto messages now.
+    size_t symbol_info_index = 0;
     for (auto& file_data : files) {
       const std::string& filename = file_data.first;
       const Dso& dso = file_data.second;
@@ -139,17 +143,19 @@ void AddSymbolInfo(PerfprofdRecord* record,
         continue;
       }
 
-      PerfprofdRecord_SymbolInfo* symbol_info = record->add_symbol_info();
+      auto* symbol_info = record->AddExtension(::quipper::symbol_info);
       symbol_info->set_filename(filename);
       symbol_info->set_filename_md5_prefix(::quipper::Md5Prefix(filename));
       symbol_info->set_min_vaddr(dso.min_vaddr);
       for (auto& aggr_sym : dso.symbols) {
-        PerfprofdRecord_SymbolInfo_Symbol* symbol = symbol_info->add_symbols();
+        auto* symbol = symbol_info->add_symbols();
         symbol->set_addr(*aggr_sym.second.offsets.begin());
         symbol->set_size(*aggr_sym.second.offsets.rbegin() - *aggr_sym.second.offsets.begin() + 1);
         symbol->set_name(aggr_sym.second.symbol);
         symbol->set_name_md5_prefix(::quipper::Md5Prefix(aggr_sym.second.symbol));
       }
+
+      ++symbol_info_index;
     }
   }
 }
@@ -158,16 +164,15 @@ void AddSymbolInfo(PerfprofdRecord* record,
 
 PerfprofdRecord*
 RawPerfDataToAndroidPerfProfile(const string &perf_file,
-                                ::perfprofd::Symbolizer* symbolizer) {
+                                ::perfprofd::Symbolizer* symbolizer,
+                                 bool symbolize_everything) {
   std::unique_ptr<PerfprofdRecord> ret(new PerfprofdRecord());
-  ret->set_id(0);  // TODO.
+  ret->SetExtension(::quipper::id, 0);  // TODO.
 
   ::quipper::PerfParserOptions options = {};
   options.do_remap = true;
   options.discard_unused_events = true;
   options.read_missing_buildids = true;
-
-  ::quipper::PerfDataProto* perf_data = ret->mutable_perf_data();
 
   ::quipper::PerfReader reader;
   if (!reader.ReadFile(perf_file)) return nullptr;
@@ -175,14 +180,14 @@ RawPerfDataToAndroidPerfProfile(const string &perf_file,
   ::quipper::PerfParser parser(&reader, options);
   if (!parser.ParseRawEvents()) return nullptr;
 
-  if (!reader.Serialize(perf_data)) return nullptr;
+  if (!reader.Serialize(ret.get())) return nullptr;
 
   // Append parser stats to protobuf.
-  ::quipper::PerfSerializer::SerializeParserStats(parser.stats(), perf_data);
+  ::quipper::PerfSerializer::SerializeParserStats(parser.stats(), ret.get());
 
   // TODO: Symbolization.
   if (symbolizer != nullptr) {
-    AddSymbolInfo(ret.get(), parser, symbolizer);
+    AddSymbolInfo(ret.get(), parser, symbolizer, symbolize_everything);
   }
 
   return ret.release();

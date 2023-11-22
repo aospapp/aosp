@@ -2,8 +2,8 @@
 # Don't warn about those in case this app is linking against an older
 # platform version.  We know about them, and they are safe.
 
--dontwarn android.support.v4.**
--dontwarn android.support.v13.**
+-dontwarn androidx.core.**
+-dontwarn androidx.core.**
 -dontwarn com.android.ex.photo.**
 
 # keep names that are used by reflection, or from javascript
@@ -25,6 +25,6 @@
   *** setAnimatedHeightFraction(...);
 }
 
--keepclasseswithmembers class * extends com.android.mail.ui.ConversationSpecialItemView {
+-keepclasseswithmembers class * implements com.android.mail.ui.ConversationSpecialItemView {
   *** setAnimatedHeight(...);
 }

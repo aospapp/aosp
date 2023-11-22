@@ -89,12 +89,4 @@ public class TextResultReporter extends InvocationToJUnitResultForwarder
             LogFile logFile) {
         CLog.logAndDisplay(LogLevel.INFO, "Saved %s log to %s", dataName, logFile.getPath());
     }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void setLogSaver(ILogSaver logSaver) {
-        // Ignore
-    }
 }

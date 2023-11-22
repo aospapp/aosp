@@ -17,8 +17,10 @@ package android.graphics.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -30,17 +32,21 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
+import android.graphics.ColorSpace.Named;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Picture;
+import android.hardware.HardwareBuffer;
 import android.os.Debug;
 import android.os.Parcel;
 import android.os.StrictMode;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.DisplayMetrics;
 import android.view.Surface;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.ColorUtils;
 import com.android.compatibility.common.util.WidgetTestUtils;
@@ -50,10 +56,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -74,6 +83,22 @@ public class BitmapTest {
     private Resources mRes;
     private Bitmap mBitmap;
     private BitmapFactory.Options mOptions;
+
+    public static List<ColorSpace> getRgbColorSpaces() {
+        List<ColorSpace> rgbColorSpaces;
+        rgbColorSpaces = new ArrayList<ColorSpace>();
+        for (ColorSpace.Named e : ColorSpace.Named.values()) {
+            ColorSpace cs = ColorSpace.get(e);
+            if (cs.getModel() != ColorSpace.Model.RGB) {
+                continue;
+            }
+            if (((ColorSpace.Rgb) cs).getTransferParameters() == null) {
+                continue;
+            }
+            rgbColorSpaces.add(cs);
+        }
+        return rgbColorSpaces;
+    }
 
     @Before
     public void setup() {
@@ -207,11 +232,14 @@ public class BitmapTest {
     public void testCreateBitmap1() {
         int[] colors = createColors(100);
         Bitmap bitmap = Bitmap.createBitmap(colors, 10, 10, Config.RGB_565);
+        assertFalse(bitmap.isMutable());
         Bitmap ret = Bitmap.createBitmap(bitmap);
         assertNotNull(ret);
+        assertFalse(ret.isMutable());
         assertEquals(10, ret.getWidth());
         assertEquals(10, ret.getHeight());
         assertEquals(Config.RGB_565, ret.getConfig());
+        assertEquals(ANDROID_BITMAP_FORMAT_RGB_565, nGetFormat(ret));
     }
 
     @Test(expected=IllegalArgumentException.class)
@@ -223,8 +251,10 @@ public class BitmapTest {
     public void testCreateBitmap2() {
         // special case: output bitmap is equal to the input bitmap
         mBitmap = Bitmap.createBitmap(new int[100 * 100], 100, 100, Config.ARGB_8888);
+        assertFalse(mBitmap.isMutable()); // createBitmap w/ colors should be immutable
         Bitmap ret = Bitmap.createBitmap(mBitmap, 0, 0, 100, 100);
         assertNotNull(ret);
+        assertFalse(ret.isMutable()); // createBitmap from subset should be immutable
         assertTrue(mBitmap.equals(ret));
 
         //normal case
@@ -232,6 +262,7 @@ public class BitmapTest {
         ret = Bitmap.createBitmap(mBitmap, 10, 10, 50, 50);
         assertNotNull(ret);
         assertFalse(mBitmap.equals(ret));
+        assertEquals(ANDROID_BITMAP_FORMAT_RGBA_8888, nGetFormat(mBitmap));
     }
 
     @Test(expected=IllegalArgumentException.class)
@@ -277,19 +308,33 @@ public class BitmapTest {
         mBitmap = Bitmap.createBitmap(new int[100 * 100], 100, 100, Config.ARGB_8888);
         Bitmap ret = Bitmap.createBitmap(mBitmap, 0, 0, 100, 100, null, false);
         assertNotNull(ret);
+        assertFalse(ret.isMutable()); // subset should be immutable
         assertTrue(mBitmap.equals(ret));
 
         // normal case
         mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
         ret = Bitmap.createBitmap(mBitmap, 10, 10, 50, 50, new Matrix(), true);
+        assertTrue(ret.isMutable());
         assertNotNull(ret);
         assertFalse(mBitmap.equals(ret));
+    }
+
+    @Test
+    public void testCreateBitmapFromHardwareBitmap() {
+        Bitmap hardwareBitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot,
+                HARDWARE_OPTIONS);
+        assertEquals(Config.HARDWARE, hardwareBitmap.getConfig());
+
+        Bitmap ret = Bitmap.createBitmap(hardwareBitmap, 0, 0, 100, 100, null, false);
+        assertEquals(Config.HARDWARE, ret.getConfig());
+        assertFalse(ret.isMutable());
     }
 
     @Test
     public void testCreateBitmap4() {
         Bitmap ret = Bitmap.createBitmap(100, 200, Config.RGB_565);
         assertNotNull(ret);
+        assertTrue(ret.isMutable());
         assertEquals(100, ret.getWidth());
         assertEquals(200, ret.getHeight());
         assertEquals(Config.RGB_565, ret.getConfig());
@@ -306,6 +351,7 @@ public class BitmapTest {
     public void testCreateBitmap_matrix() {
         int[] colorArray = new int[] { Color.RED, Color.GREEN, Color.BLUE, Color.BLACK };
         Bitmap src = Bitmap.createBitmap(2, 2, Config.ARGB_8888);
+        assertTrue(src.isMutable());
         src.setPixels(colorArray,0, 2, 0, 0, 2, 2);
 
         // baseline
@@ -313,21 +359,25 @@ public class BitmapTest {
 
         // null
         Bitmap dst = Bitmap.createBitmap(src, 0, 0, 2, 2, null, false);
+        assertTrue(dst.isMutable());
         verify2x2BitmapContents(colorArray, dst);
 
         // identity matrix
         Matrix matrix = new Matrix();
         dst = Bitmap.createBitmap(src, 0, 0, 2, 2, matrix, false);
+        assertTrue(dst.isMutable());
         verify2x2BitmapContents(colorArray, dst);
 
         // big scale - only red visible
         matrix.setScale(10, 10);
         dst = Bitmap.createBitmap(src, 0, 0, 2, 2, matrix, false);
+        assertTrue(dst.isMutable());
         verify2x2BitmapContents(new int[] { Color.RED, Color.RED, Color.RED, Color.RED }, dst);
 
         // rotation
         matrix.setRotate(90);
         dst = Bitmap.createBitmap(src, 0, 0, 2, 2, matrix, false);
+        assertTrue(dst.isMutable());
         verify2x2BitmapContents(
                 new int[] { Color.BLUE, Color.RED, Color.BLACK, Color.GREEN }, dst);
     }
@@ -379,6 +429,7 @@ public class BitmapTest {
         // normal case
         Bitmap ret = Bitmap.createBitmap(colors, 5, 10, 10, 5, Config.RGB_565);
         assertNotNull(ret);
+        assertFalse(ret.isMutable());
         assertEquals(10, ret.getWidth());
         assertEquals(5, ret.getHeight());
         assertEquals(Config.RGB_565, ret.getConfig());
@@ -409,8 +460,26 @@ public class BitmapTest {
         assertEquals(metrics.densityDpi, bitmap.getDensity());
 
         int[] colors = createColors(100);
-        assertNotNull(Bitmap.createBitmap(metrics, colors, 0, 10, 10, 10, Config.ARGB_8888));
-        assertNotNull(Bitmap.createBitmap(metrics, colors, 10, 10, Config.ARGB_8888));
+        bitmap = Bitmap.createBitmap(metrics, colors, 0, 10, 10, 10, Config.ARGB_8888);
+        assertNotNull(bitmap);
+        assertFalse(bitmap.isMutable());
+
+        bitmap = Bitmap.createBitmap(metrics, colors, 10, 10, Config.ARGB_8888);
+        assertNotNull(bitmap);
+        assertFalse(bitmap.isMutable());
+    }
+
+    @Test
+    public void testCreateBitmap_noDisplayMetrics_mutable() {
+        Bitmap bitmap;
+        bitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        assertTrue(bitmap.isMutable());
+
+        bitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888, true);
+        assertTrue(bitmap.isMutable());
+
+        bitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888, true, ColorSpace.get(Named.SRGB));
+        assertTrue(bitmap.isMutable());
     }
 
     @Test
@@ -430,12 +499,77 @@ public class BitmapTest {
     }
 
     @Test
+    public void testCreateBitmap_noDisplayMetrics_immutable() {
+        int[] colors = createColors(100);
+        Bitmap bitmap;
+        bitmap = Bitmap.createBitmap(colors, 0, 10, 10, 10, Config.ARGB_8888);
+        assertFalse(bitmap.isMutable());
+
+        bitmap = Bitmap.createBitmap(colors, 10, 10, Config.ARGB_8888);
+        assertFalse(bitmap.isMutable());
+    }
+
+    @Test
+    public void testCreateBitmap_Picture_immutable() {
+        Picture picture = new Picture();
+        Canvas canvas = picture.beginRecording(200, 100);
+
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        p.setColor(0x88FF0000);
+        canvas.drawCircle(50, 50, 40, p);
+
+        p.setColor(Color.GREEN);
+        p.setTextSize(30);
+        canvas.drawText("Pictures", 60, 60, p);
+        picture.endRecording();
+
+        Bitmap bitmap;
+        bitmap = Bitmap.createBitmap(picture);
+        assertFalse(bitmap.isMutable());
+
+        bitmap = Bitmap.createBitmap(picture, 100, 100, Config.HARDWARE);
+        assertFalse(bitmap.isMutable());
+        assertNotNull(bitmap.getColorSpace());
+
+        bitmap = Bitmap.createBitmap(picture, 100, 100, Config.ARGB_8888);
+        assertFalse(bitmap.isMutable());
+    }
+
+    @Test
     public void testCreateScaledBitmap() {
         mBitmap = Bitmap.createBitmap(100, 200, Config.RGB_565);
+        assertTrue(mBitmap.isMutable());
         Bitmap ret = Bitmap.createScaledBitmap(mBitmap, 50, 100, false);
         assertNotNull(ret);
         assertEquals(50, ret.getWidth());
         assertEquals(100, ret.getHeight());
+        assertTrue(ret.isMutable());
+    }
+
+    @Test
+    public void testWrapHardwareBufferSucceeds() {
+        try (HardwareBuffer hwBuffer = createTestBuffer(128, 128, false)) {
+            Bitmap bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.SRGB));
+            assertNotNull(bitmap);
+            bitmap.recycle();
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testWrapHardwareBufferWithInvalidUsageFails() {
+        try (HardwareBuffer hwBuffer = HardwareBuffer.create(512, 512, HardwareBuffer.RGBA_8888, 1,
+            HardwareBuffer.USAGE_CPU_WRITE_RARELY)) {
+            Bitmap bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.SRGB));
+        }
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testWrapHardwareBufferWithRgbBufferButNonRgbColorSpaceFails() {
+        try (HardwareBuffer hwBuffer = HardwareBuffer.create(512, 512, HardwareBuffer.RGBA_8888, 1,
+            HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)) {
+            Bitmap bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.CIE_LAB));
+        }
     }
 
     @Test
@@ -471,12 +605,27 @@ public class BitmapTest {
         mBitmap.eraseColor(0);
     }
 
+    @Test(expected = IllegalStateException.class)
+    public void testEraseColorLongOnRecycled() {
+        mBitmap.recycle();
+
+        mBitmap.eraseColor(Color.pack(0));
+    }
+
     @Test(expected=IllegalStateException.class)
     public void testEraseColorOnImmutable() {
         mBitmap = BitmapFactory.decodeResource(mRes, R.drawable.start, mOptions);
 
         //abnormal case: bitmap is immutable
         mBitmap.eraseColor(0);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testEraseColorLongOnImmutable() {
+        mBitmap = BitmapFactory.decodeResource(mRes, R.drawable.start, mOptions);
+
+        //abnormal case: bitmap is immutable
+        mBitmap.eraseColor(Color.pack(0));
     }
 
     @Test
@@ -486,6 +635,198 @@ public class BitmapTest {
         mBitmap.eraseColor(0xffff0000);
         assertEquals(0xffff0000, mBitmap.getPixel(10, 10));
         assertEquals(0xffff0000, mBitmap.getPixel(50, 50));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetColorOOB() {
+        mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        mBitmap.getColor(-1, 0);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetColorOOB2() {
+        mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        mBitmap.getColor(5, -10);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetColorOOB3() {
+        mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        mBitmap.getColor(100, 10);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetColorOOB4() {
+        mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        mBitmap.getColor(99, 1000);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testGetColorRecycled() {
+        mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        mBitmap.recycle();
+        mBitmap.getColor(0, 0);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testGetColorHardware() {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inPreferredConfig = Bitmap.Config.HARDWARE;
+        mBitmap = BitmapFactory.decodeResource(mRes, R.drawable.start, options);
+        mBitmap.getColor(50, 50);
+
+    }
+
+    private static float clamp(float f) {
+        return clamp(f, 0.0f, 1.0f);
+    }
+
+    private static float clamp(float f, float min, float max) {
+        return Math.min(Math.max(f, min), max);
+    }
+
+    @Test
+    public void testGetColor() {
+        final ColorSpace sRGB = ColorSpace.get(ColorSpace.Named.SRGB);
+        List<ColorSpace> rgbColorSpaces = getRgbColorSpaces();
+        for (Config config : new Config[] { Config.ARGB_8888, Config.RGBA_F16, Config.RGB_565 }) {
+            for (ColorSpace bitmapColorSpace : rgbColorSpaces) {
+                mBitmap = Bitmap.createBitmap(1, 1, config, /*hasAlpha*/ false,
+                        bitmapColorSpace);
+                bitmapColorSpace = mBitmap.getColorSpace();
+                for (ColorSpace eraseColorSpace : rgbColorSpaces) {
+                    for (long wideGamutLong : new long[] {
+                            Color.pack(1.0f, 0.0f, 0.0f, 1.0f, eraseColorSpace),
+                            Color.pack(0.0f, 1.0f, 0.0f, 1.0f, eraseColorSpace),
+                            Color.pack(0.0f, 0.0f, 1.0f, 1.0f, eraseColorSpace)}) {
+                        mBitmap.eraseColor(wideGamutLong);
+
+                        Color result = mBitmap.getColor(0, 0);
+                        if (mBitmap.getColorSpace().equals(sRGB)) {
+                            assertEquals(mBitmap.getPixel(0, 0), result.toArgb());
+                        }
+                        if (eraseColorSpace.equals(bitmapColorSpace)) {
+                            final Color wideGamutColor = Color.valueOf(wideGamutLong);
+                            ColorUtils.verifyColor("Erasing to Bitmap's ColorSpace "
+                                    + bitmapColorSpace, wideGamutColor, result, .001f);
+
+                        } else {
+                            Color convertedColor = Color.valueOf(
+                                    Color.convert(wideGamutLong, bitmapColorSpace));
+                            if (mBitmap.getConfig() != Config.RGBA_F16) {
+                                // It's possible that we have to clip to fit into the Config.
+                                convertedColor = Color.valueOf(
+                                        clamp(convertedColor.red()),
+                                        clamp(convertedColor.green()),
+                                        clamp(convertedColor.blue()),
+                                        convertedColor.alpha(),
+                                        bitmapColorSpace);
+                            }
+                            ColorUtils.verifyColor("Bitmap(Config: " + mBitmap.getConfig()
+                                    + ", ColorSpace: " + bitmapColorSpace
+                                    + ") erasing to " + Color.valueOf(wideGamutLong),
+                                    convertedColor, result, .03f);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static class ARGB {
+        public float alpha;
+        public float red;
+        public float green;
+        public float blue;
+        ARGB(float alpha, float red, float green, float blue) {
+            this.alpha = alpha;
+            this.red = red;
+            this.green = green;
+            this.blue = blue;
+        }
+    };
+
+    @Test
+    public void testEraseColorLong() {
+        List<ColorSpace> rgbColorSpaces = getRgbColorSpaces();
+        for (Config config : new Config[]{Config.ARGB_8888, Config.RGB_565, Config.RGBA_F16}) {
+            mBitmap = Bitmap.createBitmap(100, 100, config);
+            // pack SRGB colors into ColorLongs.
+            for (int color : new int[]{ Color.RED, Color.BLUE, Color.GREEN, Color.BLACK,
+                    Color.WHITE, Color.TRANSPARENT }) {
+                if (config.equals(Config.RGB_565) && Float.compare(Color.alpha(color), 1.0f) != 0) {
+                    // 565 doesn't support alpha.
+                    continue;
+                }
+                mBitmap.eraseColor(Color.pack(color));
+                // The Bitmap is either SRGB or SRGBLinear (F16). getPixel(), which retrieves the
+                // color in SRGB, should match exactly.
+                ColorUtils.verifyColor("Config " + config + " mismatch at 10, 10 ",
+                        color, mBitmap.getPixel(10, 10), 0);
+                ColorUtils.verifyColor("Config " + config + " mismatch at 50, 50 ",
+                        color, mBitmap.getPixel(50, 50), 0);
+            }
+
+            // Use arbitrary colors in various ColorSpaces. getPixel() should approximately match
+            // the SRGB version of the color.
+            for (ARGB color : new ARGB[]{ new ARGB(1.0f, .5f, .5f, .5f),
+                                          new ARGB(1.0f, .3f, .6f, .9f),
+                                          new ARGB(0.5f, .2f, .8f, .7f) }) {
+                if (config.equals(Config.RGB_565) && Float.compare(color.alpha, 1.0f) != 0) {
+                    continue;
+                }
+                int srgbColor = Color.argb(color.alpha, color.red, color.green, color.blue);
+                for (ColorSpace cs : rgbColorSpaces) {
+                    long longColor = Color.convert(srgbColor, cs);
+                    mBitmap.eraseColor(longColor);
+                    // These tolerances were chosen by trial and error. It is expected that
+                    // some conversions do not round-trip perfectly.
+                    int tolerance = 1;
+                    if (config.equals(Config.RGB_565)) {
+                        tolerance = 4;
+                    } else if (cs.equals(ColorSpace.get(ColorSpace.Named.SMPTE_C))) {
+                        tolerance = 3;
+                    }
+
+                    ColorUtils.verifyColor("Config " + config + ", ColorSpace " + cs
+                            + ", mismatch at 10, 10 ", srgbColor, mBitmap.getPixel(10, 10),
+                            tolerance);
+                    ColorUtils.verifyColor("Config " + config + ", ColorSpace " + cs
+                            + ", mismatch at 50, 50 ", srgbColor, mBitmap.getPixel(50, 50),
+                            tolerance);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testEraseColorOnP3() {
+        // Use a ColorLong with a different ColorSpace than the Bitmap. getPixel() should
+        // approximately match the SRGB version of the color.
+        mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888, true,
+                ColorSpace.get(ColorSpace.Named.DISPLAY_P3));
+        int srgbColor = Color.argb(.5f, .3f, .6f, .7f);
+        long acesColor = Color.convert(srgbColor, ColorSpace.get(ColorSpace.Named.ACES));
+        mBitmap.eraseColor(acesColor);
+        ColorUtils.verifyColor("Mismatch at 15, 15", srgbColor, mBitmap.getPixel(15, 15), 1);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testEraseColorXYZ() {
+        mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        mBitmap.eraseColor(Color.convert(Color.BLUE, ColorSpace.get(ColorSpace.Named.CIE_XYZ)));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testEraseColorLAB() {
+        mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        mBitmap.eraseColor(Color.convert(Color.BLUE, ColorSpace.get(ColorSpace.Named.CIE_LAB)));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testEraseColorUnknown() {
+        mBitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        mBitmap.eraseColor(-1L);
     }
 
     @Test(expected=IllegalStateException.class)
@@ -684,9 +1025,7 @@ public class BitmapTest {
         mBitmap.reconfigure(1, 1, Bitmap.Config.ALPHA_8);
     }
 
-    // Used by testAlphaAndPremul. FIXME: Should we also test Index8? That would require decoding a
-    // Bitmap, since one cannot be created directly. It will also have a Config of null, since it
-    // has no Java equivalent.
+    // Used by testAlphaAndPremul.
     private static Config[] CONFIGS = new Config[] { Config.ALPHA_8, Config.ARGB_4444,
             Config.ARGB_8888, Config.RGB_565 };
 
@@ -779,6 +1118,122 @@ public class BitmapTest {
                 }
                 break;
         }
+    }
+
+    @Test
+    public void testSetColorSpace() {
+        // Use arbitrary colors and assign to various ColorSpaces.
+        for (ARGB color : new ARGB[]{ new ARGB(1.0f, .5f, .5f, .5f),
+                new ARGB(1.0f, .3f, .6f, .9f),
+                new ARGB(0.5f, .2f, .8f, .7f) }) {
+
+            int srgbColor = Color.argb(color.alpha, color.red, color.green, color.blue);
+            for (ColorSpace cs : getRgbColorSpaces()) {
+                for (Config config : new Config[] {
+                        // F16 is tested elsewhere, since it defaults to EXTENDED_SRGB, and
+                        // many of these calls to setColorSpace would reduce the range, resulting
+                        // in an Exception.
+                        Config.ARGB_8888,
+                        Config.RGB_565,
+                }) {
+                    mBitmap = Bitmap.createBitmap(10, 10, config);
+                    mBitmap.eraseColor(srgbColor);
+                    mBitmap.setColorSpace(cs);
+                    ColorSpace actual = mBitmap.getColorSpace();
+                    if (cs == ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB)) {
+                        assertSame(ColorSpace.get(ColorSpace.Named.SRGB), actual);
+                    } else if (cs == ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB)) {
+                        assertSame(ColorSpace.get(ColorSpace.Named.LINEAR_SRGB), actual);
+                    } else {
+                        assertSame(cs, actual);
+                    }
+
+                    // This tolerance was chosen by trial and error. It is expected that
+                    // some conversions do not round-trip perfectly.
+                    int tolerance = 2;
+                    Color c = Color.valueOf(color.red, color.green, color.blue, color.alpha, cs);
+                    ColorUtils.verifyColor("Mismatch after setting the colorSpace to "
+                            + cs.getName(), c.convert(mBitmap.getColorSpace()),
+                            mBitmap.getColor(5, 5), tolerance);
+                }
+            }
+        }
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testSetColorSpaceRecycled() {
+        mBitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        mBitmap.recycle();
+        mBitmap.setColorSpace(ColorSpace.get(Named.DISPLAY_P3));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetColorSpaceNull() {
+        mBitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        mBitmap.setColorSpace(null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetColorSpaceXYZ() {
+        mBitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        mBitmap.setColorSpace(ColorSpace.get(Named.CIE_XYZ));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetColorSpaceNoTransferParameters() {
+        mBitmap = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        ColorSpace cs = new ColorSpace.Rgb("NoTransferParams",
+                new float[]{ 0.640f, 0.330f, 0.300f, 0.600f, 0.150f, 0.060f },
+                ColorSpace.ILLUMINANT_D50,
+                x -> Math.pow(x, 1.0f / 2.2f), x -> Math.pow(x, 2.2f),
+                0, 1);
+        mBitmap.setColorSpace(cs);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testSetColorSpaceAlpha8() {
+        mBitmap = Bitmap.createBitmap(10, 10, Config.ALPHA_8);
+        assertNull(mBitmap.getColorSpace());
+        mBitmap.setColorSpace(ColorSpace.get(ColorSpace.Named.SRGB));
+    }
+
+    @Test
+    public void testSetColorSpaceReducedRange() {
+        ColorSpace aces = ColorSpace.get(Named.ACES);
+        mBitmap = Bitmap.createBitmap(10, 10, Config.RGBA_F16, true, aces);
+        try {
+            mBitmap.setColorSpace(ColorSpace.get(Named.SRGB));
+            fail("Expected IllegalArgumentException!");
+        } catch (IllegalArgumentException e) {
+            assertSame(aces, mBitmap.getColorSpace());
+        }
+    }
+
+    @Test
+    public void testSetColorSpaceNotReducedRange() {
+        ColorSpace extended = ColorSpace.get(Named.EXTENDED_SRGB);
+        mBitmap = Bitmap.createBitmap(10, 10, Config.RGBA_F16, true,
+                extended);
+        mBitmap.setColorSpace(ColorSpace.get(Named.SRGB));
+        assertSame(mBitmap.getColorSpace(), extended);
+    }
+
+    @Test
+    public void testSetColorSpaceNotReducedRangeLinear() {
+        ColorSpace linearExtended = ColorSpace.get(Named.LINEAR_EXTENDED_SRGB);
+        mBitmap = Bitmap.createBitmap(10, 10, Config.RGBA_F16, true,
+                linearExtended);
+        mBitmap.setColorSpace(ColorSpace.get(Named.LINEAR_SRGB));
+        assertSame(mBitmap.getColorSpace(), linearExtended);
+    }
+
+    @Test
+    public void testSetColorSpaceIncreasedRange() {
+        mBitmap = Bitmap.createBitmap(10, 10, Config.RGBA_F16, true,
+                ColorSpace.get(Named.DISPLAY_P3));
+        ColorSpace linearExtended = ColorSpace.get(Named.LINEAR_EXTENDED_SRGB);
+        mBitmap.setColorSpace(linearExtended);
+        assertSame(mBitmap.getColorSpace(), linearExtended);
     }
 
     @Test
@@ -1149,6 +1604,26 @@ public class BitmapTest {
     }
 
     @Test
+    public void testParcelF16ColorSpace() {
+        for (ColorSpace.Named e : new ColorSpace.Named[] {
+                ColorSpace.Named.EXTENDED_SRGB,
+                ColorSpace.Named.LINEAR_EXTENDED_SRGB,
+                ColorSpace.Named.PRO_PHOTO_RGB,
+                ColorSpace.Named.DISPLAY_P3
+        }) {
+            final ColorSpace cs = ColorSpace.get(e);
+            Bitmap b = Bitmap.createBitmap(10, 10, Config.RGBA_F16, true, cs);
+            assertSame(cs, b.getColorSpace());
+
+            Parcel p = Parcel.obtain();
+            b.writeToParcel(p, 0);
+            p.setDataPosition(0);
+            Bitmap unparceled = Bitmap.CREATOR.createFromParcel(p);
+            assertSame(cs, unparceled.getColorSpace());
+        }
+    }
+
+    @Test
     public void testGetScaledHeight1() {
         int dummyDensity = 5;
         Bitmap ret = Bitmap.createBitmap(100, 200, Config.RGB_565);
@@ -1297,6 +1772,30 @@ public class BitmapTest {
         assertFalse(bitmap1.sameAs(bitmap4));
     }
 
+    @Test
+    public void testSameAs_wrappedHardwareBuffer() {
+        try (HardwareBuffer hwBufferA = createTestBuffer(512, 512, true);
+             HardwareBuffer hwBufferB = createTestBuffer(512, 512, true);
+             HardwareBuffer hwBufferC = createTestBuffer(512, 512, true);) {
+            // Fill buffer C with generated data
+            nFillRgbaHwBuffer(hwBufferC);
+
+            // Create the test bitmaps
+            Bitmap bitmap1 = Bitmap.wrapHardwareBuffer(hwBufferA, ColorSpace.get(Named.SRGB));
+            Bitmap bitmap2 = Bitmap.wrapHardwareBuffer(hwBufferA, ColorSpace.get(Named.SRGB));
+            Bitmap bitmap3 = BitmapFactory.decodeResource(mRes, R.drawable.robot);
+            Bitmap bitmap4 = Bitmap.wrapHardwareBuffer(hwBufferB, ColorSpace.get(Named.SRGB));
+            Bitmap bitmap5 = Bitmap.wrapHardwareBuffer(hwBufferC, ColorSpace.get(Named.SRGB));
+
+            // Run the compare-a-thon
+            assertTrue(bitmap1.sameAs(bitmap2));  // SAME UNDERLYING BUFFER
+            assertTrue(bitmap2.sameAs(bitmap1));  // SAME UNDERLYING BUFFER
+            assertFalse(bitmap1.sameAs(bitmap3)); // HW vs. NON-HW
+            assertTrue(bitmap1.sameAs(bitmap4));  // DIFFERENT BUFFERS, SAME CONTENT
+            assertFalse(bitmap1.sameAs(bitmap5)); // DIFFERENT BUFFERS, DIFFERENT CONTENT
+        }
+    }
+
     @Test(expected=IllegalStateException.class)
     public void testHardwareGetPixel() {
         Bitmap bitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot, HARDWARE_OPTIONS);
@@ -1359,6 +1858,12 @@ public class BitmapTest {
     public void testHardwareEraseColor() {
         Bitmap bitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot, HARDWARE_OPTIONS);
         bitmap.eraseColor(0);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testHardwareEraseColorLong() {
+        Bitmap bitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot, HARDWARE_OPTIONS);
+        bitmap.eraseColor(Color.pack(0));
     }
 
     @Test(expected = IllegalStateException.class)
@@ -1457,7 +1962,18 @@ public class BitmapTest {
         nValidateNdkAccessAfterRecycle(bitmap);
     }
 
-    private void runGcAndFinalizersSync() {
+    @Test
+    public void bitmapIsMutable() {
+        Bitmap b = Bitmap.createBitmap(10, 10, Config.ARGB_8888);
+        assertTrue("CreateBitmap w/ params should be mutable", b.isMutable());
+        assertTrue("CreateBitmap from bitmap should be mutable",
+                Bitmap.createBitmap(b).isMutable());
+    }
+
+    private static void runGcAndFinalizersSync() {
+        Runtime.getRuntime().gc();
+        Runtime.getRuntime().runFinalization();
+
         final CountDownLatch fence = new CountDownLatch(1);
         new Object() {
             @Override
@@ -1477,44 +1993,69 @@ public class BitmapTest {
         } catch (InterruptedException ex) {
             throw new RuntimeException(ex);
         }
-        Runtime.getRuntime().gc();
     }
 
-    private void assertNotLeaking(int iteration, Debug.MemoryInfo start, Debug.MemoryInfo end) {
+    private static File sProcSelfFd = new File("/proc/self/fd");
+    private static int getFdCount() {
+        return sProcSelfFd.listFiles().length;
+    }
+
+    private static void assertNotLeaking(int iteration,
+            Debug.MemoryInfo start, Debug.MemoryInfo end) {
         Debug.getMemoryInfo(end);
+        assertNotEquals(0, start.getTotalPss());
+        assertNotEquals(0, end.getTotalPss());
         if (end.getTotalPss() - start.getTotalPss() > 2000 /* kB */) {
             runGcAndFinalizersSync();
             Debug.getMemoryInfo(end);
-            if (end.getTotalPss() - start.getTotalPss() > 2000 /* kB */) {
+            if (end.getTotalPss() - start.getTotalPss() > 4000 /* kB */) {
                 // Guarded by if so we don't continually generate garbage for the
                 // assertion string.
                 assertEquals("Memory leaked, iteration=" + iteration,
                         start.getTotalPss(), end.getTotalPss(),
-                        2000 /* kb */);
+                        4000 /* kb */);
             }
+        }
+    }
+
+    private static void runNotLeakingTest(Runnable test) {
+        Debug.MemoryInfo meminfoStart = new Debug.MemoryInfo();
+        Debug.MemoryInfo meminfoEnd = new Debug.MemoryInfo();
+        int fdCount = -1;
+        for (int i = 0; i < 2000; i++) {
+            if (i == 4) {
+                // Not really the "start" but by having done a couple
+                // we've fully initialized any state that may be required,
+                // so memory usage should be stable now
+                runGcAndFinalizersSync();
+                Debug.getMemoryInfo(meminfoStart);
+                fdCount = getFdCount();
+            }
+            if (i % 100 == 5) {
+                assertNotLeaking(i, meminfoStart, meminfoEnd);
+                final int curFdCount = getFdCount();
+                if (curFdCount - fdCount > 10) {
+                    fail(String.format("FDs leaked. Expected=%d, current=%d, iteration=%d",
+                            fdCount, curFdCount, i));
+                }
+            }
+            test.run();
+        }
+        assertNotLeaking(2000, meminfoStart, meminfoEnd);
+        final int curFdCount = getFdCount();
+        if (curFdCount - fdCount > 10) {
+            fail(String.format("FDs leaked. Expected=%d, current=%d", fdCount, curFdCount));
         }
     }
 
     @Test
     @LargeTest
     public void testHardwareBitmapNotLeaking() {
-        Debug.MemoryInfo meminfoStart = new Debug.MemoryInfo();
-        Debug.MemoryInfo meminfoEnd = new Debug.MemoryInfo();
         BitmapFactory.Options opts = new BitmapFactory.Options();
         opts.inPreferredConfig = Config.HARDWARE;
         opts.inScaled = false;
 
-        for (int i = 0; i < 2000; i++) {
-            if (i == 2) {
-                // Not really the "start" but by having done a couple
-                // we've fully initialized any state that may be required,
-                // so memory usage should be stable now
-                runGcAndFinalizersSync();
-                Debug.getMemoryInfo(meminfoStart);
-            }
-            if (i % 100 == 5) {
-                assertNotLeaking(i, meminfoStart, meminfoEnd);
-            }
+        runNotLeakingTest(() -> {
             Bitmap bitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot, opts);
             assertNotNull(bitmap);
             // Make sure nothing messed with the bitmap
@@ -1522,16 +2063,29 @@ public class BitmapTest {
             assertEquals(128, bitmap.getHeight());
             assertEquals(Config.HARDWARE, bitmap.getConfig());
             bitmap.recycle();
-        }
+        });
+    }
 
-        assertNotLeaking(2000, meminfoStart, meminfoEnd);
+    @Test
+    @LargeTest
+    public void testWrappedHardwareBufferBitmapNotLeaking() {
+        final ColorSpace colorSpace = ColorSpace.get(Named.SRGB);
+        try (HardwareBuffer hwBuffer = createTestBuffer(1024, 512, false)) {
+            runNotLeakingTest(() -> {
+                Bitmap bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, colorSpace);
+                assertNotNull(bitmap);
+                // Make sure nothing messed with the bitmap
+                assertEquals(1024, bitmap.getWidth());
+                assertEquals(512, bitmap.getHeight());
+                assertEquals(Config.HARDWARE, bitmap.getConfig());
+                bitmap.recycle();
+            });
+        }
     }
 
     @Test
     @LargeTest
     public void testDrawingHardwareBitmapNotLeaking() {
-        Debug.MemoryInfo meminfoStart = new Debug.MemoryInfo();
-        Debug.MemoryInfo meminfoEnd = new Debug.MemoryInfo();
         BitmapFactory.Options opts = new BitmapFactory.Options();
         opts.inPreferredConfig = Config.HARDWARE;
         opts.inScaled = false;
@@ -1539,17 +2093,7 @@ public class BitmapTest {
         renderTarget.setDefaultSize(128, 128);
         final Surface surface = renderTarget.getSurface();
 
-        for (int i = 0; i < 2000; i++) {
-            if (i == 2) {
-                // Not really the "start" but by having done a couple
-                // we've fully initialized any state that may be required,
-                // so memory usage should be stable now
-                runGcAndFinalizersSync();
-                Debug.getMemoryInfo(meminfoStart);
-            }
-            if (i % 100 == 5) {
-                assertNotLeaking(i, meminfoStart, meminfoEnd);
-            }
+        runNotLeakingTest(() -> {
             Bitmap bitmap = BitmapFactory.decodeResource(mRes, R.drawable.robot, opts);
             assertNotNull(bitmap);
             // Make sure nothing messed with the bitmap
@@ -1560,9 +2104,61 @@ public class BitmapTest {
             canvas.drawBitmap(bitmap, 0, 0, null);
             surface.unlockCanvasAndPost(canvas);
             bitmap.recycle();
+        });
+    }
+
+    @Test
+    public void testWrapHardwareBufferHoldsReference() {
+        Bitmap bitmap;
+        // Create hardware-buffer and wrap it in a Bitmap
+        try (HardwareBuffer hwBuffer = createTestBuffer(128, 128, false)) {
+            // Fill buffer with colors (x, y, 42, 255)
+            nFillRgbaHwBuffer(hwBuffer);
+            bitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.SRGB));
         }
 
-        assertNotLeaking(2000, meminfoStart, meminfoEnd);
+        // Buffer is closed at this point. Ensure bitmap still works by drawing it
+        assertEquals(128, bitmap.getWidth());
+        assertEquals(128, bitmap.getHeight());
+        assertEquals(Config.HARDWARE, bitmap.getConfig());
+
+        // Copy bitmap to target bitmap we can read from
+        Bitmap dstBitmap = bitmap.copy(Config.ARGB_8888, false);
+        bitmap.recycle();
+
+        // Ensure that the bitmap has valid contents
+        int pixel = dstBitmap.getPixel(0, 0);
+        assertEquals(255 << 24 | 42, pixel);
+        dstBitmap.recycle();
+    }
+
+    @Test
+    public void testWrapHardwareBufferPreservesColors() {
+        try (HardwareBuffer hwBuffer = createTestBuffer(128, 128, true)) {
+            // Fill buffer with colors (x, y, 42, 255)
+            nFillRgbaHwBuffer(hwBuffer);
+
+            // Create HW bitmap from this buffer
+            Bitmap srcBitmap = Bitmap.wrapHardwareBuffer(hwBuffer, ColorSpace.get(Named.SRGB));
+            assertNotNull(srcBitmap);
+
+            // Copy it to target non-HW bitmap
+            Bitmap dstBitmap = srcBitmap.copy(Config.ARGB_8888, false);
+            srcBitmap.recycle();
+
+            // Ensure all colors are as expected (matches the nFillRgbaHwBuffer call used above).
+            for (int y = 0; y < 128; ++y) {
+                for (int x = 0; x < 128; ++x) {
+                    int pixel = dstBitmap.getPixel(x, y);
+                    short a = 255;
+                    short r = (short) (x % 255);
+                    short g = (short) (y % 255);
+                    short b = 42;
+                    assertEquals(a << 24 | r << 16 | g << 8 | b, pixel);
+                }
+            }
+            dstBitmap.recycle();
+        }
     }
 
     private void strictModeTest(Runnable runnable) {
@@ -1582,6 +2178,23 @@ public class BitmapTest {
     private static native void nValidateBitmapInfo(Bitmap bitmap, int width, int height,
             boolean is565);
     private static native void nValidateNdkAccessAfterRecycle(Bitmap bitmap);
+
+    private static native void nFillRgbaHwBuffer(HardwareBuffer hwBuffer);
+
+    private static final int ANDROID_BITMAP_FORMAT_RGBA_8888 = 1;
+    private static final int ANDROID_BITMAP_FORMAT_RGB_565 = 4;
+    private static native int nGetFormat(Bitmap bitmap);
+
+    private static HardwareBuffer createTestBuffer(int width, int height, boolean cpuAccess) {
+        long usage = HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE;
+        if (cpuAccess) {
+            usage |= HardwareBuffer.USAGE_CPU_WRITE_RARELY;
+        }
+        // We can assume that RGBA_8888 format is supported for every platform.
+        HardwareBuffer hwBuffer = HardwareBuffer.create(width, height, HardwareBuffer.RGBA_8888,
+                1, usage);
+        return hwBuffer;
+    }
 
     private static int scaleFromDensity(int size, int sdensity, int tdensity) {
         if (sdensity == Bitmap.DENSITY_NONE || sdensity == tdensity) {

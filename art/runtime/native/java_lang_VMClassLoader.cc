@@ -16,10 +16,13 @@
 
 #include "java_lang_VMClassLoader.h"
 
+#include "base/zip_archive.h"
 #include "class_linker.h"
 #include "dex/descriptors_names.h"
 #include "dex/dex_file_loader.h"
-#include "jni_internal.h"
+#include "dex/utf.h"
+#include "handle_scope-inl.h"
+#include "jni/jni_internal.h"
 #include "mirror/class_loader.h"
 #include "mirror/object-inl.h"
 #include "native_util.h"
@@ -29,18 +32,17 @@
 #include "obj_ptr.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "well_known_classes.h"
-#include "zip_archive.h"
 
 namespace art {
 
 // A class so we can be friends with ClassLinker and access internal methods.
 class VMClassLoader {
  public:
-  static mirror::Class* LookupClass(ClassLinker* cl,
-                                    Thread* self,
-                                    const char* descriptor,
-                                    size_t hash,
-                                    ObjPtr<mirror::ClassLoader> class_loader)
+  static ObjPtr<mirror::Class> LookupClass(ClassLinker* cl,
+                                           Thread* self,
+                                           const char* descriptor,
+                                           size_t hash,
+                                           ObjPtr<mirror::ClassLoader> class_loader)
       REQUIRES(!Locks::classlinker_classes_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     return cl->LookupClass(self, descriptor, hash, class_loader);
@@ -55,7 +57,11 @@ class VMClassLoader {
       REQUIRES_SHARED(Locks::mutator_lock_) {
     ObjPtr<mirror::Class> result;
     if (cl->FindClassInBaseDexClassLoader(soa, self, descriptor, hash, class_loader, &result)) {
+      DCHECK(!self->IsExceptionPending());
       return result;
+    }
+    if (self->IsExceptionPending()) {
+      self->ClearException();
     }
     return nullptr;
   }
@@ -85,7 +91,7 @@ static jclass VMClassLoader_findLoadedClass(JNIEnv* env, jclass, jobject javaLoa
   }
   // If class is erroneous, throw the earlier failure, wrapped in certain cases. See b/28787733.
   if (c != nullptr && c->IsErroneous()) {
-    cl->ThrowEarlierClassFailure(c.Ptr());
+    cl->ThrowEarlierClassFailure(c);
     Thread* self = soa.Self();
     ObjPtr<mirror::Class> iae_class =
         self->DecodeJObject(WellKnownClasses::java_lang_IllegalAccessError)->AsClass();

@@ -93,40 +93,8 @@
     <item msgid="5660739516542454527">"Бөгелген"</item>
     <item msgid="1805837518286731242">"Нашар байланысты уақытша қолданбау"</item>
   </string-array>
-    <!-- no translation found for wifi_security:0 (8491993170197127709) -->
-    <!-- no translation found for wifi_security:1 (6524315248437318854) -->
-    <!-- no translation found for wifi_security:2 (1532568756571457140) -->
-    <!-- no translation found for wifi_security:3 (3620707702811709779) -->
-    <!-- no translation found for wifi_security_no_eap:0 (2084555984818107151) -->
-    <!-- no translation found for wifi_security_no_eap:1 (397579322683471524) -->
-    <!-- no translation found for wifi_security_no_eap:2 (1968820975358150484) -->
     <!-- no translation found for wifi_tether_security:0 (1748357338693290598) -->
     <!-- no translation found for wifi_tether_security:1 (4760482622566629462) -->
-  <string-array name="wifi_tether_security_values">
-    <item msgid="2252927183588236198">"4"</item>
-    <item msgid="5900372418924184351">"0"</item>
-  </string-array>
-  <string-array name="wifi_eap_method">
-    <item msgid="1160193392455075561">"PEAP"</item>
-    <item msgid="7981731051382306293">"TLS"</item>
-    <item msgid="2892994535305020162">"TTLS"</item>
-    <item msgid="435667726254379514">"PWD (басу жұмысының жолы)"</item>
-    <item msgid="8549485714107012129">"SIM"</item>
-    <item msgid="1023893786681286517">"AKA"</item>
-    <item msgid="3030483188676375009">"AKA\'"</item>
-  </string-array>
-  <string-array name="eap_method_without_sim_auth">
-    <item msgid="4047867891913819797">"PEAP"</item>
-    <item msgid="641030570679578504">"TLS"</item>
-    <item msgid="3079489731769553856">"TTLS"</item>
-    <item msgid="35269224158638258">"PWD"</item>
-  </string-array>
-    <!-- no translation found for wifi_ap_band_config_full:0 (1085243288162893079) -->
-    <!-- no translation found for wifi_ap_band_config_full:1 (5531376834915607202) -->
-    <!-- no translation found for wifi_ap_band_summary_full:0 (7176872102094020362) -->
-    <!-- no translation found for wifi_ap_band_summary_full:1 (311895158827229479) -->
-    <!-- no translation found for wifi_ap_band_config_2G_only:0 (7006771583217001015) -->
-    <!-- no translation found for wifi_ap_band_config_2G_only:1 (8904289885593822837) -->
   <string-array name="wifi_p2p_wps_setup">
     <item msgid="5085064298144493867">"Итеру түймесі"</item>
     <item msgid="1624323946324499595">"Басқа құрылғының PIN коды"</item>
@@ -287,8 +255,8 @@
     <item msgid="4547883971364273343">"аудио көздеу"</item>
     <item msgid="2603878814882344450">"негізгі дыбыс"</item>
     <item msgid="7136963238377062018">"дыбыс қаттылығы"</item>
-    <item msgid="4270236897655923007">"қоңырау шырылының қаттылығы"</item>
-    <item msgid="6325739889222559394">"медиа дыбысының қаттылығы"</item>
+    <item msgid="4270236897655923007">"қоңыраудың дыбыс деңгейі"</item>
+    <item msgid="6325739889222559394">"мультимeдиа дыбыс деңгейі"</item>
     <item msgid="5762123934816216821">"дабыл дыбысының қаттылығы"</item>
     <item msgid="785049718065337473">"хабар дыбысының қаттылығы"</item>
     <item msgid="6700305533746877052">"bluetooth дыбысының қаттылығы"</item>
@@ -354,8 +322,8 @@
     <item msgid="3265262911688671938">"Аудио көздеу"</item>
     <item msgid="2098976479485046797">"Негізгі дыбыс"</item>
     <item msgid="5660213838861789350">"Дыбыс қаттылығы"</item>
-    <item msgid="7983336752371254444">"Қоңырау шырылының қаттылығы"</item>
-    <item msgid="7878027809189330917">"Meдиа дыбысының қаттылығы"</item>
+    <item msgid="7983336752371254444">"Қоңыраудың дыбыс деңгейі"</item>
+    <item msgid="7878027809189330917">"Mультимeдиа дыбыс деңгейі"</item>
     <item msgid="7260546305036218513">"Дабыл дыбысының қаттылығы"</item>
     <item msgid="9103719301075748925">"Хабар дыбысының қаттылығы"</item>
     <item msgid="7025966722295861512">"Bluetooth дыбысының қаттылығы"</item>
@@ -438,6 +406,10 @@
     <item msgid="8064740940687465039">"IPSec ВЖЖ, сертификаттары және Xauth растамасы бар"</item>
     <item msgid="4946199982372391490">"IPSec ВЖЖ, сертификаттары және гибридті растамасы бар"</item>
   </string-array>
+  <string-array name="vpn_proxy_settings">
+    <item msgid="4474139132577932676">"Жоқ"</item>
+    <item msgid="2943781954264525815">"Қолмен басқарылады"</item>
+  </string-array>
   <string-array name="vpn_states">
     <item msgid="8621078286418985762">"Ажыратылған"</item>
     <item msgid="6692305604213080515">"Бастауда…"</item>
@@ -489,25 +461,80 @@
     <item msgid="6131821495505931173">"Қызыл"</item>
   </string-array>
   <string-array name="automatic_storage_management_days">
-    <item msgid="687318592238852312">"30 күн бұрынғы"</item>
-    <item msgid="2900554746706302178">"60 күн бұрынғы"</item>
-    <item msgid="5692284879054004388">"90 күн бұрынғы"</item>
+    <item msgid="687318592238852312">"30 күннен артық сақталған"</item>
+    <item msgid="2900554746706302178">"60 күннен артық сақталған"</item>
+    <item msgid="5692284879054004388">"90 күннен артық сақталған"</item>
+  </string-array>
+    <!-- no translation found for swipe_direction_titles:0 (58569659116542716) -->
+    <!-- no translation found for swipe_direction_titles:1 (1878704357761948043) -->
+  <string-array name="swipe_direction_values">
+    <item msgid="8800082277840833437">"1"</item>
+    <item msgid="7485508823396511299">"0"</item>
   </string-array>
   <string-array name="wifi_metered_entries">
     <item msgid="5200910605264415911">"Автоматты түрде анықтау"</item>
-    <item msgid="8745603368609022803">"Шектеулі"</item>
-    <item msgid="2266114985518865625">"Шектеусіз"</item>
+    <item msgid="8745603368609022803">"Трафик саналсын"</item>
+    <item msgid="2266114985518865625">"Трафик саналмасын"</item>
+  </string-array>
+  <string-array name="wifi_privacy_entries">
+    <item msgid="4393731261966785418">"Кездейсоқ MAC мекенжайын пайдалану (әдепкі)"</item>
+    <item msgid="3237870460973179943">"Құрылғының MAC мекенжайын пайдалану"</item>
   </string-array>
   <string-array name="wifi_hidden_entries">
     <item msgid="234221371123852300">"Жоқ"</item>
     <item msgid="3863157480502955888">"Иә"</item>
   </string-array>
   <string-array name="dark_ui_mode_entries">
-    <item msgid="146804192658443142">"Автоматты (тәулік уақыты негізінде)"</item>
-    <item msgid="6620560879508595181">"Үнемі қосулы"</item>
-    <item msgid="6385301106124765323">"Үнемі өшірулі"</item>
+    <item msgid="4047603501491142527">"Қараңғы"</item>
+    <item msgid="2291969684082074001">"Ашық"</item>
   </string-array>
-    <!-- no translation found for systemui_theme_entries:0 (2470122177508109711) -->
-    <!-- no translation found for systemui_theme_entries:1 (5595198131199979987) -->
-    <!-- no translation found for systemui_theme_entries:2 (883155044873038544) -->
+  <string-array name="autofill_logging_level_entries">
+    <item msgid="1036676483322832067">"Өшіру"</item>
+    <item msgid="2182686878828390312">"Жөндеу"</item>
+    <item msgid="5286514712714822064">"Толық ақпарат"</item>
+  </string-array>
+  <string-array name="cdma_system_select_choices">
+    <item msgid="8727887686723706826">"Тек үй желісі"</item>
+    <item msgid="5034813753274486448">"Автоматты"</item>
+  </string-array>
+  <string-array name="preferred_network_mode_choices">
+    <item msgid="4168919392737496563">"GSM/WCDMA (оңтайлы режим)"</item>
+    <item msgid="807926878589867564">"Тек GSM"</item>
+    <item msgid="488474605709912156">"Тек WCDMA"</item>
+    <item msgid="1912421096218750039">"GSM/WCDMA (aвтоматты)"</item>
+    <item msgid="5072198667819683600">"CDMA/EvDo (автоматты)"</item>
+    <item msgid="370391313511477301">"EvDo-сыз CDMA"</item>
+    <item msgid="4678789463133969294">"Тек EvDo"</item>
+    <item msgid="3960210542349075517">"CDMA/EvDo/GSM/WCDMA"</item>
+    <item msgid="2961817320209454599">"CDMA + LTE/EvDo"</item>
+    <item msgid="8008611169788556519">"GSM/WCDMA/LTE"</item>
+    <item msgid="4486851520863433847">"Бүкіл әлем"</item>
+    <item msgid="8516691658640163073">"LTE"</item>
+    <item msgid="3108828968591899719">"LTE/WCDMA"</item>
+    <item msgid="1879225673847443662">"Тек TDSCDMA"</item>
+    <item msgid="8373504428469988469">"TDSCDMA/WCDMA"</item>
+    <item msgid="8097271911945758303">"LTE/TDSCDMA"</item>
+    <item msgid="2272560096982726294">"TDSCDMA/GSM"</item>
+    <item msgid="131738018826229696">"LTE/TDSCDMA/GSM"</item>
+    <item msgid="629422387044789699">"TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="5686260911275077041">"LTE/TDSCDMA/WCDMA"</item>
+    <item msgid="4545655348143499596">"LTE/TDSCDMA/GSM/WCDMA"</item>
+    <item msgid="4107769721462339672">"TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+    <item msgid="8811683254058088466">"LTE/TDSCDMA/CDMA/EVDO/GSM/WCDMA"</item>
+  </string-array>
+  <string-array name="cdma_subscription_choices">
+    <item msgid="8753271080005095725">"RUIM/SIM картасы"</item>
+    <item msgid="2214656470548320124">"NV"</item>
+  </string-array>
+  <string-array name="preferred_network_mode_choices_world_mode">
+    <item msgid="1054992858056320116">"Бүкіл әлем"</item>
+    <item msgid="817971827645657949">"LTE/CDMA"</item>
+    <item msgid="519208953133334357">"LTE/GSM/UMTS"</item>
+  </string-array>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (7586074022364606422) -->
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:1 (5950846260630506903) -->
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:2 (2795368186689231672) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (3632552041956113517) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (8886675223048911179) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8669821968941658558) -->
 </resources>

@@ -18,35 +18,17 @@ package com.android.tv.settings.inputmethod;
 
 import android.app.Fragment;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 /**
  * Activity for android.settings.INPUT_METHOD_SUBTYPE_SETTINGS
  */
 public class InputMethodAndSubtypeEnablerActivity extends TvSettingsActivity {
+
     @Override
     protected Fragment createSettingsFragment() {
-        return SettingsFragment.newInstance();
-    }
-
-    /**
-     * UI chrome for TV settings
-     */
-    public static class SettingsFragment extends BaseSettingsFragment {
-
-        /**
-         * @return new instance of {@link SettingsFragment}
-         */
-        public static SettingsFragment newInstance() {
-            return new SettingsFragment();
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final InputMethodAndSubtypeEnablerFragment fragment =
-                    InputMethodAndSubtypeEnablerFragment.newInstance();
-            startPreferenceFragment(fragment);
-        }
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+            .newSettingsFragment(InputMethodAndSubtypeEnablerFragment.class.getName(), null);
     }
 }

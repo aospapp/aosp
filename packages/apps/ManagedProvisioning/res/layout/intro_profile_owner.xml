@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 -->
-<com.android.setupwizardlib.GlifLayout
+<com.google.android.setupdesign.GlifLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/setup_wizard_layout"
-    android:layout="@layout/suw_glif_blank_template"
+    android:layout="@layout/sud_glif_blank_template"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -39,4 +39,4 @@
             <include layout="@layout/intro_profile_owner_info_buttons"/>
         </LinearLayout>
     </ScrollView>
-</com.android.setupwizardlib.GlifLayout>
+</com.google.android.setupdesign.GlifLayout>

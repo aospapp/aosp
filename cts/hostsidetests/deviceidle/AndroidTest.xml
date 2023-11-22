@@ -16,6 +16,9 @@
 <configuration description="Config for the CTS Content host tests">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <!-- These are tests for the shell command to manage device idle whitelist. -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsDeviceIdleHostTestCases.jar" />
         <option name="runtime-hint" value="1m" />

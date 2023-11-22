@@ -21,11 +21,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import android.app.Instrumentation;
 import android.content.Intent;
 import android.graphics.Color;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
 import android.test.ActivityUnitTestCase;
 import android.view.ViewGroup;
 import android.webkit.WebView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.common.CustomizationVerifier;
 

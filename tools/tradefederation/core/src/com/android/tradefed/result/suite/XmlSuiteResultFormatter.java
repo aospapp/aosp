@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.result.suite;
 
+import com.android.annotations.VisibleForTesting;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
@@ -30,9 +31,12 @@ import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.suite.TestFailureListener;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.common.xml.XmlEscapers;
+import com.google.gson.Gson;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -50,6 +54,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -67,7 +73,7 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
     private static final String TYPE = "org.kxml2.io.KXmlParser,org.kxml2.io.KXmlSerializer";
     public static final String NS = null;
 
-    public static final String TEST_RESULT_FILE_NAME = "test_result_suite.xml";
+    public static final String TEST_RESULT_FILE_NAME = "test_result.xml";
 
     // XML constants
     private static final String ABI_ATTR = "abi";
@@ -87,6 +93,8 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
     private static final String LOGCAT_TAG = "Logcat";
 
     private static final String METRIC_TAG = "Metric";
+    private static final String METRIC_KEY = "key";
+
     private static final String MESSAGE_ATTR = "message";
     private static final String MODULE_TAG = "Module";
     private static final String MODULES_DONE_ATTR = "modules_done";
@@ -99,6 +107,9 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
 
     private static final String RESULT_ATTR = "result";
     private static final String RESULT_TAG = "Result";
+    private static final String RUN_HISTORY = "run_history";
+    private static final String RUN_HISTORY_TAG = "RunHistory";
+    private static final String RUN_TAG = "Run";
     private static final String RUNTIME_ATTR = "runtime";
     private static final String SCREENSHOT_TAG = "Screenshot";
     private static final String SKIPPED_ATTR = "skipped";
@@ -112,11 +123,16 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
 
     private static final String LOG_FILE_NAME_ATTR = "file_name";
 
+    /** Helper object for JSON conversion. */
+    public static final class RunHistory {
+        public long startTime;
+        public long endTime;
+    }
+
     /**
      * Allows to add some attributes to the <Result> tag via {@code serializer.attribute}.
      *
-     * @param serializer
-     * @throws IOException
+     * @param serializer The object that serializes an XML suite result.
      */
     public void addSuiteAttributes(XmlSerializer serializer)
             throws IllegalArgumentException, IllegalStateException, IOException {
@@ -128,7 +144,7 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
      *
      * @param parser The parser where to read the attributes from.
      * @param context The {@link IInvocationContext} where to put the attributes.
-     * @throws XmlPullParserException
+     * @throws XmlPullParserException When XmlPullParser fails.
      */
     public void parseSuiteAttributes(XmlPullParser parser, IInvocationContext context)
             throws XmlPullParserException {
@@ -138,11 +154,8 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
     /**
      * Allows to add some attributes to the <Build> tag via {@code serializer.attribute}.
      *
-     * @param serializer
-     * @param holder
-     * @throws IllegalArgumentException
-     * @throws IllegalStateException
-     * @throws IOException
+     * @param serializer The object that serializes an XML suite result.
+     * @param holder An object that contains information to be written to the suite result.
      */
     public void addBuildInfoAttributes(XmlSerializer serializer, SuiteResultHolder holder)
             throws IllegalArgumentException, IllegalStateException, IOException {
@@ -154,7 +167,7 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
      *
      * @param parser The parser where to read the attributes from.
      * @param context The {@link IInvocationContext} where to put the attributes.
-     * @throws XmlPullParserException
+     * @throws XmlPullParserException When XmlPullParser fails.
      */
     public void parseBuildInfoAttributes(XmlPullParser parser, IInvocationContext context)
             throws XmlPullParserException {
@@ -203,9 +216,11 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         if (serialsShards.isEmpty()) {
             deviceList = Joiner.on(",").join(holder.context.getSerials());
         } else {
+            List<String> subList = new ArrayList<>();
             for (List<String> list : serialsShards.values()) {
-                deviceList += Joiner.on(",").join(list);
+                subList.add(Joiner.on(",").join(list));
             }
+            deviceList = Joiner.on(",").join(subList);
         }
         serializer.attribute(NS, DEVICES_ATTR, deviceList);
 
@@ -231,6 +246,21 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         addBuildInfoAttributes(serializer, holder);
         serializer.endTag(NS, BUILD_TAG);
 
+        // Run History
+        String runHistoryJson = holder.context.getAttributes().getUniqueMap().get(RUN_HISTORY);
+        if (runHistoryJson != null) {
+            serializer.startTag(NS, RUN_HISTORY_TAG);
+            Gson gson = new Gson();
+            RunHistory[] runHistories = gson.fromJson(runHistoryJson, RunHistory[].class);
+            for (RunHistory runHistory : runHistories) {
+                serializer.startTag(NS, RUN_TAG);
+                serializer.attribute(NS, START_TIME_ATTR, String.valueOf(runHistory.startTime));
+                serializer.attribute(NS, END_TIME_ATTR, String.valueOf(runHistory.endTime));
+                serializer.endTag(NS, RUN_TAG);
+            }
+            serializer.endTag(NS, RUN_HISTORY_TAG);
+        }
+
         // Summary
         serializer.startTag(NS, SUMMARY_TAG);
         serializer.attribute(NS, PASS_ATTR, Long.toString(holder.passedTests));
@@ -239,8 +269,9 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         serializer.attribute(NS, MODULES_TOTAL_ATTR, Integer.toString(holder.totalModules));
         serializer.endTag(NS, SUMMARY_TAG);
 
+        List<TestRunResult> sortedModuleList = sortModules(holder.runResults, holder.modulesAbi);
         // Results
-        for (TestRunResult module : holder.runResults) {
+        for (TestRunResult module : sortedModuleList) {
             serializer.startTag(NS, MODULE_TAG);
             // To be compatible of CTS strip the abi from the module name when available.
             if (holder.modulesAbi.get(module.getName()) != null) {
@@ -252,7 +283,9 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
                 serializer.attribute(NS, NAME_ATTR, module.getName());
             }
             serializer.attribute(NS, RUNTIME_ATTR, String.valueOf(module.getElapsedTime()));
-            serializer.attribute(NS, DONE_ATTR, Boolean.toString(module.isRunComplete()));
+            boolean isDone = module.isRunComplete() && !module.isRunFailure();
+
+            serializer.attribute(NS, DONE_ATTR, Boolean.toString(isDone));
             serializer.attribute(
                     NS, PASS_ATTR, Integer.toString(module.getNumTestsInState(TestStatus.PASSED)));
             serializer.attribute(NS, TOTAL_TESTS_ATTR, Integer.toString(module.getNumTests()));
@@ -299,7 +332,8 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
                 for (Entry<String, String> metric :
                         individualResult.getValue().getMetrics().entrySet()) {
                     serializer.startTag(NS, METRIC_TAG);
-                    serializer.attribute(NS, metric.getKey(), metric.getValue());
+                    serializer.attribute(NS, METRIC_KEY, metric.getKey());
+                    serializer.text(sanitizeXmlContent(metric.getValue()));
                     serializer.endTag(NS, METRIC_TAG);
                 }
                 serializer.endTag(NS, TEST_TAG);
@@ -321,9 +355,10 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
             }
             serializer.startTag(NS, FAILURE_TAG);
 
-            serializer.attribute(NS, MESSAGE_ATTR, message);
+            serializer.attribute(NS, MESSAGE_ATTR, sanitizeXmlContent(message));
             serializer.startTag(NS, STACK_TAG);
-            serializer.text(fullStack);
+
+            serializer.text(sanitizeXmlContent(fullStack));
             serializer.endTag(NS, STACK_TAG);
 
             serializer.endTag(NS, FAILURE_TAG);
@@ -341,28 +376,32 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         for (String key : loggedFiles.keySet()) {
             switch (loggedFiles.get(key).getType()) {
                 case BUGREPORT:
-                    serializer.startTag(NS, BUGREPORT_TAG);
-                    serializer.attribute(NS, LOG_FILE_NAME_ATTR, key);
-                    serializer.text(loggedFiles.get(key).getUrl());
-                    serializer.endTag(NS, BUGREPORT_TAG);
+                    addLogIfNotNull(serializer, BUGREPORT_TAG, key, loggedFiles.get(key).getUrl());
                     break;
                 case LOGCAT:
-                    serializer.startTag(NS, LOGCAT_TAG);
-                    serializer.attribute(NS, LOG_FILE_NAME_ATTR, key);
-                    serializer.text(loggedFiles.get(key).getUrl());
-                    serializer.endTag(NS, LOGCAT_TAG);
+                    addLogIfNotNull(serializer, LOGCAT_TAG, key, loggedFiles.get(key).getUrl());
                     break;
                 case PNG:
                 case JPEG:
-                    serializer.startTag(NS, SCREENSHOT_TAG);
-                    serializer.attribute(NS, LOG_FILE_NAME_ATTR, key);
-                    serializer.text(loggedFiles.get(key).getUrl());
-                    serializer.endTag(NS, SCREENSHOT_TAG);
+                    addLogIfNotNull(serializer, SCREENSHOT_TAG, key, loggedFiles.get(key).getUrl());
                     break;
                 default:
                     break;
             }
         }
+    }
+
+    private static void addLogIfNotNull(
+            XmlSerializer serializer, String tag, String key, String text)
+            throws IllegalArgumentException, IllegalStateException, IOException {
+        if (text == null) {
+            CLog.d("Text for tag '%s' and key '%s' is null. skipping it.", tag, key);
+            return;
+        }
+        serializer.startTag(NS, tag);
+        serializer.attribute(NS, LOG_FILE_NAME_ATTR, key);
+        serializer.text(text);
+        serializer.endTag(NS, tag);
     }
 
     /**
@@ -389,12 +428,23 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         }
     }
 
+    private static TestStatus getStatusFromString(String status) {
+        switch (status) {
+            case "pass":
+                return TestStatus.PASSED;
+            case "fail":
+                return TestStatus.FAILURE;
+            default:
+                return TestStatus.valueOf(status);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
-    public SuiteResultHolder parseResults(File resultDir) throws IOException {
+    public SuiteResultHolder parseResults(File resultDir, boolean shallow) throws IOException {
         File resultFile = new File(resultDir, TEST_RESULT_FILE_NAME);
         if (!resultFile.exists()) {
-            CLog.d("Could not find %s for loading the results.", resultFile.getAbsolutePath());
+            CLog.e("Could not find %s for loading the results.", resultFile.getAbsolutePath());
             return null;
         }
         SuiteResultHolder invocation = new SuiteResultHolder();
@@ -424,7 +474,7 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
             parser.require(XmlPullParser.START_TAG, NS, BUILD_TAG);
 
             for (int index = 0; index < parser.getAttributeCount(); index++) {
-                String key = parser.getAttributeName(i);
+                String key = parser.getAttributeName(index);
                 String value = parser.getAttributeValue(NS, key);
                 // TODO: Handle list of values that are comma separated.
                 context.addInvocationAttribute(key, value);
@@ -435,6 +485,16 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
             parser.require(XmlPullParser.END_TAG, NS, BUILD_TAG);
 
             parser.nextTag();
+            boolean hasRunHistoryTag = true;
+            try {
+                parser.require(XmlPullParser.START_TAG, NS, RUN_HISTORY_TAG);
+            } catch (XmlPullParserException e) {
+                hasRunHistoryTag = false;
+            }
+            if (hasRunHistoryTag) {
+                handleRunHistoryLevel(parser);
+            }
+
             parser.require(XmlPullParser.START_TAG, NS, SUMMARY_TAG);
 
             invocation.completeModules =
@@ -447,13 +507,15 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
             parser.nextTag();
             parser.require(XmlPullParser.END_TAG, NS, SUMMARY_TAG);
 
-            Collection<TestRunResult> results = new ArrayList<>();
-            Map<String, IAbi> moduleAbis = new HashMap<>();
-            // Module level information parsing
-            handleModuleLevel(parser, results, moduleAbis);
-            parser.require(XmlPullParser.END_TAG, NS, RESULT_TAG);
-            invocation.runResults = results;
-            invocation.modulesAbi = moduleAbis;
+            if (!shallow) {
+                Collection<TestRunResult> results = new ArrayList<>();
+                Map<String, IAbi> moduleAbis = new HashMap<>();
+                // Module level information parsing
+                handleModuleLevel(parser, results, moduleAbis);
+                parser.require(XmlPullParser.END_TAG, NS, RESULT_TAG);
+                invocation.runResults = results;
+                invocation.modulesAbi = moduleAbis;
+            }
         } catch (XmlPullParserException e) {
             CLog.e(e);
             return null;
@@ -461,6 +523,52 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
 
         invocation.context = context;
         return invocation;
+    }
+
+    /** Sort the list of results based on their name without abi primarily then secondly on abi. */
+    @VisibleForTesting
+    List<TestRunResult> sortModules(
+            Collection<TestRunResult> results, Map<String, IAbi> moduleAbis) {
+        List<TestRunResult> sortedList = new ArrayList<>(results);
+        Collections.sort(
+                sortedList,
+                new Comparator<TestRunResult>() {
+                    @Override
+                    public int compare(TestRunResult o1, TestRunResult o2) {
+                        String module1NameStripped = o1.getName();
+                        String module1Abi = "";
+                        if (moduleAbis.get(module1NameStripped) != null) {
+                            module1Abi = moduleAbis.get(module1NameStripped).getName();
+                            module1NameStripped = module1NameStripped.replace(module1Abi + " ", "");
+                        }
+
+                        String module2NameStripped = o2.getName();
+                        String module2Abi = "";
+                        if (moduleAbis.get(module2NameStripped) != null) {
+                            module2Abi = moduleAbis.get(module2NameStripped).getName();
+                            module2NameStripped = module2NameStripped.replace(module2Abi + " ", "");
+                        }
+                        int res = module1NameStripped.compareTo(module2NameStripped);
+                        if (res != 0) {
+                            return res;
+                        }
+                        // Use the Abi as discriminant to always sort abi in the same order.
+                        return module1Abi.compareTo(module2Abi);
+                    }
+                });
+        return sortedList;
+    }
+
+    /** Handle the parsing and replay of all run history information. */
+    private void handleRunHistoryLevel(XmlPullParser parser)
+            throws IOException, XmlPullParserException {
+        while (parser.nextTag() == XmlPullParser.START_TAG) {
+            parser.require(XmlPullParser.START_TAG, NS, RUN_TAG);
+            parser.nextTag();
+            parser.require(XmlPullParser.END_TAG, NS, RUN_TAG);
+        }
+        parser.require(XmlPullParser.END_TAG, NS, RUN_HISTORY_TAG);
+        parser.nextTag();
     }
 
     /**
@@ -506,8 +614,13 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         while (parser.nextTag() == XmlPullParser.START_TAG) {
             parser.require(XmlPullParser.START_TAG, NS, TEST_TAG);
             String methodName = parser.getAttributeValue(NS, NAME_ATTR);
+            TestStatus status = getStatusFromString(parser.getAttributeValue(NS, RESULT_ATTR));
             TestDescription description = new TestDescription(className, methodName);
             currentModule.testStarted(description);
+            if (TestStatus.IGNORED.equals(status)) {
+                currentModule.testIgnored(description);
+            }
+            HashMap<String, Metric> metrics = new HashMap<String, Metric>();
             while (parser.nextTag() == XmlPullParser.START_TAG) { // Failure level
                 if (parser.getName().equals(FAILURE_TAG)) {
                     String failure = parser.getAttributeValue(NS, MESSAGE_ATTR);
@@ -515,14 +628,19 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
                         parser.require(XmlPullParser.START_TAG, NS, STACK_TAG);
                         failure = parser.nextText();
                         parser.require(XmlPullParser.END_TAG, NS, STACK_TAG);
-                        parser.nextTag();
                     }
-                    currentModule.testFailed(description, failure);
+                    if (TestStatus.FAILURE.equals(status)) {
+                        currentModule.testFailed(description, failure);
+                    } else if (TestStatus.ASSUMPTION_FAILURE.equals(status)) {
+                        currentModule.testAssumptionFailure(description, failure);
+                    }
+                    parser.nextTag();
                     parser.require(XmlPullParser.END_TAG, NS, FAILURE_TAG);
                 }
                 parseLoggedFiles(parser, currentModule);
+                metrics.putAll(parseMetrics(parser));
             }
-            currentModule.testEnded(description, new HashMap<String, Metric>());
+            currentModule.testEnded(description, metrics);
             parser.require(XmlPullParser.END_TAG, NS, TEST_TAG);
         }
     }
@@ -546,5 +664,24 @@ public class XmlSuiteResultFormatter implements IFormatterGenerator {
         String logFileUrl = parser.nextText();
         currentModule.testLogSaved(name, new LogFile(logFileUrl, logFileUrl, type));
         parser.require(XmlPullParser.END_TAG, NS, tagName);
+    }
+
+    private static HashMap<String, Metric> parseMetrics(XmlPullParser parser)
+            throws XmlPullParserException, IOException {
+        HashMap<String, Metric> metrics = new HashMap<>();
+        if (parser.getName().equals(METRIC_TAG)) {
+            parser.require(XmlPullParser.START_TAG, NS, METRIC_TAG);
+            for (int index = 0; index < parser.getAttributeCount(); index++) {
+                String key = parser.getAttributeValue(index);
+                String value = parser.nextText();
+                metrics.put(key, TfMetricProtoUtil.stringToMetric(value));
+            }
+            parser.require(XmlPullParser.END_TAG, NS, METRIC_TAG);
+        }
+        return metrics;
+    }
+
+    private static String sanitizeXmlContent(String s) {
+        return XmlEscapers.xmlContentEscaper().escape(s);
     }
 }

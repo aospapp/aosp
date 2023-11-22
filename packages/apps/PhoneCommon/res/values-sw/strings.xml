@@ -22,7 +22,7 @@
     <string name="description_delete_button" msgid="88733669653753441">"futa"</string>
     <string name="description_image_button_plus" msgid="7821061347207448362">"jumlisha"</string>
     <string name="description_voicemail_button" msgid="6281470684653439120">"ujumbe wa sauti"</string>
-    <string name="default_notification_description" msgid="6011631627871110785">"Sauti chaguo msingi (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
+    <string name="default_notification_description" msgid="6011631627871110785">"Sauti chaguomsingi (<xliff:g id="DEFAULT_SOUND_TITLE">%1$s</xliff:g>)"</string>
     <string name="callFailed_userBusy" msgid="5163219086553610486">"Simu inatumika"</string>
     <string name="callFailed_congestion" msgid="3645995103907418337">"Mtandao unatumika"</string>
     <string name="callFailed_timedOut" msgid="7772951976278867294">"Hakuna jibu, muda umekwisha"</string>

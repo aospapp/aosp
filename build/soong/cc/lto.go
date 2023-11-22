@@ -49,6 +49,9 @@ type LTOProperties struct {
 	// since it is an object dependency of an LTO module.
 	FullDep bool `blueprint:"mutated"`
 	ThinDep bool `blueprint:"mutated"`
+
+	// Use clang lld instead of gnu ld.
+	Use_clang_lld *bool
 }
 
 type lto struct {
@@ -69,24 +72,37 @@ func (lto *lto) deps(ctx BaseModuleContext, deps Deps) Deps {
 	return deps
 }
 
+func (lto *lto) useClangLld(ctx BaseModuleContext) bool {
+	if lto.Properties.Use_clang_lld != nil {
+		return Bool(lto.Properties.Use_clang_lld)
+	}
+	return true
+}
+
 func (lto *lto) flags(ctx BaseModuleContext, flags Flags) Flags {
 	if lto.LTO() {
 		var ltoFlag string
 		if Bool(lto.Properties.Lto.Thin) {
-			ltoFlag = "-flto=thin"
+			ltoFlag = "-flto=thin -fsplit-lto-unit"
 		} else {
 			ltoFlag = "-flto"
 		}
 
 		flags.CFlags = append(flags.CFlags, ltoFlag)
 		flags.LdFlags = append(flags.LdFlags, ltoFlag)
-		if ctx.Device() {
-			// Work around bug in Clang that doesn't pass correct emulated
-			// TLS option to target. See b/72706604 or
-			// https://github.com/android-ndk/ndk/issues/498.
-			flags.LdFlags = append(flags.LdFlags, "-Wl,-plugin-opt,-emulated-tls")
+
+		if ctx.Config().IsEnvTrue("USE_THINLTO_CACHE") && Bool(lto.Properties.Lto.Thin) && lto.useClangLld(ctx) {
+			// Set appropriate ThinLTO cache policy
+			cacheDirFormat := "-Wl,--thinlto-cache-dir="
+			cacheDir := android.PathForOutput(ctx, "thinlto-cache").String()
+			flags.LdFlags = append(flags.LdFlags, cacheDirFormat+cacheDir)
+
+			// Limit the size of the ThinLTO cache to the lesser of 10% of available
+			// disk space and 10GB.
+			cachePolicyFormat := "-Wl,--thinlto-cache-policy="
+			policy := "cache_size=10%:cache_size_bytes=10g"
+			flags.LdFlags = append(flags.LdFlags, cachePolicyFormat+policy)
 		}
-		flags.ArGoldPlugin = true
 
 		// If the module does not have a profile, be conservative and do not inline
 		// or unroll loops during LTO, in order to prevent significant size bloat.

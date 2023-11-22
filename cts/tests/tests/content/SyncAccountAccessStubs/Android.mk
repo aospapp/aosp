@@ -20,10 +20,13 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
 
+LOCAL_STATIC_JAVA_LIBRARIES := android-support-annotations
+
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsSyncAccountAccessStubs
-LOCAL_PRIVATE_PLATFORM_APIS := true
+
+LOCAL_SDK_VERSION := current
 
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 

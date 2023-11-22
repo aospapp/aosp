@@ -22,10 +22,11 @@ using chre::Seconds;
 using chre::Milliseconds;
 using chre::Microseconds;
 using chre::Nanoseconds;
+using chre::kOneSecondInMilliseconds;
 using chre::kOneSecondInNanoseconds;
+using chre::kOneMillisecondInMicroseconds;
 using chre::kOneMillisecondInNanoseconds;
 using chre::kOneMicrosecondInNanoseconds;
-using chre::kOneMillisecondInMicroseconds;
 
 // Tests for Time constants
 TEST(Time, CheckTimeConversionConstants) {
@@ -44,6 +45,16 @@ TEST(Time, ConvertSecToNanosec) {
 TEST(Time, ConvertSecToNanosecOverflowIsUint64Max) {
   Seconds t(UINT64_MAX / kOneSecondInNanoseconds + 1);
   EXPECT_EQ(t.toRawNanoseconds(), UINT64_MAX);
+}
+
+TEST(Time, ConvertSecToMillisec) {
+  Seconds t(5);
+  EXPECT_EQ(t.getMilliseconds(), 5 * kOneSecondInMilliseconds);
+}
+
+TEST(Time, ConvertSecToMillisecOverflowIsUint64Max) {
+  Seconds t(UINT64_MAX / kOneSecondInMilliseconds + 1);
+  EXPECT_EQ(t.getMilliseconds(), UINT64_MAX);
 }
 
 // Tests for Milliseconds
@@ -66,6 +77,11 @@ TEST(Time, InitializeMillisecFromNanosec) {
 TEST(Time, ConcertMillisecToMicrosec) {
   Milliseconds t(5);
   EXPECT_EQ(t.getMicroseconds(), 5 * kOneMillisecondInMicroseconds);
+}
+
+TEST(Time, ConvertMillisecToMicrosecOverflowIsUint64Max) {
+  Milliseconds t(UINT64_MAX / kOneMillisecondInMicroseconds + 1);
+  EXPECT_EQ(t.getMicroseconds(), UINT64_MAX);
 }
 
 TEST(Time, ConvertMillisecToNanosec) {

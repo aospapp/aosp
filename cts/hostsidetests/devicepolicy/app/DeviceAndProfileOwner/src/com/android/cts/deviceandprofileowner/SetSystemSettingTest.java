@@ -19,6 +19,7 @@ import android.app.admin.DevicePolicyManager;
 import android.os.UserHandle;
 import android.provider.Settings;
 
+import static android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC;
 /**
  * Test {@link DevicePolicyManager#setSystemSetting}.
  */
@@ -36,8 +37,23 @@ public class SetSystemSettingTest extends BaseDeviceAdminTest {
   }
 
   public void testSetBrightness() {
-    testSetBrightnessWithValue(TEST_BRIGHTNESS_1);
-    testSetBrightnessWithValue(TEST_BRIGHTNESS_2);
+    final int mode = Settings.System.getInt(mContext.getContentResolver(),
+        Settings.System.SCREEN_BRIGHTNESS_MODE, SCREEN_BRIGHTNESS_MODE_AUTOMATIC);
+    if(mode == SCREEN_BRIGHTNESS_MODE_AUTOMATIC) {
+
+        mDevicePolicyManager.setSystemSetting(ADMIN_RECEIVER_COMPONENT,
+          Settings.System.SCREEN_BRIGHTNESS_MODE, "0");
+
+        testSetBrightnessWithValue(TEST_BRIGHTNESS_1);
+        testSetBrightnessWithValue(TEST_BRIGHTNESS_2);
+        mDevicePolicyManager.setSystemSetting(ADMIN_RECEIVER_COMPONENT,
+            Settings.System.SCREEN_BRIGHTNESS_MODE,
+              mode == SCREEN_BRIGHTNESS_MODE_AUTOMATIC? "1" : "0");
+    }
+    else {
+       testSetBrightnessWithValue(TEST_BRIGHTNESS_1);
+       testSetBrightnessWithValue(TEST_BRIGHTNESS_2);
+    }
   }
 
   public void testSetSystemSettingsFailsForNonWhitelistedSettings() throws Exception {

@@ -16,7 +16,7 @@
 
 package com.android.documentsui.dirlist;
 
-import android.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.view.KeyEvent;
 import android.view.View;
 
@@ -62,7 +62,7 @@ public interface FocusHandler extends View.OnFocusChangeListener {
     /**
      * @return The adapter position of the last focused item.
      */
-    int getFocusPosition();
+    int getFocusedPosition();
 
     /**
      * @return True if there is currently an item in focus, false otherwise.

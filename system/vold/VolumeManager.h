@@ -17,8 +17,8 @@
 #ifndef ANDROID_VOLD_VOLUME_MANAGER_H
 #define ANDROID_VOLD_VOLUME_MANAGER_H
 
-#include <pthread.h>
 #include <fnmatch.h>
+#include <pthread.h>
 #include <stdlib.h>
 
 #include <list>
@@ -29,24 +29,22 @@
 
 #include <android-base/unique_fd.h>
 #include <cutils/multiuser.h>
+#include <sysutils/NetlinkEvent.h>
 #include <utils/List.h>
 #include <utils/Timers.h>
-#include <sysutils/NetlinkEvent.h>
 
 #include "android/os/IVoldListener.h"
 
 #include "model/Disk.h"
 #include "model/VolumeBase.h"
 
-#define DEBUG_APPFUSE 0
-
 class VolumeManager {
-private:
-    static VolumeManager *sInstance;
+  private:
+    static VolumeManager* sInstance;
 
-    bool                   mDebug;
+    bool mDebug;
 
-public:
+  public:
     virtual ~VolumeManager();
 
     // TODO: pipe all requests through VM to avoid exposing this lock
@@ -54,27 +52,26 @@ public:
     std::mutex& getCryptLock() { return mCryptLock; }
 
     void setListener(android::sp<android::os::IVoldListener> listener) { mListener = listener; }
-    android::sp<android::os::IVoldListener> getListener() { return mListener; }
+    android::sp<android::os::IVoldListener> getListener() const { return mListener; }
 
     int start();
     int stop();
 
-    void handleBlockEvent(NetlinkEvent *evt);
+    void handleBlockEvent(NetlinkEvent* evt);
 
     class DiskSource {
-    public:
-        DiskSource(const std::string& sysPattern, const std::string& nickname, int flags) :
-                mSysPattern(sysPattern), mNickname(nickname), mFlags(flags) {
-        }
+      public:
+        DiskSource(const std::string& sysPattern, const std::string& nickname, int flags)
+            : mSysPattern(sysPattern), mNickname(nickname), mFlags(flags) {}
 
         bool matches(const std::string& sysPath) {
             return !fnmatch(mSysPattern.c_str(), sysPath.c_str(), 0);
         }
 
-        const std::string& getNickname() { return mNickname; }
-        int getFlags() { return mFlags; }
+        const std::string& getNickname() const { return mNickname; }
+        int getFlags() const { return mFlags; }
 
-    private:
+      private:
         std::string mSysPattern;
         std::string mNickname;
         int mFlags;
@@ -85,7 +82,7 @@ public:
     std::shared_ptr<android::vold::Disk> findDisk(const std::string& id);
     std::shared_ptr<android::vold::VolumeBase> findVolume(const std::string& id);
 
-    void listVolumes(android::vold::VolumeBase::Type type, std::list<std::string>& list);
+    void listVolumes(android::vold::VolumeBase::Type type, std::list<std::string>& list) const;
 
     int forgetPartition(const std::string& partGuid, const std::string& fsUuid);
 
@@ -98,7 +95,7 @@ public:
 
     int setPrimary(const std::shared_ptr<android::vold::VolumeBase>& vol);
 
-    int remountUid(uid_t uid, const std::string& mode);
+    int remountUid(uid_t uid, int32_t remountMode);
 
     /* Reset all internal state, typically during framework boot */
     int reset();
@@ -110,7 +107,7 @@ public:
     int updateVirtualDisk();
     int setDebug(bool enable);
 
-    static VolumeManager *Instance();
+    static VolumeManager* Instance();
 
     /*
      * Ensure that all directories along given path exist, creating parent
@@ -122,13 +119,19 @@ public:
     int mkdirs(const std::string& path);
 
     int createObb(const std::string& path, const std::string& key, int32_t ownerGid,
-            std::string* outVolId);
+                  std::string* outVolId);
     int destroyObb(const std::string& volId);
 
-    int mountAppFuse(uid_t uid, pid_t pid, int mountId, android::base::unique_fd* device_fd);
-    int unmountAppFuse(uid_t uid, pid_t pid, int mountId);
+    int createStubVolume(const std::string& sourcePath, const std::string& mountPath,
+                         const std::string& fsType, const std::string& fsUuid,
+                         const std::string& fsLabel, std::string* outVolId);
+    int destroyStubVolume(const std::string& volId);
 
-private:
+    int mountAppFuse(uid_t uid, int mountId, android::base::unique_fd* device_fd);
+    int unmountAppFuse(uid_t uid, int mountId);
+    int openAppFuseFile(uid_t uid, int mountId, int fileId, int flags);
+
+  private:
     VolumeManager();
     void readInitialState();
 
@@ -147,6 +150,7 @@ private:
     std::list<std::shared_ptr<android::vold::Disk>> mDisks;
     std::list<std::shared_ptr<android::vold::Disk>> mPendingDisks;
     std::list<std::shared_ptr<android::vold::VolumeBase>> mObbVolumes;
+    std::list<std::shared_ptr<android::vold::VolumeBase>> mStubVolumes;
 
     std::unordered_map<userid_t, int> mAddedUsers;
     std::unordered_set<userid_t> mStartedUsers;
@@ -157,6 +161,7 @@ private:
     std::shared_ptr<android::vold::VolumeBase> mPrimary;
 
     int mNextObbId;
+    int mNextStubVolumeId;
     bool mSecureKeyguardShowing;
 };
 

@@ -26,9 +26,11 @@ import android.os.IBinder;
 import android.preference.Preference;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceFragment;
+import android.preference.SwitchPreference;
 import android.util.Log;
 
 import com.android.bips.BuiltInPrintService;
+import com.android.bips.P2pPermissionManager;
 import com.android.bips.R;
 import com.android.bips.discovery.DiscoveredPrinter;
 import com.android.bips.p2p.P2pUtils;
@@ -42,12 +44,18 @@ public class AddPrintersFragment extends PreferenceFragment implements ServiceCo
 
     private static final String KEY_ADD_BY_IP = "add_by_ip";
     private static final String KEY_FIND_WIFI_DIRECT = "find_wifi_direct";
+    private static final String KEY_WIFI_DIRECT_PRINTING = "wifi_direct_printing";
     private static final String KEY_SAVED_PRINTERS = "saved_printers";
+    public static final String EXTRA_FIX_P2P_PERMISSION = "fix_p2p_permission";
+
     private static final int ORDER_SAVED = 2;
 
     private PreferenceCategory mSavedPrintersCategory;
     private Preference mAddPrinterByIpPreference;
+    private Preference mFindP2pPrintersPreference;
+    private SwitchPreference mP2pEnablePreference;
     private BuiltInPrintService mPrintService;
+    private P2pPermissionManager mP2pPermissionManager;
 
     @Override
     public void onCreate(Bundle in) {
@@ -56,16 +64,17 @@ public class AddPrintersFragment extends PreferenceFragment implements ServiceCo
         addPreferencesFromResource(R.xml.add_printers_prefs);
         mAddPrinterByIpPreference = getPreferenceScreen().findPreference(KEY_ADD_BY_IP);
 
-        Preference findP2pPrintersPreference = getPreferenceScreen().findPreference(
+        mFindP2pPrintersPreference = getPreferenceScreen().findPreference(
                 KEY_FIND_WIFI_DIRECT);
-        findP2pPrintersPreference.setOnPreferenceClickListener(preference -> {
+        mFindP2pPrintersPreference.setOnPreferenceClickListener(preference -> {
             getFragmentManager().beginTransaction()
                     .replace(android.R.id.content, new FindP2pPrintersFragment())
                     .addToBackStack(null)
                     .commit();
             return true;
         });
-
+        mP2pEnablePreference = (SwitchPreference) getPreferenceScreen()
+                .findPreference(KEY_WIFI_DIRECT_PRINTING);
         mSavedPrintersCategory = (PreferenceCategory) getPreferenceScreen()
                 .findPreference(KEY_SAVED_PRINTERS);
     }
@@ -78,6 +87,37 @@ public class AddPrintersFragment extends PreferenceFragment implements ServiceCo
         getActivity().setTitle(R.string.title_activity_add_printer);
         getContext().bindService(new Intent(getContext(), BuiltInPrintService.class), this,
                 Context.BIND_AUTO_CREATE);
+
+        mP2pPermissionManager = new P2pPermissionManager(getActivity());
+        updateP2pPreferences();
+
+        if (getActivity().getIntent().getBooleanExtra(EXTRA_FIX_P2P_PERMISSION, false)) {
+            // Additional explanation is redundant, since the user saw it in notification.
+            mP2pPermissionManager.request(false, approve -> {
+                updateP2pPreferences();
+                if (!approve) {
+                    // The user is choosing to disable by denying Location.
+                    mP2pPermissionManager.setState(P2pPermissionManager.State.DISABLED);
+                }
+            });
+        }
+
+        mP2pEnablePreference.setOnPreferenceClickListener(preference -> {
+            if (mP2pEnablePreference.isChecked()) {
+                mP2pEnablePreference.setChecked(false);
+                if (mP2pPermissionManager.getState() == P2pPermissionManager.State.DISABLED) {
+                    // We're no longer disabled, just denied
+                    mP2pPermissionManager.setState(P2pPermissionManager.State.DENIED);
+                }
+                mP2pPermissionManager.reset();
+                mP2pPermissionManager.request(true, approve -> updateP2pPreferences());
+            } else {
+                // User disabled P2P
+                mP2pPermissionManager.setState(P2pPermissionManager.State.DISABLED);
+                updateP2pPreferences();
+            }
+            return true;
+        });
     }
 
     @Override
@@ -104,13 +144,31 @@ public class AddPrintersFragment extends PreferenceFragment implements ServiceCo
         updateSavedPrinters();
     }
 
+    private void updateP2pPreferences() {
+        // Only allow the user to find new P2P printers when enabled
+        if (mP2pPermissionManager.isP2pEnabled()) {
+            mP2pEnablePreference.setChecked(true);
+            getPreferenceScreen().addPreference(mFindP2pPrintersPreference);
+            if (getActivity().getIntent().getBooleanExtra(EXTRA_FIX_P2P_PERMISSION, false)) {
+                // If we were only here to enable P2P permissions, go back to the print now.
+                getActivity().finish();
+            }
+        } else {
+            mP2pEnablePreference.setChecked(false);
+            getPreferenceScreen().removePreference(mFindP2pPrintersPreference);
+        }
+
+        updateSavedPrinters();
+    }
+
     @Override
     public void onServiceDisconnected(ComponentName componentName) {
         mPrintService = null;
     }
 
     private void updateSavedPrinters() {
-        int savedCount = mPrintService.getDiscovery().getSavedPrinters().size();
+        int savedCount = mPrintService == null ? 0 : mPrintService.getDiscovery()
+                .getSavedPrinters().size();
 
         if (savedCount == 0) {
             if (getPreferenceScreen().findPreference(mSavedPrintersCategory.getKey()) != null) {
@@ -124,7 +182,12 @@ public class AddPrintersFragment extends PreferenceFragment implements ServiceCo
             mSavedPrintersCategory.removeAll();
 
             // With the service enumerate all saved printers
+            boolean p2pEnabled = mP2pPermissionManager.isP2pEnabled();
             for (DiscoveredPrinter printer : mPrintService.getDiscovery().getSavedPrinters()) {
+                // Don't show P2P printers while P2P is disabled.
+                if (P2pUtils.isP2p(printer) && !p2pEnabled) {
+                    continue;
+                }
                 if (DEBUG) Log.d(TAG, "Adding saved printer " + printer);
                 PrinterPreference pref = new PrinterPreference(getContext(), mPrintService,
                         printer, false);

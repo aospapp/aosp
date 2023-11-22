@@ -173,11 +173,11 @@ public class AuthenticationBoundKeyTestActivity extends DialogTestListActivity {
                 public void performTest(DialogTestListActivity activity) {
                     if (checkPreconditions()) {
                         createKey(FINGERPRINT);
-                        mFingerprintCipher = initFingerprintEncryptionCipher();
-                        if (tryEncryptWithFingerprintKey(mFingerprintCipher)) {
+                        if (tryEncryptWithFingerprintKey(initFingerprintEncryptionCipher())) {
                             showToast("Test failed. Key accessible without auth.");
                             setTestResult(mFingerprintBoundKeyTest, TestResult.TEST_RESULT_FAILED);
                         } else {
+                            mFingerprintCipher = initFingerprintEncryptionCipher();
                             FingerprintAuthDialogFragment fadf =
                                     new FingerprintAuthDialogFragment();
                             fadf.setActivity(that);

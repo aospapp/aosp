@@ -26,6 +26,7 @@ from vts.proto import ComponentSpecificationMessage_pb2 as CompSpecMsg
 from vts.utils.python.fuzzer import FuzzerUtils
 from vts.utils.python.mirror import mirror_object
 from vts.utils.python.mirror import py2pb
+from vts.utils.python.mirror import resource_mirror
 
 _DEFAULT_TARGET_BASE_PATHS = ["/system/lib64/hw"]
 _DEFAULT_HWBINDER_SERVICE = "default"
@@ -43,7 +44,7 @@ class VtsEnum(object):
     """Enum's host-side mirror instance."""
 
     def __init__(self, attribute):
-        logging.info(attribute)
+        logging.debug(attribute)
         for enumerator, scalar_value in zip(attribute.enum_value.enumerator,
                                             attribute.enum_value.scalar_value):
             setattr(self, enumerator,
@@ -114,15 +115,15 @@ class NativeEntityMirror(mirror_object.MirrorObject):
         if self._if_spec_msg.attribute:
             for attribute in self._if_spec_msg.attribute:
                 if (not attribute.is_const and
-                    (attribute.name == attribute_name or
-                     attribute.name.endswith("::" + attribute_name))):
+                    (attribute.name == attribute_name
+                     or attribute.name.endswith("::" + attribute_name))):
                     return attribute
-        if (self._if_spec_msg.interface and
-                self._if_spec_msg.interface.attribute):
+        if (self._if_spec_msg.interface
+                and self._if_spec_msg.interface.attribute):
             for attribute in self._if_spec_msg.interface.attribute:
                 if (not attribute.is_const and
-                    (attribute.name == attribute_name or
-                     attribute.name.endswith("::" + attribute_name))):
+                    (attribute.name == attribute_name
+                     or attribute.name.endswith("::" + attribute_name))):
                     return attribute
         return None
 
@@ -140,15 +141,15 @@ class NativeEntityMirror(mirror_object.MirrorObject):
                 for attribute in self._if_spec_msg.attribute:
                     if attribute.is_const and attribute.name == type_name:
                         return attribute
-                    elif (attribute.type == CompSpecMsg.TYPE_ENUM and
-                          attribute.name.endswith(type_name)):
+                    elif (attribute.type == CompSpecMsg.TYPE_ENUM
+                          and attribute.name.endswith(type_name)):
                         return attribute
             if self._if_spec_msg.interface and self._if_spec_msg.interface.attribute:
                 for attribute in self._if_spec_msg.interface.attribute:
                     if attribute.is_const and attribute.name == type_name:
                         return attribute
-                    elif (attribute.type == CompSpecMsg.TYPE_ENUM and
-                          attribute.name.endswith(type_name)):
+                    elif (attribute.type == CompSpecMsg.TYPE_ENUM
+                          and attribute.name.endswith(type_name)):
                         return attribute
             return None
         except AttributeError as e:
@@ -168,7 +169,12 @@ class NativeEntityMirror(mirror_object.MirrorObject):
         """
         attribute_spec = self.GetAttribute(attribute_name)
         if attribute_spec:
-            return py2pb.Convert(attribute_spec, py_values)
+            converted_attr = py2pb.Convert(attribute_spec, py_values)
+            if converted_attr is None:
+              raise MirrorObjectError(
+                  "Failed to convert attribute %s", attribute_spec)
+            return coverted_attr
+        logging.error("Can not find attribute: %s", attribute_name)
         return None
 
     # TODO: Guard against calls to this function after self.CleanUp is called.
@@ -187,21 +193,23 @@ class NativeEntityMirror(mirror_object.MirrorObject):
             if not func_msg:
                 raise MirrorObjectError("api %s unknown", func_msg)
 
-            logging.info("remote call %s%s", api_name, args)
+            logging.debug("remote call %s%s", api_name, args)
             if args:
                 for arg_msg, value_msg in zip(func_msg.arg, args):
                     logging.debug("arg msg %s", arg_msg)
                     logging.debug("value %s", value_msg)
                     if value_msg is not None:
                         converted_msg = py2pb.Convert(arg_msg, value_msg)
+                        if converted_msg is None:
+                          raise MirrorObjectError("Failed to convert arg %s", value_msg)
                         logging.debug("converted_message: %s", converted_msg)
                         arg_msg.CopyFrom(converted_msg)
             else:
                 # TODO: use kwargs
                 for arg in func_msg.arg:
                     # TODO: handle other
-                    if (arg.type == CompSpecMsg.TYPE_SCALAR and
-                            arg.scalar_type == "pointer"):
+                    if (arg.type == CompSpecMsg.TYPE_SCALAR
+                            and arg.scalar_type == "pointer"):
                         arg.scalar_value.pointer = 0
                 logging.debug(func_msg)
 
@@ -210,28 +218,89 @@ class NativeEntityMirror(mirror_object.MirrorObject):
                 call_msg.component_class = self._if_spec_msg.component_class
             call_msg.hal_driver_id = self._driver_id
             call_msg.api.CopyFrom(func_msg)
-            logging.info("final msg %s", call_msg)
-            result = self._client.CallApi(
+            logging.debug("final msg %s", call_msg)
+            results = self._client.CallApi(
                 text_format.MessageToString(call_msg), self._caller_uid)
-            logging.debug(result)
-            if (isinstance(result, tuple) and len(result) == 2 and
-                    isinstance(result[1], dict) and "coverage" in result[1]):
-                self._last_raw_code_coverage_data = result[1]["coverage"]
-                result = result[0]
+            if (isinstance(results, tuple) and len(results) == 2
+                    and isinstance(results[1], dict)
+                    and "coverage" in results[1]):
+                self._last_raw_code_coverage_data = results[1]["coverage"]
+                results = results[0]
 
-            if (result and isinstance(
-                    result, CompSpecMsg.VariableSpecificationMessage) and
-                    result.type == CompSpecMsg.TYPE_HIDL_INTERFACE):
-                if result.hidl_interface_id <= -1:
-                    return None
-                driver_id = result.hidl_interface_id
-                nested_interface_name = result.predefined_type.split("::")[-1]
-                logging.debug("Nested interface name: %s",
-                              nested_interface_name)
-                nested_interface = self.GetHalMirrorForInterface(
-                    nested_interface_name, driver_id)
-                return nested_interface
-            return result
+            if isinstance(results, list):  # Non-HIDL HAL does not return list.
+                # Translate TYPE_HIDL_INTERFACE to halMirror.
+                for i, _ in enumerate(results):
+                    result = results[i]
+                    if (not result or not isinstance(
+                            result, CompSpecMsg.VariableSpecificationMessage)):
+                        # no need to process the return values.
+                        continue
+
+                    if result.type == CompSpecMsg.TYPE_HIDL_INTERFACE:
+                        if result.hidl_interface_id <= -1:
+                            results[i] = None
+                        driver_id = result.hidl_interface_id
+                        nested_interface_name = \
+                            result.predefined_type.split("::")[-1]
+                        logging.debug("Nested interface name: %s",
+                                      nested_interface_name)
+                        nested_interface = self.GetHalMirrorForInterface(
+                            nested_interface_name, driver_id)
+                        results[i] = nested_interface
+                    elif (result.type == CompSpecMsg.TYPE_FMQ_SYNC
+                          or result.type == CompSpecMsg.TYPE_FMQ_UNSYNC):
+                        if (result.fmq_value[0].fmq_id == -1):
+                            logging.error("Invalid new queue_id.")
+                            results[i] = None
+                        else:
+                            # Retrieve type of data in this FMQ.
+                            data_type = None
+                            # For scalar, read scalar_type field.
+                            if result.fmq_value[0].type == \
+                                    CompSpecMsg.TYPE_SCALAR:
+                                data_type = result.fmq_value[0].scalar_type
+                            # For enum, struct, and union, read predefined_type
+                            # field.
+                            elif (result.fmq_value[0].type ==
+                                     CompSpecMsg.TYPE_ENUM or
+                                  result.fmq_value[0].type ==
+                                     CompSpecMsg.TYPE_STRUCT or
+                                  result.fmq_value[0].type ==
+                                     CompSpecMsg.TYPE_UNION):
+                                data_type = result.fmq_value[0].predefined_type
+
+                            # Encounter an unknown type in FMQ.
+                            if data_type == None:
+                                logging.error(
+                                    "Unknown type %d in the new FMQ.",
+                                    result.fmq_value[0].type)
+                                results[i] = None
+                                continue
+                            sync = result.type == CompSpecMsg.TYPE_FMQ_SYNC
+                            fmq_mirror = resource_mirror.ResourceFmqMirror(
+                                data_type, sync, self._client,
+                                result.fmq_value[0].fmq_id)
+                            results[i] = fmq_mirror
+                    elif result.type == CompSpecMsg.TYPE_HIDL_MEMORY:
+                        if result.hidl_memory_value.mem_id == -1:
+                            logging.error("Invalid new mem_id.")
+                            results[i] = None
+                        else:
+                            mem_mirror = resource_mirror.ResourceHidlMemoryMirror(
+                                self._client, result.hidl_memory_value.mem_id)
+                            results[i] = mem_mirror
+                    elif result.type == CompSpecMsg.TYPE_HANDLE:
+                        if result.handle_value.handle_id == -1:
+                            logging.error("Invalid new handle_id.")
+                            results[i] = None
+                        else:
+                            handle_mirror = resource_mirror.ResourceHidlHandleMirror(
+                                self._client, result.handle_value.handle_id)
+                            results[i] = handle_mirror
+                if len(results) == 1:
+                    # single return result, return the value directly.
+                    return results[0]
+            return results
 
         def MessageGenerator(*args, **kwargs):
             """Dynamically generates a custom message instance."""
@@ -263,14 +332,14 @@ class NativeEntityMirror(mirror_object.MirrorObject):
                             else:
                                 struct_value.scalar_value.int32_t ^= mask
                         else:
-                            raise MirrorObjectError("support %s" %
-                                                    struct_value.scalar_type)
+                            raise MirrorObjectError(
+                                "support %s" % struct_value.scalar_type)
                         break
                     count += 1
                 logging.debug("fuzzed %s", arg_msg)
             else:
-                raise MirrorObjectError("unsupported fuzz message type %s." %
-                                        arg_msg.type)
+                raise MirrorObjectError(
+                    "unsupported fuzz message type %s." % arg_msg.type)
             return arg_msg
 
         def ConstGenerator():

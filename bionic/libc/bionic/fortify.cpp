@@ -169,6 +169,12 @@ int __ppoll_chk(pollfd* fds, nfds_t fd_count, const timespec* timeout,
   return ppoll(fds, fd_count, timeout, mask);
 }
 
+int __ppoll64_chk(pollfd* fds, nfds_t fd_count, const timespec* timeout,
+                  const sigset64_t* mask, size_t fds_size) {
+  __check_pollfd_array("ppoll64", fds_size, fd_count);
+  return ppoll64(fds, fd_count, timeout, mask);
+}
+
 ssize_t __pread64_chk(int fd, void* buf, size_t count, off64_t offset, size_t buf_size) {
   __check_count("pread64", "count", count);
   __check_buffer_access("pread64", "write into", count, buf_size);
@@ -284,7 +290,7 @@ char* __strchr_chk(const char* p, int ch, size_t s_len) {
       return const_cast<char*>(p);
     }
     if (*p == '\0') {
-      return NULL;
+      return nullptr;
     }
   }
 }
@@ -381,7 +387,7 @@ char* __strncpy_chk2(char* dst, const char* src, size_t n, size_t dst_len, size_
 }
 
 char* __strrchr_chk(const char* p, int ch, size_t s_len) {
-  for (const char* save = NULL;; ++p, s_len--) {
+  for (const char* save = nullptr;; ++p, s_len--) {
     if (s_len == 0) {
       __fortify_fatal("strrchr: prevented read past end of buffer");
     }
@@ -448,9 +454,14 @@ ssize_t __write_chk(int fd, const void* buf, size_t count, size_t buf_size) {
   return write(fd, buf, count);
 }
 
-#if !defined(NO___STRCAT_CHK)
+#if defined(RENAME___STRCAT_CHK)
+#define __STRCAT_CHK __strcat_chk_generic
+#else
+#define __STRCAT_CHK __strcat_chk
+#endif // RENAME___STRCAT_CHK
+
 // Runtime implementation of __builtin____strcat_chk (used directly by compiler, not in headers).
-extern "C" char* __strcat_chk(char* dst, const char* src, size_t dst_buf_size) {
+extern "C" char* __STRCAT_CHK(char* dst, const char* src, size_t dst_buf_size) {
   char* save = dst;
   size_t dst_len = __strlen_chk(dst, dst_buf_size);
 
@@ -466,17 +477,20 @@ extern "C" char* __strcat_chk(char* dst, const char* src, size_t dst_buf_size) {
 
   return save;
 }
-#endif // NO___STRCAT_CHK
 
-#if !defined(NO___STRCPY_CHK)
+#if defined(RENAME___STRCPY_CHK)
+#define __STRCPY_CHK __strcpy_chk_generic
+#else
+#define __STRCPY_CHK __strcpy_chk
+#endif // RENAME___STRCPY_CHK
+
 // Runtime implementation of __builtin____strcpy_chk (used directly by compiler, not in headers).
-extern "C" char* __strcpy_chk(char* dst, const char* src, size_t dst_len) {
+extern "C" char* __STRCPY_CHK(char* dst, const char* src, size_t dst_len) {
   // TODO: optimize so we don't scan src twice.
   size_t src_len = strlen(src) + 1;
   __check_buffer_access("strcpy", "write into", src_len, dst_len);
   return strcpy(dst, src);
 }
-#endif // NO___STRCPY_CHK
 
 #if !defined(NO___MEMCPY_CHK)
 // Runtime implementation of __memcpy_chk (used directly by compiler, not in headers).

@@ -16,11 +16,11 @@
 
 package android.keystore.cts;
 
-import com.android.org.bouncycastle.asn1.x500.X500Name;
-import com.android.org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import com.android.org.bouncycastle.cert.X509CertificateHolder;
-import com.android.org.bouncycastle.cert.X509v3CertificateBuilder;
-import com.android.org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.security.KeyPair;

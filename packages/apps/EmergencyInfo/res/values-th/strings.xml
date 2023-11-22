@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"ข้อมูลสำหรับกรณีฉุกเฉิน"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"ข้อมูลทางการแพทย์"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"แก้ไขข้อมูล"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"เพิ่มข้อมูล"</string>
     <string name="edit_info" msgid="5973929805855224805">"แก้ไขข้อมูลสำหรับกรณีฉุกเฉิน"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"ข้อมูล"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"รายชื่อติดต่อ"</string>
@@ -71,7 +71,7 @@
     <string name="ab_positive" msgid="1931300033534642005">"A B บวก"</string>
     <string name="ab_negative" msgid="2064555613093591729">"A B ลบ"</string>
     <string name="h_h" msgid="2183333409760379720">"H H"</string>
-    <string name="allergies" msgid="2789200777539258165">"การแพ้"</string>
+    <string name="allergies" msgid="2789200777539258165">"ภูมิแพ้"</string>
     <string name="unknown_allergies" msgid="4383115953418061237">"ไม่ทราบ"</string>
     <string name="allergies_hint" msgid="5488918780522184147">"เช่น ถั่วลิสง"</string>
     <string name="medications" msgid="644428945685557183">"ยารักษาโรค"</string>
@@ -103,7 +103,11 @@
     <string name="clear_all" msgid="8899013032870561633">"ล้างทั้งหมด"</string>
     <string name="clear" msgid="3648880442502887163">"ล้าง"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"ล้างข้อมูลและรายชื่อติดต่อทั้งหมดไหม"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"การเพิ่มข้อมูลทางการแพทย์และรายชื่อติดต่อกรณีฉุกเฉินจะเป็นประโยชน์ต่อผู้ปฏิบัติการแพทย์ฉุกเฉินเบื้องต้นในกรณีฉุกเฉิน\n\nผู้อื่นสามารถอ่านข้อมูลนี้จากหน้าจอล็อกและโทรหารายชื่อติดต่อดังกล่าวด้วยการแตะที่ชื่ีอ โดยไม่ต้องปลดล็อกโทรศัพท์ของคุณ"</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"การเพิ่มข้อมูลทางการแพทย์และรายชื่อติดต่อกรณีฉุกเฉินจะเป็นประโยชน์ต่อผู้ปฏิบัติการฉุกเฉินเบื้องต้นในกรณีฉุกเฉิน\n\nผู้อื่นสามารถอ่านข้อมูลนี้จากหน้าจอล็อกและโทรหารายชื่อติดต่อดังกล่าวด้วยการแตะที่ชื่ีอ โดยไม่ต้องปลดล็อกโทรศัพท์ของคุณ"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"เพิ่มข้อมูลสำหรับกรณีฉุกเฉิน"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"ให้ผู้ช่วยเหลือเบื้องต้นเห็นข้อมูลของคุณ"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"ถ่ายรูป"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"เลือกรูปภาพ"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"เลือกรูปภาพ"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"ชื่อเล่น"</string>
 </resources>

@@ -17,14 +17,13 @@ package com.android.documentsui.dirlist;
 
 import android.view.KeyEvent;
 
-import com.android.documentsui.selection.ItemDetailsLookup;
-import com.android.documentsui.selection.ItemDetailsLookup.ItemDetails;
+import androidx.recyclerview.selection.ItemDetailsLookup.ItemDetails;
 
 /**
  * KeyboardListener is implemented by {@link KeyInputHandler}. The handler
  * must be called from RecyclerView.Holders in response to keyboard events.
  */
-public abstract class KeyboardEventListener {
+public abstract class KeyboardEventListener<T extends ItemDetails<?>> {
 
     /**
      * Handles key events on the view holder.
@@ -35,5 +34,5 @@ public abstract class KeyboardEventListener {
      *
      * @return Whether the event was handled.
      */
-    public abstract boolean onKey(ItemDetails details, int keyCode, KeyEvent event);
+    public abstract boolean onKey(T details, int keyCode, KeyEvent event);
 }

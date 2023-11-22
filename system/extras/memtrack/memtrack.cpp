@@ -68,7 +68,7 @@ bool FileData::isAvail(size_t bytes_needed) {
   while (cur_idx_ + bytes_needed >= len_) {
     bytes = read(fd_, data_ + len_, max_ - len_);
     if (bytes == 0 || bytes == -1) {
-      read_complete_; // unused read?
+      read_complete_ = true;
       break;
     }
     len_ += bytes;

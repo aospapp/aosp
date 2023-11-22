@@ -27,6 +27,7 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.util.Log;
 
+import android.externalservice.common.RunningServiceInfo;
 import android.externalservice.common.ServiceMessages;
 
 public class BaseService extends Service {
@@ -53,10 +54,15 @@ public class BaseService extends Service {
             Log.d(TAG, "Received message: " + msg);
             switch (msg.what) {
                 case ServiceMessages.MSG_IDENTIFY:
-                    Message reply = Message.obtain(null, ServiceMessages.MSG_IDENTIFY_RESPONSE,
-                            Process.myUid(), Process.myPid());
-                    reply.getData().putString(ServiceMessages.IDENTIFY_PACKAGE,
-                            mContext.getPackageName());
+                    Message reply = Message.obtain(null, ServiceMessages.MSG_IDENTIFY_RESPONSE);
+                    RunningServiceInfo serviceInfo = new RunningServiceInfo();
+                    serviceInfo.uid = Process.myUid();
+                    serviceInfo.pid = Process.myPid();
+                    serviceInfo.packageName = mContext.getPackageName();
+                    serviceInfo.zygotePid = ZygotePreload.getZygotePid();
+                    serviceInfo.zygotePackage = ZygotePreload.getZygotePackage();
+                    reply.getData().putParcelable(ServiceMessages.IDENTIFY_INFO,
+                            serviceInfo);
                     try {
                         msg.replyTo.send(reply);
                     } catch (RemoteException e) {

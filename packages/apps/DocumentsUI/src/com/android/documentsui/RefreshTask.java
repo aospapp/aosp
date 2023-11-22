@@ -18,13 +18,15 @@ package com.android.documentsui;
 
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
-import android.annotation.Nullable;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
 import android.os.CancellationSignal;
+import android.os.FileUtils;
 import android.util.Log;
+
+import androidx.annotation.Nullable;
 
 import com.android.documentsui.base.ApplicationScope;
 import com.android.documentsui.base.BooleanConsumer;
@@ -73,6 +75,11 @@ public class RefreshTask extends TimeoutTask<Void, Boolean> {
             return false;
         }
 
+        if (mDoc.derivedUri == null) {
+            Log.w(TAG, "Ignoring attempt to refresh due to null derived uri in DocumentInfo.");
+            return false;
+        }
+
         if (!mDoc.derivedUri.equals(mState.stack.peek().derivedUri)) {
             Log.w(TAG, "Ignoring attempt to refresh on a non-top-level uri.");
             return false;
@@ -97,7 +104,7 @@ public class RefreshTask extends TimeoutTask<Void, Boolean> {
         } catch (Exception e) {
             Log.w(TAG, "Failed to refresh", e);
         } finally {
-            ContentProviderClient.releaseQuietly(client);
+            FileUtils.closeQuietly(client);
         }
         return refreshSupported;
     }

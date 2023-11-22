@@ -45,6 +45,9 @@
 #define UFS_MAX_LUNS                12
 #define UFS_WLUN_PREFIX             0xC1
 
+#define UFS_VENDOR_SKHYNIX				0x1AD
+#define UFS_DEVICE_QUIRK_HOST_VS_DEBUGSAVECONFIGTIME	(1 << 0)
+
 typedef struct {
   UINT8    Lun[UFS_MAX_LUNS];
   UINT16   BitMask:12;              // Bit 0~7 is 1/1 mapping to common luns. Bit 8~11 is 1/1 mapping to well-known luns.

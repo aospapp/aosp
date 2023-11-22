@@ -16,6 +16,8 @@
 
 #include <gmock/gmock.h>
 
+#include <vintf/ObjectFactory.h>
+#include <vintf/PropertyFetcher.h>
 #include "utils.h"
 
 using ::testing::_;
@@ -27,66 +29,20 @@ namespace android {
 namespace vintf {
 namespace details {
 
-class MockFileFetcher : public FileFetcher {
+class MockFileSystem : public FileSystem {
    public:
-    MockFileFetcher() {
-        // By default call through to the original.
-        ON_CALL(*this, fetch(_, _)).WillByDefault(Invoke([this](const auto& path, auto& fetched) {
-            return real_.fetchInternal(path, fetched, nullptr);
-        }));
-        ON_CALL(*this, listFiles(_, _, _))
-            .WillByDefault(
-                Invoke([this](const std::string& path, std::vector<std::string>* out,
-                              std::string* error) { return real_.listFiles(path, out, error); }));
+    MockFileSystem() {}
+
+    MOCK_CONST_METHOD2(fetch, status_t(const std::string& path, std::string& fetched));
+    MOCK_CONST_METHOD3(listFiles,
+                       status_t(const std::string&, std::vector<std::string>*, std::string*));
+
+    status_t fetch(const std::string& path, std::string* fetched, std::string*) const override {
+        // Call the mocked function
+        return fetch(path, *fetched);
     }
-
-    MOCK_METHOD2(fetch, status_t(const std::string& path, std::string& fetched));
-    MOCK_METHOD3(listFiles, status_t(const std::string&, std::vector<std::string>*, std::string*));
-
-    status_t fetch(const std::string& path, std::string& fetched, std::string*) override final {
-        return fetch(path, fetched);
-    }
-
    private:
-    FileFetcher real_;
-};
-
-class MockPartitionMounter : public PartitionMounter {
-   public:
-    MockPartitionMounter() {
-        ON_CALL(*this, mountSystem()).WillByDefault(Invoke([&] {
-            systemMounted_ = true;
-            return OK;
-        }));
-        ON_CALL(*this, umountSystem()).WillByDefault(Invoke([&] {
-            systemMounted_ = false;
-            return OK;
-        }));
-        ON_CALL(*this, mountVendor()).WillByDefault(Invoke([&] {
-            vendorMounted_ = true;
-            return OK;
-        }));
-        ON_CALL(*this, umountVendor()).WillByDefault(Invoke([&] {
-            vendorMounted_ = false;
-            return OK;
-        }));
-    }
-    MOCK_CONST_METHOD0(mountSystem, status_t());
-    MOCK_CONST_METHOD0(umountSystem, status_t());
-    MOCK_CONST_METHOD0(mountVendor, status_t());
-    MOCK_CONST_METHOD0(umountVendor, status_t());
-
-    bool systemMounted() const { return systemMounted_; }
-    bool vendorMounted() const { return vendorMounted_; }
-
-    void reset() {
-        systemMounted_ = false;
-        vendorMounted_ = false;
-    }
-
-   private:
-    bool systemMounted_;
-    bool vendorMounted_;
+    FileSystemImpl mImpl;
 };
 
 class MockRuntimeInfo : public RuntimeInfo {
@@ -114,13 +70,11 @@ class MockRuntimeInfoFactory : public ObjectFactory<RuntimeInfo> {
 
 class MockPropertyFetcher : public PropertyFetcher {
    public:
-    MockPropertyFetcher();
+    MockPropertyFetcher() = default;
     MOCK_CONST_METHOD2(getProperty, std::string(const std::string&, const std::string&));
-
-   private:
-    PropertyFetcher real_;
+    MOCK_CONST_METHOD2(getBoolProperty, bool(const std::string&, bool));
+    MOCK_CONST_METHOD3(getUintProperty, uint64_t(const std::string&, uint64_t, uint64_t));
 };
-extern MockPropertyFetcher* gPropertyFetcher;
 
 }  // namespace details
 }  // namespace vintf

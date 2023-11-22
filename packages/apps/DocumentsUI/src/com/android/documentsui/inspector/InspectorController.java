@@ -15,9 +15,9 @@
  */
 package com.android.documentsui.inspector;
 
-import static com.android.internal.util.Preconditions.checkArgument;
+import static androidx.core.util.Preconditions.checkArgument;
 
-import android.annotation.StringRes;
+import androidx.annotation.StringRes;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -26,8 +26,8 @@ import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
-import android.support.annotation.Nullable;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import android.view.View;
 import android.view.View.OnClickListener;
 
@@ -59,7 +59,8 @@ public final class InspectorController {
     private final PackageManager mPackageManager;
     private final ProvidersAccess mProviders;
     private final Runnable mErrorSnackbar;
-    private Bundle mArgs;
+    private final String mTitle;
+    private final boolean mShowDebug;
 
     /**
      * InspectorControllerTest relies on this controller.
@@ -76,7 +77,8 @@ public final class InspectorController {
             ActionDisplay showProvider,
             ActionDisplay appDefaults,
             DebugDisplay debugView,
-            Bundle args,
+            String title,
+            boolean showDebug,
             Runnable errorRunnable) {
 
         checkArgument(context != null);
@@ -89,7 +91,6 @@ public final class InspectorController {
         checkArgument(showProvider != null);
         checkArgument(appDefaults != null);
         checkArgument(debugView != null);
-        checkArgument(args != null);
         checkArgument(errorRunnable != null);
 
         mContext = context;
@@ -101,7 +102,8 @@ public final class InspectorController {
         mMedia = media;
         mShowProvider = showProvider;
         mAppDefaults = appDefaults;
-        mArgs = args;
+        mTitle = title;
+        mShowDebug = showDebug;
         mDebugView = debugView;
 
         mErrorSnackbar = errorRunnable;
@@ -111,11 +113,12 @@ public final class InspectorController {
      * @param activity
      * @param loader
      * @param layout
-     * @param args Bundle of arguments passed to our host {@link InspectorFragment}. These
+     * @param args Bundle of arguments passed to our host {@link InspectorActivity}. These
      *     can include extras that enable debug mode ({@link Shared#EXTRA_SHOW_DEBUG}
      *     and override the file title (@link {@link Intent#EXTRA_TITLE}).
      */
-    public InspectorController(Activity activity, DataSupplier loader, View layout, Bundle args) {
+    public InspectorController(Activity activity, DataSupplier loader, View layout,
+            String title, boolean showDebug) {
         this(activity,
             loader,
             activity.getPackageManager(),
@@ -126,14 +129,15 @@ public final class InspectorController {
             (ActionDisplay) layout.findViewById(R.id.inspector_show_in_provider_view),
             (ActionDisplay) layout.findViewById(R.id.inspector_app_defaults_view),
             (DebugView) layout.findViewById(R.id.inspector_debug_view),
-            args,
+            title,
+            showDebug,
             () -> {
                 // using a runnable to support unit testing this feature.
                 Snackbars.showInspectorError(activity);
             }
         );
 
-        if (args.getBoolean(Shared.EXTRA_SHOW_DEBUG)) {
+        if (showDebug) {
             DebugView view = (DebugView) layout.findViewById(R.id.inspector_debug_view);
             view.init(ProviderExecutor::forAuthority);
         }
@@ -154,8 +158,8 @@ public final class InspectorController {
         if (docInfo == null) {
             mErrorSnackbar.run();
         } else {
-            mHeader.accept(docInfo, mArgs.getString(Intent.EXTRA_TITLE, docInfo.displayName));
-            mDetails.accept(docInfo);
+            mHeader.accept(docInfo);
+            mDetails.accept(docInfo, mTitle != null ? mTitle : docInfo.displayName);
 
             if (docInfo.isDirectory()) {
                 mLoader.loadDirCount(docInfo, this::displayChildCount);
@@ -176,13 +180,6 @@ public final class InspectorController {
                     new ClearDefaultAppAction(mContext, mPackageManager, docInfo);
 
                 mAppDefaults.setVisible(defaultAction.canPerformAction());
-                if (defaultAction.canPerformAction()) {
-                    mAppDefaults.init(
-                        defaultAction,
-                        (View) -> {
-                            clearDefaultApp(defaultAction.getPackageName());
-                        });
-                }
             }
 
             if (docInfo.isMetadataSupported()) {
@@ -194,11 +191,10 @@ public final class InspectorController {
             }
             mMedia.setVisible(!mMedia.isEmpty());
 
-            if (mArgs.getBoolean(Shared.EXTRA_SHOW_DEBUG)) {
+            if (mShowDebug) {
                 mDebugView.accept(docInfo);
             }
-            mDebugView.setVisible(mArgs.getBoolean(Shared.EXTRA_SHOW_DEBUG)
-                    && !mDebugView.isEmpty());
+            mDebugView.setVisible(mShowDebug && !mDebugView.isEmpty());
         }
     }
 
@@ -220,7 +216,7 @@ public final class InspectorController {
 
         mMedia.accept(doc, metadata, geoClickListener);
 
-        if (mArgs.getBoolean(Shared.EXTRA_SHOW_DEBUG)) {
+        if (mShowDebug) {
             mDebugView.accept(metadata);
         }
     }
@@ -271,20 +267,6 @@ public final class InspectorController {
         intent.addCategory(Intent.CATEGORY_DEFAULT);
         intent.setData(uri);
         mContext.startActivity(intent);
-    }
-
-    /**
-     * Clears the default app that's opens that file type.
-     *
-     * @param packageName of the preferred app.
-     */
-    public void clearDefaultApp(String packageName) {
-        assert packageName != null;
-        mPackageManager.clearPackagePreferredActivities(packageName);
-
-        mAppDefaults.setAppIcon(null);
-        mAppDefaults.setAppName(mContext.getString(R.string.handler_app_not_selected));
-        mAppDefaults.showAction(false);
     }
 
     /**
@@ -357,7 +339,7 @@ public final class InspectorController {
      * Provides details about a file.
      */
     public interface HeaderDisplay {
-        void accept(DocumentInfo info, String displayName);
+        void accept(DocumentInfo info);
     }
 
     /**
@@ -365,7 +347,7 @@ public final class InspectorController {
      */
     public interface DetailsDisplay {
 
-        void accept(DocumentInfo info);
+        void accept(DocumentInfo info, String displayName);
 
         void setChildrenCount(int count);
     }

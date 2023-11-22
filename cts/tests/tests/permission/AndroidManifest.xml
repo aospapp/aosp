@@ -32,6 +32,10 @@
                 android:permissionGroup="android.permission.cts.groupC"
                 android:description="@string/perm_c" />
 
+    <!-- for android.permission.cts.LocationAccessCheckTest -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
     <!-- for android.permission.cts.PermissionGroupChange -->
     <permission-group android:description="@string/perm_group_b"
                       android:label="@string/perm_group_b"
@@ -52,6 +56,14 @@
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
             </intent-filter>
         </activity>
+
+        <service android:name=".NotificationListener"
+                 android:exported="true"
+                 android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 
     <!--
@@ -64,7 +76,7 @@
         package. That runner cannot be added to this package either, since it
         relies on hidden APIs.
     -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.permission.cts"
                      android:label="CTS tests of android.permission">
         <meta-data android:name="listener"

@@ -36,7 +36,6 @@ public class PackageDownloadInfoTest extends AndroidTestCase {
     private static final byte[] TEST_PACKAGE_CHECKSUM = new byte[] { '1', '2', '3', '4', '5' };
     private static final byte[] TEST_SIGNATURE_CHECKSUM = new byte[] { '5', '4', '3', '2', '1' };
     private static final int TEST_MIN_SUPPORT_VERSION = 7689;
-    private static final boolean TEST_CHECKSUM_SUPPORT_SHA1 = true;
 
     @SmallTest
     public void testBuilderWriteAndReadBack() {

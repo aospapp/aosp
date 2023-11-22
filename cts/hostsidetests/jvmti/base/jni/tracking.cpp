@@ -21,6 +21,7 @@
 
 #include "android-base/logging.h"
 #include "android-base/stringprintf.h"
+#include "jni_binder.h"
 #include "jvmti_helper.h"
 #include "scoped_local_ref.h"
 #include "scoped_utf_chars.h"
@@ -85,12 +86,49 @@ jstring JNICALL Java_android_jvmti_cts_JvmtiTrackingTest_getAndResetAllocationTr
     std::unique_lock<std::mutex> mu(gLock);
     result.swap(gCollection);
   }
+  // Make sure we give any other threads that might have been waiting to get a last crack time to
+  // run. We will ignore their additions however.
+  bool is_empty = false;
+  do {
+    {
+      std::unique_lock<std::mutex> mu(gLock);
+      is_empty = gCollection.empty();
+      gCollection.clear();
+    }
+    sched_yield();
+  } while (!is_empty);
 
   if (result.empty()) {
     return nullptr;
   }
 
   return env->NewStringUTF(result.c_str());
+}
+
+static JNINativeMethod gMethods[] = {
+  { "setupObjectAllocCallback", "(Z)V",
+          (void*)Java_android_jvmti_cts_JvmtiTrackingTest_setupObjectAllocCallback },
+
+  { "enableAllocationTracking", "(Ljava/lang/Thread;Z)V",
+          (void*)Java_android_jvmti_cts_JvmtiTrackingTest_enableAllocationTracking },
+
+  { "getAndResetAllocationTrackingString", "()Ljava/lang/String;",
+          (void*)Java_android_jvmti_cts_JvmtiTrackingTest_getAndResetAllocationTrackingString },
+};
+
+void register_android_jvmti_cts_JvmtiTrackingTest(jvmtiEnv* jenv, JNIEnv* env) {
+  ScopedLocalRef<jclass> klass(env, GetClass(jenv, env,
+          "android/jvmti/cts/JvmtiTrackingTest", nullptr));
+  if (klass.get() == nullptr) {
+    env->ExceptionClear();
+    return;
+  }
+
+  env->RegisterNatives(klass.get(), gMethods, sizeof(gMethods) / sizeof(JNINativeMethod));
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+    LOG(ERROR) << "Could not register natives for JvmtiTrackingTest class";
+  }
 }
 
 }  // namespace art

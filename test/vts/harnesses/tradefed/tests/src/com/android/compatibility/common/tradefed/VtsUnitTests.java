@@ -15,8 +15,6 @@
  */
 package com.android.compatibility.common.tradefed;
 
-import com.android.compatibility.common.tradefed.testtype.CompatibilityTestMultiDeviceTest;
-import com.android.compatibility.common.tradefed.testtype.ModuleDefMultiDeviceTest;
 import com.android.compatibility.common.tradefed.util.VtsRetryFilterHelperTest;
 
 import org.junit.runner.RunWith;
@@ -31,8 +29,6 @@ import org.junit.runners.Suite.SuiteClasses;
 @SuiteClasses({
     // NOTE: please keep classes sorted lexicographically in each group
     // testtype
-    CompatibilityTestMultiDeviceTest.class,
-    ModuleDefMultiDeviceTest.class,
 
     // util
     VtsRetryFilterHelperTest.class,

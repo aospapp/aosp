@@ -23,7 +23,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.os.Looper;
 import com.android.settingslib.applications.ApplicationsState;
-import com.android.storagemanager.testing.TestingConstants;
 import com.android.storagemanager.deletionhelper.AppStateUsageStatsBridge.UsageStatsState;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +33,6 @@ import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowApplication;
 import org.robolectric.shadows.ShadowPackageManager;
 
@@ -43,8 +41,8 @@ import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -52,14 +50,13 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest=TestingConstants.MANIFEST, sdk=23)
 public class AppStateUsageStatsBridgeTest {
 
-    public static final String PACKAGE_SYSTEM = "package.system";
+    private static final String PACKAGE_SYSTEM = "package.system";
     private static final long STARTING_TIME = TimeUnit.DAYS.toMillis(1000);
     private static final String PACKAGE_NAME = "package.mcpackageface";
-    public static final String PACKAGE_CLEARABLE = "package.clearable";
-    public static final String PACKAGE_TOO_NEW_TO_DELETE = "package.tooNewToDelete";
+    private static final String PACKAGE_CLEARABLE = "package.clearable";
+    private static final String PACKAGE_TOO_NEW_TO_DELETE = "package.tooNewToDelete";
 
     @Mock private ApplicationsState mState;
     @Mock private ApplicationsState.Session mSession;
@@ -416,14 +413,5 @@ public class AppStateUsageStatsBridgeTest {
         when(usageStats.getPackageName()).thenReturn(packageName);
         when(usageStats.getLastTimeUsed()).thenReturn(time);
         mUsageStats.put(packageName, usageStats);
-    }
-
-    private class FakeClock extends AppStateUsageStatsBridge.Clock {
-        public long time;
-
-        @Override
-        public long getCurrentTime() {
-            return time;
-        }
     }
 }

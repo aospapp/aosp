@@ -22,13 +22,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
-import android.support.v7.preference.PreferenceManager;
+import androidx.preference.PreferenceManager;
 
-import com.android.storagemanager.testing.StorageManagerRobolectricTestRunner;
-import com.android.storagemanager.testing.TestingConstants;
 import com.android.storagemanager.utils.IconProvider;
 
 import org.junit.Before;
@@ -38,19 +35,17 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
 import java.io.File;
 
-@RunWith(StorageManagerRobolectricTestRunner.class)
-@Config(manifest = TestingConstants.MANIFEST, sdk = TestingConstants.SDK_VERSION)
+@RunWith(RobolectricTestRunner.class)
 public class DownloadsDeletionPreferenceGroupTest {
     @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     @Mock private IconProvider mIconProvider;
 
-    private Context mContext;
     private DownloadsDeletionPreferenceGroup mGroup;
     private DownloadsDeletionType mType;
     private File mTempDir;
@@ -58,12 +53,11 @@ public class DownloadsDeletionPreferenceGroupTest {
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
-        mContext = RuntimeEnvironment.application;
 
-        mGroup = spy(new DownloadsDeletionPreferenceGroup(mContext));
+        mGroup = spy(new DownloadsDeletionPreferenceGroup(RuntimeEnvironment.application));
         final PreferenceManager preferenceManager = mock(PreferenceManager.class);
         when(mGroup.getPreferenceManager()).thenReturn(preferenceManager);
-        mType = new DownloadsDeletionType(mContext, new String[0]);
+        mType = new DownloadsDeletionType(RuntimeEnvironment.application, new String[0]);
 
         mTempDir = temporaryFolder.newFolder();
 

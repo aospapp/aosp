@@ -47,13 +47,13 @@ DLL_EXPORT uint32_t chreTimerSet(uint64_t duration, const void *cookie,
                                  bool oneShot) {
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return EventLoopManagerSingleton::get()->getEventLoop().getTimerPool()
-      .setTimer(nanoapp, chre::Nanoseconds(duration), cookie, oneShot);
+      .setNanoappTimer(nanoapp, chre::Nanoseconds(duration), cookie, oneShot);
 }
 
 DLL_EXPORT bool chreTimerCancel(uint32_t timerId) {
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return EventLoopManagerSingleton::get()->getEventLoop().getTimerPool()
-      .cancelTimer(nanoapp, timerId);
+      .cancelNanoappTimer(nanoapp, timerId);
 }
 
 DLL_EXPORT void *chreHeapAlloc(uint32_t bytes) {

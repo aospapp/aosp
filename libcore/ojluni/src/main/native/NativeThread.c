@@ -48,6 +48,13 @@
   #include <signal.h>
   /* Also defined in net/bsd_close.c */
   #define INTERRUPT_SIGNAL SIGIO
+// BEGIN Android-added: Fuchsia: Support for Fuchsia platform.
+#elif __Fuchsia__
+  #include <pthread.h>
+  #include <signal.h>
+  /* Also defined in net/bsd_close.c */
+  #define INTERRUPT_SIGNAL SIGIO
+// END Android-added: Fuchsia: Support for Fuchsia platform.
 #else
   #error "missing platform-specific definition here"
 #endif

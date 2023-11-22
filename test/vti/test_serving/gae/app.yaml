@@ -5,7 +5,7 @@ threadsafe: true
 # [START env_vars]
 env_variables:
   ENDPOINTS_SERVICE_NAME: vtslab-schedule-prod.appspot.com
-  ENDPOINTS_SERVICE_VERSION: 2018-02-01r2
+  ENDPOINTS_SERVICE_VERSION: 2018-09-03r0
   SESSION_SECRET_KEY: ''
 # [END env_vars]
 
@@ -16,15 +16,16 @@ builtins:
 # [START handlers]
 handlers:
 # The endpoints handler must be mapped to /_ah/api.
-- url: /_ah/spi/.*
+- url: /_ah/api/.*
   script: webapp.src.endpoint_main.api
 
-- url: /favicon\.ico
-  static_files: favicon.ico
-  upload: favicon\.ico
+- url: /(.*\.(html|js|css|txt|ico))
+  static_files: webapp/static/\1
+  upload: webapp/static/(.*\.(html|js|css|txt|ico))
 
-- url: /bootstrap
-  static_dir: webapp/static/bootstrap
+- url: /((build|device|job|lab|schedule)([?&/].*)?)?
+  static_files: webapp/static/index.html
+  upload: webapp/static/index.html
 
 - url: /.*
   script: webapp.src.webapp_main.app
@@ -38,8 +39,8 @@ libraries:
   version: latest
 - name: pycrypto
   version: 2.6
-- name: endpoints
-  version: 1.0
+- name: ssl
+  version: 2.7.11
 # [END libraries]
 
 # [START exclude]
@@ -50,4 +51,7 @@ skip_files:
 - ^(.*/)?.*/RCS/.*$
 - ^(.*/)?\..*$
 - ^script/*$
+- testrunner.py
+- .*_test.py$
+- ^(.*/)?frontend/(.*)
 # [END exclude]

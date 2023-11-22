@@ -40,7 +40,7 @@ public class LightInvocationResultTest extends TestCase {
     }
 
     public void testLightInvocationResultInstatiate() throws Exception {
-        File resultDir = ResultHandlerTest.writeResultDir(resultsDir);
+        File resultDir = ResultHandlerTest.writeResultDir(resultsDir, false);
         IInvocationResult fullResult = ResultHandler.getResultFromDir(resultDir);
         LightInvocationResult lightResult = new LightInvocationResult(fullResult);
         // Ensure that light result implementation does not use a reference to the full result

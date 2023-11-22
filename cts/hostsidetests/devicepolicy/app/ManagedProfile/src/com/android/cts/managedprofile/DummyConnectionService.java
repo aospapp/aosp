@@ -126,7 +126,7 @@ public class DummyConnectionService extends ConnectionService {
     }
 
     /**
-     * Hang up the call after 1 second in a background thread.
+     * Hang up the call after 5 second in a background thread.
      * TODO: It is better if we could have a callback to know when we can disconnect the call.
      */
     private static void hangUpAsync(final Connection connection) {
@@ -135,7 +135,7 @@ public class DummyConnectionService extends ConnectionService {
             @Override
             public void run() {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(5000);
                     connection.setDisconnected(new DisconnectCause(cause));
                 } catch (InterruptedException ex) {
                     // let it be

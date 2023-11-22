@@ -19,31 +19,37 @@ record_types {
       kind: OffsetToTop
       mangled_component_name: ""
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: RTTI
       mangled_component_name: "_ZTI12SuperSpeaker"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: FunctionPointer
       mangled_component_name: "_ZN12SuperSpeaker5SpeakEv"
       component_value: 0
+      is_pure: true
     }
     vtable_components {
       kind: FunctionPointer
       mangled_component_name: "_ZN12SuperSpeaker6ListenEv"
       component_value: 0
+      is_pure: true
     }
     vtable_components {
       kind: CompleteDtorPointer
       mangled_component_name: "_ZN12SuperSpeakerD1Ev"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: DeletingDtorPointer
       mangled_component_name: "_ZN12SuperSpeakerD0Ev"
       component_value: 0
+      is_pure: false
     }
   }
   access: public_access
@@ -72,31 +78,37 @@ record_types {
       kind: OffsetToTop
       mangled_component_name: ""
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: RTTI
       mangled_component_name: "_ZTI17HighVolumeSpeaker"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: FunctionPointer
       mangled_component_name: "_ZN17HighVolumeSpeaker5SpeakEv"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: FunctionPointer
       mangled_component_name: "_ZN17HighVolumeSpeaker6ListenEv"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: CompleteDtorPointer
       mangled_component_name: "_ZN17HighVolumeSpeakerD1Ev"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: DeletingDtorPointer
       mangled_component_name: "_ZN17HighVolumeSpeakerD0Ev"
       component_value: 0
+      is_pure: false
     }
   }
   access: public_access
@@ -137,31 +149,37 @@ record_types {
       kind: OffsetToTop
       mangled_component_name: ""
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: RTTI
       mangled_component_name: "_ZTI16LowVolumeSpeaker"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: FunctionPointer
       mangled_component_name: "_ZN16LowVolumeSpeaker5SpeakEv"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: FunctionPointer
       mangled_component_name: "_ZN16LowVolumeSpeaker6ListenEv"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: CompleteDtorPointer
       mangled_component_name: "_ZN16LowVolumeSpeakerD1Ev"
       component_value: 0
+      is_pure: false
     }
     vtable_components {
       kind: DeletingDtorPointer
       mangled_component_name: "_ZN16LowVolumeSpeakerD0Ev"
       component_value: 0
+      is_pure: false
     }
   }
   access: public_access
@@ -183,19 +201,19 @@ enum_types {
   underlying_type: "type-6"
   enum_fields {
     enum_field_value: 1
-    name: "SuperSpeaker::Volume::Loud"
+    name: "SuperSpeaker::Loud"
   }
   enum_fields {
     enum_field_value: 2
-    name: "SuperSpeaker::Volume::Louder"
+    name: "SuperSpeaker::Louder"
   }
   enum_fields {
     enum_field_value: 3
-    name: "SuperSpeaker::Volume::Loudest"
+    name: "SuperSpeaker::Loudest"
   }
   enum_fields {
-    enum_field_value: 4
-    name: "SuperSpeaker::Volume::Lower"
+    enum_field_value: 0
+    name: "SuperSpeaker::Lower"
   }
   access: private_access
   tag_info {
@@ -319,6 +337,7 @@ functions {
   parameters {
     referenced_type: "type-10"
     default_arg: false
+    is_this_ptr: true
   }
   linker_set_key: "_ZN12SuperSpeaker11SpeakLouderEv"
   access: public_access
@@ -330,6 +349,7 @@ functions {
   parameters {
     referenced_type: "type-2"
     default_arg: false
+    is_this_ptr: false
   }
   linker_set_key: "_ZN12SuperSpeaker18CreateSuperSpeakerEi"
   access: public_access
@@ -341,6 +361,7 @@ functions {
   parameters {
     referenced_type: "type-10"
     default_arg: false
+    is_this_ptr: true
   }
   linker_set_key: "_ZN12SuperSpeaker9SpeakLoudEv"
   access: public_access
@@ -352,6 +373,7 @@ functions {
   parameters {
     referenced_type: "type-4"
     default_arg: false
+    is_this_ptr: true
   }
   linker_set_key: "_ZN16LowVolumeSpeaker5SpeakEv"
   access: public_access
@@ -363,6 +385,7 @@ functions {
   parameters {
     referenced_type: "type-4"
     default_arg: false
+    is_this_ptr: true
   }
   linker_set_key: "_ZN16LowVolumeSpeaker6ListenEv"
   access: public_access
@@ -374,10 +397,12 @@ functions {
   parameters {
     referenced_type: "type-13"
     default_arg: false
+    is_this_ptr: true
   }
   parameters {
     referenced_type: "type-3"
     default_arg: false
+    is_this_ptr: false
   }
   linker_set_key: "_ZN17HighVolumeSpeaker11BadPracticeEf"
   access: public_access
@@ -389,6 +414,7 @@ functions {
   parameters {
     referenced_type: "type-13"
     default_arg: false
+    is_this_ptr: true
   }
   linker_set_key: "_ZN17HighVolumeSpeaker5SpeakEv"
   access: public_access
@@ -400,43 +426,56 @@ functions {
   parameters {
     referenced_type: "type-13"
     default_arg: false
+    is_this_ptr: true
   }
   linker_set_key: "_ZN17HighVolumeSpeaker6ListenEv"
   access: public_access
 }
 elf_functions {
   name: "_Z26test_virtual_function_callP12SuperSpeaker"
+  binding: Global
 }
 elf_functions {
   name: "_ZN12NotReferenced"
+  binding: Global
 }
 elf_functions {
   name: "_ZN12SuperSpeaker11SpeakLouderEv"
+  binding: Global
 }
 elf_functions {
   name: "_ZN12SuperSpeaker18CreateSuperSpeakerEi"
+  binding: Global
 }
 elf_functions {
   name: "_ZN12SuperSpeaker9SpeakLoudEv"
+  binding: Global
 }
 elf_functions {
   name: "_ZN16LowVolumeSpeaker5SpeakEv"
+  binding: Global
 }
 elf_functions {
   name: "_ZN16LowVolumeSpeaker6ListenEv"
+  binding: Global
 }
 elf_functions {
   name: "_ZN17HighVolumeSpeaker11BadPracticeEf"
+  binding: Global
 }
 elf_functions {
   name: "_ZN17HighVolumeSpeaker5SpeakEv"
+  binding: Global
 }
 elf_functions {
   name: "_ZN17HighVolumeSpeaker6ListenEv"
+  binding: Global
 }
 elf_objects {
   name: "_ZTV16LowVolumeSpeaker"
+  binding: Global
 }
 elf_objects {
   name: "_ZTV17HighVolumeSpeaker"
+  binding: Global
 }

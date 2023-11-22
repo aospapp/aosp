@@ -26,10 +26,11 @@ import static org.mockito.Mockito.verify;
 
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.AbsSavedState;
 import android.view.View.BaseSavedState;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

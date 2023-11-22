@@ -18,7 +18,7 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 # We use the DefaultManifestAttributesTest from the android.cts.dpi package.
-LOCAL_STATIC_JAVA_LIBRARIES := android.cts.dpi ctstestrunner junit
+LOCAL_STATIC_JAVA_LIBRARIES := android.cts.dpi ctstestrunner-axt junit
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
@@ -31,8 +31,9 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 3
 
 # Tag this module as a cts test artifact
-LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
+LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 include $(BUILD_CTS_PACKAGE)

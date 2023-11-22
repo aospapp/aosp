@@ -42,7 +42,7 @@ LOCAL_STATIC_LIBRARIES := libbase_ndk
 
 LOCAL_SHARED_LIBRARIES := libdl liblog libnativehelper_compat_libc++
 
-LOCAL_SDK_VERSION := 23
+LOCAL_SDK_VERSION := current
 LOCAL_NDK_STL_VARIANT := c++_static
 
 LOCAL_CFLAGS := -Wall -Werror -Wno-unused-parameter

@@ -14,123 +14,97 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <resources>
-    <!-- The size of the manual tuner FAB. -->
-    <dimen name="manual_tuner_fab_size">160dp</dimen>
-
-    <!-- The default spacing for padding and margins in the radio application. -->
-    <dimen name="radio_default_spacing">16dp</dimen>
-
-    <!-- The padding within the FAB so that the icon within the FAB isn't too large. -->
-    <dimen name="car_radio_fab_padding">48dp</dimen>
-
-    <!-- The elevation for the FAB buttons in the radio. -->
-    <dimen name="car_radio_fab_elevation">8dp</dimen>
-
-    <!-- The top margin before the start of the radio's metadata and channel display. -->
-    <dimen name="car_radio_container_top_padding">0dp</dimen>
-
-    <!-- The margin below the radio station information (e.g. channel name). This margin is
-         negative to move the text closer to the channel frequency. -->
-    <dimen name="car_radio_band_display_margin_start">8dp</dimen>
-
-    <!-- The width of the container that holds the current radio station metadata. -->
-    <dimen name="car_radio_metadata_container_width">290dp</dimen>
+    <!-- The default margins -->
+    <dimen name="radio_margin">@*android:dimen/car_margin</dimen>
+    <dimen name="control_button_size">@*android:dimen/car_touch_target_size</dimen>
+    <dimen name="control_button_margin">@*android:dimen/car_padding_1</dimen>
 
     <!-- The top margin for the container that displays the current station and band. This value
          is negative in order to align the top of the channel text with the top of the metadata
          text. -->
-    <dimen name="car_radio_station_top_margin">-16dp</dimen>
-
-    <!-- The space between each of the items in the list of pre-scanend radio stations. This value
-         is negative to account for the fact that the text already has its own padding and
-         appear separated. However, the padding is too large, so the negative padding brings them
-         closer. -->
-    <dimen name="car_radio_channel_item_margin">-16dp</dimen>
-
-    <!-- The text size for the radio station channel. -->
-    <dimen name="car_radio_station_channel_text_size">96sp</dimen>
-
-    <!-- The absolute size of the radio controls. This value minus the
-         car_radio_controls_button_padding is the size of the icons within the button. -->
-    <dimen name="car_radio_controls_button_size">88dp</dimen>
+    <dimen name="station_top_margin">-16dp</dimen>
 
     <!-- Inner padding for the radio buttons. This value creates a touch target on the buttons that
          is wider than the icon size. -->
-    <dimen name="car_radio_controls_button_padding">16dp</dimen>
+    <dimen name="radio_controls_button_padding">16dp</dimen>
 
-    <!-- The height of each card that displays a user preset. -->
-    <dimen name="car_preset_item_height">128dp</dimen>
-
-    <!-- The radius of a rounded card in the preset activity. This value should be half the value of
-         car_preset_item_height. -->
-    <dimen name="car_preset_item_radius">64dp</dimen>
-
-    <!-- The dimensions of the pill background behind each preset channel. -->
-    <dimen name="car_preset_number_bg_width">160dp</dimen>
-    <dimen name="car_preset_number_bg_height">76dp</dimen>
-
-    <!-- The radius of the pill. This number should be half the value of
-         car_preset_number_bg_height. -->
-    <dimen name="car_preset_number_bg_radius">8dp</dimen>
-
-    <!-- The total height of the container that holds the current radio card in the preset list. -->
-    <dimen name="car_preset_container_height">176dp</dimen>
-
-    <!-- The ending elevation for the container that the preset list scrolls under. -->
-    <dimen name="car_preset_container_elevation">8dp</dimen>
-
-    <!-- The size of the text displaying the current channel number in the presets activity. -->
-    <dimen name="car_preset_current_channel_text_size">46sp</dimen>
-
+    <!-- Browse items -->
+    <dimen name="browse_list_padding">@*android:dimen/car_padding_4</dimen>
+    <dimen name="browse_item_height">@*android:dimen/car_single_line_list_item_height</dimen>
+    <dimen name="browse_item_metadata_width">0dp</dimen>
+    <dimen name="browse_item_spacing">@*android:dimen/car_padding_3</dimen>
+    <!-- The dimensions of the pill background behind each favorite channel. -->
+    <dimen name="browse_number_bg_width">@*android:dimen/car_button_min_width</dimen>
+    <dimen name="browse_number_bg_height">@*android:dimen/car_button_height</dimen>
+    <dimen name="browse_number_bg_radius">@*android:dimen/car_radius_2</dimen>
     <!-- The space between the currently playing icon and the radio band -->
-    <dimen name="car_preset_equalizer_padding">8dp</dimen>
+    <dimen name="browse_equalizer_padding">@*android:dimen/car_padding_1</dimen>
+    <dimen name="browse_list_fading_edge_length">@*android:dimen/car_padding_4</dimen>
 
-    <!-- The spacing between the current radio channel and the current radio band in the preset
-         list. -->
-    <dimen name="car_preset_current_channel_separator">8dp</dimen>
+    <!-- Drawables -->
+    <dimen name="ic_backspace_height">48dp</dimen>
+    <dimen name="ic_backspace_width">48dp</dimen>
+    <dimen name="ic_equalizer_height">36dp</dimen>
+    <dimen name="ic_equalizer_width">36dp</dimen>
+    <dimen name="ic_input_antenna_height">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_input_antenna_width">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_list_height">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_list_width">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_pause_height">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_pause_width">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_play_arrow_height">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_play_arrow_width">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_play_arrow_off_height">56dp</dimen>
+    <dimen name="ic_play_arrow_off_width">56dp</dimen>
+    <dimen name="ic_radio_am_height">34dp</dimen>
+    <dimen name="ic_radio_am_width">34dp</dimen>
+    <dimen name="ic_radio_fm_height">34dp</dimen>
+    <dimen name="ic_radio_fm_width">34dp</dimen>
+    <dimen name="ic_skip_next_height">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_skip_next_width">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_skip_previous_height">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_skip_previous_width">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_star_empty_height">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_star_empty_width">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_star_filled_height">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_star_filled_width">@*android:dimen/car_primary_icon_size</dimen>
+    <dimen name="ic_manual_tuner_button_radius">6dp</dimen>
+    <dimen name="ic_playback_card_background_radius">6dp</dimen>
+    <dimen name="ic_playback_button_background_radius">6dp</dimen>
 
-    <!-- The absolute size of the play button in the radio in the presets activity. -->
-    <dimen name="car_presets_play_button_size">112dp</dimen>
+    <!-- Playback card -->
+    <dimen name="playback_card_height">96dp</dimen>
+    <dimen name="playback_card_controls_width">0dp</dimen>
+    <dimen name="playback_card_controls_height">@dimen/playback_card_height</dimen>
+    <dimen name="playback_card_art_size">@dimen/playback_card_height</dimen>
+    <dimen name="playback_card_channel_size">@dimen/playback_card_height</dimen>
+    <dimen name="playback_card_interior_padding">@*android:dimen/car_padding_4</dimen>
+    <dimen name="playback_card_text_spacing">@*android:dimen/car_padding_1</dimen>
+    <dimen name="playback_card_margin_horizontal">@*android:dimen/car_margin</dimen>
+    <dimen name="playback_card_margin_bottom">@*android:dimen/car_padding_5</dimen>
+    <dimen name="playback_card_station_name_width">0dp</dimen>
+    <dimen name="playback_card_station_details_width">0dp</dimen>
 
-    <!-- The padding of the play button in the radio in the presets activity. -->
-    <dimen name="car_presets_play_button_padding">16dp</dimen>
+    <!-- Radio Activity -->
+    <dimen name="radio_activity_pager_size">0dp</dimen>
+    <dimen name="radio_activity_status_size">0dp</dimen>
+    <dimen name="radio_activity_playback_width">0dp</dimen>
 
-    <!-- The absolute size of the favorite button in the radio in the presets activity. -->
-    <dimen name="car_preset_favorite_button_size">64dp</dimen>
+    <!-- Tuner Buttons -->
+    <dimen name="tune_button_width">254dp</dimen>
+    <dimen name="tune_button_height">76dp</dimen>
+    <dimen name="dialpad_space_horizontal">@*android:dimen/car_padding_5</dimen>
+    <dimen name="dialpad_space_vertical">@*android:dimen/car_padding_5</dimen>
+    <dimen name="dialpad_button_size">@dimen/control_button_size</dimen>
+    <dimen name="dialpad_button_padding">0dp</dimen>
 
-    <!-- The size of the icon indicating that there is an error with loading the radio. -->
-    <dimen name="radio_error_icon_size">146dp</dimen>
+    <!-- Tab/App bar dimensions -->
+    <dimen name="tab_height">@*android:dimen/car_app_bar_height</dimen>
+    <dimen name="tab_icon_margin">@*android:dimen/car_padding_1</dimen>
+    <dimen name="tab_elevation">8dp</dimen>
+    <dimen name="tab_padding">@*android:dimen/car_padding_4</dimen>
+    <dimen name="tab_margin_left">@*android:dimen/car_padding_4</dimen>
+    <dimen name="tab_margin_right">@dimen/radio_margin</dimen>
+    <dimen name="band_selector_size">@dimen/tab_height</dimen>
 
-    <!-- The bottom margin separating the error icon and the error text. -->
-    <dimen name="radio_error_icon_bottom_margin">24dp</dimen>
-
-    <!-- The size of the text explaining there was an error loading the radio. -->
-    <dimen name="radio_error_text_size">45sp</dimen>
-
-    <!-- The width of the container that holds the current tuned station, done/delete buttons and
-         the band selector. -->
-    <dimen name="manual_tuner_container_width">320dp</dimen>
-
-    <dimen name="manual_tuner_channel_text_size">96sp</dimen>
-
-    <!-- The height of the container corresponding to manual_tuner_container_width. This height
-         should equal to the height of the dialpad. This is equal to 4 * car_touch_target +
-         3 * manual_tuner_dialpad_vertical_spacing. -->
-    <dimen name="manual_tuner_container_height">288dp</dimen>
-
-    <!-- The top margin for the back button. This value is negative to align the back button with
-         the dialpad for visual purposes. -->
-    <dimen name="manual_tuner_back_button_top_margin">-2dp</dimen>
-
-    <!-- The top padding before the content within the manual tuner. -->
-    <dimen name="manual_tuner_top_padding">@dimen/radio_default_spacing</dimen>
-    <!-- The left padding before the content within the manual tuner. -->
-    <dimen name="manual_tuner_left_padding">@dimen/radio_default_spacing</dimen>
-
-    <!-- The size of the numbers in the manual tuner dialpad. -->
-    <dimen name="manual_tuner_dialpad_text_size">64sp</dimen>
-
-    <!-- The top margin for the dialpad. This value is negative to pull the dialpad up a bit
-         for visual purposes. -->
-    <dimen name="manual_tuner_dialpad_top_margin">-16dp</dimen>
 </resources>

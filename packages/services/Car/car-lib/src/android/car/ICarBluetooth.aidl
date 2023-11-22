@@ -16,12 +16,9 @@
 
 package android.car;
 import android.bluetooth.BluetoothDevice;
+import java.util.List;
 
 /** @hide */
 interface ICarBluetooth {
-    void setBluetoothDeviceConnectionPriority(in BluetoothDevice deviceToSet, in int profileToSet,
-                in int priorityToSet);
-    void clearBluetoothDeviceConnectionPriority(in int profileToClear,in int priorityToClear);
-    boolean isPriorityDevicePresent(in int profile, in int priorityToCheck);
-    String getDeviceNameWithPriority(in int profile, in int priorityToCheck);
+    void connectDevices();
 }

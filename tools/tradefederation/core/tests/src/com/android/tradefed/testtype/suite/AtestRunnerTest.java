@@ -82,6 +82,7 @@ public class AtestRunnerTest {
     @Test
     public void testLoadTests_one() throws Exception {
         setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "tf");
         setter.setOptionValue("include-filter", "tf/fake");
         LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
         assertEquals(1, configMap.size());
@@ -91,6 +92,7 @@ public class AtestRunnerTest {
     @Test
     public void testLoadTests_two() throws Exception {
         setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "tf");
         setter.setOptionValue("include-filter", "tf/fake");
         setter.setOptionValue("include-filter", "tf/func");
         LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
@@ -102,6 +104,7 @@ public class AtestRunnerTest {
     @Test
     public void testLoadTests_filter() throws Exception {
         setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "tf");
         setter.setOptionValue("include-filter", "tf/uiautomator");
         setter.setOptionValue("atest-include-filter", "tf/uiautomator:" + classA);
         setter.setOptionValue("atest-include-filter", "tf/uiautomator:" + classB + "#" + method1);
@@ -122,6 +125,7 @@ public class AtestRunnerTest {
     @Test
     public void testLoadTests_ignoreFilter() throws Exception {
         setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "suite");
         setter.setOptionValue("include-filter", "suite/base-suite1");
         setter.setOptionValue("atest-include-filter", "suite/base-suite1:" + classA);
         LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
@@ -138,6 +142,7 @@ public class AtestRunnerTest {
     @Test
     public void testWaitForDebugger() throws Exception {
         OptionSetter setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "tf");
         setter.setOptionValue("wait-for-debugger", "true");
         setter.setOptionValue("include-filter", "tf/instrumentation");
         LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
@@ -150,6 +155,7 @@ public class AtestRunnerTest {
     @Test
     public void testdisableTargetPreparers() throws Exception {
         OptionSetter setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "tf");
         setter.setOptionValue("disable-target-preparers", "true");
         setter.setOptionValue("include-filter", "tf/instrumentation");
         LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
@@ -163,6 +169,7 @@ public class AtestRunnerTest {
     @Test
     public void testdisableTargetPreparersUnset() throws Exception {
         OptionSetter setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "tf");
         setter.setOptionValue("include-filter", "tf/instrumentation");
         LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
         assertEquals(1, configMap.size());
@@ -175,6 +182,7 @@ public class AtestRunnerTest {
     @Test
     public void testDisableTearDown() throws Exception {
         OptionSetter setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "tf");
         setter.setOptionValue("disable-teardown", "true");
         setter.setOptionValue("include-filter", "tf/instrumentation");
         LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
@@ -187,6 +195,7 @@ public class AtestRunnerTest {
     @Test
     public void testDisableTearDownUnset() throws Exception {
         OptionSetter setter = new OptionSetter(mSpyRunner);
+        setter.setOptionValue("suite-config-prefix", "tf");
         setter.setOptionValue("include-filter", "tf/instrumentation");
         LinkedHashMap<String, IConfiguration> configMap = mSpyRunner.loadTests();
         assertEquals(1, configMap.size());

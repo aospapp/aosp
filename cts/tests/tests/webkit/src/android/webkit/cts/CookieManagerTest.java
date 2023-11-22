@@ -16,6 +16,7 @@
 
 package android.webkit.cts;
 
+import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
@@ -33,6 +34,7 @@ import java.util.Date;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+@AppModeFull
 public class CookieManagerTest extends
         ActivityInstrumentationTestCase2<CookieSyncManagerCtsActivity> {
 
@@ -51,7 +53,7 @@ public class CookieManagerTest extends
         super.setUp();
         mWebView = getActivity().getWebView();
         if (mWebView != null) {
-            mOnUiThread = new WebViewOnUiThread(this, mWebView);
+            mOnUiThread = new WebViewOnUiThread(mWebView);
 
             mCookieManager = CookieManager.getInstance();
             assertNotNull(mCookieManager);
@@ -297,8 +299,8 @@ public class CookieManagerTest extends
         assertTrue(s.tryAcquire(TEST_TIMEOUT, TimeUnit.MILLISECONDS));
         assertTrue(anyDeleted.get());
 
-        // The normal cookie is not removed.
-        assertTrue(mCookieManager.getCookie(url).contains(normalCookie));
+        assertTrue("The normal cookie should not be removed",
+                mCookieManager.getCookie(url).contains(normalCookie));
 
         // When we remove session cookies again there are none to remove.
         removeSessionCookiesOnUiThread(callback);
@@ -310,8 +312,7 @@ public class CookieManagerTest extends
         assertTrue(s.tryAcquire(TEST_TIMEOUT, TimeUnit.MILLISECONDS));
         assertTrue(anyDeleted.get());
 
-        // Now we have no cookies.
-        assertFalse(mCookieManager.hasCookies());
+        assertFalse("We should have no more cookies", mCookieManager.hasCookies());
         assertNull(mCookieManager.getCookie(url));
 
         // When we remove all cookies again there are none to remove.
@@ -412,39 +413,15 @@ public class CookieManagerTest extends
     }
 
     private void removeAllCookiesOnUiThread(final ValueCallback<Boolean> callback) {
-        runTestOnUiThreadAndCatch(new Runnable() {
-            @Override
-            public void run() {
-                mCookieManager.removeAllCookies(callback);
-            }
+        WebkitUtils.onMainThreadSync(() -> {
+            mCookieManager.removeAllCookies(callback);
         });
     }
 
     private void removeSessionCookiesOnUiThread(final ValueCallback<Boolean> callback) {
-        runTestOnUiThreadAndCatch(new Runnable() {
-            @Override
-            public void run() {
-                mCookieManager.removeSessionCookies(callback);
-            }
+        WebkitUtils.onMainThreadSync(() -> {
+            mCookieManager.removeSessionCookies(callback);
         });
-    }
-
-    private void setCookieOnUiThread(final String url, final String cookie,
-            final ValueCallback<Boolean> callback) {
-        runTestOnUiThreadAndCatch(new Runnable() {
-            @Override
-            public void run() {
-                mCookieManager.setCookie(url, cookie, callback);
-            }
-        });
-    }
-
-    private void runTestOnUiThreadAndCatch(Runnable runnable) {
-        try {
-            runTestOnUiThread(runnable);
-        } catch (Throwable t) {
-            fail("Unexpected error while running on UI thread: " + t.getMessage());
-        }
     }
 
     /**

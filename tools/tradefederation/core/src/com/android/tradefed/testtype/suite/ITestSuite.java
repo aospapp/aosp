@@ -27,16 +27,20 @@ import com.android.tradefed.config.Option.Importance;
 import com.android.tradefed.config.OptionCopier;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.device.NullDevice;
 import com.android.tradefed.device.StubDevice;
+import com.android.tradefed.device.cloud.NestedRemoteDevice;
+import com.android.tradefed.device.metric.CollectorHelper;
 import com.android.tradefed.device.metric.IMetricCollector;
 import com.android.tradefed.device.metric.IMetricCollectorReceiver;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.shard.token.ITokenRequest;
+import com.android.tradefed.invoker.shard.token.TokenProperty;
+import com.android.tradefed.log.ITestLogger;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.ITestLoggerReceiver;
-import com.android.tradefed.result.InputStreamSource;
-import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.ResultForwarder;
 import com.android.tradefed.suite.checker.ISystemStatusChecker;
 import com.android.tradefed.suite.checker.ISystemStatusCheckerReceiver;
@@ -50,6 +54,7 @@ import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.IReportNotExecuted;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.IShardableTest;
 import com.android.tradefed.testtype.ITestCollector;
@@ -58,9 +63,13 @@ import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.MultiMap;
 import com.android.tradefed.util.TimeUtil;
 
+import com.google.inject.Inject;
+import com.google.inject.Injector;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -69,6 +78,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Set;
 
 /**
@@ -86,7 +96,32 @@ public abstract class ITestSuite
                 IInvocationContextReceiver,
                 IRuntimeHintProvider,
                 IMetricCollectorReceiver,
-                IConfigurationReceiver {
+                IConfigurationReceiver,
+                IReportNotExecuted,
+                ITokenRequest {
+
+    /** The Retry Strategy to be used when re-running some tests. */
+    public enum RetryStrategy {
+        /** Rerun all the tests for the number of attempts specified. */
+        ITERATIONS,
+        /**
+         * Rerun all the tests until the max count is reached or a failure occurs whichever come
+         * first.
+         */
+        RERUN_UNTIL_FAILURE,
+        /**
+         * Rerun all the test case failures until passed or the max number of attempts specified.
+         */
+        RETRY_TEST_CASE_FAILURE,
+        /** Rerun all the test run failures until passed or the max number of attempts specified. */
+        RETRY_TEST_RUN_FAILURE,
+        /**
+         * Rerun all the test run and test cases failures until passed or the max number of attempts
+         * specified. Test run failures are rerun in priority (a.k.a. if a run failure and a test
+         * case failure occur, the run failure is rerun).
+         */
+        RETRY_ANY_FAILURE,
+    }
 
     public static final String SKIP_SYSTEM_STATUS_CHECKER = "skip-system-status-check";
     public static final String RUNNER_WHITELIST = "runner-whitelist";
@@ -96,6 +131,11 @@ public abstract class ITestSuite
     public static final String ABI_OPTION = "abi";
     public static final String SKIP_HOST_ARCH_CHECK = "skip-host-arch-check";
     public static final String PRIMARY_ABI_RUN = "primary-abi-only";
+    public static final String PARAMETER_KEY = "parameter";
+    public static final String TOKEN_KEY = "token";
+    public static final String MODULE_METADATA_INCLUDE_FILTER = "module-metadata-include-filter";
+    public static final String MODULE_METADATA_EXCLUDE_FILTER = "module-metadata-exclude-filter";
+
     private static final String PRODUCT_CPU_ABI_KEY = "ro.product.cpu.abi";
 
     // Options for test failure case
@@ -107,17 +147,27 @@ public abstract class ITestSuite
     )
     private boolean mBugReportOnFailure = false;
 
-    @Option(name = "logcat-on-failure",
-            description = "Take a logcat snapshot on every test failure.")
+    @Deprecated
+    @Option(
+        name = "logcat-on-failure",
+        description = "Take a logcat snapshot on every test failure."
+    )
     private boolean mLogcatOnFailure = false;
 
-    @Option(name = "logcat-on-failure-size",
-            description = "The max number of logcat data in bytes to capture when "
-            + "--logcat-on-failure is on. Should be an amount that can comfortably fit in memory.")
+    @Deprecated
+    @Option(
+        name = "logcat-on-failure-size",
+        description =
+                "The max number of logcat data in bytes to capture when "
+                        + "--logcat-on-failure is on. Should be an amount that can comfortably fit in memory."
+    )
     private int mMaxLogcatBytes = 500 * 1024; // 500K
 
-    @Option(name = "screenshot-on-failure",
-            description = "Take a screenshot on every test failure.")
+    @Deprecated
+    @Option(
+        name = "screenshot-on-failure",
+        description = "Take a screenshot on every test failure."
+    )
     private boolean mScreenshotOnFailure = false;
 
     @Option(name = "reboot-on-failure",
@@ -127,6 +177,10 @@ public abstract class ITestSuite
     // Options for suite runner behavior
     @Option(name = "reboot-per-module", description = "Reboot the device before every module run.")
     private boolean mRebootPerModule = false;
+
+    @Option(name = "reboot-at-last-retry",
+        description = "Reboot the device at the last intra-module retry")
+    private boolean mRebootAtLastRetry = false;
 
     @Option(name = "skip-all-system-status-check",
             description = "Whether all system status check between modules should be skipped")
@@ -148,6 +202,20 @@ public abstract class ITestSuite
         description = "Whether reporting system checkers as test or not."
     )
     private boolean mReportSystemChecker = false;
+
+    @Deprecated
+    @Option(
+        name = "random-order",
+        description = "Whether randomizing the order of the modules to be ran or not."
+    )
+    private boolean mRandomOrder = false;
+
+    @Deprecated
+    @Option(
+        name = "random-seed",
+        description = "Seed to randomize the order of the modules."
+    )
+    private long mRandomSeed = -1;
 
     @Option(
         name = "collect-tests-only",
@@ -182,7 +250,7 @@ public abstract class ITestSuite
     private boolean mPrimaryAbiRun = false;
 
     @Option(
-        name = "module-metadata-include-filter",
+        name = MODULE_METADATA_INCLUDE_FILTER,
         description =
                 "Include modules for execution based on matching of metadata fields: for any of "
                         + "the specified filter name and value, if a module has a metadata field "
@@ -194,7 +262,7 @@ public abstract class ITestSuite
     private MultiMap<String, String> mModuleMetadataIncludeFilter = new MultiMap<>();
 
     @Option(
-        name = "module-metadata-exclude-filter",
+        name = MODULE_METADATA_EXCLUDE_FILTER,
         description =
                 "Exclude modules for execution based on matching of metadata fields: for any of "
                         + "the specified filter name and value, if a module has a metadata field "
@@ -215,11 +283,24 @@ public abstract class ITestSuite
     private Set<String> mAllowedPreparers = new HashSet<>();
 
     @Option(
+        name = "intra-module-sharding",
+        description = "Whether or not to allow intra-module sharding."
+    )
+    private boolean mIntraModuleSharding = true;
+
+    @Option(
+        name = "isolated-module",
+        description = "Whether or not to attempt the module isolation between modules"
+    )
+    private boolean mIsolatedModule = false;
+
+    @Option(
         name = "reboot-before-test",
         description = "Reboot the device before the test suite starts."
     )
     private boolean mRebootBeforeTest = false;
 
+    // [Options relate to module retry and intra-module retry][
     @Option(
         name = "max-testcase-run-count",
         description =
@@ -227,6 +308,21 @@ public abstract class ITestSuite
                         + "the max number of runs for each testcase."
     )
     private int mMaxRunLimit = 1;
+
+    @Option(
+        name = "retry-strategy",
+        description =
+                "The retry strategy to be used when re-running some tests with "
+                        + "--max-testcase-run-count"
+    )
+    private RetryStrategy mRetryStrategy = RetryStrategy.RETRY_TEST_CASE_FAILURE;
+
+    @Option(
+        name = "merge-attempts",
+        description = "Whether or not to use the merge the results of the different attempts."
+    )
+    private boolean mMergeAttempts = true;
+    // end [Options relate to module retry and intra-module retry]
 
     private ITestDevice mDevice;
     private IBuildInfo mBuildInfo;
@@ -240,6 +336,35 @@ public abstract class ITestSuite
     private boolean mIsSharded = false;
     private ModuleDefinition mDirectModule = null;
     private boolean mShouldMakeDynamicModule = true;
+
+    // Guice object
+    private Injector mInjector;
+
+    // Current modules to run, null if not started to run yet.
+    private List<ModuleDefinition> mRunModules = null;
+
+    /**
+     * Get the current Guice {@link Injector} from the invocation. It should allow us to continue
+     * the object injection of modules.
+     */
+    @Inject
+    public void setInvocationInjector(Injector injector) {
+        mInjector = injector;
+    }
+
+    /** Forward our invocation scope guice objects to whoever needs them in modules. */
+    private void applyGuiceInjection(LinkedHashMap<String, IConfiguration> runConfig) {
+        if (mInjector == null) {
+            // TODO: Convert to a strong failure
+            CLog.d("No injector received by the suite.");
+            return;
+        }
+        for (IConfiguration config : runConfig.values()) {
+            for (IRemoteTest test : config.getTests()) {
+                mInjector.injectMembers(test);
+            }
+        }
+    }
 
     /**
      * Abstract method to load the tests configuration that will be run. Each tests is defined by a
@@ -264,18 +389,21 @@ public abstract class ITestSuite
             CLog.i("No config were loaded. Nothing to run.");
             return runConfig;
         }
-        if (mModuleMetadataIncludeFilter.isEmpty() && mModuleMetadataExcludeFilter.isEmpty()) {
-            return runConfig;
-        }
+        // Apply our guice scope to all modules objects
+        applyGuiceInjection(runConfig);
+
         LinkedHashMap<String, IConfiguration> filteredConfig = new LinkedHashMap<>();
         for (Entry<String, IConfiguration> config : runConfig.entrySet()) {
-            if (!filterByConfigMetadata(
-                    config.getValue(),
-                    mModuleMetadataIncludeFilter,
-                    mModuleMetadataExcludeFilter)) {
-                // if the module config did not pass the metadata filters, it's excluded
-                // from execution.
-                continue;
+            if (!mModuleMetadataIncludeFilter.isEmpty()
+                    || !mModuleMetadataExcludeFilter.isEmpty()) {
+                if (!filterByConfigMetadata(
+                        config.getValue(),
+                        mModuleMetadataIncludeFilter,
+                        mModuleMetadataExcludeFilter)) {
+                    // if the module config did not pass the metadata filters, it's excluded
+                    // from execution.
+                    continue;
+                }
             }
             if (!filterByRunnerType(config.getValue(), mAllowedRunners)) {
                 // if the module config did not pass the runner type filter, it's excluded from
@@ -324,9 +452,33 @@ public abstract class ITestSuite
             module.setBuild(mBuildInfo);
             runModules.add(module);
         }
+
+        /** Randomize all the modules to be ran if random-order is set and no sharding.*/
+        if (mRandomOrder) {
+            randomizeTestModules(runModules, mRandomSeed);
+        }
+
+        CLog.logAndDisplay(LogLevel.DEBUG, "[Total Unique Modules = %s]", runModules.size());
         // Free the map once we are done with it.
         runConfig = null;
         return runModules;
+    }
+
+    /**
+     * Helper method that handle randomizing the order of the modules.
+     *
+     * @param runModules The {@code List<ModuleDefinition>} of the test modules to be ran.
+     * @param randomSeed The {@code long} seed used to randomize the order of test modules, use the
+     *     current time as seed if no specified seed provided.
+     */
+    @VisibleForTesting
+    void randomizeTestModules(List<ModuleDefinition> runModules, long randomSeed) {
+        // Use current time as seed if no specified seed provided.
+        if (randomSeed == -1) {
+            randomSeed = System.currentTimeMillis();
+        }
+        CLog.i("Randomizing all the modules with seed: %s", randomSeed);
+        Collections.shuffle(runModules, new Random(randomSeed));
     }
 
     private void checkClassLoad(Set<String> classes, String type) {
@@ -356,6 +508,14 @@ public abstract class ITestSuite
         return res;
     }
 
+    /**
+     * Opportunity to clean up all the things that were needed during the suites setup but are not
+     * required to run the tests.
+     */
+    void cleanUpSuiteSetup() {
+        // Empty by default.
+    }
+
     /** Generic run method for all test loaded from {@link #loadTests()}. */
     @Override
     public final void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
@@ -364,9 +524,9 @@ public abstract class ITestSuite
         checkClassLoad(mAllowedRunners, RUNNER_WHITELIST);
         checkClassLoad(mAllowedPreparers, PREPARER_WHITELIST);
 
-        List<ModuleDefinition> runModules = createExecutionList();
+        mRunModules = createExecutionList();
         // Check if we have something to run.
-        if (runModules.isEmpty()) {
+        if (mRunModules.isEmpty()) {
             CLog.i("No tests to be run.");
             return;
         }
@@ -393,48 +553,42 @@ public abstract class ITestSuite
         /** Setup a special listener to take actions on test failures. */
         TestFailureListener failureListener =
                 new TestFailureListener(
-                        mContext.getDevices(),
-                        mBugReportOnFailure,
-                        mLogcatOnFailure,
-                        mScreenshotOnFailure,
-                        mRebootOnFailure,
-                        mMaxLogcatBytes);
+                        mContext.getDevices(), mBugReportOnFailure, mRebootOnFailure);
         /** Create the list of listeners applicable at the module level. */
         List<ITestInvocationListener> moduleListeners = createModuleListeners();
 
         // Only print the running log if we are going to run something.
-        if (runModules.get(0).hasTests()) {
+        if (mRunModules.get(0).hasTests()) {
             CLog.logAndDisplay(
                     LogLevel.INFO,
                     "%s running %s modules: %s",
                     mDevice.getSerialNumber(),
-                    runModules.size(),
-                    runModules);
+                    mRunModules.size(),
+                    mRunModules);
         }
 
         /** Run all the module, make sure to reduce the list to release resources as we go. */
         try {
-            while (!runModules.isEmpty()) {
-                ModuleDefinition module = runModules.remove(0);
+            while (!mRunModules.isEmpty()) {
+                ModuleDefinition module = mRunModules.remove(0);
                 // Before running the module we ensure it has tests at this point or skip completely
                 // to avoid running SystemCheckers and preparation for nothing.
                 if (module.hasTests()) {
                     continue;
                 }
 
+                // Populate the module context with devices and builds
+                for (String deviceName : mContext.getDeviceConfigNames()) {
+                    module.getModuleInvocationContext()
+                            .addAllocatedDevice(deviceName, mContext.getDevice(deviceName));
+                    module.getModuleInvocationContext()
+                            .addDeviceBuildInfo(deviceName, mContext.getBuildInfo(deviceName));
+                }
+                listener.testModuleStarted(module.getModuleInvocationContext());
+                // Trigger module start on module level listener too
+                new ResultForwarder(moduleListeners)
+                        .testModuleStarted(module.getModuleInvocationContext());
                 try {
-                    // Populate the module context with devices and builds
-                    for (String deviceName : mContext.getDeviceConfigNames()) {
-                        module.getModuleInvocationContext()
-                                .addAllocatedDevice(deviceName, mContext.getDevice(deviceName));
-                        module.getModuleInvocationContext()
-                                .addDeviceBuildInfo(deviceName, mContext.getBuildInfo(deviceName));
-                    }
-                    listener.testModuleStarted(module.getModuleInvocationContext());
-                    // Trigger module start on module level listener too
-                    new ResultForwarder(moduleListeners)
-                            .testModuleStarted(module.getModuleInvocationContext());
-
                     runSingleModule(module, listener, moduleListeners, failureListener);
                 } finally {
                     // Trigger module end on module level listener too
@@ -443,16 +597,14 @@ public abstract class ITestSuite
                     // execution
                     listener.testModuleEnded();
                 }
+                // Module isolation routine
+                moduleIsolation(mContext, listener);
             }
         } catch (DeviceNotAvailableException e) {
             CLog.e(
                     "A DeviceNotAvailableException occurred, following modules did not run: %s",
-                    runModules);
-            for (ModuleDefinition module : runModules) {
-                listener.testRunStarted(module.getId(), 0);
-                listener.testRunFailed("Module did not run due to device not available.");
-                listener.testRunEnded(0, new HashMap<String, Metric>());
-            }
+                    mRunModules);
+            reportNotExecuted(listener, "Module did not run due to device not available.");
             throw e;
         }
     }
@@ -464,6 +616,34 @@ public abstract class ITestSuite
      */
     protected List<ITestInvocationListener> createModuleListeners() {
         return new ArrayList<>();
+    }
+
+    /**
+     * Routine that attempt to reset a device between modules in order to provide isolation.
+     *
+     * @param context The invocation context.
+     * @param logger A logger where extra logs can be saved.
+     * @throws DeviceNotAvailableException
+     */
+    private void moduleIsolation(IInvocationContext context, ITestLogger logger)
+            throws DeviceNotAvailableException {
+        // TODO: we can probably make it smarter: Did any test ran for example?
+        ITestDevice device = context.getDevices().get(0);
+        if (mIsolatedModule && (device instanceof NestedRemoteDevice)) {
+            boolean res =
+                    ((NestedRemoteDevice) device)
+                            .resetVirtualDevice(
+                                    logger,
+                                    context.getBuildInfos().get(0),
+                                    /* Do not collect the logs */ false);
+            if (!res) {
+                String serial = device.getSerialNumber();
+                throw new DeviceNotAvailableException(
+                        String.format(
+                                "Failed to reset the AVD '%s' during module isolation.", serial),
+                        serial);
+            }
+        }
     }
 
     /**
@@ -499,9 +679,13 @@ public abstract class ITestSuite
             module.setCollectTestsOnly(mCollectTestsOnly);
         }
         // Pass the run defined collectors to be used.
-        module.setMetricCollectors(mMetricCollectors);
+        module.setMetricCollectors(CollectorHelper.cloneCollectors(mMetricCollectors));
         // Pass the main invocation logSaver
         module.setLogSaver(mMainConfiguration.getLogSaver());
+        // Pass the retry strategy to the module
+        module.setRetryStrategy(mRetryStrategy, mMergeAttempts);
+        // Pass the reboot strategy at the last intra-module retry to the module
+        module.setRebootAtLastRetry(mRebootAtLastRetry);
 
         // Actually run the module
         module.run(listener, moduleListeners, failureListener, mMaxRunLimit);
@@ -524,6 +708,7 @@ public abstract class ITestSuite
         long startTime = System.currentTimeMillis();
         CLog.i("Running system status checker before module execution: %s", moduleName);
         Map<String, String> failures = new LinkedHashMap<>();
+        boolean bugreportNeeded = false;
         for (ISystemStatusChecker checker : checkers) {
             // Check if the status checker should be skipped.
             if (mSystemStatusCheckBlacklist.contains(checker.getClass().getName())) {
@@ -533,22 +718,27 @@ public abstract class ITestSuite
                 continue;
             }
 
-            StatusCheckerResult result = checker.preExecutionCheck(device);
+            StatusCheckerResult result = new StatusCheckerResult(CheckStatus.FAILED);
+            try {
+                result = checker.preExecutionCheck(device);
+            } catch (RuntimeException e) {
+                // Catch RuntimeException to avoid leaking throws that go to the invocation.
+                result.setErrorMessage(e.getMessage());
+                result.setBugreportNeeded(true);
+            }
             if (!CheckStatus.SUCCESS.equals(result.getStatus())) {
                 String errorMessage =
                         (result.getErrorMessage() == null) ? "" : result.getErrorMessage();
                 failures.put(checker.getClass().getCanonicalName(), errorMessage);
+                bugreportNeeded = bugreportNeeded | result.isBugreportNeeded();
                 CLog.w("System status checker [%s] failed.", checker.getClass().getCanonicalName());
             }
         }
         if (!failures.isEmpty()) {
-            CLog.w("There are failed system status checkers: %s capturing a bugreport",
-                    failures.toString());
-            try (InputStreamSource bugSource = device.getBugreport()) {
-                listener.testLog(
-                        String.format("bugreport-checker-pre-module-%s", moduleName),
-                        LogDataType.BUGREPORT,
-                        bugSource);
+            CLog.w("There are failed system status checkers: %s", failures.toString());
+            if (bugreportNeeded && !(device.getIDevice() instanceof StubDevice)) {
+                device.logBugreport(
+                        String.format("bugreport-checker-pre-module-%s", moduleName), listener);
             }
         }
 
@@ -569,28 +759,34 @@ public abstract class ITestSuite
         long startTime = System.currentTimeMillis();
         CLog.i("Running system status checker after module execution: %s", moduleName);
         Map<String, String> failures = new LinkedHashMap<>();
+        boolean bugreportNeeded = false;
         for (ISystemStatusChecker checker : checkers) {
             // Check if the status checker should be skipped.
             if (mSystemStatusCheckBlacklist.contains(checker.getClass().getName())) {
                 continue;
             }
 
-            StatusCheckerResult result = checker.postExecutionCheck(device);
+            StatusCheckerResult result = new StatusCheckerResult(CheckStatus.FAILED);
+            try {
+                result = checker.postExecutionCheck(device);
+            } catch (RuntimeException e) {
+                // Catch RuntimeException to avoid leaking throws that go to the invocation.
+                result.setErrorMessage(e.getMessage());
+                result.setBugreportNeeded(true);
+            }
             if (!CheckStatus.SUCCESS.equals(result.getStatus())) {
                 String errorMessage =
                         (result.getErrorMessage() == null) ? "" : result.getErrorMessage();
                 failures.put(checker.getClass().getCanonicalName(), errorMessage);
+                bugreportNeeded = bugreportNeeded | result.isBugreportNeeded();
                 CLog.w("System status checker [%s] failed", checker.getClass().getCanonicalName());
             }
         }
         if (!failures.isEmpty()) {
-            CLog.w("There are failed system status checkers: %s capturing a bugreport",
-                    failures.toString());
-            try (InputStreamSource bugSource = device.getBugreport()) {
-                listener.testLog(
-                        String.format("bugreport-checker-post-module-%s", moduleName),
-                        LogDataType.BUGREPORT,
-                        bugSource);
+            CLog.w("There are failed system status checkers: %s", failures.toString());
+            if (bugreportNeeded && !(device.getIDevice() instanceof StubDevice)) {
+                device.logBugreport(
+                        String.format("bugreport-checker-post-module-%s", moduleName), listener);
             }
         }
 
@@ -610,7 +806,7 @@ public abstract class ITestSuite
             return;
         }
         // Avoid messing with the final test count by making them empty runs.
-        listener.testRunStarted(identifier + "_" + moduleName, 0);
+        listener.testRunStarted(identifier + "_" + moduleName, 0, 0, System.currentTimeMillis());
         if (!failures.isEmpty()) {
             listener.testRunFailed(String.format("%s failed '%s' checkers", moduleName, failures));
         }
@@ -637,9 +833,15 @@ public abstract class ITestSuite
         // The test pool mechanism prevent this from creating too much overhead.
         List<ModuleDefinition> splitModules =
                 ModuleSplitter.splitConfiguration(
-                        runConfig, shardCountHint, mShouldMakeDynamicModule);
+                        runConfig, shardCountHint, mShouldMakeDynamicModule, mIntraModuleSharding);
         runConfig.clear();
         runConfig = null;
+
+        // Clean up the parent that will get sharded: It is fine to clean up before copying the
+        // options, because the sharded module is already created/populated so there is no need
+        // to carry these extra data.
+        cleanUpSuiteSetup();
+
         // create an association of one ITestSuite <=> one ModuleDefinition as the smallest
         // execution unit supported.
         List<IRemoteTest> splitTests = new ArrayList<>();
@@ -672,6 +874,9 @@ public abstract class ITestSuite
                 }
                 if (test instanceof IInvocationContextReceiver) {
                     ((IInvocationContextReceiver) test).setInvocationContext(mContext);
+                }
+                if (test instanceof ITestCollector) {
+                    ((ITestCollector) test).setCollectTestsOnly(mCollectTestsOnly);
                 }
             }
         }
@@ -759,6 +964,11 @@ public abstract class ITestSuite
         mContext = invocationContext;
     }
 
+    /** Set the max number of run attempt for each module. */
+    public final void setMaxRunLimit(int maxRunLimit) {
+        mMaxRunLimit = maxRunLimit;
+    }
+
     /** {@inheritDoc} */
     @Override
     public long getRuntimeHint() {
@@ -778,12 +988,52 @@ public abstract class ITestSuite
         mMainConfiguration = configuration;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void reportNotExecuted(ITestInvocationListener listener) {
+        reportNotExecuted(listener, IReportNotExecuted.NOT_EXECUTED_FAILURE);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void reportNotExecuted(ITestInvocationListener listener, String message) {
+        // If the runner is already in progress, report the remaining tests as not executed.
+        List<ModuleDefinition> runModules = null;
+        if (mRunModules != null) {
+            runModules = new ArrayList<>(mRunModules);
+        }
+        if (runModules == null) {
+            runModules = createExecutionList();
+        }
+
+        while (!runModules.isEmpty()) {
+            ModuleDefinition module = runModules.remove(0);
+            module.reportNotExecuted(listener, message);
+        }
+    }
+
+    public void addModuleMetadataIncludeFilters(MultiMap<String, String> filters) {
+        mModuleMetadataIncludeFilter.putAll(filters);
+    }
+
+    public void addModuleMetadataExcludeFilters(MultiMap<String, String> filters) {
+        mModuleMetadataExcludeFilter.putAll(filters);
+    }
+
     /**
      * Returns the {@link ModuleDefinition} to be executed directly, or null if none yet (when the
      * ITestSuite has not been sharded yet).
      */
     public ModuleDefinition getDirectModule() {
         return mDirectModule;
+    }
+
+    @Override
+    public Set<TokenProperty> getRequiredTokens() {
+        if (mDirectModule == null) {
+            return null;
+        }
+        return mDirectModule.getRequiredTokens();
     }
 
     /**
@@ -796,10 +1046,11 @@ public abstract class ITestSuite
     public Set<IAbi> getAbis(ITestDevice device) throws DeviceNotAvailableException {
         Set<IAbi> abis = new LinkedHashSet<>();
         Set<String> archAbis = getAbisForBuildTargetArch();
+        // Handle null-device: use abi in common with host and suite build
         if (mPrimaryAbiRun) {
             if (mAbiName == null) {
                 // Get the primary from the device and make it the --abi to run.
-                mAbiName = device.getProperty(PRODUCT_CPU_ABI_KEY).trim();
+                mAbiName = getPrimaryAbi(device);
             } else {
                 CLog.d(
                         "Option --%s supersedes the option --%s, using abi: %s",
@@ -821,7 +1072,13 @@ public abstract class ITestSuite
             }
         } else {
             // Run on all abi in common between the device and suite builds.
-            List<String> deviceAbis = Arrays.asList(AbiFormatter.getSupportedAbis(device, ""));
+            List<String> deviceAbis = getDeviceAbis(device);
+            if (deviceAbis.isEmpty()) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Couldn't determinate the abi of the device '%s'.",
+                                device.getSerialNumber()));
+            }
             for (String abi : deviceAbis) {
                 if ((mSkipHostArchCheck || archAbis.contains(abi))
                         && AbiUtils.isAbiSupportedByCompatibility(abi)) {
@@ -844,16 +1101,58 @@ public abstract class ITestSuite
         }
     }
 
+    /** Returns the primary abi of the device or host if it's a null device. */
+    private String getPrimaryAbi(ITestDevice device) throws DeviceNotAvailableException {
+        if (device.getIDevice() instanceof NullDevice) {
+            Set<String> hostAbis = getHostAbis();
+            return hostAbis.iterator().next();
+        }
+        String property = device.getProperty(PRODUCT_CPU_ABI_KEY);
+        if (property == null) {
+            String serial = device.getSerialNumber();
+            throw new DeviceNotAvailableException(
+                    String.format(
+                            "Device '%s' was not online to query %s", serial, PRODUCT_CPU_ABI_KEY),
+                    serial);
+        }
+        return property.trim();
+    }
+
+    /** Returns the list of abis supported by the device or host if it's a null device. */
+    private List<String> getDeviceAbis(ITestDevice device) throws DeviceNotAvailableException {
+        if (device.getIDevice() instanceof NullDevice) {
+            return new ArrayList<>(getHostAbis());
+        }
+        // Make it an arrayList to be able to modify the content.
+        return new ArrayList<>(Arrays.asList(AbiFormatter.getSupportedAbis(device, "")));
+    }
+
     /** Return the abis supported by the Host build target architecture. Exposed for testing. */
     @VisibleForTesting
     protected Set<String> getAbisForBuildTargetArch() {
         // If TestSuiteInfo does not exists, the stub arch will be replaced by all possible abis.
-        return AbiUtils.getAbisForArch(TestSuiteInfo.getInstance().getTargetArch());
+        Set<String> abis = new LinkedHashSet<>();
+        for (String arch : TestSuiteInfo.getInstance().getTargetArchs()) {
+            abis.addAll(AbiUtils.getAbisForArch(arch));
+        }
+        return abis;
+    }
+
+    /** Returns the host machine abis. */
+    @VisibleForTesting
+    protected Set<String> getHostAbis() {
+        return AbiUtils.getHostAbi();
     }
 
     /** Returns the abi requested with the option -a or --abi. */
     public final String getRequestedAbi() {
         return mAbiName;
+    }
+
+    /** Getter used to validate the proper Guice injection. */
+    @VisibleForTesting
+    final Injector getInjector() {
+        return mInjector;
     }
 
     /**
@@ -920,10 +1219,12 @@ public abstract class ITestSuite
         if (preparerWhiteList.isEmpty()) {
             return;
         }
-        List<ITargetPreparer> preparers = new ArrayList<>(config.getTargetPreparers());
-        for (ITargetPreparer prep : preparers) {
-            if (!preparerWhiteList.contains(prep.getClass().getName())) {
-                config.getTargetPreparers().remove(prep);
+        for (IDeviceConfiguration deviceConfig : config.getDeviceConfig()) {
+            List<ITargetPreparer> preparers = new ArrayList<>(deviceConfig.getTargetPreparers());
+            for (ITargetPreparer prep : preparers) {
+                if (!preparerWhiteList.contains(prep.getClass().getName())) {
+                    deviceConfig.getTargetPreparers().remove(prep);
+                }
             }
         }
     }

@@ -567,5 +567,6 @@ public class Providers {
             }
         }
     }
+    // END Android-added: Check for requests of deprecated Bouncy Castle algorithms.
 
 }

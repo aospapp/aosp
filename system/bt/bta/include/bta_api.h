@@ -50,11 +50,9 @@ typedef uint8_t tBTA_STATUS;
  * Service ID
  *
  * NOTES: When you add a new Service ID for BTA AND require to change the value
- * of BTA_MAX_SERVICE_ID,
- *        make sure that the correct security ID of the new service from
- * Security service definitions (btm_api.h)
- *        should be added to bta_service_id_to_btm_srv_id_lkup_tbl table in
- * bta_dm_act.c.
+ * of BTA_MAX_SERVICE_ID, make sure that the correct security ID of the new
+ * service from Security service definitions (btm_api.h) should be added to
+ * bta_service_id_to_btm_srv_id_lkup_tbl table in bta_dm_act.cc
  */
 
 #define BTA_RES_SERVICE_ID 0         /* Reserved */
@@ -485,9 +483,9 @@ typedef union {
 typedef uint8_t tBTA_DM_BLE_LOCAL_KEY_MASK;
 
 typedef struct {
-  BT_OCTET16 ir;
-  BT_OCTET16 irk;
-  BT_OCTET16 dhk;
+  Octet16 ir;
+  Octet16 irk;
+  Octet16 dhk;
 } tBTA_BLE_LOCAL_ID_KEYS;
 
 #define BTA_DM_SEC_GRANTED BTA_SUCCESS
@@ -512,7 +510,7 @@ typedef struct {
   RawAddress bd_addr;  /* BD address peer device. */
   BD_NAME bd_name;     /* Name of peer device. */
   bool key_present;    /* Valid link key value in key element */
-  LINK_KEY key;        /* Link key associated with peer device. */
+  LinkKey key;         /* Link key associated with peer device. */
   uint8_t key_type;    /* The type of Link Key */
   bool success;        /* true of authentication succeeded, false if failed. */
   uint8_t fail_reason; /* The HCI reason/error code for when success=false */
@@ -689,7 +687,7 @@ typedef union {
   tBTA_DM_BLE_SEC_REQ ble_req;        /* BLE SMP related request */
   tBTA_DM_BLE_KEY ble_key;            /* BLE SMP keys used when pairing */
   tBTA_BLE_LOCAL_ID_KEYS ble_id_keys; /* IR event */
-  BT_OCTET16 ble_er;                  /* ER event data */
+  Octet16 ble_er;                     /* ER event data */
 } tBTA_DM_SEC;
 
 /* Security callback */
@@ -877,7 +875,7 @@ typedef uint8_t tBTA_DM_PM_ACTION;
 
 #ifndef BTA_DM_PM_PARK_IDX
 #define BTA_DM_PM_PARK_IDX \
-  5 /* the actual index to bta_dm_pm_md[] for PARK mode */
+  6 /* the actual index to bta_dm_pm_md[] for PARK mode */
 #endif
 
 #ifndef BTA_DM_PM_SNIFF_A2DP_IDX
@@ -966,6 +964,13 @@ typedef uint8_t tBTA_DM_PM_ACTION;
 #define BTA_DM_PM_SNIFF5_MIN 30
 #define BTA_DM_PM_SNIFF5_ATTEMPT 2
 #define BTA_DM_PM_SNIFF5_TIMEOUT 0
+#endif
+
+#ifndef BTA_DM_PM_SNIFF6_MAX
+#define BTA_DM_PM_SNIFF6_MAX 18
+#define BTA_DM_PM_SNIFF6_MIN 14
+#define BTA_DM_PM_SNIFF6_ATTEMPT 1
+#define BTA_DM_PM_SNIFF6_TIMEOUT 0
 #endif
 
 #ifndef BTA_DM_PM_PARK_MAX
@@ -1282,9 +1287,10 @@ extern void BTA_DmConfirm(const RawAddress& bd_addr, bool accept);
  *
  ******************************************************************************/
 extern void BTA_DmAddDevice(const RawAddress& bd_addr, DEV_CLASS dev_class,
-                            LINK_KEY link_key, tBTA_SERVICE_MASK trusted_mask,
-                            bool is_trusted, uint8_t key_type,
-                            tBTA_IO_CAP io_cap, uint8_t pin_length);
+                            const LinkKey& link_key,
+                            tBTA_SERVICE_MASK trusted_mask, bool is_trusted,
+                            uint8_t key_type, tBTA_IO_CAP io_cap,
+                            uint8_t pin_length);
 
 /*******************************************************************************
  *
@@ -1375,11 +1381,6 @@ extern void BTA_DmCloseACL(const RawAddress& bd_addr, bool remove_dev,
  ******************************************************************************/
 extern void BTA_DmBleSecurityGrant(const RawAddress& bd_addr,
                                    tBTA_DM_BLE_SEC_GRANT res);
-
-/**
- * Set BLE connectable mode to auto connect
- */
-extern void BTA_DmBleStartAutoConn();
 
 /*******************************************************************************
  *

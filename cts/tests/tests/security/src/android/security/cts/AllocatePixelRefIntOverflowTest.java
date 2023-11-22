@@ -32,6 +32,7 @@ public class AllocatePixelRefIntOverflowTest extends AndroidTestCase {
      * Verifies that the device is not vulnerable to ANDROID-19270126: Android
      * BitmapFactory.decodeStream JPG allocPixelRef integer overflow
      */
+    @SecurityTest(minPatchLevel = "2015-03")
     public void testAllocateJavaPixelRefIntOverflow() {
         InputStream exploitImage = mContext.getResources().openRawResource(
                 R.raw.cve_2015_1531_b_19270126);

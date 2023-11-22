@@ -21,6 +21,7 @@
 #include <vector>
 
 #include <android-base/logging.h>
+#include <android-base/thread_annotations.h>
 
 #include "base/macros.h"
 #include "base/mutex.h"
@@ -35,6 +36,7 @@ class JvmtiDdmChunkListener;
 class JvmtiGcPauseListener;
 class JvmtiMethodTraceListener;
 class JvmtiMonitorListener;
+class JvmtiParkListener;
 
 // an enum for ArtEvents. This differs from the JVMTI events only in that we distinguish between
 // retransformation capable and incapable loading
@@ -197,7 +199,7 @@ class EventHandler {
   }
 
   jvmtiError SetEvent(ArtJvmTiEnv* env,
-                      art::Thread* thread,
+                      jthread thread,
                       ArtJvmtiEvent event,
                       jvmtiEventMode mode)
       REQUIRES(!envs_lock_);
@@ -247,6 +249,9 @@ class EventHandler {
  private:
   void SetupTraceListener(JvmtiMethodTraceListener* listener, ArtJvmtiEvent event, bool enable);
 
+  // Specifically handle the FramePop event which it might not always be possible to turn off.
+  void SetupFramePopTraceListener(bool enable);
+
   template <ArtJvmtiEvent kEvent, typename ...Args>
   ALWAYS_INLINE
   inline std::vector<impl::EventHandlerFunc<kEvent>> CollectEvents(art::Thread* thread,
@@ -285,6 +290,11 @@ class EventHandler {
   ALWAYS_INLINE
   inline void RecalculateGlobalEventMaskLocked(ArtJvmtiEvent event) REQUIRES_SHARED(envs_lock_);
 
+  // Returns whether there are any active requests for the given event on the given thread. This
+  // should only be used while modifying the events for a thread.
+  bool GetThreadEventState(ArtJvmtiEvent event, art::Thread* thread)
+      REQUIRES(envs_lock_, art::Locks::thread_list_lock_);
+
   template <ArtJvmtiEvent kEvent>
   ALWAYS_INLINE inline void DispatchClassFileLoadHookEvent(art::Thread* thread,
                                                            JNIEnv* jnienv,
@@ -298,7 +308,18 @@ class EventHandler {
                                                            unsigned char** new_class_data) const
       REQUIRES(!envs_lock_);
 
+  template <ArtJvmtiEvent kEvent>
+  ALWAYS_INLINE inline void DispatchClassLoadOrPrepareEvent(art::Thread* thread,
+                                                            JNIEnv* jnienv,
+                                                            jthread jni_thread,
+                                                            jclass klass) const
+      REQUIRES(!envs_lock_);
+
+  // Sets up the global state needed for the first/last enable of an event across all threads
   void HandleEventType(ArtJvmtiEvent event, bool enable);
+  // Perform deopts required for enabling the event on the given thread. Null thread indicates
+  // global event enabled.
+  jvmtiError HandleEventDeopt(ArtJvmtiEvent event, jthread thread, bool enable);
   void HandleLocalAccessCapabilityAdded();
   void HandleBreakpointEventsChanged(bool enable);
 
@@ -309,9 +330,9 @@ class EventHandler {
   // need to be able to remove arbitrary elements from it.
   std::list<ArtJvmTiEnv*> envs GUARDED_BY(envs_lock_);
 
-  // Top level lock. Nothing at all should be held when we lock this.
-  mutable art::ReaderWriterMutex envs_lock_
-      ACQUIRED_BEFORE(art::Locks::instrument_entrypoints_lock_);
+  // Close to top level lock. Nothing should be held when we lock this (except for mutator_lock_
+  // which is needed when setting new events).
+  mutable art::ReaderWriterMutex envs_lock_ ACQUIRED_AFTER(art::Locks::mutator_lock_);
 
   // A union of all enabled events, anywhere.
   EventMask global_mask;
@@ -321,6 +342,7 @@ class EventHandler {
   std::unique_ptr<JvmtiGcPauseListener> gc_pause_listener_;
   std::unique_ptr<JvmtiMethodTraceListener> method_trace_listener_;
   std::unique_ptr<JvmtiMonitorListener> monitor_listener_;
+  std::unique_ptr<JvmtiParkListener> park_listener_;
 
   // True if frame pop has ever been enabled. Since we store pointers to stack frames we need to
   // continue to listen to this event even if it has been disabled.

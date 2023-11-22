@@ -23,24 +23,28 @@
     <application>
       <uses-library android:name="android.test.runner" />
       <service android:name=".MainInteractionService"
-              android:label="CTS test voice interaction service"
-              android:permission="android.permission.BIND_VOICE_INTERACTION"
-              android:process=":interactor"
-              android:exported="true">
+               android:label="CTS test voice interaction service"
+               android:permission="android.permission.BIND_VOICE_INTERACTION"
+               android:process=":interactor"
+               android:exported="true"
+               android:visibleToInstantApps="true">
           <meta-data android:name="android.voice_interaction"
                      android:resource="@xml/interaction_service" />
           <intent-filter>
               <action android:name="android.service.voice.VoiceInteractionService" />
           </intent-filter>
       </service>
-      <activity android:name=".DisableContextActivity" >
+      <activity android:name=".DisableContextActivity"
+                android:visibleToInstantApps="true">
           <intent-filter>
               <action android:name="android.intent.action.START_TEST_DISABLE_CONTEXT" />
               <category android:name="android.intent.category.DEFAULT" />
           </intent-filter>
       </activity>
       <activity android:name=".DelayedAssistantActivity"
-                android:label="Delay Assistant Start Activity">
+                android:label="Delay Assistant Start Activity"
+                android:exported="true"
+                android:visibleToInstantApps="true">
           <intent-filter>
               <action android:name="android.intent.action.START_TEST_ASSIST_STRUCTURE" />
               <action android:name="android.intent.action.START_TEST_LIFECYCLE" />
@@ -50,6 +54,9 @@
               <action android:name="android.intent.action.START_TEST_EXTRA_ASSIST" />
               <action android:name="android.intent.action.START_TEST_TEXTVIEW" />
               <action android:name="android.intent.action.START_TEST_LARGE_VIEW_HIERARCHY" />
+              <action android:name="android.intent.action.START_TEST_VERIFY_CONTENT_VIEW" />
+              <action android:name="android.intent.action.START_TEST_FOCUS_CHANGE" />
+              <action android:name="android.intent.action.START_TEST_WEBVIEW" />
               <category android:name="android.intent.category.DEFAULT" />
           </intent-filter>
       </activity>

@@ -62,7 +62,7 @@ public class DeviceStringPusherTest {
         optionSetter.setOptionValue("file-content", "hi");
         EasyMock.expect(mMockDevice.doesFileExist("file")).andReturn(false).once();
         EasyMock.expect(mMockDevice.pushString("hi", "file")).andReturn(true).once();
-        EasyMock.expect(mMockDevice.executeShellCommand("rm -f file")).andReturn(null).once();
+        mMockDevice.deleteFile("file");
         EasyMock.replay(mMockDevice, mMockBuildInfo);
 
         mDeviceStringPusher.setUp(mMockDevice, mMockBuildInfo);

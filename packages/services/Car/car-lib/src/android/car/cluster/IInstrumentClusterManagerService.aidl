@@ -22,6 +22,7 @@ import android.car.cluster.IInstrumentClusterManagerCallback;
 /**
  * API to communicate between {@link CarInstrumentClusterManager} and Car Service.
  *
+ * @deprecated CarInstrumentClusterManager is deprecated
  * @hide
  */
 interface IInstrumentClusterManagerService {

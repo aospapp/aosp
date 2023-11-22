@@ -218,6 +218,7 @@
 
     <dimen name="suggestion_item_change_focus_translate_x">-8dp</dimen>
 
-    <dimen name="lb_preference_item_icon_size">24dp</dimen>
-    <dimen name="lb_preference_button_size">32dp</dimen>
+    <!-- FIXME: should use the new theme/style attribute instead of overlaying values-->
+    <dimen name="lb_preference_decor_title_margin_start">24dp</dimen>
+    <dimen name="lb_preference_decor_title_margin_end">56dp</dimen>
 </resources>

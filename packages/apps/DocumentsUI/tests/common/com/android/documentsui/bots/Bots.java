@@ -28,6 +28,8 @@ import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 
+import androidx.test.InstrumentationRegistry;
+
 /**
  * Handy collection of bots for working with Files app.
  */
@@ -37,7 +39,7 @@ public final class Bots {
 
     public final BreadBot breadcrumb;
     public final DirectoryListBot directory;
-    public final SortHeaderBot sortHeader;
+    public final SortBot sort;
     public final KeyboardBot keyboard;
     public final SidebarBot roots;
     public final SearchBot search;
@@ -45,18 +47,20 @@ public final class Bots {
     public final MenuBot menu;
     public final UiBot main;
     public final InspectorBot inspector;
+    public final NotificationsBot notifications;
 
     public Bots(UiDevice device, UiAutomation automation, Context context, int timeout) {
         main = new UiBot(device, context, TIMEOUT);
         breadcrumb = new BreadBot(device, context, TIMEOUT, main);
         roots = new SidebarBot(device, context, TIMEOUT);
         directory = new DirectoryListBot(device, automation, context, TIMEOUT);
-        sortHeader = new SortHeaderBot(device, context, TIMEOUT);
+        sort = new SortBot(device, context, TIMEOUT, main);
         keyboard = new KeyboardBot(device, context, TIMEOUT);
         search = new SearchBot(device, context, TIMEOUT);
         gesture = new GestureBot(device, automation, context, TIMEOUT);
         menu = new MenuBot(device, context, TIMEOUT);
         inspector = new InspectorBot(device, context, TIMEOUT);
+        notifications = new NotificationsBot(device, context, TIMEOUT);
     }
 
     /**
@@ -67,11 +71,15 @@ public final class Bots {
         public final UiDevice mDevice;
         final Context mContext;
         final int mTimeout;
+        public final String mTargetPackage;
 
         BaseBot(UiDevice device, Context context, int timeout) {
             mDevice = device;
             mContext = context;
             mTimeout = timeout;
+            mTargetPackage =
+                    InstrumentationRegistry.getInstrumentation()
+                            .getTargetContext().getPackageName();
         }
 
         /**

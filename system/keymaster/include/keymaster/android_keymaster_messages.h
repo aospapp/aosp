@@ -51,6 +51,10 @@ enum AndroidKeymasterCommand : uint32_t {
     GET_HMAC_SHARING_PARAMETERS = 19,
     COMPUTE_SHARED_HMAC = 20,
     VERIFY_AUTHORIZATION = 21,
+    DELETE_KEY = 22,
+    DELETE_ALL_KEYS = 23,
+    DESTROY_ATTESTATION_IDS = 24,
+    IMPORT_WRAPPED_KEY = 25,
 };
 
 /**
@@ -93,13 +97,13 @@ inline int32_t MessageVersion(uint8_t major_ver, uint8_t minor_ver, uint8_t /* s
     case 2:
         message_version = 3;
         break;
-    };
+    }
     return message_version;
 }
 
 struct KeymasterMessage : public Serializable {
     explicit KeymasterMessage(int32_t ver) : message_version(ver) { assert(ver >= 0); }
-    KeymasterMessage(KeymasterMessage&& other) : message_version(move(other.message_version)) {}
+
     uint32_t message_version;
 };
 
@@ -112,9 +116,6 @@ struct KeymasterMessage : public Serializable {
 struct KeymasterResponse : public KeymasterMessage {
     explicit KeymasterResponse(int32_t ver)
         : KeymasterMessage(ver), error(KM_ERROR_UNKNOWN_ERROR) {}
-    KeymasterResponse(KeymasterResponse&& other)
-        : KeymasterMessage(move(other)), error(move(other.error)) {}
-    KeymasterResponse& operator=(KeymasterResponse&&) = default;
 
     size_t SerializedSize() const override;
     uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;

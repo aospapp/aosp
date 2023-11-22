@@ -26,6 +26,8 @@
 #include "dex/primitive.h"
 #include "handle_scope-inl.h"
 #include "mirror/array-inl.h"
+#include "mirror/array-alloc-inl.h"
+#include "mirror/class-alloc-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/string.h"
@@ -40,7 +42,7 @@ using android::base::StringPrintf;
 
 class ReferenceTableTest : public CommonRuntimeTest {};
 
-static mirror::Object* CreateWeakReference(mirror::Object* referent)
+static ObjPtr<mirror::Object> CreateWeakReference(ObjPtr<mirror::Object> referent)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   Thread* self = Thread::Current();
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
@@ -75,7 +77,9 @@ static mirror::Object* CreateWeakReference(mirror::Object* referent)
 
 TEST_F(ReferenceTableTest, Basics) {
   ScopedObjectAccess soa(Thread::Current());
-  mirror::Object* o1 = mirror::String::AllocFromModifiedUtf8(soa.Self(), "hello");
+  StackHandleScope<5u> hs(soa.Self());
+  Handle<mirror::String> o1 =
+      hs.NewHandle(mirror::String::AllocFromModifiedUtf8(soa.Self(), "hello"));
 
   ReferenceTable rt("test", 0, 11);
 
@@ -87,17 +91,17 @@ TEST_F(ReferenceTableTest, Basics) {
     EXPECT_EQ(0U, rt.Size());
   }
 
-  // Check removal of all nullss in a empty table is a no-op.
+  // Check removal of all nulls in a empty table is a no-op.
   rt.Remove(nullptr);
   EXPECT_EQ(0U, rt.Size());
 
   // Check removal of all o1 in a empty table is a no-op.
-  rt.Remove(o1);
+  rt.Remove(o1.Get());
   EXPECT_EQ(0U, rt.Size());
 
   // Add o1 and check we have 1 element and can dump.
   {
-    rt.Add(o1);
+    rt.Add(o1.Get());
     EXPECT_EQ(1U, rt.Size());
     std::ostringstream oss;
     rt.Dump(oss);
@@ -106,9 +110,9 @@ TEST_F(ReferenceTableTest, Basics) {
   }
 
   // Add a second object 10 times and check dumping is sane.
-  mirror::Object* o2 = mirror::ShortArray::Alloc(soa.Self(), 0);
+  Handle<mirror::ShortArray> o2 = hs.NewHandle(mirror::ShortArray::Alloc(soa.Self(), 0));
   for (size_t i = 0; i < 10; ++i) {
-    rt.Add(o2);
+    rt.Add(o2.Get());
     EXPECT_EQ(i + 2, rt.Size());
     std::ostringstream oss;
     rt.Dump(oss);
@@ -127,7 +131,7 @@ TEST_F(ReferenceTableTest, Basics) {
 
   // Remove o1 (first element).
   {
-    rt.Remove(o1);
+    rt.Remove(o1.Get());
     EXPECT_EQ(10U, rt.Size());
     std::ostringstream oss;
     rt.Dump(oss);
@@ -136,7 +140,7 @@ TEST_F(ReferenceTableTest, Basics) {
 
   // Remove o2 ten times.
   for (size_t i = 0; i < 10; ++i) {
-    rt.Remove(o2);
+    rt.Remove(o2.Get());
     EXPECT_EQ(9 - i, rt.Size());
     std::ostringstream oss;
     rt.Dump(oss);
@@ -152,7 +156,7 @@ TEST_F(ReferenceTableTest, Basics) {
 
   // Add a reference and check that the type of the referent is dumped.
   {
-    mirror::Object* empty_reference = CreateWeakReference(nullptr);
+    ObjPtr<mirror::Object> empty_reference = CreateWeakReference(nullptr);
     ASSERT_TRUE(empty_reference->IsReferenceInstance());
     rt.Add(empty_reference);
     std::ostringstream oss;
@@ -163,8 +167,9 @@ TEST_F(ReferenceTableTest, Basics) {
   }
 
   {
-    mirror::Object* string_referent = mirror::String::AllocFromModifiedUtf8(Thread::Current(), "A");
-    mirror::Object* non_empty_reference = CreateWeakReference(string_referent);
+    ObjPtr<mirror::Object> string_referent =
+        mirror::String::AllocFromModifiedUtf8(Thread::Current(), "A");
+    ObjPtr<mirror::Object> non_empty_reference = CreateWeakReference(string_referent);
     ASSERT_TRUE(non_empty_reference->IsReferenceInstance());
     rt.Add(non_empty_reference);
     std::ostringstream oss;
@@ -177,7 +182,6 @@ TEST_F(ReferenceTableTest, Basics) {
 
   // Add two objects. Enable allocation tracking for the latter.
   {
-    StackHandleScope<3> hs(soa.Self());
     Handle<mirror::String> h_without_trace(hs.NewHandle(
         mirror::String::AllocFromModifiedUtf8(soa.Self(), "Without")));
 
@@ -276,23 +280,26 @@ TEST_F(ReferenceTableTest, SummaryOrder) {
   ReferenceTable rt("test", 0, 20);
 
   {
-    mirror::Object* s1 = mirror::String::AllocFromModifiedUtf8(soa.Self(), "hello");
-    mirror::Object* s2 = mirror::String::AllocFromModifiedUtf8(soa.Self(), "world");
+    StackHandleScope<1> hs(soa.Self());
+    Handle<mirror::String> s1 =
+        hs.NewHandle(mirror::String::AllocFromModifiedUtf8(soa.Self(), "hello"));
+    ObjPtr<mirror::String> s2 = mirror::String::AllocFromModifiedUtf8(soa.Self(), "world");
 
     // 3 copies of s1, 2 copies of s2, interleaved.
     for (size_t i = 0; i != 2; ++i) {
-      rt.Add(s1);
+      rt.Add(s1.Get());
       rt.Add(s2);
     }
-    rt.Add(s1);
+    rt.Add(s1.Get());
   }
 
   {
-    // Differently sized byte arrays. Should be sorted by identical (non-unique cound).
-    mirror::Object* b1_1 = mirror::ByteArray::Alloc(soa.Self(), 1);
-    rt.Add(b1_1);
+    // Differently sized byte arrays. Should be sorted by identical (non-unique count).
+    StackHandleScope<1> hs(soa.Self());
+    Handle<mirror::ByteArray> b1_1 = hs.NewHandle(mirror::ByteArray::Alloc(soa.Self(), 1));
+    rt.Add(b1_1.Get());
     rt.Add(mirror::ByteArray::Alloc(soa.Self(), 2));
-    rt.Add(b1_1);
+    rt.Add(b1_1.Get());
     rt.Add(mirror::ByteArray::Alloc(soa.Self(), 2));
     rt.Add(mirror::ByteArray::Alloc(soa.Self(), 1));
     rt.Add(mirror::ByteArray::Alloc(soa.Self(), 2));

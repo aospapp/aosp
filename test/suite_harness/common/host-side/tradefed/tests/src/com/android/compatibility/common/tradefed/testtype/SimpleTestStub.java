@@ -93,4 +93,20 @@ public class SimpleTestStub implements IRemoteTest, IAbiReceiver, IRuntimeHintPr
     public void addAllExcludeFilters(Set<String> filters) {
 
     }
+
+    @Override
+    public Set<String> getIncludeFilters() {
+        return null;
+    }
+
+    @Override
+    public Set<String> getExcludeFilters() {
+        return null;
+    }
+
+    @Override
+    public void clearIncludeFilters() {}
+
+    @Override
+    public void clearExcludeFilters() {}
 }

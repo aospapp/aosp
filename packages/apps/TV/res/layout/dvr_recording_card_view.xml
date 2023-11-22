@@ -30,7 +30,7 @@
             android:layout_gravity="center_horizontal"
             android:scaleType="centerCrop"
             android:contentDescription="@null"
-            tv:layout_viewType="main" />
+            tv:layout_viewType="main"/>
 
         <ProgressBar android:id="@+id/recording_progress"
             style="@android:style/Widget.ProgressBar.Horizontal"
@@ -42,21 +42,7 @@
             android:indeterminate="false"
             android:visibility="gone"
             android:max="100"
-            android:layout_gravity="bottom" />
-
-        <FrameLayout android:id="@+id/affiliated_icon_container"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/card_image_gradient"
-            android:visibility="invisible">
-
-            <ImageView android:id="@+id/affiliated_icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="bottom|right"
-                android:layout_margin="12dp" />
-
-        </FrameLayout>
+            android:layout_gravity="bottom"/>
     </FrameLayout>
 
     <LinearLayout android:id="@+id/info_area"
@@ -99,10 +85,17 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content" >
 
+            <ImageView android:id="@+id/content_icon"
+                android:paddingTop="2dp"
+                android:layout_width="13dp"
+                android:layout_height="15dp"
+                android:gravity="start"
+                android:visibility="gone"/>
+
             <TextView android:id="@+id/content_major"
+                android:layout_toEndOf="@+id/content_icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="start"
                 style="@style/dvr_card_view_content_text" />
 
             <TextView android:id="@+id/content_minor"

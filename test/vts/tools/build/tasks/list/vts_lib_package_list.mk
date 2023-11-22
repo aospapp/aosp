@@ -23,4 +23,6 @@ vts_lib_packages := \
   libvts_multidevice_proto \
   libvts_profiling \
   libvts_profiling_utils \
+  libvts_resource_driver \
+  libvts_resource_manager \
   libprotobuf-cpp-full \

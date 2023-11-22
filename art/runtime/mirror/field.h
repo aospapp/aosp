@@ -21,7 +21,6 @@
 #include "base/enums.h"
 #include "dex/modifiers.h"
 #include "dex/primitive.h"
-#include "gc_root.h"
 #include "obj_ptr.h"
 #include "object.h"
 #include "read_barrier_option.h"
@@ -39,21 +38,11 @@ class String;
 // C++ mirror of java.lang.reflect.Field.
 class MANAGED Field : public AccessibleObject {
  public:
-  static mirror::Class* StaticClass() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return static_class_.Read();
-  }
-
-  static mirror::Class* ArrayClass() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return array_class_.Read();
-  }
-
   ALWAYS_INLINE uint32_t GetDexFieldIndex() REQUIRES_SHARED(Locks::mutator_lock_) {
     return GetField32(OFFSET_OF_OBJECT_MEMBER(Field, dex_field_index_));
   }
 
-  mirror::Class* GetDeclaringClass() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetFieldObject<Class>(OFFSET_OF_OBJECT_MEMBER(Field, declaring_class_));
-  }
+  ObjPtr<mirror::Class> GetDeclaringClass() REQUIRES_SHARED(Locks::mutator_lock_);
 
   uint32_t GetAccessFlags() REQUIRES_SHARED(Locks::mutator_lock_) {
     return GetField32(OFFSET_OF_OBJECT_MEMBER(Field, access_flags_));
@@ -73,28 +62,19 @@ class MANAGED Field : public AccessibleObject {
 
   ALWAYS_INLINE Primitive::Type GetTypeAsPrimitiveType() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  mirror::Class* GetType() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetFieldObject<mirror::Class>(OFFSET_OF_OBJECT_MEMBER(Field, type_));
-  }
+  ObjPtr<mirror::Class> GetType() REQUIRES_SHARED(Locks::mutator_lock_);
 
   int32_t GetOffset() REQUIRES_SHARED(Locks::mutator_lock_) {
     return GetField32(OFFSET_OF_OBJECT_MEMBER(Field, offset_));
   }
 
-  static void SetClass(ObjPtr<Class> klass) REQUIRES_SHARED(Locks::mutator_lock_);
-  static void ResetClass() REQUIRES_SHARED(Locks::mutator_lock_);
-
-  static void SetArrayClass(ObjPtr<Class> klass) REQUIRES_SHARED(Locks::mutator_lock_);
-  static void ResetArrayClass() REQUIRES_SHARED(Locks::mutator_lock_);
-
-  static void VisitRoots(RootVisitor* visitor) REQUIRES_SHARED(Locks::mutator_lock_);
-
   // Slow, try to use only for PrettyField and such.
   ArtField* GetArtField() REQUIRES_SHARED(Locks::mutator_lock_);
 
   template <PointerSize kPointerSize, bool kTransactionActive = false>
-  static mirror::Field* CreateFromArtField(Thread* self, ArtField* field,
-                                           bool force_resolve)
+  static ObjPtr<mirror::Field> CreateFromArtField(Thread* self,
+                                                  ArtField* field,
+                                                  bool force_resolve)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
  private:
@@ -127,9 +107,6 @@ class MANAGED Field : public AccessibleObject {
   void SetOffset(uint32_t offset) REQUIRES_SHARED(Locks::mutator_lock_) {
     SetField32<kTransactionActive>(OFFSET_OF_OBJECT_MEMBER(Field, offset_), offset);
   }
-
-  static GcRoot<Class> static_class_;  // java.lang.reflect.Field.class.
-  static GcRoot<Class> array_class_;  // array of java.lang.reflect.Field.
 
   friend struct art::FieldOffsets;  // for verifying offset information
   DISALLOW_IMPLICIT_CONSTRUCTORS(Field);

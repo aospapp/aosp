@@ -1,8 +1,5 @@
 package com.android.phone;
 
-import com.android.internal.telephony.CommandException;
-import com.android.internal.telephony.Phone;
-
 import static com.android.phone.TimeConsumingPreferenceActivity.RESPONSE_ERROR;
 
 import android.content.Context;
@@ -12,6 +9,9 @@ import android.os.Message;
 import android.preference.SwitchPreference;
 import android.util.AttributeSet;
 import android.util.Log;
+
+import com.android.internal.telephony.CommandException;
+import com.android.internal.telephony.Phone;
 
 public class CallWaitingSwitchPreference extends SwitchPreference {
     private static final String LOG_TAG = "CallWaitingSwitchPreference";

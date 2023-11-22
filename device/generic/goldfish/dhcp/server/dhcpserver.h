@@ -30,14 +30,9 @@ class Message;
 
 class DhcpServer {
 public:
-    // Construct a DHCP server with the given parameters. Ignore any requests
-    // and discoveries coming on the network interface identified by
-    // |excludeInterface|.
-    DhcpServer(in_addr_t dhcpRangeStart,
-               in_addr_t dhcpRangeEnd,
-               in_addr_t netmask,
-               in_addr_t gateway,
-               unsigned int excludeInterface);
+    // Construct a DHCP server. Ignore any requests and discoveries coming on
+    // the network interface identified by |excludeInterface|.
+    explicit DhcpServer(unsigned int excludeInterface);
 
     Result init();
     Result run();
@@ -54,24 +49,27 @@ private:
     bool isValidDhcpRequest(const Message& message,
                             unsigned int interfaceIndex);
     void updateDnsServers();
+    Result getInterfaceData(unsigned int interfaceIndex,
+                            unsigned long type,
+                            struct ifreq* response);
     Result getInterfaceAddress(unsigned int interfaceIndex,
                                in_addr_t* address);
+    Result getInterfaceNetmask(unsigned int interfaceIndex,
+                               in_addr_t* netmask);
     Result getOfferAddress(unsigned int interfaceIndex,
                            const uint8_t* macAddress,
-                           in_addr_t* address);
+                           in_addr_t* address,
+                           in_addr_t* netmask,
+                           in_addr_t* gateway);
 
     Socket mSocket;
     // This is the next address offset. This will be added to whatever the base
     // address of the DHCP address range is. For each new MAC address seen this
     // value will increase by one.
-    in_addr_t mNextAddressOffset;
-    in_addr_t mDhcpRangeStart;
-    in_addr_t mDhcpRangeEnd;
-    in_addr_t mNetmask;
-    in_addr_t mGateway;
     std::vector<in_addr_t> mDnsServers;
     // Map a lease to an IP address for that lease
     std::unordered_map<Lease, in_addr_t> mLeases;
+    std::unordered_map<unsigned int, in_addr_t> mNextAddressOffsets;
     unsigned int mExcludeInterface;
 };
 

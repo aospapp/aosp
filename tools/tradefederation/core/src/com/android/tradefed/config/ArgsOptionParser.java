@@ -342,7 +342,7 @@ public class ArgsOptionParser extends OptionSetter {
                 String tmp = grabNextValue(args, name, "for its key");
                 // only match = to escape use "\="
                 Pattern p = Pattern.compile("(?<!\\\\)=");
-                String[] parts = p.split(tmp);
+                String[] parts = p.split(tmp, /* allow empty-string values */ -1);
                 // Note that we replace escaped = (\=) to =.
                 if (parts.length == 2) {
                     key = parts[0].replaceAll("\\\\=", "=");

@@ -30,6 +30,7 @@ import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.AndroidJUnitTest;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -51,7 +52,7 @@ import java.util.Map.Entry;
 public class DeviceCollectorsTest extends BaseHostJUnit4Test {
     private static final String TEST_APK = "CollectorDeviceLibTest.apk";
     private static final String PACKAGE_NAME = "android.device.collectors";
-    private static final String AJUR_RUNNER = "android.support.test.runner.AndroidJUnitRunner";
+    private static final String AJUR_RUNNER = "androidx.test.runner.AndroidJUnitRunner";
 
     private static final String STUB_BASE_COLLECTOR =
             "android.device.collectors.StubTestMetricListener";
@@ -69,6 +70,7 @@ public class DeviceCollectorsTest extends BaseHostJUnit4Test {
                 new RemoteAndroidTestRunner(PACKAGE_NAME, AJUR_RUNNER, getDevice().getIDevice());
         // Set the new runListener order to ensure test cases can show their metrics.
         mTestRunner.addInstrumentationArg(AndroidJUnitTest.NEW_RUN_LISTENER_ORDER_KEY, "true");
+        mTestRunner.addInstrumentationArg("notClass", "android.device.tests.TestEvents");
         mContext = mock(IInvocationContext.class);
         doReturn(Arrays.asList(getDevice())).when(mContext).getDevices();
         doReturn(Arrays.asList(getBuild())).when(mContext).getBuildInfos();
@@ -80,6 +82,7 @@ public class DeviceCollectorsTest extends BaseHostJUnit4Test {
     @Test
     public void testBaseListenerRuns() throws Exception {
         mTestRunner.addInstrumentationArg("listener", STUB_BASE_COLLECTOR);
+        mTestRunner.setClassName("android.device.collectors.BaseMetricListenerInstrumentedTest");
         CollectingTestListener listener = new CollectingTestListener();
         assertTrue(getDevice().runInstrumentationTests(mTestRunner, listener));
         Collection<TestRunResult> results = listener.getRunResults();
@@ -234,5 +237,23 @@ public class DeviceCollectorsTest extends BaseHostJUnit4Test {
         // The default interval value is one minute so it will only have time to run once.
         assertEquals(1, result.getRunMetrics().size());
         assertTrue(result.getRunMetrics().containsKey("collect0"));
+    }
+
+    /**
+     * Test that when using -e log true. Nothing gets collected.
+     */
+    @Test
+    public void testLogOnly() throws Exception {
+        DeviceTestRunOptions options = new DeviceTestRunOptions(PACKAGE_NAME);
+        options.addInstrumentationArg("listener", STUB_BASE_COLLECTOR);
+        options.addInstrumentationArg("log", "true");
+        options.setTestClassName("android.device.collectors.BaseMetricListenerInstrumentedTest");
+        boolean res = runDeviceTests(options);
+        assertTrue(res);
+        TestRunResult result = getLastDeviceRunResults();
+        assertTrue(result.getRunMetrics().isEmpty());
+        for (Entry<TestDescription, TestResult> testResult : result.getTestResults().entrySet()) {
+            assertTrue(testResult.getValue().getMetrics().isEmpty());
+        }
     }
 }

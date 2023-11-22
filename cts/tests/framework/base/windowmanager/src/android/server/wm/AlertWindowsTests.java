@@ -22,15 +22,18 @@ import static android.app.AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW;
 import static android.server.wm.alertwindowapp.Components.ALERT_WINDOW_TEST_ACTIVITY;
 import static android.server.wm.alertwindowappsdk25.Components.SDK25_ALERT_WINDOW_TEST_ACTIVITY;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.lessThan;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.ComponentName;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
-import android.server.am.ActivityManagerTestBase;
-import android.server.am.WaitForValidActivityState;
-import android.server.am.WindowManagerState;
 
 import com.android.compatibility.common.util.AppOpsUtils;
 
@@ -91,8 +94,8 @@ public class AlertWindowsTests extends ActivityManagerTestBase {
         super.tearDown();
         resetPermissionState(ALERT_WINDOW_TEST_ACTIVITY);
         resetPermissionState(SDK25_ALERT_WINDOW_TEST_ACTIVITY);
-        stopTestPackage(ALERT_WINDOW_TEST_ACTIVITY);
-        stopTestPackage(SDK25_ALERT_WINDOW_TEST_ACTIVITY);
+        stopTestPackage(ALERT_WINDOW_TEST_ACTIVITY.getPackageName());
+        stopTestPackage(SDK25_ALERT_WINDOW_TEST_ACTIVITY.getPackageName());
     }
 
     @Test
@@ -152,13 +155,12 @@ public class AlertWindowsTests extends ActivityManagerTestBase {
             // in place for SYSTEM_ALERT_WINDOW, which allows the window
             // to be created, but will be hidden instead.
             if (isUiModeLockedToVrHeadset()) {
-                assertTrue("Should not be empty alertWindows=" + alertWindows,
-                        !alertWindows.isEmpty());
+                assertThat("Should not be empty alertWindows",
+                        alertWindows, hasSize(greaterThan(0)));
                 assertTrue("All alert windows should be hidden",
                         allWindowsHidden(alertWindows));
             } else {
-                assertTrue("Should be empty alertWindows=" + alertWindows,
-                        alertWindows.isEmpty());
+                assertThat("Should be empty alertWindows", alertWindows, empty());
                 assertTrue(AppOpsUtils.rejectedOperationLogged(packageName,
                         OPSTR_SYSTEM_ALERT_WINDOW));
                 return;
@@ -168,8 +170,8 @@ public class AlertWindowsTests extends ActivityManagerTestBase {
         if (atLeastO) {
             // Assert that only TYPE_APPLICATION_OVERLAY was created.
             for (WindowManagerState.WindowState win : alertWindows) {
-                assertTrue("Can't create win=" + win + " on SDK O or greater",
-                        win.getType() == TYPE_APPLICATION_OVERLAY);
+                assertEquals("Can't create win=" + win + " on SDK O or greater",
+                        win.getType(), TYPE_APPLICATION_OVERLAY);
             }
         }
 
@@ -183,17 +185,17 @@ public class AlertWindowsTests extends ActivityManagerTestBase {
                 alertWindows.get(alertWindows.size() - 1);
 
         // Assert that the alert windows have higher z-order than the main app window
-        assertTrue("lowestAlertWindow=" + lowestAlertWindow + " less than mainAppWindow="
-                + mainAppWindow,
-                wmState.getZOrder(lowestAlertWindow) > wmState.getZOrder(mainAppWindow));
+        assertThat("lowestAlertWindow has higher z-order than mainAppWindow",
+                wmState.getZOrder(lowestAlertWindow),
+                greaterThan(wmState.getZOrder(mainAppWindow)));
 
         // Assert that legacy alert windows have a lower z-order than the new alert window layer.
         final WindowManagerState.WindowState appOverlayWindow =
                 wmState.getWindowByPackageName(packageName, TYPE_APPLICATION_OVERLAY);
         if (appOverlayWindow != null && highestAlertWindow != appOverlayWindow) {
-            assertTrue("highestAlertWindow=" + highestAlertWindow
-                            + " greater than appOverlayWindow=" + appOverlayWindow,
-                    wmState.getZOrder(highestAlertWindow) < wmState.getZOrder(appOverlayWindow));
+            assertThat("highestAlertWindow has lower z-order than appOverlayWindow",
+                    wmState.getZOrder(highestAlertWindow),
+                    lessThan(wmState.getZOrder(appOverlayWindow)));
         }
 
         // Assert that alert windows are below key system windows.
@@ -201,9 +203,9 @@ public class AlertWindowsTests extends ActivityManagerTestBase {
                 wmState.getWindowsByPackageName(packageName, SYSTEM_WINDOW_TYPES);
         if (!systemWindows.isEmpty()) {
             final WindowManagerState.WindowState lowestSystemWindow = alertWindows.get(0);
-            assertTrue("highestAlertWindow=" + highestAlertWindow
-                            + " greater than lowestSystemWindow=" + lowestSystemWindow,
-                    wmState.getZOrder(highestAlertWindow) < wmState.getZOrder(lowestSystemWindow));
+            assertThat("highestAlertWindow has lower z-order than lowestSystemWindow",
+                    wmState.getZOrder(highestAlertWindow),
+                    lessThan(wmState.getZOrder(lowestSystemWindow)));
         }
         assertTrue(AppOpsUtils.allowedOperationLogged(packageName, OPSTR_SYSTEM_ALERT_WINDOW));
     }

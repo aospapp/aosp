@@ -5,6 +5,7 @@
 ###
 
 type vrcore_app, domain;
+type vrcore_app_tmpfs, file_type;
 
 app_domain(vrcore_app)
 net_domain(vrcore_app)

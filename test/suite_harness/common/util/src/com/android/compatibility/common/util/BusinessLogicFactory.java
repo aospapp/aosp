@@ -16,17 +16,21 @@
 
 package com.android.compatibility.common.util;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import com.android.compatibility.common.util.BusinessLogic.BusinessLogicRule;
 import com.android.compatibility.common.util.BusinessLogic.BusinessLogicRuleAction;
 import com.android.compatibility.common.util.BusinessLogic.BusinessLogicRuleCondition;
 import com.android.compatibility.common.util.BusinessLogic.BusinessLogicRulesList;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -67,16 +71,38 @@ public class BusinessLogicFactory {
     private static final String TIMESTAMP_PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'";
 
     /**
+     * Create a BusinessLogic instance from a {@link FileInputStream} of business logic data,
+     * formatted in JSON. This format is identical to that which is received from the Android
+     * Partner business logic service.
+     */
+    public static BusinessLogic createFromFile(FileInputStream stream) {
+        try {
+            String businessLogicString = readStream(stream);
+            return createBL(businessLogicString);
+        } catch (IOException e) {
+            throw new RuntimeException("Business Logic failed", e);
+        }
+    }
+
+    /**
      * Create a BusinessLogic instance from a file of business logic data, formatted in JSON.
      * This format is identical to that which is received from the Android Partner business logic
      * service.
      */
     public static BusinessLogic createFromFile(File f) {
+        try {
+            String businessLogicString = readFile(f);
+            return createBL(businessLogicString);
+        } catch (IOException e) {
+            throw new RuntimeException("Business Logic failed", e);
+        }
+    }
+
+    private static BusinessLogic createBL(String businessLogicString) {
         // Populate the map from testname to business rules for this new BusinessLogic instance
         Map<String, List<BusinessLogicRulesList>> rulesMap = new HashMap<>();
         BusinessLogic bl = new BusinessLogic();
         try {
-            String businessLogicString = readFile(f);
             JSONObject root = new JSONObject(businessLogicString);
             JSONArray jsonRulesLists = null;
             if (root.has(AUTHENTICATION_STATUS)){
@@ -106,7 +132,7 @@ public class BusinessLogicFactory {
                 testRulesLists.add(extractRulesList(jsonRulesList));
                 rulesMap.put(testName, testRulesLists);
             }
-        } catch (IOException | JSONException e) {
+        } catch (JSONException e) {
             throw new RuntimeException("Business Logic failed", e);
         }
         // Return business logic
@@ -228,5 +254,17 @@ public class BusinessLogicFactory {
             }
             return sb.toString();
         }
+    }
+
+    /** Extract string from stream */
+    private static String readStream(FileInputStream stream) throws IOException {
+        int irChar = -1;
+        StringBuilder builder = new StringBuilder();
+        try (Reader ir = new BufferedReader(new InputStreamReader(stream))) {
+            while ((irChar = ir.read()) != -1) {
+                builder.append((char) irChar);
+            }
+        }
+        return builder.toString();
     }
 }

@@ -24,8 +24,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
+import android.provider.Settings;
 import android.text.Html;
 import android.text.InputFilter;
 import android.text.InputFilter.LengthFilter;
@@ -40,6 +39,9 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.tv.settings.R;
@@ -101,6 +103,13 @@ public class BluetoothPairingDialog extends DialogActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (Settings.Global.getInt(
+                getContentResolver(), Settings.Global.DEVICE_PROVISIONED, 0) == 0) {
+            Log.e(TAG, "Device not provisioned. finishing");
+            finish();
+            return;
+        }
 
         final Intent intent = getIntent();
         if (!BluetoothDevice.ACTION_PAIRING_REQUEST.equals(intent.getAction())) {

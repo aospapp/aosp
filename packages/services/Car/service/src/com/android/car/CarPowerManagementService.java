@@ -19,7 +19,10 @@ import android.car.Car;
 import android.car.hardware.power.CarPowerManager.CarPowerStateListener;
 import android.car.hardware.power.ICarPower;
 import android.car.hardware.power.ICarPowerStateListener;
+import android.car.userlib.CarUserManagerHelper;
 import android.content.Context;
+import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReq;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -28,6 +31,8 @@ import android.os.Message;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.util.Log;
 
 import com.android.car.hal.PowerHalService;
@@ -37,81 +42,31 @@ import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.PrintWriter;
+import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
-public class CarPowerManagementService extends ICarPower.Stub implements CarServiceBase,
-    PowerHalService.PowerEventListener {
-
-    /**
-     * Listener for other services to monitor power events.
-     */
-    public interface PowerServiceEventListener {
-        /**
-         * Shutdown is happening
-         */
-        void onShutdown();
-
-        /**
-         * Entering deep sleep.
-         */
-        void onSleepEntry();
-
-        /**
-         * Got out of deep sleep.
-         */
-        void onSleepExit();
-    }
-
-    /**
-     * Interface for components requiring processing time before shutting-down or
-     * entering sleep, and wake-up after shut-down.
-     */
-    public interface PowerEventProcessingHandler {
-        /**
-         * Called before shutdown or sleep entry to allow running some processing. This call
-         * should only queue such task in different thread and should return quickly.
-         * Blocking inside this call can trigger watchdog timer which can terminate the
-         * whole system.
-         * @param shuttingDown whether system is shutting down or not (= sleep entry).
-         * @return time necessary to run processing in ms. should return 0 if there is no
-         *         processing necessary.
-         */
-        long onPrepareShutdown(boolean shuttingDown);
-
-        /**
-         * Called when power state is changed to ON state. Display can be either on or off.
-         * @param displayOn
-         */
-        void onPowerOn(boolean displayOn);
-
-        /**
-         * Returns wake up time after system is fully shutdown. Power controller will power on
-         * the system after this time. This power on is meant for regular maintenance kind of
-         * operation.
-         * @return 0 of wake up is not necessary.
-         */
-        int getWakeupTime();
-    }
-
+/**
+ * Power Management service class for cars. Controls the power states and interacts with other
+ * parts of the system to ensure its own state.
+ */
+public class CarPowerManagementService extends ICarPower.Stub implements
+        CarServiceBase, PowerHalService.PowerEventListener {
     private final Context mContext;
     private final PowerHalService mHal;
     private final SystemInterface mSystemInterface;
-
-    private final CopyOnWriteArrayList<PowerServiceEventListener> mListeners =
-            new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<PowerEventProcessingHandlerWrapper>
-            mPowerEventProcessingHandlers = new CopyOnWriteArrayList<>();
+    // The listeners that complete simply by returning from onStateChanged()
     private final PowerManagerCallbackList mPowerManagerListeners = new PowerManagerCallbackList();
-    private final Map<IBinder, Integer> mPowerManagerListenerTokens = new ConcurrentHashMap<>();
-    private int mTokenValue = 1;
+    // The listeners that must indicate asynchronous completion by calling finished().
+    private final PowerManagerCallbackList mPowerManagerListenersWithCompletion =
+                          new PowerManagerCallbackList();
+    private final Set<IBinder> mListenersWeAreWaitingFor = new HashSet<>();
+    private final Object mSimulationSleepObject = new Object();
 
     @GuardedBy("this")
-    private PowerState mCurrentState;
+    private CpmsState mCurrentState;
     @GuardedBy("this")
     private Timer mTimer;
     @GuardedBy("this")
@@ -119,18 +74,35 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
     @GuardedBy("this")
     private long mLastSleepEntryTime;
     @GuardedBy("this")
-    private final LinkedList<PowerState> mPendingPowerStates = new LinkedList<>();
+    private final LinkedList<CpmsState> mPendingPowerStates = new LinkedList<>();
     @GuardedBy("this")
     private HandlerThread mHandlerThread;
     @GuardedBy("this")
     private PowerHandler mHandler;
-    private int mBootReason;
-    private boolean mShutdownOnNextSuspend = false;
+    @GuardedBy("this")
+    private boolean mTimerActive;
+    @GuardedBy("mSimulationSleepObject")
+    private boolean mInSimulatedDeepSleepMode = false;
+    @GuardedBy("mSimulationSleepObject")
+    private boolean mWakeFromSimulatedSleep = false;
+    private int mNextWakeupSec = 0;
+    private boolean mShutdownOnFinish = false;
+    private boolean mIsBooting = true;
+
+    private final CarUserManagerHelper mCarUserManagerHelper;
 
     // TODO:  Make this OEM configurable.
-    private final static int APP_EXTEND_MAX_MS = 10000;
-    private final static int SHUTDOWN_POLLING_INTERVAL_MS = 2000;
-    private final static int SHUTDOWN_EXTEND_MAX_MS = 5000;
+    private static final int SHUTDOWN_POLLING_INTERVAL_MS = 2000;
+    private static final int SHUTDOWN_EXTEND_MAX_MS = 5000;
+
+    // maxGarageModeRunningDurationInSecs should be equal or greater than this. 15 min for now.
+    private static final int MIN_MAX_GARAGE_MODE_DURATION_MS = 15 * 60 * 1000;
+
+    private static int sShutdownPrepareTimeMs = MIN_MAX_GARAGE_MODE_DURATION_MS;
+
+    // in secs
+    private static final String PROP_MAX_GARAGE_MODE_DURATION_OVERRIDE =
+            "android.car.garagemodeduration";
 
     private class PowerManagerCallbackList extends RemoteCallbackList<ICarPowerStateListener> {
         /**
@@ -144,11 +116,22 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
         }
     }
 
-    public CarPowerManagementService(Context context, PowerHalService powerHal,
-                                     SystemInterface systemInterface) {
+    public CarPowerManagementService(
+            Context context, PowerHalService powerHal, SystemInterface systemInterface,
+            CarUserManagerHelper carUserManagerHelper) {
         mContext = context;
         mHal = powerHal;
         mSystemInterface = systemInterface;
+        mCarUserManagerHelper = carUserManagerHelper;
+        sShutdownPrepareTimeMs = mContext.getResources().getInteger(
+                R.integer.maxGarageModeRunningDurationInSecs) * 1000;
+        if (sShutdownPrepareTimeMs < MIN_MAX_GARAGE_MODE_DURATION_MS) {
+            Log.w(CarLog.TAG_POWER,
+                    "maxGarageModeRunningDurationInSecs smaller than minimum required, resource:"
+                    + sShutdownPrepareTimeMs + "(ms) while should exceed:"
+                    +  MIN_MAX_GARAGE_MODE_DURATION_MS + "(ms), Ignore resource.");
+            sShutdownPrepareTimeMs = MIN_MAX_GARAGE_MODE_DURATION_MS;
+        }
     }
 
     /**
@@ -162,11 +145,22 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
         mSystemInterface = null;
         mHandlerThread = null;
         mHandler = new PowerHandler(Looper.getMainLooper());
+        mCarUserManagerHelper = null;
+    }
+
+    @VisibleForTesting
+    protected static void setShutdownPrepareTimeout(int timeoutMs) {
+        // Override the timeout to keep testing time short
+        if (timeoutMs < SHUTDOWN_EXTEND_MAX_MS) {
+            sShutdownPrepareTimeMs = SHUTDOWN_EXTEND_MAX_MS;
+        } else {
+            sShutdownPrepareTimeMs = timeoutMs;
+        }
     }
 
     @Override
     public void init() {
-        synchronized (this) {
+        synchronized (CarPowerManagementService.this) {
             mHandlerThread = new HandlerThread(CarLog.TAG_POWER);
             mHandlerThread.start();
             mHandler = new PowerHandler(mHandlerThread.getLooper());
@@ -174,18 +168,11 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
 
         mHal.setListener(this);
         if (mHal.isPowerStateSupported()) {
-            mHal.sendBootComplete();
-            PowerState currentState = mHal.getCurrentPowerState();
-            if (currentState != null) {
-                onApPowerStateChange(currentState);
-            } else {
-                Log.w(CarLog.TAG_POWER, "Unable to get get current power state during "
-                        + "initialization");
-            }
+            // Initialize CPMS in WAIT_FOR_VHAL state
+            onApPowerStateChange(CpmsState.WAIT_FOR_VHAL, CarPowerStateListener.WAIT_FOR_VHAL);
         } else {
             Log.w(CarLog.TAG_POWER, "Vehicle hal does not support power state yet.");
-            onApPowerStateChange(new PowerState(PowerHalService.STATE_ON_FULL, 0));
-            mSystemInterface.switchToFullWakeLock();
+            onApPowerStateChange(CpmsState.ON, CarPowerStateListener.ON);
         }
         mSystemInterface.startDisplayStateMonitoring(this);
     }
@@ -193,7 +180,7 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
     @Override
     public void release() {
         HandlerThread handlerThread;
-        synchronized (this) {
+        synchronized (CarPowerManagementService.this) {
             releaseTimerLocked();
             mCurrentState = null;
             mHandler.cancelAll();
@@ -206,85 +193,9 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
             Log.e(CarLog.TAG_POWER, "Timeout while joining for handler thread to join.");
         }
         mSystemInterface.stopDisplayStateMonitoring();
-        mListeners.clear();
-        mPowerEventProcessingHandlers.clear();
         mPowerManagerListeners.kill();
-        mPowerManagerListenerTokens.clear();
+        mListenersWeAreWaitingFor.clear();
         mSystemInterface.releaseAllWakeLocks();
-    }
-
-    /**
-     * Register listener to monitor power event. There is no unregister counter-part and the list
-     * will be cleared when the service is released.
-     * @param listener
-     */
-    public synchronized void registerPowerEventListener(PowerServiceEventListener listener) {
-        mListeners.add(listener);
-    }
-
-    /**
-     * Register PowerEventPreprocessingHandler to run pre-processing before shutdown or
-     * sleep entry. There is no unregister counter-part and the list
-     * will be cleared when the service is released.
-     * @param handler
-     */
-    public synchronized void registerPowerEventProcessingHandler(
-            PowerEventProcessingHandler handler) {
-        mPowerEventProcessingHandlers.add(new PowerEventProcessingHandlerWrapper(handler));
-        // onPowerOn will not be called if power on notification is already done inside the
-        // handler thread. So request it once again here. Wrapper will have its own
-        // gatekeeping to prevent calling onPowerOn twice.
-        mHandler.handlePowerOn();
-    }
-
-    /**
-     * Notifies earlier completion of power event processing. PowerEventProcessingHandler quotes
-     * time necessary from onPrePowerEvent() call, but actual processing can finish earlier than
-     * that, and this call can be called in such case to trigger shutdown without waiting further.
-     *
-     * @param handler PowerEventProcessingHandler that was already registered with
-     *        {@link #registerPowerEventListener(PowerServiceEventListener)} call. If it was not
-     *        registered before, this call will be ignored.
-     */
-    public void notifyPowerEventProcessingCompletion(PowerEventProcessingHandler handler) {
-        long processingTime = 0;
-        for (PowerEventProcessingHandlerWrapper wrapper : mPowerEventProcessingHandlers) {
-            if (wrapper.handler == handler) {
-                wrapper.markProcessingDone();
-            } else if (!wrapper.isProcessingDone()) {
-                processingTime = Math.max(processingTime, wrapper.getProcessingTime());
-            }
-        }
-        synchronized (mPowerManagerListenerTokens) {
-            if (!mPowerManagerListenerTokens.isEmpty()) {
-                processingTime += APP_EXTEND_MAX_MS;
-            }
-        }
-        long now = SystemClock.elapsedRealtime();
-        long startTime;
-        boolean shouldShutdown = true;
-        PowerHandler powerHandler;
-        synchronized (this) {
-            startTime = mProcessingStartTime;
-            if (mCurrentState == null) {
-                return;
-            }
-            if (mCurrentState.mState != PowerHalService.STATE_SHUTDOWN_PREPARE) {
-                return;
-            }
-            if (mCurrentState.canEnterDeepSleep() && !mShutdownOnNextSuspend) {
-                shouldShutdown = false;
-                if (mLastSleepEntryTime > mProcessingStartTime && mLastSleepEntryTime < now) {
-                    // already slept
-                    return;
-                }
-            }
-            powerHandler = mHandler;
-        }
-        if ((startTime + processingTime) <= now) {
-            Log.i(CarLog.TAG_POWER, "Processing all done");
-            powerHandler.handleProcessingComplete(shouldShutdown);
-        }
     }
 
     @Override
@@ -292,38 +203,52 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
         writer.println("*PowerManagementService*");
         writer.print("mCurrentState:" + mCurrentState);
         writer.print(",mProcessingStartTime:" + mProcessingStartTime);
-        writer.println(",mLastSleepEntryTime:" + mLastSleepEntryTime);
-        writer.println("**PowerEventProcessingHandlers");
-        for (PowerEventProcessingHandlerWrapper wrapper : mPowerEventProcessingHandlers) {
-            writer.println(wrapper.toString());
-        }
-    }
-
-    @Override
-    public void onBootReasonReceived(int bootReason) {
-        mBootReason = bootReason;
+        writer.print(",mLastSleepEntryTime:" + mLastSleepEntryTime);
+        writer.print(",mNextWakeupSec:" + mNextWakeupSec);
+        writer.print(",mShutdownOnFinish:" + mShutdownOnFinish);
+        writer.println(",sShutdownPrepareTimeMs:" + sShutdownPrepareTimeMs);
     }
 
     @Override
     public void onApPowerStateChange(PowerState state) {
         PowerHandler handler;
-        synchronized (this) {
-            mPendingPowerStates.addFirst(state);
+        synchronized (CarPowerManagementService.this) {
+            mPendingPowerStates.addFirst(new CpmsState(state));
+            handler = mHandler;
+        }
+        handler.handlePowerStateChange();
+    }
+
+    @VisibleForTesting
+    protected void clearIsBooting() {
+        mIsBooting = false;
+    }
+
+    /**
+     * Initiate state change from CPMS directly.
+     */
+    private void onApPowerStateChange(int apState, int carPowerStateListenerState) {
+        CpmsState newState = new CpmsState(apState, carPowerStateListenerState);
+        PowerHandler handler;
+        synchronized (CarPowerManagementService.this) {
+            mPendingPowerStates.addFirst(newState);
             handler = mHandler;
         }
         handler.handlePowerStateChange();
     }
 
     private void doHandlePowerStateChange() {
-        PowerState state = null;
+        CpmsState state;
         PowerHandler handler;
-        synchronized (this) {
+        synchronized (CarPowerManagementService.this) {
             state = mPendingPowerStates.peekFirst();
             mPendingPowerStates.clear();
             if (state == null) {
                 return;
             }
-            if (!needPowerStateChange(state)) {
+            Log.i(CarLog.TAG_POWER, "doHandlePowerStateChange: newState=" + state.name());
+            if (!needPowerStateChangeLocked(state)) {
+                Log.d(CarLog.TAG_POWER, "doHandlePowerStateChange no change needed");
                 return;
             }
             // now real power change happens. Whatever was queued before should be all cancelled.
@@ -331,269 +256,307 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
             handler = mHandler;
         }
         handler.cancelProcessingComplete();
-
-        Log.i(CarLog.TAG_POWER, "Power state change:" + state);
+        Log.i(CarLog.TAG_POWER, "setCurrentState " + state.toString());
+        CarStatsLog.logPowerState(state.mState);
+        mCurrentState = state;
         switch (state.mState) {
-            case PowerHalService.STATE_ON_DISP_OFF:
-                handleDisplayOff(state);
-                notifyPowerOn(false);
+            case CpmsState.WAIT_FOR_VHAL:
+                handleWaitForVhal(state);
                 break;
-            case PowerHalService.STATE_ON_FULL:
-                handleFullOn(state);
-                notifyPowerOn(true);
+            case CpmsState.ON:
+                handleOn();
                 break;
-            case PowerHalService.STATE_SHUTDOWN_PREPARE:
+            case CpmsState.SHUTDOWN_PREPARE:
                 handleShutdownPrepare(state);
                 break;
+            case CpmsState.SIMULATE_SLEEP:
+                simulateShutdownPrepare();
+                break;
+            case CpmsState.WAIT_FOR_FINISH:
+                handleWaitForFinish(state);
+                break;
+            case CpmsState.SUSPEND:
+                // Received FINISH from VHAL
+                handleFinish();
+                break;
+            default:
+                // Illegal state
+                // TODO:  Throw exception?
+                break;
         }
     }
 
-    private void handleDisplayOff(PowerState newState) {
-        setCurrentState(newState);
-        mSystemInterface.setDisplayState(false);
-    }
-
-    private void handleFullOn(PowerState newState) {
-        setCurrentState(newState);
-        mSystemInterface.setDisplayState(true);
-    }
-
-    @VisibleForTesting
-    protected void notifyPowerOn(boolean displayOn) {
-        for (PowerEventProcessingHandlerWrapper wrapper : mPowerEventProcessingHandlers) {
-            wrapper.callOnPowerOn(displayOn);
+    private void handleWaitForVhal(CpmsState state) {
+        int carPowerStateListenerState = state.mCarPowerStateListenerState;
+        sendPowerManagerEvent(carPowerStateListenerState);
+        // Inspect CarPowerStateListenerState to decide which message to send via VHAL
+        switch (carPowerStateListenerState) {
+            case CarPowerStateListener.WAIT_FOR_VHAL:
+                mHal.sendWaitForVhal();
+                break;
+            case CarPowerStateListener.SHUTDOWN_CANCELLED:
+                mHal.sendShutdownCancel();
+                break;
+            case CarPowerStateListener.SUSPEND_EXIT:
+                mHal.sendSleepExit();
+                break;
         }
     }
 
-    @VisibleForTesting
-    protected long notifyPrepareShutdown(boolean shuttingDown) {
-        long processingTimeMs = 0;
-        for (PowerEventProcessingHandlerWrapper wrapper : mPowerEventProcessingHandlers) {
-            long handlerProcessingTime = wrapper.handler.onPrepareShutdown(shuttingDown);
-            if (handlerProcessingTime > processingTimeMs) {
-                processingTimeMs = handlerProcessingTime;
+    private void handleOn() {
+        // Do not switch user if it is booting as there can be a race with CarServiceHelperService
+        if (mIsBooting) {
+            mIsBooting = false;
+        } else {
+            int targetUserId = mCarUserManagerHelper.getInitialUser();
+            if (targetUserId != UserHandle.USER_SYSTEM
+                    && targetUserId != mCarUserManagerHelper.getCurrentForegroundUserId()) {
+                Log.i(CarLog.TAG_POWER, "Desired user changed, switching to user:" + targetUserId);
+                mCarUserManagerHelper.switchToUserId(targetUserId);
             }
         }
-        // Add time for powerManager events
-        processingTimeMs += sendPowerManagerEvent(shuttingDown);
-        return processingTimeMs;
+        mSystemInterface.setDisplayState(true);
+        sendPowerManagerEvent(CarPowerStateListener.ON);
+        mHal.sendOn();
     }
 
-    private void handleShutdownPrepare(PowerState newState) {
-        setCurrentState(newState);
-        mSystemInterface.setDisplayState(false);;
-        boolean shouldShutdown = true;
-        if (mHal.isDeepSleepAllowed() && mSystemInterface.isSystemSupportingDeepSleep() &&
-            newState.canEnterDeepSleep() && !mShutdownOnNextSuspend) {
-            Log.i(CarLog.TAG_POWER, "starting sleep");
-            shouldShutdown = false;
-            doHandlePreprocessing(shouldShutdown);
-            return;
-        } else if (newState.canPostponeShutdown()) {
-            Log.i(CarLog.TAG_POWER, "starting shutdown with processing");
-            doHandlePreprocessing(shouldShutdown);
+    private void handleShutdownPrepare(CpmsState newState) {
+        mSystemInterface.setDisplayState(false);
+        // Shutdown on finish if the system doesn't support deep sleep or doesn't allow it.
+        mShutdownOnFinish |= !mHal.isDeepSleepAllowed()
+                || !mSystemInterface.isSystemSupportingDeepSleep()
+                || !newState.mCanSleep;
+        if (newState.mCanPostpone) {
+            Log.i(CarLog.TAG_POWER, "starting shutdown prepare");
+            sendPowerManagerEvent(CarPowerStateListener.SHUTDOWN_PREPARE);
+            mHal.sendShutdownPrepare();
+            doHandlePreprocessing();
         } else {
             Log.i(CarLog.TAG_POWER, "starting shutdown immediately");
-            synchronized (this) {
+            synchronized (CarPowerManagementService.this) {
                 releaseTimerLocked();
             }
-            doHandleShutdown();
+            // Notify hal that we are shutting down and since it is immediate, don't schedule next
+            // wake up
+            mHal.sendShutdownStart(0);
+            // shutdown HU
+            mSystemInterface.shutdown();
+        }
+    }
+
+    // Simulate system shutdown to Deep Sleep
+    private void simulateShutdownPrepare() {
+        mSystemInterface.setDisplayState(false);
+        Log.i(CarLog.TAG_POWER, "starting shutdown prepare");
+        sendPowerManagerEvent(CarPowerStateListener.SHUTDOWN_PREPARE);
+        mHal.sendShutdownPrepare();
+        doHandlePreprocessing();
+    }
+
+    private void handleWaitForFinish(CpmsState state) {
+        sendPowerManagerEvent(state.mCarPowerStateListenerState);
+        switch (state.mCarPowerStateListenerState) {
+            case CarPowerStateListener.SUSPEND_ENTER:
+                mHal.sendSleepEntry(mNextWakeupSec);
+                break;
+            case CarPowerStateListener.SHUTDOWN_ENTER:
+                mHal.sendShutdownStart(mNextWakeupSec);
+                break;
+        }
+    }
+
+    private void handleFinish() {
+        boolean mustShutDown;
+        boolean simulatedMode;
+        synchronized (mSimulationSleepObject) {
+            simulatedMode = mInSimulatedDeepSleepMode;
+            mustShutDown = mShutdownOnFinish && !simulatedMode;
+        }
+        if (mustShutDown) {
+            // shutdown HU
+            mSystemInterface.shutdown();
+        } else {
+            doHandleDeepSleep(simulatedMode);
         }
     }
 
     @GuardedBy("this")
     private void releaseTimerLocked() {
-        if (mTimer != null) {
-            mTimer.cancel();
-        }
-        mTimer = null;
-    }
-
-    private void doHandlePreprocessing(boolean shuttingDown) {
-        long processingTimeMs = 0;
-        for (PowerEventProcessingHandlerWrapper wrapper : mPowerEventProcessingHandlers) {
-            long handlerProcessingTime = wrapper.handler.onPrepareShutdown(shuttingDown);
-            if (handlerProcessingTime > 0) {
-                wrapper.setProcessingTimeAndResetProcessingDone(handlerProcessingTime);
+        synchronized (CarPowerManagementService.this) {
+            if (mTimer != null) {
+                mTimer.cancel();
             }
-            if (handlerProcessingTime > processingTimeMs) {
-                processingTimeMs = handlerProcessingTime;
-            }
-        }
-        // Add time for powerManager events
-        processingTimeMs += sendPowerManagerEvent(shuttingDown);
-        if (processingTimeMs > 0) {
-            int pollingCount = (int)(processingTimeMs / SHUTDOWN_POLLING_INTERVAL_MS) + 1;
-            Log.i(CarLog.TAG_POWER, "processing before shutdown expected for :" + processingTimeMs +
-                    " ms, adding polling:" + pollingCount);
-            synchronized (this) {
-                mProcessingStartTime = SystemClock.elapsedRealtime();
-                releaseTimerLocked();
-                mTimer = new Timer();
-                mTimer.scheduleAtFixedRate(new ShutdownProcessingTimerTask(shuttingDown,
-                        pollingCount),
-                        0 /*delay*/,
-                        SHUTDOWN_POLLING_INTERVAL_MS);
-            }
-        } else {
-            PowerHandler handler;
-            synchronized (this) {
-                handler = mHandler;
-            }
-            handler.handleProcessingComplete(shuttingDown);
+            mTimer = null;
+            mTimerActive = false;
         }
     }
 
-    private long sendPowerManagerEvent(boolean shuttingDown) {
-        long processingTimeMs = 0;
-        int newState = shuttingDown ? CarPowerStateListener.SHUTDOWN_ENTER :
-                                      CarPowerStateListener.SUSPEND_ENTER;
-        synchronized (mPowerManagerListenerTokens) {
-            mPowerManagerListenerTokens.clear();
-            int i = mPowerManagerListeners.beginBroadcast();
-            while (i-- > 0) {
-                try {
-                    ICarPowerStateListener listener = mPowerManagerListeners.getBroadcastItem(i);
-                    listener.onStateChanged(newState, mTokenValue);
-                    mPowerManagerListenerTokens.put(listener.asBinder(), mTokenValue);
-                    mTokenValue++;
-                } catch (RemoteException e) {
-                    // Its likely the connection snapped. Let binder death handle the situation.
-                    Log.e(CarLog.TAG_POWER, "onStateChanged calling failed: " + e);
+    private void doHandlePreprocessing() {
+        int pollingCount = (sShutdownPrepareTimeMs / SHUTDOWN_POLLING_INTERVAL_MS) + 1;
+        if (Build.IS_USERDEBUG || Build.IS_ENG) {
+            int shutdownPrepareTimeOverrideInSecs =
+                    SystemProperties.getInt(PROP_MAX_GARAGE_MODE_DURATION_OVERRIDE, -1);
+            if (shutdownPrepareTimeOverrideInSecs >= 0) {
+                pollingCount =
+                        (shutdownPrepareTimeOverrideInSecs * 1000 / SHUTDOWN_POLLING_INTERVAL_MS)
+                                + 1;
+                Log.i(CarLog.TAG_POWER,
+                        "Garage mode duration overridden secs:"
+                                + shutdownPrepareTimeOverrideInSecs);
+            }
+        }
+        Log.i(CarLog.TAG_POWER, "processing before shutdown expected for: "
+                + sShutdownPrepareTimeMs + " ms, adding polling:" + pollingCount);
+        synchronized (CarPowerManagementService.this) {
+            mProcessingStartTime = SystemClock.elapsedRealtime();
+            releaseTimerLocked();
+            mTimer = new Timer();
+            mTimerActive = true;
+            mTimer.scheduleAtFixedRate(
+                    new ShutdownProcessingTimerTask(pollingCount),
+                    0 /*delay*/,
+                    SHUTDOWN_POLLING_INTERVAL_MS);
+        }
+    }
+
+    private void sendPowerManagerEvent(int newState) {
+        // Broadcast to the listeners that do not signal completion
+        notifyListeners(mPowerManagerListeners, newState);
+
+        // SHUTDOWN_PREPARE is the only state where we need
+        // to maintain callbacks from listener components.
+        boolean allowCompletion = (newState == CarPowerStateListener.SHUTDOWN_PREPARE);
+
+        // Fully populate mListenersWeAreWaitingFor before calling any onStateChanged()
+        // for the listeners that signal completion.
+        // Otherwise, if the first listener calls finish() synchronously, we will
+        // see the list go empty and we will think that we are done.
+        boolean haveSomeCompleters = false;
+        PowerManagerCallbackList completingListeners = new PowerManagerCallbackList();
+        synchronized (mListenersWeAreWaitingFor) {
+            mListenersWeAreWaitingFor.clear();
+            int idx = mPowerManagerListenersWithCompletion.beginBroadcast();
+            while (idx-- > 0) {
+                ICarPowerStateListener listener =
+                        mPowerManagerListenersWithCompletion.getBroadcastItem(idx);
+                completingListeners.register(listener);
+                if (allowCompletion) {
+                    mListenersWeAreWaitingFor.add(listener.asBinder());
+                    haveSomeCompleters = true;
                 }
             }
-            mPowerManagerListeners.finishBroadcast();
-            if (!mPowerManagerListenerTokens.isEmpty()) {
-                Log.i(CarLog.TAG_POWER, "mPowerMangerListenerTokens not empty, add APP_EXTEND_MAX_MS");
-                processingTimeMs += APP_EXTEND_MAX_MS;
-            }
+            mPowerManagerListenersWithCompletion.finishBroadcast();
         }
-        return processingTimeMs;
+        // Broadcast to the listeners that DO signal completion
+        notifyListeners(completingListeners, newState);
+
+        if (allowCompletion && !haveSomeCompleters) {
+            // No jobs need to signal completion. So we are now complete.
+            signalComplete();
+        }
     }
 
-    private void doHandleDeepSleep() {
+    private void notifyListeners(PowerManagerCallbackList listenerList, int newState) {
+        int idx = listenerList.beginBroadcast();
+        while (idx-- > 0) {
+            ICarPowerStateListener listener = listenerList.getBroadcastItem(idx);
+            try {
+                listener.onStateChanged(newState);
+            } catch (RemoteException e) {
+                // It's likely the connection snapped. Let binder death handle the situation.
+                Log.e(CarLog.TAG_POWER, "onStateChanged() call failed: " + e, e);
+            }
+        }
+        listenerList.finishBroadcast();
+    }
+
+    private void doHandleDeepSleep(boolean simulatedMode) {
         // keep holding partial wakelock to prevent entering sleep before enterDeepSleep call
         // enterDeepSleep should force sleep entry even if wake lock is kept.
         mSystemInterface.switchToPartialWakeLock();
         PowerHandler handler;
-        synchronized (this) {
+        synchronized (CarPowerManagementService.this) {
             handler = mHandler;
         }
         handler.cancelProcessingComplete();
-        for (PowerServiceEventListener listener : mListeners) {
-            listener.onSleepEntry();
-        }
-        int wakeupTimeSec = getWakeupTime();
-        mHal.sendSleepEntry();
-        synchronized (this) {
+        synchronized (CarPowerManagementService.this) {
             mLastSleepEntryTime = SystemClock.elapsedRealtime();
         }
-        if (mSystemInterface.enterDeepSleep(wakeupTimeSec) == false) {
-            // System did not suspend.  Need to shutdown
-            // TODO:  Shutdown gracefully
-            Log.e(CarLog.TAG_POWER, "Sleep did not succeed.  Need to shutdown");
-        }
-        mHal.sendSleepExit();
-        for (PowerServiceEventListener listener : mListeners) {
-            listener.onSleepExit();
-        }
-        // Notify applications
-        int i = mPowerManagerListeners.beginBroadcast();
-        while (i-- > 0) {
-            try {
-                ICarPowerStateListener listener = mPowerManagerListeners.getBroadcastItem(i);
-                listener.onStateChanged(CarPowerStateListener.SUSPEND_EXIT, 0);
-            } catch (RemoteException e) {
-                // Its likely the connection snapped. Let binder death handle the situation.
-                Log.e(CarLog.TAG_POWER, "onStateChanged calling failed: " + e);
-            }
-        }
-        mPowerManagerListeners.finishBroadcast();
-
-        if (mSystemInterface.isWakeupCausedByTimer()) {
-            doHandlePreprocessing(false /*shuttingDown*/);
+        int nextListenerState;
+        if (simulatedMode) {
+            simulateSleepByLooping();
+            nextListenerState = CarPowerStateListener.SHUTDOWN_CANCELLED;
         } else {
-            PowerState currentState = mHal.getCurrentPowerState();
-            if (currentState != null && needPowerStateChange(currentState)) {
-                onApPowerStateChange(currentState);
-            } else { // power controller woke-up but no power state change. Just shutdown.
-                Log.w(CarLog.TAG_POWER, "external sleep wake up, but no power state change:" +
-                        currentState);
-                doHandleShutdown();
+            boolean sleepSucceeded = mSystemInterface.enterDeepSleep();
+            if (!sleepSucceeded) {
+                // VHAL should transition CPMS to shutdown.
+                Log.e(CarLog.TAG_POWER, "Sleep did not succeed. Now attempting to shut down.");
+                mSystemInterface.shutdown();
             }
+            nextListenerState = CarPowerStateListener.SUSPEND_EXIT;
         }
+        // On wake, reset nextWakeup time. If not set again, system will suspend/shutdown forever.
+        mNextWakeupSec = 0;
+        mSystemInterface.refreshDisplayBrightness();
+        onApPowerStateChange(CpmsState.WAIT_FOR_VHAL, nextListenerState);
     }
 
-    private void doHandleNotifyPowerOn() {
-        boolean displayOn = false;
-        synchronized (this) {
-            if (mCurrentState != null && mCurrentState.mState == PowerHalService.STATE_ON_FULL) {
-                displayOn = true;
-            }
-        }
-        for (PowerEventProcessingHandlerWrapper wrapper : mPowerEventProcessingHandlers) {
-            // wrapper will not send it forward if it is already called.
-            wrapper.callOnPowerOn(displayOn);
-        }
-    }
-
-    private boolean needPowerStateChange(PowerState newState) {
-        synchronized (this) {
-            if (mCurrentState != null && mCurrentState.equals(newState)) {
-                return false;
-            }
+    private boolean needPowerStateChangeLocked(CpmsState newState) {
+        if (newState == null) {
+            return false;
+        } else if (mCurrentState == null) {
             return true;
+        } else if (mCurrentState.equals(newState)) {
+            return false;
+        }
+
+        // The following switch/case enforces the allowed state transitions.
+        switch (mCurrentState.mState) {
+            case CpmsState.WAIT_FOR_VHAL:
+                return (newState.mState == CpmsState.ON)
+                    || (newState.mState == CpmsState.SHUTDOWN_PREPARE);
+            case CpmsState.SUSPEND:
+                return newState.mState == CpmsState.WAIT_FOR_VHAL;
+            case CpmsState.ON:
+                return (newState.mState == CpmsState.SHUTDOWN_PREPARE)
+                    || (newState.mState == CpmsState.SIMULATE_SLEEP);
+            case CpmsState.SHUTDOWN_PREPARE:
+                // If VHAL sends SHUTDOWN_IMMEDIATELY while in SHUTDOWN_PREPARE state, do it.
+                return ((newState.mState == CpmsState.SHUTDOWN_PREPARE) && !newState.mCanPostpone)
+                    || (newState.mState == CpmsState.WAIT_FOR_FINISH)
+                    || (newState.mState == CpmsState.WAIT_FOR_VHAL);
+            case CpmsState.SIMULATE_SLEEP:
+                return true;
+            case CpmsState.WAIT_FOR_FINISH:
+                return newState.mState == CpmsState.SUSPEND;
+            default:
+                Log.e(CarLog.TAG_POWER, "Unhandled state transition:  currentState="
+                        + mCurrentState.name() + ", newState=" + newState.name());
+                return false;
         }
     }
 
-    private void doHandleShutdown() {
-        // now shutdown
-        for (PowerServiceEventListener listener : mListeners) {
-            listener.onShutdown();
-        }
-        int wakeupTimeSec = 0;
-        if (mHal.isTimedWakeupAllowed()) {
-            wakeupTimeSec = getWakeupTime();
-        }
-        mHal.sendShutdownStart(wakeupTimeSec);
-        mSystemInterface.shutdown();
-    }
-
-    private int getWakeupTime() {
-        int wakeupTimeSec = 0;
-        for (PowerEventProcessingHandlerWrapper wrapper : mPowerEventProcessingHandlers) {
-            int t = wrapper.handler.getWakeupTime();
-            if (t > wakeupTimeSec) {
-                wakeupTimeSec = t;
-            }
-        }
-        return wakeupTimeSec;
-    }
-
-    private void doHandleProcessingComplete(boolean shutdownWhenCompleted) {
-        synchronized (this) {
+    private void doHandleProcessingComplete() {
+        synchronized (CarPowerManagementService.this) {
             releaseTimerLocked();
-            if (!shutdownWhenCompleted && mLastSleepEntryTime > mProcessingStartTime) {
+            if (!mShutdownOnFinish && mLastSleepEntryTime > mProcessingStartTime) {
                 // entered sleep after processing start. So this could be duplicate request.
                 Log.w(CarLog.TAG_POWER, "Duplicate sleep entry request, ignore");
                 return;
             }
         }
-        if (shutdownWhenCompleted) {
-            doHandleShutdown();
-        } else {
-            doHandleDeepSleep();
-        }
-    }
 
-    private synchronized void setCurrentState(PowerState state) {
-        mCurrentState = state;
+        if (mShutdownOnFinish) {
+            onApPowerStateChange(CpmsState.WAIT_FOR_FINISH, CarPowerStateListener.SHUTDOWN_ENTER);
+        } else {
+            onApPowerStateChange(CpmsState.WAIT_FOR_FINISH, CarPowerStateListener.SUSPEND_ENTER);
+        }
     }
 
     @Override
     public void onDisplayBrightnessChange(int brightness) {
         PowerHandler handler;
-        synchronized (this) {
+        synchronized (CarPowerManagementService.this) {
             handler = mHandler;
         }
         handler.handleDisplayBrightnessChange(brightness);
@@ -609,7 +572,7 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
 
     public void handleMainDisplayChanged(boolean on) {
         PowerHandler handler;
-        synchronized (this) {
+        synchronized (CarPowerManagementService.this) {
             handler = mHandler;
         }
         handler.handleMainDisplayStateChange(on);
@@ -627,11 +590,24 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
         return mHandler;
     }
 
-    // Binder interface for CarPowerManager
+    // Binder interface for general use.
+    // The listener is not required (or allowed) to call finished().
     @Override
     public void registerListener(ICarPowerStateListener listener) {
         ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_POWER);
         mPowerManagerListeners.register(listener);
+    }
+
+    // Binder interface for Car services only.
+    // After the listener completes its processing, it must call finished().
+    @Override
+    public void registerListenerWithCompletion(ICarPowerStateListener listener) {
+        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_POWER);
+        ICarImpl.assertCallingFromSystemProcessOrSelf();
+
+        mPowerManagerListenersWithCompletion.register(listener);
+        // TODO: Need to send current state to newly registered listener? If so, need to handle
+        //       completion for SHUTDOWN_PREPARE state
     }
 
     @Override
@@ -641,61 +617,82 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
     }
 
     private void doUnregisterListener(ICarPowerStateListener listener) {
-        boolean found = mPowerManagerListeners.unregister(listener);
-
+        mPowerManagerListeners.unregister(listener);
+        boolean found = mPowerManagerListenersWithCompletion.unregister(listener);
         if (found) {
-            // Remove outstanding token if there is one
-            IBinder binder = listener.asBinder();
-            synchronized (mPowerManagerListenerTokens) {
-                if (mPowerManagerListenerTokens.containsKey(binder)) {
-                    int token = mPowerManagerListenerTokens.get(binder);
-                    finishedLocked(binder, token);
-                }
-            }
+            // Remove this from the completion list (if it's there)
+            finishedImpl(listener.asBinder());
         }
     }
 
     @Override
     public void requestShutdownOnNextSuspend() {
         ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_POWER);
-        mShutdownOnNextSuspend = true;
+        mShutdownOnFinish = true;
     }
 
     @Override
-    public int getBootReason() {
+    public void finished(ICarPowerStateListener listener) {
         ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_POWER);
-        // Return the most recent bootReason value
-        return mBootReason;
+        ICarImpl.assertCallingFromSystemProcessOrSelf();
+        finishedImpl(listener.asBinder());
     }
 
     @Override
-    public void finished(ICarPowerStateListener listener, int token) {
-        ICarImpl.assertPermission(mContext, Car.PERMISSION_CAR_POWER);
-        synchronized (mPowerManagerListenerTokens) {
-            finishedLocked(listener.asBinder(), token);
+    public synchronized void scheduleNextWakeupTime(int seconds) {
+        if (seconds < 0) {
+            Log.w(CarLog.TAG_POWER, "Next wake up can not be in negative time. Ignoring!");
+            return;
+        }
+        if (!mHal.isTimedWakeupAllowed()) {
+            Log.w(CarLog.TAG_POWER, "Setting timed wakeups are disabled in HAL. Skipping");
+            mNextWakeupSec = 0;
+            return;
+        }
+        if (mNextWakeupSec == 0 || mNextWakeupSec > seconds) {
+            mNextWakeupSec = seconds;
+        } else {
+            Log.d(CarLog.TAG_POWER, "Tried to schedule next wake up, but already had shorter "
+                    + "scheduled time");
         }
     }
 
-    private void finishedLocked(IBinder binder, int token) {
-        int currentToken = mPowerManagerListenerTokens.get(binder);
-        if (currentToken == token) {
-            mPowerManagerListenerTokens.remove(binder);
-            if (mPowerManagerListenerTokens.isEmpty() &&
-                (mCurrentState.mState == PowerHalService.STATE_SHUTDOWN_PREPARE)) {
-                // All apps are ready to shutdown/suspend.
-                Log.i(CarLog.TAG_POWER, "Apps are finished, call notifyPowerEventProcessingCompletion");
-                notifyPowerEventProcessingCompletion(null);
+    private void finishedImpl(IBinder binder) {
+        boolean allAreComplete = false;
+        synchronized (mListenersWeAreWaitingFor) {
+            boolean oneWasRemoved = mListenersWeAreWaitingFor.remove(binder);
+            allAreComplete = oneWasRemoved && mListenersWeAreWaitingFor.isEmpty();
+        }
+        if (allAreComplete) {
+            signalComplete();
+        }
+    }
+
+    private void signalComplete() {
+        if (mCurrentState.mState == CpmsState.SHUTDOWN_PREPARE
+                || mCurrentState.mState == CpmsState.SIMULATE_SLEEP) {
+            PowerHandler powerHandler;
+            // All apps are ready to shutdown/suspend.
+            synchronized (CarPowerManagementService.this) {
+                if (!mShutdownOnFinish) {
+                    if (mLastSleepEntryTime > mProcessingStartTime
+                            && mLastSleepEntryTime < SystemClock.elapsedRealtime()) {
+                        Log.i(CarLog.TAG_POWER, "signalComplete: Already slept!");
+                        return;
+                    }
+                }
+                powerHandler = mHandler;
             }
+            Log.i(CarLog.TAG_POWER, "Apps are finished, call handleProcessingComplete()");
+            powerHandler.handleProcessingComplete();
         }
     }
 
     private class PowerHandler extends Handler {
-
         private final int MSG_POWER_STATE_CHANGE = 0;
         private final int MSG_DISPLAY_BRIGHTNESS_CHANGE = 1;
         private final int MSG_MAIN_DISPLAY_STATE_CHANGE = 2;
         private final int MSG_PROCESSING_COMPLETE = 3;
-        private final int MSG_NOTIFY_POWER_ON = 4;
 
         // Do not handle this immediately but with some delay as there can be a race between
         // display off due to rear view camera and delivery to here.
@@ -721,14 +718,9 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
             sendMessageDelayed(msg, MAIN_DISPLAY_EVENT_DELAY_MS);
         }
 
-        private void handleProcessingComplete(boolean shutdownWhenCompleted) {
+        private void handleProcessingComplete() {
             removeMessages(MSG_PROCESSING_COMPLETE);
-            Message msg = obtainMessage(MSG_PROCESSING_COMPLETE, shutdownWhenCompleted ? 1 : 0, 0);
-            sendMessage(msg);
-        }
-
-        private void handlePowerOn() {
-            Message msg = obtainMessage(MSG_NOTIFY_POWER_ON);
+            Message msg = obtainMessage(MSG_PROCESSING_COMPLETE);
             sendMessage(msg);
         }
 
@@ -741,7 +733,6 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
             removeMessages(MSG_DISPLAY_BRIGHTNESS_CHANGE);
             removeMessages(MSG_MAIN_DISPLAY_STATE_CHANGE);
             removeMessages(MSG_PROCESSING_COMPLETE);
-            removeMessages(MSG_NOTIFY_POWER_ON);
         }
 
         @Override
@@ -757,89 +748,227 @@ public class CarPowerManagementService extends ICarPower.Stub implements CarServ
                     doHandleMainDisplayStateChange((Boolean) msg.obj);
                     break;
                 case MSG_PROCESSING_COMPLETE:
-                    doHandleProcessingComplete(msg.arg1 == 1);
-                    break;
-                case MSG_NOTIFY_POWER_ON:
-                    doHandleNotifyPowerOn();
+                    doHandleProcessingComplete();
                     break;
             }
         }
     }
 
     private class ShutdownProcessingTimerTask extends TimerTask {
-        private final boolean mShutdownWhenCompleted;
         private final int mExpirationCount;
         private int mCurrentCount;
 
-        private ShutdownProcessingTimerTask(boolean shutdownWhenCompleted, int expirationCount) {
-            mShutdownWhenCompleted = shutdownWhenCompleted;
+        private ShutdownProcessingTimerTask(int expirationCount) {
             mExpirationCount = expirationCount;
             mCurrentCount = 0;
         }
 
         @Override
         public void run() {
-            mCurrentCount++;
-            if (mCurrentCount > mExpirationCount) {
-                PowerHandler handler;
-                synchronized (CarPowerManagementService.this) {
+            synchronized (CarPowerManagementService.this) {
+                if (!mTimerActive) {
+                    // Ignore timer expiration since we got cancelled
+                    return;
+                }
+                mCurrentCount++;
+                if (mCurrentCount > mExpirationCount) {
+                    PowerHandler handler;
                     releaseTimerLocked();
                     handler = mHandler;
+                    handler.handleProcessingComplete();
+                } else {
+                    mHal.sendShutdownPostpone(SHUTDOWN_EXTEND_MAX_MS);
                 }
-                handler.handleProcessingComplete(mShutdownWhenCompleted);
-            } else {
-                mHal.sendShutdownPostpone(SHUTDOWN_EXTEND_MAX_MS);
             }
         }
     }
 
-    private static class PowerEventProcessingHandlerWrapper {
-        public final PowerEventProcessingHandler handler;
-        private long mProcessingTime = 0;
-        private boolean mProcessingDone = true;
-        private boolean mPowerOnSent = false;
-        private int mLastDisplayState = -1;
+    private static class CpmsState {
+        // NOTE: When modifying states below, make sure to update CarPowerStateChanged.State in
+        //   frameworks/base/cmds/statsd/src/atoms.proto also.
+        public static final int WAIT_FOR_VHAL = 0;
+        public static final int ON = 1;
+        public static final int SHUTDOWN_PREPARE = 2;
+        public static final int WAIT_FOR_FINISH = 3;
+        public static final int SUSPEND = 4;
+        public static final int SIMULATE_SLEEP = 5;
 
-        public PowerEventProcessingHandlerWrapper(PowerEventProcessingHandler handler) {
-            this.handler = handler;
-        }
+        /* Config values from AP_POWER_STATE_REQ */
+        public final boolean mCanPostpone;
+        public final boolean mCanSleep;
+        /* Message sent to CarPowerStateListener in response to this state */
+        public final int mCarPowerStateListenerState;
+        /* One of the above state variables */
+        public final int mState;
 
-        public synchronized void setProcessingTimeAndResetProcessingDone(long processingTime) {
-            mProcessingTime = processingTime;
-            mProcessingDone = false;
-        }
-
-        public synchronized long getProcessingTime() {
-            return mProcessingTime;
-        }
-
-        public synchronized void markProcessingDone() {
-            mProcessingDone = true;
-        }
-
-        public synchronized boolean isProcessingDone() {
-            return mProcessingDone;
-        }
-
-        public void callOnPowerOn(boolean displayOn) {
-            int newDisplayState = displayOn ? 1 : 0;
-            boolean shouldCall = false;
-            synchronized (this) {
-                if (!mPowerOnSent || (mLastDisplayState != newDisplayState)) {
-                    shouldCall = true;
-                    mPowerOnSent = true;
-                    mLastDisplayState = newDisplayState;
-                }
+        /**
+          * This constructor takes a PowerHalService.PowerState object and creates the corresponding
+          * CPMS state from it.
+          */
+        CpmsState(PowerState halPowerState) {
+            switch (halPowerState.mState) {
+                case VehicleApPowerStateReq.ON:
+                    this.mCanPostpone = false;
+                    this.mCanSleep = false;
+                    this.mCarPowerStateListenerState = cpmsStateToPowerStateListenerState(ON);
+                    this.mState = ON;
+                    break;
+                case VehicleApPowerStateReq.SHUTDOWN_PREPARE:
+                    this.mCanPostpone = halPowerState.canPostponeShutdown();
+                    this.mCanSleep = halPowerState.canEnterDeepSleep();
+                    this.mCarPowerStateListenerState = cpmsStateToPowerStateListenerState(
+                            SHUTDOWN_PREPARE);
+                    this.mState = SHUTDOWN_PREPARE;
+                    break;
+                case VehicleApPowerStateReq.CANCEL_SHUTDOWN:
+                    this.mCanPostpone = false;
+                    this.mCanSleep = false;
+                    this.mCarPowerStateListenerState = CarPowerStateListener.SHUTDOWN_CANCELLED;
+                    this.mState = WAIT_FOR_VHAL;
+                    break;
+                case VehicleApPowerStateReq.FINISHED:
+                    this.mCanPostpone = false;
+                    this.mCanSleep = false;
+                    this.mCarPowerStateListenerState = cpmsStateToPowerStateListenerState(SUSPEND);
+                    this.mState = SUSPEND;
+                    break;
+                default:
+                    // Illegal state from PowerState.  Throw an exception?
+                    this.mCanPostpone = false;
+                    this.mCanSleep = false;
+                    this.mCarPowerStateListenerState = 0;
+                    this.mState = 0;
+                    break;
             }
-            if (shouldCall) {
-                handler.onPowerOn(displayOn);
+        }
+
+        CpmsState(int state) {
+            this(state, cpmsStateToPowerStateListenerState(state));
+        }
+
+        CpmsState(int state, int carPowerStateListenerState) {
+            this.mCanPostpone = (state == SIMULATE_SLEEP);
+            this.mCanSleep = (state == SIMULATE_SLEEP);
+            this.mCarPowerStateListenerState = carPowerStateListenerState;
+            this.mState = state;
+        }
+
+        public String name() {
+            String baseName;
+            switch(mState) {
+                case WAIT_FOR_VHAL:     baseName = "WAIT_FOR_VHAL";    break;
+                case ON:                baseName = "ON";               break;
+                case SHUTDOWN_PREPARE:  baseName = "SHUTDOWN_PREPARE"; break;
+                case WAIT_FOR_FINISH:   baseName = "WAIT_FOR_FINISH";  break;
+                case SUSPEND:           baseName = "SUSPEND";          break;
+                case SIMULATE_SLEEP:    baseName = "SIMULATE_SLEEP";   break;
+                default:                baseName = "<unknown>";        break;
             }
+            return baseName + "(" + mState + ")";
+        }
+
+        private static int cpmsStateToPowerStateListenerState(int state) {
+            int powerStateListenerState = 0;
+
+            // Set the CarPowerStateListenerState based on current state
+            switch (state) {
+                case ON:
+                    powerStateListenerState = CarPowerStateListener.ON;
+                    break;
+                case SHUTDOWN_PREPARE:
+                    powerStateListenerState = CarPowerStateListener.SHUTDOWN_PREPARE;
+                    break;
+                case SUSPEND:
+                    powerStateListenerState = CarPowerStateListener.SUSPEND_ENTER;
+                    break;
+                case WAIT_FOR_VHAL:
+                case WAIT_FOR_FINISH:
+                default:
+                    // Illegal state for this constructor.  Throw an exception?
+                    break;
+            }
+            return powerStateListenerState;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof CpmsState)) {
+                return false;
+            }
+            CpmsState that = (CpmsState) o;
+            return this.mState == that.mState
+                    && this.mCanSleep == that.mCanSleep
+                    && this.mCanPostpone == that.mCanPostpone
+                    && this.mCarPowerStateListenerState == that.mCarPowerStateListenerState;
         }
 
         @Override
         public String toString() {
-            return "PowerEventProcessingHandlerWrapper [handler=" + handler + ", mProcessingTime="
-                    + mProcessingTime + ", mProcessingDone=" + mProcessingDone + "]";
+            return "CpmsState canSleep:" + mCanSleep + ", canPostpone=" + mCanPostpone
+                    + ", carPowerStateListenerState=" + mCarPowerStateListenerState
+                    + ", CpmsState=" + this.name();
         }
+    }
+
+    /**
+     * Resume after a manually-invoked suspend.
+     * Invoked using "adb shell dumpsys activity service com.android.car resume".
+     */
+    public void forceSimulatedResume() {
+        PowerHandler handler;
+        synchronized (this) {
+            // Cancel Garage Mode in case it's running
+            mPendingPowerStates.addFirst(new CpmsState(CpmsState.WAIT_FOR_VHAL,
+                                                       CarPowerStateListener.SHUTDOWN_CANCELLED));
+            handler = mHandler;
+        }
+        handler.handlePowerStateChange();
+
+        synchronized (mSimulationSleepObject) {
+            mWakeFromSimulatedSleep = true;
+            mSimulationSleepObject.notify();
+        }
+    }
+
+    /**
+     * Manually enter simulated suspend (Deep Sleep) mode
+     * Invoked using "adb shell dumpsys activity service com.android.car suspend".
+     * This is similar to 'onApPowerStateChange()' except that it needs to create a CpmsState
+     * that is not directly derived from a VehicleApPowerStateReq.
+     */
+    public void forceSimulatedSuspend() {
+        synchronized (mSimulationSleepObject) {
+            mInSimulatedDeepSleepMode = true;
+            mWakeFromSimulatedSleep = false;
+        }
+        PowerHandler handler;
+        synchronized (this) {
+            mPendingPowerStates.addFirst(new CpmsState(CpmsState.SIMULATE_SLEEP,
+                                                       CarPowerStateListener.SHUTDOWN_PREPARE));
+            handler = mHandler;
+        }
+        handler.handlePowerStateChange();
+    }
+
+    // In a real Deep Sleep, the hardware removes power from the CPU (but retains power
+    // on the RAM). This puts the processor to sleep. Upon some external signal, power
+    // is re-applied to the CPU, and processing resumes right where it left off.
+    // We simulate this behavior by simply going into a loop.
+    // We exit the loop when forceResume() is called.
+    private void simulateSleepByLooping() {
+        Log.i(CarLog.TAG_POWER, "Starting to simulate Deep Sleep by looping");
+        synchronized (mSimulationSleepObject) {
+            while (!mWakeFromSimulatedSleep) {
+                try {
+                    mSimulationSleepObject.wait();
+                } catch (InterruptedException ignored) {
+                }
+            }
+            mInSimulatedDeepSleepMode = false;
+        }
+        Log.i(CarLog.TAG_POWER, "Exit Deep Sleep simulation loop");
     }
 }

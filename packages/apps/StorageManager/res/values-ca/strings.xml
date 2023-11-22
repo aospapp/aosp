@@ -36,13 +36,13 @@
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"Allibera espai"</string>
-    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"Se suprimiran <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> de contingut del dispositiu"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"Contingut que se suprimirà del dispositiu: <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"Allibera espai"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"Vols que l\'emmagatzematge es gestioni automàticament?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"Espai d\'emmagatzematge lliure: <xliff:g id="USED">%1$s</xliff:g>. Vols permetre que el gestor d\'emmagatzematge alliberi espai automàticament suprimint del dispositiu les còpies de seguretat del contingut?"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"No, gràcies"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"Activa"</string>
-    <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"Aplicacions poc utilitzades"</string>
+    <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"Aplicacions utilitzades amb poca freqüència"</string>
     <!-- no translation found for deletion_helper_apps_group_summary (360315517252452356) -->
     <skip />
     <string name="deletion_helper_automatic_title" msgid="4610119358490679299">"Automàtica"</string>
@@ -58,7 +58,7 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"S\'estan cercant elements…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"Mostra tots els elements"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Amaga els elements recents"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Se suprimiran <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> de contingut del dispositiu"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"Contingut que se suprimirà del dispositiu: <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g>"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Ara mateix, el gestor d\'emmagatzematge gestiona el teu emmagatzematge"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"No hi ha res per suprimir"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Revisa els elements recents"</string>

@@ -305,7 +305,7 @@
                     <span class='entry valign'>${test.name}
                       <c:if test='${test.failCount >= 0 && test.passCount >= 0}'>
                         <c:set var='color' value='${test.failCount > 0 ? "red" : (test.passCount > 0 ? "green" : "grey")}' />
-                        <span class='indicator center ${color}'>
+                        <span class='indicator right center ${color}'>
                           ${test.passCount} / ${test.passCount + test.failCount}
                         </span>
                       </c:if>

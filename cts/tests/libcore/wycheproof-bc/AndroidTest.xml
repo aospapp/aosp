@@ -16,6 +16,8 @@
 <configuration description="Config for CTS Libcore Wycheproof Bouncy Castle test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="libcore" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <!-- this has just the instrumentation which acts as the tests we want to run -->
@@ -30,7 +32,12 @@
         <option name="instrumentation-arg" key="filter"
                 value="com.android.cts.core.runner.ExpectationBasedFilter" />
         <option name="core-expectation" value="/knownfailures.txt" />
-        <option name="runtime-hint" value="10m"/>
-        <option name="test-timeout" value="600000" />
+        <option name="runtime-hint" value="16m"/>
+        <option name="test-timeout" value="3600000" />
+        <option name="hidden-api-checks" value="false" />
     </test>
+
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.TestFailureModuleController">
+        <option name="screenshot-on-failure" value="false" />
+    </object>
 </configuration>

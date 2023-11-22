@@ -1,0 +1,11 @@
+#For loading modules via init.rc (ex: wifi)
+allow init self:capability sys_module;
+#Create symlinks for storage
+allow init tmpfs:lnk_file create_file_perms;
+# Allow module insertion
+allow init vendor_file:system module_load;
+# Configfs
+allow init configfs:file write;
+allow init configfs:lnk_file { create unlink } ;
+
+dontaudit init proc:file write;

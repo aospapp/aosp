@@ -21,12 +21,12 @@ to recognize this as an Android project and start the template engine. -->
 
 buildscript {
     repositories {
-        jcenter()
         google()
+        jcenter()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.0.1'
+        classpath 'com.android.tools.build:gradle:3.3.2'
     }
 }
 
@@ -37,7 +37,6 @@ android {
      <#-- Note that target SDK is hardcoded in this template. We expect all samples
           to always use the most current SDK as their target. -->
     compileSdkVersion ${compile_sdk}
-    buildToolsVersion ${build_tools_version}
 }
 
 task preflight (dependsOn: parent.preflight) {

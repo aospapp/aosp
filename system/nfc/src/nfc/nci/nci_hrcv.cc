@@ -116,12 +116,18 @@ void nci_proc_core_ntf(NFC_HDR* p_msg) {
 
   /* find the start of the NCI message and parse the NCI header */
   p = (uint8_t*)(p_msg + 1) + p_msg->offset;
+  len = p_msg->len;
   pp = p + 1;
+
+  if (len == 0) {
+    LOG(ERROR) << __func__ << ": Invalid packet length";
+    return;
+  }
   NCI_MSG_PRS_HDR1(pp, op_code);
   DLOG_IF(INFO, nfc_debug_enabled)
       << StringPrintf("nci_proc_core_ntf opcode:0x%x", op_code);
-  len = *pp++;
-
+  pp++;
+  len--;
   /* process the message based on the opcode and message type */
   switch (op_code) {
     case NCI_MSG_CORE_RESET:
@@ -354,7 +360,7 @@ void nci_proc_ee_management_rsp(NFC_HDR* p_msg) {
       event = NFC_NFCEE_PL_CONTROL_REVT;
       break;
     default:
-      p_cback = NULL;
+      p_cback = nullptr;
       LOG(ERROR) << StringPrintf("unknown opcode:0x%x", op_code);
       break;
   }
@@ -439,7 +445,7 @@ void nci_proc_ee_management_ntf(NFC_HDR* p_msg) {
     nfc_response.nfcee_status.nfcee_id = *pp++;
     nfc_response.nfcee_status.nfcee_status = *pp;
   } else {
-    p_cback = NULL;
+    p_cback = nullptr;
     LOG(ERROR) << StringPrintf("unknown opcode:0x%x", op_code);
   }
 
@@ -498,7 +504,7 @@ void nci_proc_prop_raw_vs_rsp(NFC_HDR* p_msg) {
    * callback function */
   if (p_cback) {
     (*p_cback)((tNFC_VS_EVT)(NCI_RSP_BIT | op_code), p_msg->len, p_evt);
-    nfc_cb.p_vsc_cback = NULL;
+    nfc_cb.p_vsc_cback = nullptr;
   }
   nfc_cb.rawVsCbflag = false;
   nfc_ncif_update_window();

@@ -19,7 +19,6 @@ package com.android.tradefed.testtype.junit4;
 import static org.junit.Assert.assertTrue;
 
 import com.android.annotations.VisibleForTesting;
-import com.android.ddmlib.IDevice;
 import com.android.ddmlib.Log.LogLevel;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
@@ -29,6 +28,7 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.ITestLifeCycleReceiver;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.TestResult;
 import com.android.tradefed.result.TestRunResult;
@@ -40,10 +40,14 @@ import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
+import com.android.tradefed.util.ListInstrumentationParser;
+import com.android.tradefed.util.ListInstrumentationParser.InstrumentationTarget;
 
 import org.junit.After;
 import org.junit.Assume;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,9 +62,9 @@ import java.util.concurrent.TimeUnit;
 public abstract class BaseHostJUnit4Test
         implements IAbiReceiver, IBuildReceiver, IDeviceTest, IInvocationContextReceiver {
 
-    static final String AJUR_RUNNER = "android.support.test.runner.AndroidJUnitRunner";
     static final long DEFAULT_TEST_TIMEOUT_MS = 10 * 60 * 1000L;
-    private static final long DEFAULT_MAX_TIMEOUT_TO_OUTPUT_MS = 10 * 60 * 1000L; //10min
+    private static final long DEFAULT_MAX_TIMEOUT_TO_OUTPUT_MS = 10 * 60 * 1000L; // 10min
+    private static final Map<String, String> DEFAULT_INSTRUMENTATION_ARGS = new HashMap<>();
 
     private ITestDevice mDevice;
     private IBuildInfo mBuild;
@@ -101,6 +105,10 @@ public abstract class BaseHostJUnit4Test
     @Override
     public final void setInvocationContext(IInvocationContext invocationContext) {
         mContext = invocationContext;
+    }
+
+    public final IInvocationContext getInvocationContext() {
+        return mContext;
     }
 
     public final List<ITestDevice> getListDevices() {
@@ -227,7 +235,7 @@ public abstract class BaseHostJUnit4Test
             throws DeviceNotAvailableException {
         return runDeviceTests(
                 getDevice(),
-                AJUR_RUNNER,
+                null,
                 pkgName,
                 testClassName,
                 null,
@@ -236,7 +244,8 @@ public abstract class BaseHostJUnit4Test
                 DEFAULT_MAX_TIMEOUT_TO_OUTPUT_MS,
                 0L,
                 true,
-                false);
+                false,
+                DEFAULT_INSTRUMENTATION_ARGS);
     }
 
     /**
@@ -254,7 +263,7 @@ public abstract class BaseHostJUnit4Test
             throws DeviceNotAvailableException {
         return runDeviceTests(
                 getDevice(),
-                AJUR_RUNNER,
+                null,
                 pkgName,
                 testClassName,
                 null,
@@ -263,7 +272,8 @@ public abstract class BaseHostJUnit4Test
                 DEFAULT_MAX_TIMEOUT_TO_OUTPUT_MS,
                 0L,
                 true,
-                false);
+                false,
+                DEFAULT_INSTRUMENTATION_ARGS);
     }
 
     /**
@@ -304,7 +314,8 @@ public abstract class BaseHostJUnit4Test
                 DEFAULT_MAX_TIMEOUT_TO_OUTPUT_MS,
                 0L,
                 true,
-                false);
+                false,
+                DEFAULT_INSTRUMENTATION_ARGS);
     }
 
     /**
@@ -322,7 +333,7 @@ public abstract class BaseHostJUnit4Test
             throws DeviceNotAvailableException {
         return runDeviceTests(
                 device,
-                AJUR_RUNNER,
+                null,
                 pkgName,
                 testClassName,
                 testMethodName,
@@ -331,7 +342,8 @@ public abstract class BaseHostJUnit4Test
                 DEFAULT_MAX_TIMEOUT_TO_OUTPUT_MS,
                 0L,
                 true,
-                false);
+                false,
+                DEFAULT_INSTRUMENTATION_ARGS);
     }
 
     /**
@@ -354,7 +366,7 @@ public abstract class BaseHostJUnit4Test
             throws DeviceNotAvailableException {
         return runDeviceTests(
                 device,
-                AJUR_RUNNER,
+                null,
                 pkgName,
                 testClassName,
                 testMethodName,
@@ -363,7 +375,8 @@ public abstract class BaseHostJUnit4Test
                 DEFAULT_MAX_TIMEOUT_TO_OUTPUT_MS,
                 0L,
                 true,
-                false);
+                false,
+                DEFAULT_INSTRUMENTATION_ARGS);
     }
 
     /**
@@ -388,7 +401,7 @@ public abstract class BaseHostJUnit4Test
             throws DeviceNotAvailableException {
         return runDeviceTests(
                 device,
-                AJUR_RUNNER,
+                null,
                 pkgName,
                 testClassName,
                 testMethodName,
@@ -397,7 +410,8 @@ public abstract class BaseHostJUnit4Test
                 DEFAULT_MAX_TIMEOUT_TO_OUTPUT_MS,
                 0L,
                 true,
-                false);
+                false,
+                DEFAULT_INSTRUMENTATION_ARGS);
     }
 
     /**
@@ -424,7 +438,7 @@ public abstract class BaseHostJUnit4Test
             throws DeviceNotAvailableException {
         return runDeviceTests(
                 device,
-                AJUR_RUNNER,
+                null,
                 pkgName,
                 testClassName,
                 testMethodName,
@@ -433,7 +447,8 @@ public abstract class BaseHostJUnit4Test
                 maxTimeToOutputMs,
                 maxInstrumentationTimeoutMs,
                 true,
-                false);
+                false,
+                DEFAULT_INSTRUMENTATION_ARGS);
     }
 
     /**
@@ -456,7 +471,10 @@ public abstract class BaseHostJUnit4Test
                 options.getMaxTimeToOutputMs(),
                 options.getMaxInstrumentationTimeoutMs(),
                 options.shouldCheckResults(),
-                options.isHiddenApiCheckDisabled());
+                options.isHiddenApiCheckDisabled(),
+                options.isIsolatedStorageDisabled(),
+                options.getInstrumentationArgs(),
+                options.getExtraListeners());
     }
 
     /**
@@ -473,6 +491,7 @@ public abstract class BaseHostJUnit4Test
      * @param maxInstrumentationTimeoutMs the max timeout the full instrumentation has to complete.
      * @param checkResults whether or not the results are checked for crashes.
      * @param isHiddenApiCheckDisabled whether or not we should disable the hidden api check.
+     * @param instrumentationArgs arguments to pass to the instrumentation.
      * @return True if it succeeded without failure. False otherwise.
      */
     public final boolean runDeviceTests(
@@ -486,7 +505,59 @@ public abstract class BaseHostJUnit4Test
             Long maxTimeToOutputMs,
             Long maxInstrumentationTimeoutMs,
             boolean checkResults,
-            boolean isHiddenApiCheckDisabled)
+            boolean isHiddenApiCheckDisabled,
+            Map<String, String> instrumentationArgs)
+            throws DeviceNotAvailableException {
+        return runDeviceTests(
+                device,
+                runner,
+                pkgName,
+                testClassName,
+                testMethodName,
+                userId,
+                testTimeoutMs,
+                maxTimeToOutputMs,
+                maxInstrumentationTimeoutMs,
+                checkResults,
+                isHiddenApiCheckDisabled,
+                false,
+                instrumentationArgs,
+                new ArrayList<>());
+    }
+
+    /**
+     * Method to run an installed instrumentation package. Use {@link #getLastDeviceRunResults()}
+     * right after to get the details of results.
+     *
+     * @param device the device agaisnt which to run the instrumentation.
+     * @param pkgName the name of the package to run.
+     * @param testClassName the name of the test class to run.
+     * @param testMethodName the name of the test method in the class to be run.
+     * @param userId the id of the user to run the test against. can be null.
+     * @param testTimeoutMs the timeout in millisecond to be applied to each test case.
+     * @param maxTimeToOutputMs the max timeout the test has to start outputting something.
+     * @param maxInstrumentationTimeoutMs the max timeout the full instrumentation has to complete.
+     * @param checkResults whether or not the results are checked for crashes.
+     * @param isHiddenApiCheckDisabled whether or not we should disable the hidden api check.
+     * @param isIsolatedStorageDisabled whether or not we should disable isolated storage.
+     * @param instrumentationArgs arguments to pass to the instrumentation.
+     * @return True if it succeeded without failure. False otherwise.
+     */
+    public final boolean runDeviceTests(
+            ITestDevice device,
+            String runner,
+            String pkgName,
+            String testClassName,
+            String testMethodName,
+            Integer userId,
+            Long testTimeoutMs,
+            Long maxTimeToOutputMs,
+            Long maxInstrumentationTimeoutMs,
+            boolean checkResults,
+            boolean isHiddenApiCheckDisabled,
+            boolean isIsolatedStorageDisabled,
+            Map<String, String> instrumentationArgs,
+            List<ITestLifeCycleReceiver> extraListeners)
             throws DeviceNotAvailableException {
         TestRunResult runResult =
                 doRunTests(
@@ -499,7 +570,10 @@ public abstract class BaseHostJUnit4Test
                         testTimeoutMs,
                         maxTimeToOutputMs,
                         maxInstrumentationTimeoutMs,
-                        isHiddenApiCheckDisabled);
+                        isHiddenApiCheckDisabled,
+                        isIsolatedStorageDisabled,
+                        instrumentationArgs,
+                        extraListeners);
         mLatestInstruRes = runResult;
         printTestResult(runResult);
         if (checkResults) {
@@ -553,13 +627,20 @@ public abstract class BaseHostJUnit4Test
             Long testTimeoutMs,
             Long maxTimeToOutputMs,
             Long maxInstrumentationTimeoutMs,
-            boolean isHiddenApiCheckDisabled)
+            boolean isHiddenApiCheckDisabled,
+            boolean isIsolatedStorageDisabled,
+            Map<String, String> instrumentationArgs,
+            List<ITestLifeCycleReceiver> extraListeners)
             throws DeviceNotAvailableException {
-        RemoteAndroidTestRunner testRunner = createTestRunner(pkgName, runner, device.getIDevice());
+        RemoteAndroidTestRunner testRunner = createTestRunner(pkgName, runner, device);
         String runOptions = "";
         // hidden-api-checks flag only exists in P and after.
         if (isHiddenApiCheckDisabled && (device.getApiLevel() >= 28)) {
             runOptions += "--no-hidden-api-checks ";
+        }
+        // isolated-storage flag only exists in Q and after.
+        if (isIsolatedStorageDisabled && device.checkApiLevelAgainstNextRelease(29)) {
+            runOptions += "--no-isolated-storage ";
         }
         if (getAbi() != null) {
             runOptions += String.format("--abi %s", getAbi().getName());
@@ -587,20 +668,46 @@ public abstract class BaseHostJUnit4Test
         if (maxInstrumentationTimeoutMs != null) {
             testRunner.setMaxTimeout(maxInstrumentationTimeoutMs, TimeUnit.MILLISECONDS);
         }
+        // Pass all the instrumentation arguments
+        for (String key : instrumentationArgs.keySet()) {
+            testRunner.addInstrumentationArg(key, instrumentationArgs.get(key));
+        }
 
         CollectingTestListener listener = createListener();
+        List<ITestLifeCycleReceiver> allReceiver = new ArrayList<>();
+        allReceiver.add(listener);
+        allReceiver.addAll(extraListeners);
         if (userId == null) {
-            assertTrue(device.runInstrumentationTests(testRunner, listener));
+            assertTrue(device.runInstrumentationTests(testRunner, allReceiver));
         } else {
-            assertTrue(device.runInstrumentationTestsAsUser(testRunner, userId, listener));
+            assertTrue(device.runInstrumentationTestsAsUser(testRunner, userId, allReceiver));
         }
         return listener.getCurrentRunResults();
     }
 
     @VisibleForTesting
     RemoteAndroidTestRunner createTestRunner(
-            String packageName, String runnerName, IDevice device) {
-        return new DefaultRemoteAndroidTestRunner(packageName, runnerName, device);
+            String packageName, String runnerName, ITestDevice device)
+            throws DeviceNotAvailableException {
+        if (runnerName == null) {
+            ListInstrumentationParser parser = getListInstrumentationParser();
+            device.executeShellCommand("pm list instrumentation", parser);
+            for (InstrumentationTarget target : parser.getInstrumentationTargets()) {
+                if (packageName.equals(target.packageName)) {
+                    runnerName = target.runnerName;
+                }
+            }
+        }
+        // If the runner name is still null
+        if (runnerName == null) {
+            throw new RuntimeException("No runner was defined and couldn't dynamically find one.");
+        }
+        return new DefaultRemoteAndroidTestRunner(packageName, runnerName, device.getIDevice());
+    }
+
+    @VisibleForTesting
+    ListInstrumentationParser getListInstrumentationParser() {
+        return new ListInstrumentationParser();
     }
 
     @VisibleForTesting

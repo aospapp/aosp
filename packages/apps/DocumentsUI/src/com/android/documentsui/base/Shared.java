@@ -18,9 +18,7 @@ package com.android.documentsui.base;
 
 import static com.android.documentsui.base.SharedMinimal.TAG;
 
-import android.annotation.PluralsRes;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -28,7 +26,6 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Looper;
 import android.provider.DocumentsContract;
 import android.provider.Settings;
@@ -47,6 +44,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.annotation.Nullable;
+
+import androidx.annotation.PluralsRes;
+import androidx.appcompat.app.AlertDialog;
 
 /** @hide */
 public final class Shared {
@@ -78,6 +78,11 @@ public final class Shared {
     public static final String EXTRA_QUERY = "query";
 
     /**
+     * Extra flag used to store chip's title of type String array in the bundle.
+     */
+    public static final String EXTRA_QUERY_CHIPS = "query_chips";
+
+    /**
      * Extra flag used to store state of type State in the bundle.
      */
     public static final String EXTRA_STATE = "state";
@@ -101,6 +106,11 @@ public final class Shared {
      * Extra flag used to store DirectoryFragment's ignore state of boolean type in the bundle.
      */
     public static final String EXTRA_IGNORE_STATE = "ignoreState";
+
+    /**
+     * Extra flag used to store pick result state of PickResult type in the bundle.
+     */
+    public static final String EXTRA_PICK_RESULT = "pickResult";
 
     /**
      * Extra for an Intent for enabling performance benchmark. Used only by tests.
@@ -184,6 +194,14 @@ public final class Shared {
         return sCollator.compare(lhs, rhs);
     }
 
+    private static boolean isSystemApp(ApplicationInfo ai) {
+        return (ai.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+    }
+
+    private static boolean isUpdatedSystemApp(ApplicationInfo ai) {
+        return (ai.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
+    }
+
     /**
      * Returns the calling package, possibly overridden by EXTRA_PACKAGE_NAME.
      * @param activity
@@ -195,9 +213,9 @@ public final class Shared {
         try {
             ApplicationInfo info =
                     activity.getPackageManager().getApplicationInfo(callingPackage, 0);
-            if (info.isSystemApp() || info.isUpdatedSystemApp()) {
+            if (isSystemApp(info) || isUpdatedSystemApp(info)) {
                 final String extra = activity.getIntent().getStringExtra(
-                        DocumentsContract.EXTRA_PACKAGE_NAME);
+                        Intent.EXTRA_PACKAGE_NAME);
                 if (extra != null && !TextUtils.isEmpty(extra)) {
                     callingPackage = extra;
                 }
@@ -241,6 +259,22 @@ public final class Shared {
      */
     public static boolean shouldShowDocumentsRoot(Context context) {
         return context.getResources().getBoolean(R.bool.show_documents_root);
+    }
+
+    /**
+     * Check config whether DocumentsUI is launcher enabled or not.
+     * @return true if "is_launcher_enabled" is true.
+     */
+    public static boolean isLauncherEnabled(Context context) {
+        return context.getResources().getBoolean(R.bool.is_launcher_enabled);
+    }
+
+    /**
+     * Check config has quick viewer package value or not.
+     * @return true if "trusted_quick_viewer_package" has value.
+     */
+    public static boolean hasQuickViewer(Context context) {
+        return !TextUtils.isEmpty(context.getString(R.string.trusted_quick_viewer_package));
     }
 
     /*

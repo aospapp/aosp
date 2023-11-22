@@ -67,4 +67,47 @@ public class ConditionTest extends AndroidTestCase {
         assertEquals(-1, condition1.icon);
         assertEquals(Condition.FLAG_RELEVANT_ALWAYS, condition1.flags);
     }
+
+    public void testCopy() {
+        Condition condition = new Condition(mConditionId, mSummary, mState);
+        Condition condition1 = condition.copy();
+        assertEquals(mConditionId, condition1.id);
+        assertEquals(mSummary, condition1.summary);
+        assertEquals("", condition1.line1);
+        assertEquals("", condition1.line2);
+        assertEquals(mState, condition1.state);
+        assertEquals(-1, condition1.icon);
+        assertEquals(Condition.FLAG_RELEVANT_ALWAYS, condition1.flags);
+    }
+
+    public void testIsValidId_null() {
+        assertFalse(Condition.isValidId(null, null));
+    }
+
+    public void testIsValidId_noScheme() {
+        String pkg = this.getClass().getPackage().toString();
+        Uri uri = new Uri.Builder().authority(pkg).build();
+        assertFalse(Condition.isValidId(uri, pkg));
+    }
+
+    public void testIsValidId_wrongAuthority() {
+        String pkg = this.getClass().getPackage().toString();
+        Uri uri = new Uri.Builder().authority(pkg).scheme(Condition.SCHEME).build();
+        assertFalse(Condition.isValidId(uri, "different"));
+    }
+
+    public void testIsValidId() {
+        String pkg = this.getClass().getPackage().toString();
+        Uri uri = new Uri.Builder().authority(pkg).scheme(Condition.SCHEME).build();
+        assertTrue(Condition.isValidId(uri, pkg));
+    }
+
+    public void testNewId() {
+        assertTrue(Condition.isValidId(
+                Condition.newId(mContext).build(), mContext.getPackageName()));
+    }
+
+    public void testRelevanceToString() {
+        assertNotNull(Condition.relevanceToString(Condition.FLAG_RELEVANT_ALWAYS));
+    }
 }

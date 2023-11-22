@@ -35,7 +35,8 @@
         android:textColor="@color/pin_dialog_text_color"
         android:fontFamily="@string/font"
         android:visibility="invisible"
-        android:singleLine="false"/>
+        android:singleLine="false"
+        android:focusableInTouchMode="true"/>
 
     <LinearLayout
         android:id="@+id/enter_pin"
@@ -54,36 +55,14 @@
             android:fontFamily="@string/font"
             android:singleLine="false" />
 
-        <LinearLayout
+        <com.android.tv.dialog.picker.PinPicker
+            android:id="@+id/pin_picker"
+            android:importantForAccessibility="yes"
             android:layout_width="match_parent"
-            android:layout_height="144dp"
+            android:layout_height="154dp"
             android:paddingStart="24dp"
             android:paddingEnd="24dp"
             android:gravity="center"
-            android:orientation="horizontal">
-
-            <view class="com.android.tv.dialog.PinDialogFragment$PinNumberPicker"
-                android:id="@+id/first"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-
-            <view class="com.android.tv.dialog.PinDialogFragment$PinNumberPicker"
-                android:id="@+id/second"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp" />
-
-            <view class="com.android.tv.dialog.PinDialogFragment$PinNumberPicker"
-                android:id="@+id/third"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp" />
-
-            <view class="com.android.tv.dialog.PinDialogFragment$PinNumberPicker"
-                android:id="@+id/fourth"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp" />
-        </LinearLayout>
+            />
     </LinearLayout>
 </FrameLayout>

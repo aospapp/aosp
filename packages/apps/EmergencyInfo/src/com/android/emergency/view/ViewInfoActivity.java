@@ -15,45 +15,52 @@
  */
 package com.android.emergency.view;
 
-import android.app.Activity;
-import android.app.Fragment;
-import android.app.FragmentManager;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.support.annotation.LayoutRes;
-import android.support.design.widget.TabLayout;
-import android.support.design.widget.TabLayout.TabLayoutOnPageChangeListener;
-import android.support.design.widget.TabLayout.ViewPagerOnTabSelectedListener;
-import android.support.v13.app.FragmentStatePagerAdapter;
-import android.support.v4.view.ViewPager;
-import android.support.v7.preference.PreferenceManager;
+import androidx.annotation.LayoutRes;
+import android.os.UserHandle;
+import android.os.UserManager;
+import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayout.TabLayoutOnPageChangeListener;
+import com.google.android.material.tabs.TabLayout.ViewPagerOnTabSelectedListener;
+import androidx.fragment.app.FragmentStatePagerAdapter;
+import androidx.viewpager.widget.ViewPager;
+import androidx.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toolbar;
 import android.widget.ViewFlipper;
 
-import com.android.emergency.PreferenceKeys;
+import com.android.emergency.CircleFramedDrawable;
 import com.android.emergency.R;
 import com.android.emergency.edit.EditInfoActivity;
 import com.android.emergency.util.PreferenceUtils;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.internal.util.UserIcons;
 
 import java.util.ArrayList;
 
 /**
  * Activity for viewing emergency information.
  */
-public class ViewInfoActivity extends Activity {
+public class ViewInfoActivity extends FragmentActivity {
+    private ImageView mPersonalCardLargeIcon;
     private TextView mPersonalCardLargeItem;
     private SharedPreferences mSharedPreferences;
     private LinearLayout mPersonalCard;
@@ -74,11 +81,11 @@ public class ViewInfoActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.view_activity_layout);
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         mPersonalCard = (LinearLayout) findViewById(R.id.name_and_dob_linear_layout);
+        mPersonalCardLargeIcon = (ImageView) findViewById(R.id.personal_card_icon);
         mPersonalCardLargeItem = (TextView) findViewById(R.id.personal_card_large);
         mViewFlipper = (ViewFlipper) findViewById(R.id.view_flipper);
 
@@ -88,20 +95,35 @@ public class ViewInfoActivity extends Activity {
     @Override
     public void onResume() {
         super.onResume();
-        loadName();
+        loadUserInfo();
         // Update the tabs: new info might have been added/deleted from the edit screen that
         // could lead to adding/removing a fragment
         setupTabs();
         maybeHideTabs();
     }
 
-    private void loadName() {
-        String name = mSharedPreferences.getString(PreferenceKeys.KEY_NAME, "");
-        if (TextUtils.isEmpty(name)) {
+    private void loadUserInfo() {
+        UserManager userManager = getSystemService(UserManager.class);
+        if (TextUtils.isEmpty(userManager.getUserName())) {
             mPersonalCard.setVisibility(View.GONE);
         } else {
             mPersonalCard.setVisibility(View.VISIBLE);
-            mPersonalCardLargeItem.setText(name);
+            mPersonalCardLargeItem.setText(userManager.getUserName());
+
+            Bitmap bitmapUserIcon = userManager.getUserIcon(UserHandle.myUserId());
+
+            if (bitmapUserIcon == null) {
+                // Get default user icon.
+                Drawable defaultUserIcon = UserIcons.getDefaultUserIcon(
+                        getApplicationContext().getResources(), UserHandle.myUserId(),
+                        false /* light icon */);
+                bitmapUserIcon = UserIcons.convertToBitmap(defaultUserIcon);
+            }
+
+            Drawable drawableUserIcon = new CircleFramedDrawable(bitmapUserIcon,
+                    (int) getResources().getDimension(R.dimen.action_bar_size));
+
+            mPersonalCardLargeIcon.setImageDrawable(drawableUserIcon);
         }
     }
 
@@ -132,16 +154,15 @@ public class ViewInfoActivity extends Activity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case android.R.id.home:
-                onBackPressed();
-                return true;
-
-            case R.id.action_edit:
-                Intent intent = new Intent(this, EditInfoActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                startActivity(intent);
-                return true;
+        int itemId = item.getItemId();
+        if (itemId == android.R.id.home) {
+            onBackPressed();
+            return true;
+        } else if (itemId == R.id.action_edit) {
+            Intent intent = new Intent(this, EditInfoActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            startActivity(intent);
+            return true;
         }
         return super.onOptionsItemSelected(item);
     }
@@ -184,7 +205,7 @@ public class ViewInfoActivity extends Activity {
         if (mTabsAdapter == null) {
             // The viewpager that will host the section contents.
             ViewPager viewPager = (ViewPager) findViewById(R.id.view_pager);
-            mTabsAdapter = new ViewPagerAdapter(getFragmentManager());
+            mTabsAdapter = new ViewPagerAdapter(getSupportFragmentManager());
             viewPager.setAdapter(mTabsAdapter);
             mTabLayout.setTabsFromPagerAdapter(mTabsAdapter);
 

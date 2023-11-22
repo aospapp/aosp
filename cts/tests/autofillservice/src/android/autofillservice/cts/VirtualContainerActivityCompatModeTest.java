@@ -21,15 +21,15 @@ import static android.autofillservice.cts.Helper.assertTextAndValue;
 import static android.autofillservice.cts.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.Helper.getContext;
-import static android.autofillservice.cts.Helper.hasAutofillFeature;
 import static android.autofillservice.cts.InstrumentedAutoFillServiceCompatMode.SERVICE_NAME;
 import static android.autofillservice.cts.InstrumentedAutoFillServiceCompatMode.SERVICE_PACKAGE;
 import static android.autofillservice.cts.VirtualContainerActivity.INITIAL_URL_BAR_VALUE;
 import static android.autofillservice.cts.VirtualContainerView.ID_URL_BAR;
 import static android.autofillservice.cts.VirtualContainerView.ID_URL_BAR2;
-import static android.autofillservice.cts.common.SettingsHelper.NAMESPACE_GLOBAL;
 import static android.provider.Settings.Global.AUTOFILL_COMPAT_MODE_ALLOWED_PACKAGES;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
+
+import static com.android.compatibility.common.util.SettingsUtils.NAMESPACE_GLOBAL;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -37,13 +37,13 @@ import android.app.assist.AssistStructure.ViewNode;
 import android.autofillservice.cts.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.InstrumentedAutoFillService.SaveRequest;
-import android.autofillservice.cts.common.SettingsHelper;
-import android.autofillservice.cts.common.SettingsStateChangerRule;
-import android.content.Context;
+import android.content.AutofillOptions;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.SaveInfo;
-import android.support.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.SettingsStateChangerRule;
+import com.android.compatibility.common.util.SettingsUtils;
 
 import org.junit.After;
 import org.junit.ClassRule;
@@ -54,7 +54,6 @@ import org.junit.Test;
  * the Autofill APIs.
  */
 public class VirtualContainerActivityCompatModeTest extends VirtualContainerActivityTest {
-    private static final Context sContext = InstrumentationRegistry.getContext();
 
     @ClassRule
     public static final SettingsStateChangerRule sCompatModeChanger = new SettingsStateChangerRule(
@@ -67,32 +66,29 @@ public class VirtualContainerActivityCompatModeTest extends VirtualContainerActi
 
     @After
     public void resetCompatMode() {
-        sContext.getApplicationContext().setAutofillCompatibilityEnabled(false);
+        sContext.getApplicationContext().setAutofillOptions(null);
     }
 
     @Override
     protected void preActivityCreated() {
-        sContext.getApplicationContext().setAutofillCompatibilityEnabled(true);
+        sContext.getApplicationContext()
+                .setAutofillOptions(AutofillOptions.forWhitelistingItself());
     }
 
     @Override
-    protected void postActivityLaunched(VirtualContainerActivity activity) {
+    protected void postActivityLaunched() {
         // Set our own compat mode as well..
-        activity.mCustomView.setCompatMode(true);
+        mActivity.mCustomView.setCompatMode(true);
     }
 
     @Override
     protected void enableService() {
         Helper.enableAutofillService(getContext(), SERVICE_NAME);
-        InstrumentedAutoFillServiceCompatMode.setIgnoreUnexpectedRequests(false);
     }
 
     @Override
     protected void disableService() {
-        if (!hasAutofillFeature()) return;
-
-        Helper.disableAutofillService(getContext(), SERVICE_NAME);
-        InstrumentedAutoFillServiceCompatMode.setIgnoreUnexpectedRequests(true);
+        Helper.disableAutofillService(getContext());
     }
 
     @Override
@@ -104,7 +100,7 @@ public class VirtualContainerActivityCompatModeTest extends VirtualContainerActi
 
     @Test
     public void testMultipleUrlBars_firstDoesNotExist() throws Exception {
-        SettingsHelper.syncSet(sContext, NAMESPACE_GLOBAL, AUTOFILL_COMPAT_MODE_ALLOWED_PACKAGES,
+        SettingsUtils.syncSet(sContext, NAMESPACE_GLOBAL, AUTOFILL_COMPAT_MODE_ALLOWED_PACKAGES,
                 SERVICE_PACKAGE + "[first_am_i,my_url_bar]");
 
         // Set service.
@@ -127,9 +123,9 @@ public class VirtualContainerActivityCompatModeTest extends VirtualContainerActi
     }
 
     @Test
-    @AppModeFull // testMultipleUrlBars_firstDoesNotExist() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testMultipleUrlBars_firstDoesNotExist() is enough")
     public void testMultipleUrlBars_bothExist() throws Exception {
-        SettingsHelper.syncSet(sContext, NAMESPACE_GLOBAL, AUTOFILL_COMPAT_MODE_ALLOWED_PACKAGES,
+        SettingsUtils.syncSet(sContext, NAMESPACE_GLOBAL, AUTOFILL_COMPAT_MODE_ALLOWED_PACKAGES,
                 SERVICE_PACKAGE + "[my_url_bar,my_url_bar2]");
 
         // Set service.
@@ -154,7 +150,7 @@ public class VirtualContainerActivityCompatModeTest extends VirtualContainerActi
     }
 
     @Test
-    @AppModeFull // testMultipleUrlBars_firstDoesNotExist() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testMultipleUrlBars_firstDoesNotExist() is enough")
     public void testFocusOnUrlBarIsIgnored() throws Throwable {
         // Set service.
         enableService();
@@ -176,7 +172,7 @@ public class VirtualContainerActivityCompatModeTest extends VirtualContainerActi
     }
 
     @Test
-    @AppModeFull // testMultipleUrlBars_firstDoesNotExist() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testMultipleUrlBars_firstDoesNotExist() is enough")
     public void testUrlBarChangeIgnoredWhenServiceCanSave() throws Throwable {
         // Set service.
         enableService();
@@ -229,7 +225,7 @@ public class VirtualContainerActivityCompatModeTest extends VirtualContainerActi
     }
 
     @Test
-    @AppModeFull // testMultipleUrlBars_firstDoesNotExist() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testMultipleUrlBars_firstDoesNotExist() is enough")
     public void testUrlBarChangeCancelSessionWhenServiceCannotSave() throws Throwable {
         // Set service.
         enableService();
@@ -269,7 +265,7 @@ public class VirtualContainerActivityCompatModeTest extends VirtualContainerActi
     }
 
     @Test
-    @AppModeFull // testMultipleUrlBars_firstDoesNotExist() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testMultipleUrlBars_firstDoesNotExist() is enough")
     public void testUrlBarChangeCancelSessionWhenServiceReturnsNullResponse() throws Throwable {
         // Set service.
         enableService();
@@ -283,7 +279,9 @@ public class VirtualContainerActivityCompatModeTest extends VirtualContainerActi
 
         // Fill in some stuff
         mActivity.mUsername.setText("foo");
+        sReplier.addResponse(CannedFillResponse.NO_RESPONSE);
         focusToPasswordExpectNoWindowEvent();
+        sReplier.getNextFillRequest();
         mActivity.mPassword.setText("bar");
 
         // Change URL bar before views become invisible

@@ -133,17 +133,8 @@
 
 .end method
 
-# Test that the compiler does not assume that the first argument of String.<init>
-# is a NewInstance by inserting an irreducible loop between them (b/26676472).
-
-# We verify the type of the input instruction (Phi) in debuggable mode, because
-# it is eliminated by later stages of SsaBuilder otherwise.
-
-## CHECK-START-DEBUGGABLE: java.lang.String TestCase.thisNotNewInstance1(byte[], boolean) register (after)
-## CHECK-DAG:                   InvokeStaticOrDirect env:[[<<Phi:l\d+>>,{{.*]]}}
-## CHECK-DAG:     <<Phi>>       Phi
-
-.method public static thisNotNewInstance1([BZ)Ljava/lang/String;
+# Test #1 for irreducible loops and String.<init>.
+.method public static irreducibleLoopAndStringInit1([BZ)Ljava/lang/String;
    .registers 5
 
    new-instance v0, Ljava/lang/String;
@@ -151,8 +142,7 @@
    # Irreducible loop
    if-eqz p1, :loop_entry
    :loop_header
-   const v1, 0x1
-   xor-int p1, p1, v1
+   xor-int/lit8 p1, p1, 0x1
    :loop_entry
    if-eqz p1, :string_init
    goto :loop_header
@@ -164,11 +154,8 @@
 
 .end method
 
-## CHECK-START-DEBUGGABLE: java.lang.String TestCase.thisNotNewInstance2(byte[], boolean) register (after)
-## CHECK-DAG:                   InvokeStaticOrDirect env:[[<<Phi:l\d+>>,{{.*]]}}
-## CHECK-DAG:     <<Phi>>       Phi
-
-.method public static thisNotNewInstance2([BZ)Ljava/lang/String;
+# Test #2 for irreducible loops and String.<init>.
+.method public static irreducibleLoopAndStringInit2([BZ)Ljava/lang/String;
    .registers 5
 
    new-instance v0, Ljava/lang/String;
@@ -178,13 +165,311 @@
    :loop_header
    if-eqz p1, :string_init
    :loop_entry
-   const v1, 0x1
-   xor-int p1, p1, v1
+   xor-int/lit8 p1, p1, 0x1
    goto :loop_header
 
    :string_init
    const-string v1, "UTF8"
    invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   return-object v0
+
+.end method
+
+# Test #3 for irreducible loops and String.<init> alias.
+.method public static irreducibleLoopAndStringInit3([BZ)Ljava/lang/String;
+   .registers 5
+
+   new-instance v0, Ljava/lang/String;
+   move-object v2, v0
+
+   # Irreducible loop
+   if-eqz p1, :loop_entry
+   :loop_header
+   xor-int/lit8 p1, p1, 0x1
+   :loop_entry
+   if-eqz p1, :string_init
+   goto :loop_header
+
+   :string_init
+   const-string v1, "UTF8"
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   return-object v2
+
+.end method
+
+# Test with a loop between allocation and String.<init>.
+.method public static loopAndStringInit([BZ)Ljava/lang/String;
+   .registers 5
+
+   new-instance v0, Ljava/lang/String;
+
+   # Loop
+   :loop_header
+   if-eqz p1, :loop_exit
+   xor-int/lit8 p1, p1, 0x1
+   goto :loop_header
+
+   :loop_exit
+   const-string v1, "UTF8"
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   return-object v0
+
+.end method
+
+# Test with a loop and aliases between allocation and String.<init>.
+.method public static loopAndStringInitAlias([BZ)Ljava/lang/String;
+   .registers 5
+
+   new-instance v0, Ljava/lang/String;
+   move-object v2, v0
+
+   # Loop
+   :loop_header
+   if-eqz p1, :loop_exit
+   xor-int/lit8 p1, p1, 0x1
+   goto :loop_header
+
+   :loop_exit
+   const-string v1, "UTF8"
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   return-object v2
+
+.end method
+
+# Test deoptimization after String initialization of a phi.
+## CHECK-START: int TestCase.deoptimizeNewInstanceAfterLoop(int[], byte[], int) register (after)
+## CHECK:         <<Invoke:l\d+>> InvokeStaticOrDirect method_name:java.lang.String.<init>
+## CHECK:                         Deoptimize env:[[<<Invoke>>,{{.*]]}}
+
+.method public static deoptimizeNewInstanceAfterLoop([I[BI)I
+   .registers 8
+
+   const v2, 0x0
+   const v1, 0x1
+
+   new-instance v0, Ljava/lang/String; # HNewInstance(String)
+   move-object v4, v0
+   # Loop
+   :loop_header
+   if-eqz p2, :loop_exit
+   xor-int/lit8 p2, p2, 0x1
+   goto :loop_header
+
+   :loop_exit
+   const-string v3, "UTF8"
+   invoke-direct {v0, p1, v3}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+
+   # Deoptimize here if the array is too short.
+   aget v1, p0, v1              # v1 = int_array[0x1]
+   add-int/2addr v2, v1         # v2 = 0x0 + v1
+
+   # Check that we're being executed by the interpreter.
+   invoke-static {}, LMain;->assertIsInterpreted()V
+
+   # Check that the environments contain the right string.
+   invoke-static {p1, v0}, LMain;->assertEqual([BLjava/lang/String;)V
+   invoke-static {p1, v4}, LMain;->assertEqual([BLjava/lang/String;)V
+
+   # This ArrayGet will throw ArrayIndexOutOfBoundsException.
+   const v1, 0x4
+   aget v1, p0, v1
+   add-int/2addr v2, v1
+
+   return v2
+
+.end method
+
+# Test with a loop between allocation and String.<init> and a null check.
+## CHECK-START: java.lang.String TestCase.loopAndStringInitAndTest(byte[], boolean) builder (after)
+## CHECK-DAG:     <<Null:l\d+>>   NullConstant
+## CHECK-DAG:     <<String:l\d+>> NewInstance
+## CHECK-DAG:     <<Cond:z\d+>>   NotEqual [<<String>>,<<Null>>]
+
+## CHECK-START: java.lang.String TestCase.loopAndStringInitAndTest(byte[], boolean) register (after)
+## CHECK-DAG:     <<String:l\d+>> NewInstance
+.method public static loopAndStringInitAndTest([BZ)Ljava/lang/String;
+   .registers 5
+
+   new-instance v0, Ljava/lang/String;
+
+   # Loop
+   :loop_header
+   # Use the new-instance in the only way it can be used.
+   if-nez v0, :loop_exit
+   xor-int/lit8 p1, p1, 0x1
+   goto :loop_header
+
+   :loop_exit
+   const-string v1, "UTF8"
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   return-object v0
+
+.end method
+
+## CHECK-START: java.lang.String TestCase.loopAndStringInitAndPhi(byte[], boolean) register (after)
+## CHECK-NOT:                    NewInstance
+## CHECK-DAG:   <<Invoke1:l\d+>> InvokeStaticOrDirect method_name:java.lang.String.<init>
+## CHECK-DAG:   <<Invoke2:l\d+>> InvokeStaticOrDirect method_name:java.lang.String.<init>
+## CHECK-DAG:   <<Phi:l\d+>>     Phi [<<Invoke2>>,<<Invoke1>>]
+## CHECK-DAG:                    Return [<<Phi>>]
+.method public static loopAndStringInitAndPhi([BZ)Ljava/lang/String;
+   .registers 4
+
+   if-nez p1, :allocate_other
+   new-instance v0, Ljava/lang/String;
+
+   # Loop
+   :loop_header
+   if-eqz p1, :loop_exit
+   goto :loop_header
+
+   :loop_exit
+   const-string v1, "UTF8"
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   goto : exit
+
+   :allocate_other
+   const-string v1, "UTF8"
+   new-instance v0, Ljava/lang/String;
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   :exit
+   return-object v0
+
+.end method
+
+.method public static loopAndTwoStringInitAndPhi([BZZ)Ljava/lang/String;
+   .registers 6
+
+   new-instance v0, Ljava/lang/String;
+   new-instance v2, Ljava/lang/String;
+
+   if-nez p2, :allocate_other
+
+   # Loop
+   :loop_header
+   if-eqz p1, :loop_exit
+   goto :loop_header
+
+   :loop_exit
+   const-string v1, "UTF8"
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   goto :exit
+
+   :allocate_other
+
+   # Loop
+   :loop_header2
+   if-eqz p1, :loop_exit2
+   goto :loop_header2
+
+   :loop_exit2
+   const-string v1, "UTF8"
+   invoke-direct {v2, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   move-object v0, v2
+
+   :exit
+   return-object v0
+
+.end method
+
+# Regression test for a new string flowing into a catch phi.
+.method public static stringAndCatch([BZ)Ljava/lang/Object;
+   .registers 4
+
+   const v0, 0x0
+
+   :try_start_a
+   new-instance v0, Ljava/lang/String;
+
+   # Loop
+   :loop_header
+   if-eqz p1, :loop_exit
+   goto :loop_header
+
+   :loop_exit
+   const-string v1, "UTF8"
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   goto :exit
+   :try_end_a
+   .catch Ljava/lang/Exception; {:try_start_a .. :try_end_a} :catch_a
+
+   :catch_a
+   # Initially, we create a catch phi with the potential uninitalized string, which used to
+   # trip the compiler. However, using that catch phi is an error caught by the verifier, so
+   # having the phi is benign.
+   const v0, 0x0
+
+   :exit
+   return-object v0
+
+.end method
+
+# Same test as above, but with a catch phi being used by the string constructor.
+.method public static stringAndCatch2([BZ)Ljava/lang/Object;
+   .registers 4
+
+   const v0, 0x0
+   new-instance v0, Ljava/lang/String;
+
+   :try_start_a
+   const-string v1, "UTF8"
+   :try_end_a
+   .catch Ljava/lang/Exception; {:try_start_a .. :try_end_a} :catch_a
+
+   :catch_a
+   const-string v1, "UTF8"
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   return-object v0
+
+.end method
+
+# Same test as above, but with a catch phi being used by the string constructor and
+# a null test.
+.method public static stringAndCatch3([BZ)Ljava/lang/Object;
+   .registers 4
+
+   const v0, 0x0
+   new-instance v0, Ljava/lang/String;
+
+   :try_start_a
+   const-string v1, "UTF8"
+   :try_end_a
+   .catch Ljava/lang/Exception; {:try_start_a .. :try_end_a} :catch_a
+
+   :catch_a
+   if-eqz v0, :unexpected
+   const-string v1, "UTF8"
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   goto :exit
+   :unexpected
+   const-string v0, "UTF8"
+   :exit
+   return-object v0
+
+.end method
+
+# Regression test that tripped the compiler.
+.method public static stringAndPhi([BZ)Ljava/lang/Object;
+   .registers 4
+
+   new-instance v0, Ljava/lang/String;
+   const-string v1, "UTF8"
+
+   :loop_header
+   if-nez p1, :unused
+   if-eqz p1, :invoke
+   goto :loop_header
+
+   :invoke
+   invoke-direct {v0, p0, v1}, Ljava/lang/String;-><init>([BLjava/lang/String;)V
+   goto :exit
+
+   :unused
+   const-string v0, "UTF8"
+   if-nez p1, :exit
+   goto :unused
+
+   :exit
    return-object v0
 
 .end method

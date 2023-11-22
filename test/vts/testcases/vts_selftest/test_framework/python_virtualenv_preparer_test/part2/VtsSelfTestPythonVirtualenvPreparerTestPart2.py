@@ -31,9 +31,12 @@ class VtsSelfTestPythonVirtualenvPreparerTestPart2(base_test.BaseTestClass):
         # must be set to False.
         self.run_as_vts_self_test = False
 
-    def testVirtualenvPreparerTestPart2(self):
-        '''If there's no error at this point, then test pass.'''
-        pass
+    def testExistingModule(self):
+        '''Test previously installed module's availability.'''
+        try:
+            import numpy
+        except ImportError:
+            asserts.fail('numpy should have been installed in Part1.')
 
 
 if __name__ == "__main__":

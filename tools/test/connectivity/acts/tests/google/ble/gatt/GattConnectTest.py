@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -279,6 +279,7 @@ class GattConnectTest(BluetoothBaseTest):
         autoconnect = False
         mac_address, adv_callback, scan_callback = (
             get_mac_address_of_generic_advertisement(self.cen_ad, self.per_ad))
+        self.adv_instances.append(adv_callback)
         try:
             bluetooth_gatt, gatt_callback = setup_gatt_connection(
                 self.cen_ad, mac_address, autoconnect)
@@ -308,7 +309,7 @@ class GattConnectTest(BluetoothBaseTest):
                                              self.default_timeout)
         except Empty:
             self.log.error(
-                gatt_cb_err['gatt_conn_change_err'].format(expected_event))
+                gatt_cb_err['gatt_conn_changed_err'].format(expected_event))
             test_result = False
         return self._orchestrate_gatt_disconnection(bluetooth_gatt,
                                                     gatt_callback)
@@ -357,6 +358,7 @@ class GattConnectTest(BluetoothBaseTest):
                 transport=gatt_transport['auto'],
                 opportunistic=False)
             self.cen_ad.droid.bleStopBleScan(scan_callback)
+            self.adv_instances.append(adv_callback)
             self.bluetooth_gatt_list.append(bluetooth_gatt_1)
         except GattTestUtilsError as err:
             self.log.error(err)
@@ -931,11 +933,22 @@ class GattConnectTest(BluetoothBaseTest):
                                     and device['name'] == target_name):
                                 bonded = True
                                 break
+
+        # Dual mode devices will establish connection over the classic transport,
+        # in order to establish bond over both transports, and do SDP. Starting
+        # disconnection before all this is finished is not safe, might lead to
+        # race conditions, i.e. bond over classic tranport shows up after LE
+        # bond is already removed.
+        time.sleep(4)
+
         for ad in [self.cen_ad, self.per_ad]:
             if not clear_bonded_devices(ad):
                 return False
-            # Necessary sleep time for entries to update unbonded state
-            time.sleep(2)
+
+        # Necessary sleep time for entries to update unbonded state
+        time.sleep(2)
+
+        for ad in [self.cen_ad, self.per_ad]:
             bonded_devices = ad.droid.bluetoothGetBondedDevices()
             if len(bonded_devices) > 0:
                 self.log.error(
@@ -1096,16 +1109,24 @@ class GattConnectTest(BluetoothBaseTest):
         self.per_ad.droid.bleStartBleAdvertising(
             advertise_callback, advertise_data, advertise_settings)
 
-        try:
-            mac_address_post_restart = self.cen_ad.ed.pop_event(
-                expected_event_name, self.default_timeout)['data']['Result'][
-                    'deviceInfo']['address']
-            self.log.info(
-                "Peripheral advertisement found with mac address: {}".format(
-                    mac_address_post_restart))
-        except Empty:
-            self.log.info("Peripheral advertisement not found")
-            test_result = False
+        mac_address_post_restart = mac_address_pre_restart
+
+        while True:
+            try:
+                mac_address_post_restart = self.cen_ad.ed.pop_event(
+                    expected_event_name, self.default_timeout)['data']['Result'][
+                        'deviceInfo']['address']
+                self.log.info(
+                    "Peripheral advertisement found with mac address: {}".format(
+                        mac_address_post_restart))
+            except Empty:
+                self.log.info("Peripheral advertisement not found")
+                test_result = False
+
+            if  mac_address_pre_restart != mac_address_post_restart:
+                break
+
+        self.cen_ad.droid.bleStopBleScan(scan_callback)
 
         # Steps 4: Try to connect to the first mac address
         gatt_callback = self.cen_ad.droid.gattCreateGattCallback()
@@ -1128,8 +1149,12 @@ class GattConnectTest(BluetoothBaseTest):
 
         # Step 5: Cancel connection request.
         self.cen_ad.droid.gattClientDisconnect(bluetooth_gatt)
+        close_gatt_client(self.cen_ad, bluetooth_gatt)
+        if bluetooth_gatt in self.bluetooth_gatt_list:
+            self.bluetooth_gatt_list.remove(bluetooth_gatt)
 
         # Step 6: Connect to second mac address.
+        gatt_callback = self.cen_ad.droid.gattCreateGattCallback()
         self.log.info(
             "Gatt Connect to mac address {}.".format(mac_address_post_restart))
         bluetooth_gatt = self.cen_ad.droid.gattClientConnectGatt(
@@ -1152,4 +1177,8 @@ class GattConnectTest(BluetoothBaseTest):
         except Empty:
             self.log.error("No connection update was found.")
             return False
-        return self.cen_ad.droid.gattClientDisconnect(bluetooth_gatt)
+
+        self.per_ad.droid.bleStopBleAdvertising(advertise_callback)
+
+        return self._orchestrate_gatt_disconnection(bluetooth_gatt,
+                                                    gatt_callback)

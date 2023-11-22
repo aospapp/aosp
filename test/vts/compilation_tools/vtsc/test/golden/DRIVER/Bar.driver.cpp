@@ -10,7 +10,7 @@
 using namespace android::hardware::tests::bar::V1_0;
 namespace android {
 namespace vts {
-void MessageTo__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(const VariableSpecificationMessage& var_msg __attribute__((__unused__)), ::android::hardware::tests::bar::V1_0::IBar::SomethingRelated* arg __attribute__((__unused__)), const string& callback_socket_name __attribute__((__unused__))) {
+extern "C" void MessageTo__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(const VariableSpecificationMessage& var_msg __attribute__((__unused__)), ::android::hardware::tests::bar::V1_0::IBar::SomethingRelated* arg __attribute__((__unused__)), const string& callback_socket_name __attribute__((__unused__))) {
     MessageTo__android__hardware__tests__foo__V1_0__Unrelated(var_msg.struct_value(0), &(arg->myRelated), callback_socket_name);
 }
 bool Verify__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(const VariableSpecificationMessage& expected_result __attribute__((__unused__)), const VariableSpecificationMessage& actual_result __attribute__((__unused__))){
@@ -18,7 +18,7 @@ bool Verify__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(const V
     return true;
 }
 
-void SetResult__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(VariableSpecificationMessage* result_msg, ::android::hardware::tests::bar::V1_0::IBar::SomethingRelated result_value __attribute__((__unused__))){
+extern "C" void SetResult__android__hardware__tests__bar__V1_0__IBar__SomethingRelated(VariableSpecificationMessage* result_msg, ::android::hardware::tests::bar::V1_0::IBar::SomethingRelated result_value __attribute__((__unused__))){
     result_msg->set_type(TYPE_STRUCT);
     auto *result_msg_myRelated = result_msg->add_struct_value();
     result_msg_myRelated->set_type(TYPE_STRUCT);
@@ -184,7 +184,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::callMe");
     VariableSpecificationMessage* var_msg0 = callback_message.add_arg();
     var_msg0->set_type(TYPE_HIDL_CALLBACK);
-    /* ERROR: TYPE_HIDL_CALLBACK is not supported yet. */
+    LOG(ERROR) << "TYPE HIDL_CALLBACK is not supported yet. ";
     RpcCallToAgent(callback_message, callback_socket_name_);
     return ::android::hardware::Void();
 }
@@ -503,7 +503,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::echoNullInterface");
     VariableSpecificationMessage* var_msg0 = callback_message.add_arg();
     var_msg0->set_type(TYPE_HIDL_CALLBACK);
-    /* ERROR: TYPE_HIDL_CALLBACK is not supported yet. */
+    LOG(ERROR) << "TYPE HIDL_CALLBACK is not supported yet. ";
     RpcCallToAgent(callback_message, callback_socket_name_);
     cb(static_cast<bool>(0), nullptr);
     return ::android::hardware::Void();
@@ -545,6 +545,20 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     return ::android::hardware::Void();
 }
 
+::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::repeatWithFmq(
+    const ::android::hardware::tests::foo::V1_0::IFoo::WithFmq& arg0 __attribute__((__unused__)), std::function<void(const ::android::hardware::tests::foo::V1_0::IFoo::WithFmq& arg0)> cb) {
+    LOG(INFO) << "repeatWithFmq called";
+    AndroidSystemCallbackRequestMessage callback_message;
+    callback_message.set_id(GetCallbackID("repeatWithFmq"));
+    callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::repeatWithFmq");
+    VariableSpecificationMessage* var_msg0 = callback_message.add_arg();
+    var_msg0->set_type(TYPE_STRUCT);
+    SetResult__android__hardware__tests__foo__V1_0__IFoo__WithFmq(var_msg0, arg0);
+    RpcCallToAgent(callback_message, callback_socket_name_);
+    cb(::android::hardware::tests::foo::V1_0::IFoo::WithFmq());
+    return ::android::hardware::Void();
+}
+
 ::android::hardware::Return<void> Vts_android_hardware_tests_bar_V1_0_IBar::thisIsNew(
     ) {
     LOG(INFO) << "thisIsNew called";
@@ -564,7 +578,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::GetService(bool get_st
     callback_message.set_name("Vts_android_hardware_tests_bar_V1_0_IBar::expectNullHandle");
     VariableSpecificationMessage* var_msg0 = callback_message.add_arg();
     var_msg0->set_type(TYPE_HANDLE);
-    /* ERROR: TYPE_HANDLE is not supported yet. */
+    var_msg0->mutable_handle_value()->set_hidl_handle_address(reinterpret_cast<size_t>(new android::hardware::hidl_handle(arg0)));
     VariableSpecificationMessage* var_msg1 = callback_message.add_arg();
     var_msg1->set_type(TYPE_STRUCT);
     SetResult__android__hardware__tests__foo__V1_0__Abc(var_msg1, arg1);
@@ -648,27 +662,25 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
     }
     if (!strcmp(func_name, "convertToBoolIfSmall")) {
         ::android::hardware::tests::foo::V1_0::IFoo::Discriminator arg0;
-        arg0 = EnumValue__android__hardware__tests__foo__V1_0__IFoo__Discriminator(func_msg.arg(0).scalar_value());
+        MessageTo__android__hardware__tests__foo__V1_0__IFoo__Discriminator(func_msg.arg(0), &(arg0), callback_socket_name);
         ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::Union> arg1;
         arg1.resize(func_msg.arg(1).vector_value_size());
         for (int arg1_index = 0; arg1_index < func_msg.arg(1).vector_value_size(); arg1_index++) {
             MessageTo__android__hardware__tests__foo__V1_0__IFoo__Union(func_msg.arg(1).vector_value(arg1_index), &(arg1[arg1_index]), callback_socket_name);
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::ContainsUnion> result0;
-        hw_binder_proxy_->convertToBoolIfSmall(arg0, arg1, [&](const ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::ContainsUnion>& arg0){
+        hw_binder_proxy_->convertToBoolIfSmall(arg0, arg1, [&](const ::android::hardware::hidl_vec<::android::hardware::tests::foo::V1_0::IFoo::ContainsUnion>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback convertToBoolIfSmall called";
-            result0 = arg0;
+            result_msg->set_name("convertToBoolIfSmall");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_VECTOR);
+            result_val_0->set_vector_size(arg0.size());
+            for (int i = 0; i < (int)arg0.size(); i++) {
+                auto *result_val_0_vector_i = result_val_0->add_vector_value();
+                result_val_0_vector_i->set_type(TYPE_STRUCT);
+                SetResult__android__hardware__tests__foo__V1_0__IFoo__ContainsUnion(result_val_0_vector_i, arg0[i]);
+            }
         });
-        result_msg->set_name("convertToBoolIfSmall");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_VECTOR);
-        result_val_0->set_vector_size(result0.size());
-        for (int i = 0; i < (int)result0.size(); i++) {
-            auto *result_val_0_vector_i = result_val_0->add_vector_value();
-            result_val_0_vector_i->set_type(TYPE_STRUCT);
-            SetResult__android__hardware__tests__foo__V1_0__IFoo__ContainsUnion(result_val_0_vector_i, result0[i]);
-        }
         return true;
     }
     if (!strcmp(func_name, "doThis")) {
@@ -683,8 +695,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         int64_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().int64_t();
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        int32_t result0;
-        result0 = hw_binder_proxy_->doThatAndReturnSomething(arg0);
+        int32_t result0 = hw_binder_proxy_->doThatAndReturnSomething(arg0);
         result_msg->set_name("doThatAndReturnSomething");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
@@ -702,8 +713,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         double arg3 = 0;
         arg3 = func_msg.arg(3).scalar_value().double_t();
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        double result0;
-        result0 = hw_binder_proxy_->doQuiteABit(arg0, arg1, arg2, arg3);
+        double result0 = hw_binder_proxy_->doQuiteABit(arg0, arg1, arg2, arg3);
         result_msg->set_name("doQuiteABit");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_SCALAR);
@@ -717,35 +727,31 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             arg0[arg0_index] = func_msg.arg(0).vector_value(arg0_index).scalar_value().int32_t();
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_array<int32_t, 32> result0;
-        hw_binder_proxy_->doSomethingElse(arg0, [&](const ::android::hardware::hidl_array<int32_t, 32>& arg0){
+        hw_binder_proxy_->doSomethingElse(arg0, [&](const ::android::hardware::hidl_array<int32_t, 32>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback doSomethingElse called";
-            result0 = arg0;
+            result_msg->set_name("doSomethingElse");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_ARRAY);
+            result_val_0->set_vector_size(1);
+            for (int i = 0; i < 1; i++) {
+                auto *result_val_0_array_i = result_val_0->add_vector_value();
+                result_val_0_array_i->set_type(TYPE_SCALAR);
+                result_val_0_array_i->set_scalar_type("int32_t");
+                result_val_0_array_i->mutable_scalar_value()->set_int32_t(arg0[i]);
+            }
         });
-        result_msg->set_name("doSomethingElse");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_ARRAY);
-        result_val_0->set_vector_size(1);
-        for (int i = 0; i < 1; i++) {
-            auto *result_val_0_array_i = result_val_0->add_vector_value();
-            result_val_0_array_i->set_type(TYPE_SCALAR);
-            result_val_0_array_i->set_scalar_type("int32_t");
-            result_val_0_array_i->mutable_scalar_value()->set_int32_t(result0[i]);
-        }
         return true;
     }
     if (!strcmp(func_name, "doStuffAndReturnAString")) {
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_string result0;
-        hw_binder_proxy_->doStuffAndReturnAString([&](const ::android::hardware::hidl_string& arg0){
+        hw_binder_proxy_->doStuffAndReturnAString([&](const ::android::hardware::hidl_string& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback doStuffAndReturnAString called";
-            result0 = arg0;
+            result_msg->set_name("doStuffAndReturnAString");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_STRING);
+            result_val_0->mutable_string_value()->set_message(arg0.c_str());
+            result_val_0->mutable_string_value()->set_length(arg0.size());
         });
-        result_msg->set_name("doStuffAndReturnAString");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_STRING);
-        result_val_0->mutable_string_value()->set_message(result0.c_str());
-        result_val_0->mutable_string_value()->set_length(result0.size());
         return true;
     }
     if (!strcmp(func_name, "mapThisVector")) {
@@ -755,21 +761,19 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             arg0[arg0_index] = func_msg.arg(0).vector_value(arg0_index).scalar_value().int32_t();
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_vec<int32_t> result0;
-        hw_binder_proxy_->mapThisVector(arg0, [&](const ::android::hardware::hidl_vec<int32_t>& arg0){
+        hw_binder_proxy_->mapThisVector(arg0, [&](const ::android::hardware::hidl_vec<int32_t>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback mapThisVector called";
-            result0 = arg0;
+            result_msg->set_name("mapThisVector");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_VECTOR);
+            result_val_0->set_vector_size(arg0.size());
+            for (int i = 0; i < (int)arg0.size(); i++) {
+                auto *result_val_0_vector_i = result_val_0->add_vector_value();
+                result_val_0_vector_i->set_type(TYPE_SCALAR);
+                result_val_0_vector_i->set_scalar_type("int32_t");
+                result_val_0_vector_i->mutable_scalar_value()->set_int32_t(arg0[i]);
+            }
         });
-        result_msg->set_name("mapThisVector");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_VECTOR);
-        result_val_0->set_vector_size(result0.size());
-        for (int i = 0; i < (int)result0.size(); i++) {
-            auto *result_val_0_vector_i = result_val_0->add_vector_value();
-            result_val_0_vector_i->set_type(TYPE_SCALAR);
-            result_val_0_vector_i->set_scalar_type("int32_t");
-            result_val_0_vector_i->mutable_scalar_value()->set_int32_t(result0[i]);
-        }
         return true;
     }
     if (!strcmp(func_name, "callMe")) {
@@ -783,10 +787,9 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
     }
     if (!strcmp(func_name, "useAnEnum")) {
         ::android::hardware::tests::foo::V1_0::IFoo::SomeEnum arg0;
-        arg0 = EnumValue__android__hardware__tests__foo__V1_0__IFoo__SomeEnum(func_msg.arg(0).scalar_value());
+        MessageTo__android__hardware__tests__foo__V1_0__IFoo__SomeEnum(func_msg.arg(0), &(arg0), callback_socket_name);
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::tests::foo::V1_0::IFoo::SomeEnum result0;
-        result0 = hw_binder_proxy_->useAnEnum(arg0);
+        ::android::hardware::tests::foo::V1_0::IFoo::SomeEnum result0 = hw_binder_proxy_->useAnEnum(arg0);
         result_msg->set_name("useAnEnum");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_ENUM);
@@ -843,21 +846,19 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             arg0[arg0_index] = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(arg0_index).string_value().message());
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_array<::android::hardware::hidl_string, 2> result0;
-        hw_binder_proxy_->haveSomeStrings(arg0, [&](const ::android::hardware::hidl_array<::android::hardware::hidl_string, 2>& arg0){
+        hw_binder_proxy_->haveSomeStrings(arg0, [&](const ::android::hardware::hidl_array<::android::hardware::hidl_string, 2>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback haveSomeStrings called";
-            result0 = arg0;
+            result_msg->set_name("haveSomeStrings");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_ARRAY);
+            result_val_0->set_vector_size(1);
+            for (int i = 0; i < 1; i++) {
+                auto *result_val_0_array_i = result_val_0->add_vector_value();
+                result_val_0_array_i->set_type(TYPE_STRING);
+                result_val_0_array_i->mutable_string_value()->set_message(arg0[i].c_str());
+                result_val_0_array_i->mutable_string_value()->set_length(arg0[i].size());
+            }
         });
-        result_msg->set_name("haveSomeStrings");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_ARRAY);
-        result_val_0->set_vector_size(1);
-        for (int i = 0; i < 1; i++) {
-            auto *result_val_0_array_i = result_val_0->add_vector_value();
-            result_val_0_array_i->set_type(TYPE_STRING);
-            result_val_0_array_i->mutable_string_value()->set_message(result0[i].c_str());
-            result_val_0_array_i->mutable_string_value()->set_length(result0[i].size());
-        }
         return true;
     }
     if (!strcmp(func_name, "haveAStringVec")) {
@@ -867,21 +868,19 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             arg0[arg0_index] = ::android::hardware::hidl_string(func_msg.arg(0).vector_value(arg0_index).string_value().message());
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_vec<::android::hardware::hidl_string> result0;
-        hw_binder_proxy_->haveAStringVec(arg0, [&](const ::android::hardware::hidl_vec<::android::hardware::hidl_string>& arg0){
+        hw_binder_proxy_->haveAStringVec(arg0, [&](const ::android::hardware::hidl_vec<::android::hardware::hidl_string>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback haveAStringVec called";
-            result0 = arg0;
+            result_msg->set_name("haveAStringVec");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_VECTOR);
+            result_val_0->set_vector_size(arg0.size());
+            for (int i = 0; i < (int)arg0.size(); i++) {
+                auto *result_val_0_vector_i = result_val_0->add_vector_value();
+                result_val_0_vector_i->set_type(TYPE_STRING);
+                result_val_0_vector_i->mutable_string_value()->set_message(arg0[i].c_str());
+                result_val_0_vector_i->mutable_string_value()->set_length(arg0[i].size());
+            }
         });
-        result_msg->set_name("haveAStringVec");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_VECTOR);
-        result_val_0->set_vector_size(result0.size());
-        for (int i = 0; i < (int)result0.size(); i++) {
-            auto *result_val_0_vector_i = result_val_0->add_vector_value();
-            result_val_0_vector_i->set_type(TYPE_STRING);
-            result_val_0_vector_i->mutable_string_value()->set_message(result0[i].c_str());
-            result_val_0_vector_i->mutable_string_value()->set_length(result0[i].size());
-        }
         return true;
     }
     if (!strcmp(func_name, "transposeMe")) {
@@ -892,56 +891,50 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             }
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_array<float, 5, 3> result0;
-        hw_binder_proxy_->transposeMe(arg0, [&](const ::android::hardware::hidl_array<float, 5, 3>& arg0){
+        hw_binder_proxy_->transposeMe(arg0, [&](const ::android::hardware::hidl_array<float, 5, 3>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback transposeMe called";
-            result0 = arg0;
-        });
-        result_msg->set_name("transposeMe");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_ARRAY);
-        result_val_0->set_vector_size(1);
-        for (int i = 0; i < 1; i++) {
-            auto *result_val_0_array_i = result_val_0->add_vector_value();
-            result_val_0_array_i->set_type(TYPE_ARRAY);
-            result_val_0_array_i->set_vector_size(1);
+            result_msg->set_name("transposeMe");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_ARRAY);
+            result_val_0->set_vector_size(1);
             for (int i = 0; i < 1; i++) {
-                auto *result_val_0_array_i_array_i = result_val_0_array_i->add_vector_value();
-                result_val_0_array_i_array_i->set_type(TYPE_SCALAR);
-                result_val_0_array_i_array_i->set_scalar_type("float_t");
-                result_val_0_array_i_array_i->mutable_scalar_value()->set_float_t(result0[i][i]);
+                auto *result_val_0_array_i = result_val_0->add_vector_value();
+                result_val_0_array_i->set_type(TYPE_ARRAY);
+                result_val_0_array_i->set_vector_size(1);
+                for (int i = 0; i < 1; i++) {
+                    auto *result_val_0_array_i_array_i = result_val_0_array_i->add_vector_value();
+                    result_val_0_array_i_array_i->set_type(TYPE_SCALAR);
+                    result_val_0_array_i_array_i->set_scalar_type("float_t");
+                    result_val_0_array_i_array_i->mutable_scalar_value()->set_float_t(arg0[i][i]);
+                }
             }
-        }
+        });
         return true;
     }
     if (!strcmp(func_name, "callingDrWho")) {
         ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional arg0;
         MessageTo__android__hardware__tests__foo__V1_0__IFoo__MultiDimensional(func_msg.arg(0), &(arg0), callback_socket_name);
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional result0;
-        hw_binder_proxy_->callingDrWho(arg0, [&](const ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional& arg0){
+        hw_binder_proxy_->callingDrWho(arg0, [&](const ::android::hardware::tests::foo::V1_0::IFoo::MultiDimensional& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback callingDrWho called";
-            result0 = arg0;
+            result_msg->set_name("callingDrWho");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_STRUCT);
+            SetResult__android__hardware__tests__foo__V1_0__IFoo__MultiDimensional(result_val_0, arg0);
         });
-        result_msg->set_name("callingDrWho");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_STRUCT);
-        SetResult__android__hardware__tests__foo__V1_0__IFoo__MultiDimensional(result_val_0, result0);
         return true;
     }
     if (!strcmp(func_name, "transpose")) {
         ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix5x3 arg0;
         MessageTo__android__hardware__tests__foo__V1_0__IFoo__StringMatrix5x3(func_msg.arg(0), &(arg0), callback_socket_name);
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix3x5 result0;
-        hw_binder_proxy_->transpose(arg0, [&](const ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix3x5& arg0){
+        hw_binder_proxy_->transpose(arg0, [&](const ::android::hardware::tests::foo::V1_0::IFoo::StringMatrix3x5& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback transpose called";
-            result0 = arg0;
+            result_msg->set_name("transpose");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_STRUCT);
+            SetResult__android__hardware__tests__foo__V1_0__IFoo__StringMatrix3x5(result_val_0, arg0);
         });
-        result_msg->set_name("transpose");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_STRUCT);
-        SetResult__android__hardware__tests__foo__V1_0__IFoo__StringMatrix3x5(result_val_0, result0);
         return true;
     }
     if (!strcmp(func_name, "transpose2")) {
@@ -952,26 +945,24 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             }
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_array<::android::hardware::hidl_string, 3, 5> result0;
-        hw_binder_proxy_->transpose2(arg0, [&](const ::android::hardware::hidl_array<::android::hardware::hidl_string, 3, 5>& arg0){
+        hw_binder_proxy_->transpose2(arg0, [&](const ::android::hardware::hidl_array<::android::hardware::hidl_string, 3, 5>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback transpose2 called";
-            result0 = arg0;
-        });
-        result_msg->set_name("transpose2");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_ARRAY);
-        result_val_0->set_vector_size(1);
-        for (int i = 0; i < 1; i++) {
-            auto *result_val_0_array_i = result_val_0->add_vector_value();
-            result_val_0_array_i->set_type(TYPE_ARRAY);
-            result_val_0_array_i->set_vector_size(1);
+            result_msg->set_name("transpose2");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_ARRAY);
+            result_val_0->set_vector_size(1);
             for (int i = 0; i < 1; i++) {
-                auto *result_val_0_array_i_array_i = result_val_0_array_i->add_vector_value();
-                result_val_0_array_i_array_i->set_type(TYPE_STRING);
-                result_val_0_array_i_array_i->mutable_string_value()->set_message(result0[i][i].c_str());
-                result_val_0_array_i_array_i->mutable_string_value()->set_length(result0[i][i].size());
+                auto *result_val_0_array_i = result_val_0->add_vector_value();
+                result_val_0_array_i->set_type(TYPE_ARRAY);
+                result_val_0_array_i->set_vector_size(1);
+                for (int i = 0; i < 1; i++) {
+                    auto *result_val_0_array_i_array_i = result_val_0_array_i->add_vector_value();
+                    result_val_0_array_i_array_i->set_type(TYPE_STRING);
+                    result_val_0_array_i_array_i->mutable_string_value()->set_message(arg0[i][i].c_str());
+                    result_val_0_array_i_array_i->mutable_string_value()->set_length(arg0[i][i].size());
+                }
             }
-        }
+        });
         return true;
     }
     if (!strcmp(func_name, "sendVec")) {
@@ -981,45 +972,41 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             arg0[arg0_index] = func_msg.arg(0).vector_value(arg0_index).scalar_value().uint8_t();
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_vec<uint8_t> result0;
-        hw_binder_proxy_->sendVec(arg0, [&](const ::android::hardware::hidl_vec<uint8_t>& arg0){
+        hw_binder_proxy_->sendVec(arg0, [&](const ::android::hardware::hidl_vec<uint8_t>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback sendVec called";
-            result0 = arg0;
+            result_msg->set_name("sendVec");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_VECTOR);
+            result_val_0->set_vector_size(arg0.size());
+            for (int i = 0; i < (int)arg0.size(); i++) {
+                auto *result_val_0_vector_i = result_val_0->add_vector_value();
+                result_val_0_vector_i->set_type(TYPE_SCALAR);
+                result_val_0_vector_i->set_scalar_type("uint8_t");
+                result_val_0_vector_i->mutable_scalar_value()->set_uint8_t(arg0[i]);
+            }
         });
-        result_msg->set_name("sendVec");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_VECTOR);
-        result_val_0->set_vector_size(result0.size());
-        for (int i = 0; i < (int)result0.size(); i++) {
-            auto *result_val_0_vector_i = result_val_0->add_vector_value();
-            result_val_0_vector_i->set_type(TYPE_SCALAR);
-            result_val_0_vector_i->set_scalar_type("uint8_t");
-            result_val_0_vector_i->mutable_scalar_value()->set_uint8_t(result0[i]);
-        }
         return true;
     }
     if (!strcmp(func_name, "sendVecVec")) {
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_vec<::android::hardware::hidl_vec<uint8_t>> result0;
-        hw_binder_proxy_->sendVecVec([&](const ::android::hardware::hidl_vec<::android::hardware::hidl_vec<uint8_t>>& arg0){
+        hw_binder_proxy_->sendVecVec([&](const ::android::hardware::hidl_vec<::android::hardware::hidl_vec<uint8_t>>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback sendVecVec called";
-            result0 = arg0;
-        });
-        result_msg->set_name("sendVecVec");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_VECTOR);
-        result_val_0->set_vector_size(result0.size());
-        for (int i = 0; i < (int)result0.size(); i++) {
-            auto *result_val_0_vector_i = result_val_0->add_vector_value();
-            result_val_0_vector_i->set_type(TYPE_VECTOR);
-            result_val_0_vector_i->set_vector_size(result0[i].size());
-            for (int i = 0; i < (int)result0[i].size(); i++) {
-                auto *result_val_0_vector_i_vector_i = result_val_0_vector_i->add_vector_value();
-                result_val_0_vector_i_vector_i->set_type(TYPE_SCALAR);
-                result_val_0_vector_i_vector_i->set_scalar_type("uint8_t");
-                result_val_0_vector_i_vector_i->mutable_scalar_value()->set_uint8_t(result0[i][i]);
+            result_msg->set_name("sendVecVec");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_VECTOR);
+            result_val_0->set_vector_size(arg0.size());
+            for (int i = 0; i < (int)arg0.size(); i++) {
+                auto *result_val_0_vector_i = result_val_0->add_vector_value();
+                result_val_0_vector_i->set_type(TYPE_VECTOR);
+                result_val_0_vector_i->set_vector_size(arg0[i].size());
+                for (int i = 0; i < (int)arg0[i].size(); i++) {
+                    auto *result_val_0_vector_i_vector_i = result_val_0_vector_i->add_vector_value();
+                    result_val_0_vector_i_vector_i->set_type(TYPE_SCALAR);
+                    result_val_0_vector_i_vector_i->set_scalar_type("uint8_t");
+                    result_val_0_vector_i_vector_i->mutable_scalar_value()->set_uint8_t(arg0[i][i]);
+                }
             }
-        }
+        });
         return true;
     }
     if (!strcmp(func_name, "haveAVectorOfInterfaces")) {
@@ -1033,26 +1020,24 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             }
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>> result0;
-        hw_binder_proxy_->haveAVectorOfInterfaces(arg0, [&](const ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>>& arg0){
+        hw_binder_proxy_->haveAVectorOfInterfaces(arg0, [&](const ::android::hardware::hidl_vec<sp<::android::hardware::tests::foo::V1_0::ISimple>>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback haveAVectorOfInterfaces called";
-            result0 = arg0;
-        });
-        result_msg->set_name("haveAVectorOfInterfaces");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_VECTOR);
-        result_val_0->set_vector_size(result0.size());
-        for (int i = 0; i < (int)result0.size(); i++) {
-            auto *result_val_0_vector_i = result_val_0->add_vector_value();
-            result_val_0_vector_i->set_type(TYPE_HIDL_INTERFACE);
-            result_val_0_vector_i->set_predefined_type("::android::hardware::tests::foo::V1_0::ISimple");
-            if (result0[i] != nullptr) {
-                result0[i]->incStrong(result0[i].get());
-                result_val_0_vector_i->set_hidl_interface_pointer(reinterpret_cast<uintptr_t>(result0[i].get()));
-            } else {
-                result_val_0_vector_i->set_hidl_interface_pointer(0);
+            result_msg->set_name("haveAVectorOfInterfaces");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_VECTOR);
+            result_val_0->set_vector_size(arg0.size());
+            for (int i = 0; i < (int)arg0.size(); i++) {
+                auto *result_val_0_vector_i = result_val_0->add_vector_value();
+                result_val_0_vector_i->set_type(TYPE_HIDL_INTERFACE);
+                result_val_0_vector_i->set_predefined_type("::android::hardware::tests::foo::V1_0::ISimple");
+                if (arg0[i] != nullptr) {
+                    arg0[i]->incStrong(arg0[i].get());
+                    result_val_0_vector_i->set_hidl_interface_pointer(reinterpret_cast<uintptr_t>(arg0[i].get()));
+                } else {
+                    result_val_0_vector_i->set_hidl_interface_pointer(0);
+                }
             }
-        }
+        });
         return true;
     }
     if (!strcmp(func_name, "haveAVectorOfGenericInterfaces")) {
@@ -1062,30 +1047,28 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             if (func_msg.arg(0).vector_value(arg0_index).has_hidl_interface_pointer()) {
                 arg0[arg0_index] = reinterpret_cast<::android::hidl::base::V1_0::IBase*>(func_msg.arg(0).vector_value(arg0_index).hidl_interface_pointer());
             } else {
-                /* ERROR: general interface is not supported yet. */
+                LOG(ERROR) << "general interface is not supported yet. ";
             }
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>> result0;
-        hw_binder_proxy_->haveAVectorOfGenericInterfaces(arg0, [&](const ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>>& arg0){
+        hw_binder_proxy_->haveAVectorOfGenericInterfaces(arg0, [&](const ::android::hardware::hidl_vec<sp<::android::hidl::base::V1_0::IBase>>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback haveAVectorOfGenericInterfaces called";
-            result0 = arg0;
-        });
-        result_msg->set_name("haveAVectorOfGenericInterfaces");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_VECTOR);
-        result_val_0->set_vector_size(result0.size());
-        for (int i = 0; i < (int)result0.size(); i++) {
-            auto *result_val_0_vector_i = result_val_0->add_vector_value();
-            result_val_0_vector_i->set_type(TYPE_HIDL_INTERFACE);
-            result_val_0_vector_i->set_predefined_type("::android::hidl::base::V1_0::IBase");
-            if (result0[i] != nullptr) {
-                result0[i]->incStrong(result0[i].get());
-                result_val_0_vector_i->set_hidl_interface_pointer(reinterpret_cast<uintptr_t>(result0[i].get()));
-            } else {
-                result_val_0_vector_i->set_hidl_interface_pointer(0);
+            result_msg->set_name("haveAVectorOfGenericInterfaces");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_VECTOR);
+            result_val_0->set_vector_size(arg0.size());
+            for (int i = 0; i < (int)arg0.size(); i++) {
+                auto *result_val_0_vector_i = result_val_0->add_vector_value();
+                result_val_0_vector_i->set_type(TYPE_HIDL_INTERFACE);
+                result_val_0_vector_i->set_predefined_type("::android::hidl::base::V1_0::IBase");
+                if (arg0[i] != nullptr) {
+                    arg0[i]->incStrong(arg0[i].get());
+                    result_val_0_vector_i->set_hidl_interface_pointer(reinterpret_cast<uintptr_t>(arg0[i].get()));
+                } else {
+                    result_val_0_vector_i->set_hidl_interface_pointer(0);
+                }
             }
-        }
+        });
         return true;
     }
     if (!strcmp(func_name, "echoNullInterface")) {
@@ -1093,60 +1076,65 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         arg0 = VtsFuzzerCreateVts_android_hardware_tests_foo_V1_0_IFooCallback(callback_socket_name);
         static_cast<Vts_android_hardware_tests_foo_V1_0_IFooCallback*>(arg0.get())->Register(func_msg.arg(0));
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        bool result0;
-        sp<::android::hardware::tests::foo::V1_0::IFooCallback> result1;
-        hw_binder_proxy_->echoNullInterface(arg0, [&](bool arg0,const sp<::android::hardware::tests::foo::V1_0::IFooCallback>& arg1){
+        hw_binder_proxy_->echoNullInterface(arg0, [&](bool arg0 __attribute__((__unused__)),const sp<::android::hardware::tests::foo::V1_0::IFooCallback>& arg1 __attribute__((__unused__))){
             LOG(INFO) << "callback echoNullInterface called";
-            result0 = arg0;
-            result1 = arg1;
+            result_msg->set_name("echoNullInterface");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_SCALAR);
+            result_val_0->set_scalar_type("bool_t");
+            result_val_0->mutable_scalar_value()->set_bool_t(arg0);
+            VariableSpecificationMessage* result_val_1 = result_msg->add_return_type_hidl();
+            result_val_1->set_type(TYPE_HIDL_CALLBACK);
+            LOG(ERROR) << "TYPE HIDL_CALLBACK is not supported yet. ";
         });
-        result_msg->set_name("echoNullInterface");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_SCALAR);
-        result_val_0->set_scalar_type("bool_t");
-        result_val_0->mutable_scalar_value()->set_bool_t(result0);
-        VariableSpecificationMessage* result_val_1 = result_msg->add_return_type_hidl();
-        result_val_1->set_type(TYPE_HIDL_CALLBACK);
-        /* ERROR: TYPE_HIDL_CALLBACK is not supported yet. */
         return true;
     }
     if (!strcmp(func_name, "createMyHandle")) {
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::tests::foo::V1_0::IFoo::MyHandle result0;
-        hw_binder_proxy_->createMyHandle([&](const ::android::hardware::tests::foo::V1_0::IFoo::MyHandle& arg0){
+        hw_binder_proxy_->createMyHandle([&](const ::android::hardware::tests::foo::V1_0::IFoo::MyHandle& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback createMyHandle called";
-            result0 = arg0;
+            result_msg->set_name("createMyHandle");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_STRUCT);
+            SetResult__android__hardware__tests__foo__V1_0__IFoo__MyHandle(result_val_0, arg0);
         });
-        result_msg->set_name("createMyHandle");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_STRUCT);
-        SetResult__android__hardware__tests__foo__V1_0__IFoo__MyHandle(result_val_0, result0);
         return true;
     }
     if (!strcmp(func_name, "createHandles")) {
         uint32_t arg0 = 0;
         arg0 = func_msg.arg(0).scalar_value().uint32_t();
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::hidl_vec<::android::hardware::hidl_handle> result0;
-        hw_binder_proxy_->createHandles(arg0, [&](const ::android::hardware::hidl_vec<::android::hardware::hidl_handle>& arg0){
+        hw_binder_proxy_->createHandles(arg0, [&](const ::android::hardware::hidl_vec<::android::hardware::hidl_handle>& arg0 __attribute__((__unused__))){
             LOG(INFO) << "callback createHandles called";
-            result0 = arg0;
+            result_msg->set_name("createHandles");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_VECTOR);
+            result_val_0->set_vector_size(arg0.size());
+            for (int i = 0; i < (int)arg0.size(); i++) {
+                auto *result_val_0_vector_i = result_val_0->add_vector_value();
+                result_val_0_vector_i->set_type(TYPE_HANDLE);
+                result_val_0_vector_i->mutable_handle_value()->set_hidl_handle_address(reinterpret_cast<size_t>(new android::hardware::hidl_handle(arg0[i])));
+            }
         });
-        result_msg->set_name("createHandles");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_VECTOR);
-        result_val_0->set_vector_size(result0.size());
-        for (int i = 0; i < (int)result0.size(); i++) {
-            auto *result_val_0_vector_i = result_val_0->add_vector_value();
-            result_val_0_vector_i->set_type(TYPE_HANDLE);
-            /* ERROR: TYPE_HANDLE is not supported yet. */
-        }
         return true;
     }
     if (!strcmp(func_name, "closeHandles")) {
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
         hw_binder_proxy_->closeHandles();
         result_msg->set_name("closeHandles");
+        return true;
+    }
+    if (!strcmp(func_name, "repeatWithFmq")) {
+        ::android::hardware::tests::foo::V1_0::IFoo::WithFmq arg0;
+        MessageTo__android__hardware__tests__foo__V1_0__IFoo__WithFmq(func_msg.arg(0), &(arg0), callback_socket_name);
+        LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
+        hw_binder_proxy_->repeatWithFmq(arg0, [&](const ::android::hardware::tests::foo::V1_0::IFoo::WithFmq& arg0 __attribute__((__unused__))){
+            LOG(INFO) << "callback repeatWithFmq called";
+            result_msg->set_name("repeatWithFmq");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_STRUCT);
+            SetResult__android__hardware__tests__foo__V1_0__IFoo__WithFmq(result_val_0, arg0);
+        });
         return true;
     }
     if (!strcmp(func_name, "thisIsNew")) {
@@ -1158,94 +1146,94 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
     if (!strcmp(func_name, "expectNullHandle")) {
         ::android::hardware::hidl_handle arg0;
         if (func_msg.arg(0).has_handle_value()) {
-            native_handle_t* handle = native_handle_create(func_msg.arg(0).handle_value().num_fds(), func_msg.arg(0).handle_value().num_ints());
-            if (!handle) {
-                LOG(ERROR) << "Failed to create handle. ";
-                exit(-1);
-            }
-            for (int fd_index = 0; fd_index < func_msg.arg(0).handle_value().num_fds() + func_msg.arg(0).handle_value().num_ints(); fd_index++) {
-                if (fd_index < func_msg.arg(0).handle_value().num_fds()) {
-                    FdMessage fd_val = func_msg.arg(0).handle_value().fd_val(fd_index);
-                    string file_name = fd_val.file_name();
-                    switch (fd_val.type()) {
-                        case FdType::FILE_TYPE:
-                        {
-                            size_t pre = 0; size_t pos = 0;
-                            string dir;
-                            struct stat st;
-                            while((pos=file_name.find_first_of('/', pre)) != string::npos){
-                                dir = file_name.substr(0, pos++);
-                                pre = pos;
-                                if(dir.size() == 0) continue; // ignore leading /
-                                if (stat(dir.c_str(), &st) == -1) {
-                                LOG(INFO) << " Creating dir: " << dir;
-                                    mkdir(dir.c_str(), 0700);
-                                }
-                            }
-                            int fd = open(file_name.c_str(), fd_val.flags() | O_CREAT, fd_val.mode());
-                            if (fd == -1) {
-                                LOG(ERROR) << "Failed to open file: " << file_name << " error: " << errno;
-                                exit (-1);
-                            }
-                            handle->data[fd_index] = fd;
-                            break;
-                        }
-                        case FdType::DIR_TYPE:
-                        {
-                            struct stat st;
-                            if (!stat(file_name.c_str(), &st)) {
-                                mkdir(file_name.c_str(), fd_val.mode());
-                            }
-                            handle->data[fd_index] = open(file_name.c_str(), O_DIRECTORY, fd_val.mode());
-                            break;
-                        }
-                        case FdType::DEV_TYPE:
-                        {
-                            if(file_name == "/dev/ashmem") {
-                                handle->data[fd_index] = ashmem_create_region("SharedMemory", fd_val.memory().size());
-                            }
-                            break;
-                        }
-                        case FdType::PIPE_TYPE:
-                        case FdType::SOCKET_TYPE:
-                        case FdType::LINK_TYPE:
-                        {
-                            LOG(ERROR) << "Not supported yet. ";
-                            break;
-                        }
-                    }
-                } else {
-                    handle->data[fd_index] = func_msg.arg(0).handle_value().int_val(fd_index -func_msg.arg(0).handle_value().num_fds());
+            if (func_msg.arg(0).handle_value().has_hidl_handle_address()) {
+                arg0 = *(reinterpret_cast<android::hardware::hidl_handle*>(func_msg.arg(0).handle_value().hidl_handle_address()));
+            } else {
+                native_handle_t* handle = native_handle_create(func_msg.arg(0).handle_value().num_fds(), func_msg.arg(0).handle_value().num_ints());
+                if (!handle) {
+                    LOG(ERROR) << "Failed to create handle. ";
+                    exit(-1);
                 }
+                for (int fd_index = 0; fd_index < func_msg.arg(0).handle_value().num_fds() + func_msg.arg(0).handle_value().num_ints(); fd_index++) {
+                    if (fd_index < func_msg.arg(0).handle_value().num_fds()) {
+                        FdMessage fd_val = func_msg.arg(0).handle_value().fd_val(fd_index);
+                        string file_name = fd_val.file_name();
+                        switch (fd_val.type()) {
+                            case FdType::FILE_TYPE:
+                            {
+                                size_t pre = 0; size_t pos = 0;
+                                string dir;
+                                struct stat st;
+                                while((pos=file_name.find_first_of('/', pre)) != string::npos){
+                                    dir = file_name.substr(0, pos++);
+                                    pre = pos;
+                                    if(dir.size() == 0) continue; // ignore leading /
+                                    if (stat(dir.c_str(), &st) == -1) {
+                                    LOG(INFO) << " Creating dir: " << dir;
+                                        mkdir(dir.c_str(), 0700);
+                                    }
+                                }
+                                int fd = open(file_name.c_str(), fd_val.flags() | O_CREAT, fd_val.mode());
+                                if (fd == -1) {
+                                    LOG(ERROR) << "Failed to open file: " << file_name << " error: " << errno;
+                                    exit (-1);
+                                }
+                                handle->data[fd_index] = fd;
+                                break;
+                            }
+                            case FdType::DIR_TYPE:
+                            {
+                                struct stat st;
+                                if (!stat(file_name.c_str(), &st)) {
+                                    mkdir(file_name.c_str(), fd_val.mode());
+                                }
+                                handle->data[fd_index] = open(file_name.c_str(), O_DIRECTORY, fd_val.mode());
+                                break;
+                            }
+                            case FdType::DEV_TYPE:
+                            {
+                                if(file_name == "/dev/ashmem") {
+                                    handle->data[fd_index] = ashmem_create_region("SharedMemory", fd_val.memory().size());
+                                }
+                                break;
+                            }
+                            case FdType::PIPE_TYPE:
+                            case FdType::SOCKET_TYPE:
+                            case FdType::LINK_TYPE:
+                            {
+                                LOG(ERROR) << "Not supported yet. ";
+                                break;
+                            }
+                        }
+                    } else {
+                        handle->data[fd_index] = func_msg.arg(0).handle_value().int_val(fd_index -func_msg.arg(0).handle_value().num_fds());
+                    }
+                }
+                arg0 = handle;
             }
-            arg0 = handle;
         } else {
             arg0 = nullptr;
         }
         ::android::hardware::tests::foo::V1_0::Abc arg1;
         MessageTo__android__hardware__tests__foo__V1_0__Abc(func_msg.arg(1), &(arg1), callback_socket_name);
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        bool result0;
-        bool result1;
-        hw_binder_proxy_->expectNullHandle(arg0, arg1, [&](bool arg0,bool arg1){
+        hw_binder_proxy_->expectNullHandle(arg0, arg1, [&](bool arg0 __attribute__((__unused__)),bool arg1 __attribute__((__unused__))){
             LOG(INFO) << "callback expectNullHandle called";
-            result0 = arg0;
-            result1 = arg1;
+            result_msg->set_name("expectNullHandle");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_SCALAR);
+            result_val_0->set_scalar_type("bool_t");
+            result_val_0->mutable_scalar_value()->set_bool_t(arg0);
+            VariableSpecificationMessage* result_val_1 = result_msg->add_return_type_hidl();
+            result_val_1->set_type(TYPE_SCALAR);
+            result_val_1->set_scalar_type("bool_t");
+            result_val_1->mutable_scalar_value()->set_bool_t(arg1);
         });
-        result_msg->set_name("expectNullHandle");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_SCALAR);
-        result_val_0->set_scalar_type("bool_t");
-        result_val_0->mutable_scalar_value()->set_bool_t(result0);
-        VariableSpecificationMessage* result_val_1 = result_msg->add_return_type_hidl();
-        result_val_1->set_type(TYPE_SCALAR);
-        result_val_1->set_scalar_type("bool_t");
-        result_val_1->mutable_scalar_value()->set_bool_t(result1);
         return true;
     }
     if (!strcmp(func_name, "takeAMask")) {
         ::android::hardware::tests::foo::V1_0::IFoo::BitField arg0;
-        arg0 = EnumValue__android__hardware__tests__foo__V1_0__IFoo__BitField(func_msg.arg(0).scalar_value());
+        MessageTo__android__hardware__tests__foo__V1_0__IFoo__BitField(func_msg.arg(0), &(arg0), callback_socket_name);
         uint8_t arg1;
         arg1 = func_msg.arg(1).scalar_value().uint8_t();
         ::android::hardware::tests::foo::V1_0::IFoo::MyMask arg2;
@@ -1253,33 +1241,25 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
         uint8_t arg3;
         arg3 = func_msg.arg(3).scalar_value().uint8_t();
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        ::android::hardware::tests::foo::V1_0::IFoo::BitField result0;
-        uint8_t result1;
-        uint8_t result2;
-        uint8_t result3;
-        hw_binder_proxy_->takeAMask(arg0, arg1, arg2, arg3, [&](::android::hardware::tests::foo::V1_0::IFoo::BitField arg0,uint8_t arg1,uint8_t arg2,uint8_t arg3){
+        hw_binder_proxy_->takeAMask(arg0, arg1, arg2, arg3, [&](::android::hardware::tests::foo::V1_0::IFoo::BitField arg0 __attribute__((__unused__)),uint8_t arg1 __attribute__((__unused__)),uint8_t arg2 __attribute__((__unused__)),uint8_t arg3 __attribute__((__unused__))){
             LOG(INFO) << "callback takeAMask called";
-            result0 = arg0;
-            result1 = arg1;
-            result2 = arg2;
-            result3 = arg3;
+            result_msg->set_name("takeAMask");
+            VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
+            result_val_0->set_type(TYPE_ENUM);
+            SetResult__android__hardware__tests__foo__V1_0__IFoo__BitField(result_val_0, arg0);
+            VariableSpecificationMessage* result_val_1 = result_msg->add_return_type_hidl();
+            result_val_1->set_type(TYPE_SCALAR);
+            result_val_1->set_scalar_type("uint8_t");
+            result_val_1->mutable_scalar_value()->set_uint8_t(arg1);
+            VariableSpecificationMessage* result_val_2 = result_msg->add_return_type_hidl();
+            result_val_2->set_type(TYPE_SCALAR);
+            result_val_2->set_scalar_type("uint8_t");
+            result_val_2->mutable_scalar_value()->set_uint8_t(arg2);
+            VariableSpecificationMessage* result_val_3 = result_msg->add_return_type_hidl();
+            result_val_3->set_type(TYPE_SCALAR);
+            result_val_3->set_scalar_type("uint8_t");
+            result_val_3->mutable_scalar_value()->set_uint8_t(arg3);
         });
-        result_msg->set_name("takeAMask");
-        VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
-        result_val_0->set_type(TYPE_ENUM);
-        SetResult__android__hardware__tests__foo__V1_0__IFoo__BitField(result_val_0, result0);
-        VariableSpecificationMessage* result_val_1 = result_msg->add_return_type_hidl();
-        result_val_1->set_type(TYPE_SCALAR);
-        result_val_1->set_scalar_type("uint8_t");
-        result_val_1->mutable_scalar_value()->set_uint8_t(result1);
-        VariableSpecificationMessage* result_val_2 = result_msg->add_return_type_hidl();
-        result_val_2->set_type(TYPE_SCALAR);
-        result_val_2->set_scalar_type("uint8_t");
-        result_val_2->mutable_scalar_value()->set_uint8_t(result2);
-        VariableSpecificationMessage* result_val_3 = result_msg->add_return_type_hidl();
-        result_val_3->set_type(TYPE_SCALAR);
-        result_val_3->set_scalar_type("uint8_t");
-        result_val_3->mutable_scalar_value()->set_uint8_t(result3);
         return true;
     }
     if (!strcmp(func_name, "haveAInterface")) {
@@ -1290,8 +1270,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::CallFunction(
             arg0 = VtsFuzzerCreateVts_android_hardware_tests_foo_V1_0_ISimple(callback_socket_name);
         }
         LOG(DEBUG) << "local_device = " << hw_binder_proxy_.get();
-        sp<::android::hardware::tests::foo::V1_0::ISimple> result0;
-        result0 = hw_binder_proxy_->haveAInterface(arg0);
+        sp<::android::hardware::tests::foo::V1_0::ISimple> result0 = hw_binder_proxy_->haveAInterface(arg0);
         result_msg->set_name("haveAInterface");
         VariableSpecificationMessage* result_val_0 = result_msg->add_return_type_hidl();
         result_val_0->set_type(TYPE_HIDL_INTERFACE);
@@ -1493,7 +1472,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
-            /* ERROR: TYPE_HIDL_INTERFACE is not supported yet. */
+            LOG(ERROR) << "TYPE_HIDL_INTERFACE is not supported yet. ";
         }
         return true;
     }
@@ -1504,14 +1483,14 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
-            /* ERROR: TYPE_HIDL_INTERFACE is not supported yet. */
+            LOG(ERROR) << "TYPE_HIDL_INTERFACE is not supported yet. ";
         }
         return true;
     }
     if (!strcmp(actual_result.name().c_str(), "echoNullInterface")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
         if (actual_result.return_type_hidl(0).scalar_value().bool_t() != expected_result.return_type_hidl(0).scalar_value().bool_t()) { return false; }
-        /* ERROR: TYPE_HIDL_CALLBACK is not supported yet. */
+        LOG(ERROR) << "TYPE_HILD_CALLBACK is not supported yet. ";
         return true;
     }
     if (!strcmp(actual_result.name().c_str(), "createMyHandle")) {
@@ -1526,12 +1505,17 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
             return false;
         }
         for (int i = 0; i <expected_result.return_type_hidl(0).vector_value_size(); i++) {
-            /* ERROR: TYPE_HANDLE is not supported yet. */
+            LOG(ERROR) << "TYPE_HANDLE is not supported yet. ";
         }
         return true;
     }
     if (!strcmp(actual_result.name().c_str(), "closeHandles")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
+        return true;
+    }
+    if (!strcmp(actual_result.name().c_str(), "repeatWithFmq")) {
+        if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
+        if (!Verify__android__hardware__tests__foo__V1_0__IFoo__WithFmq(expected_result.return_type_hidl(0), actual_result.return_type_hidl(0))) { return false; }
         return true;
     }
     if (!strcmp(actual_result.name().c_str(), "thisIsNew")) {
@@ -1554,7 +1538,7 @@ bool FuzzerExtended_android_hardware_tests_bar_V1_0_IBar::VerifyResults(const Fu
     }
     if (!strcmp(actual_result.name().c_str(), "haveAInterface")) {
         if (actual_result.return_type_hidl_size() != expected_result.return_type_hidl_size() ) { return false; }
-        /* ERROR: TYPE_HIDL_INTERFACE is not supported yet. */
+        LOG(ERROR) << "TYPE_HIDL_INTERFACE is not supported yet. ";
         return true;
     }
     return false;

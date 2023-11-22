@@ -718,6 +718,7 @@ public class String2Test extends junit.framework.TestCase {
     /**
      * java.lang.String#substring(int)
      */
+    @SuppressWarnings("SubstringOfZero")
     public void test_substringI() {
         // Test for method java.lang.String java.lang.String.substring(int)
         assertEquals("Incorrect substring returned", "World", hw1.substring(5));

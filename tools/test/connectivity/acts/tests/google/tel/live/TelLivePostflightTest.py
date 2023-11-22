@@ -29,7 +29,7 @@ class TelLivePostflightTest(TelephonyBaseTest):
         BaseTestClass.__init__(self, controllers)
 
     def setup_class(self):
-        pass
+        self.user_params["telephony_auto_rerun"] = 0
 
     def teardown_class(self):
         pass

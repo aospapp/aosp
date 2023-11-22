@@ -28,8 +28,8 @@
 
 #include <thread>
 
-#include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 using android::base::ReadFileToString;
@@ -50,12 +50,12 @@ constexpr auto kTimeout = 20s;
 
 // RAII class for boosting device performance during benchmarks.
 class PerformanceBoost {
-private:
+  private:
     int orig_prio;
     int orig_ioprio;
     IoSchedClass orig_clazz;
 
-public:
+  public:
     PerformanceBoost() {
         errno = 0;
         orig_prio = getpriority(PRIO_PROCESS, 0);
@@ -87,8 +87,8 @@ public:
 };
 
 static status_t benchmarkInternal(const std::string& rootPath,
-        const android::sp<android::os::IVoldTaskListener>& listener,
-        android::os::PersistableBundle* extras) {
+                                  const android::sp<android::os::IVoldTaskListener>& listener,
+                                  android::os::PersistableBundle* extras) {
     status_t res = 0;
 
     auto path = rootPath;
@@ -137,12 +137,12 @@ static status_t benchmarkInternal(const std::string& rootPath,
     // Only drop when we haven't aborted
     if (res == OK) {
         android::base::Timer timer;
-        LOG(VERBOSE) << "Before drop_caches";
+        LOG(DEBUG) << "Before drop_caches";
         if (!WriteStringToFile("3", "/proc/sys/vm/drop_caches")) {
             PLOG(ERROR) << "Failed to drop_caches";
             res = -1;
         }
-        LOG(VERBOSE) << "After drop_caches";
+        LOG(DEBUG) << "After drop_caches";
         sync();
         if (res == OK) extras->putLong(String16("drop"), timer.duration().count());
     }
@@ -179,7 +179,7 @@ static status_t benchmarkInternal(const std::string& rootPath,
 }
 
 void Benchmark(const std::string& path,
-        const android::sp<android::os::IVoldTaskListener>& listener) {
+               const android::sp<android::os::IVoldTaskListener>& listener) {
     std::lock_guard<std::mutex> lock(kBenchmarkLock);
     acquire_wake_lock(PARTIAL_WAKE_LOCK, kWakeLock);
 

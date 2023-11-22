@@ -21,22 +21,24 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.graphics.PointF;
 import android.transition.Slide;
 import android.transition.Transition;
 import android.transition.TransitionManager;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 
-import com.android.compatibility.common.util.PollingCheck;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.List;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
@@ -71,6 +73,7 @@ public class SlideEdgeTest extends BaseTransitionTest  {
         for (int i = 0; i < sSlideEdgeArray.length; i++) {
             final int slideEdge = (Integer) (sSlideEdgeArray[i][0]);
             final Slide slide = new Slide(slideEdge);
+            slide.setDuration(1000);
             final Transition.TransitionListener listener =
                     mock(Transition.TransitionListener.class);
             slide.addListener(listener);
@@ -82,54 +85,34 @@ public class SlideEdgeTest extends BaseTransitionTest  {
             final View greenSquare = mActivity.findViewById(R.id.greenSquare);
             final View hello = mActivity.findViewById(R.id.hello);
             final ViewGroup sceneRoot = (ViewGroup) mActivity.findViewById(R.id.holder);
+            final List<PointF> redPoints = captureTranslations(redSquare);
+            final List<PointF> greenPoints = captureTranslations(greenSquare);
+            final List<PointF> helloPoints = captureTranslations(hello);
 
             mActivityRule.runOnUiThread(() -> {
                 TransitionManager.beginDelayedTransition(sceneRoot, slide);
                 redSquare.setVisibility(View.INVISIBLE);
                 greenSquare.setVisibility(View.INVISIBLE);
                 hello.setVisibility(View.INVISIBLE);
+                hello.getViewTreeObserver().addOnPreDrawListener(
+                        new ViewTreeObserver.OnPreDrawListener() {
+                            @Override
+                            public boolean onPreDraw() {
+                                assertEquals(View.VISIBLE, redSquare.getVisibility());
+                                assertEquals(View.VISIBLE, greenSquare.getVisibility());
+                                assertEquals(View.VISIBLE, hello.getVisibility());
+
+                                hello.getViewTreeObserver().removeOnPreDrawListener(this);
+                                return true;
+                            }
+                        });
             });
             verify(listener, within(1000)).onTransitionStart(any());
-            verify(listener, never()).onTransitionEnd(any());
-            assertEquals(View.VISIBLE, redSquare.getVisibility());
-            assertEquals(View.VISIBLE, greenSquare.getVisibility());
-            assertEquals(View.VISIBLE, hello.getVisibility());
+            verify(listener, within(2000)).onTransitionEnd(any());
 
-            float redStartX = redSquare.getTranslationX();
-            float redStartY = redSquare.getTranslationY();
-
-            Thread.sleep(200);
-            verifyTranslation(slideEdge, redSquare);
-            verifyTranslation(slideEdge, greenSquare);
-            verifyTranslation(slideEdge, hello);
-
-            final float redMidX = redSquare.getTranslationX();
-            final float redMidY = redSquare.getTranslationY();
-
-            switch (slideEdge) {
-                case Gravity.LEFT:
-                case Gravity.START:
-                    assertTrue(
-                            "isn't sliding out to left. Expecting " + redStartX + " > " + redMidX,
-                            redStartX > redMidX);
-                    break;
-                case Gravity.RIGHT:
-                case Gravity.END:
-                    assertTrue(
-                            "isn't sliding out to right. Expecting " + redStartX + " < " + redMidX,
-                            redStartX < redMidX);
-                    break;
-                case Gravity.TOP:
-                    assertTrue("isn't sliding out to top. Expecting " + redStartY + " > " + redMidY,
-                            redStartY > redSquare.getTranslationY());
-                    break;
-                case Gravity.BOTTOM:
-                    assertTrue(
-                            "isn't sliding out to bottom. Expecting " + redStartY + " < " + redMidY,
-                            redStartY < redSquare.getTranslationY());
-                    break;
-            }
-            verify(listener, within(1000)).onTransitionEnd(any());
+            verifyMovement(redPoints, slideEdge, false);
+            verifyMovement(greenPoints, slideEdge, false);
+            verifyMovement(helloPoints, slideEdge, false);
             mInstrumentation.waitForIdleSync();
 
             verifyNoTranslation(redSquare);
@@ -146,6 +129,7 @@ public class SlideEdgeTest extends BaseTransitionTest  {
         for (int i = 0; i < sSlideEdgeArray.length; i++) {
             final int slideEdge = (Integer) (sSlideEdgeArray[i][0]);
             final Slide slide = new Slide(slideEdge);
+            slide.setDuration(1000);
             final Transition.TransitionListener listener =
                     mock(Transition.TransitionListener.class);
             slide.addListener(listener);
@@ -157,6 +141,10 @@ public class SlideEdgeTest extends BaseTransitionTest  {
             final View greenSquare = mActivity.findViewById(R.id.greenSquare);
             final View hello = mActivity.findViewById(R.id.hello);
             final ViewGroup sceneRoot = (ViewGroup) mActivity.findViewById(R.id.holder);
+
+            final List<PointF> redPoints = captureTranslations(redSquare);
+            final List<PointF> greenPoints = captureTranslations(greenSquare);
+            final List<PointF> helloPoints = captureTranslations(hello);
 
             mActivityRule.runOnUiThread(() -> {
                 redSquare.setVisibility(View.INVISIBLE);
@@ -171,49 +159,25 @@ public class SlideEdgeTest extends BaseTransitionTest  {
                 redSquare.setVisibility(View.VISIBLE);
                 greenSquare.setVisibility(View.VISIBLE);
                 hello.setVisibility(View.VISIBLE);
+                hello.getViewTreeObserver().addOnPreDrawListener(
+                        new ViewTreeObserver.OnPreDrawListener() {
+                            @Override
+                            public boolean onPreDraw() {
+                                assertEquals(View.VISIBLE, redSquare.getVisibility());
+                                assertEquals(View.VISIBLE, greenSquare.getVisibility());
+                                assertEquals(View.VISIBLE, hello.getVisibility());
+
+                                hello.getViewTreeObserver().removeOnPreDrawListener(this);
+                                return true;
+                            }
+                        });
             });
             verify(listener, within(1000)).onTransitionStart(any());
+            verify(listener, within(2000)).onTransitionEnd(any());
 
-            verify(listener, never()).onTransitionEnd(any());
-            assertEquals(View.VISIBLE, redSquare.getVisibility());
-            assertEquals(View.VISIBLE, greenSquare.getVisibility());
-            assertEquals(View.VISIBLE, hello.getVisibility());
-
-            final float redStartX = redSquare.getTranslationX();
-            final float redStartY = redSquare.getTranslationY();
-
-            Thread.sleep(200);
-            verifyTranslation(slideEdge, redSquare);
-            verifyTranslation(slideEdge, greenSquare);
-            verifyTranslation(slideEdge, hello);
-            final float redMidX = redSquare.getTranslationX();
-            final float redMidY = redSquare.getTranslationY();
-
-            switch (slideEdge) {
-                case Gravity.LEFT:
-                case Gravity.START:
-                    assertTrue(
-                            "isn't sliding in from left. Expecting " + redStartX + " < " + redMidX,
-                            redStartX < redMidX);
-                    break;
-                case Gravity.RIGHT:
-                case Gravity.END:
-                    assertTrue(
-                            "isn't sliding in from right. Expecting " + redStartX + " > " + redMidX,
-                            redStartX > redMidX);
-                    break;
-                case Gravity.TOP:
-                    assertTrue(
-                            "isn't sliding in from top. Expecting " + redStartY + " < " + redMidY,
-                            redStartY < redSquare.getTranslationY());
-                    break;
-                case Gravity.BOTTOM:
-                    assertTrue("isn't sliding in from bottom. Expecting " + redStartY + " > "
-                                    + redMidY,
-                            redStartY > redSquare.getTranslationY());
-                    break;
-            }
-            verify(listener, within(1000)).onTransitionEnd(any());
+            verifyMovement(redPoints, slideEdge, true);
+            verifyMovement(greenPoints, slideEdge, true);
+            verifyMovement(helloPoints, slideEdge, true);
             mInstrumentation.waitForIdleSync();
 
             verifyNoTranslation(redSquare);
@@ -225,34 +189,54 @@ public class SlideEdgeTest extends BaseTransitionTest  {
         }
     }
 
-    private void verifyTranlationChanged(View view) {
-        final float startX = view.getTranslationX();
-        final float startY = view.getTranslationY();
-        PollingCheck.waitFor(
-                () -> view.getTranslationX() != startX || view.getTranslationY() != startY);
-    }
+    private void verifyMovement(List<PointF> points, int slideEdge, boolean in) {
+        int numPoints = points.size();
+        assertTrue(numPoints > 4);
 
-    private void verifyTranslation(int slideEdge, View view) {
+        // skip the first point -- it is the value before the change
+        PointF firstPoint = points.get(1);
+
+        PointF midPoint = points.get(numPoints / 2);
+
+        // Skip the last point -- it may be the settled value after the change
+        PointF lastPoint = points.get(numPoints - 2);
+
+        // Check nothing hapens in off-axis motion
         switch (slideEdge) {
             case Gravity.LEFT:
             case Gravity.START:
-                assertTrue(view.getTranslationX() < 0);
-                assertEquals(0f, view.getTranslationY(), 0.01f);
-                break;
             case Gravity.RIGHT:
             case Gravity.END:
-                assertTrue(view.getTranslationX() > 0);
-                assertEquals(0f, view.getTranslationY(), 0.01f);
+                assertEquals(0f, lastPoint.y, 0.01f);
+                assertEquals(0f, midPoint.y, 0.01f);
+                assertEquals(0f, firstPoint.y, 0.01f);
                 break;
             case Gravity.TOP:
-                assertTrue(view.getTranslationY() < 0);
-                assertEquals(0f, view.getTranslationX(), 0.01f);
-                break;
             case Gravity.BOTTOM:
-                assertTrue(view.getTranslationY() > 0);
-                assertEquals(0f, view.getTranslationX(), 0.01f);
+                assertEquals(0f, lastPoint.x, 0.01f);
+                assertEquals(0f, midPoint.x, 0.01f);
+                assertEquals(0f, firstPoint.x, 0.01f);
                 break;
         }
+
+        float startCoord;
+        float endCoord;
+        float midCoord;
+        boolean moveGreater;
+        if (slideEdge == Gravity.TOP || slideEdge == Gravity.BOTTOM) {
+            midCoord = midPoint.y;
+            startCoord = firstPoint.y;
+            endCoord = lastPoint.y;
+            moveGreater = in == (slideEdge == Gravity.TOP);
+        } else {
+            midCoord = midPoint.x;
+            startCoord = firstPoint.x;
+            endCoord = lastPoint.x;
+            moveGreater = in == (slideEdge == Gravity.START || slideEdge == Gravity.LEFT);
+        }
+        assertEquals(moveGreater, endCoord > midCoord);
+        assertEquals(moveGreater, midCoord > startCoord);
+        assertEquals(in, Math.abs(endCoord) < Math.abs(startCoord));
     }
 
     private void verifyNoTranslation(View view) {

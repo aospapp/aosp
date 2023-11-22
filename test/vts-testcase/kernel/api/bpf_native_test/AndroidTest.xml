@@ -18,6 +18,8 @@
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
         <option name="push-group" value="HostDrivenTest.push"/>
+        <option name="push" value="DATA/nativetest/vts_test_binary_bpf_module/kern.o->/data/local/tmp/32/kern.o" />
+        <option name="push" value="DATA/nativetest64/vts_test_binary_bpf_module/kern.o->/data/local/tmp/64/kern.o" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.VtsMultiDeviceTest">
         <option name="test-module-name" value="VtsKernelNetBpfTest"/>

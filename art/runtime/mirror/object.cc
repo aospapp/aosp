@@ -27,7 +27,7 @@
 #include "dex/descriptors_names.h"
 #include "dex/dex_file-inl.h"
 #include "gc/accounting/card_table-inl.h"
-#include "gc/heap.h"
+#include "gc/heap-inl.h"
 #include "handle_scope-inl.h"
 #include "iftable-inl.h"
 #include "monitor.h"
@@ -57,7 +57,7 @@ class CopyReferenceFieldsWithReadBarrierVisitor {
     dest_obj_->SetFieldObjectWithoutWriteBarrier<false, false>(offset, ref);
   }
 
-  void operator()(ObjPtr<mirror::Class> klass, mirror::Reference* ref) const
+  void operator()(ObjPtr<mirror::Class> klass, ObjPtr<mirror::Reference> ref) const
       ALWAYS_INLINE REQUIRES_SHARED(Locks::mutator_lock_) {
     // Copy java.lang.ref.Reference.referent which isn't visited in
     // Object::VisitReferences().
@@ -71,12 +71,12 @@ class CopyReferenceFieldsWithReadBarrierVisitor {
   void VisitRoot(mirror::CompressedReference<mirror::Object>* root ATTRIBUTE_UNUSED) const {}
 
  private:
-  ObjPtr<Object> const dest_obj_;
+  const ObjPtr<Object> dest_obj_;
 };
 
-Object* Object::CopyObject(ObjPtr<mirror::Object> dest,
-                           ObjPtr<mirror::Object> src,
-                           size_t num_bytes) {
+ObjPtr<Object> Object::CopyObject(ObjPtr<mirror::Object> dest,
+                                  ObjPtr<mirror::Object> src,
+                                  size_t num_bytes) {
   // Copy instance data.  Don't assume memcpy copies by words (b/32012820).
   {
     const size_t offset = sizeof(Object);
@@ -87,16 +87,18 @@ Object* Object::CopyObject(ObjPtr<mirror::Object> dest,
     DCHECK_ALIGNED(dst_bytes, sizeof(uintptr_t));
     // Use word sized copies to begin.
     while (num_bytes >= sizeof(uintptr_t)) {
-      reinterpret_cast<Atomic<uintptr_t>*>(dst_bytes)->StoreRelaxed(
-          reinterpret_cast<Atomic<uintptr_t>*>(src_bytes)->LoadRelaxed());
+      reinterpret_cast<Atomic<uintptr_t>*>(dst_bytes)->store(
+          reinterpret_cast<Atomic<uintptr_t>*>(src_bytes)->load(std::memory_order_relaxed),
+          std::memory_order_relaxed);
       src_bytes += sizeof(uintptr_t);
       dst_bytes += sizeof(uintptr_t);
       num_bytes -= sizeof(uintptr_t);
     }
     // Copy possible 32 bit word.
     if (sizeof(uintptr_t) != sizeof(uint32_t) && num_bytes >= sizeof(uint32_t)) {
-      reinterpret_cast<Atomic<uint32_t>*>(dst_bytes)->StoreRelaxed(
-          reinterpret_cast<Atomic<uint32_t>*>(src_bytes)->LoadRelaxed());
+      reinterpret_cast<Atomic<uint32_t>*>(dst_bytes)->store(
+          reinterpret_cast<Atomic<uint32_t>*>(src_bytes)->load(std::memory_order_relaxed),
+          std::memory_order_relaxed);
       src_bytes += sizeof(uint32_t);
       dst_bytes += sizeof(uint32_t);
       num_bytes -= sizeof(uint32_t);
@@ -104,8 +106,9 @@ Object* Object::CopyObject(ObjPtr<mirror::Object> dest,
     // Copy remaining bytes, avoid going past the end of num_bytes since there may be a redzone
     // there.
     while (num_bytes > 0) {
-      reinterpret_cast<Atomic<uint8_t>*>(dst_bytes)->StoreRelaxed(
-          reinterpret_cast<Atomic<uint8_t>*>(src_bytes)->LoadRelaxed());
+      reinterpret_cast<Atomic<uint8_t>*>(dst_bytes)->store(
+          reinterpret_cast<Atomic<uint8_t>*>(src_bytes)->load(std::memory_order_relaxed),
+          std::memory_order_relaxed);
       src_bytes += sizeof(uint8_t);
       dst_bytes += sizeof(uint8_t);
       num_bytes -= sizeof(uint8_t);
@@ -118,18 +121,17 @@ Object* Object::CopyObject(ObjPtr<mirror::Object> dest,
     CopyReferenceFieldsWithReadBarrierVisitor visitor(dest);
     src->VisitReferences(visitor, visitor);
   }
-  gc::Heap* heap = Runtime::Current()->GetHeap();
   // Perform write barriers on copied object references.
   ObjPtr<Class> c = src->GetClass();
   if (c->IsArrayClass()) {
     if (!c->GetComponentType()->IsPrimitive()) {
-      ObjectArray<Object>* array = dest->AsObjectArray<Object>();
-      heap->WriteBarrierArray(dest, 0, array->GetLength());
+      ObjPtr<ObjectArray<Object>> array = dest->AsObjectArray<Object>();
+      WriteBarrier::ForArrayWrite(dest, 0, array->GetLength());
     }
   } else {
-    heap->WriteBarrierEveryFieldOf(dest);
+    WriteBarrier::ForEveryFieldWrite(dest);
   }
-  return dest.Ptr();
+  return dest;
 }
 
 // An allocation pre-fence visitor that copies the object.
@@ -149,7 +151,7 @@ class CopyObjectVisitor {
   DISALLOW_COPY_AND_ASSIGN(CopyObjectVisitor);
 };
 
-Object* Object::Clone(Thread* self) {
+ObjPtr<Object> Object::Clone(Thread* self) {
   CHECK(!IsClass()) << "Can't clone classes.";
   // Object::SizeOf gets the right size even if we're an array. Using c->AllocObject() here would
   // be wrong.
@@ -167,13 +169,13 @@ Object* Object::Clone(Thread* self) {
   if (this_object->GetClass()->IsFinalizable()) {
     heap->AddFinalizerReference(self, &copy);
   }
-  return copy.Ptr();
+  return copy;
 }
 
 uint32_t Object::GenerateIdentityHashCode() {
   uint32_t expected_value, new_value;
   do {
-    expected_value = hash_code_seed.LoadRelaxed();
+    expected_value = hash_code_seed.load(std::memory_order_relaxed);
     new_value = expected_value * 1103515245 + 12345;
   } while (!hash_code_seed.CompareAndSetWeakRelaxed(expected_value, new_value) ||
       (expected_value & LockWord::kHashMask) == 0);
@@ -181,7 +183,7 @@ uint32_t Object::GenerateIdentityHashCode() {
 }
 
 void Object::SetHashCodeSeed(uint32_t new_seed) {
-  hash_code_seed.StoreRelaxed(new_seed);
+  hash_code_seed.store(new_seed, std::memory_order_relaxed);
 }
 
 int32_t Object::IdentityHashCode() {
@@ -194,7 +196,9 @@ int32_t Object::IdentityHashCode() {
         // loop iteration.
         LockWord hash_word = LockWord::FromHashCode(GenerateIdentityHashCode(), lw.GCState());
         DCHECK_EQ(hash_word.GetState(), LockWord::kHashCode);
-        if (current_this->CasLockWordWeakRelaxed(lw, hash_word)) {
+        // Use a strong CAS to prevent spurious failures since these can make the boot image
+        // non-deterministic.
+        if (current_this->CasLockWord(lw, hash_word, CASMode::kStrong, std::memory_order_relaxed)) {
           return hash_word.GetHashCode();
         }
         break;
@@ -221,11 +225,10 @@ int32_t Object::IdentityHashCode() {
       }
       default: {
         LOG(FATAL) << "Invalid state during hashcode " << lw.GetState();
-        break;
+        UNREACHABLE();
       }
     }
   }
-  UNREACHABLE();
 }
 
 void Object::CheckFieldAssignmentImpl(MemberOffset field_offset, ObjPtr<Object> new_value) {
@@ -268,7 +271,7 @@ void Object::CheckFieldAssignmentImpl(MemberOffset field_offset, ObjPtr<Object> 
     }
   }
   LOG(FATAL) << "Failed to find field for assignment to " << reinterpret_cast<void*>(this)
-      << " of type " << c->PrettyDescriptor() << " at offset " << field_offset;
+             << " of type " << c->PrettyDescriptor() << " at offset " << field_offset;
   UNREACHABLE();
 }
 
@@ -278,10 +281,7 @@ ArtField* Object::FindFieldByOffset(MemberOffset offset) {
 }
 
 std::string Object::PrettyTypeOf(ObjPtr<mirror::Object> obj) {
-  if (obj == nullptr) {
-    return "null";
-  }
-  return obj->PrettyTypeOf();
+  return (obj == nullptr) ? "null" : obj->PrettyTypeOf();
 }
 
 std::string Object::PrettyTypeOf() {

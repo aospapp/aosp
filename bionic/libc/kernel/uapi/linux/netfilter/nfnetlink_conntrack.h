@@ -65,6 +65,7 @@ enum ctattr_type {
   CTA_MARK_MASK,
   CTA_LABELS,
   CTA_LABELS_MASK,
+  CTA_SYNPROXY,
   __CTA_MAX
 };
 #define CTA_MAX (__CTA_MAX - 1)
@@ -187,6 +188,14 @@ enum ctattr_natseq {
   __CTA_NAT_SEQ_MAX
 };
 #define CTA_NAT_SEQ_MAX (__CTA_NAT_SEQ_MAX - 1)
+enum ctattr_synproxy {
+  CTA_SYNPROXY_UNSPEC,
+  CTA_SYNPROXY_ISN,
+  CTA_SYNPROXY_ITS,
+  CTA_SYNPROXY_TSOFF,
+  __CTA_SYNPROXY_MAX,
+};
+#define CTA_SYNPROXY_MAX (__CTA_SYNPROXY_MAX - 1)
 enum ctattr_expect {
   CTA_EXPECT_UNSPEC,
   CTA_EXPECT_MASTER,
@@ -244,6 +253,7 @@ enum ctattr_stats_cpu {
 enum ctattr_stats_global {
   CTA_STATS_GLOBAL_UNSPEC,
   CTA_STATS_GLOBAL_ENTRIES,
+  CTA_STATS_GLOBAL_MAX_ENTRIES,
   __CTA_STATS_GLOBAL_MAX,
 };
 #define CTA_STATS_GLOBAL_MAX (__CTA_STATS_GLOBAL_MAX - 1)

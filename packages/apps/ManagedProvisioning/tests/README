@@ -15,3 +15,8 @@ http://developer.android.com/reference/android/test/InstrumentationTestRunner.ht
 
 To run all robolectric tests:
 make RunManagedProvisioningRoboTests
+
+To run a specific robolectric class:
+make RunManagedProvisioningRoboTests ROBOLECTRIC_FILTER=<class name>
+
+

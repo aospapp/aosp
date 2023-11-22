@@ -38,7 +38,7 @@ import java.util.List;
  */
 public class PhoneAccountOperationsTest extends InstrumentationTestCase {
     public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE =
-            new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID);
+            new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID_1);
     public static final Bundle TEST_BUNDLE = createTestBundle();
     public static final int TEST_LENGTH = 10;
     public static final String TEST_ENCODING = "enUS";

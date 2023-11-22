@@ -42,7 +42,7 @@ typedef u32 NanDataPathId;
 #define NAN_MAC_ADDR_LEN                6
 #define NAN_MAJOR_VERSION               2
 #define NAN_MINOR_VERSION               0
-#define NAN_MICRO_VERSION               0
+#define NAN_MICRO_VERSION               1
 #define NAN_MAX_SOCIAL_CHANNELS         3
 
 /* NAN Maximum Lengths */
@@ -388,6 +388,7 @@ typedef struct {
     bool is_ndp_security_supported;
     u32 max_sdea_service_specific_info_len;
     u32 max_subscribe_address;
+    u32 ndpe_attr_supported;
 } NanCapabilities;
 
 /*
@@ -1023,6 +1024,15 @@ typedef struct {
     */
     u8 config_dw_early_termination;
     u32 enable_dw_termination;
+    /*
+       Indicate whether to use NDPE attribute to bring-up TCP/IP connection.
+       If config_ndpe_attr is not configured, the default behavior is
+       not using NDPE attr, and the capability is not advertised.
+       0 - Not use
+       1 - Use
+    */
+    u8 config_ndpe_attr;
+    u32 use_ndpe_attr;
 } NanEnableRequest;
 
 /*
@@ -1499,6 +1509,15 @@ typedef struct {
     */
     u8 config_dw_early_termination;
     u32 enable_dw_termination;
+    /*
+       Indicate whether to use NDPE attribute to bring-up TCP/IP connection
+       If config_ndpe_attr is not configured, the default behavior is
+       not using NDPE attr, and the capability is not advertised.
+       0 - Not use
+       1 - Use
+    */
+    u8 config_ndpe_attr;
+    u32 use_ndpe_attr;
 } NanConfigRequest;
 
 /*

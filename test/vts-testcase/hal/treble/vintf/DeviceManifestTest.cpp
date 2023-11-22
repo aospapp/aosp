@@ -71,6 +71,31 @@ TEST_F(DeviceManifestTest, NoDeprecatedHalsOnManifest) {
       << error;
 }
 
+// Tests that devices launching with Q support both gnss@2.0 and gnss@1.1 HALs
+// or none. Since gnss@2.0 extends 1.1, this test is needed to workaround
+// VINTF_ENFORCE_NO_UNUSED_HALS.
+// TODO(b/121287858): Remove this test in R when this requirement is properly
+// supported. Otherwise, it needs to be updated to reflect R version changes.
+TEST_F(DeviceManifestTest, GnssHalVersionCompatibility) {
+  const Level q_fcm_version = kFcm2ApiLevelMap.at(29 /* Q API level */);
+  Level shipping_fcm_version = vendor_manifest_->level();
+  if (shipping_fcm_version == Level::UNSPECIFIED ||
+      shipping_fcm_version < q_fcm_version) {
+    GTEST_SKIP();
+  }
+
+  ASSERT_EQ(shipping_fcm_version, q_fcm_version)
+      << "Unsupported Shipping FCM Verson " << shipping_fcm_version;
+
+  bool has_default_gnss_1_0 = vendor_manifest_->hasInstance(
+      "android.hardware.gnss", {1, 0}, "IGnss", "default");
+  bool has_default_gnss_2_0 = vendor_manifest_->hasInstance(
+      "android.hardware.gnss", {2, 0}, "IGnss", "default");
+  ASSERT_EQ(has_default_gnss_1_0, has_default_gnss_2_0)
+      << "Devices launched with Android Q must support both gnss@2.0"
+      << " and gnss@1.1 versions if gnss HAL package is present.";
+}
+
 static std::vector<HalManifestPtr> GetTestManifests() {
   return {
       VintfObject::GetDeviceHalManifest(),

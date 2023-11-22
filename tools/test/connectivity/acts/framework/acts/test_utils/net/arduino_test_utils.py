@@ -44,7 +44,7 @@ def connect_wifi(wd, network=None):
     """
     wd.log.info("Flashing connect_wifi.ino onto dongle")
     cmd = "locate %s" % CONNECT_WIFI
-    file_path = utils.exe_cmd(cmd).decode("utf-8", "ignore").rstrip()
+    file_path = utils.exe_cmd(cmd).decode("utf-8", "ignore").split()[-1]
     write_status = wd.write(ARDUINO, file_path, network)
     asserts.assert_true(write_status, "Failed to flash connect wifi")
     wd.log.info("Flashing complete")

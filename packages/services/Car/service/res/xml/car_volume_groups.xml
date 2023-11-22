@@ -15,6 +15,18 @@
 -->
 
 <!--
+  This configuration is replaced by car_audio_configuration.xml
+
+  Notes on backward compatibility
+  - A new audioUseUnifiedConfiguration flag is added, and the default value
+  is false
+  - If OEM does not explicitly set audioUseUnifiedConfiguration to be true,
+  car_volume_groups.xml will be used, CarAudioService also queries
+  IAudioControl HAL (getBusForContext)
+  - Otherwise, CarAudioService loads the new car_audio_configuration.xml
+
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
   Defines the all available volume groups for volume control in a car.
   One can overlay this configuration to customize the groups.
 
@@ -33,7 +45,8 @@
   Important note: when overlaying this configuration,
   make sure the resources are in the same package as CarAudioService.
 -->
-<volumeGroups xmlns:car="http://schemas.android.com/apk/res-auto">
+<volumeGroups xmlns:car="http://schemas.android.com/apk/res-auto"
+        car:isDeprecated="true">
     <group>
         <context car:context="music"/>
         <context car:context="call_ring"/>

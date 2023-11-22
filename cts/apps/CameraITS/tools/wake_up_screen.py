@@ -25,9 +25,15 @@ DISPLAY_TIMEOUT = 1800000  # ms
 def main():
     """Power up and unlock screen as needed."""
     screen_id = None
+    display_level = DISPLAY_LEVEL
     for s in sys.argv[1:]:
         if s[:7] == 'screen=' and len(s) > 7:
             screen_id = s[7:]
+        if s[:11] == 'brightness=' and len(s) > 11:
+            display_level = int(s[11:])
+            if display_level < 0 or display_level > 255:
+                print 'Invalid brightness value. Range is [0-255]'
+                display_level = DISPLAY_LEVEL
 
     if not screen_id:
         print 'Error: need to specify screen serial'
@@ -53,10 +59,14 @@ def main():
     subprocess.Popen(unlock.split())
     time.sleep(DISPLAY_CMD_WAIT)
 
-    # set brightness
-    print 'Tablet display brightness set to %d' % DISPLAY_LEVEL
+    # set to manual mode and set brightness
+    manual = ('adb -s %s shell settings put system screen_brightness_mode 0'
+              % screen_id)
+    subprocess.Popen(manual.split())
+    time.sleep(DISPLAY_CMD_WAIT)
+    print 'Tablet display brightness set to %d' % display_level
     bright = ('adb -s %s shell settings put system screen_brightness %d'
-              % (screen_id, DISPLAY_LEVEL))
+              % (screen_id, display_level))
     subprocess.Popen(bright.split())
     time.sleep(DISPLAY_CMD_WAIT)
 

@@ -39,11 +39,13 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
 
     private boolean mRemoveOwnerInTearDown;
     private int mDeviceOwnerUserId;
+    private boolean mHasManagedUserFeature;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
 
+        mHasManagedUserFeature = hasDeviceFeature("android.software.managed_users");
         mRemoveOwnerInTearDown = false;
         mDeviceOwnerUserId = mPrimaryUserId;
     }
@@ -127,7 +129,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
 
     // Checks restrictions for managed profile.
     public void testUserRestrictions_managedProfileOwnerOnly() throws Exception {
-        if (!mHasFeature || !mSupportsMultiUser) {
+        if (!mHasFeature || !mSupportsMultiUser || !mHasManagedUserFeature) {
             return;
         }
 
@@ -205,9 +207,9 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
         runTests("userrestrictions.PrimaryProfileOwnerUserRestrictionsTest",
                 "testSetAllRestrictions", mDeviceOwnerUserId);
 
-        // Secondary users shouldn't see any of them.
+        // Secondary users shouldn't see any of them. Leaky user restrictions are excluded.
         runTests("userrestrictions.SecondaryProfileOwnerUserRestrictionsTest",
-                "testDefaultRestrictionsOnly", secondaryUserId);
+                "testDefaultAndLeakyRestrictions", secondaryUserId);
     }
 
     /**
@@ -235,7 +237,7 @@ public class UserRestrictionsTest extends BaseDevicePolicyTest {
      * affect all users.
      */
     public void testUserRestrictions_ProfileGlobalRestrictionsAsPo() throws Exception {
-        if (!mHasFeature || !mSupportsMultiUser) {
+        if (!mHasFeature || !mSupportsMultiUser || !mHasManagedUserFeature) {
             return;
         }
         // Set PO on user 0

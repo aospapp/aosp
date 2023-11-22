@@ -24,6 +24,7 @@
 #include "entrypoints/quick/quick_entrypoints.h"
 #include "entrypoints/quick/quick_entrypoints_enum.h"
 #include "gc/accounting/card_table.h"
+#include "gc/space/image_space.h"
 #include "heap_poisoning.h"
 #include "intrinsics.h"
 #include "intrinsics_mips64.h"
@@ -111,6 +112,14 @@ Location InvokeRuntimeCallingConvention::GetReturnLocation(DataType::Type type) 
   return Mips64ReturnLocation(type);
 }
 
+static RegisterSet OneRegInReferenceOutSaveEverythingCallerSaves() {
+  InvokeRuntimeCallingConvention calling_convention;
+  RegisterSet caller_saves = RegisterSet::Empty();
+  caller_saves.Add(Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
+  // The reference is returned in the same register. This differs from the standard return location.
+  return caller_saves;
+}
+
 // NOLINT on __ macro to suppress wrong warning/fix (misc-macro-parentheses) from clang-tidy.
 #define __ down_cast<CodeGeneratorMIPS64*>(codegen)->GetAssembler()->  // NOLINT
 #define QUICK_ENTRY_POINT(x) QUICK_ENTRYPOINT_OFFSET(kMips64PointerSize, x).Int32Value()
@@ -119,7 +128,7 @@ class BoundsCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
  public:
   explicit BoundsCheckSlowPathMIPS64(HBoundsCheck* instruction) : SlowPathCodeMIPS64(instruction) {}
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     LocationSummary* locations = instruction_->GetLocations();
     CodeGeneratorMIPS64* mips64_codegen = down_cast<CodeGeneratorMIPS64*>(codegen);
     __ Bind(GetEntryLabel());
@@ -144,9 +153,9 @@ class BoundsCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     CheckEntrypointTypes<kQuickThrowArrayBounds, void, int32_t, int32_t>();
   }
 
-  bool IsFatal() const OVERRIDE { return true; }
+  bool IsFatal() const override { return true; }
 
-  const char* GetDescription() const OVERRIDE { return "BoundsCheckSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "BoundsCheckSlowPathMIPS64"; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BoundsCheckSlowPathMIPS64);
@@ -157,16 +166,16 @@ class DivZeroCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
   explicit DivZeroCheckSlowPathMIPS64(HDivZeroCheck* instruction)
       : SlowPathCodeMIPS64(instruction) {}
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     CodeGeneratorMIPS64* mips64_codegen = down_cast<CodeGeneratorMIPS64*>(codegen);
     __ Bind(GetEntryLabel());
     mips64_codegen->InvokeRuntime(kQuickThrowDivZero, instruction_, instruction_->GetDexPc(), this);
     CheckEntrypointTypes<kQuickThrowDivZero, void, void>();
   }
 
-  bool IsFatal() const OVERRIDE { return true; }
+  bool IsFatal() const override { return true; }
 
-  const char* GetDescription() const OVERRIDE { return "DivZeroCheckSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "DivZeroCheckSlowPathMIPS64"; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(DivZeroCheckSlowPathMIPS64);
@@ -174,35 +183,41 @@ class DivZeroCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
 
 class LoadClassSlowPathMIPS64 : public SlowPathCodeMIPS64 {
  public:
-  LoadClassSlowPathMIPS64(HLoadClass* cls,
-                          HInstruction* at,
-                          uint32_t dex_pc,
-                          bool do_clinit)
-      : SlowPathCodeMIPS64(at),
-        cls_(cls),
-        dex_pc_(dex_pc),
-        do_clinit_(do_clinit) {
+  LoadClassSlowPathMIPS64(HLoadClass* cls, HInstruction* at)
+      : SlowPathCodeMIPS64(at), cls_(cls) {
     DCHECK(at->IsLoadClass() || at->IsClinitCheck());
+    DCHECK_EQ(instruction_->IsLoadClass(), cls_ == instruction_);
   }
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     LocationSummary* locations = instruction_->GetLocations();
     Location out = locations->Out();
+    const uint32_t dex_pc = instruction_->GetDexPc();
+    bool must_resolve_type = instruction_->IsLoadClass() && cls_->MustResolveTypeOnSlowPath();
+    bool must_do_clinit = instruction_->IsClinitCheck() || cls_->MustGenerateClinitCheck();
+
     CodeGeneratorMIPS64* mips64_codegen = down_cast<CodeGeneratorMIPS64*>(codegen);
-    InvokeRuntimeCallingConvention calling_convention;
-    DCHECK_EQ(instruction_->IsLoadClass(), cls_ == instruction_);
     __ Bind(GetEntryLabel());
     SaveLiveRegisters(codegen, locations);
 
-    dex::TypeIndex type_index = cls_->GetTypeIndex();
-    __ LoadConst32(calling_convention.GetRegisterAt(0), type_index.index_);
-    QuickEntrypointEnum entrypoint = do_clinit_ ? kQuickInitializeStaticStorage
-                                                : kQuickInitializeType;
-    mips64_codegen->InvokeRuntime(entrypoint, instruction_, dex_pc_, this);
-    if (do_clinit_) {
-      CheckEntrypointTypes<kQuickInitializeStaticStorage, void*, uint32_t>();
+    InvokeRuntimeCallingConvention calling_convention;
+    if (must_resolve_type) {
+      DCHECK(IsSameDexFile(cls_->GetDexFile(), mips64_codegen->GetGraph()->GetDexFile()));
+      dex::TypeIndex type_index = cls_->GetTypeIndex();
+      __ LoadConst32(calling_convention.GetRegisterAt(0), type_index.index_);
+      mips64_codegen->InvokeRuntime(kQuickResolveType, instruction_, dex_pc, this);
+      CheckEntrypointTypes<kQuickResolveType, void*, uint32_t>();
+      // If we also must_do_clinit, the resolved type is now in the correct register.
     } else {
-      CheckEntrypointTypes<kQuickInitializeType, void*, uint32_t>();
+      DCHECK(must_do_clinit);
+      Location source = instruction_->IsLoadClass() ? out : locations->InAt(0);
+      mips64_codegen->MoveLocation(Location::RegisterLocation(calling_convention.GetRegisterAt(0)),
+                                   source,
+                                   cls_->GetType());
+    }
+    if (must_do_clinit) {
+      mips64_codegen->InvokeRuntime(kQuickInitializeStaticStorage, instruction_, dex_pc, this);
+      CheckEntrypointTypes<kQuickInitializeStaticStorage, void*, mirror::Class*>();
     }
 
     // Move the class to the desired location.
@@ -218,17 +233,11 @@ class LoadClassSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     __ Bc(GetExitLabel());
   }
 
-  const char* GetDescription() const OVERRIDE { return "LoadClassSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "LoadClassSlowPathMIPS64"; }
 
  private:
   // The class this slow path will load.
   HLoadClass* const cls_;
-
-  // The dex PC of `at_`.
-  const uint32_t dex_pc_;
-
-  // Whether to initialize the class.
-  const bool do_clinit_;
 
   DISALLOW_COPY_AND_ASSIGN(LoadClassSlowPathMIPS64);
 };
@@ -238,7 +247,7 @@ class LoadStringSlowPathMIPS64 : public SlowPathCodeMIPS64 {
   explicit LoadStringSlowPathMIPS64(HLoadString* instruction)
       : SlowPathCodeMIPS64(instruction) {}
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     DCHECK(instruction_->IsLoadString());
     DCHECK_EQ(instruction_->AsLoadString()->GetLoadKind(), HLoadString::LoadKind::kBssEntry);
     LocationSummary* locations = instruction_->GetLocations();
@@ -265,7 +274,7 @@ class LoadStringSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     __ Bc(GetExitLabel());
   }
 
-  const char* GetDescription() const OVERRIDE { return "LoadStringSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "LoadStringSlowPathMIPS64"; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(LoadStringSlowPathMIPS64);
@@ -275,7 +284,7 @@ class NullCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
  public:
   explicit NullCheckSlowPathMIPS64(HNullCheck* instr) : SlowPathCodeMIPS64(instr) {}
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     CodeGeneratorMIPS64* mips64_codegen = down_cast<CodeGeneratorMIPS64*>(codegen);
     __ Bind(GetEntryLabel());
     if (instruction_->CanThrowIntoCatchBlock()) {
@@ -289,9 +298,9 @@ class NullCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     CheckEntrypointTypes<kQuickThrowNullPointer, void, void>();
   }
 
-  bool IsFatal() const OVERRIDE { return true; }
+  bool IsFatal() const override { return true; }
 
-  const char* GetDescription() const OVERRIDE { return "NullCheckSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "NullCheckSlowPathMIPS64"; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(NullCheckSlowPathMIPS64);
@@ -302,7 +311,7 @@ class SuspendCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
   SuspendCheckSlowPathMIPS64(HSuspendCheck* instruction, HBasicBlock* successor)
       : SlowPathCodeMIPS64(instruction), successor_(successor) {}
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     LocationSummary* locations = instruction_->GetLocations();
     CodeGeneratorMIPS64* mips64_codegen = down_cast<CodeGeneratorMIPS64*>(codegen);
     __ Bind(GetEntryLabel());
@@ -322,7 +331,7 @@ class SuspendCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     return &return_label_;
   }
 
-  const char* GetDescription() const OVERRIDE { return "SuspendCheckSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "SuspendCheckSlowPathMIPS64"; }
 
   HBasicBlock* GetSuccessor() const {
     return successor_;
@@ -343,7 +352,7 @@ class TypeCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
   explicit TypeCheckSlowPathMIPS64(HInstruction* instruction, bool is_fatal)
       : SlowPathCodeMIPS64(instruction), is_fatal_(is_fatal) {}
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     LocationSummary* locations = instruction_->GetLocations();
 
     uint32_t dex_pc = instruction_->GetDexPc();
@@ -383,9 +392,9 @@ class TypeCheckSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     }
   }
 
-  const char* GetDescription() const OVERRIDE { return "TypeCheckSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "TypeCheckSlowPathMIPS64"; }
 
-  bool IsFatal() const OVERRIDE { return is_fatal_; }
+  bool IsFatal() const override { return is_fatal_; }
 
  private:
   const bool is_fatal_;
@@ -398,7 +407,7 @@ class DeoptimizationSlowPathMIPS64 : public SlowPathCodeMIPS64 {
   explicit DeoptimizationSlowPathMIPS64(HDeoptimize* instruction)
     : SlowPathCodeMIPS64(instruction) {}
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     CodeGeneratorMIPS64* mips64_codegen = down_cast<CodeGeneratorMIPS64*>(codegen);
     __ Bind(GetEntryLabel());
       LocationSummary* locations = instruction_->GetLocations();
@@ -410,7 +419,7 @@ class DeoptimizationSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     CheckEntrypointTypes<kQuickDeoptimize, void, DeoptimizationKind>();
   }
 
-  const char* GetDescription() const OVERRIDE { return "DeoptimizationSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "DeoptimizationSlowPathMIPS64"; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(DeoptimizationSlowPathMIPS64);
@@ -420,7 +429,7 @@ class ArraySetSlowPathMIPS64 : public SlowPathCodeMIPS64 {
  public:
   explicit ArraySetSlowPathMIPS64(HInstruction* instruction) : SlowPathCodeMIPS64(instruction) {}
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     LocationSummary* locations = instruction_->GetLocations();
     __ Bind(GetEntryLabel());
     SaveLiveRegisters(codegen, locations);
@@ -451,7 +460,7 @@ class ArraySetSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     __ Bc(GetExitLabel());
   }
 
-  const char* GetDescription() const OVERRIDE { return "ArraySetSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "ArraySetSlowPathMIPS64"; }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ArraySetSlowPathMIPS64);
@@ -481,9 +490,9 @@ class ReadBarrierMarkSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     DCHECK(kEmitCompilerReadBarrier);
   }
 
-  const char* GetDescription() const OVERRIDE { return "ReadBarrierMarkSlowPathMIPS"; }
+  const char* GetDescription() const override { return "ReadBarrierMarkSlowPathMIPS"; }
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     LocationSummary* locations = instruction_->GetLocations();
     GpuRegister ref_reg = ref_.AsRegister<GpuRegister>();
     DCHECK(locations->CanCall());
@@ -574,11 +583,11 @@ class ReadBarrierMarkAndUpdateFieldSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     DCHECK(kEmitCompilerReadBarrier);
   }
 
-  const char* GetDescription() const OVERRIDE {
+  const char* GetDescription() const override {
     return "ReadBarrierMarkAndUpdateFieldSlowPathMIPS64";
   }
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     LocationSummary* locations = instruction_->GetLocations();
     GpuRegister ref_reg = ref_.AsRegister<GpuRegister>();
     DCHECK(locations->CanCall());
@@ -735,7 +744,7 @@ class ReadBarrierForHeapReferenceSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     DCHECK(!obj.Equals(ref)) << "obj=" << obj << " ref=" << ref;
   }
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     CodeGeneratorMIPS64* mips64_codegen = down_cast<CodeGeneratorMIPS64*>(codegen);
     LocationSummary* locations = instruction_->GetLocations();
     DataType::Type type = DataType::Type::kReference;
@@ -855,7 +864,7 @@ class ReadBarrierForHeapReferenceSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     __ Bc(GetExitLabel());
   }
 
-  const char* GetDescription() const OVERRIDE {
+  const char* GetDescription() const override {
     return "ReadBarrierForHeapReferenceSlowPathMIPS64";
   }
 
@@ -900,7 +909,7 @@ class ReadBarrierForRootSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     DCHECK(kEmitCompilerReadBarrier);
   }
 
-  void EmitNativeCode(CodeGenerator* codegen) OVERRIDE {
+  void EmitNativeCode(CodeGenerator* codegen) override {
     LocationSummary* locations = instruction_->GetLocations();
     DataType::Type type = DataType::Type::kReference;
     GpuRegister reg_out = out_.AsRegister<GpuRegister>();
@@ -929,7 +938,7 @@ class ReadBarrierForRootSlowPathMIPS64 : public SlowPathCodeMIPS64 {
     __ Bc(GetExitLabel());
   }
 
-  const char* GetDescription() const OVERRIDE { return "ReadBarrierForRootSlowPathMIPS64"; }
+  const char* GetDescription() const override { return "ReadBarrierForRootSlowPathMIPS64"; }
 
  private:
   const Location out_;
@@ -939,13 +948,12 @@ class ReadBarrierForRootSlowPathMIPS64 : public SlowPathCodeMIPS64 {
 };
 
 CodeGeneratorMIPS64::CodeGeneratorMIPS64(HGraph* graph,
-                                         const Mips64InstructionSetFeatures& isa_features,
                                          const CompilerOptions& compiler_options,
                                          OptimizingCompilerStats* stats)
     : CodeGenerator(graph,
                     kNumberOfGpuRegisters,
                     kNumberOfFpuRegisters,
-                    /* number_of_register_pairs */ 0,
+                    /* number_of_register_pairs= */ 0,
                     ComputeRegisterMask(reinterpret_cast<const int*>(kCoreCalleeSaves),
                                         arraysize(kCoreCalleeSaves)),
                     ComputeRegisterMask(reinterpret_cast<const int*>(kFpuCalleeSaves),
@@ -956,8 +964,8 @@ CodeGeneratorMIPS64::CodeGeneratorMIPS64(HGraph* graph,
       location_builder_(graph, this),
       instruction_visitor_(graph, this),
       move_resolver_(graph->GetAllocator(), this),
-      assembler_(graph->GetAllocator(), &isa_features),
-      isa_features_(isa_features),
+      assembler_(graph->GetAllocator(),
+                 compiler_options.GetInstructionSetFeatures()->AsMips64InstructionSetFeatures()),
       uint32_literals_(std::less<uint32_t>(),
                        graph->GetAllocator()->Adapter(kArenaAllocCodeGenerator)),
       uint64_literals_(std::less<uint64_t>(),
@@ -968,6 +976,7 @@ CodeGeneratorMIPS64::CodeGeneratorMIPS64(HGraph* graph,
       type_bss_entry_patches_(graph->GetAllocator()->Adapter(kArenaAllocCodeGenerator)),
       boot_image_string_patches_(graph->GetAllocator()->Adapter(kArenaAllocCodeGenerator)),
       string_bss_entry_patches_(graph->GetAllocator()->Adapter(kArenaAllocCodeGenerator)),
+      boot_image_intrinsic_patches_(graph->GetAllocator()->Adapter(kArenaAllocCodeGenerator)),
       jit_string_patches_(StringReferenceValueComparator(),
                           graph->GetAllocator()->Adapter(kArenaAllocCodeGenerator)),
       jit_class_patches_(TypeReferenceValueComparator(),
@@ -988,8 +997,7 @@ void CodeGeneratorMIPS64::Finalize(CodeAllocator* allocator) {
   // Adjust native pc offsets in stack maps.
   StackMapStream* stack_map_stream = GetStackMapStream();
   for (size_t i = 0, num = stack_map_stream->GetNumberOfStackMaps(); i != num; ++i) {
-    uint32_t old_position =
-        stack_map_stream->GetStackMap(i).native_pc_code_offset.Uint32Value(InstructionSet::kMips64);
+    uint32_t old_position = stack_map_stream->GetStackMapNativePcOffset(i);
     uint32_t new_position = __ GetAdjustedPosition(old_position);
     DCHECK_GE(new_position, old_position);
     stack_map_stream->SetStackMapNativePcOffset(i, new_position);
@@ -1482,12 +1490,27 @@ void CodeGeneratorMIPS64::MarkGCCard(GpuRegister object,
   if (value_can_be_null) {
     __ Beqzc(value, &done);
   }
+  // Load the address of the card table into `card`.
   __ LoadFromOffset(kLoadDoubleword,
                     card,
                     TR,
                     Thread::CardTableOffset<kMips64PointerSize>().Int32Value());
+  // Calculate the address of the card corresponding to `object`.
   __ Dsrl(temp, object, gc::accounting::CardTable::kCardShift);
   __ Daddu(temp, card, temp);
+  // Write the `art::gc::accounting::CardTable::kCardDirty` value into the
+  // `object`'s card.
+  //
+  // Register `card` contains the address of the card table. Note that the card
+  // table's base is biased during its creation so that it always starts at an
+  // address whose least-significant byte is equal to `kCardDirty` (see
+  // art::gc::accounting::CardTable::Create). Therefore the SB instruction
+  // below writes the `kCardDirty` (byte) value into the `object`'s card
+  // (located at `card + object >> kCardShift`).
+  //
+  // This dual use of the value in register `card` (1. to calculate the location
+  // of the card to mark; and 2. to load the `kCardDirty` value) saves a load
+  // (no need to explicitly load `kCardDirty` as an immediate value).
   __ Sb(card, temp, 0);
   if (value_can_be_null) {
     __ Bind(&done);
@@ -1509,6 +1532,15 @@ inline void CodeGeneratorMIPS64::EmitPcRelativeLinkerPatches(
   }
 }
 
+template <linker::LinkerPatch (*Factory)(size_t, uint32_t, uint32_t)>
+linker::LinkerPatch NoDexFileAdapter(size_t literal_offset,
+                                     const DexFile* target_dex_file,
+                                     uint32_t pc_insn_offset,
+                                     uint32_t boot_image_offset) {
+  DCHECK(target_dex_file == nullptr);  // Unused for these patches, should be null.
+  return Factory(literal_offset, pc_insn_offset, boot_image_offset);
+}
+
 void CodeGeneratorMIPS64::EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* linker_patches) {
   DCHECK(linker_patches->empty());
   size_t size =
@@ -1517,7 +1549,8 @@ void CodeGeneratorMIPS64::EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* li
       boot_image_type_patches_.size() +
       type_bss_entry_patches_.size() +
       boot_image_string_patches_.size() +
-      string_bss_entry_patches_.size();
+      string_bss_entry_patches_.size() +
+      boot_image_intrinsic_patches_.size();
   linker_patches->reserve(size);
   if (GetCompilerOptions().IsBootImage()) {
     EmitPcRelativeLinkerPatches<linker::LinkerPatch::RelativeMethodPatch>(
@@ -1526,12 +1559,14 @@ void CodeGeneratorMIPS64::EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* li
         boot_image_type_patches_, linker_patches);
     EmitPcRelativeLinkerPatches<linker::LinkerPatch::RelativeStringPatch>(
         boot_image_string_patches_, linker_patches);
+    EmitPcRelativeLinkerPatches<NoDexFileAdapter<linker::LinkerPatch::IntrinsicReferencePatch>>(
+        boot_image_intrinsic_patches_, linker_patches);
   } else {
-    DCHECK(boot_image_method_patches_.empty());
-    EmitPcRelativeLinkerPatches<linker::LinkerPatch::TypeClassTablePatch>(
-        boot_image_type_patches_, linker_patches);
-    EmitPcRelativeLinkerPatches<linker::LinkerPatch::StringInternTablePatch>(
-        boot_image_string_patches_, linker_patches);
+    EmitPcRelativeLinkerPatches<NoDexFileAdapter<linker::LinkerPatch::DataBimgRelRoPatch>>(
+        boot_image_method_patches_, linker_patches);
+    DCHECK(boot_image_type_patches_.empty());
+    DCHECK(boot_image_string_patches_.empty());
+    DCHECK(boot_image_intrinsic_patches_.empty());
   }
   EmitPcRelativeLinkerPatches<linker::LinkerPatch::MethodBssEntryPatch>(
       method_bss_entry_patches_, linker_patches);
@@ -1540,6 +1575,20 @@ void CodeGeneratorMIPS64::EmitLinkerPatches(ArenaVector<linker::LinkerPatch>* li
   EmitPcRelativeLinkerPatches<linker::LinkerPatch::StringBssEntryPatch>(
       string_bss_entry_patches_, linker_patches);
   DCHECK_EQ(size, linker_patches->size());
+}
+
+CodeGeneratorMIPS64::PcRelativePatchInfo* CodeGeneratorMIPS64::NewBootImageIntrinsicPatch(
+    uint32_t intrinsic_data,
+    const PcRelativePatchInfo* info_high) {
+  return NewPcRelativePatch(
+      /* dex_file= */ nullptr, intrinsic_data, info_high, &boot_image_intrinsic_patches_);
+}
+
+CodeGeneratorMIPS64::PcRelativePatchInfo* CodeGeneratorMIPS64::NewBootImageRelRoPatch(
+    uint32_t boot_image_offset,
+    const PcRelativePatchInfo* info_high) {
+  return NewPcRelativePatch(
+      /* dex_file= */ nullptr, boot_image_offset, info_high, &boot_image_method_patches_);
 }
 
 CodeGeneratorMIPS64::PcRelativePatchInfo* CodeGeneratorMIPS64::NewBootImageMethodPatch(
@@ -1616,7 +1665,7 @@ void CodeGeneratorMIPS64::EmitPcRelativeAddressPlaceholderHigh(PcRelativePatchIn
   DCHECK(!info_high->patch_info_high);
   __ Bind(&info_high->label);
   // Add the high half of a 32-bit offset to PC.
-  __ Auipc(out, /* placeholder */ 0x1234);
+  __ Auipc(out, /* imm16= */ 0x1234);
   // A following instruction will add the sign-extended low half of the 32-bit
   // offset to `out` (e.g. ld, jialc, daddiu).
   if (info_low != nullptr) {
@@ -1625,13 +1674,57 @@ void CodeGeneratorMIPS64::EmitPcRelativeAddressPlaceholderHigh(PcRelativePatchIn
   }
 }
 
+void CodeGeneratorMIPS64::LoadBootImageAddress(GpuRegister reg, uint32_t boot_image_reference) {
+  if (GetCompilerOptions().IsBootImage()) {
+    PcRelativePatchInfo* info_high = NewBootImageIntrinsicPatch(boot_image_reference);
+    PcRelativePatchInfo* info_low = NewBootImageIntrinsicPatch(boot_image_reference, info_high);
+    EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
+    __ Daddiu(reg, AT, /* imm16= */ 0x5678);
+  } else if (GetCompilerOptions().GetCompilePic()) {
+    PcRelativePatchInfo* info_high = NewBootImageRelRoPatch(boot_image_reference);
+    PcRelativePatchInfo* info_low = NewBootImageRelRoPatch(boot_image_reference, info_high);
+    EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
+    // Note: Boot image is in the low 4GiB and the entry is 32-bit, so emit a 32-bit load.
+    __ Lwu(reg, AT, /* imm16= */ 0x5678);
+  } else {
+    DCHECK(Runtime::Current()->UseJitCompilation());
+    gc::Heap* heap = Runtime::Current()->GetHeap();
+    DCHECK(!heap->GetBootImageSpaces().empty());
+    uintptr_t address =
+        reinterpret_cast<uintptr_t>(heap->GetBootImageSpaces()[0]->Begin() + boot_image_reference);
+    __ LoadLiteral(reg, kLoadDoubleword, DeduplicateBootImageAddressLiteral(address));
+  }
+}
+
+void CodeGeneratorMIPS64::AllocateInstanceForIntrinsic(HInvokeStaticOrDirect* invoke,
+                                                       uint32_t boot_image_offset) {
+  DCHECK(invoke->IsStatic());
+  InvokeRuntimeCallingConvention calling_convention;
+  GpuRegister argument = calling_convention.GetRegisterAt(0);
+  if (GetCompilerOptions().IsBootImage()) {
+    DCHECK_EQ(boot_image_offset, IntrinsicVisitor::IntegerValueOfInfo::kInvalidReference);
+    // Load the class the same way as for HLoadClass::LoadKind::kBootImageLinkTimePcRelative.
+    MethodReference target_method = invoke->GetTargetMethod();
+    dex::TypeIndex type_idx = target_method.dex_file->GetMethodId(target_method.index).class_idx_;
+    PcRelativePatchInfo* info_high = NewBootImageTypePatch(*target_method.dex_file, type_idx);
+    PcRelativePatchInfo* info_low =
+        NewBootImageTypePatch(*target_method.dex_file, type_idx, info_high);
+    EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
+    __ Daddiu(argument, AT, /* imm16= */ 0x5678);
+  } else {
+    LoadBootImageAddress(argument, boot_image_offset);
+  }
+  InvokeRuntime(kQuickAllocObjectInitialized, invoke, invoke->GetDexPc());
+  CheckEntrypointTypes<kQuickAllocObjectWithChecks, void*, mirror::Class*>();
+}
+
 Literal* CodeGeneratorMIPS64::DeduplicateJitStringLiteral(const DexFile& dex_file,
                                                           dex::StringIndex string_index,
                                                           Handle<mirror::String> handle) {
   ReserveJitStringRoot(StringReference(&dex_file, string_index), handle);
   return jit_string_patches_.GetOrCreate(
       StringReference(&dex_file, string_index),
-      [this]() { return __ NewLiteral<uint32_t>(/* placeholder */ 0u); });
+      [this]() { return __ NewLiteral<uint32_t>(/* value= */ 0u); });
 }
 
 Literal* CodeGeneratorMIPS64::DeduplicateJitClassLiteral(const DexFile& dex_file,
@@ -1640,7 +1733,7 @@ Literal* CodeGeneratorMIPS64::DeduplicateJitClassLiteral(const DexFile& dex_file
   ReserveJitClassRoot(TypeReference(&dex_file, type_index), handle);
   return jit_class_patches_.GetOrCreate(
       TypeReference(&dex_file, type_index),
-      [this]() { return __ NewLiteral<uint32_t>(/* placeholder */ 0u); });
+      [this]() { return __ NewLiteral<uint32_t>(/* value= */ 0u); });
 }
 
 void CodeGeneratorMIPS64::PatchJitRootUse(uint8_t* code,
@@ -1740,6 +1833,10 @@ void CodeGeneratorMIPS64::DumpFloatingPointRegister(std::ostream& stream, int re
   stream << FpuRegister(reg);
 }
 
+const Mips64InstructionSetFeatures& CodeGeneratorMIPS64::GetInstructionSetFeatures() const {
+  return *GetCompilerOptions().GetInstructionSetFeatures()->AsMips64InstructionSetFeatures();
+}
+
 void CodeGeneratorMIPS64::InvokeRuntime(QuickEntrypointEnum entrypoint,
                                         HInstruction* instruction,
                                         uint32_t dex_pc,
@@ -1778,6 +1875,34 @@ void InstructionCodeGeneratorMIPS64::GenerateClassInitializationCheck(SlowPathCo
   // Even if the initialized flag is set, we need to ensure consistent memory ordering.
   __ Sync(0);
   __ Bind(slow_path->GetExitLabel());
+}
+
+void InstructionCodeGeneratorMIPS64::GenerateBitstringTypeCheckCompare(HTypeCheckInstruction* check,
+                                                                       GpuRegister temp) {
+  uint32_t path_to_root = check->GetBitstringPathToRoot();
+  uint32_t mask = check->GetBitstringMask();
+  DCHECK(IsPowerOfTwo(mask + 1));
+  size_t mask_bits = WhichPowerOf2(mask + 1);
+
+  if (mask_bits == 16u) {
+    // Load only the bitstring part of the status word.
+    __ LoadFromOffset(
+        kLoadUnsignedHalfword, temp, temp, mirror::Class::StatusOffset().Int32Value());
+    // Compare the bitstring bits using XOR.
+    __ Xori(temp, temp, dchecked_integral_cast<uint16_t>(path_to_root));
+  } else {
+    // /* uint32_t */ temp = temp->status_
+    __ LoadFromOffset(kLoadWord, temp, temp, mirror::Class::StatusOffset().Int32Value());
+    // Compare the bitstring bits using XOR.
+    if (IsUint<16>(path_to_root)) {
+      __ Xori(temp, temp, dchecked_integral_cast<uint16_t>(path_to_root));
+    } else {
+      __ LoadConst32(TMP, path_to_root);
+      __ Xor(temp, temp, TMP);
+    }
+    // Shift out bits that do not contribute to the comparison.
+    __ Sll(temp, temp, 32 - mask_bits);
+  }
 }
 
 void InstructionCodeGeneratorMIPS64::GenerateMemoryBarrier(MemBarrierKind kind ATTRIBUTE_UNUSED) {
@@ -2333,7 +2458,7 @@ void InstructionCodeGeneratorMIPS64::VisitArrayGet(HArrayGet* instruction) {
                                                           obj,
                                                           offset,
                                                           temp,
-                                                          /* needs_null_check */ false);
+                                                          /* needs_null_check= */ false);
         } else {
           codegen_->GenerateArrayLoadWithBakerReadBarrier(instruction,
                                                           out_loc,
@@ -2341,7 +2466,7 @@ void InstructionCodeGeneratorMIPS64::VisitArrayGet(HArrayGet* instruction) {
                                                           data_offset,
                                                           index,
                                                           temp,
-                                                          /* needs_null_check */ false);
+                                                          /* needs_null_check= */ false);
         }
       } else {
         GpuRegister out = out_loc.AsRegister<GpuRegister>();
@@ -2840,7 +2965,13 @@ void LocationsBuilderMIPS64::VisitCheckCast(HCheckCast* instruction) {
   LocationSummary* locations =
       new (GetGraph()->GetAllocator()) LocationSummary(instruction, call_kind);
   locations->SetInAt(0, Location::RequiresRegister());
-  locations->SetInAt(1, Location::RequiresRegister());
+  if (type_check_kind == TypeCheckKind::kBitstringCheck) {
+    locations->SetInAt(1, Location::ConstantLocation(instruction->InputAt(1)->AsConstant()));
+    locations->SetInAt(2, Location::ConstantLocation(instruction->InputAt(2)->AsConstant()));
+    locations->SetInAt(3, Location::ConstantLocation(instruction->InputAt(3)->AsConstant()));
+  } else {
+    locations->SetInAt(1, Location::RequiresRegister());
+  }
   locations->AddRegisterTemps(NumberOfCheckCastTemps(type_check_kind));
 }
 
@@ -2849,7 +2980,7 @@ void InstructionCodeGeneratorMIPS64::VisitCheckCast(HCheckCast* instruction) {
   LocationSummary* locations = instruction->GetLocations();
   Location obj_loc = locations->InAt(0);
   GpuRegister obj = obj_loc.AsRegister<GpuRegister>();
-  GpuRegister cls = locations->InAt(1).AsRegister<GpuRegister>();
+  Location cls = locations->InAt(1);
   Location temp_loc = locations->GetTemp(0);
   GpuRegister temp = temp_loc.AsRegister<GpuRegister>();
   const size_t num_temps = NumberOfCheckCastTemps(type_check_kind);
@@ -2888,7 +3019,7 @@ void InstructionCodeGeneratorMIPS64::VisitCheckCast(HCheckCast* instruction) {
                                         kWithoutReadBarrier);
       // Jump to slow path for throwing the exception or doing a
       // more involved array check.
-      __ Bnec(temp, cls, slow_path->GetEntryLabel());
+      __ Bnec(temp, cls.AsRegister<GpuRegister>(), slow_path->GetEntryLabel());
       break;
     }
 
@@ -2914,7 +3045,7 @@ void InstructionCodeGeneratorMIPS64::VisitCheckCast(HCheckCast* instruction) {
       // exception.
       __ Beqzc(temp, slow_path->GetEntryLabel());
       // Otherwise, compare the classes.
-      __ Bnec(temp, cls, &loop);
+      __ Bnec(temp, cls.AsRegister<GpuRegister>(), &loop);
       break;
     }
 
@@ -2929,7 +3060,7 @@ void InstructionCodeGeneratorMIPS64::VisitCheckCast(HCheckCast* instruction) {
       // Walk over the class hierarchy to find a match.
       Mips64Label loop;
       __ Bind(&loop);
-      __ Beqc(temp, cls, &done);
+      __ Beqc(temp, cls.AsRegister<GpuRegister>(), &done);
       // /* HeapReference<Class> */ temp = temp->super_class_
       GenerateReferenceLoadOneRegister(instruction,
                                        temp_loc,
@@ -2952,7 +3083,7 @@ void InstructionCodeGeneratorMIPS64::VisitCheckCast(HCheckCast* instruction) {
                                         maybe_temp2_loc,
                                         kWithoutReadBarrier);
       // Do an exact check.
-      __ Beqc(temp, cls, &done);
+      __ Beqc(temp, cls.AsRegister<GpuRegister>(), &done);
       // Otherwise, we need to check that the object's class is a non-primitive array.
       // /* HeapReference<Class> */ temp = temp->component_type_
       GenerateReferenceLoadOneRegister(instruction,
@@ -3011,7 +3142,21 @@ void InstructionCodeGeneratorMIPS64::VisitCheckCast(HCheckCast* instruction) {
       __ Daddiu(temp, temp, 2 * kHeapReferenceSize);
       __ Addiu(TMP, TMP, -2);
       // Compare the classes and continue the loop if they do not match.
-      __ Bnec(AT, cls, &loop);
+      __ Bnec(AT, cls.AsRegister<GpuRegister>(), &loop);
+      break;
+    }
+
+    case TypeCheckKind::kBitstringCheck: {
+      // /* HeapReference<Class> */ temp = obj->klass_
+      GenerateReferenceLoadTwoRegisters(instruction,
+                                        temp_loc,
+                                        obj_loc,
+                                        class_offset,
+                                        maybe_temp2_loc,
+                                        kWithoutReadBarrier);
+
+      GenerateBitstringTypeCheckCompare(instruction, temp);
+      __ Bnezc(temp, slow_path->GetEntryLabel());
       break;
     }
   }
@@ -3027,15 +3172,14 @@ void LocationsBuilderMIPS64::VisitClinitCheck(HClinitCheck* check) {
   if (check->HasUses()) {
     locations->SetOut(Location::SameAsFirstInput());
   }
+  // Rely on the type initialization to save everything we need.
+  locations->SetCustomSlowPathCallerSaves(OneRegInReferenceOutSaveEverythingCallerSaves());
 }
 
 void InstructionCodeGeneratorMIPS64::VisitClinitCheck(HClinitCheck* check) {
   // We assume the class is not null.
-  SlowPathCodeMIPS64* slow_path = new (codegen_->GetScopedAllocator()) LoadClassSlowPathMIPS64(
-      check->GetLoadClass(),
-      check,
-      check->GetDexPc(),
-      true);
+  SlowPathCodeMIPS64* slow_path =
+      new (codegen_->GetScopedAllocator()) LoadClassSlowPathMIPS64(check->GetLoadClass(), check);
   codegen_->AddSlowPath(slow_path);
   GenerateClassInitializationCheck(slow_path,
                                    check->GetLocations()->InAt(0).AsRegister<GpuRegister>());
@@ -3193,10 +3337,10 @@ void InstructionCodeGeneratorMIPS64::HandleCondition(HCondition* instruction) {
   switch (type) {
     default:
       // Integer case.
-      GenerateIntLongCompare(instruction->GetCondition(), /* is64bit */ false, locations);
+      GenerateIntLongCompare(instruction->GetCondition(), /* is64bit= */ false, locations);
       return;
     case DataType::Type::kInt64:
-      GenerateIntLongCompare(instruction->GetCondition(), /* is64bit */ true, locations);
+      GenerateIntLongCompare(instruction->GetCondition(), /* is64bit= */ true, locations);
       return;
     case DataType::Type::kFloat32:
     case DataType::Type::kFloat64:
@@ -3498,7 +3642,7 @@ void InstructionCodeGeneratorMIPS64::VisitDivZeroCheck(HDivZeroCheck* instructio
 
   if (!DataType::IsIntegralType(type)) {
     LOG(FATAL) << "Unexpected type " << type << " for DivZeroCheck.";
-    return;
+    UNREACHABLE();
   }
 
   if (value.IsConstant()) {
@@ -4305,10 +4449,10 @@ void InstructionCodeGeneratorMIPS64::GenerateTestAndBranch(HInstruction* instruc
 
     switch (type) {
       default:
-        GenerateIntLongCompareAndBranch(if_cond, /* is64bit */ false, locations, branch_target);
+        GenerateIntLongCompareAndBranch(if_cond, /* is64bit= */ false, locations, branch_target);
         break;
       case DataType::Type::kInt64:
-        GenerateIntLongCompareAndBranch(if_cond, /* is64bit */ true, locations, branch_target);
+        GenerateIntLongCompareAndBranch(if_cond, /* is64bit= */ true, locations, branch_target);
         break;
       case DataType::Type::kFloat32:
       case DataType::Type::kFloat64:
@@ -4338,7 +4482,7 @@ void InstructionCodeGeneratorMIPS64::VisitIf(HIf* if_instr) {
       nullptr : codegen_->GetLabelOf(true_successor);
   Mips64Label* false_target = codegen_->GoesToNextBlock(if_instr->GetBlock(), false_successor) ?
       nullptr : codegen_->GetLabelOf(false_successor);
-  GenerateTestAndBranch(if_instr, /* condition_input_index */ 0, true_target, false_target);
+  GenerateTestAndBranch(if_instr, /* condition_input_index= */ 0, true_target, false_target);
 }
 
 void LocationsBuilderMIPS64::VisitDeoptimize(HDeoptimize* deoptimize) {
@@ -4357,9 +4501,9 @@ void InstructionCodeGeneratorMIPS64::VisitDeoptimize(HDeoptimize* deoptimize) {
   SlowPathCodeMIPS64* slow_path =
       deopt_slow_paths_.NewSlowPath<DeoptimizationSlowPathMIPS64>(deoptimize);
   GenerateTestAndBranch(deoptimize,
-                        /* condition_input_index */ 0,
+                        /* condition_input_index= */ 0,
                         slow_path->GetEntryLabel(),
-                        /* false_target */ nullptr);
+                        /* false_target= */ nullptr);
 }
 
 // This function returns true if a conditional move can be generated for HSelect.
@@ -4373,7 +4517,7 @@ void InstructionCodeGeneratorMIPS64::VisitDeoptimize(HDeoptimize* deoptimize) {
 // of common logic.
 static bool CanMoveConditionally(HSelect* select, LocationSummary* locations_to_set) {
   bool materialized = IsBooleanValueOrMaterializedCondition(select->GetCondition());
-  HInstruction* cond = select->InputAt(/* condition_input_index */ 2);
+  HInstruction* cond = select->InputAt(/* i= */ 2);
   HCondition* condition = cond->AsCondition();
 
   DataType::Type cond_type =
@@ -4516,7 +4660,7 @@ void InstructionCodeGeneratorMIPS64::GenConditionalMove(HSelect* select) {
   Location dst = locations->Out();
   Location false_src = locations->InAt(0);
   Location true_src = locations->InAt(1);
-  HInstruction* cond = select->InputAt(/* condition_input_index */ 2);
+  HInstruction* cond = select->InputAt(/* i= */ 2);
   GpuRegister cond_reg = TMP;
   FpuRegister fcond_reg = FTMP;
   DataType::Type cond_type = DataType::Type::kInt32;
@@ -4524,7 +4668,7 @@ void InstructionCodeGeneratorMIPS64::GenConditionalMove(HSelect* select) {
   DataType::Type dst_type = select->GetType();
 
   if (IsBooleanValueOrMaterializedCondition(cond)) {
-    cond_reg = locations->InAt(/* condition_input_index */ 2).AsRegister<GpuRegister>();
+    cond_reg = locations->InAt(/* at= */ 2).AsRegister<GpuRegister>();
   } else {
     HCondition* condition = cond->AsCondition();
     LocationSummary* cond_locations = cond->GetLocations();
@@ -4533,13 +4677,13 @@ void InstructionCodeGeneratorMIPS64::GenConditionalMove(HSelect* select) {
     switch (cond_type) {
       default:
         cond_inverted = MaterializeIntLongCompare(if_cond,
-                                                  /* is64bit */ false,
+                                                  /* is64bit= */ false,
                                                   cond_locations,
                                                   cond_reg);
         break;
       case DataType::Type::kInt64:
         cond_inverted = MaterializeIntLongCompare(if_cond,
-                                                  /* is64bit */ true,
+                                                  /* is64bit= */ true,
                                                   cond_locations,
                                                   cond_reg);
         break;
@@ -4682,14 +4826,14 @@ void LocationsBuilderMIPS64::VisitSelect(HSelect* select) {
 }
 
 void InstructionCodeGeneratorMIPS64::VisitSelect(HSelect* select) {
-  if (CanMoveConditionally(select, /* locations_to_set */ nullptr)) {
+  if (CanMoveConditionally(select, /* locations_to_set= */ nullptr)) {
     GenConditionalMove(select);
   } else {
     LocationSummary* locations = select->GetLocations();
     Mips64Label false_target;
     GenerateTestAndBranch(select,
-                          /* condition_input_index */ 2,
-                          /* true_target */ nullptr,
+                          /* condition_input_index= */ 2,
+                          /* true_target= */ nullptr,
                           &false_target);
     codegen_->MoveLocation(locations->Out(), locations->InAt(1), select->GetType());
     __ Bind(&false_target);
@@ -4801,7 +4945,7 @@ void InstructionCodeGeneratorMIPS64::HandleFieldGet(HInstruction* instruction,
                                                         obj,
                                                         offset,
                                                         temp_loc,
-                                                        /* needs_null_check */ true);
+                                                        /* needs_null_check= */ true);
         if (is_volatile) {
           GenerateMemoryBarrier(MemBarrierKind::kLoadAny);
         }
@@ -4957,7 +5101,7 @@ void InstructionCodeGeneratorMIPS64::GenerateReferenceLoadOneRegister(
                                                       out_reg,
                                                       offset,
                                                       maybe_temp,
-                                                      /* needs_null_check */ false);
+                                                      /* needs_null_check= */ false);
     } else {
       // Load with slow path based read barrier.
       // Save the value of `out` into `maybe_temp` before overwriting it
@@ -4998,7 +5142,7 @@ void InstructionCodeGeneratorMIPS64::GenerateReferenceLoadTwoRegisters(
                                                       obj_reg,
                                                       offset,
                                                       maybe_temp,
-                                                      /* needs_null_check */ false);
+                                                      /* needs_null_check= */ false);
     } else {
       // Load with slow path based read barrier.
       // /* HeapReference<Object> */ out = *(obj + offset)
@@ -5086,7 +5230,7 @@ void InstructionCodeGeneratorMIPS64::GenerateGcRootFieldLoad(HInstruction* instr
           __ Daui(base, obj, offset_high);
         }
         Mips64Label skip_call;
-        __ Beqz(T9, &skip_call, /* is_bare */ true);
+        __ Beqz(T9, &skip_call, /* is_bare= */ true);
         if (label_low != nullptr) {
           DCHECK(short_offset);
           __ Bind(label_low);
@@ -5216,7 +5360,7 @@ void CodeGeneratorMIPS64::GenerateFieldLoadWithBakerReadBarrier(HInstruction* in
     GpuRegister ref_reg = ref.AsRegister<GpuRegister>();
     Mips64Label skip_call;
     if (short_offset) {
-      __ Beqzc(T9, &skip_call, /* is_bare */ true);
+      __ Beqzc(T9, &skip_call, /* is_bare= */ true);
       __ Nop();  // In forbidden slot.
       __ Jialc(T9, thunk_disp);
       __ Bind(&skip_call);
@@ -5225,7 +5369,7 @@ void CodeGeneratorMIPS64::GenerateFieldLoadWithBakerReadBarrier(HInstruction* in
     } else {
       int16_t offset_low = Low16Bits(offset);
       int16_t offset_high = High16Bits(offset - offset_low);  // Accounts for sign extension in lwu.
-      __ Beqz(T9, &skip_call, /* is_bare */ true);
+      __ Beqz(T9, &skip_call, /* is_bare= */ true);
       __ Daui(TMP, obj, offset_high);  // In delay slot.
       __ Jialc(T9, thunk_disp);
       __ Bind(&skip_call);
@@ -5298,12 +5442,12 @@ void CodeGeneratorMIPS64::GenerateArrayLoadWithBakerReadBarrier(HInstruction* in
     // We will not do the explicit null check in the thunk as some form of a null check
     // must've been done earlier.
     DCHECK(!needs_null_check);
-    const int thunk_disp = GetBakerMarkFieldArrayThunkDisplacement(obj, /* short_offset */ false);
+    const int thunk_disp = GetBakerMarkFieldArrayThunkDisplacement(obj, /* short_offset= */ false);
     // Loading the entrypoint does not require a load acquire since it is only changed when
     // threads are suspended or running a checkpoint.
     __ LoadFromOffset(kLoadDoubleword, T9, TR, entry_point_offset);
     Mips64Label skip_call;
-    __ Beqz(T9, &skip_call, /* is_bare */ true);
+    __ Beqz(T9, &skip_call, /* is_bare= */ true);
     GpuRegister ref_reg = ref.AsRegister<GpuRegister>();
     GpuRegister index_reg = index.AsRegister<GpuRegister>();
     __ Dlsa(TMP, index_reg, obj, scale_factor);  // In delay slot.
@@ -5414,7 +5558,7 @@ void CodeGeneratorMIPS64::GenerateReferenceLoadWithBakerReadBarrier(HInstruction
         ReadBarrierMarkAndUpdateFieldSlowPathMIPS64(instruction,
                                                     ref,
                                                     obj,
-                                                    /* field_offset */ index,
+                                                    /* field_offset= */ index,
                                                     temp_reg);
   } else {
     slow_path = new (GetScopedAllocator()) ReadBarrierMarkSlowPathMIPS64(instruction, ref);
@@ -5426,7 +5570,7 @@ void CodeGeneratorMIPS64::GenerateReferenceLoadWithBakerReadBarrier(HInstruction
   // Given the numeric representation, it's enough to check the low bit of the
   // rb_state. We do that by shifting the bit into the sign bit (31) and
   // performing a branch on less than zero.
-  static_assert(ReadBarrier::WhiteState() == 0, "Expecting white to have value 0");
+  static_assert(ReadBarrier::NonGrayState() == 0, "Expecting non-gray to have value 0");
   static_assert(ReadBarrier::GrayState() == 1, "Expecting gray to have value 1");
   static_assert(LockWord::kReadBarrierStateSize == 1, "Expecting 1-bit read barrier state size");
   __ Sll(temp_reg, temp_reg, 31 - LockWord::kReadBarrierStateShift);
@@ -5515,6 +5659,8 @@ void LocationsBuilderMIPS64::VisitInstanceOf(HInstanceOf* instruction) {
     case TypeCheckKind::kInterfaceCheck:
       call_kind = LocationSummary::kCallOnSlowPath;
       break;
+    case TypeCheckKind::kBitstringCheck:
+      break;
   }
 
   LocationSummary* locations =
@@ -5523,7 +5669,13 @@ void LocationsBuilderMIPS64::VisitInstanceOf(HInstanceOf* instruction) {
     locations->SetCustomSlowPathCallerSaves(RegisterSet::Empty());  // No caller-save registers.
   }
   locations->SetInAt(0, Location::RequiresRegister());
-  locations->SetInAt(1, Location::RequiresRegister());
+  if (type_check_kind == TypeCheckKind::kBitstringCheck) {
+    locations->SetInAt(1, Location::ConstantLocation(instruction->InputAt(1)->AsConstant()));
+    locations->SetInAt(2, Location::ConstantLocation(instruction->InputAt(2)->AsConstant()));
+    locations->SetInAt(3, Location::ConstantLocation(instruction->InputAt(3)->AsConstant()));
+  } else {
+    locations->SetInAt(1, Location::RequiresRegister());
+  }
   // The output does overlap inputs.
   // Note that TypeCheckSlowPathMIPS64 uses this register too.
   locations->SetOut(Location::RequiresRegister(), Location::kOutputOverlap);
@@ -5535,7 +5687,7 @@ void InstructionCodeGeneratorMIPS64::VisitInstanceOf(HInstanceOf* instruction) {
   LocationSummary* locations = instruction->GetLocations();
   Location obj_loc = locations->InAt(0);
   GpuRegister obj = obj_loc.AsRegister<GpuRegister>();
-  GpuRegister cls = locations->InAt(1).AsRegister<GpuRegister>();
+  Location cls = locations->InAt(1);
   Location out_loc = locations->Out();
   GpuRegister out = out_loc.AsRegister<GpuRegister>();
   const size_t num_temps = NumberOfInstanceOfTemps(type_check_kind);
@@ -5567,7 +5719,7 @@ void InstructionCodeGeneratorMIPS64::VisitInstanceOf(HInstanceOf* instruction) {
                                         maybe_temp_loc,
                                         read_barrier_option);
       // Classes must be equal for the instanceof to succeed.
-      __ Xor(out, out, cls);
+      __ Xor(out, out, cls.AsRegister<GpuRegister>());
       __ Sltiu(out, out, 1);
       break;
     }
@@ -5594,7 +5746,7 @@ void InstructionCodeGeneratorMIPS64::VisitInstanceOf(HInstanceOf* instruction) {
                                        read_barrier_option);
       // If `out` is null, we use it for the result, and jump to `done`.
       __ Beqzc(out, &done);
-      __ Bnec(out, cls, &loop);
+      __ Bnec(out, cls.AsRegister<GpuRegister>(), &loop);
       __ LoadConst32(out, 1);
       break;
     }
@@ -5612,7 +5764,7 @@ void InstructionCodeGeneratorMIPS64::VisitInstanceOf(HInstanceOf* instruction) {
       // Walk over the class hierarchy to find a match.
       Mips64Label loop, success;
       __ Bind(&loop);
-      __ Beqc(out, cls, &success);
+      __ Beqc(out, cls.AsRegister<GpuRegister>(), &success);
       // /* HeapReference<Class> */ out = out->super_class_
       GenerateReferenceLoadOneRegister(instruction,
                                        out_loc,
@@ -5639,7 +5791,7 @@ void InstructionCodeGeneratorMIPS64::VisitInstanceOf(HInstanceOf* instruction) {
                                         read_barrier_option);
       // Do an exact check.
       Mips64Label success;
-      __ Beqc(out, cls, &success);
+      __ Beqc(out, cls.AsRegister<GpuRegister>(), &success);
       // Otherwise, we need to check that the object's class is a non-primitive array.
       // /* HeapReference<Class> */ out = out->component_type_
       GenerateReferenceLoadOneRegister(instruction,
@@ -5669,9 +5821,9 @@ void InstructionCodeGeneratorMIPS64::VisitInstanceOf(HInstanceOf* instruction) {
                                         kWithoutReadBarrier);
       DCHECK(locations->OnlyCallsOnSlowPath());
       slow_path = new (codegen_->GetScopedAllocator()) TypeCheckSlowPathMIPS64(
-          instruction, /* is_fatal */ false);
+          instruction, /* is_fatal= */ false);
       codegen_->AddSlowPath(slow_path);
-      __ Bnec(out, cls, slow_path->GetEntryLabel());
+      __ Bnec(out, cls.AsRegister<GpuRegister>(), slow_path->GetEntryLabel());
       __ LoadConst32(out, 1);
       break;
     }
@@ -5698,9 +5850,23 @@ void InstructionCodeGeneratorMIPS64::VisitInstanceOf(HInstanceOf* instruction) {
       // This should also be beneficial for the other cases above.
       DCHECK(locations->OnlyCallsOnSlowPath());
       slow_path = new (codegen_->GetScopedAllocator()) TypeCheckSlowPathMIPS64(
-          instruction, /* is_fatal */ false);
+          instruction, /* is_fatal= */ false);
       codegen_->AddSlowPath(slow_path);
       __ Bc(slow_path->GetEntryLabel());
+      break;
+    }
+
+    case TypeCheckKind::kBitstringCheck: {
+      // /* HeapReference<Class> */ temp = obj->klass_
+      GenerateReferenceLoadTwoRegisters(instruction,
+                                        out_loc,
+                                        obj_loc,
+                                        class_offset,
+                                        maybe_temp_loc,
+                                        kWithoutReadBarrier);
+
+      GenerateBitstringTypeCheckCompare(instruction, out);
+      __ Sltiu(out, out, 1);
       break;
     }
   }
@@ -5825,6 +5991,14 @@ void InstructionCodeGeneratorMIPS64::VisitInvokePolymorphic(HInvokePolymorphic* 
   codegen_->GenerateInvokePolymorphicCall(invoke);
 }
 
+void LocationsBuilderMIPS64::VisitInvokeCustom(HInvokeCustom* invoke) {
+  HandleInvoke(invoke);
+}
+
+void InstructionCodeGeneratorMIPS64::VisitInvokeCustom(HInvokeCustom* invoke) {
+  codegen_->GenerateInvokeCustomCall(invoke);
+}
+
 static bool TryGenerateIntrinsicCode(HInvoke* invoke, CodeGeneratorMIPS64* codegen) {
   if (invoke->GetLocations()->Intrinsified()) {
     IntrinsicCodeGeneratorMIPS64 intrinsic(codegen);
@@ -5839,14 +6013,14 @@ HLoadString::LoadKind CodeGeneratorMIPS64::GetSupportedLoadStringKind(
   bool fallback_load = false;
   switch (desired_string_load_kind) {
     case HLoadString::LoadKind::kBootImageLinkTimePcRelative:
-    case HLoadString::LoadKind::kBootImageInternTable:
+    case HLoadString::LoadKind::kBootImageRelRo:
     case HLoadString::LoadKind::kBssEntry:
       DCHECK(!Runtime::Current()->UseJitCompilation());
       break;
+    case HLoadString::LoadKind::kJitBootImageAddress:
     case HLoadString::LoadKind::kJitTableAddress:
       DCHECK(Runtime::Current()->UseJitCompilation());
       break;
-    case HLoadString::LoadKind::kBootImageAddress:
     case HLoadString::LoadKind::kRuntimeCall:
       break;
   }
@@ -5866,14 +6040,14 @@ HLoadClass::LoadKind CodeGeneratorMIPS64::GetSupportedLoadClassKind(
     case HLoadClass::LoadKind::kReferrersClass:
       break;
     case HLoadClass::LoadKind::kBootImageLinkTimePcRelative:
-    case HLoadClass::LoadKind::kBootImageClassTable:
+    case HLoadClass::LoadKind::kBootImageRelRo:
     case HLoadClass::LoadKind::kBssEntry:
       DCHECK(!Runtime::Current()->UseJitCompilation());
       break;
+    case HLoadClass::LoadKind::kJitBootImageAddress:
     case HLoadClass::LoadKind::kJitTableAddress:
       DCHECK(Runtime::Current()->UseJitCompilation());
       break;
-    case HLoadClass::LoadKind::kBootImageAddress:
     case HLoadClass::LoadKind::kRuntimeCall:
       break;
   }
@@ -5885,7 +6059,7 @@ HLoadClass::LoadKind CodeGeneratorMIPS64::GetSupportedLoadClassKind(
 
 HInvokeStaticOrDirect::DispatchInfo CodeGeneratorMIPS64::GetSupportedInvokeStaticOrDirectDispatch(
       const HInvokeStaticOrDirect::DispatchInfo& desired_dispatch_info,
-      HInvokeStaticOrDirect* invoke ATTRIBUTE_UNUSED) {
+      ArtMethod* method ATTRIBUTE_UNUSED) {
   // On MIPS64 we support all dispatch types.
   return desired_dispatch_info;
 }
@@ -5918,23 +6092,32 @@ void CodeGeneratorMIPS64::GenerateStaticOrDirectCall(
       CodeGeneratorMIPS64::PcRelativePatchInfo* info_low =
           NewBootImageMethodPatch(invoke->GetTargetMethod(), info_high);
       EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
-      __ Daddiu(temp.AsRegister<GpuRegister>(), AT, /* placeholder */ 0x5678);
+      __ Daddiu(temp.AsRegister<GpuRegister>(), AT, /* imm16= */ 0x5678);
       break;
     }
-    case HInvokeStaticOrDirect::MethodLoadKind::kDirectAddress:
-      __ LoadLiteral(temp.AsRegister<GpuRegister>(),
-                     kLoadDoubleword,
-                     DeduplicateUint64Literal(invoke->GetMethodAddress()));
+    case HInvokeStaticOrDirect::MethodLoadKind::kBootImageRelRo: {
+      uint32_t boot_image_offset = GetBootImageOffset(invoke);
+      PcRelativePatchInfo* info_high = NewBootImageRelRoPatch(boot_image_offset);
+      PcRelativePatchInfo* info_low = NewBootImageRelRoPatch(boot_image_offset, info_high);
+      EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
+      // Note: Boot image is in the low 4GiB and the entry is 32-bit, so emit a 32-bit load.
+      __ Lwu(temp.AsRegister<GpuRegister>(), AT, /* imm16= */ 0x5678);
       break;
+    }
     case HInvokeStaticOrDirect::MethodLoadKind::kBssEntry: {
       PcRelativePatchInfo* info_high = NewMethodBssEntryPatch(
           MethodReference(&GetGraph()->GetDexFile(), invoke->GetDexMethodIndex()));
       PcRelativePatchInfo* info_low = NewMethodBssEntryPatch(
           MethodReference(&GetGraph()->GetDexFile(), invoke->GetDexMethodIndex()), info_high);
       EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
-      __ Ld(temp.AsRegister<GpuRegister>(), AT, /* placeholder */ 0x5678);
+      __ Ld(temp.AsRegister<GpuRegister>(), AT, /* imm16= */ 0x5678);
       break;
     }
+    case HInvokeStaticOrDirect::MethodLoadKind::kJitDirectAddress:
+      __ LoadLiteral(temp.AsRegister<GpuRegister>(),
+                     kLoadDoubleword,
+                     DeduplicateUint64Literal(invoke->GetMethodAddress()));
+      break;
     case HInvokeStaticOrDirect::MethodLoadKind::kRuntimeCall: {
       GenerateInvokeStaticOrDirectRuntimeCall(invoke, temp, slow_path);
       return;  // No code pointer retrieval; the runtime performs the call directly.
@@ -6048,10 +6231,7 @@ void LocationsBuilderMIPS64::VisitLoadClass(HLoadClass* cls) {
   if (load_kind == HLoadClass::LoadKind::kBssEntry) {
     if (!kUseReadBarrier || kUseBakerReadBarrier) {
       // Rely on the type resolution or initialization and marking to save everything we need.
-      RegisterSet caller_saves = RegisterSet::Empty();
-      InvokeRuntimeCallingConvention calling_convention;
-      caller_saves.Add(Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
-      locations->SetCustomSlowPathCallerSaves(caller_saves);
+      locations->SetCustomSlowPathCallerSaves(OneRegInReferenceOutSaveEverythingCallerSaves());
     } else {
       // For non-Baker read barriers we have a temp-clobbering call.
     }
@@ -6100,33 +6280,18 @@ void InstructionCodeGeneratorMIPS64::VisitLoadClass(HLoadClass* cls) NO_THREAD_S
       CodeGeneratorMIPS64::PcRelativePatchInfo* info_low =
           codegen_->NewBootImageTypePatch(cls->GetDexFile(), cls->GetTypeIndex(), info_high);
       codegen_->EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
-      __ Daddiu(out, AT, /* placeholder */ 0x5678);
+      __ Daddiu(out, AT, /* imm16= */ 0x5678);
       break;
     }
-    case HLoadClass::LoadKind::kBootImageAddress: {
-      DCHECK_EQ(read_barrier_option, kWithoutReadBarrier);
-      uint32_t address = dchecked_integral_cast<uint32_t>(
-          reinterpret_cast<uintptr_t>(cls->GetClass().Get()));
-      DCHECK_NE(address, 0u);
-      __ LoadLiteral(out,
-                     kLoadUnsignedWord,
-                     codegen_->DeduplicateBootImageAddressLiteral(address));
-      break;
-    }
-    case HLoadClass::LoadKind::kBootImageClassTable: {
+    case HLoadClass::LoadKind::kBootImageRelRo: {
       DCHECK(!codegen_->GetCompilerOptions().IsBootImage());
+      uint32_t boot_image_offset = codegen_->GetBootImageOffset(cls);
       CodeGeneratorMIPS64::PcRelativePatchInfo* info_high =
-          codegen_->NewBootImageTypePatch(cls->GetDexFile(), cls->GetTypeIndex());
+          codegen_->NewBootImageRelRoPatch(boot_image_offset);
       CodeGeneratorMIPS64::PcRelativePatchInfo* info_low =
-          codegen_->NewBootImageTypePatch(cls->GetDexFile(), cls->GetTypeIndex(), info_high);
+          codegen_->NewBootImageRelRoPatch(boot_image_offset, info_high);
       codegen_->EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
-      __ Lwu(out, AT, /* placeholder */ 0x5678);
-      // Extract the reference from the slot data, i.e. clear the hash bits.
-      int32_t masked_hash = ClassTable::TableSlot::MaskHash(
-          ComputeModifiedUtf8Hash(cls->GetDexFile().StringByTypeIdx(cls->GetTypeIndex())));
-      if (masked_hash != 0) {
-        __ Daddiu(out, out, -masked_hash);
-      }
+      __ Lwu(out, AT, /* imm16= */ 0x5678);
       break;
     }
     case HLoadClass::LoadKind::kBssEntry: {
@@ -6138,10 +6303,19 @@ void InstructionCodeGeneratorMIPS64::VisitLoadClass(HLoadClass* cls) NO_THREAD_S
       GenerateGcRootFieldLoad(cls,
                               out_loc,
                               out,
-                              /* placeholder */ 0x5678,
+                              /* offset= */ 0x5678,
                               read_barrier_option,
                               &info_low->label);
       generate_null_check = true;
+      break;
+    }
+    case HLoadClass::LoadKind::kJitBootImageAddress: {
+      DCHECK_EQ(read_barrier_option, kWithoutReadBarrier);
+      uint32_t address = reinterpret_cast32<uint32_t>(cls->GetClass().Get());
+      DCHECK_NE(address, 0u);
+      __ LoadLiteral(out,
+                     kLoadUnsignedWord,
+                     codegen_->DeduplicateBootImageAddressLiteral(address));
       break;
     }
     case HLoadClass::LoadKind::kJitTableAddress:
@@ -6160,8 +6334,8 @@ void InstructionCodeGeneratorMIPS64::VisitLoadClass(HLoadClass* cls) NO_THREAD_S
 
   if (generate_null_check || cls->MustGenerateClinitCheck()) {
     DCHECK(cls->CanCallRuntime());
-    SlowPathCodeMIPS64* slow_path = new (codegen_->GetScopedAllocator()) LoadClassSlowPathMIPS64(
-        cls, cls, cls->GetDexPc(), cls->MustGenerateClinitCheck());
+    SlowPathCodeMIPS64* slow_path =
+        new (codegen_->GetScopedAllocator()) LoadClassSlowPathMIPS64(cls, cls);
     codegen_->AddSlowPath(slow_path);
     if (generate_null_check) {
       __ Beqzc(out, slow_path->GetEntryLabel());
@@ -6172,6 +6346,26 @@ void InstructionCodeGeneratorMIPS64::VisitLoadClass(HLoadClass* cls) NO_THREAD_S
       __ Bind(slow_path->GetExitLabel());
     }
   }
+}
+
+void LocationsBuilderMIPS64::VisitLoadMethodHandle(HLoadMethodHandle* load) {
+  InvokeRuntimeCallingConvention calling_convention;
+  Location loc = Location::RegisterLocation(calling_convention.GetRegisterAt(0));
+  CodeGenerator::CreateLoadMethodHandleRuntimeCallLocationSummary(load, loc, loc);
+}
+
+void InstructionCodeGeneratorMIPS64::VisitLoadMethodHandle(HLoadMethodHandle* load) {
+  codegen_->GenerateLoadMethodHandleRuntimeCall(load);
+}
+
+void LocationsBuilderMIPS64::VisitLoadMethodType(HLoadMethodType* load) {
+  InvokeRuntimeCallingConvention calling_convention;
+  Location loc = Location::RegisterLocation(calling_convention.GetRegisterAt(0));
+  CodeGenerator::CreateLoadMethodTypeRuntimeCallLocationSummary(load, loc, loc);
+}
+
+void InstructionCodeGeneratorMIPS64::VisitLoadMethodType(HLoadMethodType* load) {
+  codegen_->GenerateLoadMethodTypeRuntimeCall(load);
 }
 
 static int32_t GetExceptionTlsOffset() {
@@ -6209,10 +6403,7 @@ void LocationsBuilderMIPS64::VisitLoadString(HLoadString* load) {
     if (load_kind == HLoadString::LoadKind::kBssEntry) {
       if (!kUseReadBarrier || kUseBakerReadBarrier) {
         // Rely on the pResolveString and marking to save everything we need.
-        RegisterSet caller_saves = RegisterSet::Empty();
-        InvokeRuntimeCallingConvention calling_convention;
-        caller_saves.Add(Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
-        locations->SetCustomSlowPathCallerSaves(caller_saves);
+        locations->SetCustomSlowPathCallerSaves(OneRegInReferenceOutSaveEverythingCallerSaves());
       } else {
         // For non-Baker read barriers we have a temp-clobbering call.
       }
@@ -6236,30 +6427,21 @@ void InstructionCodeGeneratorMIPS64::VisitLoadString(HLoadString* load) NO_THREA
       CodeGeneratorMIPS64::PcRelativePatchInfo* info_low =
           codegen_->NewBootImageStringPatch(load->GetDexFile(), load->GetStringIndex(), info_high);
       codegen_->EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
-      __ Daddiu(out, AT, /* placeholder */ 0x5678);
+      __ Daddiu(out, AT, /* imm16= */ 0x5678);
       return;
     }
-    case HLoadString::LoadKind::kBootImageAddress: {
-      uint32_t address = dchecked_integral_cast<uint32_t>(
-          reinterpret_cast<uintptr_t>(load->GetString().Get()));
-      DCHECK_NE(address, 0u);
-      __ LoadLiteral(out,
-                     kLoadUnsignedWord,
-                     codegen_->DeduplicateBootImageAddressLiteral(address));
-      return;
-    }
-    case HLoadString::LoadKind::kBootImageInternTable: {
+    case HLoadString::LoadKind::kBootImageRelRo: {
       DCHECK(!codegen_->GetCompilerOptions().IsBootImage());
+      uint32_t boot_image_offset = codegen_->GetBootImageOffset(load);
       CodeGeneratorMIPS64::PcRelativePatchInfo* info_high =
-          codegen_->NewBootImageStringPatch(load->GetDexFile(), load->GetStringIndex());
+          codegen_->NewBootImageRelRoPatch(boot_image_offset);
       CodeGeneratorMIPS64::PcRelativePatchInfo* info_low =
-          codegen_->NewBootImageStringPatch(load->GetDexFile(), load->GetStringIndex(), info_high);
+          codegen_->NewBootImageRelRoPatch(boot_image_offset, info_high);
       codegen_->EmitPcRelativeAddressPlaceholderHigh(info_high, AT, info_low);
-      __ Lwu(out, AT, /* placeholder */ 0x5678);
+      __ Lwu(out, AT, /* imm16= */ 0x5678);
       return;
     }
     case HLoadString::LoadKind::kBssEntry: {
-      DCHECK(!codegen_->GetCompilerOptions().IsBootImage());
       CodeGeneratorMIPS64::PcRelativePatchInfo* info_high =
           codegen_->NewStringBssEntryPatch(load->GetDexFile(), load->GetStringIndex());
       CodeGeneratorMIPS64::PcRelativePatchInfo* info_low =
@@ -6268,7 +6450,7 @@ void InstructionCodeGeneratorMIPS64::VisitLoadString(HLoadString* load) NO_THREA
       GenerateGcRootFieldLoad(load,
                               out_loc,
                               out,
-                              /* placeholder */ 0x5678,
+                              /* offset= */ 0x5678,
                               kCompilerReadBarrierOption,
                               &info_low->label);
       SlowPathCodeMIPS64* slow_path =
@@ -6276,6 +6458,14 @@ void InstructionCodeGeneratorMIPS64::VisitLoadString(HLoadString* load) NO_THREA
       codegen_->AddSlowPath(slow_path);
       __ Beqzc(out, slow_path->GetEntryLabel());
       __ Bind(slow_path->GetExitLabel());
+      return;
+    }
+    case HLoadString::LoadKind::kJitBootImageAddress: {
+      uint32_t address = reinterpret_cast32<uint32_t>(load->GetString().Get());
+      DCHECK_NE(address, 0u);
+      __ LoadLiteral(out,
+                     kLoadUnsignedWord,
+                     codegen_->DeduplicateBootImageAddressLiteral(address));
       return;
     }
     case HLoadString::LoadKind::kJitTableAddress:
@@ -6442,10 +6632,8 @@ void LocationsBuilderMIPS64::VisitNewArray(HNewArray* instruction) {
 }
 
 void InstructionCodeGeneratorMIPS64::VisitNewArray(HNewArray* instruction) {
-  // Note: if heap poisoning is enabled, the entry point takes care
-  // of poisoning the reference.
-  QuickEntrypointEnum entrypoint =
-      CodeGenerator::GetArrayAllocationEntrypoint(instruction->GetLoadClass()->GetClass());
+  // Note: if heap poisoning is enabled, the entry point takes care of poisoning the reference.
+  QuickEntrypointEnum entrypoint = CodeGenerator::GetArrayAllocationEntrypoint(instruction);
   codegen_->InvokeRuntime(entrypoint, instruction, instruction->GetDexPc());
   CheckEntrypointTypes<kQuickAllocArrayResolved, void*, mirror::Class*, int32_t>();
   DCHECK(!codegen_->IsLeafMethod());
@@ -6455,31 +6643,13 @@ void LocationsBuilderMIPS64::VisitNewInstance(HNewInstance* instruction) {
   LocationSummary* locations = new (GetGraph()->GetAllocator()) LocationSummary(
       instruction, LocationSummary::kCallOnMainOnly);
   InvokeRuntimeCallingConvention calling_convention;
-  if (instruction->IsStringAlloc()) {
-    locations->AddTemp(Location::RegisterLocation(kMethodRegisterArgument));
-  } else {
-    locations->SetInAt(0, Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
-  }
+  locations->SetInAt(0, Location::RegisterLocation(calling_convention.GetRegisterAt(0)));
   locations->SetOut(calling_convention.GetReturnLocation(DataType::Type::kReference));
 }
 
 void InstructionCodeGeneratorMIPS64::VisitNewInstance(HNewInstance* instruction) {
-  // Note: if heap poisoning is enabled, the entry point takes care
-  // of poisoning the reference.
-  if (instruction->IsStringAlloc()) {
-    // String is allocated through StringFactory. Call NewEmptyString entry point.
-    GpuRegister temp = instruction->GetLocations()->GetTemp(0).AsRegister<GpuRegister>();
-    MemberOffset code_offset =
-        ArtMethod::EntryPointFromQuickCompiledCodeOffset(kMips64PointerSize);
-    __ LoadFromOffset(kLoadDoubleword, temp, TR, QUICK_ENTRY_POINT(pNewEmptyString));
-    __ LoadFromOffset(kLoadDoubleword, T9, temp, code_offset.Int32Value());
-    __ Jalr(T9);
-    __ Nop();
-    codegen_->RecordPcInfo(instruction, instruction->GetDexPc());
-  } else {
-    codegen_->InvokeRuntime(instruction->GetEntrypoint(), instruction, instruction->GetDexPc());
-    CheckEntrypointTypes<kQuickAllocObjectWithChecks, void*, mirror::Class*>();
-  }
+  codegen_->InvokeRuntime(instruction->GetEntrypoint(), instruction, instruction->GetDexPc());
+  CheckEntrypointTypes<kQuickAllocObjectWithChecks, void*, mirror::Class*>();
 }
 
 void LocationsBuilderMIPS64::VisitNot(HNot* instruction) {
@@ -6662,6 +6832,236 @@ void InstructionCodeGeneratorMIPS64::VisitRem(HRem* instruction) {
     }
     default:
       LOG(FATAL) << "Unexpected rem type " << type;
+  }
+}
+
+static void CreateMinMaxLocations(ArenaAllocator* allocator, HBinaryOperation* minmax) {
+  LocationSummary* locations = new (allocator) LocationSummary(minmax);
+  switch (minmax->GetResultType()) {
+    case DataType::Type::kInt32:
+    case DataType::Type::kInt64:
+      locations->SetInAt(0, Location::RequiresRegister());
+      locations->SetInAt(1, Location::RequiresRegister());
+      locations->SetOut(Location::RequiresRegister(), Location::kNoOutputOverlap);
+      break;
+    case DataType::Type::kFloat32:
+    case DataType::Type::kFloat64:
+      locations->SetInAt(0, Location::RequiresFpuRegister());
+      locations->SetInAt(1, Location::RequiresFpuRegister());
+      locations->SetOut(Location::RequiresFpuRegister(), Location::kNoOutputOverlap);
+      break;
+    default:
+      LOG(FATAL) << "Unexpected type for HMinMax " << minmax->GetResultType();
+  }
+}
+
+void InstructionCodeGeneratorMIPS64::GenerateMinMaxInt(LocationSummary* locations, bool is_min) {
+  GpuRegister lhs = locations->InAt(0).AsRegister<GpuRegister>();
+  GpuRegister rhs = locations->InAt(1).AsRegister<GpuRegister>();
+  GpuRegister out = locations->Out().AsRegister<GpuRegister>();
+
+  if (lhs == rhs) {
+    if (out != lhs) {
+      __ Move(out, lhs);
+    }
+  } else {
+    // Some architectures, such as ARM and MIPS (prior to r6), have a
+    // conditional move instruction which only changes the target
+    // (output) register if the condition is true (MIPS prior to r6 had
+    // MOVF, MOVT, and MOVZ). The SELEQZ and SELNEZ instructions always
+    // change the target (output) register.  If the condition is true the
+    // output register gets the contents of the "rs" register; otherwise,
+    // the output register is set to zero. One consequence of this is
+    // that to implement something like "rd = c==0 ? rs : rt" MIPS64r6
+    // needs to use a pair of SELEQZ/SELNEZ instructions.  After
+    // executing this pair of instructions one of the output registers
+    // from the pair will necessarily contain zero. Then the code ORs the
+    // output registers from the SELEQZ/SELNEZ instructions to get the
+    // final result.
+    //
+    // The initial test to see if the output register is same as the
+    // first input register is needed to make sure that value in the
+    // first input register isn't clobbered before we've finished
+    // computing the output value. The logic in the corresponding else
+    // clause performs the same task but makes sure the second input
+    // register isn't clobbered in the event that it's the same register
+    // as the output register; the else clause also handles the case
+    // where the output register is distinct from both the first, and the
+    // second input registers.
+    if (out == lhs) {
+      __ Slt(AT, rhs, lhs);
+      if (is_min) {
+        __ Seleqz(out, lhs, AT);
+        __ Selnez(AT, rhs, AT);
+      } else {
+        __ Selnez(out, lhs, AT);
+        __ Seleqz(AT, rhs, AT);
+      }
+    } else {
+      __ Slt(AT, lhs, rhs);
+      if (is_min) {
+        __ Seleqz(out, rhs, AT);
+        __ Selnez(AT, lhs, AT);
+      } else {
+        __ Selnez(out, rhs, AT);
+        __ Seleqz(AT, lhs, AT);
+      }
+    }
+    __ Or(out, out, AT);
+  }
+}
+
+void InstructionCodeGeneratorMIPS64::GenerateMinMaxFP(LocationSummary* locations,
+                                                      bool is_min,
+                                                      DataType::Type type) {
+  FpuRegister a = locations->InAt(0).AsFpuRegister<FpuRegister>();
+  FpuRegister b = locations->InAt(1).AsFpuRegister<FpuRegister>();
+  FpuRegister out = locations->Out().AsFpuRegister<FpuRegister>();
+
+  Mips64Label noNaNs;
+  Mips64Label done;
+  FpuRegister ftmp = ((out != a) && (out != b)) ? out : FTMP;
+
+  // When Java computes min/max it prefers a NaN to a number; the
+  // behavior of MIPSR6 is to prefer numbers to NaNs, i.e., if one of
+  // the inputs is a NaN and the other is a valid number, the MIPS
+  // instruction will return the number; Java wants the NaN value
+  // returned. This is why there is extra logic preceding the use of
+  // the MIPS min.fmt/max.fmt instructions. If either a, or b holds a
+  // NaN, return the NaN, otherwise return the min/max.
+  if (type == DataType::Type::kFloat64) {
+    __ CmpUnD(FTMP, a, b);
+    __ Bc1eqz(FTMP, &noNaNs);
+
+    // One of the inputs is a NaN
+    __ CmpEqD(ftmp, a, a);
+    // If a == a then b is the NaN, otherwise a is the NaN.
+    __ SelD(ftmp, a, b);
+
+    if (ftmp != out) {
+      __ MovD(out, ftmp);
+    }
+
+    __ Bc(&done);
+
+    __ Bind(&noNaNs);
+
+    if (is_min) {
+      __ MinD(out, a, b);
+    } else {
+      __ MaxD(out, a, b);
+    }
+  } else {
+    DCHECK_EQ(type, DataType::Type::kFloat32);
+    __ CmpUnS(FTMP, a, b);
+    __ Bc1eqz(FTMP, &noNaNs);
+
+    // One of the inputs is a NaN
+    __ CmpEqS(ftmp, a, a);
+    // If a == a then b is the NaN, otherwise a is the NaN.
+    __ SelS(ftmp, a, b);
+
+    if (ftmp != out) {
+      __ MovS(out, ftmp);
+    }
+
+    __ Bc(&done);
+
+    __ Bind(&noNaNs);
+
+    if (is_min) {
+      __ MinS(out, a, b);
+    } else {
+      __ MaxS(out, a, b);
+    }
+  }
+
+  __ Bind(&done);
+}
+
+void InstructionCodeGeneratorMIPS64::GenerateMinMax(HBinaryOperation* minmax, bool is_min) {
+  DataType::Type type = minmax->GetResultType();
+  switch (type) {
+    case DataType::Type::kInt32:
+    case DataType::Type::kInt64:
+      GenerateMinMaxInt(minmax->GetLocations(), is_min);
+      break;
+    case DataType::Type::kFloat32:
+    case DataType::Type::kFloat64:
+      GenerateMinMaxFP(minmax->GetLocations(), is_min, type);
+      break;
+    default:
+      LOG(FATAL) << "Unexpected type for HMinMax " << type;
+  }
+}
+
+void LocationsBuilderMIPS64::VisitMin(HMin* min) {
+  CreateMinMaxLocations(GetGraph()->GetAllocator(), min);
+}
+
+void InstructionCodeGeneratorMIPS64::VisitMin(HMin* min) {
+  GenerateMinMax(min, /*is_min*/ true);
+}
+
+void LocationsBuilderMIPS64::VisitMax(HMax* max) {
+  CreateMinMaxLocations(GetGraph()->GetAllocator(), max);
+}
+
+void InstructionCodeGeneratorMIPS64::VisitMax(HMax* max) {
+  GenerateMinMax(max, /*is_min*/ false);
+}
+
+void LocationsBuilderMIPS64::VisitAbs(HAbs* abs) {
+  LocationSummary* locations = new (GetGraph()->GetAllocator()) LocationSummary(abs);
+  switch (abs->GetResultType()) {
+    case DataType::Type::kInt32:
+    case DataType::Type::kInt64:
+      locations->SetInAt(0, Location::RequiresRegister());
+      locations->SetOut(Location::RequiresRegister(), Location::kNoOutputOverlap);
+      break;
+    case DataType::Type::kFloat32:
+    case DataType::Type::kFloat64:
+      locations->SetInAt(0, Location::RequiresFpuRegister());
+      locations->SetOut(Location::RequiresFpuRegister(), Location::kNoOutputOverlap);
+      break;
+    default:
+      LOG(FATAL) << "Unexpected abs type " << abs->GetResultType();
+  }
+}
+
+void InstructionCodeGeneratorMIPS64::VisitAbs(HAbs* abs) {
+  LocationSummary* locations = abs->GetLocations();
+  switch (abs->GetResultType()) {
+    case DataType::Type::kInt32: {
+      GpuRegister in  = locations->InAt(0).AsRegister<GpuRegister>();
+      GpuRegister out = locations->Out().AsRegister<GpuRegister>();
+      __ Sra(AT, in, 31);
+      __ Xor(out, in, AT);
+      __ Subu(out, out, AT);
+      break;
+    }
+    case DataType::Type::kInt64: {
+      GpuRegister in  = locations->InAt(0).AsRegister<GpuRegister>();
+      GpuRegister out = locations->Out().AsRegister<GpuRegister>();
+      __ Dsra32(AT, in, 31);
+      __ Xor(out, in, AT);
+      __ Dsubu(out, out, AT);
+      break;
+    }
+    case DataType::Type::kFloat32: {
+      FpuRegister in = locations->InAt(0).AsFpuRegister<FpuRegister>();
+      FpuRegister out = locations->Out().AsFpuRegister<FpuRegister>();
+      __ AbsS(out, in);
+      break;
+    }
+    case DataType::Type::kFloat64: {
+      FpuRegister in = locations->InAt(0).AsFpuRegister<FpuRegister>();
+      FpuRegister out = locations->Out().AsFpuRegister<FpuRegister>();
+      __ AbsD(out, in);
+      break;
+    }
+    default:
+      LOG(FATAL) << "Unexpected abs type " << abs->GetResultType();
   }
 }
 

@@ -16,8 +16,6 @@
 
 package com.android.vts.entity;
 
-import static org.junit.Assert.*;
-
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
@@ -70,7 +68,7 @@ public class TestAcknowledgmentEntityTest {
 
         Assert.assertNotNull(e);
         Assert.assertEquals(key, e.getProperty(TestAcknowledgmentEntity.TEST_KEY));
-        Assert.assertEquals(user, e.getProperty(TestAcknowledgmentEntity.USER));
+        Assert.assertEquals(user, e.getProperty(TestAcknowledgmentEntity.USER_OBJ));
         Assert.assertTrue(
                 ((List<String>) e.getProperty(TestAcknowledgmentEntity.BRANCHES))
                         .containsAll(branches));
@@ -85,11 +83,11 @@ public class TestAcknowledgmentEntityTest {
         TestAcknowledgmentEntity deserialized = TestAcknowledgmentEntity.fromEntity(e);
         Assert.assertNotNull(deserialized);
         Assert.assertEquals(key, deserialized.test);
-        Assert.assertEquals(user, deserialized.user);
-        Assert.assertTrue(deserialized.branches.containsAll(branches));
-        Assert.assertTrue(deserialized.devices.containsAll(devices));
-        Assert.assertTrue(deserialized.testCaseNames.containsAll(testCaseNames));
-        Assert.assertEquals(note.getValue(), deserialized.note);
+        Assert.assertEquals(user, deserialized.getUserObj());
+        Assert.assertTrue(deserialized.getBranches().containsAll(branches));
+        Assert.assertTrue(deserialized.getDevices().containsAll(devices));
+        Assert.assertTrue(deserialized.getTestCaseNames().containsAll(testCaseNames));
+        Assert.assertEquals(note.getValue(), deserialized.getNote());
     }
 
     /** Test serialization to/from Entity objects when optional parameters are null. */
@@ -103,7 +101,7 @@ public class TestAcknowledgmentEntityTest {
 
         Assert.assertNotNull(e);
         Assert.assertEquals(key, e.getProperty(TestAcknowledgmentEntity.TEST_KEY));
-        Assert.assertEquals(user, e.getProperty(TestAcknowledgmentEntity.USER));
+        Assert.assertEquals(user, e.getProperty(TestAcknowledgmentEntity.USER_OBJ));
         Assert.assertFalse(e.hasProperty(TestAcknowledgmentEntity.BRANCHES));
         Assert.assertFalse(e.hasProperty(TestAcknowledgmentEntity.DEVICES));
         Assert.assertFalse(e.hasProperty(TestAcknowledgmentEntity.TEST_CASE_NAMES));
@@ -112,11 +110,11 @@ public class TestAcknowledgmentEntityTest {
         TestAcknowledgmentEntity deserialized = TestAcknowledgmentEntity.fromEntity(e);
         Assert.assertNotNull(deserialized);
         Assert.assertEquals(key, deserialized.test);
-        Assert.assertEquals(user, deserialized.user);
-        Assert.assertEquals(0, deserialized.branches.size());
-        Assert.assertEquals(0, deserialized.devices.size());
-        Assert.assertEquals(0, deserialized.testCaseNames.size());
-        Assert.assertNull(deserialized.note);
+        Assert.assertEquals(user, deserialized.getUserObj());
+        Assert.assertEquals(0, deserialized.getBranches().size());
+        Assert.assertEquals(0, deserialized.getDevices().size());
+        Assert.assertEquals(0, deserialized.getTestCaseNames().size());
+        Assert.assertNull(deserialized.getNote());
     }
 
     /** Test serialization to/from Json objects. */
@@ -140,11 +138,11 @@ public class TestAcknowledgmentEntityTest {
         TestAcknowledgmentEntity deserialized = TestAcknowledgmentEntity.fromJson(user, json);
         Assert.assertNotNull(deserialized);
         Assert.assertEquals(key, deserialized.test);
-        Assert.assertEquals(user, deserialized.user);
-        Assert.assertTrue(deserialized.branches.containsAll(branches));
-        Assert.assertTrue(deserialized.devices.containsAll(devices));
-        Assert.assertTrue(deserialized.testCaseNames.containsAll(testCaseNames));
-        Assert.assertEquals(note.getValue(), deserialized.note);
+        Assert.assertEquals(user, deserialized.getUserObj());
+        Assert.assertTrue(deserialized.getBranches().containsAll(branches));
+        Assert.assertTrue(deserialized.getDevices().containsAll(devices));
+        Assert.assertTrue(deserialized.getTestCaseNames().containsAll(testCaseNames));
+        Assert.assertEquals(note.getValue(), deserialized.getNote());
     }
 
     /** Test serialization to/from Json objects when optional properties are null. */
@@ -161,10 +159,10 @@ public class TestAcknowledgmentEntityTest {
         TestAcknowledgmentEntity deserialized = TestAcknowledgmentEntity.fromJson(user, json);
         Assert.assertNotNull(deserialized);
         Assert.assertEquals(key, deserialized.test);
-        Assert.assertEquals(user, deserialized.user);
-        Assert.assertEquals(0, deserialized.branches.size());
-        Assert.assertEquals(0, deserialized.devices.size());
-        Assert.assertEquals(0, deserialized.testCaseNames.size());
-        Assert.assertEquals("", deserialized.note);
+        Assert.assertEquals(user, deserialized.getUserObj());
+        Assert.assertEquals(0, deserialized.getBranches().size());
+        Assert.assertEquals(0, deserialized.getDevices().size());
+        Assert.assertEquals(0, deserialized.getTestCaseNames().size());
+        Assert.assertEquals("", deserialized.getNote());
     }
 }

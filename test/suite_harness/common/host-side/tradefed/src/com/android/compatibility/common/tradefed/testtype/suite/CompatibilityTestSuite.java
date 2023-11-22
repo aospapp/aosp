@@ -64,8 +64,6 @@ public class CompatibilityTestSuite extends BaseTestSuite {
     private String mSubPlan;
 
     private CompatibilityBuildHelper mBuildHelper;
-    /** Tag if the current instance is running as a retry from RetryFactory */
-    private boolean mIsRetry = false;
 
     /**
      * Ctor that sets some default for Compatibility runs.
@@ -73,7 +71,6 @@ public class CompatibilityTestSuite extends BaseTestSuite {
     public CompatibilityTestSuite() {
         try {
             OptionSetter setter = new OptionSetter(this);
-            setter.setOptionValue("config-patterns", ".*\\.config");
             setter.setOptionValue("skip-loading-config-jar", "true");
         } catch (ConfigurationException e) {
             // Should not happen
@@ -148,31 +145,18 @@ public class CompatibilityTestSuite extends BaseTestSuite {
     }
 
     /**
-     * Mark the instance of CompatibilityTestSuite as a retry.
-     */
-    public final void isRetry() {
-        mIsRetry = true;
-    }
-
-    /**
      * {@inheritDoc}
      */
     @Override
     public LinkedHashMap<String, IConfiguration> loadingStrategy(
-            Set<IAbi> abis, File testsDir, String suitePrefix, String suiteTag) {
+            Set<IAbi> abis, List<File> testsDirs, String suitePrefix, String suiteTag) {
         LinkedHashMap<String, IConfiguration> loadedConfigs =
-                super.loadingStrategy(abis, testsDir, suitePrefix, suiteTag);
+                super.loadingStrategy(abis, testsDirs, suitePrefix, suiteTag);
         // Add an extra check in CTS since we never expect the config folder to be empty.
         if (loadedConfigs.size() == 0) {
-            if (mIsRetry) {
-                // Only log if it's a retry
-                CLog.logAndDisplay(LogLevel.DEBUG,
-                        "No module that needed to run in retry were found. nothing to do.");
-            } else {
-                throw new IllegalArgumentException(
-                        String.format("No config files found in %s or in resources.",
-                                testsDir.getAbsolutePath()));
-            }
+            // Only log if nothing to run.
+            CLog.logAndDisplay(LogLevel.DEBUG,
+                    "No module that needed to run were found. nothing to do.");
         }
         return loadedConfigs;
     }

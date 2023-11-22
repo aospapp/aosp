@@ -20,5 +20,16 @@
 			<type>2</type>
 			<locationURI>TRADEFED_ROOT/external/easymock/src</locationURI>
 		</link>
-	</linkedResources>
+        <link>
+            <name>mockito</name>
+            <type>2</type>
+            <locationURI>TRADEFED_ROOT/external/mockito/src/main/java</locationURI>
+        </link>
+        <link>
+            <name>objenesis</name>
+            <type>2</type>
+            <location>TRADEFED_ROOT/external/objenesis/main/src/main/java</location>
+        </link>
+
+    </linkedResources>
 </projectDescription>

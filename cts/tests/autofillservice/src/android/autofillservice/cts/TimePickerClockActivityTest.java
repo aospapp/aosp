@@ -17,17 +17,17 @@ package android.autofillservice.cts;
 
 import android.platform.test.annotations.AppModeFull;
 
-import org.junit.Rule;
-
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class TimePickerClockActivityTest extends TimePickerTestCase<TimePickerClockActivity> {
 
-    @Rule
-    public final AutofillActivityTestRule<TimePickerClockActivity> mActivityRule =
-        new AutofillActivityTestRule<TimePickerClockActivity>(TimePickerClockActivity.class);
-
     @Override
-    protected TimePickerClockActivity getTimePickerActivity() {
-        return mActivityRule.getActivity();
+    protected AutofillActivityTestRule<TimePickerClockActivity> getActivityRule() {
+        return new AutofillActivityTestRule<TimePickerClockActivity>(
+                TimePickerClockActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 }

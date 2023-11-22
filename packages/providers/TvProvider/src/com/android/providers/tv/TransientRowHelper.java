@@ -62,6 +62,12 @@ public class TransientRowHelper {
         mDatabaseHelper = DatabaseHelper.getInstance(context);
     }
 
+    @VisibleForTesting
+    TransientRowHelper(Context context, DatabaseHelper databaseHelper) {
+        mContext = context;
+        mDatabaseHelper = databaseHelper;
+    }
+
     /**
      * Ensures that transient rows, inserted previously before current boot, are deleted.
      */

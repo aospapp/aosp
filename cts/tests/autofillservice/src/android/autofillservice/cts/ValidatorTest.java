@@ -18,6 +18,7 @@ package android.autofillservice.cts;
 
 import static android.autofillservice.cts.Helper.ID_PASSWORD;
 import static android.autofillservice.cts.Helper.ID_USERNAME;
+import static android.autofillservice.cts.Helper.findAutofillIdByResourceId;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -32,25 +33,13 @@ import android.service.autofill.ValueFinder;
 import android.view.View;
 import android.view.autofill.AutofillId;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
 /**
  * Simple integration test to verify that the UI is only shown if the validator passes.
  */
-@AppModeFull // Service-specific test
-public class ValidatorTest extends AutoFillServiceTestCase {
-    @Rule
-    public final AutofillActivityTestRule<LoginActivity> mActivityRule =
-        new AutofillActivityTestRule<>(LoginActivity.class);
-
-    private LoginActivity mActivity;
-
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
-    }
+@AppModeFull(reason = "Service-specific test")
+public class ValidatorTest extends AbstractLoginActivityTestCase {
 
     @Test
     public void testShowUiWhenValidatorPass() throws Exception {
@@ -65,17 +54,19 @@ public class ValidatorTest extends AutoFillServiceTestCase {
     private void integrationTest(boolean willSaveBeShown) throws Exception {
         enableService();
 
-        final AutofillId usernameId = mActivity.getUsername().getAutofillId();
-
         final String username = willSaveBeShown ? "7992739871-3" : "4815162342-108";
-        final LuhnChecksumValidator validator = new LuhnChecksumValidator(usernameId);
-        // Sanity check to make sure the validator is properly configured
-        assertValidator(validator, usernameId, username, willSaveBeShown);
 
         // Set response
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_USERNAME, ID_PASSWORD)
-                .setValidator(validator)
+                .setSaveInfoVisitor((contexts, builder) -> {
+                    final AutofillId usernameId =
+                            findAutofillIdByResourceId(contexts.get(0), ID_USERNAME);
+                    final LuhnChecksumValidator validator = new LuhnChecksumValidator(usernameId);
+                    // Sanity check to make sure the validator is properly configured
+                    assertValidator(validator, usernameId, username, willSaveBeShown);
+                    builder.setValidator(validator);
+                })
                 .build());
 
         // Trigger auto-fill

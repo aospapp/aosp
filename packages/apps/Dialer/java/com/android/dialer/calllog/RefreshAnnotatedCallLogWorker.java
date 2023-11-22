@@ -26,6 +26,7 @@ import com.android.dialer.calllog.datasources.DataSources;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.Annotations.BackgroundExecutor;
 import com.android.dialer.common.concurrent.Annotations.LightweightExecutor;
+import com.android.dialer.common.concurrent.DefaultFutureCallback;
 import com.android.dialer.common.concurrent.DialerFutureSerializer;
 import com.android.dialer.common.concurrent.DialerFutures;
 import com.android.dialer.inject.ApplicationContext;
@@ -53,6 +54,7 @@ public class RefreshAnnotatedCallLogWorker {
   private final MutationApplier mutationApplier;
   private final FutureTimer futureTimer;
   private final CallLogState callLogState;
+  private final CallLogCacheUpdater callLogCacheUpdater;
   private final ListeningExecutorService backgroundExecutorService;
   private final ListeningExecutorService lightweightExecutorService;
   // Used to ensure that only one refresh flow runs at a time. (Note that
@@ -67,6 +69,7 @@ public class RefreshAnnotatedCallLogWorker {
       MutationApplier mutationApplier,
       FutureTimer futureTimer,
       CallLogState callLogState,
+      CallLogCacheUpdater callLogCacheUpdater,
       @BackgroundExecutor ListeningExecutorService backgroundExecutorService,
       @LightweightExecutor ListeningExecutorService lightweightExecutorService) {
     this.appContext = appContext;
@@ -75,6 +78,7 @@ public class RefreshAnnotatedCallLogWorker {
     this.mutationApplier = mutationApplier;
     this.futureTimer = futureTimer;
     this.callLogState = callLogState;
+    this.callLogCacheUpdater = callLogCacheUpdater;
     this.backgroundExecutorService = backgroundExecutorService;
     this.lightweightExecutorService = lightweightExecutorService;
   }
@@ -154,10 +158,9 @@ public class RefreshAnnotatedCallLogWorker {
   private ListenableFuture<Boolean> isDirty() {
     List<ListenableFuture<Boolean>> isDirtyFutures = new ArrayList<>();
     for (CallLogDataSource dataSource : dataSources.getDataSourcesIncludingSystemCallLog()) {
-      ListenableFuture<Boolean> dataSourceDirty = dataSource.isDirty(appContext);
+      ListenableFuture<Boolean> dataSourceDirty = dataSource.isDirty();
       isDirtyFutures.add(dataSourceDirty);
-      String eventName =
-          String.format(Metrics.IS_DIRTY_TEMPLATE, dataSource.getClass().getSimpleName());
+      String eventName = String.format(Metrics.IS_DIRTY_TEMPLATE, dataSource.getLoggingName());
       futureTimer.applyTiming(dataSourceDirty, eventName, LogCatMode.LOG_VALUES);
     }
     // Simultaneously invokes isDirty on all data sources, returning as soon as one returns true.
@@ -172,7 +175,7 @@ public class RefreshAnnotatedCallLogWorker {
 
     // Start by filling the data sources--the system call log data source must go first!
     CallLogDataSource systemCallLogDataSource = dataSources.getSystemCallLogDataSource();
-    ListenableFuture<Void> fillFuture = systemCallLogDataSource.fill(appContext, mutations);
+    ListenableFuture<Void> fillFuture = systemCallLogDataSource.fill(mutations);
     String systemEventName = eventNameForFill(systemCallLogDataSource, isBuilt);
     futureTimer.applyTiming(fillFuture, systemEventName);
 
@@ -184,7 +187,7 @@ public class RefreshAnnotatedCallLogWorker {
           Futures.transformAsync(
               fillFuture,
               unused -> {
-                ListenableFuture<Void> dataSourceFuture = dataSource.fill(appContext, mutations);
+                ListenableFuture<Void> dataSourceFuture = dataSource.fill(mutations);
                 String eventName = eventNameForFill(dataSource, isBuilt);
                 futureTimer.applyTiming(dataSourceFuture, eventName);
                 return dataSourceFuture;
@@ -207,6 +210,14 @@ public class RefreshAnnotatedCallLogWorker {
             },
             lightweightExecutorService);
 
+    Futures.addCallback(
+        Futures.transformAsync(
+            applyMutationsFuture,
+            unused -> callLogCacheUpdater.updateCache(mutations),
+            MoreExecutors.directExecutor()),
+        new DefaultFutureCallback<>(),
+        MoreExecutors.directExecutor());
+
     // After mutations applied, call onSuccessfulFill for each data source (in parallel).
     ListenableFuture<List<Void>> onSuccessfulFillFuture =
         Futures.transformAsync(
@@ -215,7 +226,7 @@ public class RefreshAnnotatedCallLogWorker {
               List<ListenableFuture<Void>> onSuccessfulFillFutures = new ArrayList<>();
               for (CallLogDataSource dataSource :
                   dataSources.getDataSourcesIncludingSystemCallLog()) {
-                ListenableFuture<Void> dataSourceFuture = dataSource.onSuccessfulFill(appContext);
+                ListenableFuture<Void> dataSourceFuture = dataSource.onSuccessfulFill();
                 onSuccessfulFillFutures.add(dataSourceFuture);
                 String eventName = eventNameForOnSuccessfulFill(dataSource, isBuilt);
                 futureTimer.applyTiming(dataSourceFuture, eventName);
@@ -242,7 +253,7 @@ public class RefreshAnnotatedCallLogWorker {
   private static String eventNameForFill(CallLogDataSource dataSource, boolean isBuilt) {
     return String.format(
         !isBuilt ? Metrics.INITIAL_FILL_TEMPLATE : Metrics.FILL_TEMPLATE,
-        dataSource.getClass().getSimpleName());
+        dataSource.getLoggingName());
   }
 
   private static String eventNameForOverallFill(boolean isBuilt) {
@@ -255,7 +266,7 @@ public class RefreshAnnotatedCallLogWorker {
         !isBuilt
             ? Metrics.INITIAL_ON_SUCCESSFUL_FILL_TEMPLATE
             : Metrics.ON_SUCCESSFUL_FILL_TEMPLATE,
-        dataSource.getClass().getSimpleName());
+        dataSource.getLoggingName());
   }
 
   private static String eventNameForOverallOnSuccessfulFill(boolean isBuilt) {

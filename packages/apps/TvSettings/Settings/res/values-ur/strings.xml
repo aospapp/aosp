@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"کیلیبریشن"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"فارمیٹس منتخب کریں"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"محیط آواز"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)‎"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)‎"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"جب تک ڈرائیو دوبارہ منسلک نہیں کر دی جاتی تب تک کچھ ایپس غیر دستیاب ہونگی یا ٹھیک طرح سے کام نہیں کریں گی۔"</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"اسٹوریج کی کافی جگہ نہیں ہے۔"</string>
     <string name="does_not_exist" msgid="4553235698171937217">"ایپ موجود نہیں ہے۔"</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"ایپ کاپی کیلئے تحفظ یافتہ ہے۔"</string>
     <string name="invalid_location" msgid="5269044848535157307">"انسٹال کا مقام درست نہيں ہے۔"</string>
     <string name="system_package" msgid="9200255718634512790">"سسٹم اپ ڈیٹس کو خارجی میڈیا پر انسٹال نہیں کیا جا سکتا ہے۔"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"آلہ منتظم بیرونی میڈیا پر انسٹال نہیں کیا جا سکتا۔"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"اطلاع تک رسائی"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"کسی انسٹال کردہ ایپ نے اطلاع تک رسائی کی درخواست نہیں کی ہے۔"</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"یہ ایپس رابطوں کے نام اور آپ کو موصول ہونے والے پیغامات کے متن جیسی ذاتی معلومات سمیت سبھی اطلاعات پڑھنے کے قابل ہوں گی۔ یہ ایپس اطلاعات برخاست کرنے یا ان میں موجود کارروائی کے بٹنز کو محرک کرنے کے بھی قابل ہوں گی۔"</string>
+    <string name="directory_access" msgid="7439168599298598101">"ڈائرکٹری تک رسائی"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"ان ایپس کو مخصوص ڈائرکٹریز تک رسائی کی اجازت ہے۔"</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"دیگر ایپس پر ڈسپلے کریں"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"دیگر ایپس پر ڈسپلے کی اجازت دیں"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"اپنی زیر استعمال دیگر ایپس کے اوپر ایک ایپ کو ڈسپلے ہونے کی اجازت دیں۔ یہ آپ کی ان ایپس کے استعمال میں مداخلت کر سکتی ہے یا وہ جس طرح دکھائی دیتی یا برتاؤ کرتی دکھائی دیتی ہیں، اس میں تبدیلی کر سکتی ہے۔"</string>

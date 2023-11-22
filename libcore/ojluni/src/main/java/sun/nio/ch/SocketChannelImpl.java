@@ -936,7 +936,14 @@ class SocketChannelImpl
         if (guard != null) {
             guard.warnIfOpen();
         }
-        close();
+        // BEGIN Android-changed: Integrate upstream code from DatagramChannelImpl.finalize().
+        // http://b/115296581
+        // close();
+        // fd is null if constructor threw exception
+        if (fd != null) {
+            close();
+        }
+        // END Android-changed: Integrate upstream code from DatagramChannelImpl.finalize().
     }
 
     /**

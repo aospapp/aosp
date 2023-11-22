@@ -20,6 +20,7 @@
 #define __MSM_DRM_H__
 #include "drm.h"
 #ifdef __cplusplus
+extern "C" {
 #endif
 #define MSM_PIPE_NONE 0x00
 #define MSM_PIPE_2D0 0x01
@@ -56,12 +57,16 @@ struct drm_msm_gem_new {
   __u32 flags;
   __u32 handle;
 };
-#define MSM_INFO_IOVA 0x01
-#define MSM_INFO_FLAGS (MSM_INFO_IOVA)
+#define MSM_INFO_GET_OFFSET 0x00
+#define MSM_INFO_GET_IOVA 0x01
+#define MSM_INFO_SET_NAME 0x02
+#define MSM_INFO_GET_NAME 0x03
 struct drm_msm_gem_info {
   __u32 handle;
-  __u32 flags;
-  __u64 offset;
+  __u32 info;
+  __u64 value;
+  __u32 len;
+  __u32 pad;
 };
 #define MSM_PREP_READ 0x01
 #define MSM_PREP_WRITE 0x02
@@ -96,7 +101,8 @@ struct drm_msm_gem_submit_cmd {
 };
 #define MSM_SUBMIT_BO_READ 0x0001
 #define MSM_SUBMIT_BO_WRITE 0x0002
-#define MSM_SUBMIT_BO_FLAGS (MSM_SUBMIT_BO_READ | MSM_SUBMIT_BO_WRITE)
+#define MSM_SUBMIT_BO_DUMP 0x0004
+#define MSM_SUBMIT_BO_FLAGS (MSM_SUBMIT_BO_READ | MSM_SUBMIT_BO_WRITE | MSM_SUBMIT_BO_DUMP)
 struct drm_msm_gem_submit_bo {
   __u32 flags;
   __u32 handle;
@@ -105,7 +111,8 @@ struct drm_msm_gem_submit_bo {
 #define MSM_SUBMIT_NO_IMPLICIT 0x80000000
 #define MSM_SUBMIT_FENCE_FD_IN 0x40000000
 #define MSM_SUBMIT_FENCE_FD_OUT 0x20000000
-#define MSM_SUBMIT_FLAGS (MSM_SUBMIT_NO_IMPLICIT | MSM_SUBMIT_FENCE_FD_IN | MSM_SUBMIT_FENCE_FD_OUT | 0)
+#define MSM_SUBMIT_SUDO 0x10000000
+#define MSM_SUBMIT_FLAGS (MSM_SUBMIT_NO_IMPLICIT | MSM_SUBMIT_FENCE_FD_IN | MSM_SUBMIT_FENCE_FD_OUT | MSM_SUBMIT_SUDO | 0)
 struct drm_msm_gem_submit {
   __u32 flags;
   __u32 fence;
@@ -157,5 +164,6 @@ struct drm_msm_submitqueue {
 #define DRM_IOCTL_MSM_SUBMITQUEUE_NEW DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_NEW, struct drm_msm_submitqueue)
 #define DRM_IOCTL_MSM_SUBMITQUEUE_CLOSE DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_CLOSE, __u32)
 #ifdef __cplusplus
+}
 #endif
 #endif

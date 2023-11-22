@@ -16,10 +16,21 @@
 
 package com.android.vts.entity;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
 import com.google.appengine.api.datastore.Entity;
+import com.googlecode.objectify.Key;
+import com.googlecode.objectify.annotation.Cache;
+import com.googlecode.objectify.annotation.Id;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@com.googlecode.objectify.annotation.Entity(name = "TestPlan")
+@Cache
+@Data
+@NoArgsConstructor
 /** Entity describing test plan metadata. */
 public class TestPlanEntity implements DashboardEntity {
     protected static final Logger logger = Logger.getLogger(TestPlanEntity.class.getName());
@@ -29,7 +40,8 @@ public class TestPlanEntity implements DashboardEntity {
     // Property keys
     public static final String TEST_PLAN_NAME = "testPlanName";
 
-    public final String testPlanName;
+    @Id
+    public String testPlanName;
 
     /**
      * Create a TestPlanEntity object.
@@ -40,10 +52,14 @@ public class TestPlanEntity implements DashboardEntity {
         this.testPlanName = testPlanName;
     }
 
-    @Override
     public Entity toEntity() {
         Entity planEntity = new Entity(KIND, this.testPlanName);
         return planEntity;
+    }
+
+    public Key getKey() {
+        Key key = Key.create(TestPlanEntity.class, this.testPlanName);
+        return key;
     }
 
     /**
@@ -61,5 +77,11 @@ public class TestPlanEntity implements DashboardEntity {
         }
         String testPlanName = e.getKey().getName();
         return new TestPlanEntity(testPlanName);
+    }
+
+    /** Saving function for the instance of this class */
+    @Override
+    public com.googlecode.objectify.Key<TestPlanEntity> save() {
+        return ofy().save().entity(this).now();
     }
 }

@@ -70,7 +70,6 @@ static void _write_header_pwg(int pixel_width, int pixel_height, cups_page_heade
         h->PageSize[1] = (int) h->cupsPageSize[1];
         h->Separations = CUPS_TRUE;
         h->TraySwitch = CUPS_TRUE;
-        h->Tumble = CUPS_TRUE;
         h->cupsWidth = pixel_width;
         h->cupsHeight = pixel_height;
         h->cupsBitsPerPixel = (monochrome ? 8 : 24);
@@ -219,12 +218,15 @@ static wJob_t _start_job(wJob_t job_handle, pcl_job_info_t *job_info, media_size
     if (duplex == DUPLEX_MODE_BOOK) {
         job_info->pclm_page_info.duplexDisposition = duplex_longEdge;
         header_pwg.Duplex = CUPS_TRUE;
+        header_pwg.Tumble = CUPS_FALSE;
     } else if (duplex == DUPLEX_MODE_TABLET) {
         job_info->pclm_page_info.duplexDisposition = duplex_shortEdge;
         header_pwg.Duplex = CUPS_TRUE;
+        header_pwg.Tumble = CUPS_TRUE;
     } else {
         job_info->pclm_page_info.duplexDisposition = simplex;
         header_pwg.Duplex = CUPS_FALSE;
+        header_pwg.Tumble = CUPS_FALSE;
     }
 
     job_info->pclm_page_info.mirrorBackside = false;

@@ -17,35 +17,29 @@
 package com.android.documentsui;
 
 import static com.android.documentsui.StubProvider.ROOT_0_ID;
-import static com.android.documentsui.StubProvider.ROOT_1_ID;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.BroadcastReceiver;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
-import android.provider.Settings;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.Suppress;
-import android.support.test.uiautomator.Configurator;
-import android.text.TextUtils;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
+import android.util.Log;
+
+import androidx.test.filters.LargeTest;
 
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.files.FilesActivity;
+import com.android.documentsui.filters.HugeLongTest;
 import com.android.documentsui.services.TestNotificationService;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.List;
-import java.util.ArrayList;
 
 /**
 * This class test the below points
@@ -53,21 +47,11 @@ import java.util.ArrayList;
 */
 @LargeTest
 public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
-    private static final String PACKAGE_NAME = "com.android.documentsui.tests";
-
-    private static final String ACCESS_APP_NAME = "DocumentsUI Tests";
-
-    private static final String ALLOW = "ALLOW";
-
-    private static final String TURN_OFF = "TURN OFF";
-
-    private static final String COPY = "Copy to…";
-
-    private static final String MOVE = "Move to…";
-
-    private static final String SELECT_ALL = "Select all";
+    private static final String TAG = "FileDeleteUiTest";
 
     private static final int DUMMY_FILE_COUNT = 1000;
+
+    private static final int WAIT_TIME_SECONDS = 60;
 
     private final List<String> mCopyFileList = new ArrayList<String>();
 
@@ -106,6 +90,12 @@ public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
         bundle.putBoolean(StubProvider.EXTRA_ENABLE_ROOT_NOTIFICATION, false);
         mDocsHelper.configure(null, bundle);
 
+        try {
+            bots.notifications.setNotificationAccess(getActivity(), true);
+        } catch (Exception e) {
+            Log.d(TAG, "Cannot set notification access. ", e);
+        }
+
         initTestFiles();
 
         IntentFilter filter = new IntentFilter();
@@ -126,11 +116,9 @@ public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
 
         context.unregisterReceiver(mReceiver);
         try {
-            if (isEnableAccessNotification()) {
-                disallowNotificationAccess();
-            }
+            bots.notifications.setNotificationAccess(getActivity(), false);
         } catch (Exception e) {
-            // ignore
+            Log.d(TAG, "Cannot set notification access. ", e);
         }
         super.tearDown();
     }
@@ -138,9 +126,6 @@ public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
     @Override
     public void initTestFiles() throws RemoteException {
         try {
-            if (!isEnableAccessNotification()) {
-                allowNotificationAccess();
-            }
             createDummyFiles();
         } catch (Exception e) {
             fail("Initialization failed");
@@ -172,50 +157,11 @@ public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
         exec.shutdown();
     }
 
-    private void allowNotificationAccess() throws Exception {
-        Intent intent = new Intent();
-        intent.setAction(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-        getActivity().startActivity(intent);
-        device.waitForIdle();
-
-        bots.main.findMenuLabelWithName(ACCESS_APP_NAME).click();
-        device.waitForIdle();
-
-        bots.main.findMenuLabelWithName(ALLOW).click();
-        bots.keyboard.pressKey(KeyEvent.KEYCODE_BACK);
-    }
-
-    private void disallowNotificationAccess() throws Exception {
-        Intent intent = new Intent();
-        intent.setAction(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-        getActivity().startActivity(intent);
-        device.waitForIdle();
-
-        bots.main.findMenuLabelWithName(ACCESS_APP_NAME).click();
-        device.waitForIdle();
-
-        bots.main.findMenuLabelWithName(TURN_OFF).click();
-        bots.keyboard.pressKey(KeyEvent.KEYCODE_BACK);
-    }
-
-    private boolean isEnableAccessNotification() {
-        ContentResolver resolver = getActivity().getContentResolver();
-        String listeners = Settings.Secure.getString(
-                resolver,"enabled_notification_listeners");
-        if (!TextUtils.isEmpty(listeners)) {
-            String[] list = listeners.split(":");
-            for(String item : list) {
-                if(item.startsWith(PACKAGE_NAME)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
+    @HugeLongTest
     public void testDeleteAllDocument() throws Exception {
         bots.roots.openRoot(ROOT_0_ID);
-        bots.main.clickToolbarOverflowItem(SELECT_ALL);
+        bots.main.clickToolbarOverflowItem(
+                context.getResources().getString(R.string.menu_select_all));
         device.waitForIdle();
 
         bots.main.clickToolbarItem(R.id.action_menu_delete);
@@ -223,7 +169,7 @@ public class FileDeleteUiTest extends ActivityTest<FilesActivity> {
         device.waitForIdle();
 
         try {
-            mCountDownLatch.await(60, TimeUnit.SECONDS);
+            mCountDownLatch.await(WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             fail("Cannot wait because of error." + e.toString());
         }

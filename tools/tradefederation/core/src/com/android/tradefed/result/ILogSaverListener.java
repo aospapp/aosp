@@ -17,37 +17,39 @@ package com.android.tradefed.result;
 
 /**
  * Allows for {@link ITestInvocationListener}s to listen for when log files are saved.
- * <p>
- * This allows for multiple {@link ITestInvocationListener}s to use the same saved log file when
- * generating reports, and avoids having each listener save the file individually when
- * {@link ITestInvocationListener#testLog(String, LogDataType, InputStreamSource)} is called.
- * </p><p>
- * Classes implementing this interface should be aware that
- * {@link #testLogSaved(String, LogDataType, InputStreamSource, LogFile)} will be called whenever
- * {@link ITestInvocationListener#testLog(String, LogDataType, InputStreamSource)} is called.
- * </p><p>
- * This class also passes the global {@link ILogSaver} instance so {@link ITestInvocationListener}s
- * can save additional files in the same location.
+ *
+ * <p>This allows for multiple {@link ITestInvocationListener}s to use the same saved log file when
+ * generating reports, and avoids having each listener save the file individually when {@link
+ * ITestInvocationListener#testLog(String, LogDataType, InputStreamSource)} is called.
+ *
+ * <p>Classes implementing this interface should be aware that {@link #testLogSaved(String,
+ * LogDataType, InputStreamSource, LogFile)} will be called whenever {@link
+ * ITestInvocationListener#testLog(String, LogDataType, InputStreamSource)} is called.
+ *
+ * <p>This class also passes the global {@link ILogSaver} instance so {@link
+ * ITestInvocationListener}s can save additional files in the same location.
  */
 public interface ILogSaverListener extends ITestInvocationListener {
 
     /**
      * Called when the test log is saved.
-     * <p>
-     * Should be used in place of
-     * {@link ITestInvocationListener#testLog(String, LogDataType, InputStreamSource)}.
-     * </p>
+     *
+     * <p>Should be used in place of {@link ITestInvocationListener#testLog(String, LogDataType,
+     * InputStreamSource)}.
+     *
      * @param dataName a {@link String} descriptive name of the data. e.g. "device_logcat". Note
-     * dataName may not be unique per invocation. ie implementers must be able to handle multiple
-     * calls with same dataName
+     *     dataName may not be unique per invocation. ie implementers must be able to handle
+     *     multiple calls with same dataName
      * @param dataType the {@link LogDataType} of the data
      * @param dataStream the {@link InputStreamSource} of the data. Implementers should call
-     * createInputStream to start reading the data, and ensure to close the resulting InputStream
-     * when complete.
+     *     createInputStream to start reading the data, and ensure to close the resulting
+     *     InputStream when complete.
      * @param logFile the {@link LogFile} containing the meta data of the saved file.
      */
-    public void testLogSaved(String dataName, LogDataType dataType, InputStreamSource dataStream,
-            LogFile logFile);
+    public default void testLogSaved(
+            String dataName, LogDataType dataType, InputStreamSource dataStream, LogFile logFile) {
+        // Do nothing by default
+    }
 
     /**
      * In some cases, log must be strongly associated with a test cases, but the opportunity to do
@@ -68,5 +70,7 @@ public interface ILogSaverListener extends ITestInvocationListener {
      *
      * @param logSaver the {@link ILogSaver}
      */
-    public void setLogSaver(ILogSaver logSaver);
+    public default void setLogSaver(ILogSaver logSaver) {
+        // Do nothing by default
+    }
 }

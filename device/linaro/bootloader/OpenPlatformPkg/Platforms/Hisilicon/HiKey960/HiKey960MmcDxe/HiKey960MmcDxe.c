@@ -67,6 +67,7 @@ HiKey960GetCapability (
 BOOLEAN
 EFIAPI
 HiKey960CardDetect (
+  IN EFI_HANDLE               Controller,
   IN UINT8                    Slot
   )
 {

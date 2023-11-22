@@ -24,14 +24,14 @@ LOCAL_REQUIRED_MODULES :=                           \
     android.hardware.tests.msgq@1.0-service-test    \
     hidl_test_helper
 
-LOCAL_REQUIRED_MODULES_arm64 := android.hardware.tests.msgq@1.0-service-test_32 mq_test_client_32
-LOCAL_REQUIRED_MODULES_mips64 := android.hardware.tests.msgq@1.0-service-test_32 mq_test_client_32
-LOCAL_REQUIRED_MODULES_x86_64 := android.hardware.tests.msgq@1.0-service-test_32 mq_test_client_32
+ifneq ($(TARGET_2ND_ARCH),)
+LOCAL_REQUIRED_MODULES += android.hardware.tests.msgq@1.0-service-test$(TARGET_2ND_ARCH_MODULE_SUFFIX)
+LOCAL_REQUIRED_MODULES += mq_test_client$(TARGET_2ND_ARCH_MODULE_SUFFIX)
+endif
 
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := VtsFmqUnitTests
-VTS_CONFIG_SRC_DIR := system/libfmq/tests
 -include test/vts/tools/build/Android.host_config.mk

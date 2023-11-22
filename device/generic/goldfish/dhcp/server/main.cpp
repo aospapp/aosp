@@ -26,73 +26,10 @@ static void usage(const char* program) {
 }
 
 int main(int argc, char* argv[]) {
-    in_addr_t rangeStart = 0;
-    in_addr_t rangeEnd = 0;
-    in_addr_t gateway = 0;
-    in_addr_t netmask = 0;
     char* excludeInterfaceName = nullptr;
     unsigned int excludeInterfaceIndex = 0;
     for (int i = 1; i < argc; ++i) {
-        if (strcmp("--range", argv[i]) == 0) {
-            if (i + 1 >= argc) {
-                ALOGE("ERROR: Missing argument to --range parameter");
-                usage(argv[0]);
-                return 1;
-            }
-            char* divider = strchr(argv[i + 1], ',');
-            if (divider != nullptr) {
-                *divider = '\0';
-                struct in_addr address;
-                if (inet_pton(AF_INET, argv[i + 1], &address) > 0) {
-                    rangeStart = address.s_addr;
-                } else {
-                    ALOGE("ERROR: Invalid start address '%s'", argv[i + 1]);
-                    usage(argv[0]);
-                    return 1;
-                }
-                char* next = divider + 1;
-                if (inet_pton(AF_INET, next, &address) > 0) {
-                    rangeEnd = address.s_addr;
-                } else {
-                    ALOGE("ERROR: Invalid end address '%s'", next);
-                    usage(argv[0]);
-                    return 1;
-                }
-            } else {
-                ALOGE("ERROR: Invalid --range parameter '%s'", argv[i + 1]);
-                usage(argv[0]);
-                return 1;
-            }
-            ++i;
-        } else if (strcmp("--gateway", argv[i]) == 0) {
-            if (i + 1 >= argc) {
-                ALOGE("ERROR: Missing argument to --gateway parameter");
-                usage(argv[0]);
-                return 1;
-            }
-            struct in_addr address;
-            if (inet_pton(AF_INET, argv[i + 1], &address) > 0) {
-                gateway = address.s_addr;
-            } else {
-                ALOGE("ERROR: Invalid gateway '%s'", argv[i + 1]);
-                usage(argv[0]);
-                return 1;
-            }
-        } else if (strcmp("--netmask", argv[i]) == 0) {
-            if (i + 1 >= argc) {
-                ALOGE("ERROR: Missing argument to --netmask parameter");
-                usage(argv[0]);
-                return 1;
-            }
-            struct in_addr address;
-            if (inet_pton(AF_INET, argv[i + 1], &address) > 0) {
-                netmask = address.s_addr;
-            } else {
-                ALOGE("ERROR: Invalid netmask '%s'", argv[i + 1]);
-                usage(argv[0]);
-                return 1;
-            }
-        } else if (strcmp("--exclude-interface", argv[i]) == 0) {
+        if (strcmp("--exclude-interface", argv[i]) == 0) {
             if (i + 1 >= argc) {
                 ALOGE("ERROR: Missing argument to "
                      "--exclude-interfaces parameter");
@@ -110,27 +47,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (rangeStart == 0 || rangeEnd == 0) {
-        ALOGE("ERROR: Missing or invalid --range argument");
-        usage(argv[0]);
-        return 1;
-    }
-    if (gateway == 0) {
-        ALOGE("ERROR: Missing or invalid --gateway argument");
-        usage(argv[0]);
-        return 1;
-    }
-    if (netmask == 0) {
-        ALOGE("ERROR: Missing or invalid --netmask argument");
-        usage(argv[0]);
-        return 1;
-    }
-
-    DhcpServer server(rangeStart,
-                      rangeEnd,
-                      netmask,
-                      gateway,
-                      excludeInterfaceIndex);
+    DhcpServer server(excludeInterfaceIndex);
     Result res = server.init();
     if (!res) {
         ALOGE("Failed to initialize DHCP server: %s\n", res.c_str());

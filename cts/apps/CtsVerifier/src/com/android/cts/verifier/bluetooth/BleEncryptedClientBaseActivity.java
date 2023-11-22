@@ -46,10 +46,10 @@ public class BleEncryptedClientBaseActivity extends PassFailButtons.Activity {
     private Dialog mDialog;
     private Handler mHandler;
 
-    private final int BLE_READ_ENCRIPTED_CHARACTERISTIC = 0;
-    private final int BLE_WRITE_ENCRIPTED_CHARACTERISTIC = 1;
-    private final int BLE_READ_ENCRIPTED_DESCRIPTOR = 2;
-    private final int BLE_WRITE_ENCRIPTED_DESCRIPTOR = 3;
+    private final int BLE_WRITE_ENCRIPTED_CHARACTERISTIC = 0;
+    private final int BLE_READ_ENCRIPTED_CHARACTERISTIC = 1;
+    private final int BLE_WRITE_ENCRIPTED_DESCRIPTOR = 2;
+    private final int BLE_READ_ENCRIPTED_DESCRIPTOR = 3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -125,10 +125,10 @@ public class BleEncryptedClientBaseActivity extends PassFailButtons.Activity {
 
     private List<Integer> setupTestList() {
         ArrayList<Integer> testList = new ArrayList<Integer>();
-        testList.add(R.string.ble_read_authenticated_characteristic_name);
         testList.add(R.string.ble_write_authenticated_characteristic_name);
-        testList.add(R.string.ble_read_authenticated_descriptor_name);
+        testList.add(R.string.ble_read_authenticated_characteristic_name);
         testList.add(R.string.ble_write_authenticated_descriptor_name);
+        testList.add(R.string.ble_read_authenticated_descriptor_name);
         return testList;
     }
 

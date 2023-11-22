@@ -25,10 +25,29 @@
                 android:label="Voice Interaction Test App"
                 android:theme="@android:style/Theme.DeviceDefault">
           <intent-filter>
-              <action android:name="android.intent.action.TEST_APP" />
+              <action android:name="android.intent.action.VIEW"/>
               <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE" />
               <category android:name="android.intent.category.VOICE" />
+              <data android:scheme="https" />
+              <data android:host="android.voiceinteraction.testapp" />
+              <data android:path="/TestApp" />
           </intent-filter>
       </activity>
+
+       <activity android:name=".DirectActionsActivity"
+                android:label="Direct actions activity"
+                android:exported="true">
+          <intent-filter>
+              <action android:name="android.intent.action.VIEW"/>
+              <category android:name="android.intent.category.DEFAULT" />
+              <category android:name="android.intent.category.BROWSABLE" />
+              <data android:scheme="https" />
+              <data android:host="android.voiceinteraction.testapp" />
+              <data android:path="/DirectActionsActivity" />
+              <category android:name="android.intent.category.VOICE" />
+          </intent-filter>
+        </activity>
+
     </application>
 </manifest>

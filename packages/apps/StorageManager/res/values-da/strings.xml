@@ -60,8 +60,8 @@
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"Skjul seneste elementer"</string>
     <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"<xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> indhold fjernes fra din enhed"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"Din lagerplads administreres nu af lageradministratoren"</string>
-    <string name="empty_state_title" msgid="4033285438176545309">"Der er ikke noget at fjerne"</string>
+    <string name="empty_state_title" msgid="4033285438176545309">"Ikke noget at fjerne"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Gennemse seneste elementer"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"Der er ikke nogen ældre filer at fjerne. Fjern seneste billeder, videoer og apps for at frigøre plads."</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"Der er ikke nogen ældre filer at fjerne. Fjern nyere billeder, videoer og apps for at frigøre plads."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> kræver <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> lagerplads"</string>
 </resources>

@@ -22,10 +22,6 @@
         android:sharedUserLabel="@string/phoneAppLabel"
 >
 
-    <uses-sdk
-        android:minSdkVersion="23"
-        android:targetSdkVersion="26" />
-
     <original-package android:name="com.android.phone" />
 
     <protected-broadcast android:name="android.telecom.action.TTY_PREFERRED_MODE_CHANGED" />
@@ -65,6 +61,7 @@
     <protected-broadcast android:name= "com.android.internal.telephony.CARRIER_SIGNAL_PCO_VALUE" />
     <protected-broadcast android:name= "com.android.internal.telephony.CARRIER_SIGNAL_RESET" />
     <protected-broadcast android:name= "com.android.internal.telephony.CARRIER_SIGNAL_DEFAULT_NETWORK_AVAILABLE" />
+    <protected-broadcast android:name= "com.android.internal.telephony.ACTION_LINE1_NUMBER_ERROR_DETECTED" />
     <protected-broadcast android:name= "com.android.internal.provider.action.VOICEMAIL_SMS_RECEIVED" />
     <protected-broadcast android:name= "com.android.intent.isim_refresh" />
     <protected-broadcast android:name= "com.android.ims.ACTION_RCS_SERVICE_AVAILABLE" />
@@ -86,10 +83,17 @@
     <protected-broadcast android:name= "com.android.internal.telephony.CARRIER_VVM_PACKAGE_INSTALLED" />
     <protected-broadcast android:name= "com.android.cellbroadcastreceiver.GET_LATEST_CB_AREA_INFO" />
     <protected-broadcast android:name= "com.android.internal.telephony.ACTION_CARRIER_CERTIFICATE_DOWNLOAD" />
+    <protected-broadcast android:name= "com.android.internal.telephony.OPEN_DEFAULT_SMS_APP" />
     <protected-broadcast android:name= "android.telephony.action.SIM_CARD_STATE_CHANGED" />
     <protected-broadcast android:name= "android.telephony.action.SIM_APPLICATION_STATE_CHANGED" />
     <protected-broadcast android:name= "android.telephony.action.SIM_SLOT_STATUS_CHANGED" />
     <protected-broadcast android:name= "android.telephony.action.SUBSCRIPTION_CARRIER_IDENTITY_CHANGED" />
+    <protected-broadcast android:name= "android.telephony.action.SUBSCRIPTION_SPECIFIC_CARRIER_IDENTITY_CHANGED" />
+    <protected-broadcast android:name= "android.telephony.action.NETWORK_COUNTRY_CHANGED" />
+    <protected-broadcast android:name= "android.telephony.action.PRIMARY_SUBSCRIPTION_LIST_CHANGED" />
+
+    <!-- For Vendor Debugging in Telephony -->
+    <protected-broadcast android:name="android.telephony.action.ANOMALY_REPORTED" />
 
     <uses-permission android:name="android.permission.BROADCAST_STICKY" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
@@ -117,6 +121,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.STATUS_BAR" />
+    <uses-permission android:name="android.permission.STATUS_BAR_SERVICE" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.WRITE_SMS" />
@@ -192,6 +197,8 @@
     <uses-permission android:name="android.permission.READ_NETWORK_USAGE_HISTORY" />
     <uses-permission android:name="android.permission.BIND_TELEPHONY_DATA_SERVICE" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
+    <uses-permission android:name="android.permission.READ_PRECISE_PHONE_STATE" />
+    <uses-permission android:name="android.permission.MANAGE_ROLE_HOLDERS" />
 
     <application android:name="PhoneApp"
             android:persistent="true"
@@ -214,7 +221,8 @@
         <activity android:name="EmergencyDialer"
             android:label="@string/emergencyDialerIconLabel"
             android:theme="@style/EmergencyDialerTheme"
-            android:screenOrientation="portrait">
+            android:screenOrientation="portrait"
+            android:resizeableActivity="false">
             <intent-filter>
                 <action android:name="com.android.phone.EmergencyDialer.DIAL" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -307,7 +315,7 @@
         <activity android:name="GsmUmtsCallForwardOptions"
                 android:label="@string/labelCF"
                 android:configChanges="orientation|screenSize|keyboardHidden"
-                android:theme="@style/SettingsLight">
+                android:theme="@style/DialerSettingsLight">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
@@ -325,7 +333,7 @@
         <activity android:name="GsmUmtsAdditionalCallOptions"
                 android:label="@string/labelGSMMore"
                 android:configChanges="orientation|screenSize|keyboardHidden"
-                android:theme="@style/SettingsLight">
+                android:theme="@style/DialerSettingsLight">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
@@ -343,7 +351,7 @@
         <!-- SIM PIN setting -->
         <activity android:name="EnableIccPinScreen"
                 android:label="@string/enable_pin"
-                android:theme="@style/SettingsLight">
+                android:theme="@style/DialerSettingsLight">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEVELOPMENT_PREFERENCE" />
@@ -352,7 +360,7 @@
 
         <activity android:name="ChangeIccPinScreen"
                 android:label="@string/change_pin"
-                android:theme="@style/SettingsLight">
+                android:theme="@style/DialerSettingsLight">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEVELOPMENT_PREFERENCE" />
@@ -390,7 +398,8 @@
 
         <!-- Activation service that trigger OTASP sim provisioning -->
         <service android:name=".otasp.OtaspActivationService" android:launchMode="singleInstance"
-                 androidprv:systemUserOnly="true">
+            androidprv:systemUserOnly="true"
+            android:permission="android.permission.MODIFY_PHONE_STATE">
             <intent-filter>
                 <action android:name="android.service.simActivation.SimActivationService" />
             </intent-filter>
@@ -428,7 +437,8 @@
 
         <!-- Handler for EuiccManager's public-facing intents. -->
         <activity android:name=".euicc.EuiccUiDispatcherActivity"
-            android:theme="@android:style/Theme.NoDisplay">
+            android:theme="@android:style/Theme.NoDisplay"
+            android:permission="android.permission.MODIFY_PHONE_STATE">
             <!-- Max out priority to ensure nobody else will handle these intents. -->
             <intent-filter android:priority="1000">
                 <action android:name=
@@ -450,6 +460,25 @@
             <intent-filter android:priority="1000">
                 <action android:name=
                             "android.telephony.euicc.action.RESOLVE_ERROR" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            Handler for EuiccManager's privileged action intents. These are locked down so that only
+            privileged processes can start them.
+        -->
+        <activity android:name=".euicc.EuiccPrivilegedActionUiDispatcherActivity"
+                  android:theme="@android:style/Theme.NoDisplay"
+                  android:permission="android.permission.CALL_PRIVILEGED">
+            <!-- Max out priority to ensure nobody else will handle these intents. -->
+            <intent-filter android:priority="1000">
+                <action android:name=
+                            "android.telephony.euicc.action.TOGGLE_SUBSCRIPTION_PRIVILEGED" />
+                <action android:name=
+                            "android.telephony.euicc.action.DELETE_SUBSCRIPTION_PRIVILEGED" />
+                <action android:name=
+                            "android.telephony.euicc.action.RENAME_SUBSCRIPTION_PRIVILEGED" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
@@ -530,6 +559,7 @@
         <activity android:name="com.android.phone.settings.VoicemailSettingsActivity"
             android:label="@string/voicemail"
             android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
+            android:screenOrientation="portrait"
             android:theme="@style/DialerSettingsLight">
             <intent-filter >
                 <!-- DO NOT RENAME. There are existing apps which use this string. -->
@@ -552,18 +582,6 @@
                 <action android:name="android.telecom.ConnectionService" />
             </intent-filter>
         </service>
-
-        <provider
-                android:name="PhoneSearchIndexablesProvider"
-                android:authorities="com.android.phone"
-                android:multiprocess="false"
-                android:grantUriPermissions="true"
-                android:permission="android.permission.READ_SEARCH_INDEXABLES"
-                android:exported="true">
-            <intent-filter>
-                <action android:name="android.content.action.SEARCH_INDEXABLES_PROVIDER" />
-            </intent-filter>
-        </provider>
 
         <receiver
           android:name="com.android.phone.vvm.VvmSmsReceiver"
@@ -588,6 +606,14 @@
         <receiver
             android:name="com.android.internal.telephony.uicc.ShowInstallAppNotificationReceiver"
             android:exported="false"/>
+
+        <activity
+            android:name="com.android.phone.settings.PickSmsSubscriptionActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@style/Theme.Transparent"/>
 
         <service
             android:name="com.android.phone.vvm.RemoteVvmTaskManager"

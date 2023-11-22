@@ -13,30 +13,108 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-<android.support.constraint.ConstraintLayout
+<androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="@dimen/car_action_bar_height"
-    android:background="@color/phone_theme"
-    android:paddingRight="@dimen/car_keyline_1"
-    android:paddingLeft="@dimen/car_keyline_1"
-    android:elevation = "@dimen/in_call_card_elevation">
+    android:layout_height="@dimen/call_history_item_height">
 
-    <android.support.constraint.Guideline
-        android:id="@+id/list_item_left_edge"
+    <androidx.constraintlayout.widget.Guideline
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:id="@+id/guideline_begin"
         android:orientation="vertical"
-        app:layout_constraintGuide_begin="@dimen/car_keyline_1" />
+        app:layout_constraintGuide_begin="@dimen/call_history_guideline_begin"/>
+
+    <androidx.constraintlayout.widget.Guideline
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/guideline_end"
+        android:orientation="vertical"
+        app:layout_constraintGuide_end="@dimen/call_history_guideline_end"/>
+
+    <View
+        android:id="@+id/call_action_id"
+        android:background="?android:attr/selectableItemBackground"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/guideline_end"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"/>
 
     <ImageView
-        android:id="@+id/avatar"
-        android:layout_width="@dimen/car_avatar_size"
-        android:layout_height="@dimen/car_avatar_size"
-        android:scaleType="center"
+        android:id="@+id/icon"
+        android:layout_width="@dimen/avatar_icon_size"
+        android:layout_height="@dimen/avatar_icon_size"
+        android:layout_marginStart="@dimen/call_history_item_padding"
+        android:scaleType="centerCrop"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/toggle_dialpad_button"
-        app:layout_constraintTop_toTopOf="parent"/>
-</android.support.constraint.ConstraintLayout>
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="@dimen/call_history_text_margin_end"
+        android:singleLine="true"
+        app:layout_constraintVertical_chainStyle="packed"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/text"
+        app:layout_constraintStart_toStartOf="@id/guideline_begin"
+        app:layout_constraintEnd_toEndOf="@id/guideline_end"/>
+
+    <com.android.car.dialer.widget.CallTypeIconsView
+        android:id="@+id/call_type_icons"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintStart_toStartOf="@id/guideline_begin"
+        app:layout_constraintTop_toBottomOf="@id/title"/>
+
+    <TextView
+        android:id="@+id/call_count_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/call_history_icons_margin"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:singleLine="true"
+        app:layout_constraintTop_toBottomOf="@id/title"
+        app:layout_constraintStart_toEndOf="@id/call_type_icons"
+        app:layout_constraintEnd_toStartOf="@+id/text"/>
+
+    <TextView
+        android:id="@id/text"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/call_history_icons_margin"
+        android:layout_marginEnd="@dimen/call_history_text_margin_end"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:singleLine="true"
+        app:layout_constraintTop_toBottomOf="@id/title"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/call_count_text"
+        app:layout_constraintEnd_toEndOf="@id/guideline_end"/>
+
+    <View
+        android:id="@+id/divider"
+        android:layout_width="@dimen/vertical_divider_width"
+        android:layout_height="match_parent"
+        android:background="@color/divider_color"
+        android:layout_marginTop="@dimen/vertical_divider_inset"
+        android:layout_marginBottom="@dimen/vertical_divider_inset"
+        app:layout_constraintStart_toStartOf="@id/guideline_end"/>
+
+    <ImageView
+        android:id="@+id/calllog_action_button"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:src="@drawable/ic_arrow_right"
+        android:scaleType="center"
+        android:tint="@color/secondary_icon_color"
+        android:background="?android:attr/selectableItemBackground"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/guideline_end"
+        app:layout_constraintEnd_toEndOf="parent"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -25,7 +25,6 @@ import android.content.DialogInterface;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.annotation.IntDef;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -38,6 +37,8 @@ import android.widget.FrameLayout;
 import android.widget.OverScroller;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.IntDef;
 
 import com.android.tv.settings.R;
 

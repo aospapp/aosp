@@ -16,107 +16,54 @@
 
 <resources>
     <!-- The style for a Toast. This toast has an increased text size. -->
-    <style name="TextAppearance.Toast">
-        <item name="fontFamily">sans-serif-condensed</item>
-        <item name="textSize">42sp</item>
+    <style name="TextAppearance.Toast" parent="*android:TextAppearance">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textSize">42sp</item>
     </style>
 
     <!-- Override the default activity transitions. We have to do a full copy and not just inherit
          and override because we're replacing the default style across the system.
     -->
-    <style name="Animation.Activity">
-        <item name="activityOpenEnterAnimation">@anim/fade_in</item>
-        <item name="activityOpenExitAnimation">@anim/fade_out</item>
-
-        <item name="activityCloseEnterAnimation">@anim/fade_in</item>
-        <item name="activityCloseExitAnimation">@anim/fade_out</item>
-
-        <item name="taskOpenEnterAnimation">@anim/fade_in</item>
-        <item name="taskOpenExitAnimation">@anim/fade_out</item>
-
-        <item name="launchTaskBehindTargetAnimation">@anim/launch_task_behind_target</item>
-        <item name="launchTaskBehindSourceAnimation">@anim/launch_task_behind_source</item>
-
-        <item name="taskCloseEnterAnimation">@anim/fade_in</item>
-        <item name="taskCloseExitAnimation">@anim/fade_out</item>
-
-        <item name="taskToFrontEnterAnimation">@anim/fade_in</item>
-        <item name="taskToFrontExitAnimation">@anim/fade_out</item>
-
-        <item name="taskToBackEnterAnimation">@anim/task_close_enter</item>
-        <item name="taskToBackExitAnimation">@anim/task_close_exit</item>
-
-        <item name="wallpaperOpenEnterAnimation">@anim/wallpaper_open_enter</item>
-        <item name="wallpaperOpenExitAnimation">@anim/wallpaper_open_exit</item>
-
-        <item name="wallpaperCloseEnterAnimation">@anim/wallpaper_close_enter</item>
-        <item name="wallpaperCloseExitAnimation">@anim/wallpaper_close_exit</item>
-
-        <item name="wallpaperIntraOpenEnterAnimation">@anim/wallpaper_intra_open_enter</item>
-        <item name="wallpaperIntraOpenExitAnimation">@anim/wallpaper_intra_open_exit</item>
-        <item name="wallpaperIntraCloseEnterAnimation">@anim/wallpaper_intra_close_enter</item>
-        <item name="wallpaperIntraCloseExitAnimation">@anim/wallpaper_intra_close_exit</item>
-
-        <item name="fragmentOpenEnterAnimation">@animator/fragment_open_enter</item>
-        <item name="fragmentOpenExitAnimation">@animator/fragment_open_exit</item>
-        <item name="fragmentCloseEnterAnimation">@animator/fragment_close_enter</item>
-        <item name="fragmentCloseExitAnimation">@animator/fragment_close_exit</item>
-        <item name="fragmentFadeEnterAnimation">@animator/fragment_fade_enter</item>
-        <item name="fragmentFadeExitAnimation">@animator/fragment_fade_exit</item>
+    <style name="Animation.Activity" parent="*android:Animation.Material.Activity">
+        <item name="android:activityOpenEnterAnimation">@*android:anim/fade_in</item>
+        <item name="android:activityOpenExitAnimation">@*android:anim/fade_out</item>
+        <item name="android:activityCloseEnterAnimation">@*android:anim/fade_in</item>
+        <item name="android:activityCloseExitAnimation">@*android:anim/fade_out</item>
+        <item name="android:taskOpenEnterAnimation">@*android:anim/fade_in</item>
+        <item name="android:taskOpenExitAnimation">@*android:anim/fade_out</item>
+        <item name="android:launchTaskBehindTargetAnimation">@*android:anim/launch_task_behind_target</item>
+        <item name="android:launchTaskBehindSourceAnimation">@*android:anim/launch_task_behind_source</item>
+        <item name="android:taskCloseEnterAnimation">@*android:anim/fade_in</item>
+        <item name="android:taskCloseExitAnimation">@*android:anim/fade_out</item>
+        <item name="android:taskToFrontEnterAnimation">@*android:anim/fade_in</item>
+        <item name="android:taskToFrontExitAnimation">@*android:anim/fade_out</item>
+        <item name="android:taskToBackEnterAnimation">@*android:anim/task_close_enter</item>
+        <item name="android:taskToBackExitAnimation">@*android:anim/task_close_exit</item>
+        <item name="android:wallpaperOpenEnterAnimation">@*android:anim/wallpaper_open_enter</item>
+        <item name="android:wallpaperOpenExitAnimation">@*android:anim/wallpaper_open_exit</item>
+        <item name="android:wallpaperCloseEnterAnimation">@*android:anim/wallpaper_close_enter</item>
+        <item name="android:wallpaperCloseExitAnimation">@*android:anim/wallpaper_close_exit</item>
+        <item name="android:wallpaperIntraOpenEnterAnimation">@*android:anim/wallpaper_intra_open_enter</item>
+        <item name="android:wallpaperIntraOpenExitAnimation">@*android:anim/wallpaper_intra_open_exit</item>
+        <item name="android:wallpaperIntraCloseEnterAnimation">@*android:anim/wallpaper_intra_close_enter</item>
+        <item name="android:wallpaperIntraCloseExitAnimation">@*android:anim/wallpaper_intra_close_exit</item>
+        <item name="android:fragmentOpenEnterAnimation">@*android:animator/fragment_open_enter</item>
+        <item name="android:fragmentOpenExitAnimation">@*android:animator/fragment_open_exit</item>
+        <item name="android:fragmentCloseEnterAnimation">@*android:animator/fragment_close_enter</item>
+        <item name="android:fragmentCloseExitAnimation">@*android:animator/fragment_close_exit</item>
+        <item name="android:fragmentFadeEnterAnimation">@*android:animator/fragment_fade_enter</item>
+        <item name="android:fragmentFadeExitAnimation">@*android:animator/fragment_fade_exit</item>
     </style>
 
     <!-- The style for the container of media actions in a notification. -->
     <style name="NotificationMediaActionContainer">
-        <item name="background">@color/notification_action_list</item>
-        <item name="layout_width">match_parent</item>
-        <item name="layout_height">@dimen/notification_action_list_height</item>
-        <item name="layout_marginTop">0dp</item>
-        <item name="paddingStart">0dp</item>
-        <item name="paddingBottom">@dimen/media_notification_actions_padding_bottom</item>
-        <item name="gravity">center</item>
-    </style>
-    
-    <!-- Car text -->
-    <style name="CarBody2">
-        <item name="android:textStyle">normal</item>
-        <item name="android:textSize">@dimen/car_body2_size</item>
-        <item name="android:textColor">@color/car_body2</item>
-    </style>
-    
-    <style name="CarBody2.Dark">
-        <item name="android:textColor">@color/car_body2_dark</item>
-    </style>
-    <style name="CarBody2.Light">
-        <item name="android:textColor">@color/car_body2_light</item>
-    </style>
-    
-    <style name="CarAction1">
-        <item name="android:textStyle">bold</item>
-        <item name="android:textSize">@dimen/car_action1_size</item>
-        <item name="android:textColor">@color/car_highlight</item>
-    </style>
-    
-    <style name="CarAction1.Dark">
-        <item name="android:textColor">@color/car_highlight_dark</item>
-    </style>
-    <style name="CarAction1.Light">
-        <item name="android:textColor">@color/car_highlight_light</item>
-    </style>
-    
-    <!-- The styling for title text. The color of this text changes based on day/night mode. -->
-    <style name="CarTitle" >
-        <item name="android:textStyle">bold</item>
-        <item name="android:textSize">@dimen/car_title2_size</item>
-        <item name="android:textColor">@color/car_title</item>
+        <item name="android:background">@*android:color/notification_action_list</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@*android:dimen/notification_action_list_height</item>
+        <item name="android:layout_marginTop">0dp</item>
+        <item name="android:paddingStart">0dp</item>
+        <item name="android:paddingBottom">@*android:dimen/media_notification_actions_padding_bottom</item>
+        <item name="android:gravity">center</item>
     </style>
 
-    <!-- Title text that is permanently a dark color. -->
-    <style name="CarTitle.Dark" >
-        <item name="android:textColor">@color/car_title_dark</item>
-    </style>
-
-    <!-- Title text that is permanently a light color. -->
-    <style name="CarTitle.Light" >
-        <item name="android:textColor">@color/car_title_light</item>
-    </style>
 </resources>

@@ -16,14 +16,23 @@
 <configuration description="Config for CTS Camera test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="camera" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsCameraTestCases.apk" />
     </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />
+        <option name="run-command" value="wm dismiss-keyguard" />
+    </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.camera.cts" />
         <option name="runtime-hint" value="12m7s" />
-        <!-- test-timeout unit is ms, value = 200 min -->
-        <option name="test-timeout" value="12000000" />
+        <!-- test-timeout unit is ms, value = 400 min -->
+        <!-- This (host side) timeout value needs to be at least as large as any
+              single test class/method (device side) timeout value set by timeout
+              annotation -->
+        <option name="test-timeout" value="24000000" />
     </test>
 </configuration>

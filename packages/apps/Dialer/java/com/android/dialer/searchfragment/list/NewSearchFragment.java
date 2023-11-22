@@ -29,7 +29,6 @@ import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
-import android.support.v13.app.FragmentCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.telephony.PhoneNumberUtils;
@@ -52,9 +51,7 @@ import com.android.dialer.common.Assert;
 import com.android.dialer.common.FragmentUtils;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.ThreadUtil;
-import com.android.dialer.constants.ActivityRequestCodes;
 import com.android.dialer.dialercontact.DialerContact;
-import com.android.dialer.duo.DuoComponent;
 import com.android.dialer.enrichedcall.EnrichedCallComponent;
 import com.android.dialer.enrichedcall.EnrichedCallManager.CapabilitiesListener;
 import com.android.dialer.logging.DialerImpression;
@@ -68,7 +65,6 @@ import com.android.dialer.searchfragment.directories.DirectoriesCursorLoader.Dir
 import com.android.dialer.searchfragment.directories.DirectoryContactsCursorLoader;
 import com.android.dialer.searchfragment.list.SearchActionViewHolder.Action;
 import com.android.dialer.searchfragment.nearbyplaces.NearbyPlacesCursorLoader;
-import com.android.dialer.storage.StorageComponent;
 import com.android.dialer.util.CallUtil;
 import com.android.dialer.util.DialerUtils;
 import com.android.dialer.util.PermissionsUtil;
@@ -95,7 +91,6 @@ public final class NewSearchFragment extends Fragment
   // updates so they are bundled together
   private static final int ENRICHED_CALLING_CAPABILITIES_UPDATED_DELAY = 400;
 
-  private static final String KEY_SHOW_ZERO_SUGGEST = "use_zero_suggest";
   private static final String KEY_LOCATION_PROMPT_DISMISSED = "search_location_prompt_dismissed";
 
   @VisibleForTesting public static final int READ_CONTACTS_PERMISSION_REQUEST_CODE = 1;
@@ -126,21 +121,29 @@ public final class NewSearchFragment extends Fragment
   // the contacts in them).
   private final List<Directory> directories = new ArrayList<>();
   private final Runnable loaderCp2ContactsRunnable =
-      () -> getLoaderManager().restartLoader(CONTACTS_LOADER_ID, null, this);
+      () -> {
+        if (getHost() != null) {
+          getLoaderManager().restartLoader(CONTACTS_LOADER_ID, null, this);
+        }
+      };
   private final Runnable loadNearbyPlacesRunnable =
-      () -> getLoaderManager().restartLoader(NEARBY_PLACES_LOADER_ID, null, this);
+      () -> {
+        if (getHost() != null) {
+          getLoaderManager().restartLoader(NEARBY_PLACES_LOADER_ID, null, this);
+        }
+      };
   private final Runnable loadDirectoryContactsRunnable =
-      () -> getLoaderManager().restartLoader(DIRECTORY_CONTACTS_LOADER_ID, null, this);
+      () -> {
+        if (getHost() != null) {
+          getLoaderManager().restartLoader(DIRECTORY_CONTACTS_LOADER_ID, null, this);
+        }
+      };
   private final Runnable capabilitiesUpdatedRunnable = () -> adapter.notifyDataSetChanged();
 
   private Runnable updatePositionRunnable;
 
-  public static NewSearchFragment newInstance(boolean showZeroSuggest) {
-    NewSearchFragment fragment = new NewSearchFragment();
-    Bundle args = new Bundle();
-    args.putBoolean(KEY_SHOW_ZERO_SUGGEST, showZeroSuggest);
-    fragment.setArguments(args);
-    return fragment;
+  public static NewSearchFragment newInstance() {
+    return new NewSearchFragment();
   }
 
   @Nullable
@@ -149,9 +152,9 @@ public final class NewSearchFragment extends Fragment
       LayoutInflater inflater, @Nullable ViewGroup parent, @Nullable Bundle savedInstanceState) {
     View view = inflater.inflate(R.layout.fragment_search, parent, false);
     adapter = new SearchAdapter(getContext(), new SearchCursorManager(), this);
-    adapter.setQuery(query, rawNumber, callInitiationType);
+    adapter.setQuery(query, rawNumber);
     adapter.setSearchActions(getActions());
-    adapter.setZeroSuggestVisible(getArguments().getBoolean(KEY_SHOW_ZERO_SUGGEST));
+    showLocationPermission();
     emptyContentView = view.findViewById(R.id.empty_view);
     recyclerView = view.findViewById(R.id.recycler_view);
     recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -260,17 +263,41 @@ public final class NewSearchFragment extends Fragment
     this.rawNumber = rawNumber;
   }
 
+  @VisibleForTesting
+  public String getRawNumber() {
+    return rawNumber;
+  }
+
   public void setQuery(String query, CallInitiationType.Type callInitiationType) {
     this.query = query;
     this.callInitiationType = callInitiationType;
     if (adapter != null) {
-      adapter.setQuery(query, rawNumber, callInitiationType);
+      adapter.setQuery(query, rawNumber);
       adapter.setSearchActions(getActions());
-      adapter.setZeroSuggestVisible(isRegularSearch());
+      showLocationPermission();
       loadCp2ContactsCursor();
       loadNearbyPlacesCursor();
       loadDirectoryContactsCursors();
     }
+  }
+
+  /** Returns true if the location permission was shown. */
+  private boolean showLocationPermission() {
+    if (adapter == null) {
+      return false;
+    }
+
+    if (getContext() == null
+        || PermissionsUtil.hasLocationPermissions(getContext())
+        || hasBeenDismissed()
+        || !isRegularSearch()) {
+      adapter.hideLocationPermissionRequest();
+      return false;
+    }
+
+    adapter.showLocationPermissionRequest(
+        v -> requestLocationPermission(), v -> dismissLocationPermission());
+    return true;
   }
 
   /** Translate the search fragment and resize it to fit on the screen. */
@@ -342,8 +369,8 @@ public final class NewSearchFragment extends Fragment
       LogUtil.i(
           "NewSearchFragment.onEmptyViewActionButtonClicked",
           "Requesting permissions: " + Arrays.toString(deniedPermissions));
-      FragmentCompat.requestPermissions(
-          this, deniedPermissions, READ_CONTACTS_PERMISSION_REQUEST_CODE);
+      FragmentUtils.getParentUnsafe(this, SearchFragmentListener.class).requestingPermission();
+      requestPermissions(deniedPermissions, READ_CONTACTS_PERMISSION_REQUEST_CODE);
     }
   }
 
@@ -383,16 +410,16 @@ public final class NewSearchFragment extends Fragment
    * <p>Should not be called before finishing loading info about all directories (local and remote).
    */
   private void loadNearbyPlacesCursor() {
-    if (!PermissionsUtil.hasLocationPermissions(getContext())
-        && !StorageComponent.get(getContext())
-            .unencryptedSharedPrefs()
-            .getBoolean(KEY_LOCATION_PROMPT_DISMISSED, false)) {
-      if (adapter != null && isRegularSearch() && !hasBeenDismissed()) {
-        adapter.showLocationPermissionRequest(
-            v -> requestLocationPermission(), v -> dismissLocationPermission());
-      }
+    // If we're requesting the location permission, don't load nearby places cursor.
+    if (showLocationPermission()) {
       return;
     }
+
+    // If the user dismissed the prompt without granting us the permission, don't load the cursor.
+    if (getContext() == null || !PermissionsUtil.hasLocationPermissions(getContext())) {
+      return;
+    }
+
     // Cancel existing load if one exists.
     ThreadUtil.getUiThreadHandler().removeCallbacks(loadNearbyPlacesRunnable);
 
@@ -411,6 +438,7 @@ public final class NewSearchFragment extends Fragment
     String[] deniedPermissions =
         PermissionsUtil.getPermissionsCurrentlyDenied(
             getContext(), PermissionsUtil.allLocationGroupPermissionsUsedInDialer);
+    FragmentUtils.getParentUnsafe(this, SearchFragmentListener.class).requestingPermission();
     requestPermissions(deniedPermissions, LOCATION_PERMISSION_REQUEST_CODE);
   }
 
@@ -509,28 +537,27 @@ public final class NewSearchFragment extends Fragment
 
   @Override
   public void placeVoiceCall(String phoneNumber, int ranking) {
-    placeCall(phoneNumber, ranking, false, true);
+    placeCall(phoneNumber, ranking, false);
   }
 
   @Override
   public void placeVideoCall(String phoneNumber, int ranking) {
-    placeCall(phoneNumber, ranking, true, false);
+    placeCall(phoneNumber, ranking, true);
   }
 
-  private void placeCall(
-      String phoneNumber, int position, boolean isVideoCall, boolean allowAssistedDial) {
+  private void placeCall(String phoneNumber, int position, boolean isVideoCall) {
     CallSpecificAppData callSpecificAppData =
         CallSpecificAppData.newBuilder()
             .setCallInitiationType(callInitiationType)
             .setPositionOfSelectedSearchResult(position)
             .setCharactersInSearchString(query == null ? 0 : query.length())
-            .setAllowAssistedDialing(allowAssistedDial)
+            .setAllowAssistedDialing(true)
             .build();
     PreCall.start(
         getContext(),
         new CallIntentBuilder(phoneNumber, callSpecificAppData)
             .setIsVideoCall(isVideoCall)
-            .setAllowAssistedDial(allowAssistedDial));
+            .setAllowAssistedDial(true));
     FragmentUtils.getParentUnsafe(this, SearchFragmentListener.class).onCallPlacedFromSearch();
   }
 
@@ -538,8 +565,11 @@ public final class NewSearchFragment extends Fragment
   public void placeDuoCall(String phoneNumber) {
     Logger.get(getContext())
         .logImpression(DialerImpression.Type.LIGHTBRINGER_VIDEO_REQUESTED_FROM_SEARCH);
-    Intent intent = DuoComponent.get(getContext()).getDuo().getIntent(getContext(), phoneNumber);
-    getActivity().startActivityForResult(intent, ActivityRequestCodes.DIALTACTS_DUO);
+    PreCall.start(
+        getContext(),
+        new CallIntentBuilder(phoneNumber, CallInitiationType.Type.REGULAR_SEARCH)
+            .setIsVideoCall(true)
+            .setIsDuoCall(true));
     FragmentUtils.getParentUnsafe(this, SearchFragmentListener.class).onCallPlacedFromSearch();
   }
 
@@ -557,5 +587,8 @@ public final class NewSearchFragment extends Fragment
 
     /** Called when a call is placed from the search fragment. */
     void onCallPlacedFromSearch();
+
+    /** Called when a permission is about to be requested. */
+    void requestingPermission();
   }
 }

@@ -184,9 +184,14 @@ typedef struct {
     bool accepts_pclm;
     bool accepts_pdf;
     bool copies_supported;
+    int print_quality;
     const char *useragent;
     char docCategory[10];
     const char *media_default;
+
+    // Expected certificate if any
+    uint8 *certificate;
+    int certificate_len;
 
     // IPP max job-name is 2**31 - 1, we set a shorter limit
     char job_name[MAX_ID_STRING_LENGTH + 1];
@@ -198,17 +203,23 @@ typedef struct {
     bool accepts_os_version;
 } wprint_job_params_t;
 
+typedef struct wprint_connect_info_st wprint_connect_info_t;
+
 /*
  * Parameters defining how to reach a remote printing service
  */
-typedef struct {
+struct wprint_connect_info_st {
     const char *printer_addr;
     const char *uri_path;
     const char *uri_scheme;
     int port_num;
     /* Timeout per retry in milliseconds */
     long timeout;
-} wprint_connect_info_t;
+    /* Return non-0 if the received certificate is not acceptable. */
+    int (*validate_certificate)(struct wprint_connect_info_st *connect_info, uint8 *data, int data_len);
+    /* User-supplied data. */
+    void *user;
+};
 
 /*
  * Current state of a queued job
@@ -224,6 +235,9 @@ typedef struct {
     wprint_job_state_t state;
     unsigned int blocked_reasons;
     int job_done_result;
+    // Certificate received from printer, if any
+    uint8 *certificate;
+    int certificate_len;
 } wprint_job_callback_params_t;
 
 typedef enum {

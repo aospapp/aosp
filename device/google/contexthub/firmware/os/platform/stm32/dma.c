@@ -199,7 +199,7 @@ static void dmaIsrTeif(uint8_t busId, uint8_t stream)
     dmaStop(busId, stream);
 
     uint16_t oldTid = osSetCurrentTid(state->tid);
-    state->callback(state->cookie, regs->NDTR, EIO);
+    state->callback(state->cookie, regs->NDTR, -EIO);
     osSetCurrentTid(oldTid);
 }
 

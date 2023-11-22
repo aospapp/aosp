@@ -17,6 +17,7 @@
 package com.android.bluetooth.btservice;
 
 import com.android.bluetooth.a2dp.A2dpService;
+import com.android.bluetooth.avrcp.AvrcpTargetService;
 import com.android.bluetooth.hearingaid.HearingAidService;
 import com.android.bluetooth.hfp.HeadsetService;
 import com.android.bluetooth.hid.HidDeviceService;
@@ -47,5 +48,9 @@ public class ServiceFactory {
 
     public HearingAidService getHearingAidService() {
         return HearingAidService.getHearingAidService();
+    }
+
+    public AvrcpTargetService getAvrcpTargetService() {
+        return AvrcpTargetService.get();
     }
 }

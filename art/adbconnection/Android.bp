@@ -30,11 +30,6 @@ cc_defaults {
         "libbase",
     ],
     target: {
-        android: {
-            shared_libs: [
-                "libcutils",
-            ],
-        },
         host: {
         },
         darwin: {
@@ -65,6 +60,7 @@ art_cc_library {
     defaults: ["adbconnection-defaults"],
     shared_libs: [
         "libart",
+        "libartbase",
     ],
 }
 
@@ -76,5 +72,6 @@ art_cc_library {
     ],
     shared_libs: [
         "libartd",
+        "libartbased",
     ],
 }

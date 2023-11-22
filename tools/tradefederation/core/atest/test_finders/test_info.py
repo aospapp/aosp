@@ -18,6 +18,9 @@ TestInfo class.
 
 from collections import namedtuple
 
+# pylint: disable=import-error
+import constants
+
 
 TestFilterBase = namedtuple('TestFilter', ['class_name', 'methods'])
 
@@ -25,7 +28,9 @@ TestFilterBase = namedtuple('TestFilter', ['class_name', 'methods'])
 class TestInfo(object):
     """Information needed to identify and run a test."""
 
-    def __init__(self, test_name, test_runner, build_targets, data=None):
+    # pylint: disable=too-many-arguments
+    def __init__(self, test_name, test_runner, build_targets, data=None,
+                 suite=None, module_class=None, install_locations=None):
         """Init for TestInfo.
 
         Args:
@@ -33,16 +38,66 @@ class TestInfo(object):
             test_runner: String of test runner.
             build_targets: Set of build targets.
             data: Dict of data for test runners to use.
+            suite: Suite for test runners to use.
+            module_class: A list of test classes. It's a snippet of class
+                        in module_info. e.g. ["EXECUTABLES",  "NATIVE_TESTS"]
+            install_locations: Set of install locations.
+                        e.g. set(['host', 'device'])
         """
         self.test_name = test_name
         self.test_runner = test_runner
         self.build_targets = build_targets
         self.data = data if data else {}
+        self.suite = suite
+        self.module_class = module_class if module_class else []
+        self.install_locations = (install_locations if install_locations
+                                  else set())
+        # True if the TestInfo is built from a test configured in TEST_MAPPING.
+        self.from_test_mapping = False
+        # True if the test should run on host and require no device. The
+        # attribute is only set through TEST_MAPPING file.
+        self.host = False
 
     def __str__(self):
-        return ('test_name: %s - test_runner:%s - build_targets:%s - data:%s' %
-                (self.test_name, self.test_runner, self.build_targets,
-                 self.data))
+        host_info = (' - runs on host without device required.' if self.host
+                     else '')
+        return ('test_name: %s - test_runner:%s - build_targets:%s - data:%s - '
+                'suite:%s - module_class: %s - install_locations:%s%s' % (
+                    self.test_name, self.test_runner, self.build_targets,
+                    self.data, self.suite, self.module_class,
+                    self.install_locations, host_info))
+
+    def get_supported_exec_mode(self):
+        """Get the supported execution mode of the test.
+
+        Determine the test supports which execution mode by strategy:
+        Robolectric/JAVA_LIBRARIES --> 'both'
+        Not native tests or installed only in out/target --> 'device'
+        Installed only in out/host --> 'both'
+        Installed under host and target --> 'both'
+
+        Return:
+            String of execution mode.
+        """
+        install_path = self.install_locations
+        if not self.module_class:
+            return constants.DEVICE_TEST
+        # Let Robolectric test support both.
+        if constants.MODULE_CLASS_ROBOLECTRIC in self.module_class:
+            return constants.BOTH_TEST
+        # Let JAVA_LIBRARIES support both.
+        if constants.MODULE_CLASS_JAVA_LIBRARIES in self.module_class:
+            return constants.BOTH_TEST
+        if not install_path:
+            return constants.DEVICE_TEST
+        # Non-Native test runs on device-only.
+        if constants.MODULE_CLASS_NATIVE_TESTS not in self.module_class:
+            return constants.DEVICE_TEST
+        # Native test with install path as host should be treated as both.
+        # Otherwise, return device test.
+        if len(install_path) == 1 and constants.DEVICE_TEST in install_path:
+            return constants.DEVICE_TEST
+        return constants.BOTH_TEST
 
 
 class TestFilter(TestFilterBase):

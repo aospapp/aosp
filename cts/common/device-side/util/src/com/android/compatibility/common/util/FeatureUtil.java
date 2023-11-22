@@ -16,8 +16,10 @@
 
 package com.android.compatibility.common.util;
 
+import android.content.Context;
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.support.test.InstrumentationRegistry;
 
@@ -29,6 +31,7 @@ import java.util.Set;
  */
 public class FeatureUtil {
 
+    public static final String AUTOMOTIVE_FEATURE = "android.hardware.type.automotive";
     public static final String LEANBACK_FEATURE = "android.software.leanback";
     public static final String LOW_RAM_FEATURE = "android.hardware.ram.low";
     public static final String TELEPHONY_FEATURE = "android.hardware.telephony";
@@ -82,17 +85,35 @@ public class FeatureUtil {
         return hasSystemFeature(WATCH_FEATURE);
     }
 
+    /** Returns true if the device has feature AUTOMOTIVE_FEATURE */
+    public static boolean isAutomotive() {
+        return hasSystemFeature(AUTOMOTIVE_FEATURE);
+    }
+
+    public static boolean isVrHeadset() {
+        int maskedUiMode = (getConfiguration().uiMode & Configuration.UI_MODE_TYPE_MASK);
+        return (maskedUiMode == Configuration.UI_MODE_TYPE_VR_HEADSET);
+    }
+
     /** Returns true if the device is a low ram device:
-     *  1. API level &gt;= O
+     *  1. API level &gt;= O_MR1
      *  2. device has feature LOW_RAM_FEATURE
      */
     public static boolean isLowRam() {
-        return ApiLevelUtil.isAtLeast(Build.VERSION_CODES.O) &&
+        return ApiLevelUtil.isAtLeast(Build.VERSION_CODES.O_MR1) &&
                 hasSystemFeature(LOW_RAM_FEATURE);
     }
 
+    private static Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext();
+    }
+
     private static PackageManager getPackageManager() {
-        return InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageManager();
+        return getContext().getPackageManager();
+    }
+
+    private static Configuration getConfiguration() {
+        return getContext().getResources().getConfiguration();
     }
 
     /** Returns true if the device has feature TELEPHONY_FEATURE */

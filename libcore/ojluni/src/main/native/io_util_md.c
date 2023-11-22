@@ -30,6 +30,14 @@
 #include "io_util_md.h"
 #include <string.h>
 
+// BEGIN Android-added: Fuchsia: Alias *64 functions on Fuchsia. http://b/119496969
+#if defined(__Fuchsia__)
+#define stat64 stat
+#define fstat64 fstat
+#define open64 open
+#endif
+// END Android-added: Fuchsia: Alias *64 functions on Fuchsia. http://b/119496969
+
 #ifdef MACOSX
 
 #include <CoreFoundation/CoreFoundation.h>

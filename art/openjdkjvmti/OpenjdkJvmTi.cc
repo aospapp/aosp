@@ -29,6 +29,7 @@
  * questions.
  */
 
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -43,7 +44,7 @@
 #include "base/logging.h"  // For gLogVerbosity.
 #include "base/mutex.h"
 #include "events-inl.h"
-#include "jni_env_ext-inl.h"
+#include "jni/jni_env_ext-inl.h"
 #include "obj_ptr-inl.h"
 #include "object_tagging.h"
 #include "runtime.h"
@@ -58,6 +59,7 @@
 #include "ti_field.h"
 #include "ti_heap.h"
 #include "ti_jni.h"
+#include "ti_logging.h"
 #include "ti_method.h"
 #include "ti_monitor.h"
 #include "ti_object.h"
@@ -120,13 +122,21 @@ class JvmtiFunctions {
 
  public:
   static jvmtiError Allocate(jvmtiEnv* env, jlong size, unsigned char** mem_ptr) {
-    ENSURE_VALID_ENV(env);
+    jvmtiError err = getEnvironmentError(env);
+    // Allow UNATTACHED_THREAD since we don't really care about that for this function.
+    if (err != OK && err != ERR(UNATTACHED_THREAD)) {
+      return err;
+    }
     ENSURE_NON_NULL(mem_ptr);
     return AllocUtil::Allocate(env, size, mem_ptr);
   }
 
   static jvmtiError Deallocate(jvmtiEnv* env, unsigned char* mem) {
-    ENSURE_VALID_ENV(env);
+    jvmtiError err = getEnvironmentError(env);
+    // Allow UNATTACHED_THREAD since we don't really care about that for this function.
+    if (err != OK && err != ERR(UNATTACHED_THREAD)) {
+      return err;
+    }
     return AllocUtil::Deallocate(env, mem);
   }
 
@@ -313,10 +323,10 @@ class JvmtiFunctions {
     return StackUtil::GetFrameCount(env, thread, count_ptr);
   }
 
-  static jvmtiError PopFrame(jvmtiEnv* env, jthread thread ATTRIBUTE_UNUSED) {
+  static jvmtiError PopFrame(jvmtiEnv* env, jthread thread) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_pop_frame);
-    return ERR(NOT_IMPLEMENTED);
+    return StackUtil::PopFrame(env, thread);
   }
 
   static jvmtiError GetFrameLocation(jvmtiEnv* env,
@@ -506,13 +516,15 @@ class JvmtiFunctions {
 
   static jvmtiError IterateOverInstancesOfClass(
       jvmtiEnv* env,
-      jclass klass ATTRIBUTE_UNUSED,
-      jvmtiHeapObjectFilter object_filter ATTRIBUTE_UNUSED,
-      jvmtiHeapObjectCallback heap_object_callback ATTRIBUTE_UNUSED,
-      const void* user_data ATTRIBUTE_UNUSED) {
+      jclass klass,
+      jvmtiHeapObjectFilter object_filter,
+      jvmtiHeapObjectCallback heap_object_callback,
+      const void* user_data) {
     ENSURE_VALID_ENV(env);
     ENSURE_HAS_CAP(env, can_tag_objects);
-    return ERR(NOT_IMPLEMENTED);
+    HeapUtil heap_util(ArtJvmTiEnv::AsArtJvmTiEnv(env)->object_tag_table.get());
+    return heap_util.IterateOverInstancesOfClass(
+        env, klass, object_filter, heap_object_callback, user_data);
   }
 
   static jvmtiError GetLocalObject(jvmtiEnv* env,
@@ -785,7 +797,7 @@ class JvmtiFunctions {
                                                      classes,
                                                      &error_msg);
     if (res != OK) {
-      LOG(WARNING) << "FAILURE TO RETRANFORM " << error_msg;
+      JVMTI_LOG(WARNING, env) << "FAILURE TO RETRANFORM " << error_msg;
     }
     return res;
   }
@@ -804,7 +816,7 @@ class JvmtiFunctions {
                                                 class_definitions,
                                                 &error_msg);
     if (res != OK) {
-      LOG(WARNING) << "FAILURE TO REDEFINE " << error_msg;
+      JVMTI_LOG(WARNING, env) << "FAILURE TO REDEFINE " << error_msg;
     }
     return res;
   }
@@ -1049,22 +1061,9 @@ class JvmtiFunctions {
                                              jthread event_thread,
                                              ...) {
     ENSURE_VALID_ENV(env);
-    art::Thread* art_thread = nullptr;
-    if (event_thread != nullptr) {
-      // TODO The locking around this call is less then what we really want.
-      art::ScopedObjectAccess soa(art::Thread::Current());
-      art::MutexLock mu(soa.Self(), *art::Locks::thread_list_lock_);
-      jvmtiError err = ERR(INTERNAL);
-      if (!ThreadUtil::GetAliveNativeThread(event_thread, soa, &art_thread, &err)) {
-        return err;
-      } else if (art_thread->IsStillStarting()) {
-        return ERR(THREAD_NOT_ALIVE);
-      }
-    }
-
     ArtJvmTiEnv* art_env = ArtJvmTiEnv::AsArtJvmTiEnv(env);
     return gEventHandler->SetEvent(art_env,
-                                   art_thread,
+                                   event_thread,
                                    GetArtJvmtiEvent(art_env, event_type),
                                    mode);
   }
@@ -1193,7 +1192,7 @@ class JvmtiFunctions {
 #undef ADD_CAPABILITY
     gEventHandler->HandleChangedCapabilities(ArtJvmTiEnv::AsArtJvmTiEnv(env),
                                              changed,
-                                             /*added*/true);
+                                             /*added=*/true);
     return ret;
   }
 
@@ -1217,7 +1216,7 @@ class JvmtiFunctions {
 #undef DEL_CAPABILITY
     gEventHandler->HandleChangedCapabilities(ArtJvmTiEnv::AsArtJvmTiEnv(env),
                                              changed,
-                                             /*added*/false);
+                                             /*added=*/false);
     return OK;
   }
 
@@ -1487,8 +1486,9 @@ ArtJvmTiEnv::ArtJvmTiEnv(art::JavaVMExt* runtime, EventHandler* event_handler, j
       local_data(nullptr),
       ti_version(version),
       capabilities(),
-      event_info_mutex_("jvmtiEnv_EventInfoMutex") {
-  object_tag_table = std::unique_ptr<ObjectTagTable>(new ObjectTagTable(event_handler, this));
+      event_info_mutex_("jvmtiEnv_EventInfoMutex"),
+      last_error_mutex_("jvmtiEnv_LastErrorMutex", art::LockLevel::kGenericBottomLock) {
+  object_tag_table = std::make_unique<ObjectTagTable>(event_handler, this);
   functions = &gJvmtiInterface;
 }
 
@@ -1547,7 +1547,7 @@ extern "C" bool ArtPlugin_Initialize() {
 
   {
     // Make sure we can deopt anything we need to.
-    art::ScopedObjectAccess soa(art::Thread::Current());
+    art::ScopedSuspendAll ssa(__FUNCTION__);
     gDeoptManager->FinishSetup();
   }
 

@@ -16,14 +16,14 @@
 
 package com.android.documentsui;
 
-import android.annotation.IntDef;
-import android.annotation.Nullable;
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 import android.content.ClipData;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.provider.DocumentsContract;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.view.DragEvent;
 import android.view.KeyEvent;
 import android.view.View;
@@ -31,6 +31,7 @@ import android.view.View;
 import com.android.documentsui.MenuManager.SelectionDetails;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.DocumentStack;
+import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.clipping.DocumentClipper;
 import com.android.documentsui.dirlist.IconHelper;
@@ -186,7 +187,7 @@ public interface DragAndDropManager {
                     context.getApplicationContext(),
                     clipper,
                     new DragShadowBuilder(context),
-                    context.getDrawable(R.drawable.ic_doc_generic));
+                    IconUtils.loadMimeIcon(context, MimeTypes.GENERIC_TYPE));
         }
 
         @VisibleForTesting
@@ -439,9 +440,9 @@ public interface DragAndDropManager {
             // is changed. The info about window should be passed in the localState then.
             // The localState could also be null for copying from Recents in single window
             // mode, but Recents doesn't offer this functionality (no directories).
-            Metrics.logUserAction(mContext,
-                    localState == null ? Metrics.USER_ACTION_DRAG_N_DROP_MULTI_WINDOW
-                            : Metrics.USER_ACTION_DRAG_N_DROP);
+            Metrics.logUserAction(
+                    localState == null ? MetricConsts.USER_ACTION_DRAG_N_DROP_MULTI_WINDOW
+                            : MetricConsts.USER_ACTION_DRAG_N_DROP);
 
             mClipper.copyFromClipData(dstStack, clipData, opType, callback);
         }

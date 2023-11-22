@@ -39,7 +39,6 @@ import java.nio.channels.SocketChannel;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -387,44 +386,58 @@ public class SocketTest extends TestCaseWithRules {
     }
 
     public void testCloseDuringConnect() throws Exception {
-        final CountDownLatch signal = new CountDownLatch(1);
+        // This address is reserved for documentation: should never be reachable and therefore
+        // is expected to produce block behavior when attempting to connect().
+        final InetSocketAddress unreachableIp = new InetSocketAddress("192.0.2.0", 80);
+
         final Socket s = new Socket();
 
-        // Executes a connect() that should block.
-        Callable<String> connectWorker = () -> {
+        // A Callable that executes a connect() that should block and ultimately throw an exception.
+        // Inverts usual behavior for code: expected to *return* a throwable for analysis if one is
+        // thrown, but throws an Error if no exception is thrown.
+        Callable<Throwable> connectWorker = () -> {
             try {
-                // This address is reserved for documentation: should never be reachable.
-                InetSocketAddress unreachableIp = new InetSocketAddress("192.0.2.0", 80);
-                // This should never return.
+                // This method should not return naturally.
                 s.connect(unreachableIp, 0 /* infinite */);
-                return "Connect returned unexpectedly for: " + unreachableIp;
-            } catch (SocketException expected) {
-                signal.countDown();
-                return expected.getMessage().contains("Socket closed")
-                        ? null
-                        : "Unexpected SocketException message: " + expected.getMessage();
-            } catch (IOException e) {
-                return "Unexpected exception: " + e;
+                throw new AssertionError(
+                        "connect() to address(" + unreachableIp + ") did not block as required");
+            } catch (Exception exception) {
+                // Return the exception so that it can be inspected.
+                return exception;
             }
         };
-        Future<String> connectResult =
+        Future<Throwable> connectResult =
                 Executors.newSingleThreadScheduledExecutor().submit(connectWorker);
 
         // Wait sufficient time for the connectWorker thread to run and start connect().
         Thread.sleep(2000);
 
+        // Check for unexpected early termination. We require an environment where connect() will
+        // block forever with the specified IP and we can fail early if we detect the block hasn't
+        // happened.
+        if (connectResult.isDone()) {
+            // We expect an ExecutionError here. If not something has gone wrong with the test
+            // logic.
+            Throwable error = connectResult.get();
+            throw new AssertionError("Unexpected result from connectWorker", error);
+        }
+
         // Close the socket that connectWorker should currently be blocked in connect().
         s.close();
 
-        // connectWorker should have been unblocked so await() should return true.
-        boolean connectUnblocked = signal.await(2000, TimeUnit.MILLISECONDS);
-
-        // connectWorker should have returned null if everything went as expected.
-        String workerFailure = connectResult.get(2000, TimeUnit.MILLISECONDS);
-
-        assertTrue("connectUnblocked=[" + connectUnblocked
-                + "], workerFailure=[" + workerFailure + "]",
-                connectUnblocked && workerFailure == null);
+        // connectWorker should unblock so get() should obtain the exception that we expect to be
+        // thrown.
+        Throwable result = connectResult.get(2000, TimeUnit.MILLISECONDS);
+        if (result instanceof SocketException) {
+            if (result.getMessage().contains("Socket closed")) {
+                // This is the only case we accept.
+                return;
+            }
+            throw new AssertionError(
+                    "Unexpected SocketException message: " + result.getMessage(), result);
+        } else {
+            throw new AssertionError("Unexpected exception encountered", result);
+        }
     }
 
     // http://b/29092095

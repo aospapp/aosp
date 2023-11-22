@@ -229,7 +229,6 @@ bool CommandProcessor::Dump(unique_fd dump_fd) {
         break;
       case Opcode::kDumpBuffers:
         LOG(FATAL) << "Unexpected DumpBuffers command in log";
-        break;
     }
     output_string += '\n';
 

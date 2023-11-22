@@ -109,9 +109,11 @@ bool LocalLinearBuffer::copy(const std::shared_ptr<C2Buffer> &buffer) {
 
 // DummyContainerBuffer
 
+static uint8_t sDummyByte[1] = { 0 };
+
 DummyContainerBuffer::DummyContainerBuffer(
         const sp<AMessage> &format, const std::shared_ptr<C2Buffer> &buffer)
-    : Codec2Buffer(format, new ABuffer(nullptr, 1)),
+    : Codec2Buffer(format, new ABuffer(sDummyByte, 1)),
       mBufferRef(buffer) {
     setRange(0, buffer ? 1 : 0);
 }
@@ -296,7 +298,7 @@ public:
                             break;
                         }
                     }
-                    // fall through if we could not wrap
+                    [[fallthrough]];
 
                     case COLOR_FormatYUV420Planar:
                     case COLOR_FormatYUV420PackedPlanar:
@@ -562,7 +564,7 @@ GraphicMetadataBuffer::GraphicMetadataBuffer(
         const std::shared_ptr<C2Allocator> &alloc)
     : Codec2Buffer(format, new ABuffer(sizeof(VideoNativeMetadata))),
       mAlloc(alloc) {
-    ((VideoNativeMetadata *)base())->pBuffer = 0;
+    ((VideoNativeMetadata *)base())->pBuffer = nullptr;
 }
 
 std::shared_ptr<C2Buffer> GraphicMetadataBuffer::asC2Buffer() {
@@ -576,7 +578,7 @@ std::shared_ptr<C2Buffer> GraphicMetadataBuffer::asC2Buffer() {
 
     ALOGV("VideoNativeMetadata: %dx%d", buffer->width, buffer->height);
     C2Handle *handle = WrapNativeCodec2GrallocHandle(
-            native_handle_clone(buffer->handle),
+            buffer->handle,
             buffer->width,
             buffer->height,
             buffer->format,

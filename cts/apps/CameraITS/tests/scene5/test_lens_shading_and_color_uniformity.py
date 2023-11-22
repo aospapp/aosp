@@ -45,7 +45,7 @@ def main():
     THRES_LS_CN = 0.6    # len shading allowance for corner
     THRES_LS_HIGH = 0.2  # max allowed percentage for a patch to be brighter
                          # than center
-    THRES_UFMT = 0.1     # uniformity allowance
+    THRES_UFMT = 0.2     # uniformity allowance
     # Drawing color
     RED = (1, 0, 0)   # blocks failed the test
     GREEN = (0, 0.7, 0.3)   # blocks passed the test

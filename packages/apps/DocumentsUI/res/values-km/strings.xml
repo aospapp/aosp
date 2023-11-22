@@ -35,7 +35,9 @@
     <string name="menu_save" msgid="5195367497138965168">"រក្សាទុក"</string>
     <string name="menu_share" msgid="4307140947108068356">"ចែករំលែក​"</string>
     <string name="menu_delete" msgid="1022254131543256626">"លុប"</string>
-    <string name="menu_select_all" msgid="7600576812185570403">"ជ្រើស​ទាំងអស់"</string>
+    <string name="menu_select_all" msgid="7600576812185570403">"ជ្រើស​រើសទាំងអស់"</string>
+    <string name="menu_select" msgid="1366061076507142387">"ជ្រើសរើស"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"តម្រៀប​តាម..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"ចម្លងទៅ…"</string>
     <string name="menu_move" msgid="2310760789561129882">"ផ្លាស់ទីទៅ…"</string>
     <string name="menu_compress" msgid="37539111904724188">"បង្ហាប់"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"ប្រភេទ"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"ទំហំ"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"បានកែសម្រួល"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"ឈ្មោះឯកសារ (A ដល់ Z)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"ប្រភេទ (A ដល់ Z)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"ទំហំ (តូចបំផុតមុនគេ)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"បានកែប្រែ (ចាស់បំផុតមុនគេ)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"ឈ្មោះឯកសារ (Z ដល់ A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"ប្រភេទ (Z ដល់ A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"ទំហំ (ធំបំផុតមុនគេ)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"បានកែប្រែ (ថ្មីបំផុតមុនគេ)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"តម្រៀបតាម"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"តម្រៀបតាម <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"ចំនួន​ធាតុ"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"ឡើង"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"ចុះ"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"បើក <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"បង្ហាញ roots"</string>
     <string name="drawer_close" msgid="4263880768630848848">"លាក់ roots"</string>
     <string name="save_error" msgid="8631128801982095782">"បានបរាជ័យក្នុងការរក្សាទុកឯកសារ"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"ផ្តល់សិទ្ធិឲ្យ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ដើម្បីចូលដំណើរការថត <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> នៅលើ <xliff:g id="STORAGE"><i>^3</i></xliff:g> ឬ?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"ផ្តល់សិទ្ធិឲ្យ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ដើម្បីចូលដំណើរការថត <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> ឬ?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"ផ្តល់សិទ្ធិឲ្យ <xliff:g id="APPNAME"><b>^1</b></xliff:g> ដើម្បីចូលដំណើរការទិន្នន័យរបស់អ្នក រាប់បញ្ចូលទាំងរូបថត និងវីដេអូ នៅលើ <xliff:g id="STORAGE"><i>^2</i></xliff:g> ឬ?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"កុំសួរ​ម្ដងទៀត"</string>
     <string name="allow" msgid="1275746941353040309">"អនុញ្ញាត"</string>
     <string name="deny" msgid="5127201668078153379">"បដិសេធ"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -190,8 +202,8 @@
       <item quantity="one">លុបឯកសារ <xliff:g id="COUNT_0">%1$d</xliff:g> ឬ?</item>
     </plurals>
     <plurals name="delete_folders_confirmation_message" formatted="false" msgid="1028946402799686388">
-      <item quantity="other">លុបថត <xliff:g id="COUNT_1">%1$d</xliff:g> និងមាតិការបស់វាឬ?</item>
-      <item quantity="one">លុបថត <xliff:g id="COUNT_0">%1$d</xliff:g> និងមាតិការបស់វាឬ?</item>
+      <item quantity="other">លុបថត <xliff:g id="COUNT_1">%1$d</xliff:g> និងខ្លឹមសាររបស់វាឬ?</item>
+      <item quantity="one">លុបថត <xliff:g id="COUNT_0">%1$d</xliff:g> និងខ្លឹមសាររបស់វាឬ?</item>
     </plurals>
     <plurals name="delete_items_confirmation_message" formatted="false" msgid="7285090426511028179">
       <item quantity="other">លុបធាតុ <xliff:g id="COUNT_1">%1$d</xliff:g> ឬ?</item>
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"បណ្ណសារ<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"ចម្លងជាន់ពីលើ <xliff:g id="NAME">%1$s</xliff:g>?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"បន្ត​នៅផ្ទៃ​ខាងក្រោយ"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other">បាន​ជ្រើសរើស <xliff:g id="COUNT_1">%1$d</xliff:g></item>
+      <item quantity="one">បាន​ជ្រើសរើស <xliff:g id="COUNT_0">%1$d</xliff:g></item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"ឯកសារ​ថ្មីៗ​នៅលើទូរសព្ទ"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"ឯកសារ​នៅលើទូរសព្ទ"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> នៅលើ​ទូរសព្ទ"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"ឯកសារ​នៅលើ <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"ឯកសារ​ពី <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"ឯកសារ​ពី <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"រូបភាពថ្មីៗ​នៅលើ​ទូរសព្ទ"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"រូបភាព​នៅលើ​ទូរសព្ទ"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"រូបភាព​នៅលើ <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"រូបភាព​ពី <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"រូបភាព​ពី <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"រូបភាព"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"សំឡេង"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"វីដេអូ"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"ឯកសារ"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"ឈ្មោះ​ថត"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"ឈ្មោះ​ថ្មី"</string>
+    <string name="preview_file" msgid="4056622696305432343">"មើលឯកសារ <xliff:g id="FILENAME">%1$s</xliff:g> សាកល្បង"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"រុករក​ឯកសារ​នៅក្នុង​កម្មវិធី​ផ្សេងទៀត"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"អនាមិក"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"អនុញ្ញាត​ឱ្យ​ចូលប្រើ \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\""</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"អនុញ្ញាត​ឱ្យ​ចូលប្រើ \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" នៅក្នុង \"<xliff:g id="ROOT">%2$s</xliff:g>\"?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"ការធ្វើ​បែបនេះ​នឹង​អនុញ្ញាត​ឱ្យ \"<xliff:g id="APPNAME">%1$s</xliff:g>\" អាច​ចូលប្រើ​ឯកសារ​ទាំងអស់​ដែល​កំពុងផ្ទុក​នៅក្រោម​ទីតាំង​នេះ​បានពេញលេញ រួមទាំងខ្លឹមសារ​នាពេលខាងមុខ​ផ្សេងទៀត​ដែល​ផ្ទុក​នៅទីនេះ។"</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"ស្វែងរក​ទូរសព្ទ​នេះ"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"លុប​ប្រវត្តិស្វែងរក <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

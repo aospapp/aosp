@@ -17,8 +17,10 @@ LOCAL_SRC_FILES := \
     StreamHandler.cpp \
     WindowSurface.cpp \
     FormatConvert.cpp \
+    RenderPixelCopy.cpp
 
 LOCAL_SHARED_LIBRARIES := \
+    libbinder \
     libcutils \
     liblog \
     libutils \

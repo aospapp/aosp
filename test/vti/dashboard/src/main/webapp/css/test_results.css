@@ -34,6 +34,14 @@ li.test-run-container.active {
     cursor: text;
     user-select: initial;
 }
+.suite-test-run-metadata {
+    font-size: 13px;
+    line-height: 15px;
+    position: relative;
+    display: inline-block;
+    cursor: text;
+    user-select: initial;
+}
 .test-results.row {
     margin: 0;
     border-radius: 0 0 10px 10px;
@@ -65,6 +73,14 @@ li.test-run-container.active {
     border-bottom: 1px solid lightgray;
     padding: 4px 15px;
     margin: 0;
+}
+.loaders {
+    position: absolute;
+    left:0;
+    right:0;
+    top:0;
+    bottom:0;
+    margin:auto;
 }
 .indicator {
     color: white;

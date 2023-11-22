@@ -20,7 +20,7 @@ import static android.provider.DocumentsContract.Document.FLAG_SUPPORTS_SETTINGS
 import android.content.Context;
 import android.content.pm.PackageManager;
 
-import android.support.annotation.StringRes;
+import androidx.annotation.StringRes;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.roots.ProvidersAccess;

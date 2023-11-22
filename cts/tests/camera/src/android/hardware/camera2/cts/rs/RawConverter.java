@@ -119,6 +119,96 @@ public class RawConverter {
     }
 
     /**
+     * Utility class wrapping Bayer specific DNG metadata.
+     */
+    static class DngBayerMetadata {
+        public final int referenceIlluminant1;
+        public final int referenceIlluminant2;
+        public final float[] calibrationTransform1;
+        public final float[] calibrationTransform2;
+        public final float[] colorMatrix1;
+        public final float[] colorMatrix2;
+        public final float[] forwardTransform1;
+        public final float[] forwardTransform2;
+        public final Rational[/*3*/] neutralColorPoint;
+
+        /**
+         * Convert a 9x9 {@link ColorSpaceTransform} to a matrix and write the matrix into the
+         * output.
+         *
+         * @param xform a {@link ColorSpaceTransform} to transform.
+         * @param output the 3x3 matrix to overwrite.
+         */
+        private static void convertColorspaceTransform(ColorSpaceTransform xform,
+                /*out*/float[] output) {
+            for (int i = 0; i < 3; i++) {
+                for (int j = 0; j < 3; j++) {
+                    output[i * 3 + j] = xform.getElement(j, i).floatValue();
+                }
+            }
+        }
+
+        /**
+         * Constructor to parse static and dynamic metadata into DNG metadata.
+         */
+        public DngBayerMetadata(CameraCharacteristics staticMetadata,
+                CaptureResult dynamicMetadata) {
+            referenceIlluminant1 =
+                    staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1);
+            if (staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2) != null) {
+                referenceIlluminant2 =
+                        staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2);
+            } else {
+                referenceIlluminant2 = referenceIlluminant1;
+            }
+            calibrationTransform1 = new float[9];
+            calibrationTransform2 = new float[9];
+            convertColorspaceTransform(
+                    staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1),
+                    calibrationTransform1);
+            if (staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM2) != null) {
+                convertColorspaceTransform(
+                    staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM2),
+                    calibrationTransform2);
+            } else {
+                convertColorspaceTransform(
+                    staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1),
+                    calibrationTransform2);
+            }
+            colorMatrix1 = new float[9];
+            colorMatrix2 = new float[9];
+            convertColorspaceTransform(
+                    staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1),
+                    colorMatrix1);
+            if (staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM2) != null) {
+                convertColorspaceTransform(
+                    staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM2),
+                    colorMatrix2);
+            } else {
+                convertColorspaceTransform(
+                    staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1),
+                    colorMatrix2);
+            }
+            forwardTransform1 = new float[9];
+            forwardTransform2 = new float[9];
+            convertColorspaceTransform(
+                    staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1),
+                    forwardTransform1);
+            if (staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2) != null) {
+                convertColorspaceTransform(
+                    staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2),
+                    forwardTransform2);
+            } else {
+                convertColorspaceTransform(
+                    staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1),
+                    forwardTransform2);
+            }
+
+            neutralColorPoint = dynamicMetadata.get(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
+        }
+    }
+
+    /**
      * Convert a RAW16 buffer into an sRGB buffer, and write the result into a bitmap.
      *
      * <p> This function applies the operations roughly outlined in the Adobe DNG specification
@@ -191,62 +281,23 @@ public class RawConverter {
             CaptureResult dynamicMetadata, int outputOffsetX, int outputOffsetY,
             /*out*/Bitmap argbOutput) {
         int cfa = staticMetadata.get(CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT);
+        boolean isMono = (cfa == CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_MONO ||
+                cfa == CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_NIR);
         int[] blackLevelPattern = new int[4];
         staticMetadata.get(CameraCharacteristics.SENSOR_BLACK_LEVEL_PATTERN).
                 copyTo(blackLevelPattern, /*offset*/0);
         int whiteLevel = staticMetadata.get(CameraCharacteristics.SENSOR_INFO_WHITE_LEVEL);
-        int ref1 = staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT1);
-        int ref2;
-        if (staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2) != null) {
-            ref2 = staticMetadata.get(CameraCharacteristics.SENSOR_REFERENCE_ILLUMINANT2);
-        }
-        else {
-            ref2 = ref1;
-        }
-        float[] calib1 = new float[9];
-        float[] calib2 = new float[9];
-        convertColorspaceTransform(
-                staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1), calib1);
-        if (staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM2) != null) {
-            convertColorspaceTransform(
-                staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM2), calib2);
-        }
-        else {
-            convertColorspaceTransform(
-                staticMetadata.get(CameraCharacteristics.SENSOR_CALIBRATION_TRANSFORM1), calib2);
-        }
-        float[] color1 = new float[9];
-        float[] color2 = new float[9];
-        convertColorspaceTransform(
-                staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1), color1);
-        if (staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM2) != null) {
-            convertColorspaceTransform(
-                staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM2), color2);
-        }
-        else {
-            convertColorspaceTransform(
-                staticMetadata.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1), color2);
-        }
-        float[] forward1 = new float[9];
-        float[] forward2 = new float[9];
-        convertColorspaceTransform(
-                staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1), forward1);
-        if (staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2) != null) {
-            convertColorspaceTransform(
-                staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2), forward2);
-        }
-        else {
-            convertColorspaceTransform(
-                staticMetadata.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1), forward2);
-        }
 
-        Rational[] neutral = dynamicMetadata.get(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
+        LensShadingMap shadingMap = dynamicMetadata.get(
+                CaptureResult.STATISTICS_LENS_SHADING_CORRECTION_MAP);
 
-        LensShadingMap shadingMap = dynamicMetadata.get(CaptureResult.STATISTICS_LENS_SHADING_CORRECTION_MAP);
-
-        convertToSRGB(rs, inputWidth, inputHeight, inputStride, cfa, blackLevelPattern, whiteLevel,
-                rawImageInput, ref1, ref2, calib1, calib2, color1, color2,
-                forward1, forward2, neutral, shadingMap, outputOffsetX, outputOffsetY, argbOutput);
+        DngBayerMetadata dngBayerMetadata = null;
+        if (!isMono) {
+            dngBayerMetadata = new DngBayerMetadata(staticMetadata, dynamicMetadata);
+        }
+        convertToSRGB(rs, inputWidth, inputHeight, inputStride, cfa, blackLevelPattern,
+                whiteLevel, rawImageInput, dngBayerMetadata,
+                shadingMap, outputOffsetX, outputOffsetY, argbOutput);
     }
 
     /**
@@ -256,11 +307,8 @@ public class RawConverter {
      */
     private static void convertToSRGB(RenderScript rs, int inputWidth, int inputHeight,
             int inputStride, int cfa, int[] blackLevelPattern, int whiteLevel, byte[] rawImageInput,
-            int referenceIlluminant1, int referenceIlluminant2, float[] calibrationTransform1,
-            float[] calibrationTransform2, float[] colorMatrix1, float[] colorMatrix2,
-            float[] forwardTransform1, float[] forwardTransform2, Rational[/*3*/] neutralColorPoint,
-            LensShadingMap lensShadingMap, int outputOffsetX, int outputOffsetY,
-            /*out*/Bitmap argbOutput) {
+            DngBayerMetadata dngBayerMetadata, LensShadingMap lensShadingMap,
+            int outputOffsetX, int outputOffsetY, /*out*/Bitmap argbOutput) {
 
         // Validate arguments
         if (argbOutput == null || rs == null || rawImageInput == null) {
@@ -286,7 +334,7 @@ public class RawConverter {
                     ", h=" + inputHeight + "), cannot converted into sRGB image with dimensions (w="
                     + outWidth + ", h=" + outHeight + ").");
         }
-        if (cfa < 0 || cfa > 3) {
+        if (cfa < 0 || cfa > 5) {
             throw new IllegalArgumentException("Unsupported cfa pattern " + cfa + " used.");
         }
         if (DEBUG) {
@@ -297,15 +345,6 @@ public class RawConverter {
             Log.d(TAG, "CFA: " + cfa);
             Log.d(TAG, "BlackLevelPattern: " + Arrays.toString(blackLevelPattern));
             Log.d(TAG, "WhiteLevel: " + whiteLevel);
-            Log.d(TAG, "ReferenceIlluminant1: " + referenceIlluminant1);
-            Log.d(TAG, "ReferenceIlluminant2: " + referenceIlluminant2);
-            Log.d(TAG, "CalibrationTransform1: " + Arrays.toString(calibrationTransform1));
-            Log.d(TAG, "CalibrationTransform2: " + Arrays.toString(calibrationTransform2));
-            Log.d(TAG, "ColorMatrix1: " + Arrays.toString(colorMatrix1));
-            Log.d(TAG, "ColorMatrix2: " + Arrays.toString(colorMatrix2));
-            Log.d(TAG, "ForwardTransform1: " + Arrays.toString(forwardTransform1));
-            Log.d(TAG, "ForwardTransform2: " + Arrays.toString(forwardTransform2));
-            Log.d(TAG, "NeutralColorPoint: " + Arrays.toString(neutralColorPoint));
         }
 
         Allocation gainMap = null;
@@ -316,42 +355,73 @@ public class RawConverter {
                     lensShadingMap.getRowCount());
         }
 
-        float[] normalizedForwardTransform1 = Arrays.copyOf(forwardTransform1,
-                forwardTransform1.length);
-        normalizeFM(normalizedForwardTransform1);
-        float[] normalizedForwardTransform2 = Arrays.copyOf(forwardTransform2,
-                forwardTransform2.length);
-        normalizeFM(normalizedForwardTransform2);
+        float[] sensorToProPhoto = new float[9];
+        float[] proPhotoToSRGB = new float[9];
+        if (dngBayerMetadata != null) {
+            float[] normalizedForwardTransform1 = Arrays.copyOf(dngBayerMetadata.forwardTransform1,
+                    dngBayerMetadata.forwardTransform1.length);
+            normalizeFM(normalizedForwardTransform1);
+            float[] normalizedForwardTransform2 = Arrays.copyOf(dngBayerMetadata.forwardTransform2,
+                    dngBayerMetadata.forwardTransform2.length);
+            normalizeFM(normalizedForwardTransform2);
 
-        float[] normalizedColorMatrix1 = Arrays.copyOf(colorMatrix1, colorMatrix1.length);
-        normalizeCM(normalizedColorMatrix1);
-        float[] normalizedColorMatrix2 = Arrays.copyOf(colorMatrix2, colorMatrix2.length);
-        normalizeCM(normalizedColorMatrix2);
+            float[] normalizedColorMatrix1 = Arrays.copyOf(dngBayerMetadata.colorMatrix1,
+                    dngBayerMetadata.colorMatrix1.length);
+            normalizeCM(normalizedColorMatrix1);
+            float[] normalizedColorMatrix2 = Arrays.copyOf(dngBayerMetadata.colorMatrix2,
+                    dngBayerMetadata.colorMatrix2.length);
+            normalizeCM(normalizedColorMatrix2);
 
-        if (DEBUG) {
-            Log.d(TAG, "Normalized ForwardTransform1: " + Arrays.toString(normalizedForwardTransform1));
-            Log.d(TAG, "Normalized ForwardTransform2: " + Arrays.toString(normalizedForwardTransform2));
-            Log.d(TAG, "Normalized ColorMatrix1: " + Arrays.toString(normalizedColorMatrix1));
-            Log.d(TAG, "Normalized ColorMatrix2: " + Arrays.toString(normalizedColorMatrix2));
+            if (DEBUG) {
+                Log.d(TAG, "ReferenceIlluminant1: " + dngBayerMetadata.referenceIlluminant1);
+                Log.d(TAG, "ReferenceIlluminant2: " + dngBayerMetadata.referenceIlluminant2);
+                Log.d(TAG, "CalibrationTransform1: "
+                        + Arrays.toString(dngBayerMetadata.calibrationTransform1));
+                Log.d(TAG, "CalibrationTransform2: "
+                        + Arrays.toString(dngBayerMetadata.calibrationTransform2));
+                Log.d(TAG, "ColorMatrix1: "
+                        + Arrays.toString(dngBayerMetadata.colorMatrix1));
+                Log.d(TAG, "ColorMatrix2: "
+                        + Arrays.toString(dngBayerMetadata.colorMatrix2));
+                Log.d(TAG, "ForwardTransform1: "
+                        + Arrays.toString(dngBayerMetadata.forwardTransform1));
+                Log.d(TAG, "ForwardTransform2: "
+                        + Arrays.toString(dngBayerMetadata.forwardTransform2));
+                Log.d(TAG, "NeutralColorPoint: "
+                        + Arrays.toString(dngBayerMetadata.neutralColorPoint));
+
+                Log.d(TAG, "Normalized ForwardTransform1: "
+                        + Arrays.toString(normalizedForwardTransform1));
+                Log.d(TAG, "Normalized ForwardTransform2: "
+                        + Arrays.toString(normalizedForwardTransform2));
+                Log.d(TAG, "Normalized ColorMatrix1: "
+                        + Arrays.toString(normalizedColorMatrix1));
+                Log.d(TAG, "Normalized ColorMatrix2: "
+                        + Arrays.toString(normalizedColorMatrix2));
+            }
+
+            // Calculate full sensor colorspace to sRGB colorspace transform.
+            double interpolationFactor = findDngInterpolationFactor(
+                    dngBayerMetadata.referenceIlluminant1, dngBayerMetadata.referenceIlluminant2,
+                    dngBayerMetadata.calibrationTransform1, dngBayerMetadata.calibrationTransform2,
+                    normalizedColorMatrix1, normalizedColorMatrix2,
+                    dngBayerMetadata.neutralColorPoint);
+            if (DEBUG) Log.d(TAG, "Interpolation factor used: " + interpolationFactor);
+            float[] sensorToXYZ = new float[9];
+            calculateCameraToXYZD50Transform(normalizedForwardTransform1,
+                    normalizedForwardTransform2,
+                    dngBayerMetadata.calibrationTransform1, dngBayerMetadata.calibrationTransform2,
+                    dngBayerMetadata.neutralColorPoint,
+                    interpolationFactor, /*out*/sensorToXYZ);
+            if (DEBUG) Log.d(TAG, "CameraToXYZ xform used: " + Arrays.toString(sensorToXYZ));
+            multiply(sXYZtoProPhoto, sensorToXYZ, /*out*/sensorToProPhoto);
+            if (DEBUG) {
+                Log.d(TAG, "CameraToIntemediate xform used: " + Arrays.toString(sensorToProPhoto));
+            }
+            multiply(sXYZtoRGBBradford, sProPhotoToXYZ, /*out*/proPhotoToSRGB);
         }
 
-        // Calculate full sensor colorspace to sRGB colorspace transform.
-        double interpolationFactor = findDngInterpolationFactor(referenceIlluminant1,
-                referenceIlluminant2, calibrationTransform1, calibrationTransform2,
-                normalizedColorMatrix1, normalizedColorMatrix2, neutralColorPoint);
-        if (DEBUG) Log.d(TAG, "Interpolation factor used: " + interpolationFactor);
-        float[] sensorToXYZ = new float[9];
-        calculateCameraToXYZD50Transform(normalizedForwardTransform1, normalizedForwardTransform2,
-                calibrationTransform1, calibrationTransform2, neutralColorPoint,
-                interpolationFactor, /*out*/sensorToXYZ);
-        if (DEBUG) Log.d(TAG, "CameraToXYZ xform used: " + Arrays.toString(sensorToXYZ));
-        float[] sensorToProPhoto = new float[9];
-        multiply(sXYZtoProPhoto, sensorToXYZ, /*out*/sensorToProPhoto);
-        if (DEBUG) Log.d(TAG, "CameraToIntemediate xform used: " + Arrays.toString(sensorToProPhoto));
         Allocation output = Allocation.createFromBitmap(rs, argbOutput);
-
-        float[] proPhotoToSRGB = new float[9];
-        multiply(sXYZtoRGBBradford, sProPhotoToXYZ, /*out*/proPhotoToSRGB);
 
         // Setup input allocation (16-bit raw pixels)
         Type.Builder typeBuilder = new Type.Builder(rs, Element.U16(rs));
@@ -365,14 +435,10 @@ public class RawConverter {
         ScriptC_raw_converter converterKernel = new ScriptC_raw_converter(rs);
         converterKernel.set_inputRawBuffer(input);
         converterKernel.set_whiteLevel(whiteLevel);
-        converterKernel.set_sensorToIntermediate(new Matrix3f(transpose(sensorToProPhoto)));
-        converterKernel.set_intermediateToSRGB(new Matrix3f(transpose(proPhotoToSRGB)));
         converterKernel.set_offsetX(outputOffsetX);
         converterKernel.set_offsetY(outputOffsetY);
         converterKernel.set_rawHeight(inputHeight);
         converterKernel.set_rawWidth(inputWidth);
-        converterKernel.set_neutralPoint(new Float3(neutralColorPoint[0].floatValue(),
-                neutralColorPoint[1].floatValue(), neutralColorPoint[2].floatValue()));
         converterKernel.set_toneMapCoeffs(new Float4(DEFAULT_ACR3_TONEMAP_CURVE_COEFFS[0],
                 DEFAULT_ACR3_TONEMAP_CURVE_COEFFS[1], DEFAULT_ACR3_TONEMAP_CURVE_COEFFS[2],
                 DEFAULT_ACR3_TONEMAP_CURVE_COEFFS[3]));
@@ -381,6 +447,16 @@ public class RawConverter {
             converterKernel.set_gainMap(gainMap);
             converterKernel.set_gainMapWidth(lensShadingMap.getColumnCount());
             converterKernel.set_gainMapHeight(lensShadingMap.getRowCount());
+        }
+
+        converterKernel.set_isMonochrome(dngBayerMetadata == null);
+        if (dngBayerMetadata != null) {
+            converterKernel.set_sensorToIntermediate(new Matrix3f(transpose(sensorToProPhoto)));
+            converterKernel.set_intermediateToSRGB(new Matrix3f(transpose(proPhotoToSRGB)));
+            converterKernel.set_neutralPoint(
+                    new Float3(dngBayerMetadata.neutralColorPoint[0].floatValue(),
+                    dngBayerMetadata.neutralColorPoint[1].floatValue(),
+                    dngBayerMetadata.neutralColorPoint[2].floatValue()));
         }
 
         converterKernel.set_cfaPattern(cfa);
@@ -473,21 +549,6 @@ public class RawConverter {
     private static void lerp(float[] a, float[] b, double f, /*out*/float[] result) {
         for (int i = 0; i < 9; i++) {
             result[i] = (float) lerp(a[i], b[i], f);
-        }
-    }
-
-    /**
-     * Convert a 9x9 {@link ColorSpaceTransform} to a matrix and write the matrix into the
-     * output.
-     *
-     * @param xform a {@link ColorSpaceTransform} to transform.
-     * @param output the 3x3 matrix to overwrite.
-     */
-    private static void convertColorspaceTransform(ColorSpaceTransform xform, /*out*/float[] output) {
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                output[i * 3 + j] = xform.getElement(j, i).floatValue();
-            }
         }
     }
 

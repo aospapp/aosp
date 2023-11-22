@@ -16,6 +16,7 @@
 
 package com.android.providers.blockednumber;
 
+import static android.provider.BlockedNumberContract.STATUS_NOT_BLOCKED;
 import static android.provider.BlockedNumberContract.SystemContract
         .ENHANCED_SETTING_KEY_BLOCK_PAYPHONE;
 
@@ -97,8 +98,9 @@ public class BlockedNumberContractTest extends AndroidTestCase {
     @SmallTest
     @Test
     public void testShouldSystemBlockNumberException() {
-        assertFalse(BlockedNumberContract.SystemContract.shouldSystemBlockNumber(mMockContext,
-                TEST_NUMBER, null));
+        assertEquals(STATUS_NOT_BLOCKED,
+                BlockedNumberContract.SystemContract.shouldSystemBlockNumber(mMockContext,
+                        TEST_NUMBER, null));
     }
 
     /**

@@ -19,6 +19,7 @@ include $(CLEAR_VARS)
 LOCAL_PACKAGE_NAME := CtsAndroidTestRunnerCurrentApiSignatureTestCases
 
 LOCAL_SIGNATURE_API_FILES := \
+    android-test-base-current.api \
     android-test-mock-current.api \
     android-test-runner-current.api \
 

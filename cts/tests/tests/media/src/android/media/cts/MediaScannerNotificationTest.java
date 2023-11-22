@@ -18,8 +18,6 @@ package android.media.cts;
 
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.Uri;
-import android.os.Bundle;
 import android.os.Environment;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
@@ -27,8 +25,6 @@ import android.test.AndroidTestCase;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class MediaScannerNotificationTest extends AndroidTestCase {
@@ -50,13 +46,7 @@ public class MediaScannerNotificationTest extends AndroidTestCase {
         String [] temps = new String[] { "avi", "gif", "jpg", "dat", "mp3", "mp4", "txt" };
         String tmpPath = createTempFiles(temps);
 
-        Bundle args = new Bundle();
-        args.putString("volume", "external");
-        Intent i = new Intent("android.media.IMediaScannerService").putExtras(args);
-        i.setClassName("com.android.providers.media",
-                "com.android.providers.media.MediaScannerService");
-        mContext.startService(i);
-
+        MediaScannerTest.startMediaScan();
         startedReceiver.waitForBroadcast();
         finishedReceiver.waitForBroadcast();
 
@@ -71,7 +61,7 @@ public class MediaScannerNotificationTest extends AndroidTestCase {
         }
         startedReceiver.reset();
         finishedReceiver.reset();
-        mContext.startService(i);
+        MediaScannerTest.startMediaScan();
         startedReceiver.waitForBroadcast();
         finishedReceiver.waitForBroadcast();
 
@@ -82,7 +72,7 @@ public class MediaScannerNotificationTest extends AndroidTestCase {
         // scan one more time just to clean everything up nicely
         startedReceiver.reset();
         finishedReceiver.reset();
-        mContext.startService(i);
+        MediaScannerTest.startMediaScan();
         startedReceiver.waitForBroadcast();
         finishedReceiver.waitForBroadcast();
 

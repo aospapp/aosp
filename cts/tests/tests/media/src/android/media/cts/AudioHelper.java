@@ -16,20 +16,49 @@
 
 package android.media.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.ResultType;
+import com.android.compatibility.common.util.ResultUnit;
 import java.nio.ByteBuffer;
 
 import org.junit.Assert;
 
+import android.annotation.IntRange;
+import android.annotation.NonNull;
+import android.annotation.Nullable;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
+import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import android.os.Looper;
+import android.os.PersistableBundle;
+import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
 
 // Used for statistics and loopers in listener tests.
 // See AudioRecordTest.java and AudioTrack_ListenerTest.java.
 public class AudioHelper {
+
+    // asserts key equals expected in the metrics bundle.
+    public static void assertMetricsKeyEquals(
+            PersistableBundle metrics, String key, Object expected) {
+        Object actual = metrics.get(key);
+        assertEquals("metric " + key + " actual " + actual + " != " + " expected " + expected,
+                expected, actual);
+    }
+
+    // asserts key exists in the metrics bundle.
+    public static void assertMetricsKey(PersistableBundle metrics, String key) {
+        Object actual = metrics.get(key);
+        assertNotNull("metric " + key + " does not exist", actual);
+    }
 
     // create sine waves or chirps for data arrays
     public static byte[] createSoundDataInByteArray(int bufferSamples, final int sampleRate,
@@ -219,6 +248,151 @@ public class AudioHelper {
                 return AudioFormat.CHANNEL_OUT_STEREO;
             default:
                 return AudioFormat.CHANNEL_INVALID;
+        }
+    }
+
+    public static class TimestampVerifier {
+
+        // CDD 5.6 1ms timestamp accuracy
+        private static final double TEST_MAX_JITTER_MS_ALLOWED = 6.; // a sanity check
+        private static final double TEST_STD_JITTER_MS_ALLOWED = 3.; // flaky tolerance 3x
+        private static final double TEST_STD_JITTER_MS_WARN = 1.;    // CDD requirement warning
+
+        // CDD 5.6 100ms track startup latency
+        private static final double TEST_STARTUP_TIME_MS_ALLOWED = 500.; // flaky tolerance 5x
+        private static final double TEST_STARTUP_TIME_MS_WARN = 100.;    // CDD requirement warning
+
+        private static final int MILLIS_PER_SECOND = 1000;
+        private static final long NANOS_PER_MILLISECOND = 1000000;
+        private static final long NANOS_PER_SECOND = NANOS_PER_MILLISECOND * MILLIS_PER_SECOND;
+        private static final String REPORT_LOG_NAME = "CtsMediaTestCases";
+
+        private final String mTag;
+        private final int mSampleRate;
+
+        // Running statistics
+        private int mCount = 0;
+        private long mLastFrames = 0;
+        private long mLastTimeNs = 0;
+        private int mJitterCount = 0;
+        private double mMeanJitterMs = 0.;
+        private double mSecondMomentJitterMs = 0.;
+        private double mMaxAbsJitterMs = 0.;
+        private int mWarmupCount = 0;
+
+        public TimestampVerifier(@Nullable String tag, @IntRange(from=4000) int sampleRate) {
+            mTag = tag;  // Log accepts null
+            mSampleRate = sampleRate;
+        }
+
+        public int getJitterCount() { return mJitterCount; }
+        public double getMeanJitterMs() { return mMeanJitterMs; }
+        public double getStdJitterMs() { return Math.sqrt(mSecondMomentJitterMs / mJitterCount); }
+        public double getMaxAbsJitterMs() { return mMaxAbsJitterMs; }
+        public double getStartTimeNs() {
+            return mLastTimeNs - (mLastFrames * NANOS_PER_SECOND / mSampleRate);
+        }
+
+        public void add(@NonNull AudioTimestamp ts) {
+            final long frames = ts.framePosition;
+            final long timeNs = ts.nanoTime;
+
+            assertTrue("timestamps must have causal time", System.nanoTime() >= timeNs);
+
+            if (mCount > 0) { // need delta info from previous iteration (skipping first)
+                final long deltaFrames = frames - mLastFrames;
+                final long deltaTimeNs = timeNs - mLastTimeNs;
+
+                if (deltaFrames == 0 && deltaTimeNs == 0) return;
+
+                final double deltaFramesNs = (double)deltaFrames * NANOS_PER_SECOND / mSampleRate;
+                final double jitterMs = (deltaTimeNs - deltaFramesNs)  // actual - expected
+                        * (1. / NANOS_PER_MILLISECOND);
+
+                Log.d(mTag, "frames(" + frames
+                        + ") timeNs(" + timeNs
+                        + ") lastframes(" + mLastFrames
+                        + ") lastTimeNs(" + mLastTimeNs
+                        + ") deltaFrames(" + deltaFrames
+                        + ") deltaTimeNs(" + deltaTimeNs
+                        + ") jitterMs(" + jitterMs + ")");
+                assertTrue("timestamp time should be increasing", deltaTimeNs >= 0);
+                assertTrue("timestamp frames should be increasing", deltaFrames >= 0);
+
+                if (mLastFrames != 0) {
+                    if (mWarmupCount++ > 1) { // ensure device is warmed up
+                        // Welford's algorithm
+                        // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+                        ++mJitterCount;
+                        final double delta = jitterMs - mMeanJitterMs;
+                        mMeanJitterMs += delta / mJitterCount;
+                        final double delta2 = jitterMs - mMeanJitterMs;
+                        mSecondMomentJitterMs += delta * delta2;
+
+                        // jitterMs is signed, so max uses abs() here.
+                        final double absJitterMs = Math.abs(jitterMs);
+                        if (absJitterMs > mMaxAbsJitterMs) {
+                            mMaxAbsJitterMs = absJitterMs;
+                        }
+                    }
+                }
+            }
+            ++mCount;
+            mLastFrames = frames;
+            mLastTimeNs = timeNs;
+        }
+
+        public void verifyAndLog(long trackStartTimeNs, @Nullable String logName) {
+            // enough timestamps?
+            assertTrue("need at least 2 jitter measurements", mJitterCount >= 2);
+
+            // Compute startup time and std jitter.
+            final int startupTimeMs =
+                    (int) ((getStartTimeNs() - trackStartTimeNs) / NANOS_PER_MILLISECOND);
+            final double stdJitterMs = getStdJitterMs();
+
+            // Check startup time
+            if (startupTimeMs > TEST_STARTUP_TIME_MS_WARN) {
+                Log.w(mTag, "CDD warning: startup time " + startupTimeMs
+                        + " > " + TEST_STARTUP_TIME_MS_WARN);
+            }
+            assertTrue("expect startupTimeMs " + startupTimeMs
+                            + " < " + TEST_STARTUP_TIME_MS_ALLOWED,
+                    startupTimeMs < TEST_STARTUP_TIME_MS_ALLOWED);
+
+            // Check maximum jitter
+            assertTrue("expect maxAbsJitterMs(" + mMaxAbsJitterMs + ") < "
+                            + TEST_MAX_JITTER_MS_ALLOWED,
+                    mMaxAbsJitterMs < TEST_MAX_JITTER_MS_ALLOWED);
+
+            // Check std jitter
+            if (stdJitterMs > TEST_STD_JITTER_MS_WARN) {
+                Log.w(mTag, "CDD warning: std timestamp jitter " + stdJitterMs
+                        + " > " + TEST_STD_JITTER_MS_WARN);
+            }
+            assertTrue("expect stdJitterMs " + stdJitterMs + " < " + TEST_STD_JITTER_MS_ALLOWED,
+                    stdJitterMs < TEST_STD_JITTER_MS_ALLOWED);
+
+            Log.d(mTag, "startupTimeMs(" + startupTimeMs
+                    + ") meanJitterMs(" + mMeanJitterMs
+                    + ") maxAbsJitterMs(" + mMaxAbsJitterMs
+                    + ") stdJitterMs(" + stdJitterMs
+                    + ")");
+
+            // Log results if logName is provided
+            if (logName != null) {
+                DeviceReportLog log = new DeviceReportLog(REPORT_LOG_NAME, logName);
+                // ReportLog needs at least one Value and Summary.
+                log.addValue("startup_time_ms", startupTimeMs,
+                        ResultType.LOWER_BETTER, ResultUnit.MS);
+                log.addValue("maximum_abs_jitter_ms", mMaxAbsJitterMs,
+                        ResultType.LOWER_BETTER, ResultUnit.MS);
+                log.addValue("mean_jitter_ms", mMeanJitterMs,
+                        ResultType.LOWER_BETTER, ResultUnit.MS);
+                log.setSummary("std_jitter_ms", stdJitterMs,
+                        ResultType.LOWER_BETTER, ResultUnit.MS);
+                log.submit(InstrumentationRegistry.getInstrumentation());
+            }
         }
     }
 

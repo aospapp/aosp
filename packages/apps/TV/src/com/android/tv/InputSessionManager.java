@@ -20,11 +20,8 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvInputInfo;
-import android.media.tv.TvRecordingClient;
-import android.media.tv.TvRecordingClient.RecordingCallback;
 import android.media.tv.TvTrackInfo;
 import android.media.tv.TvView;
-import android.media.tv.TvView.TvInputCallback;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -36,9 +33,15 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
+import com.android.tv.common.compat.TvRecordingClientCompat;
+import com.android.tv.common.compat.TvRecordingClientCompat.RecordingCallbackCompat;
+import com.android.tv.common.compat.TvViewCompat;
+import com.android.tv.common.compat.TvViewCompat.TvInputCallbackCompat;
 import com.android.tv.data.api.Channel;
+import com.android.tv.dvr.DvrTvView;
 import com.android.tv.ui.TunableTvView;
 import com.android.tv.ui.TunableTvView.OnTuneListener;
+import com.android.tv.ui.api.TunableTvViewPlayingApi;
 import com.android.tv.util.TvInputManagerHelper;
 import java.util.Collections;
 import java.util.List;
@@ -87,7 +90,9 @@ public class InputSessionManager {
     @MainThread
     @NonNull
     public TvViewSession createTvViewSession(
-            TvView tvView, TunableTvView tunableTvView, TvInputCallback callback) {
+            TvViewCompat tvView,
+            TunableTvViewPlayingApi tunableTvView,
+            TvInputCallbackCompat callback) {
         TvViewSession session = new TvViewSession(tvView, tunableTvView, callback);
         mTvViewSessions.add(session);
         if (DEBUG) Log.d(TAG, "TvView session created: " + session);
@@ -107,7 +112,7 @@ public class InputSessionManager {
     public RecordingSession createRecordingSession(
             String inputId,
             String tag,
-            RecordingCallback callback,
+            RecordingCallbackCompat callback,
             Handler handler,
             long endTimeMs) {
         RecordingSession session = new RecordingSession(inputId, tag, callback, handler, endTimeMs);
@@ -237,9 +242,10 @@ public class InputSessionManager {
      */
     @MainThread
     public class TvViewSession {
-        private final TvView mTvView;
-        private final TunableTvView mTunableTvView;
-        private final TvInputCallback mCallback;
+        private final TvViewCompat mTvView;
+        private final TunableTvViewPlayingApi mTunableTvView;
+        private final TvInputCallbackCompat mCallback;
+        private final boolean mIsDvrSession;
         private Channel mChannel;
         private String mInputId;
         private Uri mChannelUri;
@@ -248,10 +254,14 @@ public class InputSessionManager {
         private boolean mTuned;
         private boolean mNeedToBeRetuned;
 
-        TvViewSession(TvView tvView, TunableTvView tunableTvView, TvInputCallback callback) {
+        TvViewSession(
+                TvViewCompat tvView,
+                TunableTvViewPlayingApi tunableTvView,
+                TvInputCallbackCompat callback) {
             mTvView = tvView;
             mTunableTvView = tunableTvView;
             mCallback = callback;
+            mIsDvrSession = tunableTvView instanceof DvrTvView;
             mTvView.setCallback(
                     new DelegateTvInputCallback(mCallback) {
                         @Override
@@ -338,9 +348,13 @@ public class InputSessionManager {
 
         void retune() {
             if (DEBUG) Log.d(TAG, "Retune requested.");
+            if (mIsDvrSession) {
+                Log.w(TAG, "DVR session should not call retune()!");
+                return;
+            }
             if (mNeedToBeRetuned) {
                 if (DEBUG) Log.d(TAG, "Retuning: {channel=" + mChannel + "}");
-                mTunableTvView.tuneTo(mChannel, mParams, mOnTuneListener);
+                ((TunableTvView) mTunableTvView).tuneTo(mChannel, mParams, mOnTuneListener);
                 mNeedToBeRetuned = false;
             }
         }
@@ -369,9 +383,13 @@ public class InputSessionManager {
         void resetByRecording() {
             mCallback.onVideoUnavailable(
                     mInputId, TunableTvView.VIDEO_UNAVAILABLE_REASON_NO_RESOURCE);
+            if (mIsDvrSession) {
+                Log.w(TAG, "DVR session should not call resetByRecording()!");
+                return;
+            }
             if (mTuned) {
                 if (DEBUG) Log.d(TAG, "Reset TvView session by recording");
-                mTunableTvView.resetByRecording();
+                ((TunableTvView) mTunableTvView).resetByRecording();
                 reset();
             }
             mNeedToBeRetuned = true;
@@ -386,22 +404,22 @@ public class InputSessionManager {
     public class RecordingSession {
         private final String mInputId;
         private Uri mChannelUri;
-        private final RecordingCallback mCallback;
+        private final RecordingCallbackCompat mCallback;
         private final Handler mHandler;
         private volatile long mEndTimeMs;
-        private TvRecordingClient mClient;
+        private TvRecordingClientCompat mClient;
         private boolean mTuned;
 
         RecordingSession(
                 String inputId,
                 String tag,
-                RecordingCallback callback,
+                RecordingCallbackCompat callback,
                 Handler handler,
                 long endTimeMs) {
             mInputId = inputId;
             mCallback = callback;
             mHandler = handler;
-            mClient = new TvRecordingClient(mContext, tag, callback, handler);
+            mClient = new TvRecordingClientCompat(mContext, tag, callback, handler);
             mEndTimeMs = endTimeMs;
         }
 
@@ -409,29 +427,26 @@ public class InputSessionManager {
             if (DEBUG) Log.d(TAG, "Release of recording session requested.");
             runOnHandler(
                     mMainThreadHandler,
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            if (DEBUG) Log.d(TAG, "Releasing of recording session.");
-                            mTuned = false;
-                            mClient.release();
-                            mClient = null;
-                            for (TvViewSession session : mTvViewSessions) {
-                                if (DEBUG) {
-                                    Log.d(
-                                            TAG,
-                                            "Finding TvView sessions for retune: {tuned="
-                                                    + session.mTuned
-                                                    + ", inputId="
-                                                    + session.mInputId
-                                                    + ", session="
-                                                    + session
-                                                    + "}");
-                                }
-                                if (!session.mTuned && Objects.equals(session.mInputId, mInputId)) {
-                                    session.retune();
-                                    break;
-                                }
+                    () -> {
+                        if (DEBUG) Log.d(TAG, "Releasing of recording session.");
+                        mTuned = false;
+                        mClient.release();
+                        mClient = null;
+                        for (TvViewSession session : mTvViewSessions) {
+                            if (DEBUG) {
+                                Log.d(
+                                        TAG,
+                                        "Finding TvView sessions for retune: {tuned="
+                                                + session.mTuned
+                                                + ", inputId="
+                                                + session.mInputId
+                                                + ", session="
+                                                + session
+                                                + "}");
+                            }
+                            if (!session.mTuned && Objects.equals(session.mInputId, mInputId)) {
+                                session.retune();
+                                break;
                             }
                         }
                     });
@@ -441,42 +456,39 @@ public class InputSessionManager {
         public void tune(String inputId, Uri channelUri) {
             runOnHandler(
                     mMainThreadHandler,
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            int tunedRecordingSessionCount = getTunedRecordingSessionCount(inputId);
-                            TvInputInfo input = mInputManager.getTvInputInfo(inputId);
-                            if (input == null
-                                    || !input.canRecord()
-                                    || input.getTunerCount() <= tunedRecordingSessionCount) {
-                                runOnHandler(
-                                        mHandler,
-                                        new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                mCallback.onConnectionFailed(inputId);
-                                            }
-                                        });
-                                return;
-                            }
-                            mTuned = true;
-                            int tunedTuneSessionCount = getTunedTvViewSessionCount(inputId);
-                            if (!isTunedForTvView(channelUri)
-                                    && tunedTuneSessionCount > 0
-                                    && tunedRecordingSessionCount + tunedTuneSessionCount
-                                            >= input.getTunerCount()) {
-                                for (TvViewSession session : mTvViewSessions) {
-                                    if (session.mTuned
-                                            && Objects.equals(session.mInputId, inputId)
-                                            && !isTunedForRecording(session.mChannelUri)) {
-                                        session.resetByRecording();
-                                        break;
-                                    }
+                    () -> {
+                        int tunedRecordingSessionCount = getTunedRecordingSessionCount(inputId);
+                        TvInputInfo input = mInputManager.getTvInputInfo(inputId);
+                        if (input == null
+                                || !input.canRecord()
+                                || input.getTunerCount() <= tunedRecordingSessionCount) {
+                            runOnHandler(
+                                    mHandler,
+                                    new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            mCallback.onConnectionFailed(inputId);
+                                        }
+                                    });
+                            return;
+                        }
+                        mTuned = true;
+                        int tunedTuneSessionCount = getTunedTvViewSessionCount(inputId);
+                        if (!isTunedForTvView(channelUri)
+                                && tunedTuneSessionCount > 0
+                                && tunedRecordingSessionCount + tunedTuneSessionCount
+                                        >= input.getTunerCount()) {
+                            for (TvViewSession session : mTvViewSessions) {
+                                if (session.mTuned
+                                        && Objects.equals(session.mInputId, inputId)
+                                        && !isTunedForRecording(session.mChannelUri)) {
+                                    session.resetByRecording();
+                                    break;
                                 }
                             }
-                            mChannelUri = channelUri;
-                            mClient.tune(inputId, channelUri);
                         }
+                        mChannelUri = channelUri;
+                        mClient.tune(inputId, channelUri);
                     });
         }
 
@@ -504,10 +516,10 @@ public class InputSessionManager {
         }
     }
 
-    private static class DelegateTvInputCallback extends TvInputCallback {
-        private final TvInputCallback mDelegate;
+    private static class DelegateTvInputCallback extends TvInputCallbackCompat {
+        private final TvInputCallbackCompat mDelegate;
 
-        DelegateTvInputCallback(TvInputCallback delegate) {
+        DelegateTvInputCallback(TvInputCallbackCompat delegate) {
             mDelegate = delegate;
         }
 
@@ -564,6 +576,11 @@ public class InputSessionManager {
         @Override
         public void onTimeShiftStatusChanged(String inputId, int status) {
             mDelegate.onTimeShiftStatusChanged(inputId, status);
+        }
+
+        @Override
+        public void onSignalStrength(String inputId, int value) {
+            mDelegate.onSignalStrength(inputId, value);
         }
     }
 

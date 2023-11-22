@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,15 +20,18 @@ import static com.android.launcher3.LauncherState.ALL_APPS;
 import static com.android.launcher3.LauncherState.NORMAL;
 import static com.android.launcher3.LauncherState.OVERVIEW;
 import static com.android.launcher3.LauncherStateManager.ANIM_ALL;
-import static com.android.launcher3.LauncherStateManager.ATOMIC_COMPONENT;
+import static com.android.launcher3.LauncherStateManager.ATOMIC_OVERVIEW_SCALE_COMPONENT;
 import static com.android.launcher3.LauncherStateManager.NON_ATOMIC_COMPONENT;
 import static com.android.launcher3.Utilities.SINGLE_FRAME_MS;
 import static com.android.launcher3.anim.Interpolators.scrollInterpolatorForVelocity;
+import static com.android.launcher3.config.FeatureFlags.QUICKSTEP_SPRINGS;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ValueAnimator;
+import android.os.SystemClock;
+import android.util.Log;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 
@@ -36,12 +39,11 @@ import com.android.launcher3.Launcher;
 import com.android.launcher3.LauncherAnimUtils;
 import com.android.launcher3.LauncherState;
 import com.android.launcher3.LauncherStateManager.AnimationComponents;
-import com.android.launcher3.LauncherStateManager.AnimationConfig;
-import com.android.launcher3.LauncherStateManager.StateHandler;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.anim.AnimationSuccessListener;
 import com.android.launcher3.anim.AnimatorPlaybackController;
 import com.android.launcher3.anim.AnimatorSetBuilder;
+import com.android.launcher3.testing.TestProtocol;
 import com.android.launcher3.userevent.nano.LauncherLogProto;
 import com.android.launcher3.userevent.nano.LauncherLogProto.Action.Direction;
 import com.android.launcher3.userevent.nano.LauncherLogProto.Action.Touch;
@@ -64,10 +66,11 @@ public abstract class AbstractStateChangeTouchController
      * Play an atomic recents animation when the progress from NORMAL to OVERVIEW reaches this.
      */
     public static final float ATOMIC_OVERVIEW_ANIM_THRESHOLD = 0.5f;
-    protected static final long ATOMIC_DURATION = 200;
+    protected final long ATOMIC_DURATION = getAtomicDuration();
 
     protected final Launcher mLauncher;
     protected final SwipeDetector mDetector;
+    protected final SwipeDetector.Direction mSwipeDirection;
 
     private boolean mNoIntercept;
     protected int mStartContainerType;
@@ -85,7 +88,11 @@ public abstract class AbstractStateChangeTouchController
     private boolean mCanBlockFling;
     private FlingBlockCheck mFlingBlockCheck = new FlingBlockCheck();
 
-    private AnimatorSet mAtomicAnim;
+    protected AnimatorSet mAtomicAnim;
+    // True if we want to resume playing atomic components when mAtomicAnim completes.
+    private boolean mScheduleResumeAtomicComponent;
+    private AutoPlayAtomicAnimationInfo mAtomicAnimAutoPlayInfo;
+
     private boolean mPassedOverviewAtomicThreshold;
     // mAtomicAnim plays the atomic components of the state animations when we pass the threshold.
     // However, if we reinit to transition to a new state (e.g. OVERVIEW -> ALL_APPS) before the
@@ -93,17 +100,27 @@ public abstract class AbstractStateChangeTouchController
     // interfere with the atomic animation. When the atomic animation ends, we start controlling
     // the atomic components as well, using this controller.
     private AnimatorPlaybackController mAtomicComponentsController;
+    private LauncherState mAtomicComponentsTargetState = NORMAL;
+
     private float mAtomicComponentsStartProgress;
 
     public AbstractStateChangeTouchController(Launcher l, SwipeDetector.Direction dir) {
         mLauncher = l;
         mDetector = new SwipeDetector(l, this, dir);
+        mSwipeDirection = dir;
+    }
+
+    protected long getAtomicDuration() {
+        return 200;
     }
 
     protected abstract boolean canInterceptTouch(MotionEvent ev);
 
     @Override
     public final boolean onControllerInterceptTouchEvent(MotionEvent ev) {
+        if (TestProtocol.sDebugTracing) {
+            Log.d(TestProtocol.NO_ALLAPPS_EVENT_TAG, "onControllerInterceptTouchEvent 1 " + ev);
+        }
         if (ev.getAction() == MotionEvent.ACTION_DOWN) {
             mNoIntercept = !canInterceptTouch(ev);
             if (mNoIntercept) {
@@ -133,6 +150,9 @@ public abstract class AbstractStateChangeTouchController
             return false;
         }
 
+        if (TestProtocol.sDebugTracing) {
+            Log.d(TestProtocol.NO_ALLAPPS_EVENT_TAG, "onControllerInterceptTouchEvent 2 ");
+        }
         onControllerTouchEvent(ev);
         return mDetector.isDraggingOrSettling();
     }
@@ -191,33 +211,28 @@ public abstract class AbstractStateChangeTouchController
         }
         int animComponents = goingBetweenNormalAndOverview(mFromState, mToState)
                 ? NON_ATOMIC_COMPONENT : ANIM_ALL;
+        mScheduleResumeAtomicComponent = false;
         if (mAtomicAnim != null) {
+            animComponents = NON_ATOMIC_COMPONENT;
             // Control the non-atomic components until the atomic animation finishes, then control
             // the atomic components as well.
-            animComponents = NON_ATOMIC_COMPONENT;
-            mAtomicAnim.addListener(new AnimationSuccessListener() {
-                @Override
-                public void onAnimationSuccess(Animator animation) {
-                    cancelAtomicComponentsController();
-                    if (mCurrentAnimation != null) {
-                        mAtomicComponentsStartProgress = mCurrentAnimation.getProgressFraction();
-                        long duration = (long) (getShiftRange() * 2);
-                        mAtomicComponentsController = AnimatorPlaybackController.wrap(
-                                createAtomicAnimForState(mFromState, mToState, duration), duration);
-                        mAtomicComponentsController.dispatchOnStart();
-                    }
-                }
-            });
+            mScheduleResumeAtomicComponent = true;
         }
-        if (goingBetweenNormalAndOverview(mFromState, mToState)) {
+        if (goingBetweenNormalAndOverview(mFromState, mToState)
+                || mAtomicComponentsTargetState != mToState) {
             cancelAtomicComponentsController();
+        }
+
+        if (mAtomicComponentsController != null) {
+            animComponents &= ~ATOMIC_OVERVIEW_SCALE_COMPONENT;
         }
         mProgressMultiplier = initCurrentAnimation(animComponents);
         mCurrentAnimation.dispatchOnStart();
         return true;
     }
 
-    private boolean goingBetweenNormalAndOverview(LauncherState fromState, LauncherState toState) {
+    protected boolean goingBetweenNormalAndOverview(LauncherState fromState,
+            LauncherState toState) {
         return (fromState == NORMAL || fromState == OVERVIEW)
                 && (toState == NORMAL || toState == OVERVIEW)
                 && mPendingAnimation == null;
@@ -225,34 +240,46 @@ public abstract class AbstractStateChangeTouchController
 
     @Override
     public void onDragStart(boolean start) {
+        if (TestProtocol.sDebugTracing) {
+            Log.d(TestProtocol.NO_ALLAPPS_EVENT_TAG, "onDragStart 1 " + start);
+        }
         mStartState = mLauncher.getStateManager().getState();
         if (mStartState == ALL_APPS) {
             mStartContainerType = LauncherLogProto.ContainerType.ALLAPPS;
         } else if (mStartState == NORMAL) {
             mStartContainerType = getLogContainerTypeForNormalState();
-        } else if (mStartState   == OVERVIEW){
+        } else if (mStartState == OVERVIEW){
             mStartContainerType = LauncherLogProto.ContainerType.TASKSWITCHER;
         }
         if (mCurrentAnimation == null) {
+            if (TestProtocol.sDebugTracing) {
+                Log.d(TestProtocol.NO_ALLAPPS_EVENT_TAG, "onDragStart 2");
+            }
             mFromState = mStartState;
             mToState = null;
-            mAtomicComponentsController = null;
+            cancelAnimationControllers();
             reinitCurrentAnimation(false, mDetector.wasInitialTouchPositive());
             mDisplacementShift = 0;
         } else {
             mCurrentAnimation.pause();
             mStartProgress = mCurrentAnimation.getProgressFraction();
+
+            mAtomicAnimAutoPlayInfo = null;
+            if (mAtomicComponentsController != null) {
+                mAtomicComponentsController.pause();
+            }
         }
         mCanBlockFling = mFromState == NORMAL;
         mFlingBlockCheck.unblockFling();
     }
 
     @Override
-    public boolean onDrag(float displacement, float velocity) {
+    public boolean onDrag(float displacement) {
         float deltaProgress = mProgressMultiplier * (displacement - mDisplacementShift);
         float progress = deltaProgress + mStartProgress;
         updateProgress(progress);
-        boolean isDragTowardPositive = (displacement - mDisplacementShift) < 0;
+        boolean isDragTowardPositive = mSwipeDirection.isPositive(
+                displacement - mDisplacementShift);
         if (progress <= 0) {
             if (reinitCurrentAnimation(false, isDragTowardPositive)) {
                 mDisplacementShift = displacement;
@@ -277,7 +304,9 @@ public abstract class AbstractStateChangeTouchController
     protected void updateProgress(float fraction) {
         mCurrentAnimation.setPlayFraction(fraction);
         if (mAtomicComponentsController != null) {
-            mAtomicComponentsController.setPlayFraction(fraction - mAtomicComponentsStartProgress);
+            // Make sure we don't divide by 0, and have at least a small runway.
+            float start = Math.min(mAtomicComponentsStartProgress, 0.9f);
+            mAtomicComponentsController.setPlayFraction((fraction - start) / (1 - start));
         }
         maybeUpdateAtomicAnim(mFromState, mToState, fraction);
     }
@@ -302,32 +331,54 @@ public abstract class AbstractStateChangeTouchController
                 mAtomicAnim.cancel();
             }
             mAtomicAnim = createAtomicAnimForState(atomicFromState, atomicToState, ATOMIC_DURATION);
-            mAtomicAnim.addListener(new AnimatorListenerAdapter() {
+            mAtomicAnim.addListener(new AnimationSuccessListener() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
+                    super.onAnimationEnd(animation);
                     mAtomicAnim = null;
+                    mScheduleResumeAtomicComponent = false;
+                }
+
+                @Override
+                public void onAnimationSuccess(Animator animator) {
+                    if (!mScheduleResumeAtomicComponent) {
+                        return;
+                    }
+                    cancelAtomicComponentsController();
+
+                    if (mCurrentAnimation != null) {
+                        mAtomicComponentsStartProgress = mCurrentAnimation.getProgressFraction();
+                        long duration = (long) (getShiftRange() * 2);
+                        mAtomicComponentsController = AnimatorPlaybackController.wrap(
+                                createAtomicAnimForState(mFromState, mToState, duration), duration);
+                        mAtomicComponentsController.dispatchOnStart();
+                        mAtomicComponentsTargetState = mToState;
+                        maybeAutoPlayAtomicComponentsAnim();
+                    }
                 }
             });
             mAtomicAnim.start();
-            mLauncher.getDragLayer().performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK);
+            mLauncher.getDragLayer().performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
         }
     }
 
     private AnimatorSet createAtomicAnimForState(LauncherState fromState, LauncherState targetState,
             long duration) {
-        AnimatorSetBuilder builder = new AnimatorSetBuilder();
-        mLauncher.getStateManager().prepareForAtomicAnimation(fromState, targetState, builder);
-        AnimationConfig config = new AnimationConfig();
-        config.animComponents = ATOMIC_COMPONENT;
-        config.duration = duration;
-        for (StateHandler handler : mLauncher.getStateManager().getStateHandlers()) {
-            handler.setStateWithAnimation(targetState, builder, config);
-        }
-        return builder.build();
+        AnimatorSetBuilder builder = getAnimatorSetBuilderForStates(fromState, targetState);
+        return mLauncher.getStateManager().createAtomicAnimation(fromState, targetState, builder,
+                ATOMIC_OVERVIEW_SCALE_COMPONENT, duration);
+    }
+
+    protected AnimatorSetBuilder getAnimatorSetBuilderForStates(LauncherState fromState,
+            LauncherState toState) {
+        return new AnimatorSetBuilder();
     }
 
     @Override
     public void onDragEnd(float velocity, boolean fling) {
+        if (com.android.launcher3.testing.TestProtocol.sDebugTracing) {
+            android.util.Log.e(TestProtocol.NO_ALLAPPS_EVENT_TAG, "onDragEnd");
+        }
         final int logAction = fling ? Touch.FLING : Touch.SWIPE;
 
         boolean blockedFling = fling && mFlingBlockCheck.isBlocked();
@@ -337,6 +388,7 @@ public abstract class AbstractStateChangeTouchController
 
         final LauncherState targetState;
         final float progress = mCurrentAnimation.getProgressFraction();
+        final float interpolatedProgress = mCurrentAnimation.getInterpolatedProgress();
         if (fling) {
             targetState =
                     Float.compare(Math.signum(velocity), Math.signum(mProgressMultiplier)) == 0
@@ -345,7 +397,7 @@ public abstract class AbstractStateChangeTouchController
         } else {
             float successProgress = mToState == ALL_APPS
                     ? MIN_PROGRESS_TO_ALL_APPS : SUCCESS_TRANSITION_PROGRESS;
-            targetState = (progress > successProgress) ? mToState : mFromState;
+            targetState = (interpolatedProgress > successProgress) ? mToState : mFromState;
         }
 
         final float endProgress;
@@ -392,21 +444,13 @@ public abstract class AbstractStateChangeTouchController
         maybeUpdateAtomicAnim(mFromState, targetState, targetState == mToState ? 1f : 0f);
         updateSwipeCompleteAnimation(anim, Math.max(duration, getRemainingAtomicDuration()),
                 targetState, velocity, fling);
-        mCurrentAnimation.dispatchOnStart();
-        if (fling && targetState == LauncherState.ALL_APPS) {
+        mCurrentAnimation.dispatchOnStartWithVelocity(endProgress, velocity);
+        if (fling && targetState == LauncherState.ALL_APPS && !QUICKSTEP_SPRINGS.get()) {
             mLauncher.getAppsView().addSpringFromFlingUpdateListener(anim, velocity);
         }
         anim.start();
-        if (mAtomicAnim == null) {
-            startAtomicComponentsAnim(endProgress, anim.getDuration());
-        } else {
-            mAtomicAnim.addListener(new AnimationSuccessListener() {
-                @Override
-                public void onAnimationSuccess(Animator animator) {
-                    startAtomicComponentsAnim(endProgress, anim.getDuration());
-                }
-            });
-        }
+        mAtomicAnimAutoPlayInfo = new AutoPlayAtomicAnimationInfo(endProgress, anim.getDuration());
+        maybeAutoPlayAtomicComponentsAnim();
     }
 
     /**
@@ -416,18 +460,32 @@ public abstract class AbstractStateChangeTouchController
      * the non-atomic components, which only happens if we reinit before the atomic animation
      * finishes.
      */
-    private void startAtomicComponentsAnim(float toProgress, long duration) {
-        if (mAtomicComponentsController != null) {
-            ValueAnimator atomicAnim = mAtomicComponentsController.getAnimationPlayer();
-            atomicAnim.setFloatValues(mAtomicComponentsController.getProgressFraction(), toProgress);
-            atomicAnim.setDuration(duration);
+    private void maybeAutoPlayAtomicComponentsAnim() {
+        if (mAtomicComponentsController == null || mAtomicAnimAutoPlayInfo == null) {
+            return;
+        }
+
+        final AnimatorPlaybackController controller = mAtomicComponentsController;
+        ValueAnimator atomicAnim = controller.getAnimationPlayer();
+        atomicAnim.setFloatValues(controller.getProgressFraction(),
+                mAtomicAnimAutoPlayInfo.toProgress);
+        long duration = mAtomicAnimAutoPlayInfo.endTime - SystemClock.elapsedRealtime();
+        mAtomicAnimAutoPlayInfo = null;
+        if (duration <= 0) {
             atomicAnim.start();
+            atomicAnim.end();
+            mAtomicComponentsController = null;
+        } else {
+            atomicAnim.setDuration(duration);
             atomicAnim.addListener(new AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(Animator animation) {
-                    mAtomicComponentsController = null;
+                    if (mAtomicComponentsController == controller) {
+                        mAtomicComponentsController = null;
+                    }
                 }
             });
+            atomicAnim.start();
         }
     }
 
@@ -457,7 +515,14 @@ public abstract class AbstractStateChangeTouchController
     }
 
     protected void onSwipeInteractionCompleted(LauncherState targetState, int logAction) {
-        clearState();
+        if (com.android.launcher3.testing.TestProtocol.sDebugTracing) {
+            android.util.Log.e(TestProtocol.NO_ALLAPPS_EVENT_TAG, "onSwipeInteractionCompleted 1");
+        }
+        if (mAtomicComponentsController != null) {
+            mAtomicComponentsController.getAnimationPlayer().end();
+            mAtomicComponentsController = null;
+        }
+        cancelAnimationControllers();
         boolean shouldGoToTargetState = true;
         if (mPendingAnimation != null) {
             boolean reachedTarget = mToState == targetState;
@@ -470,13 +535,18 @@ public abstract class AbstractStateChangeTouchController
                 logReachedState(logAction, targetState);
             }
             mLauncher.getStateManager().goToState(targetState, false /* animated */);
+
+            if (com.android.launcher3.testing.TestProtocol.sDebugTracing) {
+                android.util.Log.e(
+                        TestProtocol.NO_ALLAPPS_EVENT_TAG, "onSwipeInteractionCompleted 2");
+            }
         }
     }
 
     private void logReachedState(int logAction, LauncherState targetState) {
         // Transition complete. log the action
         mLauncher.getUserEventDispatcher().logStateChangeAction(logAction,
-                getDirectionForLog(),
+                getDirectionForLog(), mDetector.getDownX(), mDetector.getDownY(),
                 mStartContainerType,
                 mStartState.containerType,
                 targetState.containerType,
@@ -484,6 +554,18 @@ public abstract class AbstractStateChangeTouchController
     }
 
     protected void clearState() {
+        cancelAnimationControllers();
+        if (mAtomicAnim != null) {
+            mAtomicAnim.cancel();
+            mAtomicAnim = null;
+        }
+        mScheduleResumeAtomicComponent = false;
+    }
+
+    private void cancelAnimationControllers() {
+        if (TestProtocol.sDebugTracing) {
+            Log.d(TestProtocol.NO_ALLAPPS_EVENT_TAG, "cancelAnimationControllers");
+        }
         mCurrentAnimation = null;
         cancelAtomicComponentsController();
         mDetector.finishedScrolling();
@@ -494,6 +576,18 @@ public abstract class AbstractStateChangeTouchController
         if (mAtomicComponentsController != null) {
             mAtomicComponentsController.getAnimationPlayer().cancel();
             mAtomicComponentsController = null;
+        }
+        mAtomicAnimAutoPlayInfo = null;
+    }
+
+    private static class AutoPlayAtomicAnimationInfo {
+
+        public final float toProgress;
+        public final long endTime;
+
+        AutoPlayAtomicAnimationInfo(float toProgress, long duration) {
+            this.toProgress = toProgress;
+            this.endTime = duration + SystemClock.elapsedRealtime();
         }
     }
 }

@@ -33,11 +33,8 @@ bool NanoappLoadManager::prepareForLoad(
   bool success = false;
   if (mNanoapp.isNull()) {
     LOG_OOM();
-  } else if (!mNanoapp->reserveBuffer(appId, appVersion, totalBinaryLen)) {
-    LOGE("Failed to reserve %zu bytes for nanoapp 0x%016" PRIx64,
-         totalBinaryLen, appId);
   } else {
-    success = true;
+    success = mNanoapp->reserveBuffer(appId, appVersion, totalBinaryLen);
   }
 
   if (!success) {

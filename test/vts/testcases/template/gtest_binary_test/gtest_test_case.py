@@ -36,15 +36,24 @@ class GtestTestCase(binary_test_case.BinaryTestCase):
     '''
 
     # @Override
-    def GetRunCommand(self, output_file_path=None, test_name=None):
+    def GetRunCommand(self,
+                      output_file_path=None,
+                      test_name=None,
+                      raw_command=False):
         '''Get the command to run the test.
 
         Args:
             output_file_path: file to store the gtest results.
             test_name: name of the gtest test case.
+            raw_command: whether to return raw command (without gtest_filter
+                         and gtest_output).
+
         Returns:
             List of strings
         '''
+        if raw_command:
+            return super(GtestTestCase, self).GetRunCommand()
+
         if output_file_path:
             self.output_file_path = output_file_path
         if not test_name:
@@ -52,7 +61,7 @@ class GtestTestCase(binary_test_case.BinaryTestCase):
         return [('{cmd} --gtest_filter={test} '
                  '--gtest_output=xml:{output_file_path}').format(
                      cmd=super(GtestTestCase, self).GetRunCommand(),
-                     test=test_name,
+                     test = test_name,
                      output_file_path=self.output_file_path),
                 'cat {output} && rm -rf {output}'.format(
                     output=self.output_file_path)]
@@ -83,17 +92,19 @@ class GtestTestCase(binary_test_case.BinaryTestCase):
         output_dir_name = path_utils.TargetDirName(output_file_path)
 
         if len(output_base_name) > utils.MAX_FILENAME_LEN:
-            logging.warn('File name of output file "{}" is longer than {}.'.
-                         format(output_file_path, utils.MAX_FILENAME_LEN))
+            logging.warn(
+                'File name of output file "{}" is longer than {}.'.format(
+                    output_file_path, utils.MAX_FILENAME_LEN))
             output_base_name = '{}.xml'.format(uuid.uuid4())
             output_file_path = path_utils.JoinTargetPath(
                 output_dir_name, output_base_name)
-            logging.info('Output file path is set as "%s".', output_file_path)
+            logging.debug('Output file path is set as "%s".', output_file_path)
 
         if len(output_file_path) > utils.MAX_PATH_LEN:
-            logging.warn('File path of output file "{}" is longer than {}.'.
-                         format(output_file_path, utils.MAX_PATH_LEN))
+            logging.warn(
+                'File path of output file "{}" is longer than {}.'.format(
+                    output_file_path, utils.MAX_PATH_LEN))
             output_file_path = output_base_name
-            logging.info('Output file path is set as "%s".', output_file_path)
+            logging.debug('Output file path is set as "%s".', output_file_path)
 
         self._output_file_path = output_file_path

@@ -36,6 +36,7 @@ template <typename T> std::vector<T> make_vector(const T* array, size_t len) {
 // size of a set intersection.
 struct PushbackCounter {
     struct value_type {
+        // NOLINTNEXTLINE(google-explicit-constructor)
         template <typename T> value_type(const T&) {}
     };
     void push_back(const value_type&) { ++count; }
@@ -118,12 +119,18 @@ template <typename Collection, typename Value> bool contains(const Collection& c
 template <typename T>
 static bool findUnsupportedDigest(keymaster_algorithm_t algorithm,
                                   keymaster_purpose_t purpose,
+                                  keymaster_digest_t digest,
                                   const T& params,
                                   const Keymaster1LegacySupport::DigestMap& digest_map) {
     auto supported_digests = digest_map.find(std::make_pair(algorithm, purpose));
     if (supported_digests == digest_map.end())
         // Invalid algorith/purpose pair (e.g. EC encrypt).  Let the error be handled by HW module.
         return false;
+
+    if (digest != KM_DIGEST_NONE && !contains(supported_digests->second, digest)) {
+        LOG(WARNING) << "Digest " << digest << " requested but not supported by KM1 hal";
+        return true;
+    }
 
     for (auto& entry : params)
         if (entry.tag == TAG_DIGEST)
@@ -136,6 +143,7 @@ static bool findUnsupportedDigest(keymaster_algorithm_t algorithm,
 
 template <typename T>
 bool requiresSoftwareDigesting(keymaster_algorithm_t algorithm, keymaster_purpose_t purpose,
+                               keymaster_digest_t digest,
                                const T& params,
                                const Keymaster1LegacySupport::DigestMap& digest_map) {
     switch (algorithm) {
@@ -149,7 +157,7 @@ bool requiresSoftwareDigesting(keymaster_algorithm_t algorithm, keymaster_purpos
         break;
     }
 
-    if (!findUnsupportedDigest(algorithm, purpose, params, digest_map)) {
+    if (!findUnsupportedDigest(algorithm, purpose, digest, params, digest_map)) {
         LOG(DEBUG) << "Requested digest(s) supported for algorithm " << algorithm << " and purpose " << purpose;
         return false;
     }
@@ -167,17 +175,20 @@ bool Keymaster1LegacySupport::RequiresSoftwareDigesting(
 
     if (supports_all_) return false;
 
+    bool has_purpose = false;
     for (auto& entry : key_description)
         if (entry.tag == TAG_PURPOSE) {
+            has_purpose = true;
             keymaster_purpose_t purpose = static_cast<keymaster_purpose_t>(entry.enumerated);
-            if (requiresSoftwareDigesting(algorithm, purpose, key_description, device_digests_))
+            if (requiresSoftwareDigesting(algorithm, purpose, KM_DIGEST_NONE, key_description,
+                                          device_digests_))
                 return true;
         }
 
-    return false;
+    return !has_purpose;
 }
 
-bool Keymaster1LegacySupport::RequiresSoftwareDigesting(
+bool Keymaster1LegacySupport::RequiresSoftwareDigesting(const keymaster_digest_t digest,
         const AuthProxy& key_description) const {
 
     keymaster_algorithm_t algorithm;
@@ -188,14 +199,27 @@ bool Keymaster1LegacySupport::RequiresSoftwareDigesting(
 
     if (supports_all_) return false;
 
-    for (auto& entry : key_description)
+    bool has_purpose = false;
+    for (auto& entry : key_description) {
         if (entry.tag == TAG_PURPOSE) {
+            has_purpose = true;
             keymaster_purpose_t purpose = static_cast<keymaster_purpose_t>(entry.enumerated);
-            if (requiresSoftwareDigesting(algorithm, purpose, key_description, device_digests_))
+            if (requiresSoftwareDigesting(algorithm, purpose, digest, key_description,
+                                          device_digests_))
                 return true;
         }
+    }
 
-    return false;
+    /*
+     * If the key does not have a purpose it is unusable, i.e., for private key operations.
+     * The public key operations which don't need purpose authorization may as well be done
+     * in software. This also addresses a bug by which begin operation on keys without purpose and
+     * unauthorized digest which is also not supported by the wrapped KM1 device fail with
+     * KM_UNSUPPORTED_DIGEST although they should not fail during the begin operation.
+     * If it has a purpose and we reach this point we did not find unsupported digests, and
+     * therefore do not required software digesting.
+     */
+    return !has_purpose;
 }
 
 template<>
@@ -240,7 +264,11 @@ Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>::LoadKey(KeymasterKeyBlo
         AuthorizationSet&& hw_enforced,
         AuthorizationSet&& sw_enforced,
         UniquePtr<Key>* key) const {
-    bool requires_software_digesting = legacy_support_.RequiresSoftwareDigesting(
+    keymaster_digest_t digest;
+    if (!additional_params.GetTagValue(TAG_DIGEST, &digest)) {
+        digest = KM_DIGEST_NONE;
+    }
+    bool requires_software_digesting = legacy_support_.RequiresSoftwareDigesting(digest,
                                                            AuthProxy(hw_enforced, sw_enforced));
     auto rc = software_digest_factory_.LoadKey(move(key_material), additional_params,
                                                move(hw_enforced), move(sw_enforced), key);
@@ -258,7 +286,11 @@ Keymaster1ArbitrationFactory<RsaKeymaster1KeyFactory>::LoadKey(KeymasterKeyBlob&
         AuthorizationSet&& hw_enforced,
         AuthorizationSet&& sw_enforced,
         UniquePtr<Key>* key) const {
-    bool requires_software_digesting = legacy_support_.RequiresSoftwareDigesting(
+    keymaster_digest_t digest;
+    if (!additional_params.GetTagValue(TAG_DIGEST, &digest)) {
+        digest = KM_DIGEST_NONE;
+    }
+    bool requires_software_digesting = legacy_support_.RequiresSoftwareDigesting(digest,
                                                            AuthProxy(hw_enforced, sw_enforced));
     auto rc = software_digest_factory_.LoadKey(move(key_material), additional_params,
                                                move(hw_enforced), move(sw_enforced), key);

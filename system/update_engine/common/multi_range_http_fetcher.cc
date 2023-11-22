@@ -86,7 +86,7 @@ void MultiRangeHttpFetcher::StartTransfer() {
 }
 
 // State change: Downloading -> Downloading or Pending transfer ended
-void MultiRangeHttpFetcher::ReceivedBytes(HttpFetcher* fetcher,
+bool MultiRangeHttpFetcher::ReceivedBytes(HttpFetcher* fetcher,
                                           const void* bytes,
                                           size_t length) {
   CHECK_LT(current_index_, ranges_.size());
@@ -95,23 +95,28 @@ void MultiRangeHttpFetcher::ReceivedBytes(HttpFetcher* fetcher,
   size_t next_size = length;
   Range range = ranges_[current_index_];
   if (range.HasLength()) {
-    next_size = std::min(next_size,
-                         range.length() - bytes_received_this_range_);
+    next_size =
+        std::min(next_size, range.length() - bytes_received_this_range_);
   }
   LOG_IF(WARNING, next_size <= 0) << "Asked to write length <= 0";
-  if (delegate_) {
-    delegate_->ReceivedBytes(this, bytes, next_size);
-  }
+  // bytes_received_this_range_ needs to be updated regardless of the delegate_
+  // result, because it will be used to determine a successful transfer in
+  // TransferEnded().
   bytes_received_this_range_ += length;
+  if (delegate_ && !delegate_->ReceivedBytes(this, bytes, next_size))
+    return false;
+
   if (range.HasLength() && bytes_received_this_range_ >= range.length()) {
     // Terminates the current fetcher. Waits for its TransferTerminated
     // callback before starting the next range so that we don't end up
     // signalling the delegate that the whole multi-transfer is complete
     // before all fetchers are really done and cleaned up.
     pending_transfer_ended_ = true;
-    LOG(INFO) << "terminating transfer";
+    LOG(INFO) << "Terminating transfer.";
     fetcher->TerminateTransfer();
+    return false;
   }
+  return true;
 }
 
 // State change: Downloading or Pending transfer ended -> Stopped

@@ -8,7 +8,7 @@ RecordingCanvas.
   drawText
   drawText_strikeThruAndUnderline
   drawText_forceAlignLeft
-  drawColor
+  __drawColor
   backgroundAndImage
   saveLayer_simple
   saveLayer_missingRestore

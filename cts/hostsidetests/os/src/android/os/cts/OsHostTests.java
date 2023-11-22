@@ -86,12 +86,22 @@ public class OsHostTests extends DeviceTestCase implements IBuildReceiver, IAbiR
      */
     @AppModeFull(reason = "Error message is different for instant app (Activity does not exist)")
     public void testNonExportedActivities() throws Exception {
-        // Attempt to launch the non-exported activity in the test app
-        CollectingOutputReceiver outputReceiver = new CollectingOutputReceiver();
-        mDevice.executeShellCommand(START_NON_EXPORTED_ACTIVITY_COMMAND, outputReceiver);
-        final String output = outputReceiver.getOutput();
+        // Run as unroot
+        boolean wasRoot = mDevice.isAdbRoot();
+        try {
+            mDevice.disableAdbRoot();
+            // Attempt to launch the non-exported activity in the test app
+            CollectingOutputReceiver outputReceiver = new CollectingOutputReceiver();
+            mDevice.executeShellCommand(START_NON_EXPORTED_ACTIVITY_COMMAND, outputReceiver);
+            final String output = outputReceiver.getOutput();
 
-        assertTrue(output.contains("Permission Denial") && output.contains(" not exported"));
+            assertTrue(output.contains("Permission Denial") && output.contains(" not exported"));
+        } finally {
+            // Restore back to original root state
+            if (wasRoot) {
+                mDevice.enableAdbRoot();
+            }
+        }
     }
 
     public void testIntentFilterHostValidation() throws Exception {

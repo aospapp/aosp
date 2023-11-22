@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <signal.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdlib.h>
 #include <poll.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include <sys/select.h>
 #include <sys/time.h>
@@ -32,13 +31,14 @@
 #include "android/os/IVold.h"
 
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
 #include <android-base/stringprintf.h>
 #include <binder/IServiceManager.h>
 #include <binder/Status.h>
 
 #include <private/android_filesystem_config.h>
 
-static void usage(char *progname);
+static void usage(char* progname);
 
 static android::sp<android::IBinder> getServiceAggressive() {
     android::sp<android::IBinder> res;
@@ -50,7 +50,7 @@ static android::sp<android::IBinder> getServiceAggressive() {
             LOG(VERBOSE) << "Waited " << (i * 10) << "ms for vold";
             break;
         }
-        usleep(10000); // 10ms
+        usleep(10000);  // 10ms
     }
     return res;
 }
@@ -101,10 +101,50 @@ int main(int argc, char** argv) {
         checkStatus(vold->shutdown());
     } else if (args[0] == "cryptfs" && args[1] == "checkEncryption" && args.size() == 3) {
         checkStatus(vold->checkEncryption(args[2]));
-    } else if (args[0] == "cryptfs" && args[1] == "mountFstab" && args.size() == 3) {
-        checkStatus(vold->mountFstab(args[2]));
-    } else if (args[0] == "cryptfs" && args[1] == "encryptFstab" && args.size() == 3) {
-        checkStatus(vold->encryptFstab(args[2]));
+    } else if (args[0] == "cryptfs" && args[1] == "mountFstab" && args.size() == 4) {
+        checkStatus(vold->mountFstab(args[2], args[3]));
+    } else if (args[0] == "cryptfs" && args[1] == "encryptFstab" && args.size() == 4) {
+        checkStatus(vold->encryptFstab(args[2], args[3]));
+    } else if (args[0] == "checkpoint" && args[1] == "supportsCheckpoint" && args.size() == 2) {
+        bool supported = false;
+        checkStatus(vold->supportsCheckpoint(&supported));
+        return supported ? 1 : 0;
+    } else if (args[0] == "checkpoint" && args[1] == "supportsBlockCheckpoint" && args.size() == 2) {
+        bool supported = false;
+        checkStatus(vold->supportsBlockCheckpoint(&supported));
+        return supported ? 1 : 0;
+    } else if (args[0] == "checkpoint" && args[1] == "supportsFileCheckpoint" && args.size() == 2) {
+        bool supported = false;
+        checkStatus(vold->supportsFileCheckpoint(&supported));
+        return supported ? 1 : 0;
+    } else if (args[0] == "checkpoint" && args[1] == "startCheckpoint" && args.size() == 3) {
+        int retry;
+        if (!android::base::ParseInt(args[2], &retry)) exit(EINVAL);
+        checkStatus(vold->startCheckpoint(retry));
+    } else if (args[0] == "checkpoint" && args[1] == "needsCheckpoint" && args.size() == 2) {
+        bool enabled = false;
+        checkStatus(vold->needsCheckpoint(&enabled));
+        return enabled ? 1 : 0;
+    } else if (args[0] == "checkpoint" && args[1] == "needsRollback" && args.size() == 2) {
+        bool enabled = false;
+        checkStatus(vold->needsRollback(&enabled));
+        return enabled ? 1 : 0;
+    } else if (args[0] == "checkpoint" && args[1] == "commitChanges" && args.size() == 2) {
+        checkStatus(vold->commitChanges());
+    } else if (args[0] == "checkpoint" && args[1] == "prepareCheckpoint" && args.size() == 2) {
+        checkStatus(vold->prepareCheckpoint());
+    } else if (args[0] == "checkpoint" && args[1] == "restoreCheckpoint" && args.size() == 3) {
+        checkStatus(vold->restoreCheckpoint(args[2]));
+    } else if (args[0] == "checkpoint" && args[1] == "restoreCheckpointPart" && args.size() == 4) {
+        int count;
+        if (!android::base::ParseInt(args[3], &count)) exit(EINVAL);
+        checkStatus(vold->restoreCheckpointPart(args[2], count));
+    } else if (args[0] == "checkpoint" && args[1] == "markBootAttempt" && args.size() == 2) {
+        checkStatus(vold->markBootAttempt());
+    } else if (args[0] == "checkpoint" && args[1] == "abortChanges" && args.size() == 4) {
+        int retry;
+        if (!android::base::ParseInt(args[2], &retry)) exit(EINVAL);
+        checkStatus(vold->abortChanges(args[2], retry != 0));
     } else {
         LOG(ERROR) << "Raw commands are no longer supported";
         exit(EINVAL);
@@ -112,6 +152,6 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-static void usage(char *progname) {
+static void usage(char* progname) {
     LOG(INFO) << "Usage: " << progname << " [--wait] <system> <subcommand> [args...]";
 }

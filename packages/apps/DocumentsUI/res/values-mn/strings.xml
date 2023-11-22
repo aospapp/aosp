@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"Хуваалцах"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Устгах"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Бүгдийг сонгох"</string>
+    <string name="menu_select" msgid="1366061076507142387">"Сонгох"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"Дараахаар эрэмбэлэх..."</string>
     <string name="menu_copy" msgid="7404820171352314754">"Дараахад хуулах..."</string>
     <string name="menu_move" msgid="2310760789561129882">"Дараахад зөөх"</string>
     <string name="menu_compress" msgid="37539111904724188">"Шахах"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"Төрөл"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"Хэмжээ"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Өөрчилсөн"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"Файлын нэр (А - Я)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"Төрөл (A - Я)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"Хэмжээ (жижиг нь эхэнд)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"Өөрчилсөн (хуучин нь эхэнд)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"Файлын нэр (Я - А)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"Төрөл (Я - А)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"Хэмжээ (том нь эхэнд)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"Өөрчилсөн (шинэ нь эхэнд)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"Дараахаар эрэмбэлэх"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"<xliff:g id="LABEL">%s</xliff:g>-р эрэмбэлсэн"</string>
     <string name="directory_items" msgid="6645621978998614003">"Зүйлийн тоо"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Дээшилж буй"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Буурч буй"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"<xliff:g id="APPNAME">%1$s</xliff:g>-г нээх"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Документын санг харуулах"</string>
     <string name="drawer_close" msgid="4263880768630848848">"Документын санг нуух"</string>
     <string name="save_error" msgid="8631128801982095782">"Документыг хадгалж чадсангүй"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"<xliff:g id="STORAGE"><i>^3</i></xliff:g>-д байгаа <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> лавлагаанд хандах эрхийг <xliff:g id="APPNAME"><b>^1</b></xliff:g>-д олгох уу?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"<xliff:g id="DIRECTORY"><i>^2</i></xliff:g> лавлагаанд хандах эрхийг <xliff:g id="APPNAME"><b>^1</b></xliff:g>-д олгох уу?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"<xliff:g id="STORAGE"><i>^2</i></xliff:g>-д байгаа зураг, видео зэрэг таны өгөгдөлд хандах эрхийг <xliff:g id="APPNAME"><b>^1</b></xliff:g>-д олгох уу?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"Дахин бүү асуу"</string>
     <string name="allow" msgid="1275746941353040309">"Зөвшөөрөх"</string>
     <string name="deny" msgid="5127201668078153379">"Татгалзах"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"архив<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"<xliff:g id="NAME">%1$s</xliff:g>-г дарж бичих үү?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Цаана үргэлжлүүлэх"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g>-г сонгосон</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g>-г сонгосон</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"Утсан дээрх саяхны файлууд"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"Утсан дээрх файлууд"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"Утсан дээрх <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"<xliff:g id="DEVICE">%1$s</xliff:g> дээрх файлууд"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"<xliff:g id="LABEL">%1$s</xliff:g>-н файлууд"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>-н файлууд"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Утсан дээрх саяхны зураг"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Утсан дээрх зураг"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g> дээрх зураг"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>-н зураг"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>-н зураг"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"Зураг"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"Аудио"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"Видео"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"Документ"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"Фолдерын нэр"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"Шинэ нэр"</string>
+    <string name="preview_file" msgid="4056622696305432343">"<xliff:g id="FILENAME">%1$s</xliff:g> файлыг урьдчилан үзэх"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"Бусад аппын файлыг үзэх"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"Үл мэдэгдэх"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"-н хандалтыг зөвшөөрөх"</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"\"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"-н хандалтыг \"<xliff:g id="ROOT">%2$s</xliff:g>\"-д зөвшөөрөх үү?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Энэ нь \"<xliff:g id="APPNAME">%1$s</xliff:g>\"-д одоогоор энэ байршилд хадгалсан бүх файл болон үүнд цаашид хадгалах контентод бүрэн хандахыг зөвшөөрнө."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"Энэ утсыг хайх"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"Хайлтын түүхийг устгах <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

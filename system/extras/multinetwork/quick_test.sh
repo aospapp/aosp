@@ -35,7 +35,7 @@ echo "$PREFIX Using nethandle $nethandle ($(toHex $nethandle))"
 echo ""
 
 readonly IPADDRESSES=$(
-    adb shell /system/xbin/dnschk --nethandle $nethandle $TEST_HOST |
+    adb shell /system/bin/dnschk --nethandle $nethandle $TEST_HOST |
     sed -e 's/#.*//' -e '/^$/d')
 
 
@@ -43,6 +43,6 @@ for host in $TEST_HOST $IPADDRESSES; do
     urls=$(getUrls $host)
     for url in $urls; do
         echo "$PREFIX Checking $url" >&2
-        adb shell /system/xbin/httpurl --nethandle $nethandle "$url"
+        adb shell /system/bin/httpurl --nethandle $nethandle "$url"
     done
 done

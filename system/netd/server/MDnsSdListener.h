@@ -17,9 +17,10 @@
 #ifndef _MDNSSDLISTENER_H__
 #define _MDNSSDLISTENER_H__
 
-#include <pthread.h>
-#include <sysutils/FrameworkListener.h>
+#include <android-base/thread_annotations.h>
 #include <dns_sd.h>
+#include <sysutils/FrameworkListener.h>
+#include <mutex>
 
 #include "NetdCommand.h"
 
@@ -44,17 +45,15 @@ void MDnsSdListenerGetAddrInfoCallback(DNSServiceRef sdRef, DNSServiceFlags flag
         uint32_t interface, DNSServiceErrorType errorCode, const char *hostname,
         const struct sockaddr *const sa, uint32_t ttl, void *inContext);
 
-#define RESCAN "1"
-
 class MDnsSdListener : public FrameworkListener {
-public:
+  public:
     MDnsSdListener();
     virtual ~MDnsSdListener() {}
 
     static constexpr const char* SOCKET_NAME = "mdns";
 
     class Context {
-    public:
+      public:
         MDnsSdListener *mListener;
         int mRefNumber;
 
@@ -79,27 +78,28 @@ private:
         int startService();
         int stopService();
         void run();
+        void deallocateServiceRef(DNSServiceRef* ref);
 
-    private:
+      private:
         int rescan(); // returns the number of elements in the poll
-        class Element {
-        public:
+
+        struct Element {
+            Element(int id, Context* context) : mId(id), mContext(context) {}
+            ~Element() { delete mContext; }
+
             int mId;
-            Element *mNext;
-            DNSServiceRef mRef;
+            Element* mNext = nullptr;
+            DNSServiceRef mRef = nullptr;
             Context *mContext;
-            int mReady;
-            Element(int id, Context *context)
-                    : mId(id), mNext(NULL), mContext(context), mReady(0) {}
-            virtual ~Element() { delete(mContext); }
+            int mReady = 0;
         };
-        Element *mHead;
+        Element* mHead GUARDED_BY(mMutex);
         int mLiveCount;
         struct pollfd *mPollFds;
         DNSServiceRef **mPollRefs;
         int mPollSize;
         int mCtrlSocketPair[2];
-        pthread_mutex_t mHeadMutex;
+        std::mutex mMutex;
     };
 
     class Handler : public NetdCommand {

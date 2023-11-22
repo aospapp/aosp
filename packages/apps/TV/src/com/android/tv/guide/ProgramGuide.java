@@ -47,7 +47,7 @@ import android.view.accessibility.AccessibilityManager.AccessibilityStateChangeL
 import com.android.tv.ChannelTuner;
 import com.android.tv.MainActivity;
 import com.android.tv.R;
-import com.android.tv.TvFeatures;
+import com.android.tv.TvSingletons;
 import com.android.tv.analytics.Tracker;
 import com.android.tv.common.WeakHandler;
 import com.android.tv.common.util.DurationTimer;
@@ -56,11 +56,16 @@ import com.android.tv.data.GenreItems;
 import com.android.tv.data.ProgramDataManager;
 import com.android.tv.dvr.DvrDataManager;
 import com.android.tv.dvr.DvrScheduleManager;
+import com.android.tv.features.TvFeatures;
+import com.android.tv.perf.EventNames;
+import com.android.tv.perf.PerformanceMonitor;
+import com.android.tv.perf.TimerEvent;
 import com.android.tv.ui.HardwareLayerAnimatorListenerAdapter;
 import com.android.tv.ui.ViewUtils;
 import com.android.tv.ui.hideable.AutoHideScheduler;
 import com.android.tv.util.TvInputManagerHelper;
 import com.android.tv.util.Utils;
+import com.android.tv.common.flags.BackendKnobsFlags;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -150,6 +155,9 @@ public class ProgramGuide
 
     private final ProgramManagerListener mProgramManagerListener = new ProgramManagerListener();
 
+    private final PerformanceMonitor mPerformanceMonitor;
+    private TimerEvent mTimerEvent;
+
     private final Runnable mUpdateTimeIndicator =
             new Runnable() {
                 @Override
@@ -175,13 +183,17 @@ public class ProgramGuide
             Runnable preShowRunnable,
             Runnable postHideRunnable) {
         mActivity = activity;
+        TvSingletons singletons = TvSingletons.getSingletons(mActivity);
+        mPerformanceMonitor = singletons.getPerformanceMonitor();
+        BackendKnobsFlags backendKnobsFlags = singletons.getBackendKnobs();
         mProgramManager =
                 new ProgramManager(
                         tvInputManagerHelper,
                         channelDataManager,
                         programDataManager,
                         dvrDataManager,
-                        dvrScheduleManager);
+                        dvrScheduleManager,
+                        backendKnobsFlags);
         mChannelTuner = channelTuner;
         mTracker = tracker;
         mPreShowRunnable = preShowRunnable;
@@ -316,11 +328,42 @@ public class ProgramGuide
         mGrid.setItemAlignmentOffset(0);
         mGrid.setItemAlignmentOffsetPercent(ProgramGrid.ITEM_ALIGN_OFFSET_PERCENT_DISABLED);
 
+        mGrid.addOnScrollListener(
+                new RecyclerView.OnScrollListener() {
+                    @Override
+                    public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                        if (DEBUG) {
+                            Log.d(TAG, "ProgramGrid onScrollStateChanged. newState=" + newState);
+                        }
+                        if (newState == RecyclerView.SCROLL_STATE_SETTLING) {
+                            mPerformanceMonitor.startJankRecorder(
+                                    EventNames.PROGRAM_GUIDE_SCROLL_VERTICALLY);
+                        } else if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                            mPerformanceMonitor.stopJankRecorder(
+                                    EventNames.PROGRAM_GUIDE_SCROLL_VERTICALLY);
+                        }
+                    }
+                });
+
         RecyclerView.OnScrollListener onScrollListener =
                 new RecyclerView.OnScrollListener() {
                     @Override
                     public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                         onHorizontalScrolled(dx);
+                    }
+
+                    @Override
+                    public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
+                        if (DEBUG) {
+                            Log.d(TAG, "TimelineRow onScrollStateChanged. newState=" + newState);
+                        }
+                        if (newState == RecyclerView.SCROLL_STATE_SETTLING) {
+                            mPerformanceMonitor.startJankRecorder(
+                                    EventNames.PROGRAM_GUIDE_SCROLL_HORIZONTALLY);
+                        } else if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                            mPerformanceMonitor.stopJankRecorder(
+                                    EventNames.PROGRAM_GUIDE_SCROLL_HORIZONTALLY);
+                        }
                     }
                 };
         mTimelineRow.addOnScrollListener(onScrollListener);
@@ -332,6 +375,18 @@ public class ProgramGuide
                         R.animator.program_guide_side_panel_enter_full,
                         0,
                         R.animator.program_guide_table_enter_full);
+        mShowAnimatorFull.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        if (mTimerEvent != null) {
+                            mPerformanceMonitor.stopTimer(
+                                    mTimerEvent, EventNames.PROGRAM_GUIDE_SHOW);
+                            mTimerEvent = null;
+                        }
+                        mPerformanceMonitor.stopJankRecorder(EventNames.PROGRAM_GUIDE_SHOW);
+                    }
+                });
 
         mShowAnimatorPartial =
                 createAnimator(
@@ -345,6 +400,16 @@ public class ProgramGuide
                         mSidePanelGridView.setVisibility(View.VISIBLE);
                         mSidePanelGridView.setAlpha(1.0f);
                     }
+
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        if (mTimerEvent != null) {
+                            mPerformanceMonitor.stopTimer(
+                                    mTimerEvent, EventNames.PROGRAM_GUIDE_SHOW);
+                            mTimerEvent = null;
+                        }
+                        mPerformanceMonitor.stopJankRecorder(EventNames.PROGRAM_GUIDE_SHOW);
+                    }
                 });
 
         mHideAnimatorFull =
@@ -354,6 +419,11 @@ public class ProgramGuide
                         R.animator.program_guide_table_exit);
         mHideAnimatorFull.addListener(
                 new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {
+                        mPerformanceMonitor.recordMemory(EventNames.MEMORY_ON_PROGRAM_GUIDE_CLOSE);
+                    }
+
                     @Override
                     public void onAnimationEnd(Animator animation) {
                         mContainer.setVisibility(View.GONE);
@@ -366,6 +436,11 @@ public class ProgramGuide
                         R.animator.program_guide_table_exit);
         mHideAnimatorPartial.addListener(
                 new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {
+                        mPerformanceMonitor.recordMemory(EventNames.MEMORY_ON_PROGRAM_GUIDE_CLOSE);
+                    }
+
                     @Override
                     public void onAnimationEnd(Animator animation) {
                         mContainer.setVisibility(View.GONE);
@@ -447,6 +522,8 @@ public class ProgramGuide
         if (mContainer.getVisibility() == View.VISIBLE) {
             return;
         }
+        mTimerEvent = mPerformanceMonitor.startTimer();
+        mPerformanceMonitor.startJankRecorder(EventNames.PROGRAM_GUIDE_SHOW);
         mTracker.sendShowEpg();
         mTracker.sendScreenView(SCREEN_NAME);
         if (mPreShowRunnable != null) {
@@ -643,6 +720,11 @@ public class ProgramGuide
         return mGrid;
     }
 
+    /** Returns if Accessibility is enabled. */
+    boolean isAccessibilityEnabled() {
+        return mAccessibilityManager.isEnabled();
+    }
+
     /** Gets {@link VerticalGridView} for "genre select" side panel. */
     VerticalGridView getSidePanel() {
         return mSidePanelGridView;
@@ -711,9 +793,7 @@ public class ProgramGuide
     }
 
     private void startFull() {
-        if (!mShowGuidePartial || mAccessibilityManager.isEnabled()) {
-            // If accessibility service is enabled, focus cannot be moved to side panel due to it's
-            // hidden. Therefore, we don't hide side panel when accessibility service is enabled.
+        if (!mShowGuidePartial) {
             return;
         }
         mShowGuidePartial = false;
@@ -806,13 +886,7 @@ public class ProgramGuide
             detailView.setVisibility(View.VISIBLE);
 
             final ProgramRow programRow = (ProgramRow) row.findViewById(R.id.row);
-            programRow.post(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            programRow.focusCurrentProgram();
-                        }
-                    });
+            programRow.post(programRow::focusCurrentProgram);
         } else {
             animateRowChange(mSelectedRow, row);
         }
@@ -935,6 +1009,7 @@ public class ProgramGuide
         private static final int UNKNOWN = 0;
         private static final int SIDE_PANEL = 1;
         private static final int PROGRAM_TABLE = 2;
+        private static final int CHANNEL_COLUMN = 3;
 
         @Override
         public void onGlobalFocusChanged(View oldFocus, View newFocus) {
@@ -948,6 +1023,10 @@ public class ProgramGuide
                 startFull();
             } else if (fromLocation == PROGRAM_TABLE && toLocation == SIDE_PANEL) {
                 startPartial();
+            } else if (fromLocation == CHANNEL_COLUMN && toLocation == PROGRAM_TABLE) {
+                startFull();
+            } else if (fromLocation == PROGRAM_TABLE && toLocation == CHANNEL_COLUMN) {
+                startPartial();
             }
         }
 
@@ -959,7 +1038,11 @@ public class ProgramGuide
                 if (obj == mSidePanel) {
                     return SIDE_PANEL;
                 } else if (obj == mGrid) {
-                    return PROGRAM_TABLE;
+                    if (view instanceof ProgramItemView) {
+                        return PROGRAM_TABLE;
+                    } else {
+                        return CHANNEL_COLUMN;
+                    }
                 }
             }
             return UNKNOWN;

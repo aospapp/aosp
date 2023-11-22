@@ -16,6 +16,7 @@
 package com.android.tradefed.build;
 
 import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
+import com.android.tradefed.build.proto.BuildInformation;
 import com.android.tradefed.device.ITestDevice;
 
 import java.io.File;
@@ -32,6 +33,11 @@ public interface IBuildInfo extends Serializable {
     public enum BuildInfoProperties {
         DO_NOT_COPY_ON_SHARDING,
         DO_NOT_LINK_TESTS_DIR,
+        /**
+         * If a copy of the build is requested, do not copy the device image file. Represented by
+         * {@link BuildInfoFileKey#DEVICE_IMAGE} key.
+         */
+        DO_NOT_COPY_IMAGE_FILE,
     }
 
     /**
@@ -130,6 +136,13 @@ public interface IBuildInfo extends Serializable {
     public void addBuildAttribute(String attributeName, String attributeValue);
 
     /**
+     * Add build attributes
+     *
+     * @param buildAttributes Map of attributes to be added
+     */
+    public default void addBuildAttributes(Map<String, String> buildAttributes) {}
+
+    /**
      * Set the {@link BuildInfoProperties} for the {@link IBuildInfo} instance. Override any
      * existing properties set before.
      *
@@ -148,6 +161,11 @@ public interface IBuildInfo extends Serializable {
      */
     public default File getFile(BuildInfoFileKey key) {
         // Default implementation for projects that don't extend BuildInfo class.
+        return null;
+    }
+
+    /** Returns the set of keys available to query {@link VersionedFile} via {@link #getFile}. */
+    public default Set<String> getVersionedFileKeys() {
         return null;
     }
 
@@ -170,12 +188,24 @@ public interface IBuildInfo extends Serializable {
     }
 
     /**
-     * Helper method to retrieve a {@link VersionedFile} with a given a {@link BuildInfoFileKey}.
+     * Helper method to retrieve a {@link VersionedFile} with a given {@link BuildInfoFileKey}.
      *
      * @param key The {@link BuildInfoFileKey} requested.
      * @return The versioned file or <code>null</code> if not found
      */
     public default VersionedFile getVersionedFile(BuildInfoFileKey key) {
+        // Default implementation for projects that don't extend BuildInfo class.
+        return null;
+    }
+
+    /**
+     * Helper method to retrieve a list of {@link VersionedFile}s associated with a given {@link
+     * BuildInfoFileKey}. If the key allows to store a list.
+     *
+     * @param key The {@link BuildInfoFileKey} requested.
+     * @return The versioned file or <code>null</code> if not found
+     */
+    public default List<VersionedFile> getVersionedFiles(BuildInfoFileKey key) {
         // Default implementation for projects that don't extend BuildInfo class.
         return null;
     }
@@ -235,4 +265,18 @@ public interface IBuildInfo extends Serializable {
      * Clones the {@link IBuildInfo} object.
      */
     public IBuildInfo clone();
+
+    /** Serialize a the BuildInfo instance into a protobuf. */
+    public default BuildInformation.BuildInfo toProto() {
+        // Default implementation for project that don't extends BuildInfo class.
+        return null;
+    }
+
+    /** Check if this build is a test resource build or not. */
+    public default boolean isTestResourceBuild() {
+        return false;
+    }
+
+    /** Set the build as test resource build. */
+    public default void setTestResourceBuild(boolean testResourceBuild) {}
 }

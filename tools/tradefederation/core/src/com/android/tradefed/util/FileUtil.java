@@ -20,6 +20,7 @@ import com.android.tradefed.command.FatalHostError;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.LogDataType;
+import com.android.tradefed.testtype.IAbi;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -33,6 +34,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileSystemException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
@@ -43,6 +45,8 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -171,8 +175,7 @@ public class FileUtil {
     }
 
     public static boolean chmod(File file, String perms) {
-        Log.d(LOG_TAG, String.format("Attempting to chmod %s to %s",
-                file.getAbsolutePath(), perms));
+        // No need to print, runUtil already prints the command
         CommandResult result =
                 RunUtil.getDefault().runTimedCmd(10 * 1000, sChmod, perms, file.getAbsolutePath());
         return result.getStatus().equals(CommandStatus.SUCCESS);
@@ -399,8 +402,27 @@ public class FileUtil {
      * @throws IOException if failed to hardlink file
      */
     public static void hardlinkFile(File origFile, File destFile) throws IOException {
+        hardlinkFile(origFile, destFile, false);
+    }
+
+    /**
+     * A helper method that hardlinks a file to another file. Fallback to copy in case of cross
+     * partition linking.
+     *
+     * @param origFile the original file
+     * @param destFile the destination file
+     * @param ignoreExistingFile If True and the file being linked already exists, skip the
+     *     exception.
+     * @throws IOException if failed to hardlink file
+     */
+    public static void hardlinkFile(File origFile, File destFile, boolean ignoreExistingFile)
+            throws IOException {
         try {
             Files.createLink(destFile.toPath(), origFile.toPath());
+        } catch (FileAlreadyExistsException e) {
+            if (!ignoreExistingFile) {
+                throw e;
+            }
         } catch (FileSystemException e) {
             if (e.getMessage().contains("Invalid cross-device link")) {
                 CLog.d("Hardlink failed: '%s', falling back to copy.", e.getMessage());
@@ -436,6 +458,23 @@ public class FileUtil {
      * @throws IOException
      */
     public static void recursiveHardlink(File sourceDir, File destDir) throws IOException {
+        recursiveHardlink(sourceDir, destDir, false);
+    }
+
+    /**
+     * Recursively hardlink folder contents.
+     *
+     * <p>Only supports copying of files and directories - symlinks are not copied. If the
+     * destination directory does not exist, it will be created.
+     *
+     * @param sourceDir the folder that contains the files to copy
+     * @param destDir the destination folder
+     * @param ignoreExistingFile If True and the file being linked already exists, skip the
+     *     exception.
+     * @throws IOException
+     */
+    public static void recursiveHardlink(File sourceDir, File destDir, boolean ignoreExistingFile)
+            throws IOException {
         if (!destDir.isDirectory() && !destDir.mkdir()) {
             throw new IOException(String.format("Could not create directory %s",
                     destDir.getAbsolutePath()));
@@ -443,9 +482,9 @@ public class FileUtil {
         for (File childFile : sourceDir.listFiles()) {
             File destChild = new File(destDir, childFile.getName());
             if (childFile.isDirectory()) {
-                recursiveHardlink(childFile, destChild);
+                recursiveHardlink(childFile, destChild, ignoreExistingFile);
             } else if (childFile.isFile()) {
-                hardlinkFile(childFile, destChild);
+                hardlinkFile(childFile, destChild, ignoreExistingFile);
             }
         }
     }
@@ -787,7 +826,7 @@ public class FileUtil {
                     }
                 }
                 // after exploring the sub-dir, if the dir itself is the only match return it.
-                if (file.getName().equals(fileName)) {
+                if (file.getName().matches(fileName)) {
                     return file;
                 }
             }
@@ -996,6 +1035,18 @@ public class FileUtil {
     }
 
     /**
+     * Helper method to calculate base64 md5 for a file.
+     *
+     * @param file
+     * @return md5 of the file
+     * @throws IOException
+     */
+    public static String calculateBase64Md5(File file) throws IOException {
+        FileInputStream inputSource = new FileInputStream(file);
+        return StreamUtil.calculateBase64Md5(inputSource);
+    }
+
+    /**
      * Converts an integer representing unix mode to a set of {@link PosixFilePermission}s
      */
     public static Set<PosixFilePermission> unixModeToPosix(int mode) {
@@ -1025,6 +1076,71 @@ public class FileUtil {
     }
 
     /**
+     * Get all file paths of files in the given directory with name matching the given filter and
+     * also filter the found file by abi arch if abi is not null. Return the first match file found.
+     *
+     * @param fileName {@link String} of the regex to match file path
+     * @param abi {@link IAbi} object of the abi to match the target
+     * @param dirs a varargs array of {@link File} object of the directories to search for files
+     * @return the {@link File} or <code>null</code> if it could not be found
+     */
+    public static File findFile(String fileName, IAbi abi, File... dirs) throws IOException {
+        for (File dir : dirs) {
+            Set<File> testSrcs = findFilesObject(dir, fileName);
+            if (testSrcs.isEmpty()) {
+                continue;
+            }
+            Iterator<File> itr = testSrcs.iterator();
+            if (abi == null) {
+                // Return the first candidate be found.
+                return itr.next();
+            }
+            while (itr.hasNext()) {
+                File matchFile = itr.next();
+                if (matchFile
+                        .getParentFile()
+                        .getName()
+                        .equals(AbiUtils.getArchForAbi(abi.getName()))) {
+                    return matchFile;
+                }
+            }
+        }
+        // Scan dirs again without abi rule.
+        for (File dir : dirs) {
+            File matchFile = findFile(dir, fileName);
+            if (matchFile != null && matchFile.exists()) {
+                return matchFile;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Search and return the first directory {@link File} among other directories.
+     *
+     * @param dirName The directory name we are looking for.
+     * @param dirs The list of directories we are searching.
+     * @return a {@link File} with the directory found or Null if not found.
+     * @throws IOException
+     */
+    public static File findDirectory(String dirName, File... dirs) throws IOException {
+        for (File dir : dirs) {
+            Set<File> testSrcs = findFilesObject(dir, dirName);
+            if (testSrcs.isEmpty()) {
+                continue;
+            }
+            Iterator<File> itr = testSrcs.iterator();
+            while (itr.hasNext()) {
+                File file = itr.next();
+                if (file.isDirectory()) {
+                    return file;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Get all file paths of files in the given directory with name matching the given filter
      *
      * @param dir {@link File} object of the directory to search for files recursively
@@ -1032,7 +1148,7 @@ public class FileUtil {
      * @return a set of {@link File} of the file objects. @See {@link #findFiles(File, String)}
      */
     public static Set<File> findFilesObject(File dir, String filter) throws IOException {
-        Set<File> files = new HashSet<>();
+        Set<File> files = new LinkedHashSet<>();
         Files.walk(Paths.get(dir.getAbsolutePath()), FileVisitOption.FOLLOW_LINKS)
                 .filter(path -> path.getFileName().toString().matches(filter))
                 .forEach(path -> files.add(path.toFile()));

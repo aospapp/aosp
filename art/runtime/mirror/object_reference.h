@@ -18,10 +18,10 @@
 #define ART_RUNTIME_MIRROR_OBJECT_REFERENCE_H_
 
 #include "base/atomic.h"
-#include "base/mutex.h"  // For Locks::mutator_lock_.
-#include "globals.h"
+#include "base/locks.h"  // For Locks::mutator_lock_.
 #include "heap_poisoning.h"
 #include "obj_ptr.h"
+#include "runtime_globals.h"
 
 namespace art {
 namespace mirror {
@@ -48,9 +48,7 @@ class PtrCompression {
   }
 
   // Convert an ObjPtr to a compressed reference.
-  static uint32_t Compress(ObjPtr<MirrorType> ptr) REQUIRES_SHARED(Locks::mutator_lock_) {
-    return Compress(ptr.Ptr());
-  }
+  static uint32_t Compress(ObjPtr<MirrorType> ptr) REQUIRES_SHARED(Locks::mutator_lock_);
 };
 
 // Value type representing a reference to a mirror::Object of type MirrorType.
@@ -60,6 +58,15 @@ class MANAGED ObjectReference {
   using Compression = PtrCompression<kPoisonReferences, MirrorType>;
 
  public:
+  /*
+   * Returns a pointer to the mirror of the managed object this reference is for.
+   *
+   * This does NOT return the current object (which isn't derived from, and
+   * therefor cannot be a mirror::Object) as a mirror pointer.  Instead, this
+   * returns a pointer to the mirror of the managed object this refers to.
+   *
+   * TODO (chriswailes): Rename to GetPtr().
+   */
   MirrorType* AsMirrorPtr() const {
     return Compression::Decompress(reference_);
   }
@@ -110,13 +117,13 @@ class MANAGED HeapReference {
   template <bool kIsVolatile = false>
   MirrorType* AsMirrorPtr() const REQUIRES_SHARED(Locks::mutator_lock_) {
     return Compression::Decompress(
-        kIsVolatile ? reference_.LoadSequentiallyConsistent() : reference_.LoadJavaData());
+        kIsVolatile ? reference_.load(std::memory_order_seq_cst) : reference_.LoadJavaData());
   }
 
   template <bool kIsVolatile = false>
   void Assign(MirrorType* other) REQUIRES_SHARED(Locks::mutator_lock_) {
     if (kIsVolatile) {
-      reference_.StoreSequentiallyConsistent(Compression::Compress(other));
+      reference_.store(Compression::Compress(other), std::memory_order_seq_cst);
     } else {
       reference_.StoreJavaData(Compression::Compress(other));
     }

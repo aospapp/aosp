@@ -26,13 +26,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.animation.Animator;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.animation.ValueAnimator;
 import android.transition.TransitionManager;
+import android.transition.TransitionSet;
 import android.transition.TransitionValues;
 import android.transition.Visibility;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -99,22 +102,19 @@ public class VisibilityTest extends BaseTransitionTest {
 
         enterScene(R.layout.scene1);
         final View redSquare = mActivity.findViewById(R.id.redSquare);
-        TransitionValues visibleValues = new TransitionValues();
-        visibleValues.view = redSquare;
+        TransitionValues visibleValues = new TransitionValues(redSquare);
         mTransition.captureStartValues(visibleValues);
 
         assertTrue(mVisibilityTransition.isVisible(visibleValues));
         mActivityRule.runOnUiThread(() -> redSquare.setVisibility(View.INVISIBLE));
         mInstrumentation.waitForIdleSync();
-        TransitionValues invisibleValues = new TransitionValues();
-        invisibleValues.view = redSquare;
+        TransitionValues invisibleValues = new TransitionValues(redSquare);
         mTransition.captureStartValues(invisibleValues);
         assertFalse(mVisibilityTransition.isVisible(invisibleValues));
 
         mActivityRule.runOnUiThread(() -> redSquare.setVisibility(View.GONE));
         mInstrumentation.waitForIdleSync();
-        TransitionValues goneValues = new TransitionValues();
-        goneValues.view = redSquare;
+        TransitionValues goneValues = new TransitionValues(redSquare);
         mTransition.captureStartValues(goneValues);
         assertFalse(mVisibilityTransition.isVisible(goneValues));
     }
@@ -156,6 +156,51 @@ public class VisibilityTest extends BaseTransitionTest {
         assertTrue(transition.onDisppearCalled.await(500, TimeUnit.MILLISECONDS));
         // No need to end the transition since DisappearTransition doesn't create
         // any animators.
+    }
+
+    @Test
+    public void testApplyingTwoVisibility() throws Throwable {
+        enterScene(R.layout.scene5);
+
+        final View[] views = new View[2];
+        // create fake transition and listener
+        final TransitionSet set = new TransitionSet();
+        set.addTransition(new Visibility() {
+            @Override
+            public Animator onDisappear(ViewGroup sceneRoot, View view,
+                    TransitionValues startValues, TransitionValues endValues) {
+                views[0] = view;
+                return ValueAnimator.ofFloat(0, 1);
+            }
+        });
+        set.addTransition(new Visibility() {
+            @Override
+            public Animator onDisappear(ViewGroup sceneRoot, View view,
+                    TransitionValues startValues, TransitionValues endValues) {
+                views[1] = view;
+                return ValueAnimator.ofFloat(0, 1);
+            }
+        });
+        mTransition = set;
+        resetListener();
+
+        // remove view
+        final ViewGroup holder = (ViewGroup) mActivity.findViewById(R.id.holder);
+        final View text = mActivity.findViewById(R.id.text);
+        mActivityRule.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                TransitionManager.beginDelayedTransition(mSceneRoot, set);
+                holder.removeView(text);
+            }
+        });
+        waitForStart();
+
+        // verify original view added to overlay
+        assertNotNull(text.getParent());
+        // verify both animations using the same original view
+        assertEquals(text, views[0]);
+        assertEquals(text, views[1]);
     }
 
     static class AppearTransition extends Visibility {

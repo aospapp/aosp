@@ -30,7 +30,7 @@ public final class Display {
      */
     public static float screenWidth(Activity activity) {
         Point size = new Point();
-        activity.getWindowManager().getDefaultDisplay().getSize(size);
+        activity.getWindowManager().getDefaultDisplay().getRealSize(size);
         return size.x;
     }
 

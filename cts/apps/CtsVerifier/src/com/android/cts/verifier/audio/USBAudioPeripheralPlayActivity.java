@@ -31,6 +31,10 @@ public class USBAudioPeripheralPlayActivity extends USBAudioPeripheralPlayerActi
     private Button mPlayBtn;
     private LocalClickListener mButtonClickListener = new LocalClickListener();
 
+    public USBAudioPeripheralPlayActivity() {
+        super(false); // Mandated peripheral is NOT required
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,8 +56,8 @@ public class USBAudioPeripheralPlayActivity extends USBAudioPeripheralPlayerActi
     // USBAudioPeripheralActivity
     // Headset not publicly available, violates CTS Verifier additional equipment guidelines.
     public void updateConnectStatus() {
-        mPlayBtn.setEnabled(mIsPeripheralAttached && mSelectedProfile != null);
-        getPassButton().setEnabled(mSelectedProfile != null && mOutputDevInfo != null);
+        mPlayBtn.setEnabled(mIsPeripheralAttached);
+        getPassButton().setEnabled(mIsPeripheralAttached);
     }
 
     public class LocalClickListener implements View.OnClickListener {

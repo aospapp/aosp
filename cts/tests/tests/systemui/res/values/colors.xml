@@ -15,5 +15,6 @@
   ~ limitations under the License
   -->
 <resources>
+    <color name="navigationBarColor">#0000ff</color>
     <color name="navigationBarDividerColor">#ff0000</color>
 </resources>

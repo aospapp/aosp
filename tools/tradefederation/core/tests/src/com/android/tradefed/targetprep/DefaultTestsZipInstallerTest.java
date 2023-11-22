@@ -144,8 +144,7 @@ public class DefaultTestsZipInstallerTest extends TestCase {
 
         // expect 'rm app' but not 'rm $SKIP_THIS'
         EasyMock.expect(mMockDevice.doesFileExist("data/app")).andReturn(false);
-        EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.contains("rm -r data/app")))
-                .andReturn("");
+        mMockDevice.deleteFile("data/app");
 
         mMockDevice.setRecoveryMode(RecoveryMode.AVAILABLE);
 
@@ -188,9 +187,8 @@ public class DefaultTestsZipInstallerTest extends TestCase {
 
         // expect 'rm app' but not 'rm $SKIP_THIS'
         EasyMock.expect(mMockDevice.doesFileExist("data/app")).andStubReturn(true);
-        EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.contains("rm -r data/app")))
-                .andStubReturn("oh noes, rm failed");
-
+        mMockDevice.deleteFile("data/app");
+        EasyMock.expectLastCall().times(3);
 
         EasyMock.replay(mMockDevice);
         try {

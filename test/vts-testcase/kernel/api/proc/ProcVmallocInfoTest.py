@@ -46,10 +46,16 @@ class ProcVmallocInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
         t.value = [t.value[:4], int(t.value[5:], 16)]
         return t
 
+    def t_NODES(self, t):
+        r'N[0-9]+=[1-9][0-9]*'
+        t.value = t.value.split('=', 1)
+        return t
+
     p_lines = repeat_rule('line')
+    p_nodes = repeat_rule('node')
 
     def p_line(self, p):
-        'line : addr_range NUMBER caller module pages phys ioremap vmalloc vmap user vpages vm_vm_area NEWLINE'
+        'line : addr_range NUMBER caller module pages phys ioremap vmalloc vmap user vpages vm_vm_area nodes NEWLINE'
         p[0] = p[1:]
 
     def p_addr_range(self, p):
@@ -104,6 +110,11 @@ class ProcVmallocInfoTest(KernelProcFileTestBase.KernelProcFileTestBase):
             p[0] = []
         else:
             p[0] = p[1:]
+
+    def p_node(self, p):
+        '''node : NODES
+                | empty'''
+        p[0] = [1]
 
     def p_caller(self, p):
         '''caller : CALLER

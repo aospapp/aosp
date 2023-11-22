@@ -30,11 +30,6 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.Spannable;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
@@ -44,8 +39,15 @@ import android.widget.DialerFilter;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -95,11 +97,10 @@ public class DialerFilterTest {
         // The exact behavior depends on the implementation of DialerKeyListener and
         // TextKeyListener, but even that may be changed. Simply assert basic scenarios.
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mDialerFilter, () -> {
             mDialerFilter.setMode(DialerFilter.DIGITS_ONLY);
             mDialerFilter.requestFocus();
         });
-        mInstrumentation.waitForIdleSync();
 
         assertTrue(mDialerFilter.hasFocus());
 
@@ -107,11 +108,10 @@ public class DialerFilterTest {
         assertEquals("", mDialerFilter.getLetters().toString());
         assertEquals("123", mDialerFilter.getDigits().toString());
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mDialerFilter, () -> {
             mDialerFilter.clearText();
             mDialerFilter.setMode(DialerFilter.LETTERS_ONLY);
         });
-        mInstrumentation.waitForIdleSync();
 
         // 12-key support
         KeyCharacterMap keymap
@@ -126,11 +126,10 @@ public class DialerFilterTest {
         assertEquals("ADG", mDialerFilter.getLetters().toString());
         assertEquals("", mDialerFilter.getDigits().toString());
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mDialerFilter, () -> {
             mDialerFilter.clearText();
             mDialerFilter.setMode(DialerFilter.DIGITS_AND_LETTERS);
         });
-        mInstrumentation.waitForIdleSync();
 
         // 12-key support
         if (keymap.getKeyboardType() == KeyCharacterMap.NUMERIC) {
@@ -143,11 +142,10 @@ public class DialerFilterTest {
         assertEquals("ADG", mDialerFilter.getLetters().toString());
         // A, D, K may map to numbers on some keyboards. Don't test.
 
-        mActivityRule.runOnUiThread(() -> {
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mDialerFilter, () -> {
             mDialerFilter.clearText();
             mDialerFilter.setMode(DialerFilter.DIGITS_AND_LETTERS);
         });
-        mInstrumentation.waitForIdleSync();
 
         CtsKeyEventUtil.sendString(mInstrumentation, mDialerFilter, "123");
         // 1, 2, 3 may map to letters on some keyboards. Don't test.

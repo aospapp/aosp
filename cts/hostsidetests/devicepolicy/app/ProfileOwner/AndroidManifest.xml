@@ -36,7 +36,7 @@
         </receiver>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.cts.profileowner"
                      android:label="Profile Owner CTS tests"/>
 </manifest>

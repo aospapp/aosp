@@ -105,8 +105,7 @@ public class ExternalStorageTest extends AndroidTestCase {
         final DownloadManager dm = getContext().getSystemService(DownloadManager.class);
         try {
             final Uri source = Uri.parse("http://www.example.com");
-            final File target = new File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "meow");
+            final File target = new File(Environment.getExternalStorageDirectory(), "meow");
             dm.enqueue(new Request(source).setDestinationUri(Uri.fromFile(target)));
             fail("Unexpected success writing outside package directory");
         } catch (SecurityException expected) {

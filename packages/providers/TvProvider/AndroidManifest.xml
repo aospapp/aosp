@@ -96,5 +96,14 @@
                 <data android:scheme="package"/>
             </intent-filter>
         </receiver>
+
+        <!-- Removes preview programs, watch next programs, and preview channels when some
+             package is disabled. -->
+        <receiver android:name="PackageChangedReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_CHANGED"/>
+                <data android:scheme="package"/>
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

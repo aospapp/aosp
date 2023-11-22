@@ -16,8 +16,11 @@
 
 package android.admin.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import android.app.admin.DeviceAdminInfo;
 import android.content.ComponentName;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.test.AndroidTestCase;
@@ -60,6 +63,16 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
         return new ComponentName("android.admin.app", "android.admin.app.CtsDeviceAdminProfileOwner");
     }
 
+    static ComponentName getVisibleComponent() {
+        return new ComponentName(
+                "android.admin.app", "android.admin.app.CtsDeviceAdminReceiverVisible");
+    }
+
+    static ComponentName getInvisibleComponent() {
+        return new ComponentName(
+                "android.admin.app", "android.admin.app.CtsDeviceAdminReceiverInvisible");
+    }
+
     public void testDeviceAdminInfo() throws Exception {
         if (!mDeviceAdmin) {
             Log.w(TAG, "Skipping testDeviceAdminInfo");
@@ -70,27 +83,27 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
                 PackageManager.GET_META_DATA);
 
         DeviceAdminInfo info = new DeviceAdminInfo(mContext, resolveInfo);
-        assertEquals(mComponent, info.getComponent());
-        assertEquals(mComponent.getPackageName(), info.getPackageName());
-        assertEquals(mComponent.getClassName(), info.getReceiverName());
+        assertThat(mComponent).isEqualTo(info.getComponent());
+        assertThat(mComponent.getPackageName()).isEqualTo(info.getPackageName());
+        assertThat(mComponent.getClassName()).isEqualTo(info.getReceiverName());
 
-        assertFalse(info.supportsTransferOwnership());
-        assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK));
-        assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD));
-        assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD));
-        assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_WATCH_LOGIN));
-        assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_WIPE_DATA));
+        assertThat(info.supportsTransferOwnership()).isFalse();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK)).isTrue();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD)).isTrue();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD)).isTrue();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_WATCH_LOGIN)).isTrue();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_WIPE_DATA)).isTrue();
 
-        assertEquals("force-lock",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK));
-        assertEquals("limit-password",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD));
-        assertEquals("reset-password",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD));
-        assertEquals("watch-login",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WATCH_LOGIN));
-        assertEquals("wipe-data",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WIPE_DATA));
+        assertThat("force-lock")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK));
+        assertThat("limit-password")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD));
+        assertThat("reset-password")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD));
+        assertThat("watch-login")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WATCH_LOGIN));
+        assertThat("wipe-data")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WIPE_DATA));
     }
 
     public void testDeviceAdminInfo2() throws Exception {
@@ -103,27 +116,27 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
                 PackageManager.GET_META_DATA);
 
         DeviceAdminInfo info = new DeviceAdminInfo(mContext, resolveInfo);
-        assertEquals(mSecondComponent, info.getComponent());
-        assertEquals(mSecondComponent.getPackageName(), info.getPackageName());
-        assertEquals(mSecondComponent.getClassName(), info.getReceiverName());
+        assertThat(mSecondComponent).isEqualTo(info.getComponent());
+        assertThat(mSecondComponent.getPackageName()).isEqualTo(info.getPackageName());
+        assertThat(mSecondComponent.getClassName()).isEqualTo(info.getReceiverName());
 
-        assertFalse(info.supportsTransferOwnership());
-        assertFalse(info.usesPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK));
-        assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD));
-        assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD));
-        assertFalse(info.usesPolicy(DeviceAdminInfo.USES_POLICY_WATCH_LOGIN));
-        assertTrue(info.usesPolicy(DeviceAdminInfo.USES_POLICY_WIPE_DATA));
+        assertThat(info.supportsTransferOwnership()).isFalse();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK)).isFalse();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD)).isTrue();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD)).isTrue();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_WATCH_LOGIN)).isFalse();
+        assertThat(info.usesPolicy(DeviceAdminInfo.USES_POLICY_WIPE_DATA)).isTrue();
 
-        assertEquals("force-lock",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK));
-        assertEquals("limit-password",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD));
-        assertEquals("reset-password",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD));
-        assertEquals("watch-login",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WATCH_LOGIN));
-        assertEquals("wipe-data",
-                info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WIPE_DATA));
+        assertThat("force-lock")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_FORCE_LOCK));
+        assertThat("limit-password")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_LIMIT_PASSWORD));
+        assertThat("reset-password")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_RESET_PASSWORD));
+        assertThat("watch-login")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WATCH_LOGIN));
+        assertThat("wipe-data")
+                .isEqualTo(info.getTagForPolicy(DeviceAdminInfo.USES_POLICY_WIPE_DATA));
     }
 
     public void testDeviceAdminInfo3() throws Exception {
@@ -136,6 +149,66 @@ public class DeviceAdminInfoTest extends AndroidTestCase {
                 PackageManager.GET_META_DATA);
 
         DeviceAdminInfo info = new DeviceAdminInfo(mContext, resolveInfo);
-        assertTrue(info.supportsTransferOwnership());
+        assertThat(info.supportsTransferOwnership()).isTrue();
+    }
+
+    public void testDescribeContents_returnsAtLeastZero() throws Exception {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testDescribeContents_returnsAtLeastZero");
+            return;
+        }
+
+        assertThat(buildDeviceAdminInfo(buildActivityInfo()).describeContents()).isAtLeast(0);
+    }
+
+    public void testGetActivityInfo_returnsActivityInfo() throws Exception {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testGetActivityInfo_returnsActivityInfo");
+            return;
+        }
+        ActivityInfo activityInfo = buildActivityInfo();
+        DeviceAdminInfo deviceAdminInfo = buildDeviceAdminInfo(activityInfo);
+
+        assertThat(deviceAdminInfo.getActivityInfo()).isEqualTo(activityInfo);
+    }
+
+    public void testIsVisible_visibleComponent_returnsTrue() throws Exception {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testIsVisible_visibleComponent_returnsTrue");
+            return;
+        }
+        ActivityInfo activityInfo = buildActivityInfo(getVisibleComponent());
+        DeviceAdminInfo deviceAdminInfo = buildDeviceAdminInfo(activityInfo);
+
+        assertThat(deviceAdminInfo.isVisible()).isTrue();
+    }
+
+    public void testIsVisible_invisibleComponent_returnsFalse() throws Exception {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testIsVisible_invisibleComponent_returnsFalse");
+            return;
+        }
+        ActivityInfo activityInfo = buildActivityInfo(getInvisibleComponent());
+        DeviceAdminInfo deviceAdminInfo = buildDeviceAdminInfo(activityInfo);
+
+        assertThat(deviceAdminInfo.isVisible()).isFalse();
+    }
+
+    private DeviceAdminInfo buildDeviceAdminInfo(ActivityInfo activityInfo) throws Exception {
+        return new DeviceAdminInfo(mContext, buildResolveInfo(activityInfo));
+    }
+
+    private ResolveInfo buildResolveInfo(ActivityInfo activityInfo) {
+        ResolveInfo resolveInfo = new ResolveInfo();
+        resolveInfo.activityInfo = activityInfo;
+        return resolveInfo;
+    }
+
+    private ActivityInfo buildActivityInfo() throws Exception {
+        return buildActivityInfo(mThirdComponent);
+    }
+
+    private ActivityInfo buildActivityInfo(ComponentName componentName) throws Exception {
+        return mPackageManager.getReceiverInfo(componentName, PackageManager.GET_META_DATA);
     }
 }

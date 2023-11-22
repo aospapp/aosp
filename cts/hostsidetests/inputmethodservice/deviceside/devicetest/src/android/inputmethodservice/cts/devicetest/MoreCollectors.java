@@ -40,12 +40,12 @@ final class MoreCollectors {
      * @return {@link Collector} object that collects elements ending at an element that is
      *          accepted by {@code predicate}.
      */
-    static <E> Collector<E, ?, Stream<E>> endingAt(final Predicate<E> predicate) {
+    static <E> Collector<E, ?, Stream<E>> endingAt(Predicate<E> predicate) {
         final BiConsumer<Builder<E>, E> endingAtAccumulator = new BiConsumer<Builder<E>, E>() {
             private boolean mFound = false;
 
             @Override
-            public void accept(final Builder<E> builder, final E element) {
+            public void accept(Builder<E> builder, E element) {
                 if (mFound) {
                     return;
                 }
@@ -77,12 +77,12 @@ final class MoreCollectors {
      * @return {@link Collector} object that collects elements starting from an element that is
      *          accepted by {@code predicate}.
      */
-    static <E> Collector<E, ?, Stream<E>> startingFrom(final Predicate<E> predicate) {
+    static <E> Collector<E, ?, Stream<E>> startingFrom(Predicate<E> predicate) {
         final BiConsumer<Builder<E>, E> startingFromAccumulator = new BiConsumer<Builder<E>, E>() {
             private boolean mFound = false;
 
             @Override
-            public void accept(final Builder<E> builder, final E element) {
+            public void accept(Builder<E> builder, E element) {
                 if (mFound) {
                     builder.accept(element);
                     return;

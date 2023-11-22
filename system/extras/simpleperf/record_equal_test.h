@@ -57,6 +57,22 @@ static void CheckSampleRecordDataEqual(const SampleRecord& r1, const SampleRecor
       EXPECT_EQ(r1.callchain_data.ips[i], r2.callchain_data.ips[i]);
     }
   }
+  if (r1.sample_type & PERF_SAMPLE_REGS_USER) {
+    ASSERT_EQ(r1.regs_user_data.abi, r2.regs_user_data.abi);
+    if (r1.regs_user_data.abi != 0) {
+      ASSERT_EQ(r1.regs_user_data.reg_mask, r2.regs_user_data.reg_mask);
+      ASSERT_EQ(0, memcmp(r1.regs_user_data.regs, r2.regs_user_data.regs,
+                          r1.regs_user_data.reg_nr * sizeof(uint64_t)));
+    }
+  }
+  if (r1.sample_type & PERF_SAMPLE_STACK_USER) {
+    ASSERT_EQ(r1.stack_user_data.size, r2.stack_user_data.size);
+    if (r1.stack_user_data.size > 0) {
+      ASSERT_EQ(r1.stack_user_data.dyn_size, r2.stack_user_data.dyn_size);
+      ASSERT_EQ(0, memcmp(r1.stack_user_data.data, r2.stack_user_data.data,
+                          r1.stack_user_data.size));
+    }
+  }
 }
 
 static void CheckRecordEqual(const Record& r1, const Record& r2) {

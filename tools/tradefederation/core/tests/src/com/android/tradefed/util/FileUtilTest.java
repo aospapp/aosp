@@ -23,6 +23,8 @@ import static org.junit.Assert.fail;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.LogDataType;
 
+import com.android.tradefed.testtype.Abi;
+import com.android.tradefed.testtype.IAbi;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -480,6 +482,57 @@ public class FileUtilTest {
             // expected
         } finally {
             FileUtil.recursiveDelete(illegalRoot);
+        }
+    }
+
+    /** Test {@link FileUtil#findFile(String, IAbi, File...)} can find file successfully. */
+    @Test
+    public void testfindFile_success() throws IOException {
+        File tmpDir = FileUtil.createTempDir("find_files_arch_test");
+        try {
+            FileUtil.createTempFile("test", ".config", tmpDir);
+            FileUtil.createTempFile("test2", ".config", tmpDir);
+            File subDir = new File(tmpDir, "subfolder");
+            subDir.mkdirs();
+            FileUtil.createTempFile("test", ".config", subDir);
+            File arm64Dir = new File(subDir, "arm64");
+            arm64Dir.mkdirs();
+            File arm64File = FileUtil.createTempFile("test", ".config", arm64Dir);
+
+            File armAbiDir = new File(subDir, "arm");
+            armAbiDir.mkdirs();
+            File armFile = FileUtil.createTempFile("test", ".config", armAbiDir);
+
+            File x8664AbiDir = new File(subDir, "x86_64");
+            x8664AbiDir.mkdirs();
+            File x8664File = FileUtil.createTempFile("test", ".config", x8664AbiDir);
+
+            File x86AbiDir = new File(subDir, "x86");
+            x86AbiDir.mkdirs();
+            File x86File = FileUtil.createTempFile("test", ".config", x86AbiDir);
+
+            // arm64
+            IAbi abi = new Abi("arm64-v8a", "64");
+            File findFile = FileUtil.findFile(".*.config", abi, tmpDir);
+            assertEquals(findFile.getAbsolutePath(), arm64File.getAbsolutePath());
+
+            // arm
+            abi = new Abi("armeabi-v7a", "32");
+            findFile = FileUtil.findFile(".*.config", abi, tmpDir);
+            assertEquals(findFile.getAbsolutePath(), armFile.getAbsolutePath());
+
+            // x86_64
+            abi = new Abi("x86_64", "64");
+            findFile = FileUtil.findFile(".*.config", abi, tmpDir);
+            assertEquals(findFile.getAbsolutePath(), x8664File.getAbsolutePath());
+
+            // x86
+            abi = new Abi("x86", "32");
+            findFile = FileUtil.findFile(".*.config", abi, tmpDir);
+            assertEquals(findFile.getAbsolutePath(), x86File.getAbsolutePath());
+
+        } finally {
+            FileUtil.recursiveDelete(tmpDir);
         }
     }
 }

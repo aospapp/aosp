@@ -14,64 +14,73 @@
      limitations under the License.
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_title" translatable="false">Car service</string>
     <!--  For permissions -->
     <!-- Permission text: can access your car's information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label">Car information</string>
+    <string name="car_permission_label">access car\u2019s information</string>
     <!-- Permission text: can access your car's information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc">Access your car\'s information.</string>
-    <!-- Permission text: apps can control car cabin [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_cabin">Car Cabin</string>
-    <!-- Permission text: apps can control car cabin [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_cabin">Access your car\'s accessories, including doors,
-        mirrors, seats, and windows.</string>
+    <string name="car_permission_desc">Access your car\u2019s information.</string>
     <!-- Permission text: apps can control car camera [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_camera">Car Camera</string>
+    <string name="car_permission_label_camera">access car\u2019s camera</string>
     <!-- Permission text: apps can control car camera [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_camera">Access your car\'s camera(s).</string>
+    <string name="car_permission_desc_camera">Access your car\u2019s camera(s).</string>
     <!-- Permission text: can access your car's energy information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_energy">Car energy</string>
+    <string name="car_permission_label_energy">access car\u2019s energy information</string>
     <!-- Permission text: can access your car's energy information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_energy">Access your car\'s energy information.</string>
+    <string name="car_permission_desc_energy">Access your car\u2019s energy information.</string>
     <!-- Permission text: apps can control car hvac [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_hvac">Car Hvac</string>
+    <string name="car_permission_label_hvac">access car\u2019s hvac</string>
     <!-- Permission text: apps can control car hvac [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_hvac">Access your car\'s hvac.</string>
+    <string name="car_permission_desc_hvac">Access your car\u2019s hvac.</string>
     <!-- Permission text: can access your car's mileage information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_mileage">Car mileage</string>
+    <string name="car_permission_label_mileage">access car\u2019s mileage information</string>
     <!-- Permission text: can access your car's mileage information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_mileage">Access your car\'s mileage information.</string>
+    <string name="car_permission_desc_mileage">Access your car\u2019s mileage information.</string>
     <!-- Permission text: can access your car's speed [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_speed">Car speed</string>
+    <string name="car_permission_label_speed">read car\u2019s speed</string>
     <!-- Permission text: can access your car's speed [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_speed">Access your car\'s speed.</string>
+    <string name="car_permission_desc_speed">Access your car\u2019s speed.</string>
     <!-- Permission text: can access your car's dynamics state [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_vehicle_dynamics_state">Vehicle dynamics state</string>
+    <string name="car_permission_label_vehicle_dynamics_state">access car\u2019s dynamics state</string>
     <!-- Permission text: can access your car's dynamic state [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_vehicle_dynamics_state">Access your car\'s dynamics state</string>
+    <string name="car_permission_desc_vehicle_dynamics_state">Access your car\u2019s dynamics state.</string>
     <!-- Permission text: apps can access car-manufacturer specific data [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_vendor_extension">Car vendor channel</string>
+    <string name="car_permission_label_vendor_extension">access car\u2019s vendor channel</string>
     <!-- Permission text: apps can access car-manufacturer specific data [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_vendor_extension">Access your car\'s vendor channel to
+    <string name="car_permission_desc_vendor_extension">Access your car\u2019s vendor channel to
         exchange car-specific information.</string>
     <!-- Permission text: apps can control car-radio [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_radio">Car Radio</string>
+    <string name="car_permission_label_radio">manage car\u2019s radio</string>
     <!-- Permission text: apps can control car-radio [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_radio">Access your car\'s radio.</string>
+    <string name="car_permission_desc_radio">Access your car\u2019s radio.</string>
     <!-- Permission text: apps can control car-projection [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_projection">Car Projection</string>
+    <string name="car_permission_label_projection">project an interface from a phone on the car\u2019s display</string>
+    <!-- Permission text: apps can control car-projection [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_projection">Allows an app to project an interface from a phone on the car\u2019s display.</string>
+    <!-- Permission text: apps can listen car-projection status[CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_access_projection_status">access projection status</string>
+    <!-- Permission text: apps can listen car-projection status[CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_access_projection_status">Allows an app to get the status of other apps projecting to the car\u2019s display.</string>
+    <!-- Permission text: allows framework to bind to the services in projection apps[CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_bind_projection_service">bind to a projection service</string>
+    <!-- Permission text: allows framework to bind to the services in projection apps[CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_bind_projection_service">Allows the holder to bind to the top-level interface of a projection service. Should never be needed for normal apps."</string>
     <!-- Permission text: apps can control car-audio-volume [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_audio_volume">Car Audio Volume</string>
+    <string name="car_permission_label_audio_volume">control car\u2019s audio volume</string>
     <!-- Permission text: apps can control car-audio-settings [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_audio_settings">Car Audio Settings</string>
-    <!-- Permission text: apps can control car-projection [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_projection">Project phone interface on car display.</string>
-    <string name="car_permission_label_mock_vehicle_hal">Emulate vehicle HAL</string>
+    <string name="car_permission_label_audio_settings">manage car\u2019s audio settings</string>
+    <string name="car_permission_label_mock_vehicle_hal">emulate vehicle HAL</string>
+    <!-- Permission text: apps can receive audio ducking events [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_receive_ducking">receive audio ducking events</string>
+    <!-- Permission text: apps can receive audio ducking events [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_receive_ducking">Allows an app to be notified when its volume
+        is being lowered as a result of other audio playing in the car.</string>
     <!-- Permission text: can emulate information from your car [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_mock_vehicle_hal">Emulate your car\'s vehicle HAL for internal
+    <string name="car_permission_desc_mock_vehicle_hal">Emulate your car\u2019s vehicle HAL for internal
         testing purpose.</string>
     <!-- Permission text: can adjust the audio volume on your car [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_audio_volume">Control your car\'s audio volume.</string>
-    <string name="car_permission_desc_audio_settings">Control your car\'s audio settings.</string>
+    <string name="car_permission_desc_audio_volume">Control your car\u2019s audio volume.</string>
+    <string name="car_permission_desc_audio_settings">Control your car\u2019s audio settings.</string>
     <string name="car_permission_label_control_app_blocking">Application blocking</string>
     <!-- Permission text: can emulate information from your car [CHAR LIMIT=NONE] -->
     <string name="car_permission_desc_control_app_blocking">Control application blocking while
@@ -88,6 +97,10 @@
     <string name="car_permission_desc_car_cluster_control">Launch apps in the instrument cluster</string>
     <string name="car_permission_label_bind_instrument_cluster_rendering">Instrument Cluster Rendering</string>
     <string name="car_permission_desc_bind_instrument_cluster_rendering">Receive instrument cluster data</string>
+    <string name="car_permission_label_car_ux_restrictions_configuration">UX Restrictions Configuration</string>
+    <string name="car_permission_desc_car_ux_restrictions_configuration">Configure UX Restrictions</string>
+    <string name="car_permission_label_car_handle_usb_aoap_device">Communicate with USB device in AOAP mode</string>
+    <string name="car_permission_desc_car_handle_usb_aoap_device">Allows an app to communicate with a device in AOAP mode</string>
 
     <!-- Permission text: apps can handle input events [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_bind_input_service">Car Input Service</string>
@@ -101,30 +114,39 @@
     <string name="car_can_bus_failure_desc">CAN bus does not respond. Unplug and plug back headunit
         box and restart the car</string>
 
-    <!-- Blocking activity: Message to show to user when a feature of current application is not allowed. [CHAR LIMIT=60] -->
-    <string name="activity_blocked_string">This <xliff:g id="app_name" example="Google Maps">%1$s</xliff:g> feature can\'t be used while driving.</string>
-    <!-- Blocking activity: Button text that restarts the current blocked application. [CHAR LIMIT=10] -->
-    <string name="exit_button">OK</string>
+    <!-- Blocking activity: Message to show to user when a feature of current application is not allowed. [CHAR LIMIT=120] -->
+    <string name="activity_blocked_text">For your safety, this activity isn\u2019t available while driving.\nTo continue, wait until you\u2019re parked.</string>
+    <!-- Blocking activity: Message to accompany the exit_button that restarts the blocked app. [CHAR LIMIT=120] -->
+    <string name="exit_button_message">To start over with safe app features, select <xliff:g id="exit_button" example="Back">%s</xliff:g>.</string>
+    <!-- Blocking activity: Text for button that restarts the current blocked application. [CHAR LIMIT=15] -->
+    <string name="exit_button">Back</string>
+    <!-- Blocking activity: Text for button that shows debug info in non-user build. -->
+    <string name="debug_button_text" translatable="false">Debug Info</string>
 
     <!-- Permission text: apps can control diagnostic data [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_diag_read">Diagnostic Data</string>
+    <string name="car_permission_label_diag_read">read diagnostic data</string>
     <!-- Permission text: apps can read diagnostic data from the car [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_diag_read">Read diagnostic data from the car</string>
+    <string name="car_permission_desc_diag_read">Read diagnostic data from the car.</string>
 
     <!-- Permission text: apps can control diagnostic data [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_diag_clear">Diagnostic Data</string>
+    <string name="car_permission_label_diag_clear">clear diagnostic data</string>
     <!-- Permission text: apps can clear diagnostic data from the car [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_diag_clear">Clear diagnostic data from the car</string>
+    <string name="car_permission_desc_diag_clear">Clear diagnostic data from the car.</string>
 
     <!-- Permission text: apps can publish VMS data [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_vms_publisher">VMS publisher</string>
+    <string name="car_permission_label_vms_publisher">VMS Publisher</string>
     <!-- Permission text: apps can send VMS messages to the car [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_vms_publisher">Publish vms messages</string>
+    <string name="car_permission_desc_vms_publisher">Publish VMS messages</string>
 
     <!-- Permission text: apps can subscribe to VMS data [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_vms_subscriber">VMS subscriber</string>
+    <string name="car_permission_label_vms_subscriber">VMS Subscriber</string>
     <!-- Permission text: apps can receive VMS messages from the car [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_vms_subscriber">Subscribe to vms messages</string>
+    <string name="car_permission_desc_vms_subscriber">Subscribe to VMS messages</string>
+
+    <!-- Permission text: apps can act as VMS router core [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_bind_vms_client">VMS Client Service</string>
+    <!-- Permission text: apps can act as VMS router core [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_bind_vms_client">Bind to VMS clients</string>
 
     <!-- Permission text: apps can monitor flash storage usage [CHAR LIMIT=NONE] -->
     <string name="car_permission_label_storage_monitoring">Flash storage monitoring</string>
@@ -132,72 +154,112 @@
     <string name="car_permission_desc_storage_monitoring">Monitor flash storage usage</string>
 
     <!-- Permission text: apps can listen to driving state changes [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_driving_state">Driving State</string>
+    <string name="car_permission_label_driving_state">listen to driving state</string>
     <!-- Permission text: apps can listen to driving state changes [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_driving_state">Listen to Driving state changes </string>
+    <string name="car_permission_desc_driving_state">Listen to Driving state changes.</string>
 
     <!-- Permission text: apps read Engine Detailed [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_car_engine_detailed">Engine Detailed</string>
+    <string name="car_permission_label_car_engine_detailed">access car\u2019s engine detailed</string>
     <!-- Permission text: apps can listen to Engine Detailed [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_car_engine_detailed">Access your car\'s detailed engine information</string>
+    <string name="car_permission_desc_car_engine_detailed">Access your car\u2019s detailed engine information.</string>
 
     <!-- Permission text: apps can access car's fuel door and ev charge port [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_car_energy_ports">Energy Ports</string>
+    <string name="car_permission_label_car_energy_ports">access car\u2019s fuel door and charge port</string>
     <!-- Permission text: apps can access car's fuel door and ev charge port [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_car_energy_ports">Access energy ports</string>
+    <string name="car_permission_desc_car_energy_ports">Access car\u2019s fuel door and charge port.</string>
 
     <!-- Permission text: apps can access car's VIN information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_car_identification">Car identification</string>
+    <string name="car_permission_label_car_identification">read car\u2019s identification</string>
     <!-- Permission text: apps can access car's VIN information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_car_identification">Access car\'s identification</string>
+    <string name="car_permission_desc_car_identification">Access car\u2019s identification.</string>
 
     <!-- Permission text: apps can control car doors [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_control_car_doors">Car Doors</string>
+    <string name="car_permission_label_control_car_doors">control car\u2019s doors</string>
     <!-- Permission text: apps can control car doors [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_control_car_doors">Control car\'s doors</string>
+    <string name="car_permission_desc_control_car_doors">Control car\u2019s doors.</string>
 
     <!-- Permission text: apps can control car windows [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_control_car_windows">Car Windows</string>
+    <string name="car_permission_label_control_car_windows">control car\u2019s windows</string>
     <!-- Permission text: apps can control car windows [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_control_car_windows">Control car\'s windows</string>
+    <string name="car_permission_desc_control_car_windows">Control car\u2019s windows.</string>
 
     <!-- Permission text: apps can control car mirrors [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_control_car_mirrors">Car Mirrors</string>
+    <string name="car_permission_label_control_car_mirrors">control car\u2019s mirrors</string>
     <!-- Permission text: apps can control car mirrors [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_control_car_mirrors">Control car\'s mirrors</string>
+    <string name="car_permission_desc_control_car_mirrors">Control car\u2019s mirrors.</string>
 
     <!-- Permission text: apps can control car seats [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_control_car_seats">Car Seats</string>
+    <string name="car_permission_label_control_car_seats">control car\u2019s seats</string>
     <!-- Permission text: apps can control car seats [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_control_car_seats">Control car\'s seats</string>
+    <string name="car_permission_desc_control_car_seats">Control car\u2019s seats.</string>
 
     <!-- Permission text: apps read car's basic information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_car_info">Car basic information</string>
+    <string name="car_permission_label_car_info">access car\u2019s basic information</string>
     <!-- Permission text: apps read car's basic information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_car_info">Access car basic information</string>
+    <string name="car_permission_desc_car_info">Access car\u2019s basic information.</string>
 
     <!-- Permission text: apps access car's exterior lights state [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_car_exterior_lights">Car exterior lights</string>
+    <string name="car_permission_label_car_exterior_lights">read car\u2019s exterior lights state</string>
     <!-- Permission text: apps access car's exterior lights state [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_car_exterior_lights">Access car exterior lights state</string>
+    <string name="car_permission_desc_car_exterior_lights">Access car\u2019s exterior lights state.</string>
 
     <!-- Permission text: apps control car's exterior lights [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_control_car_exterior_lights">Car exterior lights</string>
+    <string name="car_permission_label_control_car_exterior_lights">read car\u2019s exterior lights</string>
     <!-- Permission text: apps control car's exterior lights [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_control_car_exterior_lights">Control car exterior lights </string>
+    <string name="car_permission_desc_control_car_exterior_lights">Control car\u2019s exterior lights.</string>
+
+    <!-- Permission text: apps access car's interior lights state [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_car_interior_lights">read car\u2019s interior lights</string>
+    <!-- Permission text: apps access car's interior lights state [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_car_interior_lights">Access car\u2019s interior lights state.</string>
+
+    <!-- Permission text: apps control car's interior lights [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_control_car_interior_lights">control car\u2019s interior lights</string>
+    <!-- Permission text: apps control car's interior lights [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_control_car_interior_lights">Control car\u2019s interior lights.</string>
 
     <!-- Permission text: apps control car's exterior temperature [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_car_exterior_environment">Car exterior temperature</string>
-    <!-- Permission text: apps control car's exterior lights [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_car_exterior_environment">Access car exterior temperature </string>
+    <string name="car_permission_label_car_exterior_environment">read car\u2019s exterior temperature</string>
+    <!-- Permission text: apps control car's exterior temperature [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_car_exterior_environment">Access car\u2019s exterior temperature.</string>
 
     <!-- Permission text: apps access car's tire information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_car_tires">Car tires</string>
+    <string name="car_permission_label_car_tires">access car\u2019s tires information</string>
     <!-- Permission text: apps access car's tire information [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_car_tires">Access car tire information</string>
+    <string name="car_permission_desc_car_tires">Access car\u2019s tire information.</string>
+
+    <!-- Permission text: apps access car's steering angle information [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_car_steering">read car\u2019s steering angle information</string>
+    <!-- Permission text: apps access car's steering angle information [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_car_steering">Access car\u2019s steering angle information.</string>
+
+    <!-- Permission text: apps read display units [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_read_car_display_units">read car display units</string>
+    <!-- Permission text: apps read display units [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_read_car_display_units">Read display units.</string>
+
+    <!-- Permission text: apps control display units [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_control_car_display_units">control car\u2019s display units</string>
+    <!-- Permission text: apps control display units [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_control_car_display_units">Control display units.</string>
 
     <!-- Permission text: apps read information of car's powertrain [CHAR LIMIT=NONE] -->
-    <string name="car_permission_label_car_powertrain">Car Powertrain</string>
+    <string name="car_permission_label_car_powertrain">read car\u2019s powertrain information</string>
     <!-- Permission text: apps read information of car's powertrain [CHAR LIMIT=NONE] -->
-    <string name="car_permission_desc_car_powertrain">Access car powertrain information</string>
+    <string name="car_permission_desc_car_powertrain">Access car\u2019s powertrain information.</string>
+
+    <!-- Permission text: apps read information of car's power state [CHAR LIMIT=NONE] -->
+    <string name="car_permission_label_car_power">read car\u2019s power state</string>
+    <!-- Permission text: apps read information of car's power state [CHAR LIMIT=NONE] -->
+    <string name="car_permission_desc_car_power">Access car\u2019s power state.</string>
+
+    <string name="car_permission_label_enroll_trust">Enroll Trusted Device</string>
+    <string name="car_permission_desc_enroll_trust">Allow Trusted Device Enrollment</string>
+
+    <!-- The default name of device enrolled as trust device [CHAR LIMIT=NONE] -->
+    <string name="trust_device_default_name">My Device</string>
+
+    <!-- The package name of the media application that will be selected as the default [CHAR LIMIT=NONE] -->
+    <string name="default_media_application" translatable="false">com.android.bluetooth</string>
+
 </resources>

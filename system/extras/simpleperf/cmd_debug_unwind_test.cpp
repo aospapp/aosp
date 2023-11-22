@@ -23,7 +23,6 @@
 #include <vector>
 
 #include <android-base/file.h>
-#include <android-base/test_utils.h>
 
 #include "command.h"
 #include "get_test_data.h"
@@ -33,48 +32,6 @@
 static std::unique_ptr<Command> DebugUnwindCmd() {
   return CreateCommandInstance("debug-unwind");
 }
-
-class CaptureStdout {
- public:
-  CaptureStdout() : started_(false) {}
-
-  ~CaptureStdout() {
-    if (started_) {
-      Finish();
-    }
-  }
-
-  bool Start() {
-    fflush(stdout);
-    old_stdout_ = dup(STDOUT_FILENO);
-    if (old_stdout_ == -1) {
-      return false;
-    }
-    started_ = true;
-    tmpfile_.reset(new TemporaryFile);
-    if (dup2(tmpfile_->fd, STDOUT_FILENO) == -1) {
-      return false;
-    }
-    return true;
-  }
-
-  std::string Finish() {
-    fflush(stdout);
-    started_ = false;
-    dup2(old_stdout_, STDOUT_FILENO);
-    close(old_stdout_);
-    std::string s;
-    if (!android::base::ReadFileToString(tmpfile_->path, &s)) {
-      return "";
-    }
-    return s;
-  }
-
- private:
-  bool started_;
-  int old_stdout_;
-  std::unique_ptr<TemporaryFile> tmpfile_;
-};
 
 TEST(cmd_debug_unwind, smoke) {
   std::string input_data = GetTestData(PERF_DATA_NO_UNWIND);
@@ -106,4 +63,13 @@ TEST(cmd_debug_unwind, symfs_option) {
   std::unordered_map<std::string, std::string> info_map;
   ASSERT_TRUE(reader->ReadMetaInfoFeature(&info_map));
   ASSERT_EQ(info_map["debug_unwind"], "true");
+}
+
+TEST(cmd_debug_unwind, unwind_with_ip_zero_in_callchain) {
+  TemporaryFile tmp_file;
+  CaptureStdout capture;
+  ASSERT_TRUE(capture.Start());
+  ASSERT_TRUE(DebugUnwindCmd()->Run({"-i", GetTestData(PERF_DATA_WITH_IP_ZERO_IN_CALLCHAIN),
+                                     "-o", tmp_file.path}));
+  ASSERT_NE(capture.Finish().find("Unwinding sample count: 1"), std::string::npos);
 }

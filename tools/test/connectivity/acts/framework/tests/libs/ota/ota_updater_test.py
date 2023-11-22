@@ -44,6 +44,9 @@ class MockOtaRunner(object):
     def can_update(self):
         return self.can_update_value
 
+    def validate_update(self):
+        pass
+
 
 class OtaUpdaterTests(unittest.TestCase):
     """Tests the methods in the ota_updater module."""
@@ -55,9 +58,9 @@ class OtaUpdaterTests(unittest.TestCase):
                         'create_from_configs') as fn:
             ota_updater.initialize(user_params, android_devices)
             for i in range(len(android_devices)):
-                fn.assert_has_call(mock.call(user_params, android_devices[i]))
-        self.assertSetEqual(
-            set(android_devices), set(ota_updater.ota_runners.keys()))
+                fn.assert_any_call(user_params, android_devices[i])
+            self.assertSetEqual(
+                set(android_devices), set(ota_updater.ota_runners.keys()))
 
     def test_check_initialization_is_initialized(self):
         device = MockAndroidDevice('serial')
@@ -67,7 +70,8 @@ class OtaUpdaterTests(unittest.TestCase):
         try:
             ota_updater._check_initialization(device)
         except ota_runner.OtaError:
-            self.fail('_check_initialization raised for initialized runner!')
+            self.fail(
+                '_check_initialization raised for initialized runner!')
 
     def test_check_initialization_is_not_initialized(self):
         device = MockAndroidDevice('serial')
@@ -97,4 +101,9 @@ class OtaUpdaterTests(unittest.TestCase):
         device = MockAndroidDevice('serial')
         runner = MockOtaRunner()
         ota_updater.ota_runners = {device: runner}
-        self.assertEqual(ota_updater.can_update(device), 'CAN_UPDATE_CALLED')
+        self.assertEqual(ota_updater.can_update(device),
+                         'CAN_UPDATE_CALLED')
+
+
+if __name__ == '__main__':
+    unittest.main()

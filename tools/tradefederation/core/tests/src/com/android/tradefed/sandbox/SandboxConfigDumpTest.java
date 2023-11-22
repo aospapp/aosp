@@ -104,7 +104,7 @@ public class SandboxConfigDumpTest {
         assertTrue(output.contains("<test class"));
         assertTrue(
                 output.contains(
-                        "<result_reporter class=\"com.android.tradefed.result."
-                                + "SubprocessResultsReporter\""));
+                        "<result_reporter class=\"com.android.tradefed.result.proto."
+                                + "StreamProtoResultReporter\""));
     }
 }

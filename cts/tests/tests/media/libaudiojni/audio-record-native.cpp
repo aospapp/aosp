@@ -64,9 +64,11 @@ public:
         mRecordObj(NULL),
         mRecord(NULL),
         mBufferQueue(NULL),
+        mConfigItf(NULL),
         mRecordState(SL_RECORDSTATE_STOPPED),
         mBufferSize(0),
-        mNumBuffers(0)
+        mNumBuffers(0),
+        mRoutingObj(NULL)
     { }
 
     ~AudioRecordNative() {
@@ -171,6 +173,14 @@ public:
             mBufferSize = (BUFFER_SIZE_MSEC * sampleRate / 1000)
                     * numChannels * (useFloat ? sizeof(float) : sizeof(int16_t));
             mNumBuffers = numBuffers;
+
+            res = (*mRecordObj)->GetInterface(
+                mRecordObj, SL_IID_ANDROIDCONFIGURATION, (void*)&mConfigItf);
+            if (res != SL_RESULT_SUCCESS) break;
+
+            res = (*mConfigItf)->AcquireJavaProxy(
+                mConfigItf, SL_ANDROID_JAVA_PROXY_ROUTING, &mRoutingObj);
+
             // success
             break;
         }
@@ -194,6 +204,14 @@ public:
                         mBufferQueue, NULL /* callback */, NULL /* *pContext */);
             }
             (void)flush();
+            if (mConfigItf != NULL) {
+                if (mRoutingObj != NULL) {
+                    (void)(*mConfigItf)->ReleaseJavaProxy(
+                        mConfigItf, SL_ANDROID_JAVA_PROXY_ROUTING/*, proxyObj*/);
+                    mRoutingObj = NULL;
+                }
+                mConfigItf = NULL;
+            }
             engineObj = mEngineObj;
             recordObj = mRecordObj;
             // clear out interfaces and objects
@@ -352,6 +370,11 @@ public:
         return mReadyQueue.size();
     }
 
+    jobject getRoutingInterface() {
+        auto_lock l(mLock);
+        return mRoutingObj;
+    }
+
 private:
     status_t queueBuffers() {
         if (mBufferQueue == NULL) {
@@ -416,6 +439,8 @@ private:
     SLObjectItf           mRecordObj;
     SLRecordItf           mRecord;
     SLBufferQueueItf      mBufferQueue;
+    SLAndroidConfigurationItf mConfigItf;
+
     SLuint32              mRecordState;
     size_t                mBufferSize;
     size_t                mNumBuffers;
@@ -429,6 +454,7 @@ private:
     Gate                  mReadReady;
     std::deque<std::shared_ptr<Blob>> mReadyQueue;     // ready for read.
     std::deque<std::shared_ptr<Blob>> mDeliveredQueue; // delivered to BufferQueue
+    jobject mRoutingObj;
 };
 
 /* Java static methods.
@@ -576,6 +602,16 @@ extern "C" jint Java_android_media_cts_AudioRecordNative_nativeGetBuffersPending
         return (jint)0;
     }
     return (jint)record->getBuffersPending();
+}
+
+extern "C" jobject Java_android_media_cts_AudioRecordNative_nativeGetRoutingInterface(
+    JNIEnv * /* env */, jclass /* clazz */, jlong jrecord)
+{
+    auto record = *(shared_pointer<AudioRecordNative> *)jrecord;
+    if (record.get() == NULL) {
+        return NULL;
+    }
+    return record->getRoutingInterface();
 }
 
 template <typename T>

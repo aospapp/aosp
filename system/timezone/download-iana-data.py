@@ -16,6 +16,8 @@
 
 """Downloads the latest IANA timezone data."""
 
+from __future__ import print_function
+
 import ftplib
 import os
 import shutil
@@ -35,22 +37,27 @@ def FtpRetrieveFile(ftp, filename):
 
 def CheckSignature(data_filename, signature_filename):
   """Checks the signature of a file."""
-  print 'Verifying signature...'
+  print('Verifying signature...')
   try:
     subprocess.check_call(['gpg', '--trusted-key=ED97E90E62AA7E34', '--verify',
                           signature_filename, data_filename])
   except subprocess.CalledProcessError as err:
-    print 'Unable to verify signature'
-    print '\n\n******'
-    print 'If this fails for you, you probably need to import Paul Eggert''s public key:'
-    print '  gpg --receive-keys ED97E90E62AA7E34'
-    print '******\n\n'
+    print('Unable to verify signature')
+    print('\n\n******')
+    print('If this fails for you, you probably need to import Paul Eggert''s public key:')
+    print('  gpg --receive-keys ED97E90E62AA7E34')
+    print('******\n\n')
     raise
 
 # Run with no arguments from any directory, with no special setup required.
 # See http://www.iana.org/time-zones/ for more about the source of this data.
 def main():
-  print 'Looking for new IANA tzdata...'
+  print('Looking for new IANA tzdata...')
+
+  tar_prefix = 'tzdata20'
+  # Use the input tzdata version name if it exists
+  if len(sys.argv) > 1:
+    tar_prefix = 'tzdata' + sys.argv[1]
 
   iana_tar_filenames = []
 
@@ -59,15 +66,15 @@ def main():
   ftp.cwd('tz/releases')
   for filename in ftp.nlst():
     if "/" in filename:
-      print "FTP server returned bogus file name"
+      print("FTP server returned bogus file name")
       sys.exit(1)
 
-    if filename.startswith('tzdata20') and filename.endswith('.tar.gz'):
+    if filename.startswith(tar_prefix) and filename.endswith('.tar.gz'):
       iana_tar_filenames.append(filename)
   iana_tar_filenames.sort(reverse=True)
 
   if len(iana_tar_filenames) == 0:
-    print 'No tzdata files found'
+    print('No tzdata files found')
     sys.exit(1)
 
   latest_iana_tar_filename = iana_tar_filenames[0]
@@ -77,17 +84,17 @@ def main():
   if local_iana_tar_file:
     local_iana_tar_filename = os.path.basename(local_iana_tar_file)
     if latest_iana_tar_filename <= local_iana_tar_filename:
-      print 'Available data %s is older or the same as current data %s' % (latest_iana_tar_filename, local_iana_tar_filename)
+      print('Available data %s is older or the same as current data %s' % (latest_iana_tar_filename, local_iana_tar_filename))
       sys.exit(0)
 
-  print 'Found new tzdata: %s' % latest_iana_tar_filename
+  print('Found new tzdata: %s' % latest_iana_tar_filename)
   i18nutil.SwitchToNewTemporaryDirectory()
 
-  print 'Downloading data (%s)...' % latest_iana_tar_filename
+  print('Downloading data (%s)...' % latest_iana_tar_filename)
   FtpRetrieveFile(ftp, latest_iana_tar_filename)
 
   signature_filename = '%s.asc' % latest_iana_tar_filename
-  print 'Downloading signature (%s)...' % signature_filename
+  print('Downloading signature (%s)...' % signature_filename)
   FtpRetrieveFile(ftp, signature_filename)
 
   CheckSignature(latest_iana_tar_filename, signature_filename)
@@ -105,7 +112,7 @@ def main():
   if os.path.exists(local_signature_file):
     os.remove(local_signature_file)
 
-  print 'Look in %s for new IANA data files' % new_local_iana_tar_file
+  print('Look in %s for new IANA data files' % new_local_iana_tar_file)
   sys.exit(0)
 
 

@@ -21,6 +21,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.BlockedNumberContract;
+import android.provider.CallLog;
 import android.telecom.Log;
 import android.telecom.Logging.Session;
 import android.telecom.TelecomManager;
@@ -40,17 +41,20 @@ public class AsyncBlockCheckFilter extends AsyncTask<String, Void, Boolean>
         implements IncomingCallFilter.CallFilter {
     private final Context mContext;
     private final BlockCheckerAdapter mBlockCheckerAdapter;
+    private final CallBlockListener mCallBlockListener;
     private Call mIncomingCall;
     private Session mBackgroundTaskSubsession;
     private Session mPostExecuteSubsession;
     private CallFilterResultCallback mCallback;
     private CallerInfoLookupHelper mCallerInfoLookupHelper;
+    private int mBlockStatus = BlockedNumberContract.STATUS_NOT_BLOCKED;
 
     public AsyncBlockCheckFilter(Context context, BlockCheckerAdapter blockCheckerAdapter,
-            CallerInfoLookupHelper callerInfoLookupHelper) {
+            CallerInfoLookupHelper callerInfoLookupHelper, CallBlockListener callBlockListener) {
         mContext = context;
         mBlockCheckerAdapter = blockCheckerAdapter;
         mCallerInfoLookupHelper = callerInfoLookupHelper;
+        mCallBlockListener = callBlockListener;
     }
 
     @Override
@@ -104,7 +108,8 @@ public class AsyncBlockCheckFilter extends AsyncTask<String, Void, Boolean>
                 extras.putBoolean(BlockedNumberContract.EXTRA_CONTACT_EXIST,
                         Boolean.valueOf(params[2]));
             }
-            return mBlockCheckerAdapter.isBlocked(mContext, params[0], extras);
+            mBlockStatus = mBlockCheckerAdapter.getBlockStatus(mContext, params[0], extras);
+            return mBlockStatus != BlockedNumberContract.STATUS_NOT_BLOCKED;
         } finally {
             Log.endSession();
         }
@@ -119,9 +124,18 @@ public class AsyncBlockCheckFilter extends AsyncTask<String, Void, Boolean>
                 result = new CallFilteringResult(
                         false, // shouldAllowCall
                         true, //shouldReject
-                        false, //shouldAddToCallLog
-                        false // shouldShowNotification
+                        true, //shouldAddToCallLog
+                        false, // shouldShowNotification
+                        convertBlockStatusToReason(), //callBlockReason
+                        null, //callScreeningAppName
+                        null //callScreeningComponentName
                 );
+                if (mCallBlockListener != null) {
+                    String number = mIncomingCall.getHandle() == null ? null
+                            : mIncomingCall.getHandle().getSchemeSpecificPart();
+                    mCallBlockListener.onCallBlocked(mBlockStatus, number,
+                            mIncomingCall.getInitiatingUser());
+                }
             } else {
                 result = new CallFilteringResult(
                         true, // shouldAllowCall
@@ -130,10 +144,36 @@ public class AsyncBlockCheckFilter extends AsyncTask<String, Void, Boolean>
                         true // shouldShowNotification
                 );
             }
-            Log.addEvent(mIncomingCall, LogUtils.Events.BLOCK_CHECK_FINISHED, result);
+            Log.addEvent(mIncomingCall, LogUtils.Events.BLOCK_CHECK_FINISHED,
+                    BlockedNumberContract.SystemContract.blockStatusToString(mBlockStatus) + " "
+                            + result);
             mCallback.onCallFilteringComplete(mIncomingCall, result);
         } finally {
             Log.endSession();
+        }
+    }
+
+    private int convertBlockStatusToReason() {
+        switch (mBlockStatus) {
+            case BlockedNumberContract.STATUS_BLOCKED_IN_LIST:
+                return CallLog.Calls.BLOCK_REASON_BLOCKED_NUMBER;
+
+            case BlockedNumberContract.STATUS_BLOCKED_UNKNOWN_NUMBER:
+                return CallLog.Calls.BLOCK_REASON_UNKNOWN_NUMBER;
+
+            case BlockedNumberContract.STATUS_BLOCKED_RESTRICTED:
+                return CallLog.Calls.BLOCK_REASON_RESTRICTED_NUMBER;
+
+            case BlockedNumberContract.STATUS_BLOCKED_PAYPHONE:
+                return CallLog.Calls.BLOCK_REASON_PAY_PHONE;
+
+            case BlockedNumberContract.STATUS_BLOCKED_NOT_IN_CONTACTS:
+                return CallLog.Calls.BLOCK_REASON_NOT_IN_CONTACTS;
+
+            default:
+                Log.w(AsyncBlockCheckFilter.class.getSimpleName(),
+                    "There's no call log block reason can be converted");
+                return CallLog.Calls.BLOCK_REASON_BLOCKED_NUMBER;
         }
     }
 }

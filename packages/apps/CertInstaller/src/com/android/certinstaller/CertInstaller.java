@@ -23,12 +23,10 @@ import android.app.KeyguardManager;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Process;
-import android.security.Credentials;
 import android.security.KeyChain;
 import android.security.KeyChain.KeyChainConnection;
 import android.security.KeyStore;
@@ -43,9 +41,6 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import java.io.Serializable;
-import java.security.cert.X509Certificate;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * Installs certificates to the system keystore.
@@ -67,14 +62,10 @@ public class CertInstaller extends Activity {
     // key to states Bundle
     private static final String NEXT_ACTION_KEY = "na";
 
-    // key to KeyStore
-    private static final String PKEY_MAP_KEY = "PKEY_MAP";
-
     // Values for usage type spinner
     private static final int USAGE_TYPE_SYSTEM = 0;
     private static final int USAGE_TYPE_WIFI = 1;
 
-    private final KeyStore mKeyStore = KeyStore.getInstance();
     private final ViewHelper mView = new ViewHelper();
 
     private int mState;
@@ -104,16 +95,28 @@ public class CertInstaller extends Activity {
                 toastErrorAndFinish(R.string.no_cert_to_saved);
                 finish();
             } else {
-                if (mCredentials.hasCaCerts()) {
+                // Confirm credentials if there's _only_ a CA certificate
+                // NOTE: This will affect WiFi CA certificates - those should not require
+                // confirming the lock screen credentials but the code currently cannot skip the
+                // confirmation for WiFi CA certificates because the user designates the certificate
+                // to a UID only after this stage.
+                if (mCredentials.hasCaCerts() && !mCredentials.hasPrivateKey() &&
+                        !mCredentials.hasUserCertificate()) {
                     KeyguardManager keyguardManager = getSystemService(KeyguardManager.class);
                     Intent intent = keyguardManager.createConfirmDeviceCredentialIntent(null, null);
                     if (intent == null) { // No screenlock
-                        onScreenlockOk();
+                        extractPkcs12OrInstall();
                     } else {
                         startActivityForResult(intent, REQUEST_CONFIRM_CREDENTIALS);
                     }
                 } else {
-                    onScreenlockOk();
+                    if (mCredentials.hasUserCertificate() && !mCredentials.hasPrivateKey()) {
+                        toastErrorAndFinish(R.string.action_missing_private_key);
+                    } else if (mCredentials.hasPrivateKey() && !mCredentials.hasUserCertificate()) {
+                        toastErrorAndFinish(R.string.action_missing_user_cert);
+                    } else {
+                        extractPkcs12OrInstall();
+                    }
                 }
             }
         } else {
@@ -134,11 +137,6 @@ public class CertInstaller extends Activity {
                 mNextAction.run(this);
             }
         }
-    }
-
-    private boolean needsKeyStoreAccess() {
-        return ((mCredentials.hasKeyPair() || mCredentials.hasUserCertificate())
-                && !mKeyStore.isUnlocked());
     }
 
     @Override
@@ -179,8 +177,14 @@ public class CertInstaller extends Activity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_SYSTEM_INSTALL_CODE) {
-            if (resultCode == RESULT_OK) {
+        switch (requestCode) {
+            case REQUEST_SYSTEM_INSTALL_CODE:
+                if (resultCode != RESULT_OK) {
+                    Log.d(TAG, "credential not saved, err: " + resultCode);
+                    toastErrorAndFinish(R.string.cert_not_saved);
+                    return;
+                }
+
                 Log.d(TAG, "credential is added: " + mCredentials.getName());
                 Toast.makeText(this, getString(R.string.cert_is_added, mCredentials.getName()),
                         Toast.LENGTH_LONG).show();
@@ -191,23 +195,24 @@ public class CertInstaller extends Activity {
                     return;
                 }
                 setResult(RESULT_OK);
-            } else {
-                Log.d(TAG, "credential not saved, err: " + resultCode);
-                toastErrorAndFinish(R.string.cert_not_saved);
-            }
-        } else if (requestCode == REQUEST_CONFIRM_CREDENTIALS) {
-            if (resultCode == RESULT_OK) {
-                onScreenlockOk();
-                return;
-            }
-            // Fail to confirm credentials. Let it finish
-        } else {
-            Log.w(TAG, "unknown request code: " + requestCode);
+                finish();
+                break;
+            case REQUEST_CONFIRM_CREDENTIALS:
+                if (resultCode == RESULT_OK) {
+                    extractPkcs12OrInstall();
+                    return;
+                }
+                // Failed to confirm credentials, do nothing.
+                finish();
+                break;
+            default:
+                Log.w(TAG, "unknown request code: " + requestCode);
+                finish();
+                break;
         }
-        finish();
     }
 
-    private void onScreenlockOk() {
+    private void extractPkcs12OrInstall() {
         if (mCredentials.hasPkcs12KeyStore()) {
             if (mCredentials.hasPassword()) {
                 showDialog(PKCS12_PASSWORD_DIALOG);
@@ -216,12 +221,7 @@ public class CertInstaller extends Activity {
             }
         } else {
             MyAction action = new InstallOthersAction();
-            if (needsKeyStoreAccess()) {
-                sendUnlockKeyStoreIntent();
-                mNextAction = action;
-            } else {
-                action.run(this);
-            }
+            action.run(this);
         }
     }
 
@@ -229,12 +229,9 @@ public class CertInstaller extends Activity {
 
         @Override protected Boolean doInBackground(Void... unused) {
             try {
-                KeyChainConnection keyChainConnection = KeyChain.bind(CertInstaller.this);
-                try {
+                try (KeyChainConnection keyChainConnection = KeyChain.bind(CertInstaller.this)) {
                     return mCredentials.installVpnAndAppsTrustAnchors(CertInstaller.this,
                             keyChainConnection.getService());
-                } finally {
-                    keyChainConnection.close();
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -250,33 +247,23 @@ public class CertInstaller extends Activity {
         }
     }
 
-    void installOthers() {
-        if (mCredentials.hasKeyPair()) {
-            saveKeyPair();
+    private void installOthers() {
+        // Sanity check: Check that there's either:
+        // * A private key AND a user certificate, or
+        // * A CA cert.
+        boolean hasPrivateKeyAndUserCertificate =
+                mCredentials.hasPrivateKey() && mCredentials.hasUserCertificate();
+        boolean hasCaCertificate = mCredentials.hasCaCerts();
+        Log.d(TAG,
+                String.format(
+                        "Attempting credentials installation, has ca cert? %b, has user cert? %b",
+                        hasCaCertificate, hasPrivateKeyAndUserCertificate));
+        if (!(hasPrivateKeyAndUserCertificate || hasCaCertificate)) {
             finish();
-        } else {
-            X509Certificate cert = mCredentials.getUserCertificate();
-            if (cert != null) {
-                // find matched private key
-                String key = Util.toMd5(cert.getPublicKey().getEncoded());
-                Map<String, byte[]> map = getPkeyMap();
-                byte[] privatekey = map.get(key);
-                if (privatekey != null) {
-                    Log.d(TAG, "found matched key: " + privatekey);
-                    map.remove(key);
-                    savePkeyMap(map);
-
-                    mCredentials.setPrivateKey(privatekey);
-                } else {
-                    Log.d(TAG, "didn't find matched private key: " + key);
-                }
-            }
-            nameCredential();
+            return;
         }
-    }
 
-    private void sendUnlockKeyStoreIntent() {
-        Credentials.getInstance().unlock(this);
+        nameCredential();
     }
 
     private void nameCredential() {
@@ -287,39 +274,7 @@ public class CertInstaller extends Activity {
         }
     }
 
-    private void saveKeyPair() {
-        byte[] privatekey = mCredentials.getData(Credentials.EXTRA_PRIVATE_KEY);
-        String key = Util.toMd5(mCredentials.getData(Credentials.EXTRA_PUBLIC_KEY));
-        Map<String, byte[]> map = getPkeyMap();
-        map.put(key, privatekey);
-        savePkeyMap(map);
-        Log.d(TAG, "save privatekey: " + key + " --> #keys:" + map.size());
-    }
-
-    private void savePkeyMap(Map<String, byte[]> map) {
-        if (map.isEmpty()) {
-            if (!mKeyStore.delete(PKEY_MAP_KEY)) {
-                Log.w(TAG, "savePkeyMap(): failed to delete pkey map");
-            }
-            return;
-        }
-        byte[] bytes = Util.toBytes(map);
-        if (!mKeyStore.put(PKEY_MAP_KEY, bytes, KeyStore.UID_SELF, KeyStore.FLAG_ENCRYPTED)) {
-            Log.w(TAG, "savePkeyMap(): failed to write pkey map");
-        }
-    }
-
-    private Map<String, byte[]> getPkeyMap() {
-        byte[] bytes = mKeyStore.get(PKEY_MAP_KEY);
-        if (bytes != null) {
-            Map<String, byte[]> map =
-                    (Map<String, byte[]>) Util.fromBytes(bytes);
-            if (map != null) return map;
-        }
-        return new MyMap();
-    }
-
-    void extractPkcs12InBackground(final String password) {
+    private void extractPkcs12InBackground(final String password) {
         // show progress bar and extract certs in a background thread
         showDialog(PROGRESS_BAR_DIALOG);
 
@@ -339,7 +294,7 @@ public class CertInstaller extends Activity {
         }.execute();
     }
 
-    void onExtractionDone(boolean success) {
+    private void onExtractionDone(boolean success) {
         mNextAction = null;
         removeDialog(PROGRESS_BAR_DIALOG);
         if (success) {
@@ -367,24 +322,15 @@ public class CertInstaller extends Activity {
         Dialog d = new AlertDialog.Builder(this)
                 .setView(view)
                 .setTitle(title)
-                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        String password = mView.getText(R.id.credential_password);
-                        mNextAction = new Pkcs12ExtractAction(password);
-                        mNextAction.run(CertInstaller.this);
-                     }
-                })
-                .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        toastErrorAndFinish(R.string.cert_not_saved);
-                    }
-                })
+                .setPositiveButton(android.R.string.ok, (dialog, id) -> {
+                    String password = mView.getText(R.id.credential_password);
+                    mNextAction = new Pkcs12ExtractAction(password);
+                    mNextAction.run(CertInstaller.this);
+                 })
+                .setNegativeButton(android.R.string.cancel,
+                        (dialog, id) -> toastErrorAndFinish(R.string.cert_not_saved))
                 .create();
-        d.setOnCancelListener(new DialogInterface.OnCancelListener() {
-            @Override public void onCancel(DialogInterface dialog) {
-                toastErrorAndFinish(R.string.cert_not_saved);
-            }
-        });
+        d.setOnCancelListener(dialog -> toastErrorAndFinish(R.string.cert_not_saved));
         return d;
     }
 
@@ -396,11 +342,11 @@ public class CertInstaller extends Activity {
             mView.setHasEmptyError(false);
         }
         mView.setText(R.id.credential_info, mCredentials.getDescription(this).toString());
-        final EditText nameInput = (EditText) view.findViewById(R.id.credential_name);
+        final EditText nameInput = view.findViewById(R.id.credential_name);
         if (mCredentials.isInstallAsUidSet()) {
             view.findViewById(R.id.credential_usage_group).setVisibility(View.GONE);
         } else {
-            final Spinner usageSpinner = (Spinner) view.findViewById(R.id.credential_usage);
+            final Spinner usageSpinner = view.findViewById(R.id.credential_usage);
             final View ca_capabilities_warning = view.findViewById(R.id.credential_capabilities_warning);
 
             usageSpinner.setOnItemSelectedListener(new OnItemSelectedListener() {
@@ -433,40 +379,31 @@ public class CertInstaller extends Activity {
         Dialog d = new AlertDialog.Builder(this)
                 .setView(view)
                 .setTitle(R.string.name_credential_dialog_title)
-                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        String name = mView.getText(R.id.credential_name);
-                        if (TextUtils.isEmpty(name)) {
-                            mView.setHasEmptyError(true);
-                            removeDialog(NAME_CREDENTIAL_DIALOG);
-                            showDialog(NAME_CREDENTIAL_DIALOG);
-                        } else {
-                            removeDialog(NAME_CREDENTIAL_DIALOG);
-                            mCredentials.setName(name);
+                .setPositiveButton(android.R.string.ok, (dialog, id) -> {
+                    String name = mView.getText(R.id.credential_name);
+                    if (TextUtils.isEmpty(name)) {
+                        mView.setHasEmptyError(true);
+                        removeDialog(NAME_CREDENTIAL_DIALOG);
+                        showDialog(NAME_CREDENTIAL_DIALOG);
+                    } else {
+                        removeDialog(NAME_CREDENTIAL_DIALOG);
+                        mCredentials.setName(name);
 
-                            // install everything to system keystore
-                            try {
-                                startActivityForResult(
-                                        mCredentials.createSystemInstallIntent(appContext),
-                                        REQUEST_SYSTEM_INSTALL_CODE);
-                            } catch (ActivityNotFoundException e) {
-                                Log.w(TAG, "systemInstall(): " + e);
-                                toastErrorAndFinish(R.string.cert_not_saved);
-                            }
+                        // install everything to system keystore
+                        try {
+                            startActivityForResult(
+                                    mCredentials.createSystemInstallIntent(appContext),
+                                    REQUEST_SYSTEM_INSTALL_CODE);
+                        } catch (ActivityNotFoundException e) {
+                            Log.w(TAG, "systemInstall(): " + e);
+                            toastErrorAndFinish(R.string.cert_not_saved);
                         }
                     }
                 })
-                .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        toastErrorAndFinish(R.string.cert_not_saved);
-                    }
-                })
+                .setNegativeButton(android.R.string.cancel,
+                        (dialog, id) -> toastErrorAndFinish(R.string.cert_not_saved))
                 .create();
-        d.setOnCancelListener(new DialogInterface.OnCancelListener() {
-            @Override public void onCancel(DialogInterface dialog) {
-                toastErrorAndFinish(R.string.cert_not_saved);
-            }
-        });
+        d.setOnCancelListener(dialog -> toastErrorAndFinish(R.string.cert_not_saved));
         return d;
     }
 
@@ -485,19 +422,6 @@ public class CertInstaller extends Activity {
     private void toastErrorAndFinish(int msgId) {
         Toast.makeText(this, msgId, Toast.LENGTH_SHORT).show();
         finish();
-    }
-
-    private static class MyMap extends LinkedHashMap<String, byte[]>
-            implements Serializable {
-        private static final long serialVersionUID = 1L;
-
-        @Override
-        protected boolean removeEldestEntry(Map.Entry eldest) {
-            // Note: one key takes about 1300 bytes in the keystore, so be
-            // cautious about allowing more outstanding keys in the map that
-            // may go beyond keystore's max length for one entry.
-            return (size() > 3);
-        }
     }
 
     private interface MyAction extends Serializable {

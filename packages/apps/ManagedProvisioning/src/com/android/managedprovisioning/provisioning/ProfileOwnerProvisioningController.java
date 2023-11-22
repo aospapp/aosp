@@ -120,6 +120,12 @@ public class ProfileOwnerProvisioningController extends AbstractProvisioningCont
 
     @Override
     protected boolean getRequireFactoryReset(AbstractProvisioningTask task, int errorCode) {
-        return false;
+        if (mParams.isOrganizationOwnedProvisioning) {
+            // Do factory reset if any error occurs during PO provisioning in the admin
+            // integrated flow.
+            return true;
+        } else {
+            return false;
+        }
     }
 }

@@ -25,7 +25,7 @@
     <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"SIP-hívás használata (csak Wi-Fin)"</string>
     <string name="sip_call_options_entry_1" msgid="7217659161237099900">"Minden hívásnál, amikor nincs elérhető adathálózat"</string>
     <string name="sip_call_options_entry_2" msgid="1815335903940609729">"Csak SIP-hívásokhoz"</string>
-    <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"Minden hívásnál"</string>
+    <string name="sip_call_options_wifi_only_entry_1" msgid="1358513095551847314">"Minden híváshoz"</string>
     <string name="add_sip_account" msgid="800843669753980091">"Fiók hozzáadása"</string>
     <string name="remove_sip_account" msgid="1367664438506503690">"Fiók eltávolítása"</string>
     <string name="sip_account_list" msgid="5610858485304821480">"SIP-fiókok"</string>

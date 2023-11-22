@@ -17,7 +17,7 @@
 package com.android.documentsui.testing;
 
 import android.content.Context;
-import android.support.v7.widget.GridLayoutManager;
+import androidx.recyclerview.widget.GridLayoutManager;
 
 import org.mockito.Mockito;
 

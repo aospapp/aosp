@@ -28,6 +28,9 @@ struct TransportArch {
     Transport transport = Transport::EMPTY;
     Arch arch = Arch::ARCH_EMPTY;
 
+    TransportArch() = default;
+    TransportArch(Transport t, Arch a) : transport(t), arch(a) {}
+
     inline bool operator==(const TransportArch& other) const {
         return transport == other.transport && arch == other.arch;
     }

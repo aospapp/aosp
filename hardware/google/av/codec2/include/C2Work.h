@@ -132,6 +132,19 @@ struct C2FrameData {
          */
         FLAG_DISCARD_FRAME = (1 << 2),
         /**
+         * This frame is not the last frame produced for the input.
+         *
+         * This flag is normally set by the component - e.g. when an input frame results in multiple
+         * output frames, this flag is set on all but the last output frame.
+         *
+         * Also, when components are chained, this flag should be propagated down the
+         * work chain. That is, if set on an earlier frame of a work-chain, it should be propagated
+         * to all later frames in that chain. Additionally, components down the chain could set
+         * this flag even if not set earlier, e.g. if multiple output frame is generated at that
+         * component for the input frame.
+         */
+        FLAG_INCOMPLETE = (1 << 3),
+        /**
          * This frame contains only codec-specific configuration data, and no actual access unit.
          *
          * \deprecated pass codec configuration with using the \todo codec-specific configuration

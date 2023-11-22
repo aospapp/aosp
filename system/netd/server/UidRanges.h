@@ -17,7 +17,7 @@
 #ifndef NETD_SERVER_UID_RANGES_H
 #define NETD_SERVER_UID_RANGES_H
 
-#include "android/net/UidRange.h"
+#include "android/net/INetd.h"
 
 #include <sys/types.h>
 #include <utility>
@@ -29,10 +29,10 @@ namespace net {
 class UidRanges {
 public:
     UidRanges() {}
-    UidRanges(const std::vector<android::net::UidRange>& ranges);
+    UidRanges(const std::vector<android::net::UidRangeParcel>& ranges);
 
     bool hasUid(uid_t uid) const;
-    const std::vector<android::net::UidRange>& getRanges() const;
+    const std::vector<UidRangeParcel>& getRanges() const;
 
     bool parseFrom(int argc, char* argv[]);
     std::string toString() const;
@@ -40,8 +40,8 @@ public:
     void add(const UidRanges& other);
     void remove(const UidRanges& other);
 
-private:
-    std::vector<android::net::UidRange> mRanges;
+  private:
+    std::vector<UidRangeParcel> mRanges;
 };
 
 }  // namespace net

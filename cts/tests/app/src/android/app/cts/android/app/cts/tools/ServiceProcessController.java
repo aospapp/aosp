@@ -16,7 +16,6 @@
 
 package android.app.cts.android.app.cts.tools;
 
-import android.Manifest;
 import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.content.Context;
@@ -26,7 +25,8 @@ import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.SystemUtil;
 

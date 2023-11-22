@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
  * @hide
  */
 @SystemApi
-public class WearEstimateChange implements Parcelable {
+public final class WearEstimateChange implements Parcelable {
     public static final Parcelable.Creator<WearEstimateChange> CREATOR =
         new Parcelable.Creator<WearEstimateChange>() {
             public WearEstimateChange createFromParcel(Parcel in) {

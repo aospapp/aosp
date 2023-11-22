@@ -18,12 +18,13 @@ package com.android.tv.tuner.exoplayer;
 
 import android.os.Handler;
 import com.android.tv.tuner.exoplayer.buffer.BufferManager;
+import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
 import com.android.tv.tuner.exoplayer.buffer.RecordingSampleBuffer;
-import com.android.tv.tuner.tvinput.PlaybackBufferListener;
 import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.MediaFormatHolder;
 import com.google.android.exoplayer.MediaFormatUtil;
 import com.google.android.exoplayer.SampleHolder;
+import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,10 +44,15 @@ public class FileSampleExtractor implements SampleExtractor {
     private final BufferManager mBufferManager;
     private final PlaybackBufferListener mBufferListener;
     private BufferManager.SampleBuffer mSampleBuffer;
+    private final ConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags;
 
-    public FileSampleExtractor(BufferManager bufferManager, PlaybackBufferListener bufferListener) {
+    public FileSampleExtractor(
+            BufferManager bufferManager,
+            PlaybackBufferListener bufferListener,
+            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlags) {
         mBufferManager = bufferManager;
         mBufferListener = bufferListener;
+        mConcurrentDvrPlaybackFlags = concurrentDvrPlaybackFlags;
         mTrackCount = -1;
     }
 
@@ -74,6 +80,7 @@ public class FileSampleExtractor implements SampleExtractor {
                         mBufferManager,
                         mBufferListener,
                         true,
+                        mConcurrentDvrPlaybackFlags,
                         RecordingSampleBuffer.BUFFER_REASON_RECORDED_PLAYBACK);
         mSampleBuffer.init(ids, mTrackFormats);
         return true;

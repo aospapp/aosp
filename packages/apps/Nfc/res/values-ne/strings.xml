@@ -47,4 +47,6 @@
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"तपाईंको ट्याब्लेटमा NFC मार्फत एउटा लिंक आयो:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"तपाईंको फोनमा NFC मार्फत एउटा लिंक आयो:"</string>
     <string name="action_confirm_url_open" msgid="3458322738812921189">"लिंक खोल्नुहोस्"</string>
+    <string name="tag_read_error" msgid="2485274498885877547">"NFC पढ्ने क्रममा त्रुटि भयो। फेरि प्रयास गर्नुहोस्‌।"</string>
+    <string name="tag_dispatch_failed" msgid="3562984995049738400">"यो NFC ट्यागको कुनै पनि समर्थित अनुप्रयोग छैन"</string>
 </resources>

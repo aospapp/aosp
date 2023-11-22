@@ -39,8 +39,9 @@ public class MusicLibrary {
     private static final HashMap<String, Integer> albumRes = new HashMap<>();
     private static final HashMap<String, String> musicFileName = new HashMap<>();
 
-    static {
+    public static void createAllMedia(Context context) {
         createMediaMetadataCompat(
+                context,
                 "Jazz_In_Paris",
                 "Jazz in Paris",
                 "Media Right Productions",
@@ -52,6 +53,7 @@ public class MusicLibrary {
                 R.drawable.album_jazz_blues,
                 "album_jazz_blues");
         createMediaMetadataCompat(
+                context,
                 "The_Coldest_Shoulder",
                 "The Coldest Shoulder",
                 "The 126ers",
@@ -121,6 +123,7 @@ public class MusicLibrary {
     }
 
     private static void createMediaMetadataCompat(
+            Context context,
             String mediaId,
             String title,
             String artist,
@@ -135,10 +138,11 @@ public class MusicLibrary {
                 mediaId,
                 new MediaMetadataCompat.Builder()
                         .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, mediaId)
+                        .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, mediaId)
                         .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, album)
                         .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
                         .putLong(MediaMetadataCompat.METADATA_KEY_DURATION,
-                                 TimeUnit.MILLISECONDS.convert(duration, durationUnit))
+                                TimeUnit.MILLISECONDS.convert(duration, durationUnit))
                         .putString(MediaMetadataCompat.METADATA_KEY_GENRE, genre)
                         .putString(
                                 MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI,
@@ -147,6 +151,9 @@ public class MusicLibrary {
                                 MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI,
                                 getAlbumArtUri(albumArtResName))
                         .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
+                        .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART,
+                                BitmapFactory.decodeResource(context.getResources(),
+                                albumArtResId))
                         .build());
         albumRes.put(mediaId, albumArtResId);
         musicFileName.put(mediaId, musicFilename);

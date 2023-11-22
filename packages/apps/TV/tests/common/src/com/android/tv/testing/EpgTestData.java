@@ -30,18 +30,19 @@ import java.util.concurrent.TimeUnit;
 /** EPG data for use in tests. */
 public abstract class EpgTestData {
 
-    public static final android.support.media.tv.Channel CHANNEL_10 =
-            new android.support.media.tv.Channel.Builder()
+    public static final androidx.tvprovider.media.tv.Channel CHANNEL_10 =
+            new androidx.tvprovider.media.tv.Channel.Builder()
                     .setDisplayName("Channel TEN")
                     .setDisplayNumber("10")
+                    .setNetworkAffiliation("Channel 10 Network Affiliation")
                     .build();
-    public static final android.support.media.tv.Channel CHANNEL_11 =
-            new android.support.media.tv.Channel.Builder()
+    public static final androidx.tvprovider.media.tv.Channel CHANNEL_11 =
+            new androidx.tvprovider.media.tv.Channel.Builder()
                     .setDisplayName("Channel Eleven")
                     .setDisplayNumber("11")
                     .build();
-    public static final android.support.media.tv.Channel CHANNEL_90_2 =
-            new android.support.media.tv.Channel.Builder()
+    public static final androidx.tvprovider.media.tv.Channel CHANNEL_90_2 =
+            new androidx.tvprovider.media.tv.Channel.Builder()
                     .setDisplayName("Channel Ninety dot Two")
                     .setDisplayNumber("90.2")
                     .build();
@@ -162,21 +163,23 @@ public abstract class EpgTestData {
         loadData(testSingletonApp.fakeClock, testSingletonApp.epgReader);
     }
 
-    private static Iterable<Channel> toTvChannels(android.support.media.tv.Channel... channels) {
+    private static Iterable<Channel> toTvChannels(
+            androidx.tvprovider.media.tv.Channel... channels) {
         return Iterables.transform(
                 ImmutableList.copyOf(channels),
-                new Function<android.support.media.tv.Channel, Channel>() {
+                new Function<androidx.tvprovider.media.tv.Channel, Channel>() {
                     @Override
-                    public Channel apply(android.support.media.tv.Channel original) {
+                    public Channel apply(androidx.tvprovider.media.tv.Channel original) {
                         return toTvChannel(original);
                     }
                 });
     }
 
-    public static Channel toTvChannel(android.support.media.tv.Channel original) {
+    public static Channel toTvChannel(androidx.tvprovider.media.tv.Channel original) {
         return new ChannelImpl.Builder()
                 .setDisplayName(original.getDisplayName())
                 .setDisplayNumber(original.getDisplayNumber())
+                .setNetworkAffiliation(original.getNetworkAffiliation())
                 // TODO implement the reset
                 .build();
     }

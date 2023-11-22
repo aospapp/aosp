@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"긴급 상황 정보"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"의료 정보"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"정보 수정"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"정보 추가"</string>
     <string name="edit_info" msgid="5973929805855224805">"긴급 상황 정보 수정"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"정보"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"연락처"</string>
@@ -74,10 +74,10 @@
     <string name="allergies" msgid="2789200777539258165">"알레르기"</string>
     <string name="unknown_allergies" msgid="4383115953418061237">"알 수 없음"</string>
     <string name="allergies_hint" msgid="5488918780522184147">"예: 땅콩"</string>
-    <string name="medications" msgid="644428945685557183">"약물"</string>
+    <string name="medications" msgid="644428945685557183">"약"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"알 수 없음"</string>
     <string name="medications_hint" msgid="3221620025945593723">"예: 아스피린"</string>
-    <string name="medical_conditions" msgid="3555690011498283592">"의료 기록"</string>
+    <string name="medical_conditions" msgid="3555690011498283592">"질병"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"알 수 없음"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"예: 천식"</string>
     <string name="organ_donor" msgid="5953509460007124827">"장기 기증자"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"의료 정보와 비상 연락처를 추가하면 응급 상황에서 초기 대처에 도움이 될 수 있습니다.\n\n누구나 잠금 화면에서 이 정보를 읽을 수 있으며, 휴대전화를 잠금 해제하지 않고도 연락처 이름을 탭하여 전화를 걸 수 있습니다."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"긴급 상황 정보 추가"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"긴급 구조 대원이 내 정보를 볼 수 있도록 입력합니다."</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"사진 찍기"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"이미지 선택"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"사진 선택"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"닉네임"</string>
 </resources>

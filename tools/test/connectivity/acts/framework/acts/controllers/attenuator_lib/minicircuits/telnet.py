@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 
 #   Copyright 2016- The Android Open Source Project
 #
@@ -13,7 +13,6 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
 """
 Class for Telnet control of Mini-Circuits RCDAT series attenuators
 
@@ -30,126 +29,111 @@ from acts.controllers.attenuator_lib import _tnhelper
 
 
 class AttenuatorInstrument(attenuator.AttenuatorInstrument):
-    r"""This provides a specific telnet-controlled implementation of AttenuatorInstrument for
+    """A specific telnet-controlled implementation of AttenuatorInstrument for
     Mini-Circuits RC-DAT attenuators.
 
-    With the exception of telnet-specific commands, all functionality is defined by the
-    AttenuatorInstrument class. Because telnet is a stateful protocol, the functionality of
-    AttenuatorInstrument is contingent upon a telnet connection being established.
+    With the exception of telnet-specific commands, all functionality is defined
+    by the AttenuatorInstrument class. Because telnet is a stateful protocol,
+    the functionality of AttenuatorInstrument is contingent upon a telnet
+    connection being established.
     """
 
     def __init__(self, num_atten=0):
         super(AttenuatorInstrument, self).__init__(num_atten)
-        self._tnhelper = _tnhelper._TNHelper(tx_cmd_separator="\r\n",
-                                             rx_cmd_separator="\r\n",
-                                             prompt="")
+        self._tnhelper = _tnhelper._TNHelper(
+            tx_cmd_separator='\r\n', rx_cmd_separator='\r\n', prompt='')
 
     def __del__(self):
         if self.is_open():
             self.close()
 
     def open(self, host, port=23):
-        r"""Opens a telnet connection to the desired AttenuatorInstrument and queries basic
-        information.
+        """Opens a telnet connection to the desired AttenuatorInstrument and
+        queries basic information.
 
-        Parameters
-        ----------
-        host : A valid hostname (IP address or DNS-resolvable name) to an MC-DAT attenuator
-        instrument.
-        port : An optional port number (defaults to telnet default 23)
+        Args:
+            host: A valid hostname (IP address or DNS-resolvable name) to an
+            MC-DAT attenuator instrument.
+            port: An optional port number (defaults to telnet default 23)
         """
-
         self._tnhelper.open(host, port)
 
         if self.num_atten == 0:
             self.num_atten = 1
 
-        config_str = self._tnhelper.cmd("MN?")
+        config_str = self._tnhelper.cmd('MN?')
 
-        if config_str.startswith("MN="):
-            config_str = config_str[len("MN="):]
+        if config_str.startswith('MN='):
+            config_str = config_str[len('MN='):]
 
-        self.properties = dict(zip(['model', 'max_freq', 'max_atten'], config_str.split("-", 2)))
+        self.properties = dict(
+            zip(['model', 'max_freq', 'max_atten'], config_str.split('-', 2)))
         self.max_atten = float(self.properties['max_atten'])
 
     def is_open(self):
-        r"""This function returns the state of the telnet connection to the underlying
-        AttenuatorInstrument.
-
-        Returns
-        -------
-        Bool
-            True if there is a successfully open connection to the AttenuatorInstrument
-        """
-
+        """Returns True if the AttenuatorInstrument has an open connection."""
         return bool(self._tnhelper.is_open())
 
     def close(self):
-        r"""Closes a telnet connection to the desired AttenuatorInstrument.
+        """Closes the telnet connection.
 
-        This should be called as part of any teardown procedure prior to the attenuator
-        instrument leaving scope.
+        This should be called as part of any teardown procedure prior to the
+        attenuator instrument leaving scope.
         """
-
         self._tnhelper.close()
 
-    def set_atten(self, idx, value):
-        r"""This function sets the attenuation of an attenuator given its index in the instrument.
+    def set_atten(self, idx, value, strict_flag=True):
+        """This function sets the attenuation of an attenuator given its index
+        in the instrument.
 
-        Parameters
-        ----------
-        idx : This zero-based index is the identifier for a particular attenuator in an
-              instrument. For instruments that only has one channel, this is ignored by the device.
-        value : This is a floating point value for nominal attenuation to be set.
+        Args:
+            idx: A zero-based index that identifies a particular attenuator in
+                an instrument. For instruments that only have one channel, this
+                is ignored by the device.
+            value: A floating point value for nominal attenuation to be set.
+            strict_flag: if True, function raises an error when given out of
+                bounds attenuation values, if false, the function sets out of
+                bounds values to 0 or max_atten.
 
-        Raises
-        ------
-        InvalidOperationError
-            This error occurs if the underlying telnet connection to the instrument is not open.
-        IndexError
-            If the index of the attenuator is greater than the maximum index of the underlying
-            instrument, this error will be thrown. Do not count on this check programmatically.
-        ValueError
-            If the requested set value is greater than the maximum attenuation value, this error
-            will be thrown. Do not count on this check programmatically.
+        Raises:
+            InvalidOperationError if the telnet connection is not open.
+            IndexError if the index is not valid for this instrument.
+            ValueError if the requested set value is greater than the maximum
+                attenuation value.
         """
 
         if not self.is_open():
-            raise attenuator.InvalidOperationError("Connection not open!")
+            raise attenuator.InvalidOperationError('Connection not open!')
 
         if idx >= self.num_atten:
-            raise IndexError("Attenuator index out of range!", self.num_atten, idx)
+            raise IndexError('Attenuator index out of range!', self.num_atten,
+                             idx)
 
-        if value > self.max_atten:
-            raise ValueError("Attenuator value out of range!", self.max_atten, value)
+        if value > self.max_atten and strict_flag:
+            raise ValueError('Attenuator value out of range!', self.max_atten,
+                             value)
         # The actual device uses one-based index for channel numbers.
-        self._tnhelper.cmd("CHAN:%s:SETATT:%s" % (idx + 1, value))
+        self._tnhelper.cmd('CHAN:%s:SETATT:%s' % (idx + 1, value))
 
     def get_atten(self, idx):
-        r"""This function returns the current attenuation from an attenuator at a given index in
-        the instrument.
+        """Returns the current attenuation of the attenuator at the given index.
 
-        Parameters
-        ----------
-        idx : This zero-based index is the identifier for a particular attenuator in an instrument.
+        Args:
+            idx: The index of the attenuator.
 
-        Raises
-        ------
-        InvalidOperationError
-            This error occurs if the underlying telnet connection to the instrument is not open.
+        Raises:
+            InvalidOperationError if the telnet connection is not open.
 
-        Returns
-        -------
-        float
-            Returns a the current attenuation value
+        Returns:
+            the current attenuation value as a float
         """
-
         if not self.is_open():
-            raise attenuator.InvalidOperationError("Connection not open!")
+            raise attenuator.InvalidOperationError('Connection not open!')
 
         if idx >= self.num_atten or idx < 0:
-            raise IndexError("Attenuator index out of range!", self.num_atten, idx)
+            raise IndexError('Attenuator index out of range!', self.num_atten,
+                             idx)
 
-        atten_val_str = self._tnhelper.cmd("CHAN:%s:ATT?" % (idx + 1))
+        atten_val_str = self._tnhelper.cmd('CHAN:%s:ATT?' % (idx + 1))
         atten_val = float(atten_val_str)
         return atten_val

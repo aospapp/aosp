@@ -86,7 +86,6 @@ public class TestLoaderManager extends LoaderManager {
     public void runAsyncTaskLoader(int id) {
         AsyncTaskLoader loader = (AsyncTaskLoader) getLoader(id);
         loader.startLoading();
-        loader.waitForLoader();
     }
 
     @Override

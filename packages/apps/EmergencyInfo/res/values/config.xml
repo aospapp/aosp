@@ -18,4 +18,6 @@
       <!-- Fully-qualified class name for the implementation of the FeatureFactory to be instantiated. -->
     <string name="config_featureFactory" translatable="false">com.android.emergency.overlay.FeatureFactoryImpl</string>
 
+    <!-- Flag to enable search index feature in Settings. -->
+    <bool name="config_search_index_disabled">false</bool>
 </resources>

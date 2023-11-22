@@ -205,11 +205,16 @@ WifihalGeneric::WifihalGeneric(wifi_handle handle, int id, u32 vendor_id,
     mCapa = &(info->capa);
     mfilter_packet_read_buffer = NULL;
     mfilter_packet_length = 0;
+    memset(&mDriverFeatures, 0, sizeof(mDriverFeatures));
 }
 
 WifihalGeneric::~WifihalGeneric()
 {
     mCapa = NULL;
+    if (mDriverFeatures.flags != NULL) {
+        free(mDriverFeatures.flags);
+        mDriverFeatures.flags = NULL;
+    }
 }
 
 wifi_error WifihalGeneric::requestResponse()
@@ -242,6 +247,23 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                 ALOGV("Supported feature set : %x", mSet);
 
                 break;
+            }
+        case QCA_NL80211_VENDOR_SUBCMD_GET_FEATURES:
+            {
+                struct nlattr *attr;
+                struct nlattr *tb_vendor[QCA_WLAN_VENDOR_ATTR_MAX + 1];
+                nla_parse(tb_vendor, QCA_WLAN_VENDOR_ATTR_MAX,
+                          (struct nlattr *)mVendorData, mDataLen, NULL);
+                attr = tb_vendor[QCA_WLAN_VENDOR_ATTR_FEATURE_FLAGS];
+                if (attr) {
+                    int len = nla_len(attr);
+                    mDriverFeatures.flags = (u8 *)malloc(len);
+                    if (mDriverFeatures.flags != NULL) {
+                        memcpy(mDriverFeatures.flags, nla_data(attr), len);
+                        mDriverFeatures.flags_len = len;
+                    }
+                 }
+                 break;
             }
         case QCA_NL80211_VENDOR_SUBCMD_GET_CONCURRENCY_MATRIX:
             {
@@ -303,11 +325,11 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                 } else {
                     /*
                      * The older drivers may not send PACKET_FILTER_SUB_CMD as
-                     * they support QCA_WLAN_GET_PACKET_FILTER_SIZE only.
+                     * they support QCA_WLAN_GET_PACKET_FILTER only.
                      */
-                    subCmd = QCA_WLAN_GET_PACKET_FILTER_SIZE;
+                    subCmd = QCA_WLAN_GET_PACKET_FILTER;
                 }
-                if (subCmd == QCA_WLAN_GET_PACKET_FILTER_SIZE) {
+                if (subCmd == QCA_WLAN_GET_PACKET_FILTER) {
                     if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_VERSION])
                     {
                         ALOGE("%s: QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_VERSION"
@@ -318,14 +340,14 @@ int WifihalGeneric::handleResponse(WifiEvent &reply)
                            tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_VERSION]);
                     ALOGV("Current version : %u", filterVersion);
 
-                    if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_TOTAL_LENGTH])
+                    if (!tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_SIZE])
                     {
-                        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_TOTAL_LENGTH"
+                        ALOGE("%s: QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_SIZE"
                               " not found", __FUNCTION__);
                         return -EINVAL;
                     }
                     filterLength = nla_get_u32(
-                        tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_TOTAL_LENGTH]);
+                        tb_vendor[QCA_WLAN_VENDOR_ATTR_PACKET_FILTER_SIZE]);
                     ALOGV("Max filter length Supported : %u", filterLength);
                 } else if (subCmd == QCA_WLAN_READ_PACKET_FILTER) {
 
@@ -541,6 +563,25 @@ wifi_error WifihalGeneric::wifiParseCapabilities(struct nlattr **tbVendor)
 void WifihalGeneric::getResponseparams(feature_set *pset)
 {
     *pset = mSet;
+}
+
+void WifihalGeneric::getDriverFeatures(features_info *pfeatures)
+{
+    if (!pfeatures)
+        return;
+
+    if (mDriverFeatures.flags != NULL) {
+        pfeatures->flags = (u8 *)malloc(mDriverFeatures.flags_len);
+        if (pfeatures->flags) {
+            memcpy(pfeatures->flags, mDriverFeatures.flags,
+                   mDriverFeatures.flags_len);
+            pfeatures->flags_len = mDriverFeatures.flags_len;
+            return;
+        }
+    }
+
+    pfeatures->flags_len = 0;
+    pfeatures->flags = NULL;
 }
 
 void WifihalGeneric::setMaxSetSize(int set_size_max) {

@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import json
 import logging
 import os
 import shutil
@@ -22,34 +23,14 @@ import tempfile
 
 from vts.runners.host import asserts
 from vts.runners.host import base_test
-from vts.runners.host import const
 from vts.runners.host import keys
 from vts.runners.host import test_runner
+from vts.runners.host import utils
 from vts.testcases.vndk.golden import vndk_data
-from vts.utils.python.controllers import android_device
+from vts.utils.python.file import target_file_utils
 from vts.utils.python.library import elf_parser
-from vts.utils.python.library import vtable_parser
-
-
-def _IterateFiles(root_dir):
-    """A generator yielding relative and full paths in a directory.
-
-    Args:
-        root_dir: The directory to search.
-
-    Yields:
-        A tuple of (relative_path, full_path) for each regular file.
-        relative_path is the relative path to root_dir. full_path is the path
-        starting with root_dir.
-    """
-    for dir_path, dir_names, file_names in os.walk(root_dir):
-        if dir_path == root_dir:
-            rel_dir = ""
-        else:
-            rel_dir = os.path.relpath(dir_path, root_dir)
-        for file_name in file_names:
-            yield (os.path.join(rel_dir, file_name),
-                   os.path.join(dir_path, file_name))
+from vts.utils.python.library.vtable import vtable_dumper
+from vts.utils.python.vndk import vndk_utils
 
 
 class VtsVndkAbiTest(base_test.BaseTestClass):
@@ -61,12 +42,6 @@ class VtsVndkAbiTest(base_test.BaseTestClass):
         _vndk_version: String, the VNDK version supported by the device.
         data_file_path: The path to VTS data directory.
     """
-    _ODM_LIB_DIR_32 = "/odm/lib"
-    _ODM_LIB_DIR_64 = "/odm/lib64"
-    _VENDOR_LIB_DIR_32 = "/vendor/lib"
-    _VENDOR_LIB_DIR_64 = "/vendor/lib64"
-    _SYSTEM_LIB_DIR_32 = "/system/lib"
-    _SYSTEM_LIB_DIR_64 = "/system/lib64"
 
     def setUpClass(self):
         """Initializes data file path, device, and temporary directory."""
@@ -88,84 +63,170 @@ class VtsVndkAbiTest(base_test.BaseTestClass):
             target_dir: The directory to copy from device.
             host_dir: The directory to copy to host.
         """
-        test_cmd = "test -d " + target_dir
-        logging.info("adb shell %s", test_cmd)
-        result = self._dut.adb.shell(test_cmd, no_except=True)
-        if result[const.EXIT_CODE]:
+        if not target_file_utils.IsDirectory(target_dir, self._dut.shell):
             logging.info("%s doesn't exist. Create %s.", target_dir, host_dir)
-            os.mkdir(host_dir, 0750)
+            os.makedirs(host_dir)
             return
+        parent_dir = os.path.dirname(host_dir)
+        if parent_dir and not os.path.isdir(parent_dir):
+            os.makedirs(parent_dir)
         logging.info("adb pull %s %s", target_dir, host_dir)
         self._dut.adb.pull(target_dir, host_dir)
 
-    def _DiffSymbols(self, dump_path, lib_path):
+    def _ToHostPath(self, target_path):
+        """Maps target path to host path in self._temp_dir."""
+        return os.path.join(self._temp_dir, *target_path.strip("/").split("/"))
+
+    @staticmethod
+    def _LoadGlobalSymbolsFromDump(dump_obj):
+        """Loads global symbols from a dump object.
+
+        Args:
+            dump_obj: A dict, the dump in JSON format.
+
+        Returns:
+            A set of strings, the symbol names.
+        """
+        symbols = set()
+        for key in ("elf_functions", "elf_objects"):
+            symbols.update(
+                symbol.get("name", "") for symbol in dump_obj.get(key, []) if
+                symbol.get("binding", "global") == "global")
+        return symbols
+
+    def _DiffElfSymbols(self, dump_obj, parser):
         """Checks if a library includes all symbols in a dump.
 
         Args:
-            dump_path: The path to the dump file containing list of symbols.
-            lib_path: The path to the library.
+            dump_obj: A dict, the dump in JSON format.
+            parser: An elf_parser.ElfParser that loads the library.
 
         Returns:
             A list of strings, the global symbols that are in the dump but not
             in the library.
 
         Raises:
-            IOError if fails to load the dump.
             elf_parser.ElfError if fails to load the library.
         """
-        with open(dump_path, "r") as dump_file:
-            dump_symbols = set(line.strip() for line in dump_file
-                               if line.strip())
-        parser = elf_parser.ElfParser(lib_path)
-        try:
-            lib_symbols = parser.ListGlobalDynamicSymbols(include_weak=True)
-        finally:
-            parser.Close()
+        dump_symbols = self._LoadGlobalSymbolsFromDump(dump_obj)
+        lib_symbols = parser.ListGlobalDynamicSymbols(include_weak=True)
         return sorted(dump_symbols.difference(lib_symbols))
 
-    def _DiffVtables(self, dump_path, lib_path):
+    @staticmethod
+    def _DiffVtableComponent(offset, expected_symbol, vtable):
+        """Checks if a symbol is in a vtable entry.
+
+        Args:
+            offset: An integer, the offset of the expected symbol.
+            exepcted_symbol: A string, the name of the expected symbol.
+            vtable: A dict of {offset: [entry]} where offset is an integer and
+                    entry is an instance of vtable_dumper.VtableEntry.
+
+        Returns:
+            A list of strings, the actual possible symbols if expected_symbol
+            does not match the vtable entry.
+            None if expected_symbol matches the entry.
+        """
+        if offset not in vtable:
+            return []
+
+        entry = vtable[offset]
+        if not entry.names:
+            return [hex(entry.value).rstrip('L')]
+
+        if expected_symbol not in entry.names:
+            return entry.names
+
+    def _DiffVtableComponents(self, dump_obj, dumper):
         """Checks if a library includes all vtable entries in a dump.
 
         Args:
-            dump_path: The path to the dump file containing vtables.
-            lib_path: The path to the library.
+            dump_obj: A dict, the dump in JSON format.
+            dumper: An vtable_dumper.VtableDumper that loads the library.
 
         Returns:
-            A list of tuples (VTABLE, SYMBOL, EXPECTED_OFFSET, ACTUAL_OFFSET).
-            ACTUAL_OFFSET can be "missing" or numbers separated by comma.
+            A list of tuples (VTABLE, OFFSET, EXPECTED_SYMBOL, ACTUAL).
+            ACTUAL can be "missing", a list of symbol names, or an ELF virtual
+            address.
 
         Raises:
-            IOError if fails to load the dump.
-            vtable_parser.VtableError if fails to load the library.
+            vtable_dumper.VtableError if fails to dump vtable from the library.
         """
-        parser = vtable_parser.VtableParser(
-            os.path.join(self.data_file_path, "host"))
-        with open(dump_path, "r") as dump_file:
-            dump_vtables = parser.ParseVtablesFromString(dump_file.read())
+        function_kinds = [
+            "function_pointer",
+            "complete_dtor_pointer",
+            "deleting_dtor_pointer"
+        ]
+        non_function_kinds = [
+            "vcall_offset",
+            "vbase_offset",
+            "offset_to_top",
+            "rtti",
+            "unused_function_pointer"
+        ]
+        default_vtable_component_kind = "function_pointer"
 
-        lib_vtables = parser.ParseVtablesFromLibrary(lib_path)
-        # TODO(b/78316564): The dumper doesn't support SHT_ANDROID_RELA.
-        if not lib_vtables and self.run_as_compliance_test:
-            logging.warning("%s: Cannot dump vtables",
-                            os.path.relpath(lib_path, self._temp_dir))
-            return []
-        logging.debug("%s: %s", lib_path, lib_vtables)
-        diff = []
-        for vtable, dump_symbols in dump_vtables.iteritems():
-            lib_inv_vtable = dict()
-            if vtable in lib_vtables:
-                for off, sym in lib_vtables[vtable]:
-                    if sym not in lib_inv_vtable:
-                        lib_inv_vtable[sym] = [off]
-                    else:
-                        lib_inv_vtable[sym].append(off)
-            for off, sym in dump_symbols:
-                if sym not in lib_inv_vtable:
-                    diff.append((vtable, sym, str(off), "missing"))
-                elif off not in lib_inv_vtable[sym]:
-                    diff.append((vtable, sym, str(off),
-                                 ",".join(str(x) for x in lib_inv_vtable[sym])))
-        return diff
+        global_symbols = self._LoadGlobalSymbolsFromDump(dump_obj)
+
+        lib_vtables = {vtable.name: vtable
+                       for vtable in dumper.DumpVtables()}
+        logging.debug("\n\n".join(str(vtable)
+                                  for _, vtable in lib_vtables.iteritems()))
+
+        vtables_diff = []
+        for record_type in dump_obj.get("record_types", []):
+            type_name_symbol = record_type.get("unique_id", "")
+            vtable_symbol = type_name_symbol.replace("_ZTS", "_ZTV", 1)
+
+            # Skip if the vtable symbol isn't global.
+            if vtable_symbol not in global_symbols:
+                continue
+
+            # Collect vtable entries from library dump.
+            if vtable_symbol in lib_vtables:
+                lib_vtable = {entry.offset: entry
+                              for entry in lib_vtables[vtable_symbol].entries}
+            else:
+                lib_vtable = dict()
+
+            for index, entry in enumerate(record_type.get("vtable_components",
+                                                          [])):
+                entry_offset = index * int(self.abi_bitness) // 8
+                entry_kind = entry.get("kind", default_vtable_component_kind)
+                entry_symbol = entry.get("mangled_component_name", "")
+                entry_is_pure = entry.get("is_pure", False)
+
+                if entry_kind in non_function_kinds:
+                    continue
+
+                if entry_kind not in function_kinds:
+                    logging.warning("%s: Unexpected vtable entry kind %s",
+                                    vtable_symbol, entry_kind)
+
+                if entry_symbol not in global_symbols:
+                    # Itanium cxx abi doesn't specify pure virtual vtable
+                    # entry's behaviour. However we can still do some checks
+                    # based on compiler behaviour.
+                    # Even though we don't check weak symbols, we can still
+                    # issue a warning when a pure virtual function pointer
+                    # is missing.
+                    if entry_is_pure and entry_offset not in lib_vtable:
+                        logging.warning("%s: Expected pure virtual function"
+                                        "in %s offset %s",
+                                        vtable_symbol, vtable_symbol,
+                                        entry_offset)
+                    continue
+
+                diff_symbols = self._DiffVtableComponent(
+                    entry_offset, entry_symbol, lib_vtable)
+                if diff_symbols is None:
+                    continue
+
+                vtables_diff.append(
+                    (vtable_symbol, str(entry_offset), entry_symbol,
+                     (",".join(diff_symbols) if diff_symbols else "missing")))
+
+        return vtables_diff
 
     def _ScanLibDirs(self, dump_dir, lib_dirs, dump_version):
         """Compares dump files with libraries copied from device.
@@ -182,73 +243,69 @@ class VtsVndkAbiTest(base_test.BaseTestClass):
             An integer, number of incompatible libraries.
         """
         error_count = 0
-        symbol_dumps = dict()
-        vtable_dumps = dict()
+        dump_paths = dict()
         lib_paths = dict()
-        for dump_rel_path, dump_path in _IterateFiles(dump_dir):
-            if dump_rel_path.endswith("_symbol.dump"):
-                lib_name = dump_rel_path.rpartition("_symbol.dump")[0]
-                symbol_dumps[lib_name] = dump_path
-            elif dump_rel_path.endswith("_vtable.dump"):
-                lib_name = dump_rel_path.rpartition("_vtable.dump")[0]
-                vtable_dumps[lib_name] = dump_path
+        for parent_dir, dump_name in utils.iterate_files(dump_dir):
+            dump_path = os.path.join(parent_dir, dump_name)
+            if dump_path.endswith(".dump"):
+                lib_name = dump_name.rpartition(".dump")[0]
+                dump_paths[lib_name] = dump_path
             else:
                 logging.warning("Unknown dump: %s", dump_path)
-                continue
-            lib_paths[lib_name] = None
 
         for lib_dir in lib_dirs:
-            for lib_rel_path, lib_path in _IterateFiles(lib_dir):
-                try:
-                    vndk_dir = next(x for x in ("vndk", "vndk-sp") if
-                                    lib_rel_path.startswith(x + os.path.sep))
-                    lib_name = lib_rel_path.replace(
-                        vndk_dir, vndk_dir + "-" + dump_version, 1)
-                except StopIteration:
-                    lib_name = lib_rel_path
+            for parent_dir, lib_name in utils.iterate_files(lib_dir):
+                if lib_name not in lib_paths:
+                    lib_paths[lib_name] = os.path.join(parent_dir, lib_name)
 
-                if lib_name in lib_paths and not lib_paths[lib_name]:
-                    lib_paths[lib_name] = lib_path
-
-        for lib_name, lib_path in lib_paths.iteritems():
-            if not lib_path:
+        for lib_name, dump_path in dump_paths.iteritems():
+            if lib_name not in lib_paths:
                 logging.info("%s: Not found on target", lib_name)
                 continue
+            lib_path = lib_paths[lib_name]
             rel_path = os.path.relpath(lib_path, self._temp_dir)
 
             has_exception = False
             missing_symbols = []
             vtable_diff = []
-            # Compare symbols
-            if lib_name in symbol_dumps:
-                try:
-                    missing_symbols = self._DiffSymbols(
-                        symbol_dumps[lib_name], lib_path)
-                except (IOError, elf_parser.ElfError):
-                    logging.exception("%s: Cannot diff symbols", rel_path)
-                    has_exception = True
-            # Compare vtables
-            if lib_name in vtable_dumps:
-                try:
-                    vtable_diff = self._DiffVtables(
-                        vtable_dumps[lib_name], lib_path)
-                except (IOError, vtable_parser.VtableError):
-                    logging.exception("%s: Cannot diff vtables", rel_path)
-                    has_exception = True
+
+            try:
+                with open(dump_path, "r") as dump_file:
+                    dump_obj = json.load(dump_file)
+                with vtable_dumper.VtableDumper(lib_path) as dumper:
+                    missing_symbols = self._DiffElfSymbols(
+                        dump_obj, dumper)
+                    vtable_diff = self._DiffVtableComponents(
+                        dump_obj, dumper)
+            except (IOError,
+                    elf_parser.ElfError,
+                    vtable_dumper.VtableError) as e:
+                logging.exception("%s: Cannot diff ABI", rel_path)
+                has_exception = True
 
             if missing_symbols:
                 logging.error("%s: Missing Symbols:\n%s",
                               rel_path, "\n".join(missing_symbols))
             if vtable_diff:
                 logging.error("%s: Vtable Difference:\n"
-                              "vtable symbol expected actual\n%s",
+                              "vtable offset expected actual\n%s",
                               rel_path,
-                              "\n".join(" ".join(x) for x in vtable_diff))
-            if has_exception or missing_symbols or vtable_diff:
+                              "\n".join(" ".join(e) for e in vtable_diff))
+            if (has_exception or missing_symbols or vtable_diff):
                 error_count += 1
             else:
                 logging.info("%s: Pass", rel_path)
         return error_count
+
+    @staticmethod
+    def _GetLinkerSearchIndex(target_path):
+        """Returns the key for sorting linker search paths."""
+        index = 0
+        for prefix in ("/odm", "/vendor", "/system"):
+            if target_path.startswith(prefix):
+                return index
+            index += 1
+        return index
 
     def testAbiCompatibility(self):
         """Checks ABI compliance of VNDK libraries."""
@@ -273,26 +330,20 @@ class VtsVndkAbiTest(base_test.BaseTestClass):
                 self._vndk_version, primary_abi, self.abi_bitness))
         logging.info("dump dir: %s", dump_dir)
 
-        odm_lib_dir = os.path.join(
-            self._temp_dir, "odm_lib_dir_" + self.abi_bitness)
-        vendor_lib_dir = os.path.join(
-            self._temp_dir, "vendor_lib_dir_" + self.abi_bitness)
-        system_lib_dir = os.path.join(
-            self._temp_dir, "system_lib_dir_" + self.abi_bitness)
-        logging.info("host lib dir: %s %s %s",
-                     odm_lib_dir, vendor_lib_dir, system_lib_dir)
-        self._PullOrCreateDir(
-            getattr(self, "_ODM_LIB_DIR_" + self.abi_bitness),
-            odm_lib_dir)
-        self._PullOrCreateDir(
-            getattr(self, "_VENDOR_LIB_DIR_" + self.abi_bitness),
-            vendor_lib_dir)
-        self._PullOrCreateDir(
-            getattr(self, "_SYSTEM_LIB_DIR_" + self.abi_bitness),
-            system_lib_dir)
+        target_vndk_dir = vndk_utils.GetVndkCoreDirectory(self.abi_bitness,
+                                                          self._vndk_version)
+        target_vndk_sp_dir = vndk_utils.GetVndkSpDirectory(self.abi_bitness,
+                                                           self._vndk_version)
+        target_dirs = vndk_utils.GetVndkExtDirectories(self.abi_bitness)
+        target_dirs += vndk_utils.GetVndkSpExtDirectories(self.abi_bitness)
+        target_dirs += [target_vndk_dir, target_vndk_sp_dir]
+        target_dirs.sort(key=self._GetLinkerSearchIndex)
 
-        error_count = self._ScanLibDirs(
-            dump_dir, [odm_lib_dir, vendor_lib_dir, system_lib_dir], dump_version)
+        host_dirs = [self._ToHostPath(x) for x in target_dirs]
+        for target_dir, host_dir in zip(target_dirs, host_dirs):
+            self._PullOrCreateDir(target_dir, host_dir)
+
+        error_count = self._ScanLibDirs(dump_dir, host_dirs, dump_version)
         asserts.assertEqual(error_count, 0,
                             "Total number of errors: " + str(error_count))
 

@@ -1,7 +1,8 @@
 {
   "presubmit": [
     {
-      "name": "test1"
+      "name": "test1",
+      "host": true
     }
   ]
 }

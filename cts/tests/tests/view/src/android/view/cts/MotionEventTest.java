@@ -29,8 +29,6 @@ import android.graphics.Matrix;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.TextUtils;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -40,10 +38,16 @@ import android.view.MotionEvent.PointerProperties;
 import android.view.cts.MotionEventUtils.PointerCoordsBuilder;
 import android.view.cts.MotionEventUtils.PointerPropertiesBuilder;
 
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Test {@link MotionEvent}.
@@ -56,16 +60,17 @@ public class MotionEventTest {
     private MotionEvent mMotionEventDynamic;
     private long mDownTime;
     private long mEventTime;
-    private static final float X_3F           = 3.0f;
-    private static final float Y_4F           = 4.0f;
-    private static final int META_STATE       = KeyEvent.META_SHIFT_ON;
-    private static final float PRESSURE_1F    = 1.0f;
-    private static final float SIZE_1F        = 1.0f;
-    private static final float X_PRECISION_3F  = 3.0f;
-    private static final float Y_PRECISION_4F  = 4.0f;
-    private static final int DEVICE_ID_1      = 1;
-    private static final int EDGE_FLAGS       = MotionEvent.EDGE_TOP;
-    private static final float DELTA          = 0.01f;
+    private static final float X_3F                = 3.0f;
+    private static final float Y_4F                = 4.0f;
+    private static final int META_STATE            = KeyEvent.META_SHIFT_ON;
+    private static final float PRESSURE_1F         = 1.0f;
+    private static final float SIZE_1F             = 1.0f;
+    private static final float X_PRECISION_3F      = 3.0f;
+    private static final float Y_PRECISION_4F      = 4.0f;
+    private static final int DEVICE_ID_1           = 1;
+    private static final int EDGE_FLAGS            = MotionEvent.EDGE_TOP;
+    private static final float DELTA               = 0.01f;
+    private static final float RAW_COORD_TOLERANCE = 0.001f;
 
     @Before
     public void setup() {
@@ -446,6 +451,43 @@ public class MotionEventTest {
                 new PointerCoordsBuilder[] { coordsBuilder0, coordsBuilder1 });
     }
 
+    /**
+     * Verify we can get raw coordinates for specific pointers using MotionEvent#getRawX(int) and
+     * MotionEvent#getRawY(int). Also verity MotionEvent#getRawX() and MotionEvent#getRawY()
+     * returns the raw coordinates of pointer with pointer index 0.
+     */
+    @Test
+    public void testGetRawCoordsWithTwoPointers() {
+        PointerCoordsBuilder coordsBuilder0 =
+                withCoords(10.0f, 20.0f).withPressure(1.2f).withSize(2.0f).withTool(1.2f, 1.4f);
+        PointerCoordsBuilder coordsBuilder1 =
+                withCoords(30.0f, 40.0f).withPressure(1.4f).withSize(3.0f).withTouch(2.2f, 0.6f);
+
+        PointerPropertiesBuilder propertiesBuilder0 =
+                withProperties(0, MotionEvent.TOOL_TYPE_FINGER);
+        PointerPropertiesBuilder propertiesBuilder1 =
+                withProperties(1, MotionEvent.TOOL_TYPE_FINGER);
+
+        mMotionEventDynamic = MotionEvent.obtain(mDownTime, mEventTime,
+                MotionEvent.ACTION_MOVE, 2,
+                new PointerProperties[] { propertiesBuilder0.build(), propertiesBuilder1.build() },
+                new PointerCoords[] { coordsBuilder0.build(), coordsBuilder1.build() },
+                0, 0, 1.0f, 1.0f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0);
+
+        assertEquals(10.0f, mMotionEventDynamic.getRawX(), RAW_COORD_TOLERANCE);
+        assertEquals(20.0f, mMotionEventDynamic.getRawY(), RAW_COORD_TOLERANCE);
+
+        // Assert that getRawX returns the results for the first pointer index.
+        assertEquals(mMotionEventDynamic.getRawX(), mMotionEventDynamic.getRawX(0),
+                RAW_COORD_TOLERANCE);
+        assertEquals(mMotionEventDynamic.getRawY(), mMotionEventDynamic.getRawY(0),
+                RAW_COORD_TOLERANCE);
+
+        assertEquals(30.0f, mMotionEventDynamic.getRawX(1), RAW_COORD_TOLERANCE);
+        assertEquals(40.0f, mMotionEventDynamic.getRawY(1), RAW_COORD_TOLERANCE);
+    }
+
+
     @Test
     public void testGetHistoricalDataWithTwoPointers() {
         // PHASE 1 - construct the initial data for the event
@@ -583,9 +625,9 @@ public class MotionEventTest {
 
     @Test
     public void testTransformShouldApplyMatrixToPointsAndPreserveRawPosition() {
-        // Generate some points on a circle.
-        // Each point 'i' is a point on a circle of radius ROTATION centered at (3,2) at an angle
-        // of ARC * i degrees clockwise relative to the Y axis.
+        // Generate some points on a circle, then assign each point to a pointer.
+        // The location of pointer 'i' is a point on a circle of radius ROTATION centered at (3,2)
+        // at an angle of ARC * i degrees clockwise relative to the Y axis.
         // The geometrical representation is irrelevant to the test, it's just easy to generate
         // and check rotation.  We set the orientation to the same angle.
         // Coordinate system: down is increasing Y, right is increasing X.
@@ -597,6 +639,7 @@ public class MotionEventTest {
         final int pointerCount = 11;
         final int[] pointerIds = new int[pointerCount];
         final PointerCoords[] pointerCoords = new PointerCoords[pointerCount];
+        final PointerCoords[] originalRawCoords = new PointerCoords[pointerCount];
         for (int i = 0; i < pointerCount; i++) {
             final PointerCoords c = new PointerCoords();
             final float angle = (float) (i * ARC * PI_180);
@@ -605,24 +648,27 @@ public class MotionEventTest {
             c.x = (float) (Math.sin(angle) * RADIUS + 3);
             c.y = (float) (- Math.cos(angle) * RADIUS + 2);
             c.orientation = angle;
+            originalRawCoords[i] = new PointerCoords(c);
         }
         final MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_MOVE,
                 pointerCount, pointerIds, pointerCoords, 0, 0, 0, 0, 0, 0, 0);
-        final float originalRawX = 0 + 3;
-        final float originalRawY = - RADIUS + 2;
         dump("Original points.", event);
 
         // Check original raw X and Y assumption.
-        assertEquals(originalRawX, event.getRawX(), 0.001);
-        assertEquals(originalRawY, event.getRawY(), 0.001);
+        for (int i = 0; i < pointerCount; i++) {
+            assertEquals(originalRawCoords[i].x, event.getRawX(i), RAW_COORD_TOLERANCE);
+            assertEquals(originalRawCoords[i].y, event.getRawY(i), RAW_COORD_TOLERANCE);
+        }
 
         // Now translate the motion event so the circle's origin is at (0,0).
         event.offsetLocation(-3, -2);
         dump("Translated points.", event);
 
-        // Offsetting the location should preserve the raw X and Y of the first point.
-        assertEquals(originalRawX, event.getRawX(), 0.001);
-        assertEquals(originalRawY, event.getRawY(), 0.001);
+        // Offsetting the location should preserve the raw X and Y of all pointers.
+        for (int i = 0; i < pointerCount; i++) {
+            assertEquals(originalRawCoords[i].x, event.getRawX(i), RAW_COORD_TOLERANCE);
+            assertEquals(originalRawCoords[i].y, event.getRawY(i), RAW_COORD_TOLERANCE);
+        }
 
         // Apply a rotation about the origin by ROTATION degrees clockwise.
         Matrix matrix = new Matrix();
@@ -636,14 +682,17 @@ public class MotionEventTest {
             event.getPointerCoords(i, c);
 
             final float angle = (float) ((i * ARC + ROTATION) * PI_180);
-            assertEquals(Math.sin(angle) * RADIUS, c.x, 0.001);
-            assertEquals(- Math.cos(angle) * RADIUS, c.y, 0.001);
+            assertEquals(Math.sin(angle) * RADIUS, c.x, RAW_COORD_TOLERANCE);
+            assertEquals(-Math.cos(angle) * RADIUS, c.y, RAW_COORD_TOLERANCE);
             assertEquals(Math.tan(angle), Math.tan(c.orientation), 0.1);
         }
 
-        // Applying the transformation should preserve the raw X and Y of the first point.
-        assertEquals(originalRawX, event.getRawX(), 0.001);
-        assertEquals(originalRawY, event.getRawY(), 0.001);
+        // Applying the transformation should preserve the raw X and Y of the first pointer.
+        assertEquals(originalRawCoords[0].x, event.getRawX(), RAW_COORD_TOLERANCE);
+        assertEquals(originalRawCoords[0].y, event.getRawY(), RAW_COORD_TOLERANCE);
+
+        // TODO(b/124116082) Verify whether transformations on MotionEvents should preserve raw X
+        // and Y for all pointers.
     }
 
     private void dump(String label, MotionEvent ev) {
@@ -910,5 +959,25 @@ public class MotionEventTest {
         assertFalse(mMotionEventDynamic.isButtonPressed(MotionEvent.BUTTON_STYLUS_SECONDARY));
         assertFalse(mMotionEventDynamic.isButtonPressed(MotionEvent.BUTTON_BACK));
         assertTrue(mMotionEventDynamic.isButtonPressed(MotionEvent.BUTTON_FORWARD));
+    }
+
+    @Test
+    public void testClassificationConstantsAreUnique() {
+        Set<Integer> values = new LinkedHashSet<>();
+        values.add(MotionEvent.CLASSIFICATION_NONE);
+        values.add(MotionEvent.CLASSIFICATION_AMBIGUOUS_GESTURE);
+        values.add(MotionEvent.CLASSIFICATION_DEEP_PRESS);
+        assertEquals(3, values.size());
+    }
+
+    /**
+     * The motion events 1 and 2 were created using one of the obtain methods.
+     * As a result, they should not have any classification.
+     * Only events generated by the framework are allowed to have classification other than NONE.
+     */
+    @Test
+    public void testGetClassification() {
+        assertEquals(MotionEvent.CLASSIFICATION_NONE, mMotionEvent1.getClassification());
+        assertEquals(MotionEvent.CLASSIFICATION_NONE, mMotionEvent2.getClassification());
     }
 }

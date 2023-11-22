@@ -26,6 +26,7 @@ import static android.appsecurity.cts.SplitTests.PKG;
 import static org.junit.Assert.fail;
 
 import android.platform.test.annotations.AppModeFull;
+
 import com.android.tradefed.device.CollectingOutputReceiver;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
@@ -43,6 +44,7 @@ import java.util.concurrent.TimeUnit;
  * Set of tests that verify behavior of adopted storage media, if supported.
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
+@AppModeFull(reason = "Instant applications can only be installed on internal storage")
 public class AdoptableHostTest extends BaseHostJUnit4Test {
 
     public static final String FEATURE_ADOPTABLE_STORAGE = "feature:android.software.adoptable_storage";
@@ -76,7 +78,6 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
      * sniffed from the underlying fstab.
      */
     @Test
-    @AppModeFull // TODO: Needs porting to instant
     public void testFeatureConsistent() throws Exception {
         final boolean hasFeature = hasFeature();
         final boolean hasFstab = hasFstab();
@@ -87,7 +88,6 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    @AppModeFull // TODO: Needs porting to instant
     public void testApps() throws Exception {
         if (!isSupportedDevice()) return;
         final String diskId = getAdoptionDisk();
@@ -117,6 +117,18 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             // Unmount, remount and verify
             getDevice().executeShellCommand("sm unmount " + vol.volId);
             getDevice().executeShellCommand("sm mount " + vol.volId);
+
+            int attempt = 0;
+            String pkgPath = getDevice().executeShellCommand("pm path " + PKG);
+            while ((pkgPath == null || pkgPath.isEmpty()) && attempt++ < 15) {
+                Thread.sleep(1000);
+                pkgPath = getDevice().executeShellCommand("pm path " + PKG);
+            }
+
+            if (pkgPath == null || pkgPath.isEmpty()) {
+                throw new AssertionError("Package not ready yet");
+            }
+
             runDeviceTests(PKG, CLASS, "testDataNotInternal");
             runDeviceTests(PKG, CLASS, "testDataRead");
             runDeviceTests(PKG, CLASS, "testNative");
@@ -139,7 +151,6 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    @AppModeFull // TODO: Needs porting to instant
     public void testPrimaryStorage() throws Exception {
         if (!isSupportedDevice()) return;
         final String diskId = getAdoptionDisk();
@@ -240,7 +251,6 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
      * adopted volumes.
      */
     @Test
-    @AppModeFull // TODO: Needs porting to instant
     public void testPackageInstaller() throws Exception {
         if (!isSupportedDevice()) return;
         final String diskId = getAdoptionDisk();
@@ -270,7 +280,6 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
      * returned at a later time.
      */
     @Test
-    @AppModeFull // TODO: Needs porting to instant
     public void testEjected() throws Exception {
         if (!isSupportedDevice()) return;
         final String diskId = getAdoptionDisk();

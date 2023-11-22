@@ -22,8 +22,39 @@ import its.error
 import its.image
 import numpy
 
+CHART_FILE = os.path.join(os.environ['CAMERA_ITS_TOP'], 'pymodules', 'its',
+                          'test_images', 'ISO12233.png')
+CHART_HEIGHT = 13.5  # cm
+CHART_DISTANCE_RFOV = 30.0  # cm
+CHART_DISTANCE_WFOV = 22.0  # cm
+CHART_SCALE_START = 0.65
+CHART_SCALE_STOP = 1.35
+CHART_SCALE_STEP = 0.025
+
+FOV_THRESH_TELE = 60
+FOV_THRESH_WFOV = 90
+
+SCALE_RFOV_IN_WFOV_BOX = 0.67
+SCALE_TELE_IN_RFOV_BOX = 0.67
+SCALE_TELE_IN_WFOV_BOX = 0.5
+
 VGA_HEIGHT = 480
 VGA_WIDTH = 640
+
+
+def calc_chart_scaling(chart_distance, camera_fov):
+    chart_scaling = 1.0
+    camera_fov = float(camera_fov)
+    if (FOV_THRESH_TELE < camera_fov < FOV_THRESH_WFOV and
+                numpy.isclose(chart_distance, CHART_DISTANCE_WFOV, rtol=0.1)):
+        chart_scaling = SCALE_RFOV_IN_WFOV_BOX
+    elif (camera_fov <= FOV_THRESH_TELE and
+          numpy.isclose(chart_distance, CHART_DISTANCE_WFOV, rtol=0.1)):
+        chart_scaling = SCALE_TELE_IN_WFOV_BOX
+    elif (camera_fov <= FOV_THRESH_TELE and
+          numpy.isclose(chart_distance, CHART_DISTANCE_RFOV, rtol=0.1)):
+        chart_scaling = SCALE_TELE_IN_RFOV_BOX
+    return chart_scaling
 
 
 def scale_img(img, scale=1.0):
@@ -50,8 +81,9 @@ class Chart(object):
     Defines PNG reference file, chart size and distance, and scaling range.
     """
 
-    def __init__(self, chart_file, height, distance, scale_start, scale_stop,
-                 scale_step):
+    def __init__(self, chart_file=None, height=None, distance=None,
+                 scale_start=None, scale_stop=None, scale_step=None,
+                 camera_id=None):
         """Initial constructor for class.
 
         Args:
@@ -61,16 +93,17 @@ class Chart(object):
             scale_start:    float; start value for scaling for chart search
             scale_stop:     float; stop value for scaling for chart search
             scale_step:     float; step value for scaling for chart search
+            camera_id:      int; camera used for extractor
         """
-        self._file = chart_file
-        self._height = height
-        self._distance = distance
-        self._scale_start = scale_start
-        self._scale_stop = scale_stop
-        self._scale_step = scale_step
+        self._file = chart_file or CHART_FILE
+        self._height = height or CHART_HEIGHT
+        self._distance = distance or CHART_DISTANCE_RFOV
+        self._scale_start = scale_start or CHART_SCALE_START
+        self._scale_stop = scale_stop or CHART_SCALE_STOP
+        self._scale_step = scale_step or CHART_SCALE_STEP
         self.xnorm, self.ynorm, self.wnorm, self.hnorm, self.scale = its.image.chart_located_per_argv()
         if not self.xnorm:
-            with its.device.ItsSession() as cam:
+            with its.device.ItsSession(camera_id) as cam:
                 props = cam.get_camera_properties()
                 if its.caps.read_3a(props):
                     self.locate(cam, props)
@@ -158,6 +191,9 @@ class Chart(object):
         print 'Finding chart in scene...'
         for scale in numpy.arange(scale_start, scale_stop, scale_step):
             scene_scaled = scale_img(scene_gray, scale)
+            if (scene_scaled.shape[0] < chart.shape[0] or
+                        scene_scaled.shape[1] < chart.shape[1]):
+                continue
             result = cv2.matchTemplate(scene_scaled, chart, cv2.TM_CCOEFF)
             _, opt_val, _, top_left_scaled = cv2.minMaxLoc(result)
             # print out scale and match

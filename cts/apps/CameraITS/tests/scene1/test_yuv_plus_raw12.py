@@ -12,20 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
+import math
+import os.path
+
 import its.caps
 import its.device
+import its.image
 import its.objects
 import its.target
-import os.path
-import math
+
+NAME = os.path.basename(__file__).split(".")[0]
+THRESHOLD_MAX_RMS_DIFF = 0.035
+
 
 def main():
     """Test capturing a single frame as both RAW12 and YUV outputs.
     """
-    NAME = os.path.basename(__file__).split(".")[0]
-
-    THRESHOLD_MAX_RMS_DIFF = 0.035
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
@@ -41,11 +43,11 @@ def main():
 
         max_raw12_size = \
                 its.objects.get_available_output_sizes("raw12", props)[0]
-        w,h = its.objects.get_available_output_sizes(
+        w, h = its.objects.get_available_output_sizes(
                 "yuv", props, (1920, 1080), max_raw12_size)[0]
-        cap_raw, cap_yuv = cam.do_capture(req,
-                [{"format":"raw12"},
-                 {"format":"yuv", "width":w, "height":h}])
+        cap_raw, cap_yuv = cam.do_capture(
+                req, [{"format": "raw12"},
+                      {"format": "yuv", "width": w, "height": h}])
 
         img = its.image.convert_capture_to_rgb_image(cap_yuv)
         its.image.write_image(img, "%s_yuv.jpg" % (NAME), True)
@@ -62,7 +64,9 @@ def main():
         rms_diff = math.sqrt(
                 sum([pow(rgb0[i] - rgb1[i], 2.0) for i in range(3)]) / 3.0)
         print "RMS difference:", rms_diff
-        assert(rms_diff < THRESHOLD_MAX_RMS_DIFF)
+        msg = "RMS difference: %.4f, spec: %.3f" % (rms_diff,
+                                                    THRESHOLD_MAX_RMS_DIFF)
+        assert rms_diff < THRESHOLD_MAX_RMS_DIFF, msg
 
 if __name__ == '__main__':
     main()

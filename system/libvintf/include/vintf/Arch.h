@@ -58,6 +58,24 @@ inline Arch& operator|=(Arch& lft, Arch rgt) {
     return (lft = lft | rgt);
 }
 
+// Returns true if lft defines all bitnesses in rgt, otherwise false.
+inline constexpr bool contains(Arch lft, Arch rgt) {
+    return !(~static_cast<size_t>(lft) & static_cast<size_t>(rgt));
+}
+
+static_assert(contains(Arch::ARCH_32_64, Arch::ARCH_32_64), "bad contains(Arch, Arch)");
+static_assert(contains(Arch::ARCH_32_64, Arch::ARCH_64), "bad contains(Arch, Arch)");
+static_assert(contains(Arch::ARCH_32_64, Arch::ARCH_32), "bad contains(Arch, Arch)");
+static_assert(contains(Arch::ARCH_32_64, Arch::ARCH_EMPTY), "bad contains(Arch, Arch)");
+static_assert(contains(Arch::ARCH_32, Arch::ARCH_EMPTY), "bad contains(Arch, Arch)");
+static_assert(contains(Arch::ARCH_64, Arch::ARCH_EMPTY), "bad contains(Arch, Arch)");
+static_assert(!contains(Arch::ARCH_32, Arch::ARCH_32_64), "bad contains(Arch, Arch)");
+static_assert(!contains(Arch::ARCH_64, Arch::ARCH_32_64), "bad contains(Arch, Arch)");
+static_assert(!contains(Arch::ARCH_32, Arch::ARCH_64), "bad contains(Arch, Arch)");
+static_assert(!contains(Arch::ARCH_64, Arch::ARCH_32), "bad contains(Arch, Arch)");
+static_assert(!contains(Arch::ARCH_EMPTY, Arch::ARCH_32), "bad contains(Arch, Arch)");
+static_assert(!contains(Arch::ARCH_EMPTY, Arch::ARCH_64), "bad contains(Arch, Arch)");
+
 } // namespace vintf
 } // namespace android
 

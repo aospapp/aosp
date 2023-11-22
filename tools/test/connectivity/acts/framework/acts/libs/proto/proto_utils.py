@@ -13,11 +13,13 @@
 # the License.
 import logging
 import os
+import shutil
 import subprocess
 import sys
-from distutils.spawn import find_executable
-from google import protobuf
 from importlib import import_module
+
+from google.protobuf import descriptor_pb2
+from google.protobuf import text_format
 
 
 def compile_proto(proto_path, output_dir):
@@ -27,7 +29,7 @@ def compile_proto(proto_path, output_dir):
     if 'PROTOC' in os.environ and os.path.exists(os.environ['PROTOC']):
         protoc = os.environ['PROTOC']
     if not protoc:
-        protoc = find_executable('protoc')
+        protoc = shutil.which('protoc')
     if not protoc:
         logging.error(
             "Cannot find protobuf compiler (>=3.0.0), please install"
@@ -43,7 +45,7 @@ def compile_proto(proto_path, output_dir):
         return None
     # Validate output py-proto path
     if not os.path.exists(output_dir):
-        os.mkdirs(output_dir)
+        os.makedirs(output_dir)
     elif not os.path.isdir(output_dir):
         logging.error("Output path is not a valid directory: %s" %
                       (output_dir))
@@ -52,11 +54,12 @@ def compile_proto(proto_path, output_dir):
     output_filename = os.path.basename(proto_path).replace('.proto', '_pb2.py')
     output_path = os.path.join(output_dir, output_filename)
     # Compiling proto
-    logging.info('Generating %s' % output_path)
+    logging.debug('Generating %s' % output_path)
     protoc_command = [
         protoc, '-I=%s' % (input_dir), '--python_out=%s' % (output_dir),
         proto_path
     ]
+    logging.debug('Running command %s' % protoc_command)
     if subprocess.call(protoc_command, stderr=subprocess.STDOUT) != 0:
         logging.error("Fail to compile proto")
         return None
@@ -65,12 +68,13 @@ def compile_proto(proto_path, output_dir):
 
 
 def compile_import_proto(output_dir, proto_path):
-    """
-    Compile protobuf from PROTO_PATH and put the result in OUTPUT_DIR.
-    Return the imported module to caller.
-    :param output_dir: To store generated python proto library
-    :param proto_path: Path to the .proto file that needs to be compiled
-    :return: python proto module
+    """Compiles the given protobuf file and return the module.
+
+    Args:
+        output_dir: The directory to put the compilation output.
+        proto_path: The path to the .proto file that needs to be compiled.
+    Returns:
+        The protobuf module.
     """
     output_module_name = compile_proto(proto_path, output_dir)
     if not output_module_name:
@@ -86,9 +90,24 @@ def compile_import_proto(output_dir, proto_path):
 
 
 def parse_proto_to_ascii(binary_proto_msg):
+    """ Parses binary protobuf message to human readable ascii string.
+
+    Args:
+        binary_proto_msg: The binary format of the proto message.
+    Returns:
+        The ascii format of the proto message.
     """
-    Parse binary protobuf message to human readable ascii string
-    :param binary_proto_msg:
-    :return: ascii string of the message
+    return text_format.MessageToString(binary_proto_msg)
+
+
+def to_descriptor_proto(proto):
+    """Retrieves the descriptor proto for the given protobuf message.
+
+    Args:
+        proto: the original message.
+    Returns:
+        The descriptor proto for the input meessage.
     """
-    return protobuf.text_format.MessageToString(binary_proto_msg)
+    descriptor_proto = descriptor_pb2.DescriptorProto()
+    proto.DESCRIPTOR.CopyToProto(descriptor_proto)
+    return descriptor_proto

@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"Κοινοποίηση"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Διαγραφή"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Επιλογή όλων"</string>
+    <string name="menu_select" msgid="1366061076507142387">"Επιλογή"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"Ταξινόμηση κατά…"</string>
     <string name="menu_copy" msgid="7404820171352314754">"Αντιγραφή σε…"</string>
     <string name="menu_move" msgid="2310760789561129882">"Μετακίνηση σε…"</string>
     <string name="menu_compress" msgid="37539111904724188">"Συμπίεση"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"Τύπος"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"Μέγεθος"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Τροποποιημένα"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"Όνομα αρχείου (Α προς Ω)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"Τύπος (A προς Ω)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"Μέγεθος (από μικρότερο)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"Τροποπ. (από παλαιότερο)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"Όνομα αρχείου (Ω προς A)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"Τύπος (Ω προς A)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"Μέγεθος (από μεγαλύτερο)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"Τροποπ. (από νεότερο)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"Ταξινόμηση κατά"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"Ταξινόμηση κατά <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"Αριθμός στοιχείων"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"Αύξουσα"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"Φθίνουσα"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"Ανοίξτε την εφαρμογή <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Εμφάνιση ριζών"</string>
     <string name="drawer_close" msgid="4263880768630848848">"Απόκρυψη ριζών"</string>
     <string name="save_error" msgid="8631128801982095782">"Αποτυχία αποθήκευσης εγγράφου"</string>
@@ -172,7 +185,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"Να εκχωρηθεί στην εφαρμογή <xliff:g id="APPNAME"><b>^1</b></xliff:g> πρόσβαση στον κατάλογο <xliff:g id="DIRECTORY"><i>^2</i></xliff:g> στον αποθηκευτικό χώρο <xliff:g id="STORAGE"><i>^3</i></xliff:g>;"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"Να εκχωρηθεί στην εφαρμογή <xliff:g id="APPNAME"><b>^1</b></xliff:g> πρόσβαση στον κατάλογο <xliff:g id="DIRECTORY"><i>^2</i></xliff:g>;"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"Να εκχωρηθεί στην εφαρμογή <xliff:g id="APPNAME"><b>^1</b></xliff:g> πρόσβαση στα δεδομένα σας, συμπεριλαμβανομένων των φωτογραφιών και των βίντεο, στον αποθηκευτικό χώρο <xliff:g id="STORAGE"><i>^2</i></xliff:g>;"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"Να μην ερωτηθώ ξανά"</string>
     <string name="allow" msgid="1275746941353040309">"Αποδοχή"</string>
     <string name="deny" msgid="5127201668078153379">"Απόρριψη"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -206,4 +218,33 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"αρχειοθέτηση<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Αντικατάσταση <xliff:g id="NAME">%1$s</xliff:g>;"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Συνέχεια στο παρασκήνιο"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="other"><xliff:g id="COUNT_1">%1$d</xliff:g> επιλεγμένα</item>
+      <item quantity="one"><xliff:g id="COUNT_0">%1$d</xliff:g> επιλεγμένο</item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"Πρόσφατα αρχεία στο τηλέφωνο"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"Αρχεία στο τηλέφωνο"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> στο τηλέφωνο"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"Αρχεία στη συσκευή <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"Αρχεία από <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Αρχεία από <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Πρόσφατες εικόνες στο τηλέφωνο"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Εικόνες στο τηλέφωνο"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"Εικόνες στη συσκευή <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"Εικόνες από <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"Εικόνες από <xliff:g id="LABEL">%1$s</xliff:g> / <xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"Εικόνες"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"Ήχος"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"Βίντεο"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"Έγγραφα"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"Όνομα φακέλου"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"Νέο όνομα"</string>
+    <string name="preview_file" msgid="4056622696305432343">"Προεπισκόπηση του αρχείου <xliff:g id="FILENAME">%1$s</xliff:g>"</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"Αναζήτηση αρχείων σε άλλες εφαρμογές"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"Ανώνυμη"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"Να επιτρέπεται η πρόσβαση σε \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\""</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"Να επιτρέπεται η πρόσβαση σε \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\" στο \"<xliff:g id="ROOT">%2$s</xliff:g>\";"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Θα επιτρέπεται στην εφαρμογή \"<xliff:g id="APPNAME">%1$s</xliff:g>\" να έχει πλήρη πρόσβαση σε όλα τα αρχεία που είναι αποθηκευμένα αυτήν τη στιγμή σε αυτήν την τοποθεσία και τυχόν περιεχόμενο που θα αποθηκευτεί μελλοντικά εδώ."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"Αναζήτηση αυτού του τηλεφώνου"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"Διαγραφή ιστορικού αναζήτησης <xliff:g id="TEXT">%1$s</xliff:g>"</string>
 </resources>

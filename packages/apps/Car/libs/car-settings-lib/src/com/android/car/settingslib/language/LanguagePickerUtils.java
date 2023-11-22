@@ -19,7 +19,8 @@ package com.android.car.settingslib.language;
 import android.app.ActivityManager;
 import android.content.Context;
 import android.os.RemoteException;
-import android.support.annotation.Nullable;
+
+import androidx.annotation.Nullable;
 
 import com.android.internal.app.LocaleHelper;
 import com.android.internal.app.LocaleStore;

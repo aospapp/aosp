@@ -42,6 +42,7 @@ public class DmesgParser implements IParser {
     private static final String ACTION = "ACTION";
     private static final String DURATION = "DURATION";
     private static final String UEVENTD = "ueventd";
+    private static final String INIT = "init";
 
     // Matches: [ 14.822691] init:
     private static final String SERVICE_PREFIX = String.format("^\\[\\s+(?<%s>.*)\\] init:\\s+",
@@ -94,6 +95,11 @@ public class DmesgParser implements IParser {
     private static final Pattern UEVENTD_STAGE_INFO = Pattern.compile(
             String.format("%s%s", UEVENTD_PREFIX, STAGE_SUFFIX));
 
+    private static final String PROPERTY_SUFFIX= String.format(
+            "(?<%s>.*)\\s+took\\s+(?<%s>.*)ms$", STAGE, DURATION);
+    // Matches [    7.270487] init: Wait for property 'apexd.status=ready' took 230ms
+    private static final Pattern WAIT_FOR_PROPERTY_INFO = Pattern.compile(
+            String.format("%s%s", SERVICE_PREFIX, PROPERTY_SUFFIX));
 
     private DmesgItem mDmesgItem = new DmesgItem();
 
@@ -142,6 +148,7 @@ public class DmesgParser implements IParser {
      * @param line individual line of the dmesg log
      */
     private void parse(String line) {
+
         if (parseServiceInfo(line)) {
             return;
         }
@@ -210,7 +217,17 @@ public class DmesgParser implements IParser {
             stageInfoItem.setDuration((long) (Double.parseDouble(
                     match.group(DURATION)) * 1000));
             mDmesgItem.addStageInfoItem(stageInfoItem);
+            return true;
         }
+        if((match = matches(WAIT_FOR_PROPERTY_INFO, line)) != null) {
+            DmesgStageInfoItem stageInfoItem = new DmesgStageInfoItem();
+            stageInfoItem.setStageName(String.format("%s_%s", INIT, match.group(STAGE)));
+            stageInfoItem.setDuration((long) (Double.parseDouble(
+                    match.group(DURATION))));
+            mDmesgItem.addStageInfoItem(stageInfoItem);
+            return true;
+        }
+
         return false;
     }
 

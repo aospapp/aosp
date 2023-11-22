@@ -20,13 +20,15 @@
 
 #include "android-base/endian.h"
 #include "android-base/stringprintf.h"
+#include "base/file_utils.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/mutex.h"
-#include "java_vm_ext.h"
-#include "jni_env_ext.h"
+#include "base/socket_peer_is_trusted.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_env_ext.h"
 #include "mirror/throwable.h"
-#include "nativehelper/ScopedLocalRef.h"
+#include "nativehelper/scoped_local_ref.h"
 #include "runtime-inl.h"
 #include "runtime_callbacks.h"
 #include "scoped_thread_state_change-inl.h"
@@ -37,10 +39,6 @@
 #include "fd_transport.h"
 
 #include "poll.h"
-
-#ifdef ART_TARGET_ANDROID
-#include "cutils/sockets.h"
-#endif
 
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -164,8 +162,8 @@ static jobject CreateAdbConnectionThread(art::Thread* thr) {
                         art::WellKnownClasses::java_lang_Thread_init,
                         thr_group.get(),
                         thr_name.get(),
-                        /*Priority*/ 0,
-                        /*Daemon*/ true);
+                        /*Priority=*/ 0,
+                        /*Daemon=*/ true);
 }
 
 struct CallbackData {
@@ -251,6 +249,8 @@ void AdbConnectionState::StartDebuggerThreads() {
     runtime->StartThreadBirth();
   }
   ScopedLocalRef<jobject> thr(soa.Env(), CreateAdbConnectionThread(soa.Self()));
+  // Note: Using pthreads instead of std::thread to not abort when the thread cannot be
+  //       created (exception support required).
   pthread_t pthread;
   std::unique_ptr<CallbackData> data(new CallbackData { this, soa.Env()->NewGlobalRef(thr.get()) });
   started_debugger_threads_ = true;
@@ -268,7 +268,7 @@ void AdbConnectionState::StartDebuggerThreads() {
     runtime->EndThreadBirth();
     return;
   }
-  data.release();
+  data.release();  // NOLINT pthreads API.
 }
 
 static bool FlagsSet(int16_t data, int16_t flags) {
@@ -289,7 +289,7 @@ void AdbConnectionState::CloseFds() {
 
   // If the agent isn't loaded we might need to tell ddms code the connection is closed.
   if (!agent_loaded_ && notified_ddm_active_) {
-    NotifyDdms(/*active*/false);
+    NotifyDdms(/*active=*/false);
   }
 }
 
@@ -426,11 +426,11 @@ void AdbConnectionState::SendAgentFds(bool require_handshake) {
   cmsg->cmsg_type  = SCM_RIGHTS;
 
   // Duplicate the fds before sending them.
-  android::base::unique_fd read_fd(dup(adb_connection_socket_));
+  android::base::unique_fd read_fd(art::DupCloexec(adb_connection_socket_));
   CHECK_NE(read_fd.get(), -1) << "Failed to dup read_fd_: " << strerror(errno);
-  android::base::unique_fd write_fd(dup(adb_connection_socket_));
+  android::base::unique_fd write_fd(art::DupCloexec(adb_connection_socket_));
   CHECK_NE(write_fd.get(), -1) << "Failed to dup write_fd: " << strerror(errno);
-  android::base::unique_fd write_lock_fd(dup(adb_write_event_fd_));
+  android::base::unique_fd write_lock_fd(art::DupCloexec(adb_write_event_fd_));
   CHECK_NE(write_lock_fd.get(), -1) << "Failed to dup write_lock_fd: " << strerror(errno);
 
   dt_fd_forward::FdSet {
@@ -476,7 +476,6 @@ android::base::unique_fd AdbConnectionState::ReadFdFromAdb() {
   int rc = TEMP_FAILURE_RETRY(recvmsg(control_sock_, &msg, 0));
 
   if (rc <= 0) {
-    PLOG(WARNING) << "Receiving file descriptor from ADB failed (socket " << control_sock_ << ")";
     return android::base::unique_fd(-1);
   } else {
     VLOG(jdwp) << "Fds have been received from ADB!";
@@ -489,7 +488,7 @@ bool AdbConnectionState::SetupAdbConnection() {
   int        sleep_ms     = 500;
   const int  sleep_max_ms = 2*1000;
 
-  android::base::unique_fd sock(socket(AF_UNIX, SOCK_SEQPACKET, 0));
+  android::base::unique_fd sock(socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0));
   if (sock < 0) {
     PLOG(ERROR) << "Could not create ADB control socket";
     return false;
@@ -514,11 +513,7 @@ bool AdbConnectionState::SetupAdbConnection() {
     // the debuggable flag set.
     int ret = connect(sock, &control_addr_.controlAddrPlain, control_addr_len_);
     if (ret == 0) {
-      bool trusted = sock >= 0;
-#ifdef ART_TARGET_ANDROID
-      // Needed for socket_peer_is_trusted.
-      trusted = trusted && socket_peer_is_trusted(sock);
-#endif
+      bool trusted = sock >= 0 && art::SocketPeerIsTrusted(sock);
       if (!trusted) {
         LOG(ERROR) << "adb socket is not trusted. Aborting connection.";
         if (sock >= 0 && shutdown(sock, SHUT_RDWR)) {
@@ -605,7 +600,7 @@ void AdbConnectionState::RunPollLoop(art::Thread* self) {
         if (memcmp(kListenStartMessage, buf, sizeof(kListenStartMessage)) == 0) {
           agent_listening_ = true;
           if (adb_connection_socket_ != -1) {
-            SendAgentFds(/*require_handshake*/ !performed_handshake_);
+            SendAgentFds(/*require_handshake=*/ !performed_handshake_);
           }
         } else if (memcmp(kListenEndMessage, buf, sizeof(kListenEndMessage)) == 0) {
           agent_listening_ = false;
@@ -628,7 +623,6 @@ void AdbConnectionState::RunPollLoop(art::Thread* self) {
           android::base::unique_fd new_fd(ReadFdFromAdb());
           if (new_fd == -1) {
             // Something went wrong. We need to retry getting the control socket.
-            PLOG(ERROR) << "Something went wrong getting fds from adb. Retry!";
             control_sock_.reset();
             break;
           } else if (adb_connection_socket_ != -1) {
@@ -647,7 +641,7 @@ void AdbConnectionState::RunPollLoop(art::Thread* self) {
           VLOG(jdwp) << "Sending fds as soon as we received them.";
           // The agent was already loaded so this must be after a disconnection. Therefore have the
           // transport perform the handshake.
-          SendAgentFds(/*require_handshake*/ true);
+          SendAgentFds(/*require_handshake=*/ true);
         }
       } else if (FlagsSet(control_sock_poll.revents, POLLRDHUP)) {
         // The other end of the adb connection just dropped it.
@@ -663,7 +657,7 @@ void AdbConnectionState::RunPollLoop(art::Thread* self) {
         } else if (agent_listening_ && !sent_agent_fds_) {
           VLOG(jdwp) << "Sending agent fds again on data.";
           // Agent was already loaded so it can deal with the handshake.
-          SendAgentFds(/*require_handshake*/ true);
+          SendAgentFds(/*require_handshake=*/ true);
         }
       } else if (FlagsSet(adb_socket_poll.revents, POLLRDHUP)) {
         DCHECK(!agent_has_socket_);
@@ -763,7 +757,7 @@ void AdbConnectionState::HandleDataWithoutAgent(art::Thread* self) {
   }
 
   if (!notified_ddm_active_) {
-    NotifyDdms(/*active*/ true);
+    NotifyDdms(/*active=*/ true);
   }
   uint32_t reply_type;
   std::vector<uint8_t> reply;
@@ -826,9 +820,9 @@ void AdbConnectionState::PerformHandshake() {
 void AdbConnectionState::AttachJdwpAgent(art::Thread* self) {
   art::Runtime* runtime = art::Runtime::Current();
   self->AssertNoPendingException();
-  runtime->AttachAgent(/* JNIEnv */ nullptr,
+  runtime->AttachAgent(/* env= */ nullptr,
                        MakeAgentArg(),
-                       /* classloader */ nullptr);
+                       /* class_loader= */ nullptr);
   if (self->IsExceptionPending()) {
     LOG(ERROR) << "Failed to load agent " << agent_name_;
     art::ScopedObjectAccess soa(self);
@@ -872,7 +866,7 @@ std::string AdbConnectionState::MakeAgentArg() {
       (ContainsArgument(opts, "server=y") ? "" : "server=y,") +
       // See the comment above for why we need to be suspend=n. Since the agent defaults to
       // suspend=y we will add it if it wasn't already present.
-      (ContainsArgument(opts, "suspend=n") ? "" : "suspend=n") +
+      (ContainsArgument(opts, "suspend=n") ? "" : "suspend=n,") +
       "transport=dt_fd_forward,address=" + std::to_string(remote_agent_control_sock_);
 }
 

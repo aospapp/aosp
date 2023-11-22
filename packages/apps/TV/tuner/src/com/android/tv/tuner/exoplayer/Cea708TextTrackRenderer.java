@@ -17,8 +17,8 @@
 package com.android.tv.tuner.exoplayer;
 
 import android.util.Log;
-import com.android.tv.tuner.cc.Cea708Parser;
 import com.android.tv.tuner.data.Cea708Data.CaptionEvent;
+import com.android.tv.tuner.data.Cea708Parser;
 import com.google.android.exoplayer.ExoPlaybackException;
 import com.google.android.exoplayer.MediaClock;
 import com.google.android.exoplayer.MediaFormat;

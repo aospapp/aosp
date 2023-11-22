@@ -22,10 +22,11 @@ import android.app.Application.ActivityLifecycleCallbacks;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.test.runner.AndroidJUnitRunner;
 import android.util.ArrayMap;
-
 import android.view.WindowManager;
+
+import androidx.test.runner.AndroidJUnitRunner;
+
 import java.util.Map;
 
 public class TestInstrumentationRunner extends AndroidJUnitRunner {

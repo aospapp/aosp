@@ -21,7 +21,7 @@ import android.graphics.Bitmap;
 import android.media.ThumbnailUtils;
 import android.os.SystemProperties;
 import android.provider.MediaStore;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.format.DateUtils;
 
 import com.android.storagemanager.utils.AsyncLoader;

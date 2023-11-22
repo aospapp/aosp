@@ -32,6 +32,9 @@ public class CustomizationParams {
     /** Status bar color */
     public final int statusBarColor;
 
+    /** Use Status bar color from SUW partner configuration */
+    public final boolean useSetupStatusBarColor;
+
     /** Color used in everywhere else */
     public final int mainColor;
 
@@ -49,23 +52,26 @@ public class CustomizationParams {
     public static CustomizationParams createInstance(
             ProvisioningParams params, Context context, Utils utils) {
         int statusBarColor, mainColor;
+        boolean useSetupStatusBarColor = false;
         if (params.mainColor != null) {
             statusBarColor = mainColor = params.mainColor;
         } else {
+            useSetupStatusBarColor = true;
             statusBarColor = context.getColor(DEFAULT_STATUS_BAR_COLOR_ID);
             mainColor = utils.getAccentColor(context);
         }
 
         String supportUrl = URLUtil.isNetworkUrl(params.supportUrl) ? params.supportUrl : null;
 
-        return new CustomizationParams(mainColor, statusBarColor, params.organizationName,
-                supportUrl);
+        return new CustomizationParams(mainColor, statusBarColor, useSetupStatusBarColor,
+                params.organizationName, supportUrl);
     }
 
-    private CustomizationParams(int mainColor, int statusBarColor,
+    private CustomizationParams(int mainColor, int statusBarColor, boolean useSetupStatusBarColor,
             String orgName, String supportUrl) {
         this.mainColor = mainColor;
         this.statusBarColor = statusBarColor;
+        this.useSetupStatusBarColor = useSetupStatusBarColor;
         this.orgName = orgName;
         this.supportUrl = supportUrl;
     }

@@ -19,10 +19,10 @@
 
 #include <stdint.h>
 
-#include <map>
 #include <memory>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 
 #include "read_elf.h"
 
@@ -68,38 +68,31 @@ class EmbeddedElf {
 // APK inspector helper class
 class ApkInspector {
  public:
-  // Given an APK/ZIP/JAR file and an offset into that file, if the
-  // corresponding region of the APK corresponds to an uncompressed
-  // ELF file, then return pertinent info on the ELF.
-  static bool FindOffsetInApkByName(const std::string& apk_path,
-                                    const std::string& elf_filename,
-                                    uint64_t* offset, uint32_t* uncompressed_length);
   static EmbeddedElf* FindElfInApkByOffset(const std::string& apk_path, uint64_t file_offset);
-  static std::unique_ptr<EmbeddedElf> FindElfInApkByName(const std::string& apk_path,
-                                                         const std::string& elf_filename);
+  static EmbeddedElf* FindElfInApkByName(const std::string& apk_path,
+                                         const std::string& entry_name);
 
  private:
   static std::unique_ptr<EmbeddedElf> FindElfInApkByOffsetWithoutCache(const std::string& apk_path,
                                                                        uint64_t file_offset);
+  static std::unique_ptr<EmbeddedElf> FindElfInApkByNameWithoutCache(
+      const std::string& apk_path, const std::string& entry_name);
 
-  // First component of pair is APK file path, second is offset into APK.
-  typedef std::pair<std::string, uint64_t> ApkOffset;
-
-  static std::map<ApkOffset, std::unique_ptr<EmbeddedElf>> embedded_elf_cache_;
+  struct ApkNode {
+    // Map from entry_offset to EmbeddedElf.
+    std::unordered_map<uint64_t, std::unique_ptr<EmbeddedElf>> offset_map;
+    // Map from entry_name to EmbeddedElf.
+    std::unordered_map<std::string, EmbeddedElf*> name_map;
+  };
+  static std::unordered_map<std::string, ApkNode> embedded_elf_cache_;
 };
-
-// Export for test only.
-bool IsValidApkPath(const std::string& apk_path);
 
 std::string GetUrlInApk(const std::string& apk_path, const std::string& elf_filename);
 std::tuple<bool, std::string, std::string> SplitUrlInApk(const std::string& path);
 
-ElfStatus GetBuildIdFromApkFile(const std::string& apk_path, const std::string& elf_filename,
-                                BuildId* build_id);
-
-ElfStatus ParseSymbolsFromApkFile(const std::string& apk_path, const std::string& elf_filename,
-                                  const BuildId& expected_build_id,
-                                  const std::function<void(const ElfFileSymbol&)>& callback);
-
+// Parse path like "[anon:dalvik-classes.dex extracted in memory from /..base.apk] (deleted)",
+// or "/dev/ashmem/dalvik-classes.dex extracted in memory from /..base.apk (deleted)" on Android P.
+bool ParseExtractedInMemoryPath(const std::string& path, std::string* zip_path,
+                                std::string* entry_name);
 
 #endif  // SIMPLE_PERF_READ_APK_H_

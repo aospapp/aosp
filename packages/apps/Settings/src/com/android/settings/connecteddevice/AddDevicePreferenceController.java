@@ -21,17 +21,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 
-import com.android.settings.core.BasePreferenceController;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
+
 import com.android.settings.R;
+import com.android.settings.core.BasePreferenceController;
 import com.android.settingslib.core.lifecycle.LifecycleObserver;
 import com.android.settingslib.core.lifecycle.events.OnStart;
 import com.android.settingslib.core.lifecycle.events.OnStop;
 
 /**
- * Controller to maintain the {@link android.support.v7.preference.Preference} for add
+ * Controller to maintain the {@link androidx.preference.Preference} for add
  * device. It monitor Bluetooth's status(on/off) and decide if need to show summary or not.
  */
 public class AddDevicePreferenceController extends BasePreferenceController
@@ -67,7 +68,7 @@ public class AddDevicePreferenceController extends BasePreferenceController
     public void displayPreference(PreferenceScreen screen) {
         super.displayPreference(screen);
         if (isAvailable()) {
-            mPreference = (Preference) screen.findPreference(getPreferenceKey());
+            mPreference = screen.findPreference(getPreferenceKey());
         }
     }
 

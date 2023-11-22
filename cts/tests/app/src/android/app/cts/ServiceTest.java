@@ -16,37 +16,56 @@
 
 package android.app.cts;
 
+import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.stubs.ActivityTestsBase;
+import android.app.stubs.IsolatedService;
+import android.app.stubs.LaunchpadActivity;
 import android.app.stubs.LocalDeniedService;
 import android.app.stubs.LocalForegroundService;
 import android.app.stubs.LocalGrantedService;
 import android.app.stubs.LocalService;
 import android.app.stubs.NullService;
+import android.app.stubs.R;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.support.test.InstrumentationRegistry;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.os.ParcelFileDescriptor;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.service.notification.StatusBarNotification;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
-import android.app.stubs.R;
+import android.util.SparseArray;
+
+import androidx.test.filters.FlakyTest;
+import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.IBinderParcelable;
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.server.am.nano.ActivityManagerServiceDumpProcessesProto;
+import com.android.server.am.nano.ProcessRecordProto;
 
+import com.google.protobuf.nano.InvalidProtocolBufferNanoException;
+
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 public class ServiceTest extends ActivityTestsBase {
     private static final String TAG = "ServiceTest";
@@ -65,6 +84,7 @@ public class ServiceTest extends ActivityTestsBase {
     private static final String EXTERNAL_SERVICE_PACKAGE = "com.android.app2";
     private static final String EXTERNAL_SERVICE_COMPONENT =
             EXTERNAL_SERVICE_PACKAGE + "/android.app.stubs.LocalService";
+    private static final String APP_ZYGOTE_PROCESS_NAME = "android.app.stubs_zygote";
     private int mExpectedServiceState;
     private Context mContext;
     private Intent mLocalService;
@@ -73,7 +93,11 @@ public class ServiceTest extends ActivityTestsBase {
     private Intent mLocalGrantedService;
     private Intent mLocalService_ApplicationHasPermission;
     private Intent mLocalService_ApplicationDoesNotHavePermission;
+    private Intent mIsolatedService;
     private Intent mExternalService;
+    private Executor mContextMainExecutor;
+    private HandlerThread mBackgroundThread;
+    private Executor mBackgroundThreadExecutor;
 
     private IBinder mStateReceiver;
 
@@ -127,6 +151,7 @@ public class ServiceTest extends ActivityTestsBase {
         private final boolean mSetReporter;
         private boolean mMonitor;
         private int mCount;
+        private Thread mOnServiceConnectedThread;
 
         public TestConnection(boolean expectDisconnect, boolean setReporter) {
             mExpectDisconnect = expectDisconnect;
@@ -138,8 +163,13 @@ public class ServiceTest extends ActivityTestsBase {
             mMonitor = v;
         }
 
+        public Thread getOnServiceConnectedThread() {
+            return mOnServiceConnectedThread;
+        }
+
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
+            mOnServiceConnectedThread = Thread.currentThread();
             if (mSetReporter) {
                 Parcel data = Parcel.obtain();
                 data.writeInterfaceToken(LocalService.SERVICE_LOCAL);
@@ -187,6 +217,193 @@ public class ServiceTest extends ActivityTestsBase {
                     finishBad("onServiceDisconnected() called unexpectedly");
                 }
             }
+        }
+    }
+
+    final class IsolatedConnection implements ServiceConnection {
+        private IBinder mService;
+        private int mUid;
+        private int mPid;
+        private int mPpid;
+        private Thread mOnServiceConnectedThread;
+
+        public IsolatedConnection() {
+            mUid = mPid = -1;
+        }
+
+        public void waitForService(int timeoutMs) {
+            final long endTime = System.currentTimeMillis() + timeoutMs;
+
+            boolean timeout = false;
+            synchronized (this) {
+                while (mService == null) {
+                    final long delay = endTime - System.currentTimeMillis();
+                    if (delay < 0) {
+                        timeout = true;
+                        break;
+                    }
+
+                    try {
+                        wait(delay);
+                    } catch (final java.lang.InterruptedException e) {
+                        // do nothing
+                    }
+                }
+            }
+
+            if (timeout) {
+                throw new RuntimeException("Timed out waiting for connection");
+            }
+        }
+
+        public int getUid() {
+            return mUid;
+        }
+
+        public int getPid() {
+            return mPid;
+        }
+
+        public int getPpid() {
+            return mPpid;
+        }
+
+        public boolean zygotePreloadCalled() {
+            Parcel data = Parcel.obtain();
+            Parcel reply = Parcel.obtain();
+            data.writeInterfaceToken(LocalService.SERVICE_LOCAL);
+            try {
+                mService.transact(LocalService.GET_ZYGOTE_PRELOAD_CALLED, data, reply, 0);
+            } catch (RemoteException e) {
+                finishBad("DeadObjectException when sending reporting object");
+            }
+            boolean value = reply.readBoolean();
+            reply.recycle();
+            data.recycle();
+            return value;
+        }
+
+        public void setValue(int value) {
+            Parcel data = Parcel.obtain();
+            data.writeInterfaceToken(LocalService.SERVICE_LOCAL);
+            data.writeInt(value);
+            try {
+                mService.transact(LocalService.SET_VALUE_CODE, data, null, 0);
+            } catch (RemoteException e) {
+                finishBad("DeadObjectException when sending reporting object");
+            }
+            data.recycle();
+        }
+
+        public int getValue() {
+            Parcel data = Parcel.obtain();
+            Parcel reply = Parcel.obtain();
+            data.writeInterfaceToken(LocalService.SERVICE_LOCAL);
+            try {
+                mService.transact(LocalService.GET_VALUE_CODE, data, reply, 0);
+            } catch (RemoteException e) {
+                finishBad("DeadObjectException when sending reporting object");
+            }
+            int value = reply.readInt();
+            reply.recycle();
+            data.recycle();
+            return value;
+        }
+
+        public int getPidIpc() {
+            Parcel data = Parcel.obtain();
+            Parcel reply = Parcel.obtain();
+            data.writeInterfaceToken(LocalService.SERVICE_LOCAL);
+            try {
+                mService.transact(LocalService.GET_PID_CODE, data, reply, 0);
+            } catch (RemoteException e) {
+                finishBad("DeadObjectException when sending reporting object");
+            }
+            int value = reply.readInt();
+            reply.recycle();
+            data.recycle();
+            return value;
+        }
+
+        public int getPpidIpc() {
+            Parcel data = Parcel.obtain();
+            Parcel reply = Parcel.obtain();
+            data.writeInterfaceToken(LocalService.SERVICE_LOCAL);
+            try {
+                mService.transact(LocalService.GET_PPID_CODE, data, reply, 0);
+            } catch (RemoteException e) {
+                finishBad("DeadObjectException when sending reporting object");
+            }
+            int value = reply.readInt();
+            reply.recycle();
+            data.recycle();
+            return value;
+        }
+
+        public int getUidIpc() {
+            Parcel data = Parcel.obtain();
+            Parcel reply = Parcel.obtain();
+            data.writeInterfaceToken(LocalService.SERVICE_LOCAL);
+            try {
+                mService.transact(LocalService.GET_UID_CODE, data, reply, 0);
+            } catch (RemoteException e) {
+                finishBad("DeadObjectException when sending reporting object");
+            }
+            int value = reply.readInt();
+            reply.recycle();
+            data.recycle();
+            return value;
+        }
+
+        public Thread getOnServiceConnectedThread() {
+            return mOnServiceConnectedThread;
+        }
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            synchronized (this) {
+                mOnServiceConnectedThread = Thread.currentThread();
+                mService = service;
+                mUid = getUidIpc();
+                mPid = getPidIpc();
+                mPpid = getPpidIpc();
+                notifyAll();
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            synchronized (this) {
+                mService = null;
+            }
+        }
+    }
+
+    private byte[] executeShellCommand(String cmd) {
+        try {
+            ParcelFileDescriptor pfd =
+                    InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                            .executeShellCommand(cmd);
+            byte[] buf = new byte[512];
+            int bytesRead;
+            FileInputStream fis = new ParcelFileDescriptor.AutoCloseInputStream(pfd);
+            ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+            while ((bytesRead = fis.read(buf)) != -1) {
+                stdout.write(buf, 0, bytesRead);
+            }
+            fis.close();
+            return stdout.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public ActivityManagerServiceDumpProcessesProto getActivityManagerProcesses() {
+        byte[] dump = executeShellCommand("dumpsys activity --proto processes");
+        try {
+            return ActivityManagerServiceDumpProcessesProto.parseFrom(dump);
+        } catch (InvalidProtocolBufferNanoException e) {
+            throw new RuntimeException("Failed parsing proto", e);
         }
     }
 
@@ -441,9 +658,24 @@ public class ServiceTest extends ActivityTestsBase {
                 LocalService.SERVICE_LOCAL_GRANTED, null /*uri*/, mContext, LocalService.class);
         mLocalService_ApplicationDoesNotHavePermission = new Intent(
                 LocalService.SERVICE_LOCAL_DENIED, null /*uri*/, mContext, LocalService.class);
+        mIsolatedService = new Intent(mContext, IsolatedService.class);
         mStateReceiver = new MockBinder();
         getNotificationManager().createNotificationChannel(new NotificationChannel(
                 NOTIFICATION_CHANNEL_ID, "name", NotificationManager.IMPORTANCE_DEFAULT));
+        mContextMainExecutor = mContext.getMainExecutor();
+    }
+
+    private void setupBackgroundThread() {
+        HandlerThread thread  = new HandlerThread("ServiceTestBackgroundThread");
+        thread.start();
+        Handler handler = new Handler(thread.getLooper());
+        mBackgroundThread = thread;
+        mBackgroundThreadExecutor = new Executor() {
+            @Override
+            public void execute(Runnable runnable) {
+                handler.post(runnable);
+            }
+        };
     }
 
     @Override
@@ -455,6 +687,11 @@ public class ServiceTest extends ActivityTestsBase {
         mContext.stopService(mLocalGrantedService);
         mContext.stopService(mLocalService_ApplicationHasPermission);
         mContext.stopService(mExternalService);
+        if (mBackgroundThread != null) {
+            mBackgroundThread.quitSafely();
+        }
+        mBackgroundThread = null;
+        mBackgroundThreadExecutor = null;
     }
 
     private class MockBinder extends Binder {
@@ -537,6 +774,19 @@ public class ServiceTest extends ActivityTestsBase {
 
     public void testLocalBindClass() throws Exception {
         bindExpectResult(mLocalService);
+    }
+
+    public void testBindServiceWithExecutor() throws Exception {
+      setupBackgroundThread();
+
+      TestConnection conn = new TestConnection(true, false);
+      mExpectedServiceState = STATE_START_1;
+      mContext.bindService(
+          mLocalService, Context.BIND_AUTO_CREATE, mBackgroundThreadExecutor, conn);
+      waitForResultOrThrow(DELAY, EXIST_CONN_TO_RECEIVE_SERVICE);
+      assertEquals(mBackgroundThread, conn.getOnServiceConnectedThread());
+
+      mContext.unbindService(conn);
     }
 
     /* Just the Intent for a foreground service */
@@ -649,6 +899,7 @@ public class ServiceTest extends ActivityTestsBase {
         assertNoNotification(2);
     }
 
+    @FlakyTest
     public void testRunningServices() throws Exception {
         final int maxReturnedServices = 10;
         final Bundle bundle = new Bundle();
@@ -890,6 +1141,568 @@ public class ServiceTest extends ActivityTestsBase {
         } finally {
             mContext.unbindService(conn1);
             mContext.unbindService(conn2);
+        }
+    }
+
+    /**
+     * Verify that we can't use bindIsolatedService() on a non-isolated service.
+     */
+    @MediumTest
+    public void testFailBindNonIsolatedService() throws Exception {
+        EmptyConnection conn = new EmptyConnection();
+        try {
+            mContext.bindIsolatedService(mLocalService, 0, "isolated", mContextMainExecutor, conn);
+            mContext.unbindService(conn);
+            fail("Didn't get IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            // This is expected.
+        }
+    }
+
+    /**
+     * Verify that certain characters are prohibited in instanceName.
+     */
+    public void testFailBindIsoaltedServiceWithInvalidInstanceName() throws Exception {
+        String[] badNames = {
+            "t\rest",
+            "test\n",
+            "test-three",
+            "test four",
+            "escape\u00a9seq",
+            "\u0164est",
+        };
+        for (String instanceName : badNames) {
+            EmptyConnection conn = new EmptyConnection();
+            try {
+                mContext.bindIsolatedService(mIsolatedService, Context.BIND_AUTO_CREATE,
+                        instanceName, mContextMainExecutor, conn);
+                mContext.unbindService(conn);
+                fail("Didn't get IllegalArgumentException: " + instanceName);
+            } catch (IllegalArgumentException e) {
+                // This is expected.
+            }
+        }
+    }
+
+    /**
+     * Verify that bindIsolatedService() correctly makes different instances when given
+     * different instance names.
+     */
+    @MediumTest
+    public void testBindIsolatedServiceInstances() throws Exception {
+        IsolatedConnection conn1a = null;
+        IsolatedConnection conn1b = null;
+        IsolatedConnection conn2 = null;
+        try {
+            conn1a = new IsolatedConnection();
+            mContext.bindIsolatedService(
+                    mIsolatedService, Context.BIND_AUTO_CREATE, "1", mContextMainExecutor, conn1a);
+            conn1b = new IsolatedConnection();
+            mContext.bindIsolatedService(
+                    mIsolatedService, Context.BIND_AUTO_CREATE, "1", mContextMainExecutor, conn1b);
+            conn2 = new IsolatedConnection();
+            mContext.bindIsolatedService(
+                    mIsolatedService, Context.BIND_AUTO_CREATE, "2", mContextMainExecutor, conn2);
+
+            conn1a.waitForService(DELAY);
+            conn1b.waitForService(DELAY);
+            conn2.waitForService(DELAY);
+
+            if (conn1a.getPid() != conn1b.getPid()) {
+                fail("Connections to same service name in different pids");
+            }
+            if (conn1a.getPid() == conn2.getPid()) {
+                fail("Connections to different service names in same pids");
+            }
+
+            conn1a.setValue(1);
+            assertEquals(1, conn1a.getValue());
+            assertEquals(1, conn1b.getValue());
+
+            conn2.setValue(2);
+            assertEquals(1, conn1a.getValue());
+            assertEquals(1, conn1b.getValue());
+            assertEquals(2, conn2.getValue());
+
+            conn1b.setValue(3);
+            assertEquals(3, conn1a.getValue());
+            assertEquals(3, conn1b.getValue());
+            assertEquals(2, conn2.getValue());
+        } finally {
+            if (conn2 != null) {
+                mContext.unbindService(conn2);
+            }
+            if (conn1b != null) {
+                mContext.unbindService(conn1b);
+            }
+            if (conn1a != null) {
+                mContext.unbindService(conn1a);
+            }
+        }
+    }
+
+    public void testBindIsolatedServiceOnBackgroundThread() throws Exception {
+        setupBackgroundThread();
+        IsolatedConnection conn = new IsolatedConnection();
+        mContext.bindIsolatedService(mIsolatedService, Context.BIND_AUTO_CREATE,
+            "background_instance", mBackgroundThreadExecutor, conn);
+        conn.waitForService(DELAY);
+        assertEquals(mBackgroundThread, conn.getOnServiceConnectedThread());
+        mContext.unbindService(conn);
+    }
+
+    static final int BINDING_WEAK = 0;
+    static final int BINDING_STRONG = 1;
+    static final int BINDING_ANY = -1;
+
+    final class IsolatedConnectionInfo {
+        final int mStrong;
+        final String mInstanceName;
+        final String mLabel;
+        int mGroup;
+        int mImportance;
+        IsolatedConnection mConnection;
+
+        IsolatedConnectionInfo(int group, int importance, int strong) {
+            mGroup = group;
+            mImportance = importance;
+            mStrong = strong;
+            mInstanceName = group + "_" + importance;
+            StringBuilder b = new StringBuilder(mInstanceName);
+            b.append('_');
+            if (strong == BINDING_WEAK) {
+                b.append('W');
+            } else if (strong == BINDING_STRONG) {
+                b.append('S');
+            } else {
+                b.append(strong);
+            }
+            mLabel = b.toString();
+        }
+
+        void setGroup(int group) {
+            mGroup = group;
+        }
+
+        void setImportance(int importance) {
+            mImportance = importance;
+        }
+
+        boolean match(int group, int strong) {
+            return (group < 0 || mGroup == group)
+                    && (strong == BINDING_ANY || mStrong == strong);
+        }
+
+        boolean bind(Context context) {
+            if (mConnection != null) {
+                return true;
+            }
+            Log.i("XXXXXXX", "Binding " + mLabel + ": conn=" + mConnection
+                    + " context=" + context);
+            mConnection = new IsolatedConnection();
+            boolean result = context.bindIsolatedService(
+                    mIsolatedService,
+                    Context.BIND_AUTO_CREATE | Context.BIND_DEBUG_UNBIND
+                            | (mStrong == BINDING_STRONG ? 0 : Context.BIND_ALLOW_OOM_MANAGEMENT),
+                    mInstanceName, mContextMainExecutor, mConnection);
+            if (!result) {
+                mConnection = null;
+            }
+            return result;
+        }
+
+        IsolatedConnection getConnection() {
+            return mConnection;
+        }
+
+        void unbind(Context context) {
+            if (mConnection != null) {
+                Log.i("XXXXXXX", "Unbinding " + mLabel + ": conn=" + mConnection
+                        + " context=" + context);
+                context.unbindService(mConnection);
+                mConnection = null;
+            }
+        }
+    }
+
+    final class LruOrderItem {
+        static final int FLAG_SKIP_UNKNOWN = 1<<0;
+
+        final IsolatedConnectionInfo mInfo;
+        final int mUid;
+        final int mFlags;
+
+        LruOrderItem(IsolatedConnectionInfo info, int flags) {
+            mInfo = info;
+            mUid = -1;
+            mFlags = flags;
+        }
+
+        LruOrderItem(int uid, int flags) {
+            mInfo = null;
+            mUid = uid;
+            mFlags = flags;
+        }
+
+        IsolatedConnectionInfo getInfo() {
+            return mInfo;
+        }
+
+        int getUid() {
+            return mInfo != null ? mInfo.getConnection().getUid() : mUid;
+        }
+
+        int getFlags() {
+            return mFlags;
+        }
+    }
+
+    private void doBind(Context context, IsolatedConnectionInfo[] connections, int group,
+            int strong) {
+        for (IsolatedConnectionInfo ci : connections) {
+            if (ci.match(group, strong)) {
+                ci.bind(context);
+            }
+        }
+    }
+
+    private void doBind(Context context, IsolatedConnectionInfo[] connections, int[] selected) {
+        for (int i : selected) {
+            boolean result = connections[i].bind(context);
+            if (!result) {
+                fail("Unable to bind connection " + connections[i].mLabel);
+            }
+        }
+    }
+
+    private void doWaitForService(IsolatedConnectionInfo[] connections, int group,
+            int strong) {
+        for (IsolatedConnectionInfo ci : connections) {
+            if (ci.match(group, strong)) {
+                ci.mConnection.waitForService(DELAY);
+            }
+        }
+    }
+
+    private void doUpdateServiceGroup(Context context, IsolatedConnectionInfo[] connections,
+            int group, int strong) {
+        for (IsolatedConnectionInfo ci : connections) {
+            if (ci.match(group, strong)) {
+                context.updateServiceGroup(ci.mConnection, ci.mGroup, ci.mImportance);
+            }
+        }
+    }
+
+    private void doUnbind(Context context, IsolatedConnectionInfo[] connections, int group,
+            int strong) {
+        for (IsolatedConnectionInfo ci : connections) {
+            if (ci.match(group, strong)) {
+                ci.unbind(context);
+            }
+        }
+    }
+
+    private void doUnbind(Context context, IsolatedConnectionInfo[] connections, int[] selected) {
+        for (int i : selected) {
+            connections[i].unbind(context);
+        }
+    }
+
+    List<ProcessRecordProto> getLruProcesses() {
+        ActivityManagerServiceDumpProcessesProto dump = getActivityManagerProcesses();
+        SparseArray<ProcessRecordProto> procs = new SparseArray<>();
+        ProcessRecordProto[] procsList = dump.procs;
+        for (ProcessRecordProto proc : procsList) {
+            procs.put(proc.lruIndex, proc);
+        }
+        ArrayList<ProcessRecordProto> lruProcs = new ArrayList<>();
+        for (int i = 0; i < procs.size(); i++) {
+            lruProcs.add(procs.valueAt(i));
+        }
+        return lruProcs;
+    }
+
+    String printProc(int i, ProcessRecordProto proc) {
+        return "#" + i + ": " + proc.processName
+                + " pid=" + proc.pid + " uid=" + proc.uid
+                + (proc.isolatedAppId != 0 ? " isolated=" + proc.isolatedAppId : "");
+    }
+
+    private void logProc(int i, ProcessRecordProto proc) {
+        Log.i("XXXXXXXX", printProc(i, proc));
+    }
+
+    private void verifyLruOrder(LruOrderItem[] orderItems) {
+        List<ProcessRecordProto> procs = getLruProcesses();
+        Log.i("XXXXXXXX", "Processes:");
+        int orderI = 0;
+        for (int i = procs.size() - 1; i >= 0; i--) {
+            ProcessRecordProto proc = procs.get(i);
+            logProc(i, proc);
+            final LruOrderItem lru = orderItems[orderI];
+            Log.i("XXXXXXXX", "Expecting uid: " + lru.getUid());
+            int procUid = proc.isolatedAppId != 0 ? proc.isolatedAppId : proc.uid;
+            if (procUid != lru.getUid()) {
+                if ((lru.getFlags() & LruOrderItem.FLAG_SKIP_UNKNOWN) != 0) {
+                    while (i > 0) {
+                        i--;
+                        proc = procs.get(i);
+                        logProc(i, proc);
+                        procUid = proc.isolatedAppId != 0 ? proc.isolatedAppId : proc.uid;
+                        if (procUid == lru.getUid()) {
+                            break;
+                        }
+                    }
+                }
+                if (procUid != lru.getUid()) {
+                    if ((lru.getFlags() & LruOrderItem.FLAG_SKIP_UNKNOWN) != 0) {
+                        fail("Didn't find expected LRU proc uid=" + lru.getUid());
+                    }
+                    fail("Expected proc uid=" + lru.getUid() + " at found proc "
+                            + printProc(i, proc));
+                }
+            }
+            orderI++;
+            if (orderI >= orderItems.length) {
+                return;
+            }
+        }
+    }
+
+    @MediumTest
+    public void testAppZygotePreload() throws Exception {
+        IsolatedConnection conn = new IsolatedConnection();
+        try {
+            mContext.bindIsolatedService(
+                    mIsolatedService, Context.BIND_AUTO_CREATE, "1", mContextMainExecutor, conn);
+
+            conn.waitForService(DELAY);
+
+            // Verify application preload was done
+            assertTrue(conn.zygotePreloadCalled());
+        } finally {
+            if (conn != null) {
+                mContext.unbindService(conn);
+            }
+        }
+    }
+
+    @MediumTest
+    public void testAppZygoteServices() throws Exception {
+        IsolatedConnection conn1a = null;
+        IsolatedConnection conn1b = null;
+        IsolatedConnection conn2 = null;
+        int appZygotePid;
+        try {
+            conn1a = new IsolatedConnection();
+            mContext.bindIsolatedService(
+                    mIsolatedService, Context.BIND_AUTO_CREATE, "1", mContextMainExecutor, conn1a);
+            conn1b = new IsolatedConnection();
+            mContext.bindIsolatedService(
+                    mIsolatedService, Context.BIND_AUTO_CREATE, "1", mContextMainExecutor, conn1b);
+            conn2 = new IsolatedConnection();
+            mContext.bindIsolatedService(
+                    mIsolatedService, Context.BIND_AUTO_CREATE, "2", mContextMainExecutor, conn2);
+
+            conn1a.waitForService(DELAY);
+            conn1b.waitForService(DELAY);
+            conn2.waitForService(DELAY);
+
+            // Get PPID of each service, and verify they're identical
+            int ppid1a = conn1a.getPpid();
+            int ppid1b = conn1b.getPpid();
+            int ppid2 = conn2.getPpid();
+
+            assertEquals(ppid1a, ppid1b);
+            assertEquals(ppid1b, ppid2);
+            // Find the app zygote process hosting these
+            String result = SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
+                "ps -p " + Integer.toString(ppid1a) + " -o NAME=");
+            result = result.replaceAll("\\s+", "");
+            assertEquals(result, APP_ZYGOTE_PROCESS_NAME);
+            appZygotePid = ppid1a;
+        } finally {
+            if (conn2 != null) {
+                mContext.unbindService(conn2);
+            }
+            if (conn1b != null) {
+                mContext.unbindService(conn1b);
+            }
+            if (conn1a != null) {
+                mContext.unbindService(conn1a);
+            }
+        }
+        // Sleep for 2 seconds and bind a service again, see it uses the same Zygote
+        try {
+            conn1a = new IsolatedConnection();
+            mContext.bindIsolatedService(
+                    mIsolatedService, Context.BIND_AUTO_CREATE, "1", mContextMainExecutor, conn1a);
+
+            conn1a.waitForService(DELAY);
+
+            int ppid1a = conn1a.getPpid();
+            assertEquals(appZygotePid, ppid1a);
+        } finally {
+            if (conn1a != null) {
+                mContext.unbindService(conn1a);
+            }
+        }
+        // Sleep for 10 seconds, verify the app_zygote is gone
+        Thread.sleep(10000);
+        String result = SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
+            "ps -p " + Integer.toString(appZygotePid) + " -o NAME=");
+        result = result.replaceAll("\\s+", "");
+        assertEquals("", result);
+    }
+
+    /**
+     * Test that the system properly orders processes bound by an activity within the
+     * LRU list.
+     */
+    // TODO(b/131059432): Re-enable the test after that bug is fixed.
+    @FlakyTest
+    @MediumTest
+    public void testActivityServiceBindingLru() throws Exception {
+        // Bring up the activity we will hang services off of.
+        runLaunchpad(LaunchpadActivity.ACTIVITY_PREPARE);
+
+        final Activity a = getRunningActivity();
+
+        final int CONN_1_1_W = 0;
+        final int CONN_1_1_S = 1;
+        final int CONN_1_2_W = 2;
+        final int CONN_1_2_S = 3;
+        final int CONN_2_1_W = 4;
+        final int CONN_2_1_S = 5;
+        final int CONN_2_2_W = 6;
+        final int CONN_2_2_S = 7;
+        final int CONN_2_3_W = 8;
+        final int CONN_2_3_S = 9;
+
+        // We are going to have both weak and strong references to services, so we can allow
+        // some to go down in the LRU list.
+        final IsolatedConnectionInfo[] connections = new IsolatedConnectionInfo[] {
+                new IsolatedConnectionInfo(1, 1, BINDING_WEAK),
+                new IsolatedConnectionInfo(1, 1, BINDING_STRONG),
+                new IsolatedConnectionInfo(1, 2, BINDING_WEAK),
+                new IsolatedConnectionInfo(1, 2, BINDING_STRONG),
+                new IsolatedConnectionInfo(2, 1, BINDING_WEAK),
+                new IsolatedConnectionInfo(2, 1, BINDING_STRONG),
+                new IsolatedConnectionInfo(2, 2, BINDING_WEAK),
+                new IsolatedConnectionInfo(2, 2, BINDING_STRONG),
+                new IsolatedConnectionInfo(2, 3, BINDING_WEAK),
+                new IsolatedConnectionInfo(2, 3, BINDING_STRONG),
+        };
+
+        final int[] REV_GROUP_1_STRONG = new int[] {
+                CONN_1_2_S, CONN_1_1_S
+        };
+
+        final int[] REV_GROUP_2_STRONG = new int[] {
+                CONN_2_3_S, CONN_2_2_S, CONN_2_1_S
+        };
+
+        final int[] MIXED_GROUP_3_STRONG = new int[] {
+                CONN_2_3_S, CONN_1_1_S, CONN_2_1_S, CONN_2_2_S
+        };
+
+        boolean passed = false;
+
+        try {
+            // Start the group 1 processes as weak.
+            doBind(a, connections, 1, BINDING_WEAK);
+            doUpdateServiceGroup(a, connections, 1, BINDING_WEAK);
+
+            // Wait for them to come up.
+            doWaitForService(connections, 1, BINDING_WEAK);
+
+            // Now fully bind to the services.
+            doBind(a, connections, 1, BINDING_STRONG);
+            doWaitForService(connections, 1, BINDING_STRONG);
+
+            verifyLruOrder(new LruOrderItem[] {
+                    new LruOrderItem(Process.myUid(), 0),
+                    new LruOrderItem(connections[CONN_1_1_W], 0),
+                    new LruOrderItem(connections[CONN_1_2_W], 0),
+            });
+
+            // Now remove the full binding, leaving only the weak.
+            doUnbind(a, connections, 1, BINDING_STRONG);
+
+            // Start the group 2 processes as weak.
+            doBind(a, connections, 2, BINDING_WEAK);
+
+            // Wait for them to come up.
+            doWaitForService(connections, 2, BINDING_WEAK);
+
+            // Set the group and index.  In this case we do it after we know the process
+            // is started, to make sure setting it directly works.
+            doUpdateServiceGroup(a, connections, 2, BINDING_WEAK);
+
+            // Now fully bind to group 2
+            doBind(a, connections, REV_GROUP_2_STRONG);
+
+            verifyLruOrder(new LruOrderItem[] {
+                    new LruOrderItem(Process.myUid(), 0),
+                    new LruOrderItem(connections[CONN_2_1_W], 0),
+                    new LruOrderItem(connections[CONN_2_2_W], 0),
+                    new LruOrderItem(connections[CONN_2_3_W], 0),
+                    new LruOrderItem(connections[CONN_1_1_W], LruOrderItem.FLAG_SKIP_UNKNOWN),
+                    new LruOrderItem(connections[CONN_1_2_W], 0),
+            });
+
+            // Bring group 1 back to the foreground, but in the opposite order.
+            doBind(a, connections, REV_GROUP_1_STRONG);
+
+            verifyLruOrder(new LruOrderItem[] {
+                    new LruOrderItem(Process.myUid(), 0),
+                    new LruOrderItem(connections[CONN_1_1_W], 0),
+                    new LruOrderItem(connections[CONN_1_2_W], 0),
+                    new LruOrderItem(connections[CONN_2_1_W], LruOrderItem.FLAG_SKIP_UNKNOWN),
+                    new LruOrderItem(connections[CONN_2_2_W], 0),
+                    new LruOrderItem(connections[CONN_2_3_W], 0),
+            });
+
+            // Now remove all full bindings, keeping only weak.
+            doUnbind(a, connections, 1, BINDING_STRONG);
+            doUnbind(a, connections, 2, BINDING_STRONG);
+
+            // Change the grouping and importance to make sure that gets reflected.
+            connections[CONN_1_1_W].setGroup(3);
+            connections[CONN_1_1_W].setImportance(1);
+            connections[CONN_2_1_W].setGroup(3);
+            connections[CONN_2_1_W].setImportance(2);
+            connections[CONN_2_2_W].setGroup(3);
+            connections[CONN_2_2_W].setImportance(3);
+            connections[CONN_2_3_W].setGroup(3);
+            connections[CONN_2_3_W].setImportance(4);
+
+            doUpdateServiceGroup(a, connections, 3, BINDING_WEAK);
+
+            // Now bind them back up in an interesting order.
+            doBind(a, connections, MIXED_GROUP_3_STRONG);
+
+            verifyLruOrder(new LruOrderItem[] {
+                    new LruOrderItem(Process.myUid(), 0),
+                    new LruOrderItem(connections[CONN_1_1_W], 0),
+                    new LruOrderItem(connections[CONN_2_1_W], 0),
+                    new LruOrderItem(connections[CONN_2_2_W], 0),
+                    new LruOrderItem(connections[CONN_2_3_W], 0),
+                    new LruOrderItem(connections[CONN_1_2_W], LruOrderItem.FLAG_SKIP_UNKNOWN),
+            });
+
+            passed = true;
+
+        } finally {
+            if (!passed) {
+                List<ProcessRecordProto> procs = getLruProcesses();
+                Log.i("XXXXXXXX", "Processes:");
+                for (int i = procs.size() - 1; i >= 0; i--) {
+                    ProcessRecordProto proc = procs.get(i);
+                    logProc(i, proc);
+                }
+            }
+            doUnbind(a, connections, -1, BINDING_ANY);
         }
     }
 }

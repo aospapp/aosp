@@ -67,15 +67,17 @@ class MyBadParcelable implements Parcelable {
 
 public class LaunchpadActivity extends Activity {
     public interface CallingTest extends PerformanceTestCase.Intermediates {
-        public void startTiming(boolean realTime);
+        void startTiming(boolean realTime);
 
-        public void addIntermediate(String name);
+        void addIntermediate(String name);
 
-        public void addIntermediate(String name, long timeInNS);
+        void addIntermediate(String name, long timeInNS);
 
-        public void finishTiming(boolean realTime);
+        void finishTiming(boolean realTime);
 
-        public void activityFinished(int resultCode, Intent data, RuntimeException where);
+        void activityRunning(Activity activity);
+
+        void activityFinished(int resultCode, Intent data, RuntimeException where);
     }
 
     // Also used as the Binder interface descriptor string in these tests
@@ -92,6 +94,8 @@ public class LaunchpadActivity extends Activity {
     public static final String LIFECYCLE_BASIC = "android.app.cts.activity.LIFECYCLE_BASIC";
     public static final String LIFECYCLE_SCREEN = "android.app.cts.activity.LIFECYCLE_SCREEN";
     public static final String LIFECYCLE_DIALOG = "android.app.cts.activity.LIFECYCLE_DIALOG";
+
+    public static final String ACTIVITY_PREPARE = "android.app.cts.activity.LIFECYCLE_DIALOG";
 
     public static final String BROADCAST_REGISTERED = "android.app.cts.activity.BROADCAST_REGISTERED";
     public static final String BROADCAST_LOCAL = "android.app.cts.activity.BROADCAST_LOCAL";
@@ -283,7 +287,8 @@ public class LaunchpadActivity extends Activity {
                 intent.setFlags(0);
                 intent.setComponent((ComponentName) intent.getParcelableExtra("component"));
                 startActivityForResult(intent, LAUNCHED_RESULT);
-
+            } else if (ACTIVITY_PREPARE.equals(action)) {
+                sCallingTest.activityRunning(this);
             } else if (FORWARD_RESULT.equals(action)) {
                 final Intent intent = getIntent();
                 intent.setFlags(0);

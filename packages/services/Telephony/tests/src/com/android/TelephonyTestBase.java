@@ -19,8 +19,9 @@ package com.android;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.test.InstrumentationRegistry;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.mockito.MockitoAnnotations;
 

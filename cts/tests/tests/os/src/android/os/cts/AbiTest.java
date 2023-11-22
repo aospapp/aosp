@@ -30,7 +30,8 @@ import junit.framework.TestCase;
 
 public class AbiTest extends TestCase {
     public void testNo64() throws Exception {
-        ArraySet<String> abiDirs = new ArraySet(Arrays.asList(
+        ArraySet<String> abiDirs = new ArraySet<>();
+        abiDirs.addAll(Arrays.asList(
             "/sbin",
             "/system",
             "/vendor"));

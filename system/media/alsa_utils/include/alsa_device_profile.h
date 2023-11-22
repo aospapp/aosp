@@ -74,6 +74,7 @@ char * profile_get_channel_count_strs(const alsa_device_profile* profile);
 
 /* Sample Rate Methods */
 unsigned profile_get_default_sample_rate(const alsa_device_profile* profile);
+unsigned profile_get_highest_sample_rate(const alsa_device_profile* profile);
 bool profile_is_sample_rate_valid(const alsa_device_profile* profile, unsigned rate);
 
 /* Format Methods */

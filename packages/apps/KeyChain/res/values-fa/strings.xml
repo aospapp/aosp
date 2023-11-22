@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"‏برنامه %s درخواست یک گواهی کرده است. انتخاب یک گواهی به برنامه امکان می‌دهد از این هویت با سرورها درحال حاضر و در آینده استفاده کند."</string>
     <string name="requesting_server" msgid="5832565605998634370">"‏برنامه سرور درخواست‌کننده را به‌عنوان %s تشخیص داده است اما فقط درصورتی‌که به برنامه اطمینان دارید باید به آن اجازه دسترسی به گواهی را بدهید."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"‏با یک افرونه %2$s یا %1$s واقع در حافظه خارجی می‌توانید مجوزهارا از یک فایل PKCS#12 نصب کنید."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"نصب گواهی"</string>
     <string name="allow_button" msgid="3030990695030371561">"انتخاب"</string>
     <string name="deny_button" msgid="3766539809121892584">"اجازه ندارد"</string>
 </resources>

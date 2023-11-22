@@ -16,295 +16,877 @@
 
 package com.android.car;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.car.vms.IVmsSubscriberClient;
 import android.car.vms.VmsAssociatedLayer;
 import android.car.vms.VmsAvailableLayers;
 import android.car.vms.VmsLayer;
 import android.car.vms.VmsSubscriptionState;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
 
-import java.util.ArrayList;
+import androidx.test.filters.SmallTest;
+
+import org.junit.Before;
+import org.junit.Test;
+
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.Map;
 
 @SmallTest
-public class VmsRoutingTest extends AndroidTestCase {
-    private static VmsLayer LAYER_WITH_SUBSCRIPTION_1 = new VmsLayer(1, 1, 2);
-    private static VmsLayer LAYER_WITH_SUBSCRIPTION_2 = new VmsLayer(1, 3, 3);
-    private static VmsLayer LAYER_WITHOUT_SUBSCRIPTION =
-            new VmsLayer(1, 7, 4);
-    private static int PUBLISHER_ID_1 = 123;
-    private static int PUBLISHER_ID_2 = 456;
-    private static int PUBLISHER_ID_UNLISTED = 789;
+public class VmsRoutingTest {
+    private static final VmsLayer LAYER_1 = new VmsLayer(1, 1, 2);
+    private static final VmsLayer LAYER_2 = new VmsLayer(1, 3, 3);
+    private static final VmsLayer[] LAYERS = {LAYER_1, LAYER_2};
+    private static final int PUBLISHER_ID_1 = 123;
+    private static final int PUBLISHER_ID_2 = 456;
+    private static final int[] PUBLISHER_IDS = {PUBLISHER_ID_1, PUBLISHER_ID_2};
+
     private VmsRouting mRouting;
+    private IVmsSubscriberClient mSubscriber;
+    private IVmsSubscriberClient mSubscriberRewrapped;
+    private IVmsSubscriberClient mSubscriber2;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mRouting = new VmsRouting();
+        mSubscriber = new MockVmsSubscriber();
+        mSubscriberRewrapped = IVmsSubscriberClient.Stub.asInterface(mSubscriber.asBinder());
+        mSubscriber2 = new MockVmsSubscriber();
     }
 
-    public void testAddingSubscribersAndHalLayersNoOverlap() throws Exception {
-        // Add a subscription to a layer.
-        MockVmsSubscriber subscriber = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1);
+    @Test
+    public void testDefaultSubscriptionState() {
+        assertNoSubscribers();
 
-        // Add a HAL subscription.
-        mRouting.addHalSubscription(LAYER_WITH_SUBSCRIPTION_2);
-
-        // Verify expected subscriptions are in routing manager.
-        Set<VmsLayer> expectedSubscriptions = new HashSet<>();
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_1);
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_2);
-        VmsSubscriptionState subscriptionState = mRouting.getSubscriptionState();
-        assertEquals(2, subscriptionState.getSequenceNumber());
-        assertEquals(expectedSubscriptions,
-                new HashSet<>(subscriptionState.getLayers()));
-
-        // Verify there is only a single subscriber.
-        assertEquals(1,
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1).size());
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
     }
 
-    public void testAddingSubscribersAndHalLayersWithOverlap() throws Exception {
-        // Add a subscription to a layer.
-        MockVmsSubscriber subscriber = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1);
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_2);
+    @Test
+    public void testAddPassiveSubscriber() {
+        mRouting.addSubscription(mSubscriber);
 
-        // Add a HAL subscription to a layer there is already another subscriber for.
-        mRouting.addHalSubscription(LAYER_WITH_SUBSCRIPTION_2);
+        // Receives messages for all layers and publishers
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertSubscribers(LAYER_2, mSubscriber);
 
-        // Verify expected subscriptions are in routing manager.
-        Set<VmsLayer> expectedSubscriptions = new HashSet<>();
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_1);
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_2);
-        VmsSubscriptionState subscriptionState = mRouting.getSubscriptionState();
-        assertEquals(3, subscriptionState.getSequenceNumber());
-        assertEquals(expectedSubscriptions,
-                new HashSet<>(subscriptionState.getLayers()));
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
     }
 
-    public void testAddingAndRemovingLayers() throws Exception {
-        // Add a subscription to a layer.
-        MockVmsSubscriber subscriber = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1);
+    @Test
+    public void testAddPassiveSubscriber_MultipleTimes() {
+        mRouting.addSubscription(mSubscriber);
+        mRouting.addSubscription(mSubscriber);
 
-        // Add a HAL subscription.
-        mRouting.addHalSubscription(LAYER_WITH_SUBSCRIPTION_2);
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertSubscribers(LAYER_2, mSubscriber);
 
-        // Remove a subscription to a layer.
-        mRouting.removeSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1);
-
-        // Update the HAL subscription
-        mRouting.removeHalSubscription(LAYER_WITH_SUBSCRIPTION_2);
-
-        // Verify there are no subscribers in the routing manager.
-        VmsSubscriptionState subscriptionState = mRouting.getSubscriptionState();
-        assertEquals(4, subscriptionState.getSequenceNumber());
-        assertTrue(subscriptionState.getLayers().isEmpty());
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
     }
 
-    public void testAddingBothTypesOfSubscribers() throws Exception {
-        // Add a subscription to a layer.
-        MockVmsSubscriber subscriberForLayer = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriberForLayer, LAYER_WITH_SUBSCRIPTION_1);
+    @Test
+    public void testAddPassiveSubscriber_MultipleTimes_Rewrapped() {
+        mRouting.addSubscription(mSubscriber);
+        mRouting.addSubscription(mSubscriberRewrapped);
 
-        // Add a subscription without a layer.
-        MockVmsSubscriber subscriberWithoutLayer = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriberWithoutLayer);
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertSubscribers(LAYER_2, mSubscriber);
 
-        // Verify 2 subscribers for the layer.
-        assertEquals(2,
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1).size());
-
-        // Add the subscriber with layer as also a subscriber without layer
-        mRouting.addSubscription(subscriberForLayer);
-
-        // The number of subscribers for the layer should remain the same as before.
-        assertEquals(2,
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1).size());
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
     }
 
-    public void testOnlyRelevantSubscribers() throws Exception {
-        // Add a subscription to a layer.
-        MockVmsSubscriber subscriberForLayer = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriberForLayer, LAYER_WITH_SUBSCRIPTION_1);
+    @Test
+    public void testAddPassiveSubscriber_MultipleSubscribers() {
+        mRouting.addSubscription(mSubscriber);
+        mRouting.addSubscription(mSubscriber2);
 
-        // Add a subscription without a layer.
-        MockVmsSubscriber subscriberWithoutLayer = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriberWithoutLayer);
+        assertSubscribers(LAYER_1, mSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_2, mSubscriber, mSubscriber2);
 
-        // Verify that only the subscriber without layer is returned.
-        Set<MockVmsSubscriber> expectedListeneres = new HashSet<MockVmsSubscriber>();
-        expectedListeneres.add(subscriberWithoutLayer);
-        assertEquals(expectedListeneres,
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITHOUT_SUBSCRIPTION, PUBLISHER_ID_1));
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
     }
 
-    public void testAddingSubscribersAndHalLayersAndSubscribersToPublishers() throws Exception {
-        // Add a subscription to a layer.
-        MockVmsSubscriber subscriber = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1);
+    @Test
+    public void testRemovePassiveSubscriber() {
+        mRouting.addSubscription(mSubscriber);
+        mRouting.removeSubscription(mSubscriber);
 
-        // Add a HAL subscription.
-        mRouting.addHalSubscription(LAYER_WITH_SUBSCRIPTION_2);
+        assertNoSubscribers();
 
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1);
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_2);
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_2, PUBLISHER_ID_2);
-
-        // Verify expected subscriptions are in routing manager.
-        Set<VmsLayer> expectedSubscriptions = new HashSet<>();
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_1);
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_2);
-
-        Set<VmsAssociatedLayer> expectedSubscriptionsToPublishers = new HashSet<>();
-        expectedSubscriptionsToPublishers.add(new VmsAssociatedLayer(LAYER_WITH_SUBSCRIPTION_1,
-                new HashSet(Arrays.asList(PUBLISHER_ID_1, PUBLISHER_ID_2))));
-        expectedSubscriptionsToPublishers.add(new VmsAssociatedLayer(LAYER_WITH_SUBSCRIPTION_2,
-                new HashSet(Arrays.asList(PUBLISHER_ID_2))));
-
-        VmsSubscriptionState subscriptionState = mRouting.getSubscriptionState();
-        assertEquals(5, subscriptionState.getSequenceNumber());
-        assertEquals(expectedSubscriptions,
-                new HashSet<>(subscriptionState.getLayers()));
-
-        assertEquals(expectedSubscriptionsToPublishers,
-                subscriptionState.getAssociatedLayers());
-
-        // Verify there is only a single subscriber.
-        assertEquals(1,
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1).size());
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
     }
 
-    public void testAddingSubscriberToPublishersAndGetListeneresToDifferentPublisher()
-            throws Exception {
-        // Add a subscription to a layer.
-        MockVmsSubscriber subscriber = new MockVmsSubscriber();
+    @Test
+    public void testRemovePassiveSubscriber_NoSubscriptions() {
+        mRouting.removeSubscription(mSubscriber);
 
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_2);
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1);
+        assertNoSubscribers();
 
-        Set<IVmsSubscriberClient> subscribers;
-        // Need to route a layer 1 message from publisher 2 so there are no subscribers.
-        subscribers =
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITH_SUBSCRIPTION_1,
-                        PUBLISHER_ID_2);
-        assertEquals(0, subscribers.size());
-
-        // Need to route a layer 1 message from publisher 1 so there is one subscriber.
-        subscribers =
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITH_SUBSCRIPTION_1,
-                        PUBLISHER_ID_1);
-        assertEquals(1, subscribers.size());
-        assertTrue(subscribers.contains(subscriber));
-
-        // Verify all the messages for LAYER_WITH_SUBSCRIPTION_2 have subscribers since the
-        // subscription was done without specifying a specific publisher.
-        subscribers =
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITH_SUBSCRIPTION_2,
-                        PUBLISHER_ID_UNLISTED);
-        assertEquals(1, subscribers.size());
-        assertTrue(subscribers.contains(subscriber));
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
     }
 
+    @Test
+    public void testRemovePassiveSubscriber_MultipleTimes() {
+        mRouting.addSubscription(mSubscriber);
+        mRouting.removeSubscription(mSubscriber);
+        mRouting.removeSubscription(mSubscriber);
 
-    public void testRemovalOfSubscribersToPublishers() throws Exception {
-        // Add a subscription to a layer.
-        MockVmsSubscriber subscriber = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1);
+        assertNoSubscribers();
 
-        // Add a HAL subscription.
-        mRouting.addHalSubscription(LAYER_WITH_SUBSCRIPTION_2);
-
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1);
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_2);
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_2, PUBLISHER_ID_2);
-        mRouting.removeSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_2, PUBLISHER_ID_2);
-
-        // Verify expected subscriptions are in routing manager.
-        Set<VmsLayer> expectedSubscriptions = new HashSet<>();
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_1);
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_2);
-
-
-        Set<VmsAssociatedLayer> expectedSubscriptionsToPublishers = new HashSet<>();
-        expectedSubscriptionsToPublishers.add(new VmsAssociatedLayer(LAYER_WITH_SUBSCRIPTION_1,
-                new HashSet(Arrays.asList(PUBLISHER_ID_1, PUBLISHER_ID_2))));
-
-        VmsSubscriptionState subscriptionState = mRouting.getSubscriptionState();
-        assertEquals(6, subscriptionState.getSequenceNumber());
-        assertEquals(expectedSubscriptions,
-                new HashSet<>(subscriptionState.getLayers()));
-
-        assertEquals(expectedSubscriptionsToPublishers,
-                subscriptionState.getAssociatedLayers());
-
-        // Verify there is only a single subscriber.
-        assertEquals(1,
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1).size());
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
     }
 
-    public void testRemovalOfSubscribersToPublishersClearListForPublisher() throws Exception {
-        // Add a subscription to a layer.
-        MockVmsSubscriber subscriber = new MockVmsSubscriber();
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1);
+    @Test
+    public void testRemovePassiveSubscriber_Rewrapped() {
+        mRouting.addSubscription(mSubscriber);
+        mRouting.removeSubscription(mSubscriberRewrapped);
 
-        // Add a HAL subscription.
-        mRouting.addHalSubscription(LAYER_WITH_SUBSCRIPTION_2);
+        assertNoSubscribers();
 
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1);
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_2);
-        mRouting.addSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_2, PUBLISHER_ID_2);
-        mRouting.removeSubscription(subscriber, LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1);
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
 
-        // Verify expected subscriptions are in routing manager.
-        Set<VmsLayer> expectedSubscriptions = new HashSet<>();
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_1);
-        expectedSubscriptions.add(LAYER_WITH_SUBSCRIPTION_2);
+    @Test
+    public void testRemovePassiveSubscriber_UnknownSubscriber() {
+        mRouting.addSubscription(mSubscriber);
+        mRouting.removeSubscription(mSubscriber2);
 
-        Set<VmsAssociatedLayer> expectedSubscriptionsToPublishers = new HashSet<>();
-        expectedSubscriptionsToPublishers.add(new VmsAssociatedLayer(LAYER_WITH_SUBSCRIPTION_1,
-                new HashSet(Arrays.asList(PUBLISHER_ID_2))));
-        expectedSubscriptionsToPublishers.add(new VmsAssociatedLayer(LAYER_WITH_SUBSCRIPTION_2,
-                new HashSet(Arrays.asList(PUBLISHER_ID_2))));
+        assertSubscribers(mSubscriber);
 
-        VmsSubscriptionState subscriptionState = mRouting.getSubscriptionState();
-        assertEquals(6, subscriptionState.getSequenceNumber());
-        assertEquals(expectedSubscriptions,
-                new HashSet<>(subscriptionState.getLayers()));
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
 
-        assertEquals(expectedSubscriptionsToPublishers,
-                subscriptionState.getAssociatedLayers());
+    @Test
+    public void testRemovePassiveSubscriber_MultipleSubscribers() {
+        mRouting.addSubscription(mSubscriber);
+        mRouting.addSubscription(mSubscriber2);
+        mRouting.removeSubscription(mSubscriber2);
 
-        // Verify there is only a single subscriber.
-        assertEquals(1,
-                mRouting.getSubscribersForLayerFromPublisher(
-                        LAYER_WITH_SUBSCRIPTION_1, PUBLISHER_ID_1).size());
+        assertSubscribers(mSubscriber);
+
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddLayerSubscriber() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(1, Collections.singleton(LAYER_1), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddLayerSubscriber_MultipleTimes() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(1, Collections.singleton(LAYER_1), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddLayerSubscriber_MultipleTimes_Rewrapped() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.addSubscription(mSubscriberRewrapped, LAYER_1);
+
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(1, Collections.singleton(LAYER_1), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddLayerSubscriber_MultipleLayers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.addSubscription(mSubscriber, LAYER_2);
+
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertSubscribers(LAYER_2, mSubscriber);
+
+        assertEquals(
+                new VmsSubscriptionState(2,
+                        new HashSet<>(Arrays.asList(LAYER_1, LAYER_2)), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddLayerSubscriber_MultipleSubscribers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1);
+
+        assertSubscribers(LAYER_1, mSubscriber, mSubscriber2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.singleton(LAYER_1), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddLayerSubscriber_MultipleSubscribers_MultipleLayers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_2);
+
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertSubscribers(LAYER_2, mSubscriber2);
+
+        assertEquals(
+                new VmsSubscriptionState(2,
+                        new HashSet<>(Arrays.asList(LAYER_1, LAYER_2)), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveLayerSubscriber() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.removeSubscription(mSubscriber, LAYER_1);
+
+        assertNoSubscribers();
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveLayerSubscriber_NoSubscriptions() {
+        mRouting.removeSubscription(mSubscriber, LAYER_1);
+
+        assertNoSubscribers();
+
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveLayerSubscriber_MultipleTimes() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.removeSubscription(mSubscriber, LAYER_1);
+        mRouting.removeSubscription(mSubscriber, LAYER_1);
+
+        assertNoSubscribers();
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveLayerSubscriber_Rewrapped() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.removeSubscription(mSubscriberRewrapped, LAYER_1);
+
+        assertNoSubscribers();
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveLayerSubscriber_UnknownSubscriber() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.removeSubscription(mSubscriber2, LAYER_1);
+
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(1, Collections.singleton(LAYER_1), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveLayerSubscriber_MultipleLayers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.addSubscription(mSubscriber, LAYER_2);
+        mRouting.removeSubscription(mSubscriber, LAYER_2);
+
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(3, Collections.singleton(LAYER_1), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveLayerSubscriber_MultipleSubscribers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1);
+        mRouting.removeSubscription(mSubscriber2, LAYER_1);
+
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(3, Collections.singleton(LAYER_1), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveLayerSubscriber_MultipleSubscribers_MultipleLayers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_2);
+        mRouting.removeSubscription(mSubscriber2, LAYER_2);
+
+        assertSubscribers(LAYER_1, mSubscriber);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(3, Collections.singleton(LAYER_1), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddPublisherSubscriber() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(1, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddPublisherSubscriber_MultipleTimes() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(1, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddPublisherSubscriber_MultipleTimes_Rewrapped() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriberRewrapped, LAYER_1, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(1, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddPublisherSubscriber_MultipleSubscribers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber, mSubscriber2);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddPublisherSubscriber_MultipleLayers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber, LAYER_2, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2, PUBLISHER_ID_2);
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(),
+                        new HashSet<>(Arrays.asList(
+                                new VmsAssociatedLayer(
+                                        LAYER_1, Collections.singleton(PUBLISHER_ID_1)),
+                                new VmsAssociatedLayer(
+                                        LAYER_2, Collections.singleton(PUBLISHER_ID_1))
+                        ))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddPublisherSubscriber_MultiplePublishers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_2);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertSubscribers(LAYER_1, PUBLISHER_ID_2, mSubscriber);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1,
+                                new HashSet<>(Arrays.asList(PUBLISHER_ID_1, PUBLISHER_ID_2))
+                        ))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddPublisherSubscriber_MultipleSubscribers_MultipleLayers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_1, mSubscriber2);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2, PUBLISHER_ID_2);
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(),
+                        new HashSet<>(Arrays.asList(
+                                new VmsAssociatedLayer(
+                                        LAYER_1, Collections.singleton(PUBLISHER_ID_1)),
+                                new VmsAssociatedLayer(
+                                        LAYER_2, Collections.singleton(PUBLISHER_ID_1))
+                        ))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddPublisherSubscriber_MultipleSubscribers_MultiplePublishers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1, PUBLISHER_ID_2);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertSubscribers(LAYER_1, PUBLISHER_ID_2, mSubscriber2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1,
+                                new HashSet<>(Arrays.asList(PUBLISHER_ID_1, PUBLISHER_ID_2))
+                        ))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.removeSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+
+        assertNoSubscribers();
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber_NoSubscribers() {
+        mRouting.removeSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+
+        assertNoSubscribers();
+
+        assertEquals(
+                new VmsSubscriptionState(0, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber_MultipleTimes() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.removeSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.removeSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+
+        assertNoSubscribers();
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber_Rewrapped() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.removeSubscription(mSubscriberRewrapped, LAYER_1, PUBLISHER_ID_1);
+
+        assertNoSubscribers();
+
+        assertEquals(
+                new VmsSubscriptionState(2, Collections.emptySet(), Collections.emptySet()),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber_UnknownSubscriber() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.removeSubscription(mSubscriber2, LAYER_1, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(1, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber_MultipleLayers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_1);
+        mRouting.removeSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(3, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber_MultiplePublishers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1, PUBLISHER_ID_2);
+        mRouting.removeSubscription(mSubscriber2, LAYER_1, PUBLISHER_ID_2);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(3, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber_MultipleSubscribers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1, PUBLISHER_ID_1);
+        mRouting.removeSubscription(mSubscriber2, LAYER_1, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(3, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber_MultipleSubscribers_MultipleLayers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_1);
+        mRouting.removeSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_1);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(3, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemovePublisherSubscriber_MultipleSubscribers_MultiplePublishers() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1, PUBLISHER_ID_2);
+        mRouting.removeSubscription(mSubscriber2, LAYER_1, PUBLISHER_ID_2);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber);
+        assertNoSubscribers(LAYER_1, PUBLISHER_ID_2);
+        assertNoSubscribers(LAYER_2);
+
+        assertEquals(
+                new VmsSubscriptionState(3, Collections.emptySet(),
+                        Collections.singleton(new VmsAssociatedLayer(
+                                LAYER_1, Collections.singleton(PUBLISHER_ID_1)))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddingAllTypesOfSubscribers() {
+        IVmsSubscriberClient passiveSubscriber = new MockVmsSubscriber();
+        mRouting.addSubscription(passiveSubscriber);
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1);
+        mRouting.addSubscription(mSubscriber, LAYER_2);
+        mRouting.addSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_2);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, passiveSubscriber, mSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_1, PUBLISHER_ID_2, passiveSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_1, passiveSubscriber, mSubscriber);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_2, passiveSubscriber, mSubscriber, mSubscriber2);
+
+        assertEquals(
+                new VmsSubscriptionState(4,
+                        new HashSet<>(Arrays.asList(LAYER_1, LAYER_2)),
+                        new HashSet<>(Arrays.asList(
+                                new VmsAssociatedLayer(
+                                        LAYER_1, Collections.singleton(PUBLISHER_ID_1)),
+                                new VmsAssociatedLayer(
+                                        LAYER_2, Collections.singleton(PUBLISHER_ID_2))
+                        ))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testAddingAndRemovingAllTypesOfSubscribers() {
+        IVmsSubscriberClient passiveSubscriber = new MockVmsSubscriber();
+        mRouting.addSubscription(passiveSubscriber);
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1);
+        mRouting.addSubscription(mSubscriber, LAYER_2);
+        mRouting.addSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_2);
+        mRouting.removeSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.removeSubscription(mSubscriber, LAYER_2);
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, passiveSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_1, PUBLISHER_ID_2, passiveSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_1, passiveSubscriber);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_2, passiveSubscriber, mSubscriber2);
+
+        assertEquals(
+                new VmsSubscriptionState(6,
+                        Collections.singleton(LAYER_1),
+                        Collections.singleton(
+                                new VmsAssociatedLayer(
+                                        LAYER_2, Collections.singleton(PUBLISHER_ID_2))
+                        )),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveDeadSubscriber() {
+        IVmsSubscriberClient passiveSubscriber = new MockVmsSubscriber();
+        mRouting.addSubscription(passiveSubscriber);
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1);
+        mRouting.addSubscription(mSubscriber, LAYER_2);
+        mRouting.addSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_2);
+        assertTrue(mRouting.removeDeadSubscriber(mSubscriber));
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, passiveSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_1, PUBLISHER_ID_2, passiveSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_1, passiveSubscriber);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_2, passiveSubscriber, mSubscriber2);
+
+        assertEquals(
+                new VmsSubscriptionState(6,
+                        Collections.singleton(LAYER_1),
+                        Collections.singleton(
+                                new VmsAssociatedLayer(
+                                        LAYER_2, Collections.singleton(PUBLISHER_ID_2))
+                        )),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveDeadSubscriber_NoSubscriptions() {
+        IVmsSubscriberClient passiveSubscriber = new MockVmsSubscriber();
+        mRouting.addSubscription(passiveSubscriber);
+        mRouting.addSubscription(mSubscriber2, LAYER_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_2);
+        assertFalse(mRouting.removeDeadSubscriber(mSubscriber));
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, passiveSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_1, PUBLISHER_ID_2, passiveSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_1, passiveSubscriber);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_2, passiveSubscriber, mSubscriber2);
+
+        assertEquals(
+                new VmsSubscriptionState(2,
+                        Collections.singleton(LAYER_1),
+                        Collections.singleton(
+                                new VmsAssociatedLayer(
+                                        LAYER_2, Collections.singleton(PUBLISHER_ID_2))
+                        )),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testRemoveDeadSubscriber_PassiveSubscriber() {
+        IVmsSubscriberClient passiveSubscriber = new MockVmsSubscriber();
+        mRouting.addSubscription(passiveSubscriber);
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.addSubscription(mSubscriber2, LAYER_1);
+        mRouting.addSubscription(mSubscriber, LAYER_2);
+        mRouting.addSubscription(mSubscriber2, LAYER_2, PUBLISHER_ID_2);
+        assertFalse(mRouting.removeDeadSubscriber(passiveSubscriber));
+
+        assertSubscribers(LAYER_1, PUBLISHER_ID_1, mSubscriber, mSubscriber2);
+        assertSubscribers(LAYER_1, PUBLISHER_ID_2, mSubscriber2);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_1, mSubscriber);
+        assertSubscribers(LAYER_2, PUBLISHER_ID_2, mSubscriber, mSubscriber2);
+
+        assertEquals(
+                new VmsSubscriptionState(4,
+                        new HashSet<>(Arrays.asList(LAYER_1, LAYER_2)),
+                        new HashSet<>(Arrays.asList(
+                                new VmsAssociatedLayer(
+                                        LAYER_1, Collections.singleton(PUBLISHER_ID_1)),
+                                new VmsAssociatedLayer(
+                                        LAYER_2, Collections.singleton(PUBLISHER_ID_2))
+                        ))),
+                mRouting.getSubscriptionState());
+    }
+
+    @Test
+    public void testHasSubscriptions_Default() {
+        assertFalse(mRouting.hasLayerSubscriptions(LAYER_1));
+        assertFalse(mRouting.hasLayerSubscriptions(LAYER_2));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_1, PUBLISHER_ID_1));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_1, PUBLISHER_ID_2));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_2, PUBLISHER_ID_1));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_2, PUBLISHER_ID_2));
+    }
+
+    @Test
+    public void testHasSubscriptions_PassiveSubscriber() {
+        mRouting.addSubscription(mSubscriber);
+
+        testHasSubscriptions_Default();
+    }
+
+    @Test
+    public void testHasSubscriptions_DeadSubscriber() {
+        mRouting.addSubscription(mSubscriber);
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+        mRouting.removeDeadSubscriber(mSubscriber);
+
+        testHasSubscriptions_Default();
+    }
+
+    @Test
+    public void testHasSubscriptions_Layer() {
+        mRouting.addSubscription(mSubscriber, LAYER_1);
+
+        assertTrue(mRouting.hasLayerSubscriptions(LAYER_1));
+        assertFalse(mRouting.hasLayerSubscriptions(LAYER_2));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_1, PUBLISHER_ID_1));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_1, PUBLISHER_ID_2));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_2, PUBLISHER_ID_1));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_2, PUBLISHER_ID_2));
+
+        mRouting.removeSubscription(mSubscriber, LAYER_1);
+
+        assertFalse(mRouting.hasLayerSubscriptions(LAYER_1));
+    }
+
+    @Test
+    public void testHasSubscriptions_LayerFromPublisher() {
+        mRouting.addSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+
+        assertFalse(mRouting.hasLayerSubscriptions(LAYER_1));
+        assertFalse(mRouting.hasLayerSubscriptions(LAYER_2));
+        assertTrue(mRouting.hasLayerFromPublisherSubscriptions(LAYER_1, PUBLISHER_ID_1));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_1, PUBLISHER_ID_2));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_2, PUBLISHER_ID_1));
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_2, PUBLISHER_ID_2));
+
+        mRouting.removeSubscription(mSubscriber, LAYER_1, PUBLISHER_ID_1);
+
+        assertFalse(mRouting.hasLayerFromPublisherSubscriptions(LAYER_1, PUBLISHER_ID_1));
     }
 
     class MockVmsSubscriber extends IVmsSubscriberClient.Stub {
         @Override
         public void onVmsMessageReceived(VmsLayer layer, byte[] payload) {
+            throw new RuntimeException("Should not be accessed");
         }
 
         @Override
         public void onLayersAvailabilityChanged(VmsAvailableLayers availableLayers) {
+            throw new RuntimeException("Should not be accessed");
         }
+    }
+
+    private void assertNoSubscribers() {
+        assertSubscribers(); /* subscribers is empty */
+    }
+
+    private void assertNoSubscribers(VmsLayer layer) {
+        assertSubscribers(layer); /* subscribers is empty */
+    }
+
+    private void assertNoSubscribers(VmsLayer layer, int publisherId) {
+        assertSubscribers(layer, publisherId); /* subscribers is empty */
+    }
+
+    private void assertSubscribers(IVmsSubscriberClient... subscribers) {
+        for (VmsLayer layer : LAYERS) {
+            assertSubscribers(layer, subscribers);
+        }
+    }
+
+    private void assertSubscribers(VmsLayer layer, IVmsSubscriberClient... subscribers) {
+        for (int publisherId : PUBLISHER_IDS) {
+            assertSubscribers(layer, publisherId, subscribers);
+        }
+    }
+
+    private void assertSubscribers(VmsLayer layer, int publisherId,
+            IVmsSubscriberClient... subscribers) {
+        assertEquals(
+                new HashSet<>(Arrays.asList(subscribers)),
+                mRouting.getSubscribersForLayerFromPublisher(layer, publisherId));
     }
 }

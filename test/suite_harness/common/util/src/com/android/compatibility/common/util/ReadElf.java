@@ -19,7 +19,9 @@ package com.android.compatibility.common.util;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -38,13 +40,20 @@ public class ReadElf implements AutoCloseable {
     private static final int EI_CLASS = 4;
     private static final int EI_DATA = 5;
 
-    private static final int EM_386 = 3;
-    private static final int EM_MIPS = 8;
-    private static final int EM_ARM = 40;
-    private static final int EM_X86_64 = 62;
+    public static final int ET_DYN = 3;
+    public static final int EM_386 = 3;
+    public static final int EM_MIPS = 8;
+    public static final int EM_ARM = 40;
+    public static final int EM_X86_64 = 62;
     // http://en.wikipedia.org/wiki/Qualcomm_Hexagon
-    private static final int EM_QDSP6 = 164;
-    private static final int EM_AARCH64 = 183;
+    public static final int EM_QDSP6 = 164;
+    public static final int EM_AARCH64 = 183;
+
+    public static final String ARCH_ARM = "arm";
+    public static final String ARCH_X86 = "x86";
+    public static final String ARCH_MIPS = "mips";
+    public static final String ARCH_UNKNOWN = "unknown";
+    private static final String RODATA = ".rodata";
 
     private static final int ELFCLASS32 = 1;
     private static final int ELFCLASS64 = 2;
@@ -56,6 +65,8 @@ public class ReadElf implements AutoCloseable {
 
     private static final long PT_LOAD = 1;
 
+    // https://en.wikipedia.org/wiki/Executable_and_Linkable_Format
+    private static final int SHT_PROGBITS = 1;
     private static final int SHT_SYMTAB = 2;
     private static final int SHT_STRTAB = 3;
     private static final int SHT_DYNAMIC = 6;
@@ -80,6 +91,7 @@ public class ReadElf implements AutoCloseable {
         public static final int STT_TLS = 6;
 
         public static final int SHN_UNDEF = 0;
+        public static final int SHN_ABS = 0xfff1;
 
         public final String name;
         public final int bind;
@@ -114,7 +126,7 @@ public class ReadElf implements AutoCloseable {
                     getExternalLibName());
         }
 
-        private String toBind() {
+        public String toBind() {
             switch (bind) {
                 case STB_LOCAL:
                     return "LOCAL";
@@ -126,7 +138,7 @@ public class ReadElf implements AutoCloseable {
             return "STB_??? (" + bind + ")";
         }
 
-        private String toType() {
+        public String toType() {
             switch (type) {
                 case STT_NOTYPE:
                     return "NOTYPE";
@@ -146,9 +158,12 @@ public class ReadElf implements AutoCloseable {
             return "STT_??? (" + type + ")";
         }
 
-        private String toShndx() {
-            if (shndx == SHN_UNDEF) {
-                return "UNDEF";
+        public String toShndx() {
+            switch (shndx) {
+                case SHN_ABS:
+                    return "ABS";
+                case SHN_UNDEF:
+                    return "UND";
             }
             return String.valueOf(shndx);
         }
@@ -411,6 +426,36 @@ public class ReadElf implements AutoCloseable {
         }
     }
 
+    // Dynamic Section Entry
+    public static class DynamicEntry {
+        private static final int DT_NEEDED = 1;
+        public final long mTag;
+        public final long mValue;
+
+        DynamicEntry(long tag, long value) {
+            mTag = tag;
+            mValue = value;
+        }
+
+        public boolean isNeeded() {
+            if (mTag == DT_NEEDED) {
+                return true;
+            } else {
+                // System.err.println(String.format("Not Needed: %d, %d", mTag, mValue));
+                return false;
+            }
+        }
+
+        public long getValue() {
+            return mValue;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%d, %d", this.mTag, this.mValue);
+        }
+    }
+
     private final String mPath;
     private final RandomAccessFile mFile;
     private final byte[] mBuffer = new byte[512];
@@ -419,6 +464,7 @@ public class ReadElf implements AutoCloseable {
     private boolean mIsPIE;
     private int mType;
     private int mAddrSize;
+    private int mMachine;
 
     /** Symbol Table offset */
     private long mSymTabOffset;
@@ -456,10 +502,10 @@ public class ReadElf implements AutoCloseable {
     /** Dynamic String Table size */
     private long mDynStrSize;
 
-    /** Dynamic String Table offset */
+    /** Dynamic Table offset */
     private long mDynamicTabOffset;
 
-    /** Dynamic String Table size */
+    /** Dynamic Table size */
     private long mDynamicTabSize;
 
     /** Version Symbols Table offset */
@@ -505,26 +551,44 @@ public class ReadElf implements AutoCloseable {
     /** Version Definition Table */
     private VerDef[] mVerDefArr;
 
+    /** Dynamic Table */
+    private List<DynamicEntry> mDynamicArr;
+
+    /** Rodata offset */
+    private boolean mHasRodata;
+
+    /** Rodata offset */
+    private long mRodataOffset;
+
+    /** Rodata size */
+    private int mRodataSize;
+
+    /** Rodata String List */
+    private List<String> mRoStrings;
+
+    /** Rodata byte[] */
+    private byte[] mRoData;
+
     public static ReadElf read(File file) throws IOException {
         return new ReadElf(file);
     }
 
     public static void main(String[] args) throws IOException {
         for (String arg : args) {
-            ReadElf re = ReadElf.read(new File(arg));
-            re.getDynamicSymbol("x");
-            re.getSymbol("x");
+            ReadElf elf = ReadElf.read(new File(arg));
+            elf.getDynamicSymbol("x");
+            elf.getSymbol("x");
 
             Symbol[] symArr;
             System.out.println("===Symbol===");
-            symArr = re.getSymArr();
+            symArr = elf.getSymArr();
             for (int i = 0; i < symArr.length; i++) {
                 System.out.println(String.format("%8x: %s", i, symArr[i].toString()));
             }
             System.out.println("===Dynamic Symbol===");
-            symArr = re.getDynSymArr();
+            symArr = elf.getDynSymArr();
             for (int i = 0; i < symArr.length; i++) {
-                if (re.mVerNeedEntryCnt > 0) {
+                if (elf.mVerNeedEntryCnt > 0) {
                     System.out.println(
                             String.format(
                                     "%8x: %s, %s, %s - %d",
@@ -543,7 +607,68 @@ public class ReadElf implements AutoCloseable {
                                     symArr[i].getVerDefVersion()));
                 }
             }
-            re.close();
+
+            System.out.println("===Dynamic Dependencies===");
+            for (String DynDepEntry : elf.getDynamicDependencies()) {
+                System.out.println(DynDepEntry);
+            }
+
+            System.out.println("===Strings in Read Only(.rodata) section===");
+            for (String roStr : elf.getRoStrings()) {
+                System.out.println(roStr);
+            }
+
+            elf.close();
+        }
+    }
+
+    public static boolean isElf(File file) {
+        try {
+            if (file.length() < EI_NIDENT) {
+                throw new IllegalArgumentException(
+                        "Too small to be an ELF file: " + file.getCanonicalPath());
+            }
+
+            RandomAccessFile raFile = new RandomAccessFile(file, "r");
+            byte[] buffer = new byte[512];
+            raFile.seek(0);
+            raFile.readFully(buffer, 0, EI_NIDENT);
+            if (buffer[0] != ELFMAG[0]
+                    || buffer[1] != ELFMAG[1]
+                    || buffer[2] != ELFMAG[2]
+                    || buffer[3] != ELFMAG[3]) {
+                throw new IllegalArgumentException("Invalid ELF file: " + file.getCanonicalPath());
+            }
+            raFile.close();
+            ;
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public int getBits() {
+        if (mMachine == EM_386
+                || mMachine == EM_MIPS
+                || mMachine == EM_ARM
+                || mMachine == EM_QDSP6) {
+            return 32;
+        } else if (mMachine == EM_AARCH64 || mMachine == EM_X86_64) {
+            return 64;
+        } else {
+            return -1;
+        }
+    }
+
+    public String getArchitecture() {
+        if (mMachine == EM_ARM || mMachine == EM_AARCH64) {
+            return ARCH_ARM;
+        } else if (mMachine == EM_386 || mMachine == EM_X86_64) {
+            return ARCH_X86;
+        } else if (mMachine == EM_MIPS) {
+            return ARCH_MIPS;
+        } else {
+            return ARCH_UNKNOWN;
         }
     }
 
@@ -588,6 +713,8 @@ public class ReadElf implements AutoCloseable {
     }
 
     private ReadElf(File file) throws IOException {
+        mHasRodata = false;
+        mRoData = null;
         mPath = file.getPath();
         mFile = new RandomAccessFile(file, "r");
 
@@ -670,6 +797,7 @@ public class ReadElf implements AutoCloseable {
                             + mPath);
         }
 
+        mMachine = e_machine;
         long e_version = readWord();
         if (e_version != EV_CURRENT) {
             throw new IOException("Invalid e_version: " + e_version + ": " + mPath);
@@ -753,6 +881,10 @@ public class ReadElf implements AutoCloseable {
                 if (".strtab".equals(strTabName)) {
                     mStrTabOffset = sh_offset;
                     mStrTabSize = sh_size;
+                    System.out.println(
+                            String.format(
+                                    "%s, %d, %d, %d, %d",
+                                    strTabName, sh_offset, sh_size, sh_link, sh_info));
                 } else if (".dynstr".equals(strTabName)) {
                     mDynStrOffset = sh_offset;
                     mDynStrSize = sh_size;
@@ -797,6 +929,17 @@ public class ReadElf implements AutoCloseable {
                     mVerDefTabOffset = sh_offset;
                     mVerDefTabSize = sh_size;
                     mVerDefEntryCnt = (int) sh_info;
+                }
+                System.out.println(
+                        String.format(
+                                "%s, %d, %d, %d, %d",
+                                strTabName, sh_offset, sh_size, sh_link, sh_info));
+            } else if (sh_type == SHT_PROGBITS) {
+                final String strTabName = readShStrTabEntry(sh_name);
+                if (".rodata".equals(strTabName)) {
+                    mHasRodata = true;
+                    mRodataOffset = sh_offset;
+                    mRodataSize = (int) sh_size;
                 }
                 System.out.println(
                         String.format(
@@ -867,7 +1010,7 @@ public class ReadElf implements AutoCloseable {
             }
 
             Symbol sym = new Symbol(symName, st_info, st_shndx, st_value, st_size, st_other);
-            if (symName.equals("")) {
+            if (!symName.equals("")) {
                 result.put(symName, sym);
             }
             if (isDynSym) {
@@ -1107,5 +1250,92 @@ public class ReadElf implements AutoCloseable {
             }
         }
         return mDynamicSymbols.get(name);
+    }
+
+    // Get Dynamic Linking Dependency List
+    public List<String> getDynamicDependencies() throws IOException {
+        List<String> result = new ArrayList<>();
+        for (DynamicEntry entry : getDynamicList()) {
+            if (entry.isNeeded()) {
+                result.add(readDynStr(entry.getValue()));
+            }
+        }
+        return result;
+    }
+
+    private List<DynamicEntry> getDynamicList() throws IOException {
+        if (mDynamicArr == null) {
+            int entryNo = 0;
+            mDynamicArr = new ArrayList<>();
+            mFile.seek(mDynamicTabOffset);
+            System.out.println(
+                    String.format(
+                            "mDynamicTabOffset 0x%x, mDynamicTabSize %d",
+                            mDynamicTabOffset, mDynamicTabSize));
+            while (true) {
+                long tag = readX(mAddrSize);
+                long value = readX(mAddrSize);
+                // System.out.println(String.format("%d: 0x%x, %d", entryNo, tag, value));
+                mDynamicArr.add(new DynamicEntry(tag, value));
+                if (tag == 0) {
+                    break;
+                }
+                entryNo++;
+            }
+        }
+        return mDynamicArr;
+    }
+
+    private String readDynStr(long strOffset) throws IOException {
+        int offset = (int) (strOffset & 0xFFFFFFFF);
+        if (mDynStrOffset == 0 || offset < 0 || offset >= mDynStrSize) {
+            System.err.println(
+                    String.format(
+                            "err mDynStrOffset: %d,  mDynStrSize: %d, offset: %d",
+                            mDynStrOffset, mDynStrSize, offset));
+            return String.format("%d", offset);
+        }
+        return readString(mDynStrOffset + offset);
+    }
+
+    /**
+     * Gets a list of string from .rodata section
+     *
+     * @return a String list .rodata section
+     */
+    public List<String> getRoStrings() throws IOException {
+        if (mRoStrings == null) {
+            mRoStrings = new ArrayList<>();
+            byte[] byteArr = getRoData();
+            if (byteArr != null) {
+                int strOffset = 0;
+                for (int i = 0; i < mRodataSize; i++) {
+                    if (byteArr[i] == 0) {
+                        // skip null string
+                        if (i != strOffset) {
+                            String str = new String(byteArr, strOffset, i - strOffset);
+                            mRoStrings.add(str);
+                        }
+                        strOffset = i + 1;
+                    }
+                }
+            }
+        }
+        return mRoStrings;
+    }
+
+    /**
+     * Gets .rodata section
+     *
+     * @return byte [] of .rodata or null if there is none
+     */
+    public byte[] getRoData() throws IOException {
+        if (mHasRodata && mRoData == null) {
+            mRoData = new byte[mRodataSize];
+            mFile.seek(mRodataOffset);
+            mFile.readFully(mRoData);
+        }
+
+        return mRoData;
     }
 }

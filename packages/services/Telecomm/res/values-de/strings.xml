@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Kurzantwort"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Nachricht an <xliff:g id="PHONE_NUMBER">%s</xliff:g> gesendet"</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"Fehler beim Senden der Nachricht an <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Anrufkonten"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Es sind nur Notrufe erlaubt."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Diese App darf ohne die Berechtigung \"Standard-App für Telefonie\" keine ausgehenden Anrufe tätigen."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Als Standard festlegen"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Abbrechen"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> wird alle Anruffunktionen steuern. Nur vertrauenswürdige Apps sollten als Standard-Telefon-App festgelegt werden."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"<xliff:g id="NEW_APP">%s</xliff:g> als Standard-App für Call Screening festlegen?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"Das Call Screening mit <xliff:g id="OLD_APP">%s</xliff:g> ist nicht mehr möglich."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> kann Informationen zu Anrufern, die nicht in deinen Kontakten gespeichert sind, erkennen und die Anrufe blockieren. Du solltest nur Apps, denen du vertraust, als Standard-App für das Call Screening festlegen."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Als Standard festlegen"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Abbrechen"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Blockierte Nummern"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Du erhältst keine Anrufe oder SMS von blockierten Nummern."</string>
     <string name="block_number" msgid="1101252256321306179">"Nummer hinzufügen"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Wenn du den Anruf annimmst, wird der Videoanruf beendet"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Annehmen"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Ablehnen"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Der Anruf kann nicht ausgehen, da es keine Anrufkonten gibt, die Anrufe dieses Typs unterstützen."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Dieser Anruf kann aufgrund des Anrufs in <xliff:g id="OTHER_CALL">%1$s</xliff:g> nicht getätigt werden."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Dieser Anruf kann aufgrund deiner Anrufe in <xliff:g id="OTHER_CALL">%1$s</xliff:g> nicht getätigt werden."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Dieser Anruf kann aufgrund eines Anrufs in einer anderen App nicht getätigt werden."</string>
@@ -84,17 +91,22 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Entgangene Anrufe"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Anrufblockierung"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Durch diesen Anruf wird der Anruf in <xliff:g id="OTHER_APP">%1$s</xliff:g> beendet."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Wie möchtest du anrufen?"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Mit <xliff:g id="OTHER_APP">%1$s</xliff:g> weiterleiten"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Mit meiner Telefonnummer anrufen"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"Anruf kann nicht mit <xliff:g id="OTHER_APP">%1$s</xliff:g> getätigt werden. Bitte verwende eine andere App zur Anrufweiterleitung oder wende dich an den Entwickler, um Hilfe zu erhalten."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Anrufblockierung"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Nicht in den Kontakten gespeicherte Telefonnummern"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Telefonnummern, die nicht in den Kontakten gespeichert sind, werden blockiert"</string>
     <string name="phone_settings_private_num_txt" msgid="8623574188879134262">"Privat"</string>
     <string name="phone_settings_private_num_summary_txt" msgid="7516314821207782191">"Anrufer mit unterdrückter Nummer werden blockiert"</string>
     <string name="phone_settings_payphone_txt" msgid="2493356957416981318">"Öffentliche Telefone"</string>
-    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Anrufe von öffentlichen Telefonen werden blockiert"</string>
+    <string name="phone_settings_payphone_summary_txt" msgid="6126709946103814653">"Anrufe von öffentlichen Telefonen blockieren"</string>
     <string name="phone_settings_unknown_txt" msgid="5836407031508172721">"Unbekannt"</string>
-    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Anrufe von nicht identifizierten Anrufern werden blockiert"</string>
+    <string name="phone_settings_unknown_summary_txt" msgid="3457690230497753233">"Anrufe von nicht identifizierten Anrufern blockieren"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_title_txt" msgid="628536625775266096">"Anrufblockierung"</string>
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Anrufblockierung deaktiviert"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Notruf abgesetzt"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Die Anrufblockierung wurde deaktiviert, damit Ersthelfer und Rettungskräfte dich kontaktieren können."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Telecom-Entwicklermenü"</string>
 </resources>

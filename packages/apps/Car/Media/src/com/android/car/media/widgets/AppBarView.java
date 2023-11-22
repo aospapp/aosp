@@ -2,61 +2,60 @@ package com.android.car.media.widgets;
 
 import android.annotation.Nullable;
 import android.content.Context;
-import android.content.res.TypedArray;
-import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
-import android.support.design.widget.TabLayout;
-import android.transition.Fade;
-import android.transition.Transition;
-import android.transition.TransitionManager;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.constraintlayout.widget.ConstraintLayout;
+
+import com.android.car.apps.common.UxrButton;
+import com.android.car.apps.common.widget.CarTabLayout;
 import com.android.car.media.R;
+import com.android.car.media.common.MediaAppSelectorWidget;
 import com.android.car.media.common.MediaItemMetadata;
 
 import java.util.List;
 import java.util.Objects;
 
 /**
- * Media template application bar. A detailed explanation of all possible states of this
- * application bar can be seen at {@link AppBarView.State}.
+ * Media template application bar. The callers should set properties via the public methods (e.g.,
+ * {@link setItems()}, {@link setTitle()}, {@link setHasSettings()}), and set the visibility of the
+ * views via {@link setState()}. A detailed explanation of all possible states of this application
+ * bar can be seen at {@link AppBarView.State}.
  */
-public class AppBarView extends RelativeLayout {
+public class AppBarView extends ConstraintLayout {
     private static final String TAG = "AppBarView";
-    /** Default number of tabs to show on this app bar */
-    private static int DEFAULT_MAX_TABS = 4;
 
-    private LinearLayout mTabsContainer;
-    private ImageView mAppIcon;
-    private ImageView mAppSwitchIcon;
+    private CarTabLayout<MediaItemTab> mTabsContainer;
     private ImageView mNavIcon;
     private ViewGroup mNavIconContainer;
     private TextView mTitle;
-    private ViewGroup mAppSwitchContainer;
+    /** Visible if mHasSettings && mShowSettings. */
+    private UxrButton mSettingsButton;
+    private boolean mHasSettings;
+    private boolean mShowSettings;
+    private View mSearchButton;
+    private SearchBar mSearchBar;
+    private MediaAppSelectorWidget mAppSelector;
     private Context mContext;
     private int mMaxTabs;
-    private Drawable mArrowDropDown;
-    private Drawable mArrowDropUp;
     private Drawable mArrowBack;
     private Drawable mCollapse;
     private State mState = State.BROWSING;
     private AppBarListener mListener;
     private int mFadeDuration;
-    private float mSelectedTabAlpha;
-    private float mUnselectedTabAlpha;
-    private MediaItemMetadata mSelectedItem;
     private String mMediaAppTitle;
-    private Drawable mDefaultIcon;
-    private boolean mContentForwardEnabled;
+    private boolean mSearchSupported;
+    private int mMaxRows;
+
+    public interface AppBarProvider {
+        AppBarView getAppBar();
+    }
 
     /**
      * Application bar listener
@@ -73,14 +72,19 @@ public class AppBarView extends RelativeLayout {
         void onBack();
 
         /**
-         * Invoked when the user clicks on the collapse button
+         * Invoked when the user clicks on the settings button.
          */
-        void onCollapse();
+        void onSettingsSelection();
 
         /**
-         * Invoked when the user clicks on the app selection switch
+         * Invoked when the user submits a search query.
          */
-        void onAppSelection();
+        void onSearch(String query);
+
+        /**
+         * Invoked when the user clicks on the search button
+         */
+        void onSearchSelection();
     }
 
     /**
@@ -98,16 +102,15 @@ public class AppBarView extends RelativeLayout {
          */
         STACKED,
         /**
-         * Indicates that we have expanded a view that can be collapsed. We show the
-         * title of the application and a collapse icon
+         * Indicates that the user is currently entering a search query. We show the search bar and
+         * a collapse icon
          */
-        PLAYING,
+        SEARCHING,
         /**
-         * Used to indicate that the user is inside the app selector. In this case we disable
-         * navigation, we show the title of the application and we show the app switch icon
-         * point up
+         * Used whenever the app bar should not display any information such as when MediaCenter
+         * is in an error state
          */
-        APP_SELECTION
+        EMPTY
     }
 
     public AppBarView(Context context) {
@@ -119,48 +122,55 @@ public class AppBarView extends RelativeLayout {
     }
 
     public AppBarView(Context context, AttributeSet attrs, int defStyleAttr) {
-        this(context, attrs, defStyleAttr, 0);
+        super(context, attrs, defStyleAttr);
+        init(context, attrs, defStyleAttr);
     }
 
-    public AppBarView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
-        init(context, attrs, defStyleAttr, defStyleRes);
-    }
-
-    private void init(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-        TypedArray ta = context.obtainStyledAttributes(
-                attrs, R.styleable.AppBarView, defStyleAttr, defStyleRes);
-        mMaxTabs = ta.getInteger(R.styleable.AppBarView_max_tabs, DEFAULT_MAX_TABS);
-        ta.recycle();
+    private void init(Context context, AttributeSet attrs, int defStyleAttr) {
+        mMaxTabs = context.getResources().getInteger(R.integer.max_tabs);
 
         LayoutInflater inflater = (LayoutInflater) context
                 .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         inflater.inflate(R.layout.appbar_view, this, true);
 
         mContext = context;
+        mMaxRows = mContext.getResources().getInteger(R.integer.num_app_bar_view_rows);
+
         mTabsContainer = findViewById(R.id.tabs);
+        mTabsContainer.addOnCarTabSelectedListener(
+                new CarTabLayout.SimpleOnCarTabSelectedListener<MediaItemTab>() {
+                    @Override
+                    public void onCarTabSelected(MediaItemTab mediaItemTab) {
+                        if (mListener != null) {
+                            mListener.onTabSelected(mediaItemTab.getItem());
+                        }
+                    }
+                });
         mNavIcon = findViewById(R.id.nav_icon);
         mNavIconContainer = findViewById(R.id.nav_icon_container);
         mNavIconContainer.setOnClickListener(view -> onNavIconClicked());
-        mAppIcon = findViewById(R.id.app_icon);
-        mAppSwitchIcon = findViewById(R.id.app_switch_icon);
-        mAppSwitchContainer = findViewById(R.id.app_switch_container);
-        mAppSwitchContainer.setOnClickListener(view -> onAppSwitchClicked());
+        mAppSelector = findViewById(R.id.app_switch_container);
+        mSettingsButton = findViewById(R.id.settings);
+        mSettingsButton.setOnClickListener(view -> onSettingsClicked());
+        mSearchButton = findViewById(R.id.search);
+        mSearchButton.setOnClickListener(view -> onSearchClicked());
+        mSearchBar = findViewById(R.id.search_bar_container);
+
         mTitle = findViewById(R.id.title);
-        mArrowDropDown = getResources().getDrawable(R.drawable.ic_arrow_drop_down, null);
-        mArrowDropUp = getResources().getDrawable(R.drawable.ic_arrow_drop_up, null);
         mArrowBack = getResources().getDrawable(R.drawable.ic_arrow_back, null);
         mCollapse = getResources().getDrawable(R.drawable.ic_expand_more, null);
         mFadeDuration = getResources().getInteger(R.integer.app_selector_fade_duration);
-        TypedValue outValue = new TypedValue();
-        getResources().getValue(R.dimen.browse_tab_alpha_selected, outValue, true);
-        mSelectedTabAlpha = outValue.getFloat();
-        getResources().getValue(R.dimen.browse_tab_alpha_unselected, outValue, true);
-        mUnselectedTabAlpha = outValue.getFloat();
         mMediaAppTitle = getResources().getString(R.string.media_app_title);
-        mDefaultIcon = getResources().getDrawable(R.drawable.ic_music);
 
         setState(State.BROWSING);
+    }
+
+    public void openAppSelector() {
+        mAppSelector.open();
+    }
+
+    public void closeAppSelector() {
+        mAppSelector.close();
     }
 
     private void onNavIconClicked() {
@@ -168,20 +178,29 @@ public class AppBarView extends RelativeLayout {
             return;
         }
         switch (mState) {
+            case BROWSING:
             case STACKED:
                 mListener.onBack();
                 break;
-            case PLAYING:
-                mListener.onCollapse();
+            case SEARCHING:
+                mSearchBar.showSearchBar(false);
+                mListener.onBack();
                 break;
         }
     }
 
-    private void onAppSwitchClicked() {
+    private void onSettingsClicked() {
         if (mListener == null) {
             return;
         }
-        mListener.onAppSelection();
+        mListener.onSettingsSelection();
+    }
+
+    private void onSearchClicked() {
+        if (mListener == null) {
+            return;
+        }
+        mListener.onSearchSelection();
     }
 
     /**
@@ -198,27 +217,13 @@ public class AppBarView extends RelativeLayout {
      * @param items list of tabs to show, or null if no tabs should be shown.
      */
     public void setItems(@Nullable List<MediaItemMetadata> items) {
-        mTabsContainer.removeAllViews();
+        mTabsContainer.clearAllCarTabs();
 
-        if (items != null) {
+        if (items != null && !items.isEmpty()) {
             int count = 0;
-            int padding = mContext.getResources().getDimensionPixelSize(R.dimen.car_padding_4);
-            int tabWidth = mContext.getResources().getDimensionPixelSize(R.dimen.browse_tab_width) +
-                    2 * padding;
-            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
-                    tabWidth, ViewGroup.LayoutParams.MATCH_PARENT);
             for (MediaItemMetadata item : items) {
-                MediaItemTabView tab = new MediaItemTabView(mContext, item);
-                mTabsContainer.addView(tab);
-                tab.setLayoutParams(layoutParams);
-                tab.setOnClickListener(view -> {
-                    if (mListener != null) {
-                        mListener.onTabSelected(item);
-                    }
-                });
-                tab.setPadding(padding, 0, padding, 0);
-                tab.requestLayout();
-                tab.setTag(item);
+                MediaItemTab tab = new MediaItemTab(mContext, item);
+                mTabsContainer.addCarTab(tab);
 
                 count++;
                 if (count >= mMaxTabs) {
@@ -232,99 +237,117 @@ public class AppBarView extends RelativeLayout {
     }
 
     /**
-     * Updates the title to display when the bar is not showing tabs.
+     * Updates the title to display when the bar is not showing tabs. If the provided title is null,
+     * will default to displaying the app name.
      */
     public void setTitle(CharSequence title) {
         mTitle.setText(title != null ? title : mMediaAppTitle);
     }
 
     /**
-     * Whether content forward browsing is enabled or not
+     * Sets the name of the currently displayed media app. This is used as the default title for
+     * playback and the root browse menu. If provided title is null, will use default media center
+     * title.
      */
-    public void setContentForwardEnabled(boolean enabled) {
-        mContentForwardEnabled = enabled;
+    public void setMediaAppTitle(CharSequence appTitle) {
+        mMediaAppTitle = appTitle == null ? getResources().getString(R.string.media_app_title)
+                : appTitle.toString();
     }
 
-    /**
-     * Updates the application icon to show next to the application switcher.
-     */
-    public void setAppIcon(Bitmap icon) {
-        if (icon != null) {
-            mAppIcon.setImageBitmap(icon);
-        } else {
-            mAppIcon.setImageDrawable(mDefaultIcon);
-        }
+    /** Sets whether the source has settings (not all screens show it). */
+    public void setHasSettings(boolean hasSettings) {
+        mHasSettings = hasSettings;
+        updateSettingsVisibility();
     }
 
-    /**
-     * Indicates whether or not the application switcher should be enabled.
-     */
-    public void setAppSelection(boolean enabled) {
-        mAppSwitchIcon.setVisibility(enabled ? View.VISIBLE : View.GONE);
+    private void showSettings(boolean showSettings) {
+        mShowSettings = showSettings;
+        updateSettingsVisibility();
+    }
+
+    private void updateSettingsVisibility() {
+        mSettingsButton.setVisibility(mHasSettings && mShowSettings ? VISIBLE : GONE);
     }
 
     /**
      * Updates the currently active item
      */
     public void setActiveItem(MediaItemMetadata item) {
-        mSelectedItem = item;
-        // TODO(b/79264184): Updating tabs alpha is causing them to disappear randomly. We are
-        // de-activating this feature for not.
-        // updateTabs();
-    }
-
-    private void updateTabs() {
-        for (int i = 0; i < mTabsContainer.getChildCount(); i++) {
-            View child = mTabsContainer.getChildAt(i);
-            if (child instanceof MediaItemTabView) {
-                MediaItemTabView tabView = (MediaItemTabView) child;
-                boolean match = mSelectedItem != null && Objects.equals(
-                        mSelectedItem.getId(),
-                        ((MediaItemMetadata) tabView.getTag()).getId());
-                tabView.setAlpha(match ? mSelectedTabAlpha : mUnselectedTabAlpha);
+        for (int i = 0; i < mTabsContainer.getCarTabCount(); i++) {
+            MediaItemTab mediaItemTab = mTabsContainer.get(i);
+            boolean match = item != null && Objects.equals(
+                    item.getId(),
+                    mediaItemTab.getItem().getId());
+            if (match) {
+                mTabsContainer.selectCarTab(mediaItemTab);
+                return;
             }
         }
+    }
+
+    /**
+     * Sets whether the search box should be shown
+     */
+    public void setSearchSupported(boolean supported) {
+        mSearchSupported = supported;
+        mSearchButton.setVisibility(mSearchSupported ? View.VISIBLE : View.GONE);
+    }
+
+    /**
+     * Sets whether to show tabs or not. The caller should make sure tabs has at least 1 item before
+     * showing tabs.
+     */
+    private void setShowTabs(boolean visible) {
+        // Refresh state to adjust for new tab visibility
+        mTabsContainer.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     /**
      * Updates the state of the bar.
      */
     public void setState(State state) {
-        boolean hasItems = mTabsContainer.getChildCount() > 0;
         mState = state;
-
-        Transition transition = new Fade().setDuration(mFadeDuration);
-        TransitionManager.beginDelayedTransition(this, transition);
-        Log.d(TAG, "Updating state: " + state + " (has items: " + hasItems + ")");
+        final boolean hasTabs = mTabsContainer.getCarTabCount() > 0;
+        final boolean showTitle = !hasTabs || mMaxRows == 2;
+        Log.d(TAG, "Updating state: " + state + " (has tabs: " + hasTabs + ")");
         switch (state) {
-            case BROWSING:
+            case EMPTY:
                 mNavIconContainer.setVisibility(View.GONE);
-                mTabsContainer.setVisibility(hasItems ? View.VISIBLE : View.GONE);
-                mTitle.setVisibility(hasItems ? View.GONE : View.VISIBLE);
-                mAppSwitchIcon.setImageDrawable(mArrowDropDown);
+                setShowTabs(false);
+                mTitle.setVisibility(View.GONE);
+                mSearchBar.showSearchBar(false);
+                showSettings(true);
+                mAppSelector.setVisibility(View.VISIBLE);
+                break;
+            case BROWSING:
+                mNavIcon.setImageDrawable(mArrowBack);
+                mNavIconContainer.setVisibility(View.GONE);
+                setShowTabs(hasTabs);
+                mTitle.setVisibility(showTitle ? View.VISIBLE : View.GONE);
+                mSearchBar.showSearchBar(false);
+                mSearchButton.setVisibility(mSearchSupported ? View.VISIBLE : View.GONE);
+                showSettings(true);
+                mAppSelector.setVisibility(View.VISIBLE);
                 break;
             case STACKED:
                 mNavIcon.setImageDrawable(mArrowBack);
                 mNavIconContainer.setVisibility(View.VISIBLE);
-                mTabsContainer.setVisibility(View.GONE);
+                setShowTabs(false);
                 mTitle.setVisibility(View.VISIBLE);
-                mAppSwitchIcon.setImageDrawable(mArrowDropDown);
+                mSearchBar.showSearchBar(false);
+                mSearchButton.setVisibility(mSearchSupported ? View.VISIBLE : View.GONE);
+                showSettings(true);
+                mAppSelector.setVisibility(View.VISIBLE);
                 break;
-            case PLAYING:
-                mNavIcon.setImageDrawable(mCollapse);
-                mNavIconContainer.setVisibility(hasItems || !mContentForwardEnabled ? View.GONE
-                        : View.VISIBLE);
-                mTabsContainer.setVisibility(hasItems && mContentForwardEnabled ? View.VISIBLE
-                        : View.GONE);
-                mTitle.setVisibility(hasItems || !mContentForwardEnabled ? View.GONE
-                        : View.VISIBLE);
-                mAppSwitchIcon.setImageDrawable(mArrowDropDown);
-                break;
-            case APP_SELECTION:
-                mNavIconContainer.setVisibility(View.GONE);
-                mTabsContainer.setVisibility(View.GONE);
-                mTitle.setVisibility(mContentForwardEnabled ? View.VISIBLE : View.GONE);
-                mAppSwitchIcon.setImageDrawable(mArrowDropUp);
+            case SEARCHING:
+                mNavIcon.setImageDrawable(mArrowBack);
+                mNavIconContainer.setVisibility(View.VISIBLE);
+                setShowTabs(false);
+                mTitle.setVisibility(View.GONE);
+                mSearchBar.showSearchBar(true);
+                mSearchButton.setVisibility(View.GONE);
+                showSettings(false);
+                mAppSelector.setVisibility(View.GONE);
                 break;
         }
     }

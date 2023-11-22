@@ -24,4 +24,5 @@ public final class JobCallbackParams {
     public String jobState;
     public String jobDoneResult;
     public String[] blockedReasons;
+    public byte[] certificate;
 }

@@ -30,6 +30,21 @@ as toasts. Experience has shown that many developers don’t habitually
 check logcat for warnings until their app stops functioning, so the
 toasts help bring some visibility to the issues before it's too late.
 
+## Changes to library dependency resolution
+
+Until it was [fixed](https://issuetracker.google.com/36950617) in
+JB-MR2, Android didn't include the application library directory
+on the dynamic linker's search path. This meant that apps
+had to call `dlopen` or `System.loadLibrary` on all transitive
+dependencies before loading their main library. Worse, until it was
+[fixed](https://issuetracker.google.com/36935779) in JB-MR2, the
+dynamic linker's caching code cached failures too, so it was necessary
+to topologically sort your libraries and load them in reverse order.
+
+If you need to support Android devices running OS
+versions older than JB-MR2, you might want to consider
+[ReLinker](https://github.com/KeepSafe/ReLinker) which claims to solve
+these problems automatically.
 
 ## Changes to library search order
 
@@ -402,3 +417,17 @@ are possible workarounds.
 | No workaround     | Works for static STL       | Broken  | Works |
 | `-Wl,-z,nodelete` | Works for static STL       | Works   | Works |
 | No `dlclose`      | Works                      | Works   | Works |
+
+## Use of IFUNC in libc (True for all API levels on devices running Q)
+
+Starting with Android Q (API level 29), libc uses
+[IFUNC](https://sourceware.org/glibc/wiki/GNU_IFUNC) functionality in
+the dynamic linker to choose optimized assembler routines at run time
+rather than at build time. This lets us use the same `libc.so` on all
+devices, and is similar to what other OSes already did. Because the zygote
+uses the C library, this decision is made long before we know what API
+level an app targets, so all code sees the new IFUNC-using C library.
+Most apps should be unaffected by this change, but apps that hook or try to
+detect hooking of C library functions might need to fix their code to cope
+with IFUNC relocations. The affected functions are from `<string.h>`, but
+may expand to include more functions (and more libraries) in future.

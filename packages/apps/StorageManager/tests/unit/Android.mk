@@ -7,7 +7,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_JAVA_LIBRARIES := android.test.runner android.test.base android.test.mock
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     mockito-target
 
 # Include all test java files.

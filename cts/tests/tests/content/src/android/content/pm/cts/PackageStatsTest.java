@@ -19,8 +19,10 @@ package android.content.pm.cts;
 
 import android.content.pm.PackageStats;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class PackageStatsTest extends AndroidTestCase {
     private static final String PACKAGE_NAME = "android.content.cts";
 

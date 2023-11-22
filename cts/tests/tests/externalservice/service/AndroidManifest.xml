@@ -18,7 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.externalservice.service">
 
-    <application android:label="External Service Host">
+    <application android:label="External Service Host"
+                 android:zygotePreloadName="android.externalservice.service.ZygotePreload">
         <uses-library android:name="android.test.runner" />
 
         <!-- Service used to start .ExternalService from this package. -->
@@ -45,11 +46,16 @@
                  android:externalService="true"
                  android:exported="true"/>
 
-        <!-- The only valid, externalService entry. -->
+        <!-- The valid externalService entries. -->
         <service android:name=".ExternalService"
                  android:isolatedProcess="true"
                  android:externalService="true"
                  android:exported="true"/>
+        <service android:name=".ExternalServiceWithZygote"
+                 android:isolatedProcess="true"
+                 android:externalService="true"
+                 android:exported="true"
+                 android:useAppZygote="true"/>
     </application>
 
 </manifest>

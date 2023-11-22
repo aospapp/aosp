@@ -29,7 +29,7 @@ class CountTask : public Task {
  public:
   explicit CountTask(AtomicInteger* count) : count_(count), verbose_(false) {}
 
-  void Run(Thread* self) {
+  void Run(Thread* self) override {
     if (verbose_) {
       LOG(INFO) << "Running: " << *self;
     }
@@ -39,7 +39,7 @@ class CountTask : public Task {
     ++*count_;
   }
 
-  void Finalize() {
+  void Finalize() override {
     if (verbose_) {
       LOG(INFO) << "Finalizing: " << *Thread::Current();
     }
@@ -71,7 +71,7 @@ TEST_F(ThreadPoolTest, CheckRun) {
   // Wait for tasks to complete.
   thread_pool.Wait(self, true, false);
   // Make sure that we finished all the work.
-  EXPECT_EQ(num_tasks, count.LoadSequentiallyConsistent());
+  EXPECT_EQ(num_tasks, count.load(std::memory_order_seq_cst));
 }
 
 TEST_F(ThreadPoolTest, StopStart) {
@@ -84,7 +84,7 @@ TEST_F(ThreadPoolTest, StopStart) {
   }
   usleep(200);
   // Check that no threads started prematurely.
-  EXPECT_EQ(0, count.LoadSequentiallyConsistent());
+  EXPECT_EQ(0, count.load(std::memory_order_seq_cst));
   // Signal the threads to start processing tasks.
   thread_pool.StartWorkers(self);
   usleep(200);
@@ -93,7 +93,7 @@ TEST_F(ThreadPoolTest, StopStart) {
   thread_pool.AddTask(self, new CountTask(&bad_count));
   usleep(200);
   // Ensure that the task added after the workers were stopped doesn't get run.
-  EXPECT_EQ(0, bad_count.LoadSequentiallyConsistent());
+  EXPECT_EQ(0, bad_count.load(std::memory_order_seq_cst));
   // Allow tasks to finish up and delete themselves.
   thread_pool.StartWorkers(self);
   thread_pool.Wait(self, false, false);
@@ -119,7 +119,7 @@ TEST_F(ThreadPoolTest, StopWait) {
   // Drain the task list. Note: we have to restart here, as no tasks will be finished when
   // the pool is stopped.
   thread_pool.StartWorkers(self);
-  thread_pool.Wait(self, /* do_work */ true, false);
+  thread_pool.Wait(self, /* do_work= */ true, false);
 }
 
 class TreeTask : public Task {
@@ -129,7 +129,7 @@ class TreeTask : public Task {
         count_(count),
         depth_(depth) {}
 
-  void Run(Thread* self) {
+  void Run(Thread* self) override {
     if (depth_ > 1) {
       thread_pool_->AddTask(self, new TreeTask(thread_pool_, count_, depth_ - 1));
       thread_pool_->AddTask(self, new TreeTask(thread_pool_, count_, depth_ - 1));
@@ -138,7 +138,7 @@ class TreeTask : public Task {
     ++*count_;
   }
 
-  void Finalize() {
+  void Finalize() override {
     delete this;
   }
 
@@ -157,19 +157,19 @@ TEST_F(ThreadPoolTest, RecursiveTest) {
   thread_pool.AddTask(self, new TreeTask(&thread_pool, &count, depth));
   thread_pool.StartWorkers(self);
   thread_pool.Wait(self, true, false);
-  EXPECT_EQ((1 << depth) - 1, count.LoadSequentiallyConsistent());
+  EXPECT_EQ((1 << depth) - 1, count.load(std::memory_order_seq_cst));
 }
 
 class PeerTask : public Task {
  public:
   PeerTask() {}
 
-  void Run(Thread* self) {
+  void Run(Thread* self) override {
     ScopedObjectAccess soa(self);
     CHECK(self->GetPeer() != nullptr);
   }
 
-  void Finalize() {
+  void Finalize() override {
     delete this;
   }
 };
@@ -178,12 +178,12 @@ class NoPeerTask : public Task {
  public:
   NoPeerTask() {}
 
-  void Run(Thread* self) {
+  void Run(Thread* self) override {
     ScopedObjectAccess soa(self);
     CHECK(self->GetPeer() == nullptr);
   }
 
-  void Finalize() {
+  void Finalize() override {
     delete this;
   }
 };

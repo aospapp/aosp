@@ -19,10 +19,11 @@ package com.android.tv.settings.device.sound;
 import android.content.Context;
 import android.media.AudioManager;
 import android.provider.Settings;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.Preference;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.preference.Preference;
+import androidx.preference.SwitchPreference;
 
 import com.android.settingslib.core.AbstractPreferenceController;
 
@@ -39,13 +40,18 @@ public class SoundFormatPreferenceController extends AbstractPreferenceControlle
 
     private int mFormatId;
     private AudioManager mAudioManager;
+    private Map<Integer, Boolean> mFormats;
     private Map<Integer, Boolean> mReportedFormats;
 
-    public SoundFormatPreferenceController(Context context, int formatId) {
+    public SoundFormatPreferenceController(
+            Context context,
+            int formatId,
+            Map<Integer, Boolean> formats,
+            Map<Integer, Boolean> reportedFormats) {
         super(context);
         mFormatId = formatId;
-        mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        mReportedFormats = mAudioManager.getReportedSurroundFormats();
+        mFormats = formats;
+        mReportedFormats = reportedFormats;
     }
 
     @Override
@@ -107,10 +113,10 @@ public class SoundFormatPreferenceController extends AbstractPreferenceControlle
         if (enabledFormats == null) {
             // Starting with Android P passthrough setting ALWAYS has been replaced with MANUAL.
             // In that case all formats will be enabled when in MANUAL mode.
-            formats.addAll(mAudioManager.getSurroundFormats().keySet());
+            formats.addAll(mFormats.keySet());
         } else {
             try {
-                Arrays.stream(enabledFormats.split(",")).mapToInt(Integer::parseInt)
+                Arrays.stream(TextUtils.split(enabledFormats, ",")).mapToInt(Integer::parseInt)
                         .forEach(formats::add);
             } catch (NumberFormatException e) {
                 Log.w(TAG, "ENCODED_SURROUND_OUTPUT_ENABLED_FORMATS misformatted.", e);

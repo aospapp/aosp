@@ -48,4 +48,10 @@ public class FileDownloadCacheWrapper implements IFileDownloader {
     public void downloadFile(String remotePath, File destFile) throws BuildRetrievalError {
         throw new UnsupportedOperationException();
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isFresh(File localFile, String remoteFilePath) throws BuildRetrievalError {
+        return mDelegateDownloader.isFresh(localFile, remoteFilePath);
+    }
 }

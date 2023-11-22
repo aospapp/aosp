@@ -16,13 +16,22 @@
 
 package com.android.server.telecom;
 
+import static android.telecom.Call.Details.DIRECTION_INCOMING;
+import static android.telecom.Call.Details.DIRECTION_OUTGOING;
+import static android.telecom.Call.Details.DIRECTION_UNKNOWN;
+
 import android.net.Uri;
+import android.os.Bundle;
 import android.telecom.Connection;
+import android.telecom.DisconnectCause;
 import android.telecom.ParcelableCall;
 import android.telecom.ParcelableRttCall;
 import android.telecom.TelecomManager;
+import android.text.TextUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -31,11 +40,40 @@ import java.util.List;
 public class ParcelableCallUtils {
     private static final int CALL_STATE_OVERRIDE_NONE = -1;
 
+    /**
+     * A list of extra keys which should be removed from a {@link ParcelableCall} when it is being
+     * generated for the purpose of sending to a dialer other than the system dialer.
+     * By convention we only pass keys namespaced with android.*, however there are some keys which
+     * should not be passed to non-system dialer apps either.
+     */
+    private static List<String> EXTRA_KEYS_TO_SANITIZE;
+    static {
+        EXTRA_KEYS_TO_SANITIZE = new ArrayList<>();
+        EXTRA_KEYS_TO_SANITIZE.add(android.telecom.Connection.EXTRA_SIP_INVITE);
+    }
+
+    /**
+     * A list of extra keys which should be added to {@link ParcelableCall} when it is being
+     * generated for the purpose of sending to a CallScreeningService which has access to these
+     * restricted keys.
+     */
+    private static List<String> RESTRICTED_CALL_SCREENING_EXTRA_KEYS;
+    static {
+        RESTRICTED_CALL_SCREENING_EXTRA_KEYS = new ArrayList<>();
+        RESTRICTED_CALL_SCREENING_EXTRA_KEYS.add(android.telecom.Connection.EXTRA_SIP_INVITE);
+    }
+
     public static class Converter {
         public ParcelableCall toParcelableCall(Call call, boolean includeVideoProvider,
                 PhoneAccountRegistrar phoneAccountRegistrar) {
             return ParcelableCallUtils.toParcelableCall(
-                    call, includeVideoProvider, phoneAccountRegistrar, false, false);
+                    call, includeVideoProvider, phoneAccountRegistrar, false, false, false);
+        }
+
+        public ParcelableCall toParcelableCallForScreening(Call call,
+                boolean areRestrictedExtrasIncluded) {
+            return ParcelableCallUtils.toParcelableCallForScreening(call,
+                    areRestrictedExtrasIncluded);
         }
     }
 
@@ -50,16 +88,23 @@ public class ParcelableCallUtils {
      * @param phoneAccountRegistrar The {@link PhoneAccountRegistrar}.
      * @param supportsExternalCalls Indicates whether the call should be parcelled for an
      *      {@link InCallService} which supports external calls or not.
+     * @param includeRttCall {@code true} if the RTT call should be included, {@code false}
+     *      otherwise.
+     * @param isForSystemDialer {@code true} if this call is being parcelled for the system dialer,
+     *      {@code false} otherwise.  When parceling for the system dialer, the entire call extras
+     *      is included.  When parceling for anything other than the system dialer, some extra key
+     *      values will be stripped for privacy sake.
      */
     public static ParcelableCall toParcelableCall(
             Call call,
             boolean includeVideoProvider,
             PhoneAccountRegistrar phoneAccountRegistrar,
             boolean supportsExternalCalls,
-            boolean includeRttCall) {
+            boolean includeRttCall,
+            boolean isForSystemDialer) {
         return toParcelableCall(call, includeVideoProvider, phoneAccountRegistrar,
                 supportsExternalCalls, CALL_STATE_OVERRIDE_NONE /* overrideState */,
-                includeRttCall);
+                includeRttCall, isForSystemDialer);
     }
 
     /**
@@ -75,6 +120,10 @@ public class ParcelableCallUtils {
      *      {@link InCallService} which supports external calls or not.
      * @param overrideState When not {@link #CALL_STATE_OVERRIDE_NONE}, use the provided state as an
      *      override to whatever is defined in the call.
+     * @param isForSystemDialer {@code true} if this call is being parcelled for the system dialer,
+     *      {@code false} otherwise.  When parceling for the system dialer, the entire call extras
+     *      is included.  When parceling for anything other than the system dialer, some extra key
+     *      values will be stripped for privacy sake.
      * @return The {@link ParcelableCall} containing all call information from the {@link Call}.
      */
     public static ParcelableCall toParcelableCall(
@@ -83,7 +132,8 @@ public class ParcelableCallUtils {
             PhoneAccountRegistrar phoneAccountRegistrar,
             boolean supportsExternalCalls,
             int overrideState,
-            boolean includeRttCall) {
+            boolean includeRttCall,
+            boolean isForSystemDialer) {
         int state;
         if (overrideState == CALL_STATE_OVERRIDE_NONE) {
             state = getParcelableState(call, supportsExternalCalls);
@@ -100,6 +150,10 @@ public class ParcelableCallUtils {
 
         if (call.isWorkCall()) {
             properties |= android.telecom.Call.Details.PROPERTY_ENTERPRISE_CALL;
+        }
+
+        if (call.getIsVoipAudioMode()) {
+            properties |= android.telecom.Call.Details.PROPERTY_VOIP_AUDIO_MODE;
         }
 
         // If this is a single-SIM device, the "default SIM" will always be the only SIM.
@@ -157,6 +211,21 @@ public class ParcelableCallUtils {
         }
 
         ParcelableRttCall rttCall = includeRttCall ? getParcelableRttCall(call) : null;
+        int callDirection;
+        if (call.isIncoming()) {
+            callDirection = DIRECTION_INCOMING;
+        } else if (call.isUnknown()) {
+            callDirection = DIRECTION_UNKNOWN;
+        } else {
+            callDirection = DIRECTION_OUTGOING;
+        }
+
+        Bundle extras;
+        if (isForSystemDialer) {
+            extras = call.getExtras();
+        } else {
+            extras = sanitizeExtras(call.getExtras());
+        }
 
         return new ParcelableCall(
                 call.getId(),
@@ -183,8 +252,127 @@ public class ParcelableCallUtils {
                 call.getVideoState(),
                 conferenceableCallIds,
                 call.getIntentExtras(),
-                call.getExtras(),
-                call.getCreationTimeMillis());
+                extras,
+                call.getCreationTimeMillis(),
+                callDirection);
+    }
+
+    /**
+     * Creates a ParcelableCall with the bare minimum properties required for a
+     * {@link android.telecom.CallScreeningService}.  We ONLY expose the following:
+     * <ul>
+     *     <li>Call Id (not exposed to public, but needed to associated calls)</li>
+     *     <li>Call directoin</li>
+     *     <li>Creation time</li>
+     *     <li>Connection time</li>
+     *     <li>Handle (phone number)</li>
+     *     <li>Handle (phone number) presentation</li>
+     * </ul>
+     * All other fields are nulled or set to 0 values.
+     * Where the call screening service is part of the system dialer, the
+     * {@link Connection#EXTRA_SIP_INVITE} header information is also sent to the call screening
+     * service (since the system dialer has access to this anyways).
+     * @param call The telecom call to send to a call screening service.
+     * @param areRestrictedExtrasIncluded {@code true} if the set of restricted extras defined in
+     *                                    {@link #RESTRICTED_CALL_SCREENING_EXTRA_KEYS} are to
+     *                                    be included in the parceled call, {@code false} otherwise.
+     * @return Minimal {@link ParcelableCall} to send to the call screening service.
+     */
+    public static ParcelableCall toParcelableCallForScreening(Call call,
+            boolean areRestrictedExtrasIncluded) {
+        Uri handle = call.getHandlePresentation() == TelecomManager.PRESENTATION_ALLOWED ?
+                call.getHandle() : null;
+        int callDirection;
+        if (call.isIncoming()) {
+            callDirection = DIRECTION_INCOMING;
+        } else if (call.isUnknown()) {
+            callDirection = DIRECTION_UNKNOWN;
+        } else {
+            callDirection = DIRECTION_OUTGOING;
+        }
+        Bundle callExtras;
+        if (areRestrictedExtrasIncluded) {
+            callExtras = sanitizeRestrictedCallExtras(call.getExtras());
+        } else {
+            callExtras = new Bundle();
+        }
+
+        return new ParcelableCall(
+                call.getId(),
+                getParcelableState(call, false /* supportsExternalCalls */),
+                new DisconnectCause(DisconnectCause.UNKNOWN),
+                null, /* cannedSmsResponses */
+                0, /* capabilities */
+                0, /* properties */
+                0, /* supportedAudioRoutes */
+                call.getConnectTimeMillis(),
+                handle,
+                call.getHandlePresentation(),
+                null, /* callerDisplayName */
+                0 /* callerDisplayNamePresentation */,
+                null, /* gatewayInfo */
+                null, /* targetPhoneAccount */
+                false, /* includeVideoProvider */
+                null, /* videoProvider */
+                false, /* includeRttCall */
+                null, /* rttCall */
+                null, /* parentCallId */
+                null, /* childCallIds */
+                null, /* statusHints */
+                0, /* videoState */
+                Collections.emptyList(), /* conferenceableCallIds */
+                null, /* intentExtras */
+                callExtras, /* callExtras */
+                call.getCreationTimeMillis(),
+                callDirection);
+    }
+
+    /**
+     * Sanitize the extras bundle passed in, removing keys which should not be sent to non-system
+     * dialer apps.
+     * @param oldExtras Extras bundle to sanitize.
+     * @return The sanitized extras bundle.
+     */
+    private static Bundle sanitizeExtras(Bundle oldExtras) {
+        if (oldExtras == null) {
+            return new Bundle();
+        }
+        Bundle extras = new Bundle(oldExtras);
+        for (String key : EXTRA_KEYS_TO_SANITIZE) {
+            extras.remove(key);
+        }
+
+        // As a catch-all remove any that don't start with android namespace.
+        Iterator<String> toCheck = extras.keySet().iterator();
+        while (toCheck.hasNext()) {
+            String extraKey = toCheck.next();
+            if (TextUtils.isEmpty(extraKey) || !extraKey.startsWith("android.")) {
+                toCheck.remove();
+            }
+        }
+        return extras;
+    }
+
+    /**
+     * Sanitize the extras bundle passed in, removing keys which should not be sent to call
+     * screening services which have access to the restricted extras.
+     * @param oldExtras Extras bundle to sanitize.
+     * @return The sanitized extras bundle.
+     */
+    private static Bundle sanitizeRestrictedCallExtras(Bundle oldExtras) {
+        if (oldExtras == null) {
+            return new Bundle();
+        }
+        Bundle extras = new Bundle(oldExtras);
+        Iterator<String> toCheck = extras.keySet().iterator();
+        while (toCheck.hasNext()) {
+            String extraKey = toCheck.next();
+            if (TextUtils.isEmpty(extraKey)
+                    || !RESTRICTED_CALL_SCREENING_EXTRA_KEYS.contains(extraKey)) {
+                toCheck.remove();
+            }
+        }
+        return extras;
     }
 
     private static int getParcelableState(Call call, boolean supportsExternalCalls) {
@@ -226,6 +414,8 @@ public class ParcelableCallUtils {
                 state = android.telecom.Call.STATE_HOLDING;
                 break;
             case CallState.RINGING:
+            case CallState.ANSWERED:
+                // TODO: does in-call UI need to see ANSWERED?
                 state = android.telecom.Call.STATE_RINGING;
                 break;
             case CallState.SELECT_PHONE_ACCOUNT:
@@ -345,7 +535,10 @@ public class ParcelableCallUtils {
         android.telecom.Call.Details.PROPERTY_ASSISTED_DIALING_USED,
 
         Connection.PROPERTY_IS_RTT,
-        android.telecom.Call.Details.PROPERTY_RTT
+        android.telecom.Call.Details.PROPERTY_RTT,
+
+        Connection.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL,
+        android.telecom.Call.Details.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL
     };
 
     private static int convertConnectionToCallProperties(int connectionProperties) {

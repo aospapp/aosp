@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"%s sertifikat tələb edir. Sertifikatın seçilməsi tətbiqə bu identifikasiyanı indi və gələcəkdə serverlərlə istifadə etməyə imkan verəcək."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Tətbiq tələb edən serveri %s olaraq tanıdı, lakin siz etibar etdiyiniz tətbiqlərə giriş verməlisiniz."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Siz sertifikatları xarici yaddaşda yerləşən, %1$s və ya %2$s artırması olan PKCS#12 fayldan quraşdıra bilərsiniz."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Sertifikatı quraşdırın"</string>
     <string name="allow_button" msgid="3030990695030371561">"Seçin"</string>
     <string name="deny_button" msgid="3766539809121892584">"İmtina et"</string>
 </resources>

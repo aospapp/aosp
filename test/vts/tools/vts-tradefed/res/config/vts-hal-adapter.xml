@@ -14,14 +14,14 @@
      limitations under the License.
 -->
 <configuration description="VTS HAL Adapter Test Plan">
-  <include name="vts-base" />
-  <include name="cts-preconditions" />
-  <option name="dynamic-config-pusher:dynamic-resource-name" value="vts-tradefed" />
-  <option name="plan" value="vts" />
-  <option name="test-tag" value="vts-star" />
-  <option name="vts-plan-result:plan-name" value="vts-hal-adapter" />
-
+  <include name="cts-base-common" />
+  <option name="plan" value="vts-hal-adapter" />
   <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-hal-adapter" />
+
+  <test class="com.android.compatibility.common.tradefed.testtype.suite.CompatibilityTestSuite">
+    <option name="run-suite-tag" value="cts" />
+  </test>
+
   <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
     <option name="abort-on-push-failure" value="true"/>
     <option name="push" value="script/target/vts_adapter.sh->/data/local/tmp/vts_adapter.sh"/>

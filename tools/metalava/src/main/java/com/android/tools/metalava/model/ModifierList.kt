@@ -53,11 +53,13 @@ interface ModifierList {
 
     fun isInternal(): Boolean = false
     fun isInfix(): Boolean = false
+    fun isSuspend(): Boolean = false
     fun isOperator(): Boolean = false
     fun isInline(): Boolean = false
     fun isEmpty(): Boolean
 
     fun isPackagePrivate() = !(isPublic() || isProtected() || isPrivate())
+    fun isPublicOrProtected() = isPublic() || isProtected()
 
     // Rename? It's not a full equality, it's whether an override's modifier set is significant
     fun equivalentTo(other: ModifierList): Boolean {
@@ -67,10 +69,8 @@ interface ModifierList {
 
         if (isStatic() != other.isStatic()) return false
         if (isAbstract() != other.isAbstract()) return false
-        if (isFinal() != other.isFinal()) return false
-        if (!compatibility.skipNativeModifier && isNative() != other.isNative()) return false
-        if (isSynchronized() != other.isSynchronized()) return false
-        if (!compatibility.skipStrictFpModifier && isStrictFp() != other.isStrictFp()) return false
+        if (isFinal() != other.isFinal()) { return false }
+        if (compatibility.includeSynchronized && isSynchronized() != other.isSynchronized()) return false
         if (isTransient() != other.isTransient()) return false
         if (isVolatile() != other.isVolatile()) return false
 
@@ -85,6 +85,11 @@ interface ModifierList {
         return annotations().any { it.isNonNull() || it.isNullable() }
     }
 
+    /** Returns true if this modifier list contains any a Nullable annotation */
+    fun isNullable(): Boolean {
+        return annotations().any { it.isNullable() }
+    }
+
     /**
      * Returns true if this modifier list contains any annotations explicitly passed in
      * via [Options.showAnnotations]
@@ -95,6 +100,20 @@ interface ModifierList {
         }
         return annotations().any {
             options.showAnnotations.contains(it.qualifiedName())
+        }
+    }
+
+    /**
+     * Returns true if this modifier list contains any annotations explicitly passed in
+     * via [Options.showSingleAnnotations]
+     */
+    fun hasShowSingleAnnotation(): Boolean {
+
+        if (options.showSingleAnnotations.isEmpty()) {
+            return false
+        }
+        return annotations().any {
+            options.showSingleAnnotations.contains(it.qualifiedName())
         }
     }
 
@@ -160,6 +179,7 @@ interface ModifierList {
         }
     }
 
+    /** User visible description of the visibility in this modifier list */
     fun getVisibilityString(): String {
         return when {
             isPublic() -> "public"
@@ -171,21 +191,37 @@ interface ModifierList {
         }
     }
 
+    /**
+     * Like [getVisibilityString], but package private has no modifiers; this typically corresponds to
+     * the source code for the visibility modifiers in the modifier list
+     */
+    fun getVisibilityModifiers(): String {
+        return when {
+            isPublic() -> "public"
+            isProtected() -> "protected"
+            isPackagePrivate() -> ""
+            isInternal() -> "internal"
+            isPrivate() -> "private"
+            else -> error(toString())
+        }
+    }
+
     companion object {
         fun write(
             writer: Writer,
             modifiers: ModifierList,
             item: Item,
+            target: AnnotationTarget,
             // TODO: "deprecated" isn't a modifier; clarify method name
             includeDeprecated: Boolean = false,
             includeAnnotations: Boolean = true,
+            runtimeAnnotationsOnly: Boolean = false,
             skipNullnessAnnotations: Boolean = false,
             omitCommonPackages: Boolean = false,
             removeAbstract: Boolean = false,
             removeFinal: Boolean = false,
             addPublic: Boolean = false,
-            onlyIncludeSignatureAnnotations: Boolean = true
-
+            separateLines: Boolean = false
         ) {
 
             val list = if (removeAbstract || removeFinal || addPublic) {
@@ -209,17 +245,27 @@ interface ModifierList {
 
             if (includeAnnotations) {
                 writeAnnotations(
-                    list = list,
-                    skipNullnessAnnotations = skipNullnessAnnotations,
-                    omitCommonPackages = omitCommonPackages,
-                    separateLines = false,
-                    writer = writer,
-                    onlyIncludeSignatureAnnotations = onlyIncludeSignatureAnnotations
+                    item,
+                    target,
+                    runtimeAnnotationsOnly,
+                    includeDeprecated,
+                    writer,
+                    separateLines,
+                    list,
+                    skipNullnessAnnotations,
+                    omitCommonPackages
                 )
+            } else {
+                // We always include @Deprecated annotation in stub files
+                if (item.deprecated && target.isStubsFile()) {
+                    writer.write("@Deprecated")
+                    writer.write(if (separateLines) "\n" else " ")
+                }
             }
 
-            if (compatibility.doubleSpaceForPackagePrivate && item.isPackagePrivate && item is MemberItem) {
-                writer.write(" ")
+            if (item is PackageItem) {
+                // Packages use a modifier list, but only annotations apply
+                return
             }
 
             // Kotlin order:
@@ -243,7 +289,7 @@ interface ModifierList {
                     writer.write("default ")
                 }
 
-                if (list.isStatic()) {
+                if (list.isStatic() && (compatibility.staticEnums || classItem == null || !classItem.isEnum())) {
                     writer.write("static ")
                 }
 
@@ -259,6 +305,14 @@ interface ModifierList {
 
                 if (list.isSealed()) {
                     writer.write("sealed ")
+                }
+
+                if (list.isSuspend()) {
+                    writer.write("suspend ")
+                }
+
+                if (list.isInline()) {
+                    writer.write("inline ")
                 }
 
                 if (list.isInfix()) {
@@ -282,20 +336,16 @@ interface ModifierList {
                     writer.write("abstract ")
                 }
 
-                if (!compatibility.skipNativeModifier && list.isNative()) {
+                if (list.isNative() && target.isStubsFile()) {
                     writer.write("native ")
                 }
 
-                if (item.deprecated && includeDeprecated) {
+                if (item.deprecated && includeDeprecated && !target.isStubsFile() && !compatibility.deprecatedAsAnnotation) {
                     writer.write("deprecated ")
                 }
 
-                if (list.isSynchronized()) {
+                if (list.isSynchronized() && (compatibility.includeSynchronized || target.isStubsFile())) {
                     writer.write("synchronized ")
-                }
-
-                if (!compatibility.skipStrictFpModifier && list.isStrictFp()) {
-                    writer.write("strictfp ")
                 }
 
                 if (list.isTransient()) {
@@ -306,7 +356,7 @@ interface ModifierList {
                     writer.write("volatile ")
                 }
             } else {
-                if (item.deprecated && includeDeprecated) {
+                if (item.deprecated && includeDeprecated && !target.isStubsFile() && !compatibility.deprecatedAsAnnotation) {
                     writer.write("deprecated ")
                 }
 
@@ -334,7 +384,7 @@ interface ModifierList {
                     writer.write("default ")
                 }
 
-                if (list.isStatic()) {
+                if (list.isStatic() && (compatibility.staticEnums || classItem == null || !classItem.isEnum())) {
                     writer.write("static ")
                 }
 
@@ -348,6 +398,14 @@ interface ModifierList {
 
                 if (list.isSealed()) {
                     writer.write("sealed ")
+                }
+
+                if (list.isSuspend()) {
+                    writer.write("suspend ")
+                }
+
+                if (list.isInline()) {
+                    writer.write("inline ")
                 }
 
                 if (list.isInfix()) {
@@ -366,39 +424,101 @@ interface ModifierList {
                     writer.write("volatile ")
                 }
 
-                if (list.isSynchronized()) {
+                if (list.isSynchronized() && (compatibility.includeSynchronized || target.isStubsFile())) {
                     writer.write("synchronized ")
                 }
 
-                if (!compatibility.skipNativeModifier && list.isNative()) {
+                if (list.isNative() && target.isStubsFile()) {
                     writer.write("native ")
-                }
-
-                if (!compatibility.skipStrictFpModifier && list.isStrictFp()) {
-                    writer.write("strictfp ")
                 }
             }
         }
 
         fun writeAnnotations(
+            item: Item,
+            target: AnnotationTarget,
+            runtimeAnnotationsOnly: Boolean,
+            includeDeprecated: Boolean,
+            writer: Writer,
+            separateLines: Boolean,
+            list: ModifierList,
+            skipNullnessAnnotations: Boolean,
+            omitCommonPackages: Boolean
+        ) {
+            //  if includeDeprecated we want to do it
+            //  unless runtimeOnly is false, in which case we'd include it too
+            // e.g. emit @Deprecated if includeDeprecated && !runtimeOnly
+            if (item.deprecated &&
+                (compatibility.deprecatedAsAnnotation || target.isStubsFile()) &&
+                (runtimeAnnotationsOnly || includeDeprecated)
+            ) {
+                writer.write("@Deprecated")
+                writer.write(if (separateLines) "\n" else " ")
+            }
+
+            writeAnnotations(
+                list = list,
+                runtimeAnnotationsOnly = runtimeAnnotationsOnly,
+                skipNullnessAnnotations = skipNullnessAnnotations,
+                omitCommonPackages = omitCommonPackages,
+                separateLines = separateLines,
+                writer = writer,
+                target = target
+            )
+        }
+
+        fun writeAnnotations(
             list: ModifierList,
             skipNullnessAnnotations: Boolean = false,
+            runtimeAnnotationsOnly: Boolean = false,
             omitCommonPackages: Boolean = false,
             separateLines: Boolean = false,
             filterDuplicates: Boolean = false,
             writer: Writer,
-            onlyIncludeSignatureAnnotations: Boolean = true
+            target: AnnotationTarget
         ) {
-            val annotations = list.annotations()
+            var annotations = list.annotations()
+
+            // Ensure stable signature file order
+            if (annotations.size > 2) {
+                annotations = annotations.sortedBy { it.qualifiedName() }
+            }
+
             if (annotations.isNotEmpty()) {
                 var index = -1
                 for (annotation in annotations) {
                     index++
-                    if ((annotation.isNonNull() || annotation.isNullable())) {
+
+                    if (runtimeAnnotationsOnly && annotation.retention != AnnotationRetention.RUNTIME) {
+                        continue
+                    }
+
+                    var printAnnotation = annotation
+                    if (!annotation.targets().contains(target)) {
+                        continue
+                    } else if ((annotation.isNullnessAnnotation())) {
                         if (skipNullnessAnnotations) {
                             continue
                         }
-                    } else if (onlyIncludeSignatureAnnotations && !annotation.isSignificant()) {
+                    } else if (annotation.qualifiedName() == "java.lang.Deprecated") {
+                        // Special cased in stubs and signature files: emitted first
+                        continue
+                    } else if (options.typedefMode == Options.TypedefMode.INLINE) {
+                        val typedef = annotation.findTypedefAnnotation()
+                        if (typedef != null) {
+                            printAnnotation = typedef
+                        }
+                    } else if (options.typedefMode == Options.TypedefMode.REFERENCE &&
+                        annotation.targets() === ANNOTATION_SIGNATURE_ONLY &&
+                        annotation.findTypedefAnnotation() != null) {
+                        // For annotation references, only include the simple name
+                        writer.write("@")
+                        writer.write(annotation.resolve()?.simpleName() ?: annotation.qualifiedName()!!)
+                        if (separateLines) {
+                            writer.write("\n")
+                        } else {
+                            writer.write(" ")
+                        }
                         continue
                     }
 
@@ -418,7 +538,8 @@ interface ModifierList {
                         }
                     }
 
-                    val source = annotation.toSource()
+                    val source = printAnnotation.toSource(target)
+
                     if (omitCommonPackages) {
                         writer.write(AnnotationItem.shortenAnnotation(source))
                     } else {

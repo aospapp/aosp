@@ -49,6 +49,9 @@ class DBusUpdateEngineService
                               const std::string& in_omaha_url,
                               int32_t in_flags_as_int) override;
 
+  bool AttemptInstall(brillo::ErrorPtr* error,
+                      const std::string& dlc_request) override;
+
   bool AttemptRollback(brillo::ErrorPtr* error, bool in_powerwash) override;
 
   // Checks if the system rollback is available by verifying if the secondary
@@ -114,6 +117,12 @@ class DBusUpdateEngineService
   bool SetUpdateOverCellularPermission(brillo::ErrorPtr* error,
                                        bool in_allowed) override;
 
+  // If there's no device policy installed, sets the update over cellular
+  // target. Otherwise, this method returns with an error.
+  bool SetUpdateOverCellularTarget(brillo::ErrorPtr* error,
+                                   const std::string& target_version,
+                                   int64_t target_size) override;
+
   // Returns the current value of the update over cellular network setting,
   // either forced by the device policy if the device is enrolled or the current
   // user preference otherwise.
@@ -154,7 +163,7 @@ class DBusUpdateEngineService
 class UpdateEngineAdaptor : public org::chromium::UpdateEngineInterfaceAdaptor,
                             public ServiceObserverInterface {
  public:
-  UpdateEngineAdaptor(SystemState* system_state);
+  explicit UpdateEngineAdaptor(SystemState* system_state);
   ~UpdateEngineAdaptor() = default;
 
   // Register the DBus object with the update engine service asynchronously.

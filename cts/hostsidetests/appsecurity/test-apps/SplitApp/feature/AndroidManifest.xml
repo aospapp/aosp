@@ -16,7 +16,9 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.cts.splitapp"
-        featureName="feature">
+        split="feature">
+
+    <uses-sdk android:minSdkVersion="4" android:targetSdkVersion="27" />
 
     <!-- New permission should be ignored -->
     <uses-permission android:name="android.permission.INTERNET" />

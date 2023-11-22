@@ -16,6 +16,7 @@
 
 package com.android.tools.metalava
 
+import com.android.tools.metalava.model.AnnotationTarget
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.ConstructorItem
 import com.android.tools.metalava.model.FieldItem
@@ -24,9 +25,9 @@ import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.ModifierList
 import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.ParameterItem
+import com.android.tools.metalava.model.PropertyItem
 import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.TypeParameterList
-import com.android.tools.metalava.model.javaEscapeString
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import java.io.PrintWriter
 import java.util.function.Predicate
@@ -43,11 +44,23 @@ class SignatureWriter(
     methodComparator = MethodItem.comparator,
     fieldComparator = FieldItem.comparator,
     filterEmit = filterEmit,
-    filterReference = filterReference
+    filterReference = filterReference,
+    showUnannotated = options.showUnannotated
 ) {
+    override fun skip(item: Item): Boolean {
+        return super.skip(item) || item is ClassItem && item.notStrippable
+    }
+
+    init {
+        if (options.includeSignatureFormatVersion) {
+            writer.print(options.outputFormat.header())
+        }
+    }
 
     override fun visitPackage(pkg: PackageItem) {
-        writer.print("package ${pkg.qualifiedName()} {\n\n")
+        writer.print("package ")
+        writeModifiers(pkg)
+        writer.print("${pkg.qualifiedName()} {\n\n")
     }
 
     override fun afterVisitPackage(pkg: PackageItem) {
@@ -66,16 +79,29 @@ class SignatureWriter(
     }
 
     override fun visitField(field: FieldItem) {
+        if (compatibility.skipInheritedConstants && field.inheritedField) {
+            return
+        }
+
         val name = if (field.isEnumConstant()) "enum_constant" else "field"
         writer.print("    ")
         writer.print(name)
         writer.print(" ")
         writeModifiers(field)
-        writeType(field, field.type(), field.modifiers)
+        writeType(field, field.type())
         writer.print(' ')
         writer.print(field.name())
         field.writeValueWithSemicolon(writer, allowDefaultValue = false, requireInitialValue = false)
         writer.print("\n")
+    }
+
+    override fun visitProperty(property: PropertyItem) {
+        writer.print("    property ")
+        writeModifiers(property)
+        writeType(property, property.type())
+        writer.print(' ')
+        writer.print(property.name())
+        writer.print(";\n")
     }
 
     override fun visitMethod(method: MethodItem) {
@@ -93,20 +119,27 @@ class SignatureWriter(
         writeModifiers(method)
         writeTypeParameterList(method.typeParameterList(), addSpace = true)
 
-        writeType(method, method.returnType(), method.modifiers)
+        writeType(method, method.returnType())
         writer.print(' ')
         writer.print(method.name())
         writeParameterList(method)
         writeThrowsList(method)
+
+        if (compatibility.includeAnnotationDefaults) {
+            if (method.containingClass().isAnnotationType()) {
+                val default = method.defaultValue()
+                if (default.isNotEmpty()) {
+                    writer.print(" default ")
+                    writer.print(default)
+                }
+            }
+        }
+
         writer.print(";\n")
     }
 
     override fun visitClass(cls: ClassItem) {
         writer.print("  ")
-
-        if (compatibility.extraSpaceForEmptyModifiers && cls.isPackagePrivate && cls.isPackagePrivate) {
-            writer.print(" ")
-        }
 
         writeModifiers(cls)
 
@@ -146,11 +179,11 @@ class SignatureWriter(
             writer = writer,
             modifiers = item.modifiers,
             item = item,
+            target = AnnotationTarget.SIGNATURE_FILE,
             includeDeprecated = true,
             includeAnnotations = compatibility.annotationsInSignatures,
             skipNullnessAnnotations = options.outputKotlinStyleNulls,
-            omitCommonPackages = options.omitCommonPackages,
-            onlyIncludeSignatureAnnotations = true
+            omitCommonPackages = compatibility.omitCommonPackages
         )
     }
 
@@ -169,7 +202,12 @@ class SignatureWriter(
         else cls.filteredSuperClassType(filterReference)
         if (superClass != null && !superClass.isJavaLangObject()) {
             val superClassString =
-                superClass.toTypeString(erased = compatibility.omitTypeParametersInInterfaces)
+                superClass.toTypeString(
+                    erased = compatibility.omitTypeParametersInInterfaces,
+                    kotlinStyleNulls = false,
+                    context = superClass.asClass(),
+                    filter = filterReference
+                )
             writer.print(" extends ")
             writer.print(superClassString)
         }
@@ -199,12 +237,30 @@ class SignatureWriter(
         }
 
         if (all.any()) {
-            val label = if (isInterface && !compatibility.extendsForInterfaceSuperClass) " extends" else " implements"
+            val label =
+                if (isInterface && !compatibility.extendsForInterfaceSuperClass) {
+                    val superInterface = cls.filteredSuperclass(filterReference)
+                    if (superInterface != null && !superInterface.isJavaLangObject()) {
+                        // For interfaces we've already listed "extends <super interface>"; we don't
+                        // want to repeat "extends " here
+                        ""
+                    } else {
+                        " extends"
+                    }
+                } else {
+                    " implements"
+                }
             writer.print(label)
-
             all.sortedWith(TypeItem.comparator).forEach { item ->
                 writer.print(" ")
-                writer.print(item.toTypeString(erased = compatibility.omitTypeParametersInInterfaces))
+                writer.print(
+                    item.toTypeString(
+                        erased = compatibility.omitTypeParametersInInterfaces,
+                        kotlinStyleNulls = false,
+                        context = item.asClass(),
+                        filter = filterReference
+                    )
+                )
             }
         }
     }
@@ -227,7 +283,7 @@ class SignatureWriter(
                 writer.print(", ")
             }
             writeModifiers(parameter)
-            writeType(parameter, parameter.type(), parameter.modifiers)
+            writeType(parameter, parameter.type())
             if (emitParameterNames) {
                 val name = parameter.publicName()
                 if (name != null) {
@@ -236,15 +292,14 @@ class SignatureWriter(
                 }
             }
             if (options.outputDefaultValues && parameter.hasDefaultValue()) {
-                writer.print(" = \"")
+                writer.print(" = ")
                 val defaultValue = parameter.defaultValue()
                 if (defaultValue != null) {
-                    writer.print(javaEscapeString(defaultValue))
+                    writer.print(defaultValue)
                 } else {
                     // null is a valid default value!
                     writer.print("null")
                 }
-                writer.print("\"")
             }
         }
         writer.print(")")
@@ -253,22 +308,25 @@ class SignatureWriter(
     private fun writeType(
         item: Item,
         type: TypeItem?,
-        modifiers: ModifierList
+        outputKotlinStyleNulls: Boolean = options.outputKotlinStyleNulls
     ) {
         type ?: return
 
         var typeString = type.toTypeString(
-            erased = false,
             outerAnnotations = false,
-            innerAnnotations = compatibility.annotationsInSignatures
+            innerAnnotations = compatibility.annotationsInSignatures,
+            erased = false,
+            kotlinStyleNulls = outputKotlinStyleNulls,
+            context = item,
+            filter = filterReference
         )
 
         // Strip java.lang. prefix?
-        if (options.omitCommonPackages) {
+        if (compatibility.omitCommonPackages) {
             typeString = TypeItem.shortenTypes(typeString)
         }
 
-        if (typeString.endsWith(", ?>") && compatibility.includeExtendsObjectInWildcard && item is ParameterItem) {
+        if (compatibility.includeExtendsObjectInWildcard && typeString.endsWith(", ?>") && item is ParameterItem) {
             // This wasn't done universally; just in a few places, so replicate it for those exact places
             val methodName = item.containingMethod().name()
             when (methodName) {
@@ -287,22 +345,6 @@ class SignatureWriter(
         }
 
         writer.print(typeString)
-
-        if (options.outputKotlinStyleNulls && !type.primitive) {
-            var nullable: Boolean? = null
-            for (annotation in modifiers.annotations()) {
-                if (annotation.isNullable()) {
-                    nullable = true
-                } else if (annotation.isNonNull()) {
-                    nullable = false
-                }
-            }
-            when (nullable) {
-                null -> writer.write("!")
-                true -> writer.write("?")
-            // else: non-null: nothing to write
-            }
-        }
     }
 
     private fun writeThrowsList(method: MethodItem) {

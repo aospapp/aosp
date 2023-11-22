@@ -22,7 +22,6 @@ import android.view.View;
 import com.android.dialer.calllog.CallLogComponent;
 import com.android.dialer.calllog.model.CoalescedRow;
 import com.android.dialer.common.concurrent.DefaultFutureCallback;
-import com.android.dialer.glidephotomanager.GlidePhotoManager;
 import com.android.dialer.historyitemactions.HistoryItemActionBottomSheet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -31,22 +30,18 @@ import com.google.common.util.concurrent.MoreExecutors;
 public final class NewCallLogMenu {
 
   /** Creates and returns the OnClickListener which opens the menu for the provided row. */
-  public static View.OnClickListener createOnClickListener(
-      Context context, CoalescedRow row, GlidePhotoManager glidePhotoManager) {
+  public static View.OnClickListener createOnClickListener(Context context, CoalescedRow row) {
     return view -> {
       HistoryItemActionBottomSheet.show(
-          context,
-          PrimaryAction.fromRow(context, row),
-          Modules.fromRow(context, row),
-          glidePhotoManager);
+          context, BottomSheetHeader.fromRow(context, row), Modules.fromRow(context, row));
 
-      // If the user opens the bottom sheet for a new call, clear the notifications and make the row
-      // not bold immediately. To do this, mark all of the calls in group as not new.
-      if (row.isNew() && row.callType() == Calls.MISSED_TYPE) {
+      // If the user opens the bottom sheet for an unread call, clear the notifications and make the
+      // row not bold immediately. To do this, mark all of the calls in group as read.
+      if (!row.getIsRead() && row.getCallType() == Calls.MISSED_TYPE) {
         Futures.addCallback(
             CallLogComponent.get(context)
                 .getClearMissedCalls()
-                .clearBySystemCallLogId(row.coalescedIds().getCoalescedIdList()),
+                .clearBySystemCallLogId(row.getCoalescedIds().getCoalescedIdList()),
             new DefaultFutureCallback<>(),
             MoreExecutors.directExecutor());
       }

@@ -17,7 +17,6 @@
 package android.platform.helpers;
 
 import android.support.test.uiautomator.Direction;
-
 import java.util.List;
 
 public interface IGmailHelper extends IAppHelper {
@@ -97,10 +96,24 @@ public interface IGmailHelper extends IAppHelper {
     /**
      * Setup expectations: Gmail is open and composing an e-mail.
      *
-     * This method will set the e-mail's Body and block until complete. Focus will remain on the
-     * e-mail body after completion.
+     * This method will set the e-mail's Body (doesn't use keyboard) and block until complete. Focus
+     * will remain on the e-mail body after completion.
+     *
+     * * @param body The messages to input in the e-mail body.
      */
     public void setEmailBody(String body);
+
+    /**
+     * Setup expectations: Gmail is open and composing an e-mail.
+     *
+     * This method inputs the e-mail body.
+     *
+     * @param body The messages to input in the e-mail body.
+     * @param useKeyboard Types out the e-mail body by keyboard or not.
+     */
+    default public void setEmailBody(String body, boolean useKeyboard) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 
     /**
      * Setup expectations: Gmail is open and composing an e-mail.
@@ -138,6 +151,13 @@ public interface IGmailHelper extends IAppHelper {
      * This method will scroll the navigation drawer and block until idle. Only accepts UP and DOWN.
      */
     public void scrollNavigationDrawer(Direction dir);
+
+    /**
+     * Setup expectations: Gmail is open and the navigation drawer is open.
+     *
+     * This method will fling the navigation drawer and block until idle. Only accepts UP and DOWN.
+     */
+    public void flingNavigationDrawer(Direction dir);
 
     /**
      * Setup expectations: Gmail is open and a mailbox is open.
@@ -207,4 +227,24 @@ public interface IGmailHelper extends IAppHelper {
      * @param target the target of the link to click
      */
     public void openEmailLink(String target);
+
+    /**
+     * Setup expectations: Gmail is open and an email is open.
+     *
+     * This method swipes the current email.
+     *
+     * @param direction The direction to swipe, only accepts LEFT and RIGHT.
+     */
+    default public void swipeEmail(Direction direction) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Gmail is open and a mailbox is open.
+     *
+     * <p>This method open account menu.
+     */
+    public default void openAccountMenu() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

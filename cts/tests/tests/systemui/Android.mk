@@ -27,8 +27,8 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    ctstestrunner \
-    android-support-test \
+    ctstestrunner-axt \
+    androidx.test.rules \
     ub-uiautomator
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)

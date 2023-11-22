@@ -39,7 +39,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class DateTransformationTest {
 
     @Mock private ValueFinder mValueFinder;

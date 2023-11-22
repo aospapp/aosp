@@ -16,6 +16,7 @@
 
 package libcore.icu;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,8 +29,12 @@ import libcore.util.BasicLruCache;
 
 /**
  * Makes ICU data accessible to Java.
+ * @hide
  */
+@libcore.api.CorePlatformApi
 public final class ICU {
+
+  @UnsupportedAppUsage
   private static final BasicLruCache<String, String> CACHED_PATTERNS =
       new BasicLruCache<String, String>(8);
 
@@ -38,6 +43,9 @@ public final class ICU {
   private static String[] isoCountries;
 
   private static String[] isoLanguages;
+
+  private ICU() {
+  }
 
   /**
    * Returns an array of two-letter ISO 639-1 language codes, either from ICU or our cache.
@@ -286,6 +294,8 @@ public final class ICU {
     return localesFromStrings(getAvailableNumberFormatLocalesNative());
   }
 
+  @UnsupportedAppUsage
+  @libcore.api.CorePlatformApi
   public static String getBestDateTimePattern(String skeleton, Locale locale) {
     String languageTag = locale.toLanguageTag();
     String key = skeleton + "\t" + languageTag;
@@ -299,8 +309,11 @@ public final class ICU {
     }
   }
 
+  @UnsupportedAppUsage
   private static native String getBestDateTimePatternNative(String skeleton, String languageTag);
 
+  @UnsupportedAppUsage
+  @libcore.api.CorePlatformApi
   public static char[] getDateFormatOrder(String pattern) {
     char[] result = new char[3];
     int resultIndex = 0;
@@ -439,6 +452,8 @@ public final class ICU {
 
   public static native String getISO3Language(String languageTag);
 
+  @UnsupportedAppUsage
+  @libcore.api.CorePlatformApi
   public static Locale addLikelySubtags(Locale locale) {
       return Locale.forLanguageTag(addLikelySubtags(locale.toLanguageTag()).replace('_', '-'));
   }
@@ -446,6 +461,7 @@ public final class ICU {
   /**
    * @deprecated use {@link #addLikelySubtags(java.util.Locale)} instead.
    */
+  @UnsupportedAppUsage
   @Deprecated
   public static native String addLikelySubtags(String locale);
 
@@ -453,6 +469,7 @@ public final class ICU {
    * @deprecated use {@link java.util.Locale#getScript()} instead. This has been kept
    *     around only for the support library.
    */
+  @UnsupportedAppUsage
   @Deprecated
   public static native String getScript(String locale);
 
@@ -472,5 +489,6 @@ public final class ICU {
   public static native String getDefaultLocale();
 
   /** Returns the TZData version as reported by ICU4C. */
+  @libcore.api.CorePlatformApi
   public static native String getTZDataVersion();
 }

@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"டோர் திறந்துள்ளது"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"காகிதம் சிக்கிக்கொண்டது"</string>
     <string name="printer_offline" msgid="9196864753298645066">"ஆஃப்லைன்"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"தவறான சான்றிதழ்"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"என்க்ரிப்ஷன் செய்யப்படவில்லை"</string>
     <string name="printer_check" msgid="6428369671197132828">"பிரிண்டரைச் சரிபார்"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"அனுப்பக் காத்திருக்கிறது"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"ஆவணத்தைப் படிக்க முடியவில்லை"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"பிரிண்டர் ஆதரிக்கப்படவில்லை"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"வைஃபை டைரக்ட்"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"வைஃபை டைரக்ட் பிரிண்டர்களைக் கண்டுபிடி"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"வைஃபை டைரக்ட் பிரிண்டிங்"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"வைஃபை டைரக்ட் பிரிண்டர்கள்"</string>
     <string name="searching" msgid="2114018057619514587">"தேடுகிறது…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"உங்கள் பிரிண்டரின் முன்புறப் பேனலில் இந்த இணைப்பை அங்கீகரிக்க வேண்டும்"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"அகற்று"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"வைஃபை டைரக்ட் மூலமாக இணைக்கிறது"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> இல் தற்போதைய நெட்வொர்க் மூலம் இணைக்கிறது"</string>
+    <string name="security" msgid="2279008326210305401">"பாதுகாப்பு"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"இந்தப் பிரிண்டரோ இதன் பெயரில் வேறொரு சாதனமோ புதிய பாதுகாப்பு சான்றிதழை வழங்கியுள்ளது. புதிய சான்றிதழை ஏற்கவா?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"இந்தப் பிரிண்ட்டரானது என்க்ரிப்ஷன் செய்தவற்றை அச்சிடாது. அச்சிடுவதைத் தொடரவா?"</string>
+    <string name="accept" msgid="4426153292469698134">"ஏற்கிறேன்"</string>
+    <string name="reject" msgid="24751635160440693">"நிராகரி"</string>
+    <string name="connections" msgid="8895413761760117180">"இணைப்புகள்"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"அருகிலுள்ள சாதனங்களைக் கண்டறிய \'இயல்புநிலை அச்சிடுதல் சேவைக்கு\' இருப்பிட அனுமதி தேவை."</string>
+    <string name="fix" msgid="7784394272611365393">"அனுமதியைச் சரிபார்"</string>
 </resources>

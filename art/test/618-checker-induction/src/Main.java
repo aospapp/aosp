@@ -411,7 +411,7 @@ public class Main {
   /// CHECK-START: int Main.periodicReturned9() loop_optimization (before)
   /// CHECK-DAG: <<Phi1:i\d+>> Phi               loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Phi2:i\d+>> Phi               loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               Return [<<Phi2>>] loop:none
+  /// CHECK-DAG:               Return [<<Phi1>>] loop:none
   //
   /// CHECK-START: int Main.periodicReturned9() loop_optimization (after)
   /// CHECK-NOT:               Phi
@@ -430,7 +430,7 @@ public class Main {
   /// CHECK-START: int Main.periodicReturned10() loop_optimization (before)
   /// CHECK-DAG: <<Phi1:i\d+>> Phi               loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Phi2:i\d+>> Phi               loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               Return [<<Phi2>>] loop:none
+  /// CHECK-DAG:               Return [<<Phi1>>] loop:none
   //
   /// CHECK-START: int Main.periodicReturned10() loop_optimization (after)
   /// CHECK-NOT:               Phi
@@ -450,7 +450,7 @@ public class Main {
   /// CHECK-DAG: <<Phi1:i\d+>> Phi               loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Phi2:i\d+>> Phi               loop:<<Loop>>      outer_loop:none
   /// CHECK-DAG: <<Phi3:i\d+>> Phi               loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               Return [<<Phi3>>] loop:none
+  /// CHECK-DAG:               Return [<<Phi2>>] loop:none
   //
   /// CHECK-START: int Main.getSum21() loop_optimization (after)
   /// CHECK-NOT:               Phi
@@ -505,7 +505,7 @@ public class Main {
   /// CHECK-START: int Main.periodicReturnedN(int) loop_optimization (before)
   /// CHECK-DAG: <<Phi1:i\d+>> Phi               loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Phi2:i\d+>> Phi               loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               Return [<<Phi2>>] loop:none
+  /// CHECK-DAG:               Return [<<Phi1>>] loop:none
   //
   /// CHECK-START: int Main.periodicReturnedN(int) loop_optimization (after)
   /// CHECK-NOT:               Phi
@@ -634,7 +634,7 @@ public class Main {
   /// CHECK-START: boolean Main.periodicBoolIdiom1() loop_optimization (before)
   /// CHECK-DAG: <<Phi1:i\d+>> Phi               loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Phi2:i\d+>> Phi               loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               Return [<<Phi2>>] loop:none
+  /// CHECK-DAG:               Return [<<Phi1>>] loop:none
   //
   /// CHECK-START: boolean Main.periodicBoolIdiom1() loop_optimization (after)
   /// CHECK-NOT:               Phi
@@ -653,7 +653,7 @@ public class Main {
   /// CHECK-START: boolean Main.periodicBoolIdiom2() loop_optimization (before)
   /// CHECK-DAG: <<Phi1:i\d+>> Phi               loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Phi2:i\d+>> Phi               loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               Return [<<Phi2>>] loop:none
+  /// CHECK-DAG:               Return [<<Phi1>>] loop:none
   //
   /// CHECK-START: boolean Main.periodicBoolIdiom2() loop_optimization (after)
   /// CHECK-NOT:               Phi
@@ -672,7 +672,7 @@ public class Main {
   /// CHECK-START: boolean Main.periodicBoolIdiom3() loop_optimization (before)
   /// CHECK-DAG: <<Phi1:i\d+>> Phi               loop:<<Loop:B\d+>> outer_loop:none
   /// CHECK-DAG: <<Phi2:i\d+>> Phi               loop:<<Loop>>      outer_loop:none
-  /// CHECK-DAG:               Return [<<Phi2>>] loop:none
+  /// CHECK-DAG:               Return [<<Phi1>>] loop:none
   //
   /// CHECK-START: boolean Main.periodicBoolIdiom3() loop_optimization (after)
   /// CHECK-NOT:               Phi

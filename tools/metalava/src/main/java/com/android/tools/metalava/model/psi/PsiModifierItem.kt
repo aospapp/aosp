@@ -16,254 +16,43 @@
 
 package com.android.tools.metalava.model.psi
 
+import com.android.tools.metalava.ANDROIDX_VISIBLE_FOR_TESTING
+import com.android.tools.metalava.ANDROID_SUPPORT_VISIBLE_FOR_TESTING
+import com.android.tools.metalava.ATTR_OTHERWISE
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.Codebase
-import com.android.tools.metalava.model.Item
+import com.android.tools.metalava.model.DefaultModifierList
 import com.android.tools.metalava.model.ModifierList
 import com.android.tools.metalava.model.MutableModifierList
 import com.intellij.psi.PsiDocCommentOwner
+import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiModifier
 import com.intellij.psi.PsiModifierList
 import com.intellij.psi.PsiModifierListOwner
+import com.intellij.psi.PsiReferenceExpression
+import com.intellij.psi.PsiPrimitiveType
 import org.jetbrains.kotlin.asJava.elements.KtLightModifierList
+import org.jetbrains.kotlin.asJava.elements.KtLightNullabilityAnnotation
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.uast.UAnnotated
+import org.jetbrains.uast.UMethod
+import org.jetbrains.uast.UVariable
+import org.jetbrains.uast.kotlin.KotlinNullabilityUAnnotation
 
 class PsiModifierItem(
-    override val codebase: Codebase,
-    var flags: Int = 0,
-    private var annotations: MutableList<AnnotationItem>? = null
-) : ModifierList, MutableModifierList {
-    private lateinit var owner: Item
-
-    private operator fun set(mask: Int, set: Boolean) {
-        flags = if (set) {
-            flags or mask
-        } else {
-            flags and mask.inv()
-        }
-    }
-
-    private fun isSet(mask: Int): Boolean {
-        return flags and mask != 0
-    }
-
-    override fun annotations(): List<AnnotationItem> {
-        return annotations ?: emptyList()
-    }
-
-    override fun owner(): Item {
-        return owner
-    }
-
-    fun setOwner(owner: Item) {
-        this.owner = owner
-    }
-
-    override fun isPublic(): Boolean {
-        return isSet(PUBLIC)
-    }
-
-    override fun isProtected(): Boolean {
-        return isSet(PROTECTED)
-    }
-
-    override fun isPrivate(): Boolean {
-        return isSet(PRIVATE)
-    }
-
-    override fun isStatic(): Boolean {
-        return isSet(STATIC)
-    }
-
-    override fun isAbstract(): Boolean {
-        return isSet(ABSTRACT)
-    }
-
-    override fun isFinal(): Boolean {
-        return isSet(FINAL)
-    }
-
-    override fun isNative(): Boolean {
-        return isSet(NATIVE)
-    }
-
-    override fun isSynchronized(): Boolean {
-        return isSet(SYNCHRONIZED)
-    }
-
-    override fun isStrictFp(): Boolean {
-        return isSet(STRICT_FP)
-    }
-
-    override fun isTransient(): Boolean {
-        return isSet(TRANSIENT)
-    }
-
-    override fun isVolatile(): Boolean {
-        return isSet(VOLATILE)
-    }
-
-    override fun isDefault(): Boolean {
-        return isSet(DEFAULT)
-    }
-
-    fun isDeprecated(): Boolean {
-        return isSet(DEPRECATED)
-    }
-
-    override fun isVarArg(): Boolean {
-        return isSet(VARARG)
-    }
-
-    override fun isSealed(): Boolean {
-        return isSet(SEALED)
-    }
-
-    override fun isInternal(): Boolean {
-        return isSet(INTERNAL)
-    }
-
-    override fun isInfix(): Boolean {
-        return isSet(INFIX)
-    }
-
-    override fun isOperator(): Boolean {
-        return isSet(OPERATOR)
-    }
-
-    override fun isInline(): Boolean {
-        return isSet(INLINE)
-    }
-
-    override fun setPublic(public: Boolean) {
-        set(PUBLIC, public)
-    }
-
-    override fun setProtected(protected: Boolean) {
-        set(PROTECTED, protected)
-    }
-
-    override fun setPrivate(private: Boolean) {
-        set(PRIVATE, private)
-    }
-
-    override fun setStatic(static: Boolean) {
-        set(STATIC, static)
-    }
-
-    override fun setAbstract(abstract: Boolean) {
-        set(ABSTRACT, abstract)
-    }
-
-    override fun setFinal(final: Boolean) {
-        set(FINAL, final)
-    }
-
-    override fun setNative(native: Boolean) {
-        set(NATIVE, native)
-    }
-
-    override fun setSynchronized(synchronized: Boolean) {
-        set(SYNCHRONIZED, synchronized)
-    }
-
-    override fun setStrictFp(strictfp: Boolean) {
-        set(STRICT_FP, strictfp)
-    }
-
-    override fun setTransient(transient: Boolean) {
-        set(TRANSIENT, transient)
-    }
-
-    override fun setVolatile(volatile: Boolean) {
-        set(VOLATILE, volatile)
-    }
-
-    override fun setDefault(default: Boolean) {
-        set(DEFAULT, default)
-    }
-
-    fun setDeprecated(deprecated: Boolean) {
-        set(DEPRECATED, deprecated)
-    }
-
-    override fun addAnnotation(annotation: AnnotationItem) {
-        if (annotations == null) {
-            annotations = mutableListOf()
-        }
-        annotations?.add(annotation)
-    }
-
-    override fun removeAnnotation(annotation: AnnotationItem) {
-        annotations?.remove(annotation)
-    }
-
-    override fun clearAnnotations(annotation: AnnotationItem) {
-        annotations?.clear()
-    }
-
-    override fun isEmpty(): Boolean {
-        return flags and DEPRECATED.inv() == 0 // deprecated isn't a real modifier
-    }
-
-    override fun isPackagePrivate(): Boolean {
-        return flags and (PUBLIC or PROTECTED or PRIVATE or INTERNAL) == 0
-    }
-
-    fun getAccessFlags(): Int {
-        return flags and (PUBLIC or PROTECTED or PRIVATE or INTERNAL)
-    }
-
-    // Rename? It's not a full equality, it's whether an override's modifier set is significant
-    override fun equivalentTo(other: ModifierList): Boolean {
-        if (other is PsiModifierItem) {
-            val flags2 = other.flags
-            val mask = EQUIVALENCE_MASK
-
-            // Skipping the "default" flag
-            // TODO: Compatibility: skipNativeModifier and skipStrictFpModifier modifier flags!
-            // if (!compatibility.skipNativeModifier && isNative() != other.isNative()) return false
-            // if (!compatibility.skipStrictFpModifier && isStrictFp() != other.isStrictFp()) return false
-            return flags and mask == flags2 and mask
-        }
-        return false
-    }
-
+    codebase: Codebase,
+    flags: Int = 0,
+    annotations: MutableList<AnnotationItem>? = null
+) : DefaultModifierList(codebase, flags, annotations), ModifierList, MutableModifierList {
     companion object {
-        const val PUBLIC = 1 shl 0
-        const val PROTECTED = 1 shl 1
-        const val PRIVATE = 1 shl 2
-        const val STATIC = 1 shl 3
-        const val ABSTRACT = 1 shl 4
-        const val FINAL = 1 shl 5
-        const val NATIVE = 1 shl 6
-        const val SYNCHRONIZED = 1 shl 7
-        const val STRICT_FP = 1 shl 8
-        const val TRANSIENT = 1 shl 9
-        const val VOLATILE = 1 shl 10
-        const val DEFAULT = 1 shl 11
-        const val DEPRECATED = 1 shl 12
-        const val VARARG = 1 shl 13
-        const val SEALED = 1 shl 14
-        const val INTERNAL = 1 shl 15
-        const val INFIX = 1 shl 16
-        const val OPERATOR = 1 shl 17
-        const val INLINE = 1 shl 18
-
-        /**
-         * Modifiers considered significant to include signature files (and similarly
-         * to consider whether an override of a method is different from its super implementation
-         */
-        private const val EQUIVALENCE_MASK = PUBLIC or PROTECTED or PRIVATE or STATIC or ABSTRACT or
-            FINAL or TRANSIENT or VOLATILE or SYNCHRONIZED or DEPRECATED or VARARG or
-            SEALED or INTERNAL or INFIX or OPERATOR
-
         fun create(codebase: PsiBasedCodebase, element: PsiModifierListOwner, documentation: String?): PsiModifierItem {
-            val modifiers = create(
-                codebase,
-                element.modifierList
-            )
-
+            val modifiers =
+                if (element is UAnnotated) {
+                    create(codebase, element, element)
+                } else {
+                    create(codebase, element)
+                }
             if (documentation?.contains("@deprecated") == true ||
                 // Check for @Deprecated annotation
                 ((element as? PsiDocCommentOwner)?.isDeprecated == true)
@@ -274,9 +63,7 @@ class PsiModifierItem(
             return modifiers
         }
 
-        fun create(codebase: PsiBasedCodebase, modifierList: PsiModifierList?): PsiModifierItem {
-            modifierList ?: return PsiModifierItem(codebase)
-
+        private fun computeFlag(element: PsiModifierListOwner, modifierList: PsiModifierList): Int {
             var flags = 0
             if (modifierList.hasModifierProperty(PsiModifier.PUBLIC)) {
                 flags = flags or PUBLIC
@@ -339,17 +126,128 @@ class PsiModifierItem(
                     }
                     if (ktModifierList.hasModifier(KtTokens.INLINE_KEYWORD)) {
                         flags = flags or INLINE
+
+                        // Workaround for b/117565118:
+                        if ((flags or PRIVATE) != 0 && element is PsiMethod) {
+                            val t =
+                                ((element as? UMethod)?.sourcePsi as? KtNamedFunction)?.typeParameterList?.text ?: ""
+                            if (t.contains("reified") &&
+                                !ktModifierList.hasModifier(KtTokens.PRIVATE_KEYWORD) &&
+                                !ktModifierList.hasModifier(KtTokens.INTERNAL_KEYWORD)
+                            ) {
+                                // Switch back from private to public
+                                flags = (flags and PRIVATE.inv()) or PUBLIC
+                            }
+                        }
+                    }
+                    if (ktModifierList.hasModifier(KtTokens.SUSPEND_KEYWORD)) {
+                        flags = flags or SUSPEND
+
+                        // Workaround for b/117565118:
+                        // Switch back from private to public
+                        flags = (flags and PRIVATE.inv()) or PUBLIC
                     }
                 }
             }
+
+            return flags
+        }
+
+        private fun create(codebase: PsiBasedCodebase, element: PsiModifierListOwner): PsiModifierItem {
+            val modifierList = element.modifierList ?: return PsiModifierItem(codebase)
+
+            var flags = computeFlag(element, modifierList)
 
             val psiAnnotations = modifierList.annotations
             return if (psiAnnotations.isEmpty()) {
                 PsiModifierItem(codebase, flags)
             } else {
                 val annotations: MutableList<AnnotationItem> =
-                    psiAnnotations.map { PsiAnnotationItem.create(codebase, it) }.toMutableList()
+                    psiAnnotations.map {
+                        val qualifiedName = it.qualifiedName
+                        // Consider also supporting com.android.internal.annotations.VisibleForTesting?
+                        if (qualifiedName == ANDROIDX_VISIBLE_FOR_TESTING ||
+                            qualifiedName == ANDROID_SUPPORT_VISIBLE_FOR_TESTING) {
+                            val otherwise = it.findAttributeValue(ATTR_OTHERWISE)
+                            val ref = when {
+                                otherwise is PsiReferenceExpression -> otherwise.referenceName ?: ""
+                                otherwise != null -> otherwise.text
+                                else -> ""
+                            }
+                            flags = getVisibilityFlag(ref, flags)
+                        }
+
+                        PsiAnnotationItem.create(codebase, it, qualifiedName)
+                    }.toMutableList()
                 PsiModifierItem(codebase, flags, annotations)
+            }
+        }
+
+        private fun create(
+            codebase: PsiBasedCodebase,
+            element: PsiModifierListOwner,
+            annotated: UAnnotated
+        ): PsiModifierItem {
+            val modifierList = element.modifierList ?: return PsiModifierItem(codebase)
+            var flags = computeFlag(element, modifierList)
+            val uAnnotations = annotated.annotations
+
+            return if (uAnnotations.isEmpty()) {
+                val psiAnnotations = modifierList.annotations
+                if (!psiAnnotations.isEmpty()) {
+                    val annotations: MutableList<AnnotationItem> =
+                        psiAnnotations.map { PsiAnnotationItem.create(codebase, it) }.toMutableList()
+                    PsiModifierItem(codebase, flags, annotations)
+                } else {
+                    PsiModifierItem(codebase, flags)
+                }
+            } else {
+                val isPrimitiveVariable = element is UVariable && element.type is PsiPrimitiveType
+
+                val annotations: MutableList<AnnotationItem> = uAnnotations
+                    // Uast sometimes puts nullability annotations on primitives!?
+                    .filter { !isPrimitiveVariable || it !is KotlinNullabilityUAnnotation }
+                    .map {
+
+                        val qualifiedName = it.qualifiedName
+                        if (qualifiedName == ANDROIDX_VISIBLE_FOR_TESTING ||
+                            qualifiedName == ANDROID_SUPPORT_VISIBLE_FOR_TESTING) {
+                            val otherwise = it.findAttributeValue(ATTR_OTHERWISE)
+                            val ref = when {
+                                otherwise is PsiReferenceExpression -> otherwise.referenceName ?: ""
+                                otherwise != null -> otherwise.asSourceString()
+                                else -> ""
+                            }
+                            flags = getVisibilityFlag(ref, flags)
+                        }
+
+                        UAnnotationItem.create(codebase, it, qualifiedName)
+                    }.toMutableList()
+
+                if (!isPrimitiveVariable) {
+                    val psiAnnotations = modifierList.annotations
+                    if (psiAnnotations.isNotEmpty() && annotations.none { it.isNullnessAnnotation() }) {
+                        val ktNullAnnotation = psiAnnotations.firstOrNull { it is KtLightNullabilityAnnotation }
+                        ktNullAnnotation?.let {
+                            annotations.add(PsiAnnotationItem.create(codebase, it))
+                        }
+                    }
+                }
+
+                PsiModifierItem(codebase, flags, annotations)
+            }
+        }
+
+        /** Modifies the modifier flags based on the VisibleForTesting otherwise constants */
+        private fun getVisibilityFlag(ref: String, flags: Int): Int {
+            return if (ref.endsWith("PROTECTED")) {
+                (flags and PUBLIC.inv() and PRIVATE.inv() and INTERNAL.inv()) or PROTECTED
+            } else if (ref.endsWith("PACKAGE_PRIVATE")) {
+                (flags and PUBLIC.inv() and PRIVATE.inv() and INTERNAL.inv() and PROTECTED.inv())
+            } else if (ref.endsWith("PRIVATE") || ref.endsWith("NONE")) {
+                (flags and PUBLIC.inv() and PROTECTED.inv() and INTERNAL.inv()) or PRIVATE
+            } else {
+                flags
             }
         }
 

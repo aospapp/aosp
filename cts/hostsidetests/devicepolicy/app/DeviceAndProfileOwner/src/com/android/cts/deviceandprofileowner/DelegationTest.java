@@ -16,11 +16,14 @@
 
 package com.android.cts.deviceandprofileowner;
 
-import static android.app.admin.DevicePolicyManager.EXTRA_DELEGATION_SCOPES;
 import static android.app.admin.DevicePolicyManager.DELEGATION_APP_RESTRICTIONS;
 import static android.app.admin.DevicePolicyManager.DELEGATION_BLOCK_UNINSTALL;
 import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_INSTALL;
+import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_SELECTION;
 import static android.app.admin.DevicePolicyManager.DELEGATION_ENABLE_SYSTEM_APP;
+import static android.app.admin.DevicePolicyManager.DELEGATION_NETWORK_LOGGING;
+import static android.app.admin.DevicePolicyManager.EXTRA_DELEGATION_SCOPES;
+import static com.google.common.truth.Truth.assertThat;
 
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
@@ -29,17 +32,22 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.test.MoreAsserts;
+import android.util.Log;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+
 
 /**
  * Test that an app granted delegation scopes via {@link DevicePolicyManager#setDelegatedScopes} is
  * notified of its new scopes by a broadcast.
  */
 public class DelegationTest extends BaseDeviceAdminTest {
+    private static final String TAG = "DelegationTest";
 
     private static final String DELEGATE_PKG = "com.android.cts.delegate";
     private static final String DELEGATE_ACTIVITY_NAME =
@@ -87,6 +95,10 @@ public class DelegationTest extends BaseDeviceAdminTest {
     @Override
     public void tearDown() throws Exception {
         mContext.unregisterReceiver(mReceiver);
+        mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT,
+                TEST_PKG, Collections.emptyList());
+        mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT,
+                DELEGATE_PKG, Collections.emptyList());
         super.tearDown();
     }
 
@@ -172,6 +184,54 @@ public class DelegationTest extends BaseDeviceAdminTest {
                 .contains(DELEGATE_PKG));
         assertFalse("Unexpected delegate package", getDelegatePackages(DELEGATION_CERT_INSTALL)
                 .contains(TEST_PKG));
+    }
+
+    public void testDeviceOwnerOnlyDelegationsOnlyPossibleToBeSetByDeviceOwner() throws Exception {
+        final String doDelegations[] = {
+                DELEGATION_NETWORK_LOGGING};
+        final boolean isDeviceOwner = mDevicePolicyManager.isDeviceOwnerApp(
+                mContext.getPackageName());
+        for (String scope : doDelegations) {
+            try {
+                mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT, DELEGATE_PKG,
+                        Collections.singletonList(scope));
+                if (!isDeviceOwner()) {
+                    fail("PO shouldn't be able to delegate "+ scope);
+                }
+            } catch (SecurityException e) {
+                if (isDeviceOwner) {
+                    fail("DO fails to delegate " + scope + " exception: " + e);
+                    Log.e(TAG, "DO fails to delegate " + scope, e);
+                }
+            }
+        }
+    }
+
+    public void testExclusiveDelegations() throws Exception {
+        final List<String> exclusiveDelegations = new ArrayList<>(Arrays.asList(
+                DELEGATION_CERT_SELECTION));
+        if (mDevicePolicyManager.isDeviceOwnerApp(mContext.getPackageName())) {
+            exclusiveDelegations.add(DELEGATION_NETWORK_LOGGING);
+        }
+        for (String scope : exclusiveDelegations) {
+            testExclusiveDelegation(scope);
+        }
+    }
+
+    private void testExclusiveDelegation(String scope) throws Exception {
+
+        mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT,
+                DELEGATE_PKG, Collections.singletonList(scope));
+        // Set exclusive scope on TEST_PKG should lead to the scope being removed from the
+        // previous delegate DELEGATE_PKG
+        mDevicePolicyManager.setDelegatedScopes(ADMIN_RECEIVER_COMPONENT,
+                TEST_PKG, Collections.singletonList(scope));
+
+
+        assertThat(mDevicePolicyManager.getDelegatedScopes(ADMIN_RECEIVER_COMPONENT, TEST_PKG))
+                .containsExactly(scope);
+        assertThat(mDevicePolicyManager.getDelegatedScopes(ADMIN_RECEIVER_COMPONENT, DELEGATE_PKG))
+                .isEmpty();
     }
 
     private List<String> getDelegatePackages(String scope) {

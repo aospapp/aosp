@@ -4,3 +4,4 @@ service evs_driver /system/bin/android.hardware.automotive.evs@1.0-sample
     user graphics
     group automotive_evs camera
     onrestart restart evs_manager
+    disabled # will not automatically start with its class; must be explictly started.

@@ -12,25 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.device
-import its.caps
-import its.objects
-import its.image
 import os.path
-import numpy as np
+import its.caps
+import its.device
+import its.image
+import its.objects
 from matplotlib import pylab
 import matplotlib.pyplot
+import numpy as np
 
 IMG_STATS_GRID = 9  # find used to find the center 11.11%
 NAME = os.path.basename(__file__).split(".")[0]
 NUM_ISO_STEPS = 5
 SATURATION_TOL = 0.01
 BLK_LVL_TOL = 0.1
-# Test 3 steps per 2x exposure
-EXP_MULT = pow(2, 1.0/3)
+EXP_MULT_SHORT = pow(2, 1.0/3)  # Test 3 steps per 2x exposure
+EXP_MULT_LONG = pow(10, 1.0/3)  # Test 3 steps per 10x exposure
+EXP_LONG = 1E6  # 1ms
 INCREASING_THR = 0.99
 # slice captures into burst of SLICE_LEN requests
 SLICE_LEN = 10
+
 
 def main():
     """Capture a set of raw images with increasing exposure time and measure the pixel values.
@@ -39,9 +41,9 @@ def main():
     with its.device.ItsSession() as cam:
 
         props = cam.get_camera_properties()
+        props = cam.override_with_hidden_physical_camera_props(props)
         its.caps.skip_unless(its.caps.raw16(props) and
                              its.caps.manual_sensor(props) and
-                             its.caps.read_3a(props) and
                              its.caps.per_frame_control(props) and
                              not its.caps.mono_camera(props))
         debug = its.caps.debug_mode()
@@ -53,12 +55,12 @@ def main():
         sens_max = props["android.sensor.maxAnalogSensitivity"]
         sens_step = (sens_max - sens_min) / NUM_ISO_STEPS
         white_level = float(props["android.sensor.info.whiteLevel"])
-        black_levels = [its.image.get_black_level(i,props) for i in range(4)]
+        black_levels = [its.image.get_black_level(i, props) for i in range(4)]
         # Get the active array width and height.
-        aax = props["android.sensor.info.activeArraySize"]["left"]
-        aay = props["android.sensor.info.activeArraySize"]["top"]
-        aaw = props["android.sensor.info.activeArraySize"]["right"]-aax
-        aah = props["android.sensor.info.activeArraySize"]["bottom"]-aay
+        aax = props["android.sensor.info.preCorrectionActiveArraySize"]["left"]
+        aay = props["android.sensor.info.preCorrectionActiveArraySize"]["top"]
+        aaw = props["android.sensor.info.preCorrectionActiveArraySize"]["right"]-aax
+        aah = props["android.sensor.info.preCorrectionActiveArraySize"]["bottom"]-aay
         raw_stat_fmt = {"format": "rawStats",
                         "gridWidth": aaw/IMG_STATS_GRID,
                         "gridHeight": aah/IMG_STATS_GRID}
@@ -67,7 +69,10 @@ def main():
         mult = 1.0
         while exp_min*mult < exp_max:
             e_test.append(int(exp_min*mult))
-            mult *= EXP_MULT
+            if exp_min*mult < EXP_LONG:
+                mult *= EXP_MULT_SHORT
+            else:
+                mult *= EXP_MULT_LONG
         if e_test[-1] < exp_max * INCREASING_THR:
             e_test.append(int(exp_max))
         e_test_ms = [e / 1000000.0 for e in e_test]
@@ -78,18 +83,18 @@ def main():
             reqs = [its.objects.manual_capture_request(s, e, 0) for e in e_test]
             # Capture raw in debug mode, rawStats otherwise
             caps = []
-            for i in range(len(reqs) / SLICE_LEN):
+            slice_len = SLICE_LEN
+            # Eliminate cap burst of 1: returns [[]], not [{}, ...]
+            while len(reqs) % slice_len == 1:
+                slice_len -= 1
+            # Break caps into smaller bursts
+            for i in range(len(reqs) / slice_len):
                 if debug:
-                    caps += cam.do_capture(reqs[i*SLICE_LEN:(i+1)*SLICE_LEN], cam.CAP_RAW)
+                    caps += cam.do_capture(reqs[i*slice_len:(i+1)*slice_len], cam.CAP_RAW)
                 else:
-                    caps += cam.do_capture(reqs[i*SLICE_LEN:(i+1)*SLICE_LEN], raw_stat_fmt)
-            last_n = len(reqs) % SLICE_LEN
-            if last_n == 1:
-                if debug:
-                    caps += [cam.do_capture(reqs[-last_n:], cam.CAP_RAW)]
-                else:
-                    caps += [cam.do_capture(reqs[-last_n:], raw_stat_fmt)]
-            elif last_n > 0:
+                    caps += cam.do_capture(reqs[i*slice_len:(i+1)*slice_len], raw_stat_fmt)
+            last_n = len(reqs) % slice_len
+            if last_n:
                 if debug:
                     caps += cam.do_capture(reqs[-last_n:], cam.CAP_RAW)
                 else:
@@ -97,22 +102,21 @@ def main():
 
             # Measure the mean of each channel.
             # Each shot should be brighter (except underexposed/overexposed scene)
-            for i,cap in enumerate(caps):
+            for i, cap in enumerate(caps):
                 if debug:
                     planes = its.image.convert_capture_to_planes(cap, props)
                     tiles = [its.image.get_image_patch(p, 0.445, 0.445, 0.11, 0.11) for p in planes]
                     mean = [m * white_level for tile in tiles
                             for m in its.image.compute_image_means(tile)]
                     img = its.image.convert_capture_to_rgb_image(cap, props=props)
-                    its.image.write_image(img, "%s_s=%d_e=%05d.jpg" % (NAME, s, e_test))
+                    its.image.write_image(img, "%s_s=%d_e=%05d.jpg"
+                                          % (NAME, s, e_test[i]))
                 else:
                     mean_image, _ = its.image.unpack_rawstats_capture(cap)
                     mean = mean_image[IMG_STATS_GRID/2, IMG_STATS_GRID/2]
-
                 print "ISO=%d, exposure time=%.3fms, mean=%s" % (
                         s, e_test[i] / 1000000.0, str(mean))
                 means.append(mean)
-
 
             # means[0] is black level value
             r = [m[0] for m in means[1:]]
@@ -124,8 +128,8 @@ def main():
             pylab.plot(e_test_ms, b, "b.-")
             pylab.plot(e_test_ms, gr, "g.-")
             pylab.plot(e_test_ms, gb, "k.-")
-            pylab.xscale('log')
-            pylab.yscale('log')
+            pylab.xscale("log")
+            pylab.yscale("log")
             pylab.title("%s ISO=%d" % (NAME, s))
             pylab.xlabel("Exposure time (ms)")
             pylab.ylabel("Center patch pixel mean")
@@ -139,7 +143,7 @@ def main():
 
                 if np.isclose(max(mean), white_level, rtol=SATURATION_TOL):
                     print "Saturated: white_level %f, max_mean %f"% (white_level, max(mean))
-                    break;
+                    break
 
                 if allow_under_saturated and np.allclose(mean, black_levels, rtol=BLK_LVL_TOL):
                     # All channel means are close to black level

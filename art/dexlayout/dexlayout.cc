@@ -24,7 +24,6 @@
 
 #include <inttypes.h>
 #include <stdio.h>
-#include <sys/mman.h>  // For the PROT_* and MAP_* constants.
 
 #include <iostream>
 #include <memory>
@@ -34,6 +33,9 @@
 #include "android-base/stringprintf.h"
 
 #include "base/logging.h"  // For VLOG_IS_ON.
+#include "base/hiddenapi_flags.h"
+#include "base/mem_map.h"
+#include "base/mman.h"  // For the PROT_* and MAP_* constants.
 #include "base/os.h"
 #include "base/utils.h"
 #include "dex/art_dex_file_loader.h"
@@ -48,8 +50,7 @@
 #include "dex_verify.h"
 #include "dex_visualize.h"
 #include "dex_writer.h"
-#include "jit/profile_compilation_info.h"
-#include "mem_map.h"
+#include "profile/profile_compilation_info.h"
 
 namespace art {
 
@@ -71,26 +72,10 @@ static inline uint16_t Get2LE(unsigned char const* src) {
 }
 
 /*
- * Converts a type descriptor to human-readable "dotted" form.  For
- * example, "Ljava/lang/String;" becomes "java.lang.String", and
- * "[I" becomes "int[]".  Also converts '$' to '.', which means this
- * form can't be converted back to a descriptor.
- */
-static std::string DescriptorToDotWrapper(const char* descriptor) {
-  std::string result = DescriptorToDot(descriptor);
-  size_t found = result.find('$');
-  while (found != std::string::npos) {
-    result[found] = '.';
-    found = result.find('$', found);
-  }
-  return result;
-}
-
-/*
  * Converts the class name portion of a type descriptor to human-readable
  * "dotted" form. For example, "Ljava/lang/String;" becomes "String".
  */
-static std::string DescriptorClassToDot(const char* str) {
+static std::string DescriptorClassToName(const char* str) {
   std::string descriptor(str);
   // Reduce to just the class name prefix.
   size_t last_slash = descriptor.rfind('/');
@@ -103,13 +88,6 @@ static std::string DescriptorClassToDot(const char* str) {
   // Copy class name over, trimming trailing ';'.
   size_t size = descriptor.size() - 1 - last_slash;
   std::string result(descriptor.substr(last_slash, size));
-
-  // Replace '$' with '.'.
-  size_t dollar_sign = result.find('$');
-  while (dollar_sign != std::string::npos) {
-    result[dollar_sign] = '.';
-    dollar_sign = result.find('$', dollar_sign);
-  }
 
   return result;
 }
@@ -245,6 +223,14 @@ static char* CreateAccessFlagStr(uint32_t flags, AccessFor for_what) {
   return str;
 }
 
+static std::string GetHiddenapiFlagStr(uint32_t hiddenapi_flags) {
+  std::stringstream ss;
+  hiddenapi::ApiList(hiddenapi_flags).Dump(ss);
+  std::string api_list = ss.str();
+  std::transform(api_list.begin(), api_list.end(), api_list.begin(), ::toupper);
+  return api_list;
+}
+
 static std::string GetSignatureForProtoId(const dex_ir::ProtoId* proto) {
   if (proto == nullptr) {
     return "<no signature>";
@@ -270,7 +256,7 @@ static std::string GetSignatureForProtoId(const dex_ir::ProtoId* proto) {
  * NULL-terminated.
  */
 static void Asciify(char* out, const unsigned char* data, size_t len) {
-  while (len--) {
+  for (; len != 0u; --len) {
     if (*data < 0x20) {
       // Could do more here, but we don't need them yet.
       switch (*data) {
@@ -417,24 +403,24 @@ static std::unique_ptr<char[]> IndexString(dex_ir::Header* header,
       outSize = snprintf(buf.get(), buf_size, "<no-index>");
       break;
     case Instruction::kIndexTypeRef:
-      if (index < header->GetCollections().TypeIdsSize()) {
-        const char* tp = header->GetCollections().GetTypeId(index)->GetStringId()->Data();
+      if (index < header->TypeIds().Size()) {
+        const char* tp = header->TypeIds()[index]->GetStringId()->Data();
         outSize = snprintf(buf.get(), buf_size, "%s // type@%0*x", tp, width, index);
       } else {
         outSize = snprintf(buf.get(), buf_size, "<type?> // type@%0*x", width, index);
       }
       break;
     case Instruction::kIndexStringRef:
-      if (index < header->GetCollections().StringIdsSize()) {
-        const char* st = header->GetCollections().GetStringId(index)->Data();
+      if (index < header->StringIds().Size()) {
+        const char* st = header->StringIds()[index]->Data();
         outSize = snprintf(buf.get(), buf_size, "\"%s\" // string@%0*x", st, width, index);
       } else {
         outSize = snprintf(buf.get(), buf_size, "<string?> // string@%0*x", width, index);
       }
       break;
     case Instruction::kIndexMethodRef:
-      if (index < header->GetCollections().MethodIdsSize()) {
-        dex_ir::MethodId* method_id = header->GetCollections().GetMethodId(index);
+      if (index < header->MethodIds().Size()) {
+        dex_ir::MethodId* method_id = header->MethodIds()[index];
         const char* name = method_id->Name()->Data();
         std::string type_descriptor = GetSignatureForProtoId(method_id->Proto());
         const char* back_descriptor = method_id->Class()->GetStringId()->Data();
@@ -445,8 +431,8 @@ static std::unique_ptr<char[]> IndexString(dex_ir::Header* header,
       }
       break;
     case Instruction::kIndexFieldRef:
-      if (index < header->GetCollections().FieldIdsSize()) {
-        dex_ir::FieldId* field_id = header->GetCollections().GetFieldId(index);
+      if (index < header->FieldIds().Size()) {
+        dex_ir::FieldId* field_id = header->FieldIds()[index];
         const char* name = field_id->Name()->Data();
         const char* type_descriptor = field_id->Type()->GetStringId()->Data();
         const char* back_descriptor = field_id->Class()->GetStringId()->Data();
@@ -466,15 +452,15 @@ static std::unique_ptr<char[]> IndexString(dex_ir::Header* header,
     case Instruction::kIndexMethodAndProtoRef: {
       std::string method("<method?>");
       std::string proto("<proto?>");
-      if (index < header->GetCollections().MethodIdsSize()) {
-        dex_ir::MethodId* method_id = header->GetCollections().GetMethodId(index);
+      if (index < header->MethodIds().Size()) {
+        dex_ir::MethodId* method_id = header->MethodIds()[index];
         const char* name = method_id->Name()->Data();
         std::string type_descriptor = GetSignatureForProtoId(method_id->Proto());
         const char* back_descriptor = method_id->Class()->GetStringId()->Data();
         method = StringPrintf("%s.%s:%s", back_descriptor, name, type_descriptor.c_str());
       }
-      if (secondary_index < header->GetCollections().ProtoIdsSize()) {
-        dex_ir::ProtoId* proto_id = header->GetCollections().GetProtoId(secondary_index);
+      if (secondary_index < header->ProtoIds().Size()) {
+        dex_ir::ProtoId* proto_id = header->ProtoIds()[secondary_index];
         proto = GetSignatureForProtoId(proto_id);
       }
       outSize = snprintf(buf.get(), buf_size, "%s, %s // method@%0*x, proto@%0*x",
@@ -596,7 +582,6 @@ void DexLayout::DumpEncodedValue(const dex_ir::EncodedValue* data) {
  */
 void DexLayout::DumpFileHeader() {
   char sanitized[8 * 2 + 1];
-  dex_ir::Collections& collections = header_->GetCollections();
   fprintf(out_file_, "DEX file header:\n");
   Asciify(sanitized, header_->Magic(), 8);
   fprintf(out_file_, "magic               : '%s'\n", sanitized);
@@ -610,24 +595,24 @@ void DexLayout::DumpFileHeader() {
   fprintf(out_file_, "link_size           : %d\n", header_->LinkSize());
   fprintf(out_file_, "link_off            : %d (0x%06x)\n",
           header_->LinkOffset(), header_->LinkOffset());
-  fprintf(out_file_, "string_ids_size     : %d\n", collections.StringIdsSize());
+  fprintf(out_file_, "string_ids_size     : %d\n", header_->StringIds().Size());
   fprintf(out_file_, "string_ids_off      : %d (0x%06x)\n",
-          collections.StringIdsOffset(), collections.StringIdsOffset());
-  fprintf(out_file_, "type_ids_size       : %d\n", collections.TypeIdsSize());
+          header_->StringIds().GetOffset(), header_->StringIds().GetOffset());
+  fprintf(out_file_, "type_ids_size       : %d\n", header_->TypeIds().Size());
   fprintf(out_file_, "type_ids_off        : %d (0x%06x)\n",
-          collections.TypeIdsOffset(), collections.TypeIdsOffset());
-  fprintf(out_file_, "proto_ids_size      : %d\n", collections.ProtoIdsSize());
+          header_->TypeIds().GetOffset(), header_->TypeIds().GetOffset());
+  fprintf(out_file_, "proto_ids_size      : %d\n", header_->ProtoIds().Size());
   fprintf(out_file_, "proto_ids_off       : %d (0x%06x)\n",
-          collections.ProtoIdsOffset(), collections.ProtoIdsOffset());
-  fprintf(out_file_, "field_ids_size      : %d\n", collections.FieldIdsSize());
+          header_->ProtoIds().GetOffset(), header_->ProtoIds().GetOffset());
+  fprintf(out_file_, "field_ids_size      : %d\n", header_->FieldIds().Size());
   fprintf(out_file_, "field_ids_off       : %d (0x%06x)\n",
-          collections.FieldIdsOffset(), collections.FieldIdsOffset());
-  fprintf(out_file_, "method_ids_size     : %d\n", collections.MethodIdsSize());
+          header_->FieldIds().GetOffset(), header_->FieldIds().GetOffset());
+  fprintf(out_file_, "method_ids_size     : %d\n", header_->MethodIds().Size());
   fprintf(out_file_, "method_ids_off      : %d (0x%06x)\n",
-          collections.MethodIdsOffset(), collections.MethodIdsOffset());
-  fprintf(out_file_, "class_defs_size     : %d\n", collections.ClassDefsSize());
+          header_->MethodIds().GetOffset(), header_->MethodIds().GetOffset());
+  fprintf(out_file_, "class_defs_size     : %d\n", header_->ClassDefs().Size());
   fprintf(out_file_, "class_defs_off      : %d (0x%06x)\n",
-          collections.ClassDefsOffset(), collections.ClassDefsOffset());
+          header_->ClassDefs().GetOffset(), header_->ClassDefs().GetOffset());
   fprintf(out_file_, "data_size           : %d\n", header_->DataSize());
   fprintf(out_file_, "data_off            : %d (0x%06x)\n\n",
           header_->DataOffset(), header_->DataOffset());
@@ -638,7 +623,7 @@ void DexLayout::DumpFileHeader() {
  */
 void DexLayout::DumpClassDef(int idx) {
   // General class information.
-  dex_ir::ClassDef* class_def = header_->GetCollections().GetClassDef(idx);
+  dex_ir::ClassDef* class_def = header_->ClassDefs()[idx];
   fprintf(out_file_, "Class #%d header:\n", idx);
   fprintf(out_file_, "class_idx           : %d\n", class_def->ClassType()->GetIndex());
   fprintf(out_file_, "access_flags        : %d (0x%04x)\n",
@@ -719,7 +704,7 @@ void DexLayout::DumpAnnotationSetItem(dex_ir::AnnotationSetItem* set_item) {
  * Dumps class annotations.
  */
 void DexLayout::DumpClassAnnotations(int idx) {
-  dex_ir::ClassDef* class_def = header_->GetCollections().GetClassDef(idx);
+  dex_ir::ClassDef* class_def = header_->ClassDefs()[idx];
   dex_ir::AnnotationsDirectoryItem* annotations_directory = class_def->Annotations();
   if (annotations_directory == nullptr) {
     return;  // none
@@ -787,7 +772,7 @@ void DexLayout::DumpInterface(const dex_ir::TypeId* type_item, int i) {
   if (options_.output_format_ == kOutputPlain) {
     fprintf(out_file_, "    #%d              : '%s'\n", i, interface_name);
   } else {
-    std::string dot(DescriptorToDotWrapper(interface_name));
+    std::string dot(DescriptorToDot(interface_name));
     fprintf(out_file_, "<implements name=\"%s\">\n</implements>\n", dot.c_str());
   }
 }
@@ -1039,13 +1024,13 @@ void DexLayout::DumpInstruction(const dex_ir::CodeItem* code,
  * Dumps a bytecode disassembly.
  */
 void DexLayout::DumpBytecodes(uint32_t idx, const dex_ir::CodeItem* code, uint32_t code_offset) {
-  dex_ir::MethodId* method_id = header_->GetCollections().GetMethodId(idx);
+  dex_ir::MethodId* method_id = header_->MethodIds()[idx];
   const char* name = method_id->Name()->Data();
   std::string type_descriptor = GetSignatureForProtoId(method_id->Proto());
   const char* back_descriptor = method_id->Class()->GetStringId()->Data();
 
   // Generate header.
-  std::string dot(DescriptorToDotWrapper(back_descriptor));
+  std::string dot(DescriptorToDot(back_descriptor));
   fprintf(out_file_, "%06x:                                        |[%06x] %s.%s:%s\n",
           code_offset, code_offset, dot.c_str(), name, type_descriptor.c_str());
 
@@ -1061,38 +1046,18 @@ void DexLayout::DumpBytecodes(uint32_t idx, const dex_ir::CodeItem* code, uint32
 }
 
 /*
- * Callback for dumping each positions table entry.
- */
-static bool DumpPositionsCb(void* context, const DexFile::PositionInfo& entry) {
-  FILE* out_file = reinterpret_cast<FILE*>(context);
-  fprintf(out_file, "        0x%04x line=%d\n", entry.address_, entry.line_);
-  return false;
-}
-
-/*
- * Callback for dumping locals table entry.
- */
-static void DumpLocalsCb(void* context, const DexFile::LocalInfo& entry) {
-  const char* signature = entry.signature_ != nullptr ? entry.signature_ : "";
-  FILE* out_file = reinterpret_cast<FILE*>(context);
-  fprintf(out_file, "        0x%04x - 0x%04x reg=%d %s %s %s\n",
-          entry.start_address_, entry.end_address_, entry.reg_,
-          entry.name_, entry.descriptor_, signature);
-}
-
-/*
  * Lookup functions.
  */
-static const char* StringDataByIdx(uint32_t idx, dex_ir::Collections& collections) {
-  dex_ir::StringId* string_id = collections.GetStringIdOrNullPtr(idx);
+static const char* StringDataByIdx(uint32_t idx, dex_ir::Header* header) {
+  dex_ir::StringId* string_id = header->GetStringIdOrNullPtr(idx);
   if (string_id == nullptr) {
     return nullptr;
   }
   return string_id->Data();
 }
 
-static const char* StringDataByTypeIdx(uint16_t idx, dex_ir::Collections& collections) {
-  dex_ir::TypeId* type_id = collections.GetTypeIdOrNullPtr(idx);
+static const char* StringDataByTypeIdx(uint16_t idx, dex_ir::Header* header) {
+  dex_ir::TypeId* type_id = header->GetTypeIdOrNullPtr(idx);
   if (type_id == nullptr) {
     return nullptr;
   }
@@ -1134,10 +1099,15 @@ void DexLayout::DumpCode(uint32_t idx,
   if (debug_info != nullptr) {
     DexFile::DecodeDebugPositionInfo(debug_info->GetDebugInfo(),
                                      [this](uint32_t idx) {
-                                       return StringDataByIdx(idx, this->header_->GetCollections());
+                                       return StringDataByIdx(idx, this->header_);
                                      },
-                                     DumpPositionsCb,
-                                     out_file_);
+                                     [&](const DexFile::PositionInfo& entry) {
+                                       fprintf(out_file_,
+                                               "        0x%04x line=%d\n",
+                                               entry.address_,
+                                               entry.line_);
+                                        return false;
+                                     });
   }
   fprintf(out_file_, "      locals        : \n");
   if (debug_info != nullptr) {
@@ -1161,28 +1131,42 @@ void DexLayout::DumpCode(uint32_t idx,
                                   code->InsSize(),
                                   code->InsnsSize(),
                                   [this](uint32_t idx) {
-                                    return StringDataByIdx(idx, this->header_->GetCollections());
+                                    return StringDataByIdx(idx, this->header_);
                                   },
                                   [this](uint32_t idx) {
                                     return
                                         StringDataByTypeIdx(dchecked_integral_cast<uint16_t>(idx),
-                                                            this->header_->GetCollections());
+                                                            this->header_);
                                   },
-                                  DumpLocalsCb,
-                                  out_file_);
+                                  [&](const DexFile::LocalInfo& entry) {
+                                    const char* signature =
+                                        entry.signature_ != nullptr ? entry.signature_ : "";
+                                    fprintf(out_file_,
+                                            "        0x%04x - 0x%04x reg=%d %s %s %s\n",
+                                            entry.start_address_,
+                                            entry.end_address_,
+                                            entry.reg_,
+                                            entry.name_,
+                                            entry.descriptor_,
+                                            signature);
+                                  });
   }
 }
 
 /*
  * Dumps a method.
  */
-void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem* code, int i) {
+void DexLayout::DumpMethod(uint32_t idx,
+                           uint32_t flags,
+                           uint32_t hiddenapi_flags,
+                           const dex_ir::CodeItem* code,
+                           int i) {
   // Bail for anything private if export only requested.
   if (options_.exports_only_ && (flags & (kAccPublic | kAccProtected)) == 0) {
     return;
   }
 
-  dex_ir::MethodId* method_id = header_->GetCollections().GetMethodId(idx);
+  dex_ir::MethodId* method_id = header_->MethodIds()[idx];
   const char* name = method_id->Name()->Data();
   char* type_descriptor = strdup(GetSignatureForProtoId(method_id->Proto()).c_str());
   const char* back_descriptor = method_id->Class()->GetStringId()->Data();
@@ -1193,6 +1177,12 @@ void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem*
     fprintf(out_file_, "      name          : '%s'\n", name);
     fprintf(out_file_, "      type          : '%s'\n", type_descriptor);
     fprintf(out_file_, "      access        : 0x%04x (%s)\n", flags, access_str);
+    if (hiddenapi_flags != 0u) {
+      fprintf(out_file_,
+              "      hiddenapi     : 0x%04x (%s)\n",
+              hiddenapi_flags,
+              GetHiddenapiFlagStr(hiddenapi_flags).c_str());
+    }
     if (code == nullptr) {
       fprintf(out_file_, "      code          : (none)\n");
     } else {
@@ -1213,9 +1203,9 @@ void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem*
 
     // Method name and prototype.
     if (constructor) {
-      std::string dot(DescriptorClassToDot(back_descriptor));
+      std::string dot(DescriptorClassToName(back_descriptor));
       fprintf(out_file_, "<constructor name=\"%s\"\n", dot.c_str());
-      dot = DescriptorToDotWrapper(back_descriptor);
+      dot = DescriptorToDot(back_descriptor);
       fprintf(out_file_, " type=\"%s\"\n", dot.c_str());
     } else {
       fprintf(out_file_, "<method name=\"%s\"\n", name);
@@ -1224,7 +1214,7 @@ void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem*
         LOG(ERROR) << "bad method type descriptor '" << type_descriptor << "'";
         goto bail;
       }
-      std::string dot(DescriptorToDotWrapper(return_type + 1));
+      std::string dot(DescriptorToDot(return_type + 1));
       fprintf(out_file_, " return=\"%s\"\n", dot.c_str());
       fprintf(out_file_, " abstract=%s\n", QuotedBool((flags & kAccAbstract) != 0));
       fprintf(out_file_, " native=%s\n", QuotedBool((flags & kAccNative) != 0));
@@ -1266,7 +1256,7 @@ void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem*
       }
       // Null terminate and display.
       *cp++ = '\0';
-      std::string dot(DescriptorToDotWrapper(tmp_buf));
+      std::string dot(DescriptorToDot(tmp_buf));
       fprintf(out_file_, "<parameter name=\"arg%d\" type=\"%s\">\n"
                         "</parameter>\n", arg_num++, dot.c_str());
     }  // while
@@ -1286,13 +1276,17 @@ void DexLayout::DumpMethod(uint32_t idx, uint32_t flags, const dex_ir::CodeItem*
 /*
  * Dumps a static (class) field.
  */
-void DexLayout::DumpSField(uint32_t idx, uint32_t flags, int i, dex_ir::EncodedValue* init) {
+void DexLayout::DumpSField(uint32_t idx,
+                           uint32_t flags,
+                           uint32_t hiddenapi_flags,
+                           int i,
+                           dex_ir::EncodedValue* init) {
   // Bail for anything private if export only requested.
   if (options_.exports_only_ && (flags & (kAccPublic | kAccProtected)) == 0) {
     return;
   }
 
-  dex_ir::FieldId* field_id = header_->GetCollections().GetFieldId(idx);
+  dex_ir::FieldId* field_id = header_->FieldIds()[idx];
   const char* name = field_id->Name()->Data();
   const char* type_descriptor = field_id->Type()->GetStringId()->Data();
   const char* back_descriptor = field_id->Class()->GetStringId()->Data();
@@ -1303,6 +1297,12 @@ void DexLayout::DumpSField(uint32_t idx, uint32_t flags, int i, dex_ir::EncodedV
     fprintf(out_file_, "      name          : '%s'\n", name);
     fprintf(out_file_, "      type          : '%s'\n", type_descriptor);
     fprintf(out_file_, "      access        : 0x%04x (%s)\n", flags, access_str);
+    if (hiddenapi_flags != 0u) {
+      fprintf(out_file_,
+              "      hiddenapi     : 0x%04x (%s)\n",
+              hiddenapi_flags,
+              GetHiddenapiFlagStr(hiddenapi_flags).c_str());
+    }
     if (init != nullptr) {
       fputs("      value         : ", out_file_);
       DumpEncodedValue(init);
@@ -1310,7 +1310,7 @@ void DexLayout::DumpSField(uint32_t idx, uint32_t flags, int i, dex_ir::EncodedV
     }
   } else if (options_.output_format_ == kOutputXml) {
     fprintf(out_file_, "<field name=\"%s\"\n", name);
-    std::string dot(DescriptorToDotWrapper(type_descriptor));
+    std::string dot(DescriptorToDot(type_descriptor));
     fprintf(out_file_, " type=\"%s\"\n", dot.c_str());
     fprintf(out_file_, " transient=%s\n", QuotedBool((flags & kAccTransient) != 0));
     fprintf(out_file_, " volatile=%s\n", QuotedBool((flags & kAccVolatile) != 0));
@@ -1333,8 +1333,11 @@ void DexLayout::DumpSField(uint32_t idx, uint32_t flags, int i, dex_ir::EncodedV
 /*
  * Dumps an instance field.
  */
-void DexLayout::DumpIField(uint32_t idx, uint32_t flags, int i) {
-  DumpSField(idx, flags, i, nullptr);
+void DexLayout::DumpIField(uint32_t idx,
+                           uint32_t flags,
+                           uint32_t hiddenapi_flags,
+                           int i) {
+  DumpSField(idx, flags, hiddenapi_flags, i, nullptr);
 }
 
 /*
@@ -1346,7 +1349,7 @@ void DexLayout::DumpIField(uint32_t idx, uint32_t flags, int i) {
  * the value will be replaced with a newly-allocated string.
  */
 void DexLayout::DumpClass(int idx, char** last_package) {
-  dex_ir::ClassDef* class_def = header_->GetCollections().GetClassDef(idx);
+  dex_ir::ClassDef* class_def = header_->ClassDefs()[idx];
   // Omitting non-public class.
   if (options_.exports_only_ && (class_def->GetAccessFlags() & kAccPublic) == 0) {
     return;
@@ -1364,8 +1367,7 @@ void DexLayout::DumpClass(int idx, char** last_package) {
   // up the classes, sort them, and dump them alphabetically so the
   // package name wouldn't jump around, but that's not a great plan
   // for something that needs to run on the device.
-  const char* class_descriptor =
-      header_->GetCollections().GetClassDef(idx)->ClassType()->GetStringId()->Data();
+  const char* class_descriptor = header_->ClassDefs()[idx]->ClassType()->GetStringId()->Data();
   if (!(class_descriptor[0] == 'L' &&
         class_descriptor[strlen(class_descriptor)-1] == ';')) {
     // Arrays and primitives should not be defined explicitly. Keep going?
@@ -1417,10 +1419,10 @@ void DexLayout::DumpClass(int idx, char** last_package) {
     }
     fprintf(out_file_, "  Interfaces        -\n");
   } else {
-    std::string dot(DescriptorClassToDot(class_descriptor));
+    std::string dot(DescriptorClassToName(class_descriptor));
     fprintf(out_file_, "<class name=\"%s\"\n", dot.c_str());
     if (superclass_descriptor != nullptr) {
-      dot = DescriptorToDotWrapper(superclass_descriptor);
+      dot = DescriptorToDot(superclass_descriptor);
       fprintf(out_file_, " extends=\"%s\"\n", dot.c_str());
     }
     fprintf(out_file_, " interface=%s\n",
@@ -1459,8 +1461,9 @@ void DexLayout::DumpClass(int idx, char** last_package) {
     dex_ir::FieldItemVector* static_fields = class_data->StaticFields();
     if (static_fields != nullptr) {
       for (uint32_t i = 0; i < static_fields->size(); i++) {
-        DumpSField((*static_fields)[i]->GetFieldId()->GetIndex(),
-                   (*static_fields)[i]->GetAccessFlags(),
+        DumpSField((*static_fields)[i].GetFieldId()->GetIndex(),
+                   (*static_fields)[i].GetAccessFlags(),
+                   dex_ir::HiddenapiClassData::GetFlags(header_, class_def, &(*static_fields)[i]),
                    i,
                    i < encoded_values_size ? (*encoded_values)[i].get() : nullptr);
       }  // for
@@ -1475,8 +1478,9 @@ void DexLayout::DumpClass(int idx, char** last_package) {
     dex_ir::FieldItemVector* instance_fields = class_data->InstanceFields();
     if (instance_fields != nullptr) {
       for (uint32_t i = 0; i < instance_fields->size(); i++) {
-        DumpIField((*instance_fields)[i]->GetFieldId()->GetIndex(),
-                   (*instance_fields)[i]->GetAccessFlags(),
+        DumpIField((*instance_fields)[i].GetFieldId()->GetIndex(),
+                   (*instance_fields)[i].GetAccessFlags(),
+                   dex_ir::HiddenapiClassData::GetFlags(header_, class_def, &(*instance_fields)[i]),
                    i);
       }  // for
     }
@@ -1490,10 +1494,11 @@ void DexLayout::DumpClass(int idx, char** last_package) {
     dex_ir::MethodItemVector* direct_methods = class_data->DirectMethods();
     if (direct_methods != nullptr) {
       for (uint32_t i = 0; i < direct_methods->size(); i++) {
-        DumpMethod((*direct_methods)[i]->GetMethodId()->GetIndex(),
-                   (*direct_methods)[i]->GetAccessFlags(),
-                   (*direct_methods)[i]->GetCodeItem(),
-                 i);
+        DumpMethod((*direct_methods)[i].GetMethodId()->GetIndex(),
+                   (*direct_methods)[i].GetAccessFlags(),
+                   dex_ir::HiddenapiClassData::GetFlags(header_, class_def, &(*direct_methods)[i]),
+                   (*direct_methods)[i].GetCodeItem(),
+                   i);
       }  // for
     }
   }
@@ -1506,9 +1511,10 @@ void DexLayout::DumpClass(int idx, char** last_package) {
     dex_ir::MethodItemVector* virtual_methods = class_data->VirtualMethods();
     if (virtual_methods != nullptr) {
       for (uint32_t i = 0; i < virtual_methods->size(); i++) {
-        DumpMethod((*virtual_methods)[i]->GetMethodId()->GetIndex(),
-                   (*virtual_methods)[i]->GetAccessFlags(),
-                   (*virtual_methods)[i]->GetCodeItem(),
+        DumpMethod((*virtual_methods)[i].GetMethodId()->GetIndex(),
+                   (*virtual_methods)[i].GetAccessFlags(),
+                   dex_ir::HiddenapiClassData::GetFlags(header_, class_def, &(*virtual_methods)[i]),
+                   (*virtual_methods)[i].GetCodeItem(),
                    i);
       }  // for
     }
@@ -1543,7 +1549,7 @@ void DexLayout::DumpDexFile() {
 
   // Iterate over all classes.
   char* package = nullptr;
-  const uint32_t class_defs_size = header_->GetCollections().ClassDefsSize();
+  const uint32_t class_defs_size = header_->ClassDefs().Size();
   for (uint32_t i = 0; i < class_defs_size; i++) {
     DumpClass(i, &package);
   }  // for
@@ -1562,13 +1568,13 @@ void DexLayout::DumpDexFile() {
 
 void DexLayout::LayoutClassDefsAndClassData(const DexFile* dex_file) {
   std::vector<dex_ir::ClassDef*> new_class_def_order;
-  for (std::unique_ptr<dex_ir::ClassDef>& class_def : header_->GetCollections().ClassDefs()) {
+  for (auto& class_def : header_->ClassDefs()) {
     dex::TypeIndex type_idx(class_def->ClassType()->GetIndex());
     if (info_->ContainsClass(*dex_file, type_idx)) {
       new_class_def_order.push_back(class_def.get());
     }
   }
-  for (std::unique_ptr<dex_ir::ClassDef>& class_def : header_->GetCollections().ClassDefs()) {
+  for (auto& class_def : header_->ClassDefs()) {
     dex::TypeIndex type_idx(class_def->ClassType()->GetIndex());
     if (!info_->ContainsClass(*dex_file, type_idx)) {
       new_class_def_order.push_back(class_def.get());
@@ -1576,8 +1582,7 @@ void DexLayout::LayoutClassDefsAndClassData(const DexFile* dex_file) {
   }
   std::unordered_set<dex_ir::ClassData*> visited_class_data;
   size_t class_data_index = 0;
-  dex_ir::CollectionVector<dex_ir::ClassData>::Vector& class_datas =
-      header_->GetCollections().ClassDatas();
+  auto& class_datas = header_->ClassDatas();
   for (dex_ir::ClassDef* class_def : new_class_def_order) {
     dex_ir::ClassData* class_data = class_def->GetClassData();
     if (class_data != nullptr && visited_class_data.find(class_data) == visited_class_data.end()) {
@@ -1585,34 +1590,33 @@ void DexLayout::LayoutClassDefsAndClassData(const DexFile* dex_file) {
       // Overwrite the existing vector with the new ordering, note that the sets of objects are
       // equivalent, but the order changes. This is why this is not a memory leak.
       // TODO: Consider cleaning this up with a shared_ptr.
-      class_datas[class_data_index].release();
+      class_datas[class_data_index].release();  // NOLINT b/117926937
       class_datas[class_data_index].reset(class_data);
       ++class_data_index;
     }
   }
-  CHECK_EQ(class_data_index, class_datas.size());
+  CHECK_EQ(class_data_index, class_datas.Size());
 
   if (DexLayout::kChangeClassDefOrder) {
     // This currently produces dex files that violate the spec since the super class class_def is
     // supposed to occur before any subclasses.
-    dex_ir::CollectionVector<dex_ir::ClassDef>::Vector& class_defs =
-        header_->GetCollections().ClassDefs();
-    CHECK_EQ(new_class_def_order.size(), class_defs.size());
-    for (size_t i = 0; i < class_defs.size(); ++i) {
+    dex_ir::CollectionVector<dex_ir::ClassDef>& class_defs = header_->ClassDefs();
+    CHECK_EQ(new_class_def_order.size(), class_defs.Size());
+    for (size_t i = 0; i < class_defs.Size(); ++i) {
       // Overwrite the existing vector with the new ordering, note that the sets of objects are
       // equivalent, but the order changes. This is why this is not a memory leak.
       // TODO: Consider cleaning this up with a shared_ptr.
-      class_defs[i].release();
+      class_defs[i].release();  // NOLINT b/117926937
       class_defs[i].reset(new_class_def_order[i]);
     }
   }
 }
 
 void DexLayout::LayoutStringData(const DexFile* dex_file) {
-  const size_t num_strings = header_->GetCollections().StringIds().size();
+  const size_t num_strings = header_->StringIds().Size();
   std::vector<bool> is_shorty(num_strings, false);
   std::vector<bool> from_hot_method(num_strings, false);
-  for (std::unique_ptr<dex_ir::ClassDef>& class_def : header_->GetCollections().ClassDefs()) {
+  for (auto& class_def : header_->ClassDefs()) {
     // A name of a profile class is probably going to get looked up by ClassTable::Lookup, mark it
     // as hot. Add its super class and interfaces as well, which can be used during initialization.
     const bool is_profile_class =
@@ -1636,14 +1640,14 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
     }
     for (size_t i = 0; i < 2; ++i) {
       for (auto& method : *(i == 0 ? data->DirectMethods() : data->VirtualMethods())) {
-        const dex_ir::MethodId* method_id = method->GetMethodId();
-        dex_ir::CodeItem* code_item = method->GetCodeItem();
+        const dex_ir::MethodId* method_id = method.GetMethodId();
+        dex_ir::CodeItem* code_item = method.GetCodeItem();
         if (code_item == nullptr) {
           continue;
         }
         const bool is_clinit = is_profile_class &&
-            (method->GetAccessFlags() & kAccConstructor) != 0 &&
-            (method->GetAccessFlags() & kAccStatic) != 0;
+            (method.GetAccessFlags() & kAccConstructor) != 0 &&
+            (method.GetAccessFlags() & kAccStatic) != 0;
         const bool method_executed = is_clinit ||
             info_->GetMethodHotness(MethodReference(dex_file, method_id->GetIndex())).IsInProfile();
         if (!method_executed) {
@@ -1678,7 +1682,7 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
   }
   // Sort string data by specified order.
   std::vector<dex_ir::StringId*> string_ids;
-  for (auto& string_id : header_->GetCollections().StringIds()) {
+  for (auto& string_id : header_->StringIds()) {
     string_ids.push_back(string_id.get());
   }
   std::sort(string_ids.begin(),
@@ -1699,12 +1703,11 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
     // Order by index by default.
     return a->GetIndex() < b->GetIndex();
   });
-  dex_ir::CollectionVector<dex_ir::StringData>::Vector& string_datas =
-      header_->GetCollections().StringDatas();
+  auto& string_datas = header_->StringDatas();
   // Now we know what order we want the string data, reorder them.
   size_t data_index = 0;
   for (dex_ir::StringId* string_id : string_ids) {
-    string_datas[data_index].release();
+    string_datas[data_index].release();  // NOLINT b/117926937
     string_datas[data_index].reset(string_id->DataItem());
     ++data_index;
   }
@@ -1713,11 +1716,11 @@ void DexLayout::LayoutStringData(const DexFile* dex_file) {
     for (const std::unique_ptr<dex_ir::StringData>& data : string_datas) {
       visited.insert(data.get());
     }
-    for (auto& string_id : header_->GetCollections().StringIds()) {
+    for (auto& string_id : header_->StringIds()) {
       CHECK(visited.find(string_id->DataItem()) != visited.end());
     }
   }
-  CHECK_EQ(data_index, string_datas.size());
+  CHECK_EQ(data_index, string_datas.Size());
 }
 
 // Orders code items according to specified class data ordering.
@@ -1732,7 +1735,7 @@ void DexLayout::LayoutCodeItems(const DexFile* dex_file) {
 
   // Assign hotness flags to all code items.
   for (InvokeType invoke_type : invoke_types) {
-    for (std::unique_ptr<dex_ir::ClassDef>& class_def : header_->GetCollections().ClassDefs()) {
+    for (auto& class_def : header_->ClassDefs()) {
       const bool is_profile_class =
           info_->ContainsClass(*dex_file, dex::TypeIndex(class_def->ClassType()->GetIndex()));
 
@@ -1744,14 +1747,14 @@ void DexLayout::LayoutCodeItems(const DexFile* dex_file) {
       for (auto& method : *(invoke_type == InvokeType::kDirect
                                 ? class_data->DirectMethods()
                                 : class_data->VirtualMethods())) {
-        const dex_ir::MethodId *method_id = method->GetMethodId();
-        dex_ir::CodeItem *code_item = method->GetCodeItem();
+        const dex_ir::MethodId *method_id = method.GetMethodId();
+        dex_ir::CodeItem *code_item = method.GetCodeItem();
         if (code_item == nullptr) {
           continue;
         }
         // Separate executed methods (clinits and profiled methods) from unexecuted methods.
-        const bool is_clinit = (method->GetAccessFlags() & kAccConstructor) != 0 &&
-            (method->GetAccessFlags() & kAccStatic) != 0;
+        const bool is_clinit = (method.GetAccessFlags() & kAccConstructor) != 0 &&
+            (method.GetAccessFlags() & kAccStatic) != 0;
         const bool is_startup_clinit = is_profile_class && is_clinit;
         using Hotness = ProfileCompilationInfo::MethodHotness;
         Hotness hotness = info_->GetMethodHotness(MethodReference(dex_file, method_id->GetIndex()));
@@ -1778,8 +1781,7 @@ void DexLayout::LayoutCodeItems(const DexFile* dex_file) {
     }
   }
 
-  dex_ir::CollectionVector<dex_ir::CodeItem>::Vector& code_items =
-        header_->GetCollections().CodeItems();
+  const auto& code_items = header_->CodeItems();
   if (VLOG_IS_ON(dex)) {
     size_t layout_count[static_cast<size_t>(LayoutType::kLayoutTypeCount)] = {};
     for (const std::unique_ptr<dex_ir::CodeItem>& code_item : code_items) {
@@ -1823,14 +1825,20 @@ bool DexLayout::OutputDexFile(const DexFile* input_dex_file,
   // If options_.output_dex_directory_ is non null, we are outputting to a file.
   if (options_.output_dex_directory_ != nullptr) {
     std::string output_location(options_.output_dex_directory_);
-    size_t last_slash = dex_file_location.rfind('/');
+    const size_t last_slash = dex_file_location.rfind('/');
     std::string dex_file_directory = dex_file_location.substr(0, last_slash + 1);
     if (output_location == dex_file_directory) {
       output_location = dex_file_location + ".new";
-    } else if (last_slash != std::string::npos) {
-      output_location += dex_file_location.substr(last_slash);
     } else {
-      output_location += "/" + dex_file_location + ".new";
+      if (!output_location.empty() && output_location.back() != '/') {
+        output_location += "/";
+      }
+      const size_t separator = dex_file_location.rfind('!');
+      if (separator != std::string::npos) {
+        output_location += dex_file_location.substr(separator + 1);
+      } else {
+        output_location += "classes.dex";
+      }
     }
     new_file.reset(OS::CreateEmptyFile(output_location.c_str()));
     if (new_file == nullptr) {
@@ -1871,7 +1879,7 @@ bool DexLayout::ProcessDexFile(const char* file_name,
   const bool has_output_container = dex_container != nullptr;
   const bool output = options_.output_dex_directory_ != nullptr || has_output_container;
 
-  // Try to avoid eagerly assigning offsets to find bugs since GetOffset will abort if the offset
+  // Try to avoid eagerly assigning offsets to find bugs since Offset will abort if the offset
   // is unassigned.
   bool eagerly_assign_offsets = false;
   if (options_.visualize_pattern_ || options_.show_section_statistics_ || options_.dump_) {
@@ -1942,10 +1950,10 @@ bool DexLayout::ProcessDexFile(const char* file_name,
               data_section->Begin(),
               data_section->Size(),
               location,
-              /* checksum */ 0,
-              /*oat_dex_file*/ nullptr,
+              /* location_checksum= */ 0,
+              /*oat_dex_file=*/ nullptr,
               verify,
-              /*verify_checksum*/ false,
+              /*verify_checksum=*/ false,
               error_msg));
       CHECK(output_dex_file != nullptr) << "Failed to re-open output file:" << *error_msg;
 
@@ -1956,11 +1964,11 @@ bool DexLayout::ProcessDexFile(const char* file_name,
       // Regenerate output IR to catch any bugs that might happen during writing.
       std::unique_ptr<dex_ir::Header> output_header(
           dex_ir::DexIrBuilder(*output_dex_file,
-                               /*eagerly_assign_offsets*/ true,
+                               /*eagerly_assign_offsets=*/ true,
                                GetOptions()));
       std::unique_ptr<dex_ir::Header> orig_header(
           dex_ir::DexIrBuilder(*dex_file,
-                               /*eagerly_assign_offsets*/ true,
+                               /*eagerly_assign_offsets=*/ true,
                                GetOptions()));
       CHECK(VerifyOutputDexFile(output_header.get(), orig_header.get(), error_msg)) << *error_msg;
     }
@@ -1983,7 +1991,7 @@ int DexLayout::ProcessFile(const char* file_name) {
   const ArtDexFileLoader dex_file_loader;
   std::vector<std::unique_ptr<const DexFile>> dex_files;
   if (!dex_file_loader.Open(
-        file_name, file_name, /* verify */ true, verify_checksum, &error_msg, &dex_files)) {
+        file_name, file_name, /* verify= */ true, verify_checksum, &error_msg, &dex_files)) {
     // Display returned error message to user. Note that this error behavior
     // differs from the error messages shown by the original Dalvik dexdump.
     LOG(ERROR) << error_msg;
@@ -2000,7 +2008,7 @@ int DexLayout::ProcessFile(const char* file_name) {
       if (!ProcessDexFile(file_name,
                           dex_files[i].get(),
                           i,
-                          /*dex_container*/ nullptr,
+                          /*dex_container=*/ nullptr,
                           &error_msg)) {
         LOG(WARNING) << "Failed to run dex file " << i << " in " << file_name << " : " << error_msg;
       }

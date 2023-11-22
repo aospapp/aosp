@@ -16,10 +16,9 @@
 
 package com.example.android.asymmetricfingerprintdialog;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.CancellationSignal;
+import android.support.annotation.VisibleForTesting;
 import android.widget.ImageView;
 import android.widget.TextView;
 

@@ -18,7 +18,9 @@ package com.android.tradefed;
 import com.android.tradefed.device.metric.VtsCoverageCollectorTest;
 import com.android.tradefed.device.metric.VtsHalTraceCollectorTest;
 import com.android.tradefed.presubmit.VtsConfigLoadingTest;
+import com.android.tradefed.module.VtsHalAdapterModuleControllerTest;
 import com.android.tradefed.targetprep.VtsCoveragePreparerTest;
+import com.android.tradefed.targetprep.VtsDevicePreparerTest;
 import com.android.tradefed.targetprep.VtsHalAdapterPreparerTest;
 import com.android.tradefed.targetprep.VtsPythonVirtualenvPreparerTest;
 import com.android.tradefed.targetprep.VtsTraceCollectPreparerTest;
@@ -27,6 +29,7 @@ import com.android.tradefed.testtype.VtsFuzzTestTest;
 import com.android.tradefed.testtype.VtsMultiDeviceTestResultParserTest;
 import com.android.tradefed.testtype.VtsMultiDeviceTestTest;
 import com.android.tradefed.util.CmdUtilTest;
+import com.android.tradefed.util.OutputUtilTest;
 import com.android.tradefed.util.ProcessHelperTest;
 import com.android.tradefed.util.VtsPythonRunnerHelperTest;
 
@@ -41,29 +44,35 @@ import org.junit.runners.Suite.SuiteClasses;
  */
 @RunWith(Suite.class)
 @SuiteClasses({
-    // NOTE: please keep classes sorted lexicographically in each group
-    //device
-    VtsCoverageCollectorTest.class,
-    VtsHalTraceCollectorTest.class,
+        // NOTE: please keep classes sorted lexicographically in each group
+        // device
+        VtsCoverageCollectorTest.class,
+        VtsDevicePreparerTest.class,
+        VtsHalTraceCollectorTest.class,
 
-    // presubmit
-    VtsConfigLoadingTest.class,
-    // targetprep
-    VtsCoveragePreparerTest.class,
-    VtsHalAdapterPreparerTest.class,
-    VtsPythonVirtualenvPreparerTest.class,
-    VtsTraceCollectPreparerTest.class,
+        // module
+        VtsHalAdapterModuleControllerTest.class,
 
-    // testtype
-    VtsFuzzTestResultParserTest.class,
-    VtsFuzzTestTest.class,
-    VtsMultiDeviceTestResultParserTest.class,
-    VtsMultiDeviceTestTest.class,
+        // presubmit
+        VtsConfigLoadingTest.class,
 
-    // util
-    CmdUtilTest.class,
-    ProcessHelperTest.class,
-    VtsPythonRunnerHelperTest.class,
+        // targetprep
+        VtsCoveragePreparerTest.class,
+        VtsHalAdapterPreparerTest.class,
+        VtsPythonVirtualenvPreparerTest.class,
+        VtsTraceCollectPreparerTest.class,
+
+        // testtype
+        VtsFuzzTestResultParserTest.class,
+        VtsFuzzTestTest.class,
+        VtsMultiDeviceTestResultParserTest.class,
+        VtsMultiDeviceTestTest.class,
+
+        // util
+        CmdUtilTest.class,
+        ProcessHelperTest.class,
+        VtsPythonRunnerHelperTest.class,
+        OutputUtilTest.class,
 })
 public class VtsUnitTests {
     // empty on purpose

@@ -35,8 +35,8 @@
     <string name="accounts_category_title" msgid="7839427428921349418">"खाती आणि साइन इन"</string>
     <string name="accounts_category_summary_no_account" msgid="5739678666463033824">"कोणतीही खाती नाहीत"</string>
     <plurals name="accounts_category_summary" formatted="false" msgid="3864659911073569648">
-      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> खाते</item>
       <item quantity="other"><xliff:g id="ACCOUNTS_NUMBER_1">%1$d</xliff:g> खाती</item>
+      <item quantity="one"><xliff:g id="ACCOUNTS_NUMBER_0">%1$d</xliff:g> खाते</item>
     </plurals>
     <string name="connectivity_network_category_title" msgid="6005656364481347542">"नेटवर्क आणि इंटरनेट"</string>
     <string name="applications_category_title" msgid="3552921143969612110">"अॅप्स"</string>
@@ -44,8 +44,8 @@
     <string name="remotes_and_accessories_category_title" msgid="2729050422677319645">"रिमोट आणि अॅक्सेसरी"</string>
     <string name="remotes_and_accessories_category_summary_no_bluetooth_device" msgid="3967545806275801632">"कनेक्ट केलेली कोणतीही ब्लूटूथ डिव्हाइस नाहीत"</string>
     <plurals name="remotes_and_accessories_category_summary" formatted="false" msgid="2004733390509722820">
-      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> अॅक्सेसरी</item>
       <item quantity="other"><xliff:g id="ACCESSORIES_NUMBER_1">%1$d</xliff:g> अॅक्सेसरी</item>
+      <item quantity="one"><xliff:g id="ACCESSORIES_NUMBER_0">%1$d</xliff:g> अॅक्सेसरी</item>
     </plurals>
     <string name="add_account" msgid="4098060223200619258">"खाते जोडा"</string>
     <string name="account_header_remove_account" msgid="3288957118207682685">"खाते काढा"</string>
@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"कॅलिब्रेशन"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"फॉरमॅट निवडा"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"आसपसाचा ध्वनी"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (डॉल्बी डिजिटल)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (डॉल्बी डिजिटल प्लस/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -117,7 +117,7 @@
     <string name="accessory_change_name" msgid="8958916008739792785">"नाव बदला"</string>
     <string name="accessory_change_name_title" msgid="4630819456923061184">"या उपसाधनासाठी एक नवीन नाव प्रविष्‍ट करा"</string>
     <string name="accessories_add_title" msgid="6940361421891873321">"उपसाधने शोधत आहे..."</string>
-    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"आपले ब्लूटूथ डिव्हाइसेस जोडण्यापूर्वी, ते जोडणी मोडमध्ये असल्याचे सुनिश्चित करा"</string>
+    <string name="accessories_add_bluetooth_inst" msgid="5892952745770640383">"तुमचे ब्लूटूथ डिव्हाइसेस जोडण्यापूर्वी, ते जोडणी मोडमध्ये असल्याचे सुनिश्चित करा"</string>
     <string name="accessories_autopair_msg" msgid="8618829246837821752">"एक डिव्हाइस आढळले आणि ते <xliff:g id="COUNTDOWN">%1$s</xliff:g> सेकंदांमध्ये स्वयंचलितपणे जोडले जाईल"</string>
     <string name="error_action_not_supported" msgid="300552308104354666">"ही क्रिया समर्थित नाही"</string>
     <string name="bluetooth_pairing_request" msgid="4523088117471287665">"ब्लूटूथ जोडणी विनंती"</string>
@@ -153,7 +153,7 @@
     <string name="device_name" msgid="2670488158531273028">"डिव्हाइस नाव"</string>
     <string name="restart_button_label" msgid="8153112858638352970">"रीस्टार्ट करा"</string>
     <string name="about_legal_info" msgid="8511870741437307531">"कायदेशीर माहिती"</string>
-    <string name="about_legal_license" msgid="7867205982113209033">"मुक्त स्त्रोत परवाने"</string>
+    <string name="about_legal_license" msgid="7867205982113209033">"मुक्त स्रोत परवाने"</string>
     <string name="about_terms_of_service" msgid="7743088207977334874">"Google कायदेशीर"</string>
     <string name="about_license_activity_unavailable" msgid="8522566562321418498">"परवाना डेटा अनुपलब्‍ध आहे"</string>
     <string name="about_model" msgid="6625269442206323995">"मॉडेल"</string>
@@ -161,12 +161,12 @@
     <string name="about_serial" msgid="2723560490027171187">"अनुक्रमांक"</string>
     <string name="about_build" msgid="9148789767199785676">"बिल्ड"</string>
     <plurals name="show_dev_countdown" formatted="false" msgid="5361765297521871966">
-      <item quantity="one">आपण अाता विकासक होण्यापासून <xliff:g id="STEP_COUNT_1">%1$d</xliff:g> चरण दूर आहात</item>
-      <item quantity="other">आपण विकासक होण्यापासून<xliff:g id="STEP_COUNT_1">%1$d</xliff:g> चरणे दूर आहात</item>
+      <item quantity="other">तुम्ही विकासक होण्यापासून<xliff:g id="STEP_COUNT_1">%1$d</xliff:g> चरणे दूर आहात</item>
+      <item quantity="one">तुम्ही आता विकासक होण्यापासून <xliff:g id="STEP_COUNT_0">%1$d</xliff:g> चरण दूर आहात</item>
     </plurals>
     <string name="about_ads" msgid="3364786994943748337">"जाहिराती"</string>
-    <string name="show_dev_on" msgid="8997172736024819952">"आता आपण एक विकासक आहात!"</string>
-    <string name="show_dev_already" msgid="7525967300421794483">"आवश्यकता नाही, आपण आधीपासूनच एक विकसक आहात"</string>
+    <string name="show_dev_on" msgid="8997172736024819952">"आता तुम्ही एक विकासक आहात!"</string>
+    <string name="show_dev_already" msgid="7525967300421794483">"आवश्यकता नाही, तुम्ही आधीपासूनच एक विकसक आहात"</string>
     <string name="device_info_default" msgid="4519181343309136050">"अज्ञात"</string>
     <string name="selinux_status" msgid="8000422283341040360">"SELinux स्थिती"</string>
     <string name="selinux_status_disabled" msgid="4925733135520787807">"अक्षम केले"</string>
@@ -308,7 +308,7 @@
     <string name="storage_migrate_away" msgid="3410590501311323877">"भिन्न संचयावर डेटा स्थलांतरित करा"</string>
     <string name="storage_no_apps" msgid="579118619398668670">"बॅकअप घेण्यासाठी कोणतेही अॅप्स नाहीत"</string>
     <string name="storage_forget" msgid="8731986045697320463">"हा डिव्हाइस स्टोरेज विसरा"</string>
-    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"या ड्राइव्ह मध्‍ये असलेले अ‍ॅप्स किंवा डेटा वापरण्‍यासाठी, त्यास त्यामध्‍ये पुन्हा प्लग करा. वैकल्पिकपणे, ड्राइव्ह उपलब्ध नसल्यास आपण हे संचयन विसरणे निवडू शकता.\n\nआपण विसरा निवडल्‍यास, ड्राइव्हमध्‍ये असलेला सर्व डेटा कायमचा गमावला जाईल.\n\nआपण अ‍ॅप्‍स नंतर पुन्हा इंस्टॉल करू शकता परंतु या ड्राइव्हवर स्टोअर केलेला डेटा गमावला जाईल."</string>
+    <string name="storage_forget_wall_of_text" msgid="8953451024930539678">"या ड्राइव्ह मध्‍ये असलेले अ‍ॅप्स किंवा डेटा वापरण्‍यासाठी, त्यास त्यामध्‍ये पुन्हा प्लग करा. वैकल्पिकपणे, ड्राइव्ह उपलब्ध नसल्यास तुम्ही हे संचयन विसरणे निवडू शकता.\n\nतुम्ही विसरा निवडल्‍यास, ड्राइव्हमध्‍ये असलेला सर्व डेटा कायमचा गमावला जाईल.\n\nतुम्ही अ‍ॅप्‍स नंतर पुन्हा इंस्टॉल करू शकता परंतु या ड्राइव्हवर स्टोअर केलेला डेटा गमावला जाईल."</string>
     <string name="storage_device_storage_section" msgid="7797805634316822741">"डिव्‍हाइस संचयन"</string>
     <string name="storage_removable_storage_section" msgid="3264955106565590076">"काढण्‍यायोग्य संचयन"</string>
     <string name="storage_reset_section" msgid="7324235036547192861">"रीसेट करा"</string>
@@ -323,12 +323,12 @@
     <string name="storage_wizard_format_as_private_title" msgid="1887035626526247913">"डिव्हाइस स्टोरेज म्हणून फॉरमॅट करा"</string>
     <string name="storage_wizard_format_as_private_description" msgid="5814513630861655168">"हे सुरक्षित करण्यासाठी यास USB ड्राइव्ह फॉर्मेट करणे आवश्यक आहे. सुरक्षितपणे फॉर्मेट केल्यानंतर, हा ड्राइव्ह केवळ या डिव्हाइससह कार्य करेल. फॉर्मेट करण्यामुळे ड्राइव्हवर सध्या स्टोअर केलेला सर्व डेटा मिटविला जातो. डेटा गमावणे टाळण्यासाठी, त्याचा बॅकअप घेण्याचा विचार करा."</string>
     <string name="storage_wizard_format_as_public_title" msgid="977475385015522171">"मिटवा आणि फॉर्मेट करा"</string>
-    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"फॉरमॅट केल्यानंतर, आपण हा USB ड्राइव्ह अन्य डिव्हाइसेसमध्ये वापरू शकता. सर्व डेटा मिटविला जाईल. अन्य डिव्हाइस संचयावर अ‍ॅप्स हलवून प्रथम बॅकअप घेण्याचा विचार करा."</string>
+    <string name="storage_wizard_format_as_public_description" msgid="184405877453834449">"फॉरमॅट केल्यानंतर, तुम्ही हा USB ड्राइव्ह अन्य डिव्हाइसेसमध्ये वापरू शकता. सर्व डेटा मिटविला जाईल. अन्य डिव्हाइस संचयावर अ‍ॅप्स हलवून प्रथम बॅकअप घेण्याचा विचार करा."</string>
     <string name="storage_wizard_format_progress_title" msgid="143911640282435570">"USB ड्राइव्ह फॉर्मेट करत आहे…"</string>
     <string name="storage_wizard_format_progress_description" msgid="5320980721352781920">"यास एक क्षण लागू शकतो. कृपया ड्राइव्ह काढू नका."</string>
     <string name="storage_wizard_migrate_choose_title" msgid="4247584708563925746">"डेटा ज्यावर स्थलांतरित करायचा तो स्टोरेज निवडा"</string>
     <string name="storage_wizard_migrate_confirm_title" msgid="369820166257265495">"डेटा <xliff:g id="NAME">%1$s</xliff:g> वर हलवा"</string>
-    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"आपले फोटो, फायली आणि अ‍ॅप डेटा <xliff:g id="NAME">%1$s</xliff:g> वर हलवा. यास काही मिनिटे लागू शकतात. हलविण्‍यादरम्यान काही अ‍ॅप्स योग्यरित्या कार्य करणार नाहीत."</string>
+    <string name="storage_wizard_migrate_confirm_description" msgid="2916497196106413598">"तुमचे फोटो, फायली आणि अ‍ॅप डेटा <xliff:g id="NAME">%1$s</xliff:g> वर हलवा. यास काही मिनिटे लागू शकतात. हलविण्‍यादरम्यान काही अ‍ॅप्स योग्यरित्या कार्य करणार नाहीत."</string>
     <string name="storage_wizard_migrate_confirm_action_move_now" msgid="512504294066473542">"आता हलवा"</string>
     <string name="storage_wizard_migrate_confirm_action_move_later" msgid="7838503647349016818">"नंतर हलवा"</string>
     <string name="storage_wizard_migrate_toast_success" msgid="2634978204935628045">"डेटा <xliff:g id="NAME">%1$s</xliff:g> वर स्थलांतरित केला"</string>
@@ -336,20 +336,20 @@
     <string name="storage_wizard_migrate_progress_title" msgid="8063255124619498728">"डेटा <xliff:g id="NAME">%1$s</xliff:g> वर हलवित आहोत…"</string>
     <string name="storage_wizard_migrate_progress_description" msgid="3337889465416363170">"यास क्षणभर लागू शकतो. कृपया ड्राइव्ह काढू नका.\nहलविण्‍यादरम्यान काही अ‍ॅप्स योग्यरित्या कार्य करणार नाहीत."</string>
     <string name="storage_wizard_format_slow_title" msgid="2483634437996887661">"हा ड्राइव्ह धीमा झाल्यासारखे दिसते आहे."</string>
-    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"आपण सुरु ठेवू शकता, परंतु या स्थानावर हलविलेल्या अॅप्समध्ये अडथळा येऊ शकतो आणि डेटा स्थानांतरणास बराच वेळ लागू शकतो. अधिक चांगल्या कार्यप्रदर्शनासाठी आणखी जलद ड्राइव्ह वापरण्याचा विचार करा."</string>
+    <string name="storage_wizard_format_slow_summary" msgid="1949177940762639885">"तुम्ही सुरु ठेवू शकता, परंतु या स्थानावर हलविलेल्या अॅप्समध्ये अडथळा येऊ शकतो आणि डेटा स्थानांतरणास बराच वेळ लागू शकतो. अधिक चांगल्या कार्यप्रदर्शनासाठी आणखी जलद ड्राइव्ह वापरण्याचा विचार करा."</string>
     <string name="storage_wizard_format_action" msgid="3986485572528374905">"फॉर्मेट करा"</string>
     <string name="storage_wizard_backup_apps_action" msgid="7246092320517630760">"बॅकअप अ‍ॅप्‍स"</string>
-    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"<xliff:g id="NAME">%1$s</xliff:g> मध्ये स्टोअर केलेले अॅप्स"</string>
-    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"<xliff:g id="NAME">%1$s</xliff:g> मध्ये स्टोअर केलेले अॅप्स आणि डेटा"</string>
+    <string name="storage_wizard_back_up_apps_title" msgid="452805102278225533">"<xliff:g id="NAME">%1$s</xliff:g> मध्ये स्टोअर केलेली अॅप्स"</string>
+    <string name="storage_wizard_back_up_apps_and_data_title" msgid="1738767666148200795">"<xliff:g id="NAME">%1$s</xliff:g> मध्ये स्टोअर केलेली अॅप्स आणि डेटा"</string>
     <string name="storage_wizard_back_up_apps_space_available" msgid="7209210725057470544">"<xliff:g id="SIZE">%1$s</xliff:g> उपलब्ध"</string>
     <string name="storage_wizard_eject_private_title" msgid="2844023177159233031">"डिव्हाइस स्टोरेज बाहेर काढा"</string>
     <string name="storage_wizard_eject_private_description" msgid="8966427719795472538">"हा डिव्हाइस स्टोरेज बाहेर काढल्यानंतर त्यावरील अ‍ॅप्स कार्य करणे थांबवतील. हा USB ड्राइव्ह केवळ या डिव्हाइसवर कार्य करण्यासाठी फॉरमॅट केला आहे. तो अन्य कोणत्याही डिव्हाइसवर कार्य करणार नाही."</string>
     <string name="storage_wizard_eject_progress_title" msgid="8823133087157003820">"<xliff:g id="NAME">%1$s</xliff:g> बाहेर काढत आहे…"</string>
     <string name="storage_wizard_move_app_title" msgid="37057801779891287">"वापरलेले संचयन"</string>
     <string name="storage_wizard_move_app_progress_title" msgid="7807062446517628864">"<xliff:g id="NAME">%1$s</xliff:g> हलवित आहे…"</string>
-    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"हलविण्यादरम्यान ड्राइव्ह काढू नका.\nहलविणे पूर्ण होईपर्यंत या डिव्हाइसवरील <xliff:g id="APPNAME">%1$s</xliff:g> अॅप उपलब्ध नसेल."</string>
+    <string name="storage_wizard_move_app_progress_description" msgid="3693104566187904724">"हलविण्यादरम्यान ड्राइव्ह काढू नका.\nहलविणे पूर्ण होईपर्यंत या डिव्हाइसवरील <xliff:g id="APPNAME">%1$s</xliff:g> ॲप उपलब्ध नसेल."</string>
     <string name="storage_wizard_forget_confirm_title" msgid="4321200084208420221">"डिव्हाइस स्टोरेज विसरला?"</string>
-    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"या ड्राइव्हमध्‍ये स्टोअर केलेला आपला सर्व डेटा \'विसरा\' सह कायमचा गमावला जाईल. आपण पुढे सुरु ठेवू इच्छिता?"</string>
+    <string name="storage_wizard_forget_confirm_description" msgid="4264263982217111372">"या ड्राइव्हमध्‍ये स्टोअर केलेला तुमचा सर्व डेटा \'विसरा\' सह कायमचा गमावला जाईल. तुम्ही पुढे सुरु ठेवू इच्छिता?"</string>
     <string name="storage_wizard_forget_action" msgid="2532812620271112355">"विसरा"</string>
     <string name="storage_new_title" msgid="3098495209500607438">"USB ड्राइव्ह कनेक्‍ट केला"</string>
     <string name="storage_new_action_browse" msgid="9041125660441839453">"ब्राउझ करा"</string>
@@ -359,8 +359,7 @@
     <string name="storage_missing_title" msgid="2803464623922381858">"<xliff:g id="NAME">%1$s</xliff:g> काढला"</string>
     <string name="storage_missing_description" msgid="8400374014342069781">"ड्राइव्ह पुन्हा कनेक्ट करेपर्यंत काही अ‍ॅप्‍स अनुपलब्ध असतील किंवा योग्यरित्या कार्य करणार नाहीत."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"पुरेसे संचयन स्थान नाही."</string>
-    <string name="does_not_exist" msgid="4553235698171937217">"अॅप अस्तित्वात नाही."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"अॅप कॉपी-संरक्षित आहे."</string>
+    <string name="does_not_exist" msgid="4553235698171937217">"ॲप अस्तित्वात नाही."</string>
     <string name="invalid_location" msgid="5269044848535157307">"स्थापना स्थान वैध नाही."</string>
     <string name="system_package" msgid="9200255718634512790">"बाह्य मीडियावर सिस्टम अपडेट इंस्टॉल केली जाऊ शकत नाहीत."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"बाह्य मीडियावर डिव्हाइस प्रशासक इंस्टॉल केला जाऊ शकत नाही."</string>
@@ -401,9 +400,9 @@
     <string name="location_reporting" msgid="3054236612250063073">"स्थान अहवाल"</string>
     <string name="location_history" msgid="2946680949724247804">"स्थान इतिहास"</string>
     <string name="location_reporting_desc" msgid="6256424995139430823">"Google हे वैशिष्ट्य Google Now आणि Google नकाशे यासारख्या उत्पादनांमध्ये वापरते. स्थान अहवाल चालू करण्यामुळे हे वैशिष्ट्य वापरणार्‍या कोणत्याही Google उत्पादनास आपल्या Google खात्याशी संबंधित आपल्या डिव्हाइसचा सर्वात अलीकडील स्थान डेटा स्टोअर करू आणि वापरू दिला जातो."</string>
-    <string name="location_history_desc" msgid="3861249867748294369">"या खात्यासाठी स्थान इतिहास चालू केला जातो, तेव्हा आपल्या अॅप्सद्वारे वापरण्यासाठी Google आपल्या डिव्हाइसचा स्थान डेटा स्टोअर करू शकते.\n\nउदाहरणार्थ, Google नकाशे आपल्याला दिशानिर्देश देऊ शकते आणि Google Now आपल्याला नियत प्रवास रहदारीविषयी सूचित करू शकते.\n\nआपण कधीही स्थान इतिहास बंद करू शकता, परंतु असे करताना तो हटवला जात नाही. आपला स्थान इतिहास पाहण्यासाठी आणि व्यवस्थापित करण्यासाठी, maps.google.com/locationhistory ला भेट द्या."</string>
+    <string name="location_history_desc" msgid="3861249867748294369">"या खात्यासाठी स्थान इतिहास चालू केला जातो, तेव्हा आपल्या अॅप्सद्वारे वापरण्यासाठी Google आपल्या डिव्हाइसचा स्थान डेटा स्टोअर करू शकते.\n\nउदाहरणार्थ, Google नकाशे तुम्हाला दिशानिर्देश देऊ शकते आणि Google Now तुम्हाला नियत प्रवास रहदारीविषयी सूचित करू शकते.\n\nतुम्ही कधीही स्थान इतिहास बंद करू शकता, परंतु असे करताना तो हटवला जात नाही. तुमचा स्थान इतिहास पाहण्यासाठी आणि व्यवस्थापित करण्यासाठी, maps.google.com/locationhistory ला भेट द्या."</string>
     <string name="delete_location_history_title" msgid="5804802702252280549">"स्थान इतिहास हटवा"</string>
-    <string name="delete_location_history_desc" msgid="4142806827237093397">"हे या Google खात्याकरिता या डिव्हाइसवरून स्टोअर केलेला सर्व स्थान इतिहास हटवेल. आपण हे हटविणे पूर्ववत करू शकता. Google Now सह, काही अॅप्स कार्य करणे थांबवतील."</string>
+    <string name="delete_location_history_desc" msgid="4142806827237093397">"हे या Google खात्याकरिता या डिव्हाइसवरून स्टोअर केलेला सर्व स्थान इतिहास हटवेल. तुम्ही हे हटविणे पूर्ववत करू शकता. Google Now सह, काही अॅप्स कार्य करणे थांबवतील."</string>
     <string name="system_services" msgid="7230571820151215779">"सेवा"</string>
     <string name="accessibility_service_settings" msgid="322888335240595695">"सेवा सेटिंग्ज"</string>
     <string name="accessibility_toggle_high_text_contrast_preference_title" msgid="4970438261747914408">"उच्च तीव्रता मजकूर"</string>
@@ -451,7 +450,7 @@
     <string name="system_accessibility_status" msgid="6150600992901856367">"सक्षम करा"</string>
     <string name="system_accessibility_config" msgid="3216531917536720277">"कॉन्फिगरेशन"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"<xliff:g id="SERVICE">%1$s</xliff:g> वापरायची?"</string>
-    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> संकेतशब्दांशिवाय, आपण टाइप करता तो सर्व मजकूर संकलित करू शकते. यात क्रेडिट कार्ड नंबर सारखा वैयक्तिक डेटा समाविष्ट होतो."</string>
+    <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> संकेतशब्दांशिवाय, तुम्ही टाइप करता तो सर्व मजकूर संकलित करू शकते. यात क्रेडिट कार्ड नंबर सारखा वैयक्तिक डेटा समाविष्ट होतो."</string>
     <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"<xliff:g id="SERVICE">%1$s</xliff:g> थांबवायचे?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"ठीक निवडल्याने <xliff:g id="SERVICE">%1$s</xliff:g> थांबेल."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"टेक्स्ट टू स्पीच"</string>
@@ -479,10 +478,10 @@
     <string name="system_email_address" msgid="8669468986250302378">"ईमेल अॅड्रेस"</string>
     <string name="system_usb_debugging" msgid="3777895294421924323">"USB डीबग करणे"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"बनावट स्थानांना अनुमती द्या"</string>
-    <string name="system_select_debug_app" msgid="8592021815119618485">"डीबग अॅप निवडा"</string>
+    <string name="system_select_debug_app" msgid="8592021815119618485">"डीबग ॲप निवडा"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"डीबगरची प्रतीक्षा करा"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"USB वरील अॅप्स सत्यापित करा"</string>
-    <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"हानिकारक वर्तनासाठी ADB/ADT द्वारे इंस्टॉल केलेले अॅप्स तपासा"</string>
+    <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"हानिकारक वर्तनासाठी ADB/ADT द्वारे इंस्टॉल केलेली अॅप्स तपासा"</string>
     <string name="system_wifi_verbose_logging" msgid="3474525355071613242">"वाय-फाय पाल्हाळिक लॉगिंग"</string>
     <string name="system_desc_wifi_verbose_logging" msgid="1559904751873455868">"वाय-फाय पाल्हाळिक लॉगिंग सक्षम करा"</string>
     <string name="system_show_touches" msgid="2179121368437801757">"स्पर्श दर्शवा"</string>
@@ -503,7 +502,7 @@
     <string name="system_show_all_anrs" msgid="3601183436857424712">"सर्व ANR दर्शवा"</string>
     <string name="system_desc_stay_awake" msgid="229588006508356238">"निष्क्रिय करा ला अक्षम करा"</string>
     <string name="system_desc_hdcp_checking" msgid="6879753401058891183">"केवळ DRM सामग्रीसाठी वापरा"</string>
-    <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"अधिकतम रिझोल्यूशनसाठी किंवा अधिकतम फ्रेमरेटसाठी प्रदर्शन ऑप्टिमाइझ करा. हे केवळ Ultra HD प्रदर्शने प्रभावित करते. हे सेटिंग बदलण्याने आपले डिव्हाइस रीस्टार्ट होईल."</string>
+    <string name="system_desc_hdmi_optimization" msgid="4400727262768931480">"अधिकतम रिझोल्यूशनसाठी किंवा अधिकतम फ्रेमरेटसाठी प्रदर्शन ऑप्टिमाइझ करा. हे केवळ Ultra HD प्रदर्शने प्रभावित करते. हे सेटिंग बदलण्याने तुमचे डिव्हाइस रीस्टार्ट होईल."</string>
     <string name="system_desc_bt_hci_log" msgid="4219265203570411773">"ब्लूटूथ HCI स्नूप लॉगिंग सक्षम करा"</string>
     <string name="system_desc_usb_debugging" msgid="5168830368191788731">"USB कनेक्‍ट केल्‍यावर मोड डीबग करा"</string>
     <string name="system_desc_wait_for_debugger" msgid="2342968959255039368">"डीबग केलेला अॅप्लिकेशन अंमलात आणण्यापूर्वी डीबगर संलग्न करण्याची प्रतीक्षा करतो"</string>
@@ -520,10 +519,10 @@
     <string name="action_off_description" msgid="4364261457368041502">"बंद"</string>
     <string name="agree" msgid="1235622082275451350">"सहमत आहे"</string>
     <string name="disagree" msgid="9170636026862400981">"असहमत"</string>
-    <string name="security_unknown_sources_title" msgid="769762478057744545">"अज्ञात स्त्रोत"</string>
+    <string name="security_unknown_sources_title" msgid="769762478057744545">"अज्ञात स्रोत"</string>
     <string name="security_unknown_sources_desc" msgid="7197053279914817124">"Play Store च्या व्यतिरिक्त इतर स्रोतांवरील अॅप्सच्या स्थापनेस अनुमती द्या"</string>
     <string name="security_unknown_sources_confirm_title" msgid="1249752174105198821">"अज्ञात स्रोतांना अनुमती द्या"</string>
-    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"आपले डिव्‍हाइस आणि वैयक्तिक डेटा अज्ञात स्त्रोतांवरील अ‍ॅप्‍सद्वारे होणार्‍या आक्रमणांना अधिक असुरक्षित असतात. आपण सहमती देता की हे अ‍ॅप्स वापरल्यामुळे आपल्या डिव्‍हाइसच्या होणार्‍या कोणत्याही नुकसानास किंवा डेटाच्या हानीस आपण पूर्णपणे जबाबदार आहात."</string>
+    <string name="security_unknown_sources_confirm_desc" msgid="7167350583097191925">"तुमचे डिव्‍हाइस आणि वैयक्तिक डेटा अज्ञात स्त्रोतांवरील अ‍ॅप्‍सद्वारे होणार्‍या आक्रमणांना अधिक असुरक्षित असतात. तुम्ही सहमती देता की हे अ‍ॅप्स वापरल्यामुळे आपल्या डिव्‍हाइसच्या होणार्‍या कोणत्याही नुकसानास किंवा डेटाच्या हानीस तुम्ही पूर्णपणे जबाबदार आहात."</string>
     <string name="security_verify_apps_title" msgid="5787946958632254988">"अॅप्स सत्यापित करा"</string>
     <string name="security_verify_apps_desc" msgid="1456317893117818733">"ज्यामुळे हानी होऊ शकते अशा अॅप्सच्या स्थापनेस अनुमती देऊ नका किंवा त्यापूर्वी चेतावणी द्या"</string>
     <string name="system_hdcp_checking_never" msgid="1758043078676276985">"कधीही नाही"</string>
@@ -567,7 +566,7 @@
     <string name="autofill_none" msgid="2426888642367790651">"काहीही नाही"</string>
     <string name="autofill_confirmation_message" msgid="9068009043054751287">"&lt;b&gt;तुम्हाला या अॅपवर विश्वास असल्याचे सुनिश्चित करा&lt;/b&gt; &lt;br/&gt; &lt;br/&gt; &lt;xliff:g id=app_name example=Google Autofill&gt;%1$s&lt;/xliff:g&gt; काय ऑटोफिल होऊ शकते हे ठरवण्यासाठी तुमच्या स्क्रीनवर काय आहे याचा वापर करते."</string>
     <string name="computing_size" msgid="2955133568424704042">"गणना करत आहे…"</string>
-    <string name="title_select_wifi_network" msgid="1038871400014761952">"आपले वाय-फाय नेटवर्क निवडा"</string>
+    <string name="title_select_wifi_network" msgid="1038871400014761952">"तुमचे वाय-फाय नेटवर्क निवडा"</string>
     <string name="accessories_wifi_display_rename_device" msgid="7416728299196887186">"पुनर्नामित करा"</string>
     <string name="accessories_wifi_display_enable" msgid="4779506305656453262">"वाय-फाय प्रदर्शन"</string>
     <string name="accessories_wifi_display_pin_required" msgid="3242645267864813273">"पिन आवश्यक"</string>
@@ -597,22 +596,22 @@
     <string name="inputs_tv_auto_on" msgid="2627932269256793797">"TV स्वयं चालू"</string>
     <string name="inputs_tv_auto_on_desc" msgid="7658625130577708249">"HDMI डिव्हाइससह टीव्ही चालू"</string>
     <plurals name="inputs_header_connected_input" formatted="false" msgid="3158173055262045630">
-      <item quantity="one">कनेक्ट केलेले इनपुट</item>
       <item quantity="other">कनेक्ट केलेले इनपुट</item>
+      <item quantity="one">कनेक्ट केलेले इनपुट</item>
     </plurals>
     <plurals name="inputs_header_standby_input" formatted="false" msgid="8614849472167217134">
-      <item quantity="one">स्टँडबाय इनपुट</item>
       <item quantity="other">स्टँडबाय इनपुट</item>
+      <item quantity="one">स्टँडबाय इनपुट</item>
     </plurals>
     <plurals name="inputs_header_disconnected_input" formatted="false" msgid="1092697966171944243">
-      <item quantity="one">कनेक्ट न केलेले इनपुट</item>
       <item quantity="other">कनेक्ट न केलेले इनपुट</item>
+      <item quantity="one">कनेक्ट न केलेले इनपुट</item>
     </plurals>
     <string name="user_add_profile_item_summary" msgid="2946168478936086933">"आपल्या खात्यामधील अ‍ॅप्स आणि इतर सामग्रीवर प्रवेश प्रतिबंधित करा"</string>
     <string name="user_new_profile_name" msgid="336521054830056189">"प्रतिबंधित प्रोफाईल"</string>
     <string name="user_restrictions_controlled_by" msgid="2107349341393761750">"<xliff:g id="APP">%1$s</xliff:g> द्वारे नियंत्रित"</string>
-    <string name="app_not_supported_in_limited" msgid="6818309827329010677">"हा अॅप प्रतिबंधित प्रोफाईलमध्ये समर्थित नाही"</string>
-    <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"हा अॅप आपल्या खात्यांमध्ये प्रवेश करू शकतो"</string>
+    <string name="app_not_supported_in_limited" msgid="6818309827329010677">"हा ॲप प्रतिबंधित प्रोफाईलमध्ये समर्थित नाही"</string>
+    <string name="app_sees_restricted_accounts" msgid="1967195038085624916">"हा ॲप आपल्या खात्यांमध्ये प्रवेश करू शकतो"</string>
     <string name="restriction_location_enable_title" msgid="2575116135395354938">"स्थान"</string>
     <string name="restriction_location_enable_summary" msgid="4195349388342385870">"अॅप्सना तुमची स्थान माहिती वापरू द्या"</string>
     <string name="restricted_profile_switch_to" msgid="1926433350907032138">"प्रतिबंधित प्रोफाईल प्रविष्‍ट करा"</string>
@@ -622,8 +621,8 @@
     <string name="restricted_profile_configure_title" msgid="4684188123147519620">"सेटिंग्ज"</string>
     <string name="restricted_profile_configure_apps_title" msgid="11507255932348492">"अनुमती दिलेले अ‍ॅप्स"</string>
     <plurals name="restricted_profile_configure_apps_description" formatted="false" msgid="1138147479259808487">
-      <item quantity="one">%d अ‍ॅपला अनुमती आहे</item>
       <item quantity="other">%d अ‍ॅप्सना अनुमती आहे</item>
+      <item quantity="one">1 अ‍ॅपला अनुमती आहे</item>
     </plurals>
     <string name="restricted_profile_allowed" msgid="2903829140619950232">"अनुमती दिली"</string>
     <string name="restricted_profile_not_allowed" msgid="1622620680118897330">"अनुमती नाही"</string>
@@ -638,7 +637,7 @@
     <string name="pin_enter_new_pin" msgid="4788218421265924211">"नवीन पिन सेट करा"</string>
     <string name="pin_enter_again" msgid="1510456697040826496">"नवीन पिन पुन्हा प्रविष्‍ट करा"</string>
     <string name="pin_enter_old_pin" msgid="851029058127630869">"जुना पिन प्रविष्‍ट करा"</string>
-    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"आपण चुकीचा पिन 5 वेळा प्रविष्‍ट केला.\n<xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> सेकंदांनी पुन्हा प्रयत्न करा."</string>
+    <string name="pin_enter_wrong_seconds" msgid="7541208202846169755">"तुम्ही चुकीचा पिन 5 वेळा प्रविष्‍ट केला.\n<xliff:g id="RELATIVE_TIME_SPAN">%1$d</xliff:g> सेकंदांनी पुन्हा प्रयत्न करा."</string>
     <string name="pin_toast_wrong" msgid="4628358195224633248">"चुकीचा पिन, पुन्हा प्रयत्न करा"</string>
     <string name="pin_toast_not_match" msgid="5886041789737632996">"पुन्हा प्रयत्न करा, पिन जुळत नाही"</string>
     <string name="wifi_setup_input_password" msgid="1596168874369038536">"<xliff:g id="SSID">%1$s</xliff:g> साठी पासवर्ड प्रविष्‍ट करा"</string>
@@ -647,20 +646,20 @@
     <string name="device_apps_app_management_version" msgid="2267065043941006486">"आवृत्ती <xliff:g id="APP_VERSION">%1$s</xliff:g>"</string>
     <string name="device_apps_app_management_open" msgid="8009823973422120839">"उघडा"</string>
     <string name="device_apps_app_management_force_stop" msgid="9195433885986760867">"सक्तीने थांबवा"</string>
-    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"आपण अ‍ॅपला सक्तीेने थांबविल्‍यास, ते कदाचित गैरवर्तन असू शकते."</string>
+    <string name="device_apps_app_management_force_stop_desc" msgid="3616902338964109665">"तुम्ही अ‍ॅपला सक्तीेने थांबविल्‍यास, ते कदाचित गैरवर्तन असू शकते."</string>
     <string name="device_apps_app_management_uninstall" msgid="531427430753359746">"अनइंस्टॉल करा"</string>
     <string name="device_apps_app_management_uninstall_updates" msgid="5151008748970915803">"अपडेट अनइंस्टॉल करा"</string>
-    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"या Android सिस्टम अॅप वरील सर्व अपडेट अनइंस्टॉल केली जातील."</string>
+    <string name="device_apps_app_management_uninstall_updates_desc" msgid="9165160845303755321">"या Android सिस्टम ॲप वरील सर्व अपडेट अनइंस्टॉल केली जातील."</string>
     <string name="device_apps_app_management_disable" msgid="6136528600052941589">"अक्षम करा"</string>
-    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"आपण हा अॅप अक्षम करू इच्छिता?"</string>
+    <string name="device_apps_app_management_disable_desc" msgid="1295507373252301108">"तुम्ही हा ॲप अक्षम करू इच्छिता?"</string>
     <string name="device_apps_app_management_enable" msgid="3246823119203444608">"सक्षम करा"</string>
-    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"आपण हा अॅप सक्षम करू इच्छिता?"</string>
+    <string name="device_apps_app_management_enable_desc" msgid="7490219375247065314">"तुम्ही हा ॲप सक्षम करू इच्छिता?"</string>
     <string name="device_apps_app_management_storage_used" msgid="4611351576179140634">"वापरलेले संचयन"</string>
     <string name="device_apps_app_management_storage_used_desc" msgid="1529188874944834661">"<xliff:g id="VOLUME">%2$s</xliff:g> मध्ये <xliff:g id="SIZE">%1$s</xliff:g> वापरले"</string>
     <string name="device_apps_app_management_clear_data" msgid="4439114679323274127">"डेटा साफ करा"</string>
-    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"या अॅप चा सर्व डेटा कायमचा हटवला जाईल.\nयात सर्व फायली, सेटिंग्ज, खाती, डेटाबेस इ. समाविष्ट होते."</string>
+    <string name="device_apps_app_management_clear_data_desc" msgid="4832124568689052441">"या ॲप चा सर्व डेटा कायमचा हटवला जाईल.\nयात सर्व फायली, सेटिंग्ज, खाती, डेटाबेस इ. समाविष्ट होते."</string>
     <string name="device_apps_app_management_clear_default" msgid="1861082768599452304">"डीफॉल्ट साफ करा"</string>
-    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"काही क्रियांसाठी हा अॅप लाँच करण्यासाठी सेट करा"</string>
+    <string name="device_apps_app_management_clear_default_set" msgid="4191720055364731307">"काही क्रियांसाठी हा ॲप लाँच करण्यासाठी सेट करा"</string>
     <string name="device_apps_app_management_clear_default_none" msgid="196932966641339141">"कोणताही डीफॉल्ट सेट केलेला नाही."</string>
     <string name="device_apps_app_management_clear_cache" msgid="5392413180421013865">"कॅश   साफ करा"</string>
     <string name="device_apps_app_management_notifications" msgid="7291960671957440729">"सूचना"</string>
@@ -680,13 +679,13 @@
     <string name="device_daydreams_screen_off_description" msgid="4181262365345306243">"निष्क्रियतेच्या या कालावधीनंतर स्क्रीन बंद होते."</string>
     <string name="backup_configure_account_default_summary" msgid="5619226302157702967">"कोणतेही खाते सध्‍या बॅकअप घेतलेला डेटा स्टोअर करीत नाही"</string>
     <string name="backup_erase_dialog_title" msgid="3720907811680819429"></string>
-    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"आपले वाय-फाय पासवर्ड, बुकमार्क, अन्य सेटिंग्ज आणि अॅप डेटा चा बॅक अप घेणे बंद करायचे आणि Google सर्व्हरवरील सर्व प्रती मिटवायच्या?"</string>
+    <string name="backup_erase_dialog_message" msgid="2608496013975068701">"तुमचे वाय-फाय पासवर्ड, बुकमार्क, अन्य सेटिंग्ज आणि ॲप डेटा चा बॅक अप घेणे बंद करायचे आणि Google सर्व्हरवरील सर्व प्रती मिटवायच्या?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"माझ्या डेटाचा बॅकअप घ्या"</string>
     <string name="privacy_backup_account" msgid="9059939814827165020">"बॅक अप खाते"</string>
-    <string name="privacy_automatic_restore" msgid="1409885318093199628">"स्‍वयंचलित पुनर्संचयन"</string>
+    <string name="privacy_automatic_restore" msgid="1409885318093199628">"ऑटोमॅटिक रिस्टोअर"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"डिव्‍हाइस रीसेट करा"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"हे आपल्‍या डिव्‍हाइसच्‍या अंतर्गत संचयनावरील सर्व डेटा याच्या समावेशासह मिटवेल: आपले Google खाते, सिस्‍टीम आणि अ‍ॅप डेटा आणि सेटिंग्‍ज, आणि डाउनलोड केलेले अ‍ॅप्‍स"</string>
-    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"तुमची सर्व वैयक्तिक माहिती आणि डाउनलोड केलेले अ‍ॅप्स मिटयावचे? आपण ही क्रिया उलट करू शकत नाही!"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"हे आपल्‍या डिव्‍हाइसच्‍या अंतर्गत संचयनावरील सर्व डेटा याच्या समावेशासह मिटवेल: तुमचे Google खाते, सिस्‍टीम आणि अ‍ॅप डेटा आणि सेटिंग्‍ज, आणि डाउनलोड केलेले अ‍ॅप्‍स"</string>
+    <string name="confirm_factory_reset_description" msgid="1049842658625287303">"तुमची सर्व वैयक्तिक माहिती आणि डाउनलोड केलेले अ‍ॅप्स मिटयावचे? तुम्ही ही क्रिया उलट करू शकत नाही!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"प्रत्येकगोष्ट मिटवा"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"आपल्‍या <xliff:g id="DEVICEMODEL">%1$s</xliff:g> साठी एक नाव निवडा"</string>
     <string name="select_device_name_description" msgid="4939767901420114190">"तुमचे डिव्‍हाइस इतर डिव्‍हाइसवरून कास्‍ट होत असताना किंवा कनेक्‍ट होत असताना ओळखता येण्‍यासाठी मदत होण्‍याकरता त्‍यास नाव द्या."</string>
@@ -704,15 +703,15 @@
     <string name="change_setting" msgid="2047402388786162246">"बदला"</string>
     <string name="keep_settings" msgid="6798327196645732517">"बदलू नका"</string>
     <string name="apps_permissions" msgid="1283592091618660965">"परवानग्या"</string>
-    <string name="device_apps_permissions" msgid="2966387603529725982">"अॅप परवानग्या"</string>
+    <string name="device_apps_permissions" msgid="2966387603529725982">"ॲप परवानग्या"</string>
     <string name="app_permissions_group_summary" msgid="7906834786705287901">"<xliff:g id="COUNT_1">%2$d</xliff:g> पैकी <xliff:g id="COUNT_0">%1$d</xliff:g> अ‍ॅप्सना अनुमती आहे"</string>
     <string name="bluetooth_permission_request" msgid="6649813878683015301">"ब्लुटूथ परवानगी विनंती"</string>
     <string name="security_patch" msgid="2131617390189164481">"Android सुरक्षितता पॅच दर्जा"</string>
     <string name="choose_application" msgid="5662960665577780353">"अॅप्लिकेशन निवडा"</string>
     <string name="experimental_preference" msgid="1137673985823581797">"(प्रायोगिक)"</string>
     <string name="reboot_safemode_action" msgid="8129550438717110406">"सुरक्षित मोडमध्ये रीबूट करा"</string>
-    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"आपण सुरक्षित मोडमध्ये रीबूट करू इच्छिता?"</string>
-    <string name="reboot_safemode_desc" msgid="5031024337104679492">"हे आपण इंस्टॉल केलेल्या सर्व तृतीय पक्ष अनुप्रयोगांना अक्षम करेल. आपण पुन्हा रीबूट कराल तेव्हा त्यांना पुनर्संचयित केले जाईल."</string>
+    <string name="reboot_safemode_confirm" msgid="3329475617645192086">"तुम्ही सुरक्षित मोडमध्ये रीबूट करू इच्छिता?"</string>
+    <string name="reboot_safemode_desc" msgid="5031024337104679492">"हे तुम्ही इंस्टॉल केलेल्या सर्व तृतीय पक्ष अनुप्रयोगांना अक्षम करेल. तुम्ही पुन्हा रीबूट कराल तेव्हा त्यांना पुनर्संचयित केले जाईल."</string>
     <string name="capturing_bugreport" msgid="3291125403411239592">"दोष अहवाल कॅप्चर करत आहे"</string>
     <string name="available_virtual_keyboard_category" msgid="6566257204210337817">"उपलब्ध व्हर्च्युअल कीबोर्ड"</string>
     <string name="manage_keyboards" msgid="1905379263117016795">"कीबोर्ड व्यवस्थापित करा"</string>
@@ -729,9 +728,12 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"सूचना अ‍ॅक्सेस"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"इंस्टॉल केलेल्या कोणत्याही अ‍ॅप्सनी सूचना अ‍ॅक्सेसची विनंती केली नाही."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"ही अ‍ॅप्स संपर्क नावे आणि तुम्हाला मिळणार्‍या संदेशांच्या मजकूरासारख्या वैयक्तिक माहितीसह सर्व सूचना वाचू शकतील. ती अ‍ॅप्स, सूचना डिसमिस करू शकतील किंवा त्यामध्ये असलेली कारवाई बटणे ट्रिगर करू शकतील."</string>
+    <string name="directory_access" msgid="7439168599298598101">"डिरेक्टरी अ‍ॅक्सेस"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"या अ‍ॅप्सना विशिष्ट निर्देशिका अ‍ॅक्सेस करण्याची परवानगी आहे."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"इतर अ‍ॅप्सवर डिस्‍‍‍‍‍प्‍ले करा"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"इतर अ‍ॅप्स वर डिस्‍‍‍‍‍प्‍ले करू द्या"</string>
-    <string name="allow_overlay_description" msgid="1946279120428813474">"तुम्‍ही वापरत असलेल्‍या इतर अॅप्‍सच्‍या शीर्षस्‍थानी अॅप डिस्‍प्‍ले करण्‍याची अनुमती द्या. यामुळे कदाचित तुम्‍ही ते अॅप्‍स व्‍यवस्थित वापरता येणार नाहीत किंवा ते नेहमी जसे दिसतात किंवा जसे चालतात, त्‍यामध्‍ये काही बदल दिसून येतील."</string>
+    <string name="allow_overlay_description" msgid="1946279120428813474">"तुम्‍ही वापरत असलेल्‍या इतर ॲप्‍सच्‍या शीर्षस्‍थानी ॲप डिस्‍प्‍ले करण्‍याची अनुमती द्या. यामुळे कदाचित तुम्‍ही ते ॲप्‍स व्‍यवस्थित वापरता येणार नाहीत किंवा ते नेहमी जसे दिसतात किंवा जसे चालतात, त्‍यामध्‍ये काही बदल दिसून येतील."</string>
     <string name="write_system_settings" msgid="2730923656857824907">"सिस्टम सेटिंग्जमध्‍ये बदल करा"</string>
     <string name="write_settings_title" msgid="8750406725746598710">"सिस्‍टम सेटिंग्जमध्‍ये बदल करू शकताे"</string>
     <string name="write_settings_description" msgid="2765037074460395437">"ही परवानगी अॅपला सिस्टम सेटिंग्जमध्‍‍‍‍ये बदल करण्‍याची अनुमती देते."</string>
@@ -741,6 +743,6 @@
     <string name="picture_in_picture_app_detail_switch" msgid="8063965798321494391">"चित्रात-चित्राची अनुमती द्या"</string>
     <string name="picture_in_picture_empty_text" msgid="5592688180792300051">"इंस्टॉल केलेली कोणतीही अॅप्स चित्रात चित्रला सपोर्ट करत नाहीत"</string>
     <string name="picture_in_picture_app_detail_summary" msgid="3478182415601436326">"अ‍ॅप उघडे असताना किंवा तुम्ही ते सोडल्यानंतर या अ‍ॅपला चित्रामध्ये चित्र विंडो तयार करण्याची परवानगी द्या (उदाहरणार्थ, व्हिडिओ पाहणे सुरू ठेवणे). ही विंडो तुम्ही वापरत असलेल्या इतर अ‍ॅप्सच्या वरती दिसते."</string>
-    <string name="special_access" msgid="3513811566600299998">"विशेष अॅप अॅक्‍सेस"</string>
+    <string name="special_access" msgid="3513811566600299998">"विशेष ॲप अॅक्‍सेस"</string>
     <string name="string_concat" msgid="5897947064488902904">"<xliff:g id="PART1">%1s</xliff:g>, <xliff:g id="PART2">%2s</xliff:g>"</string>
 </resources>

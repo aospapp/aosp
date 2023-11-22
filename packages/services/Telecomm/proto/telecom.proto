@@ -13,6 +13,9 @@ message TelecomLog {
 
   // Timing information for the logging sessions
   repeated LogSessionTiming session_timings = 2;
+
+  // Hardware revision (EVT, DVT, PVT etc.)
+  optional string hardware_revision = 3;
 }
 
 message LogSessionTiming {
@@ -145,6 +148,7 @@ message EventTimingEntry {
     BLOCK_CHECK_FINISHED_TIMING = 9;
     FILTERING_COMPLETED_TIMING = 10;
     FILTERING_TIMED_OUT_TIMING = 11;
+    START_CONNECTION_TO_REQUEST_DISCONNECT_TIMING = 12;
   }
 
   // The name of the event timing.
@@ -230,6 +234,18 @@ message CallLog {
     CONNECTION_MANAGER_NOT_SUPPORTED = 10;
   }
 
+  // The source where user initiated this call.
+  enum CallSource {
+    // Call source is not specified.
+    CALL_SOURCE_UNSPECIFIED = 0;
+
+    // Dialpad at emergency dialer.
+    CALL_SOURCE_EMERGENCY_DIALPAD = 1;
+
+    // Shortcut button at emergency dialer.
+    CALL_SOURCE_EMERGENCY_SHORTCUT = 2;
+  }
+
   // Start time of the connection.
   // Rounded to the nearest 5 minute interval.
   optional int64 start_time_5min = 1;
@@ -283,4 +299,7 @@ message CallLog {
   // A bitmask of the properties that were set at any point during the call.
   // Bits are defined by android.telecom.Connection.PROPERTY_* constants.
   optional int32 connection_properties = 17;
+
+  // Call source.
+  optional CallSource call_source = 18;
 }

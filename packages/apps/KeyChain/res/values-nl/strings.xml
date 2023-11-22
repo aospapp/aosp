@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"De app %s heeft een certificaat aangevraagd. Door een certificaat te kiezen, kan de app deze identiteit nu en in de toekomst gebruiken voor servers."</string>
     <string name="requesting_server" msgid="5832565605998634370">"De app heeft de aanvragende server geïdentificeerd als %s, maar je moet de app alleen toegang tot het certificaat geven als je de app vertrouwt."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Je kunt certificaten installeren uit een PKCS#12-bestand met de extensie %1$s of %2$s dat zich bevindt in de externe opslag."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Certificaat installeren"</string>
     <string name="allow_button" msgid="3030990695030371561">"Selecteren"</string>
     <string name="deny_button" msgid="3766539809121892584">"Weigeren"</string>
 </resources>

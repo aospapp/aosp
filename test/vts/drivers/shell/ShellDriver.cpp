@@ -212,7 +212,7 @@ int VtsShellDriver::StartListen() {
 
   socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (socket_fd < 0) {
-    LOG(ERROR) << "Socket() failed: " << strerror(errno);
+    PLOG(ERROR) << "socket() failed";
     return socket_fd;
   }
 
@@ -224,12 +224,12 @@ int VtsShellDriver::StartListen() {
 
   if (::bind(socket_fd, (struct sockaddr*)&address,
              sizeof(struct sockaddr_un)) != 0) {
-    LOG(ERROR) << "bind() failed: " << strerror(errno);
+    PLOG(ERROR) << "bind() failed";
     return 1;
   }
 
   if (listen(socket_fd, 5) != 0) {
-    LOG(ERROR) << "listen() failed: " << strerror(errno);
+    PLOG(ERROR) << "listen() failed";
     return errno;
   }
 
@@ -240,7 +240,7 @@ int VtsShellDriver::StartListen() {
     connection_fd =
         accept(socket_fd, (struct sockaddr*)&address, &address_length);
     if (connection_fd == -1) {
-      LOG(ERROR) << "Accept error: " << strerror(errno);
+      PLOG(ERROR) << "accept failed";
       break;
     }
 

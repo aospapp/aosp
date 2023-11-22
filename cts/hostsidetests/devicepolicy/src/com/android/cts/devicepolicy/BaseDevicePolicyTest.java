@@ -63,7 +63,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     )
     private boolean mSkipDeviceAdminFeatureCheck = false;
 
-    private static final String RUNNER = "android.support.test.runner.AndroidJUnitRunner";
+    private static final String RUNNER = "androidx.test.runner.AndroidJUnitRunner";
 
     protected static final int USER_SYSTEM = 0; // From the UserHandle class.
 
@@ -88,11 +88,25 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
      */
     private static final long DEFAULT_TEST_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(10);
 
+    /**
+     * The amount of milliseconds to wait for the remove user calls in {@link #tearDown}.
+     * This is a temporary measure until b/114057686 is fixed.
+     */
+    private static final long USER_REMOVE_WAIT = TimeUnit.SECONDS.toMillis(5);
+
     // From the UserInfo class
     protected static final int FLAG_PRIMARY = 0x00000001;
     protected static final int FLAG_GUEST = 0x00000004;
     protected static final int FLAG_EPHEMERAL = 0x00000100;
     protected static final int FLAG_MANAGED_PROFILE = 0x00000020;
+
+    /**
+     * The {@link android.os.BatteryManager} flags value representing all charging types; {@link
+     * android.os.BatteryManager#BATTERY_PLUGGED_AC}, {@link
+     * android.os.BatteryManager#BATTERY_PLUGGED_USB}, and {@link
+     * android.os.BatteryManager#BATTERY_PLUGGED_WIRELESS}.
+     */
+    private static final int STAY_ON_WHILE_PLUGGED_IN_FLAGS = 7;
 
     protected static interface Settings {
         public static final String GLOBAL_NAMESPACE = "global";
@@ -102,7 +116,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     }
 
     protected IBuildInfo mCtsBuild;
-
+    protected CompatibilityBuildHelper mBuildHelper;
     private String mPackageVerifier;
     private HashSet<String> mAvailableFeatures;
 
@@ -119,8 +133,13 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     /** Whether file-based encryption (FBE) is supported. */
     protected boolean mSupportsFbe;
 
+    /** Whether the device has a lock screen.*/
+    protected boolean mHasSecureLockScreen;
+
     /** Users we shouldn't delete in the tests */
     private ArrayList<Integer> mFixedUsers;
+
+    private static final String VERIFY_CREDENTIAL_CONFIRMATION = "Lock credential verified";
 
     @Override
     public void setBuild(IBuildInfo buildInfo) {
@@ -138,6 +157,9 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         mSupportsMultiUser = getMaxNumberOfUsersSupported() > 1;
         mSupportsFbe = hasDeviceFeature("android.software.file_based_encryption");
         mFixedPackages = getDevice().getInstalledPackageNames();
+        mBuildHelper = new CompatibilityBuildHelper(mCtsBuild);
+
+        mHasSecureLockScreen = hasDeviceFeature("android.software.secure_lock_screen");
 
         // disable the package verifier to avoid the dialog when installing an app
         mPackageVerifier = getDevice().executeShellCommand(
@@ -150,11 +172,23 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         if (mPrimaryUserId != USER_SYSTEM) {
             mFixedUsers.add(USER_SYSTEM);
         }
-        switchUser(mPrimaryUserId);
+
+        if (mHasFeature) {
+            // Switching to primary is only needed when we're testing device admin features.
+            switchUser(mPrimaryUserId);
+        } else {
+            // Otherwise, all the tests can be executed in any of the Android users, so remain in
+            // current user, and don't delete it. This enables testing in secondary users.
+            if (getDevice().getCurrentUser() != mPrimaryUserId) {
+                mFixedUsers.add(getDevice().getCurrentUser());
+            }
+        }
+
         removeOwners();
         removeTestUsers();
         // Unlock keyguard before test
         wakeupAndDismissKeyguard();
+        stayAwake();
         // Go to home.
         executeShellCommand("input keyevent KEYCODE_HOME");
     }
@@ -324,9 +358,12 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
             String stopUserCommand = "am stop-user -w -f " + userId;
             CLog.d("stopping and removing user " + userId);
             getDevice().executeShellCommand(stopUserCommand);
+            // TODO: Remove both sleeps and USER_REMOVE_WAIT constant when b/114057686 is fixed.
+            Thread.sleep(USER_REMOVE_WAIT);
             // Ephemeral users may have already been removed after being stopped.
             if (listUsers().contains(userId)) {
                 assertTrue("Couldn't remove user", getDevice().removeUser(userId));
+                Thread.sleep(USER_REMOVE_WAIT);
             }
         }
     }
@@ -409,7 +446,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
         }
 
         CollectingTestListener listener = new CollectingTestListener();
-        assertTrue(getDevice().runInstrumentationTestsAsUser(testRunner, userId, listener));
+        getDevice().runInstrumentationTestsAsUser(testRunner, userId, listener);
 
         final TestRunResult result = listener.getCurrentRunResults();
         if (result.isRunFailure()) {
@@ -437,7 +474,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
 
     /** Reboots the device and block until the boot complete flag is set. */
     protected void rebootAndWaitUntilReady() throws DeviceNotAvailableException {
-        getDevice().executeShellCommand("reboot");
+        getDevice().rebootUntilOnline();
         assertTrue("Device failed to boot", getDevice().waitForBootComplete(120000));
     }
 
@@ -719,7 +756,7 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
                 String[] tokens = line.split("\\{|\\}");
                 String componentName = tokens[1];
                 // Skip to user id line.
-                i += 3;
+                i += 4;
                 line = lines[i].trim();
                 // Line is User ID: <N>
                 tokens = line.split(":");
@@ -866,25 +903,61 @@ public class BaseDevicePolicyTest extends DeviceTestCase implements IBuildReceiv
     }
 
     /**
-     * Verifies the lock credential for the given user, which unlocks the user.
+     * Verifies the lock credential for the given user.
      *
      * @param credential The credential to verify.
      * @param userId The id of the user.
      */
     protected void verifyUserCredential(String credential, int userId)
             throws DeviceNotAvailableException {
+        String commandOutput = verifyUserCredentialCommandOutput(credential, userId);
+        if (!commandOutput.startsWith(VERIFY_CREDENTIAL_CONFIRMATION)) {
+            fail("Failed to verify user credential: " + commandOutput);
+        }
+     }
+
+    /**
+     * Verifies the lock credential for the given user, which unlocks the user, and returns
+     * whether it was successful or not.
+     *
+     * @param credential The credential to verify.
+     * @param userId The id of the user.
+     */
+    protected boolean verifyUserCredentialIsCorrect(String credential, int userId)
+            throws DeviceNotAvailableException {
+        String commandOutput = verifyUserCredentialCommandOutput(credential, userId);
+        return commandOutput.startsWith(VERIFY_CREDENTIAL_CONFIRMATION);
+    }
+
+    /**
+     * Verifies the lock credential for the given user, which unlocks the user. Returns the
+     * commandline output, which includes whether the verification was successful.
+     *
+     * @param credential The credential to verify.
+     * @param userId The id of the user.
+     * @return The command line output.
+     */
+    protected String verifyUserCredentialCommandOutput(String credential, int userId)
+            throws DeviceNotAvailableException {
         final String credentialArgument = (credential == null || credential.isEmpty())
                 ? "" : ("--old " + credential);
         String commandOutput = getDevice().executeShellCommand(String.format(
                 "cmd lock_settings verify --user %d %s", userId, credentialArgument));
-        if (!commandOutput.startsWith("Lock credential verified")) {
-            fail("Failed to verify user credential: " + commandOutput);
-        }
+        return commandOutput;
     }
 
     protected void wakeupAndDismissKeyguard() throws Exception {
         executeShellCommand("input keyevent KEYCODE_WAKEUP");
         executeShellCommand("wm dismiss-keyguard");
+    }
+
+    protected void pressPowerButton() throws Exception {
+        executeShellCommand("input keyevent KEYCODE_POWER");
+    }
+
+    private void stayAwake() throws Exception {
+        executeShellCommand(
+                "settings put global stay_on_while_plugged_in " + STAY_ON_WHILE_PLUGGED_IN_FLAGS);
     }
 
     protected void startActivityAsUser(int userId, String packageName, String activityName)

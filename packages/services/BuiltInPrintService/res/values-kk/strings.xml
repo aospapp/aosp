@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Есігі ашық"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Кептелген"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Офлайн"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Сертификат жарамсыз"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Шифрланбаған"</string>
     <string name="printer_check" msgid="6428369671197132828">"Принтерді тексеру"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Жіберуді күтуде"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Құжат оқылмады"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Принтерге қолдау көрсетілмейді"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct принтерлерін іздеу"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct арқылы басып шығару"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct принтерлері"</string>
     <string name="searching" msgid="2114018057619514587">"Ізделуде..."</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Байланысты принтердің алдыңғы панелінен мақұлдауыңыз қажет болуы мүмкін"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Ұмыту"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct арқылы жалғанады"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> мекенжайындағы желі арқылы жалғанады"</string>
+    <string name="security" msgid="2279008326210305401">"Қауіпсіздік"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Бұл принтер жаңа қауіпсіздік сертификатын ұсынды немесе оның атынан басқа бір құрылғы жұмыс істеп тұр. Жаңа сертификатты қабылдайсыз ба?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Принтер енді шифрланған тапсырмаларды қабылдамайды. Басып шығару жалғассын ба?"</string>
+    <string name="accept" msgid="4426153292469698134">"Қабылдау"</string>
+    <string name="reject" msgid="24751635160440693">"Қабылдамау"</string>
+    <string name="connections" msgid="8895413761760117180">"Байланыстар"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Маңайдағы құрылғыларды табу үшін Default Print қызметіне геодерек пайдалану рұқсаттары қажет."</string>
+    <string name="fix" msgid="7784394272611365393">"Рұқсатты қарау"</string>
 </resources>

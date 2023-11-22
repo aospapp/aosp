@@ -194,6 +194,22 @@ static jboolean disconnectHearingAidNative(JNIEnv* env, jobject object,
   return JNI_TRUE;
 }
 
+static jboolean addToWhiteListNative(JNIEnv* env, jobject object,
+                                     jbyteArray address) {
+  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
+  if (!sHearingAidInterface) return JNI_FALSE;
+  jbyte* addr = env->GetByteArrayElements(address, nullptr);
+  if (!addr) {
+    jniThrowIOException(env, EINVAL);
+    return JNI_FALSE;
+  }
+
+  RawAddress* tmpraw = (RawAddress*)addr;
+  sHearingAidInterface->AddToWhiteList(*tmpraw);
+  env->ReleaseByteArrayElements(address, addr, 0);
+  return JNI_TRUE;
+}
+
 static void setVolumeNative(JNIEnv* env, jclass clazz, jint volume) {
   if (!sHearingAidInterface) {
     LOG(ERROR) << __func__
@@ -209,6 +225,7 @@ static JNINativeMethod sMethods[] = {
     {"cleanupNative", "()V", (void*)cleanupNative},
     {"connectHearingAidNative", "([B)Z", (void*)connectHearingAidNative},
     {"disconnectHearingAidNative", "([B)Z", (void*)disconnectHearingAidNative},
+    {"addToWhiteListNative", "([B)Z", (void*)addToWhiteListNative},
     {"setVolumeNative", "(I)V", (void*)setVolumeNative},
 };
 

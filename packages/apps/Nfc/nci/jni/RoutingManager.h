@@ -33,6 +33,7 @@ class RoutingManager {
  public:
   static RoutingManager& getInstance();
   bool initialize(nfc_jni_native_data* native);
+  void deinitialize();
   void enableRoutingToHost();
   void disableRoutingToHost();
   bool addAidRouting(const uint8_t* aid, uint8_t aidLen, int route,
@@ -43,6 +44,8 @@ class RoutingManager {
   void deregisterT3tIdentifier(int handle);
   void onNfccShutdown();
   int registerJniFunctions(JNIEnv* e);
+  bool setNfcSecure(bool enable);
+  void updateRoutingTable();
 
  private:
   RoutingManager();
@@ -54,6 +57,10 @@ class RoutingManager {
                   tNFA_STATUS status);
   void notifyActivated(uint8_t technology);
   void notifyDeactivated(uint8_t technology);
+  void notifyEeUpdated();
+  tNFA_TECHNOLOGY_MASK updateEeTechRouteSetting();
+  void updateDefaultProtocolRoute();
+  void updateDefaultRoute();
 
   // See AidRoutingManager.java for corresponding
   // AID_MATCHING_ constants
@@ -73,16 +80,26 @@ class RoutingManager {
       JNIEnv* e);
   static int com_android_nfc_cardemulation_doGetDefaultOffHostRouteDestination(
       JNIEnv* e);
+  static jbyteArray com_android_nfc_cardemulation_doGetOffHostUiccDestination(
+      JNIEnv* e);
+  static jbyteArray com_android_nfc_cardemulation_doGetOffHostEseDestination(
+      JNIEnv* e);
   static int com_android_nfc_cardemulation_doGetAidMatchingMode(JNIEnv* e);
+  static int com_android_nfc_cardemulation_doGetDefaultIsoDepRouteDestination(
+      JNIEnv* e);
 
   std::vector<uint8_t> mRxDataBuffer;
   map<int, uint16_t> mMapScbrHandle;
+  bool mSecureNfcEnabled;
 
   // Fields below are final after initialize()
   nfc_jni_native_data* mNativeData;
   int mDefaultOffHostRoute;
+  vector<uint8_t> mOffHostRouteUicc;
+  vector<uint8_t> mOffHostRouteEse;
   int mDefaultFelicaRoute;
   int mDefaultEe;
+  int mDefaultIsoDepRoute;
   int mAidMatchingMode;
   int mNfcFOnDhHandle;
   bool mIsScbrSupported;
@@ -90,7 +107,10 @@ class RoutingManager {
   uint16_t mDefaultSysCodeRoute;
   uint8_t mDefaultSysCodePowerstate;
   uint8_t mOffHostAidRoutingPowerState;
+  bool mDeinitializing;
+  bool mEeInfoChanged;
   bool mReceivedEeInfo;
+  bool mAidRoutingConfigured;
   tNFA_EE_CBACK_DATA mCbEventData;
   tNFA_EE_DISCOVER_REQ mEeInfo;
   tNFA_TECHNOLOGY_MASK mSeTechMask;

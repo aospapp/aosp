@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #   Copyright 2018 - The Android Open Source Project
 #
@@ -18,49 +18,35 @@ Device Details:
 https://www.logitech.com/en-in/product/bluetooth-audio-adapter#specification-tabular
 """
 import enum
-from acts.controllers.relay_lib.errors import RelayConfigError
-from acts.controllers.relay_lib.generic_relay_device import GenericRelayDevice
-from acts.controllers.relay_lib.helpers import validate_key
+
+from acts.controllers.relay_lib.devices.bluetooth_relay_device import BluetoothRelayDevice
 
 PAIRING_MODE_WAIT_TIME = 5
 WAIT_TIME = 0.1
-MISSING_RELAY_MSG = 'Relay config for logitech Headset "%s" missing relay "%s".'
 
 
 class Buttons(enum.Enum):
-    Power = "Power"
-    Pair = "Pair"
+    POWER = 'Power'
+    PAIR = 'Pair'
 
 
-class LogitechAudioReceiver(GenericRelayDevice):
+class LogitechAudioReceiver(BluetoothRelayDevice):
     def __init__(self, config, relay_rig):
-        GenericRelayDevice.__init__(self, config, relay_rig)
-        self.mac_address = validate_key('mac_address', config, str,
-                                        'LogitechAudioReceiver')
-        for button in Buttons:
-            self.ensure_config_contains_relay(button.value)
+        BluetoothRelayDevice.__init__(self, config, relay_rig)
+        self._ensure_config_contains_relays(button.value for button in Buttons)
 
     def setup(self):
-        GenericRelayDevice.setup(self)
+        """Sets all relays to their default state (off)."""
+        BluetoothRelayDevice.setup(self)
 
     def clean_up(self):
         """Sets all relays to their default state (off)."""
-        GenericRelayDevice.clean_up(self)
-
-    def ensure_config_contains_relay(self, relay_name):
-        """
-        Throws an error if the relay does not exist.
-
-        Args:
-            relay_name:relay_name to be checked.
-        """
-        if relay_name not in self.relays:
-            raise RelayConfigError(MISSING_RELAY_MSG % (self.name, relay_name))
+        BluetoothRelayDevice.clean_up(self)
 
     def power_on(self):
         """Power on relay."""
-        self.relays[Buttons.Power.value].set_nc()
+        self.relays[Buttons.POWER.value].set_nc()
 
-    def pairing_mode(self):
+    def enter_pairing_mode(self):
         """Sets relay in paring mode."""
-        self.relays[Buttons.Pair.value].set_nc()
+        self.relays[Buttons.PAIR.value].set_nc()

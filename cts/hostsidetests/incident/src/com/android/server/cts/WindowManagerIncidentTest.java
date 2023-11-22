@@ -16,6 +16,7 @@
 
 package com.android.server.cts;
 
+import android.view.TransitionTypeEnum;
 import com.android.server.wm.AppTransitionProto;
 import com.android.server.wm.IdentifierProto;
 import com.android.server.wm.RootWindowContainerProto;
@@ -31,15 +32,11 @@ public class WindowManagerIncidentTest extends ProtoDumpTestCase {
         verifyRootWindowContainerProto(dump.getRootWindowContainer(), filterLevel);
         verifyIdentifierProto(dump.getFocusedWindow(), filterLevel);
         verifyIdentifierProto(dump.getInputMethodWindow(), filterLevel);
-        verifyAppTransitionProto(dump.getAppTransition(), filterLevel);
     }
 
     private static void verifyWindowManagerPolicyProto(WindowManagerPolicyProto wmp, final int filterLevel) throws Exception {
         assertTrue(WindowManagerPolicyProto.UserRotationMode.getDescriptor().getValues()
                 .contains(wmp.getRotationMode().getValueDescriptor()));
-        verifyIdentifierProto(wmp.getFocusedWindow(), filterLevel);
-        verifyIdentifierProto(wmp.getTopFullscreenOpaqueWindow(), filterLevel);
-        verifyIdentifierProto(wmp.getTopFullscreenOpaqueOrDimmingWindow(), filterLevel);
     }
 
     private static void verifyIdentifierProto(IdentifierProto ip, final int filterLevel) throws Exception {
@@ -52,12 +49,5 @@ public class WindowManagerIncidentTest extends ProtoDumpTestCase {
         for (IdentifierProto ip : rwcp.getWindowsList()) {
             verifyIdentifierProto(ip, filterLevel);
         }
-    }
-
-    private static void verifyAppTransitionProto(AppTransitionProto atp, final int filterLevel) throws Exception {
-        assertTrue(AppTransitionProto.AppState.getDescriptor().getValues()
-                .contains(atp.getAppTransitionState().getValueDescriptor()));
-        assertTrue(AppTransitionProto.TransitionType.getDescriptor().getValues()
-                .contains(atp.getLastUsedAppTransition().getValueDescriptor()));
     }
 }

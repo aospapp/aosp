@@ -33,7 +33,7 @@
 
 static bool existdir(const char *name) {
     DIR *dir = opendir(name);
-    if (dir == NULL) {
+    if (dir == nullptr) {
         return false;
     }
     closedir(dir);
@@ -262,7 +262,7 @@ status_t Coordinator::parseOptional(const FQName& fqName, AST** ast, std::set<AS
 
     *ast = new AST(this, &Hash::getHash(path));
 
-    if (typesAST != NULL) {
+    if (typesAST != nullptr) {
         // If types.hal for this AST's package existed, make it's defined
         // types available to the (about to be parsed) AST right away.
         (*ast)->addImportedAST(typesAST);
@@ -320,7 +320,7 @@ status_t Coordinator::parseOptional(const FQName& fqName, AST** ast, std::set<AS
                     fqName.name().c_str());
 
             err = UNKNOWN_ERROR;
-        } else if ((*ast)->containsInterfaces()) {
+        } else if ((*ast)->definesInterfaces()) {
             fprintf(stderr,
                     "ERROR: types.hal file at '%s' declares at least one "
                     "interface type.\n",
@@ -442,7 +442,7 @@ status_t Coordinator::getPackagePath(const FQName& fqName, bool relative, bool s
 status_t Coordinator::getPackageInterfaceFiles(
         const FQName &package,
         std::vector<std::string> *fileNames) const {
-    fileNames->clear();
+    if (fileNames) fileNames->clear();
 
     std::string packagePath;
     status_t err =
@@ -450,18 +450,33 @@ status_t Coordinator::getPackageInterfaceFiles(
     if (err != OK) return err;
 
     const std::string path = makeAbsolute(packagePath);
-    DIR* dir = opendir(path.c_str());
+    std::unique_ptr<DIR, decltype(&closedir)> dir(opendir(path.c_str()), closedir);
 
-    if (dir == NULL) {
+    if (dir == nullptr) {
         fprintf(stderr, "ERROR: Could not open package path %s for package %s:\n%s\n",
                 packagePath.c_str(), package.string().c_str(), path.c_str());
         return -errno;
     }
 
+    if (fileNames == nullptr) {
+        return OK;
+    }
+
     struct dirent *ent;
-    while ((ent = readdir(dir)) != NULL) {
-        if (ent->d_type != DT_REG) {
-            continue;
+    while ((ent = readdir(dir.get())) != nullptr) {
+        // filesystems may not support d_type and return DT_UNKNOWN
+        if (ent->d_type == DT_UNKNOWN) {
+            struct stat sb;
+            const auto filename = packagePath + std::string(ent->d_name);
+            if (stat(filename.c_str(), &sb) == -1) {
+                fprintf(stderr, "ERROR: Could not stat %s\n", filename.c_str());
+                return -errno;
+            }
+            if ((sb.st_mode & S_IFMT) != S_IFREG) {
+                continue;
+            }
+        } else if (ent->d_type != DT_REG) {
+             continue;
         }
 
         const auto suffix = ".hal";
@@ -475,9 +490,6 @@ status_t Coordinator::getPackageInterfaceFiles(
 
         fileNames->push_back(std::string(ent->d_name, d_namelen - suffix_len));
     }
-
-    closedir(dir);
-    dir = NULL;
 
     std::sort(fileNames->begin(), fileNames->end(),
               [](const std::string& lhs, const std::string& rhs) -> bool {
@@ -847,9 +859,17 @@ status_t Coordinator::getUnfrozenDependencies(const FQName& fqName,
 
         for (const FQName& importedName : packageInterfaces) {
             HashStatus status = checkHash(importedName);
-            if (status == HashStatus::ERROR) return UNKNOWN_ERROR;
-            if (status == HashStatus::UNFROZEN) {
-                result->insert(importedName);
+            switch (status) {
+                case HashStatus::CHANGED:
+                case HashStatus::ERROR:
+                    return UNKNOWN_ERROR;
+                case HashStatus::FROZEN:
+                    continue;
+                case HashStatus::UNFROZEN:
+                    result->insert(importedName);
+                    continue;
+                default:
+                    LOG(FATAL) << static_cast<uint64_t>(status);
             }
         }
     }
@@ -866,27 +886,30 @@ status_t Coordinator::enforceHashes(const FQName& currentPackage) const {
 
     for (const FQName& currentFQName : packageInterfaces) {
         HashStatus status = checkHash(currentFQName);
-
-        if (status == HashStatus::ERROR) return UNKNOWN_ERROR;
-        if (status == HashStatus::CHANGED) return UNKNOWN_ERROR;
-
-        // frozen interface can only depend on a frozen interface
-        if (status == HashStatus::FROZEN) {
-            std::set<FQName> unfrozenDependencies;
-            err = getUnfrozenDependencies(currentFQName, &unfrozenDependencies);
-            if (err != OK) return err;
-
-            if (!unfrozenDependencies.empty()) {
-                std::cerr << "ERROR: Frozen interface " << currentFQName.string()
-                          << " cannot depend on unfrozen thing(s):" << std::endl;
-                for (const FQName& name : unfrozenDependencies) {
-                    std::cerr << " (unfrozen) " << name.string() << std::endl;
-                }
+        switch (status) {
+            case HashStatus::CHANGED:
+            case HashStatus::ERROR:
                 return UNKNOWN_ERROR;
-            }
-        }
+            case HashStatus::FROZEN: {
+                std::set<FQName> unfrozenDependencies;
+                err = getUnfrozenDependencies(currentFQName, &unfrozenDependencies);
+                if (err != OK) return err;
 
-        // UNFROZEN, ignore
+                if (!unfrozenDependencies.empty()) {
+                    std::cerr << "ERROR: Frozen interface " << currentFQName.string()
+                              << " cannot depend on unfrozen thing(s):" << std::endl;
+                    for (const FQName& name : unfrozenDependencies) {
+                        std::cerr << " (unfrozen) " << name.string() << std::endl;
+                    }
+                    return UNKNOWN_ERROR;
+                }
+            }
+                continue;
+            case HashStatus::UNFROZEN:
+                continue;
+            default:
+                LOG(FATAL) << static_cast<uint64_t>(status);
+        }
     }
 
     return err;

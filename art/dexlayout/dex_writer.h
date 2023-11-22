@@ -192,15 +192,15 @@ class DexWriter {
 
   class Container : public DexContainer {
    public:
-    Section* GetMainSection() OVERRIDE {
+    Section* GetMainSection() override {
       return &main_section_;
     }
 
-    Section* GetDataSection() OVERRIDE {
+    Section* GetDataSection() override {
       return &data_section_;
     }
 
-    bool IsCompactDexContainer() const OVERRIDE {
+    bool IsCompactDexContainer() const override {
       return false;
     }
 
@@ -257,6 +257,7 @@ class DexWriter {
   void WriteStringDatas(Stream* stream);
   void WriteClassDatas(Stream* stream);
   void WriteMethodHandles(Stream* stream);
+  void WriteHiddenapiClassData(Stream* stream);
   void WriteMapItems(Stream* stream, MapItemQueue* queue);
   void GenerateAndWriteMapItems(Stream* stream);
 
@@ -270,6 +271,7 @@ class DexWriter {
   // Process an offset, if compute_offset is set, write into the dex ir item, otherwise read the
   // existing offset and use that for writing.
   void ProcessOffset(Stream* stream, dex_ir::Item* item);
+  void ProcessOffset(Stream* stream, dex_ir::CollectionBase* item);
 
   dex_ir::Header* const header_;
   DexLayout* const dex_layout_;

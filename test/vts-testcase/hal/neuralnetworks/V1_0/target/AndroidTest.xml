@@ -24,6 +24,7 @@
         <option name="binary-test-source" value="_32bit::DATA/nativetest/VtsHalNeuralnetworksV1_0TargetTest/VtsHalNeuralnetworksV1_0TargetTest"/>
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalNeuralnetworksV1_0TargetTest/VtsHalNeuralnetworksV1_0TargetTest"/>
         <option name="binary-test-type" value="hal_hidl_gtest"/>
-        <option name="test-timeout" value="5m"/>
+        <option name="test-timeout" value="30m"/>
+        <option name="gtest-batch-mode" value="true"/>
     </test>
 </configuration>

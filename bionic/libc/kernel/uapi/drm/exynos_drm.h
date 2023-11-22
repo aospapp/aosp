@@ -20,6 +20,7 @@
 #define _UAPI_EXYNOS_DRM_H_
 #include "drm.h"
 #ifdef __cplusplus
+extern "C" {
 #endif
 struct drm_exynos_gem_create {
   __u64 size;
@@ -80,102 +81,108 @@ struct drm_exynos_g2d_set_cmdlist {
 struct drm_exynos_g2d_exec {
   __u64 async;
 };
-enum drm_exynos_ops_id {
-  EXYNOS_DRM_OPS_SRC,
-  EXYNOS_DRM_OPS_DST,
-  EXYNOS_DRM_OPS_MAX,
+struct drm_exynos_ioctl_ipp_get_res {
+  __u32 count_ipps;
+  __u32 reserved;
+  __u64 ipp_id_ptr;
 };
-struct drm_exynos_sz {
-  __u32 hsize;
-  __u32 vsize;
+enum drm_exynos_ipp_format_type {
+  DRM_EXYNOS_IPP_FORMAT_SOURCE = 0x01,
+  DRM_EXYNOS_IPP_FORMAT_DESTINATION = 0x02,
 };
-struct drm_exynos_pos {
+struct drm_exynos_ipp_format {
+  __u32 fourcc;
+  __u32 type;
+  __u64 modifier;
+};
+enum drm_exynos_ipp_capability {
+  DRM_EXYNOS_IPP_CAP_CROP = 0x01,
+  DRM_EXYNOS_IPP_CAP_ROTATE = 0x02,
+  DRM_EXYNOS_IPP_CAP_SCALE = 0x04,
+  DRM_EXYNOS_IPP_CAP_CONVERT = 0x08,
+};
+struct drm_exynos_ioctl_ipp_get_caps {
+  __u32 ipp_id;
+  __u32 capabilities;
+  __u32 reserved;
+  __u32 formats_count;
+  __u64 formats_ptr;
+};
+enum drm_exynos_ipp_limit_type {
+  DRM_EXYNOS_IPP_LIMIT_TYPE_SIZE = 0x0001,
+  DRM_EXYNOS_IPP_LIMIT_TYPE_SCALE = 0x0002,
+  DRM_EXYNOS_IPP_LIMIT_SIZE_BUFFER = 0x0001 << 16,
+  DRM_EXYNOS_IPP_LIMIT_SIZE_AREA = 0x0002 << 16,
+  DRM_EXYNOS_IPP_LIMIT_SIZE_ROTATED = 0x0003 << 16,
+  DRM_EXYNOS_IPP_LIMIT_TYPE_MASK = 0x000f,
+  DRM_EXYNOS_IPP_LIMIT_SIZE_MASK = 0x000f << 16,
+};
+struct drm_exynos_ipp_limit_val {
+  __u32 min;
+  __u32 max;
+  __u32 align;
+  __u32 reserved;
+};
+struct drm_exynos_ipp_limit {
+  __u32 type;
+  __u32 reserved;
+  struct drm_exynos_ipp_limit_val h;
+  struct drm_exynos_ipp_limit_val v;
+};
+struct drm_exynos_ioctl_ipp_get_limits {
+  __u32 ipp_id;
+  __u32 fourcc;
+  __u64 modifier;
+  __u32 type;
+  __u32 limits_count;
+  __u64 limits_ptr;
+};
+enum drm_exynos_ipp_task_id {
+  DRM_EXYNOS_IPP_TASK_BUFFER = 0x0001,
+  DRM_EXYNOS_IPP_TASK_RECTANGLE = 0x0002,
+  DRM_EXYNOS_IPP_TASK_TRANSFORM = 0x0003,
+  DRM_EXYNOS_IPP_TASK_ALPHA = 0x0004,
+  DRM_EXYNOS_IPP_TASK_TYPE_SOURCE = 0x0001 << 16,
+  DRM_EXYNOS_IPP_TASK_TYPE_DESTINATION = 0x0002 << 16,
+};
+struct drm_exynos_ipp_task_buffer {
+  __u32 id;
+  __u32 fourcc;
+  __u32 width, height;
+  __u32 gem_id[4];
+  __u32 offset[4];
+  __u32 pitch[4];
+  __u64 modifier;
+};
+struct drm_exynos_ipp_task_rect {
+  __u32 id;
+  __u32 reserved;
   __u32 x;
   __u32 y;
   __u32 w;
   __u32 h;
 };
-enum drm_exynos_flip {
-  EXYNOS_DRM_FLIP_NONE = (0 << 0),
-  EXYNOS_DRM_FLIP_VERTICAL = (1 << 0),
-  EXYNOS_DRM_FLIP_HORIZONTAL = (1 << 1),
-  EXYNOS_DRM_FLIP_BOTH = EXYNOS_DRM_FLIP_VERTICAL | EXYNOS_DRM_FLIP_HORIZONTAL,
+struct drm_exynos_ipp_task_transform {
+  __u32 id;
+  __u32 rotation;
 };
-enum drm_exynos_degree {
-  EXYNOS_DRM_DEGREE_0,
-  EXYNOS_DRM_DEGREE_90,
-  EXYNOS_DRM_DEGREE_180,
-  EXYNOS_DRM_DEGREE_270,
+struct drm_exynos_ipp_task_alpha {
+  __u32 id;
+  __u32 value;
 };
-enum drm_exynos_planer {
-  EXYNOS_DRM_PLANAR_Y,
-  EXYNOS_DRM_PLANAR_CB,
-  EXYNOS_DRM_PLANAR_CR,
-  EXYNOS_DRM_PLANAR_MAX,
+enum drm_exynos_ipp_flag {
+  DRM_EXYNOS_IPP_FLAG_EVENT = 0x01,
+  DRM_EXYNOS_IPP_FLAG_TEST_ONLY = 0x02,
+  DRM_EXYNOS_IPP_FLAG_NONBLOCK = 0x04,
 };
-struct drm_exynos_ipp_prop_list {
-  __u32 version;
+#define DRM_EXYNOS_IPP_FLAGS (DRM_EXYNOS_IPP_FLAG_EVENT | DRM_EXYNOS_IPP_FLAG_TEST_ONLY | DRM_EXYNOS_IPP_FLAG_NONBLOCK)
+struct drm_exynos_ioctl_ipp_commit {
   __u32 ipp_id;
-  __u32 count;
-  __u32 writeback;
-  __u32 flip;
-  __u32 degree;
-  __u32 csc;
-  __u32 crop;
-  __u32 scale;
-  __u32 refresh_min;
-  __u32 refresh_max;
+  __u32 flags;
   __u32 reserved;
-  struct drm_exynos_sz crop_min;
-  struct drm_exynos_sz crop_max;
-  struct drm_exynos_sz scale_min;
-  struct drm_exynos_sz scale_max;
-};
-struct drm_exynos_ipp_config {
-  __u32 ops_id;
-  __u32 flip;
-  __u32 degree;
-  __u32 fmt;
-  struct drm_exynos_sz sz;
-  struct drm_exynos_pos pos;
-};
-enum drm_exynos_ipp_cmd {
-  IPP_CMD_NONE,
-  IPP_CMD_M2M,
-  IPP_CMD_WB,
-  IPP_CMD_OUTPUT,
-  IPP_CMD_MAX,
-};
-struct drm_exynos_ipp_property {
-  struct drm_exynos_ipp_config config[EXYNOS_DRM_OPS_MAX];
-  __u32 cmd;
-  __u32 ipp_id;
-  __u32 prop_id;
-  __u32 refresh_rate;
-};
-enum drm_exynos_ipp_buf_type {
-  IPP_BUF_ENQUEUE,
-  IPP_BUF_DEQUEUE,
-};
-struct drm_exynos_ipp_queue_buf {
-  __u32 ops_id;
-  __u32 buf_type;
-  __u32 prop_id;
-  __u32 buf_id;
-  __u32 handle[EXYNOS_DRM_PLANAR_MAX];
-  __u32 reserved;
+  __u32 params_size;
+  __u64 params_ptr;
   __u64 user_data;
-};
-enum drm_exynos_ipp_ctrl {
-  IPP_CTRL_PLAY,
-  IPP_CTRL_STOP,
-  IPP_CTRL_PAUSE,
-  IPP_CTRL_RESUME,
-  IPP_CTRL_MAX,
-};
-struct drm_exynos_ipp_cmd_ctrl {
-  __u32 prop_id;
-  __u32 ctrl;
 };
 #define DRM_EXYNOS_GEM_CREATE 0x00
 #define DRM_EXYNOS_GEM_MAP 0x01
@@ -184,10 +191,10 @@ struct drm_exynos_ipp_cmd_ctrl {
 #define DRM_EXYNOS_G2D_GET_VER 0x20
 #define DRM_EXYNOS_G2D_SET_CMDLIST 0x21
 #define DRM_EXYNOS_G2D_EXEC 0x22
-#define DRM_EXYNOS_IPP_GET_PROPERTY 0x30
-#define DRM_EXYNOS_IPP_SET_PROPERTY 0x31
-#define DRM_EXYNOS_IPP_QUEUE_BUF 0x32
-#define DRM_EXYNOS_IPP_CMD_CTRL 0x33
+#define DRM_EXYNOS_IPP_GET_RESOURCES 0x40
+#define DRM_EXYNOS_IPP_GET_CAPS 0x41
+#define DRM_EXYNOS_IPP_GET_LIMITS 0x42
+#define DRM_EXYNOS_IPP_COMMIT 0x43
 #define DRM_IOCTL_EXYNOS_GEM_CREATE DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_GEM_CREATE, struct drm_exynos_gem_create)
 #define DRM_IOCTL_EXYNOS_GEM_MAP DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_GEM_MAP, struct drm_exynos_gem_map)
 #define DRM_IOCTL_EXYNOS_GEM_GET DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_GEM_GET, struct drm_exynos_gem_info)
@@ -195,12 +202,12 @@ struct drm_exynos_ipp_cmd_ctrl {
 #define DRM_IOCTL_EXYNOS_G2D_GET_VER DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_G2D_GET_VER, struct drm_exynos_g2d_get_ver)
 #define DRM_IOCTL_EXYNOS_G2D_SET_CMDLIST DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_G2D_SET_CMDLIST, struct drm_exynos_g2d_set_cmdlist)
 #define DRM_IOCTL_EXYNOS_G2D_EXEC DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_G2D_EXEC, struct drm_exynos_g2d_exec)
-#define DRM_IOCTL_EXYNOS_IPP_GET_PROPERTY DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_IPP_GET_PROPERTY, struct drm_exynos_ipp_prop_list)
-#define DRM_IOCTL_EXYNOS_IPP_SET_PROPERTY DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_IPP_SET_PROPERTY, struct drm_exynos_ipp_property)
-#define DRM_IOCTL_EXYNOS_IPP_QUEUE_BUF DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_IPP_QUEUE_BUF, struct drm_exynos_ipp_queue_buf)
-#define DRM_IOCTL_EXYNOS_IPP_CMD_CTRL DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_IPP_CMD_CTRL, struct drm_exynos_ipp_cmd_ctrl)
+#define DRM_IOCTL_EXYNOS_IPP_GET_RESOURCES DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_IPP_GET_RESOURCES, struct drm_exynos_ioctl_ipp_get_res)
+#define DRM_IOCTL_EXYNOS_IPP_GET_CAPS DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_IPP_GET_CAPS, struct drm_exynos_ioctl_ipp_get_caps)
+#define DRM_IOCTL_EXYNOS_IPP_GET_LIMITS DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_IPP_GET_LIMITS, struct drm_exynos_ioctl_ipp_get_limits)
+#define DRM_IOCTL_EXYNOS_IPP_COMMIT DRM_IOWR(DRM_COMMAND_BASE + DRM_EXYNOS_IPP_COMMIT, struct drm_exynos_ioctl_ipp_commit)
 #define DRM_EXYNOS_G2D_EVENT 0x80000000
-#define DRM_EXYNOS_IPP_EVENT 0x80000001
+#define DRM_EXYNOS_IPP_EVENT 0x80000002
 struct drm_exynos_g2d_event {
   struct drm_event base;
   __u64 user_data;
@@ -214,10 +221,11 @@ struct drm_exynos_ipp_event {
   __u64 user_data;
   __u32 tv_sec;
   __u32 tv_usec;
-  __u32 prop_id;
-  __u32 reserved;
-  __u32 buf_id[EXYNOS_DRM_OPS_MAX];
+  __u32 ipp_id;
+  __u32 sequence;
+  __u64 reserved;
 };
 #ifdef __cplusplus
+}
 #endif
 #endif

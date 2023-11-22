@@ -30,7 +30,7 @@
 #include <arpa/inet.h>
 
 #define LOG_TAG "PppController"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include "PppController.h"
 
@@ -93,7 +93,7 @@ int PppController::attachPppd(const char *tty, struct in_addr local,
         // TODO: Deal with pppd bailing out after 99999 seconds of being started
         // but not getting a connection
         if (execl("/system/bin/pppd", "/system/bin/pppd", "-detach", dev, "115200",
-                  lr, "ms-dns", d1, "ms-dns", d2, "lcp-max-configure", "99999", (char *) NULL)) {
+                  lr, "ms-dns", d1, "ms-dns", d2, "lcp-max-configure", "99999", (char *) nullptr)) {
             ALOGE("execl failed (%s)", strerror(errno));
         }
         free(lr);
@@ -116,7 +116,7 @@ int PppController::detachPppd(const char *tty) {
 
     ALOGD("Stopping PPPD services on port %s", tty);
     kill(mPid, SIGTERM);
-    waitpid(mPid, NULL, 0);
+    waitpid(mPid, nullptr, 0);
     mPid = 0;
     ALOGD("PPPD services on port %s stopped", tty);
     return 0;

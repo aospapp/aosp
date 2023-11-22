@@ -17,7 +17,6 @@
 package com.android.tradefed.testtype;
 
 import com.android.annotations.VisibleForTesting;
-import com.android.ddmlib.IDevice;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -31,9 +30,6 @@ import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.TimeUtil;
 
 import org.junit.Assert;
-
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * An {@link ITargetPreparer} that checks for a minimum battery charge, and waits for the battery
@@ -88,13 +84,7 @@ public class DeviceBatteryLevelChecker implements IDeviceTest, IRemoteTest {
     private long mMaxRunTime = 30 * 60 * 1000L;
 
     Integer checkBatteryLevel(ITestDevice device) {
-        try {
-            IDevice idevice = device.getIDevice();
-            // Force a synchronous check, which will also tell us if the device is still alive
-            return idevice.getBattery(500, TimeUnit.MILLISECONDS).get();
-        } catch (InterruptedException | ExecutionException e) {
-            return null;
-        }
+        return device.getBattery();
     }
 
     private void stopDeviceRuntime() throws DeviceNotAvailableException {

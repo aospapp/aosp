@@ -20,7 +20,8 @@
 
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <application>
-        <activity android:name=".TrustedVoiceActivity" >
+        <activity android:name=".TrustedVoiceActivity"
+                  android:turnScreenOn="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

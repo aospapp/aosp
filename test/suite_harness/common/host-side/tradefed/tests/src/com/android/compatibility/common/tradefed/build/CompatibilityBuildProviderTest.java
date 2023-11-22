@@ -15,6 +15,7 @@
  */
 package com.android.compatibility.common.tradefed.build;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -99,6 +100,59 @@ public class CompatibilityBuildProviderTest {
         assertTrue(info instanceof IDeviceBuildInfo);
         // tests dir should be populated
         assertNotNull(((IDeviceBuildInfo)info).getTestsDir());
+        // ensure that tests dir is never clean up.
+        mProvider.cleanUp(info);
+        assertNotNull(((IDeviceBuildInfo) info).getTestsDir());
+    }
+
+    /** Tests building build infos using the device information. */
+    @Test
+    public void testBaseGetBuild_withDeviceAndBuildFlavorPrefix() throws Exception {
+        // Create real testcases dir
+        new File(mRootDir, "android-cts/testcases").mkdirs();
+        OptionSetter setter = new OptionSetter(mProvider);
+        setter.setOptionValue("use-device-build-info", "true");
+        setter.setOptionValue("branch", "build_branch");
+        setter.setOptionValue("build-flavor-prefix", "prefix-");
+        EasyMock.expect(mMockDevice.getBuildId()).andReturn("8888");
+        EasyMock.expect(mMockDevice.getBuildFlavor()).andReturn("flavor");
+        EasyMock.expect(mMockDevice.getBuildAlias()).andReturn("alias");
+        EasyMock.expect(mMockDevice.getProperty("ro.product.name")).andReturn("product");
+        EasyMock.expect(mMockDevice.getProperty("ro.build.type")).andReturn("userdebug");
+        EasyMock.replay(mMockDevice);
+        IBuildInfo info = mProvider.getBuild(mMockDevice);
+        EasyMock.verify(mMockDevice);
+        assertTrue(info instanceof IDeviceBuildInfo);
+        assertEquals("prefix-flavor", ((IDeviceBuildInfo) info).getBuildFlavor());
+        // tests dir should be populated
+        assertNotNull(((IDeviceBuildInfo) info).getTestsDir());
+        // ensure that tests dir is never clean up.
+        mProvider.cleanUp(info);
+        assertNotNull(((IDeviceBuildInfo) info).getTestsDir());
+    }
+
+    /** Tests building build infos using the device information. */
+    @Test
+    public void testBaseGetBuild_withBuildFlavorAndPrefixOverride() throws Exception {
+        // Create real testcases dir
+        new File(mRootDir, "android-cts/testcases").mkdirs();
+        OptionSetter setter = new OptionSetter(mProvider);
+        setter.setOptionValue("use-device-build-info", "true");
+        setter.setOptionValue("branch", "build_branch");
+        setter.setOptionValue("build-flavor", "artificial-flavor");
+        setter.setOptionValue("build-flavor-prefix", "prefix-");
+        EasyMock.expect(mMockDevice.getBuildId()).andReturn("8888");
+        EasyMock.expect(mMockDevice.getBuildFlavor()).andReturn("flavor").anyTimes();
+        EasyMock.expect(mMockDevice.getBuildAlias()).andReturn("alias");
+        EasyMock.expect(mMockDevice.getProperty("ro.product.name")).andReturn("product");
+        EasyMock.expect(mMockDevice.getProperty("ro.build.type")).andReturn("userdebug");
+        EasyMock.replay(mMockDevice);
+        IBuildInfo info = mProvider.getBuild(mMockDevice);
+        EasyMock.verify(mMockDevice);
+        assertTrue(info instanceof IDeviceBuildInfo);
+        assertEquals("prefix-artificial-flavor", ((IDeviceBuildInfo) info).getBuildFlavor());
+        // tests dir should be populated
+        assertNotNull(((IDeviceBuildInfo) info).getTestsDir());
         // ensure that tests dir is never clean up.
         mProvider.cleanUp(info);
         assertNotNull(((IDeviceBuildInfo)info).getTestsDir());

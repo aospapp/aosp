@@ -22,6 +22,7 @@
  *  mode.
  *
  ******************************************************************************/
+#include <log/log.h>
 #include <string.h>
 
 #include <android-base/stringprintf.h>
@@ -34,7 +35,6 @@
 #include "ce_int.h"
 #include "nfc_int.h"
 #include "tags_int.h"
-#include "trace_api.h"
 
 using android::base::StringPrintf;
 
@@ -153,7 +153,7 @@ static bool ce_t4t_select_file(uint16_t file_id) {
 *******************************************************************************/
 static bool ce_t4t_read_binary(uint16_t offset, uint8_t length) {
   tCE_T4T_MEM* p_t4t = &ce_cb.mem.t4t;
-  uint8_t *p_src = NULL, *p_dst;
+  uint8_t *p_src = nullptr, *p_dst;
   NFC_HDR* p_r_apdu;
 
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
@@ -291,7 +291,7 @@ static bool ce_t4t_update_binary(uint16_t offset, uint8_t length,
         &p_t4t->timer, NFC_TTYPE_CE_T4T_UPDATE,
         (CE_T4T_TOUT_UPDATE * QUICK_TIMER_TICKS_PER_SEC) / 1000);
 
-    if (ce_cb.p_cback) (*ce_cb.p_cback)(CE_T4T_NDEF_UPDATE_START_EVT, NULL);
+    if (ce_cb.p_cback) (*ce_cb.p_cback)(CE_T4T_NDEF_UPDATE_START_EVT, nullptr);
   }
 
   if (!ce_t4t_send_status(T4T_RSP_CMD_CMPLTED)) {
@@ -390,6 +390,14 @@ static void ce_t4t_process_select_app_cmd(uint8_t* p_cmd, NFC_HDR* p_c_apdu) {
   /* Lc Byte */
   BE_STREAM_TO_UINT8(data_len, p_cmd);
 
+  /*CLS+INS+P1+P2+Lc+Data*/
+  if (data_len > (p_c_apdu->len - T4T_CMD_MAX_HDR_SIZE)) {
+    LOG(ERROR) << StringPrintf("Wrong length in ce_t4t_process_select_app_cmd");
+    android_errorWriteLog(0x534e4554, "115635871");
+    ce_t4t_send_status(T4T_RSP_WRONG_LENGTH);
+    GKI_freebuf(p_c_apdu);
+    return;
+  }
 #if (CE_TEST_INCLUDED == TRUE)
   if (mapping_aid_test_enabled) {
     if ((data_len == T4T_V20_NDEF_TAG_AID_LEN) &&
@@ -437,7 +445,7 @@ static void ce_t4t_process_select_app_cmd(uint8_t* p_cmd, NFC_HDR* p_c_apdu) {
     ce_data.raw_frame.p_data = p_c_apdu;
     ce_data.raw_frame.aid_handle = ce_cb.mem.t4t.selected_aid_idx;
 
-    p_c_apdu = NULL;
+    p_c_apdu = nullptr;
 
     (*(ce_cb.mem.t4t.reg_aid[ce_cb.mem.t4t.selected_aid_idx].p_cback))(
         CE_T4T_RAW_FRAME_EVT, &ce_data);
@@ -467,7 +475,7 @@ static void ce_t4t_process_select_app_cmd(uint8_t* p_cmd, NFC_HDR* p_c_apdu) {
     ce_data.raw_frame.status = NFC_STATUS_OK;
     ce_data.raw_frame.p_data = p_c_apdu;
     ce_data.raw_frame.aid_handle = CE_T4T_WILDCARD_AID_HANDLE;
-    p_c_apdu = NULL;
+    p_c_apdu = nullptr;
 
     DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
         "CET4T: Forward raw frame (SELECT APP) to wildcard AID handler");
@@ -541,12 +549,12 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
                               tNFC_CONN* p_data) {
   NFC_HDR* p_c_apdu;
   uint8_t* p_cmd;
-  uint8_t cla, instruct, select_type = 0, length;
+  uint8_t cla = 0, instruct = 0, select_type = 0, length = 0;
   uint16_t offset, max_file_size;
   tCE_DATA ce_data;
 
   if (event == NFC_DEACTIVATE_CEVT) {
-    NFC_SetStaticRfCback(NULL);
+    NFC_SetStaticRfCback(nullptr);
     return;
   }
   if (event != NFC_DATA_CEVT) {
@@ -558,6 +566,14 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("conn_id = 0x%02X", conn_id);
 
   p_cmd = (uint8_t*)(p_c_apdu + 1) + p_c_apdu->offset;
+
+  if (p_c_apdu->len == 0) {
+    LOG(ERROR) << StringPrintf("Wrong length in ce_t4t_data_cback");
+    android_errorWriteLog(0x534e4554, "115635871");
+    ce_t4t_send_status(T4T_RSP_WRONG_LENGTH);
+    if (p_c_apdu) GKI_freebuf(p_c_apdu);
+    return;
+  }
 
   /* Class Byte */
   BE_STREAM_TO_UINT8(cla, p_cmd);
@@ -571,16 +587,28 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
     return;
   }
 
-  /* Instruction Byte */
-  BE_STREAM_TO_UINT8(instruct, p_cmd);
+  /*CLA+INS+P1+P2 = 4 bytes*/
+  if (p_c_apdu->len >= T4T_CMD_MIN_HDR_SIZE) {
+    /* Instruction Byte */
+    BE_STREAM_TO_UINT8(instruct, p_cmd);
 
-  if ((cla == T4T_CMD_CLASS) && (instruct == T4T_CMD_INS_SELECT)) {
-    /* P1 Byte */
-    BE_STREAM_TO_UINT8(select_type, p_cmd);
+    if ((cla == T4T_CMD_CLASS) && (instruct == T4T_CMD_INS_SELECT)) {
+      /* P1 Byte */
+      BE_STREAM_TO_UINT8(select_type, p_cmd);
 
-    if (select_type == T4T_CMD_P1_SELECT_BY_NAME) {
-      ce_t4t_process_select_app_cmd(p_cmd, p_c_apdu);
-      return;
+      if (select_type == T4T_CMD_P1_SELECT_BY_NAME) {
+        /*CLA+INS+P1+P2+Lc = 5 bytes*/
+        if (p_c_apdu->len >= T4T_CMD_MAX_HDR_SIZE) {
+          ce_t4t_process_select_app_cmd(p_cmd, p_c_apdu);
+          return;
+        } else {
+          LOG(ERROR) << StringPrintf("Wrong length in select app cmd");
+          android_errorWriteLog(0x534e4554, "115635871");
+          ce_t4t_send_status(T4T_RSP_NOT_FOUND);
+          if (p_c_apdu) GKI_freebuf(p_c_apdu);
+          return;
+        }
+      }
     }
   }
 
@@ -594,7 +622,7 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
       ce_data.raw_frame.status = p_data->data.status;
       ce_data.raw_frame.p_data = p_c_apdu;
       ce_data.raw_frame.aid_handle = ce_cb.mem.t4t.selected_aid_idx;
-      p_c_apdu = NULL;
+      p_c_apdu = nullptr;
 
       (*(ce_cb.mem.t4t.reg_aid[ce_cb.mem.t4t.selected_aid_idx].p_cback))(
           CE_T4T_RAW_FRAME_EVT, &ce_data);
@@ -610,7 +638,7 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
     ce_data.raw_frame.status = p_data->data.status;
     ce_data.raw_frame.p_data = p_c_apdu;
     ce_data.raw_frame.aid_handle = CE_T4T_WILDCARD_AID_HANDLE;
-    p_c_apdu = NULL;
+    p_c_apdu = nullptr;
 
     (*(ce_cb.mem.t4t.p_wildcard_aid_cback))(CE_T4T_RAW_FRAME_EVT, &ce_data);
   } else if (ce_cb.mem.t4t.status & CE_T4T_STATUS_T4T_APP_SELECTED) {
@@ -631,6 +659,14 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
           max_file_size = ce_cb.mem.t4t.max_file_size;
         }
 
+        /*CLA+INS+Offset(P1P2)+Le = 5 bytes*/
+        if (p_c_apdu->len < T4T_CMD_MAX_HDR_SIZE) {
+          LOG(ERROR) << "Wrong length";
+          android_errorWriteLog(0x534e4554, "120845341");
+          GKI_freebuf(p_c_apdu);
+          ce_t4t_send_status(T4T_RSP_WRONG_LENGTH);
+          return;
+        }
         BE_STREAM_TO_UINT16(offset, p_cmd); /* Offset */
         BE_STREAM_TO_UINT8(length, p_cmd);  /* Le     */
 
@@ -672,6 +708,14 @@ static void ce_t4t_data_cback(uint8_t conn_id, tNFC_CONN_EVT event,
         LOG(ERROR) << StringPrintf("CET4T: No access right");
         ce_t4t_send_status(T4T_RSP_CMD_NOT_ALLOWED);
       } else if (ce_cb.mem.t4t.status & CE_T4T_STATUS_NDEF_SELECTED) {
+        /*CLA+INS+Offset(P1P2)+Lc = 5 bytes*/
+        if (p_c_apdu->len < T4T_CMD_MAX_HDR_SIZE) {
+          LOG(ERROR) << "Wrong length";
+          android_errorWriteLog(0x534e4554, "120845341");
+          GKI_freebuf(p_c_apdu);
+          ce_t4t_send_status(T4T_RSP_WRONG_LENGTH);
+          return;
+        }
         BE_STREAM_TO_UINT16(offset, p_cmd); /* Offset */
         BE_STREAM_TO_UINT8(length, p_cmd);  /* Lc     */
 
@@ -768,7 +812,7 @@ tNFC_STATUS CE_T4tSetLocalNDEFMsg(bool read_only, uint16_t ndef_msg_max,
                       read_only, ndef_msg_max, ndef_msg_len);
 
   if (!p_ndef_msg) {
-    p_t4t->p_ndef_msg = NULL;
+    p_t4t->p_ndef_msg = nullptr;
 
     DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("T4T is disabled");
     return NFC_STATUS_OK;
@@ -850,7 +894,7 @@ tCE_T4T_AID_HANDLE CE_T4tRegisterAID(uint8_t aid_len, uint8_t* p_aid,
 
     /* Check if a wildcard callback is already registered (only one is allowed)
      */
-    if (p_t4t->p_wildcard_aid_cback != NULL) {
+    if (p_t4t->p_wildcard_aid_cback != nullptr) {
       LOG(ERROR) << StringPrintf(
           "only one wildcard AID can be registered at "
           "time.");
@@ -873,7 +917,7 @@ tCE_T4T_AID_HANDLE CE_T4tRegisterAID(uint8_t aid_len, uint8_t* p_aid,
     return CE_T4T_AID_HANDLE_INVALID;
   }
 
-  if (p_cback == NULL) {
+  if (p_cback == nullptr) {
     LOG(ERROR) << StringPrintf("callback must be provided");
     return CE_T4T_AID_HANDLE_INVALID;
   }
@@ -922,8 +966,8 @@ extern void CE_T4tDeregisterAID(tCE_T4T_AID_HANDLE aid_handle) {
 
   /* Check if deregistering wildcard AID */
   if (aid_handle == CE_T4T_WILDCARD_AID_HANDLE) {
-    if (p_t4t->p_wildcard_aid_cback != NULL) {
-      p_t4t->p_wildcard_aid_cback = NULL;
+    if (p_t4t->p_wildcard_aid_cback != nullptr) {
+      p_t4t->p_wildcard_aid_cback = nullptr;
     } else {
       LOG(ERROR) << StringPrintf("Invalid handle");
     }
@@ -936,6 +980,6 @@ extern void CE_T4tDeregisterAID(tCE_T4T_AID_HANDLE aid_handle) {
     LOG(ERROR) << StringPrintf("Invalid handle");
   } else {
     p_t4t->reg_aid[aid_handle].aid_len = 0;
-    p_t4t->reg_aid[aid_handle].p_cback = NULL;
+    p_t4t->reg_aid[aid_handle].p_cback = nullptr;
   }
 }

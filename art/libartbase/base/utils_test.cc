@@ -23,8 +23,8 @@ namespace art {
 class UtilsTest : public testing::Test {};
 
 TEST_F(UtilsTest, PrettySize) {
-  EXPECT_EQ("1GB", PrettySize(1 * GB));
-  EXPECT_EQ("2GB", PrettySize(2 * GB));
+  EXPECT_EQ("1024MB", PrettySize(1 * GB));
+  EXPECT_EQ("2048MB", PrettySize(2 * GB));
   if (sizeof(size_t) > sizeof(uint32_t)) {
     EXPECT_EQ("100GB", PrettySize(100 * GB));
   }
@@ -107,23 +107,12 @@ TEST_F(UtilsTest, Split) {
   EXPECT_EQ(expected, actual);
 }
 
-TEST_F(UtilsTest, ArrayCount) {
-  int i[64];
-  EXPECT_EQ(ArrayCount(i), 64u);
-  char c[7];
-  EXPECT_EQ(ArrayCount(c), 7u);
-}
-
-TEST_F(UtilsTest, BoundsCheckedCast) {
-  char buffer[64];
-  const char* buffer_end = buffer + ArrayCount(buffer);
-  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(nullptr, buffer, buffer_end), nullptr);
-  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(buffer, buffer, buffer_end),
-            reinterpret_cast<const uint64_t*>(buffer));
-  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(buffer + 56, buffer, buffer_end),
-            reinterpret_cast<const uint64_t*>(buffer + 56));
-  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(buffer - 1, buffer, buffer_end), nullptr);
-  EXPECT_EQ(BoundsCheckedCast<const uint64_t*>(buffer + 57, buffer, buffer_end), nullptr);
+TEST_F(UtilsTest, GetProcessStatus) {
+  EXPECT_EQ("utils_test", GetProcessStatus("Name"));
+  EXPECT_EQ("R (running)", GetProcessStatus("State"));
+  EXPECT_EQ("<unknown>", GetProcessStatus("tate"));
+  EXPECT_EQ("<unknown>", GetProcessStatus("e"));
+  EXPECT_EQ("<unknown>", GetProcessStatus("Dummy"));
 }
 
 }  // namespace art

@@ -15,36 +15,36 @@
  */
 
 #include "Disk.h"
-#include "PublicVolume.h"
+#include "FsCrypt.h"
 #include "PrivateVolume.h"
+#include "PublicVolume.h"
 #include "Utils.h"
 #include "VolumeBase.h"
 #include "VolumeManager.h"
-#include "Ext4Crypt.h"
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/parseint.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
-#include <android-base/parseint.h>
-#include <ext4_utils/ext4_crypt.h>
+#include <fscrypt/fscrypt.h>
 
 #include "cryptfs.h"
 
-#include <vector>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
-#include <sys/mount.h>
+#include <sys/types.h>
+#include <vector>
 
 using android::base::ReadFileToString;
-using android::base::WriteStringToFile;
 using android::base::StringPrintf;
+using android::base::WriteStringToFile;
 
 namespace android {
 namespace vold {
@@ -76,6 +76,8 @@ static const unsigned int kMajorBlockScsiP = 135;
 static const unsigned int kMajorBlockMmc = 179;
 static const unsigned int kMajorBlockExperimentalMin = 240;
 static const unsigned int kMajorBlockExperimentalMax = 254;
+static const unsigned int kMajorBlockDynamicMin = 234;
+static const unsigned int kMajorBlockDynamicMax = 512;
 
 static const char* kGptBasicData = "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7";
 static const char* kGptAndroidMeta = "19A710A2-B3CA-11E4-B026-10604B889DCF";
@@ -110,14 +112,22 @@ static bool isVirtioBlkDevice(unsigned int major) {
      * "ranchu", the device's sysfs path should end with "/block/vd[d-z]", etc.
      * But just having a) and b) is enough for now.
      */
-    return IsRunningInEmulator() && major >= kMajorBlockExperimentalMin
-            && major <= kMajorBlockExperimentalMax;
+    return IsRunningInEmulator() && major >= kMajorBlockExperimentalMin &&
+           major <= kMajorBlockExperimentalMax;
 }
 
-Disk::Disk(const std::string& eventPath, dev_t device,
-        const std::string& nickname, int flags) :
-        mDevice(device), mSize(-1), mNickname(nickname), mFlags(flags), mCreated(
-                false), mJustPartitioned(false) {
+static bool isNvmeBlkDevice(unsigned int major, const std::string& sysPath) {
+    return sysPath.find("nvme") != std::string::npos && major >= kMajorBlockDynamicMin &&
+           major <= kMajorBlockDynamicMax;
+}
+
+Disk::Disk(const std::string& eventPath, dev_t device, const std::string& nickname, int flags)
+    : mDevice(device),
+      mSize(-1),
+      mNickname(nickname),
+      mFlags(flags),
+      mCreated(false),
+      mJustPartitioned(false) {
     mId = StringPrintf("disk:%u,%u", major(device), minor(device));
     mEventPath = eventPath;
     mSysPath = StringPrintf("/sys/%s", eventPath.c_str());
@@ -143,7 +153,7 @@ std::shared_ptr<VolumeBase> Disk::findVolume(const std::string& id) {
     return nullptr;
 }
 
-void Disk::listVolumes(VolumeBase::Type type, std::list<std::string>& list) {
+void Disk::listVolumes(VolumeBase::Type type, std::list<std::string>& list) const {
     for (const auto& vol : mVolumes) {
         if (vol->getType() == type) {
             list.push_back(vol->getId());
@@ -233,73 +243,84 @@ status_t Disk::readMetadata() {
     mSize = -1;
     mLabel.clear();
 
-    int fd = open(mDevPath.c_str(), O_RDONLY | O_CLOEXEC);
-    if (fd != -1) {
-        if (ioctl(fd, BLKGETSIZE64, &mSize)) {
-            mSize = -1;
-        }
-        close(fd);
+    if (GetBlockDevSize(mDevPath, &mSize) != OK) {
+        mSize = -1;
     }
 
     unsigned int majorId = major(mDevice);
     switch (majorId) {
-    case kMajorBlockLoop: {
-        mLabel = "Virtual";
-        break;
-    }
-    case kMajorBlockScsiA: case kMajorBlockScsiB: case kMajorBlockScsiC: case kMajorBlockScsiD:
-    case kMajorBlockScsiE: case kMajorBlockScsiF: case kMajorBlockScsiG: case kMajorBlockScsiH:
-    case kMajorBlockScsiI: case kMajorBlockScsiJ: case kMajorBlockScsiK: case kMajorBlockScsiL:
-    case kMajorBlockScsiM: case kMajorBlockScsiN: case kMajorBlockScsiO: case kMajorBlockScsiP: {
-        std::string path(mSysPath + "/device/vendor");
-        std::string tmp;
-        if (!ReadFileToString(path, &tmp)) {
-            PLOG(WARNING) << "Failed to read vendor from " << path;
-            return -errno;
-        }
-        tmp = android::base::Trim(tmp);
-        mLabel = tmp;
-        break;
-    }
-    case kMajorBlockMmc: {
-        std::string path(mSysPath + "/device/manfid");
-        std::string tmp;
-        if (!ReadFileToString(path, &tmp)) {
-            PLOG(WARNING) << "Failed to read manufacturer from " << path;
-            return -errno;
-        }
-        tmp = android::base::Trim(tmp);
-        int64_t manfid;
-        if (!android::base::ParseInt(tmp, &manfid)) {
-            PLOG(WARNING) << "Failed to parse manufacturer " << tmp;
-            return -EINVAL;
-        }
-        // Our goal here is to give the user a meaningful label, ideally
-        // matching whatever is silk-screened on the card.  To reduce
-        // user confusion, this list doesn't contain white-label manfid.
-        switch (manfid) {
-        case 0x000003: mLabel = "SanDisk"; break;
-        case 0x00001b: mLabel = "Samsung"; break;
-        case 0x000028: mLabel = "Lexar"; break;
-        case 0x000074: mLabel = "Transcend"; break;
-        }
-        break;
-    }
-    default: {
-        if (isVirtioBlkDevice(majorId)) {
-            LOG(DEBUG) << "Recognized experimental block major ID " << majorId
-                    << " as virtio-blk (emulator's virtual SD card device)";
+        case kMajorBlockLoop: {
             mLabel = "Virtual";
             break;
         }
-        LOG(WARNING) << "Unsupported block major type " << majorId;
-        return -ENOTSUP;
-    }
+        // clang-format off
+        case kMajorBlockScsiA: case kMajorBlockScsiB: case kMajorBlockScsiC:
+        case kMajorBlockScsiD: case kMajorBlockScsiE: case kMajorBlockScsiF:
+        case kMajorBlockScsiG: case kMajorBlockScsiH: case kMajorBlockScsiI:
+        case kMajorBlockScsiJ: case kMajorBlockScsiK: case kMajorBlockScsiL:
+        case kMajorBlockScsiM: case kMajorBlockScsiN: case kMajorBlockScsiO:
+        case kMajorBlockScsiP: {
+            // clang-format on
+            std::string path(mSysPath + "/device/vendor");
+            std::string tmp;
+            if (!ReadFileToString(path, &tmp)) {
+                PLOG(WARNING) << "Failed to read vendor from " << path;
+                return -errno;
+            }
+            tmp = android::base::Trim(tmp);
+            mLabel = tmp;
+            break;
+        }
+        case kMajorBlockMmc: {
+            std::string path(mSysPath + "/device/manfid");
+            std::string tmp;
+            if (!ReadFileToString(path, &tmp)) {
+                PLOG(WARNING) << "Failed to read manufacturer from " << path;
+                return -errno;
+            }
+            tmp = android::base::Trim(tmp);
+            int64_t manfid;
+            if (!android::base::ParseInt(tmp, &manfid)) {
+                PLOG(WARNING) << "Failed to parse manufacturer " << tmp;
+                return -EINVAL;
+            }
+            // Our goal here is to give the user a meaningful label, ideally
+            // matching whatever is silk-screened on the card.  To reduce
+            // user confusion, this list doesn't contain white-label manfid.
+            switch (manfid) {
+                // clang-format off
+                case 0x000003: mLabel = "SanDisk"; break;
+                case 0x00001b: mLabel = "Samsung"; break;
+                case 0x000028: mLabel = "Lexar"; break;
+                case 0x000074: mLabel = "Transcend"; break;
+                    // clang-format on
+            }
+            break;
+        }
+        default: {
+            if (isVirtioBlkDevice(majorId)) {
+                LOG(DEBUG) << "Recognized experimental block major ID " << majorId
+                           << " as virtio-blk (emulator's virtual SD card device)";
+                mLabel = "Virtual";
+                break;
+            }
+            if (isNvmeBlkDevice(majorId, mSysPath)) {
+                std::string path(mSysPath + "/device/model");
+                std::string tmp;
+                if (!ReadFileToString(path, &tmp)) {
+                    PLOG(WARNING) << "Failed to read vendor from " << path;
+                    return -errno;
+                }
+                mLabel = tmp;
+                break;
+            }
+            LOG(WARNING) << "Unsupported block major type " << majorId;
+            return -ENOTSUP;
+        }
     }
 
     auto listener = VolumeManager::Instance()->getListener();
-    if (listener) listener->onDiskMetadataChanged(getId(),
-            mSize, mLabel, mSysPath);
+    if (listener) listener->onDiskMetadataChanged(getId(), mSize, mLabel, mSysPath);
 
     return OK;
 }
@@ -320,7 +341,7 @@ status_t Disk::readPartitions() {
     cmd.push_back(mDevPath);
 
     std::vector<std::string> output;
-    status_t res = ForkExecvp(cmd, output);
+    status_t res = ForkExecvp(cmd, &output);
     if (res != OK) {
         LOG(WARNING) << "sgdisk failed to scan " << mDevPath;
 
@@ -545,38 +566,49 @@ int Disk::getMaxMinors() {
     // Figure out maximum partition devices supported
     unsigned int majorId = major(mDevice);
     switch (majorId) {
-    case kMajorBlockLoop: {
-        std::string tmp;
-        if (!ReadFileToString(kSysfsLoopMaxMinors, &tmp)) {
-            LOG(ERROR) << "Failed to read max minors";
-            return -errno;
+        case kMajorBlockLoop: {
+            std::string tmp;
+            if (!ReadFileToString(kSysfsLoopMaxMinors, &tmp)) {
+                LOG(ERROR) << "Failed to read max minors";
+                return -errno;
+            }
+            return std::stoi(tmp);
         }
-        return std::stoi(tmp);
-    }
-    case kMajorBlockScsiA: case kMajorBlockScsiB: case kMajorBlockScsiC: case kMajorBlockScsiD:
-    case kMajorBlockScsiE: case kMajorBlockScsiF: case kMajorBlockScsiG: case kMajorBlockScsiH:
-    case kMajorBlockScsiI: case kMajorBlockScsiJ: case kMajorBlockScsiK: case kMajorBlockScsiL:
-    case kMajorBlockScsiM: case kMajorBlockScsiN: case kMajorBlockScsiO: case kMajorBlockScsiP: {
-        // Per Documentation/devices.txt this is static
-        return 15;
-    }
-    case kMajorBlockMmc: {
-        // Per Documentation/devices.txt this is dynamic
-        std::string tmp;
-        if (!ReadFileToString(kSysfsMmcMaxMinors, &tmp) &&
-                !ReadFileToString(kSysfsMmcMaxMinorsDeprecated, &tmp)) {
-            LOG(ERROR) << "Failed to read max minors";
-            return -errno;
-        }
-        return std::stoi(tmp);
-    }
-    default: {
-        if (isVirtioBlkDevice(majorId)) {
-            // drivers/block/virtio_blk.c has "#define PART_BITS 4", so max is
-            // 2^4 - 1 = 15
+        // clang-format off
+        case kMajorBlockScsiA: case kMajorBlockScsiB: case kMajorBlockScsiC:
+        case kMajorBlockScsiD: case kMajorBlockScsiE: case kMajorBlockScsiF:
+        case kMajorBlockScsiG: case kMajorBlockScsiH: case kMajorBlockScsiI:
+        case kMajorBlockScsiJ: case kMajorBlockScsiK: case kMajorBlockScsiL:
+        case kMajorBlockScsiM: case kMajorBlockScsiN: case kMajorBlockScsiO:
+        case kMajorBlockScsiP: {
+            // clang-format on
+            // Per Documentation/devices.txt this is static
             return 15;
         }
-    }
+        case kMajorBlockMmc: {
+            // Per Documentation/devices.txt this is dynamic
+            std::string tmp;
+            if (!ReadFileToString(kSysfsMmcMaxMinors, &tmp) &&
+                !ReadFileToString(kSysfsMmcMaxMinorsDeprecated, &tmp)) {
+                LOG(ERROR) << "Failed to read max minors";
+                return -errno;
+            }
+            return std::stoi(tmp);
+        }
+        default: {
+            if (isVirtioBlkDevice(majorId)) {
+                // drivers/block/virtio_blk.c has "#define PART_BITS 4", so max is
+                // 2^4 - 1 = 15
+                return 15;
+            }
+            if (isNvmeBlkDevice(majorId, mSysPath)) {
+                // despite kernel nvme driver supports up to 1M minors,
+                //     #define NVME_MINORS (1U << MINORBITS)
+                // sgdisk can not support more than 127 partitions, due to
+                //     #define MAX_MBR_PARTS 128
+                return 127;
+            }
+        }
     }
 
     LOG(ERROR) << "Unsupported block major type " << majorId;

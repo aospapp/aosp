@@ -16,25 +16,19 @@
 
 package android.graphics.cts;
 
-import static org.junit.Assert.assertEquals;
 import static android.opengl.EGL14.*;
 
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
-import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
-import android.opengl.EGLSurface;
-import android.opengl.GLES20;
-import android.support.test.filters.SmallTest;
 
-import java.util.concurrent.CyclicBarrier;
+import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.BlockJUnit4ClassRunner;
-
 
 // This class contains tests for the Linux kernel sync file system, and the NDK interfaces for it
 // (android/sync.h). Unfortunately, the interfaces exposed by the kernel make it difficult to test
@@ -53,7 +47,6 @@ import org.junit.runners.BlockJUnit4ClassRunner;
 //     signal them has been submitted to the kernel, and will complete without further action from
 //     userland. This means that it is impossible to reliably do something before a sync file has
 //     signaled.
-
 @SmallTest
 @RunWith(BlockJUnit4ClassRunner.class)
 public class SyncTest {

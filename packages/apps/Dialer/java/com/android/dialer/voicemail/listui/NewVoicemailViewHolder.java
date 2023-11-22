@@ -34,20 +34,19 @@ import android.util.Pair;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ImageView;
-import android.widget.QuickContactBadge;
 import android.widget.TextView;
 import com.android.dialer.calllog.database.contract.AnnotatedCallLogContract.AnnotatedCallLog;
-import com.android.dialer.calllogutils.NumberAttributesConverter;
+import com.android.dialer.calllogutils.PhotoInfoBuilder;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.DialerExecutor.SuccessListener;
 import com.android.dialer.common.concurrent.DialerExecutor.Worker;
 import com.android.dialer.common.concurrent.DialerExecutorComponent;
 import com.android.dialer.compat.android.provider.VoicemailCompat;
-import com.android.dialer.glidephotomanager.GlidePhotoManager;
 import com.android.dialer.time.Clock;
 import com.android.dialer.voicemail.listui.menu.NewVoicemailMenu;
 import com.android.dialer.voicemail.model.VoicemailEntry;
+import com.android.dialer.widget.ContactPhotoView;
 import com.android.voicemail.VoicemailClient;
 
 /** {@link RecyclerView.ViewHolder} for the new voicemail tab. */
@@ -58,22 +57,18 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
   private final TextView secondaryTextView;
   private final TextView transcriptionTextView;
   private final TextView transcriptionBrandingTextView;
-  private final QuickContactBadge quickContactBadge;
+  private final ContactPhotoView contactPhotoView;
   private final NewVoicemailMediaPlayerView mediaPlayerView;
   private final ImageView menuButton;
   private final Clock clock;
   private boolean isViewHolderExpanded;
-  private int viewHolderId;
+  private long viewHolderId;
   private VoicemailEntry voicemailEntryOfViewHolder;
   @NonNull private Uri viewHolderVoicemailUri;
   private final NewVoicemailViewHolderListener voicemailViewHolderListener;
-  private final GlidePhotoManager glidePhotoManager;
 
   NewVoicemailViewHolder(
-      View view,
-      Clock clock,
-      NewVoicemailViewHolderListener newVoicemailViewHolderListener,
-      GlidePhotoManager glidePhotoManager) {
+      View view, Clock clock, NewVoicemailViewHolderListener newVoicemailViewHolderListener) {
     super(view);
     LogUtil.enterBlock("NewVoicemailViewHolder");
     this.context = view.getContext();
@@ -81,16 +76,19 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
     secondaryTextView = view.findViewById(R.id.secondary_text);
     transcriptionTextView = view.findViewById(R.id.transcription_text);
     transcriptionBrandingTextView = view.findViewById(R.id.transcription_branding);
-    quickContactBadge = view.findViewById(R.id.quick_contact_photo);
+    contactPhotoView = view.findViewById(R.id.contact_photo_view);
     mediaPlayerView = view.findViewById(R.id.new_voicemail_media_player);
     menuButton = view.findViewById(R.id.menu_button);
     this.clock = clock;
     voicemailViewHolderListener = newVoicemailViewHolderListener;
-    this.glidePhotoManager = glidePhotoManager;
 
     viewHolderId = -1;
     isViewHolderExpanded = false;
     viewHolderVoicemailUri = null;
+  }
+
+  public NewVoicemailMediaPlayerView getMediaPlayerView() {
+    return Assert.isNotNull(mediaPlayerView);
   }
 
   /**
@@ -112,7 +110,7 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
       FragmentManager fragmentManager,
       NewVoicemailMediaPlayer mediaPlayer,
       int position,
-      int currentlyExpandedViewHolderId) {
+      long currentlyExpandedViewHolderId) {
 
     LogUtil.i(
         "NewVoicemailViewHolder.bindViewHolderValuesFromAdapter",
@@ -123,16 +121,16 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
         cursor.getCount());
 
     voicemailEntryOfViewHolder = VoicemailCursorLoader.toVoicemailEntry(cursor);
-    viewHolderId = voicemailEntryOfViewHolder.id();
+    viewHolderId = voicemailEntryOfViewHolder.getId();
     LogUtil.i(
         "NewVoicemailViewHolder.bindViewHolderValuesFromAdapter", "viewholderId:%d", viewHolderId);
-    viewHolderVoicemailUri = Uri.parse(voicemailEntryOfViewHolder.voicemailUri());
+    viewHolderVoicemailUri = Uri.parse(voicemailEntryOfViewHolder.getVoicemailUri());
     primaryTextView.setText(
         VoicemailEntryText.buildPrimaryVoicemailText(context, voicemailEntryOfViewHolder));
     secondaryTextView.setText(
         VoicemailEntryText.buildSecondaryVoicemailText(context, clock, voicemailEntryOfViewHolder));
 
-    String voicemailTranscription = voicemailEntryOfViewHolder.transcription();
+    String voicemailTranscription = voicemailEntryOfViewHolder.getTranscription();
 
     if (TextUtils.isEmpty(voicemailTranscription)) {
       transcriptionTextView.setVisibility(GONE);
@@ -147,10 +145,10 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
 
     itemView.setOnClickListener(this);
     menuButton.setOnClickListener(
-        NewVoicemailMenu.createOnClickListener(
-            context, voicemailEntryOfViewHolder, glidePhotoManager));
+        NewVoicemailMenu.createOnClickListener(context, voicemailEntryOfViewHolder));
 
-    setPhoto(voicemailEntryOfViewHolder);
+    contactPhotoView.setPhoto(
+        PhotoInfoBuilder.fromVoicemailEntry(voicemailEntryOfViewHolder).build());
 
     // Update the expanded/collapsed state of this view holder
     // Only update the binding of the mediaPlayerView of the expanded view holder
@@ -199,22 +197,14 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
     LogUtil.v(
         "NewVoicemailViewHolder.boldViewHolderIfUnread",
         "id:%d, isRead:%d",
-        voicemailEntryOfViewHolder.id(),
-        voicemailEntryOfViewHolder.isRead());
+        voicemailEntryOfViewHolder.getId(),
+        voicemailEntryOfViewHolder.getIsRead());
 
-    if (voicemailEntryOfViewHolder.isRead() == 0) {
+    if (voicemailEntryOfViewHolder.getIsRead() == 0) {
       primaryTextView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
       secondaryTextView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
       transcriptionTextView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
     }
-  }
-
-  private void setPhoto(VoicemailEntry voicemailEntry) {
-    glidePhotoManager.loadQuickContactBadge(
-        quickContactBadge,
-        NumberAttributesConverter.toPhotoInfoBuilder(voicemailEntry.numberAttributes())
-            .setFormattedNumber(voicemailEntry.formattedNumber())
-            .build());
   }
 
   void collapseViewHolder() {
@@ -286,9 +276,9 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
 
     Assert.isNotNull(voicemailViewHolderListener);
     Assert.checkArgument(
-        voicemailEntry.id() == viewHolderId, "ensure that the adapter binding has taken place");
+        voicemailEntry.getId() == viewHolderId, "ensure that the adapter binding has taken place");
     Assert.checkArgument(
-        Uri.parse(voicemailEntry.voicemailUri()).equals(viewHolderVoicemailUri),
+        Uri.parse(voicemailEntry.getVoicemailUri()).equals(viewHolderVoicemailUri),
         "ensure that the adapter binding has taken place");
     LogUtil.i(
         "NewVoicemailViewHolder.expandAndBindViewHolderAndMediaPlayerViewWithAdapterValues",
@@ -298,15 +288,15 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
         isViewHolderExpanded,
         String.valueOf(viewHolderVoicemailUri),
         String.valueOf(mediaPlayerView.getVoicemailUri()),
-        voicemailEntry.isRead());
+        voicemailEntry.getIsRead());
 
-    if (voicemailEntry.isRead() == 0) {
+    if (voicemailEntry.getIsRead() == 0) {
       // update as read.
       primaryTextView.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
       secondaryTextView.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
       transcriptionTextView.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
 
-      Uri uri = Uri.parse(voicemailEntry.voicemailUri());
+      Uri uri = Uri.parse(voicemailEntry.getVoicemailUri());
 
       Worker<Pair<Context, Uri>, Integer> markVoicemailRead = this::markVoicemailAsRead;
       SuccessListener<Integer> markedAsReadVoicemailCallBack = this::onVoicemailMarkedAsRead;
@@ -337,8 +327,8 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
   }
 
   private void updateBrandingText(VoicemailEntry voicemailEntry) {
-    if (voicemailEntry.transcriptionState() == VoicemailCompat.TRANSCRIPTION_AVAILABLE
-        && !TextUtils.isEmpty(voicemailEntry.transcription())) {
+    if (voicemailEntry.getTranscriptionState() == VoicemailCompat.TRANSCRIPTION_AVAILABLE
+        && !TextUtils.isEmpty(voicemailEntry.getTranscription())) {
       transcriptionBrandingTextView.setVisibility(VISIBLE);
     } else {
       transcriptionBrandingTextView.setVisibility(GONE);
@@ -428,7 +418,7 @@ final class NewVoicemailViewHolder extends RecyclerView.ViewHolder implements On
     return isViewHolderExpanded;
   }
 
-  public int getViewHolderId() {
+  public long getViewHolderId() {
     return viewHolderId;
   }
 

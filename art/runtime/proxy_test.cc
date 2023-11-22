@@ -19,15 +19,28 @@
 
 #include "art_field-inl.h"
 #include "base/enums.h"
-#include "common_compiler_test.h"
+#include "common_runtime_test.h"
 #include "mirror/field-inl.h"
 #include "proxy_test.h"
 #include "scoped_thread_state_change-inl.h"
+#include "well_known_classes.h"
 
 namespace art {
 namespace proxy_test {
 
-class ProxyTest : public CommonRuntimeTest {};
+class ProxyTest : public CommonRuntimeTest {
+ protected:
+  void SetUp() override {
+    CommonRuntimeTest::SetUp();
+    // The creation of a Proxy class uses WellKnownClasses. These are not normally initialized by
+    // CommonRuntimeTest so we need to do that now.
+    WellKnownClasses::Clear();
+    WellKnownClasses::Init(art::Thread::Current()->GetJniEnv());
+    // Since we aren't actually calling any of the native functions we can just immediately call
+    // LateInit after calling Init.
+    WellKnownClasses::LateInit(art::Thread::Current()->GetJniEnv());
+  }
+};
 
 // Creates a proxy class and check ClassHelper works correctly.
 TEST_F(ProxyTest, ProxyClassHelper) {
@@ -44,9 +57,9 @@ TEST_F(ProxyTest, ProxyClassHelper) {
   ASSERT_TRUE(I != nullptr);
   ASSERT_TRUE(J != nullptr);
 
-  std::vector<mirror::Class*> interfaces;
-  interfaces.push_back(I.Get());
-  interfaces.push_back(J.Get());
+  std::vector<Handle<mirror::Class>> interfaces;
+  interfaces.push_back(I);
+  interfaces.push_back(J);
   Handle<mirror::Class> proxy_class(hs.NewHandle(
       GenerateProxyClass(soa, jclass_loader, class_linker_, "$Proxy1234", interfaces)));
   interfaces.clear();  // Don't least possibly stale objects in the array as good practice.
@@ -80,9 +93,9 @@ TEST_F(ProxyTest, ProxyFieldHelper) {
 
   Handle<mirror::Class> proxyClass;
   {
-    std::vector<mirror::Class*> interfaces;
-    interfaces.push_back(I.Get());
-    interfaces.push_back(J.Get());
+    std::vector<Handle<mirror::Class>> interfaces;
+    interfaces.push_back(I);
+    interfaces.push_back(J);
     proxyClass = hs.NewHandle(
         GenerateProxyClass(soa, jclass_loader, class_linker_, "$Proxy1234", interfaces));
   }
@@ -131,7 +144,7 @@ TEST_F(ProxyTest, CheckArtMirrorFieldsOfProxyStaticFields) {
   Handle<mirror::Class> proxyClass0;
   Handle<mirror::Class> proxyClass1;
   {
-    std::vector<mirror::Class*> interfaces;
+    std::vector<Handle<mirror::Class>> interfaces;
     proxyClass0 = hs.NewHandle(
         GenerateProxyClass(soa, jclass_loader, class_linker_, "$Proxy0", interfaces));
     proxyClass1 = hs.NewHandle(

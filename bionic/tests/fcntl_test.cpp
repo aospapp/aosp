@@ -22,8 +22,7 @@
 #include <sys/utsname.h>
 #include <sys/vfs.h>
 
-#include "TemporaryFile.h"
-
+#include <android-base/file.h>
 #include <android-base/stringprintf.h>
 
 // Glibc v2.19 doesn't include these in fcntl.h so host builds will fail without.
@@ -174,10 +173,10 @@ TEST(fcntl, splice) {
 
   TemporaryFile tf;
 
-  ssize_t bytes_read = splice(in, 0, pipe_fds[1], NULL, 8*1024, SPLICE_F_MORE | SPLICE_F_MOVE);
+  ssize_t bytes_read = splice(in, nullptr, pipe_fds[1], nullptr, 8*1024, SPLICE_F_MORE | SPLICE_F_MOVE);
   ASSERT_NE(bytes_read, -1);
 
-  ssize_t bytes_written = splice(pipe_fds[0], NULL, tf.fd, 0, bytes_read, SPLICE_F_MORE | SPLICE_F_MOVE);
+  ssize_t bytes_written = splice(pipe_fds[0], nullptr, tf.fd, nullptr, bytes_read, SPLICE_F_MORE | SPLICE_F_MOVE);
   ASSERT_EQ(bytes_read, bytes_written);
 
   close(pipe_fds[0]);
@@ -200,8 +199,8 @@ TEST(fcntl, vmsplice) {
 
   char buf[BUFSIZ];
   FILE* fp = fdopen(pipe_fds[0], "r");
-  ASSERT_TRUE(fp != NULL);
-  ASSERT_TRUE(fgets(buf, sizeof(buf), fp) != NULL);
+  ASSERT_TRUE(fp != nullptr);
+  ASSERT_TRUE(fgets(buf, sizeof(buf), fp) != nullptr);
   fclose(fp);
   ASSERT_STREQ("hello world\n", buf);
 }
@@ -209,8 +208,8 @@ TEST(fcntl, vmsplice) {
 TEST(fcntl, tee) {
   char expected[BUFSIZ];
   FILE* expected_fp = fopen("/proc/version", "r");
-  ASSERT_TRUE(expected_fp != NULL);
-  ASSERT_TRUE(fgets(expected, sizeof(expected), expected_fp) != NULL);
+  ASSERT_TRUE(expected_fp != nullptr);
+  ASSERT_TRUE(fgets(expected, sizeof(expected), expected_fp) != nullptr);
   fclose(expected_fp);
 
   int pipe1[2];
@@ -223,7 +222,7 @@ TEST(fcntl, tee) {
   ASSERT_NE(in, -1);
 
   // Write /proc/version into pipe1.
-  ssize_t bytes_read = splice(in, 0, pipe1[1], NULL, 8*1024, SPLICE_F_MORE | SPLICE_F_MOVE);
+  ssize_t bytes_read = splice(in, nullptr, pipe1[1], nullptr, 8*1024, SPLICE_F_MORE | SPLICE_F_MOVE);
   ASSERT_NE(bytes_read, -1);
   close(pipe1[1]);
 
@@ -235,14 +234,14 @@ TEST(fcntl, tee) {
   // The out fds of both pipe1 and pipe2 should now contain /proc/version.
   char buf1[BUFSIZ];
   FILE* fp1 = fdopen(pipe1[0], "r");
-  ASSERT_TRUE(fp1 != NULL);
-  ASSERT_TRUE(fgets(buf1, sizeof(buf1), fp1) != NULL);
+  ASSERT_TRUE(fp1 != nullptr);
+  ASSERT_TRUE(fgets(buf1, sizeof(buf1), fp1) != nullptr);
   fclose(fp1);
 
   char buf2[BUFSIZ];
   FILE* fp2 = fdopen(pipe2[0], "r");
-  ASSERT_TRUE(fp2 != NULL);
-  ASSERT_TRUE(fgets(buf2, sizeof(buf2), fp2) != NULL);
+  ASSERT_TRUE(fp2 != nullptr);
+  ASSERT_TRUE(fgets(buf2, sizeof(buf2), fp2) != nullptr);
   fclose(fp2);
 
   ASSERT_STREQ(expected, buf1);
@@ -307,7 +306,7 @@ TEST(fcntl, open_O_TMPFILE_mode) {
   // Without O_EXCL, we're allowed to give this a name later.
   // (This is unrelated to the O_CREAT interaction with O_EXCL.)
   const mode_t perms = S_IRUSR | S_IWUSR;
-  int fd = open(dir.dirname, O_TMPFILE | O_RDWR, perms);
+  int fd = open(dir.path, O_TMPFILE | O_RDWR, perms);
 
   // Ignore kernels without O_TMPFILE support (< 3.11).
   if (fd == -1 && (errno == EISDIR || errno == EINVAL || errno == EOPNOTSUPP)) return;
@@ -322,7 +321,7 @@ TEST(fcntl, open_O_TMPFILE_mode) {
   // On Android if we're not root, we won't be able to create links anyway...
   if (getuid() != 0) return;
 
-  std::string final_path = android::base::StringPrintf("%s/named_now", dir.dirname);
+  std::string final_path = android::base::StringPrintf("%s/named_now", dir.path);
   ASSERT_EQ(0, linkat(AT_FDCWD, android::base::StringPrintf("/proc/self/fd/%d", fd).c_str(),
                       AT_FDCWD, final_path.c_str(),
                       AT_SYMLINK_FOLLOW));
@@ -333,11 +332,11 @@ TEST(fcntl, open_O_TMPFILE_mode) {
   ASSERT_EQ(perms, (sb.st_mode & ~S_IFMT));
 
   // With O_EXCL, you're not allowed to add a name later.
-  fd = open(dir.dirname, O_TMPFILE | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
+  fd = open(dir.path, O_TMPFILE | O_RDWR | O_EXCL, S_IRUSR | S_IWUSR);
   ASSERT_TRUE(fd != -1) << strerror(errno);
   errno = 0;
   ASSERT_EQ(-1, linkat(AT_FDCWD, android::base::StringPrintf("/proc/self/fd/%d", fd).c_str(),
-                       AT_FDCWD, android::base::StringPrintf("%s/no_chance", dir.dirname).c_str(),
+                       AT_FDCWD, android::base::StringPrintf("%s/no_chance", dir.path).c_str(),
                        AT_SYMLINK_FOLLOW));
   ASSERT_EQ(ENOENT, errno);
   ASSERT_EQ(0, close(fd));

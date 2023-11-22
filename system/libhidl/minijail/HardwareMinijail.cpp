@@ -29,7 +29,7 @@ void SetupMinijail(const std::string& seccomp_policy_path) {
     }
 
     struct minijail* jail = minijail_new();
-    if (jail == NULL) {
+    if (jail == nullptr) {
         LOG(FATAL) << "Failed to create minijail.";
     }
 

@@ -10,7 +10,7 @@
 
 #define LOG_TAG "GceWpaSupplicant8Driver"
 
-#include "cutils/log.h"
+#include "log/log.h"
 
 /*
 #define GCE_WPA_SUPPLICANT_DEBUG 0

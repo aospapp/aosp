@@ -20,27 +20,20 @@ import com.android.compatibility.common.util.SystemUtil;
 
 import android.os.UserManager;
 import android.test.InstrumentationTestCase;
-import android.util.Log;
 
 public class SplitSystemUserTest extends InstrumentationTestCase {
 
-    private static final String TAG = SplitSystemUserTest.class.getSimpleName();
-
     public void testSplitSystemUserIsDisabled() throws Exception {
-        // Verify that am get-current-user and UserManager.isSystemUser both return 0
-        String curUser = SystemUtil.runShellCommand(getInstrumentation(), "am get-current-user");
-        Log.i(TAG, "am get-current-user: " + curUser);
-        assertEquals("Test must be running under user 0", "0", trim(curUser));
-        UserManager um = getInstrumentation().getContext().getSystemService(UserManager.class);
-        assertTrue("Test must be running under system user", um.isSystemUser());
-
-        // Check that ro.fw.system_user_split property is not set
+        // Check that ro.fw.system_user_split property is not set.
         String splitEnabledStr = trim(SystemUtil.runShellCommand(getInstrumentation(),
                 "getprop ro.fw.system_user_split"));
         boolean splitEnabled = "y".equals(splitEnabledStr) || "yes".equals(splitEnabledStr)
                 || "1".equals(splitEnabledStr) || "true".equals(splitEnabledStr)
                 || "on".equals(splitEnabledStr);
         assertFalse("ro.fw.system_user_split must not be enabled", splitEnabled);
+
+        // Check UserManager.isSplitSystemUser returns false as well.
+        assertFalse("UserManager.isSplitSystemUser must be false", UserManager.isSplitSystemUser());
     }
 
     private static String trim(String s) {

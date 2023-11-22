@@ -1,8 +1,23 @@
+/*
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #define LOG_TAG "hwservicemanager"
 
 #include "TokenManager.h"
 
-#include <android-base/logging.h>
 #include <functional>
 #include <log/log.h>
 #include <openssl/hmac.h>
@@ -46,6 +61,12 @@ Return<void> TokenManager::createToken(const sp<IBase>& store, createToken_cb hi
     }
 
     uint64_t id = getTokenId(interface.token);
+
+    if (id != interface.id) {
+        ALOGE("Token creation failed.");
+        hidl_cb({});
+        return Void();
+    }
 
     if (id == TOKEN_ID_NONE) {
         hidl_cb({});
@@ -112,19 +133,19 @@ TokenManager::TokenInterface TokenManager::generateToken(const sp<IBase> &interf
 
     uint8_t *hmacOut = HMAC(EVP_sha256(),
                             mKey.data(), mKey.size(),
-                            (uint8_t*) &id, ID_SIZE,
+                            (uint8_t*) &id, sizeof(id),
                             hmac.data(), &hmacSize);
 
     if (hmacOut == nullptr ||
             hmacOut != hmac.data()) {
         ALOGE("Generating token failed, got %p.", hmacOut);
-        return { nullptr, {} };
+        return { nullptr, TOKEN_ID_NONE, {} };
     }
 
     // only care about the first HMAC_SIZE bytes of the HMAC
-    const hidl_vec<uint8_t> &token = TokenManager::getToken(id, hmac.data(), hmacSize);
+    const hidl_vec<uint8_t> &token = makeToken(id, hmac.data(), hmacSize);
 
-    return { interface, token };
+    return { interface, id, token };
 }
 
 __attribute__((optnone))
@@ -142,29 +163,23 @@ bool TokenManager::constantTimeCompare(const hidl_vec<uint8_t> &t1, const hidl_v
 }
 
 uint64_t TokenManager::getTokenId(const hidl_vec<uint8_t> &token) {
-    if (token.size() < ID_SIZE) {
+    uint64_t id = 0;
+
+    if (token.size() < sizeof(id)) {
         return TOKEN_ID_NONE;
     }
 
-    uint64_t id = 0;
-    for (size_t i = 0; i < ID_SIZE; i++) {
-        id |= token[i] << i;
-    }
+    memcpy(&id, token.data(), sizeof(id));
 
     return id;
 }
 
-hidl_vec<uint8_t> TokenManager::getToken(const uint64_t id, const uint8_t *hmac, uint64_t hmacSize) {
+hidl_vec<uint8_t> TokenManager::makeToken(const uint64_t id, const uint8_t *hmac, uint64_t hmacSize) {
     hidl_vec<uint8_t> token;
-    token.resize(ID_SIZE + hmacSize);
+    token.resize(sizeof(id) + hmacSize);
 
-    for (size_t i = 0; i < ID_SIZE; i++) {
-        token[i] = (id >> i) & 0xFF;
-    }
-
-    for (size_t i = 0; i < hmacSize; i++) {
-        token[i + ID_SIZE] = hmac[i];
-    }
+    memcpy(token.data(), &id, sizeof(id));
+    memcpy(token.data() + sizeof(id), hmac, hmacSize);
 
     return token;
 }

@@ -18,34 +18,15 @@
 
 #include "art_method-inl.h"
 #include "base/callee_save_type.h"
+#include "entrypoints/quick/callee_save_frame.h"
 #include "common_runtime_test.h"
 #include "quick/quick_method_frame_info.h"
-
-// asm_support.h declares tests next to the #defines. We use asm_support_check.h to (safely)
-// generate CheckAsmSupportOffsetsAndSizes using gtest's EXPECT for the tests. We also use the
-// RETURN_TYPE, HEADER and FOOTER defines from asm_support_check.h to try to ensure that any
-// tests are actually generated.
-
-// Let CheckAsmSupportOffsetsAndSizes return a size_t (the count).
-#define ASM_SUPPORT_CHECK_RETURN_TYPE size_t
-
-// Declare the counter that will be updated per test.
-#define ASM_SUPPORT_CHECK_HEADER size_t count = 0;
-
-// Use EXPECT_EQ for tests, and increment the counter.
-#define ADD_TEST_EQ(x, y) EXPECT_EQ(x, y); count++;
-
-// Return the counter at the end of CheckAsmSupportOffsetsAndSizes.
-#define ASM_SUPPORT_CHECK_FOOTER return count;
-
-// Generate CheckAsmSupportOffsetsAndSizes().
-#include "asm_support_check.h"
 
 namespace art {
 
 class ArchTest : public CommonRuntimeTest {
  protected:
-  void SetUpRuntimeOptions(RuntimeOptions *options) OVERRIDE {
+  void SetUpRuntimeOptions(RuntimeOptions *options) override {
     // Use 64-bit ISA for runtime setup to make method size potentially larger
     // than necessary (rather than smaller) during CreateCalleeSaveMethod
     options->push_back(std::make_pair("imageinstructionset", "x86_64"));
@@ -54,30 +35,10 @@ class ArchTest : public CommonRuntimeTest {
   // Do not do any of the finalization. We don't want to run any code, we don't need the heap
   // prepared, it actually will be a problem with setting the instruction set to x86_64 in
   // SetUpRuntimeOptions.
-  void FinalizeSetup() OVERRIDE {
+  void FinalizeSetup() override {
     ASSERT_EQ(InstructionSet::kX86_64, Runtime::Current()->GetInstructionSet());
   }
-
-  static void CheckFrameSize(InstructionSet isa, CalleeSaveType type, uint32_t save_size)
-      NO_THREAD_SAFETY_ANALYSIS {
-    Runtime* const runtime = Runtime::Current();
-    Thread* const self = Thread::Current();
-    ScopedObjectAccess soa(self);  // So we can create callee-save methods.
-
-    runtime->SetInstructionSet(isa);
-    ArtMethod* save_method = runtime->CreateCalleeSaveMethod();
-    runtime->SetCalleeSaveMethod(save_method, type);
-    QuickMethodFrameInfo frame_info =  runtime->GetRuntimeMethodFrameInfo(save_method);
-    EXPECT_EQ(frame_info.FrameSizeInBytes(), save_size) << "Expected and real size differs for "
-        << type << " core spills=" << std::hex << frame_info.CoreSpillMask() << " fp spills="
-        << frame_info.FpSpillMask() << std::dec;
-  }
 };
-
-TEST_F(ArchTest, CheckCommonOffsetsAndSizes) {
-  size_t test_count = CheckAsmSupportOffsetsAndSizes();
-  EXPECT_GT(test_count, 0u);
-}
 
 // Grab architecture specific constants.
 namespace arm {
@@ -205,26 +166,20 @@ static constexpr size_t kFrameSizeSaveEverything = FRAME_SIZE_SAVE_EVERYTHING;
 }  // namespace x86_64
 
 // Check architecture specific constants are sound.
-#define TEST_ARCH(Arch, arch)                                       \
-  TEST_F(ArchTest, Arch) {                                          \
-    CheckFrameSize(InstructionSet::k##Arch,                         \
-                   CalleeSaveType::kSaveAllCalleeSaves,             \
-                   arch::kFrameSizeSaveAllCalleeSaves);             \
-    CheckFrameSize(InstructionSet::k##Arch,                         \
-                   CalleeSaveType::kSaveRefsOnly,                   \
-                   arch::kFrameSizeSaveRefsOnly);                   \
-    CheckFrameSize(InstructionSet::k##Arch,                         \
-                   CalleeSaveType::kSaveRefsAndArgs,                \
-                   arch::kFrameSizeSaveRefsAndArgs);                \
-    CheckFrameSize(InstructionSet::k##Arch,                         \
-                   CalleeSaveType::kSaveEverything,                 \
-                   arch::kFrameSizeSaveEverything);                 \
-    CheckFrameSize(InstructionSet::k##Arch,                         \
-                   CalleeSaveType::kSaveEverythingForClinit,        \
-                   arch::kFrameSizeSaveEverythingForClinit);        \
-    CheckFrameSize(InstructionSet::k##Arch,                         \
-                   CalleeSaveType::kSaveEverythingForSuspendCheck,  \
-                   arch::kFrameSizeSaveEverythingForSuspendCheck);  \
+// We expect the return PC to be stored at the highest address slot in the frame.
+#define TEST_ARCH_TYPE(Arch, arch, type)                                              \
+  EXPECT_EQ(arch::Arch##CalleeSaveFrame::GetFrameSize(CalleeSaveType::k##type),       \
+            arch::kFrameSize##type);                                                  \
+  EXPECT_EQ(arch::Arch##CalleeSaveFrame::GetReturnPcOffset(CalleeSaveType::k##type),  \
+            arch::kFrameSize##type - static_cast<size_t>(k##Arch##PointerSize))
+#define TEST_ARCH(Arch, arch)                                   \
+  TEST_F(ArchTest, Arch) {                                      \
+    TEST_ARCH_TYPE(Arch, arch, SaveAllCalleeSaves);             \
+    TEST_ARCH_TYPE(Arch, arch, SaveRefsOnly);                   \
+    TEST_ARCH_TYPE(Arch, arch, SaveRefsAndArgs);                \
+    TEST_ARCH_TYPE(Arch, arch, SaveEverything);                 \
+    TEST_ARCH_TYPE(Arch, arch, SaveEverythingForClinit);        \
+    TEST_ARCH_TYPE(Arch, arch, SaveEverythingForSuspendCheck);  \
   }
 TEST_ARCH(Arm, arm)
 TEST_ARCH(Arm64, arm64)

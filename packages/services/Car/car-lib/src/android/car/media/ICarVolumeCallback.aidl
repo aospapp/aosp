@@ -27,12 +27,12 @@ oneway interface ICarVolumeCallback {
      * The changed-to volume index is not included, the caller is encouraged to
      * get the current group volume index via CarAudioManager.
      */
-    void onGroupVolumeChanged(int groupId, int flags);
+    void onGroupVolumeChanged(int zoneId, int groupId, int flags);
 
     /**
      * This is called whenever the master mute state is changed.
      * The changed-to master mute state is not included, the caller is encouraged to
      * get the current master mute state via AudioManager.
      */
-    void onMasterMuteChanged(int flags);
+    void onMasterMuteChanged(int zoneId, int flags);
 }

@@ -18,7 +18,7 @@ package android.device.collectors;
 import android.app.Instrumentation;
 import android.device.collectors.util.SendToInstrumentation;
 import android.os.Bundle;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;

@@ -1,21 +1,54 @@
 phony {
     name: "shell_and_utilities",
     required: [
+        "shell_and_utilities_system",
+        "shell_and_utilities_recovery",
+        "shell_and_utilities_vendor",
+    ],
+}
+
+phony {
+    name: "shell_and_utilities_system",
+    required: [
+        "auditctl",
         "awk",
-        "awk_vendor",
         "bzip2",
         "grep",
-        "grep_vendor",
         "logwrapper",
-        "logwrapper_vendor",
+        "mini-keyctl",
         "mkshrc",
-        "mkshrc_vendor",
+        "newfs_msdos",
         "reboot",
         "sh",
-        "sh_vendor",
+        "simpleperf",
+        "simpleperf_app_runner",
+        "tcpdump",
         "toolbox",
-        "toolbox_vendor",
         "toybox",
+        "unzip",
+    ],
+}
+
+phony {
+    name: "shell_and_utilities_recovery",
+    required: [
+        "grep.recovery",
+        "sh.recovery",
+        "toolbox.recovery",
+        "toybox.recovery",
+        "unzip.recovery",
+    ],
+}
+
+phony {
+    name: "shell_and_utilities_vendor",
+    required: [
+        "awk_vendor",
+        "grep_vendor",
+        "logwrapper_vendor",
+        "mkshrc_vendor",
+        "sh_vendor",
+        "toolbox_vendor",
         "toybox_vendor",
     ],
 }

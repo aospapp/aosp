@@ -27,18 +27,18 @@
 #include <keymaster/keymaster_context.h>
 #include <keymaster/km_openssl/software_random_source.h>
 #include <keymaster/legacy_support/keymaster1_engine.h>
-#include <keymaster/legacy_support/keymaster_passthrough_key.h>
 #include <keymaster/legacy_support/keymaster_passthrough_engine.h>
+#include <keymaster/legacy_support/keymaster_passthrough_key.h>
 #include <keymaster/soft_key_factory.h>
 
 namespace keymaster {
 
 class Keymaster1PassthroughContext : public KeymasterContext,
-    AttestationRecordContext,
-    public SoftwareRandomSource,
-    public SoftwareKeyBlobMaker{
-public:
-    Keymaster1PassthroughContext(keymaster1_device_t* dev);
+                                     AttestationRecordContext,
+                                     public SoftwareRandomSource,
+                                     public SoftwareKeyBlobMaker {
+  public:
+    explicit Keymaster1PassthroughContext(keymaster1_device_t* dev);
 
     /**
      * Sets the system version as reported by the system *itself*.  This is used to verify that the
@@ -59,7 +59,7 @@ public:
 
     KeyFactory* GetKeyFactory(keymaster_algorithm_t algorithm) const override;
     OperationFactory* GetOperationFactory(keymaster_algorithm_t algorithm,
-                                                  keymaster_purpose_t purpose) const override;
+                                          keymaster_purpose_t purpose) const override;
     keymaster_algorithm_t* GetSupportedAlgorithms(size_t* algorithms_count) const override;
 
     /**
@@ -67,8 +67,8 @@ public:
      * the current format and OS version info.
      */
     keymaster_error_t UpgradeKeyBlob(const KeymasterKeyBlob& key_to_upgrade,
-                                             const AuthorizationSet& upgrade_params,
-                                             KeymasterKeyBlob* upgraded_key) const override;
+                                     const AuthorizationSet& upgrade_params,
+                                     KeymasterKeyBlob* upgraded_key) const override;
 
     /**
      * ParseKeyBlob takes a blob and extracts authorization sets and key material, returning an
@@ -78,8 +78,8 @@ public:
      * This method is called by AndroidKeymaster.
      */
     keymaster_error_t ParseKeyBlob(const KeymasterKeyBlob& blob,
-                                           const AuthorizationSet& additional_params,
-                                           UniquePtr<Key>* key) const override;
+                                   const AuthorizationSet& additional_params,
+                                   UniquePtr<Key>* key) const override;
 
     /**
      * Take whatever environment-specific action is appropriate (if any) to delete the specified
@@ -106,14 +106,12 @@ public:
      */
     KeymasterEnforcement* enforcement_policy() override;
 
-    keymaster_error_t GenerateAttestation(const Key& key,
-                                          const AuthorizationSet& attest_params,
+    keymaster_error_t GenerateAttestation(const Key& key, const AuthorizationSet& attest_params,
                                           CertChainPtr* cert_chain) const override;
 
     keymaster_error_t CreateKeyBlob(const AuthorizationSet& key_description,
                                     const keymaster_key_origin_t origin,
-                                    const KeymasterKeyBlob& key_material,
-                                    KeymasterKeyBlob* blob,
+                                    const KeymasterKeyBlob& key_material, KeymasterKeyBlob* blob,
                                     AuthorizationSet* hw_enforced,
                                     AuthorizationSet* sw_enforced) const override;
 
@@ -133,6 +131,6 @@ public:
     uint32_t os_patchlevel_;
 };
 
-} // namespace keymaster
+}  // namespace keymaster
 
 #endif  // SOFTWARE_CONTEXT_KEYMASTER1_PASSTHROUGH_CONTEXT_H_

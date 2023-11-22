@@ -20,14 +20,16 @@ import android.car.storagemonitoring.IoStatsEntry.Metrics;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.JsonWriter;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * Delta of uid_io stats taken at a sample point.
@@ -35,7 +37,7 @@ import org.json.JSONObject;
  * @hide
  */
 @SystemApi
-public class IoStats implements Parcelable {
+public final class IoStats implements Parcelable {
     public static final Creator<IoStats> CREATOR = new Creator<IoStats>() {
         @Override
         public IoStats createFromParcel(Parcel in) {
@@ -61,6 +63,9 @@ public class IoStats implements Parcelable {
         mUptimeTimestamp = in.readLong();
     }
 
+    /**
+     * @hide
+     */
     public IoStats(JSONObject in) throws JSONException {
         mUptimeTimestamp = in.getInt("uptime");
         JSONArray statsArray = in.getJSONArray("stats");
@@ -76,6 +81,9 @@ public class IoStats implements Parcelable {
         dest.writeLong(mUptimeTimestamp);
     }
 
+    /**
+     * @hide
+     */
     public void writeToJson(JsonWriter jsonWriter) throws IOException {
         jsonWriter.beginObject();
         jsonWriter.name("uptime").value(mUptimeTimestamp);

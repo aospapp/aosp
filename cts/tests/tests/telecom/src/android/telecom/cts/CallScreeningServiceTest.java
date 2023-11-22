@@ -23,7 +23,6 @@ import android.telecom.cts.MockCallScreeningService.CallScreeningServiceCallback
 
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.Call;
@@ -44,7 +43,7 @@ public class CallScreeningServiceTest extends InstrumentationTestCase {
 
     public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE = new PhoneAccountHandle(
             new ComponentName(TestUtils.PACKAGE, TestUtils.COMPONENT),
-            TestUtils.ACCOUNT_ID);
+            TestUtils.ACCOUNT_ID_1);
 
     public static final PhoneAccount TEST_PHONE_ACCOUNT = PhoneAccount.builder(
             TEST_PHONE_ACCOUNT_HANDLE, TestUtils.ACCOUNT_LABEL)
@@ -125,6 +124,7 @@ public class CallScreeningServiceTest extends InstrumentationTestCase {
                         new CallScreeningService.CallResponse.Builder()
                         .setDisallowCall(true)
                         .setRejectCall(true)
+                        .setSilenceCall(false)
                         .setSkipCallLog(true)
                         .setSkipNotification(true)
                         .build();

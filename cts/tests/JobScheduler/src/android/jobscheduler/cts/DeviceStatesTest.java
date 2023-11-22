@@ -18,8 +18,11 @@ package android.jobscheduler.cts;
 
 import android.annotation.TargetApi;
 import android.app.job.JobInfo;
-import android.support.test.InstrumentationRegistry;
+import android.content.pm.PackageManager;
+import android.os.SystemClock;
 import android.support.test.uiautomator.UiDevice;
+
+import androidx.test.InstrumentationRegistry;
 
 /**
  * Make sure the state of {@link android.app.job.JobScheduler} is correct.
@@ -58,12 +61,21 @@ public class DeviceStatesTest extends ConstraintTest {
         assertJobNotReady(STATE_JOB_ID);
     }
 
+    static void waitFor(long waitMillis) throws Exception {
+        final long deadline = SystemClock.uptimeMillis() + waitMillis;
+        do {
+             Thread.sleep(500L);
+        } while (SystemClock.uptimeMillis() < deadline);
+    }
+
     /**
      * Toggle device is dock idle or dock active.
      */
     private void toggleFakeDeviceDockState(final boolean idle) throws Exception {
         mUiDevice.executeShellCommand("cmd jobscheduler trigger-dock-state "
                 + (idle ? "idle" : "active"));
+        // Wait a moment to let that happen before proceeding.
+        waitFor(2_000);
     }
 
     /**
@@ -71,12 +83,12 @@ public class DeviceStatesTest extends ConstraintTest {
      */
     private void toggleScreenOn(final boolean screenon) throws Exception {
         if (screenon) {
-            mUiDevice.wakeUp();
+            mUiDevice.executeShellCommand("input keyevent KEYCODE_WAKEUP");
         } else {
-            mUiDevice.sleep();
+            mUiDevice.executeShellCommand("input keyevent KEYCODE_SLEEP");
         }
         // Since the screen on/off intent is ordered, they will not be sent right now.
-        Thread.sleep(3000);
+        waitFor(2_000);
     }
 
     /**
@@ -84,6 +96,8 @@ public class DeviceStatesTest extends ConstraintTest {
      */
     private void triggerIdleMaintenance() throws Exception {
         mUiDevice.executeShellCommand("cmd activity idle-maintenance");
+        // Wait a moment to let that happen before proceeding.
+        waitFor(2_000);
     }
 
     /**
@@ -135,9 +149,21 @@ public class DeviceStatesTest extends ConstraintTest {
     }
 
     /**
+     * Check if dock state is supported.
+     */
+    private boolean isDockStateSupported() {
+        // Car does not support dock state.
+        return !getContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_AUTOMOTIVE);
+    }
+
+    /**
      * Ensure that device can switch state on dock normally.
      */
     public void testScreenOnDeviceOnDockChangeState() throws Exception {
+        if (!isDockStateSupported()) {
+            return;
+        }
         toggleScreenOn(true /* screen on */);
         verifyActiveState();
 
@@ -155,6 +181,9 @@ public class DeviceStatesTest extends ConstraintTest {
      *  Ensure that ignores this dock intent during screen off.
      */
     public void testScreenOffDeviceOnDockNoChangeState() throws Exception {
+        if (!isDockStateSupported()) {
+            return;
+        }
         toggleScreenOn(false /* screen off */);
         triggerIdleMaintenance();
         verifyIdleState();

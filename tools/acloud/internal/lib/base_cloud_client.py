@@ -13,25 +13,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Base Cloud API Client.
 
 BasicCloudApiCliend does basic setup for a cloud API.
 """
 import httplib
 import logging
-import os
 import socket
 import ssl
 
+# pylint: disable=import-error
 from apiclient import errors as gerrors
 from apiclient.discovery import build
 import apiclient.http
 import httplib2
 from oauth2client import client
 
+from acloud import errors
 from acloud.internal.lib import utils
-from acloud.public import errors
 
 logger = logging.getLogger(__name__)
 
@@ -83,16 +82,21 @@ class BaseCloudApiClient(object):
         """
         http_auth = oauth2_credentials.authorize(httplib2.Http())
         return utils.RetryExceptionType(
-                exception_types=cls.RETRIABLE_AUTH_ERRORS,
-                max_retries=cls.RETRY_COUNT,
-                functor=build,
-                sleep_multiplier=cls.RETRY_SLEEP_MULTIPLIER,
-                retry_backoff_factor=cls.RETRY_BACKOFF_FACTOR,
-                serviceName=cls.API_NAME,
-                version=cls.API_VERSION,
-                http=http_auth)
+            exception_types=cls.RETRIABLE_AUTH_ERRORS,
+            max_retries=cls.RETRY_COUNT,
+            functor=build,
+            sleep_multiplier=cls.RETRY_SLEEP_MULTIPLIER,
+            retry_backoff_factor=cls.RETRY_BACKOFF_FACTOR,
+            serviceName=cls.API_NAME,
+            version=cls.API_VERSION,
+            # This is workaround for a known issue of some veriosn
+            # of api client.
+            # https://github.com/google/google-api-python-client/issues/435
+            cache_discovery=False,
+            http=http_auth)
 
-    def _ShouldRetry(self, exception, retry_http_codes,
+    @staticmethod
+    def _ShouldRetry(exception, retry_http_codes,
                      other_retriable_errors):
         """Check if exception is retriable.
 
@@ -116,12 +120,14 @@ class BaseCloudApiClient(object):
                 logger.debug("_ShouldRetry: Exception code %s not in %s: %s",
                              exception.code, retry_http_codes, str(exception))
 
-        logger.debug(
-            "_ShouldRetry: Exception %s is not one of %s: %s", type(exception),
-            list(other_retriable_errors) + [errors.HttpError], str(exception))
+        logger.debug("_ShouldRetry: Exception %s is not one of %s: %s",
+                     type(exception),
+                     list(other_retriable_errors) + [errors.HttpError],
+                     str(exception))
         return False
 
-    def _TranslateError(self, exception):
+    @staticmethod
+    def _TranslateError(exception):
         """Translate the exception to a desired type.
 
         Args:
@@ -137,8 +143,8 @@ class BaseCloudApiClient(object):
         if isinstance(exception, gerrors.HttpError):
             exception = errors.HttpError.CreateFromHttpError(exception)
             if exception.code == errors.HTTP_NOT_FOUND_CODE:
-                exception = errors.ResourceNotFoundError(exception.code,
-                                                         str(exception))
+                exception = errors.ResourceNotFoundError(
+                    exception.code, str(exception))
         return exception
 
     def ExecuteOnce(self, api):
@@ -185,12 +191,12 @@ class BaseCloudApiClient(object):
         Raises:
           See ExecuteOnce.
         """
-        retry_http_codes = (self.RETRY_HTTP_CODES if retry_http_codes is None
-                            else retry_http_codes)
+        retry_http_codes = (self.RETRY_HTTP_CODES
+                            if retry_http_codes is None else retry_http_codes)
         max_retry = (self.RETRY_COUNT if max_retry is None else max_retry)
         sleep = (self.RETRY_SLEEP_MULTIPLIER if sleep is None else sleep)
-        backoff_factor = (self.RETRY_BACKOFF_FACTOR if backoff_factor is None
-                          else backoff_factor)
+        backoff_factor = (self.RETRY_BACKOFF_FACTOR
+                          if backoff_factor is None else backoff_factor)
         other_retriable_errors = (self.RETRIABLE_ERRORS
                                   if other_retriable_errors is None else
                                   other_retriable_errors)
@@ -212,9 +218,12 @@ class BaseCloudApiClient(object):
             return False
 
         return utils.Retry(
-             _Handler, max_retries=max_retry, functor=self.ExecuteOnce,
-             sleep_multiplier=sleep, retry_backoff_factor=backoff_factor,
-             api=api)
+            _Handler,
+            max_retries=max_retry,
+            functor=self.ExecuteOnce,
+            sleep_multiplier=sleep,
+            retry_backoff_factor=backoff_factor,
+            api=api)
 
     def BatchExecuteOnce(self, requests):
         """Execute requests in a batch.
@@ -237,9 +246,8 @@ class BaseCloudApiClient(object):
 
         batch = apiclient.http.BatchHttpRequest()
         for request_id, request in requests.iteritems():
-            batch.add(request=request,
-                      callback=_CallBack,
-                      request_id=request_id)
+            batch.add(
+                request=request, callback=_CallBack, request_id=request_id)
         batch.execute()
         return results
 
@@ -278,8 +286,8 @@ class BaseCloudApiClient(object):
             max_retry=max_retry or self.RETRY_COUNT,
             sleep=sleep or self.RETRY_SLEEP_MULTIPLIER,
             backoff_factor=backoff_factor or self.RETRY_BACKOFF_FACTOR,
-            other_retriable_errors=other_retriable_errors or
-            self.RETRIABLE_ERRORS)
+            other_retriable_errors=other_retriable_errors
+            or self.RETRIABLE_ERRORS)
         executor.Execute()
         return executor.GetResults()
 

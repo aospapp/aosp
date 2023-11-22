@@ -26,9 +26,7 @@
 #include <sysutils/FrameworkListener.h>
 #include <sysutils/SocketClient.h>
 
-static const int CMD_BUF_SIZE = 1024;
-
-#define UNUSED __attribute__((unused))
+static const int CMD_BUF_SIZE = 4096;
 
 FrameworkListener::FrameworkListener(const char *socketName, bool withSeq) :
                             SocketListener(socketName, true, withSeq) {
@@ -42,11 +40,10 @@ FrameworkListener::FrameworkListener(const char *socketName) :
 
 FrameworkListener::FrameworkListener(int sock) :
                             SocketListener(sock, true) {
-    init(NULL, false);
+    init(nullptr, false);
 }
 
-void FrameworkListener::init(const char *socketName UNUSED, bool withSeq) {
-    mCommands = new FrameworkCommandCollection();
+void FrameworkListener::init(const char* /*socketName*/, bool withSeq) {
     errorRate = 0;
     mCommandCount = 0;
     mWithSeq = withSeq;
@@ -91,11 +88,10 @@ bool FrameworkListener::onDataAvailable(SocketClient *c) {
 }
 
 void FrameworkListener::registerCmd(FrameworkCommand *cmd) {
-    mCommands->push_back(cmd);
+    mCommands.push_back(cmd);
 }
 
 void FrameworkListener::dispatchCommand(SocketClient *cli, char *data) {
-    FrameworkCommandCollection::iterator i;
     int argc = 0;
     char *argv[FrameworkListener::CMD_ARGS_MAX];
     char tmp[CMD_BUF_SIZE];
@@ -154,7 +150,7 @@ void FrameworkListener::dispatchCommand(SocketClient *cli, char *data) {
             if (!haveCmdNum) {
                 char *endptr;
                 int cmdNum = (int)strtol(tmp, &endptr, 0);
-                if (endptr == NULL || *endptr != '\0') {
+                if (endptr == nullptr || *endptr != '\0') {
                     cli->sendMsg(500, "Invalid sequence number", false);
                     goto out;
                 }
@@ -193,9 +189,7 @@ void FrameworkListener::dispatchCommand(SocketClient *cli, char *data) {
         goto out;
     }
 
-    for (i = mCommands->begin(); i != mCommands->end(); ++i) {
-        FrameworkCommand *c = *i;
-
+    for (auto* c : mCommands) {
         if (!strcmp(argv[0], c->getCommand())) {
             if (c->runCommand(cli, argc, argv)) {
                 SLOGW("Handler '%s' error (%s)", c->getCommand(), strerror(errno));

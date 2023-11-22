@@ -20,7 +20,7 @@ import copy
 import logging
 
 # pylint: disable=import-error
-import atest_tf_test_runner
+from test_runners import atest_tf_test_runner
 import atest_utils
 import constants
 
@@ -29,7 +29,7 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
     """TradeFed Test Runner class."""
     NAME = 'VtsTradefedTestRunner'
     EXECUTABLE = 'vts-tradefed'
-    _RUN_CMD = ('{exe} run commandAndExit vts-staging-default -m {test} {args}')
+    _RUN_CMD = ('{exe} run commandAndExit {plan} -m {test} {args}')
     _BUILD_REQ = {'vts-tradefed-standalone'}
     _DEFAULT_ARGS = ['--skip-all-system-status-check',
                      '--skip-preconditions',
@@ -53,16 +53,25 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
                            self).get_test_runner_build_reqs()
         return build_req
 
-    def run_tests(self, test_infos, extra_args):
+    def run_tests(self, test_infos, extra_args, reporter):
         """Run the list of test_infos.
 
         Args:
             test_infos: List of TestInfo.
             extra_args: Dict of extra args to add to test run.
+            reporter: An instance of result_report.ResultReporter.
+
+        Returns:
+            Return code of the process for running tests.
         """
-        run_cmds = self._generate_run_commands(test_infos, extra_args)
+        ret_code = constants.EXIT_CODE_SUCCESS
+        reporter.register_unsupported_runner(self.NAME)
+        run_cmds = self.generate_run_commands(test_infos, extra_args)
         for run_cmd in run_cmds:
-            super(VtsTradefedTestRunner, self).run(run_cmd)
+            proc = super(VtsTradefedTestRunner, self).run(run_cmd,
+                                                          output_to_stdout=True)
+            ret_code |= self.wait_for_subprocess(proc)
+        return ret_code
 
     def _parse_extra_args(self, extra_args):
         """Convert the extra args into something vts-tf can understand.
@@ -88,6 +97,8 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
             if constants.CUSTOM_ARGS == arg:
                 args_to_append.extend(extra_args[arg])
                 continue
+            if constants.DRY_RUN == arg:
+                continue
             args_not_supported.append(arg)
         if args_not_supported:
             logging.info('%s does not support the following args: %s',
@@ -95,7 +106,7 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         return args_to_append
 
     # pylint: disable=arguments-differ
-    def _generate_run_commands(self, test_infos, extra_args):
+    def generate_run_commands(self, test_infos, extra_args):
         """Generate a list of run commands from TestInfos.
 
         Args:
@@ -111,6 +122,7 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
         args.extend(atest_utils.get_result_server_args())
         for test_info in test_infos:
             cmd_dict = copy.deepcopy(self.run_cmd_dict)
+            cmd_dict['plan'] = constants.VTS_STAGING_PLAN
             cmd_dict['test'] = test_info.test_name
             cmd_dict['args'] = ' '.join(args)
             cmds.append(self._RUN_CMD.format(**cmd_dict))

@@ -33,8 +33,11 @@ def compile_suite():
         acts_base_class_test.ActsBaseClassTest,
         acts_test_runner_test.ActsTestRunnerTest,
         acts_android_device_test.ActsAndroidDeviceTest,
-        acts_records_test.ActsRecordsTest, acts_utils_test.ActsUtilsTest,
-        acts_logger_test.ActsLoggerTest, acts_host_utils_test.ActsHostUtilsTest
+        acts_records_test.ActsRecordsTest,
+        acts_utils_test.ByPassSetupWizardTests,
+        acts_utils_test.ConcurrentActionsTest,
+        acts_logger_test.ActsLoggerTest,
+        acts_host_utils_test.ActsHostUtilsTest
     ]
 
     loader = unittest.TestLoader()

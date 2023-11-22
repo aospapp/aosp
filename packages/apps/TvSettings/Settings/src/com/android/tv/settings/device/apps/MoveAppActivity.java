@@ -26,9 +26,10 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.storage.VolumeInfo;
-import android.support.annotation.NonNull;
 import android.util.Log;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
 
 import com.android.tv.settings.device.storage.MoveAppProgressFragment;
 import com.android.tv.settings.device.storage.MoveAppStepFragment;

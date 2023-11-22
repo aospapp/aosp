@@ -23,4 +23,6 @@ import java.lang.Exception;
  */
 public class NormalException extends Exception {
 
+    private static final long serialVersionUID = -123485840742519217L;
+
 }

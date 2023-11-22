@@ -32,7 +32,7 @@ import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
 import android.webkit.MimeTypeMap;
 
-import libcore.io.IoUtils;
+import android.os.FileUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -60,6 +60,11 @@ public class ResourcesProvider extends DocumentsProvider {
         RESOURCES.put("empty_dirs.zip", R.raw.empty_dirs);
         RESOURCES.put("images.zip", R.raw.images);
         RESOURCES.put("no_dirs.zip", R.raw.no_dirs);
+        RESOURCES.put("images.7z", R.raw.images_7z);
+        RESOURCES.put("images.tar", R.raw.images_tar);
+        RESOURCES.put("images.tar.xz", R.raw.images_tar_xz);
+        RESOURCES.put("images.tgz", R.raw.images_tgz);
+        RESOURCES.put("images.tar.br", R.raw.images_tar_br);
     }
 
     private ExecutorService mExecutor = null;
@@ -152,7 +157,7 @@ public class ResourcesProvider extends DocumentsProvider {
             row.add(Document.COLUMN_SIZE, fd.getLength());
         }
         finally {
-            IoUtils.closeQuietly(fd);
+            FileUtils.closeQuietly(fd);
         }
     }
 }

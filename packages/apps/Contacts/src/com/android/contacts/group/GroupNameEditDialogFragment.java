@@ -27,8 +27,8 @@ import android.content.Loader;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.provider.ContactsContract.Groups;
-import android.support.design.widget.TextInputLayout;
-import android.support.v7.app.AlertDialog;
+import com.google.android.material.textfield.TextInputLayout;
+import androidx.appcompat.app.AlertDialog;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -318,6 +318,9 @@ public final class GroupNameEditDialogFragment extends DialogFragment implements
     }
 
     private void showInputMethod(View view) {
+        if (getActivity() == null) {
+            return;
+        }
         final InputMethodManager imm = (InputMethodManager) getActivity().getSystemService(
                 Context.INPUT_METHOD_SERVICE);
         if (imm != null) {

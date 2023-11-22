@@ -16,6 +16,8 @@
 
 package android.car.vms;
 
+import android.annotation.NonNull;
+import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 
@@ -27,39 +29,54 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * The list of layers with subscribers.
+ * Subscription state of Vehicle Map Service layers.
+ *
+ * The subscription state is used by publishers to determine which layers to publish data for, as
+ * any data published to a layer without subscribers will be dropped by the Vehicle Map Service.
+ *
+ * Sequence numbers are used to indicate the succession of subscription states, and increase
+ * monotonically with each change in subscriptions. They must be used by clients to ignore states
+ * that are received out-of-order.
  *
  * @hide
  */
+@SystemApi
 public final class VmsSubscriptionState implements Parcelable {
     private final int mSequenceNumber;
     private final Set<VmsLayer> mLayers;
     private final Set<VmsAssociatedLayer> mSubscribedLayersFromPublishers;
 
     /**
-     * Construcs a summary of the state of the current subscriptions for publishers to consume
+     * Constructs a summary of the state of the current subscriptions for publishers to consume
      * and adjust which layers that the are publishing.
      */
     public VmsSubscriptionState(int sequenceNumber,
-                                Set<VmsLayer> subscribedLayers,
-                                Set<VmsAssociatedLayer> layersFromPublishers) {
+            @NonNull Set<VmsLayer> subscribedLayers,
+            @NonNull Set<VmsAssociatedLayer> layersFromPublishers) {
         mSequenceNumber = sequenceNumber;
         mLayers = Collections.unmodifiableSet(subscribedLayers);
         mSubscribedLayersFromPublishers = Collections.unmodifiableSet(layersFromPublishers);
     }
 
     /**
-     * Returns the sequence number assigned by the VMS service. Sequence numbers are
-     * monotonically increasing and help clients ignore potential out-of-order states.
+     * @return sequence number of the subscription state
      */
     public int getSequenceNumber() {
         return mSequenceNumber;
     }
 
+    /**
+     * @return set of layers with subscriptions to all publishers
+     */
+    @NonNull
     public Set<VmsLayer> getLayers() {
         return mLayers;
     }
 
+    /**
+     * @return set of layers with subscriptions to a subset of publishers
+     */
+    @NonNull
     public Set<VmsAssociatedLayer> getAssociatedLayers() {
         return mSubscribedLayersFromPublishers;
     }

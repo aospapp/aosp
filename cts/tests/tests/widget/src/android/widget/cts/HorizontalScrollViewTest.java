@@ -28,20 +28,23 @@ import static org.mockito.Mockito.verify;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Rect;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.View;
 import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
+import android.widget.EdgeEffect;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.TextView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.WidgetTestUtils;
@@ -767,6 +770,26 @@ public class HorizontalScrollViewTest {
         assertTrue(myScrollViewCustom.getLeftFadingEdgeStrength() >= 0.0f);
         assertTrue(myScrollViewCustom.getRightFadingEdgeStrength() <= 1.0f);
         assertTrue(myScrollViewCustom.getRightFadingEdgeStrength() >= 0.0f);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testEdgeEffectColors() {
+        int defaultColor = new EdgeEffect(mScrollViewRegular.getContext()).getColor();
+        assertEquals(mScrollViewRegular.getLeftEdgeEffectColor(), defaultColor);
+        assertEquals(mScrollViewRegular.getRightEdgeEffectColor(), defaultColor);
+
+        mScrollViewRegular.setEdgeEffectColor(Color.BLUE);
+        assertEquals(mScrollViewRegular.getLeftEdgeEffectColor(), Color.BLUE);
+        assertEquals(mScrollViewRegular.getRightEdgeEffectColor(), Color.BLUE);
+
+        mScrollViewRegular.setLeftEdgeEffectColor(Color.RED);
+        assertEquals(mScrollViewRegular.getLeftEdgeEffectColor(), Color.RED);
+        assertEquals(mScrollViewRegular.getRightEdgeEffectColor(), Color.BLUE);
+
+        mScrollViewRegular.setRightEdgeEffectColor(Color.GREEN);
+        assertEquals(mScrollViewRegular.getLeftEdgeEffectColor(), Color.RED);
+        assertEquals(mScrollViewRegular.getRightEdgeEffectColor(), Color.GREEN);
     }
 
     private boolean isInRange(int current, int from, int to) {

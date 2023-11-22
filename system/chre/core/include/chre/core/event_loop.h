@@ -20,6 +20,7 @@
 #include "chre/core/event.h"
 #include "chre/core/nanoapp.h"
 #include "chre/core/timer_pool.h"
+#include "chre/platform/atomic.h"
 #include "chre/platform/mutex.h"
 #include "chre/platform/platform_nanoapp.h"
 #include "chre/platform/power_control_manager.h"
@@ -48,6 +49,8 @@ namespace chre {
  */
 class EventLoop : public NonCopyable {
  public:
+  EventLoop() : mRunning(true) {}
+
   /**
    * Synchronous callback used with forEachNanoapp
    */
@@ -242,10 +245,8 @@ class EventLoop : public NonCopyable {
    * @param buffer Pointer to the start of the buffer.
    * @param bufferPos Pointer to buffer position to start the print (in-out).
    * @param size Size of the buffer in bytes.
-   *
-   * @return true if entire log printed, false if overflow or error.
    */
-  bool logStateToBuffer(char *buffer, size_t *bufferPos,
+  void logStateToBuffer(char *buffer, size_t *bufferPos,
                         size_t bufferSize) const;
 
 
@@ -291,8 +292,8 @@ class EventLoop : public NonCopyable {
   //! distributed out to apps yet.
   FixedSizeBlockingQueue<Event *, kMaxUnscheduledEventCount> mEvents;
 
-  // TODO: should probably be atomic to be fully correct
-  volatile bool mRunning = true;
+  //! Indicates whether the event loop is running.
+  AtomicBool mRunning;
 
   //! The nanoapp that is currently executing - must be set any time we call
   //! into the nanoapp's entry points or callbacks
@@ -308,7 +309,14 @@ class EventLoop : public NonCopyable {
   size_t mMaxEventPoolUsage = 0;
 
   /**
-   * Allolcates an event from the event pool and post it.
+   * Modifies the run loop state so it no longer iterates on new events. This
+   * should only be invoked by the event loop when it is ready to stop
+   * processing new events.
+   */
+  void onStopComplete();
+
+  /**
+   * Allocates an event from the event pool and post it.
    *
    * @return true if the event has been successfully allocated and posted.
    *

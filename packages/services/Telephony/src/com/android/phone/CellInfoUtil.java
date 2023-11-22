@@ -26,7 +26,6 @@ import android.telephony.CellInfoCdma;
 import android.telephony.CellInfoGsm;
 import android.telephony.CellInfoLte;
 import android.telephony.CellInfoWcdma;
-import android.telephony.TelephonyManager;
 import android.text.BidiFormatter;
 import android.text.TextDirectionHeuristics;
 import android.text.TextUtils;
@@ -44,47 +43,6 @@ public final class CellInfoUtil {
     private static final String TAG = "NetworkSelectSetting";
 
     private CellInfoUtil() {
-    }
-
-    /**
-     * Get the network type from a CellInfo. Network types include
-     * {@link TelephonyManager#NETWORK_TYPE_LTE}, {@link TelephonyManager#NETWORK_TYPE_UMTS},
-     * {@link TelephonyManager#NETWORK_TYPE_GSM}, {@link TelephonyManager#NETWORK_TYPE_CDMA} and
-     * {@link TelephonyManager#NETWORK_TYPE_UNKNOWN}
-     * @return network types
-     */
-    public static int getNetworkType(CellInfo cellInfo) {
-        if (cellInfo instanceof CellInfoLte) {
-            return TelephonyManager.NETWORK_TYPE_LTE;
-        } else if (cellInfo instanceof CellInfoWcdma) {
-            return TelephonyManager.NETWORK_TYPE_UMTS;
-        } else if (cellInfo instanceof CellInfoGsm) {
-            return TelephonyManager.NETWORK_TYPE_GSM;
-        } else if (cellInfo instanceof CellInfoCdma) {
-            return TelephonyManager.NETWORK_TYPE_CDMA;
-        } else {
-            Log.e(TAG, "Invalid CellInfo type");
-            return TelephonyManager.NETWORK_TYPE_UNKNOWN;
-        }
-    }
-
-    /**
-     * Get signal level as an int from 0..4.
-     * @return Signal strength level
-     */
-    public static int getLevel(CellInfo cellInfo) {
-        if (cellInfo instanceof CellInfoLte) {
-            return ((CellInfoLte) cellInfo).getCellSignalStrength().getLevel();
-        } else if (cellInfo instanceof CellInfoWcdma) {
-            return ((CellInfoWcdma) cellInfo).getCellSignalStrength().getLevel();
-        } else if (cellInfo instanceof CellInfoGsm) {
-            return ((CellInfoGsm) cellInfo).getCellSignalStrength().getLevel();
-        } else if (cellInfo instanceof CellInfoCdma) {
-            return ((CellInfoCdma) cellInfo).getCellSignalStrength().getLevel();
-        } else {
-            Log.e(TAG, "Invalid CellInfo type");
-            return 0;
-        }
     }
 
     /**
@@ -167,6 +125,35 @@ public final class CellInfoUtil {
             oi = new OperatorInfo("", "", "");
         }
         return oi;
+    }
+
+    /**
+     * Creates a CellInfo object from OperatorInfo. GsmCellInfo is used here only because
+     * operatorInfo does not contain technology type while CellInfo is an abstract object that
+     * requires to specify technology type. It doesn't matter which CellInfo type to use here, since
+     * we only want to wrap the operator info and PLMN to a CellInfo object.
+     */
+    public static CellInfo convertOperatorInfoToCellInfo(OperatorInfo operatorInfo) {
+        String operatorNumeric = operatorInfo.getOperatorNumeric();
+        String mcc = null;
+        String mnc = null;
+        if (operatorNumeric != null && operatorNumeric.matches("^[0-9]{5,6}$")) {
+            mcc = operatorNumeric.substring(0, 3);
+            mnc = operatorNumeric.substring(3);
+        }
+        CellIdentityGsm cig = new CellIdentityGsm(
+                Integer.MAX_VALUE /* lac */,
+                Integer.MAX_VALUE /* cid */,
+                Integer.MAX_VALUE /* arfcn */,
+                Integer.MAX_VALUE /* bsic */,
+                mcc,
+                mnc,
+                operatorInfo.getOperatorAlphaLong(),
+                operatorInfo.getOperatorAlphaShort());
+
+        CellInfoGsm ci = new CellInfoGsm();
+        ci.setCellIdentity(cig);
+        return ci;
     }
 
     /** Checks whether the network operator is forbidden. */

@@ -14,49 +14,38 @@
 
 package build
 
-import "testing"
+import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
 
-func TestStripAnsiEscapes(t *testing.T) {
-	testcases := []struct {
-		input  string
-		output string
-	}{
-		{
-			"",
-			"",
-		},
-		{
-			"This is a test",
-			"This is a test",
-		},
-		{
-			"interrupted: \x1b[12",
-			"interrupted: ",
-		},
-		{
-			"other \x1bescape \x1b",
-			"other \x1bescape \x1b",
-		},
-		{ // from pretty-error macro
-			"\x1b[1mart/Android.mk: \x1b[31merror:\x1b[0m\x1b[1m art: test error \x1b[0m",
-			"art/Android.mk: error: art: test error ",
-		},
-		{ // from envsetup.sh make wrapper
-			"\x1b[0;31m#### make failed to build some targets (2 seconds) ####\x1b[00m",
-			"#### make failed to build some targets (2 seconds) ####",
-		},
-		{ // from clang (via ninja testcase)
-			"\x1b[1maffixmgr.cxx:286:15: \x1b[0m\x1b[0;1;35mwarning: \x1b[0m\x1b[1musing the result... [-Wparentheses]\x1b[0m",
-			"affixmgr.cxx:286:15: warning: using the result... [-Wparentheses]",
-		},
+	"android/soong/ui/logger"
+)
+
+func TestEnsureEmptyDirs(t *testing.T) {
+	ctx := testContext()
+	defer logger.Recover(func(err error) {
+		t.Error(err)
+	})
+
+	tmpDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, tc := range testcases {
-		got := string(stripAnsiEscapes([]byte(tc.input)))
-		if got != tc.output {
-			t.Errorf("output strings didn't match\n"+
-				"input: %#v\n"+
-				" want: %#v\n"+
-				"  got: %#v", tc.input, tc.output, got)
+	defer func() {
+		err := os.RemoveAll(tmpDir)
+		if err != nil {
+			t.Errorf("Error removing tmpDir: %v", err)
 		}
+	}()
+
+	ensureEmptyDirectoriesExist(ctx, filepath.Join(tmpDir, "a/b"))
+
+	err = os.Chmod(filepath.Join(tmpDir, "a"), 0555)
+	if err != nil {
+		t.Fatalf("Failed to chown: %v", err)
 	}
+
+	ensureEmptyDirectoriesExist(ctx, filepath.Join(tmpDir, "a"))
 }

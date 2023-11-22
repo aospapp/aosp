@@ -41,19 +41,25 @@ else
 fi
 checker="${progdir}/../tools/checker/checker.py"
 export JAVA="java"
-export JAVAC="javac -g -Xlint:-options"
+export JAVAC="javac -g -Xlint:-options -source 1.8 -target 1.8"
 export RUN="${progdir}/etc/run-test-jar"
 export DEX_LOCATION=/data/run-test/${test_dir}
 export NEED_DEX="true"
-export USE_D8="false"
-export USE_JACK="false"
+export USE_D8="true"
 export USE_DESUGAR="true"
 export SMALI_ARGS=""
 
+# If d8 was not set by the environment variable, assume it is in the path.
+if [ -z "$D8" ]; then
+  export D8="d8"
+fi
+
 # If dx was not set by the environment variable, assume it is in the path.
 if [ -z "$DX" ]; then
-  export DX="dx"
+  export DX="d8-compat-dx"
 fi
+
+export DEXMERGER="$D8"
 
 # If jasmin was not set by the environment variable, assume it is in the path.
 if [ -z "$JASMIN" ]; then
@@ -65,32 +71,24 @@ if [ -z "$SMALI" ]; then
   export SMALI="smali"
 fi
 
-# If dexmerger was not set by the environment variable, assume it is in the path.
-if [ -z "$DXMERGER" ]; then
-  export DXMERGER="dexmerger"
-fi
-
-# If jack was not set by the environment variable, assume it is in the path.
-if [ -z "$JACK" ]; then
-  export JACK="jack"
-fi
-
 # ANDROID_BUILD_TOP is not set in a build environment.
 if [ -z "$ANDROID_BUILD_TOP" ]; then
     export ANDROID_BUILD_TOP=$oldwd
 fi
 
+# OUT_DIR defaults to out, and may be relative to $ANDROID_BUILD_TOP.
+# Convert it to an absolute path, since we cd into the tmp_dir to run the tests.
+export OUT_DIR=${OUT_DIR:-out}
+if [[ "$OUT_DIR" != /* ]]; then
+    export OUT_DIR=$ANDROID_BUILD_TOP/$OUT_DIR
+fi
+
 # ANDROID_HOST_OUT is not set in a build environment.
 if [ -z "$ANDROID_HOST_OUT" ]; then
-    export ANDROID_HOST_OUT=${OUT_DIR:-$ANDROID_BUILD_TOP/out}/host/linux-x86
+    export ANDROID_HOST_OUT=${OUT_DIR}/host/linux-x86
 fi
 
-# If JACK_CLASSPATH is not set, assume it only contains core-libart.
-if [ -z "$JACK_CLASSPATH" ]; then
-  export JACK_CLASSPATH="${ANDROID_HOST_OUT}/../common/obj/JAVA_LIBRARIES/core-libart-hostdex_intermediates/classes.jack:${ANDROID_HOST_OUT}/../common/obj/JAVA_LIBRARIES/core-oj-hostdex_intermediates/classes.jack"
-fi
-
-export JACK="$JACK -g -cp $JACK_CLASSPATH"
+host_lib_root=${ANDROID_HOST_OUT}
 
 # Allow changing DESUGAR script to something else, or to disable it with DESUGAR=false.
 if [ -z "$DESUGAR" ]; then
@@ -118,6 +116,8 @@ export ZIPALIGN
 if [ -z "$HIDDENAPI" ]; then
   export HIDDENAPI="${ANDROID_HOST_OUT}/bin/hiddenapi"
 fi
+
+chroot=
 
 info="info.txt"
 build="build"
@@ -157,16 +157,21 @@ jvmti_redefine_stress="false"
 strace="false"
 always_clean="no"
 never_clean="no"
-have_dex2oat="yes"
-have_patchoat="yes"
 have_image="yes"
-multi_image_suffix=""
 android_root="/system"
 bisection_search="no"
 suspend_timeout="500000"
-# By default we will use optimizing.
-image_args=""
 image_suffix=""
+run_optimizing="false"
+
+# To cause tests to fail fast, limit the file sizes created by dx, dex2oat and
+# ART output to approximately 128MB. This should be more than sufficient
+# for any test while still catching cases of runaway output.
+# Set a hard limit to encourage ART developers to increase the ulimit here if
+# needed to support a test case rather than resetting the limit in the run
+# script for the particular test in question. Adjust this if needed for
+# particular configurations.
+file_ulimit=128000
 
 while true; do
     if [ "x$1" = "x--host" ]; then
@@ -190,10 +195,8 @@ while true; do
         target_mode="no"
         DEX_LOCATION="$tmp_dir"
         runtime="jvm"
-        image_args=""
         prebuild_mode="no"
         NEED_DEX="false"
-        USE_JACK="false"
         run_args="${run_args} --jvm"
         shift
     elif [ "x$1" = "x-O" ]; then
@@ -205,20 +208,8 @@ while true; do
         lib="libdvm.so"
         runtime="dalvik"
         shift
-    elif [ "x$1" = "x--no-dex2oat" ]; then
-        have_dex2oat="no"
-        shift
-    elif [ "x$1" = "x--no-patchoat" ]; then
-        have_patchoat="no"
-        shift
     elif [ "x$1" = "x--no-image" ]; then
         have_image="no"
-        shift
-    elif [ "x$1" = "x--multi-image" ]; then
-        multi_image_suffix="-multi"
-        shift
-    elif [ "x$1" = "x--pic-test" ]; then
-        run_args="${run_args} --pic-test"
         shift
     elif [ "x$1" = "x--relocate" ]; then
         relocate="yes"
@@ -315,6 +306,18 @@ while true; do
         run_args="${run_args} --gdb"
         dev_mode="yes"
         shift
+    elif [ "x$1" = "x--gdbserver-bin" ]; then
+        shift
+        run_args="${run_args} --gdbserver-bin $1"
+        shift
+    elif [ "x$1" = "x--gdbserver-port" ]; then
+        shift
+        run_args="${run_args} --gdbserver-port $1"
+        shift
+    elif [ "x$1" = "x--gdbserver" ]; then
+        run_args="${run_args} --gdbserver"
+        dev_mode="yes"
+        shift
     elif [ "x$1" = "x--strace" ]; then
         strace="yes"
         run_args="${run_args} --timeout 1800 --invoke-with strace --invoke-with -o --invoke-with $tmp_dir/$strace_output"
@@ -327,17 +330,20 @@ while true; do
         image_suffix="-interpreter"
         shift
     elif [ "x$1" = "x--jit" ]; then
-        image_args="--jit"
+        run_args="${run_args} --jit"
         image_suffix="-interpreter"
         shift
+    elif [ "x$1" = "x--baseline" ]; then
+        run_args="${run_args} --baseline"
+        shift
     elif [ "x$1" = "x--optimizing" ]; then
-        image_args="-Xcompiler-option --compiler-backend=Optimizing"
+        run_optimizing="true"
         shift
     elif [ "x$1" = "x--no-verify" ]; then
         run_args="${run_args} --no-verify"
         shift
     elif [ "x$1" = "x--verify-soft-fail" ]; then
-        image_args="--verify-soft-fail"
+        run_args="${run_args} --verify-soft-fail"
         image_suffix="-interp-ac"
         shift
     elif [ "x$1" = "x--no-optimize" ]; then
@@ -363,15 +369,6 @@ while true; do
     elif [ "x$1" = "x--build-only" ]; then
         build_only="yes"
         shift
-    elif [ "x$1" = "x--build-with-d8" ]; then
-        USE_D8="true"
-        shift
-    elif [ "x$1" = "x--build-with-javac-dx" ]; then
-        USE_JACK="false"
-        shift
-    elif [ "x$1" = "x--build-with-jack" ]; then
-        USE_JACK="true"
-        shift
     elif [ "x$1" = "x--output-path" ]; then
         shift
         tmp_dir=$1
@@ -380,6 +377,16 @@ while true; do
             usage="yes"
             break
         fi
+        shift
+    elif [ "x$1" = "x--chroot" ]; then
+        shift
+        if [ "x$1" = "x" ]; then
+            echo "$0 missing argument to --chroot" 1>&2
+            usage="yes"
+            break
+        fi
+        chroot="$1"
+        run_args="${run_args} --chroot $1"
         shift
     elif [ "x$1" = "x--android-root" ]; then
         shift
@@ -391,6 +398,15 @@ while true; do
         android_root="$1"
         run_args="${run_args} --android-root $1"
         shift
+    elif [ "x$1" = "x--android-runtime-root" ]; then
+        shift
+        if [ "x$1" = "x" ]; then
+            echo "$0 missing argument to --android-runtime-root" 1>&2
+            usage="yes"
+            break
+        fi
+        run_args="${run_args} --android-runtime-root $1"
+        shift
     elif [ "x$1" = "x--update" ]; then
         update_mode="yes"
         shift
@@ -400,6 +416,35 @@ while true; do
     elif [ "x$1" = "x--64" ]; then
         run_args="${run_args} --64"
         suffix64="64"
+        shift
+    elif [ "x$1" = "x--bionic" ]; then
+        # soong linux_bionic builds are 64bit only.
+        run_args="${run_args} --bionic --host --64"
+        suffix64="64"
+        target_mode="no"
+        DEX_LOCATION=$tmp_dir
+        host_lib_root=$OUT_DIR/soong/host/linux_bionic-x86
+        shift
+    elif [ "x$1" = "x--runtime-extracted-zipapex" ]; then
+        shift
+        # TODO Should we allow the java.library.path to search the zipapex too?
+        # Not needed at the moment and adding it will be complicated so for now
+        # we'll ignore this.
+        run_args="${run_args} --host --runtime-extracted-zipapex $1"
+        target_mode="no"
+        DEX_LOCATION=$tmp_dir
+        shift
+    elif [ "x$1" = "x--runtime-zipapex" ]; then
+        shift
+        # TODO Should we allow the java.library.path to search the zipapex too?
+        # Not needed at the moment and adding it will be complicated so for now
+        # we'll ignore this.
+        run_args="${run_args} --host --runtime-zipapex $1"
+        target_mode="no"
+        DEX_LOCATION=$tmp_dir
+        # apex_payload.zip is quite large we need a high enough ulimit to
+        # extract it. 512mb should be good enough.
+        file_ulimit=512000
         shift
     elif [ "x$1" = "x--trace" ]; then
         trace="true"
@@ -450,7 +495,14 @@ while true; do
     fi
 done
 
-run_args="${run_args} ${image_args}"
+if [ "$usage" = "no" -a "x$1" = "x" ]; then
+  echo "missing test to run" 1>&2
+  usage="yes"
+fi
+
+# The DEX_LOCATION with the chroot prefix, if any.
+chroot_dex_location="$chroot$DEX_LOCATION"
+
 # Allocate file descriptor real_stderr and redirect it to the shell's error
 # output (fd 2).
 if [ ${BASH_VERSINFO[1]} -ge 4 ] && [ ${BASH_VERSINFO[2]} -ge 1 ]; then
@@ -477,7 +529,7 @@ function err_echo() {
 # tmp_dir may be relative, resolve.
 #
 # Cannot use realpath, as it does not exist on Mac.
-# Cannot us a simple "cd", as the path might not be created yet.
+# Cannot use a simple "cd", as the path might not be created yet.
 # Cannot use readlink -m, as it does not exist on Mac.
 # Fallback to nuclear option:
 noncanonical_tmp_dir=$tmp_dir
@@ -530,12 +582,27 @@ fi
 # Most interesting target architecture variables are Makefile variables, not environment variables.
 # Try to map the suffix64 flag and what we find in ${ANDROID_PRODUCT_OUT}/data/art-test to an architecture name.
 function guess_target_arch_name() {
-    grep32bit=`ls ${ANDROID_PRODUCT_OUT}/data/art-test | grep -E '^(arm|x86|mips)$'`
-    grep64bit=`ls ${ANDROID_PRODUCT_OUT}/data/art-test | grep -E '^(arm64|x86_64|mips64)$'`
-    if [ "x${suffix64}" = "x64" ]; then
-        target_arch_name=${grep64bit}
+    # Check whether this is a device with native bridge. Currently this is hardcoded
+    # to x86 + arm.
+    x86_arm=`ls ${ANDROID_PRODUCT_OUT}/data/art-test | sort | grep -E '^(arm|x86)$'`
+    # Collapse line-breaks into spaces
+    x86_arm=$(echo $x86_arm)
+    if [ "x$x86_arm" = "xarm x86" ] ; then
+        err_echo "Native-bridge configuration detected."
+        # We only support the main arch for tests.
+        if [ "x${suffix64}" = "x64" ]; then
+            target_arch_name=""
+        else
+            target_arch_name=x86
+        fi
     else
-        target_arch_name=${grep32bit}
+        grep32bit=`ls ${ANDROID_PRODUCT_OUT}/data/art-test | grep -E '^(arm|x86|mips)$'`
+        grep64bit=`ls ${ANDROID_PRODUCT_OUT}/data/art-test | grep -E '^(arm64|x86_64|mips64)$'`
+        if [ "x${suffix64}" = "x64" ]; then
+            target_arch_name=${grep64bit}
+        else
+            target_arch_name=${grep32bit}
+        fi
     fi
 }
 
@@ -551,17 +618,15 @@ if [ "$target_mode" = "no" ]; then
     if [ "$runtime" = "jvm" ]; then
         if [ "$prebuild_mode" = "yes" ]; then
             err_echo "--prebuild with --jvm is unsupported"
-            exit 1;
+            exit 1
+        fi
+    else
+        # ART/Dalvik host mode.
+        if [ -n "$chroot" ]; then
+            err_echo "--chroot with --host is unsupported"
+            exit 1
         fi
     fi
-fi
-
-if [ "$have_patchoat" = "no" ]; then
-  run_args="${run_args} --no-patchoat"
-fi
-
-if [ "$have_dex2oat" = "no" ]; then
-  run_args="${run_args} --no-dex2oat"
 fi
 
 if [ ! "$runtime" = "jvm" ]; then
@@ -579,12 +644,12 @@ if [ "$runtime" = "dalvik" ]; then
 elif [ "$runtime" = "art" ]; then
     if [ "$target_mode" = "no" ]; then
         guess_host_arch_name
-        run_args="${run_args} --boot ${ANDROID_HOST_OUT}/framework/core${image_suffix}${multi_image_suffix}.art"
-        run_args="${run_args} --runtime-option -Djava.library.path=${ANDROID_HOST_OUT}/lib${suffix64}:${ANDROID_HOST_OUT}/nativetest${suffix64}"
+        run_args="${run_args} --boot ${ANDROID_HOST_OUT}/framework/core${image_suffix}.art"
+        run_args="${run_args} --runtime-option -Djava.library.path=${host_lib_root}/lib${suffix64}:${host_lib_root}/nativetest${suffix64}"
     else
         guess_target_arch_name
         run_args="${run_args} --runtime-option -Djava.library.path=/data/nativetest${suffix64}/art/${target_arch_name}"
-        run_args="${run_args} --boot /data/art-test/core${image_suffix}${multi_image_suffix}.art"
+        run_args="${run_args} --boot /data/art-test/core${image_suffix}.art"
     fi
     if [ "$relocate" = "yes" ]; then
       run_args="${run_args} --relocate"
@@ -619,14 +684,10 @@ if [ "$bisection_search" = "yes" -a "$prebuild_mode" = "yes" ]; then
     usage="yes"
 fi
 
-if [ "$bisection_search" = "yes" -a "$have_dex2oat" = "no" ]; then
-    err_echo "--bisection-search and --no-dex2oat are mutually exclusive"
-    usage="yes"
-fi
-
-if [ "$bisection_search" = "yes" -a "$have_patchoat" = "no" ]; then
-    err_echo "--bisection-search and --no-patchoat are mutually exclusive"
-    usage="yes"
+# TODO: Chroot-based bisection search is not supported yet (see below); implement it.
+if [ "$bisection_search" = "yes" -a -n "$chroot" ]; then
+  err_echo "--chroot with --bisection-search is unsupported"
+  exit 1
 fi
 
 if [ "$usage" = "no" ]; then
@@ -647,13 +708,6 @@ if [ "$usage" = "no" ]; then
     # Shift to get rid of the test name argument. The rest of the arguments
     # will get passed to the test run.
     shift
-fi
-
-# For building with javac and dx always use Java 7. The dx compiler
-# only support byte codes from Java 7 or earlier (class file major
-# version 51 or lower).
-if [ "$USE_JACK" != "true" ] && [ "$NEED_DEX" = "true" ]; then
-  export JAVAC="${JAVAC} -source 1.7 -target 1.7"
 fi
 
 if [ "$usage" = "yes" ]; then
@@ -683,11 +737,13 @@ if [ "$usage" = "yes" ]; then
         echo "    --with-agent <agent>  Run the test with the given agent loaded with -agentpath:"
         echo "    --debuggable          Whether to compile Java code for a debugger."
         echo "    --gdb                 Run under gdb; incompatible with some tests."
-        echo "    --gdb-arg             Pass an option to gdb."
+        echo "    --gdbserver           Start gdbserver (defaults to port :5039)."
+        echo "    --gdbserver-port <port>"
+        echo "                          Start gdbserver with the given COMM (see man gdbserver)."
+        echo "    --gdbserver-bin <binary>"
+        echo "                          Use the given binary as gdbserver."
+        echo "    --gdb-arg             Pass an option to gdb or gdbserver."
         echo "    --build-only          Build test files only (off by default)."
-        echo "    --build-with-d8       Build test files with javac and d8 (off by default)."
-        echo "    --build-with-javac-dx Build test files with javac and dx (off by default)."
-        echo "    --build-with-jack     Build test files with jack and jill (on by default)."
         echo "    --interpreter         Enable interpreter only mode (off by default)."
         echo "    --jit                 Enable jit (off by default)."
         echo "    --optimizing          Enable optimizing compiler (default)."
@@ -701,7 +757,6 @@ if [ "$usage" = "yes" ]; then
              "If used, then the"
         echo "                          other runtime options are ignored."
         echo "    --no-dex2oat          Run as though dex2oat was failing."
-        echo "    --no-patchoat         Run as though patchoat was failing."
         echo "    --prebuild            Run dex2oat on the files before starting test. (default)"
         echo "    --no-prebuild         Do not run dex2oat on the files before starting"
         echo "                          the test."
@@ -722,6 +777,12 @@ if [ "$usage" = "yes" ]; then
         echo "    --output-path [path]  Location where to store the build" \
              "files."
         echo "    --64                  Run the test in 64-bit mode"
+        echo "    --bionic              Use the (host, 64-bit only) linux_bionic libc runtime"
+        echo "    --runtime-zipapex [file]"
+        echo "                          Use the given zipapex file to provide runtime binaries"
+        echo "    --runtime-extracted-zipapex [dir]"
+        echo "                          Use the given extracted zipapex directory to provide"
+        echo "                          runtime binaries"
         echo "    --trace               Run with method tracing"
         echo "    --strace              Run with syscall tracing from strace."
         echo "    --stream              Run method tracing in streaming mode (requires --trace)"
@@ -733,13 +794,14 @@ if [ "$usage" = "yes" ]; then
         echo "                          Run with jvmti method redefinition stress testing"
         echo "    --always-clean        Delete the test files even if the test fails."
         echo "    --never-clean         Keep the test files even if the test succeeds."
+        echo "    --chroot [newroot]    Run with root directory set to newroot."
         echo "    --android-root [path] The path on target for the android root. (/system by default)."
+        echo "    --android-runtime-root [path]"
+        echo "                          The path on target for the Android Runtime root."
+        echo "                          (/apex/com.android.runtime by default)."
         echo "    --dex2oat-swap        Use a dex2oat swap file."
         echo "    --instruction-set-features [string]"
         echo "                          Set instruction-set-features for compilation."
-        echo "    --multi-image         Use a set of images compiled with dex2oat multi-image for"
-        echo "                          the boot class path."
-        echo "    --pic-test            Compile the test code position independent."
         echo "    --quiet               Don't print anything except failure messages"
         echo "    --bisection-search    Perform bisection bug search."
         echo "    --vdex                Test using vdex as in input to dex2oat. Only works with --prebuild."
@@ -770,7 +832,7 @@ fi
 echo "${test_dir}: building..." 1>&2
 
 rm -rf "$tmp_dir"
-cp -Rp "$test_dir" "$tmp_dir"
+cp -LRp "$test_dir" "$tmp_dir"
 cd "$tmp_dir"
 
 if [ '!' -r "$build" ]; then
@@ -800,7 +862,7 @@ export TEST_NAME=`basename ${test_dir}`
 # Tests named '<number>-checker-*' will also have their CFGs verified with
 # Checker when compiled with Optimizing on host.
 if [[ "$TEST_NAME" =~ ^[0-9]+-checker- ]]; then
-  if [ "$runtime" = "art" -a "$image_suffix" = "" ]; then
+  if [ "$runtime" = "art" -a "$image_suffix" = "" -a "$run_optimizing" = "true" ]; then
     # In no-prebuild or no-image mode, the compiler only quickens so disable the checker.
     if [ "$prebuild_mode" = "yes" -a "$have_image" = "yes" ]; then
       run_checker="yes"
@@ -823,15 +885,9 @@ if [[ "$TEST_NAME" =~ ^[0-9]+-checker- ]]; then
   fi
 fi
 
-  run_args="${run_args} --testlib ${testlib}"
+run_args="${run_args} --testlib ${testlib}"
 
-# To cause tests to fail fast, limit the file sizes created by dx, dex2oat and
-# ART output to approximately 128MB. This should be more than sufficient
-# for any test while still catching cases of runaway output.
-# Set a hard limit to encourage ART developers to increase the ulimit here if
-# needed to support a test case rather than resetting the limit in the run
-# script for the particular test in question.
-if ! ulimit -f 128000; then
+if ! ulimit -f ${file_ulimit}; then
   err_echo "ulimit file size setting failed"
 fi
 
@@ -867,7 +923,7 @@ if [ "$dev_mode" = "yes" ]; then
         if [ "$run_exit" = "0" ]; then
             if [ "$run_checker" = "yes" ]; then
                 if [ "$target_mode" = "yes" ]; then
-                  adb pull $cfg_output_dir/$cfg_output &> /dev/null
+                  adb pull "$chroot/$cfg_output_dir/$cfg_output" &> /dev/null
                 fi
                 "$checker" $checker_args "$cfg_output" "$tmp_dir" 2>&1
                 checker_exit="$?"
@@ -889,7 +945,7 @@ elif [ "$update_mode" = "yes" ]; then
         "./${run}" $run_args "$@" >"$output" 2>&1
         if [ "$run_checker" = "yes" ]; then
           if [ "$target_mode" = "yes" ]; then
-            adb pull $cfg_output_dir/$cfg_output &> /dev/null
+            adb pull "$chroot/$cfg_output_dir/$cfg_output" &> /dev/null
           fi
           "$checker" -q $checker_args "$cfg_output" "$tmp_dir" >> "$output" 2>&1
         fi
@@ -927,7 +983,7 @@ else
             good_run="no"
         elif [ "$run_checker" = "yes" ]; then
             if [ "$target_mode" = "yes" ]; then
-              adb pull $cfg_output_dir/$cfg_output &> /dev/null
+              adb pull "$chroot/$cfg_output_dir/$cfg_output" &> /dev/null
             fi
             "$checker" -q $checker_args "$cfg_output" "$tmp_dir" >> "$output" 2>&1
             checker_exit="$?"
@@ -987,6 +1043,7 @@ fi
 ) 2>&${real_stderr} 1>&2
 
 # Attempt bisection only if the test failed.
+# TODO: Implement support for chroot-based bisection search.
 if [ "$bisection_search" = "yes" -a "$good" != "yes" ]; then
     # Bisecting works by skipping different optimization passes which breaks checker assertions.
     if [ "$run_checker" == "yes" ]; then
@@ -998,17 +1055,18 @@ if [ "$bisection_search" = "yes" -a "$good" != "yes" ]; then
       maybe_device_mode=""
       raw_cmd=""
       if [ "$target_mode" = "yes" ]; then
-        # Produce cmdline.sh in $DEX_LOCATION. "$@" is passed as a runtime option
+        # Produce cmdline.sh in $chroot_dex_location. "$@" is passed as a runtime option
         # so that cmdline.sh forwards its arguments to dalvikvm. invoke-with is set
         # to exec in order to preserve pid when calling dalvikvm. This is required
         # for bisection search to correctly retrieve logs from device.
         "./${run}" $run_args --runtime-option '"$@"' --invoke-with exec --dry-run "$@" &> /dev/null
-        adb shell chmod u+x "$DEX_LOCATION/cmdline.sh"
+        adb shell chmod u+x "$chroot_dex_location/cmdline.sh"
         maybe_device_mode="--device"
         raw_cmd="$DEX_LOCATION/cmdline.sh"
       else
         raw_cmd="$cwd/${run} --external-log-tags $run_args $@"
       fi
+      # TODO: Pass a `--chroot` option to the bisection_search.py script and use it there.
       $ANDROID_BUILD_TOP/art/tools/bisection_search/bisection_search.py \
         $maybe_device_mode \
         --raw-cmd="$raw_cmd" \
@@ -1024,7 +1082,7 @@ if [ "$always_clean" = "yes" -o "$good" = "yes" ] && [ "$never_clean" = "no" ]; 
     cd "$oldwd"
     rm -rf "$tmp_dir"
     if [ "$target_mode" = "yes" -a "$build_exit" = "0" ]; then
-        adb shell rm -rf $DEX_LOCATION
+        adb shell rm -rf $chroot_dex_location
     fi
     if [ "$good" = "yes" ]; then
         exit 0
@@ -1041,7 +1099,7 @@ fi
     else
         echo "${TEST_NAME} files left in ${tmp_dir} on host"
         if [ "$target_mode" == "yes" ]; then
-            echo "and in ${DEX_LOCATION} on target"
+            echo "and in ${chroot_dex_location} on target"
         fi
     fi
 

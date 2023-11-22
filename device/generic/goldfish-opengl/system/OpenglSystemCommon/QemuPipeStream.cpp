@@ -14,8 +14,12 @@
 * limitations under the License.
 */
 #include "QemuPipeStream.h"
-#include "qemu_pipe.h"
 
+#if PLATFORM_SDK_VERSION < 26
+#include <cutils/log.h>
+#else
+#include <log/log.h>
+#endif
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,13 +28,13 @@
 
 QemuPipeStream::QemuPipeStream(size_t bufSize) :
     IOStream(bufSize),
-    m_sock(-1),
+    m_sock((QEMU_PIPE_HANDLE)(-1)),
     m_bufsize(bufSize),
     m_buf(NULL)
 {
 }
 
-QemuPipeStream::QemuPipeStream(int sock, size_t bufSize) :
+QemuPipeStream::QemuPipeStream(QEMU_PIPE_HANDLE sock, size_t bufSize) :
     IOStream(bufSize),
     m_sock(sock),
     m_bufsize(bufSize),
@@ -40,9 +44,9 @@ QemuPipeStream::QemuPipeStream(int sock, size_t bufSize) :
 
 QemuPipeStream::~QemuPipeStream()
 {
-    if (m_sock >= 0) {
+    if (valid()) {
         flush();
-        ::close(m_sock);
+        qemu_pipe_close(m_sock);
     }
     if (m_buf != NULL) {
         free(m_buf);
@@ -52,9 +56,10 @@ QemuPipeStream::~QemuPipeStream()
 
 int QemuPipeStream::connect(void)
 {
-     m_sock = qemu_pipe_open("opengles");
+    m_sock = qemu_pipe_open("opengles");
     if (!valid()) {
-        ALOGE("%s: failed with fd %d errno %d", __FUNCTION__, m_sock, errno);
+        ALOGE("%s: failed to connect to opengles pipe", __FUNCTION__);
+        qemu_pipe_print_error(m_sock);
         return -1;
     }
     return 0;
@@ -72,7 +77,7 @@ void *QemuPipeStream::allocBuffer(size_t minSize)
             m_buf = p;
             m_bufsize = allocSize;
         } else {
-            ERR("realloc (%d) failed\n", allocSize);
+            ERR("realloc (%zu) failed\n", allocSize);
             free(m_buf);
             m_buf = NULL;
             m_bufsize = 0;
@@ -84,6 +89,7 @@ void *QemuPipeStream::allocBuffer(size_t minSize)
 
 int QemuPipeStream::commitBuffer(size_t size)
 {
+    if (size == 0) return 0;
     return writeFully(m_buf, size);
 }
 
@@ -95,7 +101,7 @@ int QemuPipeStream::writeFully(const void *buf, size_t len)
        if (len>0) {
             // If len is non-zero, buf must not be NULL. Otherwise the pipe would be
             // in a corrupted state, which is lethal for the emulator.
-           ERR("QemuPipeStream::writeFully failed, buf=NULL, len %d,"
+           ERR("QemuPipeStream::writeFully failed, buf=NULL, len %zu,"
                    " lethal error, exiting", len);
            abort();
        }
@@ -106,7 +112,7 @@ int QemuPipeStream::writeFully(const void *buf, size_t len)
     int retval = 0;
 
     while (res > 0) {
-        ssize_t stat = ::write(m_sock, (const char *)(buf) + (len - res), res);
+        ssize_t stat = qemu_pipe_write(m_sock, (const char *)(buf) + (len - res), res);
         if (stat > 0) {
             res -= stat;
             continue;
@@ -116,7 +122,7 @@ int QemuPipeStream::writeFully(const void *buf, size_t len)
             retval = -1;
             break;
         }
-        if (errno == EINTR) {
+        if (qemu_pipe_try_again()) {
             continue;
         }
         retval =  stat;
@@ -128,7 +134,7 @@ int QemuPipeStream::writeFully(const void *buf, size_t len)
     return retval;
 }
 
-int QemuPipeStream::getSocket() const {
+QEMU_PIPE_HANDLE QemuPipeStream::getSocket() const {
     return m_sock;
 }
 
@@ -148,12 +154,12 @@ const unsigned char *QemuPipeStream::readFully(void *buf, size_t len)
     }
     size_t res = len;
     while (res > 0) {
-        ssize_t stat = ::read(m_sock, (char *)(buf) + len - res, res);
+        ssize_t stat = qemu_pipe_read(m_sock, (char *)(buf) + len - res, res);
         if (stat == 0) {
             // client shutdown;
             return NULL;
         } else if (stat < 0) {
-            if (errno == EINTR) {
+            if (qemu_pipe_try_again()) {
                 continue;
             } else {
                 ERR("QemuPipeStream::readFully failed (buf %p, len %zu"
@@ -195,7 +201,7 @@ int QemuPipeStream::recv(void *buf, size_t len)
     char* p = (char *)buf;
     int ret = 0;
     while(len > 0) {
-        int res = ::read(m_sock, p, len);
+        int res = qemu_pipe_read(m_sock, p, len);
         if (res > 0) {
             p += res;
             ret += res;
@@ -205,7 +211,7 @@ int QemuPipeStream::recv(void *buf, size_t len)
         if (res == 0) { /* EOF */
              break;
         }
-        if (errno == EINTR)
+        if (qemu_pipe_try_again())
             continue;
 
         /* A real error */

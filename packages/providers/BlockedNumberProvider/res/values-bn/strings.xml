@@ -16,5 +16,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="3836152623003881586">"অবরুদ্ধ নম্বরগুলির সঞ্চয়স্থান"</string>
+    <string name="app_label" msgid="3836152623003881586">"ব্লক করা নম্বরগুলির স্টোরেজ"</string>
 </resources>

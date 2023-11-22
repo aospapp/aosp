@@ -18,6 +18,7 @@ package android.print.test;
 
 import static android.content.pm.PackageManager.GET_META_DATA;
 import static android.content.pm.PackageManager.GET_SERVICES;
+import static android.print.test.Utils.eventually;
 import static android.print.test.Utils.getPrintManager;
 
 import static org.junit.Assert.assertFalse;
@@ -60,17 +61,19 @@ import android.print.test.services.StubbablePrinterDiscoverySession;
 import android.printservice.CustomPrinterIconCallback;
 import android.printservice.PrintJob;
 import android.provider.Settings;
-import android.support.test.InstrumentationRegistry;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
+import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.UiSelector;
+import android.support.test.uiautomator.Until;
 import android.util.Log;
 import android.util.SparseArray;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -99,6 +102,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -108,7 +112,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public abstract class BasePrintTest {
     private static final String LOG_TAG = "BasePrintTest";
 
-    protected static final long OPERATION_TIMEOUT_MILLIS = 60000;
+    protected static final long OPERATION_TIMEOUT_MILLIS = 20000;
     protected static final String PRINT_JOB_NAME = "Test";
     static final String TEST_ID = "BasePrintTest.EXTRA_TEST_ID";
 
@@ -189,7 +193,7 @@ public abstract class BasePrintTest {
         sEnabledImes = null;
     }
 
-    protected static Instrumentation getInstrumentation() {
+    public static Instrumentation getInstrumentation() {
         return InstrumentationRegistry.getInstrumentation();
     }
 
@@ -205,7 +209,8 @@ public abstract class BasePrintTest {
         Log.d(LOG_TAG, "disableImes()");
         disableImes();
         Log.d(LOG_TAG, "disablePrintServices()");
-        disablePrintServices(instrumentation.getTargetContext().getPackageName());
+        sDisabledPrintServicesBefore = disablePrintServices(instrumentation.getTargetContext()
+                .getPackageName());
 
         // Workaround for dexmaker bug: https://code.google.com/p/dexmaker/issues/detail?id=2
         // Dexmaker is used by mockito.
@@ -219,12 +224,14 @@ public abstract class BasePrintTest {
      * Disable all print services beside the ones we want to leave enabled.
      *
      * @param packageToLeaveEnabled The package of the services to leave enabled.
+     *
+     * @return Services that were enabled before this method was called
      */
-    private static void disablePrintServices(@NonNull String packageToLeaveEnabled)
+    protected static @NonNull String disablePrintServices(@Nullable String packageToLeaveEnabled)
             throws IOException {
         Instrumentation instrumentation = getInstrumentation();
 
-        sDisabledPrintServicesBefore = SystemUtil.runShellCommand(instrumentation,
+        String previousEnabledServices = SystemUtil.runShellCommand(instrumentation,
                 "settings get secure " + Settings.Secure.DISABLED_PRINT_SERVICES);
 
         Intent printServiceIntent = new Intent(android.printservice.PrintService.SERVICE_INTERFACE);
@@ -233,7 +240,8 @@ public abstract class BasePrintTest {
 
         StringBuilder builder = new StringBuilder();
         for (ResolveInfo service : installedServices) {
-            if (packageToLeaveEnabled.equals(service.serviceInfo.packageName)) {
+            if (packageToLeaveEnabled != null
+                    && packageToLeaveEnabled.equals(service.serviceInfo.packageName)) {
                 continue;
             }
             if (builder.length() > 0) {
@@ -245,15 +253,19 @@ public abstract class BasePrintTest {
 
         SystemUtil.runShellCommand(instrumentation, "settings put secure "
                 + Settings.Secure.DISABLED_PRINT_SERVICES + " " + builder);
+
+        return previousEnabledServices;
     }
 
     /**
      * Revert {@link #disablePrintServices(String)}
+     *
+     * @param servicesToEnable Services that should be enabled
      */
-    private static  void enablePrintServices() throws IOException {
+    protected static void enablePrintServices(@NonNull String servicesToEnable) throws IOException {
         SystemUtil.runShellCommand(getInstrumentation(),
                 "settings put secure " + Settings.Secure.DISABLED_PRINT_SERVICES + " "
-                        + sDisabledPrintServicesBefore);
+                        + servicesToEnable);
     }
 
     @Before
@@ -315,7 +327,7 @@ public abstract class BasePrintTest {
         Instrumentation instrumentation = getInstrumentation();
 
         Log.d(LOG_TAG, "enablePrintServices()");
-        enablePrintServices();
+        enablePrintServices(sDisabledPrintServicesBefore);
 
         Log.d(LOG_TAG, "enableImes()");
         enableImes();
@@ -551,68 +563,62 @@ public abstract class BasePrintTest {
     protected void waitForPrinterUnavailable() throws Exception {
         final String printerUnavailableMessage = "This printer isn\'t available right now.";
 
-        UiObject message = getUiDevice().findObject(new UiSelector().resourceId(
-                "com.android.printspooler:id/message"));
+        UiObject2 message = getUiDevice().wait(Until.findObject(
+                By.res("com.android.printspooler:id/message")), OPERATION_TIMEOUT_MILLIS);
+
+        if (message == null) {
+            dumpWindowHierarchy();
+            throw new UiObjectNotFoundException("Cannot find " + printerUnavailableMessage);
+        }
         if (!message.getText().equals(printerUnavailableMessage)) {
             throw new Exception("Wrong message: " + message.getText() + " instead of "
                     + printerUnavailableMessage);
         }
     }
 
-    protected void selectPrinter(String printerName) throws UiObjectNotFoundException, IOException {
+    protected void selectPrinter(String printerName) throws IOException, UiObjectNotFoundException {
+        selectPrinter(printerName, OPERATION_TIMEOUT_MILLIS);
+    }
+
+    protected void selectPrinter(String printerName, long timeout) throws IOException,
+            UiObjectNotFoundException {
         try {
-            long delay = 1;
-            while (true) {
-                try {
-                    UiDevice uiDevice = getUiDevice();
-                    UiObject destinationSpinner = uiDevice.findObject(new UiSelector()
-                            .resourceId("com.android.printspooler:id/destination_spinner"));
+            UiDevice uiDevice = getUiDevice();
+            UiObject2 destinationSpinner = uiDevice.wait(Until.findObject(
+                    By.res("com.android.printspooler:id/destination_spinner")), timeout);
 
-                    destinationSpinner.click();
-                    getUiDevice().waitForIdle();
-
-                    // Give spinner some time to expand
-                    try {
-                        Thread.sleep(delay);
-                    } catch (InterruptedException e) {
-                        // ignore
-                    }
-
-                    // try to select printer
-                    UiObject printerOption = uiDevice.findObject(
-                            new UiSelector().text(printerName));
-                    printerOption.click();
-                } catch (UiObjectNotFoundException e) {
-                    Log.e(LOG_TAG, "Could not select printer " + printerName, e);
-                }
-
+            if (destinationSpinner != null) {
+                destinationSpinner.click();
                 getUiDevice().waitForIdle();
-
-                if (!printerName.equals("All printers…")) {
-                    // Make sure printer is selected
-                    if (getUiDevice().hasObject(By.text(printerName))) {
-                        break;
-                    } else {
-                        if (delay <= OPERATION_TIMEOUT_MILLIS) {
-                            Log.w(LOG_TAG, "Cannot find printer " + printerName + ", retrying.");
-                            delay *= 2;
-                        } else {
-                            throw new UiObjectNotFoundException(
-                                    "Could find printer " + printerName
-                                            + " even though we retried");
-                        }
-                    }
-                } else {
-                    break;
-                }
             }
-        } catch (UiObjectNotFoundException e) {
+
+            selectPrinterSpinnerOpen(printerName, timeout);
+        } catch (Exception e) {
+            dumpWindowHierarchy();
+            throw e;
+        }
+    }
+
+    protected void selectPrinterSpinnerOpen(String printerName, long timeout)
+            throws IOException, UiObjectNotFoundException {
+        try {
+            UiDevice uiDevice = getUiDevice();
+            UiObject2 printerOption = uiDevice.wait(Until.findObject(By.text(printerName)),
+                    timeout);
+            if (printerOption == null) {
+                throw new UiObjectNotFoundException(printerName + " not found");
+            }
+
+            printerOption.click();
+            getUiDevice().waitForIdle();
+        } catch (Exception e) {
             dumpWindowHierarchy();
             throw e;
         }
     }
 
     protected void answerPrintServicesWarning(boolean confirm) throws UiObjectNotFoundException {
+        getUiDevice().waitForIdle();
         UiObject button;
         if (confirm) {
             button = getUiDevice().findObject(new UiSelector().resourceId("android:id/button1"));
@@ -728,14 +734,15 @@ public abstract class BasePrintTest {
     }
 
     public void clickPrintButton() throws UiObjectNotFoundException, IOException {
-        try {
-            UiObject printButton = getUiDevice().findObject(new UiSelector().resourceId(
-                    "com.android.printspooler:id/print_button"));
-            printButton.click();
-        } catch (UiObjectNotFoundException e) {
+        getUiDevice().waitForIdle();
+
+        UiObject2 printButton = getUiDevice().wait(Until.findObject(By.res(
+                "com.android.printspooler:id/print_button")), OPERATION_TIMEOUT_MILLIS);
+        if (printButton == null) {
             dumpWindowHierarchy();
-            throw e;
+            throw new UiObjectNotFoundException("print button not found");
         }
+        printButton.click();
     }
 
     protected void clickRetryButton() throws UiObjectNotFoundException, IOException {
@@ -864,9 +871,7 @@ public abstract class BasePrintTest {
 
                     callback.onLayoutFinished(new PrintDocumentInfo.Builder(PRINT_JOB_NAME)
                             .setPageCount(numPages).build(),
-                            !oldAttributes.equals(printAttributes[0]));
-
-                    oldAttributes = printAttributes[0];
+                            !Objects.equals(oldAttributes, printAttributes[0]));
 
                     onLayoutCalled();
                     return null;
@@ -969,18 +974,22 @@ public abstract class BasePrintTest {
     }
 
     protected void selectPages(String pages, int totalPages) throws Exception {
+        getUiDevice().waitForIdle();
         UiObject pagesSpinner = getUiDevice().findObject(new UiSelector().resourceId(
                 "com.android.printspooler:id/range_options_spinner"));
         pagesSpinner.click();
 
+        getUiDevice().waitForIdle();
         UiObject rangeOption = getUiDevice().findObject(new UiSelector().textContains("Range of "
                 + totalPages));
         rangeOption.click();
 
+        getUiDevice().waitForIdle();
         UiObject pagesEditText = getUiDevice().findObject(new UiSelector().resourceId(
                 "com.android.printspooler:id/page_range_edittext"));
         pagesEditText.setText(pages);
 
+        getUiDevice().waitForIdle();
         // Hide the keyboard.
         getUiDevice().pressBack();
     }
@@ -1037,7 +1046,7 @@ public abstract class BasePrintTest {
      * @throws Exception If the printer could not be made default
      */
     public void makeDefaultPrinter(PrintDocumentAdapter adapter, String printerName)
-            throws Exception {
+            throws Throwable {
         // Perform a full print operation on the printer
         Log.d(LOG_TAG, "print");
         print(adapter);
@@ -1047,10 +1056,13 @@ public abstract class BasePrintTest {
         selectPrinter(printerName);
         Log.d(LOG_TAG, "clickPrintButton");
         clickPrintButton();
-        Log.d(LOG_TAG, "answerPrintServicesWarning");
-        answerPrintServicesWarning(true);
-        Log.d(LOG_TAG, "waitForPrinterDiscoverySessionDestroyCallbackCalled");
-        waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+
+        eventually(() -> {
+            Log.d(LOG_TAG, "answerPrintServicesWarning");
+            answerPrintServicesWarning(true);
+            Log.d(LOG_TAG, "waitForPrinterDiscoverySessionDestroyCallbackCalled");
+            waitForPrinterDiscoverySessionDestroyCallbackCalled(1);
+        }, OPERATION_TIMEOUT_MILLIS * 2);
 
         // Switch to new activity, which should now use the default printer
         Log.d(LOG_TAG, "getActivity().finish()");

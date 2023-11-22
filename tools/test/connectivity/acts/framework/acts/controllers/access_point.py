@@ -17,6 +17,7 @@
 import collections
 import ipaddress
 import logging
+import os
 import time
 
 from acts import logger
@@ -26,6 +27,7 @@ from acts.controllers.ap_lib import dhcp_config
 from acts.controllers.ap_lib import dhcp_server
 from acts.controllers.ap_lib import hostapd
 from acts.controllers.ap_lib import hostapd_config
+from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.utils_lib.commands import ip
 from acts.controllers.utils_lib.commands import route
 from acts.controllers.utils_lib.commands import shell
@@ -36,6 +38,12 @@ from acts.libs.proc import job
 ACTS_CONTROLLER_CONFIG_NAME = 'AccessPoint'
 ACTS_CONTROLLER_REFERENCE_NAME = 'access_points'
 _BRCTL = 'brctl'
+
+LIFETIME = 180
+PROC_NET_SNMP6 = '/proc/net/snmp6'
+SCAPY_INSTALL_COMMAND = 'sudo python setup.py install'
+RA_MULTICAST_ADDR = '33:33:00:00:00:01'
+RA_SCRIPT = 'sendra.py'
 
 
 def create(configs):
@@ -141,6 +149,7 @@ class AccessPoint(object):
         self.wlan_5g = self.wlan[1]
         self.lan = self.interfaces.get_lan_interface()
         self.__initial_ap()
+        self.scapy_install_path = None
 
     def __initial_ap(self):
         """Initial AP interfaces.
@@ -148,40 +157,27 @@ class AccessPoint(object):
         Bring down hostapd if instance is running, bring down all bridge
         interfaces.
         """
+        # This is necessary for Gale/Whirlwind flashed with dev channel image
+        # Unused interfaces such as existing hostapd daemon, guest, mesh
+        # interfaces need to be brought down as part of the AP initialization
+        # process, otherwise test would fail.
         try:
-            # This is necessary for Gale/Whirlwind flashed with dev channel image
-            # Unused interfaces such as existing hostapd daemon, guest, mesh
-            # interfaces need to be brought down as part of the AP initialization
-            # process, otherwise test would fail.
-            try:
-                self.ssh.run('stop hostapd')
-            except job.Error:
-                self.log.debug('No hostapd running')
-            # Bring down all wireless interfaces
-            for iface in self.wlan:
-                WLAN_DOWN = 'ifconfig {} down'.format(iface)
-                self.ssh.run(WLAN_DOWN)
-            # Bring down all bridge interfaces
-            bridge_interfaces = self.interfaces.get_bridge_interface()
-            if bridge_interfaces:
-                for iface in bridge_interfaces:
-                    BRIDGE_DOWN = 'ifconfig {} down'.format(iface)
-                    BRIDGE_DEL = 'brctl delbr {}'.format(iface)
-                    self.ssh.run(BRIDGE_DOWN)
-                    self.ssh.run(BRIDGE_DEL)
-        except Exception:
-            # TODO(b/76101464): APs may not clean up properly from previous
-            # runs. Rebooting the AP can put them back into the correct state.
-            self.log.exception('Unable to bring down hostapd. Rebooting.')
-            # Reboot the AP.
-            try:
-                self.ssh.run('reboot')
-                # This sleep ensures the device had time to go down.
-                time.sleep(10)
-                self.ssh.run('echo connected', timeout=300)
-            except Exception as e:
-                self.log.exception("Error in rebooting AP: %s", e)
-                raise
+            self.ssh.run('stop wpasupplicant')
+            self.ssh.run('stop hostapd')
+        except job.Error:
+            self.log.debug('No hostapd running')
+        # Bring down all wireless interfaces
+        for iface in self.wlan:
+            WLAN_DOWN = 'ifconfig {} down'.format(iface)
+            self.ssh.run(WLAN_DOWN)
+        # Bring down all bridge interfaces
+        bridge_interfaces = self.interfaces.get_bridge_interface()
+        if bridge_interfaces:
+            for iface in bridge_interfaces:
+                BRIDGE_DOWN = 'ifconfig {} down'.format(iface)
+                BRIDGE_DEL = 'brctl delbr {}'.format(iface)
+                self.ssh.run(BRIDGE_DOWN)
+                self.ssh.run(BRIDGE_DEL)
 
     def start_ap(self, hostapd_config, additional_parameters=None):
         """Starts as an ap using a set of configurations.
@@ -308,15 +304,19 @@ class AccessPoint(object):
 
         return interface
 
-    def get_bssid_from_ssid(self, ssid):
+    def get_bssid_from_ssid(self, ssid, band):
         """Gets the BSSID from a provided SSID
 
         Args:
-            ssid: An SSID string
+            ssid: An SSID string.
+            band: 2G or 5G Wifi band.
         Returns: The BSSID if on the AP or None if SSID could not be found.
         """
+        if band == hostapd_constants.BAND_2G:
+            interfaces = [self.wlan_2g, ssid]
+        else:
+            interfaces = [self.wlan_5g, ssid]
 
-        interfaces = [self.wlan_2g, self.wlan_5g, ssid]
         # Get the interface name associated with the given ssid.
         for interface in interfaces:
             cmd = "iw dev %s info|grep ssid|awk -F' ' '{print $2}'" % (
@@ -404,3 +404,60 @@ class AccessPoint(object):
         configs = (iface_wlan, iface_lan, bridge_ip)
 
         return configs
+
+    def install_scapy(self, scapy_path, send_ra_path):
+        """Install scapy
+
+        Args:
+            scapy_path: path where scapy tar file is located on server
+            send_ra_path: path where sendra path is located on server
+        """
+        self.scapy_install_path = self.ssh.run('mktemp -d').stdout.rstrip()
+        self.log.info("Scapy install path: %s" % self.scapy_install_path)
+        self.ssh.send_file(scapy_path, self.scapy_install_path)
+        self.ssh.send_file(send_ra_path, self.scapy_install_path)
+
+        scapy = os.path.join(self.scapy_install_path, scapy_path.split('/')[-1])
+
+        untar_res = self.ssh.run(
+            'tar -xvf %s -C %s' % (scapy, self.scapy_install_path))
+
+        instl_res = self.ssh.run(
+            'cd %s; %s' % (self.scapy_install_path, SCAPY_INSTALL_COMMAND))
+
+    def cleanup_scapy(self):
+        """ Cleanup scapy """
+        if self.scapy_install_path:
+            cmd = 'rm -rf %s' % self.scapy_install_path
+            self.log.info("Cleaning up scapy %s" % cmd)
+            output = self.ssh.run(cmd)
+            self.scapy_install_path = None
+
+    def send_ra(self, iface, mac=RA_MULTICAST_ADDR, interval=1, count=None,
+                lifetime=LIFETIME, rtt=0):
+        """Invoke scapy and send RA to the device.
+
+        Args:
+          iface: string of the WiFi interface to use for sending packets.
+          mac: string HWAddr/MAC address to send the packets to.
+          interval: int Time to sleep between consecutive packets.
+          count: int Number of packets to be sent.
+          lifetime: int original RA's router lifetime in seconds.
+          rtt: retrans timer of the RA packet
+        """
+        scapy_command = os.path.join(self.scapy_install_path, RA_SCRIPT)
+        options = ' -m %s -i %d -c %d -l %d -in %s -rtt %s' % (
+            mac, interval, count, lifetime, iface, rtt)
+        self.log.info("Scapy cmd: %s" % scapy_command + options)
+        res = self.ssh.run(scapy_command + options)
+
+    def get_icmp6intype134(self):
+        """Read the value of Icmp6InType134 and return integer.
+
+        Returns:
+            Integer value >0 if grep is successful; 0 otherwise.
+        """
+        ra_count_str = self.ssh.run('grep Icmp6InType134 %s || true' %
+                                    PROC_NET_SNMP6).stdout
+        if ra_count_str:
+            return int(ra_count_str.split()[1])

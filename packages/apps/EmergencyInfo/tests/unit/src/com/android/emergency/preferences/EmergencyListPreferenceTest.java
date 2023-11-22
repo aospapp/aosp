@@ -20,11 +20,12 @@ import static com.google.common.truth.Truth.assertThat;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
-import android.support.v7.preference.PreferenceManager;
 import android.text.SpannableString;
 import android.text.style.TtsSpan;
+
+import androidx.preference.PreferenceManager;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.emergency.PreferenceKeys;
 import com.android.emergency.R;

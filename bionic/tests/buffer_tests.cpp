@@ -20,6 +20,7 @@
 
 #include <gtest/gtest.h>
 #include "buffer_tests.h"
+#include "utils.h"
 
 // For the comparison buffer tests, the maximum length to test for the
 // miscompare checks.
@@ -227,6 +228,13 @@ static void VerifyFencepost(uint8_t *buffer) {
   }
 }
 
+// Malloc can return a tagged pointer, which is not accepted in mm system calls like mprotect
+// in the preliminary version of the syscall tagging support in the current Pixel 2 kernel.
+// Note: the final version of the kernel patchset may relax this requirement.
+static int MprotectHeap(void* addr, size_t len, int prot) {
+  return mprotect(untag_address(addr), len, prot);
+}
+
 void RunSingleBufferAlignTest(
     size_t max_test_size, void (*test_func)(uint8_t*, size_t),
     size_t (*set_incr)(size_t)) {
@@ -358,14 +366,14 @@ void RunSingleBufferOverreadTest(void (*test_func)(uint8_t*, size_t)) {
   memset(memory, 0x23, 2*pagesize);
 
   // Make the second page unreadable and unwritable.
-  ASSERT_TRUE(mprotect(&memory[pagesize], pagesize, PROT_NONE) == 0);
+  ASSERT_TRUE(MprotectHeap(&memory[pagesize], pagesize, PROT_NONE) == 0);
 
   for (size_t i = 0; i < pagesize; i++) {
     uint8_t* buf = &memory[pagesize-i];
 
     test_func(buf, i);
   }
-  ASSERT_TRUE(mprotect(&memory[pagesize], pagesize, PROT_READ | PROT_WRITE) == 0);
+  ASSERT_TRUE(MprotectHeap(&memory[pagesize], pagesize, PROT_READ | PROT_WRITE) == 0);
   free(memory);
 }
 
@@ -379,7 +387,7 @@ void RunSrcDstBufferOverreadTest(void (*test_func)(uint8_t*, uint8_t*, size_t)) 
   memset(memory, 0x23, 2*pagesize);
 
   // Make the second page unreadable and unwritable.
-  ASSERT_TRUE(mprotect(&memory[pagesize], pagesize, PROT_NONE) == 0);
+  ASSERT_TRUE(MprotectHeap(&memory[pagesize], pagesize, PROT_NONE) == 0);
 
   uint8_t* dst_buffer = new uint8_t[2*pagesize];
   // Change the dst alignment as we change the source.
@@ -391,7 +399,7 @@ void RunSrcDstBufferOverreadTest(void (*test_func)(uint8_t*, uint8_t*, size_t)) 
       test_func(src, dst, j);
     }
   }
-  ASSERT_TRUE(mprotect(&memory[pagesize], pagesize, PROT_READ | PROT_WRITE) == 0);
+  ASSERT_TRUE(MprotectHeap(&memory[pagesize], pagesize, PROT_READ | PROT_WRITE) == 0);
   free(memory);
   delete[] dst_buffer;
 }
@@ -409,7 +417,7 @@ void RunCmpBufferOverreadTest(
   memset(memory1, 0x23, 2*pagesize);
 
   // Make the second page unreadable and unwritable.
-  ASSERT_TRUE(mprotect(&memory1[pagesize], pagesize, PROT_NONE) == 0);
+  ASSERT_TRUE(MprotectHeap(&memory1[pagesize], pagesize, PROT_NONE) == 0);
 
   uint8_t* memory2;
   ASSERT_TRUE(posix_memalign(reinterpret_cast<void**>(&memory2), pagesize,
@@ -417,7 +425,7 @@ void RunCmpBufferOverreadTest(
   memset(memory2, 0x23, 2*pagesize);
 
   // Make the second page unreadable and unwritable.
-  ASSERT_TRUE(mprotect(&memory2[pagesize], pagesize, PROT_NONE) == 0);
+  ASSERT_TRUE(MprotectHeap(&memory2[pagesize], pagesize, PROT_NONE) == 0);
 
   for (size_t i = 0; i < pagesize; i++) {
     uint8_t* buf1 = &memory1[pagesize-i];
@@ -445,8 +453,8 @@ void RunCmpBufferOverreadTest(
     }
   }
 
-  ASSERT_TRUE(mprotect(&memory1[pagesize], pagesize, PROT_READ | PROT_WRITE) == 0);
-  ASSERT_TRUE(mprotect(&memory2[pagesize], pagesize, PROT_READ | PROT_WRITE) == 0);
+  ASSERT_TRUE(MprotectHeap(&memory1[pagesize], pagesize, PROT_READ | PROT_WRITE) == 0);
+  ASSERT_TRUE(MprotectHeap(&memory2[pagesize], pagesize, PROT_READ | PROT_WRITE) == 0);
   free(memory1);
   free(memory2);
 }

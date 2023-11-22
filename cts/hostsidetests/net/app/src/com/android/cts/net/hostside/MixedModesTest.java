@@ -71,6 +71,11 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
      * Tests all DS ON and BS ON scenarios from network-policy-restrictions.md on metered networks.
      */
     public void testDataAndBatterySaverModes_meteredNetwork() throws Exception {
+        if (!isBatterySaverSupported()) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support Battery saver mode");
+            return;
+        }
         if (!isSupported()) return;
 
         Log.i(TAG, "testDataAndBatterySaverModes_meteredNetwork() tests");
@@ -141,6 +146,11 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
      * networks.
      */
     public void testDataAndBatterySaverModes_nonMeteredNetwork() throws Exception {
+        if (!isBatterySaverSupported()) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support Battery saver mode");
+            return;
+        }
         if (!isSupported()) return;
 
         if (!setUnmeteredNetwork()) {
@@ -206,6 +216,11 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
      * are enabled.
      */
     public void testDozeAndBatterySaverMode_powerSaveWhitelists() throws Exception {
+        if (!isBatterySaverSupported()) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support Battery saver mode");
+            return;
+        }
         if (!isSupported()) {
             return;
         }
@@ -285,6 +300,11 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
     }
 
     public void testAppIdleAndBatterySaver_tempPowerSaveWhitelists() throws Exception {
+        if (!isBatterySaverSupported()) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support Battery saver mode");
+            return;
+        }
         if (!isSupported()) {
             return;
         }
@@ -304,6 +324,91 @@ public class MixedModesTest extends AbstractRestrictBackgroundNetworkTestCase {
         } finally {
             setAppIdle(false);
             setBatterySaverMode(false);
+        }
+    }
+
+    /**
+     * Tests that the app idle whitelist works as expected when doze and appIdle mode are enabled.
+     */
+    public void testDozeAndAppIdle_appIdleWhitelist() throws Exception {
+        if (!isSupported()) {
+            return;
+        }
+
+        setDozeMode(true);
+        setAppIdle(true);
+
+        try {
+            assertBackgroundNetworkAccess(false);
+
+            // UID still shouldn't have access because of Doze.
+            addAppIdleWhitelist(mUid);
+            assertBackgroundNetworkAccess(false);
+
+            removeAppIdleWhitelist(mUid);
+            assertBackgroundNetworkAccess(false);
+        } finally {
+            setAppIdle(false);
+            setDozeMode(false);
+        }
+    }
+
+    public void testAppIdleAndDoze_tempPowerSaveAndAppIdleWhitelists() throws Exception {
+        if (!isSupported()) {
+            return;
+        }
+
+        setDozeMode(true);
+        setAppIdle(true);
+
+        try {
+            assertBackgroundNetworkAccess(false);
+
+            addAppIdleWhitelist(mUid);
+            assertBackgroundNetworkAccess(false);
+
+            addTempPowerSaveModeWhitelist(TEST_APP2_PKG, TEMP_POWERSAVE_WHITELIST_DURATION_MS);
+            assertBackgroundNetworkAccess(true);
+
+            // Wait until the whitelist duration is expired.
+            SystemClock.sleep(TEMP_POWERSAVE_WHITELIST_DURATION_MS);
+            assertBackgroundNetworkAccess(false);
+        } finally {
+            setAppIdle(false);
+            setDozeMode(false);
+            removeAppIdleWhitelist(mUid);
+        }
+    }
+
+    public void testAppIdleAndBatterySaver_tempPowerSaveAndAppIdleWhitelists() throws Exception {
+        if (!isBatterySaverSupported()) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support Battery saver mode");
+            return;
+        }
+        if (!isSupported()) {
+            return;
+        }
+
+        setBatterySaverMode(true);
+        setAppIdle(true);
+
+        try {
+            assertBackgroundNetworkAccess(false);
+
+            addAppIdleWhitelist(mUid);
+            assertBackgroundNetworkAccess(false);
+
+            addTempPowerSaveModeWhitelist(TEST_APP2_PKG, TEMP_POWERSAVE_WHITELIST_DURATION_MS);
+            assertBackgroundNetworkAccess(true);
+
+            // Wait until the whitelist duration is expired.
+            SystemClock.sleep(TEMP_POWERSAVE_WHITELIST_DURATION_MS);
+            assertBackgroundNetworkAccess(false);
+        } finally {
+            setAppIdle(false);
+            setBatterySaverMode(false);
+            removeAppIdleWhitelist(mUid);
         }
     }
 }

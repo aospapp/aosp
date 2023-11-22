@@ -1,25 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
+<<<<<<< HEAD   (617b32 Merge "resolve merge conflicts of cd6fa02756252d903cc91f1b95)
 	<classpathentry kind="src" path="src"/>
+=======
+	<classpathentry excluding="com/android/tradefed/testtype/junit4/LongevityHostRunner.java|com/android/tradefed/testtype/junit4/builder/DeviceJUnit4ClassRunnerBuilder.java" kind="src" path="src"/>
+	<classpathentry kind="src" path="clearcut_client"/>
+>>>>>>> CHANGE (699381 Merge "Initial commit to get clearcut client reporting" am: )
+	<classpathentry kind="src" path="res"/>
 	<classpathentry kind="src" path="hamcrest"/>
-	<classpathentry kind="src" path="protobuf"/>
 	<classpathentry kind="src" path="jline"/>
 	<classpathentry kind="src" path="junit"/>
-	<classpathentry kind="src" path="proto_gen"/>
-	<classpathentry kind="src" path="res"/>
+	<classpathentry combineaccessrules="false" exported="true" kind="src" path="/tf-remote-client"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/LongevityHostRunner"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/ddmlib"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/loganalysis"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/platform-annotations"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry exported="true" kind="var" path="TRADEFED_ROOT/prebuilts/misc/common/kxml2/kxml2-2.3.0.jar"/>
-	<classpathentry exported="true" kind="var" path="TRADEFED_ROOT/prebuilts/misc/common/sdklib/sdklib-prebuilt.jar"/>
-	<classpathentry exported="true" kind="var" path="TRADEFED_ROOT/prebuilts/sdk/tools/jack-jacoco-reporter.jar"/>
 	<classpathentry exported="true" kind="var" path="TRADEFED_ROOT/prebuilts/misc/common/commons-compress/commons-compress-prebuilt.jar"/>
 	<classpathentry exported="true" kind="var" path="TRADEFED_ROOT/prebuilts/misc/common/devtools-annotations/devtools-annotations-prebuilt.jar"/>
-	<classpathentry combineaccessrules="false" exported="true" kind="src" path="/tf-remote-client"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/loganalysis"/>
+	<classpathentry exported="true" kind="var" path="TRADEFED_ROOT/prebuilts/misc/common/kxml2/kxml2-2.3.0.jar"/>
+	<classpathentry exported="true" kind="var" path="TRADEFED_ROOT/prebuilts/misc/common/sdklib/sdklib-prebuilt.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/external/error_prone/error_prone/error_prone_annotations-2.3.2.jar"/>
 	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/host-libprotobuf-java-full_intermediates/classes.jar"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/ddmlib"/>
-	<classpathentry kind="var" path="TRADEFED_ROOT/external/error_prone/error_prone/error_prone_annotations-2.2.0.jar"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/LongevityRunner"/>
-	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/junit-params-host_intermediates/classes.jar"/>
-	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/guice_intermediates/classes.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/external/guice/guice/linux_glibc_common/combined/guice.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/external/junit-params/junit-params/linux_glibc_common/combined/junit-params.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/external/junit/junit/linux_glibc_common/combined/junit.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/external/perfetto/perfetto_config-full/linux_glibc_common/combined/perfetto_config-full.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/platform_testing/libraries/aoa-helper/aoa-helper/linux_glibc_common/combined/aoa-helper.jar"/>
+	<classpathentry exported="true" kind="var" path="TRADEFED_ROOT/prebuilts/tools/common/google-api-java-client/1.23.0/google-api-java-client-min-repackaged-1.23.0.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/prebuilts/tools/common/google-api-services-compute/google-api-services-compute/linux_glibc_common/combined/google-api-services-compute.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/prebuilts/misc/common/frameworks/platformprotos-prebuilt.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/external/jacoco/jacoco-cli/linux_glibc_common/combined/jacoco-cli.jar"/>
+	<classpathentry exported="true" kind="var" path="TRADEFED_ROOT/prebuilts/tools/common/google-api-services-storage/1.23.0/google-api-services-storage-v1-rev114-1.23.0.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/tools/tradefederation/core/tradefed-protos/linux_glibc_common/combined/tradefed-protos.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/prebuilts/tools/common/m2/repository/com/google/code/gson/gson/2.8.0/gson-2.8.0.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/prebuilts/tools/common/m2/protobuf-java-util-prebuilt-jar/linux_glibc_common/combined/protobuf-java-util-prebuilt-jar.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

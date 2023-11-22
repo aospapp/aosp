@@ -47,6 +47,8 @@ public class GTestXmlResultParser {
 
     private final static String TEST_SUITE_TAG = "testsuite";
     private final static String TEST_CASE_TAG = "testcase";
+    private static final String RESULT_ATTRIBUTE = "result";
+    private static final String SKIPPED_VALUE = "skipped";
 
     private final String mTestRunName;
     private int mNumTestsRun = 0;
@@ -162,7 +164,11 @@ public class GTestXmlResultParser {
         String classname = testcase.getAttribute("classname");
         String testname = testcase.getAttribute("name");
         String runtime = testcase.getAttribute("time");
-        ParsedTestInfo parsedResults = new ParsedTestInfo(classname, testname, runtime);
+        boolean skipped = false;
+        if (testcase.hasAttribute(RESULT_ATTRIBUTE)) {
+            skipped = SKIPPED_VALUE.equals(testcase.getAttribute(RESULT_ATTRIBUTE));
+        }
+        ParsedTestInfo parsedResults = new ParsedTestInfo(testname, classname, runtime);
         TestDescription testId =
                 new TestDescription(parsedResults.mTestClassName, parsedResults.mTestName);
         mNumTestsRun++;
@@ -170,6 +176,11 @@ public class GTestXmlResultParser {
             listener.testStarted(testId);
         }
 
+        if (skipped) {
+            for (ITestInvocationListener listener : mTestListeners) {
+                listener.testIgnored(testId);
+            }
+        }
         // If there is a failure tag report failure
         if (testcase.getElementsByTagName("failure").getLength() != 0) {
             String trace = ((Element)testcase.getElementsByTagName("failure").item(0))

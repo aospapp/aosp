@@ -89,7 +89,7 @@ void VtsCoverageProcessor::MergeCoverage(const string& coverage_file_dir,
       TestReportMessage coverage_report;
       ParseCoverageData(coverage_file, &coverage_report);
 
-      for (const auto cov : coverage_report.coverage()) {
+      for (const auto& cov : coverage_report.coverage()) {
         bool seen_cov = false;
         for (int i = 0; i < merged_coverage_report.coverage_size(); i++) {
           if (merged_coverage_report.coverage(i).file_path() ==
@@ -255,7 +255,7 @@ void VtsCoverageProcessor::PrintCoverageSummary(
 long VtsCoverageProcessor::GetTotalCoverageLine(
     const TestReportMessage& msg) const {
   long total_coverage_line = 0;
-  for (const auto coverage : msg.coverage()) {
+  for (const auto& coverage : msg.coverage()) {
     total_coverage_line += coverage.covered_line_count();
   }
   return total_coverage_line;
@@ -264,7 +264,7 @@ long VtsCoverageProcessor::GetTotalCoverageLine(
 long VtsCoverageProcessor::GetTotalCodeLine(
     const TestReportMessage& msg) const {
   long total_line = 0;
-  for (const auto coverage : msg.coverage()) {
+  for (const auto& coverage : msg.coverage()) {
     total_line += coverage.total_line_count();
   }
   return total_line;

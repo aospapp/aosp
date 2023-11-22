@@ -4,6 +4,7 @@ hidl_interface {
     name: "hidl.tests.vendor@1.0",
     owner: "some-owner-name",
     root: "hidl.tests",
+    product_specific: true,
     srcs: [
         "types.hal",
         "IVendor.hal",
@@ -12,12 +13,10 @@ hidl_interface {
         "android.hardware.tests.baz@1.0",
         "android.hidl.base@1.0",
     ],
-    types: [
-        "Bar",
-        "Foo",
-        "FooToo",
-    ],
     gen_java: true,
     gen_java_constants: true,
+
+    // tests that license is copied
+    notice: "FAKE_NOTICE_FILE",
 }
 

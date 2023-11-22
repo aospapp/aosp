@@ -30,16 +30,17 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TabHost;
 import android.widget.TextView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -194,6 +195,10 @@ public class TabHost_TabSpecTest {
         Uri uri = Uri.parse("ctstest://tabhost_tabspec/test");
         final Intent intent = new Intent(Intent.ACTION_VIEW, uri);
 
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        ActivityMonitor am = instrumentation.addMonitor(MockURLSpanTestActivity.class.getName(),
+                null, false);
+
         mActivity.runOnUiThread(() -> {
             TabHost.TabSpec tabSpec = mTabHost.newTabSpec("tab spec");
             tabSpec.setIndicator("tab");
@@ -201,10 +206,6 @@ public class TabHost_TabSpecTest {
             mTabHost.addTab(tabSpec);
             mTabHost.setCurrentTab(1);
         });
-
-        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
-        ActivityMonitor am = instrumentation.addMonitor(MockURLSpanTestActivity.class.getName(),
-                null, false);
 
         Activity newActivity = am.waitForActivityWithTimeout(5000);
         assertNotNull(newActivity);

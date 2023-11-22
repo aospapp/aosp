@@ -28,7 +28,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-import org.kxml2.io.KXmlParser;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlSerializer;
@@ -49,6 +48,7 @@ import android.provider.Contacts.People;
 import android.test.AndroidTestCase;
 import android.util.Printer;
 import android.util.StringBuilderPrinter;
+import android.util.Xml;
 
 import com.android.internal.util.FastXmlSerializer;
 
@@ -587,7 +587,7 @@ public class IntentFilterTest extends AndroidTestCase {
         mIntentFilter.addDataType(DATA_TYPE);
         mIntentFilter.writeToXml(xml);
         xml.flush();
-        final KXmlParser parser = new KXmlParser();
+        final XmlPullParser parser = Xml.newPullParser();
         final InputStream in = new ByteArrayInputStream(out.toByteArray());
         parser.setInput(in, "utf-8");
         final IntentFilter intentFilter = new IntentFilter();

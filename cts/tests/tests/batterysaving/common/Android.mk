@@ -21,10 +21,10 @@ LOCAL_SRC_FILES := \
     $(call all-proto-files-under, proto)
 
 LOCAL_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     androidx.legacy_legacy-support-v4 \
     mockito-target \
-    compatibility-device-util \
+    compatibility-device-util-axt \
     android.test.runner.stubs
 
 LOCAL_MODULE_TAGS := optional

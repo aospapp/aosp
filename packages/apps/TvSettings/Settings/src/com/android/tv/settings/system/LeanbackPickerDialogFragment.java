@@ -19,15 +19,18 @@ package com.android.tv.settings.system;
 import android.app.AlarmManager;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.v17.leanback.widget.picker.DatePicker;
-import android.support.v17.leanback.widget.picker.TimePicker;
-import android.support.v17.preference.LeanbackPreferenceDialogFragment;
-import android.support.v7.preference.DialogPreference;
 import android.text.TextUtils;
+import android.util.TypedValue;
+import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import androidx.leanback.preference.LeanbackPreferenceDialogFragment;
+import androidx.leanback.widget.picker.DatePicker;
+import androidx.leanback.widget.picker.TimePicker;
+import androidx.preference.DialogPreference;
 
 import com.android.tv.settings.R;
 
@@ -103,10 +106,19 @@ public class LeanbackPickerDialogFragment extends LeanbackPreferenceDialogFragme
                              Bundle savedInstanceState) {
         final String pickerType = getArguments().getString(EXTRA_PICKER_TYPE);
 
-        final View view = inflater.inflate(R.layout.picker_dialog_fragment, container, false);
+        final TypedValue tv = new TypedValue();
+        getActivity().getTheme().resolveAttribute(R.attr.preferenceTheme, tv, true);
+        int theme = tv.resourceId;
+        if (theme == 0) {
+            // Fallback to default theme.
+            theme = R.style.PreferenceThemeOverlayLeanback;
+        }
+        Context styledContext = new ContextThemeWrapper(getActivity(), theme);
+        LayoutInflater styledInflater = inflater.cloneInContext(styledContext);
+        final View view = styledInflater.inflate(R.layout.picker_dialog_fragment, container, false);
         ViewGroup pickerContainer = view.findViewById(R.id.picker_container);
         if (pickerType.equals(TYPE_DATE)) {
-            inflater.inflate(R.layout.date_picker_widget, pickerContainer, true);
+            styledInflater.inflate(R.layout.date_picker_widget, pickerContainer, true);
             DatePicker datePicker = pickerContainer.findViewById(R.id.date_picker);
             datePicker.setActivated(true);
             datePicker.setOnClickListener(v -> {
@@ -121,7 +133,7 @@ public class LeanbackPickerDialogFragment extends LeanbackPreferenceDialogFragme
             });
 
         } else {
-            inflater.inflate(R.layout.time_picker_widget, pickerContainer, true);
+            styledInflater.inflate(R.layout.time_picker_widget, pickerContainer, true);
             TimePicker timePicker = pickerContainer.findViewById(R.id.time_picker);
             timePicker.setActivated(true);
             timePicker.setOnClickListener(v -> {

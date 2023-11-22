@@ -25,6 +25,13 @@ from vts.runners.host import const
 from vts.utils.python.common import cmd_utils
 
 
+# Default adb timeout 5 minutes
+DEFAULT_ADB_TIMEOUT = 300
+# Adb long timeout (10 minutes) for adb push/pull/bugreport/bugreportz
+DEFAULT_ADB_LONG_TIMEOUT = 600
+# Adb short timeout (30 seconds)
+DEFAULT_ADB_SHORT_TIMEOUT = 30
+
 class AdbError(Exception):
     """Raised when there is an error in adb operations."""
 
@@ -37,12 +44,6 @@ class AdbError(Exception):
     def __str__(self):
         return ("Error executing adb cmd '%s'. ret: %d, stdout: %s, stderr: %s"
                 ) % (self.cmd, self.ret_code, self.stdout, self.stderr)
-
-
-SL4A_LAUNCH_CMD = (
-    "am start -a com.googlecode.android_scripting.action.LAUNCH_SERVER "
-    "--ei com.googlecode.android_scripting.extra.USE_SERVICE_PORT {} "
-    "com.googlecode.android_scripting/.activity.ScriptingLayerServiceLauncher")
 
 
 def get_available_host_port():
@@ -124,7 +125,7 @@ class AdbProxy():
             self.adb_str = "adb"
         self.log = log
 
-    def _exec_cmd(self, cmd, no_except=False, timeout=None):
+    def _exec_cmd(self, cmd, no_except=False, timeout=DEFAULT_ADB_TIMEOUT):
         """Executes adb commands in a new shell.
 
         This is specific to executing adb binary because stderr is not a good
@@ -183,7 +184,25 @@ class AdbProxy():
         def adb_call(*args, **kwargs):
             clean_name = name.replace('_', '-')
             arg_str = ' '.join(str(elem) for elem in args)
+            if clean_name == 'shell':
+                arg_str = self._quote_wrap_shell_command(arg_str)
+            elif "timeout" not in kwargs.keys():
+                # for non-shell command like adb pull/push/bugreport, set longer default timeout
+                kwargs["timeout"] = DEFAULT_ADB_LONG_TIMEOUT
             return self._exec_cmd(' '.join((self.adb_str, clean_name, arg_str)),
                                   **kwargs)
 
         return adb_call
+
+    def _quote_wrap_shell_command(self, cmd):
+        """Wraps adb shell command with double quotes.
+
+        Double quotes inside the command will be replaced with \".
+
+        Args:
+            cmd: string, command string.
+
+        Returns:
+            string, quote wrapped command.
+        """
+        return '"%s"' % cmd.replace('"', '\\"')

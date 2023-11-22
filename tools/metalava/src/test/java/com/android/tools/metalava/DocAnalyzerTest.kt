@@ -5,9 +5,9 @@ import com.android.tools.metalava.model.psi.trimDocIndent
 import com.google.common.io.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Ignore
 import org.junit.Test
 import java.io.File
+import kotlin.text.Charsets.UTF_8
 
 /** Tests for the [DocAnalyzer] which enhances the docs */
 class DocAnalyzerTest : DriverTest() {
@@ -37,6 +37,7 @@ class DocAnalyzerTest : DriverTest() {
             ),
             checkCompilation = false, // needs androidx.annotations in classpath
             checkDoclava1 = false,
+            docStubs = true,
             stubs = arrayOf(
                 """
                 package test.pkg;
@@ -49,19 +50,22 @@ class DocAnalyzerTest : DriverTest() {
                  * @param factor2 This value must never be {@code null}.
                  * @return This value may be {@code null}.
                  */
-                @androidx.annotation.Nullable public java.lang.Double method1(@androidx.annotation.NonNull java.lang.Double factor1, @androidx.annotation.NonNull java.lang.Double factor2) { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.Nullable
+                public java.lang.Double method1(@androidx.annotation.NonNull java.lang.Double factor1, @androidx.annotation.NonNull java.lang.Double factor2) { throw new RuntimeException("Stub!"); }
                 /**
                  * These are the docs for method2. It can sometimes return null.
                  * @param factor1 This value must never be {@code null}.
                  * @param factor2 This value must never be {@code null}.
                  */
-                @androidx.annotation.Nullable public java.lang.Double method2(@androidx.annotation.NonNull java.lang.Double factor1, @androidx.annotation.NonNull java.lang.Double factor2) { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.Nullable
+                public java.lang.Double method2(@androidx.annotation.NonNull java.lang.Double factor1, @androidx.annotation.NonNull java.lang.Double factor2) { throw new RuntimeException("Stub!"); }
                 /**
                  * @param factor1 This value must never be {@code null}.
                  * @param factor2 This value must never be {@code null}.
                  * @return This value may be {@code null}.
                  */
-                @androidx.annotation.Nullable public java.lang.Double method3(@androidx.annotation.NonNull java.lang.Double factor1, @androidx.annotation.NonNull java.lang.Double factor2) { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.Nullable
+                public java.lang.Double method3(@androidx.annotation.NonNull java.lang.Double factor1, @androidx.annotation.NonNull java.lang.Double factor2) { throw new RuntimeException("Stub!"); }
                 }
                 """
             )
@@ -102,6 +106,9 @@ class DocAnalyzerTest : DriverTest() {
                  * to be a String resource reference (e.g.&nbsp;{@code android.R.string.ok}).
                  */
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
+                @java.lang.annotation.Documented
+                @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS)
+                @java.lang.annotation.Target({java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.LOCAL_VARIABLE})
                 public @interface StringRes {
                 }
                 """
@@ -116,21 +123,25 @@ class DocAnalyzerTest : DriverTest() {
                 java(
                     """
                     package test.pkg;
-                    /** This is an API for Andriod */
+                    /** This is an API for Andriod. Replace all occurrences: Andriod. */
                     public class Foo {
+                        /** Ignore matches within words: xAndriodx */
+                        public Foo() {
+                        }
                     }
                     """
                 )
             ),
             checkCompilation = true,
             checkDoclava1 = false,
-            warnings = "src/test/pkg/Foo.java:2: warning: Replaced Andriod with Android in documentation for class test.pkg.Foo [Typo:131]",
+            warnings = "src/test/pkg/Foo.java:2: warning: Replaced Andriod with Android in the documentation for class test.pkg.Foo [Typo]",
             stubs = arrayOf(
                 """
                 package test.pkg;
-                /** This is an API for Android */
+                /** This is an API for Android. Replace all occurrences: Android. */
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
                 public class Foo {
+                /** Ignore matches within words: xAndriodx */
                 public Foo() { throw new RuntimeException("Stub!"); }
                 }
                 """
@@ -141,6 +152,7 @@ class DocAnalyzerTest : DriverTest() {
     @Test
     fun `Document Permissions`() {
         check(
+            docStubs = true,
             sourceFiles = *arrayOf(
                 java(
                     """
@@ -169,6 +181,15 @@ class DocAnalyzerTest : DriverTest() {
                         @RequiresPermission(value=Manifest.permission.WATCH_APPOPS, conditional=true) // b/73559440
                         public void test5() {
                         }
+
+                        @RequiresPermission(anyOf = {Manifest.permission.ACCESS_COARSE_LOCATION, "carrier privileges"})
+                        public void test6() {
+                        }
+
+                        // Typo in marker
+                        @RequiresPermission(anyOf = {Manifest.permission.ACCESS_COARSE_LOCATION, "carier priviliges"})
+                        public void test6() {
+                        }
                     }
                     """
                 ),
@@ -190,6 +211,7 @@ class DocAnalyzerTest : DriverTest() {
             ),
             checkCompilation = false, // needs androidx.annotations in classpath
             checkDoclava1 = false,
+            warnings = "src/test/pkg/PermissionTest.java:31: lint: Unrecognized permission `carier priviliges`; did you mean `carrier privileges`? [MissingPermission]",
             stubs = arrayOf(
                 """
                 package test.pkg;
@@ -200,26 +222,88 @@ class DocAnalyzerTest : DriverTest() {
                 /**
                  * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION}
                  */
-                @androidx.annotation.RequiresPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) public void test1() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                public void test1() { throw new RuntimeException("Stub!"); }
                 /**
                  * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION}
                  */
-                @androidx.annotation.RequiresPermission(allOf=android.Manifest.permission.ACCESS_COARSE_LOCATION) public void test2() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(allOf=android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                public void test2() { throw new RuntimeException("Stub!"); }
                 /**
                  * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION} or {@link android.Manifest.permission#ACCESS_FINE_LOCATION}
                  */
-                @androidx.annotation.RequiresPermission(anyOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION}) public void test3() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(anyOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION})
+                public void test3() { throw new RuntimeException("Stub!"); }
                 /**
                  * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION} and {@link android.Manifest.permission#ACCOUNT_MANAGER}
                  */
-                @androidx.annotation.RequiresPermission(allOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCOUNT_MANAGER}) public void test4() { throw new RuntimeException("Stub!"); }
-                @androidx.annotation.RequiresPermission(value=android.Manifest.permission.WATCH_APPOPS, conditional=true) public void test5() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(allOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCOUNT_MANAGER})
+                public void test4() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(value=android.Manifest.permission.WATCH_APPOPS, conditional=true)
+                public void test5() { throw new RuntimeException("Stub!"); }
+                /**
+                 * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION} or {@link android.telephony.TelephonyManager#hasCarrierPrivileges carrier privileges}
+                 */
+                @androidx.annotation.RequiresPermission(anyOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, "carrier privileges"})
+                public void test6() { throw new RuntimeException("Stub!"); }
+                /**
+                 * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION} or "carier priviliges"
+                 */
+                @androidx.annotation.RequiresPermission(anyOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, "carier priviliges"})
+                public void test6() { throw new RuntimeException("Stub!"); }
                 }
                 """
             )
         )
     }
 
+    @Test
+    fun `Conditional Permission`() {
+        check(
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                    package test.pkg;
+
+                    import android.Manifest;
+                    import android.annotation.RequiresPermission;
+
+                    // Scenario described in b/73559440
+                    public class PermissionTest {
+                        @RequiresPermission(value=Manifest.permission.WATCH_APPOPS, conditional=true)
+                        public void test1() {
+                        }
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android;
+
+                    public abstract class Manifest {
+                        public static final class permission {
+                            public static final String WATCH_APPOPS = "android.permission.WATCH_APPOPS";
+                        }
+                    }
+                    """
+                ),
+                requiresPermissionSource
+            ),
+            checkCompilation = false, // needs androidx.annotations in classpath
+            checkDoclava1 = false,
+            stubs = arrayOf(
+                """
+                package test.pkg;
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                public class PermissionTest {
+                public PermissionTest() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(value=android.Manifest.permission.WATCH_APPOPS, conditional=true)
+                public void test1() { throw new RuntimeException("Stub!"); }
+                }
+                """
+            )
+        )
+    }
     @Test
     fun `Document ranges`() {
         check(
@@ -257,15 +341,18 @@ class DocAnalyzerTest : DriverTest() {
                  * @param range2 Value is 20 or greater
                  * @return Value is 10 or greater
                  */
-                @androidx.annotation.IntRange(from=10) public int test1(@androidx.annotation.IntRange(from=20) int range2) { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.IntRange(from=10)
+                public int test1(@androidx.annotation.IntRange(from=20) int range2) { throw new RuntimeException("Stub!"); }
                 /**
                  * @return Value is between 10 and 20 inclusive
                  */
-                @androidx.annotation.IntRange(from=10, to=20) public int test2() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.IntRange(from=10, to=20)
+                public int test2() { throw new RuntimeException("Stub!"); }
                 /**
                  * @return Value is 100 or less
                  */
-                @androidx.annotation.IntRange(to=100) public int test3() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.IntRange(to=100)
+                public int test3() { throw new RuntimeException("Stub!"); }
                 }
                 """
             )
@@ -296,15 +383,21 @@ class DocAnalyzerTest : DriverTest() {
             stubs = arrayOf(
                 """
                 package test.pkg;
-                /** Methods in this class must be called on the thread that originally created
-                 *            this UI element, unless otherwise noted. This is typically the
-                 *            main thread of your app. * */
+                /**
+                 * Methods in this class must be called on the thread that originally created
+                 * this UI element, unless otherwise noted. This is typically the
+                 * main thread of your app. *
+                 */
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
-                @androidx.annotation.UiThread public class RangeTest {
+                @androidx.annotation.UiThread
+                public class RangeTest {
                 public RangeTest() { throw new RuntimeException("Stub!"); }
-                /** This method may take several seconds to complete, so it should
-                 *            only be called from a worker thread. */
-                @androidx.annotation.WorkerThread public int test1() { throw new RuntimeException("Stub!"); }
+                /**
+                 * This method may take several seconds to complete, so it should
+                 * only be called from a worker thread.
+                 */
+                @androidx.annotation.WorkerThread
+                public int test1() { throw new RuntimeException("Stub!"); }
                 }
                 """
             )
@@ -331,19 +424,102 @@ class DocAnalyzerTest : DriverTest() {
             ),
             checkCompilation = true,
             checkDoclava1 = false,
-            warnings = "src/test/pkg/RangeTest.java:5: warning: Found more than one threading annotation on method test.pkg.RangeTest.test1(); the auto-doc feature does not handle this correctly [MultipleThreadAnnotations:133]",
+            warnings = "src/test/pkg/RangeTest.java:5: lint: Found more than one threading annotation on method test.pkg.RangeTest.test1(); the auto-doc feature does not handle this correctly [MultipleThreadAnnotations]",
             stubs = arrayOf(
                 """
                 package test.pkg;
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
                 public class RangeTest {
                 public RangeTest() { throw new RuntimeException("Stub!"); }
-                /** This method must be called on the thread that originally created
-                 *            this UI element. This is typically the main thread of your app.
+                /**
+                 * This method must be called on the thread that originally created
+                 * this UI element. This is typically the main thread of your app.
+                 * <br>
                  * This method may take several seconds to complete, so it should
-                 *  *            only be called from a worker thread.
+                 * only be called from a worker thread.
                  */
-                @androidx.annotation.UiThread @androidx.annotation.WorkerThread public int test1() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.UiThread
+                @androidx.annotation.WorkerThread
+                public int test1() { throw new RuntimeException("Stub!"); }
+                }
+                """
+            )
+        )
+    }
+
+    @Test
+    fun `Merge Multiple sections`() {
+        check(
+            warnings = "src/android/widget/Toolbar2.java:14: error: Documentation should not specify @apiSince manually; it's computed and injected at build time by metalava [ForbiddenTag]",
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                    package android.widget;
+                    import androidx.annotation.UiThread;
+
+                    public class Toolbar2 {
+                        /**
+                        * Existing documentation for {@linkplain #getCurrentContentInsetEnd()} here.
+                        * @return blah blah blah
+                        */
+                        @UiThread
+                        public int getCurrentContentInsetEnd() {
+                            return 0;
+                        }
+
+                        /**
+                        * @apiSince 15
+                        */
+                        @UiThread
+                        public int getCurrentContentInsetRight() {
+                            return 0;
+                        }
+                    }
+                    """
+                ),
+                uiThreadSource
+            ),
+            checkCompilation = true,
+            checkDoclava1 = false,
+            applyApiLevelsXml = """
+                    <?xml version="1.0" encoding="utf-8"?>
+                    <api version="2">
+                        <class name="android/widget/Toolbar2" since="21">
+                            <method name="&lt;init>(Landroid/content/Context;)V"/>
+                            <method name="collapseActionView()V"/>
+                            <method name="getContentInsetStartWithNavigation()I" since="24"/>
+                            <method name="getCurrentContentInsetEnd()I" since="24"/>
+                            <method name="getCurrentContentInsetLeft()I" since="24"/>
+                            <method name="getCurrentContentInsetRight()I" since="24"/>
+                            <method name="getCurrentContentInsetStart()I" since="24"/>
+                        </class>
+                    </api>
+                    """,
+            stubs = arrayOf(
+                """
+                package android.widget;
+                /** @apiSince 21 */
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                public class Toolbar2 {
+                public Toolbar2() { throw new RuntimeException("Stub!"); }
+                /**
+                 * Existing documentation for {@linkplain #getCurrentContentInsetEnd()} here.
+                 * <br>
+                 * This method must be called on the thread that originally created
+                 * this UI element. This is typically the main thread of your app.
+                 * @return blah blah blah
+                 * @apiSince 24
+                 */
+                @androidx.annotation.UiThread
+                public int getCurrentContentInsetEnd() { throw new RuntimeException("Stub!"); }
+                /**
+                 * <br>
+                 * This method must be called on the thread that originally created
+                 * this UI element. This is typically the main thread of your app.
+                 * @apiSince 15
+                 */
+                @androidx.annotation.UiThread
+                public int getCurrentContentInsetRight() { throw new RuntimeException("Stub!"); }
                 }
                 """
             )
@@ -504,7 +680,8 @@ class DocAnalyzerTest : DriverTest() {
                 /**
                  * Requires {@link test.pkg.RangeTest#ACCESS_COARSE_LOCATION}
                  */
-                @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION) public void test1() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION)
+                public void test1() { throw new RuntimeException("Stub!"); }
                 public static final java.lang.String ACCESS_COARSE_LOCATION = "android.permission.ACCESS_COARSE_LOCATION";
                 }
                 """
@@ -531,7 +708,7 @@ class DocAnalyzerTest : DriverTest() {
             ),
             checkCompilation = true,
             checkDoclava1 = false,
-            warnings = "src/test/pkg/RangeTest.java:4: lint: Cannot find permission field for \"MyPermission\" required by method test.pkg.RangeTest.test1() (may be hidden or removed) [MissingPermission:132]",
+            warnings = "src/test/pkg/RangeTest.java:4: lint: Cannot find permission field for \"MyPermission\" required by method test.pkg.RangeTest.test1() (may be hidden or removed) [MissingPermission]",
             stubs = arrayOf(
                 """
                 package test.pkg;
@@ -541,7 +718,8 @@ class DocAnalyzerTest : DriverTest() {
                 /**
                  * Requires "MyPermission"
                  */
-                @androidx.annotation.RequiresPermission("MyPermission") public void test1() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission("MyPermission")
+                public void test1() { throw new RuntimeException("Stub!"); }
                 }
                 """
             )
@@ -577,9 +755,11 @@ class DocAnalyzerTest : DriverTest() {
                 public RangeTest() { throw new RuntimeException("Stub!"); }
                 /**
                  * This is the existing documentation.
+                 * <br>
                  * Requires {@link test.pkg.RangeTest#ACCESS_COARSE_LOCATION}
                  */
-                @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION) public int test1() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION)
+                public int test1() { throw new RuntimeException("Stub!"); }
                 public static final java.lang.String ACCESS_COARSE_LOCATION = "android.permission.ACCESS_COARSE_LOCATION";
                 }
                 """
@@ -620,9 +800,11 @@ class DocAnalyzerTest : DriverTest() {
                 /**
                  * This is the existing documentation.
                  * Multiple lines of it.
+                 * <br>
                  * Requires {@link test.pkg.RangeTest#ACCESS_COARSE_LOCATION}
                  */
-                @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION) public int test1() { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION)
+                public int test1() { throw new RuntimeException("Stub!"); }
                 public static final java.lang.String ACCESS_COARSE_LOCATION = "android.permission.ACCESS_COARSE_LOCATION";
                 }
                 """
@@ -698,13 +880,15 @@ class DocAnalyzerTest : DriverTest() {
                 public RangeTest() { throw new RuntimeException("Stub!"); }
                 /**
                  * This is the existing documentation.
+                 * <br>
                  * Requires {@link test.pkg.RangeTest#ACCESS_COARSE_LOCATION}
                  * @param parameter1 docs for parameter1
                  * @param parameter2 docs for parameter2
                  * @param parameter3 docs for parameter2
                  * @return return value documented here
                  */
-                @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION) public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION)
+                public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                 public static final java.lang.String ACCESS_COARSE_LOCATION = "android.permission.ACCESS_COARSE_LOCATION";
                 }
                 """
@@ -866,7 +1050,8 @@ class DocAnalyzerTest : DriverTest() {
                 /**
                  * @return Value is 10 or greater
                  */
-                @androidx.annotation.IntRange(from=10) public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.IntRange(from=10)
+                public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                 }
                 """
             )
@@ -906,7 +1091,8 @@ class DocAnalyzerTest : DriverTest() {
                  * @return return value documented here
                  * Value is 10 or greater
                  */
-                @androidx.annotation.IntRange(from=10) public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
+                @androidx.annotation.IntRange(from=10)
+                public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                 }
                 """
             )
@@ -927,7 +1113,6 @@ class DocAnalyzerTest : DriverTest() {
         )
     }
 
-    @Ignore("This test for some reason is flaky; it works when run directly but sometimes fails when running all tests")
     @Test
     fun `Merge API levels`() {
         check(
@@ -968,18 +1153,14 @@ class DocAnalyzerTest : DriverTest() {
             stubs = arrayOf(
                 """
                 package android.widget;
-                /**
-                 * Requires API level 21
-                 * @since 5.0 Lollipop (21)
-                 */
+                /** @apiSince 21 */
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
                 public class Toolbar {
                 public Toolbar() { throw new RuntimeException("Stub!"); }
                 /**
                  * Existing documentation for {@linkplain #getCurrentContentInsetEnd()} here.
-                 * Requires API level 24
-                 * @since 7.0 Nougat (24)
                  * @return blah blah blah
+                 * @apiSince 24
                  */
                 public int getCurrentContentInsetEnd() { throw new RuntimeException("Stub!"); }
                 }
@@ -1016,7 +1197,7 @@ class DocAnalyzerTest : DriverTest() {
                             <method name="&lt;init>()V"/>
                             <method name="addCallbackBuffer([B)V" since="8"/>
                             <method name="getLogo()Landroid/graphics/drawable/Drawable;"/>
-                            <field name="ACTION_NEW_VIDEO" since="14" deprecated="25"/>
+                            <field name="ACTION_NEW_VIDEO" since="14" deprecated="19"/>
                         </class>
                     </api>
                     """,
@@ -1028,26 +1209,244 @@ class DocAnalyzerTest : DriverTest() {
                 /**
                  * The Camera class is used to set image capture settings, start/stop preview.
                  *
-                 * @deprecated
-                 * <p class="caution"><strong>This class was deprecated in API level 21.</strong></p>
-                 *  We recommend using the new {@link android.hardware.camera2} API for new
+                 * @deprecated We recommend using the new {@link android.hardware.camera2} API for new
                  *             applications.*
+                 * @apiSince 1
+                 * @deprecatedSince 21
                  */
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
-                @Deprecated public class Camera {
+                @Deprecated
+                public class Camera {
                 public Camera() { throw new RuntimeException("Stub!"); }
                 /**
-                 *
-                 * Requires API level 14
-                 * @deprecated
-                 * <p class="caution"><strong>This class was deprecated in API level 21.</strong></p>
-                 *  Use something else.
-                 * @since 4.0 IceCreamSandwich (14)
+                 * @deprecated Use something else.
+                 * @apiSince 14
+                 * @deprecatedSince 19
                  */
                 @Deprecated public static final java.lang.String ACTION_NEW_VIDEO = "android.hardware.action.NEW_VIDEO";
                 }
                 """
             )
+        )
+    }
+
+    @Test
+    fun `Api levels around current and preview`() {
+        check(
+            extraArguments = arrayOf(
+                ARG_CURRENT_CODENAME,
+                "Z",
+                ARG_CURRENT_VERSION,
+                "35" // not real api level of Z
+            ),
+            includeSystemApiAnnotations = true,
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                    package android.pkg;
+                    import android.annotation.SystemApi;
+                    public class Test {
+                       public static final String UNIT_TEST_1 = "unit.test.1";
+                       /**
+                         * @hide
+                         */
+                        @SystemApi
+                       public static final String UNIT_TEST_2 = "unit.test.2";
+                    }
+                    """
+                ),
+                systemApiSource
+            ),
+            applyApiLevelsXml = """
+                    <?xml version="1.0" encoding="utf-8"?>
+                    <api version="2">
+                        <class name="android/pkg/Test" since="1">
+                            <field name="UNIT_TEST_1" since="35"/>
+                            <field name="UNIT_TEST_2" since="36"/>
+                        </class>
+                    </api>
+                    """,
+            checkCompilation = true,
+            checkDoclava1 = false,
+            stubs = arrayOf(
+                """
+                package android.pkg;
+                /** @apiSince 1 */
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                public class Test {
+                public Test() { throw new RuntimeException("Stub!"); }
+                /** @apiSince 35 */
+                public static final java.lang.String UNIT_TEST_1 = "unit.test.1";
+                /**
+                 * @hide
+                 */
+                public static final java.lang.String UNIT_TEST_2 = "unit.test.2";
+                }
+                """
+            )
+        )
+    }
+
+    @Test
+    fun `No api levels on SystemApi only elements`() {
+        // @SystemApi, @TestApi etc cannot get api versions since we don't have
+        // accurate android.jar files (or even reliable api.txt/api.xml files) for them.
+        check(
+            extraArguments = arrayOf(
+                ARG_CURRENT_CODENAME,
+                "Z",
+                ARG_CURRENT_VERSION,
+                "35" // not real api level of Z
+            ),
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                    package android.pkg;
+                    public class Test {
+                       public Test(int i) { }
+                       public static final String UNIT_TEST_1 = "unit.test.1";
+                       public static final String UNIT_TEST_2 = "unit.test.2";
+                    }
+                    """
+                )
+            ),
+            applyApiLevelsXml = """
+                    <?xml version="1.0" encoding="utf-8"?>
+                    <api version="2">
+                        <class name="android/pkg/Test" since="1">
+                            <method name="&lt;init>(I)V"/>
+                            <field name="UNIT_TEST_1" since="35"/>
+                            <field name="UNIT_TEST_2" since="36"/>
+                        </class>
+                    </api>
+                    """,
+            checkCompilation = true,
+            checkDoclava1 = false,
+            stubs = arrayOf(
+                """
+                package android.pkg;
+                /** @apiSince 1 */
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                public class Test {
+                /** @apiSince 1 */
+                public Test(int i) { throw new RuntimeException("Stub!"); }
+                /** @apiSince 35 */
+                public static final java.lang.String UNIT_TEST_1 = "unit.test.1";
+                /** @apiSince Z */
+                public static final java.lang.String UNIT_TEST_2 = "unit.test.2";
+                }
+                """
+            )
+        )
+    }
+
+    @Test
+    fun `Generate API level javadocs`() {
+        // TODO: Check package-info.java conflict
+        // TODO: Test merging
+        // TODO: Test non-merging
+        check(
+            extraArguments = arrayOf(
+                ARG_CURRENT_CODENAME,
+                "Z",
+                ARG_CURRENT_VERSION,
+                "35" // not real api level of Z
+            ),
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                    package android.pkg1;
+                    public class Test1 {
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.pkg1;
+                    public class Test2 {
+                    }
+                    """
+                ),
+                source(
+                    "src/android/pkg2/package.html",
+                    """
+                    <body bgcolor="white">
+                    Some existing doc here.
+                    @deprecated
+                    <!-- comment -->
+                    </body>
+                    """
+                ).indented(),
+                java(
+                    """
+                    package android.pkg2;
+                    public class Test1 {
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.pkg2;
+                    public class Test2 {
+                    }
+                    """
+                ),
+                java(
+                    """
+                    package android.pkg3;
+                    public class Test1 {
+                    }
+                    """
+                )
+            ),
+            applyApiLevelsXml = """
+                    <?xml version="1.0" encoding="utf-8"?>
+                    <api version="2">
+                        <class name="android/pkg1/Test1" since="15"/>
+                        <class name="android/pkg3/Test1" since="20"/>
+                    </api>
+                    """,
+            checkCompilation = true,
+            checkDoclava1 = false,
+            stubs = arrayOf(
+                """
+                package android.pkg1;
+                /** @apiSince 15 */
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                public class Test1 {
+                public Test1() { throw new RuntimeException("Stub!"); }
+                }
+                """,
+                """
+                [android/pkg1/package-info.java]
+                /** @apiSince 15 */
+                package android.pkg1;
+                """,
+                """
+                [android/pkg2/package-info.java]
+                /**
+                 * Some existing doc here.
+                 * @deprecated
+                 * <!-- comment -->
+                 */
+                package android.pkg2;
+                """,
+                """
+                [android/pkg3/package-info.java]
+                /** @apiSince 20 */
+                package android.pkg3;
+                """
+            ),
+            stubsSourceList = """
+                TESTROOT/stubs/android/pkg1/package-info.java
+                TESTROOT/stubs/android/pkg1/Test1.java
+                TESTROOT/stubs/android/pkg1/Test2.java
+                TESTROOT/stubs/android/pkg2/package-info.java
+                TESTROOT/stubs/android/pkg2/Test1.java
+                TESTROOT/stubs/android/pkg2/Test2.java
+                TESTROOT/stubs/android/pkg3/package-info.java
+                TESTROOT/stubs/android/pkg3/Test1.java
+            """
         )
     }
 
@@ -1058,7 +1457,22 @@ class DocAnalyzerTest : DriverTest() {
         check(
             checkDoclava1 = false,
             sourceFiles = *arrayOf(
-                source("src/test/visible/overview.html", "<html>My docs</html>"),
+                source("src/overview.html", "<html>My overview docs</html>"),
+                source(
+                    "src/test/visible/package.html",
+                    """
+                    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+                    <!-- not a body tag: <body> -->
+                    <html>
+                    <body bgcolor="white">
+                    My package docs<br>
+                    <!-- comment -->
+                    Sample code: /** code here */
+                    Another line.<br>
+                    </BODY>
+                    </html>
+                    """
+                ).indented(),
                 java(
                     """
                     package test.visible;
@@ -1068,9 +1482,20 @@ class DocAnalyzerTest : DriverTest() {
                     """
                 )
             ),
+            docStubs = true,
             stubs = arrayOf(
                 """
-                <html>My docs</html>
+                <html>My overview docs</html>
+                """,
+                """
+                [test/visible/package-info.java]
+                /**
+                 * My package docs<br>
+                 * <!-- comment -->
+                 * Sample code: /** code here &#42;/
+                 * Another line.<br>
+                 */
+                package test.visible;
                 """,
                 """
                 package test.visible;
@@ -1104,6 +1529,7 @@ class DocAnalyzerTest : DriverTest() {
                     package android.content.pm;
                     public abstract class PackageManager {
                         public static final String FEATURE_LOCATION = "android.hardware.location";
+                        public boolean hasSystemFeature(String feature) { return false; }
                     }
                     """
                 ),
@@ -1144,18 +1570,194 @@ class DocAnalyzerTest : DriverTest() {
 
                 requiresApiSource
             ),
+            checkCompilation = false, // duplicate class: androidx.annotation.RequiresApi
+            checkDoclava1 = false,
+            stubs = arrayOf(
+                """
+                package test.pkg;
+                /** @apiSince 21 */
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                @androidx.annotation.RequiresApi(21)
+                public class MyClass1 {
+                public MyClass1() { throw new RuntimeException("Stub!"); }
+                }
+                """
+            )
+        )
+    }
+
+    @Test
+    fun `Include Kotlin deprecation text`() {
+        check(
+            sourceFiles = *arrayOf(
+                kotlin(
+                    """
+                    package test.pkg
+
+                    @Suppress("DeprecatedCallableAddReplaceWith","EqualsOrHashCode")
+                    @Deprecated("Use Jetpack preference library", level = DeprecationLevel.ERROR)
+                    class Foo {
+                        fun foo()
+
+                        @Deprecated("Blah blah blah 1", level = DeprecationLevel.ERROR)
+                        override fun toString(): String = "Hello World"
+
+                        /**
+                         * My description
+                         * @deprecated Existing deprecation message.
+                         */
+                        @Deprecated("Blah blah blah 2", level = DeprecationLevel.ERROR)
+                        override fun hashCode(): Int = 0
+                    }
+
+                    """
+                )
+            ),
             checkCompilation = true,
             checkDoclava1 = false,
             stubs = arrayOf(
                 """
                 package test.pkg;
                 /**
-                 * Requires API level 21
-                 * @since 5.0 Lollipop (21)
+                 * @deprecated Use Jetpack preference library
                  */
                 @SuppressWarnings({"unchecked", "deprecation", "all"})
-                @androidx.annotation.RequiresApi(21) public class MyClass1 {
-                public MyClass1() { throw new RuntimeException("Stub!"); }
+                @Deprecated
+                public final class Foo {
+                public Foo() { throw new RuntimeException("Stub!"); }
+                public void foo() { throw new RuntimeException("Stub!"); }
+                /**
+                 * {@inheritDoc}
+                 * @deprecated Blah blah blah 1
+                 */
+                @Deprecated
+                @android.annotation.NonNull
+                public java.lang.String toString() { throw new RuntimeException("Stub!"); }
+                /**
+                 * My description
+                 * @deprecated Existing deprecation message.
+                 * Blah blah blah 2
+                 */
+                @Deprecated
+                public int hashCode() { throw new RuntimeException("Stub!"); }
+                }
+                """
+            )
+        )
+    }
+
+    @Test
+    fun `Annotation annotating self`() {
+        check(
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                        package test.pkg;
+                        import java.lang.annotation.Retention;
+                        import java.lang.annotation.RetentionPolicy;
+                        /**
+                         * Documentation here
+                         */
+                        @SuppressWarnings("WeakerAccess")
+                        @MyAnnotation
+                        @Retention(RetentionPolicy.SOURCE)
+                        public @interface MyAnnotation {
+                        }
+                    """
+                ),
+                java(
+                    """
+                        package test.pkg;
+
+                        /**
+                         * Other documentation here
+                         */
+                        @SuppressWarnings("WeakerAccess")
+                        @MyAnnotation
+                        public class OtherClass {
+                        }
+                    """
+                )
+            ),
+            checkCompilation = true,
+            checkDoclava1 = false,
+            stubs = arrayOf(
+                """
+                package test.pkg;
+                /**
+                 * Documentation here
+                 */
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE)
+                public @interface MyAnnotation {
+                }
+                """,
+                """
+                package test.pkg;
+                /**
+                 * Other documentation here
+                 */
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                public class OtherClass {
+                public OtherClass() { throw new RuntimeException("Stub!"); }
+                }
+                """
+            )
+        )
+    }
+
+    @Test
+    fun `Annotation annotating itself indirectly`() {
+        check(
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                        package test.pkg;
+
+                        /**
+                         * Documentation 1 here
+                         */
+                        @SuppressWarnings("WeakerAccess")
+                        @MyAnnotation2
+                        public @interface MyAnnotation1 {
+                        }
+                    """
+                ),
+                java(
+                    """
+                        package test.pkg;
+
+                        /**
+                         * Documentation 2 here
+                         */
+                        @SuppressWarnings("WeakerAccess")
+                        @MyAnnotation1
+                        public @interface MyAnnotation2 {
+                        }
+                    """
+                )
+            ),
+            checkCompilation = true,
+            checkDoclava1 = false,
+            stubs = arrayOf(
+                """
+                package test.pkg;
+                /**
+                 * Documentation 1 here
+                 */
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                @test.pkg.MyAnnotation2
+                public @interface MyAnnotation1 {
+                }
+                """,
+                """
+                package test.pkg;
+                /**
+                 * Documentation 2 here
+                 */
+                @SuppressWarnings({"unchecked", "deprecation", "all"})
+                @test.pkg.MyAnnotation1
+                public @interface MyAnnotation2 {
                 }
                 """
             )
@@ -1169,6 +1771,13 @@ class DocAnalyzerTest : DriverTest() {
             println("Ignoring external doc test: JDK not found")
             return
         }
+
+        val version = System.getProperty("java.version")
+        if (!version.startsWith("1.8.")) {
+            println("Javadoc invocation test does not work on Java 1.9 and later; bootclasspath not supported")
+            return
+        }
+
         val javadoc = File(jdkPath, "bin/javadoc")
         if (!javadoc.isFile) {
             println("Ignoring external doc test: javadoc not found *or* not running on Linux/OSX")
@@ -1186,9 +1795,9 @@ class DocAnalyzerTest : DriverTest() {
 
         check(
             extraArguments = arrayOf(
-                "--write-stubs-source-list",
+                ARG_STUBS_SOURCE_LIST,
                 sourceList,
-                "--generate-documentation",
+                ARG_GENERATE_DOCUMENTATION,
                 javadoc.path,
                 "-sourcepath",
                 "STUBS_DIR",
@@ -1226,6 +1835,7 @@ class DocAnalyzerTest : DriverTest() {
             ),
             checkCompilation = true,
             checkDoclava1 = false,
+
             stubs = arrayOf(
                 """
                 package test.pkg;
@@ -1241,7 +1851,7 @@ class DocAnalyzerTest : DriverTest() {
             )
         )
 
-        val doc = File(html, "test/pkg/LocationManager.html").readText(Charsets.UTF_8)
+        val doc = File(html, "test/pkg/LocationManager.html").readText(UTF_8)
         assertTrue(
             "Did not find matching javadoc fragment in LocationManager.html: actual content is\n$doc",
             doc.contains(

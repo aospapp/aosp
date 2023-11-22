@@ -17,37 +17,30 @@ limitations under the License.
     <!-- The main application name for the radio. -->
     <string name="app_name">Radio</string>
 
-    <!-- Text to denote the AM radio band. -->
-    <string name="radio_am_text">AM</string>
+    <!-- Text to denote the AM band. -->
+    <string name="programtype_am_text">AM</string>
 
-    <!-- Text to denote the FM radio band. -->
-    <string name="radio_fm_text">FM</string>
+    <!-- Text to denote the FM band. -->
+    <string name="programtype_fm_text">FM</string>
 
-    <!-- Transition name for the radio control background to current radio card in the presets
-         list . -->
-    <string name="radio_controls_transition_name" translatable="false">
-        radio_controls_transition</string>
+    <!-- Text to denote the DAB program type (band). -->
+    <string name="programtype_dab_text">DAB</string>
 
-    <!-- Transition name for the play button that will be shared between the main radio
-         display and presets list. -->
-    <string name="radio_play_button_transition_name" translatable="false">
-        radio_play_button_transition</string>
+    <!-- Text indicating the radio hardware is not supported on this device. -->
+    <string name="radio_not_supported_text">Radio not supported</string>
 
-    <!-- Text indicating to the user that there was an error loading the error. -->
-    <string name="radio_problem_text">Radio not available</string>
+    <!-- Text indicating a fatal error (app service crash or HW failure). -->
+    <string name="radio_failure_text">Radio temporarily not available</string>
 
     <!-- Error message after invalid MediaSession API selection (mainly by other apps,
          like assistant). -->
     <string name="invalid_selection">Invalid selection</string>
 
-    <!-- Default metadata text if a preset has no metadata. This text should indicate to the user
+    <!-- Default metadata text if a favorite has no metadata. This text should indicate to the user
          that the station is favorited followed by the number of the favorite. -->
-    <string name="radio_default_preset_metadata_text">Favorite <xliff:g>%1$s</xliff:g></string>
+    <string name="radio_default_favorite_metadata_text">Favorite <xliff:g>%1$s</xliff:g></string>
 
-    <!-- The text in the drawer that will take the user to the radio's manual tuner. -->
-    <string name="manual_tuner_drawer_entry">Manual Tuner</string>
-
-    <!-- The strings for the dialpad in the manual tuner. -->
+    <!-- The digits for the dialpad in the manual tuner. There is no need to localize them. -->
     <string name="manual_tuner_0">0</string>
     <string name="manual_tuner_1">1</string>
     <string name="manual_tuner_2">2</string>
@@ -59,4 +52,12 @@ limitations under the License.
     <string name="manual_tuner_8">8</string>
     <string name="manual_tuner_9">9</string>
     <string name="manual_tuner_period">.</string>
+
+    <!-- Tab header text. -->
+    <string name="browse_tab">Browse</string>
+    <string name="favorites_tab">Favorites</string>
+    <string name="tune_tab">Tune</string>
+
+    <!-- Text to confirm manual tuner selection. -->
+    <string name="enter_text">Enter</string>
 </resources>

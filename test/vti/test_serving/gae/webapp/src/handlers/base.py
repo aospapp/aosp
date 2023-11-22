@@ -14,19 +14,20 @@
 # limitations under the License.
 #
 
+import datetime
 import httplib
 import logging
 import os
 import urlparse
 
-import arrow
+from google.appengine.api import users
 import stripe
 import webapp2
-from google.appengine.api import users
 from webapp2_extras import jinja2 as wa2_jinja2
 from webapp2_extras import sessions
 
 import errors
+from webapp.src.utils import datetime_util
 
 
 class BaseHandler(webapp2.RequestHandler):
@@ -173,12 +174,13 @@ class BaseHandler(webapp2.RequestHandler):
 
         resp.update({
             # Defaults go here.
-            'now': arrow.utcnow(),
+            'now': datetime.datetime.now(),
             'dest_url': str(self.request.get('dest_url', '')),
             'form_errors': self.session.pop('form_errors', []),
             'user': user,
             'url': url,
             'url_linktext': url_linktext,
+            "convert_time": datetime_util.GetTimeWithTimezone
         })
 
         if 'preload' not in resp:

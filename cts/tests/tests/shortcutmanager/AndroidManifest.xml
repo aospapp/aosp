@@ -55,7 +55,7 @@
             android:exported="false"/>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="android.content.pm.cts.shortcutmanager"
         android:label="CTS tests for ShortcutManager">
         <meta-data android:name="listener"

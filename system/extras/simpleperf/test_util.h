@@ -19,6 +19,9 @@
 #include <string>
 #include <vector>
 
+#include <android-base/file.h>
+
+#include "environment.h"
 #include "read_elf.h"
 #include "workload.h"
 
@@ -56,3 +59,64 @@ bool IsInNativeAbi();
       return; \
     } \
   } while (0)
+
+bool HasHardwareCounter();
+#define TEST_REQUIRE_HW_COUNTER() \
+  do { \
+    if (!HasHardwareCounter()) { \
+      GTEST_LOG_(INFO) << "Skip this test as the machine doesn't have hardware PMU counters."; \
+      return; \
+    } \
+  } while (0)
+
+#if defined(IN_CTS_TEST)
+#define TEST_REQUIRE_APPS()
+#else
+#define TEST_REQUIRE_APPS() \
+  do { \
+    GTEST_LOG_(INFO) << "Skip this test as test apps aren't available."; \
+    return; \
+  } while (0)
+#endif
+
+class CaptureStdout {
+ public:
+  CaptureStdout() : started_(false) {}
+
+  ~CaptureStdout() {
+    if (started_) {
+      Finish();
+    }
+  }
+
+  bool Start() {
+    fflush(stdout);
+    old_stdout_ = dup(STDOUT_FILENO);
+    if (old_stdout_ == -1) {
+      return false;
+    }
+    started_ = true;
+    tmpfile_.reset(new TemporaryFile);
+    if (dup2(tmpfile_->fd, STDOUT_FILENO) == -1) {
+      return false;
+    }
+    return true;
+  }
+
+  std::string Finish() {
+    fflush(stdout);
+    started_ = false;
+    dup2(old_stdout_, STDOUT_FILENO);
+    close(old_stdout_);
+    std::string s;
+    if (!android::base::ReadFileToString(tmpfile_->path, &s)) {
+      return "";
+    }
+    return s;
+  }
+
+ private:
+  bool started_;
+  int old_stdout_;
+  std::unique_ptr<TemporaryFile> tmpfile_;
+};

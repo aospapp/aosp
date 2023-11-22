@@ -86,9 +86,18 @@ PFNGLUNMAPBUFFERPROC glUnmapBuffer;
     ASSERT((a) != (b), "assert failed on (" #a ") at " __FILE__ ":%d", __LINE__)
 #define ASSERT_GT(a, b) \
     ASSERT((a) > (b), "assert failed on (" #a ") at " __FILE__ ":%d", __LINE__)
-#define ASSERT_NEAR(a, b, delta)                     \
-    ASSERT((a - delta) <= (b) && (b) <= (a + delta), \
+#define ASSERT_NEAR_RGBA(a, b, delta) \
+    ASSERT(areNearRgba(a, b, delta),  \
            "assert failed on (" #a ") at " __FILE__ ":%d", __LINE__)
+
+bool areNearRgba(int32_t actual, int32_t expected, int delta) {
+    for (int shift = 0; shift < 32; shift += 8) {
+        if (std::abs((actual >> shift & 0xFF) - (expected >> shift & 0xFF)) > delta) {
+            return false;
+        }
+    }
+    return true;
+}
 
 void fail(JNIEnv* env, const char* format, ...) {
     va_list args;
@@ -97,9 +106,13 @@ void fail(JNIEnv* env, const char* format, ...) {
     vasprintf(&msg, format, args);
     va_end(args);
     jclass exClass;
-    const char* className = "java/lang/AssertionError";
-    exClass = env->FindClass(className);
-    env->ThrowNew(exClass, msg);
+    exClass = env->FindClass("java/lang/AssertionError");
+    jmethodID constructor =
+        env->GetMethodID(exClass, "<init>",
+                         "(Ljava/lang/String;Ljava/lang/Throwable;)V");
+    jstring msgStr = env->NewStringUTF(msg);
+    jobject exception = env->NewObject(exClass, constructor, msgStr, nullptr);
+    env->Throw(static_cast<jthrowable>(exception));
     free(msg);
 }
 
@@ -107,8 +120,8 @@ static void testEglImageArray(JNIEnv* env, AHardwareBuffer_Desc desc,
                               int nsamples) {
     ASSERT_GT(desc.layers, 1);
     AHardwareBuffer* hwbuffer = nullptr;
-    int error = AHardwareBuffer_allocate(&desc, &hwbuffer);
-    ASSERT_FALSE(error);
+    // If the format is unsupported and allocation fails, skip the test.
+    if (AHardwareBuffer_allocate(&desc, &hwbuffer) != NO_ERROR) return;
     // Create EGLClientBuffer from the AHardwareBuffer.
     EGLClientBuffer native_buffer = eglGetNativeClientBufferANDROID(hwbuffer);
     ASSERT_TRUE(native_buffer);
@@ -256,7 +269,8 @@ Java_android_vr_cts_VrExtensionBehaviorTest_nativeTestExternalBuffer(
     JNIEnv* env, jclass /* unused */) {
     // First, check for EXT_external_buffer in the extension string.
     auto exts = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
-    ASSERT_TRUE(exts && strstr(exts, "GL_EXT_external_buffer"));
+    ASSERT_TRUE(exts);
+    if (strstr(exts, "GL_EXT_external_buffer") == nullptr) return;
     // Next, load entry points provided by extensions.
     LOAD_PROC(eglGetNativeClientBufferANDROID, PFNEGLGETNATIVECLIENTBUFFERANDROID);
     ASSERT_NE(eglGetNativeClientBufferANDROID, nullptr);
@@ -461,8 +475,7 @@ static void testLinearMagnification(JNIEnv* env, uint32_t flags, uint32_t* middl
         glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
     } else {
         GLenum internal_format = use_srgb_format ? GL_SRGB8_ALPHA8_EXT : GL_RGBA8_OES;
-        GLenum format = use_srgb_format ? GL_SRGB_ALPHA_EXT : GL_RGBA;
-        glTexImage2D(GL_TEXTURE_2D, 0, internal_format, kTextureWidth, 1, 0, format,
+        glTexImage2D(GL_TEXTURE_2D, 0, internal_format, kTextureWidth, 1, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, kTextureData);
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -541,8 +554,7 @@ static void testFramebufferBlending(JNIEnv* env, uint32_t flags, uint32_t* final
         glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
     } else {
         GLenum internal_format = use_srgb_format ? GL_SRGB8_ALPHA8_EXT : GL_RGBA8_OES;
-        GLenum format = use_srgb_format ? GL_SRGB_ALPHA_EXT : GL_RGBA;
-        glTexImage2D(GL_TEXTURE_2D, 0, internal_format, 1, 1, 0, format,
+        glTexImage2D(GL_TEXTURE_2D, 0, internal_format, 1, 1, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, nullptr);
     }
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -560,7 +572,7 @@ static void testFramebufferBlending(JNIEnv* env, uint32_t flags, uint32_t* final
     uint32_t cleared_color = 0;
     glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &cleared_color);
     LOGV("  Cleared Color: %8.8X", cleared_color);
-    ASSERT_EQ(cleared_color, kBlendDestColor);
+    ASSERT_NEAR_RGBA(cleared_color, kBlendDestColor, 1);
     // Draw the texture.
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -638,20 +650,20 @@ Java_android_vr_cts_VrExtensionBehaviorTest_nativeTestSrgbBuffer(
     uint32_t middle_pixel;
     // First do a sanity check with plain old pre-linearized textures.
     testLinearMagnification(env, 0, &middle_pixel);
-    ASSERT_NEAR(middle_pixel, kExpectedMiddlePixel_NoSrgb, 1);
+    ASSERT_NEAR_RGBA(middle_pixel, kExpectedMiddlePixel_NoSrgb, 1);
     testLinearMagnification(env, SrgbFlag::kHardwareBuffer, &middle_pixel);
-    ASSERT_NEAR(middle_pixel, kExpectedMiddlePixel_NoSrgb, 1);
+    ASSERT_NEAR_RGBA(middle_pixel, kExpectedMiddlePixel_NoSrgb, 1);
     // Try a "normally allocated" OpenGL texture with an sRGB source format.
     testLinearMagnification(env, SrgbFlag::kSrgbFormat, &middle_pixel);
-    ASSERT_NEAR(middle_pixel, kExpectedMiddlePixel_LinearizeBeforeFiltering, 1);
+    ASSERT_NEAR_RGBA(middle_pixel, kExpectedMiddlePixel_LinearizeBeforeFiltering, 1);
     // Try EGL_EXT_image_gl_colorspace.
     if (egl_colorspace_supported) {
         testLinearMagnification(env, SrgbFlag::kHardwareBuffer | SrgbFlag::kEglColorspaceDefault, &middle_pixel);
-        ASSERT_NEAR(middle_pixel, kExpectedMiddlePixel_NoSrgb, 1);
+        ASSERT_NEAR_RGBA(middle_pixel, kExpectedMiddlePixel_NoSrgb, 1);
         testLinearMagnification(env, SrgbFlag::kHardwareBuffer | SrgbFlag::kEglColorspaceLinear, &middle_pixel);
-        ASSERT_NEAR(middle_pixel, kExpectedMiddlePixel_NoSrgb, 1);
+        ASSERT_NEAR_RGBA(middle_pixel, kExpectedMiddlePixel_NoSrgb, 1);
         testLinearMagnification(env, SrgbFlag::kHardwareBuffer | SrgbFlag::kEglColorspaceSrgb, &middle_pixel);
-        ASSERT_NEAR(middle_pixel, kExpectedMiddlePixel_LinearizeBeforeFiltering, 1);
+        ASSERT_NEAR_RGBA(middle_pixel, kExpectedMiddlePixel_LinearizeBeforeFiltering, 1);
     }
 
     // Blending test.
@@ -660,19 +672,19 @@ Java_android_vr_cts_VrExtensionBehaviorTest_nativeTestSrgbBuffer(
     uint32_t final_color;
     // First do a sanity check with plain old pre-linearized textures.
     testFramebufferBlending(env, 0, &final_color);
-    ASSERT_NEAR(final_color, kExpectedBlendedPixel_NoSrgb, 1);
+    ASSERT_NEAR_RGBA(final_color, kExpectedBlendedPixel_NoSrgb, 1);
     testFramebufferBlending(env, SrgbFlag::kHardwareBuffer, &final_color);
-    ASSERT_NEAR(final_color, kExpectedBlendedPixel_NoSrgb, 1);
+    ASSERT_NEAR_RGBA(final_color, kExpectedBlendedPixel_NoSrgb, 1);
     // Try a "normally allocated" OpenGL texture with an sRGB source format.
     testFramebufferBlending(env, SrgbFlag::kSrgbFormat, &final_color);
-    ASSERT_NEAR(final_color, kExpectedBlendedPixel_Srgb, 1);
+    ASSERT_NEAR_RGBA(final_color, kExpectedBlendedPixel_Srgb, 1);
     // Try EGL_EXT_image_gl_colorspace.
     if (egl_colorspace_supported) {
         testFramebufferBlending(env, SrgbFlag::kHardwareBuffer | SrgbFlag::kEglColorspaceDefault, &final_color);
-        ASSERT_NEAR(final_color, kExpectedBlendedPixel_NoSrgb, 1);
+        ASSERT_NEAR_RGBA(final_color, kExpectedBlendedPixel_NoSrgb, 1);
         testFramebufferBlending(env, SrgbFlag::kHardwareBuffer | SrgbFlag::kEglColorspaceLinear, &final_color);
-        ASSERT_NEAR(final_color, kExpectedBlendedPixel_NoSrgb, 1);
+        ASSERT_NEAR_RGBA(final_color, kExpectedBlendedPixel_NoSrgb, 1);
         testFramebufferBlending(env, SrgbFlag::kHardwareBuffer | SrgbFlag::kEglColorspaceSrgb, &final_color);
-        ASSERT_NEAR(final_color, kExpectedBlendedPixel_Srgb, 1);
+        ASSERT_NEAR_RGBA(final_color, kExpectedBlendedPixel_Srgb, 1);
     }
 }

@@ -21,9 +21,9 @@ BOARD_PLAT_PRIVATE_SEPOLICY_DIR += packages/services/Car/car_product/sepolicy/pr
 
 PRODUCT_PACKAGES += \
     Bluetooth \
+    CarDeveloperOptions \
     OneTimeInitializer \
     Provision \
-    SystemUI \
     SystemUpdater
 
 PRODUCT_PACKAGES += \
@@ -39,21 +39,23 @@ PRODUCT_PACKAGES += \
     EmbeddedKitchenSinkApp \
     VmsPublisherClientSample \
     VmsSubscriberClientSample \
-    android.car.cluster.loggingrenderer \
-    DirectRenderingClusterSample \
-    com.android.car.powertestservice \
+    DirectRenderingCluster \
+    GarageModeTestApp \
 
 # SEPolicy for test apps / services
 BOARD_SEPOLICY_DIRS += packages/services/Car/car_product/sepolicy/test
 endif
 
-PRODUCT_COPY_FILES := \
-    frameworks/av/media/libeffects/data/audio_effects.conf:system/etc/audio_effects.conf \
-    packages/services/Car/car_product/preloaded-classes-car:system/etc/preloaded-classes \
+PRODUCT_COPY_FILES += \
+    frameworks/av/media/libeffects/data/audio_effects.conf:system/etc/audio_effects.conf
 
 PRODUCT_PROPERTY_OVERRIDES += \
-    ro.carrier=unknown \
-    persist.bluetooth.enablenewavrcp=false
+    persist.bluetooth.enablenewavrcp=false \
+    ro.carrier=unknown
+
+# Enable headless user 0
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+    ro.fw.mu.headless_system_user=true \
 
 # Overlay for Google network and fused location providers
 $(call inherit-product, device/sample/products/location_overlay.mk)
@@ -85,13 +87,13 @@ PRODUCT_PROPERTY_OVERRIDES += \
 
 # Automotive specific packages
 PRODUCT_PACKAGES += \
+    CarFrameworkPackageStubs \
     CarService \
-    CarTrustAgentService \
     CarDialerApp \
     CarRadioApp \
     OverviewApp \
     CarLauncher \
-    CarLensPickerApp \
+    CarSystemUI \
     LocalMediaPlayer \
     CarMediaApp \
     CarMessengerApp \
@@ -112,12 +114,8 @@ PRODUCT_SYSTEM_SERVER_JARS += car-frameworks-service
 PRODUCT_COPY_FILES += \
     packages/services/Car/car_product/bootanimations/bootanimation-832.zip:system/media/bootanimation.zip
 
-PRODUCT_PROPERTY_OVERRIDES += \
-    fmas.spkr_6ch=35,20,110 \
-    fmas.spkr_2ch=35,25 \
-    fmas.spkr_angles=10 \
-    fmas.spkr_sgain=0 \
-    media.aac_51_output_enabled=true
+PRODUCT_COPY_FILES += \
+    packages/services/Car/car_product/init/init.car.rc:system/etc/init/init.car.rc
 
 PRODUCT_LOCALES := en_US af_ZA am_ET ar_EG bg_BG bn_BD ca_ES cs_CZ da_DK de_DE el_GR en_AU en_GB en_IN es_ES es_US et_EE eu_ES fa_IR fi_FI fr_CA fr_FR gl_ES hi_IN hr_HR hu_HU hy_AM in_ID is_IS it_IT iw_IL ja_JP ka_GE km_KH ko_KR ky_KG lo_LA lt_LT lv_LV km_MH kn_IN mn_MN ml_IN mk_MK mr_IN ms_MY my_MM ne_NP nb_NO nl_NL pl_PL pt_BR pt_PT ro_RO ru_RU si_LK sk_SK sl_SI sr_RS sv_SE sw_TZ ta_IN te_IN th_TH tl_PH tr_TR uk_UA vi_VN zh_CN zh_HK zh_TW zu_ZA en_XA ar_XB
 
@@ -125,6 +123,15 @@ PRODUCT_LOCALES := en_US af_ZA am_ET ar_EG bg_BG bn_BD ca_ES cs_CZ da_DK de_DE e
 ifeq (,$(INCLUDED_ANDROID_CAR_TO_PRODUCT_BOOT_JARS))
 PRODUCT_BOOT_JARS += \
     android.car
+
+PRODUCT_HIDDENAPI_STUBS := \
+    android.car-stubs
+
+PRODUCT_HIDDENAPI_STUBS_SYSTEM := \
+    android.car-system-stubs
+
+PRODUCT_HIDDENAPI_STUBS_TEST := \
+    android.car-test-stubs
 
 INCLUDED_ANDROID_CAR_TO_PRODUCT_BOOT_JARS := yes
 endif

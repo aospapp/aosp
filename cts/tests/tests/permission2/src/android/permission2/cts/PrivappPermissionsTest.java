@@ -16,26 +16,48 @@
 
 package android.permission2.cts;
 
-import com.android.compatibility.common.util.SystemUtil;
+import static android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED;
+import static android.content.pm.PackageManager.GET_PERMISSIONS;
+import static android.content.pm.PackageManager.MATCH_FACTORY_ONLY;
+import static android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES;
+
+import static com.google.common.collect.Maps.filterValues;
+import static com.google.common.collect.Sets.difference;
+import static com.google.common.collect.Sets.intersection;
+import static com.google.common.collect.Sets.newHashSet;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PermissionInfo;
-import android.support.test.InstrumentationRegistry;
-import android.test.AndroidTestCase;
+import android.platform.test.annotations.AppModeFull;
+import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.PropertyUtil;
+import com.android.compatibility.common.util.SystemUtil;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-
-import static android.content.pm.PackageManager.GET_PERMISSIONS;
-import static android.content.pm.PackageManager.MATCH_FACTORY_ONLY;
 
 /**
  * Tests enforcement of signature|privileged permission whitelist:
@@ -45,15 +67,24 @@ import static android.content.pm.PackageManager.MATCH_FACTORY_ONLY;
  * &lt;privapp-permissions&gt;
  * </ul>
  */
-public class PrivappPermissionsTest extends AndroidTestCase {
+@AppModeFull(reason = "This test test platform properties, not capabilities of an apps")
+@RunWith(AndroidJUnit4.class)
+public class PrivappPermissionsTest {
 
     private static final String TAG = "PrivappPermissionsTest";
 
     private static final String PLATFORM_PACKAGE_NAME = "android";
 
-    public void testPrivappPermissionsEnforcement() throws Exception {
+    @Test
+    public void privappPermissionsMustBeEnforced() {
+        assertEquals("ro.control_privapp_permissions is not set to enforce",
+                "enforce", PropertyUtil.getProperty("ro.control_privapp_permissions"));
+    }
+
+    @Test
+    public void privappPermissionsNeedToBeWhitelisted() throws Exception {
         Set<String> platformPrivPermissions = new HashSet<>();
-        PackageManager pm = getContext().getPackageManager();
+        PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
         PackageInfo platformPackage = pm.getPackageInfo(PLATFORM_PACKAGE_NAME,
                 PackageManager.GET_PERMISSIONS);
 
@@ -65,8 +96,11 @@ public class PrivappPermissionsTest extends AndroidTestCase {
         }
 
         List<PackageInfo> installedPackages = pm
-                .getInstalledPackages(PackageManager.MATCH_UNINSTALLED_PACKAGES);
+                .getInstalledPackages(MATCH_UNINSTALLED_PACKAGES | GET_PERMISSIONS);
+        installedPackages.sort(Comparator.comparing(p -> p.packageName));
 
+        Map<String, Set<String>> packagesGrantedNotInWhitelist = new HashMap<>();
+        Map<String, Set<String>> packagesNotGrantedNotRemovedNotInDenylist = new HashMap<>();
         for (PackageInfo pkg : installedPackages) {
             String packageName = pkg.packageName;
             if (!pkg.applicationInfo.isPrivilegedApp()
@@ -74,57 +108,117 @@ public class PrivappPermissionsTest extends AndroidTestCase {
                 continue;
             }
 
-            Set<String> requestedPrivPermissions = new TreeSet<>();
-            Set<String> grantedPrivPermissions = new TreeSet<>();
-            PackageInfo factoryPackageInfo = pm
-                    .getPackageInfo(packageName, MATCH_FACTORY_ONLY | GET_PERMISSIONS);
+            PackageInfo factoryPkg = pm
+                    .getPackageInfo(packageName, MATCH_FACTORY_ONLY | GET_PERMISSIONS
+                        | MATCH_UNINSTALLED_PACKAGES);
 
-            assertNotNull("No system image version found for " + packageName, factoryPackageInfo);
-            String[] requestedPermissions = factoryPackageInfo.requestedPermissions;
-            int[] requestedPermissionsFlags = factoryPackageInfo.requestedPermissionsFlags;
+            assertNotNull("No system image version found for " + packageName, factoryPkg);
 
-            if (requestedPermissions == null || requestedPermissions.length == 0) {
-                continue;
+            Set<String> factoryRequestedPrivPermissions;
+            if (factoryPkg.requestedPermissions == null) {
+                factoryRequestedPrivPermissions = Collections.emptySet();
+            } else {
+                factoryRequestedPrivPermissions = intersection(
+                        newHashSet(factoryPkg.requestedPermissions), platformPrivPermissions);
             }
-            // Collect 2 sets: requestedPermissions and grantedPrivPermissions
-            for (int i = 0; i < requestedPermissions.length; i++) {
-                String permission = requestedPermissions[i];
-                if (platformPrivPermissions.contains(permission)) {
-                    requestedPrivPermissions.add(permission);
-                    if ((requestedPermissionsFlags[i]
-                            & PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0) {
-                        grantedPrivPermissions.add(permission);
+
+            Map<String, Boolean> requestedPrivPermissions = new ArrayMap<>();
+            if (pkg.requestedPermissions != null) {
+                for (int i = 0; i < pkg.requestedPermissions.length; i++) {
+                    String permission = pkg.requestedPermissions[i];
+                    if (platformPrivPermissions.contains(permission)) {
+                        requestedPrivPermissions.put(permission,
+                                (pkg.requestedPermissionsFlags[i] & REQUESTED_PERMISSION_GRANTED)
+                                        != 0);
                     }
                 }
             }
+
             // If an app is requesting any privileged permissions, log the details and verify
             // that granted permissions are whitelisted
-            if (!requestedPrivPermissions.isEmpty()) {
-                Set<String> notGranted = new TreeSet<>(requestedPrivPermissions);
-                notGranted.removeAll(grantedPrivPermissions);
+            if (!factoryRequestedPrivPermissions.isEmpty() && !requestedPrivPermissions.isEmpty()) {
+                Set<String> granted = filterValues(requestedPrivPermissions,
+                        isGranted -> isGranted).keySet();
+
+                Set<String> factoryNotGranted = difference(factoryRequestedPrivPermissions,
+                        granted);
+
+                // priv permissions that the system package requested, but the current package not
+                // anymore
+                Set<String> removed = difference(factoryRequestedPrivPermissions,
+                        requestedPrivPermissions.keySet());
+
                 Set<String> whitelist = getPrivAppPermissions(packageName);
                 Set<String> denylist = getPrivAppDenyPermissions(packageName);
-                Log.i(TAG, "Application " + packageName + "."
-                        + " Requested permissions: " + requestedPrivPermissions + "."
-                        + " Granted permissions: " + grantedPrivPermissions + "."
-                        + " Not granted: " + notGranted + "."
-                        + " Whitelisted: " + whitelist + "."
-                        + " Denylisted: " + denylist);
+                String msg = "Application " + packageName + "\n"
+                        + "  Factory requested permissions:\n"
+                        + getPrintableSet("    ", factoryRequestedPrivPermissions)
+                        + "  Granted:\n"
+                        + getPrintableSet("    ", granted)
+                        + "  Removed:\n"
+                        + getPrintableSet("    ", removed)
+                        + "  Whitelisted:\n"
+                        + getPrintableSet("    ", whitelist)
+                        + "  Denylisted:\n"
+                        + getPrintableSet("    ", denylist)
+                        + "  Factory not granted:\n"
+                        + getPrintableSet("    ", factoryNotGranted);
 
-                Set<String> grantedNotInWhitelist = new TreeSet<>(grantedPrivPermissions);
-                grantedNotInWhitelist.removeAll(whitelist);
-                Set<String> notGrantedNotInDenylist = new TreeSet<>(notGranted);
-                notGrantedNotInDenylist.removeAll(denylist);
+                for (String line : msg.split("\n")) {
+                    Log.i(TAG, line);
 
-                assertTrue("Not whitelisted permissions are granted for package "
-                                + packageName + ": " + grantedNotInWhitelist,
-                        grantedNotInWhitelist.isEmpty());
+                    // Prevent log from truncating output
+                    Thread.sleep(10);
+                }
 
-                assertTrue("Requested permissions not granted for package "
-                                + packageName + ": " + notGrantedNotInDenylist,
-                        notGrantedNotInDenylist.isEmpty());
+                Set<String> grantedNotInWhitelist = difference(granted, whitelist);
+                Set<String> factoryNotGrantedNotRemovedNotInDenylist = difference(difference(
+                        factoryNotGranted, removed), denylist);
+
+                if (!grantedNotInWhitelist.isEmpty()) {
+                    packagesGrantedNotInWhitelist.put(packageName, grantedNotInWhitelist);
+                }
+
+                if (!factoryNotGrantedNotRemovedNotInDenylist.isEmpty()) {
+                    packagesNotGrantedNotRemovedNotInDenylist.put(packageName,
+                            factoryNotGrantedNotRemovedNotInDenylist);
+                }
             }
         }
+        StringBuilder message = new StringBuilder();
+        if (!packagesGrantedNotInWhitelist.isEmpty()) {
+            message.append("Not whitelisted permissions are granted: "
+                    + packagesGrantedNotInWhitelist.toString());
+        }
+        if (!packagesNotGrantedNotRemovedNotInDenylist.isEmpty()) {
+            if (message.length() != 0) {
+                message.append(", ");
+            }
+            message.append("Requested permissions not granted: "
+                    + packagesNotGrantedNotRemovedNotInDenylist.toString());
+        }
+        if (!packagesGrantedNotInWhitelist.isEmpty()
+                || !packagesNotGrantedNotRemovedNotInDenylist.isEmpty()) {
+            fail(message.toString());
+        }
+    }
+
+    private <T> String getPrintableSet(String indendation, Set<T> set) {
+        if (set.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        for (T e : new TreeSet<>(set)) {
+            if (!TextUtils.isEmpty(e.toString().trim())) {
+                sb.append(indendation);
+                sb.append(e);
+                sb.append("\n");
+            }
+        }
+
+        return sb.toString();
     }
 
     private Set<String> getPrivAppPermissions(String packageName) throws IOException {

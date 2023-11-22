@@ -17,13 +17,19 @@
 package android.autofillservice.cts;
 
 import static android.autofillservice.cts.Helper.callbackEventAsString;
+import static android.autofillservice.cts.Timeouts.CALLBACK_NOT_CALLED_TIMEOUT_MS;
 import static android.autofillservice.cts.Timeouts.CONNECTION_TIMEOUT;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.Log;
 import android.view.View;
 import android.view.autofill.AutofillManager.AutofillCallback;
+
+import com.android.compatibility.common.util.RetryableException;
+import com.android.compatibility.common.util.Timeout;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -32,30 +38,46 @@ import java.util.concurrent.TimeUnit;
 /**
  * Custom {@link AutofillCallback} used to recover events during tests.
  */
-final class MyAutofillCallback extends AutofillCallback {
+public final class MyAutofillCallback extends AutofillCallback {
 
     private static final String TAG = "MyAutofillCallback";
     private final BlockingQueue<MyEvent> mEvents = new LinkedBlockingQueue<>();
 
     public static final Timeout MY_TIMEOUT = CONNECTION_TIMEOUT;
 
+    // We must handle all requests in a separate thread as the service's main thread is the also
+    // the UI thread of the test process and we don't want to hose it in case of failures here
+    private static final HandlerThread sMyThread = new HandlerThread("MyCallbackThread");
+    private final Handler mHandler;
+
+    static {
+        Log.i(TAG, "Starting thread " + sMyThread);
+        sMyThread.start();
+    }
+
+    MyAutofillCallback() {
+        mHandler = Handler.createAsync(sMyThread.getLooper());
+    }
+
     @Override
     public void onAutofillEvent(View view, int event) {
-        Log.v(TAG, "onAutofillEvent: view=" + view + ", event=" + callbackEventAsString(event));
-        mEvents.offer(new MyEvent(view, event));
+        mHandler.post(() -> offer(new MyEvent(view, event)));
     }
 
     @Override
     public void onAutofillEvent(View view, int childId, int event) {
-        Log.v(TAG, "onAutofillEvent: view=" + view + ", child=" + childId
-                + ", event=" + callbackEventAsString(event));
-        mEvents.offer(new MyEvent(view, childId, event));
+        mHandler.post(() -> offer(new MyEvent(view, childId, event)));
+    }
+
+    private void offer(MyEvent event) {
+        Log.v(TAG, "offer: " + event);
+        Helper.offer(mEvents, event, MY_TIMEOUT.ms());
     }
 
     /**
      * Gets the next available event or fail if it times out.
      */
-    MyEvent getEvent() throws InterruptedException {
+    public MyEvent getEvent() throws InterruptedException {
         final MyEvent event = mEvents.poll(CONNECTION_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
         if (event == null) {
             throw new RetryableException(CONNECTION_TIMEOUT, "no event");
@@ -66,8 +88,8 @@ final class MyAutofillCallback extends AutofillCallback {
     /**
      * Assert no more events were received.
      */
-    void assertNotCalled() throws InterruptedException {
-        final MyEvent event = mEvents.poll(CONNECTION_TIMEOUT.ms(), TimeUnit.MILLISECONDS);
+    public void assertNotCalled() throws InterruptedException {
+        final MyEvent event = mEvents.poll(CALLBACK_NOT_CALLED_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         if (event != null) {
             // Not retryable.
             throw new IllegalStateException("should not have received " + event);
@@ -77,7 +99,7 @@ final class MyAutofillCallback extends AutofillCallback {
     /**
      * Used to assert there is no event left behind.
      */
-    void assertNumberUnhandledEvents(int expected) {
+    public void assertNumberUnhandledEvents(int expected) {
         assertWithMessage("Invalid number of events left: %s", mEvents).that(mEvents.size())
                 .isEqualTo(expected);
     }
@@ -85,7 +107,7 @@ final class MyAutofillCallback extends AutofillCallback {
     /**
      * Convenience method to assert an UI shown event for the given view was received.
      */
-    MyEvent assertUiShownEvent(View expectedView) throws InterruptedException {
+    public MyEvent assertUiShownEvent(View expectedView) throws InterruptedException {
         final MyEvent event = getEvent();
         assertWithMessage("Invalid type on event %s", event).that(event.event)
                 .isEqualTo(EVENT_INPUT_SHOWN);
@@ -97,7 +119,8 @@ final class MyAutofillCallback extends AutofillCallback {
     /**
      * Convenience method to assert an UI shown event for the given virtual view was received.
      */
-    void assertUiShownEvent(View expectedView, int expectedChildId) throws InterruptedException {
+    public void assertUiShownEvent(View expectedView, int expectedChildId)
+            throws InterruptedException {
         final MyEvent event = assertUiShownEvent(expectedView);
         assertWithMessage("Invalid child on event %s", event).that(event.childId)
             .isEqualTo(expectedChildId);
@@ -108,7 +131,7 @@ final class MyAutofillCallback extends AutofillCallback {
      *
      * @return virtual child id
      */
-    int assertUiShownEventForVirtualChild(View expectedView) throws InterruptedException {
+    public int assertUiShownEventForVirtualChild(View expectedView) throws InterruptedException {
         final MyEvent event = assertUiShownEvent(expectedView);
         return event.childId;
     }
@@ -116,7 +139,7 @@ final class MyAutofillCallback extends AutofillCallback {
     /**
      * Convenience method to assert an UI hidden event for the given view was received.
      */
-    MyEvent assertUiHiddenEvent(View expectedView) throws InterruptedException {
+    public MyEvent assertUiHiddenEvent(View expectedView) throws InterruptedException {
         final MyEvent event = getEvent();
         assertWithMessage("Invalid type on event %s", event).that(event.event)
                 .isEqualTo(EVENT_INPUT_HIDDEN);
@@ -128,7 +151,8 @@ final class MyAutofillCallback extends AutofillCallback {
     /**
      * Convenience method to assert an UI hidden event for the given view was received.
      */
-    void assertUiHiddenEvent(View expectedView, int expectedChildId) throws InterruptedException {
+    public void assertUiHiddenEvent(View expectedView, int expectedChildId)
+            throws InterruptedException {
         final MyEvent event = assertUiHiddenEvent(expectedView);
         assertWithMessage("Invalid child on event %s", event).that(event.childId)
                 .isEqualTo(expectedChildId);
@@ -137,7 +161,7 @@ final class MyAutofillCallback extends AutofillCallback {
     /**
      * Convenience method to assert an UI unavailable event for the given view was received.
      */
-    MyEvent assertUiUnavailableEvent(View expectedView) throws InterruptedException {
+    public MyEvent assertUiUnavailableEvent(View expectedView) throws InterruptedException {
         final MyEvent event = getEvent();
         assertWithMessage("Invalid type on event %s", event).that(event.event)
                 .isEqualTo(EVENT_INPUT_UNAVAILABLE);
@@ -149,7 +173,7 @@ final class MyAutofillCallback extends AutofillCallback {
     /**
      * Convenience method to assert an UI unavailable event for the given view was received.
      */
-    void assertUiUnavailableEvent(View expectedView, int expectedChildId)
+    public void assertUiUnavailableEvent(View expectedView, int expectedChildId)
             throws InterruptedException {
         final MyEvent event = assertUiUnavailableEvent(expectedView);
         assertWithMessage("Invalid child on event %s", event).that(event.childId)

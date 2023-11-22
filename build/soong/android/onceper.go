@@ -20,50 +20,66 @@ import (
 )
 
 type OncePer struct {
-	values     sync.Map
-	valuesLock sync.Mutex
+	values sync.Map
 }
 
-type valueMap map[interface{}]interface{}
+type onceValueWaiter chan bool
+
+func (once *OncePer) maybeWaitFor(key OnceKey, value interface{}) interface{} {
+	if wait, isWaiter := value.(onceValueWaiter); isWaiter {
+		// The entry in the map is a placeholder waiter because something else is constructing the value
+		// wait until the waiter is signalled, then load the real value.
+		<-wait
+		value, _ = once.values.Load(key)
+		if _, isWaiter := value.(onceValueWaiter); isWaiter {
+			panic(fmt.Errorf("Once() waiter completed but key is still not valid"))
+		}
+	}
+
+	return value
+}
 
 // Once computes a value the first time it is called with a given key per OncePer, and returns the
 // value without recomputing when called with the same key.  key must be hashable.
-func (once *OncePer) Once(key interface{}, value func() interface{}) interface{} {
+func (once *OncePer) Once(key OnceKey, value func() interface{}) interface{} {
 	// Fast path: check if the key is already in the map
 	if v, ok := once.values.Load(key); ok {
-		return v
+		return once.maybeWaitFor(key, v)
 	}
 
-	// Slow path: lock so that we don't call the value function twice concurrently
-	once.valuesLock.Lock()
-	defer once.valuesLock.Unlock()
-
-	// Check again with the lock held
-	if v, ok := once.values.Load(key); ok {
-		return v
+	// Slow path: create a OnceValueWrapper and attempt to insert it
+	waiter := make(onceValueWaiter)
+	if v, loaded := once.values.LoadOrStore(key, waiter); loaded {
+		// Got a value, something else inserted its own waiter or a constructed value
+		return once.maybeWaitFor(key, v)
 	}
 
-	// Still not in the map, call the value function and store it
+	// The waiter is inserted, call the value constructor, store it, and signal the waiter
 	v := value()
 	once.values.Store(key, v)
+	close(waiter)
 
 	return v
 }
 
-func (once *OncePer) Get(key interface{}) interface{} {
+// Get returns the value previously computed with Once for a given key.  If Once has not been called for the given
+// key Get will panic.
+func (once *OncePer) Get(key OnceKey) interface{} {
 	v, ok := once.values.Load(key)
 	if !ok {
 		panic(fmt.Errorf("Get() called before Once()"))
 	}
 
-	return v
+	return once.maybeWaitFor(key, v)
 }
 
-func (once *OncePer) OnceStringSlice(key interface{}, value func() []string) []string {
+// OnceStringSlice is the same as Once, but returns the value cast to a []string
+func (once *OncePer) OnceStringSlice(key OnceKey, value func() []string) []string {
 	return once.Once(key, func() interface{} { return value() }).([]string)
 }
 
-func (once *OncePer) Once2StringSlice(key interface{}, value func() ([]string, []string)) ([]string, []string) {
+// OnceStringSlice is the same as Once, but returns two values cast to []string
+func (once *OncePer) Once2StringSlice(key OnceKey, value func() ([]string, []string)) ([]string, []string) {
 	type twoStringSlice [2][]string
 	s := once.Once(key, func() interface{} {
 		var s twoStringSlice
@@ -71,4 +87,22 @@ func (once *OncePer) Once2StringSlice(key interface{}, value func() ([]string, [
 		return s
 	}).(twoStringSlice)
 	return s[0], s[1]
+}
+
+// OnceKey is an opaque type to be used as the key in calls to Once.
+type OnceKey struct {
+	key interface{}
+}
+
+// NewOnceKey returns an opaque OnceKey object for the provided key.  Two calls to NewOnceKey with the same key string
+// DO NOT produce the same OnceKey object.
+func NewOnceKey(key string) OnceKey {
+	return OnceKey{&key}
+}
+
+// NewCustomOnceKey returns an opaque OnceKey object for the provided key.  The key can be any type that is valid as the
+// key in a map, i.e. comparable.  Two calls to NewCustomOnceKey with key values that compare equal will return OnceKey
+// objects that access the same value stored with Once.
+func NewCustomOnceKey(key interface{}) OnceKey {
+	return OnceKey{key}
 }

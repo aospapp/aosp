@@ -20,11 +20,12 @@ import android.app.DownloadManager;
 import android.app.DownloadManager.Request;
 import android.content.Context;
 import android.net.Uri;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.Suppress;
 import android.support.test.uiautomator.Configurator;
 import android.support.test.uiautomator.UiObject;
 import android.view.MotionEvent;
+
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.Suppress;
 
 import com.android.documentsui.files.FilesActivity;
 

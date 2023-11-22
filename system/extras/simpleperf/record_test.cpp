@@ -24,7 +24,7 @@
 class RecordTest : public ::testing::Test {
  protected:
   virtual void SetUp() {
-    const EventType* type = FindEventTypeByName("cpu-cycles");
+    const EventType* type = FindEventTypeByName("cpu-clock");
     ASSERT_TRUE(type != nullptr);
     event_attr = CreateDefaultPerfEventAttr(*type);
     event_attr.sample_id_all = 1;
@@ -55,100 +55,17 @@ TEST_F(RecordTest, SampleRecordMatchBinary) {
   event_attr.sample_type = PERF_SAMPLE_IP | PERF_SAMPLE_TID | PERF_SAMPLE_TIME
                            | PERF_SAMPLE_ID | PERF_SAMPLE_CPU
                            | PERF_SAMPLE_PERIOD | PERF_SAMPLE_CALLCHAIN;
-  SampleRecord record(event_attr, 1, 2, 3, 4, 5, 6, 7, {8, 9, 10});
+  SampleRecord record(event_attr, 1, 2, 3, 4, 5, 6, 7, {8, 9, 10}, {}, 0);
   CheckRecordMatchBinary(record);
 }
 
-TEST_F(RecordTest, RecordCache_smoke) {
-  event_attr.sample_id_all = 1;
-  event_attr.sample_type |= PERF_SAMPLE_TIME;
-  RecordCache cache(true, 2, 2);
-
-  // Push r1.
-  MmapRecord* r1 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
-                                  "mmap_record1", 0, 3);
-  cache.Push(std::unique_ptr<Record>(r1));
-  ASSERT_EQ(nullptr, cache.Pop());
-
-  // Push r2.
-  MmapRecord* r2 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
-                                  "mmap_record1", 0, 1);
-  cache.Push(std::unique_ptr<Record>(r2));
-  // Pop r2.
-  std::unique_ptr<Record> popped_r = cache.Pop();
-  ASSERT_TRUE(popped_r != nullptr);
-  ASSERT_EQ(r2, popped_r.get());
-  ASSERT_EQ(nullptr, cache.Pop());
-
-  // Push r3.
-  MmapRecord* r3 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
-                                  "mmap_record1", 0, 4);
-  cache.Push(std::unique_ptr<Record>(r3));
-  ASSERT_EQ(nullptr, cache.Pop());
-
-  // Push r4.
-  MmapRecord* r4 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
-                                  "mmap_record1", 0, 6);
-  cache.Push(std::unique_ptr<Record>(r4));
-  // Pop r1.
-  popped_r = cache.Pop();
-  ASSERT_TRUE(popped_r != nullptr);
-  ASSERT_EQ(r1, popped_r.get());
-  // Pop r3.
-  popped_r = cache.Pop();
-  ASSERT_TRUE(popped_r != nullptr);
-  ASSERT_EQ(r3, popped_r.get());
-  ASSERT_EQ(nullptr, cache.Pop());
-  // Pop r4.
-  std::vector<std::unique_ptr<Record>> last_records = cache.PopAll();
-  ASSERT_EQ(1u, last_records.size());
-  ASSERT_EQ(r4, last_records[0].get());
-}
-
-TEST_F(RecordTest, RecordCache_FIFO) {
-  event_attr.sample_id_all = 1;
-  event_attr.sample_type |= PERF_SAMPLE_TIME;
-  RecordCache cache(true, 2, 2);
-  std::vector<MmapRecord*> records;
-  for (size_t i = 0; i < 10; ++i) {
-    records.push_back(new MmapRecord(event_attr, true, 1, i, 0x100, 0x200,
-                                     0x300, "mmap_record1", 0));
-    cache.Push(std::unique_ptr<Record>(records.back()));
-  }
-  std::vector<std::unique_ptr<Record>> out_records = cache.PopAll();
-  ASSERT_EQ(records.size(), out_records.size());
-  for (size_t i = 0; i < records.size(); ++i) {
-    ASSERT_EQ(records[i], out_records[i].get());
-  }
-}
-
-TEST_F(RecordTest, RecordCache_PushRecordVector) {
-  event_attr.sample_id_all = 1;
-  event_attr.sample_type |= PERF_SAMPLE_TIME;
-  RecordCache cache(true, 2, 2);
-  MmapRecord* r1 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
-                                  "mmap_record1", 0, 1);
-  MmapRecord* r2 = new MmapRecord(event_attr, true, 1, 1, 0x100, 0x200, 0x300,
-                                  "mmap_record1", 0, 3);
-  std::vector<std::unique_ptr<Record>> records;
-  records.push_back(std::unique_ptr<Record>(r1));
-  records.push_back(std::unique_ptr<Record>(r2));
-  cache.Push(std::move(records));
-  std::unique_ptr<Record> popped_r = cache.Pop();
-  ASSERT_TRUE(popped_r != nullptr);
-  ASSERT_EQ(r1, popped_r.get());
-  std::vector<std::unique_ptr<Record>> last_records = cache.PopAll();
-  ASSERT_EQ(1u, last_records.size());
-  ASSERT_EQ(r2, last_records[0].get());
-}
-
 TEST_F(RecordTest, SampleRecord_exclude_kernel_callchain) {
-  SampleRecord r(event_attr, 0, 1, 0, 0, 0, 0, 0, {});
-  ASSERT_EQ(0u, r.ExcludeKernelCallChain());
+  SampleRecord r(event_attr, 0, 1, 0, 0, 0, 0, 0, {}, {}, 0);
+  ASSERT_TRUE(r.ExcludeKernelCallChain());
 
   event_attr.sample_type |= PERF_SAMPLE_CALLCHAIN;
-  SampleRecord r1(event_attr, 0, 1, 0, 0, 0, 0, 0, {PERF_CONTEXT_USER, 2});
-  ASSERT_EQ(1u, r1.ExcludeKernelCallChain());
+  SampleRecord r1(event_attr, 0, 1, 0, 0, 0, 0, 0, {PERF_CONTEXT_USER, 2}, {}, 0);
+  ASSERT_TRUE(r1.ExcludeKernelCallChain());
   ASSERT_EQ(2u, r1.ip_data.ip);
   SampleRecord r2(event_attr, r1.BinaryForTestingOnly());
   ASSERT_EQ(1u, r.ip_data.ip);
@@ -156,8 +73,8 @@ TEST_F(RecordTest, SampleRecord_exclude_kernel_callchain) {
   ASSERT_EQ(PERF_CONTEXT_USER, r2.callchain_data.ips[0]);
   ASSERT_EQ(2u, r2.callchain_data.ips[1]);
 
-  SampleRecord r3(event_attr, 0, 1, 0, 0, 0, 0, 0, {1, PERF_CONTEXT_USER, 2});
-  ASSERT_EQ(1u, r3.ExcludeKernelCallChain());
+  SampleRecord r3(event_attr, 0, 1, 0, 0, 0, 0, 0, {1, PERF_CONTEXT_USER, 2}, {}, 0);
+  ASSERT_TRUE(r3.ExcludeKernelCallChain());
   ASSERT_EQ(2u, r3.ip_data.ip);
   SampleRecord r4(event_attr, r3.BinaryForTestingOnly());
   ASSERT_EQ(2u, r4.ip_data.ip);
@@ -166,8 +83,65 @@ TEST_F(RecordTest, SampleRecord_exclude_kernel_callchain) {
   ASSERT_EQ(PERF_CONTEXT_USER, r4.callchain_data.ips[1]);
   ASSERT_EQ(2u, r4.callchain_data.ips[2]);
 
-  SampleRecord r5(event_attr, 0, 1, 0, 0, 0, 0, 0, {1, 2});
-  ASSERT_EQ(0u, r5.ExcludeKernelCallChain());
-  SampleRecord r6(event_attr, 0, 1, 0, 0, 0, 0, 0, {1, 2, PERF_CONTEXT_USER});
-  ASSERT_EQ(0u, r6.ExcludeKernelCallChain());
+  SampleRecord r5(event_attr, 0, 1, 0, 0, 0, 0, 0, {1, 2}, {}, 0);
+  ASSERT_FALSE(r5.ExcludeKernelCallChain());
+  SampleRecord r6(event_attr, 0, 1, 0, 0, 0, 0, 0, {1, 2, PERF_CONTEXT_USER}, {}, 0);
+  ASSERT_FALSE(r6.ExcludeKernelCallChain());
+
+  // Process consecutive context values.
+  SampleRecord r7(event_attr, 0, 1, 0, 0, 0, 0, 0,
+                  {1, 2, PERF_CONTEXT_USER, PERF_CONTEXT_USER, 3, 4}, {}, 0);
+  r7.header.misc = PERF_RECORD_MISC_KERNEL;
+  ASSERT_TRUE(r7.ExcludeKernelCallChain());
+  CheckRecordEqual(r7, SampleRecord(event_attr, 0, 3, 0, 0, 0, 0, 0,
+                                    {PERF_CONTEXT_USER, PERF_CONTEXT_USER, PERF_CONTEXT_USER,
+                                     PERF_CONTEXT_USER, 3, 4}, {}, 0));
+}
+
+TEST_F(RecordTest, SampleRecord_ReplaceRegAndStackWithCallChain) {
+  event_attr.sample_type |= PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_REGS_USER | PERF_SAMPLE_STACK_USER;
+  SampleRecord expected(event_attr, 0, 1, 2, 3, 4, 5, 6, {1, PERF_CONTEXT_USER, 2, 3, 4, 5}, {},
+                        0);
+  for (size_t stack_size : {8, 1024}) {
+    SampleRecord r(event_attr, 0, 1, 2, 3, 4, 5, 6, {1}, std::vector<char>(stack_size), 10);
+    r.ReplaceRegAndStackWithCallChain({2, 3, 4, 5});
+    CheckRecordMatchBinary(r);
+    CheckRecordEqual(r, expected);
+  }
+}
+
+TEST_F(RecordTest, SampleRecord_UpdateUserCallChain) {
+  event_attr.sample_type |= PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_REGS_USER | PERF_SAMPLE_STACK_USER;
+  SampleRecord r(event_attr, 0, 1, 2, 3, 4, 5, 6, {1, PERF_CONTEXT_USER, 2}, {}, 0);
+  r.UpdateUserCallChain({3, 4, 5});
+  CheckRecordMatchBinary(r);
+  SampleRecord expected(event_attr, 0, 1, 2, 3, 4, 5, 6, {1, PERF_CONTEXT_USER, 3, 4, 5}, {}, 0);
+  CheckRecordEqual(r, expected);
+}
+
+TEST_F(RecordTest, SampleRecord_AdjustCallChainGeneratedByKernel) {
+  event_attr.sample_type |= PERF_SAMPLE_CALLCHAIN | PERF_SAMPLE_REGS_USER | PERF_SAMPLE_STACK_USER;
+  SampleRecord r(event_attr, 0, 1, 2, 3, 4, 5, 6, {1, 5, 0, PERF_CONTEXT_USER, 6, 0}, {}, 0);
+  r.header.misc = PERF_RECORD_MISC_KERNEL;
+  r.AdjustCallChainGeneratedByKernel();
+  uint64_t adjustValue = (GetBuildArch() == ARCH_ARM || GetBuildArch() == ARCH_ARM64) ? 2 : 1;
+  SampleRecord expected(event_attr, 0, 1, 2, 3, 4, 5, 6,
+                        {1, 5 - adjustValue, PERF_CONTEXT_KERNEL, PERF_CONTEXT_USER,
+                         6 - adjustValue, PERF_CONTEXT_USER}, {}, 0);
+  expected.header.misc = PERF_RECORD_MISC_KERNEL;
+  CheckRecordEqual(r, expected);
+}
+
+TEST_F(RecordTest, CommRecord) {
+  CommRecord r(event_attr, 1, 2, "init_name", 3, 4);
+  size_t record_size = r.size();
+  std::string new_name = "a_much_longer_name";
+  r.SetCommandName(new_name);
+  ASSERT_EQ(r.size(), record_size + 8);
+  ASSERT_EQ(std::string(r.comm), new_name);
+  ASSERT_EQ(r.data->pid, 1u);
+  ASSERT_EQ(r.data->tid, 2u);
+  ASSERT_EQ(r.sample_id.id_data.id, 3u);
+  ASSERT_EQ(r.sample_id.time_data.time, 4u);
+  CheckRecordMatchBinary(r);
 }

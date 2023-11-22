@@ -15,7 +15,6 @@
  */
 package com.android.documentsui.base;
 
-import android.annotation.BoolRes;
 import android.content.Context;
 import android.content.res.Resources;
 import android.os.UserManager;
@@ -23,14 +22,12 @@ import android.util.SparseBooleanArray;
 
 import com.android.documentsui.R;
 
+import androidx.annotation.BoolRes;
+
 /**
  * Provides access to feature flags configured in config.xml.
  */
 public interface Features {
-
-    // technically we want to check >= O, but we'd need to patch back the O version code :|
-    public static final boolean OMC_RUNTIME =
-            android.os.Build.VERSION.SDK_INT > android.os.Build.VERSION_CODES.N_MR1;
 
     boolean isArchiveCreationEnabled();
     boolean isCommandInterceptorEnabled();
@@ -47,6 +44,7 @@ public interface Features {
     boolean isRemoteActionsEnabled();
     boolean isSystemKeyboardNavigationEnabled();
     boolean isVirtualFilesSharingEnabled();
+    boolean isDefaultRootInBrowseEnabled();
 
 
     /**
@@ -61,7 +59,8 @@ public interface Features {
     void forceFeature(@BoolRes int feature, boolean enabled);
 
     public static Features create(Context context) {
-        return new RuntimeFeatures(context.getResources(), UserManager.get(context));
+        return new RuntimeFeatures(context.getResources(),
+                context.getSystemService(UserManager.class));
     }
 
     final class RuntimeFeatures implements Features {
@@ -167,6 +166,11 @@ public interface Features {
         @Override
         public boolean isVirtualFilesSharingEnabled() {
             return isEnabled(R.bool.feature_virtual_files_sharing);
+        }
+
+        @Override
+        public boolean isDefaultRootInBrowseEnabled() {
+            return isEnabled(R.bool.feature_default_root_in_browse);
         }
     }
 }

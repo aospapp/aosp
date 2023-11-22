@@ -16,12 +16,10 @@
 
 package com.android.bips.ui;
 
-import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.os.Bundle;
@@ -41,13 +39,11 @@ import com.android.bips.p2p.P2pPeerListener;
 /**
  * Present a list of previously-saved printers, and allow them to be removed
  */
-public class FindP2pPrintersFragment extends PreferenceFragment implements ServiceConnection,
-        AddPrintersActivity.OnPermissionChangeListener {
+public class FindP2pPrintersFragment extends PreferenceFragment implements ServiceConnection {
     private static final String TAG = FindP2pPrintersFragment.class.getSimpleName();
     private static final boolean DEBUG = false;
 
     private static final String KEY_AVAILABLE = "available";
-    private static final int REQUEST_PERMISSION = 1;
 
     private BuiltInPrintService mPrintService;
     private P2pListener mPeerDiscoveryListener;
@@ -90,33 +86,9 @@ public class FindP2pPrintersFragment extends PreferenceFragment implements Servi
             return;
         }
 
-        // If we do not yet have permissions, ask.
-        if (getContext().checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            getActivity().requestPermissions(
-                    new String[]{Manifest.permission.ACCESS_COARSE_LOCATION},
-                    REQUEST_PERMISSION);
-        } else {
-            startP2pDiscovery();
-        }
-    }
-
-    private void startP2pDiscovery() {
-        if (mPrintService != null && mPeerDiscoveryListener == null) {
+        if (mPeerDiscoveryListener == null) {
             mPeerDiscoveryListener = new P2pListener();
             mPrintService.getP2pMonitor().discover(mPeerDiscoveryListener);
-        }
-    }
-
-    @Override
-    public void onPermissionChange() {
-        // P2P discovery requires dangerous ACCESS_COARSE_LOCATION
-        if (getContext().checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-            startP2pDiscovery();
-        } else {
-            // Wind back out of this fragment
-            getActivity().onBackPressed();
         }
     }
 

@@ -16,64 +16,56 @@
 
 package android.voiceinteraction.cts;
 
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
-import android.content.Context;
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import static org.junit.Assert.fail;
+
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.Bundle;
-import android.test.ActivityInstrumentationTestCase2;
+import android.net.Uri;
 import android.util.Log;
 
-import junit.framework.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import android.voiceinteraction.common.Utils;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.rule.ActivityTestRule;
 
-public class LocalVoiceInteractionTest
-        extends ActivityInstrumentationTestCase2<TestLocalInteractionActivity> {
+@RunWith(AndroidJUnit4.class)
+public class LocalVoiceInteractionTest extends AbstractVoiceInteractionTestCase {
 
+    private static final String TAG = LocalVoiceInteractionTest.class.getSimpleName();
     private static final int TIMEOUT_MS = 20 * 1000;
 
+
     private TestLocalInteractionActivity mTestActivity;
-    private Context mContext;
     private final CountDownLatch mLatchStart = new CountDownLatch(1);
     private final CountDownLatch mLatchStop = new CountDownLatch(1);
-    protected boolean mHasFeature;
-    protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
 
-    public LocalVoiceInteractionTest() {
-        super(TestLocalInteractionActivity.class);
-    }
+    @Rule
+    public final ActivityTestRule<TestLocalInteractionActivity> mActivityTestRule =
+            new ActivityTestRule<>(TestLocalInteractionActivity.class, false, false);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         startTestActivity();
-        mContext = getInstrumentation().getTargetContext();
-        mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
     }
 
     private void startTestActivity() throws Exception {
-        Intent intent = new Intent();
-        intent.setAction("android.intent.action.TEST_LOCAL_INTERACTION_ACTIVITY");
-        intent.setComponent(new ComponentName(getInstrumentation().getContext(),
-                TestLocalInteractionActivity.class));
-        setActivityIntent(intent);
-        mTestActivity = getActivity();
+        Intent intent = new Intent()
+                .setAction("android.intent.action.TEST_LOCAL_INTERACTION_ACTIVITY");
+        Log.i(TAG, "startTestActivity: " + intent);
+        mTestActivity = mActivityTestRule.launchActivity(intent);
     }
 
+    @Test
     public void testLifecycle() throws Exception {
-        if (!mHasFeature) {
-            return;
-        }
-
-        assertTrue("Doesn't support LocalVoiceInteraction",
-                mTestActivity.isLocalVoiceInteractionSupported());
+        assertWithMessage("Doesn't support LocalVoiceInteraction")
+                .that(mTestActivity.isLocalVoiceInteractionSupported()).isTrue();
         mTestActivity.startLocalInteraction(mLatchStart);
         if (!mLatchStart.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
             fail("Failed to start voice interaction in " + TIMEOUT_MS + "msec");

@@ -18,12 +18,17 @@
 #define ANDROID_STATS_LOG_STATS_EVENT_LIST_H
 
 #include <log/log_event_list.h>
+#include <sys/uio.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 void reset_log_context(android_log_context ctx);
 int write_to_logger(android_log_context context, log_id_t id);
+void note_log_drop(int error, int atom_tag);
+void stats_log_close();
+int android_log_write_char_array(android_log_context ctx, const char* value, size_t len);
+extern int (*write_to_statsd)(struct iovec* vec, size_t nr);
 
 #ifdef __cplusplus
 }
@@ -48,10 +53,6 @@ class stats_event_list {
   public:
     explicit stats_event_list(int tag) : ret(0) {
         ctx = create_android_logger(static_cast<uint32_t>(tag));
-    }
-    explicit stats_event_list(log_msg& log_msg) : ret(0) {
-        ctx = create_android_log_parser(log_msg.msg() + sizeof(uint32_t),
-                                        log_msg.entry.len - sizeof(uint32_t));
     }
     ~stats_event_list() { android_log_destroy(&ctx); }
 
@@ -242,8 +243,13 @@ class stats_event_list {
         return ret >= 0;
     }
 
-    android_log_list_element read() { return android_log_read_next(ctx); }
-    android_log_list_element peek() { return android_log_peek_next(ctx); }
+    bool AppendCharArray(const char* value, size_t len) {
+        int retval = android_log_write_char_array(ctx, value, len);
+        if (retval < 0) {
+            ret = retval;
+        }
+        return ret >= 0;
+    }
 };
 
 #endif

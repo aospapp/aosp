@@ -29,8 +29,9 @@
 
 #include <log/log.h>
 
-#include <nativehelper/JniConstants.h>
 #include <nativehelper/ScopedLocalFrame.h>
+
+#include "JniConstants.h"
 
 extern "C" {
 
@@ -58,7 +59,6 @@ extern void register_java_net_InetAddress(JNIEnv*);
 extern void register_java_net_PlainDatagramSocketImpl(JNIEnv*);
 extern void register_java_net_SocketInputStream(JNIEnv*);
 extern void register_java_net_SocketOutputStream(JNIEnv*);
-extern void register_java_nio_Bits(JNIEnv* env);
 extern void register_java_nio_MappedByteBuffer(JNIEnv* env);
 extern void register_java_util_zip_Adler32(JNIEnv* env);
 extern void register_java_util_zip_CRC32(JNIEnv*);
@@ -126,7 +126,6 @@ jint JNI_OnLoad(JavaVM* vm, void*) { JNIEnv* env;
     register_java_net_Inet6Address(env);
     register_java_net_SocketInputStream(env);
     register_java_net_SocketOutputStream(env);
-    register_java_nio_Bits(env);
     register_java_util_prefs_FileSystemPreferences(env);
     register_sun_nio_ch_ServerSocketChannelImpl(env);
     register_sun_nio_ch_SocketChannelImpl(env);
@@ -135,5 +134,11 @@ jint JNI_OnLoad(JavaVM* vm, void*) { JNIEnv* env;
     register_sun_nio_ch_DatagramDispatcher(env);
     register_java_nio_MappedByteBuffer(env);
     net_JNI_OnLoad(vm, NULL);
+
+    JniConstants::Initialize(env);
     return JNI_VERSION_1_6;
+}
+
+void JNI_OnUnload(JavaVM* vm, void*) {
+    JniConstants::Invalidate();
 }

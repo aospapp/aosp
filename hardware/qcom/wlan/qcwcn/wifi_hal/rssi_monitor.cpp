@@ -36,7 +36,6 @@
 #include "common.h"
 #include "cpp_bindings.h"
 #include "rssi_monitor.h"
-#include "vendor_definitions.h"
 
 /* Used to handle rssi command events from driver/firmware.*/
 typedef struct rssi_monitor_event_handler_s {

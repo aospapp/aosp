@@ -17,7 +17,43 @@
 package android.app.stubs;
 
 import android.app.Activity;
+import android.content.res.Configuration;
 
 public class PipActivity extends Activity {
 
+    private int mMultiWindowChangedCount;
+    private int mPictureInPictureModeChangedCount;
+    private boolean mLastReporterMultiWindowMode;
+    private boolean mLastReporterPictureInPictureMode;
+
+    @Override
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode, Configuration newConfig) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
+        mLastReporterMultiWindowMode = isInMultiWindowMode;
+        mMultiWindowChangedCount++;
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode,
+            Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+        mLastReporterPictureInPictureMode = isInPictureInPictureMode;
+        mPictureInPictureModeChangedCount++;
+    }
+
+    public boolean getLastReportedMultiWindowMode() {
+        return mLastReporterMultiWindowMode;
+    }
+
+    public boolean getLastReporterPictureInPictureMode() {
+        return mLastReporterPictureInPictureMode;
+    }
+
+    public int getMultiWindowChangedCount() {
+        return mMultiWindowChangedCount;
+    }
+
+    public int getPictureInPictureModeChangedCount() {
+        return mPictureInPictureModeChangedCount;
+    }
 }

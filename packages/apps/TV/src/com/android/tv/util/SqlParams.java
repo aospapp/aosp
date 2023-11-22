@@ -17,15 +17,16 @@
 package com.android.tv.util;
 
 import android.database.DatabaseUtils;
+import android.support.annotation.Nullable;
 import java.util.Arrays;
 
 /** Convenience class for SQL operations. */
 public class SqlParams {
     private String mTables;
-    private String mSelection;
-    private String[] mSelectionArgs;
+    private @Nullable String mSelection;
+    private @Nullable String[] mSelectionArgs;
 
-    public SqlParams(String tables, String selection, String... selectionArgs) {
+    public SqlParams(String tables, @Nullable String selection, @Nullable String... selectionArgs) {
         setTables(tables);
         setWhere(selection, selectionArgs);
     }
@@ -34,11 +35,11 @@ public class SqlParams {
         return mTables;
     }
 
-    public String getSelection() {
+    public @Nullable String getSelection() {
         return mSelection;
     }
 
-    public String[] getSelectionArgs() {
+    public @Nullable String[] getSelectionArgs() {
         return mSelectionArgs;
     }
 

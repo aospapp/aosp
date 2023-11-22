@@ -18,11 +18,23 @@ package com.android.vts.entity;
 
 import com.android.vts.entity.TestCaseRunEntity.TestCase;
 import com.google.appengine.api.datastore.Entity;
+import com.googlecode.objectify.annotation.Cache;
+import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Ignore;
+import com.googlecode.objectify.annotation.Index;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
+@com.googlecode.objectify.annotation.Entity(name = "TestStatus")
+@Cache
+@Data
+@NoArgsConstructor
 /** Entity describing test status. */
 public class TestStatusEntity implements DashboardEntity {
     protected static final Logger logger = Logger.getLogger(TestStatusEntity.class.getName());
@@ -37,11 +49,25 @@ public class TestStatusEntity implements DashboardEntity {
     protected static final String FAILING_IDS = "failingTestcaseIds";
     protected static final String FAILING_OFFSETS = "failingTestcaseOffsets";
 
-    public final String testName;
-    public final int passCount;
-    public final int failCount;
-    public final long timestamp;
-    public final List<TestCaseReference> failingTestCases;
+    /** ID field */
+    @Id private String testName;
+
+    /** Failing Testcase ID List field */
+    private List<Long> failingTestcaseIds;
+
+    /** Failing Testcase Offsets List field */
+    private List<Integer> failingTestcaseOffsets;
+
+    /** pass count field */
+    @Index private int passCount;
+
+    /** fail count field */
+    @Index private int failCount;
+
+    /** updated timestamp field */
+    @Index private long updatedTimestamp;
+
+    @Ignore private List<TestCaseReference> failingTestCases;
 
     /** Object representing a reference to a test case. */
     public static class TestCaseReference {
@@ -79,13 +105,13 @@ public class TestStatusEntity implements DashboardEntity {
      * @param failingTestCases The TestCaseReferences of the last observed failing test cases.
      */
     public TestStatusEntity(
-            String testName,
-            long timestamp,
-            int passCount,
-            int failCount,
-            List<TestCaseReference> failingTestCases) {
+        String testName,
+        long timestamp,
+        int passCount,
+        int failCount,
+        List<TestCaseReference> failingTestCases) {
         this.testName = testName;
-        this.timestamp = timestamp;
+        this.updatedTimestamp = timestamp;
         this.passCount = passCount;
         this.failCount = failCount;
         this.failingTestCases = failingTestCases;
@@ -100,11 +126,16 @@ public class TestStatusEntity implements DashboardEntity {
         this(testName, 0, -1, -1, new ArrayList<TestCaseReference>());
     }
 
+    /** Saving function for the instance of this class */
     @Override
+    public com.googlecode.objectify.Key<TestStatusEntity> save() {
+        return ofy().save().entity(this).now();
+    }
+
     public Entity toEntity() {
         Entity testEntity = new Entity(KIND, this.testName);
-        if (this.timestamp >= 0 && this.passCount >= 0 && this.failCount >= 0) {
-            testEntity.setProperty(UPDATED_TIMESTAMP, this.timestamp);
+        if (this.updatedTimestamp >= 0 && this.passCount >= 0 && this.failCount >= 0) {
+            testEntity.setProperty(UPDATED_TIMESTAMP, this.updatedTimestamp);
             testEntity.setProperty(PASS_COUNT, this.passCount);
             testEntity.setProperty(FAIL_COUNT, this.failCount);
             if (this.failingTestCases.size() > 0) {
@@ -154,7 +185,7 @@ public class TestStatusEntity implements DashboardEntity {
                 if (ids.size() == offsets.size()) {
                     for (int i = 0; i < ids.size(); i++) {
                         failingTestCases.add(
-                                new TestCaseReference(ids.get(i), offsets.get(i).intValue()));
+                            new TestCaseReference(ids.get(i), offsets.get(i).intValue()));
                     }
                 }
             }

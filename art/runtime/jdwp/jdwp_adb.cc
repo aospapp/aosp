@@ -23,12 +23,9 @@
 #include "android-base/stringprintf.h"
 
 #include "base/logging.h"  // For VLOG.
+#include "base/socket_peer_is_trusted.h"
 #include "jdwp/jdwp_priv.h"
 #include "thread-current-inl.h"
-
-#ifdef ART_TARGET_ANDROID
-#include "cutils/sockets.h"
-#endif
 
 /*
  * The JDWP <-> ADB transport protocol is explained in detail
@@ -87,13 +84,13 @@ struct JdwpAdbState : public JdwpNetStateBase {
     }
   }
 
-  virtual bool Accept() REQUIRES(!state_lock_);
+  bool Accept() override REQUIRES(!state_lock_);
 
-  virtual bool Establish(const JdwpOptions*) {
+  bool Establish(const JdwpOptions*) override {
     return false;
   }
 
-  virtual void Shutdown() REQUIRES(!state_lock_) {
+  void Shutdown() override REQUIRES(!state_lock_) {
     int control_sock;
     int local_clientSock;
     {
@@ -116,7 +113,7 @@ struct JdwpAdbState : public JdwpNetStateBase {
     WakePipe();
   }
 
-  virtual bool ProcessIncoming() REQUIRES(!state_lock_);
+  bool ProcessIncoming() override REQUIRES(!state_lock_);
 
  private:
   int ReceiveClientFd() REQUIRES(!state_lock_);
@@ -265,7 +262,7 @@ bool JdwpAdbState::Accept() {
       if (!ret) {
         int control_sock = ControlSock();
 #ifdef ART_TARGET_ANDROID
-        if (control_sock < 0 || !socket_peer_is_trusted(control_sock)) {
+        if (control_sock < 0 || !art::SocketPeerIsTrusted(control_sock)) {
           if (control_sock >= 0 && shutdown(control_sock, SHUT_RDWR)) {
             PLOG(ERROR) << "trouble shutting down socket";
           }
@@ -346,7 +343,7 @@ bool JdwpAdbState::ProcessIncoming() {
   if (!HaveFullPacket()) {
     /* read some more, looping until we have data */
     errno = 0;
-    while (1) {
+    while (true) {
       int selCount;
       fd_set readfds;
       int maxfd = -1;

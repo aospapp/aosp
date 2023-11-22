@@ -18,6 +18,7 @@ package com.android.cts.verifier.wifiaware;
 
 import android.net.ConnectivityManager;
 import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.wifi.aware.AttachCallback;
 import android.net.wifi.aware.DiscoverySessionCallback;
 import android.net.wifi.aware.IdentityChangedListener;
@@ -123,30 +124,34 @@ public class CallbackUtils {
      */
     public static class NetworkCb extends ConnectivityManager.NetworkCallback {
         private CountDownLatch mBlocker = new CountDownLatch(1);
-        private boolean mNetworkAvailable = false;
+        private Network mNetwork = null;
+        private NetworkCapabilities mNetworkCapabilities = null;
 
         @Override
-        public void onAvailable(Network network) {
-            mNetworkAvailable = true;
+        public void onUnavailable() {
+            mNetworkCapabilities = null;
             mBlocker.countDown();
         }
 
         @Override
-        public void onUnavailable() {
-            mNetworkAvailable = false;
+        public void onCapabilitiesChanged(Network network,
+                NetworkCapabilities networkCapabilities) {
+            mNetwork = network;
+            mNetworkCapabilities = networkCapabilities;
             mBlocker.countDown();
         }
 
         /**
-         * Wait (blocks) for Available or Unavailable callbacks - or timesout.
+         * Wait (blocks) for Capabilities Changed callback - or timesout.
          *
-         * @return true if Available, false otherwise (Unavailable or timeout).
+         * @return Network + NetworkCapabilities (pair) if occurred, null otherwise.
          */
-        public boolean waitForNetwork() throws InterruptedException {
+        public Pair<Network, NetworkCapabilities> waitForNetworkCapabilities()
+                throws InterruptedException {
             if (mBlocker.await(CALLBACK_TIMEOUT_SEC, TimeUnit.SECONDS)) {
-                return mNetworkAvailable;
+                return Pair.create(mNetwork, mNetworkCapabilities);
             }
-            return false;
+            return null;
         }
     }
 

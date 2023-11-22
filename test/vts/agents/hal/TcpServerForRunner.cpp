@@ -54,14 +54,13 @@ int StartTcpServerForRunner(const char* spec_dir_path,
   serv_addr.sin_port = htons(0);
 
   if (::bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1) {
-    LOG(ERROR) << "bind failed. errno = " << errno << " " << strerror(errno);
+    PLOG(ERROR) << "bind failed";
     return -1;
   }
 
   socklen_t sa_len = sizeof(serv_addr);
   if (getsockname(sockfd, (struct sockaddr*) &serv_addr, &sa_len) == -1) {
-    LOG(ERROR) << "getsockname failed. errno = " << errno << " "
-               << strerror(errno);
+    PLOG(ERROR) << "getsockname failed";
     return -1;
   }
 

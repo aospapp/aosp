@@ -24,7 +24,6 @@
 namespace art {
 
 class CodeGenerator;
-class CompilerDriver;
 class DexCompilationUnit;
 
 /**
@@ -47,8 +46,9 @@ class HOptimization : public ArenaObject<kArenaAllocOptimization> {
   // 'instruction_simplifier$before_codegen'.
   const char* GetPassName() const { return pass_name_; }
 
-  // Perform the analysis itself.
-  virtual void Run() = 0;
+  // Perform the pass or analysis. Returns false if no optimizations occurred or no useful
+  // information was computed (this is best effort, returning true is always ok).
+  virtual bool Run() = 0;
 
  protected:
   HGraph* const graph_;
@@ -76,14 +76,12 @@ enum class OptimizationPass {
   kInductionVarAnalysis,
   kInliner,
   kInstructionSimplifier,
-  kIntrinsicsRecognizer,
   kInvariantCodeMotion,
   kLoadStoreAnalysis,
   kLoadStoreElimination,
   kLoopOptimization,
   kScheduling,
   kSelectGenerator,
-  kSharpening,
   kSideEffectsAnalysis,
 #ifdef ART_ENABLE_CODEGEN_arm
   kInstructionSimplifierArm,
@@ -97,25 +95,40 @@ enum class OptimizationPass {
 #endif
 #ifdef ART_ENABLE_CODEGEN_x86
   kPcRelativeFixupsX86,
+  kInstructionSimplifierX86,
+#endif
+#ifdef ART_ENABLE_CODEGEN_x86_64
+  kInstructionSimplifierX86_64,
 #endif
 #if defined(ART_ENABLE_CODEGEN_x86) || defined(ART_ENABLE_CODEGEN_x86_64)
   kX86MemoryOperandGeneration,
 #endif
+  kNone,
+  kLast = kNone
 };
 
 // Lookup name of optimization pass.
 const char* OptimizationPassName(OptimizationPass pass);
 
 // Lookup optimization pass by name.
-OptimizationPass OptimizationPassByName(const std::string& name);
+OptimizationPass OptimizationPassByName(const std::string& pass_name);
 
 // Optimization definition consisting of an optimization pass
-// and an optional alternative name (nullptr denotes default).
-typedef std::pair<OptimizationPass, const char*> OptimizationDef;
+// an optional alternative name (nullptr denotes default), and
+// an optional pass dependence (kNone denotes no dependence).
+struct OptimizationDef {
+  OptimizationDef(OptimizationPass p, const char* pn, OptimizationPass d)
+      : pass(p), pass_name(pn), depends_on(d) {}
+  OptimizationPass pass;
+  const char* pass_name;
+  OptimizationPass depends_on;
+};
 
 // Helper method for optimization definition array entries.
-inline OptimizationDef OptDef(OptimizationPass pass, const char* name = nullptr) {
-  return std::make_pair(pass, name);
+inline OptimizationDef OptDef(OptimizationPass pass,
+                              const char* pass_name = nullptr,
+                              OptimizationPass depends_on = OptimizationPass::kNone) {
+  return OptimizationDef(pass, pass_name, depends_on);
 }
 
 // Helper method to construct series of optimization passes.
@@ -133,7 +146,6 @@ ArenaVector<HOptimization*> ConstructOptimizations(
     HGraph* graph,
     OptimizingCompilerStats* stats,
     CodeGenerator* codegen,
-    CompilerDriver* driver,
     const DexCompilationUnit& dex_compilation_unit,
     VariableSizedHandleScope* handles);
 

@@ -27,7 +27,7 @@ namespace vts {
 
 class VtsTraceProcessor {
  public:
-  VtsTraceProcessor(VtsCoverageProcessor* coverage_processor)
+  explicit VtsTraceProcessor(VtsCoverageProcessor* coverage_processor)
       : coverage_processor_(coverage_processor){};
   virtual ~VtsTraceProcessor(){};
 
@@ -109,6 +109,9 @@ class VtsTraceProcessor {
   // have corresponding entry/exit events.
   bool isPairedRecord(const VtsProfilingRecord& entry_record,
                       const VtsProfilingRecord& exit_record);
+  // Util method to get the string representing the full API name, e.g.
+  // android.hardware.foo@1.0::IFoo:open
+  std::string GetFullApiStr(const VtsProfilingRecord& record);
 
   // Struct to store the coverage data.
   struct CoverageInfo {
@@ -123,8 +126,10 @@ class VtsTraceProcessor {
     std::string test_name;
     // Hal package name. e.g. android.hardware.light
     std::string package;
-    // Hal version e.g. 1.0
-    float version;
+    // Hal major version, e.g. 1.0 -> 1
+    int version_major;
+    // Hal minor version, e.g. 1.0 -> 0
+    int version_minor;
     // Total number of API calls recorded in the trace.
     long total_api_count;
     // Total number of different APIs recorded in the trace.
@@ -132,12 +137,13 @@ class VtsTraceProcessor {
     // Call statistics for each API: <API_name, number_called>
     std::map<std::string, long> api_stats;
 
-    TraceSummary(std::string test_name, std::string package, float version,
-                 long total_api_count, long unique_api_count,
+    TraceSummary(std::string test_name, std::string package, int version_major,
+                 int version_minor, long total_api_count, long unique_api_count,
                  std::map<std::string, long> api_stats)
         : test_name(test_name),
           package(package),
-          version(version),
+          version_major(version_major),
+          version_minor(version_minor),
           total_api_count(total_api_count),
           unique_api_count(unique_api_count),
           api_stats(api_stats){};

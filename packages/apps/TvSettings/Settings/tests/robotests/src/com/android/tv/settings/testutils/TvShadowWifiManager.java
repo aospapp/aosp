@@ -21,7 +21,7 @@ import android.net.wifi.WifiManager;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 
-@Implements(value = WifiManager.class, inheritImplementationMethods = true)
+@Implements(value = WifiManager.class)
 public class TvShadowWifiManager extends org.robolectric.shadows.ShadowWifiManager {
 
     @Implementation

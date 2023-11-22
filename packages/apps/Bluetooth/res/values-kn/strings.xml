@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ಇವರಿಗೆ ಫೈಲ್‌‌ ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" ಇವರಿಗೆ <xliff:g id="NUMBER">%1$s</xliff:g> ಫೈಲ್‌‌ಗಳನ್ನು ಕಳುಹಿಸಲಾಗುತ್ತಿದೆ"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ಇವರಿಗೆ ಫೈಲ್‌ ಕಳುಹಿಸುವುದನ್ನು ನಿಲ್ಲಿಸಲಾಗಿದೆ"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ರಿಂದ ಫೈಲ್‌ ಉಳಿಸಲು USB ಸಂಗ್ರಹಣೆಯಲ್ಲಿ ಸಾಕಷ್ಟು ಸ್ಥಳಾವಕಾಶವಿಲ್ಲ"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ರಿಂದ ಫೈಲ್‌ ಉಳಿಸಲು SD ಕಾರ್ಡ್‌ನಲ್ಲಿ ಸಾಕಷ್ಟು ಸ್ಥಳಾವಕಾಶವಿಲ್ಲ"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ರಿಂದ ಫೈಲ್‌ ಉಳಿಸಲು USB ಸಂಗ್ರಹಣೆಯಲ್ಲಿ ಸಾಕಷ್ಟು ಸ್ಥಳಾವಕಾಶವಿಲ್ಲ"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" ರಿಂದ ಫೈಲ್‌ ಉಳಿಸಲು SD ಕಾರ್ಡ್‌ನಲ್ಲಿ ಸಾಕಷ್ಟು ಸ್ಥಳಾವಕಾಶವಿಲ್ಲ"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ಅಗತ್ಯವಿರುವ ಸ್ಥಳಾವಕಾಶ: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"ಹಲವಾರು ವಿನಂತಿಗಳನ್ನು ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲಾಗುತ್ತಿದೆ. ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."</string>
     <string name="status_pending" msgid="2503691772030877944">"ಫೈಲ್‌‌ ವರ್ಗಾವಣೆ ಇನ್ನೂ ಪ್ರಾರಂಭಿಸಿಲ್ಲ."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"ಉದ್ದೇಶಿತ ಸಾಧನದಿಂದ ವರ್ಗಾವಣೆಯನ್ನು ನಿಷೇಧಿಸಲಾಗಿದೆ."</string>
     <string name="status_canceled" msgid="6664490318773098285">"ಬಳಕೆದಾರರ ಮೂಲಕ ವರ್ಗಾವಣೆಯನ್ನು ರದ್ದುಪಡಿಸಲಾಗಿದೆ."</string>
     <string name="status_file_error" msgid="3671917770630165299">"ಸಂಗ್ರಹಣೆಯ ಸಮಸ್ಯೆ."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"ಯಾವುದೇ USB ಸಂಗ್ರಹಣೆಯಿಲ್ಲ."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"ಯಾವುದೇ SD ಕಾರ್ಡ್‌ಗಳಿಲ್ಲ. ವರ್ಗಾವಣೆ ಮಾಡಲಾದ ಫೈಲ್‌ಗಳನ್ನು ಉಳಿಸಲು SD ಕಾರ್ಡ್‌ವೊಂದನ್ನು ಸೇರಿಸಿ."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"ಯಾವುದೇ USB ಸಂಗ್ರಹಣೆಯಿಲ್ಲ."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"ಯಾವುದೇ SD ಕಾರ್ಡ್‌ಗಳಿಲ್ಲ. ವರ್ಗಾವಣೆ ಮಾಡಲಾದ ಫೈಲ್‌ಗಳನ್ನು ಉಳಿಸಲು SD ಕಾರ್ಡ್‌ವೊಂದನ್ನು ಸೇರಿಸಿ."</string>
     <string name="status_connection_error" msgid="947681831523219891">"ಸಂಪರ್ಕವು ವಿಫಲವಾಗಿದೆ."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"ವಿನಂತಿಯನ್ನು ಸರಿಯಾಗಿ ನಿರ್ವಹಿಸಲಾಗುವುದಿಲ್ಲ."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"ಅಪರಿಚಿತ ದೋಷ."</string>
@@ -122,7 +122,8 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"ತೆರೆಯಿರಿ"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"ಪಟ್ಟಿಯಿಂದ ತೆರವುಗೊಳಿಸಿ"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"ತೆರವುಗೊಳಿಸು"</string>
-    <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"ಉಳಿಸು"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Now Playing"</string>
+    <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"ಉಳಿಸಿ"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"ರದ್ದುಮಾಡಿ"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ಬ್ಲೂಟೂತ್‌ ಮೂಲಕ ಹಂಚಿಕೊಳ್ಳಲು ಬಯಸುವ ಖಾತೆಗಳನ್ನು ಆಯ್ಕೆಮಾಡಿ. ಸಂಪರ್ಕಿಸುವಾಗ ಖಾತೆಗಳಿಗೆ ಯಾವುದೇ ಪ್ರವೇಶವನ್ನು ನೀವು ಈಗಲೂ ಸಮ್ಮತಿಸಬೇಕಾಗುತ್ತದೆ."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"ಉಳಿದಿರುವ ಸ್ಲಾಟ್‌ಗಳು:"</string>

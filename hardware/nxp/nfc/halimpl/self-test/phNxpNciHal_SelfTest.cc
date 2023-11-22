@@ -595,7 +595,7 @@ static uint8_t st_validator_testAntenna_Txldo(nci_data_t* exp,
         if ((measured_val >=
              phAntenna_resp.wTxdoMeasuredRangeMin - tolerance)) {
           gtxldo_status = NFCSTATUS_SUCCESS;
-          NXPLOG_NCIHAL_E("Test Antenna Response for TxLDO measurement PASS");
+          NXPLOG_NCIHAL_D("Test Antenna Response for TxLDO measurement PASS");
         } else {
           gtxldo_status = NFCSTATUS_FAILED;
           NXPLOG_NCIHAL_E("Test Antenna Response for TxLDO measurement FAIL");
@@ -650,7 +650,7 @@ static uint8_t st_validator_testAntenna_AgcVal(nci_data_t* exp,
       if (((phAntenna_resp.wAgcValue - agc_tolerance) <= agc_val) &&
           (agc_val <= (phAntenna_resp.wAgcValue + agc_tolerance))) {
         gagc_value_status = NFCSTATUS_SUCCESS;
-        NXPLOG_NCIHAL_E("Test Antenna Response for AGC Values  PASS");
+        NXPLOG_NCIHAL_D("Test Antenna Response for AGC Values  PASS");
       } else {
         gagc_value_status = NFCSTATUS_FAILED;
         NXPLOG_NCIHAL_E("Test Antenna Response for AGC Values  FAIL");
@@ -701,7 +701,7 @@ static uint8_t st_validator_testAntenna_AgcVal_FixedNfcLd(
           (agc_nfcld <=
            (phAntenna_resp.wAgcValuewithfixedNFCLD + agc_nfcld_tolerance))) {
         gagc_nfcld_status = NFCSTATUS_SUCCESS;
-        NXPLOG_NCIHAL_E(
+        NXPLOG_NCIHAL_D(
             "Test Antenna Response for AGC value with fixed NFCLD PASS");
       } else {
         gagc_nfcld_status = NFCSTATUS_FAILED;
@@ -770,7 +770,7 @@ static uint8_t st_validator_testAntenna_AgcVal_Differential(
            (agc_differentialOpne2 <=
             phAntenna_resp.wAgcDifferentialWithOpen2 + agc_toleranceopne2))) {
         gagc_differential_status = NFCSTATUS_SUCCESS;
-        NXPLOG_NCIHAL_E("Test Antenna Response for AGC Differential Open PASS");
+        NXPLOG_NCIHAL_D("Test Antenna Response for AGC Differential Open PASS");
       } else {
         gagc_differential_status = NFCSTATUS_FAILED;
         NXPLOG_NCIHAL_E(
@@ -1083,7 +1083,7 @@ retry:
 
   if (cb_data.status != NFCSTATUS_SUCCESS && retryCnt < HAL_WRITE_MAX_RETRY) {
     retryCnt++;
-    NXPLOG_NCIHAL_E(
+    NXPLOG_NCIHAL_D(
         "write_unlocked failed - PN54X Maybe in Standby Mode - Retry %d",
         retryCnt);
     goto retry;
@@ -1180,11 +1180,11 @@ NFCSTATUS phNxpNciHal_TestMode_open(void) {
   /* Read the nfc device node name */
   nfc_dev_node = (char*)malloc(max_len * sizeof(char));
   if (nfc_dev_node == NULL) {
-    NXPLOG_NCIHAL_E("malloc of nfc_dev_node failed ");
+    NXPLOG_NCIHAL_D("malloc of nfc_dev_node failed ");
     goto clean_and_return;
   } else if (!GetNxpStrValue(NAME_NXP_NFC_DEV_NODE, nfc_dev_node,
                              sizeof(nfc_dev_node))) {
-    NXPLOG_NCIHAL_E(
+    NXPLOG_NCIHAL_D(
         "Invalid nfc device node name keeping the default device node "
         "/dev/pn54x");
     strcpy(nfc_dev_node, "/dev/pn54x");
@@ -1687,7 +1687,7 @@ NFCSTATUS phNxpNciHal_AntennaSelfTest(phAntenna_St_Resp_t* phAntenna_St_Resp) {
       antenna_st_status = NFCSTATUS_SUCCESS;
       NXPLOG_NCIHAL_D("phNxpNciHal_AntennaSelfTest - SUCESS\n");
     } else {
-      NXPLOG_NCIHAL_D("phNxpNciHal_AntennaSelfTest - FAILED\n");
+      NXPLOG_NCIHAL_E("phNxpNciHal_AntennaSelfTest - FAILED\n");
     }
   } else {
     NXPLOG_NCIHAL_D("phNxpNciHal_AntennaSelfTest - FAILED\n");

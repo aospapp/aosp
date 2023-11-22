@@ -46,10 +46,9 @@ class ApInterfaceBinder : public android::net::wifi::BnApInterface {
   void NotifySoftApChannelSwitched(int frequency,
                                    ChannelBandwidth channel_bandwidth);
 
-  binder::Status startHostapd(
+  binder::Status registerCallback(
       const sp<net::wifi::IApInterfaceEventCallback>& callback,
       bool* out_success) override;
-  binder::Status stopHostapd(bool* out_success) override;
   binder::Status getInterfaceName(std::string* out_name) override;
   binder::Status getNumberOfAssociatedStations(
       int* out_num_of_stations) override;

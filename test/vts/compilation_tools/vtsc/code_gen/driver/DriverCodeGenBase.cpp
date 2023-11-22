@@ -166,11 +166,16 @@ void DriverCodeGenBase::GenerateHeaderIncludeFiles(Formatter& out,
     out << "#include " << header << "\n";
   }
   out << "\n";
-  out << "#include <stdio.h>" << "\n";
-  out << "#include <stdarg.h>" << "\n";
-  out << "#include <stdlib.h>" << "\n";
-  out << "#include <string.h>" << "\n";
-  out << "#include <utils/Log.h>" << "\n";
+  out << "#include <log/log.h>"
+      << "\n";
+  out << "#include <stdarg.h>"
+      << "\n";
+  out << "#include <stdio.h>"
+      << "\n";
+  out << "#include <stdlib.h>"
+      << "\n";
+  out << "#include <string.h>"
+      << "\n";
   out << "\n";
   out << "#include <driver_base/DriverBase.h>"
       << "\n";

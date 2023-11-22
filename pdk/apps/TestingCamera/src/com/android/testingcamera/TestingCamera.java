@@ -34,6 +34,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.view.OrientationEventListener;
 import android.view.View;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -179,6 +180,7 @@ public class TestingCamera extends Activity
     private static final int PERMISSIONS_REQUEST_CAMERA = 1;
     private static final int PERMISSIONS_REQUEST_RECORDING = 2;
     static final int PERMISSIONS_REQUEST_SNAPSHOT = 3;
+    private OrientationEventHandler mOrientationHandler;
 
     /** Activity lifecycle */
 
@@ -331,6 +333,34 @@ public class TestingCamera extends Activity
         }
 
         mRS = RenderScript.create(this);
+
+        mOrientationHandler = new OrientationEventHandler(this);
+    }
+
+    private static class OrientationEventHandler extends OrientationEventListener {
+        private TestingCamera mActivity;
+        private int mCurrentRotation = -1;
+        OrientationEventHandler(TestingCamera activity) {
+            super(activity);
+            mActivity = activity;
+        }
+
+        @Override
+        public void onOrientationChanged(int orientation) {
+            if (mActivity != null) {
+                int rotation = mActivity.getWindowManager().getDefaultDisplay().getRotation();
+                if (mCurrentRotation != rotation) {
+                    mCurrentRotation = rotation;
+                    mActivity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mActivity.setCameraDisplayOrientation();
+                            mActivity.resizePreview();
+                        }
+                    });
+                }
+            }
+        }
     }
 
     @Override
@@ -338,6 +368,7 @@ public class TestingCamera extends Activity
         super.onResume();
         log("onResume: Setting up");
         setUpCamera();
+        mOrientationHandler.enable();
     }
 
     @Override
@@ -361,6 +392,7 @@ public class TestingCamera extends Activity
             }
             mState = CAMERA_UNINITIALIZED;
         }
+        mOrientationHandler.disable();
     }
 
     @Override
@@ -418,7 +450,7 @@ public class TestingCamera extends Activity
                 }
             }
 
-            if (mPreviewHolder != null) {
+            if (mPreviewHolder != null || mState == CAMERA_UNINITIALIZED) {
                 return;
             }
             log("Surface holder available: " + width + " x " + height);
@@ -1037,7 +1069,9 @@ public class TestingCamera extends Activity
         updateColorEffects(mParams);
 
         // Trigger updating video record size to match camcorder profile
-        mCamcorderProfileSpinner.setSelection(mCamcorderProfile);
+        if (mCamcorderProfile >= 0) {
+            mCamcorderProfileSpinner.setSelection(mCamcorderProfile);
+        }
 
         if (mParams.isVideoStabilizationSupported()) {
             log("Video stabilization is supported");
@@ -1317,10 +1351,17 @@ public class TestingCamera extends Activity
                 mCamcorderProfiles.add(CamcorderProfile.get(cameraId, PROFILES[i]));
             }
         }
+
         String[] nameArray = (String[])availableCamcorderProfileNames.toArray(new String[0]);
         mCamcorderProfileSpinner.setAdapter(
                 new ArrayAdapter<String>(
                         this, R.layout.spinner_item, nameArray));
+
+        if (availableCamcorderProfileNames.size() == 0) {
+            log("Camera " +  cameraId + " doesn't support camcorder profile");
+            mCamcorderProfile = -1;
+            return;
+        }
 
         mCamcorderProfile = 0;
         log("Setting camcorder profile to " + nameArray[mCamcorderProfile]);
@@ -1388,8 +1429,33 @@ public class TestingCamera extends Activity
     }
 
     void layoutPreview() {
+        int rotation = getWindowManager().getDefaultDisplay().getRotation();
         int width = mPreviewSizes.get(mPreviewSize).width;
         int height = mPreviewSizes.get(mPreviewSize).height;
+        switch (rotation) {
+            case Surface.ROTATION_0:
+            case Surface.ROTATION_180:
+                // Portrait
+                // Switch the preview size so that the longer edge aligns with the taller
+                // dimension.
+                if (width > height) {
+                    int tmp = height;
+                    height = width;
+                    width = tmp;
+                }
+                break;
+            case Surface.ROTATION_90:
+            case Surface.ROTATION_270:
+                // Landscape
+                // Possibly somewhat unlikely case but we should try to handle it too.
+                if (height > width) {
+                    int tmp = height;
+                    height = width;
+                    width = tmp;
+                }
+                break;
+        }
+
         float previewAspect = ((float) width) / height;
 
         int viewHeight = mPreviewView.getHeight();
@@ -1402,6 +1468,8 @@ public class TestingCamera extends Activity
         }
         mPreviewView.setLayoutParams(
                 new LayoutParams(viewWidth, viewHeight));
+        log("Setting layout params viewWidth: " + viewWidth + " viewHeight: " + viewHeight +
+                " display rotation: " + rotation);
 
         if (mCallbacksEnabled) {
             int callbackHeight = mCallbackView.getHeight();
@@ -1569,6 +1637,19 @@ public class TestingCamera extends Activity
         }
     }
 
+    private static final int BIT_RATE_1080P = 16000000;
+    private static final int BIT_RATE_MIN = 64000;
+    private static final int BIT_RATE_MAX = 40000000;
+
+    private int getVideoBitRate(Camera.Size sz) {
+        int rate = BIT_RATE_1080P;
+        float scaleFactor = sz.height * sz.width / (float)(1920 * 1080);
+        rate = (int)(rate * scaleFactor);
+
+        // Clamp to the MIN, MAX range.
+        return Math.max(BIT_RATE_MIN, Math.min(BIT_RATE_MAX, rate));
+    }
+
     private void startRecording() {
         log("Starting recording");
 
@@ -1608,8 +1689,17 @@ public class TestingCamera extends Activity
 
         mRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
         mRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-        mRecorder.setProfile(mCamcorderProfiles.get(mCamcorderProfile));
+
         Camera.Size videoRecordSize = mVideoRecordSizes.get(mVideoRecordSize);
+        if (mCamcorderProfile >= 0) {
+            mRecorder.setProfile(mCamcorderProfiles.get(mCamcorderProfile));
+        } else {
+            mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+            mRecorder.setVideoEncodingBitRate(getVideoBitRate(videoRecordSize));
+            mRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+            mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+        }
+
         if (videoRecordSize.width > 0 && videoRecordSize.height > 0) {
             mRecorder.setVideoSize(videoRecordSize.width, videoRecordSize.height);
         }

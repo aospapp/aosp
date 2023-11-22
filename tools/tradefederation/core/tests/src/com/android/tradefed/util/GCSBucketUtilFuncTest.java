@@ -16,11 +16,11 @@
 
 package com.android.tradefed.util;
 
+import com.android.tradefed.util.GCSBucketUtil.GCSFileMetadata;
+
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -36,107 +36,83 @@ import java.util.List;
 @RunWith(JUnit4.class)
 public class GCSBucketUtilFuncTest {
 
-    private static final String BUCKET_NAME_PREFIX = "tradefed_function_test";
+    private static final String BUCKET_NAME = "tradefed_function_test";
     private static final String FILE_NAME = "a_host_config.xml";
+    private static final String FOLDER_NAME = "folder";
     private static final String FILE_CONTENT = "Hello World!";
-    private static final String PROJECT_ID = "google.com:tradefed-cluster-staging";
     private static final long TIMEOUT = 10000;
-    private static GCSBucketUtil sBucket;
-
-    @BeforeClass
-    public static void setUpBeforeClass() throws Exception {
-        File tempFile = FileUtil.createTempFile(BUCKET_NAME_PREFIX, "");
-
-        try {
-            sBucket = new GCSBucketUtil(tempFile.getName());
-        } finally {
-            FileUtil.deleteFile(tempFile);
-        }
-
-        sBucket.makeBucket(PROJECT_ID);
-    }
-
-    @AfterClass
-    public static void tearDownAfterClass() throws Exception {
-        sBucket.remove("/", true);
-    }
+    private String mRemoteRoot;
+    private File mLocalRoot;
+    private GCSBucketUtil mBucket;
 
     @Before
     public void setUp() throws IOException {
-        sBucket.setBotoConfig(null);
-        sBucket.setBotoPath(null);
-        sBucket.setRecursive(false);
-        sBucket.setTimeoutMs(TIMEOUT);
+        mBucket = new GCSBucketUtil(BUCKET_NAME);
+        File tempFile = FileUtil.createTempFile(GCSBucketUtilFuncTest.class.getSimpleName(), "");
+        mRemoteRoot = tempFile.getName();
+        FileUtil.deleteFile(tempFile);
+
+        mBucket.setBotoConfig(null);
+        mBucket.setBotoPath(null);
+        mBucket.setRecursive(false);
+        mBucket.setTimeoutMs(TIMEOUT);
+
+        mLocalRoot = FileUtil.createTempDir(GCSBucketUtilFuncTest.class.getSimpleName());
     }
 
     @After
     public void tearDown() throws Exception {
-        sBucket.setRecursive(true);
-        sBucket.remove("/*", true);
-    }
-
-    @Test
-    public void testStringUpload() throws Exception {
-        Path path = Paths.get(FILE_NAME);
-        sBucket.pushString(FILE_CONTENT, path);
-        Assert.assertEquals(FILE_CONTENT, sBucket.pullContents(path));
+        FileUtil.recursiveDelete(mLocalRoot);
+        mBucket.setRecursive(true);
+        mBucket.remove(mRemoteRoot, true);
     }
 
     @Test
     public void testStringUploadThenDownLoad() throws Exception {
-        Path path = Paths.get(FILE_NAME);
-        sBucket.pushString(FILE_CONTENT, path);
-        Assert.assertEquals(FILE_CONTENT, sBucket.pullContents(path));
+        Path path = Paths.get(mRemoteRoot, FILE_NAME);
+        mBucket.pushString(FILE_CONTENT, path);
+        Assert.assertEquals(FILE_CONTENT, mBucket.pullContents(path));
     }
 
     @Test
     public void testDownloadMultiple() throws Exception {
         List<String> expectedFiles = Arrays.asList("A", "B", "C");
-        File tmpDir = FileUtil.createTempDir(BUCKET_NAME_PREFIX);
-
         for(String file : expectedFiles) {
-            sBucket.pushString(FILE_CONTENT, Paths.get(file));
+            mBucket.pushString(FILE_CONTENT, Paths.get(mRemoteRoot, file));
         }
 
-        sBucket.setRecursive(true);
-        sBucket.pull(Paths.get("/"), tmpDir);
+        mBucket.setRecursive(true);
+        mBucket.pull(Paths.get(mRemoteRoot), mLocalRoot);
 
-        File tmpDirBucket = new File(tmpDir, sBucket.getBucketName());
-
-        List<String> actualFiles = Arrays.asList(tmpDirBucket.list());
+        // This need to be notice. "gsutil cp -r gs://bucket/remote local" will create local/remote
+        // instead of copying files inside gs://bucket/remote to local.
+        File local = new File(mLocalRoot, mRemoteRoot);
+        List<String> actualFiles = Arrays.asList(local.list());
         for(String expected : expectedFiles) {
             if(actualFiles.indexOf(expected) == -1) {
-                Assert.fail(String.format("Could not find file %s in %s [have: %s]", expected,
-                        tmpDirBucket, actualFiles));
+                Assert.fail(
+                        String.format(
+                                "Could not find file %s in gs://%s/%s [have: %s]",
+                                expected, BUCKET_NAME, mRemoteRoot, actualFiles));
             }
         }
-
-        FileUtil.recursiveDelete(tmpDir);
     }
 
     @Test
-    public void TestUploadDownload() throws IOException {
-        File tempSrc = FileUtil.createTempFile(sBucket.getBucketName(), "src");
-        File tempDst = FileUtil.createTempFile(sBucket.getBucketName(), "dst");
-
-        try {
-            FileUtil.writeToFile(FILE_CONTENT, tempDst);
-
-            sBucket.push(tempSrc, Paths.get(FILE_NAME));
-            sBucket.pull(Paths.get(FILE_NAME), tempDst);
-
-            Assert.assertTrue("File contents should match",
-                    FileUtil.compareFileContents(tempSrc, tempDst));
-        } finally {
-            FileUtil.deleteFile(tempSrc);
-            FileUtil.deleteFile(tempDst);
-        }
+    public void testUploadDownload() throws IOException {
+        File tempSrc = FileUtil.createTempFile("src", "", mLocalRoot);
+        File tempDst = FileUtil.createTempFile("dst", "", mLocalRoot);
+        FileUtil.writeToFile(FILE_CONTENT, tempDst);
+        mBucket.push(tempSrc, Paths.get(mRemoteRoot, FILE_NAME));
+        mBucket.pull(Paths.get(mRemoteRoot, FILE_NAME), tempDst);
+        Assert.assertTrue(
+                "File contents should match", FileUtil.compareFileContents(tempSrc, tempDst));
     }
 
     @Test
     public void testDownloadFile_notExist() throws Exception {
         try {
-            sBucket.pullContents(Paths.get("non_exist_file"));
+            mBucket.pullContents(Paths.get(mRemoteRoot, "non_exist_file"));
             Assert.fail("Should throw IOExcepiton.");
         } catch (IOException e) {
             // Expect IOException
@@ -146,7 +122,7 @@ public class GCSBucketUtilFuncTest {
     @Test
     public void testRemoveFile_notExist() throws Exception {
         try {
-            sBucket.remove("non_exist_file");
+            mBucket.remove(Paths.get(mRemoteRoot, "non_exist_file"));
             Assert.fail("Should throw IOExcepiton.");
         } catch (IOException e) {
             // Expect IOException
@@ -155,19 +131,82 @@ public class GCSBucketUtilFuncTest {
 
     @Test
     public void testRemoveFile_notExist_force() throws Exception {
-        sBucket.remove("non_exist_file", true);
+        mBucket.remove(Paths.get(mRemoteRoot, "non_exist_file"), true);
     }
 
     @Test
     public void testBotoPathCanBeSet() throws Exception {
-        sBucket.setBotoPath("/dev/null");
-        sBucket.setBotoConfig("/dev/null");
+        mBucket.setBotoPath("/dev/null");
+        mBucket.setBotoConfig("/dev/null");
         try {
-            testStringUpload();
+            testStringUploadThenDownLoad();
             Assert.fail("Should throw IOExcepiton.");
         } catch (IOException e) {
             // expected
         }
     }
 
+    @Test
+    public void testLs_folder() throws Exception {
+        List<String> expectedFiles = Arrays.asList("A", "B", "C");
+        for (String file : expectedFiles) {
+            mBucket.pushString(FILE_CONTENT, Paths.get(mRemoteRoot, file));
+        }
+        List<String> files = mBucket.ls(Paths.get(mRemoteRoot));
+        Assert.assertEquals(expectedFiles.size(), files.size());
+        for (int i = 0; i < expectedFiles.size(); ++i) {
+            Assert.assertEquals(
+                    String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, expectedFiles.get(i)),
+                    files.get(i));
+        }
+    }
+
+    @Test
+    public void testLs_file() throws Exception {
+        Path path = Paths.get(mRemoteRoot, FILE_NAME);
+        mBucket.pushString(FILE_CONTENT, path);
+        List<String> files = mBucket.ls(Paths.get(mRemoteRoot, FILE_NAME));
+        Assert.assertEquals(1, files.size());
+        Assert.assertEquals(
+                String.format("gs://%s/%s/%s", BUCKET_NAME, mRemoteRoot, FILE_NAME), files.get(0));
+    }
+
+    @Test
+    public void testIsFile() throws Exception {
+        Path path = Paths.get(mRemoteRoot, FOLDER_NAME, FILE_NAME);
+        mBucket.pushString(FILE_CONTENT, path);
+        Assert.assertTrue(mBucket.isFile(mRemoteRoot + "/" + FOLDER_NAME + "/" + FILE_NAME));
+    }
+
+    @Test
+    public void testIsFile_folder() throws Exception {
+        Path path = Paths.get(mRemoteRoot, FOLDER_NAME, FILE_NAME);
+        mBucket.pushString(FILE_CONTENT, path);
+        Assert.assertFalse(mBucket.isFile(mRemoteRoot + "/" + FOLDER_NAME));
+    }
+
+    @Test
+    public void testIsFile_endWithPathSep() throws Exception {
+        Assert.assertFalse(mBucket.isFile(mRemoteRoot + "/" + FOLDER_NAME + "/"));
+    }
+
+    @Test
+    public void testStat() throws Exception {
+        Path path = Paths.get(mRemoteRoot, FILE_NAME);
+        mBucket.pushString(FILE_CONTENT, path);
+        GCSFileMetadata info = mBucket.stat(path);
+        Assert.assertNotNull(info.mMd5Hash);
+        Assert.assertEquals(mBucket.getUriForGcsPath(path), info.mName);
+    }
+
+    @Test
+    public void testmd5Hash() throws Exception {
+        Path path = Paths.get(mRemoteRoot, FILE_NAME);
+        mBucket.pushString(FILE_CONTENT, path);
+        GCSFileMetadata info = mBucket.stat(path);
+
+        File localFile = FileUtil.createTempFile(FILE_NAME, "", mLocalRoot);
+        FileUtil.writeToFile(FILE_CONTENT, localFile);
+        Assert.assertEquals(info.mMd5Hash, mBucket.md5Hash(localFile));
+    }
 }

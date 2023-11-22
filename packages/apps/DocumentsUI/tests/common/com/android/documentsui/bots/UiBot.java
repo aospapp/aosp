@@ -16,25 +16,24 @@
 
 package com.android.documentsui.bots;
 
-import static android.support.test.espresso.Espresso.onView;
-import static android.support.test.espresso.action.ViewActions.click;
-import static android.support.test.espresso.assertion.ViewAssertions.matches;
-import static android.support.test.espresso.matcher.ViewMatchers.hasFocus;
-import static android.support.test.espresso.matcher.ViewMatchers.isAssignableFrom;
-import static android.support.test.espresso.matcher.ViewMatchers.withClassName;
-import static android.support.test.espresso.matcher.ViewMatchers.withId;
-import static android.support.test.espresso.matcher.ViewMatchers.withText;
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.ViewMatchers.hasFocus;
+import static androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom;
+import static androidx.test.espresso.matcher.ViewMatchers.withClassName;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withText;
+
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertTrue;
+
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.endsWith;
 
 import android.content.Context;
-import android.support.test.espresso.Espresso;
-import android.support.test.espresso.action.ViewActions;
-import android.support.test.espresso.matcher.BoundedMatcher;
-import android.support.test.espresso.matcher.ViewMatchers;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject;
@@ -44,7 +43,13 @@ import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.util.TypedValue;
 import android.view.View;
-import android.widget.Toolbar;
+
+import androidx.appcompat.widget.Toolbar;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.espresso.Espresso;
+import androidx.test.espresso.action.ViewActions;
+import androidx.test.espresso.matcher.BoundedMatcher;
+import androidx.test.espresso.matcher.ViewMatchers;
 
 import com.android.documentsui.R;
 
@@ -62,7 +67,7 @@ import java.util.List;
  */
 public class UiBot extends Bots.BaseBot {
 
-    public static final String TARGET_PKG = "com.android.documentsui";
+    public static String targetPackageName;
 
     @SuppressWarnings("unchecked")
     private static final Matcher<View> TOOLBAR = allOf(
@@ -89,11 +94,19 @@ public class UiBot extends Bots.BaseBot {
 
     public UiBot(UiDevice device, Context context, int timeout) {
         super(device, context, timeout);
+        targetPackageName =
+                InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageName();
     }
 
     public void assertWindowTitle(String expected) {
         onView(TOOLBAR)
                 .check(matches(withToolbarTitle(is(expected))));
+    }
+
+    public void assertSearchBarShow() {
+        UiSelector selector = new UiSelector().text(mContext.getString(R.string.search_bar_hint));
+        UiObject searchHint = mDevice.findObject(selector);
+        assertTrue(searchHint.exists());
     }
 
     public void assertMenuEnabled(int id, boolean enabled) {
@@ -193,8 +206,25 @@ public class UiBot extends Bots.BaseBot {
 
     public boolean waitForActionModeBarToAppear() {
         UiObject2 bar =
-                mDevice.wait(Until.findObject(By.res("android:id/action_mode_bar")), mTimeout);
+                mDevice.wait(Until.findObject(
+                        By.res(mTargetPackage + ":id/action_mode_bar")), mTimeout);
         return (bar != null);
+    }
+
+    public void clickRename() throws UiObjectNotFoundException {
+        if (!waitForActionModeBarToAppear()) {
+            throw new UiObjectNotFoundException("ActionMode bar not found");
+        }
+        clickActionbarOverflowItem(mContext.getString(R.string.menu_rename));
+        mDevice.waitForIdle();
+    }
+
+    public void clickDelete() throws UiObjectNotFoundException {
+        if (!waitForActionModeBarToAppear()) {
+            throw new UiObjectNotFoundException("ActionMode bar not found");
+        }
+        clickToolbarItem(R.id.action_menu_delete);
+        mDevice.waitForIdle();
     }
 
     public UiObject findDownloadRetryDialog() {
@@ -262,7 +292,7 @@ public class UiBot extends Bots.BaseBot {
     }
 
     UiObject findMenuMoreOptions() {
-        UiSelector selector = new UiSelector().className("android.widget.ImageButton")
+        UiSelector selector = new UiSelector().className("android.widget.ImageView")
                 .descriptionContains("More options");
         // TODO: use the system string ? android.R.string.action_menu_overflow_description
         return mDevice.findObject(selector);

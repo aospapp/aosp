@@ -15,12 +15,13 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
         package="com.android.cts.majorversion"
-        android:versionCodeMajor="0x00000000" android:versionCode="0xffffffff">
-
+        android:versionCodeMajor="0x00000000" android:versionCode="0xffffffff"
+        android:targetSandboxVersion="2">
+  
     <application/>
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.majorversion" />
 
 </manifest>

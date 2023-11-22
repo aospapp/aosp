@@ -18,8 +18,8 @@ package com.android.documentsui;
 
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
-import android.annotation.IdRes;
-import android.annotation.Nullable;
+import androidx.annotation.IdRes;
+import androidx.annotation.Nullable;
 import android.app.Activity;
 import android.text.TextUtils;
 import android.util.Log;
@@ -33,33 +33,34 @@ import com.android.documentsui.base.ConfirmationCallback;
 import com.android.documentsui.base.ConfirmationCallback.Result;
 import com.android.documentsui.base.EventHandler;
 import com.android.documentsui.base.Menus;
-import com.android.documentsui.selection.Selection;
-import com.android.documentsui.selection.SelectionHelper;
-import com.android.documentsui.selection.SelectionHelper.SelectionObserver;
 import com.android.documentsui.ui.MessageBuilder;
+
+import androidx.recyclerview.selection.MutableSelection;
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.recyclerview.selection.SelectionTracker.SelectionObserver;
 
 /**
  * A controller that listens to selection changes and manages life cycles of action modes.
  */
-public class ActionModeController extends SelectionObserver
+public class ActionModeController extends SelectionObserver<String>
         implements ActionMode.Callback, ActionModeAddons {
 
     private static final String TAG = "ActionModeController";
 
     private final Activity mActivity;
-    private final SelectionHelper mSelectionMgr;
+    private final SelectionTracker<String> mSelectionMgr;
     private final MenuManager mMenuManager;
     private final MessageBuilder mMessages;
 
     private final ContentScope mScope = new ContentScope();
-    private final Selection mSelected = new Selection();
+    private final MutableSelection<String> mSelected = new MutableSelection<>();
 
     private @Nullable ActionMode mActionMode;
     private @Nullable Menu mMenu;
 
     public ActionModeController(
             Activity activity,
-            SelectionHelper selectionMgr,
+            SelectionTracker<String> selectionMgr,
             MenuManager menuManager,
             MessageBuilder messages) {
 
@@ -74,13 +75,17 @@ public class ActionModeController extends SelectionObserver
         mSelectionMgr.copySelection(mSelected);
         if (mSelected.size() > 0) {
             if (mActionMode == null) {
-                if (DEBUG) Log.d(TAG, "Starting action mode.");
+                if (DEBUG) {
+                    Log.d(TAG, "Starting action mode.");
+                }
                 mActionMode = mActivity.startActionMode(this);
             }
             updateActionMenu();
         } else {
             if (mActionMode != null) {
-                if (DEBUG) Log.d(TAG, "Finishing action mode.");
+                if (DEBUG) {
+                    Log.d(TAG, "Finishing action mode.");
+                }
                 mActionMode.finish();
             }
         }
@@ -103,12 +108,16 @@ public class ActionModeController extends SelectionObserver
     @Override
     public void onDestroyActionMode(ActionMode mode) {
         if (mActionMode == null) {
-            if (DEBUG) Log.w(TAG, "Received call to destroy action mode on alien mode object.");
+            if (DEBUG) {
+                Log.w(TAG, "Received call to destroy action mode on alien mode object.");
+            }
         }
 
         assert(mActionMode.equals(mode));
 
-        if (DEBUG) Log.d(TAG, "Handling action mode destroyed.");
+        if (DEBUG) {
+            Log.d(TAG, "Handling action mode destroyed.");
+        }
         mActionMode = null;
         mMenu = null;
 
@@ -126,7 +135,7 @@ public class ActionModeController extends SelectionObserver
     public boolean onCreateActionMode(ActionMode mode, Menu menu) {
         int size = mSelectionMgr.getSelection().size();
         mode.getMenuInflater().inflate(R.menu.action_mode_menu, menu);
-        mode.setTitle(TextUtils.formatSelectedCount(size));
+        mode.setTitle(mActivity.getResources().getQuantityString(R.plurals.selected_count, size));
 
         if (size > 0) {
 

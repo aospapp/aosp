@@ -1,2 +1,3 @@
 # sysfs
 genfscon sysfs /devices/virtual/nanohub/nanohub       u:object_r:sysfs_nanoapp_cmd:s0
+genfscon sysfs /devices/platform/soc/fff04000.rtc/rtc	u:object_r:sysfs_rtc:s0

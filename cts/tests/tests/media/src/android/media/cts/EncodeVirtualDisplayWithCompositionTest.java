@@ -23,17 +23,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.graphics.SurfaceTexture;
-import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodecInfo;
-import android.media.MediaCodecInfo.CodecCapabilities;
-import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
+import android.media.cts.R;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
@@ -43,15 +41,12 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Parcel;
-import android.support.test.filters.SmallTest;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
-import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Size;
 import android.view.Display;
 import android.view.Surface;
-import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
@@ -60,9 +55,8 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TableLayout;
 import android.widget.TableRow;
-import android.widget.TextView;
 
-import android.media.cts.R;
+import androidx.test.filters.SmallTest;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -70,7 +64,6 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -277,6 +270,8 @@ public class EncodeVirtualDisplayWithCompositionTest extends AndroidTestCase {
             }
             mDecodingSurface = new OutputSurface(w, h);
             mDecoder.configure(decoderFormat, mDecodingSurface.getSurface(), null, 0);
+            // only scale to fit scaling mode is supported
+            mDecoder.setVideoScalingMode(MediaCodec.VIDEO_SCALING_MODE_SCALE_TO_FIT);
             mDecoder.start();
             mDecoderInputBuffers = mDecoder.getInputBuffers();
 

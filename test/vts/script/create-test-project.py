@@ -272,7 +272,6 @@ include $(call all-subdir-makefiles)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := {test_name}
-VTS_CONFIG_SRC_DIR := {config_src_dir}
 include test/vts/tools/build/Android.host_config.mk
 '''
 

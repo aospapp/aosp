@@ -33,10 +33,10 @@ public class ContactUtil {
 
     private static final Uri URI = ContactsContract.Contacts.CONTENT_URI;
 
-    public static void update(ContentResolver resolver, long contactId,
+    public static int update(ContentResolver resolver, long contactId,
             ContentValues values) {
         Uri uri = ContentUris.withAppendedId(URI, contactId);
-        resolver.update(uri, values, null, null);
+        return resolver.update(uri, values, null, null);
     }
 
     public static void delete(ContentResolver resolver, long contactId) {

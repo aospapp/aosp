@@ -23,7 +23,7 @@
     <string name="tag_empty" msgid="3726529819932095782">"علامة فارغة"</string>
     <string name="button_done" msgid="7048822758098308158">"تم"</string>
     <string name="action_text" msgid="577417996159152923">"النص <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
-    <string name="action_call" msgid="6226253647953184035">"اتصال <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
+    <string name="action_call" msgid="6226253647953184035">"الاتصال برقم <xliff:g id="PHONE_NUMBER">%s</xliff:g>"</string>
     <string name="empty_tag_prompt" msgid="4206394383309956030">"هذه العلامة فارغة."</string>
     <string name="import_vcard" msgid="5104299047930666528">"استيراد ^1"</string>
     <string name="mime_display_name" msgid="5926357152623764485">"‏بيانات من علامة NFC"</string>

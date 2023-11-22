@@ -133,5 +133,17 @@ status_t KernelConfigParser::process(const char* buf, size_t len) {
     return err;
 }
 
+status_t KernelConfigParser::processAndFinish(const char* buf, size_t len) {
+    status_t err = process(buf, len);
+    if (err != OK) {
+        return err;
+    }
+    return finish();
+}
+
+status_t KernelConfigParser::processAndFinish(const std::string& content) {
+    return processAndFinish(content.c_str(), content.size());
+}
+
 }  // namespace vintf
 }  // namespace android

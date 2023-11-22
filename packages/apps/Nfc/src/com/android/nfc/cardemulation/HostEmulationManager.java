@@ -28,6 +28,7 @@ import android.nfc.cardemulation.HostApduService;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
@@ -40,6 +41,8 @@ import com.android.nfc.cardemulation.RegisteredAidCache.AidResolveInfo;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+
+import android.util.StatsLog;
 
 public class HostEmulationManager {
     static final String TAG = "HostEmulationManager";
@@ -106,14 +109,16 @@ public class HostEmulationManager {
         mKeyguard = (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
     }
 
-    public void onPreferredPaymentServiceChanged(ComponentName service) {
-        synchronized (mLock) {
-            if (service != null) {
-                bindPaymentServiceLocked(ActivityManager.getCurrentUser(), service);
-            } else {
-                unbindPaymentServiceLocked();
+    public void onPreferredPaymentServiceChanged(final ComponentName service) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            synchronized (mLock) {
+                if (service != null) {
+                    bindPaymentServiceLocked(ActivityManager.getCurrentUser(), service);
+                } else {
+                    unbindPaymentServiceLocked();
+                }
             }
-        }
+        });
      }
 
      public void onPreferredForegroundServiceChanged(ComponentName service) {
@@ -145,6 +150,7 @@ public class HostEmulationManager {
         Log.d(TAG, "notifyHostEmulationData");
         String selectAid = findSelectAid(data);
         ComponentName resolvedService = null;
+        AidResolveInfo resolveInfo = null;
         synchronized (mLock) {
             if (mState == STATE_IDLE) {
                 Log.e(TAG, "Got data in idle state.");
@@ -158,7 +164,7 @@ public class HostEmulationManager {
                     NfcService.getInstance().sendData(ANDROID_HCE_RESPONSE);
                     return;
                 }
-                AidResolveInfo resolveInfo = mAidCache.resolveAid(selectAid);
+                resolveInfo = mAidCache.resolveAid(selectAid);
                 if (resolveInfo == null || resolveInfo.services.size() == 0) {
                     // Tell the remote we don't handle this AID
                     NfcService.getInstance().sendData(AID_NOT_FOUND);
@@ -218,6 +224,15 @@ public class HostEmulationManager {
                         mSelectApdu = data;
                         mState = STATE_W4_SERVICE;
                     }
+                    if(CardEmulation.CATEGORY_PAYMENT.equals(resolveInfo.category))
+                      StatsLog.write(StatsLog.NFC_CARDEMULATION_OCCURRED,
+                                     StatsLog.NFC_CARDEMULATION_OCCURRED__CATEGORY__HCE_PAYMENT,
+                                     "HCE");
+                    else
+                      StatsLog.write(StatsLog.NFC_CARDEMULATION_OCCURRED,
+                                     StatsLog.NFC_CARDEMULATION_OCCURRED__CATEGORY__HCE_OTHER,
+                                     "HCE");
+
                 } else {
                     Log.d(TAG, "Dropping non-select APDU in STATE_W4_SELECT");
                     NfcService.getInstance().sendData(UNKNOWN_ERROR);
@@ -296,7 +311,8 @@ public class HostEmulationManager {
             Intent aidIntent = new Intent(HostApduService.SERVICE_INTERFACE);
             aidIntent.setComponent(service);
             if (mContext.bindServiceAsUser(aidIntent, mConnection,
-                    Context.BIND_AUTO_CREATE, UserHandle.CURRENT)) {
+                    Context.BIND_AUTO_CREATE | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS,
+                    UserHandle.CURRENT)) {
                 mServiceBound = true;
             } else {
                 Log.e(TAG, "Could not bind service.");
@@ -354,7 +370,8 @@ public class HostEmulationManager {
         intent.setComponent(service);
         mLastBoundPaymentServiceName = service;
         if (mContext.bindServiceAsUser(intent, mPaymentConnection,
-                Context.BIND_AUTO_CREATE, new UserHandle(userId))) {
+                Context.BIND_AUTO_CREATE | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS,
+                new UserHandle(userId))) {
           mPaymentServiceBound = true;
         } else {
             Log.e(TAG, "Could not bind (persistent) payment service.");

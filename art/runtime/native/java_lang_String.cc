@@ -19,11 +19,12 @@
 #include "nativehelper/jni_macros.h"
 
 #include "common_throws.h"
-#include "jni_internal.h"
+#include "handle_scope-inl.h"
+#include "jni/jni_internal.h"
 #include "mirror/array.h"
 #include "mirror/object-inl.h"
+#include "mirror/string-alloc-inl.h"
 #include "mirror/string-inl.h"
-#include "mirror/string.h"
 #include "native_util.h"
 #include "nativehelper/scoped_local_ref.h"
 #include "scoped_fast_native_object_access-inl.h"
@@ -43,8 +44,7 @@ static jint String_compareTo(JNIEnv* env, jobject java_this, jstring java_rhs) {
     ThrowNullPointerException("rhs == null");
     return -1;
   } else {
-    return soa.Decode<mirror::String>(java_this)->CompareTo(
-        soa.Decode<mirror::String>(java_rhs).Ptr());
+    return soa.Decode<mirror::String>(java_this)->CompareTo(soa.Decode<mirror::String>(java_rhs));
   }
 }
 

@@ -117,6 +117,7 @@ message CameraDeviceInfo {
     optional float android_scaler_availableMaxDigitalZoom = 917504;
     optional StreamConfigurations android_scaler_streamConfigurationMap = 917505;
     optional int32 android_scaler_croppingType = 917506;
+    repeated MandatoryStreamCombination android_scaler_mandatoryStreamCombinations = 917507;
     optional int32 android_sensor_referenceIlluminant1 = 983040;
     optional int32 android_sensor_referenceIlluminant2 = 983041;
     optional ColorSpaceTransform android_sensor_calibrationTransform1 = 983042;

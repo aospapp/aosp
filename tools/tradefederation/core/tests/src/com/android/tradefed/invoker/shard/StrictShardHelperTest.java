@@ -84,7 +84,6 @@ public class StrictShardHelperTest {
     public void testShardConfig_internal() throws Exception {
         CommandOptions options = new CommandOptions();
         OptionSetter setter = new OptionSetter(options);
-        setter.setOptionValue("disable-strict-sharding", "true");
         setter.setOptionValue("shard-count", "5");
         mConfig.setCommandOptions(options);
         mConfig.setCommandLine(new String[] {"empty"});
@@ -112,7 +111,6 @@ public class StrictShardHelperTest {
     public void testShardConfig_internal_shardIndex() throws Exception {
         CommandOptions options = new CommandOptions();
         OptionSetter setter = new OptionSetter(options);
-        setter.setOptionValue("disable-strict-sharding", "true");
         setter.setOptionValue("shard-count", "5");
         setter.setOptionValue("shard-index", "2");
         mConfig.setCommandOptions(options);
@@ -139,7 +137,6 @@ public class StrictShardHelperTest {
     public void testShardConfig_internal_shardIndex_notShardable_shard0() throws Exception {
         CommandOptions options = new CommandOptions();
         OptionSetter setter = new OptionSetter(options);
-        setter.setOptionValue("disable-strict-sharding", "true");
         setter.setOptionValue("shard-count", "5");
         setter.setOptionValue("shard-index", "0");
         mConfig.setCommandOptions(options);
@@ -171,7 +168,6 @@ public class StrictShardHelperTest {
     public void testShardConfig_internal_shardIndex_notShardable_shard1() throws Exception {
         CommandOptions options = new CommandOptions();
         OptionSetter setter = new OptionSetter(options);
-        setter.setOptionValue("disable-strict-sharding", "true");
         setter.setOptionValue("shard-count", "5");
         setter.setOptionValue("shard-index", "1");
         mConfig.setCommandOptions(options);
@@ -248,7 +244,6 @@ public class StrictShardHelperTest {
         test.add(createFakeSuite("module3"));
         CommandOptions options = new CommandOptions();
         OptionSetter setter = new OptionSetter(options);
-        setter.setOptionValue("disable-strict-sharding", "true");
         setter.setOptionValue("shard-count", "3");
         setter.setOptionValue("shard-index", Integer.toString(shardIndex));
         mConfig.setCommandOptions(options);
@@ -366,7 +361,6 @@ public class StrictShardHelperTest {
 
         CommandOptions options = new CommandOptions();
         OptionSetter setter = new OptionSetter(options);
-        setter.setOptionValue("disable-strict-sharding", "true");
         setter.setOptionValue("shard-count", "3");
         setter.setOptionValue("shard-index", Integer.toString(0));
         mConfig.setCommandOptions(options);

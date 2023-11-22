@@ -13,31 +13,26 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
+
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/telecom_activity_background_color">
+    android:layout_height="match_parent">
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/content_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <!-- The main content view. Fragments will be added here. -->
+        <FrameLayout
+            android:id="@+id/content_fragment_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+
+        <include layout="@layout/top_bar_with_tabs"/>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <FrameLayout
-        android:layout_gravity="top|end"
-        android:layout_width="@dimen/car_keyline_1"
-        android:layout_height="@dimen/car_app_bar_height">
-
-        <ImageView
-            android:id="@+id/search"
-            android:background="@drawable/dialer_ripple_background"
-            android:layout_gravity="center"
-            android:layout_width="@dimen/car_touch_target_size"
-            android:layout_height="@dimen/car_touch_target_size"
-            android:src="@drawable/ic_search"
-            android:scaleType="center"
-            android:tint="@color/car_grey_50"/>
-    </FrameLayout>
-
-    <FrameLayout
-        android:id="@+id/content_fragment_container"
+        android:id="@+id/overlay_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
-
 </FrameLayout>

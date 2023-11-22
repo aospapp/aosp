@@ -128,7 +128,7 @@ class VtsFirmwareDtboVerification(base_test.BaseTestClass):
         mkdtboimg_bin_path = os.path.join("host", "bin", "mkdtboimg.py")
         unpacked_dtbo_path = os.path.join(self.temp_dir, "dumped_dtbo")
         dtbo_dump_cmd = [
-            "python", "%s" % mkdtboimg_bin_path, "dump",
+            "%s" % mkdtboimg_bin_path, "dump",
             "%s" % host_dtbo_image, "-b",
             "%s" % unpacked_dtbo_path
         ]

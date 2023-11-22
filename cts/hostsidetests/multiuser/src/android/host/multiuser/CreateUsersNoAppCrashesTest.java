@@ -45,18 +45,10 @@ import static org.junit.Assert.assertTrue;
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class CreateUsersNoAppCrashesTest extends BaseMultiUserTest {
-    private int mInitialUserId;
-    private static final long LOGCAT_POLL_INTERVAL_MS = 5000;
+    private static final long LOGCAT_POLL_INTERVAL_MS = 1000;
     private static final long USER_SWITCH_COMPLETE_TIMEOUT_MS = 180000;
 
     @Rule public AppCrashRetryRule appCrashRetryRule = new AppCrashRetryRule();
-
-    @Before
-    public void setUp() throws Exception {
-        CLog.e("setup_CreateUsersNoAppCrashesTest");
-        super.setUp();
-        mInitialUserId = getDevice().getCurrentUser();
-    }
 
     @Presubmit
     @Test
@@ -70,7 +62,6 @@ public class CreateUsersNoAppCrashesTest extends BaseMultiUserTest {
                 false /* ephemeral */);
         assertSwitchToNewUser(userId);
         assertSwitchToUser(userId, mInitialUserId);
-
     }
 
     @Presubmit

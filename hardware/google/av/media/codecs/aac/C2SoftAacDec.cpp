@@ -35,11 +35,12 @@
 
 #define FILEREAD_MAX_LAYERS 2
 
-#define DRC_DEFAULT_MOBILE_REF_LEVEL 64  /* 64*-0.25dB = -16 dB below full scale for mobile conf */
-#define DRC_DEFAULT_MOBILE_DRC_CUT   127 /* maximum compression of dynamic range for mobile conf */
-#define DRC_DEFAULT_MOBILE_DRC_BOOST 127 /* maximum compression of dynamic range for mobile conf */
-#define DRC_DEFAULT_MOBILE_DRC_HEAVY 1   /* switch for heavy compression for mobile conf */
-#define DRC_DEFAULT_MOBILE_ENC_LEVEL (-1) /* encoder target level; -1 => the value is unknown, otherwise dB step value (e.g. 64 for -16 dB) */
+#define DRC_DEFAULT_MOBILE_REF_LEVEL -16.0  /* 64*-0.25dB = -16 dB below full scale for mobile conf */
+#define DRC_DEFAULT_MOBILE_DRC_CUT   1.0 /* maximum compression of dynamic range for mobile conf */
+#define DRC_DEFAULT_MOBILE_DRC_BOOST 1.0 /* maximum compression of dynamic range for mobile conf */
+#define DRC_DEFAULT_MOBILE_DRC_HEAVY C2Config::DRC_COMPRESSION_HEAVY   /* switch for heavy compression for mobile conf */
+#define DRC_DEFAULT_MOBILE_DRC_EFFECT 3  /* MPEG-D DRC effect type; 3 => Limited playback range */
+#define DRC_DEFAULT_MOBILE_ENC_LEVEL (0.25) /* encoder target level; -1 => the value is unknown, otherwise dB step value (e.g. 64 for -16 dB) */
 #define MAX_CHANNEL_COUNT            8  /* maximum number of audio channels that can be decoded */
 // names of properties that can be used to override the default DRC settings
 #define PROP_DRC_OVERRIDE_REF_LEVEL  "aac_drc_reference_level"
@@ -47,6 +48,7 @@
 #define PROP_DRC_OVERRIDE_BOOST      "aac_drc_boost"
 #define PROP_DRC_OVERRIDE_HEAVY      "aac_drc_heavy"
 #define PROP_DRC_OVERRIDE_ENC_LEVEL "aac_drc_enc_target_level"
+#define PROP_DRC_OVERRIDE_EFFECT     "ro.aac_drc_effect_type"
 
 namespace android {
 
@@ -103,6 +105,11 @@ public:
                 .build());
 
         addParameter(
+                DefineParam(mInputMaxBufSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
+                .withConstValue(new C2StreamMaxBufferSizeInfo::input(0u, 8192))
+                .build());
+
+        addParameter(
                 DefineParam(mAacFormat, C2_NAME_STREAM_AAC_FORMAT_SETTING)
                 .withDefault(new C2StreamAacFormatInfo::input(0u, C2AacStreamFormatRaw))
                 .withFields({C2F(mAacFormat, value).oneOf({
@@ -110,9 +117,99 @@ public:
                 })})
                 .withSetter(Setter<decltype(*mAacFormat)>::StrictValueWithNoDeps)
                 .build());
+
+        addParameter(
+                DefineParam(mProfileLevel, C2_PARAMKEY_PROFILE_LEVEL)
+                .withDefault(new C2StreamProfileLevelInfo::input(0u,
+                        C2Config::PROFILE_AAC_LC, C2Config::LEVEL_UNUSED))
+                .withFields({
+                    C2F(mProfileLevel, profile).oneOf({
+                            C2Config::PROFILE_AAC_LC,
+                            C2Config::PROFILE_AAC_HE,
+                            C2Config::PROFILE_AAC_HE_PS,
+                            C2Config::PROFILE_AAC_LD,
+                            C2Config::PROFILE_AAC_ELD,
+                            C2Config::PROFILE_AAC_ER_SCALABLE,
+                            C2Config::PROFILE_AAC_XHE}),
+                    C2F(mProfileLevel, level).oneOf({
+                            C2Config::LEVEL_UNUSED
+                    })
+                })
+                .withSetter(ProfileLevelSetter)
+                .build());
+
+        addParameter(
+                DefineParam(mDrcCompressMode, C2_PARAMKEY_DRC_COMPRESSION_MODE)
+                .withDefault(new C2StreamDrcCompressionModeTuning::input(0u, C2Config::DRC_COMPRESSION_HEAVY))
+                .withFields({
+                    C2F(mDrcCompressMode, value).oneOf({
+                            C2Config::DRC_COMPRESSION_ODM_DEFAULT,
+                            C2Config::DRC_COMPRESSION_NONE,
+                            C2Config::DRC_COMPRESSION_LIGHT,
+                            C2Config::DRC_COMPRESSION_HEAVY})
+                })
+                .withSetter(Setter<decltype(*mDrcCompressMode)>::StrictValueWithNoDeps)
+                .build());
+
+        addParameter(
+                DefineParam(mDrcTargetRefLevel, C2_PARAMKEY_DRC_TARGET_REFERENCE_LEVEL)
+                .withDefault(new C2StreamDrcTargetReferenceLevelTuning::input(0u, DRC_DEFAULT_MOBILE_REF_LEVEL))
+                .withFields({C2F(mDrcTargetRefLevel, value).inRange(-31.75, 0.25)})
+                .withSetter(Setter<decltype(*mDrcTargetRefLevel)>::StrictValueWithNoDeps)
+                .build());
+
+        addParameter(
+                DefineParam(mDrcEncTargetLevel, C2_PARAMKEY_DRC_ENCODED_TARGET_LEVEL)
+                .withDefault(new C2StreamDrcEncodedTargetLevelTuning::input(0u, DRC_DEFAULT_MOBILE_ENC_LEVEL))
+                .withFields({C2F(mDrcEncTargetLevel, value).inRange(-31.75, 0.25)})
+                .withSetter(Setter<decltype(*mDrcEncTargetLevel)>::StrictValueWithNoDeps)
+                .build());
+
+        addParameter(
+                DefineParam(mDrcBoostFactor, C2_PARAMKEY_DRC_BOOST_FACTOR)
+                .withDefault(new C2StreamDrcBoostFactorTuning::input(0u, DRC_DEFAULT_MOBILE_DRC_BOOST))
+                .withFields({C2F(mDrcBoostFactor, value).inRange(0, 1.)})
+                .withSetter(Setter<decltype(*mDrcBoostFactor)>::StrictValueWithNoDeps)
+                .build());
+
+        addParameter(
+                DefineParam(mDrcAttenuationFactor, C2_PARAMKEY_DRC_ATTENUATION_FACTOR)
+                .withDefault(new C2StreamDrcAttenuationFactorTuning::input(0u, DRC_DEFAULT_MOBILE_DRC_CUT))
+                .withFields({C2F(mDrcAttenuationFactor, value).inRange(0, 1.)})
+                .withSetter(Setter<decltype(*mDrcAttenuationFactor)>::StrictValueWithNoDeps)
+                .build());
+
+        addParameter(
+                DefineParam(mDrcEffectType, C2_PARAMKEY_DRC_EFFECT_TYPE)
+                .withDefault(new C2StreamDrcEffectTypeTuning::input(0u, C2Config::DRC_EFFECT_LIMITED_PLAYBACK_RANGE))
+                .withFields({
+                    C2F(mDrcEffectType, value).oneOf({
+                            C2Config::DRC_EFFECT_ODM_DEFAULT,
+                            C2Config::DRC_EFFECT_OFF,
+                            C2Config::DRC_EFFECT_NONE,
+                            C2Config::DRC_EFFECT_LATE_NIGHT,
+                            C2Config::DRC_EFFECT_NOISY_ENVIRONMENT,
+                            C2Config::DRC_EFFECT_LIMITED_PLAYBACK_RANGE,
+                            C2Config::DRC_EFFECT_LOW_PLAYBACK_LEVEL,
+                            C2Config::DRC_EFFECT_DIALOG_ENHANCEMENT,
+                            C2Config::DRC_EFFECT_GENERAL_COMPRESSION})
+                })
+                .withSetter(Setter<decltype(*mDrcEffectType)>::StrictValueWithNoDeps)
+                .build());
     }
 
     bool isAdts() const { return mAacFormat->value == C2AacStreamFormatAdts; }
+    static C2R ProfileLevelSetter(bool mayBlock, C2P<C2StreamProfileLevelInfo::input> &me) {
+        (void)mayBlock;
+        (void)me;  // TODO: validate
+        return C2R::Ok();
+    }
+    int32_t getDrcCompressMode() const { return mDrcCompressMode->value == C2Config::DRC_COMPRESSION_HEAVY ? 1 : 0; }
+    int32_t getDrcTargetRefLevel() const { return (mDrcTargetRefLevel->value <= 0 ? -mDrcTargetRefLevel->value * 4. + 0.5 : -1); }
+    int32_t getDrcEncTargetLevel() const { return (mDrcEncTargetLevel->value <= 0 ? -mDrcEncTargetLevel->value * 4. + 0.5 : -1); }
+    int32_t getDrcBoostFactor() const { return mDrcBoostFactor->value * 127. + 0.5; }
+    int32_t getDrcAttenuationFactor() const { return mDrcAttenuationFactor->value * 127. + 0.5; }
+    int32_t getDrcEffectType() const { return mDrcEffectType->value; }
 
 private:
     std::shared_ptr<C2StreamFormatConfig::input> mInputFormat;
@@ -122,8 +219,16 @@ private:
     std::shared_ptr<C2StreamSampleRateInfo::output> mSampleRate;
     std::shared_ptr<C2StreamChannelCountInfo::output> mChannelCount;
     std::shared_ptr<C2BitrateTuning::input> mBitrate;
-
+    std::shared_ptr<C2StreamMaxBufferSizeInfo::input> mInputMaxBufSize;
     std::shared_ptr<C2StreamAacFormatInfo::input> mAacFormat;
+    std::shared_ptr<C2StreamProfileLevelInfo::input> mProfileLevel;
+    std::shared_ptr<C2StreamDrcCompressionModeTuning::input> mDrcCompressMode;
+    std::shared_ptr<C2StreamDrcTargetReferenceLevelTuning::input> mDrcTargetRefLevel;
+    std::shared_ptr<C2StreamDrcEncodedTargetLevelTuning::input> mDrcEncTargetLevel;
+    std::shared_ptr<C2StreamDrcBoostFactorTuning::input> mDrcBoostFactor;
+    std::shared_ptr<C2StreamDrcAttenuationFactorTuning::input> mDrcAttenuationFactor;
+    std::shared_ptr<C2StreamDrcEffectTypeTuning::input> mDrcEffectType;
+    // TODO Add : C2StreamAacSbrModeTuning
 };
 
 constexpr char COMPONENT_NAME[] = "c2.android.aac.decoder";
@@ -134,10 +239,10 @@ C2SoftAacDec::C2SoftAacDec(
         const std::shared_ptr<IntfImpl> &intfImpl)
     : SimpleC2Component(std::make_shared<SimpleInterface<IntfImpl>>(name, id, intfImpl)),
       mIntf(intfImpl),
-      mAACDecoder(NULL),
-      mStreamInfo(NULL),
+      mAACDecoder(nullptr),
+      mStreamInfo(nullptr),
       mSignalledError(false),
-      mOutputDelayRingBuffer(NULL) {
+      mOutputDelayRingBuffer(nullptr) {
 }
 
 C2SoftAacDec::~C2SoftAacDec() {
@@ -174,11 +279,11 @@ void C2SoftAacDec::onReset() {
 void C2SoftAacDec::onRelease() {
     if (mAACDecoder) {
         aacDecoder_Close(mAACDecoder);
-        mAACDecoder = NULL;
+        mAACDecoder = nullptr;
     }
     if (mOutputDelayRingBuffer) {
         delete[] mOutputDelayRingBuffer;
-        mOutputDelayRingBuffer = NULL;
+        mOutputDelayRingBuffer = nullptr;
     }
 }
 
@@ -186,9 +291,9 @@ status_t C2SoftAacDec::initDecoder() {
     ALOGV("initDecoder()");
     status_t status = UNKNOWN_ERROR;
     mAACDecoder = aacDecoder_Open(TT_MP4_ADIF, /* num layers */ 1);
-    if (mAACDecoder != NULL) {
+    if (mAACDecoder != nullptr) {
         mStreamInfo = aacDecoder_GetStreamInfo(mAACDecoder);
-        if (mStreamInfo != NULL) {
+        if (mStreamInfo != nullptr) {
             status = OK;
         }
     }
@@ -200,7 +305,7 @@ status_t C2SoftAacDec::initDecoder() {
     mOutputDelayRingBufferReadPos = 0;
     mOutputDelayRingBufferFilled = 0;
 
-    if (mAACDecoder == NULL) {
+    if (mAACDecoder == nullptr) {
         ALOGE("AAC decoder is null. TODO: Can not call aacDecoder_SetParam in the following code");
     }
 
@@ -212,52 +317,37 @@ status_t C2SoftAacDec::initDecoder() {
 
     // for streams that contain metadata, use the mobile profile DRC settings unless overridden by platform properties
     // TODO: change the DRC settings depending on audio output device type (HDMI, loadspeaker, headphone)
-    char value[PROPERTY_VALUE_MAX];
+
     //  DRC_PRES_MODE_WRAP_DESIRED_TARGET
-    if (property_get(PROP_DRC_OVERRIDE_REF_LEVEL, value, NULL)) {
-        unsigned refLevel = atoi(value);
-        ALOGV("AAC decoder using desired DRC target reference level of %d instead of %d", refLevel,
-                DRC_DEFAULT_MOBILE_REF_LEVEL);
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_TARGET, refLevel);
-    } else {
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_TARGET, DRC_DEFAULT_MOBILE_REF_LEVEL);
-    }
+    int32_t targetRefLevel = mIntf->getDrcTargetRefLevel();
+    ALOGV("AAC decoder using desired DRC target reference level of %d", targetRefLevel);
+    mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_TARGET, (unsigned)targetRefLevel);
+
     //  DRC_PRES_MODE_WRAP_DESIRED_ATT_FACTOR
-    if (property_get(PROP_DRC_OVERRIDE_CUT, value, NULL)) {
-        unsigned cut = atoi(value);
-        ALOGV("AAC decoder using desired DRC attenuation factor of %d instead of %d", cut,
-                DRC_DEFAULT_MOBILE_DRC_CUT);
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_ATT_FACTOR, cut);
-    } else {
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_ATT_FACTOR, DRC_DEFAULT_MOBILE_DRC_CUT);
-    }
+
+    int32_t attenuationFactor = mIntf->getDrcAttenuationFactor();
+    ALOGV("AAC decoder using desired DRC attenuation factor of %d", attenuationFactor);
+    mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_ATT_FACTOR, (unsigned)attenuationFactor);
+
     //  DRC_PRES_MODE_WRAP_DESIRED_BOOST_FACTOR
-    if (property_get(PROP_DRC_OVERRIDE_BOOST, value, NULL)) {
-        unsigned boost = atoi(value);
-        ALOGV("AAC decoder using desired DRC boost factor of %d instead of %d", boost,
-                DRC_DEFAULT_MOBILE_DRC_BOOST);
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_BOOST_FACTOR, boost);
-    } else {
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_BOOST_FACTOR, DRC_DEFAULT_MOBILE_DRC_BOOST);
-    }
+    int32_t boostFactor = mIntf->getDrcBoostFactor();
+    ALOGV("AAC decoder using desired DRC boost factor of %d", boostFactor);
+    mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_BOOST_FACTOR, (unsigned)boostFactor);
+
     //  DRC_PRES_MODE_WRAP_DESIRED_HEAVY
-    if (property_get(PROP_DRC_OVERRIDE_HEAVY, value, NULL)) {
-        unsigned heavy = atoi(value);
-        ALOGV("AAC decoder using desried DRC heavy compression switch of %d instead of %d", heavy,
-                DRC_DEFAULT_MOBILE_DRC_HEAVY);
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_HEAVY, heavy);
-    } else {
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_HEAVY, DRC_DEFAULT_MOBILE_DRC_HEAVY);
-    }
+    int32_t compressMode = mIntf->getDrcCompressMode();
+    ALOGV("AAC decoder using desried DRC heavy compression switch of %d", compressMode);
+    mDrcWrap.setParam(DRC_PRES_MODE_WRAP_DESIRED_HEAVY, (unsigned)compressMode);
+
     // DRC_PRES_MODE_WRAP_ENCODER_TARGET
-    if (property_get(PROP_DRC_OVERRIDE_ENC_LEVEL, value, NULL)) {
-        unsigned encoderRefLevel = atoi(value);
-        ALOGV("AAC decoder using encoder-side DRC reference level of %d instead of %d",
-                encoderRefLevel, DRC_DEFAULT_MOBILE_ENC_LEVEL);
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_ENCODER_TARGET, encoderRefLevel);
-    } else {
-        mDrcWrap.setParam(DRC_PRES_MODE_WRAP_ENCODER_TARGET, DRC_DEFAULT_MOBILE_ENC_LEVEL);
-    }
+    int32_t encTargetLevel = mIntf->getDrcEncTargetLevel();
+    ALOGV("AAC decoder using encoder-side DRC reference level of %d", encTargetLevel);
+    mDrcWrap.setParam(DRC_PRES_MODE_WRAP_ENCODER_TARGET, (unsigned)encTargetLevel);
+
+    // AAC_UNIDRC_SET_EFFECT
+    int32_t effectType = mIntf->getDrcEffectType();
+    ALOGV("AAC decoder using MPEG-D DRC effect type %d", effectType);
+    aacDecoder_SetParam(mAACDecoder, AAC_UNIDRC_SET_EFFECT, effectType);
 
     // By default, the decoder creates a 5.1 channel downmix signal.
     // For seven and eight channel input streams, enable 6.1 and 7.1 channel output
@@ -311,7 +401,7 @@ int32_t C2SoftAacDec::outputDelayRingBufferGetSamples(INT_PCM *samples, int32_t 
             && (mOutputDelayRingBufferWritePos < mOutputDelayRingBufferReadPos
                     || mOutputDelayRingBufferWritePos >= mOutputDelayRingBufferReadPos + numSamples)) {
         // faster memcopy loop without checks, if the preconditions allow this
-        if (samples != 0) {
+        if (samples != nullptr) {
             for (int32_t i = 0; i < numSamples; i++) {
                 samples[i] = mOutputDelayRingBuffer[mOutputDelayRingBufferReadPos++];
             }
@@ -325,7 +415,7 @@ int32_t C2SoftAacDec::outputDelayRingBufferGetSamples(INT_PCM *samples, int32_t 
         ALOGV("slow C2SoftAacDec::outputDelayRingBufferGetSamples()");
 
         for (int32_t i = 0; i < numSamples; i++) {
-            if (samples != 0) {
+            if (samples != nullptr) {
                 samples[i] = mOutputDelayRingBuffer[mOutputDelayRingBufferReadPos];
             }
             mOutputDelayRingBufferReadPos++;
@@ -396,7 +486,6 @@ void C2SoftAacDec::drainRingBuffer(
                         numSamples * sizeof(int16_t), usage, &block);
                 if (err != C2_OK) {
                     ALOGD("failed to fetch a linear block (%d)", err);
-                    mSignalledError = true;
                     return std::bind(fillEmptyWork, _1, C2_NO_MEMORY);
                 }
                 C2WriteView wView = block->map().get();
@@ -434,9 +523,12 @@ void C2SoftAacDec::drainRingBuffer(
 void C2SoftAacDec::process(
         const std::unique_ptr<C2Work> &work,
         const std::shared_ptr<C2BlockPool> &pool) {
-    work->workletsProcessed = 0u;
+    // Initialize output work
     work->result = C2_OK;
+    work->workletsProcessed = 1u;
     work->worklets.front()->output.configUpdate.clear();
+    work->worklets.front()->output.flags = work->input.flags;
+
     if (mSignalledError) {
         return;
     }
@@ -477,13 +569,12 @@ void C2SoftAacDec::process(
         if (decoderErr != AAC_DEC_OK) {
             ALOGE("aacDecoder_ConfigRaw decoderErr = 0x%4.4x", decoderErr);
             mSignalledError = true;
-            // TODO: error
+            work->result = C2_CORRUPTED;
             return;
         }
-
+        work->worklets.front()->output.flags = work->input.flags;
         work->worklets.front()->output.ordinal = work->input.ordinal;
         work->worklets.front()->output.buffers.clear();
-
         return;
     }
 
@@ -539,7 +630,7 @@ void C2SoftAacDec::process(
 
             if (signalError) {
                 mSignalledError = true;
-                // TODO: notify(OMX_EventError, OMX_ErrorStreamCorrupt, ERROR_MALFORMED, NULL);
+                work->result = C2_CORRUPTED;
                 return;
             }
         } else {
@@ -572,6 +663,8 @@ void C2SoftAacDec::process(
             if (outputDelayRingBufferSpaceLeft() <
                     (mStreamInfo->frameSize * mStreamInfo->numChannels)) {
                 ALOGV("skipping decode: not enough space left in ringbuffer");
+                // discard buffer
+                size = 0;
                 break;
             }
 
@@ -595,7 +688,7 @@ void C2SoftAacDec::process(
             if (bytesValid[0] != 0) {
                 ALOGE("bytesValid[0] != 0 should never happen");
                 mSignalledError = true;
-                // TODO: notify(OMX_EventError, OMX_ErrorUndefined, 0, NULL);
+                work->result = C2_CORRUPTED;
                 return;
             }
 
@@ -606,7 +699,7 @@ void C2SoftAacDec::process(
                 if (!outputDelayRingBufferPutSamples(tmpOutBuffer,
                         mStreamInfo->frameSize * mStreamInfo->numChannels)) {
                     mSignalledError = true;
-                    // TODO: notify(OMX_EventError, OMX_ErrorUndefined, decoderErr, NULL);
+                    work->result = C2_CORRUPTED;
                     return;
                 }
             } else {
@@ -617,7 +710,7 @@ void C2SoftAacDec::process(
                 if (!outputDelayRingBufferPutSamples(tmpOutBuffer,
                         mStreamInfo->frameSize * mStreamInfo->numChannels)) {
                     mSignalledError = true;
-                    // TODO: notify(OMX_EventError, OMX_ErrorUndefined, decoderErr, NULL);
+                    work->result = C2_CORRUPTED;
                     return;
                 }
 
@@ -674,8 +767,12 @@ void C2SoftAacDec::process(
                     C2FrameData &output = work->worklets.front()->output;
                     output.configUpdate.push_back(C2Param::Copy(sampleRateInfo));
                     output.configUpdate.push_back(C2Param::Copy(channelCountInfo));
+                } else {
+                    ALOGE("Config Update failed");
+                    mSignalledError = true;
+                    work->result = C2_CORRUPTED;
+                    return;
                 }
-                // TODO: error handling
             }
             ALOGV("size = %zu", size);
         } while (decoderErr == AAC_DEC_OK);
@@ -684,7 +781,7 @@ void C2SoftAacDec::process(
     int32_t outputDelay = mStreamInfo->outputDelay * mStreamInfo->numChannels;
 
     mBuffersInfo.push_back(std::move(inInfo));
-
+    work->workletsProcessed = 0u;
     if (!eos && mOutputDelayCompensated < outputDelay) {
         // discard outputDelay at the beginning
         int32_t toCompensate = outputDelay - mOutputDelayCompensated;
@@ -692,7 +789,7 @@ void C2SoftAacDec::process(
         if (discard > toCompensate) {
             discard = toCompensate;
         }
-        int32_t discarded = outputDelayRingBufferGetSamples(0, discard);
+        int32_t discarded = outputDelayRingBufferGetSamples(nullptr, discard);
         mOutputDelayCompensated += discarded;
         return;
     }
@@ -757,7 +854,7 @@ c2_status_t C2SoftAacDec::onFlush_sm() {
         if (avail > mStreamInfo->frameSize * mStreamInfo->numChannels) {
             avail = mStreamInfo->frameSize * mStreamInfo->numChannels;
         }
-        int32_t ns = outputDelayRingBufferGetSamples(0, avail);
+        int32_t ns = outputDelayRingBufferGetSamples(nullptr, avail);
         if (ns != avail) {
             ALOGW("not a complete frame of samples available");
             break;

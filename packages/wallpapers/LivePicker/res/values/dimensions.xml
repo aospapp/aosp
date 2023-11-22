@@ -25,19 +25,26 @@
 
     <dimen name="screen_margin_sides">0dip</dimen>
 
-    <!-- Dimensions for the preview fragment. -->
-    <dimen name="preview_toolbar_up_button_padding">0dp</dimen>
-    <dimen name="preview_toolbar_set_wallpaper_button_end_padding">12dp</dimen>
+    <!-- Dimensions for the toolbar. -->
+    <dimen name="preview_toolbar_start_padding">0dp</dimen>
+    <dimen name="preview_toolbar_end_padding">12dp</dimen>
+
+    <!-- Dimensions for the gradient area.  -->
+    <dimen name="preview_gradient_background_height">256dp</dimen>
 
     <!-- Dimensions for the preview attribution pane. -->
-    <dimen name="preview_attribution_pane_collapsed_height">48dp</dimen>
-    <dimen name="preview_attribution_pane_expanded_height">96dp</dimen>
-    <dimen name="preview_attribution_pane_content_side_margin">16dp</dimen>
-    <dimen name="preview_attribution_pane_title_top_margin">13dp</dimen>
-    <dimen name="preview_attribution_pane_subtitle1_top_margin">12dp</dimen>
-    <dimen name="preview_attribution_pane_subtitle2_top_margin">2dp</dimen>
-    <dimen name="preview_attribution_pane_explore_left_margin">2dp</dimen>
-    <dimen name="preview_attribution_pane_explore_top_margin">12dp</dimen>
-    <dimen name="preview_attribution_pane_explore_bottom_margin">16dp</dimen>
-    <dimen name="preview_attribution_pane_spacer_height">32dp</dimen>
+    <dimen name="preview_attribution_pane_collapsed_height">0dp</dimen>
+    <dimen name="preview_attribution_pane_horizontal_padding">24dp</dimen>
+    <dimen name="preview_attribution_pane_extra_spacer_height">16dp</dimen>
+    <dimen name="preview_attribution_pane_inner_spacer_height">14dp</dimen>
+    <dimen name="preview_attribution_pane_title_height">48dp</dimen>
+    <dimen name="preview_attribution_pane_author_height">24dp</dimen>
+    <dimen name="preview_attribution_pane_author_top_margin">0dp</dimen>
+    <dimen name="preview_attribution_pane_description_height">34dp</dimen>
+    <dimen name="preview_attribution_pane_button_bottom_margin">8dp</dimen>
+    <dimen name="preview_attribution_pane_button_height">48dp</dimen>
+    <dimen name="preview_attribution_pane_button_padding">16dp</dimen>
+
+    <!-- Dimensions for the ConstraintViewPager on preview activity. -->
+    <dimen name="preview_viewpager_round_radius">12dp</dimen>
 </resources>

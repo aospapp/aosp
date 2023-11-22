@@ -18,10 +18,10 @@
 
 #include "base/bit_utils.h"
 #include "gc/heap.h"
-#include "globals.h"
 #include "mirror/object-inl.h"
 #include "obj_ptr-inl.h"
 #include "runtime.h"
+#include "runtime_globals.h"
 
 namespace art {
 

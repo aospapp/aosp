@@ -16,6 +16,9 @@
 
 package com.android.server.telecom.tests;
 
+import android.net.Uri;
+import android.os.Build;
+import android.telecom.Log;
 import android.telecom.Logging.EventManager;
 import android.test.suitebuilder.annotation.SmallTest;
 
@@ -216,5 +219,30 @@ public class EventManagerTest extends TelecomTestCase {
                 eventRecord2.extractEventTimings();
         assertEquals(0, timings1.size());
         assertEquals(0, timings2.size());
+    }
+
+    /**
+     * Ensure PII logging will log the last 2 digits of a phone number.
+     */
+    @SmallTest
+    @Test
+    public void testLogLast2DigitsPhone() {
+        if (Build.IS_USER) {
+            return;
+        }
+        // Cache old setting for verbose
+        boolean verboseBeforeTest = Log.VERBOSE;
+        // testing PII, so turn off verbose.
+        Log.VERBOSE = false;
+        assertEquals("tel:**********12",
+                Log.piiHandle(Uri.fromParts("tel", "+16505551212", null)));
+        assertEquals("tel:*****12",
+                Log.piiHandle(Uri.fromParts("tel", "5551212", null)));
+        assertEquals("tel:*11",
+                Log.piiHandle(Uri.fromParts("tel", "411", null)));
+        assertEquals("tel:1",
+                Log.piiHandle(Uri.fromParts("tel", "1", null)));
+        // Restore old config.
+        Log.VERBOSE = verboseBeforeTest;
     }
 }

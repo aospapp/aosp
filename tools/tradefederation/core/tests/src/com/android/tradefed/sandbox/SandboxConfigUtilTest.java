@@ -94,7 +94,8 @@ public class SandboxConfigUtilTest {
                     mTmpRootDir, mMockRunUtil, new String[] {"empty"}, DumpCmd.FULL_XML, null);
             fail("Should have thrown an exception.");
         } catch (ConfigurationException expected) {
-            assertEquals("Ouch I failed", expected.getMessage());
+            assertEquals(
+                    "Error when dumping the config. stderr: Ouch I failed", expected.getMessage());
         }
     }
 

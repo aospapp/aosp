@@ -29,11 +29,12 @@ import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
-import android.support.annotation.UiThread;
 import android.telephony.PhoneStateListener;
 import android.telephony.SignalStrength;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
+
+import androidx.annotation.UiThread;
 
 import com.android.settingslib.core.lifecycle.Lifecycle;
 import com.android.settingslib.core.lifecycle.LifecycleObserver;
@@ -66,7 +67,9 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
     private final BroadcastReceiver mNetworkReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            mListener.onConnectivityChange();
+            if (mListener != null) {
+                mListener.onConnectivityChange();
+            }
         }
     };
     private final EthernetManager.Listener mEthernetListener = new EthernetManager.Listener() {
@@ -344,13 +347,17 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
     @Override
     public void onWifiStateChanged(int state) {
         updateConnectivityStatus();
-        mListener.onConnectivityChange();
+        if (mListener != null) {
+            mListener.onConnectivityChange();
+        }
     }
 
     @Override
     public void onConnectedChanged() {
         updateConnectivityStatus();
-        mListener.onConnectivityChange();
+        if (mListener != null) {
+            mListener.onConnectivityChange();
+        }
     }
 
     @Override

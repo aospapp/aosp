@@ -28,6 +28,7 @@
 #include <Protocol/DevicePath.h>
 
 
+#define SERIAL_NUMBER_LEN                16
 #define SERIAL_NUMBER_SIZE               17
 
 #define RANDOM_MAX                       0x7FFFFFFFFFFFFFFF
@@ -100,6 +101,41 @@ GenerateUsbSN (
   }
   RandomSN.Data = (Tmp << 32) | Seed;
   UnicodeSPrint (RandomSN.UnicodeSN, SERIAL_NUMBER_SIZE * sizeof (CHAR16), L"%lx", RandomSN.Data);
+  StrCpyS (UnicodeSN, SERIAL_NUMBER_SIZE * sizeof (CHAR16), RandomSN.UnicodeSN);
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+AssignUsbSN (
+  IN  CHAR8                   *AsciiCmd,
+  OUT CHAR16                  *UnicodeSN
+  )
+{
+  CHAR8                       Data;
+  UINTN                       Index;
+  RANDOM_SERIAL_NUMBER        RandomSN;
+
+  if ((AsciiCmd == NULL) || (UnicodeSN == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+  for (Index = 0; Index < SERIAL_NUMBER_LEN; Index++) {
+    Data = *(AsciiCmd + Index);
+    if (((Data >= '0') && (Data <= '9')) ||
+        ((Data >= 'A') && (Data <= 'F'))) {
+      continue;
+    }
+    // Always use with upper case
+    if ((Data >= 'a') && (Data <= 'f')) {
+      *(AsciiCmd + Index) = Data - 'a' + 'A';
+      continue;
+    }
+    if (Data == '\0') {
+      break;
+    }
+    return EFI_INVALID_PARAMETER;
+  }
+  ZeroMem (&RandomSN, sizeof (RANDOM_SERIAL_NUMBER));
+  AsciiStrToUnicodeStr (AsciiCmd, RandomSN.UnicodeSN);
   StrCpyS (UnicodeSN, SERIAL_NUMBER_SIZE * sizeof (CHAR16), RandomSN.UnicodeSN);
   return EFI_SUCCESS;
 }
@@ -207,6 +243,7 @@ StoreSNToBlock (
   CHAR16                      UnicodeStr[SERIAL_NUMBER_SIZE];
 
   if (UnicodeSN == NULL) {
+DEBUG ((DEBUG_ERROR, "#%a, %d\n", __func__, __LINE__));
     return EFI_INVALID_PARAMETER;
   }
   Status = gBS->OpenProtocol (
@@ -236,10 +273,12 @@ StoreSNToBlock (
   ZeroMem (UnicodeStr, SERIAL_NUMBER_SIZE * sizeof (CHAR16));
   UnicodeSPrint (UnicodeStr, SERIAL_NUMBER_SIZE * sizeof (CHAR16), L"%lx", RandomSN->Data);
   if (StrLen (RandomSN->UnicodeSN) != StrLen (UnicodeStr)) {
+DEBUG ((DEBUG_ERROR, "#%a, %d, strlen:%d, %d\n", __func__, __LINE__, StrLen (RandomSN->UnicodeSN), StrLen (UnicodeStr)));
     Status = EFI_INVALID_PARAMETER;
     goto Exit;
   }
   if (StrnCmp (RandomSN->UnicodeSN, UnicodeStr, StrLen (UnicodeStr)) != 0) {
+DEBUG ((DEBUG_ERROR, "#%a, %d, %s, %s\n", __func__, __LINE__, RandomSN->UnicodeSN, UnicodeStr));
     Status = EFI_INVALID_PARAMETER;
     goto Exit;
   }

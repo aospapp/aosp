@@ -13,13 +13,11 @@
  limitations under the License.
 */
 
-.container {
-    min-height: 80%;
-}
 @media only screen and (min-width: 993px) {
     .wide.container {
         width: 80%;
         max-width: 1600px;
+        min-height: 80vh;
     }
 }
 .TEST_CASE_RESULT_PASS {

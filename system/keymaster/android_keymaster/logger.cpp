@@ -18,7 +18,7 @@
 
 namespace keymaster {
 
-Logger* Logger::instance_ = 0;
+Logger* Logger::instance_ = nullptr;
 
 /* static */
 int Logger::Log(LogLevel level, const char* fmt, va_list args) {

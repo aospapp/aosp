@@ -61,7 +61,7 @@ public class PingTest extends AndroidTestCase {
 
     /** The beginning of an ICMPv6 echo request: type, code, and uninitialized checksum. */
     private static final byte[] PING_HEADER = new byte[] {
-        (byte) 0x80, (byte) 0x00, (byte) 0x00, (byte) 0x00
+        (byte) ICMP6_ECHO_REQUEST, (byte) 0x00, (byte) 0x00, (byte) 0x00
     };
 
     /**
@@ -135,7 +135,7 @@ public class PingTest extends AndroidTestCase {
         byte[] response = new byte[bytesRead];
         responseBuffer.flip();
         responseBuffer.get(response, 0, bytesRead);
-        assertEquals((byte) 0x81, response[0]);
+        assertEquals((byte) ICMP6_ECHO_REPLY, response[0]);
 
         // Find out what ICMP ID was used in the packet that was sent.
         int id = ((InetSocketAddress) Os.getsockname(s)).getPort();

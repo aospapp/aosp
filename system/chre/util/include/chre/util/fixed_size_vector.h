@@ -17,6 +17,7 @@
 #ifndef CHRE_UTIL_FIXED_SIZE_VECTOR_H_
 #define CHRE_UTIL_FIXED_SIZE_VECTOR_H_
 
+#include <cstddef>
 #include <type_traits>
 
 #include "chre/util/non_copyable.h"
@@ -107,6 +108,13 @@ class FixedSizeVector : public NonCopyable {
    */
   template<typename... Args>
   void emplace_back(Args&&... args);
+
+  /**
+   * Erases the last element in the vector. Invalid to call on an empty vector.
+   *
+   * Invalidates any references to back() and end()/cend().
+   */
+  void pop_back();
 
   /**
    * Obtains an element of the vector given an index. It is illegal to index

@@ -16,10 +16,11 @@
 
 package com.android.car.radio.storage;
 
-import android.arch.persistence.room.TypeConverter;
 import android.hardware.radio.ProgramSelector;
 import android.net.Uri;
-import android.support.annotation.NonNull;
+
+import androidx.annotation.NonNull;
+import androidx.room.TypeConverter;
 
 import com.android.car.broadcastradio.support.platform.ProgramSelectorExt;
 

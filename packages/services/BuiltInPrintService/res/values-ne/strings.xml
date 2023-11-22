@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"प्रिन्टरको ढोका खुला छ"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"प्रिन्टर जाम भयो"</string>
     <string name="printer_offline" msgid="9196864753298645066">"अफलाइन"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"खराब प्रमाणपत्र"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"इन्क्रिप्ट गरिएको छैन"</string>
     <string name="printer_check" msgid="6428369671197132828">"प्रिन्टर जाँच्नुहोस्"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"पठाउन कुर्दै"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"कागजात पढ्न सकिएन"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"प्रिन्टरलाई समर्थन छैन"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi प्रत्यक्ष"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi प्रत्यक्ष प्रिन्टरहरू फेला पार्नुहोस्‌"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi प्रत्यक्षको छाप्ने सुविधा"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi प्रत्यक्षका प्रिन्टरहरू"</string>
     <string name="searching" msgid="2114018057619514587">"खोजी गरिँदै छ…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"तपाईंले आफ्नो प्रिन्टरको अग्रभागको प्यानलमा यो जडानलाई अनुमोदन गर्नु पर्ने हुन सक्छ"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"बिर्सनुहोस्"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi प्रत्यक्षमार्फत जडान गर्छ"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> को हालको नेटवर्कमार्फत जडान गर्छ"</string>
+    <string name="security" msgid="2279008326210305401">"सुरक्षा"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"यो प्रिन्टरले सुरक्षासम्बन्धी कुनै नयाँ प्रमाणपत्र प्रदान गर्‍यो नयाँ प्रमाणपत्र स्वीकार गर्ने हो?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"यो प्रिन्टरले अब उप्रान्त इन्क्रिप्ट गरिएका कार्यहरू स्वीकार गर्दैन। छाप्ने कार्य जारी राख्ने हो?"</string>
+    <string name="accept" msgid="4426153292469698134">"स्वीकार गर्नुहोस्"</string>
+    <string name="reject" msgid="24751635160440693">"अस्वीकार गर्नुहोस्"</string>
+    <string name="connections" msgid="8895413761760117180">"जडानहरू"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"पूर्वनिर्धारित छपाइ सेवालाई वरपरका यन्त्रहरू फेला पार्न स्थानसम्बन्धी अनुमति चाहिन्छ।"</string>
+    <string name="fix" msgid="7784394272611365393">"अनुमतिको समीक्षा गर्नु"</string>
 </resources>

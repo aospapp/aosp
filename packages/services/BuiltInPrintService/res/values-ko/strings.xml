@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"덮개 열림"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"종이가 낌"</string>
     <string name="printer_offline" msgid="9196864753298645066">"오프라인"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"잘못된 인증서"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"암호화되지 않음"</string>
     <string name="printer_check" msgid="6428369671197132828">"프린터 확인"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"전송 대기 중"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"문서를 읽을 수 없음"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"프린터가 지원되지 않습니다."</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct 프린터 찾기"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct 인쇄"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct 프린터"</string>
     <string name="searching" msgid="2114018057619514587">"검색 중…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"프린터의 전면 패널에서 이 연결을 승인해야 할 수 있습니다"</string>
@@ -57,4 +60,14 @@
     <string name="forget" msgid="892068061425802502">"삭제"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct를 통해 연결"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g>에서 현재 네트워크를 통해 연결"</string>
+    <string name="security" msgid="2279008326210305401">"보안"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"이 프린터에서 새로운 보안 인증서를 제공했거나 다른 기기가 이 프린터로 위장하고 있습니다. 새 인증서를 수락할까요?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"프린터가 더 이상 암호화된 작업을 지원하지 않습니다. 인쇄를 계속하시겠습니까?"</string>
+    <string name="accept" msgid="4426153292469698134">"수락"</string>
+    <string name="reject" msgid="24751635160440693">"거부"</string>
+    <string name="connections" msgid="8895413761760117180">"연결"</string>
+    <!-- no translation found for wifi_direct_permission_rationale (3599186620970379218) -->
+    <skip />
+    <!-- no translation found for fix (7784394272611365393) -->
+    <skip />
 </resources>

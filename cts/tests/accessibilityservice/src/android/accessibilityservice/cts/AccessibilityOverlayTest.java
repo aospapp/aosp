@@ -16,20 +16,22 @@
 
 package android.accessibilityservice.cts;
 
+import static android.accessibilityservice.cts.utils.CtsTestUtils.runIfNotNull;
+
 import static org.junit.Assert.assertTrue;
 
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.accessibilityservice.cts.utils.AsyncUtils;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
-import android.os.Debug;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.TextUtils;
 import android.view.WindowManager;
-import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.widget.Button;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -64,7 +66,7 @@ public class AccessibilityOverlayTest {
 
     @After
     public void tearDown() {
-        mService.runOnServiceSync(() -> mService.disableSelf());
+        runIfNotNull(mService, service -> service.runOnServiceSync(service::disableSelf));
     }
 
     @Test

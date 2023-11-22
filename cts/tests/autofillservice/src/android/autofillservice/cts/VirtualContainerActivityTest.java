@@ -49,9 +49,7 @@ import android.text.InputType;
 import android.view.ViewGroup;
 import android.view.autofill.AutofillManager;
 
-import org.junit.Before;
 import org.junit.Ignore;
-import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.concurrent.TimeoutException;
@@ -60,21 +58,14 @@ import java.util.concurrent.TimeoutException;
  * Test case for an activity containing virtual children, either using the explicit Autofill APIs
  * or Compat mode.
  */
-public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
+public class VirtualContainerActivityTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<VirtualContainerActivity> {
 
     // TODO(b/74256300): remove when fixed it :-)
     private static final boolean BUG_74256300_FIXED = false;
 
-    @Rule
-    public final AutofillActivityTestRule<VirtualContainerActivity> mActivityRule =
-            new AutofillActivityTestRule<VirtualContainerActivity>(VirtualContainerActivity.class) {
-        @Override
-        protected void beforeActivityLaunched() {
-            preActivityCreated();
-        }
-    };
-
     private final boolean mCompatMode;
+    private AutofillActivityTestRule<VirtualContainerActivity> mActivityRule;
     protected VirtualContainerActivity mActivity;
 
     public VirtualContainerActivityTest() {
@@ -85,12 +76,6 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
         mCompatMode = compatMode;
     }
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
-        postActivityLaunched(mActivity);
-    }
-
     /**
      * Hook for subclass to customize test before activity is created.
      */
@@ -99,8 +84,27 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     /**
      * Hook for subclass to customize activity after it's launched.
      */
-    protected void postActivityLaunched(
-            @SuppressWarnings("unused") VirtualContainerActivity activity) {
+    protected void postActivityLaunched() {}
+
+    @Override
+    protected AutofillActivityTestRule<VirtualContainerActivity> getActivityRule() {
+        if (mActivityRule == null) {
+            mActivityRule = new AutofillActivityTestRule<VirtualContainerActivity>(
+                    VirtualContainerActivity.class) {
+                @Override
+                protected void beforeActivityLaunched() {
+                    preActivityCreated();
+                }
+
+                @Override
+                protected void afterActivityLaunched() {
+                    mActivity = getActivity();
+                    postActivityLaunched();
+                }
+            };
+
+        }
+        return mActivityRule;
     }
 
     @Test
@@ -109,7 +113,7 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillSync() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillSync() is enough")
     public void testAutofillAsync() throws Exception {
         skipTestOnCompatMode();
 
@@ -129,15 +133,14 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
      * Focus to username and expect window event
      */
     void focusToUsername() throws TimeoutException {
-        mUiBot.waitForWindowChange(() -> mActivity.mUsername.changeFocus(true),
-                Timeouts.UI_TIMEOUT.getMaxValue());
+        mUiBot.waitForWindowChange(() -> mActivity.mUsername.changeFocus(true));
     }
 
     /**
      * Focus to username and expect no autofill window event
      */
     void focusToUsernameExpectNoWindowEvent() throws Throwable {
-        // TODO should use waitForWindowChange() if we can filter out event of app Activity itself.
+        // TODO: should use waitForWindowChange() if we can filter out event of app Activity itself.
         mActivityRule.runOnUiThread(() -> mActivity.mUsername.changeFocus(true));
     }
 
@@ -145,8 +148,7 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
      * Focus to password and expect window event
      */
     void focusToPassword() throws TimeoutException {
-        mUiBot.waitForWindowChange(() -> mActivity.mPassword.changeFocus(true),
-                Timeouts.UI_TIMEOUT.getMaxValue());
+        mUiBot.waitForWindowChange(() -> mActivity.mPassword.changeFocus(true));
     }
 
     /**
@@ -215,11 +217,15 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
         assertThat(passwordLabel.getInputType()).isEqualTo(0);
 
         final String[] autofillHints = username.getAutofillHints();
+        final boolean hasCompatModeFlag = (request.flags
+                & android.service.autofill.FillRequest.FLAG_COMPATIBILITY_MODE_REQUEST) != 0;
         if (mCompatMode) {
+            assertThat(hasCompatModeFlag).isTrue();
             assertThat(autofillHints).isNull();
             assertThat(username.getHtmlInfo()).isNull();
             assertThat(password.getHtmlInfo()).isNull();
         } else {
+            assertThat(hasCompatModeFlag).isFalse();
             // Make sure order is preserved and dupes not removed.
             assertThat(autofillHints).asList()
                     .containsExactly("c", "a", "a", "b", "a", "a")
@@ -245,7 +251,7 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillSync() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillSync() is enough")
     public void testAutofillTwoDatasets() throws Exception {
         // Set service.
         enableService();
@@ -318,13 +324,13 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillManuallyOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillManuallyOneDataset() is enough")
     public void testAutofillManuallyTwoDatasetsPickFirst() throws Exception {
         autofillManuallyTwoDatasets(true);
     }
 
     @Test
-    @AppModeFull // testAutofillManuallyOneDataset() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillManuallyOneDataset() is enough")
     public void testAutofillManuallyTwoDatasetsPickSecond() throws Exception {
         autofillManuallyTwoDatasets(false);
     }
@@ -396,7 +402,7 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillCallbacks() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillCallbacks() is enough")
     public void testAutofillCallbackDisabled() throws Throwable {
         // Set service.
         disableService();
@@ -410,7 +416,7 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillCallbacks() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillCallbacks() is enough")
     public void testAutofillCallbackNoDatasets() throws Throwable {
         // Set service.
         enableService();
@@ -431,7 +437,7 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testAutofillCallbacks() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testAutofillCallbacks() is enough")
     public void testAutofillCallbackNoDatasetsButSaveInfo() throws Throwable {
         // Set service.
         enableService();
@@ -622,7 +628,7 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testSaveNotShown_noUserInput() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testSaveNotShown_noUserInput() is enough")
     public void testSaveNotShown_initialValues_noUserInput() throws Throwable {
         // Prepare activitiy.
         mActivity.mUsername.setText("foo");
@@ -647,7 +653,7 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testSaveNotShown_noUserInput() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testSaveNotShown_noUserInput() is enough")
     public void testSaveNotShown_initialValues_noUserInput_serviceDatasets() throws Throwable {
         // Prepare activitiy.
         mActivity.mUsername.setText("foo");
@@ -678,7 +684,7 @@ public class VirtualContainerActivityTest extends AutoFillServiceTestCase {
     }
 
     @Test
-    @AppModeFull // testSaveNotShown_noUserInput() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testSaveNotShown_noUserInput() is enough")
     public void testSaveNotShown_userInputMatchesDatasets() throws Throwable {
         // Prepare activitiy.
         mActivity.mUsername.setText("foo");

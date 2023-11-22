@@ -28,5 +28,5 @@ import java.lang.annotation.Target;
 
 /** Stub only annotation. Do not use directly. */
 @Retention(CLASS)
-@Target({METHOD, PARAMETER, FIELD, PACKAGE, TYPE_PARAMETER, TYPE_USE})
+@Target({METHOD, PARAMETER, FIELD, PACKAGE, TYPE_PARAMETER})
 public @interface NonNull {}

@@ -2,7 +2,7 @@
 
 cc_library_shared {
     name: "libf2fs_sparseblock",
-    defaults: ["system-extras-cflags-defaults"],
+    cflags: ["-Werror"],
 
     srcs: ["f2fs_sparseblock.c"],
 
@@ -21,7 +21,7 @@ cc_library_shared {
 
 cc_binary {
     name: "f2fs_sparseblock",
-    defaults: ["system-extras-cflags-defaults"],
+    cflags: ["-Werror"],
 
     srcs: ["f2fs_sparseblock.c"],
 
@@ -36,10 +36,10 @@ cc_binary {
     ],
 }
 
-cc_prebuilt_binary {
+sh_binary {
     name: "mkf2fsuserimg.sh",
 
-    srcs: ["mkf2fsuserimg.sh"],
+    src: "mkf2fsuserimg.sh",
     required: ["make_f2fs", "sload_f2fs"],
     host_supported: true,
 }

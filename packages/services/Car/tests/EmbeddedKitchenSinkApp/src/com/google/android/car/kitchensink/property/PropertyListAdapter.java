@@ -21,6 +21,7 @@ import static java.lang.Integer.toHexString;
 import android.car.hardware.CarPropertyConfig;
 import android.car.hardware.CarPropertyValue;
 import android.car.hardware.property.CarPropertyManager;
+import android.car.hardware.property.CarPropertyManager.CarPropertyEventCallback;
 import android.content.Context;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -92,9 +93,9 @@ class PropertyListAdapter extends BaseAdapter implements ListAdapter {
                 int propId = c.getPropertyId();
                 try {
                     if (btn.isChecked()) {
-                        mMgr.registerListener(mListener, propId, DEFAULT_RATE);
+                        mMgr.registerCallback(mListener, propId, DEFAULT_RATE);
                     } else {
-                        mMgr.unregisterListener(mListener, propId);
+                        mMgr.unregisterCallback(mListener, propId);
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Unhandled exception: ", e);
@@ -105,8 +106,7 @@ class PropertyListAdapter extends BaseAdapter implements ListAdapter {
     }
 
 
-    private static class PropertyListEventListener implements
-            CarPropertyManager.CarPropertyEventListener {
+    private static class PropertyListEventListener implements CarPropertyEventCallback {
         private int mNumEvents;
         private ScrollView mScrollView;
         private TextView mTvLogEvent;

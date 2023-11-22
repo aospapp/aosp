@@ -33,6 +33,7 @@
 #include "a2dp_vendor_ldac.h"
 #include "a2dp_vendor_ldac_abr.h"
 #include "bt_common.h"
+#include "common/time_util.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
@@ -285,7 +286,8 @@ void a2dp_vendor_ldac_encoder_init(
     a2dp_ldac_abr_free_handle(a2dp_ldac_encoder_cb.ldac_abr_handle);
   memset(&a2dp_ldac_encoder_cb, 0, sizeof(a2dp_ldac_encoder_cb));
 
-  a2dp_ldac_encoder_cb.stats.session_start_us = time_get_os_boottime_us();
+  a2dp_ldac_encoder_cb.stats.session_start_us =
+      bluetooth::common::time_get_os_boottime_us();
 
   a2dp_ldac_encoder_cb.read_callback = read_callback;
   a2dp_ldac_encoder_cb.enqueue_callback = enqueue_callback;
@@ -313,7 +315,7 @@ void a2dp_vendor_ldac_encoder_init(
                                   &restart_output, &config_updated);
 }
 
-bool A2dpCodecConfigLdac::updateEncoderUserConfig(
+bool A2dpCodecConfigLdacSource::updateEncoderUserConfig(
     const tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params, bool* p_restart_input,
     bool* p_restart_output, bool* p_config_updated) {
   a2dp_ldac_encoder_cb.is_peer_edr = p_peer_params->is_peer_edr;
@@ -533,7 +535,7 @@ void a2dp_vendor_ldac_feeding_flush(void) {
   a2dp_ldac_encoder_cb.ldac_feeding_state.counter = 0;
 }
 
-period_ms_t a2dp_vendor_ldac_get_encoder_interval_ms(void) {
+uint64_t a2dp_vendor_ldac_get_encoder_interval_ms(void) {
   return A2DP_LDAC_ENCODER_INTERVAL_MS;
 }
 
@@ -759,15 +761,15 @@ void a2dp_vendor_ldac_set_transmit_queue_length(size_t transmit_queue_length) {
   a2dp_ldac_encoder_cb.TxQueueLength = transmit_queue_length;
 }
 
-period_ms_t A2dpCodecConfigLdac::encoderIntervalMs() const {
+uint64_t A2dpCodecConfigLdacSource::encoderIntervalMs() const {
   return a2dp_vendor_ldac_get_encoder_interval_ms();
 }
 
-int A2dpCodecConfigLdac::getEffectiveMtu() const {
+int A2dpCodecConfigLdacSource::getEffectiveMtu() const {
   return a2dp_ldac_encoder_cb.TxAaMtuSize;
 }
 
-void A2dpCodecConfigLdac::debug_codec_dump(int fd) {
+void A2dpCodecConfigLdacSource::debug_codec_dump(int fd) {
   a2dp_ldac_encoder_stats_t* stats = &a2dp_ldac_encoder_cb.stats;
   tA2DP_LDAC_ENCODER_PARAMS* p_encoder_params =
       &a2dp_ldac_encoder_cb.ldac_encoder_params;

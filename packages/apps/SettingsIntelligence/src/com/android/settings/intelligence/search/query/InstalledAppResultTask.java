@@ -73,6 +73,12 @@ public class InstalledAppResultTask extends SearchQueryTask.QueryWorker {
                         | PackageManager.MATCH_INSTANT);
 
         for (ApplicationInfo info : appsInfo) {
+            if (!info.enabled
+                    && mPackageManager.getApplicationEnabledSetting(info.packageName)
+                    != PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER) {
+                // Disabled by something other than user, skip.
+                continue;
+            }
             final CharSequence label = info.loadLabel(mPackageManager);
             final int wordDiff = SearchQueryUtils.getWordDifference(label.toString(), mQuery);
             if (wordDiff == SearchQueryUtils.NAME_NO_MATCH) {

@@ -20,7 +20,7 @@
 #include <iterator>
 #include <type_traits>
 
-#include "base/iteration_range.h"
+#include "iteration_range.h"
 
 namespace art {
 
@@ -71,7 +71,7 @@ class TransformIterator {
     return *this;
   }
 
-  TransformIterator& operator++(int) {
+  TransformIterator operator++(int) {
     TransformIterator tmp(*this);
     ++*this;
     return tmp;
@@ -86,7 +86,7 @@ class TransformIterator {
     return *this;
   }
 
-  TransformIterator& operator--(int) {
+  TransformIterator operator--(int) {
     TransformIterator tmp(*this);
     --*this;
     return tmp;

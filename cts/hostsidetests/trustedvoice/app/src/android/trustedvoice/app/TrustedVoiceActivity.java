@@ -17,12 +17,12 @@
 package android.trustedvoice.app;
 
 import android.app.Activity;
+import android.app.KeyguardManager;
+import android.app.KeyguardManager.KeyguardDismissCallback;
+import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
-import android.app.KeyguardManager;
-import android.content.Context;
 import android.view.WindowManager.LayoutParams;
-import java.lang.Override;
 
 /**
  * This activity when in foreground sets the FLAG_DISMISS_KEYGUARD.
@@ -37,14 +37,18 @@ public class TrustedVoiceActivity extends Activity {
    */
   private static final String TEST_STRING = "TrustedVoiceTestString";
 
+  private KeyguardManager mkeyguardManager;
+
   @Override
   public void onCreate(Bundle icicle) {
     super.onCreate(icicle);
+    mkeyguardManager =
+            (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
 
     // Unlock the keyguard.
-    getWindow().addFlags(LayoutParams.FLAG_DISMISS_KEYGUARD
-            | LayoutParams.FLAG_TURN_SCREEN_ON
+    getWindow().addFlags(LayoutParams.FLAG_TURN_SCREEN_ON
             | LayoutParams.FLAG_KEEP_SCREEN_ON);
+    mkeyguardManager.requestDismissKeyguard(this, null);
   }
 
   @Override
@@ -52,8 +56,7 @@ public class TrustedVoiceActivity extends Activity {
     super.onWindowFocusChanged(hasFocus);
     if (hasFocus) {
       // Confirm that the keyguard was successfully unlocked.
-      KeyguardManager kM = (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
-      if (!kM.isKeyguardLocked()) {
+      if (!mkeyguardManager.isKeyguardLocked()) {
         // Log the test string.
         Log.i(TAG, TEST_STRING);
       }

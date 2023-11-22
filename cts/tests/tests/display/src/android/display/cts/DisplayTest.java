@@ -21,12 +21,12 @@ import static org.junit.Assert.*;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.app.Presentation;
-import android.app.UiAutomation;
 import android.app.UiModeManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.ColorSpace;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.hardware.display.DisplayManager;
@@ -36,9 +36,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
-import android.support.test.rule.ActivityTestRule;
 import android.test.InstrumentationTestCase;
 import android.util.DisplayMetrics;
 import android.view.Display;
@@ -47,11 +44,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.Scanner;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -59,6 +54,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.Scanner;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public class DisplayTest {
@@ -193,7 +193,7 @@ public class DisplayTest {
         HdrCapabilities cap = display.getHdrCapabilities();
         int[] hdrTypes = cap.getSupportedHdrTypes();
         for (int type : hdrTypes) {
-            assertTrue(type >= 1 && type <= 3);
+            assertTrue(type >= 1 && type <= 4);
         }
         assertFalse(cap.getDesiredMaxLuminance() < -1.0f);
         assertFalse(cap.getDesiredMinLuminance() < -1.0f);
@@ -370,6 +370,22 @@ public class DisplayTest {
                 mPresentation.dismiss();
             }
         });
+    }
+
+    /**
+     * Verify that getColorSpace method returns the expected color space of the display.
+     */
+    @Test
+    public void testGetPreferredWideGamutColorSpace() {
+        final Display defaultDisplay = mWindowManager.getDefaultDisplay();
+        final ColorSpace colorSpace = defaultDisplay.getPreferredWideGamutColorSpace();
+
+        if (defaultDisplay.isWideColorGamut()) {
+            assertFalse(colorSpace.isSrgb());
+            assertTrue(colorSpace.isWideGamut());
+        } else {
+            assertNull(colorSpace);
+        }
     }
 
     /**

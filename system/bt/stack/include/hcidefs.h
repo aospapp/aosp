@@ -423,6 +423,9 @@
 /* A2DP offload OCF */
 #define HCI_CONTROLLER_A2DP_OPCODE_OCF (0x015D | HCI_GRP_VENDOR_SPECIFIC)
 
+/* Bluetooth Quality Report OCF */
+#define HCI_CONTROLLER_BQR_OPCODE_OCF (0x015E | HCI_GRP_VENDOR_SPECIFIC)
+
 /* subcode for multi adv feature */
 #define BTM_BLE_MULTI_ADV_SET_PARAM 0x01
 #define BTM_BLE_MULTI_ADV_WRITE_ADV_DATA 0x02
@@ -448,6 +451,9 @@
 
 /* debug info sub event */
 #define HCI_VSE_SUBCODE_DEBUG_INFO_SUB_EVT 0x57
+
+/* Bluetooth Quality Report sub event */
+#define HCI_VSE_SUBCODE_BQR_SUB_EVT 0x58
 
 /* LE supported states definition */
 #define HCI_LE_ADV_STATE 0x00000001
@@ -788,12 +794,7 @@ constexpr uint8_t HCI_LE_STATES_INIT_MASTER_SLAVE_BIT = 41;
     0x0000000000200000 Connectionless Broadcast Channel Map Change Event
     0x0000000000400000 Inquiry Response Notification Event
 */
-#if (BLE_PRIVACY_SPT == TRUE)
-/* BLE event mask */
-#define HCI_BLE_EVENT_MASK_DEF "\x00\x00\x00\x00\x00\x00\x07\xff"
-#else
-#define HCI_BLE_EVENT_MASK_DEF "\x00\x00\x00\x00\x00\x00\x00\x7f"
-#endif
+
 /*
  * Definitions for packet type masks (BT1.2 and BT2.0 definitions)
 */

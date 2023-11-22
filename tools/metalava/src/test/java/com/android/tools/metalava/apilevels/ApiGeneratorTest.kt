@@ -16,9 +16,13 @@
 
 package com.android.tools.metalava.apilevels
 
+import com.android.tools.metalava.ARG_ANDROID_JAR_PATTERN
+import com.android.tools.metalava.ARG_CURRENT_CODENAME
+import com.android.tools.metalava.ARG_CURRENT_VERSION
+import com.android.tools.metalava.ARG_GENERATE_API_LEVELS
 import com.android.tools.metalava.DriverTest
 import com.android.utils.XmlUtils
-import com.google.common.truth.Truth
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -28,50 +32,61 @@ import kotlin.text.Charsets.UTF_8
 class ApiGeneratorTest : DriverTest() {
     @Test
     fun `Extract API levels`() {
-        val oldSdkJars = File("prebuilts/tools/common/api-versions")
+        var oldSdkJars = File("prebuilts/tools/common/api-versions")
         if (!oldSdkJars.isDirectory) {
-            println("Ignoring ${ApiGeneratorTest::class.java}: prebuilts not found - is \$PWD set to an Android source tree?")
-            return
+            oldSdkJars = File("../../prebuilts/tools/common/api-versions")
+            if (!oldSdkJars.isDirectory) {
+                println("Ignoring ${ApiGeneratorTest::class.java}: prebuilts not found - is \$PWD set to an Android source tree?")
+                return
+            }
         }
 
-        val platformJars = File("prebuilts/sdk")
+        var platformJars = File("prebuilts/sdk")
         if (!platformJars.isDirectory) {
-            println("Ignoring ${ApiGeneratorTest::class.java}: prebuilts not found: $platformJars")
-            return
+            platformJars = File("../../prebuilts/sdk")
+            if (!platformJars.isDirectory) {
+                println("Ignoring ${ApiGeneratorTest::class.java}: prebuilts not found: $platformJars")
+                return
+            }
         }
-
         val output = File.createTempFile("api-info", "xml")
         output.deleteOnExit()
         val outputPath = output.path
 
         check(
             extraArguments = arrayOf(
-                "--generate-api-levels",
+                ARG_GENERATE_API_LEVELS,
                 outputPath,
-                "--android-jar-pattern",
+                ARG_ANDROID_JAR_PATTERN,
                 "${oldSdkJars.path}/android-%/android.jar",
-                "--android-jar-pattern",
-                "${platformJars.path}/%/public/android.jar"
+                ARG_ANDROID_JAR_PATTERN,
+                "${platformJars.path}/%/public/android.jar",
+                ARG_CURRENT_CODENAME,
+                "Z",
+                ARG_CURRENT_VERSION,
+                "35" // not real api level of Z
             ),
             checkDoclava1 = false,
-            signatureSource = """
-                package test.pkg {
-                  public class MyTest {
-                    ctor public MyTest();
-                    method public int clamp(int);
-                    method public java.lang.Double convert(java.lang.Float);
-                    field public java.lang.Number myNumber;
-                  }
-                }
-                """
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                    package android.pkg;
+                    public class MyTest {
+                    }
+                    """
+                )
+            )
         )
 
         assertTrue(output.isFile)
 
         val xml = output.readText(UTF_8)
-        Truth.assertThat(xml).contains("<class name=\"android/Manifest\$permission\" since=\"1\">")
-        Truth.assertThat(xml)
-            .contains("<field name=\"BIND_CARRIER_MESSAGING_SERVICE\" since=\"22\" deprecated=\"23\"/>")
+        assertTrue(xml.contains("<class name=\"android/Manifest\$permission\" since=\"1\">"))
+        assertTrue(xml.contains("<field name=\"BIND_CARRIER_MESSAGING_SERVICE\" since=\"22\" deprecated=\"23\"/>"))
+        assertTrue(xml.contains("<class name=\"android/pkg/MyTest\" since=\"36\""))
+        assertFalse(xml.contains("<implements name=\"java/lang/annotation/Annotation\" removed=\""))
+        assertFalse(xml.contains("<extends name=\"java/lang/Enum\" removed=\""))
+        assertFalse(xml.contains("<method name=\"append(C)Ljava/lang/AbstractStringBuilder;\""))
 
         val document = XmlUtils.parseDocumentSilently(xml, false)
         assertNotNull(document)

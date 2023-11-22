@@ -65,13 +65,18 @@
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Speaker"
+            android:text="🔊"
             android:id="@+id/speakerButton" />
         <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Earpiece"
+            android:text="👂"
             android:id="@+id/earpieceButton" />
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🎧"
+            android:id="@+id/bluetoothButton" />
         <CheckBox
             android:id="@+id/holdable"
             android:layout_width="wrap_content"

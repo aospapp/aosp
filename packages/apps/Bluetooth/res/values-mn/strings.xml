@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" руу файлыг илгээж байна"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g> файлуудыг \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" руу илгээж байна"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" руу файл илгээхийн зогсоосон"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"USB сан дотор \"<xliff:g id="SENDER">%1$s</xliff:g>\"-с ирүүлсэн файлыг хадгалах хангалттай зай байхгүй байна"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"SD карт дээр \"<xliff:g id="SENDER">%1$s</xliff:g>\"-с ирүүлсэн файлыг хадгалах хангалттай зай байхгүй байна"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"USB санд \"<xliff:g id="SENDER">%1$s</xliff:g>\"-с ирсэн файлыг хадгалах хангалттай зай алга"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"SD картад \"<xliff:g id="SENDER">%1$s</xliff:g>\"-с ирсэн файлыг хадгалах хангалттай зай алга"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Шаардлагатай зай: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Хэт олон хүсэлтийг боловсруулж байна. Дараа дахин оролдоно уу."</string>
     <string name="status_pending" msgid="2503691772030877944">"Файл дамжуулалт хараахан эхлээгүй байна."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"Дамжуулалтыг хүлээн авагч төхөөрөмжөөс хориглосон."</string>
     <string name="status_canceled" msgid="6664490318773098285">"Дамжуулалтыг хэрэглэгч цуцалсан."</string>
     <string name="status_file_error" msgid="3671917770630165299">"Хадгалах сангийн асуудал."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"USB сан алга байна."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"SD карт алга байна. Дамжуулсан файлуудыг хадгалахын тулд SD карт хийнэ үү."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"USB сан алга."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"SD карт алга. Шилжүүлсэн файлуудыг хадгалахын тулд SD картыг оруулна уу."</string>
     <string name="status_connection_error" msgid="947681831523219891">"Холболт амжилтгүй."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Хүсэлтийг зөв гүйцэтгэх боломжгүй."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Тодорхойгүй алдаа."</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Нээх"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Жагсаалтаас арилгах"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Арилгах"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Now Playing"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Хадгалах"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Цуцлах"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Bluetooth-ээр хуваалцахыг хүсч буй дансаа сонго. Холболт хийх үед данс руу нэвтрэх аливаа хандалтыг хүлээн зөвшөөрөх хэрэгтэй болно."</string>

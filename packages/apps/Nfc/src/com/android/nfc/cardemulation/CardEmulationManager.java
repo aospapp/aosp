@@ -175,6 +175,11 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         mEnabledNfcFServices.onNfcDisabled();
     }
 
+    public void onSecureNfcToggled() {
+        mAidCache.onSecureNfcToggled();
+        mT3tIdentifiersCache.onSecureNfcToggled();
+    }
+
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         mServiceCache.dump(fd, pw, args);
         mNfcFServicesCache.dump(fd, pw ,args);
@@ -373,6 +378,27 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             }
             return mServiceCache.registerAidGroupForService(userId, Binder.getCallingUid(), service,
                     aidGroup);
+        }
+
+        @Override
+        public boolean setOffHostForService(int userId, ComponentName service, String offHostSE) {
+            NfcPermissions.validateUserId(userId);
+            NfcPermissions.enforceUserPermissions(mContext);
+            if (!isServiceRegistered(userId, service)) {
+                return false;
+            }
+            return mServiceCache.setOffHostSecureElement(userId, Binder.getCallingUid(), service,
+                    offHostSE);
+        }
+
+        @Override
+        public boolean unsetOffHostForService(int userId, ComponentName service) {
+            NfcPermissions.validateUserId(userId);
+            NfcPermissions.enforceUserPermissions(mContext);
+            if (!isServiceRegistered(userId, service)) {
+                return false;
+            }
+            return mServiceCache.unsetOffHostSecureElement(userId, Binder.getCallingUid(), service);
         }
 
         @Override

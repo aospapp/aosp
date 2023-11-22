@@ -16,9 +16,11 @@
 import logging
 import time
 
+
 def GetTimestamp():
     """Returns the current UTC time (unit: microseconds)."""
     return int(time.time() * 1000000)
+
 
 class Feature(object):
     """Configuration object for a feature.
@@ -31,8 +33,11 @@ class Feature(object):
 
     enabled = False
 
-    def ParseParameters(self, toggle_param_name=None, required_param_names=[],
-                        optional_param_names=[], user_params={}):
+    def ParseParameters(self,
+                        toggle_param_name=None,
+                        required_param_names=[],
+                        optional_param_names=[],
+                        user_params={}):
         """Creates a feature configuration object.
 
         Args:
@@ -43,10 +48,12 @@ class Feature(object):
         self.enabled = False
         if toggle_param_name:
             if toggle_param_name not in user_params:
-                logging.info("Missing toggle parameter in configuration: %s", toggle_param_name)
+                logging.debug("Missing toggle parameter in configuration: %s",
+                              toggle_param_name)
                 return
             if not user_params[toggle_param_name]:
-                logging.info("Feature disabled in configuration: %s=False", toggle_param_name)
+                logging.debug("Feature disabled in configuration: %s=False",
+                              toggle_param_name)
                 return
 
         for name in required_param_names:
@@ -59,4 +66,4 @@ class Feature(object):
 
         for name in optional_param_names:
             if name in user_params:
-               setattr(self, name, user_params[name])
+                setattr(self, name, user_params[name])

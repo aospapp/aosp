@@ -32,11 +32,11 @@ namespace netdutils {
 class MemBlock {
   public:
     MemBlock() : MemBlock(0U) {}
-    MemBlock(size_t len)
+    explicit MemBlock(size_t len)
             : mData((len > 0U) ? new uint8_t[len]{} : nullptr),
               mLen(len) {}
     // Allocate memory of size src.size() and copy src into this MemBlock.
-    MemBlock(Slice src) : MemBlock(src.size()) {
+    explicit MemBlock(Slice src) : MemBlock(src.size()) {
         copy(get(), src);
     }
 
@@ -53,7 +53,8 @@ class MemBlock {
     Slice get() const noexcept { return Slice(mData.get(), mLen); }
 
     // Implicit cast to Slice.
-    const operator Slice() const noexcept { return get(); }
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    operator const Slice() const noexcept { return get(); }
 
   private:
     std::unique_ptr<uint8_t[]> mData;

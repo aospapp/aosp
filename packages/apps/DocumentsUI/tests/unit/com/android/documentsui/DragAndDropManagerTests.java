@@ -26,14 +26,15 @@ import android.content.ClipData;
 import android.content.ClipDescription;
 import android.graphics.drawable.Drawable;
 import android.os.PersistableBundle;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Pair;
 import android.view.KeyEvent;
 import android.view.View;
 
-import com.android.documentsui.DragAndDropManager.State;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.documentsui.DragAndDropManager.RuntimeDragAndDropManager;
+import com.android.documentsui.DragAndDropManager.State;
 import com.android.documentsui.base.DocumentStack;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.services.FileOperationService;

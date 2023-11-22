@@ -115,6 +115,7 @@ LIBC {
     __poll_chk; # introduced=23
     __ppoll; # arm x86 mips introduced=21
     __ppoll_chk; # introduced=23
+    __ppoll64_chk; # introduced=28
     __pread64_chk; # introduced=23
     __pread_chk; # introduced=23
     __progname; # var
@@ -206,7 +207,6 @@ LIBC {
     _ctype_; # var
     _Exit; # introduced=21
     _exit;
-    _flush_cache; # mips
     _flushlbf; # introduced=23
     _getlong;
     _getshort;
@@ -733,7 +733,7 @@ LIBC {
     posix_fallocate; # introduced=21
     posix_fallocate64; # introduced=21
     posix_madvise; # introduced=23
-    posix_memalign; # introduced-arm=16 introduced-arm64=21 introduced-mips=16 introduced-mips64=21 introduced-x86=16 introduced-x86_64=21
+    posix_memalign; # introduced=17
     posix_openpt; # introduced=21
     ppoll; # introduced=21
     prctl;
@@ -770,7 +770,7 @@ LIBC {
     pthread_cond_signal;
     pthread_cond_timedwait;
     pthread_cond_timedwait_monotonic; # arm x86 mips
-    pthread_cond_timedwait_monotonic_np; # introduced-arm=16 introduced-x86=16 introduced-mips=16 introduced-arm64=28 introduced-x64_64=28 introduced-mips64=28
+    pthread_cond_timedwait_monotonic_np; # introduced-arm=9 introduced-x86=9 introduced-mips=9 introduced-arm64=28 introduced-x64_64=28 introduced-mips64=28
     pthread_cond_timedwait_relative_np; # arm x86 mips
     pthread_cond_timeout_np; # arm x86 mips
     pthread_cond_wait;
@@ -1444,6 +1444,42 @@ LIBC_P { # introduced=P
     wcstoul_l;
 } LIBC_O;
 
+LIBC_Q { # introduced=Q
+  global:
+    ___tls_get_addr; # x86
+    __aeabi_read_tp; # arm
+    __res_randomid;
+    __tls_get_addr; # arm x86_64
+    android_fdsan_close_with_tag;
+    android_fdsan_create_owner_tag;
+    android_fdsan_exchange_owner_tag;
+    android_fdsan_get_error_level;
+    android_fdsan_get_owner_tag;
+    android_fdsan_get_tag_type;
+    android_fdsan_get_tag_value;
+    android_fdsan_set_error_level;
+    android_get_device_api_level;
+    getloadavg;
+    pthread_sigqueue;
+    reallocarray;
+    timespec_get;
+
+    # Used by libselinux
+    __system_properties_init; # apex
+
+    # Used by libmemunreachable
+    malloc_backtrace; # apex
+    malloc_disable; # apex
+    malloc_enable; # apex
+    malloc_iterate; # apex
+
+    # Used by libandroid_net
+    android_getaddrinfofornet; # apex
+
+    # Used by libandroid_runtime, libmedia and libmediautils
+    android_mallopt; # apex
+} LIBC_P;
+
 LIBC_PRIVATE {
   global:
     ___Unwind_Backtrace; # arm
@@ -1458,8 +1494,12 @@ LIBC_PRIVATE {
     __aeabi_cdcmpeq; # arm
     __aeabi_cdcmple; # arm
     __aeabi_cdrcmple; # arm
+    __aeabi_cfcmpeq; # arm
+    __aeabi_cfcmple; # arm
+    __aeabi_cfrcmple; # arm
     __aeabi_d2f; # arm
     __aeabi_d2iz; # arm
+    __aeabi_d2uiz; # arm
     __aeabi_dadd; # arm
     __aeabi_dcmpeq; # arm
     __aeabi_dcmpge; # arm
@@ -1475,6 +1515,11 @@ LIBC_PRIVATE {
     __aeabi_f2iz; # arm
     __aeabi_f2uiz; # arm
     __aeabi_fadd; # arm
+    __aeabi_fcmpeq; # arm
+    __aeabi_fcmpge; # arm
+    __aeabi_fcmpgt; # arm
+    __aeabi_fcmple; # arm
+    __aeabi_fcmplt; # arm
     __aeabi_fcmpun; # arm
     __aeabi_fdiv; # arm
     __aeabi_fmul; # arm
@@ -1519,17 +1564,20 @@ LIBC_PRIVATE {
     __ashldi3; # arm
     __ashrdi3; # arm
     __bionic_brk; # arm x86 mips
-    __bionic_libgcc_compat_symbols; # arm x86
+    __bionic_libcrt_compat_symbols; # arm x86
     __cmpdf2; # arm
+    __cmpsf2; # arm
     __divdf3; # arm
     __divdi3; # arm x86 mips
     __divsf3; # arm
     __divsi3; # arm
     __dso_handle; # arm
     __eqdf2; # arm
+    __eqsf2; # arm
     __extendsfdf2; # arm
     __fixdfsi; # arm
     __fixsfsi; # arm
+    __fixunsdfsi; # arm
     __fixunssfsi; # arm
     __floatdidf; # arm
     __floatdisf; # arm
@@ -1542,6 +1590,7 @@ LIBC_PRIVATE {
     __futex_wait; # arm x86 mips
     __futex_wake; # arm x86 mips
     __gedf2; # arm
+    __gesf2; # arm
     __get_thread; # arm x86 mips
     __get_tls; # arm x86 mips
     __getdents64; # arm x86 mips
@@ -1566,13 +1615,17 @@ LIBC_PRIVATE {
     __gnu_Unwind_Save_WMMXC; # arm
     __gnu_Unwind_Save_WMMXD; # arm
     __gtdf2; # arm
+    __gtsf2; # arm
     __ledf2; # arm
+    __lesf2; # arm
     __lshrdi3; # arm
     __ltdf2; # arm
+    __ltsf2; # arm
     __muldf3; # arm
     __muldi3; # arm
     __mulsf3; # arm
     __nedf2; # arm
+    __nesf2; # arm
     __open; # arm x86 mips
     __page_shift; # arm x86 mips
     __page_size; # arm x86 mips
@@ -1621,7 +1674,6 @@ LIBC_PRIVATE {
     _Unwind_VRS_Get; # arm
     _Unwind_VRS_Pop; # arm
     _Unwind_VRS_Set; # arm
-    android_getaddrinfofornet;
     android_getaddrinfofornetcontext;
     android_gethostbyaddrfornet;
     android_gethostbyaddrfornetcontext;
@@ -1636,12 +1688,9 @@ LIBC_PRIVATE {
     dlmalloc_inspect_all; # arm x86 mips
     dlmalloc_trim; # arm x86 mips
     dlmalloc_usable_size; # arm x86 mips
-    free_malloc_leak_info;
     ftime; # arm x86 mips
-    get_malloc_leak_info;
     getdents; # arm x86 mips
     getdtablesize; # arm x86 mips
-    gMallocLeakZygoteChild;
     index; # arm x86 mips
     issetugid; # arm x86 mips
     memswap; # arm x86 mips
@@ -1659,26 +1708,24 @@ LIBC_PRIVATE {
     tkill; # arm x86 mips
     wait3; # arm x86 mips
     wcswcs; # arm x86 mips
-} LIBC_P;
+} LIBC_Q;
 
 LIBC_DEPRECATED {
   global:
     __system_property_wait_any;
+    free_malloc_leak_info; # arm
+    get_malloc_leak_info; # arm
 };
 
 LIBC_PLATFORM {
   global:
-    __system_properties_init;
-    __system_property_area__; # var
     __system_property_add;
+    __system_property_area__; # var
     __system_property_area_init;
     __system_property_set_filename;
     __system_property_update;
+    android_fdsan_get_fd_table;
     android_net_res_stats_get_info_for_net;
     android_net_res_stats_aggregate;
     android_net_res_stats_get_usable_servers;
-    malloc_backtrace;
-    malloc_disable;
-    malloc_enable;
-    malloc_iterate;
-} LIBC_P;
+} LIBC_Q;

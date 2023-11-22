@@ -17,9 +17,9 @@
 package com.android.tradefed.command;
 
 import com.android.ddmlib.DdmPreferences;
-import com.android.ddmlib.IDevice;
 import com.android.ddmlib.Log;
 import com.android.ddmlib.Log.LogLevel;
+import com.android.tradefed.clearcut.ClearcutClient;
 import com.android.tradefed.command.CommandFileParser.CommandLine;
 import com.android.tradefed.command.CommandFileWatcher.ICommandFileListener;
 import com.android.tradefed.command.CommandRunner.ExitCode;
@@ -28,6 +28,7 @@ import com.android.tradefed.command.remote.IRemoteClient;
 import com.android.tradefed.command.remote.RemoteClient;
 import com.android.tradefed.command.remote.RemoteException;
 import com.android.tradefed.command.remote.RemoteManager;
+import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
 import com.android.tradefed.config.GlobalConfiguration;
@@ -36,6 +37,7 @@ import com.android.tradefed.config.IConfigurationFactory;
 import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.config.IGlobalConfiguration;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.config.RetryConfigurationFactory;
 import com.android.tradefed.config.SandboxConfigurationFactory;
 import com.android.tradefed.device.DeviceAllocationState;
 import com.android.tradefed.device.DeviceManager;
@@ -62,10 +64,13 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.ResultForwarder;
 import com.android.tradefed.sandbox.ISandbox;
 import com.android.tradefed.sandbox.TradefedSandbox;
+import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.suite.retry.RetryRescheduler;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.QuotationAwareTokenizer;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.TableFormatter;
 import com.android.tradefed.util.TimeUtil;
 import com.android.tradefed.util.hostmetric.IHostMonitor;
@@ -98,7 +103,6 @@ import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -162,6 +166,9 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
     private ExitCode mLastInvocationExitCode = ExitCode.NO_ERROR;
     private Throwable mLastInvocationThrowable = null;
 
+    /** Client to report metric data of the harness. */
+    private ClearcutClient mClient = null;
+
     @Option(name = "reload-cmdfiles", description =
             "Whether to enable the command file autoreload mechanism")
     // FIXME: enable this to be enabled or disabled on a per-cmdfile basis
@@ -183,6 +190,8 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
             + " when Invocation become interruptible. (Default behavior).", isTimeVal = true)
     private long mShutdownTimeout = 0;
 
+    private HostState mHostState = HostState.UNKNOWN;
+
     private enum CommandState {
         WAITING_FOR_DEVICE("Wait_for_device"),
         EXECUTING("Executing"),
@@ -197,6 +206,22 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
         public String getDisplayName() {
             return mDisplayName;
         }
+    }
+
+    /** Enums of different status of host */
+    public enum HostState {
+        UNKNOWN,
+        RUNNING,
+        QUITTING,
+        KILLING;
+    }
+
+    private void setHostState(HostState state) {
+        mHostState = state;
+    }
+
+    public HostState getHostState() {
+        return mHostState;
     }
 
     /**
@@ -689,37 +714,36 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
         }
 
         /**
-         * Stops a running invocation. {@link CommandScheduler#shutdownHard()} will stop
-         * all running invocations.
+         * Stops a running invocation. {@link CommandScheduler#shutdownHard()} will stop all running
+         * invocations.
          */
         public void stopInvocation(String message) {
             getInvocation().notifyInvocationStopped();
             for (ITestDevice device : mInvocationContext.getDevices()) {
-                if (device != null && device.getIDevice().isOnline()) {
+                if (TestDeviceState.ONLINE.equals(device.getDeviceState())) {
                     // Kill all running processes on device.
-                    try {
-                        device.executeShellCommand("am kill-all");
-                    } catch (DeviceNotAvailableException e) {
-                        CLog.e("failed to kill process on device %s",
-                                device.getSerialNumber());
-                        CLog.e(e);
+                    if (!(device.getIDevice() instanceof StubDevice)) {
+                        try {
+                            device.executeShellCommand("am kill-all");
+                        } catch (DeviceNotAvailableException e) {
+                            CLog.e("failed to kill process on device %s", device.getSerialNumber());
+                            CLog.e(e);
+                        }
                     }
-
                 }
+                // Finish with device tear down: We try to ensure that regardless of the invocation
+                // state during the interruption we at least do minimal tear down of devices with
+                // their built-in clean up.
+                CLog.d("Attempting postInvocationTearDown in stopInvocation");
+                device.postInvocationTearDown();
             }
             // If invocation is not currently in an interruptible state we provide a timer
             // after which it will become interruptible.
             // If timeout is 0, we do not enforce future interruption.
-            if (!mInvocationThreadMonitor.isTriggered() && getShutdownTimeout() != 0) {
+            if (getShutdownTimeout() != 0) {
                 RunUtil.getDefault().setInterruptibleInFuture(this, getShutdownTimeout());
             }
             RunUtil.getDefault().interrupt(this, message);
-
-            if (mInvocationThreadMonitor.isTriggered()) {
-                // if we enforce the invocation timeout, we force interrupt the thread.
-                CLog.e("Forcing the interruption.");
-                this.interrupt();
-            }
         }
 
         /**
@@ -749,12 +773,10 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
                         .getDeviceConfigByName(deviceName).getDeviceOptions().getCutoffBattery();
 
                 if (mInvocationContext.getDevice(deviceName) != null && cutoffBattery != null) {
-                    final IDevice device = mInvocationContext.getDevice(deviceName).getIDevice();
-                    int batteryLevel = -1;
-                    try {
-                        batteryLevel = device.getBattery(500, TimeUnit.MILLISECONDS).get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        // fall through
+                    final ITestDevice device = mInvocationContext.getDevice(deviceName);
+                    Integer batteryLevel = device.getBattery();
+                    if (batteryLevel == null) {
+                        return;
                     }
                     CLog.d("device %s: battery level=%d%%", device.getSerialNumber(), batteryLevel);
                     // This logic is based on the assumption that batterLevel will be 0 or -1 if TF
@@ -764,8 +786,10 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
                         if (RunUtil.getDefault().isInterruptAllowed()) {
                             CLog.i("Stopping %s: battery too low (%d%% < %d%%)",
                                     getName(), batteryLevel, cutoffBattery);
-                            stopInvocation(String.format(
-                                    "battery too low (%d%% < %d%%)", batteryLevel, cutoffBattery));
+                            stopInvocation(
+                                    String.format(
+                                            "battery too low (%d%% < %d%%)",
+                                            batteryLevel, cutoffBattery));
                         } else {
                             // In this case, the battery is check periodically by CommandScheduler
                             // so there will be more opportunity to terminate the invocation when
@@ -844,6 +868,7 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
             mStarted = true;
         }
         super.start();
+        setHostState(HostState.RUNNING);
     }
 
     /**
@@ -951,8 +976,16 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
                 // wait until processing is required again
                 mCommandProcessWait.waitAndReset(mPollTime);
                 checkInvocations();
-                processReadyCommands(manager);
-                postProcessReadyCommands();
+                try {
+                    processReadyCommands(manager);
+                    postProcessReadyCommands();
+                } catch (RuntimeException e) {
+                    CLog.e(e);
+                    Map<String, String> information = new HashMap<>();
+                    information.put("Exception", "CommandScheduler");
+                    information.put("stack", StreamUtil.getStackTrace(e));
+                    logEvent(EventType.UNEXPECTED_EXCEPTION, information);
+                }
             }
             mCommandTimer.shutdown();
             // We signal the device manager to stop device recovery threads because it could
@@ -968,6 +1001,9 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
             exit(manager);
             cleanUp();
             CLog.logAndDisplay(LogLevel.INFO, "All done");
+            if (mClient != null) {
+                mClient.stop();
+            }
         } finally {
             // Make sure that we don't quit with messages still in the buffers
             System.err.flush();
@@ -1112,10 +1148,28 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
 
     /** Returns true if {@link CommandOptions#USE_SANDBOX} is part of the command line. */
     private boolean isCommandSandboxed(String[] args) {
+        boolean foundSandbox = false;
+        // Since the order is important, mark the found sandbox when we find it, and unset it if
+        // we find the negation.
         for (String arg : args) {
             if (("--" + CommandOptions.USE_SANDBOX).equals(arg)) {
-                return true;
+                foundSandbox = true;
+            } else if (("--no-" + CommandOptions.USE_SANDBOX).equals(arg)) {
+                foundSandbox = false;
             }
+        }
+        return foundSandbox;
+    }
+
+    /** Returns true if the configuration used is a retry one. */
+    private boolean isRetryCommand(IConfiguration config) {
+        // If a configuration is made of the RetryRunner only, it is meant to run as a retry.
+        if (config.getTests().size() != 1) {
+            return false;
+        }
+        IRemoteTest rerunner = config.getTests().get(0);
+        if (rerunner instanceof RetryRescheduler) {
+            return true;
         }
         return false;
     }
@@ -1133,7 +1187,12 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
             return SandboxConfigurationFactory.getInstance()
                     .createConfigurationFromArgs(args, getKeyStoreClient(), sandbox, new RunUtil());
         }
-        return getConfigFactory().createConfigurationFromArgs(args, null, getKeyStoreClient());
+        IConfiguration config =
+                getConfigFactory().createConfigurationFromArgs(args, null, getKeyStoreClient());
+        if (isRetryCommand(config)) {
+            return RetryConfigurationFactory.getInstance().createRetryConfiguration(config);
+        }
+        return config;
     }
 
     private boolean internalAddCommand(String[] args, long totalExecTime, String cmdFilePath)
@@ -1152,7 +1211,7 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
                 CLog.logAndDisplay(LogLevel.ERROR, "Failed to get json command usage: %s", e);
             }
         } else if (config.getCommandOptions().isDryRunMode()) {
-            config.validateOptions();
+            config.validateOptions(false);
             String cmdLine = QuotationAwareTokenizer.combineTokens(args);
             CLog.d("Dry run mode; skipping adding command: %s", cmdLine);
             if (config.getCommandOptions().isNoisyDryRunMode()) {
@@ -1307,8 +1366,15 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
      */
     private synchronized boolean addExecCommandToQueue(final ExecutableCommand cmd,
             long delayTime) {
+        // If the command is local sharding one being rescheduled, do not apply the shutdown yet
+        // This allows commandAndExit to still works with local sharding.
         if (isShutdown()) {
-            return false;
+            if (cmd.getConfiguration()
+                            .getConfigurationDescription()
+                            .getMetaData(ConfigurationDescriptor.LOCAL_SHARDED_KEY)
+                    == null) {
+                return false;
+            }
         }
         if (delayTime > 0) {
             mSleepingCommands.add(cmd);
@@ -1388,7 +1454,9 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
         synchronized(this) {
             if (!config.getDeviceConfig().isEmpty()) {
                 for (IDeviceConfiguration deviceConfig : config.getDeviceConfig()) {
-                    device = manager.allocateDevice(deviceConfig.getDeviceRequirements());
+                    device =
+                            manager.allocateDevice(
+                                    deviceConfig.getDeviceRequirements(), deviceConfig.isFake());
                     if (device != null) {
                         devices.put(deviceConfig.getDeviceName(), device);
                     } else {
@@ -1468,12 +1536,16 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
         // Check if device is not used in another invocation.
         throwIfDeviceInInvocationThread(context.getDevices());
 
-        CLog.d("starting invocation for command id %d", cmd.getCommandTracker().getId());
+        int invocationId = cmd.getCommandTracker().getId();
+        CLog.d("starting invocation for command id %d", invocationId);
         // Name invocation with first device serial
         final String invocationName = String.format("Invocation-%s",
                 context.getSerials().get(0));
         InvocationThread invocationThread = new InvocationThread(invocationName, context, cmd,
                 listeners);
+        // Link context and command
+        context.addInvocationAttribute(
+                IInvocationContext.INVOCATION_ID, Integer.toString(invocationId));
         logInvocationStartedEvent(cmd.getCommandTracker(), context);
         invocationThread.start();
         addInvocationThread(invocationThread);
@@ -1531,6 +1603,11 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
      */
     @Override
     public synchronized void shutdown() {
+        setHostState(HostState.QUITTING);
+        doShutdown();
+    }
+
+    private synchronized void doShutdown() {
         assertStarted();
         if (!isShuttingDown()) {
             CLog.d("initiating shutdown");
@@ -1551,6 +1628,7 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
     @Override
     public synchronized void shutdownOnEmpty() {
         assertStarted();
+        setHostState(HostState.QUITTING);
         if (!isShuttingDown()) {
             CLog.d("initiating shutdown on empty");
             mShutdownOnEmpty = true;
@@ -1682,11 +1760,12 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
      */
     @Override
     public synchronized void shutdownHard() {
-        shutdown();
-
+        setHostState(HostState.KILLING);
+        doShutdown();
         CLog.logAndDisplay(LogLevel.WARN, "Stopping invocation threads...");
         for (InvocationThread thread : mInvocationThreadMap.values()) {
             thread.disableReporters();
+            // TODO(b/118891716): Improve tear down
             thread.stopInvocation("TF is shutting down");
         }
         getDeviceManager().terminateHard();
@@ -2174,5 +2253,10 @@ public class CommandScheduler extends Thread implements ICommandScheduler, IComm
     @Override
     public synchronized int getReadyCommandCount() {
         return mReadyCommands.size();
+    }
+
+    @Override
+    public void setClearcutClient(ClearcutClient client) {
+        mClient = client;
     }
 }

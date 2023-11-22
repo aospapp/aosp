@@ -75,6 +75,17 @@ public class BluetoothOppLauncherActivity extends Activity {
 
         Intent intent = getIntent();
         String action = intent.getAction();
+        if (action == null) {
+            Log.w(TAG, " Received " + intent + " with null action");
+            finish();
+            return;
+        }
+
+        if (action == null) {
+            Log.w(TAG, "action is null");
+            finish();
+            return;
+        }
 
         if (action.equals(Intent.ACTION_SEND) || action.equals(Intent.ACTION_SEND_MULTIPLE)) {
             //Check if Bluetooth is available in the beginning instead of at the end

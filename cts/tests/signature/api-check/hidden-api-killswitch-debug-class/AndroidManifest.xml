@@ -18,7 +18,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.signature.cts.api.killswitch_debug_class">
 
-    <application android:debuggable="true"/>
+    <application android:debuggable="true"
+                 android:extractNativeLibs="true"
+                 android:largeHeap="true"/>
 
     <instrumentation android:name="repackaged.android.test.InstrumentationTestRunner"
                      android:targetPackage="android.signature.cts.api.killswitch_debug_class"

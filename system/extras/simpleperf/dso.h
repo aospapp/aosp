@@ -22,18 +22,44 @@
 #include <unordered_map>
 #include <vector>
 
+#include <android-base/file.h>
 #include <android-base/logging.h>
-#include <android-base/test_utils.h>
 
 #include "build_id.h"
 #include "read_elf.h"
+
+
+namespace simpleperf_dso_impl {
+
+// Find elf files with symbol table and debug information.
+class DebugElfFileFinder {
+ public:
+  void Reset();
+  bool SetSymFsDir(const std::string& symfs_dir);
+  bool AddSymbolDir(const std::string& symbol_dir);
+  void SetVdsoFile(const std::string& vdso_file, bool is_64bit);
+  std::string FindDebugFile(const std::string& dso_path, bool force_64bit,
+                            BuildId& build_id);
+  // Only for testing
+  std::string GetPathInSymFsDir(const std::string& path);
+
+ private:
+  void CollectBuildIdInDir(const std::string& dir);
+
+  std::string vdso_64bit_;
+  std::string vdso_32bit_;
+  std::string symfs_dir_;
+  std::unordered_map<std::string, std::string> build_id_to_file_map_;
+};
+
+}  // namespace simpleperf_dso_impl
 
 struct Symbol {
   uint64_t addr;
   // TODO: make len uint32_t.
   uint64_t len;
 
-  Symbol(const std::string& name, uint64_t addr, uint64_t len);
+  Symbol(std::string_view name, uint64_t addr, uint64_t len);
   const char* Name() const { return name_; }
 
   const char* DemangledName() const;
@@ -78,6 +104,8 @@ enum DsoType {
   DSO_KERNEL,
   DSO_KERNEL_MODULE,
   DSO_ELF_FILE,
+  DSO_DEX_FILE,  // For files containing dex files, like .vdex files.
+  DSO_UNKNOWN_FILE,
 };
 
 struct KernelSymbol;
@@ -87,7 +115,13 @@ class Dso {
  public:
   static void SetDemangle(bool demangle);
   static std::string Demangle(const std::string& name);
+  // SymFsDir is used to provide an alternative root directory looking for files with symbols.
+  // For example, if we are searching symbols for /system/lib/libc.so and SymFsDir is /data/symbols,
+  // then we will also search file /data/symbols/system/lib/libc.so.
   static bool SetSymFsDir(const std::string& symfs_dir);
+  // SymbolDir is used to add a directory containing files with symbols. Each file under it will
+  // be searched recursively to build a build_id_map.
+  static bool AddSymbolDir(const std::string& symbol_dir);
   static void SetVmlinux(const std::string& vmlinux);
   static void SetKallsyms(std::string kallsyms) {
     if (!kallsyms.empty()) {
@@ -105,7 +139,7 @@ class Dso {
   static std::unique_ptr<Dso> CreateDso(DsoType dso_type, const std::string& dso_path,
                                         bool force_64bit = false);
 
-  ~Dso();
+  virtual ~Dso();
 
   DsoType type() const { return type_; }
 
@@ -131,42 +165,43 @@ class Dso {
   uint32_t CreateDumpId();
   uint32_t CreateSymbolDumpId(const Symbol* symbol);
 
-  // Return the minimum virtual address in program header.
-  uint64_t MinVirtualAddress();
-  void SetMinVirtualAddress(uint64_t min_vaddr) { min_vaddr_ = min_vaddr; }
+  virtual void SetMinExecutableVaddr(uint64_t, uint64_t) {}
+  virtual void GetMinExecutableVaddr(uint64_t* min_vaddr, uint64_t* file_offset) {
+    *min_vaddr = 0;
+    *file_offset = 0;
+  }
+  virtual void AddDexFileOffset(uint64_t) {}
+  virtual const std::vector<uint64_t>* DexFileOffsets() { return nullptr; }
+
+  virtual uint64_t IpToVaddrInFile(uint64_t ip, uint64_t map_start, uint64_t map_pgoff) = 0;
 
   const Symbol* FindSymbol(uint64_t vaddr_in_dso);
 
-  const std::vector<Symbol>& GetSymbols();
+  const std::vector<Symbol>& GetSymbols() { return symbols_; }
   void SetSymbols(std::vector<Symbol>* symbols);
 
   // Create a symbol for a virtual address which can't find a corresponding
   // symbol in symbol table.
   void AddUnknownSymbol(uint64_t vaddr_in_dso, const std::string& name);
+  bool IsForJavaMethod();
 
- private:
+ protected:
   static bool demangle_;
-  static std::string symfs_dir_;
   static std::string vmlinux_;
   static std::string kallsyms_;
   static bool read_kernel_symbols_from_proc_;
   static std::unordered_map<std::string, BuildId> build_id_map_;
   static size_t dso_count_;
   static uint32_t g_dump_id_;
-  static std::string vdso_64bit_;
-  static std::string vdso_32bit_;
+  static simpleperf_dso_impl::DebugElfFileFinder debug_elf_file_finder_;
 
-  Dso(DsoType type, const std::string& path, bool force_64bit);
-  void Load();
-  bool LoadKernel();
-  bool LoadKernelModule();
-  bool LoadElfFile();
-  bool LoadEmbeddedElfFile();
-  void FixupSymbolLength();
+  Dso(DsoType type, const std::string& path, const std::string& debug_file_path);
   BuildId GetExpectedBuildId();
-  bool CheckReadSymbolResult(ElfStatus result, const std::string& filename);
 
-  const DsoType type_;
+  void Load();
+  virtual std::vector<Symbol> LoadSymbols() = 0;
+
+  DsoType type_;
   // path of the shared library used by the profiled program
   const std::string path_;
   // path of the shared library having symbol table and debug information
@@ -174,7 +209,6 @@ class Dso {
   std::string debug_file_path_;
   // File name of the shared library, got by removing directories in path_.
   std::string file_name_;
-  uint64_t min_vaddr_;
   std::vector<Symbol> symbols_;
   // unknown symbols are like [libc.so+0x1234].
   std::unordered_map<uint64_t, Symbol> unknown_symbols_;
@@ -187,5 +221,6 @@ class Dso {
 };
 
 const char* DsoTypeToString(DsoType dso_type);
+bool GetBuildIdFromDsoPath(const std::string& dso_path, BuildId* build_id);
 
 #endif  // SIMPLE_PERF_DSO_H_

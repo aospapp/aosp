@@ -43,7 +43,7 @@ class ElfReader {
   ElfReader();
 
   bool Read(const char* name, int fd, off64_t file_offset, off64_t file_size);
-  bool Load(const android_dlextinfo* extinfo);
+  bool Load(address_space_params* address_space);
 
   const char* name() const { return name_.c_str(); }
   size_t phdr_count() const { return phdr_num_; }
@@ -54,6 +54,7 @@ class ElfReader {
   const ElfW(Dyn)* dynamic() const { return dynamic_; }
   const char* get_string(ElfW(Word) index) const;
   bool is_mapped_by_caller() const { return mapped_by_caller_; }
+  ElfW(Addr) entry_point() const { return header_.e_entry + load_bias_; }
 
  private:
   bool ReadElfHeader();
@@ -61,7 +62,7 @@ class ElfReader {
   bool ReadProgramHeaders();
   bool ReadSectionHeaders();
   bool ReadDynamicSection();
-  bool ReserveAddressSpace(const android_dlextinfo* extinfo);
+  bool ReserveAddressSpace(address_space_params* address_space);
   bool LoadSegments();
   bool FindPhdr();
   bool CheckPhdr(ElfW(Addr));
@@ -118,10 +119,10 @@ int phdr_table_protect_gnu_relro(const ElfW(Phdr)* phdr_table, size_t phdr_count
                                  ElfW(Addr) load_bias);
 
 int phdr_table_serialize_gnu_relro(const ElfW(Phdr)* phdr_table, size_t phdr_count,
-                                   ElfW(Addr) load_bias, int fd);
+                                   ElfW(Addr) load_bias, int fd, size_t* file_offset);
 
 int phdr_table_map_gnu_relro(const ElfW(Phdr)* phdr_table, size_t phdr_count,
-                             ElfW(Addr) load_bias, int fd);
+                             ElfW(Addr) load_bias, int fd, size_t* file_offset);
 
 #if defined(__arm__)
 int phdr_table_get_arm_exidx(const ElfW(Phdr)* phdr_table, size_t phdr_count, ElfW(Addr) load_bias,

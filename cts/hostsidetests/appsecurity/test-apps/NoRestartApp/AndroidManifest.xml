@@ -23,14 +23,18 @@
         tools:ignore="AllowBackup,MissingApplicationIcon" >
         <activity
             android:name=".NoRestartActivity"
-            android:launchMode="singleTop">
+            android:launchMode="singleTop" >
+            <intent-filter>
+                <action android:name="com.android.cts.norestart.START" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="https" />
-                <data android:host="foo.com" />
-                <data android:path="/bar" />
+                <data android:host="cts.android.com" />
+                <data android:path="/norestart" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -38,8 +42,4 @@
             </intent-filter>
             </activity>
     </application>
-
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
-             android:targetPackage="com.android.cts.norestart" />
-
 </manifest>

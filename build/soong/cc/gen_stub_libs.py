@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import sys
 
 
 ALL_ARCHITECTURES = (
@@ -107,22 +108,42 @@ def version_is_private(version):
     return version.endswith('_PRIVATE') or version.endswith('_PLATFORM')
 
 
-def should_omit_version(name, tags, arch, api, vndk):
+def should_omit_version(version, arch, api, vndk, apex):
     """Returns True if the version section should be ommitted.
 
     We want to omit any sections that do not have any symbols we'll have in the
     stub library. Sections that contain entirely future symbols or only symbols
     for certain architectures.
     """
-    if version_is_private(name):
+    if version_is_private(version.name):
         return True
-    if 'platform-only' in tags:
+    if 'platform-only' in version.tags:
         return True
-    if 'vndk' in tags and not vndk:
+
+    no_vndk_no_apex = 'vndk' not in version.tags and 'apex' not in version.tags
+    keep = no_vndk_no_apex or \
+           ('vndk' in version.tags and vndk) or \
+           ('apex' in version.tags and apex)
+    if not keep:
         return True
-    if not symbol_in_arch(tags, arch):
+    if not symbol_in_arch(version.tags, arch):
         return True
-    if not symbol_in_api(tags, arch, api):
+    if not symbol_in_api(version.tags, arch, api):
+        return True
+    return False
+
+
+def should_omit_symbol(symbol, arch, api, vndk, apex):
+    """Returns True if the symbol should be omitted."""
+    no_vndk_no_apex = 'vndk' not in symbol.tags and 'apex' not in symbol.tags
+    keep = no_vndk_no_apex or \
+           ('vndk' in symbol.tags and vndk) or \
+           ('apex' in symbol.tags and apex)
+    if not keep:
+        return True
+    if not symbol_in_arch(symbol.tags, arch):
+        return True
+    if not symbol_in_api(symbol.tags, arch, api):
         return True
     return False
 
@@ -189,6 +210,15 @@ class ParseError(RuntimeError):
     pass
 
 
+class MultiplyDefinedSymbolError(RuntimeError):
+    """A symbol name was multiply defined."""
+    def __init__(self, multiply_defined_symbols):
+        super(MultiplyDefinedSymbolError, self).__init__(
+            'Version script contains multiple definitions for: {}'.format(
+                ', '.join(multiply_defined_symbols)))
+        self.multiply_defined_symbols = multiply_defined_symbols
+
+
 class Version(object):
     """A version block of a symbol file."""
     def __init__(self, name, base, tags, symbols):
@@ -218,12 +248,15 @@ class Symbol(object):
     def __eq__(self, other):
         return self.name == other.name and set(self.tags) == set(other.tags)
 
-
 class SymbolFileParser(object):
     """Parses NDK symbol files."""
-    def __init__(self, input_file, api_map):
+    def __init__(self, input_file, api_map, arch, api, vndk, apex):
         self.input_file = input_file
         self.api_map = api_map
+        self.arch = arch
+        self.api = api
+        self.vndk = vndk
+        self.apex = apex
         self.current_line = None
 
     def parse(self):
@@ -235,7 +268,35 @@ class SymbolFileParser(object):
             else:
                 raise ParseError(
                     'Unexpected contents at top level: ' + self.current_line)
+
+        self.check_no_duplicate_symbols(versions)
         return versions
+
+    def check_no_duplicate_symbols(self, versions):
+        """Raises errors for multiply defined symbols.
+
+        This situation is the normal case when symbol versioning is actually
+        used, but this script doesn't currently handle that. The error message
+        will be a not necessarily obvious "error: redefition of 'foo'" from
+        stub.c, so it's better for us to catch this situation and raise a
+        better error.
+        """
+        symbol_names = set()
+        multiply_defined_symbols = set()
+        for version in versions:
+            if should_omit_version(version, self.arch, self.api, self.vndk, self.apex):
+                continue
+
+            for symbol in version.symbols:
+                if should_omit_symbol(symbol, self.arch, self.api, self.vndk, self.apex):
+                    continue
+
+                if symbol.name in symbol_names:
+                    multiply_defined_symbols.add(symbol.name)
+                symbol_names.add(symbol.name)
+        if multiply_defined_symbols:
+            raise MultiplyDefinedSymbolError(
+                sorted(list(multiply_defined_symbols)))
 
     def parse_version(self):
         """Parses a single version section and returns a Version object."""
@@ -274,7 +335,8 @@ class SymbolFileParser(object):
             elif global_scope and not cpp_symbols:
                 symbols.append(self.parse_symbol())
             else:
-                # We're in a hidden scope or in 'extern "C++"' block. Ignore everything.
+                # We're in a hidden scope or in 'extern "C++"' block. Ignore
+                # everything.
                 pass
         raise ParseError('Unexpected EOF in version block.')
 
@@ -310,12 +372,13 @@ class SymbolFileParser(object):
 
 class Generator(object):
     """Output generator that writes stub source files and version scripts."""
-    def __init__(self, src_file, version_script, arch, api, vndk):
+    def __init__(self, src_file, version_script, arch, api, vndk, apex):
         self.src_file = src_file
         self.version_script = version_script
         self.arch = arch
         self.api = api
         self.vndk = vndk
+        self.apex = apex
 
     def write(self, versions):
         """Writes all symbol data to the output files."""
@@ -324,20 +387,14 @@ class Generator(object):
 
     def write_version(self, version):
         """Writes a single version block's data to the output files."""
-        name = version.name
-        tags = version.tags
-        if should_omit_version(name, tags, self.arch, self.api, self.vndk):
+        if should_omit_version(version, self.arch, self.api, self.vndk, self.apex):
             return
 
-        section_versioned = symbol_versioned_in_api(tags, self.api)
+        section_versioned = symbol_versioned_in_api(version.tags, self.api)
         version_empty = True
         pruned_symbols = []
         for symbol in version.symbols:
-            if not self.vndk and 'vndk' in symbol.tags:
-                continue
-            if not symbol_in_arch(symbol.tags, self.arch):
-                continue
-            if not symbol_in_api(symbol.tags, self.arch, self.api):
+            if should_omit_symbol(symbol, self.arch, self.api, self.vndk, self.apex):
                 continue
 
             if symbol_versioned_in_api(symbol.tags, self.api):
@@ -400,6 +457,8 @@ def parse_args():
         help='Architecture being targeted.')
     parser.add_argument(
         '--vndk', action='store_true', help='Use the VNDK variant.')
+    parser.add_argument(
+        '--apex', action='store_true', help='Use the APEX variant.')
 
     parser.add_argument(
         '--api-map', type=os.path.realpath, required=True,
@@ -432,12 +491,16 @@ def main():
     logging.basicConfig(level=verbose_map[verbosity])
 
     with open(args.symbol_file) as symbol_file:
-        versions = SymbolFileParser(symbol_file, api_map).parse()
+        try:
+            versions = SymbolFileParser(symbol_file, api_map, args.arch, api,
+                                        args.vndk, args.apex).parse()
+        except MultiplyDefinedSymbolError as ex:
+            sys.exit('{}: error: {}'.format(args.symbol_file, ex))
 
     with open(args.stub_src, 'w') as src_file:
         with open(args.version_script, 'w') as version_file:
             generator = Generator(src_file, version_file, args.arch, api,
-                                  args.vndk)
+                                  args.vndk, args.apex)
             generator.write(versions)
 
 

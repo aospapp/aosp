@@ -20,6 +20,9 @@ limitations under the License.
         android:state_enabled="false"
         android:drawable="@drawable/ic_play_arrow_off" />
     <item
+        app:state_disabled="true"
+        android:drawable="@drawable/ic_play_arrow_off" />
+    <item
         app:state_playing="true"
         android:drawable="@drawable/ic_pause" />
     <item

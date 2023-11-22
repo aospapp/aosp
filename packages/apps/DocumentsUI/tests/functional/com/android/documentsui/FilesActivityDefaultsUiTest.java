@@ -20,12 +20,14 @@ import static com.android.documentsui.StubProvider.ROOT_0_ID;
 import static com.android.documentsui.StubProvider.ROOT_1_ID;
 
 import android.os.RemoteException;
-import android.support.test.filters.LargeTest;
-import android.support.v7.recyclerview.R;
+
+import androidx.recyclerview.R;
+import androidx.test.filters.LargeTest;
 
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.files.FilesActivity;
+import com.android.documentsui.filters.HugeLongTest;
 
 @LargeTest
 public class FilesActivityDefaultsUiTest extends ActivityTest<FilesActivity> {
@@ -47,14 +49,28 @@ public class FilesActivityDefaultsUiTest extends ActivityTest<FilesActivity> {
     public void testDefaultDirectory() throws Exception {
         device.waitForIdle();
 
-        // Separate logic for "Documents" root, which presence depends on the config setting
-        if (docsRootEnabled()) {
-            bots.main.assertWindowTitle("Documents");
+        boolean defaultRootBrowse
+                = context.getResources().getBoolean(R.bool.feature_default_root_in_browse);
+
+        if (defaultRootBrowse) {
+            // Separate logic for "Documents" root, which presence depends on the config setting
+            if (docsRootEnabled()) {
+                bots.main.assertWindowTitle("Documents");
+            } else {
+                bots.main.assertWindowTitle("Downloads");
+            }
         } else {
-            bots.main.assertWindowTitle("Downloads");
+            boolean showSearchBar =
+                    context.getResources().getBoolean(R.bool.show_search_bar);
+            if (showSearchBar) {
+                bots.main.assertSearchBarShow();
+            } else {
+                bots.main.assertWindowTitle("Recent");
+            }
         }
     }
 
+    @HugeLongTest
     public void testNavigate_FromEmptyDirectory() throws Exception {
         device.waitForIdle();
 
@@ -67,6 +83,7 @@ public class FilesActivityDefaultsUiTest extends ActivityTest<FilesActivity> {
         device.pressBack();
     }
 
+    @HugeLongTest
     public void testDefaultRoots() throws Exception {
         device.waitForIdle();
 

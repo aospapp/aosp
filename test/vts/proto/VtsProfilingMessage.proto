@@ -52,12 +52,18 @@ message VtsProfilingRecord {
   optional InstrumentationEventType event = 2;
   // Package name of the profiling HAL.
   optional bytes package = 3;
-  // Version of the profiling HAL.
-  optional float version = 4;
+  // Version of the profiling HAL (e.g. 1.0).
+  // Deprecated, use version_major and version_minor instead.
+  optional float version = 4 [deprecated = true];
   // Interface name of the profiling HAL.
   optional bytes interface = 5;
   // Message of the called function.
   optional FunctionSpecificationMessage func_msg = 6;
+  // use two ints to represent major and minor versions separately.
+  // HAL major version of the target component (e.g. 1.0 -> 1).
+  optional int32 version_major = 7 [default = -1];
+  // HAL minor version of the target component (e.g. 1.0 -> 0).
+  optional int32 version_minor = 8 [default = -1];
 }
 
 message VtsProfilingMessage {

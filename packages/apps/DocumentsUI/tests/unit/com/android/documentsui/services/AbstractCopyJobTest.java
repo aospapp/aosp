@@ -18,14 +18,21 @@ package com.android.documentsui.services;
 
 import static com.google.common.collect.Lists.newArrayList;
 
+import static org.junit.Assert.assertNotEquals;
+
+import android.app.Notification;
 import android.net.Uri;
 import android.provider.DocumentsContract;
 import android.test.suitebuilder.annotation.MediumTest;
+import android.text.format.DateUtils;
 
+import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.services.FileOperationService.OpType;
 
+import java.text.NumberFormat;
 import java.util.List;
+import java.util.stream.IntStream;
 
 @MediumTest
 public abstract class AbstractCopyJobTest<T extends CopyJob> extends AbstractJobTest<T> {
@@ -84,8 +91,16 @@ public abstract class AbstractCopyJobTest<T extends CopyJob> extends AbstractJob
     public void runCopyEmptyDirTest() throws Exception {
         Uri testDir = mDocs.createFolder(mSrcRoot, "emptyDir");
 
-        createJob(newArrayList(testDir)).run();
+        CopyJob job = createJob(newArrayList(testDir));
+        job.run();
         waitForJobFinished();
+
+        Notification progressNotification = job.getProgressNotification();
+        String copyPercentage = progressNotification.extras.getString(Notification.EXTRA_SUB_TEXT);
+
+        // the percentage representation should not be NaN.
+        assertNotEquals(copyPercentage.equals(NumberFormat.getPercentInstance().format(Double.NaN)),
+                "Percentage representation should not be NaN.");
 
         mDocs.assertChildCount(mDestRoot, 1);
         mDocs.assertHasDirectory(mDestRoot, "emptyDir");
@@ -158,6 +173,74 @@ public abstract class AbstractCopyJobTest<T extends CopyJob> extends AbstractJob
         mJobListener.assertFilesFailed(newArrayList("test1.txt"));
 
         mDocs.assertChildCount(mDestRoot, 0);
+    }
+
+    public void runCopyProgressForFileCountTest() throws Exception {
+        // Init FileCountProgressTracker with 10 docs required to copy.
+        TestCopyJobProcessTracker<CopyJob.FileCountProgressTracker> tracker =
+                new TestCopyJobProcessTracker(CopyJob.FileCountProgressTracker.class, 10,
+                        createJob(newArrayList(mDocs.createFolder(mSrcRoot, "dummyDir"))),
+                        (completed) -> NumberFormat.getPercentInstance().format(completed),
+                        (time) -> mContext.getString(R.string.copy_remaining,
+                                DateUtils.formatDuration((Long) time)));
+
+        // Assert init progress is 0 & default remaining time is -1.
+        tracker.getProcessTracker().start();
+        tracker.assertProgressTrackStarted();
+        tracker.assertStartedProgressEquals(0);
+        tracker.assertStartedRemainingTimeEquals(-1);
+
+        // Progress 20%: 2 docs processed after 1 sec, no remaining time since first sample.
+        IntStream.range(0, 2).forEach(__ -> tracker.getProcessTracker().onDocumentCompleted());
+        tracker.updateProgressAndRemainingTime(1000);
+        tracker.assertProgressEquals(0.2);
+        tracker.assertNoRemainingTime();
+
+        // Progress 40%: 4 docs processed after 2 secs, expect remaining time is 3 secs.
+        IntStream.range(2, 4).forEach(__ -> tracker.getProcessTracker().onDocumentCompleted());
+        tracker.updateProgressAndRemainingTime(2000);
+        tracker.assertProgressEquals(0.4);
+        tracker.assertReminingTimeEquals(3000L);
+
+        // progress 100%: 10 doc processed after 5 secs, expect no remaining time shown.
+        IntStream.range(4, 10).forEach(__ -> tracker.getProcessTracker().onDocumentCompleted());
+        tracker.updateProgressAndRemainingTime(5000);
+        tracker.assertProgressEquals(1.0);
+        tracker.assertNoRemainingTime();
+    }
+
+    public void runCopyProgressForByteCountTest() throws Exception {
+        // Init ByteCountProgressTracker with 100 KBytes required to copy.
+        TestCopyJobProcessTracker<CopyJob.ByteCountProgressTracker> tracker =
+                new TestCopyJobProcessTracker(CopyJob.ByteCountProgressTracker.class, 100000,
+                        createJob(newArrayList(mDocs.createFolder(mSrcRoot, "dummyDir"))),
+                        (completed) -> NumberFormat.getPercentInstance().format(completed),
+                        (time) -> mContext.getString(R.string.copy_remaining,
+                                DateUtils.formatDuration((Long) time)));
+
+        // Assert init progress is 0 & default remaining time is -1.
+        tracker.getProcessTracker().start();
+        tracker.assertProgressTrackStarted();
+        tracker.assertStartedProgressEquals(0);
+        tracker.assertStartedRemainingTimeEquals(-1);
+
+        // Progress 25%: 25 KBytes processed after 1 sec, no remaining time since first sample.
+        tracker.getProcessTracker().onBytesCopied(25000);
+        tracker.updateProgressAndRemainingTime(1000);
+        tracker.assertProgressEquals(0.25);
+        tracker.assertNoRemainingTime();
+
+        // Progress 50%: 50 KBytes processed after 2 secs, expect remaining time is 2 secs.
+        tracker.getProcessTracker().onBytesCopied(25000);
+        tracker.updateProgressAndRemainingTime(2000);
+        tracker.assertProgressEquals(0.5);
+        tracker.assertReminingTimeEquals(2000L);
+
+        // Progress 100%: 100 KBytes processed after 4 secs, expect no remaining time shown.
+        tracker.getProcessTracker().onBytesCopied(50000);
+        tracker.updateProgressAndRemainingTime(4000);
+        tracker.assertProgressEquals(1.0);
+        tracker.assertNoRemainingTime();
     }
 
     void waitForJobFinished() throws Exception {

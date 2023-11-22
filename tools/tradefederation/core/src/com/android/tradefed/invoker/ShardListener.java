@@ -135,21 +135,25 @@ public class ShardListener extends CollectingTestListener {
     public void invocationEnded(long elapsedTime) {
         super.invocationEnded(elapsedTime);
         synchronized (mMasterListener) {
-            logShardContent(getRunResults());
+            logShardContent(getMergedTestRunResults());
             IInvocationContext moduleContext = null;
-            for (TestRunResult runResult : getRunResults()) {
+            for (TestRunResult runResult : getMergedTestRunResults()) {
+
                 // Stop or start the module
                 if (moduleContext != null
-                        && !getModuleContextForRunResult(runResult).equals(moduleContext)) {
+                        && !getModuleContextForRunResult(runResult.getName())
+                                .equals(moduleContext)) {
                     mMasterListener.testModuleEnded();
                     moduleContext = null;
                 }
-                if (moduleContext == null && getModuleContextForRunResult(runResult) != null) {
-                    moduleContext = getModuleContextForRunResult(runResult);
+                if (moduleContext == null
+                        && getModuleContextForRunResult(runResult.getName()) != null) {
+                    moduleContext = getModuleContextForRunResult(runResult.getName());
                     mMasterListener.testModuleStarted(moduleContext);
                 }
 
-                mMasterListener.testRunStarted(runResult.getName(), runResult.getNumTests());
+                mMasterListener.testRunStarted(
+                        runResult.getName(), runResult.getExpectedTestCount());
                 forwardTestResults(runResult.getTestResults());
                 if (runResult.isRunFailure()) {
                     mMasterListener.testRunFailed(runResult.getRunFailureMessage());
@@ -165,6 +169,10 @@ public class ShardListener extends CollectingTestListener {
             if (moduleContext != null) {
                 mMasterListener.testModuleEnded();
                 moduleContext = null;
+            }
+            // In case there was no run, we still want to report the logs we received.
+            if (getMergedTestRunResults().isEmpty()) {
+                forwardLogAssociation(getCurrentRunResults().getRunLoggedFiles(), mMasterListener);
             }
             mMasterListener.invocationEnded(elapsedTime);
         }

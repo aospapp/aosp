@@ -27,8 +27,9 @@ import android.graphics.Paint;
 import android.graphics.Paint.Align;
 import android.graphics.PaintFlagsDrawFilter;
 import android.graphics.Rect;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -137,6 +138,7 @@ public class PaintFlagsDrawFilterTest {
 
         // Drawn without FILTER_BITMAP_FLAG, all pixels will be black or white.
         Paint simplePaint = new Paint();
+        simplePaint.setFilterBitmap(false);
         canvas.drawBitmap(grid, 0, 0, simplePaint);
 
         verifyContainsOnlyBlackAndWhite(dst);

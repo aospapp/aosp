@@ -253,6 +253,15 @@ void memcpy_to_float_from_q8_23(float *dst, const int32_t *src, size_t count)
     }
 }
 
+void memcpy_to_i32_from_u8(int32_t *dst, const uint8_t *src, size_t count)
+{
+    dst += count;
+    src += count;
+    for (; count > 0; --count) {
+        *--dst = ((int32_t)(*--src) - 0x80) << 24;
+    }
+}
+
 void memcpy_to_i32_from_i16(int32_t *dst, const int16_t *src, size_t count)
 {
     dst += count;

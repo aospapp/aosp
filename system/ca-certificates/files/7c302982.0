@@ -26,7 +26,8 @@ zl/HHk484IkzlQsPpTLWPFp5LBk=
 Certificate:
     Data:
         Version: 3 (0x2)
-        Serial Number: 15752444095811006489 (0xda9bec71f303b019)
+        Serial Number:
+            da:9b:ec:71:f3:03:b0:19
     Signature Algorithm: sha256WithRSAEncryption
         Issuer: C=PA, ST=Panama, L=Panama City, O=TrustCor Systems S. de R.L., OU=TrustCor Certificate Authority, CN=TrustCor RootCert CA-1
         Validity

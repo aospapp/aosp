@@ -28,6 +28,11 @@ import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.ITestFileFilterReceiver;
 import com.android.tradefed.testtype.ITestFilterReceiver;
+import com.android.tradefed.testtype.suite.params.IModuleParameter;
+import com.android.tradefed.testtype.suite.params.ModuleParameters;
+import com.android.tradefed.testtype.suite.params.ModuleParametersHelper;
+import com.android.tradefed.testtype.suite.params.NegativeHandler;
+import com.android.tradefed.testtype.suite.params.NotMultiAbiHandler;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.StreamUtil;
@@ -43,10 +48,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Retrieves Compatibility test module definitions from the repository. TODO: Add the expansion of
@@ -61,6 +69,10 @@ public class SuiteModuleLoader {
     private Map<String, List<SuiteTestFilter>> mIncludeFilters = new HashMap<>();
     private Map<String, List<SuiteTestFilter>> mExcludeFilters = new HashMap<>();
     private IConfigurationFactory mConfigFactory = ConfigurationFactory.getInstance();
+
+    private boolean mAllowParameterizedModules = false;
+    private ModuleParameters mForcedModuleParameter = null;
+    private Set<ModuleParameters> mExcludedModuleParameters = new HashSet<>();
 
     /**
      * Ctor for the SuiteModuleLoader.
@@ -83,20 +95,32 @@ public class SuiteModuleLoader {
         parseArgs(moduleArgs, mModuleOptions);
     }
 
+    /** Sets whether or not to allow parameterized modules. */
+    public final void setParameterizedModules(boolean allowed) {
+        mAllowParameterizedModules = allowed;
+    }
+
+    /** Sets the only {@link ModuleParameters} type that should be run. */
+    public final void setModuleParameter(ModuleParameters param) {
+        mForcedModuleParameter = param;
+    }
+
+    /** Sets the set of {@link ModuleParameters} that should not be considered at all. */
+    public final void setExcludedModuleParameters(Set<ModuleParameters> excludedParams) {
+        mExcludedModuleParameters = excludedParams;
+    }
+
     /** Main loading of configurations, looking into a folder */
     public LinkedHashMap<String, IConfiguration> loadConfigsFromDirectory(
-            File testsDir,
+            List<File> testsDirs,
             Set<IAbi> abis,
             String suitePrefix,
             String suiteTag,
             List<String> patterns) {
         LinkedHashMap<String, IConfiguration> toRun = new LinkedHashMap<>();
-
         List<File> listConfigFiles = new ArrayList<>();
-        List<File> extraTestCasesDirs = Arrays.asList(testsDir);
         listConfigFiles.addAll(
-                ConfigurationUtil.getConfigNamesFileFromDirs(
-                        suitePrefix, extraTestCasesDirs, patterns));
+                ConfigurationUtil.getConfigNamesFileFromDirs(suitePrefix, testsDirs, patterns));
         // Ensure stable initial order of configurations.
         Collections.sort(listConfigFiles);
         for (File configFile : listConfigFiles) {
@@ -173,63 +197,122 @@ public class SuiteModuleLoader {
         final String name = configName.replace(CONFIG_EXT, "");
         final String[] pathArg = new String[] {configFullName};
         try {
+            boolean primaryAbi = true;
+            boolean shouldCreateMultiAbi = true;
+            // If a particular parameter was requested to be run, find it.
+            IModuleParameter mForcedParameter = null;
+            if (mForcedModuleParameter != null) {
+                mForcedParameter =
+                        ModuleParametersHelper.getParameterHandler(
+                                mForcedModuleParameter, /* optionalParams */ false);
+            }
+
             // Invokes parser to process the test module config file
             // Need to generate a different config for each ABI as we cannot guarantee the
             // configs are idempotent. This however means we parse the same file multiple times
             for (IAbi abi : abis) {
-                String id = AbiUtils.createId(abi.getName(), name);
-                if (!shouldRunModule(id)) {
-                    // If the module should not run tests based on the state of filters,
-                    // skip this name/abi combination.
+                // Only enable the primary abi filtering when switching to the parameterized mode
+                if (mAllowParameterizedModules && !primaryAbi && !shouldCreateMultiAbi) {
                     continue;
                 }
-                IConfiguration config = mConfigFactory.createConfigurationFromArgs(pathArg);
+                String baseId = AbiUtils.createId(abi.getName(), name);
+                IConfiguration config = null;
+                try {
+                    config = mConfigFactory.createConfigurationFromArgs(pathArg);
+                } catch (ConfigurationException e) {
+                    // If the module should not have been running in the first place, give it a
+                    // pass on the configuration failure.
+                    if (!shouldRunModule(baseId)) {
+                        primaryAbi = false;
+                        // If the module should not run tests based on the state of filters,
+                        // skip this name/abi combination.
+                        continue;
+                    }
+                    throw e;
+                }
 
                 // If a suiteTag is used, we load with it.
                 if (!Strings.isNullOrEmpty(suiteTag)
                         && !config.getConfigurationDescription()
                                 .getSuiteTags()
                                 .contains(suiteTag)) {
-                    CLog.d(
-                            "Configuration %s does not include the suite-tag '%s'. Ignoring it.",
-                            configFullName, suiteTag);
+                    // Do not print here, it could leave several hundred lines of logs.
                     continue;
                 }
 
-                List<OptionDef> optionsToInject = new ArrayList<>();
-                if (mModuleOptions.containsKey(name)) {
-                    optionsToInject.addAll(mModuleOptions.get(name));
-                }
-                if (mModuleOptions.containsKey(id)) {
-                    optionsToInject.addAll(mModuleOptions.get(id));
-                }
-                config.injectOptionValues(optionsToInject);
-
-                // Set target preparers
-                List<ITargetPreparer> preparers = config.getTargetPreparers();
-                for (ITargetPreparer preparer : preparers) {
-                    if (preparer instanceof IAbiReceiver) {
-                        ((IAbiReceiver) preparer).setAbi(abi);
+                boolean skipCreatingBaseConfig = false;
+                List<IModuleParameter> params = null;
+                try {
+                    params = getModuleParameters(name, config);
+                } catch (ConfigurationException e) {
+                    // If the module should not have been running in the first place, give it a
+                    // pass on the configuration failure.
+                    if (!shouldRunModule(baseId)) {
+                        primaryAbi = false;
+                        // If the module should not run tests based on the state of filters,
+                        // skip this name/abi combination.
+                        continue;
                     }
-                }
-
-                // Set IRemoteTests
-                List<IRemoteTest> tests = config.getTests();
-                for (IRemoteTest test : tests) {
-                    String className = test.getClass().getName();
-                    if (mTestOptions.containsKey(className)) {
-                        config.injectOptionValues(mTestOptions.get(className));
-                    }
-                    addFiltersToTest(test, abi, name, mIncludeFilters, mExcludeFilters);
-                    if (test instanceof IAbiReceiver) {
-                        ((IAbiReceiver) test).setAbi(abi);
-                    }
+                    throw e;
                 }
 
-                // add the abi and module name to the description
-                config.getConfigurationDescription().setAbi(abi);
-                config.getConfigurationDescription().setModuleName(name);
-                toRun.put(id, config);
+                // Handle parameterized modules if enabled.
+                if (mAllowParameterizedModules) {
+
+                    if (params.isEmpty()
+                            && mForcedParameter != null
+                            && !(mForcedParameter instanceof NegativeHandler)) {
+                        // If the AndroidTest.xml doesn't specify any parameter but we forced a
+                        // parameter like 'instant' to execute. In this case we don't create the
+                        // standard module.
+                        continue;
+                    }
+
+                    shouldCreateMultiAbi = shouldCreateMultiAbiForBase(params);
+
+                    // If we find any parameterized combination.
+                    for (IModuleParameter param : params) {
+                        if (param instanceof NegativeHandler) {
+                            if (mForcedParameter != null
+                                    && !param.getClass().equals(mForcedParameter.getClass())) {
+                                skipCreatingBaseConfig = true;
+                            }
+                            continue;
+                        }
+                        if (mForcedParameter != null) {
+                            // When a particular parameter is forced, only create it not the others
+                            if (param.getClass().equals(mForcedParameter.getClass())) {
+                                skipCreatingBaseConfig = true;
+                            } else {
+                                continue;
+                            }
+                        }
+                        // Only create primary abi of parameterized modules
+                        if (!primaryAbi) {
+                            continue;
+                        }
+                        String fullId =
+                                String.format("%s[%s]", baseId, param.getParameterIdentifier());
+                        if (shouldRunParameterized(baseId, fullId)) {
+                            IConfiguration paramConfig =
+                                    mConfigFactory.createConfigurationFromArgs(pathArg);
+                            setUpConfig(name, baseId, fullId, paramConfig, abi);
+                            param.applySetup(paramConfig);
+                            toRun.put(fullId, paramConfig);
+                        }
+                    }
+                }
+                primaryAbi = false;
+                // If a parameterized form of the module was forced, we don't create the standard
+                // version of it.
+                if (skipCreatingBaseConfig) {
+                    continue;
+                }
+                if (shouldRunModule(baseId)) {
+                    // Always add the base regular configuration to the execution.
+                    setUpConfig(name, baseId, baseId, config, abi);
+                    toRun.put(baseId, config);
+                }
             }
         } catch (ConfigurationException e) {
             throw new RuntimeException(
@@ -238,6 +321,7 @@ public class SuiteModuleLoader {
                             configFullName, e.getMessage()),
                     e);
         }
+
         return toRun;
     }
 
@@ -296,6 +380,25 @@ public class SuiteModuleLoader {
         // if including all modules or includes exist for this module, and there are not excludes
         // for the entire module, this module should be run.
         return (mIncludeAll || !mdIncludes.isEmpty()) && !containsModuleExclude(mdExcludes);
+    }
+
+    /**
+     * Except if the parameterized module is explicitly excluded, including the base module result
+     * in including its parameterization variant.
+     */
+    private boolean shouldRunParameterized(String baseId, String parameterModuleId) {
+        // Explicitly excluded
+        List<SuiteTestFilter> mdExcludes = getFilterList(mExcludeFilters, parameterModuleId);
+        if (containsModuleExclude(mdExcludes)) {
+            return false;
+        }
+        // itself or its base is included
+        List<SuiteTestFilter> mdIncludes = getFilterList(mIncludeFilters, baseId);
+        List<SuiteTestFilter> mParamIncludes = getFilterList(mIncludeFilters, parameterModuleId);
+        if (mIncludeAll || !mdIncludes.isEmpty() || !mParamIncludes.isEmpty()) {
+            return true;
+        }
+        return false;
     }
 
     private void addTestIncludes(
@@ -394,6 +497,13 @@ public class SuiteModuleLoader {
                         "Expected delimiter ':' between option name and values.");
             }
             String optionName = remainder.substring(0, optionNameSep);
+            Pattern pattern = Pattern.compile("\\{(.*)\\}(.*)");
+            Matcher match = pattern.matcher(optionName);
+            if (match.find()) {
+                String alias = match.group(1);
+                String name = match.group(2);
+                optionName = alias + ":" + name;
+            }
             String optionValueString = remainder.substring(optionNameSep + 1);
             // TODO: See if QuotationTokenizer can be improved for multi-character delimiter.
             // or change the delimiter to a single char.
@@ -406,5 +516,105 @@ public class SuiteModuleLoader {
             }
             listOption.add(option);
         }
+    }
+
+    /** Gets the list of {@link IModuleParameter}s associated with a module. */
+    private List<IModuleParameter> getModuleParameters(String moduleName, IConfiguration config)
+            throws ConfigurationException {
+        List<IModuleParameter> params = new ArrayList<>();
+        // Track family of the parameters to make sure we have no duplicate.
+        Map<String, ModuleParameters> duplicateModule = new LinkedHashMap<>();
+
+        List<String> parameters =
+                config.getConfigurationDescription().getMetaData(ITestSuite.PARAMETER_KEY);
+        if (parameters == null || parameters.isEmpty()) {
+            return params;
+        }
+        for (String p : parameters) {
+            ModuleParameters suiteParam = ModuleParameters.valueOf(p.toUpperCase());
+            String family = suiteParam.getFamily();
+            if (duplicateModule.containsKey(family)) {
+                // Duplicate family members are not accepted.
+                throw new ConfigurationException(
+                        String.format(
+                                "Module %s is declaring parameter: "
+                                        + "%s and %s when only one expected.",
+                                moduleName, suiteParam, duplicateModule.get(family)));
+            } else {
+                duplicateModule.put(suiteParam.getFamily(), suiteParam);
+            }
+            // Do not consider the excluded parameterization dimension
+            if (mExcludedModuleParameters.contains(suiteParam)) {
+                CLog.d("'%s' was excluded via exclude-module-parameters.");
+                continue;
+            }
+            IModuleParameter handler =
+                    ModuleParametersHelper.getParameterHandler(
+                            suiteParam, /* optionalParams */ false);
+            params.add(handler);
+        }
+        return params;
+    }
+
+    /**
+     * Setup the options for the module configuration.
+     *
+     * @param name The base name of the module
+     * @param id The base id name of the module.
+     * @param fullId The full id of the module.
+     * @param config The module configuration.
+     * @param abi The abi of the module.
+     * @throws ConfigurationException
+     */
+    private void setUpConfig(String name, String id, String fullId, IConfiguration config, IAbi abi)
+            throws ConfigurationException {
+        List<OptionDef> optionsToInject = new ArrayList<>();
+        if (mModuleOptions.containsKey(name)) {
+            optionsToInject.addAll(mModuleOptions.get(name));
+        }
+        if (mModuleOptions.containsKey(id)) {
+            optionsToInject.addAll(mModuleOptions.get(id));
+        }
+        if (mModuleOptions.containsKey(fullId)) {
+            optionsToInject.addAll(mModuleOptions.get(fullId));
+        }
+        config.injectOptionValues(optionsToInject);
+
+        // Set target preparers
+        List<ITargetPreparer> preparers = config.getTargetPreparers();
+        for (ITargetPreparer preparer : preparers) {
+            if (preparer instanceof IAbiReceiver) {
+                ((IAbiReceiver) preparer).setAbi(abi);
+            }
+        }
+
+        // Set IRemoteTests
+        List<IRemoteTest> tests = config.getTests();
+        for (IRemoteTest test : tests) {
+            String className = test.getClass().getName();
+            if (mTestOptions.containsKey(className)) {
+                config.injectOptionValues(mTestOptions.get(className));
+            }
+            addFiltersToTest(test, abi, name, mIncludeFilters, mExcludeFilters);
+            if (test instanceof IAbiReceiver) {
+                ((IAbiReceiver) test).setAbi(abi);
+            }
+        }
+
+        // add the abi and module name to the description
+        config.getConfigurationDescription().setAbi(abi);
+        config.getConfigurationDescription().setModuleName(name);
+
+        config.validateOptions(false);
+    }
+
+    /** Whether or not the base configuration should be created for all abis or not. */
+    private boolean shouldCreateMultiAbiForBase(List<IModuleParameter> params) {
+        for (IModuleParameter param : params) {
+            if (param instanceof NotMultiAbiHandler) {
+                return false;
+            }
+        }
+        return true;
     }
 }

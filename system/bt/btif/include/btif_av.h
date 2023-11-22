@@ -92,27 +92,6 @@ uint8_t btif_av_get_peer_sep(void);
 void btif_av_clear_remote_suspend_flag(void);
 
 /**
- * Process AVRCP Open event.
- *
- * @param peer_address the peer address
- */
-void btif_av_avrcp_event_open(const RawAddress& peer_address);
-
-/**
- * Process AVRCP Close event.
- *
- * @param peer_address the peer address
- */
-void btif_av_avrcp_event_close(const RawAddress& peer_address);
-
-/**
- * Process AVRCP Remote Play event.
- *
- * @param peer_address the peer address
- */
-void btif_av_avrcp_event_remote_play(const RawAddress& peer_address);
-
-/**
  * Check whether the connected A2DP peer supports EDR.
  *
  * The value can be provided only if the remote peer is connected.
@@ -207,4 +186,13 @@ void btif_av_src_disconnect_sink(const RawAddress& peer_address);
  *  @param  none
  */
 bool btif_av_is_a2dp_offload_enabled(void);
+
+/**
+ * Check whether peer device is silenced
+ *
+ * @param peer_address to check
+ *
+ */
+bool btif_av_is_peer_silenced(const RawAddress& peer_address);
+
 #endif /* BTIF_AV_H */

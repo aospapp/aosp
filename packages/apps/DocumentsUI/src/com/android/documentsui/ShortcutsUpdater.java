@@ -15,7 +15,7 @@
  */
 package com.android.documentsui;
 
-import android.annotation.DrawableRes;
+import androidx.annotation.DrawableRes;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ShortcutInfo;
@@ -25,6 +25,7 @@ import android.graphics.drawable.Icon;
 import com.android.documentsui.R;
 import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
+import com.android.documentsui.base.Shared;
 import com.android.documentsui.files.FilesActivity;
 import com.android.documentsui.prefs.ScopedPreferences;
 
@@ -48,6 +49,10 @@ public final class ShortcutsUpdater {
     }
 
     public void update(Collection<RootInfo> roots) {
+        if (!Shared.isLauncherEnabled(mContext)) {
+            return;
+        }
+
         ShortcutManager mgr = mContext.getSystemService(ShortcutManager.class);
 
         Map<String, ShortcutInfo> existing = getPinnedShortcuts(mgr);
@@ -117,7 +122,7 @@ public final class ShortcutsUpdater {
     }
 
     private int getNumDynSlots(ShortcutManager mgr, int numDevices) {
-        int slots = mgr.getMaxShortcutCountForActivity() - mgr.getManifestShortcuts().size();
+        int slots = mgr.getMaxShortcutCountPerActivity() - mgr.getManifestShortcuts().size();
         return numDevices >= slots ? slots : numDevices;
     }
 

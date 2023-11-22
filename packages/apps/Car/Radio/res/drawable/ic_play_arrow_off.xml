@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="56dp"
-    android:height="56dp"
+    android:width="@dimen/ic_play_arrow_off_width"
+    android:height="@dimen/ic_play_arrow_off_height"
     android:viewportWidth="24"
     android:viewportHeight="24">
 
@@ -23,11 +23,11 @@ limitations under the License.
             android:translateX="3.000000"
             android:translateY="3.000000">
         <path
-            android:fillColor="@android:color/black"
+            android:fillColor="@color/play_arrow_off_fill_color"
             android:strokeWidth="1"
             android:pathData="M16,9 L7.249,3.431 L14.048,10.242 L16,9 Z" />
         <path
-            android:fillColor="@android:color/black"
+            android:fillColor="@color/play_arrow_off_fill_color"
             android:strokeWidth="1"
             android:pathData="M18,16.73 L1.27,0 L0,1.27 L5,6.27 L5,16 L10.946,12.216 L16.73,18 L18,16.73 Z" />
     </group>

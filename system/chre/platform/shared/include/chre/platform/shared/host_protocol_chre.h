@@ -28,6 +28,19 @@ namespace chre {
 typedef flatbuffers::Offset<fbs::NanoappListEntry> NanoappListEntryOffset;
 
 /**
+ * Checks that a string encapsulated as a byte vector is null-terminated, and
+ * if it is, returns a pointer to the vector's data. Otherwise returns null.
+ *
+ * This is similar to getStringFromByteVector in host_protocol_host.h. Ensure
+ * that method's implementation is kept in sync with this.
+ *
+ * @param vec Target vector, can be null
+ *
+ * @return Pointer to the vector's data, or null
+ */
+const char *getStringFromByteVector(const flatbuffers::Vector<int8_t> *vec);
+
+/**
  * These methods are called from decodeMessageFromHost() and must be implemented
  * by the code that calls it to handle parsed messages.
  */
@@ -44,7 +57,8 @@ class HostMessageHandlers {
   static void handleLoadNanoappRequest(
       uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
       uint32_t appVersion, uint32_t targetApiVersion, const void *buffer,
-      size_t bufferLen, uint32_t fragmentId, size_t appBinaryLen);
+      size_t bufferLen, const char *appFileName, uint32_t fragmentId,
+      size_t appBinaryLen);
 
   static void handleUnloadNanoappRequest(
       uint16_t hostClientId, uint32_t transactionId, uint64_t appId,

@@ -18,4 +18,6 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="7237115648380675159">"അറിവ് നൽകുന്ന സന്ദേശം"</string>
     <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"അറിവ് നൽകുന്ന സന്ദേശം"</string>
+    <string name="cmas_required_monthly_test" msgid="9061179556831144678">"അടിയന്തര മുന്നറിയിപ്പ്: പരീക്ഷണ സന്ദേശം"</string>
+    <string name="cmas_exercise_alert" msgid="996644454768618214">"അടിയന്തര മുന്നറിയിപ്പ്: പരിശീലന/അനുകരണ സന്ദേശം"</string>
 </resources>

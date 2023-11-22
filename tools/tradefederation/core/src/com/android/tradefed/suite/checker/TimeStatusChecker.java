@@ -15,6 +15,7 @@
  */
 package com.android.tradefed.suite.checker;
 
+import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
@@ -25,6 +26,8 @@ import java.util.Date;
 
 /** Status checker to ensure that the device and host time are kept in sync. */
 public class TimeStatusChecker implements ISystemStatusChecker {
+
+    private boolean mFailing = false;
 
     @Override
     public StatusCheckerResult postExecutionCheck(ITestDevice device)
@@ -37,11 +40,23 @@ public class TimeStatusChecker implements ISystemStatusChecker {
                                     + "resetting the device time.",
                             TimeUtil.formatElapsedTime(difference));
             CLog.w(message);
+            device.logOnDevice(
+                    "Tradefed.TimeStatusChecker",
+                    LogLevel.VERBOSE,
+                    "Module Checker is about to reset the time.");
             device.setDate(new Date());
+            if (mFailing) {
+                // Avoid capturing more bugreport if the issue continues to happen, only the first
+                // module will capture it.
+                CLog.w("TimeStatusChecker is still failing on %s", device.getSerialNumber());
+                return new StatusCheckerResult(CheckStatus.SUCCESS);
+            }
             StatusCheckerResult result = new StatusCheckerResult(CheckStatus.FAILED);
             result.setErrorMessage(message);
+            mFailing = true;
             return result;
         }
+        mFailing = false;
         return new StatusCheckerResult(CheckStatus.SUCCESS);
     }
 }

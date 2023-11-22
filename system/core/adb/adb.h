@@ -28,10 +28,12 @@
 #include "adb_trace.h"
 #include "fdevent.h"
 #include "socket.h"
+#include "types.h"
 #include "usb.h"
 
 constexpr size_t MAX_PAYLOAD_V1 = 4 * 1024;
 constexpr size_t MAX_PAYLOAD = 1024 * 1024;
+constexpr size_t MAX_FRAMEWORK_PAYLOAD = 64 * 1024;
 
 constexpr size_t LINUX_MAX_SOCKET_SIZE = 4194304;
 
@@ -58,24 +60,10 @@ constexpr size_t LINUX_MAX_SOCKET_SIZE = 4194304;
 std::string adb_version();
 
 // Increment this when we want to force users to start a new adb server.
-#define ADB_SERVER_VERSION 40
+#define ADB_SERVER_VERSION 41
 
 using TransportId = uint64_t;
 class atransport;
-
-struct amessage {
-    uint32_t command;     /* command identifier constant      */
-    uint32_t arg0;        /* first argument                   */
-    uint32_t arg1;        /* second argument                  */
-    uint32_t data_length; /* length of payload (0 is allowed) */
-    uint32_t data_check;  /* checksum of data payload         */
-    uint32_t magic;       /* command ^ 0xffffffff             */
-};
-
-struct apacket {
-    amessage msg;
-    std::string payload;
-};
 
 uint32_t calculate_apacket_checksum(const apacket* packet);
 
@@ -108,22 +96,36 @@ enum TransportType {
 
 enum ConnectionState {
     kCsAny = -1,
-    kCsOffline = 0,
+
+    kCsConnecting = 0,  // Haven't received a response from the device yet.
+    kCsAuthorizing,     // Authorizing with keys from ADB_VENDOR_KEYS.
+    kCsUnauthorized,    // ADB_VENDOR_KEYS exhausted, fell back to user prompt.
+    kCsNoPerm,          // Insufficient permissions to communicate with the device.
+    kCsOffline,
+
     kCsBootloader,
     kCsDevice,
     kCsHost,
     kCsRecovery,
-    kCsNoPerm,  // Insufficient permissions to communicate with the device.
     kCsSideload,
-    kCsUnauthorized,
+    kCsRescue,
 };
 
-void print_packet(const char* label, apacket* p);
+inline bool ConnectionStateIsOnline(ConnectionState state) {
+    switch (state) {
+        case kCsBootloader:
+        case kCsDevice:
+        case kCsHost:
+        case kCsRecovery:
+        case kCsSideload:
+        case kCsRescue:
+            return true;
+        default:
+            return false;
+    }
+}
 
-// These use the system (v)fprintf, not the adb prefixed ones defined in sysdeps.h, so they
-// shouldn't be tagged with ADB_FORMAT_ARCHETYPE.
-void fatal(const char* fmt, ...) __attribute__((noreturn, format(__printf__, 1, 2)));
-void fatal_errno(const char* fmt, ...) __attribute__((noreturn, format(__printf__, 1, 2)));
+void print_packet(const char* label, apacket* p);
 
 void handle_packet(apacket* p, atransport* t);
 
@@ -131,7 +133,7 @@ int launch_server(const std::string& socket_spec);
 int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply_fd);
 
 /* initialize a transport object's func pointers and state */
-int init_socket_transport(atransport* t, int s, int port, int local);
+int init_socket_transport(atransport* t, unique_fd s, int port, int local);
 void init_usb_transport(atransport* t, usb_handle* usb);
 
 std::string getEmulatorSerialString(int console_port);
@@ -140,24 +142,35 @@ atransport* find_emulator_transport_by_adb_port(int adb_port);
 atransport* find_emulator_transport_by_console_port(int console_port);
 #endif
 
-int service_to_fd(const char* name, atransport* transport);
+unique_fd service_to_fd(std::string_view name, atransport* transport);
+#if !ADB_HOST
+unique_fd daemon_service_to_fd(std::string_view name, atransport* transport);
+#endif
+
 #if ADB_HOST
-asocket* host_service_to_socket(const char* name, const char* serial, TransportId transport_id);
+asocket* host_service_to_socket(std::string_view name, std::string_view serial,
+                                TransportId transport_id);
+#endif
+
+#if !ADB_HOST
+asocket* daemon_service_to_socket(std::string_view name);
+#endif
+
+#if !ADB_HOST
+unique_fd execute_abb_command(std::string_view command);
 #endif
 
 #if !ADB_HOST
 int init_jdwp(void);
 asocket* create_jdwp_service_socket();
 asocket* create_jdwp_tracker_service_socket();
-int create_jdwp_connection_fd(int jdwp_pid);
+unique_fd create_jdwp_connection_fd(int jdwp_pid);
 #endif
 
-int handle_forward_request(const char* service, atransport* transport, int reply_fd);
-
-#if !ADB_HOST
-void framebuffer_service(int fd, void* cookie);
-void set_verity_enabled_state_service(int fd, void* cookie);
-#endif
+bool handle_forward_request(const char* service, atransport* transport, int reply_fd);
+bool handle_forward_request(const char* service,
+                            std::function<atransport*(std::string* error)> transport_acquirer,
+                            int reply_fd);
 
 /* packet allocator */
 apacket* get_apacket(void);
@@ -197,6 +210,9 @@ extern const char* adb_device_banner;
 
 #define CHUNK_SIZE (64 * 1024)
 
+// Argument delimeter for adb abb command.
+#define ABB_ARG_DELIMETER ('\0')
+
 #if !ADB_HOST
 #define USB_FFS_ADB_PATH "/dev/usb-ffs/adb/"
 #define USB_FFS_ADB_EP(x) USB_FFS_ADB_PATH #x
@@ -206,8 +222,15 @@ extern const char* adb_device_banner;
 #define USB_FFS_ADB_IN USB_FFS_ADB_EP(ep2)
 #endif
 
-int handle_host_request(const char* service, TransportType type, const char* serial,
-                        TransportId transport_id, int reply_fd, asocket* s);
+enum class HostRequestResult {
+    Handled,
+    SwitchedTransport,
+    Unhandled,
+};
+
+HostRequestResult handle_host_request(std::string_view service, TransportType type,
+                                      const char* serial, TransportId transport_id, int reply_fd,
+                                      asocket* s);
 
 void handle_online(atransport* t);
 void handle_offline(atransport* t);

@@ -41,7 +41,7 @@ template<typename INTERFACE>
 class BpInterface : public INTERFACE, public IInterface, public BpHwRefBase
 {
 public:
-                                BpInterface(const sp<IBinder>& remote);
+    explicit                    BpInterface(const sp<IBinder>& remote);
     virtual IBinder*            onAsBinder();
 };
 

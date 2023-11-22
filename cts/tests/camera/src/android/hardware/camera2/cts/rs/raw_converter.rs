@@ -29,6 +29,7 @@ uint cfaPattern; // The Color Filter Arrangement pattern used
 uint gainMapWidth;  // The width of the gain map
 uint gainMapHeight;  // The height of the gain map
 bool hasGainMap; // Does gainmap exist?
+bool isMonochrome;  // Is monochrome camera?
 rs_matrix3x3 sensorToIntermediate; // Color transform from sensor to a wide-gamut colorspace
 rs_matrix3x3 intermediateToSRGB; // Color transform from wide-gamut colorspace to sRGB
 ushort4 blackLevelPattern; // Blacklevel to subtract for each channel, given in CFA order
@@ -360,13 +361,34 @@ uchar4 RS_KERNEL convert_RAW_To_ARGB(uint x, uint y) {
     if (xP == rawWidth - 1) xP = rawWidth - 2;
     if (yP == rawHeight - 1) yP = rawHeight  - 2;
 
-    float patch[9];
-    // TODO: Once ScriptGroup and RS kernels have been updated to allow for iteration over 3x3 pixel
-    // patches, this can be optimized to avoid re-applying the pre-demosaic steps for each pixel,
-    // potentially achieving a 9x speedup here.
-    load3x3(xP, yP, inputRawBuffer, /*out*/ patch);
-    linearizeAndGainmap(xP, yP, blackLevelPattern, whiteLevel, cfaPattern, /*inout*/patch);
-    pRGB = demosaic(xP, yP, cfaPattern, patch);
+    if (isMonochrome) {
+        float pixel = *((ushort *) rsGetElementAt(inputRawBuffer, x, y));
 
-    return rsPackColorTo8888(applyColorspace(pRGB));
+        // Apply linearization and gain map
+        float4 gains = 1.f;
+        if (hasGainMap) {
+            gains = getGain(xP, yP);
+        }
+        float bl = blackLevelPattern.x;
+        float g = gains.x;
+        pixel = clamp(g * (pixel - bl) / (whiteLevel - bl), 0.f, 1.f);
+
+        // Use same Y value for R, G, and B.
+        pRGB.x = pRGB.y = pRGB.z = pixel;
+
+        // apply tonemap and gamma correction
+        pRGB = tonemap(pRGB);
+        pRGB = gammaCorrectPixel(pRGB);
+    } else {
+        float patch[9];
+        // TODO: Once ScriptGroup and RS kernels have been updated to allow for iteration over 3x3 pixel
+        // patches, this can be optimized to avoid re-applying the pre-demosaic steps for each pixel,
+        // potentially achieving a 9x speedup here.
+        load3x3(xP, yP, inputRawBuffer, /*out*/ patch);
+        linearizeAndGainmap(xP, yP, blackLevelPattern, whiteLevel, cfaPattern, /*inout*/patch);
+        pRGB = demosaic(xP, yP, cfaPattern, patch);
+        pRGB = applyColorspace(pRGB);
+    }
+
+    return rsPackColorTo8888(pRGB);
 }

@@ -26,13 +26,16 @@
 
 namespace art {
 
-AotClassLinker::AotClassLinker(InternTable *intern_table) : ClassLinker(intern_table) {}
+AotClassLinker::AotClassLinker(InternTable* intern_table)
+    : ClassLinker(intern_table, /*fast_class_not_found_exceptions=*/ false) {}
 
 AotClassLinker::~AotClassLinker() {}
 
 // Wrap the original InitializeClass with creation of transaction when in strict mode.
-bool AotClassLinker::InitializeClass(Thread* self, Handle<mirror::Class> klass,
-                                  bool can_init_statics, bool can_init_parents) {
+bool AotClassLinker::InitializeClass(Thread* self,
+                                     Handle<mirror::Class> klass,
+                                     bool can_init_statics,
+                                     bool can_init_parents) {
   Runtime* const runtime = Runtime::Current();
   bool strict_mode_ = runtime->IsActiveStrictTransactionMode();
 
@@ -52,7 +55,7 @@ bool AotClassLinker::InitializeClass(Thread* self, Handle<mirror::Class> klass,
   }
 
   if (strict_mode_) {
-    runtime->EnterTransactionMode(true, klass.Get()->AsClass());
+    runtime->EnterTransactionMode(true, klass.Get()->AsClass().Ptr());
   }
   bool success = ClassLinker::InitializeClass(self, klass, can_init_statics, can_init_parents);
 

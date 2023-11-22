@@ -13,9 +13,6 @@ android {
                 }
             }
             packagingOptions {
-                // Contain debug info in the libraries.
-                doNotStrip "**.so"
-
                 // Exclude wrap.sh for architectures not built.
                 if (abiFiltersForWrapScript) {
                     def exclude_abis = ["armeabi", "armeabi-v7a", "arm64-v8a",

@@ -16,30 +16,31 @@
 
 package android.app.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.app.AlertDialog;
 import android.app.Instrumentation;
 import android.app.stubs.DialogStubActivity;
+import android.app.stubs.R;
 import android.content.DialogInterface;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.KeyEvent;
 import android.widget.Button;
 
-import com.android.compatibility.common.util.PollingCheck;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.FlakyTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
-import android.app.stubs.R;
+import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertNotNull;
 
 /*
  * Test AlertDialog
@@ -174,6 +175,7 @@ public class AlertDialogTest {
         assertTrue(mActivity.getDialog().isShowing());
     }
 
+    @FlakyTest(bugId = 133760851)
     @Test
     public void testCallback() {
         startDialogActivity(DialogStubActivity.TEST_ALERTDIALOG_CALLBACK);
@@ -201,6 +203,7 @@ public class AlertDialogTest {
         assertTrue(mActivity.onCancelCalled);
     }
 
+    @FlakyTest(bugId = 133760851)
     @Test
     public void testAlertDialogNotCancelable() throws Exception {
         startDialogActivity(DialogStubActivity.TEST_ALERTDIALOG_NOT_CANCELABLE);

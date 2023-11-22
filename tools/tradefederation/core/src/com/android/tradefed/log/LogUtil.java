@@ -380,14 +380,13 @@ public class LogUtil {
         }
 
         /**
-         * Parses the simple class name out of the full class name. If the formatting already
-         * looks like a simple class name, then just returns that.
+         * Parses the simple class name out of the full class name. If the formatting already looks
+         * like a simple class name, then just returns that.
          *
          * @param fullName the full class name to parse
          * @return The simple class name
          */
-        // @VisibleForTesting
-        static String parseClassName(String fullName) {
+        public static String parseClassName(String fullName) {
             int lastdot = fullName.lastIndexOf('.');
             String simpleName = fullName;
             if (lastdot != -1) {

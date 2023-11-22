@@ -32,38 +32,33 @@
 
 #include "adb.h"
 #include "adb_auth.h"
+#include "adb_client.h"
 #include "adb_listeners.h"
 #include "adb_utils.h"
 #include "commandline.h"
 #include "sysdeps/chrono.h"
 #include "transport.h"
 
+const char** __adb_argv;
+const char** __adb_envp;
+
 static void setup_daemon_logging() {
     const std::string log_file_path(GetLogFilePath());
-    int fd = unix_open(log_file_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0640);
+    int fd = unix_open(log_file_path, O_WRONLY | O_CREAT | O_APPEND, 0640);
     if (fd == -1) {
-        fatal("cannot open '%s': %s", log_file_path.c_str(), strerror(errno));
+        PLOG(FATAL) << "cannot open " << log_file_path;
     }
     if (dup2(fd, STDOUT_FILENO) == -1) {
-        fatal("cannot redirect stdout: %s", strerror(errno));
+        PLOG(FATAL) << "cannot redirect stdout";
     }
     if (dup2(fd, STDERR_FILENO) == -1) {
-        fatal("cannot redirect stderr: %s", strerror(errno));
+        PLOG(FATAL) << "cannot redirect stderr";
     }
     unix_close(fd);
 
     fprintf(stderr, "--- adb starting (pid %d) ---\n", getpid());
     LOG(INFO) << adb_version();
 }
-
-#if defined(_WIN32)
-static BOOL WINAPI ctrlc_handler(DWORD type) {
-    // TODO: Consider trying to kill a starting up adb server (if we're in
-    // launch_server) by calling GenerateConsoleCtrlEvent().
-    exit(STATUS_CONTROL_C_EXIT);
-    return TRUE;
-}
-#endif
 
 void adb_server_cleanup() {
     // Upon exit, we want to clean up in the following order:
@@ -89,20 +84,24 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply
     // unbuffer stdout and stderr just like if we were run at the console.
     // This also keeps stderr unbuffered when it is redirected to adb.log.
     if (is_daemon) {
-        if (setvbuf(stdout, NULL, _IONBF, 0) == -1) {
-            fatal("cannot make stdout unbuffered: %s", strerror(errno));
+        if (setvbuf(stdout, nullptr, _IONBF, 0) == -1) {
+            PLOG(FATAL) << "cannot make stdout unbuffered";
         }
-        if (setvbuf(stderr, NULL, _IONBF, 0) == -1) {
-            fatal("cannot make stderr unbuffered: %s", strerror(errno));
+        if (setvbuf(stderr, nullptr, _IONBF, 0) == -1) {
+            PLOG(FATAL) << "cannot make stderr unbuffered";
         }
     }
 
-    SetConsoleCtrlHandler(ctrlc_handler, TRUE);
-#else
+    // TODO: On Ctrl-C, consider trying to kill a starting up adb server (if we're in
+    // launch_server) by calling GenerateConsoleCtrlEvent().
+
+    // On Windows, SIGBREAK is when Ctrl-Break is pressed or the console window is closed. It should
+    // act like Ctrl-C.
+    signal(SIGBREAK, [](int) { raise(SIGINT); });
+#endif
     signal(SIGINT, [](int) {
         fdevent_run_on_main_thread([]() { exit(0); });
     });
-#endif
 
     char* leak = getenv("ADB_LEAK");
     if (leak && strcmp(leak, "1") == 0) {
@@ -117,10 +116,21 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply
     atexit(adb_server_cleanup);
 
     init_transport_registration();
-    init_mdns_transport_discovery();
+    init_reconnect_handler();
 
-    usb_init();
-    local_init(DEFAULT_ADB_LOCAL_TRANSPORT_PORT);
+    if (!getenv("ADB_MDNS") || strcmp(getenv("ADB_MDNS"), "0") != 0) {
+        init_mdns_transport_discovery();
+    }
+
+    if (!getenv("ADB_USB") || strcmp(getenv("ADB_USB"), "0") != 0) {
+        usb_init();
+    } else {
+        adb_notify_device_scan_complete();
+    }
+
+    if (!getenv("ADB_EMU") || strcmp(getenv("ADB_EMU"), "0") != 0) {
+        local_init(DEFAULT_ADB_LOCAL_TRANSPORT_PORT);
+    }
 
     std::string error;
 
@@ -131,7 +141,7 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply
     while (install_listener(socket_spec, "*smartsocket*", nullptr, 0, nullptr, &error) !=
            INSTALL_STATUS_OK) {
         if (std::chrono::steady_clock::now() - start > 0.5s) {
-            fatal("could not install *smartsocket* listener: %s", error.c_str());
+            LOG(FATAL) << "could not install *smartsocket* listener: " << error;
         }
 
         std::this_thread::sleep_for(100ms);
@@ -147,7 +157,7 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply
         // setsid will fail with EPERM if it's already been a lead process of new session.
         // Ignore such error.
         if (setsid() == -1 && errno != EPERM) {
-            fatal("setsid() failed: %s", strerror(errno));
+            PLOG(FATAL) << "setsid() failed";
         }
 #endif
 
@@ -165,19 +175,19 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply
             const DWORD bytes_to_write = arraysize(ack) - 1;
             DWORD written = 0;
             if (!WriteFile(ack_reply_handle, ack, bytes_to_write, &written, NULL)) {
-                fatal("adb: cannot write ACK to handle 0x%p: %s", ack_reply_handle,
-                      android::base::SystemErrorCodeToString(GetLastError()).c_str());
+                LOG(FATAL) << "cannot write ACK to handle " << ack_reply_handle
+                           << android::base::SystemErrorCodeToString(GetLastError());
             }
             if (written != bytes_to_write) {
-                fatal("adb: cannot write %lu bytes of ACK: only wrote %lu bytes", bytes_to_write,
-                      written);
+                LOG(FATAL) << "cannot write " << bytes_to_write << " bytes of ACK: only wrote "
+                           << written << " bytes";
             }
             CloseHandle(ack_reply_handle);
 #else
             // TODO(danalbert): Can't use SendOkay because we're sending "OK\n", not
             // "OKAY".
             if (!android::base::WriteStringToFd("OK\n", ack_reply_fd)) {
-                fatal_errno("error writing ACK to fd %d", ack_reply_fd);
+                PLOG(FATAL) << "error writing ACK to fd " << ack_reply_fd;
             }
             unix_close(ack_reply_fd);
 #endif
@@ -185,13 +195,29 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply
         notify_thread.detach();
     }
 
+#if defined(__linux__)
+    // Write our location to .android/adb.$PORT, so that older clients can exec us.
+    std::string path;
+    if (!android::base::Readlink("/proc/self/exe", &path)) {
+        PLOG(ERROR) << "failed to readlink /proc/self/exe";
+    }
+
+    std::optional<std::string> server_executable_path = adb_get_server_executable_path();
+    if (server_executable_path) {
+      if (!android::base::WriteStringToFile(path, *server_executable_path)) {
+          PLOG(ERROR) << "failed to write server path to " << path;
+      }
+    }
+#endif
+
     D("Event loop starting");
     fdevent_loop();
-
     return 0;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char* argv[], char* envp[]) {
+    __adb_argv = const_cast<const char**>(argv);
+    __adb_envp = const_cast<const char**>(envp);
     adb_trace_init(argv);
     return adb_commandline(argc - 1, const_cast<const char**>(argv + 1));
 }

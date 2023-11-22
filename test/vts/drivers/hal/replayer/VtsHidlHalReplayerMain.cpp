@@ -28,6 +28,7 @@
 
 #include <android-base/logging.h>
 
+#include <resource_manager/VtsResourceManager.h>
 #include "VtsHidlHalReplayer.h"
 #include "driver_manager/VtsHalDriverManager.h"
 
@@ -117,8 +118,9 @@ int main(int argc, char** argv) {
 
   string trace_path = argv[optind];
 
-  android::vts::VtsHalDriverManager driver_manager(spec_dir_path,
-                                                   kDefaultEpochCount, "");
+  android::vts::VtsResourceManager resource_manager;
+  android::vts::VtsHalDriverManager driver_manager(
+      spec_dir_path, kDefaultEpochCount, "", &resource_manager);
   android::vts::VtsHidlHalReplayer replayer(&driver_manager);
 
   if (list_service) {

@@ -22,6 +22,7 @@
  */
 package libcore.util;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.Arrays;
@@ -30,13 +31,15 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
 import libcore.io.BufferIterator;
+import libcore.timezone.ZoneInfoDB;
 
 /**
  * Our concrete TimeZone implementation, backed by zoneinfo data.
  *
  * <p>This reads time zone information from a binary file stored on the platform. The binary file
- * is essentially a single file containing compacted versions of all the tzfile (see
- * {@code man 5 tzfile} for details of the source) and an index by long name, e.g. Europe/London.
+ * is essentially a single file containing compacted versions of all the tzfiles produced by the
+ * zone info compiler (zic) tool (see {@code man 5 tzfile} for details of the format and
+ * {@code man 8 zic}) and an index by long name, e.g. Europe/London.
  *
  * <p>The compacted form is created by {@code external/icu/tools/ZoneCompactor.java} and is used
  * by both this and Bionic. {@link ZoneInfoDB} is responsible for mapping the binary file, and
@@ -60,8 +63,12 @@ import libcore.io.BufferIterator;
  * dates before 1900 and after 2038. There is an extended version of the table that uses 64 bits
  * to store the data but that information is not used by this.
  *
+ * <p>This class should be in libcore.timezone but this class is Serializable so cannot
+ * be moved there without breaking apps that have (for some reason) serialized TimeZone objects.
+ *
  * @hide - used to implement TimeZone
  */
+@libcore.api.CorePlatformApi
 public final class ZoneInfo extends TimeZone {
     private static final long MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
     private static final long MILLISECONDS_PER_400_YEARS =
@@ -80,7 +87,16 @@ public final class ZoneInfo extends TimeZone {
     // Proclaim serialization compatibility with pre-OpenJDK AOSP
     static final long serialVersionUID = -4598738130123921552L;
 
+    /**
+     * The (best guess) non-DST offset used "today". It is stored in milliseconds.
+     * See also {@link #mOffsets} which holds values relative to this value, albeit in seconds.
+     */
     private int mRawOffset;
+
+    /**
+     * The earliest non-DST offset for the zone. It is stored in milliseconds and is absolute, i.e.
+     * it is not relative to mRawOffset.
+     */
     private final int mEarliestRawOffset;
 
     /**
@@ -131,6 +147,7 @@ public final class ZoneInfo extends TimeZone {
      *
      * @see #mTypes
      */
+    @UnsupportedAppUsage
     private final long[] mTransitions;
 
     /**
@@ -276,36 +293,39 @@ public final class ZoneInfo extends TimeZone {
         setID(name);
 
         // Find the latest daylight and standard offsets (if any).
-        int lastStd = -1;
-        int lastDst = -1;
-        for (int i = mTransitions.length - 1; (lastStd == -1 || lastDst == -1) && i >= 0; --i) {
-            int type = mTypes[i] & 0xff;
-            if (lastStd == -1 && mIsDsts[type] == 0) {
-                lastStd = i;
+        int lastStdTransitionIndex = -1;
+        int lastDstTransitionIndex = -1;
+        for (int i = mTransitions.length - 1;
+                (lastStdTransitionIndex == -1 || lastDstTransitionIndex == -1) && i >= 0; --i) {
+            int typeIndex = mTypes[i] & 0xff;
+            if (lastStdTransitionIndex == -1 && mIsDsts[typeIndex] == 0) {
+                lastStdTransitionIndex = i;
             }
-            if (lastDst == -1 && mIsDsts[type] != 0) {
-                lastDst = i;
+            if (lastDstTransitionIndex == -1 && mIsDsts[typeIndex] != 0) {
+                lastDstTransitionIndex = i;
             }
         }
 
         // Use the latest non-daylight offset (if any) as the raw offset.
         if (mTransitions.length == 0) {
+            // This case is no longer expected to occur in the data used on Android after changes
+            // made in zic version 2014c. It is kept as a fallback.
             // If there are no transitions then use the first GMT offset.
             mRawOffset = gmtOffsets[0];
         } else {
-            if (lastStd == -1) {
+            if (lastStdTransitionIndex == -1) {
                 throw new IllegalStateException( "ZoneInfo requires at least one non-DST "
                         + "transition to be provided for each timezone that has at least one "
                         + "transition but could not find one for '" + name + "'");
             }
-            mRawOffset = gmtOffsets[mTypes[lastStd] & 0xff];
+            mRawOffset = gmtOffsets[mTypes[lastStdTransitionIndex] & 0xff];
         }
 
-        if (lastDst != -1) {
+        if (lastDstTransitionIndex != -1) {
             // Check to see if the last DST transition is in the future or the past. If it is in
             // the past then we treat it as if it doesn't exist, at least for the purposes of
             // setting mDstSavings and mUseDst.
-            long lastDSTTransitionTime = mTransitions[lastDst];
+            long lastDSTTransitionTime = mTransitions[lastDstTransitionIndex];
 
             // Convert the current time in millis into seconds. Unlike other places that convert
             // time in milliseconds into seconds in order to compare with transition time this
@@ -321,11 +341,11 @@ public final class ZoneInfo extends TimeZone {
             // useDaylightTime at the start of 2009 but "false" at the end. This seems appropriate.
             if (lastDSTTransitionTime < currentUnixTimeSeconds) {
                 // The last DST transition is before now so treat it as if it doesn't exist.
-                lastDst = -1;
+                lastDstTransitionIndex = -1;
             }
         }
 
-        if (lastDst == -1) {
+        if (lastDstTransitionIndex == -1) {
             // There were no DST transitions or at least no future DST transitions so DST is not
             // used.
             mDstSavings = 0;
@@ -333,22 +353,31 @@ public final class ZoneInfo extends TimeZone {
         } else {
             // Use the latest transition's pair of offsets to compute the DST savings.
             // This isn't generally useful, but it's exposed by TimeZone.getDSTSavings.
-            int lastGmtOffset = gmtOffsets[mTypes[lastStd] & 0xff];
-            int lastDstOffset = gmtOffsets[mTypes[lastDst] & 0xff];
+            int lastGmtOffset = gmtOffsets[mTypes[lastStdTransitionIndex] & 0xff];
+            int lastDstOffset = gmtOffsets[mTypes[lastDstTransitionIndex] & 0xff];
             mDstSavings = (lastDstOffset - lastGmtOffset) * 1000;
             mUseDst = true;
         }
 
-        // Cache the oldest known raw offset, in case we're asked about times that predate our
-        // transition data.
-        int firstStd = -1;
-        for (int i = 0; i < mTransitions.length; ++i) {
-            if (mIsDsts[mTypes[i] & 0xff] == 0) {
-                firstStd = i;
+        // From the tzfile docs (Jan 2019):
+        // The localtime(3) function uses the first standard-time ttinfo structure
+        // in the file (or simply the first ttinfo structure in the absence of a
+        // standard-time structure) if either tzh_timecnt is zero or the time
+        // argument is less than the first transition time recorded in the file.
+        //
+        // Cache the raw offset associated with the first nonDst type, in case we're asked about
+        // times that predate our transition data. Android falls back to mRawOffset if there are
+        // only DST ttinfo structures (assumed rare).
+        int firstStdTypeIndex = -1;
+        for (int i = 0; i < mIsDsts.length; ++i) {
+            if (mIsDsts[i] == 0) {
+                firstStdTypeIndex = i;
                 break;
             }
         }
-        int earliestRawOffset = (firstStd != -1) ? gmtOffsets[mTypes[firstStd] & 0xff] : mRawOffset;
+
+        int earliestRawOffset = (firstStdTypeIndex != -1)
+                ? gmtOffsets[firstStdTypeIndex] : mRawOffset;
 
         // Rather than keep offsets from UTC, we use offsets from local time, so the raw offset
         // can be changed and automatically affect all the offsets.
@@ -696,7 +725,10 @@ public final class ZoneInfo extends TimeZone {
      *
      * <p>All offsets are considered to be safe for addition / subtraction / multiplication without
      * worrying about overflow. All absolute time arithmetic is checked for overflow / underflow.
+     *
+     * @hide
      */
+    @libcore.api.CorePlatformApi
     public static class WallTime {
 
         // We use a GregorianCalendar (set to UTC) to handle all the date/time normalization logic
@@ -716,6 +748,7 @@ public final class ZoneInfo extends TimeZone {
         private int isDst;
         private int gmtOffsetSeconds;
 
+        @libcore.api.CorePlatformApi
         public WallTime() {
             this.calendar = new GregorianCalendar(0, 0, 0, 0, 0, 0);
             calendar.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -728,6 +761,7 @@ public final class ZoneInfo extends TimeZone {
          * <p>When going from an instant to a wall time it is always unambiguous because there
          * is only one offset rule acting at any given instant. We do not consider leap seconds.
          */
+        @libcore.api.CorePlatformApi
         public void localtime(int timeSeconds, ZoneInfo zoneInfo) {
             try {
                 int offsetSeconds = zoneInfo.mRawOffset / 1000;
@@ -741,8 +775,9 @@ public final class ZoneInfo extends TimeZone {
                     int offsetIndex = zoneInfo.findOffsetIndexForTimeInSeconds(timeSeconds);
                     if (offsetIndex == -1) {
                         // -1 means timeSeconds is "before the first recorded transition". The first
-                        // recorded transition is treated as a transition from non-DST and the raw
-                        // offset.
+                        // recorded transition is treated as a transition from non-DST and the
+                        // earliest known raw offset.
+                        offsetSeconds = zoneInfo.mEarliestRawOffset / 1000;
                         isDst = 0;
                     } else {
                         offsetSeconds += zoneInfo.mOffsets[offsetIndex];
@@ -751,7 +786,7 @@ public final class ZoneInfo extends TimeZone {
                 }
 
                 // Perform arithmetic that might underflow before setting fields.
-                int wallTimeSeconds = checkedAdd(timeSeconds, offsetSeconds);
+                int wallTimeSeconds = checked32BitAdd(timeSeconds, offsetSeconds);
 
                 // Set fields.
                 calendar.setTimeInMillis(wallTimeSeconds * 1000L);
@@ -787,6 +822,7 @@ public final class ZoneInfo extends TimeZone {
          * <p>We do not assume that adjacent transitions modify the DST state; adjustments can
          * occur for other reasons such as when a zone changes its raw offset.
          */
+        @libcore.api.CorePlatformApi
         public int mktime(ZoneInfo zoneInfo) {
             // Normalize isDst to -1, 0 or 1 to simplify isDst equality checks below.
             this.isDst = this.isDst > 0 ? this.isDst = 1 : this.isDst < 0 ? this.isDst = -1 : 0;
@@ -803,7 +839,7 @@ public final class ZoneInfo extends TimeZone {
             try {
                 final int wallTimeSeconds =  (int) longWallTimeSeconds;
                 final int rawOffsetSeconds = zoneInfo.mRawOffset / 1000;
-                final int rawTimeSeconds = checkedSubtract(wallTimeSeconds, rawOffsetSeconds);
+                final int rawTimeSeconds = checked32BitSubtract(wallTimeSeconds, rawOffsetSeconds);
 
                 if (zoneInfo.mTransitions.length == 0) {
                     // There is no transition information. There is just a raw offset for all time.
@@ -888,10 +924,11 @@ public final class ZoneInfo extends TimeZone {
                 int jOffsetSeconds = rawOffsetSeconds + offsetsToTry[j];
                 int targetIntervalOffsetSeconds = targetInterval.getTotalOffsetSeconds();
                 int adjustmentSeconds = targetIntervalOffsetSeconds - jOffsetSeconds;
-                int adjustedWallTimeSeconds = checkedAdd(oldWallTimeSeconds, adjustmentSeconds);
+                int adjustedWallTimeSeconds =
+                        checked32BitAdd(oldWallTimeSeconds, adjustmentSeconds);
                 if (targetInterval.containsWallTime(adjustedWallTimeSeconds)) {
                     // Perform any arithmetic that might overflow.
-                    int returnValue = checkedSubtract(adjustedWallTimeSeconds,
+                    int returnValue = checked32BitSubtract(adjustedWallTimeSeconds,
                             targetIntervalOffsetSeconds);
 
                     // Modify field state and return the result.
@@ -1025,8 +1062,8 @@ public final class ZoneInfo extends TimeZone {
                             // the result might be a DST or a non-DST answer for wall times that can
                             // exist in two OffsetIntervals.
                             int totalOffsetSeconds = offsetInterval.getTotalOffsetSeconds();
-                            int returnValue = checkedSubtract(wallTimeSeconds,
-                                    totalOffsetSeconds);
+                            int returnValue =
+                                    checked32BitSubtract(wallTimeSeconds, totalOffsetSeconds);
 
                             copyFieldsFromCalendar();
                             this.isDst = offsetInterval.getIsDst();
@@ -1077,82 +1114,102 @@ public final class ZoneInfo extends TimeZone {
             return null;
         }
 
+        @libcore.api.CorePlatformApi
         public void setYear(int year) {
             this.year = year;
         }
 
+        @libcore.api.CorePlatformApi
         public void setMonth(int month) {
             this.month = month;
         }
 
+        @libcore.api.CorePlatformApi
         public void setMonthDay(int monthDay) {
             this.monthDay = monthDay;
         }
 
+        @libcore.api.CorePlatformApi
         public void setHour(int hour) {
             this.hour = hour;
         }
 
+        @libcore.api.CorePlatformApi
         public void setMinute(int minute) {
             this.minute = minute;
         }
 
+        @libcore.api.CorePlatformApi
         public void setSecond(int second) {
             this.second = second;
         }
 
+        @libcore.api.CorePlatformApi
         public void setWeekDay(int weekDay) {
             this.weekDay = weekDay;
         }
 
+        @libcore.api.CorePlatformApi
         public void setYearDay(int yearDay) {
             this.yearDay = yearDay;
         }
 
+        @libcore.api.CorePlatformApi
         public void setIsDst(int isDst) {
             this.isDst = isDst;
         }
 
+        @libcore.api.CorePlatformApi
         public void setGmtOffset(int gmtoff) {
             this.gmtOffsetSeconds = gmtoff;
         }
 
+        @libcore.api.CorePlatformApi
         public int getYear() {
             return year;
         }
 
+        @libcore.api.CorePlatformApi
         public int getMonth() {
             return month;
         }
 
+        @libcore.api.CorePlatformApi
         public int getMonthDay() {
             return monthDay;
         }
 
+        @libcore.api.CorePlatformApi
         public int getHour() {
             return hour;
         }
 
+        @libcore.api.CorePlatformApi
         public int getMinute() {
             return minute;
         }
 
+        @libcore.api.CorePlatformApi
         public int getSecond() {
             return second;
         }
 
+        @libcore.api.CorePlatformApi
         public int getWeekDay() {
             return weekDay;
         }
 
+        @libcore.api.CorePlatformApi
         public int getYearDay() {
             return yearDay;
         }
 
+        @libcore.api.CorePlatformApi
         public int getGmtOffset() {
             return gmtOffsetSeconds;
         }
 
+        @libcore.api.CorePlatformApi
         public int getIsDst() {
             return isDst;
         }
@@ -1193,16 +1250,19 @@ public final class ZoneInfo extends TimeZone {
      * Crucially this means that there was a "gap" after PST when PDT started, and an overlap when
      * PDT ended and PST began.
      *
-     * <p>For convenience all wall-time values are represented as the number of seconds since the
-     * beginning of the Unix epoch <em>in UTC</em>. To convert from a wall-time to the actual time
-     * in the offset it is necessary to <em>subtract</em> the {@code totalOffsetSeconds}.
+     * <p>Although wall-time means "local time", for convenience all wall-time values are stored in
+     * the number of seconds since the beginning of the Unix epoch to get that time <em>in UTC</em>.
+     * To convert from a wall-time to the actual UTC time it is necessary to <em>subtract</em> the
+     * {@code totalOffsetSeconds}.
      * For example: If the offset in PST is -07:00 hours, then:
      * timeInPstSeconds = wallTimeUtcSeconds - offsetSeconds
      * i.e. 13:00 UTC - (-07:00) = 20:00 UTC = 13:00 PST
      */
     static class OffsetInterval {
 
+        /** The time the interval starts in seconds since start of epoch, inclusive. */
         private final int startWallTimeSeconds;
+        /** The time the interval ends in seconds since start of epoch, exclusive. */
         private final int endWallTimeSeconds;
         private final int isDst;
         private final int totalOffsetSeconds;
@@ -1210,40 +1270,60 @@ public final class ZoneInfo extends TimeZone {
         /**
          * Creates an {@link OffsetInterval}.
          *
-         * <p>If {@code transitionIndex} is -1, the transition is synthesized to be a non-DST offset
-         * that runs from the beginning of time until the first transition in {@code timeZone} and
-         * has an offset of {@code timezone.mRawOffset}. If {@code transitionIndex} is the last
-         * transition that transition is considered to run until the end of representable time.
+         * <p>If {@code transitionIndex} is -1, where possible the transition is synthesized to run
+         * from the beginning of 32-bit time until the first transition in {@code timeZone} with
+         * offset information based on the first type defined. If {@code transitionIndex} is the
+         * last transition, that transition is considered to run until the end of 32-bit time.
          * Otherwise, the information is extracted from {@code timeZone.mTransitions},
-         * {@code timeZone.mOffsets} an {@code timeZone.mIsDsts}.
+         * {@code timeZone.mOffsets} and {@code timeZone.mIsDsts}.
+         *
+         * <p>This method can return null when:
+         * <ol>
+         * <li>the {@code transitionIndex} is outside the allowed range, i.e.
+         *   {@code transitionIndex < -1 || transitionIndex >= [the number of transitions]}.</li>
+         * <li>when calculations result in a zero-length interval. This is only expected to occur
+         *   when dealing with transitions close to (or exactly at) {@code Integer.MIN_VALUE} and
+         *   {@code Integer.MAX_VALUE} and where it's difficult to convert from UTC to local times.
+         *   </li>
+         * </ol>
          */
-        public static OffsetInterval create(ZoneInfo timeZone, int transitionIndex)
-                throws CheckedArithmeticException {
-
+        public static OffsetInterval create(ZoneInfo timeZone, int transitionIndex) {
             if (transitionIndex < -1 || transitionIndex >= timeZone.mTransitions.length) {
                 return null;
             }
 
-            int rawOffsetSeconds = timeZone.mRawOffset / 1000;
             if (transitionIndex == -1) {
-                int endWallTimeSeconds = checkedAdd(timeZone.mTransitions[0], rawOffsetSeconds);
-                return new OffsetInterval(Integer.MIN_VALUE, endWallTimeSeconds, 0 /* isDst */,
-                        rawOffsetSeconds);
+                int totalOffsetSeconds = timeZone.mEarliestRawOffset / 1000;
+                int isDst = 0;
+
+                int startWallTimeSeconds = Integer.MIN_VALUE;
+                int endWallTimeSeconds =
+                        saturated32BitAdd(timeZone.mTransitions[0], totalOffsetSeconds);
+                if (startWallTimeSeconds == endWallTimeSeconds) {
+                    // There's no point in returning an OffsetInterval that lasts 0 seconds.
+                    return null;
+                }
+                return new OffsetInterval(startWallTimeSeconds, endWallTimeSeconds, isDst,
+                        totalOffsetSeconds);
             }
 
+            int rawOffsetSeconds = timeZone.mRawOffset / 1000;
             int type = timeZone.mTypes[transitionIndex] & 0xff;
             int totalOffsetSeconds = timeZone.mOffsets[type] + rawOffsetSeconds;
             int endWallTimeSeconds;
             if (transitionIndex == timeZone.mTransitions.length - 1) {
-                // If this is the last transition, make up the end time.
                 endWallTimeSeconds = Integer.MAX_VALUE;
             } else {
-                endWallTimeSeconds = checkedAdd(timeZone.mTransitions[transitionIndex + 1],
-                        totalOffsetSeconds);
+                endWallTimeSeconds = saturated32BitAdd(
+                        timeZone.mTransitions[transitionIndex + 1], totalOffsetSeconds);
             }
             int isDst = timeZone.mIsDsts[type];
             int startWallTimeSeconds =
-                    checkedAdd(timeZone.mTransitions[transitionIndex], totalOffsetSeconds);
+                    saturated32BitAdd(timeZone.mTransitions[transitionIndex], totalOffsetSeconds);
+            if (startWallTimeSeconds == endWallTimeSeconds) {
+                // There's no point in returning an OffsetInterval that lasts 0 seconds.
+                return null;
+            }
             return new OffsetInterval(
                     startWallTimeSeconds, endWallTimeSeconds, isDst, totalOffsetSeconds);
         }
@@ -1284,11 +1364,11 @@ public final class ZoneInfo extends TimeZone {
     }
 
     /**
-     * Calculate (a + b).
+     * Calculate (a + b). The result must be in the Integer range otherwise an exception is thrown.
      *
      * @throws CheckedArithmeticException if overflow or underflow occurs
      */
-    private static int checkedAdd(long a, int b) throws CheckedArithmeticException {
+    private static int checked32BitAdd(long a, int b) throws CheckedArithmeticException {
         // Adapted from Guava IntMath.checkedAdd();
         long result = a + b;
         if (result != (int) result) {
@@ -1298,15 +1378,29 @@ public final class ZoneInfo extends TimeZone {
     }
 
     /**
-     * Calculate (a - b).
+     * Calculate (a - b). The result must be in the Integer range otherwise an exception is thrown.
      *
      * @throws CheckedArithmeticException if overflow or underflow occurs
      */
-    private static int checkedSubtract(int a, int b) throws CheckedArithmeticException {
+    private static int checked32BitSubtract(long a, int b) throws CheckedArithmeticException {
         // Adapted from Guava IntMath.checkedSubtract();
-        long result = (long) a - b;
+        long result = a - b;
         if (result != (int) result) {
             throw new CheckedArithmeticException();
+        }
+        return (int) result;
+    }
+
+    /**
+     * Calculate (a + b). If the result would overflow or underflow outside of the Integer range
+     * Integer.MAX_VALUE or Integer.MIN_VALUE will be returned, respectively.
+     */
+    private static int saturated32BitAdd(long a, int b) {
+        long result = a + b;
+        if (result > Integer.MAX_VALUE) {
+            return Integer.MAX_VALUE;
+        } else if (result < Integer.MIN_VALUE) {
+            return Integer.MIN_VALUE;
         }
         return (int) result;
     }

@@ -18,10 +18,24 @@ package android.car.apitest;
 import android.car.Car;
 import android.car.CarAppFocusManager;
 import android.car.CarAppFocusManager.OnAppFocusOwnershipCallback;
+import android.car.cluster.navigation.NavigationState.Cue;
+import android.car.cluster.navigation.NavigationState.Cue.CueElement;
+import android.car.cluster.navigation.NavigationState.Destination;
+import android.car.cluster.navigation.NavigationState.Distance;
+import android.car.cluster.navigation.NavigationState.ImageReference;
+import android.car.cluster.navigation.NavigationState.Lane;
+import android.car.cluster.navigation.NavigationState.Lane.LaneDirection;
+import android.car.cluster.navigation.NavigationState.LatLng;
+import android.car.cluster.navigation.NavigationState.Maneuver;
+import android.car.cluster.navigation.NavigationState.NavigationStateProto;
+import android.car.cluster.navigation.NavigationState.Road;
+import android.car.cluster.navigation.NavigationState.Step;
+import android.car.cluster.navigation.NavigationState.Timestamp;
 import android.car.navigation.CarNavigationStatusManager;
 import android.os.Bundle;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.util.Log;
+
 import com.google.android.collect.Lists;
 
 /**
@@ -43,6 +57,50 @@ public class CarNavigationManagerTest extends CarApiTestBase {
         mCarAppFocusManager =
                 (CarAppFocusManager) getCar().getCarManager(Car.APP_FOCUS_SERVICE);
         assertNotNull(mCarAppFocusManager);
+    }
+
+    public void testSerializeAndDeserializeProto() throws Exception {
+        ImageReference imageReference = ImageReference.newBuilder().build();
+        Distance distance = Distance.newBuilder().build();
+        Maneuver maneuver = Maneuver.newBuilder().build();
+        Lane lane = Lane.newBuilder().build();
+        LaneDirection laneDirection = LaneDirection.newBuilder().build();
+        Cue cue = Cue.newBuilder().build();
+        CueElement cueElement = CueElement.newBuilder().build();
+        Step step = Step.newBuilder().build();
+        LatLng latLng = LatLng.newBuilder().build();
+        Destination destination = Destination.newBuilder().build();
+        Road road = Road.newBuilder().build();
+        Timestamp timestamp = Timestamp.newBuilder().build();
+        NavigationStateProto navigationStateProto = NavigationStateProto.newBuilder().build();
+
+        assertNotNull(imageReference);
+        assertNotNull(distance);
+        assertNotNull(maneuver);
+        assertNotNull(lane);
+        assertNotNull(laneDirection);
+        assertNotNull(cue);
+        assertNotNull(cueElement);
+        assertNotNull(step);
+        assertNotNull(latLng);
+        assertNotNull(destination);
+        assertNotNull(road);
+        assertNotNull(timestamp);
+        assertNotNull(navigationStateProto);
+
+        assertNotNull(ImageReference.parseFrom(imageReference.toByteArray()));
+        assertNotNull(Distance.parseFrom(distance.toByteArray()));
+        assertNotNull(Maneuver.parseFrom(maneuver.toByteArray()));
+        assertNotNull(Lane.parseFrom(lane.toByteArray()));
+        assertNotNull(LaneDirection.parseFrom(laneDirection.toByteArray()));
+        assertNotNull(Cue.parseFrom(cue.toByteArray()));
+        assertNotNull(CueElement.parseFrom(cueElement.toByteArray()));
+        assertNotNull(Step.parseFrom(step.toByteArray()));
+        assertNotNull(LatLng.parseFrom(latLng.toByteArray()));
+        assertNotNull(Destination.parseFrom(destination.toByteArray()));
+        assertNotNull(Road.parseFrom(road.toByteArray()));
+        assertNotNull(Timestamp.parseFrom(timestamp.toByteArray()));
+        assertNotNull(NavigationStateProto.parseFrom(navigationStateProto.toByteArray()));
     }
 
     public void testSendEvent() throws Exception {

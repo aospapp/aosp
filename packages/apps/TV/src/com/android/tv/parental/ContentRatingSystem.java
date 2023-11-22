@@ -31,13 +31,10 @@ public class ContentRatingSystem {
      * A comparator that implements the display order of a group of content rating systems.
      */
     public static final Comparator<ContentRatingSystem> DISPLAY_NAME_COMPARATOR =
-            new Comparator<ContentRatingSystem>() {
-                @Override
-                public int compare(ContentRatingSystem s1, ContentRatingSystem s2) {
-                    String name1 = s1.getDisplayName();
-                    String name2 = s2.getDisplayName();
-                    return name1.compareTo(name2);
-                }
+            (ContentRatingSystem s1, ContentRatingSystem s2) -> {
+                String name1 = s1.getDisplayName();
+                String name2 = s2.getDisplayName();
+                return name1.compareTo(name2);
             };
 
     private static final String DELIMITER = "/";

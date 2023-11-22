@@ -15,28 +15,15 @@
  */
 package com.android.cts.delegate;
 
-import static android.app.admin.DevicePolicyManager.DELEGATION_APP_RESTRICTIONS;
-import static android.app.admin.DevicePolicyManager.DELEGATION_BLOCK_UNINSTALL;
-import static android.app.admin.DevicePolicyManager.DELEGATION_CERT_INSTALL;
-import static android.app.admin.DevicePolicyManager.DELEGATION_PERMISSION_GRANT;
-import static android.app.admin.DevicePolicyManager.DELEGATION_PACKAGE_ACCESS;
-import static android.app.admin.DevicePolicyManager.DELEGATION_ENABLE_SYSTEM_APP;
-
 import android.app.admin.DevicePolicyManager;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
-import android.os.UserManager;
 import android.test.InstrumentationTestCase;
 import android.test.MoreAsserts;
 
-import java.util.Arrays;
+import androidx.test.InstrumentationRegistry;
+
 import java.util.List;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Test general properties of delegate applications that should apply to any delegation scope
@@ -45,15 +32,7 @@ import java.util.concurrent.TimeUnit;
 public class GeneralDelegateTest extends InstrumentationTestCase {
 
     private DevicePolicyManager mDpm;
-
-    private static final String EXPECTED_DELEGATION_SCOPES[] = {
-        DELEGATION_APP_RESTRICTIONS,
-        DELEGATION_BLOCK_UNINSTALL,
-        DELEGATION_CERT_INSTALL,
-        DELEGATION_PERMISSION_GRANT,
-        DELEGATION_PACKAGE_ACCESS,
-        DELEGATION_ENABLE_SYSTEM_APP
-    };
+    private static final String PARAM_SCOPES = "scopes";
 
     @Override
     protected void setUp() throws Exception {
@@ -62,12 +41,14 @@ public class GeneralDelegateTest extends InstrumentationTestCase {
     }
 
     public void testGetsExpectedDelegationScopes() {
+        Bundle arguments = InstrumentationRegistry.getArguments();
+        String[] expectedScopes = arguments.getString(PARAM_SCOPES).split(",");
         List<String> delegatedScopes = mDpm.getDelegatedScopes(null,
                 getInstrumentation().getContext().getPackageName());
 
         assertNotNull("Received null scopes", delegatedScopes);
         MoreAsserts.assertContentsInAnyOrder("Delegated scopes do not match expected scopes",
-                delegatedScopes, EXPECTED_DELEGATION_SCOPES);
+                delegatedScopes, expectedScopes);
     }
 
     public void testDifferentPackageNameThrowsException() {

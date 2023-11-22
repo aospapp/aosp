@@ -18,21 +18,24 @@ package com.android.car.carlauncher;
 
 import android.annotation.Nullable;
 import android.content.Context;
-import android.support.v7.widget.RecyclerView;
+import android.content.Intent;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.recyclerview.widget.RecyclerView;
 
 /**
  * App item view holder that contains the app icon and name.
  */
 public class AppItemViewHolder extends RecyclerView.ViewHolder {
     private final Context mContext;
-    public View mAppItem;
-    public ImageView mAppIconView;
-    public TextView mAppNameView;
+    private View mAppItem;
+    private ImageView mAppIconView;
+    private TextView mAppNameView;
 
-    public AppItemViewHolder(View view, Context context) {
+    AppItemViewHolder(View view, Context context) {
         super(view);
         mContext = context;
         mAppItem = view.findViewById(R.id.app_item);
@@ -47,7 +50,6 @@ public class AppItemViewHolder extends RecyclerView.ViewHolder {
      */
     public void bind(@Nullable AppMetaData app, boolean isDistractionOptimizationRequired) {
         // Empty out the view
-        mAppItem.setClickable(false);
         mAppIconView.setImageDrawable(null);
         mAppNameView.setText(null);
 
@@ -56,11 +58,30 @@ public class AppItemViewHolder extends RecyclerView.ViewHolder {
         }
 
         mAppNameView.setText(app.getDisplayName());
-        if (isDistractionOptimizationRequired && !app.getIsDistractionOptimized()) {
-            mAppIconView.setImageDrawable(AppLauncherUtils.toGrayscale(app.getIcon()));
-        } else {
-            mAppIconView.setImageDrawable(app.getIcon());
+        mAppIconView.setImageDrawable(app.getIcon());
+        boolean isLaunchable =
+                !isDistractionOptimizationRequired || app.getIsDistractionOptimized();
+        mAppIconView.setAlpha(mContext.getResources().getFloat(
+                isLaunchable ? R.dimen.app_icon_opacity : R.dimen.app_icon_opacity_unavailable));
+
+        if (isLaunchable) {
             mAppItem.setOnClickListener(v -> AppLauncherUtils.launchApp(mContext, app));
+            mAppItem.setLongClickable(app.getAlternateLaunchIntent() != null);
+            mAppItem.setOnLongClickListener(v-> openAlternateLaunchIntent(app));
+        } else {
+            String warningText = mContext.getResources()
+                    .getString(R.string.driving_toast_text, app.getDisplayName());
+            mAppItem.setOnClickListener(
+                    v -> Toast.makeText(mContext, warningText, Toast.LENGTH_LONG).show());
         }
+    }
+
+    private boolean openAlternateLaunchIntent(AppMetaData app) {
+        Intent intent = app.getAlternateLaunchIntent();
+        if (intent != null) {
+            mContext.startActivity(intent);
+            return true;
+        }
+        return false;
     }
 }

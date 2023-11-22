@@ -17,6 +17,7 @@
 #ifndef C2CONFIG_H_
 #define C2CONFIG_H_
 
+#include <C2.h>
 #include <C2Component.h>
 #include <C2Enum.h>
 #include <C2ParamDef.h>
@@ -51,9 +52,12 @@ C2ENUM(c2_set_t, uint32_t,
 /** Enumerations used by configuration parameters */
 struct C2Config {
     enum aac_packaging_t : uint32_t;        ///< AAC packaging (RAW vs ADTS)
+    enum aac_sbr_mode_t : uint32_t;         ///< AAC SBR mode
     enum api_feature_t : uint64_t;          ///< API features
     enum api_level_t : uint32_t;            ///< API level
     enum bitrate_mode_t : uint32_t;         ///< bitrate control mode
+    enum drc_compression_mode_t : int32_t;  ///< DRC compression mode
+    enum drc_effect_type_t : int32_t;       ///< DRC effect type
     enum intra_refresh_mode_t : uint32_t;   ///< intra refresh modes
     enum level_t : uint32_t;                ///< coding level
     enum ordinal_key_t : uint32_t;          ///< work ordering keys
@@ -176,6 +180,7 @@ enum C2ParamIndexKind : C2Param::type_index_t {
 
     kParamIndexPictureTypeMask,
     kParamIndexPictureType,
+    kParamIndexHdr10PlusMetadata,
 
     /* ------------------------------------ video components ------------------------------------ */
 
@@ -184,7 +189,7 @@ enum C2ParamIndexKind : C2Param::type_index_t {
     kParamIndexMaxFrameRate,
     kParamIndexMaxPictureSize,
     kParamIndexGop,
-    kParamIndexSyncFramePeriod,
+    kParamIndexSyncFrameInterval,
     kParamIndexRequestSyncFrame,
     kParamIndexTemporalLayering,
     kParamIndexLayerIndex,
@@ -202,6 +207,14 @@ enum C2ParamIndexKind : C2Param::type_index_t {
     kParamIndexChannelCount,
     kParamIndexPcmEncoding,
     kParamIndexAacPackaging,
+    kParamIndexMaxChannelCount,
+    kParamIndexAacSbrMode, // aac encode, enum
+    kParamIndexDrcEncodedTargetLevel,  // drc, float (dBFS)
+    kParamIndexDrcTargetReferenceLevel, // drc, float (dBFS)
+    kParamIndexDrcCompression, // drc, enum
+    kParamIndexDrcBoostFactor, // drc, float (0-1)
+    kParamIndexDrcAttenuationFactor, // drc, float (0-1)
+    kParamIndexDrcEffectType, // drc, enum
 
     /* ============================== platform-defined parameters ============================== */
 
@@ -209,18 +222,24 @@ enum C2ParamIndexKind : C2Param::type_index_t {
     kParamIndexPlatformFeatures, // all, u64 mask
     kParamIndexStoreIonUsage, // store, struct
     kParamIndexAspectsToDataSpace, // store, struct
+    kParamIndexFlexiblePixelFormatDescriptor, // store, struct
+    kParamIndexFlexiblePixelFormatDescriptors, // store, struct[]
     kParamIndexDataSpaceToAspects, // store, struct
     kParamIndexDataSpace, // u32
     kParamIndexSurfaceScaling, // u32
 
     // input surface
     kParamIndexInputSurfaceEos, // input-surface, eos
-    kParamIndexStartAt, // input-surface, u64
-    kParamIndexSuspendAt, // input-surface, u64
-    kParamIndexResumeAt, // input-surface, u64
-    kParamIndexStopAt, // input-surface, u64
-    kParamIndexTimeOffset, // input-surface, u64
+    kParamIndexTimedControl, // struct
+    kParamIndexStartAt, // input-surface, struct
+    kParamIndexSuspendAt, // input-surface, struct
+    kParamIndexResumeAt, // input-surface, struct
+    kParamIndexStopAt, // input-surface, struct
+    kParamIndexTimeOffset, // input-surface, struct
     kParamIndexMinFrameRate, // input-surface, float
+    kParamIndexTimestampGapAdjustment, // input-surface, struct
+
+    kParamIndexSurfaceAllocator, // u32
 
     // deprecated indices due to renaming
     kParamIndexAacStreamFormat = kParamIndexAacPackaging,
@@ -347,8 +366,8 @@ typedef C2ComponentAttributesSetting C2ComponentTemporalInfo;
  * Time stretching.
  *
  * This is the ratio between the rate of the input timestamp, and the rate of the output timestamp.
- * E.g. if this is 4.0, for every 4 seconds of input timestamp difference, the output shall differ
- * by 1 seconds.
+ * E.g. if this is 4.0, for every 1 seconds of input timestamp difference, the output shall differ
+ * by 4 seconds.
  */
 typedef C2GlobalParam<C2Tuning, C2FloatValue, kParamIndexTimeStretch> C2ComponentTimeStretchTuning;
 constexpr char C2_PARAMKEY_TIME_STRETCH[]  = "algo.time-stretch";
@@ -678,6 +697,8 @@ constexpr char C2_PARAMKEY_INIT_DATA[] = "coded.init-data";
  * in the same update.
  */
 C2ENUM(C2Config::supplemental_info_t, uint32_t,
+    INFO_NONE = 0,
+
     INFO_PREFIX_SEI_UNIT = 0x10000, ///< prefix SEI payload types add this flag
     INFO_SUFFIX_SEI_UNIT = 0x20000, ///< suffix SEI payload types add this flag
 
@@ -689,13 +710,20 @@ C2ENUM(C2Config::supplemental_info_t, uint32_t,
 )
 
 struct C2SupplementalDataStruct {
-    C2SupplementalDataStruct() = default;
+    C2SupplementalDataStruct()
+        : type_(INFO_NONE) { }
 
-    C2Config::supplemental_info_t type;
+    C2SupplementalDataStruct(
+            size_t flexCount, C2Config::supplemental_info_t type, std::vector<uint8_t> data_)
+        : type_(type) {
+            memcpy(data, &data_[0], c2_min(data_.size(), flexCount));
+    }
+
+    C2Config::supplemental_info_t type_;
     uint8_t data[];
 
     DEFINE_AND_DESCRIBE_FLEX_C2STRUCT(SupplementalData, data)
-    C2FIELD(type, "type")
+    C2FIELD(type_, "type")
     C2FIELD(data, "data")
 };
 typedef C2StreamParam<C2Info, C2SupplementalDataStruct, kParamIndexSupplementalData>
@@ -879,6 +907,18 @@ typedef C2GlobalParam<C2Tuning, C2SimpleArrayStruct<C2Allocator::id_t>, kParamIn
 constexpr char C2_PARAMKEY_PRIVATE_ALLOCATORS[] = "algo.buffers.allocator-ids";
 
 /**
+ * Allocator to use for outputting to surface.
+ *
+ * Components can optionally request allocator type for outputting to surface.
+ *
+ * If none specified, client will use the default BufferQueue-backed allocator ID for outputting to
+ * surface.
+ */
+typedef C2PortParam<C2Tuning, C2Uint32Value, kParamIndexSurfaceAllocator>
+        C2PortSurfaceAllocatorTuning;
+constexpr char C2_PARAMKEY_OUTPUT_SURFACE_ALLOCATOR[] = "output.buffers.surface-allocator-id";
+
+/**
  * Block pools to use.
  *
  * These are allocated by the client for the component using the allocator IDs specified by the
@@ -939,9 +979,11 @@ constexpr char C2_PARAMKEY_OUTPUT_STREAM_USAGE[] = "output.buffers.usage";
  * Picture (video or image frame) size.
  */
 struct C2PictureSizeStruct {
-    inline C2PictureSizeStruct() = default;
+    inline C2PictureSizeStruct()
+        : width(0), height(0) { }
+
     inline C2PictureSizeStruct(uint32_t width_, uint32_t height_)
-        : width(width_), height(height_) {}
+        : width(width_), height(height_) { }
 
     uint32_t width;     ///< video width
     uint32_t height;    ///< video height
@@ -1288,20 +1330,24 @@ constexpr char C2_PARAMKEY_SCALED_CROP_RECT[] = "raw.scaled-crop";
  */
 
 struct C2Color {
-    enum range_t : uint32_t;
-    enum primaries_t : uint32_t;
-    enum transfer_t : uint32_t;
-    enum matrix_t : uint32_t;
+    enum matrix_t : uint32_t;  ///< matrix coefficient (YUV <=> RGB)
+    enum plane_layout_t : uint32_t;  ///< plane layout for flexible formats
+    enum primaries_t : uint32_t;  ///< color primaries and white point
+    enum range_t : uint32_t;  ///< range of color component values
     enum subsampling_t : uint32_t;  ///< chroma subsampling
+    enum transfer_t : uint32_t;  ///< transfer function
 };
 
 /// Chroma subsampling
 C2ENUM(C2Color::subsampling_t, uint32_t,
-    RGB,            ///< RGB
     MONOCHROME,     ///< there are no Cr nor Cb planes
+    MONOCHROME_ALPHA, ///< there are no Cr nor Cb planes, but there is an alpha plane
+    RGB,            ///< RGB
+    RGBA,           ///< RGBA
     YUV_420,        ///< Cr and Cb planes are subsampled by 2 both horizontally and vertically
     YUV_422,        ///< Cr and Cb planes are subsampled horizontally
     YUV_444,        ///< Cr and Cb planes are not subsampled
+    YUVA_444,       ///< Cr and Cb planes are not subsampled, there is an alpha plane
 )
 
 struct C2ChromaOffsetStruct {
@@ -1324,7 +1370,8 @@ struct C2ChromaOffsetStruct {
 };
 
 struct C2ColorInfoStruct {
-    C2ColorInfoStruct() = default;
+    C2ColorInfoStruct()
+        : bitDepth(8), subsampling(C2Color::YUV_420) { }
 
     uint32_t bitDepth;
     C2Color::subsampling_t subsampling;
@@ -1332,8 +1379,7 @@ struct C2ColorInfoStruct {
 
     C2ColorInfoStruct(
             size_t /* flexCount */, uint32_t bitDepth_, C2Color::subsampling_t subsampling_)
-        : bitDepth(bitDepth_), subsampling(subsampling_) {
-    }
+        : bitDepth(bitDepth_), subsampling(subsampling_) { }
 
     C2ColorInfoStruct(
             size_t flexCount, uint32_t bitDepth_, C2Color::subsampling_t subsampling_,
@@ -1418,11 +1464,14 @@ C2ENUM(C2Color::matrix_t, uint32_t,
     MATRIX_BT709,                   ///< Rec.ITU-R BT.709-5 or equivalent
     MATRIX_FCC47_73_682,            ///< FCC Title 47 CFR 73.682 or equivalent (KR=0.30, KB=0.11)
     MATRIX_BT601,                   ///< Rec.ITU-R BT.470, BT.601-6 625 or equivalent
-    MATRIX_SMPTE240M,               ///< SMPTE 240M or equivalent
+    MATRIX_240M,                    ///< SMPTE 240M or equivalent
     MATRIX_BT2020,                  ///< Rec.ITU-R BT.2020 non-constant luminance
-    MATRIX_BT2020CONSTANT,          ///< Rec.ITU-R BT.2020 constant luminance
+    MATRIX_BT2020_CONSTANT,         ///< Rec.ITU-R BT.2020 constant luminance
     MATRIX_VENDOR_START = 0x80,     ///< vendor-specific matrix coefficient values start here
-    MATRIX_OTHER = 0xff             ///< max value, reserved for undefined values
+    MATRIX_OTHER = 0xff,            ///< max value, reserved for undefined values
+
+    MATRIX_SMPTE240M = MATRIX_240M, // deprecated
+    MATRIX_BT2020CONSTANT = MATRIX_BT2020_CONSTANT, // deprecated
 )
 
 constexpr C2Color::matrix_t MATRIX_BT470_6M = MATRIX_FCC47_73_682; // deprecated
@@ -1435,7 +1484,12 @@ struct C2ColorAspectsStruct {
     C2Color::transfer_t transfer;
     C2Color::matrix_t matrix;
 
-    C2ColorAspectsStruct() = default;
+    C2ColorAspectsStruct()
+        : range(C2Color::RANGE_UNSPECIFIED),
+          primaries(C2Color::PRIMARIES_UNSPECIFIED),
+          transfer(C2Color::TRANSFER_UNSPECIFIED),
+          matrix(C2Color::MATRIX_UNSPECIFIED) { }
+
     C2ColorAspectsStruct(C2Color::range_t range_, C2Color::primaries_t primaries_,
                          C2Color::transfer_t transfer_, C2Color::matrix_t matrix_)
         : range(range_), primaries(primaries_), transfer(transfer_), matrix(matrix_) {}
@@ -1506,6 +1560,14 @@ struct C2HdrStaticMetadataStruct {
 typedef C2StreamParam<C2Info, C2HdrStaticMetadataStruct, kParamIndexHdrStaticMetadata>
         C2StreamHdrStaticInfo;
 constexpr char C2_PARAMKEY_HDR_STATIC_INFO[] = "raw.hdr-static-info";
+
+/**
+ * HDR10+ Metadata Info.
+ */
+typedef C2StreamParam<C2Info, C2BlobValue, kParamIndexHdr10PlusMetadata>
+        C2StreamHdr10PlusInfo;
+constexpr char C2_PARAMKEY_INPUT_HDR10_PLUS_INFO[] = "input.hdr10-plus-info";
+constexpr char C2_PARAMKEY_OUTPUT_HDR10_PLUS_INFO[] = "output.hdr10-plus-info";
 
 /* ------------------------------------ block-based coding ----------------------------------- */
 
@@ -1616,12 +1678,15 @@ constexpr char C2_PARAMKEY_PICTURE_TYPE[] = "coded.picture-type";
  * frames.
  */
 struct C2GopLayerStruct {
-    C2Config::picture_type_t type;
+    C2GopLayerStruct(C2Config::picture_type_t type, uint32_t count_)
+        : type_(type), count(count_) { }
+
+    C2Config::picture_type_t type_;
     uint32_t count;
 
     DEFINE_AND_DESCRIBE_C2STRUCT(GopLayer)
-    C2FIELD(type, "type")
-    C2FIELD(type, "count")
+    C2FIELD(type_, "type")
+    C2FIELD(count, "count")
 };
 
 typedef C2StreamParam<C2Tuning, C2SimpleArrayStruct<C2GopLayerStruct>, kParamIndexGop>
@@ -1644,12 +1709,14 @@ constexpr char C2_PARAMKEY_REQUEST_SYNC_FRAME[] = "coding.request-sync-frame";
  * Sync frame interval in time domain (timestamp).
  *
  * If there hasn't been a sync frame in at least this value, the next intra frame shall be encoded
- * as a sync frame. The value of MAX_I32 or a negative value means no sync frames after the first
+ * as a sync frame. The value of MAX_I64 or a negative value means no sync frames after the first
  * frame. A value of 0 means all sync frames.
  */
-typedef C2StreamParam<C2Tuning, C2Int64Value, kParamIndexSyncFramePeriod>
-        C2StreamSyncFramePeriodTuning;
-constexpr char C2_PARAMKEY_SYNC_FRAME_PERIOD[] = "coding.sync-frame-period";
+typedef C2StreamParam<C2Tuning, C2Int64Value, kParamIndexSyncFrameInterval>
+        C2StreamSyncFrameIntervalTuning;
+constexpr char C2_PARAMKEY_SYNC_FRAME_INTERVAL[] = "coding.sync-frame-interval";
+// deprecated
+#define C2_PARAMKEY_SYNC_FRAME_PERIOD C2_PARAMKEY_SYNC_FRAME_INTERVAL
 
 /**
  * Temporal layering
@@ -1667,18 +1734,36 @@ typedef C2StreamParam<C2Info, C2Uint32Value, kParamIndexLayerCount> C2StreamLaye
 constexpr char C2_PARAMKEY_LAYER_COUNT[] = "coded.layer-count";
 
 struct C2TemporalLayeringStruct {
+    C2TemporalLayeringStruct()
+        : layerCount(0), bLayerCount(0) { }
+
+    C2TemporalLayeringStruct(size_t /* flexCount */, uint32_t layerCount_, uint32_t bLayerCount_)
+        : layerCount(layerCount_), bLayerCount(c2_min(layerCount_, bLayerCount_)) { }
+
+    C2TemporalLayeringStruct(size_t flexCount, uint32_t layerCount_, uint32_t bLayerCount_,
+                             std::initializer_list<float> ratios)
+        : layerCount(layerCount_), bLayerCount(c2_min(layerCount_, bLayerCount_)) {
+        size_t ix = 0;
+        for (float ratio : ratios) {
+            if (ix == flexCount) {
+                break;
+            }
+            bitrateRatios[ix++] = ratio;
+        }
+    }
+
     uint32_t layerCount;     ///< total number of layers (0 means no temporal layering)
     uint32_t bLayerCount;    ///< total number of bidirectional layers (<= num layers)
     /**
      * Bitrate budgets for each layer and the layers below, given as a ratio of the total
      * stream bitrate. This can be omitted or partially specififed by the client while configuring,
      * in which case the component shall fill in appropriate values for the missing layers.
-     * This must be provided by the component when queried for at least layer count - 2 (as the
+     * This must be provided by the component when queried for at least layer count - 1 (as the
      * last layer's budget is always 1.0).
      */
     float bitrateRatios[];   ///< 1.0-based
 
-    DEFINE_AND_DESCRIBE_C2STRUCT(TemporalLayering)
+    DEFINE_AND_DESCRIBE_FLEX_C2STRUCT(TemporalLayering, bitrateRatios)
     C2FIELD(layerCount, "layer-count")
     C2FIELD(bLayerCount, "b-layer-count")
     C2FIELD(bitrateRatios, "bitrate-ratios")
@@ -1698,6 +1783,12 @@ C2ENUM(C2Config::intra_refresh_mode_t, uint32_t,
 )
 
 struct C2IntraRefreshStruct {
+    C2IntraRefreshStruct()
+        : mode(C2Config::INTRA_REFRESH_DISABLED), period(0.) { }
+
+    C2IntraRefreshStruct(C2Config::intra_refresh_mode_t mode_, float period_)
+        : mode(mode_), period(period_) { }
+
     C2Config::intra_refresh_mode_t mode; ///< refresh mode
     float period;         ///< intra refresh period in frames (must be >= 1), 0 means disabled
 
@@ -1772,6 +1863,13 @@ constexpr char C2_PARAMKEY_CODED_CHANNEL_COUNT[] = "coded.channel-count";
 #define C2_NAME_STREAM_CHANNEL_COUNT_SETTING C2_PARAMKEY_CHANNEL_COUNT
 
 /**
+ * Max channel count. Used to limit the number of coded or decoded channels.
+ */
+typedef C2StreamParam<C2Info, C2Uint32Value, kParamIndexMaxChannelCount> C2StreamMaxChannelCountInfo;
+constexpr char C2_PARAMKEY_MAX_CHANNEL_COUNT[] = "raw.max-channel-count";
+constexpr char C2_PARAMKEY_MAX_CODED_CHANNEL_COUNT[] = "coded.max-channel-count";
+
+/**
  * Audio sample format (PCM encoding)
  */
 C2ENUM(C2Config::pcm_encoding_t, uint32_t,
@@ -1784,6 +1882,83 @@ typedef C2StreamParam<C2Info, C2SimpleValueStruct<C2Config::pcm_encoding_t>, kPa
         C2StreamPcmEncodingInfo;
 constexpr char C2_PARAMKEY_PCM_ENCODING[] = "raw.pcm-encoding";
 constexpr char C2_PARAMKEY_CODED_PCM_ENCODING[] = "coded.pcm-encoding";
+
+/**
+ * AAC SBR Mode. Used during encoding.
+ */
+C2ENUM(C2Config::aac_sbr_mode_t, uint32_t,
+    AAC_SBR_OFF,
+    AAC_SBR_SINGLE_RATE,
+    AAC_SBR_DUAL_RATE,
+    AAC_SBR_AUTO ///< let the codec decide
+)
+
+typedef C2StreamParam<C2Info, C2SimpleValueStruct<C2Config::aac_sbr_mode_t>, kParamIndexAacSbrMode>
+        C2StreamAacSbrModeTuning;
+constexpr char C2_PARAMKEY_AAC_SBR_MODE[] = "coding.aac-sbr-mode";
+
+/**
+ * DRC Compression. Used during decoding.
+ */
+C2ENUM(C2Config::drc_compression_mode_t, int32_t,
+    DRC_COMPRESSION_ODM_DEFAULT, ///< odm's default
+    DRC_COMPRESSION_NONE,
+    DRC_COMPRESSION_LIGHT,
+    DRC_COMPRESSION_HEAVY ///<
+)
+
+typedef C2StreamParam<C2Info, C2SimpleValueStruct<C2Config::drc_compression_mode_t>,
+                kParamIndexDrcCompression>
+        C2StreamDrcCompressionModeTuning;
+constexpr char C2_PARAMKEY_DRC_COMPRESSION_MODE[] = "coding.drc.compression-mode";
+
+/**
+ * DRC target reference level in dBFS. Used during decoding.
+ */
+typedef C2StreamParam<C2Info, C2FloatValue, kParamIndexDrcTargetReferenceLevel>
+        C2StreamDrcTargetReferenceLevelTuning;
+constexpr char C2_PARAMKEY_DRC_TARGET_REFERENCE_LEVEL[] = "coding.drc.reference-level";
+
+/**
+ * DRC target reference level in dBFS. Used during decoding.
+ */
+typedef C2StreamParam<C2Info, C2FloatValue, kParamIndexDrcEncodedTargetLevel>
+        C2StreamDrcEncodedTargetLevelTuning;
+constexpr char C2_PARAMKEY_DRC_ENCODED_TARGET_LEVEL[] = "coding.drc.encoded-level";
+
+/**
+ * DRC target reference level in dBFS. Used during decoding.
+ */
+typedef C2StreamParam<C2Info, C2FloatValue, kParamIndexDrcBoostFactor>
+        C2StreamDrcBoostFactorTuning;
+constexpr char C2_PARAMKEY_DRC_BOOST_FACTOR[] = "coding.drc.boost-factor";
+
+/**
+ * DRC target reference level in dBFS. Used during decoding.
+ */
+typedef C2StreamParam<C2Info, C2FloatValue, kParamIndexDrcAttenuationFactor>
+        C2StreamDrcAttenuationFactorTuning;
+constexpr char C2_PARAMKEY_DRC_ATTENUATION_FACTOR[] = "coding.drc.attenuation-factor";
+
+/**
+ * DRC Effect Type (see ISO 23003-4) Uniform Dynamic Range Control. Used during decoding.
+ */
+C2ENUM(C2Config::drc_effect_type_t, int32_t,
+    DRC_EFFECT_ODM_DEFAULT = -2, ///< odm's default
+    DRC_EFFECT_OFF = -1,    ///< no DRC
+    DRC_EFFECT_NONE = 0,    ///< no DRC except to prevent clipping
+    DRC_EFFECT_LATE_NIGHT,
+    DRC_EFFECT_NOISY_ENVIRONMENT,
+    DRC_EFFECT_LIMITED_PLAYBACK_RANGE,
+    DRC_EFFECT_LOW_PLAYBACK_LEVEL,
+    DRC_EFFECT_DIALOG_ENHANCEMENT,
+    DRC_EFFECT_GENERAL_COMPRESSION
+)
+
+typedef C2StreamParam<C2Info, C2SimpleValueStruct<C2Config::drc_effect_type_t>,
+                kParamIndexDrcEffectType>
+        C2StreamDrcEffectTypeTuning;
+constexpr char C2_PARAMKEY_DRC_EFFECT_TYPE[] = "coding.drc.effect-type";
 
 /* --------------------------------------- AAC components --------------------------------------- */
 
@@ -1835,7 +2010,10 @@ constexpr char C2_PARAMKEY_PLATFORM_FEATURES[] = "api.platform-features";
  * This structure describes the preferred ion allocation parameters for a given memory usage.
  */
 struct C2StoreIonUsageStruct {
-    inline C2StoreIonUsageStruct() = default;
+    inline C2StoreIonUsageStruct() {
+        memset(this, 0, sizeof(*this));
+    }
+
     inline C2StoreIonUsageStruct(uint64_t usage_, uint32_t capacity_)
         : usage(usage_), capacity(capacity_), heapMask(0), allocFlags(0), minAlignment(0) { }
 
@@ -1858,13 +2036,57 @@ typedef C2GlobalParam<C2Info, C2StoreIonUsageStruct, kParamIndexStoreIonUsage>
         C2StoreIonUsageInfo;
 
 /**
+ * Flexible pixel format descriptors
+ */
+struct C2FlexiblePixelFormatDescriptorStruct {
+    uint32_t pixelFormat;
+    uint32_t bitDepth;
+    C2Color::subsampling_t subsampling;
+    C2Color::plane_layout_t layout;
+
+    DEFINE_AND_DESCRIBE_C2STRUCT(FlexiblePixelFormatDescriptor)
+    C2FIELD(pixelFormat, "pixel-format")
+    C2FIELD(bitDepth, "bit-depth")
+    C2FIELD(subsampling, "subsampling")
+    C2FIELD(layout, "layout")
+};
+
+/**
+ * Plane layout of flexible pixel formats.
+ *
+ * bpp: bytes per color component, e.g. 1 for 8-bit formats, and 2 for 10-16-bit formats.
+ */
+C2ENUM(C2Color::plane_layout_t, uint32_t,
+       /** Unknown layout */
+       UNKNOWN_LAYOUT,
+
+       /** Planar layout with rows of each plane packed (colInc = bpp) */
+       PLANAR_PACKED,
+
+       /** Semiplanar layout with rows of each plane packed (colInc_Y/A = bpp (planar),
+        *  colInc_Cb/Cr = 2*bpp (interleaved). Used only for YUV(A) formats. */
+       SEMIPLANAR_PACKED,
+
+       /** Interleaved packed. colInc = N*bpp (N are the number of color components) */
+       INTERLEAVED_PACKED,
+
+       /** Interleaved aligned. colInc = smallest power of 2 >= N*bpp (N are the number of color
+        *  components) */
+       INTERLEAVED_ALIGNED
+)
+
+typedef C2GlobalParam<C2Info, C2SimpleArrayStruct<C2FlexiblePixelFormatDescriptorStruct>,
+                kParamIndexFlexiblePixelFormatDescriptors>
+        C2StoreFlexiblePixelFormatDescriptorsInfo;
+
+/**
  * This structure describes the android dataspace for a raw video/image frame.
  */
 typedef C2StreamParam<C2Info, C2Uint32Value, kParamIndexDataSpace> C2StreamDataSpaceInfo;
 constexpr char C2_PARAMKEY_DATA_SPACE[] = "raw.data-space";
 
 /**
- * This structure describes the android dataspace for a raw video/image frame.
+ * This structure describes the android surface scaling mode for a raw video/image frame.
  */
 typedef C2StreamParam<C2Info, C2Uint32Value, kParamIndexSurfaceScaling> C2StreamSurfaceScalingInfo;
 constexpr char C2_PARAMKEY_SURFACE_SCALING_MODE[] = "raw.surface-scaling";
@@ -1880,19 +2102,45 @@ constexpr char C2_PARAMKEY_INPUT_SURFACE_EOS[] = "input-surface.eos";
 #define C2_NAME_INPUT_SURFACE_EOS_TUNING C2_PARAMKEY_INPUT_SURFACE_EOS
 
 /**
- * Start/suspend/resume/stop timestamps.
+ * Start/suspend/resume/stop controls and timestamps for input surface.
  *
  * TODO: make these counters
  */
-typedef C2PortParam<C2Tuning, C2Uint64Value, kParamIndexStartAt> C2PortStartTimestampTuning;
-typedef C2PortParam<C2Tuning, C2Uint64Value, kParamIndexSuspendAt> C2PortSuspendTimestampTuning;
-typedef C2PortParam<C2Tuning, C2Uint64Value, kParamIndexResumeAt> C2PortResumeTimestampTuning;
-typedef C2PortParam<C2Tuning, C2Uint64Value, kParamIndexStopAt> C2PortStopTimestampTuning;
+
+struct C2TimedControlStruct {
+    c2_bool_t enabled; ///< control is enabled
+    int64_t timestamp; ///< if enabled, time the control should take effect
+
+    C2TimedControlStruct()
+        : enabled(C2_FALSE), timestamp(0) { }
+
+    /* implicit */ C2TimedControlStruct(uint64_t timestamp_)
+        : enabled(C2_TRUE), timestamp(timestamp_) { }
+
+    DEFINE_AND_DESCRIBE_C2STRUCT(TimedControl)
+    C2FIELD(enabled,   "enabled")
+    C2FIELD(timestamp, "timestamp")
+};
+
+typedef C2PortParam<C2Tuning, C2TimedControlStruct, kParamIndexStartAt>
+        C2PortStartTimestampTuning;
+constexpr char C2_PARAMKEY_INPUT_SURFACE_START_AT[] = "input-surface.start";
+typedef C2PortParam<C2Tuning, C2TimedControlStruct, kParamIndexSuspendAt>
+        C2PortSuspendTimestampTuning;
+constexpr char C2_PARAMKEY_INPUT_SURFACE_SUSPEND_AT[] = "input-surface.suspend";
+typedef C2PortParam<C2Tuning, C2TimedControlStruct, kParamIndexResumeAt>
+        C2PortResumeTimestampTuning;
+constexpr char C2_PARAMKEY_INPUT_SURFACE_RESUME_AT[] = "input-surface.resume";
+typedef C2PortParam<C2Tuning, C2TimedControlStruct, kParamIndexStopAt>
+        C2PortStopTimestampTuning;
+constexpr char C2_PARAMKEY_INPUT_SURFACE_STOP_AT[] = "input-surface.stop";
 
 /**
- * Time offset for input surface.
+ * Time offset for input surface. Input timestamp to codec is surface buffer timestamp plus this
+ * time offset.
  */
 typedef C2GlobalParam<C2Tuning, C2Int64Value, kParamIndexTimeOffset> C2ComponentTimeOffsetTuning;
+constexpr char C2_PARAMKEY_INPUT_SURFACE_TIME_OFFSET[] = "input-surface.time-offset";
 
 /**
  * Minimum fps for input surface.
@@ -1900,6 +2148,40 @@ typedef C2GlobalParam<C2Tuning, C2Int64Value, kParamIndexTimeOffset> C2Component
  * Repeat frame to meet this.
  */
 typedef C2PortParam<C2Tuning, C2FloatValue, kParamIndexMinFrameRate> C2PortMinFrameRateTuning;
+constexpr char C2_PARAMKEY_INPUT_SURFACE_MIN_FRAME_RATE[] = "input-surface.min-frame-rate";
+
+/**
+ * Timestamp adjustment (override) for input surface buffers. These control the input timestamp
+ * fed to the codec, but do not impact the output timestamp.
+ */
+struct C2TimestampGapAdjustmentStruct {
+    /// control modes
+    enum mode_t : uint32_t;
+
+    inline C2TimestampGapAdjustmentStruct();
+
+    inline C2TimestampGapAdjustmentStruct(mode_t mode_, uint64_t value_)
+        : mode(mode_), value(value_) { }
+
+    mode_t mode;    ///< control mode
+    uint64_t value; ///< control value for gap between two timestamp
+
+    DEFINE_AND_DESCRIBE_C2STRUCT(TimestampGapAdjustment)
+    C2FIELD(mode, "mode")
+    C2FIELD(value, "value")
+};
+
+C2ENUM(C2TimestampGapAdjustmentStruct::mode_t, uint32_t,
+    NONE,
+    MIN_GAP,
+    FIXED_GAP,
+);
+
+inline C2TimestampGapAdjustmentStruct::C2TimestampGapAdjustmentStruct()
+    : mode(C2TimestampGapAdjustmentStruct::NONE), value(0) { }
+
+typedef C2PortParam<C2Tuning, C2TimestampGapAdjustmentStruct> C2PortTimestampGapTuning;
+constexpr char C2_PARAMKEY_INPUT_SURFACE_TIMESTAMP_ADJUSTMENT[] = "input-surface.timestamp-adjustment";
 
 /// @}
 

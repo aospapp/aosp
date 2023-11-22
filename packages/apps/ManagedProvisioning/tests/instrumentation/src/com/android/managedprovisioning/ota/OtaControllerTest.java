@@ -18,6 +18,7 @@ package com.android.managedprovisioning.ota;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,10 +30,13 @@ import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
+import android.util.ArraySet;
 import android.util.Pair;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.task.AbstractProvisioningTask;
 import com.android.managedprovisioning.task.CrossProfileIntentFiltersSetter;
 import com.android.managedprovisioning.task.DeleteNonRequiredAppsTask;
@@ -49,6 +53,7 @@ import org.mockito.MockitoAnnotations;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.IntFunction;
 
 /**
  * Unit tests for {@link OtaController}.
@@ -59,17 +64,23 @@ public class OtaControllerTest {
     private static final int MANAGED_PROFILE_USER_ID = 15;
     private static final int MANAGED_USER_USER_ID = 18;
 
+    private static final String DUMMY_SYSTEM_IME_PACKAGE_NAME =
+            "com.android.inputmethod.dummysystemime";
+
     private static final ComponentName ADMIN_COMPONENT = new ComponentName("com.test.admin",
             ".AdminReceiver");
+
+    private static final IntFunction<ArraySet<String>> NO_MISSING_SYSTEM_IME_PROVIDER
+            = userHandle -> new ArraySet<>();
 
     @Mock private Context mContext;
     @Mock private DevicePolicyManager mDevicePolicyManager;
     @Mock private PackageManager mPackageManager;
     @Mock private UserManager mUserManager;
     @Mock private CrossProfileIntentFiltersSetter mCrossProfileIntentFiltersSetter;
+    @Mock private ProvisioningAnalyticsTracker mProvisioningAnalyticsTracker;
 
     private TaskExecutor mTaskExecutor;
-    private OtaController mController;
 
     private List<Pair<Integer, AbstractProvisioningTask>> mTasks = new ArrayList<>();
     private List<UserInfo> mUsers = new ArrayList<>();
@@ -90,18 +101,21 @@ public class OtaControllerTest {
         when(mUserManager.getProfiles(UserHandle.USER_SYSTEM)).thenReturn(mProfiles);
 
         mTaskExecutor = new FakeTaskExecutor();
-        mController = new OtaController(mContext, mTaskExecutor, mCrossProfileIntentFiltersSetter);
 
         addSystemUser();
     }
 
     @Test
     public void testDeviceOwnerSystemUser() {
+        OtaController controller = new OtaController(mContext, mTaskExecutor,
+                mCrossProfileIntentFiltersSetter, NO_MISSING_SYSTEM_IME_PROVIDER,
+                mProvisioningAnalyticsTracker);
+
         // GIVEN that there is a device owner on the system user
         setDeviceOwner(UserHandle.USER_SYSTEM, ADMIN_COMPONENT);
 
         // WHEN running the OtaController
-        mController.run();
+        controller.run();
 
         // THEN the task list should contain these tasks.
         assertTaskList(
@@ -115,12 +129,16 @@ public class OtaControllerTest {
 
     @Test
     public void testDeviceOwnerSeparate() {
+        OtaController controller = new OtaController(mContext, mTaskExecutor,
+                mCrossProfileIntentFiltersSetter, NO_MISSING_SYSTEM_IME_PROVIDER,
+                mProvisioningAnalyticsTracker);
+
         // GIVEN that there is a device owner on a non-system meat user
         addMeatUser(DEVICE_OWNER_USER_ID);
         setDeviceOwner(DEVICE_OWNER_USER_ID, ADMIN_COMPONENT);
 
         // WHEN running the OtaController
-        mController.run();
+        controller.run();
 
         // THEN the task list should contain DeleteNonRequiredAppsTask and DisallowAddUserTask
         assertTaskList(
@@ -134,12 +152,16 @@ public class OtaControllerTest {
     }
 
     @Test
-    public void testManagedProfile() {
+    public void testManagedProfileWithoutMissingSystemIme() {
+        OtaController controller = new OtaController(mContext, mTaskExecutor,
+                mCrossProfileIntentFiltersSetter, NO_MISSING_SYSTEM_IME_PROVIDER,
+                mProvisioningAnalyticsTracker);
+
         // GIVEN that there is a managed profile
         addManagedProfile(MANAGED_PROFILE_USER_ID, ADMIN_COMPONENT);
 
         // WHEN running the OtaController
-        mController.run();
+        controller.run();
 
         // THEN the task list should contain these tasks.
         assertTaskList(
@@ -158,12 +180,56 @@ public class OtaControllerTest {
     }
 
     @Test
+    public void testManagedProfileWithMissingSystemIme() {
+        IntFunction<ArraySet<String>> missingSystemImeProvider =
+                (IntFunction<ArraySet<String>>) mock(IntFunction.class);
+
+        OtaController controller = new OtaController(mContext, mTaskExecutor,
+                mCrossProfileIntentFiltersSetter, missingSystemImeProvider,
+                mProvisioningAnalyticsTracker);
+
+        // GIVEN that there is a managed profile
+        addManagedProfile(MANAGED_PROFILE_USER_ID, ADMIN_COMPONENT);
+
+        // GIVEN that the managed profile does not have DUMMY_SYSTEM_IME_PACKAGE_NAME.
+        ArraySet<String> missingImes = new ArraySet<>();
+        missingImes.add(DUMMY_SYSTEM_IME_PACKAGE_NAME);
+        when(missingSystemImeProvider.apply(MANAGED_PROFILE_USER_ID)).thenReturn(missingImes);
+
+        // WHEN running the OtaController
+        controller.run();
+
+        // THEN the task list should contain these tasks.
+        assertTaskList(
+                Pair.create(UserHandle.USER_SYSTEM, MigrateSystemAppsSnapshotTask.class),
+                Pair.create(MANAGED_PROFILE_USER_ID, InstallExistingPackageTask.class),
+                Pair.create(MANAGED_PROFILE_USER_ID, InstallExistingPackageTask.class),
+                Pair.create(MANAGED_PROFILE_USER_ID, DisableInstallShortcutListenersTask.class),
+                Pair.create(MANAGED_PROFILE_USER_ID, DeleteNonRequiredAppsTask.class));
+
+        // THEN the cross profile intent filters should be reset
+        verify(mCrossProfileIntentFiltersSetter).resetFilters(UserHandle.USER_SYSTEM);
+        verify(mCrossProfileIntentFiltersSetter, never()).resetFilters(MANAGED_PROFILE_USER_ID);
+
+        // THEN the DISALLOW_WALLPAPER restriction should be set
+        verify(mUserManager).setUserRestriction(UserManager.DISALLOW_WALLPAPER, true,
+                UserHandle.of(MANAGED_PROFILE_USER_ID));
+
+        // THEN the DUMMY_SYSTEM_IME_PACKAGE_NAME should be installed.
+        assertInstallExistingPackageTask(MANAGED_PROFILE_USER_ID, DUMMY_SYSTEM_IME_PACKAGE_NAME);
+    }
+
+    @Test
     public void testManagedUser() {
+        OtaController controller = new OtaController(mContext, mTaskExecutor,
+                mCrossProfileIntentFiltersSetter, NO_MISSING_SYSTEM_IME_PROVIDER,
+                mProvisioningAnalyticsTracker);
+
         // GIVEN that there is a managed profile
         addManagedUser(MANAGED_USER_USER_ID, ADMIN_COMPONENT);
 
         // WHEN running the OtaController
-        mController.run();
+        controller.run();
 
         // THEN the task list should contain these tasks.
         assertTaskList(
@@ -229,5 +295,20 @@ public class OtaControllerTest {
             }
         }
         fail("Task for class " + taskClass + " and userId " + userId + " not executed");
+    }
+
+    private void assertInstallExistingPackageTask(int userId, String packageName) {
+        for (Pair<Integer, AbstractProvisioningTask> task : mTasks) {
+            if (userId != task.first || !InstallExistingPackageTask.class.isInstance(task.second)) {
+                continue;
+            }
+            InstallExistingPackageTask installExistingPackageTask =
+                    (InstallExistingPackageTask) task.second;
+            if (packageName.equals(installExistingPackageTask.getPackageName())) {
+                return;
+            }
+        }
+        fail("InstallExistingPackageTask for " + packageName + " and userId " + userId
+                + " not executed");
     }
 }

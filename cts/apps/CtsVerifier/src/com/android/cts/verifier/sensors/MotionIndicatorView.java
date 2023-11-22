@@ -26,6 +26,7 @@ import android.graphics.RectF;
 import android.hardware.SensorManager;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.Surface;
 import android.view.View;
 
 /**
@@ -89,6 +90,8 @@ public class MotionIndicatorView extends View {
 
     private boolean mXEnabled, mYEnabled, mZEnabled;
 
+    private boolean mIsDeviceRotated = false;
+
     /**
      * Constructor
      * @param context
@@ -146,6 +149,15 @@ public class MotionIndicatorView extends View {
     }
 
     /**
+     * Set the device's current rotation
+     * @param rotation Surface.ROTATION_0, Surface.ROTATION_90, Surface.ROTATION_180, or
+     *                 Surface.ROTATION_270
+     */
+    public void setDeviceRotation(int rotation) {
+        mIsDeviceRotated = (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270);
+    }
+
+    /**
      * Set the active axis for display
      *
      * @param axis AXIS_X, AXIS_Y, AXIS_Z for x, y, z axis indicators, or AXIS_ALL for all three.
@@ -181,16 +193,22 @@ public class MotionIndicatorView extends View {
         mXSize = w;
         mYSize = h;
 
-        mZBoundOut = new RectF(w/2-w/2.5f, h/2-w/2.5f, w/2+w/2.5f, h/2+w/2.5f);
+        float halfSideLength = 0.4f * Math.min(w, h);
+        float leftSide = w/2 - halfSideLength;
+        float topSide = h/2 - halfSideLength;
+        float rightSide = w/2 + halfSideLength;
+        float bottomSide = h/2 + halfSideLength;
+
+        mZBoundOut = new RectF(leftSide, topSide, rightSide, bottomSide);
         mZBoundOut2 = new RectF(
-                w/2-w/2.5f-ZRING_CURSOR_ADD, h/2-w/2.5f-ZRING_CURSOR_ADD,
-                w/2+w/2.5f+ZRING_CURSOR_ADD, h/2+w/2.5f+ZRING_CURSOR_ADD);
+                leftSide-ZRING_CURSOR_ADD, topSide-ZRING_CURSOR_ADD,
+                rightSide+ZRING_CURSOR_ADD, bottomSide+ZRING_CURSOR_ADD);
         mZBoundIn = new RectF(
-                w/2-w/2.5f+ZRING_WIDTH, h/2-w/2.5f+ZRING_WIDTH,
-                w/2+w/2.5f-ZRING_WIDTH, h/2+w/2.5f-ZRING_WIDTH);
+                leftSide+ZRING_WIDTH, topSide+ZRING_WIDTH,
+                rightSide-ZRING_WIDTH, bottomSide-ZRING_WIDTH);
         mZBoundIn2 = new RectF(
-                w/2-w/2.5f+ZRING_WIDTH+ZRING_CURSOR_ADD, h/2-w/2.5f+ZRING_WIDTH+ZRING_CURSOR_ADD,
-                w/2+w/2.5f-ZRING_WIDTH-ZRING_CURSOR_ADD, h/2+w/2.5f-ZRING_WIDTH-ZRING_CURSOR_ADD);
+                leftSide+ZRING_WIDTH+ZRING_CURSOR_ADD, topSide+ZRING_WIDTH+ZRING_CURSOR_ADD,
+                rightSide-ZRING_WIDTH-ZRING_CURSOR_ADD, bottomSide-ZRING_WIDTH-ZRING_CURSOR_ADD);
 
         if (LOCAL_LOGV) Log.v(TAG, "New view size = ("+w+", "+h+")");
     }
@@ -209,8 +227,14 @@ public class MotionIndicatorView extends View {
         p.setColor(Color.YELLOW);
         canvas.drawRect(10,10, 50, 50, p);
 
-        if (mXEnabled && mXCovered != null) {
-            int xNStep = mXCovered.getNSteps() + 4; // two on each side as a buffer
+        // In order to determine which progress bar to draw, the device's rotation must be accounted
+        // for since the accelerometer rotates with the display.
+        boolean drawX = (mXEnabled && !mIsDeviceRotated) || (mYEnabled && mIsDeviceRotated);
+        boolean drawY = (mYEnabled && !mIsDeviceRotated) || (mXEnabled && mIsDeviceRotated);
+
+        if (drawX && mXCovered != null) {
+            RangeCoveredRegister covered = mIsDeviceRotated ? mYCovered : mXCovered;
+            int xNStep = covered.getNSteps() + 4; // two on each side as a buffer
             int xStepSize = mXSize * 3/4 / xNStep;
             int xLeft = mXSize * 1/8 + (mXSize * 3/4 % xNStep)/2;
 
@@ -219,8 +243,8 @@ public class MotionIndicatorView extends View {
                     xLeft+xStepSize*xNStep-1, XBAR_WIDTH+XBAR_MARGIN, mRangePaint);
 
             // covered range
-            for (i=0; i<mXCovered.getNSteps(); ++i) {
-                if (mXCovered.isCovered(i)) {
+            for (i=0; i<covered.getNSteps(); ++i) {
+                if (covered.isCovered(i)) {
                     canvas.drawRect(
                             xLeft+xStepSize*(i+2), XBAR_MARGIN,
                             xLeft+xStepSize*(i+3)-1, XBAR_WIDTH + XBAR_MARGIN,
@@ -235,12 +259,14 @@ public class MotionIndicatorView extends View {
                     xLeft+xStepSize*(xNStep-2)+3, XBAR_WIDTH+XBAR_MARGIN, mLimitPaint);
 
             // cursor
-            t = (int)(xLeft+xStepSize*(mXCovered.getLastValue()+2));
+            t = (int)(xLeft+xStepSize*(covered.getLastValue()+2));
             canvas.drawRect(t-4, XBAR_MARGIN-XBAR_CURSOR_ADD, t+3,
                     XBAR_WIDTH+XBAR_MARGIN+XBAR_CURSOR_ADD, mCursorPaint);
         }
-        if (mYEnabled && mYCovered != null) {
-            int yNStep = mYCovered.getNSteps() + 4; // two on each side as a buffer
+
+        if (drawY && mYCovered != null) {
+            RangeCoveredRegister covered = mIsDeviceRotated ? mXCovered : mYCovered;
+            int yNStep = covered.getNSteps() + 4; // two on each side as a buffer
             int yStepSize = mYSize * 3/4 / yNStep;
             int yLeft = mYSize * 1/8 + (mYSize * 3/4 % yNStep)/2;
 
@@ -249,8 +275,8 @@ public class MotionIndicatorView extends View {
                     YBAR_WIDTH+YBAR_MARGIN, yLeft+yStepSize*yNStep-1, mRangePaint);
 
             // covered range
-            for (i=0; i<mYCovered.getNSteps(); ++i) {
-                if (mYCovered.isCovered(i)) {
+            for (i=0; i<covered.getNSteps(); ++i) {
+                if (covered.isCovered(i)) {
                     canvas.drawRect(
                             YBAR_MARGIN, yLeft+yStepSize*(i+2),
                             YBAR_WIDTH + YBAR_MARGIN, yLeft+yStepSize*(i+3)-1,
@@ -265,7 +291,7 @@ public class MotionIndicatorView extends View {
                     YBAR_WIDTH + YBAR_MARGIN, yLeft + yStepSize * (yNStep - 2) + 3, mLimitPaint);
 
             // cursor
-            t = (int)(yLeft+yStepSize*(mYCovered.getLastValue()+2));
+            t = (int)(yLeft+yStepSize*(covered.getLastValue()+2));
             canvas.drawRect( YBAR_MARGIN-YBAR_CURSOR_ADD, t-4,
                     YBAR_WIDTH+YBAR_MARGIN+YBAR_CURSOR_ADD, t+3, mCursorPaint);
         }

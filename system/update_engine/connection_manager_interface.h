@@ -46,6 +46,10 @@ class ConnectionManagerInterface {
   virtual bool IsUpdateAllowedOver(ConnectionType type,
                                    ConnectionTethering tethering) const = 0;
 
+  // Returns true if the allowed connection types for update is set in the
+  // device policy. Otherwise, returns false.
+  virtual bool IsAllowedConnectionTypesForUpdateSet() const = 0;
+
  protected:
   ConnectionManagerInterface() = default;
 
@@ -57,7 +61,7 @@ namespace connection_manager {
 // Factory function which creates a ConnectionManager.
 std::unique_ptr<ConnectionManagerInterface> CreateConnectionManager(
     SystemState* system_state);
-}
+}  // namespace connection_manager
 
 }  // namespace chromeos_update_engine
 

@@ -21,34 +21,45 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
-import android.net.wifi.WifiConfiguration.Status;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.TxPacketCountListener;
 import android.net.wifi.WifiManager.WifiLock;
 import android.net.wifi.hotspot2.PasspointConfiguration;
 import android.net.wifi.hotspot2.pps.Credential;
 import android.net.wifi.hotspot2.pps.HomeSp;
+import android.os.Process;
 import android.os.SystemClock;
+import android.os.UserHandle;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
+import android.support.test.uiautomator.UiDevice;
 import android.test.AndroidTestCase;
+import android.text.TextUtils;
+import android.util.ArraySet;
 import android.util.Log;
 
-import com.android.compatibility.common.util.WifiConfigCreator;
+import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.cert.X509Certificate;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
+@AppModeFull(reason = "Cannot get WifiManager in instant app mode")
 public class WifiManagerTest extends AndroidTestCase {
     private static class MySync {
         int expectedState = STATE_NULL;
@@ -60,6 +71,7 @@ public class WifiManagerTest extends AndroidTestCase {
     private List<ScanResult> mScanResults = null;
     private NetworkInfo mNetworkInfo;
     private Object mLOHSLock = new Object();
+    private UiDevice mUiDevice;
 
     // Please refer to WifiManager
     private static final int MIN_RSSI = -100;
@@ -74,9 +86,6 @@ public class WifiManagerTest extends AndroidTestCase {
 
     private static final String TAG = "WifiManagerTest";
     private static final String SSID1 = "\"WifiManagerTest\"";
-    private static final String SSID2 = "\"WifiManagerTestModified\"";
-    private static final String PROXY_TEST_SSID = "SomeProxyAp";
-    private static final String ADD_NETWORK_EXCEPTION_SUBSTR = "addNetwork";
     // A full single scan duration is about 6-7 seconds if country code is set
     // to US. If country code is set to world mode (00), we would expect a scan
     // duration of roughly 8 seconds. So we set scan timeout as 9 seconds here.
@@ -84,11 +93,16 @@ public class WifiManagerTest extends AndroidTestCase {
     private static final int TIMEOUT_MSEC = 6000;
     private static final int WAIT_MSEC = 60;
     private static final int DURATION = 10000;
+    private static final int DURATION_SCREEN_TOGGLE = 2000;
     private static final int WIFI_SCAN_TEST_INTERVAL_MILLIS = 60 * 1000;
     private static final int WIFI_SCAN_TEST_CACHE_DELAY_MILLIS = 3 * 60 * 1000;
     private static final int WIFI_SCAN_TEST_ITERATIONS = 5;
 
+    private static final int ENFORCED_NUM_NETWORK_SUGGESTIONS_PER_APP = 50;
+
     private static final String TEST_PAC_URL = "http://www.example.com/proxy.pac";
+    private static final String MANAGED_PROVISIONING_PACKAGE_NAME
+            = "com.android.managedprovisioning";
 
     private IntentFilter mIntentFilter;
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -156,6 +170,8 @@ public class WifiManagerTest extends AndroidTestCase {
         mWifiLock.acquire();
         if (!mWifiManager.isWifiEnabled())
             setWifiEnabled(true);
+        mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        turnScreenOnNoDelay();
         Thread.sleep(DURATION);
         assertTrue(mWifiManager.isWifiEnabled());
         synchronized (mMySync) {
@@ -186,8 +202,8 @@ public class WifiManagerTest extends AndroidTestCase {
             } else {
                 mMySync.expectedState = (enable ? STATE_WIFI_ENABLED : STATE_WIFI_DISABLED);
             }
-            // now trigger the change
-            assertTrue(mWifiManager.setWifiEnabled(enable));
+            // now trigger the change using shell commands.
+            SystemUtil.runShellCommand("svc wifi " + (enable ? "enable" : "disable"));
             waitForExpectedWifiState(enable);
         }
     }
@@ -236,7 +252,6 @@ public class WifiManagerTest extends AndroidTestCase {
     private void connectWifi() throws Exception {
         synchronized (mMySync) {
             if (mNetworkInfo.getState() == NetworkInfo.State.CONNECTED) return;
-            assertTrue(mWifiManager.reconnect());
             long timeout = System.currentTimeMillis() + TIMEOUT_MSEC;
             while (System.currentTimeMillis() < timeout
                     && mNetworkInfo.getState() != NetworkInfo.State.CONNECTED)
@@ -262,20 +277,13 @@ public class WifiManagerTest extends AndroidTestCase {
     }
 
     /**
-     * test point of wifiManager actions:
-     * 1.reconnect
-     * 2.reassociate
-     * 3.disconnect
-     * 4.createWifiLock
+     * Test creation of WifiManager Lock.
      */
-    public void testWifiManagerActions() throws Exception {
+    public void testWifiManagerLock() throws Exception {
         if (!WifiFeature.isWifiSupported(getContext())) {
             // skip the test if WiFi is not supported
             return;
         }
-        assertTrue(mWifiManager.reconnect());
-        assertTrue(mWifiManager.reassociate());
-        assertTrue(mWifiManager.disconnect());
         final String TAG = "Test";
         assertNotNull(mWifiManager.createWifiLock(TAG));
         assertNotNull(mWifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL, TAG));
@@ -396,123 +404,8 @@ public class WifiManagerTest extends AndroidTestCase {
         return getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_LOCATION);
     }
 
-    /**
-     * test point of wifiManager NetWork:
-     * 1.add NetWork
-     * 2.update NetWork
-     * 3.remove NetWork
-     * 4.enable NetWork
-     * 5.disable NetWork
-     * 6.configured Networks
-     * 7.save configure;
-     */
-    public void testWifiManagerNetWork() throws Exception {
-        if (!WifiFeature.isWifiSupported(getContext())) {
-            // skip the test if WiFi is not supported
-            return;
-        }
-
-        // store the list of enabled networks, so they can be re-enabled after test completes
-        Set<String> enabledSsids = getEnabledNetworks(mWifiManager.getConfiguredNetworks());
-        try {
-            WifiConfiguration wifiConfiguration;
-            // add a WifiConfig
-            final int notExist = -1;
-            List<WifiConfiguration> wifiConfiguredNetworks = mWifiManager.getConfiguredNetworks();
-            int pos = findConfiguredNetworks(SSID1, wifiConfiguredNetworks);
-            if (notExist != pos) {
-                wifiConfiguration = wifiConfiguredNetworks.get(pos);
-                mWifiManager.removeNetwork(wifiConfiguration.networkId);
-            }
-            pos = findConfiguredNetworks(SSID1, wifiConfiguredNetworks);
-            assertEquals(notExist, pos);
-            final int size = wifiConfiguredNetworks.size();
-
-            wifiConfiguration = new WifiConfiguration();
-            wifiConfiguration.SSID = SSID1;
-            wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-            int netId = mWifiManager.addNetwork(wifiConfiguration);
-            assertTrue(existSSID(SSID1));
-
-            wifiConfiguredNetworks = mWifiManager.getConfiguredNetworks();
-            assertEquals(size + 1, wifiConfiguredNetworks.size());
-            pos = findConfiguredNetworks(SSID1, wifiConfiguredNetworks);
-            assertTrue(notExist != pos);
-
-            // Enable & disable network
-            boolean disableOthers = true;
-            assertTrue(mWifiManager.enableNetwork(netId, disableOthers));
-            wifiConfiguration = mWifiManager.getConfiguredNetworks().get(pos);
-            assertEquals(Status.ENABLED, wifiConfiguration.status);
-
-            assertTrue(mWifiManager.disableNetwork(netId));
-            wifiConfiguration = mWifiManager.getConfiguredNetworks().get(pos);
-            assertEquals(Status.DISABLED, wifiConfiguration.status);
-
-            // Update a WifiConfig
-            wifiConfiguration = wifiConfiguredNetworks.get(pos);
-            wifiConfiguration.SSID = SSID2;
-            netId = mWifiManager.updateNetwork(wifiConfiguration);
-            assertFalse(existSSID(SSID1));
-            assertTrue(existSSID(SSID2));
-
-            // Remove a WifiConfig
-            assertTrue(mWifiManager.removeNetwork(netId));
-            assertFalse(mWifiManager.removeNetwork(notExist));
-            assertFalse(existSSID(SSID1));
-            assertFalse(existSSID(SSID2));
-
-            assertTrue(mWifiManager.saveConfiguration());
-        } finally {
-            reEnableNetworks(enabledSsids, mWifiManager.getConfiguredNetworks());
-            mWifiManager.saveConfiguration();
-        }
-    }
-
-    /**
-     * Verifies that addNetwork() fails for WifiConfigurations containing a non-null http proxy when
-     * the caller doesn't have OVERRIDE_WIFI_CONFIG permission, DeviceOwner or ProfileOwner device
-     * management policies
-     */
-    public void testSetHttpProxy_PermissionFail() throws Exception {
-        if (!WifiFeature.isWifiSupported(getContext())) {
-            // skip the test if WiFi is not supported
-            return;
-        }
-        WifiConfigCreator configCreator = new WifiConfigCreator(getContext());
-        boolean exceptionThrown = false;
-        try {
-            configCreator.addHttpProxyNetworkVerifyAndRemove(
-                    PROXY_TEST_SSID, TEST_PAC_URL);
-        } catch (IllegalStateException e) {
-            // addHttpProxyNetworkVerifyAndRemove throws three IllegalStateException,
-            // expect it to throw for the addNetwork operation
-            if (e.getMessage().contains(ADD_NETWORK_EXCEPTION_SUBSTR)) {
-                exceptionThrown = true;
-            }
-        }
-        assertTrue(exceptionThrown);
-    }
-
-    private Set<String> getEnabledNetworks(List<WifiConfiguration> configuredNetworks) {
-        Set<String> ssids = new HashSet<String>();
-        for (WifiConfiguration wifiConfig : configuredNetworks) {
-            if (Status.ENABLED == wifiConfig.status || Status.CURRENT == wifiConfig.status) {
-                ssids.add(wifiConfig.SSID);
-                Log.i(TAG, String.format("remembering enabled network %s", wifiConfig.SSID));
-            }
-        }
-        return ssids;
-    }
-
-    private void reEnableNetworks(Set<String> enabledSsids,
-            List<WifiConfiguration> configuredNetworks) {
-        for (WifiConfiguration wifiConfig : configuredNetworks) {
-            if (enabledSsids.contains(wifiConfig.SSID)) {
-                mWifiManager.enableNetwork(wifiConfig.networkId, false);
-                Log.i(TAG, String.format("re-enabling network %s", wifiConfig.SSID));
-            }
-        }
+    private boolean hasAutomotiveFeature() {
+        return getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 
     public void testSignal() {
@@ -621,164 +514,6 @@ public class WifiManagerTest extends AndroidTestCase {
         assertTrue(i < 15);
     }
 
-    /**
-     * Verify Passpoint configuration management APIs (add, remove, get) for a Passpoint
-     * configuration with an user credential.
-     *
-     * @throws Exception
-     */
-    public void testAddPasspointConfigWithUserCredential() throws Exception {
-        if (!WifiFeature.isWifiSupported(getContext())) {
-            // skip the test if WiFi is not supported
-            return;
-        }
-        testAddPasspointConfig(generatePasspointConfig(generateUserCredential()));
-    }
-
-    /**
-     * Verify Passpoint configuration management APIs (add, remove, get) for a Passpoint
-     * configuration with a certificate credential.
-     *
-     * @throws Exception
-     */
-    public void testAddPasspointConfigWithCertCredential() throws Exception {
-        if (!WifiFeature.isWifiSupported(getContext())) {
-            // skip the test if WiFi is not supported
-            return;
-        }
-        testAddPasspointConfig(generatePasspointConfig(generateCertCredential()));
-    }
-
-    /**
-     * Verify Passpoint configuration management APIs (add, remove, get) for a Passpoint
-     * configuration with a SIm credential.
-     *
-     * @throws Exception
-     */
-    public void testAddPasspointConfigWithSimCredential() throws Exception {
-        if (!WifiFeature.isWifiSupported(getContext())) {
-            // skip the test if WiFi is not supported
-            return;
-        }
-        testAddPasspointConfig(generatePasspointConfig(generateSimCredential()));
-    }
-
-    /**
-     * Helper function for generating a {@link PasspointConfiguration} for testing.
-     *
-     * @return {@link PasspointConfiguration}
-     */
-    private PasspointConfiguration generatePasspointConfig(Credential credential) {
-        PasspointConfiguration config = new PasspointConfiguration();
-        config.setCredential(credential);
-
-        // Setup HomeSp.
-        HomeSp homeSp = new HomeSp();
-        homeSp.setFqdn("Test.com");
-        homeSp.setFriendlyName("Test Provider");
-        homeSp.setRoamingConsortiumOis(new long[] {0x11223344});
-        config.setHomeSp(homeSp);
-
-        return config;
-    }
-
-    /**
-     * Helper function for generating an user credential for testing.
-     *
-     * @return {@link Credential}
-     */
-    private Credential generateUserCredential() {
-        Credential credential = new Credential();
-        credential.setRealm("test.net");
-        Credential.UserCredential userCred = new Credential.UserCredential();
-        userCred.setEapType(21 /* EAP_TTLS */);
-        userCred.setUsername("username");
-        userCred.setPassword("password");
-        userCred.setNonEapInnerMethod("PAP");
-        credential.setUserCredential(userCred);
-        credential.setCaCertificate(FakeKeys.CA_PUBLIC_CERT);
-        return credential;
-    }
-
-    /**
-     * Helper function for generating a certificate credential for testing.
-     *
-     * @return {@link Credential}
-     */
-    private Credential generateCertCredential() throws Exception {
-        Credential credential = new Credential();
-        credential.setRealm("test.net");
-        Credential.CertificateCredential certCredential = new Credential.CertificateCredential();
-        certCredential.setCertType("x509v3");
-        certCredential.setCertSha256Fingerprint(
-                MessageDigest.getInstance("SHA-256").digest(FakeKeys.CLIENT_CERT.getEncoded()));
-        credential.setCertCredential(certCredential);
-        credential.setCaCertificate(FakeKeys.CA_PUBLIC_CERT);
-        credential.setClientCertificateChain(new X509Certificate[] {FakeKeys.CLIENT_CERT});
-        credential.setClientPrivateKey(FakeKeys.RSA_KEY1);
-        return credential;
-    }
-
-    /**
-     * Helper function for generating a SIM credential for testing.
-     *
-     * @return {@link Credential}
-     */
-    private Credential generateSimCredential() throws Exception {
-        Credential credential = new Credential();
-        credential.setRealm("test.net");
-        Credential.SimCredential simCredential = new Credential.SimCredential();
-        simCredential.setImsi("1234*");
-        simCredential.setEapType(18 /* EAP_SIM */);
-        credential.setSimCredential(simCredential);
-        return credential;
-    }
-
-    /**
-     * Helper function verifying Passpoint configuration management APIs (add, remove, get) for
-     * a given configuration.
-     *
-     * @param config The configuration to test with
-     */
-    private void testAddPasspointConfig(PasspointConfiguration config) throws Exception {
-        try {
-
-            // obtain number of passpoint networks already present in device (preloaded)
-            List<PasspointConfiguration> preConfigList = mWifiManager.getPasspointConfigurations();
-            int numOfNetworks = preConfigList.size();
-
-            // add new (test) configuration
-            mWifiManager.addOrUpdatePasspointConfiguration(config);
-
-            // Certificates and keys will be set to null after it is installed to the KeyStore by
-            // WifiManager.  Reset them in the expected config so that it can be used to compare
-            // against the retrieved config.
-            config.getCredential().setCaCertificate(null);
-            config.getCredential().setClientCertificateChain(null);
-            config.getCredential().setClientPrivateKey(null);
-
-            // retrieve the configuration and verify it. The retrieved list may not be in order -
-            // check all configs to see if any match
-            List<PasspointConfiguration> configList = mWifiManager.getPasspointConfigurations();
-            assertEquals(numOfNetworks + 1, configList.size());
-
-            boolean anyMatch = false;
-            for (PasspointConfiguration passpointConfiguration : configList) {
-                if (passpointConfiguration.equals(config)) {
-                    anyMatch = true;
-                    break;
-                }
-            }
-            assertTrue(anyMatch);
-
-            // remove the (test) configuration and verify number of installed configurations
-            mWifiManager.removePasspointConfiguration(config.getHomeSp().getFqdn());
-            assertEquals(mWifiManager.getPasspointConfigurations().size(), numOfNetworks);
-        } catch (UnsupportedOperationException e) {
-            // Passpoint build config |config_wifi_hotspot2_enabled| is disabled, so noop.
-        }
-    }
-
     public class TestLocalOnlyHotspotCallback extends WifiManager.LocalOnlyHotspotCallback {
         Object hotspotLock;
         WifiManager.LocalOnlyHotspotReservation reservation = null;
@@ -835,6 +570,11 @@ public class WifiManagerTest extends AndroidTestCase {
             // check if we got the callback
             assertTrue(callback.onStartedCalled);
             assertNotNull(callback.reservation.getWifiConfiguration());
+            if (!hasAutomotiveFeature()) {
+                assertEquals(
+                        WifiConfiguration.AP_BAND_2GHZ,
+                        callback.reservation.getWifiConfiguration().apBand);
+            }
             assertFalse(callback.onFailedCalled);
             assertFalse(callback.onStoppedCalled);
         }
@@ -874,6 +614,15 @@ public class WifiManagerTest extends AndroidTestCase {
 
         TestLocalOnlyHotspotCallback callback = startLocalOnlyHotspot();
 
+        // add sleep to avoid calling stopLocalOnlyHotspot before TetherController initialization.
+        // TODO: remove this sleep as soon as b/124330089 is fixed.
+        try {
+            Log.d(TAG, "Sleep for 2 seconds");
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Log.d(TAG, "Thread InterruptedException!");
+        }
+
         stopLocalOnlyHotspot(callback, wifiEnabled);
 
         // wifi should either stay on, or come back on
@@ -881,37 +630,37 @@ public class WifiManagerTest extends AndroidTestCase {
     }
 
     /**
-     * Verify calls to setWifiEnabled from a non-settings app while softap mode is active do not
-     * exit softap mode.
-     *
-     * This test uses the LocalOnlyHotspot API to enter softap mode.  This should also be true when
-     * tethering is started.
-     * Note: Location mode must be enabled for this test.
+     * Verify calls to deprecated API's all fail for non-settings apps targeting >= Q SDK.
      */
-    public void testSetWifiEnabledByAppDoesNotStopHotspot() throws Exception {
+    public void testDeprecatedApis() throws Exception {
         if (!WifiFeature.isWifiSupported(getContext())) {
             // skip the test if WiFi is not supported
             return;
         }
-        // check that softap mode is supported by the device
-        if (!mWifiManager.isPortableHotspotSupported()) {
-            return;
-        }
+        setWifiEnabled(true);
+        connectWifi(); // ensures that there is at-least 1 saved network on the device.
+
+        WifiConfiguration wifiConfiguration = new WifiConfiguration();
+        wifiConfiguration.SSID = SSID1;
+        wifiConfiguration.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+
+        assertEquals(WifiConfiguration.INVALID_NETWORK_ID,
+                mWifiManager.addNetwork(wifiConfiguration));
+        assertEquals(WifiConfiguration.INVALID_NETWORK_ID,
+                mWifiManager.updateNetwork(wifiConfiguration));
+        assertFalse(mWifiManager.enableNetwork(0, true));
+        assertFalse(mWifiManager.disableNetwork(0));
+        assertFalse(mWifiManager.removeNetwork(0));
+        assertFalse(mWifiManager.disconnect());
+        assertFalse(mWifiManager.reconnect());
+        assertFalse(mWifiManager.reassociate());
+        assertTrue(mWifiManager.getConfiguredNetworks().isEmpty());
 
         boolean wifiEnabled = mWifiManager.isWifiEnabled();
-
-        if (wifiEnabled) {
-            // disable wifi so we have something to turn on (some devices may be able to run
-            // simultaneous modes)
-            setWifiEnabled(false);
-        }
-
-        TestLocalOnlyHotspotCallback callback = startLocalOnlyHotspot();
-
-        // now we should fail to turn on wifi
-        assertFalse(mWifiManager.setWifiEnabled(true));
-
-        stopLocalOnlyHotspot(callback, wifiEnabled);
+        // now we should fail to toggle wifi state.
+        assertFalse(mWifiManager.setWifiEnabled(!wifiEnabled));
+        Thread.sleep(DURATION);
+        assertEquals(wifiEnabled, mWifiManager.isWifiEnabled());
     }
 
     /**
@@ -949,6 +698,354 @@ public class WifiManagerTest extends AndroidTestCase {
         }
         assertTrue(caughtException);
 
+        // add sleep to avoid calling stopLocalOnlyHotspot before TetherController initialization.
+        // TODO: remove this sleep as soon as b/124330089 is fixed.
+        try {
+            Log.d(TAG, "Sleep for 2 seconds");
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Log.d(TAG, "Thread InterruptedException!");
+        }
+
         stopLocalOnlyHotspot(callback, wifiEnabled);
+    }
+
+    /**
+     * Verify that the {@link android.Manifest.permission#NETWORK_STACK} permission is never held by
+     * any package.
+     * <p>
+     * No apps should <em>ever</em> attempt to acquire this permission, since it would give those
+     * apps extremely broad access to connectivity functionality.
+     */
+    public void testNetworkStackPermission() {
+        final PackageManager pm = getContext().getPackageManager();
+
+        final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[] {
+                android.Manifest.permission.NETWORK_STACK
+        }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
+        for (PackageInfo pi : holding) {
+            fail("The NETWORK_STACK permission must not be held by " + pi.packageName
+                    + " and must be revoked for security reasons");
+        }
+    }
+
+    /**
+     * Verify that the {@link android.Manifest.permission#NETWORK_SETTINGS} permission is
+     * never held by any package.
+     * <p>
+     * Only Settings, SysUi, NetworkStack and shell apps should <em>ever</em> attempt to acquire
+     * this permission, since it would give those apps extremely broad access to connectivity
+     * functionality.  The permission is intended to be granted to only those apps with direct user
+     * access and no others.
+     */
+    public void testNetworkSettingsPermission() {
+        final PackageManager pm = getContext().getPackageManager();
+
+        final ArraySet<String> allowedPackages = new ArraySet();
+        final ArraySet<Integer> allowedUIDs = new ArraySet();
+        // explicitly add allowed UIDs
+        allowedUIDs.add(Process.SYSTEM_UID);
+        allowedUIDs.add(Process.SHELL_UID);
+        allowedUIDs.add(Process.PHONE_UID);
+        allowedUIDs.add(Process.NETWORK_STACK_UID);
+        allowedUIDs.add(Process.NFC_UID);
+
+        // only quick settings is allowed to bind to the BIND_QUICK_SETTINGS_TILE permission, using
+        // this fact to determined allowed package name for sysui. This is a signature permission,
+        // so allow any package with this permission.
+        final List<PackageInfo> sysuiPackages = pm.getPackagesHoldingPermissions(new String[] {
+                android.Manifest.permission.BIND_QUICK_SETTINGS_TILE
+        }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
+        for (PackageInfo info : sysuiPackages) {
+            allowedPackages.add(info.packageName);
+        }
+
+        // the captive portal flow also currently holds the NETWORK_SETTINGS permission
+        final Intent intent = new Intent(ConnectivityManager.ACTION_CAPTIVE_PORTAL_SIGN_IN);
+        final ResolveInfo ri = pm.resolveActivity(intent, PackageManager.MATCH_DISABLED_COMPONENTS);
+        if (ri != null) {
+            allowedPackages.add(ri.activityInfo.packageName);
+        }
+
+        final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[] {
+                android.Manifest.permission.NETWORK_SETTINGS
+        }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
+        for (PackageInfo pi : holding) {
+            String packageName = pi.packageName;
+
+            // this is an explicitly allowed package
+            if (allowedPackages.contains(packageName)) continue;
+
+            // now check if the packages are from allowed UIDs
+            int uid = -1;
+            try {
+                uid = pm.getPackageUidAsUser(packageName, UserHandle.USER_SYSTEM);
+            } catch (PackageManager.NameNotFoundException e) {
+                continue;
+            }
+            if (!allowedUIDs.contains(uid)) {
+                fail("The NETWORK_SETTINGS permission must not be held by " + packageName
+                        + ":" + uid + " and must be revoked for security reasons");
+            }
+        }
+    }
+
+    /**
+     * Verify that the {@link android.Manifest.permission#NETWORK_SETUP_WIZARD} permission is
+     * only held by the device setup wizard application.
+     * <p>
+     * Only the SetupWizard app should <em>ever</em> attempt to acquire this
+     * permission, since it would give those apps extremely broad access to connectivity
+     * functionality.  The permission is intended to be granted to only the device setup wizard.
+     */
+    public void testNetworkSetupWizardPermission() {
+        final ArraySet<String> allowedPackages = new ArraySet();
+
+        final PackageManager pm = getContext().getPackageManager();
+
+        final Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_SETUP_WIZARD);
+        final ResolveInfo ri = pm.resolveActivity(intent, PackageManager.MATCH_DISABLED_COMPONENTS);
+        String validPkg = "";
+        if (ri != null) {
+            allowedPackages.add(ri.activityInfo.packageName);
+            validPkg = ri.activityInfo.packageName;
+        }
+
+        final Intent preIntent = new Intent("com.android.setupwizard.OEM_PRE_SETUP");
+        preIntent.addCategory(Intent.CATEGORY_DEFAULT);
+        final ResolveInfo preRi = pm
+            .resolveActivity(preIntent, PackageManager.MATCH_DISABLED_COMPONENTS);
+        String prePackageName = "";
+        if (null != preRi) {
+            prePackageName = preRi.activityInfo.packageName;
+        }
+
+        final Intent postIntent = new Intent("com.android.setupwizard.OEM_POST_SETUP");
+        postIntent.addCategory(Intent.CATEGORY_DEFAULT);
+        final ResolveInfo postRi = pm
+            .resolveActivity(postIntent, PackageManager.MATCH_DISABLED_COMPONENTS);
+        String postPackageName = "";
+        if (null != postRi) {
+            postPackageName = postRi.activityInfo.packageName;
+        }
+        if (!TextUtils.isEmpty(prePackageName) && !TextUtils.isEmpty(postPackageName)
+            && prePackageName.equals(postPackageName)) {
+            allowedPackages.add(prePackageName);
+        }
+
+        final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[]{
+            android.Manifest.permission.NETWORK_SETUP_WIZARD
+        }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
+        for (PackageInfo pi : holding) {
+            if (!allowedPackages.contains(pi.packageName)) {
+                fail("The NETWORK_SETUP_WIZARD permission must not be held by " + pi.packageName
+                    + " and must be revoked for security reasons [" + validPkg + "]");
+            }
+        }
+    }
+
+    /**
+     * Verify that the {@link android.Manifest.permission#NETWORK_MANAGED_PROVISIONING} permission
+     * is only held by the device managed provisioning application.
+     * <p>
+     * Only the ManagedProvisioning app should <em>ever</em> attempt to acquire this
+     * permission, since it would give those apps extremely broad access to connectivity
+     * functionality.  The permission is intended to be granted to only the device managed
+     * provisioning.
+     */
+    public void testNetworkManagedProvisioningPermission() {
+        final PackageManager pm = getContext().getPackageManager();
+
+        // TODO(b/115980767): Using hardcoded package name. Need a better mechanism to find the
+        // managed provisioning app.
+        // Ensure that the package exists.
+        final Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setPackage(MANAGED_PROVISIONING_PACKAGE_NAME);
+        final ResolveInfo ri = pm.resolveActivity(intent, PackageManager.MATCH_DISABLED_COMPONENTS);
+        String validPkg = "";
+        if (ri != null) {
+            validPkg = ri.activityInfo.packageName;
+        }
+
+        final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[] {
+                android.Manifest.permission.NETWORK_MANAGED_PROVISIONING
+        }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
+        for (PackageInfo pi : holding) {
+            if (!Objects.equals(pi.packageName, validPkg)) {
+                fail("The NETWORK_MANAGED_PROVISIONING permission must not be held by "
+                        + pi.packageName + " and must be revoked for security reasons ["
+                        + validPkg +"]");
+            }
+        }
+    }
+
+    /**
+     * Verify that the {@link android.Manifest.permission#WIFI_SET_DEVICE_MOBILITY_STATE} permission
+     * is held by at most one application.
+     */
+    public void testWifiSetDeviceMobilityStatePermission() {
+        final PackageManager pm = getContext().getPackageManager();
+
+        final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[] {
+                android.Manifest.permission.WIFI_SET_DEVICE_MOBILITY_STATE
+        }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
+
+        List<String> uniquePackageNames = holding
+                .stream()
+                .map(pi -> pi.packageName)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (uniquePackageNames.size() > 1) {
+            fail("The WIFI_SET_DEVICE_MOBILITY_STATE permission must not be held by more than one "
+                    + "application, but is held by " + uniquePackageNames.size() + " applications: "
+                    + String.join(", ", uniquePackageNames));
+        }
+    }
+
+    /**
+     * Verify that the {@link android.Manifest.permission#NETWORK_CARRIER_PROVISIONING} permission
+     * is held by at most one application.
+     */
+    public void testNetworkCarrierProvisioningPermission() {
+        final PackageManager pm = getContext().getPackageManager();
+
+        final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[] {
+                android.Manifest.permission.NETWORK_CARRIER_PROVISIONING
+        }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
+
+        List<String> uniquePackageNames = holding
+                .stream()
+                .map(pi -> pi.packageName)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (uniquePackageNames.size() > 1) {
+            fail("The NETWORK_CARRIER_PROVISIONING permission must not be held by more than one "
+                    + "application, but is held by " + uniquePackageNames.size() + " applications: "
+                    + String.join(", ", uniquePackageNames));
+        }
+    }
+
+    /**
+     * Verify that the {@link android.Manifest.permission#WIFI_UPDATE_USABILITY_STATS_SCORE}
+     * permission is held by at most one application.
+     */
+    public void testUpdateWifiUsabilityStatsScorePermission() {
+        final PackageManager pm = getContext().getPackageManager();
+
+        final List<PackageInfo> holding = pm.getPackagesHoldingPermissions(new String[] {
+                android.Manifest.permission.WIFI_UPDATE_USABILITY_STATS_SCORE
+        }, PackageManager.MATCH_UNINSTALLED_PACKAGES);
+
+        List<String> uniquePackageNames = holding
+                .stream()
+                .map(pi -> pi.packageName)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (uniquePackageNames.size() > 1) {
+            fail("The WIFI_UPDATE_USABILITY_STATS_SCORE permission must not be held by more than "
+                + "one application, but is held by " + uniquePackageNames.size() + " applications: "
+                + String.join(", ", uniquePackageNames));
+        }
+    }
+
+    private void turnScreenOnNoDelay() throws Exception {
+        mUiDevice.executeShellCommand("input keyevent KEYCODE_WAKEUP");
+        mUiDevice.executeShellCommand("wm dismiss-keyguard");
+    }
+
+    private void turnScreenOn() throws Exception {
+        turnScreenOnNoDelay();
+        // Since the screen on/off intent is ordered, they will not be sent right now.
+        Thread.sleep(DURATION_SCREEN_TOGGLE);
+    }
+
+    private void turnScreenOff() throws Exception {
+        mUiDevice.executeShellCommand("input keyevent KEYCODE_SLEEP");
+        // Since the screen on/off intent is ordered, they will not be sent right now.
+        Thread.sleep(DURATION_SCREEN_TOGGLE);
+    }
+
+    /**
+     * Verify that Wi-Fi scanning is not turned off when the screen turns off while wifi is disabled
+     * but location is on.
+     * @throws Exception
+     */
+    public void testScreenOffDoesNotTurnOffWifiScanningWhenWifiDisabled() throws Exception {
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+        if (!hasLocationFeature()) {
+            // skip the test if location is not supported
+            return;
+        }
+        if (!isLocationEnabled()) {
+            fail("Please enable location for this test - since Marshmallow WiFi scan results are"
+                    + " empty when location is disabled!");
+        }
+        if(!mWifiManager.isScanAlwaysAvailable()) {
+            fail("Please enable Wi-Fi scanning for this test!");
+        }
+        setWifiEnabled(false);
+        turnScreenOn();
+        assertWifiScanningIsOn();
+        // Toggle screen and verify Wi-Fi scanning is still on.
+        turnScreenOff();
+        assertWifiScanningIsOn();
+        turnScreenOn();
+        assertWifiScanningIsOn();
+    }
+
+    /**
+     * Verify that Wi-Fi scanning is not turned off when the screen turns off while wifi is enabled.
+     * @throws Exception
+     */
+    public void testScreenOffDoesNotTurnOffWifiScanningWhenWifiEnabled() throws Exception {
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+        if (!hasLocationFeature()) {
+            // skip the test if location is not supported
+            return;
+        }
+        if (!isLocationEnabled()) {
+            fail("Please enable location for this test - since Marshmallow WiFi scan results are"
+                    + " empty when location is disabled!");
+        }
+        if(!mWifiManager.isScanAlwaysAvailable()) {
+            fail("Please enable Wi-Fi scanning for this test!");
+        }
+        setWifiEnabled(true);
+        turnScreenOn();
+        assertWifiScanningIsOn();
+        // Toggle screen and verify Wi-Fi scanning is still on.
+        turnScreenOff();
+        assertWifiScanningIsOn();
+        turnScreenOn();
+        assertWifiScanningIsOn();
+    }
+
+    /**
+     * Verify that the platform supports a reasonable number of suggestions per app.
+     * @throws Exception
+     */
+    public void testMaxNumberOfNetworkSuggestionsPerApp() throws Exception {
+        if (!WifiFeature.isWifiSupported(getContext())) {
+            // skip the test if WiFi is not supported
+            return;
+        }
+        assertTrue(mWifiManager.getMaxNumberOfNetworkSuggestionsPerApp()
+                > ENFORCED_NUM_NETWORK_SUGGESTIONS_PER_APP);
+    }
+
+    private void assertWifiScanningIsOn() {
+        if(!mWifiManager.isScanAlwaysAvailable()) {
+            fail("Wi-Fi scanning should be on.");
+        }
     }
 }

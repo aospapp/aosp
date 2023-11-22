@@ -19,8 +19,20 @@ package android.os.cts;
 import java.io.FileDescriptor;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
+import android.app.Service;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.Signature;
 import android.os.BadParcelableException;
 import android.os.Binder;
@@ -34,6 +46,8 @@ import android.test.AndroidTestCase;
 import android.util.Log;
 import android.util.SparseArray;
 import android.util.SparseBooleanArray;
+
+import com.google.common.util.concurrent.AbstractFuture;
 
 public class ParcelTest extends AndroidTestCase {
 
@@ -3224,5 +3238,199 @@ public class ParcelTest extends AndroidTestCase {
         assertEquals(2, list.size());
         assertEquals(42, list.get(0).getValue());
         assertEquals(56, list.get(1).getValue());
+    }
+
+    // http://b/35384981
+    public void testCreateArrayWithTruncatedParcel() {
+        Parcel parcel = Parcel.obtain();
+        parcel.writeByteArray(new byte[] { 'a', 'b' });
+        byte[] marshalled = parcel.marshall();
+
+        // Test that createByteArray returns null with a truncated parcel.
+        parcel = Parcel.obtain();
+        parcel.unmarshall(marshalled, 0, marshalled.length);
+        parcel.setDataPosition(0);
+        // Shorten the data size by 2 to remove padding at the end of the array.
+        parcel.setDataSize(marshalled.length - 2);
+        assertNull(parcel.createByteArray());
+
+        // Test that readByteArray returns null with a truncated parcel.
+        parcel = Parcel.obtain();
+        parcel.unmarshall(marshalled, 0, marshalled.length);
+        parcel.setDataSize(marshalled.length - 2);
+        try {
+            parcel.readByteArray(new byte[2]);
+            fail();
+        } catch (RuntimeException expected) {
+        }
+    }
+
+    public void testMaliciousMapWrite() {
+        class MaliciousMap<K, V> extends HashMap<K, V> {
+            public int fakeSize = 0;
+            public boolean armed = false;
+
+            class FakeEntrySet extends HashSet<Entry<K, V>> {
+                public FakeEntrySet(Collection<? extends Entry<K, V>> c) {
+                    super(c);
+                }
+
+                @Override
+                public int size() {
+                    if (armed) {
+                        // Only return fake size on next call, to mitigate unexpected behavior.
+                        armed = false;
+                        return fakeSize;
+                    } else {
+                        return super.size();
+                    }
+                }
+            }
+
+            @Override
+            public Set<Map.Entry<K, V>> entrySet() {
+                return new FakeEntrySet(super.entrySet());
+            }
+        }
+
+        Parcel parcel = Parcel.obtain();
+
+        // Fake having more Map entries than there really are
+        MaliciousMap map = new MaliciousMap<String, String>();
+        map.fakeSize = 1;
+        map.armed = true;
+        try {
+            parcel.writeMap(map);
+            fail("Should have thrown a BadParcelableException");
+        } catch (BadParcelableException bpe) {
+            // good
+        }
+
+        // Fake having fewer Map entries than there really are
+        map = new MaliciousMap<String, String>();
+        map.put("key", "value");
+        map.fakeSize = 0;
+        map.armed = true;
+        try {
+            parcel.writeMap(map);
+            fail("Should have thrown a BadParcelableException");
+        } catch (BadParcelableException bpe) {
+            // good
+        }
+    }
+
+    public static class ParcelExceptionConnection extends AbstractFuture<IParcelExceptionService>
+            implements ServiceConnection {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            set(IParcelExceptionService.Stub.asInterface(service));
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+        }
+
+        @Override
+        public IParcelExceptionService get() throws InterruptedException, ExecutionException {
+            try {
+                return get(5, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    public void testExceptionOverwritesObject() throws Exception {
+        final Intent intent = new Intent();
+        intent.setComponent(new ComponentName(
+                "android.os.cts", "android.os.cts.ParcelExceptionService"));
+
+        final ParcelExceptionConnection connection = new ParcelExceptionConnection();
+
+        mContext.startService(intent);
+        assertTrue(mContext.bindService(intent, connection,
+                Context.BIND_ABOVE_CLIENT | Context.BIND_EXTERNAL_SERVICE));
+
+
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        data.writeInterfaceToken("android.os.cts.IParcelExceptionService");
+        IParcelExceptionService service = connection.get();
+        try {
+            assertTrue("Transaction failed", service.asBinder().transact(
+                    IParcelExceptionService.Stub.TRANSACTION_writeBinderThrowException, data, reply,
+                    0));
+        } catch (Exception e) {
+            fail("Exception caught from transaction: " + e);
+        }
+        reply.setDataPosition(0);
+        assertTrue("Exception should have occurred on service-side",
+                reply.readExceptionCode() != 0);
+        assertNull("Binder should have been overwritten by the exception",
+                reply.readStrongBinder());
+    }
+
+    public static class ParcelObjectFreeService extends Service {
+
+        @Override
+        public IBinder onBind(Intent intent) {
+            return new Binder();
+        }
+
+        @Override
+        public void onCreate() {
+            super.onCreate();
+
+            Parcel parcel = Parcel.obtain();
+
+            // Construct parcel with object in it.
+            parcel.writeInt(1);
+            final int pos = parcel.dataPosition();
+            parcel.writeStrongBinder(new Binder());
+
+            // wipe out the object by setting data size
+            parcel.setDataSize(pos);
+
+            // recycle the parcel. This should not cause a native segfault
+            parcel.recycle();
+        }
+
+        public static class Connection extends AbstractFuture<IBinder>
+                implements ServiceConnection {
+
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder service) {
+                set(service);
+            }
+
+            @Override
+            public void onServiceDisconnected(ComponentName name) {
+            }
+
+            @Override
+            public IBinder get() throws InterruptedException, ExecutionException {
+                try {
+                    return get(5, TimeUnit.SECONDS);
+                } catch (TimeoutException e) {
+                    return null;
+                }
+            }
+        }
+    }
+
+    public void testObjectDoubleFree() throws Exception {
+
+        final Intent intent = new Intent();
+        intent.setComponent(new ComponentName(
+                "android.os.cts", "android.os.cts.ParcelTest$ParcelObjectFreeService"));
+
+        final ParcelObjectFreeService.Connection connection =
+                new ParcelObjectFreeService.Connection();
+
+        mContext.startService(intent);
+        assertTrue(mContext.bindService(intent, connection,
+                Context.BIND_ABOVE_CLIENT | Context.BIND_EXTERNAL_SERVICE));
+
+        assertNotNull("Service should have started without crashing.", connection.get());
     }
 }

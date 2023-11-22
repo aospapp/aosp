@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 #include <log/log.h>
+#include <cutils/properties.h>
 #include <cutils/str_parms.h>
 
 #include <hardware/hardware.h>
@@ -51,6 +52,8 @@
 #define IN_PERIOD_COUNT 4
 
 #define _bool_str(x) ((x)?"true":"false")
+
+#define PROP_KEY_SIMULATE_MULTI_ZONE_AUDIO "ro.aae.simulateMultiZoneAudio"
 
 static int adev_get_mic_mute(const struct audio_hw_device *dev, bool *state);
 
@@ -118,6 +121,7 @@ static int out_dump(const struct audio_stream *stream, int fd) {
                 "\t\tformat: %d\n"
                 "\t\tdevice: %08x\n"
                 "\t\tamplitude ratio: %f\n"
+                "\t\tenabled channels: %d\n"
                 "\t\taudio dev: %p\n\n",
                 out->bus_address,
                 out_get_sample_rate(stream),
@@ -126,6 +130,7 @@ static int out_dump(const struct audio_stream *stream, int fd) {
                 out_get_format(stream),
                 out->device,
                 out->amplitude_ratio,
+                out->enabled_channels,
                 out->dev);
     pthread_mutex_unlock(&out->lock);
     return 0;
@@ -314,20 +319,27 @@ static void get_current_output_position(struct generic_stream_out *out,
     }
 }
 
-// Applies gain naively, assume AUDIO_FORMAT_PCM_16_BIT
+// Applies gain naively, assumes AUDIO_FORMAT_PCM_16_BIT and stereo output
 static void out_apply_gain(struct generic_stream_out *out, const void *buffer, size_t bytes) {
     int16_t *int16_buffer = (int16_t *)buffer;
     size_t int16_size = bytes / sizeof(int16_t);
     for (int i = 0; i < int16_size; i++) {
-         float multiplied = int16_buffer[i] * out->amplitude_ratio;
-         if (multiplied > INT16_MAX) int16_buffer[i] = INT16_MAX;
-         else if (multiplied < INT16_MIN) int16_buffer[i] = INT16_MIN;
-         else int16_buffer[i] = (int16_t)multiplied;
+        if ((i % 2) && !(out->enabled_channels & RIGHT_CHANNEL)) {
+            int16_buffer[i] = 0;
+        } else if (!(i % 2) && !(out->enabled_channels & LEFT_CHANNEL)) {
+            int16_buffer[i] = 0;
+        } else {
+            float multiplied = int16_buffer[i] * out->amplitude_ratio;
+            if (multiplied > INT16_MAX) int16_buffer[i] = INT16_MAX;
+            else if (multiplied < INT16_MIN) int16_buffer[i] = INT16_MIN;
+            else int16_buffer[i] = (int16_t)multiplied;
+        }
     }
 }
 
 static ssize_t out_write(struct audio_stream_out *stream, const void *buffer, size_t bytes) {
     struct generic_stream_out *out = (struct generic_stream_out *)stream;
+    ALOGV("%s: to device %s", __func__, out->bus_address);
     const size_t frames =  bytes / audio_stream_out_frame_size(stream);
 
     pthread_mutex_lock(&out->lock);
@@ -525,7 +537,9 @@ static int refine_output_parameters(uint32_t *sample_rate, audio_format_t *forma
 
 static int refine_input_parameters(uint32_t *sample_rate, audio_format_t *format,
         audio_channel_mask_t *channel_mask) {
-    static const uint32_t sample_rates [] = {8000, 11025, 16000, 22050, 44100, 48000};
+    static const uint32_t sample_rates [] = {
+        8000, 11025, 16000, 22050, 44100, 48000
+    };
     static const int sample_rates_count = sizeof(sample_rates)/sizeof(uint32_t);
     bool inval = false;
     // Only PCM_16_bit is supported. If this is changed, stereo to mono drop
@@ -726,6 +740,17 @@ static int in_standby(struct audio_stream *stream) {
     return 0;
 }
 
+#define STEP (3.14159265 / 180)
+// Generates pure tone for FM_TUNER
+static int pseudo_pcm_read(void *data, unsigned int count) {
+    unsigned int length = count / sizeof(short);
+    short *sdata = (short *)data;
+    for (int index = 0; index < length; index++) {
+        sdata[index] = (short)(sin(index * STEP) * 4096);
+    }
+    return count;
+}
+
 static void *in_read_worker(void *args) {
     struct generic_stream_in *in = (struct generic_stream_in *)args;
     struct pcm *pcm = NULL;
@@ -818,7 +843,10 @@ static ssize_t in_read(struct audio_stream_in *stream, void *buffer, size_t byte
     if (in->worker_standby) {
         in->worker_standby = false;
     }
-    pthread_cond_signal(&in->worker_wake);
+    // FM_TUNER fills the buffer via pseudo_pcm_read directly
+    if (in->device != AUDIO_DEVICE_IN_FM_TUNER) {
+        pthread_cond_signal(&in->worker_wake);
+    }
 
     int64_t current_position;
     struct timespec current_time;
@@ -853,7 +881,10 @@ static ssize_t in_read(struct audio_stream_in *stream, void *buffer, size_t byte
     }
     in->standby_frames_read += frames;
 
-    if (popcount(in->req_config.channel_mask) == 1 &&
+    if (in->device == AUDIO_DEVICE_IN_FM_TUNER) {
+        int read_bytes = pseudo_pcm_read(buffer, bytes);
+        read_frames = read_bytes / audio_stream_in_frame_size(stream);
+    } else if (popcount(in->req_config.channel_mask) == 1 &&
         in->pcm_config.channels == 2) {
         // Need to resample to mono
         if (in->stereo_to_mono_buf_size < bytes*2) {
@@ -988,6 +1019,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         pthread_create(&out->worker_thread, NULL, out_write_worker, out);
     }
 
+    out->enabled_channels = BOTH_CHANNELS;
     if (address) {
         out->bus_address = calloc(strlen(address) + 1, sizeof(char));
         strncpy(out->bus_address, address, strlen(address));
@@ -999,6 +1031,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             .step_value = 100,
         };
         out->amplitude_ratio = 1.0;
+        if (property_get_bool(PROP_KEY_SIMULATE_MULTI_ZONE_AUDIO, false)) {
+            out->enabled_channels = strstr(out->bus_address, "rear")
+                ? RIGHT_CHANNEL: LEFT_CHANNEL;
+        }
     }
     *stream_out = &out->stream;
     ALOGD("%s bus:%s", __func__, out->bus_address);
@@ -1127,7 +1163,8 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
 static int adev_open_input_stream(struct audio_hw_device *dev,
         audio_io_handle_t handle, audio_devices_t devices, struct audio_config *config,
         struct audio_stream_in **stream_in, audio_input_flags_t flags __unused, const char *address,
-        audio_source_t source __unused) {
+        audio_source_t source) {
+    ALOGV("%s: audio_source_t: %d", __func__, source);
     struct generic_audio_device *adev = (struct generic_audio_device *)dev;
     struct generic_stream_in *in;
     int ret = 0;
@@ -1237,7 +1274,7 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
         unsigned int num_sinks,
         const struct audio_port_config *sinks,
         audio_patch_handle_t *handle) {
-    // Logging only, no real work is done here
+    struct generic_audio_device *audio_dev = (struct generic_audio_device *)dev;
     for (int i = 0; i < num_sources; i++) {
         ALOGD("%s: source[%d] type=%d address=%s", __func__, i, sources[i].type,
                 sources[i].type == AUDIO_PORT_TYPE_DEVICE
@@ -1252,8 +1289,10 @@ static int adev_create_audio_patch(struct audio_hw_device *dev,
     if (num_sources == 1 && num_sinks == 1 &&
             sources[0].type == AUDIO_PORT_TYPE_DEVICE &&
             sinks[0].type == AUDIO_PORT_TYPE_DEVICE) {
-        // The same audio_patch_handle_t will be passed to release_audio_patch
-        *handle = 42;
+        pthread_mutex_lock(&audio_dev->lock);
+        audio_dev->last_patch_id += 1;
+        pthread_mutex_unlock(&audio_dev->lock);
+        *handle = audio_dev->last_patch_id;
         ALOGD("%s: handle: %d", __func__, *handle);
     }
     return 0;

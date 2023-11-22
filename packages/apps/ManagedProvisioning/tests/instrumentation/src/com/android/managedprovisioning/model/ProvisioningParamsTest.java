@@ -16,6 +16,7 @@
 package com.android.managedprovisioning.model;
 
 import static com.android.managedprovisioning.TestUtils.createTestAdminExtras;
+import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
@@ -27,8 +28,8 @@ import android.content.ComponentName;
 import android.os.Parcel;
 import android.os.UserHandle;
 import android.test.AndroidTestCase;
-import android.test.MoreAsserts;
-import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.managedprovisioning.common.IllegalProvisioningArgumentException;
 import com.android.managedprovisioning.common.Utils;
@@ -60,6 +61,7 @@ public class ProvisioningParamsTest extends AndroidTestCase {
     private static final boolean TEST_SKIP_USER_CONSENT = true;
     private static final Account TEST_ACCOUNT_TO_MIGRATE =
             new Account("user@gmail.com", "com.google");
+    private static final boolean TEST_USE_MOBILE_DATA = true;
 
     // Wifi info
     private static final String TEST_SSID = "TestWifi";
@@ -142,7 +144,7 @@ public class ProvisioningParamsTest extends AndroidTestCase {
 
         // WHEN these two objects compare.
         // THEN they are the same.
-        assertEquals(provisioningParams1, provisioningParams2);
+        assertThat(provisioningParams1).isEqualTo(provisioningParams2);
     }
 
     @SmallTest
@@ -163,6 +165,7 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                 .setSkipUserSetup(TEST_SKIP_USER_SETUP)
                 .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
                 .setWifiInfo(TEST_WIFI_INFO)
+                .setUseMobileData(TEST_USE_MOBILE_DATA)
                 .setAdminExtrasBundle(createTestAdminExtras())
                 .build();
         ProvisioningParams provisioningParams2 = ProvisioningParams.Builder.builder()
@@ -180,12 +183,13 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                 .setSkipUserSetup(TEST_SKIP_USER_SETUP)
                 .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
                 .setWifiInfo(TEST_WIFI_INFO)
+                .setUseMobileData(TEST_USE_MOBILE_DATA)
                 .setAdminExtrasBundle(createTestAdminExtras())
                 .build();
 
         // WHEN these two objects compare.
         // THEN they are not the same.
-        MoreAsserts.assertNotEqual(provisioningParams1, provisioningParams2);
+        assertThat(provisioningParams1).isNotEqualTo(provisioningParams2);
     }
 
     @SmallTest
@@ -209,7 +213,7 @@ public class ProvisioningParamsTest extends AndroidTestCase {
         original.save(file);
         ProvisioningParams copy = ProvisioningParams.load(file);
         // THEN the same ProvisioningParams is obtained
-        assertEquals(original, copy);
+        assertThat(original).isEqualTo(copy);
     }
 
     @SmallTest
@@ -225,7 +229,7 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                 ProvisioningParams.CREATOR.createFromParcel(parcel);
 
         // THEN the same ProvisioningParams is obtained.
-        assertEquals(expectedProvisioningParams, actualProvisioningParams);
+        assertThat(expectedProvisioningParams).isEqualTo(actualProvisioningParams);
     }
 
     @SmallTest
@@ -237,8 +241,9 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                 .setProvisioningAction(DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE)
                 .build();
 
-        assertEquals(TEST_COMPONENT_NAME, provisioningParams.inferDeviceAdminComponentName(
-                mUtils, mContext, UserHandle.myUserId()));
+        assertThat(TEST_COMPONENT_NAME)
+                .isEqualTo(provisioningParams.inferDeviceAdminComponentName(
+                        mUtils, mContext, UserHandle.myUserId()));
     }
 
     @SmallTest
@@ -253,8 +258,35 @@ public class ProvisioningParamsTest extends AndroidTestCase {
         when(mUtils.findDeviceAdmin(eq(TEST_PACKAGE_NAME), nullable(ComponentName.class),
                 eq(mContext), eq(UserHandle.myUserId()))).thenReturn(TEST_COMPONENT_NAME);
 
-        assertEquals(TEST_COMPONENT_NAME, provisioningParams.inferDeviceAdminComponentName(
-                mUtils, mContext, UserHandle.myUserId()));
+        assertThat(TEST_COMPONENT_NAME)
+                .isEqualTo(provisioningParams.inferDeviceAdminComponentName(
+                        mUtils, mContext, UserHandle.myUserId()));
+    }
+
+    @SmallTest
+    public void testSetUseMobileData_true() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder().setUseMobileData(true).build();
+        assertThat(provisioningParams.useMobileData).isTrue();
+    }
+
+    @SmallTest
+    public void testSetUseMobileData_false() {
+        ProvisioningParams provisioningParams =
+                createDefaultProvisioningParamsBuilder().setUseMobileData(false).build();
+        assertThat(provisioningParams.useMobileData).isFalse();
+    }
+
+    @SmallTest
+    public void testSetUseMobileData_defaultsToFalse() {
+        assertThat(createDefaultProvisioningParamsBuilder().build().useMobileData).isFalse();
+    }
+
+    private ProvisioningParams.Builder createDefaultProvisioningParamsBuilder() {
+        return ProvisioningParams.Builder
+                .builder()
+                .setProvisioningAction(TEST_PROVISIONING_ACTION)
+                .setDeviceAdminComponentName(TEST_COMPONENT_NAME);
     }
 
     private ProvisioningParams getCompleteProvisioningParams() {
@@ -275,6 +307,7 @@ public class ProvisioningParamsTest extends AndroidTestCase {
                 .setSkipUserConsent(TEST_SKIP_USER_CONSENT)
                 .setAccountToMigrate(TEST_ACCOUNT_TO_MIGRATE)
                 .setWifiInfo(TEST_WIFI_INFO)
+                .setUseMobileData(TEST_USE_MOBILE_DATA)
                 .setAdminExtrasBundle(createTestAdminExtras())
                 .build();
     }

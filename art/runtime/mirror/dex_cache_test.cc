@@ -34,7 +34,7 @@ class DexCacheTest : public CommonRuntimeTest {};
 
 class DexCacheMethodHandlesTest : public DexCacheTest {
  protected:
-  virtual void SetUpRuntimeOptions(RuntimeOptions* options) OVERRIDE {
+  void SetUpRuntimeOptions(RuntimeOptions* options) override {
     CommonRuntimeTest::SetUpRuntimeOptions(options);
   }
 };
@@ -83,7 +83,7 @@ TEST_F(DexCacheTest, LinearAlloc) {
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader(hs.NewHandle(
       soa.Decode<mirror::ClassLoader>(jclass_loader)));
-  mirror::Class* klass = class_linker_->FindClass(soa.Self(), "LMain;", class_loader);
+  ObjPtr<mirror::Class> klass = class_linker_->FindClass(soa.Self(), "LMain;", class_loader);
   ASSERT_TRUE(klass != nullptr);
   LinearAlloc* const linear_alloc = klass->GetClassLoader()->GetAllocator();
   EXPECT_NE(linear_alloc, runtime_->GetLinearAlloc());
@@ -103,12 +103,12 @@ TEST_F(DexCacheTest, TestResolvedFieldAccess) {
   Handle<mirror::Class> klass2 =
       hs.NewHandle(class_linker_->FindClass(soa.Self(), "Lpackage2/Package2;", class_loader));
   ASSERT_TRUE(klass2 != nullptr);
-  EXPECT_EQ(klass1->GetDexCache(), klass2->GetDexCache());
+  EXPECT_OBJ_PTR_EQ(klass1->GetDexCache(), klass2->GetDexCache());
 
   EXPECT_NE(klass1->NumStaticFields(), 0u);
   for (ArtField& field : klass2->GetSFields()) {
     EXPECT_FALSE(
-        klass1->ResolvedFieldAccessTest</*throw_on_failure*/ false>(
+        klass1->ResolvedFieldAccessTest</*throw_on_failure=*/ false>(
             klass2.Get(),
             &field,
             klass1->GetDexCache(),
@@ -146,8 +146,8 @@ TEST_F(DexCacheMethodHandlesTest, TestResolvedMethodTypes) {
   Handle<mirror::DexCache> dex_cache = hs.NewHandle(
       class_linker_->FindDexCache(Thread::Current(), dex_file));
 
-  const DexFile::MethodId& method1_id = dex_file.GetMethodId(method1->GetDexMethodIndex());
-  const DexFile::MethodId& method2_id = dex_file.GetMethodId(method2->GetDexMethodIndex());
+  const dex::MethodId& method1_id = dex_file.GetMethodId(method1->GetDexMethodIndex());
+  const dex::MethodId& method2_id = dex_file.GetMethodId(method2->GetDexMethodIndex());
   Handle<mirror::MethodType> method1_type = hs.NewHandle(
       class_linker_->ResolveMethodType(soa.Self(),
                                        method1_id.proto_idx_,
@@ -169,9 +169,9 @@ TEST_F(DexCacheMethodHandlesTest, TestResolvedMethodTypes) {
 
   for (size_t i = 0; i < dex_file.NumProtoIds(); ++i) {
     const MethodTypeDexCachePair pair = method_types_cache[i].load(std::memory_order_relaxed);
-    if (pair.index == method1_id.proto_idx_) {
+    if (dex::ProtoIndex(pair.index) == method1_id.proto_idx_) {
       ASSERT_EQ(method1_type.Get(), pair.object.Read());
-    } else if (pair.index == method2_id.proto_idx_) {
+    } else if (dex::ProtoIndex(pair.index) == method2_id.proto_idx_) {
       ASSERT_EQ(method2_type.Get(), pair.object.Read());
     } else {
       ASSERT_TRUE(false);

@@ -51,7 +51,7 @@ public class BackupPreparer implements ITargetCleaner {
     private static final String FEATURE_BACKUP = "android.software.backup";
 
     private static final String LOCAL_TRANSPORT =
-            "android/com.android.internal.backup.LocalTransport";
+            "com.android.localtransport/.LocalTransport";
 
     private static final int BACKUP_PROVISIONING_TIMEOUT_SECONDS = 30;
     private static final int BACKUP_PROVISIONING_POLL_INTERVAL_SECONDS = 1;

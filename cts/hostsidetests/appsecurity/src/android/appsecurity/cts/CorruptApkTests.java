@@ -15,18 +15,24 @@
  */
 package android.appsecurity.cts;
 
-import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 
 import android.platform.test.annotations.AppModeFull;
+import com.android.ddmlib.Log.LogLevel;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.util.FileUtil;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 
 import java.io.File;
@@ -35,104 +41,115 @@ import java.io.File;
  * Set of tests that verify that corrupt APKs are properly rejected by PackageManager and
  * do not cause the system to crash.
  */
-@AppModeFull // TODO: Needs porting to instant
+@AppModeFull(reason = "the corrupt APKs were provided as-is and we cannot modify them to comply with instant mode")
 public class CorruptApkTests extends DeviceTestCase implements IBuildReceiver {
-    private final String B71360999_PKG = "com.android.appsecurity.b71360999";
-    private final String B71361168_PKG = "com.android.appsecurity.b71361168";
-    private final String B79488511_PKG = "com.android.appsecurity.b79488511";
 
     private IBuildInfo mBuildInfo;
+
+    /** A container for information about the system_server process. */
+    private class SystemServerInformation {
+        final long mPid;
+        final long mStartTime;
+
+        SystemServerInformation(long pid, long startTime) {
+            this.mPid = pid;
+            this.mStartTime = startTime;
+        }
+
+        @Override
+        public boolean equals(Object actual) {
+            return (actual instanceof SystemServerInformation)
+                && mPid == ((SystemServerInformation) actual).mPid
+                && mStartTime == ((SystemServerInformation) actual).mStartTime;
+        }
+    }
+
+    /** Retrieves the process id and elapsed run time of system_server. */
+    private SystemServerInformation retrieveInfo() throws DeviceNotAvailableException {
+        ITestDevice device = getDevice();
+
+        // Retrieve the process id of system_server
+        String pidResult = device.executeShellCommand("pidof system_server").trim();
+        assertNotNull("Failed to retrieve pid of system_server", pidResult);
+        long pid = 0;
+        try {
+            pid = Long.parseLong(pidResult);
+        } catch (NumberFormatException | IndexOutOfBoundsException e) {
+            fail("Unable to parse pid of system_server '" + pidResult + "'");
+        }
+
+        // Retrieve the start time of system_server
+        long startTime = 0;
+        String pidStats = device.executeShellCommand("cat /proc/" + pid + "/stat");
+        assertNotNull("Failed to retrieve stat of system_server with pid '" + pid + "'", pidStats);
+        try {
+            String startTimeJiffies = pidStats.split("\\s+")[21];
+            startTime = Long.parseLong(startTimeJiffies);
+        } catch (NumberFormatException | IndexOutOfBoundsException e) {
+            fail("Unable to parse system_server stat file '" + pidStats + "'");
+        }
+
+        return new SystemServerInformation(pid, startTime);
+    }
 
     @Override
     public void setBuild(IBuildInfo buildInfo) {
         mBuildInfo = buildInfo;
     }
 
+   /** Uninstall any test APKs already present on device. */
+    private void uninstallApks() throws DeviceNotAvailableException {
+        ITestDevice device = getDevice();
+        device.uninstallPackage("com.android.appsecurity.b71360999");
+        device.uninstallPackage("com.android.appsecurity.b71361168");
+        device.uninstallPackage("com.android.appsecurity.b79488511");
+    }
+
     @Before
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        uninstall(B71360999_PKG);
-        uninstall(B71361168_PKG);
-        uninstall(B79488511_PKG);
+        uninstallApks();
     }
 
     @After
     @Override
     public void tearDown() throws Exception {
         super.tearDown();
-        uninstall(B71360999_PKG);
-        uninstall(B71361168_PKG);
-        uninstall(B79488511_PKG);
-    }
-
-    /** Uninstall the apk if the test failed previously. */
-    public void uninstall(String pkg) throws Exception {
-        ITestDevice device = getDevice();
-        if (device.getInstalledPackageNames().contains(pkg)) {
-            device.uninstallPackage(pkg);
-        }
+        uninstallApks();
     }
 
     /**
-     * Tests that apks described in b/71360999 do not install successfully.
+     * Asserts that installing the application does not cause a native error causing system_server
+     * to crash (typically the result of a buffer overflow or an out-of-bounds read).
      */
-    public void testFailToInstallCorruptStringPoolHeader_b71360999() throws Exception {
-        final String APK_PATH = "CtsCorruptApkTests_b71360999.apk";
-        assertInstallNoFatalError(APK_PATH, B71360999_PKG);
-    }
+    private void assertInstallDoesNotCrashSystem(String apk) throws Exception {
+        SystemServerInformation beforeInfo = retrieveInfo();
 
-    /**
-     * Tests that apks described in b/71361168 do not install successfully.
-     */
-    public void testFailToInstallCorruptStringPoolHeader_b71361168() throws Exception {
-        final String APK_PATH = "CtsCorruptApkTests_b71361168.apk";
-        assertInstallNoFatalError(APK_PATH, B71361168_PKG);
-    }
-
-    /**
-     * Tests that apks described in b/79488511 do not install successfully.
-     */
-    public void testFailToInstallCorruptStringPoolHeader_b79488511() throws Exception {
-        final String APK_PATH = "CtsCorruptApkTests_b79488511.apk";
-        assertInstallNoFatalError(APK_PATH, B79488511_PKG);
-    }
-
-    /**
-     * Assert that installing the app does not cause a native error caused by a buffer overflow
-     * or an out-of-bounds read.
-     **/
-    private void assertInstallNoFatalError(String filename, String pkg) throws Exception {
-        ITestDevice device = getDevice();
-        device.clearLogcat();
-
-        final String result = device.installPackage(
-                new CompatibilityBuildHelper(mBuildInfo).getTestFile(filename),
-                true /*reinstall*/);
-
-        // Starting from P, corrupt apks should always fail to install
-        if (device.getApiLevel() >= 28) {
-            assertThat(result).isNotNull();
-            assertThat(result).isNotEmpty();
-            assertThat(device.getInstalledPackageNames()).doesNotContain(pkg);
+        final String result = getDevice().installPackage(
+                new CompatibilityBuildHelper(mBuildInfo).getTestFile(apk),
+                false /*reinstall*/);
+        CLog.logAndDisplay(LogLevel.INFO, "Result: '" + result + "'");
+        if (result != null) {
+            assertFalse("Install package segmentation faulted",
+                result.toLowerCase().contains("segmentation fault"));
         }
 
-        // This catches if the device fails to install the app because a segmentation fault
-        // or out of bounds read created by the bug occurs
-        File tmpTxtFile = null;
-        InputStreamSource source = device.getLogcat(200 * 1024);
-        try {
-            assertNotNull(source);
-            tmpTxtFile = FileUtil.createTempFile("logcat", ".txt");
-            FileUtil.writeToFile(source.createInputStream(), tmpTxtFile);
-            String s = FileUtil.readStringFromFile(tmpTxtFile);
-            assertFalse(s.contains("SIGSEGV"));
-            assertFalse(s.contains("==ERROR"));
-        } finally {
-            source.close();
-            if (tmpTxtFile != null) {
-                FileUtil.deleteFile(tmpTxtFile);
-            }
-        }
+        assertEquals("system_server restarted", beforeInfo, retrieveInfo());
+    }
+
+    /** Tests that installing the APK described in b/71360999 does not crash the device. */
+    public void testSafeInstallOfCorruptAPK_b71360999() throws Exception {
+        assertInstallDoesNotCrashSystem("CtsCorruptApkTests_b71360999.apk");
+    }
+
+    /** Tests that installing the APK described in b/71361168 does not crash the device. */
+    public void testSafeInstallOfCorruptAPK_b71361168() throws Exception {
+        assertInstallDoesNotCrashSystem("CtsCorruptApkTests_b71361168.apk");
+    }
+
+    /** Tests that installing the APK described in b/79488511 does not crash the device. */
+    public void testSafeInstallOfCorruptAPK_b79488511() throws Exception {
+        assertInstallDoesNotCrashSystem("CtsCorruptApkTests_b79488511.apk");
     }
 }

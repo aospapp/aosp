@@ -18,7 +18,6 @@ package android.media.cts;
 
 import android.media.cts.R;
 
-import android.media.BufferingParams;
 import android.media.PlaybackParams;
 import android.media.SyncParams;
 import android.os.Parcel;
@@ -371,48 +370,6 @@ public class ParamsTest extends AndroidTestCase {
         assertEquals(p.getAudioStretchMode(), q.getAudioStretchMode());
         assertEquals(p.getPitch(), q.getPitch());
         assertEquals(p.getSpeed(), q.getSpeed());
-        parcel.recycle();
-    }
-
-    public void testBufferingParamsBuilderAndGet() {
-        final int initialMarkMs = 2;
-        final int resumePlaybackMarkMs = 3;
-
-        BufferingParams p1 = new BufferingParams.Builder()
-                .setInitialMarkMs(initialMarkMs)
-                .setResumePlaybackMarkMs(resumePlaybackMarkMs)
-                .build();
-
-        assertEquals("intial markMs should match",
-                p1.getInitialMarkMs(), initialMarkMs);
-        assertEquals("resume playback markMs should match",
-                p1.getResumePlaybackMarkMs(), resumePlaybackMarkMs);
-    }
-
-    public void testBufferingParamsDescribeContents() {
-        BufferingParams p = new BufferingParams.Builder().build();
-        assertEquals("no file descriptors in Parcel", 0, p.describeContents());
-    }
-
-    public void testBufferingParamsWriteToParcel() {
-        final int initialMarkMs = 2;
-        final int resumePlaybackMarkMs = 3;
-
-        BufferingParams p = new BufferingParams.Builder()
-                .setInitialMarkMs(initialMarkMs)
-                .setResumePlaybackMarkMs(resumePlaybackMarkMs)
-                .build();
-
-        Parcel parcel = Parcel.obtain();
-        p.writeToParcel(parcel, 0 /* flags */);
-        parcel.setDataPosition(0);
-        BufferingParams q = BufferingParams.CREATOR.createFromParcel(parcel);
-
-        assertEquals("initial markMs should match",
-                p.getInitialMarkMs(), q.getInitialMarkMs());
-        assertEquals("resume playback markMs should match",
-                p.getResumePlaybackMarkMs(), q.getResumePlaybackMarkMs());
-
         parcel.recycle();
     }
 }

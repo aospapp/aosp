@@ -21,10 +21,10 @@ import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.support.v13.app.FragmentCompat;
-import android.support.v13.app.FragmentStatePagerAdapter;
-import android.support.v4.util.SparseArrayCompat;
-import android.support.v4.view.PagerAdapter;
+import androidx.legacy.app.FragmentCompat;
+import androidx.legacy.app.FragmentStatePagerAdapter;
+import androidx.collection.SparseArrayCompat;
+import androidx.viewpager.widget.PagerAdapter;
 import android.view.View;
 import android.view.ViewGroup;
 

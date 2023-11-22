@@ -25,24 +25,42 @@ import threading
 import time
 import unittest
 
+import cstruct
 import multinetwork_base
 import net_test
 import packets
 import sock_diag
 import tcp_test
 
+# Mostly empty structure definition containing only the fields we currently use.
+TcpInfo = cstruct.Struct("TcpInfo", "64xI", "tcpi_rcv_ssthresh")
 
 NUM_SOCKETS = 30
 NO_BYTECODE = ""
-HAVE_SO_COOKIE_SUPPORT = net_test.LINUX_VERSION >= (4, 9, 0)
+LINUX_4_9_OR_ABOVE = net_test.LINUX_VERSION >= (4, 9, 0)
+LINUX_4_19_OR_ABOVE = net_test.LINUX_VERSION >= (4, 19, 0)
 
 IPPROTO_SCTP = 132
 
 def HaveUdpDiag():
-  # There is no way to tell whether a dump succeeded: if the appropriate handler
-  # wasn't found, __inet_diag_dump just returns an empty result instead of an
-  # error. So, just check to see if a UDP dump returns no sockets when we know
-  # it should return one.
+  """Checks if the current kernel has config CONFIG_INET_UDP_DIAG enabled.
+
+  This config is required for device running 4.9 kernel that ship with P, In
+  this case always assume the config is there and use the tests to check if the
+  config is enabled as required.
+
+  For all ther other kernel version, there is no way to tell whether a dump
+  succeeded: if the appropriate handler wasn't found, __inet_diag_dump just
+  returns an empty result instead of an error. So, just check to see if a UDP
+  dump returns no sockets when we know it should return one. If not, some tests
+  will be skipped.
+
+  Returns:
+    True if the kernel is 4.9 or above, or the CONFIG_INET_UDP_DIAG is enabled.
+    False otherwise.
+  """
+  if LINUX_4_9_OR_ABOVE:
+      return True;
   s = socket(AF_INET6, SOCK_DGRAM, 0)
   s.bind(("::", 0))
   s.connect((s.getsockname()))
@@ -192,10 +210,10 @@ class SockDiagTest(SockDiagBaseTest):
       self.sock_diag.GetSockInfo(diag_req)
       # No errors? Good.
 
-  def testFindsAllMySockets(self):
+  def CheckFindsAllMySockets(self, socktype, proto):
     """Tests that basic socket dumping works."""
-    self.socketpairs = self._CreateLotsOfSockets(SOCK_STREAM)
-    sockets = self.sock_diag.DumpAllInetSockets(IPPROTO_TCP, NO_BYTECODE)
+    self.socketpairs = self._CreateLotsOfSockets(socktype)
+    sockets = self.sock_diag.DumpAllInetSockets(proto, NO_BYTECODE)
     self.assertGreaterEqual(len(sockets), NUM_SOCKETS)
 
     # Find the cookies for all of our sockets.
@@ -225,8 +243,20 @@ class SockDiagTest(SockDiagBaseTest):
         # Check that we can find a diag_msg once we know the cookie.
         req = self.sock_diag.DiagReqFromSocket(sock)
         req.id.cookie = cookie
+        if proto == IPPROTO_UDP:
+          # Kernel bug: for UDP sockets, the order of arguments must be swapped.
+          # See testDemonstrateUdpGetSockIdBug.
+          req.id.sport, req.id.dport = req.id.dport, req.id.sport
+          req.id.src, req.id.dst = req.id.dst, req.id.src
         info = self.sock_diag.GetSockInfo(req)
         self.assertSockInfoMatchesSocket(sock, info)
+
+  def testFindsAllMySocketsTcp(self):
+    self.CheckFindsAllMySockets(SOCK_STREAM, IPPROTO_TCP)
+
+  @unittest.skipUnless(HAVE_UDP_DIAG, "INET_UDP_DIAG not enabled")
+  def testFindsAllMySocketsUdp(self):
+    self.CheckFindsAllMySockets(SOCK_DGRAM, IPPROTO_UDP)
 
   def testBytecodeCompilation(self):
     # pylint: disable=bad-whitespace
@@ -360,10 +390,44 @@ class SockDiagTest(SockDiagBaseTest):
       cookie = sock.getsockopt(net_test.SOL_SOCKET, net_test.SO_COOKIE, 8)
       self.assertEqual(diag_msg.id.cookie, cookie)
 
-  @unittest.skipUnless(HAVE_SO_COOKIE_SUPPORT, "SO_COOKIE not supported")
+  @unittest.skipUnless(LINUX_4_9_OR_ABOVE, "SO_COOKIE not supported")
   def testGetsockoptcookie(self):
     self.CheckSocketCookie(AF_INET, "127.0.0.1")
     self.CheckSocketCookie(AF_INET6, "::1")
+
+  @unittest.skipUnless(HAVE_UDP_DIAG, "INET_UDP_DIAG not enabled")
+  def testDemonstrateUdpGetSockIdBug(self):
+    # TODO: this is because udp_dump_one mistakenly uses __udp[46]_lib_lookup
+    # by passing the source address as the source address argument.
+    # Unfortunately those functions are intended to match local sockets based
+    # on received packets, and the argument that ends up being compared with
+    # e.g., sk_daddr is actually saddr, not daddr. udp_diag_destroy does not
+    # have this bug.  Upstream has confirmed that this will not be fixed:
+    # https://www.mail-archive.com/netdev@vger.kernel.org/msg248638.html
+    """Documents a bug: getting UDP sockets requires swapping src and dst."""
+    for version in [4, 5, 6]:
+      family = net_test.GetAddressFamily(version)
+      s = socket(family, SOCK_DGRAM, 0)
+      self.SelectInterface(s, self.RandomNetid(), "mark")
+      s.connect((self.GetRemoteSocketAddress(version), 53))
+
+      # Create a fully-specified diag req from our socket, including cookie if
+      # we can get it.
+      req = self.sock_diag.DiagReqFromSocket(s)
+      if LINUX_4_9_OR_ABOVE:
+        req.id.cookie = s.getsockopt(net_test.SOL_SOCKET, net_test.SO_COOKIE, 8)
+      else:
+        req.id.cookie = "\xff" * 16  # INET_DIAG_NOCOOKIE[2]
+
+      # As is, this request does not find anything.
+      with self.assertRaisesErrno(ENOENT):
+        self.sock_diag.GetSockInfo(req)
+
+      # But if we swap src and dst, the kernel finds our socket.
+      req.id.sport, req.id.dport = req.id.dport, req.id.sport
+      req.id.src, req.id.dst = req.id.dst, req.id.src
+
+      self.assertSockInfoMatchesSocket(s, self.sock_diag.GetSockInfo(req))
 
 
 class SockDestroyTest(SockDiagBaseTest):
@@ -485,6 +549,50 @@ class SockDiagTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
                        child.id.dst)
       self.assertEqual(self.sock_diag.PaddedAddress(self.mysockaddr),
                        child.id.src)
+
+
+class TcpRcvWindowTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
+
+  RWND_SIZE = 64000 if LINUX_4_19_OR_ABOVE else 42000
+  TCP_DEFAULT_INIT_RWND = "/proc/sys/net/ipv4/tcp_default_init_rwnd"
+
+  def setUp(self):
+    super(TcpRcvWindowTest, self).setUp()
+    if LINUX_4_19_OR_ABOVE:
+      self.assertRaisesErrno(ENOENT, open, self.TCP_DEFAULT_INIT_RWND, "w")
+      return
+
+    f = open(self.TCP_DEFAULT_INIT_RWND, "w")
+    f.write("60")
+
+  def checkInitRwndSize(self, version, netid):
+    self.IncomingConnection(version, tcp_test.TCP_ESTABLISHED, netid)
+    tcpInfo = TcpInfo(self.accepted.getsockopt(net_test.SOL_TCP,
+                                               net_test.TCP_INFO, len(TcpInfo)))
+    self.assertLess(self.RWND_SIZE, tcpInfo.tcpi_rcv_ssthresh,
+                    "Tcp rwnd of netid=%d, version=%d is not enough. "
+                    "Expect: %d, actual: %d" % (netid, version, self.RWND_SIZE,
+                                                tcpInfo.tcpi_rcv_ssthresh))
+
+  def checkSynPacketWindowSize(self, version, netid):
+    s = self.BuildSocket(version, net_test.TCPSocket, netid, "mark")
+    myaddr = self.MyAddress(version, netid)
+    dstaddr = self.GetRemoteAddress(version)
+    dstsockaddr = self.GetRemoteSocketAddress(version)
+    desc, expected = packets.SYN(53, version, myaddr, dstaddr,
+                                 sport=None, seq=None)
+    self.assertRaisesErrno(EINPROGRESS, s.connect, (dstsockaddr, 53))
+    msg = "IPv%s TCP connect: expected %s on %s" % (
+        version, desc, self.GetInterfaceName(netid))
+    syn = self.ExpectPacketOn(netid, msg, expected)
+    self.assertLess(self.RWND_SIZE, syn.window)
+    s.close()
+
+  def testTcpCwndSize(self):
+    for version in [4, 5, 6]:
+      for netid in self.NETIDS:
+        self.checkInitRwndSize(version, netid)
+        self.checkSynPacketWindowSize(version, netid)
 
 
 class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
@@ -877,7 +985,7 @@ class SockDestroyUdpTest(SockDiagBaseTest):
       family = {4: AF_INET, 5: AF_INET6, 6: AF_INET6}[version]
       s = net_test.UDPSocket(family)
       self.SelectInterface(s, random.choice(self.NETIDS), "mark")
-      addr = self.GetRemoteAddress(version)
+      addr = self.GetRemoteSocketAddress(version)
 
       # Check that reads on connected sockets are interrupted.
       s.connect((addr, 53))

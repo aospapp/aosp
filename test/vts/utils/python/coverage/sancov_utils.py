@@ -47,14 +47,12 @@ class SancovFeature(feature_utils.Feature):
         'killall {0}\"')
     _FLUSH_COMMAND = '/data/local/tmp/vts_coverage_configure flush {0}'
     _TARGET_SANCOV_PATH = '/data/misc/trace'
-    _SEARCH_PATHS = [
-        (os.path.join('data', 'asan', 'vendor', 'bin'), None),
-        (os.path.join('vendor', 'bin'), None),
-        (os.path.join('data', 'asan', 'vendor', 'lib'), 32),
-        (os.path.join('vendor', 'lib'), 32),
-        (os.path.join('data', 'asan', 'vendor', 'lib64'), 64),
-        (os.path.join('vendor', 'lib64'), 64)
-    ]
+    _SEARCH_PATHS = [(os.path.join('data', 'asan', 'vendor', 'bin'),
+                      None), (os.path.join('vendor', 'bin'), None),
+                     (os.path.join('data', 'asan', 'vendor', 'lib'),
+                      32), (os.path.join('vendor', 'lib'), 32), (os.path.join(
+                          'data', 'asan', 'vendor',
+                          'lib64'), 64), (os.path.join('vendor', 'lib64'), 64)]
 
     _BUILD_INFO = 'BUILD_INFO'
     _REPO_DICT = 'repo-dict'
@@ -92,7 +90,10 @@ class SancovFeature(feature_utils.Feature):
                                  device)
                     continue
                 self._device_resource_dict[serial] = sancov_resource_path
-        logging.info('Sancov enabled: %s', self.enabled)
+        if self.enabled:
+            logging.info('Sancov is enabled.')
+        else:
+            logging.debug('Sancov is disabled.')
 
     def InitializeDeviceCoverage(self, dut, hals):
         """Initializes the sanitizer coverage on the device for the provided HAL.
@@ -107,23 +108,24 @@ class SancovFeature(feature_utils.Feature):
             logging.error("Invalid device provided: %s", serial)
             return
 
-
         for hal in hals:
-            entries = dut.adb.shell('lshal -itp 2> /dev/null | grep {0}'.format(
-                hal)).splitlines()
-            pids = set([pid.strip()
-                        for pid in map(lambda entry: entry.split()[-1], entries)
-                        if pid.isdigit()])
+            entries = dut.adb.shell(
+                'lshal -itp 2> /dev/null | grep {0}'.format(hal)).splitlines()
+            pids = set([
+                pid.strip()
+                for pid in map(lambda entry: entry.split()[-1], entries)
+                if pid.isdigit()
+            ])
 
             if len(pids) == 0:
-                logging.warn('No matching processes IDs found for HAL %s',
-                             hal)
+                logging.warn('No matching processes IDs found for HAL %s', hal)
                 return
-            processes = dut.adb.shell('ps -p {0} -o comm='.format(' '.join(
-                pids))).splitlines()
-            process_names = set(
-                [name.strip() for name in processes
-                 if name.strip() and not name.endswith(' (deleted)')])
+            processes = dut.adb.shell('ps -p {0} -o comm='.format(
+                ' '.join(pids))).splitlines()
+            process_names = set([
+                name.strip() for name in processes
+                if name.strip() and not name.endswith(' (deleted)')
+            ])
 
             if len(process_names) == 0:
                 logging.warn('No matching processes names found for HAL %s',
@@ -152,8 +154,7 @@ class SancovFeature(feature_utils.Feature):
             logging.error('Invalid device provided: %s', serial)
             return
         for hal in hals:
-            dut.adb.shell(
-                self._FLUSH_COMMAND.format(hal))
+            dut.adb.shell(self._FLUSH_COMMAND.format(hal))
 
     def _InitializeFileVectors(self, serial, binary_path):
         """Parse the binary and read the debugging information.
@@ -191,8 +192,8 @@ class SancovFeature(feature_utils.Feature):
                     if file not in file_vectors:
                         file_vectors[file] = [-1] * line
                     if line > len(file_vectors[file]):
-                        file_vectors[file].extend([-2] * (
-                            line - len(file_vectors[file])))
+                        file_vectors[file].extend(
+                            [-2] * (line - len(file_vectors[file])))
                     file_vectors[file][line - 1] = 0
 
     def _UpdateLineCounts(self, serial, lines):
@@ -231,8 +232,8 @@ class SancovFeature(feature_utils.Feature):
         for device_serial in self._device_resource_dict:
             resource_path = self._device_resource_dict[device_serial]
             rev_map = json.load(
-                open(os.path.join(resource_path, self._BUILD_INFO)))[
-                    self._REPO_DICT]
+                open(os.path.join(resource_path,
+                                  self._BUILD_INFO)))[self._REPO_DICT]
 
             for file in self._file_vectors[device_serial]:
 
@@ -247,8 +248,8 @@ class SancovFeature(feature_utils.Feature):
                         revision = str(rev_map[project_name])
                         break
 
-                    parts = os.path.normpath(str(project_name)).split(os.sep,
-                                                                      1)
+                    parts = os.path.normpath(str(project_name)).split(
+                        os.sep, 1)
                     # Matches when project name has an additional prefix before the project path root.
                     if len(parts) > 1 and file.startswith(parts[-1]):
                         git_project_name = str(project_name)
@@ -296,11 +297,11 @@ class SancovFeature(feature_utils.Feature):
             os.path.join(self._device_resource_dict[serial],
                          self._SYMBOLS_ZIP))
 
-
         sancov_files = []
         for hal in hals:
-            sancov_files.extend(dut.adb.shell('find {0}/{1} -name \"*.sancov\"'.format(
-                self._TARGET_SANCOV_PATH, hal)).splitlines())
+            sancov_files.extend(
+                dut.adb.shell('find {0}/{1} -name \"*.sancov\"'.format(
+                    self._TARGET_SANCOV_PATH, hal)).splitlines())
         temp_dir = tempfile.mkdtemp()
 
         binary_to_sancov = {}
@@ -318,12 +319,14 @@ class SancovFeature(feature_utils.Feature):
         search_root = os.path.join('out', 'target', 'product', product,
                                    'symbols')
         for path, bitness in self._SEARCH_PATHS:
-            for name in [f for f in symbols_zip.namelist()
-                         if f.startswith(os.path.join(search_root, path))]:
+            for name in [
+                    f for f in symbols_zip.namelist()
+                    if f.startswith(os.path.join(search_root, path))
+            ]:
                 basename = os.path.basename(name)
                 if basename in binary_to_sancov and (
-                        bitness is None or
-                        binary_to_sancov[basename][0] == bitness):
+                        bitness is None
+                        or binary_to_sancov[basename][0] == bitness):
                     with symbols_zip.open(
                             name) as source, tempfile.NamedTemporaryFile(
                                 'w+b') as target:

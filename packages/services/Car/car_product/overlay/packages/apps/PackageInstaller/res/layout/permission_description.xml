@@ -35,7 +35,7 @@
         android:id="@+id/permission_message"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textSize="@dimen/car_body2_size"
-        android:textColor="@color/car_body2"/>
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        />
 
 </LinearLayout>

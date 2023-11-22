@@ -20,9 +20,10 @@ import android.app.INotificationManager;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.os.RemoteException;
-import android.support.annotation.NonNull;
-import android.support.v14.preference.SwitchPreference;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.preference.SwitchPreference;
 
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;

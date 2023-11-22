@@ -61,6 +61,7 @@ public class MediaBitstreams {
     public static final String DYNAMIC_CONFIG_KEY = "key";
     public static final String DYNAMIC_CONFIG_VALUE = "value";
     public static final String DYNAMIC_CONFIG_PACKAGE = "package";
+    public static final String DYNAMIC_CONFIG_ENFORCE = "enforce";
 
     /* utilities */
     /**

@@ -30,12 +30,12 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.ParcelUuid;
-import android.provider.Settings;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -100,6 +100,10 @@ public class MapClientService extends ProfileService {
             dump(sb);
             Log.d(TAG, "MAP connect device: " + device
                     + ", InstanceMap start state: " + sb.toString());
+        }
+        if (getPriority(device) == BluetoothProfile.PRIORITY_OFF) {
+            Log.w(TAG, "Connection not allowed: <" + device.getAddress() + "> is PRIORITY_OFF");
+            return false;
         }
         MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
         if (mapStateMachine == null) {
@@ -189,20 +193,20 @@ public class MapClientService extends ProfileService {
     }
 
     public synchronized List<BluetoothDevice> getDevicesMatchingConnectionStates(int[] states) {
-        Log.d(TAG, "getDevicesMatchingConnectionStates" + Arrays.toString(states));
+        if (DBG) Log.d(TAG, "getDevicesMatchingConnectionStates" + Arrays.toString(states));
         List<BluetoothDevice> deviceList = new ArrayList<>();
         Set<BluetoothDevice> bondedDevices = mAdapter.getBondedDevices();
         int connectionState;
         for (BluetoothDevice device : bondedDevices) {
             connectionState = getConnectionState(device);
-            Log.d(TAG, "Device: " + device + "State: " + connectionState);
+            if (DBG) Log.d(TAG, "Device: " + device + "State: " + connectionState);
             for (int i = 0; i < states.length; i++) {
                 if (connectionState == states[i]) {
                     deviceList.add(device);
                 }
             }
         }
-        Log.d(TAG, deviceList.toString());
+        if (DBG) Log.d(TAG, deviceList.toString());
         return deviceList;
     }
 
@@ -214,19 +218,17 @@ public class MapClientService extends ProfileService {
     }
 
     public boolean setPriority(BluetoothDevice device, int priority) {
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothMapClientPriorityKey(device.getAddress()), priority);
         if (VDBG) {
             Log.v(TAG, "Saved priority " + device + " = " + priority);
         }
+        AdapterService.getAdapterService().getDatabase()
+                .setProfilePriority(device, BluetoothProfile.MAP_CLIENT, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
-        int priority = Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothMapClientPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
-        return priority;
+        return AdapterService.getAdapterService().getDatabase()
+                .getProfilePriority(device, BluetoothProfile.MAP_CLIENT);
     }
 
     public synchronized boolean sendMessage(BluetoothDevice device, Uri[] contacts, String message,
@@ -293,7 +295,13 @@ public class MapClientService extends ProfileService {
         setMapClientService(null);
     }
 
-    void cleanupDevice(BluetoothDevice device) {
+    /**
+     * cleanupDevice removes the associated state machine from the instance map
+     *
+     * @param device BluetoothDevice address of remote device
+     */
+    @VisibleForTesting
+    public void cleanupDevice(BluetoothDevice device) {
         if (DBG) {
             StringBuilder sb = new StringBuilder();
             dump(sb);
@@ -346,10 +354,23 @@ public class MapClientService extends ProfileService {
         return mapStateMachine.getUnreadMessages();
     }
 
+    /**
+     * Returns the SDP record's MapSupportedFeatures field (see Bluetooth MAP 1.4 spec, page 114).
+     * @param device The Bluetooth device to get this value for.
+     * @return the SDP record's MapSupportedFeatures field.
+     */
+    public synchronized int getSupportedFeatures(BluetoothDevice device) {
+        MceStateMachine mapStateMachine = mMapInstanceMap.get(device);
+        if (mapStateMachine == null) {
+            if (DBG) Log.d(TAG, "in getSupportedFeatures, returning 0");
+            return 0;
+        }
+        return mapStateMachine.getSupportedFeatures();
+    }
+
     @Override
     public void dump(StringBuilder sb) {
         super.dump(sb);
-        ProfileService.println(sb, "# Services Connected: " + mMapInstanceMap.size());
         for (MceStateMachine stateMachine : mMapInstanceMap.values()) {
             stateMachine.dump(sb);
         }
@@ -487,7 +508,7 @@ public class MapClientService extends ProfileService {
             if (service == null) {
                 return false;
             }
-            Log.d(TAG, "Checking Permission of sendMessage");
+            if (DBG) Log.d(TAG, "Checking Permission of sendMessage");
             mService.enforceCallingOrSelfPermission(Manifest.permission.SEND_SMS,
                     "Need SEND_SMS permission");
 
@@ -503,6 +524,21 @@ public class MapClientService extends ProfileService {
             mService.enforceCallingOrSelfPermission(Manifest.permission.READ_SMS,
                     "Need READ_SMS permission");
             return service.getUnreadMessages(device);
+        }
+
+        @Override
+        public int getSupportedFeatures(BluetoothDevice device) {
+            MapClientService service = getService();
+            if (service == null) {
+                if (DBG) {
+                    Log.d(TAG,
+                            "in MapClientService getSupportedFeatures stub, returning 0");
+                }
+                return 0;
+            }
+            mService.enforceCallingOrSelfPermission(Manifest.permission.BLUETOOTH,
+                    "Need BLUETOOTH permission");
+            return service.getSupportedFeatures(device);
         }
     }
 

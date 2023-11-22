@@ -37,6 +37,10 @@ void GateKeeper::Enroll(const EnrollRequest &request, EnrollResponse *response) 
         // Password handle does not match what is stored, generate new SecureID
         GetRandom(&user_id, sizeof(secure_id_t));
     } else {
+        if (request.password_handle.length < sizeof(password_handle_t)) {
+            response->error = ERROR_INVALID;
+            return;
+        }
         password_handle_t *pw_handle =
             reinterpret_cast<password_handle_t *>(request.password_handle.buffer.get());
 
@@ -105,6 +109,11 @@ void GateKeeper::Verify(const VerifyRequest &request, VerifyResponse *response) 
     if (response == NULL) return;
 
     if (!request.provided_password.buffer.get() || !request.password_handle.buffer.get()) {
+        response->error = ERROR_INVALID;
+        return;
+    }
+
+    if (request.password_handle.length < sizeof(password_handle_t)) {
         response->error = ERROR_INVALID;
         return;
     }
@@ -232,7 +241,7 @@ void GateKeeper::MintAuthToken(UniquePtr<uint8_t> *auth_token, uint32_t *length,
     token->challenge = challenge;
     token->user_id = user_id;
     token->authenticator_id = authenticator_id;
-    token->authenticator_type = htonl(HW_AUTH_PASSWORD);
+    token->authenticator_type = htobe32(HW_AUTH_PASSWORD);
     token->timestamp = htobe64(timestamp);
 
     const uint8_t *auth_token_key = NULL;
@@ -241,7 +250,6 @@ void GateKeeper::MintAuthToken(UniquePtr<uint8_t> *auth_token, uint32_t *length,
         uint32_t hash_len = (uint32_t)((uint8_t *)&token->hmac - (uint8_t *)token);
         ComputeSignature(token->hmac, sizeof(token->hmac), auth_token_key, key_len,
                 reinterpret_cast<uint8_t *>(token), hash_len);
-        delete[] auth_token_key;
     } else {
         memset(token->hmac, 0, sizeof(token->hmac));
     }
@@ -254,11 +262,11 @@ void GateKeeper::MintAuthToken(UniquePtr<uint8_t> *auth_token, uint32_t *length,
  * Calculates the timeout in milliseconds as a function of the failure
  * counter 'x' as follows:
  *
- * [0. 5) -> 0
+ * [0, 4] -> 0
  * 5 -> 30
- * [6, 10) -> 0
- * [11, 30) -> 30
- * [30, 140) -> 30 * (2^((x - 30)/10))
+ * [6, 10] -> 0
+ * [11, 29] -> 30
+ * [30, 139] -> 30 * (2^((x - 30)/10))
  * [140, inf) -> 1 day
  *
  */

@@ -18,7 +18,10 @@ package com.android.car.settings.users;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.os.Bundle;
-import android.support.v7.widget.GridLayoutManager;
+
+import androidx.annotation.LayoutRes;
+import androidx.annotation.StringRes;
+import androidx.recyclerview.widget.GridLayoutManager;
 
 import com.android.car.settings.R;
 import com.android.car.settings.common.BaseFragment;
@@ -31,18 +34,22 @@ public class UserSwitcherFragment extends BaseFragment {
 
     private UserGridRecyclerView mUserGridView;
 
-    /**
-     * Initializes the UserSwitcherFragment
-     * @return instance of the UserSwitcherFragment
-     */
-    public static UserSwitcherFragment newInstance() {
-        UserSwitcherFragment userSwitcherFragment = new UserSwitcherFragment();
-        Bundle bundle = BaseFragment.getBundle();
-        bundle.putInt(EXTRA_TITLE_ID, R.string.users_list_title);
-        bundle.putInt(EXTRA_ACTION_BAR_LAYOUT, R.layout.action_bar_with_button);
-        bundle.putInt(EXTRA_LAYOUT, R.layout.car_user_switcher);
-        userSwitcherFragment.setArguments(bundle);
-        return userSwitcherFragment;
+    @Override
+    @LayoutRes
+    protected int getActionBarLayoutId() {
+        return R.layout.action_bar_with_button;
+    }
+
+    @Override
+    @LayoutRes
+    protected int getLayoutId() {
+        return R.layout.user_switcher;
+    }
+
+    @Override
+    @StringRes
+    protected int getTitleId() {
+        return R.string.users_list_title;
     }
 
     @Override
@@ -53,7 +60,7 @@ public class UserSwitcherFragment extends BaseFragment {
         GridLayoutManager layoutManager = new GridLayoutManager(getContext(),
                 getContext().getResources().getInteger(R.integer.user_switcher_num_col));
         mUserGridView.setFragment(this);
-        mUserGridView.getRecyclerView().setLayoutManager(layoutManager);
+        mUserGridView.setLayoutManager(layoutManager);
         mUserGridView.buildAdapter();
     }
 
@@ -72,8 +79,8 @@ public class UserSwitcherFragment extends BaseFragment {
 
 
     @Override
-    public void onUxRestrictionChanged(CarUxRestrictions carUxRestrictions) {
-        applyRestriction(CarUxRestrictionsHelper.isNoSetup(carUxRestrictions));
+    public void onUxRestrictionsChanged(CarUxRestrictions restrictionInfo) {
+        applyRestriction(CarUxRestrictionsHelper.isNoSetup(restrictionInfo));
     }
 
     private void applyRestriction(boolean restricted) {

@@ -16,120 +16,125 @@
 
 package android.appsecurity.cts;
 
+import static org.junit.Assert.assertTrue;
+
 import android.platform.test.annotations.AppModeFull;
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.testtype.DeviceTestCase;
-import com.android.tradefed.testtype.IAbi;
-import com.android.tradefed.testtype.IAbiReceiver;
-import com.android.tradefed.testtype.IBuildReceiver;
+import android.platform.test.annotations.AppModeInstant;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  * Test that install of apps using major version codes is being handled properly.
  */
-@AppModeFull // TODO: Needs porting to instant
-public class MajorVersionTest extends DeviceTestCase implements IAbiReceiver, IBuildReceiver {
+@RunWith(DeviceJUnit4ClassRunner.class)
+public class MajorVersionTest extends BaseAppSecurityTest {
     private static final String PKG = "com.android.cts.majorversion";
     private static final String APK_000000000000ffff = "CtsMajorVersion000000000000ffff.apk";
     private static final String APK_00000000ffffffff = "CtsMajorVersion00000000ffffffff.apk";
     private static final String APK_000000ff00000000 = "CtsMajorVersion000000ff00000000.apk";
     private static final String APK_000000ffffffffff = "CtsMajorVersion000000ffffffffff.apk";
 
-    private IAbi mAbi;
-    private CompatibilityBuildHelper mBuildHelper;
-
-    @Override
-    public void setAbi(IAbi abi) {
-        mAbi = abi;
-    }
-
-    @Override
-    public void setBuild(IBuildInfo buildInfo) {
-        mBuildHelper = new CompatibilityBuildHelper(buildInfo);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-
+    @Before
+    public void setUp() throws Exception {
         Utils.prepareSingleUser(getDevice());
-        assertNotNull(mAbi);
-        assertNotNull(mBuildHelper);
-
         getDevice().uninstallPackage(PKG);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
-
+    @After
+    public void tearDown() throws Exception {
         getDevice().uninstallPackage(PKG);
     }
 
-    public void testInstallMinorVersion() throws Exception {
-        assertNull(getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_000000000000ffff), false, false));
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallMinorVersion_full() throws Exception {
+        testInstallMinorVersion(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallMinorVersion_instant() throws Exception {
+        testInstallMinorVersion(true);
+    }
+    private void testInstallMinorVersion(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_000000000000ffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        getDevice().uninstallPackage(PKG);
     }
 
-    public void testInstallMajorVersion() throws Exception {
-        assertNull(getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_000000ff00000000), false, false));
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallMajorVersion_full() throws Exception {
+        testInstallMajorVersion(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallMajorVersion_instant() throws Exception {
+        testInstallMajorVersion(true);
+    }
+    private void testInstallMajorVersion(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_000000ff00000000).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        getDevice().uninstallPackage(PKG);
     }
 
-    public void testInstallUpdateAcrossMinorMajorVersion() throws Exception {
-        assertNull(getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_000000000000ffff), false, false));
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallUpdateAcrossMinorMajorVersion_full() throws Exception {
+        testInstallUpdateAcrossMinorMajorVersion(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallUpdateAcrossMinorMajorVersion_instant() throws Exception {
+        testInstallUpdateAcrossMinorMajorVersion(true);
+    }
+    private void testInstallUpdateAcrossMinorMajorVersion(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_000000000000ffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        assertNull(getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_00000000ffffffff), true, false));
+        new InstallMultiple(instant).addApk(APK_00000000ffffffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        assertNull(getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_000000ff00000000), true, false));
+        new InstallMultiple(instant).addApk(APK_000000ff00000000).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        assertNull(getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_000000ffffffffff), true, false));
+        new InstallMultiple(instant).addApk(APK_000000ffffffffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        getDevice().uninstallPackage(PKG);
     }
 
-    public void testInstallDowngradeAcrossMajorMinorVersion() throws Exception {
-        assertNull(getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_000000ffffffffff), false, false));
+    @Test
+    @AppModeFull(reason = "'full' portion of the hostside test")
+    public void testInstallDowngradeAcrossMajorMinorVersion_full() throws Exception {
+        testInstallDowngradeAcrossMajorMinorVersion(false);
+    }
+    @Test
+    @AppModeInstant(reason = "'instant' portion of the hostside test")
+    public void testInstallDowngradeAcrossMajorMinorVersion_instant() throws Exception {
+        testInstallDowngradeAcrossMajorMinorVersion(true);
+    }
+    private void testInstallDowngradeAcrossMajorMinorVersion(boolean instant) throws Exception {
+        new InstallMultiple(instant).addApk(APK_000000ffffffffff).run();
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        assertEquals("INSTALL_FAILED_VERSION_DOWNGRADE", getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_00000000ffffffff), true, false));
+        new InstallMultiple(instant).addApk(APK_00000000ffffffff)
+                .runExpectingFailure("INSTALL_FAILED_VERSION_DOWNGRADE");
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        assertEquals("INSTALL_FAILED_VERSION_DOWNGRADE", getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_000000ff00000000), true, false));
+        new InstallMultiple(instant).addApk(APK_000000ff00000000)
+                .runExpectingFailure("INSTALL_FAILED_VERSION_DOWNGRADE");
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        assertEquals("INSTALL_FAILED_VERSION_DOWNGRADE", getDevice().installPackage(
-                mBuildHelper.getTestFile(APK_000000000000ffff), true, false));
+        new InstallMultiple(instant).addApk(APK_000000000000ffff)
+                .runExpectingFailure("INSTALL_FAILED_VERSION_DOWNGRADE");
         assertTrue(getDevice().getInstalledPackageNames().contains(PKG));
         runVersionDeviceTests("testCheckVersion");
-        getDevice().uninstallPackage(PKG);
     }
 
-    private void runVersionDeviceTests(String testMethodName)
-            throws DeviceNotAvailableException {
+    private void runVersionDeviceTests(String testMethodName) throws Exception {
         runDeviceTests(PKG, PKG + ".VersionTest", testMethodName);
-    }
-
-    private void runDeviceTests(String packageName, String testClassName, String testMethodName)
-            throws DeviceNotAvailableException {
-        Utils.runDeviceTests(getDevice(), packageName, testClassName, testMethodName);
     }
 }

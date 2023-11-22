@@ -26,57 +26,44 @@ namespace art {
 
 class DexoptTest : public Dex2oatEnvironmentTest {
  public:
-  virtual void SetUp() OVERRIDE;
+  void SetUp() override;
 
-  virtual void PreRuntimeCreate();
+  void PreRuntimeCreate() override;
 
-  virtual void PostRuntimeCreate() OVERRIDE;
+  void PostRuntimeCreate() override;
 
   // Generate an oat file for the purposes of test.
   // The oat file will be generated for dex_location in the given oat_location
   // with the following configuration:
   //   filter - controls the compilation filter
-  //   pic - whether or not the code will be PIC
-  //   relocate - if true, the oat file will be relocated with respect to the
-  //      boot image. Otherwise the oat file will not be relocated.
   //   with_alternate_image - if true, the oat file will be generated with an
   //      image checksum different than the current image checksum.
   void GenerateOatForTest(const std::string& dex_location,
                           const std::string& oat_location,
                           CompilerFilter::Filter filter,
-                          bool relocate,
-                          bool pic,
                           bool with_alternate_image,
-                          const char* compilation_reason = nullptr);
+                          const char* compilation_reason = nullptr,
+                          const std::vector<std::string>& extra_args = {});
 
-  // Generate a non-PIC odex file for the purposes of test.
-  // The generated odex file will be un-relocated.
+  // Generate an odex file for the purposes of test.
   void GenerateOdexForTest(const std::string& dex_location,
                            const std::string& odex_location,
-                           CompilerFilter::Filter filter);
-
-  void GeneratePicOdexForTest(const std::string& dex_location,
-                              const std::string& odex_location,
-                              CompilerFilter::Filter filter,
-                              const char* compilation_reason = nullptr);
+                           CompilerFilter::Filter filter,
+                           const char* compilation_reason = nullptr,
+                          const std::vector<std::string>& extra_args = {});
 
   // Generate an oat file for the given dex location in its oat location (under
   // the dalvik cache).
   void GenerateOatForTest(const char* dex_location,
                           CompilerFilter::Filter filter,
-                          bool relocate,
-                          bool pic,
                           bool with_alternate_image);
 
   // Generate a standard oat file in the oat location.
   void GenerateOatForTest(const char* dex_location, CompilerFilter::Filter filter);
 
- private:
-  // Pre-Relocate the image to a known non-zero offset so we don't have to
-  // deal with the runtime randomly relocating the image by 0 and messing up
-  // the expected results of the tests.
-  bool PreRelocateImage(const std::string& image_location, std::string* error_msg);
+  bool Dex2Oat(const std::vector<std::string>& args, std::string* error_msg);
 
+ private:
   // Reserve memory around where the image will be loaded so other memory
   // won't conflict when it comes time to load the image.
   // This can be called with an already loaded image to reserve the space
@@ -91,7 +78,7 @@ class DexoptTest : public Dex2oatEnvironmentTest {
   // before the image is loaded.
   void UnreserveImageSpace();
 
-  std::vector<std::unique_ptr<MemMap>> image_reservation_;
+  std::vector<MemMap> image_reservation_;
 };
 
 }  // namespace art

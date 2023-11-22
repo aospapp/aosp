@@ -19,8 +19,8 @@ package com.android.tv.recommendation;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.data.Program;
 import com.android.tv.recommendation.RoutineWatchEvaluator.ProgramTime;
 import java.util.Calendar;

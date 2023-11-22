@@ -24,9 +24,9 @@
 #include <iostream>
 #include <string>
 
-#include <utils/RefBase.h>
 #define LOG_TAG "VtsFuzzerBinderServer"
-#include <utils/Log.h>
+#include <log/log.h>
+#include <utils/RefBase.h>
 #include <utils/String8.h>
 
 #include <binder/IBinder.h>
@@ -68,10 +68,12 @@ status_t BnVtsFuzzer::onTransact(uint32_t code, const Parcel& data,
       const char* path = data.readCString();
       const int target_class = data.readInt32();
       const int target_type = data.readInt32();
-      const float target_version = data.readFloat();
+      const int target_version_major = data.readInt32();
+      const int target_version_minor = data.readInt32();
       const char* module_name = data.readCString();
-      int32_t result = LoadHal(string(path), target_class, target_type,
-                               target_version, string(module_name));
+      int32_t result =
+          LoadHal(string(path), target_class, target_type, target_version_major,
+                  target_version_minor, string(module_name));
       ALOGD("BnVtsFuzzer::%s LoadHal(%s) -> %i", __FUNCTION__, path, result);
       if (reply == NULL) {
         ALOGE("reply == NULL");
@@ -141,11 +143,13 @@ class VtsFuzzerServer : public BnVtsFuzzer {
   void Exit() { printf("VtsFuzzerServer::Exit\n"); }
 
   int32_t LoadHal(const string& path, int target_class, int target_type,
-                  float target_version, const string& module_name) {
+                  int target_version_major, int target_version_minor,
+                  const string& module_name) {
     printf("VtsFuzzerServer::LoadHal(%s)\n", path.c_str());
     bool success = driver_manager_->LoadTargetComponent(
-        path.c_str(), lib_path_, target_class, target_type, target_version, "",
-        "", "", module_name.c_str());
+        path.c_str(), lib_path_, target_class, target_type,
+        target_version_major, target_version_minor, "", "", "",
+        module_name.c_str());
     cout << "Result: " << success << std::endl;
     if (success) {
       return 0;

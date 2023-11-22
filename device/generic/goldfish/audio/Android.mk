@@ -33,7 +33,7 @@ LOCAL_SHARED_LIBRARIES += \
 			libdl \
 			libtinyalsa
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wno-unused-parameter -Wno-unused-variable
 LOCAL_HEADER_LIBRARIES := libhardware_headers
 
 include $(BUILD_SHARED_LIBRARY)
@@ -52,7 +52,7 @@ LOCAL_SRC_FILES := audio_hw_legacy.c
 LOCAL_SHARED_LIBRARIES += \
 			libdl
 
-LOCAL_CFLAGS := -Wno-unused-parameter
+LOCAL_CFLAGS := -Wno-unused-parameter -Wno-unused-variable
 LOCAL_HEADER_LIBRARIES := libhardware_headers
 
 include $(BUILD_SHARED_LIBRARY)

@@ -16,30 +16,28 @@
 
 package com.android.storagemanager.automatic;
 
-import android.app.job.JobInfo;
-import android.app.job.JobScheduler;
-import android.content.Context;
-import android.content.Intent;
-import com.android.storagemanager.testing.TestingConstants;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.robolectric.RobolectricTestRunner;
-import org.robolectric.annotation.Config;
-
-import java.util.List;
-
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.content.Context;
+import android.content.Intent;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import java.util.List;
+import org.robolectric.RobolectricTestRunner;
+
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest=TestingConstants.MANIFEST, sdk=TestingConstants.SDK_VERSION)
 public class AutomaticStorageBroadcastReceiverTest {
     @Mock private Context mMockContext;
     @Mock private JobScheduler mJobScheduler;

@@ -46,7 +46,7 @@ public class SettingsPreparerTest extends TestCase {
         mSettingsPreparer = new SettingsPreparer();
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         EasyMock.expect(mMockDevice.getDeviceDescriptor()).andReturn(null).anyTimes();
-        mMockBuildInfo = new BuildInfo("0", "", "");
+        mMockBuildInfo = new BuildInfo("0", "");
         mOptionSetter = new OptionSetter(mSettingsPreparer);
         mOptionSetter.setOptionValue("device-setting", "stay_on_while_plugged_in");
         mOptionSetter.setOptionValue("setting-type", "global");

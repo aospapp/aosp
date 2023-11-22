@@ -18,6 +18,7 @@ package com.android.compatibility.testtype;
 
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.testtype.AndroidJUnitTest;
 import com.android.tradefed.util.ArrayUtil;
@@ -47,6 +48,16 @@ public class LibcoreTest extends AndroidJUnitTest {
     public void run(ITestInvocationListener listener) throws DeviceNotAvailableException {
         if (!mCoreExpectations.isEmpty()) {
             addInstrumentationArg(INSTRUMENTATION_ARG_NAME, ArrayUtil.join(",", mCoreExpectations));
+        }
+
+        if (getTestPackageName() != null && getClassName() != null) {
+            // If the test-package is set, we should ignore --class, --method it might cause issue
+            // in more complex libcore suites.
+            setClassName(null);
+            setMethodName(null);
+            CLog.d(
+                    "Setting --class and --method to null to avoid conflict with --test-package "
+                            + "option.");
         }
         super.run(listener);
     }

@@ -24,37 +24,52 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import com.android.keychain.TestConfig;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /** Unit tests for {@link com.android.keychain.internal.GrantsDatabase}. */
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public final class GrantsDatabaseTest {
     private static final String DUMMY_ALIAS = "dummy_alias";
     private static final String DUMMY_ALIAS2 = "another_dummy_alias";
+    private static final String EXISTING_ALIAS = "existing_alias_1";
     private static final int DUMMY_UID = 1000;
     private static final int DUMMY_UID2 = 1001;
     // Constants duplicated from GrantsDatabase to make sure the upgrade tests catch if the
     // name of one of the fields in the DB changes.
-    static final String DATABASE_NAME = "grants.db";
-    static final String TABLE_GRANTS = "grants";
-    static final String GRANTS_ALIAS = "alias";
-    static final String GRANTS_GRANTEE_UID = "uid";
-    static final String TABLE_SELECTABLE = "userselectable";
-    static final String SELECTABLE_IS_SELECTABLE = "is_selectable";
+    private static final String DATABASE_NAME = "grants.db";
+    private static final String TABLE_GRANTS = "grants";
+    private static final String GRANTS_ALIAS = "alias";
+    private static final String GRANTS_GRANTEE_UID = "uid";
+    private static final String TABLE_SELECTABLE = "userselectable";
+    private static final String SELECTABLE_IS_SELECTABLE = "is_selectable";
 
     private GrantsDatabase mGrantsDB;
+    private ExistingKeysProvider mKeysProvider;
+
+    private ExistingKeysProvider createExistingKeysProvider(
+            String[] keyAliases, String... additionalAliases) {
+        ArrayList<String> allAliases = new ArrayList(Arrays.asList(keyAliases));
+        allAliases.addAll(Arrays.asList(additionalAliases));
+        return new ExistingKeysProvider() {
+            public List<String> getExistingKeyAliases() {
+                return allAliases;
+            }
+        };
+    }
 
     @Before
     public void setUp() {
-        mGrantsDB = new GrantsDatabase(RuntimeEnvironment.application);
+        mKeysProvider = createExistingKeysProvider(new String[] {EXISTING_ALIAS});
+        mGrantsDB = new GrantsDatabase(RuntimeEnvironment.application, mKeysProvider);
     }
 
     @Test
@@ -258,10 +273,12 @@ public final class GrantsDatabaseTest {
         }
 
         // Test that the aliases were made user-selectable during the upgrade.
-        mGrantsDB = new GrantsDatabase(RuntimeEnvironment.application);
+        mGrantsDB = new GrantsDatabase(
+                RuntimeEnvironment.application, createExistingKeysProvider(aliases, EXISTING_ALIAS));
         for (String alias : aliases) {
             Assert.assertTrue(mGrantsDB.isUserSelectable(alias));
         }
+        Assert.assertTrue(mGrantsDB.isUserSelectable(EXISTING_ALIAS));
     }
 
     @Test
@@ -284,11 +301,15 @@ public final class GrantsDatabaseTest {
         v2DBHelper.insertIntoSelectableTable(db, selectableAlias, true);
 
         // Test that the aliases were made user-selectable during the upgrade.
-        mGrantsDB = new GrantsDatabase(RuntimeEnvironment.application);
+        mGrantsDB = new GrantsDatabase(
+                RuntimeEnvironment.application,
+                createExistingKeysProvider(aliases, selectableAlias, EXISTING_ALIAS));
         for (String alias : aliases) {
             Assert.assertFalse(mGrantsDB.isUserSelectable(alias));
         }
         Assert.assertTrue(mGrantsDB.isUserSelectable(selectableAlias));
+        // No upgrade is taking place, this key should not be user-selectable.
+        Assert.assertFalse(mGrantsDB.isUserSelectable(EXISTING_ALIAS));
     }
 
     @Test
@@ -319,11 +340,33 @@ public final class GrantsDatabaseTest {
         dbHelper.insertIntoGrantsTable(db, defaultSelectableAlias, 123456);
 
         // Test that the aliases were made user-selectable during the upgrade.
-        mGrantsDB = new GrantsDatabase(RuntimeEnvironment.application);
+        mGrantsDB = new GrantsDatabase(
+                RuntimeEnvironment.application,
+                createExistingKeysProvider(
+                        aliases, selectableAlias, defaultSelectableAlias, EXISTING_ALIAS));
         for (String alias : aliases) {
             Assert.assertFalse(mGrantsDB.isUserSelectable(alias));
         }
         Assert.assertTrue(mGrantsDB.isUserSelectable(selectableAlias));
         Assert.assertTrue(mGrantsDB.isUserSelectable(defaultSelectableAlias));
+        Assert.assertTrue(mGrantsDB.isUserSelectable(EXISTING_ALIAS));
+    }
+
+    @Test
+    public void testCreateFromEmptyWithExistingAliases() {
+        // Close old DB
+        mGrantsDB.destroy();
+        // Create a new, V1 database.
+        Context context = RuntimeEnvironment.application;
+        context.deleteDatabase(DATABASE_NAME);
+        String[] aliases = {"existing-1", "existing-2", "existing-3"};
+
+        // Test that the aliases were made user-selectable during the upgrade.
+        mGrantsDB = new GrantsDatabase(
+                RuntimeEnvironment.application,
+                createExistingKeysProvider(aliases));
+        for (String alias : aliases) {
+            Assert.assertTrue(mGrantsDB.isUserSelectable(alias));
+        }
     }
 }

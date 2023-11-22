@@ -31,6 +31,7 @@ import android.util.Size;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaCodec;
+import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
@@ -84,8 +85,8 @@ public class CameraOps {
     List<Surface> mOutputSurfaces = new ArrayList<Surface>(2);
     private Surface mPreviewSurface;
     private Surface mPreviewSurface2;
-    // How many JPEG buffers do we want to hold on to at once
-    private static final int MAX_CONCURRENT_JPEGS = 2;
+    // How many still capture buffers do we want to hold on to at once
+    private static final int MAX_CONCURRENT_STILL_CAPTURES = 2;
 
     private static final int STATUS_ERROR = 0;
     private static final int STATUS_UNINITIALIZED = 1;
@@ -408,33 +409,65 @@ public class CameraOps {
         }
     }
 
-    public void minimalJpegCapture(final CaptureCallback listener, CaptureResultListener l,
-            Handler h, CameraControls cameraControl) throws ApiFailureException {
+    private static class SimpleImageListener implements ImageReader.OnImageAvailableListener {
+        private final ConditionVariable imageAvailable = new ConditionVariable();
+        private final CaptureCallback mListener;
+
+        SimpleImageListener(final CaptureCallback listener) {
+            mListener = listener;
+        }
+
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            Image i = null;
+            try {
+                i = reader.acquireNextImage();
+                mListener.onCaptureAvailable(i);
+            } finally {
+                if (i != null) {
+                    i.close();
+                }
+                imageAvailable.open();
+            }
+        }
+
+        public void waitForImageAvailable(long timeout) {
+            if (imageAvailable.block(timeout)) {
+                imageAvailable.close();
+            } else {
+                Log.e(TAG, "wait for image available timed out after " + timeout + "ms");
+            }
+        }
+    }
+
+    public void minimalStillCapture(final CaptureCallback listener, CaptureResultListener l,
+            Handler h, CameraControls cameraControl, int format) throws ApiFailureException {
         minimalOpenCamera();
 
         try {
             CameraCharacteristics properties =
                     mCameraManager.getCameraCharacteristics(mCamera.getId());
-            Size[] jpegSizes = null;
+            Size[] stillSizes = null;
             if (properties != null) {
-                jpegSizes = properties.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP).
-                        getOutputSizes(ImageFormat.JPEG);
+                stillSizes = properties.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP).
+                        getOutputSizes(format);
             }
             int width = 640;
             int height = 480;
 
-            if (jpegSizes != null && jpegSizes.length > 0) {
-                width = jpegSizes[0].getWidth();
-                height = jpegSizes[0].getHeight();
+            if (stillSizes != null && stillSizes.length > 0) {
+                width = stillSizes[0].getWidth();
+                height = stillSizes[0].getHeight();
             }
 
             if (mCaptureReader == null || mCaptureReader.getWidth() != width ||
-                    mCaptureReader.getHeight() != height) {
+                    mCaptureReader.getHeight() != height ||
+                    mCaptureReader.getImageFormat() != format) {
                 if (mCaptureReader != null) {
                     mCaptureReader.close();
                 }
                 mCaptureReader = ImageReader.newInstance(width, height,
-                        ImageFormat.JPEG, MAX_CONCURRENT_JPEGS);
+                        format, MAX_CONCURRENT_STILL_CAPTURES);
             }
 
             List<Surface> outputSurfaces = new ArrayList<Surface>(/*capacity*/1);
@@ -450,26 +483,15 @@ public class CameraOps {
 
             updateCaptureRequest(captureBuilder, cameraControl);
 
-            ImageReader.OnImageAvailableListener readerListener =
-                    new ImageReader.OnImageAvailableListener() {
-                @Override
-                public void onImageAvailable(ImageReader reader) {
-                    Image i = null;
-                    try {
-                        i = reader.acquireNextImage();
-                        listener.onCaptureAvailable(i);
-                    } finally {
-                        if (i != null) {
-                            i.close();
-                        }
-                    }
-                }
-            };
+            SimpleImageListener readerListener = new SimpleImageListener(listener);
+
             mCaptureReader.setOnImageAvailableListener(readerListener, h);
 
             mSession.capture(captureBuilder.build(), l, mOpsHandler);
+
+            readerListener.waitForImageAvailable(1000L/*timeout*/);
         } catch (CameraAccessException e) {
-            throw new ApiFailureException("Error in minimal JPEG capture", e);
+            throw new ApiFailureException("Error in minimal still capture", e);
         }
     }
 

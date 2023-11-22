@@ -10,7 +10,16 @@
 #
 
 PRODUCT_MAKEFILES := \
-$(LOCAL_DIR)/hikey.mk \
-$(LOCAL_DIR)/hikey32.mk \
-$(LOCAL_DIR)/hikey64_only.mk \
-$(LOCAL_DIR)/hikey960.mk
+    $(LOCAL_DIR)/hikey.mk \
+    $(LOCAL_DIR)/hikey32.mk \
+    $(LOCAL_DIR)/hikey64_only.mk \
+    $(LOCAL_DIR)/hikey_tv.mk \
+    $(LOCAL_DIR)/hikey960.mk \
+    $(LOCAL_DIR)/hikey960_tv.mk
+
+COMMON_LUNCH_CHOICES := \
+    hikey-userdebug \
+    hikey64_only-userdebug \
+    hikey_tv-userdebug \
+    hikey960-userdebug \
+    hikey960_tv-userdebug

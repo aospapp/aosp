@@ -18,6 +18,7 @@
 
 #include "android-base/stringprintf.h"
 
+#include "base/stl_util.h"
 #include "dexopt_test.h"
 #include "noop_compiler_callbacks.h"
 
@@ -41,16 +42,15 @@ TEST_F(DexoptTest, ValidateOatFile) {
   args.push_back("--dex-file=" + multidex1);
   args.push_back("--dex-file=" + dex2);
   args.push_back("--oat-file=" + oat_location);
-  ASSERT_TRUE(OatFileAssistant::Dex2Oat(args, &error_msg)) << error_msg;
+  ASSERT_TRUE(Dex2Oat(args, &error_msg)) << error_msg;
 
-  std::unique_ptr<OatFile> oat(OatFile::Open(/* zip_fd */ -1,
+  std::unique_ptr<OatFile> oat(OatFile::Open(/*zip_fd=*/ -1,
                                              oat_location.c_str(),
                                              oat_location.c_str(),
-                                             nullptr,
-                                             nullptr,
-                                             false,
-                                             /*low_4gb*/false,
-                                             nullptr,
+                                             /*executable=*/ false,
+                                             /*low_4gb=*/ false,
+                                             /*abs_dex_location=*/ nullptr,
+                                             /*reservation=*/ nullptr,
                                              &error_msg));
   ASSERT_TRUE(oat != nullptr) << error_msg;
 
@@ -110,44 +110,99 @@ TEST_F(DexoptTest, ValidateOatFile) {
   EXPECT_FALSE(ImageSpace::ValidateOatFile(*oat, &error_msg));
 }
 
-template <bool kImage, bool kRelocate, bool kPatchoat, bool kImageDex2oat>
+template <bool kImage, bool kRelocate, bool kImageDex2oat>
 class ImageSpaceLoadingTest : public CommonRuntimeTest {
  protected:
-  void SetUpRuntimeOptions(RuntimeOptions* options) OVERRIDE {
+  void SetUpRuntimeOptions(RuntimeOptions* options) override {
     if (kImage) {
       options->emplace_back(android::base::StringPrintf("-Ximage:%s", GetCoreArtLocation().c_str()),
                             nullptr);
     }
     options->emplace_back(kRelocate ? "-Xrelocate" : "-Xnorelocate", nullptr);
-    if (!kPatchoat) {
-      options->emplace_back("-Xpatchoat:false", nullptr);
-    }
     options->emplace_back(kImageDex2oat ? "-Ximage-dex2oat" : "-Xnoimage-dex2oat", nullptr);
 
     // We want to test the relocation behavior of ImageSpace. As such, don't pretend we're a
     // compiler.
     callbacks_.reset();
+
+    // Clear DEX2OATBOOTCLASSPATH environment variable used for boot image compilation.
+    // We don't want that environment variable to affect the behavior of this test.
+    CHECK(old_dex2oat_bcp_ == nullptr);
+    const char* old_dex2oat_bcp = getenv("DEX2OATBOOTCLASSPATH");
+    if (old_dex2oat_bcp != nullptr) {
+      old_dex2oat_bcp_.reset(strdup(old_dex2oat_bcp));
+      CHECK(old_dex2oat_bcp_ != nullptr);
+      unsetenv("DEX2OATBOOTCLASSPATH");
+    }
   }
+
+  void TearDown() override {
+    if (old_dex2oat_bcp_ != nullptr) {
+      int result = setenv("DEX2OATBOOTCLASSPATH", old_dex2oat_bcp_.get(), /* replace */ 0);
+      CHECK_EQ(result, 0);
+      old_dex2oat_bcp_.reset();
+    }
+  }
+
+ private:
+  UniqueCPtr<const char[]> old_dex2oat_bcp_;
 };
 
-using ImageSpacePatchoatTest = ImageSpaceLoadingTest<true, true, true, true>;
-TEST_F(ImageSpacePatchoatTest, Test) {
-  EXPECT_FALSE(Runtime::Current()->GetHeap()->GetBootImageSpaces().empty());
-}
-
-using ImageSpaceDex2oatTest = ImageSpaceLoadingTest<false, true, false, true>;
+using ImageSpaceDex2oatTest = ImageSpaceLoadingTest<false, true, true>;
 TEST_F(ImageSpaceDex2oatTest, Test) {
   EXPECT_FALSE(Runtime::Current()->GetHeap()->GetBootImageSpaces().empty());
 }
 
-using ImageSpaceNoDex2oatNoPatchoatTest = ImageSpaceLoadingTest<true, true, false, false>;
-TEST_F(ImageSpaceNoDex2oatNoPatchoatTest, Test) {
-  EXPECT_TRUE(Runtime::Current()->GetHeap()->GetBootImageSpaces().empty());
+using ImageSpaceNoDex2oatTest = ImageSpaceLoadingTest<true, true, false>;
+TEST_F(ImageSpaceNoDex2oatTest, Test) {
+  EXPECT_FALSE(Runtime::Current()->GetHeap()->GetBootImageSpaces().empty());
 }
 
-using ImageSpaceNoRelocateNoDex2oatNoPatchoatTest = ImageSpaceLoadingTest<true, false, false, false>;
-TEST_F(ImageSpaceNoRelocateNoDex2oatNoPatchoatTest, Test) {
+using ImageSpaceNoRelocateNoDex2oatTest = ImageSpaceLoadingTest<true, false, false>;
+TEST_F(ImageSpaceNoRelocateNoDex2oatTest, Test) {
   EXPECT_FALSE(Runtime::Current()->GetHeap()->GetBootImageSpaces().empty());
+}
+
+class NoAccessAndroidDataTest : public ImageSpaceLoadingTest<false, true, true> {
+ protected:
+  void SetUpRuntimeOptions(RuntimeOptions* options) override {
+    const char* android_data = getenv("ANDROID_DATA");
+    CHECK(android_data != nullptr);
+    old_android_data_ = android_data;
+    bad_android_data_ = old_android_data_ + "/no-android-data";
+    int result = setenv("ANDROID_DATA", bad_android_data_.c_str(), /* replace */ 1);
+    CHECK_EQ(result, 0) << strerror(errno);
+    result = mkdir(bad_android_data_.c_str(), /* mode */ 0700);
+    CHECK_EQ(result, 0) << strerror(errno);
+    // Create a regular file "dalvik_cache". GetDalvikCache() shall get EEXIST
+    // when trying to create a directory with the same name and creating a
+    // subdirectory for a particular architecture shall fail.
+    bad_dalvik_cache_ = bad_android_data_ + "/dalvik-cache";
+    int fd = creat(bad_dalvik_cache_.c_str(), /* mode */ 0);
+    CHECK_NE(fd, -1) << strerror(errno);
+    result = close(fd);
+    CHECK_EQ(result, 0) << strerror(errno);
+    ImageSpaceLoadingTest<false, true, true>::SetUpRuntimeOptions(options);
+  }
+
+  void TearDown() override {
+    int result = unlink(bad_dalvik_cache_.c_str());
+    CHECK_EQ(result, 0) << strerror(errno);
+    result = rmdir(bad_android_data_.c_str());
+    CHECK_EQ(result, 0) << strerror(errno);
+    result = setenv("ANDROID_DATA", old_android_data_.c_str(), /* replace */ 1);
+    CHECK_EQ(result, 0) << strerror(errno);
+    ImageSpaceLoadingTest<false, true, true>::TearDown();
+  }
+
+ private:
+  std::string old_android_data_;
+  std::string bad_android_data_;
+  std::string bad_dalvik_cache_;
+};
+
+TEST_F(NoAccessAndroidDataTest, Test) {
+  EXPECT_TRUE(Runtime::Current()->GetHeap()->GetBootImageSpaces().empty());
 }
 
 }  // namespace space

@@ -24,21 +24,21 @@ import android.autofillservice.cts.InstrumentedAutoFillService.FillRequest;
 import android.support.test.uiautomator.UiObject2;
 import android.view.View;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
-public class DialogLauncherActivityTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<DialogLauncherActivity> mActivityRule =
-            new AutofillActivityTestRule<DialogLauncherActivity>(DialogLauncherActivity.class);
+public class DialogLauncherActivityTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<DialogLauncherActivity> {
 
     private DialogLauncherActivity mActivity;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<DialogLauncherActivity> getActivityRule() {
+        return new AutofillActivityTestRule<DialogLauncherActivity>(DialogLauncherActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     @Test

@@ -16,7 +16,7 @@
 
 package com.android.car.settings.common;
 
-import static com.android.settingslib.drawer.TileUtils.EXTRA_SETTINGS_ACTION;
+import static com.android.settingslib.drawer.CategoryKey.CATEGORY_DEVICE;
 import static com.android.settingslib.drawer.TileUtils.META_DATA_PREFERENCE_ICON;
 import static com.android.settingslib.drawer.TileUtils.META_DATA_PREFERENCE_SUMMARY;
 import static com.android.settingslib.drawer.TileUtils.META_DATA_PREFERENCE_TITLE;
@@ -32,49 +32,44 @@ import android.graphics.drawable.Icon;
 import android.os.Bundle;
 import android.text.TextUtils;
 
-import androidx.car.widget.ListItem;
-import androidx.car.widget.TextListItem;
+import androidx.preference.Preference;
 
+import com.android.car.apps.common.util.Themes;
 import com.android.car.settings.R;
 
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Loads Activity with TileUtils.EXTRA_SETTINGS_ACTION.
  */
+// TODO: investigate using SettingsLib Tiles.
 public class ExtraSettingsLoader {
     private static final Logger LOG = new Logger(ExtraSettingsLoader.class);
     private static final String META_DATA_PREFERENCE_CATEGORY = "com.android.settings.category";
-    public static final String WIRELESS_CATEGORY = "com.android.settings.category.wireless";
-    public static final String DEVICE_CATEGORY = "com.android.settings.category.device";
-    public static final String SYSTEM_CATEGORY = "com.android.settings.category.system";
-    public static final String PERSONAL_CATEGORY = "com.android.settings.category.personal";
+    private Map<Preference, Bundle> mPreferenceBundleMap;
     private final Context mContext;
 
     public ExtraSettingsLoader(Context context) {
         mContext = context;
+        mPreferenceBundleMap = new HashMap<>();
     }
 
     /**
-     * Returns a map of category and setting items pair loaded from 3rd party.
+     * Returns a map of {@link Preference} and {@link Bundle} representing settings injected from
+     * system apps and their metadata. The given intent must specify the action to use for
+     * resolving activities and a category with the key "com.android.settings.category" and one of
+     * the values in {@link com.android.settingslib.drawer.CategoryKey}.
+     *
+     * @param intent intent specifying the extra settings category to load
      */
-    public Map<String, Collection<ListItem>> load() {
+    public Map<Preference, Bundle> loadPreferences(Intent intent) {
         PackageManager pm = mContext.getPackageManager();
-        Intent intent = new Intent(EXTRA_SETTINGS_ACTION);
-        Map<String, Collection<ListItem>> extraSettings = new HashMap<>();
-        // initialize the categories
-        extraSettings.put(WIRELESS_CATEGORY, new LinkedList());
-        extraSettings.put(DEVICE_CATEGORY, new LinkedList());
-        extraSettings.put(SYSTEM_CATEGORY, new LinkedList());
-        extraSettings.put(PERSONAL_CATEGORY, new LinkedList());
-
         List<ResolveInfo> results = pm.queryIntentActivitiesAsUser(intent,
                 PackageManager.GET_META_DATA, ActivityManager.getCurrentUser());
 
+        String extraCategory = intent.getStringExtra(META_DATA_PREFERENCE_CATEGORY);
         for (ResolveInfo resolved : results) {
             if (!resolved.system) {
                 // Do not allow any app to be added to settings, only system ones.
@@ -129,18 +124,25 @@ public class ExtraSettingsLoader {
             }
             Intent extraSettingIntent =
                     new Intent().setClassName(activityInfo.packageName, activityInfo.name);
-            if (category == null || !extraSettings.containsKey(category)) {
+            if (category == null) {
                 // If category is not specified or not supported, default to device.
-                category = DEVICE_CATEGORY;
+                category = CATEGORY_DEVICE;
             }
-            TextListItem item = new TextListItem(mContext);
-            item.setTitle(title);
-            item.setBody(summary);
-            item.setPrimaryActionIcon(icon.loadDrawable(mContext), /* useLargeIcon= */ false);
-            item.setSupplementalIcon(R.drawable.ic_chevron_right, /* showDivider= */ false);
-            item.setOnClickListener(v -> mContext.startActivity(extraSettingIntent));
-            extraSettings.get(category).add(item);
+
+            if (!TextUtils.equals(extraCategory, category)) {
+                continue;
+            }
+            Preference preference = new Preference(mContext);
+            preference.setTitle(title);
+            preference.setSummary(summary);
+            if (icon != null) {
+                preference.setIcon(icon.loadDrawable(mContext));
+                preference.getIcon().setTintList(
+                        Themes.getAttrColorStateList(mContext, R.attr.iconColor));
+            }
+            preference.setIntent(extraSettingIntent);
+            mPreferenceBundleMap.put(preference, metaData);
         }
-        return extraSettings;
+        return mPreferenceBundleMap;
     }
 }

@@ -17,6 +17,11 @@
 
 package com.android.cts.verifier.sensors.base;
 
+import android.content.Context;
+import android.hardware.cts.SensorTestCase;
+import android.os.PowerManager;
+import android.view.WindowManager;
+
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.sensors.helpers.SensorTestScreenManipulator;
 import com.android.cts.verifier.sensors.reporting.SensorTestDetails;
@@ -36,11 +41,6 @@ import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.RunnerBuilder;
-
-import android.content.Context;
-import android.hardware.cts.SensorTestCase;
-import android.os.PowerManager;
-import android.view.WindowManager;
 
 import java.util.concurrent.TimeUnit;
 
@@ -109,7 +109,7 @@ public abstract class SensorCtsTestActivity extends BaseSensorTestActivity {
 
     /**
      * For reference on the implementation of this test executor see:
-     *      android.support.test.runner.AndroidJUnitRunner
+     *      androidx.test.runner.AndroidJUnitRunner
      */
     @Override
     protected SensorTestDetails executeTests() {

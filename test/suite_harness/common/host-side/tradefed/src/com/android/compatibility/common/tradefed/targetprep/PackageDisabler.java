@@ -21,6 +21,7 @@ import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.TargetSetupError;
 
@@ -38,7 +39,7 @@ public class PackageDisabler extends PreconditionPreparer {
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
 
         if (device.getAppPackageInfo(mPackageName) != null) {
-            logInfo("Package %s installed, disabling ...", mPackageName);
+            CLog.i("Package %s installed, disabling ...", mPackageName);
             device.executeShellCommand("pm disable-user " + mPackageName);
         }
     }

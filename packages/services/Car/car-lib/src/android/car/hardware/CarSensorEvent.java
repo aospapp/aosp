@@ -29,7 +29,10 @@ import android.os.Parcelable;
  * returned. This parameter should be used to avoid unnecessary object churn whenever possible.
  * Additionally, calling a conversion method on a CarSensorEvent object with an inappropriate type
  * will result in an {@code UnsupportedOperationException} being thrown.
+ *
+ * @deprecated consider using {@link android.car.hardware.property.CarPropertyEvent} instead.
  */
+@Deprecated
 public class CarSensorEvent implements Parcelable {
 
     /**
@@ -92,15 +95,11 @@ public class CarSensorEvent implements Parcelable {
     public static final int IGNITION_STATE_START = 5;
 
     /**
-     * Index for {@link CarSensorManager#SENSOR_TYPE_ENVIRONMENT} in floatValues.
+     * Index for {@link CarSensorManager#SENSOR_TYPE_ENV_OUTSIDE_TEMPERATURE} in floatValues.
      * Temperature in Celsius degrees.
      */
     public static final int INDEX_ENVIRONMENT_TEMPERATURE = 0;
-    /**
-     * Index for {@link CarSensorManager#SENSOR_TYPE_ENVIRONMENT} in floatValues.
-     * Pressure in kPa.
-     */
-    public static final int INDEX_ENVIRONMENT_PRESSURE = 1;
+
     /**
      * Index for {@link CarSensorManager#SENSOR_TYPE_WHEEL_TICK_DISTANCE} in longValues. RESET_COUNT
      * is incremented whenever the HAL detects that a sensor reset has occurred.  It represents to
@@ -208,8 +207,6 @@ public class CarSensorEvent implements Parcelable {
         public long timestamp;
         /** If unsupported by the car, this value is NaN. */
         public float temperature;
-        /** If unsupported by the car, this value is NaN. */
-        public float pressure;
 
         /** @hide */
         private EnvironmentData() {};
@@ -217,7 +214,7 @@ public class CarSensorEvent implements Parcelable {
 
     /**
      * Convenience method for obtaining an {@link EnvironmentData} object from a CarSensorEvent
-     * object with type {@link CarSensorManager#SENSOR_TYPE_ENVIRONMENT}.
+     * object with type {@link CarSensorManager#SENSOR_TYPE_ENV_OUTSIDE_TEMPERATURE}.
      *
      * @param data an optional output parameter which, if non-null, will be used by this method
      *     instead of a newly created object.
@@ -225,13 +222,40 @@ public class CarSensorEvent implements Parcelable {
      * @hide
      */
     public EnvironmentData getEnvironmentData(EnvironmentData data) {
-        checkType(CarSensorManager.SENSOR_TYPE_ENVIRONMENT);
+        checkType(CarSensorManager.SENSOR_TYPE_ENV_OUTSIDE_TEMPERATURE);
         if (data == null) {
             data = new EnvironmentData();
         }
         data.timestamp = timestamp;
         data.temperature = floatValues[INDEX_ENVIRONMENT_TEMPERATURE];
-        data.pressure = floatValues[INDEX_ENVIRONMENT_PRESSURE];
+        return data;
+    }
+
+    /** @hide*/
+    public static class IgnitionStateData {
+        public long timestamp;
+        public int ignitionState;
+
+        /** @hide */
+        private IgnitionStateData() {};
+    }
+
+    /**
+     * Convenience method for obtaining a {@link IgnitionStateData} object from a CarSensorEvent
+     * object with type {@link CarSensorManager#SENSOR_TYPE_IGNITION_STATE}.
+     *
+     * @param data an optional output parameter which, if non-null, will be used by this method
+     *     instead of a newly created object.
+     * @return a IgnitionStateData object corresponding to the data contained in the CarSensorEvent.
+     * @hide
+     */
+    public IgnitionStateData getIgnitionStateData(IgnitionStateData data) {
+        checkType(CarSensorManager.SENSOR_TYPE_IGNITION_STATE);
+        if (data == null) {
+            data = new IgnitionStateData();
+        }
+        data.timestamp = timestamp;
+        data.ignitionState = intValues[0];
         return data;
     }
 

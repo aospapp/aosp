@@ -29,40 +29,55 @@
 #include <set>
 #include <vector>
 
+#include <android-base/file.h>
 #include <android-base/strings.h>
 #include <private/android_filesystem_config.h>
+
+#if defined(__BIONIC__)
+#include <android/api-level.h>
+#include <android-base/properties.h>
+#endif
 
 // Generated android_ids array
 #include "generated_android_ids.h"
 
 using android::base::Join;
+using android::base::ReadFileToString;
+using android::base::Split;
+using android::base::StartsWith;
 
 enum uid_type_t {
+  TYPE_APP,
   TYPE_SYSTEM,
-  TYPE_APP
+  TYPE_VENDOR,
 };
 
 #if defined(__BIONIC__)
 
 static void check_passwd(const passwd* pwd, const char* username, uid_t uid, uid_type_t uid_type,
                          bool check_username) {
-  ASSERT_TRUE(pwd != NULL);
+  ASSERT_TRUE(pwd != nullptr);
   if (check_username) {
     EXPECT_STREQ(username, pwd->pw_name);
   }
   EXPECT_EQ(uid, pwd->pw_uid);
   EXPECT_EQ(uid, pwd->pw_gid);
-  EXPECT_EQ(NULL, pwd->pw_passwd);
+  EXPECT_EQ(nullptr, pwd->pw_passwd);
 #ifdef __LP64__
-  EXPECT_EQ(NULL, pwd->pw_gecos);
+  EXPECT_EQ(nullptr, pwd->pw_gecos);
 #endif
 
-  if (uid_type == TYPE_SYSTEM) {
-    EXPECT_STREQ("/", pwd->pw_dir);
-  } else {
+  if (uid_type == TYPE_APP) {
     EXPECT_STREQ("/data", pwd->pw_dir);
+  } else {
+    EXPECT_STREQ("/", pwd->pw_dir);
   }
-  EXPECT_STREQ("/system/bin/sh", pwd->pw_shell);
+
+  if (uid_type == TYPE_VENDOR) {
+    EXPECT_STREQ("/vendor/bin/sh", pwd->pw_shell);
+  } else {
+    EXPECT_STREQ("/system/bin/sh", pwd->pw_shell);
+  }
 }
 
 static void check_getpwuid(const char* username, uid_t uid, uid_type_t uid_type,
@@ -90,7 +105,7 @@ static void check_getpwuid_r(const char* username, uid_t uid, uid_type_t uid_typ
   int result;
 
   errno = 0;
-  passwd* pwd = NULL;
+  passwd* pwd = nullptr;
   result = getpwuid_r(uid, &pwd_storage, buf, sizeof(buf), &pwd);
   ASSERT_EQ(0, result);
   ASSERT_EQ(0, errno);
@@ -105,7 +120,7 @@ static void check_getpwnam_r(const char* username, uid_t uid, uid_type_t uid_typ
   int result;
 
   errno = 0;
-  passwd* pwd = NULL;
+  passwd* pwd = nullptr;
   result = getpwnam_r(username, &pwd_storage, buf, sizeof(buf), &pwd);
   ASSERT_EQ(0, result);
   ASSERT_EQ(0, errno);
@@ -123,17 +138,13 @@ static void check_get_passwd(const char* username, uid_t uid, uid_type_t uid_typ
 
 #else // !defined(__BIONIC__)
 
-static void print_no_getpwnam_test_info() {
-  GTEST_LOG_(INFO) << "This test is about uid/username translation for Android, which does nothing on libc other than bionic.\n";
-}
-
 static void check_get_passwd(const char* /* username */, uid_t /* uid */, uid_type_t /* uid_type */,
                              bool /* check_username */) {
-  print_no_getpwnam_test_info();
+  GTEST_SKIP() << "bionic-only test";
 }
 
 static void check_get_passwd(const char* /* username */, uid_t /* uid */, uid_type_t /* uid_type */) {
-  print_no_getpwnam_test_info();
+  GTEST_SKIP() << "bionic-only test";
 }
 
 #endif
@@ -151,19 +162,19 @@ TEST(pwd, getpwnam_app_id_radio) {
 }
 
 TEST(pwd, getpwnam_oem_id_5000) {
-  check_get_passwd("oem_5000", 5000, TYPE_SYSTEM, false);
+  check_get_passwd("oem_5000", 5000, TYPE_VENDOR, false);
 }
 
 TEST(pwd, getpwnam_oem_id_5999) {
-  check_get_passwd("oem_5999", 5999, TYPE_SYSTEM, false);
+  check_get_passwd("oem_5999", 5999, TYPE_VENDOR, false);
 }
 
 TEST(pwd, getpwnam_oem_id_2900) {
-  check_get_passwd("oem_2900", 2900, TYPE_SYSTEM, false);
+  check_get_passwd("oem_2900", 2900, TYPE_VENDOR, false);
 }
 
 TEST(pwd, getpwnam_oem_id_2999) {
-  check_get_passwd("oem_2999", 2999, TYPE_SYSTEM, false);
+  check_get_passwd("oem_2999", 2999, TYPE_VENDOR, false);
 }
 
 TEST(pwd, getpwnam_app_id_nobody) {
@@ -184,7 +195,7 @@ TEST(pwd, getpwnam_app_id_u0_a49999) {
 }
 
 TEST(pwd, getpwnam_app_id_u0_i1) {
-  check_get_passwd("u0_i1", 99001, TYPE_APP);
+  check_get_passwd("u0_i1", 90001, TYPE_APP);
 }
 
 TEST(pwd, getpwnam_app_id_u1_root) {
@@ -204,9 +215,9 @@ TEST(pwd, getpwnam_app_id_u1_a40000) {
 }
 
 TEST(pwd, getpwnam_app_id_u1_i0) {
-  check_get_passwd("u1_i0", 199000, TYPE_APP);
+  check_get_passwd("u1_i0", 190000, TYPE_APP);
 }
-
+#if defined(__BIONIC__)
 template <typename T>
 static void expect_ids(const T& ids) {
   std::set<typename T::key_type> expected_ids;
@@ -233,6 +244,12 @@ static void expect_ids(const T& ids) {
   expect_range(AID_SHARED_GID_START, AID_SHARED_GID_END);
   expect_range(AID_ISOLATED_START, AID_ISOLATED_END);
 
+  // TODO(73062966): We still don't have a good way to create vendor AIDs in the system or other
+  // non-vendor partitions, therefore we keep this check disabled.
+  if (android::base::GetIntProperty("ro.product.first_api_level", 0) <= __ANDROID_API_Q__) {
+    return;
+  }
+
   // Ensure that no other ids were returned.
   auto return_differences = [&ids, &expected_ids] {
     std::vector<typename T::key_type> missing_from_ids;
@@ -253,6 +270,7 @@ static void expect_ids(const T& ids) {
   };
   EXPECT_EQ(expected_ids, ids) << return_differences();
 }
+#endif
 
 TEST(pwd, getpwent_iterate) {
 #if defined(__BIONIC__)
@@ -260,44 +278,51 @@ TEST(pwd, getpwent_iterate) {
   std::set<uid_t> uids;
 
   setpwent();
-  while ((pwd = getpwent()) != NULL) {
-    ASSERT_TRUE(NULL != pwd->pw_name);
+  while ((pwd = getpwent()) != nullptr) {
+    ASSERT_TRUE(nullptr != pwd->pw_name);
 
     EXPECT_EQ(pwd->pw_gid, pwd->pw_uid) << "pwd->pw_uid: " << pwd->pw_uid;
-    EXPECT_EQ(NULL, pwd->pw_passwd) << "pwd->pw_uid: " << pwd->pw_uid;
+    EXPECT_EQ(nullptr, pwd->pw_passwd) << "pwd->pw_uid: " << pwd->pw_uid;
 #ifdef __LP64__
-    EXPECT_TRUE(NULL == pwd->pw_gecos) << "pwd->pw_uid: " << pwd->pw_uid;
+    EXPECT_TRUE(nullptr == pwd->pw_gecos) << "pwd->pw_uid: " << pwd->pw_uid;
 #endif
-    EXPECT_TRUE(NULL != pwd->pw_shell);
+    EXPECT_TRUE(nullptr != pwd->pw_shell);
     if (pwd->pw_uid < AID_APP_START || pwd->pw_uid == AID_OVERFLOWUID) {
       EXPECT_STREQ("/", pwd->pw_dir) << "pwd->pw_uid: " << pwd->pw_uid;
     } else {
       EXPECT_STREQ("/data", pwd->pw_dir) << "pwd->pw_uid: " << pwd->pw_uid;
     }
 
-    EXPECT_EQ(0U, uids.count(pwd->pw_uid)) << "pwd->pw_uid: " << pwd->pw_uid;
+    // TODO(b/27999086): fix this check with the OEM range
+    // If OEMs add their own AIDs to private/android_filesystem_config.h, this check will fail.
+    // Long term we want to create a better solution for OEMs adding AIDs, but we're not there
+    // yet, so therefore we do not check for uid's in the OEM range.
+    if (!(pwd->pw_uid >= 2900 && pwd->pw_uid <= 2999) &&
+        !(pwd->pw_uid >= 5000 && pwd->pw_uid <= 5999)) {
+      EXPECT_EQ(0U, uids.count(pwd->pw_uid)) << "pwd->pw_uid: " << pwd->pw_uid;
+    }
     uids.emplace(pwd->pw_uid);
   }
   endpwent();
 
   expect_ids(uids);
 #else
-  print_no_getpwnam_test_info();
+  GTEST_SKIP() << "bionic-only test";
 #endif
 }
 
 static void check_group(const group* grp, const char* group_name, gid_t gid,
                         bool check_groupname = true) {
-  ASSERT_TRUE(grp != NULL);
+  ASSERT_TRUE(grp != nullptr);
   if (check_groupname) {
     EXPECT_STREQ(group_name, grp->gr_name);
   }
   EXPECT_EQ(gid, grp->gr_gid);
-  ASSERT_TRUE(grp->gr_mem != NULL);
+  ASSERT_TRUE(grp->gr_mem != nullptr);
   if (check_groupname) {
     EXPECT_STREQ(group_name, grp->gr_mem[0]);
   }
-  EXPECT_TRUE(grp->gr_mem[1] == NULL);
+  EXPECT_TRUE(grp->gr_mem[1] == nullptr);
 }
 
 #if defined(__BIONIC__)
@@ -353,16 +378,12 @@ static void check_get_group(const char* group_name, gid_t gid, bool check_groupn
 
 #else // !defined(__BIONIC__)
 
-static void print_no_getgrnam_test_info() {
-  GTEST_LOG_(INFO) << "This test is about gid/group_name translation for Android, which does nothing on libc other than bionic.\n";
-}
-
 static void check_get_group(const char*, gid_t, bool) {
-  print_no_getgrnam_test_info();
+  GTEST_SKIP() << "bionic-only test";
 }
 
 static void check_get_group(const char*, gid_t) {
-  print_no_getgrnam_test_info();
+  GTEST_SKIP() << "bionic-only test";
 }
 
 #endif
@@ -433,7 +454,7 @@ TEST(grp, getgrnam_app_id_all_a9999) {
 }
 
 TEST(grp, getgrnam_app_id_u0_i1) {
-  check_get_group("u0_i1", 99001);
+  check_get_group("u0_i1", 90001);
 }
 
 TEST(grp, getgrnam_app_id_u1_root) {
@@ -453,7 +474,7 @@ TEST(grp, getgrnam_app_id_u1_a40000) {
 }
 
 TEST(grp, getgrnam_app_id_u1_i0) {
-  check_get_group("u1_i0", 199000);
+  check_get_group("u1_i0", 190000);
 }
 
 TEST(grp, getgrnam_r_reentrancy) {
@@ -472,7 +493,7 @@ TEST(grp, getgrnam_r_reentrancy) {
   check_group(grp[0], "root", 0);
   check_group(grp[1], "system", 1000);
 #else
-  print_no_getgrnam_test_info();
+  GTEST_SKIP() << "bionic-only test";
 #endif
 }
 
@@ -492,7 +513,7 @@ TEST(grp, getgrgid_r_reentrancy) {
   check_group(grp[0], "root", 0);
   check_group(grp[1], "system", 1000);
 #else
-  print_no_getgrnam_test_info();
+  GTEST_SKIP() << "bionic-only test";
 #endif
 }
 
@@ -512,19 +533,67 @@ TEST(grp, getgrent_iterate) {
   std::set<gid_t> gids;
 
   setgrent();
-  while ((grp = getgrent()) != NULL) {
-    ASSERT_TRUE(grp->gr_name != NULL) << "grp->gr_gid: " << grp->gr_gid;
-    ASSERT_TRUE(grp->gr_mem != NULL) << "grp->gr_gid: " << grp->gr_gid;
+  while ((grp = getgrent()) != nullptr) {
+    ASSERT_TRUE(grp->gr_name != nullptr) << "grp->gr_gid: " << grp->gr_gid;
+    ASSERT_TRUE(grp->gr_mem != nullptr) << "grp->gr_gid: " << grp->gr_gid;
     EXPECT_STREQ(grp->gr_name, grp->gr_mem[0]) << "grp->gr_gid: " << grp->gr_gid;
-    EXPECT_TRUE(grp->gr_mem[1] == NULL) << "grp->gr_gid: " << grp->gr_gid;
+    EXPECT_TRUE(grp->gr_mem[1] == nullptr) << "grp->gr_gid: " << grp->gr_gid;
 
-    EXPECT_EQ(0U, gids.count(grp->gr_gid)) << "grp->gr_gid: " << grp->gr_gid;
+    // TODO(b/27999086): fix this check with the OEM range
+    // If OEMs add their own AIDs to private/android_filesystem_config.h, this check will fail.
+    // Long term we want to create a better solution for OEMs adding AIDs, but we're not there
+    // yet, so therefore we do not check for gid's in the OEM range.
+    if (!(grp->gr_gid >= 2900 && grp->gr_gid <= 2999) &&
+        !(grp->gr_gid >= 5000 && grp->gr_gid <= 5999)) {
+      EXPECT_EQ(0U, gids.count(grp->gr_gid)) << "grp->gr_gid: " << grp->gr_gid;
+    }
     gids.emplace(grp->gr_gid);
   }
   endgrent();
 
   expect_ids(gids);
 #else
-  print_no_getgrnam_test_info();
+  GTEST_SKIP() << "bionic-only test";
+#endif
+}
+
+#if defined(__BIONIC__)
+static void TestAidNamePrefix(const std::string& file_path) {
+  std::string file_contents;
+  if (!ReadFileToString(file_path, &file_contents)) {
+    // If we cannot read this file, then there are no vendor defind AID names, in which case this
+    // test passes by default.
+    return;
+  }
+  auto lines = Split(file_contents, "\n");
+  for (const auto& line : lines) {
+    if (line.empty()) continue;
+    auto name = Split(line, ":")[0];
+    EXPECT_TRUE(StartsWith(name, "vendor_"));
+  }
+}
+#endif
+
+TEST(pwd, vendor_prefix_users) {
+#if defined(__BIONIC__)
+  if (android::base::GetIntProperty("ro.product.first_api_level", 0) <= 28) {
+    return;
+  }
+
+  TestAidNamePrefix("/vendor/etc/passwd");
+#else
+  GTEST_SKIP() << "bionic-only test";
+#endif
+}
+
+TEST(pwd, vendor_prefix_groups) {
+#if defined(__BIONIC__)
+  if (android::base::GetIntProperty("ro.product.first_api_level", 0) <= 28) {
+    return;
+  }
+
+  TestAidNamePrefix("/vendor/etc/group");
+#else
+  GTEST_SKIP() << "bionic-only test";
 #endif
 }

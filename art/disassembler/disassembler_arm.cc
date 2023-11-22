@@ -39,15 +39,15 @@ using vixl::aarch32::pc;
 
 static const vixl::aarch32::Register tr(TR);
 
-class DisassemblerArm::CustomDisassembler FINAL : public PrintDisassembler {
-  class CustomDisassemblerStream FINAL : public DisassemblerStream {
+class DisassemblerArm::CustomDisassembler final : public PrintDisassembler {
+  class CustomDisassemblerStream final : public DisassemblerStream {
    public:
     CustomDisassemblerStream(std::ostream& os,
                              const CustomDisassembler* disasm,
                              const DisassemblerOptions* options)
         : DisassemblerStream(os), disasm_(disasm), options_(options) {}
 
-    DisassemblerStream& operator<<(const PrintLabel& label) OVERRIDE {
+    DisassemblerStream& operator<<(const PrintLabel& label) override {
       const LocationType type = label.GetLocationType();
 
       switch (type) {
@@ -73,7 +73,7 @@ class DisassemblerArm::CustomDisassembler FINAL : public PrintDisassembler {
       }
     }
 
-    DisassemblerStream& operator<<(vixl::aarch32::Register reg) OVERRIDE {
+    DisassemblerStream& operator<<(vixl::aarch32::Register reg) override {
       if (reg.Is(tr)) {
         os() << "tr";
         return *this;
@@ -82,7 +82,7 @@ class DisassemblerArm::CustomDisassembler FINAL : public PrintDisassembler {
       }
     }
 
-    DisassemblerStream& operator<<(const MemOperand& operand) OVERRIDE {
+    DisassemblerStream& operator<<(const MemOperand& operand) override {
       // VIXL must use a PrintLabel object whenever the base register is PC;
       // the following check verifies this invariant, and guards against bugs.
       DCHECK(!operand.GetBaseRegister().Is(pc));
@@ -96,7 +96,7 @@ class DisassemblerArm::CustomDisassembler FINAL : public PrintDisassembler {
       return *this;
     }
 
-    DisassemblerStream& operator<<(const vixl::aarch32::AlignedMemOperand& operand) OVERRIDE {
+    DisassemblerStream& operator<<(const vixl::aarch32::AlignedMemOperand& operand) override {
       // VIXL must use a PrintLabel object whenever the base register is PC;
       // the following check verifies this invariant, and guards against bugs.
       DCHECK(!operand.GetBaseRegister().Is(pc));
@@ -116,7 +116,7 @@ class DisassemblerArm::CustomDisassembler FINAL : public PrintDisassembler {
         disassembler_stream_(os, this, options),
         is_t32_(true) {}
 
-  void PrintCodeAddress(uint32_t prog_ctr) OVERRIDE {
+  void PrintCodeAddress(uint32_t prog_ctr) override {
     os() << "0x" << std::hex << std::setw(8) << std::setfill('0') << prog_ctr << ": ";
   }
 
@@ -137,12 +137,12 @@ class DisassemblerArm::CustomDisassembler FINAL : public PrintDisassembler {
 void DisassemblerArm::CustomDisassembler::CustomDisassemblerStream::PrintLiteral(LocationType type,
                                                                                  int32_t offset) {
   // Literal offsets are not required to be aligned, so we may need unaligned access.
-  typedef const int16_t unaligned_int16_t __attribute__ ((aligned (1)));
-  typedef const uint16_t unaligned_uint16_t __attribute__ ((aligned (1)));
-  typedef const int32_t unaligned_int32_t __attribute__ ((aligned (1)));
-  typedef const int64_t unaligned_int64_t __attribute__ ((aligned (1)));
-  typedef const float unaligned_float __attribute__ ((aligned (1)));
-  typedef const double unaligned_double __attribute__ ((aligned (1)));
+  using unaligned_int16_t  __attribute__((__aligned__(1))) = const int16_t;
+  using unaligned_uint16_t __attribute__((__aligned__(1))) = const uint16_t;
+  using unaligned_int32_t  __attribute__((__aligned__(1))) = const int32_t;
+  using unaligned_int64_t  __attribute__((__aligned__(1))) = const int64_t;
+  using unaligned_float    __attribute__((__aligned__(1))) = const float;
+  using unaligned_double   __attribute__((__aligned__(1))) = const double;
 
   // Zeros are used for the LocationType values this function does not care about.
   const size_t literal_size[kVst4Location + 1] = {

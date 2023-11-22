@@ -22,15 +22,17 @@ import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_DEV
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE;
 import static com.android.managedprovisioning.TestUtils.createTestAdminExtras;
+import static com.android.managedprovisioning.finalization.SendDpcBroadcastService.EXTRA_PROVISIONING_PARAMS;
+
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
-import android.app.Activity;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -40,6 +42,8 @@ import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.managedprovisioning.TestUtils;
+import com.android.managedprovisioning.analytics.DeferredMetricsReader;
+import com.android.managedprovisioning.common.NotificationHelper;
 import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
@@ -47,6 +51,8 @@ import com.android.managedprovisioning.model.ProvisioningParams;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /**
  * Unit tests for {@link FinalizationController}.
@@ -63,6 +69,8 @@ public class FinalizationControllerTest extends AndroidTestCase {
     @Mock private Utils mUtils;
     @Mock private SettingsFacade mSettingsFacade;
     @Mock private UserProvisioningStateHelper mHelper;
+    @Mock private NotificationHelper mNotificationHelper;
+    @Mock private DeferredMetricsReader mDeferredMetricsReader;
 
     private FinalizationController mController;
 
@@ -75,7 +83,9 @@ public class FinalizationControllerTest extends AndroidTestCase {
                 .thenReturn(true);
         when(mContext.getFilesDir()).thenReturn(getContext().getFilesDir());
 
-        mController = new FinalizationController(mContext, mUtils, mSettingsFacade, mHelper);
+        mController = new FinalizationController(
+                mContext, mUtils, mSettingsFacade, mHelper, mNotificationHelper,
+                mDeferredMetricsReader);
     }
 
     @Override
@@ -96,6 +106,7 @@ public class FinalizationControllerTest extends AndroidTestCase {
         // THEN nothing should happen
         verify(mHelper, never()).markUserProvisioningStateInitiallyDone(params);
         verify(mHelper, never()).markUserProvisioningStateFinalized(params);
+        verifyZeroInteractions(mDeferredMetricsReader);
     }
 
     @SmallTest
@@ -107,6 +118,10 @@ public class FinalizationControllerTest extends AndroidTestCase {
 
         // WHEN calling provisioningFinalized
         mController.provisioningFinalized();
+
+        // THEN deferred metrics are written
+        verify(mDeferredMetricsReader).scheduleDumpMetrics(any(Context.class));
+        verifyNoMoreInteractions(mDeferredMetricsReader);
 
         // THEN nothing should happen
         verify(mHelper, never()).markUserProvisioningStateInitiallyDone(params);
@@ -120,6 +135,10 @@ public class FinalizationControllerTest extends AndroidTestCase {
 
         // WHEN calling provisioningFinalized
         mController.provisioningFinalized();
+
+        // THEN deferred metrics are written
+        verify(mDeferredMetricsReader).scheduleDumpMetrics(any(Context.class));
+        verifyNoMoreInteractions(mDeferredMetricsReader);
 
         // THEN nothing should happen
         verify(mHelper, never())
@@ -135,6 +154,7 @@ public class FinalizationControllerTest extends AndroidTestCase {
         final ProvisioningParams params = createProvisioningParams(
                 ACTION_PROVISION_MANAGED_PROFILE);
         when(mSettingsFacade.isUserSetupCompleted(mContext)).thenReturn(true);
+        when(mSettingsFacade.isDuringSetupWizard(mContext)).thenReturn(false);
         when(mUtils.getManagedProfile(mContext))
                 .thenReturn(MANAGED_PROFILE_USER_HANDLE);
 
@@ -144,11 +164,10 @@ public class FinalizationControllerTest extends AndroidTestCase {
         // THEN the user provisioning state should be marked as initially done
         verify(mHelper).markUserProvisioningStateInitiallyDone(params);
 
-        // THEN provisioning successful intent should be sent to the dpc.
-        verifyDpcLaunchedForUser(MANAGED_PROFILE_USER_HANDLE);
+        // THEN the service which starts the DPC is started.
+        verifySendDpcServiceStarted();
 
-        // THEN an ordered broadcast should be sent to the DPC
-        verifyOrderedBroadcast();
+        verifyZeroInteractions(mDeferredMetricsReader);
     }
 
     @SmallTest
@@ -159,6 +178,7 @@ public class FinalizationControllerTest extends AndroidTestCase {
         final ProvisioningParams params = createProvisioningParams(
                 ACTION_PROVISION_MANAGED_PROFILE);
         when(mSettingsFacade.isUserSetupCompleted(mContext)).thenReturn(false);
+        when(mSettingsFacade.isDuringSetupWizard(mContext)).thenReturn(true);
         when(mUtils.getManagedProfile(mContext))
                 .thenReturn(MANAGED_PROFILE_USER_HANDLE);
 
@@ -175,14 +195,15 @@ public class FinalizationControllerTest extends AndroidTestCase {
         // WHEN calling provisioningFinalized
         mController.provisioningFinalized();
 
+        // THEN deferred metrics are written
+        verify(mDeferredMetricsReader).scheduleDumpMetrics(any(Context.class));
+        verifyNoMoreInteractions(mDeferredMetricsReader);
+
         // THEN the user provisioning state is finalized
         verify(mHelper).markUserProvisioningStateFinalized(params);
 
-        // THEN provisioning successful intent should be sent to the dpc.
-        verifyDpcLaunchedForUser(MANAGED_PROFILE_USER_HANDLE);
-
-        // THEN an ordered broadcast should be sent to the DPC
-        verifyOrderedBroadcast();
+        // THEN the service which starts the DPC, is be started.
+        verifySendDpcServiceStarted();
     }
 
     @SmallTest
@@ -193,6 +214,7 @@ public class FinalizationControllerTest extends AndroidTestCase {
         final ProvisioningParams params = createProvisioningParams(
                 ACTION_PROVISION_MANAGED_DEVICE);
         when(mSettingsFacade.isUserSetupCompleted(mContext)).thenReturn(false);
+        when(mSettingsFacade.isDuringSetupWizard(mContext)).thenReturn(true);
 
         // WHEN calling provisioningInitiallyDone
         mController.provisioningInitiallyDone(params);
@@ -206,6 +228,10 @@ public class FinalizationControllerTest extends AndroidTestCase {
 
         // WHEN calling provisioningFinalized
         mController.provisioningFinalized();
+
+        // THEN deferred metrics are written
+        verify(mDeferredMetricsReader).scheduleDumpMetrics(any(Context.class));
+        verifyNoMoreInteractions(mDeferredMetricsReader);
 
         // THEN the user provisioning state is finalized
         verify(mHelper).markUserProvisioningStateFinalized(params);
@@ -217,26 +243,8 @@ public class FinalizationControllerTest extends AndroidTestCase {
         ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
         verify(mContext).sendBroadcast(intentCaptor.capture());
 
-        // THEN the intent should be ACTION_PROFILE_PROVISIONING_COMPLETE
-        assertEquals(ACTION_PROFILE_PROVISIONING_COMPLETE, intentCaptor.getValue().getAction());
-        // THEN the intent should be sent to the admin receiver
-        assertEquals(TEST_MDM_ADMIN, intentCaptor.getValue().getComponent());
-        // THEN the admin extras bundle should contain mdm extras
-        assertExtras(intentCaptor.getValue());
-    }
+        verify(mNotificationHelper).showPrivacyReminderNotification(eq(mContext), anyInt());
 
-    private void verifyOrderedBroadcast() {
-        // THEN an ordered broadcast should be sent to the DPC
-        ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
-        verify(mContext).sendOrderedBroadcastAsUser(
-                intentCaptor.capture(),
-                eq(MANAGED_PROFILE_USER_HANDLE),
-                eq(null),
-                any(BroadcastReceiver.class),
-                eq(null),
-                eq(Activity.RESULT_OK),
-                eq(null),
-                eq(null));
         // THEN the intent should be ACTION_PROFILE_PROVISIONING_COMPLETE
         assertEquals(ACTION_PROFILE_PROVISIONING_COMPLETE, intentCaptor.getValue().getAction());
         // THEN the intent should be sent to the admin receiver
@@ -256,9 +264,27 @@ public class FinalizationControllerTest extends AndroidTestCase {
         assertExtras(intentCaptor.getValue());
     }
 
+    private void verifySendDpcServiceStarted() {
+        ArgumentCaptor<Intent> intentCaptor = ArgumentCaptor.forClass(Intent.class);
+        verify(mContext).startService(intentCaptor.capture());
+        // THEN the intent should launch the SendDpcBroadcastService
+        assertEquals(SendDpcBroadcastService.class.getName(),
+                intentCaptor.getValue().getComponent().getClassName());
+        // THEN the service extras should contain mdm extras
+        assertSendDpcBroadcastServiceParams(intentCaptor.getValue());
+    }
+
     private void assertExtras(Intent intent) {
-        TestUtils.bundleEquals(TEST_MDM_EXTRA_BUNDLE,
-                (PersistableBundle) intent.getExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE));
+        assertTrue(TestUtils.bundleEquals(TEST_MDM_EXTRA_BUNDLE,
+                (PersistableBundle) intent.getExtra(EXTRA_PROVISIONING_ADMIN_EXTRAS_BUNDLE)));
+    }
+
+    private void assertSendDpcBroadcastServiceParams(Intent intent) {
+        final ProvisioningParams expectedParams =
+                createProvisioningParams(ACTION_PROVISION_MANAGED_PROFILE);
+        final ProvisioningParams actualParams =
+                intent.getParcelableExtra(EXTRA_PROVISIONING_PARAMS);
+        assertThat(actualParams).isEqualTo(expectedParams);
     }
 
     private ProvisioningParams createProvisioningParams(String action) {

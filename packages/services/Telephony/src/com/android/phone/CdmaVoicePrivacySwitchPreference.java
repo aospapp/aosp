@@ -16,8 +16,6 @@
 
 package com.android.phone;
 
-import com.android.internal.telephony.Phone;
-
 import android.content.Context;
 import android.os.AsyncResult;
 import android.os.Handler;
@@ -25,6 +23,8 @@ import android.os.Message;
 import android.preference.SwitchPreference;
 import android.util.AttributeSet;
 import android.util.Log;
+
+import com.android.internal.telephony.Phone;
 
 public class CdmaVoicePrivacySwitchPreference extends SwitchPreference {
     private static final String LOG_TAG = "CdmaVoicePrivacySwitchPreference";

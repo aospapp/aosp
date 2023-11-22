@@ -46,22 +46,24 @@ TEST_F(HidlGenHostTest, CoordinatorTest) {
     coordinator.addDefaultPackagePath("a.b", "a3/b3/"); // should take path above
     coordinator.addDefaultPackagePath("a.c", "a4/b4/"); // should succeed
 
-    EXPECT_EQ_OK("a.b", coordinator.getPackageRoot, FQName("a.b.foo@1.0"));
-    EXPECT_EQ_OK("a.c", coordinator.getPackageRoot, FQName("a.c.foo.bar@1.0::IFoo"));
+    EXPECT_EQ_OK("a.b", coordinator.getPackageRoot, FQName("a.b.foo", "1.0"));
+    EXPECT_EQ_OK("a.c", coordinator.getPackageRoot, FQName("a.c.foo.bar", "1.0", "IFoo"));
 
     // getPackagePath(fqname, relative, sanitized, ...)
-    EXPECT_EQ_OK("a1/b1/foo/1.0/", coordinator.getPackagePath, FQName("a.b.foo@1.0"), false, false);
-    EXPECT_EQ_OK("a4/b4/foo/bar/1.0/", coordinator.getPackagePath, FQName("a.c.foo.bar@1.0::IFoo"),
-                 false, false);
-    EXPECT_EQ_OK("a1/b1/foo/V1_0/", coordinator.getPackagePath, FQName("a.b.foo@1.0"), false, true);
-    EXPECT_EQ_OK("a4/b4/foo/bar/V1_0/", coordinator.getPackagePath, FQName("a.c.foo.bar@1.0::IFoo"),
-                 false, true);
-    EXPECT_EQ_OK("foo/1.0/", coordinator.getPackagePath, FQName("a.b.foo@1.0"), true, false);
-    EXPECT_EQ_OK("foo/bar/1.0/", coordinator.getPackagePath, FQName("a.c.foo.bar@1.0::IFoo"), true,
+    EXPECT_EQ_OK("a1/b1/foo/1.0/", coordinator.getPackagePath, FQName("a.b.foo", "1.0"), false,
                  false);
-    EXPECT_EQ_OK("foo/V1_0/", coordinator.getPackagePath, FQName("a.b.foo@1.0"), true, true);
-    EXPECT_EQ_OK("foo/bar/V1_0/", coordinator.getPackagePath, FQName("a.c.foo.bar@1.0::IFoo"), true,
+    EXPECT_EQ_OK("a4/b4/foo/bar/1.0/", coordinator.getPackagePath,
+                 FQName("a.c.foo.bar", "1.0", "IFoo"), false, false);
+    EXPECT_EQ_OK("a1/b1/foo/V1_0/", coordinator.getPackagePath, FQName("a.b.foo", "1.0"), false,
                  true);
+    EXPECT_EQ_OK("a4/b4/foo/bar/V1_0/", coordinator.getPackagePath,
+                 FQName("a.c.foo.bar", "1.0", "IFoo"), false, true);
+    EXPECT_EQ_OK("foo/1.0/", coordinator.getPackagePath, FQName("a.b.foo", "1.0"), true, false);
+    EXPECT_EQ_OK("foo/bar/1.0/", coordinator.getPackagePath, FQName("a.c.foo.bar", "1.0", "IFoo"),
+                 true, false);
+    EXPECT_EQ_OK("foo/V1_0/", coordinator.getPackagePath, FQName("a.b.foo", "1.0"), true, true);
+    EXPECT_EQ_OK("foo/bar/V1_0/", coordinator.getPackagePath, FQName("a.c.foo.bar", "1.0", "IFoo"),
+                 true, true);
 }
 
 TEST_F(HidlGenHostTest, CoordinatorFilepathTest) {
@@ -75,7 +77,7 @@ TEST_F(HidlGenHostTest, CoordinatorFilepathTest) {
     EXPECT_EQ(OK, coordinator.addPackagePath("a.b", "a1/b1", &error));
     EXPECT_TRUE(error.empty());
 
-    const static FQName kName = FQName("a.b.c@1.2");
+    const static FQName kName = FQName("a.b.c", "1.2");
 
     // get file names
     EXPECT_EQ_OK("foo/x.y", coordinator.getFilepath, kName, Location::DIRECT, "x.y");

@@ -30,7 +30,10 @@ import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
 import android.content.res.Resources;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Message;
 import android.os.PersistableBundle;
+import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -50,6 +53,7 @@ import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.Log;
+import android.util.SparseArray;
 import android.widget.Toast;
 
 import com.android.internal.telephony.Phone;
@@ -89,6 +93,14 @@ public class NotificationMgr {
     static final int DATA_DISCONNECTED_ROAMING_NOTIFICATION = 5;
     static final int SELECTED_OPERATOR_FAIL_NOTIFICATION = 6;
 
+    // Event for network selection notification.
+    private static final int EVENT_PENDING_NETWORK_SELECTION_NOTIFICATION = 1;
+
+    private static final long NETWORK_SELECTION_NOTIFICATION_MAX_PENDING_TIME_IN_MS = 10000L;
+    private static final int NETWORK_SELECTION_NOTIFICATION_MAX_PENDING_TIMES = 10;
+
+    private static final int STATE_UNKNOWN_SERVICE = -1;
+
     /** The singleton NotificationMgr instance. */
     private static NotificationMgr sInstance;
 
@@ -103,11 +115,35 @@ public class NotificationMgr {
     private TelecomManager mTelecomManager;
     private TelephonyManager mTelephonyManager;
 
-    // used to track the notification of selected network unavailable
-    private boolean mSelectedUnavailableNotify = false;
+    // used to track the notification of selected network unavailable, per subscription id.
+    private SparseArray<Boolean> mSelectedUnavailableNotify = new SparseArray<>();
 
     // used to track whether the message waiting indicator is visible, per subscription id.
     private ArrayMap<Integer, Boolean> mMwiVisible = new ArrayMap<Integer, Boolean>();
+
+    // those flags are used to track whether to show network selection notification or not.
+    private SparseArray<Integer> mPreviousServiceState = new SparseArray<>();
+    private SparseArray<Long> mOOSTimestamp = new SparseArray<>();
+    private SparseArray<Integer> mPendingEventCounter = new SparseArray<>();
+    // maps each subId to selected network operator name.
+    private SparseArray<String> mSelectedNetworkOperatorName = new SparseArray<>();
+
+    private final Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case EVENT_PENDING_NETWORK_SELECTION_NOTIFICATION:
+                    int subId = (int) msg.obj;
+                    TelephonyManager telephonyManager =
+                            mTelephonyManager.createForSubscriptionId(subId);
+                    if (telephonyManager.getServiceState() != null) {
+                        shouldShowNotification(telephonyManager.getServiceState().getState(),
+                                subId);
+                    }
+                    break;
+            }
+        }
+    };
 
     /**
      * Private constructor (this is a singleton).
@@ -533,9 +569,8 @@ public class NotificationMgr {
         if (DBG) log("showDataDisconnectedRoaming()...");
 
         // "Mobile network settings" screen / dialog
-        Intent intent = new Intent(mContext, com.android.phone.MobileNetworkSettings.class);
+        Intent intent = new Intent(Settings.ACTION_DATA_ROAMING_SETTINGS);
         intent.putExtra(Settings.EXTRA_SUB_ID, subId);
-        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(mContext, subId, intent, 0);
 
         final CharSequence contentText = mContext.getText(R.string.roaming_reenable_message);
@@ -569,6 +604,9 @@ public class NotificationMgr {
     private void showNetworkSelection(String operator, int subId) {
         if (DBG) log("showNetworkSelection(" + operator + ")...");
 
+        if (!TextUtils.isEmpty(operator)) {
+            operator = String.format(" (%s)", operator);
+        }
         Notification.Builder builder = new Notification.Builder(mContext)
                 .setSmallIcon(android.R.drawable.stat_sys_warning)
                 .setContentTitle(mContext.getString(R.string.notification_network_selection_title))
@@ -589,19 +627,21 @@ public class NotificationMgr {
         intent.putExtra(GsmUmtsOptions.EXTRA_SUB_ID, subId);
         builder.setContentIntent(PendingIntent.getActivity(mContext, 0, intent, 0));
         mNotificationManager.notifyAsUser(
-                null /* tag */,
+                Integer.toString(subId) /* tag */,
                 SELECTED_OPERATOR_FAIL_NOTIFICATION,
                 builder.build(),
                 UserHandle.ALL);
+        mSelectedUnavailableNotify.put(subId, true);
     }
 
     /**
      * Turn off the network selection "no service" notification
      */
-    private void cancelNetworkSelection() {
+    private void cancelNetworkSelection(int subId) {
         if (DBG) log("cancelNetworkSelection()...");
         mNotificationManager.cancelAsUser(
-                null /* tag */, SELECTED_OPERATOR_FAIL_NOTIFICATION, UserHandle.ALL);
+                Integer.toString(subId) /* tag */, SELECTED_OPERATOR_FAIL_NOTIFICATION,
+                UserHandle.ALL);
     }
 
     /**
@@ -642,18 +682,34 @@ public class NotificationMgr {
                             + (isManualSelection ? selectedNetworkOperatorName : ""));
                 }
 
-                if (serviceState == ServiceState.STATE_OUT_OF_SERVICE && isManualSelection) {
-                    showNetworkSelection(selectedNetworkOperatorName, subId);
-                    mSelectedUnavailableNotify = true;
+                if (isManualSelection) {
+                    mSelectedNetworkOperatorName.put(subId, selectedNetworkOperatorName);
+                    shouldShowNotification(serviceState, subId);
                 } else {
-                    if (mSelectedUnavailableNotify) {
-                        cancelNetworkSelection();
-                        mSelectedUnavailableNotify = false;
-                    }
+                    dismissNetworkSelectionNotification(subId);
+                    clearUpNetworkSelectionNotificationParam(subId);
                 }
             } else {
                 if (DBG) log("updateNetworkSelection()..." + "state = " +
                         serviceState + " not updating network due to invalid subId " + subId);
+                dismissNetworkSelectionNotificationForInactiveSubId();
+            }
+        }
+    }
+
+    private void dismissNetworkSelectionNotification(int subId) {
+        if (mSelectedUnavailableNotify.get(subId, false)) {
+            cancelNetworkSelection(subId);
+            mSelectedUnavailableNotify.remove(subId);
+        }
+    }
+
+    private void dismissNetworkSelectionNotificationForInactiveSubId() {
+        for (int i = 0; i < mSelectedUnavailableNotify.size(); i++) {
+            int subId = mSelectedUnavailableNotify.keyAt(i);
+            if (!mSubscriptionManager.isActiveSubId(subId)) {
+                dismissNetworkSelectionNotification(subId);
+                clearUpNetworkSelectionNotificationParam(subId);
             }
         }
     }
@@ -673,5 +729,66 @@ public class NotificationMgr {
 
     private void logi(String msg) {
         Log.i(LOG_TAG, msg);
+    }
+
+    /**
+     * In case network selection notification shows up repeatedly under
+     * unstable network condition. The logic is to check whether or not
+     * the service state keeps in no service condition for at least
+     * {@link #NETWORK_SELECTION_NOTIFICATION_MAX_PENDING_TIME_IN_MS}.
+     * And checking {@link #NETWORK_SELECTION_NOTIFICATION_MAX_PENDING_TIMES} times.
+     * To avoid the notification showing up for the momentary state.
+     */
+    private void shouldShowNotification(int serviceState, int subId) {
+        if (serviceState == ServiceState.STATE_OUT_OF_SERVICE) {
+            if (mPreviousServiceState.get(subId, STATE_UNKNOWN_SERVICE)
+                    != ServiceState.STATE_OUT_OF_SERVICE) {
+                mOOSTimestamp.put(subId, getTimeStamp());
+            }
+            if ((getTimeStamp() - mOOSTimestamp.get(subId, 0L)
+                    >= NETWORK_SELECTION_NOTIFICATION_MAX_PENDING_TIME_IN_MS)
+                    || mPendingEventCounter.get(subId, 0)
+                    > NETWORK_SELECTION_NOTIFICATION_MAX_PENDING_TIMES) {
+                showNetworkSelection(mSelectedNetworkOperatorName.get(subId), subId);
+                clearUpNetworkSelectionNotificationParam(subId);
+            } else {
+                startPendingNetworkSelectionNotification(subId);
+            }
+        } else {
+            dismissNetworkSelectionNotification(subId);
+        }
+        mPreviousServiceState.put(subId, serviceState);
+        if (DBG) {
+            log("shouldShowNotification()..." + " subId = " + subId
+                    + " serviceState = " + serviceState
+                    + " mOOSTimestamp = " + mOOSTimestamp
+                    + " mPendingEventCounter = " + mPendingEventCounter);
+        }
+    }
+
+    private void startPendingNetworkSelectionNotification(int subId) {
+        if (!mHandler.hasMessages(EVENT_PENDING_NETWORK_SELECTION_NOTIFICATION, subId)) {
+            if (DBG) {
+                log("startPendingNetworkSelectionNotification: subId = " + subId);
+            }
+            mHandler.sendMessageDelayed(
+                    mHandler.obtainMessage(EVENT_PENDING_NETWORK_SELECTION_NOTIFICATION, subId),
+                    NETWORK_SELECTION_NOTIFICATION_MAX_PENDING_TIME_IN_MS);
+            mPendingEventCounter.put(subId, mPendingEventCounter.get(subId, 0) + 1);
+        }
+    }
+
+    private void clearUpNetworkSelectionNotificationParam(int subId) {
+        if (mHandler.hasMessages(EVENT_PENDING_NETWORK_SELECTION_NOTIFICATION, subId)) {
+            mHandler.removeMessages(EVENT_PENDING_NETWORK_SELECTION_NOTIFICATION, subId);
+        }
+        mPreviousServiceState.remove(subId);
+        mOOSTimestamp.remove(subId);
+        mPendingEventCounter.remove(subId);
+        mSelectedNetworkOperatorName.remove(subId);
+    }
+
+    private static long getTimeStamp() {
+        return SystemClock.elapsedRealtime();
     }
 }

@@ -52,7 +52,7 @@ public class SetPackagesRecentlyUsed extends BaseTargetPreparer implements ITarg
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException {
-        long deviceTimeMillis = TimeUnit.SECONDS.toMillis(device.getDeviceDate());
+        long deviceTimeMillis = device.getDeviceDate();
         long deviceRecentMillis = deviceTimeMillis - mRecentTimeMillis;
         StringBuilder builder = new StringBuilder();
         builder.append("PACKAGE_USAGE__VERSION_1\n");
@@ -69,7 +69,17 @@ public class SetPackagesRecentlyUsed extends BaseTargetPreparer implements ITarg
 
     private List<String> getPackagesToSet(ITestDevice device) throws DeviceNotAvailableException {
         if (mPackages.isEmpty()) {
-            String[] packages = device.executeShellCommand("cmd package list package").split("\n");
+            String packageString;
+            try {
+                String res = device.executeShellCommand("cmd package list package -a");
+                if (res == null || res.contains("Error: Unknown option: -a")) {
+                    throw new RuntimeException();
+                }
+                packageString = res;
+            } catch (RuntimeException e) {
+                packageString = device.executeShellCommand("cmd package list package");
+            }
+            String[] packages = packageString.split("\n");
             return Arrays.asList(packages);
         } else {
             return mPackages;

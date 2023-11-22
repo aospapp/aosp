@@ -19,6 +19,8 @@ import android.os.Bundle;
 
 /**
  * Interface from Car Service to {@link android.car.cluster.CarInstrumentClusterManager}
+ *
+ * @deprecated CarInstrumentClusterManager is deprecated
  * @hide
  */
 interface IInstrumentClusterManagerCallback {
@@ -29,7 +31,6 @@ interface IInstrumentClusterManagerCallback {
      *        see {@link android.car.cluster.CarInstrumentClusterManager} for details.
      * @param clusterActivityState is a {@link Bundle} object,
      *        see {@link android.car.cluster.ClusterActivityState} for how to construct the bundle.
-     * @hide
      */
     oneway void setClusterActivityState(String category, in Bundle clusterActivityState);
 }

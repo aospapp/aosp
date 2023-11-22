@@ -111,7 +111,7 @@ void HalHidlProfilerCodeGen::GenerateProfilerForStructVariable(
     out << "profile__" << predefined_type << "(" << arg_name << ", "
         << arg_value << ");\n";
   } else {
-    for (const auto struct_field : val.struct_value()) {
+    for (const auto& struct_field : val.struct_value()) {
       std::string struct_field_name = arg_name + "_" + struct_field.name();
       out << "auto *" << struct_field_name
           << " __attribute__((__unused__)) = " << arg_name
@@ -133,7 +133,7 @@ void HalHidlProfilerCodeGen::GenerateProfilerForUnionVariable(
     out << "profile__" << predefined_type << "(" << arg_name << ", "
         << arg_value << ");\n";
   } else {
-    for (const auto union_field : val.union_value()) {
+    for (const auto& union_field : val.union_value()) {
       std::string union_field_name = arg_name + "_" + union_field.name();
       out << "auto *" << union_field_name << " = " << arg_name
           << "->add_union_value();\n";
@@ -175,12 +175,8 @@ void HalHidlProfilerCodeGen::GenerateProfilerForHandleVariable(
   std::string handle_name = arg_name + "_h";
   out << "auto " << handle_name << " = " << arg_value
       << ".getNativeHandle();\n";
-  out << "if (!" << handle_name << ") {\n";
+  out << "if (" << handle_name << ") {\n";
   out.indent();
-  out << "LOG(WARNING) << \"null handle\";\n";
-  out << "return;\n";
-  out.unindent();
-  out << "}\n";
   out << arg_name << "->mutable_handle_value()->set_version(" << handle_name
       << "->version);\n";
   out << arg_name << "->mutable_handle_value()->set_num_ints(" << handle_name
@@ -252,6 +248,13 @@ void HalHidlProfilerCodeGen::GenerateProfilerForHandleVariable(
   out << "}\n";
   out.unindent();
   out << "}\n";
+  out.unindent();
+  out << "} else {\n";
+  out.indent();
+  out << "LOG(WARNING) << \"null handle\";\n";
+  out << arg_name << "->mutable_handle_value()->set_hidl_handle_address(0);\n";
+  out.unindent();
+  out << "}\n";
 }
 
 void HalHidlProfilerCodeGen::GenerateProfilerForHidlMemoryVariable(
@@ -260,7 +263,31 @@ void HalHidlProfilerCodeGen::GenerateProfilerForHidlMemoryVariable(
   out << arg_name << "->set_type(TYPE_HIDL_MEMORY);\n";
   out << arg_name << "->mutable_hidl_memory_value()->set_size"
       << "(" << arg_value << ".size());\n";
-  // TODO(zhuoyao): dump the memory contents as well.
+  // Dump the memory contents if specified in system property.
+  out << "if (property_get_bool(\"hal.instrumentation.dump.memory\", "
+         "false)){\n";
+  out.indent();
+  string mem_name = arg_name + "_mem";
+  string mem_content_name = arg_name + "_mem_char";
+  out << "sp<android::hidl::memory::V1_0::IMemory> " << mem_name
+      << " = mapMemory(" << arg_value << ");\n";
+  out << "if (" << mem_name << " == nullptr) {\n";
+  out.indent();
+  out << "LOG(WARNING) << \"Unable to map hidl_memory to IMemory object.\";\n";
+  out.unindent();
+  out << "} else {\n";
+  out.indent();
+  out << mem_name << "->read();\n";
+  out << "char* " << mem_content_name
+      << " = static_cast<char*>(static_cast<void*>(" << mem_name
+      << "->getPointer()));\n";
+  out << arg_name << "->mutable_hidl_memory_value()->set_contents(string("
+      << mem_content_name << ", " << arg_value << ".size()));\n";
+  out << mem_name << "->commit();\n";
+  out.unindent();
+  out << "}\n";
+  out.unindent();
+  out << "}\n";
 }
 
 void HalHidlProfilerCodeGen::GenerateProfilerForPointerVariable(
@@ -325,10 +352,19 @@ void HalHidlProfilerCodeGen::GenerateProfilerForFMQUnsyncVariable(
   out << "}\n";
 }
 
+void HalHidlProfilerCodeGen::GenerateProfilerForSafeUnionVariable(
+    Formatter& out, const VariableSpecificationMessage&,
+    const std::string& arg_name, const std::string&) {
+  out << arg_name << "->set_type(TYPE_SAFE_UNION);\n";
+  out << "LOG(ERROR) << \"TYPE_SAFE_UNION is not supported yet. \";\n";
+}
+
 void HalHidlProfilerCodeGen::GenerateProfilerForMethod(
     Formatter& out, const FunctionSpecificationMessage& method) {
   out << "FunctionSpecificationMessage msg;\n";
   out << "msg.set_name(\"" << method.name() << "\");\n";
+  out << "if (profiling_for_args) {\n";
+  out.indent();
   out << "if (!args) {\n";
   out.indent();
   out << "LOG(WARNING) << \"no argument passed\";\n";
@@ -337,7 +373,6 @@ void HalHidlProfilerCodeGen::GenerateProfilerForMethod(
   out.indent();
   out << "switch (event) {\n";
   out.indent();
-  // TODO(b/32141398): Support profiling in passthrough mode.
   out << "case details::HidlInstrumentor::CLIENT_API_ENTRY:\n";
   out << "case details::HidlInstrumentor::SERVER_API_ENTRY:\n";
   out << "case details::HidlInstrumentor::PASSTHROUGH_ENTRY:\n";
@@ -426,6 +461,8 @@ void HalHidlProfilerCodeGen::GenerateProfilerForMethod(
   out << "}\n";
   out.unindent();
   out << "}\n";
+  out.unindent();
+  out << "}\n";
   out << "profiler.AddTraceEvent(event, package, version, interface, msg);\n";
 }
 
@@ -436,7 +473,14 @@ void HalHidlProfilerCodeGen::GenerateHeaderIncludeFiles(
   out << "#include <hidl/HidlSupport.h>\n";
   out << "#include <linux/limits.h>\n";
   out << "#include <test/vts/proto/ComponentSpecificationMessage.pb.h>\n";
+
   out << "#include \"VtsProfilingInterface.h\"\n";
+  out << "\n";
+
+  out << "// HACK: NAN is #defined by math.h which gets included by\n";
+  out << "// ComponentSpecificationMessage.pb.h, but some HALs use\n";
+  out << "// enums called NAN.  Undefine NAN to work around it.\n";
+  out << "#undef NAN\n";
   out << "\n";
 
   // Include generated hal classes.
@@ -445,7 +489,11 @@ void HalHidlProfilerCodeGen::GenerateHeaderIncludeFiles(
 
   // Include imported classes.
   for (const auto& import : message.import()) {
-    FQName import_name = FQName(import);
+    FQName import_name;
+    if (!FQName::parse(import, &import_name)) {
+      abort();
+    }
+
     string imported_package_name = import_name.package();
     string imported_package_version = import_name.version();
     string imported_component_name = import_name.name();
@@ -472,10 +520,21 @@ void HalHidlProfilerCodeGen::GenerateSourceIncludeFiles(
   // Include the corresponding profiler header file.
   out << "#include \"" << GetPackagePath(message) << "/" << GetVersion(message)
       << "/" << GetComponentBaseName(message) << ".vts.h\"\n";
-  out << "#include <cutils/ashmem.h>\n";
-  out << "#include <fcntl.h>\n";
-  out << "#include <fmq/MessageQueue.h>\n";
-  out << "#include <sys/stat.h>\n";
+  out << "#include <cutils/properties.h>\n";
+  if (IncludeHidlNativeType(message, TYPE_HANDLE)) {
+    out << "#include <cutils/ashmem.h>\n";
+    out << "#include <fcntl.h>\n";
+    out << "#include <sys/stat.h>\n";
+  }
+  if (IncludeHidlNativeType(message, TYPE_FMQ_SYNC) ||
+      IncludeHidlNativeType(message, TYPE_FMQ_UNSYNC)) {
+    out << "#include <fmq/MessageQueue.h>\n";
+  }
+  if (IncludeHidlNativeType(message, TYPE_HIDL_MEMORY)) {
+    out << "#include <cutils/properties.h>\n";
+    out << "#include <android/hidl/memory/1.0/IMemory.h>\n";
+    out << "#include <hidlmemory/mapping.h>\n";
+  }
   out << "\n";
 }
 
@@ -500,7 +559,6 @@ void HalHidlProfilerCodeGen::GenerateProfilerSanityCheck(
   out.indent();
   out << "LOG(WARNING) << \"incorrect package. Expect: "
       << GetPackageName(message) << " actual: \" << package;\n";
-  out << "return;\n";
   out.unindent();
   out << "}\n";
   out << "std::string version_str = std::string(version);\n";
@@ -513,7 +571,6 @@ void HalHidlProfilerCodeGen::GenerateProfilerSanityCheck(
   out.indent();
   out << "LOG(WARNING) << \"incorrect version. Expect: " << GetVersion(message)
       << " or lower (if version != x.0), actual: \" << version;\n";
-  out << "return;\n";
   out.unindent();
   out << "}\n";
 
@@ -522,7 +579,6 @@ void HalHidlProfilerCodeGen::GenerateProfilerSanityCheck(
   out.indent();
   out << "LOG(WARNING) << \"incorrect interface. Expect: "
       << GetComponentName(message) << " actual: \" << interface;\n";
-  out << "return;\n";
   out.unindent();
   out << "}\n";
   out << "\n";
@@ -533,6 +589,8 @@ void HalHidlProfilerCodeGen::GenerateLocalVariableDefinition(
   // create and initialize the VTS profiler interface.
   out << "VtsProfilingInterface& profiler = "
       << "VtsProfilingInterface::getInstance(TRACEFILEPREFIX);\n\n";
+  out << "bool profiling_for_args = "
+         "property_get_bool(\"hal.instrumentation.profile.args\", true);\n";
 }
 
 }  // namespace vts

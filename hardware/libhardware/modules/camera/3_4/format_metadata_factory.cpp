@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 
+//#define LOG_NDEBUG 0
+#define LOG_TAG "FormatMetadataFactory"
+
 #include "format_metadata_factory.h"
 
+#include <algorithm>
+#include <set>
+
 #include "arc/image_processor.h"
+#include "common.h"
 #include "metadata/array_vector.h"
 #include "metadata/partial_metadata_factory.h"
 #include "metadata/property.h"
@@ -101,7 +108,7 @@ int AddFormatComponents(
     return res;
   }
 
-  HAL_LOGI("Supports %d qualified formats.", qualified_formats.size());
+  HAL_LOGI("Supports %zu qualified formats.", qualified_formats.size());
 
   // Find sizes and frame/stall durations for all formats.
   // We also want to find the smallest max frame duration amongst all formats,

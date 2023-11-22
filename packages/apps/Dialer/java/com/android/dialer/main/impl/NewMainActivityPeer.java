@@ -22,8 +22,6 @@ import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.LocalBroadcastManager;
-import com.android.dialer.blockreportspam.ShowBlockReportSpamDialogReceiver;
 import com.android.dialer.calllog.CallLogComponent;
 import com.android.dialer.calllog.ui.NewCallLogFragment;
 import com.android.dialer.common.concurrent.DefaultFutureCallback;
@@ -39,12 +37,9 @@ import com.google.common.util.concurrent.MoreExecutors;
 public class NewMainActivityPeer implements MainActivityPeer {
 
   private final MainActivity mainActivity;
-  private final ShowBlockReportSpamDialogReceiver showBlockReportSpamDialogReceiver;
 
   public NewMainActivityPeer(MainActivity mainActivity) {
     this.mainActivity = mainActivity;
-    this.showBlockReportSpamDialogReceiver =
-        new ShowBlockReportSpamDialogReceiver(mainActivity.getFragmentManager());
   }
 
   @Override
@@ -59,20 +54,13 @@ public class NewMainActivityPeer implements MainActivityPeer {
   }
 
   @Override
-  public void onActivityResume() {
-    LocalBroadcastManager.getInstance(mainActivity)
-        .registerReceiver(
-            showBlockReportSpamDialogReceiver, ShowBlockReportSpamDialogReceiver.getIntentFilter());
-  }
+  public void onActivityResume() {}
 
   @Override
   public void onUserLeaveHint() {}
 
   @Override
-  public void onActivityPause() {
-    LocalBroadcastManager.getInstance(mainActivity)
-        .unregisterReceiver(showBlockReportSpamDialogReceiver);
-  }
+  public void onActivityPause() {}
 
   @Override
   public void onActivityStop() {}
@@ -101,6 +89,7 @@ public class NewMainActivityPeer implements MainActivityPeer {
   private static final class MainBottomNavBarBottomNavTabListener
       implements OnBottomNavTabSelectedListener {
 
+    private static final String SPEED_DIAL_TAG = "speed_dial";
     private static final String CALL_LOG_TAG = "call_log";
     private static final String VOICEMAIL_TAG = "voicemail";
 
@@ -116,7 +105,18 @@ public class NewMainActivityPeer implements MainActivityPeer {
     @Override
     public void onSpeedDialSelected() {
       hideAllFragments();
-      // TODO(calderwoodra): Implement SpeedDialFragment when FragmentUtils#getParent works
+      // TODO(calderwoodra): Since we aren't using fragment utils in this peer, let's disable
+      // speed dial until we figure out a solution.
+      // SpeedDialFragment fragment =
+      //     (SpeedDialFragment) supportFragmentManager.findFragmentByTag(SPEED_DIAL_TAG);
+      // if (fragment == null) {
+      //   supportFragmentManager
+      //       .beginTransaction()
+      //       .add(R.id.fragment_container, SpeedDialFragment.newInstance(), SPEED_DIAL_TAG)
+      //       .commit();
+      // } else {
+      //   supportFragmentManager.beginTransaction().show(fragment).commit();
+      // }
     }
 
     @Override
@@ -155,8 +155,14 @@ public class NewMainActivityPeer implements MainActivityPeer {
       }
     }
 
+    // TODO(calderwoodra): fix overlapping fragments issue
     private void hideAllFragments() {
       FragmentTransaction supportTransaction = supportFragmentManager.beginTransaction();
+      Fragment speedDialFragment = supportFragmentManager.findFragmentByTag(SPEED_DIAL_TAG);
+      if (speedDialFragment != null) {
+        supportTransaction.hide(speedDialFragment);
+      }
+
       Fragment callLogFragment = supportFragmentManager.findFragmentByTag(CALL_LOG_TAG);
       if (callLogFragment != null) {
         if (callLogFragment.isVisible()) {
@@ -170,6 +176,7 @@ public class NewMainActivityPeer implements MainActivityPeer {
         }
         supportTransaction.hide(callLogFragment);
       }
+
       if (supportFragmentManager.findFragmentByTag(VOICEMAIL_TAG) != null) {
         supportTransaction.hide(supportFragmentManager.findFragmentByTag(VOICEMAIL_TAG));
       }

@@ -28,9 +28,12 @@ LOCAL_MODULE_TAGS := optional
 LOCAL_USE_AAPT2 := true
 
 LOCAL_STATIC_ANDROID_LIBRARIES := \
-    android-support-car
+    androidx.annotation_annotation \
+    androidx.loader_loader
 
 LOCAL_PROGUARD_ENABLED := disabled
+
+LOCAL_MIN_SDK_VERSION := 24
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 

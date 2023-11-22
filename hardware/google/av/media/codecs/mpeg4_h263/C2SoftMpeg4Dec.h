@@ -57,6 +57,7 @@ struct C2SoftMpeg4Dec : public SimpleC2Component {
     tagvideoDecControls *mDecHandle;
     std::shared_ptr<C2GraphicBlock> mOutBlock;
     uint8_t *mOutputBuffer[kNumOutputBuffers];
+    size_t  mOutputBufferSize;
 
     uint32_t mWidth;
     uint32_t mHeight;

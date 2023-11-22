@@ -29,7 +29,7 @@ import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
-import android.support.v4.app.FragmentActivity;
+import androidx.fragment.app.FragmentActivity;
 import android.view.MenuItem;
 
 import com.android.camera.FatalErrorHandler;
@@ -180,6 +180,7 @@ public class CameraSettingsActivity extends FragmentActivity {
             mInfos = CameraAgentFactory
                     .getAndroidCameraAgent(context, CameraAgentFactory.CameraApi.API_1)
                     .getCameraDeviceInfo();
+            CameraAgentFactory.recycle(CameraAgentFactory.CameraApi.API_1);
         }
 
         @Override
@@ -498,6 +499,7 @@ public class CameraSettingsActivity extends FragmentActivity {
             }
             PictureSizeLoader loader = new PictureSizeLoader(getActivity().getApplicationContext());
             mPictureSizes = loader.computePictureSizes();
+            loader.release();
         }
 
         /**

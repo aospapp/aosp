@@ -15,7 +15,9 @@
 #
 
 import datetime
+import logging
 import os
+import shutil
 import tempfile
 import zipfile
 
@@ -55,6 +57,9 @@ class CommandGsispl(base_command_processor.BaseCommandProcessor):
             help="Path to vendor provided image file to retrieve SPL version. "
             "If just a file name is given, the most recently fetched .img "
             "file will be used.")
+        self.arg_parser.add_argument(
+            "--vendor_version",
+            help="The version of vendor.img that will be used (e.g., 8.1.0).")
 
     # @Override
     def Run(self, arg_line):
@@ -64,12 +69,12 @@ class CommandGsispl(base_command_processor.BaseCommandProcessor):
             if os.path.isfile(args.gsi):
                 gsi_path = args.gsi
             else:
-                print "Cannot find system image in given path"
+                logging.error("Cannot find system image in given path")
                 return
         elif "system.img" in self.console.device_image_info:
             gsi_path = self.console.device_image_info["system.img"]
         else:
-            print "Cannot find system image."
+            logging.error("Cannot find system image.")
             return False
 
         if args.version:
@@ -79,9 +84,10 @@ class CommandGsispl(base_command_processor.BaseCommandProcessor):
                 version = "{:04d}-{:02d}-{:02d}".format(
                     version_date.year, version_date.month, version_date.day)
             except ValueError as e:
-                print "version ID should be YYYY-mm-dd format."
+                logging.error("version ID should be YYYY-mm-dd format.")
                 return
         elif args.version_from_path:
+            dest_path = None
             if os.path.isabs(args.version_from_path) and os.path.exists(
                     args.version_from_path):
                 img_path = args.version_from_path
@@ -100,34 +106,48 @@ class CommandGsispl(base_command_processor.BaseCommandProcessor):
                         'r') as zip_ref:
                     zip_ref.extractall(dest_path)
                     img_path = os.path.join(dest_path, "boot.img")
+                    if not os.path.exists(img_path):
+                        logging.error("No %s file in device img .zip.",
+                                      args.version_from_path)
+                        shutil.rmtree(dest_path)
+                        return
             else:
-                print("Cannot find %s file." % args.version_from_path)
+                logging.error("Cannot find %s file.", args.version_from_path)
                 return False
 
             version_dict = img_utils.GetSPLVersionFromBootImg(img_path)
+            if dest_path:
+                shutil.rmtree(dest_path)
             if "year" in version_dict and "month" in version_dict:
                 version = "{:04d}-{:02d}-{:02d}".format(
                     version_dict["year"], version_dict["month"],
                     common._SPL_DEFAULT_DAY)
             else:
-                print("Failed to fetch SPL version from %s file." % img_path)
+                logging.error("Failed to fetch SPL version from %s file.",
+                              img_path)
                 return False
         else:
-            print("version ID or path of .img file must be given.")
+            logging.error("version ID or path of .img file must be given.")
             return False
 
         output_path = os.path.join(
             os.path.dirname(os.path.abspath(gsi_path)),
             "system-{}.img".format(version))
-        stdout, _, err_code = cmd_utils.ExecuteOneShellCommand(
-            "{} {} {} {}".format(
-                os.path.join(os.getcwd(), "host_controller", "gsi",
-                             "change_security_patch_ver.sh"), gsi_path,
-                output_path, version))
+        command = "{} {} {} {}".format(
+            os.path.join(os.getcwd(), "..", "bin",
+                         "change_security_patch_ver.sh"), gsi_path,
+            output_path, version)
+        if args.vendor_version:
+            command = command + " -v " + args.vendor_version
+        if self.console.password.value:
+            command = "echo {} | sudo -S {}".format(
+                self.console.password.value, command)
+        stdout, stderr, err_code = cmd_utils.ExecuteOneShellCommand(command)
         if err_code is 0:
             if not args.gsi:
-                print("system.img path is updated to : {}".format(output_path))
+                logging.info(
+                    "system.img path is updated to : {}".format(output_path))
                 self.console.device_image_info["system.img"] = output_path
         else:
-            print "gsispl error: {}".format(stdout)
+            logging.error("gsispl error: {} {}".format(stdout, stderr))
             return False

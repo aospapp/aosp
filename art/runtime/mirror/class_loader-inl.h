@@ -20,9 +20,14 @@
 #include "class_loader.h"
 
 #include "class_table-inl.h"
+#include "object-inl.h"
 
 namespace art {
 namespace mirror {
+
+inline ObjPtr<ClassLoader> ClassLoader::GetParent() {
+  return GetFieldObject<ClassLoader>(OFFSET_OF_OBJECT_MEMBER(ClassLoader, parent_));
+}
 
 template <bool kVisitClasses,
           VerifyObjectFlags kVerifyFlags,
@@ -33,7 +38,7 @@ inline void ClassLoader::VisitReferences(ObjPtr<mirror::Class> klass, const Visi
   VisitInstanceFieldsReferences<kVerifyFlags, kReadBarrierOption>(klass, visitor);
   if (kVisitClasses) {
     // Visit classes loaded after.
-    ClassTable* const class_table = GetClassTable();
+    ClassTable* const class_table = GetClassTable<kVerifyFlags>();
     if (class_table != nullptr) {
       class_table->VisitRoots(visitor);
     }

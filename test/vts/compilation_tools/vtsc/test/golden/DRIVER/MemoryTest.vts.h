@@ -4,11 +4,11 @@
 #undef LOG_TAG
 #define LOG_TAG "FuzzerExtended_android_hardware_tests_memory_V1_0_IMemoryTest"
 
-#include <stdio.h>
+#include <log/log.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <utils/Log.h>
 
 #include <driver_base/DriverBase.h>
 #include <driver_base/DriverCallbackBase.h>

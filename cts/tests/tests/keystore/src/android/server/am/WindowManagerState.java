@@ -16,7 +16,6 @@
 
 package android.server.am;
 
-import static android.app.WindowConfiguration.ACTIVITY_TYPE_STANDARD;
 import static android.app.WindowConfiguration.ACTIVITY_TYPE_UNDEFINED;
 import static android.app.WindowConfiguration.WINDOWING_MODE_UNDEFINED;
 import static android.server.am.ProtoExtractors.extract;
@@ -24,25 +23,23 @@ import static android.server.am.StateLogger.log;
 import static android.server.am.StateLogger.logE;
 import static android.view.Display.DEFAULT_DISPLAY;
 
-import static org.junit.Assert.fail;
-
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
 import android.view.nano.DisplayInfoProto;
 
-import com.android.server.wm.nano.AppTransitionProto;
+import androidx.test.InstrumentationRegistry;
+
 import com.android.server.wm.nano.AppWindowTokenProto;
 import com.android.server.wm.nano.ConfigurationContainerProto;
-import com.android.server.wm.nano.DisplayFramesProto;
-import com.android.server.wm.nano.DisplayProto;
+import com.android.server.wm.nano.DisplayContentProto;
 import com.android.server.wm.nano.IdentifierProto;
 import com.android.server.wm.nano.PinnedStackControllerProto;
 import com.android.server.wm.nano.StackProto;
 import com.android.server.wm.nano.TaskProto;
 import com.android.server.wm.nano.WindowContainerProto;
+import com.android.server.wm.nano.WindowFramesProto;
 import com.android.server.wm.nano.WindowManagerServiceDumpProto;
 import com.android.server.wm.nano.WindowStateAnimatorProto;
 import com.android.server.wm.nano.WindowStateProto;
@@ -152,7 +149,7 @@ public class WindowManagerState {
         }
         mFocusedApp = state.focusedApp;
         for (int i = 0; i < state.rootWindowContainer.displays.length; i++) {
-            DisplayProto displayProto = state.rootWindowContainer.displays[i];
+            DisplayContentProto displayProto = state.rootWindowContainer.displays[i];
             final Display display = new Display(displayProto);
             mDisplays.add(display);
             allWindows.addAll(display.getWindows());
@@ -188,7 +185,6 @@ public class WindowManagerState {
             mWindowStates.add(windowMap.get(hash_code));
         }
         mRotation = state.rotation;
-        AppTransitionProto appTransitionProto = state.appTransition;
     }
 
     public void getMatchingVisibleWindowState(final String windowName, List<WindowState> windowList) {
@@ -340,7 +336,6 @@ public class WindowManagerState {
     static class WindowTask extends WindowContainer {
 
         int mTaskId;
-        Rect mTempInsetBounds;
         List<String> mAppTokens = new ArrayList<>();
 
         WindowTask(TaskProto proto) {
@@ -359,7 +354,6 @@ public class WindowManagerState {
                     mSubWindows.addAll(window.getWindows());
                 }
             }
-            mTempInsetBounds = extract(proto.tempInsetBounds);
         }
     }
 
@@ -425,7 +419,7 @@ public class WindowManagerState {
         private int mDpi;
         private String mName;
 
-        public Display(DisplayProto proto) {
+        public Display(DisplayContentProto proto) {
             super(proto.windowContainer);
             mDisplayId = proto.id;
             for (int i = 0; i < proto.aboveAppWindows.length; i++) {
@@ -491,10 +485,10 @@ public class WindowManagerState {
         private int mDisplayId;
         private int mStackId;
         private boolean mShown;
-        private Rect mContainingFrame = new Rect();
-        private Rect mParentFrame = new Rect();
-        private Rect mContentFrame = new Rect();
-        private Rect mFrame = new Rect();
+        private Rect mContainingFrame;
+        private Rect mParentFrame;
+        private Rect mContentFrame;
+        private Rect mFrame;
         private Rect mCrop = new Rect();
 
         WindowState(WindowStateProto proto) {
@@ -515,10 +509,13 @@ public class WindowManagerState {
                 }
                 mCrop = extract(animatorProto.lastClipRect);
             }
-            mFrame = extract(proto.frame);
-            mContainingFrame = extract(proto.containingFrame);
-            mParentFrame = extract(proto.parentFrame);
-            mContentFrame = extract(proto.contentFrame);
+            WindowFramesProto windowFramesProto = proto.windowFrames;
+            if (windowFramesProto != null) {
+                mFrame = extract(windowFramesProto.frame);
+                mContainingFrame = extract(windowFramesProto.containingFrame);
+                mParentFrame = extract(windowFramesProto.parentFrame);
+                mContentFrame = extract(windowFramesProto.contentFrame);
+            }
             if (mName.startsWith(STARTING_WINDOW_PREFIX)) {
                 mWindowType = WINDOW_TYPE_STARTING;
                 // Existing code depends on the prefix being removed

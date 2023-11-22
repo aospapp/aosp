@@ -73,8 +73,6 @@ public class CtsApiCoverage {
 
     private static final String NDK_PACKAGE_NAME = "ndk";
 
-    private static final String NDK_DUMMY_RETURN_TYPE = "na";
-
     private static void printUsage() {
         System.out.println("Usage: cts-api-coverage [OPTION]... [APK]...");
         System.out.println();
@@ -313,7 +311,6 @@ public class CtsApiCoverage {
                                 apiClass.markMethodCovered(
                                         sym.name,
                                         parameterTypes,
-                                        NDK_DUMMY_RETURN_TYPE,
                                         moduleName);
                             } else {
                                 System.err.println(

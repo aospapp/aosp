@@ -15,7 +15,7 @@
   ~ limitations under the License
    -->
 
-<resources xmlns:android="http://schemas.android.com/apk/res/android"
+<resources
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assisted_dialing_setting_title" msgid="3397624434500805193">"සහායක ඇමතීම"</string>
     <string name="assisted_dialing_setting_summary" msgid="2121165095086134903">"ඔබ පිටරට සංචාරය කරන අතරතුර ඇමතීමේදී රටේ කේතය පුරෝකථනය කරන්න සහ එක් කරන්න"</string>

@@ -51,6 +51,11 @@
 
 #define lseek64 lseek
 #define mmap64 mmap
+// BEGIN Android-added: Alias *64 on Fuchsia builds. http://b/119496969
+#elif defined(__Fuchsia__)
+#define lseek64 lseek
+#define mmap64 mmap
+// END Android-added: Alias *64 on Fuchsia builds. http://b/119496969
 #endif
 
 static jfieldID chan_fd;        /* jobject 'fd' in sun.io.FileChannelImpl */

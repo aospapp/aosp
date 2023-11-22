@@ -17,24 +17,22 @@
 # Stop if something fails.
 set -e
 
-mkdir classes
-${JAVAC} -d classes `find src -name '*.java'`
+export ORIGINAL_JAVAC="$JAVAC"
 
-mkdir classes-ex
-${JAVAC} -d classes-ex `find src-ex -name '*.java'`
-rm classes-ex/A.class
+# Wrapper function for javac which invokes the compiler and applies
+# additional setup steps for the test.
+function javac_wrapper {
+  set -e # Stop on error - the caller script may not have this set.
 
-if [ ${USE_JACK} = "true" ]; then
-  jar cf classes.jill.jar -C classes .
-  ${JACK} --import classes.jill.jar --output-dex .
-  zip ${TEST_NAME}.jar classes.dex
+  $ORIGINAL_JAVAC "$@"
 
-  jar cf classes-ex.jill.jar -C classes-ex .
-  ${JACK} --import classes-ex.jill.jar --output-dex .
-  zip ${TEST_NAME}-ex.jar classes.dex
-elif [ ${NEED_DEX} = "true" ]; then
-  ${DX} -JXmx256m --debug --dex --dump-to=classes.lst --output=classes.dex --dump-width=1000 classes
-  zip ${TEST_NAME}.jar classes.dex
-  ${DX} -JXmx256m --debug --dex --dump-to=classes-ex.lst --output=classes.dex --dump-width=1000 classes-ex
-  zip ${TEST_NAME}-ex.jar classes.dex
-fi
+  # Remove one A.class from classes-ex
+  rm -f classes-ex/A.class
+}
+
+export -f javac_wrapper
+export JAVAC=javac_wrapper
+
+######################################################################
+
+./default-build "$@"

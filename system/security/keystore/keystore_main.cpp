@@ -18,7 +18,7 @@
 
 #include <android-base/logging.h>
 #include <android/hidl/manager/1.1/IServiceManager.h>
-#include <android/security/IKeystoreService.h>
+#include <android/security/keystore/IKeystoreService.h>
 #include <android/system/wifi/keystore/1.0/IKeystore.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
@@ -32,7 +32,6 @@
 #include <keystore/keystore_return_types.h>
 
 #include "KeyStore.h"
-#include "entropy.h"
 #include "key_store_service.h"
 #include "legacy_keymaster_device_wrapper.h"
 #include "permissions.h"
@@ -136,9 +135,6 @@ int main(int argc, char* argv[]) {
     CHECK(argc >= 2) << "A directory must be specified!";
     CHECK(chdir(argv[1]) != -1) << "chdir: " << argv[1] << ": " << strerror(errno);
 
-    Entropy entropy;
-    CHECK(entropy.open()) << "Failed to open entropy source.";
-
     auto kmDevices = initializeKeymasters();
 
     CHECK(kmDevices[SecurityLevel::SOFTWARE]) << "Missing software Keymaster device";
@@ -155,10 +151,12 @@ int main(int argc, char* argv[]) {
     SecurityLevel minimalAllowedSecurityLevelForNewKeys =
         halVersion.majorVersion >= 2 ? SecurityLevel::TRUSTED_ENVIRONMENT : SecurityLevel::SOFTWARE;
 
-    keystore::KeyStore keyStore(&entropy, kmDevices, minimalAllowedSecurityLevelForNewKeys);
-    keyStore.initialize();
+    android::sp<keystore::KeyStore> keyStore(
+        new keystore::KeyStore(kmDevices, minimalAllowedSecurityLevelForNewKeys));
+    keyStore->initialize();
     android::sp<android::IServiceManager> sm = android::defaultServiceManager();
-    android::sp<keystore::KeyStoreService> service = new keystore::KeyStoreService(&keyStore);
+    android::sp<keystore::KeyStoreService> service = new keystore::KeyStoreService(keyStore);
+    service->setRequestingSid(true);
     android::status_t ret = sm->addService(android::String16("android.security.keystore"), service);
     CHECK(ret == android::OK) << "Couldn't register binder service!";
 

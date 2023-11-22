@@ -20,12 +20,15 @@
 #include "nativehelper/jni_macros.h"
 
 #include "art_method-inl.h"
+#include "class_root.h"
 #include "dex/dex_file_annotations.h"
 #include "handle.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
+#include "mirror/class-alloc-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/method.h"
 #include "mirror/object-inl.h"
+#include "mirror/object_array-alloc-inl.h"
 #include "mirror/object_array-inl.h"
 #include "native_util.h"
 #include "reflection.h"
@@ -272,8 +275,8 @@ static jint Executable_compareMethodParametersInternal(JNIEnv* env,
   this_method = this_method->GetInterfaceMethodIfProxy(kRuntimePointerSize);
   other_method = other_method->GetInterfaceMethodIfProxy(kRuntimePointerSize);
 
-  const DexFile::TypeList* this_list = this_method->GetParameterTypeList();
-  const DexFile::TypeList* other_list = other_method->GetParameterTypeList();
+  const dex::TypeList* this_list = this_method->GetParameterTypeList();
+  const dex::TypeList* other_list = other_method->GetParameterTypeList();
 
   if (this_list == other_list) {
     return 0;
@@ -295,9 +298,9 @@ static jint Executable_compareMethodParametersInternal(JNIEnv* env,
   }
 
   for (int32_t i = 0; i < this_size; ++i) {
-    const DexFile::TypeId& lhs = this_method->GetDexFile()->GetTypeId(
+    const dex::TypeId& lhs = this_method->GetDexFile()->GetTypeId(
         this_list->GetTypeItem(i).type_idx_);
-    const DexFile::TypeId& rhs = other_method->GetDexFile()->GetTypeId(
+    const dex::TypeId& rhs = other_method->GetDexFile()->GetTypeId(
         other_list->GetTypeItem(i).type_idx_);
 
     uint32_t lhs_len, rhs_len;
@@ -319,7 +322,7 @@ static jstring Executable_getMethodNameInternal(JNIEnv* env, jobject javaMethod)
   ScopedFastNativeObjectAccess soa(env);
   ArtMethod* method = ArtMethod::FromReflectedMethod(soa, javaMethod);
   method = method->GetInterfaceMethodIfProxy(kRuntimePointerSize);
-  return soa.AddLocalReference<jstring>(method->GetNameAsString(soa.Self()));
+  return soa.AddLocalReference<jstring>(method->ResolveNameString());
 }
 
 static jclass Executable_getMethodReturnTypeInternal(JNIEnv* env, jobject javaMethod) {
@@ -335,31 +338,22 @@ static jclass Executable_getMethodReturnTypeInternal(JNIEnv* env, jobject javaMe
   return soa.AddLocalReference<jclass>(return_type);
 }
 
-// TODO: Move this to mirror::Class ? Other mirror types that commonly appear
-// as arrays have a GetArrayClass() method. This is duplicated in
-// java_lang_Class.cc as well.
-static ObjPtr<mirror::Class> GetClassArrayClass(Thread* self)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  ObjPtr<mirror::Class> class_class = mirror::Class::GetJavaLangClass();
-  return Runtime::Current()->GetClassLinker()->FindArrayClass(self, &class_class);
-}
-
 static jobjectArray Executable_getParameterTypesInternal(JNIEnv* env, jobject javaMethod) {
   ScopedFastNativeObjectAccess soa(env);
   ArtMethod* method = ArtMethod::FromReflectedMethod(soa, javaMethod);
   method = method->GetInterfaceMethodIfProxy(kRuntimePointerSize);
 
-  const DexFile::TypeList* params = method->GetParameterTypeList();
+  const dex::TypeList* params = method->GetParameterTypeList();
   if (params == nullptr) {
     return nullptr;
   }
 
   const uint32_t num_params = params->Size();
 
-  StackHandleScope<3> hs(soa.Self());
-  Handle<mirror::Class> class_array_class = hs.NewHandle(GetClassArrayClass(soa.Self()));
+  StackHandleScope<2> hs(soa.Self());
+  ObjPtr<mirror::Class> class_array_class = GetClassRoot<mirror::ObjectArray<mirror::Class>>();
   Handle<mirror::ObjectArray<mirror::Class>> ptypes = hs.NewHandle(
-      mirror::ObjectArray<mirror::Class>::Alloc(soa.Self(), class_array_class.Get(), num_params));
+      mirror::ObjectArray<mirror::Class>::Alloc(soa.Self(), class_array_class, num_params));
   if (ptypes.IsNull()) {
     DCHECK(soa.Self()->IsExceptionPending());
     return nullptr;
@@ -384,7 +378,7 @@ static jint Executable_getParameterCountInternal(JNIEnv* env, jobject javaMethod
   ArtMethod* method = ArtMethod::FromReflectedMethod(soa, javaMethod);
   method = method->GetInterfaceMethodIfProxy(kRuntimePointerSize);
 
-  const DexFile::TypeList* params = method->GetParameterTypeList();
+  const dex::TypeList* params = method->GetParameterTypeList();
   return (params == nullptr) ? 0 : params->Size();
 }
 

@@ -33,7 +33,7 @@
 
    <uses-permission android:name="android.permission.INTERNET"/>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.uidisolation.cts"
                      android:label="CTS tests of android.uidisolation">
         <meta-data android:name="listener"

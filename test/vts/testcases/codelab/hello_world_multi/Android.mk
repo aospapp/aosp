@@ -17,5 +17,4 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := VtsCodelabHelloWorldMultiDeviceTest
-VTS_CONFIG_SRC_DIR := testcases/codelab/hello_world_multi
 include test/vts/tools/build/Android.host_config.mk

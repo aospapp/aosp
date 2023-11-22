@@ -53,8 +53,7 @@ public class MediaServerCrashTest extends AndroidTestCase {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mFlFilePath = new File(Environment.getExternalStorageDirectory(),
-                "temp.fl").getAbsolutePath();
+        mFlFilePath = new File(getContext().getFilesDir(), "temp.fl").getAbsolutePath();
 
         mOnPrepareCalled.close();
         mOnCompletionCalled.close();
@@ -88,10 +87,7 @@ public class MediaServerCrashTest extends AndroidTestCase {
     @Override
     protected void tearDown() throws Exception {
         super.tearDown();
-        File flFile = new File(mFlFilePath);
-        if (flFile.exists()) {
-            flFile.delete();
-        }
+        new File(mFlFilePath).delete();
     }
 
     public void testInvalidMidiNullPointerAccess() throws Exception {

@@ -19,20 +19,22 @@ package com.android.phone;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.provider.Settings;
-
-import com.android.internal.telephony.TelephonyIntents;
-import com.android.internal.telephony.Phone;
-
 import android.telephony.PhoneNumberUtils;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.WindowManager;
 
+import com.android.internal.telephony.IccCardConstants;
+import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.TelephonyCapabilities;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Helper class to listen for some magic dialpad character sequences
@@ -190,6 +192,40 @@ public class SpecialCharSequenceMgr {
         return false;
     }
 
+    private static IccCardConstants.State getSimState(int slotId, Context context) {
+        final TelephonyManager tele = TelephonyManager.from(context);
+        int simState =  tele.getSimState(slotId);
+        IccCardConstants.State state;
+        try {
+            state = IccCardConstants.State.intToState(simState);
+        } catch (IllegalArgumentException ex) {
+            Log.w(TAG, "Unknown sim state: " + simState);
+            state = IccCardConstants.State.UNKNOWN;
+        }
+        return state;
+    }
+
+    private static int getNextSubIdForState(IccCardConstants.State state, Context context) {
+        SubscriptionManager subscriptionManager = SubscriptionManager.from(context);
+        List<SubscriptionInfo> list = subscriptionManager.getActiveSubscriptionInfoList();
+        if (list == null) {
+            // getActiveSubscriptionInfoList was null callers expect an empty list.
+            list = new ArrayList<>();
+        }
+        int resultId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
+        int bestSlotId = Integer.MAX_VALUE; // Favor lowest slot first
+        for (int i = 0; i < list.size(); i++) {
+            final SubscriptionInfo info = list.get(i);
+            final int id = info.getSubscriptionId();
+            if (state == getSimState(info.getSimSlotIndex(), context)
+                    && bestSlotId > info.getSimSlotIndex()) {
+                resultId = id;
+                bestSlotId = info.getSimSlotIndex();
+            }
+        }
+        return resultId;
+    }
+
     static private boolean handlePinEntry(Context context, String input,
                                           Activity pukInputActivity) {
         // TODO: The string constants here should be removed in favor
@@ -198,7 +234,20 @@ public class SpecialCharSequenceMgr {
         if ((input.startsWith("**04") || input.startsWith("**05"))
                 && input.endsWith("#")) {
             PhoneGlobals app = PhoneGlobals.getInstance();
-            Phone phone = PhoneGlobals.getPhone();
+            Phone phone;
+            int subId;
+            if (input.startsWith("**04")) {
+                subId = getNextSubIdForState(IccCardConstants.State.PIN_REQUIRED, context);
+            } else {
+                subId = getNextSubIdForState(IccCardConstants.State.PUK_REQUIRED, context);
+            }
+            if (SubscriptionManager.isValidSubscriptionId(subId)) {
+                log("get phone with subId: " + subId);
+                phone = PhoneGlobals.getPhone(subId);
+            } else {
+                log("get default phone");
+                phone = PhoneGlobals.getPhone();
+            }
             boolean isMMIHandled = phone.handlePinMmi(input);
 
             // if the PUK code is recognized then indicate to the

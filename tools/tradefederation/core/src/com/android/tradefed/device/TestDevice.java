@@ -25,10 +25,14 @@ import com.android.ddmlib.SyncException;
 import com.android.ddmlib.TimeoutException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ByteArrayInputStreamSource;
+import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.KeyguardControllerState;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
+import com.android.tradefed.util.UserUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
@@ -61,7 +65,7 @@ public class TestDevice extends NativeDevice {
     /** the command used to dismiss a error dialog. Currently sends a DPAD_CENTER key event */
     static final String DISMISS_DIALOG_CMD = "input keyevent 23";
     /** Commands that can be used to dismiss the keyguard. */
-    static final String DISMISS_KEYGUARD_CMD = "input keyevent 82";
+    public static final String DISMISS_KEYGUARD_CMD = "input keyevent 82";
 
     /**
      * Alternative command to dismiss the keyguard by requesting the Window Manager service to do
@@ -80,12 +84,17 @@ public class TestDevice extends NativeDevice {
     static final String LIST_PACKAGES_CMD = "pm list packages -f";
     private static final Pattern PACKAGE_REGEX = Pattern.compile("package:(.*)=(.*)");
 
+    static final String LIST_APEXES_CMD = "pm list packages --apex-only --show-versioncode";
+    private static final Pattern APEXES_REGEX = Pattern.compile("package:(.*) versionCode:(.*)");
+
     private static final int FLAG_PRIMARY = 1; // From the UserInfo class
 
     private static final String[] SETTINGS_NAMESPACE = {"system", "secure", "global"};
 
     /** user pattern in the output of "pm list users" = TEXT{<id>:<name>:<flags>} TEXT * */
     private static final String USER_PATTERN = "(.*?\\{)(\\d+)(:)(.*)(:)(\\d+)(\\}.*)";
+    /** Pattern to find the display ids of "dumpsys SurfaceFlinger" */
+    private static final String DISPLAY_ID_PATTERN = "(Display )(?<id>\\d+)( color modes:)";
 
     private static final int API_LEVEL_GET_CURRENT_USER = 24;
     /** Timeout to wait for a screenshot before giving up to avoid hanging forever */
@@ -102,6 +111,9 @@ public class TestDevice extends NativeDevice {
     static final long INSTALL_TIMEOUT_TO_OUTPUT_MINUTES = 3;
 
     private boolean mWasWifiHelperInstalled = false;
+
+    private static final String APEX_SUFFIX = ".apex";
+    private static final String APEX_ARG = "--apex";
 
     /**
      * @param device
@@ -125,6 +137,10 @@ public class TestDevice extends NativeDevice {
     private String internalInstallPackage(
             final File packageFile, final boolean reinstall, final List<String> extraArgs)
                     throws DeviceNotAvailableException {
+        List<String> args = new ArrayList<>(extraArgs);
+        if (packageFile.getName().endsWith(APEX_SUFFIX)) {
+            args.add(APEX_ARG);
+        }
         // use array to store response, so it can be returned to caller
         final String[] response = new String[1];
         DeviceAction installAction =
@@ -141,7 +157,7 @@ public class TestDevice extends NativeDevice {
                                             INSTALL_TIMEOUT_MINUTES,
                                             INSTALL_TIMEOUT_TO_OUTPUT_MINUTES,
                                             TimeUnit.MINUTES,
-                                            extraArgs.toArray(new String[] {}));
+                                            args.toArray(new String[] {}));
                             if (receiver.isSuccessfullyCompleted()) {
                                 response[0] = null;
                             } else if (receiver.getErrorMessage() == null) {
@@ -153,7 +169,15 @@ public class TestDevice extends NativeDevice {
                                 response[0] = receiver.getErrorMessage();
                             }
                         } catch (InstallException e) {
-                            response[0] = e.getMessage();
+                            String message = e.getMessage();
+                            if (message == null) {
+                                message =
+                                        String.format(
+                                                "InstallException during package installation. "
+                                                        + "cause: %s",
+                                                StreamUtil.getStackTrace(e));
+                            }
+                            response[0] = message;
                         }
                         return response[0] == null;
                     }
@@ -280,7 +304,15 @@ public class TestDevice extends NativeDevice {
                                 response[0] = receiver.getErrorMessage();
                             }
                         } catch (InstallException e) {
-                            response[0] = e.getMessage();
+                            String message = e.getMessage();
+                            if (message == null) {
+                                message =
+                                        String.format(
+                                                "InstallException during package installation. "
+                                                        + "cause: %s",
+                                                StreamUtil.getStackTrace(e));
+                            }
+                            response[0] = message;
                         } finally {
                             getIDevice().removeRemotePackage(remotePackagePath);
                             getIDevice().removeRemotePackage(remoteCertPath);
@@ -312,6 +344,188 @@ public class TestDevice extends NativeDevice {
         performDeviceAction(String.format("uninstall %s", packageName), uninstallAction,
                 MAX_RETRY_ATTEMPTS);
         return response[0];
+    }
+
+    /**
+     * Core implementation for installing application with split apk files {@link
+     * IDevice#installPackages(List, boolean, List)} See
+     * "https://developer.android.com/studio/build/configure-apk-splits" on how to split apk to
+     * several files.
+     *
+     * @param packageFiles the local apk files
+     * @param reinstall <code>true</code> if a reinstall should be performed
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
+     *     available options.
+     * @return the response from the installation <code>null</code> if installation succeeds.
+     * @throws DeviceNotAvailableException
+     */
+    private String internalInstallPackages(
+            final List<File> packageFiles, final boolean reinstall, final List<String> extraArgs)
+            throws DeviceNotAvailableException {
+        // use array to store response, so it can be returned to caller
+        final String[] response = new String[1];
+        DeviceAction installAction =
+                new DeviceAction() {
+                    @Override
+                    public boolean run() throws InstallException {
+                        try {
+                            getIDevice()
+                                    .installPackages(
+                                            packageFiles,
+                                            reinstall,
+                                            extraArgs,
+                                            INSTALL_TIMEOUT_MINUTES,
+                                            TimeUnit.MINUTES);
+                            response[0] = null;
+                            return true;
+                        } catch (InstallException e) {
+                            response[0] = e.getMessage();
+                            if (response[0] == null) {
+                                response[0] =
+                                        String.format(
+                                                "InstallException: %s",
+                                                StreamUtil.getStackTrace(e));
+                            }
+                            return false;
+                        }
+                    }
+                };
+        performDeviceAction(
+                String.format("install %s", packageFiles.toString()),
+                installAction,
+                MAX_RETRY_ATTEMPTS);
+        return response[0];
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String installPackages(
+            final List<File> packageFiles, final boolean reinstall, final String... extraArgs)
+            throws DeviceNotAvailableException {
+        // Grant all permissions by default if feature is supported
+        return installPackages(packageFiles, reinstall, isRuntimePermissionSupported(), extraArgs);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String installPackages(
+            List<File> packageFiles,
+            boolean reinstall,
+            boolean grantPermissions,
+            String... extraArgs)
+            throws DeviceNotAvailableException {
+        List<String> args = new ArrayList<>(Arrays.asList(extraArgs));
+        if (grantPermissions) {
+            ensureRuntimePermissionSupported();
+            args.add("-g");
+        }
+        return internalInstallPackages(packageFiles, reinstall, args);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String installPackagesForUser(
+            List<File> packageFiles, boolean reinstall, int userId, String... extraArgs)
+            throws DeviceNotAvailableException {
+        // Grant all permissions by default if feature is supported
+        return installPackagesForUser(
+                packageFiles, reinstall, isRuntimePermissionSupported(), userId, extraArgs);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String installPackagesForUser(
+            List<File> packageFiles,
+            boolean reinstall,
+            boolean grantPermissions,
+            int userId,
+            String... extraArgs)
+            throws DeviceNotAvailableException {
+        List<String> args = new ArrayList<>(Arrays.asList(extraArgs));
+        if (grantPermissions) {
+            ensureRuntimePermissionSupported();
+            args.add("-g");
+        }
+        args.add("--user");
+        args.add(Integer.toString(userId));
+        return internalInstallPackages(packageFiles, reinstall, args);
+    }
+
+    /**
+     * Core implementation for split apk remote installation {@link IDevice#installPackage(String,
+     * boolean, String...)} See "https://developer.android.com/studio/build/configure-apk-splits" on
+     * how to split apk to several files.
+     *
+     * @param remoteApkPaths the remote apk file paths
+     * @param reinstall <code>true</code> if a reinstall should be performed
+     * @param extraArgs optional extra arguments to pass. See 'adb shell pm install --help' for
+     *     available options.
+     * @return the response from the installation <code>null</code> if installation succeeds.
+     * @throws DeviceNotAvailableException
+     */
+    private String internalInstallRemotePackages(
+            final List<String> remoteApkPaths,
+            final boolean reinstall,
+            final List<String> extraArgs)
+            throws DeviceNotAvailableException {
+        // use array to store response, so it can be returned to caller
+        final String[] response = new String[1];
+        DeviceAction installAction =
+                new DeviceAction() {
+                    @Override
+                    public boolean run() throws InstallException {
+                        try {
+                            getIDevice()
+                                    .installRemotePackages(
+                                            remoteApkPaths,
+                                            reinstall,
+                                            extraArgs,
+                                            INSTALL_TIMEOUT_MINUTES,
+                                            TimeUnit.MINUTES);
+                            response[0] = null;
+                            return true;
+                        } catch (InstallException e) {
+                            response[0] = e.getMessage();
+                            if (response[0] == null) {
+                                response[0] = String.format(
+                                    "InstallException during package installation. cause: %s",
+                                    StreamUtil.getStackTrace(e));
+                            }
+                            return false;
+                        }
+                    }
+                };
+        performDeviceAction(
+                String.format("install %s", remoteApkPaths.toString()),
+                installAction,
+                MAX_RETRY_ATTEMPTS);
+        return response[0];
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String installRemotePackages(
+            final List<String> remoteApkPaths, final boolean reinstall, final String... extraArgs)
+            throws DeviceNotAvailableException {
+        // Grant all permissions by default if feature is supported
+        return installRemotePackages(
+                remoteApkPaths, reinstall, isRuntimePermissionSupported(), extraArgs);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String installRemotePackages(
+            List<String> remoteApkPaths,
+            boolean reinstall,
+            boolean grantPermissions,
+            String... extraArgs)
+            throws DeviceNotAvailableException {
+        List<String> args = new ArrayList<>(Arrays.asList(extraArgs));
+        if (grantPermissions) {
+            ensureRuntimePermissionSupported();
+            args.add("-g");
+        }
+        return internalInstallRemotePackages(remoteApkPaths, reinstall, args);
     }
 
     /** {@inheritDoc} */
@@ -347,6 +561,29 @@ public class TestDevice extends NativeDevice {
         // Return an error in the buffer
         return new ByteArrayInputStreamSource(
                 "Error: device reported null for screenshot.".getBytes());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public InputStreamSource getScreenshot(int displayId) throws DeviceNotAvailableException {
+        final String tmpDevicePath = String.format("/data/local/tmp/display_%s.png", displayId);
+        CommandResult result =
+                executeShellV2Command(
+                        String.format("screencap -p -d %s %s", displayId, tmpDevicePath));
+        if (!CommandStatus.SUCCESS.equals(result.getStatus())) {
+            // Return an error in the buffer
+            CLog.e("Error: device reported error for screenshot: %s", result.getStderr());
+            return null;
+        }
+        try {
+            File tmpScreenshot = pullFile(tmpDevicePath);
+            if (tmpScreenshot == null) {
+                return null;
+            }
+            return new FileInputStreamSource(tmpScreenshot, true);
+        } finally {
+            deleteFile(tmpDevicePath);
+        }
     }
 
     private class ScreenshotAction implements DeviceAction {
@@ -505,7 +742,9 @@ public class TestDevice extends NativeDevice {
         int errorDialogCount = 0;
         Pattern crashPattern = Pattern.compile(".*crashing=true.*AppErrorDialog.*");
         Pattern anrPattern = Pattern.compile(".*notResponding=true.*AppNotRespondingDialog.*");
-        String systemStatusOutput = executeShellCommand("dumpsys activity processes");
+        String systemStatusOutput =
+                executeShellCommand(
+                        "dumpsys activity processes | grep -e .*crashing=true.*AppErrorDialog.* -e .*notResponding=true.*AppNotRespondingDialog.*");
         Matcher crashMatcher = crashPattern.matcher(systemStatusOutput);
         while (crashMatcher.find()) {
             errorDialogCount++;
@@ -642,7 +881,11 @@ public class TestDevice extends NativeDevice {
                 CLog.v("framework reboot: device unresponsive to shell command, using fallback");
                 return false;
             }
-            return waitForDeviceNotAvailable(30 * 1000);
+            boolean notAvailable = waitForDeviceNotAvailable(30 * 1000);
+            if (notAvailable) {
+                postAdbReboot();
+            }
+            return notAvailable;
         } else {
             CLog.v("framework reboot: not supported");
             return false;
@@ -659,15 +902,7 @@ public class TestDevice extends NativeDevice {
     @Override
     protected void doAdbReboot(final String into) throws DeviceNotAvailableException {
         if (!doAdbFrameworkReboot(into)) {
-            DeviceAction rebootAction = new DeviceAction() {
-                @Override
-                public boolean run() throws TimeoutException, IOException,
-                        AdbCommandRejectedException {
-                    getIDevice().reboot(into);
-                    return true;
-                }
-            };
-            performDeviceAction("reboot", rebootAction, MAX_RETRY_ATTEMPTS);
+            super.doAdbReboot(into);
         }
     }
 
@@ -676,12 +911,36 @@ public class TestDevice extends NativeDevice {
      */
     @Override
     public Set<String> getInstalledPackageNames() throws DeviceNotAvailableException {
-        return getInstalledPackageNames(new PkgFilter() {
-            @Override
-            public boolean accept(String pkgName, String apkPath) {
-                return true;
+        return getInstalledPackageNames(null, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isPackageInstalled(String packageName) throws DeviceNotAvailableException {
+        return getInstalledPackageNames(packageName, null).contains(packageName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isPackageInstalled(String packageName, String userId)
+            throws DeviceNotAvailableException {
+        return getInstalledPackageNames(packageName, userId).contains(packageName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<ApexInfo> getActiveApexes() throws DeviceNotAvailableException {
+        Set<ApexInfo> ret = new HashSet<>();
+        String output = executeShellCommand(LIST_APEXES_CMD);
+        if (output != null) {
+            Matcher m = APEXES_REGEX.matcher(output);
+            while (m.find()) {
+                String name = m.group(1);
+                long version = Long.valueOf(m.group(2));
+                ret.add(new ApexInfo(name, version));
             }
-        });
+        }
+        return ret;
     }
 
     /**
@@ -740,21 +999,25 @@ public class TestDevice extends NativeDevice {
         return action.mPkgInfoMap.get(packageName);
     }
 
-    private static interface PkgFilter {
-        boolean accept(String pkgName, String apkPath);
-    }
-
     // TODO: convert this to use DumpPkgAction
-    private Set<String> getInstalledPackageNames(PkgFilter filter)
+    private Set<String> getInstalledPackageNames(String packageNameSearched, String userId)
             throws DeviceNotAvailableException {
         Set<String> packages= new HashSet<String>();
-        String output = executeShellCommand(LIST_PACKAGES_CMD);
+        String command = LIST_PACKAGES_CMD;
+        if (userId != null) {
+            command += String.format(" --user %s", userId);
+        }
+        if (packageNameSearched != null) {
+            command += (" | grep " + packageNameSearched);
+        }
+        String output = executeShellCommand(command);
         if (output != null) {
             Matcher m = PACKAGE_REGEX.matcher(output);
             while (m.find()) {
-                String packagePath = m.group(1);
                 String packageName = m.group(2);
-                if (filter.accept(packageName, packagePath)) {
+                if (packageNameSearched != null && packageName.equals(packageNameSearched)) {
+                    packages.add(packageName);
+                } else if (packageNameSearched == null) {
                     packages.add(packageName);
                 }
             }
@@ -853,6 +1116,17 @@ public class TestDevice extends NativeDevice {
         return createUser(name, false, false);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public int createUserNoThrow(String name) throws DeviceNotAvailableException {
+        try {
+            return createUser(name);
+        } catch (IllegalStateException e) {
+            CLog.e("Error creating user: " + e.toString());
+            return -1;
+        }
+    }
+
     /**
      * {@inheritDoc}
      */
@@ -864,6 +1138,7 @@ public class TestDevice extends NativeDevice {
         final String output = executeShellCommand(command);
         if (output.startsWith("Success")) {
             try {
+                resetContentProviderSetup();
                 return Integer.parseInt(output.substring(output.lastIndexOf(" ")).trim());
             } catch (NumberFormatException e) {
                 CLog.e("Failed to parse result: %s", output);
@@ -890,10 +1165,29 @@ public class TestDevice extends NativeDevice {
      */
     @Override
     public boolean startUser(int userId) throws DeviceNotAvailableException {
-        final String output = executeShellCommand(String.format("am start-user %s", userId));
+        return startUser(userId, false);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean startUser(int userId, boolean waitFlag) throws DeviceNotAvailableException {
+        if (waitFlag) {
+            checkApiLevelAgainstNextRelease("start-user -w", 29);
+        }
+        String cmd = "am start-user " + (waitFlag ? "-w " : "") + userId;
+
+        CLog.d("Starting user with command: %s", cmd);
+        final String output = executeShellCommand(cmd);
         if (output.startsWith("Error")) {
             CLog.e("Failed to start user: %s", output);
             return false;
+        }
+        if (waitFlag) {
+            String state = executeShellCommand("am get-started-user-state " + userId);
+            if (!state.contains("RUNNING_UNLOCKED")) {
+                CLog.w("User %s is not RUNNING_UNLOCKED after start-user -w. (%s).", userId, state);
+                return false;
+            }
         }
         return true;
     }
@@ -961,20 +1255,22 @@ public class TestDevice extends NativeDevice {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @Override
-    public int getCurrentUser() throws DeviceNotAvailableException {
+    public int getCurrentUser() throws DeviceNotAvailableException, DeviceRuntimeException {
         checkApiLevelAgainstNextRelease("get-current-user", API_LEVEL_GET_CURRENT_USER);
         final String output = executeShellCommand("am get-current-user");
         try {
             int userId = Integer.parseInt(output.trim());
+            if (userId < 0) {
+                throw new DeviceRuntimeException(
+                        String.format(
+                                "Invalid user id '%s' was returned for get-current-user", userId));
+            }
             return userId;
         } catch (NumberFormatException e) {
-            CLog.e(e);
+            throw new DeviceRuntimeException(e);
         }
-        return INVALID_USER_ID;
     }
 
     private Matcher findUserInfo(String pmListUsersOutput) {
@@ -998,6 +1294,19 @@ public class TestDevice extends NativeDevice {
         }
         CLog.w("Could not find any flags for userId: %d in output: %s", userId, commandOutput);
         return INVALID_USER_ID;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean isUserSecondary(int userId) throws DeviceNotAvailableException {
+        if (userId == UserUtil.USER_SYSTEM) {
+            return false;
+        }
+        int flags = getUserFlags(userId);
+        if (flags == INVALID_USER_ID) {
+            return false;
+        }
+        return (flags & UserUtil.FLAGS_NOT_SECONDARY) == 0;
     }
 
     /**
@@ -1057,6 +1366,7 @@ public class TestDevice extends NativeDevice {
             CLog.w("Already running as user id: %s. Nothing to be done.", userId);
             return true;
         }
+        resetContentProviderSetup();
         executeShellCommand(String.format("am switch-user %d", userId));
         long initialTime = getHostCurrentTime();
         while (getHostCurrentTime() - initialTime <= timeout) {
@@ -1131,6 +1441,35 @@ public class TestDevice extends NativeDevice {
                 return null;
             }
             return output.trim();
+        }
+        CLog.e("Namespace requested: '%s' is not part of {system, secure, global}", namespace);
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Map<String, String> getAllSettings(String namespace) throws DeviceNotAvailableException {
+        return getAllSettingsInternal(namespace.trim());
+    }
+
+    /** Internal helper to get all settings */
+    private Map<String, String> getAllSettingsInternal(String namespace)
+            throws DeviceNotAvailableException {
+        namespace = namespace.toLowerCase();
+        if (Arrays.asList(SETTINGS_NAMESPACE).contains(namespace)) {
+            Map<String, String> map = new HashMap<>();
+            String cmd = String.format("settings list %s", namespace);
+            String output = executeShellCommand(cmd);
+            for (String line : output.split("\\n")) {
+                // Setting's value could be empty
+                String[] pair = line.trim().split("=", -1);
+                if (pair.length > 1) {
+                    map.putIfAbsent(pair[0], pair[1]);
+                } else {
+                    CLog.e("Unable to get setting from string: %s", line);
+                }
+            }
+            return map;
         }
         CLog.e("Namespace requested: '%s' is not part of {system, secure, global}", namespace);
         return null;
@@ -1283,7 +1622,8 @@ public class TestDevice extends NativeDevice {
                 // Line is "Profile owner (User <id>):
                 String[] tokens = line.split("\\(|\\)| ");
                 int userId = Integer.parseInt(tokens[4]);
-                i++;
+
+                i = moveToNextIndexMatchingRegex(".*admin=.*", lines, i);
                 line = lines[i].trim();
                 // Line is admin=ComponentInfo{<component>}
                 tokens = line.split("\\{|\\}");
@@ -1291,13 +1631,14 @@ public class TestDevice extends NativeDevice {
                 CLog.d("Cleaning up profile owner " + userId + " " + componentName);
                 removeAdmin(componentName, userId);
             } else if (line.contains("Device Owner:")) {
-                i++;
+                i = moveToNextIndexMatchingRegex(".*admin=.*", lines, i);
                 line = lines[i].trim();
                 // Line is admin=ComponentInfo{<component>}
                 String[] tokens = line.split("\\{|\\}");
                 String componentName = tokens[1];
+
                 // Skip to user id line.
-                i += 3;
+                i = moveToNextIndexMatchingRegex(".*User ID:.*", lines, i);
                 line = lines[i].trim();
                 // Line is User ID: <N>
                 tokens = line.split(":");
@@ -1309,17 +1650,42 @@ public class TestDevice extends NativeDevice {
     }
 
     /**
+     * Search forward from the current index to find a string matching the given regex.
+     *
+     * @param regex The regex to match each line against.
+     * @param lines An array of strings to be searched.
+     * @param currentIndex the index to start searching from.
+     * @return The index of a string beginning with the regex.
+     * @throws IllegalStateException if the line cannot be found.
+     */
+    private int moveToNextIndexMatchingRegex(String regex, String[] lines, int currentIndex) {
+        while (currentIndex < lines.length && !lines[currentIndex].matches(regex)) {
+            currentIndex++;
+        }
+
+        if (currentIndex >= lines.length) {
+            throw new IllegalStateException(
+                    "The output of 'dumpsys device_policy' was not as expected. Owners have not "
+                            + "been removed. This will leave the device in an unstable state and "
+                            + "will lead to further test failures.");
+        }
+
+        return currentIndex;
+    }
+
+    /**
      * Helper for Api level checking of features in the new release before we incremented the api
      * number.
      */
     private void checkApiLevelAgainstNextRelease(String feature, int strictMinLevel)
             throws DeviceNotAvailableException {
-        String codeName = getProperty(BUILD_CODENAME_PROP).trim();
-        int apiLevel = getApiLevel() + ("REL".equals(codeName) ? 0 : 1);
-        if (apiLevel < strictMinLevel){
-            throw new IllegalArgumentException(String.format("%s not supported on %s. "
-                    + "Must be API %d.", feature, getSerialNumber(), strictMinLevel));
+        if (checkApiLevelAgainstNextRelease(strictMinLevel)) {
+            return;
         }
+        throw new IllegalArgumentException(
+                String.format(
+                        "%s not supported on %s. Must be API %d.",
+                        feature, getSerialNumber(), strictMinLevel));
     }
 
     @Override
@@ -1333,7 +1699,7 @@ public class TestDevice extends NativeDevice {
         }
         File dump = dumpAndPullHeap(pid, devicePath);
         // Clean the device.
-        executeShellCommand(String.format("rm %s", devicePath));
+        deleteFile(devicePath);
         return dump;
     }
 
@@ -1349,5 +1715,27 @@ public class TestDevice extends NativeDevice {
         }
         File dumpFile = pullFile(devicePath);
         return dumpFile;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Set<Integer> listDisplayIds() throws DeviceNotAvailableException {
+        Set<Integer> displays = new HashSet<>();
+        // Zero is the default display
+        displays.add(0);
+        CommandResult res = executeShellV2Command("dumpsys SurfaceFlinger | grep 'color modes:'");
+        if (!CommandStatus.SUCCESS.equals(res.getStatus())) {
+            CLog.e("Something went wrong while listing displays: %s", res.getStderr());
+            return displays;
+        }
+        String output = res.getStdout();
+        Pattern p = Pattern.compile(DISPLAY_ID_PATTERN);
+        for (String line : output.split("\n")) {
+            Matcher m = p.matcher(line);
+            if (m.matches()) {
+                displays.add(Integer.parseInt(m.group("id")));
+            }
+        }
+        return displays;
     }
 }

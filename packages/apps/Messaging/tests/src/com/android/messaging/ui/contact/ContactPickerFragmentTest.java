@@ -18,7 +18,7 @@ package com.android.messaging.ui.contact;
 
 import android.content.Context;
 import android.database.Cursor;
-import android.support.v4.view.ViewPager;
+import androidx.viewpager.widget.ViewPager;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.view.View;
 import android.widget.ListView;
@@ -36,6 +36,7 @@ import com.android.messaging.datamodel.data.TestDataFactory;
 import com.android.messaging.ui.CustomHeaderViewPagerAdapter;
 import com.android.messaging.ui.FragmentTestCase;
 import com.android.messaging.ui.UIIntents;
+import com.android.messaging.ui.contact.ContactPickerFragment;
 import com.android.messaging.ui.contact.ContactPickerFragment.ContactPickerFragmentHost;
 
 import org.mockito.Matchers;

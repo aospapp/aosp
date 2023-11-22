@@ -117,7 +117,9 @@ public class DefaultProxySelector extends ProxySelector {
      * basis, and change it only when the "source", i.e. the system property,
      * did change.
      */
-
+    // Android-note: Integrated some upstream changes from beyond OpenJDK8u121-b13.
+    // This includes NonProxyInfo.pattern -> hostsPool and associated changes.
+    // See http://b/62368386
     static class NonProxyInfo {
         // Default value for nonProxyHosts, this provides backward compatibility
         // by excluding localhost and its litteral notations.

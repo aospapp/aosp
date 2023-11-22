@@ -19,13 +19,13 @@
                 android:layout_height="match_parent"
                 android:transitionName="holder"
                 android:id="@+id/holder">
-    <View android:layout_width="10dp"
-          android:layout_height="10dp"
+    <View android:layout_width="30dp"
+          android:layout_height="30dp"
           android:background="#F00"
           android:transitionName="red"
           android:id="@+id/redSquare" />
-    <View android:layout_width="10dp"
-          android:layout_height="10dp"
+    <View android:layout_width="30dp"
+          android:layout_height="30dp"
           android:background="#0F0"
           android:transitionName="green"
           android:id="@+id/greenSquare"

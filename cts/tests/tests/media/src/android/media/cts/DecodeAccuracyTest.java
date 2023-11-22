@@ -49,6 +49,7 @@ import org.junit.Test;
 
 @TargetApi(24)
 @RunWith(Parameterized.class)
+@MediaHeavyPresubmitTest
 @AppModeFull(reason = "There should be no instant apps specific behavior related to accuracy")
 public class DecodeAccuracyTest extends DecodeAccuracyTestBase {
 

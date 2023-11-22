@@ -57,6 +57,19 @@
     <uses-permission android:name="android.permission.ACCESS_PDB_STATE" />
     <uses-permission android:name="android.permission.PEERS_MAC_ADDRESS" />
 
+    <uses-permission android:name="android.permission.NETWORK_MANAGED_PROVISIONING" />
+
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" />
+    <uses-permission android:name="android.permission.GRANT_PROFILE_OWNER_DEVICE_IDS_ACCESS" />
+
+    <!-- To set the bg color of the deferred setup notification (without a foreground service) -->
+    <uses-permission android:name="android.permission.USE_COLORIZED_NOTIFICATIONS" />
+
+    <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
+
+    <!-- Required by setup design library -->
+    <uses-permission android:name="com.google.android.setupwizard.SETUP_COMPAT_SERVICE" />
+
     <application
         android:label="@string/app_label"
         android:allowClearUserData="false"
@@ -74,7 +87,15 @@
              android:excludeFromRecents="true"
              android:immersive="true"
              android:launchMode="singleTop"
-             android:theme="@style/SuwThemeGlif.Light">
+             android:theme="@style/SudThemeGlifV3.Light">
+        </activity>
+
+        <activity
+            android:name=".provisioning.AdminIntegratedFlowPrepareActivity"
+            android:excludeFromRecents="true"
+            android:immersive="true"
+            android:launchMode="singleTop"
+            android:theme="@style/SudThemeGlifV3.Light">
         </activity>
 
         <activity
@@ -82,7 +103,7 @@
             android:excludeFromRecents="true"
             android:immersive="true"
             android:launchMode="singleTop"
-            android:theme="@style/SuwThemeGlif.Light">
+            android:theme="@style/SudThemeGlifV3.Light">
             <intent-filter android:priority="10">
                 <action android:name="android.app.action.PROVISION_MANAGED_PROFILE" />
                 <action android:name="android.app.action.PROVISION_MANAGED_USER" />
@@ -190,7 +211,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".transition.TransitionActivity"
+            android:theme="@style/SudThemeGlifV3.Light"
+            android:immersive="true"/>
+
         <service android:name=".provisioning.ProvisioningService" />
+        <service android:name=".finalization.SendDpcBroadcastService" />
         <service android:name=".ota.OtaService" />
 
         <receiver android:name="com.android.managedprovisioning.preprovisioning.BootReminder">
@@ -222,11 +249,26 @@
                 android:theme="@android:style/Theme.NoDisplay"
                 android:noHistory="true"
                 android:excludeFromRecents="true"
-                android:exported="true">
+                android:exported="true"
+                android:immersive="true">
             <intent-filter>
                 <action android:name="android.app.action.PROVISION_FINALIZATION" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".provisioning.LandingActivity"
+            android:theme="@style/SudThemeGlifV3.Light"
+            android:immersive="true" />
+
+        <activity
+            android:name=".finalization.FinalScreenActivity"
+            android:theme="@style/SudThemeGlifV3.Light"
+            android:immersive="true" />
+
+        <service
+            android:name=".analytics.ProcessMetricsJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"/>
     </application>
 </manifest>

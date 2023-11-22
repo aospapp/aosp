@@ -275,4 +275,3 @@ bool audio_utils_is_compute_power_format_supported(audio_format_t format)
 {
     return isFormatSupported(format);
 }
-

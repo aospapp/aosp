@@ -23,6 +23,8 @@
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.MANAGE_ACCOUNTS" />
+    <uses-permission android:name="android.permission.MANAGE_DEBUGGING" />
+    <uses-permission android:name="android.permission.MANAGE_SCOPED_ACCESS_DIRECTORY_PERMISSIONS" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
     <uses-permission android:name="android.permission.NETWORK_SETTINGS" />
     <uses-permission android:name="android.permission.OVERRIDE_WIFI_CONFIG" />
@@ -88,9 +90,16 @@
                 <action android:name="com.android.net.wifi.SETUP_WIFI_NETWORK" />
                 <!-- TODO remove custom action when stop including /packages/apps/Settings -->
                 <action android:name="com.android.net.wifi.CANVAS_SETUP_WIFI_NETWORK" />
-
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!--
+            Enabling this <intent-filter> will signal to Setup that WifiSetupActivity will handle
+            network connectivity (in that case Setup will launch us to handle network duty).
+            <intent-filter>
+                <action android:name="com.android.net.GET_CONNECTED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            -->
         </activity>
         <activity
             android:name=".connectivity.WifiConnectionActivity"
@@ -171,12 +180,23 @@
                 <action android:name="android.intent.action.MAIN" />
                 <action android:name="android.settings.APPLICATION_SETTINGS" />
                 <action android:name="android.settings.MANAGE_ALL_APPLICATIONS_SETTINGS" />
-
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.VOICE_LAUNCH" />
                 <category android:name="com.android.settings.SHORTCUT" />
             </intent-filter>
         </activity>
+
+        <activity android:name=".device.apps.specialaccess.PictureInPictureActivity"
+                  android:theme="@style/Theme.Settings.Transparent"
+                  android:taskAffinity=""
+                  android:excludeFromRecents="true"
+                  android:exported="true">
+            <intent-filter android:priority="1">
+                <category android:name="android.intent.category.DEFAULT" />
+                <action android:name="android.settings.PICTURE_IN_PICTURE_SETTINGS" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".device.apps.AppManagementActivity"
             android:theme="@style/Theme.Settings.Transparent"
@@ -231,6 +251,11 @@
                 <action android:name="android.settings.WIFI_SETTINGS" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LEANBACK_SETTINGS" />
+            </intent-filter>
+
+            <intent-filter android:priority="1">
+                <action android:name="android.settings.LOCATION_SCANNING_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <activity
@@ -545,7 +570,7 @@
         <service android:name=".users.UserSwitchListenerService"/>
         <receiver android:name=".users.UserSwitchListenerService$BootReceiver">
             <intent-filter>
-                  <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                  <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
             </intent-filter>
         </receiver>
 
@@ -688,7 +713,7 @@
              Note that "com.android.settings.files" is set here as its authorities because a Uri
              permission grant should be allowed to share a file with an external browser but it is
              allowed only for Settings' authorities in ActivityManagerService.  -->
-        <provider android:name="android.support.v4.content.FileProvider"
+        <provider android:name="androidx.core.content.FileProvider"
                   android:authorities="com.android.settings.files"
                   android:grantUriPermissions="true"
                   android:exported="false">

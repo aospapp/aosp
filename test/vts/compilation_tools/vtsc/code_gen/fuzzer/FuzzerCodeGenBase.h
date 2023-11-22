@@ -32,7 +32,7 @@ namespace vts {
 // All fuzzer code generators should derive from this class.
 class FuzzerCodeGenBase {
  public:
-  FuzzerCodeGenBase(const ComponentSpecificationMessage &comp_spec)
+  explicit FuzzerCodeGenBase(const ComponentSpecificationMessage &comp_spec)
       : comp_spec_(comp_spec) {}
 
   virtual ~FuzzerCodeGenBase(){};

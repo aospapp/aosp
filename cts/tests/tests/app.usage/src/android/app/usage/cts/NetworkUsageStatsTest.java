@@ -36,6 +36,8 @@ import android.platform.test.annotations.AppModeFull;
 import android.telephony.TelephonyManager;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.ShellIdentityUtils;
 import com.android.compatibility.common.util.SystemUtil;
 
 import java.io.FileInputStream;
@@ -337,7 +339,8 @@ public class NetworkUsageStatsTest extends InstrumentationTestCase {
         if (ConnectivityManager.TYPE_MOBILE == networkType) {
             TelephonyManager tm = (TelephonyManager) getInstrumentation().getContext()
                     .getSystemService(Context.TELEPHONY_SERVICE);
-            return tm.getSubscriberId();
+            return ShellIdentityUtils.invokeMethodWithShellPermissions(tm,
+                    (telephonyManager) -> telephonyManager.getSubscriberId());
         }
         return "";
     }

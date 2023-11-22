@@ -22,6 +22,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -30,16 +31,13 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.MainThread;
-import android.support.annotation.NonNull;
 import android.support.annotation.VisibleForTesting;
 import android.support.annotation.WorkerThread;
 import android.support.v4.app.NotificationCompat;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
-import com.android.tv.common.BaseApplication;
 import com.android.tv.common.SoftPreconditions;
-import com.android.tv.common.experiments.Experiments;
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.common.ui.setup.SetupActivity;
 import com.android.tv.common.ui.setup.SetupFragment;
@@ -47,12 +45,14 @@ import com.android.tv.common.ui.setup.SetupMultiPaneFragment;
 import com.android.tv.common.util.AutoCloseableUtils;
 import com.android.tv.common.util.PostalCodeUtils;
 import com.android.tv.tuner.R;
-import com.android.tv.tuner.TunerHal;
-import com.android.tv.tuner.TunerPreferences;
+import com.android.tv.tuner.api.Tuner;
+import com.android.tv.tuner.api.TunerFactory;
+import com.android.tv.tuner.prefs.TunerPreferences;
 import java.util.concurrent.Executor;
+import javax.inject.Inject;
 
 /** The base setup activity class for tuner. */
-public class BaseTunerSetupActivity extends SetupActivity {
+public abstract class BaseTunerSetupActivity extends SetupActivity {
     private static final String TAG = "BaseTunerSetupActivity";
     private static final boolean DEBUG = false;
 
@@ -86,27 +86,21 @@ public class BaseTunerSetupActivity extends SetupActivity {
     protected String mPreviousPostalCode;
     protected boolean mActivityStopped;
     protected boolean mPendingShowInitialFragment;
+    @Inject protected TunerFactory mTunerFactory;
 
-    private TunerHalFactory mTunerHalFactory;
+    private TunerHalCreator mTunerHalCreator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         if (DEBUG) {
             Log.d(TAG, "onCreate");
         }
+        super.onCreate(savedInstanceState);
         mActivityStopped = false;
         executeGetTunerTypeAndCountAsyncTask();
-        mTunerHalFactory =
-                new TunerHalFactory(getApplicationContext(), AsyncTask.THREAD_POOL_EXECUTOR);
-        super.onCreate(savedInstanceState);
-        // TODO: check {@link shouldShowRequestPermissionRationale}.
-        if (checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            // No need to check the request result.
-            requestPermissions(
-                    new String[] {android.Manifest.permission.ACCESS_COARSE_LOCATION},
-                    PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION);
-        }
+        mTunerHalCreator =
+                new TunerHalCreator(
+                        getApplicationContext(), AsyncTask.THREAD_POOL_EXECUTOR, mTunerFactory);
         try {
             // Updating postal code takes time, therefore we called it here for "warm-up".
             mPreviousPostalCode = PostalCodeUtils.getLastPostalCode(this);
@@ -138,25 +132,6 @@ public class BaseTunerSetupActivity extends SetupActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(
-            int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == PERMISSIONS_REQUEST_ACCESS_COARSE_LOCATION) {
-            if (grantResults.length > 0
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED
-                    && Experiments.CLOUD_EPG.get()) {
-                try {
-                    // Updating postal code takes time, therefore we should update postal code
-                    // right after the permission is granted, so that the subsequent operations,
-                    // especially EPG fetcher, could get the newly updated postal code.
-                    PostalCodeUtils.updatePostalCode(this);
-                } catch (Exception e) {
-                    // Do nothing
-                }
-            }
-        }
-    }
-
-    @Override
     protected Fragment onCreateInitialFragment() {
         if (mTunerType != null) {
             SetupFragment fragment = new WelcomeFragment();
@@ -184,10 +159,16 @@ public class BaseTunerSetupActivity extends SetupActivity {
                         break;
                     default:
                         String postalCode = PostalCodeUtils.getLastPostalCode(this);
-                        if (mNeedToShowPostalCodeFragment
-                                || (CommonFeatures.ENABLE_CLOUD_EPG_REGION.isEnabled(
+                        boolean needLocation =
+                                CommonFeatures.ENABLE_CLOUD_EPG_REGION.isEnabled(
                                                 getApplicationContext())
-                                        && TextUtils.isEmpty(postalCode))) {
+                                        && TextUtils.isEmpty(postalCode);
+                        if (needLocation
+                                && checkSelfPermission(
+                                                android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                                        != PackageManager.PERMISSION_GRANTED) {
+                            showLocationFragment();
+                        } else if (mNeedToShowPostalCodeFragment || needLocation) {
                             // We cannot get postal code automatically. Postal code input fragment
                             // should always be shown even if users have input some valid postal
                             // code in this activity before.
@@ -197,6 +178,23 @@ public class BaseTunerSetupActivity extends SetupActivity {
                             showConnectionTypeFragment();
                         }
                         break;
+                }
+                return true;
+            case LocationFragment.ACTION_CATEGORY:
+                switch (actionId) {
+                    case LocationFragment.ACTION_ALLOW_PERMISSION:
+                        String postalCode =
+                                params == null
+                                        ? null
+                                        : params.getString(LocationFragment.KEY_POSTAL_CODE);
+                        if (postalCode == null) {
+                            showPostalCodeFragment();
+                        } else {
+                            showConnectionTypeFragment();
+                        }
+                        break;
+                    default:
+                        showConnectionTypeFragment();
                 }
                 return true;
             case PostalCodeFragment.ACTION_CATEGORY:
@@ -210,7 +208,7 @@ public class BaseTunerSetupActivity extends SetupActivity {
                 }
                 return true;
             case ConnectionTypeFragment.ACTION_CATEGORY:
-                if (mTunerHalFactory.getOrCreate() == null) {
+                if (mTunerHalCreator.getOrCreate() == null) {
                     finish();
                     Toast.makeText(
                                     getApplicationContext(),
@@ -233,7 +231,7 @@ public class BaseTunerSetupActivity extends SetupActivity {
                         getFragmentManager().popBackStack();
                         return true;
                     case ScanFragment.ACTION_FINISH:
-                        mTunerHalFactory.clear();
+                        mTunerHalCreator.clear();
                         showScanResultFragment();
                         return true;
                     default: // fall out
@@ -269,22 +267,36 @@ public class BaseTunerSetupActivity extends SetupActivity {
     }
 
     /** Gets the currently used tuner HAL. */
-    TunerHal getTunerHal() {
-        return mTunerHalFactory.getOrCreate();
+    Tuner getTunerHal() {
+        return mTunerHalCreator.getOrCreate();
     }
 
     /** Generates tuner HAL. */
     void generateTunerHal() {
-        mTunerHalFactory.generate();
+        mTunerHalCreator.generate();
     }
 
     /** Clears the currently used tuner HAL. */
     protected void clearTunerHal() {
-        mTunerHalFactory.clear();
+        mTunerHalCreator.clear();
+    }
+
+    protected void showLocationFragment() {
+        SetupFragment fragment = new LocationFragment();
+        fragment.setShortDistance(
+                SetupFragment.FRAGMENT_ENTER_TRANSITION | SetupFragment.FRAGMENT_RETURN_TRANSITION);
+        showFragment(fragment, true);
     }
 
     protected void showPostalCodeFragment() {
+        showPostalCodeFragment(null);
+    }
+
+    protected void showPostalCodeFragment(Bundle args) {
         SetupFragment fragment = new PostalCodeFragment();
+        if (args != null) {
+            fragment.setArguments(args);
+        }
         fragment.setShortDistance(
                 SetupFragment.FRAGMENT_ENTER_TRANSITION | SetupFragment.FRAGMENT_RETURN_TRANSITION);
         showFragment(fragment, true);
@@ -320,25 +332,28 @@ public class BaseTunerSetupActivity extends SetupActivity {
     /**
      * A callback to be invoked when the TvInputService is enabled or disabled.
      *
+     * @param tunerSetupIntent
      * @param context a {@link Context} instance
      * @param enabled {@code true} for the {@link TunerTvInputService} to be enabled; otherwise
      *     {@code false}
      */
-    public static void onTvInputEnabled(Context context, boolean enabled, Integer tunerType) {
+    public static void onTvInputEnabled(
+            Context context, boolean enabled, Integer tunerType, Intent tunerSetupIntent) {
         // Send a notification for tuner setup if there's no channels and the tuner TV input
         // setup has been not done.
         boolean channelScanDoneOnPreference = TunerPreferences.isScanDone(context);
         int channelCountOnPreference = TunerPreferences.getScannedChannelCount(context);
         if (enabled && !channelScanDoneOnPreference && channelCountOnPreference == 0) {
             TunerPreferences.setShouldShowSetupActivity(context, true);
-            sendNotification(context, tunerType);
+            sendNotification(context, tunerType, tunerSetupIntent);
         } else {
             TunerPreferences.setShouldShowSetupActivity(context, false);
             cancelNotification(context);
         }
     }
 
-    private static void sendNotification(Context context, Integer tunerType) {
+    private static void sendNotification(
+            Context context, Integer tunerType, Intent tunerSetupIntent) {
         SoftPreconditions.checkState(
                 tunerType != null, TAG, "tunerType is null when send notification");
         if (tunerType == null) {
@@ -348,29 +363,29 @@ public class BaseTunerSetupActivity extends SetupActivity {
         String contentTitle = resources.getString(R.string.ut_setup_notification_content_title);
         int contentTextId = 0;
         switch (tunerType) {
-            case TunerHal.TUNER_TYPE_BUILT_IN:
+            case Tuner.TUNER_TYPE_BUILT_IN:
                 contentTextId = R.string.bt_setup_notification_content_text;
                 break;
-            case TunerHal.TUNER_TYPE_USB:
+            case Tuner.TUNER_TYPE_USB:
                 contentTextId = R.string.ut_setup_notification_content_text;
                 break;
-            case TunerHal.TUNER_TYPE_NETWORK:
+            case Tuner.TUNER_TYPE_NETWORK:
                 contentTextId = R.string.nt_setup_notification_content_text;
                 break;
             default: // fall out
         }
         String contentText = resources.getString(contentTextId);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            sendNotificationInternal(context, contentTitle, contentText);
+            sendNotificationInternal(context, contentTitle, contentText, tunerSetupIntent);
         } else {
             Bitmap largeIcon =
                     BitmapFactory.decodeResource(resources, R.drawable.recommendation_antenna);
-            sendRecommendationCard(context, contentTitle, contentText, largeIcon);
+            sendRecommendationCard(context, contentTitle, contentText, largeIcon, tunerSetupIntent);
         }
     }
 
     private static void sendNotificationInternal(
-            Context context, String contentTitle, String contentText) {
+            Context context, String contentTitle, String contentText, Intent tunerSetupIntent) {
         NotificationManager notificationManager =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.createNotificationChannel(
@@ -387,7 +402,8 @@ public class BaseTunerSetupActivity extends SetupActivity {
                                 context.getResources()
                                         .getIdentifier(
                                                 TAG_ICON, TAG_DRAWABLE, context.getPackageName()))
-                        .setContentIntent(createPendingIntentForSetupActivity(context))
+                        .setContentIntent(
+                                createPendingIntentForSetupActivity(context, tunerSetupIntent))
                         .setVisibility(Notification.VISIBILITY_PUBLIC)
                         .extend(new Notification.TvExtender())
                         .build();
@@ -397,10 +413,15 @@ public class BaseTunerSetupActivity extends SetupActivity {
     /**
      * Sends the recommendation card to start the tuner TV input setup activity.
      *
+     * @param tunerSetupIntent
      * @param context a {@link Context} instance
      */
     private static void sendRecommendationCard(
-            Context context, String contentTitle, String contentText, Bitmap largeIcon) {
+            Context context,
+            String contentTitle,
+            String contentText,
+            Bitmap largeIcon,
+            Intent tunerSetupIntent) {
         // Build and send the notification.
         Notification notification =
                 new NotificationCompat.BigPictureStyle(
@@ -418,7 +439,8 @@ public class BaseTunerSetupActivity extends SetupActivity {
                                                                 TAG_DRAWABLE,
                                                                 context.getPackageName()))
                                         .setContentIntent(
-                                                createPendingIntentForSetupActivity(context)))
+                                                createPendingIntentForSetupActivity(
+                                                        context, tunerSetupIntent)))
                         .build();
         NotificationManager notificationManager =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -429,30 +451,27 @@ public class BaseTunerSetupActivity extends SetupActivity {
      * Returns a {@link PendingIntent} to launch the tuner TV input service.
      *
      * @param context a {@link Context} instance
+     * @param tunerSetupIntent
      */
-    private static PendingIntent createPendingIntentForSetupActivity(Context context) {
+    private static PendingIntent createPendingIntentForSetupActivity(
+            Context context, Intent tunerSetupIntent) {
         return PendingIntent.getActivity(
-                context,
-                0,
-                BaseApplication.getSingletons(context).getTunerSetupIntent(context),
-                PendingIntent.FLAG_UPDATE_CURRENT);
+                context, 0, tunerSetupIntent, PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
-    /** A static factory for {@link TunerHal} instances * */
+    /** Creates {@link Tuner} instances in a worker thread * */
     @VisibleForTesting
-    protected static class TunerHalFactory {
+    protected static class TunerHalCreator {
         private Context mContext;
-        @VisibleForTesting TunerHal mTunerHal;
-        private TunerHalFactory.GenerateTunerHalTask mGenerateTunerHalTask;
+        @VisibleForTesting Tuner mTunerHal;
+        private TunerHalCreator.GenerateTunerHalTask mGenerateTunerHalTask;
         private final Executor mExecutor;
+        private final TunerFactory mTunerFactory;
 
-        TunerHalFactory(Context context) {
-            this(context, AsyncTask.SERIAL_EXECUTOR);
-        }
-
-        TunerHalFactory(Context context, Executor executor) {
+        TunerHalCreator(Context context, Executor executor, TunerFactory tunerFactory) {
             mContext = context;
             mExecutor = executor;
+            mTunerFactory = tunerFactory;
         }
 
         /**
@@ -460,7 +479,7 @@ public class BaseTunerSetupActivity extends SetupActivity {
          * before, tries to generate it synchronously.
          */
         @WorkerThread
-        TunerHal getOrCreate() {
+        Tuner getOrCreate() {
             if (mGenerateTunerHalTask != null
                     && mGenerateTunerHalTask.getStatus() != AsyncTask.Status.FINISHED) {
                 try {
@@ -478,7 +497,7 @@ public class BaseTunerSetupActivity extends SetupActivity {
         @MainThread
         void generate() {
             if (mGenerateTunerHalTask == null && mTunerHal == null) {
-                mGenerateTunerHalTask = new TunerHalFactory.GenerateTunerHalTask();
+                mGenerateTunerHalTask = new TunerHalCreator.GenerateTunerHalTask();
                 mGenerateTunerHalTask.executeOnExecutor(mExecutor);
             }
         }
@@ -497,18 +516,18 @@ public class BaseTunerSetupActivity extends SetupActivity {
         }
 
         @WorkerThread
-        protected TunerHal createInstance() {
-            return TunerHal.createInstance(mContext);
+        protected Tuner createInstance() {
+            return mTunerFactory.createInstance(mContext);
         }
 
-        class GenerateTunerHalTask extends AsyncTask<Void, Void, TunerHal> {
+        class GenerateTunerHalTask extends AsyncTask<Void, Void, Tuner> {
             @Override
-            protected TunerHal doInBackground(Void... args) {
+            protected Tuner doInBackground(Void... args) {
                 return createInstance();
             }
 
             @Override
-            protected void onPostExecute(TunerHal tunerHal) {
+            protected void onPostExecute(Tuner tunerHal) {
                 mTunerHal = tunerHal;
             }
         }

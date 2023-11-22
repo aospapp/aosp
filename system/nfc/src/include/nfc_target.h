@@ -330,6 +330,11 @@
 #define RW_I93_FLAG_DATA_RATE I93_FLAG_DATA_RATE_HIGH
 #endif
 
+/* RW Mifare Classic Tag timeout for each API call, in ms */
+#ifndef RW_MFC_TOUT_RESP
+#define RW_MFC_TOUT_RESP 300
+#endif
+
 /* TRUE, to include Card Emulation related test commands */
 #ifndef CE_TEST_INCLUDED
 #define CE_TEST_INCLUDED FALSE
@@ -423,7 +428,7 @@
 /* Response Waiting Time */
 #ifndef LLCP_WAITING_TIME
 /* its scaled value should be less than LTO */
-#define LLCP_WAITING_TIME 7
+#define LLCP_WAITING_TIME 8
 #endif
 
 /* Options Parameters */

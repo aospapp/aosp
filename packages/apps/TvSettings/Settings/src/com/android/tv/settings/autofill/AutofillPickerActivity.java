@@ -20,8 +20,8 @@ import android.app.Fragment;
 import android.content.Intent;
 import android.os.Bundle;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 /**
  * Activity pick current autofill service
@@ -43,25 +43,7 @@ public class AutofillPickerActivity extends TvSettingsActivity {
 
     @Override
     protected Fragment createSettingsFragment() {
-        return SettingsFragment.newInstance();
-    }
-
-    /**
-     * SettingsFragment for AutofillPickerActivity
-     */
-    public static class SettingsFragment extends BaseSettingsFragment {
-
-        /**
-         * @return new SettingsFragment instance
-         */
-        public static SettingsFragment newInstance() {
-            return new SettingsFragment();
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final AutofillPickerFragment fragment = AutofillPickerFragment.newInstance();
-            startPreferenceFragment(fragment);
-        }
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+                .newSettingsFragment(AutofillPickerFragment.class.getName(), null);
     }
 }

@@ -23,6 +23,7 @@ import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.testtype.python.PythonBinaryHostTest;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
@@ -38,7 +39,10 @@ import java.util.regex.Pattern;
 
 /**
  * Runs Python tests written with the unittest library.
+ *
+ * @deprecated Use {@link PythonBinaryHostTest} instead.
  */
+@Deprecated
 @OptionClass(alias = "python-unit")
 public class PythonUnitTestRunner implements IRemoteTest, IBuildReceiver {
 

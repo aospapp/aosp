@@ -1,45 +1,47 @@
-#############################################
-#     KeyChain Robolectric test target.     #
-#############################################
-LOCAL_PATH:= $(call my-dir)
+#############################################################
+# KeyChain Robolectric test target.                         #
+#############################################################
+LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
+
+LOCAL_MODULE := KeyChainRoboTests
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-# Include the testing libraries (JUnit4 + Robolectric libs).
-LOCAL_STATIC_JAVA_LIBRARIES := \
+LOCAL_RESOURCE_DIR := \
+    $(LOCAL_PATH)/res
+
+LOCAL_JAVA_RESOURCE_DIRS := config
+
+# Include the testing libraries
+LOCAL_JAVA_LIBRARIES := \
+    robolectric_android-all-stub \
+    Robolectric_all-target \
     mockito-robolectric-prebuilt \
-    platform-robolectric-android-all-stubs \
     truth-prebuilt
 
-LOCAL_JAVA_LIBRARIES := \
-    junit \
-    platform-robolectric-3.6.1-prebuilt \
-    telephony-common
-
 LOCAL_INSTRUMENTATION_FOR := KeyChain
-LOCAL_MODULE := KeyChainRoboTests
 
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
 #############################################################
-# Settings runner target to run the previous target. #
+# KeyChain runner target to run the previous target.        #
 #############################################################
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := RunKeyChainRoboTests
 
-LOCAL_SDK_VERSION := current
-
-LOCAL_STATIC_JAVA_LIBRARIES := \
-    KeyChainRoboTests
+LOCAL_JAVA_LIBRARIES := \
+    KeyChainRoboTests \
+    robolectric_android-all-stub \
+    Robolectric_all-target \
+    mockito-robolectric-prebuilt \
+    truth-prebuilt
 
 LOCAL_TEST_PACKAGE := KeyChain
 
 LOCAL_INSTRUMENT_SOURCE_DIRS := $(dir $(LOCAL_PATH))../src
 
-LOCAL_ROBOTEST_TIMEOUT := 36000
-
-include prebuilts/misc/common/robolectric/3.6.1/run_robotests.mk
+include external/robolectric-shadows/run_robotests.mk

@@ -37,10 +37,13 @@ func SetupOutDir(ctx Context, config Config) {
 
 var combinedBuildNinjaTemplate = template.Must(template.New("combined").Parse(`
 builddir = {{.OutDir}}
-{{if .HasKatiSuffix}}include {{.KatiNinjaFile}}
+pool local_pool
+ depth = {{.Parallel}}
+build _kati_always_build_: phony
+{{if .HasKatiSuffix}}subninja {{.KatiBuildNinjaFile}}
+subninja {{.KatiPackageNinjaFile}}
 {{end -}}
-include {{.SoongNinjaFile}}
-build {{.CombinedNinjaFile}}: phony {{.SoongNinjaFile}}
+subninja {{.SoongNinjaFile}}
 `))
 
 func createCombinedBuildNinjaFile(ctx Context, config Config) {
@@ -71,6 +74,17 @@ const (
 	RunBuildTests      = 1 << iota
 	BuildAll           = BuildProductConfig | BuildSoong | BuildKati | BuildNinja
 )
+
+func checkProblematicFiles(ctx Context) {
+	files := []string{"Android.mk", "CleanSpec.mk"}
+	for _, file := range files {
+		if _, err := os.Stat(file); !os.IsNotExist(err) {
+			absolute := absPath(ctx, file)
+			ctx.Printf("Found %s in tree root. This file needs to be removed to build.\n", file)
+			ctx.Fatalf("    rm %s\n", absolute)
+		}
+	}
+}
 
 func checkCaseSensitivity(ctx Context, config Config) {
 	outDir := config.OutDir()
@@ -106,9 +120,7 @@ func checkCaseSensitivity(ctx Context, config Config) {
 func help(ctx Context, config Config, what int) {
 	cmd := Command(ctx, config, "help.sh", "build/make/help.sh")
 	cmd.Sandbox = dumpvarsSandbox
-	cmd.Stdout = ctx.Stdout()
-	cmd.Stderr = ctx.Stderr()
-	cmd.RunOrFatal()
+	cmd.RunAndPrintOrFatal()
 }
 
 // Build the tree. The 'what' argument can be used to chose which components of
@@ -134,11 +146,20 @@ func Build(ctx Context, config Config, what int) {
 	buildLock := BecomeSingletonOrFail(ctx, config)
 	defer buildLock.Unlock()
 
+	checkProblematicFiles(ctx)
+
 	SetupOutDir(ctx, config)
 
 	checkCaseSensitivity(ctx, config)
 
 	ensureEmptyDirectoriesExist(ctx, config.TempDir())
+
+	SetupPath(ctx, config)
+
+	if config.StartGoma() {
+		// Ensure start Goma compiler_proxy
+		startGoma(ctx, config)
+	}
 
 	if what&BuildProductConfig != 0 {
 		// Run make for product config
@@ -162,7 +183,10 @@ func Build(ctx Context, config Config, what int) {
 
 	if what&BuildKati != 0 {
 		// Run ckati
-		runKati(ctx, config)
+		genKatiSuffix(ctx, config)
+		runKatiCleanSpec(ctx, config)
+		runKatiBuild(ctx, config)
+		runKatiPackage(ctx, config)
 
 		ioutil.WriteFile(config.LastKatiSuffixFile(), []byte(config.KatiSuffix()), 0777)
 	} else {

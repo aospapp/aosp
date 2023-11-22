@@ -16,18 +16,7 @@
 
 package com.android.tradefed.targetprep;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.util.Base64;
-import java.util.List;
-import java.util.LinkedList;
-import java.util.NoSuchElementException;
-
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
@@ -36,17 +25,40 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.targetprep.multi.IMultiTargetPreparer;
-import com.android.tradefed.util.CommandResult;
-import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
+import com.android.tradefed.util.StreamUtil;
 import com.android.tradefed.util.VtsDashboardUtil;
 import com.android.tradefed.util.VtsVendorConfigFileUtil;
-
+import com.android.vts.proto.VtsComponentSpecificationMessage.ComponentSpecificationMessage;
+import com.android.vts.proto.VtsComponentSpecificationMessage.FunctionSpecificationMessage;
+import com.android.vts.proto.VtsReportMessage.ApiCoverageReportMessage;
 import com.android.vts.proto.VtsReportMessage.DashboardPostMessage;
+import com.android.vts.proto.VtsReportMessage.HalInterfaceMessage;
 import com.android.vts.proto.VtsReportMessage.TestPlanReportMessage;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.TextFormat;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.nio.file.Files;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 /**
  * Uploads the VTS test plan execution result to the web DB using a RESTful API and
  * an OAuth2 credential kept in a json file.
@@ -73,12 +85,13 @@ public class VtsTestPlanResultReporter
             description = "The default config file type, e.g., `prod` or `staging`.")
     private String mDefaultType = VtsVendorConfigFileUtil.VENDOR_TEST_CONFIG_DEFAULT_TYPE;
 
+    private File mStatusDir;
+
     /**
      * {@inheritDoc}
      */
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo) {
-        File mStatusDir = null;
         try {
             mStatusDir = FileUtil.createTempDir(TEST_PLAN_EXECUTION_RESULT);
             if (mStatusDir != null) {
@@ -93,8 +106,10 @@ public class VtsTestPlanResultReporter
         // Use IBuildInfo to pass the uesd vendor config information to the rest of workflow.
         buildInfo.addBuildAttribute(
                 VtsVendorConfigFileUtil.KEY_VENDOR_TEST_CONFIG_DEFAULT_TYPE, mDefaultType);
-        buildInfo.addBuildAttribute(
-                VtsVendorConfigFileUtil.KEY_VENDOR_TEST_CONFIG_FILE_PATH, mVendorConfigFilePath);
+        if (mVendorConfigFilePath != null) {
+            buildInfo.addBuildAttribute(VtsVendorConfigFileUtil.KEY_VENDOR_TEST_CONFIG_FILE_PATH,
+                    mVendorConfigFilePath);
+        }
         configReader = new VtsVendorConfigFileUtil();
         configReader.LoadVendorConfig(buildInfo);
         dashboardUtil = new VtsDashboardUtil(configReader);
@@ -115,9 +130,16 @@ public class VtsTestPlanResultReporter
     @Override
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e) {
         File reportFile = buildInfo.getFile(TEST_PLAN_REPORT_FILE);
+        if (reportFile == null) {
+            CLog.e("Couldn't find %s to post results. Skipping tearDown.",
+                    TEST_PLAN_REPORT_FILE_NAME);
+            // Just in case clean up the directory.
+            FileUtil.recursiveDelete(mStatusDir);
+            return;
+        }
         String repotFilePath = reportFile.getAbsolutePath();
-        DashboardPostMessage postMessage = new DashboardPostMessage();
-        TestPlanReportMessage testPlanMessage = new TestPlanReportMessage();
+        DashboardPostMessage.Builder postMessage = DashboardPostMessage.newBuilder();
+        TestPlanReportMessage.Builder testPlanMessage = TestPlanReportMessage.newBuilder();
         testPlanMessage.setTestPlanName(mPlanName);
         boolean found = false;
         try (BufferedReader br = new BufferedReader(new FileReader(repotFilePath))) {
@@ -133,13 +155,16 @@ public class VtsTestPlanResultReporter
                 found = true;
             }
         } catch (IOException ex) {
-            CLog.d(String.format("Can't read the test plan result file %s", repotFilePath));
+            CLog.d("Can't read the test plan result file %s", repotFilePath);
             return;
         }
-        File reportDir = reportFile.getParentFile();
-        CLog.d(String.format("Delete report dir %s", reportDir.getAbsolutePath()));
-        FileUtil.recursiveDelete(reportDir);
-        postMessage.addTestPlanReport(testPlanMessage);
+        // For profiling test plan, add the baseline API report.
+        if (mPlanName.endsWith("profiling")) {
+            addApiReportToTestPlanMessage(device, buildInfo, testPlanMessage);
+        }
+        CLog.d("Delete report dir %s", mStatusDir.getAbsolutePath());
+        FileUtil.recursiveDelete(mStatusDir);
+        postMessage.addTestPlanReport(testPlanMessage.build());
         if (found) {
             dashboardUtil.Upload(postMessage);
         }
@@ -152,5 +177,116 @@ public class VtsTestPlanResultReporter
     public void tearDown(IInvocationContext context, Throwable e)
             throws DeviceNotAvailableException {
         tearDown(context.getDevices().get(0), context.getBuildInfos().get(0), e);
+    }
+
+    /**
+     * Method to parse all packaged .vts specs and get the list of all defined APIs
+     *
+     * @param device the target device.
+     * @param buildInfo the build info of the target device.
+     * @param testPlanMessage testPlanMessage builder for updating the report message.
+     */
+    private void addApiReportToTestPlanMessage(ITestDevice device, IBuildInfo buildInfo,
+            TestPlanReportMessage.Builder testPlanMessage) {
+        CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(buildInfo);
+        Map<String, String> hal_release_map = new HashMap<String, String>();
+        File test_dir;
+        try {
+            test_dir = buildHelper.getTestsDir();
+        } catch (FileNotFoundException e) {
+            CLog.e("Failed to get test dir, error: " + e.getMessage());
+            return;
+        }
+        // Get the interface --> release_version mapping.
+        File hal_release_path = new File(test_dir, "DATA/etc/hidl_hals_for_release.json");
+        hal_release_map = creatHalRelaseMap(hal_release_path.getAbsolutePath());
+        if (hal_release_map == null) {
+            CLog.e("Failed to create hal releas map");
+            return;
+        }
+
+        List<File> specFiles = new ArrayList<File>();
+        try {
+            File specDir = new File(test_dir, "spec/hardware/interfaces");
+            Files.walk(specDir.toPath())
+                    .filter(p
+                            -> (p.toString().endsWith(".vts")
+                                    && !p.toString().endsWith("types.vts")))
+                    .forEach(p -> specFiles.add(p.toFile()));
+        } catch (IOException e) {
+            CLog.e("Failed to get spec files, error: " + e.getMessage());
+            return;
+        }
+
+        for (File specFile : specFiles) {
+            try {
+                InputStreamReader reader =
+                        new InputStreamReader(new FileInputStream(specFile), "ASCII");
+                ComponentSpecificationMessage.Builder spec_builder =
+                        ComponentSpecificationMessage.newBuilder();
+                TextFormat.merge(reader, spec_builder);
+                ComponentSpecificationMessage spec = spec_builder.build();
+                String full_api_name = spec.getPackage().toString("ASCII") + '@'
+                        + Integer.toString(spec.getComponentTypeVersionMajor()) + '.'
+                        + Integer.toString(spec.getComponentTypeVersionMinor())
+                        + "::" + spec.getComponentName().toString("ASCII");
+
+                HalInterfaceMessage.Builder halInterfaceMsg = HalInterfaceMessage.newBuilder();
+                halInterfaceMsg.setHalPackageName(spec.getPackage());
+                halInterfaceMsg.setHalVersionMajor(spec.getComponentTypeVersionMajor());
+                halInterfaceMsg.setHalVersionMinor(spec.getComponentTypeVersionMinor());
+                halInterfaceMsg.setHalInterfaceName(spec.getComponentName());
+                String release_level = hal_release_map.get(full_api_name);
+                if (release_level == null) {
+                    CLog.w("could not get the release level for %s", full_api_name);
+                    continue;
+                }
+                halInterfaceMsg.setHalReleaseLevel(ByteString.copyFrom(release_level.getBytes()));
+                ApiCoverageReportMessage.Builder apiReport = ApiCoverageReportMessage.newBuilder();
+                apiReport.setHalInterface(halInterfaceMsg.build());
+                for (FunctionSpecificationMessage api : spec.getInterface().getApiList()) {
+                    if (!api.getIsInherited())
+                        apiReport.addHalApi(api.getName());
+                }
+                testPlanMessage.addHalApiReport(apiReport.build());
+            } catch (Exception e) {
+                CLog.i("Failed to parse spec file: " + specFile.getAbsolutePath()
+                        + " error: " + e.getMessage());
+                continue;
+            }
+        }
+    }
+
+    /**
+     * Method to parse the hal release file and create a mapping between HAL interfaces and their
+     * corresponding release version.
+     *
+     * @param hal_release_file_path path to the hal release file.
+     * @return a map for HAL interfaces and their corresponding release version.
+     */
+    private Map<String, String> creatHalRelaseMap(String hal_release_file_path) {
+        Map<String, String> hal_release_map = new HashMap<String, String>();
+        try {
+            InputStream hal_release = new FileInputStream(hal_release_file_path);
+            if (hal_release == null) {
+                CLog.e("hal_release file %s does not exist", hal_release_file_path);
+                return hal_release_map;
+            }
+            String content = StreamUtil.getStringFromStream(hal_release);
+            JSONObject hal_release_json = new JSONObject(content);
+            Iterator<String> keys = hal_release_json.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                JSONArray value = (JSONArray) hal_release_json.get(key);
+                for (int i = 0; i < value.length(); i++) {
+                    String type = (String) value.get(i);
+                    hal_release_map.put(type, key);
+                }
+            }
+        } catch (IOException | JSONException e) {
+            CLog.e("Failed to parse hal release file, error: " + e.getMessage());
+            return null;
+        }
+        return hal_release_map;
     }
 }

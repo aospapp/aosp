@@ -1,0 +1,3 @@
+allow platform_app mali_device:chr_file { getattr ioctl open read write };
+allow platform_app hi_vfmw_device:chr_file { write read open ioctl getattr};
+allow platform_app hi_overlay_file:file { read open getattr };

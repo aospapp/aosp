@@ -21,7 +21,6 @@
 cc_defaults {
     name: "core_native_default_flags",
     host_supported: true,
-    local_include_dirs: ["include"],
     cflags: [
         "-Wall",
         "-Wextra",
@@ -38,12 +37,9 @@ cc_defaults {
 
 cc_defaults {
     name: "core_native_default_libs",
-    static_libs: [
-        "libbase",
-        "libfdlibm",
-    ],
 
     shared_libs: [
+        "libbase",
         "liblog",
         "libnativehelper",
     ],
@@ -59,8 +55,9 @@ cc_library_shared {
         ":luni_native_srcs",
         "dalvik/src/main/native/org_apache_harmony_dalvik_NativeTestTarget.cpp",
     ],
-
     shared_libs: [
+        "libandroidio",
+        "libbase",
         "libcrypto",
         "libexpat",
         "libicuuc",
@@ -70,14 +67,33 @@ cc_library_shared {
     ],
     static_libs: [
         "libziparchive",
-        "libbase",
     ],
     target: {
         android: {
-            shared_libs: [
-                "libutils",
+            cflags: [
+                // -DANDROID_LINK_SHARED_ICU4C to enable access to the full ICU4C.
+                // See external/icu/android_icu4c/include/uconfig_local.h
+                // for more information.
+                "-DANDROID_LINK_SHARED_ICU4C",
             ],
         },
+    },
+}
+
+cc_library_shared {
+    name: "libandroidio",
+    defaults: [
+        "core_native_default_flags",
+    ],
+    shared_libs: [
+        "liblog",
+    ],
+    srcs: [
+        ":libandroidio_srcs",
+    ],
+    stubs: {
+        symbol_file: "libandroidio.map.txt",
+        versions: ["1"],
     },
 }
 
@@ -88,6 +104,9 @@ cc_defaults {
         "core_native_default_libs",
     ],
     srcs: [":libopenjdk_native_srcs"],
+    include_dirs: [
+        "libcore/luni/src/main/native",
+    ],
     cflags: [
         // TODO(narayan): Prune down this list of exclusions once the underlying
         // issues have been fixed. Most of these are small changes except for
@@ -97,18 +116,14 @@ cc_defaults {
         "-Wno-parentheses-equality",
         "-Wno-constant-logical-operand",
         "-Wno-sometimes-uninitialized",
-
-        // TODO(http://b/64362645): remove when upstream replaces readdir_r with readdir.
-        "-Wno-deprecated-declarations",
     ],
 
     shared_libs: [
+        "libandroidio",
         "libcrypto",
         "libicuuc",
-        "libssl",
-        "libz",
-
         "libnativehelper",
+        "libz",
     ],
     static_libs: ["libfdlibm"],
 
@@ -119,6 +134,17 @@ cc_defaults {
                 "-D_GNU_SOURCE",
                 "-DLINUX",
                 "-D__GLIBC__",
+            ],
+        },
+        android: {
+            cflags: [
+                // -DANDROID_LINK_SHARED_ICU4C to enable access to the full ICU4C.
+                // See external/icu/android_icu4c/include/uconfig_local.h
+                // for more information.
+                "-DANDROID_LINK_SHARED_ICU4C",
+            ],
+            shared_libs: [
+                "libdl_android",
             ],
         },
     },

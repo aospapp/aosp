@@ -23,6 +23,7 @@
 
 #include "base/utils.h"
 #include "class_linker-inl.h"
+#include "class_verifier.h"
 #include "common_runtime_test.h"
 #include "dex/dex_file-inl.h"
 #include "scoped_thread_state_change-inl.h"
@@ -35,14 +36,14 @@ class MethodVerifierTest : public CommonRuntimeTest {
  protected:
   void VerifyClass(const std::string& descriptor)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    ASSERT_TRUE(descriptor != nullptr);
+    ASSERT_FALSE(descriptor.empty());
     Thread* self = Thread::Current();
-    mirror::Class* klass = class_linker_->FindSystemClass(self, descriptor.c_str());
+    ObjPtr<mirror::Class> klass = class_linker_->FindSystemClass(self, descriptor.c_str());
 
     // Verify the class
     std::string error_msg;
-    FailureKind failure = MethodVerifier::VerifyClass(
-        self, klass, nullptr, true, HardFailLogMode::kLogWarning, &error_msg);
+    FailureKind failure = ClassVerifier::VerifyClass(
+        self, klass, nullptr, true, HardFailLogMode::kLogWarning, /* api_level= */ 0u, &error_msg);
 
     if (android::base::StartsWith(descriptor, "Ljava/lang/invoke")) {
       ASSERT_TRUE(failure == FailureKind::kSoftFailure ||
@@ -57,7 +58,7 @@ class MethodVerifierTest : public CommonRuntimeTest {
       REQUIRES_SHARED(Locks::mutator_lock_) {
     // Verify all the classes defined in this file
     for (size_t i = 0; i < dex.NumClassDefs(); i++) {
-      const DexFile::ClassDef& class_def = dex.GetClassDef(i);
+      const dex::ClassDef& class_def = dex.GetClassDef(i);
       const char* descriptor = dex.GetClassDescriptor(class_def);
       VerifyClass(descriptor);
     }

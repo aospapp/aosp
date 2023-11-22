@@ -16,10 +16,12 @@
 
 package android.admin.cts;
 
+import static android.app.admin.DeviceAdminReceiver.ACTION_LOCK_TASK_ENTERING;
 import static android.app.admin.DeviceAdminReceiver.ACTION_PASSWORD_CHANGED;
 import static android.app.admin.DeviceAdminReceiver.ACTION_PASSWORD_FAILED;
 import static android.app.admin.DeviceAdminReceiver.ACTION_PASSWORD_SUCCEEDED;
 import static android.app.admin.DeviceAdminReceiver.ACTION_PASSWORD_EXPIRING;
+import static android.app.admin.DeviceAdminReceiver.EXTRA_LOCK_TASK_PACKAGE;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.argThat;
@@ -207,6 +209,34 @@ public class DeviceAdminReceiverTest extends AndroidTestCase {
         mReceiver.onReceive(mContext, networkLogsAvailableIntent);
         verify(mReceiver).onNetworkLogsAvailable(any(), actionEq(ACTION_NETWORK_LOGS_AVAILABLE),
                 eq(NETWORK_LOGS_TOKEN), eq(NETWORK_LOGS_COUNT));
+    }
+
+    @Presubmit
+    public void testOnReceive_enterLockTaskWithoutPackage_callsCallback() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceive_enterLockTask_callsCallback");
+            return;
+        }
+        final Intent intent = new Intent(ACTION_LOCK_TASK_ENTERING);
+
+        mReceiver.onReceive(mContext, intent);
+
+        verify(mReceiver).onLockTaskModeEntering(mContext, intent, null);
+    }
+
+    @Presubmit
+    public void testOnReceive_enterLockTaskWithPackage_callsCallback() {
+        if (!mDeviceAdmin) {
+            Log.w(TAG, "Skipping testOnReceive_enterLockTask_callsCallback");
+            return;
+        }
+        final Intent intent = new Intent(ACTION_LOCK_TASK_ENTERING);
+        final String pkg = "pkg";
+        intent.putExtra(EXTRA_LOCK_TASK_PACKAGE, pkg);
+
+        mReceiver.onReceive(mContext, intent);
+
+        verify(mReceiver).onLockTaskModeEntering(mContext, intent, pkg);
     }
 
     private Intent actionEq(final String expected) {

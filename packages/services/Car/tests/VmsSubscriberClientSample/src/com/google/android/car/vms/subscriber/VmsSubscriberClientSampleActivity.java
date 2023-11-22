@@ -17,15 +17,18 @@
 package com.google.android.car.vms.subscriber;
 
 import android.app.Activity;
+import android.car.Car;
 import android.car.vms.VmsAvailableLayers;
 import android.car.vms.VmsLayer;
 import android.car.vms.VmsSubscriberManager;
+import android.content.ComponentName;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.car.Car;
-import android.support.car.CarConnectionCallback;
+import android.os.IBinder;
 import android.util.Log;
 import android.widget.TextView;
+
 import java.util.concurrent.Executor;
 
 /**
@@ -57,7 +60,7 @@ public class VmsSubscriberClientSampleActivity extends Activity {
         setContentView(R.layout.activity_main);
         mTextView = (TextView) findViewById(R.id.textview);
         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) {
-            mCarApi = Car.createCar(this, mCarConnectionCallback);
+            mCarApi = Car.createCar(this, mCarServiceConnection);
             mCarApi.connect();
         } else {
             Log.d(TAG, "No automotive feature.");
@@ -73,36 +76,31 @@ public class VmsSubscriberClientSampleActivity extends Activity {
         Log.i(TAG, "onDestroy");
     }
 
-    private final CarConnectionCallback mCarConnectionCallback = new CarConnectionCallback() {
+    private final ServiceConnection mCarServiceConnection = new ServiceConnection() {
         @Override
-        public void onConnected(Car car) {
+        public void onServiceConnected(ComponentName name, IBinder service) {
             Log.d(TAG, "Connected to Car Service");
             mVmsSubscriberManager = getVmsSubscriberManager();
             configureSubscriptions(mVmsSubscriberManager);
         }
 
         @Override
-        public void onDisconnected(Car car) {
+        public void onServiceDisconnected(ComponentName name) {
             Log.d(TAG, "Disconnect from Car Service");
+            if (mVmsSubscriberManager != null) {
+                mVmsSubscriberManager.clearVmsSubscriberClientCallback();
+                mVmsSubscriberManager.unsubscribe(TEST_LAYER);
+            }
         }
 
         private VmsSubscriberManager getVmsSubscriberManager() {
-            try {
-                return (VmsSubscriberManager) mCarApi.getCarManager(
-                        android.car.Car.VMS_SUBSCRIBER_SERVICE);
-            } catch (android.support.car.CarNotConnectedException e) {
-                Log.e(TAG, "Car is not connected!", e);
-            }
-            return null;
+            return (VmsSubscriberManager) mCarApi.getCarManager(
+                    Car.VMS_SUBSCRIBER_SERVICE);
         }
 
         private void configureSubscriptions(VmsSubscriberManager vmsSubscriberManager) {
-            try {
-                vmsSubscriberManager.setVmsSubscriberClientCallback(mExecutor, mClientCallback);
-                vmsSubscriberManager.subscribe(TEST_LAYER);
-            } catch (android.car.CarNotConnectedException e) {
-                Log.e(TAG, "Car is not connected!", e);
-            }
+            vmsSubscriberManager.setVmsSubscriberClientCallback(mExecutor, mClientCallback);
+            vmsSubscriberManager.subscribe(TEST_LAYER);
         }
 
     };

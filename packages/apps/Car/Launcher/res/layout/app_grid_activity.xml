@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Copyright (C) 2018 The Android Open Source Project
+    Copyright (C) 2019 The Android Open Source Project
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -19,21 +19,18 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="@color/car_card"
+    android:layout_height="match_parent"
     android:orientation="vertical">
 
     <include
         layout="@layout/app_grid_activity_header"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="@dimen/car_padding_4" />
+        android:layout_height="wrap_content"/>
 
-    <androidx.car.widget.PagedListView
+    <com.android.car.apps.common.widget.PagedRecyclerView
         android:id="@+id/apps_grid"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:scrollBarTopMargin="0dp"
-        app:dayNightStyle="auto"
-        app:showPagedListViewDivider="false" />
+    />
 </LinearLayout>
+

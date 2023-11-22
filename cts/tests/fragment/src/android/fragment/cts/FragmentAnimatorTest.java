@@ -29,12 +29,13 @@ import android.app.FragmentController;
 import android.app.FragmentManager;
 import android.app.FragmentManagerNonConfig;
 import android.os.Parcelable;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Pair;
 import android.view.View;
 import android.view.animation.TranslateAnimation;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Rule;

@@ -21,10 +21,11 @@ import android.bluetooth.BluetoothCodecConfig;
 import android.bluetooth.BluetoothCodecStatus;
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.settings.R;
 import com.android.settings.core.PreferenceControllerMixin;
@@ -64,7 +65,7 @@ public abstract class AbstractBluetoothA2dpPreferenceController extends
     public void displayPreference(PreferenceScreen screen) {
         super.displayPreference(screen);
 
-        mPreference = (ListPreference) screen.findPreference(getPreferenceKey());
+        mPreference = screen.findPreference(getPreferenceKey());
 
         // Set a default value because BluetoothCodecConfig is null initially.
         mPreference.setValue(mListValues[getDefaultIndex()]);
@@ -176,7 +177,7 @@ public abstract class AbstractBluetoothA2dpPreferenceController extends
 
     @VisibleForTesting
     void setCodecConfigPreference(BluetoothDevice device,
-                                  BluetoothCodecConfig config) {
+            BluetoothCodecConfig config) {
         mBluetoothA2dp.setCodecConfigPreference(device, config);
     }
 

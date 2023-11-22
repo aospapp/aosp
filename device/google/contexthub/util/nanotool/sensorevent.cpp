@@ -24,7 +24,9 @@
 
 namespace android {
 
-constexpr float kCompressedSampleRatio(8.0f * 9.81f / 32768.0f);
+constexpr float kCompressedAccelSampleRatio(8.0f * 9.81f / 32768.0f);
+constexpr float kCompressedMagSampleRatio(0.15f); //For AK09915
+//constexpr float kCompressedMagSampleRatio(0.0625f); //For BMM150
 
 /* SensorEvent ****************************************************************/
 
@@ -81,6 +83,7 @@ std::unique_ptr<SensorEvent> SensorEvent::FromBytes(
           break;
 
       case SensorType::CompressedAccel:
+      case SensorType::CompressedMag:
           sensor_event = new CompressedTripleAxisSensorEvent();
           break;
 
@@ -259,6 +262,7 @@ uint8_t TripleAxisSensorEvent::GetSampleDataSize() const {
 
 std::string CompressedTripleAxisSensorEvent::StringForSample(
         uint8_t index) const {
+    float compressedSampleRatio;
     const CompressedTripleAxisDataPoint *sample =
         reinterpret_cast<const CompressedTripleAxisDataPoint *>(
             GetSampleAtIndex(index));
@@ -269,9 +273,22 @@ std::string CompressedTripleAxisSensorEvent::StringForSample(
     bool is_bias_sample = first_sample->biasPresent
         && first_sample->biasSample == index;
 
-    float x = sample->ix * kCompressedSampleRatio;
-    float y = sample->iy * kCompressedSampleRatio;
-    float z = sample->iz * kCompressedSampleRatio;
+    switch(GetSensorType())
+    {
+        case SensorType::CompressedAccel:
+            compressedSampleRatio = kCompressedAccelSampleRatio;
+            break;
+        case SensorType::CompressedMag:
+            compressedSampleRatio = kCompressedMagSampleRatio;
+            break;
+        default:
+            LOGW("Unsupported compressed sensor type");
+            compressedSampleRatio = 1.0;
+    }
+
+    float x = sample->ix * compressedSampleRatio;
+    float y = sample->iy * compressedSampleRatio;
+    float z = sample->iz * compressedSampleRatio;
 
     char buffer[128];
     snprintf(buffer, sizeof(buffer), "  X:%f Y:%f Z:%f @ %s%s\n",

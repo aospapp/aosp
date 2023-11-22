@@ -320,7 +320,7 @@ TEST(cpu_offline, offline_while_ioctl_enable) {
     }
     // Wait a little for the event to be installed on test_cpu's perf context.
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    ASSERT_TRUE(event_fd->EnableEvent());
+    ASSERT_TRUE(event_fd->SetEnableEvent(true));
     iterations++;
     if (verbose_mode) {
       GTEST_LOG_(INFO) << "Test offline while ioctl(PERF_EVENT_IOC_ENABLE) for " << iterations << " times.";

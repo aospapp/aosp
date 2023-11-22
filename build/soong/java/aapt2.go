@@ -109,9 +109,35 @@ func aapt2CompileDirs(ctx android.ModuleContext, flata android.WritablePath, dir
 	})
 }
 
+var aapt2CompileZipRule = pctx.AndroidStaticRule("aapt2CompileZip",
+	blueprint.RuleParams{
+		Command: `${config.ZipSyncCmd} -d $resZipDir $in && ` +
+			`${config.Aapt2Cmd} compile -o $out $cFlags --legacy --dir $resZipDir`,
+		CommandDeps: []string{
+			"${config.Aapt2Cmd}",
+			"${config.ZipSyncCmd}",
+		},
+	}, "cFlags", "resZipDir")
+
+func aapt2CompileZip(ctx android.ModuleContext, flata android.WritablePath, zip android.Path) {
+	ctx.Build(pctx, android.BuildParams{
+		Rule:        aapt2CompileZipRule,
+		Description: "aapt2 compile zip",
+		Input:       zip,
+		Output:      flata,
+		Args: map[string]string{
+			// Always set --pseudo-localize, it will be stripped out later for release
+			// builds that don't want it.
+			"cFlags":    "--pseudo-localize",
+			"resZipDir": android.PathForModuleOut(ctx, "aapt2", "reszip", flata.Base()).String(),
+		},
+	})
+}
+
 var aapt2LinkRule = pctx.AndroidStaticRule("aapt2Link",
 	blueprint.RuleParams{
-		Command: `${config.Aapt2Cmd} link -o $out $flags --java $genDir --proguard $proguardOptions ` +
+		Command: `rm -rf $genDir && ` +
+			`${config.Aapt2Cmd} link -o $out $flags --java $genDir --proguard $proguardOptions ` +
 			`--output-text-symbols ${rTxt} $inFlags && ` +
 			`${config.SoongZipCmd} -write_if_changed -jar -o $genJar -C $genDir -D $genDir &&` +
 			`${config.ExtractJarPackagesCmd} -i $genJar -o $extraPackages --prefix '--extra-packages '`,
@@ -135,7 +161,7 @@ var fileListToFileRule = pctx.AndroidStaticRule("fileListToFile",
 func aapt2Link(ctx android.ModuleContext,
 	packageRes, genJar, proguardOptions, rTxt, extraPackages android.WritablePath,
 	flags []string, deps android.Paths,
-	compiledRes, compiledOverlay android.Paths) {
+	compiledRes, compiledOverlay android.Paths, splitPackages android.WritablePaths) {
 
 	genDir := android.PathForModuleGen(ctx, "aapt2", "R")
 
@@ -170,12 +196,14 @@ func aapt2Link(ctx android.ModuleContext,
 		inFlags = append(inFlags, "-R", "@"+overlayFileList.String())
 	}
 
+	implicitOutputs := append(splitPackages, proguardOptions, genJar, rTxt, extraPackages)
+
 	ctx.Build(pctx, android.BuildParams{
 		Rule:            aapt2LinkRule,
 		Description:     "aapt2 link",
 		Implicits:       deps,
 		Output:          packageRes,
-		ImplicitOutputs: android.WritablePaths{proguardOptions, genJar, rTxt, extraPackages},
+		ImplicitOutputs: implicitOutputs,
 		Args: map[string]string{
 			"flags":           strings.Join(flags, " "),
 			"inFlags":         strings.Join(inFlags, " "),
@@ -185,5 +213,20 @@ func aapt2Link(ctx android.ModuleContext,
 			"rTxt":            rTxt.String(),
 			"extraPackages":   extraPackages.String(),
 		},
+	})
+}
+
+var aapt2ConvertRule = pctx.AndroidStaticRule("aapt2Convert",
+	blueprint.RuleParams{
+		Command:     `${config.Aapt2Cmd} convert --output-format proto $in -o $out`,
+		CommandDeps: []string{"${config.Aapt2Cmd}"},
+	})
+
+func aapt2Convert(ctx android.ModuleContext, out android.WritablePath, in android.Path) {
+	ctx.Build(pctx, android.BuildParams{
+		Rule:        aapt2ConvertRule,
+		Input:       in,
+		Output:      out,
+		Description: "convert to proto",
 	})
 }

@@ -18,10 +18,16 @@
 #ifndef SYSTEM_EXTRAS_PERFPROFD_CONFIGREADER_H_
 #define SYSTEM_EXTRAS_PERFPROFD_CONFIGREADER_H_
 
+#include <memory>
 #include <string>
-#include <map>
 
 #include "config.h"
+
+namespace android {
+namespace perfprofd {
+class ProfilingConfig;  // Config proto.
+}  // namespace perfprofd
+}  // namespace android
 
 //
 // This table describes the perfprofd config file syntax in terms of
@@ -44,7 +50,7 @@ class ConfigReader {
   // returns true for successful read, false if conf file cannot be opened.
   bool readFile();
 
-  bool Read(const std::string& data, bool fail_on_error);
+  bool Read(const std::string& data, bool fail_on_error, std::string* error_msg);
 
   // set/get path to config file
   static void setConfigFilePath(const char *path);
@@ -54,6 +60,9 @@ class ConfigReader {
   void overrideUnsignedEntry(const char *key, unsigned new_value);
 
   void FillConfig(Config* config);
+  static std::string ConfigToString(const Config& config);
+
+  static void ProtoToConfig(const android::perfprofd::ProfilingConfig& in, Config* out);
 
  private:
   void addUnsignedEntry(const char *key,
@@ -62,13 +71,13 @@ class ConfigReader {
                         unsigned max_value);
   void addStringEntry(const char *key, const char *default_value);
   void addDefaultEntries();
-  bool parseLine(const char *key, const char *value, unsigned linecount);
+  bool parseLine(const std::string& key,
+                 const std::string& value,
+                 unsigned linecount,
+                 std::string* error_msg);
 
-  typedef struct { unsigned minv, maxv; } values;
-  std::map<std::string, values> u_info;
-  std::map<std::string, unsigned> u_entries;
-  std::map<std::string, std::string> s_entries;
-  bool trace_config_read;
+  struct Data;
+  std::unique_ptr<Data> data_;
 };
 
 #endif

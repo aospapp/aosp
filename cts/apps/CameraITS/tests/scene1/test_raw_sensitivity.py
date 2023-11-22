@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.device
-import its.caps
-import its.objects
-import its.image
 import os.path
-from matplotlib import pylab
+import its.caps
+import its.device
+import its.image
+import its.objects
 import matplotlib.pyplot
+from matplotlib import pylab
 
 GR_PLANE = 1  # GR plane index in RGGB data
 IMG_STATS_GRID = 9  # find used to find the center 11.11%
@@ -34,6 +34,7 @@ def main():
     with its.device.ItsSession() as cam:
 
         props = cam.get_camera_properties()
+        props = cam.override_with_hidden_physical_camera_props(props)
         its.caps.skip_unless(its.caps.raw16(props) and
                              its.caps.manual_sensor(props) and
                              its.caps.read_3a(props) and
@@ -68,10 +69,10 @@ def main():
                                       (NAME, s, var))
             else:
                 # Get the active array width and height.
-                aax = props["android.sensor.info.activeArraySize"]["left"]
-                aay = props["android.sensor.info.activeArraySize"]["top"]
-                aaw = props["android.sensor.info.activeArraySize"]["right"]-aax
-                aah = props["android.sensor.info.activeArraySize"]["bottom"]-aay
+                aax = props["android.sensor.info.preCorrectionActiveArraySize"]["left"]
+                aay = props["android.sensor.info.preCorrectionActiveArraySize"]["top"]
+                aaw = props["android.sensor.info.preCorrectionActiveArraySize"]["right"]-aax
+                aah = props["android.sensor.info.preCorrectionActiveArraySize"]["bottom"]-aay
                 white_level = float(props["android.sensor.info.whiteLevel"])
                 cap = cam.do_capture(req,
                                      {"format": "rawStats",
@@ -94,7 +95,9 @@ def main():
 
         # Test that each shot is noisier than the previous one.
         for i in range(len(variances) - 1):
-            assert variances[i] < variances[i+1] / VAR_THRESH
+            msg = 'variances [i]: %.5f, [i+1]: %.5f, THRESH: %.2f' % (
+                    variances[i], variances[i+1], VAR_THRESH)
+            assert variances[i] < variances[i+1] / VAR_THRESH, msg
 
 if __name__ == "__main__":
     main()

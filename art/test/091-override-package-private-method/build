@@ -17,25 +17,20 @@
 # Stop if something fails.
 set -e
 
-mkdir classes
-${JAVAC} -d classes `find src -name '*.java'`
+export ORIGINAL_JAVAC="$JAVAC"
 
-mkdir classes-ex
-mv classes/OverridePackagePrivateMethodSuper.class classes-ex
+# Wrapper function for javac which invokes the compiler and applies
+# additional setup steps for the test.
+function javac_wrapper {
+  set -e # Stop on error - the caller script may not have this set.
+  $ORIGINAL_JAVAC "$@"
+  mkdir -p classes-ex
+  mv classes/OverridePackagePrivateMethodSuper.class classes-ex
+}
 
-if [ ${USE_JACK} = "true" ]; then
-  jar cf classes.jill.jar -C classes .
-  jar cf classes-ex.jill.jar -C classes-ex .
+export -f javac_wrapper
+export JAVAC=javac_wrapper
 
-  ${JACK} --import classes.jill.jar --output-dex .
-  zip $TEST_NAME.jar classes.dex
-  ${JACK} --import classes-ex.jill.jar --output-dex .
-  zip ${TEST_NAME}-ex.jar classes.dex
-else
-  if [ ${NEED_DEX} = "true" ]; then
-    ${DX} -JXmx256m --debug --dex --dump-to=classes.lst --output=classes.dex --dump-width=1000 classes
-    zip $TEST_NAME.jar classes.dex
-    ${DX} -JXmx256m --debug --dex --dump-to=classes-ex.lst --output=classes.dex --dump-width=1000 classes-ex
-    zip ${TEST_NAME}-ex.jar classes.dex
-  fi
-fi
+######################################################################
+
+./default-build "$@"

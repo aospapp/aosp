@@ -25,13 +25,14 @@ Certificate:
         Subject Public Key Info:
             Public Key Algorithm: id-ecPublicKey
                 Public-Key: (256 bit)
-                pub: 
+                pub:
                     04:b8:c6:79:d3:8f:6c:25:0e:9f:2e:39:19:1c:03:
                     a4:ae:9a:e5:39:07:09:16:ca:63:b1:b9:86:f8:8a:
                     57:c1:57:ce:42:fa:73:a1:f7:65:42:ff:1e:c1:00:
                     b2:6e:73:0e:ff:c7:21:e5:18:a4:aa:d9:71:3f:a8:
                     d4:b9:ce:8c:1d
                 ASN1 OID: prime256v1
+                NIST CURVE: P-256
         X509v3 extensions:
             X509v3 Key Usage: critical
                 Certificate Sign, CRL Sign

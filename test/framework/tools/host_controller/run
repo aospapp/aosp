@@ -45,4 +45,5 @@ if [ -z ${VTS_ROOT} ]; then
     VTS_ROOT="$(dirname $(readlink -e $0))/../.."
 fi;
 
+find ${VTS_ROOT} -name "*.pyc" -exec rm -f {} \;
 cd ${VTS_ROOT}/android-vtslab/testcases/; python -m host_controller.main "$@"

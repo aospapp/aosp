@@ -19,7 +19,7 @@
 
 #include <string>
 
-#include <android-base/test_utils.h>
+#include <android-base/file.h>
 
 #include "NativeInfo.h"
 

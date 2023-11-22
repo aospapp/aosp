@@ -548,6 +548,7 @@ public:
             cam_feature_mask_t postprocess_mask,
             bool is4KVideo,
             bool isInputStreamConfigured,
+            bool useY8,
             QCamera3Channel *metadataChannel,
             uint32_t numBuffers = MAX_INFLIGHT_REQUESTS);
     ~QCamera3PicChannel();

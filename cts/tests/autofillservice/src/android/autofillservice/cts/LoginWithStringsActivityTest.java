@@ -40,22 +40,24 @@ import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 import android.view.View;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 
-@AppModeFull // LoginActivityTest is enough to test ephemeral apps support
-public class LoginWithStringsActivityTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<LoginWithStringsActivity> mActivityRule =
-            new AutofillActivityTestRule<LoginWithStringsActivity>(LoginWithStringsActivity.class);
+@AppModeFull(reason = "LoginActivityTest is enough")
+public class LoginWithStringsActivityTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<LoginWithStringsActivity> {
 
     private LoginWithStringsActivity mActivity;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+
+    @Override
+    protected AutofillActivityTestRule<LoginWithStringsActivity> getActivityRule() {
+        return new AutofillActivityTestRule<LoginWithStringsActivity>(
+                LoginWithStringsActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+            }
+        };
     }
 
     @Test
@@ -115,7 +117,7 @@ public class LoginWithStringsActivityTest extends AutoFillServiceTestCase {
         assertWithMessage("Wrong welcome msg").that(actualMessage).isEqualTo(expectedMessage);
 
         // Assert the snack bar is shown and tap "Save".
-        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
 
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
 

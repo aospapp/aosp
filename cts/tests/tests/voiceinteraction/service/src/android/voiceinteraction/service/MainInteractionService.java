@@ -17,11 +17,16 @@
 package android.voiceinteraction.service;
 
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.service.voice.VoiceInteractionService;
+import android.service.voice.VoiceInteractionSession;
 import android.util.Log;
+import android.voiceinteraction.common.Utils;
+
+import java.util.Collections;
+import java.util.Set;
 
 public class MainInteractionService extends VoiceInteractionService {
     static final String TAG = "MainInteractionService";
@@ -43,22 +48,41 @@ public class MainInteractionService extends VoiceInteractionService {
     }
 
     private void maybeStart() {
-       if (mIntent == null || !mReady) {
+        if (mIntent == null || !mReady) {
             Log.wtf(TAG, "Can't start session because either intent is null or onReady() "
                     + "is not called yet. mIntent = " + mIntent + ", mReady = " + mReady);
         } else {
-            Log.i(TAG, "Yay! about to start session with TestApp");
-            if (isActiveService(this, new ComponentName(this, getClass()))) {
-                Bundle args = new Bundle();
-                Intent intent = new Intent();
-                intent.setComponent(new ComponentName("android.voiceinteraction.testapp",
-                        "android.voiceinteraction.testapp.TestApp"));
-                args.putParcelable("intent", intent);
-                showSession(args, 0);
+            Bundle args = mIntent.getExtras();
+            final String className = (args != null)
+                    ? args.getString(Utils.DIRECT_ACTIONS_KEY_CLASS) : null;
+            if (className == null) {
+                Log.i(TAG, "Yay! about to start session with TestApp");
+                if (isActiveService(this, new ComponentName(this, getClass()))) {
+                    // Call to verify onGetSupportedVoiceActions is available.
+                    onGetSupportedVoiceActions(Collections.emptySet());
+                    args = new Bundle();
+                    Intent intent = new Intent()
+                            .setAction(Intent.ACTION_VIEW)
+                            .addCategory(Intent.CATEGORY_VOICE)
+                            .addCategory(Intent.CATEGORY_BROWSABLE)
+                            .setData(Uri.parse("https://android.voiceinteraction.testapp"
+                                    + "/TestApp"));
+                    args.putParcelable("intent", intent);
+                    Log.v(TAG, "showSession(): " + args);
+                    showSession(args, 0);
+                } else {
+                    Log.wtf(TAG, "**** Not starting MainInteractionService because" +
+                            " it is not set as the current voice interaction service");
+                }
             } else {
-                Log.wtf(TAG, "**** Not starting MainInteractionService because" +
-                    " it is not set as the current voice interaction service");
+                showSession(args, VoiceInteractionSession.SHOW_WITH_ASSIST);
             }
         }
+    }
+
+    @Override
+    public Set<String> onGetSupportedVoiceActions(Set<String> voiceActions) {
+        Log.v(TAG, "onGetSupportedVoiceActions " + voiceActions);
+        return super.onGetSupportedVoiceActions(voiceActions);
     }
 }

@@ -25,17 +25,23 @@ import android.signature.cts.ResultObserver;
 class TestResultObserver implements ResultObserver {
 
     boolean mDidFail = false;
+    int failures = 0;
 
     StringBuilder mErrorString = new StringBuilder();
 
     @Override
     public void notifyFailure(FailureType type, String name, String errorMessage) {
         mDidFail = true;
-        mErrorString.append("\n");
-        mErrorString.append(type.toString().toLowerCase());
-        mErrorString.append(":\t");
-        mErrorString.append(name);
-        mErrorString.append("\tError: ");
-        mErrorString.append(errorMessage);
+        failures++;
+        if (failures <= 100) {
+            mErrorString.append("\n");
+            mErrorString.append(type.toString().toLowerCase());
+            mErrorString.append(":\t");
+            mErrorString.append(name);
+            mErrorString.append("\tError: ");
+            mErrorString.append(errorMessage);
+        } else if (failures == 101) {
+            mErrorString.append("\nMore than 100 failures, more errors will be elided.");
+        }
     }
 }

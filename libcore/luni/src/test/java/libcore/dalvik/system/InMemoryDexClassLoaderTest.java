@@ -23,10 +23,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import libcore.io.Streams;
 import junit.framework.TestCase;
 
+import dalvik.system.BaseDexClassLoader;
 import dalvik.system.InMemoryDexClassLoader;
+import dalvik.system.DexPathList;
 
 /**
  * Tests for the class {@link InMemoryDexClassLoader}.
@@ -87,23 +91,74 @@ public class InMemoryDexClassLoaderTest extends TestCase {
         }
     }
 
-    private static ByteBuffer ReadFileToByteBufferDirect(File file) throws IOException {
+    /**
+     * Helper to construct a direct ByteBuffer with the contents of a given file.
+     *
+     * Constructs a new direct ByteBuffer and inserts {@code paddingBefore} amount of
+     * zero padding followed by the contents of {@code file}. The buffer's position is
+     * set to the beginning of the file's data.
+     *
+     * @param file The file to be read
+     * @param paddingBefore Number of zero bytes to be inserted at the beginning of the buffer.
+     */
+    private static ByteBuffer readFileToByteBufferDirect(File file, int paddingBefore)
+            throws IOException {
         try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
-            ByteBuffer buffer = ByteBuffer.allocateDirect((int)file.length());
+            ByteBuffer buffer = ByteBuffer.allocateDirect(paddingBefore + (int)file.length());
+            buffer.put(new byte[paddingBefore]);
             int done = 0;
             while (done != file.length()) {
                 done += raf.getChannel().read(buffer);
             }
             buffer.rewind();
+            buffer.position(paddingBefore);
             return buffer;
         }
     }
 
-    private static ByteBuffer ReadFileToByteBufferIndirect(File file) throws IOException {
-        ByteBuffer direct = ReadFileToByteBufferDirect(file);
+    /**
+     * Helper to construct a direct ByteBuffer with the contents of a given file.
+     *
+     * Constructs a new direct ByteBuffer and the contents of {@code file}. The buffer's
+     * position is zero.
+     *
+     * @param file The file to be read
+     */
+    private static ByteBuffer readFileToByteBufferDirect(File file) throws IOException {
+        return readFileToByteBufferDirect(file, /* paddingBefore */ 0);
+    }
+
+    /**
+     * Helper to construct an indirect ByteBuffer with the contents of a given file.
+     *
+     * Constructs a new indirect ByteBuffer and inserts {@code paddingBefore} amount of
+     * zero padding followed by the contents of {@code file}. The buffer's position is
+     * set to the beginning of the file's data.
+     *
+     * @param file The file to be read
+     * @param paddingBefore Number of zero bytes to be inserted at the beginning of the buffer.
+     */
+    private static ByteBuffer readFileToByteBufferIndirect(File file, int paddingBefore)
+            throws IOException {
+        ByteBuffer direct = readFileToByteBufferDirect(file, paddingBefore);
+        direct.rewind();
         byte[] array = new byte[direct.limit()];
         direct.get(array);
-        return ByteBuffer.wrap(array);
+        ByteBuffer buf = ByteBuffer.wrap(array);
+        buf.position(paddingBefore);
+        return buf;
+    }
+
+    /**
+     * Helper to construct an indirect ByteBuffer with the contents of a given file.
+     *
+     * Constructs a new indirect ByteBuffer and the contents of {@code file}. The buffer's
+     * position is zero.
+     *
+     * @param file The file to be read
+     */
+    private static ByteBuffer readFileToByteBufferIndirect(File file) throws IOException {
+        return readFileToByteBufferIndirect(file, /* paddingBefore */ 0);
     }
 
     /**
@@ -114,13 +169,13 @@ public class InMemoryDexClassLoaderTest extends TestCase {
      *
      * @param files The .dex files to use for the class path.
      */
-    private static ClassLoader createLoaderDirect(File... files) throws IOException {
+    private ClassLoader createLoaderDirect(File... files) throws IOException {
         assertNotNull(files);
         assertTrue(files.length > 0);
         ClassLoader result = ClassLoader.getSystemClassLoader();
         for (int i = 0; i < files.length; ++i) {
-            ByteBuffer buffer = ReadFileToByteBufferDirect(files[i]);
-            result = new InMemoryDexClassLoader(buffer, result);
+            ByteBuffer buffer = readFileToByteBufferDirect(files[i]);
+            result = new InMemoryDexClassLoader(new ByteBuffer[] { buffer }, result);
         }
         return result;
     }
@@ -133,13 +188,13 @@ public class InMemoryDexClassLoaderTest extends TestCase {
      *
      * @param files The .dex files to use for the class path.
      */
-    private static ClassLoader createLoaderIndirect(File... files) throws IOException {
+    private ClassLoader createLoaderIndirect(File... files) throws IOException {
         assertNotNull(files);
         assertTrue(files.length > 0);
         ClassLoader result = ClassLoader.getSystemClassLoader();
         for (int i = 0; i < files.length; ++i) {
-            ByteBuffer buffer = ReadFileToByteBufferIndirect(files[i]);
-            result = new InMemoryDexClassLoader(buffer, result);
+            ByteBuffer buffer = readFileToByteBufferIndirect(files[i]);
+            result = new InMemoryDexClassLoader(new ByteBuffer[] { buffer }, result);
         }
         return result;
     }
@@ -178,6 +233,21 @@ public class InMemoryDexClassLoaderTest extends TestCase {
         Method m = c.getMethod(methodName, (Class[]) null);
         assertNotNull(m);
         return m.invoke(null, (Object[]) null);
+    }
+
+    /**
+     * Creates an InMemoryDexClassLoader using the content of {@code dex} and with a
+     * library path of {@code applicationLibPath}. The parent classloader is the boot
+     * classloader.
+     *
+     * @param dex The .dex file to be loaded.
+     * @param applicationLibPath Library search path of the new class loader.
+     */
+    private static InMemoryDexClassLoader createLoaderWithLibPath(File dex, File applicationLibPath)
+            throws IOException {
+        return new InMemoryDexClassLoader(
+                new ByteBuffer[] { readFileToByteBufferIndirect(dex) },
+                applicationLibPath.toString(), null);
     }
 
     // ONE_DEX with direct ByteBuffer.
@@ -299,4 +369,84 @@ public class InMemoryDexClassLoaderTest extends TestCase {
         createLoaderDirectAndCallMethod(
             "test.TestMethods", "test_diff_getInstanceVariable", dex2, dex1);
     }
+
+    public void testLibraryPath() throws IOException {
+        File applicationLibPath = new File(srcDir, "applicationLibPath");
+        File applicationLib = makeEmptyFile(applicationLibPath, "libtestlibpath.so");
+
+        InMemoryDexClassLoader classLoader = createLoaderWithLibPath(dex1, applicationLibPath);
+
+        String path = classLoader.findLibrary("testlibpath");
+        assertEquals(applicationLib.toString(), path);
+    }
+
+    public void testLibraryPathSearchOrder() throws IOException {
+        File systemLibPath = new File(srcDir, "systemLibPath");
+        File applicationLibPath = new File(srcDir, "applicationLibPath");
+        makeEmptyFile(systemLibPath, "libduplicated.so");
+        File applicationLib = makeEmptyFile(applicationLibPath, "libduplicated.so");
+
+        System.setProperty("java.library.path", systemLibPath.toString());
+        InMemoryDexClassLoader classLoader = createLoaderWithLibPath(dex1, applicationLibPath);
+
+        String path = classLoader.findLibrary("duplicated");
+        assertEquals(applicationLib.toString(), path);
+    }
+
+    public void testNullParent() throws IOException, ClassNotFoundException {
+        // Other tests set up InMemoryDexClassLoader with the system class loader
+        // as parent. Test that passing {@code null} works too (b/120603906).
+        InMemoryDexClassLoader classLoader = new InMemoryDexClassLoader(
+                new ByteBuffer[] { readFileToByteBufferIndirect(dex1) },
+                /* parent */ null);
+
+        // Try to load a class from the boot class loader.
+        Class<?> objectClass = classLoader.loadClass("java.lang.Object");
+        assertEquals(objectClass, Object.class);
+
+        // Try to load a class from this class loader.
+        classLoader.loadClass("test.TestMethods");
+    }
+
+    public void testNonZeroBufferOffsetDirect() throws IOException, ClassNotFoundException {
+        // Arbitrary amount of padding to prove a non-zero buffer position is supported.
+        int paddingBefore = 13;
+        InMemoryDexClassLoader classLoader = new InMemoryDexClassLoader(
+                new ByteBuffer[] { readFileToByteBufferDirect(dex1, paddingBefore) },
+                /* parent */ null);
+        classLoader.loadClass("test.TestMethods");
+    }
+
+    public void testNonZeroBufferOffsetIndirect() throws IOException, ClassNotFoundException {
+        // Arbitrary amount of padding to prove a non-zero buffer position is supported.
+        int paddingBefore = 13;
+        InMemoryDexClassLoader classLoader = new InMemoryDexClassLoader(
+                new ByteBuffer[] { readFileToByteBufferIndirect(dex1, paddingBefore) },
+                /* parent */ null);
+        classLoader.loadClass("test.TestMethods");
+    }
+
+    /**
+     * DexPathList.makeInMemoryDexElements() is a legacy code path not used by
+     * InMemoryDexClassLoader anymore but heavily used by 3p apps. Test that it still works.
+     */
+    public void testMakeInMemoryDexElements() throws Exception {
+        ArrayList<IOException> exceptions = new ArrayList<>();
+        Object[] elements = DexPathList.makeInMemoryDexElements(
+                new ByteBuffer[] { readFileToByteBufferDirect(dex1),
+                                   readFileToByteBufferIndirect(dex2) },
+                exceptions);
+        assertEquals(2, elements.length);
+        assertTrue(exceptions.isEmpty());
+    }
+
+    private static File makeEmptyFile(File directory, String name) throws IOException {
+        assertTrue(directory.mkdirs());
+        File result = new File(directory, name);
+        FileOutputStream stream = new FileOutputStream(result);
+        stream.close();
+        assertTrue(result.exists());
+        return result;
+    }
+
 }

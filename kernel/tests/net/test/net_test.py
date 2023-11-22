@@ -369,17 +369,17 @@ class RunAsUidGid(object):
 
   def __enter__(self):
     if self.uid:
-      self.saved_uid = os.geteuid()
+      self.saved_uids = os.getresuid()
       self.saved_groups = os.getgroups()
       os.setgroups(self.saved_groups + [AID_INET])
-      os.seteuid(self.uid)
+      os.setresuid(self.uid, self.uid, self.saved_uids[0])
     if self.gid:
       self.saved_gid = os.getgid()
       os.setgid(self.gid)
 
   def __exit__(self, unused_type, unused_value, unused_traceback):
     if self.uid:
-      os.seteuid(self.saved_uid)
+      os.setresuid(*self.saved_uids)
       os.setgroups(self.saved_groups)
     if self.gid:
       os.setgid(self.saved_gid)
@@ -389,7 +389,6 @@ class RunAsUid(RunAsUidGid):
 
   def __init__(self, uid):
     RunAsUidGid.__init__(self, uid, 0)
-
 
 class NetworkTest(unittest.TestCase):
 
@@ -433,7 +432,7 @@ class NetworkTest(unittest.TestCase):
 
     if protocol.startswith("tcp"):
       # Real sockets have 5 extra numbers, timewait sockets have none.
-      end_regexp = "(| +[0-9]+ [0-9]+ [0-9]+ [0-9]+ -?[0-9]+|)$"
+      end_regexp = "(| +[0-9]+ [0-9]+ [0-9]+ [0-9]+ -?[0-9]+)$"
     elif re.match("icmp|udp|raw", protocol):
       # Drops.
       end_regexp = " +([0-9]+) *$"
@@ -458,8 +457,11 @@ class NetworkTest(unittest.TestCase):
     # TODO: consider returning a dict or namedtuple instead.
     out = []
     for line in lines:
+      m = regexp.match(line)
+      if m is None:
+        raise ValueError("Failed match on [%s]" % line)
       (_, src, dst, state, mem,
-       _, _, uid, _, _, refcnt, _, extra) = regexp.match(line).groups()
+       _, _, uid, _, _, refcnt, _, extra) = m.groups()
       out.append([src, dst, state, mem, uid, refcnt, extra])
     return out
 

@@ -50,7 +50,7 @@
         </activity>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.slice.cts"
                      android:label="CTS tests of android.slice">
         <meta-data android:name="listener"

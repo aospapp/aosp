@@ -22,16 +22,16 @@ import static android.text.TextDirectionHeuristics.RTL;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Typeface;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.Layout;
 import android.text.PrecomputedText;
 import android.text.PrecomputedText.Params;
@@ -43,6 +43,13 @@ import android.text.TextPaint;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.LocaleSpan;
 import android.text.style.TextAppearanceSpan;
+import android.text.style.TypefaceSpan;
+
+import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -172,6 +179,17 @@ public class PrecomputedTextTest {
         } catch (NullPointerException e) {
             // pass
         }
+    }
+
+    @Test
+    public void testCreateForDifferentDirection() {
+        final Params param = new Params.Builder(PAINT).setTextDirection(LTR).build();
+        final PrecomputedText textWithLTR = PrecomputedText.create(STRING, param);
+        final Params newParam = new Params.Builder(PAINT).setTextDirection(RTL).build();
+        final PrecomputedText textWithRTL = PrecomputedText.create(textWithLTR, newParam);
+        assertNotNull(textWithRTL);
+        assertNotSame(textWithLTR, textWithRTL);
+        assertEquals(textWithLTR.toString(), textWithRTL.toString());
     }
 
     @Test
@@ -620,4 +638,93 @@ public class PrecomputedTextTest {
         PrecomputedText.create("a\nb", param).getBounds(0, 3, rect);
     }
 
+    private static Bitmap drawToBitmap(@NonNull CharSequence cs,
+            @IntRange(from = 0) int start, @IntRange(from = 0) int end,
+            @IntRange(from = 0) int ctxStart, @IntRange(from = 0) int ctxEnd,
+            @NonNull TextPaint paint) {
+
+        Rect rect = new Rect();
+        paint.getTextBounds(cs.toString(), start, end, rect);
+        final Bitmap bmp = Bitmap.createBitmap(rect.width(),
+                rect.height(), Bitmap.Config.ARGB_8888);
+        final Canvas c = new Canvas(bmp);
+        c.save();
+        c.translate(0, 0);
+        c.drawTextRun(cs, start, end, ctxStart, ctxEnd, 0, 0, false /* isRtl */, paint);
+        c.restore();
+        return bmp;
+    }
+
+    private static void assertSameOutput(@NonNull CharSequence cs,
+            @IntRange(from = 0) int start, @IntRange(from = 0) int end,
+            @IntRange(from = 0) int ctxStart, @IntRange(from = 0) int ctxEnd,
+            @NonNull TextPaint paint) {
+        final Params params = new Params.Builder(paint).build();
+        final PrecomputedText pt = PrecomputedText.create(cs, params);
+
+        final Params rtlParams = new Params.Builder(paint)
+                .setTextDirection(TextDirectionHeuristics.RTL).build();
+        final PrecomputedText rtlPt = PrecomputedText.create(cs, rtlParams);
+        // FIRSTSTRONG_LTR is the default direction.
+        final PrecomputedText ptFromRtl = PrecomputedText.create(rtlPt,
+                new Params.Builder(params).setTextDirection(
+                        TextDirectionHeuristics.FIRSTSTRONG_LTR).build());
+
+        final Bitmap originalDrawOutput = drawToBitmap(cs, start, end, ctxStart, ctxEnd, paint);
+        final Bitmap precomputedDrawOutput = drawToBitmap(pt, start, end, ctxStart, ctxEnd, paint);
+        final Bitmap precomputedFromDifferentDirectionDrawOutput =
+                drawToBitmap(pt, start, end, ctxStart, ctxEnd, paint);
+        assertTrue(originalDrawOutput.sameAs(precomputedDrawOutput));
+        assertTrue(originalDrawOutput.sameAs(precomputedFromDifferentDirectionDrawOutput));
+    }
+
+    @Test
+    public void testDrawText() {
+        final TextPaint paint = new TextPaint();
+        paint.setTextSize(32.0f);
+
+        final SpannableStringBuilder ssb = new SpannableStringBuilder("Hello, World");
+        assertSameOutput(ssb, 0, ssb.length(), 0, ssb.length(), paint);
+        assertSameOutput(ssb, 3, ssb.length() - 3, 0, ssb.length(), paint);
+        assertSameOutput(ssb, 5, ssb.length() - 5, 2, ssb.length() - 2, paint);
+    }
+
+    @Test
+    public void testDrawText_MultiStyle() {
+        final TextPaint paint = new TextPaint();
+        paint.setTextSize(32.0f);
+
+        final SpannableStringBuilder ssb = new SpannableStringBuilder("Hello, World");
+        ssb.setSpan(new TypefaceSpan("serif"), 0, 6, Spanned.SPAN_INCLUSIVE_EXCLUSIVE);
+        assertSameOutput(ssb, 0, ssb.length(), 0, ssb.length(), paint);
+        assertSameOutput(ssb, 3, ssb.length() - 3, 0, ssb.length(), paint);
+        assertSameOutput(ssb, 5, ssb.length() - 5, 2, ssb.length() - 2, paint);
+    }
+
+    @Test
+    public void testDrawText_MultiParagraph() {
+        final TextPaint paint = new TextPaint();
+        paint.setTextSize(32.0f);
+
+        final SpannableStringBuilder ssb = new SpannableStringBuilder(
+                "Hello, World\nHello, Android");
+
+        // The first line
+        final int firstLineLen = "Hello, World\n".length();
+        assertSameOutput(ssb, 0, firstLineLen, 0, firstLineLen, paint);
+        assertSameOutput(ssb, 3, firstLineLen - 3, 0, firstLineLen, paint);
+        assertSameOutput(ssb, 3, firstLineLen - 3, 2, firstLineLen - 2, paint);
+
+        // The second line.
+        assertSameOutput(ssb, firstLineLen, ssb.length(), firstLineLen, ssb.length(), paint);
+        assertSameOutput(ssb, firstLineLen + 3, ssb.length() - 3,
+                firstLineLen, ssb.length(), paint);
+        assertSameOutput(ssb, firstLineLen + 5, ssb.length() - 5,
+                firstLineLen + 2, ssb.length() - 2, paint);
+
+        // Across the paragraph
+        assertSameOutput(ssb, 0, ssb.length(), 0, ssb.length(), paint);
+        assertSameOutput(ssb, 3, firstLineLen - 3, 0, ssb.length(), paint);
+        assertSameOutput(ssb, 3, firstLineLen - 3, 2, ssb.length() - 2, paint);
+    }
 }

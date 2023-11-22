@@ -22,7 +22,7 @@
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_QemuCamera2"
-#include <cutils/log.h>
+#include <log/log.h>
 #include <cutils/properties.h>
 #include "EmulatedQemuCamera2.h"
 #include "EmulatedCameraFactory.h"

@@ -35,7 +35,7 @@ FunctionDeclaration::FunctionDeclaration(Type* type,
 FunctionDeclaration::~FunctionDeclaration() {
     delete mType;
 
-    if(mParams != NULL) {
+    if(mParams != nullptr) {
         for(auto* param : *mParams) {
             delete param;
         }

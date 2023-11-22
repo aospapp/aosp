@@ -16,6 +16,7 @@
 
 #include <ftw.h>
 
+#include <fcntl.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,8 +24,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "TemporaryFile.h"
-
+#include <android-base/file.h>
 #include <android-base/stringprintf.h>
 #include <gtest/gtest.h>
 
@@ -50,8 +50,8 @@ static void MakeTree(const char* root) {
 }
 
 void sanity_check_ftw(const char* fpath, const struct stat* sb, int tflag) {
-  ASSERT_TRUE(fpath != NULL);
-  ASSERT_TRUE(sb != NULL);
+  ASSERT_TRUE(fpath != nullptr);
+  ASSERT_TRUE(sb != nullptr);
 
   // Was it a case where the struct stat we're given is meaningless?
   if (tflag == FTW_NS || tflag == FTW_SLN) {
@@ -102,26 +102,26 @@ int check_nftw64(const char* fpath, const struct stat64* sb, int tflag, FTW* ftw
 
 TEST(ftw, ftw) {
   TemporaryDir root;
-  MakeTree(root.dirname);
-  ASSERT_EQ(0, ftw(root.dirname, check_ftw, 128));
+  MakeTree(root.path);
+  ASSERT_EQ(0, ftw(root.path, check_ftw, 128));
 }
 
 TEST(ftw, ftw64) {
   TemporaryDir root;
-  MakeTree(root.dirname);
-  ASSERT_EQ(0, ftw64(root.dirname, check_ftw64, 128));
+  MakeTree(root.path);
+  ASSERT_EQ(0, ftw64(root.path, check_ftw64, 128));
 }
 
 TEST(ftw, nftw) {
   TemporaryDir root;
-  MakeTree(root.dirname);
-  ASSERT_EQ(0, nftw(root.dirname, check_nftw, 128, 0));
+  MakeTree(root.path);
+  ASSERT_EQ(0, nftw(root.path, check_nftw, 128, 0));
 }
 
 TEST(ftw, nftw64) {
   TemporaryDir root;
-  MakeTree(root.dirname);
-  ASSERT_EQ(0, nftw64(root.dirname, check_nftw64, 128, 0));
+  MakeTree(root.path);
+  ASSERT_EQ(0, nftw64(root.path, check_nftw64, 128, 0));
 }
 
 template <typename StatT>
@@ -145,11 +145,57 @@ TEST(ftw, bug_28197840) {
 
   TemporaryDir root;
 
-  std::string path = android::base::StringPrintf("%s/unreadable-directory", root.dirname);
+  std::string path = android::base::StringPrintf("%s/unreadable-directory", root.path);
   ASSERT_EQ(0, mkdir(path.c_str(), 0000)) << path;
 
-  ASSERT_EQ(0, ftw(root.dirname, bug_28197840_ftw<struct stat>, 128));
-  ASSERT_EQ(0, ftw64(root.dirname, bug_28197840_ftw<struct stat64>, 128));
-  ASSERT_EQ(0, nftw(root.dirname, bug_28197840_nftw<struct stat>, 128, FTW_PHYS));
-  ASSERT_EQ(0, nftw64(root.dirname, bug_28197840_nftw<struct stat64>, 128, FTW_PHYS));
+  ASSERT_EQ(0, ftw(root.path, bug_28197840_ftw<struct stat>, 128));
+  ASSERT_EQ(0, ftw64(root.path, bug_28197840_ftw<struct stat64>, 128));
+  ASSERT_EQ(0, nftw(root.path, bug_28197840_nftw<struct stat>, 128, FTW_PHYS));
+  ASSERT_EQ(0, nftw64(root.path, bug_28197840_nftw<struct stat64>, 128, FTW_PHYS));
+}
+
+template <typename StatT>
+static int null_ftw_callback(const char*, const StatT*, int) {
+  return 0;
+}
+
+template <typename StatT>
+static int null_nftw_callback(const char*, const StatT*, int, FTW*) {
+  return 0;
+}
+
+TEST(ftw, ftw_non_existent_ENOENT) {
+  errno = 0;
+  ASSERT_EQ(-1, ftw("/does/not/exist", null_ftw_callback<struct stat>, 128));
+  ASSERT_EQ(ENOENT, errno);
+  errno = 0;
+  ASSERT_EQ(-1, ftw64("/does/not/exist", null_ftw_callback<struct stat64>, 128));
+  ASSERT_EQ(ENOENT, errno);
+}
+
+TEST(ftw, nftw_non_existent_ENOENT) {
+  errno = 0;
+  ASSERT_EQ(-1, nftw("/does/not/exist", null_nftw_callback<struct stat>, 128, FTW_PHYS));
+  ASSERT_EQ(ENOENT, errno);
+  errno = 0;
+  ASSERT_EQ(-1, nftw64("/does/not/exist", null_nftw_callback<struct stat64>, 128, FTW_PHYS));
+  ASSERT_EQ(ENOENT, errno);
+}
+
+TEST(ftw, ftw_empty_ENOENT) {
+  errno = 0;
+  ASSERT_EQ(-1, ftw("", null_ftw_callback<struct stat>, 128));
+  ASSERT_EQ(ENOENT, errno);
+  errno = 0;
+  ASSERT_EQ(-1, ftw64("", null_ftw_callback<struct stat64>, 128));
+  ASSERT_EQ(ENOENT, errno);
+}
+
+TEST(ftw, nftw_empty_ENOENT) {
+  errno = 0;
+  ASSERT_EQ(-1, nftw("", null_nftw_callback<struct stat>, 128, FTW_PHYS));
+  ASSERT_EQ(ENOENT, errno);
+  errno = 0;
+  ASSERT_EQ(-1, nftw64("", null_nftw_callback<struct stat64>, 128, FTW_PHYS));
+  ASSERT_EQ(ENOENT, errno);
 }

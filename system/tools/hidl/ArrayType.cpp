@@ -80,7 +80,7 @@ status_t ArrayType::resolveInheritance() {
 status_t ArrayType::validate() const {
     CHECK(!mElementType->isArray());
 
-    if (mElementType->isBinder()) {
+    if (mElementType->isInterface()) {
         std::cerr << "ERROR: Arrays of interface types are not supported"
                   << " at " << mElementType.location() << "\n";
 
@@ -97,14 +97,7 @@ std::string ArrayType::getCppType(StorageMode mode,
     std::string arrayType = space + "hidl_array<" + base;
 
     for (size_t i = 0; i < mSizes.size(); ++i) {
-        arrayType += ", ";
-        arrayType += mSizes[i]->cppValue();
-
-        if (!mSizes[i]->descriptionIsTrivial()) {
-            arrayType += " /* ";
-            arrayType += mSizes[i]->description();
-            arrayType += " */";
-        }
+        arrayType += ", " + mSizes[i]->cppValue();
     }
 
     arrayType += ">";
@@ -142,22 +135,14 @@ std::string ArrayType::getJavaType(bool forInitializer) const {
 
         if (forInitializer) {
             base += mSizes[i]->javaValue();
-        }
-
-        if (!forInitializer || !mSizes[i]->descriptionIsTrivial()) {
-            if (forInitializer)
-                base += " ";
-            base += "/* " + mSizes[i]->description() + " */";
+        } else {
+            base += "/* " + mSizes[i]->expression() + " */";
         }
 
         base += "]";
     }
 
     return base;
-}
-
-std::string ArrayType::getJavaWrapperType() const {
-    return mElementType->getJavaWrapperType();
 }
 
 std::string ArrayType::getVtsType() const {
@@ -366,7 +351,8 @@ void ArrayType::emitJavaDump(
     out << streamName << ".append(java.util.Arrays."
         << (countDimensions() > 1 ? "deepToString" : "toString")
         << "("
-        << name << "));\n";
+        << name
+        << "));\n";
 }
 
 
@@ -434,15 +420,17 @@ void ArrayType::emitJavaReaderWriter(
 
 void ArrayType::emitJavaFieldInitializer(
         Formatter &out, const std::string &fieldName) const {
-    std::string typeName = getJavaType(false /* forInitializer */);
-    std::string initName = getJavaType(true /* forInitializer */);
+    const std::string typeName = getJavaType(false /* forInitializer */);
+    const std::string fieldDeclaration = typeName + " " + fieldName;
 
-    out << "final "
-        << typeName
-        << " "
-        << fieldName
+    emitJavaFieldDefaultInitialValue(out, fieldDeclaration);
+}
+
+void ArrayType::emitJavaFieldDefaultInitialValue(
+        Formatter &out, const std::string &declaredFieldName) const {
+    out << declaredFieldName
         << " = new "
-        << initName
+        << getJavaType(true /* forInitializer */)
         << ";\n";
 }
 
@@ -488,15 +476,13 @@ void ArrayType::emitJavaFieldReaderWriter(
         indexString += "[" + iteratorName + "]";
     }
 
-    if (isReader && mElementType->isCompoundType()) {
-        std::string typeName =
-            mElementType->getJavaType(false /* forInitializer */);
+    const bool isIndexed = (loopDimensions > 0);
+    const std::string fieldNameWithCast = isIndexed
+            ? "(" + getJavaTypeCast(fieldName) + ")" + indexString
+            : getJavaTypeCast(fieldName);
 
-        out << fieldName
-            << indexString
-            << " = new "
-            << typeName
-            << "();\n";
+    if (isReader && mElementType->isCompoundType()) {
+        mElementType->emitJavaFieldDefaultInitialValue(out, fieldNameWithCast);
     }
 
     if (!isPrimitiveArray) {
@@ -505,7 +491,7 @@ void ArrayType::emitJavaFieldReaderWriter(
                 depth + 1,
                 parcelName,
                 blobName,
-                fieldName + indexString,
+                fieldNameWithCast,
                 offsetName,
                 isReader);
 
@@ -521,20 +507,43 @@ void ArrayType::emitJavaFieldReaderWriter(
                 << "Array("
                 << offsetName
                 << ", "
-                << fieldName
-                << indexString
+                << fieldNameWithCast
                 << ", "
                 << mSizes.back()->javaValue()
                 << " /* size */);\n";
         } else {
+            std::string elemName = "_hidl_array_item_" + std::to_string(depth);
+
+            out << mElementType->getJavaType(false /* forInitializer */)
+                << "[] "
+                << elemName
+                << " = "
+                << fieldNameWithCast
+                << ";\n\n";
+
+            out << "if ("
+                << elemName
+                << " == null || "
+                << elemName
+                << ".length != "
+                << mSizes.back()->javaValue()
+                << ") {\n";
+
+            out.indent();
+
+            out << "throw new IllegalArgumentException("
+                << "\"Array element is not of the expected length\");\n";
+
+            out.unindent();
+            out << "}\n\n";
+
             out << blobName
                 << ".put"
                 << mElementType->getJavaSuffix()
                 << "Array("
                 << offsetName
                 << ", "
-                << fieldName
-                << indexString
+                << elemName
                 << ");\n";
         }
 
@@ -560,7 +569,7 @@ void ArrayType::emitJavaFieldReaderWriter(
 
 void ArrayType::emitVtsTypeDeclarations(Formatter& out) const {
     out << "type: " << getVtsType() << "\n";
-    out << "vector_size: " << mSizes[0]->value() << "\n";
+    out << "vector_size: " << mSizes[0]->rawValue() << "\n";
     out << "vector_value: {\n";
     out.indent();
     // Simple array case.
@@ -569,7 +578,7 @@ void ArrayType::emitVtsTypeDeclarations(Formatter& out) const {
     } else {  // Multi-dimension array case.
         for (size_t index = 1; index < mSizes.size(); index++) {
             out << "type: " << getVtsType() << "\n";
-            out << "vector_size: " << mSizes[index]->value() << "\n";
+            out << "vector_size: " << mSizes[index]->rawValue() << "\n";
             out << "vector_value: {\n";
             out.indent();
             if (index == mSizes.size() - 1) {

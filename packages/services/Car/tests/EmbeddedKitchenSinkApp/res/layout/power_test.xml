@@ -52,20 +52,5 @@
             android:layout_width ="@dimen/powerBtnWidth"
             android:text="@string/power_request_shutdown"
             android:textSize="@dimen/powerTextSize"/>
-
-        <Button
-            android:clickable="true"
-            android:id="@+id/btnPwrGetBootReason"
-            android:layout_height="@dimen/powerBtnHeight"
-            android:layout_width ="@dimen/powerBtnWidth"
-            android:text="@string/power_get_boot_reason"
-            android:textSize="@dimen/powerTextSize"/>
-
-        <TextView
-            android:id="@+id/tvPowerBootReason"
-            android:layout_height="@dimen/powerBtnHeight"
-            android:layout_width ="@dimen/powerBtnWidth"
-            android:layout_weight="1"
-            android:textSize="@dimen/powerTextSize"/>
     </LinearLayout>
 </LinearLayout>

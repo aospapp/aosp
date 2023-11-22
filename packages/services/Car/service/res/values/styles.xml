@@ -17,21 +17,22 @@ limitations under the License.
     <!-- TextAppearances for ActivityBlockingActivity. -->
     <style name="ActivityBlockingActivityText">
         <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">@color/blocking_text</item>
         <item name="android:textStyle">normal</item>
         <item name="android:textSize">@dimen/blocking_text_size</item>
     </style>
 
-    <!-- Style of exit button. -->
-    <style name="ExitButtonStyle">
-        <item name="android:background">@drawable/exit_button_ripple_background</item>
+    <!-- Style for buttons in ActivityBlockingActivity. -->
+    <style name="ButtonStyle">
+        <item name="android:background">@drawable/button_ripple_background</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:minHeight">@dimen/exit_button_min_height</item>
-        <item name="android:minWidth">@dimen/exit_button_min_width</item>
-        <item name="android:paddingHorizontal">@dimen/exit_button_padding</item>
+        <item name="android:minHeight">@dimen/button_min_height</item>
+        <item name="android:minWidth">@dimen/button_min_width</item>
+        <item name="android:paddingHorizontal">@dimen/button_padding</item>
         <item name="android:textAllCaps">true</item>
         <item name="android:textAlignment">center</item>
         <item name="android:textAppearance">@style/ActivityBlockingActivityText</item>
-        <item name="android:textColor">@color/exit_button_text</item>
+        <item name="android:textColor">@color/button_text</item>
     </style>
 </resources>
 

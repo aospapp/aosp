@@ -24,11 +24,6 @@ import static org.mockito.Mockito.mock;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.view.MotionEvent;
@@ -36,7 +31,14 @@ import android.view.View;
 import android.widget.MediaController;
 import android.widget.VideoView;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -121,9 +123,8 @@ public class MediaControllerTest {
 
     @Test
     public void testShow() throws Throwable {
-        mActivityRule.runOnUiThread(
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
                 () -> mMediaController = new MediaController(mActivity, true));
-        mInstrumentation.waitForIdleSync();
         assertFalse(mMediaController.isShowing());
 
         final MockMediaPlayerControl mediaPlayerControl = new MockMediaPlayerControl();
@@ -133,18 +134,17 @@ public class MediaControllerTest {
                 (VideoView) mActivity.findViewById(R.id.mediacontroller_videoview);
         mMediaController.setAnchorView(videoView);
 
-        mActivityRule.runOnUiThread(mMediaController::show);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                mMediaController::show);
         assertTrue(mMediaController.isShowing());
 
-        mActivityRule.runOnUiThread(mMediaController::hide);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                mMediaController::hide);
         assertFalse(mMediaController.isShowing());
 
         final int timeout = 2000;
-        mActivityRule.runOnUiThread(() -> mMediaController.show(timeout));
-
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                () -> mMediaController.show(timeout));
         assertTrue(mMediaController.isShowing());
 
         // isShowing() should return false, but MediaController still shows, this may be a bug.
@@ -170,19 +170,19 @@ public class MediaControllerTest {
 
     @Test
     public void testOnTrackballEvent() throws Throwable {
-        mActivityRule.runOnUiThread(() -> mMediaController = new MediaController(mActivity));
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                () -> mMediaController = new MediaController(mActivity));
         final MockMediaPlayerControl mediaPlayerControl = new MockMediaPlayerControl();
         mMediaController.setMediaPlayer(mediaPlayerControl);
 
         final VideoView videoView =
                 (VideoView) mActivity.findViewById(R.id.mediacontroller_videoview);
         videoView.setMediaController(mMediaController);
-        mActivityRule.runOnUiThread(() -> {
-            videoView.setVideoPath(prepareSampleVideo());
-            videoView.requestFocus();
-        });
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                () -> {
+                    videoView.setVideoPath(prepareSampleVideo());
+                    videoView.requestFocus();
+                });
 
         final long curTime = System.currentTimeMillis();
         // get the center of the VideoView.
@@ -197,7 +197,8 @@ public class MediaControllerTest {
         final MotionEvent event = MotionEvent.obtain(curTime, 100,
                 MotionEvent.ACTION_DOWN, x, y, 0);
         mInstrumentation.sendTrackballEventSync(event);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActivity.getWindow().getDecorView(),
+                null);
     }
 
     @UiThreadTest

@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
+import its.caps
 import its.device
 import its.objects
-import its.caps
-import time
+
 
 def main():
     """Test if image and motion sensor events are in the same time domain.
@@ -25,7 +27,8 @@ def main():
         props = cam.get_camera_properties()
 
         # Only run test if the appropriate caps are claimed.
-        its.caps.skip_unless(its.caps.sensor_fusion(props))
+        its.caps.skip_unless(its.caps.sensor_fusion(props) and
+                             its.caps.backward_compatible(props))
 
         # Get the timestamp of a captured image.
         if its.caps.manual_sensor(props):
@@ -36,7 +39,7 @@ def main():
         ts_image0 = cap['metadata']['android.sensor.timestamp']
 
         # Get the timestamps of motion events.
-        print "Reading sensor measurements"
+        print 'Reading sensor measurements'
         sensors = cam.get_sensors()
         cam.start_sensor_events()
         time.sleep(2.0)
@@ -45,20 +48,20 @@ def main():
         ts_sensor_last = {}
         for sensor, existing in sensors.iteritems():
             if existing:
-                assert(len(events[sensor]) > 0)
-                ts_sensor_first[sensor] = events[sensor][0]["time"]
-                ts_sensor_last[sensor] = events[sensor][-1]["time"]
+                assert events[sensor], '%s sensor has no events!' % sensor
+                ts_sensor_first[sensor] = events[sensor][0]['time']
+                ts_sensor_last[sensor] = events[sensor][-1]['time']
 
         # Get the timestamp of another image.
         cap = cam.do_capture(req, fmt)
         ts_image1 = cap['metadata']['android.sensor.timestamp']
 
-        print "Image timestamps:", ts_image0, ts_image1
+        print 'Image timestamps:', ts_image0, ts_image1
 
         # The motion timestamps must be between the two image timestamps.
         for sensor, existing in sensors.iteritems():
             if existing:
-                print "%s timestamps: %d %d" % (sensor, ts_sensor_first[sensor],
+                print '%s timestamps: %d %d' % (sensor, ts_sensor_first[sensor],
                                                 ts_sensor_last[sensor])
                 assert ts_image0 < ts_sensor_first[sensor] < ts_image1
                 assert ts_image0 < ts_sensor_last[sensor] < ts_image1

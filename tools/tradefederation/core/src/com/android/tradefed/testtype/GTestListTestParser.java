@@ -43,10 +43,15 @@ public class GTestListTestParser extends MultiLineReceiver {
     private static final Pattern TEST_CLASS = Pattern.compile("^([a-zA-Z]+.*)\\.$");
     // test method name should start with leading spaces, named as however valid as a C function
     // example: <line start>  emptyPlayback<line end>
-    private static final Pattern TEST_METHOD = Pattern.compile("\\s+([a-zA-Z]+.*)$");
+    // example parameterized: <line start>  emptyPlayback/0 # GetParam() = (object 1)<line end>
+    private static final Pattern TEST_METHOD =
+            Pattern.compile("\\s+([a-zA-Z_]+[\\S]*)(.*)?(\\s+.*)?$");
 
     // exposed for unit testing
     protected List<TestDescription> mTests = new ArrayList<>();
+
+    /** Track if we have already reported {@link #done()} */
+    private boolean mIsDone = false;
 
     /**
      * Creates the GTestListTestParser for a single listener.
@@ -123,6 +128,11 @@ public class GTestListTestParser extends MultiLineReceiver {
      */
     @Override
     public void done() {
+        // Done can be called multiple times, flush from base class calls done. So we want to avoid
+        // sending all the callbacks several times.
+        if (mIsDone) {
+            return;
+        }
         // now we send out all the test callbacks
         mTestRunListener.testRunStarted(mTestRunName, mTests.size());
         for (TestDescription id : mTests) {
@@ -131,5 +141,6 @@ public class GTestListTestParser extends MultiLineReceiver {
         }
         mTestRunListener.testRunEnded(0, new HashMap<String, Metric>());
         super.done();
+        mIsDone = true;
     }
 }

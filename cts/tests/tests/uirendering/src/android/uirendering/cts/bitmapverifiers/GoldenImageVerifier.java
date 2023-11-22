@@ -20,21 +20,32 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.differencevisualizers.PassFailVisualizer;
-import android.uirendering.cts.testinfrastructure.ActivityTestBase;
 
 public class GoldenImageVerifier extends BitmapVerifier {
-    private BitmapComparer mBitmapComparer;
-    private int[] mGoldenBitmapArray;
+    private final BitmapComparer mBitmapComparer;
+    private final int[] mGoldenBitmapArray;
+    private final int mWidth;
+    private final int mHeight;
 
     public GoldenImageVerifier(Bitmap goldenBitmap, BitmapComparer bitmapComparer) {
-        mGoldenBitmapArray = new int[ActivityTestBase.TEST_WIDTH * ActivityTestBase.TEST_HEIGHT];
-        goldenBitmap.getPixels(mGoldenBitmapArray, 0, ActivityTestBase.TEST_WIDTH, 0, 0,
-                ActivityTestBase.TEST_WIDTH, ActivityTestBase.TEST_HEIGHT);
+        mWidth = goldenBitmap.getWidth();
+        mHeight = goldenBitmap.getHeight();
+        mGoldenBitmapArray = new int[mWidth * mHeight];
+        goldenBitmap.getPixels(mGoldenBitmapArray, 0, mWidth, 0, 0, mWidth, mHeight);
         mBitmapComparer = bitmapComparer;
     }
 
     public GoldenImageVerifier(Context context, int goldenResId, BitmapComparer bitmapComparer) {
         this(BitmapFactory.decodeResource(context.getResources(), goldenResId), bitmapComparer);
+    }
+
+    @Override
+    public boolean verify(Bitmap bitmap) {
+        // Clip to the size of the golden image.
+        if (bitmap.getWidth() > mWidth || bitmap.getHeight() > mHeight) {
+            bitmap = Bitmap.createBitmap(bitmap, 0, 0, mWidth, mHeight);
+        }
+        return super.verify(bitmap);
     }
 
     @Override

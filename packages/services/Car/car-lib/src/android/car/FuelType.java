@@ -16,13 +16,12 @@
 package android.car;
 
 import android.annotation.IntDef;
-import android.annotation.SystemApi;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
  * FuelType denotes the different fuels a vehicle may use.
- * @hide
  */
 public final class FuelType {
     /**
@@ -33,9 +32,9 @@ public final class FuelType {
     public static final int UNLEADED = 1;
     /** Leaded gasoline */
     public static final int LEADED = 2;
-    /** Diesel #1 */
+    /** #1 Grade Diesel */
     public static final int DIESEL_1 = 3;
-    /** Diesel #2 */
+    /** #2 Grade Diesel */
     public static final int DIESEL_2 = 4;
     /** Biodiesel */
     public static final int BIODIESEL = 5;
@@ -58,7 +57,6 @@ public final class FuelType {
     public static final int OTHER = 12;
 
     /** @hide */
-    @Retention(RetentionPolicy.SOURCE)
     @IntDef({
         UNKNOWN,
         UNLEADED,
@@ -74,8 +72,8 @@ public final class FuelType {
         HYDROGEN,
         OTHER
     })
+    @Retention(RetentionPolicy.SOURCE)
     public @interface Enum {}
-
 
     private FuelType() {}
 }

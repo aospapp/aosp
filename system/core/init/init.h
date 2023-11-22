@@ -19,6 +19,7 @@
 
 #include <sys/types.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -30,19 +31,18 @@
 namespace android {
 namespace init {
 
-// Note: These globals are *only* valid in init, so they should not be used in ueventd,
-// watchdogd, or any files that may be included in those, such as devices.cpp and util.cpp.
+// Note: These globals are *only* valid in init, so they should not be used in ueventd
+// or any files that may be included in ueventd, such as devices.cpp and util.cpp.
 // TODO: Have an Init class and remove all globals.
 extern std::string default_console;
 extern std::vector<std::string> late_import_paths;
 
 Parser CreateParser(ActionManager& action_manager, ServiceList& service_list);
+Parser CreateServiceOnlyParser(ServiceList& service_list);
 
 void HandleControlMessage(const std::string& msg, const std::string& arg, pid_t pid);
 
 void property_changed(const std::string& name, const std::string& value);
-
-void register_epoll_handler(int fd, void (*fn)());
 
 bool start_waiting_for_property(const char *name, const char *value);
 
@@ -50,7 +50,7 @@ void DumpState();
 
 void ResetWaitForProp();
 
-int main(int argc, char** argv);
+int SecondStageMain(int argc, char** argv);
 
 }  // namespace init
 }  // namespace android

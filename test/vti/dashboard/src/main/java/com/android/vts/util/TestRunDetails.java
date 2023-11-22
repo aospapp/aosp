@@ -73,7 +73,7 @@ public class TestRunDetails {
      * @param testCaseEntity The TestCaseRunEntity object storing test case results.
      */
     public void addTestCase(TestCaseRunEntity testCaseEntity) {
-        for (TestCase testCase : testCaseEntity.testCases) {
+        for (TestCase testCase : testCaseEntity.getTestCases()) {
             int result = testCase.result;
             if (result > resultCounts.length)
                 continue;

@@ -16,7 +16,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.uirendering.cts">
+          package="android.uirendering.cts"
+          android:targetSandboxVersion="2">
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -28,9 +29,10 @@
          * start up in multi-window mode.
          -->
         <activity android:name="android.uirendering.cts.testinfrastructure.DrawActivity"
-                  android:theme="@style/WhiteBackgroundTheme"
+                  android:theme="@style/DefaultTheme"
                   android:screenOrientation="locked"
-                  android:resizeableActivity="false" />
+                  android:resizeableActivity="false"
+                  android:configChanges="uiMode" />
         <uses-library android:name="android.test.runner" />
     </application>
 

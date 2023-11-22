@@ -15,10 +15,11 @@
  */
 package com.android.documentsui.ui;
 
-import android.app.FragmentManager;
+import androidx.fragment.app.FragmentManager;
 
 import com.android.documentsui.base.ConfirmationCallback;
 import com.android.documentsui.base.DocumentInfo;
+import com.android.documentsui.picker.ConfirmFragment;
 import com.android.documentsui.services.FileOperation;
 import com.android.documentsui.services.FileOperations;
 
@@ -34,7 +35,8 @@ public class TestDialogController implements DialogController {
     private boolean mDocumentsClipped;
     private boolean mViewInArchivesUnsupported;
     private boolean mShowOperationUnsupported;
-    private DocumentInfo mOverwriteTarget;
+    private DocumentInfo mTarget;
+    private int mConfrimType;
 
     public TestDialogController() {
         // by default, always confirm
@@ -77,8 +79,9 @@ public class TestDialogController implements DialogController {
     }
 
     @Override
-    public void confirmOverwrite(FragmentManager fm, DocumentInfo overwriteTarget) {
-        mOverwriteTarget = overwriteTarget;
+    public void confirmAction(FragmentManager fm, DocumentInfo pickTarget, int type) {
+        mTarget = pickTarget;
+        mConfrimType = type;
     }
 
     public void assertNoFileFailures() {
@@ -105,7 +108,13 @@ public class TestDialogController implements DialogController {
     }
 
     public void assertOverwriteConfirmed(DocumentInfo expected) {
-        Assert.assertEquals(expected, mOverwriteTarget);
+        Assert.assertEquals(expected, mTarget);
+        Assert.assertEquals(ConfirmFragment.TYPE_OVERWRITE, mConfrimType);
+    }
+
+    public void assertDocumentTreeConfirmed(DocumentInfo expected) {
+        Assert.assertEquals(expected, mTarget);
+        Assert.assertEquals(ConfirmFragment.TYPE_OEPN_TREE, mConfrimType);
     }
 
     public void confirmNext() {

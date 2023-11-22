@@ -1,7 +1,23 @@
+/*
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef ANDROID_HARDWARE_MANAGER_SERVICEMANAGER_H
 #define ANDROID_HARDWARE_MANAGER_SERVICEMANAGER_H
 
-#include <android/hidl/manager/1.1/IServiceManager.h>
+#include <android/hidl/manager/1.2/IServiceManager.h>
 #include <hidl/Status.h>
 #include <hidl/MQDescriptor.h>
 #include <map>
@@ -20,12 +36,12 @@ using ::android::hardware::hidl_string;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
 using ::android::hidl::base::V1_0::IBase;
-using ::android::hidl::manager::V1_1::IServiceManager;
 using ::android::hidl::manager::V1_0::IServiceNotification;
+using ::android::hidl::manager::V1_2::IClientCallback;
 using ::android::sp;
 using ::android::wp;
 
-struct ServiceManager : public IServiceManager, hidl_death_recipient {
+struct ServiceManager : public V1_2::IServiceManager, hidl_death_recipient {
     // Methods from ::android::hidl::manager::V1_0::IServiceManager follow.
     Return<sp<IBase>> get(const hidl_string& fqName,
                           const hidl_string& name) override;
@@ -52,16 +68,45 @@ struct ServiceManager : public IServiceManager, hidl_death_recipient {
                                             const hidl_string& name,
                                             const sp<IServiceNotification>& callback) override;
 
+    // Methods from ::android::hidl::manager::V1_2::IServiceManager follow.
+    Return<bool> registerClientCallback(const hidl_string& fqName,
+                                        const hidl_string& name,
+                                        const sp<IBase>& server,
+                                        const sp<IClientCallback>& cb) override;
+    Return<bool> unregisterClientCallback(const sp<IBase>& server,
+                                          const sp<IClientCallback>& cb) override;
+    Return<bool> addWithChain(const hidl_string& name,
+                              const sp<IBase>& service,
+                              const hidl_vec<hidl_string>& chain) override;
+    Return<void> listManifestByInterface(const hidl_string& fqInstanceName,
+                                         listManifestByInterface_cb _hidl_cb) override;
+    Return<bool> tryUnregister(const hidl_string& fqName,
+                               const hidl_string& name,
+                               const sp<IBase>& service) override;
+
+    void handleClientCallbacks();
+
     virtual void serviceDied(uint64_t cookie, const wp<IBase>& who);
 private:
+    bool addImpl(const std::string& name,
+                 const sp<IBase>& service,
+                 const hidl_vec<hidl_string>& interfaceChain,
+                 const AccessControl::CallingContext& callingContext);
+
     // if restrictToInstanceName is nullptr, remove all, otherwise only those services
     // which match this instance name. Returns whether all instances were removed.
     bool removeService(const wp<IBase>& who, const std::string* restrictToInstanceName);
     bool removePackageListener(const wp<IBase>& who);
     bool removeServiceListener(const wp<IBase>& who);
     size_t countExistingService() const;
-    void forEachExistingService(std::function<void(const HidlService *)> f) const;
-    void forEachServiceEntry(std::function<void(const HidlService *)> f) const;
+
+    // true = continue, false = break
+    void forEachExistingService(std::function<bool(const HidlService *)> f) const;
+    void forEachExistingService(std::function<bool(HidlService *)> f);
+    void forEachServiceEntry(std::function<bool(const HidlService *)> f) const;
+    void forEachServiceEntry(std::function<bool(HidlService *)> f);
+
+    HidlService* lookup(const std::string& fqName, const std::string& name);
 
     using InstanceMap = std::map<
             std::string, // instance name e.x. "manager"

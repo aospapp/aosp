@@ -39,6 +39,11 @@ public class DeviceDescriptor {
     private final String mSimState;
     private final String mSimOperator;
     private final IDevice mIDevice;
+    private final boolean mIsTemporary;
+
+    public DeviceDescriptor() {
+        this(null, false, null, null, null, null, null, null);
+    }
 
     public DeviceDescriptor(String serial, boolean isStubDevice, DeviceAllocationState state,
             String product, String productVariant, String sdkVersion, String buildId,
@@ -65,7 +70,40 @@ public class DeviceDescriptor {
                 macAddress,
                 simState,
                 simOperator,
+                false,
                 null);
+    }
+
+    public DeviceDescriptor(
+            String serial,
+            boolean isStubDevice,
+            DeviceAllocationState state,
+            String product,
+            String productVariant,
+            String sdkVersion,
+            String buildId,
+            String batteryLevel,
+            String deviceClass,
+            String macAddress,
+            String simState,
+            String simOperator,
+            IDevice idevice) {
+        this(
+                serial,
+                isStubDevice,
+                null,
+                state,
+                product,
+                productVariant,
+                sdkVersion,
+                buildId,
+                batteryLevel,
+                deviceClass,
+                macAddress,
+                simState,
+                simOperator,
+                false,
+                idevice);
     }
 
     public DeviceDescriptor(
@@ -83,6 +121,40 @@ public class DeviceDescriptor {
             String simState,
             String simOperator,
             IDevice idevice) {
+        this(
+                serial,
+                isStubDevice,
+                deviceState,
+                state,
+                product,
+                productVariant,
+                sdkVersion,
+                buildId,
+                batteryLevel,
+                deviceClass,
+                macAddress,
+                simState,
+                simOperator,
+                false,
+                idevice);
+    }
+
+    public DeviceDescriptor(
+            String serial,
+            boolean isStubDevice,
+            DeviceState deviceState,
+            DeviceAllocationState state,
+            String product,
+            String productVariant,
+            String sdkVersion,
+            String buildId,
+            String batteryLevel,
+            String deviceClass,
+            String macAddress,
+            String simState,
+            String simOperator,
+            boolean isTemporary,
+            IDevice idevice) {
         mSerial = serial;
         mIsStubDevice = isStubDevice;
         mDeviceState = deviceState;
@@ -96,7 +168,28 @@ public class DeviceDescriptor {
         mMacAddress = macAddress;
         mSimState = simState;
         mSimOperator = simOperator;
+        mIsTemporary = isTemporary;
         mIDevice = idevice;
+    }
+
+    /** Used for easy state updating in ClusterDeviceMonitor. */
+    public DeviceDescriptor(DeviceDescriptor d, DeviceAllocationState state) {
+        this(
+                d.getSerial(),
+                d.isStubDevice(),
+                d.getDeviceState(),
+                state,
+                d.getProduct(),
+                d.getProductVariant(),
+                d.getSdkVersion(),
+                d.getBuildId(),
+                d.getBatteryLevel(),
+                d.getDeviceClass(),
+                d.getMacAddress(),
+                d.getSimState(),
+                d.getSimOperator(),
+                d.isTemporary(),
+                d.getIDevice());
     }
 
     public String getSerial() {
@@ -152,6 +245,15 @@ public class DeviceDescriptor {
 
     public String getSimOperator() {
         return mSimOperator;
+    }
+
+    /** Returns whether or not the device will be deleted at the end of the invocation. */
+    public boolean isTemporary() {
+        return mIsTemporary;
+    }
+
+    private IDevice getIDevice() {
+        return mIDevice;
     }
 
     public String getProperty(String name) {

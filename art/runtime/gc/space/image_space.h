@@ -17,13 +17,16 @@
 #ifndef ART_RUNTIME_GC_SPACE_IMAGE_SPACE_H_
 #define ART_RUNTIME_GC_SPACE_IMAGE_SPACE_H_
 
-#include "arch/instruction_set.h"
 #include "gc/accounting/space_bitmap.h"
 #include "image.h"
+#include "image_space_loading_order.h"
 #include "space.h"
 
 namespace art {
 
+template <typename T> class ArrayRef;
+class DexFile;
+enum class InstructionSet;
 class OatFile;
 
 namespace gc {
@@ -32,20 +35,27 @@ namespace space {
 // An image space is a space backed with a memory mapped image.
 class ImageSpace : public MemMapSpace {
  public:
-  SpaceType GetType() const {
+  SpaceType GetType() const override {
     return kSpaceTypeImageSpace;
   }
 
   // Load boot image spaces from a primary image file for a specified instruction set.
   //
   // On successful return, the loaded spaces are added to boot_image_spaces (which must be
-  // empty on entry) and oat_file_end is updated with the (page-aligned) end of the last
-  // oat file.
-  static bool LoadBootImage(const std::string& image_file_name,
-                            const InstructionSet image_instruction_set,
-                            std::vector<space::ImageSpace*>* boot_image_spaces,
-                            uint8_t** oat_file_end)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  // empty on entry) and `extra_reservation` is set to the requested reservation located
+  // after the end of the last loaded oat file.
+  static bool LoadBootImage(
+      const std::vector<std::string>& boot_class_path,
+      const std::vector<std::string>& boot_class_path_locations,
+      const std::string& image_location,
+      const InstructionSet image_isa,
+      ImageSpaceLoadingOrder order,
+      bool relocate,
+      bool executable,
+      bool is_zygote,
+      size_t extra_reservation_size,
+      /*out*/std::vector<std::unique_ptr<space::ImageSpace>>* boot_image_spaces,
+      /*out*/MemMap* extra_reservation) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Try to open an existing app image space.
   static std::unique_ptr<ImageSpace> CreateFromAppImage(const char* image,
@@ -56,9 +66,10 @@ class ImageSpace : public MemMapSpace {
   // Reads the image header from the specified image location for the
   // instruction set image_isa. Returns null on failure, with
   // reason in error_msg.
-  static ImageHeader* ReadImageHeader(const char* image_location,
-                                      InstructionSet image_isa,
-                                      std::string* error_msg);
+  static std::unique_ptr<ImageHeader> ReadImageHeader(const char* image_location,
+                                                      InstructionSet image_isa,
+                                                      ImageSpaceLoadingOrder order,
+                                                      std::string* error_msg);
 
   // Give access to the OatFile.
   const OatFile* GetOatFile() const;
@@ -86,23 +97,23 @@ class ImageSpace : public MemMapSpace {
     return image_location_;
   }
 
-  accounting::ContinuousSpaceBitmap* GetLiveBitmap() const OVERRIDE {
+  accounting::ContinuousSpaceBitmap* GetLiveBitmap() const override {
     return live_bitmap_.get();
   }
 
-  accounting::ContinuousSpaceBitmap* GetMarkBitmap() const OVERRIDE {
+  accounting::ContinuousSpaceBitmap* GetMarkBitmap() const override {
     // ImageSpaces have the same bitmap for both live and marked. This helps reduce the number of
     // special cases to test against.
     return live_bitmap_.get();
   }
 
-  void Dump(std::ostream& os) const;
+  void Dump(std::ostream& os) const override;
 
   // Sweeping image spaces is a NOP.
   void Sweep(bool /* swap_bitmaps */, size_t* /* freed_objects */, size_t* /* freed_bytes */) {
   }
 
-  bool CanMoveObjects() const OVERRIDE {
+  bool CanMoveObjects() const override {
     return false;
   }
 
@@ -121,15 +132,24 @@ class ImageSpace : public MemMapSpace {
                                 bool* has_data,
                                 bool *is_global_cache);
 
-  // Use the input image filename to adapt the names in the given boot classpath to establish
-  // complete locations for secondary images.
-  static void ExtractMultiImageLocations(const std::string& input_image_file_name,
-                                        const std::string& boot_classpath,
-                                        std::vector<std::string>* image_filenames);
+  // Returns the checksums for the boot image and extra boot class path dex files,
+  // based on the boot class path, image location and ISA (may differ from the ISA of an
+  // initialized Runtime). The boot image and dex files do not need to be loaded in memory.
+  static std::string GetBootClassPathChecksums(ArrayRef<const std::string> boot_class_path,
+                                               const std::string& image_location,
+                                               InstructionSet image_isa,
+                                               ImageSpaceLoadingOrder order,
+                                               /*out*/std::string* error_msg);
 
-  static std::string GetMultiImageBootClassPath(const std::vector<const char*>& dex_locations,
-                                                const std::vector<const char*>& oat_filenames,
-                                                const std::vector<const char*>& image_filenames);
+  // Returns the checksums for the boot image and extra boot class path dex files,
+  // based on the boot image and boot class path dex files loaded in memory.
+  static std::string GetBootClassPathChecksums(const std::vector<ImageSpace*>& image_spaces,
+                                               const std::vector<const DexFile*>& boot_class_path);
+
+  // Expand a single image location to multi-image locations based on the dex locations.
+  static std::vector<std::string> ExpandMultiImageLocations(
+      const std::vector<std::string>& dex_locations,
+      const std::string& image_location);
 
   // Returns true if the dex checksums in the given oat file match the
   // checksums of the original dex files on disk. This is intended to be used
@@ -147,20 +167,13 @@ class ImageSpace : public MemMapSpace {
     return Begin() + GetImageHeader().GetImageSize();
   }
 
-  // Return the start of the associated oat file.
-  uint8_t* GetOatFileBegin() const {
-    return GetImageHeader().GetOatFileBegin();
-  }
-
-  // Return the end of the associated oat file.
-  uint8_t* GetOatFileEnd() const {
-    return GetImageHeader().GetOatFileEnd();
-  }
-
   void DumpSections(std::ostream& os) const;
 
   // De-initialize the image-space by undoing the effects in Init().
   virtual ~ImageSpace();
+
+  void DisablePreResolvedStrings() REQUIRES_SHARED(Locks::mutator_lock_);
+  void ReleaseMetadata() REQUIRES_SHARED(Locks::mutator_lock_);
 
  protected:
   // Tries to initialize an ImageSpace from the given image path, returning null on error.
@@ -182,8 +195,8 @@ class ImageSpace : public MemMapSpace {
 
   ImageSpace(const std::string& name,
              const char* image_location,
-             MemMap* mem_map,
-             accounting::ContinuousSpaceBitmap* live_bitmap,
+             MemMap&& mem_map,
+             std::unique_ptr<accounting::ContinuousSpaceBitmap> live_bitmap,
              uint8_t* end);
 
   // The OatFile associated with the image during early startup to
@@ -197,23 +210,24 @@ class ImageSpace : public MemMapSpace {
 
   const std::string image_location_;
 
-  friend class ImageSpaceLoader;
   friend class Space;
 
  private:
-  // Create a boot image space from an image file for a specified instruction
-  // set. Cannot be used for future allocation or collected.
-  //
-  // Create also opens the OatFile associated with the image file so
-  // that it be contiguously allocated with the image before the
-  // creation of the alloc space. The ReleaseOatFile will later be
-  // used to transfer ownership of the OatFile to the ClassLinker when
-  // it is initialized.
-  static std::unique_ptr<ImageSpace> CreateBootImage(const char* image,
-                                     InstructionSet image_isa,
-                                     bool secondary_image,
-                                     std::string* error_msg)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  // Internal overload that takes ArrayRef<> instead of vector<>.
+  static std::vector<std::string> ExpandMultiImageLocations(
+      ArrayRef<const std::string> dex_locations,
+      const std::string& image_location);
+
+  class BootImageLoader;
+  template <typename ReferenceVisitor>
+  class ClassTableVisitor;
+  class Loader;
+  template <typename PatchObjectVisitor>
+  class PatchArtFieldVisitor;
+  template <PointerSize kPointerSize, typename PatchObjectVisitor, typename PatchCodeVisitor>
+  class PatchArtMethodVisitor;
+  template <PointerSize kPointerSize, typename HeapVisitor, typename NativeVisitor>
+  class PatchObjectVisitor;
 
   DISALLOW_COPY_AND_ASSIGN(ImageSpace);
 };

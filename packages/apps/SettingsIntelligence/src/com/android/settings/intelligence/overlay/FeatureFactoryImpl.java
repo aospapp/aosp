@@ -17,7 +17,7 @@
 package com.android.settings.intelligence.overlay;
 
 import android.content.Context;
-import android.support.annotation.Keep;
+import androidx.annotation.Keep;
 
 import com.android.settings.intelligence.experiment.ExperimentFeatureProvider;
 import com.android.settings.intelligence.instrumentation.MetricsFeatureProvider;

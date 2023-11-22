@@ -28,9 +28,9 @@ LOCAL_SDK_VERSION := test_current
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     mockito-target-minus-junit4 \
-    ctstestrunner \
+    ctstestrunner-axt \
     junit \
-    compatibility-device-util
+    compatibility-device-util-axt
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 

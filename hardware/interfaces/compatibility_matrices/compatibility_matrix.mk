@@ -17,7 +17,8 @@
 ##### Input Variables:
 # LOCAL_MODULE: required. Module name for the build system.
 # LOCAL_MODULE_CLASS: optional. Default is ETC.
-# LOCAL_MODULE_PATH: optional. Path of output file. Default is $(TARGET_OUT)/etc/vintf.
+# LOCAL_MODULE_PATH / LOCAL_MODULE_RELATIVE_PATH: required. (Relative) path of output file.
+#       If not defined, LOCAL_MODULE_RELATIVE_PATH will be "vintf".
 # LOCAL_MODULE_STEM: optional. Name of output file. Default is $(LOCAL_MODULE).
 # LOCAL_SRC_FILES: required. Local source files provided to assemble_vintf
 #       (command line argument -i).
@@ -32,7 +33,7 @@
 #       assemble_vintf invocation. Format is "VINTF_ENFORCE_NO_UNUSED_HALS=true".
 # LOCAL_ASSEMBLE_VINTF_FLAGS: Add additional command line arguments to assemble_vintf invocation.
 # LOCAL_KERNEL_CONFIG_DATA_PATHS: Paths to search for kernel config requirements. Format for each is
-#       <kernel version x.y.z>:<path that contains android-base*.cfg>.
+#       <kernel version x.y.z>:<path that contains android-base*.config>.
 # LOCAL_GEN_FILE_DEPENDENCIES: A list of additional dependencies for the generated file.
 
 ifndef LOCAL_MODULE
@@ -48,7 +49,9 @@ LOCAL_MODULE_CLASS := ETC
 endif
 
 ifndef LOCAL_MODULE_PATH
-LOCAL_MODULE_PATH := $(TARGET_OUT)/etc/vintf
+ifndef LOCAL_MODULE_RELATIVE_PATH
+$(error Either LOCAL_MODULE_PATH or LOCAL_MODULE_RELATIVE_PATH must be defined.)
+endif
 endif
 
 GEN := $(local-generated-sources-dir)/$(LOCAL_MODULE_STEM)
@@ -77,13 +80,20 @@ endif # BOARD_AVB_ENABLE
 $(GEN): PRIVATE_ENV_VARS += FRAMEWORK_VBMETA_VERSION
 endif # LOCAL_ADD_VBMETA_VERSION
 
+ifeq (true,$(strip $(LOCAL_ADD_VBMETA_VERSION_OVERRIDE)))
+ifneq ($(BOARD_OTA_FRAMEWORK_VBMETA_VERSION_OVERRIDE),)
+$(GEN): FRAMEWORK_VBMETA_VERSION_OVERRIDE := $(BOARD_OTA_FRAMEWORK_VBMETA_VERSION_OVERRIDE)
+$(GEN): PRIVATE_ENV_VARS += FRAMEWORK_VBMETA_VERSION_OVERRIDE
+endif
+endif
+
 ifneq (,$(strip $(LOCAL_KERNEL_CONFIG_DATA_PATHS)))
 $(GEN): PRIVATE_KERNEL_CONFIG_DATA_PATHS := $(LOCAL_KERNEL_CONFIG_DATA_PATHS)
-$(GEN): $(foreach pair,$(PRIVATE_KERNEL_CONFIG_DATA_PATHS),\
-    $(wildcard $(call word-colon,2,$(pair))/android-base*.cfg))
+$(GEN): $(foreach pair,$(LOCAL_KERNEL_CONFIG_DATA_PATHS),\
+    $(wildcard $(call word-colon,2,$(pair))/android-base*.config))
 $(GEN): PRIVATE_FLAGS += $(foreach pair,$(PRIVATE_KERNEL_CONFIG_DATA_PATHS),\
 	--kernel=$(call word-colon,1,$(pair)):$(call normalize-path-list,\
-		$(wildcard $(call word-colon,2,$(pair))/android-base*.cfg)))
+		$(wildcard $(call word-colon,2,$(pair))/android-base*.config)))
 endif
 
 my_matrix_src_files := \

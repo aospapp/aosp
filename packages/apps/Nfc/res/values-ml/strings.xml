@@ -47,4 +47,6 @@
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"നിങ്ങളുടെ ടാബ്‌ലെറ്റിന് NFC വഴി ഒരു ലിങ്ക് ലഭിച്ചു:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"നിങ്ങളുടെ ഫോണിന് NFC വഴി ഒരു ലിങ്ക് ലഭിച്ചു:"</string>
     <string name="action_confirm_url_open" msgid="3458322738812921189">"ലിങ്ക് തുറക്കുക"</string>
+    <string name="tag_read_error" msgid="2485274498885877547">"NFC റീഡ് ചെയ്യുന്നതിൽ പിശക്. വീണ്ടും ശ്രമിക്കുക."</string>
+    <string name="tag_dispatch_failed" msgid="3562984995049738400">"ഈ NFC ടാഗിനെ പിന്തുണയ്ക്കുന്ന ആപ്പുകളൊന്നുമില്ല"</string>
 </resources>

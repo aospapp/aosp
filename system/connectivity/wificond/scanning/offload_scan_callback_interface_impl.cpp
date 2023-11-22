@@ -18,7 +18,6 @@
 
 #include <android-base/logging.h>
 
-using com::android::server::wifi::wificond::NativeScanResult;
 
 namespace android {
 namespace wificond {

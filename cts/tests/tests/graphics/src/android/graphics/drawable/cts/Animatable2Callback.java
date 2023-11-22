@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 
 import android.graphics.drawable.Animatable2;
 import android.graphics.drawable.Drawable;
+import android.os.Looper;
 
 // Now this class can not only listen to the events, but also synchronize the key events,
 // logging the event timestamp, and centralize some assertions.
@@ -29,7 +30,9 @@ public class Animatable2Callback extends Animatable2.AnimationCallback {
     private static final long MAX_START_TIMEOUT_MS = 5000;
 
     private boolean mStarted = false;
+    private Thread mStartThread;
     private boolean mEnded = false;
+    private Thread mEndThread;
 
     private long mStartNs = Long.MAX_VALUE;
     private long mEndNs = Long.MIN_VALUE;
@@ -65,6 +68,7 @@ public class Animatable2Callback extends Animatable2.AnimationCallback {
     @Override
     public void onAnimationStart(Drawable drawable) {
         mStartNs = System.nanoTime();
+        mStartThread = Thread.currentThread();
         synchronized(mStartLock) {
             mStarted = true;
             mStartLock.notify();
@@ -74,6 +78,7 @@ public class Animatable2Callback extends Animatable2.AnimationCallback {
     @Override
     public void onAnimationEnd(Drawable drawable) {
         mEndNs = System.nanoTime();
+        mEndThread = Thread.currentThread();
         synchronized (mEndLock) {
             mEnded = true;
             mEndLock.notify();
@@ -88,10 +93,18 @@ public class Animatable2Callback extends Animatable2.AnimationCallback {
 
     public void assertStarted(boolean started) {
         assertEquals(started, mStarted);
+        if (started) {
+            assertEquals("onAnimationStart happened on wrong thread",
+                    Looper.getMainLooper().getThread(), mStartThread);
+        }
     }
 
     public void assertEnded(boolean ended) {
         assertEquals(ended, mEnded);
+        if (ended) {
+            assertEquals("onAnimationEnd happened on wrong thread",
+                    Looper.getMainLooper().getThread(), mEndThread);
+        }
     }
 
     public void assertAVDRuntime(long min, long max) {
@@ -100,5 +113,9 @@ public class Animatable2Callback extends Animatable2.AnimationCallback {
         long durationNs = mEndNs - mStartNs;
         assertTrue("current duration " + durationNs + " should be within " +
                    min + "," + max, durationNs <= max && durationNs >= min);
+        assertEquals("onAnimationStart happened on wrong thread",
+                Looper.getMainLooper().getThread(), mStartThread);
+        assertEquals("onAnimationEnd happened on wrong thread",
+                Looper.getMainLooper().getThread(), mEndThread);
     }
 }

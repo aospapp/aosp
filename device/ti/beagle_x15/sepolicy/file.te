@@ -1,0 +1,2 @@
+# sysfs types
+type sysfs_socinfo, sysfs_type, fs_type;

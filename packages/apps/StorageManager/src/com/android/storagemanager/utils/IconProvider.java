@@ -40,7 +40,7 @@ public class IconProvider {
      * @return
      */
     public Drawable loadMimeIcon(String mimeType) {
-        return mContext.getContentResolver().getTypeDrawable(mimeType);
+        return mContext.getContentResolver().getTypeInfo(mimeType).getIcon().loadDrawable(mContext);
     }
 
     public static String getMimeType(File file) {

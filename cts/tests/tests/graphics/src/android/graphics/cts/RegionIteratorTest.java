@@ -24,8 +24,9 @@ import static org.junit.Assert.fail;
 import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.RegionIterator;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

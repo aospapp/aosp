@@ -45,7 +45,7 @@ class UsbGadgetHidlTest(hal_hidl_host_test.HalHidlHostTest):
             self.adb.wait_for_device()
         except adb.AdbError as e:
             logging.exception(e)
-        self.serialno = self.adb.shell("\"getprop ro.serialno\"")
+        self.serialno = self.adb.shell("getprop ro.serialno")
 
     def checkProtocol(self, usb_class, usb_sub_class, usb_protocol):
         """Queries the host USB bus to see if the interface is present.

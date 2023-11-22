@@ -185,7 +185,7 @@ static keymaster_error_t SetAuthorizations(const AuthorizationSet& key_descripti
         }
     }
 
-    sw_enforced->push_back(TAG_CREATION_DATETIME, java_time(time(NULL)));
+    sw_enforced->push_back(TAG_CREATION_DATETIME, java_time(time(nullptr)));
     sw_enforced->push_back(TAG_ORIGIN, origin);
     sw_enforced->push_back(TAG_OS_VERSION, os_version);
     sw_enforced->push_back(TAG_OS_PATCHLEVEL, os_patchlevel);

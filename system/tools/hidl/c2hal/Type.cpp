@@ -26,13 +26,13 @@ Type::Type(std::vector<Qualifier*> *qualifiers)
     {}
 
 Type::~Type() {
-    if(mArrays != NULL) {
+    if(mArrays != nullptr) {
         for(auto* array : *mArrays) {
             delete array;
         }
     }
 
-    if(mQualifiers != NULL) {
+    if(mQualifiers != nullptr) {
         for(auto* qual : *mQualifiers) {
             delete qual;
         }
@@ -115,7 +115,7 @@ const std::string Type::cToHidlType(const std::string &cType) {
 }
 
 const std::string Type::getHidlType() const {
-    if (mQualifiers == NULL) {
+    if (mQualifiers == nullptr) {
         return "";
     }
 
@@ -175,7 +175,7 @@ const std::string Type::getHidlType() const {
         }
     }
 
-    if (mArrays != NULL) {
+    if (mArrays != nullptr) {
         for (const auto &array : *mArrays) {
             ss << "[" << array->toString() << "]";
         }
@@ -185,7 +185,7 @@ const std::string Type::getHidlType() const {
 }
 
 const std::string Type::getRawQualifierList() const {
-    if (mQualifiers == NULL) {
+    if (mQualifiers == nullptr) {
         return "";
     }
 
@@ -240,13 +240,13 @@ bool Type::isHwDevice() const {
 }
 
 std::string Type::removeLastId() {
-    if(mQualifiers == NULL || mQualifiers->size() == 0) {
+    if(mQualifiers == nullptr || mQualifiers->size() == 0) {
         return "";
     }
 
     Qualifier *last = (*mQualifiers)[mQualifiers->size() - 1];
 
-    if(last == NULL || last->qualification != Qualifier::ID) {
+    if(last == nullptr || last->qualification != Qualifier::ID) {
         return "";
     }
 

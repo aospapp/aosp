@@ -3,6 +3,7 @@ filegroup {
     srcs: [
         "ExecStrings.cpp",
         "IcuUtilities.cpp",
+        "JniConstants.cpp",
         "JniException.cpp",
         "NetworkUtilities.cpp",
         "Register.cpp",
@@ -25,5 +26,12 @@ filegroup {
         "org_apache_harmony_xml_ExpatParser.cpp",
         "sun_misc_Unsafe.cpp",
         "valueOf.cpp",
+    ],
+}
+
+filegroup {
+    name: "libandroidio_srcs",
+    srcs: [
+        "AsynchronousCloseMonitor.cpp",
     ],
 }

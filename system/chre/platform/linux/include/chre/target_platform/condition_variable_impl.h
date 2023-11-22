@@ -17,6 +17,8 @@
 #ifndef CHRE_PLATFORM_LINUX_CONDITION_VARIABLE_IMPL_H_
 #define CHRE_PLATFORM_LINUX_CONDITION_VARIABLE_IMPL_H_
 
+#include "chre/platform/condition_variable.h"
+
 namespace chre {
 
 inline ConditionVariable::ConditionVariable() {}

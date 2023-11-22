@@ -418,6 +418,9 @@
 #if defined(__NR_io_getevents)
   #define SYS_io_getevents __NR_io_getevents
 #endif
+#if defined(__NR_io_pgetevents)
+  #define SYS_io_pgetevents __NR_io_pgetevents
+#endif
 #if defined(__NR_io_setup)
   #define SYS_io_setup __NR_io_setup
 #endif
@@ -640,9 +643,6 @@
 #if defined(__NR_olduname)
   #define SYS_olduname __NR_olduname
 #endif
-#if defined(__NR_oldwait4)
-  #define SYS_oldwait4 __NR_oldwait4
-#endif
 #if defined(__NR_open)
   #define SYS_open __NR_open
 #endif
@@ -801,6 +801,9 @@
 #endif
 #if defined(__NR_rmdir)
   #define SYS_rmdir __NR_rmdir
+#endif
+#if defined(__NR_rseq)
+  #define SYS_rseq __NR_rseq
 #endif
 #if defined(__NR_rt_sigaction)
   #define SYS_rt_sigaction __NR_rt_sigaction

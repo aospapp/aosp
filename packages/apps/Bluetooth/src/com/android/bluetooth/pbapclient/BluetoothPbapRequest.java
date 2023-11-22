@@ -29,6 +29,7 @@ import javax.obex.ResponseCodes;
 abstract class BluetoothPbapRequest {
 
     private static final String TAG = "BluetoothPbapRequest";
+    private static final boolean DBG = Utils.DBG;
 
     protected static final byte OAP_TAGID_ORDER = 0x01;
     protected static final byte OAP_TAGID_SEARCH_VALUE = 0x02;
@@ -58,7 +59,7 @@ abstract class BluetoothPbapRequest {
     }
 
     public void execute(ClientSession session) throws IOException {
-        Log.v(TAG, "execute");
+        if (DBG) Log.v(TAG, "execute");
 
         /* in case request is aborted before can be executed */
         if (mAborted) {
@@ -88,7 +89,7 @@ abstract class BluetoothPbapRequest {
 
             mResponseCode = mOp.getResponseCode();
 
-            Log.d(TAG, "mResponseCode=" + mResponseCode);
+            if (DBG) Log.d(TAG, "mResponseCode=" + mResponseCode);
 
             checkResponseCode(mResponseCode);
         } catch (IOException e) {
@@ -112,19 +113,19 @@ abstract class BluetoothPbapRequest {
     }
 
     protected void readResponse(InputStream stream) throws IOException {
-        Log.v(TAG, "readResponse");
+        if (DBG) Log.v(TAG, "readResponse");
 
         /* nothing here by default */
     }
 
     protected void readResponseHeaders(HeaderSet headerset) {
-        Log.v(TAG, "readResponseHeaders");
+        if (DBG) Log.v(TAG, "readResponseHeaders");
 
         /* nothing here by dafault */
     }
 
     protected void checkResponseCode(int responseCode) throws IOException {
-        Log.v(TAG, "checkResponseCode");
+        if (DBG) Log.v(TAG, "checkResponseCode");
 
         /* nothing here by dafault */
     }

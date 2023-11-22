@@ -62,6 +62,7 @@ private:
     bool mIsFirst;
     bool mSignalledError;
     bool mSignalledOutputEos;
+    bool mGaplessBytes;
     uint64_t mAnchorTimeStamp;
     uint64_t mProcessedSamples;
 

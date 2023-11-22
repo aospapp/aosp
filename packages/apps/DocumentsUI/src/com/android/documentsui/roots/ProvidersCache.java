@@ -16,6 +16,8 @@
 
 package com.android.documentsui.roots;
 
+import static android.provider.DocumentsContract.QUERY_ARG_MIME_TYPES;
+
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import static com.android.documentsui.base.SharedMinimal.VERBOSE;
 
@@ -37,7 +39,7 @@ import android.os.Handler;
 import android.os.SystemClock;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Root;
-import android.support.v4.content.LocalBroadcastManager;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.util.Log;
 
 import com.android.documentsui.DocumentsApplication;
@@ -46,12 +48,12 @@ import com.android.documentsui.archives.ArchivesProvider;
 import com.android.documentsui.base.Providers;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
-import com.android.internal.annotations.GuardedBy;
+import androidx.annotation.GuardedBy;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 
-import libcore.io.IoUtils;
+import android.os.FileUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -107,13 +109,14 @@ public class ProvidersCache implements ProvidersAccess {
 
         // Create a new anonymous "Recents" RootInfo. It's a faker.
         mRecentsRoot = new RootInfo() {{
-                // Special root for recents
-                derivedIcon = R.drawable.ic_root_recent;
-                derivedType = RootInfo.TYPE_RECENTS;
-                flags = Root.FLAG_LOCAL_ONLY | Root.FLAG_SUPPORTS_IS_CHILD;
-                title = mContext.getString(R.string.root_recent);
-                availableBytes = -1;
-            }};
+            // Special root for recents
+            derivedIcon = R.drawable.ic_root_recent;
+            derivedType = RootInfo.TYPE_RECENTS;
+            flags = Root.FLAG_LOCAL_ONLY | Root.FLAG_SUPPORTS_IS_CHILD | Root.FLAG_SUPPORTS_SEARCH;
+            queryArgs = QUERY_ARG_MIME_TYPES;
+            title = mContext.getString(R.string.root_recent);
+            availableBytes = -1;
+        }};
     }
 
     private class RootsChangedObserver extends ContentObserver {
@@ -127,7 +130,9 @@ public class ProvidersCache implements ProvidersAccess {
                 Log.w(TAG, "Received onChange event for null uri. Skipping.");
                 return;
             }
-            if (DEBUG) Log.i(TAG, "Updating roots due to change at " + uri);
+            if (DEBUG) {
+                Log.i(TAG, "Updating roots due to change at " + uri);
+            }
             updateAuthorityAsync(uri.getAuthority());
         }
     }
@@ -226,7 +231,9 @@ public class ProvidersCache implements ProvidersAccess {
             if (!mStoppedAuthorities.contains(authority)) {
                 return;
             }
-            if (DEBUG) Log.d(TAG, "Loading stopped authority " + authority);
+            if (DEBUG) {
+                Log.d(TAG, "Loading stopped authority " + authority);
+            }
             mRoots.replaceValues(authority, loadRootsForAuthority(resolver, authority, true));
             mStoppedAuthorities.remove(authority);
         }
@@ -311,8 +318,8 @@ public class ProvidersCache implements ProvidersAccess {
             // if forceRefresh is false.
             return roots;
         } finally {
-            IoUtils.closeQuietly(cursor);
-            ContentProviderClient.releaseQuietly(client);
+            FileUtils.closeQuietly(cursor);
+            FileUtils.closeQuietly(client);
         }
 
         // Cache these freshly parsed roots over in the long-lived system

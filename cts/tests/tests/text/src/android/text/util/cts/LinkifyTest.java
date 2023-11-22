@@ -16,15 +16,13 @@
 
 package android.text.util.cts;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.telephony.TelephonyManager;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -34,12 +32,18 @@ import android.text.util.Linkify.MatchFilter;
 import android.text.util.Linkify.TransformFilter;
 import android.widget.TextView;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatcher;
 
 import java.util.Locale;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -450,6 +454,51 @@ public class LinkifyTest {
         URLSpan[] spans = textView.getUrls();
         assertEquals("android.com should be linkified", 1, spans.length);
         assertEquals("https://android.com", spans[0].getURL());
+    }
+
+    public class MyUrlSpan extends URLSpan {
+        public MyUrlSpan(String url) {
+            super(url);
+        }
+    }
+
+    @Test
+    public void testAddLinks_UrlSpanFactory_withSpannable() {
+        final String text = "a https://android.com a +1 123 456 7878 a android@android.com a";
+        final Spannable spannable = new SpannableString(text);
+        final int mask = Linkify.WEB_URLS | Linkify.PHONE_NUMBERS | Linkify.EMAIL_ADDRESSES;
+        final Function<String, URLSpan> spanFactory = (String string) -> new MyUrlSpan(string);
+
+        Linkify.addLinks(spannable, mask, spanFactory);
+
+        final MyUrlSpan[] myUrlSpans = spannable.getSpans(0, spannable.length(), MyUrlSpan.class);
+        assertNotNull(myUrlSpans);
+        assertEquals(3, myUrlSpans.length);
+        assertEquals("https://android.com", myUrlSpans[0].getURL());
+        assertEquals("tel:+11234567878", myUrlSpans[1].getURL());
+        assertEquals("mailto:android@android.com", myUrlSpans[2].getURL());
+
+        final URLSpan[] urlSpans = spannable.getSpans(0, spannable.length(), URLSpan.class);
+        assertArrayEquals(myUrlSpans, urlSpans);
+    }
+
+    @Test
+    public void testAddLinks_UrlSpanFactory_withSpannableAndFilter() {
+        final String text = "google.pattern, test:AZ0101.pattern";
+        final SpannableString spannable = new SpannableString(text);
+        final Function<String, URLSpan> spanFactory = (String string) -> new MyUrlSpan(string);
+
+        Linkify.addLinks(spannable, LINKIFY_TEST_PATTERN, "test:", null /*schemes*/,
+                null /*matchFilter*/, null /*transformFilter*/, spanFactory);
+
+        final MyUrlSpan[] myUrlSpans = spannable.getSpans(0, spannable.length(), MyUrlSpan.class);
+        assertNotNull(myUrlSpans);
+        assertEquals(2, myUrlSpans.length);
+        assertEquals("test:google.pattern", myUrlSpans[0].getURL());
+        assertEquals("test:AZ0101.pattern", myUrlSpans[1].getURL());
+
+        final URLSpan[] urlSpans = spannable.getSpans(0, spannable.length(), URLSpan.class);
+        assertArrayEquals(myUrlSpans, urlSpans);
     }
 
     // WEB_URLS Related Tests
@@ -933,6 +982,17 @@ public class LinkifyTest {
         email = email + "m";
         verifyAddLinksWithEmailFails("Should not match email domain of length:" +
                 domain.length(), email);
+    }
+
+    @Test
+    public void testAddLinks_unsupportedCharacters() {
+        String url = "moc.diordna.com";
+        verifyAddLinksWithWebUrlSucceeds(url + " should be linkified", url);
+
+        verifyAddLinksWithWebUrlFails("u202C character should not be linkified", "\u202C" + url);
+        verifyAddLinksWithWebUrlFails("u202D character should not be linkified", url + "\u202D");
+        verifyAddLinksWithWebUrlFails(
+                "u202E character should not be linkified", url + "moc\u202E.diordna.com");
     }
 
     // Utility functions

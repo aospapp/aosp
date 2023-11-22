@@ -27,6 +27,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.io.File;
@@ -36,6 +37,7 @@ import java.util.Set;
 /**
  * Test instant apps.
  */
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class InstantAppTest extends AndroidTestCase {
     private static final String PACKAGE_MIME_TYPE = "application/vnd.android.package-archive";
 

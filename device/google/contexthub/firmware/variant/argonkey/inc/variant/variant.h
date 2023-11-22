@@ -84,8 +84,10 @@ extern "C" {
 #define LSM6DSM_ACCEL_GYRO_ROT_MATRIX          -1, 0, 0, 0, -1, 0, 0, 0, 1
 #define LSM6DSM_MAGN_ROT_MATRIX                -1, 0, 0, 0, 1, 0, 0, 0, 1
 
+#define LSM6DSM_ACCEL_CALIB_ENABLED            1
 #define LSM6DSM_GYRO_CALIB_ENABLED             1
 #define LSM6DSM_MAGN_CALIB_ENABLED             1
+#define LSM6DSM_OVERTEMP_CALIB_ENABLED         1
 
 /* ------------------------------------------------------------------------ */
 /* sensor baro+temp lps22hb on i2c */

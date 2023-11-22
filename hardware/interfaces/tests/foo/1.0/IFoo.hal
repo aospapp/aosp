@@ -103,7 +103,6 @@ interface IFoo {
         union U {
             int8_t number;
             int8_t[1][2] multidimArray;
-            pointer p;
             Fumble anotherStruct;
             bitfield<BitField> bf;
         } u;
@@ -120,6 +119,17 @@ interface IFoo {
         string[3] sArray;
         Quux anotherStruct;
         bitfield<BitField> bf;
+    };
+
+    struct WithFmq {
+        struct ScatterGather {
+            fmq_sync<uint8_t> descSync;
+        } scatterGathered;
+
+        struct ContainsPointer {
+            fmq_sync<uint8_t> descSync;
+            interface foo;
+        } containsPointer;
     };
 
     enum Discriminator : uint8_t {
@@ -205,4 +215,6 @@ interface IFoo {
     createMyHandle() generates (MyHandle h);
     createHandles(uint32_t size) generates (vec<handle> handles);
     closeHandles();
+
+    repeatWithFmq(WithFmq withFmq) generates (WithFmq withFmq);
 };

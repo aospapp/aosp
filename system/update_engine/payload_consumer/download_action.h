@@ -64,8 +64,7 @@ class DownloadActionDelegate {
 
 class PrefsInterface;
 
-class DownloadAction : public InstallPlanAction,
-                       public HttpFetcherDelegate {
+class DownloadAction : public InstallPlanAction, public HttpFetcherDelegate {
  public:
   // Debugging/logging
   static std::string StaticType() { return "DownloadAction"; }
@@ -79,7 +78,7 @@ class DownloadAction : public InstallPlanAction,
                  HardwareInterface* hardware,
                  SystemState* system_state,
                  HttpFetcher* http_fetcher,
-                 bool is_interactive);
+                 bool interactive);
   ~DownloadAction() override;
 
   // InstallPlanAction overrides.
@@ -90,23 +89,20 @@ class DownloadAction : public InstallPlanAction,
   std::string Type() const override { return StaticType(); }
 
   // Testing
-  void SetTestFileWriter(FileWriter* writer) {
-    writer_ = writer;
-  }
+  void SetTestFileWriter(FileWriter* writer) { writer_ = writer; }
 
   int GetHTTPResponseCode() { return http_fetcher_->http_response_code(); }
 
   // HttpFetcherDelegate methods (see http_fetcher.h)
-  void ReceivedBytes(HttpFetcher* fetcher,
-                     const void* bytes, size_t length) override;
+  bool ReceivedBytes(HttpFetcher* fetcher,
+                     const void* bytes,
+                     size_t length) override;
   void SeekToOffset(off_t offset) override;
   void TransferComplete(HttpFetcher* fetcher, bool successful) override;
   void TransferTerminated(HttpFetcher* fetcher) override;
 
   DownloadActionDelegate* delegate() const { return delegate_; }
-  void set_delegate(DownloadActionDelegate* delegate) {
-    delegate_ = delegate;
-  }
+  void set_delegate(DownloadActionDelegate* delegate) { delegate_ = delegate; }
 
   void set_base_offset(int64_t base_offset) { base_offset_ = base_offset; }
 
@@ -158,7 +154,7 @@ class DownloadAction : public InstallPlanAction,
   // If |true|, the update is user initiated (vs. periodic update checks). Hence
   // the |delta_performer_| can decide not to use O_DSYNC flag for faster
   // update.
-  bool is_interactive_;
+  bool interactive_;
 
   // The FileWriter that downloaded data should be written to. It will
   // either point to *decompressing_file_writer_ or *delta_performer_.

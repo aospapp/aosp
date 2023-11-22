@@ -37,7 +37,6 @@ public class InvocationResult implements IInvocationResult {
     private String mBuildFingerprint;
     private String mTestPlan;
     private String mCommandLineArgs;
-    private int mNotExecuted = 0;
     private RetryChecksumStatus mRetryChecksumStatus = RetryChecksumStatus.NotRetry;
     private File mRetryDirectory = null;
 

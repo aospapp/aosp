@@ -46,11 +46,12 @@ import android.graphics.drawable.ShapeDrawable.ShaderFactory;
 import android.graphics.drawable.shapes.OvalShape;
 import android.graphics.drawable.shapes.RectShape;
 import android.graphics.drawable.shapes.Shape;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -203,7 +204,7 @@ public class ShapeDrawableTest {
     public void testGetPaint() {
         ShapeDrawable shapeDrawable = new ShapeDrawable();
         assertNotNull(shapeDrawable.getPaint());
-        assertEquals(Paint.ANTI_ALIAS_FLAG | Paint.DEV_KERN_TEXT_FLAG
+        assertEquals(Paint.ANTI_ALIAS_FLAG | Paint.DEV_KERN_TEXT_FLAG | Paint.FILTER_BITMAP_FLAG
                 | Paint.EMBEDDED_BITMAP_TEXT_FLAG, shapeDrawable.getPaint().getFlags());
     }
 
@@ -373,7 +374,7 @@ public class ShapeDrawableTest {
         a.setShape(new OvalShape());
 
         ShapeDrawable b = (ShapeDrawable) a.getConstantState().newDrawable();
-        assertSame(a.getShape(), b.getShape());
+        assertEquals(a.getShape(), b.getShape());
         a.mutate();
 
         assertNotNull(a.getShape());

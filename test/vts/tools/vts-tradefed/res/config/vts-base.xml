@@ -14,10 +14,14 @@
      limitations under the License.
 -->
 <configuration description="VTS Main Test Plan">
-  <include name="vts-base-common" />
+  <include name="vts-base-single-device" />
 
-  <build_provider class="com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider" />
-  <target_preparer class="com.android.tradefed.targetprep.VtsDeviceInfoCollector" />
+  <target_preparer class="com.android.tradefed.targetprep.VtsDevicePreparer">
+    <option name="enable-adb-root" value="true"/>
+    <option name="start-framework" value="true"/>
+    <option name="restore-framework" value="true"/>
+  </target_preparer>
+
   <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DeviceInfoCollector">
     <option name="apk" value="CtsDeviceInfo.apk"/>
     <option name="package" value="com.android.compatibility.common.deviceinfo"/>

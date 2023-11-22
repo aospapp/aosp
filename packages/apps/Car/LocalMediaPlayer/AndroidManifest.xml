@@ -43,6 +43,7 @@
         <activity
             android:name=".PermissionsActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" >
+            <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
     </application>
 

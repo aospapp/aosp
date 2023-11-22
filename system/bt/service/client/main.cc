@@ -161,6 +161,60 @@ class CLIBluetoothCallback : public android::bluetooth::BnBluetoothCallback {
     return Status::ok();
   }
 
+  Status OnSspRequest(const String16& device_address,
+                      const String16& device_name, int32_t cod,
+                      int32_t pairing_variant, int32_t pass_key) override {
+    // no-op
+    return Status::ok();
+  }
+
+  Status OnGetBondedDevices(
+      int32_t status,
+      const ::std::vector<String16>& device_addresses) override {
+    BeginAsyncOut();
+    std::cout << "Bonded devices:\n";
+    for (const auto& device_address : device_addresses) {
+      std::cout << "    " << device_address << "\n";
+    }
+    EndAsyncOut();
+    return Status::ok();
+  }
+
+  Status OnBondStateChanged(int32_t status, const String16& device_address,
+                            int32_t state) override {
+    BeginAsyncOut();
+    std::cout << COLOR_BOLDWHITE "Device address: " << COLOR_BOLDYELLOW "["
+              << device_address << " bond state: " << state << " ] "
+              << COLOR_BOLDWHITE "- status: "
+              << (status == 0 ? "SUCCESS" : "FAIL") << COLOR_OFF;
+    EndAsyncOut();
+    return Status::ok();
+  }
+
+  Status OnGetRemoteDeviceProperties(
+      int32_t status, const String16& device_address,
+      const android::bluetooth::BluetoothRemoteDeviceProps& props) override {
+    // no-op
+    return Status::ok();
+  }
+
+  Status OnDeviceFound(
+      const android::bluetooth::BluetoothRemoteDeviceProps& props) override {
+    // no-op
+    return Status::ok();
+  }
+
+  Status OnDeviceConnectionStateChanged(const String16& device_address,
+                                        bool connected) override {
+    // no-op
+    return Status::ok();
+  }
+
+  Status OnScanEnableChanged(bool scan_enabled) override {
+    // no-op
+    return Status::ok();
+  }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(CLIBluetoothCallback);
 };
@@ -335,25 +389,8 @@ void HandleDisable(IBluetooth* bt_iface, const vector<string>& args) {
 }
 
 void HandleEnable(IBluetooth* bt_iface, const vector<string>& args) {
-  bool is_restricted_mode = false;
-
-  for (auto iter : args) {
-    const std::string& arg = iter;
-    if (arg == "-h") {
-      static const char kUsage[] =
-          "Usage: start-adv [flags]\n"
-          "\n"
-          "Flags:\n"
-          "\t--restricted|-r\tStart in restricted mode\n";
-      cout << kUsage << endl;
-      return;
-    } else if (arg == "--restricted" || arg == "-r") {
-      is_restricted_mode = true;
-    }
-  }
-
   bool status;
-  bt_iface->Enable(is_restricted_mode, &status);
+  bt_iface->Enable(&status);
   PrintCommandStatus(status);
 }
 

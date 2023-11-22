@@ -34,8 +34,6 @@
 
     <template src="base-build"/>
     <template src="Wear"/>
-    <common src="logger"/>
-    <common src="activities"/>
 
     <metadata>
         <status>PUBLISHED</status>

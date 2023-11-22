@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -204,7 +205,7 @@ public class FilterUtil {
      * @param key The key whose value to get.
      * @return The first value associated with the provided key.
      */
-    public static String getFirstParameter(Map<String, Object> parameterMap, String key) {
+    public static String getFirstParameter(Map<String, String[]> parameterMap, String key) {
         String[] values = (String[]) parameterMap.get(key);
         if (values.length == 0) return null;
         return values[0];
@@ -216,7 +217,7 @@ public class FilterUtil {
      * @param parameterMap The key-value map of url parameters.
      * @return A filter with the values from the user search parameters.
      */
-    public static Filter getUserDeviceFilter(Map<String, Object> parameterMap) {
+    public static Filter getUserDeviceFilter(Map<String, String[]> parameterMap) {
         Filter deviceFilter = null;
         for (String key : parameterMap.keySet()) {
             if (!FilterKey.isDeviceKey(key)) continue;
@@ -239,7 +240,7 @@ public class FilterUtil {
      * @param parameterMap The key-value map of url parameters.
      * @return A list of filters, each having at most one inequality filter.
      */
-    public static List<Filter> getUserTestFilters(Map<String, Object> parameterMap) {
+    public static List<Filter> getUserTestFilters(Map<String, String[]> parameterMap) {
         List<Filter> userFilters = new ArrayList<>();
         for (String key : parameterMap.keySet()) {
             if (!FilterKey.isTestKey(key)) continue;
@@ -463,6 +464,7 @@ public class FilterUtil {
                 ops.limit(maxSize);
                 testQuery.addSort(Entity.KEY_RESERVED_PROPERTY, dir);
             }
+            logger.log(Level.INFO, "testQuery => " + testQuery);
             for (Entity testRunKey : datastore.prepare(testQuery).asIterable(ops)) {
                 filterMatches.add(testRunKey.getKey());
                 if (maxKey == null || testRunKey.getKey().compareTo(maxKey) > 0)
@@ -476,6 +478,7 @@ public class FilterUtil {
                 matchingTestKeys = Sets.intersection(matchingTestKeys, filterMatches);
             }
         }
+        logger.log(Level.INFO, "matchingTestKeys => " + matchingTestKeys);
 
         Set<Key> allMatchingKeys;
         if (deviceFilter == null || matchingTestKeys.size() == 0) {
@@ -504,6 +507,7 @@ public class FilterUtil {
                 }
             }
         }
+        logger.log(Level.INFO, "allMatchingKeys => " + allMatchingKeys);
         List<Key> gets = new ArrayList<>(allMatchingKeys);
         if (dir == Query.SortDirection.DESCENDING) {
             gets.sort(Comparator.reverseOrder());
@@ -520,11 +524,11 @@ public class FilterUtil {
      * @param request The request whose attributes to set.
      * @param parameterMap The map from key to (Object) String[] value whose entries to parse.
      */
-    public static void setAttributes(HttpServletRequest request, Map<String, Object> parameterMap) {
+    public static void setAttributes(HttpServletRequest request, Map<String, String[]> parameterMap) {
         for (String key : parameterMap.keySet()) {
             if (!FilterKey.isDeviceKey(key) && !FilterKey.isTestKey(key)) continue;
             FilterKey filterKey = FilterKey.parse(key);
-            String[] values = (String[]) parameterMap.get(key);
+            String[] values = parameterMap.get(key);
             if (values.length == 0) continue;
             String stringValue = values[0];
             request.setAttribute(filterKey.keyString, new Gson().toJson(stringValue));

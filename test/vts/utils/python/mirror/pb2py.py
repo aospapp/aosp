@@ -75,7 +75,7 @@ def PbVector2PyList(var):
         var: VariableSpecificationMessage to convert.
 
     Returns:
-        A converted list.
+        A converted list if valid, None otherwise.
     """
     result = []
     for curr_value in var.vector_value:
@@ -85,7 +85,7 @@ def PbVector2PyList(var):
             result.append(PbStruct2PyDict(curr_value))
         else:
             logging.error("unsupported type %s", curr_value.type)
-            sys.exit(-1)
+            return None
     return result
 
 
@@ -96,7 +96,7 @@ def PbArray2PyList(var):
         var: VariableSpecificationMessage to convert.
 
     Returns:
-        A converted list.
+        A converted list if valid, None otherwise
     """
     result = []
     for curr_value in var.vector_value:
@@ -106,7 +106,7 @@ def PbArray2PyList(var):
             result.append(PbStruct2PyDict(curr_value))
         else:
             logging.error("unsupported type %s", curr_value.type)
-            sys.exit(-1)
+            return None
     return result
 
 
@@ -117,7 +117,7 @@ def PbStruct2PyDict(var):
         var: VariableSpecificationMessage to convert.
 
     Returns:
-        a dict, containing the converted data.
+        a dict, containing the converted data if valid. None otherwise.
     """
     result = {}
     for attr in var.struct_value:
@@ -136,7 +136,7 @@ def PbStruct2PyDict(var):
         else:
             logging.error("PyDict2PbStruct: unsupported type %s",
                           attr.type)
-            sys.exit(-1)
+            return None
     return result
 
 
@@ -159,7 +159,7 @@ def Convert(var):
         var: VariableSpecificationMessage of a target variable to convert.
 
     Returns:
-        A list containing the converted Python values.
+        A list containing the converted Python values if valid. None otherwise.
     """
     if var.type == CompSpecMsg.TYPE_PREDEFINED:
         return PbPredefined2PyValue(var)
@@ -177,6 +177,6 @@ def Convert(var):
         return PbMask2PyValue(var)
     else:
         logging.error("Got unsupported callback arg type %s" % var.type)
-        sys.exit(-1)
+        return None
 
     return message

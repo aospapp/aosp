@@ -9,3 +9,10 @@ subsystem usbmisc
 /dev/nanohub              0660   system     system
 /dev/nanohub_comms        0660   system     system
 /dev/hifi_misc   0666 system audio
+/dev/hi_vdec     0660 system camera
+/dev/hi_venc     0660 system camera
+/dev/ion	 0666 system graphics
+/dev/graphics/fb0	0666 system graphics
+
+/sys/devices/platform/ddr_devfreq/devfreq/ddr_devfreq		min_freq	0644	system	system
+/sys/devices/platform/e82c0000.mali/devfreq/e82c0000.mali	min_freq	0644	system	system

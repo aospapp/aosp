@@ -51,6 +51,11 @@ public class ConnectMobileNetworkTask extends AbstractProvisioningTask
         mUtils = new Utils();
     }
 
+    /**
+     * Sets {@link Settings.Global#DEVICE_PROVISIONING_MOBILE_DATA_ENABLED} to 1, and if not already
+     * connected to the network, starts listening for a connection. Calls {@link #success()} when
+     * connected or {@link #error(int)} if it times out after 10 minutes.
+     */
     @Override
     public void run(int userId) {
         Settings.Global.putInt(mContext.getContentResolver(),

@@ -191,6 +191,17 @@ def raw_output(props):
     """
     return raw16(props) or raw10(props) or raw12(props)
 
+def y8(props):
+    """Returns whether a device supports Y8 output.
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return len(its.objects.get_available_output_sizes("y8", props)) > 0
+
 def post_raw_sensitivity_boost(props):
     """Returns whether a device supports post RAW sensitivity boost..
 
@@ -511,6 +522,33 @@ def debug_mode():
         if s[:6] == "debug=" and s[6:] == "True":
             return True
     return False
+
+
+def sync_latency(props):
+    """Returns sync latency in number of frames.
+
+    If undefined, 8 frames.
+
+    Returns:
+        integer number of frames
+    """
+    sync_latency = props['android.sync.maxLatency']
+    if sync_latency < 0:
+        sync_latency = 8
+    return sync_latency
+
+
+def backward_compatible(props):
+    """Returns whether a device supports BACKWARD_COMPATIBLE.
+
+    Args:
+        props: Camera properties object.
+
+    Returns:
+        Boolean.
+    """
+    return props.has_key("android.request.availableCapabilities") and \
+              0 in props["android.request.availableCapabilities"]
 
 
 class __UnitTest(unittest.TestCase):

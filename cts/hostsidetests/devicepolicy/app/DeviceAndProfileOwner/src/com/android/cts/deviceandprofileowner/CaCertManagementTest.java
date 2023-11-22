@@ -36,6 +36,10 @@ import static com.android.compatibility.common.util.FakeKeys.FAKE_DSA_1;
 import static com.android.compatibility.common.util.FakeKeys.FAKE_RSA_1;
 
 public class CaCertManagementTest extends BaseDeviceAdminTest {
+    // Maximal number of times to check whether a certificate is in the accepted
+    // issuers list before declaring test failure.
+    private static final int MAX_IS_TRUSTED_CHECKS = 50;
+
     private final ComponentName mAdmin = ADMIN_RECEIVER_COMPONENT;
 
     /**
@@ -149,13 +153,24 @@ public class CaCertManagementTest extends BaseDeviceAdminTest {
         tmf.init((KeyStore) null);
         X509TrustManager tm = getFirstX509TrustManager(tmf);
         boolean trusted = Arrays.asList(tm.getAcceptedIssuers()).contains(caCert);
-        X509TrustManagerExtensions xtm = new X509TrustManagerExtensions(tm);
-        boolean userAddedCertificate = xtm.isUserAddedCertificate((X509Certificate) caCert);
 
         // All three responses should match - if an installed certificate isn't trusted or (worse)
         // a trusted certificate isn't even installed we should fail now, loudly.
         assertEquals(installed, listed);
+        int numTries = 0;
+        while (numTries < MAX_IS_TRUSTED_CHECKS && (installed != trusted)) {
+            try {
+                Thread.sleep(100);
+                trusted = Arrays.asList(tm.getAcceptedIssuers()).contains(caCert);
+                numTries++;
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
         assertEquals(installed, trusted);
+
+        X509TrustManagerExtensions xtm = new X509TrustManagerExtensions(tm);
+        boolean userAddedCertificate = xtm.isUserAddedCertificate((X509Certificate) caCert);
         assertEquals(installed, userAddedCertificate);
         return installed;
     }

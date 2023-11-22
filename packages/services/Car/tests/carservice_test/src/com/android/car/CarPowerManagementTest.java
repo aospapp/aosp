@@ -18,7 +18,6 @@ package com.android.car;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import android.hardware.automotive.vehicle.V2_0.VehicleApPowerBootupReason;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateConfigFlag;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReport;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReq;
@@ -26,10 +25,13 @@ import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateReqIndex;
 import android.hardware.automotive.vehicle.V2_0.VehicleApPowerStateShutdownParam;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
+import android.hardware.automotive.vehicle.V2_0.VehiclePropertyChangeMode;
 import android.os.SystemClock;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.systeminterface.DisplayInterface;
 import com.android.car.systeminterface.SystemInterface;
@@ -59,75 +61,219 @@ public class CarPowerManagementTest extends MockedCarTestBase {
         return builder.withDisplayInterface(mMockDisplayInterface);
     }
 
-    private void setupPowerPropertyAndStart(boolean allowSleep) throws Exception {
+    protected synchronized void configureMockedHal() {
         addProperty(VehicleProperty.AP_POWER_STATE_REQ, mPowerStateHandler)
                 .setConfigArray(Lists.newArrayList(
-                        allowSleep ? VehicleApPowerStateConfigFlag.ENABLE_DEEP_SLEEP_FLAG : 0));
-        addProperty(VehicleProperty.AP_POWER_STATE_REPORT, mPowerStateHandler);
+                    VehicleApPowerStateConfigFlag.ENABLE_DEEP_SLEEP_FLAG))
+                .setChangeMode(VehiclePropertyChangeMode.ON_CHANGE).build();
+        addProperty(VehicleProperty.AP_POWER_STATE_REPORT, mPowerStateHandler)
+                .setAccess(VehiclePropertyAccess.WRITE)
+                .setChangeMode(VehiclePropertyChangeMode.ON_CHANGE).build();
+    }
 
-        addStaticProperty(VehicleProperty.AP_POWER_BOOTUP_REASON,
-                VehiclePropValueBuilder.newBuilder(VehicleProperty.AP_POWER_BOOTUP_REASON)
-                        .addIntValue(VehicleApPowerBootupReason.USER_POWER_ON)
-                        .build());
-
-        reinitializeMockedHal();
+    /**********************************************************************************************
+     * Test immediate shutdown
+     **********************************************************************************************/
+    @Test
+    @UiThreadTest
+    public void testImmediateShutdownFromWaitForVhal() throws Exception {
+        assertWaitForVhal();
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY,
+                VehicleApPowerStateReport.SHUTDOWN_START);
     }
 
     @Test
     @UiThreadTest
-    public void testImmediateShutdown() throws Exception {
-        setupPowerPropertyAndStart(true);
-        assertBootComplete();
-        mPowerStateHandler.sendPowerState(
+    public void testImmediateShutdownFromOn() throws Exception {
+        assertWaitForVhal();
+        // Transition to ON state first
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.ON,
+                0,
+                VehicleApPowerStateReport.ON);
+        // Send immediate shutdown from ON state
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY,
+                VehicleApPowerStateReport.SHUTDOWN_START);
+    }
+
+    @Test
+    @UiThreadTest
+    public void testImmediateShutdownFromShutdownPrepare() throws Exception {
+        assertWaitForVhal();
+        // Put device into SHUTDOWN_PREPARE
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP,
+                VehicleApPowerStateReport.SHUTDOWN_PREPARE);
+        // Initiate shutdown immediately while in SHUTDOWN_PREPARE
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY,
+                VehicleApPowerStateReport.SHUTDOWN_START);
+    }
+
+    /**********************************************************************************************
+     * Test cancelling of shutdown.
+     **********************************************************************************************/
+    @Test
+    @UiThreadTest
+    public void testCancelShutdownFromShutdownPrepare() throws Exception {
+        assertWaitForVhal();
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP,
+                VehicleApPowerStateReport.SHUTDOWN_PREPARE);
+        // Shutdown may only be cancelled from SHUTDOWN_PREPARE
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.CANCEL_SHUTDOWN,
+                0,
+                VehicleApPowerStateReport.SHUTDOWN_CANCELLED);
+    }
+
+    /**********************************************************************************************
+     * Test for invalid state transtions
+     **********************************************************************************************/
+    @Test
+    @UiThreadTest
+    public void testInivalidTransitionsFromWaitForVhal() throws Exception {
+        assertWaitForVhal();
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.CANCEL_SHUTDOWN, 0);
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.FINISHED, 0);
+    }
+
+    @Test
+    @UiThreadTest
+    public void testInvalidTransitionsFromOn() throws Exception {
+        assertWaitForVhal();
+        // Transition to ON state first
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.ON,
+                0,
+                VehicleApPowerStateReport.ON);
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.CANCEL_SHUTDOWN, 0);
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.FINISHED, 0);
+    }
+
+    @Test
+    @UiThreadTest
+    public void testInvalidTransitionsFromPrepareShutdown() throws Exception {
+        assertWaitForVhal();
+        // Increase the timeout to handle all the test cases here
+        CarPowerManagementService.setShutdownPrepareTimeout(15 * 1000);
+        // Transition to SHUTDOWN_PREPARE first
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP,
+                VehicleApPowerStateReport.SHUTDOWN_PREPARE);
+        // Cannot go back to ON state from here
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.ON, 0);
+        // PREPARE_SHUTDOWN should not generate state transitions unless it's an IMMEDIATE_SHUTDOWN
+        mPowerStateHandler.sendStateAndExpectNoResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP);
+        mPowerStateHandler.sendStateAndExpectNoResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SHUTDOWN_ONLY);
+        // Test the FINISH message last, in case SHUTDOWN_PREPARE finishes early and this test
+        //  should be failing.
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.FINISHED, 0);
+    }
+
+    @Test
+    @UiThreadTest
+    public void testInvalidTransitionsFromWaitForFinish() throws Exception {
+        assertWaitForVhal();
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP,
+                VehicleApPowerStateReport.DEEP_SLEEP_ENTRY);
+        // Once the device has entered WAIT_FOR_FINISH, shutdown cannot be cancelled.
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.CANCEL_SHUTDOWN, 0);
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.ON, 0);
+        mPowerStateHandler.sendStateAndExpectNoResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP);
+        mPowerStateHandler.sendStateAndExpectNoResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SHUTDOWN_ONLY);
+        // TODO:  This state may be allowed in the future, if we decide it's necessary
+        mPowerStateHandler.sendStateAndExpectNoResponse(
                 VehicleApPowerStateReq.SHUTDOWN_PREPARE,
                 VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY);
-        mPowerStateHandler.waitForStateSetAndGetAll(DEFAULT_WAIT_TIMEOUT_MS,
-                VehicleApPowerStateReport.SHUTDOWN_START);
-        mPowerStateHandler.sendPowerState(VehicleApPowerStateReq.ON_FULL, 0);
     }
 
     @Test
     @UiThreadTest
-    public void testDisplayOnOff() throws Exception {
-        setupPowerPropertyAndStart(true);
-        assertBootComplete();
-        for (int i = 0; i < 2; i++) {
-            mPowerStateHandler.sendPowerState(VehicleApPowerStateReq.ON_DISP_OFF, 0);
-            mMockDisplayInterface.waitForDisplayState(false);
-            mPowerStateHandler.sendPowerState(VehicleApPowerStateReq.ON_FULL, 0);
-            mMockDisplayInterface.waitForDisplayState(true);
+    public void testInvalidTransitionsFromWaitForFinish2() throws Exception {
+        assertWaitForVhal();
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SHUTDOWN_ONLY,
+                VehicleApPowerStateReport.SHUTDOWN_START);
+        // Once the device has entered WAIT_FOR_FINISH, shutdown cannot be cancelled.
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.CANCEL_SHUTDOWN, 0);
+        mPowerStateHandler.sendStateAndExpectNoResponse(VehicleApPowerStateReq.ON, 0);
+        mPowerStateHandler.sendStateAndExpectNoResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP);
+        mPowerStateHandler.sendStateAndExpectNoResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SHUTDOWN_ONLY);
+        // TODO:  This state may be allowed in the future, if we decide it's necessary
+        mPowerStateHandler.sendStateAndExpectNoResponse(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.SHUTDOWN_IMMEDIATELY);
+    }
+
+    /**********************************************************************************************
+     * Test sleep entry
+     **********************************************************************************************/
+    // This test also verifies the display state as the device goes in and out of suspend.
+    @Test
+    @UiThreadTest
+    public void testSleepEntry() throws Exception {
+        assertWaitForVhal();
+        mMockDisplayInterface.waitForDisplayState(false);
+        mPowerStateHandler.sendStateAndCheckResponse(
+                VehicleApPowerStateReq.ON,
+                0,
+                VehicleApPowerStateReport.ON);
+        mMockDisplayInterface.waitForDisplayState(true);
+        mPowerStateHandler.sendPowerState(
+                VehicleApPowerStateReq.SHUTDOWN_PREPARE,
+                VehicleApPowerStateShutdownParam.CAN_SLEEP);
+        assertResponse(VehicleApPowerStateReport.SHUTDOWN_PREPARE, 0, true);
+        mMockDisplayInterface.waitForDisplayState(false);
+        assertResponse(VehicleApPowerStateReport.DEEP_SLEEP_ENTRY, 0, false);
+        mMockDisplayInterface.waitForDisplayState(false);
+        mPowerStateHandler.sendPowerState(VehicleApPowerStateReq.FINISHED, 0);
+        assertResponse(VehicleApPowerStateReport.DEEP_SLEEP_EXIT, 0, true);
+        mMockDisplayInterface.waitForDisplayState(false);
+    }
+
+    private void assertResponse(int expectedState, int expectedParam, boolean checkParam)
+            throws Exception {
+        LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(
+                DEFAULT_WAIT_TIMEOUT_MS, expectedState);
+        int[] last = setEvents.getLast();
+        assertEquals(expectedState, last[0]);
+        if (checkParam) {
+            assertEquals(expectedParam, last[1]);
         }
     }
 
-    /* TODO make deep sleep work to test this
-    @Test public void testSleepEntry() throws Exception {
-        assertBootComplete();
-        mPowerStateHandler.sendPowerState(
-                VehicleApPowerState.SHUTDOWN_PREPARE,
-                VehicleApPowerStateShutdownParam.CAN_SLEEP);
-        assertResponse(VehicleApPowerSetState.DEEP_SLEEP_ENTRY, 0);
-        assertResponse(VehicleApPowerSetState.DEEP_SLEEP_EXIT, 0);
-        mPowerStateHandler.sendPowerState(
-                VehicleApPowerState.ON_FULL,
-                0);
-    }*/
-
-    private void assertResponse(int expectedResponseState, int expectedResponseParam)
-            throws Exception {
-        LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(
-                DEFAULT_WAIT_TIMEOUT_MS, expectedResponseState);
-        int[] last = setEvents.getLast();
-        assertEquals(expectedResponseState, last[0]);
-        assertEquals(expectedResponseParam, last[1]);
-    }
-
-    private void assertBootComplete() throws Exception {
+    private void assertWaitForVhal() throws Exception {
         mPowerStateHandler.waitForSubscription(DEFAULT_WAIT_TIMEOUT_MS);
         LinkedList<int[]> setEvents = mPowerStateHandler.waitForStateSetAndGetAll(
-                DEFAULT_WAIT_TIMEOUT_MS, VehicleApPowerStateReport.BOOT_COMPLETE);
+                DEFAULT_WAIT_TIMEOUT_MS, VehicleApPowerStateReport.WAIT_FOR_VHAL);
         int[] first = setEvents.getFirst();
-        assertEquals(VehicleApPowerStateReport.BOOT_COMPLETE, first[0]);
+        assertEquals(VehicleApPowerStateReport.WAIT_FOR_VHAL, first[0]);
         assertEquals(0, first[1]);
+        CarPowerManagementService.setShutdownPrepareTimeout(0);
     }
 
     private final class MockDisplayInterface implements DisplayInterface {
@@ -158,11 +304,17 @@ public class CarPowerManagementTest extends MockedCarTestBase {
 
         @Override
         public void stopDisplayStateMonitoring() {}
+
+        @Override
+        public void refreshDisplayBrightness() {}
+
+        @Override
+        public void reconfigureSecondaryDisplays() {}
     }
 
     private class PowerStatePropertyHandler implements VehicleHalPropertyHandler {
 
-        private int mPowerState = VehicleApPowerStateReq.ON_FULL;
+        private int mPowerState = VehicleApPowerStateReq.ON;
         private int mPowerParam = 0;
 
         private final Semaphore mSubscriptionWaitSemaphore = new Semaphore(0);
@@ -228,6 +380,34 @@ public class CarPowerManagementTest extends MockedCarTestBase {
                         mSetStates = new LinkedList<>();
                         return res;
                     }
+                }
+            }
+        }
+
+        private void sendStateAndCheckResponse(int state, int param, int expectedSet)
+                throws Exception {
+            sendPowerState(state, param);
+            waitForStateSetAndGetAll(DEFAULT_WAIT_TIMEOUT_MS, expectedSet);
+        }
+
+        /**
+         * Checks that a power state transition does NOT occur.  If any state does occur during
+         * the timeout period, then the test fails.
+         */
+        private void sendStateAndExpectNoResponse(int state, int param) throws Exception {
+            sendPowerState(state, param);
+            // Wait to see if a state transition occurs
+            if (!mSetWaitSemaphore.tryAcquire(DEFAULT_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                // No state transition, this is a success!
+                return;
+            } else {
+                synchronized (this) {
+                    int[] newState = mSetStates.pop();
+                    if (newState[0] != VehicleApPowerStateReport.SHUTDOWN_POSTPONE) {
+                        fail("Unexpected state change occured, state=" + newState[0]);
+                    }
+                    // Reset the collected states
+                    mSetStates = new LinkedList<>();
                 }
             }
         }

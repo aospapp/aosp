@@ -18,13 +18,12 @@ package com.android.car.carlauncher;
 
 import android.annotation.Nullable;
 import android.content.Context;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.TextView;
+
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
 
@@ -61,18 +60,9 @@ public class RecentAppsRowViewHolder extends RecyclerView.ViewHolder {
         for (int i = 0; i < size; i++) {
             View view =
                     LayoutInflater.from(mContext).inflate(R.layout.app_item, mRecentAppsRow, false);
-            ImageView iconView = view.findViewById(R.id.app_icon);
-            TextView appNameView = view.findViewById(R.id.app_name);
 
-            AppMetaData app = apps.get(i);
-
-            if (isDistractionOptimizationRequired && !app.getIsDistractionOptimized()) {
-                iconView.setImageDrawable(AppLauncherUtils.toGrayscale(app.getIcon()));
-            } else {
-                iconView.setImageDrawable(app.getIcon());
-                view.setOnClickListener(v -> AppLauncherUtils.launchApp(mContext, app));
-            }
-            appNameView.setText(app.getDisplayName());
+            AppItemViewHolder holder = new AppItemViewHolder(view, mContext);
+            holder.bind(apps.get(i), isDistractionOptimizationRequired);
 
             LinearLayout.LayoutParams params =
                     (LinearLayout.LayoutParams) view.getLayoutParams();

@@ -31,7 +31,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "cache.h"
 
 #ifndef MEMMOVE
-# define MEMMOVE	memmove
+# define MEMMOVE	memmove_generic
 #endif
 
 #ifndef L

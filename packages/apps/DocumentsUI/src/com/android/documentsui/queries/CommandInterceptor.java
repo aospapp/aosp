@@ -18,7 +18,7 @@ package com.android.documentsui.queries;
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
 import android.content.Context;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -48,8 +48,6 @@ public final class CommandInterceptor implements EventHandler<String> {
         mCommands.add(this::quickViewer);
         mCommands.add(this::gestureScale);
         mCommands.add(this::jobProgressDialog);
-        mCommands.add(this::archiveCreation);
-        mCommands.add(this::docInspector);
         mCommands.add(this::docDetails);
         mCommands.add(this::forcePaging);
     }
@@ -65,7 +63,9 @@ public final class CommandInterceptor implements EventHandler<String> {
         }
 
         if (!mFeatures.isCommandInterceptorEnabled()) {
-            if (DEBUG) Log.v(TAG, "Skipping input, command interceptor disabled.");
+            if (DEBUG) {
+                Log.v(TAG, "Skipping input, command interceptor disabled.");
+            }
             return false;
         }
 
@@ -124,32 +124,8 @@ public final class CommandInterceptor implements EventHandler<String> {
         return false;
     }
 
-    private boolean archiveCreation(String[] tokens) {
-        if ("zip".equals(tokens[0])) {
-            if (tokens.length == 2 && !TextUtils.isEmpty(tokens[1])) {
-                boolean enabled = asBool(tokens[1]);
-                mFeatures.forceFeature(R.bool.feature_archive_creation, enabled);
-                Log.i(TAG, "Set gesture scale enabled to: " + enabled);
-                return true;
-            }
-            Log.w(TAG, "Invalid command structure: " + TextUtils.join(" ", tokens));
-        }
-        return false;
-    }
-
-    private boolean docInspector(String[] tokens) {
-        if ("inspect".equals(tokens[0])) {
-            if (tokens.length == 2 && !TextUtils.isEmpty(tokens[1])) {
-                boolean enabled = asBool(tokens[1]);
-                mFeatures.forceFeature(R.bool.feature_inspector, enabled);
-                Log.i(TAG, "Set doc inspector enabled to: " + enabled);
-                return true;
-            }
-            Log.w(TAG, "Invalid command structure: " + TextUtils.join(" ", tokens));
-        }
-        return false;
-    }
-
+    // Include document debug info in Get Info panel.
+    // enabled by default on DEBUG builds.
     private boolean docDetails(String[] tokens) {
         if ("docinfo".equals(tokens[0])) {
             if (tokens.length == 2 && !TextUtils.isEmpty(tokens[1])) {

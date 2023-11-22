@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright 2017 The Android Open Source Project
 #
@@ -21,6 +21,7 @@ Test script to execute Bluetooth Connection-orient Channel (CoC) functionality f
 import threading
 import time
 
+from acts import utils
 from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
@@ -44,6 +45,9 @@ class BleCoc2ConnTest(BluetoothBaseTest):
     def __init__(self, controllers):
         BluetoothBaseTest.__init__(self, controllers)
         self.client_ad = self.android_devices[0]
+        # The client which is scanning will need location to be enabled in order to
+        # start scan and get scan results.
+        utils.set_location_service(self.client_ad, True)
         self.server_ad = self.android_devices[1]
         # Note that some tests required a third device.
         if len(self.android_devices) > 2:

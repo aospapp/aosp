@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Dera e hapur"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"I bllokuar"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Jashtë linje"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Certifikatë me probleme"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Nuk është enkriptuar"</string>
     <string name="printer_check" msgid="6428369671197132828">"Kontrollo printerin"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Në pritje për të dërguar"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Dokumenti nuk mund të lexohej"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Printeri nuk mbështetet"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Gjej printerë Wi-Fi Direct"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Printimi me Wi-Fi Direct"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Printerët Wi-Fi Direct"</string>
     <string name="searching" msgid="2114018057619514587">"Po kërkon…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Mund të jetë nevoja ta miratosh këtë lidhje në panelin e përparmë të printerit tënd"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Harro"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Lidhet përmes Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Lidhet përmes rrjetit aktual në <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="security" msgid="2279008326210305401">"Siguria"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Ky printer ka dhënë një certifikatë të re sigurie ose një pajisje tjetër po e imiton atë. Do ta pranosh certifikatën e re?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Ky printer nuk pranon më punë të enkriptuara. Të vazhdohet printimi?"</string>
+    <string name="accept" msgid="4426153292469698134">"Prano"</string>
+    <string name="reject" msgid="24751635160440693">"Refuzo"</string>
+    <string name="connections" msgid="8895413761760117180">"Lidhjet"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Shërbimi i parazgjedhur i printimit ka nevojë për autorizimin e vendndodhjes për të gjetur pajisjet në afërsi."</string>
+    <string name="fix" msgid="7784394272611365393">"Rishiko autorizimin"</string>
 </resources>

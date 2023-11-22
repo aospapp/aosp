@@ -17,41 +17,8 @@
 package com.android.server.telecom.tests;
 
 
-import android.content.ComponentName;
-import android.content.ContentProvider;
-import android.content.ContentValues;
-import android.content.Context;
-import android.content.IContentProvider;
-import android.content.pm.UserInfo;
-import android.location.Country;
-import android.location.CountryDetector;
-import android.location.CountryListener;
-import android.net.Uri;
-import android.os.Looper;
-import android.os.PersistableBundle;
-import android.os.UserHandle;
-import android.os.UserManager;
-import android.provider.CallLog;
-import android.provider.CallLog.Calls;
-import android.support.test.filters.FlakyTest;
-import android.telecom.DisconnectCause;
-import android.telecom.PhoneAccount;
-import android.telecom.PhoneAccountHandle;
-import android.telecom.VideoProfile;
-import android.telephony.CarrierConfigManager;
-import android.telephony.PhoneNumberUtils;
-import android.test.suitebuilder.annotation.MediumTest;
-import android.test.suitebuilder.annotation.SmallTest;
-
-import com.android.server.telecom.Call;
-import com.android.server.telecom.CallLogManager;
-import com.android.server.telecom.CallState;
-import com.android.server.telecom.HandoverState;
-import com.android.server.telecom.MissedCallNotifier;
-import com.android.server.telecom.PhoneAccountRegistrar;
-import com.android.server.telecom.TelephonyUtil;
-
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -64,6 +31,43 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import android.content.ComponentName;
+import android.content.ContentProvider;
+import android.content.ContentValues;
+import android.content.Context;
+import android.content.IContentProvider;
+import android.content.pm.UserInfo;
+import android.content.res.Resources;
+import android.location.Country;
+import android.location.CountryDetector;
+import android.location.CountryListener;
+import android.net.Uri;
+import android.os.Looper;
+import android.os.PersistableBundle;
+import android.os.UserHandle;
+import android.os.UserManager;
+import android.provider.CallLog;
+import android.provider.CallLog.Calls;
+import android.telecom.Connection;
+import android.telecom.DisconnectCause;
+import android.telecom.PhoneAccount;
+import android.telecom.PhoneAccountHandle;
+import android.telecom.VideoProfile;
+import android.telephony.CarrierConfigManager;
+import android.telephony.PhoneNumberUtils;
+import android.test.suitebuilder.annotation.MediumTest;
+import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.filters.FlakyTest;
+
+import com.android.server.telecom.Call;
+import com.android.server.telecom.CallLogManager;
+import com.android.server.telecom.CallState;
+import com.android.server.telecom.HandoverState;
+import com.android.server.telecom.MissedCallNotifier;
+import com.android.server.telecom.PhoneAccountRegistrar;
+import com.android.server.telecom.TelephonyUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -211,6 +215,57 @@ public class CallLogManagerTest extends TelecomTestCase {
         );
         mCallLogManager.onCallStateChanged(fakeCall, CallState.SELECT_PHONE_ACCOUNT,
                 CallState.DISCONNECTED);
+        verifyNoInsertion();
+    }
+
+    @MediumTest
+    @Test
+    public void testDontLogUnloggableNumbers() {
+        // Set up the carrier config source
+        String number1 = "90000";
+        String number2 = "80000";
+        CarrierConfigManager mockCarrierConfigManager =
+                (CarrierConfigManager) mComponentContextFixture.getTestDouble()
+                        .getApplicationContext().getSystemService(Context.CARRIER_CONFIG_SERVICE);
+        PersistableBundle bundle = new PersistableBundle();
+        bundle.putStringArray(CarrierConfigManager.KEY_UNLOGGABLE_NUMBERS_STRING_ARRAY,
+                new String[] {number1});
+        when(mockCarrierConfigManager.getConfig()).thenReturn(bundle);
+
+        Resources mockResources = mContext.getResources();
+        when(mockResources.getStringArray(com.android.internal.R.array.unloggable_phone_numbers))
+                .thenReturn(new String[] {number2});
+
+        Call fakeCall1 = makeFakeCall(
+                DisconnectCause.OTHER, // disconnectCauseCode
+                false, // isConference
+                false, // isIncoming
+                1L, // creationTimeMillis
+                1000L, // ageMillis
+                Uri.parse("tel:" + number1),
+                EMERGENCY_ACCT_HANDLE, // phoneAccountHandle
+                NO_VIDEO_STATE, // callVideoState
+                POST_DIAL_STRING, // postDialDigits
+                VIA_NUMBER_STRING, // viaNumber
+                UserHandle.of(CURRENT_USER_ID)
+        );
+
+        Call fakeCall2 = makeFakeCall(
+                DisconnectCause.OTHER, // disconnectCauseCode
+                false, // isConference
+                false, // isIncoming
+                1L, // creationTimeMillis
+                1000L, // ageMillis
+                Uri.parse("tel:" + number2),
+                EMERGENCY_ACCT_HANDLE, // phoneAccountHandle
+                NO_VIDEO_STATE, // callVideoState
+                POST_DIAL_STRING, // postDialDigits
+                VIA_NUMBER_STRING, // viaNumber
+                UserHandle.of(CURRENT_USER_ID)
+        );
+
+        mCallLogManager.onCallStateChanged(fakeCall1, CallState.ACTIVE, CallState.DISCONNECTED);
+        mCallLogManager.onCallStateChanged(fakeCall2, CallState.ACTIVE, CallState.DISCONNECTED);
         verifyNoInsertion();
     }
 
@@ -486,6 +541,7 @@ public class CallLogManagerTest extends TelecomTestCase {
     }
 
     @MediumTest
+    @FlakyTest(bugId = 117751305)
     @Test
     public void testLogCallDirectionIncomingWithMultiUserCapability() {
         when(mMockPhoneAccountRegistrar.getPhoneAccountUnchecked(any(PhoneAccountHandle.class)))
@@ -727,6 +783,136 @@ public class CallLogManagerTest extends TelecomTestCase {
         assertEquals(TEST_ISO_2, resultIso2);
     }
 
+    @SmallTest
+    @Test
+    public void testLogConferenceWithNoChildren() {
+        Call fakeCall = makeFakeCall(
+                DisconnectCause.LOCAL, // disconnectCauseCode
+                true, // isConference
+                true, // isIncoming
+                1L, // creationTimeMillis
+                1000L, // ageMillis
+                TEL_PHONEHANDLE, // callHandle
+                mDefaultAccountHandle, // phoneAccountHandle
+                NO_VIDEO_STATE, // callVideoState
+                POST_DIAL_STRING, // postDialDigits
+                VIA_NUMBER_STRING, // viaNumber
+                UserHandle.of(CURRENT_USER_ID)
+        );
+        when(fakeCall.hadChildren()).thenReturn(false);
+
+        assertTrue(mCallLogManager.shouldLogDisconnectedCall(fakeCall, CallState.DISCONNECTED,
+                false /* isCanceled */));
+    }
+
+    @SmallTest
+    @Test
+    public void testDoNotLogConferenceWithChildren() {
+        Call fakeCall = makeFakeCall(
+                DisconnectCause.LOCAL, // disconnectCauseCode
+                true, // isConference
+                true, // isIncoming
+                1L, // creationTimeMillis
+                1000L, // ageMillis
+                TEL_PHONEHANDLE, // callHandle
+                mDefaultAccountHandle, // phoneAccountHandle
+                NO_VIDEO_STATE, // callVideoState
+                POST_DIAL_STRING, // postDialDigits
+                VIA_NUMBER_STRING, // viaNumber
+                UserHandle.of(CURRENT_USER_ID)
+        );
+        when(fakeCall.hadChildren()).thenReturn(true);
+
+        assertFalse(mCallLogManager.shouldLogDisconnectedCall(fakeCall, CallState.DISCONNECTED,
+                false /* isCanceled */));
+    }
+
+    @SmallTest
+    @Test
+    public void testLogRemotelyHostedConferenceWithChildren() {
+        Call fakeCall = makeFakeCall(
+                DisconnectCause.LOCAL, // disconnectCauseCode
+                true, // isConference
+                true, // isIncoming
+                1L, // creationTimeMillis
+                1000L, // ageMillis
+                TEL_PHONEHANDLE, // callHandle
+                mDefaultAccountHandle, // phoneAccountHandle
+                NO_VIDEO_STATE, // callVideoState
+                POST_DIAL_STRING, // postDialDigits
+                VIA_NUMBER_STRING, // viaNumber
+                UserHandle.of(CURRENT_USER_ID)
+        );
+        when(fakeCall.hadChildren()).thenReturn(true);
+        when(fakeCall.hasProperty(eq(Connection.PROPERTY_REMOTELY_HOSTED))).thenReturn(true);
+
+        assertTrue(mCallLogManager.shouldLogDisconnectedCall(fakeCall, CallState.DISCONNECTED,
+                false /* isCanceled */));
+    }
+
+    @SmallTest
+    @Test
+    public void testLogRemotelyHostedConferenceWithNoChildren() {
+        Call fakeCall = makeFakeCall(
+                DisconnectCause.LOCAL, // disconnectCauseCode
+                true, // isConference
+                true, // isIncoming
+                1L, // creationTimeMillis
+                1000L, // ageMillis
+                TEL_PHONEHANDLE, // callHandle
+                mDefaultAccountHandle, // phoneAccountHandle
+                NO_VIDEO_STATE, // callVideoState
+                POST_DIAL_STRING, // postDialDigits
+                VIA_NUMBER_STRING, // viaNumber
+                UserHandle.of(CURRENT_USER_ID)
+        );
+        when(fakeCall.hadChildren()).thenReturn(false);
+        when(fakeCall.hasProperty(eq(Connection.PROPERTY_REMOTELY_HOSTED))).thenReturn(true);
+
+        assertTrue(mCallLogManager.shouldLogDisconnectedCall(fakeCall, CallState.DISCONNECTED,
+                false /* isCanceled */));
+    }
+
+    @SmallTest
+    @Test
+    public void testDoNotLogChildOfRemotelyHostedConference() {
+        Call fakeConfCall = makeFakeCall(
+                DisconnectCause.LOCAL, // disconnectCauseCode
+                true, // isConference
+                true, // isIncoming
+                1L, // creationTimeMillis
+                1000L, // ageMillis
+                TEL_PHONEHANDLE, // callHandle
+                mDefaultAccountHandle, // phoneAccountHandle
+                NO_VIDEO_STATE, // callVideoState
+                POST_DIAL_STRING, // postDialDigits
+                VIA_NUMBER_STRING, // viaNumber
+                UserHandle.of(CURRENT_USER_ID)
+        );
+        when(fakeConfCall.hadChildren()).thenReturn(true);
+        when(fakeConfCall.hasProperty(eq(Connection.PROPERTY_REMOTELY_HOSTED))).thenReturn(true);
+
+        Call fakeChild = makeFakeCall(
+                DisconnectCause.LOCAL, // disconnectCauseCode
+                false, // isConference
+                true, // isIncoming
+                1L, // creationTimeMillis
+                1000L, // ageMillis
+                TEL_PHONEHANDLE, // callHandle
+                mDefaultAccountHandle, // phoneAccountHandle
+                NO_VIDEO_STATE, // callVideoState
+                POST_DIAL_STRING, // postDialDigits
+                VIA_NUMBER_STRING, // viaNumber
+                UserHandle.of(CURRENT_USER_ID)
+        );
+        when(fakeChild.hadChildren()).thenReturn(false);
+        when(fakeChild.getParentCall()).thenReturn(fakeConfCall);
+        when(fakeChild.hasProperty(eq(Connection.PROPERTY_REMOTELY_HOSTED))).thenReturn(true);
+
+        assertFalse(mCallLogManager.shouldLogDisconnectedCall(fakeChild, CallState.DISCONNECTED,
+                false /* isCanceled */));
+    }
+
     private ArgumentCaptor<CountryListener> verifyCountryIso(CountryDetector mockDetector,
             String resultIso) {
         ArgumentCaptor<CountryListener> captor = ArgumentCaptor.forClass(CountryListener.class);
@@ -808,6 +994,9 @@ public class CallLogManagerTest extends TelecomTestCase {
         when(fakeCall.getCallDataUsage()).thenReturn(callDataUsage);
         when(fakeCall.isEmergencyCall()).thenReturn(
                 phoneAccountHandle.equals(EMERGENCY_ACCT_HANDLE));
+        when(fakeCall.getParentCall()).thenReturn(null);
+        when(fakeCall.hadChildren()).thenReturn(true);
+        when(fakeCall.hasProperty(eq(Connection.PROPERTY_REMOTELY_HOSTED))).thenReturn(false);
         return fakeCall;
     }
 

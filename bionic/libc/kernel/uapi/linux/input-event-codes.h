@@ -532,6 +532,7 @@
 #define BTN_DPAD_LEFT 0x222
 #define BTN_DPAD_RIGHT 0x223
 #define KEY_ALS_TOGGLE 0x230
+#define KEY_ROTATE_LOCK_TOGGLE 0x231
 #define KEY_BUTTONCONFIG 0x240
 #define KEY_TASKMANAGER 0x241
 #define KEY_JOURNAL 0x242
@@ -621,6 +622,9 @@
 #define REL_DIAL 0x07
 #define REL_WHEEL 0x08
 #define REL_MISC 0x09
+#define REL_RESERVED 0x0a
+#define REL_WHEEL_HI_RES 0x0b
+#define REL_HWHEEL_HI_RES 0x0c
 #define REL_MAX 0x0f
 #define REL_CNT (REL_MAX + 1)
 #define ABS_X 0x00
@@ -649,6 +653,7 @@
 #define ABS_TOOL_WIDTH 0x1c
 #define ABS_VOLUME 0x20
 #define ABS_MISC 0x28
+#define ABS_RESERVED 0x2e
 #define ABS_MT_SLOT 0x2f
 #define ABS_MT_TOUCH_MAJOR 0x30
 #define ABS_MT_TOUCH_MINOR 0x31

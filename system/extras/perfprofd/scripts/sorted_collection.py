@@ -21,6 +21,7 @@
 
 from bisect import bisect_left, bisect_right
 
+
 class SortedCollection(object):
     def __init__(self, iterable=(), key=None):
         self._given_key = key

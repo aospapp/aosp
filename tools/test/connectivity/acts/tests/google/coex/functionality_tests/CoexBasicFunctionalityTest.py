@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -13,8 +13,16 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
+"""
+Test suite to check Basic Functionality with Wlan.
+
+Test Setup:
+
+One Android device.
+"""
 
 from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
+from acts.test_utils.coex.coex_test_utils import multithread_func
 from acts.test_utils.coex.coex_test_utils import perform_classic_discovery
 from acts.test_utils.coex.coex_test_utils import toggle_bluetooth
 from acts.test_utils.coex.coex_test_utils import start_fping
@@ -23,17 +31,17 @@ from acts.test_utils.coex.coex_test_utils import start_fping
 class CoexBasicFunctionalityTest(CoexBaseTest):
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
 
     def setup_class(self):
-        CoexBaseTest.setup_class(self)
-        req_params = ["iterations"]
+        super().setup_class()
+        req_params = ["iterations", "fping_params"]
         self.unpack_userparams(req_params)
 
     def toogle_bluetooth_with_iperf(self):
         """Wrapper function to start iperf traffic and toggling bluetooth."""
         self.run_iperf_and_get_result()
-        if not toggle_bluetooth(self.pri_ad, self.iterations):
+        if not toggle_bluetooth(self.pri_ad, self.iperf["duration"]):
             return False
         return self.teardown_result()
 
@@ -43,8 +51,10 @@ class CoexBasicFunctionalityTest(CoexBaseTest):
         """
         self.run_iperf_and_get_result()
         for i in range(self.iterations):
-            self.log.info("Bluetooth inquiry iteration : {}".format(i))
-            if not perform_classic_discovery(self.pri_ad):
+            self.log.info("Bluetooth discovery iteration : {}".format(i))
+            if not perform_classic_discovery(
+                    self.pri_ad, self.iperf["duration"], self.json_file,
+                    self.dev_list):
                 return False
         return self.teardown_result()
 
@@ -58,7 +68,7 @@ class CoexBasicFunctionalityTest(CoexBaseTest):
         1. Start TCP-uplink traffic at background.
         2. Enable bluetooth.
         3. Disable bluetooth.
-        4. Repeat steps 3 and 4 for n iterations
+        4. Repeat steps 3 and 4 for n iterations.
 
         Returns:
             True if successful, False otherwise.
@@ -237,11 +247,12 @@ class CoexBasicFunctionalityTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_070
         """
-        args = [lambda: start_fping(self.pri_ad, self.iperf["duration"])]
-        self.run_thread(args)
-        if not self.toogle_bluetooth_with_iperf():
+        tasks = [(start_fping, (self.pri_ad, self.iperf["duration"],
+                        self.fping_params)),
+                 (toggle_bluetooth, (self.pri_ad, self.iperf["duration"]))]
+        if not multithread_func(self.log, tasks):
             return False
-        return self.teardown_thread()
+        return True
 
     def test_bluetooth_discovery_with_fping(self):
         """Starts fping, along with bluetooth discovery.
@@ -260,8 +271,11 @@ class CoexBasicFunctionalityTest(CoexBaseTest):
 
         Test Id: Bt_CoEx_071
         """
-        args = [lambda: start_fping(self.pri_ad, self.iperf["duration"])]
-        self.run_thread(args)
-        if not self.start_discovery_with_iperf():
+        tasks = [(start_fping, (self.pri_ad, self.iperf["duration"],
+                               self.fping_params)),
+                 (perform_classic_discovery,
+                  (self.pri_ad, self.iperf["duration"], self.json_file,
+                   self.dev_list))]
+        if not multithread_func(self.log, tasks):
             return False
-        return self.teardown_thread()
+        return True

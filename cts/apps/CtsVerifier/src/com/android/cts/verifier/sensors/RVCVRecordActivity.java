@@ -33,7 +33,9 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.JsonWriter;
 import android.util.Log;
+import android.view.Surface;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -70,6 +72,7 @@ public class RVCVRecordActivity extends Activity {
     private RVSensorLogger          mRVSensorLogger;
     private CoverageManager         mCoverManager;
     private CameraContext mCameraContext;
+    private int mDeviceRotation = Surface.ROTATION_0;
 
     public static final int AXIS_NONE = 0;
     public static final int AXIS_ALL = SensorManager.AXIS_X +
@@ -119,6 +122,12 @@ public class RVCVRecordActivity extends Activity {
 
         // locate views
         mIndicatorView = (MotionIndicatorView) findViewById(R.id.cam_indicator);
+        WindowManager windowManager =
+                (WindowManager)getSystemService(Context.WINDOW_SERVICE);
+        if (windowManager != null) {
+            mDeviceRotation = windowManager.getDefaultDisplay().getRotation();
+            mIndicatorView.setDeviceRotation(mDeviceRotation);
+        }
 
         initStoragePath();
     }
@@ -224,6 +233,9 @@ public class RVCVRecordActivity extends Activity {
 
         if (axis >=SensorManager.AXIS_X && axis <=SensorManager.AXIS_Z) {
             imageView.setImageResource(prompts[axis-1]);
+            if (mDeviceRotation != Surface.ROTATION_0 && mDeviceRotation != Surface.ROTATION_180) {
+                imageView.setRotation(90);
+            }
             mIndicatorView.enableAxis(axis);
             mRVSensorLogger.updateRegister(mCoverManager.getAxis(axis), axis);
             notifyPrompt(axis);
@@ -339,7 +351,7 @@ public class RVCVRecordActivity extends Activity {
      *
      */
     private void initStoragePath() {
-        File rxcvRecDataDir = new File(Environment.getExternalStorageDirectory(),"RVCVRecData");
+        File rxcvRecDataDir = new File(getExternalFilesDir(null),"RVCVRecData");
 
         // Create the storage directory if it does not exist
         if (! rxcvRecDataDir.exists()) {

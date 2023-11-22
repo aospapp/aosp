@@ -183,4 +183,6 @@ I think so, so how about double this string, like copy and paste! </string>
     <string name="wallpaper_title">Title</string>
     <string name="wallpaper_context">Context</string>
     <string name="wallpaper_context_uri">http://android.com</string>
+    <string name="wallpaper_slice_uri">content://com.android.wallpaper/slice</string>
+    <string name="automatic_zen_rule_name">Rule!</string>
 </resources>

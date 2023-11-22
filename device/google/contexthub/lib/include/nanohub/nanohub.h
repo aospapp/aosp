@@ -30,6 +30,7 @@
 
 #define NANOHUB_VENDOR_GOOGLE      UINT64_C(0x476F6F676C) // "Googl"
 #define NANOHUB_VENDOR_STMICRO     UINT64_C(0x53544d6963) // "STMic"
+#define NANOHUB_VENDOR_INVENSENSE  UINT64_C(0x496E76656E) // "Inven"
 
 #define NANOAPP_SIGNED_FLAG    0x1  // contents is signed with one or more signature block(s)
 #define NANOAPP_ENCRYPTED_FLAG 0x2  // contents is encrypted with exactly one encryption key

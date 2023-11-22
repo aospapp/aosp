@@ -28,12 +28,14 @@ import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.IShardableTest;
+import com.android.tradefed.testtype.ITestAnnotationFilterReceiver;
 import com.android.tradefed.testtype.ITestCollector;
 import com.android.tradefed.testtype.ITestFilterReceiver;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -44,7 +46,8 @@ public class TestSuiteStub
                 IRuntimeHintProvider,
                 ITestCollector,
                 ITestFilterReceiver,
-                IShardableTest {
+                IShardableTest,
+                ITestAnnotationFilterReceiver {
 
     @Option(name = "module")
     private String mModule;
@@ -75,6 +78,13 @@ public class TestSuiteStub
 
     protected List<TestDescription> mShardedTestToRun;
     protected Integer mShardIndex = null;
+
+    private Set<String> mIncludeAnnotationFilter = new HashSet<>();
+
+    @Option(
+            name = "exclude-annotation",
+            description = "The notAnnotation class name of the test name to run, can be repeated")
+    private Set<String> mExcludeAnnotationFilter = new HashSet<>();
 
     /** Tests attempt. */
     private void testAttempt(ITestInvocationListener listener) throws DeviceNotAvailableException {
@@ -218,4 +228,60 @@ public class TestSuiteStub
 
     @Override
     public void addAllExcludeFilters(Set<String> filters) {}
+
+    @Override
+    public void clearIncludeFilters() {}
+
+    @Override
+    public Set<String> getIncludeFilters() {
+        return new HashSet<>();
+    }
+
+    @Override
+    public Set<String> getExcludeFilters() {
+        return new HashSet<>();
+    }
+
+    @Override
+    public void clearExcludeFilters() {}
+
+    @Override
+    public void addIncludeAnnotation(String annotation) {
+        mIncludeAnnotationFilter.add(annotation);
+    }
+
+    @Override
+    public void addExcludeAnnotation(String notAnnotation) {
+        mExcludeAnnotationFilter.add(notAnnotation);
+    }
+
+    @Override
+    public void addAllIncludeAnnotation(Set<String> annotations) {
+        mIncludeAnnotationFilter.addAll(annotations);
+    }
+
+    @Override
+    public void addAllExcludeAnnotation(Set<String> notAnnotations) {
+        mExcludeAnnotationFilter.addAll(notAnnotations);
+    }
+
+    @Override
+    public Set<String> getIncludeAnnotations() {
+        return mIncludeAnnotationFilter;
+    }
+
+    @Override
+    public Set<String> getExcludeAnnotations() {
+        return mExcludeAnnotationFilter;
+    }
+
+    @Override
+    public void clearIncludeAnnotations() {
+        mIncludeAnnotationFilter.clear();
+    }
+
+    @Override
+    public void clearExcludeAnnotations() {
+        mExcludeAnnotationFilter.clear();
+    }
 }

@@ -108,7 +108,7 @@ class EcdsaKeymaster1OperationFactory : public OperationFactory {
     KeyType registry_key() const override { return KeyType(KM_ALGORITHM_EC, purpose_); }
 
     OperationPtr CreateOperation(Key&& key, const AuthorizationSet& begin_params,
-                                 keymaster_error_t* error) override;
+                                 keymaster_error_t* error) const override;
 
     const keymaster_digest_t* SupportedDigests(size_t* digest_count) const override;
     const keymaster_padding_t* SupportedPaddingModes(size_t* padding_mode_count) const override;

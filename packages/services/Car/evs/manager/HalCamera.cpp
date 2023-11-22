@@ -130,6 +130,7 @@ Return<EvsResult> HalCamera::clientStreamStarting() {
     Return<EvsResult> result = EvsResult::OK;
 
     if (mStreamState == STOPPED) {
+        mStreamState = RUNNING;
         result = mHwCamera->startVideoStream(this);
     }
 
@@ -149,6 +150,7 @@ void HalCamera::clientStreamEnding() {
 
     // If not, then stop the hardware stream
     if (!stillRunning) {
+        mStreamState = STOPPED;
         mHwCamera->stopVideoStream();
     }
 }

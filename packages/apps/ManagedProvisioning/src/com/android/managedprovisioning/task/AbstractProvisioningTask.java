@@ -21,7 +21,15 @@ import static com.android.internal.util.Preconditions.checkNotNull;
 
 import android.content.Context;
 
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.analytics.AnalyticsUtils;
+import com.android.managedprovisioning.analytics.MetricsLoggerWrapper;
+import com.android.managedprovisioning.analytics.MetricsWriter;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.analytics.TimeLogger;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
 /**
@@ -44,17 +52,39 @@ public abstract class AbstractProvisioningTask {
             Context context,
             ProvisioningParams provisioningParams,
             Callback callback) {
+        this(context, provisioningParams, callback,
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
+    }
+
+    @VisibleForTesting
+    AbstractProvisioningTask(
+            Context context,
+            ProvisioningParams provisioningParams,
+            Callback callback,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
         mContext = checkNotNull(context);
         mProvisioningParams = provisioningParams;
         mCallback = checkNotNull(callback);
 
-        mTimeLogger = new TimeLogger(context, getMetricsCategory());
+        mTimeLogger = new TimeLogger(context, getMetricsCategory(), new MetricsLoggerWrapper(),
+                new AnalyticsUtils(),
+                checkNotNull(provisioningAnalyticsTracker));
     }
 
+    /**
+     * Calls {@link Callback#onSuccess(AbstractProvisioningTask)} on the callback given in the
+     * constructor.
+     */
     protected final void success() {
         mCallback.onSuccess(this);
     }
 
+    /**
+     * Calls {@link Callback#onError(AbstractProvisioningTask, int)} on the callback given in the
+     * constructor.
+     */
     protected final void error(int resultCode) {
         mCallback.onError(this, resultCode);
     }

@@ -130,6 +130,30 @@ public class LocaleTest extends junit.framework.TestCase {
                 Locale.forLanguageTag("zh-Hant-CN-VARIANT").getDisplayName(Locale.US));
     }
 
+    public void testGetDisplayCountry_locale_null() {
+        assertThrowsNpe(() -> {
+            Locale.forLanguageTag("en-US").getDisplayCountry(null);
+        });
+    }
+
+    public void testGetDisplayLanguage_locale_null() {
+        assertThrowsNpe(() -> {
+            Locale.forLanguageTag("en-US").getDisplayLanguage(null);
+        });
+    }
+
+    public void testGetDisplayScript_locale_null() {
+        assertThrowsNpe(() -> {
+            Locale.forLanguageTag("sr-Cyrl-BA").getDisplayScript(null);
+        });
+    }
+
+    public void testGetDisplayVariant_locale_null() {
+        assertThrowsNpe(() -> {
+            Locale.forLanguageTag("en-US-POSIX").getDisplayVariant(null);
+        });
+    }
+
     public void test_getDisplayCountry_8870289() throws Exception {
         assertEquals("Hong Kong", new Locale("", "HK").getDisplayCountry(Locale.US));
         assertEquals("Macau", new Locale("", "MO").getDisplayCountry(Locale.US));
@@ -218,6 +242,25 @@ public class LocaleTest extends junit.framework.TestCase {
             }
         }
         assertEquals(1, count);
+    }
+
+    /**
+     * Check that the straightforward ways to try to construct/obtain a Locale
+     * with null country don't work.
+     */
+    public void test_nullCountry_fails() {
+        try {
+            new Locale(/* language */ "en", /* country */ null);
+        } catch (NullPointerException expected) {
+        }
+        try {
+            new Locale(/* language */ "en", /* country */ null, /* variant */ "EN");
+        } catch (NullPointerException expected) {
+        }
+        assertNotNull(Locale.getDefault().getCountry());
+        for (Locale locale : Locale.getAvailableLocales()) {
+            assertNotNull(locale.getCountry());
+        }
     }
 
     public void test_getISO3Country() {

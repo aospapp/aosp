@@ -30,6 +30,7 @@ import org.opencv.core.MatOfDouble;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.MatOfPoint3f;
+import org.opencv.core.Point;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
@@ -65,7 +66,7 @@ public class RVCVXCheckAnalyzer {
 
     private static final boolean OUTPUT_DEBUG_IMAGE = false;
     private static final double VALID_FRAME_THRESHOLD = 0.8;
-    private static final double REPROJECTION_THREASHOLD_RATIO = 0.008;
+    private static final double REPROJECTION_THRESHOLD_RATIO = 0.01;
     private static final boolean FORCE_CV_ANALYSIS  = false;
     private static final boolean TRACE_VIDEO_ANALYSIS = false;
     private static final double DECIMATION_FPS_TARGET = 15.0;
@@ -811,7 +812,9 @@ public class RVCVXCheckAnalyzer {
             Debug.startMethodTracing("cvprocess");
         }
 
-        Size patternSize = new Size(4,11);
+        final int patternWidth = 4;
+        final int patternHeight = 11;
+        Size patternSize = new Size(patternWidth, patternHeight);
 
         float fc = (float)(meta.frameWidth/2.0/Math.tan(meta.fovWidth/2.0));
         Mat camMat = cameraMatrix(fc, new Size(frameSize.width/2, frameSize.height/2));
@@ -877,16 +880,36 @@ public class RVCVXCheckAnalyzer {
             // reproject points to for evaluation of result accuracy of solvePnP
             Calib3d.projectPoints(grid, rvec, tvec, camMat, coeff, reprojCenters);
 
-            // error is evaluated in norm2, which is real error in pixel distance / sqrt(2)
-            double error = Core.norm(centers, reprojCenters, Core.NORM_L2);
+            // Calculate the average distance between opposite corners of the pattern in pixels
+            Point[] centerPoints = centers.toArray();
+            Point bottomLeftPos = centerPoints[0];
+            Point bottomRightPos = centerPoints[patternWidth - 1];
+            Point topLeftPos = centerPoints[(patternHeight * patternWidth) - patternWidth];
+            Point topRightPos = centerPoints[(patternHeight * patternWidth) - 1];
+            double avgPixelDist = (getDistanceBetweenPoints(bottomLeftPos, topRightPos)
+                    + getDistanceBetweenPoints(bottomRightPos, topLeftPos)) / 2;
+
+            // Calculate the average pixel error between the circle centers from the video and the
+            // reprojected circle centers based on the estimated camera position. The error provides
+            // a way to estimate how accurate the assumed test device's position is. If the error
+            // is high, then the frame should be discarded to prevent an inaccurate test device's
+            // position from being compared against the rotation vector sample at that time.
+            Point[] reprojectedPointsArray = reprojCenters.toArray();
+            double avgCenterError = 0.0;
+            for (int curCenter = 0; curCenter < reprojectedPointsArray.length; curCenter++) {
+                avgCenterError += getDistanceBetweenPoints(
+                        reprojectedPointsArray[curCenter], centerPoints[curCenter]);
+            }
+            avgCenterError /= reprojectedPointsArray.length;
 
             if (LOCAL_LOGV) {
-                Log.v(TAG, "Found attitude, re-projection error = " + error);
+                Log.v(TAG, "Found attitude, re-projection error = " + avgCenterError);
             }
 
-            // if error is reasonable, add it into the results. use ratio to frame height to avoid
-            // discriminating higher definition videos
-            if (error < REPROJECTION_THREASHOLD_RATIO * frameSize.height) {
+            // if error is reasonable, add it into the results. Use a dynamic threshold based on
+            // the pixel distance of opposite corners of the pattern to prevent higher resolution
+            // video or the distance between the camera and the test pattern from impacting the test
+            if (avgCenterError < REPROJECTION_THRESHOLD_RATIO * avgPixelDist) {
                 double [] rv = new double[3];
                 double timestamp;
 
@@ -902,8 +925,7 @@ public class RVCVXCheckAnalyzer {
 
             if (OUTPUT_DEBUG_IMAGE) {
                 Calib3d.drawChessboardCorners(frame, patternSize, reprojCenters, true);
-                Imgcodecs.imwrite(Environment.getExternalStorageDirectory().getPath()
-                        + "/RVCVRecData/DebugCV/img" + i + ".png", frame);
+                Imgcodecs.imwrite(mPath + "/RVCVRecData/DebugCV/img" + i + ".png", frame);
             }
         }
 
@@ -1324,6 +1346,10 @@ public class RVCVXCheckAnalyzer {
 
     private static double [] rodr2rpy( double [] r) {
         return quat2rpy(rodr2quat(r));
+    }
+
+    private double getDistanceBetweenPoints(Point a, Point b) {
+        return Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
     }
     //////////////////
 

@@ -27,13 +27,14 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.Suppress;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.bluetooth.R;
+import com.android.bluetooth.btservice.ProfileService;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -41,32 +42,31 @@ import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-@Suppress  // TODO: enable when b/74609188 is debugged
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class MapClientStateMachineTest {
     private static final String TAG = "MapStateMachineTest";
-    private static final Integer TIMEOUT = 3000;
+
+    private static final int ASYNC_CALL_TIMEOUT_MILLIS = 100;
 
     private BluetoothAdapter mAdapter;
     private MceStateMachine mMceStateMachine = null;
     private BluetoothDevice mTestDevice;
     private Context mTargetContext;
 
-    private FakeMapClientService mFakeMapClientService;
-    private CountDownLatch mConnectedLatch = null;
-    private CountDownLatch mDisconnectedLatch = null;
     private Handler mHandler;
+
+    private ArgumentCaptor<Intent> mIntentArgument = ArgumentCaptor.forClass(Intent.class);
+
+    @Mock
+    private MapClientService mMockMapClientService;
 
     @Mock
     private MasClient mMockMasClient;
-
 
     @Before
     public void setUp() {
@@ -75,16 +75,15 @@ public class MapClientStateMachineTest {
         Assume.assumeTrue("Ignore test when MapClientService is not enabled",
                 mTargetContext.getResources().getBoolean(R.bool.profile_supported_mapmce));
 
+        doReturn(mTargetContext.getResources()).when(mMockMapClientService).getResources();
+
         // This line must be called to make sure relevant objects are initialized properly
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         // Get a device for testing
         mTestDevice = mAdapter.getRemoteDevice("00:01:02:03:04:05");
 
-        mConnectedLatch = new CountDownLatch(1);
-        mDisconnectedLatch = new CountDownLatch(1);
-        mFakeMapClientService = new FakeMapClientService();
         when(mMockMasClient.makeRequest(any(Request.class))).thenReturn(true);
-        mMceStateMachine = new MceStateMachine(mFakeMapClientService, mTestDevice, mMockMasClient);
+        mMceStateMachine = new MceStateMachine(mMockMapClientService, mTestDevice, mMockMasClient);
         Assert.assertNotNull(mMceStateMachine);
         if (Looper.myLooper() == null) {
             Looper.prepare();
@@ -120,22 +119,15 @@ public class MapClientStateMachineTest {
         Log.i(TAG, "in testStateTransitionFromConnectingToDisconnected");
         setupSdpRecordReceipt();
         Message msg = Message.obtain(mHandler, MceStateMachine.MSG_MAS_DISCONNECTED);
-        mMceStateMachine.getCurrentState().processMessage(msg);
+        mMceStateMachine.sendMessage(msg);
 
         // Wait until the message is processed and a broadcast request is sent to
         // to MapClientService to change
         // state from STATE_CONNECTING to STATE_DISCONNECTED
-        boolean result = false;
-        try {
-            result = mDisconnectedLatch.await(TIMEOUT, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        // Test that the latch reached zero; i.e., that a broadcast of state-change was received.
-        Assert.assertTrue(result);
-        // When the state reaches STATE_DISCONNECTED, MceStateMachine object is in the process of
-        // being dismantled; i.e., can't rely on getting its current state. That means can't
-        // test its current state = STATE_DISCONNECTED.
+        verify(mMockMapClientService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(2)).sendBroadcast(
+                mIntentArgument.capture(), eq(ProfileService.BLUETOOTH_PERM));
+        Assert.assertEquals(BluetoothProfile.STATE_DISCONNECTED, mMceStateMachine.getState());
     }
 
     /**
@@ -147,45 +139,51 @@ public class MapClientStateMachineTest {
 
         setupSdpRecordReceipt();
         Message msg = Message.obtain(mHandler, MceStateMachine.MSG_MAS_CONNECTED);
-        mMceStateMachine.getCurrentState().processMessage(msg);
+        mMceStateMachine.sendMessage(msg);
 
         // Wait until the message is processed and a broadcast request is sent to
         // to MapClientService to change
         // state from STATE_CONNECTING to STATE_CONNECTED
-        boolean result = false;
-        try {
-            result = mConnectedLatch.await(TIMEOUT, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        // Test that the latch reached zero; i.e., that a broadcast of state-change was received.
-        Assert.assertTrue(result);
+        verify(mMockMapClientService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(2)).sendBroadcast(
+                mIntentArgument.capture(), eq(ProfileService.BLUETOOTH_PERM));
+        Assert.assertEquals(BluetoothProfile.STATE_CONNECTED, mMceStateMachine.getState());
+    }
+
+    /**
+     * Test receiving an empty event report
+     */
+    @Test
+    public void testReceiveEmptyEvent() {
+        setupSdpRecordReceipt();
+        Message msg = Message.obtain(mHandler, MceStateMachine.MSG_MAS_CONNECTED);
+        mMceStateMachine.sendMessage(msg);
+
+        // Wait until the message is processed and a broadcast request is sent to
+        // to MapClientService to change
+        // state from STATE_CONNECTING to STATE_CONNECTED
+        verify(mMockMapClientService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(2)).sendBroadcast(
+                mIntentArgument.capture(), eq(ProfileService.BLUETOOTH_PERM));
+        Assert.assertEquals(BluetoothProfile.STATE_CONNECTED, mMceStateMachine.getState());
+
+        // Send an empty notification event, verify the mMceStateMachine is still connected
+        Message notification = Message.obtain(mHandler, MceStateMachine.MSG_NOTIFICATION);
+        mMceStateMachine.getCurrentState().processMessage(msg);
         Assert.assertEquals(BluetoothProfile.STATE_CONNECTED, mMceStateMachine.getState());
     }
 
     private void setupSdpRecordReceipt() {
+        // Perform first part of MAP connection logic.
+        verify(mMockMapClientService,
+                timeout(ASYNC_CALL_TIMEOUT_MILLIS).times(1)).sendBroadcast(
+                mIntentArgument.capture(), eq(ProfileService.BLUETOOTH_PERM));
+        Assert.assertEquals(BluetoothProfile.STATE_CONNECTING, mMceStateMachine.getState());
+
         // Setup receipt of SDP record
-        SdpMasRecord record = new SdpMasRecord(1, 1, 1, 1, 1, 1, "blah");
+        SdpMasRecord record = new SdpMasRecord(1, 1, 1, 1, 1, 1, "MasRecord");
         Message msg = Message.obtain(mHandler, MceStateMachine.MSG_MAS_SDP_DONE, record);
-        mMceStateMachine.getCurrentState().processMessage(msg);
+        mMceStateMachine.sendMessage(msg);
     }
 
-    private class FakeMapClientService extends MapClientService {
-        @Override
-        void cleanupDevice(BluetoothDevice device) {}
-        @Override
-        public void sendBroadcast(Intent intent, String receiverPermission) {
-            int prevState = intent.getIntExtra(BluetoothProfile.EXTRA_PREVIOUS_STATE, -1);
-            int state = intent.getIntExtra(BluetoothProfile.EXTRA_STATE, -1);
-            Log.i(TAG, "received broadcast: prevState = " + prevState
-                    + ", state = " + state);
-            if (prevState == BluetoothProfile.STATE_CONNECTING
-                    && state == BluetoothProfile.STATE_CONNECTED) {
-                mConnectedLatch.countDown();
-            } else if (prevState == BluetoothProfile.STATE_CONNECTING
-                    && state == BluetoothProfile.STATE_DISCONNECTED) {
-                mDisconnectedLatch.countDown();
-            }
-        }
-    }
 }

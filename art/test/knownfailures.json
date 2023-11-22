@@ -1,15 +1,15 @@
 [
     {
-        "tests": "1934-jvmti-signal-thread",
-        "description": ["Disables 1934-jvmti-signal-thread in tracing configurations"],
-        "variant": "trace | stream",
-        "bug": "http://b/67384421"
-    },
-    {
         "tests": "153-reference-stress",
         "description": ["Disable 153-reference-stress temporarily until a fix",
                         "arrives."],
         "bug": "http://b/33389022"
+    },
+    {
+        "tests": "132-daemon-locks-shutdown",
+        "description": ["This test seems to fail occasionally on redefine-stress for unknown reasons without stack-traces"],
+        "variant": "redefine-stress",
+        "bug": "http://b/121302864"
     },
     {
         "tests": "579-inline-infinite",
@@ -19,7 +19,17 @@
     },
     {
         "tests": "080-oom-fragmentation",
-        "description": "Disable 080-oom-fragmentation due to flakes.",
+        "description": ["Disable 080-oom-fragmentation for GSS GC due to lack of",
+                        "support for allocations larger than 32MB."],
+        "env_vars": {"ART_DEFAULT_GC_TYPE": "GSS"},
+        "bug": "http://b/33795328"
+    },
+    {
+        "tests": "080-oom-fragmentation",
+        "description": ["Disable 080-oom-fragmentation for CC collector in debug mode",
+                        "because of potential fragmentation caused by the region space's",
+                        "cyclic region allocation (which is enabled in debug mode)."],
+        "variant": "debug",
         "bug": "http://b/33795328"
     },
     {
@@ -66,23 +76,22 @@
                         "doesn't (and isn't meant to) work with --prebuild."]
     },
     {
-        "tests": ["117-nopatchoat",
-                  "147-stripped-dex-fallback",
+        "tests": ["147-stripped-dex-fallback",
                   "608-checker-unresolved-lse"],
         "variant": "no-prebuild"
     },
     {
-        "tests": ["117-nopatchoat",
-                  "118-noimage-dex2oat",
-                  "119-noimage-patchoat"],
+        "tests": ["118-noimage-dex2oat",
+                  "1001-app-image-regions"],
         "variant": "no-relocate",
-        "description": ["117-nopatchoat is not broken per-se it just doesn't",
-                        "work (and isn't meant to) without --prebuild",
-                        "--relocate"]
+        "description": ["118-noimage-dex2oat is not broken per-se it just ",
+                        "doesn't work (and isn't meant to) without --prebuild ",
+                        "--relocate. 1001-app-image-regions is disabled since it",
+                        "doesn't have the app image loaded for no-relocate"]
     },
     {
         "tests" : "629-vdex-speed",
-        "variant": "interp-ac | no-dex2oat | interpreter | jit | relocate-npatchoat",
+        "variant": "interp-ac | interpreter | jit",
         "description": "629 requires compilation."
     },
     {
@@ -169,20 +178,18 @@
     },
     {
         "tests": "147-stripped-dex-fallback",
-        "variant": "no-dex2oat | no-image | relocate-npatchoat",
+        "variant": "no-image",
         "description": ["147-stripped-dex-fallback is disabled because it",
                         "requires --prebuild."]
     },
     {
         "tests": ["116-nodex2oat",
-                  "117-nopatchoat",
                   "118-noimage-dex2oat",
-                  "119-noimage-patchoat",
                   "137-cfi",
                   "138-duplicate-classes-check2"],
-        "variant": "no-dex2oat | no-image | relocate-npatchoat",
+        "variant": "no-image",
         "description": ["All these tests check that we have sane behavior if we",
-                        "don't have a patchoat or dex2oat. Therefore we",
+                        "don't have a dex2oat. Therefore we",
                         "shouldn't run them in situations where we actually",
                         "don't have these since they explicitly test for them.",
                         "These all also assume we have an image."]
@@ -199,6 +206,22 @@
         "bug": "http://b/34369284"
     },
     {
+        "tests": ["018-stack-overflow",
+                  "107-int-math2",
+                  "667-jit-jni-stub"],
+        "description": ["We run for long enough for jit to compile some of the methods ",
+                        "which means it takes so long to finish the test that it will ",
+                        "timeout. The timeout is due to having to walk the stack ",
+                        "when entering and exiting methods due to the way the instrumentation ",
+                        "trampoline is implemented."],
+        "variant": "debuggable & jit & trace | debuggable & jit & stream"
+    },
+    {
+        "tests": "1935-get-set-current-frame-jit",
+        "description": ["Test expects that OSR works but tracing turns this feature off."],
+        "variant": "trace | stream"
+    },
+    {
         "tests": "1940-ddms-ext",
         "description": ["Test expects to be able to start tracing but we cannot",
                         "do that if tracing is already ongoing."],
@@ -207,16 +230,20 @@
     {
         "tests": "137-cfi",
         "description": ["This test unrolls and expects managed frames, but",
-                        "tracing means we run the interpreter."],
+                        "tracing means we run the interpreter or trampolines."],
         "variant": "trace | stream"
     },
     {
-        "tests": ["802-deoptimization",
-                 "570-checker-osr"],
+        "tests": ["802-deoptimization"],
         "description": ["This test dynamically enables tracing to force a",
                         "deoptimization. This makes the test meaningless",
                         "when already tracing, and writes an error message",
                         "that we do not want to check for."],
+        "variant": "trace | stream"
+    },
+    {
+        "tests": ["570-checker-osr", "570-checker-osr-locals"],
+        "description": ["These tests wait for OSR, which never happens when tracing."],
         "variant": "trace | stream"
     },
     {
@@ -236,7 +263,7 @@
                   "613-inlining-dex-cache",
                   "626-set-resolved-string",
                   "638-checker-inline-cache-intrinsic"],
-        "variant": "trace  | stream",
+        "variant": "trace | stream",
         "description": ["These tests expect JIT compilation, which is",
                         "suppressed when tracing."]
     },
@@ -245,6 +272,11 @@
         "variant": "interp-ac | interpreter | trace | stream",
         "description": ["This test expects JIT compilation, which is",
                         "suppressed when tracing."]
+    },
+    {
+        "tests": "638-checker-inline-cache-intrinsic",
+        "variant": "interpreter | interp-ac",
+        "description": ["Test expects JIT compilation"]
     },
     {
         "tests": "597-deopt-invoke-stub",
@@ -260,10 +292,6 @@
         "variant": "jit"
     },
     {
-        "tests": ["904-object-allocation"],
-        "variant": "jit"
-    },
-    {
         "tests": ["570-checker-select",
                   "484-checker-register-hints"],
         "description": ["These tests were based on the linear scan allocator,",
@@ -275,20 +303,16 @@
     {
         "tests": ["454-get-vreg",
                   "457-regs",
-                  "602-deoptimizeable"],
+                  "602-deoptimizeable",
+                  "685-deoptimizeable"],
         "description": ["Tests that should fail when the optimizing compiler ",
                         "compiles them non-debuggable."],
-        "variant": "optimizing & ndebuggable | regalloc_gc & ndebuggable | speed-profile & ndebuggable | jit & ndebuggable"
+        "variant": "optimizing & ndebuggable | regalloc_gc & ndebuggable | speed-profile & ndebuggable | jit & ndebuggable | jit-on-first-use & ndebuggable"
     },
     {
         "tests": "596-app-images",
         "description": "Code being tested has been disabled",
         "bug": "b/70734839"
-    },
-    {
-        "tests": "639-checker-code-sinking",
-        "variant": "pictest",
-        "bug": "http://b/65366606"
     },
     {
         "tests": "055-enum-performance",
@@ -325,9 +349,7 @@
     {
         "tests": ["018-stack-overflow",
                   "116-nodex2oat",
-                  "117-nopatchoat",
                   "118-noimage-dex2oat",
-                  "119-noimage-patchoat",
                   "126-miranda-multidex",
                   "137-cfi"],
         "description": "The test run dalvikvm more than once.",
@@ -351,22 +373,14 @@
     {
         "tests": ["537-checker-arraycopy",
                   "641-checker-arraycopy"],
-        "env_vars": {"ART_USE_READ_BARRIER": "true"},
-        "variant": "interpreter | optimizing | regalloc_gc | jit"
-    },
-    {
-        "tests": ["476-clinit-inline-static-invoke",
-                  "496-checker-inlining-class-loader",
-                  "508-referrer-method",
-                  "637-checker-throw-inline"],
-        "bug": "http://b/36365552",
-        "variant": "no-image & jit"
+        "env_vars": {"ART_READ_BARRIER_TYPE": "TABLELOOKUP"}
     },
     {
         "tests": ["530-checker-lse",
                   "530-checker-lse2",
                   "030-bad-finalizer",
-                  "080-oom-throw"],
+                  "080-oom-throw",
+                  "1336-short-finalizer-timeout"],
         "bug": "http://b/36377828",
         "variant": "interp-ac"
     },
@@ -375,6 +389,12 @@
                   "634-vdex-duplicate"],
         "description": ["Profile driven dexlayout does not work with vdex or dex verifier."],
         "variant": "speed-profile"
+    },
+    {
+        "test_patterns": ["616-cha.*"],
+        "description": ["cha tests rely on knowing the exact set of optimizations available. ",
+                        "Debuggable runtimes change the set of optimizations."],
+        "variant": "debuggable"
     },
     {
         "test_patterns": ["616-cha.*"],
@@ -428,10 +448,11 @@
             ".*methodhandle.*",
             ".*method-handle.*",
             ".*varhandle.*",
-            ".*var-handle.*"
+            ".*var-handle.*",
+            "716-jli-jit-samples"
         ],
         "description": [
-            "Tests that use invoke-polymorphic/invoke-custom which is not yet supported by",
+            "Tests for bytecodes introduced after DEX version 037 that are unsupported by",
             "dexter/slicer."
         ],
         "bug": "b/37272822",
@@ -439,19 +460,63 @@
     },
     {
         "tests": [
-            "137-cfi",
-            "595-profile-saving",
-            "900-hello-plugin",
-            "909-attach-agent",
-            "981-dedup-original-dex",
-            "1900-track-alloc"
+            "004-ThreadStress",
+            "130-hprof",
+            "579-inline-infinite",
+            "1946-list-descriptors"
         ],
-        "description": ["Tests that require exact knowledge of the number of plugins and agents."],
+        "description": ["Too slow to finish in the timeout"],
         "variant": "jvmti-stress | redefine-stress | trace-stress | field-stress | step-stress"
     },
     {
         "tests": [
+            "911-get-stack-trace"
+        ],
+        "description": ["Tests that fail when run with step-stress for unknown reasons."],
+        "bug": "b/120995005",
+        "variant": "jvmti-stress | step-stress"
+    },
+    {
+        "tests": [
+            "004-SignalTest",
+            "004-StackWalk",
+            "064-field-access",
+            "083-compiler-regressions",
+            "098-ddmc",
+            "107-int-math2",
+            "129-ThreadGetId",
+            "135-MirandaDispatch",
             "132-daemon-locks-shutdown",
+            "163-app-image-methods",
+            "607-daemon-stress",
+            "674-hiddenapi",
+            "687-deopt",
+            "904-object-allocation"
+        ],
+        "description": ["Tests that sometimes fail when run with jvmti-stress for unknown reasons."],
+        "bug": "b/120995005",
+        "variant": "jvmti-stress | trace-stress | field-stress | step-stress"
+    },
+    {
+        "tests": [
+            "018-stack-overflow",
+            "137-cfi",
+            "595-profile-saving",
+            "597-deopt-busy-loop",
+            "597-deopt-new-string",
+            "660-clinit",
+            "900-hello-plugin",
+            "909-attach-agent",
+            "924-threads",
+            "981-dedup-original-dex",
+            "1900-track-alloc"
+        ],
+        "description": ["Tests that require exact knowledge of the deoptimization state, the ",
+                        "number of plugins and agents, or breaks other openjdkjvmti assumptions."],
+        "variant": "jvmti-stress | redefine-stress | trace-stress | field-stress | step-stress"
+    },
+    {
+        "tests": [
             "607-daemon-stress",
             "602-deoptimizeable",
             "121-simple-suspend-check",
@@ -463,11 +528,20 @@
     },
     {
         "tests": [
+            "638-no-line-number"
+        ],
+        "description": ["Tests that fail on redefine stress due to branch instruction selection"],
+        "bug": "b/110869946",
+        "variant": "redefine-stress"
+    },
+    {
+        "tests": [
             "097-duplicate-method",
             "138-duplicate-classes-check2",
             "159-app-image-fields",
-            "674-hiddenapi",
             "649-vdex-duplicate-method",
+            "674-hiddenapi",
+            "690-hiddenapi-same-name-methods",
             "804-class-extends-itself",
             "921-hello-failure",
             "999-redefine-hiddenapi"
@@ -487,6 +561,10 @@
             "629-vdex-speed",
             "647-jni-get-field-id",
             "674-hiddenapi",
+            "690-hiddenapi-same-name-methods",
+            "691-hiddenapi-proxy",
+            "692-vdex-inmem-loader",
+            "693-vdex-inmem-loader-evict",
             "944-transform-classloaders",
             "999-redefine-hiddenapi"
         ],
@@ -506,6 +584,7 @@
     {
         "tests": [
             "031-class-attributes",
+            "715-clinit-implicit-parameter-annotations",
             "911-get-stack-trace"
         ],
         "description": [
@@ -540,11 +619,22 @@
         "bug": "b/33650497"
     },
     {
-        "tests": "640-checker-integer-valueof",
-        "description": [
-            "The java.lang.Integer.valueOf intrinsic is not supported in PIC mode."
-        ],
-        "variant": "optimizing & pictest | speed-profile & pictest"
+        "tests": "1946-list-descriptors",
+        "description": "ASAN+interp-ac/switch interpreter means this is too slow to finish in the timeout",
+        "variant": "target & interp-ac",
+        "env_vars": {"SANITIZE_TARGET": "address"}
+    },
+    {
+        "tests": "1946-list-descriptors",
+        "description": "ASAN+interp-ac/switch interpreter means this is too slow to finish in the timeout",
+        "variant": "host & interp-ac",
+        "env_vars": {"SANITIZE_HOST": "address"}
+    },
+    {
+        "tests": "175-alloc-big-bignums",
+        "description": "ASAN runs out of memory due to huge allocations.",
+        "variant": "host",
+        "env_vars": {"SANITIZE_HOST": "address"}
     },
     {
         "tests": "202-thread-oome",
@@ -557,6 +647,30 @@
         "description": "ASAN aborts when large thread stacks are requested.",
         "variant": "target",
         "env_vars": {"SANITIZE_TARGET": "address"}
+    },
+    {
+        "tests": [
+            "018-stack-overflow",
+            "107-int-math2"
+        ],
+        "description": [
+            "Insufficient stack guards for ASAN."
+        ],
+        "variant": "interp-ac & host",
+        "env_vars": {"SANITIZE_HOST": "address"},
+        "bug": "b/31098551"
+    },
+    {
+        "tests": [
+            "018-stack-overflow",
+            "107-int-math2"
+        ],
+        "description": [
+            "Insufficient stack guards for ASAN."
+        ],
+        "variant": "interp-ac & target",
+        "env_vars": {"SANITIZE_TARGET": "address"},
+        "bug": "b/31098551"
     },
     {
         "tests": [
@@ -631,9 +745,9 @@
     },
     {
         "tests": "660-clinit",
-        "variant": "no-image | no-dex2oat | no-prebuild | jvmti-stress | redefine-stress",
+        "variant": "no-image | no-prebuild | jvmti-stress | redefine-stress",
         "description": ["Tests <clinit> for app images, which --no-image, --no-prebuild, ",
-                        "--no-dex2oat, and --redefine-stress do not create"]
+                        "and --redefine-stress do not create"]
     },
     {
         "tests": ["961-default-iface-resolution-gen",
@@ -655,9 +769,14 @@
         "description": ["Tests that depend on input-vdex are not supported with compact dex"]
     },
     {
-        "tests": "661-oat-writer-layout",
-        "variant": "interp-ac | interpreter | jit | no-dex2oat | no-prebuild | no-image | trace | redefine-stress | jvmti-stress",
-        "description": ["Test is designed to only check --compiler-filter=speed"]
+        "tests": ["661-oat-writer-layout"],
+        "variant": "interp-ac | interpreter | jit | jit-on-first-use | no-prebuild | no-image | trace | redefine-stress | jvmti-stress",
+        "description": ["Test is designed to only check --optimizing"]
+    },
+    {
+        "tests": ["004-StackWalk"],
+        "variant": "interp-ac | interpreter | jit | no-prebuild | no-image | trace | redefine-stress | jvmti-stress | debuggable",
+        "description": ["Test is designed to only check --optimizing"]
     },
     {
         "tests": "674-HelloWorld-Dm",
@@ -665,16 +784,9 @@
         "description": ["Requires zip, which isn't available on device"]
     },
     {
-        "tests": "712-varhandle-invocations",
-        "variant": "speed-profile & debug & gcstress & target",
-        "bug": "b/73275005",
-        "description": ["Time out"]
-    },
-    {
-        "tests": ["130-hprof"],
-        "env_vars": {"SANITIZE_HOST": "address"},
-        "bug": "b/73060923",
-        "description": ["ASAN issue"]
+        "tests": ["683-clinit-inline-static-invoke"],
+        "variant": "jvm",
+        "description": ["Uses android-specific boot image class."]
     },
     {
         "tests": ["1941-dispose-stress", "522-checker-regression-monitor-exit"],
@@ -720,9 +832,7 @@
           "111-unresolvable-exception",
           "115-native-bridge",
           "116-nodex2oat",
-          "117-nopatchoat",
           "118-noimage-dex2oat",
-          "119-noimage-patchoat",
           "127-checker-secondarydex",
           "129-ThreadGetId",
           "130-hprof",
@@ -756,6 +866,7 @@
           "164-resolution-trampoline-dex-cache",
           "167-visit-locks",
           "168-vmstack-annotated",
+          "172-app-image-twice",
           "201-built-in-except-detail-messages",
           "203-multi-checkpoint",
           "304-method-tracing",
@@ -902,9 +1013,14 @@
           "675-checker-unverified-method",
           "676-proxy-jit-at-first-use",
           "676-resolve-field-type",
+          "685-deoptimizeable",
+          "685-shifts",
+          "686-get-this",
+          "687-deopt",
           "706-checker-scheduler",
           "707-checker-invalid-profile",
           "714-invoke-custom-lambda-metafactory",
+          "716-jli-jit-samples",
           "800-smali",
           "801-VoidCheckCast",
           "802-deoptimization",
@@ -934,7 +1050,6 @@
           "946-obsolete-throw",
           "948-change-annotations",
           "950-redefine-intrinsic",
-          "952-invoke-custom",
           "954-invoke-polymorphic-verifier",
           "955-methodhandles-smali",
           "956-methodhandles",
@@ -954,6 +1069,9 @@
           "988-method-trace",
           "989-method-trace-throw",
           "993-breakpoints",
+          "1002-notify-startup",
+          "1003-metadata-section-strings",
+          "1336-short-finalizer-timeout",
           "1900-track-alloc",
           "1906-suspend-list-me-first",
           "1914-get-local-instance",
@@ -973,14 +1091,32 @@
         "description": ["Failing on RI. Needs further investigating."]
     },
     {
-        "tests": ["616-cha-unloading",
+        "tests": ["530-checker-peel-unroll",
+                  "616-cha-unloading",
                   "674-hiddenapi",
                   "677-fsi2",
                   "678-quickening",
                   "679-locks",
-                  "999-redefine-hiddenapi"],
+                  "688-shared-library",
+                  "690-hiddenapi-same-name-methods",
+                  "691-hiddenapi-proxy",
+                  "692-vdex-inmem-loader",
+                  "693-vdex-inmem-loader-evict",
+                  "999-redefine-hiddenapi",
+                  "1000-non-moving-space-stress",
+                  "1001-app-image-regions",
+                  "1339-dead-reference-safe",
+                  "1951-monitor-enter-no-suspend",
+                  "1957-error-ext"],
         "variant": "jvm",
         "description": ["Doesn't run on RI."]
+    },
+    {
+        "tests": ["121-modifiers",
+                  "1929-exception-catch-exception"],
+        "variant": "jvm",
+        "bug": "b/76399183",
+        "description": ["New failures to be investigated."]
     },
     {
         "tests": ["616-cha-unloading"],
@@ -989,7 +1125,111 @@
     },
     {
         "tests": "677-fsi",
-        "variant": "no-dex2oat | no-image | no-prebuild | relocate-npatchoat | jvm",
+        "variant": "no-image | no-prebuild | jvm",
         "description": ["Test requires a successful dex2oat invocation"]
+    },
+    {
+        "tests": ["990-field-trace",
+                  "991-field-trace-2"],
+        "variant": "gcstress & debug & target",
+        "description": ["Test can time out on gcstress with debug"]
+    },
+    {
+        "tests": ["080-oom-throw"],
+        "variant": "jit",
+        "bug": "b/77567088",
+        "description": ["Test throws exception before or during OOME."]
+    },
+    {
+        "tests": ["151-OpenFileLimit"],
+        "variant": "gcstress",
+        "bug": "b/111544552",
+        "description" : ["Gcstress requires the ability to open at least one file which means this test fails when it runs out."]
+    },
+    {
+        "tests": ["530-checker-lse2", "141-class-unload", "071-dexfile"],
+        "variant": "gcstress",
+        "bug": "b/111543628",
+        "description" : ["Test seems to timeout when run with gcstress due to slower unwinding by libbacktrace"]
+    },
+    {
+        "tests": ["712-varhandle-invocations"],
+        "variant": "gcstress",
+        "bug": "b/111630237",
+        "description": ["Test timing out under gcstress possibly due to slower unwinding by libbacktrace"]
+    },
+    {
+        "tests": ["1336-short-finalizer-timeout"],
+        "variant": "gcstress",
+        "bug": "b/68792448",
+        "description": ["Timing margins are too tight for gcstress"]
+    },
+    {
+        "tests": ["021-string2"],
+        "variant": "jit & debuggable",
+        "bug": "b/109791792",
+        "description": ["Stack too big."]
+    },
+    {
+        "tests": ["566-polymorphic-inlining"],
+        "variant": "jit & debuggable",
+        "description": ["We do not inline with debuggable."]
+    },
+    {
+        "tests": ["1955-pop-frame-jit-called", "1956-pop-frame-jit-calling"],
+        "variant": "jit-on-first-use",
+        "description": [
+          "These tests directly set -Xjitthreshold:1000 to prevent the jit from compiling any",
+          "extra methods. jit-at-first-use would disrupt this."
+        ]
+    },
+    {
+        "tests": ["135-MirandaDispatch"],
+        "variant": "interp-ac & 32 & host",
+        "env_vars": {"SANITIZE_HOST": "address"},
+        "bug": "b/112993554",
+        "description": ["Timeout with ASan and interp-ac on 32-bit host (x86)."]
+    },
+    {
+        "tests": ["980-redefine-object"],
+        "description": ["This test appears to be unusally flaky on no-image + jit. The cause of ",
+                        "this flakiness is unknown but appears to be related to the ",
+                        "jit-compilation of JNI bridges. Until more investigation is done we skip ",
+                        "this test."],
+        "bug": "http://b/73333076",
+        "variant": "no-image & jit"
+    },
+    {
+        "tests": ["454-get-vreg", "457-regs"],
+        "variant": "baseline",
+        "description": ["Tests are expected to fail with baseline."]
+    },
+    {
+        "tests": ["1339-dead-reference-safe"],
+        "variant": "debuggable",
+        "description": [ "Fails to eliminate dead reference when debuggable." ]
+    },
+    {
+        "tests": ["708-jit-cache-churn"],
+        "variant": "jit-on-first-use",
+        "bug": "b/120112467",
+        "description": [ "Fails on Android Build hosts with uncaught std::bad_alloc." ]
+    },
+    {
+        "tests": ["719-dm-verify-redefinition"],
+        "variant": "jvm | speed-profile | interp-ac | target | no-prebuild",
+        "description": ["Doesn't run on RI because of boot class redefintion.",
+                        "Doesn't work with profiles because the run-test is not setup to",
+                        "support both. It also needs full verification, so no interp-ac.",
+                        "Requires zip, which isn't available on device"]
+    },
+    {
+        "tests": ["004-ReferenceMap",
+                  "449-checker-bce",
+                  "466-get-live-vreg",
+                  "563-checker-fakestring",
+                  "575-checker-string-init-alias"],
+        "variant": "baseline",
+        "description": [ "Working as intended tests that don't pass with baseline." ]
     }
 ]

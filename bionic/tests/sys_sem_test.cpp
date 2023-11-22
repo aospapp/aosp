@@ -31,17 +31,16 @@
 #include <errno.h>
 #include <sys/sem.h>
 
-#include "TemporaryFile.h"
+#include <android-base/file.h>
 
 TEST(sys_sem, smoke) {
   if (semctl(-1, 0, IPC_RMID) == -1 && errno == ENOSYS) {
-    GTEST_LOG_(INFO) << "no <sys/sem.h> support in this kernel\n";
-    return;
+    GTEST_SKIP() << "no <sys/sem.h> support in this kernel";
   }
 
   // Create a semaphore.
   TemporaryDir dir;
-  key_t key = ftok(dir.dirname, 1);
+  key_t key = ftok(dir.path, 1);
   int id = semget(key, 1, IPC_CREAT|0666);
   ASSERT_NE(id, -1);
 

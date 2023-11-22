@@ -35,6 +35,7 @@ import org.easymock.Capture;
 import org.easymock.EasyMock;
 
 import java.io.File;
+import java.util.LinkedHashMap;
 
 /**
  * Unit tests for {@link DeviceSetup}.
@@ -221,6 +222,69 @@ public class DeviceSetupTest extends TestCase {
         EasyMock.replay(mMockDevice);
 
         mDeviceSetup.setWifi(BinaryState.OFF);
+        mDeviceSetup.setUp(mMockDevice, mMockBuildInfo);
+
+        EasyMock.verify(mMockDevice);
+    }
+
+    public void testSetup_wifi_network_name() throws Exception {
+        doSetupExpectations();
+        doCheckExternalStoreSpaceExpectations();
+        doSettingExpectations("global", "wifi_on", "1");
+        doCommandsExpectations("svc wifi enable");
+        EasyMock.expect(mMockDevice.connectToWifiNetwork("wifi_network", "psk")).andReturn(true);
+        EasyMock.replay(mMockDevice);
+
+        mDeviceSetup.setWifiNetwork("wifi_network");
+        mDeviceSetup.setWifiPsk("psk");
+
+        mDeviceSetup.setWifi(BinaryState.ON);
+        mDeviceSetup.setUp(mMockDevice, mMockBuildInfo);
+
+        EasyMock.verify(mMockDevice);
+    }
+
+    public void testSetup_wifi_multiple_network_names() throws Exception {
+        doSetupExpectations();
+        doCheckExternalStoreSpaceExpectations();
+        doSettingExpectations("global", "wifi_on", "1");
+        doCommandsExpectations("svc wifi enable");
+        EasyMock.expect(mMockDevice.connectToWifiNetwork("old_network", "abc")).andReturn(false);
+        EasyMock.expect(mMockDevice.connectToWifiNetwork("network", "def")).andReturn(false);
+        EasyMock.expect(mMockDevice.connectToWifiNetwork("new_network", "ghi")).andReturn(true);
+        EasyMock.replay(mMockDevice);
+
+        mDeviceSetup.setWifiNetwork("old_network");
+        mDeviceSetup.setWifiPsk("abc");
+        LinkedHashMap<String, String> ssidToPsk = new LinkedHashMap<>();
+        ssidToPsk.put("network", "def");
+        ssidToPsk.put("new_network", "ghi");
+        mDeviceSetup.setWifiSsidToPsk(ssidToPsk);
+
+        mDeviceSetup.setWifi(BinaryState.ON);
+        mDeviceSetup.setUp(mMockDevice, mMockBuildInfo);
+
+        EasyMock.verify(mMockDevice);
+    }
+
+    public void testSetup_wifi_multiple_network_names_unsecured() throws Exception {
+        doSetupExpectations();
+        doCheckExternalStoreSpaceExpectations();
+        doSettingExpectations("global", "wifi_on", "1");
+        doCommandsExpectations("svc wifi enable");
+        EasyMock.expect(mMockDevice.connectToWifiNetwork("old_network", null)).andReturn(false);
+        EasyMock.expect(mMockDevice.connectToWifiNetwork("network", null)).andReturn(false);
+        EasyMock.expect(mMockDevice.connectToWifiNetwork("new_network", null)).andReturn(true);
+        EasyMock.replay(mMockDevice);
+
+        mDeviceSetup.setWifiNetwork("old_network");
+        mDeviceSetup.setWifiPsk(null);
+        LinkedHashMap<String, String> ssidToPsk = new LinkedHashMap<>();
+        ssidToPsk.put("network", "");
+        ssidToPsk.put("new_network", "");
+        mDeviceSetup.setWifiSsidToPsk(ssidToPsk);
+
+        mDeviceSetup.setWifi(BinaryState.ON);
         mDeviceSetup.setUp(mMockDevice, mMockBuildInfo);
 
         EasyMock.verify(mMockDevice);
@@ -773,7 +837,8 @@ public class DeviceSetupTest extends TestCase {
     public void testSetup_set_timezone_LA() throws Exception {
         doSetupExpectations();
         doCheckExternalStoreSpaceExpectations();
-        doCommandsExpectations("setprop \"persist.sys.timezone\" \"America/Los_Angeles\"");
+        EasyMock.expect(mMockDevice.setProperty("persist.sys.timezone", "America/Los_Angeles"))
+                .andReturn(true);
         EasyMock.replay(mMockDevice);
 
         mDeviceSetup.setTimezone("America/Los_Angeles");
@@ -1037,9 +1102,7 @@ public class DeviceSetupTest extends TestCase {
         doSetupExpectations();
         doCheckExternalStoreSpaceExpectations();
         EasyMock.expect(mMockDevice.pullFile("/data/local.prop")).andReturn(null).once();
-        EasyMock.expect(mMockDevice.executeShellCommand("rm -f /data/local.prop"))
-                .andReturn(null)
-                .once();
+        mMockDevice.deleteFile("/data/local.prop");
         mMockDevice.reboot();
         EasyMock.expectLastCall().once();
 
@@ -1108,13 +1171,52 @@ public class DeviceSetupTest extends TestCase {
         EasyMock.verify(mMockDevice);
     }
 
-    public void testSetup_rootDisabled() throws Exception {
-        doSetupExpectations(true /* screenOn */, false /* root enabled */,
-                false /* root response */, DEFAULT_API_LEVEL, new Capture<>());
+    public void testSetup_rootDisabled_withoutChangeSystemProp() throws Exception {
+        doSetupExpectations(
+                true /* screenOn */,
+                false /* root enabled */,
+                false /* root response */,
+                DEFAULT_API_LEVEL,
+                new Capture<>());
         doCheckExternalStoreSpaceExpectations();
         EasyMock.replay(mMockDevice);
+        mDeviceSetup.setDisableDialing(false);
+        mDeviceSetup.setDisableAudio(false);
+        mDeviceSetup.setTestHarness(false);
         mDeviceSetup.setUp(mMockDevice, mMockBuildInfo);
         EasyMock.verify(mMockDevice);
+    }
+
+    public void testSetup_rootDisabled_withSkipChangeSystemProp() throws Exception {
+        doSetupExpectations(
+                true /* screenOn */,
+                false /* root enabled */,
+                false /* root response */,
+                DEFAULT_API_LEVEL,
+                new Capture<>());
+        doCheckExternalStoreSpaceExpectations();
+        EasyMock.replay(mMockDevice);
+        mDeviceSetup.setForceSkipSystemProps(true);
+        mDeviceSetup.setUp(mMockDevice, mMockBuildInfo);
+        EasyMock.verify(mMockDevice);
+    }
+
+    public void testSetup_rootDisabled_withChangeSystemProp() throws Exception {
+        doSetupExpectations(
+                true /* screenOn */,
+                false /* root enabled */,
+                false /* root response */,
+                DEFAULT_API_LEVEL,
+                new Capture<>());
+        doCheckExternalStoreSpaceExpectations();
+        EasyMock.replay(mMockDevice);
+        mDeviceSetup.setProperty("key", "value");
+        try {
+            mDeviceSetup.setUp(mMockDevice, mMockBuildInfo);
+            fail("TargetSetupError expected");
+        } catch (TargetSetupError e) {
+            // Expected
+        }
     }
 
     public void testSetup_rootFailed() throws Exception {
@@ -1160,18 +1262,26 @@ public class DeviceSetupTest extends TestCase {
         TestDeviceOptions options = new TestDeviceOptions();
         OptionSetter setter = new OptionSetter(options);
         setter.setOptionValue("enable-root", Boolean.toString(adbRootEnabled));
-        EasyMock.expect(mMockDevice.getOptions()).andReturn(options).once();
+        EasyMock.expect(mMockDevice.getOptions()).andReturn(options).atLeastOnce();
         if (adbRootEnabled) {
             EasyMock.expect(mMockDevice.enableAdbRoot()).andReturn(adbRootResponse);
         }
+
         EasyMock.expect(mMockDevice.clearErrorDialogs()).andReturn(Boolean.TRUE);
         EasyMock.expect(mMockDevice.getApiLevel()).andReturn(apiLevel);
-        // expect push of local.prop file to change system properties
-        EasyMock.expect(mMockDevice.pushString(EasyMock.capture(setPropCapture),
-                EasyMock.contains("local.prop"))).andReturn(Boolean.TRUE);
-        EasyMock.expect(mMockDevice.executeShellCommand(
-                EasyMock.matches("chmod 644 .*local.prop"))).andReturn("");
-        mMockDevice.reboot();
+        if (adbRootResponse) {
+            // expect push of local.prop file to change system properties
+            EasyMock.expect(
+                            mMockDevice.pushString(
+                                    EasyMock.capture(setPropCapture),
+                                    EasyMock.contains("local.prop")))
+                    .andReturn(Boolean.TRUE);
+            EasyMock.expect(
+                            mMockDevice.executeShellCommand(
+                                    EasyMock.matches("chmod 644 .*local.prop")))
+                    .andReturn("");
+            mMockDevice.reboot();
+        }
         if (screenOn) {
             EasyMock.expect(mMockDevice.executeShellCommand("svc power stayon true")).andReturn("");
             EasyMock.expect(mMockDevice.executeShellCommand("input keyevent 82")).andReturn("");

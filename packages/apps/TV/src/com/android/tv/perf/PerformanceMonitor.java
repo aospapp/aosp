@@ -19,6 +19,7 @@ package com.android.tv.perf;
 import static com.android.tv.perf.EventNames.EventName;
 
 import android.content.Context;
+import com.google.errorprone.annotations.CompileTimeConstant;
 
 /** Measures Performance. */
 public interface PerformanceMonitor {
@@ -34,7 +35,7 @@ public interface PerformanceMonitor {
      *
      * @param eventName to record
      */
-    void recordMemory(@EventName String eventName);
+    void recordMemory(@EventName @CompileTimeConstant String eventName);
 
     /**
      * Starts a timer for a global event to allow measuring the event's latency across activities If
@@ -42,7 +43,7 @@ public interface PerformanceMonitor {
      *
      * @param eventName for which the timer starts
      */
-    void startGlobalTimer(@EventName String eventName);
+    void startGlobalTimer(@EventName @CompileTimeConstant String eventName);
 
     /**
      * Stops a cross activities timer for a specific eventName and records the timer duration. If no
@@ -50,7 +51,7 @@ public interface PerformanceMonitor {
      *
      * @param eventName for which the timer stops
      */
-    void stopGlobalTimer(@EventName String eventName);
+    void stopGlobalTimer(@EventName @CompileTimeConstant String eventName);
 
     /**
      * Starts a timer to record latency of a specific scenario or event. Use this method to track
@@ -69,7 +70,7 @@ public interface PerformanceMonitor {
      * @param event that needs to be stopped
      * @param eventName for which the timer stops. This must be constant with no PII.
      */
-    void stopTimer(TimerEvent event, @EventName String eventName);
+    void stopTimer(TimerEvent event, @EventName @CompileTimeConstant String eventName);
 
     /**
      * Starts recording jank for a specific scenario or event.
@@ -79,14 +80,14 @@ public interface PerformanceMonitor {
      *
      * @param eventName of the event for which tracking is started
      */
-    void startJankRecorder(@EventName String eventName);
+    void startJankRecorder(@EventName @CompileTimeConstant String eventName);
 
     /**
      * Stops recording jank for a specific event and records the jank event.
      *
      * @param eventName of the event that needs to be stopped
      */
-    void stopJankRecorder(@EventName String eventName);
+    void stopJankRecorder(@EventName @CompileTimeConstant String eventName);
 
     /**
      * Starts activity to display PerformanceMonitor events recorded in local database for debug

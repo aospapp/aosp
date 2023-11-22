@@ -15,6 +15,6 @@
 -->
 
 <resources>
-    <dimen name="status_bar_height">56dp</dimen>
     <dimen name="car_keyline_4">184dp</dimen>
+    <dimen name="car_margin">192dp</dimen>
 </resources>

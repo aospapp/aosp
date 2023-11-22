@@ -15,8 +15,5 @@
  * limitations under the License.
 -->
 <resources>
-    <!-- TODO: These colors were randomly selected by Android Studio. Replace with visd. -->
-    <color name="colorPrimary">#3F51B5</color>
-    <color name="colorPrimaryDark">#303F9F</color>
-    <color name="colorAccent">#FF4081</color>
+    <color name="icon_color">@*android:color/car_tint_light</color>
 </resources>

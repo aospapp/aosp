@@ -16,9 +16,10 @@
 
 #include "EmulatedVolume.h"
 #include "Utils.h"
+#include "VolumeManager.h"
 
-#include <android-base/stringprintf.h>
 #include <android-base/logging.h>
+#include <android-base/stringprintf.h>
 #include <cutils/fs.h>
 #include <private/android_filesystem_config.h>
 #include <utils/Timers.h>
@@ -27,8 +28,8 @@
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/sysmacros.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 using android::base::StringPrintf;
@@ -38,22 +39,21 @@ namespace vold {
 
 static const char* kFusePath = "/system/bin/sdcard";
 
-EmulatedVolume::EmulatedVolume(const std::string& rawPath) :
-        VolumeBase(Type::kEmulated), mFusePid(0) {
+EmulatedVolume::EmulatedVolume(const std::string& rawPath)
+    : VolumeBase(Type::kEmulated), mFusePid(0) {
     setId("emulated");
     mRawPath = rawPath;
     mLabel = "emulated";
 }
 
-EmulatedVolume::EmulatedVolume(const std::string& rawPath, dev_t device,
-        const std::string& fsUuid) : VolumeBase(Type::kEmulated), mFusePid(0) {
+EmulatedVolume::EmulatedVolume(const std::string& rawPath, dev_t device, const std::string& fsUuid)
+    : VolumeBase(Type::kEmulated), mFusePid(0) {
     setId(StringPrintf("emulated:%u,%u", major(device), minor(device)));
     mRawPath = rawPath;
     mLabel = fsUuid;
 }
 
-EmulatedVolume::~EmulatedVolume() {
-}
+EmulatedVolume::~EmulatedVolume() {}
 
 status_t EmulatedVolume::doMount() {
     // We could have migrated storage to an adopted private volume, so always
@@ -66,20 +66,23 @@ status_t EmulatedVolume::doMount() {
     mFuseDefault = StringPrintf("/mnt/runtime/default/%s", label.c_str());
     mFuseRead = StringPrintf("/mnt/runtime/read/%s", label.c_str());
     mFuseWrite = StringPrintf("/mnt/runtime/write/%s", label.c_str());
+    mFuseFull = StringPrintf("/mnt/runtime/full/%s", label.c_str());
 
     setInternalPath(mRawPath);
     setPath(StringPrintf("/storage/%s", label.c_str()));
 
     if (fs_prepare_dir(mFuseDefault.c_str(), 0700, AID_ROOT, AID_ROOT) ||
-            fs_prepare_dir(mFuseRead.c_str(), 0700, AID_ROOT, AID_ROOT) ||
-            fs_prepare_dir(mFuseWrite.c_str(), 0700, AID_ROOT, AID_ROOT)) {
+        fs_prepare_dir(mFuseRead.c_str(), 0700, AID_ROOT, AID_ROOT) ||
+        fs_prepare_dir(mFuseWrite.c_str(), 0700, AID_ROOT, AID_ROOT) ||
+        fs_prepare_dir(mFuseFull.c_str(), 0700, AID_ROOT, AID_ROOT)) {
         PLOG(ERROR) << getId() << " failed to create mount points";
         return -errno;
     }
 
-    dev_t before = GetDevice(mFuseWrite);
+    dev_t before = GetDevice(mFuseFull);
 
     if (!(mFusePid = fork())) {
+        // clang-format off
         if (execl(kFusePath, kFusePath,
                 "-u", "1023", // AID_MEDIA_RW
                 "-g", "1023", // AID_MEDIA_RW
@@ -87,9 +90,11 @@ status_t EmulatedVolume::doMount() {
                 "-w",
                 "-G",
                 "-i",
+                "-o",
                 mRawPath.c_str(),
                 label.c_str(),
                 NULL)) {
+            // clang-format on
             PLOG(ERROR) << "Failed to exec";
         }
 
@@ -103,9 +108,9 @@ status_t EmulatedVolume::doMount() {
     }
 
     nsecs_t start = systemTime(SYSTEM_TIME_BOOTTIME);
-    while (before == GetDevice(mFuseWrite)) {
-        LOG(VERBOSE) << "Waiting for FUSE to spin up...";
-        usleep(50000); // 50ms
+    while (before == GetDevice(mFuseFull)) {
+        LOG(DEBUG) << "Waiting for FUSE to spin up...";
+        usleep(50000);  // 50ms
 
         nsecs_t now = systemTime(SYSTEM_TIME_BOOTTIME);
         if (nanoseconds_to_milliseconds(now - start) > 5000) {
@@ -114,8 +119,8 @@ status_t EmulatedVolume::doMount() {
         }
     }
     /* sdcardfs will have exited already. FUSE will still be running */
-    if (TEMP_FAILURE_RETRY(waitpid(mFusePid, nullptr, WNOHANG)) == mFusePid)
-        mFusePid = 0;
+    TEMP_FAILURE_RETRY(waitpid(mFusePid, nullptr, 0));
+    mFusePid = 0;
 
     return OK;
 }
@@ -129,20 +134,17 @@ status_t EmulatedVolume::doUnmount() {
     ForceUnmount(mFuseDefault);
     ForceUnmount(mFuseRead);
     ForceUnmount(mFuseWrite);
-
-    if (mFusePid > 0) {
-        kill(mFusePid, SIGTERM);
-        TEMP_FAILURE_RETRY(waitpid(mFusePid, nullptr, 0));
-        mFusePid = 0;
-    }
+    ForceUnmount(mFuseFull);
 
     rmdir(mFuseDefault.c_str());
     rmdir(mFuseRead.c_str());
     rmdir(mFuseWrite.c_str());
+    rmdir(mFuseFull.c_str());
 
     mFuseDefault.clear();
     mFuseRead.clear();
     mFuseWrite.clear();
+    mFuseFull.clear();
 
     return OK;
 }

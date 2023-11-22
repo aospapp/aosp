@@ -51,18 +51,19 @@ public class CarAppMetadataReader {
      * @return Array of DO activity names in the given package
      */
     @Nullable
-    public static String[] findDistractionOptimizedActivities(Context context, String packageName)
-            throws NameNotFoundException {
+    public static String[] findDistractionOptimizedActivitiesAsUser(Context context,
+            String packageName, int userId) throws NameNotFoundException {
         final PackageManager pm = context.getPackageManager();
 
         // Check if any of the activities in the package are DO by checking all the
         // <activity> elements.
         PackageInfo pkgInfo =
-                pm.getPackageInfo(
+                pm.getPackageInfoAsUser(
                         packageName, PackageManager.GET_ACTIVITIES
                                 | PackageManager.GET_META_DATA
                                 | PackageManager.MATCH_DIRECT_BOOT_AWARE
-                                | PackageManager.MATCH_DIRECT_BOOT_UNAWARE);
+                                | PackageManager.MATCH_DIRECT_BOOT_UNAWARE,
+                        userId);
         if (pkgInfo == null) {
             return null;
         }

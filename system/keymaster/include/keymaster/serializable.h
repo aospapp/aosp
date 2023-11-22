@@ -52,10 +52,13 @@ class Serializable {
      */
     virtual bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) = 0;
 
-  private:
     // Disallow copying and assignment.
-    Serializable(const Serializable&);
-    void operator=(const Serializable&);
+    Serializable(const Serializable&) = delete;
+    Serializable& operator=(const Serializable&) = delete;
+
+    // Move only.
+    Serializable(Serializable&&) = default;
+    Serializable& operator=(Serializable&&) = default;
 };
 
 /*

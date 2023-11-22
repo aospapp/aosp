@@ -21,6 +21,7 @@
 
 #include "base/mutex.h"
 #include "handle.h"
+#include "handle_wrapper.h"
 #include "obj_ptr-inl.h"
 #include "thread-current-inl.h"
 #include "verify_object.h"
@@ -104,6 +105,15 @@ inline bool HandleScope::Contains(StackReference<mirror::Object>* handle_scope_e
   DCHECK_GT(NumberOfReferences(), 0U);
   return &GetReferences()[0] <= handle_scope_entry &&
       handle_scope_entry <= &GetReferences()[number_of_references_ - 1];
+}
+
+template <typename Visitor>
+inline void HandleScope::VisitRoots(Visitor& visitor) {
+  for (size_t i = 0, count = NumberOfReferences(); i < count; ++i) {
+    // GetReference returns a pointer to the stack reference within the handle scope. If this
+    // needs to be updated, it will be done by the root visitor.
+    visitor.VisitRootIfNonNull(GetHandle(i).GetReference());
+  }
 }
 
 template<size_t kNumReferences> template<class T>
@@ -199,7 +209,7 @@ inline MutableHandle<MirrorType> VariableSizedHandleScope::NewHandle(ObjPtr<Mirr
 inline VariableSizedHandleScope::VariableSizedHandleScope(Thread* const self)
     : BaseHandleScope(self->GetTopHandleScope()),
       self_(self) {
-  current_scope_ = new LocalScopeType(/*link*/ nullptr);
+  current_scope_ = new LocalScopeType(/*link=*/ nullptr);
   self_->PushHandleScope(this);
 }
 

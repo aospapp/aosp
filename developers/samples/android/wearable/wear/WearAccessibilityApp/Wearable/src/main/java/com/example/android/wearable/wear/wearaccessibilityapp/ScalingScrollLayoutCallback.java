@@ -15,9 +15,10 @@
  */
 package com.example.android.wearable.wear.wearaccessibilityapp;
 
-import android.support.v7.widget.RecyclerView;
-import android.support.wear.widget.WearableLinearLayoutManager;
 import android.view.View;
+
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.wear.widget.WearableLinearLayoutManager;
 
 public class ScalingScrollLayoutCallback extends WearableLinearLayoutManager.LayoutCallback {
 

@@ -23,5 +23,7 @@
         <option name="test-module-name" value="VtsKernelLinuxKselftestStaging" />
         <option name="test-case-path" value="vts/testcases/kernel/linux_kselftest/LinuxKselftestTest" />
         <option name="test-config-path" value="vts/testcases/kernel/linux_kselftest/staging/LinuxKselftestTestStaging.runner_conf" />
+        <option name="test-timeout" value="3m" />
+        <option name="runtime-hint" value="1m"/>
     </test>
 </configuration>

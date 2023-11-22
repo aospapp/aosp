@@ -37,17 +37,18 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
 
@@ -387,39 +388,39 @@ public class View_UsingViewsTest {
 
         // long click the edit text
         mInstrumentation.waitForIdleSync();
-        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mEditText);
+        CtsTouchUtils.emulateLongPressOnViewCenter(mInstrumentation, mActivityRule, mEditText);
         verify(onLongClickListener, within(1000)).onLongClick(mEditText);
 
         // click the Cancel button
         mActivityRule.runOnUiThread(() -> mEditText.setText("Germany"));
         mInstrumentation.waitForIdleSync();
 
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonCancel);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mButtonCancel);
         assertEquals("", mEditText.getText().toString());
 
         // click the OK button
         mActivityRule.runOnUiThread(() -> mEditText.setText(ARGENTINA));
         mInstrumentation.waitForIdleSync();
 
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonOk);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mButtonOk);
         assertEquals(ARGENTINA_SYMBOL, mSymbolTextView.getText().toString());
 
         mActivityRule.runOnUiThread(() -> mEditText.setText(AMERICA));
         mInstrumentation.waitForIdleSync();
 
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonOk);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mButtonOk);
         assertEquals(AMERICA_SYMBOL, mSymbolTextView.getText().toString());
 
         mActivityRule.runOnUiThread(() -> mEditText.setText(CHINA));
         mInstrumentation.waitForIdleSync();
 
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonOk);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mButtonOk);
         assertEquals(CHINA_SYMBOL, mSymbolTextView.getText().toString());
 
         mActivityRule.runOnUiThread(() -> mEditText.setText("Unknown"));
         mInstrumentation.waitForIdleSync();
 
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mButtonOk);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mButtonOk);
         assertEquals(View.VISIBLE, mWarningTextView.getVisibility());
     }
 

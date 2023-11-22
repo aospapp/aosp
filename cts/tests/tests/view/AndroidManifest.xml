@@ -22,6 +22,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-feature android:name="android.hardware.camera" />
 
     <application android:label="Android TestCase"
@@ -30,6 +31,15 @@
                 android:multiArch="true"
                 android:supportsRtl="true">
         <uses-library android:name="android.test.runner" />
+
+        <activity android:name="android.app.Activity"
+                  android:label="Empty Activity"
+                  android:theme="@style/ViewAttributeTestTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
 
         <activity android:name="android.view.cts.ViewStubCtsActivity"
                   android:screenOrientation="locked"
@@ -86,16 +96,6 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.view.cts.WindowCtsActivity"
-                  android:theme="@android:style/Theme.Holo.NoActionBar"
-                  android:screenOrientation="locked"
-                  android:label="WindowCtsActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
         <activity android:name="android.view.animation.cts.AnimationTestCtsActivity"
                   android:label="AnimationTestCtsActivity"
                   android:screenOrientation="locked"
@@ -126,16 +126,8 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.view.cts.SurfaceViewCtsActivity"
-                  android:screenOrientation="locked"
-                  android:label="SurfaceViewCtsActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
         <activity android:name="android.view.cts.TextureViewCtsActivity"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
                   android:screenOrientation="locked"
                   android:label="TextureViewCtsActivity">
             <intent-filter>
@@ -296,9 +288,8 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="android.view.cts.DragDropActivity"
-                  android:screenOrientation="portrait"
-                  android:label="DragDropActivity">
+        <activity android:name="android.view.cts.KeyEventInjectionActivity"
+                  android:label="KeyEventInjectionActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -313,6 +304,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity android:name="android.view.cts.surfacevalidator.CapturedActivityWithResource"
+                  android:screenOrientation="locked"
+                  android:theme="@style/WhiteBackgroundTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service android:name="android.view.cts.surfacevalidator.LocalMediaProjectionService"
+                 android:foregroundServiceType="mediaProjection"
+                 android:enabled="true">
+        </service>
 
         <activity android:name="android.view.cts.HoverCtsActivity"
                   android:screenOrientation="locked">
@@ -358,9 +363,28 @@
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
         </activity>
+
+        <activity android:name="android.view.cts.ViewSourceLayoutTestActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.SystemGestureExclusionActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.view.cts.ViewAnimationMatrixActivity"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.view.cts"
                      android:label="CTS tests of android.view">
         <meta-data android:name="listener"

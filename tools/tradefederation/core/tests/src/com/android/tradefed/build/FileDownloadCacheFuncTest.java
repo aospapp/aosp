@@ -15,15 +15,23 @@
  */
 package com.android.tradefed.build;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import com.android.ddmlib.Log;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.util.StreamUtil;
 
-import junit.framework.TestCase;
-
 import org.easymock.EasyMock;
 import org.easymock.IAnswer;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -34,10 +42,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Longer running, concurrency based tests for {@link FileDownloadCache}.
- */
-public class FileDownloadCacheFuncTest extends TestCase {
+/** Longer running, concurrency based tests for {@link FileDownloadCache}. */
+@RunWith(JUnit4.class)
+public class FileDownloadCacheFuncTest {
 
     private static final String REMOTE_PATH = "path";
     private static final String DOWNLOADED_CONTENTS = "downloaded contents";
@@ -49,29 +56,27 @@ public class FileDownloadCacheFuncTest extends TestCase {
     private File mTmpDir;
     private List<File> mReturnedFiles;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         mMockDownloader = EasyMock.createStrictMock(IFileDownloader.class);
         mTmpDir = FileUtil.createTempDir("functest");
         mCache = new FileDownloadCache(mTmpDir);
         mReturnedFiles = new ArrayList<File>(2);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         for (File file : mReturnedFiles) {
             file.delete();
         }
         FileUtil.recursiveDelete(mTmpDir);
-        super.tearDown();
     }
 
     /**
      * Test {@link FileDownloadCache#fetchRemoteFile(IFileDownloader, String)} being called
      * concurrently by two separate threads.
      */
-    @SuppressWarnings("unchecked")
+    @Test
     public void testFetchRemoteFile_concurrent() throws Exception {
         // Simulate a relatively slow file download
         IAnswer<Object> slowDownloadAnswer = new IAnswer<Object>() {
@@ -87,6 +92,9 @@ public class FileDownloadCacheFuncTest extends TestCase {
         // is done, then link the downloaded file.
         mMockDownloader.downloadFile(EasyMock.eq(REMOTE_PATH), EasyMock.<File>anyObject());
         EasyMock.expectLastCall().andAnswer(slowDownloadAnswer);
+        EasyMock.expect(mMockDownloader.isFresh(EasyMock.anyObject(), EasyMock.eq(REMOTE_PATH)))
+                .andReturn(true);
+
         EasyMock.replay(mMockDownloader);
         Thread downloadThread1 = createDownloadThread(mMockDownloader, REMOTE_PATH);
         downloadThread1.setName("FileDownloadCacheFuncTest#testFetchRemoteFile_concurrent-1");
@@ -111,6 +119,7 @@ public class FileDownloadCacheFuncTest extends TestCase {
      * Test {@link FileDownloadCache#fetchRemoteFile(IFileDownloader, String)} being called
      * concurrently by multiple threads trying to download different files.
      */
+    @Test
     public void testFetchRemoteFile_multiConcurrent() throws Exception {
         IFileDownloader mockDownloader1 = Mockito.mock(IFileDownloader.class);
         IFileDownloader mockDownloader2 = Mockito.mock(IFileDownloader.class);
@@ -189,7 +198,7 @@ public class FileDownloadCacheFuncTest extends TestCase {
      * Test {@link FileDownloadCache#fetchRemoteFile(IFileDownloader, String)} being called
      * concurrently by multiple threads trying to download the same file, with one thread failing.
      */
-    @SuppressWarnings("unchecked")
+    @Test
     public void testFetchRemoteFile_concurrentFail() throws Exception {
         // Block first download, and later raise an error, but allow other downloads to pass.
         final AtomicBoolean startedDownload = new AtomicBoolean(false);
@@ -215,6 +224,8 @@ public class FileDownloadCacheFuncTest extends TestCase {
         // will run to completion.
         mMockDownloader.downloadFile(EasyMock.eq(REMOTE_PATH), EasyMock.<File>anyObject());
         EasyMock.expectLastCall().andAnswer(blockedDownloadAnswer).times(2);
+        EasyMock.expect(mMockDownloader.isFresh(EasyMock.anyObject(), EasyMock.eq(REMOTE_PATH)))
+                .andReturn(true);
 
         // Disable thread safety, otherwise the first call will block the rest.
         EasyMock.makeThreadSafe(mMockDownloader, false);
@@ -253,6 +264,7 @@ public class FileDownloadCacheFuncTest extends TestCase {
     }
 
     /** Verify the cache is built from disk contents on creation */
+    @Test
     public void testConstructor_createCache() throws Exception {
         // create cache contents on disk
         File cacheRoot = FileUtil.createTempDir("constructorTest");
@@ -277,9 +289,8 @@ public class FileDownloadCacheFuncTest extends TestCase {
         }
     }
 
-    /**
-     * Test scenario where an already too large cache is built from disk contents.
-     */
+    /** Test scenario where an already too large cache is built from disk contents. */
+    @Test
     public void testConstructor_cacheExceeded() throws Exception {
         File cacheRoot = FileUtil.createTempDir("testConstructor_cacheExceeded");
         try {

@@ -17,26 +17,27 @@
 package com.android.dialer.speeddial;
 
 import android.content.Context;
-import android.content.res.Resources;
-import android.database.Cursor;
-import android.net.Uri;
-import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.Contacts;
 import android.support.v7.widget.RecyclerView;
-import android.text.TextUtils;
+import android.support.v7.widget.helper.ItemTouchHelper;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.View.OnLongClickListener;
+import android.view.ViewConfiguration;
 import android.widget.FrameLayout;
 import android.widget.QuickContactBadge;
 import android.widget.TextView;
 import com.android.dialer.common.Assert;
-import com.android.dialer.contactphoto.ContactPhotoManager;
-import com.android.dialer.lettertile.LetterTileDrawable;
+import com.android.dialer.glidephotomanager.GlidePhotoManagerComponent;
+import com.android.dialer.glidephotomanager.PhotoInfo;
+import com.android.dialer.speeddial.database.SpeedDialEntry.Channel;
+import com.android.dialer.speeddial.draghelper.SpeedDialFavoritesViewHolderOnTouchListener;
+import com.android.dialer.speeddial.draghelper.SpeedDialFavoritesViewHolderOnTouchListener.OnTouchFinishCallback;
+import com.android.dialer.speeddial.loader.SpeedDialUiItem;
 
 /** ViewHolder for starred/favorite contacts in {@link SpeedDialFragment}. */
 public class FavoritesViewHolder extends RecyclerView.ViewHolder
-    implements OnClickListener, OnLongClickListener {
+    implements OnClickListener, OnLongClickListener, OnTouchFinishCallback {
 
   private final FavoriteContactsListener listener;
 
@@ -45,89 +46,105 @@ public class FavoritesViewHolder extends RecyclerView.ViewHolder
   private final TextView phoneType;
   private final FrameLayout videoCallIcon;
 
-  private boolean hasDefaultNumber;
-  private boolean isVideoCall;
-  private String number;
-  private String lookupKey;
+  private final FrameLayout avatarContainer;
 
-  public FavoritesViewHolder(View view, FavoriteContactsListener listener) {
+  private SpeedDialUiItem speedDialUiItem;
+
+  public FavoritesViewHolder(View view, ItemTouchHelper helper, FavoriteContactsListener listener) {
     super(view);
     photoView = view.findViewById(R.id.avatar);
     nameView = view.findViewById(R.id.name);
     phoneType = view.findViewById(R.id.phone_type);
     videoCallIcon = view.findViewById(R.id.video_call_container);
+    avatarContainer = view.findViewById(R.id.avatar_container);
     view.setOnClickListener(this);
     view.setOnLongClickListener(this);
+    view.setOnTouchListener(
+        new SpeedDialFavoritesViewHolderOnTouchListener(
+            ViewConfiguration.get(view.getContext()), helper, this, this));
     photoView.setClickable(false);
     this.listener = listener;
   }
 
-  public void bind(Context context, Cursor cursor) {
-    Assert.checkArgument(cursor.getInt(StrequentContactsCursorLoader.PHONE_STARRED) == 1);
-    isVideoCall = false; // TODO(calderwoodra): get from disambig data
-    number = cursor.getString(StrequentContactsCursorLoader.PHONE_NUMBER);
+  public void bind(Context context, SpeedDialUiItem speedDialUiItem) {
+    this.speedDialUiItem = Assert.isNotNull(speedDialUiItem);
+    Assert.checkArgument(speedDialUiItem.isStarred());
 
-    String name = cursor.getString(StrequentContactsCursorLoader.PHONE_DISPLAY_NAME);
-    long contactId = cursor.getLong(StrequentContactsCursorLoader.PHONE_ID);
-    lookupKey = cursor.getString(StrequentContactsCursorLoader.PHONE_LOOKUP_KEY);
-    Uri contactUri = Contacts.getLookupUri(contactId, lookupKey);
+    nameView.setText(speedDialUiItem.name());
 
-    String photoUri = cursor.getString(StrequentContactsCursorLoader.PHONE_PHOTO_URI);
-    ContactPhotoManager.getInstance(context)
-        .loadDialerThumbnailOrPhoto(
-            photoView,
-            contactUri,
-            cursor.getLong(StrequentContactsCursorLoader.PHONE_PHOTO_ID),
-            photoUri == null ? null : Uri.parse(photoUri),
-            name,
-            LetterTileDrawable.TYPE_DEFAULT);
-    nameView.setText(name);
-    phoneType.setText(getLabel(context.getResources(), cursor));
-    videoCallIcon.setVisibility(isVideoCall ? View.VISIBLE : View.GONE);
-
-    // TODO(calderwoodra): Update this to include communication avenues also
-    hasDefaultNumber = cursor.getInt(StrequentContactsCursorLoader.PHONE_IS_SUPER_PRIMARY) != 0;
-  }
-
-  // TODO(calderwoodra): handle CNAP and cequint types.
-  // TODO(calderwoodra): unify this into a utility method with CallLogAdapter#getNumberType
-  private static String getLabel(Resources resources, Cursor cursor) {
-    int numberType = cursor.getInt(StrequentContactsCursorLoader.PHONE_TYPE);
-    String numberLabel = cursor.getString(StrequentContactsCursorLoader.PHONE_LABEL);
-
-    // Returns empty label instead of "custom" if the custom label is empty.
-    if (numberType == Phone.TYPE_CUSTOM && TextUtils.isEmpty(numberLabel)) {
-      return "";
+    Channel channel = speedDialUiItem.defaultChannel();
+    if (channel == null) {
+      channel = speedDialUiItem.getDefaultVoiceChannel();
     }
-    return (String) Phone.getTypeLabel(resources, numberType, numberLabel);
+
+    if (channel != null) {
+      phoneType.setText(channel.label());
+      videoCallIcon.setVisibility(channel.isVideoTechnology() ? View.VISIBLE : View.GONE);
+    } else {
+      phoneType.setText("");
+      videoCallIcon.setVisibility(View.GONE);
+    }
+
+    GlidePhotoManagerComponent.get(context)
+        .glidePhotoManager()
+        .loadQuickContactBadge(
+            photoView,
+            PhotoInfo.newBuilder()
+                .setPhotoId(speedDialUiItem.photoId())
+                .setPhotoUri(speedDialUiItem.photoUri())
+                .setName(speedDialUiItem.name())
+                .setLookupUri(
+                    Contacts.getLookupUri(speedDialUiItem.contactId(), speedDialUiItem.lookupKey())
+                        .toString())
+                .build());
   }
 
   @Override
   public void onClick(View v) {
-    if (hasDefaultNumber) {
-      listener.onClick(number, isVideoCall);
+    if (speedDialUiItem.defaultChannel() != null) {
+      listener.onClick(speedDialUiItem.defaultChannel());
     } else {
-      listener.onAmbiguousContactClicked(lookupKey);
+      listener.onAmbiguousContactClicked(speedDialUiItem);
     }
   }
 
   @Override
-  public boolean onLongClick(View v) {
-    // TODO(calderwoodra): implement drag and drop logic
-    listener.onLongClick(number);
+  public boolean onLongClick(View view) {
+    // TODO(calderwoodra): add bounce/sin wave scale animation
+    listener.showContextMenu(photoView, speedDialUiItem);
     return true;
+  }
+
+  @Override
+  public void onTouchFinished(boolean closeContextMenu) {
+    listener.onTouchFinished(closeContextMenu);
+  }
+
+  FrameLayout getAvatarContainer() {
+    return avatarContainer;
+  }
+
+  void onSelectedChanged(boolean selected) {
+    nameView.setVisibility(selected ? View.GONE : View.VISIBLE);
+    phoneType.setVisibility(selected ? View.GONE : View.VISIBLE);
   }
 
   /** Listener/callback for {@link FavoritesViewHolder} actions. */
   public interface FavoriteContactsListener {
 
     /** Called when the user clicks on a favorite contact that doesn't have a default number. */
-    void onAmbiguousContactClicked(String contactId);
+    void onAmbiguousContactClicked(SpeedDialUiItem speedDialUiItem);
 
     /** Called when the user clicks on a favorite contact. */
-    void onClick(String number, boolean isVideoCall);
+    void onClick(Channel channel);
 
     /** Called when the user long clicks on a favorite contact. */
-    void onLongClick(String number);
+    void showContextMenu(View view, SpeedDialUiItem speedDialUiItem);
+
+    /** Called when the user is no longer touching the favorite contact. */
+    void onTouchFinished(boolean closeContextMenu);
+
+    /** Called when the user drag the favorite to remove. */
+    void onRequestRemove(SpeedDialUiItem speedDialUiItem);
   }
 }

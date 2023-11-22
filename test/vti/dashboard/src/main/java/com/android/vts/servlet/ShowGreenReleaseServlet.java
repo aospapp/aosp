@@ -16,35 +16,44 @@
 
 package com.android.vts.servlet;
 
+import com.android.vts.entity.DeviceInfoEntity;
 import com.android.vts.entity.TestPlanEntity;
 import com.android.vts.entity.TestPlanRunEntity;
+import com.android.vts.entity.TestSuiteResultEntity;
 import com.android.vts.util.FilterUtil;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
+import com.google.appengine.api.datastore.PropertyProjection;
+import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.Query.Filter;
 import com.google.appengine.api.datastore.Query.SortDirection;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.stream.Collectors;
+
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import java.util.logging.Level;
+import java.util.stream.Collectors;
+
+import static com.googlecode.objectify.ObjectifyService.ofy;
 
 public class ShowGreenReleaseServlet extends BaseServlet {
-    private static final String PLAN_RELEASE_JSP = "WEB-INF/jsp/show_green_release.jsp";
     private static final int MAX_RUNS_PER_PAGE = 9999;
 
     /** Helper class for displaying each device build info on the green build page. */
@@ -185,25 +194,58 @@ public class ShowGreenReleaseServlet extends BaseServlet {
     @Override
     public void doGetHandler(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
-        Map<String, List<String>> paramInfoMap =
-                new HashMap<String, List<String>>() {
-                    {
-                        put("master", Arrays.asList("sailfish-userdebug", "marlin-userdebug"));
-                        put(
-                                "oc-mr1",
-                                Arrays.asList(
-                                        "sailfish-userdebug",
-                                        "marlin-userdebug",
-                                        "taimen-userdebug",
-                                        "walleye-userdebug",
-                                        "aosp_arm_a-userdebug"));
-                        put("oc", Arrays.asList("sailfish-userdebug", "marlin-userdebug"));
-                    }
-                };
+        String testType =
+                request.getParameter("type") == null ? "plan" : request.getParameter("type");
+
+        RequestDispatcher dispatcher;
+        if (testType.equalsIgnoreCase("plan")) {
+            dispatcher = this.getTestPlanDispatcher(request, response);
+        } else {
+            dispatcher = this.getTestSuiteDispatcher(request, response);
+        }
+
+        try {
+            request.setAttribute("testType", testType);
+            response.setStatus(HttpServletResponse.SC_OK);
+            dispatcher.forward(request, response);
+        } catch (ServletException e) {
+            logger.log(Level.SEVERE, "Servlet Exception caught : ", e);
+        }
+    }
+
+    private RequestDispatcher getTestPlanDispatcher(
+            HttpServletRequest request, HttpServletResponse response) {
+        String GREEN_RELEASE_JSP = "WEB-INF/jsp/show_green_plan_release.jsp";
 
         String testPlan = request.getParameter("plan");
+
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DATE, -7);
+        Long startTime = cal.getTime().getTime() * 1000;
+        Long endTime = Calendar.getInstance().getTime().getTime() * 1000;
+
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+
+        Query deviceInfoQuery =
+                new Query(DeviceInfoEntity.KIND)
+                        .setAncestor(KeyFactory.createKey(TestPlanEntity.KIND, testPlan))
+                        .addProjection(
+                                new PropertyProjection(DeviceInfoEntity.BRANCH, String.class))
+                        .addProjection(
+                                new PropertyProjection(DeviceInfoEntity.BUILD_FLAVOR, String.class))
+                        .setDistinct(true);
+
+        Map<String, List<String>> paramInfoMap = new HashMap<>();
+        for (Entity entity : datastore.prepare(deviceInfoQuery).asIterable()) {
+            String branch = entity.getProperty(DeviceInfoEntity.BRANCH).toString();
+            String target = entity.getProperty(DeviceInfoEntity.BUILD_FLAVOR).toString();
+            if (paramInfoMap.containsKey(branch)) {
+                paramInfoMap.get(branch).add(target);
+            } else {
+                paramInfoMap.put(branch, new LinkedList<>(Arrays.asList(target)));
+            }
+        }
 
         Map<String, List<DeviceBuildInfo>> baseParamMap = getBasicParamMap(paramInfoMap);
         baseParamMap.forEach(
@@ -212,8 +254,8 @@ public class ShowGreenReleaseServlet extends BaseServlet {
                     Map<String, List<TestPlanRunEntity>> allTestPlanRunEntityMap = new HashMap<>();
                     deviceBuildInfoList.forEach(
                             deviceBuildInfo -> {
-                                Map<String, Object> paramMap =
-                                        new HashMap<String, Object>() {
+                                Map<String, String[]> paramMap =
+                                        new HashMap<String, String[]>() {
                                             {
                                                 put("branch", new String[] {branchKey});
                                                 put(
@@ -223,11 +265,6 @@ public class ShowGreenReleaseServlet extends BaseServlet {
                                                         });
                                             }
                                         };
-
-                                Calendar cal = Calendar.getInstance();
-                                cal.add(Calendar.DATE, -7);
-                                Long startTime = cal.getTime().getTime() * 1000;
-                                Long endTime = Calendar.getInstance().getTime().getTime() * 1000;
 
                                 SortDirection dir = SortDirection.DESCENDING;
 
@@ -283,22 +320,25 @@ public class ShowGreenReleaseServlet extends BaseServlet {
                                                     + deviceBuildInfo.getDeviceBuildTarget(),
                                             testPlanRunEntityList);
 
-                                    // The passBuildIdList containing all passed buildId List for device
-                                    List<String> passBuildIdList = testPlanRunEntityList.stream()
-                                          .filter(entity -> entity.failCount == 0L)
-                                          .map(entity -> entity.testBuildId)
-                                          .collect(Collectors.toList());
+                                    // The passBuildIdList containing all passed buildId List for
+                                    // device
+                                    List<String> passBuildIdList =
+                                            testPlanRunEntityList
+                                                    .stream()
+                                                    .filter(entity -> entity.getFailCount() == 0L)
+                                                    .map(entity -> entity.getTestBuildId())
+                                                    .collect(Collectors.toList());
                                     allPassIdLists.add(passBuildIdList);
                                     logger.log(Level.INFO, "passBuildIdList => " + passBuildIdList);
 
                                     // The logic for candidate build ID is starting from here
                                     Comparator<TestPlanRunEntity> byPassing =
                                             Comparator.comparingLong(
-                                                    elemFirst -> elemFirst.passCount);
+                                                    elemFirst -> elemFirst.getPassCount());
 
                                     Comparator<TestPlanRunEntity> byNonPassing =
                                             Comparator.comparingLong(
-                                                    elemFirst -> elemFirst.failCount);
+                                                    elemFirst -> elemFirst.getFailCount());
 
                                     // This will get the TestPlanRunEntity having maximum number of
                                     // passing and minimum number of fail
@@ -313,14 +353,14 @@ public class ShowGreenReleaseServlet extends BaseServlet {
 
                                     String buildId =
                                             testPlanRunEntity
-                                                    .map(entity -> entity.testBuildId)
+                                                    .map(entity -> entity.getTestBuildId())
                                                     .orElse("");
                                     deviceBuildInfo.setCandidateBuildId(buildId);
                                     Long buildIdTimestamp =
                                             testPlanRunEntity
                                                     .map(
                                                             entity -> {
-                                                                return entity.startTimestamp;
+                                                                return entity.getStartTimestamp();
                                                             })
                                                     .orElse(0L);
                                     deviceBuildInfo.setCandidateBuildIdTimestamp(buildIdTimestamp);
@@ -345,16 +385,17 @@ public class ShowGreenReleaseServlet extends BaseServlet {
                                                     .stream()
                                                     .filter(
                                                             entity ->
-                                                                    entity.testBuildId
-                                                                            .equalsIgnoreCase(
-                                                                                    greenBuildId))
+                                                                    entity.getFailCount() == 0L
+                                                                            && entity.getTestBuildId()
+                                                                                    .equalsIgnoreCase(
+                                                                                            greenBuildId))
                                                     .findFirst();
                                     // Setting the greenBuildId value and timestamp to
                                     // deviceBuildInfo object
                                     deviceBuildInfo.setGreenBuildId(greenBuildId);
                                     Long buildIdTimestamp =
                                             testPlanRunEntity
-                                                    .map(entity -> entity.startTimestamp)
+                                                    .map(entity -> entity.getStartTimestamp())
                                                     .orElse(0L);
                                     deviceBuildInfo.setGreenBuildIdTimestamp(buildIdTimestamp);
                                 });
@@ -363,12 +404,99 @@ public class ShowGreenReleaseServlet extends BaseServlet {
 
         request.setAttribute("plan", request.getParameter("plan"));
         request.setAttribute("greenBuildInfo", baseParamMap);
-        response.setStatus(HttpServletResponse.SC_OK);
-        RequestDispatcher dispatcher = request.getRequestDispatcher(PLAN_RELEASE_JSP);
-        try {
-            dispatcher.forward(request, response);
-        } catch (ServletException e) {
-            logger.log(Level.SEVERE, "Servlet Exception caught : ", e);
+        RequestDispatcher dispatcher = request.getRequestDispatcher(GREEN_RELEASE_JSP);
+        return dispatcher;
+    }
+
+    private RequestDispatcher getTestSuiteDispatcher(
+            HttpServletRequest request, HttpServletResponse response) {
+        String GREEN_RELEASE_JSP = "WEB-INF/jsp/show_green_suite_release.jsp";
+
+        String testPlan = request.getParameter("plan");
+
+        List<TestSuiteResultEntity> branchTargetInfoList =
+                ofy().load()
+                        .type(TestSuiteResultEntity.class)
+                        .filter("suitePlan", testPlan)
+                        .project("branch")
+                        .distinct(true)
+                        .project("target")
+                        .distinct(true)
+                        .list();
+
+        Map<String, List<String>> paramInfoMap = new HashMap<>();
+        for (TestSuiteResultEntity testSuiteResultEntity : branchTargetInfoList) {
+            String branch = testSuiteResultEntity.getBranch();
+            String target = testSuiteResultEntity.getTarget();
+            if (paramInfoMap.containsKey(branch)) {
+                paramInfoMap.get(branch).add(target);
+            } else {
+                paramInfoMap.put(branch, new LinkedList<>(Arrays.asList(target)));
+            }
         }
+
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DATE, -7);
+        Long oneWeekAgoTimestamp = cal.getTime().getTime() * 1000;
+
+        Map<String, List<DeviceBuildInfo>> baseParamMap = getBasicParamMap(paramInfoMap);
+        baseParamMap.forEach(
+                (branchKey, deviceBuildInfoList) -> {
+                    List<List<String>> allPassIdLists = new ArrayList<>();
+
+                    deviceBuildInfoList.forEach(
+                            deviceBuildInfo -> {
+                                List<String> passBuildIdList =
+                                        ofy().load()
+                                                .type(TestSuiteResultEntity.class)
+                                                .filter("suitePlan", testPlan)
+                                                .filter("branch", branchKey)
+                                                .filter(
+                                                        "target",
+                                                        deviceBuildInfo.getDeviceBuildTarget())
+                                                .filter("failedTestCaseCount", 0)
+                                                .filterKey(
+                                                        ">=",
+                                                        com.googlecode.objectify.Key.create(
+                                                                TestSuiteResultEntity.class,
+                                                                oneWeekAgoTimestamp))
+                                                .project("buildId")
+                                                .list()
+                                                .stream()
+                                                .map(entity -> entity.getBuildId())
+                                                .collect(Collectors.toList());
+                                allPassIdLists.add(passBuildIdList);
+
+                                TestSuiteResultEntity candidateIdEntity =
+                                        ofy().load()
+                                                .type(TestSuiteResultEntity.class)
+                                                .filter("suitePlan", testPlan)
+                                                .filter("branch", branchKey)
+                                                .filter(
+                                                        "target",
+                                                        deviceBuildInfo.getDeviceBuildTarget())
+                                                .filterKey(
+                                                        ">=",
+                                                        com.googlecode.objectify.Key.create(
+                                                                TestSuiteResultEntity.class,
+                                                                oneWeekAgoTimestamp))
+                                                .project("buildId")
+                                                .order("__key__")
+                                                .order("-passedTestCaseRatio")
+                                                .first()
+                                                .now();
+                                if (candidateIdEntity == null) {
+                                    deviceBuildInfo.setCandidateBuildId("N/A");
+                                } else {
+                                    deviceBuildInfo.setCandidateBuildId(
+                                            candidateIdEntity.getBuildId());
+                                }
+                            });
+                });
+
+        request.setAttribute("plan", request.getParameter("plan"));
+        request.setAttribute("greenBuildInfo", baseParamMap);
+        RequestDispatcher dispatcher = request.getRequestDispatcher(GREEN_RELEASE_JSP);
+        return dispatcher;
     }
 }

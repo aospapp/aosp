@@ -16,8 +16,11 @@
 package android.assist.common;
 
 import android.content.ComponentName;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.LocaleList;
+import android.os.Process;
+import android.util.Log;
 
 import org.json.JSONObject;
 
@@ -25,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Locale;
 
 public class Utils {
+    private static final String TAG = Utils.class.getSimpleName();
     public static final String TESTCASE_TYPE = "testcase_type";
     public static final String TESTINFO = "testinfo";
     public static final String ACTION_PREFIX = "android.intent.action.";
@@ -32,6 +36,7 @@ public class Utils {
     public static final String BROADCAST_ASSIST_DATA_INTENT = ACTION_PREFIX + "ASSIST_DATA";
     public static final String BROADCAST_INTENT_START_ASSIST = ACTION_PREFIX + "START_ASSIST";
     public static final String ASSIST_RECEIVER_REGISTERED = ACTION_PREFIX + "ASSIST_READY";
+    public static final String ACTION_END_OF_TEST = ACTION_PREFIX + "END_OF_TEST";
 
     public static final String ACTION_INVALIDATE = "invalidate_action";
     public static final String GET_CONTENT_VIEW_HEIGHT = ACTION_PREFIX + "GET_CONTENT_VIEW_HEIGHT";
@@ -64,16 +69,18 @@ public class Utils {
     public static final String GAINED_FOCUS = ACTION_PREFIX + "focus_changed";
     public static final String LOST_FOCUS = ACTION_PREFIX + "lost_focus";
 
-    /** Flag Secure Test intent constants */
-    public static final String FLAG_SECURE_HASRESUMED = ACTION_PREFIX + "flag_secure_hasResumed";
     public static final String APP_3P_HASRESUMED = ACTION_PREFIX + "app_3p_hasResumed";
     public static final String APP_3P_HASDRAWED = ACTION_PREFIX + "app_3p_hasDrawed";
-    public static final String TEST_ACTIVITY_LOADED = ACTION_PREFIX + "test_activity_hasResumed";
+    public static final String TEST_ACTIVITY_DESTROY = ACTION_PREFIX + "test_activity_destroy";
+    public static final String TEST_ACTIVITY_WEBVIEW_LOADED = ACTION_PREFIX + "test_activity_webview_hasResumed";
 
-    /** Two second timeout for getting back assist context */
-    public static final int TIMEOUT_MS = 2 * 1000;
-    /** Four second timeout for an activity to resume */
-    public static final int ACTIVITY_ONRESUME_TIMEOUT_MS = 4000;
+    // Notice: timeout belows have to be long because some devices / form factors (like car) are
+    // slower.
+
+    /** Timeout for getting back assist context */
+    public static final int TIMEOUT_MS = 4 * 1_000;
+    /** Timeout for an activity to resume */
+    public static final int ACTIVITY_ONRESUME_TIMEOUT_MS = 8 * 1_000;
 
     public static final String EXTRA_REGISTER_RECEIVER = "register_receiver";
 
@@ -81,6 +88,16 @@ public class Utils {
     public static final String EXTRA_CONTENT_VIEW_HEIGHT = "extra_content_view_height";
     public static final String EXTRA_CONTENT_VIEW_WIDTH = "extra_content_view_width";
     public static final String EXTRA_DISPLAY_POINT = "extra_display_point";
+
+    /*
+     * Extras used to pass RemoteCallback objects responsible for IPC between test, app, and
+     * service.
+     */
+    public static final String EXTRA_REMOTE_CALLBACK = "extra_remote_callback";
+    public static final String EXTRA_REMOTE_CALLBACK_ACTION = "extra_remote_callback_action";
+
+    public static final String EXTRA_REMOTE_CALLBACK_RECEIVING = "extra_remote_callback_receiving";
+    public static final String EXTRA_REMOTE_CALLBACK_RECEIVING_ACTION = "extra_remote_callback_receiving_action";
 
     /** Test name suffixes */
     public static final String ASSIST_STRUCTURE = "ASSIST_STRUCTURE";
@@ -98,6 +115,7 @@ public class Utils {
 
     /** Session intent constants */
     public static final String HIDE_SESSION = "android.intent.action.hide_session";
+    public static final String HIDE_SESSION_COMPLETE = "android.intent.action.hide_session_complete";
 
     /** Lifecycle activity intent constants */
     /** Session intent constants */
@@ -115,6 +133,8 @@ public class Utils {
     /** Extra data to add to assist data and assist content */
     private static Bundle EXTRA_ASSIST_BUNDLE;
     private static String STRUCTURED_JSON;
+
+    private static String MY_UID_EXTRA = "my_uid";
 
     public static final String getStructuredJSON() throws Exception {
         if (STRUCTURED_JSON == null) {
@@ -139,38 +159,23 @@ public class Utils {
     public static final Bundle getExtraAssistBundle() {
         if (EXTRA_ASSIST_BUNDLE == null) {
             EXTRA_ASSIST_BUNDLE = new Bundle();
-            addExtraAssistDataToBundle(EXTRA_ASSIST_BUNDLE);
+            addExtraAssistDataToBundle(EXTRA_ASSIST_BUNDLE, /* addMyUid= */ false);
         }
         return EXTRA_ASSIST_BUNDLE;
     }
 
     public static void addExtraAssistDataToBundle(Bundle data) {
+        addExtraAssistDataToBundle(data, /* addMyUid= */ true);
+
+    }
+
+    private static void addExtraAssistDataToBundle(Bundle data, boolean addMyUid) {
         data.putString("hello", "there");
         data.putBoolean("isthis_true_or_false", true);
         data.putInt("number", 123);
-    }
-
-    /** The shim activity that starts the service associated with each test. */
-    public static final String getTestActivity(String testCaseType) {
-        switch (testCaseType) {
-            case DISABLE_CONTEXT:
-                // doesn't need to wait for activity to resume
-                // can be activated on top of any non-secure activity.
-                return "service.DisableContextActivity";
-            case ASSIST_STRUCTURE:
-            case FLAG_SECURE:
-            case LIFECYCLE:
-            case LIFECYCLE_NOUI:
-            case SCREENSHOT:
-            case EXTRA_ASSIST:
-            case VERIFY_CONTENT_VIEW:
-            case TEXTVIEW:
-            case LARGE_VIEW_HIERARCHY:
-            case WEBVIEW:
-            case FOCUS_CHANGE:
-                return "service.DelayedAssistantActivity";
-            default:
-                return "";
+        if (addMyUid) {
+            Log.i(TAG, "adding " + MY_UID_EXTRA + "=" + Process.myUid());
+            data.putInt(MY_UID_EXTRA, Process.myUid());
         }
     }
 
@@ -181,8 +186,6 @@ public class Utils {
         switch (testCaseType) {
             case ASSIST_STRUCTURE:
             case LARGE_VIEW_HIERARCHY:
-                return new ComponentName(
-                        "android.assist.testapp", "android.assist.testapp.TestApp");
             case DISABLE_CONTEXT:
                 return new ComponentName(
                         "android.assist.testapp", "android.assist.testapp.TestApp");
@@ -211,6 +214,14 @@ public class Utils {
             default:
                 return new ComponentName("","");
         }
+    }
+
+    /**
+     * Sets the proper action used to launch an activity in the testapp package.
+     */
+    public static void setTestAppAction(Intent intent, String testCaseName) {
+        intent.putExtra(Utils.TESTCASE_TYPE, testCaseName);
+        intent.setAction("android.intent.action.TEST_APP_" + testCaseName);
     }
 
     /**
@@ -247,5 +258,15 @@ public class Utils {
     public static final void addErrorResult(final Bundle testinfo, final String msg) {
         testinfo.getStringArrayList(testinfo.getString(Utils.TESTCASE_TYPE))
             .add(TEST_ERROR + " " + msg);
+    }
+
+    public static int getExpectedUid(Bundle extras) {
+        return extras.getInt(MY_UID_EXTRA);
+    }
+
+    public static Bundle bundleOfRemoteAction(String action) {
+        Bundle bundle = new Bundle();
+        bundle.putString(Utils.EXTRA_REMOTE_CALLBACK_ACTION, action);
+        return bundle;
     }
 }

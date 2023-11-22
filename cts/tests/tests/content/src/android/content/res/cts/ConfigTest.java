@@ -16,24 +16,43 @@
 
 package android.content.res.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
+import android.content.Context;
+import android.content.cts.R;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.res.AssetManager;
+import android.content.res.Configuration;
+import android.content.res.Resources;
+import android.content.res.Resources.NotFoundException;
+import android.content.res.TypedArray;
+import android.util.DisplayMetrics;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import android.content.res.AssetManager;
-import android.content.res.Configuration;
-import android.content.res.Resources;
-import android.content.res.TypedArray;
-import android.content.res.Resources.NotFoundException;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.MediumTest;
-import android.test.suitebuilder.annotation.SmallTest;
-import android.util.DisplayMetrics;
-import android.util.Log;
+@RunWith(AndroidJUnit4.class)
+public class ConfigTest {
+    private static final String TEST_PACKAGE = "android.content.cts";
 
-import android.content.cts.R;
+    private Context mContext;
+    private int mTargetSdkVersion;
 
-public class ConfigTest extends AndroidTestCase {
     enum Properties {
         LANGUAGE,
         COUNTRY,
@@ -234,7 +253,19 @@ public class ConfigTest extends AndroidTestCase {
                 new String[]{willHave ? bagString : null});
     }
 
-    @SmallTest
+    @Before
+    public void setUp() {
+        mContext = InstrumentationRegistry.getContext();
+        final PackageManager pm = mContext.getPackageManager();
+        try {
+            ApplicationInfo appInfo = pm.getApplicationInfo(TEST_PACKAGE, 0);
+            mTargetSdkVersion = appInfo.targetSdkVersion;
+        } catch (NameNotFoundException e) {
+            fail("Should be able to find application info for this package");
+        }
+    }
+
+    @Test
     public void testAllEmptyConfigs() {
         /**
          * Test a resource that contains a value for each possible single
@@ -466,7 +497,7 @@ public class ConfigTest extends AndroidTestCase {
                 R.styleable.TestConfig, new String[]{"bag h670"});
     }
 
-    @SmallTest
+    @Test
     public void testAllClassicConfigs() {
         /**
          * Test a resource that contains a value for each possible single
@@ -671,7 +702,7 @@ public class ConfigTest extends AndroidTestCase {
                 R.styleable.TestConfig, new String[]{"bag h670"});
     }
     
-    @MediumTest
+    @Test
     public void testDensity() throws Exception {
         // have 32, 240 and the default 160 content.
         // rule is that closest wins, with down scaling (larger content)
@@ -744,7 +775,7 @@ public class ConfigTest extends AndroidTestCase {
                 R.styleable.TestConfig, new String[]{"bag 240dpi"});
     }
 
-    @MediumTest
+    @Test
     public void testScreenSize() throws Exception {
         // ensure that we fall back to the best available screen size
         // for a given configuration.
@@ -785,7 +816,7 @@ public class ConfigTest extends AndroidTestCase {
         checkValue(res, R.configVarying.xlarge, "xlarge");
     }
 
-    @MediumTest
+    @Test
     public void testNewScreenSize() throws Exception {
         // ensure that swNNNdp, wNNNdp, and hNNNdp are working correctly
         // for various common screen configurations.
@@ -922,7 +953,7 @@ public class ConfigTest extends AndroidTestCase {
 // TODO - add tests for special cases - ie, other key params seem ignored if 
 // nokeys is set
 
-    @MediumTest
+    @Test
     public void testPrecedence() {
         /**
          * Check for precedence of resources selected when there are multiple
@@ -1028,7 +1059,7 @@ public class ConfigTest extends AndroidTestCase {
                 R.styleable.TestConfig, new String[]{"bag mcc111 mnc222"});
     }
 
-    @MediumTest
+    @Test
     public void testCombinations() {
         /**
          * Verify that in cases of ties, the specific ordering is followed
@@ -1180,14 +1211,26 @@ public class ConfigTest extends AndroidTestCase {
                 R.styleable.TestConfig, new String[]{"bag dpad 63x57"});
     }
 
-    @MediumTest
+    @Test
     public void testVersions() {
+        final boolean isReleaseBuild = "REL".equals(android.os.Build.VERSION.CODENAME);
+
+        // Release builds must not have a dev SDK version
+        if (isReleaseBuild) {
+            assertTrue("Release builds must build with a valid SDK version",
+                    mTargetSdkVersion < 10000);
+        }
+
+        // ...and skip this test if this is a dev-SDK-version build
+        assumeTrue("This product was built with non-release SDK level 10000",
+                mTargetSdkVersion < 10000);
+
         // Check that we get the most recent resources that are <= our
         // current version.  Note the special version adjustment, so that
         // during development the resource version is incremented to the
         // next one.
         int vers = android.os.Build.VERSION.SDK_INT;
-        if (!"REL".equals(android.os.Build.VERSION.CODENAME)) {
+        if (!isReleaseBuild) {
             vers++;
         }
         String expected = "v" + vers + "cur";
@@ -1196,7 +1239,7 @@ public class ConfigTest extends AndroidTestCase {
         assertEquals("v3",  mContext.getResources().getString(R.string.version_v3));
     }
 
-    @MediumTest
+    @Test
     public void testNormalLocales() {
         Resources res;
         TotalConfig config = makeClassicConfig();
@@ -1232,7 +1275,7 @@ public class ConfigTest extends AndroidTestCase {
                 R.styleable.TestConfig, new String[]{"bag mk MK"});
     }
 
-    @MediumTest
+    @Test
     public void testExtendedLocales() {
         TotalConfig config = makeClassicConfig();
         // BCP 47 Locale kok
@@ -1297,7 +1340,7 @@ public class ConfigTest extends AndroidTestCase {
                 R.styleable.TestConfig, new String[]{"bag kok VARIANT"});
     }
 
-    @MediumTest
+    @Test
     public void testTlAndFilConversion() {
         TotalConfig config = makeClassicConfig();
 
@@ -1352,7 +1395,7 @@ public class ConfigTest extends AndroidTestCase {
                 R.styleable.TestConfig, new String[] { "bag tgl PH" });
     }
 
-    @MediumTest
+    @Test
     public void testGetLocalesConvertsTlToFil() {
         TotalConfig config = makeClassicConfig();
 

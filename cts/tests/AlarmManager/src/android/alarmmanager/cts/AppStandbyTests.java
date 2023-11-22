@@ -24,6 +24,7 @@ import static org.junit.Assume.assumeTrue;
 
 import android.alarmmanager.alarmtestapp.cts.TestAlarmReceiver;
 import android.alarmmanager.alarmtestapp.cts.TestAlarmScheduler;
+import android.app.AlarmManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -31,11 +32,14 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.BatteryManager;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.LargeTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.platform.test.annotations.AppModeFull;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
+import android.util.LongArray;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.LargeTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.AppStandbyUtils;
 
@@ -52,6 +56,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Tests that app standby imposes the appropriate restrictions on alarms
  */
+@AppModeFull
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class AppStandbyTests {
@@ -59,49 +64,93 @@ public class AppStandbyTests {
     private static final String TEST_APP_PACKAGE = "android.alarmmanager.alarmtestapp.cts";
     private static final String TEST_APP_RECEIVER = TEST_APP_PACKAGE + ".TestAlarmScheduler";
 
-    private static final long DEFAULT_WAIT = 4_000;
+    private static final long DEFAULT_WAIT = 2_000;
     private static final long POLL_INTERVAL = 200;
 
     // Tweaked alarm manager constants to facilitate testing
-    private static final long ALLOW_WHILE_IDLE_SHORT_TIME = 15_000;
-    private static final long MIN_FUTURITY = 2_000;
-    private static final long[] APP_STANDBY_DELAYS = {0, 10_000, 20_000, 30_000, 600_000};
+    private static final long ALLOW_WHILE_IDLE_SHORT_TIME = 10_000;
+    private static final long MIN_FUTURITY = 1_000;
+
+    // Not touching ACTIVE and RARE parameters for this test
+    private static final int WORKING_INDEX = 0;
+    private static final int FREQUENT_INDEX = 1;
+    private static final int RARE_INDEX = 2;
     private static final String[] APP_BUCKET_TAGS = {
-            "active",
             "working_set",
             "frequent",
             "rare",
-            "never"
     };
-    private static final String[] APP_BUCKET_KEYS = {
-            "standby_active_delay",
+    private static final String[] APP_BUCKET_DELAY_KEYS = {
             "standby_working_delay",
             "standby_frequent_delay",
             "standby_rare_delay",
-            "standby_never_delay",
     };
+    private static final long[] APP_STANDBY_DELAYS = {
+            5_000,   // Working set
+            10_000,   // Frequent
+            15_000,  // Rare
+    };
+    private static final long APP_STANDBY_WINDOW = 10_000;
+    private static final String[] APP_BUCKET_QUOTA_KEYS = {
+            "standby_working_quota",
+            "standby_frequent_quota",
+            "standby_rare_quota",
+    };
+    private static final int[] APP_STANDBY_QUOTAS = {
+            5,  // Working set
+            3,  // Frequent
+            1,  // Rare
+    };
+
+    // Settings common for all tests
+    private static final String COMMON_SETTINGS;
+
+    static {
+        final StringBuilder settings = new StringBuilder();
+        settings.append("min_futurity=");
+        settings.append(MIN_FUTURITY);
+        settings.append(",allow_while_idle_short_time=");
+        settings.append(ALLOW_WHILE_IDLE_SHORT_TIME);
+        for (int i = 0; i < APP_STANDBY_DELAYS.length; i++) {
+            settings.append(",");
+            settings.append(APP_BUCKET_DELAY_KEYS[i]);
+            settings.append("=");
+            settings.append(APP_STANDBY_DELAYS[i]);
+        }
+        settings.append(",app_standby_window=");
+        settings.append(APP_STANDBY_WINDOW);
+        for (int i = 0; i < APP_STANDBY_QUOTAS.length; i++) {
+            settings.append(",");
+            settings.append(APP_BUCKET_QUOTA_KEYS[i]);
+            settings.append("=");
+            settings.append(APP_STANDBY_QUOTAS[i]);
+        }
+        COMMON_SETTINGS = settings.toString();
+    }
 
     // Save the state before running tests to restore it after we finish testing.
     private static boolean sOrigAppStandbyEnabled;
+    // Test app's alarm history to help predict when a subsequent alarm is going to get deferred.
+    private static TestAlarmHistory sAlarmHistory;
 
     private Context mContext;
     private ComponentName mAlarmScheduler;
     private UiDevice mUiDevice;
     private AtomicInteger mAlarmCount;
-    private volatile long mLastAlarmTime;
 
     private final BroadcastReceiver mAlarmStateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             mAlarmCount.getAndAdd(intent.getIntExtra(TestAlarmReceiver.EXTRA_ALARM_COUNT, 1));
-            mLastAlarmTime = SystemClock.elapsedRealtime();
-            Log.d(TAG, "No. of expirations: " + mAlarmCount
-                    + " elapsed: " + SystemClock.elapsedRealtime());
+            final long nowElapsed = SystemClock.elapsedRealtime();
+            sAlarmHistory.addTime(nowElapsed);
+            Log.d(TAG, "No. of expirations: " + mAlarmCount + " elapsed: " + nowElapsed);
         }
     };
 
     @BeforeClass
     public static void setUpTests() throws Exception {
+        sAlarmHistory = new TestAlarmHistory();
         sOrigAppStandbyEnabled = AppStandbyUtils.isAppStandbyEnabledAtRuntime();
         if (!sOrigAppStandbyEnabled) {
             AppStandbyUtils.setAppStandbyEnabledAtRuntime(true);
@@ -117,16 +166,12 @@ public class AppStandbyTests {
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         mAlarmScheduler = new ComponentName(TEST_APP_PACKAGE, TEST_APP_RECEIVER);
         mAlarmCount = new AtomicInteger(0);
-        updateAlarmManagerConstants();
+        updateAlarmManagerConstants(true);
         setBatteryCharging(false);
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(TestAlarmReceiver.ACTION_REPORT_ALARM_EXPIRED);
         mContext.registerReceiver(mAlarmStateReceiver, intentFilter);
         assumeTrue("App Standby not enabled on device", AppStandbyUtils.isAppStandbyEnabled());
-        setAppStandbyBucket("active");
-        scheduleAlarm(SystemClock.elapsedRealtime(), false, 0);
-        Thread.sleep(MIN_FUTURITY);
-        assertTrue("Alarm not sent when app in active", waitForAlarms(1));
     }
 
     private void scheduleAlarm(long triggerMillis, boolean allowWhileIdle, long interval) {
@@ -140,49 +185,98 @@ public class AppStandbyTests {
         mContext.sendBroadcast(setAlarmIntent);
     }
 
+    private void scheduleAlarmClock(long triggerRTC) {
+        AlarmManager.AlarmClockInfo alarmInfo = new AlarmManager.AlarmClockInfo(triggerRTC, null);
+
+        final Intent setAlarmClockIntent = new Intent(TestAlarmScheduler.ACTION_SET_ALARM_CLOCK);
+        setAlarmClockIntent.setComponent(mAlarmScheduler);
+        setAlarmClockIntent.putExtra(TestAlarmScheduler.EXTRA_ALARM_CLOCK_INFO, alarmInfo);
+        mContext.sendBroadcast(setAlarmClockIntent);
+    }
+
+
     private void testBucketDelay(int bucketIndex) throws Exception {
-        setAppStandbyBucket(APP_BUCKET_TAGS[bucketIndex]);
-        final long triggerTime = SystemClock.elapsedRealtime() + MIN_FUTURITY;
-        final long minTriggerTime = mLastAlarmTime + APP_STANDBY_DELAYS[bucketIndex];
-        scheduleAlarm(triggerTime, false, 0);
+        setAppStandbyBucket("active");
+        final long firstTrigger = SystemClock.elapsedRealtime() + MIN_FUTURITY;
+        scheduleAlarm(firstTrigger, false, 0);
         Thread.sleep(MIN_FUTURITY);
-        if (triggerTime + DEFAULT_WAIT < minTriggerTime) {
+        assertTrue("Alarm did not fire when app in active", waitForAlarm());
+
+        setAppStandbyBucket(APP_BUCKET_TAGS[bucketIndex]);
+        final long nextTriggerTime = SystemClock.elapsedRealtime() + MIN_FUTURITY;
+        final long minTriggerTime = sAlarmHistory.getLast(1) + APP_STANDBY_DELAYS[bucketIndex];
+        scheduleAlarm(nextTriggerTime, false, 0);
+        Thread.sleep(MIN_FUTURITY);
+        if (nextTriggerTime + DEFAULT_WAIT < minTriggerTime) {
             assertFalse("Alarm went off before " + APP_BUCKET_TAGS[bucketIndex] + " delay",
-                    waitForAlarms(1));
-            Thread.sleep(minTriggerTime - SystemClock.elapsedRealtime());
+                    waitForAlarm());
         }
+        Thread.sleep(minTriggerTime - SystemClock.elapsedRealtime());
         assertTrue("Deferred alarm did not go off after " + APP_BUCKET_TAGS[bucketIndex] + " delay",
-                waitForAlarms(1));
+                waitForAlarm());
+    }
+
+    @Test
+    public void testActiveDelay() throws Exception {
+        updateAlarmManagerConstants(false);
+        setAppStandbyBucket("active");
+        long nextTrigger = SystemClock.elapsedRealtime() + MIN_FUTURITY;
+        for (int i = 0; i < 3; i++) {
+            scheduleAlarm(nextTrigger, false, 0);
+            Thread.sleep(MIN_FUTURITY);
+            assertTrue("Alarm not received as expected when app is in active", waitForAlarm());
+            nextTrigger += MIN_FUTURITY;
+        }
     }
 
     @Test
     public void testWorkingSetDelay() throws Exception {
-        testBucketDelay(1);
+        updateAlarmManagerConstants(false);
+        testBucketDelay(WORKING_INDEX);
     }
 
     @Test
     public void testFrequentDelay() throws Exception {
-        testBucketDelay(2);
+        updateAlarmManagerConstants(false);
+        testBucketDelay(FREQUENT_INDEX);
     }
 
     @Test
     public void testRareDelay() throws Exception {
-        testBucketDelay(3);
+        updateAlarmManagerConstants(false);
+        testBucketDelay(RARE_INDEX);
+    }
+
+    @Test
+    public void testNeverDelay() throws Exception {
+        updateAlarmManagerConstants(false);
+        setAppStandbyBucket("never");
+        final long expectedTrigger = SystemClock.elapsedRealtime() + MIN_FUTURITY;
+        scheduleAlarm(expectedTrigger, true, 0);
+        Thread.sleep(10_000);
+        assertFalse("Alarm received when app was in never bucket", waitForAlarm());
     }
 
     @Test
     public void testBucketUpgradeToSmallerDelay() throws Exception {
-        setAppStandbyBucket(APP_BUCKET_TAGS[2]);
+        updateAlarmManagerConstants(false);
+        setAppStandbyBucket("active");
+        final long firstTrigger = SystemClock.elapsedRealtime() + MIN_FUTURITY;
+        scheduleAlarm(firstTrigger, false, 0);
+        Thread.sleep(MIN_FUTURITY);
+        assertTrue("Alarm did not fire when app in active", waitForAlarm());
+
+        setAppStandbyBucket(APP_BUCKET_TAGS[FREQUENT_INDEX]);
         final long triggerTime = SystemClock.elapsedRealtime() + MIN_FUTURITY;
-        final long workingSetExpectedTrigger = mLastAlarmTime + APP_STANDBY_DELAYS[1];
+        final long workingSetExpectedTrigger = sAlarmHistory.getLast(1)
+                + APP_STANDBY_DELAYS[WORKING_INDEX];
         scheduleAlarm(triggerTime, false, 0);
         Thread.sleep(workingSetExpectedTrigger - SystemClock.elapsedRealtime());
-        assertFalse("The alarm went off before frequent delay", waitForAlarms(1));
-        setAppStandbyBucket(APP_BUCKET_TAGS[1]);
+        assertFalse("The alarm went off before frequent delay", waitForAlarm());
+        setAppStandbyBucket(APP_BUCKET_TAGS[WORKING_INDEX]);
         assertTrue("The alarm did not go off when app bucket upgraded to working_set",
-                waitForAlarms(1));
+                waitForAlarm());
     }
-
 
     /**
      * This is different to {@link #testBucketUpgradeToSmallerDelay()} in the sense that the bucket
@@ -192,61 +286,148 @@ public class AppStandbyTests {
      */
     @Test
     public void testBucketUpgradeToNoDelay() throws Exception {
-        setAppStandbyBucket(APP_BUCKET_TAGS[3]);
-        final long triggerTime1 = mLastAlarmTime + APP_STANDBY_DELAYS[2];
+        updateAlarmManagerConstants(false);
+
+        setAppStandbyBucket("active");
+        final long firstTrigger = SystemClock.elapsedRealtime() + MIN_FUTURITY;
+        scheduleAlarm(firstTrigger, false, 0);
+        Thread.sleep(MIN_FUTURITY);
+        assertTrue("Alarm did not fire when app in active", waitForAlarm());
+
+        setAppStandbyBucket(APP_BUCKET_TAGS[RARE_INDEX]);
+        final long triggerTime1 = sAlarmHistory.getLast(1) + APP_STANDBY_DELAYS[FREQUENT_INDEX];
         scheduleAlarm(triggerTime1, false, 0);
         Thread.sleep(triggerTime1 - SystemClock.elapsedRealtime());
         assertFalse("The alarm went off after frequent delay when app in rare bucket",
-                waitForAlarms(1));
-        setAppStandbyBucket(APP_BUCKET_TAGS[1]);
+                waitForAlarm());
+        setAppStandbyBucket(APP_BUCKET_TAGS[WORKING_INDEX]);
         assertTrue("The alarm did not go off when app bucket upgraded to working_set",
-                waitForAlarms(1));
+                waitForAlarm());
 
         // Once more
-        setAppStandbyBucket(APP_BUCKET_TAGS[3]);
-        final long triggerTime2 = mLastAlarmTime + APP_STANDBY_DELAYS[2];
+        setAppStandbyBucket(APP_BUCKET_TAGS[RARE_INDEX]);
+        final long triggerTime2 = sAlarmHistory.getLast(1) + APP_STANDBY_DELAYS[FREQUENT_INDEX];
         scheduleAlarm(triggerTime2, false, 0);
-        setAppStandbyBucket(APP_BUCKET_TAGS[0]);
+        setAppStandbyBucket("active");
         Thread.sleep(triggerTime2 - SystemClock.elapsedRealtime());
         assertTrue("The alarm did not go off as scheduled when the app was in active",
-                waitForAlarms(1));
+                waitForAlarm());
+    }
+
+    public void testSimpleQuotaDeferral(int bucketIndex) throws Exception {
+        setAppStandbyBucket(APP_BUCKET_TAGS[bucketIndex]);
+        final int quota = APP_STANDBY_QUOTAS[bucketIndex];
+
+        long startElapsed = SystemClock.elapsedRealtime();
+        final long freshWindowPoint = sAlarmHistory.getLast(1) + APP_STANDBY_WINDOW + 1;
+        if (freshWindowPoint > startElapsed) {
+            Thread.sleep(freshWindowPoint - startElapsed);
+            startElapsed = freshWindowPoint;
+            // Now we should have no alarms in the past APP_STANDBY_WINDOW
+        }
+        final long desiredTrigger = startElapsed + APP_STANDBY_WINDOW;
+        final long firstTrigger = startElapsed + 4_000;
+        assertTrue("Quota too large for test",
+                firstTrigger + ((quota - 1) * MIN_FUTURITY) < desiredTrigger);
+        for (int i = 0; i < quota; i++) {
+            final long trigger = firstTrigger + (i * MIN_FUTURITY);
+            scheduleAlarm(trigger, false, 0);
+            Thread.sleep(trigger - SystemClock.elapsedRealtime());
+            assertTrue("Alarm within quota not firing as expected", waitForAlarm());
+        }
+
+        // Now quota is reached, any subsequent alarm should get deferred.
+        scheduleAlarm(desiredTrigger, false, 0);
+        Thread.sleep(desiredTrigger - SystemClock.elapsedRealtime());
+        assertFalse("Alarm exceeding quota not deferred", waitForAlarm());
+        final long minTrigger = firstTrigger + 1 + APP_STANDBY_WINDOW;
+        Thread.sleep(minTrigger - SystemClock.elapsedRealtime());
+        assertTrue("Alarm exceeding quota not delivered after expected delay", waitForAlarm());
+    }
+
+    @Test
+    public void testActiveQuota() throws Exception {
+        setAppStandbyBucket("active");
+        long nextTrigger = SystemClock.elapsedRealtime() + MIN_FUTURITY;
+        for (int i = 0; i < 3; i++) {
+            scheduleAlarm(nextTrigger, false, 0);
+            Thread.sleep(MIN_FUTURITY);
+            assertTrue("Alarm not received as expected when app is in active", waitForAlarm());
+            nextTrigger += MIN_FUTURITY;
+        }
+    }
+
+    @Test
+    public void testWorkingQuota() throws Exception {
+        testSimpleQuotaDeferral(WORKING_INDEX);
+    }
+
+    @Test
+    public void testFrequentQuota() throws Exception {
+        testSimpleQuotaDeferral(FREQUENT_INDEX);
+    }
+
+    @Test
+    public void testRareQuota() throws Exception {
+        testSimpleQuotaDeferral(RARE_INDEX);
+    }
+
+    @Test
+    public void testNeverQuota() throws Exception {
+        setAppStandbyBucket("never");
+        final long expectedTrigger = SystemClock.elapsedRealtime() + MIN_FUTURITY;
+        scheduleAlarm(expectedTrigger, true, 0);
+        Thread.sleep(10_000);
+        assertFalse("Alarm received when app was in never bucket", waitForAlarm());
+    }
+
+    @Test
+    public void testAlarmClockUnaffected() throws Exception {
+        setAppStandbyBucket("never");
+        final long trigger = System.currentTimeMillis() + MIN_FUTURITY;
+        scheduleAlarmClock(trigger);
+        Thread.sleep(MIN_FUTURITY);
+        assertTrue("Alarm clock not received as expected", waitForAlarm());
     }
 
     @Test
     public void testAllowWhileIdleAlarms() throws Exception {
+        updateAlarmManagerConstants(false);
+        setAppStandbyBucket("active");
         final long firstTrigger = SystemClock.elapsedRealtime() + MIN_FUTURITY;
         scheduleAlarm(firstTrigger, true, 0);
         Thread.sleep(MIN_FUTURITY);
-        assertTrue("first allow_while_idle alarm did not go off as scheduled", waitForAlarms(1));
-        scheduleAlarm(mLastAlarmTime + 9_000, true, 0);
+        assertTrue("first allow_while_idle alarm did not go off as scheduled", waitForAlarm());
+        scheduleAlarm(sAlarmHistory.getLast(1) + 7_000, true, 0);
         // First check for the case where allow_while_idle delay should supersede app standby
-        setAppStandbyBucket(APP_BUCKET_TAGS[1]);
-        Thread.sleep(APP_STANDBY_DELAYS[1]);
-        assertFalse("allow_while_idle alarm went off before short time", waitForAlarms(1));
-        long expectedTriggerTime = mLastAlarmTime + ALLOW_WHILE_IDLE_SHORT_TIME;
+        setAppStandbyBucket(APP_BUCKET_TAGS[WORKING_INDEX]);
+        Thread.sleep(APP_STANDBY_DELAYS[WORKING_INDEX]);
+        assertFalse("allow_while_idle alarm went off before short time", waitForAlarm());
+        long expectedTriggerTime = sAlarmHistory.getLast(1) + ALLOW_WHILE_IDLE_SHORT_TIME;
         Thread.sleep(expectedTriggerTime - SystemClock.elapsedRealtime());
-        assertTrue("allow_while_idle alarm did not go off after short time", waitForAlarms(1));
+        assertTrue("allow_while_idle alarm did not go off after short time", waitForAlarm());
 
         // Now the other case, app standby delay supersedes the allow_while_idle delay
-        scheduleAlarm(mLastAlarmTime + 12_000, true, 0);
-        setAppStandbyBucket(APP_BUCKET_TAGS[2]);
+        scheduleAlarm(sAlarmHistory.getLast(1) + 7_000, true, 0);
+        setAppStandbyBucket(APP_BUCKET_TAGS[RARE_INDEX]);
         Thread.sleep(ALLOW_WHILE_IDLE_SHORT_TIME);
-        assertFalse("allow_while_idle alarm went off before " + APP_STANDBY_DELAYS[2]
-                + "ms, when in bucket " + APP_BUCKET_TAGS[2], waitForAlarms(1));
-        expectedTriggerTime = mLastAlarmTime + APP_STANDBY_DELAYS[2];
+        assertFalse("allow_while_idle alarm went off before " + APP_STANDBY_DELAYS[RARE_INDEX]
+                + "ms, when in bucket " + APP_BUCKET_TAGS[RARE_INDEX], waitForAlarm());
+        expectedTriggerTime = sAlarmHistory.getLast(1) + APP_STANDBY_DELAYS[RARE_INDEX];
         Thread.sleep(expectedTriggerTime - SystemClock.elapsedRealtime());
-        assertTrue("allow_while_idle alarm did not go off even after " + APP_STANDBY_DELAYS[2]
-                + "ms, when in bucket " + APP_BUCKET_TAGS[2], waitForAlarms(1));
+        assertTrue("allow_while_idle alarm did not go off even after "
+                + APP_STANDBY_DELAYS[RARE_INDEX]
+                + "ms, when in bucket " + APP_BUCKET_TAGS[RARE_INDEX], waitForAlarm());
     }
 
     @Test
     public void testPowerWhitelistedAlarmNotBlocked() throws Exception {
-        setAppStandbyBucket(APP_BUCKET_TAGS[3]);
+        setAppStandbyBucket(APP_BUCKET_TAGS[RARE_INDEX]);
         setPowerWhitelisted(true);
         final long triggerTime = SystemClock.elapsedRealtime() + MIN_FUTURITY;
         scheduleAlarm(triggerTime, false, 0);
         Thread.sleep(MIN_FUTURITY);
-        assertTrue("Alarm did not go off for whitelisted app in rare bucket", waitForAlarms(1));
+        assertTrue("Alarm did not go off for whitelisted app in rare bucket", waitForAlarm());
         setPowerWhitelisted(false);
     }
 
@@ -270,13 +451,11 @@ public class AppStandbyTests {
         }
     }
 
-    private void updateAlarmManagerConstants() throws IOException {
+    private void updateAlarmManagerConstants(boolean enableQuota) throws IOException {
         final StringBuffer cmd = new StringBuffer("settings put global alarm_manager_constants ");
-        cmd.append("min_futurity="); cmd.append(MIN_FUTURITY);
-        cmd.append(",allow_while_idle_short_time="); cmd.append(ALLOW_WHILE_IDLE_SHORT_TIME);
-        for (int i = 0; i < APP_STANDBY_DELAYS.length; i++) {
-            cmd.append(",");
-            cmd.append(APP_BUCKET_KEYS[i]); cmd.append("="); cmd.append(APP_STANDBY_DELAYS[i]);
+        cmd.append(COMMON_SETTINGS);
+        if (!enableQuota) {
+            cmd.append(",app_standby_quotas_enabled=false");
         }
         executeAndLog(cmd.toString());
     }
@@ -298,9 +477,12 @@ public class AppStandbyTests {
 
     private void setBatteryCharging(final boolean charging) throws Exception {
         final BatteryManager bm = mContext.getSystemService(BatteryManager.class);
-        final String cmd = "dumpsys battery " + (charging ? "reset" : "unplug");
-        executeAndLog(cmd);
-        if (!charging) {
+        if (charging) {
+            executeAndLog("dumpsys battery reset");
+        } else {
+            executeAndLog("dumpsys battery unplug");
+            executeAndLog("dumpsys battery set status " +
+                    BatteryManager.BATTERY_STATUS_DISCHARGING);
             assertTrue("Battery could not be unplugged", waitUntil(() -> !bm.isCharging(), 5_000));
         }
     }
@@ -311,8 +493,8 @@ public class AppStandbyTests {
         return output;
     }
 
-    private boolean waitForAlarms(final int numAlarms) throws InterruptedException {
-        final boolean success = waitUntil(() -> (mAlarmCount.get() == numAlarms), DEFAULT_WAIT);
+    private boolean waitForAlarm() throws InterruptedException {
+        final boolean success = waitUntil(() -> (mAlarmCount.get() == 1), DEFAULT_WAIT);
         mAlarmCount.set(0);
         return success;
     }
@@ -323,6 +505,24 @@ public class AppStandbyTests {
             Thread.sleep(POLL_INTERVAL);
         }
         return condition.isMet();
+    }
+
+    private static final class TestAlarmHistory {
+        private LongArray mHistory = new LongArray();
+
+        private synchronized void addTime(long timestamp) {
+            mHistory.add(timestamp);
+        }
+
+        /**
+         * Get the xth alarm time from the end.
+         */
+        private synchronized long getLast(int x) {
+            if (x == 0 || x > mHistory.size()) {
+                return 0;
+            }
+            return mHistory.get(mHistory.size() - x);
+        }
     }
 
     @FunctionalInterface

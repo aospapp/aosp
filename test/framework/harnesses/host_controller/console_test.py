@@ -31,6 +31,7 @@ except ImportError:
 from host_controller.build import build_flasher
 from host_controller.tfc import command_task
 from host_controller.tfc import device_info
+from host_controller import common
 from host_controller import console
 
 
@@ -70,9 +71,12 @@ class ConsoleTest(unittest.TestCase):
         self._tfc_client = mock.Mock()
         self._vti_client = mock.Mock()
         self._console = console.Console(
-            self._vti_client, self._tfc_client, self._build_provider_pab,
-            [self._host_controller],
-            None, self._out_file)
+            self._vti_client,
+            self._tfc_client,
+            self._build_provider_pab, [self._host_controller],
+            None,
+            out_file=self._out_file)
+        self._console.device_image_info = {}
 
     def tearDown(self):
         """Closes the output file."""
@@ -146,7 +150,7 @@ class ConsoleTest(unittest.TestCase):
         output = self._IssueCommand("lease --host 1")
         self.assertTrue(output.startswith(expected))
 
-    @mock.patch('host_controller.console.build_flasher.BuildFlasher')
+    @mock.patch('host_controller.build.build_flasher.BuildFlasher')
     def testFetchPOSTAndFlash(self, mock_class):
         """Tests fetching from pab and flashing."""
         self._build_provider_pab.GetArtifact.return_value = ({
@@ -154,18 +158,27 @@ class ConsoleTest(unittest.TestCase):
             "/mock/system.img",
             "odm.img":
             "/mock/odm.img"
-        }, {}, {"build_id": "build_id"}, {})
+        }, {}, {
+            "build_id":
+            "build_id"
+        }, {})
+        self._build_provider_pab.GetFetchedArtifactType.return_value = common._ARTIFACT_TYPE_DEVICE
         self._IssueCommand(
             "fetch --branch=aosp-master-ndk --target=darwin_mac "
             "--account_id=100621237 "
-            "--artifact_name=foo-{id}.tar.bz2 --method=POST")
+            "--artifact_name=foo-{build_id}.tar.bz2 --method=POST")
         self._build_provider_pab.GetArtifact.assert_called_with(
             account_id='100621237',
             branch='aosp-master-ndk',
             target='darwin_mac',
-            artifact_name='foo-{id}.tar.bz2',
+            artifact_name='foo-{build_id}.tar.bz2',
             build_id='latest',
-            method='POST')
+            method='POST',
+            full_device_images=False)
+        self.assertEqual(self._console.device_image_info, {
+            "system.img": "/mock/system.img",
+            "odm.img": "/mock/odm.img"
+        })
 
         flasher = mock.Mock()
         mock_class.return_value = flasher
@@ -173,7 +186,7 @@ class ConsoleTest(unittest.TestCase):
         flasher.Flash.assert_called_with({
             "system": "/mock/system.img",
             "odm": "/mock/odm.img"
-        })
+        }, False)
 
     def testFetchAndEnvironment(self):
         """Tests fetching from pab and check stored os environment"""
@@ -187,44 +200,47 @@ class ConsoleTest(unittest.TestCase):
             "odm.img":
             "/mock/odm.img"
         }, {}, expected_fetch_info, {})
-        self._IssueCommand("fetch --branch=aosp-master-ndk --target=%s "
-                           "--account_id=100621237 "
-                           "--artifact_name=foo-{id}.tar.bz2 --method=POST"
-                           % target_return)
+        self._IssueCommand(
+            "fetch --branch=aosp-master-ndk --target=%s "
+            "--account_id=100621237 "
+            "--artifact_name=foo-{id}.tar.bz2 --method=POST" % target_return)
         self._build_provider_pab.GetArtifact.assert_called_with(
             account_id='100621237',
             branch='aosp-master-ndk',
             target='darwin_mac',
             artifact_name='foo-{id}.tar.bz2',
             build_id='latest',
+            full_device_images=False,
             method='POST')
 
         expected = expected_fetch_info["build_id"]
         self.assertEqual(build_id_return, expected)
 
-    @mock.patch('host_controller.console.build_flasher.BuildFlasher')
+    @mock.patch('host_controller.build.build_flasher.BuildFlasher')
     def testFlashGSI(self, mock_class):
         flasher = mock.Mock()
         mock_class.return_value = flasher
         self._IssueCommand("flash --gsi=system.img")
-        flasher.FlashGSI.assert_called_with('system.img', None)
+        flasher.FlashGSI.assert_called_with(
+            'system.img', None, skip_vbmeta=False)
 
-    @mock.patch('host_controller.console.build_flasher.BuildFlasher')
+    @mock.patch('host_controller.build.build_flasher.BuildFlasher')
     def testFlashGSIWithVbmeta(self, mock_class):
         flasher = mock.Mock()
         mock_class.return_value = flasher
         self._IssueCommand("flash --gsi=system.img --vbmeta=vbmeta.img")
-        flasher.FlashGSI.assert_called_with('system.img', 'vbmeta.img')
+        flasher.FlashGSI.assert_called_with(
+            'system.img', 'vbmeta.img', skip_vbmeta=False)
 
-    @mock.patch('host_controller.console.build_flasher.BuildFlasher')
+    @mock.patch('host_controller.build.build_flasher.BuildFlasher')
     def testFlashall(self, mock_class):
         flasher = mock.Mock()
         mock_class.return_value = flasher
         self._IssueCommand("flash --build_dir=path/to/dir/")
         flasher.Flashall.assert_called_with('path/to/dir/')
 
-    @mock.patch('host_controller.console.importlib')
-    @mock.patch('host_controller.console.issubclass')
+    @mock.patch('host_controller.command_processor.command_flash.importlib')
+    @mock.patch('host_controller.command_processor.command_flash.issubclass')
     def testImportFlasher(self, mock_issubclass, mock_importlib):
         mock_issubclass.return_value = True
         flasher_module = mock.Mock()
@@ -235,8 +251,8 @@ class ConsoleTest(unittest.TestCase):
                            "--flasher_type test.flasher.Flasher "
                            "--flasher_path /test/flasher "
                            "-- --unit test")
-        mock_issubclass.assert_called_once_with(
-            flasher_module.Flasher, build_flasher.BuildFlasher)
+        mock_issubclass.assert_called_once_with(flasher_module.Flasher,
+                                                build_flasher.BuildFlasher)
         mock_importlib.import_module.assert_called_with("test.flasher")
         flasher_module.Flasher.assert_called_with("ABC001", "/test/flasher")
         flasher.Flash.assert_called_with({}, {}, "--unit", "test")

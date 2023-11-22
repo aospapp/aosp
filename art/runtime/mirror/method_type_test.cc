@@ -22,8 +22,10 @@
 #include "class-inl.h"
 #include "class_linker-inl.h"
 #include "class_loader.h"
+#include "class_root.h"
 #include "common_runtime_test.h"
 #include "handle_scope-inl.h"
+#include "object_array-alloc-inl.h"
 #include "object_array-inl.h"
 #include "scoped_thread_state_change-inl.h"
 
@@ -36,8 +38,8 @@ static std::string FullyQualifiedType(const std::string& shorthand) {
   return "Ljava/lang/" + shorthand + ";";
 }
 
-static mirror::MethodType* CreateMethodType(const std::string& return_type,
-                                            const std::vector<std::string>& param_types) {
+static ObjPtr<mirror::MethodType> CreateMethodType(const std::string& return_type,
+                                                   const std::vector<std::string>& param_types) {
   CHECK_LT(param_types.size(), 3u);
 
   Runtime* const runtime = Runtime::Current();
@@ -53,8 +55,8 @@ static mirror::MethodType* CreateMethodType(const std::string& return_type,
           soa.Self(), FullyQualifiedType(return_type).c_str(), boot_class_loader));
   CHECK(return_clazz != nullptr);
 
-  ObjPtr<mirror::Class> class_type = mirror::Class::GetJavaLangClass();
-  mirror::Class* class_array_type = class_linker->FindArrayClass(self, &class_type);
+  ObjPtr<mirror::Class> class_array_type =
+      GetClassRoot<mirror::ObjectArray<mirror::Class>>(class_linker);
   Handle<mirror::ObjectArray<mirror::Class>> param_classes = hs.NewHandle(
       mirror::ObjectArray<mirror::Class>::Alloc(self, class_array_type, param_types.size()));
 

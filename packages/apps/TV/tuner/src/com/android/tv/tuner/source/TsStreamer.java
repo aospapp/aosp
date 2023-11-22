@@ -16,7 +16,7 @@
 
 package com.android.tv.tuner.source;
 
-import com.android.tv.tuner.ChannelScanFileParser;
+import com.android.tv.tuner.api.ScanChannel;
 import com.android.tv.tuner.data.TunerChannel;
 
 /**
@@ -27,10 +27,10 @@ public interface TsStreamer {
     /**
      * Starts streaming the data for channel scanning process.
      *
-     * @param channel {@link ChannelScanFileParser.ScanChannel} to be scanned
+     * @param channel {@link ScanChannel} to be scanned
      * @return {@code true} if ready to stream, otherwise {@code false}
      */
-    boolean startStream(ChannelScanFileParser.ScanChannel channel);
+    boolean startStream(ScanChannel channel);
 
     /**
      * Starts streaming the data for channel playing or recording.

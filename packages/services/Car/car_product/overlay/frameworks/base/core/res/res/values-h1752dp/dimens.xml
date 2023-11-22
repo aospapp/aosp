@@ -15,6 +15,9 @@
 -->
 
 <resources>
+    <!-- Application Bar -->
+    <dimen name="car_app_bar_height">112dp</dimen>
+
     <!-- Text size for car -->
     <dimen name="car_title2_size">32sp</dimen>
     <dimen name="car_body1_size">32sp</dimen>
@@ -32,4 +35,7 @@
     <dimen name="car_keyline_2">108dp</dimen>
     <dimen name="car_keyline_3">152dp</dimen>
     <dimen name="car_keyline_4">182dp</dimen>
+
+    <!-- Minimum height of list items. -->
+    <dimen name="car_single_line_list_item_height">128dp</dimen>
 </resources>

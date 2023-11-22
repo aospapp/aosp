@@ -15,7 +15,6 @@
 -->
 <configuration description="Common config for Compatibility suites">
     <option name="dynamic-sharding" value="true" />
-    <option name="disable-strict-sharding" value="true" />
     <device_recovery class="com.android.tradefed.device.WaitDeviceRecovery" />
     <build_provider class="com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider" />
     <test class="com.android.compatibility.common.tradefed.testtype.suite.CompatibilityTestSuite" />
@@ -29,6 +28,6 @@
         <option name="log-level-display" value="WARN" />
     </logger>
     <result_reporter class="com.android.compatibility.common.tradefed.result.ConsoleReporter" />
-    <result_reporter class="com.android.compatibility.common.tradefed.result.ResultReporter" />
-    <result_reporter class="com.android.tradefed.result.suite.SuiteResultReporter" />
+    <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CompatibilityProtoResultReporter" />
+    <result_reporter class="com.android.compatibility.common.tradefed.result.suite.CertificationSuiteResultReporter" />
 </configuration>

@@ -16,12 +16,8 @@
 
 package android.database.sqlite.cts;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.Semaphore;
+import static android.database.sqlite.cts.DatabaseTestUtils.getDbInfoOutput;
+import static android.database.sqlite.cts.DatabaseTestUtils.waitForConnectionToClose;
 
 import android.app.ActivityManager;
 import android.content.ContentValues;
@@ -38,15 +34,17 @@ import android.database.sqlite.SQLiteGlobal;
 import android.database.sqlite.SQLiteQuery;
 import android.database.sqlite.SQLiteStatement;
 import android.database.sqlite.SQLiteTransactionListener;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.uiautomator.UiDevice;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
 
-import static android.database.sqlite.cts.DatabaseTestUtils.getDbInfoOutput;
-import static android.database.sqlite.cts.DatabaseTestUtils.waitForConnectionToClose;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.Semaphore;
 
 public class SQLiteDatabaseTest extends AndroidTestCase {
 
@@ -1565,7 +1563,7 @@ public class SQLiteDatabaseTest extends AndroidTestCase {
     public void testCloseIdleConnection() throws Exception {
         mDatabase.close();
         SQLiteDatabase.OpenParams params = new SQLiteDatabase.OpenParams.Builder()
-                .setIdleConnectionTimeout(1000).build();
+                .setIdleConnectionTimeout(5000).build();
         mDatabase = SQLiteDatabase.openDatabase(mDatabaseFile, params);
         // Wait a bit and check that connection is still open
         Thread.sleep(600);
@@ -1574,9 +1572,9 @@ public class SQLiteDatabaseTest extends AndroidTestCase {
                 output.contains("Connection #0:"));
 
         // Now cause idle timeout and check that connection is closed
-        // We wait up to 5 seconds, which is longer than required 1 s to accommodate for delays in
+        // We wait up to 10 seconds, which is longer than required 1 s to accommodate for delays in
         // message processing when system is busy
-        boolean connectionWasClosed = waitForConnectionToClose(10, 500);
+        boolean connectionWasClosed = waitForConnectionToClose(20, 500);
         assertTrue("Connection #0 should be closed", connectionWasClosed);
     }
 
@@ -1606,18 +1604,6 @@ public class SQLiteDatabaseTest extends AndroidTestCase {
         String defaultJournalMode = SQLiteGlobal.getDefaultJournalMode();
         assertFalse("Default journal mode should not be WAL",
                 "WAL".equalsIgnoreCase(defaultJournalMode));
-    }
-
-    public void testCompatibilityWALIsDefaultWhenSupported() {
-        if (!SQLiteGlobal.isCompatibilityWalSupported()) {
-            Log.i(TAG, "Compatibility WAL not supported. "
-                    + "Skipping testCompatibilityWALIsDefaultWhenSupported");
-            return;
-        }
-
-        assertTrue("Journal mode should be WAL if compatibility WAL is supported",
-                DatabaseUtils.stringForQuery(mDatabase, "PRAGMA journal_mode", null)
-                        .equalsIgnoreCase("WAL"));
     }
 
     /**

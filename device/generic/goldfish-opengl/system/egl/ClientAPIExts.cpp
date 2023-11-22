@@ -97,7 +97,8 @@ void initClientFuncs(const EGLClient_glesInterface *iface, int idx)
         if (!thread->currentContext) { \
             return; \
         } \
-        int idx = (int)thread->currentContext->majorVersion - 1; \
+        int clientMajorVersion = (int)thread->currentContext->majorVersion; \
+        int idx = clientMajorVersion == 1 ? 0 : 1; \
         if (!s_client_extensions[idx].fname) { \
             return; \
         } \

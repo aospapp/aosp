@@ -93,6 +93,18 @@ public class ColumnFilterTest extends AndroidTestCase {
         assertEquals(channelId, cursor.getLong(2));
     }
 
+    public void testQueryChannel_count() {
+        long channelId = insertChannel(false);
+        String[] projection = new String[]{
+                Channels._COUNT
+        };
+        Cursor cursor = mResolver.query(Channels.CONTENT_URI, projection, null, null, null);
+        assertNotNull(cursor);
+        cursor.moveToNext();
+        assertEquals(1, cursor.getInt(0));
+    }
+
+
     public void testQueryChannelWithNullProjection() {
         long channelId = insertChannel(false);
         Cursor cursor = mResolver.query(Channels.CONTENT_URI, null, null, null, null);

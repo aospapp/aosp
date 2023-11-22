@@ -22,6 +22,10 @@ import android.system.StructGroupReq;
 import android.system.StructLinger;
 import android.system.StructPollfd;
 import android.system.StructTimeval;
+
+import libcore.util.ArrayUtils;
+
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -41,14 +45,16 @@ import java.net.SocketOptions;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static android.system.OsConstants.*;
 
 /**
  * Implements java.io/java.net/java.nio semantics in terms of the underlying POSIX system calls.
+ *
+ * @hide
  */
+@libcore.api.CorePlatformApi
 public final class IoBridge {
 
     private IoBridge() {
@@ -227,28 +233,30 @@ public final class IoBridge {
     }
 
     /**
-     * Closes the supplied file descriptor and sends a signal to any threads are currently blocking.
-     * In order for the signal to be sent the blocked threads must have registered with
-     * the AsynchronousCloseMonitor before they entered the blocking operation.
+     * Closes the Unix file descriptor associated with the supplied file descriptor, resets the
+     * internal int to -1, and sends a signal to any threads are currently blocking. In order for
+     * the signal to be sent the blocked threads must have registered with the
+     * AsynchronousCloseMonitor before they entered the blocking operation. {@code fd} will be
+     * invalid after this call.
      *
      * <p>This method is a no-op if passed a {@code null} or already-closed file descriptor.
      */
+    @libcore.api.CorePlatformApi
     public static void closeAndSignalBlockedThreads(FileDescriptor fd) throws IOException {
         if (fd == null || !fd.valid()) {
             return;
         }
-        int intFd = fd.getInt$();
-        fd.setInt$(-1);
-        FileDescriptor oldFd = new FileDescriptor();
-        oldFd.setInt$(intFd);
+        // fd is invalid after we call release.
+        FileDescriptor oldFd = fd.release$();
         AsynchronousCloseMonitor.signalBlockedThreads(oldFd);
         try {
             Libcore.os.close(oldFd);
         } catch (ErrnoException errnoException) {
-            // TODO: are there any cases in which we should throw?
+            throw errnoException.rethrowAsIOException();
         }
     }
 
+    @UnsupportedAppUsage
     public static boolean isConnected(FileDescriptor fd, InetAddress inetAddress, int port,
             int timeoutMs, int remainingTimeoutMs) throws IOException {
         ErrnoException cause;
@@ -273,7 +281,9 @@ public final class IoBridge {
         }
         String detail = createMessageForException(fd, inetAddress, port, timeoutMs, cause);
         if (cause.errno == ETIMEDOUT) {
-            throw new SocketTimeoutException(detail, cause);
+            SocketTimeoutException e = new SocketTimeoutException(detail);
+            e.initCause(cause);
+            throw e;
         }
         throw new ConnectException(detail, cause);
     }
@@ -463,6 +473,7 @@ public final class IoBridge {
      * directories: POSIX says read-only is okay, but java.io doesn't even allow that. We also
      * have an Android-specific hack to alter the default permissions.
      */
+    @libcore.api.CorePlatformApi
     public static FileDescriptor open(String path, int flags) throws FileNotFoundException {
         FileDescriptor fd = null;
         try {
@@ -478,7 +489,7 @@ public final class IoBridge {
         } catch (ErrnoException errnoException) {
             try {
                 if (fd != null) {
-                    IoUtils.close(fd);
+                    closeAndSignalBlockedThreads(fd);
                 }
             } catch (IOException ignored) {
             }
@@ -492,8 +503,9 @@ public final class IoBridge {
      * java.io thinks that a read at EOF is an error and should return -1, contrary to traditional
      * Unix practice where you'd read until you got 0 bytes (and any future read would return -1).
      */
+    @libcore.api.CorePlatformApi
     public static int read(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount) throws IOException {
-        Arrays.checkOffsetAndCount(bytes.length, byteOffset, byteCount);
+        ArrayUtils.throwsIfOutOfBounds(bytes.length, byteOffset, byteCount);
         if (byteCount == 0) {
             return 0;
         }
@@ -516,8 +528,9 @@ public final class IoBridge {
      * java.io always writes every byte it's asked to, or fails with an error. (That is, unlike
      * Unix it never just writes as many bytes as happens to be convenient.)
      */
+    @libcore.api.CorePlatformApi
     public static void write(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount) throws IOException {
-        Arrays.checkOffsetAndCount(bytes.length, byteOffset, byteCount);
+        ArrayUtils.throwsIfOutOfBounds(bytes.length, byteOffset, byteCount);
         if (byteCount == 0) {
             return;
         }
@@ -532,6 +545,7 @@ public final class IoBridge {
         }
     }
 
+    @libcore.api.CorePlatformApi
     public static int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, InetAddress inetAddress, int port) throws IOException {
         boolean isDatagram = (inetAddress != null);
         if (!isDatagram && byteCount <= 0) {
@@ -576,6 +590,7 @@ public final class IoBridge {
         throw errnoException.rethrowAsIOException();
     }
 
+    @libcore.api.CorePlatformApi
     public static int recvfrom(boolean isRead, FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, DatagramPacket packet, boolean isConnected) throws IOException {
         int result;
         try {
@@ -627,13 +642,16 @@ public final class IoBridge {
             if (isConnected && errnoException.errno == ECONNREFUSED) {
                 throw new PortUnreachableException("ICMP Port Unreachable", errnoException);
             } else if (errnoException.errno == EAGAIN) {
-                throw new SocketTimeoutException(errnoException);
+                SocketTimeoutException e = new SocketTimeoutException();
+                e.initCause(errnoException);
+                throw e;
             } else {
                 throw errnoException.rethrowAsSocketException();
             }
         }
     }
 
+    @libcore.api.CorePlatformApi
     public static FileDescriptor socket(int domain, int type, int protocol) throws SocketException {
         FileDescriptor fd;
         try {
@@ -671,6 +689,7 @@ public final class IoBridge {
     /**
      * @throws SocketException if fd is not currently bound to an InetSocketAddress
      */
+    @libcore.api.CorePlatformApi
     public static InetSocketAddress getLocalInetSocketAddress(FileDescriptor fd)
             throws SocketException {
         try {

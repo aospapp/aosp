@@ -25,6 +25,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Tests minimum password restriction APIs, including on parent profile instances. */
 public class PasswordMinimumRestrictionsTest extends BaseManagedProfileTest {
 
     private static final int TEST_PASSWORD_LENGTH = 5;

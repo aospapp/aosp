@@ -37,8 +37,9 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Жылдам жауап"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Хабар <xliff:g id="PHONE_NUMBER">%s</xliff:g> нөміріне жіберілді."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"<xliff:g id="PHONE_NUMBER">%s</xliff:g> нөміріне хабар жіберілмеді."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Қоңырау шалу есептік жазбалары"</string>
-    <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Тек төтенше қоңырауларға рұқсат етілген."</string>
+    <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Құтқару қызметіне ғана қоңырау шалуға рұқсат етілген."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"\"Телефон\" рұқсатынсыз бұл қолданба шығыс қоңырауларды соға алмайды."</string>
     <string name="outgoing_call_error_no_phone_number_supplied" msgid="1940125199802007505">"Қоңырау шалу үшін жарамды нөмірді енгізіңіз."</string>
     <string name="duplicate_video_call_not_allowed" msgid="3749211605014548386">"Қоңырауды қазіргі уақытта қосу мүмкін емес."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Әдепкі ретінде орнату"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Тоқтату"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> қоңыраулардың барлық аспектілерін бақылайтын болады. Тек қана өзіңіз сенетін қолданбаларды ғана әдепкі ретінде орнатқан дұрыс."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"<xliff:g id="NEW_APP">%s</xliff:g> әдепкі қоңырауды тексеру қолданбасы болсын ба?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> қоңырауларды тексере алмайтын болады."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> контактілер тізімінде жоқ қоңырау шалушылар туралы ақпаратты көріп, бұндай қоңырауларды бөгей алады. Әдепкі қоңырауды тексеру қолданбасы ретінде тек өзіңіз сенетін қолданбаларды ғана орнатқан дұрыс."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Әдепкі ретінде орнату"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Жабу"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Бөгелген нөмірлер"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Тыйым салынған нөмірлерден қоңыраулар немесе мәтіндік хабарлар алмайсыз."</string>
     <string name="block_number" msgid="1101252256321306179">"Нөмір қосу"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Жауап беру қазіргі бейне қоңырауды тоқтатады"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Жауап беру"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Қабылдамау"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Қоңырау шалу мүмкін емес, себебі бұндай қоңырауларға қолдау көрсететін есептік жазба жоқ."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Қоңырау шалу мүмкін емес, себебі <xliff:g id="OTHER_CALL">%1$s</xliff:g> қоңырауы белсенді."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Қоңырау шалу мүмкін емес, себебі <xliff:g id="OTHER_CALL">%1$s</xliff:g> қоңыраулары белсенді."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Қоңырау шалу мүмкін емес, себебі басқа қолданбадан қоңырау шалынуда."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Қабылданбаған қоңыраулар"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Қоңырауды бөгеу"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Жаңа қоңырау шалу <xliff:g id="OTHER_APP">%1$s</xliff:g> қоңырауын тоқтатады."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Қоңырау шалу әдісін таңдаңыз."</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Қоңырау бағытын <xliff:g id="OTHER_APP">%1$s</xliff:g> арқылы ауыстыру"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Телефон нөміріммен қоңырау шалу"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"<xliff:g id="OTHER_APP">%1$s</xliff:g> арқылы қоңырау шалу мүмкін емес. Басқа қоңырау бағыттайтын қолданбаны пайдаланып көріңіз немесе әзірлеушіден көмек сұраңыз."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Қоңырауды бөгеу"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Контактілерде жоқ нөмірлер"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Контактілерде жоқ нөмірлерді бөгеу"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Қоңырау бөгеу функциясы өшірулі"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Төтенше жағдай қоңырауы шалынды"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Төтенше жағдай қызметтері сізге хабарласа алуы үшін, қоңырау бөгеу функциясы өшірілді."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Telecom Developer мәзірі"</string>
 </resources>

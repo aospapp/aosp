@@ -28,12 +28,12 @@
 		<link>
 			<name>objenesis</name>
 			<type>2</type>
-                        <location>TRADEFED_ROOT/external/objenesis/main/src/main/java</location>
+			<locationURI>TRADEFED_ROOT/external/objenesis/main/src/main/java</locationURI>
 		</link>
 		<link>
-			<name>protobuf</name>
+			<name>tradefedproto</name>
 			<type>2</type>
-			<location>TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/host-libprotobuf-java-full_intermediates/proto/src</location>
+			<locationURI>TRADEFED_ROOT/out/soong/.intermediates/tools/tradefederation/core/tradefed-protos/linux_glibc_common/javac/srcjars</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

@@ -53,11 +53,10 @@ public class InflaterTest extends TestCaseWithRules {
         inflate.setInput(byteArray);
         inflate.end();
 
-        // Note that the RI throws an NPE here instead of an ISE (???).
         try {
             inflate.reset();
-            inflate.setInput(byteArray);
-        } catch (IllegalStateException expected) {
+        } catch (NullPointerException expected) {
+            // Expected
         }
 
         Inflater i = new Inflater();
@@ -424,11 +423,11 @@ public class InflaterTest extends TestCaseWithRules {
         inflate.end();
         try {
             inflate.inflate(outPutInf, offSet, 1);
-            fail("IllegalStateException expected");
+            fail("NullPointerException expected");
         } catch (DataFormatException e) {
             fail("Invalid input to be decompressed");
-        } catch (IllegalStateException e) {
-            //expected
+        } catch (NullPointerException expected) {
+            // Expected
         }
     }
 
@@ -1002,9 +1001,9 @@ public class InflaterTest extends TestCaseWithRules {
         infl1.end();
         try {
             infl1.setDictionary(dictionary2.getBytes());
-            fail("IllegalStateException expected");
-        } catch (IllegalStateException ise) {
-            //expected
+            fail("NullPointerException expected");
+        } catch (NullPointerException expected) {
+            // Expected
         }
     }
 
@@ -1137,41 +1136,38 @@ public class InflaterTest extends TestCaseWithRules {
 
         try {
             inflate.getAdler();
-            fail("IllegalStateException expected");
-        } catch (IllegalStateException expected) {
-            //expected
+            fail("NullPointerException expected");
+        } catch (NullPointerException expected) {
+            // Expected
         }
 
         try {
             inflate.getBytesRead();
             fail("NullPointerException expected");
-        } catch (IllegalStateException expected) {
         } catch (NullPointerException expected) {
-            //expected
+            // Expected
         }
 
         try {
             inflate.getBytesWritten();
             fail("NullPointerException expected");
         } catch (NullPointerException expected) {
-        } catch (IllegalStateException expected) {
-            //expected
+            // Expected
         }
 
 
         try {
             inflate.getTotalIn();
-            fail("IllegalStateException expected");
-        } catch (IllegalStateException ise) {
-            //expected
+            fail("NullPointerException expected");
+        } catch (NullPointerException expected) {
+            // Expected
         }
 
         try {
             inflate.getTotalOut();
-            fail("IllegalStateException expected");
-        } catch (IllegalStateException ise) {
-            //expected
+            fail("NullPointerException expected");
+        } catch (NullPointerException expected) {
+            // Expected
         }
-
     }
 }

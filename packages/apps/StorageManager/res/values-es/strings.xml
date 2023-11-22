@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="963247385700831716">"Administrador de Almacenamiento"</string>
+    <string name="app_name" msgid="963247385700831716">"Administrador de almacenamiento"</string>
     <string name="cancel" msgid="7021218262867558825">"Cancelar"</string>
     <string name="storage_menu_free" msgid="1878247401436882778">"Liberar espacio"</string>
     <string name="deletion_helper_title" msgid="3526170325226275927">"Eliminar elementos"</string>
@@ -62,6 +62,6 @@
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"El Administrador de Almacenamiento gestiona ahora el almacenamiento"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"No hay nada que eliminar"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"Revisar elementos recientes"</string>
-    <string name="empty_state_summary" msgid="8439893007424243790">"No hay archivos más antiguos que se puedan eliminar. Para liberar espacio, borra aplicaciones, fotos y vídeos recientes."</string>
+    <string name="empty_state_summary" msgid="8439893007424243790">"No hay archivos antiguos que se puedan eliminar. Para liberar espacio, borra aplicaciones, fotos y vídeos recientes."</string>
     <string name="app_requesting_space" msgid="857425181289960167">"<xliff:g id="APP">%1$s</xliff:g> necesita <xliff:g id="CLEARABLE_BYTES">%2$s</xliff:g> de espacio"</string>
 </resources>

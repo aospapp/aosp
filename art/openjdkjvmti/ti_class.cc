@@ -34,6 +34,7 @@
 #include "android-base/stringprintf.h"
 
 #include <mutex>
+#include <string_view>
 #include <unordered_set>
 
 #include "art_jvmti.h"
@@ -54,8 +55,9 @@
 #include "gc/heap.h"
 #include "gc_root.h"
 #include "handle.h"
-#include "jni_env_ext-inl.h"
-#include "jni_internal.h"
+#include "jni/jni_env_ext-inl.h"
+#include "jni/jni_internal.h"
+#include "mirror/array-alloc-inl.h"
 #include "mirror/array-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_ext.h"
@@ -63,7 +65,7 @@
 #include "mirror/object-refvisitor-inl.h"
 #include "mirror/object_array-inl.h"
 #include "mirror/object_reference.h"
-#include "mirror/reference.h"
+#include "mirror/reference-inl.h"
 #include "nativehelper/scoped_local_ref.h"
 #include "reflection.h"
 #include "runtime.h"
@@ -71,9 +73,12 @@
 #include "scoped_thread_state_change-inl.h"
 #include "thread-current-inl.h"
 #include "thread_list.h"
+#include "ti_class_definition.h"
 #include "ti_class_loader-inl.h"
+#include "ti_logging.h"
 #include "ti_phase.h"
 #include "ti_redefine.h"
+#include "transform.h"
 #include "well_known_classes.h"
 
 namespace openjdkjvmti {
@@ -89,10 +94,8 @@ static std::unique_ptr<const art::DexFile> MakeSingleDexFile(art::Thread* self,
   // Make the mmap
   std::string error_msg;
   art::ArrayRef<const unsigned char> final_data(final_dex_data, final_len);
-  std::unique_ptr<art::MemMap> map(Redefiner::MoveDataToMemMap(orig_location,
-                                                               final_data,
-                                                               &error_msg));
-  if (map.get() == nullptr) {
+  art::MemMap map = Redefiner::MoveDataToMemMap(orig_location, final_data, &error_msg);
+  if (!map.IsValid()) {
     LOG(WARNING) << "Unable to allocate mmap for redefined dex file! Error was: " << error_msg;
     self->ThrowOutOfMemoryError(StringPrintf(
         "Unable to allocate dex file for transformation of %s", descriptor).c_str());
@@ -100,21 +103,21 @@ static std::unique_ptr<const art::DexFile> MakeSingleDexFile(art::Thread* self,
   }
 
   // Make a dex-file
-  if (map->Size() < sizeof(art::DexFile::Header)) {
+  if (map.Size() < sizeof(art::DexFile::Header)) {
     LOG(WARNING) << "Could not read dex file header because dex_data was too short";
     art::ThrowClassFormatError(nullptr,
                                "Unable to read transformed dex file of %s",
                                descriptor);
     return nullptr;
   }
-  uint32_t checksum = reinterpret_cast<const art::DexFile::Header*>(map->Begin())->checksum_;
-  std::string map_name = map->GetName();
+  uint32_t checksum = reinterpret_cast<const art::DexFile::Header*>(map.Begin())->checksum_;
+  std::string map_name = map.GetName();
   const art::ArtDexFileLoader dex_file_loader;
   std::unique_ptr<const art::DexFile> dex_file(dex_file_loader.Open(map_name,
                                                                     checksum,
                                                                     std::move(map),
-                                                                    /*verify*/true,
-                                                                    /*verify_checksum*/true,
+                                                                    /*verify=*/true,
+                                                                    /*verify_checksum=*/true,
                                                                     &error_msg));
   if (dex_file.get() == nullptr) {
     LOG(WARNING) << "Unable to load modified dex file for " << descriptor << ": " << error_msg;
@@ -145,7 +148,7 @@ class FakeJvmtiDeleter {
   FakeJvmtiDeleter() {}
 
   FakeJvmtiDeleter(FakeJvmtiDeleter&) = default;
-  FakeJvmtiDeleter(FakeJvmtiDeleter&&) = default;
+  FakeJvmtiDeleter(FakeJvmtiDeleter&&) noexcept = default;
   FakeJvmtiDeleter& operator=(const FakeJvmtiDeleter&) = default;
 
   template <typename U> void operator()(const U* ptr) const {
@@ -160,10 +163,10 @@ struct ClassCallback : public art::ClassLoadCallback {
                       art::Handle<art::mirror::Class> klass,
                       art::Handle<art::mirror::ClassLoader> class_loader,
                       const art::DexFile& initial_dex_file,
-                      const art::DexFile::ClassDef& initial_class_def ATTRIBUTE_UNUSED,
+                      const art::dex::ClassDef& initial_class_def ATTRIBUTE_UNUSED,
                       /*out*/art::DexFile const** final_dex_file,
-                      /*out*/art::DexFile::ClassDef const** final_class_def)
-      OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_) {
+                      /*out*/art::dex::ClassDef const** final_class_def)
+      override REQUIRES_SHARED(art::Locks::mutator_lock_) {
     bool is_enabled =
         event_handler->IsEventEnabledAnywhere(ArtJvmtiEvent::kClassFileLoadHookRetransformable) ||
         event_handler->IsEventEnabledAnywhere(ArtJvmtiEvent::kClassFileLoadHookNonRetransformable);
@@ -267,7 +270,8 @@ struct ClassCallback : public art::ClassLoadCallback {
     }
   }
 
-  void ClassLoad(art::Handle<art::mirror::Class> klass) REQUIRES_SHARED(art::Locks::mutator_lock_) {
+  void ClassLoad(art::Handle<art::mirror::Class> klass) override
+      REQUIRES_SHARED(art::Locks::mutator_lock_) {
     if (event_handler->IsEventEnabledAnywhere(ArtJvmtiEvent::kClassLoad)) {
       art::Thread* thread = art::Thread::Current();
       ScopedLocalRef<jclass> jklass(thread->GetJniEnv(),
@@ -289,7 +293,7 @@ struct ClassCallback : public art::ClassLoadCallback {
 
   void ClassPrepare(art::Handle<art::mirror::Class> temp_klass,
                     art::Handle<art::mirror::Class> klass)
-      REQUIRES_SHARED(art::Locks::mutator_lock_) {
+      override REQUIRES_SHARED(art::Locks::mutator_lock_) {
     if (event_handler->IsEventEnabledAnywhere(ArtJvmtiEvent::kClassPrepare)) {
       art::Thread* thread = art::Thread::Current();
       if (temp_klass.Get() != klass.Get()) {
@@ -381,7 +385,7 @@ struct ClassCallback : public art::ClassLoadCallback {
     void VisitRoots(art::mirror::Object*** roots,
                     size_t count,
                     const art::RootInfo& info ATTRIBUTE_UNUSED)
-        OVERRIDE {
+        override {
       for (size_t i = 0; i != count; ++i) {
         if (*roots[i] == input_) {
           *roots[i] = output_;
@@ -392,7 +396,7 @@ struct ClassCallback : public art::ClassLoadCallback {
     void VisitRoots(art::mirror::CompressedReference<art::mirror::Object>** roots,
                     size_t count,
                     const art::RootInfo& info ATTRIBUTE_UNUSED)
-        OVERRIDE REQUIRES_SHARED(art::Locks::mutator_lock_) {
+        override REQUIRES_SHARED(art::Locks::mutator_lock_) {
       for (size_t i = 0; i != count; ++i) {
         if (roots[i]->AsMirrorPtr() == input_) {
           roots[i]->Assign(output_);
@@ -418,7 +422,7 @@ struct ClassCallback : public art::ClassLoadCallback {
       WeakGlobalUpdate(art::mirror::Class* root_input, art::mirror::Class* root_output)
           : input_(root_input), output_(root_output) {}
 
-      art::mirror::Object* IsMarked(art::mirror::Object* obj) OVERRIDE {
+      art::mirror::Object* IsMarked(art::mirror::Object* obj) override {
         if (obj == input_) {
           return output_;
         }
@@ -713,7 +717,7 @@ jvmtiError ClassUtil::GetClassSignature(jvmtiEnv* env,
     if (!klass->IsProxyClass() && klass->GetDexCache() != nullptr) {
       art::StackHandleScope<1> hs(soa.Self());
       art::Handle<art::mirror::Class> h_klass = hs.NewHandle(klass);
-      art::mirror::ObjectArray<art::mirror::String>* str_array =
+      art::ObjPtr<art::mirror::ObjectArray<art::mirror::String>> str_array =
           art::annotations::GetSignatureAnnotationForClass(h_klass);
       if (str_array != nullptr) {
         std::ostringstream oss;
@@ -869,7 +873,7 @@ static jvmtiError CopyClassDescriptors(jvmtiEnv* env,
                                        /*out*/jint* count_ptr,
                                        /*out*/char*** classes) {
   jvmtiError res = OK;
-  std::set<art::StringPiece> unique_descriptors;
+  std::set<std::string_view> unique_descriptors;
   std::vector<const char*> descriptors;
   auto add_descriptor = [&](const char* desc) {
     // Don't add duplicates.
@@ -931,8 +935,8 @@ jvmtiError ClassUtil::GetClassLoaderClassDescriptors(jvmtiEnv* env,
     return ERR(ILLEGAL_ARGUMENT);
   } else if (!jnienv->IsInstanceOf(loader,
                                    art::WellKnownClasses::dalvik_system_BaseDexClassLoader)) {
-    LOG(ERROR) << "GetClassLoaderClassDescriptors is only implemented for BootClassPath and "
-               << "dalvik.system.BaseDexClassLoader class loaders";
+    JVMTI_LOG(ERROR, env) << "GetClassLoaderClassDescriptors is only implemented for "
+                          << "BootClassPath and dalvik.system.BaseDexClassLoader class loaders";
     // TODO Possibly return OK With no classes would  be better since these ones cannot have any
     // real classes associated with them.
     return ERR(NOT_IMPLEMENTED);

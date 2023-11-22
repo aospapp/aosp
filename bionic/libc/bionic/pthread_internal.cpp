@@ -35,30 +35,12 @@
 
 #include <async_safe/log.h>
 
+#include "private/ScopedRWLock.h"
 #include "private/bionic_futex.h"
-#include "private/bionic_sdk_version.h"
 #include "private/bionic_tls.h"
 
 static pthread_internal_t* g_thread_list = nullptr;
 static pthread_rwlock_t g_thread_list_lock = PTHREAD_RWLOCK_INITIALIZER;
-
-template <bool write> class ScopedRWLock {
- public:
-  ScopedRWLock(pthread_rwlock_t* rwlock) : rwlock_(rwlock) {
-    (write ? pthread_rwlock_wrlock : pthread_rwlock_rdlock)(rwlock_);
-  }
-
-  ~ScopedRWLock() {
-    pthread_rwlock_unlock(rwlock_);
-  }
-
- private:
-  pthread_rwlock_t* rwlock_;
-  DISALLOW_IMPLICIT_CONSTRUCTORS(ScopedRWLock);
-};
-
-typedef ScopedRWLock<true> ScopedWriteLock;
-typedef ScopedRWLock<false> ScopedReadLock;
 
 pthread_t __pthread_internal_add(pthread_internal_t* thread) {
   ScopedWriteLock locker(&g_thread_list_lock);
@@ -89,7 +71,7 @@ void __pthread_internal_remove(pthread_internal_t* thread) {
 static void __pthread_internal_free(pthread_internal_t* thread) {
   if (thread->mmap_size != 0) {
     // Free mapped space, including thread stack and pthread_internal_t.
-    munmap(thread->attr.stack_base, thread->mmap_size);
+    munmap(thread->mmap_base, thread->mmap_size);
   }
 }
 
@@ -98,7 +80,12 @@ void __pthread_internal_remove_and_free(pthread_internal_t* thread) {
   __pthread_internal_free(thread);
 }
 
-pthread_internal_t* __pthread_internal_find(pthread_t thread_id) {
+pid_t __pthread_internal_gettid(pthread_t thread_id, const char* caller) {
+  pthread_internal_t* thread = __pthread_internal_find(thread_id, caller);
+  return thread ? thread->tid : -1;
+}
+
+pthread_internal_t* __pthread_internal_find(pthread_t thread_id, const char* caller) {
   pthread_internal_t* thread = reinterpret_cast<pthread_internal_t*>(thread_id);
 
   // Check if we're looking for ourselves before acquiring the lock.
@@ -114,16 +101,16 @@ pthread_internal_t* __pthread_internal_find(pthread_t thread_id) {
   }
 
   // Historically we'd return null, but
-  if (bionic_get_application_target_sdk_version() >= __ANDROID_API_O__) {
+  if (android_get_application_target_sdk_version() >= __ANDROID_API_O__) {
     if (thread == nullptr) {
       // This seems to be a common mistake, and it's relatively harmless because
       // there will never be a valid thread at address 0, whereas other invalid
       // addresses might sometimes contain threads or things that look enough like
       // threads for us to do some real damage by continuing.
       // TODO: try getting rid of this when Treble lets us keep vendor blobs on an old API level.
-      async_safe_format_log(ANDROID_LOG_WARN, "libc", "invalid pthread_t (0) passed to libc");
+      async_safe_format_log(ANDROID_LOG_WARN, "libc", "invalid pthread_t (0) passed to %s", caller);
     } else {
-      async_safe_fatal("invalid pthread_t %p passed to libc", thread);
+      async_safe_fatal("invalid pthread_t %p passed to %s", thread, caller);
     }
   }
   return nullptr;

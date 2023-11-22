@@ -16,52 +16,67 @@
 
 package android.provider.cts;
 
+import static android.provider.cts.MediaStoreTest.TAG;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.platform.test.annotations.Presubmit;
 import android.provider.MediaStore.Audio.Artists;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio1;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio2;
-import android.test.InstrumentationTestCase;
+import android.util.Log;
 
-public class MediaStore_Audio_ArtistsTest extends InstrumentationTestCase {
+import androidx.test.InstrumentationRegistry;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+
+@Presubmit
+@RunWith(Parameterized.class)
+public class MediaStore_Audio_ArtistsTest {
+    private Context mContext;
     private ContentResolver mContentResolver;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Parameter(0)
+    public String mVolumeName;
 
-        mContentResolver = getInstrumentation().getContext().getContentResolver();
+    @Parameters
+    public static Iterable<? extends Object> data() {
+        return ProviderTestUtils.getSharedVolumeNames();
     }
 
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mContentResolver = mContext.getContentResolver();
+
+        Log.d(TAG, "Using volume " + mVolumeName);
+    }
+
+    @Test
     public void testGetContentUri() {
         Cursor c = null;
         assertNotNull(c = mContentResolver.query(
-                Artists.getContentUri(MediaStoreAudioTestHelper.INTERNAL_VOLUME_NAME), null, null,
-                    null, null));
-        c.close();
-        assertNotNull(c = mContentResolver.query(
-                Artists.getContentUri(MediaStoreAudioTestHelper.INTERNAL_VOLUME_NAME), null, null,
+                Artists.getContentUri(mVolumeName), null, null,
                 null, null));
         c.close();
-
-        // can not accept any other volume names
-        String volume = "fakeVolume";
-        assertNull(mContentResolver.query(Artists.getContentUri(volume), null, null, null, null));
     }
 
-    public void testStoreAudioArtistsInternal() {
-        testStoreAudioArtists(true);
-    }
-
-    public void testStoreAudioArtistsExternal() {
-        testStoreAudioArtists(false);
-    }
-
-    private void testStoreAudioArtists(boolean isInternal) {
-        Uri artistsUri = isInternal ? Artists.INTERNAL_CONTENT_URI : Artists.EXTERNAL_CONTENT_URI;
+    @Test
+    public void testStoreAudioArtists() {
+        Uri artistsUri = Artists.getContentUri(mVolumeName);
         // do not support insert operation of the artists
         try {
             mContentResolver.insert(artistsUri, new ContentValues());
@@ -70,8 +85,7 @@ public class MediaStore_Audio_ArtistsTest extends InstrumentationTestCase {
             // expected
         }
         // the artist items are inserted when inserting audio media
-        Uri uri = isInternal ? Audio1.getInstance().insertToInternal(mContentResolver)
-                : Audio1.getInstance().insertToExternal(mContentResolver);
+        Uri uri = Audio1.getInstance().insert(mContentResolver, mVolumeName);
 
         String selection = Artists.ARTIST + "=?";
         String[] selectionArgs = new String[] { Audio1.ARTIST };

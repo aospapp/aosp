@@ -91,7 +91,7 @@ public abstract class BaseDeviceAdminHostSideTest extends BaseDevicePolicyTest {
     }
 
     public void testResetPassword_nycRestrictions() throws Exception {
-        if (!mHasFeature) {
+        if (!mHasFeature || !mHasSecureLockScreen) {
             return;
         }
 
@@ -111,7 +111,7 @@ public abstract class BaseDeviceAdminHostSideTest extends BaseDevicePolicyTest {
      * Run the tests in DeviceOwnerPasswordTest.java (as device owner).
      */
     public void testRunDeviceOwnerPasswordTest() throws Exception {
-        if (!mHasFeature) {
+        if (!mHasFeature || !mHasSecureLockScreen) {
             return;
         }
 

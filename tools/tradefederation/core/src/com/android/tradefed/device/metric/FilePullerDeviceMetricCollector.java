@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -56,15 +57,32 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
     )
     private boolean mCleanUp = true;
 
+    @Option(
+        name = "collect-on-run-ended-only",
+        description =
+                "Attempt to collect the files on test run end only instead of on both test cases "
+                        + "and test run ended."
+    )
+    private boolean mCollectOnRunEndedOnly = false;
+
     @Override
-    public void onTestRunEnd(
-            DeviceMetricData runData, final Map<String, Metric> currentRunMetrics) {
-        processMetricRequest(runData, TfMetricProtoUtil.compatibleConvert(currentRunMetrics));
+    public void onTestEnd(DeviceMetricData testData,
+            Map<String, Metric> currentTestCaseMetrics) {
+        if (mCollectOnRunEndedOnly) {
+            return;
+        }
+        processMetricRequest(testData, currentTestCaseMetrics);
     }
 
     @Override
-    public void onTestEnd(DeviceMetricData testData, Map<String, Metric> currentTestCaseMetrics) {
-        processMetricRequest(testData, TfMetricProtoUtil.compatibleConvert(currentTestCaseMetrics));
+    public void onTestRunEnd(
+            DeviceMetricData runData, final Map<String, Metric> currentRunMetrics) {
+        processMetricRequest(runData, currentRunMetrics);
+    }
+
+    /** Adds additional pattern keys to the pull from the device. */
+    protected void addKeys(String... keys) {
+        mKeys.addAll(Arrays.asList(keys));
     }
 
     /**
@@ -73,9 +91,9 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
      *
      * @param key the option key associated to the file that was pulled.
      * @param metricFile the {@link File} pulled from the device matching the option key.
-     * @param runData the run {@link DeviceMetricData} where metrics can be stored.
+     * @param data the {@link DeviceMetricData} where metrics can be stored.
      */
-    public abstract void processMetricFile(String key, File metricFile, DeviceMetricData runData);
+    public abstract void processMetricFile(String key, File metricFile, DeviceMetricData data);
 
     /**
      * Implementation of the method should allow to log the directory, parse it for metrics to be
@@ -83,12 +101,22 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
      *
      * @param key the option key associated to the directory that was pulled.
      * @param metricDirectory the {@link File} pulled from the device matching the option key.
-     * @param runData the run {@link DeviceMetricData} where metrics can be stored.
+     * @param data the {@link DeviceMetricData} where metrics can be stored.
      */
     public abstract void processMetricDirectory(
-            String key, File metricDirectory, DeviceMetricData runData);
+            String key, File metricDirectory, DeviceMetricData data);
 
-    private void processMetricRequest(DeviceMetricData data, Map<String, String> currentMetrics) {
+    /**
+     * Process the file associated with the matching key or directory name and update
+     * the data with any additional metrics.
+     *
+     * @param data where the final metrics will be stored.
+     * @param metrics where the key or directory name will be matched to the keys.
+     */
+    private void processMetricRequest(DeviceMetricData data,
+            Map<String, Metric> metrics) {
+        Map<String, String> currentMetrics = TfMetricProtoUtil
+                .compatibleConvert(metrics);
         if (mKeys.isEmpty() && mDirectoryKeys.isEmpty()) {
             return;
         }
@@ -109,17 +137,16 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
     }
 
     private Entry<String, File> pullMetricFile(
-            String pattern, final Map<String, String> currentRunMetrics) {
+            String pattern, final Map<String, String> currentMetrics) {
         Pattern p = Pattern.compile(pattern);
-        for (Entry<String, String> entry : currentRunMetrics.entrySet()) {
+        for (Entry<String, String> entry : currentMetrics.entrySet()) {
             if (p.matcher(entry.getKey()).find()) {
                 for (ITestDevice device : getDevices()) {
                     try {
                         File attemptPull = device.pullFile(entry.getValue());
                         if (attemptPull != null) {
                             if (mCleanUp) {
-                                device.executeShellCommand(
-                                        String.format("rm -f %s", entry.getValue()));
+                                device.deleteFile(entry.getValue());
                             }
                             // Return the actual key and the file associated
                             return new SimpleEntry<String, File>(entry.getKey(), attemptPull);
@@ -133,7 +160,8 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
                 }
             }
         }
-        CLog.e("Could not find a device file associated to pattern '%s'.", pattern);
+        // Not a hard failure, just nice to know
+        CLog.d("Could not find a device file associated to pattern '%s'.", pattern);
         return null;
     }
 
@@ -152,8 +180,7 @@ public abstract class FilePullerDeviceMetricCollector extends BaseDeviceMetricCo
                 try {
                     if (device.pullDir(keyDirectory, tmpDestDir)) {
                         if (mCleanUp) {
-                            device.executeShellCommand(
-                                    String.format("rm -rf %s", keyDirectory));
+                            device.deleteFile(keyDirectory);
                         }
                         return new SimpleEntry<String, File>(keyDirectory, tmpDestDir);
                     }

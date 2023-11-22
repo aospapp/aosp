@@ -30,6 +30,7 @@ public final class VmsOperationRecorder {
     private static final VmsOperationRecorder INSTANCE = new VmsOperationRecorder(new Writer());
     private final Writer mWriter;
 
+    /** @hide */
     @VisibleForTesting
     public VmsOperationRecorder(Writer writer) {
         mWriter = writer;
@@ -132,6 +133,7 @@ public final class VmsOperationRecorder {
         if (isEnabled()) {
             try {
                 JSONObject args = new JSONObject();
+                args.put("publisherId", layersOffering.getPublisherId());
                 JSONArray offering = toJson(layersOffering);
                 if (offering.length() > 0) {
                     args.put("layerDependency", offering);

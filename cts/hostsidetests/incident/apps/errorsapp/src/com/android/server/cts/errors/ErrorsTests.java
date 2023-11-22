@@ -22,16 +22,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.DropBoxManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Used by ErrorTest. Spawns misbehaving activities so reports will appear in Dropbox.
@@ -43,6 +44,7 @@ public class ErrorsTests {
     private static final String CRASH_TAG = "data_app_crash";
     private static final String ANR_TAG = "data_app_anr";
     private static final String NATIVE_CRASH_TAG = "data_app_native_crash";
+    private static final String TOMBSTONE_TAG = "SYSTEM_TOMBSTONE";
 
     private static final int TIMEOUT_SECS = 60 * 3;
 
@@ -57,6 +59,9 @@ public class ErrorsTests {
         mDropbox = (DropBoxManager) mContext.getSystemService(Context.DROPBOX_SERVICE);
         mResultsReceivedSignal = new CountDownLatch(1);
         mStartMs = System.currentTimeMillis();
+
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "appops set " + mContext.getPackageName() + " android:get_usage_stats allow");
     }
 
     @Test
@@ -78,13 +83,18 @@ public class ErrorsTests {
     public void testANR() throws Exception {
         Log.i(TAG, "testANR");
 
+        // Require that we get an ANR entry that shows that the activity is blocked in onCreate.
         registerReceiver(mContext, mResultsReceivedSignal, ANR_TAG,
                 mContext.getPackageName() + ":TestProcess",
-                "Subject: Broadcast of Intent { act=android.intent.action.SCREEN_ON");
+                "com.android.server.cts.errors.ANRActivity.onCreate");
         Intent intent = new Intent();
         intent.setClass(mContext, ANRActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
+
+        final Intent receiver = new Intent(mContext, Receiver.class);
+        mContext.sendBroadcast(receiver);
+        Log.i(TAG, "testANR -- sent broadcast to " + receiver);
 
         assertTrue(mResultsReceivedSignal.await(TIMEOUT_SECS, TimeUnit.SECONDS));
     }
@@ -103,6 +113,20 @@ public class ErrorsTests {
         assertTrue(mResultsReceivedSignal.await(TIMEOUT_SECS, TimeUnit.SECONDS));
     }
 
+    @Test
+    public void testTombstone() throws Exception {
+        Log.i(TAG, "testTombstone");
+
+        registerReceiver(mContext, mResultsReceivedSignal, TOMBSTONE_TAG,
+                mContext.getPackageName() + ":TestProcess", "backtrace:");
+        Intent intent = new Intent();
+        intent.setClass(mContext, NativeActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+
+        assertTrue(mResultsReceivedSignal.await(TIMEOUT_SECS, TimeUnit.SECONDS));
+    }
+
     void registerReceiver(Context ctx, CountDownLatch onReceiveLatch, String wantTag,
             String... wantInStackTrace) {
         ctx.registerReceiver(new BroadcastReceiver() {
@@ -110,17 +134,24 @@ public class ErrorsTests {
             public void onReceive(Context context, Intent intent) {
                 // DropBox might receive other entries while we're waiting for the error
                 // entry, so we need to check the tag and stack trace before continuing.
-                DropBoxManager.Entry entry = mDropbox.getNextEntry(wantTag, mStartMs);
-                if (entry != null) {
-                    String stackTrace = entry.getText(10000); // Only need to check a few lines.
+                while (true) {
+                    final DropBoxManager.Entry entry = mDropbox.getNextEntry(wantTag, mStartMs);
+                    if (entry == null) {
+                        break;
+                    }
+                    Log.d(TAG, "ErrorsTest got message from drobpox: " + entry.getTag());
+                    mStartMs = entry.getTimeMillis();
+                    String stackTrace = entry.getText(64 * 1024);
                     boolean allMatches = true;
                     for (String line : wantInStackTrace) {
-                        allMatches &= stackTrace.contains(line);
+                        boolean matched = stackTrace.contains(line);
+                        Log.d(TAG, "   matched=" + matched + " line: " + line);
+                        allMatches &= matched;
                     }
-                    entry.close();
                     if (allMatches) {
                         onReceiveLatch.countDown();
                     }
+                    entry.close();
                 }
             }
         }, new IntentFilter(DropBoxManager.ACTION_DROPBOX_ENTRY_ADDED));

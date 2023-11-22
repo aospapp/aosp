@@ -24,11 +24,13 @@ import static org.mockito.Mockito.mock;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.ConfigurationDef;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.ILogSaver;
@@ -210,11 +212,14 @@ public class TfSuiteRunnerTest {
         mRunner.setDevice(mock(ITestDevice.class));
         mRunner.setBuild(mock(IBuildInfo.class));
         mRunner.setSystemStatusChecker(new ArrayList<>());
-        mRunner.setInvocationContext(new InvocationContext());
+        IInvocationContext context = new InvocationContext();
+        context.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mock(ITestDevice.class));
+        mRunner.setInvocationContext(context);
         // runs the expanded suite
         listener.testModuleStarted(EasyMock.anyObject());
-        listener.testRunStarted("suite/stub1", 0);
-        listener.testRunEnded(EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+        listener.testRunStarted(
+                EasyMock.eq("suite/stub1"), EasyMock.eq(0), EasyMock.eq(0), EasyMock.anyLong());
+        listener.testRunEnded(EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
         listener.testModuleEnded();
         EasyMock.replay(listener);
         mRunner.run(listener);

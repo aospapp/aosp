@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 public class CallBlockingTest extends BaseNumberBlockingClientTest {
     private static final String QUERY_CALL_THROUGH_OUR_CONNECTION_SERVICE = CallLog.Calls.NUMBER
             + " = ? AND " + CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME + " = ?";
+    public static final long WAIT_FOR_STATE_CHANGE_TIMEOUT_MS = 10000;
 
     private static CountDownLatch callRejectionCountDownLatch;
 
@@ -58,11 +59,13 @@ public class CallBlockingTest extends BaseNumberBlockingClientTest {
                 .setSupportedUriSchemes(Arrays.asList(PhoneAccount.SCHEME_TEL))
                 .build();
         mTelecomManager.registerPhoneAccount(phoneAccount);
+        assertPhoneAccountRegistered(phoneAccountHandle, true);
     }
 
     public void testUnregisterPhoneAccount() {
-        mTelecomManager.unregisterPhoneAccount(getPhoneAccountHandle());
-        assertNull(mTelecomManager.getPhoneAccount(getPhoneAccountHandle()));
+        PhoneAccountHandle handle = getPhoneAccountHandle();
+        mTelecomManager.unregisterPhoneAccount(handle);
+        assertPhoneAccountRegistered(handle, false);
     }
 
     public void testIncomingCallFromBlockedNumberIsRejected() throws Exception {
@@ -134,5 +137,47 @@ public class CallBlockingTest extends BaseNumberBlockingClientTest {
             connection.setAddress(address, TelecomManager.PRESENTATION_ALLOWED);
             return connection;
         }
+    }
+
+    private void assertPhoneAccountRegistered(final PhoneAccountHandle handle,
+            boolean isRegistered) {
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return true;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        PhoneAccount phoneAccount = mTelecomManager.getPhoneAccount(handle);
+                        return isRegistered ? phoneAccount != null : phoneAccount == null;
+                    }
+                },
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Phone account registered for " + handle
+        );
+    }
+
+    private void waitUntilConditionIsTrueOrTimeout(Condition condition, long timeout,
+            String description) {
+        final long start = System.currentTimeMillis();
+        while (!condition.expected().equals(condition.actual())
+                && System.currentTimeMillis() - start < timeout) {
+            sleep(50);
+        }
+        assertEquals(description, condition.expected(), condition.actual());
+    }
+
+    private void sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+        }
+    }
+
+    protected interface Condition {
+        Object expected();
+        Object actual();
     }
 }

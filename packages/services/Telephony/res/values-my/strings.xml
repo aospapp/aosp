@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"USSD ကုဒ် လုပ်ဆောင်နေပါသည်…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"MMIကုတ်နံပါတ်ကို ပယ်ဖျက်ပြီးပါပြီ"</string>
     <string name="cancel" msgid="5044513931633602634">"မလုပ်တော့"</string>
-    <string name="enter_input" msgid="1810529547726803893">"USSD စာများဟာ စာလုံးရေ <xliff:g id="MIN_LEN">%d</xliff:g> မှ<xliff:g id="MAX_LEN">%d</xliff:g> အတွင်း ဖြစ်ရပါမည်။ နောက်တစ်ခေါက်ကြိုးစားပါ"</string>
+    <string name="enter_input" msgid="1810529547726803893">"USSD စာများဟာ စာလုံးရေ <xliff:g id="MIN_LEN">%1$d</xliff:g> မှ<xliff:g id="MAX_LEN">%2$d</xliff:g> အတွင်း ဖြစ်ရပါမည်။ နောက်တစ်ခေါက်ကြိုးစားပါ"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"ကွန်းဖရင့် ခေါ်ဆိုမှုကို ထိန်းချုပ်သည်"</string>
     <string name="ok" msgid="3811371167865772377">"OK"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"စပီကာ"</string>
@@ -42,8 +42,8 @@
     <string name="pause_prompt_yes" msgid="3564467212025151797">"Yes"</string>
     <string name="pause_prompt_no" msgid="6686238803236884877">"No"</string>
     <string name="wild_prompt_str" msgid="5543521676355533577">"wildစာလုံးကို အစားထိုးရန်မှာ"</string>
-    <string name="no_vm_number" msgid="4164780423805688336">"အသံစာပို့စနစ် နံပါတ် ပျောက်နေပါသည်"</string>
-    <string name="no_vm_number_msg" msgid="1300729501030053828">"ဆင်းမ်ကဒ်ပေါ်တွင် အသံစာပို့စနစ် နံပါတ် သိမ်းဆည်ထားခြင်း မရှိပါ"</string>
+    <string name="no_vm_number" msgid="4164780423805688336">"အသံမေးလ် နံပါတ် ပျောက်နေပါသည်"</string>
+    <string name="no_vm_number_msg" msgid="1300729501030053828">"ဆင်းမ်ကဒ်ပေါ်တွင် အသံမေးလ် နံပါတ် သိမ်းဆည်ထားခြင်း မရှိပါ"</string>
     <string name="add_vm_number_str" msgid="4676479471644687453">"နံပါတ်ထပ်ထည့်ရန်"</string>
     <string name="voice_number_setting_primary_user_only" msgid="6596604364907022416">"အသံမေးလ်ဆက်တင်များကို အဓိကအသုံးပြုသူသာ ပြင်ဆင်နိုင်ပါသည်။"</string>
     <string name="puk_unlocked" msgid="2284912838477558454">"သင့် ဆင်းမ်ကဒ်အား ပိတ်ဆို့မှုကို ဖယ်ရှားပြီးပါပြီ။ သင့်ဖုန်းဟာ သော့ဖွင့်နေပါသည်…"</string>
@@ -74,9 +74,12 @@
     <string name="phone_accounts_all_calling_accounts_summary" msgid="8594186415822657011">"ဖုန်းခေါ်ဆိုနိုင်သည့် အကောင့်များအား ရွေးရန်"</string>
     <string name="wifi_calling" msgid="739018212480165598">"Wi-Fi  ခေါ်ဆိုမှု"</string>
     <string name="connection_service_default_label" msgid="1498481943805913754">"တပ်ဆင်ပြီး ချိတ်ဆက်ရေး ဝန်ဆောင်မှု"</string>
-    <string name="voicemail" msgid="8693759337917898954">"အသံစာပို့စနစ်"</string>
-    <string name="voicemail_settings_with_label" msgid="152724978380748296">"အသံစာပို့စနစ် ( <xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g> )"</string>
+    <string name="voicemail" msgid="8693759337917898954">"အသံမေးလ်"</string>
+    <string name="voicemail_settings_with_label" msgid="152724978380748296">"အသံမေးလ် ( <xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g> )"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"အသံစာပို့နစ်အမှတ် -"</string>
+    <string name="make_and_receive_calls" msgid="1258596928285972166">"ဖုန်းခေါ်ဆိုမှုများ ပြုလုပ်ခြင်း &amp; လက်ခံခြင်း"</string>
+    <string name="smart_forwarding_settings_menu" msgid="3874243342391798449">"အဆင့်မြင့် ထပ်ဆင့်ပို့ခြင်း"</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="8962247659470565059">"နံပါတ်တစ်ခုကို ဆက်သွယ်၍ မရနိုင်ပါက ဖုန်းခေါ်ဆိုမှုများကို သင်၏ အခြားနံပါတ်သို့ အချိန်မရွေး ထပ်ဆင့်ပို့ပါ"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"အကြောင်းကြားချက်များ"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"အရေးပေါ် ထုတ်လွှင့်မှုများ"</string>
     <string name="call_settings" msgid="6112441768261754562">"ဖုန်းခေါ်ဆိုခြင်း ဆက်တင်များ"</string>
@@ -143,11 +146,11 @@
     <item msgid="1108394741608734023">"နံပါတ်ကို ပြပါ"</item>
   </string-array>
     <string name="vm_changed" msgid="380744030726254139">"အသံစာပို့စနစ်နံပါတ် ပြောင်းပြီးပါပြီ"</string>
-    <string name="vm_change_failed" msgid="3352934863246208918">"အသံစာပို့စနစ် နံပါတ်အား ပြောင်းလို့ မရပါ။\nဒီပြသနာ ဆက်ဖြစ်နေပါက သင့်ဖုန်းလိုင်းဝန်ဆောင်မှုဌာနကို ဆက်သွယ်ပါ"</string>
+    <string name="vm_change_failed" msgid="3352934863246208918">"အသံမေးလ် နံပါတ်အား ပြောင်းလို့ မရပါ။\nဒီပြသနာ ဆက်ဖြစ်နေပါက သင့်ဖုန်းလိုင်းဝန်ဆောင်မှုဌာနကို ဆက်သွယ်ပါ"</string>
     <string name="fw_change_failed" msgid="5298103228470214665">"forwarding နံပါတ်အား ပြောင်းလို့ မရပါ။\nဒီပြသနာ ဆက်ဖြစ်နေပါက သင့်ရဲ့ မိုဘိုင်း ဆက်သွယ်ရေးဝန်ဆောင်မှု ပေးသူကို ဆက်သွယ်ပါ"</string>
     <string name="fw_get_in_vm_failed" msgid="8862896836093833973">"လက်ရှိ forwarding နံပါတ် အပြင်အဆင်အား ရယူခြင်းနှင့် သိမ်းဆည်းခြင်း ပြုလုပ်မရပါ\nဘယ်လိုဖြစ်ဖြစ် ဝန်ဆောင်မှု ပေးသူ အသစ်ပြောင်းပါမလား။"</string>
     <string name="no_change" msgid="3186040086622435212">"အပြောင်းအလဲများ မပြုလုပ်ထားပါ"</string>
-    <string name="sum_voicemail_choose_provider" msgid="59911196126278922">"အသံစာပို့စနစ် ဝန်ဆောင်မှု ရွေးပါ"</string>
+    <string name="sum_voicemail_choose_provider" msgid="59911196126278922">"အသံမေးလ် ဝန်ဆောင်မှု ရွေးပါ"</string>
     <string name="voicemail_default" msgid="2001233554889016880">"သင့် မိုဘိုင်းဝန်ဆောင်မှုပေးသူ"</string>
     <string name="vm_change_pin_old_pin" msgid="7295220109886682573">"ပင်နံပါတ်အဟောင်း"</string>
     <string name="vm_change_pin_new_pin" msgid="5412922262839438097">"ပင်နံပါတ်အသစ်"</string>
@@ -170,6 +173,7 @@
     <string name="registration_done" msgid="495135664535876612">"ကွန်ယက်ပေါ်တွင် မှတ်ပုံတင်ထားခြင်း"</string>
     <string name="already_auto" msgid="6067116884321285507">"အလိုအလျောက် ရွေးချယ်မှုထဲတွင် ပါပြီးသားဖြစ်သည်။"</string>
     <string name="select_automatically" msgid="1046727200631770962">"ကွန်ရက်ကို အလိုအလျောက် ရွေးချယ်ရန်"</string>
+    <string name="manual_mode_disallowed_summary" msgid="70662262085937277">"%1$s သို့ ချိတ်ဆက်ထားချိန်တွင် မရရှိနိုင်ပါ"</string>
     <string name="network_select_title" msgid="7733107364757544558">"ကွန်ရက်"</string>
     <string name="register_automatically" msgid="6017849844573519637">"အလိုအလျောက် မှတ်ပုံတင်ခြင်း…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"ပိုနှစ်သက်သော ကွန်ရက်အမျိုးအစား"</string>
@@ -235,8 +239,12 @@
     <string name="call_category" msgid="5863978196309462052">"ခေါ်ဆိုခြင်း"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"ကွန်ရက်"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"မြှင့်တင်ထား 4G LTE မုဒ်"</string>
-    <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"အဆင့်မြင့်ဖုန်းခေါ်ဆိုခြင်း"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"အသံခေါ်ဆိုမှုနှင့် အခြားဆက်သွယ်ရေးများ တိုးတက်စေရန် LTE ဝန်ဆောင်မှုများ ကိုအသုံးပြုမည် (အကြံပြုထား)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"အသံခေါ်ဆိုမှုနှင့် အခြားဆက်သွယ်ရေးများ ပိုမိုကောင်းမွန်စေရန် 4G ဝန်ဆောင်မှုများ အသုံးပြုပါ (အကြံပြုထားသည်)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"ဒေတာ ဖွင့်ထားပြီး"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"ဒေတာ သုံးစွဲမှု ခွင့်ပြုရန်"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"သတိပြုရန်"</string>
@@ -393,14 +401,14 @@
     <string name="fdn_activation" msgid="2156479741307463576">"FDN အက်တီဗေးရှင်း ပြုလုပ်သည်"</string>
     <string name="fdn_enabled" msgid="5238109009915521240">"ပုံသေခေါ်ဆိုမှု နံပါတ်များအား ဖွင့်ထားသည်"</string>
     <string name="fdn_disabled" msgid="4700049736675368279">"ခေါ်ဆိုနိုင်သည့် နံပါတ်များကန့်သတ်မှုကို ပိတ်ထားသည်"</string>
-    <string name="enable_fdn" msgid="3740191529180493851">"FDN ကို သုံးနိုင်ရန်"</string>
+    <string name="enable_fdn" msgid="3740191529180493851">"FDN ဖွင့်ရန်"</string>
     <string name="disable_fdn" msgid="7944020890722540616">"FDN ကို ပိတ်ထားရန်"</string>
     <string name="change_pin2" msgid="2153563695382176676">"ပင်နံပါတ်၂ ကို ပြောင်းရန်"</string>
     <string name="enable_fdn_ok" msgid="7215588870329688132">"FDN ကို ပယ်ဖျက်ရန်"</string>
-    <string name="disable_fdn_ok" msgid="5727046928930740173">"FDN ကို သုံးနိုင်ရန်"</string>
+    <string name="disable_fdn_ok" msgid="5727046928930740173">"FDN ဖွင့်ရန်"</string>
     <string name="sum_fdn" msgid="1959399454900272878">"ခေါ်ဆိုသည့်အခြေစိုက်နံပါတ်အားကြီးကြပ်သည်"</string>
     <string name="sum_fdn_change_pin" msgid="6666549734792827932">"FDN သုံးစွဲမှုအတွက် ပင် နံပါတ်ပြောင်းပါ"</string>
-    <string name="sum_fdn_manage_list" msgid="8431088265332628316">"ဖုန်းနံပါတ်စာရင်းကို ကြီးကြပ်ရန်"</string>
+    <string name="sum_fdn_manage_list" msgid="8431088265332628316">"ဖုန်းနံပါတ်စာရင်းကို စီမံရန်"</string>
     <string name="voice_privacy" msgid="3776841382844614716">"အသံလုံခြုံရေး"</string>
     <string name="voice_privacy_summary" msgid="3159383389833516214">"တိုးမြှင့်လုံခြုံရေးစနစ် ပြုလုပ်ခြင်း"</string>
     <string name="tty_mode_option_title" msgid="9033098925144434669">"TTY မုဒ်"</string>
@@ -482,7 +490,7 @@
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"<xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g> ကိုခေါ်ပါ"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"အသံဖုန်းခေါ်မှုနံပါတ် မသိပါ"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"ဝန်ဆောင်မှု မရှိပါ"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"ရွေးချယ်ထားသော ကွန်ရက် (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) မရရှိနိုင်ပါ"</string>
+    <string name="notification_network_selection_text" msgid="7550380440576731104">"ရွေးထားသော ကွန်ရက်<xliff:g id="OPERATOR_NAME">%s</xliff:g> ကို အသုံးမပြုနိုင်ပါ"</string>
     <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"ဖုန်းခေါ်ရန် မိုဘိုင်းကွန်ရက်ဖွင့်ပြီး လေယာဉ်ပျံမုဒ် (သို့) ဘက်ထရီချွေတာရေးမုဒ်ကို ပိတ်ပါ။"</string>
     <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"ဖုန်းခေါ်ရန် လေယာဉ်ပျံမုဒ် ပိတ်ထားပါ။"</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"ဖုန်းခေါ်ရန် လေယာဉ်ပျံမုဒ် ပိတ်ပါ သို့မဟုတ် ကြိုးမဲ့ကွန်ယက်သို့ ချိတ်ဆက်ပါ။"</string>
@@ -495,21 +503,32 @@
     <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"ယခုအချိန်တွင် ခေါ်ဆိုမှု ထပ်မထည့်နိုင်ပါ။ မက်ဆေ့ဂျ်ပို့ဆောင်ခြင်းဖြင့်လည်း ဆက်သွယ်ရန်ကြိုးစားနိုင်ပါသည်။"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"ဤဝန်ဆောင်မှုအား မပံ့ပိုးပါ။"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"ဖုန်းခေါ်ခြင်းများကြား မကူးပ​ြောင်းနိုင်ပါ။"</string>
+    <string name="incall_error_supp_service_resume" msgid="7147983409782027448">"ဖုန်းဆက်ပြော၍ မရပါ။"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"ဖုန်းခေါ်ခြင်းအား မခွဲထုတ်နိုင်ပါ။"</string>
     <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"မလွှဲပြောင်းနိုင်ပါ။"</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"ကွန်းဖရင့် ပြုလုပ်၍ မရပါ"</string>
+    <string name="incall_error_supp_service_conference" msgid="2530955482970678150">"ဖုန်းခေါ်ဆိုမှုများကို ပေါင်းစည်း၍ မရပါ။"</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"ဖုန်းခေါ်ခြင်းအား မငြင်းဆိုနိုင်ပါ။"</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"ဖုန်းခေါ်ခြင်း(များ)အား လွှတ်မပေးနိုင်ပါ။"</string>
     <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"ခေါ်ဆိုမှုများကို ကိုင်ထား၍မရပါ။"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"ဖုန်းခေါ်ရန် ကြိုးမဲကွန်ယက်တစ်ခုသို့ ချိတ်ဆက်ပါ။"</string>
     <string name="incall_error_promote_wfc" msgid="106510757624022064">"ဖုန်းဆက်ရန် Wi-Fi ခေါ်ဆိုခြင်းကို ဖွင့်ပါ။"</string>
+    <string name="emergency_information_hint" msgid="399011533038204351">"အရေးပေါ် အချက်အလက်"</string>
+    <string name="emergency_information_owner_hint" msgid="688331472291637149">"ပိုင်ရှင်"</string>
+    <string name="emergency_information_confirm_hint" msgid="4039012670779853030">"အချက်အလက်ကြည့်ရန် ထပ်နှိပ်ပါ"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"အရေးပေါ်ခေါ်ဆိုမှု"</string>
+    <string name="single_emergency_number_title" msgid="4959203129714396515">"အရေးပေါ် နံပါတ်"</string>
+    <string name="numerous_emergency_numbers_title" msgid="754158099451343898">"အရေးပေါ် နံပါတ်များ"</string>
+    <string name="emergency_call_shortcut_hint" msgid="6506167229097004348">"<xliff:g id="EMERGENCY_NUMBER">%s</xliff:g> ကို ဖုန်းခေါ်ရန် ထပ်တို့ပါ"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"ရေဒီယို ဖွင့်နေစဉ်…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"ဝန်ဆောင်မှု မရှိပါ။ ထပ်မံကြိုးစားပါ…"</string>
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"အရေးပေါ်ဖုန်းခေါ်ဆိုနေစဉ် လေယာဉ်ပျံသန်းနေစဉ် သုံးသောစနစ်သို့ မဝင်ရောက်နိုင်ပါ"</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"မခေါ်ဆိုနိုင်ပါ။ <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> က အရေးပေါ်နံပါတ် မဟုတ်ပါ။"</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"မခေါ်ဆိုနိုင်ပါ။ အရေးပေါ်ဖုန်းနံပါတ်တစ်ခုကို နှိပ်ပါ။"</string>
     <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"အရေးပေါ် ခေါ်ဆို၍ မရပါ"</string>
+    <string name="police_type_description" msgid="5324410799919829693">"ရဲ"</string>
+    <string name="ambulance_type_description" msgid="4114815025408089866">"လူနာတင်ယာဉ်"</string>
+    <string name="fire_type_description" msgid="7145996705197064710">"မီး"</string>
+    <string name="description_concat_format" msgid="7141070875487870177">"%1$s၊ %2$s"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"ကီးဘုတ်သုံး၍ခလုတ်နှိပ်ပါ"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"ကိုင်ထားသည်"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"ပြီးပါပြီ"</string>
@@ -586,8 +605,8 @@
     <string name="alert_dialog_no" msgid="1476091437797628703">"No"</string>
     <string name="alert_dialog_dismiss" msgid="2491494287075907171">"ပယ်ရန်"</string>
     <string name="voicemail_provider" msgid="5135942703327136909">"ဝန်ဆောင်မှု"</string>
-    <string name="voicemail_settings" msgid="72448049107749316">"ပြင်ဆင်သတ်မှတ်သည်"</string>
-    <string name="voicemail_number_not_set" msgid="6724904736891087856">"မသတ်မှတ်ထားပါ"</string>
+    <string name="voicemail_settings" msgid="72448049107749316">"စနစ်သတ်မှတ်ခြင်း"</string>
+    <string name="voicemail_number_not_set" msgid="6724904736891087856">"သတ်မှတ်မထားပါ"</string>
     <string name="other_settings" msgid="3672912580359716394">"တခြားခေါ်ဆိုမှုဆိုင်ရာ ဆက်တင်"</string>
     <string name="calling_via_template" msgid="4839419581866928142">"<xliff:g id="PROVIDER_NAME">%s</xliff:g> မှ ခေါ်ဆိုခြင်း"</string>
     <string name="contactPhoto" msgid="4713193418046639466">"အဆက်အသွယ်များ၏ ဓာတ်ပုံ"</string>
@@ -595,6 +614,8 @@
     <string name="selectContact" msgid="781975788478987237">"လိပ်စာရွေးပါ"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"အသံခေါ်ဆိုမှု ထောက်ံပံ့ခြင်းမရှိပါ"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"ဖုန်းခေါ်ခြင်း"</string>
+    <string name="description_dialpad_button" msgid="5220006811894230590">"နံပါတ်အကွက် ပြရန်"</string>
+    <string name="pane_title_emergency_dialpad" msgid="1148505414688493134">"အရေးပေါ် နံပါတ်ကွက်"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"အမြင် အသံမေးလ်"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"ပင်နံပါတ်သတ်မှတ်ရန်"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"ပင်နံပါတ်ပြောင်းပါ"</string>
@@ -645,58 +666,58 @@
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"ဒေတာ ထည့်ရန်"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"မလုပ်တော့"</string>
     <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"ခေါ်ဆိုမှု ပြီးသွားပါပြီ"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"ရေဒီယို ပိတ်ထားသည်"</string>
-    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"ဆင်းမ်ကဒ် မရှိပါ (သို့) ဆင်းမ်ကဒ် အမှားအယွင်း"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="1049579267090569308">"လေယာဉ်ပျံမုဒ်ကို ဖွင့်ထားပါသည်"</string>
+    <string name="clh_callFailed_simError_txt" msgid="7273306159809203315">"ဆင်းမ်ကဒ်ကို ဝင်၍ မရပါ"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"မိုဘိုင်း ကွန်ရက် မရှိပါ"</string>
-    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"သတ်မှတ်မထားသော (ပေးမထားသော) နံပါတ်"</string>
-    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"ဦးတည်ရာသို့ လမ်းကြောင်းမရှိပါ"</string>
-    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"ချန်နယ်ကို ခွင့်မပြုနိုင်ပါ"</string>
-    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"အော်ပရေတာ သတ်မှတ်ထားသော ပိတ်ပင်မှု"</string>
-    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"ပုံမှန်ခေါ်ဆိုမှု ရှင်းလင်းရေး"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="4722164461846838251">"သင်ခေါ်ဆိုနေသော ဖုန်းနံပါတ်တွင် လွဲချော်မှု ရှိပါသည်။ အမှားကုဒ် ၁။"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="2259464183880140671">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၃။"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="3159336281525222855">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၆။"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="1831977101604817389">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၈။"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="7369313431310446847">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၁၆။"</string>
     <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"အသုံးပြုသူ လိုင်းမအားပါ"</string>
-    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"အသုံးပြုသူ တုံ့ပြန်ချက် မရှိပါ"</string>
-    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"အသုံးပြုသူ သတိပေးချက်၊ ဖြေကြားမှု မရှိပါ"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="3675206502567252162">"အသုံးပြုသူက ဖြေကြားခြင်း မရှိပါ"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="363445537769733281">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၁၉။"</string>
     <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"ခေါ်ဆိုမှုကို ငြင်းပယ်လိုက်သည်"</string>
     <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"နံပါတ်ပြောင်းထားသည်"</string>
-    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"ကြိုတင် ဟန့်တားခြင်း"</string>
-    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"အသုံးပြုသူ ရှင်းလင်းမှု ရွေးချယ်မထားပါ"</string>
-    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"အထွက်ခေါ်ဆိုမှု အမှားအယွင်း"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="1100414016302714854">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၂၅။"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="6248192300127702626">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၂၆။"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="4879936907430554772">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၂၇။"</string>
     <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"နံပါတ်ဖော်မက် မမှန်ကန်ပါ (မပြည့်စုံသောနံပါတ်)"</string>
-    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"ပံ့ပိုးမှုကို ငြင်းပယ်လိုက်သည်"</string>
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"STATUS ENQUIRY သို့ ပြန်ကြားချက်"</string>
-    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"ပုံမှန်၊ သတ်မှတ်မထားပါ"</string>
-    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"ပတ်လမ်း၊ ချန်နယ် မရရှိနိုင်ပါ"</string>
-    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"ကွန်ရက် အမှားအယွင်း"</string>
-    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"ယာယီပြတ်တောက်မှု"</string>
-    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"ကိရိယာပြည့်ကျပ်မှု ပြောင်းလဲခြင်း"</string>
-    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"အသုံးပြုခွင့် အချက်အလက်များကို ဖယ်ပစ်လိုက်သည်"</string>
-    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"ပတ်လမ်း၊ ချန်နယ် တောင်းဆိုချက် မရရှိနိုင်ပါ"</string>
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"အရင်းအမြစ်များ မရရှိနိုင်ပါ၊ သတ်မှတ်မထားပါ"</string>
-    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"ဝန်ဆောင်မှု အရည်အသွေး မရရှိနိုင်ပါ"</string>
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"ပံပိုးမှုတောင်းဆိုချက်ကို စာရင်းသွင်းမထားပါ"</string>
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"CUG အတွင်း အဝင်ခေါ်ဆိုမှုများကို ပိတ်ပင်ထားသည်"</string>
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"ကိုင်ဆောင်သူ လုပ်ဆောင်ချက်ကို ခွင့်ပြုမထားပါ"</string>
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"လက်ရှိတွင် ကိုင်ဆောင်သူ လုပ်ဆောင်ချက်ကို မရရှိနိုင်ပါ"</string>
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"ဝန်ဆောင်မှု (သို့) ရွေးချယ်မှု မရရှိနိုင်ပါ၊ သတ်မှတ်မထားပါ"</string>
-    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"ကိုင်ဆောင်သူ ဝန်ဆောင်မှုကို ထည့်သွင်းမထားပါ"</string>
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM သည် ACMmax နှင့် ညီမျှပါသည် (သို့) ထက် ကြီးပါသည်"</string>
-    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"ပံ့ပိုးမှုတောင်းဆိုချက်ကို ဆောင်ရွက်မထားပါ"</string>
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"ကန့်သတ်ထားသော ဒစ်ဂျစ်တယ်အချက်အလက် ကိုင်ဆောင်သူ လုပ်ဆောင်ချက်ကိုသာလျှင် ရရှိနိုင်ပါသည်"</string>
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"ဝန်ဆောင်မှု (သို့) ရွေးချယ်မှု ဆောင်ရွက်မထားပါ၊ သတ်မှတ်မထားပါ"</string>
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"လွှဲပြောင်းမှုသတ်မှတ်သူ စံနှုန်း မမှန်ကန်ပါ"</string>
-    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"CUG အဖွဲ့ဝင်မဟုတ်သော အသုံးပြုသူ"</string>
-    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"အထွက်ဖုန်းခေါ်ဆိုမှု သဟဇာတ မဖြစ်ပါ"</string>
-    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"ဖြတ်သန်းသည့်ကွန်ရက်ရွေးချယ်မှု မမှန်ကန်ပါ"</string>
-    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"ဝေါဟာရအရင်းအမြစ်ဆိုင်ရာ မက်ဆေ့ဂျ် အမှား"</string>
-    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"ထည့်သွင်းရမည့်အချက်အလက် မမှန်ကန်ပါ"</string>
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"မက်ဆေ့ဂျ်အမျိုးအစား မရှိပါ (သို့) ဆောင်ရွက်မထားပါ"</string>
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"မက်ဆေ့ဂျ်အမျိုးအစားသည် ပရိုတိုကောအနေအထားနှင့် မကိုက်ညီပါ"</string>
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"အချက်အလက် မရှိပါ (သို့) ဆောင်ရွက်မထားပါ"</string>
-    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"အခြေအနေအရ IE အမှားအယွင်း"</string>
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"မက်ဆေ့ဂျ်သည် ပရိုတိုကောအနေအထားနှင့် မကိုက်ညီပါ"</string>
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"သတ်မှတ်ချိန်ကုန်ဆုံးပြီး ပြန်လည်ရယူမှုစတင်ခြင်း"</string>
-    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"ပရိုတိုကော အမှားအယွင်း၊ သတ်မှတ်မထားပါ"</string>
-    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"ဆက်နွယ်မှု၊ သတ်မှတ်မထားပါ"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="1028912823639389563">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၂၉။"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="1250833944238081212">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၃၀။"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="8765640093649364786">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၃၁။"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="6884477141997665736">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၃၄။"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="76447023032000125">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၃၈။"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="5057716306945664356">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၄၁။"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="4958831706265227632">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၄၂။"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="5033636666434831179">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၄၃။"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="3221429183862933558">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၄၄။"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="1385943395137055442">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၄၇။"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="8464132603057397297">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၄၉။"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="3853815238079666882">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၅၀။"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="6791665425652545510">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၅၅။"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="2975453855928450909">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၅၇။"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="753763978405557873">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၅၈။"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="1714515856150546668">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၆၃။"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="5433179845809692163">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၆၅။"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="4339523227014428123">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၆၈။"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="5217500914101821728">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၆၉။"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="2423146296631060723">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၇၀။"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="873208782556277597">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၇၉။"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3926779129494281620">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၈၁။"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="2517559636224367413">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၈၇။"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="7994154962189949306">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၈၈။"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="5847046471813330674">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၉၁။"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="5419940790658960361">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၉၅။"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="3350178645665420102">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၉၆။"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="7080310506268713895">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၉၇။"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="5251558113020693277">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၉၈။"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="1643642065908165846">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၉၉။"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="1622467860490603665">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၁၀၀။"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="3776039646804248109">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၁၀၁။"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="4529313282997136028">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၁၀၂။"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="4900075501687505296">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၁၁၁။"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="6701560054199411045">"ခေါ်ဆိုမှုကို မပြုလုပ်နိုင်ပါ။ အမှားကုဒ် ၁၂၇။"</string>
     <string name="labelCallBarring" msgid="3452870940716226978">"ခေါ်ဆိုမှုကို ပိတ်ပင်ရန်"</string>
     <string name="sum_call_barring_enabled" msgid="6804489690436703488">"ဖွင့်ထားသည်"</string>
     <string name="sum_call_barring_disabled" msgid="5900772179198857783">"ပိတ်ထားသည်"</string>
@@ -730,6 +751,8 @@
     <string name="messageCallBarring" msgid="2412123220272136055">"စကားဝှက် ထည့်ရန်"</string>
     <string name="call_barring_settings" msgid="80766145008623645">"ခေါ်ဆိုမှုပိတ်ပင်သော ဆက်တင်များ"</string>
     <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"ခေါ်ဆိုမှုပိတ်ပင်သော  ဆက်တင်အားလုံးကို ပယ်ဖျက်မလား။"</string>
+    <string name="callFailed_NetworkBusy" msgid="1068322087736565421">"ကွန်ရက် မအားပါ။ ဖုန်းခေါ်ဆိုမှုကို နောက်မှ ထပ်စမ်းကြည့်ပါ။"</string>
+    <string name="callFailed_NetworkCongested" msgid="3313449239735315125">"ကွန်ရက် ပြည့်ကျပ်နေသည်။ အကူအညီရယူရန် သင်၏ မိုဘိုင်း အော်ပရေတာကို ဆက်သွယ်ပါ။"</string>
     <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"ခေါ်ဆိုမှုကို လွှဲထားပါသည်။"</string>
     <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"ခေါ်ဆိုမှုကို ထပ်ဆင့်ပို့ထားပါသည်။"</string>
     <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"ခေါ်ဆိုမှုက စောင့်ဆိုင်းနေပါသည်။"</string>
@@ -747,4 +770,14 @@
     <string name="supp_service_forwarded_call" msgid="4509980341645679803">"ထပ်ဆင့်ပို့ထားသော ခေါ်ဆိုမှု။"</string>
     <string name="supp_service_conference_call" msgid="4448616364004466832">"အစည်းအဝေးခေါ်ဆိုမှုကို ချိတ်ဆက်နေပါသည်။"</string>
     <string name="supp_service_held_call_released" msgid="2030677825038709779">"ကိုင်ထားသော ဖုန်းကို ချလိုက်ပါပြီ။"</string>
+    <string name="callFailed_otasp_provisioning_in_process" msgid="6361786376484384454">"ကိရိယာကို လတ်တလော ပြင်ဆင်နေသဖြင့် ဖုန်းခေါ်၍ မရနိုင်ပါ။"</string>
+    <string name="callFailed_already_dialing" msgid="4652915396769232226">"အထွက်ခေါ်ဆိုမှု ပြုလုပ်ထားသဖြင့် ဖုန်းထပ်ခေါ်၍ မရနိုင်ပါ။"</string>
+    <string name="callFailed_already_ringing" msgid="7747655701540586943">"မဖြေကြားရသေးသော အဝင်ခေါ်ဆိုမှု ရှိနေသဖြင့် ဖုန်းခေါ်၍ မရနိုင်ပါ။ ဖုန်းခေါ်ဆိုမှုအသစ် မပြုလုပ်မီ ဖုန်းကိုင်ပါ (သို့) ငြင်းပယ်ပါ။"</string>
+    <string name="callFailed_calling_disabled" msgid="7257184079619449933">"ro.telephony.disable-call စနစ် မူပိုင်ခွင့် အသုံးပြုပြီး ခေါ်ဆိုခြင်းကို ပိတ်ထားသဖြင့် ဖုန်းခေါ်၍ မရနိုင်ပါ။"</string>
+    <string name="callFailed_too_many_calls" msgid="3023051919216926990">"ဖုန်းခေါ်ဆိုမှုနှစ်ခုကို ပြုလုပ်နေဆဲ ဖြစ်သဖြင့် ဖုန်းခေါ်၍ မရနိုင်ပါ။ ခေါ်ဆိုမှုအသစ် မပြုလုပ်မီ ၎င်းတို့ထဲမှ တစ်ခုကို ဖုန်းချပါ (သို့) အဖွဲ့လိုက် ပြောဆိုခြင်းအဖြစ် ပေါင်းစည်းပါ။"</string>
+    <string name="supp_service_over_ut_precautions" msgid="2565837355815074278">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> အသုံးပြုရန် မိုဘိုင်းဒေတာကို ဖွင့်ထားကြောင်း သေချာပါစေ။ ဤအရာကို မိုဘိုင်းကွန်ရက် ဆက်တင်များတွင် ပြောင်းနိုင်ပါသည်။"</string>
+    <string name="supp_service_over_ut_precautions_roaming" msgid="1597142936802114092">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> အသုံးပြုရန် မိုဘိုင်းဒေတာနှင့် ကွန်ရက်ပြင်ပဒေတာ အသုံးပြုခြင်းတို့ကို ဖွင့်ထားကြောင်း သေချာပါစေ။ ဤအရာများကို မိုဘိုင်းကွန်ရက် ဆက်တင်များတွင် ပြောင်းနိုင်ပါသည်။"</string>
+    <string name="supp_service_over_ut_precautions_dual_sim" msgid="1682814794340311300">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> အသုံးပြုရန် ဆင်းမ်ကတ် <xliff:g id="SIM_NUMBER">%2$d</xliff:g> အတွက် မိုဘိုင်းဒေတာကို ဖွင့်ထားကြောင်း သေချာပါစေ။ ဤအရာကို မိုဘိုင်းကွန်ရက် ဆက်တင်များတွင် ပြောင်းနိုင်ပါသည်။"</string>
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim" msgid="8062345092837168385">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> အသုံးပြုရန် ဆင်းမ်ကတ် <xliff:g id="SIM_NUMBER">%2$d</xliff:g> အတွက် မိုဘိုင်းဒေတာနှင့် ကွန်ရက်ပြင်ပဒေတာ အသုံးပြုခြင်းတို့ကို ဖွင့်ထားကြောင်း သေချာပါစေ။ ဤအရာများကို မိုဘိုင်းကွန်ရက် ဆက်တင်များတွင် ပြောင်းနိုင်ပါသည်။"</string>
+    <string name="supp_service_over_ut_precautions_dialog_dismiss" msgid="5061044213859557398">"ပယ်ရန်"</string>
 </resources>

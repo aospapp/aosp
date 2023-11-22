@@ -35,8 +35,7 @@ import android.widget.CheckBox;
 import android.widget.TextView;
 
 import androidx.annotation.StringRes;
-import androidx.car.utils.ColumnCalculator;
-import androidx.car.widget.DayNightStyle;
+import androidx.car.util.ColumnCalculator;
 import androidx.car.widget.PagedListView;
 
 import java.util.Iterator;
@@ -114,7 +113,7 @@ public class LensResolverActivity extends Activity implements
         // As a result, need to set the width of the title container programmatically.
         int defaultColumnSpan =
                 getResources().getInteger(R.integer.column_card_default_column_span);
-        int cardWidth = ColumnCalculator.getInstance(this /* context */).getSizeForColumnSpan(
+        int cardWidth = ColumnCalculator.getInstance(this /* context */).getColumnSpanWidth(
                 defaultColumnSpan);
         View titleAndCheckboxContainer = findViewById(R.id.title_checkbox_container);
         titleAndCheckboxContainer.getLayoutParams().width = cardWidth;
@@ -122,7 +121,6 @@ public class LensResolverActivity extends Activity implements
         mAlwaysCheckbox = (CheckBox) findViewById(R.id.always_checkbox);
 
         PagedListView pagedListView = (PagedListView) findViewById(R.id.list_view);
-        pagedListView.setDayNightStyle(DayNightStyle.FORCE_DAY);
 
         ResolverAdapter adapter = new ResolverAdapter(this /* context */, infos);
         adapter.setSelectionHandler(this);

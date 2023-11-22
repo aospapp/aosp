@@ -29,7 +29,6 @@ coreAppdomain = {
         'system_app',
         'untrusted_app',
         'untrusted_app_25',
-        'untrusted_v2_app',
         }
 coredomainWhitelist = {
         'adbd',
@@ -77,6 +76,7 @@ pol = None
 alltypes = set()
 oldalltypes = set()
 compatMapping = None
+pubtypes = set()
 
 # Distinguish between PRODUCT_FULL_TREBLE and PRODUCT_FULL_TREBLE_OVERRIDE
 FakeTreble = False
@@ -171,11 +171,13 @@ def setup(pol):
     GetCoreDomains()
 
 # setup for the policy compatibility tests
-def compatSetup(pol, oldpol, mapping):
+def compatSetup(pol, oldpol, mapping, types):
     global compatMapping
+    global pubtypes
 
     GetAllTypes(pol, oldpol)
     compatMapping = mapping
+    pubtypes = types
 
 def DomainsWithAttribute(attr):
     global alldomains
@@ -220,26 +222,30 @@ def TestCoredomainViolations():
     return ret
 
 ###
-# Make sure that any new type introduced in the new policy that was not present
-# in the old policy has been recorded in the mapping file.
+# Make sure that any new public type introduced in the new policy that was not
+# present in the old policy has been recorded in the mapping file.
 def TestNoUnmappedNewTypes():
     global alltypes
     global oldalltypes
     global compatMapping
+    global pubtypes
     newt = alltypes - oldalltypes
     ret = ""
     violators = []
 
     for n in newt:
-        if compatMapping.rTypeattributesets.get(n) is None:
+        if n in pubtypes and compatMapping.rTypeattributesets.get(n) is None:
             violators.append(n)
 
     if len(violators) > 0:
-        ret += "SELinux: The following types were found added to the policy "
-        ret += "without an entry into the compatibility mapping file(s) found "
-        ret += "in private/compat/" + compatMapping.apiLevel + "/"
-        ret +=  compatMapping.apiLevel + "[.ignore].cil\n"
-        ret += " ".join(str(x) for x in sorted(violators)) + "\n"
+        ret += "SELinux: The following public types were found added to the "
+        ret += "policy without an entry into the compatibility mapping file(s) "
+        ret += "found in private/compat/V.v/V.v[.ignore].cil, where V.v is the "
+        ret += "latest API level.\n"
+        ret += " ".join(str(x) for x in sorted(violators)) + "\n\n"
+        ret += "See examples of how to fix this:\n"
+        ret += "https://android-review.git.corp.google.com/c/platform/system/sepolicy/+/781036\n"
+        ret += "https://android-review.git.corp.google.com/c/platform/system/sepolicy/+/852612\n"
     return ret
 
 ###
@@ -260,8 +266,11 @@ def TestNoUnmappedRmTypes():
     if len(violators) > 0:
         ret += "SELinux: The following formerly public types were removed from "
         ret += "policy without a declaration in the compatibility mapping "
-        ret += "file(s) found in prebuilts/api/" + compatMapping.apiLevel + "/\n"
-        ret += " ".join(str(x) for x in sorted(violators)) + "\n"
+        ret += "found in private/compat/V.v/V.v[.ignore].cil, where V.v is the "
+        ret += "latest API level.\n"
+        ret += " ".join(str(x) for x in sorted(violators)) + "\n\n"
+        ret += "See examples of how to fix this:\n"
+        ret += "https://android-review.git.corp.google.com/c/platform/system/sepolicy/+/822743\n"
     return ret
 
 def TestTrebleCompatMapping():
@@ -323,6 +332,8 @@ if __name__ == '__main__':
     usage +="-m mapping file [--test test] [--help]"
     parser = OptionParser(option_class=MultipleOption, usage=usage)
     parser.add_option("-b", "--basepolicy", dest="basepolicy", metavar="FILE")
+    parser.add_option("-u", "--base-pub-policy", dest="base_pub_policy",
+                      metavar="FILE")
     parser.add_option("-f", "--file_contexts", dest="file_contexts",
             metavar="FILE", action="extend", type="string")
     parser.add_option("-l", "--library-path", dest="libpath", metavar="FILE")
@@ -353,19 +364,26 @@ if __name__ == '__main__':
             sys.exit("Error: File_contexts file " + f + " does not exist\n" +
                     parser.usage)
 
-    # Mapping files are only necessary for the TrebleCompatMapping test
+    # Mapping files and public platform policy are only necessary for the
+    # TrebleCompatMapping test.
     if options.tests is None or options.tests is "TrebleCompatMapping":
         if not options.basepolicy:
-            sys.exit("Must specify the current platform-only policy file\n" + parser.usage)
+            sys.exit("Must specify the current platform-only policy file\n"
+                     + parser.usage)
         if not options.mapping:
-            sys.exit("Must specify a compatibility mapping file\n" + parser.usage)
+            sys.exit("Must specify a compatibility mapping file\n"
+                     + parser.usage)
         if not options.oldpolicy:
-            sys.exit("Must specify the previous monolithic policy file\n" + parser.usage)
+            sys.exit("Must specify the previous monolithic policy file\n"
+                     + parser.usage)
+        if not options.base_pub_policy:
+            sys.exit("Must specify the current platform-only public policy "
+                     + ".cil file\n" + parser.usage)
         basepol = policy.Policy(options.basepolicy, None, options.libpath)
         oldpol = policy.Policy(options.oldpolicy, None, options.libpath)
         mapping = mini_parser.MiniCilParser(options.mapping)
-        compatSetup(basepol, oldpol, mapping)
-
+        pubpol = mini_parser.MiniCilParser(options.base_pub_policy)
+        compatSetup(basepol, oldpol, mapping, pubpol.types)
 
     if options.faketreble:
         FakeTreble = True

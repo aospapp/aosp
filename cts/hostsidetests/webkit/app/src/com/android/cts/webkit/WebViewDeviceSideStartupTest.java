@@ -31,8 +31,9 @@ import android.webkit.CookieSyncManager;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebView;
 import android.webkit.cts.CtsTestServer;
-import android.webkit.cts.WebViewOnUiThread;
-import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
+import android.webkit.cts.WebViewSyncLoader;
+import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
+import android.webkit.cts.WebkitUtils;
 import android.webkit.WebView;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
@@ -100,16 +101,16 @@ public class WebViewDeviceSideStartupTest
         // Now create WebView and test that setting the cookie beforehand really worked.
         mActivity.createAndAttachWebView();
         WebView webView = mActivity.getWebView();
-        WebViewOnUiThread onUiThread = new WebViewOnUiThread(this, mActivity.getWebView());
-        webView.setWebViewClient(new WaitForLoadedClient(onUiThread) {
+        WebViewSyncLoader syncLoader = new WebViewSyncLoader(webView);
+        webView.setWebViewClient(new WaitForLoadedClient(syncLoader) {
             @Override
             public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
                 // Not intended to verify server certificate, ignore the error.
                 if (error.getPrimaryError() == SslError.SSL_IDMISMATCH) handler.proceed();
             }
         });
-        onUiThread.loadUrlAndWaitForCompletion(url);
-        assertEquals("1|count=41", onUiThread.getTitle()); // outgoing cookie
+        syncLoader.loadUrlAndWaitForCompletion(url);
+        assertEquals("1|count=41", webView.getTitle()); // outgoing cookie
         CookieManager cookieManager = CookieManager.getInstance();
         String cookie = cookieManager.getCookie(url);
         assertNotNull(cookie);
@@ -117,6 +118,7 @@ public class WebViewDeviceSideStartupTest
         Matcher m = pat.matcher(cookie);
         assertTrue(m.matches());
         assertEquals("42", m.group(1)); // value got incremented
+        syncLoader.detach();
     }
 
     @UiThreadTest
@@ -140,11 +142,8 @@ public class WebViewDeviceSideStartupTest
             if (alreadyOnMainThread) {
                 mActivity.createAndAttachWebView();
             } else {
-                getInstrumentation().runOnMainSync(new Runnable() {
-                    @Override
-                    public void run() {
-                        mActivity.createAndAttachWebView();
-                    }
+                WebkitUtils.onMainThreadSync(() -> {
+                    mActivity.createAndAttachWebView();
                 });
             }
 
@@ -211,9 +210,10 @@ public class WebViewDeviceSideStartupTest
         // WebView is available, so try to call some WebView APIs to ensure they don't cause
         // strictmode violations
 
-        WebViewOnUiThread onUiThread = new WebViewOnUiThread(this, mActivity.getWebView());
-        onUiThread.loadUrlAndWaitForCompletion("about:blank");
-        onUiThread.loadUrlAndWaitForCompletion("");
+        WebViewSyncLoader syncLoader = new WebViewSyncLoader(mActivity.getWebView());
+        syncLoader.loadUrlAndWaitForCompletion("about:blank");
+        syncLoader.loadUrlAndWaitForCompletion("");
+        syncLoader.detach();
     }
 
     @UiThreadTest
@@ -232,16 +232,12 @@ public class WebViewDeviceSideStartupTest
         PackageManager pm = mActivity.getPackageManager();
         if (!pm.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)) return;
 
-        WebView[] webviewHolder = new WebView[1];
         // Create the WebView on the UI thread and then ensure webview.getWebViewLooper() returns
         // the UI thread.
-        getInstrumentation().runOnMainSync(new Runnable() {
-            @Override
-            public void run() {
-                webviewHolder[0] = createAndCheckWebViewLooper();
-            }
+        WebView webView = WebkitUtils.onMainThreadSync(() -> {
+            return createAndCheckWebViewLooper();
         });
-        assertEquals(Looper.getMainLooper(), webviewHolder[0].getWebViewLooper());
+        assertEquals(Looper.getMainLooper(), webView.getWebViewLooper());
     }
 
     /**

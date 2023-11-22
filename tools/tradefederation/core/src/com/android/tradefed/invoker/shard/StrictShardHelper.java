@@ -27,7 +27,6 @@ import com.android.tradefed.testtype.IMultiDeviceTest;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.IShardableTest;
-import com.android.tradefed.testtype.IStrictShardableTest;
 import com.android.tradefed.testtype.suite.ITestSuite;
 import com.android.tradefed.testtype.suite.ModuleMerger;
 import com.android.tradefed.util.TimeUtil;
@@ -55,44 +54,19 @@ public class StrictShardHelper extends ShardHelper {
         }
 
         // Split tests in place, without actually sharding.
-        if (!config.getCommandOptions().shouldUseTfSharding()) {
-            // TODO: remove when IStrictShardableTest is removed.
-            updateConfigIfSharded(config, shardCount, shardIndex);
+        List<IRemoteTest> listAllTests = getAllTests(config, shardCount, context);
+        // We cannot shuffle to get better average results
+        normalizeDistribution(listAllTests, shardCount);
+        List<IRemoteTest> splitList;
+        if (shardCount == 1) {
+            // not sharded
+            splitList = listAllTests;
         } else {
-            List<IRemoteTest> listAllTests = getAllTests(config, shardCount, context);
-            // We cannot shuffle to get better average results
-            normalizeDistribution(listAllTests, shardCount);
-            List<IRemoteTest> splitList;
-            if (shardCount == 1) {
-                // not sharded
-                splitList = listAllTests;
-            } else {
-                splitList = splitTests(listAllTests, shardCount).get(shardIndex);
-            }
-            aggregateSuiteModules(splitList);
-            config.setTests(splitList);
+            splitList = splitTests(listAllTests, shardCount).get(shardIndex);
         }
+        aggregateSuiteModules(splitList);
+        config.setTests(splitList);
         return false;
-    }
-
-    // TODO: Retire IStrictShardableTest for IShardableTest and have TF balance the list of tests.
-    private void updateConfigIfSharded(IConfiguration config, int shardCount, int shardIndex) {
-        List<IRemoteTest> testShards = new ArrayList<>();
-        for (IRemoteTest test : config.getTests()) {
-            if (!(test instanceof IStrictShardableTest)) {
-                CLog.w(
-                        "%s is not shardable; the whole test will run in shard 0",
-                        test.getClass().getName());
-                if (shardIndex == 0) {
-                    testShards.add(test);
-                }
-                continue;
-            }
-            IRemoteTest testShard =
-                    ((IStrictShardableTest) test).getTestShard(shardCount, shardIndex);
-            testShards.add(testShard);
-        }
-        config.setTests(testShards);
     }
 
     /**
@@ -276,21 +250,19 @@ public class StrictShardHelper extends ShardHelper {
         // Generate approximate RuntimeHint for each shard
         int index = 0;
         List<SortShardObj> shardTimes = new ArrayList<>();
-        CLog.e("============================");
         for (List<IRemoteTest> shard : allShards) {
             long aggTime = 0l;
-            CLog.e("++++++++++++++++++ SHARD %s +++++++++++++++", index);
+            CLog.d("++++++++++++++++++ SHARD %s +++++++++++++++", index);
             for (IRemoteTest test : shard) {
                 if (test instanceof IRuntimeHintProvider) {
                     aggTime += ((IRuntimeHintProvider) test).getRuntimeHint();
                 }
             }
-            CLog.e("Shard %s approximate time: %s", index, TimeUtil.formatElapsedTime(aggTime));
+            CLog.d("Shard %s approximate time: %s", index, TimeUtil.formatElapsedTime(aggTime));
             shardTimes.add(new SortShardObj(index, aggTime));
             index++;
-            CLog.e("+++++++++++++++++++++++++++++++++++++++++++");
+            CLog.d("+++++++++++++++++++++++++++++++++++++++++++");
         }
-        CLog.e("============================");
 
         Collections.sort(shardTimes);
         if ((shardTimes.get(0).mAggTime - shardTimes.get(shardTimes.size() - 1).mAggTime)
@@ -300,14 +272,14 @@ public class StrictShardHelper extends ShardHelper {
 
         // take 30% top shard (10 shard = top 3 shards)
         for (int i = 0; i < (shardCount * 0.3); i++) {
-            CLog.e(
+            CLog.d(
                     "Top shard %s is index %s with %s",
                     i,
                     shardTimes.get(i).mIndex,
                     TimeUtil.formatElapsedTime(shardTimes.get(i).mAggTime));
             int give = shardTimes.get(i).mIndex;
             int receive = shardTimes.get(shardTimes.size() - 1 - i).mIndex;
-            CLog.e("Giving from shard %s to shard %s", give, receive);
+            CLog.d("Giving from shard %s to shard %s", give, receive);
             for (int j = 0; j < (allShards.get(give).size() * (0.2f / (i + 1))); j++) {
                 IRemoteTest givetest = allShards.get(give).remove(0);
                 allShards.get(receive).add(givetest);

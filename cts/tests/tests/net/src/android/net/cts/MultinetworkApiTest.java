@@ -43,6 +43,12 @@ public class MultinetworkApiTest extends AndroidTestCase {
     private static native int runSetprocnetwork(long networkHandle);
     private static native int runSetsocknetwork(long networkHandle);
     private static native int runDatagramCheck(long networkHandle);
+    private static native int runResNapiMalformedCheck(long networkHandle);
+    private static native int runResNcancelCheck(long networkHandle);
+    private static native int runResNqueryCheck(long networkHandle);
+    private static native int runResNsendCheck(long networkHandle);
+
+
 
     private ConnectivityManager mCM;
 
@@ -174,5 +180,15 @@ public class MultinetworkApiTest extends AndroidTestCase {
             Network.fromNetworkHandle(0);
             fail();
         } catch (IllegalArgumentException e) {}
+    }
+
+    public void testResNApi() {
+        for (Network network : getTestableNetworks()) {
+            // Throws AssertionError directly in jni function if test fail.
+            runResNqueryCheck(network.getNetworkHandle());
+            runResNsendCheck(network.getNetworkHandle());
+            runResNcancelCheck(network.getNetworkHandle());
+            runResNapiMalformedCheck(network.getNetworkHandle());
+        }
     }
 }

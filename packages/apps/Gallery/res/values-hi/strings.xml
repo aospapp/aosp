@@ -60,9 +60,9 @@
     <string name="camera_attach" msgid="4048659554893435232">"जोड़ें"</string>
     <string name="camera_cancel" msgid="8203341746672085747">"अभी नहीं"</string>
     <string name="camera_crop" msgid="5584000454518174632">"काट-छांट करें"</string>
-    <string name="no_way_to_share_image" msgid="7980215622010396797">"चित्र शेयर करने के लिए कोई ऐप्स उपलब्‍ध नहीं है."</string>
-    <string name="no_way_to_share_video" msgid="4506167265329982928">"वीडियो को शेयर करने के लिए कोई ऐप्स उपलब्‍ध नहीं है."</string>
-    <string name="no_way_to_share" msgid="5276805314940059662">"मीडिया फ़ाइल (फ़ाइलों) को शेयर करने के लिए कोई ऐप्स उपलब्‍ध नहीं हैं."</string>
+    <string name="no_way_to_share_image" msgid="7980215622010396797">"चित्र शेयर करने के लिए कोई ऐप्लिकेशन उपलब्‍ध नहीं है."</string>
+    <string name="no_way_to_share_video" msgid="4506167265329982928">"वीडियो को शेयर करने के लिए कोई ऐप्लिकेशन उपलब्‍ध नहीं है."</string>
+    <string name="no_way_to_share" msgid="5276805314940059662">"मीडिया फ़ाइल (फ़ाइलों) को शेयर करने के लिए कोई ऐप्लिकेशन उपलब्‍ध नहीं हैं."</string>
     <string name="video_play" msgid="5287787282508002895">"चलाएं"</string>
     <string name="camera_pick_wallpaper" msgid="7026385960511811641">"चित्र"</string>
     <string name="camera_setas_wallpaper" msgid="797463183863414289">"वॉलपेपर"</string>
@@ -100,7 +100,7 @@
     <item msgid="9006732482485375438">"यादृच्छिक चयन"</item>
   </string-array>
     <string name="pref_gallery_slideshow_repeat_title" msgid="6512135022461429738">"स्लाइडशो दोहराएं"</string>
-    <string name="pref_gallery_slideshow_repeat_summary" msgid="8289230397431855268">"स्लाइडशो एक से अधिक बार चलाएं"</string>
+    <string name="pref_gallery_slideshow_repeat_summary" msgid="8289230397431855268">"स्लाइडशो एक से ज़्यादा बार चलाएं"</string>
     <string name="pref_gallery_slideshow_shuffle_title" msgid="3677508579783015598">"स्लाइड शफ़ल करें"</string>
     <string name="pref_gallery_slideshow_shuffle_summary" msgid="8566948749149325715">"चित्रों को यादृच्छिक क्रम में दिखाएं"</string>
     <string name="camerasettings" msgid="2433519618178453928">"सेटिंग"</string>
@@ -118,7 +118,7 @@
     <string name="details_image_longitude" msgid="3792725587390654278">"GPS देशांतर:"</string>
     <string name="details_image_location" msgid="6460201074393148978">"स्थान:"</string>
     <string name="details_duration" msgid="1028116471387901402">"अवधि:"</string>
-    <string name="details_date_taken" msgid="348356840586463178">"लेने का दिनांक:"</string>
+    <string name="details_date_taken" msgid="348356840586463178">"लेने का तारीख:"</string>
     <string name="details_frame_rate" msgid="122397836963498191">"फ़्रेम दर:"</string>
     <string name="details_bit_rate" msgid="5632311789455402186">"बिट दर:"</string>
     <string name="details_codec" msgid="5580300450432398126">"कोडेक:"</string>
@@ -146,10 +146,10 @@
     <string name="resume_playing_title" msgid="8996677350649355013">"वीडियो फिर से शुरू करें"</string>
     <string name="resume_playing_message" msgid="8480340146814638566">"<xliff:g id="DURATION">%s</xliff:g> से वीडियो चलाना फिर से शुरू करें?"</string>
     <string name="resume_playing_resume" msgid="3847915469173852416">"चलाना फिर से शुरू करें"</string>
-    <string name="resume_playing_restart" msgid="5471008499835769292">"पुन: प्रारंभ करें"</string>
+    <string name="resume_playing_restart" msgid="5471008499835769292">"फिर से प्रारंभ करें"</string>
     <string name="gadget_title" msgid="259405922673466798">"चित्र फ़्रेम"</string>
     <string name="file_info_title" msgid="1628963357466012538">"फ़ाइल जानकारी:"</string>
-    <string name="video_exceed_mms_limit" msgid="3835075281230780010">"आपके द्वारा रिकॉर्ड किया गया वीडियो, MMS द्वारा भेजने में बहुत बड़ा है. छोटी अवधि वाली क्लिप रिकॉर्ड करने का प्रयास करें."</string>
+    <string name="video_exceed_mms_limit" msgid="3835075281230780010">"  रिकॉर्ड किया गया वीडियो, MMS द्वारा भेजने में बहुत बड़ा है. छोटी अवधि वाली क्लिप रिकॉर्ड करने का प्रयास करें."</string>
     <string name="multiselect_share" msgid="5261644537749253581">"शेयर करें"</string>
     <string name="multiselect_delete" msgid="9113461994546744603">"हटाएं"</string>
     <string name="multiselect_cancel" msgid="5969428692864002165">"अभी नहीं"</string>

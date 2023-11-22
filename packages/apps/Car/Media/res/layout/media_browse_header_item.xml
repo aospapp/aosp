@@ -18,13 +18,13 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/container"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginStart="@dimen/car_keyline_1"
-    android:layout_marginEnd="@dimen/car_keyline_1">
+    android:layout_height="@dimen/media_browse_header_item_height"
+    android:layout_marginHorizontal="@dimen/media_browse_header_item_margin_x">
     <TextView
         android:id="@+id/title"
+        style="@style/BrowseSubheaderStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:includeFontPadding="false"
-        android:textAppearance="@style/TextAppearance.Car.Body1.Light"/>
+        android:layout_gravity="center_vertical"
+        android:includeFontPadding="false"/>
 </FrameLayout>

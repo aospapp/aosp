@@ -80,6 +80,7 @@ void TranslateToFile(VtsCompileMode mode,
   ComponentSpecificationMessage message;
   if (!ParseInterfaceSpec(input_vts_file_path, &message)) {
     cerr << __func__ << " can't parse " << input_vts_file_path << endl;
+    exit(-1);
   }
 
   vts_fs_mkdirs(&output_dir[0], 0777);

@@ -33,9 +33,9 @@ import com.android.internal.os.StatsdConfigProto.ValueMetric;
 import com.android.os.AtomsProto.AnomalyDetected;
 import com.android.os.AtomsProto.AppBreadcrumbReported;
 import com.android.os.AtomsProto.Atom;
+import com.android.os.AtomsProto.KernelWakelock;
 import com.android.os.StatsLog.EventMetricData;
 import com.android.tradefed.log.LogUtil.CLog;
-
 import java.util.List;
 
 /**
@@ -46,7 +46,7 @@ public class AnomalyDetectionTests extends AtomTestCase {
     private static final String TAG = "Statsd.AnomalyDetectionTests";
 
     private static final boolean INCIDENTD_TESTS_ENABLED = false;
-    private static final boolean PERFETTO_TESTS_ENABLED = false;
+    private static final boolean PERFETTO_TESTS_ENABLED = true;
 
     private static final int WAIT_AFTER_BREADCRUMB_MS = 2000;
 
@@ -279,14 +279,15 @@ public class AnomalyDetectionTests extends AtomTestCase {
                 return;
         }
 
+        if (PERFETTO_TESTS_ENABLED) resetPerfettoGuardrails();
+
         StatsdConfig.Builder config = getBaseConfig(4, 0, 6 /* threshold: value > 6 */)
                 .addSubscription(Subscription.newBuilder()
                         .setId(SUBSCRIPTION_ID_PERFETTO)
                         .setRuleType(Subscription.RuleType.ALERT)
                         .setRuleId(ALERT_ID)
                         .setPerfettoDetails(PerfettoDetails.newBuilder()
-                                .setTraceConfig(createPerfettoTraceConfig())
-                        )
+                                .setTraceConfig(getPerfettoConfig()))
                 )
                 .addValueMetric(ValueMetric.newBuilder()
                         .setId(METRIC_ID)
@@ -306,7 +307,7 @@ public class AnomalyDetectionTests extends AtomTestCase {
         doAppBreadcrumbReportedStart(6); // value = 6, which is NOT > trigger
         Thread.sleep(WAIT_AFTER_BREADCRUMB_MS);
         assertEquals("Premature anomaly", 0, getEventMetricDataList().size());
-        if (PERFETTO_TESTS_ENABLED) assertFalse("Pefetto", didPerfettoStartSince(markTime));
+        if (PERFETTO_TESTS_ENABLED) assertFalse(isSystemTracingEnabled());
 
         doAppBreadcrumbReportedStart(14); // value = 14 > trigger
         Thread.sleep(WAIT_AFTER_BREADCRUMB_MS);
@@ -315,7 +316,7 @@ public class AnomalyDetectionTests extends AtomTestCase {
         assertEquals("Expected 1 anomaly", 1, data.size());
         AnomalyDetected a = data.get(0).getAtom().getAnomalyDetected();
         assertEquals("Wrong alert_id", ALERT_ID, a.getAlertId());
-        if (PERFETTO_TESTS_ENABLED) assertTrue("No perfetto", didPerfettoStartSince(markTime));
+        if (PERFETTO_TESTS_ENABLED) assertTrue(isSystemTracingEnabled());
     }
 
     // Tests that anomaly detection for gauge works.
@@ -355,6 +356,54 @@ public class AnomalyDetectionTests extends AtomTestCase {
         assertEquals("Wrong alert_id", ALERT_ID, a.getAlertId());
         if (INCIDENTD_TESTS_ENABLED) assertTrue("No incident", didIncidentdFireSince(markTime));
     }
+
+    // Test that anomaly detection for pulled metrics work.
+    public void testPulledAnomalyDetection() throws Exception {
+        if (statsdDisabled()) {
+            return;
+        }
+
+        final int ATOM_ID = Atom.KERNEL_WAKELOCK_FIELD_NUMBER;  // A pulled atom
+        final int SLICE_BY_FIELD = KernelWakelock.NAME_FIELD_NUMBER;
+        final int VALUE_FIELD = KernelWakelock.VERSION_FIELD_NUMBER;  // Something that will be > 0.
+        final int ATOM_MATCHER_ID = 300;
+
+        StatsdConfig.Builder config = getBaseConfig(10, 20, 0 /* threshold: value > 0 */)
+                .addAllowedLogSource("AID_SYSTEM")
+                // Track the ATOM_ID pulled atom
+                .addAtomMatcher(StatsdConfigProto.AtomMatcher.newBuilder()
+                        .setId(ATOM_MATCHER_ID)
+                        .setSimpleAtomMatcher(StatsdConfigProto.SimpleAtomMatcher.newBuilder()
+                                .setAtomId(ATOM_ID)))
+                .addGaugeMetric(GaugeMetric.newBuilder()
+                        .setId(METRIC_ID)
+                        .setWhat(ATOM_MATCHER_ID)
+                        .setBucket(TimeUnit.CTS)
+                        .setSamplingType(GaugeMetric.SamplingType.RANDOM_ONE_SAMPLE)
+                        // Slice by SLICE_BY_FIELD (typical usecase)
+                        .setDimensionsInWhat(FieldMatcher.newBuilder()
+                                .setField(ATOM_ID)
+                                .addChild(FieldMatcher.newBuilder().setField(SLICE_BY_FIELD))
+                        )
+                        // Track the VALUE_FIELD (anomaly detection requires exactly one field here)
+                        .setGaugeFieldsFilter(
+                                FieldFilter.newBuilder().setFields(FieldMatcher.newBuilder()
+                                        .setField(ATOM_ID)
+                                        .addChild(FieldMatcher.newBuilder().setField(VALUE_FIELD))
+                                )
+                        )
+                );
+        uploadConfig(config);
+
+        Thread.sleep(6_000); // Wait long enough to ensure AlarmManager signals >= 1 pull
+
+        List<EventMetricData> data = getEventMetricDataList();
+        // There will likely be many anomalies (one for each dimension). There must be at least one.
+        assertTrue("Expected >=1 anomaly", data.size() >= 1);
+        AnomalyDetected a = data.get(0).getAtom().getAnomalyDetected();
+        assertEquals("Wrong alert_id", ALERT_ID, a.getAlertId());
+    }
+
 
     private final StatsdConfig.Builder getBaseConfig(int numBuckets,
                                                      int refractorySecs,

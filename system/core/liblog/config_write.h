@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef _LIBLOG_CONFIG_WRITE_H__
-#define _LIBLOG_CONFIG_WRITE_H__
+#pragma once
 
 #include <cutils/list.h>
 
@@ -23,8 +22,8 @@
 
 __BEGIN_DECLS
 
-extern LIBLOG_HIDDEN struct listnode __android_log_transport_write;
-extern LIBLOG_HIDDEN struct listnode __android_log_persist_write;
+extern struct listnode __android_log_transport_write;
+extern struct listnode __android_log_persist_write;
 
 #define write_transport_for_each(transp, transports)                           \
   for ((transp) = node_to_item((transports)->next,                             \
@@ -47,9 +46,7 @@ extern LIBLOG_HIDDEN struct listnode __android_log_persist_write;
        (transp) = node_to_item((n), struct android_log_transport_write, node), \
       (n) = (transp)->node.next)
 
-LIBLOG_HIDDEN void __android_log_config_write();
-LIBLOG_HIDDEN void __android_log_config_write_close();
+void __android_log_config_write();
+void __android_log_config_write_close();
 
 __END_DECLS
-
-#endif /* _LIBLOG_CONFIG_WRITE_H__ */

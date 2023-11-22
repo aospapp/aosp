@@ -20,12 +20,15 @@
 
 #include "art_method-inl.h"
 #include "base/enums.h"
-#include "class_linker-inl.h"
 #include "class_linker.h"
+#include "class_root.h"
 #include "dex/dex_file_annotations.h"
-#include "jni_internal.h"
+#include "jni/jni_internal.h"
+#include "mirror/class-alloc-inl.h"
 #include "mirror/class-inl.h"
+#include "mirror/executable-inl.h"
 #include "mirror/method.h"
+#include "mirror/object_array-alloc-inl.h"
 #include "mirror/object-inl.h"
 #include "native_util.h"
 #include "reflection.h"
@@ -38,16 +41,12 @@ static jobjectArray Constructor_getExceptionTypes(JNIEnv* env, jobject javaMetho
   ScopedFastNativeObjectAccess soa(env);
   ArtMethod* method = ArtMethod::FromReflectedMethod(soa, javaMethod)
       ->GetInterfaceMethodIfProxy(kRuntimePointerSize);
-  mirror::ObjectArray<mirror::Class>* result_array =
+  ObjPtr<mirror::ObjectArray<mirror::Class>> result_array =
       annotations::GetExceptionTypesForMethod(method);
   if (result_array == nullptr) {
     // Return an empty array instead of a null pointer.
-    ObjPtr<mirror::Class> class_class = mirror::Class::GetJavaLangClass();
-    ObjPtr<mirror::Class> class_array_class =
-        Runtime::Current()->GetClassLinker()->FindArrayClass(soa.Self(), &class_class);
-    if (class_array_class == nullptr) {
-      return nullptr;
-    }
+    ObjPtr<mirror::Class> class_array_class = GetClassRoot<mirror::ObjectArray<mirror::Class>>();
+    DCHECK(class_array_class != nullptr);
     ObjPtr<mirror::ObjectArray<mirror::Class>> empty_array =
         mirror::ObjectArray<mirror::Class>::Alloc(soa.Self(), class_array_class, 0);
     return soa.AddLocalReference<jobjectArray>(empty_array);
@@ -64,6 +63,7 @@ static jobjectArray Constructor_getExceptionTypes(JNIEnv* env, jobject javaMetho
 static jobject Constructor_newInstance0(JNIEnv* env, jobject javaMethod, jobjectArray javaArgs) {
   ScopedFastNativeObjectAccess soa(env);
   ObjPtr<mirror::Constructor> m = soa.Decode<mirror::Constructor>(javaMethod);
+  ArtMethod* constructor_art_method = m->GetArtMethod();
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::Class> c(hs.NewHandle(m->GetDeclaringClass()));
   if (UNLIKELY(c->IsAbstract())) {
@@ -104,25 +104,27 @@ static jobject Constructor_newInstance0(JNIEnv* env, jobject javaMethod, jobject
   }
 
   // String constructor is replaced by a StringFactory method in InvokeMethod.
-  if (c->IsStringClass()) {
+  if (UNLIKELY(c->IsStringClass())) {
     return InvokeMethod(soa, javaMethod, nullptr, javaArgs, 2);
   }
 
   ObjPtr<mirror::Object> receiver =
       movable ? c->AllocObject(soa.Self()) : c->AllocNonMovableObject(soa.Self());
-  if (receiver == nullptr) {
+  if (UNLIKELY(receiver == nullptr)) {
+    DCHECK(soa.Self()->IsExceptionPending());
     return nullptr;
   }
   jobject javaReceiver = soa.AddLocalReference<jobject>(receiver);
-  InvokeMethod(soa, javaMethod, javaReceiver, javaArgs, 2);
-  // Constructors are ()V methods, so we shouldn't touch the result of InvokeMethod.
+
+  InvokeConstructor(soa, constructor_art_method, receiver, javaArgs);
+
   return javaReceiver;
 }
 
 static jobject Constructor_newInstanceFromSerialization(JNIEnv* env, jclass unused ATTRIBUTE_UNUSED,
                                                         jclass ctorClass, jclass allocClass) {
     jmethodID ctor = env->GetMethodID(ctorClass, "<init>", "()V");
-    DCHECK(ctor != NULL);
+    DCHECK(ctor != nullptr);
     return env->NewObject(allocClass, ctor);
 }
 

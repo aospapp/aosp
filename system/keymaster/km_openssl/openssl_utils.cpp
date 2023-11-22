@@ -77,12 +77,12 @@ static int convert_to_evp(keymaster_algorithm_t algorithm) {
 keymaster_error_t convert_pkcs8_blob_to_evp(const uint8_t* key_data, size_t key_length,
                                             keymaster_algorithm_t expected_algorithm,
                                             UniquePtr<EVP_PKEY, EVP_PKEY_Delete>* pkey) {
-    if (key_data == NULL || key_length <= 0)
+    if (key_data == nullptr || key_length <= 0)
         return KM_ERROR_INVALID_KEY_BLOB;
 
     UniquePtr<PKCS8_PRIV_KEY_INFO, PKCS8_PRIV_KEY_INFO_Delete> pkcs8(
-        d2i_PKCS8_PRIV_KEY_INFO(NULL, &key_data, key_length));
-    if (pkcs8.get() == NULL)
+        d2i_PKCS8_PRIV_KEY_INFO(nullptr, &key_data, key_length));
+    if (pkcs8.get() == nullptr)
         return TranslateLastOpenSslError(true /* log_message */);
 
     pkey->reset(EVP_PKCS82PKEY(pkcs8.get()));
@@ -110,7 +110,7 @@ keymaster_error_t KeyMaterialToEvpKey(keymaster_key_format_t key_format,
 }
 
 keymaster_error_t EvpKeyToKeyMaterial(const EVP_PKEY* pkey, KeymasterKeyBlob* key_blob) {
-    int key_data_size = i2d_PrivateKey(pkey, NULL /* key_data*/);
+    int key_data_size = i2d_PrivateKey(pkey, nullptr /* key_data*/);
     if (key_data_size <= 0)
         return TranslateLastOpenSslError();
 

@@ -81,12 +81,13 @@ class WifiAutoUpdateTest(WifiBaseTest):
 
         self.wifi_config_list = []
 
+        # Disabling WiFi setup before OTA for debugging.
         # Setup WiFi and add few open and wpa networks before OTA.
-        self.add_network_and_enable(self.open_network[0]['2g'])
-        self.add_network_and_enable(self.reference_networks[0]['5g'])
+        # self.add_network_and_enable(self.open_network[0]['2g'])
+        # self.add_network_and_enable(self.reference_networks[0]['5g'])
 
         # Add few dummy networks to the list.
-        self.add_and_enable_dummy_networks()
+        # self.add_and_enable_dummy_networks()
 
         # Run OTA below, if ota fails then abort all tests.
         try:
@@ -202,9 +203,8 @@ class WifiAutoUpdateTest(WifiBaseTest):
                TODO: (@bmahadev) Add WEP network once it's ready.
 
         """
-        wutils.connect_to_wifi_network((self.open_network[0]['5g'], self.dut))
-        wutils.connect_to_wifi_network((self.reference_networks[0]['2g'],
-                self.dut))
+        wutils.connect_to_wifi_network(self.dut, self.open_network[0]['5g'])
+        wutils.connect_to_wifi_network(self.dut, self.reference_networks[0]['2g'])
         wutils.wifi_forget_network(self.dut,
                 self.reference_networks[0]['2g'][WifiEnums.SSID_KEY])
         wutils.wifi_forget_network(self.dut,

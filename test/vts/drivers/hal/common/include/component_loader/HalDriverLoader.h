@@ -38,9 +38,13 @@ class HalDriverLoader {
 
   // Scans the dir and returns an component specification for a requested
   // component.
+  // Args:
+  //   version_major: int, hal major version, e.g. 1.0 -> 1
+  //   version_minor: int, hal minor version, e.g. 1.0 -> 0
   bool FindComponentSpecification(const int component_class,
                                   const string& package_name,
-                                  const float version,
+                                  const int version_major,
+                                  const int version_minor,
                                   const string& component_name,
                                   const int component_type,
                                   ComponentSpecificationMessage* spec_msg);
@@ -65,11 +69,14 @@ class HalDriverLoader {
   // a target component, spec_lib_file_path is the path of a specification
   // library file, and the rest three arguments are the basic information of
   // the target component.
+  // Args:
+  //   target_version_major: hal major version, e.g. 1.0 -> 1.
+  //   target_version_minor: hal minor version, e.g. 1.0 -> 0.
   // TODO (zhuoyao): consider to deprecate this method.
   bool Process(const char* dll_file_name, const char* spec_lib_file_path,
-               int target_class, int target_type, float target_version,
-               const char* target_package, const char* target_component_name,
-               const char* hal_service_name);
+               int target_class, int target_type, int target_version_major,
+               int target_version_minor, const char* target_package,
+               const char* target_component_name, const char* hal_service_name);
 
  private:
   // Internal method to create driver for library.

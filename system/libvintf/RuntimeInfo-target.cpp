@@ -80,7 +80,7 @@ status_t RuntimeInfoFetcher::fetchKernelConfigs() {
     }
     mConfigParser.finish();
     gzclose(f);
-    mRuntimeInfo->mKernelConfigs = std::move(mConfigParser.configs());
+    mRuntimeInfo->mKernel.mConfigs = std::move(mConfigParser.configs());
     return err;
 }
 
@@ -141,7 +141,7 @@ status_t RuntimeInfoFetcher::parseKernelVersion() {
     }
     pos = mRuntimeInfo->mOsRelease.find_first_not_of("0123456789", pos + 1);
     // no need to check pos == std::string::npos, because substr will handle this
-    if (!parse(mRuntimeInfo->mOsRelease.substr(0, pos), &mRuntimeInfo->mKernelVersion)) {
+    if (!parse(mRuntimeInfo->mOsRelease.substr(0, pos), &mRuntimeInfo->mKernel.mVersion)) {
         return UNKNOWN_ERROR;
     }
     return OK;

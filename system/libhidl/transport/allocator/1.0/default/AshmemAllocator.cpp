@@ -36,8 +36,8 @@ static hidl_memory allocateOne(uint64_t size) {
 
     native_handle_t* handle = native_handle_create(1, 0);
     handle->data[0] = fd;
-    LOG(WARNING) << "ashmem_create_region(" << size << ") returning hidl_memory(" << handle
-            << ", " << size << ")";
+    LOG(VERBOSE) << "ashmem_create_region(" << size << ") returning hidl_memory(" << handle << ", "
+                 << size << ")";
     return hidl_memory("ashmem", handle, size);
 }
 

@@ -27,14 +27,15 @@ import static org.mockito.Mockito.verify;
 import android.app.Instrumentation;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.Menu;
 import android.widget.ActionMenuView;
 import android.widget.cts.util.TestUtils;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.WidgetTestUtils;
 
@@ -106,13 +107,13 @@ public class ActionMenuViewTest {
         assertFalse(mActionMenuView.isOverflowMenuShowing());
 
         // Ask to show overflow menu and check that it's showing
-        mActivityRule.runOnUiThread(mActionMenuView::showOverflowMenu);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActionMenuView,
+                mActionMenuView::showOverflowMenu);
         assertTrue(mActionMenuView.isOverflowMenuShowing());
 
         // Ask to hide the overflow menu and check that it's not showing
-        mActivityRule.runOnUiThread(mActionMenuView::hideOverflowMenu);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActionMenuView,
+                mActionMenuView::hideOverflowMenu);
         assertFalse(mActionMenuView.isOverflowMenuShowing());
     }
 
@@ -125,8 +126,8 @@ public class ActionMenuViewTest {
         assertFalse(mActionMenuView.isOverflowMenuShowing());
 
         // Ask to show overflow menu and check that it's showing
-        mActivityRule.runOnUiThread(mActionMenuView::showOverflowMenu);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActionMenuView,
+                mActionMenuView::showOverflowMenu);
         assertTrue(mActionMenuView.isOverflowMenuShowing());
 
         // Register a mock menu item click listener on the toolbar
@@ -143,8 +144,8 @@ public class ActionMenuViewTest {
                 menu.findItem(R.id.action_share));
 
         // Ask to dismiss all the popups and check that we're not showing the overflow menu
-        mActivityRule.runOnUiThread(mActionMenuView::dismissPopupMenus);
-        mInstrumentation.waitForIdleSync();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mActionMenuView,
+                mActionMenuView::dismissPopupMenus);
         assertFalse(mActionMenuView.isOverflowMenuShowing());
     }
 

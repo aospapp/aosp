@@ -31,7 +31,7 @@ import android.widget.TextView;
 
 import java.io.File;
 
-public class DragSource extends Activity{
+public class DragSource extends Activity {
     private static final String RESULT_KEY_START_DRAG = "START_DRAG";
     private static final String RESULT_KEY_DETAILS = "DETAILS";
     private static final String RESULT_OK = "OK";
@@ -95,6 +95,7 @@ public class DragSource extends Activity{
                 if (event.getAction() != MotionEvent.ACTION_DOWN) {
                     return false;
                 }
+
                 try {
                     final ClipDescription clipDescription = new ClipDescription("", new String[] {
                             ClipDescription.MIMETYPE_TEXT_URILIST });

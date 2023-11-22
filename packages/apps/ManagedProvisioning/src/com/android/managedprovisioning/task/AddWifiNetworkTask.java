@@ -26,7 +26,11 @@ import android.os.Handler;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.wifi.NetworkMonitor;
@@ -62,7 +66,10 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
         this(
                 new NetworkMonitor(context),
                 new WifiConfigurationProvider(),
-                context, provisioningParams, callback, new Utils(), new Injector());
+                context, provisioningParams, callback, new Utils(), new Injector(),
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
     }
 
     @VisibleForTesting
@@ -73,8 +80,9 @@ public class AddWifiNetworkTask extends AbstractProvisioningTask
             ProvisioningParams provisioningParams,
             Callback callback,
             Utils utils,
-            Injector injector) {
-        super(context, provisioningParams, callback);
+            Injector injector,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+        super(context, provisioningParams, callback, provisioningAnalyticsTracker);
 
         mNetworkMonitor = checkNotNull(networkMonitor);
         mWifiConfigurationProvider = checkNotNull(wifiConfigurationProvider);

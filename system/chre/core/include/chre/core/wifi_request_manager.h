@@ -19,7 +19,9 @@
 
 #include "chre/core/nanoapp.h"
 #include "chre/platform/platform_wifi.h"
+#include "chre/util/buffer.h"
 #include "chre/util/non_copyable.h"
+#include "chre/util/optional.h"
 #include "chre/util/time.h"
 #include "chre_api/chre/wifi.h"
 
@@ -153,10 +155,8 @@ class WifiRequestManager : public NonCopyable {
    * @param buffer Pointer to the start of the buffer.
    * @param bufferPos Pointer to buffer position to start the print (in-out).
    * @param size Size of the buffer in bytes.
-   *
-   * @return true if entire log printed, false if overflow or error.
    */
-  bool logStateToBuffer(char *buffer, size_t *bufferPos,
+  void logStateToBuffer(char *buffer, size_t *bufferPos,
                         size_t bufferSize) const;
 
  private:
@@ -168,7 +168,7 @@ class WifiRequestManager : public NonCopyable {
   struct PendingRangingRequest : public PendingRequestBase {
     //! If the request was queued, a variable-length list of devices to
     //! perform ranging against (used to reconstruct chreWifiRangingParams)
-    DynamicVector<struct chreWifiRangingTarget> targetList;
+    Buffer<struct chreWifiRangingTarget> targetList;
   };
 
   struct PendingScanMonitorRequest : public PendingRequestBase {

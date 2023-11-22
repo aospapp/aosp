@@ -20,9 +20,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
-import java.util.prefs.PreferencesFactory;
+
 import junit.framework.TestCase;
-import libcore.io.IoUtils;
+
+import libcore.testing.io.TestIoUtils;
 
 public class FilePreferencesImplTest extends TestCase {
 
@@ -31,7 +32,7 @@ public class FilePreferencesImplTest extends TestCase {
 
     @Override
     protected void setUp() throws Exception {
-        File tmpDir = IoUtils.createTemporaryDirectory("FilePreferencesImplTest");
+        File tmpDir = TestIoUtils.createTemporaryDirectory("FilePreferencesImplTest");
         AbstractPreferencesTest.TestPreferencesFactory factory
                 = new AbstractPreferencesTest.TestPreferencesFactory(tmpDir.getAbsolutePath());
 

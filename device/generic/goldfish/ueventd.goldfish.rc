@@ -2,5 +2,6 @@
 /dev/qemu_trace           0666   system     system
 /dev/qemu_pipe            0666   system     system
 /dev/goldfish_pipe        0666   system     system
+/dev/goldfish_address_space 0666 system     system
 /dev/ttyS*                0666   system     system
 /proc                     0666   system     system

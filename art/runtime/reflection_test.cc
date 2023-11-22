@@ -23,17 +23,18 @@
 #include "base/enums.h"
 #include "common_compiler_test.h"
 #include "dex/descriptors_names.h"
-#include "java_vm_ext.h"
-#include "jni_internal.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_internal.h"
+#include "mirror/class-alloc-inl.h"
 #include "nativehelper/scoped_local_ref.h"
 #include "scoped_thread_state_change-inl.h"
 
 namespace art {
 
-// TODO: Convert to CommonRuntimeTest. Currently MakeExecutable is used.
+// TODO: Convert to CommonRuntimeTest. Currently CompileDirectMethod is used in one test.
 class ReflectionTest : public CommonCompilerTest {
  protected:
-  virtual void SetUp() {
+  void SetUp() override {
     CommonCompilerTest::SetUp();
 
     vm_ = Runtime::Current()->GetJavaVM();
@@ -73,23 +74,23 @@ class ReflectionTest : public CommonCompilerTest {
     }
   }
 
-  virtual void TearDown() {
+  void TearDown() override {
     CleanUpJniEnv();
     CommonCompilerTest::TearDown();
   }
 
   jclass GetPrimitiveClass(char descriptor) {
     ScopedObjectAccess soa(env_);
-    mirror::Class* c = class_linker_->FindPrimitiveClass(descriptor);
+    ObjPtr<mirror::Class> c = class_linker_->FindPrimitiveClass(descriptor);
     CHECK(c != nullptr);
     return soa.AddLocalReference<jclass>(c);
   }
 
-  void ReflectionTestMakeExecutable(ArtMethod** method,
-                                    ObjPtr<mirror::Object>* receiver,
-                                    bool is_static,
-                                    const char* method_name,
-                                    const char* method_signature)
+  void ReflectionTestMakeInterpreted(ArtMethod** method,
+                                     ObjPtr<mirror::Object>* receiver,
+                                     bool is_static,
+                                     const char* method_name,
+                                     const char* method_signature)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     const char* class_name = is_static ? "StaticLeafMethods" : "NonStaticLeafMethods";
     jobject jclass_loader(LoadDex(class_name));
@@ -99,15 +100,15 @@ class ReflectionTest : public CommonCompilerTest {
         hs.NewHandle(
             ScopedObjectAccessUnchecked(self).Decode<mirror::ClassLoader>(jclass_loader)));
     if (!is_static) {
-      MakeExecutable(nullptr, "java.lang.Class");
-      MakeExecutable(nullptr, "java.lang.Object");
+      MakeInterpreted(class_linker_->FindSystemClass(self, "Ljava/lang/Class;"));
+      MakeInterpreted(class_linker_->FindSystemClass(self, "Ljava/lang/Object;"));
     }
-    MakeExecutable(class_loader.Get(), class_name);
 
     ObjPtr<mirror::Class> c = class_linker_->FindClass(self,
                                                        DotToDescriptor(class_name).c_str(),
                                                        class_loader);
     CHECK(c != nullptr);
+    MakeInterpreted(c);
 
     *method = c->FindClassMethod(method_name, method_signature, kRuntimePointerSize);
     CHECK(*method != nullptr);
@@ -137,7 +138,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "nop", "()V");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "nop", "()V");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     InvokeWithJValues(soa, receiver_ref.get(), jni::EncodeArtMethod(method), nullptr);
   }
@@ -146,7 +147,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "identity", "(B)B");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "identity", "(B)B");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[1];
 
@@ -172,7 +173,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "identity", "(I)I");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "identity", "(I)I");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[1];
 
@@ -197,7 +198,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "identity", "(D)D");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "identity", "(D)D");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[1];
 
@@ -222,7 +223,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(II)I");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "sum", "(II)I");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[2];
 
@@ -251,7 +252,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(III)I");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "sum", "(III)I");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[3];
 
@@ -290,7 +291,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(IIII)I");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "sum", "(IIII)I");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[4];
 
@@ -334,7 +335,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(IIIII)I");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "sum", "(IIIII)I");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[5];
 
@@ -383,7 +384,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(DD)D");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "sum", "(DD)D");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[2];
 
@@ -417,7 +418,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(DDD)D");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "sum", "(DDD)D");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[3];
 
@@ -444,7 +445,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(DDDD)D");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "sum", "(DDDD)D");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[4];
 
@@ -474,7 +475,7 @@ class ReflectionTest : public CommonCompilerTest {
     ScopedObjectAccess soa(env_);
     ArtMethod* method;
     ObjPtr<mirror::Object> receiver;
-    ReflectionTestMakeExecutable(&method, &receiver, is_static, "sum", "(DDDDD)D");
+    ReflectionTestMakeInterpreted(&method, &receiver, is_static, "sum", "(DDDDD)D");
     ScopedLocalRef<jobject> receiver_ref(soa.Env(), soa.AddLocalReference<jobject>(receiver));
     jvalue args[5];
 
@@ -518,7 +519,7 @@ TEST_F(ReflectionTest, StaticMainMethod) {
       hs.NewHandle(soa.Decode<mirror::ClassLoader>(jclass_loader)));
   CompileDirectMethod(class_loader, "Main", "main", "([Ljava/lang/String;)V");
 
-  mirror::Class* klass = class_linker_->FindClass(soa.Self(), "LMain;", class_loader);
+  ObjPtr<mirror::Class> klass = class_linker_->FindClass(soa.Self(), "LMain;", class_loader);
   ASSERT_TRUE(klass != nullptr);
 
   ArtMethod* method = klass->FindClassMethod("main",

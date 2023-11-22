@@ -222,7 +222,6 @@ public class BluetoothMnsObexClient {
             if (looper != null) {
                 looper.quit();
             }
-            mHandler = null;
         }
 
         /* Disconnect if connected */

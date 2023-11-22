@@ -23,6 +23,7 @@ class AnnotationsMergerTest : DriverTest() {
     // TODO: Test what happens when we have conflicting data
     //   - NULLABLE_SOURCE on one non null on the other
     //   - annotation specified with different parameters (e.g @Size(4) vs @Size(6))
+    // Test with jar file
 
     @Test
     fun `Signature files contain annotations`() {
@@ -50,14 +51,14 @@ class AnnotationsMergerTest : DriverTest() {
                 ),
                 uiThreadSource,
                 intRangeAnnotationSource,
-                supportNonNullSource,
-                supportNullableSource
+                androidxNonNullSource,
+                androidxNullableSource
             ),
             // Skip the annotations themselves from the output
             extraArguments = arrayOf(
-                "--hide-package", "android.annotation",
-                "--hide-package", "androidx.annotation",
-                "--hide-package", "android.support.annotation"
+                ARG_HIDE_PACKAGE, "android.annotation",
+                ARG_HIDE_PACKAGE, "androidx.annotation",
+                ARG_HIDE_PACKAGE, "android.support.annotation"
             ),
             api = """
                 package test.pkg {
@@ -133,47 +134,6 @@ class AnnotationsMergerTest : DriverTest() {
     }
 
     @Test
-    fun `Merge jaif files`() {
-        check(
-            sourceFiles = *arrayOf(
-                java(
-                    """
-                    package test.pkg;
-
-                    public interface Appendable {
-                        Appendable append(CharSequence csq) throws IOException;
-                        String reverse(String s);
-                    }
-                    """
-                )
-            ),
-            compatibilityMode = false,
-            outputKotlinStyleNulls = false,
-            omitCommonPackages = false,
-            mergeJaifAnnotations = """
-                //
-                // Copyright (C) 2017 The Android Open Source Project
-                //
-                package test.pkg:
-                class Appendable:
-                    method append(Ljava/lang/CharSequence;)Ltest/pkg/Appendable;:
-                        parameter #0:
-                          type: @libcore.util.Nullable
-                        // Is expected to return self
-                        return: @libcore.util.NonNull
-                """,
-            api = """
-                package test.pkg {
-                  public interface Appendable {
-                    method @androidx.annotation.NonNull public test.pkg.Appendable append(@androidx.annotation.Nullable java.lang.CharSequence);
-                    method public java.lang.String reverse(java.lang.String);
-                  }
-                }
-                """
-        )
-    }
-
-    @Test
     fun `Merge signature files`() {
         check(
             sourceFiles = *arrayOf(
@@ -189,6 +149,7 @@ class AnnotationsMergerTest : DriverTest() {
             ),
             compatibilityMode = false,
             outputKotlinStyleNulls = false,
+            inputKotlinStyleNulls = true,
             omitCommonPackages = false,
             mergeSignatureAnnotations = """
                 package test.pkg {
@@ -206,6 +167,185 @@ class AnnotationsMergerTest : DriverTest() {
                 package test.pkg {
                   public interface Appendable {
                     method @androidx.annotation.NonNull public test.pkg.Appendable append(@androidx.annotation.Nullable java.lang.CharSequence);
+                  }
+                }
+                """
+        )
+    }
+
+    @Test
+    fun `Merge qualifier annotations from Java stub files`() {
+        check(
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                    package test.pkg;
+
+                    public interface Appendable {
+                        Appendable append(CharSequence csq) throws IOException;
+                    }
+                    """
+                )
+            ),
+            compatibilityMode = false,
+            outputKotlinStyleNulls = false,
+            omitCommonPackages = false,
+            mergeJavaStubAnnotations = """
+                package test.pkg;
+
+                import libcore.util.NonNull;
+                import libcore.util.Nullable;
+
+                public interface Appendable {
+                    @NonNull Appendable append(@Nullable java.lang.CharSequence csq);
+                }
+                """,
+            api = """
+                package test.pkg {
+                  public interface Appendable {
+                    method @androidx.annotation.NonNull public test.pkg.Appendable append(@androidx.annotation.Nullable java.lang.CharSequence);
+                  }
+                }
+                """
+        )
+    }
+
+    @Test
+    fun `Merge type use qualifier annotations from Java stub files`() {
+        // See b/123223339
+        check(
+            sourceFiles = *arrayOf(
+                java(
+                    """
+                package test.pkg;
+
+                public class Test {
+                    private Test() { }
+                    public void foo(Object... args) { }
+                }
+                """
+                ),
+                libcoreNonNullSource,
+                libcoreNullableSource
+            ),
+            compatibilityMode = false,
+            outputKotlinStyleNulls = false,
+            omitCommonPackages = false,
+            mergeJavaStubAnnotations = """
+                package test.pkg;
+
+                public class Test {
+                    public void foo(java.lang.@libcore.util.Nullable Object @libcore.util.NonNull ... args) { throw new RuntimeException("Stub!"); }
+                }
+                """,
+            api = """
+                package test.pkg {
+                  public class Test {
+                    method public void foo(@androidx.annotation.NonNull java.lang.Object...);
+                  }
+                }
+                """,
+            extraArguments = arrayOf(ARG_HIDE_PACKAGE, "libcore.util")
+        )
+    }
+
+    @Test
+    fun `Merge inclusion annotations from Java stub files`() {
+        check(
+            warnings = "src/test/pkg/Example.annotated.java:6: error: @test.annotation.Show APIs must also be marked @hide: method test.pkg.Example.cShown() [UnhiddenSystemApi]",
+            sourceFiles = *arrayOf(
+                java(
+                    "src/test/pkg/Example.annotated.java",
+                    """
+                    package test.pkg;
+
+                    public interface Example {
+                        void aNotAnnotated();
+                        void bHidden();
+                        void cShown();
+                    }
+                    """
+                ),
+                java(
+                    "src/test/pkg/HiddenExample.annotated.java",
+                    """
+                    package test.pkg;
+
+                    public interface HiddenExample {
+                        void method();
+                    }
+                    """
+                )
+            ),
+            compatibilityMode = false,
+            outputKotlinStyleNulls = false,
+            omitCommonPackages = false,
+            hideAnnotations = arrayOf("test.annotation.Hide"),
+            showAnnotations = arrayOf("test.annotation.Show"),
+            showUnannotated = true,
+            mergeInclusionAnnotations = """
+                package test.pkg;
+
+                public interface Example {
+                    void aNotAnnotated();
+                    @test.annotation.Hide void bHidden();
+                    @test.annotation.Hide @test.annotation.Show void cShown();
+                }
+
+                @test.annotation.Hide
+                public interface HiddenExample {
+                    void method();
+                }
+                """,
+            api = """
+                package test.pkg {
+                  public interface Example {
+                    method public void aNotAnnotated();
+                    method public void cShown();
+                  }
+                }
+                """
+        )
+    }
+
+    @Test
+    fun `Merge inclusion annotations from Java stub files using --show-single-annotation`() {
+        check(
+            sourceFiles = *arrayOf(
+                java(
+                    "src/test/pkg/Example.annotated.java",
+                    """
+                    package test.pkg;
+
+                    public interface Example {
+                        void aNotAnnotated();
+                        void bShown();
+                    }
+                    """
+                )
+            ),
+            compatibilityMode = false,
+            outputKotlinStyleNulls = false,
+            omitCommonPackages = false,
+            extraArguments = arrayOf(
+                ARG_HIDE_ANNOTATION, "test.annotation.Hide",
+                ARG_SHOW_SINGLE_ANNOTATION, "test.annotation.Show"
+            ),
+            showUnannotated = true,
+            mergeInclusionAnnotations = """
+                package test.pkg;
+
+                @test.annotation.Hide
+                @test.annotation.Show
+                public interface Example {
+                    void aNotAnnotated();
+                    @test.annotation.Show void bShown();
+                }
+                """,
+            api = """
+                package test.pkg {
+                  public interface Example {
+                    method public void bShown();
                   }
                 }
                 """

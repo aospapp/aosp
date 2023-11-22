@@ -58,13 +58,13 @@ class SensorRequest {
    * latency. Non-default interval or latency higher than kMaxIntervalLatencyNs
    * will be capped.
    *
-   * @param nanoapp The nanoapp that made this request.
+   * @param instanceId The instance ID of the nanoapp that made this request.
    * @param mode The mode of the sensor request.
    * @param interval The interval between samples.
    * @param latency The maximum amount of time to batch samples before
    *        delivering to a client.
    */
-  SensorRequest(Nanoapp *nanoapp, SensorMode mode, Nanoseconds interval,
+  SensorRequest(uint32_t instanceId, SensorMode mode, Nanoseconds interval,
                 Nanoseconds latency);
 
   /**
@@ -108,19 +108,16 @@ class SensorRequest {
   }
 
   /**
-   * @return The nanoapp that owns this sensor request.
+   * @return The instance ID of the nanoapp that owns this request.
    */
-  Nanoapp *getNanoapp() const {
-    return mNanoapp;
+  uint32_t getInstanceId() const {
+    return mInstanceId;
   }
 
  private:
-  //! The nanoapp that made this request. This will be nullptr when returned by
-  //! the generateIntersectionOf method.
-  // TODO: need to (1) change this to instanceId to avoid potentially
-  // referencing a Nanoapp after it is unloaded, and (2) add a method to remove
-  // all open sensor requests associated with a nanoapp after it is unloaded
-  Nanoapp *mNanoapp = nullptr;
+  //! The nanoapp that made this request or zero when unset. This will be
+  //! kInvalidInstanceId when returned by the generateIntersectionOf method.
+  uint32_t mInstanceId = kInvalidInstanceId;
 
   //! The interval between samples for this request.
   Nanoseconds mInterval;

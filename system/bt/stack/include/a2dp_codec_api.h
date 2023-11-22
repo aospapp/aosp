@@ -34,7 +34,6 @@
 #include "a2dp_api.h"
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
 #include "avdt_api.h"
-#include "osi/include/time.h"
 
 class tBT_A2DP_OFFLOAD;
 
@@ -217,7 +216,7 @@ class A2dpCodecConfig {
   virtual bool isValid() const;
 
   // Returns the encoder's periodic interval (in milliseconds).
-  virtual period_ms_t encoderIntervalMs() const = 0;
+  virtual uint64_t encoderIntervalMs() const = 0;
 
   // Checks whether the A2DP Codec Configuration is valid.
   // Returns true if A2DP Codec Configuration stored in |codec_config|
@@ -301,6 +300,10 @@ class A2dpCodecs {
   // |p_codec_info| information.
   // Returns the Sink codec if found, otherwise nullptr.
   A2dpCodecConfig* findSinkCodecConfig(const uint8_t* p_codec_info);
+
+  // Checks whether the codec for |codec_index| is supported.
+  // Returns true if the codec is supported, otherwise false.
+  bool isSupportedCodec(btav_a2dp_codec_index_t codec_index);
 
   // Gets the codec config that is currently selected.
   // Returns the codec config that is currently selected, or nullptr if
@@ -527,7 +530,7 @@ typedef struct {
   void (*feeding_flush)(void);
 
   // Get the A2DP encoder interval (in milliseconds).
-  period_ms_t (*get_encoder_interval_ms)(void);
+  uint64_t (*get_encoder_interval_ms)(void);
 
   // Prepare and send A2DP encoded frames.
   // |timestamp_us| is the current timestamp (in microseconds).
@@ -638,6 +641,12 @@ bool A2DP_CodecEquals(const uint8_t* p_codec_info_a,
 // Returns the track sample rate on success, or -1 if |p_codec_info|
 // contains invalid codec information.
 int A2DP_GetTrackSampleRate(const uint8_t* p_codec_info);
+
+// Gets the track bits per sample value for the A2DP codec.
+// |p_codec_info| is a pointer to the codec_info to decode.
+// Returns the track bits per sample on success, or -1 if |p_codec_info|
+// contains invalid codec information.
+int A2DP_GetTrackBitsPerSample(const uint8_t* p_codec_info);
 
 // Gets the channel count for the A2DP codec.
 // |p_codec_info| is a pointer to the codec_info to decode.

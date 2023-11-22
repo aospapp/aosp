@@ -39,21 +39,21 @@
       android:layout_centerVertical="true"
       android:layout_marginStart="8dp">
 
-    <TextView
+    <com.android.dialer.widget.BidiTextView
         android:id="@+id/primary"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center_vertical|start"
         android:fontFamily="sans-serif"
-        style="@style/PrimaryText"/>
+        style="@style/Dialer.TextAppearance.Primary"/>
 
-    <TextView
+    <com.android.dialer.widget.BidiTextView
         android:id="@+id/secondary"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center_vertical|start"
         android:fontFamily="sans-serif"
-        style="@style/SecondaryText"/>
+        style="@style/Dialer.TextAppearance.Secondary"/>
   </LinearLayout>
 
   <ImageView
@@ -62,7 +62,7 @@
       android:layout_height="@dimen/search_row_height"
       android:layout_alignParentEnd="true"
       android:padding="@dimen/call_to_action_padding"
-      android:tint="@color/dialer_secondary_text_color"
+      android:tint="?colorIcon"
       android:visibility="gone"
       android:scaleType="center"/>
 
@@ -74,6 +74,7 @@
       android:layout_centerVertical="true"
       android:padding="@dimen/call_to_action_padding"
       android:src="@drawable/ic_work_profile"
+      android:tint="?colorIcon"
       android:scaleType="centerInside"
       android:visibility="gone"/>
 </RelativeLayout>

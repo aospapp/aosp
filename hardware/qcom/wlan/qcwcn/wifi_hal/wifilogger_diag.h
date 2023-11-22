@@ -48,6 +48,7 @@
 #define WLAN_PKT_LOG_STATS            0x18E0
 #define FEATURE_NOT_SUPPORTED         0xFF
 
+#define DATA_STALL_OFFSET_REASON_CODE 256
 /*
  *  - verbose_level 0 corresponds to no collection
  *  - verbose_level 1 correspond to normal log level, with minimal user impact.
@@ -236,6 +237,10 @@ typedef struct {
     u32 reason_code;
     u32 reserved;
 } wlan_log_complete_event_t;
+
+typedef struct {
+    u32 reason;
+} wlan_data_stall_event_t;
 
 wifi_error diag_message_handler(hal_info *info, nl_msg *msg);
 

@@ -106,7 +106,7 @@ bool LRUCache::CacheNodeEqual(const CacheNode* n1, const CacheNode* n2) {
 }
 
 size_t LRUCache::CacheNodeHash(const CacheNode* n) {
-  return static_cast<size_t>(n->ip);
+  return static_cast<size_t>(n->tid ^ n->ip ^ n->sp);
 }
 
 CacheNode* LRUCache::GetNode(uint32_t tid, uint64_t ip, uint64_t sp) {

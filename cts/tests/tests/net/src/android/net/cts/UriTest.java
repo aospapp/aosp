@@ -22,6 +22,7 @@ import android.os.Parcel;
 import android.test.AndroidTestCase;
 import java.io.File;
 import java.util.Arrays;
+import java.util.ArrayList;
 
 public class UriTest extends AndroidTestCase {
     public void testParcelling() {
@@ -73,6 +74,12 @@ public class UriTest extends AndroidTestCase {
         assertEquals("new", b.getFragment());
         assertEquals("bar", b.getSchemeSpecificPart());
         assertEquals("foo", b.getScheme());
+
+        a = Uri.fromParts("scheme", "[2001:db8::dead:e1f]/foo", "bar");
+        b = a.buildUpon().fragment("qux").build();
+        assertEquals("qux", b.getFragment());
+        assertEquals("[2001:db8::dead:e1f]/foo", b.getSchemeSpecificPart());
+        assertEquals("scheme", b.getScheme());
     }
 
     public void testStringUri() {
@@ -120,6 +127,38 @@ public class UriTest extends AndroidTestCase {
         assertEquals("a.foo.com", uri.getHost());
         assertEquals(-1, uri.getPort());
         assertEquals("\\.example.com/path", uri.getPath());
+
+        uri = Uri.parse("https://[2001:db8::dead:e1f]/foo");
+        assertEquals("[2001:db8::dead:e1f]", uri.getAuthority());
+        assertNull(uri.getUserInfo());
+        assertEquals("[2001:db8::dead:e1f]", uri.getHost());
+        assertEquals(-1, uri.getPort());
+        assertEquals("/foo", uri.getPath());
+        assertEquals(null, uri.getFragment());
+        assertEquals("//[2001:db8::dead:e1f]/foo", uri.getSchemeSpecificPart());
+
+        uri = Uri.parse("https://[2001:db8::dead:e1f]/#foo");
+        assertEquals("[2001:db8::dead:e1f]", uri.getAuthority());
+        assertNull(uri.getUserInfo());
+        assertEquals("[2001:db8::dead:e1f]", uri.getHost());
+        assertEquals(-1, uri.getPort());
+        assertEquals("/", uri.getPath());
+        assertEquals("foo", uri.getFragment());
+        assertEquals("//[2001:db8::dead:e1f]/", uri.getSchemeSpecificPart());
+
+        uri = Uri.parse(
+                "https://some:user@[2001:db8::dead:e1f]:1234/foo?corge=thud&corge=garp#bar");
+        assertEquals("some:user@[2001:db8::dead:e1f]:1234", uri.getAuthority());
+        assertEquals("some:user", uri.getUserInfo());
+        assertEquals("[2001:db8::dead:e1f]", uri.getHost());
+        assertEquals(1234, uri.getPort());
+        assertEquals("/foo", uri.getPath());
+        assertEquals("bar", uri.getFragment());
+        assertEquals("//some:user@[2001:db8::dead:e1f]:1234/foo?corge=thud&corge=garp",
+                uri.getSchemeSpecificPart());
+        assertEquals("corge=thud&corge=garp", uri.getQuery());
+        assertEquals("thud", uri.getQueryParameter("corge"));
+        assertEquals(Arrays.asList("thud", "garp"), uri.getQueryParameters("corge"));
     }
 
     public void testCompareTo() {
@@ -164,20 +203,60 @@ public class UriTest extends AndroidTestCase {
         String encoded = Uri.encode("Bob:/", "/");
         assertEquals(-1, encoded.indexOf(':'));
         assertTrue(encoded.indexOf('/') > -1);
-        assertDecode(null);
-        assertDecode("");
-        assertDecode("Bob");
-        assertDecode(":Bob");
-        assertDecode("::Bob");
-        assertDecode("Bob::Lee");
-        assertDecode("Bob:Lee");
-        assertDecode("Bob::");
-        assertDecode("Bob:");
-        assertDecode("::Bob::");
+        assertEncodeDecodeRoundtripExact(null);
+        assertEncodeDecodeRoundtripExact("");
+        assertEncodeDecodeRoundtripExact("Bob");
+        assertEncodeDecodeRoundtripExact(":Bob");
+        assertEncodeDecodeRoundtripExact("::Bob");
+        assertEncodeDecodeRoundtripExact("Bob::Lee");
+        assertEncodeDecodeRoundtripExact("Bob:Lee");
+        assertEncodeDecodeRoundtripExact("Bob::");
+        assertEncodeDecodeRoundtripExact("Bob:");
+        assertEncodeDecodeRoundtripExact("::Bob::");
+        assertEncodeDecodeRoundtripExact("https:/some:user@[2001:db8::dead:e1f]:1234/foo#bar");
     }
 
-    private void assertDecode(String s) {
+    private static void assertEncodeDecodeRoundtripExact(String s) {
         assertEquals(s, Uri.decode(Uri.encode(s, null)));
+    }
+
+    public void testDecode_emptyString_returnsEmptyString() {
+        assertEquals("", Uri.decode(""));
+    }
+
+    public void testDecode_null_returnsNull() {
+        assertNull(Uri.decode(null));
+    }
+
+    public void testDecode_wrongHexDigit() {
+        // %p in the end.
+        assertEquals("ab/$\u0102%\u0840\uFFFD\u0000", Uri.decode("ab%2f$%C4%82%25%e0%a1%80%p"));
+    }
+
+    public void testDecode_secondHexDigitWrong() {
+        // %1p in the end.
+        assertEquals("ab/$\u0102%\u0840\uFFFD\u0001", Uri.decode("ab%2f$%c4%82%25%e0%a1%80%1p"));
+    }
+
+    public void testDecode_endsWithPercent_appendsUnknownCharacter() {
+        // % in the end.
+        assertEquals("ab/$\u0102%\u0840\uFFFD", Uri.decode("ab%2f$%c4%82%25%e0%a1%80%"));
+    }
+
+    public void testDecode_plusNotConverted() {
+        assertEquals("ab/$\u0102%+\u0840", Uri.decode("ab%2f$%c4%82%25+%e0%a1%80"));
+    }
+
+    // Last character needs decoding (make sure we are flushing the buffer with chars to decode).
+    public void testDecode_lastCharacter() {
+        assertEquals("ab/$\u0102%\u0840", Uri.decode("ab%2f$%c4%82%25%e0%a1%80"));
+    }
+
+    // Check that a second row of encoded characters is decoded properly (internal buffers are
+    // reset properly).
+    public void testDecode_secondRowOfEncoded() {
+        assertEquals("ab/$\u0102%\u0840aa\u0840",
+                Uri.decode("ab%2f$%c4%82%25%e0%a1%80aa%e0%a1%80"));
     }
 
     public void testFromFile() {
@@ -424,5 +503,88 @@ public class UriTest extends AndroidTestCase {
         assertEquals(Uri.parse("http://USER@WWW.ANDROID.COM:100/ABOUT?foo=blah@bar=bleh#c"),
                 Uri.parse("HTTP://USER@WWW.ANDROID.COM:100/ABOUT?foo=blah@bar=bleh#c")
                         .normalizeScheme());
+    }
+
+    public void testToSafeString_tel() {
+        checkToSafeString("tel:xxxxxx", "tel:Google");
+        checkToSafeString("tel:xxxxxxxxxx", "tel:1234567890");
+        checkToSafeString("tEl:xxx.xxx-xxxx", "tEl:123.456-7890");
+    }
+
+    public void testToSafeString_sip() {
+        checkToSafeString("sip:xxxxxxx@xxxxxxx.xxxxxxxx", "sip:android@android.com:1234");
+        checkToSafeString("sIp:xxxxxxx@xxxxxxx.xxx", "sIp:android@android.com");
+    }
+
+    public void testToSafeString_sms() {
+        checkToSafeString("sms:xxxxxx", "sms:123abc");
+        checkToSafeString("smS:xxx.xxx-xxxx", "smS:123.456-7890");
+    }
+
+    public void testToSafeString_smsto() {
+        checkToSafeString("smsto:xxxxxx", "smsto:123abc");
+        checkToSafeString("SMSTo:xxx.xxx-xxxx", "SMSTo:123.456-7890");
+    }
+
+    public void testToSafeString_mailto() {
+        checkToSafeString("mailto:xxxxxxx@xxxxxxx.xxx", "mailto:android@android.com");
+        checkToSafeString("Mailto:xxxxxxx@xxxxxxx.xxxxxxxxxx",
+                "Mailto:android@android.com/secret");
+    }
+
+    public void testToSafeString_nfc() {
+        checkToSafeString("nfc:xxxxxx", "nfc:123abc");
+        checkToSafeString("nfc:xxx.xxx-xxxx", "nfc:123.456-7890");
+        checkToSafeString("nfc:xxxxxxx@xxxxxxx.xxx", "nfc:android@android.com");
+    }
+
+    public void testToSafeString_http() {
+        checkToSafeString("http://www.android.com/...", "http://www.android.com");
+        checkToSafeString("HTTP://www.android.com/...", "HTTP://www.android.com");
+        checkToSafeString("http://www.android.com/...", "http://www.android.com/");
+        checkToSafeString("http://www.android.com/...", "http://www.android.com/secretUrl?param");
+        checkToSafeString("http://www.android.com/...",
+                "http://user:pwd@www.android.com/secretUrl?param");
+        checkToSafeString("http://www.android.com/...",
+                "http://user@www.android.com/secretUrl?param");
+        checkToSafeString("http://www.android.com/...", "http://www.android.com/secretUrl?param");
+        checkToSafeString("http:///...", "http:///path?param");
+        checkToSafeString("http:///...", "http://");
+        checkToSafeString("http://:12345/...", "http://:12345/");
+    }
+
+    public void testToSafeString_https() {
+        checkToSafeString("https://www.android.com/...", "https://www.android.com/secretUrl?param");
+        checkToSafeString("https://www.android.com:8443/...",
+                "https://user:pwd@www.android.com:8443/secretUrl?param");
+        checkToSafeString("https://www.android.com/...", "https://user:pwd@www.android.com");
+        checkToSafeString("Https://www.android.com/...", "Https://user:pwd@www.android.com");
+    }
+
+    public void testToSafeString_ftp() {
+        checkToSafeString("ftp://ftp.android.com/...", "ftp://ftp.android.com/");
+        checkToSafeString("ftP://ftp.android.com/...", "ftP://anonymous@ftp.android.com/");
+        checkToSafeString("ftp://ftp.android.com:2121/...",
+                "ftp://root:love@ftp.android.com:2121/");
+    }
+
+    public void testToSafeString_rtsp() {
+        checkToSafeString("rtsp://rtsp.android.com/...", "rtsp://rtsp.android.com/");
+        checkToSafeString("rtsp://rtsp.android.com/...", "rtsp://rtsp.android.com/video.mov");
+        checkToSafeString("rtsp://rtsp.android.com/...", "rtsp://rtsp.android.com/video.mov?param");
+        checkToSafeString("RtsP://rtsp.android.com/...", "RtsP://anonymous@rtsp.android.com/");
+        checkToSafeString("rtsp://rtsp.android.com:2121/...",
+                "rtsp://username:password@rtsp.android.com:2121/");
+    }
+
+    public void testToSafeString_notSupport() {
+        checkToSafeString("unsupported://ajkakjah/askdha/secret?secret",
+                "unsupported://ajkakjah/askdha/secret?secret");
+        checkToSafeString("unsupported:ajkakjah/askdha/secret?secret",
+                "unsupported:ajkakjah/askdha/secret?secret");
+    }
+
+    private void checkToSafeString(String expectedSafeString, String original) {
+        assertEquals(expectedSafeString, Uri.parse(original).toSafeString());
     }
 }

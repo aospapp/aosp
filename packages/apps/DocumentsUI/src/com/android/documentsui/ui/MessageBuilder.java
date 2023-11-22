@@ -15,7 +15,7 @@
  */
 package com.android.documentsui.ui;
 
-import android.annotation.PluralsRes;
+import androidx.annotation.PluralsRes;
 import android.content.Context;
 import android.text.BidiFormatter;
 import android.net.Uri;

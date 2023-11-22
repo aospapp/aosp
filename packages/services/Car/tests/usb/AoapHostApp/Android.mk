@@ -32,7 +32,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_PROGUARD_ENABLED := disabled
 
-LOCAL_STATIC_JAVA_LIBRARIES := junit
-include packages/services/Car/car-support-lib/car-support.mk
+LOCAL_STATIC_JAVA_LIBRARIES := junit \
+    android.car
 
 include $(BUILD_PACKAGE)

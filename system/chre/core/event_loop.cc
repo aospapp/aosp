@@ -152,7 +152,7 @@ bool EventLoop::startNanoapp(UniquePtr<Nanoapp>& nanoapp) {
     LOGE("App with ID 0x%016" PRIx64 " already exists as instance ID 0x%"
          PRIx32, nanoapp->getAppId(), existingInstanceId);
   } else if (!mNanoapps.prepareForPush()) {
-    LOGE("Failed to allocate space for new nanoapp");
+    LOG_OOM();
   } else {
     nanoapp->setInstanceId(eventLoopManager->getNextInstanceId());
     LOGD("Instance ID %" PRIu32 " assigned to app ID 0x%016" PRIx64,
@@ -281,8 +281,15 @@ bool EventLoop::postEventOrFree(uint16_t eventType, void *eventData,
 }
 
 void EventLoop::stop() {
-  postEvent(0, nullptr, nullptr, kSystemInstanceId, kSystemInstanceId);
-  // Stop accepting new events and tell the main loop to finish
+  auto callback = [](uint16_t /* type */, void * /* data */) {
+    EventLoopManagerSingleton::get()->getEventLoop().onStopComplete();
+  };
+
+  // Stop accepting new events and tell the main loop to finish.
+  postEvent(0, nullptr, callback, kSystemInstanceId, kSystemInstanceId);
+}
+
+void EventLoop::onStopComplete() {
   mRunning = false;
 }
 
@@ -309,19 +316,17 @@ bool EventLoop::currentNanoappIsStopping() const {
   return (mCurrentApp == mStoppingNanoapp || !mRunning);
 }
 
-bool EventLoop::logStateToBuffer(char *buffer, size_t *bufferPos,
+void EventLoop::logStateToBuffer(char *buffer, size_t *bufferPos,
                                  size_t bufferSize) const {
-  bool success = debugDumpPrint(buffer, bufferPos, bufferSize, "\nNanoapps:\n");
+  debugDumpPrint(buffer, bufferPos, bufferSize, "\nNanoapps:\n");
   for (const UniquePtr<Nanoapp>& app : mNanoapps) {
-    success &= app->logStateToBuffer(buffer, bufferPos, bufferSize);
+    app->logStateToBuffer(buffer, bufferPos, bufferSize);
   }
 
-  success &= debugDumpPrint(buffer, bufferPos, bufferSize,
-                            "\nEvent Loop:\n");
-  success &= debugDumpPrint(buffer, bufferPos, bufferSize,
-                            "  Max event pool usage: %zu/%zu\n",
-                            mMaxEventPoolUsage, kMaxEventCount);
-  return success;
+  debugDumpPrint(buffer, bufferPos, bufferSize, "\nEvent Loop:\n");
+  debugDumpPrint(buffer, bufferPos, bufferSize,
+                 "  Max event pool usage: %zu/%zu\n",
+                 mMaxEventPoolUsage, kMaxEventCount);
 }
 
 bool EventLoop::allocateAndPostEvent(uint16_t eventType, void *eventData,
@@ -433,7 +438,7 @@ void EventLoop::notifyAppStatusChange(uint16_t eventType,
                                       const Nanoapp& nanoapp) {
   auto *info = memoryAlloc<chreNanoappInfo>();
   if (info == nullptr) {
-    LOGE("Couldn't alloc app status change event");
+    LOG_OOM();
   } else {
     info->appId      = nanoapp.getAppId();
     info->version    = nanoapp.getAppVersion();
@@ -446,16 +451,17 @@ void EventLoop::notifyAppStatusChange(uint16_t eventType,
 void EventLoop::unloadNanoappAtIndex(size_t index) {
   const UniquePtr<Nanoapp>& nanoapp = mNanoapps[index];
 
+  // Lock here to prevent the nanoapp instance from being accessed between the
+  // time it is ended and fully erased
+  LockGuard<Mutex> lock(mNanoappsLock);
+
   // Let the app know it's going away
   mCurrentApp = nanoapp.get();
   nanoapp->end();
   mCurrentApp = nullptr;
 
   // Destroy the Nanoapp instance
-  {
-    LockGuard<Mutex> lock(mNanoappsLock);
-    mNanoapps.erase(index);
-  }
+  mNanoapps.erase(index);
 }
 
 }  // namespace chre

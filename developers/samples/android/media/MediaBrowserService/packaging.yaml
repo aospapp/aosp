@@ -4,7 +4,7 @@
 # End users may safely ignore this file. It has no relevance to other systems.
 ---
 
-status:       PUBLISHED
+status:       DEPRECATED
 technologies: [Android]
 categories:   [None]
 languages:    [Java]

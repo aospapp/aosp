@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2016 The Android Open Source Project
- * Copyright (C) 2016 Mopria Alliance, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +22,6 @@ import android.content.Intent;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.wifi.p2p.WifiP2pManager;
-import android.os.AsyncTask;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.LruCache;
@@ -48,8 +46,7 @@ import java.util.function.Consumer;
  * with the ability to fetch them on cache misses. {@link #close} must be called when use
  * is complete.
  */
-public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> implements
-        AutoCloseable {
+public class CapabilitiesCache implements AutoCloseable {
     private static final String TAG = CapabilitiesCache.class.getSimpleName();
     private static final boolean DEBUG = false;
 
@@ -66,6 +63,9 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
     // Maximum time per retry before giving up on second pass. Must differ from FIRST_PASS_TIMEOUT.
     private static final int SECOND_PASS_TIMEOUT = 8000;
 
+    // Underlying cache
+    private final LruCache<Uri, LocalPrinterCapabilities> mCache = new LruCache<>(CACHE_SIZE);
+
     // Outstanding requests based on printer path
     private final Map<Uri, Request> mRequests = new HashMap<>();
     private final Set<Uri> mToEvict = new HashSet<>();
@@ -81,7 +81,6 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
      * @param maxConcurrent Maximum number of capabilities requests to make at any one time
      */
     public CapabilitiesCache(BuiltInPrintService service, Backend backend, int maxConcurrent) {
-        super(CACHE_SIZE);
         if (DEBUG) Log.d(TAG, "CapabilitiesCache()");
 
         mService = service;
@@ -96,7 +95,7 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
                     // Evict specified device capabilities when P2P network is lost.
                     if (DEBUG) Log.d(TAG, "Evicting P2P " + mToEvictP2p);
                     for (Uri uri : mToEvictP2p) {
-                        remove(uri);
+                        mCache.remove(uri);
                     }
                     mToEvictP2p.clear();
                 }
@@ -108,7 +107,7 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
                 // Evict specified device capabilities when network is lost.
                 if (DEBUG) Log.d(TAG, "Evicting Wi-Fi " + mToEvict);
                 for (Uri uri : mToEvict) {
-                    remove(uri);
+                    mCache.remove(uri);
                 }
                 mToEvict.clear();
             }
@@ -173,7 +172,20 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
      * Returns capabilities for the specified printer, if known
      */
     public LocalPrinterCapabilities get(DiscoveredPrinter printer) {
-        return get(printer.path);
+        LocalPrinterCapabilities capabilities = mCache.get(printer.path);
+        // Populate certificate from store if possible
+        if (capabilities != null) {
+            capabilities.certificate = mService.getCertificateStore().get(capabilities.uuid);
+        }
+        return capabilities;
+    }
+
+    /**
+     * Remove capabilities corresponding to a Printer URI
+     * @return The removed capabilities, if any
+     */
+    public LocalPrinterCapabilities remove(Uri printerUri) {
+        return mCache.remove(printerUri);
     }
 
     /**
@@ -281,10 +293,11 @@ public class CapabilitiesCache extends LruCache<Uri, LocalPrinterCapabilities> i
                     startNextRequest();
                     return;
                 } else {
-                    remove(printer.getUri());
+                    mCache.remove(printer.getUri());
                 }
             } else {
-                put(printer.path, capabilities);
+                capabilities.certificate = mService.getCertificateStore().get(capabilities.uuid);
+                mCache.put(printer.path, capabilities);
             }
 
             LocalPrinterCapabilities result = capabilities;

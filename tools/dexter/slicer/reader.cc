@@ -882,15 +882,15 @@ void Reader::ParseInstructions(slicer::ArrayView<const dex::u2> code) {
 
     dex::u4 index = dex::kNoIndex;
     switch (dex::GetFormatFromOpcode(dex_instr.opcode)) {
-      case dex::kFmt20bc:
-      case dex::kFmt21c:
-      case dex::kFmt31c:
-      case dex::kFmt35c:
-      case dex::kFmt3rc:
+      case dex::k20bc:
+      case dex::k21c:
+      case dex::k31c:
+      case dex::k35c:
+      case dex::k3rc:
         index = dex_instr.vB;
         break;
 
-      case dex::kFmt22c:
+      case dex::k22c:
         index = dex_instr.vC;
         break;
 

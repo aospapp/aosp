@@ -28,6 +28,8 @@
     <uses-permission android:name="android.permission.BIND_WALLPAPER" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
+    <uses-sdk android:minSdkVersion="14"/>
+
     <application
         android:label="@string/application_name"
         android:icon="@mipmap/ic_launcher_live_wallpaper"
@@ -60,7 +62,7 @@
         <activity android:name="LiveWallpaperPreview"
             android:label="@string/live_wallpaper_preview_title"
             android:colorMode="wideColorGamut"
-            android:theme="@style/Preview" />
+            android:theme="@style/Preview"/>
     </application>
 
 </manifest>

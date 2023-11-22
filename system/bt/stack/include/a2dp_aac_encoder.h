@@ -22,7 +22,6 @@
 #define A2DP_AAC_ENCODER_H
 
 #include "a2dp_codec_api.h"
-#include "osi/include/time.h"
 
 // Loads the A2DP AAC encoder.
 // Return true on success, otherwise false.
@@ -51,7 +50,7 @@ void a2dp_aac_feeding_reset(void);
 void a2dp_aac_feeding_flush(void);
 
 // Get the A2DP AAC encoder interval (in milliseconds).
-period_ms_t a2dp_aac_get_encoder_interval_ms(void);
+uint64_t a2dp_aac_get_encoder_interval_ms(void);
 
 // Prepare and send A2DP AAC encoded frames.
 // |timestamp_us| is the current timestamp (in microseconds).

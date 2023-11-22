@@ -21,6 +21,8 @@
         android:sharedUserId="android.uid.system">
 
     <protected-broadcast android:name="android.intent.action.SHOW_MISSED_CALLS_NOTIFICATION" />
+    <protected-broadcast android:name="com.android.server.telecom.MESSAGE_SENT" />
+
 
     <!-- Prevents the activity manager from delaying any activity-start
          requests by this package, including requests immediately after
@@ -32,15 +34,19 @@
     <uses-permission android:name="android.permission.BROADCAST_CALLLOG_INFO" />
     <uses-permission android:name="android.permission.BROADCAST_PHONE_ACCOUNT_REGISTRATION" />
     <uses-permission android:name="android.permission.CALL_PRIVILEGED" />
+    <uses-permission android:name="android.permission.HANDLE_CALL_INTENT" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
+    <uses-permission android:name="android.permission.MANAGE_ROLE_HOLDERS" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- Required to determine source of ongoing audio recordings. -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_ROUTING" />
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.STOP_APP_SWITCHES" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WRITE_CALL_LOG" />
@@ -67,6 +73,11 @@
     <permission
             android:name="android.permission.PROCESS_PHONE_ACCOUNT_REGISTRATION"
             android:label="Process phone account registration"
+            android:protectionLevel="signature|system"/>
+
+    <permission
+            android:name="android.permission.HANDLE_CALL_INTENT"
+            android:label="Protects handling the call intent via the TelecomManager API."
             android:protectionLevel="signature|system"/>
 
     <application android:label="@string/telecommAppLabel"
@@ -227,10 +238,12 @@
                 <action android:name="com.android.server.telecom.ACTION_REJECT_FROM_NOTIFICATION" />
                 <action android:name="com.android.server.telecom.PROCEED_WITH_CALL" />
                 <action android:name="com.android.server.telecom.CANCEL_CALL" />
+                <action android:name="com.android.server.telecom.PROCEED_WITH_REDIRECTED_CALL" />
+                <action android:name="com.android.server.telecom.CANCEL_REDIRECTED_CALL" />
             </intent-filter>
         </receiver>
 
-        <receiver android:name=".components.PhoneAccountBroadcastReceiver"
+        <receiver android:name=".components.AppUninstallBroadcastReceiver"
                 android:process="system">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />
@@ -277,23 +290,26 @@
                 android:process=":ui">
         </activity>
 
-        <activity android:name=".components.ChangeDefaultDialerDialog"
-                  android:label="@string/change_default_dialer_dialog_title"
+        <activity android:name=".ui.CallRedirectionConfirmDialogActivity"
+                  android:configChanges="orientation|screenSize|keyboardHidden"
                   android:excludeFromRecents="true"
-                  android:theme="@*android:style/Theme.Material.Light.Dialog.Alert"
-                  android:priority="1000"
-                  android:process=":ui" >
-            <intent-filter>
-                <action android:name="android.telecom.action.CHANGE_DEFAULT_DIALER" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
+                  android:launchMode="singleInstance"
+                  android:theme="@style/Theme.Telecomm.Transparent"
+                  android:process=":ui">
         </activity>
 
-        <receiver android:name=".components.PrimaryCallReceiver"
-                android:exported="true"
-                android:permission="android.permission.MODIFY_PHONE_STATE"
-                android:process="system">
-        </receiver>
+        <activity android:name=".ui.CallRedirectionTimeoutDialogActivity"
+                  android:configChanges="orientation|screenSize|keyboardHidden"
+                  android:excludeFromRecents="true"
+                  android:launchMode="singleInstance"
+                  android:theme="@style/Theme.Telecomm.Transparent"
+                  android:process=":ui">
+        </activity>
+
+        <activity android:name=".ui.TelecomDeveloperMenu"
+                  android:label="@string/developer_title"
+                  android:exported="false"
+                  android:process=":ui" />
 
         <service android:name=".components.BluetoothPhoneService"
                 android:singleUser="true"

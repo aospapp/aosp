@@ -28,11 +28,12 @@ namespace vintf {
 // are unmounted afterwards.
 
 class VintfObjectRecovery {
-public:
+   public:
     /**
      * Check compatibility, given a set of manifests / matrices in packageInfo.
      * They will be checked against the manifests / matrices on the device.
      * Partitions (/system, /vendor) are mounted if necessary.
+     * Note: this is NOT thread-safe.
      *
      * @param packageInfo a list of XMLs of HalManifest /
      * CompatibilityMatrix objects.
@@ -41,10 +42,8 @@ public:
      *         > 0 if incompatible
      *         < 0 if any error (mount partition fails, illformed XML, etc.)
      */
-    static int32_t CheckCompatibility(
-            const std::vector<std::string> &packageInfo,
-            std::string *error = nullptr);
-
+    static int32_t CheckCompatibility(const std::vector<std::string>& packageInfo,
+                                      std::string* error = nullptr);
 };
 
 } // namespace vintf

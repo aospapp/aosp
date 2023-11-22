@@ -26,12 +26,15 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.net.wifi.WifiSsid;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.SystemUtil;
 
 import java.util.concurrent.Callable;
 
+@AppModeFull(reason = "Cannot get WifiManager in instant app mode")
 public class WifiInfoTest extends AndroidTestCase {
     private static class MySync {
         int expectedState = STATE_NULL;
@@ -104,7 +107,11 @@ public class WifiInfoTest extends AndroidTestCase {
     private void setWifiEnabled(boolean enable) throws Exception {
         synchronized (mMySync) {
             mMySync.expectedState = STATE_WIFI_CHANGING;
-            assertTrue(mWifiManager.setWifiEnabled(enable));
+            if (enable) {
+                SystemUtil.runShellCommand("svc wifi enable");
+            } else {
+                SystemUtil.runShellCommand("svc wifi disable");
+            }
             long timeout = System.currentTimeMillis() + TIMEOUT_MSEC;
             while (System.currentTimeMillis() < timeout
                     && mMySync.expectedState == STATE_WIFI_CHANGING)
@@ -134,6 +141,8 @@ public class WifiInfoTest extends AndroidTestCase {
         wifiInfo.getBSSID();
         wifiInfo.getIpAddress();
         wifiInfo.getLinkSpeed();
+        wifiInfo.getTxLinkSpeedMbps();
+        wifiInfo.getRxLinkSpeedMbps();
         wifiInfo.getRssi();
         wifiInfo.getHiddenSSID();
         wifiInfo.getMacAddress();

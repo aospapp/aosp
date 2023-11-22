@@ -22,9 +22,10 @@
 #include <string>
 #include <type_traits>
 
+#include <android-base/logging.h>
+
 #include "base/atomic.h"
 #include "base/globals.h"
-#include "base/logging.h"  // For VLOG_IS_ON.
 
 namespace art {
 
@@ -59,6 +60,7 @@ enum class MethodCompilationStat {
   kNotCompiledUnsupportedIsa,
   kNotCompiledVerificationError,
   kNotCompiledVerifyAtRuntime,
+  kNotCompiledIrreducibleLoopAndStringInit,
   kInlinedMonomorphicCall,
   kInlinedPolymorphicCall,
   kMonomorphicCall,
@@ -99,6 +101,7 @@ enum class MethodCompilationStat {
   kConstructorFenceRemovedLSE,
   kConstructorFenceRemovedPFRA,
   kConstructorFenceRemovedCFRE,
+  kBitstringTypeCheck,
   kJitOutOfMemoryForCommit,
   kLastStat
 };
@@ -124,11 +127,6 @@ class OptimizingCompilerStats {
   }
 
   void Log() const {
-    if (!kIsDebugBuild && !VLOG_IS_ON(compiler)) {
-      // Log only in debug builds or if the compiler is verbose.
-      return;
-    }
-
     uint32_t compiled_intrinsics = GetStat(MethodCompilationStat::kCompiledIntrinsic);
     uint32_t compiled_native_stubs = GetStat(MethodCompilationStat::kCompiledNativeStub);
     uint32_t bytecode_attempts =

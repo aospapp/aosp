@@ -20,6 +20,11 @@
 #include "component_loader/DllLoader.h"
 #include "test/vts/proto/ComponentSpecificationMessage.pb.h"
 
+// HACK: NAN is #defined by math.h which gets included by
+// ComponentSpecificationMessage.pb.h, but some HALs use
+// enums called NAN.  Undefine NAN to work around it.
+#undef NAN
+
 using namespace std;
 
 namespace android {
@@ -27,7 +32,7 @@ namespace vts {
 
 class DriverBase {
  public:
-  DriverBase(int target_class);
+  explicit DriverBase(int target_class);
   virtual ~DriverBase();
 
   // Loads a target component where the argument is the file path.

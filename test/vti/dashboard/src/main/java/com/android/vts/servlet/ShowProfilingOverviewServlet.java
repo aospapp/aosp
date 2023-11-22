@@ -74,7 +74,7 @@ public class ShowProfilingOverviewServlet extends BaseServlet {
 
         // Create a query for test runs matching the time window filter
 
-        Map<String, Object> parameterMap = request.getParameterMap();
+        Map<String, String[]> parameterMap = request.getParameterMap();
         boolean hasBranchFilter = parameterMap.containsKey(FilterUtil.FilterKey.BRANCH.getValue());
         Filter deviceFilter;
         if (hasBranchFilter) {
@@ -139,7 +139,7 @@ public class ShowProfilingOverviewServlet extends BaseServlet {
         for (ProfilingPointEntity pp : profilingPoints) {
             Query profilingQuery =
                     new Query(ProfilingPointSummaryEntity.KIND)
-                            .setAncestor(pp.key)
+                            .setAncestor(pp.getKey())
                             .setFilter(filter);
             asyncEntities.put(
                     pp,
@@ -150,17 +150,17 @@ public class ShowProfilingOverviewServlet extends BaseServlet {
 
         Map<String, BoxPlot> plotMap = new HashMap<>();
         for (ProfilingPointEntity pp : profilingPoints) {
-            if (!plotMap.containsKey(pp.profilingPointName)) {
+            if (!plotMap.containsKey(pp.getProfilingPointName())) {
                 plotMap.put(
-                        pp.profilingPointName, new BoxPlot(pp.profilingPointName, null, pp.xLabel));
+                        pp.getProfilingPointName(), new BoxPlot(pp.getProfilingPointName(), null, pp.getXLabel()));
             }
-            BoxPlot plot = plotMap.get(pp.profilingPointName);
+            BoxPlot plot = plotMap.get(pp.getProfilingPointName());
             Set<Long> timestamps = new HashSet<>();
             for (Entity e : asyncEntities.get(pp)) {
                 ProfilingPointSummaryEntity pps = ProfilingPointSummaryEntity.fromEntity(e);
                 if (pps == null) continue;
-                plot.addSeriesData(Long.toString(pps.startTime), pps.series, pps.globalStats);
-                timestamps.add(pps.startTime);
+                plot.addSeriesData(Long.toString(pps.getStartTime()), pps.getSeries(), pps.getGlobalStats());
+                timestamps.add(pps.getStartTime());
             }
             List<Long> timestampList = new ArrayList<>(timestamps);
             timestampList.sort(Comparator.reverseOrder());

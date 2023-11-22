@@ -19,11 +19,13 @@ import android.content.pm.FeatureGroupInfo;
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.util.Arrays;
 import java.util.Comparator;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class FeatureGroupInfoTest extends AndroidTestCase {
 
     private PackageManager mPackageManager;

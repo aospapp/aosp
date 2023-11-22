@@ -25,12 +25,13 @@
 #include <policy/device_policy.h>
 
 #if USE_CHROME_KIOSK_APP
-#include <libcros/dbus-proxies.h>
+#include <kiosk-app/dbus-proxies.h>
 #endif  // USE_CHROME_KIOSK_APP
 
 #include "update_engine/certificate_checker.h"
 #include "update_engine/common/boot_control_interface.h"
 #include "update_engine/common/clock.h"
+#include "update_engine/common/dlcservice_interface.h"
 #include "update_engine/common/hardware_interface.h"
 #include "update_engine/common/prefs.h"
 #include "update_engine/connection_manager_interface.h"
@@ -126,14 +127,22 @@ class RealSystemState : public SystemState, public DaemonStateInterface {
 
   inline bool system_rebooted() override { return system_rebooted_; }
 
+  inline DlcServiceInterface* dlcservice() override {
+    return dlcservice_.get();
+  }
+
  private:
   // Real DBus proxies using the DBus connection.
 #if USE_CHROME_KIOSK_APP
-  std::unique_ptr<org::chromium::LibCrosServiceInterfaceProxy> libcros_proxy_;
+  std::unique_ptr<org::chromium::KioskAppServiceInterfaceProxy>
+      kiosk_app_proxy_;
 #endif  // USE_CHROME_KIOSK_APP
 
   // Interface for the power manager.
   std::unique_ptr<PowerManagerInterface> power_manager_;
+
+  // Interface for dlcservice.
+  std::unique_ptr<DlcServiceInterface> dlcservice_;
 
   // Interface for the clock.
   std::unique_ptr<BootControlInterface> boot_control_;
@@ -184,6 +193,8 @@ class RealSystemState : public SystemState, public DaemonStateInterface {
   // rebooted. Important for tracking whether you are running instance of the
   // update engine on first boot or due to a crash/restart.
   bool system_rebooted_{false};
+
+  ActionProcessor processor_;
 };
 
 }  // namespace chromeos_update_engine

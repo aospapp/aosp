@@ -28,6 +28,8 @@ import android.view.Window;
 
 import java.util.concurrent.TimeUnit;
 
+import androidx.test.filters.FlakyTest;
+
 public class ActionBarTest extends ActivityInstrumentationTestCase2<ActionBarActivity> {
 
     private ActionBarActivity mActivity;
@@ -86,6 +88,7 @@ public class ActionBarTest extends ActivityInstrumentationTestCase2<ActionBarAct
         assertEquals(t3, mBar.getTabAt(4));
     }
 
+    @FlakyTest(bugId = 133760851)
     public void testOptionsMenuKey() throws Exception {
         boolean hasPermanentMenuKey = ViewConfiguration.get(getActivity()).hasPermanentMenuKey();
         if (!mActivity.getWindow().hasFeature(Window.FEATURE_OPTIONS_PANEL)

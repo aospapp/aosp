@@ -1,5 +1,4 @@
-base=/system
-export CLASSPATH=$base/framework/hidl_test_java.jar:$base/framework/android.hardware.tests.baz-V1.0-java.jar:$base/framework/android.hidl.base-V1.0-java.jar
+export CLASSPATH=/data/framework/hidl_test_java_java.jar
 export TREBLE_TESTING_OVERRIDE=true
 
 e=0
@@ -13,14 +12,14 @@ for SIZE in 64 32; do
         $native -s &
         sleep 1
         NATIVE_PID=$!
-        app_process $base/bin com.android.commands.hidl_test_java.HidlTestJava -c \
+        app_process /data/framework com.android.commands.hidl_test_java.HidlTestJava -c \
             && echo "Java client => native server PASSED" \
             || (echo "Java client => native server FAILED" && false) || e=1
 
         kill $NATIVE_PID 2>/dev/null
 
         # Test Java server with native client
-        app_process $base/bin com.android.commands.hidl_test_java.HidlTestJava -s &
+        app_process /data/framework com.android.commands.hidl_test_java.HidlTestJava -s &
         NATIVE_PID=$!
         $native -c \
             && echo "native client => Java server PASSED" \
@@ -36,5 +35,7 @@ done
 echo
 echo "Summary: $e"
 [ $e -eq 0 ] && echo "All tests PASSED." || echo "Test(s) FAILED."
+
+export TREBLE_TESTING_OVERRIDE=false
 
 exit $e

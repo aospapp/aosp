@@ -106,8 +106,9 @@ public abstract class MmsRequest {
                 mMmsConfig = config;
                 // TODO: Make MmsConfigManager authoritative for user agent and don't consult
                 // TelephonyManager.
-                final TelephonyManager telephonyManager =
-                        (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+                final TelephonyManager telephonyManager = ((TelephonyManager) mContext
+                        .getSystemService(Context.TELEPHONY_SERVICE))
+                        .createForSubscriptionId(mSubId);
                 final String userAgent = telephonyManager.getMmsUserAgent();
                 if (!TextUtils.isEmpty(userAgent)) {
                     config.putString(SmsManager.MMS_CONFIG_USER_AGENT, userAgent);

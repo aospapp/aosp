@@ -22,12 +22,17 @@
 #include <hwbinder/ProcessState.h>
 #include <utils/Vector.h>
 
+#include <functional>
+
 #if defined(_WIN32)
 typedef  int  uid_t;
 #endif
 
 // ---------------------------------------------------------------------------
 namespace android {
+
+class IPCThreadStateBase;
+
 namespace hardware {
 
 class IPCThreadState
@@ -41,6 +46,11 @@ public:
             status_t            clearLastError();
 
             pid_t               getCallingPid() const;
+            // nullptr if unavailable
+            //
+            // this can't be restored once it's cleared, and it does not return the
+            // context of the current process when not in a binder call.
+            const char*         getCallingSid() const;
             uid_t               getCallingUid() const;
 
             void                setStrictModePolicy(int32_t policy);
@@ -50,6 +60,7 @@ public:
             int32_t             getLastTransactionBinderFlags() const;
 
             int64_t             clearCallingIdentity();
+            // Restores PID/UID (not SID)
             void                restoreCallingIdentity(int64_t token);
 
             int                 setupPolling(int* fd);
@@ -78,12 +89,10 @@ public:
 
     static  void                shutdown();
 
-    // Call this to disable switching threads to background scheduling when
-    // receiving incoming IPC calls.  This is specifically here for the
-    // Android system process, since it expects to have background apps calling
-    // in to it but doesn't want to acquire locks in its services while in
-    // the background.
+            // TODO(b/66905301): remove symbol
+private:
     static  void                disableBackgroundScheduling(bool disable);
+public:
 
             // Call blocks until the number of executing binder threads is less than
             // the maximum number of binder threads threads allowed for this process.
@@ -95,13 +104,43 @@ public:
             bool                isLooperThread();
             bool                isOnlyBinderThread();
 
-private:
-                                IPCThreadState();
-                                ~IPCThreadState();
+            // Is this thread currently serving a hwbinder call. This method
+            // returns true if while traversing backwards from the function call
+            // stack for this thread, we encounter a function serving a hwbinder
+            // call before encountering a binder call / hitting the end of the
+            // call stack.
+            // Eg: If thread T1 went through the following call pattern
+            //     1) T1 receives and executes binder call B1.
+            //     2) While handling B1, T1 makes hwbinder call H1.
+            //     3) The handler of H1, calls into T1 with a callback H2.
+            // If isServingCall() is called during B1 before 3), this method
+            // will return false, else true.
+            //
+            //  ----
+            // | H2 | ---> While callback H2 is being handled during 3).
+            //  ----
+            // | B1 | ---> While B1 is being handled, hwbinder call H1 made.
+            //  ----
+            // Fig: Thread Call stack while handling H2.
+            //
+            // This is since after 3), while traversing the thread call stack,
+            // we hit a hwbinder call before a binder call / end of stack.
+            // This method may be typically used to determine whether to use
+            // hardware::IPCThreadState methods or IPCThreadState methods to
+            // infer information about thread state.
+            bool isServingCall() const;
+
+            // Tasks which are done on the binder thread after the thread returns to the
+            // threadpool.
+            void addPostCommandTask(const std::function<void(void)>& task);
+
+           private:
+            IPCThreadState();
+            ~IPCThreadState();
 
             status_t            sendReply(const Parcel& reply, uint32_t flags);
             status_t            waitForResponse(Parcel *reply,
-                                                status_t *acquireResult=NULL);
+                                                status_t *acquireResult=nullptr);
             status_t            talkWithDriver(bool doReceive=true);
             status_t            writeTransactionData(int32_t cmd,
                                                      uint32_t binderFlags,
@@ -123,7 +162,6 @@ private:
                                            void* cookie);
 
     const   sp<ProcessState>    mProcess;
-    const   pid_t               mMyThreadId;
             Vector<BHwBinder*>    mPendingStrongDerefs;
             Vector<RefBase::weakref_type*> mPendingWeakDerefs;
             Vector<RefBase*>    mPostWriteStrongDerefs;
@@ -132,12 +170,18 @@ private:
             Parcel              mOut;
             status_t            mLastError;
             pid_t               mCallingPid;
+            const char*         mCallingSid;
             uid_t               mCallingUid;
             int32_t             mStrictModePolicy;
             int32_t             mLastTransactionBinderFlags;
             sp<BHwBinder>         mContextObject;
             bool                mIsLooper;
             bool mIsPollingThread;
+
+            std::vector<std::function<void(void)>> mPostCommandTasks;
+            IPCThreadStateBase *mIPCThreadStateBase;
+
+            ProcessState::CallRestriction mCallRestriction;
 };
 
 }; // namespace hardware

@@ -17,10 +17,12 @@ package android.net.rtp.cts;
 
 import android.net.rtp.AudioCodec;
 import android.net.rtp.AudioStream;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import java.net.InetAddress;
 
+@AppModeFull(reason = "RtpStream cannot create in instant app mode")
 public class AudioStreamTest extends AndroidTestCase {
 
     private void testRtpStream(InetAddress address) throws Exception {

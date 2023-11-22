@@ -26,6 +26,7 @@ public interface SearchInterface {
     int ACTION_TYPE_SWITCH_CHANNEL = 2;
     int ACTION_TYPE_SWITCH_INPUT = 3;
     int ACTION_TYPE_END = 3;
+    int PROGRESS_PERCENTAGE_HIDE = -1;
 
     /**
      * Search channels, inputs, or programs. This assumes that parental control settings will not be

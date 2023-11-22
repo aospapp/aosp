@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#include "string-inl.h"
+#include "string-alloc-inl.h"
 
 #include "arch/memcmp16.h"
-#include "array.h"
+#include "array-alloc-inl.h"
 #include "base/array_ref.h"
 #include "base/stl_util.h"
 #include "class-inl.h"
 #include "dex/descriptors_names.h"
 #include "dex/utf-inl.h"
 #include "gc/accounting/card_table-inl.h"
-#include "gc_root-inl.h"
 #include "handle_scope-inl.h"
 #include "intern_table.h"
 #include "object-inl.h"
@@ -34,9 +33,6 @@
 
 namespace art {
 namespace mirror {
-
-// TODO: get global references for these
-GcRoot<Class> String::java_lang_String_;
 
 int32_t String::FastIndexOf(int32_t ch, int32_t start) {
   int32_t count = GetLength();
@@ -50,18 +46,6 @@ int32_t String::FastIndexOf(int32_t ch, int32_t start) {
   } else {
     return FastIndexOf<uint16_t>(GetValue(), ch, start);
   }
-}
-
-void String::SetClass(ObjPtr<Class> java_lang_String) {
-  CHECK(java_lang_String_.IsNull());
-  CHECK(java_lang_String != nullptr);
-  CHECK(java_lang_String->IsStringClass());
-  java_lang_String_ = GcRoot<Class>(java_lang_String);
-}
-
-void String::ResetClass() {
-  CHECK(!java_lang_String_.IsNull());
-  java_lang_String_ = GcRoot<Class>(nullptr);
 }
 
 int String::ComputeHashCode() {
@@ -135,7 +119,9 @@ ObjPtr<String> String::DoReplace(Thread* self, Handle<String> src, uint16_t old_
   return string;
 }
 
-String* String::AllocFromStrings(Thread* self, Handle<String> string, Handle<String> string2) {
+ObjPtr<String> String::AllocFromStrings(Thread* self,
+                                        Handle<String> string,
+                                        Handle<String> string2) {
   int32_t length = string->GetLength();
   int32_t length2 = string2->GetLength();
   gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
@@ -169,10 +155,12 @@ String* String::AllocFromStrings(Thread* self, Handle<String> string, Handle<Str
       memcpy(new_value + length, string2->GetValue(), length2 * sizeof(uint16_t));
     }
   }
-  return new_string.Ptr();
+  return new_string;
 }
 
-String* String::AllocFromUtf16(Thread* self, int32_t utf16_length, const uint16_t* utf16_data_in) {
+ObjPtr<String> String::AllocFromUtf16(Thread* self,
+                                      int32_t utf16_length,
+                                      const uint16_t* utf16_data_in) {
   CHECK(utf16_data_in != nullptr || utf16_length == 0);
   gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
   const bool compressible = kUseStringCompression &&
@@ -191,26 +179,26 @@ String* String::AllocFromUtf16(Thread* self, int32_t utf16_length, const uint16_
     uint16_t* array = string->GetValue();
     memcpy(array, utf16_data_in, utf16_length * sizeof(uint16_t));
   }
-  return string.Ptr();
+  return string;
 }
 
-String* String::AllocFromModifiedUtf8(Thread* self, const char* utf) {
+ObjPtr<String> String::AllocFromModifiedUtf8(Thread* self, const char* utf) {
   DCHECK(utf != nullptr);
   size_t byte_count = strlen(utf);
   size_t char_count = CountModifiedUtf8Chars(utf, byte_count);
   return AllocFromModifiedUtf8(self, char_count, utf, byte_count);
 }
 
-String* String::AllocFromModifiedUtf8(Thread* self,
-                                      int32_t utf16_length,
-                                      const char* utf8_data_in) {
+ObjPtr<String> String::AllocFromModifiedUtf8(Thread* self,
+                                             int32_t utf16_length,
+                                             const char* utf8_data_in) {
   return AllocFromModifiedUtf8(self, utf16_length, utf8_data_in, strlen(utf8_data_in));
 }
 
-String* String::AllocFromModifiedUtf8(Thread* self,
-                                      int32_t utf16_length,
-                                      const char* utf8_data_in,
-                                      int32_t utf8_length) {
+ObjPtr<String> String::AllocFromModifiedUtf8(Thread* self,
+                                             int32_t utf16_length,
+                                             const char* utf8_data_in,
+                                             int32_t utf8_length) {
   gc::AllocatorType allocator_type = Runtime::Current()->GetHeap()->GetCurrentAllocator();
   const bool compressible = kUseStringCompression && (utf16_length == utf8_length);
   const int32_t utf16_length_with_flag = String::GetFlaggedCount(utf16_length, compressible);
@@ -225,7 +213,7 @@ String* String::AllocFromModifiedUtf8(Thread* self,
     uint16_t* utf16_data_out = string->GetValue();
     ConvertModifiedUtf8ToUtf16(utf16_data_out, utf16_length, utf8_data_in, utf8_length);
   }
-  return string.Ptr();
+  return string;
 }
 
 bool String::Equals(ObjPtr<String> that) {
@@ -243,19 +231,6 @@ bool String::Equals(ObjPtr<String> that) {
     // hash code was already equal
     for (int32_t i = 0; i < that->GetLength(); ++i) {
       if (this->CharAt(i) != that->CharAt(i)) {
-        return false;
-      }
-    }
-    return true;
-  }
-}
-
-bool String::Equals(const uint16_t* that_chars, int32_t that_offset, int32_t that_length) {
-  if (this->GetLength() != that_length) {
-    return false;
-  } else {
-    for (int32_t i = 0; i < that_length; ++i) {
-      if (this->CharAt(i) != that_chars[that_offset + i]) {
         return false;
       }
     }
@@ -288,30 +263,6 @@ bool String::Equals(const char* modified_utf8) {
     }
   }
   return *modified_utf8 == '\0';
-}
-
-bool String::Equals(const StringPiece& modified_utf8) {
-  const int32_t length = GetLength();
-  const char* p = modified_utf8.data();
-  for (int32_t i = 0; i < length; ++i) {
-    uint32_t ch = GetUtf16FromUtf8(&p);
-
-    if (GetLeadingUtf16Char(ch) != CharAt(i)) {
-      return false;
-    }
-
-    const uint16_t trailing = GetTrailingUtf16Char(ch);
-    if (trailing != 0) {
-      if (i == (length - 1)) {
-        return false;
-      }
-
-      if (CharAt(++i) != trailing) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 // Create a modified UTF-8 encoded std::string from a java/lang/String object.
@@ -372,11 +323,7 @@ int32_t String::CompareTo(ObjPtr<String> rhs) {
   return count_diff;
 }
 
-void String::VisitRoots(RootVisitor* visitor) {
-  java_lang_String_.VisitRootIfNonNull(visitor, RootInfo(kRootStickyClass));
-}
-
-CharArray* String::ToCharArray(Thread* self) {
+ObjPtr<CharArray> String::ToCharArray(Thread* self) {
   StackHandleScope<1> hs(self);
   Handle<String> string(hs.NewHandle(this));
   ObjPtr<CharArray> result = CharArray::Alloc(self, GetLength());
@@ -392,7 +339,7 @@ CharArray* String::ToCharArray(Thread* self) {
   } else {
     self->AssertPendingOOMException();
   }
-  return result.Ptr();
+  return result;
 }
 
 void String::GetChars(int32_t start, int32_t end, Handle<CharArray> array, int32_t index) {

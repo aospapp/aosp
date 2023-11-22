@@ -20,7 +20,9 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
-    <application android:debuggable="true">
+    <application android:debuggable="true"
+                 android:extractNativeLibs="true"
+                 android:largeHeap="true">
         <uses-library android:name="android.test.runner"/>
     </application>
 

@@ -56,7 +56,7 @@ size_t sizesTotal() {
 
 // caller must own and free character string
 char* pidToName(pid_t pid) {
-    char* retval = NULL;
+    char* retval = nullptr;
     if (pid == 0) {  // special case from auditd/klogd for kernel
         retval = strdup("logd");
     } else {
@@ -83,7 +83,7 @@ void LogStatistics::addTotal(LogBufferElement* element) {
     if (element->getDropped()) return;
 
     log_id_t log_id = element->getLogId();
-    unsigned short size = element->getMsgLen();
+    uint16_t size = element->getMsgLen();
     mSizesTotal[log_id] += size;
     SizesTotal += size;
     ++mElementsTotal[log_id];
@@ -91,7 +91,7 @@ void LogStatistics::addTotal(LogBufferElement* element) {
 
 void LogStatistics::add(LogBufferElement* element) {
     log_id_t log_id = element->getLogId();
-    unsigned short size = element->getMsgLen();
+    uint16_t size = element->getMsgLen();
     mSizes[log_id] += size;
     ++mElements[log_id];
 
@@ -161,7 +161,7 @@ void LogStatistics::add(LogBufferElement* element) {
 
 void LogStatistics::subtract(LogBufferElement* element) {
     log_id_t log_id = element->getLogId();
-    unsigned short size = element->getMsgLen();
+    uint16_t size = element->getMsgLen();
     mSizes[log_id] -= size;
     --mElements[log_id];
     if (element->getDropped()) {
@@ -206,7 +206,7 @@ void LogStatistics::subtract(LogBufferElement* element) {
 // entry->setDropped(1) must follow this call, caller should do this explicitly.
 void LogStatistics::drop(LogBufferElement* element) {
     log_id_t log_id = element->getLogId();
-    unsigned short size = element->getMsgLen();
+    uint16_t size = element->getMsgLen();
     mSizes[log_id] -= size;
     ++mDroppedElements[log_id];
 
@@ -286,7 +286,7 @@ const char* LogStatistics::uidToName(uid_t uid) const {
                     name = strdup(nameTmp);
                 } else if (fastcmp<strcmp>(name, nameTmp)) {
                     free(const_cast<char*>(name));
-                    name = NULL;
+                    name = nullptr;
                     break;
                 }
             }
@@ -613,13 +613,13 @@ static std::string formatMsec(uint64_t val) {
 
 std::string LogStatistics::format(uid_t uid, pid_t pid,
                                   unsigned int logMask) const {
-    static const unsigned short spaces_total = 19;
+    static const uint16_t spaces_total = 19;
 
     // Report on total logging, current and for all time
 
     std::string output = "size/num";
     size_t oldLength;
-    short spaces = 1;
+    int16_t spaces = 1;
 
     log_id_for_each(id) {
         if (!(logMask & (1 << id))) continue;
@@ -872,7 +872,7 @@ const char* LogStatistics::pidToName(pid_t pid) const {
     pidTable_t& writablePidTable = const_cast<pidTable_t&>(pidTable);
     const char* name = writablePidTable.add(pid)->second.getName();
     if (!name) {
-        return NULL;
+        return nullptr;
     }
     return strdup(name);
 }

@@ -891,7 +891,7 @@ int32_t QCameraStream::calcOffset(cam_stream_info_t *streamInfo)
                 &dim, &streamInfo->buf_planes);
         break;
     case CAM_STREAM_TYPE_RAW:
-        rc = mm_stream_calc_offset_raw(streamInfo->fmt,
+        rc = mm_stream_calc_offset_raw(streamInfo,
                 &dim,
                 &mPaddingInfo,
                 &streamInfo->buf_planes);

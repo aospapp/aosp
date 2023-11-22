@@ -25,10 +25,10 @@ import android.os.Build;
 import android.util.Log;
 import com.android.tv.Starter;
 import com.android.tv.TvActivity;
-import com.android.tv.TvFeatures;
 import com.android.tv.TvSingletons;
 import com.android.tv.dvr.recorder.DvrRecordingService;
 import com.android.tv.dvr.recorder.RecordingScheduler;
+import com.android.tv.features.TvFeatures;
 import com.android.tv.recommendation.ChannelPreviewUpdater;
 import com.android.tv.recommendation.NotificationService;
 import com.android.tv.util.OnboardingUtils;
@@ -70,7 +70,7 @@ public class BootCompletedReceiver extends BroadcastReceiver {
         // Grant permission to already set up packages after the system has finished booting.
         SetupUtils.grantEpgPermissionToSetUpPackages(context);
 
-        if (TvFeatures.UNHIDE.isEnabled(context)) {
+        if (TvFeatures.UNHIDE.isEnabled(context.getApplicationContext())) {
             if (OnboardingUtils.isFirstBoot(context)) {
                 // Enable the application if this is the first "unhide" feature is enabled just in
                 // case when the app has been disabled before.

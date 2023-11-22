@@ -29,7 +29,8 @@ LOCAL_SHARED_LIBRARIES := \
     libutils \
     libcutils \
     liblog \
-    libloc_stub
+    libloc_stub \
+    libprocessgroup
 
 LOCAL_SRC_FILES += \
         platform_lib_gettid.cpp \

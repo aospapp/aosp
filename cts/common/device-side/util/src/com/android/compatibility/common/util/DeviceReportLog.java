@@ -21,6 +21,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -40,8 +42,10 @@ public class DeviceReportLog extends ReportLog {
     private ReportLogDeviceInfoStore store;
 
     public DeviceReportLog(String reportLogName, String streamName) {
-        this(reportLogName, streamName,
-                new File(Environment.getExternalStorageDirectory(), "report-log-files"));
+        this(reportLogName, streamName, new File(InstrumentationRegistry
+                .getInstrumentation().getTargetContext()
+                .getExternalFilesDir(null).getPath(),
+                "report-log-files"));
     }
 
     public DeviceReportLog(String reportLogName, String streamName, File logDirectory) {

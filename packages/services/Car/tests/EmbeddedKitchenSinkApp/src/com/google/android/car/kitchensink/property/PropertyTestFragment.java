@@ -26,7 +26,7 @@ import android.content.DialogInterface.OnClickListener;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyType;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
+import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -42,6 +42,8 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.fragment.app.Fragment;
+
 import com.google.android.car.kitchensink.KitchenSinkActivity;
 import com.google.android.car.kitchensink.R;
 
@@ -49,7 +51,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class PropertyTestFragment extends Fragment implements OnItemSelectedListener{
+public class PropertyTestFragment extends Fragment implements OnItemSelectedListener {
     private static final String TAG = "PropertyTestFragment";
 
     private KitchenSinkActivity mActivity;
@@ -65,7 +67,8 @@ public class PropertyTestFragment extends Fragment implements OnItemSelectedList
 
     private final OnClickListener mNopOnClickListener = new OnClickListener() {
         @Override
-        public void onClick(DialogInterface dialog, int which) { }
+        public void onClick(DialogInterface dialog, int which) {
+        }
     };
 
     @Nullable
@@ -74,9 +77,6 @@ public class PropertyTestFragment extends Fragment implements OnItemSelectedList
             @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.property, container, false);
-        mActivity = (KitchenSinkActivity) getHost();
-        mMgr = mActivity.getPropertyManager();
-
         // Get resource IDs
         mAreaId = view.findViewById(R.id.sAreaId);
         mEventLog = view.findViewById(R.id.tvEventLog);
@@ -85,20 +85,23 @@ public class PropertyTestFragment extends Fragment implements OnItemSelectedList
         mPropertyId = view.findViewById(R.id.sPropertyId);
         mScrollView = view.findViewById(R.id.svEventLog);
         mSetValue = view.findViewById(R.id.etSetPropertyValue);
+        mActivity = (KitchenSinkActivity) getActivity();
 
-        populateConfigList();
-        mListView.setAdapter(new PropertyListAdapter(mPropInfo, mMgr, mEventLog, mScrollView,
-                                                     mActivity));
+        final Runnable r = () -> {
+            mMgr = mActivity.getPropertyManager();
+            populateConfigList();
+            mListView.setAdapter(new PropertyListAdapter(mPropInfo, mMgr, mEventLog, mScrollView,
+                    mActivity));
 
-        // Configure dropdown menu for propertyId spinner
-        ArrayAdapter<PropertyInfo> adapter =
-                new ArrayAdapter<PropertyInfo>(mActivity, android.R.layout.simple_spinner_item,
-                                               mPropInfo);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        mPropertyId.setAdapter(adapter);
-        mPropertyId.setOnItemSelectedListener(this);
-
-
+            // Configure dropdown menu for propertyId spinner
+            ArrayAdapter<PropertyInfo> adapter =
+                    new ArrayAdapter<PropertyInfo>(mActivity, android.R.layout.simple_spinner_item,
+                            mPropInfo);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            mPropertyId.setAdapter(adapter);
+            mPropertyId.setOnItemSelectedListener(this);
+        };
+        mActivity.requestRefreshManager(r, new Handler(getContext().getMainLooper()));
 
         // Configure listeners for buttons
         Button b = view.findViewById(R.id.bGetProperty);
@@ -111,17 +114,21 @@ public class PropertyTestFragment extends Fragment implements OnItemSelectedList
                 if (propId == VehicleProperty.WHEEL_TICK) {
                     Object[] ticks = (Object[]) value.getValue();
                     mGetValue.setText("Timestamp=" + value.getTimestamp()
-                                      + "\nstatus=" + value.getStatus()
-                                      + "\n[0]=" + (Long) ticks[0]
-                                      + "\n[1]=" + (Long) ticks[1] + " [2]=" + (Long) ticks[2]
-                                      + "\n[3]=" + (Long) ticks[3] + " [4]=" + (Long) ticks[4]);
+                            + "\nstatus=" + value.getStatus()
+                            + "\n[0]=" + (Long) ticks[0]
+                            + "\n[1]=" + (Long) ticks[1] + " [2]=" + (Long) ticks[2]
+                            + "\n[3]=" + (Long) ticks[3] + " [4]=" + (Long) ticks[4]);
                 } else {
                     mGetValue.setText("Timestamp=" + value.getTimestamp()
-                                      + "\nstatus=" + value.getStatus()
-                                      + "\nvalue=" + value.getValue());
+                            + "\nstatus=" + value.getStatus()
+                            + "\nvalue=" + value.getValue()
+                            + "\nread=" + mMgr.getReadPermission(propId)
+                            + "\nwrite=" + mMgr.getWritePermission(propId));
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Failed to get property", e);
+                Log.e(TAG, "Failed to get VHAL property", e);
+                Toast.makeText(mActivity, "Failed to get VHAL property: " + e.getMessage(),
+                        Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -148,12 +155,14 @@ public class PropertyTestFragment extends Fragment implements OnItemSelectedList
                         break;
                     default:
                         Toast.makeText(mActivity, "PropertyType=0x" + toHexString(propId
-                                & VehiclePropertyType.MASK) + " is not handled!",
+                                        & VehiclePropertyType.MASK) + " is not handled!",
                                 Toast.LENGTH_LONG).show();
                         break;
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Failed to set HVAC boolean property", e);
+                Log.e(TAG, "Failed to set VHAL property", e);
+                Toast.makeText(mActivity, "Failed to set VHAL property: " + e.getMessage(),
+                        Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -192,9 +201,8 @@ public class PropertyTestFragment extends Fragment implements OnItemSelectedList
         }
 
         // Configure dropdown menu for propertyId spinner
-        ArrayAdapter<String> adapter =
-                new ArrayAdapter<String>(mActivity, android.R.layout.simple_spinner_item,
-                                         areaString);
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(mActivity,
+                android.R.layout.simple_spinner_item, areaString);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         mAreaId.setAdapter(adapter);
     }

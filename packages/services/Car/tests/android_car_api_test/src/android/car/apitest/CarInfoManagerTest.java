@@ -18,7 +18,6 @@ package android.car.apitest;
 
 import android.car.Car;
 import android.car.CarInfoManager;
-import android.os.Bundle;
 import android.test.suitebuilder.annotation.SmallTest;
 
 @SmallTest
@@ -37,10 +36,10 @@ public class CarInfoManagerTest extends CarApiTestBase {
         assertNotNull(mInfoManager.getVehicleId());
     }
 
-    public void testNullables() throws Exception {
-        // no guarantee of existence. just call and check if it throws exception.
-        mInfoManager.getManufacturer();
-        mInfoManager.getModel();
-        mInfoManager.getModelYear();
+    public void testNotNullItems() throws Exception {
+        // call and check if it throws exception.
+        assertNotNull(mInfoManager.getManufacturer());
+        assertNotNull(mInfoManager.getModel());
+        assertNotNull(mInfoManager.getModelYear());
     }
 }

@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="sms_app_name" msgid="3641211328012514267">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‏‎‎‎‏‏‏‏‎‏‏‏‏‏‎‏‏‎‎‏‎‏‎‎‎‏‎‎‎‎‎‏‎‏‏‏‎‎‏‏‎‏‎‎‏‎‎‏‎‏‏‏‎‎‏‎‏‎‎‎‎‎‏‏‏‎‎‏‏‏‏‎‏‏‎‏‏‎Simple message receiver‎‏‎‎‏‎"</string>
-    <string name="sms_message_from_format" msgid="7163240046237558485">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‏‎‎‎‏‏‏‏‎‏‏‏‏‏‏‏‏‎‎‎‏‏‎‏‏‎‏‎‎‎‏‏‏‏‎‎‎‎‏‏‎‏‏‏‏‎‏‎‎‏‏‏‎‎‏‏‎‏‎‏‏‏‏‎‏‎‎‏‏‎‏‏‎‏‎‏‎‏‎Message from ‎‏‎‎‏‏‎<xliff:g id="USERNAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎‎‏‎‎‏‎"</string>
-    <string name="sms_done_button" msgid="4063239029747798890">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‏‎‎‎‏‏‏‏‎‏‏‏‏‏‎‏‏‏‎‎‎‎‏‏‎‎‎‏‏‏‎‎‎‎‏‏‎‎‏‎‏‏‏‏‎‏‎‎‏‏‏‎‏‏‎‎‏‏‏‏‎‏‏‎‏‎‎‏‏‎‏‏‎‏‎‏‎‎Done‎‏‎‎‏‎"</string>
+    <string name="sms_app_name" msgid="3641211328012514267">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‎‏‏‏‏‎‏‏‏‏‏‎‏‏‎‎‏‎‏‎‎‎‏‎‎‎‎‎‏‎‏‏‏‎‎‏‏‎‏‎‎‏‎‎‏‎‏‏‏‎‎‏‎‏‎‎‎‎‎‏‏‏‎‎‏‏‏‏‎‏‏‎‏‏‎Simple message receiver‎‏‎‎‏‎"</string>
+    <string name="sms_message_from_format" msgid="7163240046237558485">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‎‏‏‏‏‎‏‏‏‏‏‏‏‏‎‎‎‏‏‎‏‏‎‏‎‎‎‏‏‏‏‎‎‎‎‏‏‎‏‏‏‏‎‏‎‎‏‏‏‎‎‏‏‎‏‎‏‏‏‏‎‏‎‎‏‏‎‏‏‎‏‎‏‎‏‎Message from ‎‏‎‎‏‏‎<xliff:g id="USERNAME">%1$s</xliff:g>‎‏‎‎‏‏‏‎‎‏‎‎‏‎"</string>
+    <string name="sms_done_button" msgid="4063239029747798890">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‎‏‎‎‎‏‏‏‏‎‏‏‏‏‏‎‏‏‏‎‎‎‎‏‏‎‎‎‏‏‏‎‎‎‎‏‏‎‎‏‎‏‏‏‏‎‏‎‎‏‏‏‎‏‏‎‎‏‏‏‏‎‏‏‎‏‎‎‏‏‎‏‏‎‏‎‏‎‎Done‎‏‎‎‏‎"</string>
 </resources>

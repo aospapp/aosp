@@ -154,10 +154,12 @@ public class CellBroadcastConfigService extends IntentService {
                 && prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_AREA_UPDATE_INFO_ALERTS,
                 false);
 
-        // Non-CMAS channels
         boolean enablePublicSafetyMessagesChannelAlerts = enableAlertsMasterToggle
                 && prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_PUBLIC_SAFETY_MESSAGES,
                 true);
+        boolean enableStateLocalTestAlerts = enableAlertsMasterToggle
+                && prefs.getBoolean(CellBroadcastSettings.KEY_ENABLE_STATE_LOCAL_TEST_ALERTS,
+                false);
 
         boolean enableEmergencyAlerts = enableAlertsMasterToggle && prefs.getBoolean(
                 CellBroadcastSettings.KEY_ENABLE_EMERGENCY_ALERTS, true);
@@ -173,6 +175,7 @@ public class CellBroadcastConfigService extends IntentService {
             log("enableAreaUpdateInfoAlerts = " + enableAreaUpdateInfoAlerts);
             log("enablePublicSafetyMessagesChannelAlerts = "
                     + enablePublicSafetyMessagesChannelAlerts);
+            log("enableStateLocalTestAlerts = " + enableStateLocalTestAlerts);
             log("enableEmergencyAlerts = " + enableEmergencyAlerts);
         }
 
@@ -223,6 +226,11 @@ public class CellBroadcastConfigService extends IntentService {
         setCellBroadcastRange(manager, enablePublicSafetyMessagesChannelAlerts,
                 CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
                         R.array.public_safety_messages_channels_range_strings));
+
+        // Enable/Disable GSM state/local test alerts.
+        setCellBroadcastRange(manager, enableStateLocalTestAlerts,
+                CellBroadcastChannelManager.getInstance().getCellBroadcastChannelRanges(this,
+                        R.array.state_local_test_alert_range_strings));
 
         /** Enable non-CMAS series messages. */
 

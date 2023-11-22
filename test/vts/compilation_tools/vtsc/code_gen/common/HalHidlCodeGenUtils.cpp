@@ -39,5 +39,12 @@ bool IsConstType(const VariableType& type) {
   return true;
 }
 
+bool IsUserDefinedType(const VariableType& type) {
+  if (type == TYPE_ENUM || type == TYPE_STRUCT || type == TYPE_UNION ||
+      type == TYPE_SAFE_UNION) {
+    return true;
+  }
+  return false;
+}
 }  // namespace vts
 }  // namespace android

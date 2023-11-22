@@ -19,10 +19,10 @@ package com.android.tv.tests.ui;
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertTrue;
 
-import android.support.test.filters.MediumTest;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.Until;
+import androidx.test.filters.MediumTest;
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.ByResource;
 import com.android.tv.testing.uihelper.DialogHelper;

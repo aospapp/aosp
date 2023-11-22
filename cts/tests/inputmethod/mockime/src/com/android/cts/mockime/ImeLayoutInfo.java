@@ -19,11 +19,12 @@ package com.android.cts.mockime;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.view.Display;
 import android.view.View;
 import android.view.WindowInsets;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /**
  * A collection of layout-related information when

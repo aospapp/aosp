@@ -47,4 +47,6 @@
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Planshetingizga NFC orqali havola keldi:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Telefoningizga NFC orqali havola keldi:"</string>
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Havolani ochish"</string>
+    <string name="tag_read_error" msgid="2485274498885877547">"NFC yorliqni o‘qishda xato. Qaytadan urining."</string>
+    <string name="tag_dispatch_failed" msgid="3562984995049738400">"Mazkur NFC yorliq bilan ishlaydigan hech qanday ilova topilmadi"</string>
 </resources>

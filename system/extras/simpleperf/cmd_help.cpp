@@ -67,6 +67,9 @@ void HelpCommand::PrintShortHelp() {
 "    --log <severity> Set the minimum severity of logging. Possible severities\n"
 "                     include verbose, debug, warning, info, error, fatal.\n"
 "                     Default is info.\n"
+#if defined(__ANDROID__)
+"    --log-to-android-buffer  Write log to android log buffer instead of stderr.\n"
+#endif
 "    --version     Print version of simpleperf.\n"
       "subcommands:\n"
       // clang-format on

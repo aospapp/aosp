@@ -23,6 +23,7 @@ from vts.utils.python.web import feature_utils
 
 _SYSTRACE_CONTROLLER = "systrace_controller"
 
+
 class SystraceFeature(feature_utils.Feature):
     """Feature object for systrace functionality.
 
@@ -33,12 +34,11 @@ class SystraceFeature(feature_utils.Feature):
 
     _TOGGLE_PARAM = keys.ConfigKeys.IKEY_ENABLE_SYSTRACE
     _REQUIRED_PARAMS = [
-            keys.ConfigKeys.KEY_TESTBED_NAME,
-            keys.ConfigKeys.IKEY_ANDROID_DEVICE,
-            keys.ConfigKeys.IKEY_DATA_FILE_PATH,
-            keys.ConfigKeys.IKEY_SYSTRACE_REPORT_PATH,
-            keys.ConfigKeys.IKEY_SYSTRACE_REPORT_URL_PREFIX
-        ]
+        keys.ConfigKeys.KEY_TESTBED_NAME, keys.ConfigKeys.IKEY_ANDROID_DEVICE,
+        keys.ConfigKeys.IKEY_DATA_FILE_PATH,
+        keys.ConfigKeys.IKEY_SYSTRACE_REPORT_PATH,
+        keys.ConfigKeys.IKEY_SYSTRACE_REPORT_URL_PREFIX
+    ]
     _OPTIONAL_PARAMS = [keys.ConfigKeys.IKEY_SYSTRACE_PROCESS_NAME]
 
     def __init__(self, user_params, web=None):
@@ -48,10 +48,13 @@ class SystraceFeature(feature_utils.Feature):
             user_params: A dictionary from parameter name (String) to parameter value.
             web: (optional) WebFeature, object storing web feature util for test run
         """
-        self.ParseParameters(self._TOGGLE_PARAM, self._REQUIRED_PARAMS, self._OPTIONAL_PARAMS,
-                             user_params)
+        self.ParseParameters(self._TOGGLE_PARAM, self._REQUIRED_PARAMS,
+                             self._OPTIONAL_PARAMS, user_params)
         self.web = web
-        logging.info("Systrace enabled: %s", self.enabled)
+        if self.enabled:
+            logging.info("Systrace is enabled.")
+        else:
+            logging.debug("Systrace is disabled.")
 
     def StartSystrace(self):
         """Initialize systrace controller if enabled.
@@ -61,7 +64,8 @@ class SystraceFeature(feature_utils.Feature):
         if not self.enabled:
             return
 
-        process_name = getattr(self, keys.ConfigKeys.IKEY_SYSTRACE_PROCESS_NAME, '')
+        process_name = getattr(self,
+                               keys.ConfigKeys.IKEY_SYSTRACE_PROCESS_NAME, '')
         process_name = str(process_name)
         data_file_path = getattr(self, keys.ConfigKeys.IKEY_DATA_FILE_PATH)
 
@@ -79,9 +83,7 @@ class SystraceFeature(feature_utils.Feature):
 
         android_vts_path = os.path.normpath(os.path.join(data_file_path, '..'))
         self.controller = systrace_controller.SystraceController(
-            android_vts_path,
-            device_serial=serial,
-            process_name=process_name)
+            android_vts_path, device_serial=serial, process_name=process_name)
         self.controller.Start()
 
     def ProcessAndUploadSystrace(self, test_name):
@@ -97,39 +99,41 @@ class SystraceFeature(feature_utils.Feature):
 
         controller = getattr(self, "controller", None)
         if not controller:
-            logging.info("ProcessSystrace: missing systrace controller")
+            logging.warn("ProcessSystrace: missing systrace controller")
             return
 
         controller.Stop()
 
         if not controller.has_output:
-            logging.info("ProcessSystrace: systrace controller has no output")
+            logging.warn("ProcessSystrace: systrace controller has no output")
             return
 
         try:
             test_module_name = getattr(self, keys.ConfigKeys.KEY_TESTBED_NAME)
             process = controller.process_name
             time = feature_utils.GetTimestamp()
-            report_path = getattr(self, keys.ConfigKeys.IKEY_SYSTRACE_REPORT_PATH)
-            report_destination_file_name = '{module}_{test}_{process}_{time}.html'.format(
-                module=test_module_name,
-                test=test_name,
-                process=process,
-                time=time)
-            report_destination_file_path = os.path.join(report_path, report_destination_file_name)
+            report_path = getattr(self,
+                                  keys.ConfigKeys.IKEY_SYSTRACE_REPORT_PATH)
+            report_destination_file_name = 'systrace_{test}_{process}_{time}.html'.format(
+                test=test_name, process=process, time=time)
+            report_destination_file_path = os.path.join(
+                report_path, report_destination_file_name)
             if controller.SaveLastOutput(report_destination_file_path):
-                logging.info('Systrace output saved to %s', report_destination_file_path)
+                logging.debug('Systrace output saved to %s',
+                              report_destination_file_path)
             else:
                 logging.error('Failed to save systrace output.')
 
-            report_url_prefix = getattr(self, keys.ConfigKeys.IKEY_SYSTRACE_REPORT_URL_PREFIX)
+            report_url_prefix = getattr(
+                self, keys.ConfigKeys.IKEY_SYSTRACE_REPORT_URL_PREFIX)
             report_url_prefix = str(report_url_prefix)
-            report_destination_file_url = '%s%s' % (report_url_prefix, report_destination_file_name)
+            report_destination_file_url = '%s%s' % (
+                report_url_prefix, report_destination_file_name)
 
             if self.web and self.web.enabled:
                 self.web.AddSystraceUrl(report_destination_file_url)
-            logging.info(
-                'systrace result url %s .', report_destination_file_url)
+            logging.info('systrace result path %s .',
+                         report_destination_file_url)
         except Exception as e:  # TODO(yuexima): more specific exceptions catch
             logging.exception('Failed to add systrace to report message %s', e)
         finally:

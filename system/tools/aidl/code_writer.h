@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef AIDL_CODE_WRITER_H_
-#define AIDL_CODE_WRITER_H_
+#pragma once
 
 #include <memory>
+#include <ostream>
 #include <string>
 
 #include <stdio.h>
@@ -27,26 +27,37 @@
 namespace android {
 namespace aidl {
 
-class CodeWriter {
- public:
-  // Write a formatted string to this writer in the usual printf sense.
-  // Returns false on error.
-  virtual bool Write(const char* format, ...) = 0;
-  virtual bool Close() = 0;
-  virtual ~CodeWriter() = default;
-};  // class CodeWriter
-
+class CodeWriter;
 using CodeWriterPtr = std::unique_ptr<CodeWriter>;
 
-// Get a CodeWriter that writes to |output_file|.
-CodeWriterPtr GetFileWriter(const std::string& output_file);
+class CodeWriter {
+ public:
+  // Get a CodeWriter that writes to a file. When filename is "-",
+  // it is written to stdout.
+  static CodeWriterPtr ForFile(const std::string& filename);
+  // Get a CodeWriter that writes to a string buffer.
+  // The buffer gets updated only after Close() is called or the CodeWriter
+  // is deleted -- much like a real file.
+  static CodeWriterPtr ForString(std::string* buf);
+  // Write a formatted string to this writer in the usual printf sense.
+  // Returns false on error.
+  virtual bool Write(const char* format, ...);
+  void Indent();
+  void Dedent();
+  virtual bool Close();
+  virtual ~CodeWriter() = default;
+  CodeWriter() = default;
 
-// Get a CodeWriter that writes to a string buffer.
-// Caller retains ownership of the buffer.
-// The buffer must outlive the CodeWriter.
-CodeWriterPtr GetStringWriter(std::string* output_buffer);
+  CodeWriter& operator<<(const char* s);
+  CodeWriter& operator<<(const std::string& str);
+
+ private:
+  CodeWriter(std::unique_ptr<std::ostream> ostream);
+  std::string ApplyIndent(const std::string& str);
+  const std::unique_ptr<std::ostream> ostream_;
+  int indent_level_ {0};
+  bool start_of_line_ {true};
+};
 
 }  // namespace aidl
 }  // namespace android
-
-#endif // AIDL_CODE_WRITER_H_

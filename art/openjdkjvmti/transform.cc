@@ -39,6 +39,9 @@
 
 #include "art_method.h"
 #include "base/array_ref.h"
+#include "base/globals.h"
+#include "base/logging.h"
+#include "base/mem_map.h"
 #include "class_linker.h"
 #include "dex/dex_file.h"
 #include "dex/dex_file_types.h"
@@ -46,12 +49,11 @@
 #include "events-inl.h"
 #include "fault_handler.h"
 #include "gc_root-inl.h"
-#include "globals.h"
-#include "jni_env_ext-inl.h"
+#include "handle_scope-inl.h"
+#include "jni/jni_env_ext-inl.h"
 #include "jvalue.h"
 #include "jvmti.h"
 #include "linear_alloc.h"
-#include "mem_map.h"
 #include "mirror/array.h"
 #include "mirror/class-inl.h"
 #include "mirror/class_ext.h"
@@ -68,7 +70,7 @@
 namespace openjdkjvmti {
 
 // A FaultHandler that will deal with initializing ClassDefinitions when they are actually needed.
-class TransformationFaultHandler FINAL : public art::FaultHandler {
+class TransformationFaultHandler final : public art::FaultHandler {
  public:
   explicit TransformationFaultHandler(art::FaultManager* manager)
       : art::FaultHandler(manager),
@@ -76,7 +78,7 @@ class TransformationFaultHandler FINAL : public art::FaultHandler {
                                               art::LockLevel::kSignalHandlingLock),
         class_definition_initialized_cond_("JVMTI Initialized class definitions condition",
                                            uninitialized_class_definitions_lock_) {
-    manager->AddHandler(this, /* generated_code */ false);
+    manager->AddHandler(this, /* generated_code= */ false);
   }
 
   ~TransformationFaultHandler() {
@@ -84,7 +86,7 @@ class TransformationFaultHandler FINAL : public art::FaultHandler {
     uninitialized_class_definitions_.clear();
   }
 
-  bool Action(int sig, siginfo_t* siginfo, void* context ATTRIBUTE_UNUSED) OVERRIDE {
+  bool Action(int sig, siginfo_t* siginfo, void* context ATTRIBUTE_UNUSED) override {
     DCHECK_EQ(sig, SIGSEGV);
     art::Thread* self = art::Thread::Current();
     if (UNLIKELY(uninitialized_class_definitions_lock_.IsExclusiveHeld(self))) {

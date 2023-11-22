@@ -56,6 +56,7 @@ constexpr int32_t kFake2gRssiThreshold = -80;
 constexpr int32_t kFake5gRssiThreshold = -77;
 constexpr bool kFakeUseRandomMAC = true;
 constexpr bool kFakeRequestLowPower = true;
+constexpr bool kFakeRequestSchedScanRelativeRssi = true;
 constexpr int kFakeScanType = IWifiScannerImpl::SCAN_TYPE_LOW_SPAN;
 
 // Currently, control messages are only created by the kernel and sent to us.
@@ -151,7 +152,6 @@ TEST_F(ScanUtilsTest, CanSendScanRequest) {
           DoesNL80211PacketMatchCommand(NL80211_CMD_TRIGGER_SCAN), _)).
               WillOnce(Invoke(bind(
                   AppendMessageAndReturn, response, true, _1, _2)));
-
   int errno_ignored;
   EXPECT_TRUE(scan_utils_.Scan(kFakeInterfaceIndex, kFakeUseRandomMAC,
                                kFakeScanType, {}, {}, &errno_ignored));
@@ -273,12 +273,16 @@ TEST_F(ScanUtilsTest, CanSendSchedScanRequest) {
            DoesNL80211PacketMatchCommand(NL80211_CMD_START_SCHED_SCAN), _)).
               WillOnce(Invoke(bind(
                   AppendMessageAndReturn, response, true, _1, _2)));
+
+  const SchedScanReqFlags req_flags = {
+    kFakeUseRandomMAC, kFakeRequestLowPower, kFakeRequestSchedScanRelativeRssi
+  };
   int errno_ignored;
   EXPECT_TRUE(scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       SchedScanIntervalSetting(),
-      kFake2gRssiThreshold, kFake5gRssiThreshold,
-      kFakeUseRandomMAC, kFakeRequestLowPower, {}, {}, {}, &errno_ignored));
+      kFake2gRssiThreshold, kFake5gRssiThreshold, req_flags, {}, {}, {},
+      &errno_ignored));
   // TODO(b/34231420): Add validation of requested scan ssids, threshold,
   // and frequencies.
 }
@@ -291,12 +295,15 @@ TEST_F(ScanUtilsTest, CanHandleSchedScanRequestFailure) {
            DoesNL80211PacketMatchCommand(NL80211_CMD_START_SCHED_SCAN), _)).
               WillOnce(Invoke(bind(
                   AppendMessageAndReturn, response, true, _1, _2)));
+  const SchedScanReqFlags req_flags = {
+    kFakeUseRandomMAC, kFakeRequestLowPower, kFakeRequestSchedScanRelativeRssi
+  };
   int error_code;
   EXPECT_FALSE(scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       SchedScanIntervalSetting(),
       kFake2gRssiThreshold, kFake5gRssiThreshold,
-      kFakeUseRandomMAC, kFakeRequestLowPower, {}, {}, {}, &error_code));
+      req_flags, {}, {}, {}, &error_code));
   EXPECT_EQ(kFakeErrorCode, error_code);
 }
 
@@ -311,11 +318,14 @@ TEST_F(ScanUtilsTest, CanSendSchedScanRequestForLowPowerScan) {
                    NL80211_ATTR_SCAN_FLAGS, NL80211_SCAN_FLAG_LOW_POWER)),
            _));
   int errno_ignored;
+  const SchedScanReqFlags req_flags = {
+    false, true, false
+  };
   scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       SchedScanIntervalSetting(),
       kFake2gRssiThreshold, kFake5gRssiThreshold,
-      false, true, {}, {}, {}, &errno_ignored);
+      req_flags, {}, {}, {}, &errno_ignored);
 }
 
 TEST_F(ScanUtilsTest, CanSpecifyScanPlansForSchedScanRequest) {
@@ -332,12 +342,14 @@ TEST_F(ScanUtilsTest, CanSpecifyScanPlansForSchedScanRequest) {
   SchedScanIntervalSetting interval_setting{
       {{kFakeScheduledScanIntervalMs, 10 /* repeated times */}},
       kFakeScheduledScanIntervalMs * 3 /* interval for infinite scans */};
-
+  const SchedScanReqFlags req_flags = {
+    kFakeUseRandomMAC, kFakeRequestLowPower, kFakeRequestSchedScanRelativeRssi
+  };
   scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       interval_setting,
       kFake2gRssiThreshold, kFake5gRssiThreshold,
-      kFakeUseRandomMAC, kFakeRequestLowPower, {}, {}, {}, &errno_ignored);
+      req_flags, {}, {}, {}, &errno_ignored);
 }
 
 TEST_F(ScanUtilsTest, CanSpecifySingleIntervalForSchedScanRequest) {
@@ -352,12 +364,14 @@ TEST_F(ScanUtilsTest, CanSpecifySingleIntervalForSchedScanRequest) {
            _));
   int errno_ignored;
   SchedScanIntervalSetting interval_setting{{}, kFakeScheduledScanIntervalMs};
-
+  const SchedScanReqFlags req_flags = {
+    kFakeUseRandomMAC, kFakeRequestLowPower, kFakeRequestSchedScanRelativeRssi
+  };
   scan_utils_.StartScheduledScan(
       kFakeInterfaceIndex,
       interval_setting,
       kFake2gRssiThreshold, kFake5gRssiThreshold,
-      kFakeUseRandomMAC, kFakeRequestLowPower, {}, {}, {}, &errno_ignored);
+      req_flags, {}, {}, {}, &errno_ignored);
 }
 
 TEST_F(ScanUtilsTest, CanPrioritizeLastSeenSinceBootNetlinkAttribute) {

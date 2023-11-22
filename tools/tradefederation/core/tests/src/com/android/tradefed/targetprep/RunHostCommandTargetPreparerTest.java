@@ -88,6 +88,30 @@ public final class RunHostCommandTargetPreparerTest {
     }
 
     @Test
+    public void testSetUp_withWorkDir() throws Exception {
+        final String workDir = "/foo/bar/zzz";
+        final String command = "command    \t\t\t  \t  argument " + DEVICE_SERIAL_PLACEHOLDER;
+        final String[] commandArray = new String[] {"command", "argument", DEVICE_SERIAL};
+
+        final OptionSetter optionSetter = new OptionSetter(mPreparer);
+        optionSetter.setOptionValue("work-dir", workDir);
+        optionSetter.setOptionValue("host-setup-command", command);
+        optionSetter.setOptionValue("host-cmd-timeout", "10");
+
+        CommandResult result = new CommandResult(CommandStatus.SUCCESS);
+        result.setStdout("");
+        result.setStderr("");
+
+        mRunUtil.setWorkingDir(EasyMock.anyObject());
+        EasyMock.expect(mRunUtil.runTimedCmd(10L, commandArray)).andReturn(result);
+        EasyMock.expect(mDevice.getSerialNumber()).andReturn(DEVICE_SERIAL);
+
+        EasyMock.replay(mRunUtil, mDevice);
+        mPreparer.setUp(mDevice, null);
+        EasyMock.verify(mRunUtil, mDevice);
+    }
+
+    @Test
     public void testTearDown() throws Exception {
         final String command = "command    \t\t\t  \t  argument " + DEVICE_SERIAL_PLACEHOLDER;
         final String[] commandArray = new String[] {"command", "argument", DEVICE_SERIAL};

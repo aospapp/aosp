@@ -21,7 +21,6 @@ import android.service.notification.ConditionProto;
 import android.service.notification.ManagedServicesProto;
 import android.service.notification.NotificationRecordProto;
 import android.service.notification.NotificationServiceDumpProto;
-import android.service.notification.NotificationRecordProto.State;
 import android.service.notification.RankingHelperProto;
 import android.service.notification.RankingHelperProto.RecordProto;
 import android.service.notification.ZenMode;
@@ -50,10 +49,23 @@ public class NotificationIncidentTest extends ProtoDumpTestCase {
     // These constants are those in PackageManager.
     public static final String FEATURE_WATCH = "android.hardware.type.watch";
 
+    private static final String DEVICE_SIDE_TEST_APK = "CtsNotificationIncidentTestApp.apk";
+    private static final String TEST_APP_TAG = "NotificationIncidentTestActivity";
+    private static final String TEST_APP_LOG = "Notification posted.";
+    private static final String TEST_ACTIVITY =
+            "com.android.server.cts.notifications/.NotificationIncidentTestActivity";
+    private static final int WAIT_MS = 1000;
+
     /**
      * Tests that at least one notification is posted, and verify its properties are plausible.
      */
     public void testNotificationRecords() throws Exception {
+        installPackage(DEVICE_SIDE_TEST_APK, /* grantPermissions= */ true);
+        int retries = 3;
+        do {
+            getDevice().executeShellCommand("am start -n " + TEST_ACTIVITY);
+        } while (!checkLogcatForText(TEST_APP_TAG, TEST_APP_LOG, WAIT_MS) && retries-- > 0);
+
         final NotificationServiceDumpProto dump = getDump(NotificationServiceDumpProto.parser(),
                 "dumpsys notification --proto");
 

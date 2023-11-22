@@ -26,9 +26,11 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.XmlResourceParser;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Printer;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class PackageItemInfoTest extends AndroidTestCase {
     private static final String PACKAGE_NAME = "android.content.cts";
     private static final String ACTIVITY_NAME = "android.content.pm.cts.TestPmActivity";

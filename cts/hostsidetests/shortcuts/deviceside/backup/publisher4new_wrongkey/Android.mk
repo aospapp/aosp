@@ -31,11 +31,11 @@ LOCAL_SRC_FILES := $(call all-java-files-under, ../publisher4old/src) \
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/../publisher4old/res
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
+    androidx.test.rules \
     androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
-    compatibility-device-util \
-    ctstestrunner \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
     ub-uiautomator \
     ShortcutManagerTestUtils
 
@@ -43,6 +43,6 @@ LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 
 LOCAL_CERTIFICATE := cts/hostsidetests/appsecurity/certs/cts-testkey1
 
-LOCAL_SDK_VERSION := current
+LOCAL_SDK_VERSION := system_current
 
 include $(BUILD_CTS_PACKAGE)

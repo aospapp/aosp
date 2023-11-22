@@ -16,10 +16,16 @@
 
 package libcore.net.event;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
+
 /**
  * A base class for objects interested in network events.
  */
 public class NetworkEventListener {
+
+  @UnsupportedAppUsage
+  public NetworkEventListener() {
+  }
 
   public void onNetworkConfigurationChanged() {
     // no-op

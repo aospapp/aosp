@@ -37,6 +37,9 @@
 #pragma GCC diagnostic pop
 
 namespace art {
+
+class Arm64InstructionSetFeatures;
+
 namespace arm64 {
 
 #define MEM_OP(...)      vixl::aarch64::MemOperand(__VA_ARGS__)
@@ -61,23 +64,24 @@ enum StoreOperandType {
   kStoreDWord
 };
 
-class Arm64Assembler FINAL : public Assembler {
+class Arm64Assembler final : public Assembler {
  public:
-  explicit Arm64Assembler(ArenaAllocator* allocator) : Assembler(allocator) {}
+  explicit Arm64Assembler(
+      ArenaAllocator* allocator, const Arm64InstructionSetFeatures* features = nullptr);
 
   virtual ~Arm64Assembler() {}
 
   vixl::aarch64::MacroAssembler* GetVIXLAssembler() { return &vixl_masm_; }
 
   // Finalize the code.
-  void FinalizeCode() OVERRIDE;
+  void FinalizeCode() override;
 
   // Size of generated code.
-  size_t CodeSize() const OVERRIDE;
-  const uint8_t* CodeBufferBaseAddress() const OVERRIDE;
+  size_t CodeSize() const override;
+  const uint8_t* CodeBufferBaseAddress() const override;
 
   // Copy instructions out of assembly buffer into the given region of memory.
-  void FinalizeInstructions(const MemoryRegion& region);
+  void FinalizeInstructions(const MemoryRegion& region) override;
 
   void LoadRawPtr(ManagedRegister dest, ManagedRegister base, Offset offs);
 
@@ -109,10 +113,10 @@ class Arm64Assembler FINAL : public Assembler {
   // MaybeGenerateMarkingRegisterCheck and is passed to the BRK instruction.
   void GenerateMarkingRegisterCheck(vixl::aarch64::Register temp, int code = 0);
 
-  void Bind(Label* label ATTRIBUTE_UNUSED) OVERRIDE {
+  void Bind(Label* label ATTRIBUTE_UNUSED) override {
     UNIMPLEMENTED(FATAL) << "Do not use Bind for ARM64";
   }
-  void Jump(Label* label ATTRIBUTE_UNUSED) OVERRIDE {
+  void Jump(Label* label ATTRIBUTE_UNUSED) override {
     UNIMPLEMENTED(FATAL) << "Do not use Jump for ARM64";
   }
 

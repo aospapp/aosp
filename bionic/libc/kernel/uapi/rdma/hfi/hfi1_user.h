@@ -28,6 +28,7 @@
 #define HFI1_CAP_SDMA_AHG (1UL << 2)
 #define HFI1_CAP_EXTENDED_PSN (1UL << 3)
 #define HFI1_CAP_HDRSUPP (1UL << 4)
+#define HFI1_CAP_TID_RDMA (1UL << 5)
 #define HFI1_CAP_USE_SDMA_HEAD (1UL << 6)
 #define HFI1_CAP_MULTI_PKT_EGR (1UL << 7)
 #define HFI1_CAP_NODROP_RHQ_FULL (1UL << 8)
@@ -38,6 +39,7 @@
 #define HFI1_CAP_NO_INTEGRITY (1UL << 13)
 #define HFI1_CAP_PKEY_CHECK (1UL << 14)
 #define HFI1_CAP_STATIC_RATE_CTRL (1UL << 15)
+#define HFI1_CAP_OPFN (1UL << 16)
 #define HFI1_CAP_SDMA_HEAD_CHECK (1UL << 17)
 #define HFI1_CAP_EARLY_CREDIT_RETURN (1UL << 18)
 #define HFI1_RCVHDR_ENTSIZE_2 (1UL << 0)
@@ -75,8 +77,8 @@ struct hfi1_sdma_comp_entry {
   __u32 errcode;
 };
 struct hfi1_status {
-  __u64 dev;
-  __u64 port;
+  __aligned_u64 dev;
+  __aligned_u64 port;
   char freezemsg[0];
 };
 enum sdma_req_opcode {
@@ -94,19 +96,19 @@ struct sdma_req_info {
   __u16 npkts;
   __u16 fragsize;
   __u16 comp_idx;
-} __packed;
+} __attribute__((__packed__));
 struct hfi1_kdeth_header {
   __le32 ver_tid_offset;
   __le16 jkey;
   __le16 hcrc;
   __le32 swdata[7];
-} __packed;
+} __attribute__((__packed__));
 struct hfi1_pkt_header {
   __le16 pbc[4];
   __be16 lrh[4];
   __be32 bth[3];
   struct hfi1_kdeth_header kdeth;
-} __packed;
+} __attribute__((__packed__));
 enum hfi1_ureg {
   ur_rcvhdrtail = 0,
   ur_rcvhdrhead = 1,

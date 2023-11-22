@@ -17,9 +17,10 @@ package com.android.server.cts.device.statsd;
 
 import android.content.Context;
 import android.os.PowerManager;
-import android.support.test.InstrumentationRegistry;
-import java.util.concurrent.CountDownLatch;
 
+import androidx.test.InstrumentationRegistry;
+
+import java.util.concurrent.CountDownLatch;
 
 public class WakelockLoadTestRunnable implements Runnable {
     String tag;

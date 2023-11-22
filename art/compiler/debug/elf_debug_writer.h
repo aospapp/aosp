@@ -19,12 +19,13 @@
 
 #include <vector>
 
+#include "arch/instruction_set_features.h"
 #include "base/array_ref.h"
 #include "base/macros.h"
 #include "base/mutex.h"
-#include "debug/dwarf/dwarf_constants.h"
 #include "debug/debug_info.h"
-#include "linker/elf_builder.h"
+#include "dwarf/dwarf_constants.h"
+#include "elf/elf_builder.h"
 
 namespace art {
 class OatHeader;
@@ -36,10 +37,8 @@ struct MethodDebugInfo;
 
 template <typename ElfTypes>
 void WriteDebugInfo(
-    linker::ElfBuilder<ElfTypes>* builder,
-    const DebugInfo& debug_info,
-    dwarf::CFIFormat cfi_format,
-    bool write_oat_patches);
+    ElfBuilder<ElfTypes>* builder,
+    const DebugInfo& debug_info);
 
 std::vector<uint8_t> MakeMiniDebugInfo(
     InstructionSet isa,
@@ -54,7 +53,14 @@ std::vector<uint8_t> MakeElfFileForJIT(
     InstructionSet isa,
     const InstructionSetFeatures* features,
     bool mini_debug_info,
-    ArrayRef<const MethodDebugInfo> method_infos);
+    const MethodDebugInfo& method_info);
+
+std::vector<uint8_t> PackElfFileForJIT(
+    InstructionSet isa,
+    const InstructionSetFeatures* features,
+    std::vector<ArrayRef<const uint8_t>>& added_elf_files,
+    std::vector<const void*>& removed_symbols,
+    /*out*/ size_t* num_symbols);
 
 std::vector<uint8_t> WriteDebugElfFileForClasses(
     InstructionSet isa,

@@ -19,9 +19,12 @@ package com.google.android.car.kitchensink.audio;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.media.AudioAttributes;
+import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.util.Log;
+
+import androidx.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,27 +51,37 @@ public class AudioPlayer {
 
         @Override
         public void onAudioFocusChange(int focusChange) {
-            Log.i(TAG, "audio focus change " + focusChange);
             if (mPlayer == null) {
+                Log.e(TAG, "mPlayer is null");
                 return;
             }
             if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+                Log.i(TAG, "Audio focus change AUDIOFOCUS_GAIN for usage " + mAttrib.getUsage());
                 mPlayer.setVolume(1.0f, 1.0f);
                 if (mRepeat && isPlaying()) {
-                    doResume();
+                    // Resume
+                    Log.i(TAG, "resuming player");
+                    mPlayer.start();
                 }
             } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-                if (isPlaying()) {
-                    // Duck to 20% volume (which matches system ducking as of this date)
-                    mPlayer.setVolume(0.2f, 0.2f);
-                }
-            } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT && mRepeat) {
-                if (isPlaying()) {
-                    doPause();
+                // While we used to setVolume on the player to 20%, we don't do this anymore
+                // because we expect the car's audio hal do handle ducking as it sees fit.
+                Log.i(TAG, "Audio focus change AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> do nothing");
+            } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                Log.i(TAG, "Audio focus change AUDIOFOCUS_LOSS_TRANSIENT for usage "
+                        + mAttrib.getUsage());
+                if (mRepeat && isPlaying()) {
+                    Log.i(TAG, "pausing repeating player");
+                    mPlayer.pause();
+                } else {
+                    Log.i(TAG, "stopping one shot player");
+                    stop();
                 }
             } else {
+                Log.e(TAG, "Unrecognized audio focus change " + focusChange);
                 if (isPlaying()) {
-                    doStop();
+                    Log.i(TAG, "stopping player");
+                    stop();
                 }
             }
         }
@@ -95,18 +108,36 @@ public class AudioPlayer {
     }
 
     public void start(boolean handleFocus, boolean repeat, int focusRequest) {
+        String nullDeviceAddress = null;
+        start(handleFocus, repeat, focusRequest, nullDeviceAddress);
+    }
+
+    /**
+     * Starts player
+     * @param handleFocus true to handle focus
+     * @param repeat true to repeat track
+     * @param focusRequest type of focus to request
+     * @param deviceAddress preferred device to attached to audio
+     */
+    public void start(boolean handleFocus, boolean repeat, int focusRequest,
+            @Nullable String deviceAddress) {
         mHandleFocus = handleFocus;
         mRepeat = repeat;
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
         int ret = AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
         if (mHandleFocus) {
+            // NOTE:  We are CONSCIOUSLY asking for focus again even if already playing in order
+            // exercise the framework's focus logic when faced with a (sloppy) application which
+            // might do this.
+            Log.i(TAG, "Asking for focus for usage " + mAttrib.getUsage());
             ret = mAudioManager.requestAudioFocus(mFocusListener, mAttrib,
                     focusRequest, 0);
         }
         if (ret == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-            doStart();
+            Log.i(TAG, "MediaPlayer got focus for usage " + mAttrib.getUsage());
+            doStart(deviceAddress);
         } else {
-            Log.i(TAG, "no focus");
+            Log.i(TAG, "MediaPlayer denied focus for usage " + mAttrib.getUsage());
         }
     }
 
@@ -116,7 +147,7 @@ public class AudioPlayer {
         start(handleFocus, repeat, focusRequest);
     }
 
-    private void doStart() {
+    private void doStart(String deviceAddress) {
         if (mPlaying.getAndSet(true)) {
             Log.i(TAG, "already playing");
             return;
@@ -142,10 +173,10 @@ public class AudioPlayer {
         mPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
             @Override
             public void onCompletion(MediaPlayer mp) {
+                Log.i(TAG, "AudioPlayer onCompletion");
                 mPlaying.set(false);
                 if (!mRepeat && mHandleFocus) {
                     mPlayer.stop();
-                    mPlayer.release();
                     mPlayer = null;
                     mAudioManager.abandonAudioFocus(mFocusListener);
                     if (mListener != null) {
@@ -161,7 +192,7 @@ public class AudioPlayer {
             AssetFileDescriptor afd =
                     mContext.getResources().openRawResourceFd(mResourceId);
             if (afd == null) {
-                throw new RuntimeException("no res");
+                throw new RuntimeException("resource not found");
             }
             mPlayer.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(),
                     afd.getLength());
@@ -170,39 +201,34 @@ public class AudioPlayer {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        // Search for preferred device
+        if (deviceAddress != null) {
+            AudioDeviceInfo[] devices = mAudioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+            for (AudioDeviceInfo deviceInfo : devices) {
+                if (deviceInfo.getAddress().equals(deviceAddress)) {
+                    mPlayer.setPreferredDevice(deviceInfo);
+                    break;
+                }
+            }
+        }
+
         mPlayer.start();
     }
 
     public void stop() {
-        doStop();
-        if (mHandleFocus) {
-            mAudioManager.abandonAudioFocus(mFocusListener);
-        }
-    }
-
-    public void release() {
-        if (isPlaying()) {
-            stop();
-        }
-    }
-
-    private void doStop() {
         if (!mPlaying.getAndSet(false)) {
             Log.i(TAG, "already stopped");
             return;
         }
-        Log.i(TAG, "doStop audio");
+        Log.i(TAG, "stop");
+
         mPlayer.stop();
-        mPlayer.release();
         mPlayer = null;
-    }
 
-    private void doPause() {
-        mPlayer.pause();
-    }
-
-    private void doResume() {
-        mPlayer.start();
+        if (mHandleFocus) {
+            mAudioManager.abandonAudioFocus(mFocusListener);
+        }
     }
 
     public boolean isPlaying() {

@@ -15,15 +15,40 @@
  */
 package com.android.tradefed.device;
 
+import com.android.ddmlib.Log.LogLevel;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.util.ArrayUtil;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Container for {@link ITestDevice} {@link Option}s
  */
 public class TestDeviceOptions {
+
+    public enum InstanceType {
+        /** A device that we remotely access via ssh and adb connect */
+        GCE,
+        REMOTE_AVD,
+        /**
+         * A remote device inside an emulator that we access via ssh to the instance hosting the
+         * emulator then adb connect.
+         */
+        CUTTLEFISH,
+        REMOTE_NESTED_AVD,
+        /** An android emulator. */
+        EMULATOR,
+        /** Chrome OS VM (betty) */
+        CHEEPS,
+    }
+
+    public static final int DEFAULT_ADB_PORT = 5555;
+    public static final String INSTANCE_TYPE_OPTION = "instance-type";
 
     /** Do not provide a setter method for that Option as it might be misused. */
     @Option(name = "enable-root", description = "enable adb root on boot.")
@@ -115,9 +140,116 @@ public class TestDeviceOptions {
             "the minimum battery level required to continue the invocation. Scale: 0-100")
     private Integer mCutoffBattery = null;
 
-    /**
-     * Check whether adb root should be enabled on boot for this device
-     */
+    @Option(
+        name = "use-content-provider",
+        description =
+                "Allow to disable the use of the content provider at the device level. "
+                        + "This results in falling back to standard adb push/pull."
+    )
+    private boolean mUseContentProvider = true;
+
+    // ====================== Options Related to Virtual Devices ======================
+    @Option(
+            name = INSTANCE_TYPE_OPTION,
+            description = "The type of virtual device instance to create")
+    private InstanceType mInstanceType = InstanceType.GCE;
+
+    @Option(
+            name = "gce-boot-timeout",
+            description = "timeout to wait in ms for GCE to be online.",
+            isTimeVal = true)
+    private long mGceCmdTimeout = 30 * 60 * 1000; // 30 minutes.
+
+    @Option(name = "gce-driver-path", description = "path of the binary to launch GCE devices")
+    private File mAvdDriverBinary = null;
+
+    @Option(
+            name = "gce-driver-config-path",
+            description = "path of the config to use to launch GCE devices.")
+    private File mAvdConfigFile = null;
+
+    @Option(
+            name = "gce-driver-config-test-resource-name",
+            description = "Test resource name of the config to use to launch GCE devices.")
+    private String mAvdConfigTestResourceName;
+
+    @Option(
+            name = "gce-driver-service-account-json-key-path",
+            description = "path to the service account json key location.")
+    private File mJsonKeyFile = null;
+
+    @Option(
+            name = "gce-private-key-path",
+            description = "path to the ssh key private key location.")
+    private File mSshPrivateKeyPath = new File("~/.ssh/id_rsa");
+
+    @Option(name = "gce-driver-log-level", description = "Log level for gce driver")
+    private LogLevel mGceDriverLogLevel = LogLevel.DEBUG;
+
+    @Option(
+        name = "gce-driver-param",
+        description = "Additional args to pass to gce driver as parameters."
+    )
+    private List<String> mGceDriverParams = new ArrayList<>();
+
+    @Deprecated
+    @Option(
+        name = "gce-driver-build-id-param",
+        description =
+                "The parameter to be paired with "
+                        + "build id from build info when passed down to gce driver"
+    )
+    private String mGceDriverBuildIdParam = "build_id";
+
+    @Option(name = "gce-account", description = "email account to use with GCE driver.")
+    private String mGceAccount = null;
+
+    @Option(
+        name = "max-gce-attempt",
+        description = "Maximum number of attempts to start Gce before throwing an exception."
+    )
+    private int mGceMaxAttempt = 1;
+
+    @Option(
+            name = "skip-gce-teardown",
+            description =
+                    "Whether or not to skip the GCE tear down. Skipping tear down will "
+                            + "result in the instance being left.")
+    private boolean mSkipTearDown = false;
+
+    @Option(
+            name = "wait-gce-teardown",
+            description = "Whether or not to block on gce teardown before proceeding.")
+    private boolean mWaitForGceTearDown = false;
+
+    @Option(
+            name = "instance-user",
+            description =
+                    "The account to be used to interact with the "
+                            + "outer layer of the GCE VM, e.g. to SSH in")
+    private String mInstanceUser = "root";
+
+    @Option(
+            name = "remote-adb-port",
+            description = "The port on remote instance where the adb " + "server listens to.")
+    private int mRemoteAdbPort = DEFAULT_ADB_PORT;
+
+    @Option(
+            name = "base-host-image",
+            description = "The base image to be used for the GCE VM to host emulator.")
+    private String mBaseImage = null;
+
+    @Option(
+        name = "remote-fetch-file-pattern",
+        description =
+                "Only for remote VM devices. Allows to specify patterns to fetch file on the "
+                        + "remote VM via scp. Pattern must follow the scp notations."
+    )
+    private Set<String> mRemoteFetchFilePattern = new HashSet<>();
+
+    // END ====================== Options Related to Virtual Devices ======================
+
+    /** Check whether adb root should be enabled on boot for this device */
     public boolean isEnableAdbRoot() {
         return mEnableAdbRoot;
     }
@@ -339,5 +471,176 @@ public class TestDeviceOptions {
     /** @return the wifiutil apk path */
     public String getWifiUtilAPKPath() {
         return mWifiUtilAPKPath;
+    }
+
+    /** Returns the instance type of virtual device that should be created */
+    public InstanceType getInstanceType() {
+        return mInstanceType;
+    }
+
+    /** Returns whether or not the Tradefed content provider can be used to push/pull files. */
+    public boolean shouldUseContentProvider() {
+        return mUseContentProvider;
+    }
+
+    // =========================== Getter and Setter for Virtual Devices
+    /** Return the Gce Avd timeout for the instance to come online. */
+    public long getGceCmdTimeout() {
+        return mGceCmdTimeout;
+    }
+
+    /** Set the Gce Avd timeout for the instance to come online. */
+    public void setGceCmdTimeout(long gceCmdTimeout) {
+        mGceCmdTimeout = gceCmdTimeout;
+    }
+
+    /** Return the path to the binary to start the Gce Avd instance. */
+    public File getAvdDriverBinary() {
+        return mAvdDriverBinary;
+    }
+
+    /** Set the path to the binary to start the Gce Avd instance. */
+    public void setAvdDriverBinary(File avdDriverBinary) {
+        mAvdDriverBinary = avdDriverBinary;
+    }
+
+    /** Return the Gce Avd config file to start the instance. */
+    public File getAvdConfigFile() {
+        return mAvdConfigFile;
+    }
+
+    /** Set the Gce Avd config file to start the instance. */
+    public void setAvdConfigFile(File avdConfigFile) {
+        mAvdConfigFile = avdConfigFile;
+    }
+
+    /** Return the Gce Avd config test resource name to start the instance. */
+    public String getAvdConfigTestResourceName() {
+        return mAvdConfigTestResourceName;
+    }
+
+    /** @return the service account json key file. */
+    public File getSerivceAccountJsonKeyFile() {
+        return mJsonKeyFile;
+    }
+
+    /**
+     * Set the service account json key file.
+     *
+     * @param jsonKeyFile the key file.
+     */
+    public void setServiceAccountJsonKeyFile(File jsonKeyFile) {
+        mJsonKeyFile = jsonKeyFile;
+    }
+
+    /** Return the path of the ssh key to use for operations with the Gce Avd instance. */
+    public File getSshPrivateKeyPath() {
+        return mSshPrivateKeyPath;
+    }
+
+    /** Set the path of the ssh key to use for operations with the Gce Avd instance. */
+    public void setSshPrivateKeyPath(File sshPrivateKeyPath) {
+        mSshPrivateKeyPath = sshPrivateKeyPath;
+    }
+
+    /** Return the log level of the Gce Avd driver. */
+    public LogLevel getGceDriverLogLevel() {
+        return mGceDriverLogLevel;
+    }
+
+    /** Set the log level of the Gce Avd driver. */
+    public void setGceDriverLogLevel(LogLevel mGceDriverLogLevel) {
+        this.mGceDriverLogLevel = mGceDriverLogLevel;
+    }
+
+    /** Return the additional GCE driver parameters provided via option */
+    public List<String> getGceDriverParams() {
+        return mGceDriverParams;
+    }
+
+    /** Set the GCE driver parameter that should be paired with the build id from build info */
+    public void setGceDriverBuildIdParam(String gceDriverBuildIdParam) {
+        mGceDriverBuildIdParam = gceDriverBuildIdParam;
+    }
+
+    /** Return the GCE driver parameter that should be paired with the build id from build info */
+    public String getGceDriverBuildIdParam() {
+        return mGceDriverBuildIdParam;
+    }
+
+    /** Return the gce email account to use with the driver */
+    public String getGceAccount() {
+        return mGceAccount;
+    }
+
+    /** Return the max number of attempts to start a gce device */
+    public int getGceMaxAttempt() {
+        if (mGceMaxAttempt < 1) {
+            throw new RuntimeException("--max-gce-attempt cannot be bellow 1 attempt.");
+        }
+        return mGceMaxAttempt;
+    }
+
+    /** Set the max number of attempts to start a gce device */
+    public void setGceMaxAttempt(int gceMaxAttempt) {
+        mGceMaxAttempt = gceMaxAttempt;
+    }
+
+    /** Returns true if GCE tear down should be skipped. False otherwise. */
+    public boolean shouldSkipTearDown() {
+        return mSkipTearDown;
+    }
+
+    /** Returns true if we should block on GCE tear down completion before proceeding. */
+    public boolean waitForGceTearDown() {
+        return mWaitForGceTearDown;
+    }
+
+    /** Returns the instance type of GCE virtual device that should be created */
+    public String getInstanceUser() {
+        return mInstanceUser;
+    }
+
+    /** Returns the remote port in instance that the adb server listens to */
+    public int getRemoteAdbPort() {
+        return mRemoteAdbPort;
+    }
+
+    /** Returns the base image name to be used for the current instance */
+    public String getBaseImage() {
+        return mBaseImage;
+    }
+
+    /** Returns the list of pattern to attempt to fetch via scp. */
+    public Set<String> getRemoteFetchFilePattern() {
+        return mRemoteFetchFilePattern;
+    }
+
+    public static String getCreateCommandByInstanceType(InstanceType type) {
+        switch (type) {
+            case CHEEPS:
+            case GCE:
+            case REMOTE_AVD:
+                return "create";
+            case CUTTLEFISH:
+            case REMOTE_NESTED_AVD:
+                return "create_cf";
+            case EMULATOR:
+                return "create_gf";
+        }
+        throw new RuntimeException("Unexpected InstanceType: " + type);
+    }
+
+    public static List<String> getExtraParamsByInstanceType(InstanceType type, String baseImage) {
+        if (InstanceType.EMULATOR.equals(type)) {
+            // TODO(b/119440413) remove when base image can be passed via extra gce driver params
+            List<String> params = ArrayUtil.list();
+            if (baseImage != null) {
+                params.add("--base_image");
+                params.add(baseImage);
+            }
+            return params;
+        }
+        return Collections.emptyList();
     }
 }

@@ -18,12 +18,14 @@ package com.android.tradefed.sandbox;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.sandbox.SandboxConfigDump.DumpCmd;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.IRunUtil.EnvPriority;
+import com.android.tradefed.util.TimeUtil;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
@@ -37,7 +39,7 @@ import java.util.Set;
 /** A utility class for managing {@link IConfiguration} when doing sandboxing. */
 public class SandboxConfigUtil {
 
-    private static final long DUMP_TIMEOUT = 2 * 60 * 1000; // 2min
+    private static final long DUMP_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
     /**
      * Create a subprocess based on the Tf jars from any version, and dump the xml {@link
@@ -59,6 +61,7 @@ public class SandboxConfigUtil {
                     "Something went wrong with the sandbox setup, classpath was empty.");
         }
         runUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
+        runUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
         File destination = null;
         try {
             destination = FileUtil.createTempFile("config-container", ".xml");
@@ -83,12 +86,22 @@ public class SandboxConfigUtil {
             mCmdArgs.add(arg);
         }
         CommandResult result = runUtil.runTimedCmd(DUMP_TIMEOUT, mCmdArgs.toArray(new String[0]));
+        CLog.d("stdout: %s", result.getStdout());
+        if (result.getStderr() != null && !result.getStderr().isEmpty()) {
+            CLog.d("stderr: %s", result.getStderr());
+        }
         if (CommandStatus.SUCCESS.equals(result.getStatus())) {
             return destination;
         }
         FileUtil.deleteFile(destination);
         // Do not delete the global configuration file here in this case, it might still be used.
-        throw new SandboxConfigurationException(result.getStderr());
+        String errorMessage = "Error when dumping the config.";
+        if (CommandStatus.TIMED_OUT.equals(result.getStatus())) {
+            errorMessage +=
+                    String.format(" Timed out after %s.", TimeUtil.formatElapsedTime(DUMP_TIMEOUT));
+        }
+        errorMessage += String.format(" stderr: %s", result.getStderr());
+        throw new SandboxConfigurationException(errorMessage);
     }
 
     /**
@@ -114,14 +127,7 @@ public class SandboxConfigUtil {
     }
 
     /** Create a global config with only the keystore to make it available in subprocess. */
-    public static File dumpFilteredGlobalConfig() throws IOException {
-        String[] configs =
-                new String[] {
-                    GlobalConfiguration.DEVICE_MANAGER_TYPE_NAME,
-                    GlobalConfiguration.KEY_STORE_TYPE_NAME
-                };
-        File filteredGlobalConfig = FileUtil.createTempFile("filtered_global_config", ".config");
-        GlobalConfiguration.getInstance().cloneConfigWithFilter(filteredGlobalConfig, configs);
-        return filteredGlobalConfig;
+    public static File dumpFilteredGlobalConfig(Set<String> exclusionPatterns) throws IOException {
+        return GlobalConfiguration.getInstance().cloneConfigWithFilter(exclusionPatterns);
     }
 }

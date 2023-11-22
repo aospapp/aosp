@@ -16,7 +16,9 @@
 vts_test_bin_packages := \
     android.hardware.tests.msgq@1.0-service-benchmark \
     android.hardware.tests.msgq@1.0-service-test \
+    fiemap_writer_test \
     fmq_test \
+    gsi_boot_test \
     hidl_test \
     hidl_test_client \
     hidl_test_helper \
@@ -26,6 +28,8 @@ vts_test_bin_packages := \
     libhwbinder_benchmark \
     libhwbinder_latency \
     libbinder_benchmark \
+    libdm_test \
+    liblp_test_static \
     vts_codelab_target_binary \
     vts_selftest_flaky_test \
     vts_selftest_zero_testcase_binary_test \
@@ -35,11 +39,8 @@ vts_test_bin_packages := \
     simpleperf_cpu_hotplug_test \
     binderThroughputTest \
     hwbinderThroughputTest \
-    bionic-unit-tests \
-    bionic-unit-tests-gcc \
-    bionic-unit-tests-static \
     stressapptest \
-    libcutils_test \
+    libcutils_test_static \
     vts_test_binary_qtaguid_module \
     vts_test_binary_bpf_module \
 
@@ -62,7 +63,10 @@ vts_test_bin_packages += \
 vts_test_bin_packages += \
     dt_early_mount_test \
     kernel_net_tests \
+    vts_kernel_loopconfig_test \
     vts_kernel_tun_test \
+    vts_kernel_toolchain \
+    vts_meminfo_test \
 
 # Binder tests.
 vts_test_bin_packages += \
@@ -86,3 +90,28 @@ vts_test_bin_packages += \
 # VTS DTBO verification tests
 vts_test_bin_packages += \
     ufdt_verify_overlay
+
+# System suspend unit tests.
+vts_test_bin_packages += \
+    SystemSuspendV1_0UnitTest
+
+# libpower tests
+vts_test_bin_packages += \
+    libpower_test
+
+# libprocessgroup JSON schema tests
+vts_test_bin_packages += \
+    vts_processgroup_validate_test \
+
+# configfile as API tests
+vts_test_bin_packages += \
+    vts_compatibilityMatrix_validate_test \
+    vts_halManifest_validate_test \
+    vts_mediaCodecs_validate_test \
+    vts_mediaProfiles_validate_test \
+    vts_defaultPermissions_validate_test \
+    vts_permission_validate_test \
+
+# AVB tests
+vts_test_bin_packages += \
+    VtsSecurityAvbTest

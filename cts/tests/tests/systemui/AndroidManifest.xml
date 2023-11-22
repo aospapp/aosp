@@ -21,15 +21,25 @@
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <application>
+    <application android:requestLegacyExternalStorage="true">
         <activity android:name=".LightBarActivity"
-                android:theme="@android:style/Theme.Material.NoActionBar"></activity>
+                android:theme="@android:style/Theme.Material.NoActionBar"
+                android:screenOrientation="portrait"></activity>
         <activity android:name=".LightBarThemeActivity"
-            android:theme="@style/LightBarTheme"></activity>
+                android:theme="@style/LightBarTheme"
+                android:screenOrientation="portrait"></activity>
+        <activity android:name=".WindowInsetsActivity"
+                android:theme="@android:style/Theme.Material"
+                android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.systemui.cts">
     </instrumentation>
 

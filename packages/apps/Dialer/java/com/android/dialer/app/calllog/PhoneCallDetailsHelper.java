@@ -25,15 +25,14 @@ import android.net.Uri;
 import android.provider.CallLog.Calls;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.os.BuildCompat;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
+import android.telephony.PhoneNumberUtils;
 import android.text.SpannableString;
-import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.text.method.LinkMovementMethod;
-import android.text.style.TextAppearanceSpan;
-import android.text.style.URLSpan;
 import android.text.util.Linkify;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -49,8 +48,12 @@ import com.android.dialer.compat.android.provider.VoicemailCompat;
 import com.android.dialer.compat.telephony.TelephonyManagerCompat;
 import com.android.dialer.logging.ContactSource;
 import com.android.dialer.oem.MotorolaUtils;
+import com.android.dialer.phonenumbercache.CachedNumberLookupService;
+import com.android.dialer.phonenumbercache.PhoneNumberCache;
 import com.android.dialer.phonenumberutil.PhoneNumberHelper;
+import com.android.dialer.spannable.ContentWithLearnMoreSpanner;
 import com.android.dialer.storage.StorageComponent;
+import com.android.dialer.theme.base.ThemeComponent;
 import com.android.dialer.util.DialerUtils;
 import com.android.voicemail.VoicemailClient;
 import com.android.voicemail.VoicemailComponent;
@@ -75,6 +78,8 @@ public class PhoneCallDetailsHelper
   private final CallLogCache callLogCache;
   /** Calendar used to construct dates */
   private final Calendar calendar;
+
+  private final CachedNumberLookupService cachedNumberLookupService;
   /** The injected current time in milliseconds since the epoch. Used only by tests. */
   private Long currentTimeMillisForTest;
 
@@ -94,6 +99,55 @@ public class PhoneCallDetailsHelper
     this.resources = resources;
     this.callLogCache = callLogCache;
     calendar = Calendar.getInstance();
+    cachedNumberLookupService = PhoneNumberCache.get(context).getCachedNumberLookupService();
+  }
+
+  static boolean shouldShowVoicemailDonationPromo(
+      Context context, PhoneAccountHandle accountHandle) {
+    VoicemailClient client = VoicemailComponent.get(context).getVoicemailClient();
+    return client.isVoicemailDonationAvailable(context, accountHandle)
+        && !hasSeenVoicemailDonationPromo(context);
+  }
+
+  static boolean hasSeenVoicemailDonationPromo(Context context) {
+    return StorageComponent.get(context.getApplicationContext())
+        .unencryptedSharedPrefs()
+        .getBoolean(PREF_VOICEMAIL_DONATION_PROMO_SHOWN_KEY, false);
+  }
+
+  private static int dpsToPixels(Context context, int dps) {
+    return (int)
+        (TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP, dps, context.getResources().getDisplayMetrics()));
+  }
+
+  private static void recordPromoShown(Context context) {
+    StorageComponent.get(context.getApplicationContext())
+        .unencryptedSharedPrefs()
+        .edit()
+        .putBoolean(PREF_VOICEMAIL_DONATION_PROMO_SHOWN_KEY, true)
+        .apply();
+  }
+
+  /** Returns true if primary name is empty or the data is from Cequint Caller ID. */
+  private boolean shouldShowLocation(PhoneCallDetails details) {
+    if (TextUtils.isEmpty(details.geocode)) {
+      return false;
+    }
+    // For caller ID provided by Cequint we want to show the geo location.
+    if (details.sourceType == ContactSource.Type.SOURCE_TYPE_CEQUINT_CALLER_ID) {
+      return true;
+    }
+    if (cachedNumberLookupService != null
+        && cachedNumberLookupService.isBusiness(details.sourceType)) {
+      return true;
+    }
+
+    // Don't bother showing geo location for contacts.
+    if (!TextUtils.isEmpty(details.namePrimary)) {
+      return false;
+    }
+    return true;
   }
 
   /** Fills the call details views with content. */
@@ -119,6 +173,9 @@ public class PhoneCallDetailsHelper
     views.callTypeIcons.setShowAssistedDialed(
         (details.features & TelephonyManagerCompat.FEATURES_ASSISTED_DIALING)
             == TelephonyManagerCompat.FEATURES_ASSISTED_DIALING);
+    if (BuildCompat.isAtLeastP()) {
+      views.callTypeIcons.setShowRtt((details.features & Calls.FEATURES_RTT) == Calls.FEATURES_RTT);
+    }
     views.callTypeIcons.requestLayout();
     views.callTypeIcons.setVisibility(View.VISIBLE);
 
@@ -158,20 +215,7 @@ public class PhoneCallDetailsHelper
       views.callAccountLabel.setVisibility(View.GONE);
     }
 
-    final CharSequence nameText;
-    final CharSequence displayNumber = details.displayNumber;
-    if (TextUtils.isEmpty(details.getPreferredName())) {
-      nameText = displayNumber;
-      // We have a real phone number as "nameView" so make it always LTR
-      views.nameView.setTextDirection(View.TEXT_DIRECTION_LTR);
-    } else {
-      nameText = details.getPreferredName();
-      // "nameView" is updated from phone number to contact name after number matching.
-      // Since TextDirection remains at View.TEXT_DIRECTION_LTR, initialize it.
-      views.nameView.setTextDirection(View.TEXT_DIRECTION_INHERIT);
-    }
-
-    views.nameView.setText(nameText);
+    setNameView(views, details);
 
     if (isVoicemail) {
       int relevantLinkTypes = Linkify.EMAIL_ADDRESSES | Linkify.PHONE_NUMBERS | Linkify.WEB_URLS;
@@ -236,9 +280,29 @@ public class PhoneCallDetailsHelper
     views.voicemailTranscriptionBrandingView.setTypeface(typeface);
     views.callLocationAndDate.setTypeface(typeface);
     views.callLocationAndDate.setTextColor(
-        ContextCompat.getColor(
-            context,
-            details.isRead ? R.color.call_log_detail_color : R.color.call_log_unread_text_color));
+        details.isRead
+            ? ThemeComponent.get(context).theme().getTextColorSecondary()
+            : ThemeComponent.get(context).theme().getTextColorPrimary());
+  }
+
+  private void setNameView(PhoneCallDetailsViews views, PhoneCallDetails details) {
+    if (!TextUtils.isEmpty(details.getPreferredName())) {
+      views.nameView.setText(details.getPreferredName());
+      // "nameView" is updated from phone number to contact name after number matching.
+      // Since TextDirection remains at View.TEXT_DIRECTION_LTR, initialize it.
+      views.nameView.setTextDirection(View.TEXT_DIRECTION_INHERIT);
+      return;
+    }
+
+    if (PhoneNumberUtils.isEmergencyNumber(details.displayNumber)) {
+      views.nameView.setText(R.string.emergency_number);
+      views.nameView.setTextDirection(View.TEXT_DIRECTION_INHERIT);
+      return;
+    }
+
+    views.nameView.setText(details.displayNumber);
+    // We have a real phone number as "nameView" so make it always LTR
+    views.nameView.setTextDirection(View.TEXT_DIRECTION_LTR);
   }
 
   private boolean shouldShowTranscriptionRating(
@@ -252,9 +316,10 @@ public class PhoneCallDetailsHelper
       return true;
     }
 
-    // Also show the rating option if voicemail transcription is available (but not enabled)
+    // Also show the rating option if voicemail donation is available (but not enabled)
     // and the donation promo has not yet been shown.
-    if (client.isVoicemailDonationAvailable(context) && !hasSeenVoicemailDonationPromo(context)) {
+    if (client.isVoicemailDonationAvailable(context, account)
+        && !hasSeenVoicemailDonationPromo(context)) {
       return true;
     }
 
@@ -265,7 +330,7 @@ public class PhoneCallDetailsHelper
       TranscriptionRatingValue ratingValue, PhoneCallDetails details, View ratingView) {
     LogUtil.enterBlock("PhoneCallDetailsHelper.recordTranscriptionRating");
 
-    if (shouldShowVoicemailDonationPromo(context)) {
+    if (shouldShowVoicemailDonationPromo(context, details.accountHandle)) {
       showVoicemailDonationPromo(ratingValue, details, ratingView);
     } else {
       TranscriptionRatingHelper.sendRating(
@@ -275,19 +340,6 @@ public class PhoneCallDetailsHelper
           this::onRatingSuccess,
           this::onRatingFailure);
     }
-  }
-
-  static boolean shouldShowVoicemailDonationPromo(Context context) {
-    VoicemailClient client = VoicemailComponent.get(context).getVoicemailClient();
-    return client.isVoicemailTranscriptionAvailable(context)
-        && client.isVoicemailDonationAvailable(context)
-        && !hasSeenVoicemailDonationPromo(context);
-  }
-
-  static boolean hasSeenVoicemailDonationPromo(Context context) {
-    return StorageComponent.get(context.getApplicationContext())
-        .unencryptedSharedPrefs()
-        .getBoolean(PREF_VOICEMAIL_DONATION_PROMO_SHOWN_KEY, false);
   }
 
   private void showVoicemailDonationPromo(
@@ -319,6 +371,9 @@ public class PhoneCallDetailsHelper
         new DialogInterface.OnClickListener() {
           @Override
           public void onClick(final DialogInterface dialog, final int button) {
+            VoicemailComponent.get(context)
+                .getVoicemailClient()
+                .setVoicemailDonationEnabled(context, details.accountHandle, false);
             dialog.cancel();
             recordPromoShown(context);
             ratingView.setVisibility(View.GONE);
@@ -327,7 +382,6 @@ public class PhoneCallDetailsHelper
     builder.setCancelable(true);
     AlertDialog dialog = builder.create();
 
-    // Use a custom title to prevent truncation, sigh
     TextView title = new TextView(context);
     title.setText(R.string.voicemail_donation_promo_title);
 
@@ -349,48 +403,19 @@ public class PhoneCallDetailsHelper
     textView.setMovementMethod(LinkMovementMethod.getInstance());
     Button positiveButton = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
     if (positiveButton != null) {
-      positiveButton.setTextColor(
-          context
-              .getResources()
-              .getColor(R.color.voicemail_donation_promo_positive_button_text_color));
+      positiveButton.setTextColor(ThemeComponent.get(context).theme().getColorPrimary());
     }
     Button negativeButton = dialog.getButton(DialogInterface.BUTTON_NEGATIVE);
     if (negativeButton != null) {
-      negativeButton.setTextColor(
-          context
-              .getResources()
-              .getColor(R.color.voicemail_donation_promo_negative_button_text_color));
+      negativeButton.setTextColor(ThemeComponent.get(context).theme().getTextColorSecondary());
     }
   }
 
-  private static int dpsToPixels(Context context, int dps) {
-    return (int)
-        (TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, dps, context.getResources().getDisplayMetrics()));
-  }
-
-  private static void recordPromoShown(Context context) {
-    StorageComponent.get(context.getApplicationContext())
-        .unencryptedSharedPrefs()
-        .edit()
-        .putBoolean(PREF_VOICEMAIL_DONATION_PROMO_SHOWN_KEY, true)
-        .apply();
-  }
-
   private SpannableString getVoicemailDonationPromoContent() {
-    CharSequence content = context.getString(R.string.voicemail_donation_promo_content);
-    CharSequence learnMore = context.getString(R.string.voicemail_donation_promo_learn_more);
-    String learnMoreUrl = context.getString(R.string.voicemail_donation_promo_learn_more_url);
-    SpannableString span = new SpannableString(content + " " + learnMore);
-    int end = span.length();
-    int start = end - learnMore.length();
-    span.setSpan(new URLSpan(learnMoreUrl), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-    span.setSpan(
-        new TextAppearanceSpan(context, R.style.PromoLinkStyle),
-        start,
-        end,
-        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-    return span;
+    return new ContentWithLearnMoreSpanner(context)
+        .create(
+            context.getString(R.string.voicemail_donation_promo_content),
+            context.getString(R.string.voicemail_donation_promo_learn_more_url));
   }
 
   @Override
@@ -467,27 +492,10 @@ public class PhoneCallDetailsHelper
                 : Phone.getTypeLabel(resources, details.numberType, details.numberLabel);
       }
     }
-
     if (!TextUtils.isEmpty(details.namePrimary) && TextUtils.isEmpty(numberFormattedLabel)) {
       numberFormattedLabel = details.displayNumber;
     }
     return numberFormattedLabel;
-  }
-
-  /** Returns true if primary name is empty or the data is from Cequint Caller ID. */
-  private static boolean shouldShowLocation(PhoneCallDetails details) {
-    if (TextUtils.isEmpty(details.geocode)) {
-      return false;
-    }
-    // For caller ID provided by Cequint we want to show the geo location.
-    if (details.sourceType == ContactSource.Type.SOURCE_TYPE_CEQUINT_CALLER_ID) {
-      return true;
-    }
-    // Don't bother showing geo location for contacts.
-    if (!TextUtils.isEmpty(details.namePrimary)) {
-      return false;
-    }
-    return true;
   }
 
   public void setPhoneTypeLabelForTest(CharSequence phoneTypeLabel) {
@@ -557,24 +565,6 @@ public class PhoneCallDetailsHelper
     int currentYear = calendar.get(Calendar.YEAR);
     calendar.setTimeInMillis(date);
     return currentYear != calendar.get(Calendar.YEAR);
-  }
-
-  /** Sets the text of the header view for the details page of a phone call. */
-  public void setCallDetailsHeader(TextView nameView, PhoneCallDetails details) {
-    final CharSequence nameText;
-    if (!TextUtils.isEmpty(details.namePrimary)) {
-      nameText = details.namePrimary;
-    } else if (!TextUtils.isEmpty(details.displayNumber)) {
-      nameText = details.displayNumber;
-    } else {
-      nameText = resources.getString(R.string.unknown);
-    }
-
-    nameView.setText(nameText);
-  }
-
-  public void setCurrentTimeForTest(long currentTimeMillis) {
-    currentTimeMillisForTest = currentTimeMillis;
   }
 
   /**

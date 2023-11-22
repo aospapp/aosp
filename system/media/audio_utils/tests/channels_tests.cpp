@@ -133,4 +133,71 @@ TEST(audio_utils_channels, adjust_selected_channels) {
     expectEq(u16ary, u16ref);
 }
 
+TEST(audio_utils_channels, adjust_channels_non_destructive) {
+    constexpr size_t size = 65536; /* arbitrary large multiple of 8 */
+    std::vector<uint16_t> u16ref(size);
+    std::vector<uint16_t> u16contracted(size);
+    std::vector<uint16_t> u16expanded(size);
+    std::vector<uint16_t> u16inout(size);
 
+    // Reference buffer increases monotonically.
+    // For second test, in/out buffer begins identical to ref.
+    for (size_t i = 0; i < u16ref.size(); ++i) {
+        u16ref[i] = i;
+        u16inout[i] = i;
+    }
+
+    // *** First test: different in/out buffers ***
+
+    // Contract from quad to stereo.
+    adjust_channels_non_destructive(
+            u16ref.data() /*in_buff*/,
+            4 /*in_channels*/,
+            u16contracted.data() /*out_buff*/,
+            2 /*out_channels*/,
+            sizeof(u16ref[0]) /*sample_size_in_bytes*/,
+            sizeof(u16ref[0]) * u16ref.size() /*num_in_bytes*/);
+
+    // Each half of contracted buffer should increase monotonically.
+    checkMonotone(u16contracted.data(), u16contracted.size() / 2);
+    checkMonotone(&u16contracted[u16contracted.size() / 2], u16contracted.size() / 2);
+
+    // Expand stereo to quad
+    adjust_channels_non_destructive(
+            u16contracted.data() /*in_buff*/,
+            2 /*in_channels*/,
+            u16expanded.data() /*out_buff*/,
+            4 /*out_channels*/,
+            sizeof(u16contracted[0]) /*sample_size_in_bytes*/,
+            sizeof(u16contracted[0]) * (u16contracted.size() / 2) /*num_in_bytes*/);
+
+    // Comparison array must be identical to reference.
+    expectEq(u16expanded, u16ref);
+
+    // *** Second test: in_buff == out_buff ***
+
+    // Contract from eight channels to stereo.
+    adjust_channels_non_destructive(
+            u16inout.data() /*in_buff*/,
+            8 /*in_channels*/,
+            u16inout.data() /*out_buff*/,
+            2 /*out_channels*/,
+            sizeof(u16inout[0]) /*sample_size_in_bytes*/,
+            sizeof(u16inout[0]) * u16inout.size() /*num_in_bytes*/);
+
+    // Each section [1/4][3/4] of contracted buffer should increase monotonically.
+    checkMonotone(u16inout.data(), u16inout.size() / 4);
+    checkMonotone(&u16inout[u16inout.size() / 4], (u16inout.size() * 3) / 4);
+
+    // Expand stereo to eight channels.
+    adjust_channels_non_destructive(
+            u16inout.data() /*in_buff*/,
+            2 /*in_channels*/,
+            u16inout.data() /*out_buff*/,
+            8 /*out_channels*/,
+            sizeof(u16inout[0]) /*sample_size_in_bytes*/,
+            sizeof(u16inout[0]) * (u16inout.size() / 4) /*num_in_bytes*/);
+
+    // Comparison array must be identical to reference.
+    expectEq(u16inout, u16ref);
+}

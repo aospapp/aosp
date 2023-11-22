@@ -17,9 +17,9 @@
 #include "update_engine/metrics_reporter_omaha.h"
 
 #include <memory>
-#include <string>
 
 #include <base/logging.h>
+#include <base/strings/string_number_conversions.h>
 #include <metrics/metrics_library.h>
 
 #include "update_engine/common/clock_interface.h"
@@ -27,6 +27,7 @@
 #include "update_engine/common/prefs_interface.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/metrics_utils.h"
+#include "update_engine/omaha_request_params.h"
 #include "update_engine/system_state.h"
 
 using std::string;
@@ -43,6 +44,9 @@ const char kMetricCheckDownloadErrorCode[] =
     "UpdateEngine.Check.DownloadErrorCode";
 const char kMetricCheckReaction[] = "UpdateEngine.Check.Reaction";
 const char kMetricCheckResult[] = "UpdateEngine.Check.Result";
+const char kMetricCheckTargetVersion[] = "UpdateEngine.Check.TargetVersion";
+const char kMetricCheckRollbackTargetVersion[] =
+    "UpdateEngine.Check.RollbackTargetVersion";
 const char kMetricCheckTimeSinceLastCheckMinutes[] =
     "UpdateEngine.Check.TimeSinceLastCheckMinutes";
 const char kMetricCheckTimeSinceLastCheckUptimeMinutes[] =
@@ -84,6 +88,10 @@ const char kMetricSuccessfulUpdateDownloadOverheadPercentage[] =
     "UpdateEngine.SuccessfulUpdate.DownloadOverheadPercentage";
 const char kMetricSuccessfulUpdateDownloadSourcesUsed[] =
     "UpdateEngine.SuccessfulUpdate.DownloadSourcesUsed";
+const char kMetricSuccessfulUpdateDurationFromSeenDays[] =
+    "UpdateEngine.SuccessfulUpdate.DurationFromSeenDays.NoTimeRestriction";
+const char kMetricSuccessfulUpdateDurationFromSeenTimeRestrictedDays[] =
+    "UpdateEngine.SuccessfulUpdate.DurationFromSeenDays.TimeRestricted";
 const char kMetricSuccessfulUpdatePayloadType[] =
     "UpdateEngine.SuccessfulUpdate.PayloadType";
 const char kMetricSuccessfulUpdatePayloadSizeMiB[] =
@@ -92,6 +100,8 @@ const char kMetricSuccessfulUpdateRebootCount[] =
     "UpdateEngine.SuccessfulUpdate.RebootCount";
 const char kMetricSuccessfulUpdateTotalDurationMinutes[] =
     "UpdateEngine.SuccessfulUpdate.TotalDurationMinutes";
+const char kMetricSuccessfulUpdateTotalDurationUptimeMinutes[] =
+    "UpdateEngine.SuccessfulUpdate.TotalDurationUptimeMinutes";
 const char kMetricSuccessfulUpdateUpdatesAbandonedCount[] =
     "UpdateEngine.SuccessfulUpdate.UpdatesAbandonedCount";
 const char kMetricSuccessfulUpdateUrlSwitchCount[] =
@@ -100,11 +110,24 @@ const char kMetricSuccessfulUpdateUrlSwitchCount[] =
 // UpdateEngine.Rollback.* metric.
 const char kMetricRollbackResult[] = "UpdateEngine.Rollback.Result";
 
+// UpdateEngine.EnterpriseRollback.* metrics.
+const char kMetricEnterpriseRollbackFailure[] =
+    "UpdateEngine.EnterpriseRollback.Failure";
+const char kMetricEnterpriseRollbackSuccess[] =
+    "UpdateEngine.EnterpriseRollback.Success";
+
 // UpdateEngine.CertificateCheck.* metrics.
 const char kMetricCertificateCheckUpdateCheck[] =
     "UpdateEngine.CertificateCheck.UpdateCheck";
 const char kMetricCertificateCheckDownload[] =
     "UpdateEngine.CertificateCheck.Download";
+
+// UpdateEngine.KernelKey.* metrics.
+const char kMetricKernelMinVersion[] = "UpdateEngine.KernelKey.MinVersion";
+const char kMetricKernelMaxRollforwardVersion[] =
+    "UpdateEngine.KernelKey.MaxRollforwardVersion";
+const char kMetricKernelMaxRollforwardSetSuccess[] =
+    "UpdateEngine.KernelKey.MaxRollforwardSetSuccess";
 
 // UpdateEngine.* metrics.
 const char kMetricFailedUpdateCount[] = "UpdateEngine.FailedUpdateCount";
@@ -194,6 +217,25 @@ void MetricsReporterOmaha::ReportUpdateCheckMetrics(
                             30 * 24 * 60,  // max: 30 days
                             50);           // num_buckets
   }
+
+  // First section of target version specified for the update.
+  if (system_state && system_state->request_params()) {
+    string target_version =
+        system_state->request_params()->target_version_prefix();
+    value = utils::VersionPrefix(target_version);
+    if (value != 0) {
+      metric = metrics::kMetricCheckTargetVersion;
+      LOG(INFO) << "Sending " << value << " for metric " << metric
+                << " (sparse)";
+      metrics_lib_->SendSparseToUMA(metric, value);
+      if (system_state->request_params()->rollback_allowed()) {
+        metric = metrics::kMetricCheckRollbackTargetVersion;
+        LOG(INFO) << "Sending " << value << " for metric " << metric
+                  << " (sparse)";
+        metrics_lib_->SendSparseToUMA(metric, value);
+      }
+    }
+  }
 }
 
 void MetricsReporterOmaha::ReportAbnormallyTerminatedUpdateAttemptMetrics() {
@@ -258,8 +300,6 @@ void MetricsReporterOmaha::ReportUpdateAttemptMetrics(
                           1024,  // max: 1024 MiB = 1 GiB
                           50);   // num_buckets
 
-
-
   metric = metrics::kMetricAttemptResult;
   LOG(INFO) << "Uploading " << static_cast<int>(attempt_result)
             << " for metric " << metric;
@@ -269,12 +309,7 @@ void MetricsReporterOmaha::ReportUpdateAttemptMetrics(
       static_cast<int>(metrics::AttemptResult::kNumConstants));
 
   if (internal_error_code != ErrorCode::kSuccess) {
-    metric = metrics::kMetricAttemptInternalErrorCode;
-    LOG(INFO) << "Uploading " << internal_error_code << " for metric "
-              << metric;
-    metrics_lib_->SendEnumToUMA(metric,
-                                static_cast<int>(internal_error_code),
-                                static_cast<int>(ErrorCode::kUmaReportedMax));
+    ReportInternalErrorCode(internal_error_code);
   }
 
   base::TimeDelta time_since_last;
@@ -363,6 +398,7 @@ void MetricsReporterOmaha::ReportSuccessfulUpdateMetrics(
     int64_t num_bytes_downloaded[kNumDownloadSources],
     int download_overhead_percentage,
     base::TimeDelta total_duration,
+    base::TimeDelta total_duration_uptime,
     int reboot_count,
     int url_switch_count) {
   string metric = metrics::kMetricSuccessfulUpdatePayloadSizeMiB;
@@ -442,6 +478,15 @@ void MetricsReporterOmaha::ReportSuccessfulUpdateMetrics(
                           365 * 24 * 60,  // max: 365 days ~= 1 year
                           50);            // num_buckets
 
+  metric = metrics::kMetricSuccessfulUpdateTotalDurationUptimeMinutes;
+  LOG(INFO) << "Uploading " << utils::FormatTimeDelta(total_duration_uptime)
+            << " for metric " << metric;
+  metrics_lib_->SendToUMA(metric,
+                          static_cast<int>(total_duration_uptime.InMinutes()),
+                          0,             // min: 0 min
+                          30 * 24 * 60,  // max: 30 days
+                          50);           // num_buckets
+
   metric = metrics::kMetricSuccessfulUpdateRebootCount;
   LOG(INFO) << "Uploading reboot count of " << reboot_count << " for metric "
             << metric;
@@ -481,6 +526,16 @@ void MetricsReporterOmaha::ReportRollbackMetrics(
   LOG(INFO) << "Sending " << value << " for metric " << metric << " (enum)";
   metrics_lib_->SendEnumToUMA(
       metric, value, static_cast<int>(metrics::RollbackResult::kNumConstants));
+}
+
+void MetricsReporterOmaha::ReportEnterpriseRollbackMetrics(
+    bool success, const string& rollback_version) {
+  int value = utils::VersionPrefix(rollback_version);
+  string metric = metrics::kMetricEnterpriseRollbackSuccess;
+  if (!success)
+    metric = metrics::kMetricEnterpriseRollbackFailure;
+  LOG(INFO) << "Sending " << value << " for metric " << metric;
+  metrics_lib_->SendSparseToUMA(metric, value);
 }
 
 void MetricsReporterOmaha::ReportCertificateCheckMetrics(
@@ -533,6 +588,50 @@ void MetricsReporterOmaha::ReportInstallDateProvisioningSource(int source,
   metrics_lib_->SendEnumToUMA(metrics::kMetricInstallDateProvisioningSource,
                               source,  // Sample.
                               max);
+}
+
+void MetricsReporterOmaha::ReportInternalErrorCode(ErrorCode error_code) {
+  auto metric = metrics::kMetricAttemptInternalErrorCode;
+  LOG(INFO) << "Uploading " << error_code << " for metric " << metric;
+  metrics_lib_->SendEnumToUMA(metric,
+                              static_cast<int>(error_code),
+                              static_cast<int>(ErrorCode::kUmaReportedMax));
+}
+
+void MetricsReporterOmaha::ReportKeyVersionMetrics(
+    int kernel_min_version,
+    int kernel_max_rollforward_version,
+    bool kernel_max_rollforward_success) {
+  int value = kernel_min_version;
+  string metric = metrics::kMetricKernelMinVersion;
+  LOG(INFO) << "Sending " << value << " for metric " << metric;
+  metrics_lib_->SendSparseToUMA(metric, value);
+
+  value = kernel_max_rollforward_version;
+  metric = metrics::kMetricKernelMaxRollforwardVersion;
+  LOG(INFO) << "Sending " << value << " for metric " << metric;
+  metrics_lib_->SendSparseToUMA(metric, value);
+
+  bool bool_value = kernel_max_rollforward_success;
+  metric = metrics::kMetricKernelMaxRollforwardSetSuccess;
+  LOG(INFO) << "Sending " << bool_value << " for metric " << metric
+            << " (bool)";
+  metrics_lib_->SendBoolToUMA(metric, bool_value);
+}
+
+void MetricsReporterOmaha::ReportEnterpriseUpdateSeenToDownloadDays(
+    bool has_time_restriction_policy, int time_to_update_days) {
+  string metric =
+      has_time_restriction_policy
+          ? metrics::kMetricSuccessfulUpdateDurationFromSeenTimeRestrictedDays
+          : metrics::kMetricSuccessfulUpdateDurationFromSeenDays;
+  LOG(INFO) << "Sending " << time_to_update_days << " for metric " << metric;
+
+  metrics_lib_->SendToUMA(metric,
+                          time_to_update_days,
+                          1,       // min: 1 days
+                          6 * 30,  // max: 6 months (approx)
+                          50);     // num_buckets
 }
 
 }  // namespace chromeos_update_engine

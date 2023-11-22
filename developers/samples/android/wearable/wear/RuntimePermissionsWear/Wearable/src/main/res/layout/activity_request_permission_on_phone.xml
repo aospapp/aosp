@@ -12,7 +12,7 @@
   limitations under the License.
   -->
 
-<android.support.wear.widget.BoxInsetLayout
+<androidx.wear.widget.BoxInsetLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -40,7 +40,7 @@
             android:paddingRight="6dp"
             android:textColor="#000000"/>
 
-        <android.support.v4.widget.Space
+        <androidx.legacy.widget.Space
             android:layout_width="18dp"
             android:layout_height="18dp"/>
 
@@ -57,7 +57,7 @@
                 app:circle_color="#0086D4"
                 android:src="@drawable/ic_cc_open_on_phone"/>
 
-            <android.support.v4.widget.Space
+            <androidx.legacy.widget.Space
                 android:layout_width="8dp"
                 android:layout_height="8dp"/>
 
@@ -71,4 +71,4 @@
                 android:textColor="#0086D4"/>
         </LinearLayout>
     </LinearLayout>
-</android.support.wear.widget.BoxInsetLayout>
+</androidx.wear.widget.BoxInsetLayout>

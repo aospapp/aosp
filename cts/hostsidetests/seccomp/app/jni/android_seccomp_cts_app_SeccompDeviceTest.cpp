@@ -18,6 +18,7 @@
 
 #define LOG_TAG "SeccompTest"
 
+#include <functional>
 #include <android/log.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -37,12 +38,11 @@
  *        1 if blocked, else 0
  * Exceptions: None
  */
-static jboolean testSyscallBlocked(JNIEnv *, jobject, int nr) {
+static jboolean doTestSyscallBlocked(std::function<void()> execSyscall) {
     int pid = fork();
     if (pid == 0) {
-        ALOGI("Calling syscall %d", nr);
-        syscall(nr);
-        return false;
+        execSyscall();
+        exit(0);
     } else {
         int status;
         int ret = waitpid(pid, &status, 0);
@@ -72,9 +72,25 @@ static jboolean testSyscallBlocked(JNIEnv *, jobject, int nr) {
     }
 }
 
+static jboolean testSyscallBlocked(JNIEnv *, jobject, jint nr) {
+    return doTestSyscallBlocked([&](){ ALOGI("Calling syscall %d", nr); syscall(nr); });
+}
+
+static jboolean testSetresuidBlocked(JNIEnv *, jobject, jint ruid, jint euid, jint suid) {
+    return doTestSyscallBlocked([&] {ALOGE("Calling setresuid\n"); setresuid(ruid, euid, suid);});
+}
+
+static jboolean testSetresgidBlocked(JNIEnv *, jobject, jint rgid, jint egid, jint sgid) {
+    return doTestSyscallBlocked([&] {ALOGE("Calling setresgid\n"); setresgid(rgid, egid, sgid);});
+}
+
 static JNINativeMethod gMethods[] = {
     { "testSyscallBlocked", "(I)Z",
             (void*) testSyscallBlocked },
+    { "testSetresuidBlocked", "(III)Z",
+            (void*) testSetresuidBlocked },
+    { "testSetresgidBlocked", "(III)Z",
+            (void*) testSetresgidBlocked },
 };
 
 int register_android_seccomp_cts_app_SeccompTest(JNIEnv* env)

@@ -47,4 +47,6 @@
     <string name="summary_confirm_url_open" product="tablet" msgid="3353502750736192055">"Planšetiniame kompiuteryje gauta nuoroda naudojant ALR:"</string>
     <string name="summary_confirm_url_open" product="default" msgid="1246398412196449226">"Telefone gauta nuoroda naudojant ALR:"</string>
     <string name="action_confirm_url_open" msgid="3458322738812921189">"Atidaryti nuorodą"</string>
+    <string name="tag_read_error" msgid="2485274498885877547">"ALR nuskaitymo klaida. Bandykite dar kartą."</string>
+    <string name="tag_dispatch_failed" msgid="3562984995049738400">"Nėra šią ALR žymą palaikančių programų"</string>
 </resources>

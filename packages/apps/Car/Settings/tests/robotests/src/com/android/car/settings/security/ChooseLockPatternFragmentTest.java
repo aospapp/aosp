@@ -22,6 +22,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 
 import com.android.car.settings.CarSettingsRobolectricTestRunner;
+import com.android.car.settings.testutils.FragmentController;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -36,7 +37,7 @@ public class ChooseLockPatternFragmentTest {
 
     @Before
     public void initFragment() {
-        mFragment = new ChooseLockPatternFragment();
+        mFragment = FragmentController.of(new ChooseLockPatternFragment()).setup();
     }
 
     /**

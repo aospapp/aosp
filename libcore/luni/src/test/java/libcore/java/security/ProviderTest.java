@@ -213,6 +213,32 @@ public class ProviderTest extends TestCase {
         assertEquals("Missing classes", Collections.EMPTY_LIST, missing);
     }
 
+    // This tests the CDD requirement that specifies the first seven security providers
+    // (section 3.5, [C-0-9] as of P).
+    public void testProviderList() {
+        Provider[] providers = Security.getProviders();
+        assertTrue(providers.length >= 7);
+        assertProviderProperties(providers[0], "AndroidNSSP",
+            "android.security.net.config.NetworkSecurityConfigProvider");
+        assertProviderProperties(providers[1], "AndroidOpenSSL",
+            "com.android.org.conscrypt.OpenSSLProvider");
+        assertProviderProperties(providers[2], "CertPathProvider",
+            "sun.security.provider.CertPathProvider");
+        assertProviderProperties(providers[3], "AndroidKeyStoreBCWorkaround",
+            "android.security.keystore.AndroidKeyStoreBCWorkaroundProvider");
+        assertProviderProperties(providers[4], "BC",
+            "com.android.org.bouncycastle.jce.provider.BouncyCastleProvider");
+        assertProviderProperties(providers[5], "HarmonyJSSE",
+            "com.android.org.conscrypt.JSSEProvider");
+        assertProviderProperties(providers[6], "AndroidKeyStore",
+            "android.security.keystore.AndroidKeyStoreProvider");
+    }
+
+    private void assertProviderProperties(Provider p, String name, String className) {
+        assertEquals(name, p.getName());
+        assertEquals(className, p.getClass().getName());
+    }
+
     private static final Pattern alias = Pattern.compile("Alg\\.Alias\\.([^.]*)\\.(.*)");
 
     /**

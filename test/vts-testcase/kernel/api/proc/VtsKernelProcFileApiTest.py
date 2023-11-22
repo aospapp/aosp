@@ -38,6 +38,7 @@ from vts.testcases.kernel.api.proc import ProcShowUidStatTest
 from vts.testcases.kernel.api.proc import ProcStatTest
 from vts.testcases.kernel.api.proc import ProcUidIoStatsTest
 from vts.testcases.kernel.api.proc import ProcUidTimeInStateTest
+from vts.testcases.kernel.api.proc import ProcUidConcurrentTimeTests
 from vts.testcases.kernel.api.proc import ProcUidCpuPowerTests
 from vts.testcases.kernel.api.proc import ProcVersionTest
 from vts.testcases.kernel.api.proc import ProcVmallocInfoTest
@@ -67,6 +68,7 @@ TEST_OBJECTS = {
     ProcSimpleFileTests.ProcCorePipeLimit(),
     ProcSimpleFileTests.ProcDirtyBackgroundBytes(),
     ProcSimpleFileTests.ProcDirtyBackgroundRatio(),
+    ProcSimpleFileTests.ProcDirtyExpireCentisecs(),
     ProcSimpleFileTests.ProcDmesgRestrict(),
     ProcSimpleFileTests.ProcDomainname(),
     ProcSimpleFileTests.ProcDropCaches(),
@@ -102,6 +104,8 @@ TEST_OBJECTS = {
     ProcStatTest.ProcStatTest(),
     ProcUidIoStatsTest.ProcUidIoStatsTest(),
     ProcUidTimeInStateTest.ProcUidTimeInStateTest(),
+    ProcUidConcurrentTimeTests.ProcUidConcurrentActiveTimeTest(),
+    ProcUidConcurrentTimeTests.ProcUidConcurrentPolicyTimeTest(),
     ProcUidCpuPowerTests.ProcUidCpuPowerTimeInStateTest(),
     ProcUidCpuPowerTests.ProcUidCpuPowerConcurrentActiveTimeTest(),
     ProcUidCpuPowerTests.ProcUidCpuPowerConcurrentPolicyTimeTest(),
@@ -139,7 +143,7 @@ class VtsKernelProcFileApiTest(base_test.BaseTestClass):
                        "Skip test for 64-bit kernel.")
         filepath = test_object.get_path()
         asserts.skipIf(not target_file_utils.Exists(filepath, self.shell) and
-                       test_object.file_optional(),
+                       test_object.file_optional(shell=self.shell, dut=self.dut),
                        "%s does not exist and is optional." % filepath)
         target_file_utils.assertPermissionsAndExistence(
             self.shell, filepath, test_object.get_permission_checker())
@@ -187,6 +191,12 @@ class VtsKernelProcFileApiTest(base_test.BaseTestClass):
         return results[const.STDOUT][0]
 
     def testProcPagetypeinfo(self):
+        # TODO(b/109884074): make mandatory once incident_helper is in AOSP.
+        try:
+            self.dut.adb.shell("which incident_helper")
+        except:
+            asserts.skip("incident_helper not present")
+
         filepath = "/proc/pagetypeinfo"
         # Check that incident_helper can parse /proc/pagetypeinfo.
         result = self.shell.Execute("cat %s | incident_helper -s 2001" % filepath)
@@ -199,16 +209,10 @@ class VtsKernelProcFileApiTest(base_test.BaseTestClass):
 
         # This command only performs a best effort attempt to remount all
         # filesystems. Check that it doesn't throw an error.
-        self.dut.adb.shell("\"echo u > %s\"" % filepath)
+        self.dut.adb.shell("echo u > %s" % filepath)
 
         # Reboot the device.
-        self.dut.adb.shell("\"echo b > %s\"" % filepath)
-        asserts.assertFalse(self.dut.hasBooted(), "Device is still alive.")
-        self.dut.waitForBootCompletion()
-        self.dut.rootAdb()
-
-        # Crash the system.
-        self.dut.adb.shell("\"echo c > %s\"" % filepath)
+        self.dut.adb.shell("echo b > %s" % filepath)
         asserts.assertFalse(self.dut.hasBooted(), "Device is still alive.")
         self.dut.waitForBootCompletion()
         self.dut.rootAdb()
@@ -225,7 +229,7 @@ class VtsKernelProcFileApiTest(base_test.BaseTestClass):
             """
             stats_path = "/proc/uid_io/stats"
             result = self.dut.adb.shell(
-                    "\"cat %s | grep '^%d'\"" % (stats_path, uid),
+                    "cat %s | grep '^%d'" % (stats_path, uid),
                     no_except=True)
             return result[const.STDOUT].split()
 
@@ -243,9 +247,9 @@ class VtsKernelProcFileApiTest(base_test.BaseTestClass):
             # fg write chars are at index 2, and bg write chars are at 6.
             wchar_index = 6 if state else 2
             old_wchar = UidIOStats(root_uid)[wchar_index]
-            self.dut.adb.shell("\"echo %d %s > %s\"" % (root_uid, state, filepath))
+            self.dut.adb.shell("echo %d %s > %s" % (root_uid, state, filepath))
             # This should increase the number of write syscalls.
-            self.dut.adb.shell("\"echo foo\"")
+            self.dut.adb.shell("echo foo")
             asserts.assertLess(
                 old_wchar,
                 UidIOStats(root_uid)[wchar_index],

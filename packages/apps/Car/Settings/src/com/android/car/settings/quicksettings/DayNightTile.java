@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.android.car.settings.quicksettings;
 
+package com.android.car.settings.quicksettings;
 
 import android.annotation.DrawableRes;
 import android.annotation.Nullable;
@@ -22,17 +22,19 @@ import android.app.UiModeManager;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.view.View;
-import android.view.View.OnClickListener;
 
 import com.android.car.settings.R;
+import com.android.car.settings.common.FragmentController;
+import com.android.car.settings.display.DisplaySettingsFragment;
 
 /**
- * Controls Day night mode tile on quick setting page.
+ * Toggles auto or night mode tile on quick setting page.
  */
 public class DayNightTile implements QuickSettingGridAdapter.Tile {
     private final Context mContext;
     private final StateChangedListener mStateChangedListener;
     private final UiModeManager mUiModeManager;
+    private final View.OnLongClickListener mLaunchDisplaySettings;
 
     @DrawableRes
     private int mIconRes = R.drawable.ic_settings_night_display;
@@ -41,7 +43,10 @@ public class DayNightTile implements QuickSettingGridAdapter.Tile {
 
     private State mState = State.ON;
 
-    DayNightTile(Context context, StateChangedListener stateChangedListener) {
+    DayNightTile(
+            Context context,
+            StateChangedListener stateChangedListener,
+            FragmentController fragmentController) {
         mStateChangedListener = stateChangedListener;
         mContext = context;
         mUiModeManager = (UiModeManager) mContext.getSystemService(Context.UI_MODE_SERVICE);
@@ -51,11 +56,15 @@ public class DayNightTile implements QuickSettingGridAdapter.Tile {
             mState = State.OFF;
         }
         mText = mContext.getString(R.string.night_mode_tile_label);
+        mLaunchDisplaySettings = v -> {
+            fragmentController.launchFragment(new DisplaySettingsFragment());
+            return true;
+        };
     }
 
     @Nullable
-    public OnClickListener getDeepDiveListener() {
-        return null;
+    public View.OnLongClickListener getOnLongClickListener() {
+        return mLaunchDisplaySettings;
     }
 
     @Override
@@ -80,13 +89,17 @@ public class DayNightTile implements QuickSettingGridAdapter.Tile {
     }
 
     @Override
+    public void start() {
+    }
+
+    @Override
     public void stop() {
     }
 
     @Override
     public void onClick(View v) {
         if (mUiModeManager.getNightMode() == UiModeManager.MODE_NIGHT_YES) {
-            mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_NO);
+            mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_AUTO);
         } else {
             mUiModeManager.setNightMode(UiModeManager.MODE_NIGHT_YES);
         }

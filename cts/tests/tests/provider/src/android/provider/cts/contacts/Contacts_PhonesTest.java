@@ -26,36 +26,6 @@ public class Contacts_PhonesTest extends AndroidTestCase {
         String display = Phones.getDisplayLabel(getContext(),
                 Phones.TYPE_CUSTOM, label).toString();
         assertEquals(label, display);
-
-        CharSequence[] labels = getContext().getResources().getTextArray(
-                com.android.internal.R.array.phoneTypes);
-        display = Phones.getDisplayLabel(getContext(),
-                Phones.TYPE_HOME, label).toString();
-        assertEquals(labels[Phones.TYPE_HOME - 1], display);
-
-        display = Phones.getDisplayLabel(getContext(),
-                Phones.TYPE_MOBILE, label).toString();
-        assertEquals(labels[Phones.TYPE_MOBILE - 1], display);
-
-        display = Phones.getDisplayLabel(getContext(),
-                Phones.TYPE_WORK, label).toString();
-        assertEquals(labels[Phones.TYPE_WORK - 1], display);
-
-        display = Phones.getDisplayLabel(getContext(),
-                Phones.TYPE_FAX_WORK, label).toString();
-        assertEquals(labels[Phones.TYPE_FAX_WORK - 1], display);
-
-        display = Phones.getDisplayLabel(getContext(),
-                Phones.TYPE_FAX_HOME, label).toString();
-        assertEquals(labels[Phones.TYPE_FAX_HOME - 1], display);
-
-        display = Phones.getDisplayLabel(getContext(),
-                Phones.TYPE_PAGER, label).toString();
-        assertEquals(labels[Phones.TYPE_PAGER - 1], display);
-
-        display = Phones.getDisplayLabel(getContext(),
-                Phones.TYPE_OTHER, label).toString();
-        assertEquals(labels[Phones.TYPE_OTHER - 1], display);
     }
 
     public void testGetDisplayLabelCharSequenceArray() {

@@ -16,6 +16,8 @@
 <configuration description="Config for CTS Sensor test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="location" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.LocationCheck" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -24,7 +26,7 @@
     <!-- Put SensorService in restricted mode so that only CTS tests will be able to get access to
     sensors -->
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="dumpsys sensorservice restrict .cts." />
+        <option name="run-command" value="dumpsys sensorservice restrict .cts" />
         <option name="teardown-command" value="dumpsys sensorservice enable" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

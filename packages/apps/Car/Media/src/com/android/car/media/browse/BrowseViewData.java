@@ -16,9 +16,9 @@
 
 package com.android.car.media.browse;
 
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.view.View;
+
+import androidx.annotation.NonNull;
 
 import com.android.car.media.common.MediaItemMetadata;
 
@@ -31,9 +31,8 @@ class BrowseViewData {
     /** {@link com.android.car.media.common.MediaItemMetadata} associated with this item */
     public final MediaItemMetadata mMediaItem;
     /** View type associated with this item */
-    @NonNull public final BrowseItemViewType mViewType;
-    /** Current state of this item */
-    public final BrowseAdapter.State mState;
+    @NonNull
+    public final BrowseItemViewType mViewType;
     /** Text associated with this item */
     public final CharSequence mText;
     /** Click listener to set for this item */
@@ -42,24 +41,23 @@ class BrowseViewData {
     /**
      * Creates a {@link BrowseViewData} for a particular {@link MediaItemMetadata}.
      *
-     * @param mediaItem {@link MediaItemMetadata} metadata
-     * @param viewType view type to use to represent this item
-     * @param state current item state
+     * @param mediaItem       {@link MediaItemMetadata} metadata
+     * @param viewType        view type to use to represent this item
      * @param onClickListener optional {@link android.view.View.OnClickListener}
      */
     BrowseViewData(MediaItemMetadata mediaItem, @NonNull BrowseItemViewType viewType,
-            @NonNull BrowseAdapter.State state, View.OnClickListener onClickListener) {
+            View.OnClickListener onClickListener) {
         mMediaItem = mediaItem;
         mViewType = viewType;
-        mState = state;
         mText = null;
         mOnClickListener = onClickListener;
     }
 
     /**
      * Creates a {@link BrowseViewData} for a given text (normally used for headers or footers)
-     * @param text text to set
-     * @param viewType view type to use
+     *
+     * @param text            text to set
+     * @param viewType        view type to use
      * @param onClickListener optional {@link android.view.View.OnClickListener}
      */
     BrowseViewData(@NonNull CharSequence text, @NonNull BrowseItemViewType viewType,
@@ -67,7 +65,16 @@ class BrowseViewData {
         mText = text;
         mViewType = viewType;
         mMediaItem = null;
-        mState = null;
+        mOnClickListener = onClickListener;
+    }
+
+    /**
+     * Creates a {@link BrowseViewData} with no metadata
+     */
+    BrowseViewData(@NonNull BrowseItemViewType viewType, View.OnClickListener onClickListener) {
+        mText = null;
+        mMediaItem = null;
+        mViewType = viewType;
         mOnClickListener = onClickListener;
     }
 
@@ -77,12 +84,11 @@ class BrowseViewData {
         if (o == null || getClass() != o.getClass()) return false;
         BrowseViewData item = (BrowseViewData) o;
         return Objects.equals(mMediaItem, item.mMediaItem) &&
-                mState == item.mState &&
                 mViewType == item.mViewType;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mMediaItem, mState, mViewType);
+        return Objects.hash(mMediaItem, mViewType);
     }
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "PowerTestService"
+#define LOG_TAG "PowerTestService: "
 
 #include <signal.h>
 #include <utils/Log.h>
@@ -37,9 +37,11 @@ using namespace android::car::hardware::power;
 static std::atomic_bool run(true);
 
 void onStateChanged(CarPowerManager::State state) {
-    ALOGE("onStateChanged callback = %d", state);
-    // Stop the loop
-    run = false;
+    ALOGI(LOG_TAG "onStateChanged callback = %d", state);
+    if (state == CarPowerManager::State::kShutdownPrepare) {
+        // Stop the loop
+        run = false;
+    }
 }
 
 int main(int, char**)
@@ -48,7 +50,7 @@ int main(int, char**)
 
     sp<ProcessState> processSelf(ProcessState::self());
     processSelf->startThreadPool();
-    ALOGE(LOG_TAG " started");
+    ALOGI(LOG_TAG "started");
 
     std::unique_ptr<CarPowerManager> carPowerManager(new CarPowerManager());
 
@@ -57,25 +59,17 @@ int main(int, char**)
     } while (retVal != 0);
 
     do {
-        CarPowerManager::BootReason bootReason;
-        // Test code
-        retVal = carPowerManager->getBootReason(&bootReason);
-
-        if (retVal == 0) {
-            ALOGE("bootreason = %d", bootReason);
-        } else {
-            ALOGE("ERROR:  Could not read bootReason!!");
-        }
-
+        ALOGI(LOG_TAG "Waiting for CarPowerManager listener to initiate SHUTDOWN_PREPARE...");
         sleep(5);
     } while (run);
+
+    ALOGI(LOG_TAG "Exited loop, shutting down");
 
     // Unregister the listener
     carPowerManager->clearListener();
 
     // Wait for threads to finish, and then exit.
     IPCThreadState::self()->joinThreadPool();
-    ALOGE(LOG_TAG " joined and going down");
     return 0;
 }
 

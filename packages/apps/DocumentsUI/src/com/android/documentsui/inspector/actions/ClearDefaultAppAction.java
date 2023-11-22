@@ -15,7 +15,7 @@
  */
 package com.android.documentsui.inspector.actions;
 
-import android.annotation.StringRes;
+import androidx.annotation.StringRes;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -55,22 +55,7 @@ public final class ClearDefaultAppAction extends Action {
      */
     @Override
     public boolean canPerformAction() {
-        Intent intent = new Intent(Intent.ACTION_VIEW, mDoc.derivedUri);
-        List<ResolveInfo> list = mPm.queryIntentActivities(intent,
-            PackageManager.MATCH_DEFAULT_ONLY);
-
-        if (list.size() > 1) {
-            String packageName = getPackageName();
-            if (packageName == null) {
-                return false;
-            } else if (APP_NOT_CHOSEN.equals(packageName)) {
-                return false;
-            } else {
-                return true;
-            }
-        } else {
-            return false;
-        }
+        return false;
     }
 
     @Override

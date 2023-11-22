@@ -16,6 +16,8 @@
 <configuration description="Config for CTS Aslr Malloc test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="security" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsAslrMallocTestCases->/data/local/tmp/CtsAslrMallocTestCases" />
@@ -25,7 +27,7 @@
         <option name="native-test-device-path" value="/data/local/tmp" />
         <option name="module-name" value="CtsAslrMallocTestCases" />
         <option name="runtime-hint" value="10m30s" />
-        <!-- test-timeout unit is ms, value = 10 min -->
-        <option name="native-test-timeout" value="600000" />
+        <!-- test-timeout unit is ms, value = 20 min -->
+        <option name="native-test-timeout" value="1200000" />
     </test>
 </configuration>

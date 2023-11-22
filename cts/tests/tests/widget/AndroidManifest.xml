@@ -27,7 +27,8 @@
             android:maxRecents="1"
             android:multiArch="true"
             android:name="android.widget.cts.MockApplication"
-            android:supportsRtl="true">
+            android:supportsRtl="true"
+            android:theme="@android:style/Theme.Material.Light.DarkActionBar">
 
         <uses-library android:name="android.test.runner" />
 
@@ -308,7 +309,8 @@
         </activity>
 
         <activity android:name="android.widget.cts.ListPopupWindowCtsActivity"
-                  android:label="ListPopupWindowCtsActivity">
+                  android:label="ListPopupWindowCtsActivity"
+                  android:windowSoftInputMode="stateAlwaysHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -380,15 +382,6 @@
         <activity android:name="android.widget.cts.VideoViewCtsActivity"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:label="VideoViewCtsActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
-            </intent-filter>
-        </activity>
-
-        <activity android:name="android.widget.cts.VideoView2CtsActivity"
-            android:configChanges="keyboardHidden|orientation|screenSize"
-            android:label="VideoView2CtsActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -567,6 +560,15 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.app.Activity"
+                  android:label="Activity"
+                  android:theme="@style/WidgetAttributeTestTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.app.ActivityGroup"
             android:label="ActivityGroup" />
 
@@ -599,20 +601,9 @@
             </intent-filter>
         </activity>
 
-        <receiver android:name="android.widget.cts.appwidget.MyAppWidgetProvider" >
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data android:name="android.appwidget.provider"
-                       android:resource="@xml/remoteviews_appwidget_info" />
-        </receiver>
-
-        <service android:name="android.widget.cts.appwidget.MyAppWidgetService"
-                 android:permission="android.permission.BIND_REMOTEVIEWS"
-                 android:exported="false" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.widget.cts"
                      android:label="CTS tests of android.widget">
         <meta-data android:name="listener"

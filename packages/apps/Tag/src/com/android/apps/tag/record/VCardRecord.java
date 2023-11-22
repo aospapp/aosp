@@ -26,7 +26,6 @@ import com.android.vcard.VCardParser_V21;
 import com.android.vcard.VCardParser_V30;
 import com.android.vcard.exception.VCardException;
 import com.android.vcard.exception.VCardVersionException;
-import com.google.android.collect.Lists;
 import com.google.common.base.Preconditions;
 
 import android.app.Activity;
@@ -118,7 +117,7 @@ public class VCardRecord extends ParsedNdefRecord implements OnClickListener {
     }
 
     private ArrayList<VCardEntry> getVCardEntries() throws IOException, VCardException {
-        final ArrayList<VCardEntry> entries = Lists.newArrayList();
+        final ArrayList<VCardEntry> entries = new ArrayList<>();
 
         final int type = VCardConfig.VCARD_TYPE_UNKNOWN;
         final VCardEntryConstructor constructor = new VCardEntryConstructor(type);

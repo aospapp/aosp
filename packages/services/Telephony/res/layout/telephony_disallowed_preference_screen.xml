@@ -30,7 +30,7 @@
                 android:cacheColorHint="@android:color/white"
                 android:fadingEdgeLength="16dip" />
 
-        <TextView android:id="@+android:id/empty"
+        <TextView android:id="@+id/empty"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:gravity="center"

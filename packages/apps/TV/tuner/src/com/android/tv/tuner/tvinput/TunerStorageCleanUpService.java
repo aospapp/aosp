@@ -156,7 +156,9 @@ public class TunerStorageCleanUpService extends JobService {
                         if (lastModified != 0 && lastModified < now - ELAPSED_MILLIS_TO_DELETE) {
                             // To prevent current recordings from being deleted,
                             // deletes recordings which was not modified for long enough time.
-                            CommonUtils.deleteDirOrFile(recordingDir);
+                            if (!CommonUtils.deleteDirOrFile(recordingDir)) {
+                                Log.w(TAG, "Unable to delete recording data at " + recordingDir);
+                            }
                         }
                     }
                 } catch (IOException | SecurityException e) {

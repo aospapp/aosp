@@ -19,6 +19,8 @@
 
     <!-- Printing is a large user of PDF, hence run the tests in the same component -->
     <option name="config-descriptor:metadata" key="component" value="print" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />

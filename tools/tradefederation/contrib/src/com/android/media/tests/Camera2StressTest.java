@@ -26,6 +26,7 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -101,7 +102,7 @@ public class Camera2StressTest extends CameraTestBase {
             parseLog(test.getTestName(), namedTestMetrics);
 
             postScreenshotOnFailure(test);
-            super.testEnded(test, endTime, namedTestMetrics);
+            super.testEnded(test, endTime, TfMetricProtoUtil.upgradeConvert(namedTestMetrics));
         }
 
         private void postScreenshotOnFailure(TestDescription test) {

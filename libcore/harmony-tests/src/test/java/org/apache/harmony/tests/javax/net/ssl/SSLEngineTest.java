@@ -25,8 +25,10 @@ import java.nio.channels.Pipe.SinkChannel;
 import java.nio.channels.Pipe.SourceChannel;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -34,6 +36,7 @@ import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLEngineResult.Status;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
+import javax.net.ssl.SSLSession;
 import junit.framework.TestCase;
 import libcore.java.security.StandardNames;
 import libcore.javax.net.ssl.TestSSLContext;
@@ -62,7 +65,7 @@ public class SSLEngineTest extends TestCase {
         assertEquals(-1, e.getPeerPort());
         String[] suites = e.getSupportedCipherSuites();
         e.setEnabledCipherSuites(suites);
-        assertEquals(e.getEnabledCipherSuites().length, suites.length);
+        assertEquals(suites.length, e.getEnabledCipherSuites().length);
     }
 
     /**
@@ -99,9 +102,18 @@ public class SSLEngineTest extends TestCase {
         assertEquals(e.getPeerPort(), port);
         String[] suites = e.getSupportedCipherSuites();
         e.setEnabledCipherSuites(suites);
-        assertEquals(e.getEnabledCipherSuites().length, suites.length);
+        assertEquals(suites.length, e.getEnabledCipherSuites().length);
         e.setUseClientMode(true);
         assertTrue(e.getUseClientMode());
+    }
+
+    // Test constructing a raw engine subclass rather than a functioning implementation.
+    public void test_ConstructorLjava_lang_StringI03() throws Exception {
+        String host = "new host";
+        int port = 8080;
+        SSLEngine e = getRawEngine(host, port);
+        assertEquals(e.getPeerHost(), host);
+        assertEquals(e.getPeerPort(), port);
     }
 
     /**
@@ -176,8 +188,9 @@ public class SSLEngineTest extends TestCase {
         sse.setEnabledCipherSuites(st);
         String[] res = sse.getEnabledCipherSuites();
         assertNotNull("Null array was returned", res);
-        assertEquals("Incorrect array length", res.length, st.length);
-        assertTrue("Incorrect array was returned", Arrays.equals(res, st));
+        List<String> supported = new ArrayList<>(Arrays.asList(st));
+        assertEquals("Incorrect array length", res.length, supported.size());
+        assertEquals("Incorrect array was returned", Arrays.asList(res), supported);
 
         try {
             sse.setEnabledCipherSuites(null);
@@ -1020,16 +1033,47 @@ public class SSLEngineTest extends TestCase {
         }
     }
 
-    private SSLEngine getEngine() throws Exception {
+    private static SSLEngine getEngine() throws Exception {
         SSLContext context = SSLContext.getInstance("TLS");
         context.init(null, null, null);
         return context.createSSLEngine();
     }
 
-    private SSLEngine getEngine(String host, int port) throws Exception {
+    private static SSLEngine getEngine(String host, int port) throws Exception {
         SSLContext context = SSLContext.getInstance("TLS");
         context.init(null, null, null);
         return context.createSSLEngine(host, port);
+    }
+
+    private static SSLEngine getRawEngine(String host, int port) throws Exception {
+        return new SSLEngine(host, port) {
+            @Override public SSLEngineResult wrap(ByteBuffer[] byteBuffers, int i, int i1,
+                ByteBuffer byteBuffer) throws SSLException { return null; }
+            @Override public SSLEngineResult unwrap(ByteBuffer byteBuffer, ByteBuffer[] byteBuffers,
+                int i, int i1) throws SSLException { return null; }
+            @Override public Runnable getDelegatedTask() { return null; }
+            @Override public void closeInbound() throws SSLException {}
+            @Override public boolean isInboundDone() { return false; }
+            @Override public void closeOutbound() {}
+            @Override public boolean isOutboundDone() { return false; }
+            @Override public String[] getSupportedCipherSuites() { return new String[0]; }
+            @Override public String[] getEnabledCipherSuites() { return new String[0]; }
+            @Override public void setEnabledCipherSuites(String[] strings) {}
+            @Override public String[] getSupportedProtocols() { return new String[0]; }
+            @Override public String[] getEnabledProtocols() { return new String[0]; }
+            @Override public void setEnabledProtocols(String[] strings) {}
+            @Override public SSLSession getSession() { return null; }
+            @Override public void beginHandshake() throws SSLException {}
+            @Override public HandshakeStatus getHandshakeStatus() { return null; }
+            @Override public void setUseClientMode(boolean b) {}
+            @Override public boolean getUseClientMode() { return false; }
+            @Override public void setNeedClientAuth(boolean b) {}
+            @Override public boolean getNeedClientAuth() { return false; }
+            @Override public void setWantClientAuth(boolean b) {}
+            @Override public boolean getWantClientAuth() { return false; }
+            @Override public void setEnableSessionCreation(boolean b) {}
+            @Override public boolean getEnableSessionCreation() { return false; }
+        };
     }
 
     class HandshakeHandler implements Runnable {

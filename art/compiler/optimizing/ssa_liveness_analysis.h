@@ -60,7 +60,7 @@ class BlockInfo : public ArenaObject<kArenaAllocSsaLiveness> {
  * A live range contains the start and end of a range where an instruction or a temporary
  * is live.
  */
-class LiveRange FINAL : public ArenaObject<kArenaAllocSsaLiveness> {
+class LiveRange final : public ArenaObject<kArenaAllocSsaLiveness> {
  public:
   LiveRange(size_t start, size_t end, LiveRange* next) : start_(start), end_(end), next_(next) {
     DCHECK_LT(start, end);
@@ -230,12 +230,25 @@ class SafepointPosition : public ArenaObject<kArenaAllocSsaLiveness> {
       : instruction_(instruction),
         next_(nullptr) {}
 
+  static size_t ComputePosition(HInstruction* instruction) {
+    // We special case instructions emitted at use site, as their
+    // safepoint position needs to be at their use.
+    if (instruction->IsEmittedAtUseSite()) {
+      // Currently only applies to implicit null checks, which are emitted
+      // at the next instruction.
+      DCHECK(instruction->IsNullCheck()) << instruction->DebugName();
+      return instruction->GetLifetimePosition() + 2;
+    } else {
+      return instruction->GetLifetimePosition();
+    }
+  }
+
   void SetNext(SafepointPosition* next) {
     next_ = next;
   }
 
   size_t GetPosition() const {
-    return instruction_->GetLifetimePosition();
+    return ComputePosition(instruction_);
   }
 
   SafepointPosition* GetNext() const {
@@ -300,8 +313,7 @@ class LiveInterval : public ArenaObject<kArenaAllocSsaLiveness> {
   void AddUse(HInstruction* instruction,
               HEnvironment* environment,
               size_t input_index,
-              HInstruction* actual_user = nullptr,
-              bool keep_alive = false) {
+              HInstruction* actual_user = nullptr) {
     bool is_environment = (environment != nullptr);
     LocationSummary* locations = instruction->GetLocations();
     if (actual_user == nullptr) {
@@ -357,12 +369,6 @@ class LiveInterval : public ArenaObject<kArenaAllocSsaLiveness> {
       DCHECK(uses_.empty() || position <= uses_.front().GetPosition());
       UsePosition* new_use = new (allocator_) UsePosition(instruction, input_index, position);
       uses_.push_front(*new_use);
-    }
-
-    if (is_environment && !keep_alive) {
-      // If this environment use does not keep the instruction live, it does not
-      // affect the live range of that instruction.
-      return;
     }
 
     size_t start_block_position = instruction->GetBlock()->GetLifetimeStart();
@@ -929,7 +935,7 @@ class LiveInterval : public ArenaObject<kArenaAllocSsaLiveness> {
     if (first_safepoint_ == nullptr) {
       first_safepoint_ = last_safepoint_ = safepoint;
     } else {
-      DCHECK_LT(last_safepoint_->GetPosition(), safepoint->GetPosition());
+      DCHECK_LE(last_safepoint_->GetPosition(), safepoint->GetPosition());
       last_safepoint_->SetNext(safepoint);
       last_safepoint_ = safepoint;
     }
@@ -1149,16 +1155,20 @@ class LiveInterval : public ArenaObject<kArenaAllocSsaLiveness> {
  *
  * (a) Non-environment uses of an instruction always make
  *     the instruction live.
- * (b) Environment uses of an instruction whose type is
- *     object (that is, non-primitive), make the instruction live.
- *     This is due to having to keep alive objects that have
- *     finalizers deleting native objects.
+ * (b) Environment uses of an instruction whose type is object (that is, non-primitive), make the
+ *     instruction live, unless the class has an @DeadReferenceSafe annotation.
+ *     This avoids unexpected premature reference enqueuing or finalization, which could
+ *     result in premature deletion of native objects.  In the presence of @DeadReferenceSafe,
+ *     object references are treated like primitive types.
  * (c) When the graph has the debuggable property, environment uses
  *     of an instruction that has a primitive type make the instruction live.
  *     If the graph does not have the debuggable property, the environment
  *     use has no effect, and may get a 'none' value after register allocation.
+ * (d) When compiling in OSR mode, all loops in the compiled method may be entered
+ *     from the interpreter via SuspendCheck; such use in SuspendCheck makes the instruction
+ *     live.
  *
- * (b) and (c) are implemented through SsaLivenessAnalysis::ShouldBeLiveForEnvironment.
+ * (b), (c) and (d) are implemented through SsaLivenessAnalysis::ShouldBeLiveForEnvironment.
  */
 class SsaLivenessAnalysis : public ValueObject {
  public:
@@ -1256,17 +1266,29 @@ class SsaLivenessAnalysis : public ValueObject {
   // Update the live_out set of the block and returns whether it has changed.
   bool UpdateLiveOut(const HBasicBlock& block);
 
+  static void ProcessEnvironment(HInstruction* instruction,
+                                 HInstruction* actual_user,
+                                 BitVector* live_in);
+  static void RecursivelyProcessInputs(HInstruction* instruction,
+                                       HInstruction* actual_user,
+                                       BitVector* live_in);
+
   // Returns whether `instruction` in an HEnvironment held by `env_holder`
   // should be kept live by the HEnvironment.
   static bool ShouldBeLiveForEnvironment(HInstruction* env_holder, HInstruction* instruction) {
-    if (instruction == nullptr) return false;
+    DCHECK(instruction != nullptr);
     // A value that's not live in compiled code may still be needed in interpreter,
     // due to code motion, etc.
     if (env_holder->IsDeoptimize()) return true;
     // A value live at a throwing instruction in a try block may be copied by
     // the exception handler to its location at the top of the catch block.
     if (env_holder->CanThrowIntoCatchBlock()) return true;
-    if (instruction->GetBlock()->GetGraph()->IsDebuggable()) return true;
+    HGraph* graph = instruction->GetBlock()->GetGraph();
+    if (graph->IsDebuggable()) return true;
+    // When compiling in OSR mode, all loops in the compiled method may be entered
+    // from the interpreter via SuspendCheck; thus we need to preserve the environment.
+    if (env_holder->IsSuspendCheck() && graph->IsCompilingOsr()) return true;
+    if (graph -> IsDeadReferenceSafe()) return false;
     return instruction->GetType() == DataType::Type::kReference;
   }
 

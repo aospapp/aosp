@@ -16,16 +16,11 @@
 
 package android.assist.testapp;
 
-import android.app.Activity;
 import android.assist.common.Utils;
-import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.view.ViewTreeObserver;
-import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 
-public class TestApp extends Activity {
+public class TestApp extends BaseThirdPartyActivity {
     static final String TAG = "TestApp";
 
     private String mTestCaseName;
@@ -33,7 +28,7 @@ public class TestApp extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(TAG, "TestApp created");
+        Log.i(TAG, "TestApp created: " + getIntent());
         mTestCaseName = getIntent().getStringExtra(Utils.TESTCASE_TYPE);
         switch (mTestCaseName) {
             case Utils.LARGE_VIEW_HIERARCHY:
@@ -45,23 +40,9 @@ public class TestApp extends Activity {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        Log.i(TAG, "TestApp has resumed");
-        final View layout = findViewById(android.R.id.content);
-        ViewTreeObserver vto = layout.getViewTreeObserver();
-        vto.addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                layout.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                sendBroadcast(new Intent(Utils.APP_3P_HASRESUMED));
-            }
-        });
-    }
-
     public void onEnterAnimationComplete() {
         Log.i(TAG, "TestApp onEnterAnimationComplete ");
-        sendBroadcast(new Intent(Utils.APP_3P_HASDRAWED));
+        notify(Utils.APP_3P_HASDRAWED);
     }
 
 }

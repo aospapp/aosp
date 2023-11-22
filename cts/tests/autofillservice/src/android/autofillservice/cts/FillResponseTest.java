@@ -40,7 +40,7 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class FillResponseTest {
 
     private final AutofillId mAutofillId = new AutofillId(42);
@@ -56,6 +56,7 @@ public class FillResponseTest {
     @Mock private RemoteViews mHeader;
     @Mock private RemoteViews mFooter;
     @Mock private IntentSender mIntentSender;
+    private final UserData mUserData = new UserData.Builder("id", "value", "cat").build();
 
     @Test
     public void testBuilder_setAuthentication_invalid() {
@@ -106,6 +107,19 @@ public class FillResponseTest {
                 new FillResponse.Builder().setAuthentication(mIds, mIntentSender, mPresentation);
         assertThrows(IllegalStateException.class, () -> builder.setHeader(mHeader));
         assertThrows(IllegalStateException.class, () -> builder.setHeader(mFooter));
+    }
+
+    @Test
+    public void testBuilder_setUserDataInvalid() {
+        assertThrows(NullPointerException.class, () -> new FillResponse.Builder()
+                .setUserData(null));
+    }
+
+    @Test
+    public void testBuilder_setUserDataAfterAuthentication() {
+        FillResponse.Builder builder =
+                new FillResponse.Builder().setAuthentication(mIds, mIntentSender, mPresentation);
+        assertThrows(IllegalStateException.class, () -> builder.setUserData(mUserData));
     }
 
     @Test
@@ -244,5 +258,6 @@ public class FillResponseTest {
                 () -> mBuilder.setFieldClassificationIds(mAutofillId));
         assertThrows(IllegalStateException.class, () -> mBuilder.setHeader(mHeader));
         assertThrows(IllegalStateException.class, () -> mBuilder.setFooter(mFooter));
+        assertThrows(IllegalStateException.class, () -> mBuilder.setUserData(mUserData));
     }
 }

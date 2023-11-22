@@ -26,6 +26,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.PersistableBundle;
 import android.os.Process;
@@ -144,6 +145,8 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         filter.addAction(ByodHelperActivity.ACTION_REMOVE_MANAGED_PROFILE);
         filter.addAction(ByodHelperActivity.ACTION_CHECK_DISK_ENCRYPTION);
         filter.addAction(ByodHelperActivity.ACTION_INSTALL_APK);
+        filter.addAction(ByodHelperActivity.ACTION_INSTALL_APK_WORK_PROFILE_GLOBAL_RESTRICTION);
+        filter.addAction(ByodHelperActivity.ACTION_INSTALL_APK_PRIMARY_PROFILE_GLOBAL_RESTRICTION);
         filter.addAction(ByodHelperActivity.ACTION_CHECK_INTENT_FILTERS);
         filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_IMAGE);
         filter.addAction(ByodHelperActivity.ACTION_CAPTURE_AND_CHECK_VIDEO_WITH_EXTRA_OUTPUT);
@@ -170,6 +173,7 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         filter.addAction(AlwaysOnVpnSettingsTestActivity.ACTION_ALWAYS_ON_VPN_SETTINGS_TEST);
         filter.addAction(RecentsRedactionActivity.ACTION_RECENTS);
         filter.addAction(ByodHelperActivity.ACTION_TEST_SELECT_WORK_CHALLENGE);
+        filter.addAction(ByodHelperActivity.ACTION_TEST_PATTERN_WORK_CHALLENGE);
         filter.addAction(ByodHelperActivity.ACTION_LAUNCH_CONFIRM_WORK_CREDENTIALS);
         filter.addAction(ByodHelperActivity.ACTION_SET_ORGANIZATION_INFO);
         filter.addAction(ByodHelperActivity.ACTION_TEST_PARENT_PROFILE_PASSWORD);
@@ -184,6 +188,8 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         filter = new IntentFilter();
         filter.addAction(ByodHelperActivity.ACTION_PROFILE_OWNER_STATUS);
         filter.addAction(ByodHelperActivity.ACTION_DISK_ENCRYPTION_STATUS);
+        filter.addAction(ByodHelperActivity.ACTION_INSTALL_APK_IN_PRIMARY);
+        filter.addAction(ByodFlowTestActivity.ACTION_TEST_RESULT);
         filter.addAction(CrossProfileTestActivity.ACTION_CROSS_PROFILE_TO_PERSONAL);
         filter.addAction(LocationListenerActivity.ACTION_SET_LOCATION_AND_CHECK_UPDATES);
         dpm.addCrossProfileIntentFilter(getWho(context), filter,
@@ -193,6 +199,11 @@ public class DeviceAdminTestReceiver extends DeviceAdminReceiver {
         intent.setAction(ByodHelperActivity.ACTION_PROFILE_PROVISIONED);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         context.startActivity(intent);
+        // Disable the work profile instance of this activity, because it is a helper activity for
+        // the work -> primary direction.
+        context.getPackageManager().setComponentEnabledSetting(
+                new ComponentName(context, ByodPrimaryHelperActivity.class.getName()),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
     }
 
     private void wipeIfNecessary(Context context, Intent intent) {

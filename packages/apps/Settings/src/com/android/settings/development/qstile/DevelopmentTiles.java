@@ -16,7 +16,12 @@
 
 package com.android.settings.development.qstile;
 
+import android.app.settings.SettingsEnums;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.hardware.SensorPrivacyManager;
+import android.app.KeyguardManager;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.RemoteException;
@@ -25,15 +30,20 @@ import android.os.SystemProperties;
 import android.provider.Settings;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
-import android.support.annotation.VisibleForTesting;
+import android.sysprop.DisplayProperties;
 import android.util.Log;
 import android.view.IWindowManager;
 import android.view.ThreadedRenderer;
-import android.view.View;
 import android.view.WindowManagerGlobal;
 import android.widget.Toast;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.internal.app.LocalePicker;
+import com.android.internal.statusbar.IStatusBarService;
+import com.android.settings.overlay.FeatureFactory;
+import com.android.settingslib.core.instrumentation.MetricsFeatureProvider;
+import com.android.settingslib.development.DevelopmentSettingsEnabler;
 import com.android.settingslib.development.SystemPropPoker;
 
 public abstract class DevelopmentTiles extends TileService {
@@ -50,7 +60,32 @@ public abstract class DevelopmentTiles extends TileService {
     }
 
     public void refresh() {
-        getQsTile().setState(isEnabled() ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE);
+        final int state;
+        if (!DevelopmentSettingsEnabler.isDevelopmentSettingsEnabled(this)) {
+            // Reset to disabled state if dev option is off.
+            if (isEnabled()) {
+                setIsEnabled(false);
+                SystemPropPoker.getInstance().poke();
+            }
+            final ComponentName cn = new ComponentName(getPackageName(), getClass().getName());
+            try {
+                getPackageManager().setComponentEnabledSetting(
+                        cn, PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                        PackageManager.DONT_KILL_APP);
+                final IStatusBarService statusBarService = IStatusBarService.Stub.asInterface(
+                        ServiceManager.checkService(Context.STATUS_BAR_SERVICE));
+                if (statusBarService != null) {
+                    statusBarService.remTile(cn);
+                }
+            } catch (RemoteException e) {
+                Log.e(TAG, "Failed to modify QS tile for component " +
+                        cn.toString(), e);
+            }
+            state = Tile.STATE_UNAVAILABLE;
+        } else {
+            state = isEnabled() ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
+        }
+        getQsTile().setState(state);
         getQsTile().updateTile();
     }
 
@@ -68,12 +103,12 @@ public abstract class DevelopmentTiles extends TileService {
 
         @Override
         protected boolean isEnabled() {
-            return SystemProperties.getBoolean(View.DEBUG_LAYOUT_PROPERTY, false);
+            return DisplayProperties.debug_layout().orElse(false);
         }
 
         @Override
         protected void setIsEnabled(boolean isEnabled) {
-            SystemProperties.set(View.DEBUG_LAYOUT_PROPERTY, isEnabled ? "true" : "false");
+            DisplayProperties.debug_layout(isEnabled);
         }
     }
 
@@ -109,7 +144,7 @@ public abstract class DevelopmentTiles extends TileService {
         protected void setIsEnabled(boolean isEnabled) {
             Settings.Global.putInt(
                     getContentResolver(), Settings.Global.DEVELOPMENT_FORCE_RTL, isEnabled ? 1 : 0);
-            SystemProperties.set(Settings.Global.DEVELOPMENT_FORCE_RTL, isEnabled ? "1" : "0");
+            DisplayProperties.debug_force_rtl(isEnabled);
             LocalePicker.updateLocales(getResources().getConfiguration().getLocales());
         }
     }
@@ -124,7 +159,8 @@ public abstract class DevelopmentTiles extends TileService {
             IWindowManager wm = WindowManagerGlobal.getWindowManagerService();
             try {
                 return wm.getAnimationScale(0) != 1;
-            } catch (RemoteException e) { }
+            } catch (RemoteException e) {
+            }
             return false;
         }
 
@@ -136,7 +172,8 @@ public abstract class DevelopmentTiles extends TileService {
                 wm.setAnimationScale(0, scale);
                 wm.setAnimationScale(1, scale);
                 wm.setAnimationScale(2, scale);
-            } catch (RemoteException e) { }
+            } catch (RemoteException e) {
+            }
         }
     }
 
@@ -239,6 +276,47 @@ public abstract class DevelopmentTiles extends TileService {
             if (!isEnabled) {
                 mToast.show();
             }
+        }
+    }
+
+    /**
+     * Tile to toggle sensors off to control camera, mic, and sensors managed by the SensorManager.
+     */
+    public static class SensorsOff extends DevelopmentTiles {
+        private Context mContext;
+        private SensorPrivacyManager mSensorPrivacyManager;
+        private KeyguardManager mKeyguardManager;
+        private MetricsFeatureProvider mMetricsFeatureProvider;
+        private boolean mIsEnabled;
+
+        @Override
+        public void onCreate() {
+            super.onCreate();
+            mContext = getApplicationContext();
+            mSensorPrivacyManager = (SensorPrivacyManager) mContext.getSystemService(
+                    Context.SENSOR_PRIVACY_SERVICE);
+            mIsEnabled = mSensorPrivacyManager.isSensorPrivacyEnabled();
+            mMetricsFeatureProvider = FeatureFactory.getFactory(
+                    mContext).getMetricsFeatureProvider();
+            mKeyguardManager = (KeyguardManager) mContext.getSystemService(
+                    Context.KEYGUARD_SERVICE);
+        }
+
+        @Override
+        protected boolean isEnabled() {
+            return mIsEnabled;
+        }
+
+        @Override
+        public void setIsEnabled(boolean isEnabled) {
+            // Don't allow sensors to be reenabled from the lock screen.
+            if (mIsEnabled && mKeyguardManager.isKeyguardLocked()) {
+                return;
+            }
+            mMetricsFeatureProvider.action(getApplicationContext(), SettingsEnums.QS_SENSOR_PRIVACY,
+                    isEnabled);
+            mIsEnabled = isEnabled;
+            mSensorPrivacyManager.setSensorPrivacy(isEnabled);
         }
     }
 }

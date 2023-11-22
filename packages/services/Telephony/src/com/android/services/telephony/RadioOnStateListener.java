@@ -46,16 +46,16 @@ public class RadioOnStateListener {
     }
 
     // Number of times to retry the call, and time between retry attempts.
+    // not final for testing
     private static int MAX_NUM_RETRIES = 5;
+    // not final for testing
     private static long TIME_BETWEEN_RETRIES_MILLIS = 5000;  // msec
 
     // Handler message codes; see handleMessage()
-    @VisibleForTesting
-    public static final int MSG_START_SEQUENCE = 1;
+    private static final int MSG_START_SEQUENCE = 1;
     @VisibleForTesting
     public static final int MSG_SERVICE_STATE_CHANGED = 2;
-    @VisibleForTesting
-    public static final int MSG_RETRY_TIMEOUT = 3;
+    private static final int MSG_RETRY_TIMEOUT = 3;
 
     private final Handler mHandler = new Handler(Looper.getMainLooper()) {
         @Override

@@ -38,28 +38,31 @@ TEST(audio_utils_simplelog, basic) {
     slog->log("Hello %d", nine);
     slog->log("World");
 
+    slog->logs(-1 /* nowNs */, std::string("ABC")); // may take a std::string as well
+
     // two lines (no header)
-    EXPECT_EQ((size_t)2, countNewLines(slog->dumpToString()));
+    EXPECT_EQ((size_t)3, countNewLines(slog->dumpToString()));
 
     // another two lines (this is out of time order, but the log doesn't care)
     slog->log(oneSecond /* nowNs */, "Hello World %d", 10);
     slog->log(oneSecond * 2 /* nowNs */, "%s", "Goodbye");
 
-    EXPECT_EQ((size_t)4, countNewLines(slog->dumpToString()));
+    EXPECT_EQ((size_t)5, countNewLines(slog->dumpToString()));
+
 
     // truncate on lines
     EXPECT_EQ((size_t)1, countNewLines(slog->dumpToString("" /* prefix */, 1 /* lines */)));
 
     // truncate on time
-    EXPECT_EQ((size_t)4, countNewLines(
+    EXPECT_EQ((size_t)5, countNewLines(
             slog->dumpToString("" /* prefix */, 0 /* lines */, oneSecond /* limitNs */)));
 
     // truncate on time (more)
-    EXPECT_EQ((size_t)3, countNewLines(
+    EXPECT_EQ((size_t)4, countNewLines(
             slog->dumpToString("" /* prefix */, 0 /* lines */, oneSecond * 2 /* limitNs */)));
 
     // truncate on time (more)
-    EXPECT_EQ((size_t)2, countNewLines(
+    EXPECT_EQ((size_t)3, countNewLines(
             slog->dumpToString("" /* prefix */, 0 /* lines */, oneSecond * 2 + 1 /* limitNs */)));
 
     std::cout << slog->dumpToString() << std::flush;
@@ -69,12 +72,14 @@ TEST(audio_utils_simplelog, basic) {
     // The output below depends on the local time zone and current time.
     // The indentation below is exact, check alignment.
     /*
-03-27 14:47:43.567 Hello 9
-03-27 14:47:43.567 World
+08-28 11:11:30.057 Hello 9
+08-28 11:11:30.057 World
+08-28 11:11:30.057 ABC
 12-31 16:00:01.000 Hello World 10
 12-31 16:00:02.000 Goodbye
-  03-27 14:47:43.567 Hello 9
-  03-27 14:47:43.567 World
+  08-28 11:11:30.057 Hello 9
+  08-28 11:11:30.057 World
+  08-28 11:11:30.057 ABC
   12-31 16:00:01.000 Hello World 10
   12-31 16:00:02.000 Goodbye
      */

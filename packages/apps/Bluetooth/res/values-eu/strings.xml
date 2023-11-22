@@ -17,17 +17,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"Atzitu deskargen kudeatzailea."</string>
-    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Bluetooth bidezko partekatzeen kudeatzailea atzitzea eta fitxategiak transferitzeko erabiltzea baimentzen die aplikazioei."</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Sartu sarbidedunen zerrendan Bluetooth gailua."</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Bluetooth gailu bat aldi baterako sarbidedunen zerrendan sartzea baimentzen die aplikazioei, gailu honetara fitxategiak bidaltzeko baimena izan dezan, baina gailu honen erabiltzaileari berrespena eskatu beharrik gabe."</string>
-    <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
+    <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"Bluetooth bidezko partekatzeen kudeatzailea atzitzea eta fitxategiak transferitzeko erabiltzeko baimena ematen die aplikazioei."</string>
+    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Jarri onartutakoen zerrendan Bluetooth bidezko gailua."</string>
+    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Bluetooth bidezko gailu bat aldi baterako onartutakoen zerrendan jartzeko baimena ematen die aplikazioei, gailu honetara fitxategiak bidaltzeko baimena izan dezan, baina gailu honen erabiltzaileari berrespena eskatu beharrik gabe."</string>
+    <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth-a"</string>
     <string name="unknown_device" msgid="9221903979877041009">"Gailu ezezaguna"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"Ezezaguna"</string>
     <string name="airplane_error_title" msgid="2683839635115739939">"Hegaldi modua"</string>
-    <string name="airplane_error_msg" msgid="8698965595254137230">"Ezin duzu Bluetootha Hegaldi moduan erabili."</string>
+    <string name="airplane_error_msg" msgid="8698965595254137230">"Ezin duzu erabili Bluetooth-a Hegaldi moduan."</string>
     <string name="bt_enable_title" msgid="8657832550503456572"></string>
-    <string name="bt_enable_line1" msgid="7203551583048149">"Bluetooth-zerbitzuak erabiltzeko, Bluetootha aktibatu behar duzu."</string>
-    <string name="bt_enable_line2" msgid="4341936569415937994">"Bluetootha aktibatu nahi duzu?"</string>
+    <string name="bt_enable_line1" msgid="7203551583048149">"Bluetooth-zerbitzuak erabiltzeko, Bluetooth-a aktibatu behar duzu."</string>
+    <string name="bt_enable_line2" msgid="4341936569415937994">"Bluetooth-a aktibatu nahi duzu?"</string>
     <string name="bt_enable_cancel" msgid="1988832367505151727">"Utzi"</string>
     <string name="bt_enable_ok" msgid="3432462749994538265">"Aktibatu"</string>
     <string name="incoming_file_confirm_title" msgid="8139874248612182627">"Fitxategi-transferentzia"</string>
@@ -77,15 +77,15 @@
     <string name="not_exist_file" msgid="3489434189599716133">"Ez dago fitxategirik"</string>
     <string name="not_exist_file_desc" msgid="4059531573790529229">"Ez dago horrelako fitxategirik. \n"</string>
     <string name="enabling_progress_title" msgid="436157952334723406">"Itxaron…"</string>
-    <string name="enabling_progress_content" msgid="4601542238119927904">"Bluetootha aktibatzen…"</string>
+    <string name="enabling_progress_content" msgid="4601542238119927904">"Bluetooth-a aktibatzen…"</string>
     <string name="bt_toast_1" msgid="972182708034353383">"Fitxategia jasoko da. Egoera kontrolatzeko, joan Jakinarazpenen panelera."</string>
     <string name="bt_toast_2" msgid="8602553334099066582">"Ezin da fitxategia jaso."</string>
     <string name="bt_toast_3" msgid="6707884165086862518">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" igorlearen fitxategia jasotzeari utzi zaio"</string>
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" hartzaileari fitxategia bidaltzen"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" hartzaileari <xliff:g id="NUMBER">%1$s</xliff:g> fitxategi bidaltzen"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" hartzaileari fitxategia bidaltzeari utzi zaio."</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"Ez dago \"<xliff:g id="SENDER">%1$s</xliff:g>\" igorlearen fitxategia gordetzeko behar adina leku USB memorian"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"Ez dago \"<xliff:g id="SENDER">%1$s</xliff:g>\" igorlearen fitxategia gordetzeko behar adina leku SD txartelean"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Ez dago \"<xliff:g id="SENDER">%1$s</xliff:g>\" erabiltzailearen fitxategia gordetzeko behar adina toki USB memorian"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Ez dago \"<xliff:g id="SENDER">%1$s</xliff:g>\" erabiltzailearen fitxategia gordetzeko behar adina toki SD txartelean"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Beharrezko memoria: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Eskaera gehiegi prozesatzen ari dira. Saiatu berriro geroago."</string>
     <string name="status_pending" msgid="2503691772030877944">"Ez da fitxategi-transferentzia oraindik hasi."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"Xede-gailuak transferentzia debekatu du."</string>
     <string name="status_canceled" msgid="6664490318773098285">"Erabiltzaileak bertan behera utzi du transferentzia."</string>
     <string name="status_file_error" msgid="3671917770630165299">"Memoria-arazoa."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"Ez dago USB memoriarik."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"Ez dago SD txartelik. Transferitutako fitxategiak gordetzeko, sartu SD txartel bat."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"Ez dago USB memoriarik."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"Ez dago SD txartelik. Transferitutako fitxategiak gordetzeko, sartu SD txartel bat."</string>
     <string name="status_connection_error" msgid="947681831523219891">"Ezin izan da konektatu."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Ezin da eskaera behar bezala kudeatu."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Errore ezezaguna."</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Ireki"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Garbitu zerrendatik"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Garbitu"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Orain erreproduzitzen"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Gorde"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Utzi"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Hautatu Bluetooth bidez partekatu nahi dituzun kontuak. Konektatzean, berariaz eman beharko duzu kontuetarako sarbidea."</string>

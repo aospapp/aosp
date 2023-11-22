@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -36,7 +35,7 @@ public class CopyUpstreamFiles {
     }
 
     public void run() throws IOException {
-        List<Path> relPaths = standardRepositories.ojluni().loadRelPathsFromMakefile();
+        List<Path> relPaths = standardRepositories.ojluni().loadRelPathsFromBlueprint();
         if (outputDir.toFile().exists()) {
             throw new IOException(outputDir + " already exists");
         } else {
@@ -46,7 +45,8 @@ public class CopyUpstreamFiles {
             }
         }
         for (Path relPath : relPaths) {
-            Repository expectedUpstream = standardRepositories.currentUpstream(relPath);
+            Repository expectedUpstream = standardRepositories.referenceUpstreamAsOfAndroidP(
+                relPath);
             for (Repository upstream : standardRepositories.upstreams()) {
                 Path upstreamFile = upstream.absolutePath(relPath);
                 if (upstreamFile != null) {

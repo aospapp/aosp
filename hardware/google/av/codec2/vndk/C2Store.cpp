@@ -110,7 +110,13 @@ c2_status_t C2PlatformAllocatorStoreImpl::fetchAllocator(
         break;
 
     default:
-        return C2_NOT_FOUND;
+        // Try to create allocator from platform store plugins.
+        c2_status_t res =
+                C2PlatformStorePluginLoader::GetInstance()->createAllocator(id, allocator);
+        if (res != C2_OK) {
+            return res;
+        }
+        break;
     }
     if (*allocator == nullptr) {
         return C2_NO_MEMORY;
@@ -511,7 +517,8 @@ private:
          *
          * \note Only used by ComponentLoader.
          *
-         * \param libPath[in] library path (or name)
+         * \param alias[in]   module alias
+         * \param libPath[in] library path
          *
          * \retval C2_OK        the component module has been successfully loaded
          * \retval C2_NO_MEMORY not enough memory to loading the component module
@@ -520,7 +527,7 @@ private:
          * \retval C2_REFUSED   permission denied to load the component module (unexpected)
          * \retval C2_TIMED_OUT could not load the module within the time limit (unexpected)
          */
-        c2_status_t init(std::string libPath);
+        c2_status_t init(std::string alias, std::string libPath);
 
         virtual ~ComponentModule() override;
 
@@ -563,7 +570,7 @@ private:
             std::shared_ptr<ComponentModule> localModule = mModule.lock();
             if (localModule == nullptr) {
                 localModule = std::make_shared<ComponentModule>();
-                res = localModule->init(mLibPath);
+                res = localModule->init(mAlias, mLibPath);
                 if (res == C2_OK) {
                     mModule = localModule;
                 }
@@ -575,13 +582,14 @@ private:
         /**
          * Creates a component loader for a specific library path (or name).
          */
-        ComponentLoader(std::string libPath)
-            : mLibPath(libPath) {}
+        ComponentLoader(std::string alias, std::string libPath)
+            : mAlias(alias), mLibPath(libPath) {}
 
     private:
         std::mutex mMutex; ///< mutex guarding the module
         std::weak_ptr<ComponentModule> mModule; ///< weak reference to the loaded module
-        std::string mLibPath; ///< library path (or name)
+        std::string mAlias; ///< component alias
+        std::string mLibPath; ///< library path
     };
 
     struct Interface : public C2InterfaceHelper {
@@ -634,12 +642,14 @@ private:
      */
     c2_status_t findComponent(C2String name, ComponentLoader **loader);
 
-    std::map<C2String, ComponentLoader> mComponents; ///< list of components
+    std::map<C2String, ComponentLoader> mComponents; ///< map of name -> components
+    std::vector<C2String> mComponentsList; ///< list of components
     std::shared_ptr<C2ReflectorHelper> mReflector;
     Interface mInterface;
 };
 
-c2_status_t C2PlatformComponentStore::ComponentModule::init(std::string libPath) {
+c2_status_t C2PlatformComponentStore::ComponentModule::init(
+        std::string alias, std::string libPath) {
     ALOGV("in %s", __func__);
     ALOGV("loading dll");
     mLibHandle = dlopen(libPath.c_str(), RTLD_NOW|RTLD_NODELETE);
@@ -661,6 +671,64 @@ c2_status_t C2PlatformComponentStore::ComponentModule::init(std::string libPath)
             mInit = C2_OK;
         }
     }
+    if (mInit != C2_OK) {
+        return mInit;
+    }
+
+    std::shared_ptr<C2ComponentInterface> intf;
+    c2_status_t res = createInterface(0, &intf);
+    if (res != C2_OK) {
+        ALOGD("failed to create interface: %d", res);
+        return mInit;
+    }
+
+    std::shared_ptr<C2Component::Traits> traits(new (std::nothrow) C2Component::Traits);
+    if (traits) {
+        if (alias != intf->getName()) {
+            ALOGV("%s is alias to %s", alias.c_str(), intf->getName().c_str());
+        }
+        traits->name = alias;
+        // TODO: get this from interface properly.
+        bool encoder = (traits->name.find("encoder") != std::string::npos);
+        uint32_t mediaTypeIndex = encoder ? C2PortMimeConfig::output::PARAM_TYPE
+                : C2PortMimeConfig::input::PARAM_TYPE;
+        std::vector<std::unique_ptr<C2Param>> params;
+        res = intf->query_vb({}, { mediaTypeIndex }, C2_MAY_BLOCK, &params);
+        if (res != C2_OK) {
+            ALOGD("failed to query interface: %d", res);
+            return mInit;
+        }
+        if (params.size() != 1u) {
+            ALOGD("failed to query interface: unexpected vector size: %zu", params.size());
+            return mInit;
+        }
+        C2PortMimeConfig *mediaTypeConfig = (C2PortMimeConfig *)(params[0].get());
+        if (mediaTypeConfig == nullptr) {
+            ALOGD("failed to query media type");
+            return mInit;
+        }
+        traits->mediaType = mediaTypeConfig->m.value;
+        // TODO: get this properly.
+        traits->rank = 0x200;
+
+        // TODO: define these values properly
+        bool decoder = (traits->name.find("decoder") != std::string::npos);
+        traits->kind =
+                decoder ? C2Component::KIND_DECODER :
+                encoder ? C2Component::KIND_ENCODER :
+                C2Component::KIND_OTHER;
+        if (strncmp(traits->mediaType.c_str(), "audio/", 6) == 0) {
+            traits->domain = C2Component::DOMAIN_AUDIO;
+        } else if (strncmp(traits->mediaType.c_str(), "video/", 6) == 0) {
+            traits->domain = C2Component::DOMAIN_VIDEO;
+        } else if (strncmp(traits->mediaType.c_str(), "image/", 6) == 0) {
+            traits->domain = C2Component::DOMAIN_IMAGE;
+        } else {
+            traits->domain = C2Component::DOMAIN_OTHER;
+        }
+    }
+    mTraits = traits;
+
     return mInit;
 }
 
@@ -711,94 +779,84 @@ c2_status_t C2PlatformComponentStore::ComponentModule::createComponent(
 
 std::shared_ptr<const C2Component::Traits> C2PlatformComponentStore::ComponentModule::getTraits() {
     std::unique_lock<std::recursive_mutex> lock(mLock);
-    if (!mTraits) {
-        std::shared_ptr<C2ComponentInterface> intf;
-        c2_status_t res = createInterface(0, &intf);
-        if (res != C2_OK) {
-            ALOGD("failed to create interface: %d", res);
-            return nullptr;
-        }
-
-        std::shared_ptr<C2Component::Traits> traits(new (std::nothrow) C2Component::Traits);
-        if (traits) {
-            traits->name = intf->getName();
-            // TODO: get this from interface properly.
-            bool encoder = (traits->name.find("encoder") != std::string::npos);
-            uint32_t mediaTypeIndex = encoder ? C2PortMimeConfig::output::PARAM_TYPE
-                    : C2PortMimeConfig::input::PARAM_TYPE;
-            std::vector<std::unique_ptr<C2Param>> params;
-            res = intf->query_vb({}, { mediaTypeIndex }, C2_MAY_BLOCK, &params);
-            if (res != C2_OK) {
-                ALOGD("failed to query interface: %d", res);
-                return nullptr;
-            }
-            if (params.size() != 1u) {
-                ALOGD("failed to query interface: unexpected vector size: %zu", params.size());
-                return nullptr;
-            }
-            C2PortMimeConfig *mediaTypeConfig = (C2PortMimeConfig *)(params[0].get());
-            if (mediaTypeConfig == nullptr) {
-                ALOGD("failed to query media type");
-                return nullptr;
-            }
-            traits->mediaType = mediaTypeConfig->m.value;
-            // TODO: get this properly.
-            traits->rank = 0x200;
-
-            // TODO: define these values properly
-            bool decoder = (traits->name.find("decoder") != std::string::npos);
-            traits->kind =
-                    decoder ? C2Component::KIND_DECODER :
-                    encoder ? C2Component::KIND_ENCODER :
-                    C2Component::KIND_OTHER;
-            if (strncmp(traits->mediaType.c_str(), "audio/", 6) == 0) {
-                traits->domain = C2Component::DOMAIN_AUDIO;
-            } else if (strncmp(traits->mediaType.c_str(), "video/", 6) == 0) {
-                traits->domain = C2Component::DOMAIN_VIDEO;
-            } else if (strncmp(traits->mediaType.c_str(), "image/", 6) == 0) {
-                traits->domain = C2Component::DOMAIN_IMAGE;
-            } else {
-                traits->domain = C2Component::DOMAIN_OTHER;
-            }
-        }
-
-        mTraits = traits;
-    }
     return mTraits;
 }
 
 C2PlatformComponentStore::C2PlatformComponentStore()
     : mReflector(std::make_shared<C2ReflectorHelper>()),
       mInterface(mReflector) {
+
+    auto emplace = [this](const char *alias, const char *libPath) {
+        // ComponentLoader is neither copiable nor movable, so it must be
+        // constructed in-place. Now ComponentLoader takes two arguments in
+        // constructor, so we need to use piecewise_construct to achieve this
+        // behavior.
+        mComponents.emplace(
+                std::piecewise_construct,
+                std::forward_as_tuple(alias),
+                std::forward_as_tuple(alias, libPath));
+        mComponentsList.emplace_back(alias);
+    };
     // TODO: move this also into a .so so it can be updated
-    mComponents.emplace("c2.android.avc.decoder", "libstagefright_soft_c2avcdec.so");
-    mComponents.emplace("c2.android.avc.encoder", "libstagefright_soft_c2avcenc.so");
-    mComponents.emplace("c2.android.aac.decoder", "libstagefright_soft_c2aacdec.so");
-    mComponents.emplace("c2.android.aac.encoder", "libstagefright_soft_c2aacenc.so");
-    mComponents.emplace("c2.android.amrnb.decoder", "libstagefright_soft_c2amrnbdec.so");
-    mComponents.emplace("c2.android.amrnb.encoder", "libstagefright_soft_c2amrnbenc.so");
-    mComponents.emplace("c2.android.amrwb.decoder", "libstagefright_soft_c2amrwbdec.so");
-    mComponents.emplace("c2.android.amrwb.encoder", "libstagefright_soft_c2amrwbenc.so");
-    mComponents.emplace("c2.android.hevc.decoder", "libstagefright_soft_c2hevcdec.so");
-    mComponents.emplace("c2.android.g711.alaw.decoder", "libstagefright_soft_c2g711alawdec.so");
-    mComponents.emplace("c2.android.g711.mlaw.decoder", "libstagefright_soft_c2g711mlawdec.so");
-    mComponents.emplace("c2.android.mpeg2.decoder", "libstagefright_soft_c2mpeg2dec.so");
-    mComponents.emplace("c2.android.h263.decoder", "libstagefright_soft_c2h263dec.so");
-    mComponents.emplace("c2.android.h263.encoder", "libstagefright_soft_c2h263enc.so");
-    mComponents.emplace("c2.android.mpeg4.decoder", "libstagefright_soft_c2mpeg4dec.so");
-    mComponents.emplace("c2.android.mpeg4.encoder", "libstagefright_soft_c2mpeg4enc.so");
-    mComponents.emplace("c2.android.mp3.decoder", "libstagefright_soft_c2mp3dec.so");
-    mComponents.emplace("c2.android.vorbis.decoder", "libstagefright_soft_c2vorbisdec.so");
-    mComponents.emplace("c2.android.opus.decoder", "libstagefright_soft_c2opusdec.so");
-    mComponents.emplace("c2.android.vp8.decoder", "libstagefright_soft_c2vp8dec.so");
-    mComponents.emplace("c2.android.vp9.decoder", "libstagefright_soft_c2vp9dec.so");
-    mComponents.emplace("c2.android.vp8.encoder", "libstagefright_soft_c2vp8enc.so");
-    mComponents.emplace("c2.android.vp9.encoder", "libstagefright_soft_c2vp9enc.so");
-    mComponents.emplace("c2.android.raw.decoder", "libstagefright_soft_c2rawdec.so");
-    mComponents.emplace("c2.android.flac.decoder", "libstagefright_soft_c2flacdec.so");
-    mComponents.emplace("c2.android.flac.encoder", "libstagefright_soft_c2flacenc.so");
-    mComponents.emplace("c2.android.gsm.decoder", "libstagefright_soft_c2gsmdec.so");
-    mComponents.emplace("c2.android.xaac.decoder", "libstagefright_soft_c2xaacdec.so");
+    emplace("c2.android.avc.decoder", "libstagefright_soft_c2avcdec.so");
+    emplace("c2.android.avc.encoder", "libstagefright_soft_c2avcenc.so");
+    emplace("c2.android.aac.decoder", "libstagefright_soft_c2aacdec.so");
+    emplace("c2.android.aac.encoder", "libstagefright_soft_c2aacenc.so");
+    emplace("c2.android.amrnb.decoder", "libstagefright_soft_c2amrnbdec.so");
+    emplace("c2.android.amrnb.encoder", "libstagefright_soft_c2amrnbenc.so");
+    emplace("c2.android.amrwb.decoder", "libstagefright_soft_c2amrwbdec.so");
+    emplace("c2.android.amrwb.encoder", "libstagefright_soft_c2amrwbenc.so");
+    emplace("c2.android.hevc.decoder", "libstagefright_soft_c2hevcdec.so");
+    emplace("c2.android.g711.alaw.decoder", "libstagefright_soft_c2g711alawdec.so");
+    emplace("c2.android.g711.mlaw.decoder", "libstagefright_soft_c2g711mlawdec.so");
+    emplace("c2.android.mpeg2.decoder", "libstagefright_soft_c2mpeg2dec.so");
+    emplace("c2.android.h263.decoder", "libstagefright_soft_c2h263dec.so");
+    emplace("c2.android.h263.encoder", "libstagefright_soft_c2h263enc.so");
+    emplace("c2.android.mpeg4.decoder", "libstagefright_soft_c2mpeg4dec.so");
+    emplace("c2.android.mpeg4.encoder", "libstagefright_soft_c2mpeg4enc.so");
+    emplace("c2.android.mp3.decoder", "libstagefright_soft_c2mp3dec.so");
+    emplace("c2.android.vorbis.decoder", "libstagefright_soft_c2vorbisdec.so");
+    emplace("c2.android.opus.decoder", "libstagefright_soft_c2opusdec.so");
+    emplace("c2.android.vp8.decoder", "libstagefright_soft_c2vp8dec.so");
+    emplace("c2.android.vp9.decoder", "libstagefright_soft_c2vp9dec.so");
+    emplace("c2.android.vp8.encoder", "libstagefright_soft_c2vp8enc.so");
+    emplace("c2.android.vp9.encoder", "libstagefright_soft_c2vp9enc.so");
+    emplace("c2.android.raw.decoder", "libstagefright_soft_c2rawdec.so");
+    emplace("c2.android.flac.decoder", "libstagefright_soft_c2flacdec.so");
+    emplace("c2.android.flac.encoder", "libstagefright_soft_c2flacenc.so");
+    emplace("c2.android.gsm.decoder", "libstagefright_soft_c2gsmdec.so");
+    emplace("c2.android.xaac.decoder", "libstagefright_soft_c2xaacdec.so");
+
+    // "Aliases"
+    // TODO: use aliases proper from C2Component::Traits
+    emplace("OMX.google.h264.decoder", "libstagefright_soft_c2avcdec.so");
+    emplace("OMX.google.h264.encoder", "libstagefright_soft_c2avcenc.so");
+    emplace("OMX.google.aac.decoder", "libstagefright_soft_c2aacdec.so");
+    emplace("OMX.google.aac.encoder", "libstagefright_soft_c2aacenc.so");
+    emplace("OMX.google.amrnb.decoder", "libstagefright_soft_c2amrnbdec.so");
+    emplace("OMX.google.amrnb.encoder", "libstagefright_soft_c2amrnbenc.so");
+    emplace("OMX.google.amrwb.decoder", "libstagefright_soft_c2amrwbdec.so");
+    emplace("OMX.google.amrwb.encoder", "libstagefright_soft_c2amrwbenc.so");
+    emplace("OMX.google.hevc.decoder", "libstagefright_soft_c2hevcdec.so");
+    emplace("OMX.google.g711.alaw.decoder", "libstagefright_soft_c2g711alawdec.so");
+    emplace("OMX.google.g711.mlaw.decoder", "libstagefright_soft_c2g711mlawdec.so");
+    emplace("OMX.google.mpeg2.decoder", "libstagefright_soft_c2mpeg2dec.so");
+    emplace("OMX.google.h263.decoder", "libstagefright_soft_c2h263dec.so");
+    emplace("OMX.google.h263.encoder", "libstagefright_soft_c2h263enc.so");
+    emplace("OMX.google.mpeg4.decoder", "libstagefright_soft_c2mpeg4dec.so");
+    emplace("OMX.google.mpeg4.encoder", "libstagefright_soft_c2mpeg4enc.so");
+    emplace("OMX.google.mp3.decoder", "libstagefright_soft_c2mp3dec.so");
+    emplace("OMX.google.vorbis.decoder", "libstagefright_soft_c2vorbisdec.so");
+    emplace("OMX.google.opus.decoder", "libstagefright_soft_c2opusdec.so");
+    emplace("OMX.google.vp8.decoder", "libstagefright_soft_c2vp8dec.so");
+    emplace("OMX.google.vp9.decoder", "libstagefright_soft_c2vp9dec.so");
+    emplace("OMX.google.vp8.encoder", "libstagefright_soft_c2vp8enc.so");
+    emplace("OMX.google.vp9.encoder", "libstagefright_soft_c2vp9enc.so");
+    emplace("OMX.google.raw.decoder", "libstagefright_soft_c2rawdec.so");
+    emplace("OMX.google.flac.decoder", "libstagefright_soft_c2flacdec.so");
+    emplace("OMX.google.flac.encoder", "libstagefright_soft_c2flacenc.so");
+    emplace("OMX.google.gsm.decoder", "libstagefright_soft_c2gsmdec.so");
+    emplace("OMX.google.xaac.decoder", "libstagefright_soft_c2xaacdec.so");
 }
 
 c2_status_t C2PlatformComponentStore::copyBuffer(
@@ -824,8 +882,8 @@ c2_status_t C2PlatformComponentStore::config_sm(
 std::vector<std::shared_ptr<const C2Component::Traits>> C2PlatformComponentStore::listComponents() {
     // This method SHALL return within 500ms.
     std::vector<std::shared_ptr<const C2Component::Traits>> list;
-    for (auto &it : mComponents) {
-        ComponentLoader &loader = it.second;
+    for (const C2String &alias : mComponentsList) {
+        ComponentLoader &loader = mComponents.at(alias);
         std::shared_ptr<ComponentModule> module;
         c2_status_t res = loader.fetchModule(&module);
         if (res == C2_OK) {

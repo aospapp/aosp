@@ -29,10 +29,10 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.HandlerThread;
 import android.os.Message;
-import android.provider.Settings;
 import android.util.Log;
 
 import com.android.bluetooth.Utils;
+import com.android.bluetooth.btservice.AdapterService;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.hfpclient.connserv.HfpClientConnectionService;
 
@@ -64,10 +64,6 @@ public class HeadsetClientService extends ProfileService {
 
     public static final String HFP_CLIENT_STOP_TAG = "hfp_client_stop_tag";
 
-    static {
-        NativeInterface.classInitNative();
-    }
-
     @Override
     public IProfileServiceBinder initBinder() {
         return new BluetoothHeadsetClientBinder(this);
@@ -78,8 +74,15 @@ public class HeadsetClientService extends ProfileService {
         if (DBG) {
             Log.d(TAG, "start()");
         }
+        if (sHeadsetClientService != null) {
+            Log.w(TAG, "start(): start called without stop");
+            return false;
+        }
+
         // Setup the JNI service
-        NativeInterface.initializeNative();
+        mNativeInterface = new NativeInterface();
+        mNativeInterface.initializeNative();
+
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         if (mAudioManager == null) {
             Log.e(TAG, "AudioManager service doesn't exist?");
@@ -93,8 +96,6 @@ public class HeadsetClientService extends ProfileService {
 
         IntentFilter filter = new IntentFilter(AudioManager.VOLUME_CHANGED_ACTION);
         registerReceiver(mBroadcastReceiver, filter);
-
-        mNativeInterface = new NativeInterface();
 
         // Start the HfpClientConnectionService to create connection with telecom when HFP
         // connection is available.
@@ -115,6 +116,11 @@ public class HeadsetClientService extends ProfileService {
             Log.w(TAG, "stop() called without start()");
             return false;
         }
+
+        // Stop the HfpClientConnectionService.
+        Intent stopIntent = new Intent(this, HfpClientConnectionService.class);
+        sHeadsetClientService.stopService(stopIntent);
+
         setHeadsetClientService(null);
 
         unregisterReceiver(mBroadcastReceiver);
@@ -127,17 +133,12 @@ public class HeadsetClientService extends ProfileService {
             it.remove();
         }
 
-        // Stop the HfpClientConnectionService.
-        Intent stopIntent = new Intent(this, HfpClientConnectionService.class);
-        stopIntent.putExtra(HFP_CLIENT_STOP_TAG, true);
-        startService(stopIntent);
-        mNativeInterface = null;
-
         // Stop the handler thread
         mSmThread.quit();
         mSmThread = null;
 
-        NativeInterface.cleanupNative();
+        mNativeInterface.cleanupNative();
+        mNativeInterface = null;
 
         return true;
     }
@@ -537,20 +538,18 @@ public class HeadsetClientService extends ProfileService {
 
     public boolean setPriority(BluetoothDevice device, int priority) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        Settings.Global.putInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()), priority);
         if (DBG) {
             Log.d(TAG, "Saved priority " + device + " = " + priority);
         }
+        AdapterService.getAdapterService().getDatabase()
+                .setProfilePriority(device, BluetoothProfile.HEADSET_CLIENT, priority);
         return true;
     }
 
     public int getPriority(BluetoothDevice device) {
         enforceCallingOrSelfPermission(BLUETOOTH_ADMIN_PERM, "Need BLUETOOTH_ADMIN permission");
-        int priority = Settings.Global.getInt(getContentResolver(),
-                Settings.Global.getBluetoothHeadsetPriorityKey(device.getAddress()),
-                BluetoothProfile.PRIORITY_UNDEFINED);
-        return priority;
+        return AdapterService.getAdapterService().getDatabase()
+                .getProfilePriority(device, BluetoothProfile.HEADSET_CLIENT);
     }
 
     boolean startVoiceRecognition(BluetoothDevice device) {
@@ -914,8 +913,6 @@ public class HeadsetClientService extends ProfileService {
         super.dump(sb);
         for (HeadsetClientStateMachine sm : mStateMachineMap.values()) {
             if (sm != null) {
-                println(sb, "State machine:");
-                println(sb, "=============");
                 sm.dump(sb);
             }
         }
@@ -930,7 +927,7 @@ public class HeadsetClientService extends ProfileService {
         mSmFactory = factory;
     }
 
-    AudioManager getAudioManager() {
+    protected AudioManager getAudioManager() {
         return mAudioManager;
     }
 }

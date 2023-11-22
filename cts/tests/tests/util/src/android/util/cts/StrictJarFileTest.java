@@ -22,25 +22,26 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import android.system.ErrnoException;
+import android.system.Os;
 import android.system.OsConstants;
 import android.util.jar.StrictJarFile;
 
-import libcore.io.IoBridge;
-import libcore.io.Streams;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.zip.ZipEntry;
@@ -91,8 +92,8 @@ public class StrictJarFileTest {
     @Test
     public void testConstructor_FD() throws Exception {
         copyFile(JAR_1);
-        FileDescriptor fd = IoBridge.open(
-                new File(mResourcesFile, JAR_1).getAbsolutePath(), OsConstants.O_RDONLY);
+        FileDescriptor fd = createReadOnlyFileDescriptor(
+                new File(mResourcesFile, JAR_1).getAbsolutePath());
         StrictJarFile jarFile = new StrictJarFile(fd);
         jarFile.close();
     }
@@ -108,8 +109,8 @@ public class StrictJarFileTest {
     @Test
     public void testIteration_FD() throws Exception {
         copyFile(JAR_1);
-        FileDescriptor fd = IoBridge.open(
-                new File(mResourcesFile, JAR_1).getAbsolutePath(), OsConstants.O_RDONLY);
+        FileDescriptor fd = createReadOnlyFileDescriptor(
+                new File(mResourcesFile, JAR_1).getAbsolutePath());
         StrictJarFile jarFile = new StrictJarFile(fd);
         checkIteration(jarFile);
     }
@@ -136,8 +137,7 @@ public class StrictJarFileTest {
         assertEquals(4, ze.getSize());
         assertEquals(ZipEntry.DEFLATED, ze.getMethod());
         assertEquals(6, ze.getCompressedSize());
-        assertEquals("Blah", new String(Streams.readFully(jarFile.getInputStream(ze)),
-                Charset.forName("UTF-8")));
+        assertEquals("Blah", readUtf8String(jarFile.getInputStream(ze)));
 
         assertTrue(entries.containsKey("foo/"));
         assertTrue(entries.containsKey("foo/bar/"));
@@ -159,8 +159,8 @@ public class StrictJarFileTest {
     @Test
     public void testFindEntry_FD() throws Exception {
         copyFile(JAR_1);
-        FileDescriptor fd = IoBridge.open(
-                new File(mResourcesFile, JAR_1).getAbsolutePath(), OsConstants.O_RDONLY);
+        FileDescriptor fd = createReadOnlyFileDescriptor(
+                new File(mResourcesFile, JAR_1).getAbsolutePath());
         StrictJarFile jarFile = new StrictJarFile(fd);
         checkFindEntry(jarFile);
     }
@@ -173,8 +173,7 @@ public class StrictJarFileTest {
         assertEquals(4, ze.getSize());
         assertEquals(ZipEntry.DEFLATED, ze.getMethod());
         assertEquals(6, ze.getCompressedSize());
-        assertEquals("Blah", new String(Streams.readFully(jarFile.getInputStream(ze)),
-                Charset.forName("UTF-8")));
+        assertEquals("Blah", readUtf8String(jarFile.getInputStream(ze)));
     }
 
     @Test
@@ -188,8 +187,8 @@ public class StrictJarFileTest {
     @Test
     public void testGetManifest_FD() throws Exception {
         copyFile(JAR_1);
-        FileDescriptor fd = IoBridge.open(
-                new File(mResourcesFile, JAR_1).getAbsolutePath(), OsConstants.O_RDONLY);
+        FileDescriptor fd = createReadOnlyFileDescriptor(
+                new File(mResourcesFile, JAR_1).getAbsolutePath());
         StrictJarFile jarFile = new StrictJarFile(fd);
         checkGetManifest(jarFile);
     }
@@ -211,9 +210,8 @@ public class StrictJarFileTest {
     @Test
     public void testJarSigning_wellFormed_FD() throws IOException {
         copyFile("Integrate.jar");
-        FileDescriptor fd = IoBridge.open(
-                new File(mResourcesFile, "Integrate.jar").getAbsolutePath(),
-                        OsConstants.O_RDONLY);
+        FileDescriptor fd = createReadOnlyFileDescriptor(
+                new File(mResourcesFile, "Integrate.jar").getAbsolutePath());
         StrictJarFile jarFile = new StrictJarFile(fd);
         checkJarSigning_wellFormed(jarFile);
     }
@@ -241,9 +239,8 @@ public class StrictJarFileTest {
     @Test
     public void testJarSigning_fudgedEntry_FD() throws IOException {
         copyFile("Integrate.jar");
-        FileDescriptor fd = IoBridge.open(
-                new File(mResourcesFile, "Integrate.jar").getAbsolutePath(),
-                        OsConstants.O_RDONLY);
+        FileDescriptor fd = createReadOnlyFileDescriptor(
+                new File(mResourcesFile, "Integrate.jar").getAbsolutePath());
         StrictJarFile jarFile = new StrictJarFile(fd);
         checkJarSigning_fudgedEntry(jarFile);
     }
@@ -272,9 +269,8 @@ public class StrictJarFileTest {
     @Test
     public void testJarSigning_modifiedClass_FD() throws IOException {
         copyFile("Modified_Class.jar");
-        FileDescriptor fd = IoBridge.open(
-                new File(mResourcesFile, "Modified_Class.jar").getAbsolutePath(),
-                        OsConstants.O_RDONLY);
+        FileDescriptor fd = createReadOnlyFileDescriptor(
+                new File(mResourcesFile, "Modified_Class.jar").getAbsolutePath());
         StrictJarFile jarFile = new StrictJarFile(fd);
         checkJarSigning_modifiedClass(jarFile);
     }
@@ -340,14 +336,32 @@ public class StrictJarFileTest {
 
     private void verifyThrowsOnInitFD(String name) throws Exception {
         copyFile(name);
-        FileDescriptor fd = IoBridge.open(
-                new File(mResourcesFile, name).getAbsolutePath(),
-                        OsConstants.O_RDONLY);
+        FileDescriptor fd = createReadOnlyFileDescriptor(
+                new File(mResourcesFile, name).getAbsolutePath());
         try {
             new StrictJarFile(fd);
             fail();
         } catch (SecurityException expected) {
         }
+    }
+
+    private static FileDescriptor createReadOnlyFileDescriptor(String path) throws IOException {
+        final int mode = 0;
+        try {
+            return Os.open(path, OsConstants.O_RDONLY, mode);
+        } catch (ErrnoException e) {
+            throw new IOException(e);
+        }
+    }
+
+    private static String readUtf8String(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
+        byte[] readBuffer = new byte[128];
+        int byteCount;
+        while ((byteCount = inputStream.read(readBuffer)) != -1) {
+            baos.write(readBuffer, 0, byteCount);
+        }
+        return new String(baos.toByteArray(), StandardCharsets.UTF_8);
     }
 
     private File copyFile(String file) {

@@ -1,0 +1,42 @@
+on fs
+    mount_all /vendor/etc/fstab.ranchu
+
+on early-init
+    mount debugfs debugfs /sys/kernel/debug mode=755
+
+on init
+    symlink /dev/goldfish_pipe /dev/android_pipe
+    symlink /dev/goldfish_pipe /dev/qemu_pipe
+
+on post-fs-data
+    # nothing
+
+on zygote-start
+    # nothing
+
+on boot
+    start goldfish-logcat
+
+on property:vendor.qemu.timezone=*
+    setprop persist.sys.timezone ${vendor.qemu.timezone}
+
+on property:dev.bootcomplete=1
+    setprop vendor.qemu.dev.bootcomplete 1
+
+service qemu-props /vendor/bin/qemu-props
+    class core
+    user root
+    group root
+    oneshot
+
+service goldfish-logcat /system/bin/logcat -Q
+    user logd
+    group log
+    oneshot
+
+service bugreport /system/bin/dumpstate -d -p -B -z \
+        -o /data/user_de/0/com.android.shell/files/bugreports/bugreport
+    class main
+    disabled
+    oneshot
+    keycodes 114 115 116

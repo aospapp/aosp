@@ -30,9 +30,12 @@ import sock_diag
 
 libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
 HAVE_EBPF_ACCOUNTING = net_test.LINUX_VERSION >= (4, 9, 0)
+HAVE_EBPF_SOCKET = net_test.LINUX_VERSION >= (4, 14, 0)
 KEY_SIZE = 8
 VALUE_SIZE = 4
 TOTAL_ENTRIES = 20
+TEST_UID = 54321
+TEST_GID = 12345
 # Offset to store the map key in stack register REG10
 key_offset = -8
 # Offset to store the map value in stack register REG10
@@ -300,7 +303,7 @@ class BpfTest(net_test.NetworkTest):
                      + INS_SK_FILTER_ACCEPT)
     self.prog_fd = BpfProgLoad(BPF_PROG_TYPE_SOCKET_FILTER, instructions)
     packet_count = 10
-    uid = 12345
+    uid = TEST_UID
     with net_test.RunAsUid(uid):
       self.assertRaisesErrno(errno.ENOENT, LookupMap, self.map_fd, uid)
       SocketUDPLoopBack(packet_count, 4, self.prog_fd)
@@ -349,6 +352,10 @@ class BpfCgroupTest(net_test.NetworkTest):
       BpfProgDetach(self._cg_fd, BPF_CGROUP_INET_INGRESS)
     except socket.error:
       pass
+    try:
+      BpfProgDetach(self._cg_fd, BPF_CGROUP_INET_SOCK_CREATE)
+    except socket.error:
+      pass
 
   def testCgroupBpfAttach(self):
     self.prog_fd = BpfProgLoad(BPF_PROG_TYPE_CGROUP_SKB, INS_BPF_EXIT_BLOCK)
@@ -385,14 +392,55 @@ class BpfCgroupTest(net_test.NetworkTest):
                      + INS_CGROUP_ACCEPT + INS_PACK_COUNT_UPDATE + INS_CGROUP_ACCEPT)
     self.prog_fd = BpfProgLoad(BPF_PROG_TYPE_CGROUP_SKB, instructions)
     BpfProgAttach(self.prog_fd, self._cg_fd, BPF_CGROUP_INET_INGRESS)
-    uid = os.getuid()
     packet_count = 20
-    SocketUDPLoopBack(packet_count, 4, None)
-    self.assertEquals(packet_count, LookupMap(self.map_fd, uid).value)
-    DeleteMap(self.map_fd, uid);
-    SocketUDPLoopBack(packet_count, 6, None)
-    self.assertEquals(packet_count, LookupMap(self.map_fd, uid).value)
+    uid = TEST_UID
+    with net_test.RunAsUid(uid):
+      self.assertRaisesErrno(errno.ENOENT, LookupMap, self.map_fd, uid)
+      SocketUDPLoopBack(packet_count, 4, None)
+      self.assertEquals(packet_count, LookupMap(self.map_fd, uid).value)
+      DeleteMap(self.map_fd, uid)
+      SocketUDPLoopBack(packet_count, 6, None)
+      self.assertEquals(packet_count, LookupMap(self.map_fd, uid).value)
     BpfProgDetach(self._cg_fd, BPF_CGROUP_INET_INGRESS)
+
+  def checkSocketCreate(self, family, socktype, success):
+    try:
+      sock = socket.socket(family, socktype, 0)
+      sock.close()
+    except socket.error, e:
+      if success:
+        self.fail("Failed to create socket family=%d type=%d err=%s" %
+                  (family, socktype, os.strerror(e.errno)))
+      return;
+    if not success:
+      self.fail("unexpected socket family=%d type=%d created, should be blocked" %
+                (family, socktype))
+
+
+  def trySocketCreate(self, success):
+      for family in [socket.AF_INET, socket.AF_INET6]:
+        for socktype in [socket.SOCK_DGRAM, socket.SOCK_STREAM]:
+          self.checkSocketCreate(family, socktype, success)
+
+  @unittest.skipUnless(HAVE_EBPF_SOCKET,
+                     "Cgroup BPF socket is not supported")
+  def testCgroupSocketCreateBlock(self):
+    instructions = [
+        BpfFuncCall(BPF_FUNC_get_current_uid_gid),
+        BpfAlu64Imm(BPF_AND, BPF_REG_0, 0xfffffff),
+        BpfJumpImm(BPF_JNE, BPF_REG_0, TEST_UID, 2),
+    ]
+    instructions += INS_BPF_EXIT_BLOCK + INS_CGROUP_ACCEPT;
+    self.prog_fd = BpfProgLoad(BPF_PROG_TYPE_CGROUP_SOCK, instructions)
+    BpfProgAttach(self.prog_fd, self._cg_fd, BPF_CGROUP_INET_SOCK_CREATE)
+    with net_test.RunAsUid(TEST_UID):
+      # Socket creation with target uid should fail
+      self.trySocketCreate(False);
+    # Socket create with different uid should success
+    self.trySocketCreate(True)
+    BpfProgDetach(self._cg_fd, BPF_CGROUP_INET_SOCK_CREATE)
+    with net_test.RunAsUid(TEST_UID):
+      self.trySocketCreate(True)
 
 if __name__ == "__main__":
   unittest.main()

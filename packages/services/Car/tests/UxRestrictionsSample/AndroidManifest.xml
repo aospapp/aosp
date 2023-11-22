@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2017 The Android Open Source Project
+<!-- Copyright (C) 2018 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -14,16 +14,24 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.google.android.car.uxr.sample" android:sharedUserId="android.uid.system">
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.google.android.car.uxr.sample"
+          android:sharedUserId="android.uid.system">
 
-    <uses-permission android:name="android.car.permission.CAR_DRIVING_STATE" />
+    <uses-permission android:name="android.car.permission.CAR_DRIVING_STATE"/>
 
-    <application android:label="UxRestrictions Sample">
-        <activity android:name=".MainActivity">
+    <application android:label="UxRestrictions Sample"
+                 android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+                 tools:replace="android:appComponentFactory">
+        <activity android:name=".MainActivity" android:theme="@style/AppTheme" android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
+        <activity android:name=".SampleMessageActivity"
+                  android:theme="@style/AppTheme">
             <meta-data android:name="distractionOptimized" android:value="true"/>
         </activity>
     </application>

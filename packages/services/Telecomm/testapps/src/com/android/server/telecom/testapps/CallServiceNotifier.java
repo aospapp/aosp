@@ -19,6 +19,7 @@ package com.android.server.telecom.testapps;
 import com.android.server.telecom.testapps.R;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -26,6 +27,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.Icon;
+import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.PhoneAccount;
@@ -45,6 +47,7 @@ import java.util.Map;
  */
 public class CallServiceNotifier {
     private static final CallServiceNotifier INSTANCE = new CallServiceNotifier();
+    private static final String CHANNEL_ID = "channel1";
 
     public static final String CALL_PROVIDER_ID = "testapps_TestConnectionService_CALL_PROVIDER_ID";
     public static final String SIM_SUBSCRIPTION_ID =
@@ -86,6 +89,9 @@ public class CallServiceNotifier {
      */
     public void updateNotification(Context context) {
         log("adding the notification ------------");
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Test Channel",
+                NotificationManager.IMPORTANCE_DEFAULT);
+        getNotificationManager(context).createNotificationChannel(channel);
         getNotificationManager(context).notify(CALL_NOTIFICATION_ID, getMainNotification(context));
         getNotificationManager(context).notify(
                 PHONE_ACCOUNT_NOTIFICATION_ID, getPhoneAccountNotification(context));
@@ -219,7 +225,7 @@ public class CallServiceNotifier {
      * Creates a notification object for using the telecom APIs.
      */
     private Notification getPhoneAccountNotification(Context context) {
-        final Notification.Builder builder = new Notification.Builder(context);
+        final Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID);
         // Both notifications have buttons and only the first one with buttons will show its
         // buttons.  Since the phone accounts notification is always first, setting false ensures
         // it can be dismissed to use the other notification.
@@ -244,7 +250,7 @@ public class CallServiceNotifier {
      * Creates a notification object out of the current calls state.
      */
     private Notification getMainNotification(Context context) {
-        final Notification.Builder builder = new Notification.Builder(context);
+        final Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID);
         builder.setOngoing(true);
         builder.setPriority(Notification.PRIORITY_HIGH);
         builder.setSmallIcon(android.R.drawable.stat_sys_phone_call);

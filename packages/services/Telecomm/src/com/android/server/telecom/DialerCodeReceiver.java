@@ -19,8 +19,11 @@ package com.android.server.telecom;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.UserHandle;
 import android.telecom.Log;
 import android.telecom.TelecomManager;
+
+import com.android.server.telecom.ui.TelecomDeveloperMenu;
 
 /**
  * Receiver for "secret codes" broadcast by Dialer.
@@ -37,6 +40,9 @@ public class DialerCodeReceiver extends BroadcastReceiver {
 
     // Writes a MARK to the Telecom log.
     public static final String TELECOM_SECRET_CODE_MARK = "826275";
+
+    // Opens the Telecom developer menu.
+    public static final String TELECOM_SECRET_CODE_MENU = "828282";
 
     private final CallsManager mCallsManager;
 
@@ -61,6 +67,11 @@ public class DialerCodeReceiver extends BroadcastReceiver {
                 // add a non-call event.
                 Call currentCall = mCallsManager.getActiveCall();
                 Log.addEvent(currentCall, LogUtils.Events.USER_LOG_MARK);
+            } else if (intent.getData().getHost().equals(TELECOM_SECRET_CODE_MENU)) {
+                Log.i("DialerCodeReceiver", "Secret code used to open developer menu.");
+                Intent confirmIntent = new Intent(context, TelecomDeveloperMenu.class);
+                confirmIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivityAsUser(confirmIntent, UserHandle.CURRENT);
             }
         }
     }

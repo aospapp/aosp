@@ -81,16 +81,16 @@ public final class NioBufferIterator extends BufferIterator {
 
     public int readInt() {
         file.checkNotClosed();
-        checkReadBounds(position, length, SizeOf.INT);
+        checkReadBounds(position, length, Integer.BYTES);
         int result = Memory.peekInt(address + position, swap);
-        position += SizeOf.INT;
+        position += Integer.BYTES;
         return result;
     }
 
     public void readIntArray(int[] dst, int dstOffset, int intCount) {
         checkDstBounds(dstOffset, dst.length, intCount);
         file.checkNotClosed();
-        final int byteCount = SizeOf.INT * intCount;
+        final int byteCount = Integer.BYTES * intCount;
         checkReadBounds(position, length, byteCount);
         Memory.peekIntArray(address + position, dst, dstOffset, intCount, swap);
         position += byteCount;
@@ -98,9 +98,9 @@ public final class NioBufferIterator extends BufferIterator {
 
     public short readShort() {
         file.checkNotClosed();
-        checkReadBounds(position, length, SizeOf.SHORT);
+        checkReadBounds(position, length, Short.BYTES);
         short result = Memory.peekShort(address + position, swap);
-        position += SizeOf.SHORT;
+        position += Short.BYTES;
         return result;
     }
 

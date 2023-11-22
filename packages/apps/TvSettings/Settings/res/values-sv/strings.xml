@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrering"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Välj format"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Surroundljud"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"En del appar fungerar dåligt eller är inte tillgängliga alls tills du ansluter enheten igen."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Det finns inte tillräckligt med lagringsutrymme."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Appen finns inte."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Appen är kopieringsskyddad."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Installationsplatsen är inte giltig."</string>
     <string name="system_package" msgid="9200255718634512790">"Det går inte att installera systemuppdateringar på externa media."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Det går inte att installera enhetsadministratören på externa lagringsmedier."</string>
@@ -492,8 +491,8 @@
     <string name="system_show_hardware_layer" msgid="7301942527058509453">"Visa maskinvaruskikt"</string>
     <string name="system_show_gpu_overdraw" msgid="707861254106800199">"Visa GPU-överritning"</string>
     <string name="system_show_surface_updates" msgid="8878834675712192327">"Visa ytuppdateringar"</string>
-    <string name="system_window_animation_scale" msgid="3213952676672537856">"Skala för fönsteranimering"</string>
-    <string name="system_transition_animation_scale" msgid="2964817709721784757">"Skala för övergångsanimering"</string>
+    <string name="system_window_animation_scale" msgid="3213952676672537856">"Skala – fönsteranimering"</string>
+    <string name="system_transition_animation_scale" msgid="2964817709721784757">"Skala – övergångsanimering"</string>
     <string name="system_animator_duration_scale" msgid="7413512458963984521">"Längdskala för Animator"</string>
     <string name="system_strict_mode_enabled" msgid="5728680397806673270">"Strikt läge aktiverat"</string>
     <string name="system_profile_gpu_rendering" msgid="3438771015102629799">"Profilens GPU-rendering"</string>
@@ -729,8 +728,11 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Åtkomst till aviseringar"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Inga installerade appar har begärt åtkomst till aviseringar."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Dessa appar kan läsa alla aviseringar, inklusive personliga uppgifter som namn på kontaktpersoner och text i mottagna meddelanden. De kan även stänga aviseringar och aktivera åtgärdsknappar i dem."</string>
-    <string name="system_alert_window_settings" msgid="2069031369694448339">"Visa över andra appar"</string>
-    <string name="permit_draw_overlay" msgid="2400084757761408906">"Tillåt visning över andra appar"</string>
+    <string name="directory_access" msgid="7439168599298598101">"Katalogåtkomst"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Dessa appar har åtkomst till vissa kataloger."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
+    <string name="system_alert_window_settings" msgid="2069031369694448339">"Visa ovanpå andra appar"</string>
+    <string name="permit_draw_overlay" msgid="2400084757761408906">"Tillåt visning ovanpå andra appar"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Tillåt att en app visas ovanpå andra appar. Detta kan inverka på ett störande sätt på användningen av de andra apparna eller göra så att de verkar se ut eller fungera annorlunda."</string>
     <string name="write_system_settings" msgid="2730923656857824907">"Ändra systeminställningar"</string>
     <string name="write_settings_title" msgid="8750406725746598710">"Kan ändra systeminställningar"</string>

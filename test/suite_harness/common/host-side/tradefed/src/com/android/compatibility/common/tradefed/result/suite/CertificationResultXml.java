@@ -31,12 +31,12 @@ import java.io.IOException;
  */
 public class CertificationResultXml extends XmlSuiteResultFormatter {
 
+    public static final String SUITE_PLAN_ATTR = "suite_plan";
     private static final String LOG_URL_ATTR = "log_url";
     private static final String REPORT_VERSION_ATTR = "report_version";
     private static final String REFERENCE_URL_ATTR = "reference_url";
     private static final String RESULT_FILE_VERSION = "5.0";
     private static final String SUITE_NAME_ATTR = "suite_name";
-    private static final String SUITE_PLAN_ATTR = "suite_plan";
     private static final String SUITE_VERSION_ATTR = "suite_version";
     private static final String SUITE_BUILD_ATTR = "suite_build_number";
 
@@ -46,6 +46,11 @@ public class CertificationResultXml extends XmlSuiteResultFormatter {
     private String mSuiteBuild;
     private String mReferenceUrl;
     private String mLogUrl;
+
+    /**
+     * Empty version of the constructor when loading results.
+     */
+    public CertificationResultXml() {}
 
     /**
      * Create an XML report specialized for the Compatibility Test cases.
@@ -89,12 +94,25 @@ public class CertificationResultXml extends XmlSuiteResultFormatter {
     public void parseSuiteAttributes(XmlPullParser parser, IInvocationContext context)
             throws XmlPullParserException {
         mSuiteName = parser.getAttributeValue(NS, SUITE_NAME_ATTR);
+        context.addInvocationAttribute(SUITE_NAME_ATTR, mSuiteName);
+
         mSuiteVersion = parser.getAttributeValue(NS, SUITE_VERSION_ATTR);
+        context.addInvocationAttribute(SUITE_VERSION_ATTR, mSuiteVersion);
+
         mSuitePlan = parser.getAttributeValue(NS, SUITE_PLAN_ATTR);
+        context.addInvocationAttribute(SUITE_PLAN_ATTR, mSuitePlan);
+
         mSuiteBuild = parser.getAttributeValue(NS, SUITE_BUILD_ATTR);
+        context.addInvocationAttribute(SUITE_BUILD_ATTR, mSuiteBuild);
 
         mReferenceUrl = parser.getAttributeValue(NS, REFERENCE_URL_ATTR);
+        if (mReferenceUrl != null) {
+            context.addInvocationAttribute(REFERENCE_URL_ATTR, mReferenceUrl);
+        }
         mLogUrl = parser.getAttributeValue(NS, LOG_URL_ATTR);
+        if (mLogUrl != null) {
+            context.addInvocationAttribute(LOG_URL_ATTR, mLogUrl);
+        }
     }
 
     /**
@@ -110,6 +128,19 @@ public class CertificationResultXml extends XmlSuiteResultFormatter {
                     serializer.attribute(NS, newKey, build.getBuildAttributes().get(key));
                 }
             }
+        }
+    }
+
+    /**
+     * Parse the information in 'Build' tag.
+     */
+    @Override
+    public void parseBuildInfoAttributes(XmlPullParser parser, IInvocationContext context)
+            throws XmlPullParserException {
+        for (int index = 0; index < parser.getAttributeCount(); index++) {
+            String key = parser.getAttributeName(index);
+            String value = parser.getAttributeValue(NS, key);
+            context.addInvocationAttribute(key, value);
         }
     }
 

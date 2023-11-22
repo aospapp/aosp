@@ -19,9 +19,8 @@
   <option name="test-tag" value="vts-star" />
   <option name="vts-plan-result:plan-name" value="vts-hal-tv" />
 
+  <option name="compatibility:module-metadata-include-filter" key="plan" value="vts-hal-tv" />
+
   <option name="compatibility:test-arg" value="com.android.tradefed.testtype.VtsMultiDeviceTest:gtest-batch-mode:true" />
-  <option name="compatibility:include-filter" value="VtsHalTvCecV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalTvInputV1_0Host" />
-  <option name="compatibility:include-filter" value="VtsHalTvInputV1_0Target" />
 
 </configuration>

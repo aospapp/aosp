@@ -24,6 +24,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ResolveInfo;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.database.Cursor;
@@ -37,13 +38,12 @@ import android.provider.ContactsContract.Groups;
 import android.provider.ContactsContract.RawContacts;
 import android.text.TextUtils;
 import android.util.Log;
-
 import com.android.contacts.GeoUtil;
 import com.android.contacts.GroupMetaDataLoader;
 import com.android.contacts.compat.CompatUtils;
 import com.android.contacts.group.GroupMetaData;
 import com.android.contacts.model.account.AccountType;
-import com.android.contacts.model.account.AccountTypeWithDataSet;
+import com.android.contacts.model.account.GoogleAccountType;
 import com.android.contacts.model.dataitem.DataItem;
 import com.android.contacts.model.dataitem.PhoneDataItem;
 import com.android.contacts.model.dataitem.PhotoDataItem;
@@ -51,17 +51,10 @@ import com.android.contacts.util.Constants;
 import com.android.contacts.util.ContactLoaderUtils;
 import com.android.contacts.util.DataStatus;
 import com.android.contacts.util.UriUtils;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -70,9 +63,11 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Loads a single Contact and all it constituent RawContacts.
@@ -187,9 +182,6 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
                 Contacts.SEND_TO_VOICEMAIL,
                 Contacts.CUSTOM_RINGTONE,
                 Contacts.IS_USER_PROFILE,
-
-                Data.TIMES_USED,
-                Data.LAST_TIME_USED
         };
 
         static final String[] COLUMNS;
@@ -270,9 +262,7 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         public static final int CUSTOM_RINGTONE = 60;
         public static final int IS_USER_PROFILE = 61;
 
-        public static final int TIMES_USED = 62;
-        public static final int LAST_TIME_USED = 63;
-        public static final int CARRIER_PRESENCE = 64;
+        public static final int CARRIER_PRESENCE = 62;
     }
 
     /**
@@ -681,8 +671,6 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
         cursorColumnToContentValues(cursor, cv, ContactQuery.MIMETYPE);
         cursorColumnToContentValues(cursor, cv, ContactQuery.GROUP_SOURCE_ID);
         cursorColumnToContentValues(cursor, cv, ContactQuery.CHAT_CAPABILITY);
-        cursorColumnToContentValues(cursor, cv, ContactQuery.TIMES_USED);
-        cursorColumnToContentValues(cursor, cv, ContactQuery.LAST_TIME_USED);
         if (CompatUtils.isMarshmallowCompatible()) {
             cursorColumnToContentValues(cursor, cv, ContactQuery.CARRIER_PRESENCE);
         }
@@ -895,13 +883,34 @@ public class ContactLoader extends AsyncTaskLoader<Contact> {
             mNotifiedRawContactIds.add(rawContactId);
             final AccountType accountType = rawContact.getAccountType(context);
             final String serviceName = accountType.getViewContactNotifyServiceClassName();
-            final String servicePackageName = accountType.getViewContactNotifyServicePackageName();
+            final String servicePackageName = accountType
+                .getViewContactNotifyServicePackageName();
             if (!TextUtils.isEmpty(serviceName) && !TextUtils.isEmpty(servicePackageName)) {
                 final Uri uri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawContactId);
                 final Intent intent = new Intent();
+                intent.setDataAndType(uri, RawContacts.CONTENT_ITEM_TYPE);
+                if (accountType instanceof GoogleAccountType) {
+                    intent.setPackage(servicePackageName);
+                    intent
+                        .setAction("com.google.android.syncadapters.contacts.SYNC_HIGH_RES_PHOTO");
+                    List<ResolveInfo> broadcastReceivers =
+                        context.getPackageManager().queryBroadcastReceivers(intent, 0);
+                    if (!broadcastReceivers.isEmpty()) {
+                        if (Log.isLoggable(TAG, Log.DEBUG)) {
+                            for (ResolveInfo broadcastReceiver : broadcastReceivers) {
+                                Log.d(TAG, broadcastReceiver.activityInfo.toString());
+                            }
+                        }
+                        context.sendBroadcast(intent);
+                        continue;
+                    }
+                }
+                // TODO: Social Stream API is deprecated, and once the opted-in
+                // sync adapters target Android O+, we won't be able to start their services
+                // since they'll likely be in the background, so we'll need to remove the
+                // startService call.
                 intent.setClassName(servicePackageName, serviceName);
                 intent.setAction(Intent.ACTION_VIEW);
-                intent.setDataAndType(uri, RawContacts.CONTENT_ITEM_TYPE);
                 try {
                     context.startService(intent);
                 } catch (Exception e) {

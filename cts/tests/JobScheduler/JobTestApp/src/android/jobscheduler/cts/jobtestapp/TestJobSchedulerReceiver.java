@@ -34,6 +34,8 @@ public class TestJobSchedulerReceiver extends BroadcastReceiver {
 
     public static final String EXTRA_JOB_ID_KEY = PACKAGE_NAME + ".extra.JOB_ID";
     public static final String EXTRA_ALLOW_IN_IDLE = PACKAGE_NAME + ".extra.ALLOW_IN_IDLE";
+    public static final String EXTRA_REQUIRE_NETWORK_ANY = PACKAGE_NAME
+            + ".extra.REQUIRE_NETWORK_ANY";
     public static final String ACTION_SCHEDULE_JOB = PACKAGE_NAME + ".action.SCHEDULE_JOB";
     public static final String ACTION_CANCEL_JOBS = PACKAGE_NAME + ".action.CANCEL_JOBS";
     public static final int JOB_INITIAL_BACKOFF = 10_000;
@@ -50,10 +52,14 @@ public class TestJobSchedulerReceiver extends BroadcastReceiver {
             case ACTION_SCHEDULE_JOB:
                 final int jobId = intent.getIntExtra(EXTRA_JOB_ID_KEY, hashCode());
                 final boolean allowInIdle = intent.getBooleanExtra(EXTRA_ALLOW_IN_IDLE, false);
+                final boolean network = intent.getBooleanExtra(EXTRA_REQUIRE_NETWORK_ANY, false);
                 JobInfo.Builder jobBuilder = new JobInfo.Builder(jobId, jobServiceComponent)
                         .setBackoffCriteria(JOB_INITIAL_BACKOFF, JobInfo.BACKOFF_POLICY_LINEAR)
                         .setOverrideDeadline(0)
                         .setImportantWhileForeground(allowInIdle);
+                if (network) {
+                    jobBuilder = jobBuilder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY);
+                }
                 final int result = jobScheduler.schedule(jobBuilder.build());
                 if (result != JobScheduler.RESULT_SUCCESS) {
                     Log.e(TAG, "Could not schedule job " + jobId);

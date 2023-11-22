@@ -95,6 +95,15 @@ import java.util.UUID;
         Entry entry = new Entry();
         entry.type = TYPE_SOLICIT_UUID;
         entry.uuid = uuid;
+        entry.uuid_mask = new UUID(0, 0);
+        mEntries.add(entry);
+    }
+
+    void addSolicitUuid(UUID uuid, UUID uuidMask) {
+        Entry entry = new Entry();
+        entry.type = TYPE_SOLICIT_UUID;
+        entry.uuid = uuid;
+        entry.uuid_mask = uuidMask;
         mEntries.add(entry);
     }
 
@@ -177,6 +186,14 @@ import java.util.UUID;
                 addUuid(filter.getServiceUuid().getUuid());
             } else {
                 addUuid(filter.getServiceUuid().getUuid(), filter.getServiceUuidMask().getUuid());
+            }
+        }
+        if (filter.getServiceSolicitationUuid() != null) {
+            if (filter.getServiceSolicitationUuidMask() == null) {
+                addSolicitUuid(filter.getServiceSolicitationUuid().getUuid());
+            } else {
+                addSolicitUuid(filter.getServiceSolicitationUuid().getUuid(),
+                        filter.getServiceSolicitationUuidMask().getUuid());
             }
         }
         if (filter.getManufacturerData() != null) {

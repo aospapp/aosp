@@ -15,17 +15,18 @@
  */
 package com.android.car;
 
+import static com.android.dx.mockito.inline.extended.ExtendedMockito.spyOn;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.doReturn;
 
 import android.car.Car;
 import android.car.test.CarTestManager;
 import android.car.test.CarTestManagerBinderWrapper;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.ServiceConnection;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
@@ -34,10 +35,11 @@ import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
 import android.util.Log;
 import android.util.SparseArray;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
 
 import com.android.car.pm.CarPackageManagerService;
 import com.android.car.systeminterface.DisplayInterface;
@@ -48,7 +50,6 @@ import com.android.car.systeminterface.SystemInterface.Builder;
 import com.android.car.systeminterface.SystemStateInterface;
 import com.android.car.systeminterface.TimeInterface;
 import com.android.car.systeminterface.WakeLockInterface;
-import com.android.car.test.CarServiceTestApp;
 import com.android.car.test.utils.TemporaryDirectory;
 import com.android.car.vehiclehal.test.MockedVehicleHal;
 import com.android.car.vehiclehal.test.MockedVehicleHal.DefaultPropertyHandler;
@@ -79,7 +80,7 @@ public class MockedCarTestBase {
     private ICarImpl mCarImpl;
     private MockedVehicleHal mMockedVehicleHal;
     private SystemInterface mFakeSystemInterface;
-    private MockContext mMockContext;
+    private MockResources mResources;
     private final MockIOInterface mMockIOInterface = new MockIOInterface();
 
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
@@ -120,6 +121,7 @@ public class MockedCarTestBase {
 
     protected synchronized void configureResourceOverrides(MockResources resources) {
         resources.overrideResource(com.android.car.R.string.instrumentClusterRendererService, "");
+        resources.overrideResource(com.android.car.R.bool.audioUseDynamicRouting, false);
     }
 
     protected Context getContext() {
@@ -147,44 +149,53 @@ public class MockedCarTestBase {
         mFakeSystemInterface = getSystemInterfaceBuilder().build();
         configureFakeSystemInterface();
 
-        MockContext context = getCarServiceContext();
-        configureResourceOverrides(context.getResources());
+        Context context = getCarServiceContext();
+        spyOn(context);
+        mResources = new MockResources(context.getResources());
+        configureResourceOverrides(mResources);
+        doReturn(mResources).when(context).getResources();
 
-        mCarImpl = new ICarImpl(context, mMockedVehicleHal, mFakeSystemInterface,
+        // ICarImpl will register new CarLocalServices services.
+        // This prevents one test failure in tearDown from triggering assertion failure for single
+        // CarLocalServices service.
+        CarLocalServices.removeAllServices();
+        ICarImpl carImpl = new ICarImpl(context, mMockedVehicleHal, mFakeSystemInterface,
                 null /* error notifier */, "MockedCar");
 
-        initMockedHal(false /* no need to release */);
+        initMockedHal(carImpl, false /* no need to release */);
+        mCarImpl = carImpl;
 
         mCar = new Car(context, mCarImpl, null /* handler */);
     }
 
     @After
     public void tearDown() throws Exception {
-        mCar.disconnect();
-        mCarImpl.release();
-
-        mMockIOInterface.tearDown();
+        if (mCar != null) {
+            mCar.disconnect();
+        }
+        if (mCarImpl != null) {
+            mCarImpl.release();
+        }
+        if (mMockIOInterface != null) {
+            mMockIOInterface.tearDown();
+        }
     }
 
     public CarPackageManagerService getPackageManagerService() {
         return (CarPackageManagerService) mCarImpl.getCarService(Car.PACKAGE_SERVICE);
     }
 
-    protected MockContext getCarServiceContext() throws NameNotFoundException {
-        if (mMockContext == null) {
-            mMockContext = new MockContext(getContext()
-                .createPackageContext("com.android.car", Context.CONTEXT_IGNORE_SECURITY));
-        }
-        return mMockContext;
+    protected Context getCarServiceContext() {
+        return getContext();
     }
 
     protected synchronized void reinitializeMockedHal() throws Exception {
-        initMockedHal(true /* release */);
+        initMockedHal(mCarImpl, true /* release */);
     }
 
-    private synchronized void initMockedHal(boolean release) throws Exception {
+    private synchronized void initMockedHal(ICarImpl carImpl, boolean release) throws Exception {
         if (release) {
-            mCarImpl.release();
+            carImpl.release();
         }
 
         for (Map.Entry<VehiclePropConfigBuilder, VehicleHalPropertyHandler> entry
@@ -192,7 +203,7 @@ public class MockedCarTestBase {
             mMockedVehicleHal.addProperty(entry.getKey().build(), entry.getValue());
         }
         mHalConfig.clear();
-        mCarImpl.init();
+        carImpl.init();
     }
 
     protected synchronized VehiclePropConfigBuilder addProperty(int propertyId,
@@ -297,13 +308,19 @@ public class MockedCarTestBase {
 
         @Override
         public void stopDisplayStateMonitoring() {}
+
+        @Override
+        public void refreshDisplayBrightness() {}
+
+        @Override
+        public void reconfigureSecondaryDisplays() {}
     }
 
     static final class MockIOInterface implements IOInterface {
         private TemporaryDirectory mFilesDir = null;
 
         @Override
-        public File getFilesDir() {
+        public File getSystemCarDir() {
             if (mFilesDir == null) {
                 try {
                     mFilesDir = new TemporaryDirectory(TAG);
@@ -327,6 +344,7 @@ public class MockedCarTestBase {
     }
 
     static final class MockResources extends Resources {
+        private final HashMap<Integer, Boolean> mBooleanOverrides = new HashMap<>();
         private final HashMap<Integer, Integer> mIntegerOverrides = new HashMap<>();
         private final HashMap<Integer, String> mStringOverrides = new HashMap<>();
         private final HashMap<Integer, String[]> mStringArrayOverrides = new HashMap<>();
@@ -335,6 +353,12 @@ public class MockedCarTestBase {
             super(resources.getAssets(),
                     resources.getDisplayMetrics(),
                     resources.getConfiguration());
+        }
+
+        @Override
+        public boolean getBoolean(int id) {
+            return mBooleanOverrides.getOrDefault(id,
+                    super.getBoolean(id));
         }
 
         @Override
@@ -355,6 +379,11 @@ public class MockedCarTestBase {
                     super.getStringArray(id));
         }
 
+        MockResources overrideResource(int id, boolean value) {
+            mBooleanOverrides.put(id, value);
+            return this;
+        }
+
         MockResources overrideResource(int id, int value) {
             mIntegerOverrides.put(id, value);
             return this;
@@ -371,39 +400,6 @@ public class MockedCarTestBase {
         }
     }
 
-    static class MockContext extends ContextWrapper {
-        private final MockResources mResources;
-
-        MockContext(Context base) {
-            super(base);
-            mResources = new MockResources(super.getResources());
-        }
-
-        @Override
-        public MockResources getResources() {
-            return mResources;
-        }
-
-        // BLUETOOTH_SERVICE needs to be retrieved with an Application context, which neither
-        // this MockContext, nor its base Context are. In order to make this work, we save
-        // an Application context at startup and use it when necessary. Add other services
-        // here as needed.
-        @Override
-        public Object getSystemService(String name) {
-            switch (name) {
-                case BLUETOOTH_SERVICE:
-                    return CarServiceTestApp.getAppContext().getSystemService(name);
-                default:
-                    return super.getSystemService(name);
-            }
-        }
-
-        @Override
-        public Context getApplicationContext() {
-            return this;
-        }
-    }
-
     static final class MockStorageMonitoringInterface implements StorageMonitoringInterface {}
 
     static final class MockSystemStateInterface implements SystemStateInterface {
@@ -411,7 +407,7 @@ public class MockedCarTestBase {
         public void shutdown() {}
 
         @Override
-        public boolean enterDeepSleep(int wakeupTimeSec) {
+        public boolean enterDeepSleep() {
             return true;
         }
 

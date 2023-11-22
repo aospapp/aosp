@@ -84,24 +84,17 @@ ConstantExpressionAnnotationParam::ConstantExpressionAnnotationParam(
     const std::string& name, std::vector<ConstantExpression*>* values)
     : AnnotationParam(name), mValues(values) {}
 
-std::string convertToString(const ConstantExpression* value) {
-    if (value->descriptionIsTrivial()) {
-        return value->value();
-    }
-    return value->value() + " /* " + value->description() + " */";
-}
-
 std::vector<std::string> ConstantExpressionAnnotationParam::getValues() const {
     std::vector<std::string> ret;
     for (const auto* value : *mValues) {
-        ret.push_back(convertToString(value));
+        ret.push_back(value->value());
     };
     return ret;
 }
 
 std::string ConstantExpressionAnnotationParam::getSingleValue() const {
     CHECK_EQ(mValues->size(), 1u) << mName << " requires one value but has multiple";
-    return convertToString(mValues->at(0));
+    return mValues->at(0)->value();
 }
 
 std::vector<const ConstantExpression*> ConstantExpressionAnnotationParam::getConstantExpressions()

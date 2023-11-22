@@ -39,7 +39,8 @@ static int32_t gsResp_len = 0;
 
 LSCSTATUS(*Applet_load_seqhandler[])
 (Lsc_ImageInfo_t* pContext, LSCSTATUS status, Lsc_TranscieveInfo_t* pInfo) = {
-    LSC_OpenChannel, LSC_SelectLsc, LSC_StoreData, LSC_loadapplet, NULL};
+    LSC_OpenChannel, LSC_ResetChannel, LSC_SelectLsc,
+    LSC_StoreData,   LSC_loadapplet,   NULL};
 
 /*******************************************************************************
 **
@@ -119,6 +120,12 @@ LSCSTATUS LSC_update_seq_handler(
       ALOGE("%s: exiting; status=0x0%X", fn, status);
       break;
     }
+
+    if ((seq_counter == 0x00) &&
+        update_info.Channel_Info[update_info.channel_cnt - 1].isOpend) {
+      update_info.initChannelNum =
+          update_info.Channel_Info[update_info.channel_cnt - 1].channel_id;
+    }
     seq_counter++;
   }
 
@@ -179,6 +186,69 @@ LSCSTATUS LSC_OpenChannel(Lsc_ImageInfo_t* Os_info, LSCSTATUS status,
   ALOGD_IF(ese_debug_enabled, "%s: exit; status=0x%x", fn, status);
   return status;
 }
+/*******************************************************************************
+**
+** Function:        LSC_ResetChannel
+**
+** Description:     Reset(Open & Close) next available logical channel
+**
+** Returns:         Success if ok.
+**
+*******************************************************************************/
+LSCSTATUS LSC_ResetChannel(Lsc_ImageInfo_t* Os_info, LSCSTATUS status,
+                           Lsc_TranscieveInfo_t* pTranscv_Info) {
+  static const char fn[] = "LSC_ResetChannel";
+
+  ALOGD_IF(ese_debug_enabled, "%s: enter", fn);
+  if (Os_info == NULL || pTranscv_Info == NULL) {
+    ALOGE("%s: Invalid parameter", fn);
+    return LSCSTATUS_FAILED;
+  }
+
+  ESESTATUS eseStat = ESESTATUS_FAILED;
+  bool bResetCompleted = false;
+  phNxpEse_data cmdApdu;
+  phNxpEse_data rspApdu;
+  phNxpEse_memset(&cmdApdu, 0x00, sizeof(phNxpEse_data));
+  phNxpEse_memset(&rspApdu, 0x00, sizeof(phNxpEse_data));
+  cmdApdu.len = (int32_t)sizeof(OpenChannel);
+  cmdApdu.p_data = (uint8_t*)phNxpEse_memalloc(cmdApdu.len * sizeof(uint8_t));
+  memcpy(cmdApdu.p_data, OpenChannel, cmdApdu.len);
+
+  do {
+    ALOGD_IF(ese_debug_enabled, "%s: Calling Secure Element Transceive", fn);
+    eseStat = phNxpEse_Transceive(&cmdApdu, &rspApdu);
+    if (eseStat != ESESTATUS_SUCCESS && (rspApdu.len < 0x03)) {
+      status = LSCSTATUS_FAILED;
+      ALOGE("%s: SE transceive failed status = 0x%X", fn, status);
+    } else if (((rspApdu.p_data[rspApdu.len - 2] != 0x90) &&
+                (rspApdu.p_data[rspApdu.len - 1] != 0x00))) {
+      status = LSCSTATUS_FAILED;
+      ALOGE("%s: invalid response = 0x%X", fn, status);
+    } else if (!bResetCompleted) {
+      /*close the previously opened channel*/
+      uint8_t xx = 0;
+      cmdApdu.p_data[xx++] = rspApdu.p_data[rspApdu.len - 3]; /*channel id*/
+      cmdApdu.p_data[xx++] = 0x70;
+      cmdApdu.p_data[xx++] = 0x80;
+      cmdApdu.p_data[xx++] = rspApdu.p_data[rspApdu.len - 3];
+      cmdApdu.p_data[xx++] = 0x00;
+      cmdApdu.len = 5;
+      bResetCompleted = true;
+      phNxpEse_free(rspApdu.p_data);
+      status = LSCSTATUS_SUCCESS;
+    } else {
+      ALOGD_IF(ese_debug_enabled, "%s: Channel reset success", fn);
+      status = LSCSTATUS_SUCCESS;
+      break;
+    }
+  } while (status == LSCSTATUS_SUCCESS);
+
+  phNxpEse_free(cmdApdu.p_data);
+  phNxpEse_free(rspApdu.p_data);
+  ALOGD_IF(ese_debug_enabled, "%s: exit; status=0x%x", fn, status);
+  return status;
+}
 
 /*******************************************************************************
 **
@@ -207,73 +277,33 @@ LSCSTATUS LSC_SelectLsc(Lsc_ImageInfo_t* Os_info, LSCSTATUS status,
   phNxpEse_memset(&cmdApdu, 0x00, sizeof(phNxpEse_data));
   phNxpEse_memset(&rspApdu, 0x00, sizeof(phNxpEse_data));
 
-  uint8_t selectCnt = 3;
-  while ((selectCnt--) > 0) {
-    if (selectCnt == 2) {
-      cmdApdu.p_data = (uint8_t*)phNxpEse_memalloc(
-          ((ArrayOfAIDs[selectCnt - 1][0]) - 1) * sizeof(uint8_t));
-      cmdApdu.len = (int32_t)ArrayOfAIDs[selectCnt - 1][0];
-    } else {
-      cmdApdu.p_data = (uint8_t*)phNxpEse_memalloc(
-          ((ArrayOfAIDs[selectCnt][0]) - 1) * sizeof(uint8_t));
-      cmdApdu.len = (int32_t)ArrayOfAIDs[selectCnt][0];
+  /*p_data will have channel_id (1 byte) + SelectLsc APDU*/
+  cmdApdu.len = (int32_t)(sizeof(SelectLsc) + 1);
+  cmdApdu.p_data = (uint8_t*)phNxpEse_memalloc(cmdApdu.len * sizeof(uint8_t));
+  cmdApdu.p_data[0] = Os_info->Channel_Info[0].channel_id;
+
+  memcpy(&(cmdApdu.p_data[1]), SelectLsc, sizeof(SelectLsc));
+
+  ALOGD_IF(ese_debug_enabled,
+           "%s: Calling Secure Element Transceive with Loader service AID", fn);
+
+  ESESTATUS eseStat = phNxpEse_Transceive(&cmdApdu, &rspApdu);
+
+  if (eseStat != ESESTATUS_SUCCESS && (rspApdu.len == 0x00)) {
+    status = LSCSTATUS_FAILED;
+    ALOGE("%s: SE transceive failed status = 0x%X", fn, status);
+  } else if (((rspApdu.p_data[rspApdu.len - 2] == 0x90) &&
+              (rspApdu.p_data[rspApdu.len - 1] == 0x00))) {
+    status = Process_SelectRsp(rspApdu.p_data, (rspApdu.len - 2));
+    if (status != LSCSTATUS_SUCCESS) {
+      ALOGE("%s: Select Lsc Rsp doesnt have a valid key; status = 0x%X", fn,
+            status);
     }
-
-    cmdApdu.p_data[0] = Os_info->Channel_Info[0].channel_id;
-
-    memcpy(&(cmdApdu.p_data[1]), &ArrayOfAIDs[selectCnt][2],
-           ((ArrayOfAIDs[selectCnt][0]) - 1));
-
-    /*If NFC/SPI Deinitialize requested*/
-    ALOGD_IF(ese_debug_enabled,
-             "%s: Calling Secure Element Transceive with Loader service AID",
-             fn);
-
-    ESESTATUS eseStat = phNxpEse_Transceive(&cmdApdu, &rspApdu);
-
-    if (eseStat != ESESTATUS_SUCCESS && (rspApdu.len == 0x00)) {
-      status = LSCSTATUS_FAILED;
-      ALOGE("%s: SE transceive failed status = 0x%X", fn, status);
-      break;
-    } else if (((rspApdu.p_data[rspApdu.len - 2] == 0x90) &&
-                (rspApdu.p_data[rspApdu.len - 1] == 0x00))) {
-      status = Process_SelectRsp(rspApdu.p_data, (rspApdu.len - 2));
-      if (status != LSCSTATUS_SUCCESS) {
-        ALOGE("%s: Select Lsc Rsp doesnt have a valid key; status = 0x%X", fn,
-              status);
-      }
-      /*If AID is found which is successfully selected break while loop*/
-      if (status == LSCSTATUS_SUCCESS) {
-        uint8_t totalLen = ArrayOfAIDs[selectCnt][0];
-        uint8_t cnt = 0;
-        int32_t wStatus = 0;
-        status = LSCSTATUS_FAILED;
-
-        FILE* fAidMem = fopen(AID_MEM_PATH, "w+");
-
-        if (fAidMem == NULL) {
-          ALOGE("Error opening AID data file for writing: %s", strerror(errno));
-          phNxpEse_free(cmdApdu.p_data);
-          return status;
-        }
-        while (cnt <= totalLen) {
-          wStatus = fprintf(fAidMem, "%02x", ArrayOfAIDs[selectCnt][cnt++]);
-          if (wStatus != 2) {
-            ALOGE("%s: Error writing AID data to AID_MEM file: %s", fn,
-                  strerror(errno));
-            break;
-          }
-        }
-        if (wStatus == 2) status = LSCSTATUS_SUCCESS;
-        fclose(fAidMem);
-        break;
-      }
-    } else if (((rspApdu.p_data[rspApdu.len - 2] != 0x90))) {
-      /*Copy the response SW in failure case*/
-      memcpy(&gsLsExecuteResp[2], &(rspApdu.p_data[rspApdu.len - 2]), 2);
-    } else {
-      status = LSCSTATUS_FAILED;
-    }
+  } else if (((rspApdu.p_data[rspApdu.len - 2] != 0x90))) {
+    /*Copy the response SW in failure case*/
+    memcpy(&gsLsExecuteResp[2], &(rspApdu.p_data[rspApdu.len - 2]), 2);
+  } else {
+    status = LSCSTATUS_FAILED;
   }
   phNxpEse_free(cmdApdu.p_data);
   phNxpEse_free(rspApdu.p_data);
@@ -439,35 +469,13 @@ LSCSTATUS LSC_loadapplet(Lsc_ImageInfo_t* Os_info, LSCSTATUS status,
       status = LSC_SendtoLsc(Os_info, status, pTranscv_Info, LS_Comm);
       if (status != LSCSTATUS_SUCCESS) {
         /*When the switching of LS 6320 case*/
-        if (status == LSCSTATUS_FILE_NOT_FOUND) {
-          /*When 6320 occurs close the existing channels*/
-          LSC_CloseChannel(Os_info, status, pTranscv_Info);
-
-          status = LSCSTATUS_FAILED;
-          status = LSC_OpenChannel(Os_info, status, pTranscv_Info);
-          if (status == LSCSTATUS_SUCCESS) {
-            ALOGD_IF(ese_debug_enabled,
-                     "%s: SUCCESS:Post Switching LS open channel", fn);
-            status = LSCSTATUS_FAILED;
-            status = LSC_SelectLsc(Os_info, status, pTranscv_Info);
-            if (status == LSCSTATUS_SUCCESS) {
-              ALOGD_IF(ese_debug_enabled,
-                       "%s: SUCCESS:Post Switching LS select", fn);
-              status = LSCSTATUS_FAILED;
-              status = LSC_StoreData(Os_info, status, pTranscv_Info);
-              if (status == LSCSTATUS_SUCCESS) {
-                /*Enable certificate and signature verification*/
-                tag40_found = LSCSTATUS_SUCCESS;
-                gsLsExecuteResp[2] = 0x90;
-                gsLsExecuteResp[3] = 0x00;
-                reachEOFCheck = true;
-                continue;
-              }
-              ALOGE("%s: Post Switching LS store data failure", fn);
-            }
-            ALOGE("%s: Post Switching LS select failure", fn);
+        if (status == LSCSTATUS_SELF_UPDATE_DONE) {
+          status = LSC_CloseAllLogicalChannels(Os_info);
+          if (status != LSCSTATUS_SUCCESS) {
+            ALOGE("%s: CleanupLsUpdaterChannels failed", fn);
           }
-          ALOGE("%s: Post Switching LS failure", fn);
+          status = LSCSTATUS_SUCCESS;
+          goto exit;
         }
         ALOGE("%s: Sending packet to lsc failed", fn);
         goto exit;
@@ -934,6 +942,9 @@ LSCSTATUS LSC_CloseChannel(Lsc_ImageInfo_t* Os_info, LSCSTATUS status,
                (rspApdu.p_data[rspApdu.len - 1] == 0x00)) {
       ALOGD_IF(ese_debug_enabled, "%s: Close channel id = 0x0%x success", fn,
                Os_info->Channel_Info[cnt].channel_id);
+      if (Os_info->Channel_Info[cnt].channel_id == Os_info->initChannelNum) {
+        Os_info->initChannelNum = 0x00;
+      }
       status = LSCSTATUS_SUCCESS;
     } else {
       ALOGD_IF(ese_debug_enabled, "%s: Close channel id = 0x0%x failed", fn,
@@ -1002,39 +1013,9 @@ LSCSTATUS LSC_ProcessResp(Lsc_ImageInfo_t* image_info, int32_t recvlen,
     }
     status = LSC_SendtoEse(image_info, status, trans_info);
   } else if ((recvlen > 0x02) && (sw[0] == 0x63) && (sw[1] == 0x20)) {
-    uint8_t aid_array[22];
-    aid_array[0] = recvlen + 3;
-    aid_array[1] = 00;
-    aid_array[2] = 0xA4;
-    aid_array[3] = 0x04;
-    aid_array[4] = 0x00;
-    aid_array[5] = recvlen - 2;
-    memcpy(&aid_array[6], &RecvData[0], recvlen - 2);
-    memcpy(&ArrayOfAIDs[2][0], &aid_array[0], recvlen + 4);
-
-    FILE* fAidMem = fopen(AID_MEM_PATH, "w");
-
-    if (fAidMem == NULL) {
-      ALOGE("%s: Error opening AID data for writing: %s", fn, strerror(errno));
-      return LSCSTATUS_FAILED;
-    }
-
-    /*Updating the AID_MEM with new value into AID file*/
-    uint8_t respLen = 0;
-    int32_t wStatus = 0;
-    while (respLen <= (recvlen + 4)) {
-      wStatus = fprintf(fAidMem, "%2x", aid_array[respLen++]);
-      if (wStatus != 2) {
-        ALOGE("%s: Invalid Response during fprintf; status=0x%x", fn, wStatus);
-        fclose(fAidMem);
-        break;
-      }
-    }
-    if (wStatus == 2) {
-      status = LSCSTATUS_FILE_NOT_FOUND;
-    } else {
-      status = LSCSTATUS_FAILED;
-    }
+    /*In case of self update, status 0x6320 indicates script execution success
+    and response data has new AID*/
+    status = LSCSTATUS_SELF_UPDATE_DONE;
   } else if ((recvlen >= 0x02) &&
              ((sw[0] != 0x90) && (sw[0] != 0x63) && (sw[0] != 0x61))) {
     Write_Response_To_OutFile(image_info, RecvData, recvlen, tType);
@@ -1264,7 +1245,7 @@ LSCSTATUS Send_Backall_Loadcmds(Lsc_ImageInfo_t* Os_info, LSCSTATUS status,
       phNxpEse_free(cmdApdu.p_data);
       phNxpEse_free(rspApdu.p_data);
 
-      if (eseStat != LSCSTATUS_SUCCESS || (recvBufferActualSize < 2)) {
+      if (eseStat != ESESTATUS_SUCCESS || (recvBufferActualSize < 2)) {
         ALOGE("%s: Transceive failed; status=0x%X", fn, eseStat);
       } else if (gsCmd_count == 0x00) {
         // Last command in the buffer
@@ -1944,4 +1925,262 @@ LSCSTATUS Get_LsStatus(uint8_t* pStatus) {
   memcpy(pStatus, lsStatus, 2);
   fclose(fLsStatus);
   return LSCSTATUS_SUCCESS;
+}
+
+/*******************************************************************************
+**
+** Function:        LSC_CloseAllLogicalChannels
+**
+** Description:     Close all opened logical channels
+**
+** Returns:         SUCCESS/FAILURE
+**
+*******************************************************************************/
+LSCSTATUS LSC_CloseAllLogicalChannels(Lsc_ImageInfo_t* Os_info) {
+  ESESTATUS status = ESESTATUS_FAILED;
+  LSCSTATUS lsStatus = LSCSTATUS_FAILED;
+  phNxpEse_data cmdApdu;
+  phNxpEse_data rspApdu;
+
+  ALOGD_IF(ese_debug_enabled, "%s: Enter", __func__);
+  for (uint8_t channelNumber = 0x01; channelNumber < 0x04; channelNumber++) {
+    if (channelNumber == Os_info->initChannelNum) continue;
+    phNxpEse_memset(&cmdApdu, 0x00, sizeof(phNxpEse_data));
+    phNxpEse_memset(&rspApdu, 0x00, sizeof(phNxpEse_data));
+    cmdApdu.p_data = (uint8_t*)phNxpEse_memalloc(5 * sizeof(uint8_t));
+    if (cmdApdu.p_data != NULL) {
+      uint8_t xx = 0;
+
+      cmdApdu.p_data[xx++] = channelNumber;
+      cmdApdu.p_data[xx++] = 0x70;           // INS
+      cmdApdu.p_data[xx++] = 0x80;           // P1
+      cmdApdu.p_data[xx++] = channelNumber;  // P2
+      cmdApdu.p_data[xx++] = 0x00;           // Lc
+      cmdApdu.len = xx;
+
+      status = phNxpEse_Transceive(&cmdApdu, &rspApdu);
+    }
+    if (status != ESESTATUS_SUCCESS) {
+      lsStatus = LSCSTATUS_FAILED;
+    } else if ((rspApdu.p_data[rspApdu.len - 2] == 0x90) &&
+               (rspApdu.p_data[rspApdu.len - 1] == 0x00)) {
+      lsStatus = LSCSTATUS_SUCCESS;
+    } else {
+      lsStatus = LSCSTATUS_FAILED;
+    }
+
+    phNxpEse_free(cmdApdu.p_data);
+    phNxpEse_free(rspApdu.p_data);
+  }
+  return lsStatus;
+}
+
+/*******************************************************************************
+**
+** Function:        LSC_SelectLsHash
+**
+** Description:     Selects LS Hash applet
+**
+** Returns:         SUCCESS/FAILURE
+**
+*******************************************************************************/
+LSCSTATUS LSC_SelectLsHash() {
+  phNxpEse_data cmdApdu;
+  phNxpEse_data rspApdu;
+  LSCSTATUS lsStatus = LSCSTATUS_FAILED;
+  ALOGD_IF(ese_debug_enabled, "%s: Enter ", __func__);
+  phNxpEse_memset(&cmdApdu, 0x00, sizeof(phNxpEse_data));
+  phNxpEse_memset(&rspApdu, 0x00, sizeof(phNxpEse_data));
+
+  cmdApdu.len = (int32_t)(sizeof(SelectLscSlotHash));
+  cmdApdu.p_data = (uint8_t*)phNxpEse_memalloc(cmdApdu.len * sizeof(uint8_t));
+  memcpy(cmdApdu.p_data, SelectLscSlotHash, sizeof(SelectLscSlotHash));
+
+  ESESTATUS eseStat = phNxpEse_Transceive(&cmdApdu, &rspApdu);
+
+  if ((eseStat != ESESTATUS_SUCCESS) ||
+      ((rspApdu.p_data[rspApdu.len - 2] != 0x90) &&
+       (rspApdu.p_data[rspApdu.len - 1] != 0x00))) {
+    lsStatus = LSCSTATUS_FAILED;
+  } else {
+    lsStatus = LSCSTATUS_SUCCESS;
+  }
+
+  phNxpEse_free(cmdApdu.p_data);
+  phNxpEse_free(rspApdu.p_data);
+  return lsStatus;
+}
+/*******************************************************************************
+**
+** Function:        LSC_ReadLsHash
+**
+** Description:     Read the LS SHA1 for the intended slot
+**
+** Returns:         SUCCESS/FAILURE
+**
+*******************************************************************************/
+LSCSTATUS LSC_ReadLsHash(uint8_t* hash, uint16_t* readHashLen, uint8_t slotId) {
+  phNxpEse_data cmdApdu;
+  phNxpEse_data rspApdu;
+  LSCSTATUS lsStatus = LSCSTATUS_FAILED;
+
+  lsStatus = LSC_SelectLsHash();
+  if (lsStatus != LSCSTATUS_SUCCESS) {
+    return lsStatus;
+  }
+
+  phNxpEse_memset(&cmdApdu, 0x00, sizeof(phNxpEse_data));
+  phNxpEse_memset(&rspApdu, 0x00, sizeof(phNxpEse_data));
+  cmdApdu.p_data = (uint8_t*)phNxpEse_memalloc(5 * sizeof(uint8_t));
+
+  if (cmdApdu.p_data != NULL) {
+    uint8_t xx = 0;
+    cmdApdu.p_data[xx++] = 0x80;    // CLA
+    cmdApdu.p_data[xx++] = 0x02;    // INS
+    cmdApdu.p_data[xx++] = slotId;  // P1
+    cmdApdu.p_data[xx++] = 0x00;    // P2
+    cmdApdu.len = xx;
+
+    ESESTATUS eseStat = phNxpEse_Transceive(&cmdApdu, &rspApdu);
+
+    if ((eseStat == ESESTATUS_SUCCESS) &&
+        ((rspApdu.p_data[rspApdu.len - 2] == 0x90) &&
+         (rspApdu.p_data[rspApdu.len - 1] == 0x00))) {
+      ALOGD_IF(ese_debug_enabled, "%s: rspApdu.len : %u", __func__,
+               rspApdu.len);
+      *readHashLen = rspApdu.len - 2;
+      if (*readHashLen <= HASH_DATA_LENGTH) {
+        memcpy(hash, rspApdu.p_data, *readHashLen);
+        lsStatus = LSCSTATUS_SUCCESS;
+      } else {
+        ALOGE("%s:Invalid LS HASH data received", __func__);
+        lsStatus = LSCSTATUS_FAILED;
+      }
+    } else {
+      if ((rspApdu.p_data[rspApdu.len - 2] == 0x6A) &&
+          (rspApdu.p_data[rspApdu.len - 1] == 0x86)) {
+        ALOGD_IF(ese_debug_enabled, "%s: slot id is invalid", __func__);
+        lsStatus = LSCSTATUS_HASH_SLOT_INVALID;
+      } else if ((rspApdu.p_data[rspApdu.len - 2] == 0x6A) &&
+                 (rspApdu.p_data[rspApdu.len - 1] == 0x83)) {
+        ALOGD_IF(ese_debug_enabled, "%s: slot is empty", __func__);
+        lsStatus = LSCSTATUS_HASH_SLOT_EMPTY;
+      } else {
+        lsStatus = LSCSTATUS_FAILED;
+      }
+    }
+    phNxpEse_free(cmdApdu.p_data);
+    phNxpEse_free(rspApdu.p_data);
+  }
+  return lsStatus;
+}
+
+/*******************************************************************************
+**
+** Function:        LSC_UpdateLsHash
+**
+** Description:     Updates the SHA1 for the intended slot
+**
+** Returns:         SUCCESS/FAILURE
+**
+*******************************************************************************/
+LSCSTATUS LSC_UpdateLsHash(uint8_t* hash, long hashLen, uint8_t slotId) {
+  phNxpEse_data cmdApdu;
+  phNxpEse_data rspApdu;
+  LSCSTATUS lsStatus = LSCSTATUS_FAILED;
+  ALOGD_IF(ese_debug_enabled, "%s: Enter ", __func__);
+
+  lsStatus = LSC_SelectLsHash();
+  if (lsStatus != LSCSTATUS_SUCCESS) {
+    return lsStatus;
+  }
+
+  phNxpEse_memset(&cmdApdu, 0x00, sizeof(phNxpEse_data));
+  phNxpEse_memset(&rspApdu, 0x00, sizeof(phNxpEse_data));
+
+  cmdApdu.len = (int32_t)(5 + hashLen);
+  cmdApdu.p_data = (uint8_t*)phNxpEse_memalloc(cmdApdu.len * sizeof(uint8_t));
+
+  if (cmdApdu.p_data != NULL) {
+    uint8_t xx = 0;
+    cmdApdu.p_data[xx++] = 0x80;
+    cmdApdu.p_data[xx++] = 0x01;     // INS
+    cmdApdu.p_data[xx++] = slotId;   // P1
+    cmdApdu.p_data[xx++] = 0x00;     // P2
+    cmdApdu.p_data[xx++] = hashLen;  // Lc
+    memcpy(&cmdApdu.p_data[xx], hash, hashLen);
+
+    ESESTATUS eseStat = phNxpEse_Transceive(&cmdApdu, &rspApdu);
+
+    if ((eseStat == ESESTATUS_SUCCESS) &&
+        ((rspApdu.p_data[rspApdu.len - 2] == 0x90) &&
+         (rspApdu.p_data[rspApdu.len - 1] == 0x00))) {
+      lsStatus = LSCSTATUS_SUCCESS;
+    } else {
+      if ((rspApdu.p_data[rspApdu.len - 2] == 0x6A) &&
+          (rspApdu.p_data[rspApdu.len - 1] == 0x86)) {
+        ALOGD_IF(ese_debug_enabled, "%s: if slot id is invalid", __func__);
+      }
+      lsStatus = LSCSTATUS_FAILED;
+    }
+  }
+
+  ALOGD_IF(ese_debug_enabled, "%s: Exit ", __func__);
+  phNxpEse_free(cmdApdu.p_data);
+  phNxpEse_free(rspApdu.p_data);
+  return lsStatus;
+}
+
+/*******************************************************************************
+**
+** Function:        LSC_ReadLscInfo
+**
+** Description:     Read the state of LS applet
+**
+** Returns:         SUCCESS/FAILURE
+**
+*******************************************************************************/
+LSCSTATUS LSC_ReadLscInfo(uint8_t* state, uint16_t* version) {
+  static const char fn[] = "LSC_ReadLscInfo";
+  phNxpEse_data cmdApdu;
+  phNxpEse_data rspApdu;
+  LSCSTATUS status = LSCSTATUS_FAILED;
+  ALOGD_IF(ese_debug_enabled, "%s: Enter ", __func__);
+
+  phNxpEse_memset(&cmdApdu, 0x00, sizeof(phNxpEse_data));
+  phNxpEse_memset(&rspApdu, 0x00, sizeof(phNxpEse_data));
+
+  /*p_data will have channel_id (1 byte) + SelectLsc APDU*/
+  cmdApdu.len = (int32_t)(sizeof(SelectLsc) + 1);
+  cmdApdu.p_data = (uint8_t*)phNxpEse_memalloc(cmdApdu.len * sizeof(uint8_t));
+  cmdApdu.p_data[0] = 0x00;  // fchannel 0
+
+  memcpy(&(cmdApdu.p_data[1]), SelectLsc, sizeof(SelectLsc));
+
+  ALOGD_IF(ese_debug_enabled, "%s: Selecting Loader service applet", fn);
+
+  ESESTATUS eseStat = phNxpEse_Transceive(&cmdApdu, &rspApdu);
+
+  if (eseStat != ESESTATUS_SUCCESS && (rspApdu.len == 0x00)) {
+    status = LSCSTATUS_FAILED;
+    ALOGE("%s: SE transceive failed status = 0x%X", fn, status);
+  } else if (((rspApdu.p_data[rspApdu.len - 2] == 0x90) &&
+              (rspApdu.p_data[rspApdu.len - 1] == 0x00))) {
+    status = Process_SelectRsp(rspApdu.p_data, (rspApdu.len - 2));
+    if (status != LSCSTATUS_SUCCESS) {
+      ALOGE("%s: Select Lsc Rsp doesnt have a valid key; status = 0x%X", fn,
+            status);
+    } else {
+      *state = rspApdu.p_data[18];
+      *version = (rspApdu.p_data[22] << 8) | rspApdu.p_data[23];
+    }
+  } else if (rspApdu.p_data[rspApdu.len - 2] != 0x90) {
+    ALOGE("%s: Selecting Loader service applet failed", fn);
+    status = LSCSTATUS_FAILED;
+  }
+
+  ALOGD_IF(ese_debug_enabled, "%s: Exit ", __func__);
+  phNxpEse_free(cmdApdu.p_data);
+  phNxpEse_free(rspApdu.p_data);
+  return status;
 }

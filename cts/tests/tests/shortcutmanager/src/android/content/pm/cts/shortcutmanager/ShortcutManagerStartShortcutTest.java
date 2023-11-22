@@ -24,6 +24,7 @@ import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -36,12 +37,15 @@ import com.android.compatibility.common.util.CddTest;
 @SmallTest
 public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBase {
     private ComponentName mLaunchedActivity;
+    private boolean mOnWatch;
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
 
         mLaunchedActivity = new ComponentName(getTestContext(), ShortcutLaunchedActivity.class);
+        mOnWatch = getTestContext().getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_WATCH);
     }
 
     private List<Intent> launchShortcutAndGetIntents(Context launcher, Context client,
@@ -118,6 +122,9 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
      * Start multiple activities.
      */
     public void testStartMultiple() {
+        if (mOnWatch) {
+            return; // b/109678268
+        }
         setDefaultLauncher(getInstrumentation(), mLauncherContext1);
 
         Intent i1 = new Intent("a1")
@@ -180,6 +187,9 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
     }
 
     public void testShortcutNoLongerExists() {
+        if (mOnWatch) {
+            return; // b/109678268
+        }
 
         // Let it publish a shortcut.
         testStartMultiple();
@@ -215,6 +225,9 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
     }
 
     public void testPinnedShortcut_sameLauncher() {
+        if (mOnWatch) {
+            return; // b/109678268
+        }
 
         // Let it publish a shortcut.
         testStartSingle();
@@ -237,6 +250,9 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
     }
 
     public void testPinnedShortcut_differentLauncher() {
+        if (mOnWatch) {
+            return; // b/109678268
+        }
 
         // Let it publish a shortcut.
         testStartSingle();
@@ -285,6 +301,9 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
     }
 
     public void testStartMultipleWithOptions() {
+        if (mOnWatch) {
+            return; // b/109678268
+        }
         testStartMultiple();
 
         List<Intent> launched = launchShortcutAndGetIntents(mLauncherContext1, mPackageContext1,
@@ -302,6 +321,9 @@ public class ShortcutManagerStartShortcutTest extends ShortcutManagerCtsTestsBas
     }
 
     public void testNonExistent() {
+        if (mOnWatch) {
+            return; // b/109678268
+        }
         setDefaultLauncher(getInstrumentation(), mLauncherContext1);
 
         Intent i = new Intent(Intent.ACTION_MAIN)

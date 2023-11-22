@@ -77,7 +77,7 @@ public class PKCS7 {
 
     private Principal[] certIssuerNames;
 
-    // BEGIN Android-removed: unused in Android
+    // BEGIN Android-removed: Unused in Android.
     /*
     /*
      * Random number generator for creating nonce values
@@ -106,7 +106,7 @@ public class PKCS7 {
      *
     private static final String EXTENDED_KEY_USAGE_OID = "2.5.29.37";
     */
-    // END Android-removed: unused on Android
+    // END Android-removed: Unused in Android.
 
     /**
      * Unmarshals a PKCS7 block from its encoded form, parsing the
@@ -1008,7 +1008,7 @@ public class PKCS7 {
     }
     // END Android-added: Add subclass that returns the original encoded bytes.
 
-    // BEGIN Android-removed: unused in Android
+    // BEGIN Android-removed: Unused in Android.
     /**
      * Assembles a PKCS #7 signed data message that optionally includes a
      * signature timestamp.
@@ -1191,5 +1191,5 @@ public class PKCS7 {
         return tsReply.getEncodedToken();
     }
     */
-    // END Android-removed: unused in Android
+    // END Android-removed: Unused in Android.
 }

@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "NewAvrcpTargetJni"
+#define LOG_TAG "AvrcpTargetJni"
 
 #include <base/bind.h>
+#include <base/callback.h>
 #include <map>
 #include <mutex>
 #include <shared_mutex>
@@ -61,6 +62,15 @@ static void volumeDeviceConnected(
     ::bluetooth::avrcp::VolumeInterface::VolumeChangedCb cb);
 static void volumeDeviceDisconnected(const RawAddress& address);
 static void setVolume(int8_t volume);
+
+// Local Variables
+// TODO (apanicke): Use a map here to store the callback in order to
+// support multi-browsing
+SetBrowsedPlayerCb set_browsed_player_cb;
+using map_entry = std::pair<std::string, GetFolderItemsCb>;
+std::map<std::string, GetFolderItemsCb> get_folder_items_cb_map;
+std::map<RawAddress, ::bluetooth::avrcp::VolumeInterface::VolumeChangedCb>
+    volumeCallbackMap;
 
 // TODO (apanicke): In the future, this interface should guarantee that
 // all calls happen on the JNI Thread. Right now this is very difficult
@@ -248,6 +258,9 @@ static void sendFolderUpdateNative(JNIEnv* env, jobject object,
 static void cleanupNative(JNIEnv* env, jobject object) {
   std::unique_lock<std::shared_timed_mutex> interface_lock(interface_mutex);
   std::unique_lock<std::shared_timed_mutex> callbacks_lock(callbacks_mutex);
+
+  get_folder_items_cb_map.clear();
+  volumeCallbackMap.clear();
 
   sServiceInterface->Cleanup();
   env->DeleteGlobalRef(mJavaInterface);
@@ -593,10 +606,6 @@ static std::vector<MediaPlayerInfo> getMediaPlayerList() {
   return ret_list;
 }
 
-// TODO (apanicke): Use a map here to store the callback in order to
-// support multi-browsing
-SetBrowsedPlayerCb set_browsed_player_cb;
-
 static void setBrowsedPlayer(uint16_t player_id, SetBrowsedPlayerCb cb) {
   ALOGD("%s", __func__);
   std::shared_lock<std::shared_timed_mutex> lock(callbacks_mutex);
@@ -622,9 +631,6 @@ static void setBrowsedPlayerResponseNative(JNIEnv* env, jobject object,
 
   set_browsed_player_cb.Run(success == JNI_TRUE, root, num_items);
 }
-
-using map_entry = std::pair<std::string, GetFolderItemsCb>;
-std::map<std::string, GetFolderItemsCb> get_folder_items_cb_map;
 
 static void getFolderItemsResponseNative(JNIEnv* env, jobject object,
                                          jstring parent_id, jobject list) {
@@ -750,9 +756,6 @@ static void volumeDeviceConnected(const RawAddress& address) {
   sCallbackEnv->CallVoidMethod(mJavaInterface, method_volumeDeviceConnected,
                                j_bdaddr, JNI_FALSE);
 }
-
-std::map<RawAddress, ::bluetooth::avrcp::VolumeInterface::VolumeChangedCb>
-    volumeCallbackMap;
 
 static void volumeDeviceConnected(
     const RawAddress& address,

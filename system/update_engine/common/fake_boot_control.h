@@ -74,6 +74,14 @@ class FakeBootControl : public BootControlInterface {
     return true;
   }
 
+  bool InitPartitionMetadata(Slot slot,
+                             const PartitionMetadata& partition_metadata,
+                             bool update_metadata) override {
+    return true;
+  }
+
+  void Cleanup() override {}
+
   // Setters
   void SetNumSlots(unsigned int num_slots) {
     num_slots_ = num_slots;
@@ -81,9 +89,7 @@ class FakeBootControl : public BootControlInterface {
     devices_.resize(num_slots_);
   }
 
-  void SetCurrentSlot(BootControlInterface::Slot slot) {
-    current_slot_ = slot;
-  }
+  void SetCurrentSlot(BootControlInterface::Slot slot) { current_slot_ = slot; }
 
   void SetPartitionDevice(const std::string& partition_name,
                           BootControlInterface::Slot slot,

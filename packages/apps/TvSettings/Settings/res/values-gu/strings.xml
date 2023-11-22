@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"કેલિબ્રેશન"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"ફૉર્મેટ પસંદ કરો"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"સરાઉન્ડ સાઉન્ડ"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (ડોલ્બી ડિજિટલ)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (ડોલ્બી ડિજિટલ તેમજ /DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -294,7 +294,7 @@
     <string name="storage_calculating_size" msgid="2644732407412520565">"ગણતરી કરી રહ્યું છે..."</string>
     <string name="storage_apps_usage" msgid="4366049071039081219">"ઍપ્લિકેશનો"</string>
     <string name="storage_downloads_usage" msgid="6172975879962599380">"ડાઉનલોડ"</string>
-    <string name="storage_dcim_usage" msgid="2977564696540645452">"ફોટો અને વિડિઓ"</string>
+    <string name="storage_dcim_usage" msgid="2977564696540645452">"ફોટો અને વીડિયો"</string>
     <string name="storage_music_usage" msgid="3509327591741514083">"ઑડિઓ"</string>
     <string name="storage_media_misc_usage" msgid="6066868724030127457">"વિવિધ"</string>
     <string name="storage_media_cache_usage" msgid="5906737163212649904">"કૅશ કરેલ ડેટા"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"જ્યાં સુધી ડ્રાઇવ ફરીથી કનેક્ટ ન કરવામાં આવે ત્યાં સુધી કેટલીક ઍપ્લિકેશનો અનુપલબ્ધ રહેશે અથવા તો ઠીકથી કામ કરશે નહીં."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"પર્યાપ્ત સંગ્રહ સ્થાન નથી."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"ઍપ્લિકેશન અસ્તિત્વમાં નથી."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"ઍપ્લિકેશન કૉપિ-સુરક્ષિત છે."</string>
     <string name="invalid_location" msgid="5269044848535157307">"ઇન્સ્ટૉલ કરવાનું સ્થાન માન્ય નથી."</string>
     <string name="system_package" msgid="9200255718634512790">"બાહ્ય મીડિયા પર સિસ્ટમ અપડેટ્સ ઇન્સ્ટૉલ કરી શકાતા નથી."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"બાહ્ય મીડિયા પર ઉપકરણ વ્યવસ્થાપક ઇન્સ્ટૉલ કરી શકાતું નથી."</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"નોટિફિકેશન ઍક્સેસ"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"કોઈ ઇન્સ્ટૉલ કરેલ ઍપએ નોટિફિકેશન ઍક્સેસની વિનંતી કરી નથી."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"સંપર્ક નામ અને તમને મળતા સંદેશાના ટેક્સ્ટ જેવી વ્યક્તિગત માહિતી સહિતની બધી નોટિફિકેશન વાંચવામાં આ બધી ઍપ સમર્થ રહેશે. તે આ નોટિફિકેશનને છોડી દેવા અથવા તેમાં રહેલા ક્રિયા બટનોને ટ્રિગર કરવામાં પણ સમર્થ રહેશે."</string>
+    <string name="directory_access" msgid="7439168599298598101">"ડિરેક્ટરીનો ઍક્સેસ"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"આ ઍપ પાસે અમુક ચોક્કસ ડિરેક્ટરીનો ઍક્સેસ કરવાની પરવાનગી હોય છે."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"અન્ય ઍપની ઉપર ડિસ્પ્લે કરો"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"અન્ય ઍપની ઉપર ડિસ્પ્લે થવાની મંજૂરી આપો"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"આ ઍપને તમે ઉપયોગ કરી રહ્યાં હોય તેવી અન્ય ઍપમાં સૌથી ઉપર ડિસ્પ્લે થવાની મંજૂરી આપો. કદાચ તે તમારા અન્ય ઍપના ઉપયોગમાં દખલ કરી શકે છે અથવા તેમના દેખાવામાં કે કામ કરવામાં ફેરફાર કરી શકે છે."</string>

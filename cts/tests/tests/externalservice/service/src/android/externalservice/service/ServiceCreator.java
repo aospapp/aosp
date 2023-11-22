@@ -47,7 +47,15 @@ public class ServiceCreator extends Service {
                     final Context context = ServiceCreator.this;
                     final String pkgName = context.getPackageName();
                     Intent intent = new Intent();
-                    intent.setComponent(new ComponentName(pkgName, pkgName+".ExternalService"));
+
+                    String serviceName;
+                    boolean useZygote = msg.arg1 == 1;
+                    if (useZygote) {
+                        serviceName = ".ExternalServiceWithZygote";
+                    } else {
+                        serviceName = ".ExternalService";
+                    }
+                    intent.setComponent(new ComponentName(pkgName, pkgName+serviceName));
                     CreatorConnection conn = new CreatorConnection(msg.replyTo);
                     boolean result = context.bindService(intent, conn,
                             Context.BIND_AUTO_CREATE | Context.BIND_EXTERNAL_SERVICE);

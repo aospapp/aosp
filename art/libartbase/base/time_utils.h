@@ -18,11 +18,12 @@
 #define ART_LIBARTBASE_BASE_TIME_UTILS_H_
 
 #include <stdint.h>
+#include <stdio.h>  // Needed for correct _WIN32 build.
 #include <time.h>
 
 #include <string>
 
-#include "base/macros.h"
+#include "macros.h"
 
 namespace art {
 

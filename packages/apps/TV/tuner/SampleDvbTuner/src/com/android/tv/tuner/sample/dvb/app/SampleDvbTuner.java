@@ -17,30 +17,39 @@
 package com.android.tv.tuner.sample.dvb.app;
 
 import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
 import android.media.tv.TvContract;
 import com.android.tv.common.BaseApplication;
-import com.android.tv.common.actions.InputSetupActionUtils;
-import com.android.tv.common.config.DefaultConfigManager;
-import com.android.tv.common.config.api.RemoteConfig;
-import com.android.tv.common.util.CommonUtils;
+import com.android.tv.common.singletons.HasSingletons;
+import com.android.tv.tuner.modules.TunerSingletonsModule;
+import com.android.tv.tuner.sample.dvb.singletons.SampleDvbSingletons;
 import com.android.tv.tuner.sample.dvb.tvinput.SampleDvbTunerTvInputService;
-import com.android.tv.tuner.setup.LiveTvTunerSetupActivity;
+import com.android.tv.tuner.tvinput.factory.TunerSessionFactory;
+import com.android.tv.tuner.tvinput.factory.TunerSessionFactoryImpl;
+import dagger.android.AndroidInjector;
+import com.android.tv.common.flags.CloudEpgFlags;
+import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
+import javax.inject.Inject;
 
 /** The top level application for Sample DVB Tuner. */
-public class SampleDvbTuner extends BaseApplication {
+public class SampleDvbTuner extends BaseApplication
+        implements SampleDvbSingletons, HasSingletons<SampleDvbSingletons> {
+
     private String mEmbeddedInputId;
-    private RemoteConfig mRemoteConfig;
+    @Inject CloudEpgFlags mCloudEpgFlags;
+    @Inject ConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags;
+    @Inject TunerSessionFactoryImpl mTunerSessionFactory;
 
     @Override
-    public Intent getTunerSetupIntent(Context context) {
-        // Make an intent to launch the setup activity of TV tuner input.
-        Intent intent =
-                CommonUtils.createSetupIntent(
-                        new Intent(context, LiveTvTunerSetupActivity.class), mEmbeddedInputId);
-        intent.putExtra(InputSetupActionUtils.EXTRA_INPUT_ID, mEmbeddedInputId);
-        return intent;
+    public void onCreate() {
+        super.onCreate();
+    }
+
+    @Override
+    protected AndroidInjector<SampleDvbTuner> applicationInjector() {
+        return DaggerSampleDvbTunerComponent.builder()
+                .sampleDvbTunerModule(new SampleDvbTunerModule(this))
+                .tunerSingletonsModule(new TunerSingletonsModule(this))
+                .build();
     }
 
     @Override
@@ -54,11 +63,26 @@ public class SampleDvbTuner extends BaseApplication {
     }
 
     @Override
-    public RemoteConfig getRemoteConfig() {
-        if (mRemoteConfig == null) {
-            // No need to synchronize this, it does not hurt to create two and throw one away.
-            mRemoteConfig = DefaultConfigManager.createInstance(this).getRemoteConfig();
-        }
-        return mRemoteConfig;
+    public CloudEpgFlags getCloudEpgFlags() {
+        return mCloudEpgFlags;
+    }
+
+    @Override
+    public BuildType getBuildType() {
+        return BuildType.ENG;
+    }
+
+    @Override
+    public ConcurrentDvrPlaybackFlags getConcurrentDvrPlaybackFlags() {
+        return mConcurrentDvrPlaybackFlags;
+    }
+
+    @Override
+    public SampleDvbSingletons singletons() {
+        return this;
+    }
+
+    public TunerSessionFactory getTunerSessionFactory() {
+        return mTunerSessionFactory;
     }
 }

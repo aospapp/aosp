@@ -30,8 +30,6 @@ LOCAL_PACKAGE_NAME := CarMapsPlaceholder
 # TODO(b/73535841): Can build against current once the car stubs exist.
 LOCAL_PRIVATE_PLATFORM_APIS := true
 
-LOCAL_STATIC_ANDROID_LIBRARIES := androidx.car_car
-
 LOCAL_CERTIFICATE := platform
 
 LOCAL_MODULE_TAGS := optional

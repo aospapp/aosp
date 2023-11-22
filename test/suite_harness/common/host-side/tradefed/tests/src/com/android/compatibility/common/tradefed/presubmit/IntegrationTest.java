@@ -16,7 +16,6 @@
 package com.android.compatibility.common.tradefed.presubmit;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.result.ResultReporter;
@@ -40,7 +39,6 @@ import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IDeviceTest;
 import com.android.tradefed.testtype.IInvocationContextReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
-import com.android.tradefed.testtype.suite.TestSuiteInfo;
 import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.FileUtil;
 
@@ -57,11 +55,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Integration tests between {@link CompatibilityTest} and {@link ResultReporter} to ensure proper
@@ -545,161 +541,5 @@ public class IntegrationTest {
                 listener.invocationEnded(500);
             }
         }
-    }
-
-    /**
-     * Simple tests running in one module that should be marked complete when each shard run a test
-     * from the module. Each Module is going to run 1 pass 1 fail. 2 modules and 2 shards.
-     * Using the {@link CompatibilityTest#split()}.
-     */
-    @Test
-    public void testSingleModuleRun_sharded() throws Exception {
-        final String moduleName = "module_sharded";
-        Set<String> abis = AbiUtils.getAbisForArch(TestSuiteInfo.getInstance().getTargetArch());
-        Iterator<String> ite = abis.iterator();
-        final String abi1 = ite.next();
-        final String abi2 = ite.next();
-        createConfig(mTestDir, moduleName, TEST_STUB_SHARDABLE, true, true, true, false);
-        EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(
-                String.format("%s,%s", abi1, abi2));
-        mMockBuildInfo.addBuildAttribute(EasyMock.eq(CompatibilityBuildHelper.MODULE_IDS),
-                EasyMock.anyObject());
-        EasyMock.expectLastCall();
-
-        EasyMock.replay(mMockDevice, mMockBuildInfo);
-
-        OptionSetter setter = new OptionSetter(mTest);
-        setter.setOptionValue("shards", "2");
-        List<IRemoteTest> tests = (List<IRemoteTest>) mTest.split();
-        // We expect 2 shards
-        assertEquals(2, tests.size());
-
-        List<ShardThread> threads = new ArrayList<>();
-        // Run all shards
-        for (IRemoteTest test : tests) {
-            ShardThread st = new ShardThread(test, mReporter, mMockBuildInfo, mMockDevice,
-                    mContext);
-            threads.add(st);
-            st.start();
-        }
-        for (ShardThread thread : threads) {
-            thread.join(5000);
-        }
-        // Allow some time for ResultReport to finalize the results coming from the threads.
-        boolean finalized = mReporter.waitForFinalized(2, TimeUnit.MINUTES);
-        assertTrue(finalized);
-        EasyMock.verify(mMockDevice, mMockBuildInfo);
-        // Check aggregated results to make sure it's consistent.
-        IInvocationResult result = mReporter.getResult();
-        assertEquals(4, result.countResults(TestStatus.PASS));
-        assertEquals(4, result.countResults(TestStatus.FAIL));
-        assertEquals(2, result.getModules().size());
-        assertEquals(2, result.getModuleCompleteCount());
-    }
-
-    /**
-     * Simple tests running in one module that should be marked incomplete when shards do not
-     * complete. Each shard is going to run 1 pass 1 fail 1 not_executed.
-     * Using the {@link CompatibilityTest#split()}.
-     */
-    @Test
-    public void testSingleModuleRun_sharded_incomplete() throws Exception {
-        final String moduleName = "module_sharded_incomplete";
-        Set<String> abis = AbiUtils.getAbisForArch(TestSuiteInfo.getInstance().getTargetArch());
-        Iterator<String> ite = abis.iterator();
-        final String abi1 = ite.next();
-        final String abi2 = ite.next();
-        createConfig(mTestDir, moduleName, TEST_STUB_SHARDABLE, true, false, true, false);
-        EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(
-                String.format("%s,%s", abi1, abi2));
-        mMockBuildInfo.addBuildAttribute(EasyMock.eq(CompatibilityBuildHelper.MODULE_IDS),
-                EasyMock.anyObject());
-        EasyMock.expectLastCall();
-
-        EasyMock.replay(mMockDevice, mMockBuildInfo);
-        OptionSetter setter = new OptionSetter(mTest);
-        setter.setOptionValue("shards", "2");
-        List<IRemoteTest> tests = (List<IRemoteTest>) mTest.split();
-        // We expect 2 shards
-        assertEquals(2, tests.size());
-
-        List<ShardThread> threads = new ArrayList<>();
-        // Run all shards
-        for (IRemoteTest test : tests) {
-            ShardThread st = new ShardThread(test, mReporter, mMockBuildInfo, mMockDevice,
-                    mContext);
-            threads.add(st);
-            st.start();
-        }
-        for (ShardThread thread : threads) {
-            thread.join(5000);
-        }
-        // Allow some time for ResultReport to finalize the results coming from the threads.
-        boolean finalized = mReporter.waitForFinalized(2, TimeUnit.MINUTES);
-        assertTrue(finalized);
-        EasyMock.verify(mMockDevice, mMockBuildInfo);
-        // Check aggregated results to make sure it's consistent.
-        IInvocationResult result = mReporter.getResult();
-        assertEquals(4, result.countResults(TestStatus.PASS));
-        assertEquals(4, result.countResults(TestStatus.FAIL));
-        assertEquals(2, result.getModules().size());
-        assertEquals(0, result.getModuleCompleteCount());
-    }
-
-    /**
-     * Simple tests running in one module that should be marked complete when each shard run a test
-     * from the module.
-     * We are going to run only one of the shard since IStrictShardable allows it.
-     * Using the {@link CompatibilityTest#getTestShard(int, int)}.
-     * FIXME: Fix expectation of this test.
-     */
-    @Test
-    public void testSingleModuleRun_sharded_getTestShard() throws Exception {
-        final String moduleName = "module_sharded_getTestShard";
-        Set<String> abis = AbiUtils.getAbisForArch(TestSuiteInfo.getInstance().getTargetArch());
-        Iterator<String> ite = abis.iterator();
-        final String abi1 = ite.next();
-        final String abi2 = ite.next();
-        createConfig(mTestDir, moduleName, TEST_STUB_SHARDABLE, true, true, true, false);
-        EasyMock.expect(mMockDevice.getProperty("ro.product.cpu.abilist")).andReturn(
-                String.format("%s,%s", abi1, abi2));
-
-        String expectedAdd = AbiUtils.createId(abi1, moduleName) + ","
-                + AbiUtils.createId(abi2, moduleName);
-        mMockBuildInfo.addBuildAttribute(EasyMock.eq(CompatibilityBuildHelper.MODULE_IDS),
-                EasyMock.anyObject());
-        EasyMock.expectLastCall();
-        mAttributes.put(CompatibilityBuildHelper.MODULE_IDS, expectedAdd);
-
-        EasyMock.replay(mMockDevice, mMockBuildInfo);
-
-        List<IRemoteTest> tests = new ArrayList<>();
-        tests.add(mTest.getTestShard(3, 0));
-        // We are only running one of the shards since they should be independent.
-        assertEquals(1, tests.size());
-
-        ((IBuildReceiver)tests.get(0)).setBuild(mMockBuildInfo);
-        ((IDeviceTest)tests.get(0)).setDevice(mMockDevice);
-        ((IInvocationContextReceiver)tests.get(0)).setInvocationContext(mContext);
-        mReporter.invocationStarted(mContext);
-        try {
-            tests.get(0).run(mReporter);
-        } catch (DeviceNotAvailableException e) {
-            throw new RuntimeException(e);
-        } finally {
-            mReporter.invocationEnded(500);
-        }
-        EasyMock.verify(mMockDevice, mMockBuildInfo);
-
-        IInvocationResult result = mReporter.getResult();
-        assertEquals(2, result.countResults(TestStatus.PASS));
-        assertEquals(2, result.countResults(TestStatus.FAIL));
-        // FIXME: Only one module should be expected since within the one shard requested to run
-        // only one module existed.
-        assertEquals(2, result.getModules().size());
-        // FIXME: The module for the shard should be completed since all tests run.
-        // TestRunHandler in this case create an expectation of 3 testRunStarted just because of
-        // the number of shards.
-        assertEquals(0, result.getModuleCompleteCount());
     }
 }

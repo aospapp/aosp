@@ -26,21 +26,18 @@
 
     <string name="option_item_divider_font" translatable="false">@string/condensed_font</string>
 
-    <!-- Name of application [CHAR LIMIT=NONE] -->
-    <string name="app_name">Live TV</string>
-
     <!-- Title of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permlab_receiveInputEvent" translatable="false">receive input events from Live TV app</string>
+    <string name="permlab_receiveInputEvent" translatable="false">receive input events from <xliff:g id="app_name">Live TV</xliff:g>  app</string>
     <!-- Description of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permdesc_receiveInputEvent" translatable="false">Allows the app to receive input events from Live TV app</string>
+    <string name="permdesc_receiveInputEvent" translatable="false">Allows the app to receive input events from <xliff:g id="app_name">Live TV</xliff:g>  app</string>
     <!-- Title of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permlab_customizeTvApp" translatable="false">customize Live TV app</string>
+    <string name="permlab_customizeTvApp" translatable="false">customize <xliff:g id="app_name">Live TV</xliff:g>  app</string>
     <!-- Description of an application permission, listed so the user can choose
         whether they want to allow the application to do this. -->
-    <string name="permdesc_customizeTvApp" translatable="false">Allows the app to customize Live TV app</string>
+    <string name="permdesc_customizeTvApp" translatable="false">Allows the app to customize <xliff:g id="app_name">Live TV</xliff:g>  app</string>
 
     <!-- Program information, mainly used for channel banner and program guide. -->
     <eat-comment />
@@ -90,6 +87,12 @@
 
     <!-- Label of Program guide item in the channel list row. [CHAR LIMIT=23] -->
     <string name="channels_item_program_guide">Program guide</string>
+    <!-- Label of the item in the "channel menu" that changes the current TV channel in the "up"
+         direction, to the next larger channel number. [CHAR LIMIT=23] -->
+    <string name="channels_item_up">Channel up</string>
+    <!-- Label of the item in the "channel menu" that changes the current TV channel in the "down"
+         direction, to the next smaller channel number. [CHAR LIMIT=23] -->
+    <string name="channels_item_down">Channel down</string>
     <!-- Label of setup item in the channel list row. The item is shown only
          when new inputs are installed. [CHAR LIMIT=23] -->
     <string name="channels_item_setup">New channels available</string>
@@ -366,10 +369,22 @@
     <eat-comment />
     <!-- Description on the locked screen when current channel is locked by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_channel_locked">To watch this channel, press Right and enter your PIN</string>
+    <!-- Description on the locked screen when current channel is locked by parental control and talk back is turned on.
+        "press select" refers to a button on the remote.  [CHAR LIMIT=NONE] -->
+    <string name="tvview_channel_locked_talkback">To watch this channel, press select and enter your PIN</string>
     <!-- Description on the locked screen when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_content_locked">To watch this program, press Right and enter your PIN</string>
+    <!-- Description on the locked screen when the rating of the current content is restricted by parental control and talk back is turned on.
+     "press select" refers to a button on the remote.[CHAR LIMIT=NONE] -->
+    <string name="tvview_content_locked_talkback">To watch this program, press select and enter your PIN</string>
     <!-- Description on the locked screen when the current content is unrated and it's restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_content_locked_unrated">This program is unrated.\nTo watch this program, press Right and enter your PIN</string>
+    <!-- Description on the locked screen when the current content is unrated and it's restricted by parental control and talk back is turned on.
+    "press select" refers to a button on the remote.[CHAR LIMIT=NONE] -->
+    <string name="tvview_content_locked_unrated_talkback">This program is unrated.\nTo watch this program, press select and enter your PIN</string>
+    <!-- Description on the locked screen with the rating when the rating of the current content is restricted by parental control and talk back is turned on. [CHAR LIMIT=NONE]
+     "press select" refers to a button on the remote.-->
+    <string name="tvview_content_locked_format_talkback">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g>.\nTo watch this program, press select and enter your PIN.</string>
     <!-- Description on the locked screen with the rating when the rating of the current content is restricted by parental control. [CHAR LIMIT=NONE] -->
     <string name="tvview_content_locked_format">This program is rated <xliff:g id="rating" example="TV_MA">%1$s</xliff:g>.\nTo watch this program, press Right and enter your PIN.</string>
     <!-- Description on the locked screen when current channel is locked by parental control. [CHAR LIMIT=NONE] -->
@@ -464,7 +479,7 @@
          the source video through to the display and don't provide ability to tune to a specific
          channel unless the user directly controls the external source device (e.g. game console,
          DVD player, settop box, etc) that is connected to the TV. [CHAR LIMIT=NONE] -->
-    <string name="msg_not_passthrough_input">Tuner type not suitable. Please launch Live TV app for tuner type TV input.</string>
+    <string name="msg_not_passthrough_input">Tuner type not suitable. Please launch <xliff:g id="app_name">Live TV</xliff:g>  app for tuner type TV input.</string>
     <!-- Error message when tune is failed. [CHAR LIMIT=NONE] -->
     <string name="msg_tune_failed">Tune failed</string>
     <!-- Error message when the user attempts an action (select TIS setup-activity, app-link,
@@ -475,11 +490,13 @@
     <string name="msg_all_channels_hidden">All source channels are hidden.\nSelect at least one channel to watch.</string>
     <!-- Message displayed when availability is changed by unknown reason. [CHAR LIMIT=NONE] -->
     <string name="msg_channel_unavailable_unknown">The video is unexpectedly unavailable</string>
+    <!-- Message displayed when a TV input (eg HDMI Cable) is not physically connected. [CHAR LIMIT=NONE] -->
+    <string name="msg_channel_unavailable_not_connected">No Signal. Please check your source connection.</string>
     <!-- Message to notify the different use of Back Button: Home Button(To exit) Back button
          (commands for external device)  [CHAR LIMIT=NONE] -->
     <string name="msg_back_key_guide">BACK key is for connected device. Press HOME button to exit.</string>
     <!-- Error message when a user denied to grant READ_TV_LISTING permission. [CHAR LIMIT=NONE] -->
-    <string name="msg_read_tv_listing_permission_denied">Live TV needs permission to read the TV listings.</string>
+    <string name="msg_read_tv_listing_permission_denied"><xliff:g id="app_name">Live TV</xliff:g>  needs permission to read the TV listings.</string>
 
     <!-- Strings for debug or not to be shown to users -->
     <eat-comment />
@@ -505,13 +522,13 @@
     <string name="dvr_history_dialog_title" translatable="false">DVR history</string>
 
     <!-- Display name of DVR recording service's notification channel. -->
-    <string name="dvr_notification_channel_name" translatable="false">Live TV DVR</string>
+    <string name="dvr_notification_channel_name" translatable="false"><xliff:g id="app_name">Live TV</xliff:g>  DVR</string>
     <!-- Content title of DVR recording service's notification. -->
-    <string name="dvr_notification_content_title" translatable="false">Live TV DVR</string>
+    <string name="dvr_notification_content_title" translatable="false"><xliff:g id="app_name">Live TV</xliff:g>  DVR</string>
     <!-- Content text of DVR recording service's notification during recording. -->
-    <string name="dvr_notification_content_text_recording" translatable="false">Live TV are recording.</string>
+    <string name="dvr_notification_content_text_recording" translatable="false"><xliff:g id="app_name">Live TV</xliff:g>  are recording.</string>
     <!-- Content text of DVR recording service's notification during updating schedules. -->
-    <string name="dvr_notification_content_text_loading" translatable="false">Live TV are updating recording schedules.</string>
+    <string name="dvr_notification_content_text_loading" translatable="false"><xliff:g id="app_name">Live TV</xliff:g>  are updating recording schedules.</string>
 
     <!-- Default content title of tuner installing notifications. -->
     <string name="tuner_install_notification_content_title" translatable="false">Install <xliff:g id="tuner_package" example="Tuner package">%s</xliff:g></string>
@@ -577,7 +594,11 @@
     <!-- Description of a card view to show full list of scheduled recordings. [CHAR LIMIT=25] -->
     <string name="dvr_full_schedule_card_view_title">Full schedule</string>
     <!-- Description of failed recordings. [CHAR LIMIT=25] -->
-    <string name="dvr_recording_failed">Recording Failed</string>
+    <string name="dvr_recording_failed">Recording Failed.</string>
+    <!-- Description of failed recordings. [CHAR LIMIT=25] -->
+    <string name="dvr_recording_failed_no_period">Recording Failed</string>
+    <!-- Description of recording conflicts. [CHAR LIMIT=25] -->
+    <string name="dvr_recording_conflict">Recording Conflict</string>
     <!-- Description of how many following days the schedule list will show. [CHAR LIMIT=25] -->
     <plurals name="dvr_full_schedule_card_view_content">
         <item quantity="one">Next %1$d day</item>
@@ -607,6 +628,8 @@
 
     <!-- DVR detailed page -->
     <eat-comment />
+    <!-- Button label to schedule a recording. -->
+    <string name="dvr_detail_schedule_recording">Schedule recording</string>
     <!-- Button label to cancel the recording schedule. -->
     <string name="dvr_detail_cancel_recording">Cancel recording</string>
     <!-- Button label to stop the current recording. -->
@@ -631,6 +654,18 @@
     <string name="dvr_detail_view_schedule">View schedule</string>
     <!-- Text label to indicate there's more text in the details description [CHAR LIMIT=20] -->
     <string name="dvr_detail_read_more">Read more</string>
+    <!-- Description of failed recordings caused by system failures. -->
+    <string name="dvr_recording_failed_system_failure">System failure. (Error code: <xliff:g id="errorCode" example="0">%1$d</xliff:g>)</string>
+    <!-- Description of failed recordings when they are not started correctly. -->
+    <string name="dvr_recording_failed_not_started">Recording was not started. Please check the antenna and hard drive connections (if any).</string>
+    <!-- Description of failed recordings when required resource is busy. -->
+    <string name="dvr_recording_failed_resource_busy">Failed to tune to the channel. Possible causes: weak signal, poor antenna connection, or recording conflict.</string>
+    <!-- Description of failed recordings when the input is unavailable. -->
+    <string name="dvr_recording_failed_input_unavailable"><xliff:g id="inputId" example="com.example.partnersupportsampletvinput/.SampleTvInputService">%1$s</xliff:g> unavailable.</string>
+    <!-- Description of failed recordings when the input doesn't support recording. -->
+    <string name="dvr_recording_failed_input_dvr_unsupported">Recording of this channel is not supported.</string>
+    <!-- Description of failed recordings when the space is insufficient. -->
+    <string name="dvr_recording_failed_insufficient_space">Insufficient space. Please connect an external storage device or delete some existing recordings.</string>
 
 
     <!-- DVR series settings -->
@@ -754,7 +789,7 @@
          sufficient space.-->
     <string name="dvr_error_insufficient_space_description_three_or_more_recordings">The recordings of <xliff:g id="programName_1" example="Friends">%1$s</xliff:g>, <xliff:g id="programName_2" example="Friends">%2$s</xliff:g> and <xliff:g id="programName_3" example="Friends">%3$s</xliff:g> didn\'t complete due to insufficient storage.</string>
     <!-- Dialog title which will be shown when the current storage is too small for DVR. -->
-    <string name="dvr_error_small_sized_storage_title">More stroage needed</string>
+    <string name="dvr_error_small_sized_storage_title">More storage needed</string>
     <!-- Dialog description which will be shown when the current storage is too small for DVR. -->
     <string name="dvr_error_small_sized_storage_description">You will be able to record programs. However there is not enough storage on your device to start recording. Please connect an external drive that is <xliff:g id="storage_size" example="10GB">%1$d</xliff:g>GB or larger and follow the steps to format it as device storage.</string>
     <!-- Dialog title which will be shown when there is no free space on the current storage for DVR. -->
@@ -930,6 +965,20 @@
         <item quantity="other">(%1$d minutes)</item>
     </plurals>
 
+    <!-- DVR history list strings -->
+    <!-- Short description of failed recordings. -->
+    <string name="dvr_recording_failed_short">Failed.</string>
+    <!-- Short description of failed recordings when they are not started correctly. -->
+    <string name="dvr_recording_failed_not_started_short">Failed to start recording.</string>
+    <!-- Short description of failed recordings when required resource is busy. -->
+    <string name="dvr_recording_failed_resource_busy_short">Failed to tune to the channel.</string>
+    <!-- Short description of failed recordings when the input is unavailable. -->
+    <string name="dvr_recording_failed_input_unavailable_short"><xliff:g id="inputId" example="com.example.partnersupportsampletvinput/.SampleTvInputService">%1$s</xliff:g> unavailable.</string>
+    <!-- Short description of failed recordings when the input doesn't support recording. -->
+    <string name="dvr_recording_failed_input_dvr_unsupported_short">Recording not supported.</string>
+    <!-- Short description of failed recordings when the space is insufficient. -->
+    <string name="dvr_recording_failed_insufficient_space_short">Insufficient space.</string>
+
     <!-- DVR date related strings -->
     <eat-comment/>
     <!-- Date text to represent today. -->
@@ -952,4 +1001,21 @@
     <eat-comment/>
     <!-- Name for recorded programs preview channel -->
     <string name="recorded_programs_preview_channel">Recorded Programs</string>
+
+    <!-- Request Permission -->
+    <eat-comment />
+    <!-- Title of the dialog to show storage permission rationale -->
+    <string name="write_storage_permission_rationale_title">Request permission</string>
+    <!-- The users has asked to delete TV programs they have recorded, however the application
+        first needs a system permission to delete files.
+        This is the text of a dialog that explains to the users they will be asked to grant
+        Live TV permission to delete files.
+        "Allow Live TV to access photos, media, and files on your device?\" is from the text
+        from the system message at
+       https://tc.corp.google.com/btviewer/messagedetail?project=AndroidPlatform&msgId=7885942926944299560
+        -->
+    <string name="write_storage_permission_rationale_description">You will be asked to, \"Allow <xliff:g id="app_name">Live TV</xliff:g> to access photos, media, and files on your device?\"\n
+        Selecting \"Allow\", enables <xliff:g id="app_name">Live TV</xliff:g> to immediately
+        free storage space when deleting recorded TV programs.
+        This makes more space available for new recordings.</string>
 </resources>

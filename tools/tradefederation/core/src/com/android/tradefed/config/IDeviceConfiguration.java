@@ -42,6 +42,12 @@ public interface IDeviceConfiguration {
     public List<Object> getAllObjects();
 
     /**
+     * Return The list of all the configuration objects held the instance of {@link
+     * IDeviceConfiguration} that match the configuration type requested.
+     */
+    public List<Object> getAllObjectOfType(String configType);
+
+    /**
      * Pass one of the allowed objects that the Configuration Holder can keep track of.
      * <p>
      * Complete list of allowed objects are: {@link IBuildProvider}, {@link ITargetPreparer},

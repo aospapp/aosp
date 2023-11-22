@@ -16,8 +16,9 @@
 
 <!-- CoordinatorLayout is necessary for various components (e.g. Snackbars, and
      floating action buttons) to operate correctly. -->
-<android.support.design.widget.CoordinatorLayout
+<androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/coordinator_layout"
@@ -28,22 +29,37 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <Toolbar
+        <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?android:attr/actionBarSize"
-            android:background="?android:attr/colorPrimary"
-            android:elevation="8dp"
+            android:layout_margin="@dimen/search_bar_margin"
+            android:background="?android:attr/colorBackground"
+            android:elevation="3dp"
             android:theme="?actionBarTheme"
-            android:popupTheme="?actionBarPopupTheme">
+            android:popupTheme="?actionBarPopupTheme"
+            app:titleTextAppearance="@style/ToolbarTitle">
+
+            <TextView
+                android:id="@+id/searchbar_title"
+                android:layout_width="match_parent"
+                android:layout_height="?android:attr/actionBarSize"
+                android:layout_marginStart="@dimen/search_bar_text_margin_start"
+                android:layout_marginEnd="@dimen/search_bar_text_margin_end"
+                android:paddingStart="@dimen/search_bar_icon_padding"
+                android:gravity="center_vertical"
+                android:text="@string/search_bar_hint"
+                android:textAppearance="@style/SearchBarTitle"
+                android:drawableStart="@drawable/ic_menu_search"
+                android:drawablePadding="@dimen/search_bar_icon_padding"/>
 
             <com.android.documentsui.HorizontalBreadcrumb
                 android:id="@+id/horizontal_breadcrumb"
                 android:layout_marginRight="20dp"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="match_parent" />
 
-        </Toolbar>
+        </androidx.appcompat.widget.Toolbar>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -57,12 +73,32 @@
                 android:layout_width="256dp"
                 android:layout_height="match_parent" />
 
-            <include layout="@layout/directory_cluster"
-                android:layout_width="0dp"
-                android:elevation="8dp" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:elevation="8dp">
+
+                <include layout="@layout/directory_header" />
+
+                <FrameLayout
+                    android:id="@+id/container_directory"
+                    android:clipToPadding="false"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <androidx.coordinatorlayout.widget.CoordinatorLayout
+                    android:id="@+id/container_save"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?android:attr/colorBackgroundFloating"
+                    android:elevation="8dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 
     </LinearLayout>
 
-</android.support.design.widget.CoordinatorLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

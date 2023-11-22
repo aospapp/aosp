@@ -390,6 +390,33 @@ static jboolean disconnectA2dpNative(JNIEnv* env, jobject object,
   return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
 }
 
+static jboolean setSilenceDeviceNative(JNIEnv* env, jobject object,
+                                       jbyteArray address, jboolean silence) {
+  ALOGI("%s: sBluetoothA2dpInterface: %p", __func__, sBluetoothA2dpInterface);
+  std::shared_lock<std::shared_timed_mutex> lock(interface_mutex);
+  if (!sBluetoothA2dpInterface) {
+    ALOGE("%s: Failed to get the Bluetooth A2DP Interface", __func__);
+    return JNI_FALSE;
+  }
+
+  jbyte* addr = env->GetByteArrayElements(address, nullptr);
+
+  RawAddress bd_addr = RawAddress::kEmpty;
+  if (addr) {
+    bd_addr.FromOctets(reinterpret_cast<const uint8_t*>(addr));
+  }
+  if (bd_addr == RawAddress::kEmpty) {
+    return JNI_FALSE;
+  }
+  bt_status_t status =
+      sBluetoothA2dpInterface->set_silence_device(bd_addr, silence);
+  if (status != BT_STATUS_SUCCESS) {
+    ALOGE("%s: Failed A2DP set_silence_device, status: %d", __func__, status);
+  }
+  env->ReleaseByteArrayElements(address, addr, 0);
+  return (status == BT_STATUS_SUCCESS) ? JNI_TRUE : JNI_FALSE;
+}
+
 static jboolean setActiveDeviceNative(JNIEnv* env, jobject object,
                                       jbyteArray address) {
   ALOGI("%s: sBluetoothA2dpInterface: %p", __func__, sBluetoothA2dpInterface);
@@ -404,6 +431,9 @@ static jboolean setActiveDeviceNative(JNIEnv* env, jobject object,
   RawAddress bd_addr = RawAddress::kEmpty;
   if (addr) {
     bd_addr.FromOctets(reinterpret_cast<const uint8_t*>(addr));
+  }
+  if (bd_addr == RawAddress::kEmpty) {
+    return JNI_FALSE;
   }
   bt_status_t status = sBluetoothA2dpInterface->set_active_device(bd_addr);
   if (status != BT_STATUS_SUCCESS) {
@@ -450,6 +480,7 @@ static JNINativeMethod sMethods[] = {
     {"cleanupNative", "()V", (void*)cleanupNative},
     {"connectA2dpNative", "([B)Z", (void*)connectA2dpNative},
     {"disconnectA2dpNative", "([B)Z", (void*)disconnectA2dpNative},
+    {"setSilenceDeviceNative", "([BZ)Z", (void*)setSilenceDeviceNative},
     {"setActiveDeviceNative", "([B)Z", (void*)setActiveDeviceNative},
     {"setCodecConfigPreferenceNative",
      "([B[Landroid/bluetooth/BluetoothCodecConfig;)Z",

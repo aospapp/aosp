@@ -23,5 +23,10 @@ import hidl.tests.vendor@1.0::IVendor;
 import android.frameworks.displayservice@1.0;
 
 interface IVendor extends @1.0::IVendor {
+    safe_union Test {
+        int64_t foo;
+        int32_t bar;
+    };
+
     doAdditionalFunctionality();
 };

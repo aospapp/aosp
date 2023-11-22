@@ -21,7 +21,7 @@
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_FakeDevice"
-#include <cutils/log.h>
+#include <log/log.h>
 #include "EmulatedFakeCamera.h"
 #include "EmulatedFakeCameraDevice.h"
 

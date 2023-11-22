@@ -28,14 +28,12 @@ import android.graphics.Paint;
 import android.graphics.Paint.Style;
 import android.graphics.Picture;
 import android.graphics.Rect;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -49,7 +47,6 @@ public class PictureTest {
     // In particular, this test verifies that, in the following situations,
     // the created picture (effectively) has balanced saves and restores:
     //   - copy constructed picture from actively recording picture
-    //   - writeToStream/createFromStream created picture from actively recording picture
     //   - actively recording picture after draw call
     @Test
     public void testSaveRestoreBalance() {
@@ -62,17 +59,6 @@ public class PictureTest {
 
         Picture copy = new Picture(original);
         verifyBalance(copy);
-
-        assertEquals(expectedSaveCount, canvas.getSaveCount());
-
-        ByteArrayOutputStream bout = new ByteArrayOutputStream();
-        original.writeToStream(bout);
-
-        assertEquals(expectedSaveCount, canvas.getSaveCount());
-
-        Picture serialized = Picture.createFromStream(new ByteArrayInputStream(bout.toByteArray()));
-        // The serialization/deserialization process will balance the saves and restores
-        verifyBalance(serialized);
 
         assertEquals(expectedSaveCount, canvas.getSaveCount());
 
@@ -118,7 +104,6 @@ public class PictureTest {
     @Test
     public void testPicture() {
         Picture picture = new Picture();
-        ByteArrayOutputStream bout = new ByteArrayOutputStream();
 
         Canvas canvas = picture.beginRecording(TEST_WIDTH, TEST_HEIGHT);
         assertNotNull(canvas);
@@ -126,16 +111,6 @@ public class PictureTest {
         picture.endRecording();
 
         Bitmap bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
-        canvas = new Canvas(bitmap);
-        picture.draw(canvas);
-        verifySize(picture);
-        verifyBitmap(bitmap);
-
-        picture.writeToStream(bout);
-        picture = Picture.createFromStream(new ByteArrayInputStream(bout.toByteArray()));
-
-        // create a new Canvas with a new bitmap
-        bitmap = Bitmap.createBitmap(TEST_WIDTH, TEST_HEIGHT, Bitmap.Config.ARGB_8888);
         canvas = new Canvas(bitmap);
         picture.draw(canvas);
         verifySize(picture);

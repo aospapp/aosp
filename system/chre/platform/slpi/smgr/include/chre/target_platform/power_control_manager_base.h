@@ -20,7 +20,9 @@
 extern "C" {
 
 #include "qurt.h"
+#ifdef CHRE_SLPI_UIMG_ENABLED
 #include "sns_pm.h"
+#endif // CHRE_SLPI_UIMG_ENABLED
 
 } // extern "C"
 
@@ -41,8 +43,10 @@ class PowerControlManagerBase {
   bool voteBigImage(bool bigImage);
 
  protected:
+#ifdef CHRE_SLPI_UIMG_ENABLED
   //! Client handle for the subscription to the power manager
   sns_pm_handle_t mClientHandle = nullptr;
+#endif // CHRE_SLPI_UIMG_ENABLED
 
   //! Set to true if the host is awake, false if asleep.
   bool mHostIsAwake = true;

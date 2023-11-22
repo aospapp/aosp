@@ -40,7 +40,15 @@
 #define OP_rcUpdateColorBufferDMA 					10034
 #define OP_rcCreateColorBufferDMA 					10035
 #define OP_rcWaitSyncKHR 					10036
-#define OP_last 					10037
+#define OP_rcCompose 					10037
+#define OP_rcCreateDisplay 					10038
+#define OP_rcDestroyDisplay 					10039
+#define OP_rcSetDisplayColorBuffer 					10040
+#define OP_rcGetDisplayColorBuffer 					10041
+#define OP_rcGetColorBufferDisplay 					10042
+#define OP_rcGetDisplayPose 					10043
+#define OP_rcSetDisplayPose 					10044
+#define OP_last 					10045
 
 
 #endif

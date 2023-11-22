@@ -22,11 +22,11 @@ import static android.signature.cts.CurrentApi.SYSTEM_REMOVED_API_FILE;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.signature.cts.ApiDocumentParser;
-import android.signature.cts.JDiffClassDescription;
 import android.signature.cts.JDiffClassDescription.JDiffField;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.DynamicConfigDeviceSide;
 

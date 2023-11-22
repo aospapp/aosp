@@ -22,7 +22,7 @@ import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
-import android.support.v4.text.BidiFormatter;
+import androidx.core.text.BidiFormatter;
 import android.text.Layout;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;

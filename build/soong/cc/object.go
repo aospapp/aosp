@@ -25,7 +25,7 @@ import (
 //
 
 func init() {
-	android.RegisterModuleType("cc_object", objectFactory)
+	android.RegisterModuleType("cc_object", ObjectFactory)
 }
 
 type objectLinker struct {
@@ -33,12 +33,20 @@ type objectLinker struct {
 	Properties ObjectLinkerProperties
 }
 
-func objectFactory() android.Module {
+// cc_object runs the compiler without running the linker. It is rarely
+// necessary, but sometimes used to generate .s files from .c files to use as
+// input to a cc_genrule module.
+func ObjectFactory() android.Module {
 	module := newBaseModule(android.HostAndDeviceSupported, android.MultilibBoth)
 	module.linker = &objectLinker{
-		baseLinker: NewBaseLinker(),
+		baseLinker: NewBaseLinker(nil),
 	}
 	module.compiler = NewBaseCompiler()
+
+	// Clang's address-significance tables are incompatible with ld -r.
+	module.compiler.appendCflags([]string{"-fno-addrsig"})
+
+	module.stl = &stl{}
 	return module.Init()
 }
 
@@ -63,11 +71,7 @@ func (object *objectLinker) linkerDeps(ctx DepsContext, deps Deps) Deps {
 }
 
 func (*objectLinker) linkerFlags(ctx ModuleContext, flags Flags) Flags {
-	if flags.Clang {
-		flags.LdFlags = append(flags.LdFlags, ctx.toolchain().ToolchainClangLdflags())
-	} else {
-		flags.LdFlags = append(flags.LdFlags, ctx.toolchain().ToolchainLdflags())
-	}
+	flags.LdFlags = append(flags.LdFlags, ctx.toolchain().ToolchainClangLdflags())
 
 	return flags
 }
@@ -105,4 +109,12 @@ func (object *objectLinker) link(ctx ModuleContext,
 
 	ctx.CheckbuildFile(outputFile)
 	return outputFile
+}
+
+func (object *objectLinker) unstrippedOutputFilePath() android.Path {
+	return nil
+}
+
+func (object *objectLinker) nativeCoverage() bool {
+	return true
 }

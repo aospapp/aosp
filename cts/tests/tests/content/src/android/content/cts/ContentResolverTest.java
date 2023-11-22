@@ -19,6 +19,7 @@ package android.content.cts;
 import android.accounts.Account;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
+import android.content.ContentResolver.MimeTypeInfo;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
@@ -30,8 +31,11 @@ import android.os.CancellationSignal;
 import android.os.OperationCanceledException;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.internal.util.ArrayUtils;
@@ -42,6 +46,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class ContentResolverTest extends AndroidTestCase {
     private final static String COLUMN_ID_NAME = "_id";
@@ -62,10 +68,10 @@ public class ContentResolverTest extends AndroidTestCase {
     private static final String REMOTE_AUTHORITY = "remotectstest";
     private static final Uri REMOTE_TABLE1_URI = Uri.parse("content://"
                 + REMOTE_AUTHORITY + "/testtable1/");
-    private static final Uri REMOTE_SELF_URI = Uri.parse("content://"
-                + REMOTE_AUTHORITY + "/self/");
     private static final Uri REMOTE_CRASH_URI = Uri.parse("content://"
             + REMOTE_AUTHORITY + "/crash/");
+    private static final Uri REMOTE_HANG_URI = Uri.parse("content://"
+            + REMOTE_AUTHORITY + "/hang/");
 
     private static final Account ACCOUNT = new Account("cts", "cts");
 
@@ -112,6 +118,9 @@ public class ContentResolverTest extends AndroidTestCase {
 
     @Override
     protected void tearDown() throws Exception {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .dropShellPermissionIdentity();
+
         mContentResolver.delete(TABLE1_URI, null, null);
         if ( null != mCursor && !mCursor.isClosed() ) {
             mCursor.close();
@@ -138,7 +147,7 @@ public class ContentResolverTest extends AndroidTestCase {
         // so the act of killing it doesn't kill our own process.
         client.release();
         try {
-            client.delete(REMOTE_SELF_URI, null, null);
+            client.delete(REMOTE_CRASH_URI, null, null);
         } catch (RemoteException e) {
         }
         // Now make sure the thing is actually gone.
@@ -189,7 +198,7 @@ public class ContentResolverTest extends AndroidTestCase {
         try {
             Log.i("ContentResolverTest",
                     "Killing remote client -- if test process goes away, that is why!");
-            uClient.delete(REMOTE_SELF_URI, null, null);
+            uClient.delete(REMOTE_CRASH_URI, null, null);
         } catch (RemoteException e) {
         }
         // Make sure the remote client is actually gone.
@@ -227,7 +236,7 @@ public class ContentResolverTest extends AndroidTestCase {
         try {
             Log.i("ContentResolverTest",
                     "Killing remote client -- if test process goes away, that is why!");
-            uClient.delete(REMOTE_SELF_URI, null, null);
+            uClient.delete(REMOTE_CRASH_URI, null, null);
         } catch (RemoteException e) {
         }
         // Make sure the remote client is actually gone.
@@ -276,7 +285,7 @@ public class ContentResolverTest extends AndroidTestCase {
         try {
             Log.i("ContentResolverTest",
                     "Killing remote client -- if test process goes away, that is why!");
-            client.delete(REMOTE_SELF_URI, null, null);
+            client.delete(REMOTE_CRASH_URI, null, null);
         } catch (RemoteException e) {
         }
         // Make sure the remote client is actually gone.
@@ -708,7 +717,7 @@ public class ContentResolverTest extends AndroidTestCase {
         try {
             Log.i("ContentResolverTest",
                     "Killing remote client -- if test process goes away, that is why!");
-            uClient.delete(REMOTE_SELF_URI, null, null);
+            uClient.delete(REMOTE_CRASH_URI, null, null);
         } catch (RemoteException e) {
         }
         uClient.release();
@@ -740,7 +749,7 @@ public class ContentResolverTest extends AndroidTestCase {
         try {
             Log.i("ContentResolverTest",
                     "Killing remote client -- if test process goes away, that is why!");
-            uClient.delete(REMOTE_SELF_URI, null, null);
+            uClient.delete(REMOTE_CRASH_URI, null, null);
         } catch (RemoteException e) {
         }
         uClient.release();
@@ -1230,6 +1239,104 @@ public class ContentResolverTest extends AndroidTestCase {
         } catch (IllegalArgumentException e) {
             //expected.
         }
+    }
+
+    @AppModeFull
+    public void testHangRecover() throws Exception {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(android.Manifest.permission.REMOVE_TASKS);
+
+        final CountDownLatch latch = new CountDownLatch(1);
+        new Thread(() -> {
+            final ContentProviderClient client = mContentResolver
+                    .acquireUnstableContentProviderClient(REMOTE_AUTHORITY);
+            client.setDetectNotResponding(2_000);
+            try {
+                client.query(REMOTE_HANG_URI, null, null, null);
+                fail("Funky, we somehow returned?");
+            } catch (RemoteException e) {
+                latch.countDown();
+            }
+        }).start();
+
+        // The remote process should have been killed after the ANR was detected
+        // above, causing our pending call to return and release our latch above
+        // within 10 seconds; if our Binder thread hasn't been freed, then we
+        // fail with a timeout.
+        latch.await(10, TimeUnit.SECONDS);
+    }
+
+    public void testGetTypeInfo() throws Exception {
+        for (String mimeType : new String[] {
+                "image/png",
+                "IMage/PnG",
+                "image/x-custom",
+                "application/x-flac",
+                "application/rdf+xml",
+                "x-custom/x-custom",
+        }) {
+            final MimeTypeInfo ti = mContentResolver.getTypeInfo(mimeType);
+            assertNotNull(ti);
+            assertNotNull(ti.getLabel());
+            assertNotNull(ti.getContentDescription());
+            assertNotNull(ti.getIcon());
+        }
+    }
+
+    public void testGetTypeInfo_Invalid() throws Exception {
+        try {
+            mContentResolver.getTypeInfo(null);
+            fail("Expected exception for null");
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    public void testWrapContentProvider() throws Exception {
+        try (ContentProviderClient local = getContext().getContentResolver()
+                .acquireContentProviderClient(AUTHORITY)) {
+            final ContentResolver resolver = ContentResolver.wrap(local.getLocalContentProvider());
+            assertNotNull(resolver.getType(TABLE1_URI));
+            try {
+                resolver.getType(REMOTE_TABLE1_URI);
+                fail();
+            } catch (SecurityException | IllegalArgumentException expected) {
+            }
+        }
+    }
+
+    public void testWrapContentProviderClient() throws Exception {
+        try (ContentProviderClient remote = getContext().getContentResolver()
+                .acquireContentProviderClient(REMOTE_AUTHORITY)) {
+            final ContentResolver resolver = ContentResolver.wrap(remote);
+            assertNotNull(resolver.getType(REMOTE_TABLE1_URI));
+            try {
+                resolver.getType(TABLE1_URI);
+                fail();
+            } catch (SecurityException | IllegalArgumentException expected) {
+            }
+        }
+    }
+
+    @AppModeFull
+    public void testContentResolverCaching() throws Exception {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
+                android.Manifest.permission.CACHE_CONTENT,
+                android.Manifest.permission.INTERACT_ACROSS_USERS_FULL);
+
+        Bundle cached = new Bundle();
+        cached.putString("key", "value");
+        mContentResolver.putCache(TABLE1_URI, cached);
+
+        Bundle response = mContentResolver.getCache(TABLE1_URI);
+        assertEquals("value", response.getString("key"));
+
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_KEY_NAME, "key10");
+        values.put(COLUMN_VALUE_NAME, 10);
+        mContentResolver.update(TABLE1_URI, values, null, null);
+
+        response = mContentResolver.getCache(TABLE1_URI);
+        assertNull(response);
     }
 
     private class MockContentObserver extends ContentObserver {

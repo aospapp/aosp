@@ -13,7 +13,7 @@ details on 64 bit devices.
 [    OK    ] pthread_DeathTest.pthread_bug_37410 (30 ms)
 [    OK    ] semaphore_DeathTest.sem_timedwait_null_timeout (9 ms)
 [    OK    ] stack_protector_DeathTest.modify_stack_protector (19 ms)
-[    OK    ] stdlib_DeathTest.getenv_after_main_thread_exits (20 ms)
+[  SKIPPED ] stdlib_DeathTest.getenv_after_main_thread_exits (20 ms)
 [    OK    ] properties_DeathTest.read_only (18 ms)
 [    OK    ] unistd_nofortify_DeathTest.abort (19 ms)
 [    OK    ] unistd_DeathTest.abort (19 ms)

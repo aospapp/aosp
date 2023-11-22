@@ -133,6 +133,12 @@ enum {
 #define RTM_GETSTATS RTM_GETSTATS
   RTM_NEWCACHEREPORT = 96,
 #define RTM_NEWCACHEREPORT RTM_NEWCACHEREPORT
+  RTM_NEWCHAIN = 100,
+#define RTM_NEWCHAIN RTM_NEWCHAIN
+  RTM_DELCHAIN,
+#define RTM_DELCHAIN RTM_DELCHAIN
+  RTM_GETCHAIN,
+#define RTM_GETCHAIN RTM_GETCHAIN
   __RTM_MAX,
 #define RTM_MAX (((__RTM_MAX + 3) & ~3) - 1)
 };
@@ -194,6 +200,11 @@ enum {
 #define RTPROT_DHCP 16
 #define RTPROT_MROUTED 17
 #define RTPROT_BABEL 42
+#define RTPROT_BGP 186
+#define RTPROT_ISIS 187
+#define RTPROT_OSPF 188
+#define RTPROT_RIP 189
+#define RTPROT_EIGRP 192
 enum rt_scope_t {
   RT_SCOPE_UNIVERSE = 0,
   RT_SCOPE_SITE = 200,
@@ -243,6 +254,9 @@ enum rtattr_type_t {
   RTA_PAD,
   RTA_UID,
   RTA_TTL_PROPAGATE,
+  RTA_IP_PROTO,
+  RTA_SPORT,
+  RTA_DPORT,
   __RTA_MAX
 };
 #define RTA_MAX (__RTA_MAX - 1)
@@ -389,8 +403,10 @@ struct tcmsg {
   int tcm_ifindex;
   __u32 tcm_handle;
   __u32 tcm_parent;
+#define tcm_block_index tcm_parent
   __u32 tcm_info;
 };
+#define TCM_IFINDEX_MAGIC_BLOCK (0xFFFFFFFFU)
 enum {
   TCA_UNSPEC,
   TCA_KIND,
@@ -405,6 +421,8 @@ enum {
   TCA_DUMP_INVISIBLE,
   TCA_CHAIN,
   TCA_HW_OFFLOAD,
+  TCA_INGRESS_BLOCK,
+  TCA_EGRESS_BLOCK,
   __TCA_MAX
 };
 #define TCA_MAX (__TCA_MAX - 1)

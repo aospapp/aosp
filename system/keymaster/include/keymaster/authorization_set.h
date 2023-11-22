@@ -41,7 +41,7 @@ class AuthorizationSet : public Serializable, public keymaster_key_param_set_t {
      * buffers, with \p Reinitialize.
      */
     AuthorizationSet()
-        : elems_capacity_(0), indirect_data_(NULL), indirect_data_size_(0),
+        : elems_capacity_(0), indirect_data_(nullptr), indirect_data_size_(0),
           indirect_data_capacity_(0), error_(OK) {
         elems_ = nullptr;
         elems_size_ = 0;
@@ -711,7 +711,9 @@ class AuthProxy {
 
     keymaster_key_param_t operator[](size_t pos) const {
         if (pos < hw_enforced_.size()) return hw_enforced_[pos];
-        if (pos < sw_enforced_.size()) return sw_enforced_[pos - hw_enforced_.size()];
+        if ((pos - hw_enforced_.size()) < sw_enforced_.size()) {
+            return sw_enforced_[pos - hw_enforced_.size()];
+        }
         return {};
     }
 

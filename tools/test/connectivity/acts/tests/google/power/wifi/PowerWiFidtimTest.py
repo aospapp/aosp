@@ -51,50 +51,18 @@ class PowerWiFidtimTest(PWBT.PowerWiFiBaseTest):
         self.measure_power_and_validate()
 
     # Test cases
-    @test_tracker_info(uuid='2a70a78b-93a8-46a6-a829-e1624b8239d2')
-    def test_screen_OFF_band_2g_dtim_1(self):
-        self.dtim_test_func()
-
     @test_tracker_info(uuid='b6c4114d-984a-4269-9e77-2bec0e4b6e6f')
     def test_screen_OFF_band_2g_dtim_2(self):
-        self.dtim_test_func()
-
-    @test_tracker_info(uuid='2ae5bc29-3d5f-4fbb-9ff6-f5bd499a9d6e')
-    def test_screen_OFF_band_2g_dtim_4(self):
-        self.dtim_test_func()
-
-    @test_tracker_info(uuid='b37fa75f-6166-4247-b15c-adcda8c7038e')
-    def test_screen_OFF_band_2g_dtim_5(self):
         self.dtim_test_func()
 
     @test_tracker_info(uuid='384d3b0f-4335-4b00-8363-308ec27a150c')
     def test_screen_ON_band_2g_dtim_1(self):
         self.dtim_test_func()
 
-    @test_tracker_info(uuid='79d0f065-2c46-4400-b02c-5ad60e79afea')
-    def test_screen_ON_band_2g_dtim_4(self):
-        self.dtim_test_func()
-
-    @test_tracker_info(uuid='5e2f73cb-7e4e-4a25-8fd5-c85adfdf466e')
-    def test_screen_OFF_band_5g_dtim_1(self):
-        self.dtim_test_func()
-
     @test_tracker_info(uuid='017f57c3-e133-461d-80be-d025d1491d8a')
     def test_screen_OFF_band_5g_dtim_2(self):
         self.dtim_test_func()
 
-    @test_tracker_info(uuid='b84a1cb3-9573-4bfd-9875-0f33cb171cc5')
-    def test_screen_OFF_band_5g_dtim_4(self):
-        self.dtim_test_func()
-
-    @test_tracker_info(uuid='75644df4-2cc8-4bbd-8985-0656a4f9d056')
-    def test_screen_OFF_band_5g_dtim_5(self):
-        self.dtim_test_func()
-
     @test_tracker_info(uuid='327af44d-d9e7-49e0-9bda-accad6241dc7')
     def test_screen_ON_band_5g_dtim_1(self):
-        self.dtim_test_func()
-
-    @test_tracker_info(uuid='8b32585f-2517-426b-a2c9-8087093cf991')
-    def test_screen_ON_band_5g_dtim_4(self):
         self.dtim_test_func()

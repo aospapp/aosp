@@ -190,9 +190,9 @@
     <!-- A category title for the settings related to surround sound. [CHAR LIMIT=50] -->
     <string name="surround_sound_category_title">Surround Sound</string>
     <!-- Name of the AC3 surround sound format that is displayed to the user [CHAR LIMIT=50] -->
-    <string name="surround_sound_format_ac3">AC3 (Dolby Digital)</string>
+    <string name="surround_sound_format_ac3">Dolby Digital</string>
     <!-- Name of the E-AC3 surround sound format that is displayed to the user [CHAR LIMIT=50] -->
-    <string name="surround_sound_format_e_ac3">E-AC3 (Dolby Digital Plus/DD+)</string>
+    <string name="surround_sound_format_e_ac3">Dolby Digital Plus</string>
     <!-- Name of the DTS surround sound format that is displayed to the user [CHAR LIMIT=50] -->
     <string name="surround_sound_format_dts">DTS</string>
     <!-- Name of the DTS-HD surround sound format that is displayed to the user [CHAR LIMIT=50] -->
@@ -788,8 +788,7 @@
     <!-- Manage applications, text for move error messages -->
     <string name="insufficient_storage">Not enough storage space.</string>
     <string name="does_not_exist">App doesn\u2019t exist.</string>
-    <string name="app_forward_locked">App is copy-protected.</string>
-    <string name="invalid_location">Install location isn\u2019t valid.</string>
+        <string name="invalid_location">Install location isn\u2019t valid.</string>
     <string name="system_package">System updates can\u2019t be installed on external media.</string>
     <!-- Error message shown when trying to move device administrators to external disks, such as SD card [CHAR_LIMIT=none] -->
     <string name="move_error_device_admin">Device Administrator can\u2019t be installed on external media.</string>
@@ -1606,6 +1605,13 @@
         including personal information such as contact names and the text of messages you receive.
         They will also be able to dismiss notifications or trigger action buttons they contain.
     </string>
+
+    <!-- Title of directory access screen in settings [CHAR LIMIT=30] -->
+    <string name="directory_access">Directory access</string>
+    <!-- Description of the directory access setting [CHAR LIMIT=NONE] -->
+    <string name="directory_access_description">These apps have permission to access certain directories.</string>
+    <!-- String used to describe the name of a directory in a volume; it must show both names, with the directory name wrapped in parenthesis -->
+    <string name="directory_on_volume"><xliff:g id="volume" example="SD Card">%1$s</xliff:g> (<xliff:g id="directory" example="Movies">%2$s</xliff:g>)</string>
 
     <!-- Settings title in main settings screen for SYSTEM_ALERT_WINDOW [CHAR LIMIT=45] -->
     <string name="system_alert_window_settings">Display over other apps</string>

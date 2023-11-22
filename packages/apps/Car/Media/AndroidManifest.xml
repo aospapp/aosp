@@ -16,19 +16,16 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    android:sharedUserId="com.android.car.media"
-    package="com.android.car.media" >
+    package="com.android.car.media"
+    android:sharedUserId="android.uid.system">
 
     <uses-permission android:name="android.permission.MEDIA_CONTENT_CONTROL"/>
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
-    <uses-sdk
-        android:minSdkVersion="24"
-        android:targetSdkVersion='24'/>
-
     <application
-        android:label="CarMediaApp"
+        android:label="Media Center"
+        android:theme="@style/Theme.Media"
         android:icon="@drawable/ic_music">
 
         <meta-data
@@ -37,13 +34,20 @@
 
         <activity
             android:name=".MediaActivity"
-            android:theme="@style/MediaActivityTheme"
             android:resizeableActivity="true"
+            android:windowSoftInputMode="stateUnchanged|adjustPan"
             android:launchMode="singleTop">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
+        </activity>
+
+        <!-- The Media center entry point that trampolines into MediaActivity or the radio app. -->
+        <activity
+            android:name=".MediaDispatcherActivity"
+            android:launchMode="singleTask">
+            <meta-data android:name="distractionOptimized" android:value="true"/>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.INFO" />
-                <category android:name="android.intent.category.APP_MUSIC" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.car.intent.action.MEDIA_TEMPLATE" />

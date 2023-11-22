@@ -23,11 +23,12 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.params.BlackLevelPattern;
 import android.hardware.camera2.TotalCaptureResult;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.Build;
 import android.os.SystemClock;
-import android.platform.test.annotations.AppModeFull;
 import android.util.Pair;
 import android.util.Size;
 import android.hardware.camera2.cts.helpers.CameraErrorCollector;
@@ -50,7 +51,6 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-@AppModeFull
 public class CaptureResultTest extends Camera2AndroidTestCase {
     private static final String TAG = "CaptureResultTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -154,14 +154,13 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         final int WAIT_FOR_RESULT_TIMOUT_MS = 2000;
         for (String id : mCameraIds) {
             try {
-                openDevice(id);
-
                 // Skip the test if partial result is not supported
-                int partialResultCount = mStaticInfo.getPartialResultCount();
+                int partialResultCount = mAllStaticInfo.get(id).getPartialResultCount();
                 if (partialResultCount == 1) {
                     continue;
                 }
 
+                openDevice(id);
                 // Create image reader and surface.
                 if (mStaticInfo.isColorOutputSupported()) {
                     Size size = mOrderedPreviewSizes.get(0);
@@ -273,12 +272,12 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
             SimpleImageReaderListener jpegListener = new SimpleImageReaderListener();
             SimpleImageReaderListener prevListener = new SimpleImageReaderListener();
             try {
-                openDevice(id);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(id).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
                     continue;
                 }
 
+                openDevice(id);
                 CaptureRequest.Builder previewBuilder =
                         mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
                 CaptureRequest.Builder multiBuilder =
@@ -409,10 +408,12 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
                     physicalCaptureResults.size() + " vs " + requestedPhysicalIds.size(),
                     physicalCaptureResults.size(), requestedPhysicalIds.size());
 
-            validateOneCaptureResult(errorCollector, waiverKeys, allKeys, requestBuilder, result,
-                    null/*cameraId*/, i);
+            validateOneCaptureResult(errorCollector, staticInfo, waiverKeys, allKeys,
+                    requestBuilder, result, null/*cameraId*/, i);
             for (String physicalId : requestedPhysicalIds) {
-                validateOneCaptureResult(errorCollector, physicalWaiverKeys.get(physicalId),
+                StaticMetadata physicalStaticInfo = allStaticInfo.get(physicalId);
+                validateOneCaptureResult(errorCollector, physicalStaticInfo,
+                        physicalWaiverKeys.get(physicalId),
                         allKeys, null/*requestBuilder*/, physicalCaptureResults.get(physicalId),
                         physicalId, i);
             }
@@ -420,7 +421,8 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
     }
 
     private static void validateOneCaptureResult(CameraErrorCollector errorCollector,
-            List<CaptureResult.Key<?>> skippedKeys, List<CaptureResult.Key<?>> allKeys,
+            StaticMetadata staticInfo, List<CaptureResult.Key<?>> skippedKeys,
+            List<CaptureResult.Key<?>> allKeys,
             CaptureRequest.Builder requestBuilder, CaptureResult result, String cameraId,
             int resultCount) throws Exception {
         String failMsg = "Failed capture result " + resultCount + " test";
@@ -473,6 +475,23 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
                         errorCollector.expectEquals(msg,
                                 requestBuilder.get(CaptureRequest.STATISTICS_OIS_DATA_MODE),
                                 result.get(CaptureResult.STATISTICS_OIS_DATA_MODE));
+                    } else if (key.equals(CaptureResult.DISTORTION_CORRECTION_MODE)) {
+                        errorCollector.expectEquals(msg,
+                                requestBuilder.get(CaptureRequest.DISTORTION_CORRECTION_MODE),
+                                result.get(CaptureResult.DISTORTION_CORRECTION_MODE));
+                    } else if (key.equals(CaptureResult.SENSOR_DYNAMIC_BLACK_LEVEL)) {
+                        float[] blackLevel = errorCollector.expectKeyValueNotNull(
+                                result, CaptureResult.SENSOR_DYNAMIC_BLACK_LEVEL);
+                        if (blackLevel != null && staticInfo.isMonochromeCamera()) {
+                            errorCollector.expectEquals(
+                                    "Monochrome camera dynamic blacklevel must be 2x2",
+                                    blackLevel.length, 4);
+                            for (int index = 1; index < blackLevel.length; index++) {
+                                errorCollector.expectEquals(
+                                    "Monochrome camera 2x2 channels blacklevel value must be the same.",
+                                    blackLevel[index], blackLevel[0]);
+                            }
+                        }
                     } else {
                         // Only do non-null check for the rest of keys.
                         errorCollector.expectKeyValueNotNull(failMsg, result, key);
@@ -536,50 +555,72 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         // Only present in reprocessing capture result.
         waiverKeys.add(CaptureResult.REPROCESS_EFFECTIVE_EXPOSURE_FACTOR);
 
+        // LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID not required if key is not supported.
+        if (!staticInfo.isLogicalMultiCamera() ||
+                !staticInfo.isActivePhysicalCameraIdSupported()) {
+            waiverKeys.add(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
+        }
+
         //Keys not required if RAW is not supported
         if (!staticInfo.isCapabilitySupported(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW)) {
             waiverKeys.add(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
             waiverKeys.add(CaptureResult.SENSOR_GREEN_SPLIT);
             waiverKeys.add(CaptureResult.SENSOR_NOISE_PROFILE);
+        } else if (staticInfo.isMonochromeCamera()) {
+            waiverKeys.add(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT);
+            waiverKeys.add(CaptureResult.SENSOR_GREEN_SPLIT);
         }
 
-        //Keys for depth output capability
-        if (!staticInfo.isCapabilitySupported(
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT)) {
-            waiverKeys.add(CaptureResult.LENS_POSE_ROTATION);
-            waiverKeys.add(CaptureResult.LENS_POSE_TRANSLATION);
-        }
+        boolean calibrationReported = staticInfo.areKeysAvailable(
+                CameraCharacteristics.LENS_POSE_ROTATION,
+                CameraCharacteristics.LENS_POSE_TRANSLATION,
+                CameraCharacteristics.LENS_INTRINSIC_CALIBRATION);
+
+        // If any of distortion coefficients is reported in CameraCharacteristics, HAL must
+        // also report (one of) them in CaptureResult
+        boolean distortionReported = 
+                staticInfo.areKeysAvailable(
+                        CameraCharacteristics.LENS_RADIAL_DISTORTION) || 
+                staticInfo.areKeysAvailable(
+                        CameraCharacteristics.LENS_DISTORTION);
 
         //Keys for lens distortion correction
-        boolean distortionCorrectionSupported = false;
-        int[] distortionModes = staticInfo.getCharacteristics().get(
-                CameraCharacteristics.DISTORTION_CORRECTION_AVAILABLE_MODES);
-        if (distortionModes == null) {
+        boolean distortionCorrectionSupported = staticInfo.isDistortionCorrectionSupported();
+        if (!distortionCorrectionSupported) {
             waiverKeys.add(CaptureResult.DISTORTION_CORRECTION_MODE);
-        } else {
-            boolean gotNonOff = false;
-            for (int mode : distortionModes) {
-                if (mode != CaptureRequest.DISTORTION_CORRECTION_MODE_OFF) {
-                    gotNonOff = true;
-                    distortionCorrectionSupported = true;
-                    break;
-                }
-            }
-            if (!gotNonOff) {
-                waiverKeys.add(CaptureResult.DISTORTION_CORRECTION_MODE);
-            }
         }
 
+        boolean mustReportDistortion = true;
         // These keys must present on either DEPTH or distortion correction devices
         if (!staticInfo.isCapabilitySupported(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT) &&
-                !distortionCorrectionSupported) {
-            waiverKeys.add(CaptureResult.LENS_INTRINSIC_CALIBRATION);
+                !distortionCorrectionSupported &&
+                !distortionReported) {
+            mustReportDistortion = false;
             waiverKeys.add(CaptureResult.LENS_RADIAL_DISTORTION);
             waiverKeys.add(CaptureResult.LENS_DISTORTION);
+        } else {
+            // Radial distortion doesn't need to be present for new devices, or old devices that
+            // opt in the new lens distortion tag.
+            CameraCharacteristics c = staticInfo.getCharacteristics();
+            if (Build.VERSION.FIRST_SDK_INT > Build.VERSION_CODES.O_MR1 ||
+                    c.get(CameraCharacteristics.LENS_DISTORTION) != null) {
+                waiverKeys.add(CaptureResult.LENS_RADIAL_DISTORTION);
+            }
         }
 
+        // Calibration keys must exist for
+        //   - DEPTH capable devices
+        //   - Devices that reports calibration keys in static metadata
+        //   - Devices that reports lens distortion keys in static metadata
+        if (!staticInfo.isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT) &&
+                !calibrationReported && !mustReportDistortion) {
+            waiverKeys.add(CaptureResult.LENS_POSE_ROTATION);
+            waiverKeys.add(CaptureResult.LENS_POSE_TRANSLATION);
+            waiverKeys.add(CaptureResult.LENS_INTRINSIC_CALIBRATION);
+        }
 
         // Waived if RAW output is not supported
         int[] outputFormats = staticInfo.getAvailableFormats(
@@ -597,8 +638,7 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         }
 
         // Waived if MONOCHROME capability
-        if (!staticInfo.isCapabilitySupported(
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME)) {
+        if (staticInfo.isMonochromeCamera()) {
             waiverKeys.add(CaptureResult.COLOR_CORRECTION_MODE);
             waiverKeys.add(CaptureResult.COLOR_CORRECTION_TRANSFORM);
             waiverKeys.add(CaptureResult.COLOR_CORRECTION_GAINS);
@@ -934,6 +974,7 @@ public class CaptureResultTest extends Camera2AndroidTestCase {
         resultKeys.add(CaptureResult.TONEMAP_PRESET_CURVE);
         resultKeys.add(CaptureResult.BLACK_LEVEL_LOCK);
         resultKeys.add(CaptureResult.REPROCESS_EFFECTIVE_EXPOSURE_FACTOR);
+        resultKeys.add(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
         resultKeys.add(CaptureResult.DISTORTION_CORRECTION_MODE);
 
         return resultKeys;

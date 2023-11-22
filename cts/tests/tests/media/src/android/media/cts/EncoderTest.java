@@ -16,16 +16,16 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
 import android.content.Context;
 import android.media.MediaCodec;
-import android.media.MediaCodecInfo;
-import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
+import android.media.cts.R;
+import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
+
+import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.MediaUtils;
 
@@ -41,6 +41,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+@SmallTest
+@RequiresDevice
 public class EncoderTest extends AndroidTestCase {
     private static final String TAG = "EncoderTest";
     private static final boolean VERBOSE = false;
@@ -103,6 +105,24 @@ public class EncoderTest extends AndroidTestCase {
         testEncoderWithFormats(MediaFormat.MIMETYPE_AUDIO_AMR_WB, formats);
     }
 
+    public void testOpusEncoders() {
+        LinkedList<MediaFormat> formats = new LinkedList<MediaFormat>();
+
+        final int kBitRates[] =
+            { 6600, 8850, 12650, 14250, 15850, 18250, 19850, 23050, 23850 };
+
+        for (int j = 0; j < kBitRates.length; ++j) {
+            MediaFormat format  = new MediaFormat();
+            format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_OPUS);
+            format.setInteger(MediaFormat.KEY_SAMPLE_RATE, 16000);
+            format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 1);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, kBitRates[j]);
+            formats.push(format);
+        }
+
+        testEncoderWithFormats(MediaFormat.MIMETYPE_AUDIO_OPUS, formats);
+    }
+
     public void testAACEncoders() {
         LinkedList<MediaFormat> formats = new LinkedList<MediaFormat>();
 
@@ -151,18 +171,28 @@ public class EncoderTest extends AndroidTestCase {
             MediaUtils.skipTest("no encoders found for " + Arrays.toString(formats));
             return;
         }
-        ExecutorService pool = Executors.newFixedThreadPool(3);
+
+        int ThreadCount = 3;
+        int testsStarted = 0;
+        int allowPerTest = 30;
+
+        ExecutorService pool = Executors.newFixedThreadPool(ThreadCount);
 
         for (String componentName : componentNames) {
             for (MediaFormat format : formats) {
                 assertEquals(mime, format.getString(MediaFormat.KEY_MIME));
                 pool.execute(new EncoderRun(componentName, format));
+                testsStarted++;
             }
         }
         try {
             pool.shutdown();
+            int waitingSeconds = ((testsStarted + ThreadCount - 1) / ThreadCount) * allowPerTest;
+            waitingSeconds += 300;
+            Log.i(TAG, "waiting up to " + waitingSeconds + " seconds for "
+                            + testsStarted + " sub-tests to finish");
             assertTrue("timed out waiting for encoder threads",
-                    pool.awaitTermination(10, TimeUnit.MINUTES));
+                    pool.awaitTermination(waitingSeconds, TimeUnit.SECONDS));
         } catch (InterruptedException e) {
             fail("interrupted while waiting for encoder threads");
         }

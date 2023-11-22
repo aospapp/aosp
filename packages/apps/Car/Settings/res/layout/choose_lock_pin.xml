@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Copyright (C) 2018 The Android Open Source Project
+    Copyright 2018 The Android Open Source Project
 
-    Licensed under the Apache License, Version 2.0 (the "License")
+    Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
 
-        http://www.apache.org/licenses/LICENSE-2.0
+         http://www.apache.org/licenses/LICENSE-2.0
 
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,14 +19,14 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_marginEnd="@dimen/car_margin"
+    android:layout_marginHorizontal="@*android:dimen/action_bar_margin"
     android:orientation="horizontal">
 
     <!-- Start side: lock pattern -->
     <FrameLayout
-        android:layout_weight="1"
         android:layout_width="0dp"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:layout_weight="@integer/content_weight">
 
         <com.android.car.settings.security.PinPadView
             android:id="@+id/pin_pad"
@@ -38,62 +38,47 @@
 
     <!-- End side: pin entry field and messages -->
     <LinearLayout
-        android:layout_height="wrap_content"
         android:layout_width="0dp"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:layout_weight="@integer/illustration_weight"
         android:gravity="center"
-        android:orientation="vertical"
-        android:layout_gravity="center_vertical">
+        android:orientation="vertical">
 
         <ImageView
-            android:src="@drawable/ic_lock"
-            android:layout_height="@dimen/car_primary_icon_size"
-            android:layout_width="@dimen/car_primary_icon_size"/>
+            android:layout_width="@dimen/icon_size"
+            android:layout_height="@dimen/icon_size"
+            android:src="@drawable/ic_lock"/>
 
         <TextView
             android:id="@+id/title_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/choose_pin_title_text_margin_bottom"
             android:gravity="center"
-            android:layout_marginBottom="@dimen/car_padding_2"
-            android:textAppearance="@style/TextAppearance.Car.Body1"
-            android:text="@string/set_screen_lock"/>
-
-        <TextView
-            android:id="@+id/description_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="@dimen/car_padding_5"
-            android:gravity="center"
-            android:textAppearance="@style/TextAppearance.Car.Body2"
-            android:text="@string/choose_lock_pin_message"/>
+            android:text="@string/lockscreen_choose_your_pin"
+            android:textAppearance="?android:attr/textAppearanceLarge"/>
 
         <EditText
             android:id="@+id/password_entry"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="@dimen/car_padding_5"
-            android:gravity="center"
-            android:textAppearance="@style/TextAppearance.Car.Body1"
-            android:maxLines="1"
-            android:inputType="textPassword"
             android:cursorVisible="false"
-            android:focusable="false"/>
+            android:focusable="false"
+            android:gravity="center"
+            android:inputType="textPassword"
+            android:maxLines="1"
+            android:paddingHorizontal="@dimen/pin_password_entry_padding_horizontal"
+            android:textAppearance="?android:attr/textAppearanceLarge"/>
 
         <!--  hint text -->
         <TextView
             android:id="@+id/hint_text"
-            android:text="@string/choose_lock_pin_hints"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center"
-            android:textAppearance="@style/TextAppearance.Car.Body2" />
+            android:text="@string/choose_lock_pin_hints"
+            android:textAppearance="?android:attr/textAppearanceMedium"/>
 
-        <Button
-            android:id="@+id/screen_lock_options"
-            style="@style/Widget.Car.Button.Borderless.Colored"
-            android:layout_width="wrap_content"
-            android:text="@string/screen_lock_options"
-            android:visibility="gone"/>
     </LinearLayout>
 </LinearLayout>

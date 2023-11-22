@@ -39,7 +39,7 @@ public class VisualizerEffectTest extends AndroidTestCase {
     }
 
     //Testing security bug: 30229821
-    @SecurityTest
+    @SecurityTest(minPatchLevel = "2017-03")
     public void testVisualizer_MalformedConstructor() throws Exception {
         final String VISUALIZER_TYPE = "e46b26a0-dddd-11db-8afd-0002a5d5c51b";
         final int VISUALIZER_CMD_MEASURE = 0x10001;

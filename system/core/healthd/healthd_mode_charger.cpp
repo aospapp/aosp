@@ -36,6 +36,7 @@
 #include <linux/netlink.h>
 #include <sys/socket.h>
 
+#include <cutils/android_get_control_file.h>
 #include <cutils/klog.h>
 #include <cutils/misc.h>
 #include <cutils/properties.h>
@@ -53,6 +54,9 @@
 #include <healthd/healthd.h>
 
 using namespace android;
+
+// main healthd loop
+extern int healthd_main(void);
 
 char* locale;
 
@@ -72,6 +76,8 @@ char* locale;
 #define BATTERY_UNKNOWN_TIME (2 * MSEC_PER_SEC)
 #define POWER_ON_KEY_TIME (2 * MSEC_PER_SEC)
 #define UNPLUGGED_SHUTDOWN_TIME (10 * MSEC_PER_SEC)
+#define UNPLUGGED_DISPLAY_TIME (3 * MSEC_PER_SEC)
+#define MAX_BATT_LEVEL_WAIT_TIME (3 * MSEC_PER_SEC)
 
 #define LAST_KMSG_MAX_SZ (32 * 1024)
 
@@ -79,8 +85,13 @@ char* locale;
 #define LOGW(x...) KLOG_WARNING("charger", x);
 #define LOGV(x...) KLOG_DEBUG("charger", x);
 
-static constexpr const char* animation_desc_path =
-    "/res/values/charger/animation.txt";
+// Resources in /product/etc/res overrides resources in /res.
+// If the device is using the Generic System Image (GSI), resources may exist in
+// both paths.
+static constexpr const char* product_animation_desc_path =
+        "/product/etc/res/values/charger/animation.txt";
+static constexpr const char* product_animation_root = "/product/etc/res/images/";
+static constexpr const char* animation_desc_path = "/res/values/charger/animation.txt";
 
 struct key_state {
     bool pending;
@@ -91,9 +102,11 @@ struct key_state {
 struct charger {
     bool have_battery_state;
     bool charger_connected;
+    bool screen_blanked;
     int64_t next_screen_transition;
     int64_t next_key_check;
     int64_t next_pwr_check;
+    int64_t wait_batt_level_timestamp;
 
     key_state keys[KEY_MAX + 1];
 
@@ -196,10 +209,9 @@ static int64_t curr_time_ms() {
 #define MAX_KLOG_WRITE_BUF_SZ 256
 
 static void dump_last_kmsg(void) {
-    char* buf;
+    std::string buf;
     char* ptr;
-    unsigned sz = 0;
-    int len;
+    size_t len;
 
     LOGW("\n");
     LOGW("*************** LAST KMSG ***************\n");
@@ -211,21 +223,25 @@ static void dump_last_kmsg(void) {
         "/proc/last_kmsg",
         // clang-format on
     };
-    for (size_t i = 0; i < arraysize(kmsg); ++i) {
-        buf = (char*)load_file(kmsg[i], &sz);
-        if (buf && sz) break;
+    for (size_t i = 0; i < arraysize(kmsg) && buf.empty(); ++i) {
+        auto fd = android_get_control_file(kmsg[i]);
+        if (fd >= 0) {
+            android::base::ReadFdToString(fd, &buf);
+        } else {
+            android::base::ReadFileToString(kmsg[i], &buf);
+        }
     }
 
-    if (!buf || !sz) {
+    if (buf.empty()) {
         LOGW("last_kmsg not found. Cold reset?\n");
         goto out;
     }
 
-    len = min(sz, LAST_KMSG_MAX_SZ);
-    ptr = buf + (sz - len);
+    len = min(buf.size(), LAST_KMSG_MAX_SZ);
+    ptr = &buf[buf.size() - len];
 
     while (len > 0) {
-        int cnt = min(len, MAX_KLOG_WRITE_BUF_SZ);
+        size_t cnt = min(len, MAX_KLOG_WRITE_BUF_SZ);
         char yoink;
         char* nl;
 
@@ -240,8 +256,6 @@ static void dump_last_kmsg(void) {
         len -= cnt;
         ptr += cnt;
     }
-
-    free(buf);
 
 out:
     LOGW("\n");
@@ -278,6 +292,21 @@ static void update_screen_state(charger* charger, int64_t now) {
 
     if (!batt_anim->run || now < charger->next_screen_transition) return;
 
+    // If battery level is not ready, keep checking in the defined time
+    if (batt_prop == nullptr ||
+        (batt_prop->batteryLevel == 0 && batt_prop->batteryStatus == BATTERY_STATUS_UNKNOWN)) {
+        if (charger->wait_batt_level_timestamp == 0) {
+            // Set max delay time and skip drawing screen
+            charger->wait_batt_level_timestamp = now + MAX_BATT_LEVEL_WAIT_TIME;
+            LOGV("[%" PRId64 "] wait for battery capacity ready\n", now);
+            return;
+        } else if (now <= charger->wait_batt_level_timestamp) {
+            // Do nothing, keep waiting
+            return;
+        }
+        // If timeout and battery level is still not ready, draw unknown battery
+    }
+
     if (healthd_draw == nullptr) {
         if (healthd_config && healthd_config->screen_on) {
             if (!healthd_config->screen_on(batt_prop)) {
@@ -293,6 +322,7 @@ static void update_screen_state(charger* charger, int64_t now) {
 
 #ifndef CHARGER_DISABLE_INIT_BLANK
         healthd_draw->blank_screen(true);
+        charger->screen_blanked = true;
 #endif
     }
 
@@ -301,6 +331,7 @@ static void update_screen_state(charger* charger, int64_t now) {
         reset_animation(batt_anim);
         charger->next_screen_transition = -1;
         healthd_draw->blank_screen(true);
+        charger->screen_blanked = true;
         LOGV("[%" PRId64 "] animation done\n", now);
         if (charger->charger_connected) request_suspend(true);
         return;
@@ -308,8 +339,10 @@ static void update_screen_state(charger* charger, int64_t now) {
 
     disp_time = batt_anim->frames[batt_anim->cur_frame].disp_time;
 
-    /* unblank the screen on first cycle and first frame */
-    if (batt_anim->cur_cycle == 0 && batt_anim->cur_frame == 0) healthd_draw->blank_screen(false);
+    if (charger->screen_blanked) {
+        healthd_draw->blank_screen(false);
+        charger->screen_blanked = false;
+    }
 
     /* animation starting, set up the animation */
     if (batt_anim->cur_frame == 0) {
@@ -327,9 +360,15 @@ static void update_screen_state(charger* charger, int64_t now) {
                     }
                 }
 
-                // repeat the first frame first_frame_repeats times
-                disp_time = batt_anim->frames[batt_anim->cur_frame].disp_time *
-                            batt_anim->first_frame_repeats;
+                if (charger->charger_connected) {
+                    // repeat the first frame first_frame_repeats times
+                    disp_time = batt_anim->frames[batt_anim->cur_frame].disp_time *
+                                batt_anim->first_frame_repeats;
+                } else {
+                    disp_time = UNPLUGGED_DISPLAY_TIME / batt_anim->num_cycles;
+                }
+
+                LOGV("cur_frame=%d disp_time=%d\n", batt_anim->cur_frame, disp_time);
             }
         }
     }
@@ -348,7 +387,7 @@ static void update_screen_state(charger* charger, int64_t now) {
     }
 
     /* schedule next screen transition */
-    charger->next_screen_transition = now + disp_time;
+    charger->next_screen_transition = curr_time_ms() + disp_time;
 
     /* advance frame cntr to the next valid frame only if we are charging
      * if necessary, advance cycle cntr, and reset frame cntr
@@ -458,6 +497,7 @@ static void process_key(charger* charger, int code, int64_t now) {
             /* if the power key got released, force screen state cycle */
             if (key->pending) {
                 kick_animation(charger->batt_anim);
+                request_suspend(false);
             }
         }
     }
@@ -476,12 +516,18 @@ static void handle_power_supply_state(charger* charger, int64_t now) {
     if (!charger->have_battery_state) return;
 
     if (!charger->charger_connected) {
-        /* Last cycle would have stopped at the extreme top of battery-icon
-         * Need to show the correct level corresponding to capacity.
-         */
-        kick_animation(charger->batt_anim);
         request_suspend(false);
         if (charger->next_pwr_check == -1) {
+            /* Last cycle would have stopped at the extreme top of battery-icon
+             * Need to show the correct level corresponding to capacity.
+             *
+             * Reset next_screen_transition to update screen immediately.
+             * Reset & kick animation to show complete animation cycles
+             * when charger disconnected.
+             */
+            charger->next_screen_transition = now - 1;
+            reset_animation(charger->batt_anim);
+            kick_animation(charger->batt_anim);
             charger->next_pwr_check = now + UNPLUGGED_SHUTDOWN_TIME;
             LOGW("[%" PRId64 "] device unplugged: shutting down in %" PRId64 " (@ %" PRId64 ")\n",
                  now, (int64_t)UNPLUGGED_SHUTDOWN_TIME, charger->next_pwr_check);
@@ -494,8 +540,15 @@ static void handle_power_supply_state(charger* charger, int64_t now) {
     } else {
         /* online supply present, reset shutdown timer if set */
         if (charger->next_pwr_check != -1) {
-            LOGW("[%" PRId64 "] device plugged in: shutdown cancelled\n", now);
+            /* Reset next_screen_transition to update screen immediately.
+             * Reset & kick animation to show complete animation cycles
+             * when charger connected again.
+             */
+            request_suspend(false);
+            charger->next_screen_transition = now - 1;
+            reset_animation(charger->batt_anim);
             kick_animation(charger->batt_anim);
+            LOGW("[%" PRId64 "] device plugged in: shutdown cancelled\n", now);
         }
         charger->next_pwr_check = -1;
     }
@@ -523,6 +576,7 @@ void healthd_mode_charger_battery_update(android::BatteryProperties* props) {
     if (!charger->have_battery_state) {
         charger->have_battery_state = true;
         charger->next_screen_transition = curr_time_ms() - 1;
+        request_suspend(false);
         reset_animation(charger->batt_anim);
         kick_animation(charger->batt_anim);
     }
@@ -573,7 +627,10 @@ animation* init_animation() {
     bool parse_success;
 
     std::string content;
-    if (base::ReadFileToString(animation_desc_path, &content)) {
+    if (base::ReadFileToString(product_animation_desc_path, &content)) {
+        parse_success = parse_animation_desc(content, &battery_animation);
+        battery_animation.set_resource_root(product_animation_root);
+    } else if (base::ReadFileToString(animation_desc_path, &content)) {
         parse_success = parse_animation_desc(content, &battery_animation);
     } else {
         LOGW("Could not open animation description at %s\n", animation_desc_path);
@@ -669,10 +726,41 @@ void healthd_mode_charger_init(struct healthd_config* config) {
     charger->next_screen_transition = -1;
     charger->next_key_check = -1;
     charger->next_pwr_check = -1;
+    charger->wait_batt_level_timestamp = 0;
 
     // Initialize Health implementation (which initializes the internal BatteryMonitor).
     Health::initInstance(config);
 
     healthd_config = config;
     charger->boot_min_cap = config->boot_min_cap;
+}
+
+static struct healthd_mode_ops charger_ops = {
+        .init = healthd_mode_charger_init,
+        .preparetowait = healthd_mode_charger_preparetowait,
+        .heartbeat = healthd_mode_charger_heartbeat,
+        .battery_update = healthd_mode_charger_battery_update,
+};
+
+int healthd_charger_main(int argc, char** argv) {
+    int ch;
+
+    healthd_mode_ops = &charger_ops;
+
+    while ((ch = getopt(argc, argv, "cr")) != -1) {
+        switch (ch) {
+            case 'c':
+                // -c is now a noop
+                break;
+            case 'r':
+                // -r is now a noop
+                break;
+            case '?':
+            default:
+                LOGE("Unrecognized charger option: %c\n", optopt);
+                exit(1);
+        }
+    }
+
+    return healthd_main();
 }

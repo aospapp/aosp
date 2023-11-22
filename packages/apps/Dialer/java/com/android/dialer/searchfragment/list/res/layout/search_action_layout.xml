@@ -24,9 +24,9 @@
       android:layout_width="48dp"
       android:layout_height="48dp"
       android:layout_marginStart="8dp"
-      android:layout_gravity="center_vertical"
+      android:layout_gravity="center_vertical|start"
       android:padding="12dp"
-      android:tint="@color/dialer_theme_color"/>
+      android:tint="?android:attr/colorPrimary"/>
 
   <TextView
       android:id="@+id/search_action_text"
@@ -35,5 +35,5 @@
       android:layout_marginStart="72dp"
       android:layout_marginEnd="16dp"
       android:layout_gravity="center_vertical"
-      style="@style/PrimaryText"/>
+      style="@style/Dialer.TextAppearance.Primary"/>
 </FrameLayout>

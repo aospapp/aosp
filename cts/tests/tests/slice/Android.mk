@@ -27,10 +27,10 @@ LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
-    compatibility-device-util \
-    ctsdeviceutillegacy \
-    ctstestrunner \
+    androidx.test.rules \
+    compatibility-device-util-axt \
+    ctsdeviceutillegacy-axt \
+    ctstestrunner-axt \
     metrics-helper-lib \
     mockito-target-inline-minus-junit4 \
     platform-test-annotations \

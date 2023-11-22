@@ -39,7 +39,8 @@ HalDriverLoader::HalDriverLoader(const string dir_path, int epoch_count,
       callback_socket_name_(callback_socket_name) {}
 
 bool HalDriverLoader::FindComponentSpecification(
-    const int component_class, const string& package_name, const float version,
+    const int component_class, const string& package_name,
+    const int version_major, const int version_minor,
     const string& component_name, const int component_type,
     ComponentSpecificationMessage* spec_msg) {
   DIR* dir;
@@ -53,7 +54,7 @@ bool HalDriverLoader::FindComponentSpecification(
   string package_path = package_name;
   ReplaceSubString(package_path, ".", "/");
   driver_lib_dir += package_path + "/";
-  driver_lib_dir += GetVersionString(version);
+  driver_lib_dir += GetVersionString(version_major, version_minor);
 
   if (!(dir = opendir(driver_lib_dir.c_str()))) {
     LOG(ERROR) << "Can't open dir " << driver_lib_dir;
@@ -71,14 +72,16 @@ bool HalDriverLoader::FindComponentSpecification(
         }
         if (spec_msg->component_class() != HAL_HIDL) {
           if (spec_msg->component_type() != component_type ||
-              spec_msg->component_type_version() != version) {
+              spec_msg->component_type_version_major() != version_major ||
+              spec_msg->component_type_version_minor() != version_minor) {
             continue;
           }
           closedir(dir);
           return true;
         } else {
           if (spec_msg->package() != package_name ||
-              spec_msg->component_type_version() != version) {
+              spec_msg->component_type_version_major() != version_major ||
+              spec_msg->component_type_version_minor() != version_minor) {
             continue;
           }
           if (!component_name.empty()) {
@@ -243,17 +246,19 @@ DriverBase* HalDriverLoader::LoadDriverWithInterfacePointer(
 
 bool HalDriverLoader::Process(const char* dll_file_name,
                               const char* spec_lib_file_path, int target_class,
-                              int target_type, float target_version,
+                              int target_type, int target_version_major,
+                              int target_version_minor,
                               const char* target_package,
                               const char* target_component_name,
                               const char* hal_service_name) {
   ComponentSpecificationMessage interface_specification_message;
-  if (!FindComponentSpecification(target_class, target_package, target_version,
+  if (!FindComponentSpecification(target_class, target_package,
+                                  target_version_major, target_version_minor,
                                   target_component_name, target_type,
                                   &interface_specification_message)) {
     LOG(ERROR) << "No interface specification file found for class "
                << target_class << " type " << target_type << " version "
-               << target_version;
+               << GetVersionString(target_version_major, target_version_minor);
     return false;
   }
 

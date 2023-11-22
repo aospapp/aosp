@@ -15,6 +15,8 @@
  */
 package com.android.tradefed.testtype;
 
+import com.android.tradefed.config.proto.ConfigurationDescription;
+
 import java.io.Serializable;
 
 /** Interface representing the ABI under test. */
@@ -30,4 +32,6 @@ public interface IAbi extends Serializable {
      */
     public String getBitness();
 
+    /** Returns the proto representation of the current Abi instance. */
+    public ConfigurationDescription.Abi toProto();
 }

@@ -1,0 +1,4 @@
+allow shell rootfs:file { getattr read open };
+allow shell vendor_file:file { execute getattr open read execute_no_trans };
+# allow shell vendor_toolbox_exec:file { execute getattr };
+allow shell sysfs_hisi:file { getattr read open};

@@ -14,20 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <resources>
-    <!-- The theme for the TelecomActivity. -->
-    <style name="TelecomActivityTheme" parent="@style/Theme.Car.Light.NoActionBar.Drawer" >
-        <item name="android:statusBarColor">@color/phone_status_bar_theme</item>
-        <item name="android:colorPrimary">@android:color/transparent</item>
-        <item name="android:colorPrimaryDark">@color/phone_status_bar_theme</item>
-        <item name="android:textColorPrimary">@android:color/black</item>
-        <item name="drawerHeaderColor">@color/car_title2</item>
-        <item name="drawerBackgroundColor">@color/phone_theme</item>
+    <!-- The theme for the Dialer app. -->
+    <style name="Theme.Dialer" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:actionBarItemBackground">@drawable/action_button_background</item>
+        <!-- Menu button style -->
+        <item name="android:actionButtonStyle">@style/Widget.Dialer.ActionButton</item>
+        <item name="android:actionOverflowButtonStyle">@style/Widget.Dialer.ActionButton.Overflow
+        </item>
+        <item name="android:listDivider">@drawable/list_divider</item>
+        <item name="android:toolbarStyle">@style/Widget.Dialer.Toolbar</item>
     </style>
 
-    <!-- The theme for the contact search page. -->
-    <style name="ContactSearchActivityTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">@color/phone_status_bar_theme</item>
-        <item name="android:colorPrimary">@android:color/transparent</item>
-        <item name="android:colorPrimaryDark">@color/phone_status_bar_theme</item>
+    <style name="Theme.Dialer.Setting" parent="Theme.Dialer">
+        <item name="preferenceTheme">@style/PreferenceTheme</item>
     </style>
+
+    <style name="PreferenceTheme">
+        <item name="preferenceFragmentListStyle">@style/PreferenceFragmentList.Settings</item>
+    </style>
+
 </resources>

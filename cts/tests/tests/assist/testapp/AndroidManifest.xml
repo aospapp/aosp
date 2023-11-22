@@ -27,17 +27,10 @@
                 android:label="Assist Structure Test Activity">
           <intent-filter>
               <action android:name="android.intent.action.TEST_APP_ASSIST_STRUCTURE" />
-              <action android:name="android.intent.action.TEST_APP_LARGE_VIEWHIERARCHY" />
+              <action android:name="android.intent.action.TEST_APP_LARGE_VIEW_HIERARCHY" />
               <category android:name="android.intent.category.DEFAULT" />
               <category android:name="android.intent.category.VOICE" />
           </intent-filter>
-        </activity>
-        <activity android:name=".DisableContextActivity"
-            android:label="Disable Context Test Activity">
-            <intent-filter>
-                <action android:name="android.intent.action.TEST_APP_DISABLE_CONTEXT" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
         </activity>
         <activity android:name=".SecureActivity"
                   android:label="Secure Test Activity">
@@ -51,6 +44,7 @@
                   android:label="Life Cycle Check Activity">
             <intent-filter>
                 <action android:name="android.intent.action.TEST_APP_LIFECYCLE" />
+                <action android:name="android.intent.action.TEST_APP_LIFECYCLE_NOUI" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.VOICE" />
             </intent-filter>

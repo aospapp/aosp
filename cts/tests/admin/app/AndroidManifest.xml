@@ -18,6 +18,8 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.admin.app">
+    <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="28"/>
+
     <application android:testOnly="true">
 
         <uses-library android:name="android.test.runner"/>
@@ -62,6 +64,24 @@
                   android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data android:name="android.app.device_admin"
                        android:resource="@xml/device_admin_3" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name="android.admin.app.CtsDeviceAdminReceiverVisible"
+                  android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin"
+                       android:resource="@xml/device_admin_visible" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name="android.admin.app.CtsDeviceAdminReceiverInvisible"
+                  android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin"
+                       android:resource="@xml/device_admin_invisible" />
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
             </intent-filter>

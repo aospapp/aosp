@@ -29,13 +29,13 @@ class NoTestFoundError(TestDiscoveryException):
 class TestWithNoModuleError(TestDiscoveryException):
     """Raised when test files have no parent module directory."""
 
-class MissingPackageNameError(Exception):
+class MissingPackageNameError(TestDiscoveryException):
     """Raised when the test class java file does not contain a package name."""
 
-class TooManyMethodsError(Exception):
+class TooManyMethodsError(TestDiscoveryException):
     """Raised when input string contains more than one # character."""
 
-class MethodWithoutClassError(Exception):
+class MethodWithoutClassError(TestDiscoveryException):
     """Raised when method is appended via # but no class file specified."""
 
 class UnknownTestRunnerError(Exception):
@@ -53,5 +53,11 @@ class HostEnvCheckFailed(Exception):
 class ShouldNeverBeCalledError(Exception):
     """Raised when something is called when it shouldn't, used for testing."""
 
-class FatalIncludeError(SyntaxError):
+class FatalIncludeError(TestDiscoveryException):
     """Raised if expanding include tag fails."""
+
+class MissingCCTestCaseError(TestDiscoveryException):
+    """Raised when the cc file does not contain a test case class."""
+
+class XmlNotExistError(TestDiscoveryException):
+    """Raised when the xml file does not exist."""

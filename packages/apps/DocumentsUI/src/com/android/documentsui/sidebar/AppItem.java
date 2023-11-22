@@ -25,23 +25,23 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.android.documentsui.ActionHandler;
+import com.android.documentsui.IconUtils;
 import com.android.documentsui.R;
 
 /**
  * An {@link Item} for apps that supports some picking actions like
  * {@link Intent#ACTION_GET_CONTENT} such as Photos. This is only used in pickers.
  */
-class AppItem extends Item {
+public class AppItem extends Item {
     private static final String STRING_ID_FORMAT = "AppItem{%s/%s}";
 
     public final ResolveInfo info;
 
     private final ActionHandler mActionHandler;
 
-    public AppItem(ResolveInfo info, ActionHandler actionHandler) {
-        super(R.layout.item_root, getStringId(info));
+    public AppItem(ResolveInfo info, String title, ActionHandler actionHandler) {
+        super(R.layout.item_root, title, getStringId(info));
         this.info = info;
-
         mActionHandler = actionHandler;
     }
 
@@ -53,6 +53,21 @@ class AppItem extends Item {
         return component;
     }
 
+    protected void bindIcon(ImageView icon) {
+        final PackageManager pm = icon.getContext().getPackageManager();
+        icon.setImageDrawable(info.loadIcon(pm));
+    }
+
+
+    protected void bindActionIcon(View actionIconArea, ImageView actionIcon) {
+        actionIconArea.setVisibility(View.VISIBLE);
+        actionIconArea.setFocusable(false);
+        actionIcon.setImageDrawable(
+                IconUtils.applyTintColor(actionIcon.getContext(), R.drawable.ic_exit_to_app,
+                        R.color.item_action_icon));
+
+    }
+
     @Override
     boolean showAppDetails() {
         mActionHandler.showAppDetails(info);
@@ -62,12 +77,15 @@ class AppItem extends Item {
     @Override
     void bindView(View convertView) {
         final ImageView icon = (ImageView) convertView.findViewById(android.R.id.icon);
-        final TextView title = (TextView) convertView.findViewById(android.R.id.title);
+        final TextView titleView = (TextView) convertView.findViewById(android.R.id.title);
         final TextView summary = (TextView) convertView.findViewById(android.R.id.summary);
+        final View actionIconArea = convertView.findViewById(R.id.action_icon_area);
+        final ImageView actionIcon = (ImageView) convertView.findViewById(R.id.action_icon);
 
-        final PackageManager pm = convertView.getContext().getPackageManager();
-        icon.setImageDrawable(info.loadIcon(pm));
-        title.setText(info.loadLabel(pm));
+        titleView.setText(title);
+
+        bindIcon(icon);
+        bindActionIcon(actionIconArea, actionIcon);
 
         // TODO: match existing summary behavior from disambig dialog
         summary.setVisibility(View.GONE);
@@ -82,6 +100,11 @@ class AppItem extends Item {
     @Override
     void open() {
         mActionHandler.openRoot(info);
+    }
+
+    @Override
+    String getPackageName() {
+        return info.activityInfo.packageName;
     }
 
     @Override

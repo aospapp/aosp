@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2018 - The Android Open Source Project
 #
@@ -58,8 +58,9 @@ class RpcConnection(object):
 
         def _log_formatter(message):
             """Defines the formatting used in the logger."""
-            return '[SL4A Client|%s|%s] %s' % (self.adb.serial, self.uid,
-                                               message)
+            return '[SL4A Client|%s|%s|%s] %s' % (self.adb.serial,
+                                                  self.ports.client_port,
+                                                  self.uid, message)
 
         self.log = logger.create_logger(_log_formatter)
 
@@ -124,10 +125,12 @@ class RpcConnection(object):
         """Sends a request over the connection."""
         self._socket_file.write(request.encode('utf8') + b'\n')
         self._socket_file.flush()
+        self.log.debug('Sent: ' + request)
 
     def get_response(self):
         """Returns the first response sent back to the client."""
         data = self._socket_file.readline()
+        self.log.debug('Received: ' + data.decode('utf8', errors='replace'))
         return data
 
     def close(self):

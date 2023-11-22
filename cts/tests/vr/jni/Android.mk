@@ -20,7 +20,7 @@ LOCAL_MODULE    := libctsvrextensions_jni
 
 LOCAL_MODULE_TAGS := optional
 
-LOCAL_CFLAGS += -Werror -Wall -Wextra -std=c++11
+LOCAL_CFLAGS += -Werror -Wall -Wextra
 
 LOCAL_SRC_FILES := VrExtensionsJni.cpp
 

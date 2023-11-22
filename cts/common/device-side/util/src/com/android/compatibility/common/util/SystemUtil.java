@@ -22,14 +22,18 @@ import static org.junit.Assert.fail;
 import android.app.ActivityManager;
 import android.app.ActivityManager.MemoryInfo;
 import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.content.Context;
 import android.os.ParcelFileDescriptor;
 import android.os.StatFs;
 import android.support.test.InstrumentationRegistry;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.concurrent.Callable;
 import java.util.function.Predicate;
 
 public class SystemUtil {
@@ -118,7 +122,7 @@ public class SystemUtil {
     }
 
     /**
-     * Run a command and print the result on logcat.
+     * Runs a command and print the result on logcat.
      */
     public static void runCommandAndPrintOnLogcat(String logtag, String cmd) {
         Log.i(logtag, "Executing: " + cmd);
@@ -129,7 +133,7 @@ public class SystemUtil {
     }
 
     /**
-     * Run a command and return the section matching the patterns.
+     * Runs a command and return the section matching the patterns.
      *
      * @see TextUtils#extractSection
      */
@@ -138,5 +142,65 @@ public class SystemUtil {
             String extractionEndRegex, boolean endInclusive) {
         return TextUtils.extractSection(runShellCommand(cmd), extractionStartRegex, startInclusive,
                 extractionEndRegex, endInclusive);
+    }
+
+    /**
+     * Runs a {@link ThrowingRunnable} adopting Shell's permissions.
+     */
+    public static void runWithShellPermissionIdentity(@NonNull ThrowingRunnable runnable) {
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        runWithShellPermissionIdentity(automan, runnable);
+    }
+
+    /**
+     * Runs a {@link ThrowingRunnable} adopting a subset of Shell's permissions.
+     */
+    public static void runWithShellPermissionIdentity(@NonNull ThrowingRunnable runnable,
+            String... permissions) {
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        runWithShellPermissionIdentity(automan, runnable, permissions);
+    }
+
+    /**
+     * Runs a {@link ThrowingRunnable} adopting Shell's permissions, where you can specify the
+     * uiAutomation used.
+     */
+    public static void runWithShellPermissionIdentity(
+            @NonNull UiAutomation automan, @NonNull ThrowingRunnable runnable) {
+        runWithShellPermissionIdentity(automan, runnable, null /* permissions */);
+    }
+
+    /**
+     * Runs a {@link ThrowingRunnable} adopting Shell's permissions, where you can specify the
+     * uiAutomation used.
+     * @param automan UIAutomation to use.
+     * @param runnable The code to run with Shell's identity.
+     * @param permissions A subset of Shell's permissions. Passing {@code null} will use all
+     *                    available permissions.
+     */
+    public static void runWithShellPermissionIdentity(@NonNull UiAutomation automan,
+            @NonNull ThrowingRunnable runnable, String... permissions) {
+        automan.adoptShellPermissionIdentity(permissions);
+        try {
+            runnable.run();
+        } catch (Exception e) {
+            throw new RuntimeException("Caught exception", e);
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+    }
+
+    /**
+     * Calls a {@link Callable} adopting Shell's permissions.
+     */
+    public static <T> T callWithShellPermissionIdentity(@NonNull Callable<T> callable)
+            throws Exception {
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        automan.adoptShellPermissionIdentity();
+        try {
+            return callable.call();
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
     }
 }

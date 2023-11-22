@@ -49,7 +49,7 @@ public class DeviceAdminPasswordTest extends BaseDeviceAdminTest {
             if (!shouldResetPasswordThrow()) {
                 fail("Shouldn't throw");
             }
-            MoreAsserts.assertContainsRegex("Admin cannot change current password", e.getMessage());
+            MoreAsserts.assertContainsRegex("Cannot change current password", e.getMessage());
         }
     }
 

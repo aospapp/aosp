@@ -57,7 +57,7 @@ class MarkSweep : public GarbageCollector {
 
   ~MarkSweep() {}
 
-  virtual void RunPhases() OVERRIDE REQUIRES(!mark_stack_lock_);
+  void RunPhases() override REQUIRES(!mark_stack_lock_);
   void InitializePhase();
   void MarkingPhase() REQUIRES(!mark_stack_lock_) REQUIRES_SHARED(Locks::mutator_lock_);
   void PausePhase() REQUIRES(Locks::mutator_lock_) REQUIRES(!mark_stack_lock_);
@@ -72,11 +72,11 @@ class MarkSweep : public GarbageCollector {
     return is_concurrent_;
   }
 
-  virtual GcType GetGcType() const OVERRIDE {
+  GcType GetGcType() const override {
     return kGcTypeFull;
   }
 
-  virtual CollectorType GetCollectorType() const OVERRIDE {
+  CollectorType GetCollectorType() const override {
     return is_concurrent_ ? kCollectorTypeCMS : kCollectorTypeMS;
   }
 
@@ -187,25 +187,25 @@ class MarkSweep : public GarbageCollector {
   void VerifyIsLive(const mirror::Object* obj)
       REQUIRES_SHARED(Locks::mutator_lock_, Locks::heap_bitmap_lock_);
 
-  virtual bool IsNullOrMarkedHeapReference(mirror::HeapReference<mirror::Object>* ref,
-                                           bool do_atomic_update) OVERRIDE
+  bool IsNullOrMarkedHeapReference(mirror::HeapReference<mirror::Object>* ref,
+                                   bool do_atomic_update) override
       REQUIRES(Locks::heap_bitmap_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  virtual void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info) OVERRIDE
+  void VisitRoots(mirror::Object*** roots, size_t count, const RootInfo& info) override
       REQUIRES(Locks::heap_bitmap_lock_)
       REQUIRES(!mark_stack_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  virtual void VisitRoots(mirror::CompressedReference<mirror::Object>** roots,
-                          size_t count,
-                          const RootInfo& info) OVERRIDE
+  void VisitRoots(mirror::CompressedReference<mirror::Object>** roots,
+                  size_t count,
+                  const RootInfo& info) override
       REQUIRES(Locks::heap_bitmap_lock_)
       REQUIRES(!mark_stack_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Marks an object.
-  virtual mirror::Object* MarkObject(mirror::Object* obj) OVERRIDE
+  mirror::Object* MarkObject(mirror::Object* obj) override
       REQUIRES(Locks::heap_bitmap_lock_)
       REQUIRES(!mark_stack_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -215,8 +215,8 @@ class MarkSweep : public GarbageCollector {
       REQUIRES(!mark_stack_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  virtual void MarkHeapReference(mirror::HeapReference<mirror::Object>* ref,
-                                 bool do_atomic_update) OVERRIDE
+  void MarkHeapReference(mirror::HeapReference<mirror::Object>* ref,
+                         bool do_atomic_update) override
       REQUIRES(Locks::heap_bitmap_lock_)
       REQUIRES(!mark_stack_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -227,11 +227,11 @@ class MarkSweep : public GarbageCollector {
 
   // Schedules an unmarked object for reference processing.
   void DelayReferenceReferent(ObjPtr<mirror::Class> klass, ObjPtr<mirror::Reference> reference)
-      REQUIRES_SHARED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
+      override REQUIRES_SHARED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
 
  protected:
   // Returns object if the object is marked in the heap bitmap, otherwise null.
-  virtual mirror::Object* IsMarked(mirror::Object* object) OVERRIDE
+  mirror::Object* IsMarked(mirror::Object* object) override
       REQUIRES_SHARED(Locks::heap_bitmap_lock_, Locks::mutator_lock_);
 
   void MarkObjectNonNull(mirror::Object* obj,
@@ -278,8 +278,7 @@ class MarkSweep : public GarbageCollector {
       REQUIRES(!mark_stack_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  virtual void ProcessMarkStack()
-      OVERRIDE
+  void ProcessMarkStack() override
       REQUIRES(Locks::heap_bitmap_lock_)
       REQUIRES(!mark_stack_lock_)
       REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -302,7 +301,7 @@ class MarkSweep : public GarbageCollector {
   void RevokeAllThreadLocalAllocationStacks(Thread* self) NO_THREAD_SAFETY_ANALYSIS;
 
   // Revoke all the thread-local buffers.
-  void RevokeAllThreadLocalBuffers();
+  void RevokeAllThreadLocalBuffers() override;
 
   // Whether or not we count how many of each type of object were scanned.
   static constexpr bool kCountScannedTypes = false;
@@ -351,7 +350,10 @@ class MarkSweep : public GarbageCollector {
   // Verification.
   size_t live_stack_freeze_size_;
 
-  std::unique_ptr<MemMap> sweep_array_free_buffer_mem_map_;
+  // Sweep array free buffer, used to sweep the spaces based on an array more
+  // efficiently, by recording dead objects to be freed in batches (see
+  // MarkSweep::SweepArray).
+  MemMap sweep_array_free_buffer_mem_map_;
 
  private:
   class CardScanTask;

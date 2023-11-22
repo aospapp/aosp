@@ -20,7 +20,7 @@ import static android.accessibilityservice.cts.utils.CtsTestUtils.assertThrows;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import android.os.SystemClock;
+import com.android.compatibility.common.util.TestUtils;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Future;
@@ -70,27 +70,6 @@ public class AsyncUtils {
     }
 
     public static void waitOn(Object notifyLock, BooleanSupplier condition) {
-        waitOn(notifyLock, condition, DEFAULT_TIMEOUT_MS);
-    }
-
-    public static void waitOn(Object notifyLock, BooleanSupplier condition, long timeoutMs) {
-        if (condition.getAsBoolean()) return;
-
-        synchronized (notifyLock) {
-            try {
-                long timeSlept = 0;
-                while (!condition.getAsBoolean() && timeSlept < timeoutMs) {
-                    long sleepStart = SystemClock.uptimeMillis();
-                    notifyLock.wait(timeoutMs - timeSlept);
-                    timeSlept += SystemClock.uptimeMillis() - sleepStart;
-                }
-                if (!condition.getAsBoolean()) {
-                    throw new AssertionError("Timed out after " + timeSlept
-                            + "ms waiting for condition");
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        TestUtils.waitOn(notifyLock, condition, DEFAULT_TIMEOUT_MS, null);
     }
 }

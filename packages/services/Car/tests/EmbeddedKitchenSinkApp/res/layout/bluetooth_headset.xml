@@ -13,25 +13,19 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
-    <LinearLayout
-        android:orientation="horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_weight="1" >
-        <TextView
-            android:id="@+id/bluetooth_device"
-            android:layout_height="wrap_content"
-            android:layout_width="wrap_content"/>
-        <Button
-            android:id="@+id/bluetooth_pick_device"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/bluetooth_pick_device"/>
-    </LinearLayout>
+<GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent" 
+    android:columnCount = "2">
+    <TextView
+      android:id="@+id/bluetooth_device"
+      android:layout_height="wrap_content"
+      android:layout_width="wrap_content"/>
+    <Button
+      android:id="@+id/bluetooth_pick_device"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/bluetooth_pick_device"/>
     <Button
         android:id="@+id/bluetooth_headset_connect"
         android:layout_width="wrap_content"
@@ -58,6 +52,21 @@
         android:layout_height="wrap_content"
         android:text="@string/bluetooth_quiet_mode_enable"/>
     <Button
+        android:id="@+id/bluetooth_start_outgoing_call"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/bluetooth_start_outgoing_call"/>
+    <EditText
+        android:id="@+id/bluetooth_outgoing_phone_number"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:hint="@string/bluetooth_outgoing_phone_number"/>
+     <Button
+        android:id="@+id/bluetooth_end_outgoing_call"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/bluetooth_end_outgoing_call"/>
+    <Button
         android:id="@+id/bluetooth_hold_call"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -72,4 +81,4 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/bluetooth_voice_recognition_disable"/>
-</LinearLayout>
+</GridLayout>

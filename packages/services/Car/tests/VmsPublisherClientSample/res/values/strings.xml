@@ -14,5 +14,5 @@
      limitations under the License.
 -->
 <resources>
-  <string name="app_name">VmsPublisherClientSample</string>
+  <string name="app_name" translatable="false">VmsPublisherClientSample</string>
 </resources>

@@ -17,18 +17,15 @@
 package com.android.phone;
 
 import android.content.Context;
-import android.os.AsyncResult;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.preference.ListPreference;
 import android.provider.Settings;
-import android.provider.Settings.Secure;
+import android.telephony.TelephonyManager;
 import android.util.AttributeSet;
 import android.util.Log;
 
 import com.android.internal.telephony.Phone;
-import com.android.internal.telephony.PhoneFactory;
+import com.android.settingslib.utils.ThreadUtils;
 
 public class CdmaSubscriptionListPreference extends ListPreference {
 
@@ -42,25 +39,32 @@ public class CdmaSubscriptionListPreference extends ListPreference {
     //                           1 - NV
     static final int preferredSubscriptionMode = Phone.PREFERRED_CDMA_SUBSCRIPTION;
 
-    private Phone mPhone;
-    private CdmaSubscriptionButtonHandler mHandler;
+    private TelephonyManager mTelephonyManager;
 
     public CdmaSubscriptionListPreference(Context context, AttributeSet attrs) {
         super(context, attrs);
 
-        mPhone = PhoneFactory.getDefaultPhone();
-        mHandler = new CdmaSubscriptionButtonHandler();
+        mTelephonyManager = TelephonyManager.from(context);
         setCurrentCdmaSubscriptionModeValue();
     }
 
     private void setCurrentCdmaSubscriptionModeValue() {
-        int cdmaSubscriptionMode = Settings.Global.getInt(mPhone.getContext().getContentResolver(),
+        int cdmaSubscriptionMode = Settings.Global.getInt(getContext().getContentResolver(),
                 Settings.Global.CDMA_SUBSCRIPTION_MODE, preferredSubscriptionMode);
         setValue(Integer.toString(cdmaSubscriptionMode));
     }
 
     public CdmaSubscriptionListPreference(Context context) {
         this(context, null);
+    }
+
+    /**
+     * Sets the subscription id associated with this preference.
+     *
+     * @param subId the subscription id.
+     */
+    public void setSubscriptionId(int subId) {
+        mTelephonyManager = TelephonyManager.from(getContext()).createForSubscriptionId(subId);
     }
 
     @Override
@@ -93,40 +97,23 @@ public class CdmaSubscriptionListPreference extends ListPreference {
                 statusCdmaSubscriptionMode = Phone.PREFERRED_CDMA_SUBSCRIPTION;
         }
 
-        // Set the CDMA subscription mode, when mode has been successfully changed
-        // handleSetCdmaSubscriptionMode will be invoked and the value saved.
-        mPhone.setCdmaSubscription(statusCdmaSubscriptionMode, mHandler
-                .obtainMessage(CdmaSubscriptionButtonHandler.MESSAGE_SET_CDMA_SUBSCRIPTION,
-                        getValue()));
+        // Set the CDMA subscription mode, when mode has been successfully changed, update the
+        // mode to the global setting.
+        ThreadUtils.postOnBackgroundThread(() -> {
+            // The subscription mode selected by user.
+            int cdmaSubscriptionMode = Integer.parseInt(getValue());
 
-    }
+            boolean isSuccessed = mTelephonyManager.setCdmaSubscriptionMode(
+                    statusCdmaSubscriptionMode);
 
-    private class CdmaSubscriptionButtonHandler extends Handler {
-
-        static final int MESSAGE_SET_CDMA_SUBSCRIPTION = 0;
-
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MESSAGE_SET_CDMA_SUBSCRIPTION:
-                    handleSetCdmaSubscriptionMode(msg);
-                    break;
-            }
-        }
-
-        private void handleSetCdmaSubscriptionMode(Message msg) {
-            mPhone = PhoneFactory.getDefaultPhone();
-            AsyncResult ar = (AsyncResult) msg.obj;
-
-            if (ar.exception == null) {
-                // Get the original string entered by the user
-                int cdmaSubscriptionMode = Integer.parseInt((String) ar.userObj);
-                Settings.Global.putInt(mPhone.getContext().getContentResolver(),
+            // Update the global settings if successed.
+            if (isSuccessed) {
+                Settings.Global.putInt(getContext().getContentResolver(),
                         Settings.Global.CDMA_SUBSCRIPTION_MODE,
-                        cdmaSubscriptionMode );
+                        cdmaSubscriptionMode);
             } else {
                 Log.e(LOG_TAG, "Setting Cdma subscription source failed");
             }
-        }
+        });
     }
 }

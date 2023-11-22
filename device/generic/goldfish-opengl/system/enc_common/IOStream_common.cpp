@@ -6,6 +6,8 @@
 
 #include <vector>
 
+#include <assert.h>
+
 void IOStream::readbackPixels(void* context, int width, int height, unsigned int format, unsigned int type, void* pixels) {
     GL2Encoder *ctx = (GL2Encoder *)context;
     assert (ctx->state() != NULL);

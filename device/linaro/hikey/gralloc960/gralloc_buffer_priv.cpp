@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 ARM Limited. All rights reserved.
+ * Copyright (C) 2014-2017 ARM Limited. All rights reserved.
  *
  * Copyright (C) 2008 The Android Open Source Project
  *
@@ -17,11 +17,19 @@
  */
 
 #include <cutils/ashmem.h>
-#include <cutils/log.h>
+#include <log/log.h>
 #include <sys/mman.h>
-#include "gralloc_priv.h"
-#include "gralloc_buffer_priv.h"
 
+#if GRALLOC_USE_GRALLOC1_API == 1
+#include <hardware/gralloc1.h>
+#else
+#include <hardware/gralloc.h>
+#endif
+
+#include "mali_gralloc_module.h"
+#include "mali_gralloc_private_interface_types.h"
+#include "mali_gralloc_buffer.h"
+#include "gralloc_buffer_priv.h"
 
 /*
  * Allocate shared memory for attribute storage. Only to be
@@ -29,21 +37,24 @@
  *
  * Return 0 on success.
  */
-int gralloc_buffer_attr_allocate( private_handle_t *hnd )
+int gralloc_buffer_attr_allocate(private_handle_t *hnd)
 {
 	int rval = -1;
 
-	if( !hnd )
-		goto out;
-
-	if( hnd->share_attr_fd >= 0 )
+	if (!hnd)
 	{
-		ALOGW("Warning share attribute fd already exists during create. Closing.");
-		close( hnd->share_attr_fd );
+		goto out;
 	}
 
-	hnd->share_attr_fd = ashmem_create_region( "gralloc_shared_attr", PAGE_SIZE );
-	if(hnd->share_attr_fd < 0)
+	if (hnd->share_attr_fd >= 0)
+	{
+		ALOGW("Warning share attribute fd already exists during create. Closing.");
+		close(hnd->share_attr_fd);
+	}
+
+	hnd->share_attr_fd = ashmem_create_region("gralloc_shared_attr", PAGE_SIZE);
+
+	if (hnd->share_attr_fd < 0)
 	{
 		ALOGE("Failed to allocate page for shared attribute region");
 		goto err_ashmem;
@@ -62,17 +73,18 @@ int gralloc_buffer_attr_allocate( private_handle_t *hnd )
 	 * Because of this we keep the PROT_EXEC flag.
 	 */
 
-	hnd->attr_base = mmap( NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hnd->share_attr_fd, 0 );
-	if(hnd->attr_base != MAP_FAILED)
+	hnd->attr_base = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hnd->share_attr_fd, 0);
+
+	if (hnd->attr_base != MAP_FAILED)
 	{
 		/* The attribute region contains signed integers only.
 		 * The reason for this is because we can set a value less than 0 for
 		 * not-initialized values.
 		 */
-		attr_region *region = (attr_region *) hnd->attr_base;
+		attr_region *region = (attr_region *)hnd->attr_base;
 
 		memset(hnd->attr_base, 0xff, PAGE_SIZE);
-		munmap( hnd->attr_base, PAGE_SIZE );
+		munmap(hnd->attr_base, PAGE_SIZE);
 		hnd->attr_base = MAP_FAILED;
 	}
 	else
@@ -85,9 +97,10 @@ int gralloc_buffer_attr_allocate( private_handle_t *hnd )
 	goto out;
 
 err_ashmem:
-	if( hnd->share_attr_fd >= 0 )
+
+	if (hnd->share_attr_fd >= 0)
 	{
-		close( hnd->share_attr_fd );
+		close(hnd->share_attr_fd);
 		hnd->share_attr_fd = -1;
 	}
 
@@ -101,26 +114,29 @@ out:
 
  * Return 0 on success.
  */
-int gralloc_buffer_attr_free( private_handle_t *hnd )
+int gralloc_buffer_attr_free(private_handle_t *hnd)
 {
 	int rval = -1;
 
-	if( !hnd )
+	if (!hnd)
+	{
 		goto out;
+	}
 
-	if( hnd->share_attr_fd < 0 )
+	if (hnd->share_attr_fd < 0)
 	{
 		ALOGE("Shared attribute region not avail to free");
 		goto out;
 	}
-	if( hnd->attr_base != MAP_FAILED )
+
+	if (hnd->attr_base != MAP_FAILED)
 	{
 		ALOGW("Warning shared attribute region mapped at free. Unmapping");
-		munmap( hnd->attr_base, PAGE_SIZE );
+		munmap(hnd->attr_base, PAGE_SIZE);
 		hnd->attr_base = MAP_FAILED;
 	}
 
-	close( hnd->share_attr_fd );
+	close(hnd->share_attr_fd);
 	hnd->share_attr_fd = -1;
 	rval = 0;
 

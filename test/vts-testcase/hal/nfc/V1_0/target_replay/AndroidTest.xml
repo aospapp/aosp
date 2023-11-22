@@ -17,7 +17,7 @@
     <option name="config-descriptor:metadata" key="plan" value="vts-hal-replay" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.VtsFilePusher">
         <option name="abort-on-push-failure" value="false"/>
-        <option name="push-group" value="HalHidlHostTest.push"/>
+        <option name="push-group" value="VtsHalReplayTest.push"/>
         <option name="cleanup" value="true"/>
         <option name="push" value="spec/hardware/interfaces/nfc/1.0/vts/Nfc.vts->/data/local/tmp/spec/android/hardware/nfc/1.0/Nfc.vts"/>
         <option name="push" value="spec/hardware/interfaces/nfc/1.0/vts/NfcClientCallback.vts->/data/local/tmp/spec/android/hardware/nfc/1.0/NfcClientCallback.vts"/>
@@ -30,6 +30,8 @@
         <option name="binary-test-type" value="hal_hidl_replay_test"/>
         <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/nfc/V1_0/android.hardware.nfc_1.0_17270843854.vts.trace"/>
         <option name="hal-hidl-replay-test-trace-path" value="test/vts-testcase/hal-trace/nfc/V1_0/android.hardware.nfc_1.0_17261139999.vts.trace"/>
+        <!-- b/80191171 -->
+        <option name="exclude-filter" value="replay_test_android.hardware.nfc_1.0_17261139999.vts.trace" />
         <option name="test-timeout" value="15m"/>
     </test>
 </configuration>

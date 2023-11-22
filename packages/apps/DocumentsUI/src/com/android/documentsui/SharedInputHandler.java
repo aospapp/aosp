@@ -20,12 +20,16 @@ import static com.android.documentsui.base.SharedMinimal.DEBUG;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import androidx.recyclerview.selection.SelectionTracker;
+
 import com.android.documentsui.base.Events;
 import com.android.documentsui.base.Features;
 import com.android.documentsui.base.Procedure;
 import com.android.documentsui.dirlist.FocusHandler;
-import com.android.documentsui.selection.SelectionHelper;
 
+/**
+ * Handle common input events.
+ */
 public class SharedInputHandler {
 
     private static final String TAG = "SharedInputHandler";
@@ -34,19 +38,22 @@ public class SharedInputHandler {
     private final Procedure mSearchCanceler;
     private final Procedure mDirPopper;
     private final Features mFeatures;
-    private final SelectionHelper mSelectionMgr;
+    private final SelectionTracker<String> mSelectionMgr;
+    private final DrawerController mDrawer;
 
     public SharedInputHandler(
             FocusHandler focusHandler,
-            SelectionHelper selectionMgr,
+            SelectionTracker<String> selectionMgr,
             Procedure searchCanceler,
             Procedure dirPopper,
-            Features features) {
+            Features features,
+            DrawerController drawer) {
         mFocusManager = focusHandler;
         mSearchCanceler = searchCanceler;
         mSelectionMgr = selectionMgr;
         mDirPopper = dirPopper;
         mFeatures = features;
+        mDrawer = drawer;
     }
 
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -99,12 +106,19 @@ public class SharedInputHandler {
     }
 
     private boolean onBack() {
+        if (mDrawer.isPresent() && mDrawer.isOpen()) {
+            mDrawer.setOpen(false);
+            return true;
+        }
+
         if (mSearchCanceler.run()) {
             return true;
         }
 
         if (mSelectionMgr.hasSelection()) {
-            if (DEBUG) Log.d(TAG, "Back pressed. Clearing existing selection.");
+            if (DEBUG) {
+                Log.d(TAG, "Back pressed. Clearing existing selection.");
+            }
             mSelectionMgr.clearSelection();
             return true;
         }
@@ -118,7 +132,9 @@ public class SharedInputHandler {
         }
 
         if (mSelectionMgr.hasSelection()) {
-            if (DEBUG) Log.d(TAG, "ESC pressed. Clearing existing selection.");
+            if (DEBUG) {
+                Log.d(TAG, "ESC pressed. Clearing existing selection.");
+            }
             mSelectionMgr.clearSelection();
             return true;
         }

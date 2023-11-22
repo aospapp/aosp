@@ -23,6 +23,7 @@ import android.icu.util.ULocale;
 import java.util.Locale;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotNull;
 
 /**
  * Test for {@link android.icu.text.AlphabeticIndex}
@@ -36,16 +37,28 @@ public class AlphabeticIndexTest {
 
     // http://b/64953401
     @Test
-    public void test_amharic() {
-        Locale amharic = Locale.forLanguageTag("am");
-        UnicodeSet exemplarSet = LocaleData
-                .getExemplarSet(ULocale.forLocale(amharic), 0, LocaleData.ES_INDEX);
-        // If this assert fails it means that the am locale has gained an exemplar characters set
-        // for index (see key ExemplarCharactersIndex in locale/am.txt). If that's the case, please
-        // find another locale that's missing that key where the logic in
-        // AlphabeticIndex.addIndexExemplars will generate buckets from alternate data.
-        assertTrue(exemplarSet == null || exemplarSet.isEmpty());
-        verifyIndex(amharic);
+    public void testBucketCount_withNoIndexCharacters() {
+        Locale localeWithNoIndexCharacters = null;
+        // Search in the available languages only instead of all possible locales
+        // in order to speed-up the test.
+        for (String language : Locale.getISOLanguages()) {
+            Locale locale = Locale.forLanguageTag(language);
+            UnicodeSet exemplarSet = LocaleData.getExemplarSet(
+                ULocale.forLocale(locale), 0, LocaleData.ES_INDEX);
+            if (exemplarSet == null || exemplarSet.isEmpty()) {
+                localeWithNoIndexCharacters = locale;
+                break;
+            }
+        }
+
+        assertNotNull("Can't find any language with no index characters",
+            localeWithNoIndexCharacters);
+
+        // If this assert fails it means that it can't find any language with no index character.
+        // If that's the case, please find expand the search space to find a locale that's missing
+        // that key where the logic in AlphabeticIndex.addIndexExemplars will generate buckets from
+        // alternate data.
+        verifyIndex(localeWithNoIndexCharacters);
     }
 
     private void verifyIndex(Locale locale) {
@@ -58,6 +71,7 @@ public class AlphabeticIndexTest {
         for (String s : exemplarSet) {
             index.addRecord(s, s);
         }
-        assertTrue("Not enough buckets: " + index.getBucketLabels(), index.getBucketCount() > 1);
+        assertTrue("Locale(" + locale + ") does not have enough buckets: " + index.getBucketLabels(),
+            index.getBucketCount() > 1);
     }
 }

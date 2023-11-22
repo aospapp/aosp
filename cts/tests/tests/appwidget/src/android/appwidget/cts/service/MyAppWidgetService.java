@@ -17,6 +17,7 @@
 package android.appwidget.cts.service;
 
 import android.content.Intent;
+import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
 
 public class MyAppWidgetService extends RemoteViewsService {
@@ -33,7 +34,48 @@ public class MyAppWidgetService extends RemoteViewsService {
     @Override
     public RemoteViewsFactory onGetViewFactory(Intent intent) {
         synchronized (sLock) {
-            return sFactory;
+            return sFactory == null ? new DefaultFactory() : sFactory;
+        }
+    }
+
+    private static class DefaultFactory implements RemoteViewsFactory {
+        @Override
+        public void onCreate() { }
+
+        @Override
+        public void onDataSetChanged() { }
+
+        @Override
+        public void onDestroy() { }
+
+        @Override
+        public int getCount() {
+            return 0;
+        }
+
+        @Override
+        public RemoteViews getViewAt(int i) {
+            return null;
+        }
+
+        @Override
+        public RemoteViews getLoadingView() {
+            return null;
+        }
+
+        @Override
+        public int getViewTypeCount() {
+            return 1;
+        }
+
+        @Override
+        public long getItemId(int i) {
+            return i;
+        }
+
+        @Override
+        public boolean hasStableIds() {
+            return false;
         }
     }
 }

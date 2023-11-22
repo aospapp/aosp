@@ -26,8 +26,8 @@
     <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"ယခင်နှစ်အတွင်း အသုံးမပြုခဲ့ပါ"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"နောက်ဆုံးအသုံးပြုခဲ့ချိန် မသေချာပါ"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> နေရာလွတ် ပြုလုပ်ပါ"</string>
-    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"မိတ္တူကူးထားသော ဓာတ်ပုံနှင့် ဗီဒီယိုများ"</string>
-    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"ရက်ပေါင်း ၃၀ ထက် ကျော်နေပါပြီ"</string>
+    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"အရန်သိမ်းထားသော ဓာတ်ပုံနှင့် ဗီဒီယိုများ"</string>
+    <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"ရက်ပေါင်း ၃၀ ထက်ကျော်သော"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />
     <string name="deletion_helper_downloads_title" msgid="8002058095019254694">"ဒေါင်းလုဒ်များ"</string>
@@ -54,7 +54,7 @@
     <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"သင့်ဖုန်းသိုလှောင်ခန်းနေရာ ပြည့်လာသည့်အခါ ဓာတ်ပုံနှင့် ဗီဒီယိုအဟောင်းများကို အလိုအလျောက် ဖယ်ရှားရန်အတွက် သိုလှောင်ခန်း စီမံခန့်ခွဲမှုစနစ်ကို အသုံးပြုပါ။"</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"မလိုပါ"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"ဖွင့်ရန်"</string>
-    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"မိတ္တူကူးထားသော ဓာတ်ပုံနှင့် ဗီဒီယိုများ"</string>
+    <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"အရန်သိမ်းထားသော ဓာတ်ပုံနှင့် ဗီဒီယိုများ"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"အကြောင်းအရာများကို ရှာနေသည်…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"အကြောင်းအရာများ အားလုံးကို ပြရန်"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"ပြီးခဲ့သည်များကို ဝှက်ရန်"</string>

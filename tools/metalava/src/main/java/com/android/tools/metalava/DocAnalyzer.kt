@@ -1,8 +1,11 @@
 package com.android.tools.metalava
 
+import com.android.SdkConstants.ATTR_VALUE
 import com.android.sdklib.SdkVersionInfo
+import com.android.sdklib.repository.AndroidSdkHandler
 import com.android.tools.lint.LintCliClient
 import com.android.tools.lint.checks.ApiLookup
+import com.android.tools.lint.detector.api.editDistance
 import com.android.tools.lint.helpers.DefaultJavaEvaluator
 import com.android.tools.metalava.doclava1.Errors
 import com.android.tools.metalava.model.AnnotationAttributeValue
@@ -13,15 +16,26 @@ import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MemberItem
 import com.android.tools.metalava.model.MethodItem
+import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.ParameterItem
+import com.android.tools.metalava.model.psi.containsLinkTags
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.android.tools.metalava.model.visitors.VisibleItemVisitor
+import com.google.common.io.Files
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiField
 import com.intellij.psi.PsiMethod
 import java.io.File
 import java.util.HashMap
 import java.util.regex.Pattern
+
+/**
+ * Whether to include textual descriptions of the API requirements instead
+ * of just inserting a since-tag. This should be off if there is post-processing
+ * to convert since tags in the documentation tool used.
+ */
+const val ADD_API_LEVEL_TEXT = false
+const val ADD_DEPRECATED_IN_TEXT = false
 
 /**
  * Walk over the API and apply tweaks to the documentation, such as
@@ -88,7 +102,7 @@ class DocAnalyzer(
         // set also requires updating framework source code, so this doesn't seem
         // like an unreasonable burden.
 
-        codebase.accept(object : ApiVisitor(codebase) {
+        codebase.accept(object : ApiVisitor() {
             override fun visitItem(item: Item) {
                 val annotations = item.modifiers.annotations()
                 if (annotations.isEmpty()) {
@@ -120,10 +134,11 @@ class DocAnalyzer(
                 }
                 */
                 if (findThreadAnnotations(annotations).size > 1) {
-                    reporter.warning(
-                        item, "Found more than one threading annotation on $item; " +
-                            "the auto-doc feature does not handle this correctly",
-                        Errors.MULTIPLE_THREAD_ANNOTATIONS
+                    reporter.report(
+                        Errors.MULTIPLE_THREAD_ANNOTATIONS,
+                        item,
+                        "Found more than one threading annotation on $item; " +
+                            "the auto-doc feature does not handle this correctly"
                     )
                 }
             }
@@ -171,9 +186,60 @@ class DocAnalyzer(
                     return
                 }
 
+                if (item is ClassItem && name == item.qualifiedName()) {
+                    // The annotation annotates itself; we shouldn't attempt to recursively
+                    // pull in documentation from it; the documentation is already complete.
+                    return
+                }
+
                 // Some annotations include the documentation they want inlined into usage docs.
                 // Copy those here:
 
+                handleInliningDocs(annotation, item)
+
+                when (name) {
+                    "androidx.annotation.RequiresPermission" -> handleRequiresPermission(annotation, item)
+                    "androidx.annotation.IntRange",
+                    "androidx.annotation.FloatRange" -> handleRange(annotation, item)
+                    "androidx.annotation.IntDef",
+                    "androidx.annotation.LongDef",
+                    "androidx.annotation.StringDef" -> handleTypeDef(annotation, item)
+                    "android.annotation.RequiresFeature" -> handleRequiresFeature(annotation, item)
+                    "androidx.annotation.RequiresApi" -> handleRequiresApi(annotation, item)
+                    "kotlin.Deprecated" -> handleKotlinDeprecation(annotation, item)
+                }
+
+                // Thread annotations are ignored here because they're handled as a group afterwards
+
+                // TODO: Resource type annotations
+
+                // Handle inner annotations
+                annotation.resolve()?.modifiers?.annotations()?.forEach { nested ->
+                    if (depth == 20) { // Temp debugging
+                        throw StackOverflowError(
+                            "Unbounded recursion, processing annotation " +
+                                "${annotation.toSource()} in $item in ${item.compilationUnit()} "
+                        )
+                    } else if (nested.qualifiedName() != annotation.qualifiedName()) {
+                        handleAnnotation(nested, item, depth + 1)
+                    }
+                }
+            }
+
+            private fun handleKotlinDeprecation(annotation: AnnotationItem, item: Item) {
+                val text = (annotation.findAttribute("message") ?: annotation.findAttribute(ATTR_VALUE))
+                    ?.value?.value()?.toString() ?: return
+                if (text.isBlank() || item.documentation.contains(text)) {
+                    return
+                }
+
+                item.appendDocumentation(text, "@deprecated")
+            }
+
+            private fun handleInliningDocs(
+                annotation: AnnotationItem,
+                item: Item
+            ) {
                 if (annotation.isNullable() || annotation.isNonNull()) {
                     // Some docs already specifically talk about null policy; in that case,
                     // don't include the docs (since it may conflict with more specific conditions
@@ -200,199 +266,222 @@ class DocAnalyzer(
                         addDoc(annotation, "classDoc", item)
                     }
                 }
+            }
 
-                // Document required permissions
-                if (item is MemberItem && name == "androidx.annotation.RequiresPermission") {
-                    var values: List<AnnotationAttributeValue>? = null
-                    var any = false
-                    var conditional = false
-                    for (attribute in annotation.attributes()) {
-                        when (attribute.name) {
-                            "value", "allOf" -> {
-                                values = attribute.leafValues()
-                            }
-                            "anyOf" -> {
-                                any = true
-                                values = attribute.leafValues()
-                            }
-                            "conditional" -> {
-                                conditional = attribute.value.value() == true
-                            }
+            private fun handleRequiresPermission(
+                annotation: AnnotationItem,
+                item: Item
+            ) {
+                if (item !is MemberItem) {
+                    return
+                }
+                var values: List<AnnotationAttributeValue>? = null
+                var any = false
+                var conditional = false
+                for (attribute in annotation.attributes()) {
+                    when (attribute.name) {
+                        "value", "allOf" -> {
+                            values = attribute.leafValues()
+                        }
+                        "anyOf" -> {
+                            any = true
+                            values = attribute.leafValues()
+                        }
+                        "conditional" -> {
+                            conditional = attribute.value.value() == true
                         }
                     }
+                }
 
-                    if (values != null && values.isNotEmpty() && !conditional) {
-                        // Look at macros_override.cs for the usage of these
-                        // tags. In particular, search for def:dump_permission
+                if (values != null && values.isNotEmpty() && !conditional) {
+                    // Look at macros_override.cs for the usage of these
+                    // tags. In particular, search for def:dump_permission
 
-                        val sb = StringBuilder(100)
-                        sb.append("Requires ")
-                        var first = true
-                        for (value in values) {
-                            when {
-                                first -> first = false
-                                any -> sb.append(" or ")
-                                else -> sb.append(" and ")
+                    val sb = StringBuilder(100)
+                    sb.append("Requires ")
+                    var first = true
+                    for (value in values) {
+                        when {
+                            first -> first = false
+                            any -> sb.append(" or ")
+                            else -> sb.append(" and ")
+                        }
+
+                        val resolved = value.resolve()
+                        val field = if (resolved is FieldItem)
+                            resolved
+                        else {
+                            val v: Any = value.value() ?: value.toSource()
+                            if (v == CARRIER_PRIVILEGES_MARKER) {
+                                // TODO: Warn if using allOf with carrier
+                                sb.append("{@link android.telephony.TelephonyManager#hasCarrierPrivileges carrier privileges}")
+                                continue
                             }
-
-                            val resolved = value.resolve()
-                            val field = if (resolved is FieldItem)
-                                resolved
-                            else {
-                                val v: Any = value.value() ?: value.toSource()
-                                findPermissionField(codebase, v)
-                            }
-                            if (field == null) {
+                            findPermissionField(codebase, v)
+                        }
+                        if (field == null) {
+                            val v = value.value()?.toString() ?: value.toSource()
+                            if (editDistance(CARRIER_PRIVILEGES_MARKER, v, 3) < 3) {
+                                reporter.report(
+                                    Errors.MISSING_PERMISSION, item,
+                                    "Unrecognized permission `$v`; did you mean `$CARRIER_PRIVILEGES_MARKER`?"
+                                )
+                            } else {
                                 reporter.report(
                                     Errors.MISSING_PERMISSION, item,
                                     "Cannot find permission field for $value required by $item (may be hidden or removed)"
                                 )
-                                sb.append(value.toSource())
-                            } else {
-                                if (field.isHiddenOrRemoved()) {
-                                    reporter.report(
-                                        Errors.MISSING_PERMISSION, item,
-                                        "Permission $value required by $item is hidden or removed"
-                                    )
-                                }
-                                sb.append("{@link ${field.containingClass().qualifiedName()}#${field.name()}}")
                             }
-                        }
-
-                        appendDocumentation(sb.toString(), item, false)
-                    }
-                }
-
-                // Document value ranges
-                if (name == "androidx.annotation.IntRange" || name == "androidx.annotation.FloatRange") {
-                    val from: String? = annotation.findAttribute("from")?.value?.toSource()
-                    val to: String? = annotation.findAttribute("to")?.value?.toSource()
-                    // TODO: inclusive/exclusive attributes on FloatRange!
-                    if (from != null || to != null) {
-                        val args = HashMap<String, String>()
-                        if (from != null) args["from"] = from
-                        if (from != null) args["from"] = from
-                        if (to != null) args["to"] = to
-                        val doc = if (from != null && to != null) {
-                            "Value is between $from and $to inclusive"
-                        } else if (from != null) {
-                            "Value is $from or greater"
-                        } else if (to != null) {
-                            "Value is $to or less"
-                        } else {
-                            null
-                        }
-                        appendDocumentation(doc, item, true)
-                    }
-                }
-
-                // Document expected constants
-                if (name == "androidx.annotation.IntDef" || name == "androidx.annotation.LongDef" ||
-                    name == "androidx.annotation.StringDef"
-                ) {
-                    val values = annotation.findAttribute("value")?.leafValues() ?: return
-                    val flag = annotation.findAttribute("flag")?.value?.toSource() == "true"
-
-                    // Look at macros_override.cs for the usage of these
-                    // tags. In particular, search for def:dump_int_def
-
-                    val sb = StringBuilder(100)
-                    sb.append("Value is ")
-                    if (flag) {
-                        sb.append("either <code>0</code> or ")
-                        if (values.size > 1) {
-                            sb.append("a combination of ")
-                        }
-                    }
-
-                    values.forEachIndexed { index, value ->
-                        sb.append(
-                            when (index) {
-                                0 -> {
-                                    ""
-                                }
-                                values.size - 1 -> {
-                                    if (flag) {
-                                        ", and "
-                                    } else {
-                                        ", or "
-                                    }
-                                }
-                                else -> {
-                                    ", "
-                                }
-                            }
-                        )
-
-                        val field = value.resolve()
-                        if (field is FieldItem)
-                            sb.append("{@link ${field.containingClass().qualifiedName()}#${field.name()}}")
-                        else {
                             sb.append(value.toSource())
+                        } else {
+                            if (filterReference.test(field)) {
+                                sb.append("{@link ${field.containingClass().qualifiedName()}#${field.name()}}")
+                            } else {
+                                reporter.report(
+                                    Errors.MISSING_PERMISSION, item,
+                                    "Permission $value required by $item is hidden or removed"
+                                )
+                                sb.append("${field.containingClass().qualifiedName()}.${field.name()}")
+                            }
                         }
                     }
-                    appendDocumentation(sb.toString(), item, true)
-                }
 
-                // Required Features
-                if (name == "android.annotation.RequiresFeature") {
-                    val value = annotation.findAttribute("value")?.leafValues()?.firstOrNull() ?: return
-                    val sb = StringBuilder(100)
-                    val resolved = value.resolve()
-                    val field = resolved as? FieldItem
-                    sb.append("Requires the ")
-                    if (field == null) {
-                        reporter.report(
-                            Errors.MISSING_PERMISSION, item,
-                            "Cannot find feature field for $value required by $item (may be hidden or removed)"
-                        )
-                        sb.append("{@link ${value.toSource()}}")
-                    } else {
-                        if (field.isHiddenOrRemoved()) {
-                            reporter.report(
-                                Errors.MISSING_PERMISSION, item,
-                                "Feature field $value required by $item is hidden or removed"
-                            )
-                        }
-
-                        sb.append("{@link ${field.containingClass().qualifiedName()}#${field.name()} ${field.containingClass().simpleName()}#${field.name()}} ")
-                    }
-
-                    sb.append("feature which can be detected using ")
-                    sb.append("{@link android.content.pm.PackageManager#hasSystemFeature(String) ")
-                    sb.append("PackageManager.hasSystemFeature(String)}.")
                     appendDocumentation(sb.toString(), item, false)
                 }
+            }
 
-                // Required API levels
-                if (name == "androidx.annotation.RequiresApi") {
-                    val level = run {
-                        val api = annotation.findAttribute("api")?.leafValues()?.firstOrNull()?.value()
-                        if (api == null || api == 1) {
-                            annotation.findAttribute("value")?.leafValues()?.firstOrNull()?.value() ?: return
-                        } else {
-                            api
-                        }
+            private fun handleRange(
+                annotation: AnnotationItem,
+                item: Item
+            ) {
+                val from: String? = annotation.findAttribute("from")?.value?.toSource()
+                val to: String? = annotation.findAttribute("to")?.value?.toSource()
+                // TODO: inclusive/exclusive attributes on FloatRange!
+                if (from != null || to != null) {
+                    val args = HashMap<String, String>()
+                    if (from != null) args["from"] = from
+                    if (from != null) args["from"] = from
+                    if (to != null) args["to"] = to
+                    val doc = if (from != null && to != null) {
+                        "Value is between $from and $to inclusive"
+                    } else if (from != null) {
+                        "Value is $from or greater"
+                    } else if (to != null) {
+                        "Value is $to or less"
+                    } else {
+                        null
                     }
+                    appendDocumentation(doc, item, true)
+                }
+            }
 
-                    if (level is Int) {
-                        addApiLevelDocumentation(level, item)
+            private fun handleTypeDef(
+                annotation: AnnotationItem,
+                item: Item
+            ) {
+                val values = annotation.findAttribute("value")?.leafValues() ?: return
+                val flag = annotation.findAttribute("flag")?.value?.toSource() == "true"
+
+                // Look at macros_override.cs for the usage of these
+                // tags. In particular, search for def:dump_int_def
+
+                val sb = StringBuilder(100)
+                sb.append("Value is ")
+                if (flag) {
+                    sb.append("either <code>0</code> or ")
+                    if (values.size > 1) {
+                        sb.append("a combination of ")
                     }
                 }
 
-                // Thread annotations are ignored here because they're handled as a group afterwards
+                values.forEachIndexed { index, value ->
+                    sb.append(
+                        when (index) {
+                            0 -> {
+                                ""
+                            }
+                            values.size - 1 -> {
+                                if (flag) {
+                                    ", and "
+                                } else {
+                                    ", or "
+                                }
+                            }
+                            else -> {
+                                ", "
+                            }
+                        }
+                    )
 
-                // TODO: Resource type annotations
-
-                // Handle inner annotations
-                annotation.resolve()?.modifiers?.annotations()?.forEach { nested ->
-                    if (depth == 20) { // Temp debugging
-                        throw StackOverflowError(
-                            "Unbounded recursion, processing annotation " +
-                                "${annotation.toSource()} in $item in ${item.compilationUnit()} "
-                        )
+                    val field = value.resolve()
+                    if (field is FieldItem)
+                        if (filterReference.test(field)) {
+                            sb.append("{@link ${field.containingClass().qualifiedName()}#${field.name()}}")
+                        } else {
+                            // Typdef annotation references field which isn't part of the API: don't
+                            // try to link to it.
+                            reporter.report(
+                                Errors.HIDDEN_TYPEDEF_CONSTANT, item,
+                                "Typedef references constant which isn't part of the API, skipping in documentation: " +
+                                    "${field.containingClass().qualifiedName()}#${field.name()}"
+                            )
+                            sb.append(field.containingClass().qualifiedName() + "." + field.name())
+                        }
+                    else {
+                        sb.append(value.toSource())
                     }
-                    handleAnnotation(nested, item, depth + 1)
+                }
+                appendDocumentation(sb.toString(), item, true)
+            }
+
+            private fun handleRequiresFeature(
+                annotation: AnnotationItem,
+                item: Item
+            ) {
+                val value = annotation.findAttribute("value")?.leafValues()?.firstOrNull() ?: return
+                val sb = StringBuilder(100)
+                val resolved = value.resolve()
+                val field = resolved as? FieldItem
+                sb.append("Requires the ")
+                if (field == null) {
+                    reporter.report(
+                        Errors.MISSING_PERMISSION, item,
+                        "Cannot find feature field for $value required by $item (may be hidden or removed)"
+                    )
+                    sb.append("{@link ${value.toSource()}}")
+                } else {
+                    if (filterReference.test(field)) {
+                        sb.append("{@link ${field.containingClass().qualifiedName()}#${field.name()} ${field.containingClass().simpleName()}#${field.name()}} ")
+                    } else {
+                        reporter.report(
+                            Errors.MISSING_PERMISSION, item,
+                            "Feature field $value required by $item is hidden or removed"
+                        )
+                        sb.append("${field.containingClass().simpleName()}#${field.name()} ")
+                    }
+                }
+
+                sb.append("feature which can be detected using ")
+                sb.append("{@link android.content.pm.PackageManager#hasSystemFeature(String) ")
+                sb.append("PackageManager.hasSystemFeature(String)}.")
+                appendDocumentation(sb.toString(), item, false)
+            }
+
+            private fun handleRequiresApi(
+                annotation: AnnotationItem,
+                item: Item
+            ) {
+                val level = run {
+                    val api = annotation.findAttribute("api")?.leafValues()?.firstOrNull()?.value()
+                    if (api == null || api == 1) {
+                        annotation.findAttribute("value")?.leafValues()?.firstOrNull()?.value() ?: return
+                    } else {
+                        api
+                    }
+                }
+
+                if (level is Int) {
+                    addApiLevelDocumentation(level, item)
                 }
             }
         })
@@ -436,9 +525,46 @@ class DocAnalyzer(
                 documentation.startsWith("@memberDoc") -> null
                 else -> null
             }
-            val insert = stripMetaTags(documentation.substring(tag.length + 2))
-            item.appendDocumentation(insert, section) // 2: @ and space after tag
+
+            val insert = stripLeadingAsterisks(stripMetaTags(documentation.substring(tag.length + 2)))
+            val qualified = if (containsLinkTags(insert)) {
+                val original = "/** $insert */"
+                val qualified = cls.fullyQualifiedDocumentation(original)
+                if (original != qualified) {
+                    qualified.substring(if (qualified[3] == ' ') 4 else 3, qualified.length - 2)
+                } else {
+                    original
+                }
+            } else {
+                insert
+            }
+
+            item.appendDocumentation(qualified, section) // 2: @ and space after tag
         }
+    }
+
+    private fun stripLeadingAsterisks(s: String): String {
+        if (s.contains("*")) {
+            val sb = StringBuilder(s.length)
+            var strip = true
+            for (c in s) {
+                if (strip) {
+                    if (c.isWhitespace() || c == '*') {
+                        continue
+                    } else {
+                        strip = false
+                    }
+                } else {
+                    if (c == '\n') {
+                        strip = true
+                    }
+                }
+                sb.append(c)
+            }
+            return sb.toString()
+        }
+
+        return s
     }
 
     private fun stripMetaTags(string: String): String {
@@ -453,15 +579,21 @@ class DocAnalyzer(
 
     /** Replacements to perform in documentation */
     val typos = mapOf(
+        "JetPack" to "Jetpack",
         "Andriod" to "Android",
         "Kitkat" to "KitKat",
         "LemonMeringuePie" to "Lollipop",
         "LMP" to "Lollipop",
         "KeyLimePie" to "KitKat",
-        "KLP" to "KitKat"
+        "KLP" to "KitKat",
+        "teh" to "the"
     )
 
     private fun tweakGrammar() {
+        if (reporter.isSuppressed(Errors.TYPO)) {
+            return
+        }
+
         codebase.accept(object : VisibleItemVisitor() {
             override fun visitItem(item: Item) {
                 var doc = item.documentation
@@ -472,13 +604,16 @@ class DocAnalyzer(
                 for (typo in typos.keys) {
                     if (doc.contains(typo)) {
                         val replacement = typos[typo] ?: continue
-                        reporter.report(
-                            Errors.TYPO,
-                            item,
-                            "Replaced $typo with $replacement in documentation for $item"
-                        )
-                        doc = doc.replace(typo, replacement, false)
-                        item.documentation = doc
+                        val new = doc.replace(Regex("\\b$typo\\b"), replacement)
+                        if (new != doc) {
+                            reporter.report(
+                                Errors.TYPO,
+                                item,
+                                "Replaced $typo with $replacement in the documentation for $item"
+                            )
+                            doc = new
+                            item.documentation = doc
+                        }
                     }
                 }
 
@@ -492,6 +627,7 @@ class DocAnalyzer(
     }
 
     fun applyApiLevels(applyApiLevelsXml: File) {
+        @Suppress("DEPRECATION") // still using older lint-api when building with soong
         val client = object : LintCliClient() {
             override fun findResource(relativePath: String): File? {
                 if (relativePath == ApiLookup.XML_FILE_PATH) {
@@ -500,9 +636,38 @@ class DocAnalyzer(
                 return super.findResource(relativePath)
             }
 
+            override fun getSdk(): AndroidSdkHandler? {
+                return null
+            }
+
             override fun getCacheDir(name: String?, create: Boolean): File? {
-                val dir = File(System.getProperty("java.io.tmpdir"))
-                if (create) {
+                if (create && isUnderTest()) {
+                    // Pick unique directory during unit tests
+                    return Files.createTempDir()
+                }
+
+                val sb = StringBuilder(PROGRAM_NAME)
+                if (name != null) {
+                    sb.append(File.separator)
+                    sb.append(name)
+                }
+                val relative = sb.toString()
+
+                val tmp = System.getenv("TMPDIR")
+                if (tmp != null) {
+                    // Android Build environment: Make sure we're really creating a unique
+                    // temp directory each time since builds could be running in
+                    // parallel here.
+                    val dir = File(tmp, relative)
+                    if (!dir.isDirectory) {
+                        dir.mkdirs()
+                    }
+
+                    return java.nio.file.Files.createTempDirectory(dir.toPath(), null).toFile()
+                }
+
+                val dir = File(System.getProperty("java.io.tmpdir"), relative)
+                if (create && !dir.isDirectory) {
                     dir.mkdirs()
                 }
                 return dir
@@ -511,16 +676,24 @@ class DocAnalyzer(
 
         val apiLookup = ApiLookup.get(client)
 
-        codebase.accept(object : ApiVisitor(codebase, visitConstructorsAsMethods = false) {
+        val pkgApi = HashMap<PackageItem, Int?>(300)
+        codebase.accept(object : ApiVisitor(visitConstructorsAsMethods = true) {
             override fun visitMethod(method: MethodItem) {
-                val psiMethod = method.psi() as PsiMethod
+                val psiMethod = method.psi() as? PsiMethod ?: return
                 addApiLevelDocumentation(apiLookup.getMethodVersion(psiMethod), method)
                 addDeprecatedDocumentation(apiLookup.getMethodDeprecatedIn(psiMethod), method)
             }
 
             override fun visitClass(cls: ClassItem) {
                 val psiClass = cls.psi() as PsiClass
-                addApiLevelDocumentation(apiLookup.getClassVersion(psiClass), cls)
+                val since = apiLookup.getClassVersion(psiClass)
+                if (since != -1) {
+                    addApiLevelDocumentation(since, cls)
+
+                    // Compute since version for the package: it's the min of all the classes in the package
+                    val pkg = cls.containingPackage()
+                    pkgApi[pkg] = Math.min(pkgApi[pkg] ?: Integer.MAX_VALUE, since)
+                }
                 addDeprecatedDocumentation(apiLookup.getClassDeprecatedIn(psiClass), cls)
             }
 
@@ -530,32 +703,83 @@ class DocAnalyzer(
                 addDeprecatedDocumentation(apiLookup.getFieldDeprecatedIn(psiField), field)
             }
         })
+
+        val packageDocs = codebase.getPackageDocs()
+        if (packageDocs != null) {
+            for ((pkg, api) in pkgApi.entries) {
+                val code = api ?: 1
+                addApiLevelDocumentation(code, pkg)
+            }
+        }
     }
 
     private fun addApiLevelDocumentation(level: Int, item: Item) {
-        if (level > 1) {
-            appendDocumentation("Requires API level $level", item, false)
+        if (level > 0) {
+            if (item.originallyHidden) {
+                // @SystemApi, @TestApi etc -- don't apply API levels here since we don't have accurate historical data
+                return
+            }
+            val currentCodeName = options.currentCodeName
+            val code: String = if (currentCodeName != null && level > options.currentApiLevel) {
+                currentCodeName
+            } else {
+                level.toString()
+            }
+
+            @Suppress("ConstantConditionIf")
+            if (ADD_API_LEVEL_TEXT) { // See 113933920: Remove "Requires API level" from method comment
+                val description = if (code == currentCodeName) currentCodeName else describeApiLevel(level)
+                appendDocumentation("Requires API level $description", item, false)
+            }
             // Also add @since tag, unless already manually entered.
             // TODO: Override it everywhere in case the existing doc is wrong (we know
             // better), and at least for OpenJDK sources we *should* since the since tags
             // are talking about language levels rather than API levels!
-            if (!item.documentation.contains("@since")) {
-                item.appendDocumentation(describeApiLevel(level), "@since")
+            if (!item.documentation.contains("@apiSince")) {
+                item.appendDocumentation(code, "@apiSince")
+            } else {
+                reporter.report(
+                    Errors.FORBIDDEN_TAG, item, "Documentation should not specify @apiSince " +
+                        "manually; it's computed and injected at build time by $PROGRAM_NAME"
+                )
             }
         }
     }
 
     private fun addDeprecatedDocumentation(level: Int, item: Item) {
-        if (level > 1) {
-            // TODO: *pre*pend instead!
-            val description =
-                "<p class=\"caution\"><strong>This class was deprecated in API level 21.</strong></p>"
-            item.appendDocumentation(description, "@deprecated", append = false)
+        if (level > 0) {
+            if (item.originallyHidden) {
+                // @SystemApi, @TestApi etc -- don't apply API levels here since we don't have accurate historical data
+                return
+            }
+            val currentCodeName = options.currentCodeName
+            val code: String = if (currentCodeName != null && level > options.currentApiLevel) {
+                currentCodeName
+            } else {
+                level.toString()
+            }
+
+            @Suppress("ConstantConditionIf")
+            if (ADD_DEPRECATED_IN_TEXT) {
+                // TODO: *pre*pend instead!
+                val description =
+                    "<p class=\"caution\"><strong>This class was deprecated in API level $code.</strong></p>"
+                item.appendDocumentation(description, "@deprecated", append = false)
+            }
+
+            if (!item.documentation.contains("@deprecatedSince")) {
+                item.appendDocumentation(code, "@deprecatedSince")
+            } else {
+                reporter.report(
+                    Errors.FORBIDDEN_TAG, item, "Documentation should not specify @deprecatedSince " +
+                        "manually; it's computed and injected at build time by $PROGRAM_NAME"
+                )
+            }
         }
     }
 
     private fun describeApiLevel(level: Int): String {
-        return "${SdkVersionInfo.getVersionString(level)} ${SdkVersionInfo.getCodeName(level)} ($level)"
+        return "$level (Android ${SdkVersionInfo.getVersionString(level)}, ${SdkVersionInfo.getCodeName(level)})"
     }
 }
 
@@ -564,12 +788,13 @@ fun ApiLookup.getClassVersion(cls: PsiClass): Int {
     return getClassVersion(owner)
 }
 
+val defaultEvaluator = DefaultJavaEvaluator(null, null)
+
 fun ApiLookup.getMethodVersion(method: PsiMethod): Int {
     val containingClass = method.containingClass ?: return -1
     val owner = containingClass.qualifiedName ?: return -1
-    val evaluator = DefaultJavaEvaluator(null, null)
-    val desc = evaluator.getMethodDescription(method, false, false)
-    return getMethodVersion(owner, method.name, desc)
+    val desc = defaultEvaluator.getMethodDescription(method, false, false)
+    return getMethodVersion(owner, if (method.isConstructor) "<init>" else method.name, desc)
 }
 
 fun ApiLookup.getFieldVersion(field: PsiField): Int {
@@ -586,8 +811,7 @@ fun ApiLookup.getClassDeprecatedIn(cls: PsiClass): Int {
 fun ApiLookup.getMethodDeprecatedIn(method: PsiMethod): Int {
     val containingClass = method.containingClass ?: return -1
     val owner = containingClass.qualifiedName ?: return -1
-    val evaluator = DefaultJavaEvaluator(null, null)
-    val desc = evaluator.getMethodDescription(method, false, false)
+    val desc = defaultEvaluator.getMethodDescription(method, false, false)
     return getMethodDeprecatedIn(owner, method.name, desc)
 }
 

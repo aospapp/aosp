@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -13,41 +13,70 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
+"""
+Test suite to perform Stress test on A2DP with Wlan.
 
+Test Setup:
+
+One Android device.
+One A2DP Headset connected to Relay.
+"""
 import time
 
 from acts.test_utils.bt import BtEnum
 from acts.test_utils.bt.bt_test_utils import clear_bonded_devices
+from acts.test_utils.coex.audio_test_utils import SshAudioCapture
 from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
 from acts.test_utils.coex.coex_test_utils import connect_dev_to_headset
 from acts.test_utils.coex.coex_test_utils import disconnect_headset_from_dev
+from acts.test_utils.coex.coex_test_utils import multithread_func
 from acts.test_utils.coex.coex_test_utils import music_play_and_check
 from acts.test_utils.coex.coex_test_utils import pair_and_connect_headset
+from acts.test_utils.coex.coex_test_utils import push_music_to_android_device
 
 
 class CoexA2dpStressTest(CoexBaseTest):
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
 
     def setup_class(self):
-        CoexBaseTest.setup_class(self)
-        req_params = ["iterations"]
+        super().setup_class()
+        req_params = ["iterations", "audio_params", "headset_mac_address"]
         self.unpack_userparams(req_params)
+        if hasattr(self, "audio_params"):
+            if self.audio_params["music_file"]:
+                self.music_file_to_play = push_music_to_android_device(
+                    self.pri_ad, self.audio_params)
+                if not self.music_file_to_play:
+                    self.log.error("Music file push failed.")
+                    return False
+        else:
+            self.log.warning("No Music files pushed to play.")
 
     def setup_test(self):
-        CoexBaseTest.setup_test(self)
-        self.audio_receiver.pairing_mode()
+        super().setup_test()
+        if "a2dp_streaming" in self.current_test_name:
+            self.audio = SshAudioCapture(self.audio_params, self.log_path)
+        if hasattr(self, "RelayDevice"):
+            self.audio_receiver.pairing_mode()
+        time.sleep(5)  #Wait time until headset goes into pairing mode.
         if not pair_and_connect_headset(
-                self.pri_ad, self.audio_receiver.mac_address,
+                self.pri_ad, self.headset_mac_address,
                 set([BtEnum.BluetoothProfile.A2DP.value])):
             self.log.error("Failed to pair and connect to headset")
             return False
 
     def teardown_test(self):
         clear_bonded_devices(self.pri_ad)
-        CoexBaseTest.teardown_test(self)
-        self.audio_receiver.clean_up()
+        if hasattr(self, "RelayDevice"):
+            self.audio_receiver.clean_up()
+        if "a2dp_streaming" in self.current_test_name:
+            analysis_path = self.audio.audio_quality_analysis(self.log_path)
+            with open(analysis_path) as f:
+                self.result["audio_artifacts"] = f.readline()
+            self.audio.terminate_and_store_audio_results()
+        super().teardown_test()
 
     def connect_disconnect_headset(self):
         """Initiates connection to paired headset and disconnects headset.
@@ -58,10 +87,10 @@ class CoexA2dpStressTest(CoexBaseTest):
         for i in range(self.iterations):
             self.log.info("Headset connect/disconnect iteration={}".format(i))
             self.pri_ad.droid.bluetoothConnectBonded(
-                self.audio_receiver.mac_address)
-            time.sleep(2)
+                self.headset_mac_address)
+            time.sleep(2)  #Wait time until device gets connected.
             self.pri_ad.droid.bluetoothDisconnectConnected(
-                self.audio_receiver.mac_address)
+                self.headset_mac_address)
         return True
 
     def connect_disconnect_a2dp_headset(self):
@@ -77,17 +106,17 @@ class CoexA2dpStressTest(CoexBaseTest):
             True if successful, False otherwise.
         """
         for i in range(self.iterations):
-            if not connect_dev_to_headset(
-                    self.pri_ad, self.audio_receiver.mac_address,
-                    {BtEnum.BluetoothProfile.A2DP.value}):
+            if not connect_dev_to_headset(self.pri_ad,
+                                          self.headset_mac_address,
+                                          {BtEnum.BluetoothProfile.A2DP.value}):
                 self.log.error("Failure to connect A2dp headset.")
                 return False
 
             if not disconnect_headset_from_dev(
-                    self.pri_ad, self.audio_receiver.mac_address,
-                    [BtEnum.BluetoothProfile.A2DP.value]):
+                    self.pri_ad, self.headset_mac_address,
+                [BtEnum.BluetoothProfile.A2DP.value]):
                 self.log.error("Could not disconnect {}".format(
-                    self.audio_receiver.mac_address))
+                    self.headset_mac_address))
                 return False
         return True
 
@@ -111,10 +140,13 @@ class CoexA2dpStressTest(CoexBaseTest):
 
     def music_streaming_with_iperf(self):
         """Wrapper function to start iperf traffic and music streaming."""
-        self.run_iperf_and_get_result()
-        if not music_play_and_check(
-                self.pri_ad, self.audio_receiver.mac_address,
-                self.music_file_to_play, self.iperf["duration"]):
+        tasks = [(self.audio.capture_audio, ()),
+                 (music_play_and_check,
+                  (self.pri_ad, self.headset_mac_address,
+                   self.music_file_to_play,
+                   self.audio_params["music_play_time"])),
+                 (self.run_iperf_and_get_result, ())]
+        if not multithread_func(self.log, tasks):
             return False
         return self.teardown_result()
 
@@ -202,7 +234,7 @@ class CoexA2dpStressTest(CoexBaseTest):
             return False
         return True
 
-    def test_stress_a2dp_long_duration_with_tcp_ul(self):
+    def test_stress_a2dp_streaming_long_duration_with_tcp_ul(self):
         """Stress test to stream music to headset continuously for 12 hours.
 
         This test is to start TCP-uplink traffic between host machine and
@@ -221,7 +253,7 @@ class CoexA2dpStressTest(CoexBaseTest):
             return False
         return True
 
-    def test_stress_a2dp_long_duration_with_tcp_dl(self):
+    def test_stress_a2dp_streaming_long_duration_with_tcp_dl(self):
         """Stress test to stream music to headset continuously for 12 hours.
 
         This test is to start TCP-downlink traffic between host machine and
@@ -240,7 +272,7 @@ class CoexA2dpStressTest(CoexBaseTest):
             return False
         return True
 
-    def test_stress_a2dp_long_duration_with_udp_ul(self):
+    def test_stress_a2dp_streaming_long_duration_with_udp_ul(self):
         """Stress test to stream music to headset continuously for 12 hours.
 
         This test is to start UDP-uplink traffic between host machine and
@@ -259,7 +291,7 @@ class CoexA2dpStressTest(CoexBaseTest):
             return False
         return True
 
-    def test_stress_a2dp_long_duration_with_udp_dl(self):
+    def test_stress_a2dp_streaming_long_duration_with_udp_dl(self):
         """Stress test to stream music to headset continuously for 12 hours.
 
         This test is to start UDP-downlink traffic between host machine and
@@ -404,7 +436,7 @@ class CoexA2dpStressTest(CoexBaseTest):
             return False
         return True
 
-    def test_stress_a2dp_long_duration_with_tcp_bidirectional(self):
+    def test_stress_a2dp_streaming_long_duration_with_tcp_bidirectional(self):
         """Stress test to stream music to headset continuously for 12 hours.
 
         This test starts TCP-bidirectional traffic between host machin and
@@ -423,7 +455,7 @@ class CoexA2dpStressTest(CoexBaseTest):
             return False
         return True
 
-    def test_stress_a2dp_long_duration_with_udp_bidirectional(self):
+    def test_stress_a2dp_streaming_long_duration_with_udp_bidirectional(self):
         """Stress test to stream music to headset continuously for 12 hours.
 
         This test starts UDP-bidirectional traffic between host machin and

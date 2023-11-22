@@ -15,12 +15,19 @@
  */
 package com.android.tradefed.testtype.suite;
 
+import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.Option;
-import com.android.tradefed.util.TestMapping;
+import com.android.tradefed.util.testmapping.TestInfo;
+import com.android.tradefed.util.testmapping.TestMapping;
+import com.android.tradefed.util.testmapping.TestOption;
 
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 /**
  * Implementation of {@link BaseTestSuite} to run tests specified by option include-filter, or
@@ -36,6 +43,23 @@ public class TestMappingSuiteRunner extends BaseTestSuite {
                         + "code, through build artifact test_mappings.zip."
     )
     private String mTestGroup = null;
+
+    @Option(
+        name = "test-mapping-keyword",
+        description =
+                "Keyword to be matched to the `keywords` setting of a test configured in "
+                        + "a TEST_MAPPING file. The test will only run if it has all the keywords "
+                        + "specified in the option. If option test-mapping-test-group is not set, "
+                        + "test-mapping-keyword option is ignored as the tests to run are not "
+                        + "loaded directly from TEST_MAPPING files but is supplied via the "
+                        + "--include-filter arg."
+    )
+    private Set<String> mKeywords = new HashSet<>();
+
+    /** Special definition in the test mapping structure. */
+    private static final String TEST_MAPPING_INCLUDE_FILTER = "include-filter";
+
+    private static final String TEST_MAPPING_EXCLUDE_FILTER = "exclude-filter";
 
     /**
      * Load the tests configuration that will be run. Each tests is defined by a {@link
@@ -54,11 +78,18 @@ public class TestMappingSuiteRunner extends BaseTestSuite {
      */
     @Override
     public LinkedHashMap<String, IConfiguration> loadTests() {
+        // Map between test names and a list of test sources for each test.
+        Map<String, List<String>> testsInTestMapping = new HashMap<>();
+
         Set<String> includeFilter = getIncludeFilter();
         if (mTestGroup == null && includeFilter.isEmpty()) {
             throw new RuntimeException(
                     "At least one of the options, --test-mapping-test-group or --include-filter, "
                             + "should be set.");
+        }
+        if (mTestGroup == null && !mKeywords.isEmpty()) {
+            throw new RuntimeException(
+                    "Must specify --test-mapping-test-group when applying --test-mapping-keyword.");
         }
         if (mTestGroup != null && !includeFilter.isEmpty()) {
             throw new RuntimeException(
@@ -67,31 +98,88 @@ public class TestMappingSuiteRunner extends BaseTestSuite {
         }
 
         if (mTestGroup != null) {
-            Set<TestMapping.TestInfo> testsToRun = TestMapping.getTests(getBuildInfo(), mTestGroup);
+            Set<TestInfo> testsToRun =
+                    TestMapping.getTests(
+                            getBuildInfo(), mTestGroup, getPrioritizeHostConfig(), mKeywords);
             if (testsToRun.isEmpty()) {
                 throw new RuntimeException(
                         String.format("No test found for the given group: %s.", mTestGroup));
             }
 
             // Name of the tests
-            Set<String> testNames = new HashSet<String>();
+            Set<String> testNames = new HashSet<>();
+
+            Set<String> mappingIncludeFilters = new HashSet<>();
+            Set<String> mappingExcludeFilters = new HashSet<>();
+
             // module-arg options compiled from test options for each test.
-            Set<String> moduleArgs = new HashSet<String>();
-            for (TestMapping.TestInfo test : testsToRun) {
-                testNames.add(test.getName());
-                for (TestMapping.TestOption option : test.getOptions()) {
-                    String moduleArg = String.format("%s:%s", test.getName(), option.getName());
-                    if (option.getValue() != null && !option.getValue().isEmpty()) {
-                        moduleArg = String.format("%s:%s", moduleArg, option.getValue());
+            Set<String> moduleArgs = new HashSet<>();
+            for (TestInfo test : testsToRun) {
+                boolean hasIncludeFilters = false;
+                for (TestOption option : test.getOptions()) {
+                    switch (option.getName()) {
+                            // Handle include and exclude filter at the suite level to hide each
+                            // test runner specific implementation and option names related to filtering
+                        case TEST_MAPPING_INCLUDE_FILTER:
+                            hasIncludeFilters = true;
+                            mappingIncludeFilters.add(
+                                    String.format("%s %s", test.getName(), option.getValue()));
+                            break;
+                        case TEST_MAPPING_EXCLUDE_FILTER:
+                            mappingExcludeFilters.add(
+                                    String.format("%s %s", test.getName(), option.getValue()));
+                            break;
+                        default:
+                            String moduleArg =
+                                    String.format("%s:%s", test.getName(), option.getName());
+                            if (option.getValue() != null && !option.getValue().isEmpty()) {
+                                moduleArg = String.format("%s:%s", moduleArg, option.getValue());
+                            }
+                            moduleArgs.add(moduleArg);
+                            break;
                     }
-                    moduleArgs.add(moduleArg);
+                }
+                if (!hasIncludeFilters) {
+                    testNames.add(test.getName());
                 }
             }
 
-            setIncludeFilter(testNames);
+            if (mappingIncludeFilters.isEmpty()) {
+                setIncludeFilter(testNames);
+            } else {
+                mappingIncludeFilters.addAll(testNames);
+                setIncludeFilter(mappingIncludeFilters);
+            }
+            if (!mappingExcludeFilters.isEmpty()) {
+                setExcludeFilter(mappingExcludeFilters);
+            }
             addModuleArgs(moduleArgs);
+
+            for (TestInfo test : testsToRun) {
+                List<String> testSources = null;
+                // TODO(b/117880789): tests may not be grouped by name once that bug is fixed.
+                // Update the dictionary with better keys.
+                if (testsInTestMapping.containsKey(test.getName())) {
+                    testSources = testsInTestMapping.get(test.toString());
+                } else {
+                    testSources = new ArrayList<String>();
+                    testsInTestMapping.put(test.getName(), testSources);
+                }
+                testSources.addAll(test.getSources());
+            }
         }
 
-        return super.loadTests();
+        LinkedHashMap<String, IConfiguration> testConfigs = super.loadTests();
+        for (Map.Entry<String, IConfiguration> entry : testConfigs.entrySet()) {
+            ConfigurationDescriptor configDescriptor =
+                    entry.getValue().getConfigurationDescription();
+            if (testsInTestMapping.containsKey(configDescriptor.getModuleName())) {
+                configDescriptor.addMetaData(
+                        TestMapping.TEST_SOURCES,
+                        testsInTestMapping.get(configDescriptor.getModuleName()));
+            }
+        }
+
+        return testConfigs;
     }
 }

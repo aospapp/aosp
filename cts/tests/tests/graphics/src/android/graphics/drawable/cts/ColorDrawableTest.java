@@ -18,6 +18,7 @@ package android.graphics.drawable.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
 import android.content.res.Resources;
@@ -31,11 +32,12 @@ import android.graphics.PorterDuff.Mode;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.cts.R;
 import android.graphics.drawable.ColorDrawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -145,6 +147,15 @@ public class ColorDrawableTest {
 
         d.setColorFilter(new PorterDuffColorFilter(Color.BLACK, Mode.SRC_OVER));
         assertEquals(Color.BLACK, DrawableTestUtils.getPixel(d, 0, 0));
+    }
+
+    @Test
+    public void testGetColorFilter() {
+        final ColorDrawable d = new ColorDrawable(Color.WHITE);
+        PorterDuffColorFilter colorFilter = new PorterDuffColorFilter(Color.BLACK, Mode.SRC_OVER);
+        d.setColorFilter(colorFilter);
+
+        assertSame(colorFilter, d.getColorFilter());
     }
 
     @Test

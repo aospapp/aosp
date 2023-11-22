@@ -25,7 +25,9 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 /** Utility class for making system calls. */
@@ -40,10 +42,20 @@ public class SystemUtil {
         ANDROID_HOST_OUT_TESTCASES,
     }
 
-    static final String ENV_ANDROID_PRODUCT_OUT = "ANDROID_PRODUCT_OUT";
-
     private static final String HOST_TESTCASES = "host/testcases";
     private static final String TARGET_TESTCASES = "target/testcases";
+
+    /** Keep track of the mapping of the variables to the subpath it takes in the tests dir. */
+    public static final Map<EnvVariable, String> ENV_VARIABLE_PATHS_IN_TESTS_DIR = new HashMap<>();
+
+    static {
+        ENV_VARIABLE_PATHS_IN_TESTS_DIR.put(
+                EnvVariable.ANDROID_TARGET_OUT_TESTCASES, TARGET_TESTCASES);
+        ENV_VARIABLE_PATHS_IN_TESTS_DIR.put(EnvVariable.ANDROID_HOST_OUT_TESTCASES, HOST_TESTCASES);
+    }
+
+    static final String ENV_ANDROID_PRODUCT_OUT = "ANDROID_PRODUCT_OUT";
+
 
     /**
      * Get the value of an environment variable.

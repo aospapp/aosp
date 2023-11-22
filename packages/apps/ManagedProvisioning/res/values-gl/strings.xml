@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"Configuración do perfil de traballo"</string>
+    <string name="app_label" msgid="1527793174155125990">"Configuración de traballo"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Vaia!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"Configurar o perfil de traballo"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"A túa organización controla este perfil e manteno seguro. Ti controlas o resto do contido do dispositivo."</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"A seguinte aplicación xestionará o teu dispositivo:"</string>
     <string name="next" msgid="1004321437324424398">"Seguinte"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Configurando o perfil de traballo..."</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"O teu administrador pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos e os datos asociados con este perfil, mesmo a actividade da túa rede; así como a localización do dispositivo, o historial de chamadas e o historial de busca de contactos.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacta co teu administrador para obter máis información e consultar as políticas de privacidade da túa organización."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"O teu administrador pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos e os datos asociados con este dispositivo, mesmo a actividade da túa rede, así como a localización do dispositivo, o historial de chamadas e o historial de busca de contactos.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Contacta co teu administrador para obter máis información e consultar as políticas de privacidade da túa organización."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"O teu administrador de TI pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos e os datos asociados con este perfil (entre os que se inclúe a actividade da túa rede); así como a localización do dispositivo, o historial de chamadas e o historial de busca de contactos.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Ponte en contacto co teu administrador de TI para recibir máis información e consultar as políticas de privacidade da túa organización."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"O teu administrador de TI pode controlar e xestionar a configuración, o acceso corporativo, as aplicacións, os permisos e os datos asociados con este dispositivo (entre os que se inclúe a actividade da túa rede); así como a localización do dispositivo, o historial de chamadas e o historial de busca de contactos.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Ponte en contacto co teu administrador de TI para recibir máis información e consultar as políticas de privacidade da túa organización."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Para usar as funcións antirroubo, o teu dispositivo debe contar cun bloqueo da pantalla protexido por contrasinal."</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Contacta co teu administrador para obter máis información, incluídas as políticas de privacidade da túa organización."</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Ponte en contacto co teu administrador de TI para recibir máis información, como as políticas de privacidade da túa organización."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Máis información"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Cancelar"</string>
     <string name="ok_setup" msgid="4593707675416137504">"Aceptar"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Non se puido configurar o teu perfil de traballo. Ponte en contacto co departamento de TI ou téntao de novo máis tarde."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Produciuse un erro ao engadir o perfil de traballo"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Non se pode substituír nin eliminar o perfil de traballo"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Non se pode engadir un perfil de traballo a este dispositivo. Se tes preguntas, contacta co administrador."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Non se pode engadir un perfil de traballo a este dispositivo. Se tes preguntas, ponte en contacto co teu administrador de TI."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Cambia o launcher do dispositivo"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"O teu perfil de traballo non pode utilizar este launcher"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Cancelar"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"Dando os últimos retoques…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"Definindo o propietario do dispositivo..."</string>
     <string name="progress_initialize" msgid="1104643492713424939">"Iniciando dispositivo…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"Este dispositivo non permite utilizar a encriptación, que é necesaria para a configuración. Contacta co administrador para obter axuda."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Este dispositivo non permite utilizar a encriptación, que é necesaria para a configuración. Para recibir axuda, ponte en contacto co teu administrador de TI."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Queres deter a configuración e restablecer o dispositivo?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Desta forma restablecerase o dispositivo e accederás á primeira pantalla"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Queres deter a configuración e borrar os datos do dispositivo?"</string>
@@ -83,23 +83,23 @@
     <string name="reset" msgid="6467204151306265796">"Restablecer"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Produciuse un erro ao configurar o perfil"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Produciuse un erro ao configurar o dispositivo"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"Non se puido configurar o dispositivo. Contacta co administrador para obter axuda."</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Contacta co administrador para obter axuda"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"Non se puido configurar o dispositivo. Para recibir axuda, ponte en contacto co teu administrador de TI."</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Ponte en contacto co teu administrador de TI para recibir axuda"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"O dispositivo xa está configurado"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Non se puido conectar á wifi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"O teu dispositivo ten activada a protección contra o restablecemento de fábrica. Contacta co administrador para obter axuda."</string>
+    <string name="error_wifi" msgid="1850288843966836571">"Non se puido establecer conexión coa wifi"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"O teu dispositivo ten activada a protección contra o restablecemento da configuración de fábrica. Para recibir axuda, ponte en contacto co teu administrador de TI."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Borrando"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Agarda..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Non se puido utilizar a aplicación de administración debido a un erro da suma de verificación. Contacta co administrador para obter axuda."</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"Non se puido descargar a aplicación de administración"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"Produciuse un erro ao utilizar a aplicación de administración. Fáltanlle compoñentes ou está danada. Contacta co administrador para obter axuda."</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Non se puido instalar a aplicación de administración"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"Non se puido utilizar a aplicación de administración debido a un erro da suma de verificación. Para recibir axuda, ponte en contacto co teu administrador de TI."</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"Non se puido descargar a aplicación de administración"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"Produciuse un erro ao utilizar a aplicación de administración. Fáltanlle compoñentes ou está danada. Para recibir axuda, ponte en contacto co teu administrador de TI."</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"Non se puido instalar a aplicación de administración"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"Queres deter a configuración?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Non"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Si"</string>
     <string name="profile_owner_cancelling" msgid="5679573829145112822">"Cancelando…"</string>
     <string name="work_profile_setup_later_title" msgid="9069148190226279892">"Queres deter a configuración do perfil?"</string>
-    <string name="work_profile_setup_later_message" msgid="122069011117225292">"Podes configurar o perfil de traballo máis tarde na aplicación de xestión de dispositivos da túa organización"</string>
+    <string name="work_profile_setup_later_message" msgid="122069011117225292">"Podes configurar o perfil de traballo máis tarde na aplicación de administración de dispositivos da túa organización"</string>
     <string name="continue_button" msgid="7177918589510964446">"Continuar"</string>
     <string name="work_profile_setup_stop" msgid="6772128629992514750">"Deter"</string>
     <string name="dismiss" msgid="9009534756748565880">"Ignorar"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> xestionará, controlará e protexerá este dispositivo. Aplicaranse as condicións pertinentes. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> xestionará, controlará e protexerá este dispositivo. Aplícanse as condicións pertinentes de <xliff:g id="TERMS_HEADERS">%2$s</xliff:g>. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Esta ligazón non é segura e non se pode abrir ata que se remate de configurar o dispositivo: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"Se tes algunha dúbida, contacta co <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>."</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"Se tes algunha pregunta, contacta co administrador da túa organización"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"A configuración non rematou. Contacta co administrador para obter axuda."</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"Contacta co administrador para obter axuda"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"administrador da organización"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"Para consultar máis información, ponte en contacto co teu <xliff:g id="IT_ADMIN">%1$s</xliff:g>."</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"Se tes algunha pregunta, contacta co teu administrador de TI"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"A configuración non rematou. Para recibir axuda, ponte en contacto co teu administrador de TI."</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"Para recibir axuda, ponte en contacto co teu administrador de TI"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"Administrador de TI"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> xestionará e controlará este dispositivo coa seguinte aplicación:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"A túa organización"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"a túa organización"</string>
     <string name="view_terms" msgid="7230493092383341605">"Consultar condicións"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Aceptar e continuar"</string>
-    <string name="close" msgid="7208600934846389439">"Pechar"</string>
+    <string name="back" msgid="6455622465896147127">"Volver"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Configurar o teu dispositivo"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"Cambia a forma de traballar"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"Separar o perfil do traballo do persoal"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"Esta acción pode tardar uns minutos"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"As túas aplicacións do traballo permanecerán neste perfil e xestionaraas a túa organización"</string>
     <string name="device_owner_description" msgid="168013145812679664">"A túa organización xestionará este dispositivo e manterao protexido"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"Preparándose para configurar o dispositivo do traballo…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Configurando a aplicación do administrador"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"Configurar todo o demais"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Agora configuremos todo o demais"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"Este dispositivo pertence á túa organización"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"A seguinte aplicación utilizarase para xestionar e supervisar este teléfono"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"Preparando dispositivo para a configuración do traballo…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"En primeiro lugar, configuremos o teu perfil de traballo"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Configuremos o teu perfil de traballo"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"As aplicacións do traballo gárdanse no teu perfil de traballo"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Pon en pausa as aplicacións do traballo cando remates a túa xornada laboral"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Só se mostran os datos do teu perfil de traballo ao teu administrador de TI"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Configurando o teu perfil de traballo…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"As aplicacións do traballo gárdanse no teu perfil de traballo. Podes poñelas en pausa cando remates a túa xornada laboral. Só se mostran os datos do teu perfil de traballo ao teu administrador de TI."</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Configuremos o dispositivo do traballo"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Accede facilmente ás túas aplicacións do traballo"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Este dispositivo non é privado"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"O teu administrador de TI pode ter acceso aos teus datos e á actividade deste dispositivo."</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Configurando o teu dispositivo…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Utiliza este dispositivo para acceder facilmente ás túas aplicacións do traballo. Este dispositivo non é privado, polo que o teu administrador de TI pode ter acceso aos teus datos e á túa actividade. Para consultar máis información, ponte en contacto co teu administrador de TI."</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Recordatorio de privacidade"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"O teu administrador de TI pode ter acceso aos teus datos e á actividade deste dispositivo"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"Xa podes utilizar o dispositivo"</string>
+    <string name="done" msgid="7755227776955952318">"Feito"</string>
 </resources>

@@ -20,7 +20,6 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Point;
 import android.os.Bundle;
-import android.support.v4.app.Fragment;
 import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -28,10 +27,12 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.fragment.app.Fragment;
+
 import com.google.android.car.kitchensink.R;
 
 /**
- * Shows alert dialogs
+ * Displays info about the display this is run on.
  */
 public class DisplayInfoFragment extends Fragment {
 
@@ -94,11 +95,18 @@ public class DisplayInfoFragment extends Fragment {
     }
 
     private void addDimenText(String dimenName) {
-        addTextView(dimenName + " : " + convertPixelsToDp(
-                getResources().getDimensionPixelSize(
-                        getResources().getIdentifier(
-                                dimenName, "dimen", getContext().getPackageName())),
-                getContext()));
+        String value;
+        try {
+            float dimen = convertPixelsToDp(
+                    getResources().getDimensionPixelSize(
+                            getResources().getIdentifier(
+                                    dimenName, "dimen", getContext().getPackageName())),
+                    getContext());
+            value = Float.toString(dimen);
+        } catch (Resources.NotFoundException e) {
+            value = "Resource Not Found";
+        }
+        addTextView(dimenName + " : " + value);
     }
 
     private void addTextView(String text) {

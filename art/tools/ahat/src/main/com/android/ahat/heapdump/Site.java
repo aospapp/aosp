@@ -23,6 +23,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * Used to collection information about objects allocated at a particular
@@ -66,9 +68,9 @@ public class Site implements Diffable<Site> {
   private Site mBaseline;
 
   /**
-   * Summary information about instances allocated at a particular allocation
-   * site that are instances of a particular class and allocated on a
-   * particular heap.
+   * Summary information about retained instances allocated at a particular
+   * allocation site that are instances of a particular class and allocated on
+   * a particular heap.
    */
   public static class ObjectsInfo implements Diffable<ObjectsInfo> {
     /**
@@ -82,7 +84,7 @@ public class Site implements Diffable<Site> {
     public AhatClassObj classObj;   // May be null. Not sure why.
 
     /**
-     * The number of instances included in the summary.
+     * The number of retained instances included in the summary.
      */
     public long numInstances;
 
@@ -199,10 +201,11 @@ public class Site implements Diffable<Site> {
    * @param id - The smallest id that is allowed to be used for this site or
    * any of its children.
    * @param numHeaps - The number of heaps in the heap dump.
+   * @param retained the weakest reachability of instances to treat as retained.
    * @return An id larger than the largest id used for this site or any of its
    * children.
    */
-  long prepareForUse(long id, int numHeaps) {
+  long prepareForUse(long id, int numHeaps, Reachability retained) {
     mId = id++;
 
     // Count up the total sizes by heap.
@@ -211,9 +214,9 @@ public class Site implements Diffable<Site> {
       mSizesByHeap[i] = Size.ZERO;
     }
 
-    // Add all reachable objects allocated at this site.
+    // Add all retained objects allocated at this site.
     for (AhatInstance inst : mObjects) {
-      if (inst.isStronglyReachable()) {
+      if (inst.getReachability().notWeakerThan(retained)) {
         AhatHeap heap = inst.getHeap();
         Size size = inst.getSize();
         ObjectsInfo info = getObjectsInfo(heap, inst.getClassObj());
@@ -225,7 +228,7 @@ public class Site implements Diffable<Site> {
 
     // Add objects allocated in child sites.
     for (Site child : mChildren) {
-      id = child.prepareForUse(id, numHeaps);
+      id = child.prepareForUse(id, numHeaps, retained);
       for (ObjectsInfo childInfo : child.mObjectsInfos) {
         ObjectsInfo info = getObjectsInfo(childInfo.heap, childInfo.classObj);
         info.numInstances += childInfo.numInstances;
@@ -258,22 +261,37 @@ public class Site implements Diffable<Site> {
    *                 every heap should be collected.
    * @param className the name of the class the collected objects should
    *                  belong to. This may be null to indicate objects of
-   *                  every class should be collected.
+   *                  every class should be collected. Instances of subclasses
+   *                  of this class are not included.
    * @param objects out parameter. A collection of objects that all
    *                collected objects should be added to.
    */
   public void getObjects(String heapName, String className, Collection<AhatInstance> objects) {
+    Predicate<AhatInstance> predicate = x -> {
+      return (heapName == null || x.getHeap().getName().equals(heapName))
+        && (className == null || x.getClassName().equals(className));
+    };
+    getObjects(predicate, x -> objects.add(x));
+  }
+
+  /**
+   * Collects the objects allocated under this site, filtered by the given
+   * predicate.
+   * Includes objects allocated in children sites.
+   * @param predicate limit instances to those satisfying this predicate
+   * @param consumer consumer of the objects
+   */
+  public void getObjects(Predicate<AhatInstance> predicate, Consumer<AhatInstance> consumer) {
     for (AhatInstance inst : mObjects) {
-      if ((heapName == null || inst.getHeap().getName().equals(heapName))
-          && (className == null || inst.getClassName().equals(className))) {
-        objects.add(inst);
+      if (predicate.test(inst)) {
+        consumer.accept(inst);
       }
     }
 
     // Recursively visit children. Recursion should be okay here because the
     // stack depth is limited by a reasonable amount (128 frames or so).
     for (Site child : mChildren) {
-      child.getObjects(heapName, className, objects);
+      child.getObjects(predicate, consumer);
     }
   }
 
@@ -303,7 +321,7 @@ public class Site implements Diffable<Site> {
    * {@link ObjectsInfo}. This method returns all the groups for this
    * allocation site.
    *
-   * @return all ObjectInfo summaries for instances allocated at this site
+   * @return all ObjectInfo summaries for retained instances allocated at this site
    */
   public List<ObjectsInfo> getObjectsInfos() {
     return mObjectsInfos;

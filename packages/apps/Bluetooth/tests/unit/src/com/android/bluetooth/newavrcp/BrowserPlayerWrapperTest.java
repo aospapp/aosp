@@ -20,8 +20,9 @@ import static org.mockito.Mockito.*;
 
 import android.media.MediaDescription;
 import android.media.browse.MediaBrowser.MediaItem;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Assert;
 import org.junit.Before;

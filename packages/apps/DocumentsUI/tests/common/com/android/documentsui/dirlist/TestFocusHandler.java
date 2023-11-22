@@ -59,7 +59,7 @@ public final class TestFocusHandler implements FocusHandler {
     }
 
     @Override
-    public int getFocusPosition() {
+    public int getFocusedPosition() {
         return focusPos;
     }
 

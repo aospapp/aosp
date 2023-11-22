@@ -18,6 +18,8 @@ package com.android.phone;
 
 import static android.telephony.ServiceState.RIL_RADIO_TECHNOLOGY_UNKNOWN;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -26,6 +28,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.database.DataSetObserver;
+import android.graphics.Color;
 import android.graphics.Point;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
@@ -34,10 +38,12 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.provider.Settings;
+import android.telecom.ParcelableCallAnalytics;
 import android.telecom.PhoneAccount;
 import android.telecom.TelecomManager;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
+import android.telephony.Rlog;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
@@ -56,24 +62,34 @@ import android.view.KeyEvent;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.View.AccessibilityDelegate;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.accessibility.AccessibilityEvent;
+import android.widget.TextView;
 
 import com.android.internal.colorextraction.ColorExtractor;
 import com.android.internal.colorextraction.ColorExtractor.GradientColors;
-import com.android.internal.colorextraction.drawable.GradientDrawable;
+import com.android.internal.colorextraction.drawable.ScrimDrawable;
+import com.android.phone.EmergencyDialerMetricsLogger.DialedFrom;
+import com.android.phone.EmergencyDialerMetricsLogger.PhoneNumberType;
+import com.android.phone.EmergencyDialerMetricsLogger.UiModeErrorCode;
 import com.android.phone.common.dialpad.DialpadKeyButton;
 import com.android.phone.common.util.ViewUtil;
 import com.android.phone.common.widget.ResizingTextEditText;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * EmergencyDialer is a special dialer that is used ONLY for dialing emergency calls.
  *
  * It's a simplified version of the regular dialer (i.e. the TwelveKeyDialer
  * activity from apps/Contacts) that:
- *   1. Allows ONLY emergency calls to be dialed
- *   2. Disallows voicemail functionality
- *   3. Uses the FLAG_SHOW_WHEN_LOCKED window manager flag to allow this
- *      activity to stay in front of the keyguard.
+ * 1. Allows ONLY emergency calls to be dialed
+ * 2. Disallows voicemail functionality
+ * 3. Allows this activity to stay in front of the keyguard.
  *
  * TODO: Even though this is an ultra-simplified version of the normal
  * dialer, there's still lots of code duplication between this class and
@@ -84,19 +100,36 @@ import com.android.phone.common.widget.ResizingTextEditText;
  */
 public class EmergencyDialer extends Activity implements View.OnClickListener,
         View.OnLongClickListener, View.OnKeyListener, TextWatcher,
-        DialpadKeyButton.OnPressedListener, ColorExtractor.OnColorsChangedListener {
+        DialpadKeyButton.OnPressedListener, ColorExtractor.OnColorsChangedListener,
+        EmergencyShortcutButton.OnConfirmClickListener,
+        EmergencyInfoGroup.OnConfirmClickListener {
+
     // Keys used with onSaveInstanceState().
     private static final String LAST_NUMBER = "lastNumber";
 
     // Intent action for this activity.
     public static final String ACTION_DIAL = "com.android.phone.EmergencyDialer.DIAL";
 
+    /**
+     * Extra included in {@link #ACTION_DIAL} to indicate the entry type that user starts
+     * the emergency dialer.
+     */
+    public static final String EXTRA_ENTRY_TYPE =
+            "com.android.phone.EmergencyDialer.extra.ENTRY_TYPE";
+
+    // Constants indicating the entry type that user opened emergency dialer.
+    // This info is sent from system UI with EXTRA_ENTRY_TYPE. Please make them being
+    // in sync with those in com.android.systemui.util.EmergencyDialerConstants.
+    public static final int ENTRY_TYPE_UNKNOWN = 0;
+    public static final int ENTRY_TYPE_LOCKSCREEN_BUTTON = 1;
+    public static final int ENTRY_TYPE_POWER_MENU = 2;
+
     // List of dialer button IDs.
-    private static final int[] DIALER_KEYS = new int[] {
+    private static final int[] DIALER_KEYS = new int[]{
             R.id.one, R.id.two, R.id.three,
             R.id.four, R.id.five, R.id.six,
             R.id.seven, R.id.eight, R.id.nine,
-            R.id.star, R.id.zero, R.id.pound };
+            R.id.star, R.id.zero, R.id.pound};
 
     // Debug constants.
     private static final boolean DBG = false;
@@ -116,9 +149,21 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     /** 90% opacity, different from other gradients **/
     private static final int BACKGROUND_GRADIENT_ALPHA = 230;
 
+    /** 85% opacity for black background **/
+    private static final int BLACK_BACKGROUND_GRADIENT_ALPHA = 217;
+
+    /** Size limit of emergency shortcut buttons container. **/
+    private static final int SHORTCUT_SIZE_LIMIT = 3;
+
     ResizingTextEditText mDigits;
     private View mDialButton;
     private View mDelete;
+    private View mEmergencyShortcutView;
+    private View mDialpadView;
+
+    private List<EmergencyShortcutButton> mEmergencyShortcutButtonList;
+    private EccShortcutAdapter mShortcutAdapter;
+    private DataSetObserver mShortcutDataSetObserver = null;
 
     private ToneGenerator mToneGenerator;
     private Object mToneGeneratorLock = new Object();
@@ -127,6 +172,8 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     private boolean mDTMFToneEnabled;
 
     private EmergencyActionGroup mEmergencyActionGroup;
+
+    private EmergencyInfoGroup mEmergencyInfoGroup;
 
     // close activity when screen turns off
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
@@ -138,15 +185,44 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         }
     };
 
+    /**
+     * Customize accessibility methods in View.
+     */
+    private AccessibilityDelegate mAccessibilityDelegate = new AccessibilityDelegate() {
+
+        /**
+         * Stop AccessiblityService from reading the title of a hidden View.
+         *
+         * <p>The crossfade animation will set the visibility of fade out view to {@link View.GONE}
+         * in the animation end. The view with an accessibility pane title would call the
+         * {@link AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED} event, which would trigger the
+         * accessibility service to read the pane title of fade out view instead of pane title of
+         * fade in view. So it need to filter out the event called by vanished pane.
+         */
+        @Override
+        public void onPopulateAccessibilityEvent(View host, AccessibilityEvent event) {
+            if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                    && host.getVisibility() == View.GONE) {
+                return;
+            }
+            super.onPopulateAccessibilityEvent(host, event);
+        }
+    };
+
     private String mLastNumber; // last number we tried to dial. Used to restore error dialog.
 
     // Background gradient
     private ColorExtractor mColorExtractor;
-    private GradientDrawable mBackgroundGradient;
+    private ScrimDrawable mBackgroundDrawable;
     private boolean mSupportsDarkText;
 
     private boolean mIsWfcEmergencyCallingWarningEnabled;
     private float mDefaultDigitsTextSize;
+
+    private int mEntryType;
+    private ShortcutViewUtils.Config mShortcutViewConfig;
+
+    private EmergencyDialerMetricsLogger mMetricsLogger;
 
     @Override
     public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -182,20 +258,34 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
 
+        mMetricsLogger = new EmergencyDialerMetricsLogger(this);
+
+        mEntryType = getIntent().getIntExtra(EXTRA_ENTRY_TYPE, ENTRY_TYPE_UNKNOWN);
+        Log.d(LOG_TAG, "Launched from " + entryTypeToString(mEntryType));
+
         // Allow this activity to be displayed in front of the keyguard / lockscreen.
-        WindowManager.LayoutParams lp = getWindow().getAttributes();
-        lp.flags |= WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED;
+        setShowWhenLocked(true);
+        // Allow turning screen on
+        setTurnScreenOn(true);
 
-        // When no proximity sensor is available, use a shorter timeout.
-        // TODO: Do we enable this for non proximity devices any more?
-        // lp.userActivityTimeout = USER_ACTIVITY_TIMEOUT_WHEN_NO_PROX_SENSOR;
+        CarrierConfigManager configMgr = getSystemService(CarrierConfigManager.class);
+        PersistableBundle carrierConfig =
+                configMgr.getConfigForSubId(SubscriptionManager.getDefaultVoiceSubscriptionId());
 
-        getWindow().setAttributes(lp);
+        mShortcutViewConfig = new ShortcutViewUtils.Config(this, carrierConfig, mEntryType);
+        Log.d(LOG_TAG, "Enable emergency dialer shortcut: "
+                + mShortcutViewConfig.isEnabled());
 
         mColorExtractor = new ColorExtractor(this);
-        GradientColors lockScreenColors = mColorExtractor.getColors(WallpaperManager.FLAG_LOCK,
-                ColorExtractor.TYPE_EXTRA_DARK);
-        updateTheme(lockScreenColors.supportsDarkText());
+
+        if (mShortcutViewConfig.isEnabled()) {
+            // Shortcut view doesn't support dark text theme.
+            updateTheme(false);
+        } else {
+            GradientColors lockScreenColors = mColorExtractor.getColors(WallpaperManager.FLAG_LOCK,
+                    ColorExtractor.TYPE_EXTRA_DARK);
+            updateTheme(lockScreenColors.supportsDarkText());
+        }
 
         setContentView(R.layout.emergency_dialer);
 
@@ -208,13 +298,13 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         mDefaultDigitsTextSize = mDigits.getScaledTextSize();
         maybeAddNumberFormatting();
 
-        mBackgroundGradient = new GradientDrawable(this);
+        mBackgroundDrawable = new ScrimDrawable();
         Point displaySize = new Point();
         ((WindowManager) getSystemService(Context.WINDOW_SERVICE))
                 .getDefaultDisplay().getSize(displaySize);
-        mBackgroundGradient.setScreenSize(displaySize.x, displaySize.y);
-        mBackgroundGradient.setAlpha(BACKGROUND_GRADIENT_ALPHA);
-        getWindow().setBackgroundDrawable(mBackgroundGradient);
+        mBackgroundDrawable.setAlpha(mShortcutViewConfig.isEnabled()
+                ? BLACK_BACKGROUND_GRADIENT_ALPHA : BACKGROUND_GRADIENT_ALPHA);
+        getWindow().setBackgroundDrawable(mBackgroundDrawable);
 
         // Check for the presence of the keypad
         View view = findViewById(R.id.one);
@@ -231,11 +321,6 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         // Check whether we should show the onscreen "Dial" button and co.
         // Read carrier config through the public API because PhoneGlobals is not available when we
         // run as a secondary user.
-        CarrierConfigManager configMgr =
-                (CarrierConfigManager) getSystemService(Context.CARRIER_CONFIG_SERVICE);
-        PersistableBundle carrierConfig =
-                configMgr.getConfigForSubId(SubscriptionManager.getDefaultVoiceSubscriptionId());
-
         if (carrierConfig.getBoolean(CarrierConfigManager.KEY_SHOW_ONSCREEN_DIAL_BUTTON_BOOL)) {
             mDialButton.setOnClickListener(this);
         } else {
@@ -278,6 +363,12 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         registerReceiver(mBroadcastReceiver, intentFilter);
 
         mEmergencyActionGroup = (EmergencyActionGroup) findViewById(R.id.emergency_action_group);
+
+        mEmergencyInfoGroup = (EmergencyInfoGroup) findViewById(R.id.emergency_info_button);
+
+        if (mShortcutViewConfig.isEnabled()) {
+            setupEmergencyShortcutsView();
+        }
     }
 
     @Override
@@ -290,6 +381,10 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
             }
         }
         unregisterReceiver(mBroadcastReceiver);
+        if (mShortcutAdapter != null && mShortcutDataSetObserver != null) {
+            mShortcutAdapter.unregisterDataSetObserver(mShortcutDataSetObserver);
+            mShortcutDataSetObserver = null;
+        }
     }
 
     @Override
@@ -331,6 +426,18 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
 
         View view = findViewById(R.id.zero);
         view.setOnLongClickListener(this);
+    }
+
+    @Override
+    public void onBackPressed() {
+        // If shortcut view is enabled and Dialpad view is visible, pressing the back key will
+        // back to display EmergencyShortcutView view. Otherwise, it would finish the activity.
+        if (mShortcutViewConfig.isEnabled() && mDialpadView != null
+                && mDialpadView.getVisibility() == View.VISIBLE) {
+            switchView(mEmergencyShortcutView, mDialpadView, true);
+            return;
+        }
+        super.onBackPressed();
     }
 
     /**
@@ -380,10 +487,39 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        mEmergencyActionGroup.onPreTouchEvent(ev);
+        onPreTouchEvent(ev);
         boolean handled = super.dispatchTouchEvent(ev);
-        mEmergencyActionGroup.onPostTouchEvent(ev);
+        onPostTouchEvent(ev);
         return handled;
+    }
+
+    @Override
+    public void onConfirmClick(EmergencyShortcutButton button) {
+        if (button == null) return;
+        String phoneNumber = button.getPhoneNumber();
+
+        if (!TextUtils.isEmpty(phoneNumber)) {
+            if (DBG) Log.d(LOG_TAG, "dial emergency number: " + Rlog.pii(LOG_TAG, phoneNumber));
+
+            // Write metrics when user has intention to make a call from a shortcut button.
+            mMetricsLogger.logPlaceCall(DialedFrom.SHORTCUT, PhoneNumberType.HAS_SHORTCUT,
+                    mShortcutViewConfig.getPhoneInfo());
+
+            placeCall(phoneNumber, ParcelableCallAnalytics.CALL_SOURCE_EMERGENCY_SHORTCUT,
+                    mShortcutViewConfig.getPhoneInfo());
+        } else {
+            Log.d(LOG_TAG, "emergency number is empty");
+        }
+    }
+
+    @Override
+    public void onConfirmClick(EmergencyInfoGroup button) {
+        if (button == null) return;
+
+        Intent intent = (Intent) button.getTag(R.id.tag_intent);
+        if (intent != null) {
+            startActivity(intent);
+        }
     }
 
     @Override
@@ -402,6 +538,11 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
                 if (mDigits.length() != 0) {
                     mDigits.setCursorVisible(true);
                 }
+                return;
+            }
+            case R.id.floating_action_button_dialpad: {
+                mDigits.getText().clear();
+                switchView(mDialpadView, mEmergencyShortcutView, true);
                 return;
             }
         }
@@ -500,12 +641,26 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     protected void onStart() {
         super.onStart();
 
-        mColorExtractor.addOnColorsChangedListener(this);
-        GradientColors lockScreenColors = mColorExtractor.getColors(WallpaperManager.FLAG_LOCK,
-                ColorExtractor.TYPE_EXTRA_DARK);
-        // Do not animate when view isn't visible yet, just set an initial state.
-        mBackgroundGradient.setColors(lockScreenColors, false);
-        updateTheme(lockScreenColors.supportsDarkText());
+        mMetricsLogger.logLaunchEmergencyDialer(mEntryType,
+                mShortcutViewConfig.isEnabled() ? UiModeErrorCode.SUCCESS
+                        : UiModeErrorCode.UNSPECIFIED_ERROR);
+
+        if (mShortcutViewConfig.isEnabled()) {
+            // Shortcut view doesn't support dark text theme.
+            mBackgroundDrawable.setColor(Color.BLACK, false);
+            updateTheme(false);
+        } else {
+            mColorExtractor.addOnColorsChangedListener(this);
+            GradientColors lockScreenColors = mColorExtractor.getColors(WallpaperManager.FLAG_LOCK,
+                    ColorExtractor.TYPE_EXTRA_DARK);
+            // Do not animate when view isn't visible yet, just set an initial state.
+            mBackgroundDrawable.setColor(lockScreenColors.getMainColor(), false);
+            updateTheme(lockScreenColors.supportsDarkText());
+        }
+
+        if (mShortcutViewConfig.isEnabled()) {
+            updateLocationAndEccInfo();
+        }
     }
 
     @Override
@@ -541,12 +696,12 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
     @Override
     protected void onStop() {
         super.onStop();
-
         mColorExtractor.removeOnColorsChangedListener(this);
     }
 
     /**
      * Sets theme based on gradient colors
+     *
      * @param supportsDarkText true if gradient supports dark text
      */
     private void updateTheme(boolean supportsDarkText) {
@@ -557,7 +712,7 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
 
         // We can't change themes after inflation, in this case we'll have to recreate
         // the whole activity.
-        if (mBackgroundGradient != null) {
+        if (mBackgroundDrawable != null) {
             recreate();
             return;
         }
@@ -586,7 +741,31 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         // nothing and just returns input number.
         mLastNumber = PhoneNumberUtils.convertToEmergencyNumber(this, mLastNumber);
 
-        if (PhoneNumberUtils.isLocalEmergencyNumber(this, mLastNumber)) {
+        @DialedFrom final int dialedFrom =
+                mShortcutViewConfig.isEnabled() ? DialedFrom.FASTER_LAUNCHER_DIALPAD
+                        : DialedFrom.TRADITIONAL_DIALPAD;
+        @PhoneNumberType final int phoneNumberType;
+
+        boolean isEmergencyNumber;
+        ShortcutViewUtils.PhoneInfo phoneToMakeCall = null;
+        if (mShortcutAdapter != null && mShortcutAdapter.hasShortcut(mLastNumber)) {
+            isEmergencyNumber = true;
+            phoneToMakeCall = mShortcutViewConfig.getPhoneInfo();
+            phoneNumberType = PhoneNumberType.HAS_SHORTCUT;
+        } else if (mShortcutViewConfig.hasPromotedEmergencyNumber(mLastNumber)) {
+            // If a number from SIM/network/... is categoried as police/ambulance/fire,
+            // hasPromotedEmergencyNumber() will return true, but it maybe not promoted as a
+            // shortcut button because a number provided by database has higher priority.
+            isEmergencyNumber = true;
+            phoneToMakeCall = mShortcutViewConfig.getPhoneInfo();
+            phoneNumberType = PhoneNumberType.NO_SHORTCUT;
+        } else {
+            isEmergencyNumber = getSystemService(TelephonyManager.class)
+                    .isEmergencyNumber(mLastNumber);
+            phoneNumberType = PhoneNumberType.NO_SHORTCUT;
+        }
+
+        if (isEmergencyNumber) {
             if (DBG) Log.d(LOG_TAG, "placing call to " + mLastNumber);
 
             // place the call if it is a valid number
@@ -595,14 +774,47 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
                 playTone(ToneGenerator.TONE_PROP_NACK);
                 return;
             }
-            TelecomManager tm = (TelecomManager) getSystemService(TELECOM_SERVICE);
-            tm.placeCall(Uri.fromParts(PhoneAccount.SCHEME_TEL, mLastNumber, null), null);
+
+            // Write metrics when user has intention to make a call from dialpad
+            mMetricsLogger.logPlaceCall(dialedFrom, phoneNumberType, phoneToMakeCall);
+
+            placeCall(mLastNumber, ParcelableCallAnalytics.CALL_SOURCE_EMERGENCY_DIALPAD,
+                    phoneToMakeCall);
         } else {
             if (DBG) Log.d(LOG_TAG, "rejecting bad requested number " + mLastNumber);
+
+            // Write metrics when user has intention to make a call of a non-emergency number, even
+            // this number is rejected.
+            mMetricsLogger.logPlaceCall(dialedFrom, PhoneNumberType.NOT_EMERGENCY_NUMBER,
+                    phoneToMakeCall);
 
             showDialog(BAD_EMERGENCY_NUMBER_DIALOG);
         }
         mDigits.getText().delete(0, mDigits.getText().length());
+    }
+
+    private void placeCall(String number, int callSource, ShortcutViewUtils.PhoneInfo phone) {
+        Log.d(LOG_TAG, "Place emergency call from " + callSourceToString(callSource)
+                + ", entry = " + entryTypeToString(mEntryType));
+
+        Bundle extras = new Bundle();
+        extras.putInt(TelecomManager.EXTRA_CALL_SOURCE, callSource);
+        /**
+         * This is used for Telecom and Telephony to tell modem user's intent is emergency call,
+         * when the dialed number is ambiguous and identified as both emergency number and any
+         * other non-emergency number; e.g. in some situation, 611 could be both an emergency
+         * number in a country and a non-emergency number of a carrier's customer service hotline.
+         */
+        extras.putBoolean(TelecomManager.EXTRA_IS_USER_INTENT_EMERGENCY_CALL, true);
+
+        if (phone != null && phone.getPhoneAccountHandle() != null) {
+            // Requests to dial through the specified phone.
+            extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,
+                    phone.getPhoneAccountHandle());
+        }
+
+        TelecomManager tm = this.getSystemService(TelecomManager.class);
+        tm.placeCall(Uri.fromParts(PhoneAccount.SCHEME_TEL, number, null), extras);
     }
 
     /**
@@ -628,7 +840,7 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         int ringerMode = audioManager.getRingerMode();
         if ((ringerMode == AudioManager.RINGER_MODE_SILENT)
-            || (ringerMode == AudioManager.RINGER_MODE_VIBRATE)) {
+                || (ringerMode == AudioManager.RINGER_MODE_VIBRATE)) {
             return;
         }
 
@@ -729,7 +941,7 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         if ((which & WallpaperManager.FLAG_LOCK) != 0) {
             GradientColors colors = extractor.getColors(WallpaperManager.FLAG_LOCK,
                     ColorExtractor.TYPE_EXTRA_DARK);
-            mBackgroundGradient.setColors(colors);
+            mBackgroundDrawable.setColor(colors.getMainColor(), true /* animated */);
             updateTheme(colors.supportsDarkText());
         }
     }
@@ -748,14 +960,14 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
         AsyncTask<Void, Void, Boolean> showWfcWarningTask = new AsyncTask<Void, Void, Boolean>() {
             @Override
             protected Boolean doInBackground(Void... voids) {
-                TelephonyManager tm = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+                TelephonyManager tm = getSystemService(TelephonyManager.class);
                 boolean isWfcAvailable = tm.isWifiCallingAvailable();
                 ServiceState ss = tm.getServiceState();
                 boolean isCellAvailable =
                         ss.getRilVoiceRadioTechnology() != RIL_RADIO_TECHNOLOGY_UNKNOWN;
                 Log.i(LOG_TAG, "showWfcWarningTask: isWfcAvailable=" + isWfcAvailable
-                                + " isCellAvailable=" + isCellAvailable
-                                + "(rat=" + ss.getRilVoiceRadioTechnology() + ")");
+                        + " isCellAvailable=" + isCellAvailable
+                        + "(rat=" + ss.getRilVoiceRadioTechnology() + ")");
                 return isWfcAvailable && !isCellAvailable;
             }
 
@@ -795,6 +1007,233 @@ public class EmergencyDialer extends Activity implements View.OnClickListener,
             // Since we're populating this with a static text string, disable auto-resize.
             mDigits.setResizeEnabled(false);
             Log.i(LOG_TAG, "hint - setting to " + mDigits.getScaledTextSize());
+        }
+    }
+
+    private void setupEmergencyShortcutsView() {
+        mEmergencyShortcutView = findViewById(R.id.emergency_dialer_shortcuts);
+        mDialpadView = findViewById(R.id.emergency_dialer);
+
+        mEmergencyShortcutView.setAccessibilityDelegate(mAccessibilityDelegate);
+        mDialpadView.setAccessibilityDelegate(mAccessibilityDelegate);
+
+        final View dialpadButton = findViewById(R.id.floating_action_button_dialpad);
+        dialpadButton.setOnClickListener(this);
+
+        mEmergencyInfoGroup.setOnConfirmClickListener(this);
+
+        mEmergencyShortcutButtonList = new ArrayList<>();
+        setupEmergencyCallShortcutButton();
+
+        updateLocationAndEccInfo();
+
+        switchView(mEmergencyShortcutView, mDialpadView, false);
+    }
+
+    private void setLocationInfo() {
+        final View locationInfo = findViewById(R.id.location_info);
+
+        String countryIso = mShortcutViewConfig.getCountryIso();
+        String countryName = null;
+        if (!TextUtils.isEmpty(countryIso)) {
+            Locale locale = Locale.getDefault();
+            countryName = new Locale(locale.getLanguage(), countryIso, locale.getVariant())
+                    .getDisplayCountry();
+        }
+        if (TextUtils.isEmpty(countryName)) {
+            locationInfo.setVisibility(View.INVISIBLE);
+        } else {
+            final TextView location = (TextView) locationInfo.findViewById(R.id.location_text);
+            location.setText(countryName);
+            locationInfo.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private void setupEmergencyCallShortcutButton() {
+        final ViewGroup shortcutButtonContainer = findViewById(
+                R.id.emergency_shortcut_buttons_container);
+        shortcutButtonContainer.setClipToOutline(true);
+        final TextView emergencyNumberTitle = findViewById(R.id.emergency_number_title);
+
+        mShortcutAdapter = new EccShortcutAdapter(this) {
+            @Override
+            public View inflateView(View convertView, ViewGroup parent, CharSequence number,
+                    CharSequence description, int iconRes) {
+                EmergencyShortcutButton button = (EmergencyShortcutButton) getLayoutInflater()
+                        .inflate(R.layout.emergency_shortcut_button, parent, false);
+                button.setPhoneNumber(number);
+                button.setPhoneDescription(description);
+                button.setPhoneTypeIcon(iconRes);
+                button.setOnConfirmClickListener(EmergencyDialer.this);
+                return button;
+            }
+        };
+        mShortcutDataSetObserver = new DataSetObserver() {
+            @Override
+            public void onChanged() {
+                super.onChanged();
+                updateLayout();
+            }
+
+            @Override
+            public void onInvalidated() {
+                super.onInvalidated();
+                updateLayout();
+            }
+
+            private void updateLayout() {
+                // clear previous added buttons
+                shortcutButtonContainer.removeAllViews();
+                mEmergencyShortcutButtonList.clear();
+
+                for (int i = 0; i < mShortcutAdapter.getCount() && i < SHORTCUT_SIZE_LIMIT; ++i) {
+                    EmergencyShortcutButton button = (EmergencyShortcutButton)
+                            mShortcutAdapter.getView(i, null, shortcutButtonContainer);
+                    mEmergencyShortcutButtonList.add(button);
+                    shortcutButtonContainer.addView(button);
+                }
+
+                // Update emergency numbers title for numerous buttons.
+                if (mEmergencyShortcutButtonList.size() > 1) {
+                    emergencyNumberTitle.setText(getString(
+                            R.string.numerous_emergency_numbers_title));
+                    // Update mEmergencyInfoGroup margin to avoid UI overlay when
+                    // emergency shortcut button more than 2.
+                    if (mEmergencyShortcutButtonList.size() > 2) {
+                        mEmergencyInfoGroup.updateLayoutMargin();
+                    }
+                } else {
+                    emergencyNumberTitle.setText(getText(R.string.single_emergency_number_title));
+                }
+            }
+        };
+        mShortcutAdapter.registerDataSetObserver(mShortcutDataSetObserver);
+    }
+
+    private void updateLocationAndEccInfo() {
+        if (!isFinishing() && !isDestroyed()) {
+            setLocationInfo();
+            if (mShortcutAdapter != null) {
+                mShortcutAdapter.updateCountryEccInfo(this, mShortcutViewConfig.getPhoneInfo());
+            }
+        }
+    }
+
+    /**
+     * Called by the activity before a touch event is dispatched to the view hierarchy.
+     */
+    private void onPreTouchEvent(MotionEvent event) {
+        mEmergencyActionGroup.onPreTouchEvent(event);
+        mEmergencyInfoGroup.onPreTouchEvent(event);
+
+        if (mEmergencyShortcutButtonList != null) {
+            for (EmergencyShortcutButton button : mEmergencyShortcutButtonList) {
+                button.onPreTouchEvent(event);
+            }
+        }
+    }
+
+    /**
+     * Called by the activity after a touch event is dispatched to the view hierarchy.
+     */
+    private void onPostTouchEvent(MotionEvent event) {
+        mEmergencyActionGroup.onPostTouchEvent(event);
+        mEmergencyInfoGroup.onPostTouchEvent(event);
+
+        if (mEmergencyShortcutButtonList != null) {
+            for (EmergencyShortcutButton button : mEmergencyShortcutButtonList) {
+                button.onPostTouchEvent(event);
+            }
+        }
+    }
+
+    /**
+     * Switch two view.
+     *
+     * @param displayView  the view would be displayed.
+     * @param hideView     the view would be hidden.
+     * @param hasAnimation is {@code true} when the view should be displayed with animation.
+     */
+    private void switchView(View displayView, View hideView, boolean hasAnimation) {
+        if (displayView == null || hideView == null) {
+            return;
+        }
+
+        if (displayView.getVisibility() == View.VISIBLE) {
+            return;
+        }
+
+        if (hasAnimation) {
+            crossfade(hideView, displayView);
+        } else {
+            hideView.setVisibility(View.GONE);
+            displayView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /**
+     * Fade out and fade in animation between two view transition.
+     */
+    private void crossfade(View fadeOutView, View fadeInView) {
+        if (fadeOutView == null || fadeInView == null) {
+            return;
+        }
+        final int shortAnimationDuration = getResources().getInteger(
+                android.R.integer.config_shortAnimTime);
+
+        fadeInView.setAlpha(0f);
+        fadeInView.setVisibility(View.VISIBLE);
+
+        fadeInView.animate()
+                .alpha(1f)
+                .setDuration(shortAnimationDuration)
+                .setListener(null);
+
+        fadeOutView.animate()
+                .alpha(0f)
+                .setDuration(shortAnimationDuration)
+                .setListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        fadeOutView.setVisibility(View.GONE);
+                    }
+                });
+    }
+
+    private boolean isShortcutNumber(String number) {
+        if (TextUtils.isEmpty(number) || mEmergencyShortcutButtonList == null) {
+            return false;
+        }
+
+        boolean isShortcut = false;
+        for (EmergencyShortcutButton button : mEmergencyShortcutButtonList) {
+            if (button != null && number.equals(button.getPhoneNumber())) {
+                isShortcut = true;
+                break;
+            }
+        }
+        return isShortcut;
+    }
+
+    private String entryTypeToString(int entryType) {
+        switch (entryType) {
+            case ENTRY_TYPE_LOCKSCREEN_BUTTON:
+                return "LockScreen";
+            case ENTRY_TYPE_POWER_MENU:
+                return "PowerMenu";
+            default:
+                return "Unknown-" + entryType;
+        }
+    }
+
+    private String callSourceToString(int callSource) {
+        switch (callSource) {
+            case ParcelableCallAnalytics.CALL_SOURCE_EMERGENCY_DIALPAD:
+                return "DialPad";
+            case ParcelableCallAnalytics.CALL_SOURCE_EMERGENCY_SHORTCUT:
+                return "Shortcut";
+            default:
+                return "Unknown-" + callSource;
         }
     }
 }

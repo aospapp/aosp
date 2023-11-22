@@ -110,4 +110,31 @@ public class ContentUrisTest extends AndroidTestCase {
             // expected, test success.
         }
     }
+
+    public void testRemoveId() {
+        assertEquals(Uri.parse("content://auth"),
+                ContentUris.removeId(Uri.parse("content://auth/12")));
+        assertEquals(Uri.parse("content://auth/path"),
+                ContentUris.removeId(Uri.parse("content://auth/path/12")));
+        assertEquals(Uri.parse("content://auth/path/path"),
+                ContentUris.removeId(Uri.parse("content://auth/path/path/12")));
+    }
+
+    public void testRemoveId_MissingId() {
+        try {
+            ContentUris.removeId(Uri.parse("content://auth/"));
+            fail("There should be a IllegalArgumentException thrown out.");
+        } catch (IllegalArgumentException expected) {
+        }
+        try {
+            ContentUris.removeId(Uri.parse("content://auth/path/"));
+            fail("There should be a IllegalArgumentException thrown out.");
+        } catch (IllegalArgumentException expected) {
+        }
+        try {
+            ContentUris.removeId(Uri.parse("content://auth/path/path/"));
+            fail("There should be a IllegalArgumentException thrown out.");
+        } catch (IllegalArgumentException expected) {
+        }
+    }
 }

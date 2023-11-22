@@ -39,6 +39,24 @@ class ShellMirror(mirror_object.MirrorObject):
         self._adb = adb
         self.enabled = True
 
+    def Heal(self):
+        """Performs a self healing.
+
+        Includes self diagnosis that looks for any framework errors.
+
+        Returns:
+            bool, True if everything is ok; False otherwise.
+        """
+        res = True
+
+        if self._client:
+            res &= self._client.Heal()
+
+        if not res:
+            logging.error('Self diagnosis found problems in shell mirror.')
+
+        return res
+
     def Execute(self, command, no_except=False):
         '''Execute remote shell commands on device.
 
@@ -72,7 +90,7 @@ class ShellMirror(mirror_object.MirrorObject):
                 # to result.
                 if pattern.match(val):
                     tmp_file = os.path.join(tmp_dir, result_type + str(index))
-                    logging.info("pulling file: %s to %s", val, tmp_file)
+                    logging.debug("pulling file: %s to %s", val, tmp_file)
                     self._adb.pull(val, tmp_file)
                     result_val[index] = open(tmp_file, "r").read()
                     self._adb.shell("rm -f %s" % val)

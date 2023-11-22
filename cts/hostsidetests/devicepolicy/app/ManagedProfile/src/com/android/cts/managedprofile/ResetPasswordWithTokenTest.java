@@ -21,6 +21,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.UserManager;
 
+import com.android.compatibility.common.util.BlockingBroadcastReceiver;
+
 public class ResetPasswordWithTokenTest extends BaseManagedProfileTest {
 
     private static final String PASSWORD0 = "1234";
@@ -49,10 +51,6 @@ public class ResetPasswordWithTokenTest extends BaseManagedProfileTest {
         // Reset password on the work profile will enable separate work challenge for it.
         assertTrue(mDevicePolicyManager.resetPasswordWithToken(ADMIN_RECEIVER_COMPONENT, PASSWORD0,
                 token, 0));
-
-        mDevicePolicyManager.setPasswordQuality(ADMIN_RECEIVER_COMPONENT,
-                DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
-        mDevicePolicyManager.setPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT, 6);
     }
 
     public void testResetPasswordBeforeUnlock() {
@@ -61,10 +59,35 @@ public class ResetPasswordWithTokenTest extends BaseManagedProfileTest {
         assertTrue(mDevicePolicyManager.isResetPasswordTokenActive(ADMIN_RECEIVER_COMPONENT));
         assertTrue(mDevicePolicyManager.resetPasswordWithToken(ADMIN_RECEIVER_COMPONENT, PASSWORD1,
                 token, 0));
+
+        mDevicePolicyManager.setPasswordQuality(ADMIN_RECEIVER_COMPONENT,
+                DevicePolicyManager.PASSWORD_QUALITY_NUMERIC);
+        mDevicePolicyManager.setPasswordMinimumLength(ADMIN_RECEIVER_COMPONENT, 6);
         try {
             mDevicePolicyManager.isActivePasswordSufficient();
             fail("Did not throw expected exception.");
         } catch (IllegalStateException expected) {}
+    }
+
+    public void testClearPasswordBeforeUnlock() {
+        UserManager um = mContext.getSystemService(UserManager.class);
+        assertFalse(um.isUserUnlocked());
+        assertTrue(mDevicePolicyManager.isResetPasswordTokenActive(ADMIN_RECEIVER_COMPONENT));
+        assertTrue(mDevicePolicyManager.resetPasswordWithToken(ADMIN_RECEIVER_COMPONENT, null,
+                token, 0));
+
+        // When password is cleared, the system should automatically unlock the user.
+        final BlockingBroadcastReceiver receiver = new BlockingBroadcastReceiver(mContext,
+                Intent.ACTION_USER_UNLOCKED);
+        receiver.register();
+        try {
+            // Give the broadcast long enough time, as unlocking user could be slow.
+            assertNotNull(receiver.awaitForBroadcast(90_000));
+        } finally {
+            receiver.unregisterQuietly();
+        }
+        assertTrue(um.isUserUnlocked());
+        assertTrue(mDevicePolicyManager.isActivePasswordSufficient());
     }
 
     public void testSetResetPasswordToken() {

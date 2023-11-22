@@ -47,7 +47,7 @@ javac -d classes2 ../loading-test2-jar/*.java
 
 mkdir classes
 javac -classpath classes2 -d classes *.java
-dx --dex --output=classes.dex classes
+d8 --output . --classpath classes2 $(find classes -type f) # Creates classes.dex
 jar cf loading-test.jar classes.dex -C resources .
 
 rm -rf classes

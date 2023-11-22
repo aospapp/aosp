@@ -30,8 +30,8 @@ import java.util.ArrayList;
 
 public class PhonebookPullRequest extends PullRequest {
     private static final int MAX_OPS = 250;
-    private static final boolean VDBG = false;
-    private static final String TAG = "PbapPhonebookPullRequest";
+    private static final boolean VDBG = Utils.VDBG;
+    private static final String TAG = "PbapPbPullRequest";
 
     private final Account mAccount;
     private final Context mContext;

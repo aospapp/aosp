@@ -33,10 +33,6 @@ import android.app.UiAutomation;
 import android.os.ParcelFileDescriptor;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.method.PasswordTransformationMethod;
 import android.util.TypedValue;
 import android.view.KeyCharacterMap;
@@ -44,6 +40,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.PollingCheck;

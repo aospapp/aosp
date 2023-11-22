@@ -15,24 +15,15 @@
  */
 package android.view.cts;
 
-import static org.junit.Assert.assertTrue;
-
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.media.MediaPlayer;
-import android.os.Environment;
-import android.support.test.filters.LargeTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.util.Log;
-import android.util.SparseArray;
 import android.view.Gravity;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -41,9 +32,15 @@ import android.view.ViewGroup;
 import android.view.animation.LinearInterpolator;
 import android.view.cts.surfacevalidator.AnimationFactory;
 import android.view.cts.surfacevalidator.AnimationTestCase;
-import android.view.cts.surfacevalidator.CapturedActivity;
+import android.view.cts.surfacevalidator.CapturedActivityWithResource;
+import android.view.cts.surfacevalidator.PixelChecker;
 import android.view.cts.surfacevalidator.ViewFactory;
 import android.widget.FrameLayout;
+
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.RequiresDevice;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
@@ -52,25 +49,21 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
-
 @RunWith(AndroidJUnit4.class)
 @LargeTest
 @SuppressLint("RtlHardcoded")
+@RequiresDevice
 public class SurfaceViewSyncTest {
     private static final String TAG = "SurfaceViewSyncTests";
 
     @Rule
-    public ActivityTestRule<CapturedActivity> mActivityRule =
-            new ActivityTestRule<>(CapturedActivity.class);
+    public ActivityTestRule<CapturedActivityWithResource> mActivityRule =
+            new ActivityTestRule<>(CapturedActivityWithResource.class);
 
     @Rule
     public TestName mName = new TestName();
 
-    private CapturedActivity mActivity;
+    private CapturedActivityWithResource mActivity;
     private MediaPlayer mMediaPlayer;
 
     @Before
@@ -188,71 +181,13 @@ public class SurfaceViewSyncTest {
     };
 
     ///////////////////////////////////////////////////////////////////////////
-    // Bad frame capture
-    ///////////////////////////////////////////////////////////////////////////
-
-    private void saveFailureCaptures(SparseArray<Bitmap> failFrames) {
-        if (failFrames.size() == 0) return;
-
-        String directoryName = Environment.getExternalStorageDirectory()
-                + "/" + getClass().getSimpleName()
-                + "/" + mName.getMethodName();
-        File testDirectory = new File(directoryName);
-        if (testDirectory.exists()) {
-            String[] children = testDirectory.list();
-            if (children == null) {
-                return;
-            }
-            for (String file : children) {
-                new File(testDirectory, file).delete();
-            }
-        } else {
-            testDirectory.mkdirs();
-        }
-
-        for (int i = 0; i < failFrames.size(); i++) {
-            int frameNr = failFrames.keyAt(i);
-            Bitmap bitmap = failFrames.valueAt(i);
-
-            String bitmapName =  "frame_" + frameNr + ".png";
-            Log.d(TAG, "Saving file : " + bitmapName + " in directory : " + directoryName);
-
-            File file = new File(directoryName, bitmapName);
-            try (FileOutputStream fileStream = new FileOutputStream(file)) {
-                bitmap.compress(Bitmap.CompressFormat.PNG, 85, fileStream);
-                fileStream.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
     // Tests
     ///////////////////////////////////////////////////////////////////////////
-
-    private void verifyTest(AnimationTestCase testCase) throws Throwable {
-        CapturedActivity.TestResult result = mActivity.runTest(testCase);
-        saveFailureCaptures(result.failures);
-
-        float failRatio = 1.0f * result.failFrames / (result.failFrames + result.passFrames);
-        assertTrue("Error: " + failRatio + " fail ratio - extremely high, is activity obstructed?",
-                failRatio < 0.95f);
-        assertTrue("Error: " + result.failFrames
-                + " incorrect frames observed - incorrect positioning",
-                result.failFrames == 0);
-        float framesPerSecond = 1.0f * result.passFrames
-                / TimeUnit.MILLISECONDS.toSeconds(mActivity.getCaptureDurationMs());
-        assertTrue("Error, only " + result.passFrames
-                + " frames observed, virtual display only capturing at "
-                + framesPerSecond + " frames per second",
-                result.passFrames > 100);
-    }
 
     /** Draws a moving 10x10 black rectangle, validates 100 pixels of black are seen each frame */
     @Test
     public void testSmallRect() throws Throwable {
-        verifyTest(new AnimationTestCase(
+        mActivity.verifyTest(new AnimationTestCase(
                 context -> new View(context) {
                     // draw a single pixel
                     final Paint sBlackPaint = new Paint();
@@ -271,8 +206,12 @@ public class SurfaceViewSyncTest {
                 },
                 new FrameLayout.LayoutParams(100, 100, Gravity.LEFT | Gravity.TOP),
                 view -> makeInfinite(ObjectAnimator.ofInt(view, "offset", 10, 30)),
-                (blackishPixelCount, width, height) ->
-                        blackishPixelCount >= 90 && blackishPixelCount <= 110));
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount >= 90 && blackishPixelCount <= 110;
+                    }
+                }), mName);
     }
 
     /**
@@ -281,56 +220,80 @@ public class SurfaceViewSyncTest {
      */
     @Test
     public void testEmptySurfaceView() throws Throwable {
-        verifyTest(new AnimationTestCase(
+        mActivity.verifyTest(new AnimationTestCase(
                 sEmptySurfaceViewFactory,
                 new FrameLayout.LayoutParams(100, 100, Gravity.LEFT | Gravity.TOP),
                 sTranslateAnimationFactory,
-                (blackishPixelCount, width, height) ->
-                        blackishPixelCount > 9000 && blackishPixelCount < 11000));
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount > 9000 && blackishPixelCount < 11000;
+                    }
+                }), mName);
     }
 
     @Test
     public void testSurfaceViewSmallScale() throws Throwable {
-        verifyTest(new AnimationTestCase(
+        mActivity.verifyTest(new AnimationTestCase(
                 sGreenSurfaceViewFactory,
                 new FrameLayout.LayoutParams(320, 240, Gravity.LEFT | Gravity.TOP),
                 sSmallScaleAnimationFactory,
-                (blackishPixelCount, width, height) -> blackishPixelCount == 0));
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount == 0;
+                    }
+                }), mName);
     }
 
     @Test
     public void testSurfaceViewBigScale() throws Throwable {
-        verifyTest(new AnimationTestCase(
+        mActivity.verifyTest(new AnimationTestCase(
                 sGreenSurfaceViewFactory,
                 new FrameLayout.LayoutParams(640, 480, Gravity.LEFT | Gravity.TOP),
                 sBigScaleAnimationFactory,
-                (blackishPixelCount, width, height) -> blackishPixelCount == 0));
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount == 0;
+                    }
+                }), mName);
     }
 
     @Test
     public void testVideoSurfaceViewTranslate() throws Throwable {
-        verifyTest(new AnimationTestCase(
+        mActivity.verifyTest(new AnimationTestCase(
                 sVideoViewFactory,
                 new FrameLayout.LayoutParams(640, 480, Gravity.LEFT | Gravity.TOP),
                 sTranslateAnimationFactory,
-                (blackishPixelCount, width, height) -> blackishPixelCount == 0));
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount == 0;
+                    }
+                }), mName);
     }
 
     @Test
     public void testVideoSurfaceViewRotated() throws Throwable {
-        verifyTest(new AnimationTestCase(
+        mActivity.verifyTest(new AnimationTestCase(
                 sVideoViewFactory,
                 new FrameLayout.LayoutParams(100, 100, Gravity.LEFT | Gravity.TOP),
                 view -> makeInfinite(ObjectAnimator.ofPropertyValuesHolder(view,
                         PropertyValuesHolder.ofFloat(View.TRANSLATION_X, 10f, 30f),
                         PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, 10f, 30f),
                         PropertyValuesHolder.ofFloat(View.ROTATION, 45f, 45f))),
-                (blackishPixelCount, width, height) -> blackishPixelCount == 0));
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount == 0;
+                    }
+                }), mName);
     }
 
     @Test
     public void testVideoSurfaceViewEdgeCoverage() throws Throwable {
-        verifyTest(new AnimationTestCase(
+        mActivity.verifyTest(new AnimationTestCase(
                 sVideoViewFactory,
                 new FrameLayout.LayoutParams(640, 480, Gravity.CENTER),
                 view -> {
@@ -343,12 +306,17 @@ public class SurfaceViewSyncTest {
                             PropertyValuesHolder.ofFloat(View.TRANSLATION_X, -x, 0, x, 0, -x),
                             PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, 0, -y, 0, y, 0)));
                 },
-                (blackishPixelCount, width, height) -> blackishPixelCount == 0));
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount == 0;
+                    }
+                }), mName);
     }
 
     @Test
     public void testVideoSurfaceViewCornerCoverage() throws Throwable {
-        verifyTest(new AnimationTestCase(
+        mActivity.verifyTest(new AnimationTestCase(
                 sVideoViewFactory,
                 new FrameLayout.LayoutParams(640, 480, Gravity.CENTER),
                 view -> {
@@ -361,6 +329,11 @@ public class SurfaceViewSyncTest {
                             PropertyValuesHolder.ofFloat(View.TRANSLATION_X, -x, x, x, -x, -x),
                             PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, -y, -y, y, y, -y)));
                 },
-                (blackishPixelCount, width, height) -> blackishPixelCount == 0));
+                new PixelChecker() {
+                    @Override
+                    public boolean checkPixels(int blackishPixelCount, int width, int height) {
+                        return blackishPixelCount == 0;
+                    }
+                }), mName);
     }
 }

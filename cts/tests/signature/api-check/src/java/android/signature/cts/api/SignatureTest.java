@@ -38,8 +38,8 @@ public class SignatureTest extends AbstractApiTest {
 
     private static final String TAG = SignatureTest.class.getSimpleName();
 
-    private String[] expectedApiFiles;
-    private String[] baseApiFiles;
+    protected String[] expectedApiFiles;
+    protected String[] baseApiFiles;
     private String[] unexpectedApiFiles;
 
     @Override

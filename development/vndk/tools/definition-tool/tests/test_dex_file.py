@@ -4,14 +4,12 @@ from __future__ import print_function
 
 import os
 import subprocess
-import sys
 import unittest
 import zipfile
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from vndk_definition_tool import DexFileReader, UnicodeSurrogateDecodeError
 
-from compat import TemporaryDirectory
-from vndk_definition_tool import DexFileReader
+from .compat import TemporaryDirectory
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_DIR = os.path.join(SCRIPT_DIR, 'testdata', 'test_dex_file')
@@ -40,6 +38,28 @@ class ModifiedUTF8Test(unittest.TestCase):
         self.assertEqual(u'\u7fff', b'\xe7\xbf\xbf'.decode('mutf-8'))
         self.assertEqual(u'\U00010400',
                          b'\xed\xa0\x81\xed\xb0\x80'.decode('mutf-8'))
+
+
+    def test_decode_exception(self):
+        # Low surrogate does not come after high surrogate
+        with self.assertRaises(UnicodeSurrogateDecodeError):
+            b'\xed\xa0\x81\x40'.decode('mutf-8')
+
+        # Low surrogate without prior high surrogate
+        with self.assertRaises(UnicodeSurrogateDecodeError):
+            b'\xed\xb0\x80\x40'.decode('mutf-8')
+
+        # Unexpected end after high surrogate
+        with self.assertRaises(UnicodeSurrogateDecodeError):
+            b'\xed\xa0\x81'.decode('mutf-8')
+
+        # Unexpected end after low surrogate
+        with self.assertRaises(UnicodeSurrogateDecodeError):
+            b'\xed\xb0\x80'.decode('mutf-8')
+
+        # Out-of-order surrogate
+        with self.assertRaises(UnicodeSurrogateDecodeError):
+            b'\xed\xb0\x80\xed\xa0\x81'.decode('mutf-8')
 
 
 class DexFileTest(unittest.TestCase):
@@ -77,8 +97,8 @@ class DexFileTest(unittest.TestCase):
 
             strs = set(DexFileReader.enumerate_dex_strings_buf(buf))
 
-            self.assertIn('hello', strs)
-            self.assertIn('world', strs)
+            self.assertIn(b'hello', strs)
+            self.assertIn(b'world', strs)
 
 
     def test_enumerate_dex_strings_apk(self):
@@ -96,11 +116,7 @@ class DexFileTest(unittest.TestCase):
 
             strs = set(DexFileReader.enumerate_dex_strings_apk(zip_file))
 
-            self.assertIn('hello', strs)
-            self.assertIn('world', strs)
-            self.assertIn('foo', strs)
-            self.assertIn('bar', strs)
-
-
-if __name__ == '__main__':
-    unittest.main()
+            self.assertIn(b'hello', strs)
+            self.assertIn(b'world', strs)
+            self.assertIn(b'foo', strs)
+            self.assertIn(b'bar', strs)

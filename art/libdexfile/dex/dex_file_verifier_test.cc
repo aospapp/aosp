@@ -25,6 +25,7 @@
 #include "base/leb128.h"
 #include "base/macros.h"
 #include "base64_test_util.h"
+#include "class_accessor-inl.h"
 #include "descriptors_names.h"
 #include "dex_file-inl.h"
 #include "dex_file_loader.h"
@@ -102,11 +103,13 @@ static std::unique_ptr<const DexFile> OpenDexFileBase64(const char* base64,
   // read dex
   std::vector<std::unique_ptr<const DexFile>> tmp;
   const DexFileLoader dex_file_loader;
+  DexFileLoaderErrorCode error_code;
   bool success = dex_file_loader.OpenAll(dex_bytes.get(),
                                          length,
                                          location,
-                                         /* verify */ true,
-                                         /* verify_checksum */ true,
+                                         /* verify= */ true,
+                                         /* verify_checksum= */ true,
+                                         &error_code,
                                          error_msg,
                                          &tmp);
   CHECK(success) << *error_msg;
@@ -150,7 +153,7 @@ TEST_F(DexFileVerifierTest, MethodId) {
       kGoodTestDex,
       "method_id_class_idx",
       [](DexFile* dex_file) {
-        DexFile::MethodId* method_id = const_cast<DexFile::MethodId*>(&dex_file->GetMethodId(0));
+        dex::MethodId* method_id = const_cast<dex::MethodId*>(&dex_file->GetMethodId(0));
         method_id->class_idx_ = dex::TypeIndex(0xFF);
       },
       "could not find declaring class for direct method index 0");
@@ -160,8 +163,8 @@ TEST_F(DexFileVerifierTest, MethodId) {
       kGoodTestDex,
       "method_id_proto_idx",
       [](DexFile* dex_file) {
-        DexFile::MethodId* method_id = const_cast<DexFile::MethodId*>(&dex_file->GetMethodId(0));
-        method_id->proto_idx_ = 0xFF;
+        dex::MethodId* method_id = const_cast<dex::MethodId*>(&dex_file->GetMethodId(0));
+        method_id->proto_idx_ = dex::ProtoIndex(0xFF);
       },
       "inter_method_id_item proto_idx");
 
@@ -170,10 +173,25 @@ TEST_F(DexFileVerifierTest, MethodId) {
       kGoodTestDex,
       "method_id_name_idx",
       [](DexFile* dex_file) {
-        DexFile::MethodId* method_id = const_cast<DexFile::MethodId*>(&dex_file->GetMethodId(0));
+        dex::MethodId* method_id = const_cast<dex::MethodId*>(&dex_file->GetMethodId(0));
         method_id->name_idx_ = dex::StringIndex(0xFF);
       },
-      "String index not available for method flags verification");
+      "Bad index for method flags verification");
+}
+
+TEST_F(DexFileVerifierTest, InitCachingWithUnicode) {
+  static const char kInitWithUnicode[] =
+      "ZGV4CjAzNQDhN60rgMnSK13MoRscTuD+NZe7f6rIkHAAAgAAcAAAAHhWNBIAAAAAAAAAAGwBAAAJ"
+      "AAAAcAAAAAMAAACUAAAAAQAAAKAAAAAAAAAAAAAAAAIAAACsAAAAAQAAALwAAAAkAQAA3AAAANwA"
+      "AADgAAAA5gAAAO4AAAD1AAAAAQEAABUBAAAgAQAAIwEAAAQAAAAFAAAABwAAAAcAAAACAAAAAAAA"
+      "AAAAAAACAAAAAQAAAAIAAAAAAAAAAAAAAAEAAAAAAAAABgAAAAAAAABgAQAAAAAAAAHAgAACwIDA"
+      "gAAGPGluaXQ+AAVIZWxsbwAKTFRlc3RTeW5jOwASTGphdmEvbGFuZy9PYmplY3Q7AAlNYWluLmph"
+      "dmEAAVYABVdvcmxkAAAAAAAAAAYABw4AAAAACgABAAEAAAAwAQAADAAAAHAQAQAJABoBAwAaAggA"
+      "GgMAABoEAQAOAAAAAQAAgIAEuAIAAAwAAAAAAAAAAQAAAAAAAAABAAAACQAAAHAAAAACAAAAAwAA"
+      "AJQAAAADAAAAAQAAAKAAAAAFAAAAAgAAAKwAAAAGAAAAAQAAALwAAAACIAAACQAAANwAAAADEAAA"
+      "AQAAACwBAAADIAAAAQAAADABAAABIAAAAQAAADgBAAAAIAAAAQAAAGABAAAAEAAAAQAAAGwBAAA=";
+  // Just ensure it verifies w/o modification.
+  VerifyModification(kInitWithUnicode, "init_with_unicode", [](DexFile*) {}, nullptr);
 }
 
 // Method flags test class generated from the following smali code. The declared-synchronized
@@ -221,40 +239,22 @@ static const char kMethodFlagsTestDex[] =
 static const uint8_t* FindMethodData(const DexFile* dex_file,
                                      const char* name,
                                      /*out*/ uint32_t* method_idx = nullptr) {
-  const DexFile::ClassDef& class_def = dex_file->GetClassDef(0);
-  const uint8_t* class_data = dex_file->GetClassData(class_def);
+  ClassAccessor accessor(*dex_file, dex_file->GetClassDef(0));
 
-  ClassDataItemIterator it(*dex_file, class_data);
-
-  const uint8_t* trailing = class_data;
-  // Need to manually decode the four entries. DataPointer() doesn't work for this, as the first
-  // element has already been loaded into the iterator.
-  DecodeUnsignedLeb128(&trailing);
-  DecodeUnsignedLeb128(&trailing);
-  DecodeUnsignedLeb128(&trailing);
-  DecodeUnsignedLeb128(&trailing);
-
-  // Skip all fields.
-  while (it.HasNextStaticField() || it.HasNextInstanceField()) {
-    trailing = it.DataPointer();
-    it.Next();
-  }
-
-  while (it.HasNextMethod()) {
-    uint32_t method_index = it.GetMemberIndex();
+  for (const ClassAccessor::Method& method : accessor.GetMethods()) {
+    uint32_t method_index = method.GetIndex();
     dex::StringIndex name_index = dex_file->GetMethodId(method_index).name_idx_;
-    const DexFile::StringId& string_id = dex_file->GetStringId(name_index);
+    const dex::StringId& string_id = dex_file->GetStringId(name_index);
     const char* str = dex_file->GetStringData(string_id);
     if (strcmp(name, str) == 0) {
       if (method_idx != nullptr) {
         *method_idx = method_index;
       }
-      DecodeUnsignedLeb128(&trailing);
+      // Go back 2 lebs to the access flags.
+      const uint8_t* trailing = ReverseSearchUnsignedLeb128(method.GetDataPointer());
+      trailing = ReverseSearchUnsignedLeb128(trailing);
       return trailing;
     }
-
-    trailing = it.DataPointer();
-    it.Next();
   }
 
   return nullptr;
@@ -832,31 +832,17 @@ TEST_F(DexFileVerifierTest, MethodAccessFlagsInterfaces) {
 // is to the access flags, so that the caller doesn't have to handle the leb128-encoded method-index
 // delta.
 static const uint8_t* FindFieldData(const DexFile* dex_file, const char* name) {
-  const DexFile::ClassDef& class_def = dex_file->GetClassDef(0);
-  const uint8_t* class_data = dex_file->GetClassData(class_def);
+  ClassAccessor accessor(*dex_file, dex_file->GetClassDef(0));
 
-  ClassDataItemIterator it(*dex_file, class_data);
-
-  const uint8_t* trailing = class_data;
-  // Need to manually decode the four entries. DataPointer() doesn't work for this, as the first
-  // element has already been loaded into the iterator.
-  DecodeUnsignedLeb128(&trailing);
-  DecodeUnsignedLeb128(&trailing);
-  DecodeUnsignedLeb128(&trailing);
-  DecodeUnsignedLeb128(&trailing);
-
-  while (it.HasNextStaticField() || it.HasNextInstanceField()) {
-    uint32_t field_index = it.GetMemberIndex();
+  for (const ClassAccessor::Field& field : accessor.GetFields()) {
+    uint32_t field_index = field.GetIndex();
     dex::StringIndex name_index = dex_file->GetFieldId(field_index).name_idx_;
-    const DexFile::StringId& string_id = dex_file->GetStringId(name_index);
+    const dex::StringId& string_id = dex_file->GetStringId(name_index);
     const char* str = dex_file->GetStringData(string_id);
     if (strcmp(name, str) == 0) {
-      DecodeUnsignedLeb128(&trailing);
-      return trailing;
+      // Go to the back of the access flags.
+      return ReverseSearchUnsignedLeb128(field.GetDataPointer());
     }
-
-    trailing = it.DataPointer();
-    it.Next();
   }
 
   return nullptr;
@@ -1425,12 +1411,13 @@ TEST_F(DexFileVerifierTest, ProtoOrdering) {
           CHECK_LT(method_idx + 1u, dex_file->NumMethodIds());
           CHECK_EQ(dex_file->GetMethodId(method_idx).name_idx_,
                    dex_file->GetMethodId(method_idx + 1).name_idx_);
-          CHECK_EQ(dex_file->GetMethodId(method_idx).proto_idx_ + 1u,
-                   dex_file->GetMethodId(method_idx + 1).proto_idx_);
+          CHECK_EQ(dex_file->GetMethodId(method_idx).proto_idx_.index_ + 1u,
+                   dex_file->GetMethodId(method_idx + 1).proto_idx_.index_);
           // Their return types should be the same.
-          uint32_t proto1_idx = dex_file->GetMethodId(method_idx).proto_idx_;
-          const DexFile::ProtoId& proto1 = dex_file->GetProtoId(proto1_idx);
-          const DexFile::ProtoId& proto2 = dex_file->GetProtoId(proto1_idx + 1u);
+          dex::ProtoIndex proto1_idx = dex_file->GetMethodId(method_idx).proto_idx_;
+          const dex::ProtoId& proto1 = dex_file->GetProtoId(proto1_idx);
+          dex::ProtoIndex proto2_idx(proto1_idx.index_ + 1u);
+          const dex::ProtoId& proto2 = dex_file->GetProtoId(proto2_idx);
           CHECK_EQ(proto1.return_type_idx_, proto2.return_type_idx_);
           // And the first should not have any parameters while the second should have some.
           CHECK(!DexFileParameterIterator(*dex_file, proto1).HasNext());
@@ -1634,13 +1621,13 @@ TEST_F(DexFileVerifierTest, Checksum) {
                                       dex_file->Begin(),
                                       dex_file->Size(),
                                        "good checksum, no verify",
-                                      /*verify_checksum*/ false,
+                                      /*verify_checksum=*/ false,
                                       &error_msg));
   EXPECT_TRUE(DexFileVerifier::Verify(dex_file.get(),
                                       dex_file->Begin(),
                                       dex_file->Size(),
                                       "good checksum, verify",
-                                      /*verify_checksum*/ true,
+                                      /*verify_checksum=*/ true,
                                       &error_msg));
 
   // Bad checksum: !verify_checksum passes verify_checksum fails.
@@ -1651,13 +1638,13 @@ TEST_F(DexFileVerifierTest, Checksum) {
                                       dex_file->Begin(),
                                       dex_file->Size(),
                                       "bad checksum, no verify",
-                                      /*verify_checksum*/ false,
+                                      /*verify_checksum=*/ false,
                                       &error_msg));
   EXPECT_FALSE(DexFileVerifier::Verify(dex_file.get(),
                                        dex_file->Begin(),
                                        dex_file->Size(),
                                        "bad checksum, verify",
-                                       /*verify_checksum*/ true,
+                                       /*verify_checksum=*/ true,
                                        &error_msg));
   EXPECT_NE(error_msg.find("Bad checksum"), std::string::npos) << error_msg;
 }
@@ -1704,7 +1691,7 @@ TEST_F(DexFileVerifierTest, BadStaticMethodName) {
                                        dex_file->Begin(),
                                        dex_file->Size(),
                                        "bad static method name",
-                                       /*verify_checksum*/ true,
+                                       /*verify_checksum=*/ true,
                                        &error_msg));
 }
 
@@ -1748,7 +1735,7 @@ TEST_F(DexFileVerifierTest, BadVirtualMethodName) {
                                        dex_file->Begin(),
                                        dex_file->Size(),
                                        "bad virtual method name",
-                                       /*verify_checksum*/ true,
+                                       /*verify_checksum=*/ true,
                                        &error_msg));
 }
 
@@ -1792,7 +1779,7 @@ TEST_F(DexFileVerifierTest, BadClinitSignature) {
                                        dex_file->Begin(),
                                        dex_file->Size(),
                                        "bad clinit signature",
-                                       /*verify_checksum*/ true,
+                                       /*verify_checksum=*/ true,
                                        &error_msg));
 }
 
@@ -1836,7 +1823,7 @@ TEST_F(DexFileVerifierTest, BadClinitSignatureAgain) {
                                        dex_file->Begin(),
                                        dex_file->Size(),
                                        "bad clinit signature",
-                                       /*verify_checksum*/ true,
+                                       /*verify_checksum=*/ true,
                                        &error_msg));
 }
 
@@ -1873,7 +1860,7 @@ TEST_F(DexFileVerifierTest, BadInitSignature) {
                                        dex_file->Begin(),
                                        dex_file->Size(),
                                        "bad init signature",
-                                       /*verify_checksum*/ true,
+                                       /*verify_checksum=*/ true,
                                        &error_msg));
 }
 
@@ -2076,7 +2063,7 @@ TEST_F(DexFileVerifierTest, InvokeCustomDexSamples) {
                                         dex_file->Begin(),
                                         dex_file->Size(),
                                         "good checksum, verify",
-                                        /*verify_checksum*/ true,
+                                        /*verify_checksum=*/ true,
                                         &error_msg));
     // TODO(oth): Test corruptions (b/35308502)
   }
@@ -2123,7 +2110,7 @@ TEST_F(DexFileVerifierTest, BadStaticFieldInitialValuesArray) {
                                        dex_file->Begin(),
                                        dex_file->Size(),
                                        "bad static field initial values array",
-                                       /*verify_checksum*/ true,
+                                       /*verify_checksum=*/ true,
                                        &error_msg));
 }
 
@@ -2179,7 +2166,7 @@ TEST_F(DexFileVerifierTest, GoodStaticFieldInitialValuesArray) {
                                       dex_file->Begin(),
                                       dex_file->Size(),
                                       "good static field initial values array",
-                                      /*verify_checksum*/ true,
+                                      /*verify_checksum=*/ true,
                                       &error_msg));
 }
 

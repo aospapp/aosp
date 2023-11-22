@@ -39,6 +39,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import com.android.tv.R;
 import com.android.tv.util.TimeShiftUtils;
 import java.util.ArrayList;
@@ -53,10 +54,13 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
     private static final boolean DEBUG = false;
 
     private static final int AUDIO_ACTION_ID = 1001;
+    private static final long INVALID_TIME = -1;
 
     private int mPlaybackState = PlaybackState.STATE_NONE;
     private int mPlaybackSpeedLevel;
     private int mPlaybackSpeedId;
+    private long mProgramStartTimeMs = INVALID_TIME;
+    private boolean mEnableBuffering = false;
     private boolean mReadyToControl;
 
     private final DvrPlaybackOverlayFragment mFragment;
@@ -67,6 +71,8 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
     private final MultiAction mClosedCaptioningAction;
     private final MultiAction mMultiAudioAction;
     private ArrayObjectAdapter mSecondaryActionsAdapter;
+    private PlaybackControlsRow mPlaybackControlsRow;
+    @Nullable private View mPlayPauseButton;
 
     DvrPlaybackControlHelper(Activity activity, DvrPlaybackOverlayFragment overlayFragment) {
         super(activity, new int[TimeShiftUtils.MAX_SPEED_LEVEL + 1]);
@@ -79,13 +85,18 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
                         .getDimensionPixelOffset(R.dimen.dvr_playback_controls_extra_padding_top);
         mClosedCaptioningAction = new ClosedCaptioningAction(activity);
         mMultiAudioAction = new MultiAudioAction(activity);
+        mProgramStartTimeMs = overlayFragment.getProgramStartTimeMs();
+        if (mProgramStartTimeMs != INVALID_TIME) {
+            mEnableBuffering = true;
+        }
         createControlsRowPresenter();
     }
 
     void createControlsRow() {
-        PlaybackControlsRow controlsRow = new PlaybackControlsRow(this);
-        setControlsRow(controlsRow);
-        mSecondaryActionsAdapter = (ArrayObjectAdapter) controlsRow.getSecondaryActionsAdapter();
+        mPlaybackControlsRow = new PlaybackControlsRow(this);
+        setControlsRow(mPlaybackControlsRow);
+        mSecondaryActionsAdapter =
+                (ArrayObjectAdapter) mPlaybackControlsRow.getSecondaryActionsAdapter();
     }
 
     private void createControlsRowPresenter() {
@@ -118,6 +129,8 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
                     protected void onBindRowViewHolder(RowPresenter.ViewHolder vh, Object item) {
                         super.onBindRowViewHolder(vh, item);
                         vh.setOnKeyListener(DvrPlaybackControlHelper.this);
+                        ViewGroup controlBar = (ViewGroup) vh.view.findViewById(R.id.control_bar);
+                        mPlayPauseButton = controlBar.getChildAt(1);
                     }
 
                     @Override
@@ -265,6 +278,13 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
         getHost().notifyPlaybackRowChanged();
     }
 
+    /** Update the focus to play pause button. */
+    public void onPlaybackResume() {
+        if (mPlayPauseButton != null) {
+            mPlayPauseButton.requestFocus();
+        }
+    }
+
     @Nullable
     Boolean hasSecondaryRow() {
         if (mSecondaryActionsAdapter == null) {
@@ -290,6 +310,15 @@ class DvrPlaybackControlHelper extends PlaybackControlGlue {
     @Override
     public void pause() {
         mTransportControls.pause();
+    }
+
+    @Override
+    public void updateProgress() {
+        if (mEnableBuffering) {
+            super.updateProgress();
+            long bufferedTimeMs = System.currentTimeMillis() - mProgramStartTimeMs;
+            mPlaybackControlsRow.setBufferedPosition(bufferedTimeMs);
+        }
     }
 
     /** Notifies closed caption being enabled/disabled to update related UI. */

@@ -16,8 +16,6 @@
 
 package com.android.cts.documentclient;
 
-import static org.junit.Assert.assertNotEquals;
-
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Intent;
@@ -50,8 +48,8 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
 
     private UiSelector findRootListSelector() throws UiObjectNotFoundException {
         return new UiSelector().resourceId(
-                "com.android.documentsui:id/container_roots").childSelector(
-                new UiSelector().resourceId("com.android.documentsui:id/roots_list"));
+                getDocumentsUiPackageId() + ":id/container_roots").childSelector(
+                new UiSelector().resourceId(getDocumentsUiPackageId() + ":id/roots_list"));
 
     }
 
@@ -60,7 +58,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         if (!new UiObject(rootsList).waitForExists(TIMEOUT)) {
             Log.d(TAG, "Failed to find roots list; trying to expand");
             final UiSelector hamburger = new UiSelector().resourceId(
-                    "com.android.documentsui:id/toolbar").childSelector(
+                    getDocumentsUiPackageId() + ":id/toolbar").childSelector(
                     new UiSelector().className("android.widget.ImageButton").clickable(true));
             new UiObject(hamburger).click();
         }
@@ -73,6 +71,13 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         new UiScrollable(rootsList).scrollIntoView(new UiSelector().text(label));
     }
 
+    private UiObject findSearchViewTextField() {
+        final UiSelector selector = new UiSelector().resourceId(
+                getDocumentsUiPackageId() + ":id/option_menu_search").childSelector(
+                new UiSelector().resourceId(getDocumentsUiPackageId() + ":id/search_src_text"));
+        return mDevice.findObject(selector);
+    }
+
     private UiObject findRoot(String label) throws UiObjectNotFoundException {
         final UiSelector rootsList = findRootListSelector();
         revealRoot(rootsList, label);
@@ -80,26 +85,35 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         return new UiObject(rootsList.childSelector(new UiSelector().text(label)));
     }
 
-    private UiObject findEjectIcon(String rootLabel) throws UiObjectNotFoundException {
+    private UiObject findActionIcon(String rootLabel) throws UiObjectNotFoundException {
         final UiSelector rootsList = findRootListSelector();
         revealRoot(rootsList, rootLabel);
 
         final UiScrollable rootsListObject = new UiScrollable(rootsList);
         final UiObject rootItem = rootsListObject.getChildByText(
                 new UiSelector().className("android.widget.LinearLayout"), rootLabel, false);
-        final UiSelector ejectIcon =
-                new UiSelector().resourceId("com.android.documentsui:id/eject_icon");
-        return new UiObject(rootItem.getSelector().childSelector(ejectIcon));
+        final UiSelector actionIcon =
+                new UiSelector().resourceId(getDocumentsUiPackageId() + ":id/action_icon_area");
+        return new UiObject(rootItem.getSelector().childSelector(actionIcon));
     }
 
     private UiObject findDocument(String label) throws UiObjectNotFoundException {
         final UiSelector docList = new UiSelector().resourceId(
-                "com.android.documentsui:id/container_directory").childSelector(
-                new UiSelector().resourceId("com.android.documentsui:id/dir_list"));
+                getDocumentsUiPackageId() + ":id/container_directory").childSelector(
+                new UiSelector().resourceId(getDocumentsUiPackageId() + ":id/dir_list"));
 
         // Wait for the first list item to appear
         assertTrue("First list item",
                 new UiObject(docList.childSelector(new UiSelector())).waitForExists(TIMEOUT));
+
+        try {
+            //Enfornce to set the list mode
+            //Because UiScrollable can't reach the real bottom (when WEB_LINKABLE_FILE item) in grid mode when screen landscape mode
+            new UiObject(new UiSelector().resourceId("com.android.documentsui:id/option_menu_list")).click();
+            mDevice.waitForIdle();
+        }catch (UiObjectNotFoundException e){
+            //do nothing, already be in list mode.
+        }
 
         // Now scroll around to find our item
         new UiScrollable(docList).scrollIntoView(new UiSelector().text(label));
@@ -107,7 +121,8 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
     }
 
     private UiObject findSaveButton() throws UiObjectNotFoundException {
-        return new UiObject(new UiSelector().resourceId("com.android.documentsui:id/container_save")
+        return new UiObject(new UiSelector().resourceId(
+                getDocumentsUiPackageId() + ":id/container_save")
                 .childSelector(new UiSelector().resourceId("android:id/button1")));
     }
 
@@ -271,6 +286,8 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         findDocument("DIR2").click();
         mDevice.waitForIdle();
         findSaveButton().click();
+        mDevice.waitForIdle();
+        findPositiveButton().click();
 
         final Result result = mActivity.getResult();
         final Uri uri = result.data.getData();
@@ -330,7 +347,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         }
     }
 
-    public void testGetContent() throws Exception {
+    public void testGetContent_rootsShowing() throws Exception {
         if (!supportedHardware()) return;
 
         final Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
@@ -339,17 +356,62 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         mActivity.startActivityForResult(intent, REQUEST_CODE);
 
         // Look around, we should be able to see both DocumentsProviders and
-        // other GET_CONTENT sources.
+        // other GET_CONTENT sources. If the DocumentsProvider and GetContent
+        // root has the same package, they will be combined as one root item.
         mDevice.waitForIdle();
         assertTrue("CtsLocal root", findRoot("CtsLocal").exists());
         assertTrue("CtsCreate root", findRoot("CtsCreate").exists());
-        assertTrue("CtsGetContent root", findRoot("CtsGetContent").exists());
+        assertFalse("CtsGetContent root", findRoot("CtsGetContent").exists());
 
         mDevice.waitForIdle();
-        findRoot("CtsGetContent").click();
-
-        final Result result = mActivity.getResult();
+        // Both CtsLocal and CtsLocal have action icon and have the same action.
+        findActionIcon("CtsCreate");
+        findActionIcon("CtsLocal").click();
+        Result result = mActivity.getResult();
         assertEquals("ReSuLt", result.data.getAction());
+    }
+
+    public void testGetContentWithQuery_matchingFileShowing() throws Exception {
+        if (!supportedHardware()) return;
+
+        final Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        final String queryString = "FILE2";
+        intent.putExtra(Intent.EXTRA_CONTENT_QUERY, queryString);
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+
+        mDevice.waitForIdle();
+
+        assertTrue(findDocument(queryString).exists());
+
+        UiObject textField = findSearchViewTextField();
+        assertTrue(textField.exists());
+        assertEquals(queryString, textField.getText());
+    }
+
+    public void testGetContent_returnsResultToCallingActivity() throws Exception {
+        if (!supportedHardware()) return;
+
+        final Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        mActivity.startActivityForResult(intent, REQUEST_CODE);
+
+        mDevice.waitForIdle();
+        findRoot("CtsCreate").click();
+
+        // Pick the file.
+        mDevice.waitForIdle();
+        findDocument("FILE2").click();
+
+        // Confirm that the returned file is a regular file caused by the click.
+        final Result result = mActivity.getResult();
+        final Uri uri = result.data.getData();
+        assertEquals("doc:file2", DocumentsContract.getDocumentId(uri));
+
+        // We should now have permission to read
+        MoreAsserts.assertEquals("filetwo".getBytes(), readFully(uri));
     }
 
     public void testTransferDocument() throws Exception {
@@ -371,6 +433,8 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         findDocument("DIR2").click();
         mDevice.waitForIdle();
         findSaveButton().click();
+        mDevice.waitForIdle();
+        findPositiveButton().click();
 
         final Result result = mActivity.getResult();
         final Uri uri = result.data.getData();
@@ -478,6 +542,8 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         findDocument("DIR2").click();
         mDevice.waitForIdle();
         findSaveButton().click();
+        mDevice.waitForIdle();
+        findPositiveButton().click();
 
         final Result result = mActivity.getResult();
         final Uri uri = result.data.getData();
@@ -541,6 +607,22 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
         mDevice.waitForIdle();
 
         assertTrue(findDocument("FILE4").exists());
+    }
+
+    public void testOpenRootWithoutRootIdAtInitialLocation() throws Exception {
+        if (!supportedHardware()) return;
+
+        // Clear DocsUI's storage to avoid it opening stored last location
+        // which may make this test pass "luckily".
+        clearDocumentsUi();
+
+        final Uri rootsUri = DocumentsContract.buildRootsUri(PROVIDER_PACKAGE);
+        final Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(rootsUri, "vnd.android.document/root");
+        mActivity.startActivity(intent);
+        mDevice.waitForIdle();
+
+        assertTrue(findDocument("DIR1").exists());
     }
 
     public void testCreateDocumentAtInitialLocation() throws Exception {
@@ -618,7 +700,7 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
                 Document.MIME_TYPE_DIR);
         mActivity.startActivity(intent);
 
-        findEjectIcon("eject").click();
+        findActionIcon("eject").click();
 
         try {
             findRoot("eject").click();

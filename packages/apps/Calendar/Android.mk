@@ -28,7 +28,7 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
         colorpicker \
         android-opt-datetimepicker \
         android-opt-timezonepicker \
-        android-support-v4 \
+        androidx.legacy_legacy-support-v4 \
         calendar-common
 
 LOCAL_SDK_VERSION := current
@@ -39,6 +39,8 @@ LOCAL_PACKAGE_NAME := Calendar
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags \
                              ../../../frameworks/opt/datetimepicker/proguard.flags
+
+LOCAL_PRODUCT_MODULE := true
 
 LOCAL_AAPT_FLAGS := --auto-add-overlay
 LOCAL_AAPT_FLAGS += --extra-packages com.android.ex.chips

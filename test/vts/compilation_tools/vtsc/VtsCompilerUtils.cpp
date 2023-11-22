@@ -244,6 +244,17 @@ string GetCppVariableType(const VariableSpecificationMessage& arg,
       }
       break;
     }
+    case TYPE_SAFE_UNION: {
+      if (arg.safe_union_value_size() == 0 && arg.has_predefined_type()) {
+        result = arg.predefined_type();
+      } else {
+        cerr << __func__ << ":" << __LINE__
+             << " ERROR no predefined_type set for safe union"
+             << " variable" << endl;
+        exit(-1);
+      }
+      break;
+    }
     case TYPE_HIDL_CALLBACK:
     {
       if (arg.has_predefined_type()) {
@@ -574,17 +585,16 @@ string GetPackageNamespaceToken(const ComponentSpecificationMessage& message) {
 
 string GetVersion(const ComponentSpecificationMessage& message,
                   bool for_macro) {
-  return GetVersionString(message.component_type_version(), for_macro);
+  return GetVersionString(message.component_type_version_major(),
+                          message.component_type_version_minor(), for_macro);
 }
 
 int GetMajorVersion(const ComponentSpecificationMessage& message) {
-  string version = GetVersion(message);
-  return stoi(version.substr(0, version.find('.')));
+  return message.component_type_version_major();
 }
 
 int GetMinorVersion(const ComponentSpecificationMessage& message) {
-  string version = GetVersion(message);
-  return stoi(version.substr(version.find('.') + 1));
+  return message.component_type_version_minor();
 }
 
 string GetComponentBaseName(const ComponentSpecificationMessage& message) {
@@ -615,7 +625,8 @@ string GetComponentName(const ComponentSpecificationMessage& message) {
 
 FQName GetFQName(const ComponentSpecificationMessage& message) {
   return FQName(message.package(),
-                GetVersionString(message.component_type_version()),
+                GetVersionString(message.component_type_version_major(),
+                                 message.component_type_version_minor()),
                 GetComponentName(message));
 }
 

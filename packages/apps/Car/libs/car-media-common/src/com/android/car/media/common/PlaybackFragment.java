@@ -16,139 +16,139 @@
 
 package com.android.car.media.common;
 
+import static com.android.car.arch.common.LiveDataFunctions.mapNonNull;
+
+import android.app.Application;
 import android.car.Car;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
+import androidx.lifecycle.AndroidViewModel;
+import androidx.lifecycle.LiveData;
+import androidx.lifecycle.ViewModelProviders;
+
+import com.android.car.apps.common.CrossfadeImageView;
+import com.android.car.apps.common.util.ViewUtils;
+import com.android.car.media.common.playback.AlbumArtLiveData;
+import com.android.car.media.common.playback.PlaybackViewModel;
+import com.android.car.media.common.source.MediaSource;
+import com.android.car.media.common.source.MediaSourceViewModel;
 
 import com.bumptech.glide.request.target.Target;
 
-import java.util.Objects;
-
 /**
- * {@link Fragment} that can be used to display and control the currently playing media item.
- * Its requires the android.Manifest.permission.MEDIA_CONTENT_CONTROL permission be held by the
- * hosting application.
+ * {@link Fragment} that can be used to display and control the currently playing media item. Its
+ * requires the android.Manifest.permission.MEDIA_CONTENT_CONTROL permission be held by the hosting
+ * application.
  */
 public class PlaybackFragment extends Fragment {
-    private ActiveMediaSourceManager mActiveMediaSourceManager;
-    private PlaybackModel mModel;
-    private CrossfadeImageView mAlbumBackground;
-    private PlaybackControls mPlaybackControls;
-    private ImageView mAppIcon;
-    private TextView mAppName;
-    private TextView mTitle;
-    private TextView mSubtitle;
-    private MediaItemMetadata mCurrentMetadata;
 
-    private PlaybackModel.PlaybackObserver mPlaybackObserver =
-            new PlaybackModel.PlaybackObserver() {
-        @Override
-        public void onSourceChanged() {
-            updateMetadata();
-        }
-
-        @Override
-        public void onMetadataChanged() {
-            updateMetadata();
-        }
-    };
-    private ActiveMediaSourceManager.Observer mActiveSourceObserver =
-            new ActiveMediaSourceManager.Observer() {
-        @Override
-        public void onActiveSourceChanged() {
-            mModel.setMediaController(mActiveMediaSourceManager.getMediaController());
-        }
-    };
+    private MediaSourceViewModel mMediaSourceViewModel;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
             Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.car_playback_fragment, container, false);
-        mActiveMediaSourceManager = new ActiveMediaSourceManager(getContext());
-        mModel = new PlaybackModel(getContext());
-        mAlbumBackground = view.findViewById(R.id.album_background);
-        mPlaybackControls = view.findViewById(R.id.playback_controls);
-        mPlaybackControls.setModel(mModel);
-        mAppIcon = view.findViewById(R.id.app_icon);
-        mAppName = view.findViewById(R.id.app_name);
-        mTitle = view.findViewById(R.id.title);
-        mSubtitle = view.findViewById(R.id.subtitle);
+        FragmentActivity activity = requireActivity();
+        PlaybackViewModel playbackViewModel = PlaybackViewModel.get(activity.getApplication());
+        mMediaSourceViewModel = MediaSourceViewModel.get(activity.getApplication());
 
-        mAlbumBackground.setOnClickListener(v -> {
-            MediaSource mediaSource = mModel.getMediaSource();
-            Intent intent;
-            if (mediaSource != null && mediaSource.isCustom()) {
-                // We are playing a custom app. Jump to it, not to the template
-                intent = getContext().getPackageManager()
-                        .getLaunchIntentForPackage(mediaSource.getPackageName());
-            } else if (mediaSource != null) {
-                // We are playing a standard app. Open the template to browse it.
-                intent = new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE);
-                intent.putExtra(Car.CAR_EXTRA_MEDIA_PACKAGE, mediaSource.getPackageName());
-            } else {
-                // We are not playing. Open the template to start playing something.
-                intent = new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE);
-            }
-            startActivity(intent);
-        });
+        ViewModel innerViewModel = ViewModelProviders.of(activity).get(ViewModel.class);
+        innerViewModel.init(mMediaSourceViewModel, playbackViewModel);
+
+        View view = inflater.inflate(R.layout.playback_fragment, container, false);
+
+        PlaybackControlsActionBar playbackControls = view.findViewById(R.id.playback_controls);
+        playbackControls.setModel(playbackViewModel, getViewLifecycleOwner());
+        playbackViewModel.getPlaybackStateWrapper().observe(getViewLifecycleOwner(),
+                state -> ViewUtils.setVisible(playbackControls,
+                        (state != null) && state.shouldDisplay()));
+
+        TextView appName = view.findViewById(R.id.app_name);
+        innerViewModel.getAppName().observe(getViewLifecycleOwner(), appName::setText);
+
+        TextView title = view.findViewById(R.id.title);
+        innerViewModel.getTitle().observe(getViewLifecycleOwner(), title::setText);
+
+        TextView subtitle = view.findViewById(R.id.subtitle);
+        innerViewModel.getSubtitle().observe(getViewLifecycleOwner(), subtitle::setText);
+
+        CrossfadeImageView albumBackground = view.findViewById(R.id.album_background);
+        innerViewModel.getAlbumArt().observe(getViewLifecycleOwner(),
+                albumArt -> albumBackground.setImageBitmap(albumArt, true));
+        albumBackground.setOnClickListener(
+                // Let the Media center trampoline figure out what to open.
+                v -> startActivity(new Intent(Car.CAR_INTENT_ACTION_MEDIA_TEMPLATE)));
+
+        MediaAppSelectorWidget appSelector = view.findViewById(R.id.app_switch_container);
+        appSelector.setFragmentActivity(getActivity());
 
         return view;
     }
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        mActiveMediaSourceManager.registerObserver(mActiveSourceObserver);
-        mModel.registerObserver(mPlaybackObserver);
-    }
+    /**
+     * ViewModel for the PlaybackFragment
+     */
+    public static class ViewModel extends AndroidViewModel {
 
-    @Override
-    public void onStop() {
-        super.onStop();
-        mActiveMediaSourceManager.unregisterObserver(mActiveSourceObserver);
-        mModel.unregisterObserver(mPlaybackObserver);
-    }
+        private LiveData<MediaSource> mMediaSource;
+        private LiveData<CharSequence> mAppName;
+        private LiveData<Bitmap> mAppIcon;
+        private LiveData<CharSequence> mTitle;
+        private LiveData<CharSequence> mSubtitle;
+        private LiveData<Bitmap> mAlbumArt;
 
-    private void updateMetadata() {
-        MediaSource mediaSource = mModel.getMediaSource();
+        private PlaybackViewModel mPlaybackViewModel;
+        private MediaSourceViewModel mMediaSourceViewModel;
 
-        if (mediaSource == null) {
-            mTitle.setText(null);
-            mSubtitle.setText(null);
-            mAppName.setText(null);
-            mAlbumBackground.setImageBitmap(null, true);
-            return;
+        public ViewModel(Application application) {
+            super(application);
         }
 
-        MediaItemMetadata metadata = mModel.getMetadata();
-        if (Objects.equals(mCurrentMetadata, metadata)) {
-            return;
+        void init(MediaSourceViewModel mediaSourceViewModel, PlaybackViewModel playbackViewModel) {
+            if (mMediaSourceViewModel == mediaSourceViewModel
+                    && mPlaybackViewModel == playbackViewModel) {
+                return;
+            }
+            mPlaybackViewModel = playbackViewModel;
+            mMediaSourceViewModel = mediaSourceViewModel;
+            mMediaSource = mMediaSourceViewModel.getPrimaryMediaSource();
+            mAppName = mapNonNull(mMediaSource, MediaSource::getName);
+            mAppIcon = mapNonNull(mMediaSource, MediaSource::getRoundPackageIcon);
+            mTitle = mapNonNull(playbackViewModel.getMetadata(), MediaItemMetadata::getTitle);
+            mSubtitle = mapNonNull(playbackViewModel.getMetadata(), MediaItemMetadata::getArtist);
+            mAlbumArt = AlbumArtLiveData.getAlbumArt(getApplication(),
+                    Target.SIZE_ORIGINAL, Target.SIZE_ORIGINAL, false,
+                    playbackViewModel.getMetadata());
         }
-        mCurrentMetadata = metadata;
-        mTitle.setText(metadata != null ? metadata.getTitle() : null);
-        mSubtitle.setText(metadata != null ? metadata.getSubtitle() : null);
-        if (metadata != null) {
-            metadata.getAlbumArt(getContext(),
-                    Target.SIZE_ORIGINAL,
-                    Target.SIZE_ORIGINAL,
-                    false)
-                    .thenAccept(bitmap -> {
-                        //bitmap = ImageUtils.blur(getContext(), bitmap, 1f, 10f);
-                        mAlbumBackground.setImageBitmap(bitmap, true);
-                    });
-        } else {
-            mAlbumBackground.setImageBitmap(null, true);
+
+        LiveData<CharSequence> getAppName() {
+            return mAppName;
         }
-        mAppName.setText(mediaSource.getName());
-        mAppIcon.setImageBitmap(mediaSource.getRoundPackageIcon());
+
+        LiveData<Bitmap> getAppIcon() {
+            return mAppIcon;
+        }
+
+        LiveData<CharSequence> getTitle() {
+            return mTitle;
+        }
+
+        LiveData<CharSequence> getSubtitle() {
+            return mSubtitle;
+        }
+
+        LiveData<Bitmap> getAlbumArt() {
+            return mAlbumArt;
+        }
     }
 }

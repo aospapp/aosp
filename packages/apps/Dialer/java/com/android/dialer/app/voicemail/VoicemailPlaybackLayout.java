@@ -114,7 +114,7 @@ public class VoicemailPlaybackLayout extends LinearLayout
                   Snackbar.LENGTH_LONG)
               .setDuration(VOICEMAIL_DELETE_DELAY_MS)
               .setAction(
-                  R.string.snackbar_voicemail_deleted_undo,
+                  R.string.snackbar_undo,
                   new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
@@ -234,7 +234,7 @@ public class VoicemailPlaybackLayout extends LinearLayout
         getResources().getDrawable(R.drawable.ic_voicemail_seek_handle, context.getTheme());
     voicemailSeekHandleDisabled =
         getResources()
-            .getDrawable(R.drawable.ic_voicemail_seek_handle_disabled, context.getTheme());
+            .getDrawable(R.drawable.old_ic_voicemail_seek_handle_disabled, context.getTheme());
   }
 
   @Override
@@ -276,7 +276,7 @@ public class VoicemailPlaybackLayout extends LinearLayout
   @Override
   public void onSpeakerphoneOn(boolean on) {
     if (on) {
-      playbackSpeakerphone.setImageResource(R.drawable.quantum_ic_volume_up_white_24);
+      playbackSpeakerphone.setImageResource(R.drawable.quantum_ic_volume_up_vd_theme_24);
       // Speaker is now on, tapping button will turn it off.
       playbackSpeakerphone.setContentDescription(context.getString(R.string.voicemail_speaker_off));
     } else {

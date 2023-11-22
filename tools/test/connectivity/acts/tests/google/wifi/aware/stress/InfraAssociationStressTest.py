@@ -25,29 +25,28 @@ from acts.test_utils.wifi.aware.AwareBaseTest import AwareBaseTest
 
 
 class InfraAssociationStressTest(AwareBaseTest):
+    def __init__(self, controllers):
+        AwareBaseTest.__init__(self, controllers)
 
-  def __init__(self, controllers):
-    AwareBaseTest.__init__(self, controllers)
+    # Length of test in seconds
+    TEST_DURATION_SECONDS = 300
 
-  # Length of test in seconds
-  TEST_DURATION_SECONDS = 300
+    # Service name
+    SERVICE_NAME = "GoogleTestServiceXYXYXY"
 
-  # Service name
-  SERVICE_NAME = "GoogleTestServiceXYXYXY"
-
-  def is_associated(self, dut):
-    """Checks whether the device is associated (to any AP).
+    def is_associated(self, dut):
+        """Checks whether the device is associated (to any AP).
 
     Args:
       dut: Device under test.
 
     Returns: True if associated (to any AP), False otherwise.
     """
-    info = dut.droid.wifiGetConnectionInfo()
-    return info is not None and info["supplicant_state"] != "disconnected"
+        info = dut.droid.wifiGetConnectionInfo()
+        return info is not None and info["supplicant_state"] != "disconnected"
 
-  def wait_for_disassociation(self, q, dut):
-    """Waits for a disassociation event on the specified DUT for the given
+    def wait_for_disassociation(self, q, dut):
+        """Waits for a disassociation event on the specified DUT for the given
     timeout. Place a result into the queue (False) only if disassociation
     observed.
 
@@ -55,14 +54,15 @@ class InfraAssociationStressTest(AwareBaseTest):
       q: The synchronization queue into which to place the results.
       dut: The device to track.
     """
-    try:
-      dut.ed.pop_event(wconsts.WIFI_DISCONNECTED, self.TEST_DURATION_SECONDS)
-      q.put(True)
-    except queue.Empty:
-      pass
+        try:
+            dut.ed.pop_event(wconsts.WIFI_DISCONNECTED,
+                             self.TEST_DURATION_SECONDS)
+            q.put(True)
+        except queue.Empty:
+            pass
 
-  def run_infra_assoc_oob_ndp_stress(self, with_ndp_traffic):
-    """Validates that Wi-Fi Aware NDP does not interfere with infrastructure
+    def run_infra_assoc_oob_ndp_stress(self, with_ndp_traffic):
+        """Validates that Wi-Fi Aware NDP does not interfere with infrastructure
     (AP) association.
 
     Test assumes (and verifies) that device is already associated to an AP.
@@ -70,92 +70,94 @@ class InfraAssociationStressTest(AwareBaseTest):
     Args:
       with_ndp_traffic: True to run traffic over the NDP.
     """
-    init_dut = self.android_devices[0]
-    resp_dut = self.android_devices[1]
+        init_dut = self.android_devices[0]
+        resp_dut = self.android_devices[1]
 
-    # check that associated and start tracking
-    init_dut.droid.wifiStartTrackingStateChange()
-    resp_dut.droid.wifiStartTrackingStateChange()
-    asserts.assert_true(
-        self.is_associated(init_dut), "DUT is not associated to an AP!")
-    asserts.assert_true(
-        self.is_associated(resp_dut), "DUT is not associated to an AP!")
+        # check that associated and start tracking
+        init_dut.droid.wifiStartTrackingStateChange()
+        resp_dut.droid.wifiStartTrackingStateChange()
+        asserts.assert_true(
+            self.is_associated(init_dut), "DUT is not associated to an AP!")
+        asserts.assert_true(
+            self.is_associated(resp_dut), "DUT is not associated to an AP!")
 
-    # set up NDP
-    (init_req_key, resp_req_key, init_aware_if, resp_aware_if, init_ipv6,
-     resp_ipv6) = autils.create_oob_ndp(init_dut, resp_dut)
-    self.log.info("Interface names: I=%s, R=%s", init_aware_if, resp_aware_if)
-    self.log.info("Interface addresses (IPv6): I=%s, R=%s", init_ipv6,
-                  resp_ipv6)
+        # set up NDP
+        (init_req_key, resp_req_key, init_aware_if, resp_aware_if, init_ipv6,
+         resp_ipv6) = autils.create_oob_ndp(init_dut, resp_dut)
+        self.log.info("Interface names: I=%s, R=%s", init_aware_if,
+                      resp_aware_if)
+        self.log.info("Interface addresses (IPv6): I=%s, R=%s", init_ipv6,
+                      resp_ipv6)
 
-    # wait for any disassociation change events
-    q = queue.Queue()
-    init_thread = threading.Thread(
-        target=self.wait_for_disassociation, args=(q, init_dut))
-    resp_thread = threading.Thread(
-        target=self.wait_for_disassociation, args=(q, resp_dut))
+        # wait for any disassociation change events
+        q = queue.Queue()
+        init_thread = threading.Thread(
+            target=self.wait_for_disassociation, args=(q, init_dut))
+        resp_thread = threading.Thread(
+            target=self.wait_for_disassociation, args=(q, resp_dut))
 
-    init_thread.start()
-    resp_thread.start()
+        init_thread.start()
+        resp_thread.start()
 
-    any_disassociations = False
-    try:
-      q.get(True, self.TEST_DURATION_SECONDS)
-      any_disassociations = True  # only happens on any disassociation
-    except queue.Empty:
-      pass
-    finally:
-      # TODO: no way to terminate thread (so even if we fast fail we still have
-      # to wait for the full timeout.
-      init_dut.droid.wifiStopTrackingStateChange()
-      resp_dut.droid.wifiStopTrackingStateChange()
+        any_disassociations = False
+        try:
+            q.get(True, self.TEST_DURATION_SECONDS)
+            any_disassociations = True  # only happens on any disassociation
+        except queue.Empty:
+            pass
+        finally:
+            # TODO: no way to terminate thread (so even if we fast fail we still have
+            # to wait for the full timeout.
+            init_dut.droid.wifiStopTrackingStateChange()
+            resp_dut.droid.wifiStopTrackingStateChange()
 
-    asserts.assert_false(any_disassociations,
-                         "Wi-Fi disassociated during test run")
+        asserts.assert_false(any_disassociations,
+                             "Wi-Fi disassociated during test run")
 
-  ################################################################
+    ################################################################
 
-  def test_infra_assoc_discovery_stress(self):
-    """Validates that Wi-Fi Aware discovery does not interfere with
+    def test_infra_assoc_discovery_stress(self):
+        """Validates that Wi-Fi Aware discovery does not interfere with
     infrastructure (AP) association.
 
     Test assumes (and verifies) that device is already associated to an AP.
     """
-    dut = self.android_devices[0]
+        dut = self.android_devices[0]
 
-    # check that associated and start tracking
-    dut.droid.wifiStartTrackingStateChange()
-    asserts.assert_true(
-        self.is_associated(dut), "DUT is not associated to an AP!")
+        # check that associated and start tracking
+        dut.droid.wifiStartTrackingStateChange()
+        asserts.assert_true(
+            self.is_associated(dut), "DUT is not associated to an AP!")
 
-    # attach
-    session_id = dut.droid.wifiAwareAttach(True)
-    autils.wait_for_event(dut, aconsts.EVENT_CB_ON_ATTACHED)
+        # attach
+        session_id = dut.droid.wifiAwareAttach(True)
+        autils.wait_for_event(dut, aconsts.EVENT_CB_ON_ATTACHED)
 
-    # publish
-    p_disc_id = dut.droid.wifiAwarePublish(
-        session_id,
-        autils.create_discovery_config(self.SERVICE_NAME,
-                                       aconsts.PUBLISH_TYPE_UNSOLICITED))
-    autils.wait_for_event(dut, aconsts.SESSION_CB_ON_PUBLISH_STARTED)
+        # publish
+        p_disc_id = dut.droid.wifiAwarePublish(
+            session_id,
+            autils.create_discovery_config(self.SERVICE_NAME,
+                                           aconsts.PUBLISH_TYPE_UNSOLICITED))
+        autils.wait_for_event(dut, aconsts.SESSION_CB_ON_PUBLISH_STARTED)
 
-    # wait for any disassociation change events
-    any_disassociations = False
-    try:
-      dut.ed.pop_event(wconsts.WIFI_DISCONNECTED, self.TEST_DURATION_SECONDS)
-      any_disassociations = True
-    except queue.Empty:
-      pass
-    finally:
-      dut.droid.wifiStopTrackingStateChange()
+        # wait for any disassociation change events
+        any_disassociations = False
+        try:
+            dut.ed.pop_event(wconsts.WIFI_DISCONNECTED,
+                             self.TEST_DURATION_SECONDS)
+            any_disassociations = True
+        except queue.Empty:
+            pass
+        finally:
+            dut.droid.wifiStopTrackingStateChange()
 
-    asserts.assert_false(any_disassociations,
-                         "Wi-Fi disassociated during test run")
+        asserts.assert_false(any_disassociations,
+                             "Wi-Fi disassociated during test run")
 
-  def test_infra_assoc_ndp_no_traffic_stress(self):
-    """Validates that Wi-Fi Aware NDP (with no traffic) does not interfere with
+    def test_infra_assoc_ndp_no_traffic_stress(self):
+        """Validates that Wi-Fi Aware NDP (with no traffic) does not interfere with
     infrastructure (AP) association.
 
     Test assumes (and verifies) that devices are already associated to an AP.
     """
-    self.run_infra_assoc_oob_ndp_stress(with_ndp_traffic=False)
+        self.run_infra_assoc_oob_ndp_stress(with_ndp_traffic=False)

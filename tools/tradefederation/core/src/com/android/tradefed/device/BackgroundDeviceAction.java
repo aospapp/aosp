@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  */
 public class BackgroundDeviceAction extends Thread {
+    public static final String BACKGROUND_DEVICE_ACTION = "BackgroundDeviceAction";
     private static final long ONLINE_POLL_INTERVAL_MS = 10 * 1000;
     private IShellOutputReceiver mReceiver;
     private ITestDevice mTestDevice;
@@ -60,7 +61,7 @@ public class BackgroundDeviceAction extends Thread {
      */
     public BackgroundDeviceAction(String command, String descriptor, ITestDevice device,
             IShellOutputReceiver receiver, int startDelay) {
-        super("BackgroundDeviceAction-" + command);
+        super(BACKGROUND_DEVICE_ACTION + "-" + command);
         mCommand = command;
         mDescriptor = descriptor;
         mTestDevice = device;
@@ -96,8 +97,11 @@ public class BackgroundDeviceAction extends Thread {
             try {
                 mTestDevice.getIDevice().executeShellCommand(mCommand, mReceiver,
                         0, TimeUnit.MILLISECONDS);
-            } catch (AdbCommandRejectedException | IOException |
-                    ShellCommandUnresponsiveException | TimeoutException e) {
+            } catch (AdbCommandRejectedException e) {
+                // For command rejected wait a bit to let the device reach a stable state again.
+                getRunUtil().sleep(ONLINE_POLL_INTERVAL_MS);
+                waitForDeviceRecovery(e.getClass().getName());
+            } catch (IOException | ShellCommandUnresponsiveException | TimeoutException e) {
                 waitForDeviceRecovery(e.getClass().getName());
             }
         }

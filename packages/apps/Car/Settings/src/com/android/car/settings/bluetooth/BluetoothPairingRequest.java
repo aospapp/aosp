@@ -20,7 +20,6 @@ import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.os.PowerManager;
 import android.os.UserHandle;
 
@@ -32,31 +31,31 @@ import android.os.UserHandle;
  */
 public final class BluetoothPairingRequest extends BroadcastReceiver {
 
-  @Override
-  public void onReceive(Context context, Intent intent) {
-    String action = intent.getAction();
-    if (!action.equals(BluetoothDevice.ACTION_PAIRING_REQUEST)) {
-      return;
-    }
-    // convert broadcast intent into activity intent (same action string)
-    Intent pairingIntent = BluetoothPairingService.getPairingDialogIntent(context, intent);
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        String action = intent.getAction();
+        if (!action.equals(BluetoothDevice.ACTION_PAIRING_REQUEST)) {
+            return;
+        }
+        // convert broadcast intent into activity intent (same action string)
+        Intent pairingIntent = BluetoothPairingService.getPairingDialogIntent(context, intent);
 
-    PowerManager powerManager =
-        (PowerManager)context.getSystemService(Context.POWER_SERVICE);
-    BluetoothDevice device =
-        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-    String deviceAddress = device != null ? device.getAddress() : null;
-    String deviceName = device != null ? device.getName() : null;
-    boolean shouldShowDialog = BluetoothUtils.shouldShowDialogInForeground(
-        context, deviceAddress, deviceName);
-    if (powerManager.isInteractive() && shouldShowDialog) {
-      // Since the screen is on and the BT-related activity is in the foreground,
-      // just open the dialog
-      context.startActivityAsUser(pairingIntent, UserHandle.CURRENT);
-    } else {
-      // Put up a notification that leads to the dialog
-      intent.setClass(context, BluetoothPairingService.class);
-      context.startServiceAsUser(intent, UserHandle.CURRENT);
+        PowerManager powerManager =
+                (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        BluetoothDevice device =
+                intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+        String deviceAddress = device != null ? device.getAddress() : null;
+        String deviceName = device != null ? device.getName() : null;
+        boolean shouldShowDialog = BluetoothUtils.shouldShowDialogInForeground(
+                context, deviceAddress, deviceName);
+        if (powerManager.isInteractive() && shouldShowDialog) {
+            // Since the screen is on and the BT-related activity is in the foreground,
+            // just open the dialog
+            context.startActivityAsUser(pairingIntent, UserHandle.CURRENT);
+        } else {
+            // Put up a notification that leads to the dialog
+            intent.setClass(context, BluetoothPairingService.class);
+            context.startServiceAsUser(intent, UserHandle.CURRENT);
+        }
     }
-  }
 }

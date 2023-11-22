@@ -15,6 +15,7 @@
  */
 
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include <keystore/keymaster_types.h>
@@ -72,8 +73,8 @@ class AuthTokenTable {
      *
      * The table retains ownership of the returned object.
      */
-    Error FindAuthorization(const AuthorizationSet& key_info, KeyPurpose purpose,
-                            uint64_t op_handle, const HardwareAuthToken** found);
+    std::tuple<Error, HardwareAuthToken> FindAuthorization(const AuthorizationSet& key_info,
+                                                           KeyPurpose purpose, uint64_t op_handle);
 
     /**
      * Mark operation completed.  This allows tokens associated with the specified operation to be
@@ -89,7 +90,13 @@ class AuthTokenTable {
 
     void Clear();
 
-    size_t size() { return entries_.size(); }
+    /**
+     * This function shall only be used for testing.
+     *
+     * BEWARE: Since the auth token table can be accessed
+     * concurrently, the size may be out dated as soon as it returns.
+     */
+    size_t size() const;
 
   private:
     friend class AuthTokenTableTest;
@@ -97,9 +104,9 @@ class AuthTokenTable {
     class Entry {
       public:
         Entry(HardwareAuthToken&& token, time_t current_time);
-        Entry(Entry&& entry) { *this = std::move(entry); }
+        Entry(Entry&& entry) noexcept { *this = std::move(entry); }
 
-        void operator=(Entry&& rhs) {
+        void operator=(Entry&& rhs) noexcept {
             token_ = std::move(rhs.token_);
             time_received_ = rhs.time_received_;
             last_use_ = rhs.last_use_;
@@ -142,16 +149,21 @@ class AuthTokenTable {
         bool operation_completed_;
     };
 
-    Error FindAuthPerOpAuthorization(const std::vector<uint64_t>& sids,
-                                     HardwareAuthenticatorType auth_type, uint64_t op_handle,
-                                     const HardwareAuthToken** found);
-    Error FindTimedAuthorization(const std::vector<uint64_t>& sids,
-                                 HardwareAuthenticatorType auth_type,
-                                 const AuthorizationSet& key_info, const HardwareAuthToken** found);
+    std::tuple<Error, HardwareAuthToken>
+    FindAuthPerOpAuthorization(const std::vector<uint64_t>& sids,
+                               HardwareAuthenticatorType auth_type, uint64_t op_handle);
+    std::tuple<Error, HardwareAuthToken> FindTimedAuthorization(const std::vector<uint64_t>& sids,
+                                                                HardwareAuthenticatorType auth_type,
+                                                                const AuthorizationSet& key_info);
     void ExtractSids(const AuthorizationSet& key_info, std::vector<uint64_t>* sids);
     void RemoveEntriesSupersededBy(const Entry& entry);
     bool IsSupersededBySomeEntry(const Entry& entry);
 
+    /**
+     * Guards the entries_ vector against concurrent modification. All public facing methods
+     * reading of modifying the vector must grab this mutex.
+     */
+    mutable std::mutex entries_mutex_;
     std::vector<Entry> entries_;
     size_t max_entries_;
     time_t last_off_body_;

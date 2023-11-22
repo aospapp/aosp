@@ -491,7 +491,7 @@ public class SapServer extends Thread implements Callback {
 
             if (mHandlerThread != null) {
                 try {
-                    mHandlerThread.quit();
+                    mHandlerThread.quitSafely();
                     mHandlerThread.join();
                     mHandlerThread = null;
                 } catch (InterruptedException e) {

@@ -16,17 +16,23 @@
 
 package com.android.compatibility.common.util;
 
+import static android.view.ViewTreeObserver.OnDrawListener;
+import static android.view.ViewTreeObserver.OnGlobalLayoutListener;
+
+import static org.mockito.hamcrest.MockitoHamcrest.argThat;
+
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.support.test.rule.ActivityTestRule;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewTreeObserver;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import junit.framework.Assert;
 
@@ -38,9 +44,6 @@ import org.xmlpull.v1.XmlPullParserException;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static android.view.ViewTreeObserver.*;
-import static org.mockito.hamcrest.MockitoHamcrest.argThat;
 
 /**
  * The useful methods for widget test.
@@ -200,8 +203,8 @@ public class WidgetTestUtils {
     }
 
     /**
-     * Runs the specified Runnable on the main thread and ensures that the specified View's tree is
-     * drawn before returning.
+     * Runs the specified {@link Runnable} on the main thread and ensures that the specified
+     * {@link View}'s tree is drawn before returning.
      *
      * @param activityTestRule the activity test rule used to run the test
      * @param view the view whose tree should be drawn before returning
@@ -209,36 +212,36 @@ public class WidgetTestUtils {
      *               simply force invalidation and a draw pass
      */
     public static void runOnMainAndDrawSync(@NonNull final ActivityTestRule activityTestRule,
-            @NonNull final View view, @Nullable final Runnable runner) throws Throwable {
+            @NonNull final View view, @Nullable final Runnable runner) {
         final CountDownLatch latch = new CountDownLatch(1);
 
-        activityTestRule.runOnUiThread(() -> {
-            final OnDrawListener listener = new OnDrawListener() {
-                @Override
-                public void onDraw() {
-                    // posting so that the sync happens after the draw that's about to happen
-                    view.post(() -> {
-                        activityTestRule.getActivity().getWindow().getDecorView().
-                                getViewTreeObserver().removeOnDrawListener(this);
-                        latch.countDown();
-                    });
-                }
-            };
-
-            activityTestRule.getActivity().getWindow().getDecorView().
-                    getViewTreeObserver().addOnDrawListener(listener);
-
-            if (runner != null) {
-                runner.run();
-            }
-            view.invalidate();
-        });
-
         try {
+            activityTestRule.runOnUiThread(() -> {
+                final OnDrawListener listener = new OnDrawListener() {
+                    @Override
+                    public void onDraw() {
+                        // posting so that the sync happens after the draw that's about to happen
+                        view.post(() -> {
+                            activityTestRule.getActivity().getWindow().getDecorView()
+                                    .getViewTreeObserver().removeOnDrawListener(this);
+                            latch.countDown();
+                        });
+                    }
+                };
+
+                activityTestRule.getActivity().getWindow().getDecorView()
+                        .getViewTreeObserver().addOnDrawListener(listener);
+
+                if (runner != null) {
+                    runner.run();
+                }
+                view.invalidate();
+            });
+
             Assert.assertTrue("Expected draw pass occurred within 5 seconds",
                     latch.await(5, TimeUnit.SECONDS));
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
         }
     }
 

@@ -22,9 +22,10 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.util.FileUtil;
 
-import junit.framework.TestCase;
-
 import org.easymock.EasyMock;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -33,7 +34,8 @@ import java.io.InputStream;
 import java.util.HashMap;
 
 /** Unit tests for {@link GTestXmlResultParser} */
-public class GTestXmlResultParserTest extends TestCase {
+@RunWith(JUnit4.class)
+public class GTestXmlResultParserTest {
     private static final String TEST_TYPE_DIR = "testtype";
     private static final String TEST_MODULE_NAME = "module";
     private static final String GTEST_OUTPUT_FILE_1 = "gtest_output1.xml";
@@ -41,6 +43,7 @@ public class GTestXmlResultParserTest extends TestCase {
     private static final String GTEST_OUTPUT_FILE_3 = "gtest_output3.xml";
     private static final String GTEST_OUTPUT_FILE_4 = "gtest_output4.xml";
     private static final String GTEST_OUTPUT_FILE_5 = "gtest_output5.xml";
+    private static final String GTEST_OUTPUT_FILE_6 = "gtest_output6.xml";
 
     /**
      * Helper to read a file from the res/testtype directory and return the associated {@link File}
@@ -70,18 +73,21 @@ public class GTestXmlResultParserTest extends TestCase {
         return res;
     }
 
-    /**
-     * Tests the parser for a simple test run output with 6 tests.
-     */
+    /** Tests the parser for a simple test run output with 6 tests. */
     @SuppressWarnings("unchecked")
+    @Test
     public void testParseSimpleFile() throws Exception {
         File contents =  readInFile(GTEST_OUTPUT_FILE_1);
+        TestDescription firstInFile = new TestDescription("InteropTest", "test_lookup_hit");
         try {
             ITestInvocationListener mockRunListener =
                     EasyMock.createMock(ITestInvocationListener.class);
             mockRunListener.testRunStarted(TEST_MODULE_NAME, 6);
-            // 6 passing test cases in this run
-            for (int i=0; i<6; ++i) {
+            mockRunListener.testStarted(firstInFile);
+            mockRunListener.testEnded(
+                    EasyMock.eq(firstInFile), (HashMap<String, Metric>) EasyMock.anyObject());
+            // 5 more passing test cases in this run
+            for (int i = 0; i < 5; ++i) {
                 mockRunListener.testStarted((TestDescription) EasyMock.anyObject());
                 mockRunListener.testEnded(
                         (TestDescription) EasyMock.anyObject(),
@@ -99,10 +105,9 @@ public class GTestXmlResultParserTest extends TestCase {
         }
     }
 
-    /**
-     * Tests the parser for a run with 84 tests.
-     */
+    /** Tests the parser for a run with 84 tests. */
     @SuppressWarnings("unchecked")
+    @Test
     public void testParseLargerFile() throws Exception {
         File contents =  readInFile(GTEST_OUTPUT_FILE_2);
         try {
@@ -128,10 +133,9 @@ public class GTestXmlResultParserTest extends TestCase {
         }
     }
 
-    /**
-     * Tests the parser for a run with test failures.
-     */
+    /** Tests the parser for a run with test failures. */
     @SuppressWarnings("unchecked")
+    @Test
     public void testParseWithFailures() throws Exception {
         String expectedMessage = "Message\nFailed";
 
@@ -166,10 +170,9 @@ public class GTestXmlResultParserTest extends TestCase {
         }
     }
 
-    /**
-     * Tests the parser for a run with a bad file, as if the test hadn't outputed.
-     */
+    /** Tests the parser for a run with a bad file, as if the test hadn't outputed. */
     @SuppressWarnings("unchecked")
+    @Test
     public void testParseWithEmptyFile() throws Exception {
         String expected = "Failed to get an xml output from tests, it probably crashed";
 
@@ -191,10 +194,9 @@ public class GTestXmlResultParserTest extends TestCase {
         }
     }
 
-    /**
-     * Tests the parser for a simple test run output with 6 tests but report expected 7.
-     */
+    /** Tests the parser for a simple test run output with 6 tests but report expected 7. */
     @SuppressWarnings("unchecked")
+    @Test
     public void testParseUnexpectedNumberTest() throws Exception {
         String expected = "Test run incomplete. Expected 7 tests, received 6";
         File contents =  readInFile(GTEST_OUTPUT_FILE_4);
@@ -227,6 +229,7 @@ public class GTestXmlResultParserTest extends TestCase {
      * won't be parsed.
      */
     @SuppressWarnings("unchecked")
+    @Test
     public void testParseSimpleFile_badXmltag() throws Exception {
         String expected = "Test run incomplete. Expected 6 tests, received 3";
         File contents =  readInFile(GTEST_OUTPUT_FILE_5);
@@ -254,10 +257,9 @@ public class GTestXmlResultParserTest extends TestCase {
         }
     }
 
-    /**
-     * Tests the parser for a run with a bad file, with Collector output to get some logs.
-     */
+    /** Tests the parser for a run with a bad file, with Collector output to get some logs. */
     @SuppressWarnings("unchecked")
+    @Test
     public void testParseWithEmptyFile_AdditionalOutput() throws Exception {
         final String exec_log = "EXECUTION LOG";
         CollectingOutputReceiver fake = new CollectingOutputReceiver() {
@@ -281,6 +283,41 @@ public class GTestXmlResultParserTest extends TestCase {
             GTestXmlResultParser resultParser =
                     new GTestXmlResultParser(TEST_MODULE_NAME, mockRunListener);
             resultParser.parseResult(contents, fake);
+            EasyMock.verify(mockRunListener);
+        } finally {
+            FileUtil.deleteFile(contents);
+        }
+    }
+
+    /** Ensure that skipped status is properly carried. */
+    @SuppressWarnings("unchecked")
+    @Test
+    public void testParseSimpleFile_skipped() throws Exception {
+        File contents = readInFile(GTEST_OUTPUT_FILE_6);
+        TestDescription firstInFile = new TestDescription("InteropTest", "test_lookup_hit");
+        try {
+            ITestInvocationListener mockRunListener =
+                    EasyMock.createMock(ITestInvocationListener.class);
+            mockRunListener.testRunStarted(TEST_MODULE_NAME, 6);
+            mockRunListener.testStarted(firstInFile);
+            mockRunListener.testEnded(
+                    EasyMock.eq(firstInFile), (HashMap<String, Metric>) EasyMock.anyObject());
+            // 5 more passing test cases in this run
+            for (int i = 0; i < 5; ++i) {
+                mockRunListener.testStarted((TestDescription) EasyMock.anyObject());
+                if (i == 1) {
+                    mockRunListener.testIgnored((TestDescription) EasyMock.anyObject());
+                }
+                mockRunListener.testEnded(
+                        (TestDescription) EasyMock.anyObject(),
+                        (HashMap<String, Metric>) EasyMock.anyObject());
+            }
+            mockRunListener.testRunEnded(
+                    EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+            EasyMock.replay(mockRunListener);
+            GTestXmlResultParser resultParser =
+                    new GTestXmlResultParser(TEST_MODULE_NAME, mockRunListener);
+            resultParser.parseResult(contents, null);
             EasyMock.verify(mockRunListener);
         } finally {
             FileUtil.deleteFile(contents);

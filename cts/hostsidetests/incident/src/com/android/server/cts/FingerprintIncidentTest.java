@@ -16,9 +16,9 @@
 
 package com.android.server.cts;
 
-import com.android.server.fingerprint.FingerprintServiceDumpProto;
-import com.android.server.fingerprint.FingerprintUserStatsProto;
-import com.android.server.fingerprint.PerformanceStatsProto;
+import com.android.server.biometrics.fingerprint.FingerprintServiceDumpProto;
+import com.android.server.biometrics.fingerprint.FingerprintUserStatsProto;
+import com.android.server.biometrics.fingerprint.PerformanceStatsProto;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;

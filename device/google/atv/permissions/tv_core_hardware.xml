@@ -32,7 +32,7 @@
     <feature name="android.software.live_tv" />
     <feature name="android.software.picture_in_picture" notLowRam="true" />
     <feature name="android.software.activities_on_secondary_displays" notLowRam="true" />
-    <feature name="android.software.voice_recognizers" />
+    <feature name="android.software.voice_recognizers" notLowRam="true" />
     <feature name="android.software.input_methods" />
     <feature name="android.software.autofill" />
 

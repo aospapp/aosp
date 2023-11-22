@@ -32,7 +32,11 @@ TEST_F(ImageTest, TestImageLayout) {
   // Compile multi-image with ImageLayoutA being the last image.
   {
     CompilationHelper helper;
-    Compile(ImageHeader::kStorageModeUncompressed, helper, "ImageLayoutA", {"LMyClass;"});
+    Compile(ImageHeader::kStorageModeUncompressed,
+            /*max_image_block_size=*/std::numeric_limits<uint32_t>::max(),
+            helper,
+            "ImageLayoutA",
+            {"LMyClass;"});
     image_sizes = helper.GetImageObjectSectionSizes();
   }
   TearDown();
@@ -41,7 +45,11 @@ TEST_F(ImageTest, TestImageLayout) {
   // Compile multi-image with ImageLayoutB being the last image.
   {
     CompilationHelper helper;
-    Compile(ImageHeader::kStorageModeUncompressed, helper, "ImageLayoutB", {"LMyClass;"});
+    Compile(ImageHeader::kStorageModeUncompressed,
+            /*max_image_block_size=*/std::numeric_limits<uint32_t>::max(),
+            helper,
+            "ImageLayoutB",
+            {"LMyClass;"});
     image_sizes_extra = helper.GetImageObjectSectionSizes();
   }
   // Make sure that the new stuff in the clinit in ImageLayoutB is in the last image and not in the
@@ -65,7 +73,10 @@ TEST_F(ImageTest, ImageHeaderIsValid) {
     uint32_t oat_data_end = ART_BASE_ADDRESS + (9 * KB);
     uint32_t oat_file_end = ART_BASE_ADDRESS + (10 * KB);
     ImageSection sections[ImageHeader::kSectionCount];
-    ImageHeader image_header(image_begin,
+    uint32_t image_reservation_size = RoundUp(oat_file_end - image_begin, kPageSize);
+    ImageHeader image_header(image_reservation_size,
+                             /*component_count=*/ 1u,
+                             image_begin,
                              image_size_,
                              sections,
                              image_roots,
@@ -74,15 +85,10 @@ TEST_F(ImageTest, ImageHeaderIsValid) {
                              oat_data_begin,
                              oat_data_end,
                              oat_file_end,
-                             /*boot_image_begin*/0U,
-                             /*boot_image_size*/0U,
-                             /*boot_oat_begin*/0U,
-                             /*boot_oat_size_*/0U,
-                             sizeof(void*),
-                             /*compile_pic*/false,
-                             /*is_pic*/false,
-                             ImageHeader::kDefaultStorageMode,
-                             /*data_size*/0u);
+                             /*boot_image_begin=*/ 0u,
+                             /*boot_image_size=*/ 0u,
+                             sizeof(void*));
+
     ASSERT_TRUE(image_header.IsValid());
     ASSERT_TRUE(!image_header.IsAppImage());
 
@@ -101,9 +107,10 @@ TEST_F(ImageTest, ImageHeaderIsValid) {
 TEST_F(ImageTest, TestDefaultMethods) {
   CompilationHelper helper;
   Compile(ImageHeader::kStorageModeUncompressed,
-      helper,
-      "DefaultMethods",
-      {"LIface;", "LImpl;", "LIterableBase;"});
+          /*max_image_block_size=*/std::numeric_limits<uint32_t>::max(),
+          helper,
+          "DefaultMethods",
+          {"LIface;", "LImpl;", "LIterableBase;"});
 
   PointerSize pointer_size = class_linker_->GetImagePointerSize();
   Thread* self = Thread::Current();
@@ -111,18 +118,18 @@ TEST_F(ImageTest, TestDefaultMethods) {
 
   // Test the pointer to quick code is the same in origin method
   // and in the copied method form the same oat file.
-  mirror::Class* iface_klass = class_linker_->LookupClass(
-      self, "LIface;", ObjPtr<mirror::ClassLoader>());
+  ObjPtr<mirror::Class> iface_klass =
+      class_linker_->LookupClass(self, "LIface;", /*class_loader=*/ nullptr);
   ASSERT_NE(nullptr, iface_klass);
   ArtMethod* origin = iface_klass->FindInterfaceMethod("defaultMethod", "()V", pointer_size);
   ASSERT_NE(nullptr, origin);
-  ASSERT_TRUE(origin->GetDeclaringClass() == iface_klass);
+  ASSERT_OBJ_PTR_EQ(origin->GetDeclaringClass(), iface_klass);
   const void* code = origin->GetEntryPointFromQuickCompiledCodePtrSize(pointer_size);
   // The origin method should have a pointer to quick code
   ASSERT_NE(nullptr, code);
   ASSERT_FALSE(class_linker_->IsQuickToInterpreterBridge(code));
-  mirror::Class* impl_klass = class_linker_->LookupClass(
-      self, "LImpl;", ObjPtr<mirror::ClassLoader>());
+  ObjPtr<mirror::Class> impl_klass =
+      class_linker_->LookupClass(self, "LImpl;", /*class_loader=*/ nullptr);
   ASSERT_NE(nullptr, impl_klass);
   ArtMethod* copied = FindCopiedMethod(origin, impl_klass);
   ASSERT_NE(nullptr, copied);
@@ -132,26 +139,39 @@ TEST_F(ImageTest, TestDefaultMethods) {
   // Test the origin method has pointer to quick code
   // but the copied method has pointer to interpreter
   // because these methods are in different oat files.
-  mirror::Class* iterable_klass = class_linker_->LookupClass(
-      self, "Ljava/lang/Iterable;", ObjPtr<mirror::ClassLoader>());
+  ObjPtr<mirror::Class> iterable_klass =
+      class_linker_->LookupClass(self, "Ljava/lang/Iterable;", /*class_loader=*/ nullptr);
   ASSERT_NE(nullptr, iterable_klass);
   origin = iterable_klass->FindClassMethod(
       "forEach", "(Ljava/util/function/Consumer;)V", pointer_size);
   ASSERT_NE(nullptr, origin);
   ASSERT_FALSE(origin->IsDirect());
-  ASSERT_TRUE(origin->GetDeclaringClass() == iterable_klass);
+  ASSERT_OBJ_PTR_EQ(origin->GetDeclaringClass(), iterable_klass);
   code = origin->GetEntryPointFromQuickCompiledCodePtrSize(pointer_size);
   // the origin method should have a pointer to quick code
   ASSERT_NE(nullptr, code);
   ASSERT_FALSE(class_linker_->IsQuickToInterpreterBridge(code));
-  mirror::Class* iterablebase_klass = class_linker_->LookupClass(
-      self, "LIterableBase;", ObjPtr<mirror::ClassLoader>());
+  ObjPtr<mirror::Class> iterablebase_klass =
+      class_linker_->LookupClass(self, "LIterableBase;", /*class_loader=*/ nullptr);
   ASSERT_NE(nullptr, iterablebase_klass);
   copied = FindCopiedMethod(origin, iterablebase_klass);
   ASSERT_NE(nullptr, copied);
   code = copied->GetEntryPointFromQuickCompiledCodePtrSize(pointer_size);
   // the copied method should have a pointer to interpreter
   ASSERT_TRUE(class_linker_->IsQuickToInterpreterBridge(code));
+}
+
+// Regression test for dex2oat crash for soft verification failure during
+// class initialization check from the transactional interpreter while
+// running the class initializer for another class.
+TEST_F(ImageTest, TestSoftVerificationFailureDuringClassInitialization) {
+  CompilationHelper helper;
+  Compile(ImageHeader::kStorageModeUncompressed,
+          /*max_image_block_size=*/std::numeric_limits<uint32_t>::max(),
+          helper,
+          "VerifySoftFailDuringClinit",
+          /*image_classes=*/ {"LClassToInitialize;"},
+          /*image_classes_failing_aot_clinit=*/ {"LClassToInitialize;"});
 }
 
 }  // namespace linker

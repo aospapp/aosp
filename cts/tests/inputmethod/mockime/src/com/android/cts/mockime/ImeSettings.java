@@ -16,8 +16,9 @@
 
 package com.android.cts.mockime;
 
-import android.os.Parcel;
+import android.os.Bundle;
 import android.os.PersistableBundle;
+
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -28,7 +29,13 @@ import androidx.annotation.Nullable;
 public class ImeSettings {
 
     @NonNull
+    private final String mClientPackageName;
+
+    @NonNull
     private final String mEventCallbackActionName;
+
+    private static final String EVENT_CALLBACK_INTENT_ACTION_KEY = "eventCallbackActionName";
+    private static final String DATA_KEY = "data";
 
     private static final String BACKGROUND_COLOR_KEY = "BackgroundColor";
     private static final String NAVIGATION_BAR_COLOR_KEY = "NavigationBarColor";
@@ -44,14 +51,20 @@ public class ImeSettings {
     @NonNull
     private final PersistableBundle mBundle;
 
-    ImeSettings(@NonNull Parcel parcel) {
-        mEventCallbackActionName = parcel.readString();
-        mBundle = parcel.readPersistableBundle();
+    ImeSettings(@NonNull String clientPackageName, @NonNull Bundle bundle) {
+        mClientPackageName = clientPackageName;
+        mEventCallbackActionName = bundle.getString(EVENT_CALLBACK_INTENT_ACTION_KEY);
+        mBundle = bundle.getParcelable(DATA_KEY);
     }
 
     @Nullable
     String getEventCallbackActionName() {
         return mEventCallbackActionName;
+    }
+
+    @NonNull
+    String getClientPackageName() {
+        return mClientPackageName;
     }
 
     public boolean fullscreenModeAllowed(boolean defaultValue) {
@@ -92,14 +105,12 @@ public class ImeSettings {
         return mBundle.getBoolean(HARD_KEYBOARD_CONFIGURATION_BEHAVIOR_ALLOWED, defaultValue);
     }
 
-    static void writeToParcel(@NonNull Parcel parcel, @NonNull String eventCallbackActionName,
+    static Bundle serializeToBundle(@NonNull String eventCallbackActionName,
             @Nullable Builder builder) {
-        parcel.writeString(eventCallbackActionName);
-        if (builder != null) {
-            parcel.writePersistableBundle(builder.mBundle);
-        } else {
-            parcel.writePersistableBundle(PersistableBundle.EMPTY);
-        }
+        final Bundle result = new Bundle();
+        result.putString(EVENT_CALLBACK_INTENT_ACTION_KEY, eventCallbackActionName);
+        result.putParcelable(DATA_KEY, builder != null ? builder.mBundle : PersistableBundle.EMPTY);
+        return result;
     }
 
     /**

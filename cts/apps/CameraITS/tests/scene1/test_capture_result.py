@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
+import os.path
 import its.caps
 import its.device
+import its.image
 import its.objects
-import os.path
-import numpy
 import matplotlib.pyplot
+import mpl_toolkits.mplot3d  # Required for 3d plot to work
+import numpy
 
-# Required for 3d plot to work
-import mpl_toolkits.mplot3d
 
 def main():
     """Test that valid data comes back in CaptureResult objects.
@@ -38,13 +37,13 @@ def main():
                              its.caps.manual_post_proc(props) and
                              its.caps.per_frame_control(props))
 
-        manual_tonemap = [0,0, 1,1] # Linear
+        manual_tonemap = [0,0, 1,1]  # Linear
         manual_transform = its.objects.float_to_rational(
                 [-1.5,-1.0,-0.5, 0.0,0.5,1.0, 1.5,2.0,3.0])
         manual_gains = [1,1.5,2.0,3.0]
         manual_region = [{"x":8,"y":8,"width":128,"height":128,"weight":1}]
-        manual_exp_time = min(props['android.sensor.info.exposureTimeRange'])
-        manual_sensitivity = min(props['android.sensor.info.sensitivityRange'])
+        manual_exp_time = min(props["android.sensor.info.exposureTimeRange"])
+        manual_sensitivity = min(props["android.sensor.info.sensitivityRange"])
 
         # The camera HAL may not support different gains for two G channels.
         manual_gains_ok = [[1,1.5,2.0,3.0],[1,1.5,1.5,3.0],[1,2.0,2.0,3.0]]
@@ -53,67 +52,80 @@ def main():
         auto_req["android.statistics.lensShadingMapMode"] = 1
 
         manual_req = {
-            "android.control.mode": 0,
-            "android.control.aeMode": 0,
-            "android.control.awbMode": 0,
-            "android.control.afMode": 0,
-            "android.sensor.sensitivity": manual_sensitivity,
-            "android.sensor.exposureTime": manual_exp_time,
-            "android.colorCorrection.mode": 0,
-            "android.colorCorrection.transform": manual_transform,
-            "android.colorCorrection.gains": manual_gains,
-            "android.tonemap.mode": 0,
-            "android.tonemap.curve": {"red": manual_tonemap,
-                                      "green": manual_tonemap,
-                                      "blue": manual_tonemap},
-            "android.control.aeRegions": manual_region,
-            "android.control.afRegions": manual_region,
-            "android.control.awbRegions": manual_region,
-            "android.statistics.lensShadingMapMode":1
-            }
+                "android.control.mode": 0,
+                "android.control.aeMode": 0,
+                "android.control.awbMode": 0,
+                "android.control.afMode": 0,
+                "android.sensor.sensitivity": manual_sensitivity,
+                "android.sensor.exposureTime": manual_exp_time,
+                "android.colorCorrection.mode": 0,
+                "android.colorCorrection.transform": manual_transform,
+                "android.colorCorrection.gains": manual_gains,
+                "android.tonemap.mode": 0,
+                "android.tonemap.curve": {"red": manual_tonemap,
+                                          "green": manual_tonemap,
+                                          "blue": manual_tonemap},
+                "android.control.aeRegions": manual_region,
+                "android.control.afRegions": manual_region,
+                "android.control.awbRegions": manual_region,
+                "android.statistics.lensShadingMapMode": 1
+                }
 
+        sync_latency = its.caps.sync_latency(props)
         print "Testing auto capture results"
-        lsc_map_auto = test_auto(cam, props)
+        lsc_map_auto = test_auto(cam, props, sync_latency)
         print "Testing manual capture results"
-        test_manual(cam, lsc_map_auto, props)
+        test_manual(cam, lsc_map_auto, props, sync_latency)
         print "Testing auto capture results again"
-        test_auto(cam, props)
+        test_auto(cam, props, sync_latency)
 
-# A very loose definition for two floats being close to each other;
-# there may be different interpolation and rounding used to get the
-# two values, and all this test is looking at is whether there is
-# something obviously broken; it's not looking for a perfect match.
+
 def is_close_float(n1, n2):
+    """A very loose definition for two floats being close to each other.
+
+    there may be different interpolation and rounding used to get the
+    two values, and all this test is looking at is whether there is
+    something obviously broken; it's not looking for a perfect match.
+
+    Args:
+        n1:     float 1
+        n2:     float 2
+    Returns:
+        Boolean
+    """
     return abs(n1 - n2) < 0.05
+
 
 def is_close_rational(n1, n2):
     return is_close_float(its.objects.rational_to_float(n1),
                           its.objects.rational_to_float(n2))
 
+
 def draw_lsc_plot(w_map, h_map, lsc_map, name):
     for ch in range(4):
         fig = matplotlib.pyplot.figure()
-        ax = fig.gca(projection='3d')
+        ax = fig.gca(projection="3d")
         xs = numpy.array([range(w_map)] * h_map).reshape(h_map, w_map)
         ys = numpy.array([[i]*w_map for i in range(h_map)]).reshape(
                 h_map, w_map)
         zs = numpy.array(lsc_map[ch::4]).reshape(h_map, w_map)
         ax.plot_wireframe(xs, ys, zs)
-        matplotlib.pyplot.savefig("%s_plot_lsc_%s_ch%d.png"%(NAME,name,ch))
+        matplotlib.pyplot.savefig("%s_plot_lsc_%s_ch%d.png"%(NAME, name, ch))
 
-def test_auto(cam, props):
+
+def test_auto(cam, props, sync_latency):
     # Get 3A lock first, so the auto values in the capture result are
     # populated properly.
-    rect = [[0,0,1,1,1]]
+    rect = [[0, 0, 1, 1, 1]]
     mono_camera = its.caps.mono_camera(props)
     cam.do_3a(rect, rect, rect, do_af=False, mono_camera=mono_camera)
 
-    cap = cam.do_capture(auto_req)
+    cap = its.device.do_capture_with_latency(cam, auto_req, sync_latency)
     cap_res = cap["metadata"]
 
     gains = cap_res["android.colorCorrection.gains"]
     transform = cap_res["android.colorCorrection.transform"]
-    exp_time = cap_res['android.sensor.exposureTime']
+    exp_time = cap_res["android.sensor.exposureTime"]
     lsc_obj = cap_res["android.statistics.lensShadingCorrectionMap"]
     lsc_map = lsc_obj["map"]
     w_map = lsc_obj["width"]
@@ -125,11 +137,11 @@ def test_auto(cam, props):
     print "Transform:", [its.objects.rational_to_float(t)
                          for t in transform]
     if props["android.control.maxRegionsAe"] > 0:
-        print "AE region:", cap_res['android.control.aeRegions']
+        print "AE region:", cap_res["android.control.aeRegions"]
     if props["android.control.maxRegionsAf"] > 0:
-        print "AF region:", cap_res['android.control.afRegions']
+        print "AF region:", cap_res["android.control.afRegions"]
     if props["android.control.maxRegionsAwb"] > 0:
-        print "AWB region:", cap_res['android.control.awbRegions']
+        print "AWB region:", cap_res["android.control.awbRegions"]
     print "LSC map:", w_map, h_map, lsc_map[:8]
 
     assert(ctrl_mode == 1)
@@ -157,8 +169,9 @@ def test_auto(cam, props):
 
     return lsc_map
 
-def test_manual(cam, lsc_map_auto, props):
-    cap = cam.do_capture(manual_req)
+
+def test_manual(cam, lsc_map_auto, props, sync_latency):
+    cap = its.device.do_capture_with_latency(cam, manual_req, sync_latency)
     cap_res = cap["metadata"]
 
     gains = cap_res["android.colorCorrection.gains"]
@@ -166,7 +179,7 @@ def test_manual(cam, lsc_map_auto, props):
     curves = [cap_res["android.tonemap.curve"]["red"],
               cap_res["android.tonemap.curve"]["green"],
               cap_res["android.tonemap.curve"]["blue"]]
-    exp_time = cap_res['android.sensor.exposureTime']
+    exp_time = cap_res["android.sensor.exposureTime"]
     lsc_obj = cap_res["android.statistics.lensShadingCorrectionMap"]
     lsc_map = lsc_obj["map"]
     w_map = lsc_obj["width"]
@@ -179,11 +192,11 @@ def test_manual(cam, lsc_map_auto, props):
                          for t in transform]
     print "Tonemap:", curves[0][1::16]
     if props["android.control.maxRegionsAe"] > 0:
-        print "AE region:", cap_res['android.control.aeRegions']
+        print "AE region:", cap_res["android.control.aeRegions"]
     if props["android.control.maxRegionsAf"] > 0:
-        print "AF region:", cap_res['android.control.afRegions']
+        print "AF region:", cap_res["android.control.afRegions"]
     if props["android.control.maxRegionsAwb"] > 0:
-        print "AWB region:", cap_res['android.control.awbRegions']
+        print "AWB region:", cap_res["android.control.awbRegions"]
     print "LSC map:", w_map, h_map, lsc_map[:8]
 
     assert(ctrl_mode == 0)
@@ -218,6 +231,7 @@ def test_manual(cam, lsc_map_auto, props):
 
     draw_lsc_plot(w_map, h_map, lsc_map, "manual")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
 

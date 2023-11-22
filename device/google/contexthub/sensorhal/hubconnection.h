@@ -29,7 +29,6 @@
 
 #include <list>
 
-#include "activityeventhandler.h"
 #include "directchannel.h"
 #include "eventnums.h"
 #include "halIntf.h"
@@ -81,8 +80,6 @@ struct HubConnection : public Thread {
     //TODO: factor out event ring buffer functionality into a separate class
     ssize_t read(sensors_event_t *ev, size_t size);
     ssize_t write(const sensors_event_t *ev, size_t n);
-
-    void setActivityCallback(ActivityEventHandler *eventHandler);
 
     void saveSensorSettings() const;
 
@@ -240,8 +237,6 @@ private:
 
     RingBuffer mRing;
     int32_t mWriteFailures;
-
-    ActivityEventHandler *mActivityEventHandler;
 
     float mMagBias[3];
     uint8_t mMagAccuracy;

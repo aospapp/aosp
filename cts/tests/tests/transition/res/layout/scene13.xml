@@ -22,34 +22,34 @@
     android:transitionName="holder"
     android:id="@+id/holder">
     <View
-        android:layout_width="10dp"
-        android:layout_height="10dp"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
         android:background="#F00"
         android:layout_centerInParent="true"
         android:transitionName="redSquare"
         android:id="@+id/redSquare"/>
     <View
-        android:layout_width="10dp"
-        android:layout_height="10dp"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
         android:background="#000"
         android:layout_alignParentRight="true"
         android:layout_alignParentTop="true"
         android:id="@+id/blackSquare"/>
     <View
-        android:layout_width="10dp"
-        android:layout_height="10dp"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
         android:background="#0F0"
         android:layout_toRightOf="@id/blackSquare"
         android:id="@+id/greenSquare"/>
     <View
-        android:layout_width="10dp"
-        android:layout_height="10dp"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
         android:background="#00F"
         android:layout_toRightOf="@id/greenSquare"
         android:id="@+id/blueSquare"/>
     <View
-        android:layout_width="10dp"
-        android:layout_height="10dp"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
         android:background="#FF0"
         android:layout_toRightOf="@id/blueSquare"
         android:id="@+id/yellowSquare"/>

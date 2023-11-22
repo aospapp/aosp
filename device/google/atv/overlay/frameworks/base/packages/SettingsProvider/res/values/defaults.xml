@@ -28,4 +28,15 @@
     <!-- Do not give up on DHCP -->
     <integer name="def_max_dhcp_retries">0</integer>
 
+    <!-- disable network monitoring support
+         NOTE: we may need to reenable this in a future release
+         to support new developer oriented monitoring tools -->
+    <bool name="def_netstats_enabled">false</bool>
+
+    <!-- ms until the system goes to sleep, 3 hours default for TV devices -->
+    <integer name="def_sleep_timeout">10800000</integer>
+
+    <!-- Default screen timeout set when setting screensaver. Currently (15 * 60 * 1000) = 15 min -->
+    <integer name="def_screen_off_timeout">900000</integer>
+
 </resources>

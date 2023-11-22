@@ -31,6 +31,7 @@ import java.security.cert.X509Certificate;
  */
 @Implements(TrustedCertificateStore.class)
 public class ShadowTrustedCertificateStore {
+
     public static TrustedCertificateStore sDelegate;
 
     @Implementation
@@ -49,9 +50,7 @@ public class ShadowTrustedCertificateStore {
     }
 
     @Implementation
-    public void deleteCertificateEntry(String alias)
-            throws IOException, CertificateException {
+    public void deleteCertificateEntry(String alias) throws IOException, CertificateException {
         sDelegate.deleteCertificateEntry(alias);
     }
 }
-

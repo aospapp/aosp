@@ -61,17 +61,20 @@ public class DeviceOwnerProvisioningController extends AbstractProvisioningContr
     protected void setUpTasks() {
         addTasks(new DeviceOwnerInitializeProvisioningTask(mContext, mParams, this));
 
-        if (mParams.wifiInfo != null) {
-            addTasks(new AddWifiNetworkTask(mContext, mParams, this));
-        } else if (mParams.useMobileData) {
-            addTasks(new ConnectMobileNetworkTask(mContext, mParams, this));
-        }
+        // If new flow is not supported then we should still download the package.
+        if (!mParams.isOrganizationOwnedProvisioning) {
+            if (mParams.wifiInfo != null) {
+                addTasks(new AddWifiNetworkTask(mContext, mParams, this));
+            } else if (mParams.useMobileData) {
+                addTasks(new ConnectMobileNetworkTask(mContext, mParams, this));
+            }
 
-        if (mParams.deviceAdminDownloadInfo != null) {
-            DownloadPackageTask downloadTask = new DownloadPackageTask(mContext, mParams, this);
-            addTasks(downloadTask,
-                    new VerifyPackageTask(downloadTask, mContext, mParams, this),
-                    new InstallPackageTask(downloadTask, mContext, mParams, this));
+            if (mParams.deviceAdminDownloadInfo != null) {
+                DownloadPackageTask downloadTask = new DownloadPackageTask(mContext, mParams, this);
+                addTasks(downloadTask,
+                        new VerifyPackageTask(downloadTask, mContext, mParams, this),
+                        new InstallPackageTask(downloadTask, mContext, mParams, this));
+            }
         }
 
         addTasks(
@@ -92,27 +95,27 @@ public class DeviceOwnerProvisioningController extends AbstractProvisioningContr
     @Override
     protected int getErrorMsgId(AbstractProvisioningTask task, int errorCode) {
         if (task instanceof AddWifiNetworkTask) {
-            return R.string.device_owner_error_wifi;
+            return R.string.error_wifi;
         } else if (task instanceof DownloadPackageTask) {
             switch (errorCode) {
                 case DownloadPackageTask.ERROR_DOWNLOAD_FAILED:
-                    return R.string.device_owner_error_download_failed;
+                    return R.string.error_download_failed;
                 case DownloadPackageTask.ERROR_OTHER:
                     return R.string.cant_set_up_device;
             }
         } else if (task instanceof VerifyPackageTask) {
             switch (errorCode) {
                 case VerifyPackageTask.ERROR_HASH_MISMATCH:
-                    return R.string.device_owner_error_hash_mismatch;
+                    return R.string.error_hash_mismatch;
                 case VerifyPackageTask.ERROR_DEVICE_ADMIN_MISSING:
-                    return R.string.device_owner_error_package_invalid;
+                    return R.string.error_package_invalid;
             }
         } else if (task instanceof InstallPackageTask) {
             switch (errorCode) {
                 case InstallPackageTask.ERROR_PACKAGE_INVALID:
-                    return R.string.device_owner_error_package_invalid;
+                    return R.string.error_package_invalid;
                 case InstallPackageTask.ERROR_INSTALLATION_FAILED:
-                    return R.string.device_owner_error_installation_failed;
+                    return R.string.error_installation_failed;
             }
         }
 

@@ -19,10 +19,14 @@
     <group>Content</group>
     <package>com.example.android.directoryselection</package>
 
-    <dependency>com.android.support:recyclerview-v7:+</dependency>
+    <androidX>true</androidX>
+
+    <dependency>androidx.appcompat:appcompat:1.0.2</dependency>
+    <dependency>androidx.recyclerview:recyclerview:1.0.0</dependency>
 
     <!-- change minSdk if needed-->
     <minSdk>21</minSdk>
+    <compileSdkVersion>28</compileSdkVersion>
 
     <strings>
         <intro>

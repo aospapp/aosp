@@ -21,7 +21,6 @@
 
 #include "android-base/stringprintf.h"
 
-#include "base/utils.h"
 #include "common_throws.h"
 #include "dex/descriptors_names.h"
 #include "dex/primitive.h"
@@ -121,7 +120,7 @@ inline bool VerifyObjectIsClass(ObjPtr<mirror::Object> o, ObjPtr<mirror::Class> 
   if (UNLIKELY(o == nullptr)) {
     ThrowNullPointerException("null receiver");
     return false;
-  } else if (UNLIKELY(!o->InstanceOf(c.Ptr()))) {
+  } else if (UNLIKELY(!o->InstanceOf(c))) {
     InvalidReceiverError(o, c);
     return false;
   }

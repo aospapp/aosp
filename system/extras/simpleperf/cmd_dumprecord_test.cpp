@@ -18,6 +18,7 @@
 
 #include "command.h"
 #include "get_test_data.h"
+#include "test_util.h"
 
 static std::unique_ptr<Command> DumpCmd() {
   return CreateCommandInstance("dump");
@@ -33,4 +34,13 @@ TEST(cmd_dump, dump_data_generated_by_linux_perf) {
 
 TEST(cmd_dump, dump_callchain_records) {
   ASSERT_TRUE(DumpCmd()->Run({GetTestData(PERF_DATA_WITH_CALLCHAIN_RECORD)}));
+}
+
+TEST(cmd_dump, dump_callchain_of_sample_records) {
+  CaptureStdout capture;
+  ASSERT_TRUE(capture.Start());
+  ASSERT_TRUE(DumpCmd()->Run({GetTestData(PERF_DATA_WITH_INTERPRETER_FRAMES)}));
+  std::string data = capture.Finish();
+  ASSERT_NE(data.find("[kernel.kallsyms][+ffffffc000086b4a]"), std::string::npos);
+  ASSERT_NE(data.find("__ioctl (/system/lib64/libc.so[+70b6c])"), std::string::npos);
 }

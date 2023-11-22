@@ -18,4 +18,5 @@
 -->
 <resources>
     <bool name="lock_to_portrait">true</bool>
+    <bool name="show_edu_animations">false</bool>
 </resources>

@@ -32,7 +32,6 @@ import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.hardware.camera2.params.InputConfiguration;
-import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
@@ -44,10 +43,11 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.Test;
+
 /**
  * <p>Tests for Reprocess API.</p>
  */
-@AppModeFull
 public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     private static final String TAG = "ReprocessCaptureTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -88,6 +88,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     /**
      * Test YUV_420_888 -> YUV_420_888 with maximal supported sizes
      */
+    @Test
     public void testBasicYuvToYuvReprocessing() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id)) {
@@ -102,6 +103,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     /**
      * Test YUV_420_888 -> JPEG with maximal supported sizes
      */
+    @Test
     public void testBasicYuvToJpegReprocessing() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id)) {
@@ -114,8 +116,27 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     }
 
     /**
+     * Test YUV_420_888 -> HEIC with maximal supported sizes
+     */
+    @Test
+    public void testBasicYuvToHeicReprocessing() throws Exception {
+        for (String id : mCameraIds) {
+            if (!isYuvReprocessSupported(id)) {
+                continue;
+            }
+            if (!mAllStaticInfo.get(id).isHeicSupported()) {
+                continue;
+            }
+
+            // YUV_420_888 -> HEIC must be supported.
+            testBasicReprocessing(id, ImageFormat.YUV_420_888, ImageFormat.HEIC);
+        }
+    }
+
+    /**
      * Test OPAQUE -> YUV_420_888 with maximal supported sizes
      */
+    @Test
     public void testBasicOpaqueToYuvReprocessing() throws Exception {
         for (String id : mCameraIds) {
             if (!isOpaqueReprocessSupported(id)) {
@@ -130,6 +151,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     /**
      * Test OPAQUE -> JPEG with maximal supported sizes
      */
+    @Test
     public void testBasicOpaqueToJpegReprocessing() throws Exception {
         for (String id : mCameraIds) {
             if (!isOpaqueReprocessSupported(id)) {
@@ -142,8 +164,27 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     }
 
     /**
+     * Test OPAQUE -> HEIC with maximal supported sizes
+     */
+    @Test
+    public void testBasicOpaqueToHeicReprocessing() throws Exception {
+        for (String id : mCameraIds) {
+            if (!isOpaqueReprocessSupported(id)) {
+                continue;
+            }
+            if (!mAllStaticInfo.get(id).isHeicSupported()) {
+                continue;
+            }
+
+            // OPAQUE -> HEIC must be supported.
+            testBasicReprocessing(id, ImageFormat.PRIVATE, ImageFormat.HEIC);
+        }
+    }
+
+    /**
      * Test all supported size and format combinations.
      */
+    @Test(timeout=400*60*1000) // timeout = 400 mins for long running reprocessing tests
     public void testReprocessingSizeFormat() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id) && !isOpaqueReprocessSupported(id)) {
@@ -165,6 +206,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     /**
      * Test all supported size and format combinations with preview.
      */
+    @Test(timeout=400*60*1000) // timeout = 400 mins for long running reprocessing tests
     public void testReprocessingSizeFormatWithPreview() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id) && !isOpaqueReprocessSupported(id)) {
@@ -185,6 +227,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     /**
      * Test recreating reprocessing sessions.
      */
+    @Test
     public void testRecreateReprocessingSessions() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id) && !isOpaqueReprocessSupported(id)) {
@@ -222,6 +265,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     /**
      * Verify issuing cross session capture requests is invalid.
      */
+    @Test
     public void testCrossSessionCaptureException() throws Exception {
         for (String id : mCameraIds) {
             // Test one supported input format -> JPEG
@@ -291,6 +335,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     /**
      * Test burst reprocessing captures with and without preview.
      */
+    @Test(timeout=400*60*1000) // timeout = 400 mins for long running reprocessing tests
     public void testBurstReprocessing() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id) && !isOpaqueReprocessSupported(id)) {
@@ -314,6 +359,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     /**
      * Test burst captures mixed with regular and reprocess captures with and without preview.
      */
+    @Test(timeout=400*60*1000) // timeout = 400 mins for long running reprocessing tests
     public void testMixedBurstReprocessing() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id) && !isOpaqueReprocessSupported(id)) {
@@ -339,6 +385,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
      * Test aborting reprocess capture requests of the largest input and output sizes for each
      * supported format.
      */
+    @Test
     public void testReprocessAbort() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id) && !isOpaqueReprocessSupported(id)) {
@@ -368,6 +415,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     /**
      * Test reprocess timestamps for the largest input and output sizes for each supported format.
      */
+    @Test
     public void testReprocessTimestamps() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id) && !isOpaqueReprocessSupported(id)) {
@@ -398,6 +446,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
      * Test reprocess jpeg output's exif data for the largest input and output sizes for each
      * supported format.
      */
+    @Test
     public void testReprocessJpegExif() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id) && !isOpaqueReprocessSupported(id)) {
@@ -428,6 +477,7 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
         }
     }
 
+    @Test
     public void testReprocessRequestKeys() throws Exception {
         for (String id : mCameraIds) {
             if (!isYuvReprocessSupported(id) && !isOpaqueReprocessSupported(id)) {
@@ -511,6 +561,9 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     private void testReprocessingAllCombinations(String cameraId, Size previewSize,
             CaptureTestCase captureTestCase) throws Exception {
 
+        Size QCIF = new Size(176, 144);
+        Size VGA = new Size(640, 480);
+        Size FULL_HD = new Size(1920, 1080);
         int[] supportedInputFormats =
                 mStaticInfo.getAvailableFormats(StaticMetadata.StreamDirection.Input);
         for (int inputFormat : supportedInputFormats) {
@@ -528,6 +581,24 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
                             StaticMetadata.StreamDirection.Output);
 
                     for (Size reprocessOutputSize : supportedReprocessOutputSizes) {
+                        // Handle QCIF exceptions
+                        if (reprocessOutputSize.equals(QCIF) &&
+                                ((inputSize.getWidth() > FULL_HD.getWidth()) ||
+                                 (inputSize.getHeight() > FULL_HD.getHeight()))) {
+                            continue;
+                        }
+                        if (inputSize.equals(QCIF) &&
+                                ((reprocessOutputSize.getWidth() > FULL_HD.getWidth()) ||
+                                 (reprocessOutputSize.getHeight() > FULL_HD.getHeight()))) {
+                            continue;
+                        }
+                        if ((previewSize != null) &&
+                                ((previewSize.getWidth() > FULL_HD.getWidth()) || (
+                                  previewSize.getHeight() > FULL_HD.getHeight())) &&
+                                (inputSize.equals(QCIF) || reprocessOutputSize.equals(QCIF))) {
+                            previewSize = VGA;
+                        }
+
                         switch (captureTestCase) {
                             case SINGLE_SHOT:
                                 testReprocess(cameraId, inputSize, inputFormat,
@@ -963,7 +1034,8 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
                 // Verify output image's and result's JPEG EXIF data.
                 Image image = getReprocessOutputImageReaderListener().getImage(CAPTURE_TIMEOUT_MS);
                 verifyJpegKeys(image, reprocessResults[i], reprocessOutputSize,
-                        testThumbnailSizes[i], EXIF_TEST_DATA[i], mStaticInfo, mCollector);
+                        testThumbnailSizes[i], EXIF_TEST_DATA[i], mStaticInfo, mCollector,
+                        mDebugFileNameBase, ImageFormat.JPEG);
                 image.close();
 
             }
@@ -1371,10 +1443,13 @@ public class ReprocessCaptureTest extends Camera2SurfaceViewTestCase  {
     }
 
     private void dumpImage(Image image, String name) {
-        String filename = DEBUG_FILE_NAME_BASE + name;
+        String filename = mDebugFileNameBase + name;
         switch(image.getFormat()) {
             case ImageFormat.JPEG:
                 filename += ".jpg";
+                break;
+            case ImageFormat.HEIC:
+                filename += ".heic";
                 break;
             case ImageFormat.NV16:
             case ImageFormat.NV21:

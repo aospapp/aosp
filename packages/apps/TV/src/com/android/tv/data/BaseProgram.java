@@ -21,7 +21,9 @@ import android.media.tv.TvContentRating;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import com.android.tv.R;
+import com.google.common.collect.ImmutableList;
 import java.util.Comparator;
+import java.util.Objects;
 
 /**
  * Base class for {@link com.android.tv.data.Program} and {@link
@@ -42,6 +44,10 @@ public abstract class BaseProgram {
      */
     public static final Comparator<BaseProgram> SEASON_REVERSED_EPISODE_COMPARATOR =
             new EpisodeComparator(true);
+
+    public static final String COLUMN_SERIES_ID = "series_id";
+
+    public static final String COLUMN_STATE = "state";
 
     private static class EpisodeComparator implements Comparator<BaseProgram> {
         private final boolean mReversedSeason;
@@ -66,7 +72,7 @@ public abstract class BaseProgram {
 
     /** Compares two strings represent season numbers or episode numbers of programs. */
     public static int numberCompare(String s1, String s2) {
-        if (s1 == s2) {
+        if (Objects.equals(s1, s2)) {
             return 0;
         } else if (s1 == null) {
             return -1;
@@ -92,6 +98,7 @@ public abstract class BaseProgram {
     public abstract String getEpisodeTitle();
 
     /** Returns the displayed title of the program episode. */
+    @Nullable
     public String getEpisodeDisplayTitle(Context context) {
         String episodeNumber = getEpisodeNumber();
         String episodeTitle = getEpisodeTitle();
@@ -162,6 +169,7 @@ public abstract class BaseProgram {
     public abstract long getDurationMillis();
 
     /** Returns the series ID. */
+    @Nullable
     public abstract String getSeriesId();
 
     /** Returns the season number. */
@@ -180,8 +188,7 @@ public abstract class BaseProgram {
     public abstract int[] getCanonicalGenreIds();
 
     /** Returns the array of content ratings. */
-    @Nullable
-    public abstract TvContentRating[] getContentRatings();
+    public abstract ImmutableList<TvContentRating> getContentRatings();
 
     /** Returns channel's ID of the program. */
     public abstract long getChannelId();

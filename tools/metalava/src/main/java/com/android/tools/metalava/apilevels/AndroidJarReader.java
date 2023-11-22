@@ -15,6 +15,7 @@
  */
 package com.android.tools.metalava.apilevels;
 
+import com.android.SdkConstants;
 import com.android.tools.metalava.model.Codebase;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
@@ -36,7 +37,7 @@ import java.util.zip.ZipInputStream;
 /**
  * Reads all the android.jar files found in an SDK and generate a map of {@link ApiClass}.
  */
-public class AndroidJarReader {
+class AndroidJarReader {
     private int mMinApi;
     private int mCurrentApi;
     private File mCurrentJar;
@@ -62,8 +63,14 @@ public class AndroidJarReader {
     }
 
     public Api getApi() throws IOException {
-        Api api = new Api();
+        Api api;
         if (mApiLevels != null) {
+            int max = mApiLevels.length - 1;
+            if (mCodebase != null) {
+                max = mCodebase.getApiLevel();
+            }
+
+            api = new Api(max);
             for (int apiLevel = 1; apiLevel < mApiLevels.length; apiLevel++) {
                 File jar = getAndroidJarFile(apiLevel);
                 readJar(api, apiLevel, jar);
@@ -75,6 +82,7 @@ public class AndroidJarReader {
                 }
             }
         } else {
+            api = new Api(mCurrentApi);
             // Get all the android.jar. They are in platforms-#
             int apiLevel = mMinApi - 1;
             while (true) {
@@ -96,6 +104,7 @@ public class AndroidJarReader {
             }
         }
 
+        api.inlineFromHiddenSuperClasses();
         api.removeImplicitInterfaces();
         api.removeOverridingMethods();
 
@@ -118,20 +127,16 @@ public class AndroidJarReader {
         while (entry != null) {
             String name = entry.getName();
 
-            if (name.endsWith(".class")) {
+            if (name.endsWith(SdkConstants.DOT_CLASS)) {
                 byte[] bytes = ByteStreams.toByteArray(zis);
-                if (bytes == null) {
-                    System.err.println("Warning: Couldn't read " + name);
-                    entry = zis.getNextEntry();
-                    continue;
-                }
-
                 ClassReader reader = new ClassReader(bytes);
                 ClassNode classNode = new ClassNode(Opcodes.ASM5);
                 reader.accept(classNode, 0 /*flags*/);
 
                 ApiClass theClass = api.addClass(classNode.name, apiLevel,
                     (classNode.access & Opcodes.ACC_DEPRECATED) != 0);
+
+                theClass.updateHidden(apiLevel, (classNode.access & Opcodes.ACC_PUBLIC) == 0);
 
                 // super class
                 if (classNode.superName != null) {
@@ -146,7 +151,7 @@ public class AndroidJarReader {
                 // fields
                 for (Object field : classNode.fields) {
                     FieldNode fieldNode = (FieldNode) field;
-                    if ((fieldNode.access & Opcodes.ACC_PRIVATE) != 0) {
+                    if (((fieldNode.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PROTECTED)) == 0)) {
                         continue;
                     }
                     if (!fieldNode.name.startsWith("this$") &&
@@ -159,7 +164,7 @@ public class AndroidJarReader {
                 // methods
                 for (Object method : classNode.methods) {
                     MethodNode methodNode = (MethodNode) method;
-                    if ((methodNode.access & Opcodes.ACC_PRIVATE) != 0) {
+                    if (((methodNode.access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PROTECTED)) == 0)) {
                         continue;
                     }
                     if (!methodNode.name.equals("<clinit>")) {

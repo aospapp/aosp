@@ -34,6 +34,7 @@ type configImpl struct {
 	arguments []string
 	goma      bool
 	environ   *Environment
+	distDir   string
 
 	// From the arguments
 	parallel   int
@@ -44,10 +45,19 @@ type configImpl struct {
 	skipMake   bool
 
 	// From the product config
-	katiArgs     []string
-	ninjaArgs    []string
-	katiSuffix   string
-	targetDevice string
+	katiArgs        []string
+	ninjaArgs       []string
+	katiSuffix      string
+	targetDevice    string
+	targetDeviceDir string
+
+	pdkBuild bool
+
+	brokenDupRules     bool
+	brokenPhonyTargets bool
+	brokenUsesNetwork  bool
+
+	pathReplaced bool
 }
 
 const srcDirFileCheck = "build/soong/root.bp"
@@ -78,6 +88,12 @@ func NewConfig(ctx Context, args ...string) Config {
 		ret.environ.Set("OUT_DIR", outDir)
 	}
 
+	if distDir, ok := ret.environ.Get("DIST_DIR"); ok {
+		ret.distDir = filepath.Clean(distDir)
+	} else {
+		ret.distDir = filepath.Join(ret.OutDir(), "dist")
+	}
+
 	ret.environ.Unset(
 		// We're already using it
 		"USE_SOONG_UI",
@@ -99,9 +115,15 @@ func NewConfig(ctx Context, args ...string) Config {
 		// We handle this above
 		"OUT_DIR_COMMON_BASE",
 
+		// This is handled above too, and set for individual commands later
+		"DIST_DIR",
+
 		// Variables that have caused problems in the past
+		"CDPATH",
 		"DISPLAY",
 		"GREP_OPTIONS",
+		"NDK_ROOT",
+		"POSIXLY_CORRECT",
 
 		// Drop make flags
 		"MAKEFLAGS",
@@ -110,10 +132,27 @@ func NewConfig(ctx Context, args ...string) Config {
 
 		// Set in envsetup.sh, reset in makefiles
 		"ANDROID_JAVA_TOOLCHAIN",
+
+		// Set by envsetup.sh, but shouldn't be used inside the build because envsetup.sh is optional
+		"ANDROID_BUILD_TOP",
+		"ANDROID_HOST_OUT",
+		"ANDROID_PRODUCT_OUT",
+		"ANDROID_HOST_OUT_TESTCASES",
+		"ANDROID_TARGET_OUT_TESTCASES",
+		"ANDROID_TOOLCHAIN",
+		"ANDROID_TOOLCHAIN_2ND_ARCH",
+		"ANDROID_DEV_SCRIPTS",
+		"ANDROID_EMULATOR_PREBUILTS",
+		"ANDROID_PRE_BUILD_PATHS",
+
+		// Only set in multiproduct_kati after config generation
+		"EMPTY_NINJA_FILE",
 	)
 
 	// Tell python not to spam the source tree with .pyc files.
 	ret.environ.Set("PYTHONDONTWRITEBYTECODE", "1")
+
+	ret.environ.Set("TMPDIR", absPath(ctx, ret.TempDir()))
 
 	// Precondition: the current directory is the top of the source tree
 	if _, err := os.Stat(srcDirFileCheck); err != nil {
@@ -154,19 +193,7 @@ func NewConfig(ctx Context, args ...string) Config {
 		if override, ok := ret.environ.Get("OVERRIDE_ANDROID_JAVA_HOME"); ok {
 			return override
 		}
-		v, ok := ret.environ.Get("EXPERIMENTAL_USE_OPENJDK9")
-		if !ok {
-			v2, ok2 := ret.environ.Get("RUN_ERROR_PRONE")
-			if ok2 && (v2 == "true") {
-				v = "false"
-			} else {
-				v = "1.8"
-			}
-		}
-		if v != "false" {
-			return java9Home
-		}
-		return java8Home
+		return java9Home
 	}()
 	absJavaHome := absPath(ctx, javaHome)
 
@@ -190,6 +217,9 @@ func NewConfig(ctx Context, args ...string) Config {
 		content = buildDateTime
 	} else {
 		content = strconv.FormatInt(time.Now().Unix(), 10)
+	}
+	if ctx.Metrics != nil {
+		ctx.Metrics.SetBuildDateTime(content)
 	}
 	err := ioutil.WriteFile(buildDateTimeFile, []byte(content), 0777)
 	if err != nil {
@@ -235,10 +265,10 @@ func (c *configImpl) parseArgs(ctx Context, args []string) {
 			}
 		} else if k, v, ok := decodeKeyValue(arg); ok && len(k) > 0 {
 			c.environ.Set(k, v)
+		} else if arg == "dist" {
+			c.dist = true
 		} else {
-			if arg == "dist" {
-				c.dist = true
-			} else if arg == "checkbuild" {
+			if arg == "checkbuild" {
 				c.checkbuild = true
 			}
 			c.arguments = append(c.arguments, arg)
@@ -281,6 +311,9 @@ func (c *configImpl) configureLocale(ctx Context) {
 	// The for LANG, use C.UTF-8 if it exists (Debian currently, proposed
 	// for others)
 	if inList("C.UTF-8", locales) {
+		c.environ.Set("LANG", "C.UTF-8")
+	} else if inList("C.utf8", locales) {
+		// These normalize to the same thing
 		c.environ.Set("LANG", "C.UTF-8")
 	} else if inList("en_US.UTF-8", locales) {
 		c.environ.Set("LANG", "en_US.UTF-8")
@@ -353,16 +386,13 @@ func (c *configImpl) Arguments() []string {
 
 func (c *configImpl) OutDir() string {
 	if outDir, ok := c.environ.Get("OUT_DIR"); ok {
-		return outDir
+		return filepath.Clean(outDir)
 	}
 	return "out"
 }
 
 func (c *configImpl) DistDir() string {
-	if distDir, ok := c.environ.Get("DIST_DIR"); ok {
-		return distDir
-	}
-	return filepath.Join(c.OutDir(), "dist")
+	return c.distDir
 }
 
 func (c *configImpl) NinjaArgs() []string {
@@ -449,6 +479,20 @@ func (c *configImpl) UseGoma() bool {
 	return false
 }
 
+func (c *configImpl) StartGoma() bool {
+	if !c.UseGoma() {
+		return false
+	}
+
+	if v, ok := c.environ.Get("NOSTART_GOMA"); ok {
+		v = strings.TrimSpace(v)
+		if v != "" && v != "false" {
+			return false
+		}
+	}
+	return true
+}
+
 // RemoteParallel controls how many remote jobs (i.e., commands which contain
 // gomacc) are run in parallel.  Note the parallelism of all other jobs is
 // still limited by Parallel()
@@ -485,8 +529,12 @@ func (c *configImpl) KatiEnvFile() string {
 	return filepath.Join(c.OutDir(), "env"+c.KatiSuffix()+".sh")
 }
 
-func (c *configImpl) KatiNinjaFile() string {
-	return filepath.Join(c.OutDir(), "build"+c.KatiSuffix()+".ninja")
+func (c *configImpl) KatiBuildNinjaFile() string {
+	return filepath.Join(c.OutDir(), "build"+c.KatiSuffix()+katiBuildSuffix+".ninja")
+}
+
+func (c *configImpl) KatiPackageNinjaFile() string {
+	return filepath.Join(c.OutDir(), "build"+c.KatiSuffix()+katiPackageSuffix+".ninja")
 }
 
 func (c *configImpl) SoongNinjaFile() string {
@@ -514,6 +562,10 @@ func (c *configImpl) ProductOut() string {
 
 func (c *configImpl) DevicePreviousProductConfig() string {
 	return filepath.Join(c.ProductOut(), "previous_build_config.mk")
+}
+
+func (c *configImpl) KatiPackageMkDir() string {
+	return filepath.Join(c.ProductOut(), "obj", "CONFIG", "kati_packaging")
 }
 
 func (c *configImpl) hostOutRoot() string {
@@ -553,4 +605,44 @@ func (c *configImpl) PrebuiltBuildTool(name string) string {
 		}
 	}
 	return filepath.Join("prebuilts/build-tools", c.HostPrebuiltTag(), "bin", name)
+}
+
+func (c *configImpl) SetBuildBrokenDupRules(val bool) {
+	c.brokenDupRules = val
+}
+
+func (c *configImpl) BuildBrokenDupRules() bool {
+	return c.brokenDupRules
+}
+
+func (c *configImpl) SetBuildBrokenPhonyTargets(val bool) {
+	c.brokenPhonyTargets = val
+}
+
+func (c *configImpl) BuildBrokenPhonyTargets() bool {
+	return c.brokenPhonyTargets
+}
+
+func (c *configImpl) SetBuildBrokenUsesNetwork(val bool) {
+	c.brokenUsesNetwork = val
+}
+
+func (c *configImpl) BuildBrokenUsesNetwork() bool {
+	return c.brokenUsesNetwork
+}
+
+func (c *configImpl) SetTargetDeviceDir(dir string) {
+	c.targetDeviceDir = dir
+}
+
+func (c *configImpl) TargetDeviceDir() string {
+	return c.targetDeviceDir
+}
+
+func (c *configImpl) SetPdkBuild(pdk bool) {
+	c.pdkBuild = pdk
+}
+
+func (c *configImpl) IsPdkBuild() bool {
+	return c.pdkBuild
 }

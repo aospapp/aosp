@@ -16,10 +16,11 @@
 
 package com.android.documentsui.testing;
 
-import android.annotation.MenuRes;
-import android.support.test.InstrumentationRegistry;
 import android.view.Menu;
 import android.view.MenuInflater;
+
+import androidx.annotation.MenuRes;
+import androidx.test.InstrumentationRegistry;
 
 public class TestMenuInflater extends MenuInflater {
 

@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Impormasyong pang-emergency"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Medikal na impormasyon"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"I-edit ang impormasyon"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Magdagdag ng impormasyon"</string>
     <string name="edit_info" msgid="5973929805855224805">"I-edit ang impormasyong pang-emergency"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Impormasyon"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Mga Contact"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Makakatulong ang pagdaragdag ng medikal na impormasyon at mga pang-emergency na contact sa mga unang reresponde sa isang emergency.\n\nMababasa ng sinuman ang impormasyong ito mula sa iyong lock screen, at mada-dial ang mga contact mo sa pamamagitan ng pag-tap sa kanilang mga pangalan, nang hindi ina-unlock ang iyong telepono."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Magdagdag ng impormasyong pang-emergency"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Hayaang makita ng unang reresponde ang impormasyon mo"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Kumuha ng larawan"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Pumili ng larawan"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Pumili ng larawan"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Palayaw"</string>
 </resources>

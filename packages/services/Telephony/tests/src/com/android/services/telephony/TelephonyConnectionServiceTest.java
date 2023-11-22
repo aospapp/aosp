@@ -21,7 +21,6 @@ import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -33,14 +32,15 @@ import android.net.Uri;
 import android.os.AsyncResult;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.test.filters.FlakyTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.telecom.DisconnectCause;
 import android.telecom.TelecomManager;
 import android.telephony.RadioAccessFamily;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.filters.FlakyTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.TelephonyTestBase;
 import com.android.internal.telephony.CallStateException;
@@ -817,6 +817,7 @@ public class TelephonyConnectionServiceTest extends TelephonyTestBase {
         testServiceState.setEmergencyOnly(isEmergencyOnly);
         when(phone.getServiceState()).thenReturn(testServiceState);
         when(phone.getPhoneId()).thenReturn(phoneId);
+        when(phone.getDefaultPhone()).thenReturn(phone);
         return phone;
     }
 

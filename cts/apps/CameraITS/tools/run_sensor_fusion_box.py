@@ -91,7 +91,7 @@ def main():
     print 'Testing device ' + device_id
 
     # ensure camera_id is valid
-    avail_camera_ids = find_avail_camera_ids(device_id_arg, tmpdir)
+    avail_camera_ids = find_avail_camera_ids()
     if camera_id not in avail_camera_ids:
         print 'Need to specify valid camera_id in ', avail_camera_ids
         sys.exit()
@@ -220,12 +220,9 @@ def find_matching_line(file_path, regex):
                 return line
     return None
 
-def find_avail_camera_ids(device_id_arg, tmpdir):
+def find_avail_camera_ids():
     """Find the available camera IDs.
 
-    Args:
-        devices_id_arg(str):    device=###
-        tmpdir(str):            generated tmp dir for run
     Returns:
         list of available cameras
     """

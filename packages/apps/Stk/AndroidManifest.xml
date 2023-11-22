@@ -22,12 +22,11 @@
 
     <original-package android:name="com.android.stk" />
 
-    <protected-broadcast android:name="com.android.stk.DIALOG_ALARM_TIMEOUT" />
-
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.GET_TASKS"/>
     <uses-permission android:name="android.permission.RECEIVE_STK_COMMANDS" />
     <uses-permission android:name="android.permission.SET_ACTIVITY_WATCHER" />
+    <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
     <uses-permission android:name="android.permission.USER_ACTIVITY" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -110,7 +109,6 @@
                 <action android:name= "com.android.internal.stk.session_end" />
                 <action android:name= "com.android.internal.stk.icc_status_change" />
                 <action android:name= "com.android.internal.stk.alpha_notify" />
-                <action android:name= "android.intent.action.LOCALE_CHANGED" />
             </intent-filter>
         </receiver>
 

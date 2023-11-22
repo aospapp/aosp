@@ -55,6 +55,7 @@ static const char *pattrs[] = {
         "media-type-supported",
         "output-bin-supported",
         "print-color-mode-supported",
+        "print-quality-supported",
         "printer-resolution-supported",
         "sides-supported",
         "printer-device-id",

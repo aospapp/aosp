@@ -79,12 +79,12 @@ TEST_F(AssembleVintfTest, FrameworkMatrixEmpty) {
         {"PLATFORM_SEPOLICY_VERSION", "10000.0"},
         {"FRAMEWORK_VBMETA_VERSION", "1.0"},
     });
-    getInstance()->addKernelConfigInputStream({3, 18, 0}, "android-base.cfg",
+    getInstance()->addKernelConfigInputStream({3, 18, 0}, "android-base.config",
                                               makeStream(kernel318));
-    getInstance()->addKernelConfigInputStream({3, 18, 0}, "android-base-arm64.cfg",
+    getInstance()->addKernelConfigInputStream({3, 18, 0}, "android-base-arm64.config",
                                               makeStream(kernel318_64));
-    getInstance()->addKernelConfigInputStream({4, 4, 0}, "android-base.cfg", makeStream(kernel44));
-    getInstance()->addKernelConfigInputStream({4, 4, 0}, "android-base-arm64.cfg",
+    getInstance()->addKernelConfigInputStream({4, 4, 0}, "android-base.config", makeStream(kernel44));
+    getInstance()->addKernelConfigInputStream({4, 4, 0}, "android-base-arm64.config",
                                               makeStream(kernel44_64));
 
     EXPECT_TRUE(getInstance()->assemble());
@@ -456,6 +456,86 @@ TEST_F(AssembleVintfTest, DeviceFrameworkMatrixRequired) {
              "</compatibility-matrix>");
 
     EXPECT_FALSE(getInstance()->assemble());
+}
+
+TEST_F(AssembleVintfTest, DeviceFrameworkMatrixMultiple) {
+    setFakeEnvs({{"POLICYVERS", "30"},
+                 {"PLATFORM_SEPOLICY_VERSION", "10000.0"},
+                 {"PLATFORM_SEPOLICY_COMPAT_VERSIONS", "26.0 27.0"},
+                 {"FRAMEWORK_VBMETA_VERSION", "1.0"},
+                 {"PRODUCT_ENFORCE_VINTF_MANIFEST", "true"}});
+    getInstance()->setCheckInputStream(makeStream(gEmptyOutManifest));
+
+    addInput("compatibility_matrix.foobar.xml",
+             "<compatibility-matrix version=\"1.0\" type=\"framework\">\n"
+             "    <hal format=\"hidl\" optional=\"true\">\n"
+             "        <name>vendor.foo.bar</name>\n"
+             "        <version>1.0</version>\n"
+             "        <interface>\n"
+             "            <name>IFoo</name>\n"
+             "            <instance>default</instance>\n"
+             "        </interface>\n"
+             "    </hal>\n"
+             "</compatibility-matrix>");
+
+    addInput("compatibility_matrix.bazquux.xml",
+             "<compatibility-matrix version=\"1.0\" type=\"framework\">\n"
+             "    <hal format=\"hidl\" optional=\"true\">\n"
+             "        <name>vendor.baz.quux</name>\n"
+             "        <version>1.0</version>\n"
+             "        <interface>\n"
+             "            <name>IBaz</name>\n"
+             "            <instance>default</instance>\n"
+             "        </interface>\n"
+             "    </hal>\n"
+             "</compatibility-matrix>");
+
+    EXPECT_TRUE(getInstance()->assemble());
+    EXPECT_IN(
+        "<compatibility-matrix version=\"1.0\" type=\"framework\">\n"
+        "    <hal format=\"hidl\" optional=\"true\">\n"
+        "        <name>vendor.baz.quux</name>\n"
+        "        <version>1.0</version>\n"
+        "        <interface>\n"
+        "            <name>IBaz</name>\n"
+        "            <instance>default</instance>\n"
+        "        </interface>\n"
+        "    </hal>\n"
+        "    <hal format=\"hidl\" optional=\"true\">\n"
+        "        <name>vendor.foo.bar</name>\n"
+        "        <version>1.0</version>\n"
+        "        <interface>\n"
+        "            <name>IFoo</name>\n"
+        "            <instance>default</instance>\n"
+        "        </interface>\n"
+        "    </hal>\n"
+        "    <sepolicy>\n"
+        "        <kernel-sepolicy-version>30</kernel-sepolicy-version>\n"
+        "        <sepolicy-version>26.0</sepolicy-version>\n"
+        "        <sepolicy-version>27.0</sepolicy-version>\n"
+        "        <sepolicy-version>10000.0</sepolicy-version>\n"
+        "    </sepolicy>\n"
+        "    <avb>\n"
+        "        <vbmeta-version>1.0</vbmeta-version>\n"
+        "    </avb>\n"
+        "</compatibility-matrix>",
+        getOutput());
+}
+
+TEST_F(AssembleVintfTest, OutputFileMatrixTest) {
+    const std::string kFile = "file_name_1.xml";
+    const std::string kMatrix = "<compatibility-matrix version=\"1.0\" type=\"framework\"/>";
+    addInput(kFile, kMatrix);
+    EXPECT_TRUE(getInstance()->assemble());
+    EXPECT_IN(kFile, getOutput());
+}
+
+TEST_F(AssembleVintfTest, OutputFileManifestTest) {
+    const std::string kFile = "file_name_1.xml";
+    std::string kManifest = "<manifest version=\"1.0\" type=\"device\" target-level=\"1\"/>";
+    addInput(kFile, kManifest);
+    EXPECT_TRUE(getInstance()->assemble());
+    EXPECT_IN(kFile, getOutput());
 }
 
 }  // namespace vintf

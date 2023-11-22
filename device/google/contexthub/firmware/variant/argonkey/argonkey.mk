@@ -31,22 +31,23 @@ SRCS_os += $(VARIANT_PATH)/src/os/led.c
 SRCS_os += $(VARIANT_PATH)/src/os/spi.c
 #keys
 
-#drivers
-# Fusion algorithms
-SRCS_os += os/algos/fusion.c \
-	os/algos/common/math/mat.c \
-	os/algos/common/math/quat.c \
-	os/algos/common/math/vec.c
+SRCS_os += \
+    os/algos/calibration/accelerometer/accel_cal.c \
+    os/algos/calibration/gyroscope/gyro_cal.c \
+    os/algos/calibration/gyroscope/gyro_stillness_detect.c \
+    os/algos/calibration/magnetometer/mag_cal/mag_cal.c \
+    os/algos/calibration/diversity_checker/diversity_checker.c \
+    os/algos/calibration/over_temp/over_temp_cal.c \
+    os/algos/common/math/kasa.c \
+    os/algos/common/math/mat.c \
+    os/algos/common/math/quat.c \
+    os/algos/common/math/vec.c \
+    os/algos/fusion.c \
+    os/algos/time_sync.c
 
+#drivers
 # LSM6DSL accel+gyro with mag slave
-SRCS_os += os/drivers/st_lsm6dsm/st_lsm6dsm.c \
-        os/algos/calibration/accelerometer/accel_cal.c \
-        os/algos/calibration/gyroscope/gyro_cal.c \
-        os/algos/calibration/gyroscope/gyro_stillness_detect.c \
-        os/algos/calibration/magnetometer/mag_cal.c \
-        os/algos/calibration/common/diversity_checker.c \
-        os/algos/calibration/over_temp/over_temp_cal.c \
-        os/algos/time_sync.c
+SRCS_os += os/drivers/st_lsm6dsm/st_lsm6dsm.c
 
 # Orientation sensor driver
 SRCS_os += os/drivers/orientation/orientation.c

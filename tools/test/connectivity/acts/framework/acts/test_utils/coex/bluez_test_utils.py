@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -19,13 +19,20 @@ import dbus.mainloop.glib
 import dbus.service
 import logging
 import time
+import os
+import subprocess
 
 from acts.test_utils.coex.coex_constants import ADAPTER_INTERFACE
 from acts.test_utils.coex.coex_constants import CALL_MANAGER
+from acts.test_utils.coex.coex_constants import CMD_FIND
+from acts.test_utils.coex.coex_constants import CMD_HCI
+from acts.test_utils.coex.coex_constants import CMD_PATH
+from acts.test_utils.coex.coex_constants import commands
 from acts.test_utils.coex.coex_constants import DBUS_INTERFACE
 from acts.test_utils.coex.coex_constants import DEVICE_INTERFACE
 from acts.test_utils.coex.coex_constants import DISCOVERY_TIME
-from acts.test_utils.coex.coex_constants import MEDIA_CONTROL_INTERACE
+from acts.test_utils.coex.coex_constants import KILL_CMD
+from acts.test_utils.coex.coex_constants import MEDIA_CONTROL_INTERFACE
 from acts.test_utils.coex.coex_constants import MEDIA_PLAY_INTERFACE
 from acts.test_utils.coex.coex_constants import OBJECT_MANGER
 from acts.test_utils.coex.coex_constants import OFONO_MANAGER
@@ -34,24 +41,41 @@ from acts.test_utils.coex.coex_constants import PROPERTIES_CHANGED
 from acts.test_utils.coex.coex_constants import SERVICE_NAME
 from acts.test_utils.coex.coex_constants import VOICE_CALL
 from acts.test_utils.coex.coex_constants import WAIT_TIME
+from acts.utils import create_dir
+
 from gi.repository import GObject
 
 dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
+
 class BluezUtils():
 
-    def __init__(self):
+    def __init__(self, profile, password, log_path):
         devices = {}
         self.device_interface = False
         self.mainloop = 0
         self.property_changed = False
         self.bd_address = None
+        self.list_daemon = ["dbus", "bluez"]
+        self.log_path = os.path.join(log_path, "bluez")
+        create_dir(self.log_path)
+        self.sudo_command = "echo " + password + " | sudo -S "
+        if profile.lower() == "hfp":
+            self.list_daemon.append("ofonod")
+        elif profile.lower() == "a2dp":
+            self.list_daemon.append("pulseaudio")
+        elif profile.lower() == "multiprofile":
+            self.list_daemon.extend(["pulseaudio", "ofonod"])
+        if not self.hci_config("up"):
+            logging.error("Can't get device info: No such device")
+        self.run_daemons()
         self.bus = dbus.SystemBus()
-        self.bus.add_signal_receiver(self.properties_changed,
-                                     dbus_interface=DBUS_INTERFACE,
-                                     signal_name=PROPERTIES_CHANGED,
-                                     arg0=DEVICE_INTERFACE,
-                                     path_keyword="path")
+        self.bus.add_signal_receiver(
+            self.properties_changed,
+            dbus_interface=DBUS_INTERFACE,
+            signal_name=PROPERTIES_CHANGED,
+            arg0=DEVICE_INTERFACE,
+            path_keyword="path")
         self.om = dbus.Interface(
             self.bus.get_object(SERVICE_NAME, "/"), OBJECT_MANGER)
         objects = self.om.GetManagedObjects()
@@ -59,6 +83,86 @@ class BluezUtils():
             if ADAPTER_INTERFACE in interfaces:
                 devices[path] = interfaces[ADAPTER_INTERFACE]
                 self.adapter = self.find_adapter(0)
+
+    def hci_config(self, hci_params):
+        """ Sets the interface up or down based on hci_params
+
+        Args:
+            hci_params : String denoting hciconfig paramters.
+
+        Returns:
+            True if success, False otherwise.
+        """
+        output, err = self.run_subprocess(CMD_HCI)
+        if hci_params not in output.decode().split("\n")[2].lower():
+            cmd = self.sudo_command + CMD_HCI + hci_params
+            out, err = self.run_subprocess(cmd)
+            if err:
+                logging.debug("command HCI not executed error = {}".format(err))
+                return False
+        return True
+
+    def run_daemons(self):
+        """Runs all the bluez related daemons which are in the list."""
+        self.kill_all_daemon()
+        for daemon in self.list_daemon:
+            cmd = CMD_PATH + commands[daemon]
+            if daemon != "pulseaudio":
+                cmd = self.sudo_command + cmd
+
+            # is_async = True if process runs on background.
+            self.run_subprocess(cmd, is_async=True)
+            time.sleep(5)
+
+    def kill_all_daemon(self):
+        """Kills all the bluez related daemons running."""
+        for daemon in self.list_daemon:
+            cmd = CMD_FIND + CMD_PATH + daemon \
+                  + "|grep -v grep|grep -v sudo"
+            result, err = self.run_subprocess(cmd)
+            if err:
+                logging.info("cmd {} not executed".format(cmd))
+            if result:
+                data = result.decode().split("\n")
+                command = self.sudo_command + KILL_CMD
+                for i in range(len(data) - 1):
+                    pid = data[i].split()[3]
+                    cmd = command + pid
+                    out, err = self.run_subprocess(cmd)
+                    if err:
+                        logging.error("command {} with error {}".format(
+                            err, cmd))
+                        logging.error("process with pid {}"
+                                      " not terminated".format(pid))
+
+    def run_subprocess(self, cmd, is_async=None, error_fd=subprocess.PIPE):
+        """Runs subprocess in the background and moves error data to a file.
+
+        Args:
+            cmd: command to be executed.
+            is_async: Boolean value to set background process.
+            error_fd: handler for error file.
+
+        Returns:
+            Output of proc.communicate(), if is_async is not set.
+        """
+        if is_async:
+            is_async = os.setpgrp
+            if "dbus" not in cmd:
+                file_name = os.path.join(self.log_path,
+                    (cmd.split("/")[4].split("-")[0])) + "_daemon_error.txt"
+                error_fd = open(file_name, "w+")
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=error_fd,
+            preexec_fn=is_async,
+            shell=True)
+        logging.debug("Start standing subprocess with cmd: %s", cmd)
+        if is_async:
+            return
+        return proc.communicate()
 
     def register_signal(self):
         """Start signal_dispatcher"""
@@ -69,7 +173,7 @@ class BluezUtils():
         """Stops signal_dispatcher"""
         self.mainloop.quit()
 
-    def get_properties(self,props, path, check):
+    def get_properties(self, props, path, check):
         """Return's status for parameter check .
 
         Args:
@@ -77,12 +181,10 @@ class BluezUtils():
             path:path for getting status
             check:String for which status need to be checked
         """
-        return props.Get(path,check)
+        return props.Get(path, check)
 
     def properties_changed(self, interface, changed, invalidated, path):
-        """
-            Function to be executed when specified signal is caught
-        """
+        """Function to be executed when specified signal is caught"""
         if path == "/org/bluez/hci0/dev_" + (self.bd_address).replace(":", "_"):
             self.unregister_signal()
             return
@@ -182,6 +284,7 @@ class BluezUtils():
         Returns:
             Dbus interface of the device.
         """
+        self.bd_address = device_address
         addr = "dev_" + str(device_address).replace(":", "_")
         device_path = "org/bluez/hci0/" + addr
         self.adapter.StartDiscovery()
@@ -208,9 +311,10 @@ class BluezUtils():
             Dbus media control interface of the device.
         """
         control_iface = dbus.Interface(
-            self.bus.get_object(SERVICE_NAME, '/org/bluez/hci0/dev_' +
-                                device_address.replace(":", "_")),
-            MEDIA_CONTROL_INTERACE)
+            self.bus.get_object(
+                SERVICE_NAME,
+                '/org/bluez/hci0/dev_' + device_address.replace(":", "_")),
+            MEDIA_CONTROL_INTERFACE)
         return control_iface
 
     def get_a2dp_interface(self, device_address):
@@ -223,9 +327,8 @@ class BluezUtils():
             Dbus media interface of the device.
         """
         a2dp_interface = dbus.Interface(
-            self.bus.get_object(
-                SERVICE_NAME, '/org/bluez/hci0/dev_' +
-                              device_address.replace(":", "_") + '/player0'),
+            self.bus.get_object(SERVICE_NAME, '/org/bluez/hci0/dev_' +
+                                device_address.replace(":", "_") + '/player0'),
             MEDIA_PLAY_INTERFACE)
         return a2dp_interface
 
@@ -312,7 +415,7 @@ class BluezUtils():
 
         self.register_signal()
         self.device_interface.DisconnectProfile(uuid)
-        time.sleep(6)
+        time.sleep(10)  #Time taken to check disconnection.
         connected_devices = pri_ad.droid.bluetoothGetConnectedDevices()
         if len(connected_devices) > 0:
             return False
@@ -440,9 +543,57 @@ class BluezUtils():
         a2dp.Previous()
         a2dp.Previous()
         time.sleep(WAIT_TIME)
-        track = self.get_properties(props,MEDIA_PLAY_INTERFACE, "Track")
+        track = self.get_properties(props, MEDIA_PLAY_INTERFACE, "Track")
         if Title == track['Title']:
             return False
+        return True
+
+    def volumeup(self, address):
+        """Increases volume of the media playing.
+
+        Args:
+            address: Buetooth interface MAC address of the device.
+
+        Returns:
+            True if successful.
+        """
+        a2dp = self.media_control_iface(address)
+        a2dp.VolumeUp()
+        return True
+
+    def volumedown(self, address):
+        """Decreases volume of the media playing.
+
+        Args:
+            address: Buetooth interface MAC address of the device.
+
+        Returns:
+            True if successful.
+        """
+        a2dp = self.media_control_iface(address)
+        a2dp.VolumeDown()
+        return True
+
+    def call_volume(self, duration):
+        """Performs Speaker gain and microphone gain when call is active.
+
+        Args:
+            duration:time in seconds to increase volume continuously.
+
+        Returns:
+            True if Property has been changed, otherwise False.
+        """
+        vol_level = 0
+        modems = self.ofo_iface()
+        path = modems[0][0]
+        props = dbus.Interface(
+            self.bus.get_object('org.ofono', path), 'org.ofono.CallVolume')
+        start_time = time.time()
+        while (time.time()) < (start_time + duration):
+            props.SetProperty("SpeakerVolume", dbus.Byte(int(vol_level)))
+            time.sleep(WAIT_TIME)
+            props.SetProperty("MicrophoneVolume", dbus.Byte(int(vol_level)))
+            vol_level += 5
         return True
 
     def avrcp_actions(self, address):
@@ -463,6 +614,15 @@ class BluezUtils():
             logging.info("skip previous failed")
             return False
         time.sleep(WAIT_TIME)
+
+        if not self.volumeup(address):
+            logging.info("Volume up failed")
+            return False
+        time.sleep(WAIT_TIME)
+
+        if not self.volumedown(address):
+            logging.info("Volume down failed")
+            return False
         return True
 
     def initiate_and_disconnect_call_from_hf(self, phone_no, duration):

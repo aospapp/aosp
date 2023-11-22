@@ -24,9 +24,10 @@ import android.icu.text.SimpleDateFormat;
 import android.icu.util.Calendar;
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.DateValueSanitizer;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.view.autofill.AutofillValue;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,7 +35,7 @@ import org.junit.runner.RunWith;
 import java.util.Date;
 
 @RunWith(AndroidJUnit4.class)
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class DateValueSanitizerTest {
 
     private static final String TAG = "DateValueSanitizerTest";

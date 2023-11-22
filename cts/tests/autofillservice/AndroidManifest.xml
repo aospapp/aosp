@@ -19,10 +19,9 @@
     android:targetSandboxVersion="2">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-    <uses-permission android:name="android.permission.MANAGE_ACTIVITY_STACKS"/>
-    <uses-permission android:name="android.permission.ACTIVITY_EMBEDDING"/>
     <uses-permission android:name="android.permission.INJECT_EVENTS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
 
     <application>
 
@@ -30,7 +29,7 @@
 
         <activity android:name=".LoginActivity" >
             <intent-filter>
-                <!-- This intent filter is not really needed by CTS, but it maks easier to launch
+                <!-- This intent filter is not really needed by CTS, but it makes easier to launch
                      this app during CTS development... -->
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -40,6 +39,9 @@
         <activity android:name=".LoginWithCustomHighlightActivity"
                   android:theme="@style/MyAutofilledHighlight"/>
         <activity android:name=".LoginWithStringsActivity" />
+        <activity android:name=".LoginNotImportantForAutofillActivity" />
+        <activity android:name=".LoginNotImportantForAutofillWrappedActivityContextActivity" />
+        <activity android:name=".LoginNotImportantForAutofillWrappedApplicationContextActivity" />
         <activity android:name=".WelcomeActivity" android:taskAffinity=".WelcomeActivity"/>
         <activity android:name=".ViewAttributesTestActivity" />
         <activity android:name=".AuthenticationActivity" />
@@ -53,7 +55,7 @@
         <activity android:name=".FatActivity" />
         <activity android:name=".VirtualContainerActivity">
             <intent-filter>
-                <!-- This intent filter is not really needed by CTS, but it maks easier to launch
+                <!-- This intent filter is not really needed by CTS, but it makes easier to launch
                      this app during CTS development... -->
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -72,18 +74,19 @@
         <activity android:name=".SimpleSaveActivity"/>
         <activity android:name=".PreSimpleSaveActivity">
             <intent-filter>
-                <!-- This intent filter is not really needed by CTS, but it maks easier to launch
+                <!-- This intent filter is not really needed by CTS, but it makes easier to launch
                      this app during CTS development... -->
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
         <activity android:name=".WebViewActivity"/>
+        <activity android:name=".WebViewMultiScreenLoginActivity"/>
         <activity android:name=".TrampolineWelcomeActivity"/>
         <activity android:name=".AttachedContextActivity"/>
         <activity android:name=".DialogLauncherActivity" >
             <intent-filter>
-                <!-- This intent filter is not really needed by CTS, but it maks easier to launch
+                <!-- This intent filter is not really needed by CTS, but it makes easier to launch
                      this app during CTS development... -->
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -95,8 +98,36 @@
             android:exported="true" />
 
         <activity android:name=".TrampolineForResultActivity" />
+        <activity android:name=".OnCreateServiceStatusVerifierActivity"/>
+        <activity android:name=".UsernameOnlyActivity" >
+            <intent-filter>
+                <!-- This intent filter is not really needed by CTS, but it makes easier to launch
+                     this app during CTS development... -->
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".PasswordOnlyActivity" >
+            <intent-filter>
+                <!-- This intent filter is not really needed by CTS, but it makes easier to launch
+                     this app during CTS development... -->
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".augmented.AugmentedLoginActivity">
+            <intent-filter>
+                <!-- This intent filter is not really needed by CTS, but it makes easier to launch
+                     this app during CTS development... -->
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
 
         <receiver android:name=".SelfDestructReceiver"
+            android:exported="true"
+            android:process="android.autofillservice.cts.outside"/>
+        <receiver android:name=".OutOfProcessLoginActivityFinisherReceiver"
             android:exported="true"
             android:process="android.autofillservice.cts.outside"/>
 
@@ -136,10 +167,20 @@
                 <action android:name="android.service.autofill.AutofillService" />
             </intent-filter>
         </service>
+
+        <service
+            android:name=".augmented.CtsAugmentedAutofillService"
+            android:label="CtsAugmentedAutofillService"
+            android:permission="android.permission.BIND_AUGMENTED_AUTOFILL_SERVICE" >
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+        </service>
+
     </application>
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:label="CTS tests for the AutoFill Framework APIs."
         android:targetPackage="android.autofillservice.cts" >
     </instrumentation>

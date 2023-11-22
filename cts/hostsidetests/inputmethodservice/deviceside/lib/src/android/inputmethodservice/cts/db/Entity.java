@@ -18,6 +18,7 @@ package android.inputmethodservice.cts.db;
 
 import android.database.Cursor;
 import android.provider.BaseColumns;
+
 import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
@@ -27,13 +28,14 @@ import java.util.Map;
 
 /**
  * Abstraction of SQLite database row.
+ * @param <E> type of entities.
  */
 public final class Entity<E> {
 
     private final List<Field> mFields;
     private final Map<String, Field> mFieldMap;
 
-    private Entity(final Builder<E> builder) {
+    private Entity(Builder<E> builder) {
         mFields = builder.mFields;
         mFieldMap = builder.mFieldMap;
     }
@@ -42,51 +44,67 @@ public final class Entity<E> {
      * Returns SQL statement to create this entity/row, such that
      * "(_id INTEGER PRIMARY KEY AUTOINCREMENT, column2_name column2_type, ...)".
      */
-    public String createEntitySql() {
+    String createEntitySql() {
         final StringBuilder sb = new StringBuilder("(");
-        for (final Field field : mFields) {
-            if (field.pos > 0) sb.append(", ");
-            sb.append(field.name).append(" ").append(field.sqLiteType);
-            if (field.name.equals(BaseColumns._ID)) {
+        for (Field field : mFields) {
+            if (field.mPos > 0) sb.append(", ");
+            sb.append(field.mName).append(" ").append(field.mSqLiteType);
+            if (field.mName.equals(BaseColumns._ID)) {
                 sb.append(" PRIMARY KEY AUTOINCREMENT");
             }
         }
         return sb.append(")").toString();
     }
 
-    public Field getField(final String fieldName) {
+    Field getField(String fieldName) {
         return mFieldMap.get(fieldName);
     }
 
     /**
      * {@link Entity} builder.
+     * @param <E> type of entities.
      */
     public static final class Builder<E> {
         private final List<Field> mFields = new ArrayList<>();
         private final Map<String, Field> mFieldMap = new HashMap<>();
         private int mPos = 0;
 
+        /**
+         * Constructor or {@link Builder}.
+         */
         public Builder() {
             addFieldInternal(BaseColumns._ID, Cursor.FIELD_TYPE_INTEGER);
         }
 
-        public Builder<E> addField(@NonNull final String name, final int fieldType) {
+        /**
+         * Add a new field with given name and type.
+         *
+         * @param name name of the field
+         * @param fieldType type enum of the field
+         * @return this builder, useful for chaining
+         */
+        public Builder<E> addField(@NonNull String name, int fieldType) {
             addFieldInternal(name, fieldType);
             return this;
         }
 
+        /**
+         * Build {@link Entity}.
+         *
+         * @return a new instance of {@link Entity} built from this builder.
+         */
         public Entity<E> build() {
             return new Entity<>(this);
         }
 
-        private void addFieldInternal(final String name, final int fieldType) {
+        private void addFieldInternal(String name, int fieldType) {
             if (mFieldMap.containsKey(name)) {
                 throw new IllegalArgumentException("Field " + name + " already exists at "
-                        + mFieldMap.get(name).pos);
+                        + mFieldMap.get(name).mPos);
             }
             final Field field = Field.newInstance(mPos++, name, fieldType);
             mFields.add(field);
-            mFieldMap.put(field.name, field);
+            mFieldMap.put(field.mName, field);
         }
     }
 }

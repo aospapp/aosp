@@ -14,8 +14,18 @@
 
 package android.accessibilityservice.cts;
 
+import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.launchActivityAndWaitForItToBeOnscreen;
+import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
 import android.accessibilityservice.cts.R;
 import android.accessibilityservice.cts.activities.AccessibilityTextTraversalActivity;
+import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -28,26 +38,60 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 /**
  * Test cases for testing the accessibility APIs for traversing the text content of
  * a View at several granularities.
  */
-public class AccessibilityTextTraversalTest
-        extends AccessibilityActivityTestCase<AccessibilityTextTraversalActivity> {
+@RunWith(AndroidJUnit4.class)
+public class AccessibilityTextTraversalTest {
     // The number of characters per page may vary with font, so this number is slightly uncertain.
     // We need some threshold, however, to make sure moving by a page isn't just moving by a line.
     private static final int[] CHARACTER_INDICES_OF_PAGE_START = {0, 53, 122, 178};
 
-    public AccessibilityTextTraversalTest() {
-        super(AccessibilityTextTraversalActivity.class);
+    private static Instrumentation sInstrumentation;
+    private static UiAutomation sUiAutomation;
+
+    private AccessibilityTextTraversalActivity mActivity;
+
+    @Rule
+    public ActivityTestRule<AccessibilityTextTraversalActivity> mActivityRule =
+            new ActivityTestRule<>(AccessibilityTextTraversalActivity.class, false, false);
+
+    @BeforeClass
+    public static void oneTimeSetup() throws Exception {
+        sInstrumentation = InstrumentationRegistry.getInstrumentation();
+        sUiAutomation = sInstrumentation.getUiAutomation();
+    }
+
+    @AfterClass
+    public static void postTestTearDown() {
+        sUiAutomation.destroy();
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        mActivity = launchActivityAndWaitForItToBeOnscreen(
+                sInstrumentation, sUiAutomation, mActivityRule);
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityCharacterOverContentDescription()
             throws Exception {
-        final View view = getActivity().findViewById(R.id.view);
+        final View view = mActivity.findViewById(R.id.view);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 view.setVisibility(View.VISIBLE);
@@ -55,7 +99,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                 .getRootInActiveWindow().findAccessibilityNodeInfosByText(
                         getString(R.string.a_b)).get(0);
 
@@ -69,7 +113,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -84,7 +128,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.a_b))
@@ -93,13 +137,13 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -114,7 +158,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.a_b))
@@ -123,13 +167,13 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -144,7 +188,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.a_b))
@@ -153,7 +197,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                  AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -163,7 +207,7 @@ public class AccessibilityTextTraversalTest
                 arguments));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -178,7 +222,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.a_b))
@@ -187,13 +231,13 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -208,7 +252,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.a_b))
@@ -217,13 +261,13 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -238,7 +282,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.a_b))
@@ -247,7 +291,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -258,11 +302,12 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityWordOverContentDescription()
             throws Exception {
-        final View view = getActivity().findViewById(R.id.view);
+        final View view = mActivity.findViewById(R.id.view);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 view.setVisibility(View.VISIBLE);
@@ -270,7 +315,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                 .getRootInActiveWindow().findAccessibilityNodeInfosByText(
                         getString(R.string.foo_bar_baz)).get(0);
 
@@ -284,7 +329,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -299,7 +344,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.foo_bar_baz))
@@ -308,13 +353,13 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -329,7 +374,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.foo_bar_baz))
@@ -338,13 +383,13 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -359,7 +404,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.foo_bar_baz))
@@ -368,7 +413,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -378,7 +423,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY, arguments));
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -393,7 +438,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.foo_bar_baz))
@@ -402,13 +447,13 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -423,7 +468,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.foo_bar_baz))
@@ -432,13 +477,13 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -453,7 +498,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(View.class.getName())
                         && event.getContentDescription().toString().equals(
                                 getString(R.string.foo_bar_baz))
@@ -462,7 +507,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -473,11 +518,12 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityCharacterOverText()
             throws Exception {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 textView.setVisibility(View.VISIBLE);
@@ -485,7 +531,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
                        getString(R.string.a_b)).get(0);
 
@@ -501,7 +547,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -516,7 +562,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -525,7 +571,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
@@ -535,7 +581,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(1, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -550,7 +596,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -559,7 +605,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
@@ -569,7 +615,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(2, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -584,7 +630,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -593,7 +639,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -611,7 +657,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(3, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -626,7 +672,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -635,7 +681,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
@@ -645,7 +691,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(2, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -660,7 +706,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -669,7 +715,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -679,7 +725,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(1, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent seventhExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent seventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -694,7 +740,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -703,7 +749,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(seventhExpected);
@@ -722,11 +768,12 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityCharacterOverTextExtend()
             throws Exception {
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
+        final EditText editText = (EditText) mActivity.findViewById(R.id.edit);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setVisibility(View.VISIBLE);
@@ -735,7 +782,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
                        getString(R.string.a_b)).get(0);
 
@@ -752,7 +799,7 @@ public class AccessibilityTextTraversalTest
         arguments.putBoolean(AccessibilityNodeInfo.ACTION_ARGUMENT_EXTEND_SELECTION_BOOLEAN, true);
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -767,7 +814,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -776,7 +823,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
@@ -786,7 +833,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(1, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -801,7 +848,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -810,7 +857,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
@@ -820,7 +867,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(2, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -835,7 +882,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -844,7 +891,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -862,7 +909,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(3, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -877,7 +924,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -886,7 +933,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
@@ -896,7 +943,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(2, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -911,7 +958,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -920,7 +967,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
@@ -930,7 +977,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(1, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -945,7 +992,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -954,7 +1001,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -972,7 +1019,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(0, Selection.getSelectionEnd(editText.getText()));
 
         // Focus the view so we can change selection.
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setFocusable(true);
@@ -992,7 +1039,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(3, Selection.getSelectionEnd(editText.getText()));
 
         // Unfocus the view so we can get rid of the soft-keyboard.
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.clearFocus();
@@ -1001,7 +1048,7 @@ public class AccessibilityTextTraversalTest
         });
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent seventhExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent seventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1016,7 +1063,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -1025,7 +1072,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(seventhExpected);
@@ -1035,7 +1082,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(2, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent eightExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent eightExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1050,7 +1097,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -1059,7 +1106,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(eightExpected);
@@ -1069,7 +1116,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(1, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent ninethExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent ninethExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1084,7 +1131,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -1093,7 +1140,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(ninethExpected);
@@ -1111,7 +1158,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(0, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent tenthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent tenthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1126,7 +1173,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -1135,7 +1182,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(tenthExpected);
@@ -1145,7 +1192,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(1, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent eleventhExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent eleventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1160,7 +1207,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -1169,7 +1216,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(eleventhExpected);
@@ -1179,7 +1226,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(2, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent twelvethExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent twelvethExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1194,7 +1241,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.a_b))
@@ -1203,7 +1250,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(twelvethExpected);
@@ -1222,10 +1269,11 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityWordOverText() throws Exception {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 textView.setVisibility(View.VISIBLE);
@@ -1233,7 +1281,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(getString(
                        R.string.foo_bar_baz)).get(0);
 
@@ -1249,7 +1297,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1264,7 +1312,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1273,7 +1321,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
@@ -1283,7 +1331,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(3, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1298,7 +1346,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1307,7 +1355,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
@@ -1317,7 +1365,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(7, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1332,7 +1380,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1341,7 +1389,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                  AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -1359,7 +1407,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(11, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1374,7 +1422,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1383,7 +1431,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
@@ -1393,7 +1441,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(8, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1408,7 +1456,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1417,7 +1465,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
@@ -1427,7 +1475,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(4, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1442,7 +1490,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1451,7 +1499,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -1470,11 +1518,12 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityWordOverEditTextWithContentDescription()
             throws Exception {
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
+        final EditText editText = (EditText) mActivity.findViewById(R.id.edit);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setVisibility(View.VISIBLE);
@@ -1483,7 +1532,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(getString(
                        R.string.foo_bar_baz)).get(0);
 
@@ -1499,7 +1548,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1514,7 +1563,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1524,7 +1573,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
@@ -1534,7 +1583,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(3, editText.getSelectionEnd());
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1549,7 +1598,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1559,7 +1608,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
@@ -1569,7 +1618,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(7, editText.getSelectionEnd());
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1584,7 +1633,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1594,7 +1643,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                  AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -1612,7 +1661,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(11, editText.getSelectionEnd());
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1627,7 +1676,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1637,7 +1686,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
@@ -1647,7 +1696,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(8, editText.getSelectionEnd());
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1662,7 +1711,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1672,7 +1721,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
@@ -1682,7 +1731,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(4, editText.getSelectionEnd());
 
         // Move to the next character and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1697,7 +1746,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1707,7 +1756,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -1726,10 +1775,11 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityWordOverTextExtend() throws Exception {
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
+        final EditText editText = (EditText) mActivity.findViewById(R.id.edit);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setVisibility(View.VISIBLE);
@@ -1738,7 +1788,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(getString(
                        R.string.foo_bar_baz)).get(0);
 
@@ -1755,7 +1805,7 @@ public class AccessibilityTextTraversalTest
         arguments.putBoolean(AccessibilityNodeInfo.ACTION_ARGUMENT_EXTEND_SELECTION_BOOLEAN, true);
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1770,7 +1820,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1779,7 +1829,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
@@ -1789,7 +1839,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(3, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1804,7 +1854,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1813,7 +1863,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
@@ -1823,7 +1873,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(7, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1838,7 +1888,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1847,7 +1897,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -1861,7 +1911,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY, arguments));
 
         // Move to the previous word and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1876,7 +1926,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1885,7 +1935,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
@@ -1895,7 +1945,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(8, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous word and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1910,7 +1960,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1919,7 +1969,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
@@ -1929,7 +1979,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(4, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -1944,7 +1994,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -1953,7 +2003,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -1971,7 +2021,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(0, Selection.getSelectionEnd(editText.getText()));
 
         // Focus the view so we can change selection.
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setFocusable(true);
@@ -1991,7 +2041,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(11, Selection.getSelectionEnd(editText.getText()));
 
         // Unfocus the view so we can get rid of the soft-keyboard.
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.clearFocus();
@@ -2000,7 +2050,7 @@ public class AccessibilityTextTraversalTest
         });
 
         // Move to the previous word and wait for an event.
-        AccessibilityEvent seventhExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent seventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2015,7 +2065,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -2024,7 +2074,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(seventhExpected);
@@ -2034,7 +2084,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(8, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous word and wait for an event.
-        AccessibilityEvent eightExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent eightExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2049,7 +2099,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -2058,7 +2108,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(eightExpected);
@@ -2068,7 +2118,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(4, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous character and wait for an event.
-        AccessibilityEvent ninethExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent ninethExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2083,7 +2133,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -2092,7 +2142,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(ninethExpected);
@@ -2110,7 +2160,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(0, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent tenthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent tenthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2125,7 +2175,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -2134,7 +2184,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(tenthExpected);
@@ -2144,7 +2194,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(3, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent eleventhExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent eleventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2159,7 +2209,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -2168,7 +2218,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(eleventhExpected);
@@ -2178,7 +2228,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(7, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next word and wait for an event.
-        AccessibilityEvent twelvthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent twelvthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2193,7 +2243,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(R.string.foo_bar_baz))
@@ -2202,7 +2252,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_WORD);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(twelvthExpected);
@@ -2221,10 +2271,11 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityLineOverText() throws Exception {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.text);
+        final TextView textView = (TextView) mActivity.findViewById(R.id.text);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 textView.setVisibility(View.VISIBLE);
@@ -2232,7 +2283,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(getString(
                        R.string.android_wiki_short)).get(0);
 
@@ -2248,7 +2299,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
 
         // Move to the next line and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2263,7 +2314,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2273,7 +2324,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
@@ -2283,7 +2334,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(13, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next line and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2298,7 +2349,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2308,7 +2359,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                  AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
@@ -2318,7 +2369,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(25, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next line and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2333,7 +2384,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2343,7 +2394,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -2361,7 +2412,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(34, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the previous line and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2376,7 +2427,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2386,7 +2437,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
@@ -2396,7 +2447,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(25, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the previous line and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2411,7 +2462,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2421,7 +2472,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
@@ -2431,7 +2482,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(13, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the previous line and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2446,7 +2497,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(TextView.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2456,7 +2507,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -2475,10 +2526,11 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityLineOverTextExtend() throws Exception {
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
+        final EditText editText = (EditText) mActivity.findViewById(R.id.edit);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setVisibility(View.VISIBLE);
@@ -2487,7 +2539,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(getString(
                        R.string.android_wiki_short)).get(0);
 
@@ -2504,7 +2556,7 @@ public class AccessibilityTextTraversalTest
         arguments.putBoolean(AccessibilityNodeInfo.ACTION_ARGUMENT_EXTEND_SELECTION_BOOLEAN, true);
 
         // Move to the next line and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2519,7 +2571,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2529,7 +2581,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
@@ -2539,7 +2591,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(13, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next line and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2554,7 +2606,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2564,7 +2616,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
@@ -2574,7 +2626,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(25, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next line and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2589,7 +2641,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2599,7 +2651,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                  AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -2609,7 +2661,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(34, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous line and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2624,7 +2676,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2634,7 +2686,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
@@ -2644,7 +2696,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(25, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous line and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2659,7 +2711,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2669,7 +2721,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
@@ -2679,7 +2731,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(13, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous line and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2694,7 +2746,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2704,7 +2756,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -2722,7 +2774,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(0, Selection.getSelectionEnd(editText.getText()));
 
         // Focus the view so we can change selection.
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setFocusable(true);
@@ -2742,7 +2794,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(34, Selection.getSelectionEnd(editText.getText()));
 
         // Unocus the view so we can hide the keyboard.
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.clearFocus();
@@ -2751,7 +2803,7 @@ public class AccessibilityTextTraversalTest
         });
 
         // Move to the previous line and wait for an event.
-        AccessibilityEvent seventhExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent seventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2766,7 +2818,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2776,7 +2828,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(seventhExpected);
@@ -2786,7 +2838,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(25, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous line and wait for an event.
-        AccessibilityEvent eightExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent eightExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2801,7 +2853,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2811,7 +2863,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(eightExpected);
@@ -2821,7 +2873,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(13, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous line and wait for an event.
-        AccessibilityEvent ninethExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent ninethExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2836,7 +2888,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2846,7 +2898,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(ninethExpected);
@@ -2864,7 +2916,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(0, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next line and wait for an event.
-        AccessibilityEvent tenthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent tenthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2879,7 +2931,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2889,7 +2941,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(tenthExpected);
@@ -2899,7 +2951,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(13, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next line and wait for an event.
-        AccessibilityEvent eleventhExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent eleventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2914,7 +2966,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2924,7 +2976,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(eleventhExpected);
@@ -2934,7 +2986,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(25, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next line and wait for an event.
-        AccessibilityEvent twelvethExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent twelvethExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -2949,7 +3001,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -2959,7 +3011,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                  AccessibilityNodeInfo.MOVEMENT_GRANULARITY_LINE);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(twelvethExpected);
@@ -2970,10 +3022,11 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityParagraphOverText() throws Exception {
-        final TextView textView = (TextView) getActivity().findViewById(R.id.edit);
+        final TextView textView = (TextView) mActivity.findViewById(R.id.edit);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 textView.setVisibility(View.VISIBLE);
@@ -2981,7 +3034,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(getString(
                        R.string.android_wiki_paragraphs)).get(0);
 
@@ -2997,7 +3050,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
 
         // Move to the next paragraph and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3012,7 +3065,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3022,7 +3075,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                  AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
@@ -3032,7 +3085,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(14, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next paragraph and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3047,7 +3100,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                  AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3057,7 +3110,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
@@ -3067,7 +3120,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(32, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the next paragraph and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3082,7 +3135,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3092,7 +3145,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -3110,7 +3163,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(47, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the previous paragraph and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3125,7 +3178,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3135,7 +3188,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                  AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
@@ -3145,7 +3198,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(33, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the previous paragraph and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3160,7 +3213,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3170,7 +3223,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
@@ -3180,7 +3233,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(16, Selection.getSelectionEnd(textView.getText()));
 
         // Move to the previous paragraph and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3195,7 +3248,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3205,7 +3258,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -3224,10 +3277,11 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testActionNextAndPreviousAtGranularityParagraphOverTextExtend() throws Exception {
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
+        final EditText editText = (EditText) mActivity.findViewById(R.id.edit);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setVisibility(View.VISIBLE);
@@ -3236,7 +3290,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(getString(
                        R.string.android_wiki_paragraphs)).get(0);
 
@@ -3253,7 +3307,7 @@ public class AccessibilityTextTraversalTest
         arguments.putBoolean(AccessibilityNodeInfo.ACTION_ARGUMENT_EXTEND_SELECTION_BOOLEAN, true);
 
         // Move to the next paragraph and wait for an event.
-        AccessibilityEvent firstExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent firstExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3268,7 +3322,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3278,7 +3332,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(firstExpected);
@@ -3288,7 +3342,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(14, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next paragraph and wait for an event.
-        AccessibilityEvent secondExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent secondExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3303,7 +3357,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3313,7 +3367,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(secondExpected);
@@ -3323,7 +3377,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(32, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next paragraph and wait for an event.
-        AccessibilityEvent thirdExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent thirdExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3338,7 +3392,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3348,7 +3402,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(thirdExpected);
@@ -3366,7 +3420,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(47, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous paragraph and wait for an event.
-        AccessibilityEvent fourthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fourthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3381,7 +3435,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3391,7 +3445,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fourthExpected);
@@ -3401,7 +3455,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(33, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous paragraph and wait for an event.
-        AccessibilityEvent fifthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent fifthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3416,7 +3470,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3426,7 +3480,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(fifthExpected);
@@ -3436,7 +3490,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(16, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous paragraph and wait for an event.
-        AccessibilityEvent sixthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent sixthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3451,7 +3505,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3461,7 +3515,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(sixthExpected);
@@ -3479,7 +3533,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(2, Selection.getSelectionEnd(editText.getText()));
 
         // Focus the view so we can change selection.
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setFocusable(true);
@@ -3499,7 +3553,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(47, Selection.getSelectionEnd(editText.getText()));
 
         // Unfocus the view so we can get rid of the soft-keyboard.
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.clearFocus();
@@ -3508,7 +3562,7 @@ public class AccessibilityTextTraversalTest
         });
 
         // Move to the previous paragraph and wait for an event.
-        AccessibilityEvent seventhExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent seventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3523,7 +3577,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3533,7 +3587,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(seventhExpected);
@@ -3543,7 +3597,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(33, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous paragraph and wait for an event.
-        AccessibilityEvent eightExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent eightExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3558,7 +3612,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3568,7 +3622,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(eightExpected);
@@ -3578,7 +3632,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(16, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the previous paragraph and wait for an event.
-        AccessibilityEvent ninethExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent ninethExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3593,7 +3647,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_PREVIOUS_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3603,7 +3657,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(ninethExpected);
@@ -3621,7 +3675,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(2, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next paragraph and wait for an event.
-        AccessibilityEvent tenthExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent tenthExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3636,7 +3690,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3646,7 +3700,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(tenthExpected);
@@ -3656,7 +3710,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(14, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next paragraph and wait for an event.
-        AccessibilityEvent eleventhExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent eleventhExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3671,7 +3725,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3681,7 +3735,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(eleventhExpected);
@@ -3691,7 +3745,7 @@ public class AccessibilityTextTraversalTest
         assertEquals(32, Selection.getSelectionEnd(editText.getText()));
 
         // Move to the next paragraph and wait for an event.
-        AccessibilityEvent twlevethExpected = getInstrumentation().getUiAutomation()
+        AccessibilityEvent twlevethExpected = sUiAutomation
                 .executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
@@ -3706,7 +3760,7 @@ public class AccessibilityTextTraversalTest
                     AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY
                         && event.getAction() ==
                                 AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY
-                        && event.getPackageName().equals(getActivity().getPackageName())
+                        && event.getPackageName().equals(mActivity.getPackageName())
                         && event.getClassName().equals(EditText.class.getName())
                         && event.getText().size() > 0
                         && event.getText().get(0).toString().equals(getString(
@@ -3716,7 +3770,7 @@ public class AccessibilityTextTraversalTest
                         && event.getMovementGranularity() ==
                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_PARAGRAPH);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Make sure we got the expected event.
         assertNotNull(twlevethExpected);
@@ -3735,16 +3789,17 @@ public class AccessibilityTextTraversalTest
     }
 
     @MediumTest
+    @Test
     public void testTextEditingActions() throws Exception {
-        if (!getActivity().getPackageManager().hasSystemFeature(
+        if (!mActivity.getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_INPUT_METHODS)) {
             return;
         }
 
-        final EditText editText = (EditText) getActivity().findViewById(R.id.edit);
+        final EditText editText = (EditText) mActivity.findViewById(R.id.edit);
         final String textContent = getString(R.string.foo_bar_baz);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 editText.setVisibility(View.VISIBLE);
@@ -3755,7 +3810,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
                        getString(R.string.foo_bar_baz)).get(0);
 
@@ -3802,10 +3857,11 @@ public class AccessibilityTextTraversalTest
         assertTrue(TextUtils.isEmpty(editText.getText()));
     }
 
+    @Test
     public void testSetSelectionInContentDescription() throws Exception {
-        final View view = getActivity().findViewById(R.id.view);
+        final View view = mActivity.findViewById(R.id.view);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 view.setVisibility(View.VISIBLE);
@@ -3813,7 +3869,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
                        getString(R.string.foo_bar_baz)).get(0);
 
@@ -3831,10 +3887,11 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.ACTION_SET_SELECTION, arguments));
     }
 
+    @Test
     public void testSelectionPositionForNonEditableView() throws Exception {
-        final View view = getActivity().findViewById(R.id.view);
+        final View view = mActivity.findViewById(R.id.view);
 
-        getInstrumentation().runOnMainSync(new Runnable() {
+        sInstrumentation.runOnMainSync(new Runnable() {
             @Override
             public void run() {
                 view.setVisibility(View.VISIBLE);
@@ -3842,7 +3899,7 @@ public class AccessibilityTextTraversalTest
             }
         });
 
-        final AccessibilityNodeInfo text = getInstrumentation().getUiAutomation()
+        final AccessibilityNodeInfo text = sUiAutomation
                .getRootInActiveWindow().findAccessibilityNodeInfosByText(
                        getString(R.string.foo_bar_baz)).get(0);
 
@@ -3852,7 +3909,7 @@ public class AccessibilityTextTraversalTest
         assertSame(text.getTextSelectionEnd(), -1);
 
         // Set the cursor position.
-        getInstrumentation().getUiAutomation().executeAndWaitForEvent(new Runnable() {
+        sUiAutomation.executeAndWaitForEvent(new Runnable() {
             @Override
             public void run() {
                 Bundle arguments = new Bundle();
@@ -3867,10 +3924,10 @@ public class AccessibilityTextTraversalTest
                 return (event.getEventType()
                         == AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED);
             }
-        }, TIMEOUT_ASYNC_PROCESSING);
+        }, DEFAULT_TIMEOUT_MS);
 
         // Refresh the node.
-        AccessibilityNodeInfo refreshedText = getInstrumentation().getUiAutomation()
+        AccessibilityNodeInfo refreshedText = sUiAutomation
                 .getRootInActiveWindow().findAccessibilityNodeInfosByText(
                         getString(R.string.foo_bar_baz)).get(0);
 
@@ -3887,7 +3944,7 @@ public class AccessibilityTextTraversalTest
                 AccessibilityNodeInfo.ACTION_SET_SELECTION, arguments));
 
         // Refresh the node.
-        refreshedText = getInstrumentation().getUiAutomation()
+        refreshedText = sUiAutomation
                 .getRootInActiveWindow().findAccessibilityNodeInfosByText(
                         getString(R.string.foo_bar_baz)).get(0);
 
@@ -3920,12 +3977,16 @@ public class AccessibilityTextTraversalTest
                         == AccessibilityEvent.TYPE_VIEW_TEXT_TRAVERSED_AT_MOVEMENT_GRANULARITY;
                 boolean actionMatches = event.getAction() == action;
                 boolean packageMatches =
-                        event.getPackageName().equals(getActivity().getPackageName());
+                        event.getPackageName().equals(mActivity.getPackageName());
                 boolean granularityMatches = event.getMovementGranularity() == granularity;
                 return isMovementEvent && actionMatches && packageMatches && granularityMatches;
             }
         };
-        return getInstrumentation().getUiAutomation()
-                .executeAndWaitForEvent(performActionRunnable, filter, TIMEOUT_ASYNC_PROCESSING);
+        return sUiAutomation
+                .executeAndWaitForEvent(performActionRunnable, filter, DEFAULT_TIMEOUT_MS);
+    }
+
+    private String getString(int id) {
+        return mActivity.getString(id);
     }
 }

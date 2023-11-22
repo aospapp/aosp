@@ -16,9 +16,14 @@ package build
 
 import (
 	"bufio"
+	"fmt"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
+
+	"android/soong/ui/metrics"
+	"android/soong/ui/status"
 )
 
 // Checks for files in the out directory that have a rule that depends on them but no rule to
@@ -33,8 +38,14 @@ func testForDanglingRules(ctx Context, config Config) {
 		return
 	}
 
-	ctx.BeginTrace("test for dangling rules")
+	ctx.BeginTrace(metrics.TestRun, "test for dangling rules")
 	defer ctx.EndTrace()
+
+	ts := ctx.Status.StartTool()
+	action := &status.Action{
+		Description: "Test for dangling rules",
+	}
+	ts.StartAction(action)
 
 	// Get a list of leaf nodes in the dependency graph from ninja
 	executable := config.PrebuiltBuildTool("ninja")
@@ -56,7 +67,7 @@ func testForDanglingRules(ctx Context, config Config) {
 	bootstrapDir := filepath.Join(outDir, "soong", ".bootstrap")
 	miniBootstrapDir := filepath.Join(outDir, "soong", ".minibootstrap")
 
-	var danglingRules []string
+	danglingRules := make(map[string]bool)
 
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
@@ -70,16 +81,30 @@ func testForDanglingRules(ctx Context, config Config) {
 			// full build rules in the primary build.ninja file.
 			continue
 		}
-		danglingRules = append(danglingRules, line)
+		danglingRules[line] = true
 	}
 
 	cmd.WaitOrFatal()
 
-	if len(danglingRules) > 0 {
-		ctx.Println("Dependencies in out found with no rule to create them:")
-		for _, dep := range danglingRules {
-			ctx.Println(dep)
-		}
-		ctx.Fatal("")
+	var danglingRulesList []string
+	for rule := range danglingRules {
+		danglingRulesList = append(danglingRulesList, rule)
 	}
+	sort.Strings(danglingRulesList)
+
+	if len(danglingRulesList) > 0 {
+		sb := &strings.Builder{}
+		title := "Dependencies in out found with no rule to create them:"
+		fmt.Fprintln(sb, title)
+		for _, dep := range danglingRulesList {
+			fmt.Fprintln(sb, "  ", dep)
+		}
+		ts.FinishAction(status.ActionResult{
+			Action: action,
+			Error:  fmt.Errorf(title),
+			Output: sb.String(),
+		})
+		ctx.Fatal("stopping")
+	}
+	ts.FinishAction(status.ActionResult{Action: action})
 }

@@ -37,6 +37,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /** Fake {@link EpgReader} for testing. */
@@ -93,7 +94,15 @@ public final class FakeEpgReader implements EpgReader {
             if (match != null) {
                 ChannelImpl updatedChannel = new ChannelImpl.Builder(match).build();
                 updatedChannel.setLogoUri(channel.getLogoUri());
-                result.add(EpgChannel.createEpgChannel(updatedChannel, channel.getDisplayNumber()));
+                boolean dbUpdateNeeded = false;
+                if (!Objects.equals(
+                        channel.getNetworkAffiliation(), updatedChannel.getNetworkAffiliation())) {
+                    dbUpdateNeeded = true;
+                    updatedChannel.setNetworkAffiliation(channel.getNetworkAffiliation());
+                }
+                result.add(
+                        EpgChannel.createEpgChannel(
+                                updatedChannel, channel.getDisplayNumber(), dbUpdateNeeded));
             }
         }
         return result;

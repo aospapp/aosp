@@ -40,6 +40,7 @@ public class NotificationChannelGroupTest extends AndroidTestCase {
         assertFalse(group.isBlocked());
         assertNull(group.getDescription());
         assertEquals(0, group.getChannels().size());
+        assertEquals(0, group.getUserLockedFields());
     }
 
     public void testIsBlocked() {

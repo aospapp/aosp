@@ -24,6 +24,7 @@
 #include <unordered_map>
 
 #include <android-base/thread_annotations.h>
+#include "netdutils/DumpWriter.h"
 #include "utils/String16.h"
 
 #include "Fwmark.h"
@@ -35,8 +36,6 @@ namespace android {
 namespace net {
 
 using std::chrono::milliseconds;
-
-class DumpWriter;
 
 class TcpSocketMonitor {
   public:
@@ -78,7 +77,7 @@ class TcpSocketMonitor {
     TcpSocketMonitor();
     ~TcpSocketMonitor();
 
-    void dump(DumpWriter& dw);
+    void dump(netdutils::DumpWriter& dw);
     void setPollingInterval(milliseconds duration);
     void resumePolling();
     void suspendPolling();
@@ -94,7 +93,7 @@ class TcpSocketMonitor {
     std::mutex mLock;
     // Used by the polling thread for sleeping between poll operations.
     std::condition_variable mCv;
-    // The thread that polls sock_diag continously.
+    // The thread that polls sock_diag continuously.
     std::thread mPollingThread;
     // The duration of a sleep between polls. Can be updated by the instance owner for dynamically
     // adjusting the polling rate.
@@ -106,7 +105,7 @@ class TcpSocketMonitor {
     // True while the polling thread should poll.
     bool mIsRunning GUARDED_BY(mLock);
     // Map of SocketEntry structs keyed by socket cookie. This map tracks per-socket data needed for
-    // computing diffs between sock_diag dumps. Entries for closed sockets are continously cleaned
+    // computing diffs between sock_diag dumps. Entries for closed sockets are continuously cleaned
     // after every dump operation based on timestamps of last updates.
     std::unordered_map<uint64_t, SocketEntry> mSocketEntries GUARDED_BY(mLock);
     // Map of TcpStats entries aggregated per network and keyed per network id.

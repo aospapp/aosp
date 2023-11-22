@@ -34,10 +34,9 @@ namespace net {
 // permitted to skip it and pick any other network for their connections.
 class VirtualNetwork : public Network {
 public:
-    VirtualNetwork(unsigned netId, bool hasDns, bool secure);
+    VirtualNetwork(unsigned netId, bool secure);
     virtual ~VirtualNetwork();
 
-    bool getHasDns() const;
     bool isSecure() const;
     bool appliesToUser(uid_t uid) const;
 
@@ -53,7 +52,6 @@ private:
     int maybeCloseSockets(bool add, const UidRanges& uidRanges,
                           const std::set<uid_t>& protectableUsers);
 
-    const bool mHasDns;
     const bool mSecure;
     UidRanges mUidRanges;
 };

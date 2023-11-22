@@ -18,9 +18,11 @@ package com.android.cts.deviceowner;
 import android.app.Instrumentation;
 import android.app.admin.DevicePolicyManager;
 import android.content.ComponentName;
-import android.support.test.InstrumentationRegistry;
+import android.content.pm.PackageManager;
 import android.support.test.uiautomator.UiDevice;
 import android.test.AndroidTestCase;
+
+import androidx.test.InstrumentationRegistry;
 
 /**
  * Base class for device-owner based tests.
@@ -35,6 +37,8 @@ public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
     protected DevicePolicyManager mDevicePolicyManager;
     protected Instrumentation mInstrumentation;
     protected UiDevice mDevice;
+    protected boolean mHasSecureLockScreen;
+
     @Override
     protected void setUp() throws Exception {
         super.setUp();
@@ -42,6 +46,8 @@ public abstract class BaseDeviceOwnerTest extends AndroidTestCase {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mDevice = UiDevice.getInstance(mInstrumentation);
         mDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
+        mHasSecureLockScreen = mContext.getPackageManager().hasSystemFeature(
+                PackageManager.FEATURE_SECURE_LOCK_SCREEN);
         assertDeviceOwner();
     }
 

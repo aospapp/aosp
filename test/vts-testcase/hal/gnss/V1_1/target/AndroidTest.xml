@@ -28,5 +28,7 @@
         <option name="binary-test-disable-framework" value="true"/>
         <option name="binary-test-stop-native-servers" value="true"/>
         <option name="test-timeout" value="15m"/>
+        <!-- TODO(b/113276383): re-enable GetLocationLowPower when b/112611179 is fixed. -->
+        <option name="exclude-filter" value="GnssHalTest.GetLocationLowPower" />
     </test>
 </configuration>

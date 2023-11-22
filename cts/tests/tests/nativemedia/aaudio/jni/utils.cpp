@@ -16,8 +16,11 @@
 
 #define LOG_TAG "AAudioTest"
 
+#include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <string>
 
 #include <android/log.h>
 #include <gtest/gtest.h>
@@ -51,6 +54,28 @@ const char* sharingModeToString(aaudio_sharing_mode_t mode) {
     return "UNKNOWN";
 }
 
+// Runs "pm list features" and attempts to find the specified feature in its output.
+bool deviceSupportsFeature(const char* feature) {
+    bool hasFeature = false;
+    FILE *p = popen("/system/bin/pm list features", "re");
+    if (p) {
+      char* line = NULL;
+      size_t len = 0;
+      while (getline(&line, &len, p) > 0) {
+          if (strstr(line, feature)) {
+              hasFeature = true;
+              break;
+          }
+      }
+      pclose(p);
+    } else {
+        __android_log_print(ANDROID_LOG_FATAL, LOG_TAG, "popen failed: %d", errno);
+        _exit(EXIT_FAILURE);
+    }
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "Feature %s: %ssupported",
+            feature, hasFeature ? "" : "not ");
+    return hasFeature;
+}
 
 // These periods are quite generous. They are not designed to put
 // any restrictions on the implementation, but only to ensure sanity.

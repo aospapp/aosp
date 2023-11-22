@@ -3,11 +3,15 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="src" path="easymock"/>
+	<classpathentry kind="src" path="objenesis"/>
+	<classpathentry kind="src" path="mockito"/>
 	<classpathentry kind="src" path="tests/src"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/ddmlib"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/tradefederation"/>
 	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/json-prebuilt_intermediates/javalib.jar"/>
 	<classpathentry combineaccessrules="false" kind="src" path="/cts-common-util"/>
-	<classpathentry kind="var" path="TRADEFED_ROOT/out/host/common/obj/JAVA_LIBRARIES/jsonlib_intermediates/classes.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/external/mockito/mockito-byte-buddy-agent/linux_glibc_common/combined/mockito-byte-buddy-agent.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/external/mockito/mockito-byte-buddy/linux_glibc_common/combined/mockito-byte-buddy.jar"/>
+	<classpathentry kind="var" path="TRADEFED_ROOT/out/soong/.intermediates/cts/libs/json/json/linux_glibc_common/javac/json.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

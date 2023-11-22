@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -44,9 +44,13 @@
 
 #include <nativehelper/JNIHelp.h>
 
-#if defined(_ALLBSD_SOURCE)
+// Android-changed: Fuchsia: Alias *64 on Fuchsia builds. http://b/119496969
+// #if defined(_ALLBSD_SOURCE)
+#if defined(_ALLBSD_SOURCE) || defined(__Fuchsia__)
 #define dirent64 dirent
-#define readdir64_r readdir_r
+// Android-changed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
+// #define readdir64_r readdir_r
+#define readdir64 readdir
 #define stat64 stat
 #define statvfs64 statvfs
 #endif
@@ -72,6 +76,8 @@ Java_java_io_UnixFileSystem_initIDs(JNIEnv *env, jclass cls)
 
 /* -- Path operations -- */
 
+// Android-changed: hidden to avoid conflict with libm (b/135018555)
+__attribute__((visibility("hidden")))
 extern int canonicalize(char *path, const char *out, int len);
 
 JNIEXPORT jstring JNICALL
@@ -133,18 +139,15 @@ Java_java_io_UnixFileSystem_getBooleanAttributes0(JNIEnv *env, jobject this,
     return rv;
 }
 
-// Android-changed: Name changed because of added thread policy check
+// BEGIN Android-removed: Access files through common interface.
+/*
 JNIEXPORT jboolean JNICALL
-Java_java_io_UnixFileSystem_checkAccess0(JNIEnv *env, jobject this,
-                                         jobject file, jint a)
+Java_java_io_UnixFileSystem_checkAccess(JNIEnv *env, jobject this,
+                                        jobject file, jint a)
 {
     jboolean rv = JNI_FALSE;
     int mode = 0;
     switch (a) {
-    // Android-changed: Added ACCESS_OK case
-    case java_io_FileSystem_ACCESS_OK:
-        mode = F_OK;
-        break;
     case java_io_FileSystem_ACCESS_READ:
         mode = R_OK;
         break;
@@ -163,6 +166,8 @@ Java_java_io_UnixFileSystem_checkAccess0(JNIEnv *env, jobject this,
     } END_PLATFORM_STRING(env, path);
     return rv;
 }
+*/
+// END Android-removed: Access files through common interface.
 
 // Android-changed: Name changed because of added thread policy check
 JNIEXPORT jboolean JNICALL
@@ -228,10 +233,11 @@ Java_java_io_UnixFileSystem_getLastModifiedTime0(JNIEnv *env, jobject this,
     return rv;
 }
 
-// Android-changed: Name changed because of added thread policy check
+// BEGIN Android-removed: Access files through common interface.
+/*
 JNIEXPORT jlong JNICALL
-Java_java_io_UnixFileSystem_getLength0(JNIEnv *env, jobject this,
-                                       jobject file)
+Java_java_io_UnixFileSystem_getLength(JNIEnv *env, jobject this,
+                                      jobject file)
 {
     jlong rv = 0;
 
@@ -243,6 +249,8 @@ Java_java_io_UnixFileSystem_getLength0(JNIEnv *env, jobject this,
     } END_PLATFORM_STRING(env, path);
     return rv;
 }
+*/
+// END Android-removed: Access files through common interface.
 
 
 /* -- File operations -- */
@@ -273,6 +281,8 @@ Java_java_io_UnixFileSystem_createFileExclusively0(JNIEnv *env, jclass cls,
 }
 
 
+// BEGIN Android-removed: Access files through common interface.
+/*
 JNIEXPORT jboolean JNICALL
 Java_java_io_UnixFileSystem_delete0(JNIEnv *env, jobject this,
                                     jobject file)
@@ -286,6 +296,8 @@ Java_java_io_UnixFileSystem_delete0(JNIEnv *env, jobject this,
     } END_PLATFORM_STRING(env, path);
     return rv;
 }
+*/
+// END Android-removed: Access files through common interface.
 
 // Android-changed: Name changed because of added thread policy check
 JNIEXPORT jobjectArray JNICALL
@@ -294,7 +306,8 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
 {
     DIR *dir = NULL;
     struct dirent64 *ptr;
-    struct dirent64 *result;
+    // Android-removed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
+    // struct dirent64 *result;
     int len, maxlen;
     jobjectArray rv, old;
     jclass str_class;
@@ -308,12 +321,15 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
     } END_PLATFORM_STRING(env, path);
     if (dir == NULL) return NULL;
 
+    // Android-removed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
+    /*
     ptr = malloc(sizeof(struct dirent64) + (PATH_MAX + 1));
     if (ptr == NULL) {
         JNU_ThrowOutOfMemoryError(env, "heap allocation failed");
         closedir(dir);
         return NULL;
     }
+    */
 
     /* Allocate an initial String array */
     len = 0;
@@ -322,7 +338,9 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
     if (rv == NULL) goto error;
 
     /* Scan the directory */
-    while ((readdir64_r(dir, ptr, &result) == 0)  && (result != NULL)) {
+    // Android-changed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
+    // while ((readdir64_r(dir, ptr, &result) == 0)  && (result != NULL)) {
+    while ((ptr = readdir64(dir)) != NULL) {
         jstring name;
         if (!strcmp(ptr->d_name, ".") || !strcmp(ptr->d_name, ".."))
             continue;
@@ -343,7 +361,8 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
         (*env)->DeleteLocalRef(env, name);
     }
     closedir(dir);
-    free(ptr);
+    // Android-removed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
+    // free(ptr);
 
     /* Copy the final results into an appropriately-sized array */
     old = rv;
@@ -358,7 +377,8 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
 
  error:
     closedir(dir);
-    free(ptr);
+    // Android-removed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
+    // free(ptr);
     return NULL;
 }
 
@@ -378,6 +398,8 @@ Java_java_io_UnixFileSystem_createDirectory0(JNIEnv *env, jobject this,
 }
 
 
+// BEGIN Android-removed: Access files through common interface.
+/*
 JNIEXPORT jboolean JNICALL
 Java_java_io_UnixFileSystem_rename0(JNIEnv *env, jobject this,
                                     jobject from, jobject to)
@@ -393,6 +415,8 @@ Java_java_io_UnixFileSystem_rename0(JNIEnv *env, jobject this,
     } END_PLATFORM_STRING(env, fromPath);
     return rv;
 }
+*/
+// END Android-removed: Access files through common interface.
 
 // Android-changed: Name changed because of added thread policy check
 JNIEXPORT jboolean JNICALL
@@ -477,15 +501,11 @@ static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(UnixFileSystem, initIDs, "()V"),
     NATIVE_METHOD(UnixFileSystem, canonicalize0, "(Ljava/lang/String;)Ljava/lang/String;"),
     NATIVE_METHOD(UnixFileSystem, getBooleanAttributes0, "(Ljava/lang/String;)I"),
-    NATIVE_METHOD(UnixFileSystem, checkAccess0, "(Ljava/io/File;I)Z"),
     NATIVE_METHOD(UnixFileSystem, setPermission0, "(Ljava/io/File;IZZ)Z"),
     NATIVE_METHOD(UnixFileSystem, getLastModifiedTime0, "(Ljava/io/File;)J"),
-    NATIVE_METHOD(UnixFileSystem, getLength0, "(Ljava/io/File;)J"),
     NATIVE_METHOD(UnixFileSystem, createFileExclusively0, "(Ljava/lang/String;)Z"),
-    NATIVE_METHOD(UnixFileSystem, delete0, "(Ljava/io/File;)Z"),
     NATIVE_METHOD(UnixFileSystem, list0, "(Ljava/io/File;)[Ljava/lang/String;"),
     NATIVE_METHOD(UnixFileSystem, createDirectory0, "(Ljava/io/File;)Z"),
-    NATIVE_METHOD(UnixFileSystem, rename0, "(Ljava/io/File;Ljava/io/File;)Z"),
     NATIVE_METHOD(UnixFileSystem, setLastModifiedTime0, "(Ljava/io/File;J)Z"),
     NATIVE_METHOD(UnixFileSystem, setReadOnly0, "(Ljava/io/File;)Z"),
     NATIVE_METHOD(UnixFileSystem, getSpace0, "(Ljava/io/File;I)J"),

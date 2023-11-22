@@ -19,12 +19,12 @@ import random
 import time
 
 from acts import asserts
-from acts import base_test
 from acts import signals
 from acts.test_decorators import test_tracker_info
-from acts.test_utils.tel.tel_test_utils import start_adb_tcpdump
-from acts.test_utils.tel.tel_test_utils import stop_adb_tcpdump
+from acts.test_utils.net.net_test_utils import start_tcpdump
+from acts.test_utils.net.net_test_utils import stop_tcpdump
 from acts.test_utils.wifi import wifi_test_utils as wutils
+from acts.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 WifiEnums = wutils.WifiEnums
 
@@ -35,9 +35,9 @@ EapPhase2 = WifiEnums.EapPhase2
 Ent = WifiEnums.Enterprise
 
 
-class WifiEnterpriseTest(base_test.BaseTestClass):
+class WifiEnterpriseTest(WifiBaseTest):
     def __init__(self, controllers):
-        base_test.BaseTestClass.__init__(self, controllers)
+        WifiBaseTest.__init__(self, controllers)
 
     def setup_class(self):
         self.dut = self.android_devices[0]
@@ -52,12 +52,23 @@ class WifiEnterpriseTest(base_test.BaseTestClass):
             "passpoint_client_cert", "passpoint_client_key", "eap_identity",
             "eap_password", "invalid_ca_cert", "invalid_client_cert",
             "invalid_client_key", "fqdn", "provider_friendly_name", "realm",
-            "ssid_peap0", "ssid_peap1", "ssid_tls", "ssid_ttls", "ssid_pwd",
-            "ssid_sim", "ssid_aka", "ssid_aka_prime", "ssid_passpoint",
-            "device_password", "ping_addr")
+            "device_password", "ping_addr", "radius_conf_2g", "radius_conf_5g",
+            "radius_conf_pwd")
         self.unpack_userparams(required_userparam_names,
                                roaming_consortium_ids=None,
                                plmn=None)
+
+        if "AccessPoint" in self.user_params:
+            self.legacy_configure_ap_and_start(
+                ent_network=True,
+                radius_conf_2g=self.radius_conf_2g,
+                radius_conf_5g=self.radius_conf_5g,
+                ent_network_pwd=True,
+                radius_conf_pwd=self.radius_conf_pwd,)
+        self.ent_network_2g = self.ent_networks[0]["2g"]
+        self.ent_network_5g = self.ent_networks[0]["5g"]
+        self.ent_network_pwd = self.ent_networks_pwd[0]["2g"]
+
         # Default configs for EAP networks.
         self.config_peap0 = {
             Ent.EAP: int(EAP.PEAP),
@@ -65,14 +76,15 @@ class WifiEnterpriseTest(base_test.BaseTestClass):
             Ent.IDENTITY: self.eap_identity,
             Ent.PASSWORD: self.eap_password,
             Ent.PHASE2: int(EapPhase2.MSCHAPV2),
-            WifiEnums.SSID_KEY: self.ssid_peap0
+            WifiEnums.SSID_KEY: self.ent_network_5g[WifiEnums.SSID_KEY],
         }
         self.config_peap1 = dict(self.config_peap0)
-        self.config_peap1[WifiEnums.SSID_KEY] = self.ssid_peap1
+        self.config_peap1[WifiEnums.SSID_KEY] = \
+            self.ent_network_2g[WifiEnums.SSID_KEY]
         self.config_tls = {
             Ent.EAP: int(EAP.TLS),
             Ent.CA_CERT: self.ca_cert,
-            WifiEnums.SSID_KEY: self.ssid_tls,
+            WifiEnums.SSID_KEY: self.ent_network_2g[WifiEnums.SSID_KEY],
             Ent.CLIENT_CERT: self.client_cert,
             Ent.PRIVATE_KEY_ID: self.client_key,
             Ent.IDENTITY: self.eap_identity,
@@ -83,25 +95,25 @@ class WifiEnterpriseTest(base_test.BaseTestClass):
             Ent.IDENTITY: self.eap_identity,
             Ent.PASSWORD: self.eap_password,
             Ent.PHASE2: int(EapPhase2.MSCHAPV2),
-            WifiEnums.SSID_KEY: self.ssid_ttls
+            WifiEnums.SSID_KEY: self.ent_network_2g[WifiEnums.SSID_KEY],
         }
         self.config_pwd = {
             Ent.EAP: int(EAP.PWD),
             Ent.IDENTITY: self.eap_identity,
             Ent.PASSWORD: self.eap_password,
-            WifiEnums.SSID_KEY: self.ssid_pwd
+            WifiEnums.SSID_KEY: self.ent_network_pwd[WifiEnums.SSID_KEY],
         }
         self.config_sim = {
             Ent.EAP: int(EAP.SIM),
-            WifiEnums.SSID_KEY: self.ssid_sim,
+            WifiEnums.SSID_KEY: self.ent_network_2g[WifiEnums.SSID_KEY],
         }
         self.config_aka = {
             Ent.EAP: int(EAP.AKA),
-            WifiEnums.SSID_KEY: self.ssid_aka,
+            WifiEnums.SSID_KEY: self.ent_network_2g[WifiEnums.SSID_KEY],
         }
         self.config_aka_prime = {
             Ent.EAP: int(EAP.AKA_PRIME),
-            WifiEnums.SSID_KEY: self.ssid_aka_prime,
+            WifiEnums.SSID_KEY: self.ent_network_2g[WifiEnums.SSID_KEY],
         }
 
         # Base config for passpoint networks.
@@ -133,7 +145,7 @@ class WifiEnterpriseTest(base_test.BaseTestClass):
 
     def teardown_class(self):
         wutils.reset_wifi(self.dut)
-        self.dut.droid.disableDevicePassword()
+        self.dut.droid.disableDevicePassword(self.device_password)
         self.dut.ed.clear_all_events()
 
     def setup_test(self):
@@ -142,14 +154,10 @@ class WifiEnterpriseTest(base_test.BaseTestClass):
         self.dut.droid.wakeUpNow()
         wutils.reset_wifi(self.dut)
         self.dut.ed.clear_all_events()
-        self.tcpdump_pid = start_adb_tcpdump(self.dut, self.test_name, mask='all')
+        self.tcpdump_pid = start_tcpdump(self.dut, self.test_name)
 
     def teardown_test(self):
-        if self.tcpdump_pid:
-            stop_adb_tcpdump(self.dut,
-                             self.tcpdump_pid,
-                             pull_tcpdump=True)
-            self.tcpdump_pid = None
+        stop_tcpdump(self.dut, self.tcpdump_pid, self.test_name)
         self.dut.droid.wakeLockRelease()
         self.dut.droid.goToSleepNow()
         self.dut.droid.wifiStopTrackingStateChange()

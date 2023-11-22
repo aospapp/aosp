@@ -44,7 +44,7 @@ import java.io.IOException;
  *  adb shell am instrument
  *   -e debug false -w
  *   -e class android.accounts.cts.AbstractAuthenticatorTests
- * android.accounts.cts/android.support.test.runner.AndroidJUnitRunner
+ * android.accounts.cts/androidx.test.runner.AndroidJUnitRunner
  */
 public class AbstractAuthenticatorTests extends AndroidTestCase {
 

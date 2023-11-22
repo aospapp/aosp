@@ -19,13 +19,12 @@
 
 #include "dex/dex_file_types.h"
 #include "dex/invoke_type.h"
-#include "jit/profile_compilation_info.h"
 #include "optimization.h"
+#include "profile/profile_compilation_info.h"
 
 namespace art {
 
 class CodeGenerator;
-class CompilerDriver;
 class DexCompilationUnit;
 class HGraph;
 class HInvoke;
@@ -38,7 +37,6 @@ class HInliner : public HOptimization {
            CodeGenerator* codegen,
            const DexCompilationUnit& outer_compilation_unit,
            const DexCompilationUnit& caller_compilation_unit,
-           CompilerDriver* compiler_driver,
            VariableSizedHandleScope* handles,
            OptimizingCompilerStats* stats,
            size_t total_number_of_dex_registers,
@@ -51,7 +49,6 @@ class HInliner : public HOptimization {
         outer_compilation_unit_(outer_compilation_unit),
         caller_compilation_unit_(caller_compilation_unit),
         codegen_(codegen),
-        compiler_driver_(compiler_driver),
         total_number_of_dex_registers_(total_number_of_dex_registers),
         total_number_of_instructions_(total_number_of_instructions),
         parent_(parent),
@@ -60,7 +57,7 @@ class HInliner : public HOptimization {
         handles_(handles),
         inline_stats_(nullptr) {}
 
-  void Run() OVERRIDE;
+  bool Run() override;
 
   static constexpr const char* kInlinerPassName = "inliner";
 
@@ -101,7 +98,7 @@ class HInliner : public HOptimization {
 
   // Run simple optimizations on `callee_graph`.
   void RunOptimizations(HGraph* callee_graph,
-                        const DexFile::CodeItem* code_item,
+                        const dex::CodeItem* code_item,
                         const DexCompilationUnit& dex_compilation_unit)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -280,7 +277,6 @@ class HInliner : public HOptimization {
   const DexCompilationUnit& outer_compilation_unit_;
   const DexCompilationUnit& caller_compilation_unit_;
   CodeGenerator* const codegen_;
-  CompilerDriver* const compiler_driver_;
   const size_t total_number_of_dex_registers_;
   size_t total_number_of_instructions_;
 

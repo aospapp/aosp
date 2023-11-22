@@ -16,7 +16,11 @@
 
 package android.os.cts;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.ref.Reference;
+import java.nio.channels.FileLock;
+
 import android.os.ParcelFileDescriptor;
 import android.os.ParcelFileDescriptor.AutoCloseOutputStream;
 import android.test.AndroidTestCase;
@@ -36,6 +40,17 @@ public class ParcelFileDescriptor_AutoCloseOutputStreamTest extends AndroidTestC
             fail("Failed to throw exception.");
         } catch (IOException e) {
             // expected
+        }
+    }
+
+    public void testCloseOrdering() throws Exception {
+        // b/118316956: Make sure that we close the OutputStream before we close the PFD.
+        ParcelFileDescriptor pfd = ParcelFileDescriptorTest.makeParcelFileDescriptor(getContext());
+        FileLock l = null;
+        try (FileOutputStream out = new AutoCloseOutputStream(pfd)) {
+            l = out.getChannel().lock();
+        } finally {
+            Reference.reachabilityFence(l);
         }
     }
 }

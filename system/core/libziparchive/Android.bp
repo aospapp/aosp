@@ -23,11 +23,34 @@ cc_defaults {
         "-D_FILE_OFFSET_BITS=64",
     ],
     cppflags: [
-        "-Wold-style-cast",
         // Incorrectly warns when C++11 empty brace {} initializer is used.
         // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61489
         "-Wno-missing-field-initializers",
     ],
+
+    // Enable -Wold-style-cast only for non-Windows targets.  _islower_l,
+    // _isupper_l etc. in MinGW locale_win32.h (included from
+    // libcxx/include/__locale) has an old-style-cast.
+    target: {
+        not_windows: {
+            cppflags: [
+                "-Wold-style-cast",
+            ],
+        },
+    },
+    sanitize: {
+        misc_undefined: [
+            "signed-integer-overflow",
+            "unsigned-integer-overflow",
+            "shift",
+            "integer-divide-by-zero",
+            "implicit-signed-integer-truncation",
+            // TODO: Fix crash when we enable this option
+            // "implicit-unsigned-integer-truncation",
+            // TODO: not tested yet.
+            // "implicit-integer-sign-change",
+        ],
+    },
 }
 
 cc_defaults {
@@ -58,9 +81,12 @@ cc_library {
     name: "libziparchive",
     host_supported: true,
     vendor_available: true,
+    recovery_available: true,
     vndk: {
         enabled: true,
     },
+    double_loadable: true,
+    export_shared_lib_headers: ["libbase"],
 
     defaults: [
         "libziparchive_defaults",
@@ -72,14 +98,6 @@ cc_library {
         "libz",
     ],
     target: {
-        android: {
-            shared_libs: [
-                "libutils",
-            ],
-        },
-        host: {
-            static_libs: ["libutils"],
-        },
         linux_bionic: {
             enabled: true,
         },
@@ -91,6 +109,10 @@ cc_test {
     name: "ziparchive-tests",
     host_supported: true,
     defaults: ["libziparchive_flags"],
+
+    data: [
+        "testdata/**/*",
+    ],
 
     srcs: [
         "entry_name_utils_test.cc",
@@ -116,6 +138,7 @@ cc_test {
             enabled: true,
         },
     },
+    test_suites: ["device-tests"],
 }
 
 // Performance benchmarks.
@@ -152,4 +175,5 @@ cc_binary {
         "libbase",
         "libziparchive",
     ],
+    recovery_available: true,
 }

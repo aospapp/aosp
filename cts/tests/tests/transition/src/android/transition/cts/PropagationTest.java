@@ -19,14 +19,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.graphics.Rect;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.transition.CircularPropagation;
 import android.transition.SidePropagation;
 import android.transition.Transition;
 import android.transition.TransitionValues;
 import android.view.Gravity;
 import android.view.View;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,8 +40,8 @@ public class PropagationTest extends BaseTransitionTest {
         enterScene(R.layout.scene10);
         CircularPropagation propagation = new CircularPropagation();
         mTransition.setPropagation(propagation);
-        final TransitionValues redValues = new TransitionValues();
-        redValues.view = mActivity.findViewById(R.id.redSquare);
+        final TransitionValues redValues = new TransitionValues(
+                mActivity.findViewById(R.id.redSquare));
         propagation.captureValues(redValues);
 
         // Only the reported propagation properties are set
@@ -218,8 +219,7 @@ public class PropagationTest extends BaseTransitionTest {
     }
 
     private TransitionValues capturePropagationValues(int viewId) {
-        TransitionValues transitionValues = new TransitionValues();
-        transitionValues.view = mSceneRoot.findViewById(viewId);
+        TransitionValues transitionValues = new TransitionValues(mSceneRoot.findViewById(viewId));
         mTransition.getPropagation().captureValues(transitionValues);
         return transitionValues;
     }

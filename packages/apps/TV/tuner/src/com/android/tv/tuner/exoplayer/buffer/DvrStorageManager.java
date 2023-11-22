@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -387,5 +388,23 @@ public class DvrStorageManager implements BufferManager.StorageManager {
                 out.writeInt(entry.getValue().second);
             }
         }
+    }
+
+    @Override
+    public void updateIndexFile(
+            String trackName, int size, long position, SampleChunk sampleChunk, int offset)
+            throws IOException {
+        File indexFile = new File(getBufferDir(), trackName + IDX_FILE_SUFFIX_V2);
+        if (!indexFile.exists()) {
+            indexFile.createNewFile();
+        }
+        RandomAccessFile accessFile = new RandomAccessFile(indexFile, "rw");
+        accessFile.seek(0);
+        accessFile.writeLong(size);
+        accessFile.seek(accessFile.length());
+        accessFile.writeLong(position);
+        accessFile.writeLong(sampleChunk.getStartPositionUs());
+        accessFile.writeInt(offset);
+        accessFile.close();
     }
 }

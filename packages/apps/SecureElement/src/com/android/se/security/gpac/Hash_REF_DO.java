@@ -47,6 +47,7 @@ public class Hash_REF_DO extends BerTlv {
 
     public static final int TAG = 0xC1;
     public static final int SHA1_LEN = 20;
+    public static final int SHA256_LEN = 32;
 
     private byte[] mHash = new byte[0];
 
@@ -92,12 +93,14 @@ public class Hash_REF_DO extends BerTlv {
     }
 
     /**
-     * Tags: C1 Length: 0 or SHA1_LEN bytes
+     * Tags: C1 Length: 0 or SHA1_LEN or SHA256_LEN bytes
      *
      * <p>Value: Hash: identifies a specific device application Empty: refers to all device
      * applications
      *
-     * <p>Length: SHA1_LEN for 20 bytes SHA-1 hash value 0 for empty value field
+     * <p>Length: SHA1_LEN for 20 bytes SHA-1 hash value
+     *            SHA256_LEN for 32 bytes SHA-256 hash value
+     *            0 for empty value field
      */
     @Override
     public void interpret() throws ParserException {
@@ -106,19 +109,20 @@ public class Hash_REF_DO extends BerTlv {
 
         byte[] data = getRawData();
         int index = getValueIndex();
+        int length = getValueLength();
 
         // sanity checks
-        if (getValueLength() != 0 && getValueLength() != SHA1_LEN) {
+        if (length != 0 && length != SHA1_LEN && length != SHA256_LEN) {
             throw new ParserException("Invalid value length for Hash-REF-DO!");
         }
 
-        if (getValueLength() == SHA1_LEN) {
-            if (index + getValueLength() > data.length) {
+        if (length != 0) {
+            if (index + length > data.length) {
                 throw new ParserException("Not enough data for Hash-REF-DO!");
             }
 
-            mHash = new byte[getValueLength()];
-            System.arraycopy(data, index, mHash, 0, getValueLength());
+            mHash = new byte[length];
+            System.arraycopy(data, index, mHash, 0, length);
         }
     }
 
@@ -128,14 +132,17 @@ public class Hash_REF_DO extends BerTlv {
      * <p>Value: Hash: identifies a specific device application Empty: refers to all device
      * applications
      *
-     * <p>Length: SHA1_LEN for 20 bytes SHA-1 hash value 0 for empty value field
+     * <p>Length: 20 for SHA-1 hash or
+     *            32 bytes for SHA-256 hash or
+     *            0 for empty value field
      */
     @Override
     public void build(ByteArrayOutputStream stream) throws DO_Exception {
 
         // sanity checks
-        if (!(mHash.length != SHA1_LEN || mHash.length != 0)) {
-            throw new DO_Exception("Hash value must be " + SHA1_LEN + " bytes in length!");
+        if (mHash.length != SHA1_LEN && mHash.length != SHA256_LEN && mHash.length != 0) {
+            throw new DO_Exception("Hash value must be " + SHA1_LEN + " or " + SHA256_LEN
+                    + " bytes in length!");
         }
 
         stream.write(getTag());

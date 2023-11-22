@@ -35,6 +35,4 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_JAVA_LIBRARIES += android.car
 
-include packages/services/Car/car-support-lib/car-support.mk
-
 include $(BUILD_PACKAGE)

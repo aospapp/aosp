@@ -60,6 +60,8 @@ struct ManifestHal {
         return transportArch.transport;
     }
 
+    inline Arch arch() const { return transportArch.arch; }
+
     inline const std::string& getName() const { return name; }
     bool forEachInstance(const std::function<bool(const ManifestInstance&)>& func) const;
 
@@ -70,8 +72,6 @@ struct ManifestHal {
     // a HAL is disabled on certain products.
     bool isDisabledHal() const;
 
-    // insert instance to <interface> <instance>.
-    void insertLegacyInstance(const std::string& interface, const std::string& instance);
    private:
     friend struct LibVintfTest;
     friend struct ManifestHalConverter;
@@ -93,7 +93,11 @@ struct ManifestHal {
     // Existing instances will be ignored.
     // Pre: all instances to be inserted must satisfy
     // !hasPackage() && hasVersion() && hasInterface() && hasInstance()
+    bool insertInstance(const FqInstance& fqInstance, std::string* error = nullptr);
     bool insertInstances(const std::set<FqInstance>& fqInstances, std::string* error = nullptr);
+
+    // Verify instance before inserting.
+    bool verifyInstance(const FqInstance& fqInstance, std::string* error = nullptr) const;
 };
 
 } // namespace vintf

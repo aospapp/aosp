@@ -17,6 +17,8 @@
 #ifndef HARDWARE_GOOGLE_MEDIA_C2_V1_0_UTILS_TYPES_H
 #define HARDWARE_GOOGLE_MEDIA_C2_V1_0_UTILS_TYPES_H
 
+#include <chrono>
+
 #include <bufferpool/ClientManager.h>
 #include <android/hardware/media/bufferpool/1.0/IClientManager.h>
 #include <android/hardware/media/bufferpool/1.0/types.h>
@@ -28,6 +30,8 @@
 #include <C2Param.h>
 #include <C2ParamDef.h>
 #include <C2Work.h>
+
+using namespace std::chrono_literals;
 
 namespace hardware {
 namespace google {
@@ -169,15 +173,25 @@ struct DefaultBufferPoolSender : BufferPoolSender {
     typedef ::android::hardware::media::bufferpool::V1_0::
             IClientManager IClientManager;
 
-    // Set the IClientManager of the receiving process to receiverManager.
-    DefaultBufferPoolSender(const sp<IClientManager>& receiverManager = nullptr);
+    // Set the IClientManager instance of the receiving process and the refresh
+    // interval for the connection. The default interval is 4.5 seconds, which
+    // is slightly shorter than the amount of time the bufferpool will keep an
+    // inactive connection for.
+    DefaultBufferPoolSender(
+            const sp<IClientManager>& receiverManager = nullptr,
+            std::chrono::steady_clock::duration refreshInterval = 4500ms);
 
-    // Set the IClientManager of the receiving process to receiverManager.
-    void setReceiver(const sp<IClientManager>& receiverManager);
+    // Set the IClientManager instance of the receiving process and the refresh
+    // interval for the connection. The default interval is 4.5 seconds, which
+    // is slightly shorter than the amount of time the bufferpool will keep an
+    // inactive connection for.
+    void setReceiver(
+            const sp<IClientManager>& receiverManager,
+            std::chrono::steady_clock::duration refreshInterval = 4500ms);
 
-    // Implementation of BufferPoolSender::send(). The first time send() is
-    // called, the bufferpool connection will be established with the
-    // previously-set IClientManager of the receiving process.
+    // Implementation of BufferPoolSender::send(). send() will establish a
+    // bufferpool connection if needed, then send the bufferpool data over to
+    // the receiving process.
     virtual ResultStatus send(
             const std::shared_ptr<BufferPoolData>& bpData,
             BufferStatusMessage* bpMessage) override;
@@ -188,6 +202,8 @@ private:
     sp<IClientManager> mReceiverManager;
     int64_t mReceiverConnectionId;
     int64_t mSourceConnectionId;
+    std::chrono::steady_clock::time_point mLastSent;
+    std::chrono::steady_clock::duration mRefreshInterval;
 };
 
 // std::list<std::unique_ptr<C2Work>> -> WorkBundle
@@ -276,8 +292,9 @@ status_t attachToBufferQueue(const C2ConstGraphicBlock& block,
                              int32_t* bqSlot);
 
 // Return false if block does not come from a bufferqueue-based blockpool.
-// Otherwise, extract bqId and bqSlot and return true.
+// Otherwise, extract generation, bqId and bqSlot and return true.
 bool getBufferQueueAssignment(const C2ConstGraphicBlock& block,
+                              uint32_t* generation,
                               uint64_t* bqId,
                               int32_t* bqSlot);
 

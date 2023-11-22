@@ -21,6 +21,7 @@ import android.net.wifi.p2p.WifiP2pDevice;
 import android.util.Log;
 
 import com.android.bips.BuiltInPrintService;
+import com.android.bips.P2pPermissionManager;
 import com.android.bips.p2p.P2pPeerListener;
 
 /**
@@ -32,6 +33,7 @@ public class P2pDiscovery extends SavedDiscovery implements P2pPeerListener {
     private static final boolean DEBUG = false;
 
     private boolean mDiscoveringPeers = false;
+    private P2pPermissionManager.P2pPermissionRequest mP2pPermissionRequest;
 
     public P2pDiscovery(BuiltInPrintService printService) {
         super(printService);
@@ -61,6 +63,10 @@ public class P2pDiscovery extends SavedDiscovery implements P2pPeerListener {
     @Override
     void onStop() {
         if (DEBUG) Log.d(TAG, "onStop()");
+        if (mP2pPermissionRequest != null) {
+            mP2pPermissionRequest.close();
+            mP2pPermissionRequest = null;
+        }
         if (mDiscoveringPeers) {
             mDiscoveringPeers = false;
             getPrintService().getP2pMonitor().stopDiscover(this);
@@ -73,8 +79,16 @@ public class P2pDiscovery extends SavedDiscovery implements P2pPeerListener {
         if (mDiscoveringPeers || getSavedPrinters().isEmpty()) {
             return;
         }
-        mDiscoveringPeers = true;
-        getPrintService().getP2pMonitor().discover(this);
+
+        // Only begin discovery if the user has granted permissions
+        P2pPermissionManager permissionManager = getPrintService().getP2pPermissionManager();
+        mP2pPermissionRequest = permissionManager.request(true, approved -> {
+            if (approved) {
+                mDiscoveringPeers = true;
+                getPrintService().getP2pMonitor().discover(this);
+            }
+            mP2pPermissionRequest = null;
+        });
     }
 
     @Override

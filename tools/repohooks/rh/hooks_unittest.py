@@ -244,16 +244,21 @@ class BuiltinHooksTests(unittest.TestCase):
                                   remote='remote')
         self.options = rh.hooks.HookOptions('hook name', [], {})
 
-    def _test_commit_messages(self, func, accept, msgs):
+    def _test_commit_messages(self, func, accept, msgs, files=None):
         """Helper for testing commit message hooks.
 
         Args:
           func: The hook function to test.
           accept: Whether all the |msgs| should be accepted.
           msgs: List of messages to test.
+          files: List of files to pass to the hook.
         """
+        if files:
+            diff = [rh.git.RawDiffEntry(file=x) for x in files]
+        else:
+            diff = []
         for desc in msgs:
-            ret = func(self.project, 'commit', desc, (), options=self.options)
+            ret = func(self.project, 'commit', desc, diff, options=self.options)
             if accept:
                 self.assertEqual(
                     ret, None, msg='Should have accepted: {{{%s}}}' % (desc,))
@@ -336,6 +341,112 @@ class BuiltinHooksTests(unittest.TestCase):
                 'subj\n\nChange-ID: I1234\n',
             ))
 
+    def test_commit_msg_prebuilt_apk_fields(self, _mock_check, _mock_run):
+        """Verify the check_commit_msg_prebuilt_apk_fields builtin hook."""
+        # Commits without APKs should pass.
+        self._test_commit_messages(
+            rh.hooks.check_commit_msg_prebuilt_apk_fields,
+            True,
+            (
+                'subj\nTest: test case\nBug: bug id\n',
+            ),
+            ['foo.cpp', 'bar.py',]
+        )
+
+        # Commits with APKs and all the required messages should pass.
+        self._test_commit_messages(
+            rh.hooks.check_commit_msg_prebuilt_apk_fields,
+            True,
+            (
+                ('Test App\n\nbar.apk\npackage: name=\'com.foo.bar\'\n'
+                 'versionCode=\'1001\'\nversionName=\'1.0.1001-A\'\n'
+                 'platformBuildVersionName=\'\'\ncompileSdkVersion=\'28\'\n'
+                 'compileSdkVersionCodename=\'9\'\nsdkVersion:\'16\'\n'
+                 'targetSdkVersion:\'28\'\n\nBuilt here:\n'
+                 'http://foo.bar.com/builder\n\n'
+                 'This build IS suitable for public release.\n\n'
+                 'Bug: 123\nTest: test\nChange-Id: XXXXXXX\n'),
+                ('Test App\n\nBuilt here:\nhttp://foo.bar.com/builder\n\n'
+                 'This build IS NOT suitable for public release.\n\n'
+                 'bar.apk\npackage: name=\'com.foo.bar\'\n'
+                 'versionCode=\'1001\'\nversionName=\'1.0.1001-A\'\n'
+                 'platformBuildVersionName=\'\'\ncompileSdkVersion=\'28\'\n'
+                 'compileSdkVersionCodename=\'9\'\nsdkVersion:\'16\'\n'
+                 'targetSdkVersion:\'28\'\n\nBug: 123\nTest: test\n'
+                 'Change-Id: XXXXXXX\n'),
+                ('Test App\n\nbar.apk\npackage: name=\'com.foo.bar\'\n'
+                 'versionCode=\'1001\'\nversionName=\'1.0.1001-A\'\n'
+                 'platformBuildVersionName=\'\'\ncompileSdkVersion=\'28\'\n'
+                 'compileSdkVersionCodename=\'9\'\nsdkVersion:\'16\'\n'
+                 'targetSdkVersion:\'28\'\n\nBuilt here:\n'
+                 'http://foo.bar.com/builder\n\n'
+                 'This build IS suitable for preview release but IS NOT '
+                 'suitable for public release.\n\n'
+                 'Bug: 123\nTest: test\nChange-Id: XXXXXXX\n'),
+                ('Test App\n\nbar.apk\npackage: name=\'com.foo.bar\'\n'
+                 'versionCode=\'1001\'\nversionName=\'1.0.1001-A\'\n'
+                 'platformBuildVersionName=\'\'\ncompileSdkVersion=\'28\'\n'
+                 'compileSdkVersionCodename=\'9\'\nsdkVersion:\'16\'\n'
+                 'targetSdkVersion:\'28\'\n\nBuilt here:\n'
+                 'http://foo.bar.com/builder\n\n'
+                 'This build IS NOT suitable for preview or public release.\n\n'
+                 'Bug: 123\nTest: test\nChange-Id: XXXXXXX\n'),
+            ),
+            ['foo.apk', 'bar.py',]
+        )
+
+        # Commits with APKs and without all the required messages should fail.
+        self._test_commit_messages(
+            rh.hooks.check_commit_msg_prebuilt_apk_fields,
+            False,
+            (
+                'subj\nTest: test case\nBug: bug id\n',
+                # Missing 'package'.
+                ('Test App\n\nbar.apk\n'
+                 'versionCode=\'1001\'\nversionName=\'1.0.1001-A\'\n'
+                 'platformBuildVersionName=\'\'\ncompileSdkVersion=\'28\'\n'
+                 'compileSdkVersionCodename=\'9\'\nsdkVersion:\'16\'\n'
+                 'targetSdkVersion:\'28\'\n\nBuilt here:\n'
+                 'http://foo.bar.com/builder\n\n'
+                 'This build IS suitable for public release.\n\n'
+                 'Bug: 123\nTest: test\nChange-Id: XXXXXXX\n'),
+                # Missing 'sdkVersion'.
+                ('Test App\n\nbar.apk\npackage: name=\'com.foo.bar\'\n'
+                 'versionCode=\'1001\'\nversionName=\'1.0.1001-A\'\n'
+                 'platformBuildVersionName=\'\'\ncompileSdkVersion=\'28\'\n'
+                 'compileSdkVersionCodename=\'9\'\n'
+                 'targetSdkVersion:\'28\'\n\nBuilt here:\n'
+                 'http://foo.bar.com/builder\n\n'
+                 'This build IS suitable for public release.\n\n'
+                 'Bug: 123\nTest: test\nChange-Id: XXXXXXX\n'),
+                # Missing 'targetSdkVersion'.
+                ('Test App\n\nbar.apk\npackage: name=\'com.foo.bar\'\n'
+                 'versionCode=\'1001\'\nversionName=\'1.0.1001-A\'\n'
+                 'platformBuildVersionName=\'\'\ncompileSdkVersion=\'28\'\n'
+                 'compileSdkVersionCodename=\'9\'\nsdkVersion:\'16\'\n'
+                 'Built here:\nhttp://foo.bar.com/builder\n\n'
+                 'This build IS suitable for public release.\n\n'
+                 'Bug: 123\nTest: test\nChange-Id: XXXXXXX\n'),
+                # Missing build location.
+                ('Test App\n\nbar.apk\npackage: name=\'com.foo.bar\'\n'
+                 'versionCode=\'1001\'\nversionName=\'1.0.1001-A\'\n'
+                 'platformBuildVersionName=\'\'\ncompileSdkVersion=\'28\'\n'
+                 'compileSdkVersionCodename=\'9\'\nsdkVersion:\'16\'\n'
+                 'targetSdkVersion:\'28\'\n\n'
+                 'This build IS suitable for public release.\n\n'
+                 'Bug: 123\nTest: test\nChange-Id: XXXXXXX\n'),
+                # Missing public release indication.
+                ('Test App\n\nbar.apk\npackage: name=\'com.foo.bar\'\n'
+                 'versionCode=\'1001\'\nversionName=\'1.0.1001-A\'\n'
+                 'platformBuildVersionName=\'\'\ncompileSdkVersion=\'28\'\n'
+                 'compileSdkVersionCodename=\'9\'\nsdkVersion:\'16\'\n'
+                 'targetSdkVersion:\'28\'\n\nBuilt here:\n'
+                 'http://foo.bar.com/builder\n\n'
+                 'Bug: 123\nTest: test\nChange-Id: XXXXXXX\n'),
+            ),
+            ['foo.apk', 'bar.py',]
+        )
+
     def test_commit_msg_test_field(self, _mock_check, _mock_run):
         """Verify the commit_msg_test_field builtin hook."""
         # Check some good messages.
@@ -390,6 +501,20 @@ class BuiltinHooksTests(unittest.TestCase):
         """Verify the xmllint builtin hook."""
         self._test_file_filter(mock_check, rh.hooks.check_xmllint,
                                ('foo.xml',))
+
+    def test_android_test_mapping_format(self, mock_check, _mock_run):
+        """Verify the android_test_mapping_format builtin hook."""
+        # First call should do nothing as there are no files to check.
+        ret = rh.hooks.check_android_test_mapping(
+            self.project, 'commit', 'desc', (), options=self.options)
+        self.assertIsNone(ret)
+        self.assertFalse(mock_check.called)
+
+        # Second call will have some results.
+        diff = [rh.git.RawDiffEntry(file='TEST_MAPPING')]
+        ret = rh.hooks.check_android_test_mapping(
+            self.project, 'commit', 'desc', diff, options=self.options)
+        self.assertIsNotNone(ret)
 
 
 if __name__ == '__main__':

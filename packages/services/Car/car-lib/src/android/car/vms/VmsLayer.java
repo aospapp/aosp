@@ -23,62 +23,73 @@ import android.os.Parcelable;
 import java.util.Objects;
 
 /**
- * A VMS Layer which can be subscribed to by VMS clients.
+ * A Vehicle Map Service layer, which can be offered or subscribed to by clients.
+ *
+ * The full layer definition is used when routing packets, with each layer having the following
+ * properties:
+ *
+ * <ul>
+ * <li>Type: Type of data being published.</li>
+ * <li>Subtype: Type of packet being published.</li>
+ * <li>Version: Major version of the packet format. Different versions are not guaranteed to be
+ * compatible.</li>
+ * </ul>
+ *
+ * See the Vehicle Maps Service partner documentation for the set of valid types and subtypes.
  *
  * @hide
  */
 @SystemApi
 public final class VmsLayer implements Parcelable {
-
-    // The layer Type.
     private int mType;
-
-    // The layer Subtype.
     private int mSubtype;
-
-    // The layer version.
     private int mVersion;
 
+    /**
+     * Constructs a new layer definition.
+     *
+     * @param type    type of data published on the layer
+     * @param subtype type of packet published on the layer
+     * @param version major version of layer packet format
+     */
     public VmsLayer(int type, int subtype, int version) {
         mType = type;
         mSubtype = subtype;
         mVersion = version;
     }
 
+    /**
+     * @return type of data published on the layer
+     */
     public int getType() {
         return mType;
     }
 
+    /**
+     * @return type of packet published on the layer
+     */
     public int getSubtype() {
         return mSubtype;
     }
 
+    /**
+     * @return major version of layer packet format
+     */
     public int getVersion() {
         return mVersion;
     }
 
-    /**
-     * Checks the two objects for equality by comparing their IDs and Versions.
-     *
-     * @param o the {@link VmsLayer} to which this one is to be checked for equality
-     * @return true if the underlying objects of the VmsLayer are both considered equal
-     */
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof VmsLayer)) {
             return false;
         }
         VmsLayer p = (VmsLayer) o;
-        return Objects.equals(p.mType, mType) &&
-            Objects.equals(p.mSubtype, mSubtype) &&
-            Objects.equals(p.mVersion, mVersion);
+        return Objects.equals(p.mType, mType)
+                && Objects.equals(p.mSubtype, mSubtype)
+                && Objects.equals(p.mVersion, mVersion);
     }
 
-    /**
-     * Compute a hash code similarly tp {@link android.util.Pair}
-     *
-     * @return a hashcode of the Pair
-     */
     @Override
     public int hashCode() {
         return Objects.hash(mType, mSubtype, mVersion);
@@ -86,11 +97,10 @@ public final class VmsLayer implements Parcelable {
 
     @Override
     public String toString() {
-        return "VmsLayer{ Type: " + mType + ", Sub type: " + mSubtype + ", Version: " + mVersion + "}";
+        return "VmsLayer{ Type: " + mType + ", Sub type: " + mSubtype + ", Version: " + mVersion
+                + "}";
     }
 
-
-    // Parcelable related methods.
     public static final Parcelable.Creator<VmsLayer> CREATOR = new
             Parcelable.Creator<VmsLayer>() {
                 public VmsLayer createFromParcel(Parcel in) {

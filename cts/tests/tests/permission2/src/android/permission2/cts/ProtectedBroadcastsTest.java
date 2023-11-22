@@ -69,7 +69,7 @@ public class ProtectedBroadcastsTest extends AndroidTestCase {
         "android.net.conn.TETHER_STATE_CHANGED",
         "android.net.conn.INET_CONDITION_ACTION",
         "android.net.conn.CAPTIVE_PORTAL_TEST_COMPLETED",
-        "com.android.server.InputMethodManagerService.SHOW_INPUT_METHOD_PICKER"
+        "com.android.server.inputmethod.InputMethodManagerService.SHOW_INPUT_METHOD_PICKER"
     };
 
     private static final String BROADCASTS_TELEPHONY[] = new String[] {
@@ -85,8 +85,9 @@ public class ProtectedBroadcastsTest extends AndroidTestCase {
         "android.intent.action.DATA_CONNECTION_FAILED",
         "android.intent.action.NETWORK_SET_TIME",
         "android.intent.action.NETWORK_SET_TIMEZONE",
-        "com.android.internal.intent.action.ACTION_SHOW_NOTICE_ECM_BLOCK_OTHERS",
         "android.telephony.action.SUBSCRIPTION_CARRIER_IDENTITY_CHANGED",
+        "android.telephony.action.SUBSCRIPTION_SPECIFIC_CARRIER_IDENTITY_CHANGED",
+        "com.android.internal.intent.action.ACTION_SHOW_NOTICE_ECM_BLOCK_OTHERS",
     };
 
     /**

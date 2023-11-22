@@ -63,38 +63,6 @@ public class DistroVersionTest extends TestCase {
         assertEquals(distroVersion, DistroVersion.fromBytes(distroVersion.toBytes()));
     }
 
-    public void testIsCompatibleWithThisDevice() throws Exception {
-        DistroVersion exactMatch = createDistroVersion(
-                DistroVersion.CURRENT_FORMAT_MAJOR_VERSION,
-                DistroVersion.CURRENT_FORMAT_MINOR_VERSION);
-        assertTrue(DistroVersion.isCompatibleWithThisDevice(exactMatch));
-
-        DistroVersion newerMajor = createDistroVersion(
-                DistroVersion.CURRENT_FORMAT_MAJOR_VERSION + 1,
-                DistroVersion.CURRENT_FORMAT_MINOR_VERSION);
-        assertFalse(DistroVersion.isCompatibleWithThisDevice(newerMajor));
-
-        DistroVersion newerMinor = createDistroVersion(
-                DistroVersion.CURRENT_FORMAT_MAJOR_VERSION,
-                DistroVersion.CURRENT_FORMAT_MINOR_VERSION + 1);
-        assertTrue(DistroVersion.isCompatibleWithThisDevice(newerMinor));
-
-        // The constant versions should never be below 1. We allow 0 but want to start version
-        // numbers at 1 to allow testing of older version logic.
-        assertTrue(DistroVersion.CURRENT_FORMAT_MAJOR_VERSION >= 1);
-        assertTrue(DistroVersion.CURRENT_FORMAT_MINOR_VERSION >= 1);
-
-        DistroVersion olderMajor = createDistroVersion(
-                DistroVersion.CURRENT_FORMAT_MAJOR_VERSION - 1,
-                DistroVersion.CURRENT_FORMAT_MINOR_VERSION);
-        assertFalse(DistroVersion.isCompatibleWithThisDevice(olderMajor));
-
-        DistroVersion olderMinor = createDistroVersion(
-                DistroVersion.CURRENT_FORMAT_MAJOR_VERSION,
-                DistroVersion.CURRENT_FORMAT_MINOR_VERSION - 1);
-        assertFalse(DistroVersion.isCompatibleWithThisDevice(olderMinor));
-    }
-
     private DistroVersion createDistroVersion(int majorFormatVersion, int minorFormatVersion)
             throws DistroException {
         return new DistroVersion(majorFormatVersion, minorFormatVersion, VALID_RULES_VERSION, 3);

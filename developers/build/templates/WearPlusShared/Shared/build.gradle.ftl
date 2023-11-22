@@ -15,20 +15,20 @@
 -->
 buildscript {
     repositories {
-        jcenter()
         google()
+        jcenter()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.0.1'
+        classpath 'com.android.tools.build:gradle:3.3.2'
     }
 }
 
-apply plugin: 'android-library'
+apply plugin: 'com.android.library'
 
 repositories {
-    jcenter()
     google()
+    jcenter()
 <#if sample.repository?has_content>
     <#list sample.repository as rep>
     ${rep}

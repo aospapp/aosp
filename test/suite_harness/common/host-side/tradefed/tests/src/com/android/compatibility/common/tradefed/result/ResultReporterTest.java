@@ -499,4 +499,54 @@ public class ResultReporterTest extends TestCase {
         // assert contents of the file
         assertEquals("test", FileUtil.readStringFromFile(deviceInfoFile));
     }
+
+    /** Ensure that the module is not marked done if any of the shard fails. */
+    public void testResultReporter_sharded() throws Exception {
+        ResultReporter shard1 = new ResultReporter(mReporter);
+        ResultReporter shard2 = new ResultReporter(mReporter);
+
+        mReporter.invocationStarted(mContext);
+        shard1.invocationStarted(mContext);
+        shard2.invocationStarted(mContext);
+
+        // First shard is good
+        shard1.testRunStarted(ID, 1);
+        TestDescription test1 = new TestDescription(CLASS, METHOD_1);
+        shard1.testStarted(test1);
+        shard1.testEnded(test1, new HashMap<String, Metric>());
+        shard1.testRunEnded(10, new HashMap<String, Metric>());
+        shard1.invocationEnded(10);
+        // Second shard failed
+        shard2.testRunStarted(ID, 2);
+        TestDescription test2 = new TestDescription(CLASS, METHOD_2);
+        shard2.testStarted(test2);
+        shard2.testEnded(test2, new HashMap<String, Metric>());
+        shard2.testRunFailed("error");
+        shard2.testRunEnded(10, new HashMap<String, Metric>());
+        shard2.invocationEnded(10);
+
+        IInvocationResult result = mReporter.getResult();
+        assertEquals("Expected 2 pass", 2, result.countResults(TestStatus.PASS));
+        assertEquals("Expected 0 failures", 0, result.countResults(TestStatus.FAIL));
+        List<IModuleResult> modules = result.getModules();
+        assertEquals("Expected 1 module", 1, modules.size());
+        IModuleResult module = modules.get(0);
+
+        // Ensure module is seen as not done and failed
+        assertFalse(module.isDone());
+        assertTrue(module.isFailed());
+
+        assertEquals("Incorrect ID", ID, module.getId());
+        List<ICaseResult> caseResults = module.getResults();
+        assertEquals("Expected 1 test run", 1, caseResults.size());
+        ICaseResult caseResult = caseResults.get(0);
+        List<ITestResult> testResults = caseResult.getResults();
+        assertEquals("Expected 2 test cases", 2, testResults.size());
+        ITestResult result1 = caseResult.getResult(METHOD_1);
+        assertNotNull(String.format("Expected result for %s", TEST_1), result1);
+        assertEquals(
+                String.format("Expected pass for %s", TEST_1),
+                TestStatus.PASS,
+                result1.getResultStatus());
+    }
 }

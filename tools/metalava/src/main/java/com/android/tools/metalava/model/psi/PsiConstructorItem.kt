@@ -17,7 +17,6 @@
 package com.android.tools.metalava.model.psi
 
 import com.android.tools.metalava.model.ConstructorItem
-import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MethodItem
 import com.intellij.psi.JavaPsiFacade
 import com.intellij.psi.PsiClass
@@ -27,7 +26,6 @@ import com.intellij.psi.PsiKeyword
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiMethodCallExpression
 import com.intellij.psi.PsiWhiteSpace
-import java.util.function.Predicate
 
 class PsiConstructorItem(
     codebase: PsiBasedCodebase,
@@ -93,43 +91,14 @@ class PsiConstructorItem(
         return _superMethods!!
     }
 
-    fun findDelegate(predicate: Predicate<Item>, allowInexactMatch: Boolean = true): PsiConstructorItem? {
-        if (isImplicitConstructor()) {
-            // Delegate to parent implicit constructors
-            (containingClass().superClass() as? PsiClassItem)?.constructors()?.forEach {
-                if (it.implicitConstructor) {
-                    return if (predicate.test(it)) {
-                        it
-                    } else {
-                        it.findDelegate(predicate, allowInexactMatch)
-                    }
-                }
-            }
+    override fun psi(): PsiElement? {
+        // If no PSI element, is this a synthetic/implicit constructor? If so
+        // grab the parent class' PSI element instead for file/location purposes
+        if (implicitConstructor && element.containingFile?.virtualFile == null) {
+            return containingClass().psi()
         }
 
-        val superPsiMethod = PsiConstructorItem.findSuperOrThis(psiMethod)
-        if (superPsiMethod != null) {
-            val superMethod = codebase.findMethod(superPsiMethod) as PsiConstructorItem
-            if (!predicate.test(superMethod)) {
-                return superMethod.findDelegate(predicate, allowInexactMatch)
-            }
-            return superMethod
-        }
-
-        // Try to pick an alternative - for example adding package private bridging
-        // methods if the super class is in the same package
-        val constructors = (containingClass().superClass() as? PsiClassItem)?.constructors()
-        constructors?.forEach { constructor ->
-            if (predicate.test(constructor)) {
-                return constructor
-            }
-            val superMethod = constructor.findDelegate(predicate, allowInexactMatch)
-            if (superMethod != null) {
-                return superMethod
-            }
-        }
-
-        return null
+        return element
     }
 
     companion object {
@@ -186,66 +155,6 @@ class PsiConstructorItem(
             )
             modifiers.setOwner(item)
             return item
-        }
-
-        fun create(
-            codebase: PsiBasedCodebase,
-            containingClass: PsiClassItem,
-            original: PsiConstructorItem
-        ): PsiConstructorItem {
-            val constructor = PsiConstructorItem(
-                codebase = codebase,
-                psiMethod = original.psiMethod,
-                containingClass = containingClass,
-                name = original.name(),
-                documentation = original.documentation,
-                modifiers = PsiModifierItem.create(codebase, original.modifiers),
-                parameters = PsiParameterItem.create(codebase, original.parameters()),
-                returnType = codebase.getType(containingClass.psiClass),
-                implicitConstructor = original.implicitConstructor
-            )
-
-            constructor.modifiers.setOwner(constructor)
-            constructor.source = original
-
-            return constructor
-        }
-
-        internal fun findSuperOrThis(psiMethod: PsiMethod): PsiMethod? {
-            val superMethods = psiMethod.findSuperMethods()
-            if (superMethods.isNotEmpty()) {
-                return superMethods[0]
-            }
-
-// WARNING: I've deleted private constructors from class model; may not be right for here!
-
-            // TODO: Port to UAST
-            var curr: PsiElement? = psiMethod.body?.firstBodyElement
-            while (curr != null && curr is PsiWhiteSpace) {
-                curr = curr.nextSibling
-            }
-            if (curr is PsiExpressionStatement && curr.expression is PsiMethodCallExpression) {
-                val call = curr.expression as PsiMethodCallExpression
-                if (call.firstChild?.lastChild is PsiKeyword) {
-                    val keyword = call.firstChild?.lastChild
-                    // TODO: Check Kotlin!
-                    if (keyword?.text == "super" || keyword?.text == "this") {
-                        val resolved = call.resolveMethod()
-                        if (resolved is PsiMethod) {
-                            return resolved
-                        }
-                    }
-                }
-            }
-
-            // TODO: Try to find a super call *anywhere* in the method
-
-            // See if we have an implicit constructor in the parent that we can call
-//            psiMethod.containingClass?.constructors?.forEach {
-//                // PsiUtil.hasDefaultConstructor(psiClass) if (it.impl)
-//            }
-
-            return null
         }
     }
 }

@@ -51,7 +51,7 @@
     <!-- Label for "cancel" button on the MMI dialog -->
     <string name="cancel">Cancel</string>
     <!-- Toast string displayed to user if the input in MMI dialog is < 1 or > 160 -->
-    <string name="enter_input">USSD message must be between <xliff:g id="min_len" >%d</xliff:g> and <xliff:g id="max_len" >%d</xliff:g> characters. Please try again.</string>
+    <string name="enter_input">USSD message must be between <xliff:g id="min_len" >%1$d</xliff:g> and <xliff:g id="max_len" >%2$d</xliff:g> characters. Please try again.</string>
 
     <!-- Label for "Manage conference call" panel [CHAR LIMIT=40] -->
     <string name="manageConferenceLabel">Manage conference call</string>
@@ -174,6 +174,13 @@
     <string name="voicemail_abbreviated">VM:</string>
     <!-- DO NOT TRANSLATE. Internal key for a voicemail notification preference. -->
     <string name="voicemail_notifications_key" translatable="false">voicemail_notification_key</string>
+
+    <!-- Title for Make and receive calls category. -->
+    <string name="make_and_receive_calls">Make &amp; receive calls</string>
+    <!-- Title for the button to launch smart forwarding which will configure call forwarding on both SIMs to forward the call to the other SIM number when its not reachable. -->
+    <string name="smart_forwarding_settings_menu">Smart Forwarding</string>
+    <!-- Description of smart forwarding setting. -->
+    <string name="smart_forwarding_settings_menu_summary">When one number isn\'t reachable, always forward calls to your other number</string>
 
     <!-- Voicemail notifications title. The user clicks on this preference navigate to the system settings screen for that channel
     .[CHAR LIMIT=30] -->
@@ -382,6 +389,8 @@
     <string name="already_auto">Already in automatic selection.</string>
     <!-- Available networks screen, name of switch button for whether to select network automatically -->
     <string name="select_automatically">Automatically select network</string>
+    <!-- Available networks screen, summary when button disallowed due to permanent automatic mode -->
+    <string name="manual_mode_disallowed_summary">Unavailable when connected to %1$s</string>
     <!-- Available networks screen, name of button when user wants to select network manually  -->
     <string name="network_select_title">Network</string>
     <string name="register_automatically">Automatic registration\u2026</string>
@@ -517,9 +526,27 @@
     <!-- Mobile network 4G title [CHAR LIMIT=30] -->
     <string name="enhanced_4g_lte_mode_title">Enhanced 4G LTE Mode</string>
     <!-- Carrier variant of Enhaced 4G LTE Mode title.  [CHAR LIMIT=50] -->
-    <string name="enhanced_4g_lte_mode_title_variant">Advanced Calling</string>
+    <string-array name="enhanced_4g_lte_mode_title_variant">
+        <!-- 0: Default -->
+        <item>@string/enhanced_4g_lte_mode_title</item>
+        <!-- 1: Verizon -->
+        <item>Advanced Calling</item>
+        <!-- 2: O2 UK -->
+        <item>4G Calling</item>
+    </string-array>
+
     <!-- Mobile network 4G summary [CHAR LIMIT=80] -->
     <string name="enhanced_4g_lte_mode_summary">Use LTE services to improve voice and other communications (recommended)</string>
+    <string name="enhanced_4g_lte_mode_summary_o2">Use 4G services to improve voice and other communications (recommended)</string>
+    <!-- Carrier variant of Enhaced 4G LTE Mode summary.  [CHAR LIMIT=80] -->
+    <string-array name="enhanced_4g_lte_mode_sumary_variant">
+        <!-- 0: Default -->
+        <item>@string/enhanced_4g_lte_mode_summary</item>
+        <!-- 1: Verizon -->
+        <item>@string/enhanced_4g_lte_mode_summary</item>
+        <!-- 2: O2 UK -->
+        <item>@string/enhanced_4g_lte_mode_summary_o2</item>
+    </string-array>
 
     <!-- Mobile network settings screen, data enabling checkbox name -->
     <string name="data_enabled">Data enabled</string>
@@ -1074,8 +1101,8 @@
     <!-- Label for the "No service" notification item, when expanded. -->
     <string name="notification_network_selection_title">No service</string>
     <!-- Label for the expanded "No service" notification item, including the
-         operator name set by user -->
-    <string name="notification_network_selection_text">Selected network (<xliff:g id="operator_name">%s</xliff:g>) unavailable</string>
+         operator name set by user. No space after "network", appended in nonempty value. -->
+    <string name="notification_network_selection_text">Selected network<xliff:g id="operator_name">%s</xliff:g> unavailable</string>
 
     <!-- In-call screen: call failure message displayed in an error dialog. [CHAR_LIMIT=NONE] -->
     <string name="incall_error_power_off" product="watch">Turn on mobile network, turn off airplane mode or turn off battery saver mode to make a call.</string>
@@ -1102,12 +1129,17 @@
     <string name="incall_error_supp_service_unknown">Service not supported</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_supp_service_switch">Can\'t switch calls.</string>
+    <!-- In-call screen: message displayed in an error dialog when the user attempts to resume a
+         call, and the system encountered an error which prevented the call from being resumed. -->
+    <string name="incall_error_supp_service_resume">Can\'t resume call.</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_supp_service_separate">Can\'t separate call.</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_supp_service_transfer">Can\'t transfer.</string>
-    <!-- In-call screen: message displayed in an error dialog -->
-    <string name="incall_error_supp_service_conference">Unable to conference calls.</string>
+    <!-- In-call screen: message displayed in an error dialog.  Shown when the user attempts to
+        merge calls to form a conference call, but there was an error which prevented this from
+        occurring. -->
+    <string name="incall_error_supp_service_conference">Unable to merge calls.</string>
     <!-- In-call screen: message displayed in an error dialog -->
     <string name="incall_error_supp_service_reject">Can\'t reject call.</string>
     <!-- In-call screen: message displayed in an error dialog -->
@@ -1119,8 +1151,20 @@
     <!-- In-call screen: call failure message displayed in an error dialog when the user is connected to a wireless network, but wifi calling is turned off. [CHAR_LIMIT=NONE] -->
     <string name="incall_error_promote_wfc">Enable Wi-Fi calling to make a call.</string>
 
+    <!-- Hint for the button of emergency information -->
+    <string name="emergency_information_hint">Emergency information</string>
+    <!-- Hint for the owner of emergency information -->
+    <string name="emergency_information_owner_hint">Owner</string>
+    <!-- Hint for confirm the emergency information -->
+    <string name="emergency_information_confirm_hint">Tap again to view info</string>
     <!-- Dialog title for the "radio enable" UI for emergency calls -->
     <string name="emergency_enable_radio_dialog_title">Emergency call</string>
+    <!-- Emergency dialer: Title of single emergency shortcut button -->
+    <string name="single_emergency_number_title">Emergency number</string>
+    <!-- Emergency dialer: Title of numerous emergency shortcut buttons -->
+    <string name="numerous_emergency_numbers_title">Emergency numbers</string>
+    <!-- Emergency dialer: Hint of selected emergency shortcut button -->
+    <string name="emergency_call_shortcut_hint">Tap again to call <xliff:g id="emergency_number">%s</xliff:g></string>
     <!-- Status message for the "radio enable" UI for emergency calls -->
     <string name="emergency_enable_radio_dialog_message">Turning on radio\u2026</string>
     <!-- Status message for the "radio enable" UI for emergency calls -->
@@ -1136,6 +1180,19 @@
     <!-- Message displayed over top of the emergency dialer dialpad indicating to the user that
          emergency calling is not currently available. -->
     <string name="dial_emergency_calling_not_available">Emergency calling not available</string>
+
+    <!-- Text for description of police calling type -->
+    <string name="police_type_description">Police</string>
+    <!-- Text for description of ambulance calling type -->
+    <string name="ambulance_type_description">Ambulance</string>
+    <!-- Text for description of fire calling type -->
+    <string name="fire_type_description">Fire</string>
+
+    <!-- Format for concatenating multiple emergency type descriptions. The separator may differ in
+         different locales, for example arabic comma "،" is used in some countries. Some languages
+         may use full-width separator without leading or trailing spaces, eg. Ideographic comma "、"
+         in Chinese and Japanese. -->
+    <string name="description_concat_format">%1$s, %2$s</string>
 
     <!-- Displayed in the text entry box in the dialer when in landscape mode to guide the user
          to dial using the physical keyboard -->
@@ -1364,6 +1421,20 @@
     -->
     <string name="description_dial_button">dial</string>
 
+    <!-- String describing the Dialpad ImageButton
+
+         Used by AccessibilityService to announce the purpose of the button.
+         [CHAR LIMIT=NONE]
+    -->
+    <string name="description_dialpad_button">show dialpad</string>
+
+    <!-- Pane title of the Emergency Dialpad
+
+     Used by AccessibilityService to announce the purpose of the pane of emergency dialpad.
+     [CHAR LIMIT=NONE]
+    -->
+    <string name="pane_title_emergency_dialpad">Emergency Dialpad</string>
+
     <!-- Visual voicemail on/off title [CHAR LIMIT=40] -->
     <string name="voicemail_visual_voicemail_switch_title">Visual Voicemail</string>
 
@@ -1524,111 +1595,111 @@
     <!-- In-call screen: status label displayed briefly after a call ends -->
     <string name="clh_card_title_call_ended_txt">Call ended</string>
     <!-- In-call screen: call failure reason (radio is off) -->
-    <string name="clh_callFailed_powerOff_txt">Radio off</string>
+    <string name="clh_callFailed_powerOff_txt">Airplane mode is on</string>
     <!-- In-call screen: call failure reason (SIM error) -->
-    <string name="clh_callFailed_simError_txt">No SIM card or SIM card error</string>
+    <string name="clh_callFailed_simError_txt">Can\'t access SIM card</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="clh_incall_error_out_of_service_txt">Mobile network not available</string>
 
     <!-- See CallFailCause for details on what causes each message -->
     <!-- In-call screen: call failure reason (Cause Number 1) -->
-    <string name="clh_callFailed_unassigned_number_txt">Unassigned (unallocated) number</string>
+    <string name="clh_callFailed_unassigned_number_txt">Issue with phone number you are trying to dial. Error code 1.</string>
     <!-- In-call screen: call failure reason (Cause Number 3) -->
-    <string name="clh_callFailed_no_route_to_destination_txt">No route to destination</string>
+    <string name="clh_callFailed_no_route_to_destination_txt">Couldn\'t complete call. Error code 3.</string>
     <!-- In-call screen: call failure reason (Cause Number 6) -->
-    <string name="clh_callFailed_channel_unacceptable_txt">Channel unacceptable</string>
+    <string name="clh_callFailed_channel_unacceptable_txt">Couldn\'t complete call. Error code 6.</string>
     <!-- In-call screen: call failure reason (Cause Number 8) -->
-    <string name="clh_callFailed_operator_determined_barring_txt">Operator determined barring</string>
+    <string name="clh_callFailed_operator_determined_barring_txt">Couldn\'t complete call. Error code 8.</string>
     <!-- In-call screen: call failure reason (Cause Number 16) -->
-    <string name="clh_callFailed_normal_call_clearing_txt">Normal call clearing</string>
+    <string name="clh_callFailed_normal_call_clearing_txt">Couldn\'t complete call. Error code 16.</string>
     <!-- In-call screen: call failure reason (Cause Number 17) -->
     <string name="clh_callFailed_user_busy_txt">User busy</string>
     <!-- In-call screen: call failure reason (Cause Number 18) -->
-    <string name="clh_callFailed_no_user_responding_txt">No user responding</string>
+    <string name="clh_callFailed_no_user_responding_txt">User not responding</string>
     <!-- In-call screen: call failure reason (Cause Number 19) -->
-    <string name="clh_callFailed_user_alerting_txt">User alerting, no answer</string>
+    <string name="clh_callFailed_user_alerting_txt">Couldn\'t complete call. Error code 19.</string>
     <!-- In-call screen: call failure reason (Cause Number 21) -->
     <string name="clh_callFailed_call_rejected_txt">Call rejected</string>
     <!-- In-call screen: call failure reason (Cause Number 22) -->
     <string name="clh_callFailed_number_changed_txt">Number changed</string>
     <!-- In-call screen: call failure reason (Cause Number 25) -->
-    <string name="clh_callFailed_pre_emption_txt">Pre-emption</string>
+    <string name="clh_callFailed_pre_emption_txt">Couldn\'t complete call. Error code 25.</string>
     <!-- In-call screen: call failure reason (Cause Number 26) -->
-    <string name="clh_callFailed_non_selected_user_clearing_txt">Non selected user clearing</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt">Couldn\'t complete call. Error code 26.</string>
     <!-- In-call screen: call failure reason (Cause Number 27) -->
-    <string name="clh_callFailed_destination_out_of_order_txt">Destination out of order</string>
+    <string name="clh_callFailed_destination_out_of_order_txt">Couldn\'t complete call. Error code 27.</string>
     <!-- In-call screen: call failure reason (Cause Number 28) -->
     <string name="clh_callFailed_invalid_number_format_txt">Invalid number format (incomplete number)</string>
     <!-- In-call screen: call failure reason (Cause Number 29) -->
-    <string name="clh_callFailed_facility_rejected_txt">Facility rejected</string>
+    <string name="clh_callFailed_facility_rejected_txt">Couldn\'t complete call. Error code 29.</string>
     <!-- In-call screen: call failure reason (Cause Number 30) -->
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt">Response to STATUS ENQUIRY</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt">Couldn\'t complete call. Error code 30.</string>
     <!-- In-call screen: call failure reason (Cause Number 31) -->
-    <string name="clh_callFailed_normal_unspecified_txt">Normal, unspecified</string>
+    <string name="clh_callFailed_normal_unspecified_txt">Couldn\'t complete call. Error code 31.</string>
     <!-- In-call screen: call failure reason (Cause Number 34) -->
-    <string name="clh_callFailed_no_circuit_available_txt">No circuit/channel available</string>
+    <string name="clh_callFailed_no_circuit_available_txt">Couldn\'t complete call. Error code 34.</string>
     <!-- In-call screen: call failure reason (Cause Number 38) -->
-    <string name="clh_callFailed_network_out_of_order_txt">Network out of order</string>
+    <string name="clh_callFailed_network_out_of_order_txt">Couldn\'t complete call. Error code 38.</string>
     <!-- In-call screen: call failure reason (Cause Number 41) -->
-    <string name="clh_callFailed_temporary_failure_txt">Temporary failure</string>
+    <string name="clh_callFailed_temporary_failure_txt">Couldn\'t complete call. Error code 41.</string>
     <!-- In-call screen: call failure reason (Cause Number 42) -->
-    <string name="clh_callFailed_switching_equipment_congestion_txt">Switching equipment congestion</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt">Couldn\'t complete call. Error code 42.</string>
     <!-- In-call screen: call failure reason (Cause Number 43) -->
-    <string name="clh_callFailed_access_information_discarded_txt">Access information discarded</string>
+    <string name="clh_callFailed_access_information_discarded_txt">Couldn\'t complete call. Error code 43.</string>
     <!-- In-call screen: call failure reason (Cause Number 44) -->
-    <string name="clh_callFailed_requested_circuit_txt">Requested circuit/channel not available</string>
+    <string name="clh_callFailed_requested_circuit_txt">Couldn\'t complete call. Error code 44.</string>
     <!-- In-call screen: call failure reason (Cause Number 47) -->
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt">Resources unavailable, unspecified</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt">Couldn\'t complete call. Error code 47.</string>
     <!-- In-call screen: call failure reason (Cause Number 49) -->
-    <string name="clh_callFailed_quality_of_service_unavailable_txt">Quality of service unavailable</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt">Couldn\'t complete call. Error code 49.</string>
     <!-- In-call screen: call failure reason (Cause Number 50) -->
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt">Requested facility not subscribed</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt">Couldn\'t complete call. Error code 50.</string>
     <!-- In-call screen: call failure reason (Cause Number 55) -->
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt">Incoming calls barred within the CUG</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt">Couldn\'t complete call. Error code 55.</string>
     <!-- In-call screen: call failure reason (Cause Number 57) -->
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt">Bearer capability not authorized</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt">Couldn\'t complete call. Error code 57.</string>
     <!-- In-call screen: call failure reason (Cause Number 58) -->
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt">Bearer capability not presently available</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt">Couldn\'t complete call. Error code 58.</string>
     <!-- In-call screen: call failure reason (Cause Number 63) -->
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt">Service or option not available, unspecified</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt">Couldn\'t complete call. Error code 63.</string>
     <!-- In-call screen: call failure reason (Cause Number 65) -->
-    <string name="clh_callFailed_bearer_service_not_implemented_txt">Bearer service not implemented</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt">Couldn\'t complete call. Error code 65.</string>
     <!-- In-call screen: call failure reason (Cause Number 68) -->
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt">ACM equal to or greater than ACMmax</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt">Couldn\'t complete call. Error code 68.</string>
     <!-- In-call screen: call failure reason (Cause Number 69) -->
-    <string name="clh_callFailed_requested_facility_not_implemented_txt">Requested facility not implemented</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt">Couldn\'t complete call. Error code 69.</string>
     <!-- In-call screen: call failure reason (Cause Number 70) -->
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt">Only restricted digital information bearer capability is available</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt">Couldn\'t complete call. Error code 70.</string>
     <!-- In-call screen: call failure reason (Cause Number 79) -->
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt">Service or option not implemented, unspecified</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt">Couldn\'t complete call. Error code 79.</string>
     <!-- In-call screen: call failure reason (Cause Number 81) -->
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt">Invalid transaction identifier value</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt">Couldn\'t complete call. Error code 81.</string>
     <!-- In-call screen: call failure reason (Cause Number 87) -->
-    <string name="clh_callFailed_user_not_member_of_CUG_txt">User not member of CUG</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt">Couldn\'t complete call. Error code 87.</string>
     <!-- In-call screen: call failure reason (Cause Number 88) -->
-    <string name="clh_callFailed_incompatible_destination_txt">Incompatible destination</string>
+    <string name="clh_callFailed_incompatible_destination_txt">Couldn\'t complete call. Error code 88.</string>
     <!-- In-call screen: call failure reason (Cause Number 91) -->
-    <string name="clh_callFailed_invalid_transit_network_selection_txt">Invalid transit network selection</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt">Couldn\'t complete call. Error code 91.</string>
     <!-- In-call screen: call failure reason (Cause Number 95) -->
-    <string name="clh_callFailed_semantically_incorrect_message_txt">Semantically incorrect message</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt">Couldn\'t complete call. Error code 95.</string>
     <!-- In-call screen: call failure reason (Cause Number 96) -->
-    <string name="clh_callFailed_invalid_mandatory_information_txt">Invalid mandatory information</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt">Couldn\'t complete call. Error code 96.</string>
     <!-- In-call screen: call failure reason (Cause Number 97) -->
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt">Message type non-existent or not implemented</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt">Couldn\'t complete call. Error code 97.</string>
     <!-- In-call screen: call failure reason (Cause Number 98) -->
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt">Message type not compatible with protocol state</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt">Couldn\'t complete call. Error code 98.</string>
     <!-- In-call screen: call failure reason (Cause Number 99) -->
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt">Information element non-existent or not implemented</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt">Couldn\'t complete call. Error code 99.</string>
     <!-- In-call screen: call failure reason (Cause Number 100) -->
-    <string name="clh_callFailed_conditional_IE_error_txt">Conditional IE error</string>
+    <string name="clh_callFailed_conditional_IE_error_txt">Couldn\'t complete call. Error code 100.</string>
     <!-- In-call screen: call failure reason (Cause Number 101) -->
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt">Message not compatible with protocol state</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt">Couldn\'t complete call. Error code 101.</string>
     <!-- In-call screen: call failure reason (Cause Number 102) -->
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt">Recovery on timer expiry</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt">Couldn\'t complete call. Error code 102.</string>
     <!-- In-call screen: call failure reason (Cause Number 111) -->
-    <string name="clh_callFailed_protocol_Error_unspecified_txt">Protocol error, unspecified</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt">Couldn\'t complete call. Error code 111.</string>
     <!-- In-call screen: call failure reason (Cause Number 127) -->
-    <string name="clh_callFailed_interworking_unspecified_txt">Interworking, unspecified</string>
+    <string name="clh_callFailed_interworking_unspecified_txt">Couldn\'t complete call. Error code 127.</string>
     <!-- Call settings screen, setting option name -->
     <string name="labelCallBarring">Call barring</string>
     <!-- Call barring settings screen, setting summary text when a call barring option is activated -->
@@ -1695,6 +1766,13 @@
     <string name="call_barring_settings">Call barring settings</string>
     <!-- Call barring settings screen, deactivate all call barring settings -->
     <string name="call_barring_deactivate_all_no_password">Deactivate all call barring settings?</string>
+    <!-- In-call screen: error message shown when the user attempts to place a call, but the network
+         does not have enough resources (e.g. it is busy) and the call cannot be placed. -->
+    <string name="callFailed_NetworkBusy">Network is busy.  Please try your call again later.</string>
+    <!-- In-call screen: error message shown when the user attempts to place a call, but the network
+         does not have enough resources (e.g. it is congested) and the call cannot be placed. -->
+    <string name="callFailed_NetworkCongested">Network is congested.  Contact your mobile operator
+    for assistance.</string>
     <!-- Message displayed to the user when an outgoing call is deflected.  This means that the
          party the user is calling has chosen to send the call to another phone number. -->
     <string name="supp_service_notification_call_deflected">Call deflected.</string>
@@ -1748,4 +1826,39 @@
     <!-- Message displayed to the user to indicate that a held call has been released /
          disconnected. -->
     <string name="supp_service_held_call_released">Held call has been released.</string>
+    <!-- In-call screen: error message shown when the user attempts to place a call, but the device
+         is currently in the process of being provisioned for service.  Provisioning is the process
+         by which a device confirms which services are available to the user by contacting the
+         mobile service provider. -->
+    <string name="callFailed_otasp_provisioning_in_process">Cannot place a call as the device is currently being provisioned.</string>
+    <!-- In-call screen: error message shown when the user has attempted to place a new outgoing
+         call, but there is already a call in dialing state. -->
+    <string name="callFailed_already_dialing">Cannot place a call as another outgoing call is already dialing.</string>
+    <!-- In-call screen: error message shown when the user has attempted to place a new outgoing
+         call while there is already a call in ringing state. -->
+    <string name="callFailed_already_ringing">Cannot place a call as there is an unanswered incoming call.  Answer or reject the incoming call prior to placing a new call.</string>
+    <!-- In-call screen: error message shown when the user attempts to place a call, but calling has
+         been disabled using a debug property. -->
+    <string name="callFailed_calling_disabled">Cannot place a call as calling has been disabled using the ro.telephony.disable-call system property.</string>
+    <!-- In-call screen: error message shown when the user attempts to place a call, but calling has
+         been disabled using a debug property. -->
+    <string name="callFailed_too_many_calls">Cannot place a call a there are already two calls in progress.  Disconnect one of the calls or merge them into a conference prior to placing a new call.</string>
+    <!-- Message displayed to the user when they attempt to edit options for a supplementary service
+         (call waiting, call barring, call forwarding, and caller ID), but they are required to
+         enable mobile data first. -->
+    <string name="supp_service_over_ut_precautions">To use <xliff:g id="supp service">%s</xliff:g>, make sure mobile data is turned on. You can change this in mobile network settings.</string>
+    <!-- Message displayed to the user when they attempt to edit options for a supplementary service
+         (call waiting, call barring, call forwarding, and caller ID) in roaming, but they are
+         required to enable mobile data and data roaming first. -->
+    <string name="supp_service_over_ut_precautions_roaming">To use <xliff:g id="supp service">%s</xliff:g>, make sure mobile data and data roaming are turned on. You can change these in mobile network settings.</string>
+    <!-- Message displayed to the user when they attempt to edit options for a supplementary service
+         (call waiting, call barring, call forwarding, and caller ID), but they are
+         required to enable mobile data first for each sim. -->
+    <string name="supp_service_over_ut_precautions_dual_sim">To use <xliff:g id="supp service">%1$s</xliff:g>, make sure mobile data is turned on for SIM <xliff:g id="sim number">%2$d</xliff:g>. You can change this in mobile network settings.</string>
+    <!-- Message displayed to the user when they attempt to edit options for a supplementary service
+         (call waiting, call barring, call forwarding, and caller ID) in roaming device, but
+         they are required to enable mobile data and data roaming first for each sim. -->
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim">To use <xliff:g id="supp service">%1$s</xliff:g>, make sure mobile data and data roaming are turned on for SIM <xliff:g id="sim number">%2$d</xliff:g>. You can change these in mobile network settings.</string>
+    <!-- supplementary services over ut precaution exit dialog choice -->
+    <string name="supp_service_over_ut_precautions_dialog_dismiss">Dismiss</string>
 </resources>

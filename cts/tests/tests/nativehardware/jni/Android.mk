@@ -21,9 +21,11 @@ LOCAL_MULTILIB := both
 LOCAL_SRC_FILES := \
     AHardwareBufferGLTest.cpp \
     AHardwareBufferTest.cpp \
+    AtomicBufferStateTest.cpp \
     GTestMain.cpp
 
 LOCAL_SHARED_LIBRARIES := libandroid liblog libEGL libGLESv2 libGLESv3
+LOCAL_STATIC_LIBRARIES := libgmock_ndk
 
 LOCAL_WHOLE_STATIC_LIBRARIES := libnativetesthelper_jni
 

@@ -17,27 +17,28 @@
 package com.android.compatibility.common.tradefed.targetprep;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.compatibility.common.tradefed.testtype.CompatibilityTest;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.Option;
+import com.android.tradefed.config.OptionClass;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 
-import java.nio.file.Paths;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.Map;
+import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.Map;
 
-/**
- * An {@link PreconditionPreparer} that collects one device file.
- */
+/** An {@link PreconditionPreparer} that collects one device file. */
+@OptionClass(alias = "device-file-collector")
 public class DeviceFileCollector extends PreconditionPreparer {
 
-    @Option(name = CompatibilityTest.SKIP_DEVICE_INFO_OPTION,
-            shortName = 'd',
-            description = "Whether device info collection should be skipped")
+    @Option(
+        name = DeviceInfoCollector.SKIP_DEVICE_INFO_OPTION,
+        shortName = 'd',
+        description = "Whether device info collection should be skipped"
+    )
     private boolean mSkipDeviceInfo = false;
 
     @Option(name = "src-file", description = "The file path to copy to the results dir")
@@ -101,7 +102,7 @@ public class DeviceFileCollector extends PreconditionPreparer {
                 return;
             }
         } catch (FileNotFoundException fnfe) {
-            fnfe.printStackTrace();
+            CLog.e(fnfe);
         }
     }
 

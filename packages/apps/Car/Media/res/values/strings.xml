@@ -16,18 +16,24 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Music -->
-    <!-- Prompt text to display when the user hasn't picked any songs to play yet. [CHAR LIMIT=57]-->
-    <string name="nothing_to_play">This folder is empty.</string>
+    <!-- Displayed while a folder selected by the user is being retrieved. [CHAR LIMIT=57] -->
+    <string name="browser_loading">Loading content…</string>
+    <!-- Displayed when a folder selected by the user doesn't have any content. [CHAR LIMIT=57] -->
+    <string name="nothing_to_play">No media available here.</string>
     <!-- Prompt text to display when we failed to connect to a media app. [CHAR LIMIT=50]-->
-    <string name="cannot_connect_to_app"><xliff:g name="app">%s</xliff:g> doesn\'t seem to be working right now.</string>
+    <string name="cannot_connect_to_app"><xliff:g name="app">%s</xliff:g> isn’t working right now.</string>
     <!-- Prompt text to display when connecting to a media app. [CHAR LIMIT=50] -->
     <string name="unknown_media_provider_name">Unknown</string>
-    <!-- The text for pending user action. [CHAR LIMIT=50] -->
-    <string name="loading">Getting your selection&#8230;</string>
     <!-- The text for unknown playback error. [CHAR LIMIT=50] -->
     <string name="unknown_error">Something went wrong</string>
     <!-- Text of the button displayed at the bottom of a media browse section to provide access to additional items. [CHAR LIMIT=100] -->
-    <string name="media_browse_more">More …</string>
+    <string name="media_browse_more">More…</string>
     <!-- Media template title -->
     <string name="media_app_title">Media</string>
+    <!-- Search input hint text. [CHAR LIMIT=20] -->
+    <string name="search_hint">Search songs, artists, and more...</string>
+    <!-- Error Fragment error message [CHAR LIMIT=100] -->
+    <string name="default_error_message">Unknown application error</string>
+    <!-- Title to display when in playback view. [CHAR LIMIT=50] -->
+    <string name="fragment_playback_title">Now Playing</string>
 </resources>

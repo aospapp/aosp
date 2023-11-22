@@ -52,4 +52,11 @@ public class ErrorsTest extends ProtoDumpTestCase {
         runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".ErrorsTests",
                 "testNativeCrash");
     }
+
+    public void testTombstone() throws Exception {
+        installPackage(DEVICE_SIDE_TEST_APK, /* grantPermissions= */ true);
+
+        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".ErrorsTests",
+                "testTombstone");
+    }
 }

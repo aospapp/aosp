@@ -30,7 +30,7 @@
                   android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.app.cts"
                      android:label="CTS tests of android.app">
         <meta-data android:name="listener"

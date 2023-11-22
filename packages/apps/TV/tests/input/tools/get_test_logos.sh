@@ -25,7 +25,7 @@ icons=(
    bus cafe camping car-dealer car-rental
    car-repair casino caution cemetery-grave cemetery-tomb
    cinema civic-building computer corporate courthouse
-   fire flag floral helicopter home
+   fire flag helicopter home
    info landslide legal location locomotive
    medical mobile motorcycle music parking
    pet petrol phone picnic postal

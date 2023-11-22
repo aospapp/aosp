@@ -16,11 +16,11 @@
 
 package com.android.settings.intelligence.suggestions.ranking;
 
-import static android.support.annotation.VisibleForTesting.NONE;
+import static androidx.annotation.VisibleForTesting.NONE;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.util.Log;
 
 import java.util.Arrays;

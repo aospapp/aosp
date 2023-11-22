@@ -19,26 +19,26 @@
               android:id="@+id/app_item"
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
-              android:padding="@dimen/car_padding_1"
-              android:layout_marginStart="@dimen/car_padding_2"
-              android:layout_marginEnd="@dimen/car_padding_2"
-              android:layout_marginBottom="@dimen/car_padding_5"
+              android:layout_marginTop="@dimen/app_grid_row_margin"
+              android:layout_marginBottom="@dimen/app_grid_row_margin"
+              android:layout_marginEnd="@dimen/app_touch_target_margin"
+              android:layout_marginStart="@dimen/app_touch_target_margin"
+              android:background="@drawable/app_launcher_ripple_background"
               android:gravity="center"
               android:orientation="vertical"
-              android:background="@drawable/app_launcher_ripple_background">
+              android:padding="@dimen/app_touch_target_padding">
 
     <ImageView
         android:id="@+id/app_icon"
-        android:layout_width="@dimen/car_touch_target_size"
-        android:layout_height="@dimen/car_touch_target_size"
-        android:layout_marginBottom="@dimen/car_padding_4"
-        android:layout_gravity="center_horizontal" />
+        android:layout_width="@dimen/app_grid_touch_target_size"
+        android:layout_height="@dimen/app_grid_touch_target_size"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="@dimen/app_icon_description_margin"/>
 
     <TextView
         android:id="@+id/app_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.Car.Label1"
         android:ellipsize="end"
-        android:maxLines="1" />
+        android:maxLines="1"/>
 </LinearLayout>

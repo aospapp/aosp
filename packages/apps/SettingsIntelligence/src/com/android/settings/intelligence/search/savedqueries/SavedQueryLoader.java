@@ -19,7 +19,7 @@ package com.android.settings.intelligence.search.savedqueries;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.settings.intelligence.search.SearchResult;
 import com.android.settings.intelligence.search.indexing.IndexDatabaseHelper;

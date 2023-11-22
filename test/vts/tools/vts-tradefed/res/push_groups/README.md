@@ -16,13 +16,12 @@ Based on those, the following push groups are defined where each group is for a
 particular test type:
 
 - HalHidlTargetTest.push: For target-side HIDL HAL test.
-- HalHidlTargetProfilingTest.push: For target-side, HIDL HAL profiling test.
 - HalHidlHostTest.push: For host-driven HIDL HAL test.
-- HalHidlHostProfilingTest.push: For host-driven, HIDL HAL profiling test.
 - HostDrivenTest.push: For host-driven test (both HIDL HAL and other system-level components).
 
 The other push groups are fuzzing and record-and-replay tests:
 
+- FuncFuzzerTest.push
 - LLVMFuzzerTest.push
 - IfaceFuzzerTest.push
-- RecordReplayTest.push
+- VtsHalReplayTest.push

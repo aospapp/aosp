@@ -100,6 +100,9 @@ func (f *fqName) headersName() string {
 func (f *fqName) javaName() string {
 	return f.sanitizedString() + "-java"
 }
+func (f *fqName) javaSharedName() string {
+	return f.sanitizedString() + "-java-shallow"
+}
 func (f *fqName) javaSourcesName() string {
 	return f.sanitizedString() + "-java_gen_java"
 }
@@ -123,4 +126,26 @@ func (f *fqName) adapterHelperSourcesName() string {
 }
 func (f *fqName) adapterHelperHeadersName() string {
 	return f.string() + "-adapter-helper_genc++_headers"
+}
+
+func (f *fqName) vtsSpecName() string {
+	return f.string() + "-vts.spec"
+}
+func (f *fqName) vtsDriverSourcesName() string {
+	return f.string() + "-vts.driver_genc++"
+}
+func (f *fqName) vtsDriverHeadersName() string {
+	return f.string() + "-vts.driver_genc++_headers"
+}
+func (f *fqName) vtsDriverName() string {
+	return f.string() + "-vts.driver"
+}
+func (f *fqName) vtsProfilerSourcesName() string {
+	return f.string() + "-vts.profiler_genc++"
+}
+func (f *fqName) vtsProfilerHeadersName() string {
+	return f.string() + "-vts.profiler_genc++_headers"
+}
+func (f *fqName) vtsProfilerName() string {
+	return f.string() + "-vts.profiler"
 }

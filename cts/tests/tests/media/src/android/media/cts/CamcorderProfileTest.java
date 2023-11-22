@@ -58,9 +58,9 @@ public class CamcorderProfileTest extends AndroidTestCase {
         CamcorderProfile.QUALITY_HIGH_SPEED_1080P,
         CamcorderProfile.QUALITY_HIGH_SPEED_2160P
     };
-    private static final int LAST_QUALITY = CamcorderProfile.QUALITY_2160P;
-    private static final int LAST_TIMELAPSE_QUALITY = CamcorderProfile.QUALITY_TIME_LAPSE_2160P;
-    private static final int LAST_HIGH_SPEED_QUALITY = CamcorderProfile.QUALITY_HIGH_SPEED_2160P;
+    private static final int LAST_QUALITY = CamcorderProfile.QUALITY_2K;
+    private static final int LAST_TIMELAPSE_QUALITY = CamcorderProfile.QUALITY_TIME_LAPSE_2K;
+    private static final int LAST_HIGH_SPEED_QUALITY = CamcorderProfile.QUALITY_HIGH_SPEED_4KDCI;
     private static final Integer[] UNKNOWN_QUALITIES = {
         LAST_QUALITY + 1, // Unknown normal profile quality
         LAST_TIMELAPSE_QUALITY + 1, // Unknown timelapse profile quality

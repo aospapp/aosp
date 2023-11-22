@@ -252,24 +252,24 @@ class InductionVarRangeTest : public OptimizingUnitTest {
 
   Value GetMin(HInductionVarAnalysis::InductionInfo* info,
                HInductionVarAnalysis::InductionInfo* trip) {
-    return range_.GetVal(info, trip, /* in_body */ true, /* is_min */ true);
+    return range_.GetVal(info, trip, /* in_body= */ true, /* is_min= */ true);
   }
 
   Value GetMax(HInductionVarAnalysis::InductionInfo* info,
                HInductionVarAnalysis::InductionInfo* trip) {
-    return range_.GetVal(info, trip, /* in_body */ true, /* is_min */ false);
+    return range_.GetVal(info, trip, /* in_body= */ true, /* is_min= */ false);
   }
 
   Value GetMul(HInductionVarAnalysis::InductionInfo* info1,
                HInductionVarAnalysis::InductionInfo* info2,
                bool is_min) {
-    return range_.GetMul(info1, info2, nullptr, /* in_body */ true, is_min);
+    return range_.GetMul(info1, info2, nullptr, /* in_body= */ true, is_min);
   }
 
   Value GetDiv(HInductionVarAnalysis::InductionInfo* info1,
                HInductionVarAnalysis::InductionInfo* info2,
                bool is_min) {
-    return range_.GetDiv(info1, info2, nullptr, /* in_body */ true, is_min);
+    return range_.GetDiv(info1, info2, nullptr, /* in_body= */ true, is_min);
   }
 
   Value GetRem(HInductionVarAnalysis::InductionInfo* info1,
@@ -701,7 +701,11 @@ TEST_F(InductionVarRangeTest, MaxValue) {
 
 TEST_F(InductionVarRangeTest, ArrayLengthAndHints) {
   // We pass a bogus constant for the class to avoid mocking one.
-  HInstruction* new_array = new (GetAllocator()) HNewArray(x_, x_, 0);
+  HInstruction* new_array = new (GetAllocator()) HNewArray(
+      /* cls= */ x_,
+      /* length= */ x_,
+      /* dex_pc= */ 0,
+      /* component_size_shift= */ 0);
   entry_block_->AddInstruction(new_array);
   HInstruction* array_length = new (GetAllocator()) HArrayLength(new_array, 0);
   entry_block_->AddInstruction(array_length);

@@ -19,7 +19,8 @@ package com.android.settings.security;
 import android.content.Context;
 import android.os.UserManager;
 import android.security.KeyStore;
-import android.support.v7.preference.PreferenceScreen;
+
+import androidx.preference.PreferenceScreen;
 
 import com.android.settingslib.RestrictedPreference;
 import com.android.settingslib.core.lifecycle.Lifecycle;
@@ -51,7 +52,7 @@ public class ResetCredentialsPreferenceController extends RestrictedEncryptionPr
     @Override
     public void displayPreference(PreferenceScreen screen) {
         super.displayPreference(screen);
-        mPreference = (RestrictedPreference) screen.findPreference(getPreferenceKey());
+        mPreference = screen.findPreference(getPreferenceKey());
     }
 
     @Override

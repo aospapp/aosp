@@ -68,7 +68,7 @@
     <string name="connectivity_summary_no_network_connected" msgid="5187378791046457432">"沒有連接任何網絡"</string>
     <string name="connectivity_summary_wifi_disabled" msgid="6904637079319724455">"Wi-Fi 已關閉"</string>
     <string name="wifi_setting_always_scan" msgid="8883713018717323351">"可隨時掃描"</string>
-    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"允許 Google 的位置資訊服務和其他應用程式掃描網絡 (即使 Wi-Fi 已關閉)"</string>
+    <string name="wifi_setting_always_scan_context" msgid="398651204440349752">"允許 Google 的定位服務和其他應用程式掃描網絡 (即使 Wi-Fi 已關閉)"</string>
     <string name="wifi_setting_enable_wifi" msgid="9214100840401870408">"Wi-Fi"</string>
     <string name="connectivity_hint_message" msgid="1314202316675864203">"連線至網絡"</string>
     <string name="apps_recently_used_category_title" msgid="5254492409677346900">"最近開啟的應用程式"</string>
@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"校正"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"選取格式"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"環迴音效"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"必須重新連接外置硬碟，否則某些應用程式將無法使用或正常運作。"</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"儲存空間不足。"</string>
     <string name="does_not_exist" msgid="4553235698171937217">"應用程式不存在。"</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"應用程式受保護，不可複製。"</string>
     <string name="invalid_location" msgid="5269044848535157307">"安裝位置無效。"</string>
     <string name="system_package" msgid="9200255718634512790">"無法在外部媒體上安裝系統更新。"</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"無法在外部媒體上安裝「裝置管理員」。"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"通知權限"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"沒有任何已安裝的應用程式要求通知存取權。"</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"這些應用程式將可讀取所有通知，包括聯絡人姓名和您收到的訊息文字等個人資料，還能關閉通知或觸發通知中的動作按鈕。"</string>
+    <string name="directory_access" msgid="7439168599298598101">"目錄存取權"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"這些應用程式有權存取特定目錄。"</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"顯示在其他應用程式上層"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"允許顯示在其他應用程式上層"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"允許應用程式在您目前使用的其他應用程式上層顯示內容，因此可能會干擾您使用這些應用程式，或變更它們的顯示或運作方式。"</string>

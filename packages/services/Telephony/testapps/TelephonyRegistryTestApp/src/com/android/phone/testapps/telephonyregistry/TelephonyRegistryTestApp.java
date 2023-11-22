@@ -21,10 +21,10 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Bundle;
-import android.provider.Telephony;
 import android.telephony.CellInfo;
 import android.telephony.CellLocation;
 import android.telephony.PhoneStateListener;
+import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
 import android.util.SparseArray;
 import android.widget.Button;
@@ -55,7 +55,7 @@ public class TelephonyRegistryTestApp extends Activity {
         put(PhoneStateListener.LISTEN_PRECISE_CALL_STATE, "PRECISE_CALL_STATE");
         put(PhoneStateListener.LISTEN_PRECISE_DATA_CONNECTION_STATE,
                 "PRECISE_DATA_CONNECTION_STATE");
-        put(PhoneStateListener.LISTEN_VOLTE_STATE, "VOLTE_STATE");
+        put(PhoneStateListener.LISTEN_SRVCC_STATE_CHANGED, "SRVCC_STATE");
         put(PhoneStateListener.LISTEN_CARRIER_NETWORK_CHANGE, "CARRIER_NETWORK_CHANGE");
         put(PhoneStateListener.LISTEN_VOICE_ACTIVATION_STATE, "VOICE_ACTIVATION_STATE");
         put(PhoneStateListener.LISTEN_DATA_ACTIVATION_STATE, "DATA_ACTIVATION_STATE");
@@ -70,6 +70,16 @@ public class TelephonyRegistryTestApp extends Activity {
         @Override
         public void onCellInfoChanged(List<CellInfo> cellInfo) {
             notify("onCellInfoChanged", cellInfo);
+        }
+
+        @Override
+        public void onSrvccStateChanged(int srvccState) {
+            notify("onSrvccStateChanged", srvccState);
+        }
+
+        @Override
+        public void onServiceStateChanged(ServiceState state) {
+            notify("onServiceStateChanged", state);
         }
 
         private void notify(String method, Object data) {

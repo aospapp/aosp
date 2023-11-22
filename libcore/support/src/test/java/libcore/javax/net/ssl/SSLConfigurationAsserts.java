@@ -16,20 +16,14 @@
 
 package libcore.javax.net.ssl;
 
-import junit.framework.Assert;
-import libcore.java.security.StandardNames;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.Set;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLParameters;
-import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
+import junit.framework.Assert;
 
 /**
  * Assertions about the configuration of TLS/SSL primitives.
@@ -38,41 +32,6 @@ public class SSLConfigurationAsserts extends Assert {
 
   /** Hidden constructor to prevent instantiation. */
   private SSLConfigurationAsserts() {}
-
-  /**
-   * Asserts that the provided {@link SSLContext} has the expected default configuration, and that
-   * {@link SSLSocketFactory}, {@link SSLServerSocketFactory}, {@link SSLSocket},
-   * {@link SSLServerSocket} and {@link SSLEngine} instances created from the context match the
-   * configuration.
-   */
-  public static void assertSSLContextDefaultConfiguration(SSLContext sslContext)
-      throws IOException {
-    SSLParameters defaultParameters = sslContext.getDefaultSSLParameters();
-    StandardNames.assertSSLContextEnabledProtocols(sslContext.getProtocol(),
-        defaultParameters.getProtocols());
-    StandardNames.assertDefaultCipherSuites(defaultParameters.getCipherSuites());
-    assertFalse(defaultParameters.getWantClientAuth());
-    assertFalse(defaultParameters.getNeedClientAuth());
-
-    SSLParameters supportedParameters = sslContext.getSupportedSSLParameters();
-    StandardNames.assertSupportedCipherSuites(supportedParameters.getCipherSuites());
-    StandardNames.assertSupportedProtocols(supportedParameters.getProtocols());
-    assertFalse(supportedParameters.getWantClientAuth());
-    assertFalse(supportedParameters.getNeedClientAuth());
-
-    assertContainsAll("Unsupported enabled cipher suites", supportedParameters.getCipherSuites(),
-        defaultParameters.getCipherSuites());
-    assertContainsAll("Unsupported enabled protocols", supportedParameters.getProtocols(),
-        defaultParameters.getProtocols());
-
-    assertSSLSocketFactoryConfigSameAsSSLContext(sslContext.getSocketFactory(), sslContext);
-    assertSSLServerSocketFactoryConfigSameAsSSLContext(sslContext.getServerSocketFactory(),
-        sslContext);
-
-    SSLEngine sslEngine = sslContext.createSSLEngine();
-    assertFalse(sslEngine.getUseClientMode());
-    assertSSLEngineConfigSameAsSSLContext(sslEngine, sslContext);
-  }
 
   /**
    * Asserts that the provided {@link SSLSocketFactory} has the expected default configuration and
@@ -104,15 +63,6 @@ public class SSLConfigurationAsserts extends Assert {
   }
 
   /**
-   * Asserts that the provided {@link SSLSocket} has the expected default configuration.
-   */
-  public static void assertSSLSocketDefaultConfiguration(SSLSocket sslSocket) throws Exception {
-    assertTrue(sslSocket.getUseClientMode());
-    assertTrue(sslSocket.getEnableSessionCreation());
-    assertSSLSocketConfigSameAsSSLContext(sslSocket, SSLContext.getDefault());
-  }
-
-  /**
    * Asserts that {@link SSLSocket}'s configuration matches {@code SSLContext's} configuration.
    */
   private static void assertSSLSocketConfigSameAsSSLContext(SSLSocket sslSocket,
@@ -126,95 +76,6 @@ public class SSLConfigurationAsserts extends Assert {
     assertCipherSuitesEqual(sslSocket.getSupportedCipherSuites(),
         sslContext.getSupportedSSLParameters().getCipherSuites());
     assertProtocolsEqual(sslSocket.getSupportedProtocols(),
-        sslContext.getSupportedSSLParameters().getProtocols());
-  }
-
-  /**
-   * Asserts that the provided {@link SSLServerSocketFactory} has the expected default
-   * configuration, and that {@link SSLServerSocket} instances created by the factory match the
-   * configuration.
-   */
-  public static void assertSSLServerSocketFactoryDefaultConfiguration(
-      SSLServerSocketFactory sslServerSocketFactory) throws Exception {
-    assertSSLServerSocketFactoryConfigSameAsSSLContext(sslServerSocketFactory,
-        SSLContext.getDefault());
-  }
-
-  /**
-   * Asserts that {@link SSLServerSocketFactory}'s configuration matches {@code SSLContext}'s
-   * configuration, and that {@link SSLServerSocket} instances obtained from the factory match this
-   * configuration as well.
-   */
-  private static void assertSSLServerSocketFactoryConfigSameAsSSLContext(
-      SSLServerSocketFactory sslServerSocketFactory, SSLContext sslContext)  throws IOException {
-    assertCipherSuitesEqual(sslContext.getDefaultSSLParameters().getCipherSuites(),
-        sslServerSocketFactory.getDefaultCipherSuites());
-    assertCipherSuitesEqual(sslContext.getSupportedSSLParameters().getCipherSuites(),
-        sslServerSocketFactory.getSupportedCipherSuites());
-    try (SSLServerSocket sslServerSocket =
-        (SSLServerSocket) sslServerSocketFactory.createServerSocket()) {
-      assertFalse(sslServerSocket.getUseClientMode());
-      assertTrue(sslServerSocket.getEnableSessionCreation());
-      assertSSLServerSocketConfigSameAsSSLContext(sslServerSocket, sslContext);
-    }
-  }
-
-  /**
-   * Asserts that the provided {@link SSLServerSocket} has the expected default configuration.
-   */
-  public static void assertSSLServerSocketDefaultConfiguration(SSLServerSocket sslServerSocket)
-      throws Exception {
-    assertFalse(sslServerSocket.getUseClientMode());
-    assertTrue(sslServerSocket.getEnableSessionCreation());
-    assertSSLServerSocketConfigSameAsSSLContext(sslServerSocket, SSLContext.getDefault());
-    // TODO: Check SSLParameters when supported by SSLServerSocket API
-  }
-
-  /**
-   * Asserts that {@link SSLServerSocket}'s configuration matches {@code SSLContext's}
-   * configuration.
-   */
-  private static void assertSSLServerSocketConfigSameAsSSLContext(SSLServerSocket sslServerSocket,
-      SSLContext sslContext) {
-    assertCipherSuitesEqual(sslServerSocket.getEnabledCipherSuites(),
-        sslContext.getDefaultSSLParameters().getCipherSuites());
-    assertProtocolsEqual(sslServerSocket.getEnabledProtocols(),
-        sslContext.getDefaultSSLParameters().getProtocols());
-
-    assertCipherSuitesEqual(sslServerSocket.getSupportedCipherSuites(),
-        sslContext.getSupportedSSLParameters().getCipherSuites());
-    assertProtocolsEqual(sslServerSocket.getSupportedProtocols(),
-        sslContext.getSupportedSSLParameters().getProtocols());
-
-    assertEquals(sslServerSocket.getNeedClientAuth(),
-        sslContext.getDefaultSSLParameters().getNeedClientAuth());
-    assertEquals(sslServerSocket.getWantClientAuth(),
-        sslContext.getDefaultSSLParameters().getWantClientAuth());
-  }
-
-  /**
-   * Asserts that the provided {@link SSLEngine} has the expected default configuration.
-   */
-  public static void assertSSLEngineDefaultConfiguration(SSLEngine sslEngine) throws Exception {
-    assertFalse(sslEngine.getUseClientMode());
-    assertTrue(sslEngine.getEnableSessionCreation());
-    assertSSLEngineConfigSameAsSSLContext(sslEngine, SSLContext.getDefault());
-  }
-
-  /**
-   * Asserts that {@link SSLEngine}'s configuration matches {@code SSLContext's} configuration.
-   */
-  private static void assertSSLEngineConfigSameAsSSLContext(SSLEngine sslEngine,
-      SSLContext sslContext) {
-    assertSSLParametersEqual(sslEngine.getSSLParameters(), sslContext.getDefaultSSLParameters());
-    assertCipherSuitesEqual(sslEngine.getEnabledCipherSuites(),
-        sslContext.getDefaultSSLParameters().getCipherSuites());
-    assertProtocolsEqual(sslEngine.getEnabledProtocols(),
-        sslContext.getDefaultSSLParameters().getProtocols());
-
-    assertCipherSuitesEqual(sslEngine.getSupportedCipherSuites(),
-        sslContext.getSupportedSSLParameters().getCipherSuites());
-    assertProtocolsEqual(sslEngine.getSupportedProtocols(),
         sslContext.getSupportedSSLParameters().getProtocols());
   }
 
@@ -235,14 +96,5 @@ public class SSLConfigurationAsserts extends Assert {
     // supposed to represent sets of protocol versions. Thus, we treat them as such.
     assertEquals(new HashSet<String>(Arrays.asList(expected)),
         new HashSet<String>(Arrays.asList(actual)));
-  }
-
-  /**
-   * Asserts that the {@code container} contains all the {@code elements}.
-   */
-  private static void assertContainsAll(String message, String[] container, String[] elements) {
-    Set<String> elementsNotInContainer = new HashSet<String>(Arrays.asList(elements));
-    elementsNotInContainer.removeAll(Arrays.asList(container));
-    assertEquals(message, Collections.EMPTY_SET, elementsNotInContainer);
   }
 }

@@ -18,11 +18,13 @@ package android.graphics.cts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.testng.Assert.assertThrows;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -34,14 +36,16 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.system.ErrnoException;
 import android.system.Os;
-import android.system.OsConstants;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -397,6 +401,52 @@ public class BitmapFactoryTest {
         assertTrue(pass.isMutable());
     }
 
+    @Test
+    public void testDecodeReuseAttempt() {
+        // BitmapFactory "silently" ignores an immutable inBitmap. (It does print a log message.)
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inMutable = false;
+
+        Bitmap start = BitmapFactory.decodeResource(mRes, R.drawable.start, options);
+        assertFalse(start.isMutable());
+
+        options.inBitmap = start;
+        Bitmap pass = BitmapFactory.decodeResource(mRes, R.drawable.pass, options);
+        assertNotNull(pass);
+        assertNotEquals(start, pass);
+    }
+
+    @Test
+    public void testDecodeReuseRecycled() {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inMutable = true;
+
+        Bitmap start = BitmapFactory.decodeResource(mRes, R.drawable.start, options);
+        assertNotNull(start);
+        start.recycle();
+
+        options.inBitmap = start;
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            BitmapFactory.decodeResource(mRes, R.drawable.pass, options);
+        });
+    }
+
+    @Test
+    public void testDecodeReuseHardware() {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inPreferredConfig = Bitmap.Config.HARDWARE;
+
+        Bitmap start = BitmapFactory.decodeResource(mRes, R.drawable.start, options);
+        assertNotNull(start);
+
+        options.inBitmap = start;
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            BitmapFactory.decodeResource(mRes, R.drawable.pass, options);
+        });
+    }
+
     /**
      * Create bitmap sized to load unscaled resources: start, pass, and alpha
      */
@@ -721,6 +771,51 @@ public class BitmapFactoryTest {
     }
 
     @Test
+    public void testJpegInfiniteLoop() {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = 19;
+        Bitmap bm = BitmapFactory.decodeResource(mRes, R.raw.b78329453, options);
+        assertNotNull(bm);
+    }
+
+    private static final class DNG {
+        public final int resId;
+        public final int width;
+        public final int height;
+
+        DNG(int resId, int width, int height) {
+            this.resId    = resId;
+            this.width    = width;
+            this.height   = height;
+        }
+    }
+
+    @Test
+    @CddTest(requirement = "5.1.5/C-0-6")
+    public void testDng() {
+        DNG[] dngs = new DNG[]{
+            new DNG(R.raw.sample_1mp, 600, 338),
+            new DNG(R.raw.sample_arw, 1616, 1080),
+            new DNG(R.raw.sample_cr2, 2304, 1536),
+            new DNG(R.raw.sample_nef, 4608, 3072),
+            new DNG(R.raw.sample_nrw, 4000, 3000),
+            new DNG(R.raw.sample_orf, 3200, 2400),
+            new DNG(R.raw.sample_pef, 4928, 3264),
+            new DNG(R.raw.sample_raf, 2048, 1536),
+            new DNG(R.raw.sample_rw2, 1920, 1440),
+            new DNG(R.raw.sample_srw, 5472, 3648),
+        };
+
+        for (DNG dng : dngs) {
+            // No scaling
+            Bitmap bm = BitmapFactory.decodeResource(mRes, dng.resId, mOpt1);
+            assertNotNull(bm);
+            assertEquals(dng.width, bm.getWidth());
+            assertEquals(dng.height, bm.getHeight());
+        }
+    }
+
+    @Test
     public void testDecodePngFromPipe() {
         // This test verifies that we can send a PNG over a pipe and
         // successfully decode it. This behavior worked in N, so this
@@ -846,6 +941,7 @@ public class BitmapFactoryTest {
             // the reference.  We must do this manually because we are abusing ALPHA_8
             // in order to represent grayscale.
             compareBitmaps(reference, grayToARGB(alpha8), 0, true, true);
+            assertNull(alpha8.getColorSpace());
         }
 
         // Setting inPreferredConfig to nullptr will cause the default Config to be

@@ -24,6 +24,11 @@ namespace {
 const brillo::Blob::size_type kOutputBufferLength = 16 * 1024;
 }
 
+BzipExtentWriter::~BzipExtentWriter() {
+  TEST_AND_RETURN(BZ2_bzDecompressEnd(&stream_) == BZ_OK);
+  TEST_AND_RETURN(input_buffer_.empty());
+}
+
 bool BzipExtentWriter::Init(FileDescriptorPtr fd,
                             const RepeatedPtrField<Extent>& extents,
                             uint32_t block_size) {
@@ -63,9 +68,8 @@ bool BzipExtentWriter::Write(const void* bytes, size_t count) {
     if (stream_.avail_out == output_buffer.size())
       break;  // got no new bytes
 
-    TEST_AND_RETURN_FALSE(
-        next_->Write(output_buffer.data(),
-                     output_buffer.size() - stream_.avail_out));
+    TEST_AND_RETURN_FALSE(next_->Write(
+        output_buffer.data(), output_buffer.size() - stream_.avail_out));
 
     if (rc == BZ_STREAM_END)
       CHECK_EQ(stream_.avail_in, 0u);
@@ -80,12 +84,6 @@ bool BzipExtentWriter::Write(const void* bytes, size_t count) {
   }
 
   return true;
-}
-
-bool BzipExtentWriter::EndImpl() {
-  TEST_AND_RETURN_FALSE(input_buffer_.empty());
-  TEST_AND_RETURN_FALSE(BZ2_bzDecompressEnd(&stream_) == BZ_OK);
-  return next_->End();
 }
 
 }  // namespace chromeos_update_engine

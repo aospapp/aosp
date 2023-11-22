@@ -16,38 +16,29 @@
 
 #include "update_engine/payload_consumer/filesystem_verifier_action.h"
 
-#include <fcntl.h>
-
-#include <set>
+#include <memory>
 #include <string>
-#include <vector>
+#include <utility>
 
 #include <base/bind.h>
 #include <base/posix/eintr_wrapper.h>
-#include <base/strings/string_util.h>
-#include <base/strings/stringprintf.h>
 #include <brillo/message_loops/fake_message_loop.h>
 #include <brillo/message_loops/message_loop_utils.h>
-#include <gmock/gmock.h>
+#include <brillo/secure_blob.h>
 #include <gtest/gtest.h>
 
 #include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/test_utils.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/payload_consumer/payload_constants.h"
 
 using brillo::MessageLoop;
-using std::set;
 using std::string;
-using std::vector;
 
 namespace chromeos_update_engine {
 
 class FilesystemVerifierActionTest : public ::testing::Test {
  protected:
-  void SetUp() override {
-    loop_.SetAsCurrent();
-  }
+  void SetUp() override { loop_.SetAsCurrent(); }
 
   void TearDown() override {
     EXPECT_EQ(0, brillo::MessageLoopRunMaxIterations(&loop_, 1));
@@ -56,32 +47,22 @@ class FilesystemVerifierActionTest : public ::testing::Test {
   // Returns true iff test has completed successfully.
   bool DoTest(bool terminate_early, bool hash_fail);
 
+  void BuildActions(const InstallPlan& install_plan);
+
   brillo::FakeMessageLoop loop_{nullptr};
+  ActionProcessor processor_;
 };
 
 class FilesystemVerifierActionTestDelegate : public ActionProcessorDelegate {
  public:
-  explicit FilesystemVerifierActionTestDelegate(
-      FilesystemVerifierAction* action)
-      : action_(action), ran_(false), code_(ErrorCode::kError) {}
-  void ExitMainLoop() {
-    // We need to wait for the Action to call Cleanup.
-    if (action_->IsCleanupPending()) {
-      LOG(INFO) << "Waiting for Cleanup() to be called.";
-      MessageLoop::current()->PostDelayedTask(
-          FROM_HERE,
-          base::Bind(&FilesystemVerifierActionTestDelegate::ExitMainLoop,
-                     base::Unretained(this)),
-          base::TimeDelta::FromMilliseconds(100));
-    } else {
-      MessageLoop::current()->BreakLoop();
-    }
-  }
+  FilesystemVerifierActionTestDelegate()
+      : ran_(false), code_(ErrorCode::kError) {}
+
   void ProcessingDone(const ActionProcessor* processor, ErrorCode code) {
-    ExitMainLoop();
+    MessageLoop::current()->BreakLoop();
   }
   void ProcessingStopped(const ActionProcessor* processor) {
-    ExitMainLoop();
+    MessageLoop::current()->BreakLoop();
   }
   void ActionCompleted(ActionProcessor* processor,
                        AbstractAction* action,
@@ -89,36 +70,27 @@ class FilesystemVerifierActionTestDelegate : public ActionProcessorDelegate {
     if (action->Type() == FilesystemVerifierAction::StaticType()) {
       ran_ = true;
       code_ = code;
+      EXPECT_FALSE(static_cast<FilesystemVerifierAction*>(action)->src_stream_);
+    } else if (action->Type() ==
+               ObjectCollectorAction<InstallPlan>::StaticType()) {
+      auto collector_action =
+          static_cast<ObjectCollectorAction<InstallPlan>*>(action);
+      install_plan_.reset(new InstallPlan(collector_action->object()));
     }
   }
   bool ran() const { return ran_; }
   ErrorCode code() const { return code_; }
 
+  std::unique_ptr<InstallPlan> install_plan_;
+
  private:
-  FilesystemVerifierAction* action_;
   bool ran_;
   ErrorCode code_;
 };
 
-void StartProcessorInRunLoop(ActionProcessor* processor,
-                             FilesystemVerifierAction* filesystem_copier_action,
-                             bool terminate_early) {
-  processor->StartProcessing();
-  if (terminate_early) {
-    EXPECT_NE(nullptr, filesystem_copier_action);
-    processor->StopProcessing();
-  }
-}
-
 bool FilesystemVerifierActionTest::DoTest(bool terminate_early,
                                           bool hash_fail) {
-  string a_loop_file;
-
-  if (!(utils::MakeTempFile("a_loop_file.XXXXXX", &a_loop_file, nullptr))) {
-    ADD_FAILURE();
-    return false;
-  }
-  ScopedPathUnlinker a_loop_file_unlinker(a_loop_file);
+  test_utils::ScopedTempFile a_loop_file("a_loop_file.XXXXXX");
 
   // Make random data for a.
   const size_t kLoopFileSize = 10 * 1024 * 1024 + 512;
@@ -126,7 +98,7 @@ bool FilesystemVerifierActionTest::DoTest(bool terminate_early,
   test_utils::FillWithData(&a_loop_data);
 
   // Write data to disk
-  if (!(test_utils::WriteFileVector(a_loop_file, a_loop_data))) {
+  if (!(test_utils::WriteFileVector(a_loop_file.path(), a_loop_data))) {
     ADD_FAILURE();
     return false;
   }
@@ -134,13 +106,13 @@ bool FilesystemVerifierActionTest::DoTest(bool terminate_early,
   // Attach loop devices to the files
   string a_dev;
   test_utils::ScopedLoopbackDeviceBinder a_dev_releaser(
-      a_loop_file, false, &a_dev);
+      a_loop_file.path(), false, &a_dev);
   if (!(a_dev_releaser.is_bound())) {
     ADD_FAILURE();
     return false;
   }
 
-  LOG(INFO) << "verifying: "  << a_loop_file << " (" << a_dev << ")";
+  LOG(INFO) << "verifying: " << a_loop_file.path() << " (" << a_dev << ")";
 
   bool success = true;
 
@@ -164,27 +136,21 @@ bool FilesystemVerifierActionTest::DoTest(bool terminate_early,
   }
   install_plan.partitions = {part};
 
-  ActionProcessor processor;
+  BuildActions(install_plan);
 
-  ObjectFeederAction<InstallPlan> feeder_action;
-  FilesystemVerifierAction copier_action;
-  ObjectCollectorAction<InstallPlan> collector_action;
+  FilesystemVerifierActionTestDelegate delegate;
+  processor_.set_delegate(&delegate);
 
-  BondActions(&feeder_action, &copier_action);
-  BondActions(&copier_action, &collector_action);
-
-  FilesystemVerifierActionTestDelegate delegate(&copier_action);
-  processor.set_delegate(&delegate);
-  processor.EnqueueAction(&feeder_action);
-  processor.EnqueueAction(&copier_action);
-  processor.EnqueueAction(&collector_action);
-
-  feeder_action.set_obj(install_plan);
-
-  loop_.PostTask(FROM_HERE, base::Bind(&StartProcessorInRunLoop,
-                                       &processor,
-                                       &copier_action,
-                                       terminate_early));
+  loop_.PostTask(FROM_HERE,
+                 base::Bind(
+                     [](ActionProcessor* processor, bool terminate_early) {
+                       processor->StartProcessing();
+                       if (terminate_early) {
+                         processor->StopProcessing();
+                       }
+                     },
+                     base::Unretained(&processor_),
+                     terminate_early));
   loop_.Run();
 
   if (!terminate_early) {
@@ -213,10 +179,27 @@ bool FilesystemVerifierActionTest::DoTest(bool terminate_early,
   EXPECT_TRUE(is_a_file_reading_eq);
   success = success && is_a_file_reading_eq;
 
-  bool is_install_plan_eq = (collector_action.object() == install_plan);
+  bool is_install_plan_eq = (*delegate.install_plan_ == install_plan);
   EXPECT_TRUE(is_install_plan_eq);
   success = success && is_install_plan_eq;
   return success;
+}
+
+void FilesystemVerifierActionTest::BuildActions(
+    const InstallPlan& install_plan) {
+  auto feeder_action = std::make_unique<ObjectFeederAction<InstallPlan>>();
+  auto verifier_action = std::make_unique<FilesystemVerifierAction>();
+  auto collector_action =
+      std::make_unique<ObjectCollectorAction<InstallPlan>>();
+
+  feeder_action->set_obj(install_plan);
+
+  BondActions(feeder_action.get(), verifier_action.get());
+  BondActions(verifier_action.get(), collector_action.get());
+
+  processor_.EnqueueAction(std::move(feeder_action));
+  processor_.EnqueueAction(std::move(verifier_action));
+  processor_.EnqueueAction(std::move(collector_action));
 }
 
 class FilesystemVerifierActionTest2Delegate : public ActionProcessorDelegate {
@@ -234,31 +217,25 @@ class FilesystemVerifierActionTest2Delegate : public ActionProcessorDelegate {
 };
 
 TEST_F(FilesystemVerifierActionTest, MissingInputObjectTest) {
-  ActionProcessor processor;
+  auto copier_action = std::make_unique<FilesystemVerifierAction>();
+  auto collector_action =
+      std::make_unique<ObjectCollectorAction<InstallPlan>>();
+
+  BondActions(copier_action.get(), collector_action.get());
+
+  processor_.EnqueueAction(std::move(copier_action));
+  processor_.EnqueueAction(std::move(collector_action));
+
   FilesystemVerifierActionTest2Delegate delegate;
+  processor_.set_delegate(&delegate);
 
-  processor.set_delegate(&delegate);
-
-  FilesystemVerifierAction copier_action;
-  ObjectCollectorAction<InstallPlan> collector_action;
-
-  BondActions(&copier_action, &collector_action);
-
-  processor.EnqueueAction(&copier_action);
-  processor.EnqueueAction(&collector_action);
-  processor.StartProcessing();
-  EXPECT_FALSE(processor.IsRunning());
+  processor_.StartProcessing();
+  EXPECT_FALSE(processor_.IsRunning());
   EXPECT_TRUE(delegate.ran_);
   EXPECT_EQ(ErrorCode::kError, delegate.code_);
 }
 
 TEST_F(FilesystemVerifierActionTest, NonExistentDriveTest) {
-  ActionProcessor processor;
-  FilesystemVerifierActionTest2Delegate delegate;
-
-  processor.set_delegate(&delegate);
-
-  ObjectFeederAction<InstallPlan> feeder_action;
   InstallPlan install_plan;
   InstallPlan::Partition part;
   part.name = "nope";
@@ -266,19 +243,15 @@ TEST_F(FilesystemVerifierActionTest, NonExistentDriveTest) {
   part.target_path = "/no/such/file";
   install_plan.partitions = {part};
 
-  feeder_action.set_obj(install_plan);
-  FilesystemVerifierAction verifier_action;
-  ObjectCollectorAction<InstallPlan> collector_action;
+  BuildActions(install_plan);
 
-  BondActions(&verifier_action, &collector_action);
+  FilesystemVerifierActionTest2Delegate delegate;
+  processor_.set_delegate(&delegate);
 
-  processor.EnqueueAction(&feeder_action);
-  processor.EnqueueAction(&verifier_action);
-  processor.EnqueueAction(&collector_action);
-  processor.StartProcessing();
-  EXPECT_FALSE(processor.IsRunning());
+  processor_.StartProcessing();
+  EXPECT_FALSE(processor_.IsRunning());
   EXPECT_TRUE(delegate.ran_);
-  EXPECT_EQ(ErrorCode::kError, delegate.code_);
+  EXPECT_EQ(ErrorCode::kFilesystemVerifierError, delegate.code_);
 }
 
 TEST_F(FilesystemVerifierActionTest, RunAsRootVerifyHashTest) {
@@ -295,7 +268,116 @@ TEST_F(FilesystemVerifierActionTest, RunAsRootTerminateEarlyTest) {
   ASSERT_EQ(0U, getuid());
   EXPECT_TRUE(DoTest(true, false));
   // TerminateEarlyTest may leak some null callbacks from the Stream class.
-  while (loop_.RunOnce(false)) {}
+  while (loop_.RunOnce(false)) {
+  }
 }
 
+#ifdef __ANDROID__
+TEST_F(FilesystemVerifierActionTest, RunAsRootWriteVerityTest) {
+  test_utils::ScopedTempFile part_file("part_file.XXXXXX");
+  constexpr size_t filesystem_size = 200 * 4096;
+  constexpr size_t part_size = 256 * 4096;
+  brillo::Blob part_data(filesystem_size, 0x1);
+  part_data.resize(part_size);
+  ASSERT_TRUE(test_utils::WriteFileVector(part_file.path(), part_data));
+  string target_path;
+  test_utils::ScopedLoopbackDeviceBinder target_device(
+      part_file.path(), true, &target_path);
+
+  InstallPlan install_plan;
+  InstallPlan::Partition part;
+  part.name = "part";
+  part.target_path = target_path;
+  part.target_size = part_size;
+  part.block_size = 4096;
+  part.hash_tree_algorithm = "sha1";
+  part.hash_tree_data_offset = 0;
+  part.hash_tree_data_size = filesystem_size;
+  part.hash_tree_offset = filesystem_size;
+  part.hash_tree_size = 3 * 4096;
+  part.fec_data_offset = 0;
+  part.fec_data_size = filesystem_size + part.hash_tree_size;
+  part.fec_offset = part.fec_data_size;
+  part.fec_size = 2 * 4096;
+  part.fec_roots = 2;
+  // for i in {1..$((200 * 4096))}; do echo -n -e '\x1' >> part; done
+  // avbtool add_hashtree_footer --image part --partition_size $((256 * 4096))
+  //     --partition_name part --do_not_append_vbmeta_image
+  //     --output_vbmeta_image vbmeta
+  // truncate -s $((256 * 4096)) part
+  // sha256sum part | xxd -r -p | hexdump -v -e '/1 "0x%02x, "'
+  part.target_hash = {0x28, 0xd4, 0x96, 0x75, 0x4c, 0xf5, 0x8a, 0x3e,
+                      0x31, 0x85, 0x08, 0x92, 0x85, 0x62, 0xf0, 0x37,
+                      0xbc, 0x8d, 0x7e, 0xa4, 0xcb, 0x24, 0x18, 0x7b,
+                      0xf3, 0xeb, 0xb5, 0x8d, 0x6f, 0xc8, 0xd8, 0x1a};
+  // avbtool info_image --image vbmeta | grep Salt | cut -d':' -f 2 |
+  //     xxd -r -p | hexdump -v -e '/1 "0x%02x, "'
+  part.hash_tree_salt = {0x9e, 0xcb, 0xf8, 0xd5, 0x0b, 0xb4, 0x43,
+                         0x0a, 0x7a, 0x10, 0xad, 0x96, 0xd7, 0x15,
+                         0x70, 0xba, 0xed, 0x27, 0xe2, 0xae};
+  install_plan.partitions = {part};
+
+  BuildActions(install_plan);
+
+  FilesystemVerifierActionTestDelegate delegate;
+  processor_.set_delegate(&delegate);
+
+  loop_.PostTask(
+      FROM_HERE,
+      base::Bind(
+          [](ActionProcessor* processor) { processor->StartProcessing(); },
+          base::Unretained(&processor_)));
+  loop_.Run();
+
+  EXPECT_FALSE(processor_.IsRunning());
+  EXPECT_TRUE(delegate.ran());
+  EXPECT_EQ(ErrorCode::kSuccess, delegate.code());
+}
+#endif  // __ANDROID__
+
+TEST_F(FilesystemVerifierActionTest, RunAsRootSkipWriteVerityTest) {
+  test_utils::ScopedTempFile part_file("part_file.XXXXXX");
+  constexpr size_t filesystem_size = 200 * 4096;
+  constexpr size_t part_size = 256 * 4096;
+  brillo::Blob part_data(part_size);
+  test_utils::FillWithData(&part_data);
+  ASSERT_TRUE(test_utils::WriteFileVector(part_file.path(), part_data));
+  string target_path;
+  test_utils::ScopedLoopbackDeviceBinder target_device(
+      part_file.path(), true, &target_path);
+
+  InstallPlan install_plan;
+  install_plan.write_verity = false;
+  InstallPlan::Partition part;
+  part.name = "part";
+  part.target_path = target_path;
+  part.target_size = part_size;
+  part.block_size = 4096;
+  part.hash_tree_data_offset = 0;
+  part.hash_tree_data_size = filesystem_size;
+  part.hash_tree_offset = filesystem_size;
+  part.hash_tree_size = 3 * 4096;
+  part.fec_data_offset = 0;
+  part.fec_data_size = filesystem_size + part.hash_tree_size;
+  part.fec_offset = part.fec_data_size;
+  part.fec_size = 2 * 4096;
+  EXPECT_TRUE(HashCalculator::RawHashOfData(part_data, &part.target_hash));
+  install_plan.partitions = {part};
+
+  BuildActions(install_plan);
+
+  FilesystemVerifierActionTestDelegate delegate;
+  processor_.set_delegate(&delegate);
+
+  loop_.PostTask(
+      FROM_HERE,
+      base::Bind(
+          [](ActionProcessor* processor) { processor->StartProcessing(); },
+          base::Unretained(&processor_)));
+  loop_.Run();
+
+  EXPECT_FALSE(processor_.IsRunning());
+  EXPECT_TRUE(delegate.ran());
+  EXPECT_EQ(ErrorCode::kSuccess, delegate.code());
+}
 }  // namespace chromeos_update_engine

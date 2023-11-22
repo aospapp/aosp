@@ -58,14 +58,16 @@ public:
     // Construct a new UniquePtr, taking ownership of the given raw pointer.
     explicit UniquePtr(T* ptr) : mPtr(ptr) {
     }
+    // NOLINTNEXTLINE(google-explicit-constructor)
     UniquePtr(const decltype(nullptr)&) : mPtr(nullptr) {}
 
     UniquePtr(UniquePtr && other): mPtr(other.mPtr) {
         other.mPtr = nullptr;
     }
 
-    template<typename U>
-    UniquePtr(UniquePtr<U> && other): mPtr(other.mPtr) {
+    template <typename U>
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    UniquePtr(UniquePtr<U>&& other) : mPtr(other.mPtr) {
         other.mPtr = nullptr;
     }
     UniquePtr& operator=(UniquePtr && other) {
@@ -85,6 +87,7 @@ public:
     T* operator->() const { return mPtr; }
     T* get() const { return mPtr; }
 
+    // NOLINTNEXTLINE(google-explicit-constructor)
     operator bool() const { return mPtr != nullptr; }
 
     // Returns the raw pointer and hands over ownership to the caller.
@@ -125,6 +128,7 @@ public:
     UniquePtr() : mPtr(nullptr) {}
     explicit UniquePtr(T* ptr) : mPtr(ptr) {
     }
+    // NOLINTNEXTLINE(google-explicit-constructor)
     UniquePtr(const decltype(nullptr)&) : mPtr(nullptr) {}
 
     UniquePtr(UniquePtr && other): mPtr(other.mPtr) {
@@ -153,6 +157,7 @@ public:
         return result;
     }
 
+    // NOLINTNEXTLINE(google-explicit-constructor)
     operator bool() const { return mPtr != nullptr; }
 
     void reset(T* ptr = nullptr) {

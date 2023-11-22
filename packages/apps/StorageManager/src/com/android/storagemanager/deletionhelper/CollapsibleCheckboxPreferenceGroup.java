@@ -19,10 +19,10 @@ package com.android.storagemanager.deletionhelper;
 import android.content.Context;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceGroup;
-import android.support.v7.preference.PreferenceViewHolder;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceGroup;
+import androidx.preference.PreferenceViewHolder;
 import android.util.AttributeSet;
 
 import android.view.View;

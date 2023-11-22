@@ -28,20 +28,25 @@ import android.media.tv.TvInputManager;
 import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.support.annotation.UiThread;
-import android.support.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.ArraySet;
 import android.util.Log;
 import com.android.tv.TvSingletons;
-import com.android.tv.common.BaseApplication;
 import com.android.tv.common.SoftPreconditions;
+import com.android.tv.common.dagger.annotations.ApplicationContext;
+import com.android.tv.common.singletons.HasTvInputId;
 import com.android.tv.data.ChannelDataManager;
 import com.android.tv.data.api.Channel;
+import com.android.tv.tunerinputcontroller.BuiltInTunerManager;
+import com.google.common.base.Optional;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import javax.inject.Inject;
+import javax.inject.Singleton;
 
 /** A utility class related to input setup. */
+@Singleton
 public class SetupUtils {
     private static final String TAG = "SetupUtils";
     private static final boolean DEBUG = false;
@@ -61,10 +66,12 @@ public class SetupUtils {
     private final Set<String> mSetUpInputs;
     private final Set<String> mRecognizedInputs;
     private boolean mIsFirstTune;
-    private final String mTunerInputId;
+    private final Optional<String> mOptionalTunerInputId;
 
-    @VisibleForTesting
-    protected SetupUtils(Context context) {
+    @Inject
+    public SetupUtils(
+            @ApplicationContext Context context,
+            Optional<BuiltInTunerManager> optionalBuiltInTunerManager) {
         mContext = context;
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
         mSetUpInputs = new ArraySet<>();
@@ -77,16 +84,8 @@ public class SetupUtils {
         mRecognizedInputs.addAll(
                 mSharedPreferences.getStringSet(PREF_KEY_RECOGNIZED_INPUTS, mKnownInputs));
         mIsFirstTune = mSharedPreferences.getBoolean(PREF_KEY_IS_FIRST_TUNE, true);
-        mTunerInputId = BaseApplication.getSingletons(context).getEmbeddedTunerInputId();
-    }
-
-    /**
-     * Creates an instance of {@link SetupUtils}.
-     *
-     * <p><b>WARNING</b> this should only be called by the top level application.
-     */
-    public static SetupUtils createForTvSingletons(Context context) {
-        return new SetupUtils(context.getApplicationContext());
+        mOptionalTunerInputId =
+                optionalBuiltInTunerManager.transform(HasTvInputId::getEmbeddedTunerInputId);
     }
 
     /** Additional work after the setup of TV input. */
@@ -124,32 +123,29 @@ public class SetupUtils {
         TvSingletons tvSingletons = TvSingletons.getSingletons(context);
         final ChannelDataManager manager = tvSingletons.getChannelDataManager();
         manager.updateChannels(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        Channel firstChannelForInput = null;
-                        boolean browsableChanged = false;
-                        for (Channel channel : manager.getChannelList()) {
-                            if (channel.getInputId().equals(inputId)) {
-                                if (!channel.isBrowsable()) {
-                                    manager.updateBrowsable(channel.getId(), true, true);
-                                    browsableChanged = true;
-                                }
-                                if (firstChannelForInput == null) {
-                                    firstChannelForInput = channel;
-                                }
+                () -> {
+                    Channel firstChannelForInput = null;
+                    boolean browsableChanged = false;
+                    for (Channel channel : manager.getChannelList()) {
+                        if (channel.getInputId().equals(inputId)) {
+                            if (!channel.isBrowsable()) {
+                                manager.updateBrowsable(channel.getId(), true, true);
+                                browsableChanged = true;
+                            }
+                            if (firstChannelForInput == null) {
+                                firstChannelForInput = channel;
                             }
                         }
-                        if (firstChannelForInput != null) {
-                            Utils.setLastWatchedChannel(context, firstChannelForInput);
-                        }
-                        if (browsableChanged) {
-                            manager.notifyChannelBrowsableChanged();
-                            manager.applyUpdatedValuesToDb();
-                        }
-                        if (postRunnable != null) {
-                            postRunnable.run();
-                        }
+                    }
+                    if (firstChannelForInput != null) {
+                        Utils.setLastWatchedChannel(context, firstChannelForInput);
+                    }
+                    if (browsableChanged) {
+                        manager.notifyChannelBrowsableChanged();
+                        manager.applyUpdatedValuesToDb();
+                    }
+                    if (postRunnable != null) {
+                        postRunnable.run();
                     }
                 });
     }
@@ -332,7 +328,9 @@ public class SetupUtils {
         // A USB tuner device can be temporarily unplugged. We do not remove the USB tuner input
         // from the known inputs so that the input won't appear as a new input whenever the user
         // plugs in the USB tuner device again.
-        removedInputList.remove(mTunerInputId);
+        if (mOptionalTunerInputId.isPresent()) {
+            removedInputList.remove(mOptionalTunerInputId.get());
+        }
 
         if (!removedInputList.isEmpty()) {
             boolean inputPackageDeleted = false;

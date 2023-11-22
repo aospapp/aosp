@@ -18,30 +18,41 @@ package com.android.compatibility.common.tradefed.command;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider;
 import com.android.compatibility.common.tradefed.result.SubPlanHelper;
+import com.android.compatibility.common.tradefed.result.suite.CertificationResultXml;
 import com.android.compatibility.common.tradefed.testtype.ModuleRepo;
-import com.android.compatibility.common.util.IInvocationResult;
+import com.android.compatibility.common.tradefed.testtype.suite.CompatibilityTestSuite;
 import com.android.compatibility.common.util.ResultHandler;
-import com.android.compatibility.common.util.TestStatus;
 import com.android.tradefed.build.BuildRetrievalError;
+import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.command.Console;
 import com.android.tradefed.config.ArgsOptionParser;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationFactory;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.result.suite.SuiteResultHolder;
+import com.android.tradefed.testtype.Abi;
+import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IRemoteTest;
 import com.android.tradefed.testtype.IRuntimeHintProvider;
 import com.android.tradefed.testtype.suite.TestSuiteInfo;
-import com.android.tradefed.util.ArrayUtil;
+import com.android.tradefed.util.AbiUtils;
 import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.MultiMap;
 import com.android.tradefed.util.Pair;
 import com.android.tradefed.util.RegexTrie;
 import com.android.tradefed.util.TableFormatter;
 import com.android.tradefed.util.TimeUtil;
+import com.android.tradefed.util.VersionParser;
+
+import com.google.common.base.Joiner;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,6 +60,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,16 +80,26 @@ public class CompatibilityConsole extends Console {
         MODULE_SPLIT_EXCLUSIONS.add("CtsDeqpTestCases");
     }
     private final static String ADD_PATTERN = "a(?:dd)?";
+    private static final String LATEST_RESULT_DIR = "latest";
     private CompatibilityBuildHelper mBuildHelper;
+    private IBuildInfo mBuildInfo;
 
     /**
      * {@inheritDoc}
      */
     @Override
     public void run() {
-        printLine(String.format("Android %s %s (%s)", TestSuiteInfo.getInstance().getFullName(),
-                TestSuiteInfo.getInstance().getVersion(),
-                TestSuiteInfo.getInstance().getBuildNumber()));
+        String buildNumber = TestSuiteInfo.getInstance().getBuildNumber();
+        String versionFile = VersionParser.fetchVersion();
+        if (versionFile != null) {
+            buildNumber = versionFile;
+        }
+        printLine(
+                String.format(
+                        "Android %s %s (%s)",
+                        TestSuiteInfo.getInstance().getFullName(),
+                        TestSuiteInfo.getInstance().getVersion(),
+                        buildNumber));
         printLine("Use \"help\" or \"help all\" to get more information on running commands.");
         super.run();
     }
@@ -225,24 +248,25 @@ public class CompatibilityConsole extends Console {
     }
 
     private void listModules() {
-        File[] files = null;
-        try {
-            files = getBuildHelper().getTestsDir().listFiles(new ModuleRepo.ConfigFilter());
-        } catch (FileNotFoundException e) {
-            printLine(e.getMessage());
-            e.printStackTrace();
-        }
-        if (files != null && files.length > 0) {
-            List<String> modules = new ArrayList<>();
-            for (File moduleFile : files) {
-                modules.add(FileUtil.getBaseName(moduleFile.getName()));
+        CompatibilityTestSuite test = new CompatibilityTestSuite() {
+            @Override
+            public Set<IAbi> getAbis(ITestDevice device) throws DeviceNotAvailableException {
+                Set<String> abiStrings = getAbisForBuildTargetArch();
+                Set<IAbi> abis = new LinkedHashSet<>();
+                for (String abi : abiStrings) {
+                    if (AbiUtils.isAbiSupportedByCompatibility(abi)) {
+                        abis.add(new Abi(abi, AbiUtils.getBitness(abi)));
+                    }
+                }
+                return abis;
             }
-            Collections.sort(modules);
-            for (String module : modules) {
-                printLine(module);
-            }
+        };
+        if (getBuild() != null) {
+            test.setBuild(getBuild());
+            LinkedHashMap<String, IConfiguration> configs = test.loadTests();
+            printLine(String.format("%s", Joiner.on("\n").join(configs.keySet())));
         } else {
-            printLine("No modules found");
+            printLine("Error fetching information about modules.");
         }
     }
 
@@ -346,48 +370,70 @@ public class CompatibilityConsole extends Console {
     private void listResults() {
         TableFormatter tableFormatter = new TableFormatter();
         List<List<String>> table = new ArrayList<>();
-        List<IInvocationResult> results = null;
+
+        List<File> resultDirs = null;
+        Map<SuiteResultHolder, File> holders = new LinkedHashMap<>();
         try {
-            results = ResultHandler.getLightResults(getBuildHelper().getResultsDir());
+            resultDirs = getResults(getBuildHelper().getResultsDir());
         } catch (FileNotFoundException e) {
             throw new RuntimeException("Error while parsing results directory", e);
         }
-        if (results.size() > 0) {
-            for (int i = 0; i < results.size(); i++) {
-                IInvocationResult result = results.get(i);
-                Map<String, String> invocationInfo = result.getInvocationInfo();
-
-                // invocation attributes are not always present (e.g. in the case of halted runs)
-                // replace null entries with the string "Unknown"
-                for (Map.Entry<String, String> entry : invocationInfo.entrySet()) {
-                    if (entry.getValue() == null) {
-                        invocationInfo.put(entry.getKey(), "Unknown");
-                    }
-                }
-
-                String moduleProgress = String.format("%d of %d",
-                        result.getModuleCompleteCount(), result.getModules().size());
-
-                table.add(Arrays.asList(
-                        Integer.toString(i),
-                        Integer.toString(result.countResults(TestStatus.PASS)),
-                        Integer.toString(result.countResults(TestStatus.FAIL)),
-                        moduleProgress,
-                        CompatibilityBuildHelper.getDirSuffix(result.getStartTime()),
-                        result.getTestPlan(),
-                        ArrayUtil.join(", ", result.getDeviceSerials()),
-                        invocationInfo.get("build_id"),
-                        invocationInfo.get("build_product")
-                        ));
+        CertificationResultXml xmlParser = new CertificationResultXml();
+        for (File resultDir : resultDirs) {
+            if (LATEST_RESULT_DIR.equals(resultDir.getName())) {
+                continue;
             }
-
-            // add the table header to the beginning of the list
-            table.add(0, Arrays.asList("Session", "Pass", "Fail", "Modules Complete",
-                "Result Directory", "Test Plan", "Device serial(s)", "Build ID", "Product"));
-            tableFormatter.displayTable(table, new PrintWriter(System.out, true));
-        } else {
-            printLine(String.format("No results found"));
+            try {
+                holders.put(xmlParser.parseResults(resultDir, true), resultDir);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
+
+        if (holders.isEmpty()) {
+            printLine(String.format("No results found"));
+            return;
+        }
+        int i = 0;
+        for (SuiteResultHolder holder : holders.keySet()) {
+            String moduleProgress = String.format("%d of %d",
+                    holder.completeModules, holder.totalModules);
+
+            table.add(
+                    Arrays.asList(
+                            Integer.toString(i),
+                            Long.toString(holder.passedTests),
+                            Long.toString(holder.failedTests),
+                            moduleProgress,
+                            holders.get(holder).getName(),
+                            holder.context
+                                    .getAttributes()
+                                    .get(CertificationResultXml.SUITE_PLAN_ATTR)
+                                    .get(0),
+                            Joiner.on(", ").join(holder.context.getShardsSerials().values()),
+                            printAttributes(holder.context.getAttributes(), "build_id"),
+                            printAttributes(holder.context.getAttributes(), "build_product")));
+            i++;
+        }
+
+        // add the table header to the beginning of the list
+        table.add(0, Arrays.asList("Session", "Pass", "Fail", "Modules Complete",
+                "Result Directory", "Test Plan", "Device serial(s)", "Build ID", "Product"));
+        tableFormatter.displayTable(table, new PrintWriter(System.out, true));
+    }
+
+    private String printAttributes(MultiMap<String, String> map, String key) {
+        if (map.get(key) == null) {
+            return "unknown";
+        }
+        return map.get(key).get(0);
+    }
+
+    /**
+     * Returns the list of all results directories.
+     */
+    private List<File> getResults(File resultsDir) {
+        return ResultHandler.getResultDirectories(resultsDir);
     }
 
     private void listSubPlans() {
@@ -427,14 +473,25 @@ public class CompatibilityConsole extends Console {
 
     private CompatibilityBuildHelper getBuildHelper() {
         if (mBuildHelper == null) {
+            IBuildInfo build = getBuild();
+            if (build == null) {
+                return null;
+            }
+            mBuildHelper = new CompatibilityBuildHelper(build);
+        }
+        return mBuildHelper;
+    }
+
+    private IBuildInfo getBuild() {
+        if (mBuildInfo == null) {
             try {
                 CompatibilityBuildProvider buildProvider = new CompatibilityBuildProvider();
-                mBuildHelper = new CompatibilityBuildHelper(buildProvider.getBuild());
+                mBuildInfo = buildProvider.getBuild();
             } catch (BuildRetrievalError e) {
                 e.printStackTrace();
             }
         }
-        return mBuildHelper;
+        return mBuildInfo;
     }
 
     public static void main(String[] args) throws InterruptedException, ConfigurationException {

@@ -150,6 +150,11 @@ public final class PathClassLoaderTest extends TestCase {
             }
 
             @Override
+            public void onExplicitGc() {
+                throw new RuntimeException("onExplicitGc");
+            }
+
+            @Override
             public int getPolicyMask() {
                 return 0;
             }

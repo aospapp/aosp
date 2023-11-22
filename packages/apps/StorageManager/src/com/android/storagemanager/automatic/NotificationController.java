@@ -27,8 +27,8 @@ import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.os.SystemProperties;
 import android.provider.Settings;
-import android.support.annotation.VisibleForTesting;
-import android.support.v4.os.BuildCompat;
+import androidx.annotation.VisibleForTesting;
+import androidx.core.os.BuildCompat;
 
 import com.android.storagemanager.R;
 
@@ -98,12 +98,14 @@ public class NotificationController extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         switch (intent.getAction()) {
             case INTENT_ACTION_ACTIVATE_ASM:
-                Settings.Secure.putInt(context.getContentResolver(),
+                Settings.Secure.putInt(
+                        context.getContentResolver(),
                         Settings.Secure.AUTOMATIC_STORAGE_MANAGER_ENABLED,
                         1);
                 // Provide a warning if storage manager is not defaulted on.
                 if (!SystemProperties.getBoolean(STORAGE_MANAGER_PROPERTY, false)) {
                     Intent warningIntent = new Intent(context, WarningDialogActivity.class);
+                    warningIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     context.startActivity(warningIntent);
                 }
                 break;

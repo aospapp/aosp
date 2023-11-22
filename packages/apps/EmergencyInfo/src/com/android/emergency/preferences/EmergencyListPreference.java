@@ -17,8 +17,8 @@ package com.android.emergency.preferences;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.support.annotation.Nullable;
-import android.support.v7.preference.ListPreference;
+import androidx.annotation.Nullable;
+import androidx.preference.ListPreference;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
@@ -91,7 +91,7 @@ public class EmergencyListPreference extends ListPreference
         SpannableString str = new SpannableString(displayText);
         str.setSpan(new TtsSpan.TextBuilder((String) accessibleText).build(), 0,
                 displayText.length(),
-                Spannable.SPAN_INCLUSIVE_INCLUSIVE);
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         return str;
     }
 }

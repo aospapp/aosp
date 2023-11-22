@@ -17,7 +17,7 @@
 #ifndef ART_RUNTIME_THREAD_STATE_H_
 #define ART_RUNTIME_THREAD_STATE_H_
 
-#include <ostream>
+#include <iosfwd>
 
 namespace art {
 
@@ -47,6 +47,7 @@ enum ThreadState {
   kWaitingForGetObjectsAllocated,   // WAITING        TS_WAIT      waiting for getting the number of allocated objects
   kWaitingWeakGcRootRead,           // WAITING        TS_WAIT      waiting on the GC to read a weak root
   kWaitingForGcThreadFlip,          // WAITING        TS_WAIT      waiting on the GC thread flip (CC collector) to finish
+  kNativeForAbort,                  // WAITING        TS_WAIT      checking other threads are not run on abort.
   kStarting,                        // NEW            TS_WAIT      native thread started, not yet ready to run managed code
   kNative,                          // RUNNABLE       TS_RUNNING   running in a JNI native method
   kSuspended,                       // RUNNABLE       TS_RUNNING   suspended by GC or debugger

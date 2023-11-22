@@ -22,6 +22,7 @@
  *  mode.
  *
  ******************************************************************************/
+#include <log/log.h>
 #include <string.h>
 
 #include <android-base/stringprintf.h>
@@ -34,7 +35,6 @@
 #include "nfc_int.h"
 #include "rw_api.h"
 #include "rw_int.h"
-#include "trace_api.h"
 
 using android::base::StringPrintf;
 
@@ -226,6 +226,12 @@ static bool rw_t4t_update_version_details(NFC_HDR* p_r_apdu) {
   tRW_T4T_CB* p_t4t = &rw_cb.tcb.t4t;
   uint8_t* p;
   uint16_t major_version, minor_version;
+
+  if (p_r_apdu->len < T4T_DES_GET_VERSION_LEN) {
+    LOG(ERROR) << StringPrintf("%s incorrect p_r_apdu length", __func__);
+    android_errorWriteLog(0x534e4554, "120865977");
+    return false;
+  }
 
   p = (uint8_t*)(p_r_apdu + 1) + p_r_apdu->offset;
   major_version = *(p + 3);
@@ -1008,6 +1014,8 @@ static void rw_t4t_handle_error(tNFC_STATUS status, uint8_t sw1, uint8_t sw2) {
 
     rw_data.t4t_sw.sw1 = sw1;
     rw_data.t4t_sw.sw2 = sw2;
+    rw_data.ndef.cur_size = 0;
+    rw_data.ndef.max_size = 0;
 
     switch (p_t4t->state) {
       case RW_T4T_STATE_DETECT_NDEF:
@@ -1513,7 +1521,7 @@ static void rw_t4t_sm_read_ndef(NFC_HDR* p_r_apdu) {
                 << StringPrintf("Sent RW_T4T_NDEF_READ_CPLT_EVT");
           }
 
-          p_r_apdu = NULL;
+          p_r_apdu = nullptr;
         } else {
           p_t4t->rw_length = 0;
           p_t4t->state = RW_T4T_STATE_IDLE;
@@ -1575,7 +1583,7 @@ static void rw_t4t_sm_update_ndef(NFC_HDR* p_r_apdu) {
 
         if (!rw_t4t_update_file()) {
           rw_t4t_handle_error(NFC_STATUS_FAILED, 0, 0);
-          p_t4t->p_update_data = NULL;
+          p_t4t->p_update_data = nullptr;
         }
       } else {
         p_t4t->state = RW_T4T_STATE_IDLE;
@@ -1597,10 +1605,10 @@ static void rw_t4t_sm_update_ndef(NFC_HDR* p_r_apdu) {
       if (p_t4t->rw_length > 0) {
         if (!rw_t4t_update_file()) {
           rw_t4t_handle_error(NFC_STATUS_FAILED, 0, 0);
-          p_t4t->p_update_data = NULL;
+          p_t4t->p_update_data = nullptr;
         }
       } else {
-        p_t4t->p_update_data = NULL;
+        p_t4t->p_update_data = nullptr;
 
         /* update NLEN as last step of updating file */
         if (!rw_t4t_update_nlen(p_t4t->ndef_length)) {
@@ -1754,7 +1762,7 @@ static void rw_t4t_data_cback(__attribute__((unused)) uint8_t conn_id,
 
   switch (event) {
     case NFC_DEACTIVATE_CEVT:
-      NFC_SetStaticRfCback(NULL);
+      NFC_SetStaticRfCback(nullptr);
       p_t4t->state = RW_T4T_STATE_NOT_ACTIVATED;
       return;
 
@@ -1789,18 +1797,28 @@ static void rw_t4t_data_cback(__attribute__((unused)) uint8_t conn_id,
       "RW T4T state: <%s (%d)>", rw_t4t_get_state_name(p_t4t->state).c_str(),
       p_t4t->state);
 
+  if (p_t4t->state != RW_T4T_STATE_IDLE &&
+      p_t4t->state != RW_T4T_STATE_PRESENCE_CHECK &&
+      p_r_apdu->len < T4T_RSP_STATUS_WORDS_SIZE) {
+    LOG(ERROR) << StringPrintf("%s incorrect p_r_apdu length", __func__);
+    android_errorWriteLog(0x534e4554, "120865977");
+    rw_t4t_handle_error(NFC_STATUS_FAILED, 0, 0);
+    GKI_freebuf(p_r_apdu);
+    return;
+  }
+
   switch (p_t4t->state) {
     case RW_T4T_STATE_IDLE:
-/* Unexpected R-APDU, it should be raw frame response */
-/* forward to upper layer without parsing */
-DLOG_IF(INFO, nfc_debug_enabled)
-    << StringPrintf("RW T4T Raw Frame: Len [0x%X] Status [%s]", p_r_apdu->len,
-                    NFC_GetStatusName(p_data->data.status).c_str());
-if (rw_cb.p_cback) {
-  rw_data.raw_frame.status = p_data->data.status;
-  rw_data.raw_frame.p_data = p_r_apdu;
-  (*(rw_cb.p_cback))(RW_T4T_RAW_FRAME_EVT, &rw_data);
-  p_r_apdu = NULL;
+      /* Unexpected R-APDU, it should be raw frame response */
+      /* forward to upper layer without parsing */
+      DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf(
+          "RW T4T Raw Frame: Len [0x%X] Status [%s]", p_r_apdu->len,
+          NFC_GetStatusName(p_data->data.status).c_str());
+      if (rw_cb.p_cback) {
+        rw_data.raw_frame.status = p_data->data.status;
+        rw_data.raw_frame.p_data = p_r_apdu;
+        (*(rw_cb.p_cback))(RW_T4T_RAW_FRAME_EVT, &rw_data);
+        p_r_apdu = nullptr;
       } else {
         GKI_freebuf(p_r_apdu);
       }
@@ -2099,7 +2117,7 @@ tNFC_STATUS RW_T4tPresenceCheck(uint8_t option) {
     if (option == RW_T4T_CHK_EMPTY_I_BLOCK) {
       /* use empty I block for presence check */
       p_data = (NFC_HDR*)GKI_getbuf(NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE);
-      if (p_data != NULL) {
+      if (p_data != nullptr) {
         p_data->offset = NCI_MSG_OFFSET_SIZE + NCI_DATA_HDR_SIZE;
         p_data->len = 0;
         if (NFC_SendData(NFC_RF_CONN_ID, (NFC_HDR*)p_data) == NFC_STATUS_OK)

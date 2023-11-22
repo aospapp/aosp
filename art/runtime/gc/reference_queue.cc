@@ -17,6 +17,7 @@
 #include "reference_queue.h"
 
 #include "accounting/card_table-inl.h"
+#include "base/mutex.h"
 #include "collector/concurrent_copying.h"
 #include "heap.h"
 #include "mirror/class-inl.h"
@@ -76,19 +77,19 @@ void ReferenceQueue::DisableReadBarrierForReference(ObjPtr<mirror::Reference> re
   Heap* heap = Runtime::Current()->GetHeap();
   if (kUseBakerOrBrooksReadBarrier && heap->CurrentCollectorType() == kCollectorTypeCC &&
       heap->ConcurrentCopyingCollector()->IsActive()) {
-    // Change the gray ptr we left in ConcurrentCopying::ProcessMarkStackRef() to white.
+    // Change the gray ptr we left in ConcurrentCopying::ProcessMarkStackRef() to non-gray.
     // We check IsActive() above because we don't want to do this when the zygote compaction
     // collector (SemiSpace) is running.
     CHECK(ref != nullptr);
     collector::ConcurrentCopying* concurrent_copying = heap->ConcurrentCopyingCollector();
     uint32_t rb_state = ref->GetReadBarrierState();
     if (rb_state == ReadBarrier::GrayState()) {
-      ref->AtomicSetReadBarrierState(ReadBarrier::GrayState(), ReadBarrier::WhiteState());
-      CHECK_EQ(ref->GetReadBarrierState(), ReadBarrier::WhiteState());
+      ref->AtomicSetReadBarrierState(ReadBarrier::GrayState(), ReadBarrier::NonGrayState());
+      CHECK_EQ(ref->GetReadBarrierState(), ReadBarrier::NonGrayState());
     } else {
-      // In ConcurrentCopying::ProcessMarkStackRef() we may leave a white reference in the queue and
-      // find it here, which is OK.
-      CHECK_EQ(rb_state, ReadBarrier::WhiteState()) << "ref=" << ref << " rb_state=" << rb_state;
+      // In ConcurrentCopying::ProcessMarkStackRef() we may leave a non-gray reference in the queue
+      // and find it here, which is OK.
+      CHECK_EQ(rb_state, ReadBarrier::NonGrayState()) << "ref=" << ref << " rb_state=" << rb_state;
       ObjPtr<mirror::Object> referent = ref->GetReferent<kWithoutReadBarrier>();
       // The referent could be null if it's cleared by a mutator (Reference.clear()).
       if (referent != nullptr) {
@@ -136,7 +137,7 @@ void ReferenceQueue::ClearWhiteReferences(ReferenceQueue* cleared_references,
     mirror::HeapReference<mirror::Object>* referent_addr = ref->GetReferentReferenceAddr();
     // do_atomic_update is false because this happens during the reference processing phase where
     // Reference.clear() would block.
-    if (!collector->IsNullOrMarkedHeapReference(referent_addr, /*do_atomic_update*/false)) {
+    if (!collector->IsNullOrMarkedHeapReference(referent_addr, /*do_atomic_update=*/false)) {
       // Referent is white, clear it.
       if (Runtime::Current()->IsActiveTransaction()) {
         ref->ClearReferent<true>();
@@ -158,7 +159,7 @@ void ReferenceQueue::EnqueueFinalizerReferences(ReferenceQueue* cleared_referenc
     mirror::HeapReference<mirror::Object>* referent_addr = ref->GetReferentReferenceAddr();
     // do_atomic_update is false because this happens during the reference processing phase where
     // Reference.clear() would block.
-    if (!collector->IsNullOrMarkedHeapReference(referent_addr, /*do_atomic_update*/false)) {
+    if (!collector->IsNullOrMarkedHeapReference(referent_addr, /*do_atomic_update=*/false)) {
       ObjPtr<mirror::Object> forward_address = collector->MarkObject(referent_addr->AsMirrorPtr());
       // Move the updated referent to the zombie field.
       if (Runtime::Current()->IsActiveTransaction()) {
@@ -180,14 +181,14 @@ void ReferenceQueue::ForwardSoftReferences(MarkObjectVisitor* visitor) {
   if (UNLIKELY(IsEmpty())) {
     return;
   }
-  ObjPtr<mirror::Reference> const head = list_;
+  const ObjPtr<mirror::Reference> head = list_;
   ObjPtr<mirror::Reference> ref = head;
   do {
     mirror::HeapReference<mirror::Object>* referent_addr = ref->GetReferentReferenceAddr();
     if (referent_addr->AsMirrorPtr() != nullptr) {
       // do_atomic_update is false because mutators can't access the referent due to the weak ref
       // access blocking.
-      visitor->MarkHeapReference(referent_addr, /*do_atomic_update*/ false);
+      visitor->MarkHeapReference(referent_addr, /*do_atomic_update=*/ false);
     }
     ref = ref->GetPendingNext();
   } while (LIKELY(ref != head));

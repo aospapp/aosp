@@ -17,10 +17,10 @@
 package com.android.settings.development;
 
 import android.content.Context;
-import android.os.SystemProperties;
-import android.support.annotation.VisibleForTesting;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.Preference;
+import android.sysprop.DisplayProperties;
+
+import androidx.preference.Preference;
+import androidx.preference.SwitchPreference;
 
 import com.android.settings.core.PreferenceControllerMixin;
 import com.android.settingslib.development.DeveloperOptionsPreferenceController;
@@ -30,9 +30,6 @@ public class ForceMSAAPreferenceController extends DeveloperOptionsPreferenceCon
         implements Preference.OnPreferenceChangeListener, PreferenceControllerMixin {
 
     private static final String FORCE_MSAA_KEY = "force_msaa";
-
-    @VisibleForTesting
-    static final String MSAA_PROPERTY = "debug.egl.force_msaa";
 
     public ForceMSAAPreferenceController(Context context) {
         super(context);
@@ -46,22 +43,21 @@ public class ForceMSAAPreferenceController extends DeveloperOptionsPreferenceCon
     @Override
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         final boolean isEnabled = (Boolean) newValue;
-        SystemProperties.set(MSAA_PROPERTY,
-                isEnabled ? Boolean.toString(true) : Boolean.toString(false));
+        DisplayProperties.debug_force_msaa(isEnabled);
         SystemPropPoker.getInstance().poke();
         return true;
     }
 
     @Override
     public void updateState(Preference preference) {
-        final boolean isEnabled = SystemProperties.getBoolean(MSAA_PROPERTY, false /* default */);
+        final boolean isEnabled = DisplayProperties.debug_force_msaa().orElse(false);
         ((SwitchPreference) mPreference).setChecked(isEnabled);
     }
 
     @Override
     protected void onDeveloperOptionsSwitchDisabled() {
         super.onDeveloperOptionsSwitchDisabled();
-        SystemProperties.set(MSAA_PROPERTY, Boolean.toString(false));
+        DisplayProperties.debug_force_msaa(false);
         ((SwitchPreference) mPreference).setChecked(false);
     }
 }

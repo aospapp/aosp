@@ -37,7 +37,8 @@ class TripleDesEvpCipherDescription : public EvpCipherDescription {
 
 class TripleDesOperationFactory : public BlockCipherOperationFactory {
   public:
-    TripleDesOperationFactory(keymaster_purpose_t purpose) : BlockCipherOperationFactory(purpose) {}
+    explicit TripleDesOperationFactory(keymaster_purpose_t purpose)
+        : BlockCipherOperationFactory(purpose) {}
     const EvpCipherDescription& GetCipherDescription() const override;
 };
 

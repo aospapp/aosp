@@ -15,7 +15,8 @@
 package com.android.settings.core;
 
 import android.content.Context;
-import android.support.v7.preference.Preference;
+
+import androidx.preference.Preference;
 
 import com.android.settings.slices.SliceData;
 
@@ -36,14 +37,14 @@ public abstract class SliderPreferenceController extends BasePreferenceControlle
         if (preference instanceof com.android.settings.widget.SeekBarPreference) {
             ((com.android.settings.widget.SeekBarPreference) preference)
                 .setProgress(getSliderPosition());
-        } else if (preference instanceof android.support.v7.preference.SeekBarPreference) {
-            ((android.support.v7.preference.SeekBarPreference) preference)
+        } else if (preference instanceof androidx.preference.SeekBarPreference) {
+            ((androidx.preference.SeekBarPreference) preference)
                 .setValue(getSliderPosition());
         }
     }
 
     /**
-     * @return the value of the Slider's position based on the range: [0, maxSteps).
+     * @return the value of the Slider's position based on the range: [min, max].
      */
     public abstract int getSliderPosition();
 
@@ -56,9 +57,14 @@ public abstract class SliderPreferenceController extends BasePreferenceControlle
     public abstract boolean setSliderPosition(int position);
 
     /**
-     * @return the number of steps supported by the slider.
+     * @return the maximum value supported by the slider.
      */
-    public abstract int getMaxSteps();
+    public abstract int getMax();
+
+    /**
+     * @return the minimum value supported by the slider.
+     */
+    public abstract int getMin();
 
     @Override
     public int getSliceType() {

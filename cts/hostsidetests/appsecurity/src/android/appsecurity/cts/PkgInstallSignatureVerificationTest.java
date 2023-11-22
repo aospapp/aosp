@@ -16,7 +16,6 @@
 
 package android.appsecurity.cts;
 
-import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.SecurityTest;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
@@ -37,7 +36,6 @@ import java.util.Locale;
 /**
  * Tests for APK signature verification during installation.
  */
-@AppModeFull // TODO: Needs porting to instant
 public class PkgInstallSignatureVerificationTest extends DeviceTestCase implements IBuildReceiver {
 
     private static final String TEST_PKG = "android.appsecurity.cts.tinyapp";
@@ -370,6 +368,13 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         // signatures in this APK.
         assertInstallSucceeds("v1-only-two-signers.apk");
         assertInstallSucceeds("v2-only-two-signers.apk");
+    }
+
+    public void testInstallNegativeModulus() throws Exception {
+        // APK signed with a certificate that has a negative RSA modulus.
+        assertInstallSucceeds("v1-only-negative-modulus.apk");
+        assertInstallSucceeds("v2-only-negative-modulus.apk");
+        assertInstallSucceeds("v3-only-negative-modulus.apk");
     }
 
     public void testInstallV2TwoSignersRejectsWhenOneBroken() throws Exception {

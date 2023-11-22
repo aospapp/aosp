@@ -15,7 +15,7 @@ limitations under the License.
 -->
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:background="@color/car_green_500"
+    android:background="@*android:color/car_green_500"
     android:layout_width="match_parent"
     android:layout_height="match_parent" >
 
@@ -24,6 +24,5 @@ limitations under the License.
         android:layout_width="@dimen/error_text_container_width"
         android:layout_height="wrap_content"
         android:text="@string/error_text"
-        android:textColor="@color/car_body1_light"
-        android:textAppearance="@style/TextAppearance.Car.Body1" />
+        android:textColor="@*android:color/car_body1_light"/>
 </FrameLayout>

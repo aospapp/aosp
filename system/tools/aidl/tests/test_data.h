@@ -33,7 +33,9 @@ extern const char* kImportedInterfaces[];
 extern const char kExpectedJavaDepsOutput[];
 extern const char kExpectedJavaOutput[];
 extern const char kExpectedJavaOutputOutlining[];
+extern const char kExpectedJavaOutputWithTransactionNames[];
 extern const char kExpectedJavaOutputWithTrace[];
+extern const char kExpectedJavaOutputWithVersion[];
 
 }  // namespace example_interface
 
@@ -59,6 +61,11 @@ extern const char kExpectedIHeaderOutput[];
 extern const char kExpectedBpHeaderOutput[];
 extern const char kExpectedBnHeaderOutput[];
 
+extern const char kExpectedCppOutputWithVersion[];
+extern const char kExpectedIHeaderOutputWithVersion[];
+extern const char kExpectedBpHeaderOutputWithVersion[];
+extern const char kExpectedBnHeaderOutputWithVersion[];
+
 }  // namespace ping_responder
 
 namespace string_constants {
@@ -69,11 +76,16 @@ extern const char kInterfaceDefinition[];
 extern const char kJavaOutputPath[];
 extern const char kExpectedJavaOutput[];
 
+extern const char kExpectedJavaOutputWithVersion[];
+
 extern const char kCppOutputPath[];
 extern const char kGenHeaderDir[];
 extern const char kGenInterfaceHeaderPath[];
 extern const char kExpectedIHeaderOutput[];
 extern const char kExpectedCppOutput[];
+
+extern const char kExpectedIHeaderOutputWithVersion[];
+extern const char kExpectedCppOutputWithVersion[];
 
 }  // namespace string_constants
 

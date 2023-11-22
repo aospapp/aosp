@@ -20,6 +20,7 @@
 #define __ETNAVIV_DRM_H__
 #include "drm.h"
 #ifdef __cplusplus
+extern "C" {
 #endif
 struct drm_etnaviv_timespec {
   __s64 tv_sec;
@@ -34,6 +35,12 @@ struct drm_etnaviv_timespec {
 #define ETNAVIV_PARAM_GPU_FEATURES_4 0x07
 #define ETNAVIV_PARAM_GPU_FEATURES_5 0x08
 #define ETNAVIV_PARAM_GPU_FEATURES_6 0x09
+#define ETNAVIV_PARAM_GPU_FEATURES_7 0x0a
+#define ETNAVIV_PARAM_GPU_FEATURES_8 0x0b
+#define ETNAVIV_PARAM_GPU_FEATURES_9 0x0c
+#define ETNAVIV_PARAM_GPU_FEATURES_10 0x0d
+#define ETNAVIV_PARAM_GPU_FEATURES_11 0x0e
+#define ETNAVIV_PARAM_GPU_FEATURES_12 0x0f
 #define ETNAVIV_PARAM_GPU_STREAM_COUNT 0x10
 #define ETNAVIV_PARAM_GPU_REGISTER_MAX 0x11
 #define ETNAVIV_PARAM_GPU_THREAD_COUNT 0x12
@@ -187,5 +194,6 @@ struct drm_etnaviv_pm_signal {
 #define DRM_IOCTL_ETNAVIV_PM_QUERY_DOM DRM_IOWR(DRM_COMMAND_BASE + DRM_ETNAVIV_PM_QUERY_DOM, struct drm_etnaviv_pm_domain)
 #define DRM_IOCTL_ETNAVIV_PM_QUERY_SIG DRM_IOWR(DRM_COMMAND_BASE + DRM_ETNAVIV_PM_QUERY_SIG, struct drm_etnaviv_pm_signal)
 #ifdef __cplusplus
+}
 #endif
 #endif

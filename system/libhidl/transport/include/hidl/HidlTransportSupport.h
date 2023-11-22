@@ -84,17 +84,25 @@ status_t handleTransportPoll(int fd);
 bool setMinSchedulerPolicy(const sp<::android::hidl::base::V1_0::IBase>& service,
                            int policy, int priority);
 
-template <typename ILeft,
-          typename IRight,
-          typename = std::enable_if_t<std::is_same<details::i_tag, typename ILeft::_hidl_tag>::value>,
-          typename = std::enable_if_t<std::is_same<details::i_tag, typename IRight::_hidl_tag>::value>>
-bool interfacesEqual(sp<ILeft> left, sp<IRight> right) {
-    if (left == nullptr || right == nullptr || !left->isRemote() || !right->isRemote()) {
-        return left == right;
-    }
+/**
+ * Sets whether or not this object should request security contexts to be populatd for incoming
+ * calls (e.g. with getCallingSid).
+ *
+ * This method MUST be called before passing this service to another process
+ * and/or registering it with registerAsService().
+ *
+ * @param service the service to set the policy for
+ * @param requesting whether or not to request sid (default is false)
+ */
+bool setRequestingSid(const sp<::android::hidl::base::V1_0::IBase>& service, bool requesting);
 
-    return toBinder<ILeft>(left) == toBinder<IRight>(right);
-}
+/**
+ * Returns whether two interfaces represent the same interface. References to interfaces in the same
+ * process will always be equivalent. However, in order to compare a service that is a proxy to a
+ * different process, its underlying structure may have to be checked.
+ */
+bool interfacesEqual(const sp<::android::hidl::base::V1_0::IBase>& left,
+                     const sp<::android::hidl::base::V1_0::IBase>& right);
 
 namespace details {
 
@@ -129,7 +137,7 @@ Return<sp<IChild>> castInterface(sp<IParent> parent, const char* childIndicator,
     // TODO b/32001926 Needs to be fixed for socket mode.
     if (parent->isRemote()) {
         // binderized mode. Got BpChild. grab the remote and wrap it.
-        return sp<IChild>(new BpChild(toBinder<IParent>(parent)));
+        return sp<IChild>(new BpChild(getOrCreateCachedBinder(parent.get())));
     }
     // Passthrough mode. Got BnChild or BsChild.
     return sp<IChild>(static_cast<IChild *>(parent.get()));
@@ -149,7 +157,7 @@ sp<IType> getServiceInternal(const std::string& instance, bool retry, bool getSt
 
     if (base->isRemote()) {
         // getRawServiceInternal guarantees we get the proper class
-        return sp<IType>(new BpType(toBinder<IBase>(base)));
+        return sp<IType>(new BpType(getOrCreateCachedBinder(base.get())));
     }
 
     return IType::castFrom(base);

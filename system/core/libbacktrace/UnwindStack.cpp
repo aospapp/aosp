@@ -23,10 +23,6 @@
 #include <set>
 #include <string>
 
-#if !defined(__ANDROID__)
-#include <cutils/threads.h>
-#endif
-
 #include <backtrace/Backtrace.h>
 #include <demangle.h>
 #include <unwindstack/Elf.h>
@@ -53,6 +49,7 @@ bool Backtrace::Unwind(unwindstack::Regs* regs, BacktraceMap* back_map,
   unwindstack::Unwinder unwinder(MAX_BACKTRACE_FRAMES + num_ignore_frames, stack_map->stack_maps(),
                                  regs, stack_map->process_memory());
   unwinder.SetResolveNames(stack_map->ResolveNames());
+  stack_map->SetArch(regs->Arch());
   if (stack_map->GetJitDebug() != nullptr) {
     unwinder.SetJitDebug(stack_map->GetJitDebug(), regs->Arch());
   }
@@ -92,6 +89,10 @@ bool Backtrace::Unwind(unwindstack::Regs* regs, BacktraceMap* back_map,
       case unwindstack::ERROR_REPEATED_FRAME:
         error->error_code = BACKTRACE_UNWIND_ERROR_REPEATED_FRAME;
         break;
+
+      case unwindstack::ERROR_INVALID_ELF:
+        error->error_code = BACKTRACE_UNWIND_ERROR_INVALID_ELF;
+        break;
     }
   }
 
@@ -120,7 +121,7 @@ bool Backtrace::Unwind(unwindstack::Regs* regs, BacktraceMap* back_map,
     back_frame->map.name = frame->map_name;
     back_frame->map.start = frame->map_start;
     back_frame->map.end = frame->map_end;
-    back_frame->map.offset = frame->map_offset;
+    back_frame->map.offset = frame->map_elf_start_offset;
     back_frame->map.load_bias = frame->map_load_bias;
     back_frame->map.flags = frame->map_flags;
   }

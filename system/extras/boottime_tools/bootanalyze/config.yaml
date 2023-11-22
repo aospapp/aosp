@@ -2,12 +2,15 @@
 time_correction_key: correction
 timings:
   system_server: SystemServerTiming(Async)?\s*:\s*(?P<name>\S+) took to complete:\s(?P<time>[0-9]+)ms
+  system_ui: SystemUIBootTiming?\s*:\s*(?P<name>\S+) took to complete:\s(?P<time>[0-9]+)ms
   fs_shutdown: (?P<name>boot_fs_shutdown),(?P<time>[0-9]+),([0-9]+)
   ueventd_secs: ueventd:\s(?P<name>\S.+)\stook\s(?P<time>[.0-9]+)\sseconds
   init_command_ms: init:\sCommand\s(?P<name>\S.+)\sreturned.*took\s(?P<time>[.0-9]+)ms
   init_service_exec_secs: init:\sService\s.*exec\s\S+\s\((?P<name>\S.+)\).*pid.*\swaiting\stook\s(?P<time>[.0-9]+)\sseconds
   zygote64_timing: (?P<name>Zygote64Timing\:\s\S+)\stook\sto\scomplete\:\s(?P<time>[0-9]+)ms
   zygote32_timing: (?P<name>Zygote32Timing\:\s\S+)\stook\sto\scomplete\:\s(?P<time>[0-9]+)ms
+  long_monitor_contention_secs: \s(?P<component>\S+)\sLong\smonitor\scontention\swith\sowner\s(?P<name>\S.+).*\sfor\s(?P<time>[.0-9]+)s
+  long_monitor_contention_ms: \s(?P<component>\S+)\sLong\smonitor\scontention\swith\sowner\s(?P<name>\S.+).*\sfor\s(?P<time>[.0-9]+)ms
 events:
   kernel: Linux version
   android_init_1st_stage: init first stage started
@@ -54,7 +57,7 @@ events:
   KeyguardShown: KeyguardServiceDelegate.*\*\*\*\* SHOWN CALLED \*\*\*\*
   BootComplete: Starting phase 1000
   BootComplete_kernel: processing action \(sys\.boot_completed=1\)
-  LauncherStart: START.*HOME.*(NexusLauncherActivity|GEL|LensPickerTrampolineActivity|SetupWizardActivity)
+  LauncherStart: START.*HOME.*(NexusLauncherActivity|GEL|LensPickerTrampolineActivity|SetupWizardActivity|CarLauncher)
   FsStat: fs_stat, partition:userdata stat:(0x\S+)
 shutdown_events:
   ShutdownStart: ShutdownThread:\sNotifying thread to start shutdown

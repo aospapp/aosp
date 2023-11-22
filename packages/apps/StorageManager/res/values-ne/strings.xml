@@ -36,7 +36,7 @@
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"ठाउँ खाली गर्नुहोस्"</string>
-    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"सामग्रीको <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> लाई तपाईंको यन्त्रबाट हटाइनेछ"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"सामग्रीको <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> लाई तपाईंको यन्त्रबाट हटाइने छ"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"ठाउँ खाली गर्नुहोस्"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"भण्डारणको स्वतः व्यवस्थापन गर्ने हो?"</string>
     <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"अहिले <xliff:g id="USED">%1$s</xliff:g> खाली छ। भण्डारण प्रबन्धकलाई तपाईँको यन्त्रबाट ब्याक अप गरिएको सामग्री हटाएर स्वतः ठाउँ खाली गर्न दिने हो?"</string>
@@ -58,7 +58,7 @@
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"वस्तुहरू भेट्टाउँदै…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"सबै वस्तुहरू देखाउनुहोस्"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"हालैका वस्तुहरू लुकाउनुहोस्"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"सामग्रीको <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> लाई तपाईंको यन्त्रबाट हटाइनेछ"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"सामग्रीको <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> लाई तपाईंको यन्त्रबाट हटाइने छ"</string>
     <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"तपाईंको भण्डारण अहिले भण्डारण प्रबन्धकद्वारा व्यवस्थापन भइरहेको छ"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"हटाउनु पर्ने कुनै कुरा छैन"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"हालैका वस्तुहरूको समीक्षा गर्नुहोस्"</string>

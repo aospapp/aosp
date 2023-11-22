@@ -47,9 +47,12 @@ import java.util.TreeSet;
 import java.util.concurrent.LinkedBlockingDeque;
 
 import junit.framework.AssertionFailedError;
-import junit.framework.TestCase;
 
-import dalvik.system.VMRuntime;
+import libcore.junit.junit3.TestCaseWithRules;
+import libcore.junit.util.SwitchTargetSdkVersionRule;
+import libcore.junit.util.SwitchTargetSdkVersionRule.TargetSdkVersion;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 
 import static java.util.Collections.checkedNavigableMap;
 import static java.util.Collections.checkedQueue;
@@ -61,7 +64,10 @@ import static java.util.Spliterator.SIZED;
 import static java.util.Spliterator.SUBSIZED;
 import static libcore.java.util.SpliteratorTester.assertHasCharacteristics;
 
-public final class CollectionsTest extends TestCase {
+public final class CollectionsTest extends TestCaseWithRules {
+
+    @Rule
+    public TestRule switchTargetSdkVersionRule = SwitchTargetSdkVersionRule.getInstance();
 
     private static final Object NOT_A_STRING = new Object();
     private static final Object A_STRING = "string";
@@ -156,86 +162,55 @@ public final class CollectionsTest extends TestCase {
      * Tests that when targetSdk {@code <= 25}, Collections.sort() does not delegate
      * to List.sort().
      */
+    @TargetSdkVersion(25)
     public void testSort_nougatOrEarlier_doesNotDelegateToListSort() {
-        runOnTargetSdk(25, () -> { // Nougat MR1 / MR2
-            ArrayListInheritor<String> list = new ArrayListInheritor<>(
-                    Arrays.asList("a", "c", "b"));
-            assertEquals(0, list.numSortCalls());
-            Collections.sort(list);
-            assertEquals(0, list.numSortCalls());
-        });
+        // Nougat MR1 / MR2
+        ArrayListInheritor<String> list = new ArrayListInheritor<>(Arrays.asList("a", "c", "b"));
+        assertEquals(0, list.numSortCalls());
+        Collections.sort(list);
+        assertEquals(0, list.numSortCalls());
     }
 
+    @TargetSdkVersion(26)
     public void testSort_postNougat_delegatesToListSort() {
-        runOnTargetSdkAtLeast(26, () -> {
-            ArrayListInheritor<String> list = new ArrayListInheritor<>(
-                    Arrays.asList("a", "c", "b"));
-            assertEquals(0, list.numSortCalls());
-            Collections.sort(list);
-            assertEquals(1, list.numSortCalls());
-        });
+        ArrayListInheritor<String> list = new ArrayListInheritor<>(Arrays.asList("a", "c", "b"));
+        assertEquals(0, list.numSortCalls());
+        Collections.sort(list);
+        assertEquals(1, list.numSortCalls());
     }
 
+    @TargetSdkVersion(26)
     public void testSort_modcountUnmodifiedForLinkedList() {
-        runOnTargetSdkAtLeast(26, () -> {
-            LinkedList<String> list = new LinkedList<>(Arrays.asList(
-                    "red", "green", "blue", "violet"));
-            Iterator<String> it = list.iterator();
-            it.next();
-            Collections.sort(list);
-            it.next(); // does not throw ConcurrentModificationException
-        });
+        // does not throw ConcurrentModificationException
+        LinkedList<String> list = new LinkedList<>(Arrays.asList("red", "green", "blue", "violet"));
+        Iterator<String> it = list.iterator();
+        it.next();
+        Collections.sort(list);
+        it.next(); // does not throw ConcurrentModificationException
     }
 
+    @TargetSdkVersion(26)
     public void testSort_modcountModifiedForArrayListAndSubclasses() {
-        runOnTargetSdkAtLeast(26, () -> {
-            List<String> testData = Arrays.asList("red", "green", "blue", "violet");
+        List<String> testData = Arrays.asList("red", "green", "blue", "violet");
 
-            ArrayList<String> list = new ArrayList<>(testData);
-            Iterator<String> it = list.iterator();
-            it.next();
-            Collections.sort(list);
-            try {
-                it.next();
-                fail();
-            } catch (ConcurrentModificationException expected) {
-            }
-
-            list = new ArrayListInheritor<>(testData);
-            it = list.iterator();
-            it.next();
-            Collections.sort(list);
-            try {
-                it.next();
-                fail();
-            } catch (ConcurrentModificationException expected) {
-            }
-        });
-    }
-
-    /**
-     * Runs the given runnable on this thread with the targetSdkVersion temporarily set
-     * to the specified value, unless the current value is already higher.
-     */
-    private static void runOnTargetSdkAtLeast(int minimumTargetSdkForTest, Runnable runnable) {
-        int targetSdkForTest = Math.max(minimumTargetSdkForTest,
-                VMRuntime.getRuntime().getTargetSdkVersion());
-        runOnTargetSdk(targetSdkForTest, runnable);
-    }
-
-    /**
-     * Runs the given runnable on this thread with the targetSdkVersion temporarily set
-     * to the specified value. This helps test behavior that depends on an API level
-     * other than the current one (e.g. between releases).
-     */
-    private static void runOnTargetSdk(int targetSdkForTest, Runnable runnable) {
-        VMRuntime runtime = VMRuntime.getRuntime();
-        int targetSdk = runtime.getTargetSdkVersion();
+        ArrayList<String> list = new ArrayList<>(testData);
+        Iterator<String> it = list.iterator();
+        it.next();
+        Collections.sort(list);
         try {
-            runtime.setTargetSdkVersion(targetSdkForTest);
-            runnable.run();
-        } finally {
-            runtime.setTargetSdkVersion(targetSdk);
+            it.next();
+            fail();
+        } catch (ConcurrentModificationException expected) {
+        }
+
+        list = new ArrayListInheritor<>(testData);
+        it = list.iterator();
+        it.next();
+        Collections.sort(list);
+        try {
+            it.next();
+            fail();
+        } catch (ConcurrentModificationException expected) {
         }
     }
 

@@ -29,8 +29,6 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.provider.Contacts.PeopleColumns;
-import android.provider.Contacts.PhonesColumns;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.telephony.PhoneNumberUtils;
 import android.text.Editable;
@@ -50,10 +48,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.internal.telephony.PhoneFactory;
 import com.android.phone.PhoneGlobals;
 import com.android.phone.R;
 import com.android.phone.SubscriptionInfoHelper;
-import com.android.internal.telephony.PhoneFactory;
 
 /**
  * Activity to let the user add or edit an FDN contact.

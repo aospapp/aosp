@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"आणीबाणी माहिती"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"वैद्यकीय माहिती"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"माहिती संपादित करा"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"माहिती जोडा"</string>
     <string name="edit_info" msgid="5973929805855224805">"आणीबाणी माहिती संपादित करा"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"माहिती"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"संपर्क"</string>
@@ -80,7 +80,7 @@
     <string name="medical_conditions" msgid="3555690011498283592">"वैद्यकीय टिपा"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"अज्ञात"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"उदाहरणार्थ, दमा"</string>
-    <string name="organ_donor" msgid="5953509460007124827">"शरीराचा अवयव दान करणारा"</string>
+    <string name="organ_donor" msgid="5953509460007124827">"अवयव दाता"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"अज्ञात"</string>
     <string name="yes" msgid="5829765567799916128">"होय"</string>
     <string name="no" msgid="1681689233660683509">"नाही"</string>
@@ -99,11 +99,15 @@
     <string name="ok" msgid="163967937451981024">"ठीक आहे"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"फोनच्या मालकाविषयी कोणतीही माहिती नाही"</string>
-    <string name="tap_pencil" msgid="2723698054265296934">"हा आपला फोन असल्यास, आणीबाणी असताना येथे प्रदर्शित केली जाणारी माहिती जोडण्‍यासाठ‍ी पेन्सिल चिन्हावर टॅप करा"</string>
+    <string name="tap_pencil" msgid="2723698054265296934">"हा तुमचा फोन असल्यास, आणीबाणी असताना येथे प्रदर्शित केली जाणारी माहिती जोडण्‍यासाठ‍ी पेन्सिल चिन्हावर टॅप करा"</string>
     <string name="clear_all" msgid="8899013032870561633">"सर्व साफ करा"</string>
     <string name="clear" msgid="3648880442502887163">"साफ करा"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"सर्व माहिती आणि संपर्क साफ करायचे?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"वैद्यकीय माहिती आणि आपत्कालीन संपर्क जोडणे आपत्कालीन काळामध्ये प्रथम प्रतिसादकर्त्यांची मदत करू शकतात.\n\nकोणीही तुमच्या लॉकस्क्रीनवरून ही माहिती वाचू शकते आणि तुमचा फोन अनलॉक न करता तुमच्या संपर्कांना त्यांच्या नावावर टॅप करून डायल करू शकते."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"आणीबाणी माहिती जोडा"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"अगोदर प्रतिसाद देणार्‍यांना तुमची माहिती पाहू द्या"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"फोटो काढा"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"इमेज निवडा"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"फोटो निवडा"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"टोपणनाव"</string>
 </resources>

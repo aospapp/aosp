@@ -18,6 +18,7 @@
 package com.android.cts.verifier.sensors.base;
 
 import com.android.cts.verifier.sensors.reporting.SensorTestDetails;
+import com.android.cts.verifier.sensors.reporting.SensorTestDetails.ResultCode;
 
 import android.hardware.cts.helpers.reporting.ISensorTestNode;
 
@@ -25,6 +26,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -54,9 +56,26 @@ public abstract class SensorCtsVerifierTestActivity extends BaseSensorTestActivi
     @Override
     protected SensorTestDetails executeTests() throws InterruptedException {
         // TODO: use reporting to log individual test results
-        for (Method testMethod : findTestMethods()) {
+        Iterator<Method> testMethodIt = findTestMethods().iterator();
+        while (testMethodIt.hasNext()) {
+            Method testMethod = testMethodIt.next();
+            mIsLastSubtest = !testMethodIt.hasNext();
+            mRetryCount = 0;
+            getTestLogger().logTestStart(testMethod.getName());
             SensorTestDetails testDetails = executeTest(testMethod);
             getTestLogger().logTestDetails(testDetails);
+            // If tests enable retry and get failed result, trigger the retry process.
+            while (mEnableRetry && testDetails.getResultCode().equals(ResultCode.FAIL)) {
+                mShouldRetry = true;
+                waitForUserToRetry();
+                if (!mShouldRetry) {
+                    break;
+                }
+                mTestFailedCounter--;
+                testDetails = executeTest(testMethod);
+                getTestLogger().logTestDetails(testDetails);
+                mRetryCount++;
+            }
         }
         return new SensorTestDetails(
                 getApplicationContext(),
@@ -90,7 +109,6 @@ public abstract class SensorCtsVerifierTestActivity extends BaseSensorTestActivi
 
         SensorTestDetails testDetails;
         try {
-            getTestLogger().logTestStart(testMethodName);
             String testSummary = (String) testMethod.invoke(this);
             testDetails =
                     new SensorTestDetails(testName, SensorTestDetails.ResultCode.PASS, testSummary);

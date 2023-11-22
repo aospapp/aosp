@@ -117,24 +117,22 @@ Minor version increment:
 Changing the distro format version
 ----------------------------------
 
-1) Modify distro/core/src/main/com/android/timezone/distro/DistroVersion.java:
+1) Modify libcore/luni/src/main/java/libcore/timezone/TzDataSetVersion.java
   - CURRENT_FORMAT_MAJOR_VERSION, CURRENT_FORMAT_MINOR_VERSION
-2) Modify: tzdatacheck/tzdatacheck.cpp
-  - SUPPORTED_DISTRO_MAJOR_VERSION, SUPPORTED_DISTRO_MINOR_VERSION
-3) Run update-tzdata.py to regenerate the system/timezone/output_data,
+2) Run update-tzdata.py to regenerate the system/timezone/output_data,
   system/timezone/testing/data, external/icu runtime files and testing equivalents.
-4) Build/flash a device image with the changes and run CTS:
+3) Build/flash a device image with the changes and run CTS:
     cts-tradefed
     run cts -m CtsHostTzDataTests
     run cts -m CtsLibcoreTestCases
-5) Run non-CTS test cases:
+4) Run non-CTS test cases:
     make -j30 FrameworksServicesTests
     adb install -r -g \
         "${ANDROID_PRODUCT_OUT}/data/app/FrameworksServicesTests/FrameworksServicesTests.apk"
     adb shell am instrument -e package com.android.server.timezone -w \
         com.android.frameworks.servicestests \
-        "com.android.frameworks.servicestests/android.support.test.runner.AndroidJUnitRunner"
-6) Upload, review, submit the changes from system/timezone.
+        "com.android.frameworks.servicestests/androidx.test.runner.AndroidJUnitRunner"
+5) Upload, review, submit the changes from system/timezone, libcore and external/icu.
 
 REMINDER: Any prebuilt apks of OEM-specific time zone data apps .apk files
 (i.e. ones that that contain distro files) will also need to be regenerated

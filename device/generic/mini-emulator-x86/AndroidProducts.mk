@@ -16,3 +16,6 @@
 
 PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/mini_emulator_x86.mk
+
+COMMON_LUNCH_CHOICES := \
+    mini_emulator_x86-userdebug

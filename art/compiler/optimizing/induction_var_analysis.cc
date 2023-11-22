@@ -243,7 +243,7 @@ HInductionVarAnalysis::HInductionVarAnalysis(HGraph* graph, const char* name)
               graph->GetAllocator()->Adapter(kArenaAllocInductionVarAnalysis)) {
 }
 
-void HInductionVarAnalysis::Run() {
+bool HInductionVarAnalysis::Run() {
   // Detects sequence variables (generalized induction variables) during an outer to inner
   // traversal of all loops using Gerlek's algorithm. The order is important to enable
   // range analysis on outer loop while visiting inner loops.
@@ -253,6 +253,7 @@ void HInductionVarAnalysis::Run() {
       VisitLoop(graph_block->GetLoopInformation());
     }
   }
+  return !induction_.empty();
 }
 
 void HInductionVarAnalysis::VisitLoop(HLoopInformation* loop) {
@@ -1073,8 +1074,8 @@ bool HInductionVarAnalysis::IsTaken(InductionInfo* lower_expr,
           && lower_value >= upper_value;
     default:
       LOG(FATAL) << "CONDITION UNREACHABLE";
+      UNREACHABLE();
   }
-  return false;  // not certain, may be untaken
 }
 
 bool HInductionVarAnalysis::IsFinite(InductionInfo* upper_expr,
@@ -1098,8 +1099,8 @@ bool HInductionVarAnalysis::IsFinite(InductionInfo* upper_expr,
       return (IsAtLeast(upper_expr, &value) && value >= (min - stride_value));
     default:
       LOG(FATAL) << "CONDITION UNREACHABLE";
+      UNREACHABLE();
   }
-  return false;  // not certain, may be infinite
 }
 
 bool HInductionVarAnalysis::FitsNarrowerControl(InductionInfo* lower_expr,

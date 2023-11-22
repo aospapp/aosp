@@ -102,37 +102,6 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := activity_recognition.$(TARGET_DEVICE)
-LOCAL_MODULE_RELATIVE_PATH := hw
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE_OWNER := google
-LOCAL_PROPRIETARY_MODULE := true
-
-LOCAL_CFLAGS += $(COMMON_CFLAGS)
-
-LOCAL_C_INCLUDES += \
-	device/google/contexthub/firmware/os/inc \
-	device/google/contexthub/util/common
-
-LOCAL_SRC_FILES := \
-	activity.cpp
-
-LOCAL_HEADER_LIBRARIES := \
-    libhardware_headers
-
-LOCAL_SHARED_LIBRARIES := \
-	libcutils \
-	libhubconnection \
-	liblog \
-	libstagefright_foundation \
-	libutils
-
-include $(BUILD_SHARED_LIBRARY)
-
-################################################################################
-
-include $(CLEAR_VARS)
-
 LOCAL_MODULE := libhubconnection
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_OWNER := google

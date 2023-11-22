@@ -24,7 +24,7 @@
 
     <style name="PreferenceTheme" parent="@style/PreferenceThemeOverlay.v14.Material">
         <item name="switchPreferenceStyle">@style/SettingsSwitchPreference</item>
-        <item name="preferenceCategoryStyle">@style/SettingsPreferenceCategory</item>
+        <item name="preferenceCategoryStyle">@style/Preference.Category.Material</item>
         <item name="preferenceStyle">@style/SettingsPreference</item>
         <item name="dialogPreferenceStyle">@style/SettingsDialogPreference</item>
     </style>

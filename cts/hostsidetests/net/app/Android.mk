@@ -19,8 +19,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner ub-uiautomator \
+#LOCAL_SDK_VERSION := current
+LOCAL_PRIVATE_PLATFORM_APIS := true
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt ctstestrunner-axt ub-uiautomator \
         CtsHostsideNetworkTestsAidl
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs

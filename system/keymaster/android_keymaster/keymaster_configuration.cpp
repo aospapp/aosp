@@ -22,14 +22,9 @@
 #include <regex.h>
 
 #define LOG_TAG "keymaster"
-#include <cutils/log.h>
 
-#ifndef KEYMASTER_UNIT_TEST_BUILD
-#include <cutils/properties.h>
-#else
-#define PROPERTY_VALUE_MAX 80 /* Value doesn't matter */
-void property_get(const char* /* prop_name */, char* /* prop */, const char* /* default */) {}
-#endif
+#include <android-base/properties.h>
+#include <log/log.h>
 
 #include <keymaster/authorization_set.h>
 
@@ -57,6 +52,17 @@ uint32_t match_to_uint32(const char* expression, const regmatch_t& match) {
     size_t len = match.rm_eo - match.rm_so;
     std::string s(expression + match.rm_so, len);
     return std::stoul(s);
+}
+
+std::string wait_and_get_property(const char* prop) {
+    std::string prop_value;
+#ifndef KEYMASTER_UNIT_TEST_BUILD
+    while (!android::base::WaitForPropertyCreation(prop)) {
+        SLOGE("waited 15s for %s, still waiting...", prop);
+    }
+    prop_value = android::base::GetProperty(prop, "" /* default */);
+#endif
+    return prop_value;
 }
 
 }  // anonymous namespace
@@ -97,9 +103,8 @@ uint32_t GetOsVersion(const char* version_str) {
 }
 
 uint32_t GetOsVersion() {
-    char version_str[PROPERTY_VALUE_MAX];
-    property_get(kPlatformVersionProp, version_str, "" /* default */);
-    return GetOsVersion(version_str);
+    std::string version = wait_and_get_property(kPlatformVersionProp);
+    return GetOsVersion(version.c_str());
 }
 
 uint32_t GetOsPatchlevel(const char* patchlevel_str) {
@@ -129,9 +134,8 @@ uint32_t GetOsPatchlevel(const char* patchlevel_str) {
 }
 
 uint32_t GetOsPatchlevel() {
-    char patchlevel_str[PROPERTY_VALUE_MAX];
-    property_get(kPlatformPatchlevelProp, patchlevel_str, "" /* default */);
-    return GetOsPatchlevel(patchlevel_str);
+    std::string patchlevel = wait_and_get_property(kPlatformPatchlevelProp);
+    return GetOsPatchlevel(patchlevel.c_str());
 }
 
 }  // namespace keymaster

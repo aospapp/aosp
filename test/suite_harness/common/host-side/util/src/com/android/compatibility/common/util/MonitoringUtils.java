@@ -21,8 +21,6 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
-import com.android.tradefed.result.InputStreamSource;
-import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.util.RunUtil;
 
 /**
@@ -38,11 +36,13 @@ public class MonitoringUtils {
         long start = System.currentTimeMillis();
         while (System.currentTimeMillis() - start < CONNECTIVITY_CHECK_TIME_MS) {
             if (device.checkConnectivity()) {
-                CLog.i("Connectivity: passed check.");
+                CLog.i("Wifi Connectivity: passed check.");
                 return true;
             } else {
-                CLog.logAndDisplay(LogLevel.INFO,
-                        "Connectivity check failed on %s, retrying in %dms",
+                CLog.logAndDisplay(
+                        LogLevel.INFO,
+                        "Wifi Connectivity check failed on %s. (Is your device connected to Wifi?)"
+                                + ", retrying in %dms",
                         device.getSerialNumber(),
                         CONNECTIVITY_CHECK_INTERVAL_MS);
                 RunUtil.getDefault().sleep(CONNECTIVITY_CHECK_INTERVAL_MS);
@@ -54,11 +54,8 @@ public class MonitoringUtils {
     public static void checkDeviceConnectivity(ITestDevice device, ITestInvocationListener listener,
             String tag) throws DeviceNotAvailableException {
         if (!checkDeviceConnectivity(device)) {
-            CLog.w("Connectivity: check failed.");
-            InputStreamSource bugSource = device.getBugreport();
-            listener.testLog(String.format("bugreport-connectivity-%s", tag),
-                    LogDataType.TEXT, bugSource);
-            bugSource.cancel();
+            CLog.w("Wifi Connectivity: check failed. (Is your device connected to Wifi?)");
+            device.logBugreport(String.format("bugreport-connectivity-%s", tag), listener);
         }
     }
 }

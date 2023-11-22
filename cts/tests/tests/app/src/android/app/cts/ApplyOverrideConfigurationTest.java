@@ -19,8 +19,9 @@ import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
-import android.support.test.filters.SmallTest;
 import android.test.ActivityInstrumentationTestCase2;
+
+import androidx.test.filters.SmallTest;
 
 import java.util.concurrent.Future;
 

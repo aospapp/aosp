@@ -104,25 +104,7 @@ public class AhatClassInstance extends AhatInstance {
 
   @Override
   Iterable<Reference> getReferences() {
-    if (isInstanceOfClass("java.lang.ref.Reference")) {
-      return new WeakReferentReferenceIterator();
-    }
-    return new StrongReferenceIterator();
-  }
-
-  /**
-   * Returns true if this is an instance of a (subclass of a) class with the
-   * given name.
-   */
-  private boolean isInstanceOfClass(String className) {
-    AhatClassObj cls = getClassObj();
-    while (cls != null) {
-      if (className.equals(cls.getName())) {
-        return true;
-      }
-      cls = cls.getSuperClassObj();
-    }
-    return false;
+    return new ReferenceIterator();
   }
 
   @Override public String asString(int maxChars) {
@@ -163,6 +145,52 @@ public class AhatClassInstance extends AhatInstance {
     return null;
   }
 
+  @Override public String getBinderProxyInterfaceName() {
+    if (isInstanceOfClass("android.os.BinderProxy")) {
+      for (AhatInstance inst : getReverseReferences()) {
+        String className = inst.getClassName();
+        if (className.endsWith("$Stub$Proxy")) {
+          Value value = inst.getField("mRemote");
+          if (value != null && value.asAhatInstance() == this) {
+            return className.substring(0, className.lastIndexOf("$Stub$Proxy"));
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  @Override public String getBinderTokenDescriptor() {
+    String descriptor = getBinderDescriptor();
+    if (descriptor == null) {
+      return null;
+    }
+
+    if (isInstanceOfClass(descriptor + "$Stub")) {
+      // This is an instance of an auto-generated interface class, and
+      // therefore not a binder token.
+      return null;
+    }
+
+    return descriptor;
+  }
+
+  @Override public String getBinderStubInterfaceName() {
+    String descriptor = getBinderDescriptor();
+    if (descriptor == null || descriptor.isEmpty()) {
+      // Binder interface stubs always have a non-empty descriptor
+      return null;
+    }
+
+    // We only consider something a binder service if it's an instance of the
+    // auto-generated descriptor$Stub class.
+    if (isInstanceOfClass(descriptor + "$Stub")) {
+      return descriptor;
+    }
+
+    return null;
+  }
+
   @Override public AhatInstance getAssociatedBitmapInstance() {
     return getBitmapInfo() == null ? null : this;
   }
@@ -177,6 +205,25 @@ public class AhatClassInstance extends AhatInstance {
 
   @Override public String toString() {
     return String.format("%s@%08x", getClassName(), getId());
+  }
+
+  /**
+   * Returns the descriptor of an android.os.Binder object.
+   * If no descriptor is set, returns an empty string.
+   * If the object is not an android.os.Binder object, returns null.
+   */
+  private String getBinderDescriptor() {
+    if (isInstanceOfClass("android.os.Binder")) {
+      Value value = getField("mDescriptor");;
+
+      if (value == null) {
+        return "";
+      } else {
+        return value.asAhatInstance().asString();
+      }
+    } else {
+      return null;
+    }
   }
 
   /**
@@ -352,59 +399,49 @@ public class AhatClassInstance extends AhatInstance {
   }
 
   /**
-   * A Reference iterator that iterates over the fields of this instance
-   * assuming all field references are strong references.
+   * Returns the reachability type associated with this instance.
+   * For example, returns Reachability.WEAK for an instance of
+   * java.lang.ref.WeakReference.
    */
-  private class StrongReferenceIterator implements Iterable<Reference>,
-                                                   Iterator<Reference> {
-    private Iterator<FieldValue> mIter = getInstanceFields().iterator();
-    private Reference mNext = null;
-
-    @Override
-    public boolean hasNext() {
-      while (mNext == null && mIter.hasNext()) {
-        FieldValue field = mIter.next();
-        if (field.value != null && field.value.isAhatInstance()) {
-          AhatInstance ref = field.value.asAhatInstance();
-          mNext = new Reference(AhatClassInstance.this, "." + field.name, ref, true);
-        }
+  private Reachability getJavaLangRefType() {
+    AhatClassObj cls = getClassObj();
+    while (cls != null) {
+      switch (cls.getName()) {
+        case "java.lang.ref.PhantomReference": return Reachability.PHANTOM;
+        case "java.lang.ref.WeakReference": return Reachability.WEAK;
+        case "java.lang.ref.FinalizerReference": return Reachability.FINALIZER;
+        case "java.lang.ref.Finalizer": return Reachability.FINALIZER;
+        case "java.lang.ref.SoftReference": return Reachability.SOFT;
       }
-      return mNext != null;
+      cls = cls.getSuperClassObj();
     }
-
-    @Override
-    public Reference next() {
-      if (!hasNext()) {
-        throw new NoSuchElementException();
-      }
-      Reference next = mNext;
-      mNext = null;
-      return next;
-    }
-
-    @Override
-    public Iterator<Reference> iterator() {
-      return this;
-    }
+    return Reachability.STRONG;
   }
 
   /**
-   * A Reference iterator that iterates over the fields of a subclass of
-   * java.lang.ref.Reference, where the 'referent' field is considered weak.
+   * A Reference iterator that iterates over the fields of this instance.
    */
-  private class WeakReferentReferenceIterator implements Iterable<Reference>,
-                                                         Iterator<Reference> {
-    private Iterator<FieldValue> mIter = getInstanceFields().iterator();
+  private class ReferenceIterator implements Iterable<Reference>,
+                                             Iterator<Reference> {
+    private final Iterator<FieldValue> mIter = getInstanceFields().iterator();
     private Reference mNext = null;
+
+    // If we are iterating over a subclass of java.lang.ref.Reference, the
+    // 'referent' field doesn't have strong reachability. mJavaLangRefType
+    // describes what type of java.lang.ref.Reference subinstance this is.
+    private final Reachability mJavaLangRefType = getJavaLangRefType();
 
     @Override
     public boolean hasNext() {
       while (mNext == null && mIter.hasNext()) {
         FieldValue field = mIter.next();
         if (field.value != null && field.value.isAhatInstance()) {
-          boolean strong = !field.name.equals("referent");
+          Reachability reachability = Reachability.STRONG;
+          if (mJavaLangRefType != Reachability.STRONG && "referent".equals(field.name)) {
+            reachability = mJavaLangRefType;
+          }
           AhatInstance ref = field.value.asAhatInstance();
-          mNext = new Reference(AhatClassInstance.this, "." + field.name, ref, strong);
+          mNext = new Reference(AhatClassInstance.this, "." + field.name, ref, reachability);
         }
       }
       return mNext != null;

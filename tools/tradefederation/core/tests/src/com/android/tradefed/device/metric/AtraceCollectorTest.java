@@ -24,6 +24,7 @@ import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
+import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.result.LogDataType;
 
 import org.easymock.EasyMock;
@@ -34,7 +35,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.File;
-import java.lang.Error;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -54,6 +54,8 @@ public final class AtraceCollectorTest {
     private IInvocationContext mMockInvocationContext;
     private IRunUtil mMockRunUtil;
     private File mDummyBinary;
+    private File mDummyMetricPng;
+    private File mDummyMetricText;
     private static final String M_DEFAULT_LOG_PATH = "/data/local/tmp/atrace.atr";
     private static final String M_SERIAL_NO = "12349876";
     private static final String M_CATEGORIES = "tisket tasket brisket basket";
@@ -80,10 +82,14 @@ public final class AtraceCollectorTest {
         mAtrace.init(mMockInvocationContext, mMockTestLogger);
         mDummyBinary = File.createTempFile("tmp", "bin");
         mDummyBinary.setExecutable(true);
+        mDummyMetricPng = File.createTempFile("tmp", ".png");
+        mDummyMetricText = File.createTempFile("tmp", ".txt");
     }
 
     @After
     public void tearDown() throws Exception {
+        mDummyMetricText.delete();
+        mDummyMetricPng.delete();
         mDummyBinary.delete();
     }
 
@@ -230,9 +236,7 @@ public final class AtraceCollectorTest {
         EasyMock.expect(mMockDevice.pullFile(EasyMock.eq(M_DEFAULT_LOG_PATH)))
                 .andReturn(new File("/tmp/potato"))
                 .once();
-        EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq("rm -f " + M_DEFAULT_LOG_PATH)))
-                .andReturn("")
-                .times(1);
+        mMockDevice.deleteFile(M_DEFAULT_LOG_PATH);
 
         EasyMock.replay(mMockDevice);
         mAtrace.onTestEnd(
@@ -567,6 +571,152 @@ public final class AtraceCollectorTest {
         mOptionSetter.setOptionValue("post-process-args", "TRACEF");
         mOptionSetter.setOptionValue("post-process-args", "--switch1");
         mOptionSetter.setOptionValue("post-process-timeout", "1h1m1s");
+        mAtrace.setRunUtil(mMockRunUtil);
+        mAtrace.onTestEnd(
+                new DeviceMetricData(mMockInvocationContext), new HashMap<String, Metric>());
+
+        EasyMock.verify(mMockTestLogger, mMockRunUtil);
+    }
+
+    /**
+     * Test {@link AtraceCollector#onTestEnd(DeviceMetricData, Map)} to see that metrics indicated
+     * by the post-processing command are also uploaded.
+     *
+     * <p>Expect that testLog is called for the files indicated by the tool in the regex pattern.
+     */
+    @Test
+    public void testProcessesMetricOutput() throws Exception {
+        CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
+        commandResult.setStdout("line1\nt:" + mDummyMetricPng.getAbsolutePath());
+        commandResult.setStderr("stderr");
+        EasyMock.expect(mMockRunUtil.runTimedCmd(EasyMock.anyLong(), EasyMock.anyObject()))
+                .andReturn(commandResult)
+                .times(1);
+
+        mMockTestLogger.testLog(
+                EasyMock.eq("atrace" + M_SERIAL_NO),
+                EasyMock.eq(LogDataType.ATRACE),
+                EasyMock.anyObject());
+        EasyMock.expectLastCall().times(1);
+        mMockTestLogger.testLog(
+                EasyMock.eq(FileUtil.getBaseName(mDummyMetricPng.getName())),
+                EasyMock.eq(LogDataType.PNG),
+                EasyMock.anyObject());
+        EasyMock.replay(mMockTestLogger, mMockRunUtil, mMockDevice);
+
+        mOptionSetter.setOptionValue("post-process-binary", mDummyBinary.getAbsolutePath());
+        mOptionSetter.setOptionValue("post-process-output-file-regex", "t:(.*)");
+
+        mAtrace.setRunUtil(mMockRunUtil);
+        mAtrace.onTestEnd(
+                new DeviceMetricData(mMockInvocationContext), new HashMap<String, Metric>());
+
+        EasyMock.verify(mMockTestLogger, mMockRunUtil);
+    }
+
+    /**
+     * Test {@link AtraceCollector#onTestEnd(DeviceMetricData, Map)} to see that a malformed option
+     * still uploads the postprocessing outputs.
+     *
+     * <p>Expect that testLog is called for stderr and stdout.
+     */
+    @Test
+    public void testProcessesMetricOutputWithMalformedRegex() throws Exception {
+        CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
+        commandResult.setStdout("text\nt:" + mDummyMetricPng.getAbsolutePath());
+        commandResult.setStderr("stderr");
+        EasyMock.expect(mMockRunUtil.runTimedCmd(EasyMock.anyLong(), EasyMock.anyObject()))
+                .andReturn(commandResult)
+                .times(1);
+
+        mMockTestLogger.testLog(
+                EasyMock.eq("atrace" + M_SERIAL_NO),
+                EasyMock.eq(LogDataType.ATRACE),
+                EasyMock.anyObject());
+        EasyMock.expectLastCall().times(1);
+        EasyMock.replay(mMockTestLogger, mMockRunUtil, mMockDevice);
+
+        mOptionSetter.setOptionValue("post-process-binary", mDummyBinary.getAbsolutePath());
+        mOptionSetter.setOptionValue("post-process-output-file-regex", "t:.*");
+
+        mAtrace.setRunUtil(mMockRunUtil);
+        mAtrace.onTestEnd(
+                new DeviceMetricData(mMockInvocationContext), new HashMap<String, Metric>());
+
+        EasyMock.verify(mMockTestLogger, mMockRunUtil);
+    }
+
+    /**
+     * Test {@link AtraceCollector#onTestEnd(DeviceMetricData, Map)} to see that a if the metric
+     * file is not found, the postprocessing output is still uploaded.
+     *
+     * <p>Expect that testLog is called for stdout.
+     */
+    @Test
+    public void testProcessesMetricOutputWithFileNotFound() throws Exception {
+        CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
+        commandResult.setStdout("text\nt:/file/not/found.txt");
+        EasyMock.expect(mMockRunUtil.runTimedCmd(EasyMock.anyLong(), EasyMock.anyObject()))
+                .andReturn(commandResult)
+                .times(1);
+
+        mMockTestLogger.testLog(
+                EasyMock.eq("atrace" + M_SERIAL_NO),
+                EasyMock.eq(LogDataType.ATRACE),
+                EasyMock.anyObject());
+        EasyMock.expectLastCall().times(1);
+        EasyMock.replay(mMockTestLogger, mMockRunUtil, mMockDevice);
+
+        mOptionSetter.setOptionValue("post-process-binary", mDummyBinary.getAbsolutePath());
+        mOptionSetter.setOptionValue("post-process-output-file-regex", "t:(.*)");
+
+        mAtrace.setRunUtil(mMockRunUtil);
+        mAtrace.onTestEnd(
+                new DeviceMetricData(mMockInvocationContext), new HashMap<String, Metric>());
+
+        EasyMock.verify(mMockTestLogger, mMockRunUtil);
+    }
+
+    /**
+     * Test {@link AtraceCollector#onTestEnd(DeviceMetricData, Map)} to see that metrics indicated
+     * by the post-processing command are also uploaded.
+     *
+     * <p>Expect that testLog is called for the files indicated by the tool in the regex pattern.
+     */
+    @Test
+    public void testProcessesMetricOutputTwoKeys() throws Exception {
+        CommandResult commandResult = new CommandResult(CommandStatus.SUCCESS);
+        commandResult.setStdout(
+                "line1\nt:"
+                        + mDummyMetricPng.getAbsolutePath()
+                        + "\nZAZ:"
+                        + mDummyMetricText.getAbsolutePath());
+        commandResult.setStderr("stderr");
+        EasyMock.expect(mMockRunUtil.runTimedCmd(EasyMock.anyLong(), EasyMock.anyObject()))
+                .andReturn(commandResult)
+                .times(1);
+
+        mMockTestLogger.testLog(
+                EasyMock.eq("atrace" + M_SERIAL_NO),
+                EasyMock.eq(LogDataType.ATRACE),
+                EasyMock.anyObject());
+        EasyMock.expectLastCall().times(1);
+        mMockTestLogger.testLog(
+                EasyMock.eq(FileUtil.getBaseName(mDummyMetricPng.getName())),
+                EasyMock.eq(LogDataType.PNG),
+                EasyMock.anyObject());
+        EasyMock.expectLastCall().times(1);
+        mMockTestLogger.testLog(
+                EasyMock.eq(FileUtil.getBaseName(mDummyMetricText.getName())),
+                EasyMock.eq(LogDataType.TEXT),
+                EasyMock.anyObject());
+        EasyMock.expectLastCall().times(1);
+        EasyMock.replay(mMockTestLogger, mMockRunUtil, mMockDevice);
+
+        mOptionSetter.setOptionValue("post-process-binary", mDummyBinary.getAbsolutePath());
+        mOptionSetter.setOptionValue("post-process-output-file-regex", "t:(.*)");
+        mOptionSetter.setOptionValue("post-process-output-file-regex", "ZAZ:(.*)");
+
         mAtrace.setRunUtil(mMockRunUtil);
         mAtrace.onTestEnd(
                 new DeviceMetricData(mMockInvocationContext), new HashMap<String, Metric>());

@@ -26,7 +26,7 @@ namespace chre {
 
 void PlatformLogBase::logLooper() {
   while (1) {
-    std::unique_ptr<char> logMessage;
+    char *logMessage = nullptr;
 
     {
       std::unique_lock<std::mutex> lock(mMutex);
@@ -37,7 +37,7 @@ void PlatformLogBase::logLooper() {
       if (!mLogQueue.empty()) {
         // Move the log message to avoid holding a lock for longer than
         // required.
-        logMessage = std::move(mLogQueue.front());
+        logMessage = mLogQueue.front();
         mLogQueue.pop();
       } else if (mStopLogger) {
         // The stop logger is checked in an else-if to allow the main log queue
@@ -49,7 +49,8 @@ void PlatformLogBase::logLooper() {
     // If we get here, there must be a log message to output. This is outside of
     // the context of the lock which means that the logging thread will only be
     // blocked for the minimum amount of time.
-    std::cerr << logMessage.get() << std::endl;
+    std::cerr << logMessage << std::endl;
+    free(logMessage);
   }
 }
 
@@ -75,12 +76,8 @@ void PlatformLog::log(const char *formatStr, ...) {
   va_end(argList);
 
   if (result >= 0) {
-    // Wrap the formatted string into a unique_ptr so that it will be free'd
-    // once it has been logged.
-    std::unique_ptr<char> log(formattedStr);
-
     std::unique_lock<std::mutex> lock(mMutex);
-    mLogQueue.push(std::move(log));
+    mLogQueue.push(formattedStr);
     mConditionVariable.notify_one();
   } else {
     FATAL_ERROR("Failed to allocate log message");

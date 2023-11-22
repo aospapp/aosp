@@ -63,4 +63,14 @@ public class PathClassLoader extends BaseDexClassLoader {
     public PathClassLoader(String dexPath, String librarySearchPath, ClassLoader parent) {
         super(dexPath, null, librarySearchPath, parent);
     }
+
+    /**
+     * @hide
+     */
+    @libcore.api.CorePlatformApi
+    public PathClassLoader(
+            String dexPath, String librarySearchPath, ClassLoader parent,
+            ClassLoader[] sharedLibraryLoaders) {
+        super(dexPath, librarySearchPath, parent, sharedLibraryLoaders);
+    }
 }

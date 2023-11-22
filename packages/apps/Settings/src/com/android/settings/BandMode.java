@@ -1,7 +1,6 @@
 package com.android.settings;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.os.AsyncResult;
 import android.os.Bundle;
@@ -10,14 +9,14 @@ import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
+import androidx.appcompat.app.AlertDialog;
+
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneFactory;
-
 
 /**
  * Radio Band Mode Selection Class
@@ -73,12 +72,7 @@ public class BandMode extends Activity {
         super.onCreate(icicle);
 
         requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
-
         setContentView(R.layout.band_mode);
-
-        setTitle(getString(R.string.band_mode_title));
-        getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT,
-                                    WindowManager.LayoutParams.WRAP_CONTENT);
 
         mPhone = PhoneFactory.getDefaultPhone();
 

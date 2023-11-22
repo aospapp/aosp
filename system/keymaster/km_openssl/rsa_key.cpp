@@ -25,7 +25,7 @@ namespace keymaster {
 
 bool RsaKey::EvpToInternal(const EVP_PKEY* pkey) {
     rsa_key_.reset(EVP_PKEY_get1_RSA(const_cast<EVP_PKEY*>(pkey)));
-    return rsa_key_.get() != NULL;
+    return rsa_key_.get() != nullptr;
 }
 
 bool RsaKey::InternalToEvp(EVP_PKEY* pkey) const {

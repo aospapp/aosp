@@ -59,4 +59,43 @@ message UserConfig {
   //     client_id and client_secret.
   optional string client_id = 14;
   optional string client_secret = 15;
+
+  // [CVD only] The name of the stable host image released by Cloud Android team
+  optional string stable_host_image_name = 16;
+  // [CVD only] The project that the stable host image is released to
+  optional string stable_host_image_project = 17;
+
+  // [GOLDFISH only] The name of the stable host image released by Android
+  // Emulator (emu-dev) team
+  optional string stable_goldfish_host_image_name = 18;
+  // [GOLDFISH only] The project that the stable goldfish host image is
+  // released to (emu-dev-cts)
+
+  optional string stable_goldfish_host_image_project = 19;
+
+  // Account information for accessing Cloud API
+  // This is the new way to provide service account auth.
+  optional string service_account_json_private_key_path = 20;
+
+  // Desired hw_property
+  optional string hw_property = 21;
+
+  // [CHEEPS only] The name of the stable host image released by the ARC
+  // (arc-eng) team
+  optional string stable_cheeps_host_image_name = 22;
+  // [CHEEPS only] The project that the stable host image is released to
+  optional string stable_cheeps_host_image_project = 23;
+
+  // [CVD only] It will get passed into the launch_cvd command if not empty.
+  // In version 0.7.2 and later.
+  optional string launch_args = 24;
+
+  // The pattern of the instance name, e.g. ins-{uuid}-{build_id}-{build_target}
+  // the parts in {} will be automatically replaced with the actual value if
+  // you specify them in the pattern, uuid will be automatically generated.
+  optional string instance_name_pattern = 25;
+
+  // List of scopes that will be given to the instance
+  // https://cloud.google.com/compute/docs/access/create-enable-service-accounts-for-instances#changeserviceaccountandscopes
+  repeated string extra_scopes = 26;
 }

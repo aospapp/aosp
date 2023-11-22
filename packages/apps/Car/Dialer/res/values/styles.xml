@@ -14,26 +14,35 @@
      limitations under the License.
 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
-    <style name="TextAppearance.Car.Key1" >
-        <item name="android:textStyle">normal</item>
+    <!-- Dialpad -->
+    <style name="TextAppearance.DialNumber" parent="@style/TextAppearance.Display3"/>
+    <style name="TextAppearance.EmergencyDialNumber" parent="@style/TextAppearance.DialNumber">
+        <item name="android:textColor">@color/emergency_text_color</item>
+    </style>
+    <style name="TextAppearance.DialpadDisplayName" parent="@style/TextAppearance.Body1"/>
+
+    <style name="KeypadNumber">
+        <item name="android:textAppearance">?android:attr/textAppearanceLarge</item>
         <item name="android:textSize">@dimen/car_key1_size</item>
-        <item name="android:textColor">@color/car_key1</item>
     </style>
 
-    <style name="TextAppearance.Car.Key2" >
-        <item name="android:textStyle">normal</item>
+    <style name="KeypadLetter">
+        <item name="android:textAppearance">?android:attr/textAppearanceSmall</item>
         <item name="android:textSize">@dimen/car_key2_size</item>
-        <item name="android:textColor">@color/car_key2</item>
     </style>
 
     <!-- Phone -->
-    <style name="DialpadKeyButtonStyle">
+    <style name="KeypadButtonStyle">
         <item name="android:clickable">true</item>
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:minWidth">@dimen/car_touch_target_size</item>
-        <item name="android:minHeight">@dimen/car_touch_target_size</item>
-        <item name="android:background">@drawable/dialpad_button_background</item>
+        <item name="android:paddingStart">@dimen/keypad_margin_x</item>
+        <item name="android:paddingEnd">@dimen/keypad_margin_x</item>
+        <item name="android:paddingTop">@dimen/keypad_margin_y</item>
+        <item name="android:paddingBottom">@dimen/keypad_margin_y</item>
+        <item name="android:minWidth">@dimen/touch_target_size</item>
+        <item name="android:minHeight">@dimen/touch_target_size</item>
+        <item name="android:background">?android:attr/selectableItemBackground</item>
         <item name="android:focusable">true</item>
     </style>
 
@@ -47,24 +56,86 @@
     <style name="DialpadSecondaryButton">
         <item name="android:layout_width">@dimen/bksp_button_width</item>
         <item name="android:layout_height">@dimen/bksp_button_width</item>
-        <item name="android:background">@drawable/dialpad_delete_button_background</item>
+        <item name="android:background">@drawable/dialer_ripple_background</item>
         <item name="android:scaleType">centerInside</item>
-        <item name="android:tint">@color/car_tint</item>
+        <item name="android:tint">@color/primary_icon_color</item>
     </style>
 
-    <style name="InCallDialpad">
-        <item name="android:focusable">true</item>
-        <item name="android:background">@drawable/rotary_in_call_dialpad_button_background</item>
-        <item name="android:gravity">center</item>
-        <item name="android:fontFamily">sans-serif-condensed</item>
-        <item name="android:textStyle">normal</item>
-        <item name="android:textSize">@dimen/keyboard_key_letter_height</item>
-        <item name="android:textColor">@color/car_headline1</item>
-    </style>
-
-    <style name="NoHfpText" parent="TextAppearance.Car.Body2">
-        <item name="android:textColor">@color/car_body1_light</item>
+    <style name="NoHfpText">
+        <item name="android:textAppearance">?android:attr/textAppearanceMedium</item>
         <item name="android:gravity">center</item>
         <item name="android:maxLines">3</item>
     </style>
+
+    <!--TODO: fix it system wide instead of creating override-->
+    <style name="Widget.Dialer.Toolbar" parent="*android:Widget.DeviceDefault.Toolbar">
+        <!-- No padding for navigation button which is car_margin wide -->
+        <item name="android:paddingStart">0dp</item>
+        <!-- Menu item has padding/margin to define the end distance from toolbar edge -->
+        <item name="android:paddingEnd">0dp</item>
+        <item name="android:contentInsetStart">0dp</item>
+        <item name="android:contentInsetEnd">@*android:dimen/car_margin</item>
+        <!-- Override the max height of navigation button and menu button -->
+        <item name="android:maxButtonHeight">?android:attr/actionBarSize</item>
+        <item name="android:navigationIcon">@drawable/ic_arrow_back</item>
+        <item name="android:titleTextAppearance">@style/TextAppearance.Dialer.Widget.Toolbar.Title
+        </item>
+        <!-- Navigation button style -->
+        <item name="*android:navigationButtonStyle">@style/Widget.Dialer.Navigation</item>
+    </style>
+
+    <style name="TextAppearance.Dialer.Widget.Toolbar.Title"
+           parent="*android:TextAppearance.DeviceDefault.Widget.Toolbar.Title">
+        <item name="android:textSize">@*android:dimen/car_body1_size</item>
+    </style>
+
+    <style name="Widget.Dialer.Navigation"
+           parent="android:Widget.Material.Toolbar.Button.Navigation">
+        <item name="android:minWidth">@*android:dimen/car_margin</item>
+        <item name="android:background">?android:attr/actionBarItemBackground</item>
+    </style>
+
+    <style name="Widget.Dialer.ActionButton" parent="android:Widget.DeviceDefault.ActionButton">
+        <item name="android:minWidth">@dimen/touch_target_size</item>
+        <item name="android:minHeight">@dimen/touch_target_size</item>
+    </style>
+
+    <style name="Widget.Dialer.ActionButton.Overflow" parent="android:Widget.DeviceDefault.ActionButton.Overflow">
+        <item name="android:src">@drawable/ic_overflow</item>
+        <item name="android:minWidth">@dimen/touch_target_size</item>
+        <item name="android:minHeight">@dimen/touch_target_size</item>
+        <item name="android:paddingStart">0dp</item>
+        <item name="android:paddingEnd">@dimen/menu_item_margin_x</item>
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+
+    <!-- In-call styling for everything except short landscape screens -->
+    <style name="TextAppearance.InCallUserTitle" parent="@style/TextAppearance.Display2"/>
+    <style name="TextAppearance.InCallUserPhoneNumber" parent="@style/TextAppearance.Body1">
+        <item name="android:textColor">#B8FFFFFF</item>
+    </style>
+    <style name="TextAppearance.InCallState" parent="@style/TextAppearance.Body1">
+        <item name="android:textColor">#B8FFFFFF</item>
+    </style>
+
+    <!-- Call history -->
+    <style name="TextAppearance.CallLogTitleDefault" parent="@style/TextAppearance.Body1"/>
+
+    <!-- Customized text color for missed calls can be added here -->
+    <style name="TextAppearance.CallLogTitleMissedCall" parent="@style/TextAppearance.Body1"/>
+
+    <!-- Contact details -->
+    <style name="TextAppearance.ContactDetailsTitle" parent="@style/TextAppearance.Display2"/>
+
+    <style name="TextAppearance.ContactResultTitle" parent="@style/TextAppearance.Body1"/>
+
+    <!-- Display options defined for ActionBar-->
+    <style name="RootToolbarDisplayOptions">
+        <item name="android:displayOptions">useLogo|showHome|showTitle|showCustom</item>
+    </style>
+
+    <style name="HomeAsUpDisplayOptions">
+        <item name="android:displayOptions">showTitle|homeAsUp|showCustom</item>
+    </style>
+
 </resources>

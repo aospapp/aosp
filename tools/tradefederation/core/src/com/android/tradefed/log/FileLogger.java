@@ -28,16 +28,24 @@ import com.android.tradefed.util.StreamUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 
-/**
- * A {@link ILeveledLogOutput} that directs log messages to a file and to stdout.
- */
+/** A {@link ILeveledLogOutput} that directs log messages to a file and to stdout. */
 @OptionClass(alias = "file")
-public class FileLogger implements ILeveledLogOutput {
+public class FileLogger extends BaseLeveledLogOutput {
     private static final String TEMP_FILE_PREFIX = "tradefed_log_";
     private static final String TEMP_FILE_SUFFIX = ".txt";
+
+    /**
+     * Map of log tag to a level they are forced at for writing to log file purpose. This ensure
+     * that some logs we have less control over can still be regulated.
+     */
+    private static final Map<String, LogLevel> FORCED_LOG_LEVEL = new HashMap<>();
+
+    static {
+        FORCED_LOG_LEVEL.put("ddms", LogLevel.WARN);
+    }
 
     @Option(name = "log-level", description = "the minimum log level to log.")
     private LogLevel mLogLevel = LogLevel.DEBUG;
@@ -47,27 +55,10 @@ public class FileLogger implements ILeveledLogOutput {
             importance = Importance.ALWAYS)
     private LogLevel mLogLevelDisplay = LogLevel.ERROR;
 
-    @Option(name = "log-tag-display", description = "Always display given tags logs on stdout")
-    private Collection<String> mLogTagsDisplay = new HashSet<String>();
-
     @Option(name = "max-log-size", description = "maximum allowable size of tmp log data in mB.")
     private long mMaxLogSizeMbytes = 20;
 
     private SizeLimitedOutputStream mLogStream;
-
-    /**
-     * Adds tags to the log-tag-display list
-     *
-     * @param tags collection of tags to add
-     */
-    void addLogTagsDisplay(Collection<String> tags) {
-        mLogTagsDisplay.addAll(tags);
-    }
-
-    /** Returns the collection of tags to always display on stdout. */
-    Collection<String> getLogTagsDisplay() {
-        return mLogTagsDisplay;
-    }
 
     public FileLogger() {
     }
@@ -127,13 +118,13 @@ public class FileLogger implements ILeveledLogOutput {
     private void internalPrintLog(LogLevel logLevel, String tag, String message,
             boolean forceStdout) {
         String outMessage = LogUtil.getLogFormatString(logLevel, tag, message);
-        if (forceStdout
-                || logLevel.getPriority() >= mLogLevelDisplay.getPriority()
-                || mLogTagsDisplay.contains(tag)) {
+        if (shouldDisplay(forceStdout, mLogLevelDisplay, logLevel, tag)) {
             System.out.print(outMessage);
         }
         try {
-            writeToLog(outMessage);
+            if (shouldWrite(tag, logLevel, mLogLevel)) {
+                writeToLog(outMessage);
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -174,7 +165,7 @@ public class FileLogger implements ILeveledLogOutput {
      *
      * @param logLevel the minimum {@link LogLevel} to display
      */
-    void setLogLevelDisplay(LogLevel logLevel) {
+    public void setLogLevelDisplay(LogLevel logLevel) {
         mLogLevelDisplay = logLevel;
     }
 
@@ -242,5 +233,19 @@ public class FileLogger implements ILeveledLogOutput {
         if (mLogStream != null) {
             StreamUtil.copyStreams(inputStream, mLogStream);
         }
+    }
+
+    private boolean shouldWrite(String tag, LogLevel messageLogLevel, LogLevel invocationLogLevel) {
+        LogLevel forcedLevel = FORCED_LOG_LEVEL.get(tag);
+        if (forcedLevel == null) {
+            return true;
+        }
+        // Use the highest level of our forced and invocation to decide if we should log the
+        // particular tag.
+        int minWriteLevel = Math.max(forcedLevel.getPriority(), invocationLogLevel.getPriority());
+        if (messageLogLevel.getPriority() >= minWriteLevel) {
+            return true;
+        }
+        return false;
     }
 }

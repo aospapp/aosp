@@ -17,17 +17,20 @@
 
 package android.fragment.cts;
 
+import static android.fragment.cts.FragmentTestUtil.executePendingTransactions;
+import static android.fragment.cts.FragmentTestUtil.popBackStackImmediate;
+
+import static junit.framework.TestCase.*;
+
 import android.app.FragmentManager;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.suitebuilder.annotation.MediumTest;
+
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static android.fragment.cts.FragmentTestUtil.executePendingTransactions;
-import static android.fragment.cts.FragmentTestUtil.popBackStackImmediate;
-import static junit.framework.TestCase.*;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)

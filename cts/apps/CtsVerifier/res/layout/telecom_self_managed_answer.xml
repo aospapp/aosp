@@ -96,8 +96,8 @@
                 android:layout_marginLeft="20dip"
                 android:layout_marginRight="20dip"
                 android:layout_toRightOf="@id/step_2_status"
-                android:id="@+id/telecom_incoming_self_mgd_show_ui_button"
-                android:text="@string/telecom_incoming_self_mgd_show_ui_button"/>
+                android:id="@+id/telecom_incoming_self_mgd_verify_call_button"
+                android:text="@string/telecom_incoming_self_mgd_verify_call_button"/>
         </RelativeLayout>
 
         <RelativeLayout
@@ -131,8 +131,8 @@
                 android:layout_marginLeft="20dip"
                 android:layout_marginRight="20dip"
                 android:layout_toRightOf="@id/step_3_status"
-                android:id="@+id/telecom_incoming_self_mgd_confirm_answer_button"
-                android:text="@string/telecom_incoming_self_mgd_confirm_answer_button"/>
+                android:id="@+id/telecom_incoming_self_mgd_place_call_button"
+                android:text="@string/telecom_incoming_self_mgd_place_call_button"/>
         </RelativeLayout>
 
         <include layout="@layout/pass_fail_buttons" />

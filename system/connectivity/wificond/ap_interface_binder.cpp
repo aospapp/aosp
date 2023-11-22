@@ -17,7 +17,6 @@
 #include "wificond/ap_interface_binder.h"
 
 #include <android-base/logging.h>
-#include <wifi_system/hostapd_manager.h>
 
 #include "wificond/ap_interface_impl.h"
 
@@ -73,48 +72,20 @@ void ApInterfaceBinder::NotifySoftApChannelSwitched(
   ap_interface_event_callback_->onSoftApChannelSwitched(frequency, bandwidth);
 }
 
-binder::Status ApInterfaceBinder::startHostapd(
+binder::Status ApInterfaceBinder::registerCallback(
     const sp<IApInterfaceEventCallback>& callback, bool* out_success) {
-  *out_success = false;
-  if (!impl_) {
-    LOG(WARNING) << "Cannot start hostapd on dead ApInterface.";
-    return binder::Status::ok();
-  }
-  *out_success = impl_->StartHostapd();
-  if (*out_success) {
-    ap_interface_event_callback_ = callback;
-  }
-  return binder::Status::ok();
-}
-
-binder::Status ApInterfaceBinder::stopHostapd(bool* out_success) {
-  *out_success = false;
-  if (!impl_) {
-    LOG(WARNING) << "Cannot stop hostapd on dead ApInterface.";
-    return binder::Status::ok();
-  }
-  *out_success = impl_->StopHostapd();
-  ap_interface_event_callback_.clear();
+  *out_success = true;
+  ap_interface_event_callback_ = callback;
   return binder::Status::ok();
 }
 
 binder::Status ApInterfaceBinder::getInterfaceName(std::string* out_name) {
-  if (!impl_) {
-    LOG(WARNING) << "Cannot get interface name from dead ApInterface";
-    return binder::Status::ok();
-  }
   *out_name = impl_->GetInterfaceName();
   return binder::Status::ok();
 }
 
 binder::Status ApInterfaceBinder::getNumberOfAssociatedStations(
     int* out_num_of_stations) {
-  if (!impl_) {
-    LOG(WARNING) << "Cannot get number of associated stations "
-                 << "from dead ApInterface";
-    *out_num_of_stations = -1;
-    return binder::Status::ok();
-  }
   *out_num_of_stations = impl_->GetNumberOfAssociatedStations();
   return binder::Status::ok();
 }

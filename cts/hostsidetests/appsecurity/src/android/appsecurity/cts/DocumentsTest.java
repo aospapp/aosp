@@ -16,17 +16,16 @@
 
 package android.appsecurity.cts;
 
-import android.platform.test.annotations.AppModeFull;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 
 /**
  * Set of tests that verify behavior of
  * {@link android.provider.DocumentsContract} and related intents.
  */
-@AppModeFull // TODO: Needs porting to instant
 public class DocumentsTest extends DocumentsTestCase {
     private static final String PROVIDER_PKG = "com.android.cts.documentprovider";
     private static final String PROVIDER_APK = "CtsDocumentProvider.apk";
+    private static final String DUMMYIME_APK = "CtsDummyIme.apk";
 
     @Override
     protected void setUp() throws Exception {
@@ -35,6 +34,7 @@ public class DocumentsTest extends DocumentsTestCase {
         getDevice().uninstallPackage(PROVIDER_PKG);
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         assertNull(getDevice().installPackage(buildHelper.getTestFile(PROVIDER_APK), false));
+        assertNull(getDevice().installPackage(buildHelper.getTestFile(DUMMYIME_APK), false));
     }
 
     @Override
@@ -42,6 +42,7 @@ public class DocumentsTest extends DocumentsTestCase {
         super.tearDown();
 
         getDevice().uninstallPackage(PROVIDER_PKG);
+        getDevice().uninstallPackage(DUMMYIME_APK);
     }
 
     public void testOpenSimple() throws Exception {
@@ -64,8 +65,18 @@ public class DocumentsTest extends DocumentsTestCase {
         runDeviceTests(CLIENT_PKG, ".DocumentsClientTest", "testTree");
     }
 
-    public void testGetContent() throws Exception {
-        runDeviceTests(CLIENT_PKG, ".DocumentsClientTest", "testGetContent");
+    public void testGetContent_rootsShowing() throws Exception {
+        runDeviceTests(CLIENT_PKG, ".DocumentsClientTest", "testGetContent_rootsShowing");
+    }
+
+    public void testGetContentWithQuery_matchingFileShowing() throws Exception {
+        runDeviceTests(CLIENT_PKG, ".DocumentsClientTest",
+                "testGetContentWithQuery_matchingFileShowing");
+    }
+
+    public void testGetContent_returnsResultToCallingActivity() throws Exception {
+        runDeviceTests(CLIENT_PKG, ".DocumentsClientTest",
+                "testGetContent_returnsResultToCallingActivity");
     }
 
     public void testTransferDocument() throws Exception {
@@ -82,6 +93,11 @@ public class DocumentsTest extends DocumentsTestCase {
 
     public void testOpenDocumentTreeAtInitialLocation() throws Exception {
         runDeviceTests(CLIENT_PKG, ".DocumentsClientTest", "testOpenDocumentTreeAtInitialLocation");
+    }
+
+    public void testOpenRootWithoutRootIdAtInitialLocation() throws Exception {
+        runDeviceTests(CLIENT_PKG, ".DocumentsClientTest",
+                "testOpenRootWithoutRootIdAtInitialLocation");
     }
 
     public void testCreateDocumentAtInitialLocation() throws Exception {

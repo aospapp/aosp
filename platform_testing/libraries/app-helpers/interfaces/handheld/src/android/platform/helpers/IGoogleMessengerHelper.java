@@ -70,4 +70,15 @@ public interface IGoogleMessengerHelper extends IAppHelper {
      * index in the device media gallery view.
      */
     public void attachMediaFromDevice(int index);
+
+    /**
+     * Setup expectations: Google Messenger app is on the New conversation page.
+     *
+     * This method selects a contact from the New conversation page.
+     *
+     * @param index The Index of contact to select.
+     */
+    default public void selectRecipient(int index){
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

@@ -23,9 +23,16 @@ public class Main {
 
   public static native void assertIsInterpreted();
 
-  private static void assertEqual(String expected, String actual) {
+  public static void assertEqual(String expected, String actual) {
     if (!expected.equals(actual)) {
       throw new Error("Assertion failed: " + expected + " != " + actual);
+    }
+  }
+
+  public static void assertEqual(byte[] expected, String actual) throws Exception {
+    String str = new String(expected, "UTF8");
+    if (!str.equals(actual)) {
+      throw new Error("Assertion failed: " + str + " != " + actual);
     }
   }
 
@@ -65,17 +72,88 @@ public class Main {
     }
 
     {
-      Method m = c.getMethod("thisNotNewInstance1", byte[].class, boolean.class);
+      Method m = c.getMethod("irreducibleLoopAndStringInit1", byte[].class, boolean.class);
       String result = (String) m.invoke(null, new Object[] { testData, true });
       assertEqual(testString, result);
       result = (String) m.invoke(null, new Object[] { testData, false });
       assertEqual(testString, result);
     }
     {
-      Method m = c.getMethod("thisNotNewInstance2", byte[].class, boolean.class);
+      Method m = c.getMethod("irreducibleLoopAndStringInit2", byte[].class, boolean.class);
       String result = (String) m.invoke(null, new Object[] { testData, true });
       assertEqual(testString, result);
       result = (String) m.invoke(null, new Object[] { testData, false });
+      assertEqual(testString, result);
+    }
+    {
+      Method m = c.getMethod("irreducibleLoopAndStringInit3", byte[].class, boolean.class);
+      String result = (String) m.invoke(null, new Object[] { testData, true });
+      assertEqual(testString, result);
+      result = (String) m.invoke(null, new Object[] { testData, false });
+      assertEqual(testString, result);
+    }
+    {
+      Method m = c.getMethod("loopAndStringInit", byte[].class, boolean.class);
+      String result = (String) m.invoke(null, new Object[] { testData, true });
+      assertEqual(testString, result);
+      result = (String) m.invoke(null, new Object[] { testData, false });
+      assertEqual(testString, result);
+    }
+    {
+      Method m = c.getMethod("loopAndStringInitAlias", byte[].class, boolean.class);
+      String result = (String) m.invoke(null, new Object[] { testData, true });
+      assertEqual(testString, result);
+      result = (String) m.invoke(null, new Object[] { testData, false });
+      assertEqual(testString, result);
+    }
+    {
+      Method m = c.getMethod("loopAndStringInitAndTest", byte[].class, boolean.class);
+      String result = (String) m.invoke(null, new Object[] { testData, true });
+      assertEqual(testString, result);
+      result = (String) m.invoke(null, new Object[] { testData, false });
+      assertEqual(testString, result);
+    }
+    {
+      Method m = c.getMethod(
+          "deoptimizeNewInstanceAfterLoop", int[].class, byte[].class, int.class);
+      try {
+        m.invoke(null, new Object[] { new int[] { 1, 2, 3 }, testData, 0 });
+      } catch (InvocationTargetException ex) {
+        if (ex.getCause() instanceof ArrayIndexOutOfBoundsException) {
+          // Expected.
+        } else {
+          throw ex.getCause();
+        }
+      }
+    }
+    {
+      Method m = c.getMethod("loopAndStringInitAndPhi", byte[].class, boolean.class);
+      String result = (String) m.invoke(null, new Object[] { testData, true });
+      assertEqual(testString, result);
+      result = (String) m.invoke(null, new Object[] { testData, false });
+      assertEqual(testString, result);
+    }
+    {
+      Method m =
+          c.getMethod("loopAndTwoStringInitAndPhi", byte[].class, boolean.class, boolean.class);
+      String result = (String) m.invoke(null, new Object[] { testData, false, false });
+      assertEqual(testString, result);
+      result = (String) m.invoke(null, new Object[] { testData, false, true });
+      assertEqual(testString, result);
+    }
+    {
+      Method m = c.getMethod("stringAndCatch", byte[].class, boolean.class);
+      String result = (String) m.invoke(null, new Object[] { testData, false });
+      assertEqual(testString, result);
+    }
+    {
+      Method m = c.getMethod("stringAndCatch2", byte[].class, boolean.class);
+      String result = (String) m.invoke(null, new Object[] { testData, false });
+      assertEqual(testString, result);
+    }
+    {
+      Method m = c.getMethod("stringAndCatch3", byte[].class, boolean.class);
+      String result = (String) m.invoke(null, new Object[] { testData, false });
       assertEqual(testString, result);
     }
   }

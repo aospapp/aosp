@@ -20,8 +20,7 @@ import numpy as np
 
 GGAIN_TOL = 0.1
 FD_TOL = 0.1
-SENS_TOL = 0.1
-EXP_TOL = 0.1
+ISO_EXP_TOL = 0.1
 NUM_TEST_ITERATIONS = 3
 
 
@@ -36,27 +35,24 @@ def main():
         its.caps.skip_unless(its.caps.read_3a(props))
         mono_camera = its.caps.mono_camera(props)
 
-        exps = []
-        senses = []
+        iso_exps = []
         g_gains = []
         fds = []
         for _ in range(NUM_TEST_ITERATIONS):
             try:
                 s, e, gains, xform, fd = cam.do_3a(get_results=True,
                                                    mono_camera=mono_camera)
-                print ' sensitivity', s, 'exposure', e
-                print ' gains', gains, 'transform', xform
+                print ' iso: %d, exposure: %d, iso*exp: %d' % (s, e, e*s)
+                print ' awb_gains', gains, 'awb_transform', xform
                 print ' fd', fd
                 print ''
-                exps.append(e)
-                senses.append(s)
+                iso_exps.append(e*s)
                 g_gains.append(gains[2])
                 fds.append(fd)
             except its.error.Error:
                 print ' FAIL\n'
-        assert len(exps) == NUM_TEST_ITERATIONS
-        assert np.isclose(np.amax(exps), np.amin(exps), EXP_TOL)
-        assert np.isclose(np.amax(senses), np.amin(senses), SENS_TOL)
+        assert len(iso_exps) == NUM_TEST_ITERATIONS
+        assert np.isclose(np.amax(iso_exps), np.amin(iso_exps), ISO_EXP_TOL)
         assert np.isclose(np.amax(g_gains), np.amin(g_gains), GGAIN_TOL)
         assert np.isclose(np.amax(fds), np.amin(fds), FD_TOL)
         for g in gains:

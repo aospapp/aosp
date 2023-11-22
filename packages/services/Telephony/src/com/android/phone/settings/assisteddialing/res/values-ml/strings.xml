@@ -15,7 +15,7 @@
   ~ limitations under the License
    -->
 
-<resources xmlns:android="http://schemas.android.com/apk/res/android"
+<resources
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assisted_dialing_setting_title" msgid="3397624434500805193">"അസിസ്‌റ്റഡ് ഡയലിംഗ്"</string>
     <string name="assisted_dialing_setting_summary" msgid="2121165095086134903">"വിദേശ യാത്രക്കിടയിൽ കോൾ ചെയ്യുമ്പോൾ രാജ്യത്തിന്റെ കോഡ് കണ്ടെത്തി നൽകുക"</string>

@@ -30,7 +30,8 @@ import javax.obex.PasswordAuthentication;
 
 class BluetoothPbapObexAuthenticator implements Authenticator {
 
-    private static final String TAG = "BluetoothPbapObexAuthenticator";
+    private static final String TAG = "BtPbapObexAuthenticator";
+    private static final boolean DBG = Utils.DBG;
 
     //Default session key for legacy devices is 0000
     private String mSessionKey = "0000";
@@ -45,13 +46,16 @@ class BluetoothPbapObexAuthenticator implements Authenticator {
     public PasswordAuthentication onAuthenticationChallenge(String description,
             boolean isUserIdRequired, boolean isFullAccess) {
         PasswordAuthentication pa = null;
-        Log.v(TAG, "onAuthenticationChallenge: starting");
+        if (DBG) Log.v(TAG, "onAuthenticationChallenge: starting");
 
         if (mSessionKey != null && mSessionKey.length() != 0) {
-            Log.v(TAG, "onAuthenticationChallenge: mSessionKey=" + mSessionKey);
+            if (DBG) Log.v(TAG, "onAuthenticationChallenge: mSessionKey=" + mSessionKey);
             pa = new PasswordAuthentication(null, mSessionKey.getBytes());
         } else {
-            Log.v(TAG, "onAuthenticationChallenge: mSessionKey is empty, timeout/cancel occured");
+            if (DBG) {
+                Log.v(TAG,
+                        "onAuthenticationChallenge: mSessionKey is empty, timeout/cancel occured");
+            }
         }
 
         return pa;
@@ -59,7 +63,7 @@ class BluetoothPbapObexAuthenticator implements Authenticator {
 
     @Override
     public byte[] onAuthenticationResponse(byte[] userName) {
-        Log.v(TAG, "onAuthenticationResponse: " + userName);
+        if (DBG) Log.v(TAG, "onAuthenticationResponse: " + userName);
         /* required only in case PCE challenges PSE which we don't do now */
         return null;
     }

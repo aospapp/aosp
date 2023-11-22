@@ -28,12 +28,12 @@ namespace chre {
  */
 class PlatformWwanBase : public PlatformPal {
  protected:
+  //! The instance of callbacks that are provided to the CHRE PAL.
+  static const chrePalWwanCallbacks sWwanCallbacks;
+
   //! The instance of the CHRE PAL API. This will be set to nullptr if the
   //! platform does not supply an implementation.
   const chrePalWwanApi *mWwanApi;
-
-  //! The instance of callbacks that are provided to the CHRE PAL.
-  chrePalWwanCallbacks mWwanCallbacks;
 
   //! Event handlers for the CHRE WWAN PAL. Refer to chre/pal/wwan.h for futher
   //! information.

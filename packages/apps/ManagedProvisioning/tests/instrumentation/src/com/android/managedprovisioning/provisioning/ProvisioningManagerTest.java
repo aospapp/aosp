@@ -21,6 +21,7 @@ import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PRO
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -29,11 +30,14 @@ import static org.mockito.Mockito.when;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.FlakyTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.managedprovisioning.R;
 import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
@@ -47,6 +51,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
+
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Unit tests for {@link ProvisioningManager}.
@@ -124,40 +131,7 @@ public class ProvisioningManagerTest {
         verify(mController).cancel();
     }
 
-    @Test
-    public void testRegisterListener_noProgress() {
-        // GIVEN no progress has previously been achieved
-        // WHEN a listener is registered
-        mManager.registerListener(mCallback);
-
-        // THEN no callback should be given
-        verifyZeroInteractions(mCallback);
-
-        // WHEN a progress callback was made
-        mManager.progressUpdate(TEST_PROGRESS_ID);
-
-        // THEN the listener should receive a callback
-        verify(mCallback).progressUpdate(TEST_PROGRESS_ID);
-        verifyNoMoreInteractions(mCallback);
-    }
-
-    @Test
-    public void testListener_progress() {
-        // GIVEN a listener is registered
-        mManager.registerListener(mCallback);
-        // WHEN some progress has occurred previously
-        mManager.progressUpdate(TEST_PROGRESS_ID);
-        // THEN the listener should receive a callback
-        verify(mCallback).progressUpdate(TEST_PROGRESS_ID);
-
-        // WHEN the listener is unregistered and registered again
-        mManager.unregisterListener(mCallback);
-        mManager.registerListener(mCallback);
-        // THEN the listener should receive a callback again
-        verify(mCallback, times(2)).progressUpdate(TEST_PROGRESS_ID);
-        verifyNoMoreInteractions(mCallback);
-    }
-
+    @FlakyTest(bugId = 131866915)
     @Test
     public void testListener_error() {
         // GIVEN a listener is registered
@@ -176,16 +150,6 @@ public class ProvisioningManagerTest {
     }
 
     @Test
-    public void testProvisioningTasksCompleted() {
-        // GIVEN provisioning has been started
-        mManager.maybeStartProvisioning(TEST_PARAMS);
-        // WHEN all tasks are completed.
-        mManager.provisioningTasksCompleted();
-        // THEN the controller should be prefinalized
-        verify(mController).preFinalize();
-    }
-
-    @Test
     public void testListener_cleanupCompleted() {
         // GIVEN provisioning has been started
         mManager.maybeStartProvisioning(TEST_PARAMS);
@@ -198,14 +162,28 @@ public class ProvisioningManagerTest {
         verifyZeroInteractions(mCallback);
     }
 
+    @FlakyTest(bugId = 131866915)
     @Test
-    public void testListener_preFinalizationCompleted() {
+    public void testListener_preFinalizationCompleted() throws InterruptedException {
         // GIVEN provisioning has been started
         mManager.maybeStartProvisioning(TEST_PARAMS);
         // GIVEN a listener is registered
         mManager.registerListener(mCallback);
+
+        // prepare a semaphore to handle AsyncTask usage
+        final Semaphore semaphore = new Semaphore(0);
+        doAnswer((InvocationOnMock invocation) -> {
+            semaphore.release(1);
+            return null;
+        }).when(mCallback).preFinalizationCompleted();
+
         // WHEN some progress has occurred previously
         mManager.preFinalizationCompleted();
+
+
+        assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS));
+
+
         // THEN the listener should receive a callback
         verify(mCallback).preFinalizationCompleted();
 
@@ -213,20 +191,7 @@ public class ProvisioningManagerTest {
         mManager.unregisterListener(mCallback);
         mManager.registerListener(mCallback);
         // THEN the listener should receive a callback again
-        verify(mCallback, times(2)).preFinalizationCompleted();
+        verify(mCallback).preFinalizationCompleted();
         verifyNoMoreInteractions(mCallback);
-    }
-
-    @Test
-    public void testUnregisterListener() {
-        // GIVEN a register had previously been registered and then unregistered
-        mManager.registerListener(mCallback);
-        mManager.unregisterListener(mCallback);
-
-        // WHEN a progress callback was made
-        mManager.progressUpdate(TEST_PROGRESS_ID);
-
-        // THEN the listener should not receive a callback
-        verifyZeroInteractions(mCallback);
     }
 }

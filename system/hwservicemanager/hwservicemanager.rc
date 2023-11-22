@@ -4,6 +4,7 @@ service hwservicemanager /system/bin/hwservicemanager
     group system readproc
     critical
     onrestart setprop hwservicemanager.ready false
+    onrestart class_restart main
     onrestart class_restart hal
     onrestart class_restart early_hal
     writepid /dev/cpuset/system-background/tasks

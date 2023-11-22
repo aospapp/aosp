@@ -125,8 +125,8 @@
 
     <style name="TestProgressBar">
         <item name="android:indeterminateOnly">false</item>
-        <item name="android:progressDrawable">?android:drawable/progress_horizontal</item>
-        <item name="android:indeterminateDrawable">?android:drawable/progress_horizontal</item>
+        <item name="android:progressDrawable">@android:drawable/progress_horizontal</item>
+        <item name="android:indeterminateDrawable">@android:drawable/progress_horizontal</item>
         <item name="android:minHeight">20dip</item>
         <item name="android:maxHeight">20dip</item>
         <item name="android:focusable">true</item>

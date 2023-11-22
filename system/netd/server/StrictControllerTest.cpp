@@ -34,8 +34,8 @@ public:
     StrictController mStrictCtrl;
 };
 
-TEST_F(StrictControllerTest, TestEnableStrict) {
-    mStrictCtrl.enableStrict();
+TEST_F(StrictControllerTest, TestSetupIptablesHooks) {
+    mStrictCtrl.setupIptablesHooks();
 
     std::vector<std::string> common = {
         "*filter",
@@ -108,8 +108,8 @@ TEST_F(StrictControllerTest, TestEnableStrict) {
     expectIptablesRestoreCommands(expected);
 }
 
-TEST_F(StrictControllerTest, TestDisableStrict) {
-    mStrictCtrl.disableStrict();
+TEST_F(StrictControllerTest, TestResetChains) {
+    mStrictCtrl.resetChains();
 
     const std::string expected =
         "*filter\n"

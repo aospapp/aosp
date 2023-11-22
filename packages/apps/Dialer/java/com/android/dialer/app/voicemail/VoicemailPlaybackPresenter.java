@@ -16,7 +16,6 @@
 
 package com.android.dialer.app.voicemail;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentUris;
@@ -24,10 +23,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.ContentObserver;
 import android.database.Cursor;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.PowerManager;
@@ -52,7 +51,7 @@ import com.android.dialer.common.concurrent.AsyncTaskExecutor;
 import com.android.dialer.common.concurrent.AsyncTaskExecutors;
 import com.android.dialer.common.concurrent.DialerExecutor;
 import com.android.dialer.common.concurrent.DialerExecutorComponent;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
 import com.android.dialer.constants.Constants;
 import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.Logger;
@@ -89,7 +88,6 @@ import javax.annotation.concurrent.ThreadSafe;
  * calls into this class from outside must be done from the main UI thread.
  */
 @NotThreadSafe
-@TargetApi(VERSION_CODES.M)
 public class VoicemailPlaybackPresenter
     implements MediaPlayer.OnPreparedListener,
         MediaPlayer.OnCompletionListener,
@@ -207,6 +205,8 @@ public class VoicemailPlaybackPresenter
       position = savedInstanceState.getInt(CLIP_POSITION_KEY, 0);
       isPlaying = savedInstanceState.getBoolean(IS_PLAYING_STATE_KEY, false);
       isSpeakerphoneOn = savedInstanceState.getBoolean(IS_SPEAKERPHONE_ON_KEY, false);
+      AudioManager audioManager = activity.getSystemService(AudioManager.class);
+      audioManager.setSpeakerphoneOn(isSpeakerphoneOn);
     }
 
     if (mediaPlayer == null) {
@@ -591,7 +591,6 @@ public class VoicemailPlaybackPresenter
 
     position = 0;
     isPlaying = false;
-    showShareVoicemailButton(false);
   }
 
   /** After done playing the voicemail clip, reset the clip position to the start. */
@@ -870,7 +869,9 @@ public class VoicemailPlaybackPresenter
   }
 
   private static boolean isShareVoicemailAllowed(Context context) {
-    return ConfigProviderBindings.get(context).getBoolean(CONFIG_SHARE_VOICEMAIL_ALLOWED, true);
+    return ConfigProviderComponent.get(context)
+        .getConfigProvider()
+        .getBoolean(CONFIG_SHARE_VOICEMAIL_ALLOWED, true);
   }
 
   private static class ShareVoicemailWorker
@@ -960,7 +961,7 @@ public class VoicemailPlaybackPresenter
       shareIntent.putExtra(Intent.EXTRA_STREAM, voicemailFileUri);
       shareIntent.putExtra(Intent.EXTRA_TEXT, transcription);
       shareIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-      shareIntent.setType("*/*");
+      shareIntent.setType(context.getContentResolver().getType(voicemailFileUri));
     }
 
     return shareIntent;

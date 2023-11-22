@@ -17,7 +17,7 @@
      This is the template to be used for the content are of a setup fragment
      which has a standard description and action.
 -->
-<android.support.v17.leanback.widget.NonOverlappingRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.leanback.widget.NonOverlappingRelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent" >
 
@@ -36,4 +36,4 @@
         android:layout_centerVertical="true"
         android:layout_toEndOf="@id/description" />
 
-</android.support.v17.leanback.widget.NonOverlappingRelativeLayout>
+</androidx.leanback.widget.NonOverlappingRelativeLayout>

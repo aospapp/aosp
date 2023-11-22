@@ -127,6 +127,69 @@ public class ActivityTransitionTest extends
         checkNormalTransitionVisibility();
     }
 
+    public void testOnSharedElementsArrived_crossTask() throws Throwable {
+        getInstrumentation().waitForIdleSync();
+        runTestOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                mReceiver = new PassInfo(new Handler());
+                mActivity.setExitSharedElementCallback(new SharedElementCallback() {
+                    @Override
+                    public void onSharedElementsArrived(List<String> sharedElementNames,
+                            List<View> sharedElements,
+                            final OnSharedElementsReadyListener listener) {
+                        mNumArrivedCalls++;
+                        final boolean isExiting = mExitTimeReady == 0;
+                        if (isExiting) {
+                            mExitTime = SystemClock.uptimeMillis();
+                        } else {
+                            mReenterTime = SystemClock.uptimeMillis();
+                        }
+                        mActivity.getWindow().getDecorView().postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (isExiting) {
+                                    mExitTimeReady = SystemClock.uptimeMillis();
+                                } else {
+                                    mReenterTimeReady = SystemClock.uptimeMillis();
+                                }
+                                listener.onSharedElementsReady();
+                            }
+                        }, 60);
+                    }
+                });
+
+                Bundle options = ActivityOptions.makeSceneTransitionAnimation(mActivity,
+                        mActivity.findViewById(R.id.hello), "target").toBundle();
+                Intent intent = new Intent(mActivity, ActivityTransitionActivity2.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                intent.putExtra(ActivityTransitionActivity.TEST,
+                        ActivityTransitionActivity.TEST_ARRIVE);
+                intent.putExtra(ActivityTransitionActivity.LAYOUT_ID, R.layout.end);
+                intent.putExtra(ActivityTransitionActivity.RESULT_RECEIVER, mReceiver);
+                mActivity.startActivity(intent, options);
+            }
+        });
+
+        assertTrue("Activity didn't finish!",
+                mReceiver.finishCountDown.await(3000, TimeUnit.MILLISECONDS));
+        synchronized (mActivity) {
+            while (!mActivity.mIsResumed) {
+                mActivity.wait();
+            }
+        }
+
+        assertEquals("Reenter animation shouldn't run", 1, mActivity.reenterLatch.getCount());
+        assertNotNull(mReceiver.resultData);
+        assertEquals(1, mReceiver.resultData.getInt(
+                ActivityTransitionActivity.ARRIVE_COUNT, -1));
+        assertEquals(1, mNumArrivedCalls);
+        assertNotSame(View.VISIBLE, mReceiver.resultData.getInt(
+                ActivityTransitionActivity.ARRIVE_ENTER_START_VISIBILITY));
+        assertNotSame(View.VISIBLE, mReceiver.resultData.getInt(
+                ActivityTransitionActivity.ARRIVE_ENTER_DELAY_VISIBILITY));
+    }
+
     public void testFinishPostponed() throws Throwable {
         getInstrumentation().waitForIdleSync();
         runTestOnUiThread(new Runnable() {
@@ -311,6 +374,7 @@ public class ActivityTransitionTest extends
     public static class PassInfo extends ResultReceiver {
         public int resultCode;
         public Bundle resultData = new Bundle();
+        public CountDownLatch finishCountDown = new CountDownLatch(1);
 
         public PassInfo(Handler handler) {
             super(handler);
@@ -321,6 +385,9 @@ public class ActivityTransitionTest extends
             this.resultCode = resultCode;
             if (resultData != null) {
                 this.resultData.putAll(resultData);
+                if (resultData.getBoolean(ActivityTransitionActivity.ACTIVITY_FINISHED)) {
+                    finishCountDown.countDown();
+                }
             }
         }
     }

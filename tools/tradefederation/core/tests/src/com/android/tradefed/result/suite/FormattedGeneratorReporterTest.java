@@ -17,10 +17,12 @@ package com.android.tradefed.result.suite;
 
 import com.android.tradefed.build.BuildInfo;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.command.remote.DeviceDescriptor;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.InvocationContext;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.TestDescription;
+import com.android.tradefed.targetprep.TargetSetupError;
 import com.android.tradefed.testtype.Abi;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.suite.ModuleDefinition;
@@ -55,6 +57,7 @@ public class FormattedGeneratorReporterTest {
     public void testFinalizedResults_nothingRan() {
         mReporter =
                 new FormattedGeneratorReporter() {
+                    private boolean mCalledOnce = false;
 
                     @Override
                     public void finalizeResults(
@@ -66,6 +69,15 @@ public class FormattedGeneratorReporterTest {
                     @Override
                     public IFormatterGenerator createFormatter() {
                         return null;
+                    }
+
+                    @Override
+                    protected long getCurrentTime() {
+                        if (mCalledOnce) {
+                            return 500L;
+                        }
+                        mCalledOnce = true;
+                        return 0L;
                     }
                 };
         mReporter.invocationStarted(mContext);
@@ -85,12 +97,17 @@ public class FormattedGeneratorReporterTest {
                     public void finalizeResults(
                             IFormatterGenerator generator, SuiteResultHolder resultHolder) {
                         validateSuiteHolder(
-                                resultHolder, 1, 1, 1, 0, 500L, mContext, new HashMap<>());
+                                resultHolder, 1, 1, 1, 0, 0L, mContext, new HashMap<>());
                     }
 
                     @Override
                     public IFormatterGenerator createFormatter() {
                         return null;
+                    }
+
+                    @Override
+                    protected long getCurrentTime() {
+                        return 0L;
                     }
                 };
         mReporter.invocationStarted(mContext);
@@ -113,12 +130,17 @@ public class FormattedGeneratorReporterTest {
                         Map<String, IAbi> expectedModuleAbi = new LinkedHashMap<>();
                         expectedModuleAbi.put("module1", new Abi("abi1", "64"));
                         validateSuiteHolder(
-                                resultHolder, 1, 1, 1, 0, 500L, mContext, expectedModuleAbi);
+                                resultHolder, 1, 1, 1, 0, 0L, mContext, expectedModuleAbi);
                     }
 
                     @Override
                     public IFormatterGenerator createFormatter() {
                         return null;
+                    }
+
+                    @Override
+                    protected long getCurrentTime() {
+                        return 0L;
                     }
                 };
         mReporter.invocationStarted(mContext);
@@ -131,6 +153,53 @@ public class FormattedGeneratorReporterTest {
         mReporter.testEnded(new TestDescription("class", "method"), new HashMap<String, Metric>());
         mReporter.testRunEnded(450L, new HashMap<String, Metric>());
         mReporter.testModuleEnded();
+        mReporter.invocationEnded(500L);
+    }
+
+    /**
+     * Test the value in the result holder when no module or tests actually ran and the invocation
+     * failed.
+     */
+    @Test
+    public void testFinalizedResults_skipped() {
+        mReporter =
+                new FormattedGeneratorReporter() {
+
+                    @Override
+                    public void finalizeResults(
+                            IFormatterGenerator generator, SuiteResultHolder resultHolder) {
+                        throw new RuntimeException("finalizeResults should not have been called.");
+                    }
+
+                    @Override
+                    public IFormatterGenerator createFormatter() {
+                        return null;
+                    }
+                };
+        mReporter.invocationStarted(mContext);
+        DeviceDescriptor descriptor = null;
+        mReporter.invocationFailed(new TargetSetupError("Invocation failed.", descriptor));
+        mReporter.invocationEnded(500L);
+    }
+
+    @Test
+    public void testFinalizedResults_skippedByNPE() {
+        mReporter =
+                new FormattedGeneratorReporter() {
+
+                    @Override
+                    public void finalizeResults(
+                            IFormatterGenerator generator, SuiteResultHolder resultHolder) {
+                        throw new RuntimeException("finalizeResults should not have been called.");
+                    }
+
+                    @Override
+                    public IFormatterGenerator createFormatter() {
+                        return null;
+                    }
+                };
+        mReporter.invocationStarted(mContext);
+        mReporter.invocationFailed(new NullPointerException("Invocation failed."));
         mReporter.invocationEnded(500L);
     }
 

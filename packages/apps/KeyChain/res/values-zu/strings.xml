@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"Lolu hlelo lokusebenza %s licele isitifiketi. Ukukhetha isitifiketi kuzovumela uhlelo lokusebenza ukusebenzisa ubunikazi namaseva manje nangokuzayo."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Uhlelo lokusebenza libone iseva ecelayo njenge-%s, kepha kufanele unike uhlelo ukufinyelela esitifiketini uma uthemba uhlelo lokusebenza."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Ungafaka izitifiketi kusuka efayeleni le-PKCS#12 ngesandiso se-%1$s noma se-%2$s esibekwe esilondolozini sangaphandle."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Faka isitifiketi"</string>
     <string name="allow_button" msgid="3030990695030371561">"Khetha"</string>
     <string name="deny_button" msgid="3766539809121892584">"Nqaba"</string>
 </resources>

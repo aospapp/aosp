@@ -15,18 +15,23 @@
 package build
 
 import (
-	"bufio"
 	"crypto/md5"
 	"fmt"
-	"io"
 	"io/ioutil"
+	"os"
+	"os/user"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
+
+	"android/soong/ui/metrics"
+	"android/soong/ui/status"
 )
 
 var spaceSlashReplacer = strings.NewReplacer("/", "_", " ", "_")
+
+const katiBuildSuffix = ""
+const katiCleanspecSuffix = "-cleanspec"
+const katiPackageSuffix = "-package"
 
 // genKatiSuffix creates a suffix for kati-generated files so that we can cache
 // them based on their inputs. So this should encode all common changes to Kati
@@ -50,7 +55,7 @@ func genKatiSuffix(ctx Context, config Config) {
 		ctx.Verbosef("Kati ninja suffix too long: %q", katiSuffix)
 		ctx.Verbosef("Replacing with: %q", shortSuffix)
 
-		if err := ioutil.WriteFile(strings.TrimSuffix(config.KatiNinjaFile(), "ninja")+"suf", []byte(katiSuffix), 0777); err != nil {
+		if err := ioutil.WriteFile(strings.TrimSuffix(config.KatiBuildNinjaFile(), "ninja")+"suf", []byte(katiSuffix), 0777); err != nil {
 			ctx.Println("Error writing suffix file:", err)
 		}
 	} else {
@@ -58,42 +63,30 @@ func genKatiSuffix(ctx Context, config Config) {
 	}
 }
 
-func runKati(ctx Context, config Config) {
-	genKatiSuffix(ctx, config)
-
-	runKatiCleanSpec(ctx, config)
-
-	ctx.BeginTrace("kati")
-	defer ctx.EndTrace()
-
+func runKati(ctx Context, config Config, extraSuffix string, args []string, envFunc func(*Environment)) {
 	executable := config.PrebuiltBuildTool("ckati")
-	args := []string{
+	args = append([]string{
 		"--ninja",
 		"--ninja_dir=" + config.OutDir(),
-		"--ninja_suffix=" + config.KatiSuffix(),
+		"--ninja_suffix=" + config.KatiSuffix() + extraSuffix,
+		"--no_ninja_prelude",
 		"--regen",
 		"--ignore_optional_include=" + filepath.Join(config.OutDir(), "%.P"),
 		"--detect_android_echo",
 		"--color_warnings",
 		"--gen_all_targets",
+		"--use_find_emulator",
 		"--werror_find_emulator",
+		"--no_builtin_rules",
+		"--werror_suffix_rules",
+		"--warn_real_to_phony",
+		"--warn_phony_looks_real",
+		"--top_level_phony",
 		"--kati_stats",
-		"-f", "build/make/core/main.mk",
-	}
+	}, args...)
 
-	if !config.Environment().IsFalse("KATI_EMULATE_FIND") {
-		args = append(args, "--use_find_emulator")
-	}
-
-	args = append(args, config.KatiArgs()...)
-
-	args = append(args,
-		"BUILDING_WITH_NINJA=true",
-		"SOONG_ANDROID_MK="+config.SoongAndroidMk(),
-		"SOONG_MAKEVARS_MK="+config.SoongMakeVarsMk())
-
-	if config.UseGoma() {
-		args = append(args, "-j"+strconv.Itoa(config.Parallel()))
+	if config.Environment().IsEnvTrue("EMPTY_NINJA_FILE") {
+		args = append(args, "--empty_ninja_file")
 	}
 
 	cmd := Command(ctx, config, "ckati", executable, args...)
@@ -104,99 +97,118 @@ func runKati(ctx Context, config Config) {
 	}
 	cmd.Stderr = cmd.Stdout
 
+	envFunc(cmd.Environment)
+
+	if _, ok := cmd.Environment.Get("BUILD_USERNAME"); !ok {
+		u, err := user.Current()
+		if err != nil {
+			ctx.Println("Failed to get current user")
+		}
+		cmd.Environment.Set("BUILD_USERNAME", u.Username)
+	}
+
+	if _, ok := cmd.Environment.Get("BUILD_HOSTNAME"); !ok {
+		hostname, err := os.Hostname()
+		if err != nil {
+			ctx.Println("Failed to read hostname")
+		}
+		cmd.Environment.Set("BUILD_HOSTNAME", hostname)
+	}
+
 	cmd.StartOrFatal()
-	katiRewriteOutput(ctx, pipe)
+	status.KatiReader(ctx.Status.StartTool(), pipe)
 	cmd.WaitOrFatal()
 }
 
-var katiIncludeRe = regexp.MustCompile(`^(\[\d+/\d+] )?including [^ ]+ ...$`)
-var katiLogRe = regexp.MustCompile(`^\*kati\*: `)
+func runKatiBuild(ctx Context, config Config) {
+	ctx.BeginTrace(metrics.RunKati, "kati build")
+	defer ctx.EndTrace()
 
-func katiRewriteOutput(ctx Context, pipe io.ReadCloser) {
-	haveBlankLine := true
-	smartTerminal := ctx.IsTerminal()
-	errSmartTerminal := ctx.IsErrTerminal()
-
-	scanner := bufio.NewScanner(pipe)
-	for scanner.Scan() {
-		line := scanner.Text()
-		verbose := katiIncludeRe.MatchString(line)
-
-		// Only put kati debug/stat lines in our verbose log
-		if katiLogRe.MatchString(line) {
-			ctx.Verbose(line)
-			continue
-		}
-
-		// For verbose lines, write them on the current line without a newline,
-		// then overwrite them if the next thing we're printing is another
-		// verbose line.
-		if smartTerminal && verbose {
-			// Limit line width to the terminal width, otherwise we'll wrap onto
-			// another line and we won't delete the previous line.
-			//
-			// Run this on every line in case the window has been resized while
-			// we're printing. This could be optimized to only re-run when we
-			// get SIGWINCH if it ever becomes too time consuming.
-			if max, ok := termWidth(ctx.Stdout()); ok {
-				if len(line) > max {
-					// Just do a max. Ninja elides the middle, but that's
-					// more complicated and these lines aren't that important.
-					line = line[:max]
-				}
-			}
-
-			// Move to the beginning on the line, print the output, then clear
-			// the rest of the line.
-			fmt.Fprint(ctx.Stdout(), "\r", line, "\x1b[K")
-			haveBlankLine = false
-			continue
-		} else if smartTerminal && !haveBlankLine {
-			// If we've previously written a verbose message, send a newline to save
-			// that message instead of overwriting it.
-			fmt.Fprintln(ctx.Stdout())
-			haveBlankLine = true
-		} else if !errSmartTerminal {
-			// Most editors display these as garbage, so strip them out.
-			line = string(stripAnsiEscapes([]byte(line)))
-		}
-
-		// Assume that non-verbose lines are important enough for stderr
-		fmt.Fprintln(ctx.Stderr(), line)
+	args := []string{
+		"--writable", config.OutDir() + "/",
+		"-f", "build/make/core/main.mk",
 	}
 
-	// Save our last verbose line.
-	if !haveBlankLine {
-		fmt.Fprintln(ctx.Stdout())
+	// PDK builds still uses a few implicit rules
+	if !config.IsPdkBuild() {
+		args = append(args, "--werror_implicit_rules")
 	}
+
+	if !config.BuildBrokenDupRules() {
+		args = append(args, "--werror_overriding_commands")
+	}
+
+	if !config.BuildBrokenPhonyTargets() {
+		args = append(args,
+			"--werror_real_to_phony",
+			"--werror_phony_looks_real",
+			"--werror_writable")
+	}
+
+	args = append(args, config.KatiArgs()...)
+
+	args = append(args,
+		"SOONG_MAKEVARS_MK="+config.SoongMakeVarsMk(),
+		"SOONG_ANDROID_MK="+config.SoongAndroidMk(),
+		"TARGET_DEVICE_DIR="+config.TargetDeviceDir(),
+		"KATI_PACKAGE_MK_DIR="+config.KatiPackageMkDir())
+
+	runKati(ctx, config, katiBuildSuffix, args, func(env *Environment) {})
+}
+
+func runKatiPackage(ctx Context, config Config) {
+	ctx.BeginTrace(metrics.RunKati, "kati package")
+	defer ctx.EndTrace()
+
+	args := []string{
+		"--writable", config.DistDir() + "/",
+		"--werror_writable",
+		"--werror_implicit_rules",
+		"--werror_overriding_commands",
+		"--werror_real_to_phony",
+		"--werror_phony_looks_real",
+		"-f", "build/make/packaging/main.mk",
+		"KATI_PACKAGE_MK_DIR=" + config.KatiPackageMkDir(),
+	}
+
+	runKati(ctx, config, katiPackageSuffix, args, func(env *Environment) {
+		env.Allow([]string{
+			// Some generic basics
+			"LANG",
+			"LC_MESSAGES",
+			"PATH",
+			"PWD",
+			"TMPDIR",
+
+			// Tool configs
+			"JAVA_HOME",
+			"PYTHONDONTWRITEBYTECODE",
+
+			// Build configuration
+			"ANDROID_BUILD_SHELL",
+			"DIST_DIR",
+			"OUT_DIR",
+		}...)
+
+		if config.Dist() {
+			env.Set("DIST", "true")
+			env.Set("DIST_DIR", config.DistDir())
+		}
+	})
 }
 
 func runKatiCleanSpec(ctx Context, config Config) {
-	ctx.BeginTrace("kati cleanspec")
+	ctx.BeginTrace(metrics.RunKati, "kati cleanspec")
 	defer ctx.EndTrace()
 
-	executable := config.PrebuiltBuildTool("ckati")
-	args := []string{
-		"--ninja",
-		"--ninja_dir=" + config.OutDir(),
-		"--ninja_suffix=" + config.KatiSuffix() + "-cleanspec",
-		"--regen",
-		"--detect_android_echo",
-		"--color_warnings",
-		"--gen_all_targets",
-		"--werror_find_emulator",
-		"--use_find_emulator",
+	runKati(ctx, config, katiCleanspecSuffix, []string{
+		"--werror_writable",
+		"--werror_implicit_rules",
+		"--werror_overriding_commands",
+		"--werror_real_to_phony",
+		"--werror_phony_looks_real",
 		"-f", "build/make/core/cleanbuild.mk",
-		"BUILDING_WITH_NINJA=true",
 		"SOONG_MAKEVARS_MK=" + config.SoongMakeVarsMk(),
-	}
-
-	cmd := Command(ctx, config, "ckati", executable, args...)
-	cmd.Sandbox = katiCleanSpecSandbox
-	cmd.Stdout = ctx.Stdout()
-	cmd.Stderr = ctx.Stderr()
-
-	// Kati leaks memory, so ensure leak detection is turned off
-	cmd.Environment.Set("ASAN_OPTIONS", "detect_leaks=0")
-	cmd.RunOrFatal()
+		"TARGET_DEVICE_DIR=" + config.TargetDeviceDir(),
+	}, func(env *Environment) {})
 }

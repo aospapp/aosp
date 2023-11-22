@@ -22,20 +22,27 @@
 
 #include <gtest/gtest.h>
 
-#include <android-base/strings.h>
+#include <android-base/file.h>
 #include <android-base/stringprintf.h>
+#include <android-base/strings.h>
 
 #include "FirewallController.h"
 #include "IptablesBaseTest.h"
 
 using android::base::Join;
-using android::base::StringPrintf;
+using android::base::WriteStringToFile;
+
+namespace android {
+namespace net {
 
 class FirewallControllerTest : public IptablesBaseTest {
 protected:
     FirewallControllerTest() {
         FirewallController::execIptablesRestore = fakeExecIptablesRestore;
-        mFw.mUseBpfOwnerMatch = false;
+        // This unit test currently doesn't cover the eBPF owner match case so
+        // we have to manually turn eBPF support off.
+        // TODO: find a way to unit test the eBPF code path.
+        mFw.mUseBpfOwnerMatch = android::bpf::BpfLevel::NONE;
     }
     FirewallController mFw;
 
@@ -48,7 +55,6 @@ protected:
         return mFw.createChain(a, b);
     }
 };
-
 
 TEST_F(FirewallControllerTest, TestCreateWhitelistChain) {
     std::vector<std::string> expectedRestore4 = {
@@ -82,8 +88,8 @@ TEST_F(FirewallControllerTest, TestCreateWhitelistChain) {
         "COMMIT\n"
     };
     std::vector<std::pair<IptablesTarget, std::string>> expectedRestoreCommands = {
-        { V4, android::base::Join(expectedRestore4, '\n') },
-        { V6, android::base::Join(expectedRestore6, '\n') },
+            {V4, Join(expectedRestore4, '\n')},
+            {V6, Join(expectedRestore6, '\n')},
     };
 
     createChain("fw_whitelist", WHITELIST);
@@ -100,8 +106,8 @@ TEST_F(FirewallControllerTest, TestCreateBlacklistChain) {
         "COMMIT\n"
     };
     std::vector<std::pair<IptablesTarget, std::string>> expectedRestoreCommands = {
-        { V4, android::base::Join(expectedRestore, '\n') },
-        { V6, android::base::Join(expectedRestore, '\n') },
+            {V4, Join(expectedRestore, '\n')},
+            {V6, Join(expectedRestore, '\n')},
     };
 
     createChain("fw_blacklist", BLACKLIST);
@@ -239,16 +245,16 @@ TEST_F(FirewallControllerTest, TestFirewall) {
     };
     std::vector<std::string> noCommands = {};
 
-    EXPECT_EQ(0, mFw.disableFirewall());
+    EXPECT_EQ(0, mFw.resetFirewall());
     expectIptablesRestoreCommands(disableCommands);
 
-    EXPECT_EQ(0, mFw.disableFirewall());
+    EXPECT_EQ(0, mFw.resetFirewall());
     expectIptablesRestoreCommands(disableCommands);
 
-    EXPECT_EQ(0, mFw.enableFirewall(BLACKLIST));
+    EXPECT_EQ(0, mFw.setFirewallType(BLACKLIST));
     expectIptablesRestoreCommands(disableCommands);
 
-    EXPECT_EQ(0, mFw.enableFirewall(BLACKLIST));
+    EXPECT_EQ(0, mFw.setFirewallType(BLACKLIST));
     expectIptablesRestoreCommands(noCommands);
 
     std::vector<std::string> disableEnableCommands;
@@ -257,7 +263,7 @@ TEST_F(FirewallControllerTest, TestFirewall) {
     disableEnableCommands.insert(
             disableEnableCommands.end(), enableCommands.begin(), enableCommands.end());
 
-    EXPECT_EQ(0, mFw.enableFirewall(WHITELIST));
+    EXPECT_EQ(0, mFw.setFirewallType(WHITELIST));
     expectIptablesRestoreCommands(disableEnableCommands);
 
     std::vector<std::string> ifaceCommands = {
@@ -284,14 +290,64 @@ TEST_F(FirewallControllerTest, TestFirewall) {
     EXPECT_EQ(0, mFw.setInterfaceRule("rmnet_data0", DENY));
     expectIptablesRestoreCommands(noCommands);
 
-    EXPECT_EQ(0, mFw.enableFirewall(WHITELIST));
+    EXPECT_EQ(0, mFw.setFirewallType(WHITELIST));
     expectIptablesRestoreCommands(noCommands);
 
-    EXPECT_EQ(0, mFw.disableFirewall());
+    EXPECT_EQ(0, mFw.resetFirewall());
     expectIptablesRestoreCommands(disableCommands);
 
-    // TODO: calling disableFirewall and then enableFirewall(WHITELIST) does
+    // TODO: calling resetFirewall and then setFirewallType(WHITELIST) does
     // nothing. This seems like a clear bug.
-    EXPECT_EQ(0, mFw.enableFirewall(WHITELIST));
+    EXPECT_EQ(0, mFw.setFirewallType(WHITELIST));
     expectIptablesRestoreCommands(noCommands);
 }
+
+TEST_F(FirewallControllerTest, TestDiscoverMaximumValidUid) {
+    struct {
+        const std::string description;
+        const std::string content;
+        const uint32_t expected;
+    } testCases[] = {
+            {
+                    .description = "root namespace case",
+                    .content = "         0          0 4294967295",
+                    .expected = 4294967294,
+            },
+            {
+                    .description = "container namespace case",
+                    .content = "         0     655360       5000\n"
+                               "      5000        600         50\n"
+                               "      5050     660410    1994950\n",
+                    .expected = 1999999,
+            },
+            {
+                    .description = "garbage content case",
+                    .content = "garbage",
+                    .expected = 4294967294,
+            },
+            {
+                    .description = "no content case",
+                    .content = "",
+                    .expected = 4294967294,
+            },
+    };
+
+    const std::string tempFile = "/data/local/tmp/fake_uid_mapping";
+
+    for (const auto& test : testCases) {
+        EXPECT_TRUE(WriteStringToFile(test.content, tempFile, false));
+        uint32_t got = FirewallController::discoverMaximumValidUid(tempFile);
+        EXPECT_EQ(0, remove(tempFile.c_str()));
+        if (got != test.expected) {
+            FAIL() << test.description << ":\n"
+                   << test.content << "\ngot " << got << ", but expected " << test.expected;
+        }
+    }
+
+    // Also check when the file is not defined
+    EXPECT_NE(0, access(tempFile.c_str(), F_OK));
+    EXPECT_EQ(4294967294, FirewallController::discoverMaximumValidUid(tempFile));
+}
+
+}  // namespace net
+}  // namespace android

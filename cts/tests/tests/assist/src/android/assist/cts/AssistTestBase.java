@@ -16,23 +16,27 @@
 
 package android.assist.cts;
 
+import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
+
 import android.app.ActivityManager;
 import android.app.assist.AssistContent;
 import android.app.assist.AssistStructure;
 import android.app.assist.AssistStructure.ViewNode;
+import android.assist.common.AutoResetLatch;
 import android.assist.common.Utils;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.LocaleList;
+import android.os.RemoteCallback;
 import android.provider.Settings;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
+import android.util.Pair;
 import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
@@ -40,24 +44,65 @@ import android.webkit.WebView;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import com.android.compatibility.common.util.SystemUtil;
+import androidx.annotation.NonNull;
 
-import java.util.concurrent.CountDownLatch;
+import com.android.compatibility.common.util.SettingsUtils;
+import com.android.compatibility.common.util.ThrowingRunnable;
+import com.android.compatibility.common.util.Timeout;
+
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
+import javax.annotation.Nullable;
 
 public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartActivity> {
     private static final String TAG = "AssistTestBase";
 
+    protected static final String FEATURE_VOICE_RECOGNIZERS = "android.software.voice_recognizers";
+
+    // TODO: use constants from Settings (should be @TestApi)
+    private static final String ASSIST_STRUCTURE_ENABLED = "assist_structure_enabled";
+    private static final String ASSIST_SCREENSHOT_ENABLED = "assist_screenshot_enabled";
+
+    // TODO: once tests are migrated to JUnit 4, use a @BeforeClass method or StateChangerRule
+    // to avoid this hack
+    private static boolean mFirstTest = true;
+
+    private static final Timeout TIMEOUT = new Timeout(
+            "AssistTestBaseTimeout",
+            10000,
+            2F,
+            10000
+    );
+
+    private static final long SLEEP_BEFORE_RETRY_MS = 250L;
+
     protected ActivityManager mActivityManager;
-    protected TestStartActivity mTestActivity;
+    private TestStartActivity mTestActivity;
     protected AssistContent mAssistContent;
     protected AssistStructure mAssistStructure;
     protected boolean mScreenshot;
-    protected Bitmap mAppScreenshot;
-    protected BroadcastReceiver mReceiver;
     protected Bundle mAssistBundle;
     protected Context mContext;
-    protected CountDownLatch mLatch, mScreenshotLatch, mHasResumedLatch;
+    private AutoResetLatch mReadyLatch = new AutoResetLatch(1);
+    private AutoResetLatch mHas3pResumedLatch = new AutoResetLatch(1);
+    private AutoResetLatch mHasTestDestroyedLatch = new AutoResetLatch(1);
+    private AutoResetLatch mSessionCompletedLatch = new AutoResetLatch(1);
+    protected AutoResetLatch mAssistDataReceivedLatch = new AutoResetLatch();
+
+    protected ActionLatchReceiver mActionLatchReceiver;
+
+    private final RemoteCallback mRemoteCallback = new RemoteCallback((result) -> {
+        String action = result.getString(Utils.EXTRA_REMOTE_CALLBACK_ACTION);
+        mActionLatchReceiver.onAction(result, action);
+    });
+
+    @Nullable
+    protected RemoteCallback m3pActivityCallback;
+    private RemoteCallback m3pCallbackReceiving;
+
     protected boolean mScreenshotMatches;
     private Point mDisplaySize;
     private String mTestName;
@@ -71,11 +116,12 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
     protected void setUp() throws Exception {
         super.setUp();
         mContext = getInstrumentation().getTargetContext();
-        SystemUtil.runShellCommand(getInstrumentation(),
-                "settings put secure assist_structure_enabled 1");
-        SystemUtil.runShellCommand(getInstrumentation(),
-                "settings put secure assist_screenshot_enabled 1");
-        logContextAndScreenshotSetting();
+
+        if (mFirstTest) {
+            setFeaturesEnabled(StructureEnabled.TRUE, ScreenshotEnabled.TRUE);
+            logContextAndScreenshotSetting();
+            mFirstTest = false;
+        }
 
         // reset old values
         mScreenshotMatches = false;
@@ -84,23 +130,78 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
         mAssistContent = null;
         mAssistBundle = null;
 
-        if (mReceiver != null) {
-            mContext.unregisterReceiver(mReceiver);
-        }
-        mReceiver = new TestResultsReceiver();
-        mContext.registerReceiver(mReceiver,
-            new IntentFilter(Utils.BROADCAST_ASSIST_DATA_INTENT));
+        mActionLatchReceiver = new ActionLatchReceiver();
+
+        prepareDevice();
+        registerForAsyncReceivingCallback();
     }
 
     @Override
     protected void tearDown() throws Exception {
         mTestActivity.finish();
         mContext.sendBroadcast(new Intent(Utils.HIDE_SESSION));
-        if (mReceiver != null) {
-            mContext.unregisterReceiver(mReceiver);
-            mReceiver = null;
+
+
+        if (m3pActivityCallback != null) {
+            m3pActivityCallback.sendResult(Utils.bundleOfRemoteAction(Utils.ACTION_END_OF_TEST));
         }
+
         super.tearDown();
+        mSessionCompletedLatch.await(3, TimeUnit.SECONDS);
+    }
+
+    private void prepareDevice() throws Exception {
+        Log.d(TAG, "prepareDevice()");
+
+        // Unlock screen.
+        runShellCommand("input keyevent KEYCODE_WAKEUP");
+
+        // Dismiss keyguard, in case it's set as "Swipe to unlock".
+        runShellCommand("wm dismiss-keyguard");
+    }
+
+    private void registerForAsyncReceivingCallback() {
+        HandlerThread handlerThread = new HandlerThread("AssistTestCallbackReceivingThread");
+        handlerThread.start();
+        Handler handler = new Handler(handlerThread.getLooper());
+
+        m3pCallbackReceiving = new RemoteCallback((results) -> {
+            String action = results.getString(Utils.EXTRA_REMOTE_CALLBACK_ACTION);
+            if (action.equals(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING_ACTION)) {
+                m3pActivityCallback = results.getParcelable(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING);
+            }
+        }, handler);
+    }
+
+    protected void startTest(String testName) throws Exception {
+        Log.i(TAG, "Starting test activity for TestCaseType = " + testName);
+        Intent intent = new Intent();
+        intent.putExtra(Utils.TESTCASE_TYPE, testName);
+        intent.setAction("android.intent.action.START_TEST_" + testName);
+        intent.putExtra(Utils.EXTRA_REMOTE_CALLBACK, mRemoteCallback);
+        intent.addFlags(Intent.FLAG_ACTIVITY_MATCH_EXTERNAL);
+
+        mTestActivity.startActivity(intent);
+        waitForTestActivityOnDestroy();
+    }
+
+    protected void start3pApp(String testCaseName) throws Exception {
+        start3pApp(testCaseName, null);
+    }
+
+    protected void start3pApp(String testCaseName, Bundle extras) throws Exception {
+        Intent intent = new Intent();
+        intent.putExtra(Utils.TESTCASE_TYPE, testCaseName);
+        Utils.setTestAppAction(intent, testCaseName);
+        intent.putExtra(Utils.EXTRA_REMOTE_CALLBACK, mRemoteCallback);
+        intent.addFlags(Intent.FLAG_ACTIVITY_MATCH_EXTERNAL);
+        intent.putExtra(Utils.EXTRA_REMOTE_CALLBACK_RECEIVING, m3pCallbackReceiving);
+        if (extras != null) {
+            intent.putExtras(extras);
+        }
+
+        mTestActivity.startActivity(intent);
+        waitForOnResume();
     }
 
     /**
@@ -110,9 +211,8 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
         Intent intent = new Intent();
         mTestName = testName;
         intent.setAction("android.intent.action.TEST_START_ACTIVITY_" + testName);
-        intent.setComponent(new ComponentName(getInstrumentation().getContext(),
-                TestStartActivity.class));
         intent.putExtra(Utils.TESTCASE_TYPE, testName);
+        intent.putExtra(Utils.EXTRA_REMOTE_CALLBACK, mRemoteCallback);
         setActivityIntent(intent);
         mTestActivity = getActivity();
         mActivityManager = (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
@@ -121,27 +221,45 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
     /**
      * Called when waiting for Assistant's Broadcast Receiver to be setup
      */
-    public void waitForAssistantToBeReady(CountDownLatch latch) throws Exception {
+    protected void waitForAssistantToBeReady() throws Exception {
         Log.i(TAG, "waiting for assistant to be ready before continuing");
-        if (!latch.await(Utils.TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+        if (!mReadyLatch.await(Utils.TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
             fail("Assistant was not ready before timeout of: " + Utils.TIMEOUT_MS + "msec");
+        }
+    }
+
+    private void waitForOnResume() throws Exception {
+        Log.i(TAG, "waiting for onResume() before continuing");
+        if (!mHas3pResumedLatch.await(Utils.ACTIVITY_ONRESUME_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+            fail("Activity failed to resume in " + Utils.ACTIVITY_ONRESUME_TIMEOUT_MS + "msec");
+        }
+    }
+
+    private void waitForTestActivityOnDestroy() throws Exception {
+        Log.i(TAG, "waiting for mTestActivity onDestroy() before continuing");
+        if (!mHasTestDestroyedLatch.await(Utils.ACTIVITY_ONRESUME_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+            fail("mTestActivity failed to destroy in " + Utils.ACTIVITY_ONRESUME_TIMEOUT_MS + "msec");
         }
     }
 
     /**
      * Send broadcast to MainInteractionService to start a session
      */
-    protected void startSession() {
-        startSession(mTestName, new Bundle());
+    protected AutoResetLatch startSession() {
+        return startSession(mTestName, new Bundle());
     }
 
-    protected void startSession(String testName, Bundle extras) {
+    protected AutoResetLatch startSession(String testName, Bundle extras) {
         Intent intent = new Intent(Utils.BROADCAST_INTENT_START_ASSIST);
         Log.i(TAG, "passed in class test name is: " + testName);
         intent.putExtra(Utils.TESTCASE_TYPE, testName);
         addDimensionsToIntent(intent);
         intent.putExtras(extras);
+        intent.putExtra(Utils.EXTRA_REMOTE_CALLBACK, mRemoteCallback);
+        intent.setPackage("android.assist.service");
+
         mContext.sendBroadcast(intent);
+        return mAssistDataReceivedLatch;
     }
 
     /**
@@ -157,26 +275,8 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
         intent.putExtra(Utils.DISPLAY_HEIGHT_KEY, mDisplaySize.y);
     }
 
-    /**
-     * Called after startTestActivity. Includes check for receiving context.
-     */
-    protected boolean waitForBroadcast() throws Exception {
-        mTestActivity.start3pApp(mTestName);
-        mTestActivity.startTest(mTestName);
-        return waitForContext();
-    }
-
-    protected boolean waitForContext() throws Exception {
-        mLatch = new CountDownLatch(1);
-
-        if (mReceiver != null) {
-            mContext.unregisterReceiver(mReceiver);
-        }
-        mReceiver = new TestResultsReceiver();
-        mContext.registerReceiver(mReceiver,
-                new IntentFilter(Utils.BROADCAST_ASSIST_DATA_INTENT));
-
-        if (!mLatch.await(Utils.getAssistDataTimeout(mTestName), TimeUnit.MILLISECONDS)) {
+    protected boolean waitForContext(AutoResetLatch sessionLatch) throws Exception {
+        if (!sessionLatch.await(Utils.getAssistDataTimeout(mTestName), TimeUnit.MILLISECONDS)) {
             fail("Fail to receive broadcast in " + Utils.getAssistDataTimeout(mTestName) + "msec");
         }
         Log.i(TAG, "Received broadcast with all information.");
@@ -366,12 +466,12 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
         }
     }
 
-    /** 
+    /**
      * Return true if the expected strings are found in the WebView, else fail.
      */
     private boolean traverseWebViewForText(ViewNode parentNode) {
         boolean textFound = false;
-        if (parentNode.getText() != null 
+        if (parentNode.getText() != null
                 && parentNode.getText().toString().equals(Utils.WEBVIEW_HTML_GREETING)) {
             return true;
         }
@@ -413,6 +513,12 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
             }
         }
         return false;
+    }
+
+    protected void setFeaturesEnabled(StructureEnabled structure, ScreenshotEnabled screenshot) {
+        Log.i(TAG, "setFeaturesEnabled(" + structure + ", " + screenshot + ")");
+        SettingsUtils.syncSet(mContext, ASSIST_STRUCTURE_ENABLED, structure.value);
+        SettingsUtils.syncSet(mContext, ASSIST_SCREENSHOT_ENABLED, screenshot.value);
     }
 
     /**
@@ -484,32 +590,108 @@ public class AssistTestBase extends ActivityInstrumentationTestCase2<TestStartAc
         }
     }
 
-    class TestResultsReceiver extends BroadcastReceiver {
+    protected void setAssistResults(Bundle assistData) {
+        mAssistBundle = assistData.getBundle(Utils.ASSIST_BUNDLE_KEY);
+        mAssistStructure = assistData.getParcelable(Utils.ASSIST_STRUCTURE_KEY);
+        mAssistContent = assistData.getParcelable(Utils.ASSIST_CONTENT_KEY);
+
+        mScreenshot = assistData.getBoolean(Utils.ASSIST_SCREENSHOT_KEY, false);
+
+        mScreenshotMatches = assistData.getBoolean(Utils.COMPARE_SCREENSHOT_KEY, false);
+    }
+
+    protected void eventuallyWithSessionClose(@NonNull ThrowingRunnable runnable) throws Throwable {
+        AtomicReference<Throwable> innerThrowable = new AtomicReference<>();
+        try {
+            TIMEOUT.run(getClass().getName(), SLEEP_BEFORE_RETRY_MS, () -> {
+                try {
+                    runnable.run();
+                    return runnable;
+                } catch (Throwable throwable) {
+                    // Immediately close the session so the next run can redo its action
+                    mContext.sendBroadcast(new Intent(Utils.HIDE_SESSION));
+                    mSessionCompletedLatch.await(2, TimeUnit.SECONDS);
+                    innerThrowable.set(throwable);
+                    return null;
+                }
+            });
+        } catch (Throwable throwable) {
+            Throwable inner = innerThrowable.get();
+            if (inner != null) {
+                throw inner;
+            } else {
+                throw throwable;
+            }
+        }
+    }
+
+    protected enum StructureEnabled {
+        TRUE("1"), FALSE("0");
+
+        private final String value;
+
+        private StructureEnabled(String value) {
+            this.value = value;
+        }
+
         @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equalsIgnoreCase(Utils.BROADCAST_ASSIST_DATA_INTENT)) {
-                Log.i(TAG, "Received broadcast with assist data.");
-                Bundle assistData = intent.getExtras();
-                AssistTestBase.this.mAssistBundle = assistData.getBundle(Utils.ASSIST_BUNDLE_KEY);
-                AssistTestBase.this.mAssistStructure = assistData.getParcelable(
-                        Utils.ASSIST_STRUCTURE_KEY);
-                AssistTestBase.this.mAssistContent = assistData.getParcelable(
-                        Utils.ASSIST_CONTENT_KEY);
+        public String toString() {
+            return "structure_" + (value.equals("1") ? "enabled" : "disabled");
+        }
 
-                AssistTestBase.this.mScreenshot =
-                        assistData.getBoolean(Utils.ASSIST_SCREENSHOT_KEY, false);
+    }
 
-                AssistTestBase.this.mScreenshotMatches = assistData.getBoolean(
-                        Utils.COMPARE_SCREENSHOT_KEY, false);
+    protected enum ScreenshotEnabled {
+        TRUE("1"), FALSE("0");
 
-                if (mLatch != null) {
-                    Log.i(AssistTestBase.TAG, "counting down latch. received assist data.");
-                    mLatch.countDown();
+        private final String value;
+
+        private ScreenshotEnabled(String value) {
+            this.value = value;
+        }
+
+        @Override
+        public String toString() {
+            return "screenshot_" + (value.equals("1") ? "enabled" : "disabled");
+        }
+    }
+
+    public class ActionLatchReceiver {
+
+        private final Map<String, AutoResetLatch> entries = new HashMap<>();
+
+        protected ActionLatchReceiver(Pair<String, AutoResetLatch>... entries) {
+            for (Pair<String, AutoResetLatch> entry : entries) {
+                if (entry.second == null) {
+                    throw new IllegalArgumentException("Test cannot pass in a null latch");
                 }
-            } else if (intent.getAction().equals(Utils.APP_3P_HASRESUMED)) {
-                if (mHasResumedLatch != null) {
-                    mHasResumedLatch.countDown();
-                }
+                this.entries.put(entry.first, entry.second);
+            }
+
+            this.entries.put(Utils.HIDE_SESSION_COMPLETE, mSessionCompletedLatch);
+            this.entries.put(Utils.APP_3P_HASRESUMED, mHas3pResumedLatch);
+            this.entries.put(Utils.TEST_ACTIVITY_DESTROY, mHasTestDestroyedLatch);
+            this.entries.put(Utils.ASSIST_RECEIVER_REGISTERED, mReadyLatch);
+            this.entries.put(Utils.BROADCAST_ASSIST_DATA_INTENT, mAssistDataReceivedLatch);
+        }
+
+        protected ActionLatchReceiver(String action, AutoResetLatch latch) {
+            this(Pair.create(action, latch));
+        }
+
+        protected void onAction(Bundle bundle, String action) {
+            switch (action) {
+                case Utils.BROADCAST_ASSIST_DATA_INTENT:
+                    AssistTestBase.this.setAssistResults(bundle);
+                    // fall-through
+                default:
+                    AutoResetLatch latch = entries.get(action);
+                    if (latch == null) {
+                        Log.e(TAG, this.getClass() + ": invalid action " + action);
+                    } else {
+                        latch.countDown();
+                    }
+                    break;
             }
         }
     }

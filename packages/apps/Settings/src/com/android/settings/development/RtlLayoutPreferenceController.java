@@ -17,11 +17,12 @@
 package com.android.settings.development;
 
 import android.content.Context;
-import android.os.SystemProperties;
 import android.provider.Settings;
-import android.support.annotation.VisibleForTesting;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.Preference;
+import android.sysprop.DisplayProperties;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
+import androidx.preference.SwitchPreference;
 
 import com.android.internal.app.LocalePicker;
 import com.android.settings.core.PreferenceControllerMixin;
@@ -78,8 +79,6 @@ public class RtlLayoutPreferenceController extends DeveloperOptionsPreferenceCon
         Settings.Global.putInt(mContext.getContentResolver(),
                 Settings.Global.DEVELOPMENT_FORCE_RTL,
                 isEnabled ? SETTING_VALUE_ON : SETTING_VALUE_OFF);
-        SystemProperties.set(Settings.Global.DEVELOPMENT_FORCE_RTL,
-                isEnabled ? Integer.toString(SETTING_VALUE_ON)
-                        : Integer.toString(SETTING_VALUE_OFF));
+        DisplayProperties.debug_force_rtl(isEnabled);
     }
 }

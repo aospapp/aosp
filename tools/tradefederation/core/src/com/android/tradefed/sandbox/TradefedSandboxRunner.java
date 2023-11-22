@@ -25,6 +25,8 @@ import com.android.tradefed.device.FreeDeviceState;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.NoDeviceException;
 import com.android.tradefed.invoker.IInvocationContext;
+import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.invoker.proto.InvocationContext.Context;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.SerializationUtil;
 
@@ -32,6 +34,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -94,14 +97,21 @@ public class TradefedSandboxRunner {
             return;
         }
 
+        File contextFile = new File(argList.remove(0));
         try {
-            context =
-                    (IInvocationContext)
-                            SerializationUtil.deserialize(new File(argList.remove(0)), false);
+            Context c = Context.parseDelimitedFrom(new FileInputStream(contextFile));
+            context = InvocationContext.fromProto(c);
         } catch (IOException e) {
-            printStackTrace(e);
-            mErrorCode = ExitCode.THROWABLE_EXCEPTION;
-            return;
+            // Fallback to compatible old way
+            // TODO: Delete when parent has been deployed.
+            try {
+                context = (IInvocationContext) SerializationUtil.deserialize(contextFile, false);
+            } catch (IOException e2) {
+                printStackTrace(e);
+                printStackTrace(e2);
+                mErrorCode = ExitCode.THROWABLE_EXCEPTION;
+                return;
+            }
         }
 
         try {

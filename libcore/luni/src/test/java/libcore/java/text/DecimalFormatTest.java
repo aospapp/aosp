@@ -283,6 +283,34 @@ public class DecimalFormatTest extends junit.framework.TestCase {
         assertEquals(expected, numberFormat.format(2.01));
     }
 
+    /**
+     * Test no extra spacing between currency symbol and the numeric amount
+     */
+    public void testCurrencySymbolSpacing() {
+        Currency currency = Currency.getInstance(Locale.US);
+        for (Locale locale : Locale.getAvailableLocales()) {
+            DecimalFormatSymbols dfs = new DecimalFormatSymbols(locale);
+            String formattedZero = new DecimalFormat("0", dfs).format(0);
+
+            assertCurrencyFormat("USD" + formattedZero, "\u00a4\u00a40", dfs, currency, locale);
+            assertCurrencyFormat(formattedZero + "USD", "0\u00a4\u00a4", dfs, currency, locale);
+            assertCurrencyFormat(currency.getSymbol(locale) + formattedZero, "\u00a40", dfs,
+                    currency, locale);
+            assertCurrencyFormat(formattedZero + currency.getSymbol(locale), "0\u00a4", dfs,
+                    currency, locale);
+        }
+    }
+
+    private static void assertCurrencyFormat(String expected, String pattern,
+            DecimalFormatSymbols dfs,
+            Currency currency, Locale locale) {
+        DecimalFormat df = new DecimalFormat(pattern, dfs);
+        df.setCurrency(currency);
+        df.setMaximumFractionDigits(0);
+        assertEquals("Not formatted as expected with pattern " + pattern + " in locale " + locale,
+                expected, df.format(0));
+    }
+
     // http://b/27855939
     public void testBug27855939() {
         DecimalFormat df = new DecimalFormat("00");
@@ -544,6 +572,31 @@ public class DecimalFormatTest extends junit.framework.TestCase {
     }
 
     /**
+     * Pattern separator should be localized. http://b/112080617
+     */
+    public void testPatternSeparator() {
+        // Test US locale
+        {
+            DecimalFormat df = (DecimalFormat) NumberFormat.getInstance(Locale.US);
+            assertEquals(';', df.getDecimalFormatSymbols().getPatternSeparator());
+            // toLocalizedPattern() returns no pattern separator when input pattern has no prefix.
+            // Add prefixes 'AAA'/'BBB' to force pattern separator in output pattern.
+            df.applyLocalizedPattern("'AAA'+0;'BBB'-0");
+            assertEquals("'AAA'+#0;'BBB'-#0", df.toLocalizedPattern());
+            assertEquals("BBB-123", df.format(-123));
+        }
+        // Test a locale using non-ascii-semi-colon pattern separator.
+        {
+            DecimalFormat df = (DecimalFormat) NumberFormat.getInstance(
+                Locale.forLanguageTag("ar-EG"));
+            assertEquals('\u061b', df.getDecimalFormatSymbols().getPatternSeparator());
+            df.applyLocalizedPattern("'AAA'+\u0660\u061b'BBB'-\u0660");
+            assertEquals("'AAA'+#\u0660\u061b'BBB'-#\u0660", df.toLocalizedPattern());
+            assertEquals("BBB-\u0661\u0662\u0663", df.format(-123));
+        }
+    }
+
+    /**
      * Returns DecimalFormat instances created in different ways:
      * <ol>
      * <li>Using an implicit DecimalFormatSymbols created using the default locale.</li>
@@ -600,6 +653,33 @@ public class DecimalFormatTest extends junit.framework.TestCase {
         assertParseError("0", " 1");
         // Space in prefix is expected to be present.
         assertParseError(" 0", "1");
+    }
+
+    // Test that getMaximumIntegerDigits should return value >= 309 by default, even though a
+    // leading optional digit # is provided in the input pattern. 309 is chosen because
+    // it is the upper limit of integer digits when formatting numbers other than BigInteger
+    // and BigDecimal.
+    public void testDefaultGetMaximumIntegerDigits() {
+        Locale originalLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.US);
+            DecimalFormat df = new DecimalFormat();
+            int maxIntegerDigits = df.getMaximumIntegerDigits();
+            assertTrue("getMaximumIntegerDigits should be >= 309, but returns " + maxIntegerDigits,
+                    maxIntegerDigits >= 309);
+
+            String[] patterns = new String[] { "0", "#0", "#.", "#", ".#", "#.#", "#,##0.00",
+                    "#,##0.00%", "#,##0.00%", "¤#,##0.00%", "#00.00", "#,#00.00"
+            };
+            for (String pattern : patterns) {
+                df = new DecimalFormat(pattern);
+                maxIntegerDigits = df.getMaximumIntegerDigits();
+                assertTrue("getMaximumIntegerDigits should be >= 309, but returns "
+                                + maxIntegerDigits, maxIntegerDigits >= 309);
+            }
+        } finally {
+            Locale.setDefault(originalLocale);
+        }
     }
 
 

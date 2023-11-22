@@ -17,12 +17,14 @@
 package com.android.tools.metalava.model.psi
 
 import com.android.tools.metalava.compatibility
+import com.android.tools.metalava.model.AnnotationRetention
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.CompilationUnit
 import com.android.tools.metalava.model.ConstructorItem
 import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.PackageItem
+import com.android.tools.metalava.model.PropertyItem
 import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.TypeParameterList
 import com.intellij.lang.jvm.types.JvmReferenceType
@@ -35,6 +37,9 @@ import com.intellij.psi.PsiType
 import com.intellij.psi.PsiTypeParameter
 import com.intellij.psi.impl.source.PsiClassReferenceType
 import com.intellij.psi.util.PsiUtil
+import org.jetbrains.kotlin.psi.KtProperty
+import org.jetbrains.uast.UClass
+import org.jetbrains.uast.UMethod
 
 open class PsiClassItem(
     override val codebase: PsiBasedCodebase,
@@ -75,13 +80,11 @@ open class PsiClassItem(
     }
 
     override var defaultConstructor: ConstructorItem? = null
+    override var notStrippable = false
     override var artifact: String? = null
 
     private var containingClass: PsiClassItem? = null
     override fun containingClass(): PsiClassItem? = containingClass
-    fun setContainingClass(containingClass: ClassItem?) {
-        this.containingClass = containingClass as PsiClassItem?
-    }
 
     // TODO: Come up with a better scheme for how to compute this
     override var included: Boolean = true
@@ -95,7 +98,7 @@ open class PsiClassItem(
         setInterfaces(interfaceTypes as List<PsiTypeItem>)
     }
 
-    fun setInterfaces(interfaceTypes: List<PsiTypeItem>) {
+    private fun setInterfaces(interfaceTypes: List<PsiTypeItem>) {
         this.interfaceTypes = interfaceTypes
     }
 
@@ -141,6 +144,7 @@ open class PsiClassItem(
     private lateinit var interfaceTypes: List<TypeItem>
     private lateinit var constructors: List<PsiConstructorItem>
     private lateinit var methods: List<PsiMethodItem>
+    private lateinit var properties: List<PsiPropertyItem>
     private lateinit var fields: List<FieldItem>
 
     /**
@@ -154,6 +158,7 @@ open class PsiClassItem(
     override fun innerClasses(): List<PsiClassItem> = innerClasses
     override fun constructors(): List<PsiConstructorItem> = constructors
     override fun methods(): List<PsiMethodItem> = methods
+    override fun properties(): List<PropertyItem> = properties
     override fun fields(): List<FieldItem> = fields
 
     override fun toType(): TypeItem {
@@ -213,6 +218,16 @@ open class PsiClassItem(
             inner.finishInitialization()
         }
 
+        // Delay initializing super classes and implemented interfaces for all inner classes: they may refer
+        // to *other* inner classes in this class, which would lead to an attempt to construct
+        // recursively. Instead, we wait until all the inner classes have been constructed, and at
+        // the very end, initialize super classes and interfaces recursively.
+        if (psiClass.containingClass == null) {
+            initializeSuperClasses()
+        }
+    }
+
+    private fun initializeSuperClasses() {
         val extendsListTypes = psiClass.extendsListTypes
         if (!extendsListTypes.isEmpty()) {
             val type = PsiTypeItem.create(codebase, extendsListTypes[0])
@@ -242,6 +257,10 @@ open class PsiClassItem(
             interfaces.mapTo(result) { create(it) }
             result
         })
+
+        for (inner in innerClasses) {
+            inner.initializeSuperClasses()
+        }
     }
 
     protected fun initialize(
@@ -258,7 +277,7 @@ open class PsiClassItem(
         this.fields = fields
     }
 
-    override fun mapTypeVariables(target: ClassItem, reverse: Boolean): Map<String, String> {
+    override fun mapTypeVariables(target: ClassItem): Map<String, String> {
         val targetPsi = target.psi() as PsiClass
         val maps = mapTypeVariablesToSuperclass(
             psiClass, targetPsi, considerSuperClasses = true,
@@ -307,8 +326,7 @@ open class PsiClassItem(
     override fun createMethod(template: MethodItem): MethodItem {
         val method = template as PsiMethodItem
 
-        val replacementMap = mapTypeVariables(template.containingClass(), reverse = true)
-
+        val replacementMap = mapTypeVariables(template.containingClass())
         val newMethod: PsiMethodItem
         if (replacementMap.isEmpty()) {
             newMethod = PsiMethodItem.create(codebase, this, method)
@@ -341,11 +359,47 @@ open class PsiClassItem(
         (methods as MutableList<PsiMethodItem>).add(method as PsiMethodItem)
     }
 
+    private var retention: AnnotationRetention? = null
+
+    override fun getRetention(): AnnotationRetention {
+        retention?.let { return it }
+
+        if (!isAnnotationType()) {
+            error("getRetention() should only be called on annotation classes")
+        }
+
+        retention = ClassItem.findRetention(this)
+        return retention!!
+    }
+
     override fun hashCode(): Int = qualifiedName.hashCode()
 
     override fun toString(): String = "class ${qualifiedName()}"
 
     companion object {
+        private fun hasExplicitRetention(modifiers: PsiModifierItem, psiClass: PsiClass, isKotlin: Boolean): Boolean {
+            if (modifiers.findAnnotation("java.lang.annotation.Retention") != null) {
+                return true
+            }
+            if (modifiers.findAnnotation("kotlin.annotation.Retention") != null) {
+                return true
+            }
+            if (isKotlin && psiClass is UClass) {
+                // In Kotlin some annotations show up on the Java facade only; for example,
+                // a @DslMarker annotation will imply a runtime annotation which is present
+                // in the java facade, not in the source list of annotations
+                val modifierList = psiClass.modifierList
+                if (modifierList != null && modifierList.annotations.any {
+                        val qualifiedName = it.qualifiedName
+                        qualifiedName == "kotlin.annotation.Retention" ||
+                            qualifiedName == "java.lang.annotation.Retention"
+                    }) {
+                    return true
+                }
+            }
+            return false
+        }
+
         fun create(codebase: PsiBasedCodebase, psiClass: PsiClass): PsiClassItem {
             if (psiClass is PsiTypeParameter) {
                 return PsiTypeParameterItem.create(codebase, psiClass)
@@ -375,9 +429,20 @@ open class PsiClassItem(
             // Construct the children
             val psiMethods = psiClass.methods
             val methods: MutableList<PsiMethodItem> = ArrayList(psiMethods.size)
+            val isKotlin = isKotlin(psiClass)
 
             if (classType == ClassType.ENUM) {
                 addEnumMethods(codebase, item, psiClass, methods)
+            } else if (classType == ClassType.ANNOTATION_TYPE && compatibility.explicitlyListClassRetention &&
+                !hasExplicitRetention(modifiers, psiClass, isKotlin)
+            ) {
+                // By policy, include explicit retention policy annotation if missing
+                modifiers.addAnnotation(
+                    codebase.createAnnotation(
+                        "@java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS)",
+                        item, false
+                    )
+                )
             }
 
             val constructors: MutableList<PsiConstructorItem> = ArrayList(5)
@@ -427,6 +492,30 @@ open class PsiClassItem(
             item.methods = methods
             item.fields = fields
 
+            item.properties = emptyList()
+            if (isKotlin) {
+                // Try to initialize the Kotlin properties
+                val properties = mutableListOf<PsiPropertyItem>()
+                for (method in psiMethods) {
+                    if (method is UMethod) {
+                        if (method.modifierList.hasModifierProperty(PsiModifier.STATIC)) {
+                            // Skip extension properties
+                            continue
+                        }
+                        val sourcePsi = method.sourcePsi
+                        if (sourcePsi is KtProperty) {
+                            if (method.name.startsWith("set")) {
+                                continue
+                            }
+                            val name = sourcePsi.name ?: continue
+                            val psiType = method.returnType ?: continue
+                            properties.add(PsiPropertyItem.create(codebase, item, name, psiType, method))
+                        }
+                    }
+                }
+                item.properties = properties
+            }
+
             val psiInnerClasses = psiClass.innerClasses
             item.innerClasses = if (psiInnerClasses.isEmpty()) {
                 emptyList()
@@ -444,51 +533,6 @@ open class PsiClassItem(
             return item
         }
 
-        fun create(codebase: PsiBasedCodebase, classFilter: FilteredClassView): PsiClassItem {
-            val original = classFilter.cls
-
-            val newClass = PsiClassItem(
-                codebase = codebase,
-                psiClass = original.psiClass,
-                name = original.name,
-                fullName = original.fullName,
-                qualifiedName = original.qualifiedName,
-                classType = original.classType,
-                hasImplicitDefaultConstructor = original.hasImplicitDefaultConstructor,
-                documentation = original.documentation,
-                modifiers = PsiModifierItem.create(codebase, original.modifiers)
-            )
-
-            newClass.modifiers.setOwner(newClass)
-            codebase.registerClass(newClass)
-            newClass.source = original
-
-            newClass.constructors = classFilter.constructors.map {
-                PsiConstructorItem.create(codebase, newClass, it as PsiConstructorItem)
-            }.toMutableList()
-
-            newClass.methods = classFilter.methods.map {
-                PsiMethodItem.create(codebase, newClass, it as PsiMethodItem)
-            }.toMutableList()
-
-            newClass.fields = classFilter.fields.asSequence()
-                // Preserve sorting order for enums
-                .sortedBy { it.sortingRank }.map {
-                    PsiFieldItem.create(codebase, newClass, it as PsiFieldItem)
-                }.toMutableList()
-
-            newClass.innerClasses = classFilter.innerClasses.map {
-                val newInnerClass = codebase.findClass(it.cls.qualifiedName) ?: it.create(codebase)
-                newInnerClass.containingClass = newClass
-                codebase.registerClass(newInnerClass)
-                newInnerClass
-            }.toMutableList()
-
-            newClass.hasPrivateConstructor = classFilter.cls.hasPrivateConstructor
-
-            return newClass
-        }
-
         private fun addEnumMethods(
             codebase: PsiBasedCodebase,
             classItem: PsiClassItem,
@@ -500,7 +544,7 @@ open class PsiClassItem(
             //    method public static android.graphics.ColorSpace.Adaptation valueOf(java.lang.String);
             //    method public static final android.graphics.ColorSpace.Adaptation[] values();
 
-            if (compatibility.defaultAnnotationMethods) {
+            if (compatibility.defaultEnumMethods) {
                 // TODO: Skip if we already have these methods here (but that shouldn't happen; nobody would
                 // type this by hand)
                 addEnumMethod(
@@ -534,7 +578,7 @@ open class PsiClassItem(
          * Computes the "full" class name; this is not the qualified class name (e.g. with package)
          * but for an inner class it includes all the outer classes
          */
-        private fun computeFullClassName(cls: PsiClass): String {
+        fun computeFullClassName(cls: PsiClass): String {
             if (cls.containingClass == null) {
                 val name = cls.name
                 return name!!

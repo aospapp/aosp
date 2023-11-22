@@ -1,4 +1,4 @@
-# Copyright (C) 2007 The Android Open Source Project
+# Copyright (C) 2014 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,6 +49,18 @@ $(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/STATIC_LIBRARIES/libart_*)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/STATIC_LIBRARIES/libartd_*)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/SHARED_LIBRARIES/libart_*)
 $(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/SHARED_LIBRARIES/libartd_*)
+
+# Old Android Runtime APEX package, before the introduction of "release" and "debug" packages.
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/system/apex/com.android.runtime.apex)
+
+# Clean up ICU libraries moved to runtime apex
+$(call add-clean-step, rm -f $(PRODUCT_OUT)/system/lib*/libandroidicu.so)
+$(call add-clean-step, rm -f $(PRODUCT_OUT)/system/lib*/libpac.so)
+
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest*/art_libdexfile_support_tests/dex_file_supp_test)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest*/)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest*/)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/data/nativetest*/)
 
 # ************************************************
 # NEWER CLEAN STEPS MUST BE AT THE END OF THE LIST

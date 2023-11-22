@@ -29,7 +29,7 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.netlegacy22.api.cts"
                      android:label="CTS tests of legacy android.net APIs as of API 22">
         <meta-data android:name="listener"

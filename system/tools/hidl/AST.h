@@ -53,7 +53,7 @@ struct AST {
     // package and version really.
     FQName package() const;
     bool isInterface() const;
-    bool containsInterfaces() const;
+    bool definesInterfaces() const;
 
     // Adds package, version and scope stack to local name
     FQName makeFullName(const char* localName, Scope* scope) const;
@@ -84,12 +84,19 @@ struct AST {
     // Recursive pass on constant expression tree
     status_t constantExpressionRecursivePass(
         const std::function<status_t(ConstantExpression*)>& func, bool processBeforeDependencies);
+    status_t constantExpressionRecursivePass(
+        const std::function<status_t(const ConstantExpression*)>& func,
+        bool processBeforeDependencies) const;
+
+    // Recursive tree pass that sets ParseStage of all types to newStage.
+    status_t setParseStage(Type::ParseStage oldStage, Type::ParseStage newStage);
 
     // Recursive tree pass that looks up all referenced types
     status_t lookupTypes();
 
     // Recursive tree pass that looks up all referenced local identifiers
-    status_t lookupLocalIdentifiers();
+    // and types referenced by constant expressions
+    status_t lookupConstantExpressions();
 
     // Recursive tree pass that validates that all defined types
     // have unique names in their scopes.
@@ -99,8 +106,11 @@ struct AST {
     // that depend on super types
     status_t resolveInheritance();
 
+    // Recursive tree pass that validates constant expressions
+    status_t validateConstantExpressions() const;
+
     // Recursive tree pass that evaluates constant expressions
-    status_t evaluate();
+    status_t evaluateConstantExpressions();
 
     // Recursive tree pass that validates all type-related
     // syntax restrictions
@@ -137,6 +147,8 @@ struct AST {
     void generateJavaTypes(Formatter& out, const std::string& limitToType) const;
 
     void generateVts(Formatter& out) const;
+
+    void generateDependencies(Formatter& out) const;
 
     void getImportedPackages(std::set<FQName> *importSet) const;
 
@@ -260,9 +272,9 @@ struct AST {
                          bool includeParents = true) const;
     void generateStubImplMethod(Formatter& out, const std::string& className,
                                 const Method* method) const;
-    void generatePassthroughMethod(Formatter& out, const Method* method) const;
+    void generatePassthroughMethod(Formatter& out, const Method* method, const Interface* superInterface) const;
     void generateStaticProxyMethodSource(Formatter& out, const std::string& className,
-                                         const Method* method) const;
+                                         const Method* method, const Interface* superInterface) const;
     void generateProxyMethodSource(Formatter& out, const std::string& className,
                                    const Method* method, const Interface* superInterface) const;
     void generateAdapterMethod(Formatter& out, const Method* method) const;
@@ -276,7 +288,7 @@ struct AST {
     void generateStubSourceForMethod(Formatter& out, const Method* method,
                                      const Interface* superInterface) const;
     void generateStaticStubMethodSource(Formatter& out, const FQName& fqName,
-                                        const Method* method) const;
+                                        const Method* method, const Interface* superInterface) const;
 
     void generatePassthroughSource(Formatter& out) const;
 
@@ -303,7 +315,8 @@ struct AST {
     void generateCppInstrumentationCall(
             Formatter &out,
             InstrumentationEvent event,
-            const Method *method) const;
+            const Method *method,
+            const Interface* superInterface) const;
 
     void declareCppReaderLocals(Formatter& out, const std::vector<NamedReference<Type>*>& arg,
                                 bool forResults) const;
@@ -320,8 +333,6 @@ struct AST {
                               const NamedReference<Type>* arg, bool isReader,
                               bool addPrefixToName) const;
 
-    void emitTypeDeclarations(Formatter& out) const;
-    void emitJavaTypeDeclarations(Formatter& out) const;
     void emitVtsTypeDeclarations(Formatter& out) const;
 
     DISALLOW_COPY_AND_ASSIGN(AST);

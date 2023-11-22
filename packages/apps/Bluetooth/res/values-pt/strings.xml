@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Enviando arquivo para \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Enviando <xliff:g id="NUMBER">%1$s</xliff:g> arquivos para \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Envio de arquivo para \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" interrompido"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"Não há espaço suficiente no armazenamento USB para salvar o arquivo de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"Não há espaço suficiente no cartão SD para salvar o arquivo de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"Não há espaço suficiente no armazenamento USB para salvar o arquivo de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"Não há espaço suficiente no cartão SD para salvar o arquivo de \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Espaço necessário: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Há muitas solicitações sendo processadas. Tente novamente mais tarde."</string>
     <string name="status_pending" msgid="2503691772030877944">"A transferência de arquivo ainda não foi iniciada."</string>
@@ -95,12 +95,12 @@
     <string name="status_forbidden" msgid="613956401054050725">"Transferência proibida pelo aparelho de destino."</string>
     <string name="status_canceled" msgid="6664490318773098285">"Transferência cancelada pelo usuário."</string>
     <string name="status_file_error" msgid="3671917770630165299">"Problema de armazenamento."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"Nenhum armazenamento USB."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"Não há cartão SD. Insira um cartão SD para salvar os arquivos transferidos."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"Nenhum armazenamento USB."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"Não há cartão SD. Insira um cartão SD para salvar os arquivos transferidos."</string>
     <string name="status_connection_error" msgid="947681831523219891">"Falha na conexão."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Não é possível tratar a solicitação corretamente."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Erro desconhecido."</string>
-    <string name="btopp_live_folder" msgid="7967791481444474554">"Bluetooth recebido"</string>
+    <string name="btopp_live_folder" msgid="7967791481444474554">"Recebido por Bluetooth"</string>
     <string name="opp_notification_group" msgid="3486303082135789982">"Compartilhamento Bluetooth"</string>
     <string name="download_success" msgid="7036160438766730871">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Recebimento concluído."</string>
     <string name="upload_success" msgid="4014469387779648949">"<xliff:g id="FILE_SIZE">%1$s</xliff:g> Envio concluído."</string>
@@ -122,9 +122,10 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Abrir"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Limpar da lista"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Limpar"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Tocando agora"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Salvar"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Cancelar"</string>
-    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Selecione as contas que você deseja compartilhar via Bluetooth. Você ainda precisa aceitar qualquer acesso às contas ao se conectar."</string>
+    <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Selecione as contas que você quer compartilhar via Bluetooth. Você ainda precisa aceitar qualquer acesso às contas ao se conectar."</string>
     <string name="bluetooth_map_settings_count" msgid="4557473074937024833">"Espaços disponíveis:"</string>
     <string name="bluetooth_map_settings_app_icon" msgid="7105805610929114707">"Ícone do app"</string>
     <string name="bluetooth_map_settings_title" msgid="7420332483392851321">"Configurações de compartilhamento de mensagens Bluetooth"</string>

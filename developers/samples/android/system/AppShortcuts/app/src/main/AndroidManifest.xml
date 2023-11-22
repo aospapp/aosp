@@ -17,8 +17,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.android.appshortcuts">
 
-    <uses-sdk android:minSdkVersion="25" />
-
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application

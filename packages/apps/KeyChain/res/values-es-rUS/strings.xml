@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"La aplicación %s requiere un certificado. La elección de un certificado permitirá que la aplicación use esta identidad para los servidores ahora y en el futuro."</string>
     <string name="requesting_server" msgid="5832565605998634370">"La aplicación ha identificado el servidor solicitante %s; no obstante, solo debes permitir que la aplicación acceda al certificado si confías en ella."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Puedes instalar los certificados desde un archivo PKCS#12 con extensión %1$s o %2$s a través de una ubicación de almacenamiento externa."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Instalar certificado"</string>
     <string name="allow_button" msgid="3030990695030371561">"Seleccionar"</string>
     <string name="deny_button" msgid="3766539809121892584">"Rechazar"</string>
 </resources>

@@ -23,6 +23,7 @@ from acts.test_utils.net import connectivity_const as cconst
 from acts.test_utils.tel.tel_data_utils import wait_for_cell_data_connection
 from acts.test_utils.tel.tel_test_utils import http_file_download_by_chrome
 from acts.test_utils.tel.tel_test_utils import verify_http_connection
+import acts.test_utils.net.net_test_utils as nutils
 from acts.test_utils.tel import tel_test_utils as ttutils
 from acts.test_utils.wifi import wifi_test_utils as wutils
 
@@ -56,12 +57,7 @@ class DataUsageTest(base_test.BaseTestClass):
         """ Setup devices for tests and unpack params """
         self.dut = self.android_devices[0]
         self.tethered_devices = self.android_devices[1:]
-        wutils.reset_wifi(self.dut)
-        self.dut.droid.telephonyToggleDataConnection(True)
-        wait_for_cell_data_connection(self.log, self.dut, True)
-        asserts.assert_true(
-            verify_http_connection(self.log, self.dut),
-            "HTTP verification failed on cell data connection")
+        nutils.verify_lte_data_and_tethering_supported(self.dut)
 
         # unpack user params
         req_params = ("wifi_network", "download_file", "file_size", "network")
@@ -79,24 +75,16 @@ class DataUsageTest(base_test.BaseTestClass):
 
         # Set chrome browser start with no-first-run verification
         # Give permission to read from and write to storage
-        commands = ["pm grant com.android.chrome "
-                    "android.permission.READ_EXTERNAL_STORAGE",
-                    "pm grant com.android.chrome "
-                    "android.permission.WRITE_EXTERNAL_STORAGE",
-                    "rm /data/local/chrome-command-line",
-                    "am set-debug-app --persistent com.android.chrome",
-                    'echo "chrome --no-default-browser-check --no-first-run '
-                    '--disable-fre" > /data/local/tmp/chrome-command-line']
-        for cmd in commands:
-            for dut in self.android_devices:
-                try:
-                    dut.adb.shell(cmd)
-                except adb.AdbError:
-                    self.log.warn("adb command %s failed on %s" % (cmd, dut.serial))
+        nutils.set_chrome_browser_permissions(self.dut)
 
     def teardown_class(self):
         """ Reset devices """
-        wutils.reset_wifi(self.dut)
+        for ad in self.android_devices:
+            wutils.reset_wifi(ad)
+
+    def on_fail(self, test_name, begin_time):
+        for ad in self.android_devices:
+            ad.take_bug_report(test_name, begin_time)
 
     """ Helper functions """
 
@@ -206,9 +194,6 @@ class DataUsageTest(base_test.BaseTestClass):
             5. Verify that data usage of ConnUIDTest app increased by ~xMB
             6. Verify that data usage of device also increased by ~xMB
         """
-        # disable wifi
-        wutils.wifi_toggle_state(self.dut, False)
-
         # get pre mobile data usage
         (aos_pre, app_pre, total_pre) = self._get_data_usage(self.dut,
                                                              cconst.TYPE_MOBILE)
@@ -264,6 +249,10 @@ class DataUsageTest(base_test.BaseTestClass):
         self.log.info("Data usage of Android os increased by %s" % aos_diff)
         self.log.info("Data usage of ConnUID app increased by %s" % app_diff)
         self.log.info("Data usage on the device increased by %s" % total_diff)
+
+        # forget network
+        wutils.wifi_forget_network(self.dut, self.wifi_network['SSID'])
+
         return (aos_diff < DATA_ERR) and \
             (self.file_size < app_diff < self.file_size + DATA_USG_ERR) and \
             (self.file_size < total_diff < self.file_size + DATA_USG_ERR)

@@ -15,17 +15,21 @@
  */
 package com.android.cts.applicationvisibility;
 
+import static android.content.pm.PackageManager.MATCH_KNOWN_PACKAGES;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static android.content.pm.PackageManager.MATCH_KNOWN_PACKAGES;
 
+import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.test.InstrumentationRegistry;
+import android.os.Process;
+
+import androidx.test.InstrumentationRegistry;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -67,6 +71,7 @@ public class ApplicationVisibilityCrossUserTest {
     public void testPackageVisibility_anyUserCrossUserNoGrant() throws Exception {
         final PackageManager pm = mContext.getPackageManager();
         try {
+            ungrantAcrossUsersPermission();
             final List<PackageInfo> packageList =
                     pm.getInstalledPackagesAsUser(MATCH_KNOWN_PACKAGES, mContext.getUserId());
             fail("Should have received a security exception");
@@ -87,6 +92,7 @@ public class ApplicationVisibilityCrossUserTest {
     public void testPackageVisibility_otherUserNoGrant() throws Exception {
         final PackageManager pm = mContext.getPackageManager();
         try {
+            ungrantAcrossUsersPermission();
             final List<PackageInfo> packageList =
                     pm.getInstalledPackagesAsUser(0, getTestUser());
             fail("Should have received a security exception");
@@ -116,6 +122,7 @@ public class ApplicationVisibilityCrossUserTest {
     public void testApplicationVisibility_anyUserCrossUserNoGrant() throws Exception {
         final PackageManager pm = mContext.getPackageManager();
         try {
+            ungrantAcrossUsersPermission();
             final List<ApplicationInfo> applicationList =
                     pm.getInstalledApplicationsAsUser(MATCH_KNOWN_PACKAGES, mContext.getUserId());
             fail("Should have received a security exception");
@@ -136,6 +143,7 @@ public class ApplicationVisibilityCrossUserTest {
     public void testApplicationVisibility_otherUserNoGrant() throws Exception {
         final PackageManager pm = mContext.getPackageManager();
         try {
+            ungrantAcrossUsersPermission();
             final List<ApplicationInfo> applicationList =
                     pm.getInstalledApplicationsAsUser(0, getTestUser());
             fail("Should have received a security exception");
@@ -170,5 +178,19 @@ public class ApplicationVisibilityCrossUserTest {
             } catch (NumberFormatException ignore) {}
         }
         return mContext.getUserId();
+    }
+
+    private static void ungrantAcrossUsersPermission() {
+        final Context context = InstrumentationRegistry.getContext();
+        final PackageManager pm = context.getPackageManager();
+        final UiAutomation uiAutomation =
+                InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        try {
+            uiAutomation.adoptShellPermissionIdentity();
+            pm.revokeRuntimePermission(context.getPackageName(),
+                    "android.permission.INTERACT_ACROSS_USERS", Process.myUserHandle());
+        } finally {
+            uiAutomation.dropShellPermissionIdentity();
+        }
     }
 }

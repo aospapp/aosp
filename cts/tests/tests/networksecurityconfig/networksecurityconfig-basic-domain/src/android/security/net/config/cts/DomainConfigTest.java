@@ -19,10 +19,8 @@ package android.security.net.config.cts;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import javax.net.ssl.X509TrustManager;
-import junit.framework.TestCase;
 
-public class DomainConfigTest extends TestCase {
-
+public class DomainConfigTest extends BaseTestCase {
     public void testDomainConfig() throws Exception {
         TestUtils.assertTlsConnectionSucceeds("android.com", 443);
     }

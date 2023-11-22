@@ -21,15 +21,17 @@ import static org.junit.Assert.assertTrue;
 
 import android.car.Car;
 import android.car.CarProjectionManager;
+import android.hardware.automotive.vehicle.V2_0.VehicleDisplay;
 import android.hardware.automotive.vehicle.V2_0.VehicleHwKeyInputAction;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropValue;
 import android.hardware.automotive.vehicle.V2_0.VehicleProperty;
 import android.hardware.automotive.vehicle.V2_0.VehiclePropertyAccess;
 import android.os.SystemClock;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.view.KeyEvent;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.car.vehiclehal.VehiclePropValueBuilder;
 import com.android.car.vehiclehal.test.MockedVehicleHal.VehicleHalPropertyHandler;
@@ -119,7 +121,12 @@ public class CarProjectionManagerTest extends MockedCarTestBase {
     }
 
     public void sendVoiceKey(boolean isLong) throws InterruptedException {
-        int[] values = {VehicleHwKeyInputAction.ACTION_DOWN, KeyEvent.KEYCODE_VOICE_ASSIST, 0, 0};
+        int[] values = {
+                VehicleHwKeyInputAction.ACTION_DOWN,
+                KeyEvent.KEYCODE_VOICE_ASSIST,
+                VehicleDisplay.MAIN,
+                /* no indent count */
+        };
 
         VehiclePropValue injectValue =
                 VehiclePropValueBuilder.newBuilder(VehicleProperty.HW_KEY_INPUT)
@@ -133,7 +140,12 @@ public class CarProjectionManagerTest extends MockedCarTestBase {
             Thread.sleep(1200); // Long press is > 1s.
         }
 
-        int[] upValues = {VehicleHwKeyInputAction.ACTION_UP, KeyEvent.KEYCODE_VOICE_ASSIST, 0, 0 };
+        int[] upValues = {
+                VehicleHwKeyInputAction.ACTION_UP,
+                KeyEvent.KEYCODE_VOICE_ASSIST,
+                VehicleDisplay.MAIN,
+                /* no indent count */
+        };
 
         injectValue = VehiclePropValueBuilder.newBuilder(VehicleProperty.HW_KEY_INPUT)
                 .setTimestamp(SystemClock.elapsedRealtimeNanos())

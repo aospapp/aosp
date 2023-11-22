@@ -29,6 +29,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 
-#define MEMCPY memmove
+#define MEMCPY memmove_atom
 #define USE_AS_MEMMOVE
 #include "ssse3-memcpy-atom.S"

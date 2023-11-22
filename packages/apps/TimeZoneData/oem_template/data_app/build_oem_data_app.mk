@@ -44,7 +44,12 @@ LOCAL_AAPT_FLAGS := --version-code $(TIME_ZONE_DATA_APP_VERSION_CODE) \
 
 # OEM-INSTRUCTION: Modify the name, s/oemcorp/<Your company name>/
 LOCAL_MODULE_OWNER := oemcorp
-LOCAL_PRIVILEGED_MODULE := true
+
+# The app build is expected to generate a prebuilt, so do not place the app in
+# the system image.
+LOCAL_UNINSTALLABLE_MODULE := true
+
+LOCAL_PRODUCT_MODULE := true
 
 # OEM-INSTRUCTION: Configure your own certificate.
 LOCAL_CERTIFICATE :=

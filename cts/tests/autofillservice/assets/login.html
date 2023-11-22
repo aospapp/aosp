@@ -17,8 +17,8 @@
 <html>
 <body>
 <form action="login.html" name="FORM AM I">
-    Username: <input type="text" name="username" autocomplete="username" placeholder="There's no place like a holder"/><br/>
-    Password: <input type="password" name="password" autocomplete="current-password" placeholder="Holder it like it cannnot passer a word"/><br/>
+    Username: <input type="text" name="username" autocomplete="username" placeholder="There's no place like a holder" oninput="javascript:JsHandler.onUsernameChanged(this.value)"/><br/>
+    Password: <input type="password" name="password" autocomplete="current-password" placeholder="Holder it like it cannnot passer a word" oninput="javascript:JsHandler.onPasswordChanged(this.value)"/><br/>
     <br/>
     <input type="submit" value="Login"/>
 </form>

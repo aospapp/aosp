@@ -20,10 +20,14 @@ import static android.telecom.cts.TestUtils.COMPONENT;
 import static android.telecom.cts.TestUtils.PACKAGE;
 
 import android.content.ComponentName;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Bundle;
+import android.telecom.Call;
 import android.telecom.Connection;
+import android.telecom.ConnectionRequest;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
 
@@ -106,5 +110,34 @@ public class IncomingCallTest extends BaseTelecomTestWithMockServices {
         }
 
         assertFalse(CtsConnectionService.isServiceRegisteredToTelecom());
+    }
+
+    /**
+     * Ensure {@link Call.Details#PROPERTY_VOIP_AUDIO_MODE} is set for a ringing call which uses
+     * voip audio mode.
+     * @throws Exception
+     */
+    public void testAddNewIncomingCallVoipState() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        setupConnectionService(new MockConnectionService() {
+            @Override
+            public Connection onCreateIncomingConnection(
+                    PhoneAccountHandle connectionManagerPhoneAccount,
+                    ConnectionRequest request) {
+                Connection connection = super.onCreateIncomingConnection(
+                        connectionManagerPhoneAccount,
+                        request);
+                connection.setAudioModeIsVoip(true);
+                lock.release();
+                return connection;
+            }
+        }, FLAG_REGISTER | FLAG_ENABLE);
+        addAndVerifyNewIncomingCall(createTestNumber(), null);
+        verifyConnectionForIncomingCall();
+
+        assertTrue((mInCallCallbacks.getService().getLastCall().getDetails().getCallProperties()
+                & Call.Details.PROPERTY_VOIP_AUDIO_MODE) != 0);
     }
 }

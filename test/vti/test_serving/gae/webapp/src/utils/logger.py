@@ -36,10 +36,12 @@ class Logger(object):
     def Get(self):
         """Retruns a list of all log message strings."""
         return self.log_message
-        
+
     def Println(self, msg):
         """Stores a new string `msg` to the log buffer."""
         indent = "  " * self.log_indent
+        if msg and type(msg) is not str:
+            msg = str(msg)
         self.log_message.append(indent + msg)
 
     def Indent(self):

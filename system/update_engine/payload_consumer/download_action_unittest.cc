@@ -52,21 +52,20 @@ using base::WriteFile;
 using std::string;
 using std::unique_ptr;
 using test_utils::ScopedTempFile;
+using testing::_;
 using testing::AtLeast;
 using testing::InSequence;
 using testing::Return;
 using testing::SetArgPointee;
-using testing::_;
 
-class DownloadActionTest : public ::testing::Test { };
+class DownloadActionTest : public ::testing::Test {};
 
 namespace {
 
 class DownloadActionTestProcessorDelegate : public ActionProcessorDelegate {
  public:
-  explicit DownloadActionTestProcessorDelegate(ErrorCode expected_code)
-      : processing_done_called_(false),
-        expected_code_(expected_code) {}
+  DownloadActionTestProcessorDelegate()
+      : processing_done_called_(false), expected_code_(ErrorCode::kSuccess) {}
   ~DownloadActionTestProcessorDelegate() override {
     EXPECT_TRUE(processing_done_called_);
   }
@@ -90,6 +89,7 @@ class DownloadActionTestProcessorDelegate : public ActionProcessorDelegate {
     const string type = action->Type();
     if (type == DownloadAction::StaticType()) {
       EXPECT_EQ(expected_code_, code);
+      p2p_file_id_ = static_cast<DownloadAction*>(action)->p2p_file_id();
     } else {
       EXPECT_EQ(ErrorCode::kSuccess, code);
     }
@@ -99,6 +99,7 @@ class DownloadActionTestProcessorDelegate : public ActionProcessorDelegate {
   brillo::Blob expected_data_;
   bool processing_done_called_;
   ErrorCode expected_code_;
+  string p2p_file_id_;
 };
 
 class TestDirectFileWriter : public DirectFileWriter {
@@ -154,40 +155,41 @@ void TestWithData(const brillo::Blob& data,
       install_plan.source_slot, true);
   fake_system_state.fake_boot_control()->SetSlotBootable(
       install_plan.target_slot, true);
-  ObjectFeederAction<InstallPlan> feeder_action;
-  feeder_action.set_obj(install_plan);
+  auto feeder_action = std::make_unique<ObjectFeederAction<InstallPlan>>();
+  feeder_action->set_obj(install_plan);
   MockPrefs prefs;
-  MockHttpFetcher* http_fetcher = new MockHttpFetcher(data.data(),
-                                                      data.size(),
-                                                      nullptr);
+  MockHttpFetcher* http_fetcher =
+      new MockHttpFetcher(data.data(), data.size(), nullptr);
   // takes ownership of passed in HttpFetcher
-  DownloadAction download_action(&prefs,
-                                 fake_system_state.boot_control(),
-                                 fake_system_state.hardware(),
-                                 &fake_system_state,
-                                 http_fetcher,
-                                 false /* is_interactive */);
-  download_action.SetTestFileWriter(&writer);
-  BondActions(&feeder_action, &download_action);
+  auto download_action =
+      std::make_unique<DownloadAction>(&prefs,
+                                       fake_system_state.boot_control(),
+                                       fake_system_state.hardware(),
+                                       &fake_system_state,
+                                       http_fetcher,
+                                       false /* interactive */);
+  download_action->SetTestFileWriter(&writer);
+  BondActions(feeder_action.get(), download_action.get());
   MockDownloadActionDelegate download_delegate;
   if (use_download_delegate) {
     InSequence s;
-    download_action.set_delegate(&download_delegate);
+    download_action->set_delegate(&download_delegate);
     if (data.size() > kMockHttpFetcherChunkSize)
       EXPECT_CALL(download_delegate,
                   BytesReceived(_, kMockHttpFetcherChunkSize, _));
     EXPECT_CALL(download_delegate, BytesReceived(_, _, _)).Times(AtLeast(1));
+    EXPECT_CALL(download_delegate, DownloadComplete())
+        .Times(fail_write == 0 ? 1 : 0);
   }
-  ErrorCode expected_code = ErrorCode::kSuccess;
-  if (fail_write > 0)
-    expected_code = ErrorCode::kDownloadWriteError;
-  DownloadActionTestProcessorDelegate delegate(expected_code);
+  DownloadActionTestProcessorDelegate delegate;
+  delegate.expected_code_ =
+      (fail_write > 0) ? ErrorCode::kDownloadWriteError : ErrorCode::kSuccess;
   delegate.expected_data_ = brillo::Blob(data.begin() + 1, data.end());
   delegate.path_ = output_temp_file.path();
   ActionProcessor processor;
   processor.set_delegate(&delegate);
-  processor.EnqueueAction(&feeder_action);
-  processor.EnqueueAction(&download_action);
+  processor.EnqueueAction(std::move(feeder_action));
+  processor.EnqueueAction(std::move(download_action));
 
   loop.PostTask(FROM_HERE,
                 base::Bind(&StartProcessorInRunLoop, &processor, http_fetcher));
@@ -206,7 +208,7 @@ TEST(DownloadActionTest, SimpleTest) {
   const char* foo = "foo";
   small.insert(small.end(), foo, foo + strlen(foo));
   TestWithData(small,
-               0,  // fail_write
+               0,      // fail_write
                true);  // use_download_delegate
 }
 
@@ -218,7 +220,7 @@ TEST(DownloadActionTest, LargeTest) {
     c = ('9' == c) ? '0' : c + 1;
   }
   TestWithData(big,
-               0,  // fail_write
+               0,      // fail_write
                true);  // use_download_delegate
 }
 
@@ -230,7 +232,7 @@ TEST(DownloadActionTest, FailWriteTest) {
     c = ('9' == c) ? '0' : c + 1;
   }
   TestWithData(big,
-               2,  // fail_write
+               2,      // fail_write
                true);  // use_download_delegate
 }
 
@@ -239,7 +241,7 @@ TEST(DownloadActionTest, NoDownloadDelegateTest) {
   const char* foo = "foofoo";
   small.insert(small.end(), foo, foo + strlen(foo));
   TestWithData(small,
-               0,  // fail_write
+               0,       // fail_write
                false);  // use_download_delegate
 }
 
@@ -269,24 +271,25 @@ TEST(DownloadActionTest, MultiPayloadProgressTest) {
         {.size = size, .type = InstallPayloadType::kFull});
     total_expected_download_size += size;
   }
-  ObjectFeederAction<InstallPlan> feeder_action;
-  feeder_action.set_obj(install_plan);
+  auto feeder_action = std::make_unique<ObjectFeederAction<InstallPlan>>();
+  feeder_action->set_obj(install_plan);
   MockPrefs prefs;
   MockHttpFetcher* http_fetcher = new MockHttpFetcher(
       payload_datas[0].data(), payload_datas[0].size(), nullptr);
   // takes ownership of passed in HttpFetcher
-  DownloadAction download_action(&prefs,
-                                 fake_system_state.boot_control(),
-                                 fake_system_state.hardware(),
-                                 &fake_system_state,
-                                 http_fetcher,
-                                 false /* is_interactive */);
-  download_action.SetTestFileWriter(&mock_file_writer);
-  BondActions(&feeder_action, &download_action);
+  auto download_action =
+      std::make_unique<DownloadAction>(&prefs,
+                                       fake_system_state.boot_control(),
+                                       fake_system_state.hardware(),
+                                       &fake_system_state,
+                                       http_fetcher,
+                                       false /* interactive */);
+  download_action->SetTestFileWriter(&mock_file_writer);
+  BondActions(feeder_action.get(), download_action.get());
   MockDownloadActionDelegate download_delegate;
   {
     InSequence s;
-    download_action.set_delegate(&download_delegate);
+    download_action->set_delegate(&download_delegate);
     // these are hand-computed based on the payloads specified above
     EXPECT_CALL(download_delegate,
                 BytesReceived(kMockHttpFetcherChunkSize,
@@ -318,8 +321,8 @@ TEST(DownloadActionTest, MultiPayloadProgressTest) {
                               total_expected_download_size));
   }
   ActionProcessor processor;
-  processor.EnqueueAction(&feeder_action);
-  processor.EnqueueAction(&download_action);
+  processor.EnqueueAction(std::move(feeder_action));
+  processor.EnqueueAction(std::move(download_action));
 
   loop.PostTask(
       FROM_HERE,
@@ -348,8 +351,7 @@ void TestTerminateEarly(bool use_download_delegate) {
   brillo::FakeMessageLoop loop(nullptr);
   loop.SetAsCurrent();
 
-  brillo::Blob data(kMockHttpFetcherChunkSize +
-                      kMockHttpFetcherChunkSize / 2);
+  brillo::Blob data(kMockHttpFetcherChunkSize + kMockHttpFetcherChunkSize / 2);
   memset(data.data(), 0, data.size());
 
   ScopedTempFile temp_file;
@@ -358,31 +360,31 @@ void TestTerminateEarly(bool use_download_delegate) {
     EXPECT_EQ(0, writer.Open(temp_file.path().c_str(), O_WRONLY | O_CREAT, 0));
 
     // takes ownership of passed in HttpFetcher
-    ObjectFeederAction<InstallPlan> feeder_action;
+    auto feeder_action = std::make_unique<ObjectFeederAction<InstallPlan>>();
     InstallPlan install_plan;
     install_plan.payloads.resize(1);
-    feeder_action.set_obj(install_plan);
+    feeder_action->set_obj(install_plan);
     FakeSystemState fake_system_state_;
     MockPrefs prefs;
-    DownloadAction download_action(
+    auto download_action = std::make_unique<DownloadAction>(
         &prefs,
         fake_system_state_.boot_control(),
         fake_system_state_.hardware(),
         &fake_system_state_,
         new MockHttpFetcher(data.data(), data.size(), nullptr),
-        false /* is_interactive */);
-    download_action.SetTestFileWriter(&writer);
+        false /* interactive */);
+    download_action->SetTestFileWriter(&writer);
     MockDownloadActionDelegate download_delegate;
     if (use_download_delegate) {
-      download_action.set_delegate(&download_delegate);
+      download_action->set_delegate(&download_delegate);
       EXPECT_CALL(download_delegate, BytesReceived(_, _, _)).Times(0);
     }
     TerminateEarlyTestProcessorDelegate delegate;
     ActionProcessor processor;
     processor.set_delegate(&delegate);
-    processor.EnqueueAction(&feeder_action);
-    processor.EnqueueAction(&download_action);
-    BondActions(&feeder_action, &download_action);
+    BondActions(feeder_action.get(), download_action.get());
+    processor.EnqueueAction(std::move(feeder_action));
+    processor.EnqueueAction(std::move(download_action));
 
     loop.PostTask(FROM_HERE,
                   base::Bind(&TerminateEarlyTestStarter, &processor));
@@ -410,7 +412,7 @@ TEST(DownloadActionTest, TerminateEarlyNoDownloadDelegateTest) {
 
 class DownloadActionTestAction;
 
-template<>
+template <>
 class ActionTraits<DownloadActionTestAction> {
  public:
   typedef InstallPlan OutputObjectType;
@@ -420,22 +422,21 @@ class ActionTraits<DownloadActionTestAction> {
 // This is a simple Action class for testing.
 class DownloadActionTestAction : public Action<DownloadActionTestAction> {
  public:
-  DownloadActionTestAction() : did_run_(false) {}
+  DownloadActionTestAction() = default;
   typedef InstallPlan InputObjectType;
   typedef InstallPlan OutputObjectType;
   ActionPipe<InstallPlan>* in_pipe() { return in_pipe_.get(); }
   ActionPipe<InstallPlan>* out_pipe() { return out_pipe_.get(); }
   ActionProcessor* processor() { return processor_; }
   void PerformAction() {
-    did_run_ = true;
     ASSERT_TRUE(HasInputObject());
     EXPECT_TRUE(expected_input_object_ == GetInputObject());
     ASSERT_TRUE(processor());
     processor()->ActionComplete(this, ErrorCode::kSuccess);
   }
-  string Type() const { return "DownloadActionTestAction"; }
+  static std::string StaticType() { return "DownloadActionTestAction"; }
+  string Type() const { return StaticType(); }
   InstallPlan expected_input_object_;
-  bool did_run_;
 };
 
 namespace {
@@ -444,9 +445,19 @@ namespace {
 // only by the test PassObjectOutTest.
 class PassObjectOutTestProcessorDelegate : public ActionProcessorDelegate {
  public:
-  void ProcessingDone(const ActionProcessor* processor, ErrorCode code) {
+  void ProcessingDone(const ActionProcessor* processor,
+                      ErrorCode code) override {
     brillo::MessageLoop::current()->BreakLoop();
   }
+  void ActionCompleted(ActionProcessor* processor,
+                       AbstractAction* action,
+                       ErrorCode code) override {
+    if (action->Type() == DownloadActionTestAction::StaticType()) {
+      did_test_action_run_ = true;
+    }
+  }
+
+  bool did_test_action_run_ = false;
 };
 
 }  // namespace
@@ -463,29 +474,30 @@ TEST(DownloadActionTest, PassObjectOutTest) {
   install_plan.payloads.push_back({.size = 1});
   EXPECT_TRUE(
       HashCalculator::RawHashOfData({'x'}, &install_plan.payloads[0].hash));
-  ObjectFeederAction<InstallPlan> feeder_action;
-  feeder_action.set_obj(install_plan);
+  auto feeder_action = std::make_unique<ObjectFeederAction<InstallPlan>>();
+  feeder_action->set_obj(install_plan);
   MockPrefs prefs;
   FakeSystemState fake_system_state_;
-  DownloadAction download_action(&prefs,
-                                 fake_system_state_.boot_control(),
-                                 fake_system_state_.hardware(),
-                                 &fake_system_state_,
-                                 new MockHttpFetcher("x", 1, nullptr),
-                                 false /* is_interactive */);
-  download_action.SetTestFileWriter(&writer);
+  auto download_action =
+      std::make_unique<DownloadAction>(&prefs,
+                                       fake_system_state_.boot_control(),
+                                       fake_system_state_.hardware(),
+                                       &fake_system_state_,
+                                       new MockHttpFetcher("x", 1, nullptr),
+                                       false /* interactive */);
+  download_action->SetTestFileWriter(&writer);
 
-  DownloadActionTestAction test_action;
-  test_action.expected_input_object_ = install_plan;
-  BondActions(&feeder_action, &download_action);
-  BondActions(&download_action, &test_action);
+  auto test_action = std::make_unique<DownloadActionTestAction>();
+  test_action->expected_input_object_ = install_plan;
+  BondActions(feeder_action.get(), download_action.get());
+  BondActions(download_action.get(), test_action.get());
 
   ActionProcessor processor;
   PassObjectOutTestProcessorDelegate delegate;
   processor.set_delegate(&delegate);
-  processor.EnqueueAction(&feeder_action);
-  processor.EnqueueAction(&download_action);
-  processor.EnqueueAction(&test_action);
+  processor.EnqueueAction(std::move(feeder_action));
+  processor.EnqueueAction(std::move(download_action));
+  processor.EnqueueAction(std::move(test_action));
 
   loop.PostTask(
       FROM_HERE,
@@ -495,27 +507,22 @@ TEST(DownloadActionTest, PassObjectOutTest) {
   loop.Run();
   EXPECT_FALSE(loop.PendingTasks());
 
-  EXPECT_EQ(true, test_action.did_run_);
+  EXPECT_EQ(true, delegate.did_test_action_run_);
 }
 
 // Test fixture for P2P tests.
 class P2PDownloadActionTest : public testing::Test {
  protected:
   P2PDownloadActionTest()
-    : start_at_offset_(0),
-      fake_um_(fake_system_state_.fake_clock()) {}
+      : start_at_offset_(0), fake_um_(fake_system_state_.fake_clock()) {}
 
   ~P2PDownloadActionTest() override {}
 
   // Derived from testing::Test.
-  void SetUp() override {
-    loop_.SetAsCurrent();
-  }
+  void SetUp() override { loop_.SetAsCurrent(); }
 
   // Derived from testing::Test.
-  void TearDown() override {
-    EXPECT_FALSE(loop_.PendingTasks());
-  }
+  void TearDown() override { EXPECT_FALSE(loop_.PendingTasks()); }
 
   // To be called by tests to setup the download. The
   // |starting_offset| parameter is for where to resume.
@@ -527,10 +534,13 @@ class P2PDownloadActionTest : public testing::Test {
       data_ += 'a' + (i % 25);
 
     // Setup p2p.
-    FakeP2PManagerConfiguration *test_conf = new FakeP2PManagerConfiguration();
-    p2p_manager_.reset(P2PManager::Construct(
-        test_conf, nullptr, &fake_um_, "cros_au", 3,
-        base::TimeDelta::FromDays(5)));
+    FakeP2PManagerConfiguration* test_conf = new FakeP2PManagerConfiguration();
+    p2p_manager_.reset(P2PManager::Construct(test_conf,
+                                             nullptr,
+                                             &fake_um_,
+                                             "cros_au",
+                                             3,
+                                             base::TimeDelta::FromDays(5)));
     fake_system_state_.set_p2p_manager(p2p_manager_.get());
   }
 
@@ -550,43 +560,44 @@ class P2PDownloadActionTest : public testing::Test {
     install_plan.payloads.push_back(
         {.size = data_.length(),
          .hash = {'1', '2', '3', '4', 'h', 'a', 's', 'h'}});
-    ObjectFeederAction<InstallPlan> feeder_action;
-    feeder_action.set_obj(install_plan);
+    auto feeder_action = std::make_unique<ObjectFeederAction<InstallPlan>>();
+    feeder_action->set_obj(install_plan);
     MockPrefs prefs;
-    http_fetcher_ = new MockHttpFetcher(data_.c_str(),
-                                        data_.length(),
-                                        nullptr);
     // Note that DownloadAction takes ownership of the passed in HttpFetcher.
-    download_action_.reset(new DownloadAction(&prefs,
-                                              fake_system_state_.boot_control(),
-                                              fake_system_state_.hardware(),
-                                              &fake_system_state_,
-                                              http_fetcher_,
-                                              false /* is_interactive */));
-    download_action_->SetTestFileWriter(&writer);
-    BondActions(&feeder_action, download_action_.get());
-    DownloadActionTestProcessorDelegate delegate(ErrorCode::kSuccess);
-    delegate.expected_data_ = brillo::Blob(data_.begin() + start_at_offset_,
-                                           data_.end());
-    delegate.path_ = output_temp_file.path();
-    processor_.set_delegate(&delegate);
-    processor_.EnqueueAction(&feeder_action);
-    processor_.EnqueueAction(download_action_.get());
+    auto download_action = std::make_unique<DownloadAction>(
+        &prefs,
+        fake_system_state_.boot_control(),
+        fake_system_state_.hardware(),
+        &fake_system_state_,
+        new MockHttpFetcher(data_.c_str(), data_.length(), nullptr),
+        false /* interactive */);
+    auto http_fetcher = download_action->http_fetcher();
+    download_action->SetTestFileWriter(&writer);
+    BondActions(feeder_action.get(), download_action.get());
+    delegate_.expected_data_ =
+        brillo::Blob(data_.begin() + start_at_offset_, data_.end());
+    delegate_.path_ = output_temp_file.path();
+    processor_.set_delegate(&delegate_);
+    processor_.EnqueueAction(std::move(feeder_action));
+    processor_.EnqueueAction(std::move(download_action));
 
-    loop_.PostTask(FROM_HERE, base::Bind(
-        &P2PDownloadActionTest::StartProcessorInRunLoopForP2P,
-        base::Unretained(this)));
+    loop_.PostTask(
+        FROM_HERE,
+        base::Bind(
+            [](P2PDownloadActionTest* action_test, HttpFetcher* http_fetcher) {
+              action_test->processor_.StartProcessing();
+              http_fetcher->SetOffset(action_test->start_at_offset_);
+            },
+            base::Unretained(this),
+            base::Unretained(http_fetcher)));
     loop_.Run();
   }
 
   // Mainloop used to make StartDownload() synchronous.
   brillo::FakeMessageLoop loop_{nullptr};
 
-  // The DownloadAction instance under test.
-  unique_ptr<DownloadAction> download_action_;
-
-  // The HttpFetcher used in the test.
-  MockHttpFetcher* http_fetcher_;
+  // Delegate that is passed to the ActionProcessor.
+  DownloadActionTestProcessorDelegate delegate_;
 
   // The P2PManager used in the test.
   unique_ptr<P2PManager> p2p_manager_;
@@ -601,12 +612,6 @@ class P2PDownloadActionTest : public testing::Test {
   string data_;
 
  private:
-  // Callback used in StartDownload() method.
-  void StartProcessorInRunLoopForP2P() {
-    processor_.StartProcessing();
-    download_action_->http_fetcher()->SetOffset(start_at_offset_);
-  }
-
   // The requested starting offset passed to SetupDownload().
   off_t start_at_offset_;
 
@@ -614,51 +619,33 @@ class P2PDownloadActionTest : public testing::Test {
 };
 
 TEST_F(P2PDownloadActionTest, IsWrittenTo) {
-  if (!test_utils::IsXAttrSupported(FilePath("/tmp"))) {
-    LOG(WARNING) << "Skipping test because /tmp does not support xattr. "
-                 << "Please update your system to support this feature.";
-    return;
-  }
-
   SetupDownload(0);     // starting_offset
   StartDownload(true);  // use_p2p_to_share
 
   // Check the p2p file and its content matches what was sent.
-  string file_id = download_action_->p2p_file_id();
+  string file_id = delegate_.p2p_file_id_;
   EXPECT_NE("", file_id);
   EXPECT_EQ(static_cast<int>(data_.length()),
             p2p_manager_->FileGetSize(file_id));
   EXPECT_EQ(static_cast<int>(data_.length()),
             p2p_manager_->FileGetExpectedSize(file_id));
   string p2p_file_contents;
-  EXPECT_TRUE(ReadFileToString(p2p_manager_->FileGetPath(file_id),
-                               &p2p_file_contents));
+  EXPECT_TRUE(
+      ReadFileToString(p2p_manager_->FileGetPath(file_id), &p2p_file_contents));
   EXPECT_EQ(data_, p2p_file_contents);
 }
 
 TEST_F(P2PDownloadActionTest, DeleteIfHoleExists) {
-  if (!test_utils::IsXAttrSupported(FilePath("/tmp"))) {
-    LOG(WARNING) << "Skipping test because /tmp does not support xattr. "
-                 << "Please update your system to support this feature.";
-    return;
-  }
-
   SetupDownload(1000);  // starting_offset
   StartDownload(true);  // use_p2p_to_share
 
   // DownloadAction should convey that the file is not being shared.
   // and that we don't have any p2p files.
-  EXPECT_EQ(download_action_->p2p_file_id(), "");
+  EXPECT_EQ(delegate_.p2p_file_id_, "");
   EXPECT_EQ(p2p_manager_->CountSharedFiles(), 0);
 }
 
 TEST_F(P2PDownloadActionTest, CanAppend) {
-  if (!test_utils::IsXAttrSupported(FilePath("/tmp"))) {
-    LOG(WARNING) << "Skipping test because /tmp does not support xattr. "
-                 << "Please update your system to support this feature.";
-    return;
-  }
-
   SetupDownload(1000);  // starting_offset
 
   // Prepare the file with existing data before starting to write to
@@ -669,14 +656,16 @@ TEST_F(P2PDownloadActionTest, CanAppend) {
   string existing_data;
   for (unsigned int i = 0; i < 1000; i++)
     existing_data += '0' + (i % 10);
-  ASSERT_EQ(WriteFile(p2p_manager_->FileGetPath(file_id), existing_data.c_str(),
-                      1000), 1000);
+  ASSERT_EQ(
+      WriteFile(
+          p2p_manager_->FileGetPath(file_id), existing_data.c_str(), 1000),
+      1000);
 
   StartDownload(true);  // use_p2p_to_share
 
   // DownloadAction should convey the same file_id and the file should
   // have the expected size.
-  EXPECT_EQ(download_action_->p2p_file_id(), file_id);
+  EXPECT_EQ(delegate_.p2p_file_id_, file_id);
   EXPECT_EQ(static_cast<ssize_t>(data_.length()),
             p2p_manager_->FileGetSize(file_id));
   EXPECT_EQ(static_cast<ssize_t>(data_.length()),
@@ -684,19 +673,13 @@ TEST_F(P2PDownloadActionTest, CanAppend) {
   string p2p_file_contents;
   // Check that the first 1000 bytes wasn't touched and that we
   // appended the remaining as appropriate.
-  EXPECT_TRUE(ReadFileToString(p2p_manager_->FileGetPath(file_id),
-                               &p2p_file_contents));
+  EXPECT_TRUE(
+      ReadFileToString(p2p_manager_->FileGetPath(file_id), &p2p_file_contents));
   EXPECT_EQ(existing_data, p2p_file_contents.substr(0, 1000));
   EXPECT_EQ(data_.substr(1000), p2p_file_contents.substr(1000));
 }
 
 TEST_F(P2PDownloadActionTest, DeletePartialP2PFileIfResumingWithoutP2P) {
-  if (!test_utils::IsXAttrSupported(FilePath("/tmp"))) {
-    LOG(WARNING) << "Skipping test because /tmp does not support xattr. "
-                 << "Please update your system to support this feature.";
-    return;
-  }
-
   SetupDownload(1000);  // starting_offset
 
   // Prepare the file with all existing data before starting to write
@@ -707,8 +690,10 @@ TEST_F(P2PDownloadActionTest, DeletePartialP2PFileIfResumingWithoutP2P) {
   string existing_data;
   for (unsigned int i = 0; i < 1000; i++)
     existing_data += '0' + (i % 10);
-  ASSERT_EQ(WriteFile(p2p_manager_->FileGetPath(file_id), existing_data.c_str(),
-                      1000), 1000);
+  ASSERT_EQ(
+      WriteFile(
+          p2p_manager_->FileGetPath(file_id), existing_data.c_str(), 1000),
+      1000);
 
   // Check that the file is there.
   EXPECT_EQ(1000, p2p_manager_->FileGetSize(file_id));

@@ -14,8 +14,13 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-
-<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:src="@drawable/bg_protection"
-    android:tileModeX="repeat"
-    android:tileModeY="mirror" />
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+  <!-- 0% to 20%black  half way down then 100% black-->
+  <gradient
+      android:startColor="#00000000"
+      android:endColor="#000000"
+      android:centerColor="#a0000000"
+      android:centerY=".5"
+      android:angle="270" />
+</shape>

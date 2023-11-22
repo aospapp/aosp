@@ -17,11 +17,12 @@
 package com.android.settings.widget;
 
 import android.content.Context;
-import android.support.v7.preference.PreferenceViewHolder;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.CheckBox;
+
+import androidx.preference.PreferenceViewHolder;
 
 import com.android.settings.R;
 import com.android.settingslib.TwoTargetPreference;

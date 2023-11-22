@@ -1,0 +1,4 @@
+allow untrusted_app_25 mali_device:chr_file { getattr ioctl open read write };
+allow untrusted_app_25 block_device:{ dir blk_file } { getattr };
+allow untrusted_app_25 hi_vfmw_device:chr_file { write read open ioctl };
+

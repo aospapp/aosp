@@ -38,6 +38,10 @@ public class PropertyUtil {
     private static final String BUILD_TYPE_PROPERTY = "ro.build.type";
     private static final String MANUFACTURER_PROPERTY = "ro.product.manufacturer";
     private static final String TAG_DEV_KEYS = "dev-keys";
+    private static final String VNDK_VERSION = "ro.vndk.version";
+
+    /** Value to be returned by getPropertyInt() if property is not found */
+    public static final int INT_VALUE_IF_UNSET = -1;
 
     public static final String GOOGLE_SETTINGS_QUERY =
             "content query --uri content://com.google.settings/partner";
@@ -45,12 +49,6 @@ public class PropertyUtil {
     /** Returns whether the device build is a user build */
     public static boolean isUserBuild(ITestDevice device) throws DeviceNotAvailableException {
         return propertyEquals(device, BUILD_TYPE_PROPERTY, "user");
-    }
-
-    /** Returns whether the device build is the factory ROM */
-    public static boolean isFactoryROM(ITestDevice device) throws DeviceNotAvailableException {
-        // first API level property should be undefined if and only if the product is factory ROM.
-        return device.getProperty(FIRST_API_LEVEL) == null;
     }
 
     /** Returns whether this build is built with dev-keys */
@@ -72,6 +70,20 @@ public class PropertyUtil {
     public static int getFirstApiLevel(ITestDevice device) throws DeviceNotAvailableException {
         String propString = device.getProperty(FIRST_API_LEVEL);
         return (propString == null) ? device.getApiLevel() : Integer.parseInt(propString);
+    }
+
+    /**
+     * Return whether the SDK version of the vendor partiton is newer than the given API level.
+     * If the property is set to non-integer value, this means the vendor partition is using
+     * current API level and true is returned.
+     */
+    public static boolean isVendorApiLevelNewerThan(ITestDevice device, int apiLevel)
+            throws DeviceNotAvailableException {
+        int vendorApiLevel = getPropertyInt(device, VNDK_VERSION);
+        if (vendorApiLevel == INT_VALUE_IF_UNSET) {
+            return true;
+        }
+        return vendorApiLevel > apiLevel;
     }
 
     /**
@@ -128,5 +140,21 @@ public class PropertyUtil {
         }
         String value = device.getProperty(property);
         return (value == null) ? false : value.matches(regex);
+    }
+
+    /**
+     * Retrieves the desired integer property, returning INT_VALUE_IF_UNSET if not found.
+     */
+    public static int getPropertyInt(ITestDevice device, String property)
+            throws DeviceNotAvailableException {
+        String value = device.getProperty(property);
+        if (value == null) {
+            return INT_VALUE_IF_UNSET;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return INT_VALUE_IF_UNSET;
+        }
     }
 }

@@ -17,7 +17,12 @@
 package android.os.cts;
 
 import android.os.FileObserver;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.AppModeInstant;
 import android.test.AndroidTestCase;
+import android.util.Pair;
+
+import androidx.test.InstrumentationRegistry;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -46,8 +51,14 @@ public class FileObserverTest extends AndroidTestCase {
         File dir = getContext().getFilesDir();
         helpSetUp(dir);
 
-        dir = getContext().getExternalFilesDir(null);
+        dir = getContext().getCacheDir();
         helpSetUp(dir);
+
+        // Instant apps cannot access external storage
+        if (!InstrumentationRegistry.getTargetContext().getPackageManager().isInstantApp()) {
+            dir = getContext().getExternalFilesDir(null);
+            helpSetUp(dir);
+        }
     }
 
     private void helpTearDown(File dir) throws Exception {
@@ -75,15 +86,18 @@ public class FileObserverTest extends AndroidTestCase {
         File dir = getContext().getFilesDir();
         helpTearDown(dir);
 
+        dir = getContext().getCacheDir();
+        helpTearDown(dir);
+
         dir = getContext().getExternalFilesDir(null);
         helpTearDown(dir);
     }
 
     public void testConstructor() {
         // new the instance
-        new MockFileObserver(PATH);
+        new MockFileObserver(new File(PATH));
         // new the instance
-        new MockFileObserver(PATH, FileObserver.ACCESS);
+        new MockFileObserver(new File(PATH), FileObserver.ACCESS);
     }
 
     /*
@@ -110,21 +124,11 @@ public class FileObserverTest extends AndroidTestCase {
         File moveDestFile;
         FileOutputStream out = null;
 
-        fileObserver = new MockFileObserver(testFile.getParent());
+        fileObserver = new MockFileObserver(testFile.getParentFile());
         try {
             fileObserver.startWatching();
-            out = new FileOutputStream(testFile);
 
-            out.write(FILE_DATA); // modify, open, write, modify
-            out.close(); // close_write
-
-            expected = new int[] {FileObserver.MODIFY, FileObserver.OPEN, FileObserver.MODIFY,
-                    FileObserver.CLOSE_WRITE};
-            moveEvents = waitForEvent(fileObserver);
-            if (isEmulated)
-                assertEventsContains(expected, moveEvents);
-            else
-                assertEventsEquals(expected, moveEvents);
+            verifyTriggeredEventsOnFile(fileObserver, testFile, isEmulated);
 
             fileObserver.stopWatching();
 
@@ -144,22 +148,10 @@ public class FileObserverTest extends AndroidTestCase {
                 out.close();
             out = null;
         }
-        fileObserver = new MockFileObserver(testDir.getPath());
+        fileObserver = new MockFileObserver(testDir);
         try {
             fileObserver.startWatching();
-            testFile = new File(testDir, TEST_FILE);
-            assertTrue(testFile.createNewFile());
-            assertTrue(testFile.exists());
-            testFile.delete();
-            testDir.delete();
-            expected = new int[] {FileObserver.CREATE,
-                    FileObserver.OPEN, FileObserver.CLOSE_WRITE,
-                    FileObserver.DELETE, FileObserver.DELETE_SELF, UNDEFINED};
-            moveEvents = waitForEvent(fileObserver);
-            if (isEmulated)
-                assertEventsContains(expected, moveEvents);
-            else
-                assertEventsEquals(expected, moveEvents);
+            verifyTriggeredEventsOnDir(fileObserver, testDir, isEmulated);
         } finally {
             fileObserver.stopWatching();
         }
@@ -169,56 +161,142 @@ public class FileObserverTest extends AndroidTestCase {
         testDir = new File(dir, TEST_DIR);
         testDir.mkdirs();
         moveDestFile = new File(testDir, TEST_FILE);
-        MockFileObserver movedFrom = new MockFileObserver(dir.getPath());
-        MockFileObserver movedTo = new MockFileObserver(testDir.getPath());
-        fileObserver = new MockFileObserver(testFile.getPath());
+        final MockFileObserver movedFileObserver = new MockFileObserver(Arrays.asList(
+                dir,
+                testDir,
+                testFile
+        ));
         try {
-            movedFrom.startWatching();
-            movedTo.startWatching();
-            fileObserver.startWatching();
+            movedFileObserver.startWatching();
+
             testFile.renameTo(moveDestFile);
 
-            expected = new int[] {FileObserver.MOVE_SELF};
-            moveEvents = waitForEvent(fileObserver);
-            if (isEmulated)
+            expected = new int[] {
+                    FileObserver.MOVED_FROM,
+                    FileObserver.MOVED_TO,
+                    FileObserver.MOVE_SELF,
+            };
+            moveEvents = waitForEvent(movedFileObserver);
+            if (isEmulated) {
                 assertEventsContains(expected, moveEvents);
-            else
+            } else {
                 assertEventsEquals(expected, moveEvents);
-
-            expected = new int[] {FileObserver.MOVED_FROM};
-            moveEvents = waitForEvent(movedFrom);
-            if (isEmulated)
-                assertEventsContains(expected, moveEvents);
-            else
-                assertEventsEquals(expected, moveEvents);
-
-            expected = new int[] {FileObserver.MOVED_TO};
-            moveEvents = waitForEvent(movedTo);
-            if (isEmulated)
-                assertEventsContains(expected, moveEvents);
-            else
-                assertEventsEquals(expected, moveEvents);
+            }
         } finally {
-            fileObserver.stopWatching();
-            movedTo.stopWatching();
-            movedFrom.stopWatching();
+            movedFileObserver.stopWatching();
         }
 
         // Because Javadoc didn't specify when should a event happened,
         // here ACCESS ATTRIB we found no way to test.
     }
 
+    private void verifyTriggeredEventsOnFile(MockFileObserver fileObserver,
+            File testFile, boolean isEmulated) throws Exception {
+        final FileOutputStream out = new FileOutputStream(testFile);
+
+        out.write(FILE_DATA); // modify, open, write, modify
+        out.close(); // close_write
+
+        final int[] expected = {
+                FileObserver.MODIFY,
+                FileObserver.OPEN,
+                FileObserver.MODIFY,
+                FileObserver.CLOSE_WRITE
+        };
+
+        final FileEvent[] moveEvents = waitForEvent(fileObserver);
+        if (isEmulated) {
+            assertEventsContains(expected, moveEvents);
+        } else {
+            assertEventsEquals(expected, moveEvents);
+        }
+    }
+
+    private void verifyTriggeredEventsOnDir(MockFileObserver fileObserver,
+            File testDir, boolean isEmulated) throws Exception {
+        final File testFile = new File(testDir, TEST_FILE);
+        assertTrue(testFile.createNewFile());
+        assertTrue(testFile.exists());
+        testFile.delete();
+        testDir.delete();
+
+        final int[] expected = {
+                FileObserver.CREATE,
+                FileObserver.OPEN,
+                FileObserver.CLOSE_WRITE,
+                FileObserver.DELETE,
+                FileObserver.DELETE_SELF,
+                UNDEFINED
+        };
+
+        final FileEvent[] moveEvents = waitForEvent(fileObserver);
+        if (isEmulated) {
+            assertEventsContains(expected, moveEvents);
+        } else {
+            assertEventsEquals(expected, moveEvents);
+        }
+    }
+
     public void testFileObserver() throws Exception {
         helpTestFileObserver(getContext().getFilesDir(), false);
     }
 
-    /*
-     * Same as testFileObserver, except on emulated storage
-     */
-    public void testFileObserverEmulated() throws Exception {
+    @AppModeFull(reason = "Instant apps cannot access external storage")
+    public void testFileObserverExternal() throws Exception {
         helpTestFileObserver(getContext().getExternalFilesDir(null), true);
     }
 
+    @AppModeFull(reason = "Instant apps cannot access external storage")
+    public void testFileObserver_multipleFilesFull() throws Exception {
+        verifyMultipleFiles(
+                Pair.create(getContext().getCacheDir(), false),
+                Pair.create(getContext().getFilesDir(), false),
+                Pair.create(getContext().getExternalFilesDir(null), true)
+        );
+    }
+
+    @AppModeInstant(reason = "Instant specific variant excluding disallowed external storage")
+    public void testFileObserver_multipleFilesInstant() throws Exception {
+        verifyMultipleFiles(
+                Pair.create(getContext().getCacheDir(), false),
+                Pair.create(getContext().getFilesDir(), false)
+        );
+    }
+
+    @SafeVarargs
+    private final void verifyMultipleFiles(Pair<File, Boolean>... dirsAndIsEmulated) throws Exception {
+        List<File> directories = new ArrayList<>(dirsAndIsEmulated.length);
+        for (Pair<File, Boolean> pair : dirsAndIsEmulated) {
+            directories.add(pair.first);
+        }
+
+        final MockFileObserver fileObserver1 = new MockFileObserver(directories);
+        try {
+            fileObserver1.startWatching();
+            for (Pair<File, Boolean> pair : dirsAndIsEmulated) {
+                verifyTriggeredEventsOnFile(fileObserver1,
+                        new File(pair.first, TEST_FILE), pair.second);
+            }
+        } finally {
+            fileObserver1.stopWatching();
+        }
+
+        directories = new ArrayList<>(dirsAndIsEmulated.length);
+        for (Pair<File, Boolean> pair : dirsAndIsEmulated) {
+            directories.add(new File(pair.first, TEST_DIR));
+        }
+
+        final MockFileObserver fileObserver2 = new MockFileObserver(directories);
+        try {
+            fileObserver2.startWatching();
+            for (Pair<File, Boolean> pair : dirsAndIsEmulated) {
+                verifyTriggeredEventsOnDir(fileObserver2,
+                        new File(pair.first, TEST_DIR), pair.second);
+            }
+        } finally {
+            fileObserver2.stopWatching();
+        }
+    }
 
     private void assertEventsEquals(final int[] expected, final FileEvent[] moveEvents) {
         List<Integer> expectedEvents = new ArrayList<Integer>();
@@ -281,12 +359,20 @@ public class FileObserverTest extends AndroidTestCase {
 
         private List<FileEvent> mEvents = new ArrayList<FileEvent>();
 
-        public MockFileObserver(String path) {
-            super(path);
+        public MockFileObserver(File file) {
+            super(file);
         }
 
-        public MockFileObserver(String path, int mask) {
-            super(path, mask);
+        public MockFileObserver(File file, int mask) {
+            super(file, mask);
+        }
+
+        public MockFileObserver(List<File> files) {
+            super(files);
+        }
+
+        public MockFileObserver(List<File> files, int mask) {
+            super(files, mask);
         }
 
         @Override

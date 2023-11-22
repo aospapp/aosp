@@ -329,8 +329,8 @@ class ModUnionCheckReferences {
 
 class EmptyMarkObjectVisitor : public MarkObjectVisitor {
  public:
-  mirror::Object* MarkObject(mirror::Object* obj) OVERRIDE {return obj;}
-  void MarkHeapReference(mirror::HeapReference<mirror::Object>*, bool) OVERRIDE {}
+  mirror::Object* MarkObject(mirror::Object* obj) override {return obj;}
+  void MarkHeapReference(mirror::HeapReference<mirror::Object>*, bool) override {}
 };
 
 void ModUnionTable::FilterCards() {
@@ -462,7 +462,7 @@ void ModUnionTableReferenceCache::UpdateAndMarkReferences(MarkObjectVisitor* vis
     for (mirror::HeapReference<mirror::Object>* obj_ptr : references) {
       if (obj_ptr->AsMirrorPtr() != nullptr) {
         all_null = false;
-        visitor->MarkHeapReference(obj_ptr, /*do_atomic_update*/ false);
+        visitor->MarkHeapReference(obj_ptr, /*do_atomic_update=*/ false);
       }
     }
     count += references.size();

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // The classes needed to handle installation of time zone distros.
-java_library_static {
+java_library {
     name: "time_zone_distro_installer",
 
     srcs: ["src/main/**/*.java"],
@@ -21,13 +21,13 @@ java_library_static {
 }
 
 // Tests for time_zone_distro_installer code
-java_library_static {
+java_library {
     name: "time_zone_distro_installer-tests",
 
     srcs: ["src/test/**/*.java"],
     static_libs: [
         "time_zone_distro",
-        "time_zone_distro_tools",
+        "time_zone_distro_builder",
         "time_zone_distro_installer",
         "tzdata-testing",
         "junit",

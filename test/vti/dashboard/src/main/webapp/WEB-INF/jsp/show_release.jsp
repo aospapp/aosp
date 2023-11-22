@@ -20,32 +20,51 @@
 <html>
   <link rel='stylesheet' href='/css/show_release.css'>
   <%@ include file='header.jsp' %>
-  <script type='text/javascript' src='https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.0/jquery-ui.min.js'></script>
+  <script type='text/javascript'>
+      $(document).ready(function() {
+          $("li.tab").each(function( index ) {
+              $(this).click(function() {
+                  window.open($(this).children().attr("href"), '_self');
+              });
+          });
+      });
+  </script>
   <body>
     <div class='container'>
       <div class='row'>
         <div class='col s12'>
-          <h4 id='section-header'>Test Plans</h4>
+
+          <ul class="tabs z-depth-1">
+            <li class="tab col s6" id="planTabLink">
+              <a class="${testType == 'plan' ? 'active' : 'inactive'}" href="${requestScope['javax.servlet.forward.servlet_path']}?type=plan">Test Plans</a>
+            </li>
+            <li class="tab col s6" id="suiteTabLink">
+              <a class="${testType == 'suite' ? 'active' : 'inactive'}" href="${requestScope['javax.servlet.forward.servlet_path']}?type=suite">Test Suite Plans</a>
+            </li>
+          </ul>
+
         </div>
       </div>
       <div class='row' id='options'>
+        <c:set var="typeParam" scope="session" value="${testType == 'suite' ? '&type=suite' : '&type=plan'}"/>
+
         <c:forEach items='${planNames}' var='plan'>
           <c:choose>
             <c:when test="${isAdmin}">
-              <div class="col s11 center">
-                <a href='/show_plan_release?plan=${plan}'>
+              <div class="col s10 center">
+                <a href='/show_plan_release?plan=${plan}${typeParam}'>
                   <div class='col s12 card hoverable option valign-wrapper waves-effect'>
                     <span class='entry valign'>${plan}</span>
                   </div>
                 </a>
               </div>
-              <div class="col s1 center btn-container" style="margin-top: 9px;">
-                <a href='/show_green_release?plan=${plan}' class="waves-effect waves-light btn">Green</a>
+              <div class="col s2 center btn-container" style="margin-top: 9px;">
+                <a href='/show_green_release?plan=${plan}${typeParam}' class="waves-effect waves-light btn">Green</a>
               </div>
             </c:when>
             <c:otherwise>
               <div class="col s12 center">
-                <a href='/show_plan_release?plan=${plan}'>
+                <a href='/show_plan_release?plan=${plan}${typeParam}'>
                   <div class='col s12 card hoverable option valign-wrapper waves-effect'>
                     <span class='entry valign'>${plan}</span>
                   </div>

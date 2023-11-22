@@ -21,14 +21,15 @@
 #include <private/android_filesystem_config.h>
 
 static bool isSystemUser() {
-    uid_t uid =  IPCThreadState::self()->getCallingUid();
-    switch (uid) {
+    uid_t uid = IPCThreadState::self()->getCallingUid();
+    uid_t aid = uid % AID_USER_OFFSET;
+    switch (aid) {
         case AID_ROOT:
         case AID_SYSTEM: {
             return true;
         } break;
         default: {
-            ALOGE("uid %u is not root nor system - access denied", uid);
+            ALOGE("aid %u (uid %u) is not root nor system - access denied", aid, uid);
         } break;
     }
     return false;

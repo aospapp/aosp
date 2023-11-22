@@ -17,6 +17,18 @@
 package com.android.tv.tuner.livetuner;
 
 import com.android.tv.tuner.tvinput.BaseTunerTvInputService;
+import dagger.android.ContributesAndroidInjector;
 
 /** Live TV embedded tuner. */
-public class LiveTvTunerTvInputService extends BaseTunerTvInputService {}
+public class LiveTvTunerTvInputService extends BaseTunerTvInputService {
+
+    /**
+     * Exports {@link LiveTvTunerTvInputService} for Dagger codegen to create the appropriate
+     * injector.
+     */
+    @dagger.Module
+    public abstract static class Module {
+        @ContributesAndroidInjector
+        abstract LiveTvTunerTvInputService contributesLiveTvTunerTvInputServiceInjector();
+    }
+}

@@ -23,8 +23,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "base/locks.h"
 #include "base/macros.h"
-#include "base/mutex.h"
 #include "jni.h"
 
 namespace art {
@@ -37,7 +37,9 @@ class ImageSpace;
 
 class ClassLoaderContext;
 class DexFile;
+class MemMap;
 class OatFile;
+class ThreadPool;
 
 // Class for dealing with oat file management.
 //
@@ -65,11 +67,6 @@ class OatFileManager {
   const OatFile* FindOpenedOatFileFromDexLocation(const std::string& dex_base_location) const
       REQUIRES(!Locks::oat_file_manager_lock_);
 
-  // Returns true if we have a non pic oat file.
-  bool HaveNonPicOatFile() const {
-    return have_non_pic_oat_file_;
-  }
-
   // Returns the boot image oat files.
   std::vector<const OatFile*> GetBootOatFiles() const;
 
@@ -78,7 +75,8 @@ class OatFileManager {
 
   // Returns the oat files for the images, registers the oat files.
   // Takes ownership of the imagespace's underlying oat files.
-  std::vector<const OatFile*> RegisterImageOatFiles(std::vector<gc::space::ImageSpace*> spaces)
+  std::vector<const OatFile*> RegisterImageOatFiles(
+      const std::vector<gc::space::ImageSpace*>& spaces)
       REQUIRES(!Locks::oat_file_manager_lock_);
 
   // Finds or creates the oat file holding dex_location. Then loads and returns
@@ -103,34 +101,95 @@ class OatFileManager {
       /*out*/ std::vector<std::string>* error_msgs)
       REQUIRES(!Locks::oat_file_manager_lock_, !Locks::mutator_lock_);
 
+  // Opens dex files provided in `dex_mem_maps` and attempts to find an anonymous
+  // vdex file created during a previous load attempt. If found, will initialize
+  // an instance of OatFile to back the DexFiles and preverify them using the
+  // vdex's VerifierDeps.
+  //
+  // Returns an empty vector if the dex files could not be loaded. In this
+  // case, there will be at least one error message returned describing why no
+  // dex files could not be loaded. The 'error_msgs' argument must not be
+  // null, regardless of whether there is an error or not.
+  std::vector<std::unique_ptr<const DexFile>> OpenDexFilesFromOat(
+      std::vector<MemMap>&& dex_mem_maps,
+      jobject class_loader,
+      jobjectArray dex_elements,
+      /*out*/ const OatFile** out_oat_file,
+      /*out*/ std::vector<std::string>* error_msgs)
+      REQUIRES(!Locks::oat_file_manager_lock_, !Locks::mutator_lock_);
+
   void DumpForSigQuit(std::ostream& os);
 
-  void SetOnlyUseSystemOatFiles();
+  void SetOnlyUseSystemOatFiles(bool enforce, bool assert_no_files_loaded);
+
+  // Spawn a background thread which verifies all classes in the given dex files.
+  void RunBackgroundVerification(const std::vector<const DexFile*>& dex_files,
+                                 jobject class_loader,
+                                 const char* class_loader_context);
+
+  // Wait for thread pool workers to be created. This is used during shutdown as
+  // threads are not allowed to attach while runtime is in shutdown lock.
+  void WaitForWorkersToBeCreated();
+
+  // If allocated, delete a thread pool of background verification threads.
+  void DeleteThreadPool();
+
+  // Wait for all background verification tasks to finish. This is only used by tests.
+  void WaitForBackgroundVerificationTasks();
+
+  // Maximum number of anonymous vdex files kept in the process' data folder.
+  static constexpr size_t kAnonymousVdexCacheSize = 8u;
 
  private:
+  enum class CheckCollisionResult {
+    kSkippedUnsupportedClassLoader,
+    kSkippedClassLoaderContextSharedLibrary,
+    kNoCollisions,
+    kPerformedHasCollisions,
+  };
+
+  std::vector<std::unique_ptr<const DexFile>> OpenDexFilesFromOat_Impl(
+      std::vector<MemMap>&& dex_mem_maps,
+      jobject class_loader,
+      jobjectArray dex_elements,
+      /*out*/ const OatFile** out_oat_file,
+      /*out*/ std::vector<std::string>* error_msgs)
+      REQUIRES(!Locks::oat_file_manager_lock_, !Locks::mutator_lock_);
+
   // Check that the class loader context of the given oat file matches the given context.
   // This will perform a check that all class loaders in the chain have the same type and
   // classpath.
   // If the context is null (which means the initial class loader was null or unsupported)
-  // this returns false.
+  // this returns kSkippedUnsupportedClassLoader.
   // If the context does not validate the method will check for duplicate class definitions of
   // the given oat file against the oat files (either from the class loaders if possible or all
   // non-boot oat files otherwise).
-  // Return true if there are any class definition collisions in the oat_file.
-  bool HasCollisions(const OatFile* oat_file,
-                     const ClassLoaderContext* context,
-                     /*out*/ std::string* error_msg) const
+  // Return kPerformedHasCollisions if there are any class definition collisions in the oat_file.
+  CheckCollisionResult CheckCollision(const OatFile* oat_file,
+                                      const ClassLoaderContext* context,
+                                      /*out*/ std::string* error_msg) const
       REQUIRES(!Locks::oat_file_manager_lock_);
 
   const OatFile* FindOpenedOatFileFromOatLocationLocked(const std::string& oat_location) const
       REQUIRES(Locks::oat_file_manager_lock_);
 
+  // Return true if we should accept the oat file.
+  bool AcceptOatFile(CheckCollisionResult result) const;
+
+  // Return true if we should attempt to load the app image.
+  bool ShouldLoadAppImage(CheckCollisionResult check_collision_result,
+                          const OatFile* source_oat_file,
+                          ClassLoaderContext* context,
+                          std::string* error_msg);
+
   std::set<std::unique_ptr<const OatFile>> oat_files_ GUARDED_BY(Locks::oat_file_manager_lock_);
-  bool have_non_pic_oat_file_;
 
   // Only use the compiled code in an OAT file when the file is on /system. If the OAT file
   // is not on /system, don't load it "executable".
   bool only_use_system_oat_files_;
+
+  // Single-thread pool used to run the verifier in the background.
+  std::unique_ptr<ThreadPool> verification_thread_pool_;
 
   DISALLOW_COPY_AND_ASSIGN(OatFileManager);
 };

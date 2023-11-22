@@ -14,40 +14,34 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
-#include <string.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <string>
+#include <vector>
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 #include <linux/kdev_t.h>
 
-#define LOG_TAG "Vold"
-
 #include <android-base/logging.h>
 #include <android-base/properties.h>
 #include <android-base/stringprintf.h>
-#include <cutils/log.h>
 #include <cutils/properties.h>
-#include <ext4_utils/ext4_crypt.h>
+#include <fscrypt/fscrypt.h>
 #include <logwrap/logwrap.h>
 #include <selinux/selinux.h>
 
 #include "Ext4.h"
-#include "Ext4Crypt.h"
+#include "FsCrypt.h"
 #include "Utils.h"
 #include "VoldUtil.h"
 
@@ -62,9 +56,8 @@ static const char* kMkfsPath = "/system/bin/mke2fs";
 static const char* kFsckPath = "/system/bin/e2fsck";
 
 bool IsSupported() {
-    return access(kMkfsPath, X_OK) == 0
-            && access(kFsckPath, X_OK) == 0
-            && IsFilesystemSupported("ext4");
+    return access(kMkfsPath, X_OK) == 0 && access(kFsckPath, X_OK) == 0 &&
+           IsFilesystemSupported("ext4");
 }
 
 status_t Check(const std::string& source, const std::string& target) {
@@ -77,7 +70,7 @@ status_t Check(const std::string& source, const std::string& target) {
     int status;
     int ret;
     long tmpmnt_flags = MS_NOATIME | MS_NOEXEC | MS_NOSUID;
-    char *tmpmnt_opts = (char*) "nomblk_io_submit,errors=remount-ro";
+    char* tmpmnt_opts = (char*)"nomblk_io_submit,errors=remount-ro";
 
     /*
      * First try to mount and unmount the filesystem.  We do this because
@@ -102,7 +95,8 @@ status_t Check(const std::string& source, const std::string& target) {
             if (result == 0) {
                 break;
             }
-            ALOGW("%s(): umount(%s)=%d: %s\n", __func__, c_target, result, strerror(errno));
+            LOG(WARNING) << __func__ << "(): umount(" << c_target << ")=" << result << ": "
+                         << strerror(errno);
             sleep(1);
         }
     }
@@ -112,10 +106,10 @@ status_t Check(const std::string& source, const std::string& target) {
      * (e.g. recent SDK system images). Detect these and skip the check.
      */
     if (access(kFsckPath, X_OK)) {
-        ALOGD("Not running %s on %s (executable not in system image)\n",
-                kFsckPath, c_source);
+        LOG(DEBUG) << "Not running " << kFsckPath << " on " << c_source
+                   << " (executable not in system image)";
     } else {
-        ALOGD("Running %s on %s\n", kFsckPath, c_source);
+        LOG(DEBUG) << "Running " << kFsckPath << " on " << c_source;
 
         std::vector<std::string> cmd;
         cmd.push_back(kFsckPath);
@@ -123,14 +117,14 @@ status_t Check(const std::string& source, const std::string& target) {
         cmd.push_back(c_source);
 
         // ext4 devices are currently always trusted
-        return ForkExecvp(cmd, sFsckContext);
+        return ForkExecvp(cmd, nullptr, sFsckContext);
     }
 
     return 0;
 }
 
-status_t Mount(const std::string& source, const std::string& target, bool ro,
-        bool remount, bool executable) {
+status_t Mount(const std::string& source, const std::string& target, bool ro, bool remount,
+               bool executable) {
     int rc;
     unsigned long flags;
 
@@ -164,8 +158,7 @@ status_t Resize(const std::string& source, unsigned long numSectors) {
     return ForkExecvp(cmd);
 }
 
-status_t Format(const std::string& source, unsigned long numSectors,
-        const std::string& target) {
+status_t Format(const std::string& source, unsigned long numSectors, const std::string& target) {
     std::vector<std::string> cmd;
     cmd.push_back(kMkfsPath);
 
@@ -182,7 +175,7 @@ status_t Format(const std::string& source, unsigned long numSectors,
     if (android::base::GetBoolProperty("vold.has_quota", false)) {
         options += ",quota";
     }
-    if (e4crypt_is_native()) {
+    if (fscrypt_is_native()) {
         options += ",encrypt";
     }
 

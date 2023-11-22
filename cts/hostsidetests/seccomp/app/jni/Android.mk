@@ -32,4 +32,5 @@ LOCAL_STATIC_LIBRARIES := cpufeatures
 
 LOCAL_CFLAGS := -Wall -Werror
 
+LOCAL_NDK_STL_VARIANT := c++_static
 include $(BUILD_SHARED_LIBRARY)

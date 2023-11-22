@@ -159,7 +159,7 @@ size_t PlatformAudio::getSourceCount() {
 }
 
 bool PlatformAudio::getAudioSource(uint32_t handle,
-                                   chreAudioSource *audioSource) {
+                                   chreAudioSource *audioSource) const {
   bool success = false;
   if (handle == 0) {
     audioSource->name = "Default Android Audio Input";

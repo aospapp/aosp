@@ -17,7 +17,6 @@
 package android.car.apitest;
 
 import android.car.Car;
-import android.car.CarNotConnectedException;
 import android.car.ICar;
 import android.car.hardware.CarSensorManager;
 import android.content.ComponentName;
@@ -107,21 +106,5 @@ public class CarTest extends AndroidTestCase {
         assertNotNull(mICar);
         Car car2 = new Car(getContext(), mICar, null);
         assertTrue(car2.isConnected());
-    }
-
-    public void testCheckCarNotConnectedExceptionFromCarService() throws Exception {
-        try {
-            Car.checkCarNotConnectedExceptionFromCarService(new IllegalStateException());
-            fail();
-        } catch(IllegalStateException e) {
-            // expected
-        }
-        try {
-            Car.checkCarNotConnectedExceptionFromCarService(
-                    new IllegalStateException(Car.CAR_NOT_CONNECTED_EXCEPTION_MSG));
-            fail();
-        } catch(CarNotConnectedException e) {
-            // expected
-        }
     }
 }

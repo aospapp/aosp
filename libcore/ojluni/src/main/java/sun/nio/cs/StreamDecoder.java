@@ -54,6 +54,7 @@ public class StreamDecoder extends Reader
     private boolean haveLeftoverChar = false;
     private char leftoverChar;
 
+    // Android-added: Flush the CharsetDecoder correctly.
     private boolean needsFlush = false;
 
     // Factories for java.io.InputStreamReader
@@ -273,9 +274,11 @@ public class StreamDecoder extends Reader
         try {
         if (ch != null) {
             // Read from the channel
-            // Android-changed: Use ChannelInputStream.read to make sure we throw
-            // the right exception for non-blocking channels.
-            int n = sun.nio.ch.ChannelInputStream.read(ch, bb);
+            // Android-changed: Use ChannelInputStream.read which throws on non-blocking channels.
+            // Other implementations of ReadableByteChannel.read do not, and Channels.newReader
+            // is documented to throw on non-blocking.
+            // int n = ch.read(bb);
+            int n = sun.nio.ch.ChannelInputStream.read(ch, bb, true);
             if (n < 0)
                 return n;
         } else {
@@ -317,7 +320,7 @@ public class StreamDecoder extends Reader
         // Ensure that cb[0] == cbuf[off]
         cb = cb.slice();
 
-        // Android-changed: Support flushing the buffer properly.
+        // BEGIN Android-added: Flush the CharsetDecoder properly.
         if (needsFlush) {
             CoderResult cr = decoder.flush(cb);
             if (cr.isOverflow()) {
@@ -337,6 +340,7 @@ public class StreamDecoder extends Reader
             cr.throwException();
             // Unreachable.
         }
+        // END Android-added: Flush the CharsetDecoder properly.
 
         boolean eof = false;
         for (;;) {
@@ -351,10 +355,10 @@ public class StreamDecoder extends Reader
             int n = readBytes();
             if (n < 0) {
                 eof = true;
-                // Android-changed: We want to go 'round the loop one more time
-                // with "eof = true". We also don't want to reset the decoder here
-                // because we might potentially need to flush it later.
-                //
+                // Android-removed: Flush the CharsetDecoder correctly.
+                // We want to go 'round the loop one more time with "eof = true".
+                // We also don't want to reset the decoder here because we might potentially need
+                // to flush it later.
                 // if ((cb.position() == 0) && (!bb.hasRemaining()))
                 //     break;
                 //  decoder.reset();
@@ -369,6 +373,9 @@ public class StreamDecoder extends Reader
         }
 
         if (eof) {
+            // BEGIN Android-changed: Flush the CharsetDecoder correctly.
+            // // ## Need to flush decoder
+            // decoder.reset();
             CoderResult cr = decoder.flush(cb);
             if (cr.isOverflow()) {
                 needsFlush = true;
@@ -379,6 +386,7 @@ public class StreamDecoder extends Reader
             if (!cr.isUnderflow()) {
                 cr.throwException();
             }
+            // END Android-changed: Flush the CharsetDecoder correctly.
         }
 
         if (cb.position() == 0) {

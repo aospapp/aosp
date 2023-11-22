@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)
 #### libGLESv1_CM_emul.so
 $(call emugl-begin-shared-library,libGLESv1_CM_emul)
 $(call emugl-import,libGLESv1_enc)
-$(call emugl-gen-wrapper,$(EMUGL_PATH)/system/GLESv1_enc,gl)
+$(call emugl-gen-wrapper,$(GOLDFISH_OPENGL_PATH)/system/GLESv1_enc,gl)
 $(call emugl-set-shared-library-subpath,egl)
 
 LOCAL_SRC_FILES += glesv1_emul_ifc.cpp
@@ -19,7 +19,7 @@ EMUGEN = $(BUILD_OUT_EXECUTABLES)/emugen
 #### libGLESv2_CM_emul.so
 $(call emugl-begin-shared-library, libGLESv2_emul)
 $(call emugl-import,libGLESv2_enc)
-$(call emugl-gen-wrapper,$(EMUGL_PATH)/system/GLESv2_enc,gl2)
+$(call emugl-gen-wrapper,$(GOLDFISH_OPENGL_PATH)/system/GLESv2_enc,gl2)
 LOCAL_SRC_FILES += glesv2_emul_ifc.cpp
 $(call emugl-set-shared-library-subpath,egl)
 $(call emugl-end-module)

@@ -28,6 +28,20 @@ using flatbuffers::Vector;
 
 namespace chre {
 
+// This is similar to getStringFromByteVector in host_protocol_host.h. Ensure
+// that method's implementation is kept in sync with this.
+const char *getStringFromByteVector(const flatbuffers::Vector<int8_t> *vec) {
+  constexpr int8_t kNullChar = static_cast<int8_t>('\0');
+  const char *str = nullptr;
+
+  // Check that the vector is present, non-empty, and null-terminated
+  if (vec != nullptr && vec->size() > 0 && (*vec)[vec->size() - 1] == kNullChar) {
+    str = reinterpret_cast<const char *>(vec->Data());
+  }
+
+  return str;
+}
+
 bool HostProtocolChre::decodeMessageFromHost(const void *message,
                                              size_t messageLen) {
   bool success = verifyMessage(message, messageLen);
@@ -63,11 +77,13 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
         const auto *request = static_cast<const fbs::LoadNanoappRequest *>(
             container->message());
         const flatbuffers::Vector<uint8_t> *appBinary = request->app_binary();
+        const char *appBinaryFilename = getStringFromByteVector(
+            request->app_binary_file_name());
         HostMessageHandlers::handleLoadNanoappRequest(
             hostClientId, request->transaction_id(), request->app_id(),
             request->app_version(), request->target_api_version(),
-            appBinary->data(), appBinary->size(), request->fragment_id(),
-            request->total_app_size());
+            appBinary->data(), appBinary->size(), appBinaryFilename,
+            request->fragment_id(), request->total_app_size());
         break;
       }
 

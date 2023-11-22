@@ -106,6 +106,16 @@ public @interface Option {
     boolean isTimeVal() default false;
 
     /**
+     * Whether the option is needed to compile instruction to rerun a test.
+     *
+     * <p>Result reporter may try to compile instruction on how to rerun a test and include the
+     * message in the result. The instruction shall include all options that applicable to a test
+     * rerun. This attribute is used to indicate if the option shall be included in such
+     * instruction.
+     */
+    boolean requiredForRerun() default false;
+
+    /**
      * Controls the behavior when an option is specified multiple times.  Note that this rule is
      * ignored completely for options that are {@link Collection}s or {@link Map}s.
      */

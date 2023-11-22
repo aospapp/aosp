@@ -44,7 +44,7 @@ import javax.annotation.Nullable;
  * Base class for host-side tests for multi-user aware media APIs.
  */
 public class BaseMultiUserTest extends DeviceTestCase implements IBuildReceiver {
-    private static final String RUNNER = "android.support.test.runner.AndroidJUnitRunner";
+    private static final String RUNNER = "androidx.test.runner.AndroidJUnitRunner";
 
     /**
      * The defined timeout (in milliseconds) is used as a maximum waiting time when expecting the

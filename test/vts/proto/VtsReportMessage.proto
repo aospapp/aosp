@@ -217,6 +217,32 @@ message CoverageReportMessage {
   optional bytes html = 3 [deprecated=true];
 }
 
+// Information for a HAL interface.
+message HalInterfaceMessage {
+  // HAL package name. e.g. android.hardware.foo.
+  optional bytes hal_package_name = 1;
+  // HAL (major) version. e.g. 1.
+  optional int32 hal_version_major = 2;
+  // HAL (minor) version. e.g. 0.
+  optional int32 hal_version_minor = 3;
+  // HAL interface name. e.g. IFoo.
+  optional bytes hal_interface_name = 4;
+  // HAL release level (e.g. "current", "27", "28")
+  optional bytes hal_release_level = 5;
+}
+
+// To specify a API coverage report. Currently only for HAL API coverage.
+message ApiCoverageReportMessage {
+  // Hal interface info.
+  optional HalInterfaceMessage hal_interface = 1;
+
+  // APIs provided by the HAL with given package, version and interface name.
+  repeated bytes hal_api = 11;
+
+  // APIs covered by the test.
+  repeated bytes covered_hal_api = 12;
+}
+
 // To specify log report. This can be used either for per-test-module
 // log message or per-test-case log message.
 message LogMessage {
@@ -249,7 +275,7 @@ message UrlResourceMessage {
 
 // To specify a test execution report.
 message TestReportMessage {
-  // The test suite name..
+  // The test suite name.
   optional bytes test_suite = 1 [deprecated=true];
 
   // The test name.
@@ -286,6 +312,9 @@ message TestReportMessage {
   // Coverage report per file
   repeated CoverageReportMessage coverage = 103;
 
+  // API coverage report for each HAL interface.
+  repeated ApiCoverageReportMessage api_coverage = 104;
+
   // Log for a test module. May contain multiple logs such as logcat, host log,
   // etc.
   repeated LogMessage log = 1001;
@@ -306,6 +335,10 @@ message TestPlanReportMessage {
 
   // Report resource flies.
   repeated UrlResourceMessage partner_report = 31;
+
+  // Available HAL APIs for coverage measurement.
+  // Only used for profiling test plan.
+  repeated ApiCoverageReportMessage hal_api_report = 41;
 
   // Detailed information about the execution environment (e.g., branch,
   // build ID, and device) can be found in the associated TestReportMessage(s)

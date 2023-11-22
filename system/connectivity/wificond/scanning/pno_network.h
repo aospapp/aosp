@@ -40,6 +40,7 @@ class PnoNetwork : public ::android::Parcelable {
 
   bool is_hidden_;
   std::vector<uint8_t> ssid_;
+  std::vector<int32_t> frequencies_;
 };
 
 }  // namespace wificond

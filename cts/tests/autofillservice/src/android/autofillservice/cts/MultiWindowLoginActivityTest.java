@@ -15,57 +15,68 @@
  */
 package android.autofillservice.cts;
 
-import static android.app.ActivityManager.SPLIT_SCREEN_CREATE_MODE_TOP_OR_LEFT;
+import static android.app.ActivityTaskManager.SPLIT_SCREEN_CREATE_MODE_TOP_OR_LEFT;
 import static android.autofillservice.cts.Helper.ID_PASSWORD;
 import static android.autofillservice.cts.Helper.ID_USERNAME;
-import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
-import static android.autofillservice.cts.common.ShellHelper.tap;
+
+import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
+import static com.android.compatibility.common.util.ShellUtils.tap;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
-import android.app.ActivityManager;
+import android.app.ActivityTaskManager;
 import android.content.Intent;
 import android.platform.test.annotations.AppModeFull;
 import android.view.View;
 
+import com.android.compatibility.common.util.AdoptShellPermissionsRule;
+
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.RuleChain;
+import org.junit.rules.TestRule;
 
 import java.util.concurrent.TimeoutException;
 
-@AppModeFull // This test requires android.permission.MANAGE_ACTIVITY_STACKS
-public class MultiWindowLoginActivityTest extends AutoFillServiceTestCase {
-
-    @Rule
-    public final AutofillActivityTestRule<MultiWindowLoginActivity> mActivityRule =
-            new AutofillActivityTestRule<MultiWindowLoginActivity>(MultiWindowLoginActivity.class);
+@AppModeFull(reason = "This test requires android.permission.MANAGE_ACTIVITY_STACKS")
+public class MultiWindowLoginActivityTest
+        extends AutoFillServiceTestCase.AutoActivityLaunch<MultiWindowLoginActivity> {
 
     private LoginActivity mActivity;
-    protected ActivityManager mAm;
+    private ActivityTaskManager mAtm;
 
-    @Before
-    public void setActivity() {
-        mActivity = mActivityRule.getActivity();
+    @Override
+    protected AutofillActivityTestRule<MultiWindowLoginActivity> getActivityRule() {
+        return new AutofillActivityTestRule<MultiWindowLoginActivity>(
+                MultiWindowLoginActivity.class) {
+            @Override
+            protected void afterActivityLaunched() {
+                mActivity = getActivity();
+                mAtm = mContext.getSystemService(ActivityTaskManager.class);
+            }
+        };
+    }
+
+    @Override
+    protected TestRule getMainTestRule() {
+        return RuleChain.outerRule(new AdoptShellPermissionsRule()).around(getActivityRule());
     }
 
     @Before
     public void setup() {
         assumeTrue("Skipping test: no split multi-window support",
-                ActivityManager.supportsSplitScreenMultiWindow(mContext));
-        mAm = mContext.getSystemService(ActivityManager.class);
+                ActivityTaskManager.supportsSplitScreenMultiWindow(mContext));
     }
 
     /**
      * Touch a view and exepct autofill window change
      */
     protected void tapViewAndExpectWindowEvent(View view) throws TimeoutException {
-        mUiBot.waitForWindowChange(() -> tap(view), Timeouts.UI_TIMEOUT.getMaxValue());
+        mUiBot.waitForWindowChange(() -> tap(view));
     }
-
 
     protected String runAmStartActivity(Class<? extends Activity> activityClass, int flags) {
         return runAmStartActivity(activityClass.getName(), flags);
@@ -77,12 +88,12 @@ public class MultiWindowLoginActivityTest extends AutoFillServiceTestCase {
     }
 
     /**
-     * Put activity1 in TOP, will be followed by amStartActivity()
+     * Put activity in TOP, will be followed by amStartActivity()
      */
-    protected void splitWindow(Activity activity1) {
-        mAm.setTaskWindowingModeSplitScreenPrimary(activity1.getTaskId(),
+    protected void splitWindow(Activity activity) throws Exception {
+        mAtm.setTaskWindowingModeSplitScreenPrimary(activity.getTaskId(),
                 SPLIT_SCREEN_CREATE_MODE_TOP_OR_LEFT, true, false, null, true);
-
+        mUiBot.waitForWindowSplit();
     }
 
     protected void amStartActivity(Class<? extends Activity> activity2) {
@@ -116,6 +127,10 @@ public class MultiWindowLoginActivityTest extends AutoFillServiceTestCase {
         amStartActivity(MultiWindowEmptyActivity.class);
         MultiWindowEmptyActivity emptyActivity = MultiWindowEmptyActivity.waitNewInstance();
 
+        // Make sure both activities are showing
+        mUiBot.assertShownByRelativeId(Helper.ID_USERNAME);  // MultiWindowLoginActivity
+        mUiBot.assertShownByRelativeId(MultiWindowEmptyActivity.ID_EMPTY);
+
         // No dataset as LoginActivity loses window focus
         mUiBot.assertNoDatasets();
         // EmptyActivity will have window focus
@@ -125,7 +140,7 @@ public class MultiWindowLoginActivityTest extends AutoFillServiceTestCase {
         assertThat(loginActivity.hasWindowFocus()).isFalse();
 
         // Make LoginActivity to regain window focus and fill ui is expected to show
-        tapViewAndExpectWindowEvent(loginActivity.getUsernameLabel());
+        tapViewAndExpectWindowEvent(loginActivity.getUsername());
         mUiBot.assertDatasets("The Dude");
         assertThat(emptyActivity.hasWindowFocus()).isFalse();
 

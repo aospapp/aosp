@@ -103,5 +103,5 @@ class ParamTestClass(base_test.BaseTestClass):
                     records.TestResultRecord(test_name, self.test_module_name)
                     for test_name, _ in tests
                 ]
-            self.runTests(tests)
+            self.runTestsWithRetry(tests)
         return self.results

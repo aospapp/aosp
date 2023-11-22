@@ -27,10 +27,6 @@ import android.graphics.Color;
 import android.graphics.Point;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -38,7 +34,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -80,20 +82,20 @@ public class MotionEventTest {
      * screen to determine approximate locations of touch events without the user knowing.
      */
     @Test
-    public void testActionOutsideDoesNotContainedObscuredInformation() throws Exception {
+    public void testActionOutsideDoesNotContainedObscuredInformation() throws Throwable {
         enableAppOps();
         final OnTouchListener listener = new OnTouchListener();
-        final Point size = new Point();
-        final View[] viewHolder = new View[1];
-        mActivity.runOnUiThread(() -> {
-            final WindowManager wm = mActivity.getSystemService(WindowManager.class);
+        final WindowManager wm = mActivity.getSystemService(WindowManager.class);
+        WindowManager.LayoutParams wmlp = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                        WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
+
+        FutureTask<View> addViewTask = new FutureTask<>(() -> {
+            final Point size = new Point();
             wm.getDefaultDisplay().getSize(size);
 
-            WindowManager.LayoutParams wmlp = new WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH |
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
             wmlp.width = size.x / 4;
             wmlp.height = size.y / 4;
             wmlp.gravity = Gravity.TOP | Gravity.LEFT;
@@ -115,19 +117,34 @@ public class MotionEventTest {
             v.setBackgroundColor(Color.BLUE);
             v.setOnTouchListener(listener);
             v.setLayoutParams(vglp);
-            viewHolder[0] = v;
 
             wm.addView(v, wmlp);
+            return v;
         });
-        mInstrumentation.waitForIdleSync();
+        mActivity.runOnUiThread(addViewTask);
+        View view = addViewTask.get(5, TimeUnit.SECONDS);
 
-        FutureTask<Point> task = new FutureTask<>(() -> {
-            final int[] viewLocation = new int[2];
-            viewHolder[0].getLocationOnScreen(viewLocation);
-            return new Point(viewLocation[0], viewLocation[1]);
+        // Wait for a layout pass to be certain the view is on the screen
+        // before getting the location and injecting touches.
+        WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, view, null /*runnable*/,
+                true /*forceLayout*/);
+
+	// This ensures the window is visible, where the code above ensures
+        // the view is on screen.
+        mActivityRule.runOnUiThread(() -> {
+            // This will force WindowManager to relayout, ensuring the
+	    // transaction to show the window are sent to the graphics code.
+            wm.updateViewLayout(view, wmlp);
         });
-        mActivity.runOnUiThread(task);
-        Point viewLocation = task.get(5, TimeUnit.SECONDS);
+
+        FutureTask<Point> clickLocationTask = new FutureTask<>(() -> {
+            final int[] viewLocation = new int[2];
+            view.getLocationOnScreen(viewLocation);
+            // Set y position to the center of the view, to make sure it is away from the status bar
+            return new Point(viewLocation[0], viewLocation[1] + view.getHeight() / 2);
+        });
+        mActivity.runOnUiThread(clickLocationTask);
+        Point viewLocation = clickLocationTask.get(5, TimeUnit.SECONDS);
         injectTap(viewLocation.x, viewLocation.y);
 
         List<MotionEvent> outsideEvents = listener.getOutsideEvents();

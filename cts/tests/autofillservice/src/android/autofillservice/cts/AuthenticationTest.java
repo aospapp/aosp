@@ -53,7 +53,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testDatasetAuthTwoFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthTwoFields() is enough")
     public void testDatasetAuthTwoFieldsUserCancelsFirstAttempt() throws Exception {
         datasetAuthTwoFields(true);
     }
@@ -136,7 +136,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testDatasetAuthTwoFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthTwoFields() is enough")
     public void testDatasetAuthTwoFieldsReplaceResponse() throws Exception {
         // Set service.
         enableService();
@@ -198,7 +198,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testDatasetAuthTwoFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthTwoFields() is enough")
     public void testDatasetAuthTwoFieldsNoValues() throws Exception {
         // Set service.
         enableService();
@@ -242,7 +242,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testDatasetAuthTwoFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthTwoFields() is enough")
     public void testDatasetAuthTwoDatasets() throws Exception {
         // Set service.
         enableService();
@@ -297,13 +297,13 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testDatasetAuthTwoFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthTwoFields() is enough")
     public void testDatasetAuthMixedSelectAuth() throws Exception {
         datasetAuthMixedTest(true);
     }
 
     @Test
-    @AppModeFull // testDatasetAuthTwoFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthTwoFields() is enough")
     public void testDatasetAuthMixedSelectNonAuth() throws Exception {
         datasetAuthMixedTest(false);
     }
@@ -363,7 +363,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testDatasetAuthFilteringUsingRegex() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthFilteringUsingRegex() is enough")
     public void testDatasetAuthNoFiltering() throws Exception {
         // Set service.
         enableService();
@@ -421,7 +421,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testDatasetAuthFilteringUsingRegex() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthFilteringUsingRegex() is enough")
     public void testDatasetAuthFilteringUsingAutofillValue() throws Exception {
         // Set service.
         enableService();
@@ -577,13 +577,13 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testDatasetAuthFilteringUsingRegex() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthFilteringUsingRegex() is enough")
     public void testDatasetAuthMixedFilteringSelectAuth() throws Exception {
         datasetAuthMixedFilteringTest(true);
     }
 
     @Test
-    @AppModeFull // testDatasetAuthFilteringUsingRegex() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testDatasetAuthFilteringUsingRegex() is enough")
     public void testDatasetAuthMixedFilteringSelectNonAuth() throws Exception {
         datasetAuthMixedFilteringTest(false);
     }
@@ -668,13 +668,13 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testDatasetAuthClientStateSetOnIntentOnly() is enough to test ephemeral apps
+    @AppModeFull(reason = "testDatasetAuthClientStateSetOnIntentOnly() is enough")
     public void testDatasetAuthClientStateSetOnFillResponseOnly() throws Exception {
         fillDatasetAuthWithClientState(ClientStateLocation.FILL_RESPONSE_ONLY);
     }
 
     @Test
-    @AppModeFull // testDatasetAuthClientStateSetOnIntentOnly() is enough to test ephemeral apps
+    @AppModeFull(reason = "testDatasetAuthClientStateSetOnIntentOnly() is enough")
     public void testDatasetAuthClientStateSetOnIntentAndFillResponse() throws Exception {
         fillDatasetAuthWithClientState(ClientStateLocation.BOTH);
     }
@@ -725,7 +725,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
         final String expectedMessage = getWelcomeMessage("malkovich");
         final String actualMessage = mActivity.tapLogin();
         assertWithMessage("Wrong welcome msg").that(actualMessage).isEqualTo(expectedMessage);
-        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
 
         // Assert client state on authentication activity.
         assertClientState("auth activity", AuthenticationActivity.getData(), "CSI", "FromResponse");
@@ -743,7 +743,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFillResponseAuthBothFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFillResponseAuthBothFields() is enough")
     public void testFillResponseAuthBothFieldsUserCancelsFirstAttempt() throws Exception {
         fillResponseAuthBothFields(true);
     }
@@ -837,7 +837,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFillResponseAuthBothFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFillResponseAuthBothFields() is enough")
     public void testFillResponseAuthJustOneField() throws Exception {
         // Set service.
         enableService();
@@ -902,7 +902,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFillResponseAuthBothFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFillResponseAuthBothFields() is enough")
     public void testFillResponseAuthWhenAppCallsCancel() throws Exception {
         // Set service.
         enableService();
@@ -955,13 +955,13 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFillResponseAuthBothFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFillResponseAuthBothFields() is enough")
     public void testFillResponseAuthServiceHasNoDataButCanSave() throws Exception {
         fillResponseAuthServiceHasNoDataTest(true);
     }
 
     @Test
-    @AppModeFull // testFillResponseAuthBothFields() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFillResponseAuthBothFields() is enough")
     public void testFillResponseAuthServiceHasNoData() throws Exception {
         fillResponseAuthServiceHasNoDataTest(false);
     }
@@ -1034,13 +1034,13 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFillResponseAuthClientStateSetOnIntentOnly() is enough to test ephemeral
+    @AppModeFull(reason = "testFillResponseAuthClientStateSetOnIntentOnly() is enough")
     public void testFillResponseAuthClientStateSetOnFillResponseOnly() throws Exception {
         fillResponseAuthWithClientState(ClientStateLocation.FILL_RESPONSE_ONLY);
     }
 
     @Test
-    @AppModeFull // testFillResponseAuthClientStateSetOnIntentOnly() is enough to test ephemeral
+    @AppModeFull(reason = "testFillResponseAuthClientStateSetOnIntentOnly() is enough")
     public void testFillResponseAuthClientStateSetOnIntentAndFillResponse() throws Exception {
         fillResponseAuthWithClientState(ClientStateLocation.BOTH);
     }
@@ -1105,7 +1105,7 @@ public class AuthenticationTest extends AbstractLoginActivityTestCase {
         final String expectedMessage = getWelcomeMessage("malkovich");
         final String actualMessage = mActivity.tapLogin();
         assertWithMessage("Wrong welcome msg").that(actualMessage).isEqualTo(expectedMessage);
-        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
 
         // Assert client state on authentication activity.
         assertClientState("auth activity", AuthenticationActivity.getData(), "CSI", "FromResponse");

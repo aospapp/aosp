@@ -113,6 +113,23 @@ class NL80211Attr<std::vector<uint8_t>> : public BaseNL80211Attr {
   std::vector<uint8_t> GetValue() const;
 }; // class NL80211Attr for raw data
 
+template <size_t N>
+class NL80211Attr<std::array<uint8_t, N>> : public BaseNL80211Attr {
+ public:
+  NL80211Attr(int id, const std::array<uint8_t, N>& raw_buffer)
+      : BaseNL80211Attr(
+          id, std::vector<uint8_t>(raw_buffer.begin(), raw_buffer.end())) {}
+  explicit NL80211Attr(const std::vector<uint8_t>& data) {
+    data_ = data;
+  }
+  ~NL80211Attr() override = default;
+  std::array<uint8_t, N> GetValue() const {
+    std::array<uint8_t, N> arr;
+    std::copy_n(data_.data() + NLA_HDRLEN, N, arr.begin());
+    return arr;
+  }
+}; // class NL80211Attr for fixed size array
+
 template <>
 class NL80211Attr<std::string> : public BaseNL80211Attr {
  public:

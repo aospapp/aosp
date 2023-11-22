@@ -23,16 +23,14 @@ import android.os.Build;
 import org.junit.Test;
 
 /**
- * Test that legacy apps can access the device serial without the phone permission.
+ * Test that legacy apps can no longer access the device serial.
  */
 public class AccessSerialLegacyTest {
     @Test
     public void testAccessSerialNoPermissionNeeded() throws Exception {
-        // Build.SERIAL should provide the device serial for legacy apps.
-        // We don't know the serial but know that it should not be the dummy
-        // value returned to unauthorized callers, so make sure not that value
-        assertTrue("Build.SERIAL must be visible to legacy apps",
-                !Build.UNKNOWN.equals(Build.SERIAL));
+        // Build.SERIAL must no longer provide the device serial for legacy apps.
+        assertTrue("Build.SERIAL must not be visible to legacy apps",
+                Build.UNKNOWN.equals(Build.SERIAL));
 
         // We don't have the READ_PHONE_STATE permission, so this should throw
         try {

@@ -16,7 +16,7 @@
 
 package com.android.tv.settings.connectivity;
 
-import android.arch.lifecycle.ViewModel;
+import androidx.lifecycle.ViewModel;
 
 /**
  * Store the information for EditIpSettings and EditProxySettings flows.

@@ -77,4 +77,9 @@ public class SslErrorTest extends TestCase {
         SslError error = new SslError(SslError.SSL_EXPIRED, mCertificate);
         assertEquals(error.getUrl(), "");
     }
+
+    public void testGetCertificate() {
+        SslError error = new SslError(SslError.SSL_EXPIRED, mCertificate);
+        assertEquals(mCertificate, error.getCertificate());
+    }
 }

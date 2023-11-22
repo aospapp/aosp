@@ -24,6 +24,6 @@ LOCAL_MODULE := accountaccesslib
 
 LOCAL_STATIC_JAVA_LIBRARIES := mockito-target \
                                ub-uiautomator \
-                               compatibility-device-util
+                               compatibility-device-util-axt
 
 include $(BUILD_STATIC_JAVA_LIBRARY)

@@ -16,18 +16,20 @@
 
 #define LOG_TAG "NativeBN"
 
-#include "JniException.h"
-#include "jni.h"
-#include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
-#include <nativehelper/ScopedPrimitiveArray.h>
-#include <nativehelper/ScopedUtfChars.h>
-#include <openssl/bn.h>
-#include <openssl/crypto.h>
-#include <openssl/err.h>
 #include <stdio.h>
 #include <algorithm>
 #include <memory>
+
+#include <openssl/bn.h>
+#include <openssl/crypto.h>
+#include <openssl/err.h>
+
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+#include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/jni_macros.h>
+
+#include "JniException.h"
 
 struct BN_CTX_Deleter {
   void operator()(BN_CTX* p) const {
@@ -409,21 +411,21 @@ static void NativeBN_BN_shift(JNIEnv* env, jclass, jlong r, jlong a, int n) {
   }
 }
 
-static void NativeBN_BN_add_word(JNIEnv* env, jclass, jlong a, BN_ULONG w) {
+static void NativeBN_BN_add_word(JNIEnv* env, jclass, jlong a, jint w) {
   if (!oneValidHandle(env, a)) return;
   if (!BN_add_word(toBigNum(a), w)) {
     throwException(env);
   }
 }
 
-static void NativeBN_BN_mul_word(JNIEnv* env, jclass, jlong a, BN_ULONG w) {
+static void NativeBN_BN_mul_word(JNIEnv* env, jclass, jlong a, jint w) {
   if (!oneValidHandle(env, a)) return;
   if (!BN_mul_word(toBigNum(a), w)) {
     throwException(env);
   }
 }
 
-static BN_ULONG NativeBN_BN_mod_word(JNIEnv* env, jclass, jlong a, BN_ULONG w) {
+static jint NativeBN_BN_mod_word(JNIEnv* env, jclass, jlong a, jint w) {
   if (!oneValidHandle(env, a)) return 0;
   BN_ULONG result = BN_mod_word(toBigNum(a), w);
   if (result == (BN_ULONG)-1) {

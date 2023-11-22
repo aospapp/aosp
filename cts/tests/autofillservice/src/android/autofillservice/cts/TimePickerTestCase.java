@@ -36,14 +36,14 @@ import org.junit.Test;
 /**
  * Base class for {@link AbstractTimePickerActivity} tests.
  */
-abstract class TimePickerTestCase<T extends AbstractTimePickerActivity>
-        extends AutoFillServiceTestCase {
+abstract class TimePickerTestCase<A extends AbstractTimePickerActivity>
+        extends AutoFillServiceTestCase.AutoActivityLaunch<A> {
 
-    protected abstract T getTimePickerActivity();
+    protected A mActivity;
 
     @Test
     public void testAutoFillAndSave() throws Exception {
-        final T activity = getTimePickerActivity();
+        assertWithMessage("subclass did not set mActivity").that(mActivity).isNotNull();
 
         // Set service.
         enableService();
@@ -62,10 +62,10 @@ abstract class TimePickerTestCase<T extends AbstractTimePickerActivity>
                 .setRequiredSavableIds(SAVE_DATA_TYPE_GENERIC, ID_OUTPUT, ID_TIME_PICKER)
                 .build());
 
-        activity.expectAutoFill("4:20", 4, 20);
+        mActivity.expectAutoFill("4:20", 4, 20);
 
         // Trigger auto-fill.
-        activity.onOutput((v) -> v.requestFocus());
+        mActivity.onOutput((v) -> v.requestFocus());
         final FillRequest fillRequest = sReplier.getNextFillRequest();
 
         // Assert properties of TimePicker field.
@@ -75,13 +75,13 @@ abstract class TimePickerTestCase<T extends AbstractTimePickerActivity>
         mUiBot.selectDataset("Adventure Time");
 
         // Check the results.
-        activity.assertAutoFilled();
+        mActivity.assertAutoFilled();
 
         // Trigger save.
-        activity.setTime(10, 40);
-        activity.tapOk();
+        mActivity.setTime(10, 40);
+        mActivity.tapOk();
 
-        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_GENERIC);
+        mUiBot.updateForAutofill(true, SAVE_DATA_TYPE_GENERIC);
         final SaveRequest saveRequest = sReplier.getNextSaveRequest();
         assertWithMessage("onSave() not called").that(saveRequest).isNotNull();
 

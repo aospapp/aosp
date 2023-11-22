@@ -20,7 +20,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:focusable="true"
-    style="@style/BlockedNumbersText"
+    style="@style/BlockedNumbersTextPrimary2"
     android:gravity="start">
 
     <TextView

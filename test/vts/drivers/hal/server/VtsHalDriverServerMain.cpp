@@ -27,6 +27,7 @@
 
 #include <android-base/logging.h>
 
+#include <resource_manager/VtsResourceManager.h>
 #include "BinderServer.h"
 #include "SocketServer.h"
 #include "binder/VtsFuzzerBinderService.h"
@@ -106,12 +107,14 @@ int main(int argc, char** argv) {
     }
   }
 
+  android::vts::VtsResourceManager resource_manager;
   android::vts::VtsHalDriverManager driver_manager(
-      spec_dir_path, kDefaultEpochCount, callback_socket_name);
+      spec_dir_path, kDefaultEpochCount, callback_socket_name,
+      &resource_manager);
 
 #ifndef VTS_AGENT_DRIVER_COMM_BINDER  // socket
   android::vts::StartSocketServer(server_socket_path, &driver_manager,
-                                  kInterfaceSpecLibName);
+                                  &resource_manager, kInterfaceSpecLibName);
 #else  // binder
   android::vts::StartBinderServer(service_name, &driver_manager,
                                   kInterfaceSpecLibName);

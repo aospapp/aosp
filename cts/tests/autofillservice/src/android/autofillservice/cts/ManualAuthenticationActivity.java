@@ -52,7 +52,7 @@ public class ManualAuthenticationActivity extends Activity {
             if (structure != null) {
                 Parcelable result;
                 if (sResponse != null) {
-                    result = sResponse.asFillResponse(
+                    result = sResponse.asFillResponse(/* contexts= */ null,
                             (id) -> Helper.findNodeByResourceId(structure, id));
                 } else if (sDataset != null) {
                     result = sDataset.asDataset(

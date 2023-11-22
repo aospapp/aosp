@@ -117,7 +117,11 @@ static bool find_uuid_in_seq(uint8_t* p, uint32_t seq_len, uint8_t* p_uuid,
 
   while (p < p_end) {
     type = *p++;
-    p = sdpu_get_len_from_type(p, type, &len);
+    p = sdpu_get_len_from_type(p, p_end, type, &len);
+    if (p == NULL || (p + len) > p_end) {
+      SDP_TRACE_WARNING("%s: bad length", __func__);
+      break;
+    }
     type = type >> 3;
     if (type == UUID_DESC_TYPE) {
       if (sdpu_compare_uuid_arrays(p, len, p_uuid, uuid_len)) return (true);
@@ -792,34 +796,33 @@ bool SDP_AddServiceClassIdList(uint32_t handle, uint16_t num_services,
  ******************************************************************************/
 bool SDP_DeleteAttribute(uint32_t handle, uint16_t attr_id) {
 #if (SDP_SERVER_ENABLED == TRUE)
-  uint16_t xx, yy;
   tSDP_RECORD* p_rec = &sdp_cb.server_db.record[0];
   uint8_t* pad_ptr;
   uint32_t len; /* Number of bytes in the entry */
 
   /* Find the record in the database */
-  for (xx = 0; xx < sdp_cb.server_db.num_records; xx++, p_rec++) {
+  for (uint16_t xx = 0; xx < sdp_cb.server_db.num_records; xx++, p_rec++) {
     if (p_rec->record_handle == handle) {
       tSDP_ATTRIBUTE* p_attr = &p_rec->attribute[0];
 
       SDP_TRACE_API("Deleting attr_id 0x%04x for handle 0x%x", attr_id, handle);
       /* Found it. Now, find the attribute */
-      for (xx = 0; xx < p_rec->num_attributes; xx++, p_attr++) {
+      for (uint16_t yy = 0; yy < p_rec->num_attributes; yy++, p_attr++) {
         if (p_attr->id == attr_id) {
           pad_ptr = p_attr->value_ptr;
           len = p_attr->len;
 
           if (len) {
-            for (yy = 0; yy < p_rec->num_attributes; yy++) {
-              if (p_rec->attribute[yy].value_ptr > pad_ptr)
-                p_rec->attribute[yy].value_ptr -= len;
+            for (uint16_t zz = 0; zz < p_rec->num_attributes; zz++) {
+              if (p_rec->attribute[zz].value_ptr > pad_ptr)
+                p_rec->attribute[zz].value_ptr -= len;
             }
           }
 
           /* Found it. Shift everything up one */
           p_rec->num_attributes--;
 
-          for (yy = xx; yy < p_rec->num_attributes; yy++, p_attr++) {
+          for (uint16_t zz = xx; zz < p_rec->num_attributes; zz++, p_attr++) {
             *p_attr = *(p_attr + 1);
           }
 
@@ -827,7 +830,9 @@ bool SDP_DeleteAttribute(uint32_t handle, uint16_t attr_id) {
           if (len) {
             xx =
                 (p_rec->free_pad_ptr - ((pad_ptr + len) - &p_rec->attr_pad[0]));
-            for (yy = 0; yy < xx; yy++, pad_ptr++) *pad_ptr = *(pad_ptr + len);
+            for (uint16_t zz = 0; zz < xx; zz++, pad_ptr++) {
+              *pad_ptr = *(pad_ptr + len);
+            }
             p_rec->free_pad_ptr -= len;
           }
           return (true);

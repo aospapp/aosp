@@ -17,6 +17,7 @@
 package com.android.server.telecom;
 
 import android.Manifest;
+import android.annotation.NonNull;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -125,6 +126,8 @@ public class PhoneAccountRegistrar {
                                              PhoneAccountHandle handle) {}
         public void onPhoneAccountUnRegistered(PhoneAccountRegistrar registrar,
                                              PhoneAccountHandle handle) {}
+        public void onPhoneAccountChanged(PhoneAccountRegistrar registrar,
+                PhoneAccount phoneAccount) {}
     }
 
     /**
@@ -135,7 +138,7 @@ public class PhoneAccountRegistrar {
         CharSequence getAppLabel(String packageName);
     }
 
-    private static final String FILE_NAME = "phone-account-registrar-state.xml";
+    public static final String FILE_NAME = "phone-account-registrar-state.xml";
     @VisibleForTesting
     public static final int EXPECTED_STATE_VERSION = 9;
 
@@ -309,6 +312,11 @@ public class PhoneAccountRegistrar {
         if (userHandle == null) {
             return;
         }
+        DefaultPhoneAccountHandle currentDefaultInfo =
+                mState.defaultOutgoingAccountHandles.get(userHandle);
+        PhoneAccountHandle currentDefaultPhoneAccount = currentDefaultInfo == null ? null :
+                currentDefaultInfo.phoneAccountHandle;
+        boolean isSimAccount = false;
         if (accountHandle == null) {
             // Asking to clear the default outgoing is a valid request
             mState.defaultOutgoingAccountHandles.remove(userHandle);
@@ -329,13 +337,31 @@ public class PhoneAccountRegistrar {
             if (account.hasCapabilities(PhoneAccount.CAPABILITY_SIM_SUBSCRIPTION)) {
                 // If the account selected is a SIM account, propagate down to the subscription
                 // record.
-                int subId = getSubscriptionIdForPhoneAccount(accountHandle);
-                mSubscriptionManager.setDefaultVoiceSubId(subId);
+                isSimAccount = true;
             }
 
+            Log.i(this, "setUserSelectedOutgoingPhoneAccount: %s", accountHandle);
             mState.defaultOutgoingAccountHandles
                     .put(userHandle, new DefaultPhoneAccountHandle(userHandle, accountHandle,
                             account.getGroupId()));
+        }
+
+        // Potentially update the default voice subid in SubscriptionManager.
+        if (!Objects.equals(currentDefaultPhoneAccount, accountHandle)) {
+            int newSubId = accountHandle == null ? SubscriptionManager.INVALID_SUBSCRIPTION_ID :
+                    getSubscriptionIdForPhoneAccount(accountHandle);
+            if (isSimAccount || accountHandle == null) {
+                int currentVoiceSubId = mSubscriptionManager.getDefaultVoiceSubscriptionId();
+                if (newSubId != currentVoiceSubId) {
+                    Log.i(this, "setUserSelectedOutgoingPhoneAccount: update voice sub; "
+                            + "account=%s, subId=%d", accountHandle, newSubId);
+                    mSubscriptionManager.setDefaultVoiceSubId(newSubId);
+                }
+            } else {
+                Log.i(this, "setUserSelectedOutgoingPhoneAccount: %s is not a sub", accountHandle);
+            }
+        } else {
+            Log.i(this, "setUserSelectedOutgoingPhoneAccount: no change to voice sub");
         }
 
         write();
@@ -348,16 +374,20 @@ public class PhoneAccountRegistrar {
     }
 
     public ComponentName getSystemSimCallManagerComponent() {
+        return getSystemSimCallManagerComponent(SubscriptionManager.getDefaultSubscriptionId());
+    }
+
+    public ComponentName getSystemSimCallManagerComponent(int subId) {
         String defaultSimCallManager = null;
         CarrierConfigManager configManager = (CarrierConfigManager) mContext.getSystemService(
                 Context.CARRIER_CONFIG_SERVICE);
-        PersistableBundle configBundle = configManager.getConfig();
+        PersistableBundle configBundle = configManager.getConfigForSubId(subId);
         if (configBundle != null) {
             defaultSimCallManager = configBundle.getString(
                     CarrierConfigManager.KEY_DEFAULT_SIM_CALL_MANAGER_STRING);
         }
         return TextUtils.isEmpty(defaultSimCallManager)
-            ?  null : ComponentName.unflattenFromString(defaultSimCallManager);
+                ?  null : ComponentName.unflattenFromString(defaultSimCallManager);
     }
 
     public PhoneAccountHandle getSimCallManagerOfCurrentUser() {
@@ -365,8 +395,10 @@ public class PhoneAccountRegistrar {
     }
 
     /**
-     * Returns the {@link PhoneAccountHandle} corresponding to the currently active SIM Call
-     * Manager. SIM Call Manager returned corresponds to the following priority order:
+     * Returns the {@link PhoneAccountHandle} corresponding to the SIM Call Manager associated with
+     * the default Telephony Subscription ID (see
+     * {@link SubscriptionManager#getDefaultSubscriptionId()}). SIM Call Manager returned
+     * corresponds to the following priority order:
      * 1. If a SIM Call Manager {@link PhoneAccount} is registered for the same package as the
      * default dialer, then that one is returned.
      * 2. If there is a SIM Call Manager {@link PhoneAccount} registered which matches the
@@ -374,12 +406,22 @@ public class PhoneAccountRegistrar {
      * 3. Otherwise, we return null.
      */
     public PhoneAccountHandle getSimCallManager(UserHandle userHandle) {
+        return getSimCallManager(SubscriptionManager.getDefaultSubscriptionId(), userHandle);
+    }
+
+    /**
+     * Queries the SIM call manager associated with a specific subscription ID.
+     *
+     * @see #getSimCallManager(UserHandle) for more information.
+     */
+    public PhoneAccountHandle getSimCallManager(int subId, UserHandle userHandle) {
+
         // Get the default dialer in case it has a connection manager associated with it.
         String dialerPackage = mDefaultDialerCache
                 .getDefaultDialerApplication(userHandle.getIdentifier());
 
         // Check carrier config.
-        ComponentName systemSimCallManagerComponent = getSystemSimCallManagerComponent();
+        ComponentName systemSimCallManagerComponent = getSystemSimCallManagerComponent(subId);
 
         PhoneAccountHandle dialerSimCallManager = null;
         PhoneAccountHandle systemSimCallManager = null;
@@ -409,14 +451,15 @@ public class PhoneAccountRegistrar {
 
         PhoneAccountHandle retval = dialerSimCallManager != null ?
                 dialerSimCallManager : systemSimCallManager;
-
-        Log.i(this, "SimCallManager queried, returning: %s", retval);
+        Log.i(this, "getSimCallManager: SimCallManager for subId %d queried, returning: %s",
+                subId, retval);
 
         return retval;
     }
 
     /**
-     * If it is a outgoing call, sim call manager of call-initiating user is returned.
+     * If it is a outgoing call, sim call manager associated with the target phone account of the
+     * call is returned (if one exists).
      * Otherwise, we return the sim call manager of the user associated with the
      * target phone account.
      * @return phone account handle of sim call manager based on the ongoing call.
@@ -429,7 +472,34 @@ public class PhoneAccountRegistrar {
         if (userHandle == null) {
             userHandle = call.getTargetPhoneAccount().getUserHandle();
         }
-        return getSimCallManager(userHandle);
+        PhoneAccountHandle targetPhoneAccount = call.getTargetPhoneAccount();
+        Log.d(this, "getSimCallManagerFromCall: callId=%s, targetPhac=%s",
+                call.getId(), targetPhoneAccount);
+        return getSimCallManagerFromHandle(targetPhoneAccount,userHandle);
+    }
+
+    /**
+     * Given a target phone account and user, determines the sim call manager (if any) which is
+     * associated with that {@link PhoneAccountHandle}.
+     * @param targetPhoneAccount The target phone account to check.
+     * @param userHandle The user handle.
+     * @return The {@link PhoneAccountHandle} of the connection manager.
+     */
+    public PhoneAccountHandle getSimCallManagerFromHandle(PhoneAccountHandle targetPhoneAccount,
+            UserHandle userHandle) {
+        int subId = getSubscriptionIdForPhoneAccount(targetPhoneAccount);
+        if (SubscriptionManager.isValidSubscriptionId(subId)
+                 && subId != SubscriptionManager.DEFAULT_SUBSCRIPTION_ID) {
+            PhoneAccountHandle callManagerHandle = getSimCallManager(subId, userHandle);
+            Log.d(this, "getSimCallManagerFromHandle: targetPhac=%s, subId=%d, scm=%s",
+                    targetPhoneAccount, subId, callManagerHandle);
+            return callManagerHandle;
+        } else {
+            PhoneAccountHandle callManagerHandle = getSimCallManager(userHandle);
+            Log.d(this, "getSimCallManagerFromHandle: targetPhac=%s, subId(d)=%d, scm=%s",
+                    targetPhoneAccount, subId, callManagerHandle);
+            return callManagerHandle;
+        }
     }
 
     /**
@@ -650,6 +720,21 @@ public class PhoneAccountRegistrar {
         return getPhoneAccountHandles(0, null, packageName, false, userHandle);
     }
 
+    /**
+     * Determines if a {@link PhoneAccountHandle} is for a self-managed {@link ConnectionService}.
+     * @param handle The handle.
+     * @return {@code true} if for a self-managed {@link ConnectionService}, {@code false}
+     * otherwise.
+     */
+    public boolean isSelfManagedPhoneAccount(@NonNull PhoneAccountHandle handle) {
+        PhoneAccount account = getPhoneAccountUnchecked(handle);
+        if (account == null) {
+            return false;
+        }
+
+        return account.isSelfManaged();
+    }
+
     // TODO: Should we implement an artificial limit for # of accounts associated with a single
     // ComponentName?
     public void registerPhoneAccount(PhoneAccount account) {
@@ -727,6 +812,8 @@ public class PhoneAccountRegistrar {
         fireAccountsChanged();
         if (isNewAccount) {
             fireAccountRegistered(account.getAccountHandle());
+        } else {
+            fireAccountChanged(account);
         }
     }
 
@@ -788,6 +875,12 @@ public class PhoneAccountRegistrar {
         }
     }
 
+    private void fireAccountChanged(PhoneAccount account) {
+        for (Listener l : mListeners) {
+            l.onPhoneAccountChanged(this, account);
+        }
+    }
+
     private void fireAccountUnRegistered(PhoneAccountHandle handle) {
         for (Listener l : mListeners) {
             l.onPhoneAccountUnRegistered(this, handle);
@@ -815,7 +908,7 @@ public class PhoneAccountRegistrar {
         sb.append("[").append(account1.getAccountHandle());
         appendDiff(sb, "addr", Log.piiHandle(account1.getAddress()),
                 Log.piiHandle(account2.getAddress()));
-        appendDiff(sb, "cap", account1.getCapabilities(), account2.getCapabilities());
+        appendDiff(sb, "cap", account1.capabilitiesToString(), account2.capabilitiesToString());
         appendDiff(sb, "hl", account1.getHighlightColor(), account2.getHighlightColor());
         appendDiff(sb, "lbl", account1.getLabel(), account2.getLabel());
         appendDiff(sb, "desc", account1.getShortDescription(), account2.getShortDescription());

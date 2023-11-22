@@ -31,28 +31,9 @@ import java.util.stream.Stream;
 /**
  * Statsd atom tests that are done via app, for atoms that report a uid.
  */
-public class ProcStateAtomTests extends DeviceAtomTestCase {
+public class ProcStateAtomTests extends ProcStateTestCase {
 
     private static final String TAG = "Statsd.ProcStateAtomTests";
-
-    private static final String DEVICE_SIDE_BG_SERVICE_COMPONENT
-            = "com.android.server.cts.device.statsd/.StatsdCtsBackgroundService";
-    private static final String DEVICE_SIDE_FG_ACTIVITY_COMPONENT
-            = "com.android.server.cts.device.statsd/.StatsdCtsForegroundActivity";
-    private static final String DEVICE_SIDE_FG_SERVICE_COMPONENT
-            = "com.android.server.cts.device.statsd/.StatsdCtsForegroundService";
-
-    // Constants from the device-side tests (not directly accessible here).
-    public static final String KEY_ACTION = "action";
-    public static final String ACTION_END_IMMEDIATELY = "action.end_immediately";
-    public static final String ACTION_BACKGROUND_SLEEP = "action.background_sleep";
-    public static final String ACTION_SLEEP_WHILE_TOP = "action.sleep_top";
-    public static final String ACTION_SHOW_APPLICATION_OVERLAY = "action.show_application_overlay";
-
-    // Sleep times (ms) that actions invoke device-side.
-    public static final int SLEEP_OF_ACTION_SLEEP_WHILE_TOP = 2_000;
-    public static final int SLEEP_OF_ACTION_BACKGROUND_SLEEP = 2_000;
-    public static final int SLEEP_OF_FOREGROUND_SERVICE = 2_000;
 
     private static final int WAIT_TIME_FOR_CONFIG_UPDATE_MS = 200;
     // ActivityManager can take a while to register screen state changes, mandating an extra delay.
@@ -89,6 +70,7 @@ public class ProcStateAtomTests extends DeviceAtomTestCase {
                     ProcessStateEnum.PROCESS_STATE_PERSISTENT_VALUE, // TODO: untested
                     ProcessStateEnum.PROCESS_STATE_PERSISTENT_UI_VALUE, // TODO: untested
                     ProcessStateEnum.PROCESS_STATE_TOP_VALUE,
+                    ProcessStateEnum.PROCESS_STATE_BOUND_TOP_VALUE, // TODO: untested
                     ProcessStateEnum.PROCESS_STATE_BOUND_FOREGROUND_SERVICE_VALUE, // TODO: untested
                     ProcessStateEnum.PROCESS_STATE_FOREGROUND_SERVICE_VALUE,
                     ProcessStateEnum.PROCESS_STATE_IMPORTANT_FOREGROUND_VALUE,
@@ -268,38 +250,6 @@ public class ProcStateAtomTests extends DeviceAtomTestCase {
         }
         assertFalse("UNKNOWN_TO_PROTO should not be a valid state",
                 ALL_STATES.contains(ProcessStateEnum.PROCESS_STATE_UNKNOWN_TO_PROTO_VALUE));
-    }
-
-    /**
-     * Runs a (background) service to perform the given action.
-     * @param actionValue the action code constants indicating the desired action to perform.
-     */
-    private void executeBackgroundService(String actionValue) throws Exception {
-        allowBackgroundServices();
-        getDevice().executeShellCommand(String.format(
-                "am startservice -n '%s' -e %s %s",
-                DEVICE_SIDE_BG_SERVICE_COMPONENT,
-                KEY_ACTION, actionValue));
-    }
-
-    /**
-     * Runs an activity (in the foreground) to perform the given action.
-     * @param actionValue the action code constants indicating the desired action to perform.
-     */
-    private void executeForegroundActivity(String actionValue) throws Exception {
-        getDevice().executeShellCommand(String.format(
-                "am start -n '%s' -e %s %s",
-                DEVICE_SIDE_FG_ACTIVITY_COMPONENT,
-                KEY_ACTION, actionValue));
-    }
-
-    /**
-     * Runs a simple foreground service.
-     */
-    private void executeForegroundService() throws Exception {
-        executeForegroundActivity(ACTION_END_IMMEDIATELY);
-        getDevice().executeShellCommand(String.format(
-                "am startservice -n '%s'", DEVICE_SIDE_FG_SERVICE_COMPONENT));
     }
 
     /** Returns the a set containing elements of a that are not elements of b. */

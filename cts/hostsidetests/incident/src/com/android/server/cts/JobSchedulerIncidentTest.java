@@ -20,6 +20,7 @@ import android.app.job.StopReasonEnum;
 import android.net.NetworkCapabilitiesProto;
 import android.net.NetworkRequestProto;
 import com.android.server.job.ConstantsProto;
+import com.android.server.job.ConstraintEnum;
 import com.android.server.job.DataSetProto;
 import com.android.server.job.JobPackageHistoryProto;
 import com.android.server.job.JobPackageTrackerDumpProto;
@@ -184,7 +185,8 @@ public class JobSchedulerIncidentTest extends ProtoDumpTestCase {
         assertTrue(0 <= ji.getTriggerContentUpdateDelayMs());
         assertTrue(0 <= ji.getTriggerContentMaxDelayMs());
         testNetworkRequestProto(ji.getRequiredNetwork());
-        assertTrue(0 <= ji.getTotalNetworkBytes());
+        // JobInfo.NETWORK_BYTES_UNKNOWN (= -1) is a valid value.
+        assertTrue(-1 <= ji.getTotalNetworkBytes());
         assertTrue(0 <= ji.getMinLatencyMs());
         assertTrue(0 <= ji.getMaxExecutionDelayMs());
         JobStatusDumpProto.JobInfo.Backoff bp = ji.getBackoffPolicy();
@@ -192,16 +194,16 @@ public class JobSchedulerIncidentTest extends ProtoDumpTestCase {
                 .contains(bp.getPolicy().getValueDescriptor()));
         assertTrue(0 <= bp.getInitialBackoffMs());
 
-        for (JobStatusDumpProto.Constraint c : jsd.getRequiredConstraintsList()) {
-            assertTrue(JobStatusDumpProto.Constraint.getDescriptor().getValues()
+        for (ConstraintEnum c : jsd.getRequiredConstraintsList()) {
+            assertTrue(ConstraintEnum.getDescriptor().getValues()
                     .contains(c.getValueDescriptor()));
         }
-        for (JobStatusDumpProto.Constraint c : jsd.getSatisfiedConstraintsList()) {
-            assertTrue(JobStatusDumpProto.Constraint.getDescriptor().getValues()
+        for (ConstraintEnum c : jsd.getSatisfiedConstraintsList()) {
+            assertTrue(ConstraintEnum.getDescriptor().getValues()
                     .contains(c.getValueDescriptor()));
         }
-        for (JobStatusDumpProto.Constraint c : jsd.getUnsatisfiedConstraintsList()) {
-            assertTrue(JobStatusDumpProto.Constraint.getDescriptor().getValues()
+        for (ConstraintEnum c : jsd.getUnsatisfiedConstraintsList()) {
+            assertTrue(ConstraintEnum.getDescriptor().getValues()
                     .contains(c.getValueDescriptor()));
         }
 

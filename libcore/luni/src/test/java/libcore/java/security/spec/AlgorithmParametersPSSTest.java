@@ -40,15 +40,8 @@ public class AlgorithmParametersPSSTest extends TestCase {
     private static final byte[] DEFAULT_SPEC_DER_ENCODED = HexEncoding.decode("3000");
 
     private static final PSSParameterSpec WEIRD_SPEC =
-            new PSSParameterSpec("SHA-512", "MGF1", MGF1ParameterSpec.SHA384, 27, 3);
-    private static final byte[] WEIRD_SPEC_DER_ENCODED =
-            HexEncoding.decode(
-                    "3039a00f300d06096086480165030402030500a11c301a06092a864886f70d010108300d060960"
-                    + "86480165030402020500a20302011ba303020103");
-
-    private static final PSSParameterSpec WEIRD2_SPEC =
             new PSSParameterSpec("SHA-224", "MGF1", MGF1ParameterSpec.SHA256, 32, 1);
-    private static final byte[] WEIRD2_SPEC_DER_ENCODED =
+    private static final byte[] WEIRD_SPEC_DER_ENCODED =
             HexEncoding.decode(
                     "3034a00f300d06096086480165030402040500a11c301a06092a864886f70d010108300d060960"
                     + "86480165030402010500a203020120");
@@ -107,7 +100,6 @@ public class AlgorithmParametersPSSTest extends TestCase {
     public void testInitWithDerEncoded() throws Exception {
         assertInitWithDerEncoded(WEIRD_SPEC_DER_ENCODED, WEIRD_SPEC);
         assertInitWithDerEncoded(DEFAULT_SPEC_DER_ENCODED, DEFAULT_SPEC);
-        assertInitWithDerEncoded(WEIRD2_SPEC_DER_ENCODED, WEIRD2_SPEC);
     }
 
     private void assertInitWithDerEncoded(
@@ -136,7 +128,6 @@ public class AlgorithmParametersPSSTest extends TestCase {
     public void testGetEncoded() throws Exception {
         assertGetEncoded(WEIRD_SPEC, WEIRD_SPEC_DER_ENCODED);
         assertGetEncoded(DEFAULT_SPEC, DEFAULT_SPEC_DER_ENCODED);
-        assertGetEncoded(WEIRD2_SPEC, WEIRD2_SPEC_DER_ENCODED);
     }
 
     private void assertGetEncoded(PSSParameterSpec spec, byte[] expectedEncoded) throws Exception {

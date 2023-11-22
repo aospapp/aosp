@@ -22,8 +22,15 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Enable multi-user. -->
     <bool name="config_enableMultiUserUI">true</bool>
-    <!-- Arbitrary max 8 users. -->
-    <integer name="config_multiuserMaximumUsers">8</integer>
+    <!-- Maximum number of users we allow to be running at a time.
+         For automotive, background user will be immediately stopped upon user switching but
+         up to this many users can be running in garage mode.
+         3 = headless user 0 + two primary users or 1 primary + 1 guest -->
+    <integer name="config_multiuserMaxRunningUsers">3</integer>
+    <!-- Use delay loccking mode always for automotive -->
+    <bool name="config_multiuserDelayUserDataLocking">true</bool>
+    <!-- If true, all guest users created on the device will be ephemeral. -->
+    <bool name="config_guestUserEphemeral">true</bool>
     <!-- Car Mode -->
     <integer name="config_defaultUiModeType">3</integer>
     <!-- Can't leave car mode -->
@@ -41,6 +48,7 @@
     <!-- Allow smart unlock immediately after boot because the user shouldn't have to enter a pin
          code to unlock their car head unit. -->
     <bool name="config_strongAuthRequiredOnBoot">false</bool>
+    <string name="config_defaultTrustAgent" translatable="false">com.android.car/com.android.car.trust.CarBleTrustAgent</string>
     <!-- Show Navigation Bar -->
     <bool name="config_showNavigationBar">true</bool>
 
@@ -49,10 +57,6 @@
 
     <!-- Automotive Bluetooth pairing option -->
     <bool name="enable_pbap_pce_profile">true</bool>
-
-    <!-- Component name of a custom ResolverActivity (Intent resolver) to be used instead of
-         the default framework version. -->
-    <string name="config_customResolverActivity" translatable="false">com.android.support.car.lenspicker/.LensResolverActivity</string>
 
     <!-- Flag indicating that the entire notification header can be clicked to expand the
          notification. If false, then the expand icon has to be clicked in order for the expand
@@ -65,14 +69,23 @@
     <!-- The action buttons should always take the default color. -->
     <bool name="config_tintNotificationActionButtons">false</bool>
 
-    <!-- Home screen(Launcher) app presence -->
-    <bool name="config_noHomeScreen">true</bool>
-
-    <!-- Flag indicating that this device does not rotate and will always remain in its default
-         orientation. Activities that desire to run in a non-compatible orientation will find that
-         they are not able to. -->
-    <bool name="config_forceDefaultOrientation">true</bool>
-
     <!-- Corner radius of system dialogs -->
     <dimen name="config_dialogCornerRadius">16dp</dimen>
+
+    <!-- Set CarUsbHandler as the USB handling component by default -->
+    <string name="config_UsbDeviceConnectionHandling_component">android.car.usb.handler/android.car.usb.handler.UsbHostManagementActivity</string>
+
+    <string name="config_headlineFontFamilyMedium">sans-serif-medium</string>
+
+    <!-- Whether the system enables per-display focus. If the system has the input method for each
+         display, this value should be true. -->
+    <bool name="config_perDisplayFocusEnabled">true</bool>
+
+    <!-- True if the device supports split screen as a form of multi-window. -->
+    <bool name="config_supportsSplitScreenMultiWindow">false</bool>
+
+    <!-- True if the device supports system decorations on secondary displays. -->
+    <bool name="config_supportsSystemDecorsOnSecondaryDisplays">false</bool>
+
+    <string name="config_dataUsageSummaryComponent">com.android.car.settings/com.android.car.settings.datausage.DataWarningAndLimitActivity</string>
 </resources>

@@ -16,13 +16,17 @@
 package com.android.tradefed.invoker.sandbox;
 
 import com.android.tradefed.build.BuildRetrievalError;
+import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.build.IBuildProvider;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.config.IDeviceConfiguration;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.invoker.IInvocationContext;
 import com.android.tradefed.invoker.IRescheduler;
 import com.android.tradefed.invoker.InvocationExecution;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.testtype.IInvocationContextReceiver;
 
 /**
  * Special sandbox execution of the invocation: This is the InvocationExection for when we are
@@ -43,6 +47,21 @@ public class SandboxedInvocationExecution extends InvocationExecution {
         if (!config.getConfigurationDescription().shouldUseSandbox()) {
             throw new RuntimeException(
                     "We should only skip download if we are a sandbox. Something went very wrong.");
+        }
+        // Even if we don't call them directly here, ensure they receive their dependencies for the
+        // buildNotTested callback.
+        for (String deviceName : context.getDeviceConfigNames()) {
+            IDeviceConfiguration deviceConfig = config.getDeviceConfigByName(deviceName);
+            IBuildProvider provider = deviceConfig.getBuildProvider();
+            // Inject the context to the provider if it can receive it
+            if (provider instanceof IInvocationContextReceiver) {
+                ((IInvocationContextReceiver) provider).setInvocationContext(context);
+            }
+        }
+
+        // Still set the test-tag on build infos for proper reporting
+        for (IBuildInfo info : context.getBuildInfos()) {
+            setTestTag(info, config);
         }
         return true;
     }

@@ -160,17 +160,8 @@ struct C2SoftVpxEnc : public SimpleC2Component {
      // align stride to the power of 2
      int32_t mStrideAlign;
 
-     // target bitrate set for the encoder, in bits per second
-     uint32_t mBitrate;
-
-     // target framerate set for the encoder
-     uint32_t mFramerate;
-
      // Color format for the input port
      vpx_img_fmt_t mColorFormat;
-
-     // If a request for a change it bitrate has been received.
-     bool mBitrateUpdated;
 
      // Bitrate control mode, either constant or variable
      vpx_rc_mode mBitrateControlMode;
@@ -178,9 +169,6 @@ struct C2SoftVpxEnc : public SimpleC2Component {
      // Parameter that denotes whether error resilience
      // is enabled in encoder
      bool mErrorResilience;
-
-     // Key frame interval in frames
-     uint32_t mKeyFrameInterval;
 
      // Minimum (best quality) quantizer
      uint32_t mMinQuantizer;
@@ -216,14 +204,20 @@ struct C2SoftVpxEnc : public SimpleC2Component {
      // yuv420 planar format.
      MemoryBlock mConversionBuffer;
 
-     // Request Key Frame
-     bool mKeyFrameRequested;
-
      // Signalled EOS
      bool mSignalledOutputEos;
 
      // Signalled Error
      bool mSignalledError;
+
+    // configurations used by component in process
+    // (TODO: keep this in intf but make them internal only)
+    std::shared_ptr<C2StreamPictureSizeInfo::input> mSize;
+    std::shared_ptr<C2StreamIntraRefreshTuning::output> mIntraRefresh;
+    std::shared_ptr<C2StreamFrameRateInfo::output> mFrameRate;
+    std::shared_ptr<C2StreamBitrateInfo::output> mBitrate;
+    std::shared_ptr<C2StreamBitrateModeTuning::output> mBitrateMode;
+    std::shared_ptr<C2StreamRequestSyncFrameTuning::output> mRequestSync;
 
      C2_DO_NOT_COPY(C2SoftVpxEnc);
 };
@@ -279,6 +273,18 @@ class C2SoftVpxEnc::IntfImpl : public C2InterfaceHelper {
                 .build());
 
         addParameter(
+            DefineParam(mBitrateMode, C2_PARAMKEY_BITRATE_MODE)
+                .withDefault(new C2StreamBitrateModeTuning::output(
+                        0u, C2Config::BITRATE_CONST))
+                .withFields({
+                    C2F(mBitrateMode, value).oneOf({
+                        C2Config::BITRATE_CONST, C2Config::BITRATE_VARIABLE })
+                })
+                .withSetter(
+                    Setter<decltype(*mBitrateMode)>::StrictValueWithNoDeps)
+                .build());
+
+        addParameter(
             DefineParam(mFrameRate, C2_NAME_STREAM_FRAME_RATE_SETTING)
                 .withDefault(new C2StreamFrameRateInfo::output(0u, 30.))
                 // TODO: More restriction?
@@ -288,32 +294,126 @@ class C2SoftVpxEnc::IntfImpl : public C2InterfaceHelper {
                 .build());
 
         addParameter(
+            DefineParam(mLayering, C2_PARAMKEY_TEMPORAL_LAYERING)
+                .withDefault(C2StreamTemporalLayeringTuning::output::AllocShared(0u, 0, 0, 0))
+                .withFields({
+                    C2F(mLayering, m.layerCount).inRange(0, 4),
+                    C2F(mLayering, m.bLayerCount).inRange(0, 0),
+                    C2F(mLayering, m.bitrateRatios).inRange(0., 1.)
+                })
+                .withSetter(LayeringSetter)
+                .build());
+
+        addParameter(
+                DefineParam(mSyncFramePeriod, C2_PARAMKEY_SYNC_FRAME_INTERVAL)
+                .withDefault(new C2StreamSyncFrameIntervalTuning::output(0u, 1000000))
+                .withFields({C2F(mSyncFramePeriod, value).any()})
+                .withSetter(Setter<decltype(*mSyncFramePeriod)>::StrictValueWithNoDeps)
+                .build());
+
+        addParameter(
             DefineParam(mBitrate, C2_NAME_STREAM_BITRATE_SETTING)
                 .withDefault(new C2BitrateTuning::output(0u, 64000))
-                .withFields({C2F(mBitrate, value).inRange(1, 40000000)})
-                .withSetter(
-                    Setter<decltype(*mBitrate)>::NonStrictValueWithNoDeps)
+                .withFields({C2F(mBitrate, value).inRange(4096, 40000000)})
+                .withSetter(BitrateSetter)
+                .build());
+
+        addParameter(
+                DefineParam(mIntraRefresh, C2_PARAMKEY_INTRA_REFRESH)
+                .withConstValue(new C2StreamIntraRefreshTuning::output(
+                             0u, C2Config::INTRA_REFRESH_DISABLED, 0.))
+                .build());
+
+        addParameter(
+        DefineParam(mProfileLevel, C2_PARAMKEY_PROFILE_LEVEL)
+        .withDefault(new C2StreamProfileLevelInfo::output(
+                0u, PROFILE_VP9_0, LEVEL_VP9_4_1))
+        .withFields({
+            C2F(mProfileLevel, profile).equalTo(
+                PROFILE_VP9_0
+            ),
+            C2F(mProfileLevel, level).equalTo(
+                LEVEL_VP9_4_1),
+        })
+        .withSetter(ProfileLevelSetter)
+        .build());
+
+        addParameter(
+                DefineParam(mRequestSync, C2_PARAMKEY_REQUEST_SYNC_FRAME)
+                .withDefault(new C2StreamRequestSyncFrameTuning::output(0u, C2_FALSE))
+                .withFields({C2F(mRequestSync, value).oneOf({ C2_FALSE, C2_TRUE }) })
+                .withSetter(Setter<decltype(*mRequestSync)>::NonStrictValueWithNoDeps)
                 .build());
     }
 
-    static C2R SizeSetter(bool mayBlock,
-                          C2P<C2VideoSizeStreamTuning::input>& me) {
+    static C2R BitrateSetter(bool mayBlock, C2P<C2StreamBitrateInfo::output> &me) {
         (void)mayBlock;
-        // TODO: maybe apply block limit?
         C2R res = C2R::Ok();
-        if (!me.F(me.v.width).supportsAtAll(me.v.width)) {
-            res = res.plus(C2SettingResultBuilder::BadValue(me.F(me.v.width)));
-        }
-        if (!me.F(me.v.height).supportsAtAll(me.v.height)) {
-            res = res.plus(C2SettingResultBuilder::BadValue(me.F(me.v.height)));
+        if (me.v.value <= 4096) {
+            me.set().value = 4096;
         }
         return res;
     }
 
-    uint32_t getWidth() const { return mSize->width; }
-    uint32_t getHeight() const { return mSize->height; }
-    float getFrameRate() const { return mFrameRate->value; }
-    uint32_t getBitrate() const { return mBitrate->value; }
+    static C2R SizeSetter(bool mayBlock, const C2P<C2StreamPictureSizeInfo::input> &oldMe,
+                          C2P<C2StreamPictureSizeInfo::input> &me) {
+        (void)mayBlock;
+        C2R res = C2R::Ok();
+        if (!me.F(me.v.width).supportsAtAll(me.v.width)) {
+            res = res.plus(C2SettingResultBuilder::BadValue(me.F(me.v.width)));
+            me.set().width = oldMe.v.width;
+        }
+        if (!me.F(me.v.height).supportsAtAll(me.v.height)) {
+            res = res.plus(C2SettingResultBuilder::BadValue(me.F(me.v.height)));
+            me.set().height = oldMe.v.height;
+        }
+        return res;
+    }
+
+    static C2R ProfileLevelSetter(
+            bool mayBlock,
+            C2P<C2StreamProfileLevelInfo::output> &me) {
+        (void)mayBlock;
+        if (!me.F(me.v.profile).supportsAtAll(me.v.profile)) {
+            me.set().profile = PROFILE_VP9_0;
+        }
+        if (!me.F(me.v.level).supportsAtAll(me.v.level)) {
+            me.set().level = LEVEL_VP9_4_1;
+        }
+        return C2R::Ok();
+    }
+
+    static C2R LayeringSetter(bool mayBlock, C2P<C2StreamTemporalLayeringTuning::output>& me) {
+        (void)mayBlock;
+        C2R res = C2R::Ok();
+        if (me.v.m.layerCount > 4) {
+            me.set().m.layerCount = 4;
+        }
+        me.set().m.bLayerCount = 0;
+        // ensure ratios are monotonic and clamped between 0 and 1
+        for (size_t ix = 0; ix < me.v.flexCount(); ++ix) {
+            me.set().m.bitrateRatios[ix] = c2_clamp(
+                ix > 0 ? me.v.m.bitrateRatios[ix - 1] : 0, me.v.m.bitrateRatios[ix], 1.);
+        }
+        ALOGI("setting temporal layering %u + %u", me.v.m.layerCount, me.v.m.bLayerCount);
+        return res;
+    }
+
+    // unsafe getters
+    std::shared_ptr<C2StreamPictureSizeInfo::input> getSize_l() const { return mSize; }
+    std::shared_ptr<C2StreamIntraRefreshTuning::output> getIntraRefresh_l() const { return mIntraRefresh; }
+    std::shared_ptr<C2StreamFrameRateInfo::output> getFrameRate_l() const { return mFrameRate; }
+    std::shared_ptr<C2StreamBitrateInfo::output> getBitrate_l() const { return mBitrate; }
+    std::shared_ptr<C2StreamBitrateModeTuning::output> getBitrateMode_l() const { return mBitrateMode; }
+    std::shared_ptr<C2StreamRequestSyncFrameTuning::output> getRequestSync_l() const { return mRequestSync; }
+    std::shared_ptr<C2StreamTemporalLayeringTuning::output> getTemporalLayers_l() const { return mLayering; }
+    uint32_t getSyncFramePeriod() const {
+        if (mSyncFramePeriod->value < 0 || mSyncFramePeriod->value == INT64_MAX) {
+            return 0;
+        }
+        double period = mSyncFramePeriod->value / 1e6 * mFrameRate->value;
+        return (uint32_t)c2_max(c2_min(period + 0.5, double(UINT32_MAX)), 1.);
+    }
 
    private:
     std::shared_ptr<C2StreamFormatConfig::input> mInputFormat;
@@ -323,7 +423,13 @@ class C2SoftVpxEnc::IntfImpl : public C2InterfaceHelper {
     std::shared_ptr<C2StreamUsageTuning::input> mUsage;
     std::shared_ptr<C2VideoSizeStreamTuning::input> mSize;
     std::shared_ptr<C2StreamFrameRateInfo::output> mFrameRate;
+    std::shared_ptr<C2StreamTemporalLayeringTuning::output> mLayering;
+    std::shared_ptr<C2StreamIntraRefreshTuning::output> mIntraRefresh;
+    std::shared_ptr<C2StreamRequestSyncFrameTuning::output> mRequestSync;
+    std::shared_ptr<C2StreamSyncFrameIntervalTuning::output> mSyncFramePeriod;
     std::shared_ptr<C2BitrateTuning::output> mBitrate;
+    std::shared_ptr<C2StreamBitrateModeTuning::output> mBitrateMode;
+    std::shared_ptr<C2StreamProfileLevelInfo::output> mProfileLevel;
 };
 
 }  // namespace android

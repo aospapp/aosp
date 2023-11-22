@@ -17,6 +17,7 @@
 package org.apache.harmony.tests.java.util;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Iterator;
@@ -206,7 +207,6 @@ public class EnumSetTest extends TestCase {
         EnumSet<HugeEnum> anotherHugeSet = EnumSet.allOf(HugeEnum.class);
         assertEquals(hugeEnumSet, anotherHugeSet);
         assertNotSame(hugeEnumSet, anotherHugeSet);
-
     }
 
     /**
@@ -605,16 +605,46 @@ public class EnumSetTest extends TestCase {
      * java.util.EnumSet#size()
      */
     public void test_size() {
-        Set<EnumFoo> set = EnumSet.noneOf(EnumFoo.class);
-        set.add(EnumFoo.a);
-        set.add(EnumFoo.b);
-        assertEquals("Size should be 2", 2, set.size());
+        assertEmpty(EnumSet.noneOf(EnumFoo.class));
+        assertSize(2, EnumSet.of(EnumFoo.a, EnumFoo.b));
 
-        // test enum type with more than 64 elements
-        Set<HugeEnum> hugeSet = EnumSet.noneOf(HugeEnum.class);
-        hugeSet.add(HugeEnum.a);
-        hugeSet.add(HugeEnum.bb);
-        assertEquals("Size should be 2", 2, hugeSet.size());
+        // enum type with more than 64 elements
+        assertEmpty(EnumSet.noneOf(HugeEnum.class));
+        assertSize(2, EnumSet.of(HugeEnum.a, HugeEnum.bb));
+        assertSize(65, EnumSet.allOf(HugeEnum.class));
+    }
+
+    public void test_size_modification_regular() {
+        EnumSet<EnumFoo> set = EnumSet.noneOf(EnumFoo.class);
+        assertEmpty(set);
+        set.addAll(Arrays.asList(EnumFoo.a, EnumFoo.b));
+        assertSize(2, set);
+        set.add(EnumFoo.c);
+        assertSize(3, set);
+        set.remove(EnumFoo.d);
+        assertSize(3, set);
+        set.remove(EnumFoo.b);
+        assertSize(2, set);
+        set.clear();
+        assertEmpty(set);
+    }
+
+    public void test_size_modification_jumbo() {
+        EnumSet<HugeEnum> set = EnumSet.allOf(HugeEnum.class);
+        assertSize(65, set);
+        set.remove(HugeEnum.b);
+        assertSize(64, set);
+        set.clear();
+        assertEmpty(set);
+    }
+
+    private static void assertEmpty(EnumSet<?> set) {
+        assertSize(0, set);
+    }
+
+    private static void assertSize(int expectedSize, Set<?> set) {
+        assertEquals(expectedSize, set.size());
+        assertEquals(expectedSize == 0, set.isEmpty());
     }
 
     /**

@@ -26,12 +26,13 @@ import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.service.notification.NotificationListenerService;
-import android.support.annotation.Keep;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.util.IconDrawableFactory;
 import android.util.Log;
+
+import androidx.annotation.Keep;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
+import androidx.preference.SwitchPreference;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.ServiceListing;

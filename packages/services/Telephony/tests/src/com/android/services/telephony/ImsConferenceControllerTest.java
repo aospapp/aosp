@@ -47,6 +47,9 @@ public class ImsConferenceControllerTest {
 
     private TelecomAccountRegistry mTelecomAccountRegistry;
 
+    @Mock
+    private TelecomAccountRegistry mMockTelecomAccountRegistry;
+
     private TestTelephonyConnection mTestTelephonyConnectionA;
     private TestTelephonyConnection mTestTelephonyConnectionB;
 
@@ -63,7 +66,7 @@ public class ImsConferenceControllerTest {
         mTestTelephonyConnectionB = new TestTelephonyConnection();
 
         mControllerTest = new ImsConferenceController(mTelecomAccountRegistry,
-                mMockTelephonyConnectionServiceProxy);
+                mMockTelephonyConnectionServiceProxy, () -> false);
     }
 
     /**
@@ -78,7 +81,6 @@ public class ImsConferenceControllerTest {
     @Test
     @SmallTest
     public void testConferenceable() {
-
         mControllerTest.add(mTestTelephonyConnectionB);
         mControllerTest.add(mTestTelephonyConnectionA);
 
@@ -112,7 +114,6 @@ public class ImsConferenceControllerTest {
     @Test
     @SmallTest
     public void testMergeMultiPartyCalls() {
-
         when(mTestTelephonyConnectionA.mMockRadioConnection.getPhoneType())
                 .thenReturn(PhoneConstants.PHONE_TYPE_IMS);
         when(mTestTelephonyConnectionB.mMockRadioConnection.getPhoneType())

@@ -3,6 +3,7 @@
 cc_defaults {
     name: "perfprofd_test_defaults",
     defaults: [
+        "libartd_static_defaults",
         "perfprofd_defaults",
         "perfprofd_debug_defaults",
     ],
@@ -19,6 +20,8 @@ cc_test {
     name: "perfprofd_test",
     defaults: [
         "perfprofd_test_defaults",
+        "libsimpleperf_dex_read_static_reqs_defaults",
+        "libsimpleperf_elf_read_static_reqs_defaults",
     ],
     test_suites: ["device-tests"],
     host_supported: true,
@@ -26,12 +29,12 @@ cc_test {
     stl: "libc++",
     static_libs: [
         "libperfprofdcored",
+        "libperfprofd_proto_config",
+        "libsimpleperf_dex_read",
         "libsimpleperf_elf_read",
         "libbase",
         "libutils",
         "libz",
-    ],
-    shared_libs: [
         "libprotobuf-cpp-lite",
         "liblog",
     ],
@@ -47,8 +50,13 @@ cc_test {
             required: [
                 "simpleperf",
             ],
+            static_libs: [
+                "libhealthhalutils",
+            ],
             shared_libs: [
+                "android.hardware.health@2.0",
                 "libbinder",
+                "libhidlbase",
                 "libservices",
                 "libutils",
             ],

@@ -75,9 +75,6 @@ static void verifyBasicBufferImport(JNIEnv *env, jclass, jobject assetMgr,
     // Could not initialize Vulkan due to lack of device support, skip test.
     return;
   }
-  VkImageRenderer renderer(&init, kTestImageWidth, kTestImageHeight,
-                           formatDesc.vkFormat, formatDesc.pixelWidth);
-  ASSERT(renderer.init(env, assetMgr), "Unable to initialize VkRenderer.");
 
   // Create and initialize buffer based on parameters.
   AHardwareBuffer_Desc hwbDesc{
@@ -95,6 +92,10 @@ static void verifyBasicBufferImport(JNIEnv *env, jclass, jobject assetMgr,
     // format is supported it must be importable into Vulkan.
     return;
   }
+
+  VkImageRenderer renderer(&init, kTestImageWidth, kTestImageHeight,
+                           formatDesc.vkFormat, formatDesc.pixelWidth);
+  ASSERT(renderer.init(env, assetMgr), "Unable to initialize VkRenderer.");
 
   // Populate the buffer with well-defined data.
   AHardwareBuffer_describe(buffer, &hwbDesc);

@@ -11,15 +11,15 @@ import zipfile
 PYTHON_BINARY = '%interpreter%'
 MAIN_FILE = '%main%'
 PYTHON_PATH = 'PYTHONPATH'
-ZIP_RUNFILES_DIRECTORY_NAME = 'runfiles'
+
+# Don't imply 'import site' on initialization
+PYTHON_ARG = '-S'
 
 def SearchPathEnv(name):
   search_path = os.getenv('PATH', os.defpath).split(os.pathsep)
   for directory in search_path:
     if directory == '': continue
     path = os.path.join(directory, name)
-    if os.path.islink(path):
-      path = os.path.realpath(path)
     # Check if path is actual executable file.
     if os.path.isfile(path) and os.access(path, os.X_OK):
       return path
@@ -38,12 +38,13 @@ def ExtractRunfiles():
   temp_dir = tempfile.mkdtemp("", "Soong.python_")
   zf = zipfile.ZipFile(os.path.dirname(__file__))
   zf.extractall(temp_dir)
-  return os.path.join(temp_dir, ZIP_RUNFILES_DIRECTORY_NAME)
+  return temp_dir
 
 def Main():
   args = sys.argv[1:]
 
   new_env = {}
+  runfiles_path = None
 
   try:
     runfiles_path = ExtractRunfiles()
@@ -75,7 +76,7 @@ def Main():
     python_program = FindPythonBinary()
     if python_program is None:
       raise AssertionError('Could not find python binary: ' + PYTHON_BINARY)
-    args = [python_program, main_filepath] + args
+    args = [python_program, PYTHON_ARG, main_filepath] + args
 
     os.environ.update(new_env)
 
@@ -85,7 +86,8 @@ def Main():
   except:
     raise
   finally:
-    shutil.rmtree(os.path.dirname(runfiles_path), True)
+    if runfiles_path is not None:
+      shutil.rmtree(runfiles_path, True)
 
 if __name__ == '__main__':
   Main()

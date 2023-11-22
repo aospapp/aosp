@@ -23,6 +23,7 @@
 
 #include "nativehelper/jni_macros.h"
 
+#include "base/file_utils.h"
 #include "base/histogram-inl.h"
 #include "base/time_utils.h"
 #include "class_linker.h"
@@ -35,8 +36,10 @@
 #include "gc/space/zygote_space.h"
 #include "handle_scope-inl.h"
 #include "hprof/hprof.h"
-#include "java_vm_ext.h"
-#include "jni_internal.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_internal.h"
+#include "mirror/array-alloc-inl.h"
+#include "mirror/array-inl.h"
 #include "mirror/class.h"
 #include "mirror/object_array-inl.h"
 #include "native_util.h"
@@ -89,36 +92,48 @@ static void VMDebug_resetAllocCount(JNIEnv*, jclass, jint kinds) {
 
 static void VMDebug_startMethodTracingDdmsImpl(JNIEnv*, jclass, jint bufferSize, jint flags,
                                                jboolean samplingEnabled, jint intervalUs) {
-  Trace::Start("[DDMS]", -1, bufferSize, flags, Trace::TraceOutputMode::kDDMS,
-               samplingEnabled ? Trace::TraceMode::kSampling : Trace::TraceMode::kMethodTracing,
-               intervalUs);
+  Trace::StartDDMS(bufferSize,
+                   flags,
+                   samplingEnabled ? Trace::TraceMode::kSampling : Trace::TraceMode::kMethodTracing,
+                   intervalUs);
 }
 
-static void VMDebug_startMethodTracingFd(JNIEnv* env, jclass, jstring javaTraceFilename,
-                                         jint javaFd, jint bufferSize, jint flags,
-                                         jboolean samplingEnabled, jint intervalUs,
+static void VMDebug_startMethodTracingFd(JNIEnv* env,
+                                         jclass,
+                                         jstring javaTraceFilename ATTRIBUTE_UNUSED,
+                                         jint javaFd,
+                                         jint bufferSize,
+                                         jint flags,
+                                         jboolean samplingEnabled,
+                                         jint intervalUs,
                                          jboolean streamingOutput) {
   int originalFd = javaFd;
   if (originalFd < 0) {
+    ScopedObjectAccess soa(env);
+    soa.Self()->ThrowNewExceptionF("Ljava/lang/RuntimeException;",
+                                   "Trace fd is invalid: %d",
+                                   originalFd);
     return;
   }
 
-  int fd = dup(originalFd);
+  int fd = DupCloexec(originalFd);
   if (fd < 0) {
     ScopedObjectAccess soa(env);
     soa.Self()->ThrowNewExceptionF("Ljava/lang/RuntimeException;",
-                                   "dup(%d) failed: %s", originalFd, strerror(errno));
+                                   "dup(%d) failed: %s",
+                                   originalFd,
+                                   strerror(errno));
     return;
   }
 
-  ScopedUtfChars traceFilename(env, javaTraceFilename);
-  if (traceFilename.c_str() == nullptr) {
-    return;
-  }
+  // Ignore the traceFilename.
   Trace::TraceOutputMode outputMode = streamingOutput
                                           ? Trace::TraceOutputMode::kStreaming
                                           : Trace::TraceOutputMode::kFile;
-  Trace::Start(traceFilename.c_str(), fd, bufferSize, flags, outputMode,
+  Trace::Start(fd,
+               bufferSize,
+               flags,
+               outputMode,
                samplingEnabled ? Trace::TraceMode::kSampling : Trace::TraceMode::kMethodTracing,
                intervalUs);
 }
@@ -130,7 +145,10 @@ static void VMDebug_startMethodTracingFilename(JNIEnv* env, jclass, jstring java
   if (traceFilename.c_str() == nullptr) {
     return;
   }
-  Trace::Start(traceFilename.c_str(), -1, bufferSize, flags, Trace::TraceOutputMode::kFile,
+  Trace::Start(traceFilename.c_str(),
+               bufferSize,
+               flags,
+               Trace::TraceOutputMode::kFile,
                samplingEnabled ? Trace::TraceMode::kSampling : Trace::TraceMode::kMethodTracing,
                intervalUs);
 }
@@ -192,7 +210,7 @@ static void VMDebug_printLoadedClasses(JNIEnv* env, jclass, jint flags) {
    public:
     explicit DumpClassVisitor(int dump_flags) : flags_(dump_flags) {}
 
-    bool operator()(ObjPtr<mirror::Class> klass) OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_) {
+    bool operator()(ObjPtr<mirror::Class> klass) override REQUIRES_SHARED(Locks::mutator_lock_) {
       klass->DumpClass(LOG_STREAM(ERROR), flags_);
       return true;
     }
@@ -351,7 +369,7 @@ static jobjectArray VMDebug_getInstancesOfClasses(JNIEnv* env,
 
     VariableSizedHandleScope hs2(soa.Self());
     std::vector<Handle<mirror::Object>> raw_instances;
-    heap->GetInstances(hs2, h_class, includeAssignable, /* max_count */ 0, raw_instances);
+    heap->GetInstances(hs2, h_class, includeAssignable, /* max_count= */ 0, raw_instances);
     jobjectArray array = env->NewObjectArray(raw_instances.size(),
                                              WellKnownClasses::java_lang_Object,
                                              nullptr);
@@ -373,7 +391,7 @@ static jobjectArray VMDebug_getInstancesOfClasses(JNIEnv* env,
 // as PSS, private/shared dirty/shared data are available via
 // /proc/<pid>/smaps.
 static void VMDebug_getHeapSpaceStats(JNIEnv* env, jclass, jlongArray data) {
-  jlong* arr = reinterpret_cast<jlong*>(env->GetPrimitiveArrayCritical(data, 0));
+  jlong* arr = reinterpret_cast<jlong*>(env->GetPrimitiveArrayCritical(data, nullptr));
   if (arr == nullptr || env->GetArrayLength(data) < 9) {
     return;
   }
@@ -592,6 +610,19 @@ static void VMDebug_allowHiddenApiReflectionFrom(JNIEnv* env, jclass, jclass j_c
   h_caller->SetSkipHiddenApiChecks();
 }
 
+static void VMDebug_setAllocTrackerStackDepth(JNIEnv* env, jclass, jint stack_depth) {
+  Runtime* runtime = Runtime::Current();
+  if (stack_depth < 0 ||
+      static_cast<size_t>(stack_depth) > gc::AllocRecordObjectMap::kMaxSupportedStackDepth) {
+    ScopedObjectAccess soa(env);
+    soa.Self()->ThrowNewExceptionF("Ljava/lang/RuntimeException;",
+                                   "Stack depth is invalid: %d",
+                                   stack_depth);
+  } else {
+    runtime->GetHeap()->SetAllocTrackerStackDepth(static_cast<size_t>(stack_depth));
+  }
+}
+
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMDebug, countInstancesOfClass, "(Ljava/lang/Class;Z)J"),
   NATIVE_METHOD(VMDebug, countInstancesOfClasses, "([Ljava/lang/Class;Z)[J"),
@@ -628,6 +659,7 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMDebug, getRuntimeStatsInternal, "()[Ljava/lang/String;"),
   NATIVE_METHOD(VMDebug, nativeAttachAgent, "(Ljava/lang/String;Ljava/lang/ClassLoader;)V"),
   NATIVE_METHOD(VMDebug, allowHiddenApiReflectionFrom, "(Ljava/lang/Class;)V"),
+  NATIVE_METHOD(VMDebug, setAllocTrackerStackDepth, "(I)V"),
 };
 
 void register_dalvik_system_VMDebug(JNIEnv* env) {

@@ -16,9 +16,7 @@
 
 package com.android.dialer.precall.impl;
 
-import android.annotation.TargetApi;
 import android.content.Context;
-import android.os.Build;
 import android.os.Bundle;
 import android.telecom.PhoneAccount;
 import android.telephony.SubscriptionInfo;
@@ -31,7 +29,7 @@ import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.compat.telephony.TelephonyManagerCompat;
 import com.android.dialer.configprovider.ConfigProvider;
-import com.android.dialer.configprovider.ConfigProviderBindings;
+import com.android.dialer.configprovider.ConfigProviderComponent;
 import com.android.dialer.precall.PreCallAction;
 import com.android.dialer.precall.PreCallCoordinator;
 import com.android.dialer.telecom.TelecomUtil;
@@ -46,8 +44,6 @@ public class AssistedDialAction implements PreCallAction {
     return false;
   }
 
-  @SuppressWarnings("AndroidApiChecker") // Use of optional
-  @TargetApi(Build.VERSION_CODES.N)
   @Override
   public void runWithoutUi(Context context, CallIntentBuilder builder) {
     if (!builder.isAssistedDialAllowed()) {
@@ -69,10 +65,12 @@ public class AssistedDialAction implements PreCallAction {
     Optional<TransformationInfo> transformedNumber =
         assistedDialingMediator.attemptAssistedDial(phoneNumber);
     if (transformedNumber.isPresent()) {
-      builder.getOutgoingCallExtras().putBoolean(TelephonyManagerCompat.USE_ASSISTED_DIALING, true);
+      builder
+          .getInCallUiIntentExtras()
+          .putBoolean(TelephonyManagerCompat.USE_ASSISTED_DIALING, true);
       Bundle assistedDialingExtras = transformedNumber.get().toBundle();
       builder
-          .getOutgoingCallExtras()
+          .getInCallUiIntentExtras()
           .putBundle(TelephonyManagerCompat.ASSISTED_DIALING_EXTRAS, assistedDialingExtras);
       builder.setUri(
           CallUtil.getCallUri(Assert.isNotNull(transformedNumber.get().transformedNumber())));
@@ -83,12 +81,10 @@ public class AssistedDialAction implements PreCallAction {
   /**
    * A convenience method to return the proper TelephonyManager in possible multi-sim environments.
    */
-  @SuppressWarnings("AndroidApiChecker") // Use of createForSubscriptionId
-  @TargetApi(Build.VERSION_CODES.N)
   private TelephonyManager getAssistedDialingTelephonyManager(
       Context context, CallIntentBuilder builder) {
 
-    ConfigProvider configProvider = ConfigProviderBindings.get(context);
+    ConfigProvider configProvider = ConfigProviderComponent.get(context).getConfigProvider();
     TelephonyManager telephonyManager = context.getSystemService(TelephonyManager.class);
     // None of this will be required in the framework because the PhoneAccountHandle
     // is already mapped to the request in the TelecomConnection.

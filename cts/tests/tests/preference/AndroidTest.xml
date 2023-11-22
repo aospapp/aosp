@@ -16,6 +16,8 @@
 <configuration description="Config for CTS Preference test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="uitoolkit" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -25,4 +27,16 @@
         <option name="package" value="android.preference.cts" />
         <option name="runtime-hint" value="7m30s" />
     </test>
+    <!-- Collect the files generated on error -->
+    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+        <option name="directory-keys" value="/sdcard/CtsPreferenceTestCases" />
+        <option name="collect-on-run-ended-only" value="true" />
+        <option name="clean-up" value="false" />
+    </metrics_collector>
+    <!-- Automotive tests run on user 10 -->
+    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+        <option name="directory-keys" value="/storage/emulated/10/CtsPreferenceTestCases" />
+        <option name="collect-on-run-ended-only" value="true" />
+        <option name="clean-up" value="false" />
+    </metrics_collector>
 </configuration>

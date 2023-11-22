@@ -22,12 +22,22 @@ cc_defaults {
         "-Werror",
     ],
     shared_libs: [
-        "libhidlbase",
-        "libhidltransport",
-        "libhwbinder",
+        "libhidlbase_pgo",
         "liblog",
         "libutils",
         "libcutils",
+    ],
+
+    static_libs: ["android.hardware.tests.libhwbinder@1.0"],
+
+    // Allow dlsym'ing self for statically linked passthrough implementations
+    ldflags: ["-rdynamic"],
+
+    // impls should never be static, these are used only for testing purposes
+    // and test portability since this test pairs with specific hal
+    // implementations
+    whole_static_libs: [
+        "android.hardware.tests.libhwbinder@1.0-impl",
     ],
 }
 
@@ -35,8 +45,6 @@ cc_benchmark {
     name: "libhwbinder_benchmark",
     defaults: ["libhwbinder_test_defaults"],
     srcs: ["Benchmark.cpp"],
-    static_libs: ["android.hardware.tests.libhwbinder@1.0"],
-    required: ["android.hardware.tests.libhwbinder@1.0-impl"],
 }
 
 // build for benchmark test based on binder.
@@ -60,8 +68,6 @@ cc_test {
     name: "hwbinderThroughputTest",
     defaults: ["libhwbinder_test_defaults"],
     srcs: ["Benchmark_throughput.cpp"],
-    static_libs: ["android.hardware.tests.libhwbinder@1.0"],
-    required: ["android.hardware.tests.libhwbinder@1.0-impl"],
 }
 
 // build for latency benchmark test for hwbinder.
@@ -73,8 +79,4 @@ cc_test {
         "Latency.cpp",
         "PerfTest.cpp",
     ],
-
-    static_libs: ["android.hardware.tests.libhwbinder@1.0"],
-
-    required: ["android.hardware.tests.libhwbinder@1.0-impl"],
 }

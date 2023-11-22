@@ -38,6 +38,8 @@ import sun.security.action.*;
 class Util {
     private Util() { }
 
+    // Android-changed: Hard-code UTF-8 for jnuEncoding rather than requiring a system property.
+    // The system property sun.jnu.encoding is not set on Android; we just hard-code "UTF-8" here.
     // private static final Charset jnuEncoding = Charset.forName(
     //    AccessController.doPrivileged(new GetPropertyAction("sun.jnu.encoding")));
     private static final Charset jnuEncoding = Charset.forName("UTF-8");

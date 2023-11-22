@@ -36,7 +36,7 @@
     <string name="callFailed_powerOff" msgid="9179061328562234362">"Segnale cellulare disattivato"</string>
     <string name="callFailed_simError" msgid="3307159523385380486">"Nessuna SIM o errore della SIM"</string>
     <string name="callFailed_outOfService" msgid="4535901975891969115">"Rete cellulare non disponibile"</string>
-    <string name="callFailed_fdn_only" msgid="1720606112619022283">"Chiamate in uscita limitate da FDN."</string>
+    <string name="callFailed_fdn_only" msgid="1720606112619022283">"Chiamate in uscita limitate dai numeri consentiti."</string>
     <string name="callFailed_dialToUssd" msgid="2433610980015734954">"Chiamata modificata in richiesta USSD"</string>
     <string name="callFailed_dialToSs" msgid="1932708241240329683">"Chiamata modificata in richiesta SS"</string>
     <string name="callFailed_dialToDial" msgid="4383070508519313539">"Modificata cambiando il numero"</string>

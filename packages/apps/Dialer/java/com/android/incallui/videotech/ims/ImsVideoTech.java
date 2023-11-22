@@ -17,7 +17,6 @@
 package com.android.incallui.videotech.ims;
 
 import android.content.Context;
-import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
@@ -61,34 +60,35 @@ public class ImsVideoTech implements VideoTech {
 
   @Override
   public boolean isAvailable(Context context, PhoneAccountHandle phoneAccountHandle) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-      return false;
-    }
-
     if (call.getVideoCall() == null) {
+      LogUtil.i("ImsVideoCall.isAvailable", "null video call");
       return false;
     }
 
     // We are already in an IMS video call
     if (VideoProfile.isVideo(call.getDetails().getVideoState())) {
+      LogUtil.i("ImsVideoCall.isAvailable", "already video call");
       return true;
     }
 
     // The user has disabled IMS video calling in system settings
     if (!CallUtil.isVideoEnabled(context)) {
+      LogUtil.i("ImsVideoCall.isAvailable", "disabled in settings");
       return false;
     }
 
     // The current call doesn't support transmitting video
     if (!call.getDetails().can(Call.Details.CAPABILITY_SUPPORTS_VT_LOCAL_TX)) {
+      LogUtil.i("ImsVideoCall.isAvailable", "no TX");
       return false;
     }
 
     // The current call remote device doesn't support receiving video
     if (!call.getDetails().can(Call.Details.CAPABILITY_SUPPORTS_VT_REMOTE_RX)) {
+      LogUtil.i("ImsVideoCall.isAvailable", "no RX");
       return false;
     }
-
+    LogUtil.i("ImsVideoCall.isAvailable", "available");
     return true;
   }
 
@@ -208,6 +208,7 @@ public class ImsVideoTech implements VideoTech {
     LogUtil.enterBlock("ImsVideoTech.declineUpgradeRequest");
     call.getVideoCall()
         .sendSessionModifyResponse(new VideoProfile(call.getDetails().getVideoState()));
+    setSessionModificationState(SessionModificationState.NO_REQUEST);
     logger.logImpression(DialerImpression.Type.IMS_VIDEO_REQUEST_DECLINED);
   }
 
@@ -312,6 +313,10 @@ public class ImsVideoTech implements VideoTech {
   @Override
   public void setCamera(@Nullable String cameraId) {
     savedCameraId = cameraId;
+    if (call.getVideoCall() == null) {
+      LogUtil.w("ImsVideoTech.setCamera", "video call no longer exist");
+      return;
+    }
     call.getVideoCall().setCamera(cameraId);
     call.getVideoCall().requestCameraCapabilities();
   }

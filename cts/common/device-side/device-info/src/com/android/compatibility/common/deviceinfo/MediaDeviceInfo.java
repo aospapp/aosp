@@ -29,6 +29,7 @@ import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
 
 import com.android.compatibility.common.util.DeviceInfoStore;
+import com.android.compatibility.common.util.ApiLevelUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,11 +47,19 @@ public final class MediaDeviceInfo extends DeviceInfo {
 
             store.startGroup();
             store.addResult("name", info.getName());
+            if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.Q)) {
+                store.addResult("canonical", info.getCanonicalName());
+            }
             store.addResult("encoder", info.isEncoder());
+            if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.Q)) {
+                store.addResult("alias", info.isAlias());
+                store.addResult("software", info.isSoftwareOnly());
+                store.addResult("hardware", info.isHardwareAccelerated());
+                store.addResult("vendor", info.isVendor());
+            }
 
             store.startArray("supported_type");
             for (String type : info.getSupportedTypes()) {
-
                 store.startGroup();
                 store.addResult("type", type);
                 CodecCapabilities codecCapabilities = info.getCapabilitiesForType(type);
@@ -63,6 +72,9 @@ public final class MediaDeviceInfo extends DeviceInfo {
                         store.endGroup();
                     }
                     store.endArray(); // codec_profile_level
+                }
+                if (codecCapabilities.colorFormats.length > 0) {
+                    store.addArrayResult("codec_color_format", codecCapabilities.colorFormats);
                 }
                 store.addResult("supported_secure_playback", codecCapabilities.isFeatureSupported(
                         CodecCapabilities.FEATURE_SecurePlayback));

@@ -16,8 +16,6 @@
 
 package android.preference.cts;
 
-import android.preference.cts.R;
-
 import android.content.Intent;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;

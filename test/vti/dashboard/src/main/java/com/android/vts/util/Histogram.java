@@ -123,11 +123,11 @@ public class Histogram extends Graph {
      */
     @Override
     public void addData(String id, ProfilingPointRunEntity profilingPoint) {
-        if (profilingPoint.values.size() == 0)
+        if (profilingPoint.getValues().size() == 0)
             return;
-        xLabel = profilingPoint.xLabel;
-        yLabel = profilingPoint.yLabel;
-        for (long v : profilingPoint.values) {
+        xLabel = profilingPoint.getXLabel();
+        yLabel = profilingPoint.getYLabel();
+        for (long v : profilingPoint.getValues()) {
             double value = v;
             values.add(value);
             ids.add(id);

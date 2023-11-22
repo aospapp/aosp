@@ -20,11 +20,26 @@
     <package>com.example.android.wearable.datalayer</package>
 
     <minSdk>18</minSdk>
-    <targetSdkVersion>27</targetSdkVersion>
-    <compileSdkVersionWear>26</compileSdkVersionWear>
-    <targetSdkVersionWear>26</targetSdkVersionWear>
+
+    <minSdkVersionWear>23</minSdkVersionWear>
 
     <multiDexEnabled>true</multiDexEnabled>
+
+    <androidX>true</androidX>
+
+    <dependency>androidx.legacy:legacy-support-v4:1.0.0</dependency>
+    <dependency>androidx.legacy:legacy-support-v13:1.0.0</dependency>
+
+    <dependency>androidx.cardview:cardview:1.0.0</dependency>
+    <dependency>androidx.appcompat:appcompat:1.0.2</dependency>
+    <dependency>androidx.recyclerview:recyclerview:1.0.0</dependency>
+    <dependency>androidx.percentlayout:percentlayout:1.0.0</dependency>
+
+    <dependency_wearable>androidx.wear:wear:1.0.0</dependency_wearable>
+    <dependency_wearable>androidx.recyclerview:recyclerview:1.0.0</dependency_wearable>
+    <dependency_wearable>androidx.percentlayout:percentlayout:1.0.0</dependency_wearable>
+    <dependency_wearable>androidx.legacy:legacy-support-v13:1.0.0</dependency_wearable>
+
 
     <wearable>
         <has_handheld_app>true</has_handheld_app>

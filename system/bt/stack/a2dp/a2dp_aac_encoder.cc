@@ -27,6 +27,7 @@
 
 #include "a2dp_aac.h"
 #include "bt_common.h"
+#include "common/time_util.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 
@@ -36,12 +37,6 @@
 
 // A2DP AAC encoder interval in milliseconds
 #define A2DP_AAC_ENCODER_INTERVAL_MS 20
-
-/*
- * 2DH5 payload size of:
- * 679 bytes - (4 bytes L2CAP Header + 12 bytes AVDTP Header)
- */
-#define MAX_2MBPS_AVDTP_MTU 663
 
 // offset
 #if (BTA_AV_CO_CP_SCMS_T == TRUE)
@@ -131,7 +126,8 @@ void a2dp_aac_encoder_init(const tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params,
     aacEncClose(&a2dp_aac_encoder_cb.aac_handle);
   memset(&a2dp_aac_encoder_cb, 0, sizeof(a2dp_aac_encoder_cb));
 
-  a2dp_aac_encoder_cb.stats.session_start_us = time_get_os_boottime_us();
+  a2dp_aac_encoder_cb.stats.session_start_us =
+      bluetooth::common::time_get_os_boottime_us();
 
   a2dp_aac_encoder_cb.read_callback = read_callback;
   a2dp_aac_encoder_cb.enqueue_callback = enqueue_callback;
@@ -483,7 +479,7 @@ void a2dp_aac_feeding_flush(void) {
   a2dp_aac_encoder_cb.aac_feeding_state.counter = 0;
 }
 
-period_ms_t a2dp_aac_get_encoder_interval_ms(void) {
+uint64_t a2dp_aac_get_encoder_interval_ms(void) {
   return A2DP_AAC_ENCODER_INTERVAL_MS;
 }
 
@@ -694,7 +690,7 @@ static bool a2dp_aac_read_feeding(uint8_t* read_buffer, uint32_t* bytes_read) {
   return true;
 }
 
-period_ms_t A2dpCodecConfigAacSource::encoderIntervalMs() const {
+uint64_t A2dpCodecConfigAacSource::encoderIntervalMs() const {
   return a2dp_aac_get_encoder_interval_ms();
 }
 

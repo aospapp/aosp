@@ -24,12 +24,13 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
-import androidx.annotation.IntegerRes;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
+
+import androidx.annotation.IntegerRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import junit.framework.Assert;
 
@@ -173,11 +174,21 @@ public class DrawableTestUtils {
                 int givenColor = actual.getPixel(x, y);
                 if (idealColor == givenColor)
                     continue;
+                if (Color.alpha(idealColor) + Color.alpha(givenColor) == 0) {
+                    continue;
+                }
 
+                float idealAlpha = Color.alpha(idealColor) / 255.0f;
+                float givenAlpha = Color.alpha(givenColor) / 255.0f;
+
+                // compare premultiplied color values
                 float totalError = 0;
-                totalError += Math.abs(Color.red(idealColor) - Color.red(givenColor));
-                totalError += Math.abs(Color.green(idealColor) - Color.green(givenColor));
-                totalError += Math.abs(Color.blue(idealColor) - Color.blue(givenColor));
+                totalError += Math.abs((idealAlpha * Color.red(idealColor))
+                                     - (givenAlpha * Color.red(givenColor)));
+                totalError += Math.abs((idealAlpha * Color.green(idealColor))
+                                     - (givenAlpha * Color.green(givenColor)));
+                totalError += Math.abs((idealAlpha * Color.blue(idealColor))
+                                     - (givenAlpha * Color.blue(givenColor)));
                 totalError += Math.abs(Color.alpha(idealColor) - Color.alpha(givenColor));
 
                 if ((totalError / 1024.0f) >= pixelThreshold) {

@@ -331,6 +331,7 @@ typedef struct elf64_shdr {
 #define NT_PPC_TM_CTAR 0x10d
 #define NT_PPC_TM_CPPR 0x10e
 #define NT_PPC_TM_CDSCR 0x10f
+#define NT_PPC_PKEY 0x110
 #define NT_386_TLS 0x200
 #define NT_386_IOPERM 0x201
 #define NT_X86_XSTATE 0x202
@@ -354,10 +355,12 @@ typedef struct elf64_shdr {
 #define NT_ARM_HW_WATCH 0x403
 #define NT_ARM_SYSTEM_CALL 0x404
 #define NT_ARM_SVE 0x405
-#define NT_METAG_CBUF 0x500
-#define NT_METAG_RPIPE 0x501
-#define NT_METAG_TLS 0x502
+#define NT_ARM_PAC_MASK 0x406
 #define NT_ARC_V2 0x600
+#define NT_VMCOREDD 0x700
+#define NT_MIPS_DSP 0x800
+#define NT_MIPS_FP_MODE 0x801
+#define NT_MIPS_MSA 0x802
 typedef struct elf32_note {
   Elf32_Word n_namesz;
   Elf32_Word n_descsz;

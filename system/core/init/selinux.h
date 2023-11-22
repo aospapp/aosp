@@ -23,11 +23,11 @@
 namespace android {
 namespace init {
 
-void SelinuxInitialize();
+int SetupSelinux(char** argv);
 void SelinuxRestoreContext();
 
 void SelinuxSetupKernelLogging();
-bool SelinuxHasVendorInit();
+int SelinuxGetVendorAndroidVersion();
 
 void SelabelInitialize();
 bool SelabelLookupFileContext(const std::string& key, int type, std::string* result);

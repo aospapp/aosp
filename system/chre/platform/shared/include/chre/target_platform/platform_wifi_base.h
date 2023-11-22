@@ -28,12 +28,12 @@ namespace chre {
  */
 class PlatformWifiBase : public PlatformPal {
  protected:
+  //! The instance of callbacks that are provided to the CHRE PAL.
+  static const chrePalWifiCallbacks sWifiCallbacks;
+
   //! The instance of the CHRE PAL API. This will be set to nullptr if the
   //! platform does not supply an implementation.
   const chrePalWifiApi *mWifiApi;
-
-  //! The instance of callbacks that are provided to the CHRE PAL.
-  chrePalWifiCallbacks mWifiCallbacks;
 
   // Event handlers for the CHRE WiFi PAL. Refer to chre/pal/wifi.h for futher
   // information.

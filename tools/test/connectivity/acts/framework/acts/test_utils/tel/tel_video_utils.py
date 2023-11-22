@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -57,14 +57,16 @@ from acts.test_utils.tel.tel_defines import EVENT_VIDEO_SESSION_MODIFY_REQUEST_R
 from acts.test_utils.tel.tel_defines import CallStateContainer
 from acts.test_utils.tel.tel_subscription_utils import get_outgoing_voice_sub_id
 from acts.test_utils.tel.tel_subscription_utils import get_incoming_voice_sub_id
-from acts.test_utils.tel.tel_test_utils import check_phone_number_match
+from acts.test_utils.tel.tel_test_utils import call_setup_teardown_for_subscription
 from acts.test_utils.tel.tel_test_utils import ensure_network_generation
 from acts.test_utils.tel.tel_test_utils import is_event_match
 from acts.test_utils.tel.tel_test_utils import hangup_call
+from acts.test_utils.tel.tel_test_utils import initiate_call
 from acts.test_utils.tel.tel_test_utils import set_wfc_mode
 from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode
 from acts.test_utils.tel.tel_test_utils import toggle_volte
 from acts.test_utils.tel.tel_test_utils import verify_incall_state
+from acts.test_utils.tel.tel_test_utils import wait_and_answer_call_for_subscription
 from acts.test_utils.tel.tel_test_utils import wait_for_network_generation
 from acts.test_utils.tel.tel_test_utils import wait_for_network_rat_for_subscription
 from acts.test_utils.tel.tel_test_utils import wait_for_ringing_call
@@ -444,24 +446,14 @@ def initiate_video_call(log, ad_caller, callee_number):
     """Make phone call from caller to callee.
 
     Args:
+        log: logging handle
         ad_caller: Caller android device object.
         callee_number: Callee phone number.
-        emergency : specify the call is emergency.
-            Optional. Default value is False.
 
     Returns:
         result: if phone call is placed successfully.
     """
-
-    wait_time_for_incall_state = MAX_WAIT_TIME_CALL_INITIATION
-    ad_caller.droid.telecomCallNumber(callee_number, True)
-    while wait_time_for_incall_state > 0:
-        wait_time_for_incall_state -= 1
-        if ad_caller.droid.telecomIsInCall():
-            return True
-        time.sleep(1)
-    log.error("Make call fail.")
-    return False
+    return initiate_call(log, ad_caller, callee_number, video=True)
 
 
 def wait_and_answer_video_call(log,
@@ -516,42 +508,13 @@ def wait_and_answer_video_call_for_subscription(
         True: if incoming call is received and answered successfully.
         False: for errors
     """
-
-    if not wait_for_ringing_call(log, ad, incoming_number):
-        log.error(
-            "Video call could not be established: <{}> never rang.".format(
-                ad.serial))
-        return False
-
-    ad.ed.clear_all_events()
-
-    ad.droid.telephonyStartTrackingCallStateForSubscription(sub_id)
-
-    if not wait_for_telecom_ringing(log, ad, MAX_WAIT_TIME_TELECOM_RINGING):
-        log.error("Telecom is not ringing.")
-        return False
-
-    log.info("Accept on callee.")
-    ad.droid.telecomAcceptRingingCall(video_state)
-
-    try:
-        ad.ed.wait_for_event(
-            EventCallStateChanged,
-            is_event_match,
-            timeout=MAX_WAIT_TIME_ACCEPT_CALL_TO_OFFHOOK_EVENT,
-            field=CallStateContainer.CALL_STATE,
-            value=TELEPHONY_STATE_OFFHOOK)
-    except Empty:
-        if not ad.droid.telecomIsInCall():
-            log.error("Accept call failed.")
-            return False
-    finally:
-        ad.droid.telephonyStopTrackingCallStateChangeForSubscription(sub_id)
-    if incall_ui_display == INCALL_UI_DISPLAY_FOREGROUND:
-        ad.droid.telecomShowInCallScreen()
-    elif incall_ui_display == INCALL_UI_DISPLAY_BACKGROUND:
-        ad.droid.showHomeScreen()
-    return True
+    return wait_and_answer_call_for_subscription(
+        log,
+        ad,
+        sub_id,
+        incoming_number=None,
+        incall_ui_display=INCALL_UI_DISPLAY_FOREGROUND,
+        video_state=video_state)
 
 
 def video_call_setup_teardown(log,
@@ -600,8 +563,6 @@ def video_call_setup_teardown(log,
         incall_ui_display)
 
 
-# TODO: b/26337151 Might be able to re-factor call_setup_teardown and add.
-# Minimal changes.
 def video_call_setup_teardown_for_subscription(
         log,
         ad_caller,
@@ -646,92 +607,18 @@ def video_call_setup_teardown_for_subscription(
         False if error happened.
 
     """
-    CHECK_INTERVAL = 60
-
-    class _CallSequenceException(Exception):
-        pass
-
-    caller_number = ad_caller.cfg['subscription'][subid_caller]['phone_num']
-    callee_number = ad_callee.cfg['subscription'][subid_callee]['phone_num']
-
-    log.info("Call from {} to {}".format(caller_number, callee_number))
-
-    try:
-        if not initiate_video_call(log, ad_caller, callee_number):
-            raise _CallSequenceException("Initiate call failed.")
-
-        if not wait_and_answer_video_call_for_subscription(
-                log,
-                ad_callee,
-                subid_callee,
-                incoming_number=caller_number,
-                video_state=video_state,
-                incall_ui_display=incall_ui_display):
-            raise _CallSequenceException("Answer call fail.")
-
-        # ensure that all internal states are updated in telecom
-        time.sleep(WAIT_TIME_ACCEPT_VIDEO_CALL_TO_CHECK_STATE)
-
-        # Check if caller/callee dropped call.
-        if not verify_incall_state(log, [ad_callee, ad_caller], True):
-            raise _CallSequenceException("Call Drop!")
-        # Check Callee first
-        # in case of VT call drop, it usually start from callee
-        if verify_callee_func and not verify_callee_func(log, ad_callee):
-            raise _CallSequenceException("Callee not in correct state!")
-        if verify_caller_func and not verify_caller_func(log, ad_caller):
-            raise _CallSequenceException("Caller not in correct state!")
-
-        # TODO: b/26291165 Replace with reducing the volume as we want
-        # to test route switching
-        ad_caller.droid.telecomCallSetAudioRoute(AUDIO_ROUTE_EARPIECE)
-        ad_callee.droid.telecomCallSetAudioRoute(AUDIO_ROUTE_EARPIECE)
-
-        elapsed_time = 0
-        while (elapsed_time < wait_time_in_call):
-            CHECK_INTERVAL = min(CHECK_INTERVAL,
-                                 wait_time_in_call - elapsed_time)
-            time.sleep(CHECK_INTERVAL)
-            elapsed_time += CHECK_INTERVAL
-
-            # Check Callee first
-            # in case of VT call drop, it usually start from callee
-            if not verify_callee_func:
-                callee_state_result = ad_callee.droid.telecomIsInCall()
-            else:
-                callee_state_result = verify_callee_func(log, ad_callee)
-            if not callee_state_result:
-                raise _CallSequenceException(
-                    "Callee not in correct state at <{}>/<{}> seconds".format(
-                        elapsed_time, wait_time_in_call))
-
-            if not verify_caller_func:
-                caller_state_result = ad_caller.droid.telecomIsInCall()
-            else:
-                caller_state_result = verify_caller_func(log, ad_caller)
-            if not caller_state_result:
-                raise _CallSequenceException(
-                    "Caller not in correct state at <{}>/<{}> seconds".format(
-                        elapsed_time, wait_time_in_call))
-
-        if not ad_hangup:
-            return True
-
-        if not hangup_call(log, ad_hangup):
-            raise _CallSequenceException("Error in Hanging-Up Call")
-        return True
-
-    except _CallSequenceException as e:
-        log.error(e)
-        return False
-    finally:
-        if ad_hangup:
-            for ad in [ad_caller, ad_callee]:
-                try:
-                    if ad.droid.telecomIsInCall():
-                        ad.droid.telecomEndCall()
-                except Exception as e:
-                    log.error(str(e))
+    return call_setup_teardown_for_subscription(
+        log,
+        ad_caller,
+        ad_callee,
+        subid_caller,
+        subid_callee,
+        ad_hangup=ad_hangup,
+        verify_caller_func=verify_caller_func,
+        verify_callee_func=verify_callee_func,
+        wait_time_in_call=wait_time_in_call,
+        incall_ui_display=incall_ui_display,
+        video_state=video_state)
 
 
 def video_call_setup(log,
@@ -796,41 +683,15 @@ def video_call_setup_for_subscription(
         False if error happened.
 
     """
-
-    class _CallSequenceException(Exception):
-        pass
-
-    caller_number = ad_caller.cfg['subscription'][subid_caller]['phone_num']
-    callee_number = ad_callee.cfg['subscription'][subid_callee]['phone_num']
-
-    log.info("Call from {} to {}".format(caller_number, callee_number))
-
-    try:
-        if not initiate_video_call(log, ad_caller, callee_number):
-            raise _CallSequenceException("Initiate call failed.")
-
-        if not wait_and_answer_video_call_for_subscription(
-                log,
-                ad_callee,
-                subid_callee,
-                incoming_number=caller_number,
-                video_state=video_state,
-                incall_ui_display=incall_ui_display):
-            raise _CallSequenceException("Answer call fail.")
-
-        # ensure that all internal states are updated in telecom
-        time.sleep(WAIT_TIME_ACCEPT_VIDEO_CALL_TO_CHECK_STATE)
-
-        # TODO: b/26291165 Replace with reducing the volume as we want
-        # to test route switching
-        ad_caller.droid.telecomCallSetAudioRoute(AUDIO_ROUTE_EARPIECE)
-        ad_callee.droid.telecomCallSetAudioRoute(AUDIO_ROUTE_EARPIECE)
-
-        return True
-
-    except _CallSequenceException as e:
-        log.error(e)
-        return False
+    return call_setup_teardown_for_subscription(
+        log,
+        ad_caller,
+        ad_callee,
+        subid_caller,
+        subid_callee,
+        ad_hangup=None,
+        incall_ui_display=incall_ui_display,
+        video_state=video_state)
 
 
 def video_call_modify_video(log,
@@ -1003,9 +864,9 @@ def video_call_downgrade(log,
     current_video_state_requester = ad_requester.droid.telecomCallVideoGetState(
         call_id_requester)
     if video_state_request is None:
-        if (current_video_state_requester == VT_STATE_BIDIRECTIONAL
-                or current_video_state_requester ==
-                VT_STATE_BIDIRECTIONAL_PAUSED):
+        if (current_video_state_requester == VT_STATE_BIDIRECTIONAL or
+                current_video_state_requester == VT_STATE_BIDIRECTIONAL_PAUSED
+            ):
             video_state_request = VT_STATE_RX_ENABLED
         elif (current_video_state_requester == VT_STATE_TX_ENABLED
               or current_video_state_requester == VT_STATE_TX_PAUSED):

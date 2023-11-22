@@ -21,9 +21,8 @@
 #include <cstring>
 #include <string>
 
+#include "base/locks.h"
 #include "base/macros.h"
-#include "base/mutex.h"
-#include "dex/dex_file.h"
 #include "lock_count_data.h"
 #include "read_barrier.h"
 #include "stack_reference.h"
@@ -37,6 +36,7 @@ class Object;
 
 class ArtMethod;
 class ShadowFrame;
+template<class MirrorType> class ObjPtr;
 class Thread;
 union JValue;
 
@@ -48,6 +48,17 @@ using ShadowFrameAllocaUniquePtr = std::unique_ptr<ShadowFrame, ShadowFrameDelet
 //  - interpreter - separate VRegs and reference arrays. References are in the reference array.
 //  - JNI - just VRegs, but where every VReg holds a reference.
 class ShadowFrame {
+ private:
+  // Used to keep track of extra state the shadowframe has.
+  enum class FrameFlags : uint32_t {
+    // We have been requested to notify when this frame gets popped.
+    kNotifyFramePop = 1 << 0,
+    // We have been asked to pop this frame off the stack as soon as possible.
+    kForcePopFrame  = 1 << 1,
+    // We have been asked to re-execute the last instruction.
+    kForceRetryInst = 1 << 2,
+  };
+
  public:
   // Compute size of ShadowFrame in bytes assuming it has a reference array.
   static size_t ComputeSize(uint32_t num_vregs) {
@@ -158,14 +169,14 @@ class ShadowFrame {
   }
 
   int64_t GetVRegLong(size_t i) const {
-    DCHECK_LT(i, NumberOfVRegs());
+    DCHECK_LT(i + 1, NumberOfVRegs());
     const uint32_t* vreg = &vregs_[i];
     typedef const int64_t unaligned_int64 __attribute__ ((aligned (4)));
     return *reinterpret_cast<unaligned_int64*>(vreg);
   }
 
   double GetVRegDouble(size_t i) const {
-    DCHECK_LT(i, NumberOfVRegs());
+    DCHECK_LT(i + 1, NumberOfVRegs());
     const uint32_t* vreg = &vregs_[i];
     typedef const double unaligned_double __attribute__ ((aligned (4)));
     return *reinterpret_cast<unaligned_double*>(vreg);
@@ -178,12 +189,8 @@ class ShadowFrame {
   mirror::Object* GetVRegReference(size_t i) const REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK_LT(i, NumberOfVRegs());
     mirror::Object* ref;
-    if (HasReferenceArray()) {
-      ref = References()[i].AsMirrorPtr();
-    } else {
-      const uint32_t* vreg_ptr = &vregs_[i];
-      ref = reinterpret_cast<const StackReference<mirror::Object>*>(vreg_ptr)->AsMirrorPtr();
-    }
+    DCHECK(HasReferenceArray());
+    ref = References()[i].AsMirrorPtr();
     ReadBarrier::MaybeAssertToSpaceInvariant(ref);
     if (kVerifyFlags & kVerifyReads) {
       VerifyObject(ref);
@@ -219,7 +226,7 @@ class ShadowFrame {
   }
 
   void SetVRegLong(size_t i, int64_t val) {
-    DCHECK_LT(i, NumberOfVRegs());
+    DCHECK_LT(i + 1, NumberOfVRegs());
     uint32_t* vreg = &vregs_[i];
     typedef int64_t unaligned_int64 __attribute__ ((aligned (4)));
     *reinterpret_cast<unaligned_int64*>(vreg) = val;
@@ -232,7 +239,7 @@ class ShadowFrame {
   }
 
   void SetVRegDouble(size_t i, double val) {
-    DCHECK_LT(i, NumberOfVRegs());
+    DCHECK_LT(i + 1, NumberOfVRegs());
     uint32_t* vreg = &vregs_[i];
     typedef double unaligned_double __attribute__ ((aligned (4)));
     *reinterpret_cast<unaligned_double*>(vreg) = val;
@@ -245,18 +252,8 @@ class ShadowFrame {
   }
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
-  void SetVRegReference(size_t i, mirror::Object* val) REQUIRES_SHARED(Locks::mutator_lock_) {
-    DCHECK_LT(i, NumberOfVRegs());
-    if (kVerifyFlags & kVerifyWrites) {
-      VerifyObject(val);
-    }
-    ReadBarrier::MaybeAssertToSpaceInvariant(val);
-    uint32_t* vreg = &vregs_[i];
-    reinterpret_cast<StackReference<mirror::Object>*>(vreg)->Assign(val);
-    if (HasReferenceArray()) {
-      References()[i].Assign(val);
-    }
-  }
+  void SetVRegReference(size_t i, ObjPtr<mirror::Object> val)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetMethod(ArtMethod* method) REQUIRES(Locks::mutator_lock_) {
     DCHECK(method != nullptr);
@@ -288,47 +285,47 @@ class ShadowFrame {
     return lock_count_data_;
   }
 
-  static size_t LockCountDataOffset() {
+  static constexpr size_t LockCountDataOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, lock_count_data_);
   }
 
-  static size_t LinkOffset() {
+  static constexpr size_t LinkOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, link_);
   }
 
-  static size_t MethodOffset() {
+  static constexpr size_t MethodOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, method_);
   }
 
-  static size_t DexPCOffset() {
+  static constexpr size_t DexPCOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, dex_pc_);
   }
 
-  static size_t NumberOfVRegsOffset() {
+  static constexpr size_t NumberOfVRegsOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, number_of_vregs_);
   }
 
-  static size_t VRegsOffset() {
+  static constexpr size_t VRegsOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, vregs_);
   }
 
-  static size_t ResultRegisterOffset() {
+  static constexpr size_t ResultRegisterOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, result_register_);
   }
 
-  static size_t DexPCPtrOffset() {
+  static constexpr size_t DexPCPtrOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, dex_pc_ptr_);
   }
 
-  static size_t DexInstructionsOffset() {
+  static constexpr size_t DexInstructionsOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, dex_instructions_);
   }
 
-  static size_t CachedHotnessCountdownOffset() {
+  static constexpr size_t CachedHotnessCountdownOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, cached_hotness_countdown_);
   }
 
-  static size_t HotnessCountdownOffset() {
+  static constexpr size_t HotnessCountdownOffset() {
     return OFFSETOF_MEMBER(ShadowFrame, hotness_countdown_);
   }
 
@@ -354,11 +351,38 @@ class ShadowFrame {
   }
 
   bool NeedsNotifyPop() const {
-    return needs_notify_pop_;
+    return GetFrameFlag(FrameFlags::kNotifyFramePop);
   }
 
   void SetNotifyPop(bool notify) {
-    needs_notify_pop_ = notify;
+    UpdateFrameFlag(notify, FrameFlags::kNotifyFramePop);
+  }
+
+  bool GetForcePopFrame() const {
+    return GetFrameFlag(FrameFlags::kForcePopFrame);
+  }
+
+  void SetForcePopFrame(bool enable) {
+    UpdateFrameFlag(enable, FrameFlags::kForcePopFrame);
+  }
+
+  bool GetForceRetryInstruction() const {
+    return GetFrameFlag(FrameFlags::kForceRetryInst);
+  }
+
+  void SetForceRetryInstruction(bool enable) {
+    UpdateFrameFlag(enable, FrameFlags::kForceRetryInst);
+  }
+
+  void CheckConsistentVRegs() const {
+    if (kIsDebugBuild) {
+      // A shadow frame visible to GC requires the following rule: for a given vreg,
+      // its vreg reference equivalent should be the same, or null.
+      for (uint32_t i = 0; i < NumberOfVRegs(); ++i) {
+        int32_t reference_value = References()[i].AsVRegValue();
+        CHECK((GetVReg(i) == reference_value) || (reference_value == 0));
+      }
+    }
   }
 
  private:
@@ -373,7 +397,7 @@ class ShadowFrame {
         dex_pc_(dex_pc),
         cached_hotness_countdown_(0),
         hotness_countdown_(0),
-        needs_notify_pop_(0) {
+        frame_flags_(0) {
     // TODO(iam): Remove this parameter, it's an an artifact of portable removal
     DCHECK(has_reference_array);
     if (has_reference_array) {
@@ -381,6 +405,18 @@ class ShadowFrame {
     } else {
       memset(vregs_, 0, num_vregs * sizeof(uint32_t));
     }
+  }
+
+  void UpdateFrameFlag(bool enable, FrameFlags flag) {
+    if (enable) {
+      frame_flags_ |= static_cast<uint32_t>(flag);
+    } else {
+      frame_flags_ &= ~static_cast<uint32_t>(flag);
+    }
+  }
+
+  bool GetFrameFlag(FrameFlags flag) const {
+    return (frame_flags_ & static_cast<uint32_t>(flag)) != 0;
   }
 
   const StackReference<mirror::Object>* References() const {
@@ -406,9 +442,11 @@ class ShadowFrame {
   uint32_t dex_pc_;
   int16_t cached_hotness_countdown_;
   int16_t hotness_countdown_;
-  // TODO Might be worth it to try to bit-pack this into some other field to reduce stack usage.
-  // NB alignment requires that this field takes 4 bytes. Only 1 bit is actually ever used.
-  bool needs_notify_pop_;
+
+  // This is a set of ShadowFrame::FrameFlags which denote special states this frame is in.
+  // NB alignment requires that this field takes 4 bytes no matter its size. Only 3 bits are
+  // currently used.
+  uint32_t frame_flags_;
 
   // This is a two-part array:
   //  - [0..number_of_vregs) holds the raw virtual registers, and each element here is always 4

@@ -45,17 +45,17 @@ LOCAL_STATIC_ANDROID_LIBRARIES := \
     libphotoviewer_appcompat \
     android-opt-bitmap \
     android-opt-datetimepicker \
-    android-support-compat \
-    android-support-media-compat \
-    android-support-core-utils \
-    android-support-core-ui \
-    android-support-fragment \
-    android-support-v7-appcompat \
-    android-support-v7-gridlayout \
-    android-support-v13
+    androidx.core_core \
+    androidx.media_media \
+    androidx.legacy_legacy-support-core-utils \
+    androidx.legacy_legacy-support-core-ui \
+    androidx.fragment_fragment \
+    androidx.appcompat_appcompat \
+    androidx.gridlayout_gridlayout \
+    androidx.legacy_legacy-support-v13
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-annotations \
+    androidx.annotation_annotation \
     android-common \
     guava \
     owasp-html-sanitizer
@@ -63,6 +63,8 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 LOCAL_JAVA_LIBRARIES := org.apache.http.legacy
 
 LOCAL_PACKAGE_NAME := Email
+
+LOCAL_PRODUCT_MODULE := true
 
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags $(unified_email_dir)/proguard.flags
 ifeq (eng,$(TARGET_BUILD_VARIANT))

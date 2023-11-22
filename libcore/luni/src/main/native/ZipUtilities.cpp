@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-#include <memory>
+#include "ZipUtilities.h"
 
-#include <nativehelper/JniConstants.h>
+#include <nativehelper/JNIHelp.h>
 
 #include "JniException.h"
-#include "ZipUtilities.h"
 
 void throwExceptionForZlibError(JNIEnv* env, const char* exceptionClassName, int error,
     NativeZipStream* stream) {

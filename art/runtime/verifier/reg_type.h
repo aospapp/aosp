@@ -21,12 +21,12 @@
 #include <limits>
 #include <set>
 #include <string>
+#include <string_view>
 
 #include "base/arena_object.h"
 #include "base/bit_vector.h"
+#include "base/locks.h"
 #include "base/macros.h"
-#include "base/mutex.h"
-#include "base/stringpiece.h"
 #include "dex/primitive.h"
 #include "gc_root.h"
 #include "handle_scope.h"
@@ -185,13 +185,13 @@ class RegType {
   bool IsJavaLangObjectArray() const
       REQUIRES_SHARED(Locks::mutator_lock_);
   bool IsInstantiableTypes() const REQUIRES_SHARED(Locks::mutator_lock_);
-  const StringPiece& GetDescriptor() const {
+  const std::string_view& GetDescriptor() const {
     DCHECK(HasClass() ||
            (IsUnresolvedTypes() && !IsUnresolvedMergedReference() &&
             !IsUnresolvedSuperClass()));
     return descriptor_;
   }
-  mirror::Class* GetClass() const REQUIRES_SHARED(Locks::mutator_lock_) {
+  ObjPtr<mirror::Class> GetClass() const REQUIRES_SHARED(Locks::mutator_lock_) {
     DCHECK(!IsUnresolvedReference());
     DCHECK(!klass_.IsNull()) << Dump();
     DCHECK(HasClass());
@@ -318,8 +318,8 @@ class RegType {
   }
 
  protected:
-  RegType(mirror::Class* klass,
-          const StringPiece& descriptor,
+  RegType(ObjPtr<mirror::Class> klass,
+          const std::string_view& descriptor,
           uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : descriptor_(descriptor),
         klass_(klass),
@@ -336,7 +336,7 @@ class RegType {
 
   virtual AssignmentType GetAssignmentTypeImpl() const = 0;
 
-  const StringPiece descriptor_;
+  const std::string_view descriptor_;
   mutable GcRoot<mirror::Class> klass_;  // Non-const only due to moving classes.
   const uint16_t cache_id_;
 
@@ -365,7 +365,7 @@ class RegType {
    *
    * [1] Java bytecode verification: algorithms and formalizations, Xavier Leroy
    */
-  static mirror::Class* ClassJoin(mirror::Class* s, mirror::Class* t)
+  static ObjPtr<mirror::Class> ClassJoin(ObjPtr<mirror::Class> s, ObjPtr<mirror::Class> t)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   static bool AssignableFrom(const RegType& lhs,
@@ -378,30 +378,31 @@ class RegType {
 };
 
 // Bottom type.
-class ConflictType FINAL : public RegType {
+class ConflictType final : public RegType {
  public:
-  bool IsConflict() const OVERRIDE { return true; }
+  bool IsConflict() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Get the singleton Conflict instance.
   static const ConflictType* GetInstance() PURE;
 
   // Create the singleton instance.
-  static const ConflictType* CreateInstance(mirror::Class* klass,
-                                            const StringPiece& descriptor,
+  static const ConflictType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                            const std::string_view& descriptor,
                                             uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Destroy the singleton instance.
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kConflict;
   }
 
  private:
-  ConflictType(mirror::Class* klass, const StringPiece& descriptor,
+  ConflictType(ObjPtr<mirror::Class> klass,
+               const std::string_view& descriptor,
                uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : RegType(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -413,30 +414,31 @@ class ConflictType FINAL : public RegType {
 // A variant of the bottom type used to specify an undefined value in the
 // incoming registers.
 // Merging with UndefinedType yields ConflictType which is the true bottom.
-class UndefinedType FINAL : public RegType {
+class UndefinedType final : public RegType {
  public:
-  bool IsUndefined() const OVERRIDE { return true; }
+  bool IsUndefined() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Get the singleton Undefined instance.
   static const UndefinedType* GetInstance() PURE;
 
   // Create the singleton instance.
-  static const UndefinedType* CreateInstance(mirror::Class* klass,
-                                             const StringPiece& descriptor,
+  static const UndefinedType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                             const std::string_view& descriptor,
                                              uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Destroy the singleton instance.
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 
  private:
-  UndefinedType(mirror::Class* klass, const StringPiece& descriptor,
+  UndefinedType(ObjPtr<mirror::Class> klass,
+                const std::string_view& descriptor,
                 uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : RegType(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -447,35 +449,38 @@ class UndefinedType FINAL : public RegType {
 
 class PrimitiveType : public RegType {
  public:
-  PrimitiveType(mirror::Class* klass, const StringPiece& descriptor,
+  PrimitiveType(ObjPtr<mirror::Class> klass,
+                const std::string_view& descriptor,
                 uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool HasClassVirtual() const OVERRIDE { return true; }
+  bool HasClassVirtual() const override { return true; }
 };
 
 class Cat1Type : public PrimitiveType {
  public:
-  Cat1Type(mirror::Class* klass, const StringPiece& descriptor,
+  Cat1Type(ObjPtr<mirror::Class> klass,
+           const std::string_view& descriptor,
            uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_);
 };
 
-class IntegerType FINAL : public Cat1Type {
+class IntegerType final : public Cat1Type {
  public:
-  bool IsInteger() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  static const IntegerType* CreateInstance(mirror::Class* klass,
-                                           const StringPiece& descriptor,
+  bool IsInteger() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  static const IntegerType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                           const std::string_view& descriptor,
                                            uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const IntegerType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kInteger;
   }
 
  private:
-  IntegerType(mirror::Class* klass, const StringPiece& descriptor,
+  IntegerType(ObjPtr<mirror::Class> klass,
+              const std::string_view& descriptor,
               uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat1Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -483,23 +488,24 @@ class IntegerType FINAL : public Cat1Type {
   static const IntegerType* instance_;
 };
 
-class BooleanType FINAL : public Cat1Type {
+class BooleanType final : public Cat1Type {
  public:
-  bool IsBoolean() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  static const BooleanType* CreateInstance(mirror::Class* klass,
-                                           const StringPiece& descriptor,
+  bool IsBoolean() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  static const BooleanType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                           const std::string_view& descriptor,
                                            uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const BooleanType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kBoolean;
   }
 
  private:
-  BooleanType(mirror::Class* klass, const StringPiece& descriptor,
+  BooleanType(ObjPtr<mirror::Class> klass,
+              const std::string_view& descriptor,
               uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat1Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -508,23 +514,24 @@ class BooleanType FINAL : public Cat1Type {
   static const BooleanType* instance_;
 };
 
-class ByteType FINAL : public Cat1Type {
+class ByteType final : public Cat1Type {
  public:
-  bool IsByte() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  static const ByteType* CreateInstance(mirror::Class* klass,
-                                        const StringPiece& descriptor,
+  bool IsByte() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  static const ByteType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                        const std::string_view& descriptor,
                                         uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const ByteType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kByte;
   }
 
  private:
-  ByteType(mirror::Class* klass, const StringPiece& descriptor,
+  ByteType(ObjPtr<mirror::Class> klass,
+           const std::string_view& descriptor,
            uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat1Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -532,23 +539,23 @@ class ByteType FINAL : public Cat1Type {
   static const ByteType* instance_;
 };
 
-class ShortType FINAL : public Cat1Type {
+class ShortType final : public Cat1Type {
  public:
-  bool IsShort() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  static const ShortType* CreateInstance(mirror::Class* klass,
-                                         const StringPiece& descriptor,
+  bool IsShort() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  static const ShortType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                         const std::string_view& descriptor,
                                          uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const ShortType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kShort;
   }
 
  private:
-  ShortType(mirror::Class* klass, const StringPiece& descriptor,
+  ShortType(ObjPtr<mirror::Class> klass, const std::string_view& descriptor,
             uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat1Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -556,23 +563,24 @@ class ShortType FINAL : public Cat1Type {
   static const ShortType* instance_;
 };
 
-class CharType FINAL : public Cat1Type {
+class CharType final : public Cat1Type {
  public:
-  bool IsChar() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  static const CharType* CreateInstance(mirror::Class* klass,
-                                        const StringPiece& descriptor,
+  bool IsChar() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  static const CharType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                        const std::string_view& descriptor,
                                         uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const CharType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kChar;
   }
 
  private:
-  CharType(mirror::Class* klass, const StringPiece& descriptor,
+  CharType(ObjPtr<mirror::Class> klass,
+           const std::string_view& descriptor,
            uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat1Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -580,23 +588,24 @@ class CharType FINAL : public Cat1Type {
   static const CharType* instance_;
 };
 
-class FloatType FINAL : public Cat1Type {
+class FloatType final : public Cat1Type {
  public:
-  bool IsFloat() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  static const FloatType* CreateInstance(mirror::Class* klass,
-                                         const StringPiece& descriptor,
+  bool IsFloat() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  static const FloatType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                         const std::string_view& descriptor,
                                          uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const FloatType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kFloat;
   }
 
  private:
-  FloatType(mirror::Class* klass, const StringPiece& descriptor,
+  FloatType(ObjPtr<mirror::Class> klass,
+            const std::string_view& descriptor,
             uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat1Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -606,28 +615,30 @@ class FloatType FINAL : public Cat1Type {
 
 class Cat2Type : public PrimitiveType {
  public:
-  Cat2Type(mirror::Class* klass, const StringPiece& descriptor,
+  Cat2Type(ObjPtr<mirror::Class> klass,
+           const std::string_view& descriptor,
            uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_);
 };
 
-class LongLoType FINAL : public Cat2Type {
+class LongLoType final : public Cat2Type {
  public:
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  bool IsLongLo() const OVERRIDE { return true; }
-  bool IsLong() const OVERRIDE { return true; }
-  static const LongLoType* CreateInstance(mirror::Class* klass,
-                                          const StringPiece& descriptor,
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsLongLo() const override { return true; }
+  bool IsLong() const override { return true; }
+  static const LongLoType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                          const std::string_view& descriptor,
                                           uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const LongLoType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kLongLo;
   }
 
  private:
-  LongLoType(mirror::Class* klass, const StringPiece& descriptor,
+  LongLoType(ObjPtr<mirror::Class> klass,
+             const std::string_view& descriptor,
              uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat2Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -635,23 +646,24 @@ class LongLoType FINAL : public Cat2Type {
   static const LongLoType* instance_;
 };
 
-class LongHiType FINAL : public Cat2Type {
+class LongHiType final : public Cat2Type {
  public:
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  bool IsLongHi() const OVERRIDE { return true; }
-  static const LongHiType* CreateInstance(mirror::Class* klass,
-                                          const StringPiece& descriptor,
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsLongHi() const override { return true; }
+  static const LongHiType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                          const std::string_view& descriptor,
                                           uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const LongHiType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 
  private:
-  LongHiType(mirror::Class* klass, const StringPiece& descriptor,
+  LongHiType(ObjPtr<mirror::Class> klass,
+             const std::string_view& descriptor,
              uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat2Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -659,24 +671,25 @@ class LongHiType FINAL : public Cat2Type {
   static const LongHiType* instance_;
 };
 
-class DoubleLoType FINAL : public Cat2Type {
+class DoubleLoType final : public Cat2Type {
  public:
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  bool IsDoubleLo() const OVERRIDE { return true; }
-  bool IsDouble() const OVERRIDE { return true; }
-  static const DoubleLoType* CreateInstance(mirror::Class* klass,
-                                            const StringPiece& descriptor,
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsDoubleLo() const override { return true; }
+  bool IsDouble() const override { return true; }
+  static const DoubleLoType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                            const std::string_view& descriptor,
                                             uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const DoubleLoType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kDoubleLo;
   }
 
  private:
-  DoubleLoType(mirror::Class* klass, const StringPiece& descriptor,
+  DoubleLoType(ObjPtr<mirror::Class> klass,
+               const std::string_view& descriptor,
                uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat2Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -684,23 +697,24 @@ class DoubleLoType FINAL : public Cat2Type {
   static const DoubleLoType* instance_;
 };
 
-class DoubleHiType FINAL : public Cat2Type {
+class DoubleHiType final : public Cat2Type {
  public:
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  virtual bool IsDoubleHi() const OVERRIDE { return true; }
-  static const DoubleHiType* CreateInstance(mirror::Class* klass,
-                                      const StringPiece& descriptor,
-                                      uint16_t cache_id)
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsDoubleHi() const override { return true; }
+  static const DoubleHiType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                            const std::string_view& descriptor,
+                                            uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
   static const DoubleHiType* GetInstance() PURE;
   static void Destroy();
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 
  private:
-  DoubleHiType(mirror::Class* klass, const StringPiece& descriptor,
+  DoubleHiType(ObjPtr<mirror::Class> klass,
+               const std::string_view& descriptor,
                uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : Cat2Type(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -738,30 +752,30 @@ class ConstantType : public RegType {
     }
   }
 
-  bool IsZero() const OVERRIDE {
+  bool IsZero() const override {
     return IsPreciseConstant() && ConstantValue() == 0;
   }
-  bool IsOne() const OVERRIDE {
+  bool IsOne() const override {
     return IsPreciseConstant() && ConstantValue() == 1;
   }
 
-  bool IsConstantChar() const OVERRIDE {
+  bool IsConstantChar() const override {
     return IsConstant() && ConstantValue() >= 0 &&
            ConstantValue() <= std::numeric_limits<uint16_t>::max();
   }
-  bool IsConstantByte() const OVERRIDE {
+  bool IsConstantByte() const override {
     return IsConstant() &&
            ConstantValue() >= std::numeric_limits<int8_t>::min() &&
            ConstantValue() <= std::numeric_limits<int8_t>::max();
   }
-  bool IsConstantShort() const OVERRIDE {
+  bool IsConstantShort() const override {
     return IsConstant() &&
            ConstantValue() >= std::numeric_limits<int16_t>::min() &&
            ConstantValue() <= std::numeric_limits<int16_t>::max();
   }
-  virtual bool IsConstantTypes() const OVERRIDE { return true; }
+  bool IsConstantTypes() const override { return true; }
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 
@@ -769,7 +783,7 @@ class ConstantType : public RegType {
   const uint32_t constant_;
 };
 
-class PreciseConstType FINAL : public ConstantType {
+class PreciseConstType final : public ConstantType {
  public:
   PreciseConstType(uint32_t constant, uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
@@ -777,94 +791,94 @@ class PreciseConstType FINAL : public ConstantType {
     CheckConstructorInvariants(this);
   }
 
-  bool IsPreciseConstant() const OVERRIDE { return true; }
+  bool IsPreciseConstant() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 };
 
-class PreciseConstLoType FINAL : public ConstantType {
+class PreciseConstLoType final : public ConstantType {
  public:
   PreciseConstLoType(uint32_t constant, uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : ConstantType(constant, cache_id) {
     CheckConstructorInvariants(this);
   }
-  bool IsPreciseConstantLo() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsPreciseConstantLo() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 };
 
-class PreciseConstHiType FINAL : public ConstantType {
+class PreciseConstHiType final : public ConstantType {
  public:
   PreciseConstHiType(uint32_t constant, uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : ConstantType(constant, cache_id) {
     CheckConstructorInvariants(this);
   }
-  bool IsPreciseConstantHi() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsPreciseConstantHi() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 };
 
-class ImpreciseConstType FINAL : public ConstantType {
+class ImpreciseConstType final : public ConstantType {
  public:
   ImpreciseConstType(uint32_t constat, uint16_t cache_id)
        REQUIRES_SHARED(Locks::mutator_lock_)
        : ConstantType(constat, cache_id) {
     CheckConstructorInvariants(this);
   }
-  bool IsImpreciseConstant() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsImpreciseConstant() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 };
 
-class ImpreciseConstLoType FINAL : public ConstantType {
+class ImpreciseConstLoType final : public ConstantType {
  public:
   ImpreciseConstLoType(uint32_t constant, uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : ConstantType(constant, cache_id) {
     CheckConstructorInvariants(this);
   }
-  bool IsImpreciseConstantLo() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsImpreciseConstantLo() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 };
 
-class ImpreciseConstHiType FINAL : public ConstantType {
+class ImpreciseConstHiType final : public ConstantType {
  public:
   ImpreciseConstHiType(uint32_t constant, uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : ConstantType(constant, cache_id) {
     CheckConstructorInvariants(this);
   }
-  bool IsImpreciseConstantHi() const OVERRIDE { return true; }
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsImpreciseConstantHi() const override { return true; }
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kNotAssignable;
   }
 };
 
 // Special "null" type that captures the semantics of null / bottom.
-class NullType FINAL : public RegType {
+class NullType final : public RegType {
  public:
-  bool IsNull() const OVERRIDE {
+  bool IsNull() const override {
     return true;
   }
 
@@ -872,27 +886,27 @@ class NullType FINAL : public RegType {
   static const NullType* GetInstance() PURE;
 
   // Create the singleton instance.
-  static const NullType* CreateInstance(mirror::Class* klass,
-                                        const StringPiece& descriptor,
+  static const NullType* CreateInstance(ObjPtr<mirror::Class> klass,
+                                        const std::string_view& descriptor,
                                         uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   static void Destroy();
 
-  std::string Dump() const OVERRIDE {
+  std::string Dump() const override {
     return "null";
   }
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kReference;
   }
 
-  bool IsConstantTypes() const OVERRIDE {
+  bool IsConstantTypes() const override {
     return true;
   }
 
  private:
-  NullType(mirror::Class* klass, const StringPiece& descriptor, uint16_t cache_id)
+  NullType(ObjPtr<mirror::Class> klass, const std::string_view& descriptor, uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : RegType(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
@@ -906,19 +920,21 @@ class NullType FINAL : public RegType {
 // instructions and must be passed to a constructor.
 class UninitializedType : public RegType {
  public:
-  UninitializedType(mirror::Class* klass, const StringPiece& descriptor,
-                    uint32_t allocation_pc, uint16_t cache_id)
+  UninitializedType(ObjPtr<mirror::Class> klass,
+                    const std::string_view& descriptor,
+                    uint32_t allocation_pc,
+                    uint16_t cache_id)
       : RegType(klass, descriptor, cache_id), allocation_pc_(allocation_pc) {}
 
-  bool IsUninitializedTypes() const OVERRIDE;
-  bool IsNonZeroReferenceTypes() const OVERRIDE;
+  bool IsUninitializedTypes() const override;
+  bool IsNonZeroReferenceTypes() const override;
 
   uint32_t GetAllocationPc() const {
     DCHECK(IsUninitializedTypes());
     return allocation_pc_;
   }
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kReference;
   }
 
@@ -927,104 +943,106 @@ class UninitializedType : public RegType {
 };
 
 // Similar to ReferenceType but not yet having been passed to a constructor.
-class UninitializedReferenceType FINAL : public UninitializedType {
+class UninitializedReferenceType final : public UninitializedType {
  public:
-  UninitializedReferenceType(mirror::Class* klass,
-                             const StringPiece& descriptor,
-                             uint32_t allocation_pc, uint16_t cache_id)
+  UninitializedReferenceType(ObjPtr<mirror::Class> klass,
+                             const std::string_view& descriptor,
+                             uint32_t allocation_pc,
+                             uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : UninitializedType(klass, descriptor, allocation_pc, cache_id) {
     CheckConstructorInvariants(this);
   }
 
-  bool IsUninitializedReference() const OVERRIDE { return true; }
+  bool IsUninitializedReference() const override { return true; }
 
-  bool HasClassVirtual() const OVERRIDE { return true; }
+  bool HasClassVirtual() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 };
 
 // Similar to UnresolvedReferenceType but not yet having been passed to a
 // constructor.
-class UnresolvedUninitializedRefType FINAL : public UninitializedType {
+class UnresolvedUninitializedRefType final : public UninitializedType {
  public:
-  UnresolvedUninitializedRefType(const StringPiece& descriptor,
-                                 uint32_t allocation_pc, uint16_t cache_id)
+  UnresolvedUninitializedRefType(const std::string_view& descriptor,
+                                 uint32_t allocation_pc,
+                                 uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : UninitializedType(nullptr, descriptor, allocation_pc, cache_id) {
     CheckConstructorInvariants(this);
   }
 
-  bool IsUnresolvedAndUninitializedReference() const OVERRIDE { return true; }
+  bool IsUnresolvedAndUninitializedReference() const override { return true; }
 
-  bool IsUnresolvedTypes() const OVERRIDE { return true; }
+  bool IsUnresolvedTypes() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
+  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) override;
 };
 
 // Similar to UninitializedReferenceType but special case for the this argument
 // of a constructor.
-class UninitializedThisReferenceType FINAL : public UninitializedType {
+class UninitializedThisReferenceType final : public UninitializedType {
  public:
-  UninitializedThisReferenceType(mirror::Class* klass,
-                                 const StringPiece& descriptor,
+  UninitializedThisReferenceType(ObjPtr<mirror::Class> klass,
+                                 const std::string_view& descriptor,
                                  uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : UninitializedType(klass, descriptor, 0, cache_id) {
     CheckConstructorInvariants(this);
   }
 
-  virtual bool IsUninitializedThisReference() const OVERRIDE { return true; }
+  bool IsUninitializedThisReference() const override { return true; }
 
-  bool HasClassVirtual() const OVERRIDE { return true; }
+  bool HasClassVirtual() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
+  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) override;
 };
 
-class UnresolvedUninitializedThisRefType FINAL : public UninitializedType {
+class UnresolvedUninitializedThisRefType final : public UninitializedType {
  public:
-  UnresolvedUninitializedThisRefType(const StringPiece& descriptor,
-                                     uint16_t cache_id)
+  UnresolvedUninitializedThisRefType(const std::string_view& descriptor, uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : UninitializedType(nullptr, descriptor, 0, cache_id) {
     CheckConstructorInvariants(this);
   }
 
-  bool IsUnresolvedAndUninitializedThisReference() const OVERRIDE { return true; }
+  bool IsUnresolvedAndUninitializedThisReference() const override { return true; }
 
-  bool IsUnresolvedTypes() const OVERRIDE { return true; }
+  bool IsUnresolvedTypes() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
+  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) override;
 };
 
 // A type of register holding a reference to an Object of type GetClass or a
 // sub-class.
-class ReferenceType FINAL : public RegType {
+class ReferenceType final : public RegType {
  public:
-  ReferenceType(mirror::Class* klass, const StringPiece& descriptor,
+  ReferenceType(ObjPtr<mirror::Class> klass,
+                const std::string_view& descriptor,
                 uint16_t cache_id) REQUIRES_SHARED(Locks::mutator_lock_)
       : RegType(klass, descriptor, cache_id) {
     CheckConstructorInvariants(this);
   }
 
-  bool IsReference() const OVERRIDE { return true; }
+  bool IsReference() const override { return true; }
 
-  bool IsNonZeroReferenceTypes() const OVERRIDE { return true; }
+  bool IsNonZeroReferenceTypes() const override { return true; }
 
-  bool HasClassVirtual() const OVERRIDE { return true; }
+  bool HasClassVirtual() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kReference;
   }
 };
@@ -1032,21 +1050,22 @@ class ReferenceType FINAL : public RegType {
 // A type of register holding a reference to an Object of type GetClass and only
 // an object of that
 // type.
-class PreciseReferenceType FINAL : public RegType {
+class PreciseReferenceType final : public RegType {
  public:
-  PreciseReferenceType(mirror::Class* klass, const StringPiece& descriptor,
+  PreciseReferenceType(ObjPtr<mirror::Class> klass,
+                       const std::string_view& descriptor,
                        uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool IsPreciseReference() const OVERRIDE { return true; }
+  bool IsPreciseReference() const override { return true; }
 
-  bool IsNonZeroReferenceTypes() const OVERRIDE { return true; }
+  bool IsNonZeroReferenceTypes() const override { return true; }
 
-  bool HasClassVirtual() const OVERRIDE { return true; }
+  bool HasClassVirtual() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kReference;
   }
 };
@@ -1054,13 +1073,13 @@ class PreciseReferenceType FINAL : public RegType {
 // Common parent of unresolved types.
 class UnresolvedType : public RegType {
  public:
-  UnresolvedType(const StringPiece& descriptor, uint16_t cache_id)
+  UnresolvedType(const std::string_view& descriptor, uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : RegType(nullptr, descriptor, cache_id) {}
 
-  bool IsNonZeroReferenceTypes() const OVERRIDE;
+  bool IsNonZeroReferenceTypes() const override;
 
-  AssignmentType GetAssignmentTypeImpl() const OVERRIDE {
+  AssignmentType GetAssignmentTypeImpl() const override {
     return AssignmentType::kReference;
   }
 };
@@ -1068,26 +1087,26 @@ class UnresolvedType : public RegType {
 // Similar to ReferenceType except the Class couldn't be loaded. Assignability
 // and other tests made
 // of this type must be conservative.
-class UnresolvedReferenceType FINAL : public UnresolvedType {
+class UnresolvedReferenceType final : public UnresolvedType {
  public:
-  UnresolvedReferenceType(const StringPiece& descriptor, uint16_t cache_id)
+  UnresolvedReferenceType(const std::string_view& descriptor, uint16_t cache_id)
       REQUIRES_SHARED(Locks::mutator_lock_)
       : UnresolvedType(descriptor, cache_id) {
     CheckConstructorInvariants(this);
   }
 
-  bool IsUnresolvedReference() const OVERRIDE { return true; }
+  bool IsUnresolvedReference() const override { return true; }
 
-  bool IsUnresolvedTypes() const OVERRIDE { return true; }
+  bool IsUnresolvedTypes() const override { return true; }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
+  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) override;
 };
 
 // Type representing the super-class of an unresolved type.
-class UnresolvedSuperClass FINAL : public UnresolvedType {
+class UnresolvedSuperClass final : public UnresolvedType {
  public:
   UnresolvedSuperClass(uint16_t child_id, RegTypeCache* reg_type_cache,
                        uint16_t cache_id)
@@ -1098,19 +1117,19 @@ class UnresolvedSuperClass FINAL : public UnresolvedType {
     CheckConstructorInvariants(this);
   }
 
-  bool IsUnresolvedSuperClass() const OVERRIDE { return true; }
+  bool IsUnresolvedSuperClass() const override { return true; }
 
-  bool IsUnresolvedTypes() const OVERRIDE { return true; }
+  bool IsUnresolvedTypes() const override { return true; }
 
   uint16_t GetUnresolvedSuperClassChildId() const {
     DCHECK(IsUnresolvedSuperClass());
     return static_cast<uint16_t>(unresolved_child_id_ & 0xFFFF);
   }
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
+  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) override;
 
   const uint16_t unresolved_child_id_;
   const RegTypeCache* const reg_type_cache_;
@@ -1118,7 +1137,7 @@ class UnresolvedSuperClass FINAL : public UnresolvedType {
 
 // A merge of unresolved (and resolved) types. If the types were resolved this may be
 // Conflict or another known ReferenceType.
-class UnresolvedMergedType FINAL : public UnresolvedType {
+class UnresolvedMergedType final : public UnresolvedType {
  public:
   // Note: the constructor will copy the unresolved BitVector, not use it directly.
   UnresolvedMergedType(const RegType& resolved,
@@ -1136,17 +1155,17 @@ class UnresolvedMergedType FINAL : public UnresolvedType {
     return unresolved_types_;
   }
 
-  bool IsUnresolvedMergedReference() const OVERRIDE { return true; }
+  bool IsUnresolvedMergedReference() const override { return true; }
 
-  bool IsUnresolvedTypes() const OVERRIDE { return true; }
+  bool IsUnresolvedTypes() const override { return true; }
 
-  bool IsArrayTypes() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
-  bool IsObjectArrayTypes() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsArrayTypes() const override REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsObjectArrayTypes() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
-  std::string Dump() const OVERRIDE REQUIRES_SHARED(Locks::mutator_lock_);
+  std::string Dump() const override REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
-  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) OVERRIDE;
+  void CheckInvariants() const REQUIRES_SHARED(Locks::mutator_lock_) override;
 
   const RegTypeCache* const reg_type_cache_;
 

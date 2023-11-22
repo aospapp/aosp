@@ -1,8 +1,19 @@
 #!/usr/bin/python2
 #
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
+# Copyright (C) 2013 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 """Unit testing checker.py."""
 
@@ -474,13 +485,16 @@ class PayloadCheckerTest(mox.MoxTestBase):
                    fail_bad_nki or fail_bad_nri or fail_old_kernel_fs_size or
                    fail_old_rootfs_fs_size or fail_new_kernel_fs_size or
                    fail_new_rootfs_fs_size)
+    part_sizes = {
+        common.ROOTFS: rootfs_part_size,
+        common.KERNEL: kernel_part_size
+    }
+
     if should_fail:
       self.assertRaises(PayloadError, payload_checker._CheckManifest, report,
-                        rootfs_part_size, kernel_part_size)
+                        part_sizes)
     else:
-      self.assertIsNone(payload_checker._CheckManifest(report,
-                                                       rootfs_part_size,
-                                                       kernel_part_size))
+      self.assertIsNone(payload_checker._CheckManifest(report, part_sizes))
 
   def testCheckLength(self):
     """Tests _CheckLength()."""
@@ -615,6 +629,41 @@ class PayloadCheckerTest(mox.MoxTestBase):
         op, None, (data_length + block_size - 1) / block_size, 'foo')
 
     # Fail, too few blocks to justify BZ.
+    op.src_extents = []
+    self.assertRaises(
+        PayloadError, payload_checker._CheckReplaceOperation,
+        op, data_length, (data_length + block_size - 1) / block_size, 'foo')
+
+  def testCheckReplaceXzOperation(self):
+    """Tests _CheckReplaceOperation() where op.type == REPLACE_XZ."""
+    payload_checker = checker.PayloadChecker(self.MockPayload())
+    block_size = payload_checker.block_size
+    data_length = block_size * 3
+
+    op = self.mox.CreateMock(
+        update_metadata_pb2.InstallOperation)
+    op.type = common.OpType.REPLACE_XZ
+
+    # Pass.
+    op.src_extents = []
+    self.assertIsNone(
+        payload_checker._CheckReplaceOperation(
+            op, data_length, (data_length + block_size - 1) / block_size + 5,
+            'foo'))
+
+    # Fail, src extents founds.
+    op.src_extents = ['bar']
+    self.assertRaises(
+        PayloadError, payload_checker._CheckReplaceOperation,
+        op, data_length, (data_length + block_size - 1) / block_size + 5, 'foo')
+
+    # Fail, missing data.
+    op.src_extents = []
+    self.assertRaises(
+        PayloadError, payload_checker._CheckReplaceOperation,
+        op, None, (data_length + block_size - 1) / block_size, 'foo')
+
+    # Fail, too few blocks to justify XZ.
     op.src_extents = []
     self.assertRaises(
         PayloadError, payload_checker._CheckReplaceOperation,
@@ -792,8 +841,8 @@ class PayloadCheckerTest(mox.MoxTestBase):
     """Parametric testing of _CheckOperation().
 
     Args:
-      op_type_name: 'REPLACE', 'REPLACE_BZ', 'MOVE', 'BSDIFF', 'SOURCE_COPY',
-        'SOURCE_BSDIFF', BROTLI_BSDIFF or 'PUFFDIFF'.
+      op_type_name: 'REPLACE', 'REPLACE_BZ', 'REPLACE_XZ', 'MOVE', 'BSDIFF',
+        'SOURCE_COPY', 'SOURCE_BSDIFF', BROTLI_BSDIFF or 'PUFFDIFF'.
       is_last: Whether we're testing the last operation in a sequence.
       allow_signature: Whether we're testing a signature-capable operation.
       allow_unhashed: Whether we're allowing to not hash the data.
@@ -842,12 +891,16 @@ class PayloadCheckerTest(mox.MoxTestBase):
                           self.NewExtentList((1, 16)))
         total_src_blocks = 16
 
+    # TODO(tbrindus): add major version 2 tests.
+    payload_checker.major_version = common.CHROMEOS_MAJOR_PAYLOAD_VERSION
     if op_type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ):
       payload_checker.minor_version = 0
     elif op_type in (common.OpType.MOVE, common.OpType.BSDIFF):
       payload_checker.minor_version = 2 if fail_bad_minor_version else 1
     elif op_type in (common.OpType.SOURCE_COPY, common.OpType.SOURCE_BSDIFF):
       payload_checker.minor_version = 1 if fail_bad_minor_version else 2
+    if op_type == common.OpType.REPLACE_XZ:
+      payload_checker.minor_version = 2 if fail_bad_minor_version else 3
     elif op_type in (common.OpType.ZERO, common.OpType.DISCARD,
                      common.OpType.BROTLI_BSDIFF):
       payload_checker.minor_version = 3 if fail_bad_minor_version else 4
@@ -1037,7 +1090,10 @@ class PayloadCheckerTest(mox.MoxTestBase):
     report = checker._PayloadReport()
 
     # We have to check the manifest first in order to set signature attributes.
-    payload_checker._CheckManifest(report, rootfs_part_size, kernel_part_size)
+    payload_checker._CheckManifest(report, {
+        common.ROOTFS: rootfs_part_size,
+        common.KERNEL: kernel_part_size
+    })
 
     should_fail = (fail_empty_sigs_blob or fail_missing_pseudo_op or
                    fail_mismatched_pseudo_op or fail_sig_missing_fields or
@@ -1079,8 +1135,8 @@ class PayloadCheckerTest(mox.MoxTestBase):
 
   def DoRunTest(self, rootfs_part_size_provided, kernel_part_size_provided,
                 fail_wrong_payload_type, fail_invalid_block_size,
-                fail_mismatched_block_size, fail_excess_data,
-                fail_rootfs_part_size_exceeded,
+                fail_mismatched_metadata_size, fail_mismatched_block_size,
+                fail_excess_data, fail_rootfs_part_size_exceeded,
                 fail_kernel_part_size_exceeded):
     """Tests Run()."""
     # Generate a test payload. For this test, we generate a full update that
@@ -1130,6 +1186,11 @@ class PayloadCheckerTest(mox.MoxTestBase):
     else:
       use_block_size = block_size
 
+    # For the unittests 246 is the value that generated for the payload.
+    metadata_size = 246
+    if fail_mismatched_metadata_size:
+      metadata_size += 1
+
     kwargs = {
         'payload_gen_dargs': {
             'privkey_file_name': test_utils._PRIVKEY_FILE_NAME,
@@ -1146,11 +1207,15 @@ class PayloadCheckerTest(mox.MoxTestBase):
       payload_checker = _GetPayloadChecker(payload_gen.WriteToFileWithData,
                                            **kwargs)
 
-      kwargs = {'pubkey_file_name': test_utils._PUBKEY_FILE_NAME,
-                'rootfs_part_size': rootfs_part_size,
-                'kernel_part_size': kernel_part_size}
+      kwargs = {
+          'pubkey_file_name': test_utils._PUBKEY_FILE_NAME,
+          'metadata_size': metadata_size,
+          'part_sizes': {
+              common.KERNEL: kernel_part_size,
+              common.ROOTFS: rootfs_part_size}}
+
       should_fail = (fail_wrong_payload_type or fail_mismatched_block_size or
-                     fail_excess_data or
+                     fail_mismatched_metadata_size or fail_excess_data or
                      fail_rootfs_part_size_exceeded or
                      fail_kernel_part_size_exceeded)
       if should_fail:
@@ -1170,10 +1235,13 @@ def ValidateCheckOperationTest(op_type_name, is_last, allow_signature,
   """Returns True iff the combination of arguments represents a valid test."""
   op_type = _OpTypeByName(op_type_name)
 
-  # REPLACE/REPLACE_BZ operations don't read data from src partition. They are
-  # compatible with all valid minor versions, so we don't need to check that.
-  if (op_type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ) and (
-      fail_src_extents or fail_src_length or fail_bad_minor_version)):
+  # REPLACE/REPLACE_BZ/REPLACE_XZ operations don't read data from src
+  # partition. They are compatible with all valid minor versions, so we don't
+  # need to check that.
+  if (op_type in (common.OpType.REPLACE, common.OpType.REPLACE_BZ,
+                  common.OpType.REPLACE_XZ) and (fail_src_extents or
+                                                 fail_src_length or
+                                                 fail_bad_minor_version)):
     return False
 
   # MOVE and SOURCE_COPY operations don't carry data.
@@ -1259,8 +1327,8 @@ def AddAllParametricTests():
 
   # Add all _CheckOperation() test cases.
   AddParametricTests('CheckOperation',
-                     {'op_type_name': ('REPLACE', 'REPLACE_BZ', 'MOVE',
-                                       'BSDIFF', 'SOURCE_COPY',
+                     {'op_type_name': ('REPLACE', 'REPLACE_BZ', 'REPLACE_XZ',
+                                       'MOVE', 'BSDIFF', 'SOURCE_COPY',
                                        'SOURCE_BSDIFF', 'PUFFDIFF',
                                        'BROTLI_BSDIFF'),
                       'is_last': (True, False),
@@ -1302,6 +1370,7 @@ def AddAllParametricTests():
                       'kernel_part_size_provided': (True, False),
                       'fail_wrong_payload_type': (True, False),
                       'fail_invalid_block_size': (True, False),
+                      'fail_mismatched_metadata_size': (True, False),
                       'fail_mismatched_block_size': (True, False),
                       'fail_excess_data': (True, False),
                       'fail_rootfs_part_size_exceeded': (True, False),

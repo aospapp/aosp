@@ -49,6 +49,8 @@ public class AID_REF_DO extends BerTlv {
     public static final int TAG = 0x4F;
     public static final int TAG_DEFAULT_APPLICATION = 0xC0;
 
+    private static final byte[] CARRIER_PRIVILEGE_AID = {(byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
+            (byte) 0xFF, (byte) 0xFF, (byte) 0xFF};
     private byte[] mAid = new byte[0];
 
     public AID_REF_DO(byte[] rawData, int tag, int valueIndex, int valueLength) {
@@ -103,9 +105,6 @@ public class AID_REF_DO extends BerTlv {
      */
     @Override
     public void interpret() throws ParserException {
-
-        mAid = null;
-
         byte[] data = getRawData();
         int index = getValueIndex();
 
@@ -180,5 +179,15 @@ public class AID_REF_DO extends BerTlv {
             }
         }
         return false;
+    }
+
+    /** Checks if the AID_REF_DO is a Carrier Privilege rule */
+    public boolean isCarrierPrivilege() {
+        return Arrays.equals(mAid, CARRIER_PRIVILEGE_AID);
+    }
+
+    /** Creates a Carrier Privilege AID_REF_DO */
+    public static AID_REF_DO createCarrierPrivilegeAid() {
+        return new AID_REF_DO(AID_REF_DO.TAG, CARRIER_PRIVILEGE_AID);
     }
 }

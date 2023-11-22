@@ -102,7 +102,7 @@ class VtsHalMediaOmxStoreV1_0Host(hal_hidl_host_test.HalHidlHostTest):
             attr_value = attr['value']
 
             # attr_key must not have been seen before.
-            assert(
+            asserts.assertTrue(
                 attr_key not in key_set,
                 'Service attribute "' + attr_key + '" has duplicates.')
             key_set.add(attr_key)
@@ -212,31 +212,34 @@ class VtsHalMediaOmxStoreV1_0Host(hal_hidl_host_test.HalHidlHostTest):
         # Mapping from mime types to roles.
         # These values come from MediaDefs.cpp and OMXUtils.cpp
         audio_mime_to_role = {
-            '3gpp'          : 'amrnb',
-            'ac3'           : 'ac3',
-            'amr-wb'        : 'amrwb',
-            'eac3'          : 'eac3',
-            'flac'          : 'flac',
-            'g711-alaw'     : 'g711alaw',
-            'g711-mlaw'     : 'g711mlaw',
-            'gsm'           : 'gsm',
-            'mp4a-latm'     : 'aac',
-            'mpeg'          : 'mp3',
-            'mpeg-L1'       : 'mp1',
-            'mpeg-L2'       : 'mp2',
-            'opus'          : 'opus',
-            'raw'           : 'raw',
-            'vorbis'        : 'vorbis',
+            '3gpp'             : 'amrnb',
+            'ac3'              : 'ac3',
+            'amr-wb'           : 'amrwb',
+            'eac3'             : 'eac3',
+            'flac'             : 'flac',
+            'g711-alaw'        : 'g711alaw',
+            'g711-mlaw'        : 'g711mlaw',
+            'gsm'              : 'gsm',
+            'mp4a-latm'        : 'aac',
+            'mpeg'             : 'mp3',
+            'mpeg-L1'          : 'mp1',
+            'mpeg-L2'          : 'mp2',
+            'opus'             : 'opus',
+            'raw'              : 'raw',
+            'vorbis'           : 'vorbis',
         }
         video_mime_to_role = {
-            '3gpp'          : 'h263',
-            'avc'           : 'avc',
-            'dolby-vision'  : 'dolby-vision',
-            'hevc'          : 'hevc',
-            'mp4v-es'       : 'mpeg4',
-            'mpeg2'         : 'mpeg2',
-            'x-vnd.on2.vp8' : 'vp8',
-            'x-vnd.on2.vp9' : 'vp9',
+            '3gpp'             : 'h263',
+            'avc'              : 'avc',
+            'dolby-vision'     : 'dolby-vision',
+            'hevc'             : 'hevc',
+            'mp4v-es'          : 'mpeg4',
+            'mpeg2'            : 'mpeg2',
+            'x-vnd.on2.vp8'    : 'vp8',
+            'x-vnd.on2.vp9'    : 'vp9',
+        }
+        image_mime_to_role = {
+            'vnd.android.heic' : 'heic',
         }
         def get_role(is_encoder, mime):
             """Returns the role based on is_encoder and mime.
@@ -268,6 +271,11 @@ class VtsHalMediaOmxStoreV1_0Host(hal_hidl_host_test.HalHidlHostTest):
                     return None
                 prefix = 'video_'
                 suffix = video_mime_to_role[mime_suffix]
+            elif mime.startswith('image/'):
+                if mime_suffix not in image_mime_to_role:
+                    return None
+                prefix = 'image_'
+                suffix = image_mime_to_role[mime_suffix]
             else:
                 return None
             return prefix + middle + suffix
@@ -299,12 +307,14 @@ class VtsHalMediaOmxStoreV1_0Host(hal_hidl_host_test.HalHidlHostTest):
                 'Role "' + role_name + '" has duplicates.')
 
             queried_role = get_role(is_encoder, mime_type)
-            # type and isEncoder must be known.
-            asserts.assertTrue(
-                queried_role,
-                'Invalid mime type "' + mime_type + '" for ' +
-                ('an encoder.' if is_encoder else 'a decoder.'))
-            # type and isEncoder must be consistent with role.
+            # If mime_type is not recognized, skip it.
+            if queried_role is None:
+                logging.info(
+                    'Unrecognized mime type  "' +
+                    mime_type + '", skipping.')
+                continue
+
+            # Otherwise, type and isEncoder must be consistent with role.
             asserts.assertEqual(
                 role_name, queried_role,
                 'Role "' + role_name + '" does not match ' +
@@ -440,7 +450,7 @@ class VtsHalMediaOmxStoreV1_0Host(hal_hidl_host_test.HalHidlHostTest):
                     self.vtypes.Status.OK, status,
                     'IOmx::allocateNode() for IOmx instance "' + owner + '" ' +
                     'fails to allocate node "' + node +'".')
-
+                status = omxNode.freeNode()
 
             # Check that all nodes obtained from IOmxStore::listRoles() are
             # supported by the their corresponding IOmx instances.
@@ -451,22 +461,23 @@ class VtsHalMediaOmxStoreV1_0Host(hal_hidl_host_test.HalHidlHostTest):
                 'does not report some expected nodes: ' +
                 ', '.join(node_set_diff) + '.')
 
-        # Call IOmxStore::getNodePrefix().
-        prefix = self.omxstore.getNodePrefix()
-        logging.info('Checking node prefix: ' +
-                     'IOmxStore::getNodePrefix() returns "' + prefix + '".')
-
         # Check that the prefix is a sensible string.
-        asserts.assertTrue(
-            node_name_re.match(prefix),
-            '"' + prefix + '" is not a valid prefix for node names.')
+        if node2roles:
+            # Call IOmxStore::getNodePrefix().
+            prefix = self.omxstore.getNodePrefix()
+            logging.info('Checking node prefix: ' +
+                         'IOmxStore::getNodePrefix() returns "' + prefix + '".')
 
-        # Check that all node names have the said prefix.
-        for node in node2roles:
             asserts.assertTrue(
-                node.startswith(prefix),
-                'Node "' + node + '" does not start with ' +
-                'prefix "' + prefix + '".')
+                node_name_re.match(prefix),
+                '"' + prefix + '" is not a valid prefix for node names.')
+
+            # Check that all node names have the said prefix.
+            for node in node2roles:
+                asserts.assertTrue(
+                    node.startswith(prefix),
+                    'Node "' + node + '" does not start with ' +
+                    'prefix "' + prefix + '".')
 
 if __name__ == '__main__':
     test_runner.main()

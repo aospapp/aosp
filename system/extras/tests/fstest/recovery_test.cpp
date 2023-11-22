@@ -28,6 +28,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <string>
+
 #include "cutils/properties.h"
 #include <ext4_utils/ext4.h>
 #include <ext4_utils/ext4_utils.h>
@@ -188,24 +190,23 @@ class FsRecoveryTest : public ::testing::Test {
   bool setCacheInfoFromFstab() {
     fs_type = FS_UNKNOWN;
 
-    struct fstab *fstab = fs_mgr_read_fstab_default();
-    if (!fstab) {
+    android::fs_mgr::Fstab fstab;
+    if (!android::fs_mgr::ReadDefaultFstab(&fstab)) {
       testPrintE("failed to open default fstab\n");
     } else {
       // Loop through entries looking for cache.
-      for (int i = 0; i < fstab->num_entries; ++i) {
-        if (!strcmp(fstab->recs[i].mount_point, "/cache")) {
-          strcpy(blk_path_, fstab->recs[i].blk_device);
-          if (!strcmp(fstab->recs[i].fs_type, "ext4")) {
+      for (const auto& entry : fstab) {
+        if (entry.mount_point == "/cache") {
+          blk_path_ = entry.blk_device;
+          if (entry.fs_type == "ext4") {
             fs_type = FS_EXT4;
             break;
-          } else if (!strcmp(fstab->recs[i].fs_type, "f2fs")) {
+          } else if (entry.fs_type == "f2fs") {
             fs_type = FS_F2FS;
             break;
           }
         }
       }
-      fs_mgr_free_fstab(fstab);
     }
     return fs_type != FS_UNKNOWN;
   }
@@ -236,7 +237,7 @@ class FsRecoveryTest : public ::testing::Test {
 
   int getCacheBlkFd() {
     if (blk_fd_ == -1) {
-      blk_fd_ = open(blk_path_, O_RDWR);
+      blk_fd_ = open(blk_path_.c_str(), O_RDWR);
     }
     return blk_fd_;
   }
@@ -271,7 +272,7 @@ class FsRecoveryTest : public ::testing::Test {
   Fs_Type fs_type;
 
  private:
-  char blk_path_[FILENAME_MAX];
+  std::string blk_path_;
   int blk_fd_;
 };
 

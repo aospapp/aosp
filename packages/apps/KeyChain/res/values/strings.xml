@@ -31,9 +31,6 @@
     <!-- Label of button to send the user to the CertInstaller to install a certificate (arguments are constants for .pfx and .p12) -->
     <string name="install_new_cert_message">You can install certificates from a PKCS#12 file with a %1$s or a %2$s extension located in external storage.</string>
 
-    <!-- Label of button to send the user to the CertInstaller to install a certificate -->
-    <string name="install_new_cert_button_label">Install certificate</string>
-
     <!-- Label of button to select the certificate and allow the application certificate request -->
     <string name="allow_button">Select</string>
 

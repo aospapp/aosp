@@ -26,9 +26,11 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import android.Manifest;
 import android.app.AppOpsManager;
 import android.app.NotificationManager;
 import android.app.StatusBarManager;
+import android.app.role.RoleManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -70,7 +72,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
+import static org.mockito.ArgumentMatchers.matches;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyInt;
@@ -94,6 +98,13 @@ public class ComponentContextFixture implements TestFixture<Context> {
         @Override
         public PackageManager getPackageManager() {
             return mPackageManager;
+        }
+
+        @Override
+        public Executor getMainExecutor() {
+            // TODO: This doesn't actually execute anything as we don't need to do so for now, but
+            //  future users might need it.
+            return mMainExecutor;
         }
 
         @Override
@@ -181,6 +192,8 @@ public class ComponentContextFixture implements TestFixture<Context> {
                     return mCarrierConfigManager;
                 case Context.COUNTRY_DETECTOR:
                     return mCountryDetector;
+                case Context.ROLE_SERVICE:
+                    return mRoleManager;
                 default:
                     return null;
             }
@@ -190,6 +203,12 @@ public class ComponentContextFixture implements TestFixture<Context> {
         public String getSystemServiceName(Class<?> svcClass) {
             if (svcClass == UserManager.class) {
                 return Context.USER_SERVICE;
+            } else if (svcClass == RoleManager.class) {
+                return Context.ROLE_SERVICE;
+            } else if (svcClass == AudioManager.class) {
+                return Context.AUDIO_SERVICE;
+            } else if (svcClass == TelephonyManager.class) {
+                return Context.TELEPHONY_SERVICE;
             }
             throw new UnsupportedOperationException();
         }
@@ -296,6 +315,13 @@ public class ComponentContextFixture implements TestFixture<Context> {
         public void sendOrderedBroadcastAsUser(Intent intent, UserHandle user,
                 String receiverPermission, int appOp, BroadcastReceiver resultReceiver,
                 Handler scheduler, int initialCode, String initialData, Bundle initialExtras) {
+        }
+
+        @Override
+        public void sendOrderedBroadcastAsUser(Intent intent, UserHandle user,
+                String receiverPermission, int appOp, Bundle options,
+                BroadcastReceiver resultReceiver, Handler scheduler, int initialCode,
+                String initialData, Bundle initialExtras) {
         }
 
         @Override
@@ -418,6 +444,7 @@ public class ComponentContextFixture implements TestFixture<Context> {
     private final Resources mResources = mock(Resources.class);
     private final Context mApplicationContextSpy = spy(mApplicationContext);
     private final PackageManager mPackageManager = mock(PackageManager.class);
+    private final Executor mMainExecutor = mock(Executor.class);
     private final AudioManager mAudioManager = spy(new FakeAudioManager(mContext));
     private final TelephonyManager mTelephonyManager = mock(TelephonyManager.class);
     private final AppOpsManager mAppOpsManager = mock(AppOpsManager.class);
@@ -430,8 +457,9 @@ public class ComponentContextFixture implements TestFixture<Context> {
     private final Map<String, IContentProvider> mIContentProviderByUri = new HashMap<>();
     private final Configuration mResourceConfiguration = new Configuration();
     private final ApplicationInfo mTestApplicationInfo = new ApplicationInfo();
+    private final RoleManager mRoleManager = mock(RoleManager.class);
 
-    private TelecomManager mTelecomManager = null;
+    private TelecomManager mTelecomManager = mock(TelecomManager.class);
 
     public ComponentContextFixture() {
         MockitoAnnotations.initMocks(this);
@@ -461,7 +489,16 @@ public class ComponentContextFixture implements TestFixture<Context> {
             }
         }).when(mPackageManager).queryIntentServicesAsUser((Intent) any(), anyInt(), anyInt());
 
-        when(mTelephonyManager.getSubIdForPhoneAccount((PhoneAccount) any())).thenReturn(1);
+        // By default, tests use non-ui apps instead of 3rd party companion apps.
+        when(mPackageManager.checkPermission(
+                matches(Manifest.permission.CALL_COMPANION_APP), anyString()))
+                .thenReturn(PackageManager.PERMISSION_DENIED);
+
+        // Used in CreateConnectionProcessor to rank emergency numbers by viability.
+        // For the test, make them all equal to INVALID so that the preferred PhoneAccount will be
+        // chosen.
+        when(mTelephonyManager.getSubIdForPhoneAccount((PhoneAccount) any())).thenReturn(
+                SubscriptionManager.INVALID_SUBSCRIPTION_ID);
 
         when(mTelephonyManager.getNetworkOperatorName()).thenReturn("label1");
         when(mTelephonyManager.getMultiSimConfiguration()).thenReturn(
@@ -480,6 +517,11 @@ public class ComponentContextFixture implements TestFixture<Context> {
 
         doReturn(null).when(mApplicationContextSpy).registerReceiver(any(BroadcastReceiver.class),
                 any(IntentFilter.class));
+
+        // Make sure we do not hide PII during testing.
+        Log.setTag("TelecomTEST");
+        Log.setIsExtendedLoggingEnabled(true);
+        Log.VERBOSE = true;
     }
 
     @Override
@@ -523,8 +565,16 @@ public class ComponentContextFixture implements TestFixture<Context> {
         });
     }
 
+    public void putFloatResource(int id, final float value) {
+        when(mResources.getFloat(eq(id))).thenReturn(value);
+    }
+
     public void putBooleanResource(int id, boolean value) {
         when(mResources.getBoolean(eq(id))).thenReturn(value);
+    }
+
+    public void putStringArrayResource(int id, String[] value) {
+        when(mResources.getStringArray(eq(id))).thenReturn(value);
     }
 
     public void setTelecomManager(TelecomManager telecomManager) {

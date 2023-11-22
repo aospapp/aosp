@@ -21,6 +21,7 @@
 #include <random>
 
 #include "base/bit_utils.h"
+#include "base/malloc_arena_pool.h"
 #include "base/stl_util.h"
 #include "jni_macro_assembler_x86_64.h"
 #include "utils/assembler_test.h"
@@ -29,7 +30,7 @@
 namespace art {
 
 TEST(AssemblerX86_64, CreateBuffer) {
-  ArenaPool pool;
+  MallocArenaPool pool;
   ArenaAllocator allocator(&pool);
   AssemblerBuffer buffer(&allocator);
   AssemblerBuffer::EnsureCapacity ensured(&buffer);
@@ -136,23 +137,23 @@ class AssemblerX86_64Test : public AssemblerTest<x86_64::X86_64Assembler,
                                                  x86_64::XmmRegister,
                                                  x86_64::Immediate> {
  public:
-  typedef AssemblerTest<x86_64::X86_64Assembler,
-                        x86_64::Address,
-                        x86_64::CpuRegister,
-                        x86_64::XmmRegister,
-                        x86_64::Immediate> Base;
+  using Base = AssemblerTest<x86_64::X86_64Assembler,
+                             x86_64::Address,
+                             x86_64::CpuRegister,
+                             x86_64::XmmRegister,
+                             x86_64::Immediate>;
 
  protected:
   // Get the typically used name for this architecture, e.g., aarch64, x86-64, ...
-  std::string GetArchitectureString() OVERRIDE {
+  std::string GetArchitectureString() override {
     return "x86_64";
   }
 
-  std::string GetDisassembleParameters() OVERRIDE {
+  std::string GetDisassembleParameters() override {
     return " -D -bbinary -mi386:x86-64 -Mx86-64,addr64,data32 --no-show-raw-insn";
   }
 
-  void SetUpHelpers() OVERRIDE {
+  void SetUpHelpers() override {
     if (addresses_singleton_.size() == 0) {
       // One addressing mode to test the repeat drivers.
       addresses_singleton_.push_back(
@@ -290,39 +291,39 @@ class AssemblerX86_64Test : public AssemblerTest<x86_64::X86_64Assembler,
     }
   }
 
-  void TearDown() OVERRIDE {
+  void TearDown() override {
     AssemblerTest::TearDown();
     STLDeleteElements(&registers_);
     STLDeleteElements(&fp_registers_);
   }
 
-  std::vector<x86_64::Address> GetAddresses() {
+  std::vector<x86_64::Address> GetAddresses() override {
     return addresses_;
   }
 
-  std::vector<x86_64::CpuRegister*> GetRegisters() OVERRIDE {
+  std::vector<x86_64::CpuRegister*> GetRegisters() override {
     return registers_;
   }
 
-  std::vector<x86_64::XmmRegister*> GetFPRegisters() OVERRIDE {
+  std::vector<x86_64::XmmRegister*> GetFPRegisters() override {
     return fp_registers_;
   }
 
-  x86_64::Immediate CreateImmediate(int64_t imm_value) OVERRIDE {
+  x86_64::Immediate CreateImmediate(int64_t imm_value) override {
     return x86_64::Immediate(imm_value);
   }
 
-  std::string GetSecondaryRegisterName(const x86_64::CpuRegister& reg) OVERRIDE {
+  std::string GetSecondaryRegisterName(const x86_64::CpuRegister& reg) override {
     CHECK(secondary_register_names_.find(reg) != secondary_register_names_.end());
     return secondary_register_names_[reg];
   }
 
-  std::string GetTertiaryRegisterName(const x86_64::CpuRegister& reg) OVERRIDE {
+  std::string GetTertiaryRegisterName(const x86_64::CpuRegister& reg) override {
     CHECK(tertiary_register_names_.find(reg) != tertiary_register_names_.end());
     return tertiary_register_names_[reg];
   }
 
-  std::string GetQuaternaryRegisterName(const x86_64::CpuRegister& reg) OVERRIDE {
+  std::string GetQuaternaryRegisterName(const x86_64::CpuRegister& reg) override {
     CHECK(quaternary_register_names_.find(reg) != quaternary_register_names_.end());
     return quaternary_register_names_[reg];
   }
@@ -1282,6 +1283,38 @@ TEST_F(AssemblerX86_64Test, Psubq) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::psubq, "psubq %{reg2}, %{reg1}"), "psubq");
 }
 
+TEST_F(AssemblerX86_64Test, Paddusb) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::paddusb, "paddusb %{reg2}, %{reg1}"), "paddusb");
+}
+
+TEST_F(AssemblerX86_64Test, Paddsb) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::paddsb, "paddsb %{reg2}, %{reg1}"), "paddsb");
+}
+
+TEST_F(AssemblerX86_64Test, Paddusw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::paddusw, "paddusw %{reg2}, %{reg1}"), "paddusw");
+}
+
+TEST_F(AssemblerX86_64Test, Paddsw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::paddsw, "paddsw %{reg2}, %{reg1}"), "paddsw");
+}
+
+TEST_F(AssemblerX86_64Test, Psubusb) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::psubusb, "psubusb %{reg2}, %{reg1}"), "psubusb");
+}
+
+TEST_F(AssemblerX86_64Test, Psubsb) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::psubsb, "psubsb %{reg2}, %{reg1}"), "psubsb");
+}
+
+TEST_F(AssemblerX86_64Test, Psubusw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::psubusw, "psubusw %{reg2}, %{reg1}"), "psubusw");
+}
+
+TEST_F(AssemblerX86_64Test, Psubsw) {
+  DriverStr(RepeatFF(&x86_64::X86_64Assembler::psubsw, "psubsw %{reg2}, %{reg1}"), "psubsw");
+}
+
 TEST_F(AssemblerX86_64Test, Cvtsi2ss) {
   DriverStr(RepeatFr(&x86_64::X86_64Assembler::cvtsi2ss, "cvtsi2ss %{reg2}, %{reg1}"), "cvtsi2ss");
 }
@@ -1381,7 +1414,9 @@ TEST_F(AssemblerX86_64Test, Andpd) {
 TEST_F(AssemblerX86_64Test, Pand) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::pand, "pand %{reg2}, %{reg1}"), "pand");
 }
-
+TEST_F(AssemblerX86_64Test, Andn) {
+  DriverStr(RepeatRRR(&x86_64::X86_64Assembler::andn, "andn %{reg3}, %{reg2}, %{reg1}"), "andn");
+}
 TEST_F(AssemblerX86_64Test, andnpd) {
   DriverStr(RepeatFF(&x86_64::X86_64Assembler::andnpd, "andnpd %{reg2}, %{reg1}"), "andnpd");
 }
@@ -1752,6 +1787,18 @@ TEST_F(AssemblerX86_64Test, RetAndLeave) {
   DriverFn(&ret_and_leave_fn, "retleave");
 }
 
+TEST_F(AssemblerX86_64Test, Blsmask) {
+  DriverStr(RepeatRR(&x86_64::X86_64Assembler::blsmsk, "blsmsk %{reg2}, %{reg1}"), "blsmsk");
+}
+
+TEST_F(AssemblerX86_64Test, Blsi) {
+  DriverStr(RepeatRR(&x86_64::X86_64Assembler::blsi, "blsi %{reg2}, %{reg1}"), "blsi");
+}
+
+TEST_F(AssemblerX86_64Test, Blsr) {
+  DriverStr(RepeatRR(&x86_64::X86_64Assembler::blsr, "blsr %{reg2}, %{reg1}"), "blsr");
+}
+
 TEST_F(AssemblerX86_64Test, Bswapl) {
   DriverStr(Repeatr(&x86_64::X86_64Assembler::bswapl, "bswap %{reg}"), "bswapl");
 }
@@ -1969,11 +2016,11 @@ class JNIMacroAssemblerX86_64Test : public JNIMacroAssemblerTest<x86_64::X86_64J
 
  protected:
   // Get the typically used name for this architecture, e.g., aarch64, x86-64, ...
-  std::string GetArchitectureString() OVERRIDE {
+  std::string GetArchitectureString() override {
     return "x86_64";
   }
 
-  std::string GetDisassembleParameters() OVERRIDE {
+  std::string GetDisassembleParameters() override {
     return " -D -bbinary -mi386:x86-64 -Mx86-64,addr64,data32 --no-show-raw-insn";
   }
 
@@ -2047,7 +2094,7 @@ std::string removeframe_test_fn(JNIMacroAssemblerX86_64Test::Base* assembler_tes
   ArrayRef<const ManagedRegister> spill_regs(raw_spill_regs);
 
   size_t frame_size = 10 * kStackAlignment;
-  assembler->RemoveFrame(frame_size, spill_regs, /* may_suspend */ true);
+  assembler->RemoveFrame(frame_size, spill_regs, /* may_suspend= */ true);
 
   // Construct assembly text counterpart.
   std::ostringstream str;

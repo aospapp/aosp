@@ -17,11 +17,25 @@
 package android.autofillservice.cts;
 
 import static android.autofillservice.cts.Helper.ID_USERNAME;
-import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
+import static android.autofillservice.cts.Timeouts.MOCK_IME_TIMEOUT_MS;
+
+import static com.android.compatibility.common.util.ShellUtils.sendKeyEvent;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectBindInput;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectCommand;
+import static com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent;
 
 import android.autofillservice.cts.CannedFillResponse.CannedDataset;
 import android.content.IntentSender;
+import android.os.Process;
 import android.platform.test.annotations.AppModeFull;
+import android.view.KeyEvent;
+import android.view.View;
+import android.widget.EditText;
+
+import com.android.cts.mockime.ImeCommand;
+import com.android.cts.mockime.ImeEventStream;
+import com.android.cts.mockime.MockImeSession;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -31,21 +45,14 @@ import java.util.regex.Pattern;
 
 public class DatasetFilteringTest extends AbstractLoginActivityTestCase {
 
-    private static String sMaxDatasets;
-
     @BeforeClass
-    public static void setMaxDatasets() {
-        sMaxDatasets = runShellCommand("cmd autofill get max_visible_datasets");
-        runShellCommand("cmd autofill set max_visible_datasets 4");
+    public static void setMaxDatasets() throws Exception {
+        Helper.setMaxVisibleDatasets(4);
     }
 
     @AfterClass
-    public static void restoreMaxDatasets() {
-        runShellCommand("cmd autofill set max_visible_datasets %s", sMaxDatasets);
-    }
-
-    private static void sendKeyEvents(String keyCode) {
-        runShellCommand("input keyevent " + keyCode);
+    public static void restoreMaxDatasets() throws Exception {
+        Helper.setMaxVisibleDatasets(0);
     }
 
     private void changeUsername(CharSequence username) {
@@ -108,7 +115,7 @@ public class DatasetFilteringTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    public void testFilter_usingKeyboard() throws Exception {
+    public void testFilter_injectingEvents() throws Exception {
         final String aa = "Two A's";
         final String ab = "A and B";
         final String b = "Only B";
@@ -139,32 +146,101 @@ public class DatasetFilteringTest extends AbstractLoginActivityTestCase {
         mUiBot.assertDatasets(aa, ab, b);
 
         // Only two datasets start with 'a'
-        sendKeyEvents("KEYCODE_A");
+        sendKeyEvent("KEYCODE_A");
         mUiBot.assertDatasets(aa, ab);
 
         // Only one dataset start with 'aa'
-        sendKeyEvents("KEYCODE_A");
+        sendKeyEvent("KEYCODE_A");
         mUiBot.assertDatasets(aa);
 
         // Only two datasets start with 'a'
-        sendKeyEvents("KEYCODE_DEL");
+        sendKeyEvent("KEYCODE_DEL");
         mUiBot.assertDatasets(aa, ab);
 
         // With no filter text all datasets should be shown
-        sendKeyEvents("KEYCODE_DEL");
+        sendKeyEvent("KEYCODE_DEL");
         mUiBot.assertDatasets(aa, ab, b);
 
         // No dataset start with 'aaa'
         final MyAutofillCallback callback = mActivity.registerCallback();
-        sendKeyEvents("KEYCODE_A");
-        sendKeyEvents("KEYCODE_A");
-        sendKeyEvents("KEYCODE_A");
+        sendKeyEvent("KEYCODE_A");
+        sendKeyEvent("KEYCODE_A");
+        sendKeyEvent("KEYCODE_A");
         callback.assertUiHiddenEvent(mActivity.getUsername());
         mUiBot.assertNoDatasets();
     }
 
     @Test
-    @AppModeFull // testFilter() is enough to test ephemeral apps support
+    public void testFilter_usingKeyboard() throws Exception {
+        final String aa = "Two A's";
+        final String ab = "A and B";
+        final String b = "Only B";
+
+        final MockImeSession mockImeSession = sMockImeSessionRule.getMockImeSession();
+
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "aa")
+                        .setPresentation(createPresentation(aa))
+                        .build())
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "ab")
+                        .setPresentation(createPresentation(ab))
+                        .build())
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "b")
+                        .setPresentation(createPresentation(b))
+                        .build())
+                .build());
+
+        final ImeEventStream stream = mockImeSession.openEventStream();
+
+        // Trigger auto-fill.
+        mActivity.onUsername(View::requestFocus);
+
+        // Wait until the MockIme gets bound to the TestActivity.
+        expectBindInput(stream, Process.myPid(), MOCK_IME_TIMEOUT_MS);
+        expectEvent(stream, editorMatcher("onStartInput", mActivity.getUsername().getId()),
+                MOCK_IME_TIMEOUT_MS);
+
+        sReplier.getNextFillRequest();
+
+        // With no filter text all datasets should be shown
+        mUiBot.assertDatasets(aa, ab, b);
+
+        // Only two datasets start with 'a'
+        final ImeCommand cmd1 = mockImeSession.callCommitText("a", 1);
+        expectCommand(stream, cmd1, MOCK_IME_TIMEOUT_MS);
+        mUiBot.assertDatasets(aa, ab);
+
+        // Only one dataset start with 'aa'
+        final ImeCommand cmd2 = mockImeSession.callCommitText("a", 1);
+        expectCommand(stream, cmd2, MOCK_IME_TIMEOUT_MS);
+        mUiBot.assertDatasets(aa);
+
+        // Only two datasets start with 'a'
+        final ImeCommand cmd3 = mockImeSession.callSendDownUpKeyEvents(KeyEvent.KEYCODE_DEL);
+        expectCommand(stream, cmd3, MOCK_IME_TIMEOUT_MS);
+        mUiBot.assertDatasets(aa, ab);
+
+        // With no filter text all datasets should be shown
+        final ImeCommand cmd4 = mockImeSession.callSendDownUpKeyEvents(KeyEvent.KEYCODE_DEL);
+        expectCommand(stream, cmd4, MOCK_IME_TIMEOUT_MS);
+        mUiBot.assertDatasets(aa, ab, b);
+
+        // No dataset start with 'aaa'
+        final MyAutofillCallback callback = mActivity.registerCallback();
+        final ImeCommand cmd5 = mockImeSession.callCommitText("aaa", 1);
+        expectCommand(stream, cmd5, MOCK_IME_TIMEOUT_MS);
+        callback.assertUiHiddenEvent(mActivity.getUsername());
+        mUiBot.assertNoDatasets();
+    }
+
+    @Test
+    @AppModeFull(reason = "testFilter() is enough")
     public void testFilter_nullValuesAlwaysMatched() throws Exception {
         final String aa = "Two A's";
         final String ab = "A and B";
@@ -217,7 +293,7 @@ public class DatasetFilteringTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFilter() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFilter() is enough")
     public void testFilter_differentPrefixes() throws Exception {
         final String a = "aaa";
         final String b = "bra";
@@ -259,7 +335,7 @@ public class DatasetFilteringTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFilter() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFilter() is enough")
     public void testFilter_usingRegex() throws Exception {
         // Dataset presentations.
         final String aa = "Two A's";
@@ -315,7 +391,7 @@ public class DatasetFilteringTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFilter() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFilter() is enough")
     public void testFilter_disabledUsingNullRegex() throws Exception {
         // Dataset presentations.
         final String unfilterable = "Unfilterabled";
@@ -378,7 +454,7 @@ public class DatasetFilteringTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFilter() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFilter() is enough")
     public void testFilter_mixPlainAndRegex() throws Exception {
         final String plain = "Plain";
         final String regexPlain = "RegexPlain";
@@ -430,7 +506,7 @@ public class DatasetFilteringTest extends AbstractLoginActivityTestCase {
     }
 
     @Test
-    @AppModeFull // testFilter_usingKeyboard() is enough to test ephemeral apps support
+    @AppModeFull(reason = "testFilter_usingKeyboard() is enough")
     public void testFilter_mixPlainAndRegex_usingKeyboard() throws Exception {
         final String plain = "Plain";
         final String regexPlain = "RegexPlain";
@@ -473,11 +549,117 @@ public class DatasetFilteringTest extends AbstractLoginActivityTestCase {
         mUiBot.assertDatasets(plain, regexPlain, authRegex, kitchnSync);
 
         // All datasets start with 'a'
-        sendKeyEvents("KEYCODE_A");
+        sendKeyEvent("KEYCODE_A");
         mUiBot.assertDatasets(plain, regexPlain, authRegex, kitchnSync);
 
         // Only the regex datasets should start with 'ab'
-        sendKeyEvents("KEYCODE_B");
+        sendKeyEvent("KEYCODE_B");
         mUiBot.assertDatasets(regexPlain, authRegex, kitchnSync);
+    }
+
+    @Test
+    @AppModeFull(reason = "testFilter() is enough")
+    public void testFilter_resetFilter_chooseFirst() throws Exception {
+        resetFilterTest(1);
+    }
+
+    @Test
+    @AppModeFull(reason = "testFilter() is enough")
+    public void testFilter_resetFilter_chooseSecond() throws Exception {
+        resetFilterTest(2);
+    }
+
+    @Test
+    @AppModeFull(reason = "testFilter() is enough")
+    public void testFilter_resetFilter_chooseThird() throws Exception {
+        resetFilterTest(3);
+    }
+
+    private void resetFilterTest(int number) throws Exception {
+        final String aa = "Two A's";
+        final String ab = "A and B";
+        final String b = "Only B";
+
+        enableService();
+
+        // Set expectations.
+        sReplier.addResponse(new CannedFillResponse.Builder()
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "aa")
+                        .setPresentation(createPresentation(aa))
+                        .build())
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "ab")
+                        .setPresentation(createPresentation(ab))
+                        .build())
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "b")
+                        .setPresentation(createPresentation(b))
+                        .build())
+                .build());
+
+        final String chosenOne;
+        switch (number) {
+            case 1:
+                chosenOne = aa;
+                mActivity.expectAutoFill("aa");
+                break;
+            case 2:
+                chosenOne = ab;
+                mActivity.expectAutoFill("ab");
+                break;
+            case 3:
+                chosenOne = b;
+                mActivity.expectAutoFill("b");
+                break;
+            default:
+                throw new IllegalArgumentException("invalid dataset number: " + number);
+        }
+
+        final MyAutofillCallback callback = mActivity.registerCallback();
+        final EditText username = mActivity.getUsername();
+
+        // Trigger auto-fill.
+        requestFocusOnUsername();
+        callback.assertUiShownEvent(username);
+
+        sReplier.getNextFillRequest();
+
+        // With no filter text all datasets should be shown
+        mUiBot.assertDatasets(aa, ab, b);
+
+        // Only two datasets start with 'a'
+        changeUsername("a");
+        mUiBot.assertDatasets(aa, ab);
+
+        // One dataset starts with 'aa'
+        changeUsername("aa");
+        mUiBot.assertDatasets(aa);
+
+        // Filter all out
+        changeUsername("aaa");
+        callback.assertUiHiddenEvent(username);
+        mUiBot.assertNoDatasets();
+
+        // Now delete the char and assert aa is showing again
+        changeUsername("aa");
+        callback.assertUiShownEvent(username);
+        mUiBot.assertDatasets(aa);
+
+        // Delete one more and assert two datasets showing
+        changeUsername("a");
+        mUiBot.assertDatasets(aa, ab);
+
+        // Reset back to all choices
+        changeUsername("");
+        mUiBot.assertDatasets(aa, ab, b);
+
+        // select the choice
+        mUiBot.selectDataset(chosenOne);
+        callback.assertUiHiddenEvent(username);
+        mUiBot.assertNoDatasets();
+
+        // Check the results.
+        mActivity.assertAutoFilled();
     }
 }

@@ -52,7 +52,6 @@ import android.os.Binder;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Process;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 
 import com.android.bluetooth.BluetoothObexTransport;
@@ -60,6 +59,7 @@ import com.android.bluetooth.IObexConnectionHandler;
 import com.android.bluetooth.ObexServerSockets;
 import com.android.bluetooth.btservice.ProfileService;
 import com.android.bluetooth.sdp.SdpManager;
+import com.android.internal.annotations.VisibleForTesting;
 
 import com.google.android.collect.Lists;
 
@@ -114,6 +114,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
     private boolean mPendingUpdate;
 
     private UpdateThread mUpdateThread;
+
+    private boolean mUpdateThreadRunning;
 
     private ArrayList<BluetoothOppShareInfo> mShares;
 
@@ -241,6 +243,10 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
     @Override
     public boolean stop() {
+        if (sBluetoothOppService == null) {
+            Log.w(TAG, "stop() called before start()");
+            return true;
+        }
         setBluetoothOppService(null);
         mHandler.sendMessage(mHandler.obtainMessage(STOP_LISTENER));
         return true;
@@ -330,8 +336,19 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                     unregisterReceivers();
                     synchronized (BluetoothOppService.this) {
                         if (mUpdateThread != null) {
+                            mUpdateThread.interrupt();
+                        }
+                    }
+                    while (mUpdateThread != null && mUpdateThreadRunning) {
+                        try {
+                            Thread.sleep(50);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Thread sleep", e);
+                        }
+                    }
+                    synchronized (BluetoothOppService.this) {
+                        if (mUpdateThread != null) {
                             try {
-                                mUpdateThread.interrupt();
                                 mUpdateThread.join();
                             } catch (InterruptedException e) {
                                 Log.e(TAG, "Interrupted", e);
@@ -339,6 +356,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                             mUpdateThread = null;
                         }
                     }
+
                     mNotifier.cancelNotifications();
                     break;
                 case START_LISTENER:
@@ -551,6 +569,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             if (mUpdateThread == null) {
                 mUpdateThread = new UpdateThread();
                 mUpdateThread.start();
+                mUpdateThreadRunning = true;
             }
         }
     }
@@ -580,6 +599,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             while (!mIsInterrupted) {
                 synchronized (BluetoothOppService.this) {
                     if (mUpdateThread != this) {
+                        mUpdateThreadRunning = false;
                         throw new IllegalStateException(
                                 "multiple UpdateThreads in BluetoothOppService");
                     }
@@ -589,6 +609,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                     }
                     if (!mPendingUpdate) {
                         mUpdateThread = null;
+                        mUpdateThreadRunning = false;
                         return;
                     }
                     mPendingUpdate = false;
@@ -598,6 +619,7 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                                 BluetoothShare._ID);
 
                 if (cursor == null) {
+                    mUpdateThreadRunning = false;
                     return;
                 }
 
@@ -634,9 +656,6 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                             }
                         }
 
-                        if (shouldScanFile(arrayPos)) {
-                            scanFile(arrayPos);
-                        }
                         deleteShare(arrayPos); // this advances in the array
                     } else {
                         int id = cursor.getInt(idColumn);
@@ -660,14 +679,11 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
                                     Log.v(TAG,
                                             "Array update: removing " + arrayId + " @ " + arrayPos);
                                 }
-                                if (shouldScanFile(arrayPos)) {
-                                    scanFile(arrayPos);
-                                }
                                 deleteShare(arrayPos);
                             } else if (arrayId == id) {
                                 // This cursor row already exists in the stored array.
                                 updateShare(cursor, arrayPos);
-
+                                scanFileIfNeeded(arrayPos);
                                 ++arrayPos;
                                 cursor.moveToNext();
                                 isAfterLast = cursor.isAfterLast();
@@ -691,6 +707,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
 
                 cursor.close();
             }
+
+            mUpdateThreadRunning = false;
         }
     }
 
@@ -1031,8 +1049,14 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
         }
     }
 
-    private boolean scanFile(int arrayPos) {
+    private void scanFileIfNeeded(int arrayPos) {
         BluetoothOppShareInfo info = mShares.get(arrayPos);
+        boolean isFileReceived = BluetoothShare.isStatusSuccess(info.mStatus)
+                && info.mDirection == BluetoothShare.DIRECTION_INBOUND && !info.mMediaScanned
+                && info.mConfirm != BluetoothShare.USER_CONFIRMATION_HANDOVER_CONFIRMED;
+        if (!isFileReceived) {
+            return;
+        }
         synchronized (BluetoothOppService.this) {
             if (D) {
                 Log.d(TAG, "Scanning file " + info.mFilename);
@@ -1040,18 +1064,8 @@ public class BluetoothOppService extends ProfileService implements IObexConnecti
             if (!mMediaScanInProgress) {
                 mMediaScanInProgress = true;
                 new MediaScannerNotifier(this, info, mHandler);
-                return true;
-            } else {
-                return false;
             }
         }
-    }
-
-    private boolean shouldScanFile(int arrayPos) {
-        BluetoothOppShareInfo info = mShares.get(arrayPos);
-        return BluetoothShare.isStatusSuccess(info.mStatus)
-                && info.mDirection == BluetoothShare.DIRECTION_INBOUND && !info.mMediaScanned
-                && info.mConfirm != BluetoothShare.USER_CONFIRMATION_HANDOVER_CONFIRMED;
     }
 
     // Run in a background thread at boot.

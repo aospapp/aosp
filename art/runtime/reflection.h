@@ -17,7 +17,7 @@
 #ifndef ART_RUNTIME_REFLECTION_H_
 #define ART_RUNTIME_REFLECTION_H_
 
-#include "base/mutex.h"
+#include "base/locks.h"
 #include "dex/primitive.h"
 #include "jni.h"
 #include "obj_ptr.h"
@@ -69,13 +69,13 @@ JValue InvokeWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
 JValue InvokeWithJValues(const ScopedObjectAccessAlreadyRunnable& soa,
                          jobject obj,
                          jmethodID mid,
-                         jvalue* args)
+                         const jvalue* args)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
 JValue InvokeVirtualOrInterfaceWithJValues(const ScopedObjectAccessAlreadyRunnable& soa,
                                            jobject obj,
                                            jmethodID mid,
-                                           jvalue* args)
+                                           const jvalue* args)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
 JValue InvokeVirtualOrInterfaceWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
@@ -90,6 +90,14 @@ jobject InvokeMethod(const ScopedObjectAccessAlreadyRunnable& soa,
                      jobject receiver,
                      jobject args,
                      size_t num_frames = 1)
+    REQUIRES_SHARED(Locks::mutator_lock_);
+
+// Special-casing of the above. Assumes that the method is the correct constructor, the class is
+// initialized, and that the receiver is an instance of the class.
+void InvokeConstructor(const ScopedObjectAccessAlreadyRunnable& soa,
+                       ArtMethod* constructor,
+                       ObjPtr<mirror::Object> receiver,
+                       jobject args)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
 ALWAYS_INLINE bool VerifyObjectIsClass(ObjPtr<mirror::Object> o, ObjPtr<mirror::Class> c)

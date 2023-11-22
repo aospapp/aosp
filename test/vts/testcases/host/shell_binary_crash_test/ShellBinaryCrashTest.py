@@ -32,7 +32,7 @@ class ShellBinaryCrashTest(base_test.BaseTestClass):
 
     def setUpClass(self):
         self.run_as_vts_self_test = False
-        self.dut = self.registerController(android_device)[0]
+        self.dut = self.android_devices[0]
 
     def testCrashBinary(self):
         """Tests whether the agent survives when a called binary crashes."""

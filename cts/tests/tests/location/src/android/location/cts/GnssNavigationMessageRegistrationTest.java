@@ -52,7 +52,7 @@ public class GnssNavigationMessageRegistrationTest extends GnssTestCase {
     private static final int EVENTS_COUNT = 5;
     private TestGnssNavigationMessageListener mTestGnssNavigationMessageListener;
     private TestLocationListener mLocationListener;
-    private TestGpsStatusListener mGpsStatusListener;
+    private TestGnssStatusCallback mGnssStatusCallback;
 
     @Override
     protected void setUp() throws Exception {
@@ -71,8 +71,8 @@ public class GnssNavigationMessageRegistrationTest extends GnssTestCase {
         if (mLocationListener != null) {
             mTestLocationManager.removeLocationUpdates(mLocationListener);
         }
-        if (mGpsStatusListener != null) {
-            mTestLocationManager.removeGpsStatusListener(mGpsStatusListener);
+        if (mGnssStatusCallback != null) {
+            mTestLocationManager.unregisterGnssStatusCallback(mGnssStatusCallback);
         }
         super.tearDown();
     }
@@ -84,8 +84,8 @@ public class GnssNavigationMessageRegistrationTest extends GnssTestCase {
     public void testGnssNavigationMessageRegistration() throws Exception {
         // Checks if GPS hardware feature is present, skips test (pass) if not,
         // and hard asserts that Location/GPS (Provider) is turned on if is Cts Verifier.
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager,
-                TAG, MIN_HARDWARE_YEAR_MEASUREMENTS_REQUIRED, isCtsVerifierTest())) {
+        if (!TestMeasurementUtil
+                .canTestRunOnCurrentDevice(mTestLocationManager, isCtsVerifierTest())) {
             return;
         }
 
@@ -121,12 +121,12 @@ public class GnssNavigationMessageRegistrationTest extends GnssTestCase {
         Log.i(TAG, "Location received = " + mLocationListener.isLocationReceived());
 
         // Register for Gps Status updates
-        mGpsStatusListener = new TestGpsStatusListener(EVENTS_COUNT, mTestLocationManager);
-        mTestLocationManager.addGpsStatusListener(mGpsStatusListener);
+        mGnssStatusCallback = new TestGnssStatusCallback(TAG, EVENTS_COUNT);
+        mTestLocationManager.registerGnssStatusCallback(mGnssStatusCallback);
 
         // Wait for Gps Status updates
-        mGpsStatusListener.await();
-        if (!mGpsStatusListener.isGpsStatusReceived()) {
+        mGnssStatusCallback.awaitStatus();
+        if (mGnssStatusCallback.getGnssStatus() == null) {
             // Skip the Test. No Satellites are visible. Device may be Indoor
             Log.i(TAG, "No Satellites are visible. Device may be Indoor. Skipping Test.");
             return;

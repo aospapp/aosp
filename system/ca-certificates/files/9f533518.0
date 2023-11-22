@@ -42,7 +42,8 @@ v8CSlDQb4ye3ix5vQv/n6TebUB0tovkC7stYWDpxvGjjqsGvHCgfotwjZT+B6q6Z
 Certificate:
     Data:
         Version: 3 (0x2)
-        Serial Number: 14541511773111788494 (0xc9cdd3e9d57d23ce)
+        Serial Number:
+            c9:cd:d3:e9:d5:7d:23:ce
     Signature Algorithm: sha1WithRSAEncryption
         Issuer: C=EU, L=Madrid (see current address at www.camerfirma.com/address)/serialNumber=A82743287, O=AC Camerfirma S.A., CN=Global Chambersign Root - 2008
         Validity

@@ -121,7 +121,7 @@ int checkKernelSupport(bool *qtaguidSupport) {
   // b/30950746
   if (ret >= 2 && ((kernel_version_major == 4 && kernel_version_minor >= 9) ||
                    (kernel_version_major > 4))) {
-    *qtaguidSupport = (access("/dev/xt_qtaguid", F_OK) != -1);
+    *qtaguidSupport = false;
   } else {
     *qtaguidSupport = true;
   }
@@ -213,6 +213,8 @@ class SocketTagUsrSpaceTest : public ::testing::Test {
   uint64_t max_uint_tag;
 
   virtual void SetUp() {
+    SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
     my_uid = getuid();
     my_pid = getpid();
     srand48(my_pid * my_uid);
@@ -223,8 +225,8 @@ class SocketTagUsrSpaceTest : public ::testing::Test {
     inet_uid = 1024;
     valid_tag1 = (my_pid << 12) | (rand());
     valid_tag2 = (my_pid << 12) | (rand());
-    max_uint_tag = 0xffffffff00000000llu;
-    max_uint_tag = 1llu << 63 | (((uint64_t)my_pid << 48) ^ max_uint_tag);
+    max_uint_tag = 0xffffffff00000000LLU;
+    max_uint_tag = 1LLU << 63 | (((uint64_t)my_pid << 48) ^ max_uint_tag);
     // Check the node /dev/xt_qtaguid exist before start.
     struct stat nodeStat;
     EXPECT_GE(stat("/dev/xt_qtaguid", &nodeStat), 0)
@@ -253,6 +255,8 @@ class SocketTagUsrSpaceTest : public ::testing::Test {
 
 /* Tag to a invalid socket fd, should fail */
 TEST_F(SocketTagUsrSpaceTest, invalidSockfdFail) {
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   EXPECT_LT(legacy_tagSocket(-1, valid_tag1, my_uid), 0)
       << "Invalid socketfd case 1, should fail.";
 }
@@ -268,6 +272,8 @@ TEST_F(SocketTagUsrSpaceTest, CheckStatsInvalidSocketFail) {
 
 /* Untag invalid socket fd, should fail */
 TEST_F(SocketTagUsrSpaceTest, UntagInvalidSocketFail) {
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   EXPECT_LT(legacy_untagSocket(-1), 0) << "invalid socket fd, should fail";
   EXPECT_LT(legacy_untagSocket(sock_0.fd), 0)
       << "no tags on sock0, should fail";
@@ -278,6 +284,8 @@ TEST_F(SocketTagUsrSpaceTest, UntagInvalidSocketFail) {
  * should fail
  */
 TEST_F(SocketTagUsrSpaceTest, CounterSetNumExceedFail) {
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   int wrongCounterNum = kMaxCounterSet + 1;
   EXPECT_LT(legacy_setCounterSet(wrongCounterNum, my_uid), 0)
       << "Invalid counter set number, should fail.";
@@ -350,6 +358,8 @@ TEST_F(SocketTagUsrSpaceTest, ValidReTagWithAcctTagChange) {
  * Should keep both
  */
 TEST_F(SocketTagUsrSpaceTest, ReTagWithUidChange) {
+  SKIP_IF_QTAGUID_NOT_SUPPORTED();
+
   EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag2, fake_uid), 0);
   EXPECT_GE(legacy_tagSocket(sock_0.fd, valid_tag1, fake_uid2), 0);
 }

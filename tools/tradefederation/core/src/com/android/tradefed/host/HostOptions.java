@@ -16,10 +16,13 @@
 
 package com.android.tradefed.host;
 
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.OptionClass;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Host options holder class.
@@ -52,6 +55,16 @@ public class HostOptions implements IHostOptions {
             + "filesystem.")
     private File mDownloadCacheDir = new File(System.getProperty("java.io.tmpdir"), "lc_cache");
 
+    @Option(name = "use-sso-client", description = "Use a SingleSignOn client for HTTP requests.")
+    private Boolean mUseSsoClient = true;
+
+    @Option(
+        name = "service-account-json-key-file",
+        description =
+                "Specify a service account json key file, and a String key name to identify it."
+    )
+    private Map<String, File> mJsonServiceAccountMap = new HashMap<>();
+
     /**
      * {@inheritDoc}
      */
@@ -72,8 +85,27 @@ public class HostOptions implements IHostOptions {
         return mFastbootTmpDir;
     }
 
+    /** {@inheritDoc} */
     @Override
     public File getDownloadCacheDir() {
         return mDownloadCacheDir;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Boolean shouldUseSsoClient() {
+        return mUseSsoClient;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Map<String, File> getServiceAccountJsonKeyFiles() {
+        return new HashMap<>(mJsonServiceAccountMap);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void validateOptions() throws ConfigurationException {
+        // Validation of host options
     }
 }

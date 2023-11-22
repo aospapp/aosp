@@ -18,7 +18,7 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util \
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt \
 	mockito-target-minus-junit4 \
 	android-ex-camera2
 
@@ -32,6 +32,35 @@ LOCAL_SDK_VERSION := current
 -include cts/error_prone_rules_tests.mk
 include $(BUILD_STATIC_JAVA_LIBRARY)
 
+# Reusable Camera performance test classes and helpers
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := cts-camera-performance-tests
+
+LOCAL_MODULE_TAGS := tests
+
+# Include both the 32 and 64 bit versions
+LOCAL_MULTILIB := both
+
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt \
+	ctstestrunner-axt \
+	mockito-target-minus-junit4 \
+	CtsCameraUtils \
+	truth-prebuilt \
+	androidx.test.rules
+
+LOCAL_SRC_FILES := \
+	src/android/hardware/camera2/cts/testcases/Camera2AndroidTestCase.java \
+	src/android/hardware/camera2/cts/PerformanceTest.java \
+	src/android/hardware/cts/CameraTestCase.java \
+	src/android/hardware/cts/LegacyCameraPerformanceTest.java
+
+LOCAL_SDK_VERSION := test_current
+
+LOCAL_JAVA_LIBRARIES := android.test.runner.stubs android.test.base.stubs
+
+include $(BUILD_STATIC_JAVA_LIBRARY)
+
 # CtsCameraTestCases package
 
 include $(CLEAR_VARS)
@@ -41,16 +70,18 @@ LOCAL_MODULE_TAGS := tests
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util \
-	ctstestrunner \
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt \
+	ctstestrunner-axt \
 	mockito-target-minus-junit4 \
 	android-ex-camera2 \
 	CtsCameraUtils \
-	truth-prebuilt
+	truth-prebuilt \
+	androidx.heifwriter_heifwriter \
+	androidx.test.rules
 
 LOCAL_JNI_SHARED_LIBRARIES := \
 	libctscamera2_jni \
-	libnativehelper_compat_libc++
+	libnativehelper_compat_libc++ \
 
 LOCAL_NDK_STL_VARIANT := c++_shared
 

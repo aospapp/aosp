@@ -20,7 +20,6 @@
 #include "array.h"
 #include "class.h"
 #include "dex_cache.h"
-#include "gc_root.h"
 #include "object.h"
 #include "object_array.h"
 #include "string.h"
@@ -43,27 +42,31 @@ class MANAGED ClassExt : public Object {
 
   void SetVerifyError(ObjPtr<Object> obj) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  Object* GetVerifyError() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetFieldObject<ClassExt>(OFFSET_OF_OBJECT_MEMBER(ClassExt, verify_error_));
-  }
+  ObjPtr<Object> GetVerifyError() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  ObjectArray<DexCache>* GetObsoleteDexCaches() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetFieldObject<ObjectArray<DexCache>>(
-        OFFSET_OF_OBJECT_MEMBER(ClassExt, obsolete_dex_caches_));
-  }
+  ObjPtr<ObjectArray<DexCache>> GetObsoleteDexCaches() REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags,
            ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
-  inline PointerArray* GetObsoleteMethods() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetFieldObject<PointerArray, kVerifyFlags, kReadBarrierOption>(
-        OFFSET_OF_OBJECT_MEMBER(ClassExt, obsolete_methods_));
-  }
+  ObjPtr<PointerArray> GetObsoleteMethods() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  Object* GetOriginalDexFile() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return GetFieldObject<Object>(OFFSET_OF_OBJECT_MEMBER(ClassExt, original_dex_file_));
-  }
+  ObjPtr<Object> GetOriginalDexFile() REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetOriginalDexFile(ObjPtr<Object> bytes) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  uint16_t GetPreRedefineClassDefIndex() REQUIRES_SHARED(Locks::mutator_lock_) {
+    return static_cast<uint16_t>(
+        GetField32(OFFSET_OF_OBJECT_MEMBER(ClassExt, pre_redefine_class_def_index_)));
+  }
+
+  void SetPreRedefineClassDefIndex(uint16_t index) REQUIRES_SHARED(Locks::mutator_lock_);
+
+  const DexFile* GetPreRedefineDexFile() REQUIRES_SHARED(Locks::mutator_lock_) {
+    return reinterpret_cast<const DexFile*>(static_cast<uintptr_t>(
+        GetField64(OFFSET_OF_OBJECT_MEMBER(ClassExt, pre_redefine_dex_file_ptr_))));
+  }
+
+  void SetPreRedefineDexFile(const DexFile* dex_file) REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetObsoleteArrays(ObjPtr<PointerArray> methods, ObjPtr<ObjectArray<DexCache>> dex_caches)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -72,15 +75,11 @@ class MANAGED ClassExt : public Object {
   bool ExtendObsoleteArrays(Thread* self, uint32_t increase)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static void SetClass(ObjPtr<Class> dalvik_system_ClassExt);
-  static void ResetClass();
-  static void VisitRoots(RootVisitor* visitor) REQUIRES_SHARED(Locks::mutator_lock_);
-
   template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier, class Visitor>
   inline void VisitNativeRoots(Visitor& visitor, PointerSize pointer_size)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
-  static ClassExt* Alloc(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_);
+  static ObjPtr<ClassExt> Alloc(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
   // Field order required by test "ValidateFieldOrderOfJavaCppUnionClasses".
@@ -93,7 +92,9 @@ class MANAGED ClassExt : public Object {
   // The saved verification error of this class.
   HeapReference<Object> verify_error_;
 
-  static GcRoot<Class> dalvik_system_ClassExt_;
+  // Native pointer to DexFile and ClassDef index of this class before it was JVMTI-redefined.
+  int64_t pre_redefine_dex_file_ptr_;
+  int32_t pre_redefine_class_def_index_;
 
   friend struct art::ClassExtOffsets;  // for verifying offset information
   DISALLOW_IMPLICIT_CONSTRUCTORS(ClassExt);

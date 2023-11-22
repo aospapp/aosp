@@ -18,8 +18,6 @@ package android.media.cts;
 
 import static org.testng.Assert.assertThrows;
 
-import android.media.cts.R;
-
 import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -29,14 +27,15 @@ import android.media.AudioManager;
 import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.VolumeShaper;
+import android.media.cts.R;
 import android.os.Parcel;
 import android.os.PowerManager;
 import android.platform.test.annotations.AppModeFull;
-import android.support.test.filters.FlakyTest;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.SmallTest;
 import android.util.Log;
+
+import androidx.test.filters.FlakyTest;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 

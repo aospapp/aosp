@@ -46,11 +46,11 @@ const std::string &RuntimeInfo::hardwareId() const {
 }
 
 const KernelVersion &RuntimeInfo::kernelVersion() const {
-    return mKernelVersion;
+    return mKernel.version();
 }
 
 const std::map<std::string, std::string> &RuntimeInfo::kernelConfigs() const {
-    return mKernelConfigs;
+    return mKernel.configs();
 }
 
 size_t RuntimeInfo::kernelSepolicyVersion() const {
@@ -69,40 +69,8 @@ const Version &RuntimeInfo::bootAvbVersion() const {
     return mBootAvbVersion;
 }
 
-bool RuntimeInfo::matchKernelConfigs(const std::vector<KernelConfig>& matrixConfigs,
-                                     std::string* error) const {
-    for (const KernelConfig& matrixConfig : matrixConfigs) {
-        const std::string& key = matrixConfig.first;
-        auto it = this->mKernelConfigs.find(key);
-        if (it == this->mKernelConfigs.end()) {
-            // special case: <value type="tristate">n</value> matches if the config doesn't exist.
-            if (matrixConfig.second == KernelConfigTypedValue::gMissingConfig) {
-                continue;
-            }
-            if (error != nullptr) {
-                *error = "Missing config " + key;
-            }
-            return false;
-        }
-        const std::string& kernelValue = it->second;
-        if (!matrixConfig.second.matchValue(kernelValue)) {
-            if (error != nullptr) {
-                *error = "For config " + key + ", value = " + kernelValue + " but required " +
-                         to_string(matrixConfig.second);
-            }
-            return false;
-        }
-    }
-    return true;
-}
-
-bool RuntimeInfo::matchKernelVersion(const KernelVersion& minLts) const {
-    return minLts.version == mKernelVersion.version && minLts.majorRev == mKernelVersion.majorRev &&
-           minLts.minorRev <= mKernelVersion.minorRev;
-}
-
 bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix& mat, std::string* error,
-                                     DisabledChecks disabledChecks) const {
+                                     CheckFlags::Type flags) const {
     if (mat.mType != SchemaType::FRAMEWORK) {
         if (error != nullptr) {
             *error = "Should not check runtime info against " + to_string(mat.mType)
@@ -122,46 +90,13 @@ bool RuntimeInfo::checkCompatibility(const CompatibilityMatrix& mat, std::string
     // mat.mSepolicy.sepolicyVersion() is checked against static
     // HalManifest.device.mSepolicyVersion in HalManifest::checkCompatibility.
 
-    bool foundMatchedKernelVersion = false;
-    bool foundMatchedConditions = false;
-    for (const MatrixKernel& matrixKernel : mat.framework.mKernels) {
-        if (!matchKernelVersion(matrixKernel.minLts())) {
-            continue;
-        }
-        foundMatchedKernelVersion = true;
-        // ignore this fragment if not all conditions are met.
-        if (!matchKernelConfigs(matrixKernel.conditions(), error)) {
-            continue;
-        }
-        foundMatchedConditions = true;
-        if (!matchKernelConfigs(matrixKernel.configs(), error)) {
+    if (flags.isKernelEnabled()) {
+        if (!mKernel.matchKernelRequirements(mat.framework.mKernels, error)) {
             return false;
         }
     }
-    if (!foundMatchedKernelVersion) {
-        if (error != nullptr) {
-            std::stringstream ss;
-            ss << "Framework is incompatible with kernel version " << mKernelVersion
-               << ", compatible kernel versions are";
-            for (const MatrixKernel& matrixKernel : mat.framework.mKernels)
-                ss << " " << matrixKernel.minLts();
-            *error = ss.str();
-        }
-        return false;
-    }
-    if (!foundMatchedConditions) {
-        // This should not happen because first <conditions> for each <kernel> must be
-        // empty. Reject here for inconsistency.
-        if (error != nullptr) {
-            error->insert(0, "Framework match kernel version with unmet conditions:");
-        }
-        return false;
-    }
-    if (error != nullptr) {
-        error->clear();
-    }
 
-    if ((disabledChecks & DISABLE_AVB_CHECK) == 0) {
+    if (flags.isAvbEnabled()) {
         const Version& matAvb = mat.framework.mAvbMetaVersion;
         if (mBootAvbVersion.majorVer != matAvb.majorVer ||
             mBootAvbVersion.minorVer < matAvb.minorVer) {

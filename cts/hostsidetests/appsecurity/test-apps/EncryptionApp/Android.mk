@@ -19,8 +19,13 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE_TAGS := tests
-LOCAL_SDK_VERSION := current
-LOCAL_STATIC_JAVA_LIBRARIES := android-support-test compatibility-device-util ctstestrunner ub-uiautomator
+LOCAL_SDK_VERSION := test_current
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    androidx.test.rules \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
+    ub-uiautomator \
+    truth-prebuilt \
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 

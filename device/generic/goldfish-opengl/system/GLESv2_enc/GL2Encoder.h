@@ -108,11 +108,23 @@ private:
     GLint m_num_compressedTextureFormats;
     GLint *getCompressedTextureFormats();
 
+    GLint m_max_combinedTextureImageUnits;
+    GLint m_max_vertexTextureImageUnits;
+    GLint m_max_textureImageUnits;
     GLint m_max_cubeMapTextureSize;
     GLint m_max_renderBufferSize;
     GLint m_max_textureSize;
     GLint m_max_3d_textureSize;
     GLint m_max_vertexAttribStride;
+
+    GLint m_max_transformFeedbackSeparateAttribs;
+    GLint m_max_uniformBufferBindings;
+    GLint m_max_colorAttachments;
+    GLint m_max_drawBuffers;
+
+    GLint m_max_atomicCounterBufferBindings;
+    GLint m_max_shaderStorageBufferBindings;
+    GLint m_max_vertexAttribBindings;
 
     GLuint m_ssbo_offset_align;
     GLuint m_ubo_offset_align;
@@ -172,7 +184,7 @@ private:
 
     glBindBuffer_client_proc_t m_glBindBuffer_enc;
     static void s_glBindBuffer(void *self, GLenum target, GLuint id);
-
+    void doBindBufferEncodeCached(GLenum taret, GLuint id);
 
     glBufferData_client_proc_t m_glBufferData_enc;
     static void s_glBufferData(void *self, GLenum target, GLsizeiptr size, const GLvoid * data, GLenum usage);
@@ -190,6 +202,12 @@ private:
 
     glDrawElements_client_proc_t m_glDrawElements_enc;
     static void s_glDrawElements(void *self, GLenum mode, GLsizei count, GLenum type, const void *indices);
+
+    glDrawArraysNullAEMU_client_proc_t m_glDrawArraysNullAEMU_enc;
+    static void s_glDrawArraysNullAEMU(void *self, GLenum mode, GLint first, GLsizei count);
+
+    glDrawElementsNullAEMU_client_proc_t m_glDrawElementsNullAEMU_enc;
+    static void s_glDrawElementsNullAEMU(void *self, GLenum mode, GLsizei count, GLenum type, const void *indices);
 
     glGetIntegerv_client_proc_t m_glGetIntegerv_enc;
     static void s_glGetIntegerv(void *self, GLenum pname, GLint *ptr);
@@ -402,6 +420,9 @@ private:
     static void* s_glMapBufferOES(void* self, GLenum target, GLenum access);
     static GLboolean s_glUnmapBufferOES(void* self, GLenum target);
     static void* s_glMapBufferRange(void* self, GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access);
+    static void* s_glMapBufferRangeAEMUImpl(GL2Encoder* ctx, GLenum target,
+                                            GLintptr offset, GLsizeiptr length,
+                                            GLbitfield access, BufferData* buf);
     static GLboolean s_glUnmapBuffer(void* self, GLenum target);
     static void s_glFlushMappedBufferRange(void* self, GLenum target, GLintptr offset, GLsizeiptr length);
 
@@ -418,6 +439,23 @@ private:
 
     glBindBufferBase_client_proc_t m_glBindBufferBase_enc;
     static void s_glBindBufferBase(void *self , GLenum target, GLuint index, GLuint buffer);
+
+    // TODO:
+    // VertexAttrib(I)Pointer
+    // VertexAttribBinding
+    // BindVertexBuffer
+    // depend on other state as well
+    enum IndexedBufferBindOp {
+        BindBufferBase,
+        BindBufferRange,
+        // TODO
+        // VertexAttribPointer,
+        // VertexAttribIPointer,
+        // VertexAttribBinding,
+        // VertexAttribFormat,
+        // BindVertexBuffer,
+    };
+    void doIndexedBufferBindEncodeCached(IndexedBufferBindOp op, GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size, GLintptr stride, GLintptr effectiveStride);
 
     glCopyBufferSubData_client_proc_t m_glCopyBufferSubData_enc;
     static void s_glCopyBufferSubData(void *self , GLenum readtarget, GLenum writetarget, GLintptr readoffset, GLintptr writeoffset, GLsizeiptr size);
@@ -567,6 +605,10 @@ private:
 
     glBindSampler_client_proc_t m_glBindSampler_enc;
     static void s_glBindSampler(void* self, GLuint unit, GLuint sampler);
+    void doSamplerBindEncodeCached(GLuint unit, GLuint sampler);
+
+    glDeleteSamplers_client_proc_t m_glDeleteSamplers_enc;
+    static void s_glDeleteSamplers(void* self, GLsizei n, const GLuint* samplers);
 
     static GLsync s_glFenceSync(void* self, GLenum condition, GLbitfield flags);
     static GLenum s_glClientWaitSync(void* self, GLsync wait_on, GLbitfield flags, GLuint64 timeout);
@@ -702,6 +744,14 @@ private:
     glTexStorage2DMultisample_client_proc_t m_glTexStorage2DMultisample_enc;
     static void s_glTexStorage2DMultisample(void* self, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
 
+    static GLenum s_glGetGraphicsResetStatusEXT(void* self);
+    static void s_glReadnPixelsEXT(void* self, GLint x, GLint y, GLsizei width,
+            GLsizei height, GLenum format, GLenum type, GLsizei bufSize,
+            GLvoid* pixels);
+    static void s_glGetnUniformfvEXT(void *self, GLuint program, GLint location,
+            GLsizei bufSize, GLfloat* params);
+    static void s_glGetnUniformivEXT(void *self, GLuint program, GLint location,
+            GLsizei bufSize, GLint* params);
 public:
     glEGLImageTargetTexture2DOES_client_proc_t m_glEGLImageTargetTexture2DOES_enc;
 

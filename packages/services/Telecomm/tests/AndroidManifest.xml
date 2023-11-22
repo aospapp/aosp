@@ -34,6 +34,7 @@
 
     <!-- Used to access TelephonyManager APIs -->
     <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
     <application android:label="@string/app_name"
                  android:debuggable="true">
@@ -51,7 +52,7 @@
         adb shell am instrument -w -e class com.android.server.telecom.tests.unit.FooUnitTest \
                                com.android.server.telecom.tests/android.test.InstrumentationTestRunner
     -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="com.android.server.telecom.tests"
             android:label="Telecomm application tests"
             android:debuggable="true"/>

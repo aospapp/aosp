@@ -30,14 +30,16 @@ import android.graphics.Color;
 import android.graphics.cts.R;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.graphics.drawable.DrawableContainer.DrawableContainerState;
 import android.graphics.drawable.StateListDrawable;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.StateSet;
 import android.util.Xml;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -329,6 +331,66 @@ public class StateListDrawableTest {
         XmlResourceParser parser = getResourceParser(R.xml.level_list_correct);
         // Should throw NullPointerException if AttributeSet is null
         mMockDrawable.inflate(mResources, parser, null);
+    }
+
+    @Test
+    public void testGetStateCount() {
+        StateListDrawable stateList = new StateListDrawable();
+        stateList.addState(new int[]{0}, new ColorDrawable(Color.RED));
+
+        assertEquals(1, stateList.getStateCount());
+
+        stateList.addState(new int[]{1}, new ColorDrawable(Color.GREEN));
+
+        assertEquals(2, stateList.getStateCount());
+
+        stateList.addState(new int[]{2}, new ColorDrawable(Color.BLUE));
+
+        assertEquals(3, stateList.getStateCount());
+    }
+
+    @Test
+    public void testGetStateDrawable() {
+        StateListDrawable stateList = new StateListDrawable();
+
+        ColorDrawable colorDrawable = new ColorDrawable(Color.RED);
+        int[] stateSet = new int[]{1};
+        stateList.addState(stateSet, colorDrawable);
+
+        Drawable drawable = stateList.getStateDrawable(0);
+        assertSame(colorDrawable, drawable);
+    }
+
+    @Test
+    public void testGetStateSet() {
+        StateListDrawable stateList = new StateListDrawable();
+
+        ColorDrawable colorDrawable = new ColorDrawable(Color.GREEN);
+        int[] stateSet = new int[]{0};
+
+        stateList.addState(stateSet, colorDrawable);
+        int[] resolvedStateSet = stateList.getStateSet(0);
+        assertEquals(stateSet, resolvedStateSet);
+    }
+
+    @Test
+    public void testGetStateDrawableIndex() {
+        StateListDrawable stateList = new StateListDrawable();
+
+        ColorDrawable drawable1 = new ColorDrawable(Color.CYAN);
+        ColorDrawable drawable2 = new ColorDrawable(Color.YELLOW);
+        ColorDrawable drawable3 = new ColorDrawable(Color.GREEN);
+        int[] stateSet1 = new int[]{42};
+        int[] stateSet2 = new int[]{27};
+        int[] stateSet3 = new int[]{57};
+
+        stateList.addState(stateSet1, drawable1);
+        stateList.addState(stateSet2, drawable2);
+        stateList.addState(stateSet3, drawable3);
+
+        assertEquals(0, stateList.findStateDrawableIndex(stateSet1));
+        assertEquals(1, stateList.findStateDrawableIndex(stateSet2));
+        assertEquals(2, stateList.findStateDrawableIndex(stateSet3));
     }
 
     @Test

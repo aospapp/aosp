@@ -21,8 +21,8 @@ import static com.android.documentsui.base.DocumentInfo.getCursorString;
 import android.content.Context;
 import android.database.Cursor;
 import android.provider.DocumentsContract.Document;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.android.documentsui.ActionHandler;
 import com.android.documentsui.Model;

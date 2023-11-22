@@ -69,6 +69,8 @@
     <uses-permission android:name="android.permission.UPDATE_DEVICE_STATS" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
 
+    <uses-sdk android:minSdkVersion="14"/>
+
     <!-- For PBAP Owner Vcard Info -->
     <uses-permission android:name="android.permission.READ_PROFILE"/>
     <application
@@ -79,7 +81,8 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="false"
         android:directBootAware="true"
-        android:defaultToDeviceProtectedStorage="true">
+        android:defaultToDeviceProtectedStorage="true"
+        android:requestLegacyExternalStorage="true">
         <uses-library android:name="javax.obex" />
         <provider android:name=".opp.BluetoothOppProvider"
             android:authorities="com.android.bluetooth.opp"
@@ -309,7 +312,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name=".a2dpsink.mbs.A2dpMediaBrowserService"
+            android:name=".avrcpcontroller.BluetoothMediaBrowserService"
             android:exported="true"
             android:enabled="@bool/profile_supported_a2dp_sink"
             android:label="@string/a2dp_sink_mbs_label">
@@ -351,14 +354,6 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".hdp.HealthService"
-            android:enabled="@bool/profile_supported_hdp">
-            <intent-filter>
-                <action android:name="android.bluetooth.IBluetoothHealth" />
-            </intent-filter>
-        </service>
-        <service
-            android:process="@string/process"
             android:name = ".pan.PanService"
             android:enabled="@bool/profile_supported_pan">
             <intent-filter>
@@ -393,8 +388,7 @@
         </service>
         <service
             android:process="@string/process"
-            android:name = ".hearingaid.HearingAidService"
-            android:enabled="@bool/profile_supported_hearing_aid">
+            android:name = ".hearingaid.HearingAidService">
             <intent-filter>
                 <action android:name="android.bluetooth.IBluetoothHearingAid" />
             </intent-filter>

@@ -1,0 +1,8 @@
+allow hal_graphics_allocator_default graphics_device:dir { search };
+allow hal_graphics_allocator debugfs_tracing:file { write open};
+allow hal_graphics_allocator_default graphics_device:chr_file { read write open ioctl };
+allow hal_graphics_allocator_default hi_vfmw_device:chr_file { read write open getattr ioctl };
+allow hal_graphics_allocator_default hi_vdec_device:chr_file { read write open };
+allow hal_graphics_allocator_default hi_mem_device:chr_file { read write open };
+allow hal_graphics_allocator_default mmz_userdev_device:chr_file { read write open ioctl };
+allow hal_graphics_allocator_default debugfs_trace_marker:file { open write };

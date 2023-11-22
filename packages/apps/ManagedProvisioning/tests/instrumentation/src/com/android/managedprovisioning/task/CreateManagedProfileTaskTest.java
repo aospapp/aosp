@@ -17,32 +17,35 @@
 package com.android.managedprovisioning.task;
 
 import static android.app.admin.DevicePolicyManager.ACTION_PROVISION_MANAGED_PROFILE;
+
 import static org.junit.Assert.assertEquals;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyInt;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import android.content.pm.UserInfo;
 import android.os.UserManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
 import com.android.managedprovisioning.model.ProvisioningParams;
 import com.android.managedprovisioning.task.nonrequiredapps.NonRequiredAppsLogic;
-
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 
 @SmallTest
 public class CreateManagedProfileTaskTest {
@@ -65,7 +68,8 @@ public class CreateManagedProfileTaskTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         mTask = new CreateManagedProfileTask(InstrumentationRegistry.getTargetContext(),
-                TEST_PARAMS, mCallback, mUserManager, mLogic);
+                TEST_PARAMS, mCallback, mUserManager, mLogic,
+                mock(ProvisioningAnalyticsTracker.class));
         // GIVEN that a set of system apps should not be installed on the new user
         when(mLogic.getSystemAppsToRemove(TEST_PARENT_USER_ID))
             .thenReturn(new LinkedHashSet<String>(Arrays.asList(SYSTEM_APPS_TO_DELETE)));

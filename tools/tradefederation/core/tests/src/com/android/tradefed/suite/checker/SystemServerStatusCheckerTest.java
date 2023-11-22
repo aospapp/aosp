@@ -16,6 +16,8 @@
 package com.android.tradefed.suite.checker;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.suite.checker.StatusCheckerResult.CheckStatus;
@@ -36,7 +38,13 @@ public class SystemServerStatusCheckerTest {
     @Before
     public void setUp() {
         mMockDevice = EasyMock.createMock(ITestDevice.class);
-        mChecker = new SystemServerStatusChecker();
+        mChecker =
+                new SystemServerStatusChecker() {
+                    @Override
+                    protected long getCurrentTime() {
+                        return 500L;
+                    }
+                };
     }
 
     /** Test that system checker pass if the pid of system checker does not change. */
@@ -58,9 +66,32 @@ public class SystemServerStatusCheckerTest {
                 .andReturn("914\n");
         EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq("pidof system_server")))
                 .andReturn("1024\n");
+        EasyMock.expect(mMockDevice.getLastExpectedRebootTimeMillis()).andReturn(200L);
         EasyMock.replay(mMockDevice);
         assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
-        assertEquals(CheckStatus.FAILED, mChecker.postExecutionCheck(mMockDevice).getStatus());
+        StatusCheckerResult result = mChecker.postExecutionCheck(mMockDevice);
+        assertEquals(CheckStatus.FAILED, result.getStatus());
+        assertTrue(result.isBugreportNeeded());
+        EasyMock.verify(mMockDevice);
+    }
+
+    /**
+     * Test that if the pid changed but there was a Tradefed reboot, we still fail the checker just
+     * in case, but don't collect a bugreport.
+     */
+    @Test
+    public void testPidChanged_tfReboot() throws Exception {
+        EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq("pidof system_server")))
+                .andReturn("914\n");
+        EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq("pidof system_server")))
+                .andReturn("1024\n");
+        // TF reboot was done
+        EasyMock.expect(mMockDevice.getLastExpectedRebootTimeMillis()).andReturn(600L);
+        EasyMock.replay(mMockDevice);
+        assertEquals(CheckStatus.SUCCESS, mChecker.preExecutionCheck(mMockDevice).getStatus());
+        StatusCheckerResult result = mChecker.postExecutionCheck(mMockDevice);
+        assertEquals(CheckStatus.FAILED, result.getStatus());
+        assertFalse(result.isBugreportNeeded());
         EasyMock.verify(mMockDevice);
     }
 

@@ -27,7 +27,12 @@ LOCAL_JAVA_LIBRARIES := \
     android.test.base.stubs \
 
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner ctstestserver mockito-target-minus-junit4
+LOCAL_STATIC_JAVA_LIBRARIES := \
+    compatibility-device-util-axt \
+    ctstestrunner-axt \
+    ctstestserver \
+    mockito-target-minus-junit4 \
+    testng
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 

@@ -20,6 +20,9 @@ LOCAL_SHARED_LIBRARIES        := libsdmcore libqservice libbinder libhardware li
                                  libutils libcutils libsync libqdutils libqdMetaData libdl \
                                  libsdmutils libc++ liblog libdrmutils libui libgpu_tonemapper
 
+# Allow implicit fallthroughs in hwc_display.cpp until they are fixed.
+LOCAL_CFLAGS                  += -Wno-error=implicit-fallthrough
+
 LOCAL_SRC_FILES               := hwc_session.cpp \
                                  hwc_display.cpp \
                                  hwc_display_primary.cpp \
@@ -34,6 +37,9 @@ LOCAL_SRC_FILES               := hwc_session.cpp \
                                  hwc_tonemapper.cpp \
                                  hwc_socket_handler.cpp \
                                  hwc_buffer_allocator.cpp
+
+# Allow implicit fallthroughs in hwc_display.cpp until they are fixed.
+LOCAL_CFLAGS += -Wno-error=implicit-fallthrough
 
 ifeq ($(TARGET_HAS_WIDE_COLOR_DISPLAY), true)
     LOCAL_CFLAGS += -DFEATURE_WIDE_COLOR

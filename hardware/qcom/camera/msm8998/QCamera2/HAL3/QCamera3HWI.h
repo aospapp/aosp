@@ -173,7 +173,7 @@ public:
     virtual ~ShutterDispatcher() = default;
 
     // Tell dispatch to expect a shutter for a frame number.
-    void expectShutter(uint32_t frameNumber, bool isReprocess);
+    void expectShutter(uint32_t frameNumber, bool isReprocess, bool isZsl);
     // Mark a shutter callback for a frame ready.
     void markShutterReady(uint32_t frameNumber, uint64_t timestamp);
     // Discard a pending shutter for frame number.
@@ -193,6 +193,7 @@ private:
     // frame number -> shutter map. Protected by mLock.
     std::map<uint32_t, Shutter> mShutters;
     std::map<uint32_t, Shutter> mReprocessShutters;
+    std::map<uint32_t, Shutter> mZslShutters;
 
     QCamera3HardwareInterface *mParent;
 };
@@ -268,6 +269,8 @@ public:
     } InternalRequest;
 
     static int getCamInfo(uint32_t cameraId, struct camera_info *info);
+    static int isStreamCombinationSupported(uint32_t cameraId,
+            const camera_stream_combination_t *streams);
     static cam_capability_t *getCapabilities(mm_camera_ops_t *ops,
             uint32_t cam_handle);
     static int initCapabilities(uint32_t cameraId);
@@ -412,12 +415,34 @@ private:
             int32_t scalar_format, const cam_dimension_t &dim,
             int32_t config_type);
 
+    struct StreamValidateStatus {
+        bool bIsVideo, bIs4KVideo, bEisSupportedSize, depthPresent, bUseCommonFeatureMask;
+        bool isZsl, bSmallJpegSize, bYuv888OverrideJpeg, bEisSupported, bY80OnEncoder;
+        camera3_stream *inputStream;
+        cam_feature_mask_t commonFeatureMask;
+        size_t numStreamsOnEncoder;
+        uint32_t videoWidth, videoHeight;
+        cam_dimension_t maxViewfinderSize, largeYuv888Size;
+        StreamValidateStatus() :
+                bIsVideo(false), bIs4KVideo(false), bEisSupportedSize(true), depthPresent(false),
+                bUseCommonFeatureMask(false), isZsl(false), bSmallJpegSize(false),
+                bYuv888OverrideJpeg(false), bEisSupported(false), bY80OnEncoder(false),
+                inputStream(nullptr), commonFeatureMask(0), numStreamsOnEncoder(0),
+                videoWidth(0U), videoHeight(0U) {};
+    };
+    static int32_t validateStreamCombination(uint32_t cameraId,
+            camera3_stream_configuration_t *streamList /*in*/,
+            StreamValidateStatus *status /*out*/);
+
     int validateCaptureRequest(camera3_capture_request_t *request,
                                List<InternalRequest> &internallyRequestedStreams);
-    int validateStreamDimensions(camera3_stream_configuration_t *streamList);
-    int validateStreamRotations(camera3_stream_configuration_t *streamList);
-    int validateUsageFlags(const camera3_stream_configuration_t *streamList);
-    int validateUsageFlagsForEis(const camera3_stream_configuration_t *streamList);
+    static int validateStreamDimensions(uint32_t cameraId,
+            camera3_stream_configuration_t *streamList);
+    static int validateStreamRotations(camera3_stream_configuration_t *streamList);
+    static int validateUsageFlags(uint32_t cameraId,
+            const camera3_stream_configuration_t *streamList);
+    static int validateUsageFlagsForEis(bool bEisEnable, bool bEisSupportedSize,
+            const camera3_stream_configuration_t *streamList);
     void deriveMinFrameDuration();
     void handleBuffersDuringFlushLock(camera3_stream_buffer_t *buffer);
     int64_t getMinFrameDuration(const camera3_capture_request_t *request);
@@ -438,8 +463,13 @@ private:
     // Going through pending request list and send out result metadata for requests
     // that are ready.
     // frameNumber is the lastest frame whose result metadata is ready.
-    // isLiveRequest is whether the frame belongs to a live request.
-    void dispatchResultMetadataWithLock(uint32_t frameNumber, bool isLiveRequest);
+    typedef enum {
+        NORMAL,
+        REPROCESS,
+        ZSL
+    } RequestType;
+    void dispatchResultMetadataWithLock(uint32_t frameNumber,
+            RequestType requestType, bool isHdrPlus);
     void handleDepthDataLocked(const cam_depth_data_t &depthData,
             uint32_t frameNumber, uint8_t valid);
     void notifyErrorFoPendingDepthData(QCamera3DepthChannel *depthCh);
@@ -486,7 +516,7 @@ private:
     int32_t handleCameraDeviceError(bool stopChannelImmediately = false);
 
     bool isEISEnabled(const CameraMetadata& meta);
-    bool isOnEncoder(const cam_dimension_t max_viewfinder_size,
+    static bool isOnEncoder(const cam_dimension_t max_viewfinder_size,
             uint32_t width, uint32_t height);
     void hdrPlusPerfLock(mm_camera_super_buf_t *metadata_buf);
 
@@ -578,6 +608,9 @@ private:
         // metadata needs to be consumed by the corresponding stream
         // in order to generate the buffer.
         bool need_metadata;
+        // Do we need additional crop due to EIS.
+        bool need_crop;
+        cam_eis_crop_info_t crop_info;
     } RequestedBufferInfo;
 
     typedef struct {
@@ -831,6 +864,13 @@ private:
     // Configure streams for HDR+.
     status_t configureHdrPlusStreamsLocked();
 
+    // Check whether additional EIS crop is needed.
+    bool isEISCropInSnapshotNeeded(const CameraMetadata &metadata) const;
+
+    // Various crop sanity checks.
+    bool isCropValid(int32_t startX, int32_t startY, int32_t width,
+            int32_t height, int32_t maxWidth, int32_t maxHeight) const;
+
     // Try to submit an HDR+ request. Returning true if an HDR+ request was submitted. Returning
     // false if it is not an HDR+ request or submitting an HDR+ request failed. Must be called with
     // gHdrPlusClientLock held.
@@ -919,7 +959,18 @@ private:
     // Returns false on parse error
     static bool parseStringArray(const char *str, float *dest, int count);
 
+    static bool isStillZsl(const PendingRequestInfo& requestInfo) {
+        return requestInfo.enableZsl &&
+                requestInfo.capture_intent == ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE;
+    }
+
     float mLastFocusDistance;
+
+    // Last cached EIS crop info.
+    cam_eis_crop_info_t mLastEISCropInfo;
+
+    // Maps between active region and specific stream crop.
+    QCamera3CropRegionMapper mStreamCropMapper;
 };
 
 }; // namespace qcamera

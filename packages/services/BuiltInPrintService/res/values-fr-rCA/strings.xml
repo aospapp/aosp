@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Porte ouverte"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Bourrage"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Hors ligne"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Certificat non fiable"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Non chiffrée"</string>
     <string name="printer_check" msgid="6428369671197132828">"Vérifiez l\'imprimante"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"En attente d\'envoi"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Impossible de lire le document"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"L\'imprimante n\'est pas prise en charge"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Rechercher des imprimantes Wi-Fi direct"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Impression Wi-Fi direct"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Imprimantes Wi-Fi direct"</string>
     <string name="searching" msgid="2114018057619514587">"Recherche en cours…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Vous devrez peut-être approuver cette connexion sur le panneau avant de votre imprimante"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Oublier"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Se connecte par Wi-Fi direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Se connecte à l\'aide du réseau actuel, avec l\'adresse <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
+    <string name="security" msgid="2279008326210305401">"Sécurité"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Cette imprimante a fourni un nouveau certificat de sécurité, ou bien un autre appareil tente d\'usurper son identité. Accepter le nouveau certificat?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Cette imprimante n\'accepte plus les tâches chiffrées. Continuer l\'impression?"</string>
+    <string name="accept" msgid="4426153292469698134">"Accepter"</string>
+    <string name="reject" msgid="24751635160440693">"Refuser"</string>
+    <string name="connections" msgid="8895413761760117180">"Connexions"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Le service d\'impression par défaut a besoin de l\'autorisation de localisation pour trouver les imprimantes à proximité."</string>
+    <string name="fix" msgid="7784394272611365393">"Examiner l\'autorisation"</string>
 </resources>

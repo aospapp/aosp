@@ -15,14 +15,15 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="android.omapi.accesscontrol2.cts">
+          package="android.omapi.accesscontrol2.cts"
+          android:targetSandboxVersion="2">
 
     <application>
         <uses-library android:name="android.test.runner"/>
     </application>
 
     <!-- This is a self-instrumenting test package. -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:label="CTS tests for Open Mobile API"
                      android:targetPackage="android.omapi.accesscontrol2.cts">
         <meta-data android:name="listener"

@@ -17,11 +17,11 @@
 #ifndef ART_TOOLS_VERIDEX_HIDDEN_API_H_
 #define ART_TOOLS_VERIDEX_HIDDEN_API_H_
 
-#include "dex/hidden_api_access_flags.h"
+#include "base/hiddenapi_flags.h"
 #include "dex/method_reference.h"
 
+#include <map>
 #include <ostream>
-#include <set>
 #include <string>
 
 namespace art {
@@ -33,26 +33,15 @@ class DexFile;
  */
 class HiddenApi {
  public:
-  HiddenApi(const char* blacklist, const char* dark_greylist, const char* light_greylist) {
-    FillList(light_greylist, light_greylist_);
-    FillList(dark_greylist, dark_greylist_);
-    FillList(blacklist, blacklist_);
+  HiddenApi(const char* flags_file, bool sdk_uses_only);
+
+  hiddenapi::ApiList GetApiList(const std::string& name) const {
+    auto it = api_list_.find(name);
+    return (it == api_list_.end()) ? hiddenapi::ApiList() : it->second;
   }
 
-  HiddenApiAccessFlags::ApiList GetApiList(const std::string& name) const {
-    if (IsInList(name, blacklist_)) {
-      return HiddenApiAccessFlags::kBlacklist;
-    } else if (IsInList(name, dark_greylist_)) {
-      return HiddenApiAccessFlags::kDarkGreylist;
-    } else if (IsInList(name, light_greylist_)) {
-      return HiddenApiAccessFlags::kLightGreylist;
-    } else {
-      return HiddenApiAccessFlags::kWhitelist;
-    }
-  }
-
-  bool IsInRestrictionList(const std::string& name) const {
-    return GetApiList(name) != HiddenApiAccessFlags::kWhitelist;
+  bool IsInAnyList(const std::string& name) const {
+    return !GetApiList(name).IsEmpty();
   }
 
   static std::string GetApiMethodName(const DexFile& dex_file, uint32_t method_index);
@@ -70,22 +59,16 @@ class HiddenApi {
   }
 
  private:
-  static bool IsInList(const std::string& name, const std::set<std::string>& list) {
-    return list.find(name) != list.end();
-  }
+  void AddSignatureToApiList(const std::string& signature, hiddenapi::ApiList membership);
 
-  static void FillList(const char* filename, std::set<std::string>& entries);
-
-  std::set<std::string> blacklist_;
-  std::set<std::string> light_greylist_;
-  std::set<std::string> dark_greylist_;
+  std::map<std::string, hiddenapi::ApiList> api_list_;
 };
 
 struct HiddenApiStats {
   uint32_t count = 0;
   uint32_t reflection_count = 0;
   uint32_t linking_count = 0;
-  uint32_t api_counts[4] = { 0, 0, 0, 0 };
+  uint32_t api_counts[hiddenapi::ApiList::kValueCount] = {};  // initialize all to zero
 };
 
 }  // namespace art

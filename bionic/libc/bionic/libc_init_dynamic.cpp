@@ -51,6 +51,7 @@
 #include <elf.h>
 #include "libc_init_common.h"
 
+#include "private/bionic_elf_tls.h"
 #include "private/bionic_globals.h"
 #include "private/bionic_macros.h"
 #include "private/bionic_ssp.h"
@@ -62,15 +63,31 @@ extern "C" {
   extern int __cxa_atexit(void (*)(void *), void *, void *);
 };
 
+// Use an initializer so __libc_sysinfo will have a fallback implementation
+// while .preinit_array constructors run.
+#if defined(__i386__)
+__LIBC_HIDDEN__ void* __libc_sysinfo = reinterpret_cast<void*>(__libc_int0x80);
+#endif
+
 // We need a helper function for __libc_preinit because compiling with LTO may
 // inline functions requiring a stack protector check, but __stack_chk_guard is
 // not initialized at the start of __libc_preinit. __libc_preinit_impl will run
 // after __stack_chk_guard is initialized and therefore can safely have a stack
 // protector.
 __attribute__((noinline))
-static void __libc_preinit_impl(KernelArgumentBlock& args) {
-  __libc_init_globals(args);
-  __libc_init_common(args);
+static void __libc_preinit_impl() {
+#if defined(__i386__)
+  __libc_init_sysinfo();
+#endif
+
+  // Register libc.so's copy of the TLS generation variable so the linker can
+  // update it when it loads or unloads a shared object.
+  TlsModules& tls_modules = __libc_shared_globals()->tls_modules;
+  tls_modules.generation_libc_so = &__libc_tls_generation_copy;
+  __libc_tls_generation_copy = tls_modules.generation;
+
+  __libc_init_globals();
+  __libc_init_common();
 
   // Hooks for various libraries to let them know that we're starting up.
   __libc_globals.mutate(__libc_init_malloc);
@@ -85,26 +102,16 @@ static void __libc_preinit_impl(KernelArgumentBlock& args) {
 // to run before any others (such as the jemalloc constructor), and lower
 // is better (http://b/68046352).
 __attribute__((constructor(1))) static void __libc_preinit() {
-  // Read the kernel argument block pointer from TLS.
-  void** tls = __get_tls();
-  KernelArgumentBlock** args_slot = &reinterpret_cast<KernelArgumentBlock**>(tls)[TLS_SLOT_BIONIC_PREINIT];
-  KernelArgumentBlock* args = *args_slot;
-
-  // Clear the slot so no other initializer sees its value.
-  // __libc_init_common() will change the TLS area so the old one won't be accessible anyway.
-  *args_slot = NULL;
-
   // The linker has initialized its copy of the global stack_chk_guard, and filled in the main
   // thread's TLS slot with that value. Initialize the local global stack guard with its value.
-  __stack_chk_guard = reinterpret_cast<uintptr_t>(tls[TLS_SLOT_STACK_GUARD]);
+  __stack_chk_guard = reinterpret_cast<uintptr_t>(__get_tls()[TLS_SLOT_STACK_GUARD]);
 
-  __libc_preinit_impl(*args);
+  __libc_preinit_impl();
 }
 
 // This function is called from the executable's _start entry point
-// (see arch-$ARCH/bionic/crtbegin_dynamic.S), which is itself
-// called by the dynamic linker after it has loaded all shared
-// libraries the executable depends on.
+// (see arch-$ARCH/bionic/crtbegin.c), which is itself called by the dynamic
+// linker after it has loaded all shared libraries the executable depends on.
 //
 // Note that the dynamic linker has also run all constructors in the
 // executable at this point.
@@ -123,14 +130,16 @@ __noreturn void __libc_init(void* raw_args,
   // so we need to ensure that these are called when the program exits
   // normally.
   if (structors->fini_array) {
-    __cxa_atexit(__libc_fini,structors->fini_array,NULL);
+    __cxa_atexit(__libc_fini,structors->fini_array,nullptr);
   }
 
-  exit(slingshot(args.argc, args.argv, args.envp));
+  exit(slingshot(args.argc - __libc_shared_globals()->initial_linker_arg_count,
+                 args.argv + __libc_shared_globals()->initial_linker_arg_count,
+                 args.envp));
 }
 
-extern "C" uint32_t android_get_application_target_sdk_version();
+extern "C" libc_shared_globals* __loader_shared_globals();
 
-uint32_t bionic_get_application_target_sdk_version() {
-  return android_get_application_target_sdk_version();
+__LIBC_HIDDEN__ libc_shared_globals* __libc_shared_globals() {
+  return __loader_shared_globals();
 }

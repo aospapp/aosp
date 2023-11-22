@@ -4,9 +4,9 @@
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
      You may obtain a copy of the License at
-  
+
           http://www.apache.org/licenses/LICENSE-2.0
-  
+
      Unless required by applicable law or agreed to in writing, software
      distributed under the License is distributed on an "AS IS" BASIS,
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,6 +38,8 @@
 
     <!-- Item found in the PKCS12 keystore being investigated [CHAR LIMIT=NONE] -->
     <string name="one_userkey">one user key</string>
+    <!-- Type of key found in the PKCS12 keystore being investigated [CHAR LIMIT=NONE] -->
+    <string name="userkey_type">Algorithm: </string>
     <!-- Item found in the PKCS12 keystore being investigated [CHAR LIMIT=NONE] -->
     <string name="one_usercrt">one user certificate</string>
     <!-- Item found in the PKCS12 keystore being investigated [CHAR LIMIT=NONE] -->
@@ -53,6 +55,8 @@
     <string name="cert_not_saved">The certificate is not installed.</string>
     <string name="no_cert_to_saved">No certificate to install.</string>
     <string name="invalid_cert">The certificate is invalid.</string>
+    <string name="action_missing_private_key">Private key required to install a certificate</string>
+    <string name="action_missing_user_cert">Certificate required to install a private key</string>
 
     <!-- toast message -->
     <string name="cert_is_added"><xliff:g id="credential">%s</xliff:g> is installed.</string>
@@ -62,13 +66,6 @@
     <string name="cert_missing_error">Couldn\'t install because the certificate file couldn\'t be located.</string>
     <!-- toast message -->
     <string name="cert_read_error">Couldn\'t install because the certificate file couldn\'t be read.</string>
-
-    <!-- Shown when the certificate file can't be found.  [CHAR LIMIT=NONE] -->
-    <string name="no_cert_file_found" product="nosdcard">No certificate file found in USB storage.</string>
-    <string name="no_cert_file_found" product="default">No certificate file found in the SD card.</string>
-    <!-- Shown when USB storage can't be found to look for a certificate.  [CHAR LIMIT=30] -->
-    <string name="sdcard_not_present" product="nosdcard">USB storage not available.</string>
-    <string name="sdcard_not_present" product="default">SD card isn\'t present.</string>
 
     <!-- Message displayed when a user other than the owner on a multi-user system tries to
          install a certificate into the certificate store. [CHAR LIMIT=NONE] -->

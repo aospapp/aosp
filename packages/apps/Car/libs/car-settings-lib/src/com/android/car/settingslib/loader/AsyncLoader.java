@@ -18,7 +18,8 @@ package com.android.car.settingslib.loader;
 
 import android.annotation.Nullable;
 import android.content.Context;
-import android.support.v4.content.AsyncTaskLoader;
+
+import androidx.loader.content.AsyncTaskLoader;
 
 /**
  * This class fills in some boilerplate for AsyncTaskLoader to actually load things.

@@ -41,10 +41,6 @@ import java.io.IOException;
  */
 @TargetApi(21)
 public abstract class ConstraintTest extends InstrumentationTestCase {
-    /** Force the scheduler to consider the device to be on stable charging. */
-    private static final Intent EXPEDITE_STABLE_CHARGING =
-            new Intent("com.android.server.task.controllers.BatteryController.ACTION_CHARGING_STABLE");
-
     /** Environment that notifies of JobScheduler callbacks. */
     static MockJobService.TestEnvironment kTestEnvironment =
             MockJobService.TestEnvironment.getTestEnvironment();
@@ -112,11 +108,15 @@ public abstract class ConstraintTest extends InstrumentationTestCase {
 
     @Override
     public void tearDown() throws Exception {
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd battery reset");
         if (mStorageStateChanged) {
             // Put storage service back in to normal operation.
             SystemUtil.runShellCommand(getInstrumentation(), "cmd devicestoragemonitor reset");
             mStorageStateChanged = false;
         }
+
+        // The super method should be called at the end.
+        super.tearDown();
     }
 
     /**
@@ -124,8 +124,11 @@ public abstract class ConstraintTest extends InstrumentationTestCase {
      * considered to be on stable power - that is, plugged in for a period of 2 minutes.
      * Rather than wait for this to happen, we cheat and send this broadcast instead.
      */
-    protected void sendExpediteStableChargingBroadcast() {
-        getContext().sendBroadcast(EXPEDITE_STABLE_CHARGING);
+    protected void sendExpediteStableChargingBroadcast() throws IOException {
+        // Faking the device to be 90% charging and then to be 91%, so that it triggers
+        // BatteryManager.ACTION_CHARGING in the upward change-level transition logic.
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd battery set level 90");
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd battery set level 91");
     }
 
     public void assertHasUriPermission(Uri uri, int grantFlags) {
@@ -184,8 +187,8 @@ public abstract class ConstraintTest extends InstrumentationTestCase {
 
     String getJobState(int jobId) throws Exception {
         return SystemUtil.runShellCommand(getInstrumentation(),
-                "cmd jobscheduler get-job-state " + kJobServiceComponent.getPackageName()
-                        + " " + jobId).trim();
+                "cmd jobscheduler get-job-state --user cur "
+                        + kJobServiceComponent.getPackageName() + " " + jobId).trim();
     }
 
     void assertJobReady(int jobId) throws Exception {

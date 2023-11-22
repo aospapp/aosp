@@ -17,6 +17,8 @@
 package android.autofillservice.cts;
 
 import android.os.Bundle;
+import android.widget.FrameLayout;
+
 import androidx.annotation.Nullable;
 
 import java.util.concurrent.CountDownLatch;
@@ -30,12 +32,15 @@ public class FragmentContainerActivity extends AbstractAutoFillActivity {
             FragmentContainerActivity.class.getName() + "#FRAGMENT_TAG";
     private CountDownLatch mResumed = new CountDownLatch(1);
     private CountDownLatch mStopped = new CountDownLatch(0);
+    private FrameLayout mRootContainer;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.fragment_container);
+
+        mRootContainer = findViewById(R.id.rootContainer);
 
         // have to manually add fragment as we cannot remove it otherwise
         getFragmentManager().beginTransaction().add(R.id.rootContainer,
@@ -68,6 +73,17 @@ public class FragmentContainerActivity extends AbstractAutoFillActivity {
         super.onStop();
 
         mStopped.countDown();
+    }
+
+    /**
+     * Sets whether the root container is focusable or not.
+     *
+     * <p>It's initially set as {@code trye} in the XML layout so autofill is not automatically
+     * triggered in the edit text before the service is prepared to handle it.
+     */
+    public void setRootContainerFocusable(boolean focusable) {
+        mRootContainer.setFocusable(focusable);
+        mRootContainer.setFocusableInTouchMode(focusable);
     }
 
     public boolean waitUntilResumed() throws InterruptedException {

@@ -20,6 +20,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/malloc_arena_pool.h"
 #include "base/scoped_arena_allocator.h"
 #include "builder.h"
 #include "common_compiler_test.h"
@@ -28,6 +29,7 @@
 #include "dex/dex_instruction.h"
 #include "dex/standard_dex_file.h"
 #include "driver/dex_compilation_unit.h"
+#include "graph_checker.h"
 #include "handle_scope-inl.h"
 #include "mirror/class_loader.h"
 #include "mirror/dex_cache.h"
@@ -97,7 +99,7 @@ class ArenaPoolAndAllocator {
   ScopedArenaAllocator* GetScopedAllocator() { return &scoped_allocator_; }
 
  private:
-  ArenaPool pool_;
+  MallocArenaPool pool_;
   ArenaAllocator allocator_;
   ArenaStack arena_stack_;
   ScopedArenaAllocator scoped_allocator_;
@@ -153,7 +155,7 @@ class OptimizingUnitTestHelper {
     void* aligned_data = GetAllocator()->Alloc(code_item_size);
     memcpy(aligned_data, &data[0], code_item_size);
     CHECK_ALIGNED(aligned_data, StandardDexFile::CodeItem::kAlignment);
-    const DexFile::CodeItem* code_item = reinterpret_cast<const DexFile::CodeItem*>(aligned_data);
+    const dex::CodeItem* code_item = reinterpret_cast<const dex::CodeItem*>(aligned_data);
 
     {
       ScopedObjectAccess soa(Thread::Current());
@@ -163,13 +165,13 @@ class OptimizingUnitTestHelper {
       const DexCompilationUnit* dex_compilation_unit =
           new (graph->GetAllocator()) DexCompilationUnit(
               handles_->NewHandle<mirror::ClassLoader>(nullptr),
-              /* class_linker */ nullptr,
+              /* class_linker= */ nullptr,
               graph->GetDexFile(),
               code_item,
-              /* class_def_index */ DexFile::kDexNoIndex16,
-              /* method_idx */ dex::kDexNoIndex,
-              /* access_flags */ 0u,
-              /* verified_method */ nullptr,
+              /* class_def_index= */ DexFile::kDexNoIndex16,
+              /* method_idx= */ dex::kDexNoIndex,
+              /* access_flags= */ 0u,
+              /* verified_method= */ nullptr,
               handles_->NewHandle<mirror::DexCache>(nullptr));
       CodeItemDebugInfoAccessor accessor(graph->GetDexFile(), code_item, /*dex_method_idx*/ 0u);
       HGraphBuilder builder(graph, dex_compilation_unit, accessor, handles_.get(), return_type);
@@ -185,6 +187,77 @@ class OptimizingUnitTestHelper {
 };
 
 class OptimizingUnitTest : public CommonCompilerTest, public OptimizingUnitTestHelper {};
+
+// OptimizingUnitTest with some handy functions to ease the graph creation.
+class ImprovedOptimizingUnitTest : public OptimizingUnitTest {
+ public:
+  ImprovedOptimizingUnitTest() : graph_(CreateGraph()),
+                                 entry_block_(nullptr),
+                                 return_block_(nullptr),
+                                 exit_block_(nullptr),
+                                 parameter_(nullptr) {}
+
+  virtual ~ImprovedOptimizingUnitTest() {}
+
+  void InitGraph() {
+    entry_block_ = new (GetAllocator()) HBasicBlock(graph_);
+    graph_->AddBlock(entry_block_);
+    graph_->SetEntryBlock(entry_block_);
+
+    return_block_ = new (GetAllocator()) HBasicBlock(graph_);
+    graph_->AddBlock(return_block_);
+
+    exit_block_ = new (GetAllocator()) HBasicBlock(graph_);
+    graph_->AddBlock(exit_block_);
+    graph_->SetExitBlock(exit_block_);
+
+    entry_block_->AddSuccessor(return_block_);
+    return_block_->AddSuccessor(exit_block_);
+
+    parameter_ = new (GetAllocator()) HParameterValue(graph_->GetDexFile(),
+                                                      dex::TypeIndex(0),
+                                                      0,
+                                                      DataType::Type::kInt32);
+    entry_block_->AddInstruction(parameter_);
+    return_block_->AddInstruction(new (GetAllocator()) HReturnVoid());
+    exit_block_->AddInstruction(new (GetAllocator()) HExit());
+  }
+
+  bool CheckGraph() {
+    GraphChecker checker(graph_);
+    checker.Run();
+    if (!checker.IsValid()) {
+      for (const std::string& error : checker.GetErrors()) {
+        std::cout << error << std::endl;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  HEnvironment* ManuallyBuildEnvFor(HInstruction* instruction,
+                                    ArenaVector<HInstruction*>* current_locals) {
+    HEnvironment* environment = new (GetAllocator()) HEnvironment(
+        (GetAllocator()),
+        current_locals->size(),
+        graph_->GetArtMethod(),
+        instruction->GetDexPc(),
+        instruction);
+
+    environment->CopyFrom(ArrayRef<HInstruction* const>(*current_locals));
+    instruction->SetRawEnvironment(environment);
+    return environment;
+  }
+
+ protected:
+  HGraph* graph_;
+
+  HBasicBlock* entry_block_;
+  HBasicBlock* return_block_;
+  HBasicBlock* exit_block_;
+
+  HInstruction* parameter_;
+};
 
 // Naive string diff data type.
 typedef std::list<std::pair<std::string, std::string>> diff_t;

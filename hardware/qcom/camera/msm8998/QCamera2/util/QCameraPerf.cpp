@@ -473,14 +473,14 @@ bool QCameraPerfLock::acquirePerfLock(
     switch (mPerfLockType) {
         case PERF_LOCK_POWERHINT_PREVIEW:
         case PERF_LOCK_POWERHINT_ENCODE:
-            powerHintInternal(PowerHint::VIDEO_ENCODE, true);
+            powerHintInternal(PowerHint::CAMERA_STREAMING, true);
             return true;
         case PERF_LOCK_OPEN_CAMERA:
         case PERF_LOCK_CLOSE_CAMERA:
             powerHintInternal(PowerHint::CAMERA_LAUNCH, timer);
             return true;
         case PERF_LOCK_START_PREVIEW:
-            powerHintInternal(PowerHint::CAMERA_STREAMING, timer);
+            powerHintInternal(PowerHint::CAMERA_SHOT, timer);
             return true;
         case PERF_LOCK_TAKE_SNAPSHOT:
             powerHintInternal(PowerHint::CAMERA_SHOT, timer);
@@ -539,14 +539,14 @@ bool QCameraPerfLock::releasePerfLock()
     switch (mPerfLockType) {
         case PERF_LOCK_POWERHINT_PREVIEW:
         case PERF_LOCK_POWERHINT_ENCODE:
-            powerHintInternal(PowerHint::VIDEO_ENCODE, false);
+            powerHintInternal(PowerHint::CAMERA_STREAMING, false);
             return true;
         case PERF_LOCK_OPEN_CAMERA:
         case PERF_LOCK_CLOSE_CAMERA:
             powerHintInternal(PowerHint::CAMERA_LAUNCH, false);
             return true;
         case PERF_LOCK_START_PREVIEW:
-            powerHintInternal(PowerHint::CAMERA_STREAMING, false);
+            powerHintInternal(PowerHint::CAMERA_SHOT, false);
             return true;
         case PERF_LOCK_TAKE_SNAPSHOT:
             powerHintInternal(PowerHint::CAMERA_SHOT, false);

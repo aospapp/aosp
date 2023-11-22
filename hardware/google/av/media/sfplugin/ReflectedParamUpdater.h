@@ -131,6 +131,14 @@ public:
             bool markVendor = true);
 
     /**
+     * Add support for setting a parameter as a binary blob.
+     *
+     * \param name name of the parameter
+     * \param coreIndex parameter (core) index
+     */
+    void supportWholeParam(std::string name, C2Param::CoreIndex coreIndex);
+
+    /**
      * Returns the name of the parameter for an index.
      */
     std::string getParamName(C2Param::Index index) const;
@@ -192,6 +200,7 @@ private:
     };
     std::map<std::string, FieldDesc> mMap;
     std::map<C2Param::Index, std::string> mParamNames;
+    std::map<std::string, C2Param::CoreIndex> mWholeParams;
 
     void parseMessageAndDoWork(
             const Dict &params,

@@ -143,6 +143,24 @@ public class MatcherTest extends TestCase {
         assertEquals("zzzcatzzzdogzzz", mat.replaceFirst("cat"));
     }
 
+    public void testReplaceFirst_null_match() {
+        Matcher matcher = Pattern.compile("Hello").matcher("Hello, world!");
+        try {
+            matcher.replaceFirst(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    public void testReplaceFirst_null_nomatch() {
+        Matcher matcher = Pattern.compile("not found").matcher("Hello, world!");
+        try {
+            matcher.replaceFirst(null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
     public void testPattern() {
         for (String element : testPatterns) {
             Pattern test = Pattern.compile(element);
@@ -417,6 +435,38 @@ public class MatcherTest extends TestCase {
             assertEquals("abbb", mat.group(1));
         } else {
             fail("Match expected: (ab*)*b vs abbbb");
+        }
+    }
+
+    public void testEnd_groupIndexOutOfBounds() {
+        Matcher matcher = Pattern.compile("(Hello)").matcher("Hello, world!");
+        assertTrue(matcher.find());
+        try {
+            matcher.end(-1 /* out of bounds */);
+        } catch (IndexOutOfBoundsException expected) {
+            assertFalse(expected instanceof ArrayIndexOutOfBoundsException);
+        }
+
+        try {
+            matcher.end(2 /* out of bounds */);
+        } catch (IndexOutOfBoundsException expected) {
+            assertFalse(expected instanceof ArrayIndexOutOfBoundsException);
+        }
+    }
+
+    public void testStart_groupIndexOutOfBounds() {
+        Matcher matcher = Pattern.compile("(Hello)").matcher("Hello, world!");
+        assertTrue(matcher.find());
+        try {
+            matcher.start(-1 /* out of bounds */);
+        } catch (IndexOutOfBoundsException expected) {
+            assertFalse(expected instanceof ArrayIndexOutOfBoundsException);
+        }
+
+        try {
+            matcher.start(2 /* out of bounds */);
+        } catch (IndexOutOfBoundsException expected) {
+            assertFalse(expected instanceof ArrayIndexOutOfBoundsException);
         }
     }
 

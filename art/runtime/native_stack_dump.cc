@@ -16,6 +16,7 @@
 
 #include "native_stack_dump.h"
 
+#include <memory>
 #include <ostream>
 
 #include <stdio.h>
@@ -43,13 +44,17 @@
 
 #include "arch/instruction_set.h"
 #include "base/aborting.h"
+#include "base/bit_utils.h"
 #include "base/file_utils.h"
 #include "base/memory_tool.h"
 #include "base/mutex.h"
 #include "base/os.h"
 #include "base/unix_file/fd_file.h"
 #include "base/utils.h"
+#include "class_linker.h"
+#include "entrypoints/runtime_asm_entrypoints.h"
 #include "oat_quick_method_header.h"
+#include "runtime.h"
 #include "thread-current-inl.h"
 
 #endif
@@ -61,6 +66,18 @@ namespace art {
 using android::base::StringPrintf;
 
 static constexpr bool kUseAddr2line = !kIsTargetBuild;
+
+std::string FindAddr2line() {
+  if (!kIsTargetBuild) {
+    constexpr const char* kAddr2linePrebuiltPath =
+      "/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/bin/x86_64-linux-addr2line";
+    const char* env_value = getenv("ANDROID_BUILD_TOP");
+    if (env_value != nullptr) {
+      return std::string(env_value) + kAddr2linePrebuiltPath;
+    }
+  }
+  return std::string("/usr/bin/addr2line");
+}
 
 ALWAYS_INLINE
 static inline void WritePrefix(std::ostream& os, const char* prefix, bool odd) {
@@ -128,10 +145,10 @@ static std::unique_ptr<Addr2linePipe> Connect(const std::string& name, const cha
   } else {
     close(caller_to_addr2line[0]);
     close(addr2line_to_caller[1]);
-    return std::unique_ptr<Addr2linePipe>(new Addr2linePipe(addr2line_to_caller[0],
-                                                            caller_to_addr2line[1],
-                                                            name,
-                                                            pid));
+    return std::make_unique<Addr2linePipe>(addr2line_to_caller[0],
+                                           caller_to_addr2line[1],
+                                           name,
+                                           pid);
   }
 }
 
@@ -231,8 +248,9 @@ static void Addr2line(const std::string& map_src,
     }
     pipe->reset();  // Close early.
 
+    std::string addr2linePath = FindAddr2line();
     const char* args[7] = {
-        "/usr/bin/addr2line",
+        addr2linePath.c_str(),
         "--functions",
         "--inlines",
         "--demangle",
@@ -273,11 +291,22 @@ static bool RunCommand(const std::string& cmd) {
 }
 
 static bool PcIsWithinQuickCode(ArtMethod* method, uintptr_t pc) NO_THREAD_SAFETY_ANALYSIS {
-  uintptr_t code = reinterpret_cast<uintptr_t>(EntryPointToCodePointer(
-      method->GetEntryPointFromQuickCompiledCode()));
-  if (code == 0) {
+  const void* entry_point = method->GetEntryPointFromQuickCompiledCode();
+  if (entry_point == nullptr) {
     return pc == 0;
   }
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  if (class_linker->IsQuickGenericJniStub(entry_point) ||
+      class_linker->IsQuickResolutionStub(entry_point) ||
+      class_linker->IsQuickToInterpreterBridge(entry_point)) {
+    return false;
+  }
+  // The backtrace library might have heuristically subracted instruction
+  // size from the pc, to pretend the pc is at the calling instruction.
+  if (reinterpret_cast<uintptr_t>(GetQuickInstrumentationExitPc()) - pc <= 4) {
+    return false;
+  }
+  uintptr_t code = reinterpret_cast<uintptr_t>(EntryPointToCodePointer(entry_point));
   uintptr_t code_size = reinterpret_cast<const OatQuickMethodHeader*>(code)[-1].GetCodeSize();
   return code <= pc && pc <= (code + code_size);
 }
@@ -289,10 +318,7 @@ void DumpNativeStack(std::ostream& os,
                      ArtMethod* current_method,
                      void* ucontext_ptr,
                      bool skip_frames) {
-  // b/18119146
-  if (RUNNING_ON_MEMORY_TOOL != 0) {
-    return;
-  }
+  // Historical note: This was disabled when running under Valgrind (b/18119146).
 
   BacktraceMap* map = existing_map;
   std::unique_ptr<BacktraceMap> tmp_map;
@@ -316,7 +342,7 @@ void DumpNativeStack(std::ostream& os,
   if (kUseAddr2line) {
     // Try to run it to see whether we have it. Push an argument so that it doesn't assume a.out
     // and print to stderr.
-    use_addr2line = (gAborting > 0) && RunCommand("addr2line -h");
+    use_addr2line = (gAborting > 0) && RunCommand(FindAddr2line() + " -h");
   } else {
     use_addr2line = false;
   }
@@ -375,7 +401,7 @@ void DumpNativeStack(std::ostream& os,
     }
     os << std::endl;
     if (try_addr2line && use_addr2line) {
-      Addr2line(it->map.name, it->pc - it->map.start, os, prefix, &addr2line_state);
+      Addr2line(it->map.name, it->rel_pc, os, prefix, &addr2line_state);
     }
   }
 

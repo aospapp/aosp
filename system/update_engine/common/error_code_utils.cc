@@ -30,12 +30,15 @@ string ErrorCodeToString(ErrorCode code) {
   // doesn't support any combinations of those.
   if ((static_cast<int>(code) & static_cast<int>(ErrorCode::kSpecialFlags)) &&
       (static_cast<int>(code) & ~static_cast<int>(ErrorCode::kSpecialFlags)))
-    code = static_cast<ErrorCode>(
-        static_cast<int>(code) & ~static_cast<int>(ErrorCode::kSpecialFlags));
+    code = static_cast<ErrorCode>(static_cast<int>(code) &
+                                  ~static_cast<int>(ErrorCode::kSpecialFlags));
   switch (code) {
-    case ErrorCode::kSuccess: return "ErrorCode::kSuccess";
-    case ErrorCode::kError: return "ErrorCode::kError";
-    case ErrorCode::kOmahaRequestError: return "ErrorCode::kOmahaRequestError";
+    case ErrorCode::kSuccess:
+      return "ErrorCode::kSuccess";
+    case ErrorCode::kError:
+      return "ErrorCode::kError";
+    case ErrorCode::kOmahaRequestError:
+      return "ErrorCode::kOmahaRequestError";
     case ErrorCode::kOmahaResponseHandlerError:
       return "ErrorCode::kOmahaResponseHandlerError";
     case ErrorCode::kFilesystemCopierError:
@@ -144,10 +147,20 @@ string ErrorCodeToString(ErrorCode code) {
       return "ErrorCode::kUserCanceled";
     case ErrorCode::kNonCriticalUpdateInOOBE:
       return "ErrorCode::kNonCriticalUpdateInOOBE";
+    case ErrorCode::kOmahaUpdateIgnoredOverCellular:
+      return "ErrorCode::kOmahaUpdateIgnoredOverCellular";
     case ErrorCode::kPayloadTimestampError:
       return "ErrorCode::kPayloadTimestampError";
     case ErrorCode::kUpdatedButNotActive:
       return "ErrorCode::kUpdatedButNotActive";
+    case ErrorCode::kNoUpdate:
+      return "ErrorCode::kNoUpdate";
+    case ErrorCode::kRollbackNotPossible:
+      return "ErrorCode::kRollbackNotPossible";
+    case ErrorCode::kFirstActiveOmahaPingSentPersistenceError:
+      return "ErrorCode::kFirstActiveOmahaPingSentPersistenceError";
+    case ErrorCode::kVerityCalculationError:
+      return "ErrorCode::kVerityCalculationError";
       // Don't add a default case to let the compiler warn about newly added
       // error codes which should be added here.
   }

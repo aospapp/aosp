@@ -101,12 +101,24 @@ public class LargeOutputReceiver implements IShellOutputReceiver {
      * @return The collected output from the command, stored in memory
      */
     public synchronized InputStreamSource getData(final int maxBytes) {
+        return getData(maxBytes, 0);
+    }
+
+    /**
+     * Gets the last <var>maxBytes</var> of collected output as a {@link InputStreamSource}.
+     *
+     * @param maxBytes the maximum amount of data to return. Should be an amount that can
+     *     comfortably fit in memory
+     * @param offset The offset of when to start getting the data from the buffer.
+     * @return The collected output from the command, stored in memory
+     */
+    public synchronized InputStreamSource getData(final int maxBytes, final int offset) {
         if (mOutStream != null) {
             InputStream fullStream = null;
             try {
                 fullStream = mOutStream.getData();
                 final FixedByteArrayOutputStream os = new FixedByteArrayOutputStream(maxBytes);
-                StreamUtil.copyStreams(fullStream, os);
+                StreamUtil.copyStreams(fullStream, os, offset);
                 return new InputStreamSource() {
 
                     @Override
@@ -171,8 +183,10 @@ public class LargeOutputReceiver implements IShellOutputReceiver {
      * Delete all accumulated data.
      */
     public void delete() {
-        mOutStream.delete();
-        mOutStream = null;
+        if (mOutStream != null) {
+            mOutStream.delete();
+            mOutStream = null;
+        }
     }
 
     /**

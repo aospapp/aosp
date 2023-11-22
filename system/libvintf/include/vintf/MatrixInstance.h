@@ -30,9 +30,9 @@ class MatrixInstance {
    public:
     MatrixInstance();
     MatrixInstance(const MatrixInstance&);
-    MatrixInstance(MatrixInstance&&);
+    MatrixInstance(MatrixInstance&&) noexcept;
     MatrixInstance& operator=(const MatrixInstance&);
-    MatrixInstance& operator=(MatrixInstance&&);
+    MatrixInstance& operator=(MatrixInstance&&) noexcept;
 
     using VersionType = VersionRange;
     // fqInstance.version is ignored. Version range is provided separately.

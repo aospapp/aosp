@@ -22,26 +22,34 @@ include $(CLEAR_VARS)
 # (for example, projected). See b/30064991
 ifeq (,$(TARGET_BUILD_APPS))
   LOCAL_PACKAGE_NAME := CarSettings
+  LOCAL_OVERRIDES_PACKAGES := Settings
   LOCAL_PRIVATE_PLATFORM_APIS := true
 
   LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
   LOCAL_USE_AAPT2 := true
 
-  LOCAL_JAVA_LIBRARIES += android.car
+  LOCAL_JAVA_LIBRARIES := \
+      android.car \
+      telephony-common
 
   LOCAL_STATIC_ANDROID_LIBRARIES := \
-      android-support-car \
-      android-support-v7-preference \
-      android-support-v14-preference \
-      android-arch-lifecycle-extensions \
-      car-list \
+      androidx.car_car \
+      androidx.lifecycle_lifecycle-common-java8 \
+      androidx.lifecycle_lifecycle-extensions \
+      androidx.preference_preference \
+      androidx-constraintlayout_constraintlayout \
+      car-apps-common \
       car-settings-lib \
-      setup-wizard-lib-gingerbread-compat \
+      car-setup-wizard-lib-utils \
       SettingsLib
 
-  LOCAL_RESOURCE_DIR := \
-      $(LOCAL_PATH)/res
+  # Including the resources for the static android libraries allows this app to pick up their static overlays.
+  LOCAL_RESOURCE_DIR += \
+      $(LOCAL_PATH)/res \
+      $(LOCAL_PATH)/../libs/car-apps-common/res \
+      $(LOCAL_PATH)/../libs/car-settings-lib/res \
+      $(LOCAL_PATH)/../../../../frameworks/base/packages/SettingsLib/res
 
   LOCAL_CERTIFICATE := platform
 
@@ -53,18 +61,77 @@ ifeq (,$(TARGET_BUILD_APPS))
 
   LOCAL_DEX_PREOPT := false
 
-  LOCAL_STATIC_JAVA_LIBRARIES += jsr305
+  LOCAL_STATIC_JAVA_LIBRARIES := \
+      android.car.userlib \
+      androidx-constraintlayout_constraintlayout-solver \
+      jsr305
+
+  LOCAL_REQUIRED_MODULES := privapp_whitelist_com.android.car.settings
 
   LOCAL_DX_FLAGS := --multi-dex
 
-  ifdef DISABLE_AOSP_PHONE_SETTING
-    ifeq ($(DISABLE_AOSP_PHONE_SETTING),true)
-      # This will hide AOSP phone setting.
-      LOCAL_OVERRIDES_PACKAGES := Settings
-    endif
-  endif
   include $(BUILD_PACKAGE)
 endif
+
+###################################################################################
+# Duplicate of CarSettings which includes testing only resources for Robolectric #
+###################################################################################
+include $(CLEAR_VARS)
+
+# To avoid build errors, build empty package for non-platform builds
+# (for example, projected). See b/30064991
+ifeq (,$(TARGET_BUILD_APPS))
+  LOCAL_PACKAGE_NAME := CarSettingsForTesting
+  LOCAL_OVERRIDES_PACKAGES := Settings
+  LOCAL_PRIVATE_PLATFORM_APIS := true
+
+  LOCAL_SRC_FILES := $(call all-java-files-under, src)
+
+  LOCAL_USE_AAPT2 := true
+
+  LOCAL_JAVA_LIBRARIES := \
+      android.car \
+      telephony-common
+
+  LOCAL_STATIC_ANDROID_LIBRARIES := \
+      androidx.car_car \
+      androidx.lifecycle_lifecycle-common-java8 \
+      androidx.lifecycle_lifecycle-extensions \
+      androidx.preference_preference \
+      androidx-constraintlayout_constraintlayout \
+      car-apps-common \
+      car-settings-lib \
+      car-setup-wizard-lib-utils \
+      SettingsLib
+
+  # Testing only resources must be applied first so they take precedence.
+  LOCAL_RESOURCE_DIR := \
+      $(LOCAL_PATH)/tests/robotests/res \
+      $(LOCAL_PATH)/res \
+      $(LOCAL_PATH)/../libs/car-apps-common/res \
+      $(LOCAL_PATH)/../libs/car-settings-lib/res \
+      $(LOCAL_PATH)/../../../../frameworks/base/packages/SettingsLib/res
+
+  LOCAL_CERTIFICATE := platform
+
+  LOCAL_MODULE_TAGS := optional
+
+  LOCAL_PROGUARD_ENABLED := disabled
+
+  LOCAL_PRIVILEGED_MODULE := true
+
+  LOCAL_DEX_PREOPT := false
+
+  LOCAL_STATIC_JAVA_LIBRARIES := \
+      android.car.userlib \
+      androidx-constraintlayout_constraintlayout-solver \
+      jsr305
+
+  LOCAL_DX_FLAGS := --multi-dex
+
+  include $(BUILD_PACKAGE)
+endif
+###################################################################################
 
 # Use the following include to make our test apk.
 ifeq (,$(ONE_SHOT_MAKEFILE))

@@ -17,7 +17,7 @@
 package android.server.wm.alertwindowapp;
 
 import android.content.ComponentName;
-import android.server.am.component.ComponentsBase;
+import android.server.wm.component.ComponentsBase;
 
 public class Components extends ComponentsBase {
 

@@ -18,6 +18,7 @@ package dot.junit.opcodes.move_exception.d;
 
 public class T_move_exception_1 {
     
+    @SuppressWarnings("ConstantOverflow")
     public void run() {
         try{
             int a = 15/0;

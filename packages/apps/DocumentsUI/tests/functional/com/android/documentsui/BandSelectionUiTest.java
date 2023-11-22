@@ -18,7 +18,8 @@ package com.android.documentsui;
 
 import android.graphics.Point;
 import android.graphics.Rect;
-import android.support.test.filters.LargeTest;
+
+import androidx.test.filters.LargeTest;
 
 import com.android.documentsui.files.FilesActivity;
 
@@ -39,8 +40,9 @@ public class BandSelectionUiTest extends ActivityTest<FilesActivity> {
     public void testBandSelection_allFiles() throws Exception {
         bots.main.switchToGridMode();
         Rect dirListBounds = bots.directory.findDocumentsList().getBounds();
-        Point start = new Point(dirListBounds.right - 1, dirListBounds.bottom - 1);
-        Point end = new Point(dirListBounds.left + 1, dirListBounds.top + 1);
+        Rect startDir = bots.directory.findDocument(dirName1).getBounds();
+        Point start = new Point(dirListBounds.right - 1, startDir.centerY());
+        Point end = new Point(dirListBounds.left + 1, dirListBounds.bottom - 1);
         bots.gesture.bandSelection(start, end);
 
         bots.directory.assertSelection(4);
@@ -49,11 +51,12 @@ public class BandSelectionUiTest extends ActivityTest<FilesActivity> {
     public void testBandSelection_someFiles() throws Exception {
         bots.main.switchToGridMode();
         Rect dirListBounds = bots.directory.findDocumentsList().getBounds();
-        Rect startDoc = bots.directory.findDocument(fileName2).getBounds();
-        // 100 pixels below bottom of file2
-        Point start = new Point(startDoc.centerX(), startDoc.bottom + 100);
-        // Top left corner
-        Point end = new Point(dirListBounds.left + 1, dirListBounds.top + 1);
+        Rect startDoc = bots.directory.findDocument(fileNameNoRename).getBounds();
+        Rect endDoc = bots.directory.findDocument(fileName1).getBounds();
+        // Start from right side of file NoRename.
+        Point start = new Point(dirListBounds.right - 1, startDoc.bottom - 1);
+        // End is center of file1
+        Point end = new Point(endDoc.centerX(), endDoc.centerY());
         bots.gesture.bandSelection(start, end);
 
         bots.directory.assertSelection(3);

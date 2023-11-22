@@ -15,8 +15,7 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:phone="http://schemas.android.com/apk/res/com.android.phone"
-    android:title="@string/accessibility_settings_activity_title">
+                  android:title="@string/accessibility_settings_activity_title">
 
     <com.android.phone.settings.TtyModeListPreference
         android:key="@string/tty_mode_key"

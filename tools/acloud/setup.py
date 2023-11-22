@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright 2016 - The Android Open Source Project
+# Copyright 2018 - The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,27 +14,117 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from setuptools import setup
-from setuptools import find_packages
+from distutils.spawn import find_executable
+import os
+import subprocess
+import sys
 
-install_requires = [
-    'python-dateutil',
-    'protobuf',
-    'google-api-python-client'
-]
+import setuptools
 
-setup(
-    name='acloud',
-    version='0.1',
-    description='Cloud Android Driver',
-    license='Apache2.0',
-    packages=find_packages(),
-    include_package_data=False,
-    install_requires=install_requires,
-    url="http://www.android.com/",
+ACLOUD_DIR = os.path.realpath(os.path.dirname(__file__))
+
+try:
+    with open("README.md", "r") as fh:
+        LONG_DESCRIPTION = fh.read()
+except IOError:
+    LONG_DESCRIPTION = ""
+
+# Find the Protocol Compiler. (Taken from protobuf/python/setup.py)
+if "PROTOC" in os.environ and os.path.exists(os.environ["PROTOC"]):
+    PROTOC = os.environ["PROTOC"]
+else:
+    PROTOC = find_executable("protoc")
+
+
+def generate_proto(source):
+    """Generate a _pb2.py from a .proto file.
+
+    Invokes the Protocol Compiler to generate a _pb2.py from the given
+    .proto file.  Does nothing if the output already exists and is newer than
+    the input.
+
+    Args:
+      source: The source proto file that needs to be compiled.
+    """
+
+    output = source.replace(".proto", "_pb2.py")
+
+    if (not os.path.exists(output) or (os.path.exists(source) and
+                                       os.path.getmtime(source) > os.path.getmtime(output))):
+        print "Generating %s..." % output
+
+        if not os.path.exists(source):
+            sys.stderr.write("Can't find required file: %s\n" % source)
+            sys.exit(-1)
+
+        if PROTOC is None:
+            sys.stderr.write(
+                "protoc is not found.  Please compile it "
+                "or install the binary package.\n")
+            sys.exit(-1)
+
+        protoc_command = [PROTOC,  "-I%s" % ACLOUD_DIR, "--python_out=.", source]
+        if subprocess.call(protoc_command) != 0:
+            sys.exit(-1)
+
+
+# Generate the protobuf files that we depend on.
+generate_proto(os.path.join(ACLOUD_DIR, "internal/proto/user_config.proto"))
+generate_proto(os.path.join(ACLOUD_DIR, "internal/proto/internal_config.proto"))
+open(os.path.join(ACLOUD_DIR, "internal/proto/__init__.py"), "a").close()
+
+setuptools.setup(
+    python_requires=">=2",
+    name="acloud",
+    version="1.0",
+    test_suite="nose.collector",
+    tests_require=["coverage", "mock"],
+    author="Kevin Cheng, Keun Soo Yim",
+    author_email="kevcheng@google.com, yim@google.com",
+    description="Acloud is a command line tool that assists users to "
+                "create an Android Virtual Device (AVD).",
+    long_description=LONG_DESCRIPTION,
+    long_description_content_type="text/markdown",
+    packages=[
+        "acloud", "acloud.internal", "acloud.public", "acloud.delete",
+        "acloud.create", "acloud.setup", "acloud.metrics",
+        "acloud.internal.lib", "acloud.internal.proto", "acloud.public.data",
+        "acloud.public.acloud_kernel", "acloud.public.actions", "acloud.reconnect",
+        "acloud.list",
+    ],
+    package_dir={
+        "acloud": ".",
+        "acloud.internal": "internal",
+        "acloud.public": "public",
+        "acloud.delete": "delete",
+        "acloud.create": "create",
+        "acloud.setup": "setup",
+        "acloud.metrics": "metrics",
+        "acloud.internal.lib": "internal/lib",
+        "acloud.internal.proto": "internal/proto",
+        "acloud.public.data": "public/data",
+        "acloud.public.acloud_kernel": "public/acloud_kernel",
+        "acloud.public.actions": "public/actions",
+        "acloud.reconnect": "reconnect",
+        "acloud.list": "list"
+    },
+    package_data={"acloud.public.data": ["default.config"]},
+    include_package_data=True,
+    platforms="POSIX",
     entry_points={
-        'console_scripts': [
-            'acloud = acloud.public.__main__:main'
-        ]
-    }
-)
+        "console_scripts": ["acloud=acloud.public.acloud_main:main"],
+    },
+    install_requires=[
+        "google-api-python-client", "oauth2client==3.0.0", "protobuf",
+        "python-dateutil"
+    ],
+    license="Apache License, Version 2.0",
+    classifiers=[
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: Apache Software License",
+        "Natural Language :: English",
+        "Environment :: Console",
+        "Intended Audience :: Developers",
+        "Topic :: Utilities",
+    ])

@@ -16,8 +16,11 @@
 
 package com.android.dynamiclinker;
 
+import androidx.test.InstrumentationRegistry;
+
 import junit.framework.TestCase;
-import android.support.test.InstrumentationRegistry;
+
+import java.io.File;
 
 public class DynamicLinkerTest extends TestCase {
 
@@ -47,4 +50,9 @@ public class DynamicLinkerTest extends TestCase {
     assertEquals(1, functionB());
   }
 
+  public void testNativeLibraryNotExtracted() {
+    File dir = new File(InstrumentationRegistry.getContext().getApplicationInfo().nativeLibraryDir);
+    assertTrue(dir.isDirectory());
+    assertEquals(0, dir.list().length);
+  }
 }

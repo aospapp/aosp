@@ -33,20 +33,6 @@ namespace chromeos_update_engine {
 
 class PayloadSigner {
  public:
-  // Reads the payload metadata from the given |payload_path| into the
-  // |out_payload_metadata| vector if not null. It also parses the manifest
-  // protobuf in the payload and returns it in |out_manifest| if not null, along
-  // with the major version of the payload in |out_major_version| if not null,
-  // the size of the entire metadata in |out_metadata_size| and the size of
-  // metadata signature in |out_metadata_signature_size| if not null. Returns
-  // whether a valid payload metadata was found and parsed.
-  static bool LoadPayloadMetadata(const std::string& payload_path,
-                                  brillo::Blob* out_payload_metadata,
-                                  DeltaArchiveManifest* out_manifest,
-                                  uint64_t* out_major_version,
-                                  uint64_t* out_metadata_size,
-                                  uint32_t* out_metadata_signature_size);
-
   // Returns true if the payload in |payload_path| is signed and its hash can be
   // verified using the public key in |public_key_path| with the signature
   // of a given version in the signature blob. Returns false otherwise.
@@ -68,17 +54,17 @@ class PayloadSigner {
                        brillo::Blob* out_signature);
 
   // Sign |hash_data| blob with all private keys in |private_key_paths|, then
-  // convert the signatures to protobuf blob.
+  // convert the signatures to serialized protobuf.
   static bool SignHashWithKeys(
       const brillo::Blob& hash_data,
       const std::vector<std::string>& private_key_paths,
-      brillo::Blob* out_signature_blob);
+      std::string* out_serialized_signature);
 
   // Given an unsigned payload in |unsigned_payload_path|, private keys in
   // |private_key_path|, metadata size in |metadata_size|, metadata signature
   // size in |metadata_signature_size| and signatures offset in
   // |signatures_offset|, calculates the payload signature blob into
-  // |out_signature_blob|. Note that the payload must already have an
+  // |out_serialized_signature|. Note that the payload must already have an
   // updated manifest that includes the dummy signature op and correct metadata
   // signature size in header. Returns true on success, false otherwise.
   static bool SignPayload(const std::string& unsigned_payload_path,
@@ -86,13 +72,12 @@ class PayloadSigner {
                           const uint64_t metadata_size,
                           const uint32_t metadata_signature_size,
                           const uint64_t signatures_offset,
-                          brillo::Blob* out_signature_blob);
+                          std::string* out_serialized_signature);
 
-  // Returns the length of out_signature_blob that will result in a call
+  // Returns the length of out_serialized_signature that will result in a call
   // to SignPayload with the given private keys. Returns true on success.
   static bool SignatureBlobLength(
-      const std::vector<std::string>& private_key_paths,
-      uint64_t* out_length);
+      const std::vector<std::string>& private_key_paths, uint64_t* out_length);
 
   // Given an unsigned payload in |payload_path|,
   // this method does two things:

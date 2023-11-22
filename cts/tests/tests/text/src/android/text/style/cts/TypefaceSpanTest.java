@@ -22,10 +22,11 @@ import static org.junit.Assert.assertNull;
 
 import android.graphics.Typeface;
 import android.os.Parcel;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.TextPaint;
 import android.text.style.TypefaceSpan;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

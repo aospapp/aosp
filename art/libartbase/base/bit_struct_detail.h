@@ -17,7 +17,7 @@
 #ifndef ART_LIBARTBASE_BASE_BIT_STRUCT_DETAIL_H_
 #define ART_LIBARTBASE_BASE_BIT_STRUCT_DETAIL_H_
 
-#include "base/bit_utils.h"
+#include "bit_utils.h"
 #include "globals.h"
 
 #include <type_traits>
@@ -85,7 +85,7 @@ struct HasUnderscoreField {
   static constexpr FalseT Test(...);
 
  public:
-  static constexpr bool value = decltype(Test<T>(0))::value;
+  static constexpr bool value = decltype(Test<T>(nullptr))::value;
 };
 
 // Infer the type of the member of &T::M.

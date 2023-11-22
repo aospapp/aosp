@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"工作资料设置"</string>
+    <string name="app_label" msgid="1527793174155125990">"工作设置"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"糟糕，出错了！"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"设置工作资料"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"您的单位可控制此资料，并确保其安全。您可以控制设备上的所有其他内容。"</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"以下应用将管理您的设备："</string>
     <string name="next" msgid="1004321437324424398">"下一步"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"正在设置工作资料…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"您的管理员能够监控和管理与此资料相关的设置、企业权限、应用、权限以及数据（其中包括您的网络活动以及您设备的位置信息、通话记录和联系人搜索记录）。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如需了解详情（包括您所在单位的隐私权政策），请与您的管理员联系。"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"您的管理员能够监控和管理与该设备相关的设置、企业权限、应用、权限以及数据（其中包括您的网络活动以及您设备的位置信息、通话记录和联系人搜索记录）。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如需了解详情（包括您所在单位的隐私权政策），请与您的管理员联系。"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"您的 IT 管理员可以监控和管理与此资料相关的设置、企业权限、应用、权限以及数据（其中包括您的网络活动以及您设备的位置信息、通话记录和联系人搜索记录）。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如需了解详情（包括贵组织的隐私权政策），请与您的 IT 管理员联系。"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"您的 IT 管理员可以监控和管理与此设备相关的设置、企业权限、应用、权限以及数据（其中包括您的网络活动以及您设备的位置信息、通话记录和联系人搜索记录）。<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>如需了解详情（包括贵组织的隐私权政策），请与您的 IT 管理员联系。"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"要使用防盗保护功能，您必须为您的设备设置一种采用密码保护的屏幕锁定方式。"</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"请与您单位的管理员联系以了解详情，包括单位的隐私权政策。"</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"如需了解详情（包括贵组织的隐私权政策），请与您的 IT 管理员联系。"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"了解详情"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"取消"</string>
     <string name="ok_setup" msgid="4593707675416137504">"确定"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"无法设置您的工作资料，请与您公司的IT部门联系或稍后重试。"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"无法添加工作资料"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"无法替换或移除工作资料"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"无法向此设备添加工作资料。如果您有任何疑问，请与您的管理员联系。"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"无法将工作资料添加到此设备。如有任何疑问，请与您的 IT 管理员联系。"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"请更改设备启动器"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"此启动器应用不能用于您的工作资料"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"取消"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"正在进行最后几项设置…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"正在设置设备所有者…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"正在初始化设备…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"此设备不支持加密功能，但是设置设备需要对设备进行加密。如需帮助，请与您的管理员联系。"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"此设备不支持加密功能，但如果不进行加密就无法完成设置。如需帮助，请与您的 IT 管理员联系。"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"要停止设置并重置设备吗？"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"此操作将重置您的设备，您将会回到首屏画面"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"要停止设置并清除您设备上的数据吗？"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"重置"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"无法设置资料"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"无法设置设备"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"无法设置设备。如需帮助，请与您的管理员联系。"</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"如需帮助，请与您的管理员联系"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"无法设置设备。如需帮助，请与您的 IT 管理员联系。"</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"请与您的 IT 管理员联系以获取帮助"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"设备已经过设置"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"无法连接到WLAN"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"您的设备已开启恢复出厂设置保护功能。如需帮助，请与您的管理员联系。"</string>
+    <string name="error_wifi" msgid="1850288843966836571">"无法连接到 WLAN"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"您的设备已开启恢复出厂设置保护功能。如需帮助，请与您的 IT 管理员联系。"</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"正在清除"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"请稍候…"</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"由于校验和错误，无法使用此管理应用。如需帮助，请与您的管理员联系。"</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"无法下载管理应用"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"由于缺少组件或软件包已损坏，无法使用此管理应用。如需帮助，请与您的管理员联系。"</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"无法安装管理应用"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"发生校验和错误，因此无法使用此管理应用。如需帮助，请与您的 IT 管理员联系。"</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"无法下载管理应用"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"无法使用此管理应用，因为此应用缺少组件或已损坏。如需帮助，请与您的 IT 管理员联系。"</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"无法安装管理应用"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"要停止设置吗？"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"否"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"是"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"此设备将由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>负责管理、监控，并确保其安全。相应行为受相关条款约束。<xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"此设备将由<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>负责管理、监控，并确保其安全。相应行为受<xliff:g id="TERMS_HEADERS">%2$s</xliff:g>的相关条款约束。<xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"下面这个链接不安全，在设备设置完成之前都无法打开：<xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"如有疑问，请与您的<xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g>联系。"</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"如有疑问，请与您所在单位的管理员联系"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"设置尚未完成。如需帮助，请与您的管理员联系。"</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"如需帮助，请与您的管理员联系"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"单位的管理员"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"如需了解详情，请与您的<xliff:g id="IT_ADMIN">%1$s</xliff:g>联系。"</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"如有任何疑问，请与您的 IT 管理员联系"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"设置尚未完成。如需帮助，请与您的 IT 管理员联系。"</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"如需帮助，请与您的 IT 管理员联系"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"IT 管理员"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>将使用以下应用管理和监控此设备："</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"您的单位"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"您的单位"</string>
     <string name="view_terms" msgid="7230493092383341605">"查看条款"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"接受并继续"</string>
-    <string name="close" msgid="7208600934846389439">"关闭"</string>
+    <string name="back" msgid="6455622465896147127">"返回"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"设置设备"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"改变您的工作方式"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"将工作数据与个人数据隔离开"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"这可能需要几分钟的时间"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"您的工作应用将保存在此工作资料中，并由贵单位管理"</string>
     <string name="device_owner_description" msgid="168013145812679664">"此设备将由贵单位确保其安全并负责管理"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"正在准备设置工作设备…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"设置管理应用"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"设置所有其他内容"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"现在，请设置所有其他内容"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"此设备归贵单位所有"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"以下应用将用于管理和监控此手机"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"正在准备工作设置…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"首先，请设置您的工作资料"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"请设置您的工作资料"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"工作应用位于您的工作资料中"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"完成一天的工作后暂停工作应用"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"您的 IT 管理员只能查看您工作资料内的数据"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"正在设置您的工作资料…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"工作应用会保存在您的工作资料中。您可以在完成一天的工作之后暂停工作应用。您的 IT 管理员只能查看您工作资料内的数据。"</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"请设置您的工作用设备"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"让您的工作应用触手可及"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"此设备并非私人设备"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"您的 IT 管理员或许可以查看您在此设备上的数据和活动。"</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"正在设置您的设备…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"使用此设备可轻松访问您的工作应用。此设备并非私人设备，因此，您的 IT 管理员或许可以查看您的数据和活动。如需了解详情，请与您的 IT 管理员联系。"</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"隐私权提醒"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"您的 IT 管理员或许可以查看您在此设备上的数据和活动"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"您的设备已准备就绪！"</string>
+    <string name="done" msgid="7755227776955952318">"完成"</string>
 </resources>

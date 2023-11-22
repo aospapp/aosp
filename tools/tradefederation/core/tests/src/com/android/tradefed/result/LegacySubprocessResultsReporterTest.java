@@ -18,6 +18,8 @@ package com.android.tradefed.result;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.invoker.InvocationContext;
+import com.android.tradefed.util.SubprocessTestResultsParser;
+import com.android.tradefed.util.proto.TfMetricProtoUtil;
 
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -26,8 +28,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Collections;
-
-import com.android.tradefed.util.SubprocessTestResultsParser;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Unit Tests for {@link LegacySubprocessResultsReporter} The tests are copied from {@link
@@ -78,6 +80,36 @@ public class LegacySubprocessResultsReporterTest {
             mReporter.testAssumptionFailure(testId, "fake trace");
             mReporter.testRunFailed("no reason");
             mReporter.invocationFailed(new Throwable());
+            mReporter.close();
+            receiver.joinReceiver(500);
+            EasyMock.verify(mMockListener);
+        } finally {
+            receiver.close();
+        }
+    }
+
+    /**
+     * Test deprecate method that events sent through the socket reporting part are received on the
+     * other hand.
+     */
+    @Test
+    public void testPrintEvent_legacyMethodCalls() throws Exception {
+        ITestInvocationListener mMockListener = EasyMock.createMock(ITestInvocationListener.class);
+        SubprocessTestResultsParser receiver =
+                new SubprocessTestResultsParser(mMockListener, true, new InvocationContext());
+        try {
+            OptionSetter setter = new OptionSetter(mReporter);
+            setter.setOptionValue(
+                    "subprocess-report-port", Integer.toString(receiver.getSocketServerPort()));
+            // mirror calls between receiver and sender.
+            Map<String, String> map = new HashMap<>();
+            map.put("key1", "value1");
+            map.put("key2", "value2");
+            mMockListener.testRunStarted("test run", 2);
+            mMockListener.testRunEnded(50, TfMetricProtoUtil.upgradeConvert(map));
+            EasyMock.replay(mMockListener);
+            mReporter.testRunStarted("test run", 2);
+            mReporter.testRunEnded(50, map);
             mReporter.close();
             receiver.joinReceiver(500);
             EasyMock.verify(mMockListener);

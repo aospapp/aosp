@@ -32,9 +32,8 @@
 #include <android-base/logging.h>
 
 #include "base/logging.h"  // For InitLogging.
-#include "jit/profile_compilation_info.h"
-#include "mem_map.h"
-#include "runtime.h"
+#include "base/mem_map.h"
+#include "profile/profile_compilation_info.h"
 
 namespace art {
 
@@ -43,11 +42,11 @@ static const char* kProgramName = "dexlayout";
 /*
  * Shows usage.
  */
-static void Usage(void) {
+static void Usage() {
   LOG(ERROR) << "Copyright (C) 2016 The Android Open Source Project\n";
   LOG(ERROR) << kProgramName
              << ": [-a] [-c] [-d] [-e] [-f] [-h] [-i] [-l layout] [-o outfile] [-p profile]"
-                " [-s] [-t] [-v] [-w directory] dexfile...\n";
+                " [-s] [-t] [-u] [-v] [-w directory] dexfile...\n";
   LOG(ERROR) << " -a : display annotations";
   LOG(ERROR) << " -b : build dex_ir";
   LOG(ERROR) << " -c : verify checksum and exit";
@@ -61,9 +60,15 @@ static void Usage(void) {
   LOG(ERROR) << " -p : profile file name (defaults to no profile)";
   LOG(ERROR) << " -s : visualize reference pattern";
   LOG(ERROR) << " -t : display file section sizes";
+  LOG(ERROR) << " -u : update dex checksums";
   LOG(ERROR) << " -v : verify output file is canonical to input (IR level comparison)";
   LOG(ERROR) << " -w : output dex directory";
   LOG(ERROR) << " -x : compact dex generation level, either 'none' or 'fast'";
+}
+
+NO_RETURN static void Abort(const char* msg) {
+  LOG(ERROR) << msg;
+  exit(1);
 }
 
 /*
@@ -71,7 +76,7 @@ static void Usage(void) {
  */
 int DexlayoutDriver(int argc, char** argv) {
   // Art specific set up.
-  InitLogging(argv, Runtime::Abort);
+  InitLogging(argv, Abort);
   MemMap::Init();
 
   Options options;
@@ -80,8 +85,8 @@ int DexlayoutDriver(int argc, char** argv) {
   bool want_usage = false;
 
   // Parse all arguments.
-  while (1) {
-    const int ic = getopt(argc, argv, "abcdefghil:o:p:stvw:x:");
+  while (true) {
+    const int ic = getopt(argc, argv, "abcdefghil:o:p:stuvw:x:");
     if (ic < 0) {
       break;  // done
     }
@@ -134,6 +139,9 @@ int DexlayoutDriver(int argc, char** argv) {
         options.show_section_statistics_ = true;
         options.verbose_ = false;
         break;
+      case 'u':  // update checksum
+        options.update_checksum_ = true;
+        break;
       case 'v':  // verify output
         options.verify_output_ = true;
         break;
@@ -182,7 +190,12 @@ int DexlayoutDriver(int argc, char** argv) {
   // Open profile file.
   std::unique_ptr<ProfileCompilationInfo> profile_info;
   if (options.profile_file_name_) {
-    int profile_fd = open(options.profile_file_name_, O_RDONLY);
+#ifdef _WIN32
+    int flags = O_RDONLY;
+#else
+    int flags = O_RDONLY | O_CLOEXEC;
+#endif
+    int profile_fd = open(options.profile_file_name_, flags);
     if (profile_fd < 0) {
       PLOG(ERROR) << "Can't open " << options.profile_file_name_;
       return 1;
@@ -193,9 +206,10 @@ int DexlayoutDriver(int argc, char** argv) {
       return 1;
     }
   }
+  PLOG(INFO) << "After opening profile file";
 
   // Create DexLayout instance.
-  DexLayout dex_layout(options, profile_info.get(), out_file, /*header*/ nullptr);
+  DexLayout dex_layout(options, profile_info.get(), out_file, /*header=*/ nullptr);
 
   // Process all files supplied on command line.
   int result = 0;

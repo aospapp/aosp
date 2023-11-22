@@ -16,6 +16,18 @@
 
 package com.android.server.telecom.tests;
 
+import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.ArgumentMatchers.same;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.media.AudioManager;
@@ -26,7 +38,6 @@ import android.test.suitebuilder.annotation.SmallTest;
 
 import com.android.server.telecom.Call;
 import com.android.server.telecom.CallAudioManager;
-import com.android.server.telecom.CallAudioModeStateMachine;
 import com.android.server.telecom.CallAudioRouteStateMachine;
 import com.android.server.telecom.CallsManager;
 import com.android.server.telecom.ConnectionServiceWrapper;
@@ -41,6 +52,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.ArrayList;
@@ -48,21 +60,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.ArgumentMatchers.same;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @RunWith(Parameterized.class)
 public class CallAudioRouteTransitionTests extends TelecomTestCase {
@@ -191,16 +188,16 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
     private void setupMocksForParams(final CallAudioRouteStateMachine sm,
             RoutingTestParameters params) {
         // Set up bluetooth and speakerphone state
-        when(mockBluetoothRouteManager.isBluetoothAudioConnectedOrPending()).thenReturn(
-                params.initialRoute == CallAudioState.ROUTE_BLUETOOTH);
-        when(mockBluetoothRouteManager.isBluetoothAvailable()).thenReturn(
-                (params.availableRoutes & CallAudioState.ROUTE_BLUETOOTH) != 0
-                        || (params.expectedAvailableRoutes & CallAudioState.ROUTE_BLUETOOTH) != 0);
-        when(mockBluetoothRouteManager.getConnectedDevices())
-                .thenReturn(params.availableBluetoothDevices);
+        doReturn(params.initialRoute == CallAudioState.ROUTE_BLUETOOTH)
+                .when(mockBluetoothRouteManager).isBluetoothAudioConnectedOrPending();
+        doReturn((params.availableRoutes & CallAudioState.ROUTE_BLUETOOTH) != 0
+                || (params.expectedAvailableRoutes & CallAudioState.ROUTE_BLUETOOTH) != 0)
+                .when(mockBluetoothRouteManager).isBluetoothAvailable();
+        doReturn(params.availableBluetoothDevices)
+                .when(mockBluetoothRouteManager).getConnectedDevices();
         if (params.initialBluetoothDevice != null) {
-            when(mockBluetoothRouteManager.getBluetoothAudioConnectedDevice())
-                    .thenReturn(params.initialBluetoothDevice);
+            doReturn(params.initialBluetoothDevice)
+                    .when(mockBluetoothRouteManager).getBluetoothAudioConnectedDevice();
         }
 
 
@@ -264,9 +261,8 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
         }
         waitForHandlerAction(stateMachine.getHandler(), TEST_TIMEOUT);
 
-        // Reset mocks to discard stuff from initialization
-        resetMocks();
-        setupMocksForParams(stateMachine, mParams);
+        // Clear invocations on mocks to discard stuff from initialization
+        clearInvocations();
 
         sendActionToStateMachine(stateMachine);
 
@@ -337,11 +333,11 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
         stateMachine.setCallAudioManager(mockCallAudioManager);
 
         // Set up bluetooth and speakerphone state
-        when(mockBluetoothRouteManager.isBluetoothAvailable()).thenReturn(
-                (mParams.availableRoutes & CallAudioState.ROUTE_BLUETOOTH) != 0
-                || (mParams.expectedAvailableRoutes & CallAudioState.ROUTE_BLUETOOTH) != 0);
-        when(mockBluetoothRouteManager.getConnectedDevices())
-                .thenReturn(mParams.availableBluetoothDevices);
+        doReturn((mParams.availableRoutes & CallAudioState.ROUTE_BLUETOOTH) != 0 ||
+                (mParams.expectedAvailableRoutes & CallAudioState.ROUTE_BLUETOOTH) != 0)
+                .when(mockBluetoothRouteManager).isBluetoothAvailable();
+        doReturn(mParams.availableBluetoothDevices)
+                .when(mockBluetoothRouteManager).getConnectedDevices();
         when(mockAudioManager.isSpeakerphoneOn()).thenReturn(
                 mParams.initialRoute == CallAudioState.ROUTE_SPEAKER);
         when(fakeCall.getSupportedAudioRoutes()).thenReturn(mParams.callSupportedRoutes);
@@ -511,7 +507,7 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
                 CallAudioState.ROUTE_BLUETOOTH, // initialRoute
                 CallAudioState.ROUTE_EARPIECE | CallAudioState.ROUTE_BLUETOOTH, // availableRoutes
                 OPTIONAL, // speakerInteraction
-                OFF, // bluetoothInteraction
+                NONE, // bluetoothInteraction
                 SPECIAL_DISCONNECT_BT_ACTION, // action
                 CallAudioState.ROUTE_EARPIECE, // expectedRoute
                 CallAudioState.ROUTE_EARPIECE, // expectedAvailableRoutes
@@ -523,7 +519,7 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
                 CallAudioState.ROUTE_BLUETOOTH, // initialRoute
                 CallAudioState.ROUTE_WIRED_HEADSET | CallAudioState.ROUTE_BLUETOOTH, // availableRou
                 OPTIONAL, // speakerInteraction
-                OFF, // bluetoothInteraction
+                NONE, // bluetoothInteraction
                 SPECIAL_DISCONNECT_BT_ACTION, // action
                 CallAudioState.ROUTE_WIRED_HEADSET, // expectedRoute
                 CallAudioState.ROUTE_WIRED_HEADSET, // expectedAvailableRoutes
@@ -715,7 +711,7 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
                 CallAudioState.ROUTE_BLUETOOTH, // initialRoute
                 CallAudioState.ROUTE_BLUETOOTH,  // availableRoutes
                 ON, // speakerInteraction
-                OFF, // bluetoothInteraction
+                NONE, // bluetoothInteraction
                 SPECIAL_DISCONNECT_BT_ACTION, // action
                 CallAudioState.ROUTE_SPEAKER, // expectedRoute
                 CallAudioState.ROUTE_SPEAKER, // expectedAvailableRoutes
@@ -727,7 +723,7 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
                 CallAudioState.ROUTE_BLUETOOTH, // initialRoute
                 CallAudioState.ROUTE_EARPIECE | CallAudioState.ROUTE_BLUETOOTH, // availableRoutes
                 OPTIONAL, // speakerInteraction
-                OFF, // bluetoothInteraction
+                NONE, // bluetoothInteraction
                 CallAudioRouteStateMachine.BT_ACTIVE_DEVICE_GONE, // action
                 CallAudioState.ROUTE_EARPIECE, // expectedRoute
                 CallAudioState.ROUTE_EARPIECE | CallAudioState.ROUTE_BLUETOOTH, // expectedAvailabl
@@ -777,16 +773,8 @@ public class CallAudioRouteTransitionTests extends TelecomTestCase {
                 any(Call.class), any(CallAudioState.class));
     }
 
-    private void resetMocks() {
-        reset(mockAudioManager, mockBluetoothRouteManager, mockCallsManager,
+    private void clearInvocations() {
+        Mockito.clearInvocations(mockAudioManager, mockBluetoothRouteManager, mockCallsManager,
                 mockConnectionServiceWrapper);
-        fakeCall = mock(Call.class);
-        when(mockCallsManager.getForegroundCall()).thenReturn(fakeCall);
-        when(fakeCall.getConnectionService()).thenReturn(mockConnectionServiceWrapper);
-        when(fakeCall.isAlive()).thenReturn(true);
-        when(fakeCall.getSupportedAudioRoutes()).thenReturn(CallAudioState.ROUTE_ALL);
-        when(mockCallsManager.getLock()).thenReturn(mLock);
-        doNothing().when(mockConnectionServiceWrapper).onCallAudioStateChanged(any(Call.class),
-                any(CallAudioState.class));
     }
 }

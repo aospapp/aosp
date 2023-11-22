@@ -34,12 +34,15 @@ import com.android.tradefed.util.RunUtil;
 import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 
 /** Unit Tests for {@link RunCommandTargetPreparer} */
+@RunWith(JUnit4.class)
 public class RunCommandTargetPreparerTest {
 
     private static final int LONG_WAIT_TIME_MS = 200;
@@ -52,8 +55,6 @@ public class RunCommandTargetPreparerTest {
     @Before
     public void setUp() throws Exception {
         mPreparer = new RunCommandTargetPreparer();
-        OptionSetter setter = new OptionSetter(mPreparer);
-        setter.setOptionValue("use-shell-v2", "true");
         mMockDevice = EasyMock.createMock(ITestDevice.class);
         mMockBuildInfo = EasyMock.createMock(IBuildInfo.class);
     }
@@ -67,7 +68,6 @@ public class RunCommandTargetPreparerTest {
         final String command = "mkdir test";
         OptionSetter setter = new OptionSetter(mPreparer);
         setter.setOptionValue("run-command", command);
-        EasyMock.expect(mMockDevice.getSerialNumber()).andReturn("SERIAL").times(2);
         CommandResult res = new CommandResult();
         res.setStatus(CommandStatus.SUCCESS);
         res.setStdout("");
@@ -87,7 +87,6 @@ public class RunCommandTargetPreparerTest {
         OptionSetter setter = new OptionSetter(mPreparer);
         setter.setOptionValue("run-command", command);
         setter.setOptionValue("run-command-timeout", "100");
-        EasyMock.expect(mMockDevice.getSerialNumber()).andReturn("SERIAL").times(2);
         CommandResult res = new CommandResult();
         res.setStatus(CommandStatus.SUCCESS);
         res.setStdout("");
@@ -129,8 +128,8 @@ public class RunCommandTargetPreparerTest {
         final String command = "mkdir test";
         OptionSetter setter = new OptionSetter(mPreparer);
         setter.setOptionValue("teardown-command", command);
-        EasyMock.expect(mMockDevice.getSerialNumber()).andReturn("SERIAL").times(1);
-        EasyMock.expect(mMockDevice.executeShellCommand(EasyMock.eq(command))).andReturn("");
+        CommandResult result = new CommandResult(CommandStatus.SUCCESS);
+        EasyMock.expect(mMockDevice.executeShellV2Command(EasyMock.eq(command))).andReturn(result);
         EasyMock.replay(mMockDevice, mMockBuildInfo);
         mPreparer.tearDown(mMockDevice, mMockBuildInfo, null);
         EasyMock.verify(mMockDevice, mMockBuildInfo);

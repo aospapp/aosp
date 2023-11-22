@@ -13,8 +13,6 @@ android {
                 }
             }
             packagingOptions {
-                // Contain debug info in the libraries.
-                doNotStrip "**.so"
 
                 // Exclude wrap.sh for architectures not built.
                 if (abiFiltersForWrapScript) {

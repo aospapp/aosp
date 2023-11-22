@@ -2572,6 +2572,8 @@ typedef enum {
     CAM_INTF_META_EXP_TIME_BOOST,
     /* Easel HDR+ makernote */
     CAM_INTF_META_MAKERNOTE,
+    /* EIS crop information */
+    CAM_INTF_META_EIS_CROP_INFO,
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 
@@ -3204,5 +3206,13 @@ typedef struct {
     char data[MAX_MAKERNOTE_LENGTH];
     uint32_t length;
 } cam_makernote_t;
+
+// Used with CAM_META_EIS_CROP_INFO
+typedef struct {
+    int32_t delta_x;
+    int32_t delta_y;
+    int32_t delta_width;
+    int32_t delta_height;
+} cam_eis_crop_info_t;
 
 #endif /* __QCAMERA_TYPES_H__ */

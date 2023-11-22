@@ -61,8 +61,8 @@ function vts_multidevice_target_setup {
   adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/obj_arm/SHARED_LIBRARIES/android.hardware.tests.libhwbinder@1.0_intermediates/LINKED/android.hardware.tests.libhwbinder@1.0.so /data/local/tmp/32/
   adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/obj/SHARED_LIBRARIES/android.hardware.tests.libhwbinder@1.0_intermediates/LINKED/android.hardware.tests.libhwbinder@1.0.so /data/local/tmp/64/
 
-  adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/obj_arm/EXECUTABLES/libhwbinder_benchmark_intermediates/LINKED/libhwbinder_benchmark32 /data/local/tmp/32/
-  adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/obj/EXECUTABLES/libhwbinder_benchmark_intermediates/LINKED/libhwbinder_benchmark64 /data/local/tmp/64/
+  adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/obj_arm/NATIVE_TESTS/libhwbinder_benchmark_intermediates/LINKED/libhwbinder_benchmark /data/local/tmp/32/
+  adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/obj/NATIVE_TESTS/libhwbinder_benchmark_intermediates/LINKED/libhwbinder_benchmark /data/local/tmp/64/libhwbinder_benchmark64
 
   # uncomment for hidl in non-treble devices
   # adb push ${ANDROID_BUILD_TOP}/out/target/product/${DEVICE}/system/lib/android.hardware.nfc@1.0-vts.driver.so /data/local/tmp/32/hw/

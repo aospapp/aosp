@@ -15,16 +15,21 @@
  */
 package com.android.tradefed.device;
 
+import com.android.annotations.VisibleForTesting;
 import com.android.ddmlib.IDevice;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.device.DeviceManager.FastbootDevice;
+import com.android.tradefed.device.cloud.VmRemoteDevice;
 import com.android.tradefed.log.LogUtil.CLog;
+
+import com.google.common.base.Strings;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -34,6 +39,30 @@ import java.util.concurrent.TimeUnit;
  * Container for for device selection criteria.
  */
 public class DeviceSelectionOptions implements IDeviceSelection {
+
+    /** The different possible types of placeholder devices supported. */
+    public enum DeviceRequestedType {
+        /** A placeholder where no device is required to be allocated. */
+        NULL_DEVICE(NullDevice.class),
+        /** Allocate an emulator running locally for the test. */
+        LOCAL_EMULATOR(StubDevice.class),
+        /** Use a placeholder for a remote device that will be connected later. */
+        TCP_DEVICE(TcpDevice.class),
+        /** Use a placeholder for a remote device nested in a virtualized environment. */
+        GCE_DEVICE(RemoteAvdIDevice.class),
+        /** Use a placeholder for a remote device in virtualized environment. */
+        REMOTE_DEVICE(VmRemoteDevice.class);
+
+        private Class<?> mRequiredIDeviceClass;
+
+        DeviceRequestedType(Class<?> requiredIDeviceClass) {
+            mRequiredIDeviceClass = requiredIDeviceClass;
+        }
+
+        public Class<?> getRequiredClass() {
+            return mRequiredIDeviceClass;
+        }
+    }
 
     @Option(name = "serial", shortName = 's', description =
         "run this test on a specific device with given serial number(s).")
@@ -53,8 +82,8 @@ public class DeviceSelectionOptions implements IDeviceSelection {
         "Expected format --property <propertyname> <propertyvalue>.")
     private Map<String, String> mPropertyMap = new HashMap<>();
 
-    @Option(name = "emulator", shortName = 'e', description =
-        "force this test to run on emulator.")
+    // ============================ DEVICE TYPE Related Options ===============================
+    @Option(name = "emulator", shortName = 'e', description = "force this test to run on emulator.")
     private boolean mEmulatorRequested = false;
 
     @Option(name = "device", shortName = 'd', description =
@@ -73,9 +102,21 @@ public class DeviceSelectionOptions implements IDeviceSelection {
             "start a placeholder for a tcp device that will be connected later.")
     private boolean mTcpDeviceRequested = false;
 
-    @Option(name = "min-battery", description =
-        "only run this test on a device whose battery level is at least the given amount. " +
-        "Scale: 0-100")
+    @Option(
+            name = "gce-device",
+            description = "start a placeholder for a gce device that will be connected later.")
+    private boolean mGceDeviceRequested = false;
+
+    @Option(name = "device-type", description = "The type of the device requested to be allocated.")
+    private DeviceRequestedType mRequestedType = null;
+    // ============================ END DEVICE TYPE Related Options ============================
+
+    @Option(
+        name = "min-battery",
+        description =
+                "only run this test on a device whose battery level is at least the given amount. "
+                        + "Scale: 0-100"
+    )
     private Integer mMinBattery = null;
 
     @Option(name = "max-battery", description =
@@ -139,6 +180,12 @@ public class DeviceSelectionOptions implements IDeviceSelection {
         mSerials.addAll(Arrays.asList(serialNumber));
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public List<String> getSerials() {
+        return new ArrayList<>(mSerials);
+    }
+
     /**
      * Add a serial number to exclusion list.
      *
@@ -170,7 +217,8 @@ public class DeviceSelectionOptions implements IDeviceSelection {
         // If no serial was explicitly set, use the environment variable ANDROID_SERIAL.
         if (mSerials.isEmpty() && !mFetchedEnvVariable) {
             String env_serial = fetchEnvironmentVariable("ANDROID_SERIAL");
-            if (env_serial != null && !(device instanceof StubDevice)) {
+            if (env_serial != null
+                    && (!(device instanceof StubDevice) || (device instanceof FastbootDevice))) {
                 mSerials.add(env_serial);
             }
             mFetchedEnvVariable = true;
@@ -207,6 +255,9 @@ public class DeviceSelectionOptions implements IDeviceSelection {
      */
     @Override
     public boolean emulatorRequested() {
+        if (mRequestedType != null) {
+            return mRequestedType.equals(DeviceRequestedType.LOCAL_EMULATOR);
+        }
         return mEmulatorRequested;
     }
 
@@ -215,6 +266,9 @@ public class DeviceSelectionOptions implements IDeviceSelection {
      */
     @Override
     public boolean stubEmulatorRequested() {
+        if (mRequestedType != null) {
+            return mRequestedType.equals(DeviceRequestedType.LOCAL_EMULATOR);
+        }
         return mStubEmulatorRequested;
     }
 
@@ -223,11 +277,32 @@ public class DeviceSelectionOptions implements IDeviceSelection {
      */
     @Override
     public boolean nullDeviceRequested() {
+        if (mRequestedType != null) {
+            return mRequestedType.equals(DeviceRequestedType.NULL_DEVICE);
+        }
         return mNullDeviceRequested;
     }
 
+    /** {@inheritDoc} */
+    @Override
     public boolean tcpDeviceRequested() {
+        if (mRequestedType != null) {
+            return mRequestedType.equals(DeviceRequestedType.TCP_DEVICE);
+        }
         return mTcpDeviceRequested;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean gceDeviceRequested() {
+        if (mRequestedType != null) {
+            return mRequestedType.equals(DeviceRequestedType.GCE_DEVICE);
+        }
+        return mGceDeviceRequested;
+    }
+
+    public boolean remoteDeviceRequested() {
+        return DeviceRequestedType.REMOTE_DEVICE.equals(mRequestedType);
     }
 
     /**
@@ -263,6 +338,14 @@ public class DeviceSelectionOptions implements IDeviceSelection {
      */
     public void setTcpDeviceRequested(boolean tcpDeviceRequested) {
         mTcpDeviceRequested = tcpDeviceRequested;
+    }
+
+    public void setDeviceTypeRequested(DeviceRequestedType requestedType) {
+        mRequestedType = requestedType;
+    }
+
+    public DeviceRequestedType getDeviceTypeRequested() {
+        return mRequestedType;
     }
 
     /**
@@ -342,13 +425,14 @@ public class DeviceSelectionOptions implements IDeviceSelection {
     }
 
     /**
-     * Helper function used to fetch environment variable. It is essentially a wrapper around
-     * {@link System#getenv(String)} This is done for unit testing purposes.
+     * Helper function used to fetch environment variable. It is essentially a wrapper around {@link
+     * System#getenv(String)} This is done for unit testing purposes.
      *
      * @param name the environment variable to fetch.
      * @return a {@link String} value of the environment variable or null if not available.
      */
-    String fetchEnvironmentVariable(String name) {
+    @VisibleForTesting
+    public String fetchEnvironmentVariable(String name) {
         return System.getenv(name);
     }
 
@@ -390,23 +474,11 @@ public class DeviceSelectionOptions implements IDeviceSelection {
                 return false;
             }
         }
-        if ((emulatorRequested() || stubEmulatorRequested()) && !device.isEmulator()) {
+        // Check if the device match the requested type
+        if (!checkDeviceTypeRequested(device)) {
             return false;
         }
-        if (deviceRequested() && device.isEmulator()) {
-            return false;
-        }
-        if (device.isEmulator() && (device instanceof StubDevice) && !stubEmulatorRequested()) {
-            // only allocate the stub emulator if requested
-            return false;
-        }
-        if (nullDeviceRequested() != (device instanceof NullDevice)) {
-            return false;
-        }
-        if (tcpDeviceRequested() != (TcpDevice.class.equals(device.getClass()))) {
-            // We only match an exact TcpDevice here, no child class.
-            return false;
-        }
+
         if ((mMinSdk != null) || (mMaxSdk != null)) {
             int deviceSdkLevel = getDeviceSdkLevel(device);
             if (deviceSdkLevel < 0) {
@@ -472,14 +544,45 @@ public class DeviceSelectionOptions implements IDeviceSelection {
             }
         }
 
-        return extraMatching(device);
+        return true;
     }
 
-    /** Extra validation step that maybe overridden if it does not make sense. */
-    protected boolean extraMatching(IDevice device) {
-        // Any device that extends TcpDevice and is not a TcpDevice will be rejected.
-        if (device instanceof TcpDevice && !device.getClass().isAssignableFrom(TcpDevice.class)) {
+    /** Determine whether a device match the requested type or not. */
+    private boolean checkDeviceTypeRequested(IDevice device) {
+        if ((emulatorRequested() || stubEmulatorRequested()) && !device.isEmulator()) {
             return false;
+        }
+        // If physical device is requested but device is emulator or remote ip device, skip
+        if (deviceRequested()
+                && (device.isEmulator()
+                        || RemoteAndroidDevice.checkSerialFormatValid(device.getSerialNumber()))) {
+            return false;
+        }
+
+        if (mRequestedType != null) {
+            Class<?> classNeeded = mRequestedType.getRequiredClass();
+            if (!(device.getClass().equals(classNeeded))) {
+                return false;
+            }
+        } else {
+            if (device.isEmulator() && (device instanceof StubDevice) && !stubEmulatorRequested()) {
+                // only allocate the stub emulator if requested
+                return false;
+            }
+            if (nullDeviceRequested() != (device instanceof NullDevice)) {
+                return false;
+            }
+            if (tcpDeviceRequested() != (TcpDevice.class.equals(device.getClass()))) {
+                // We only match an exact TcpDevice here, no child class.
+                return false;
+            }
+            if (gceDeviceRequested() != (RemoteAvdIDevice.class.equals(device.getClass()))) {
+                // We only match an exact RemoteAvdIDevice here, no child class.
+                return false;
+            }
+            if (remoteDeviceRequested() != (VmRemoteDevice.class.equals(device.getClass()))) {
+                return false;
+            }
         }
         return true;
     }
@@ -531,6 +634,10 @@ public class DeviceSelectionOptions implements IDeviceSelection {
     @Override
     public String getDeviceProductType(IDevice device) {
         String prop = getProperty(device, DeviceProperties.BOARD);
+        // fallback to ro.hardware for legacy devices
+        if (Strings.isNullOrEmpty(prop)) {
+            prop = getProperty(device, DeviceProperties.HARDWARE);
+        }
         if (prop != null) {
             prop = prop.toLowerCase();
         }
@@ -545,7 +652,10 @@ public class DeviceSelectionOptions implements IDeviceSelection {
     public String getDeviceProductVariant(IDevice device) {
         String prop = getProperty(device, DeviceProperties.VARIANT);
         if (prop == null) {
-            prop = getProperty(device, DeviceProperties.VARIANT_LEGACY);
+            prop = getProperty(device, DeviceProperties.VARIANT_LEGACY_O_MR1);
+        }
+        if (prop == null) {
+            prop = getProperty(device, DeviceProperties.VARIANT_LEGACY_LESS_EQUAL_O);
         }
         if (prop != null) {
             prop = prop.toLowerCase();

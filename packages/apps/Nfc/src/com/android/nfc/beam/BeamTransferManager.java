@@ -45,7 +45,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Locale;
 
-import android.support.v4.content.FileProvider;
+import androidx.core.content.FileProvider;
 
 /**
  * A BeamTransferManager object represents a set of files
@@ -185,6 +185,7 @@ public class BeamTransferManager implements Handler.Callback,
         Intent intent = new Intent(ACTION_WHITELIST_DEVICE);
         intent.setPackage(mContext.getString(R.string.bluetooth_package));
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mContext.sendBroadcastAsUser(intent, UserHandle.CURRENT);
     }
 

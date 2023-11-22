@@ -42,6 +42,8 @@ public interface IDeviceMonitor {
      */
     public abstract static class DeviceLister {
         public abstract List<DeviceDescriptor> listDevices();
+
+        public abstract DeviceDescriptor getDeviceDescriptor(String serial);
     }
 
     /**

@@ -71,6 +71,31 @@ public final class ClassExt {
     private Object verifyError;
 
     /**
+     * If set, native pointer to the initial, pre-redefine, dex file associated with the related
+     * class. This is different from the {@code originalDexFile} which is the pre-retransform dex
+     * file, i.e. could contain the bytes of the dex file provided during redefine.
+     *
+     * It is enough to store the native pointer because the pre-redefine dex file is either part
+     * of boot classpath or it is being kept alive by its class loader. Class loaders always keep
+     * dex files alive even if all their classes have been redefined.
+     *
+     * Needed in order to preserve access to dex-level hiddenapi flags after JVMTI redefine.
+     *
+     * This field is a logical part of the 'Class' type.
+     */
+    private long preRedefineDexFilePtr;
+
+    /**
+     * ClassDef index of the related class in the pre-redefine dex file. Set together with
+     * {@code preRedefineDexFilePtr}.
+     *
+     * Needed in order to preserve access to dex-level hiddenapi flags after JVMTI redefine.
+     *
+     * This field is a logical part of the 'Class' type.
+     */
+    private int preRedefineClassDefIndex;
+
+    /**
     * Private constructor.
     *
     * Only created by the runtime.

@@ -17,8 +17,6 @@
 <manifest package="com.example.android.wearable.wear.wearaccessibilityapp"
           xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-sdk android:minSdkVersion="14"/>
-
     <uses-feature android:name="android.hardware.type.watch"/>
 
     <!-- Required for Always-on. -->

@@ -75,6 +75,7 @@ static jfieldID _LocalPrinterCapabilitiesField__mediaDefault;
 static jfieldID _LocalPrinterCapabilitiesField__supportedMediaTypes;
 static jfieldID _LocalPrinterCapabilitiesField__supportedMediaSizes;
 static jfieldID _LocalPrinterCapabilitiesField__nativeData;
+static jfieldID _LocalPrinterCapabilitiesField__certificate;
 
 static jclass _JobCallbackClass;
 static jobject _callbackReceiver;
@@ -86,6 +87,7 @@ static jfieldID _JobCallbackParamsField__jobId;
 static jfieldID _JobCallbackParamsField__jobState;
 static jfieldID _JobCallbackParamsField__jobDoneResult;
 static jfieldID _JobCallbackParamsField__blockedReasons;
+static jfieldID _JobCallbackParamsField__certificate;
 
 static jclass _PrintServiceStringsClass;
 static jfieldID _PrintServiceStringsField__JOB_STATE_QUEUED;
@@ -110,6 +112,7 @@ static jfieldID _PrintServiceStringsField__BLOCKED_REASON__SERVICE_REQUEST;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__LOW_ON_INK;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__LOW_ON_TONER;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__REALLY_LOW_ON_INK;
+static jfieldID _PrintServiceStringsField__BLOCKED_REASON__BAD_CERTIFICATE;
 static jfieldID _PrintServiceStringsField__BLOCKED_REASON__UNKNOWN;
 static jfieldID _PrintServiceStringsField__ALIGNMENT__CENTER;
 static jfieldID _PrintServiceStringsField__ALIGNMENT__CENTER_HORIZONTAL;
@@ -482,6 +485,8 @@ static void _initJNI(JNIEnv *env, jobject callbackReceiver, jstring fakeDir) {
             env, _LocalPrinterCapabilitiesClass, "supportedMediaSizes", "[I");
     _LocalPrinterCapabilitiesField__nativeData = (*env)->GetFieldID(
             env, _LocalPrinterCapabilitiesClass, "nativeData", "[B");
+    _LocalPrinterCapabilitiesField__certificate = (*env)->GetFieldID(
+            env, _LocalPrinterCapabilitiesClass, "certificate", "[B");
 
     _JobCallbackParamsClass = (jclass) (*env)->NewGlobalRef(env, (*env)->FindClass(
             env, "com/android/bips/jni/JobCallbackParams"));
@@ -495,6 +500,8 @@ static void _initJNI(JNIEnv *env, jobject callbackReceiver, jstring fakeDir) {
             env, _JobCallbackParamsClass, "jobDoneResult", "Ljava/lang/String;");
     _JobCallbackParamsField__blockedReasons = (*env)->GetFieldID(
             env, _JobCallbackParamsClass, "blockedReasons", "[Ljava/lang/String;");
+    _JobCallbackParamsField__certificate = (*env)->GetFieldID(
+            env, _JobCallbackParamsClass, "certificate", "[B");
 
     if (callbackReceiver) {
         _callbackReceiver = (jobject) (*env)->NewGlobalRef(env, callbackReceiver);
@@ -557,6 +564,9 @@ static void _initJNI(JNIEnv *env, jobject callbackReceiver, jstring fakeDir) {
     _PrintServiceStringsField__BLOCKED_REASON__REALLY_LOW_ON_INK = (*env)->GetStaticFieldID(
             env, _PrintServiceStringsClass, "BLOCKED_REASON__REALLY_LOW_ON_INK",
             "Ljava/lang/String;");
+    _PrintServiceStringsField__BLOCKED_REASON__BAD_CERTIFICATE = (*env)->GetStaticFieldID(
+            env, _PrintServiceStringsClass, "BLOCKED_REASON__BAD_CERTIFICATE",
+            "Ljava/lang/String;");
     _PrintServiceStringsField__BLOCKED_REASON__UNKNOWN = (*env)->GetStaticFieldID(
             env, _PrintServiceStringsClass, "BLOCKED_REASON__UNKNOWN", "Ljava/lang/String;");
 
@@ -589,7 +599,7 @@ static int _convertPrinterCaps_to_C(JNIEnv *env, jobject javaPrinterCaps,
     }
     jbyte *nativeDataPtr = (*env)->GetByteArrayElements(env, nativeDataObject, NULL);
     memcpy(wprintPrinterCaps, (const void *) nativeDataPtr, sizeof(printer_capabilities_t));
-    (*env)->ReleaseByteArrayElements(env, nativeDataObject, nativeDataPtr, JNI_ABORT);
+    (*env)->ReleaseByteArrayElements(env, nativeDataObject, nativeDataPtr, 0);
 
     return OK;
 }
@@ -1076,6 +1086,10 @@ static void _wprint_callback_fn(wJob_t job_handle, void *param) {
                     jStr = (jstring) (*env)->GetStaticObjectField(
                             env, _PrintServiceStringsClass,
                             _PrintServiceStringsField__BLOCKED_REASON__REALLY_LOW_ON_INK);
+                } else if (blocked_reasons & BLOCKED_REASON_BAD_CERTIFICATE) {
+                    jStr = (jstring) (*env)->GetStaticObjectField(
+                            env, _PrintServiceStringsClass,
+                            _PrintServiceStringsField__BLOCKED_REASON__BAD_CERTIFICATE);
                 } else if (blocked_reasons & BLOCKED_REASON_UNKNOWN) {
                     jStr = (jstring) (*env)->GetStaticObjectField(
                             env, _PrintServiceStringsClass,
@@ -1094,6 +1108,24 @@ static void _wprint_callback_fn(wJob_t job_handle, void *param) {
 
         (*env)->SetIntField(env, callbackParams, _JobCallbackParamsField__jobId,
                 (jint) job_handle);
+
+        if (cb_param->certificate) {
+            LOGI("_wprint_callback_fn: copying certificate len=%d", cb_param->certificate_len);
+            jbyteArray certificate = (*env)->NewByteArray(env, cb_param->certificate_len);
+            jbyte *certificateBytes = (*env)->GetByteArrayElements(env, certificate, 0);
+            memcpy(certificateBytes, (const void *) cb_param->certificate,
+                cb_param->certificate_len);
+            (*env)->ReleaseByteArrayElements(env, certificate, certificateBytes, 0);
+            (*env)->SetObjectField(env, callbackParams, _JobCallbackParamsField__certificate,
+                certificate);
+            (*env)->DeleteLocalRef(env, certificate);
+        } else {
+            LOGI("_wprint_callback_fn: there is no certificate");
+            // No cert, set NULL
+            (*env)->SetObjectField(env, callbackParams, _JobCallbackParamsField__certificate,
+                NULL);
+        }
+
         (*env)->CallVoidMethod(env, _callbackReceiver, _JobCallbackMethod__jobCallback,
                 (jint) job_handle, callbackParams);
         (*env)->DeleteLocalRef(env, callbackParams);
@@ -1160,6 +1192,7 @@ JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeGetCapabilities(
     connect_info.uri_scheme = copyToNewString(env, uriScheme);
     connect_info.port_num = port;
     connect_info.timeout = timeout;
+    connect_info.validate_certificate = NULL;
 
     LOGI("nativeGetCapabilities for %s JNIenv is %p", connect_info.printer_addr, env);
 
@@ -1222,6 +1255,24 @@ JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeGetFinalJobParame
 }
 
 /*
+ * Convert certificate (if present) from printer capabilities into job_params.
+ */
+static void _convertCertificate(JNIEnv *env, jobject printerCaps, wprint_job_params_t *params) {
+    params->certificate = NULL;
+    jbyteArray certificate = (jbyteArray) (*env)->GetObjectField(env, printerCaps,
+            _LocalPrinterCapabilitiesField__certificate);
+    if (certificate) {
+        params->certificate_len = (*env)->GetArrayLength(env, certificate);
+        params->certificate = malloc(params->certificate_len);
+        if (params->certificate) {
+            jbyte *certificateBytes = (*env)->GetByteArrayElements(env, certificate, NULL);
+            memcpy(params->certificate, certificateBytes, params->certificate_len);
+            (*env)->ReleaseByteArrayElements(env, certificate, certificateBytes, JNI_ABORT);
+        }
+    }
+}
+
+/*
  * JNI call to wprint to start a print job. Takes connection params, job params, caps, and file
  * array to complete the job
  */
@@ -1238,6 +1289,7 @@ JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeStartJob(
 
     _convertJobParams_to_C(env, jobParams, &params);
     _convertPrinterCaps_to_C(env, printerCaps, &caps);
+    _convertCertificate(env, printerCaps, &params);
 
     LOGD("nativeStartJob: After _convertJobParams_to_C: res=%d, name=%s",
             params.pdf_render_resolution, params.job_name);
@@ -1360,6 +1412,9 @@ JNIEXPORT jint JNICALL Java_com_android_bips_ipp_Backend_nativeStartJob(
         }
     }
 
+    if (params.certificate) {
+        free(params.certificate);
+    }
     (*env)->ReleaseStringUTFChars(env, mimeType, mimeTypeStr);
     (*env)->ReleaseStringUTFChars(env, address, addressStr);
     (*env)->ReleaseStringUTFChars(env, _fakeDir, dataDirStr);

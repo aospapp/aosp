@@ -39,7 +39,8 @@ public class SystemUpdaterActivity extends AppCompatActivity
     private static final int STORAGE_PERMISSIONS_REQUEST_CODE = 0;
     private static final String[] REQUIRED_STORAGE_PERMISSIONS = new String[]{
             Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_MEDIA_STORAGE
     };
 
     @Override

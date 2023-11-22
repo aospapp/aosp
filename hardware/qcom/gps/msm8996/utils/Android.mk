@@ -10,7 +10,8 @@ include $(CLEAR_VARS)
 LOCAL_SHARED_LIBRARIES := \
     libutils \
     libcutils \
-    liblog
+    liblog \
+    libprocessgroup
 
 LOCAL_HEADER_LIBRARIES := \
     libhardware_headers

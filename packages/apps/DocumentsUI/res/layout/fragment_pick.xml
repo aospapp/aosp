@@ -16,24 +16,27 @@
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="@dimen/bottom_bar_height"
+    android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:baselineAligned="false"
-    android:gravity="end"
-    android:paddingEnd="@dimen/bottom_bar_padding_end">
-    <TextView
-        style="@style/BottomBarButton"
+    android:gravity="center_vertical|end"
+    android:paddingStart="@dimen/bottom_bar_padding"
+    android:paddingEnd="@dimen/bottom_bar_padding">
+
+    <com.google.android.material.button.MaterialButton
         android:id="@android:id/button2"
-        android:layout_width="@dimen/bottom_bar_negative_button_width"
-        android:background="@android:color/transparent"
-        android:text="@android:string/cancel"
-        android:textColor="@color/primary"/>
-    <TextView
-        style="@style/BottomBarButton"
+        style="?attr/materialButtonOutlinedStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        android:text="@android:string/cancel"/>
+
+    <com.google.android.material.button.MaterialButton
         android:id="@android:id/button1"
-        android:layout_width="@dimen/bottom_bar_positive_button_width"
-        android:layout_marginStart="@dimen/bottom_bar_positive_button_margin_start"
-        android:background="@drawable/bottom_bar_positive_button_background"
-        android:elevation="@dimen/bottom_bar_positive_button_elevation"
-        android:textColor="@android:color/white"/>
+        style="?attr/materialButtonStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"/>
 </LinearLayout>

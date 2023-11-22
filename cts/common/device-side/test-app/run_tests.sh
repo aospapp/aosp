@@ -35,7 +35,7 @@ APK=${ANDROID_PRODUCT_OUT}/data/app/CompatibilityTestApp/CompatibilityTestApp.ap
 checkFile ${APK}
 
 COMMON_PACKAGE=com.android.compatibility.common
-RUNNER=android.support.test.runner.AndroidJUnitRunner
+RUNNER=androidx.test.runner.AndroidJUnitRunner
 # TODO [2015-12-09 kalle] Fail & exit on failing install?
 adb -s ${SERIAL} install -r -g ${APK}
 build_jar_path ${JAR_DIR} "${JARS}"

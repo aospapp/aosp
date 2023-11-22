@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	android.RegisterModuleType("phony", phonyFactory)
+	android.RegisterModuleType("phony", PhonyFactory)
 }
 
 type phony struct {
@@ -31,14 +31,11 @@ type phony struct {
 	requiredModuleNames []string
 }
 
-func phonyFactory() android.Module {
+func PhonyFactory() android.Module {
 	module := &phony{}
 
-	android.InitAndroidModule(module)
+	android.InitAndroidArchModule(module, android.HostAndDeviceSupported, android.MultilibCommon)
 	return module
-}
-
-func (p *phony) DepsMutator(ctx android.BottomUpMutatorContext) {
 }
 
 func (p *phony) GenerateAndroidBuildActions(ctx android.ModuleContext) {
@@ -54,6 +51,9 @@ func (p *phony) AndroidMk() android.AndroidMkData {
 			fmt.Fprintln(w, "\ninclude $(CLEAR_VARS)")
 			fmt.Fprintln(w, "LOCAL_PATH :=", moduleDir)
 			fmt.Fprintln(w, "LOCAL_MODULE :=", name)
+			if p.Host() {
+				fmt.Fprintln(w, "LOCAL_IS_HOST_MODULE := true")
+			}
 			fmt.Fprintln(w, "LOCAL_REQUIRED_MODULES := "+strings.Join(p.requiredModuleNames, " "))
 			fmt.Fprintln(w, "include $(BUILD_PHONY_PACKAGE)")
 		},

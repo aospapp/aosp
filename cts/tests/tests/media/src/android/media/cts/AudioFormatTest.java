@@ -54,6 +54,10 @@ public class AudioFormatTest extends CtsAndroidTestCase {
                 TEST_CONF_POS, copiedFormat.getChannelMask());
         assertEquals("New AudioFormat has wrong channel index mask",
                 TEST_CONF_IDX, copiedFormat.getChannelIndexMask());
+        assertEquals("New AudioFormat has wrong channel count",
+                6, copiedFormat.getChannelCount());
+        assertEquals("New AudioFormat has the wrong frame size",
+                6 /* channels */ * 2 /* bytes per sample */, copiedFormat.getFrameSizeInBytes());
     }
 
     // Test case 2: Use Builder to duplicate an AudioFormat with only encoding supplied
@@ -168,5 +172,26 @@ public class AudioFormatTest extends CtsAndroidTestCase {
         assertNotNull("Failure to unmarshall AudioFormat", unmarshalledFormat);
         assertEquals("Source and destination AudioFormat not equal",
                 formatToMarshall, unmarshalledFormat);
+    }
+
+    // Test case 7: Check frame size for compressed, float formats.
+    public void testFrameSize() throws Exception {
+        final AudioFormat formatMp3 = new AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_MP3)
+            .setSampleRate(44100)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .build();
+
+        assertEquals("MP3 AudioFormat has the wrong frame size",
+                1, formatMp3.getFrameSizeInBytes());
+
+        final AudioFormat formatPcmFloat = new AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+            .setSampleRate(192000)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .build();
+
+        assertEquals("Float AudioFormat has the wrong frame size",
+            2 /* channels */ * 4 /* bytes per sample */, formatPcmFloat.getFrameSizeInBytes());
     }
 }

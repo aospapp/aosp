@@ -41,6 +41,9 @@ typedef enum {
 #define RECOGNITION_STATUS_SUCCESS 0
 #define RECOGNITION_STATUS_ABORT 1
 #define RECOGNITION_STATUS_FAILURE 2
+#define RECOGNITION_STATUS_GET_STATE_RESPONSE 3  /* Indicates that the recognition event is in
+                                                    response to a state request and was not
+                                                    triggered by a real DSP recognition */
 
 #define SOUND_MODEL_STATUS_UPDATED 0
 

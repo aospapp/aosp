@@ -16,6 +16,7 @@
 
 package com.android.vts.servlet;
 
+import com.android.vts.entity.CodeCoverageEntity;
 import com.android.vts.entity.TestCaseRunEntity;
 import com.android.vts.entity.TestEntity;
 import com.android.vts.entity.TestRunEntity;
@@ -70,7 +71,7 @@ public class ShowTableServlet extends BaseServlet {
 
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
         List<Key> gets = new ArrayList<>();
-        for (long testCaseId : testRunEntity.testCaseIds) {
+        for (long testCaseId : testRunEntity.getTestCaseIds()) {
             gets.add(KeyFactory.createKey(TestCaseRunEntity.KIND, testCaseId));
         }
 
@@ -155,7 +156,7 @@ public class ShowTableServlet extends BaseServlet {
                 FilterUtil.getTimeFilter(
                         testKey, TestRunEntity.KIND, startTime, endTime, typeFilter);
 
-        Map<String, Object> parameterMap = request.getParameterMap();
+        Map<String, String[]> parameterMap = request.getParameterMap();
         List<Filter> userTestFilters = FilterUtil.getUserTestFilters(parameterMap);
         userTestFilters.add(0, testFilter);
         Filter userDeviceFilter = FilterUtil.getUserDeviceFilter(parameterMap);

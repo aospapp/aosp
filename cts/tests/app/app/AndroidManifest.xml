@@ -44,6 +44,7 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application android:label="Android TestCase"
                 android:icon="@drawable/size_48x48"
@@ -51,13 +52,16 @@
                 android:multiArch="true"
                 android:name="android.app.stubs.MockApplication"
                 android:supportsRtl="true"
-                android:usesCleartextTraffic="true">
+                android:networkSecurityConfig="@xml/network_security_config"
+                android:zygotePreloadName=".ZygotePreload">
         <uses-library android:name="android.test.runner" />
         <uses-library android:name="org.apache.http.legacy" android:required="false" />
 
         <activity android:name="android.app.stubs.ScreenOnActivity" />
 
         <activity android:name="android.app.stubs.ActionBarActivity" />
+
+        <activity android:name="android.app.stubs.ActivityCallbacksTestActivity" />
 
         <activity android:name="android.app.stubs.MockActivity" android:label="MockActivity">
             <meta-data android:name="android.app.alias"
@@ -130,6 +134,16 @@
         </service>
 
         <service android:name="android.app.stubs.LocalForegroundService">
+            <intent-filter>
+                <action android:name="android.app.stubs.FOREGROUND_SERVICE" />
+            </intent-filter>
+        </service>
+
+        <service android:name="android.app.stubs.LocalForegroundServiceLocation"
+                android:foregroundServiceType="location">
+            <intent-filter>
+                <action android:name="android.app.stubs.FOREGROUND_SERVICE_LOCATION" />
+            </intent-filter>
         </service>
 
         <service android:name="android.app.stubs.LocalGrantedService"
@@ -144,6 +158,9 @@
             <intent-filter>
                 <action android:name="android.app.stubs.activity.SERVICE_LOCAL_DENIED" />
             </intent-filter>
+        </service>
+
+        <service android:name="android.app.stubs.IsolatedService" android:isolatedProcess="true" android:useAppZygote="true">
         </service>
 
         <activity android:name="android.app.stubs.TestedScreen"
@@ -301,7 +318,8 @@
                   android:label="PipActivity"
                   android:resizeableActivity="true"
                   android:supportsPictureInPicture="true"
-                  android:configChanges="smallestScreenSize|orientation|screenSize|screenLayout">
+                  android:configChanges="smallestScreenSize|orientation|screenSize|screenLayout"
+                  android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST" />
@@ -345,13 +363,59 @@
             </meta-data>
         </service>
 
-        <service android:name="android.app.stubs.MockNotificationListener"
+        <service android:name="android.app.stubs.TestNotificationListener"
                  android:exported="true"
-                 android:label="MockNotificationListener"
+                 android:label="TestNotificationListener"
                  android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
+        </service>
+
+        <service android:name="android.app.stubs.TestTileService"
+                 android:exported="true"
+                 android:label="TestTileService"
+                 android:icon="@drawable/robot"
+                 android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <activity android:name="android.app.stubs.AutomaticZenRuleActivity">
+            <intent-filter>
+                <action android:name="android.app.action.AUTOMATIC_ZEN_RULE" />
+            </intent-filter>
+            <meta-data android:name="android.service.zen.automatic.ruleType"
+                       android:value="@string/automatic_zen_rule_name" />
+            <meta-data android:name="android.service.zen.automatic.ruleInstanceLimit"
+                       android:value="2" />
+        </activity>
+
+        <receiver android:name="android.app.stubs.CommandReceiver"
+                  android:exported="true" />
+
+        <activity android:name="android.app.stubs.BubblesTestActivity"
+                  android:allowEmbedded="true"
+                  android:documentLaunchMode="always"
+                  android:resizeableActivity="true"
+                  android:turnScreenOn="true"/>
+
+        <activity android:name="android.app.stubs.BubblesTestNotEmbeddableActivity"
+                  android:resizeableActivity="true"
+                  android:documentLaunchMode="always"
+                  android:exported="true"
+        />
+
+        <activity android:name="android.app.stubs.BubblesTestNotDocumentLaunchModeActivity"
+                  android:resizeableActivity="true"
+                  android:allowEmbedded="true"
+                  android:exported="true"
+        />
+
+        <service android:name="android.app.stubs.BubblesTestService"
+                 android:label="BubblesTestsService"
+                 android:exported="true">
         </service>
     </application>
 

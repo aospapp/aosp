@@ -16,11 +16,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
        package="com.android.cts.storagestatsapp">
 
-    <application>
+    <application android:requestLegacyExternalStorage="true">
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="com.android.cts.storagestatsapp" />
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />

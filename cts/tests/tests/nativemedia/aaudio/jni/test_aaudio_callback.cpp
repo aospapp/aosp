@@ -143,6 +143,8 @@ aaudio_data_callback_result_t AAudioInputStreamCallbackTest::MyDataCallbackProc(
 }
 
 void AAudioInputStreamCallbackTest::SetUp() {
+    mSetupSuccesful = false;
+    if (!deviceSupportsFeature(FEATURE_RECORDING)) return;
     mHelper.reset(new InputStreamBuilderHelper(
                     std::get<PARAM_SHARING_MODE>(GetParam()),
                     std::get<PARAM_PERF_MODE>(GetParam())));
@@ -156,7 +158,6 @@ void AAudioInputStreamCallbackTest::SetUp() {
         AAudioStreamBuilder_setFramesPerDataCallback(builder(), framesPerDataCallback);
     }
 
-    mSetupSuccesful = false;
     mHelper->createAndVerifyStream(&mSetupSuccesful);
 }
 
@@ -242,6 +243,8 @@ aaudio_data_callback_result_t AAudioOutputStreamCallbackTest::MyDataCallbackProc
 }
 
 void AAudioOutputStreamCallbackTest::SetUp() {
+    mSetupSuccesful = false;
+    if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     mHelper.reset(new OutputStreamBuilderHelper(
                     std::get<PARAM_SHARING_MODE>(GetParam()),
                     std::get<PARAM_PERF_MODE>(GetParam())));
@@ -255,7 +258,6 @@ void AAudioOutputStreamCallbackTest::SetUp() {
         AAudioStreamBuilder_setFramesPerDataCallback(builder(), framesPerDataCallback);
     }
 
-    mSetupSuccesful = false;
     mHelper->createAndVerifyStream(&mSetupSuccesful);
 }
 
@@ -300,8 +302,11 @@ TEST_P(AAudioOutputStreamCallbackTest, testPlayback) {
         }
 
         EXPECT_GE(mCbData->minLatency, 1);   // Absurdly low
-        EXPECT_LE(mCbData->maxLatency, 300); // Absurdly high, should be < 30
-                                               // Note that on some devices it's 200-something
+        // We only issue a warning here because the CDD does not mandate a specific minimum latency
+        if (mCbData->maxLatency > 300) {
+            __android_log_print(ANDROID_LOG_WARN, LOG_TAG,
+                    "Suspiciously high callback latency: %d", mCbData->maxLatency);
+        }
         //printf("latency: %d, %d\n", mCbData->minLatency, mCbData->maxLatency);
     }
 

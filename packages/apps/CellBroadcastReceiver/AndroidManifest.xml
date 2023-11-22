@@ -30,7 +30,10 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
     <uses-permission android:name="android.permission.MANAGE_USERS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.DEVICE_POWER" />
+    <uses-permission android:name="android.permission.START_ACTIVITIES_FROM_BACKGROUND" />
+
+    <uses-sdk android:minSdkVersion="21"/>
 
     <application android:name="CellBroadcastReceiverApp"
             android:label="@string/app_label"
@@ -123,7 +126,7 @@
             <intent-filter>
                  <action android:name="android.telephony.action.DEFAULT_SMS_SUBSCRIPTION_CHANGED" />
                  <action android:name="android.telephony.action.CARRIER_CONFIG_CHANGED" />
-                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                 <action android:name="android.intent.action.SERVICE_STATE" />
             </intent-filter>
         </receiver>
 

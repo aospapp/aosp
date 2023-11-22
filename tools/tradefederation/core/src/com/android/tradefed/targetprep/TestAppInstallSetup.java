@@ -32,6 +32,7 @@ import com.android.tradefed.util.BuildTestsZipUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -60,10 +61,25 @@ public class TestAppInstallSetup extends BaseTargetPreparer
     private static final String INSTALL_FAILED_UPDATE_INCOMPATIBLE =
             "INSTALL_FAILED_UPDATE_INCOMPATIBLE";
 
-    @Option(name = "test-file-name",
-            description = "the name of a test zip file to install on device. Can be repeated.",
-            importance = Importance.IF_UNSET)
+    @Option(
+        name = "test-file-name",
+        description = "the name of an apk file to be installed on device. Can be repeated.",
+        importance = Importance.IF_UNSET
+    )
     private Collection<String> mTestFileNames = new ArrayList<String>();
+
+    // A string made of split apk file names divided by ",".
+    // See "https://developer.android.com/studio/build/configure-apk-splits" on how to split
+    // apk to several files.
+    @Option(
+        name = "split-apk-file-names",
+        description =
+                "the split apk file names separted by comma that will be installed on device. "
+                        + "Can be repeated for multiple split apk sets."
+                        + "See https://developer.android.com/studio/build/configure-apk-splits on "
+                        + "how to split apk to several files"
+    )
+    private Collection<String> mSplitApkFileNames = new ArrayList<String>();
 
     @Option(
         name = "throw-if-not-found",
@@ -105,7 +121,7 @@ public class TestAppInstallSetup extends BaseTargetPreparer
         description =
                 "Force the preparer to ignore instant-mode option, and install in the requested mode."
     )
-    private InstallMode mInstallMode = null;
+    private InstallMode mInstallationMode = null;
 
     private IAbi mAbi = null;
     private Integer mUserId = null;
@@ -114,12 +130,21 @@ public class TestAppInstallSetup extends BaseTargetPreparer
     private List<String> mPackagesInstalled = null;
 
     /**
-     * Adds a file to the list of apks to install
+     * Adds a file name to the list of apks to installed
      *
      * @param fileName
      */
     public void addTestFileName(String fileName) {
         mTestFileNames.add(fileName);
+    }
+
+    /**
+     * Adds a set of file names divided by ',' in a string to be installed as split apks
+     *
+     * @param fileNames a string of file names divided by ','
+     */
+    public void addSplitApkFileNames(String fileNames) {
+        mSplitApkFileNames.add(fileNames);
     }
 
     /** Returns a copy of the list of specified test apk names. */
@@ -165,7 +190,11 @@ public class TestAppInstallSetup extends BaseTargetPreparer
                     false /* use resource as fallback */,
                     null /* device signing key */);
         } catch (IOException ioe) {
-            throw new TargetSetupError("failed to resolve apk path", ioe,
+            throw new TargetSetupError(
+                    String.format(
+                            "failed to resolve apk path for apk %s in build %s",
+                            apkFileName, buildInfo.toString()),
+                    ioe,
                     device.getDeviceDescriptor());
         }
     }
@@ -174,7 +203,7 @@ public class TestAppInstallSetup extends BaseTargetPreparer
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, DeviceNotAvailableException {
-        if (mTestFileNames == null || mTestFileNames.size() == 0) {
+        if (mTestFileNames.isEmpty() && mSplitApkFileNames.isEmpty()) {
             CLog.i("No test apps to install, skipping");
             return;
         }
@@ -182,73 +211,41 @@ public class TestAppInstallSetup extends BaseTargetPreparer
             mPackagesInstalled = new ArrayList<>();
         }
 
-        for (String testAppName : mTestFileNames) {
-            if (testAppName == null || testAppName.trim().isEmpty()) {
-                continue;
-            }
-            File testAppFile = getLocalPathForFilename(buildInfo, testAppName, device);
-            if (testAppFile == null) {
-                if (mThrowIfNoFile) {
-                    throw new TargetSetupError(
-                            String.format("Test app %s was not found.", testAppName),
-                            device.getDeviceDescriptor());
-                } else {
-                    CLog.d("Test app %s was not found.", testAppName);
-                    continue;
-                }
-            }
-            if (!testAppFile.canRead()) {
-                if (mThrowIfNoFile) {
-                    throw new TargetSetupError(
-                            String.format("Could not read file %s.", testAppName),
-                            device.getDeviceDescriptor());
-                } else {
-                    CLog.d("Could not read file %s.", testAppName);
-                    continue;
-                }
-            }
-            // resolve abi flags
-            if (mAbi != null && mForceAbi != null) {
-                throw new IllegalStateException("cannot specify both abi flags");
-            }
-            String abiName = null;
-            if (mAbi != null) {
-                abiName = mAbi.getName();
-            } else if (mForceAbi != null) {
-                abiName = AbiFormatter.getDefaultAbi(device, mForceAbi);
-            }
-            if (abiName != null) {
-                mInstallArgs.add(String.format("--abi %s", abiName));
-            }
-            // Handle instant mode: if we are forced in one installation mode or not.
-            if (mInstallMode != null) {
-                if (InstallMode.INSTANT.equals(mInstallMode)) {
-                    mInstallArgs.add("--instant");
-                }
-            } else {
-                if (mInstantMode) {
-                    mInstallArgs.add("--instant");
-                }
-            }
+        // resolve abi flags
+        if (mAbi != null && mForceAbi != null) {
+            throw new IllegalStateException("cannot specify both abi flags: --abi and --force-abi");
+        }
+        String abiName = null;
+        if (mAbi != null) {
+            abiName = mAbi.getName();
+        } else if (mForceAbi != null) {
+            abiName = AbiFormatter.getDefaultAbi(device, mForceAbi);
+        }
 
-            String packageName = parsePackageName(testAppFile, device.getDeviceDescriptor());
-            CLog.d("Installing apk from %s ...", testAppFile.getAbsolutePath());
-            String result = installPackage(device, testAppFile);
-            if (result != null) {
-                if (result.startsWith(INSTALL_FAILED_UPDATE_INCOMPATIBLE)) {
-                    // Try to uninstall package and reinstall.
-                    uninstallPackage(device, packageName);
-                    result = installPackage(device, testAppFile);
-                }
+        // Set all the extra install args outside the loop to avoid adding them several times.
+        if (abiName != null) {
+            mInstallArgs.add(String.format("--abi %s", abiName));
+        }
+        // Handle instant mode: if we are forced in one installation mode or not.
+        // Some preparer are locked in one installation mode or another, they ignore the
+        // 'instant-mode' option and stays in their mode.
+        if (mInstallationMode != null) {
+            if (InstallMode.INSTANT.equals(mInstallationMode)) {
+                mInstallArgs.add("--instant");
             }
-            if (result != null) {
-                throw new TargetSetupError(
-                        String.format("Failed to install %s on %s. Reason: '%s'", testAppName,
-                                device.getSerialNumber(), result), device.getDeviceDescriptor());
+        } else {
+            if (mInstantMode) {
+                mInstallArgs.add("--instant");
             }
-            if (mCleanup) {
-                mPackagesInstalled.add(packageName);
-            }
+        }
+
+        for (String testAppName : mTestFileNames) {
+            installer(device, buildInfo, Arrays.asList(new String[] {testAppName}));
+        }
+
+        for (String testAppNames : mSplitApkFileNames) {
+            List<String> apkNames = Arrays.asList(testAppNames.split(","));
+            installer(device, buildInfo, apkNames);
         }
     }
 
@@ -260,6 +257,19 @@ public class TestAppInstallSetup extends BaseTargetPreparer
     @Override
     public IAbi getAbi() {
         return mAbi;
+    }
+
+    /**
+     * Sets whether or not --instant should be used when installing the apk. Will have no effect if
+     * force-install-mode is set.
+     */
+    public final void setInstantMode(boolean mode) {
+        mInstantMode = mode;
+    }
+
+    /** Returns whether or not instant mode installation has been enabled. */
+    public final boolean isInstantMode() {
+        return mInstantMode;
     }
 
     /**
@@ -289,27 +299,132 @@ public class TestAppInstallSetup extends BaseTargetPreparer
         mAltDirBehavior = altDirBehavior;
     }
 
-    /** Attempt to install a package on the device. */
-    private String installPackage(ITestDevice device, File testAppFile)
+    /**
+     * Attempt to install an package or split package on the device.
+     *
+     * @param device the {@link ITestDevice} to install package
+     * @param buildInfo build artifact information
+     * @param apkNames List of String. The application file base names to be installed. If apkNames
+     *     contains only one apk name, the apk will be installed as single package. If apkNames
+     *     contains more than one name, the apks will be installed as split apks.
+     */
+    protected void installer(ITestDevice device, IBuildInfo buildInfo, List<String> apkNames)
+            throws TargetSetupError, DeviceNotAvailableException {
+        List<File> appFiles = new ArrayList<File>();
+        List<String> packageNames = new ArrayList<String>();
+        for (String name : apkNames) {
+            if (name == null || name.trim().isEmpty()) {
+                continue;
+            }
+            File testAppFile = getLocalPathForFilename(buildInfo, name, device);
+            if (testAppFile == null) {
+                if (mThrowIfNoFile) {
+                    throw new TargetSetupError(
+                            String.format("Test app %s was not found.", name),
+                            device.getDeviceDescriptor());
+                } else {
+                    CLog.d("Test app %s was not found.", name);
+                    continue;
+                }
+            }
+            if (!testAppFile.canRead()) {
+                if (mThrowIfNoFile) {
+                    throw new TargetSetupError(
+                            String.format("Could not read file %s.", testAppFile.toString()),
+                            device.getDeviceDescriptor());
+                } else {
+                    CLog.d("Could not read file %s.", testAppFile.toString());
+                    continue;
+                }
+            }
+            appFiles.add(testAppFile);
+            String packageName = parsePackageName(testAppFile, device.getDeviceDescriptor());
+            if (!packageNames.contains(packageName)) {
+                packageNames.add(packageName);
+            }
+        }
+
+        if (appFiles.isEmpty()) {
+            return;
+        }
+
+        CLog.d("Installing apk %s with %s ...", packageNames.toString(), appFiles.toString());
+        String result = installPackage(device, appFiles);
+        if (result != null) {
+            if (result.startsWith(INSTALL_FAILED_UPDATE_INCOMPATIBLE)) {
+                // Try to uninstall package and reinstall.
+                for (String packageName : packageNames) {
+                    uninstallPackage(device, packageName);
+                }
+                result = installPackage(device, appFiles);
+            }
+        }
+        if (result != null) {
+            throw new TargetSetupError(
+                    String.format(
+                            "Failed to install %s with %s on %s. Reason: '%s'",
+                            packageNames.toString(),
+                            appFiles.toString(),
+                            device.getSerialNumber(),
+                            result),
+                    device.getDeviceDescriptor());
+        }
+        if (mCleanup) {
+            if (mPackagesInstalled == null) {
+                mPackagesInstalled = new ArrayList<>();
+            }
+            mPackagesInstalled.addAll(packageNames);
+        }
+    }
+
+    /**
+     * Attempt to install a package or split package on the device.
+     *
+     * @param device the {@link ITestDevice} to install package
+     * @param apkFiles List of Files. If apkFiles contains only one apk file, the app will be
+     *     installed as a whole package with single file. If apkFiles contains more than one name,
+     *     the app will be installed as split apk with multiple files.
+     */
+    private String installPackage(ITestDevice device, List<File> appFiles)
             throws DeviceNotAvailableException {
         // Handle the different install use cases (with or without a user)
         if (mUserId == null) {
-            return device.installPackage(testAppFile, true, mInstallArgs.toArray(new String[] {}));
+            if (appFiles.size() == 1) {
+                return device.installPackage(
+                        appFiles.get(0), true, mInstallArgs.toArray(new String[] {}));
+            } else {
+                return device.installPackages(
+                        appFiles, true, mInstallArgs.toArray(new String[] {}));
+            }
         } else if (mGrantPermission != null) {
-            return device.installPackageForUser(
-                    testAppFile,
-                    true,
-                    mGrantPermission,
-                    mUserId,
-                    mInstallArgs.toArray(new String[] {}));
+            if (appFiles.size() == 1) {
+                return device.installPackageForUser(
+                        appFiles.get(0),
+                        true,
+                        mGrantPermission,
+                        mUserId,
+                        mInstallArgs.toArray(new String[] {}));
+            } else {
+                return device.installPackagesForUser(
+                        appFiles,
+                        true,
+                        mGrantPermission,
+                        mUserId,
+                        mInstallArgs.toArray(new String[] {}));
+            }
         } else {
-            return device.installPackageForUser(
-                    testAppFile, true, mUserId, mInstallArgs.toArray(new String[] {}));
+            if (appFiles.size() == 1) {
+                return device.installPackageForUser(
+                        appFiles.get(0), true, mUserId, mInstallArgs.toArray(new String[] {}));
+            } else {
+                return device.installPackagesForUser(
+                        appFiles, true, mUserId, mInstallArgs.toArray(new String[] {}));
+            }
         }
     }
 
     /** Attempt to remove the package from the device. */
-    private void uninstallPackage(ITestDevice device, String packageName)
+    protected void uninstallPackage(ITestDevice device, String packageName)
             throws DeviceNotAvailableException {
         String msg = device.uninstallPackage(packageName);
         if (msg != null) {
@@ -327,3 +442,4 @@ public class TestAppInstallSetup extends BaseTargetPreparer
         return parser.getPackageName();
     }
 }
+

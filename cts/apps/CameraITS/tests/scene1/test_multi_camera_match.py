@@ -35,75 +35,75 @@ def main():
     yuv_sizes = {}
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
-        its.caps.skip_unless(its.caps.compute_target_exposure(props) and
-                             its.caps.per_frame_control(props) and
-                             its.caps.logical_multi_camera(props) and
-                             its.caps.raw16(props) and
-                             its.caps.manual_sensor(props))
+        its.caps.skip_unless(its.caps.per_frame_control(props) and
+                             its.caps.logical_multi_camera(props))
         ids = its.caps.logical_multi_camera_physical_ids(props)
-        s, e, _, _, f = cam.do_3a(get_results=True)
-        req = its.objects.manual_capture_request(s, e, f)
-        max_raw_size = its.objects.get_available_output_sizes('raw', props)[0]
         for i in ids:
             physical_props = cam.get_camera_properties_by_id(i)
+            its.caps.skip_unless(not its.caps.mono_camera(physical_props))
             yuv_sizes[i] = its.objects.get_available_output_sizes(
-                    'yuv', physical_props, match_ar_size=max_raw_size)
-            if i == ids[0]:
+                    'yuv', physical_props)
+            if i == ids[0]:  # get_available_output_sizes returns sorted list
                 yuv_match_sizes = yuv_sizes[i]
             else:
                 list(set(yuv_sizes[i]).intersection(yuv_match_sizes))
+
+        # find matched size for captures
         yuv_match_sizes.sort()
         w = yuv_match_sizes[-1][0]
         h = yuv_match_sizes[-1][1]
-        print 'RAW size: (%d, %d)' % (max_raw_size[0], max_raw_size[1])
-        print 'YUV size: (%d, %d)' % (w, h)
+        print 'Matched YUV size: (%d, %d)' % (w, h)
+
+        # do 3a and create requests
+        avail_fls = sorted(props['android.lens.info.availableFocalLengths'],
+                           reverse=True)
+        cam.do_3a()
+        reqs = []
+        for i, fl in enumerate(avail_fls):
+            reqs.append(its.objects.auto_capture_request())
+            reqs[i]['android.lens.focalLength'] = fl
+            if i > 0:
+                # Calculate the active sensor region for a non-cropped image
+                zoom = avail_fls[0] / fl
+                a = props['android.sensor.info.activeArraySize']
+                ax, ay = a['left'], a['top']
+                aw, ah = a['right'] - a['left'], a['bottom'] - a['top']
+
+                # Calculate a center crop region.
+                assert zoom >= 1
+                cropw = aw / zoom
+                croph = ah / zoom
+                crop_region = {
+                        'left': aw / 2 - cropw / 2,
+                        'top': ah / 2 - croph / 2,
+                        'right': aw / 2 + cropw / 2,
+                        'bottom': ah / 2 + croph / 2
+                }
+                reqs[i]['android.scaler.cropRegion'] = crop_region
 
         # capture YUVs
-        out_surfaces = [{'format': 'raw'},
-                        {'format': 'yuv', 'width': w, 'height': h,
-                         'physicalCamera': ids[0]},
-                        {'format': 'yuv', 'width': w, 'height': h,
-                         'physicalCamera': ids[1]}]
-        cap_raw, cap_yuv1, cap_yuv2 = cam.do_capture(req, out_surfaces)
+        y_means = {}
+        msg = ''
+        fmt = [{'format': 'yuv', 'width': w, 'height': h}]
+        caps = cam.do_capture(reqs, fmt)
+        if not isinstance(caps, list):
+            caps = [caps]  # handle canonical case where caps is not list
 
-        img_raw = its.image.convert_capture_to_rgb_image(cap_raw, props=props)
-        its.image.write_image(img_raw, '%s_raw.jpg' % NAME)
-        rgb_means_raw = its.image.compute_image_means(
-                its.image.get_image_patch(img_raw, PATCH_LOC, PATCH_LOC,
-                                          PATCH_SIZE, PATCH_SIZE))
-
-        img_yuv1 = its.image.convert_capture_to_rgb_image(
-                cap_yuv1, props=props)
-        its.image.write_image(img_yuv1, '%s_yuv1.jpg' % NAME)
-        y1, _, _ = its.image.convert_capture_to_planes(
-                cap_yuv1, props=props)
-        y1_mean = its.image.compute_image_means(
-                its.image.get_image_patch(y1, PATCH_LOC, PATCH_LOC,
-                                          PATCH_SIZE, PATCH_SIZE))[0]
-
-        img_yuv2 = its.image.convert_capture_to_rgb_image(
-                cap_yuv2, props=props)
-        its.image.write_image(img_yuv2, '%s_yuv2.jpg' % NAME)
-        y2, _, _ = its.image.convert_capture_to_planes(
-                cap_yuv2, props=props)
-        y2_mean = its.image.compute_image_means(
-                its.image.get_image_patch(y2, PATCH_LOC, PATCH_LOC,
-                                          PATCH_SIZE, PATCH_SIZE))[0]
-        print 'rgb_raw:', rgb_means_raw
-        print 'y1_mean:', y1_mean
-        print 'y2_mean:', y2_mean
-
-        # assert gain/exp values are near written values
-        s_yuv1 = cap_yuv1['metadata']['android.sensor.sensitivity']
-        e_yuv1 = cap_yuv1['metadata']['android.sensor.exposureTime']
-        msg = 'yuv_gain(write): %d, (read): %d' % (s, s_yuv1)
-        assert 0 <= s - s_yuv1 < s * THRESH_GAIN, msg
-        msg = 'yuv_exp(write): %.3fms, (read): %.3fms' % (e*1E6, e_yuv1*1E6)
-        assert 0 <= e - e_yuv1 < e * THRESH_EXP, msg
+        for i, fl in enumerate(avail_fls):
+            img = its.image.convert_capture_to_rgb_image(caps[i], props=props)
+            its.image.write_image(img, '%s_yuv_fl=%s.jpg' % (NAME, fl))
+            y, _, _ = its.image.convert_capture_to_planes(caps[i], props=props)
+            y_mean = its.image.compute_image_means(
+                    its.image.get_image_patch(y, PATCH_LOC, PATCH_LOC,
+                                              PATCH_SIZE, PATCH_SIZE))[0]
+            print 'y[%s]: %.3f' % (fl, y_mean)
+            msg += 'y[%s]: %.3f, ' % (fl, y_mean)
+            y_means[fl] = y_mean
 
         # compare YUVs
-        msg = 'y1: %.3f, y2: %.3f, TOL=%.5f' % (y1_mean, y2_mean, THRESH_DIFF)
-        assert np.isclose(y1_mean, y2_mean, rtol=THRESH_DIFF), msg
+        msg += 'TOL=%.5f' % THRESH_DIFF
+        assert np.isclose(max(y_means.values()), min(y_means.values()),
+                          rtol=THRESH_DIFF), msg
 
 
 if __name__ == '__main__':

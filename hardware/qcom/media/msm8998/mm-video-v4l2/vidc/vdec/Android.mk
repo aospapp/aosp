@@ -133,6 +133,9 @@ LOCAL_SRC_FILES         += src/omx_vdec_v4l2.cpp
 
 LOCAL_CFLAGS            += -Wno-error
 
+# Allow implicit fallthrough in omx_vdec_v4l2.cpp:5409 until it is fixed.
+LOCAL_CFLAGS += -Wno-error=implicit-fallthrough
+
 include $(BUILD_SHARED_LIBRARY)
 
 

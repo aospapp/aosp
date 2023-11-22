@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Ātrā atbilde"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Ziņojums nosūt. uz šādu tālr. nr.: <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"Neizdevās nosūtīt ziņojumu uz numuru <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Zvanu konti"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Ir atļauti tikai ārkārtas zvani."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Šajā lietojumprogrammā nevar veikt izejošos zvanus bez tālruņa atļaujas."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Iestatīt kā noklusējumu"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Atcelt"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"Lietotne <xliff:g id="NEW_APP">%s</xliff:g> varēs veikt zvanus un kontrolēt visas zvanu funkcijas. Tālruņa noklusējuma lietotnes iestatīšanai izmantojiet tikai uzticamas lietotnes."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"Iestatīt <xliff:g id="NEW_APP">%s</xliff:g> kā zvanu pārvaldības noklusējuma lietotni?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"Lietotne <xliff:g id="OLD_APP">%s</xliff:g> vairs nevarēs pārvaldīt zvanus."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"Lietotne <xliff:g id="NEW_APP">%s</xliff:g> varēs skatīt informāciju par zvanītājiem, kas nav jūsu kontaktpersonu sarakstā, kā arī varēs bloķēt zvanus no šiem zvanītājiem. Zvanu pārvaldības noklusējuma lietotnes iestatīšanai izmantojiet tikai uzticamas lietotnes."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Iestatīt kā noklusējumu"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Atcelt"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Bloķētie numuri"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Jūs nesaņemsiet zvanus vai īsziņas no bloķētajiem numuriem."</string>
     <string name="block_number" msgid="1101252256321306179">"Pievienot numuru"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Atbildot uz zvanu, tiks beigts pašreizējais videozvans"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Atbildēt"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Noraidīt"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Nevar veikt zvanu, jo ierīcē nav neviena zvanu konta, kurā tiktu atbalstīti šī veida zvani."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Nevar veikt zvanu notiekoša <xliff:g id="OTHER_CALL">%1$s</xliff:g> zvana dēļ."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Nevar veikt zvanu notiekošu <xliff:g id="OTHER_CALL">%1$s</xliff:g> zvanu dēļ."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Nevar veikt zvanu citā lietotnē notiekoša zvana dēļ."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Neatbildētie zvani"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Zvanu bloķēšana"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Veicot šo zvanu, tiks beigts zvans lietotnē <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Izvēlieties, kā veikt šo zvanu"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Novirzīt zvanu, izmantojot lietotni <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Zvanīt, izmantojot manu tālruņa numuru"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"Zvanu nevar veikt lietotnē <xliff:g id="OTHER_APP">%1$s</xliff:g>. Mēģiniet izmantot citu zvanu pāradresācijas lietotni vai sazināties ar izstrādātāju, lai saņemtu palīdzību."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Zvanu bloķēšana"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Numuri, kas nav ietverti kontaktpersonu sarakstā"</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Bloķēt numurus, kas nav ietverti kontaktpersonu sarakstā"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Zvanu bloķēšana atspējota"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Ārkārtas zvans ir veikts"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Zvanu bloķēšana ir atspējota, lai ļautu ar jums sazināties avārijas dienestu darbiniekiem."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Telecom izstrādātāja izvēlne"</string>
 </resources>

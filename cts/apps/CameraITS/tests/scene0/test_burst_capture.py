@@ -12,21 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
-import its.device
-import its.objects
 import os.path
+
+import its.caps
+import its.device
+import its.image
+import its.objects
+
 
 def main():
     """Test capture a burst of full size images is fast enough to not timeout.
+
        This test verify that entire capture pipeline can keep up the speed
        of fullsize capture + CPU read for at least some time.
     """
     NAME = os.path.basename(__file__).split(".")[0]
-    NUM_TEST_FRAMES = 20
+    NUM_TEST_FRAMES = 15
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
+        props = cam.override_with_hidden_physical_camera_props(props)
+        its.caps.skip_unless(its.caps.backward_compatible(props))
         req = its.objects.auto_capture_request()
         caps = cam.do_capture([req]*NUM_TEST_FRAMES)
 

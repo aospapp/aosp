@@ -19,10 +19,12 @@ import android.annotation.SystemApi;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.JsonWriter;
-import java.io.IOException;
-import java.util.Objects;
+
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.io.IOException;
+import java.util.Objects;
 
 /**
  * uid_io stats about one user ID.
@@ -116,6 +118,9 @@ public final class IoStatsEntry implements Parcelable {
         dest.writeParcelable(background, flags);
     }
 
+    /**
+     * @hide
+     */
     public void writeToJson(JsonWriter jsonWriter) throws IOException {
         jsonWriter.beginObject();
         jsonWriter.name("uid").value(uid);
@@ -125,6 +130,9 @@ public final class IoStatsEntry implements Parcelable {
         jsonWriter.endObject();
     }
 
+    /**
+     * @hide
+     */
     public IoStatsEntry(JSONObject in) throws JSONException {
         uid = in.getInt("uid");
         runtimeMillis = in.getLong("runtimeMillis");
@@ -263,6 +271,9 @@ public final class IoStatsEntry implements Parcelable {
             dest.writeLong(fsyncCalls);
         }
 
+        /**
+         * @hide
+         */
         public void writeToJson(JsonWriter jsonWriter) throws IOException {
             jsonWriter.beginObject();
             jsonWriter.name("bytesRead").value(bytesRead);
@@ -281,6 +292,9 @@ public final class IoStatsEntry implements Parcelable {
             fsyncCalls = in.readLong();
         }
 
+        /**
+         * @hide
+         */
         public Metrics(JSONObject in) throws JSONException {
             bytesRead = in.getLong("bytesRead");
             bytesWritten = in.getLong("bytesWritten");

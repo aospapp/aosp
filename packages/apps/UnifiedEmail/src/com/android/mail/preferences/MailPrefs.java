@@ -19,7 +19,7 @@ package com.android.mail.preferences;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.support.annotation.StringDef;
+import androidx.annotation.StringDef;
 import android.text.TextUtils;
 
 import com.android.mail.R;

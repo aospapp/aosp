@@ -48,11 +48,6 @@ class ImageSpace;
 // dex location is in the boot class path.
 class OatFileAssistant {
  public:
-  // The default compile filter to use when optimizing dex file at load time if they
-  // are out of date.
-  static const CompilerFilter::Filter kDefaultCompilerFilterForDexLoading =
-      CompilerFilter::kQuicken;
-
   enum DexOptNeeded {
     // No dexopt should (or can) be done to update the apk/jar.
     // Matches Java: dalvik.system.DexFile.NO_DEXOPT_NEEDED = 0
@@ -71,11 +66,6 @@ class OatFileAssistant {
     // is out of date with respect to the target compiler filter.
     // Matches Java: dalvik.system.DexFile.DEX2OAT_FOR_FILTER
     kDex2OatForFilter = 3,
-
-    // dex2oat should be run to update the apk/jar because the existing code
-    // is not relocated to match the boot image.
-    // Matches Java: dalvik.system.DexFile.DEX2OAT_FOR_RELOCATION
-    kDex2OatForRelocation = 4,
   };
 
   enum OatStatus {
@@ -89,13 +79,6 @@ class OatFileAssistant {
     // kOatBootImageOutOfDate - The oat file is up to date with respect to the
     // dex file, but is out of date with respect to the boot image.
     kOatBootImageOutOfDate,
-
-    // kOatRelocationOutOfDate - The oat file is up to date with respect to
-    // the dex file and boot image, but contains compiled code that has the
-    // wrong patch delta with respect to the boot image. Patchoat should be
-    // run on the oat file to update the patch delta of the compiled code to
-    // match the boot image.
-    kOatRelocationOutOfDate,
 
     // kOatUpToDate - The oat file is completely up to date with respect to
     // the dex file and boot image.
@@ -144,24 +127,6 @@ class OatFileAssistant {
   // path.
   bool IsInBootClassPath();
 
-  // Obtains a lock on the target oat file.
-  // Only one OatFileAssistant object can hold the lock for a target oat file
-  // at a time. The Lock is released automatically when the OatFileAssistant
-  // object goes out of scope. The Lock() method must not be called if the
-  // lock has already been acquired.
-  //
-  // Returns true on success.
-  // Returns false on error, in which case error_msg will contain more
-  // information on the error.
-  //
-  // The 'error_msg' argument must not be null.
-  //
-  // This is intended to be used to avoid race conditions when multiple
-  // processes generate oat files, such as when a foreground Activity and
-  // a background Service both use DexClassLoaders pointing to the same dex
-  // file.
-  bool Lock(std::string* error_msg);
-
   // Return what action needs to be taken to produce up-to-date code for this
   // dex location. If "downgrade" is set to false, it verifies if the current
   // compiler filter is at least as good as an oat file generated with the
@@ -181,38 +146,12 @@ class OatFileAssistant {
   int GetDexOptNeeded(CompilerFilter::Filter target_compiler_filter,
                       bool profile_changed = false,
                       bool downgrade = false,
-                      ClassLoaderContext* context = nullptr);
+                      ClassLoaderContext* context = nullptr,
+                      const std::vector<int>& context_fds = std::vector<int>());
 
   // Returns true if there is up-to-date code for this dex location,
   // irrespective of the compiler filter of the up-to-date code.
   bool IsUpToDate();
-
-  // Return code used when attempting to generate updated code.
-  enum ResultOfAttemptToUpdate {
-    kUpdateFailed,        // We tried making the code up to date, but
-                          // encountered an unexpected failure.
-    kUpdateNotAttempted,  // We wanted to update the code, but determined we
-                          // should not make the attempt.
-    kUpdateSucceeded      // We successfully made the code up to date
-                          // (possibly by doing nothing).
-  };
-
-  // Attempts to generate or relocate the oat file as needed to make it up to
-  // date based on the current runtime and compiler options.
-  // profile_changed should be true to indicate the profile has recently
-  // changed for this dex location.
-  //
-  // If the dex files need to be made up to date, class_loader_context will be
-  // passed to dex2oat.
-  //
-  // Returns the result of attempting to update the code.
-  //
-  // If the result is not kUpdateSucceeded, the value of error_msg will be set
-  // to a string describing why there was a failure or the update was not
-  // attempted. error_msg must not be null.
-  ResultOfAttemptToUpdate MakeUpToDate(bool profile_changed,
-                                       ClassLoaderContext* class_loader_context,
-                                       std::string* error_msg);
 
   // Returns an oat file that can be used for loading dex files.
   // Returns null if no suitable oat file was found.
@@ -284,18 +223,6 @@ class OatFileAssistant {
   // Returns the status of the oat file for the dex location.
   OatStatus OatFileStatus();
 
-  // Executes dex2oat using the current runtime configuration overridden with
-  // the given arguments. This does not check to see if dex2oat is enabled in
-  // the runtime configuration.
-  // Returns true on success.
-  //
-  // If there is a failure, the value of error_msg will be set to a string
-  // describing why there was failure. error_msg must not be null.
-  //
-  // TODO: The OatFileAssistant probably isn't the right place to have this
-  // function.
-  static bool Dex2Oat(const std::vector<std::string>& args, std::string* error_msg);
-
   // Constructs the odex file name for the given dex location.
   // Returns true on success, in which case odex_filename is set to the odex
   // file name.
@@ -318,17 +245,22 @@ class OatFileAssistant {
                                        std::string* oat_filename,
                                        std::string* error_msg);
 
+  // Computes the location checksum, dex location and vdex filename by combining
+  // the checksums of the individual dex files. If the data directory of the process
+  // is known, creates an absolute path in that directory and tries to infer path
+  // of a corresponding vdex file. Otherwise only creates a basename dex_location
+  // from the combined checksums. Returns true if all out-arguments have been set.
+  static bool AnonymousDexVdexLocation(const std::vector<const DexFile::Header*>& dex_headers,
+                                       InstructionSet isa,
+                                       /* out */ uint32_t* location_checksum,
+                                       /* out */ std::string* dex_location,
+                                       /* out */ std::string* vdex_filename);
+
+  // Returns true if a filename (given as basename) is a name of a vdex for
+  // anonymous dex file(s) created by AnonymousDexVdexLocation.
+  static bool IsAnonymousVdexBasename(const std::string& basename);
+
  private:
-  struct ImageInfo {
-    uint32_t oat_checksum = 0;
-    uintptr_t oat_data_begin = 0;
-    int32_t patch_delta = 0;
-    std::string location;
-
-    static std::unique_ptr<ImageInfo> GetRuntimeImageInfo(InstructionSet isa,
-                                                          std::string* error_msg);
-  };
-
   class OatFileInfo {
    public:
     // Initially the info is for no file in particular. It will treat the
@@ -362,7 +294,8 @@ class OatFileAssistant {
     DexOptNeeded GetDexOptNeeded(CompilerFilter::Filter target_compiler_filter,
                                  bool profile_changed,
                                  bool downgrade,
-                                 ClassLoaderContext* context);
+                                 ClassLoaderContext* context,
+                                 const std::vector<int>& context_fds);
 
     // Returns the loaded file.
     // Loads the file if needed. Returns null if the file failed to load.
@@ -403,7 +336,7 @@ class OatFileAssistant {
     // compiler filter.
     bool CompilerFilterIsOkay(CompilerFilter::Filter target, bool profile_changed, bool downgrade);
 
-    bool ClassLoaderContextIsOkay(ClassLoaderContext* context);
+    bool ClassLoaderContextIsOkay(ClassLoaderContext* context, const std::vector<int>& context_fds);
 
     // Release the loaded oat file.
     // Returns null if the oat file hasn't been loaded.
@@ -436,20 +369,6 @@ class OatFileAssistant {
     bool file_released_ = false;
   };
 
-  // Generate the oat file for the given info from the dex file using the
-  // current runtime compiler options, the specified filter and class loader
-  // context.
-  // This does not check the current status before attempting to generate the
-  // oat file.
-  //
-  // If the result is not kUpdateSucceeded, the value of error_msg will be set
-  // to a string describing why there was a failure or the update was not
-  // attempted. error_msg must not be null.
-  ResultOfAttemptToUpdate GenerateOatFileNoChecks(OatFileInfo& info,
-                                                  CompilerFilter::Filter target,
-                                                  const ClassLoaderContext* class_loader_context,
-                                                  std::string* error_msg);
-
   // Return info for the best oat file.
   OatFileInfo& GetBestInfo();
 
@@ -473,13 +392,6 @@ class OatFileAssistant {
   // location.
   OatStatus GivenOatFileStatus(const OatFile& file);
 
-  // Returns the current image location.
-  // Returns an empty string if the image location could not be retrieved.
-  //
-  // TODO: This method should belong with an image file manager, not
-  // the oat file assistant.
-  static std::string ImageLocation();
-
   // Gets the dex checksums required for an up-to-date oat file.
   // Returns cached_required_dex_checksums if the required checksums were
   // located. Returns null if the required checksums were not found.  The
@@ -488,11 +400,8 @@ class OatFileAssistant {
   // dex_location_ dex file.
   const std::vector<uint32_t>* GetRequiredDexChecksums();
 
-  // Returns the loaded image info.
-  // Loads the image info if needed. Returns null if the image info failed
-  // to load.
-  // The caller shouldn't clean up or free the returned pointer.
-  const ImageInfo* GetImageInfo();
+  // Validates the boot class path checksum of an OatFile.
+  bool ValidateBootClassPathChecksums(const OatFile& oat_file);
 
   // To implement Lock(), we lock a dummy file where the oat file would go
   // (adding ".flock" to the target file name) and retain the lock for the
@@ -530,12 +439,8 @@ class OatFileAssistant {
   // File descriptor corresponding to apk, dex file, or zip.
   int zip_fd_;
 
-  // Cached value of the image info.
-  // Use the GetImageInfo method rather than accessing these directly.
-  // TODO: The image info should probably be moved out of the oat file
-  // assistant to an image file manager.
-  bool image_info_load_attempted_ = false;
-  std::unique_ptr<ImageInfo> cached_image_info_;
+  size_t cached_boot_class_path_checksum_component_count_ = 0u;
+  std::string cached_boot_class_path_checksums_;
 
   friend class OatFileAssistantTest;
 

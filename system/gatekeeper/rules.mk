@@ -14,7 +14,6 @@ MODULE_INCLUDES := \
 	$(LOCAL_DIR)/../../hardware/libhardware/include
 
 MODULE_DEPS := \
-	lib/libc \
-	lib/libc-trusty \
+	trusty/user/base/lib/libc-trusty \
 
 include make/module.mk

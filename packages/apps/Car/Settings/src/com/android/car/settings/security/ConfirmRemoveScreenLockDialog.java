@@ -16,57 +16,46 @@
 
 package com.android.car.settings.security;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.DialogInterface;
 import android.os.Bundle;
-import android.support.v4.app.DialogFragment;
 
-import androidx.car.app.CarAlertDialog;
+import androidx.fragment.app.DialogFragment;
 
 import com.android.car.settings.R;
 
 /**
  * Dialog to confirm screen lock removal.
  */
-public class ConfirmRemoveScreenLockDialog extends DialogFragment implements
-        DialogInterface.OnClickListener {
+public class ConfirmRemoveScreenLockDialog extends DialogFragment {
 
-    private ConfirmRemoveLockListener mListener;
+    /** Identifier for the dialog which confirms the removal of a screen lock. */
+    public static final String TAG = "confirm_remove_lock_dialog";
+    private ConfirmRemoveScreenLockListener mConfirmRemoveScreenLockListener;
 
-    /**
-     * Sets a listener for OnRemoveLockConfirmed that will get called if user confirms the dialog.
-     *
-     * @param listener Instance of {@link ConfirmRemoveLockListener} to call when confirmed.
-     */
-    public void setConfirmRemoveLockListener(ConfirmRemoveLockListener listener) {
-        mListener = listener;
+    /** Sets a listener to act when a user confirms delete. */
+    public void setConfirmRemoveScreenLockListener(ConfirmRemoveScreenLockListener listener) {
+        mConfirmRemoveScreenLockListener = listener;
     }
 
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
-        return new CarAlertDialog.Builder(getContext())
+        return new AlertDialog.Builder(getContext())
                 .setTitle(R.string.remove_screen_lock_title)
-                .setBody(R.string.remove_screen_lock_message)
-                .setPositiveButton(R.string.remove_button, this)
+                .setMessage(R.string.remove_screen_lock_message)
+                .setPositiveButton(R.string.remove_button, (dialog, which) -> {
+                    if (mConfirmRemoveScreenLockListener != null) {
+                        mConfirmRemoveScreenLockListener.onConfirmRemoveScreenLock();
+                    }
+                    dialog.dismiss();
+                })
                 .setNegativeButton(android.R.string.cancel, null)
                 .create();
     }
 
-    @Override
-    public void onClick(DialogInterface dialog, int which) {
-        if (mListener != null) {
-            mListener.onRemoveLockConfirmed();
-        }
-    }
-
-    /**
-     * Interface for listeners that want to receive a callback when user confirms lock removal in
-     * the dialog.
-     */
-    public interface ConfirmRemoveLockListener {
-        /**
-         * Callback when user confirms locks removal.
-         */
-        void onRemoveLockConfirmed();
+    /** A listener for when user confirms lock removal for the current user. */
+    public interface ConfirmRemoveScreenLockListener {
+        /** Defines the actions to take when a user confirms the removal of a lock. */
+        void onConfirmRemoveScreenLock();
     }
 }

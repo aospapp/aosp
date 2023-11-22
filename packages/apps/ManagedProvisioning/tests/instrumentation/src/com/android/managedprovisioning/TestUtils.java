@@ -22,6 +22,7 @@ import android.os.PersistableBundle;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
+import java.lang.reflect.Array;
 import java.util.Objects;
 import java.util.Set;
 
@@ -96,7 +97,25 @@ public class TestUtils extends AndroidTestCase {
         for (String key : keys) {
             Object value1 = bundle1.get(key);
             Object value2 = bundle2.get(key);
-            if (!Objects.equals(value1, value2)) {
+            if (value1 != null && value1.getClass().isArray()
+                    && value2 != null && value2.getClass().isArray()) {
+                return arrayEquals(value1, value2);
+            } else if (value1 instanceof BaseBundle && value2 instanceof BaseBundle) {
+                return bundleEquals((BaseBundle) value1, (BaseBundle) value2);
+            } else if (!Objects.equals(value1, value2)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean arrayEquals(Object value1, Object value2) {
+        final int length = Array.getLength(value1);
+        if (length != Array.getLength(value2)) {
+            return false;
+        }
+        for (int i = 0; i < length; i++) {
+            if (!Objects.equals(Array.get(value1, i), Array.get(value2, i))) {
                 return false;
             }
         }

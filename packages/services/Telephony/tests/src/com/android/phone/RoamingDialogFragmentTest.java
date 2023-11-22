@@ -15,30 +15,33 @@
  */
 package com.android.phone;
 
+import static androidx.test.espresso.Espresso.onData;
+import static androidx.test.espresso.Espresso.onView;
+import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
+import static androidx.test.espresso.assertion.ViewAssertions.matches;
+import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
+import static androidx.test.espresso.matcher.ViewMatchers.isChecked;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withText;
+
+import static com.google.common.truth.Truth.assertThat;
+
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
 import android.provider.Settings.Global;
 import android.provider.Settings.SettingNotFoundException;
-import android.support.test.espresso.matcher.PreferenceMatchers;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.filters.FlakyTest;
-import com.google.common.truth.Truth;
+
+import androidx.test.espresso.matcher.PreferenceMatchers;
+import androidx.test.filters.FlakyTest;
+import androidx.test.rule.ActivityTestRule;
+
 import junit.framework.AssertionFailedError;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-
-import static android.support.test.espresso.Espresso.onData;
-import static android.support.test.espresso.Espresso.onView;
-import static android.support.test.espresso.action.ViewActions.click;
-import static android.support.test.espresso.assertion.ViewAssertions.doesNotExist;
-import static android.support.test.espresso.assertion.ViewAssertions.matches;
-import static android.support.test.espresso.matcher.ViewMatchers.hasDescendant;
-import static android.support.test.espresso.matcher.ViewMatchers.isChecked;
-import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static android.support.test.espresso.matcher.ViewMatchers.withId;
-import static android.support.test.espresso.matcher.ViewMatchers.withText;
-import static com.google.common.truth.Truth.assertThat;
 
 /**
  * Espresso tests to check some properties of the dialog that appears when a user

@@ -135,7 +135,7 @@ std::string toString(const Slice s);
 
 // Return a string containing a hexadecimal representation of the contents of s.
 // This function inserts a newline into its output every wrap bytes.
-std::string toHex(const Slice s, int wrap);
+std::string toHex(const Slice s, int wrap = INT_MAX);
 
 inline bool operator==(const Slice& lhs, const Slice& rhs) {
     return (lhs.base() == rhs.base()) && (lhs.limit() == rhs.limit());

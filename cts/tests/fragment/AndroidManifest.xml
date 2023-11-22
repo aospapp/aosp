@@ -33,7 +33,7 @@
         <activity android:name=".ConfigOnStopActivity"/>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.fragment.cts"
                      android:label="CTS tests of android.app Fragments" />
 

@@ -16,6 +16,8 @@
 
 #include "update_engine/connection_manager_android.h"
 
+#include <memory>
+
 namespace chromeos_update_engine {
 
 namespace connection_manager {
@@ -24,7 +26,7 @@ std::unique_ptr<ConnectionManagerInterface> CreateConnectionManager(
   return std::unique_ptr<ConnectionManagerInterface>(
       new ConnectionManagerAndroid());
 }
-}
+}  // namespace connection_manager
 
 bool ConnectionManagerAndroid::GetConnectionProperties(
     ConnectionType* out_type, ConnectionTethering* out_tethering) {
@@ -33,6 +35,9 @@ bool ConnectionManagerAndroid::GetConnectionProperties(
 bool ConnectionManagerAndroid::IsUpdateAllowedOver(
     ConnectionType type, ConnectionTethering tethering) const {
   return true;
+}
+bool ConnectionManagerAndroid::IsAllowedConnectionTypesForUpdateSet() const {
+  return false;
 }
 
 }  // namespace chromeos_update_engine

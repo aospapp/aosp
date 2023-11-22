@@ -51,9 +51,6 @@ public class RingtoneSyncTest extends BaseManagedProfileTest {
      * another user from the caller.
      */
     public void testRingtoneSync() throws Exception {
-        // Managed profile was just created, so sync should be active by default
-        assertEquals(1, Settings.Secure.getInt(mContentResolver, SYNC_PARENT_SOUNDS));
-
         String defaultRingtone = Settings.System.getString(mContentResolver,
                 Settings.System.RINGTONE);
         String defaultNotification = Settings.System.getString(mContentResolver,
@@ -79,6 +76,8 @@ public class RingtoneSyncTest extends BaseManagedProfileTest {
      * Tests that setting a work ringtone disables Settings.Secure.SYNC_PARENT_SOUNDS.
      */
     private void testSoundDisableSync(int ringtoneType) throws Exception {
+        Settings.Secure.putInt(mContentResolver, SYNC_PARENT_SOUNDS, 1);
+
         Uri originalUri = RingtoneManager.getActualDefaultRingtoneUri(mContext, ringtoneType);
 
         // Make sure we have the rights we need to set a new ringtone.

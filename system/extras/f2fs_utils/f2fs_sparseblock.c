@@ -2,6 +2,8 @@
 
 #define LOG_TAG "f2fs_sparseblock"
 
+#include "f2fs_sparseblock.h"
+
 #include <errno.h>
 #include <f2fs_fs.h>
 #include <fcntl.h>
@@ -13,8 +15,6 @@
 #include <unistd.h>
 
 #include <log/log.h>
-
-#include "f2fs_sparseblock.h"
 
 #define D_DISP_u32(ptr, member)           \
   do {                \
@@ -215,8 +215,8 @@ static struct f2fs_checkpoint *validate_checkpoint(block_t cp_addr,
                                                    unsigned long long *version, int fd)
 {
     unsigned char *cp_block_1, *cp_block_2;
-    struct f2fs_checkpoint *cp_block, *cp_ret;
-    u64 cp1_version = 0, cp2_version = 0;
+    struct f2fs_checkpoint *cp_block;
+    uint64_t cp1_version = 0, cp2_version = 0;
 
     cp_block_1 = malloc(F2FS_BLKSIZE);
     if (!cp_block_1)
@@ -261,15 +261,11 @@ invalid_cp1:
 
 int get_valid_checkpoint_info(int fd, struct f2fs_super_block *sb, struct f2fs_checkpoint **cp,  struct f2fs_info *info)
 {
-    struct f2fs_checkpoint *cp_block;
-
     struct f2fs_checkpoint *cp1, *cp2, *cur_cp;
-    int cur_cp_no;
     unsigned long blk_size;
     unsigned long long cp1_version = 0, cp2_version = 0;
     unsigned long long cp1_start_blk_no;
     unsigned long long cp2_start_blk_no;
-    u32 bmp_size;
 
     blk_size = 1U << le32_to_cpu(sb->log_blocksize);
 
@@ -314,10 +310,10 @@ fail_no_cp:
 
 static int gather_sit_info(int fd, struct f2fs_info *info)
 {
-    u64 num_segments = (info->total_blocks - info->main_blkaddr
+    uint64_t num_segments = (info->total_blocks - info->main_blkaddr
             + info->blocks_per_segment - 1) / info->blocks_per_segment;
-    u64 num_sit_blocks = (num_segments + SIT_ENTRY_PER_BLOCK - 1) / SIT_ENTRY_PER_BLOCK;
-    u64 sit_block;
+    uint64_t num_sit_blocks = (num_segments + SIT_ENTRY_PER_BLOCK - 1) / SIT_ENTRY_PER_BLOCK;
+    uint64_t sit_block;
 
     info->sit_blocks = malloc(num_sit_blocks * sizeof(struct f2fs_sit_block));
     if (!info->sit_blocks)
@@ -333,6 +329,7 @@ static int gather_sit_info(int fd, struct f2fs_info *info)
         if (read_structure(fd, address * F2FS_BLKSIZE, &info->sit_blocks[sit_block], sizeof(struct f2fs_sit_block))) {
             SLOGE("Could not read sit block at block %"PRIu64, address);
             free(info->sit_blocks);
+            info->sit_blocks = NULL;
             return -1;
         }
     }
@@ -345,7 +342,7 @@ static inline int is_set_ckpt_flags(struct f2fs_checkpoint *cp, unsigned int f)
     return !!(ckpt_flags & f);
 }
 
-static inline u64 sum_blk_addr(struct f2fs_checkpoint *cp, struct f2fs_info *info, int base, int type)
+static inline uint64_t sum_blk_addr(struct f2fs_checkpoint *cp, struct f2fs_info *info, int base, int type)
 {
     return info->cp_valid_cp_blkaddr + le32_to_cpu(cp->cp_pack_total_block_count)
                 - (base + 1) + type;
@@ -365,7 +362,7 @@ static int get_sit_summary(int fd, struct f2fs_info *info, struct f2fs_checkpoin
             return -1;
         memcpy(&info->sit_sums->journal.n_sits, &buffer[SUM_JOURNAL_SIZE], SUM_JOURNAL_SIZE);
     } else {
-        u64 blk_addr;
+        uint64_t blk_addr;
         if (is_set_ckpt_flags(cp, CP_UMOUNT_FLAG))
             blk_addr = sum_blk_addr(cp, info, NR_CURSEG_TYPE, CURSEG_COLD_DATA);
         else
@@ -470,7 +467,7 @@ void free_f2fs_info(struct f2fs_info *info)
     free(info);
 }
 
-u64 get_num_blocks_used(struct f2fs_info *info)
+uint64_t get_num_blocks_used(struct f2fs_info *info)
 {
     return info->main_blkaddr + info->total_user_used;
 }
@@ -485,12 +482,11 @@ int f2fs_test_bit(unsigned int nr, const char *p)
     return (mask & *addr) != 0;
 }
 
-int run_on_used_blocks(u64 startblock, struct f2fs_info *info, int (*func)(u64 pos, void *data), void *data) {
-    struct f2fs_sit_block sit_block_cache;
+int run_on_used_blocks(uint64_t startblock, struct f2fs_info *info, int (*func)(uint64_t pos, void *data), void *data) {
     struct f2fs_sit_entry * sit_entry;
-    u64 sit_block_num_cur = 0, segnum = 0, block_offset;
-    u64 block;
-    unsigned int used, found, started = 0, i;
+    uint64_t sit_block_num_cur = 0, segnum = 0, block_offset;
+    uint64_t block;
+    unsigned int used, found, i;
 
     block = startblock;
     while (block < info->total_blocks) {
@@ -555,7 +551,7 @@ struct privdata
  * filesystem, replacing blocks identified as unused with 0's.
  */
 
-int copy_used(u64 pos, void *data)
+int copy_used(uint64_t pos, void *data)
 {
     struct privdata *d = data;
     char *buf;

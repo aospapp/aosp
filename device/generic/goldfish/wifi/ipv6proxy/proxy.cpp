@@ -16,10 +16,13 @@
 
 #include "proxy.h"
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <linux/if_packet.h>
 #include <poll.h>
 #include <signal.h>
+
+#include <cutils/properties.h>
 
 #include "log.h"
 #include "message.h"
@@ -29,6 +32,7 @@
 // The prefix length for an address of a single unique node
 static const uint8_t kNodePrefixLength = 128;
 static const size_t kLinkAddressSize = 6;
+static const size_t kRecursiveDnsOptHeaderSize = 8;
 
 // Rewrite the link address of a neighbor discovery option to the link address
 // of |interface|. This can be either a source or target link address as
@@ -42,6 +46,45 @@ static void rewriteLinkAddressOption(Packet& packet,
             auto src = interface.linkAddr().get<sockaddr_ll>();
             auto dest = reinterpret_cast<char*>(opt) + sizeof(nd_opt_hdr);
             memcpy(dest, src->sll_addr, kLinkAddressSize);
+        }
+    }
+}
+
+static void extractRecursiveDnsServers(Packet& packet) {
+    for (nd_opt_hdr* opt = packet.firstOpt(); opt; opt = packet.nextOpt(opt)) {
+        if (opt->nd_opt_type != 25 || opt->nd_opt_len < 1) {
+            // Not a RNDSS option, skip it
+            continue;
+        }
+        size_t numEntries = (opt->nd_opt_len - 1) / 2;
+        //Found number of entries, dump  each address
+        const char* option = reinterpret_cast<const char*>(opt);
+        option += kRecursiveDnsOptHeaderSize;
+        auto dnsServers = reinterpret_cast<const struct in6_addr*>(option);
+
+        std::vector<std::string> validServers;
+        for (size_t i = 0; i < numEntries; ++i) {
+            char buffer[INET6_ADDRSTRLEN];
+            if (inet_ntop(AF_INET6, &dnsServers[i], buffer, sizeof(buffer))) {
+                validServers.push_back(buffer);
+            } else {
+                loge("Failed to convert RDNSS to string\n");
+            }
+        }
+
+        auto server = validServers.begin();
+        char propName[PROP_NAME_MAX];
+        char propValue[PROP_VALUE_MAX];
+        for (int i = 1; i <= 4; ++i) {
+            snprintf(propName, sizeof(propName), "net.eth0.ipv6dns%d", i);
+            if (server != validServers.end()) {
+                property_set(propName, server->c_str());
+                ++server;
+            } else {
+                // Clear the property if it's no longer a valid server, don't
+                // want to leave old servers around
+                property_set(propName, "");
+            }
         }
     }
 }
@@ -128,6 +171,7 @@ void Proxy::handleOuterMessage(Message& message) {
     uint32_t options = kForwardOnly;
     switch (packet.type()) {
         case Packet::Type::RouterAdvertisement:
+            extractRecursiveDnsServers(packet);
             options = kRewriteSourceLink | kSetDefaultGateway;
             break;
         case Packet::Type::NeighborSolicitation:

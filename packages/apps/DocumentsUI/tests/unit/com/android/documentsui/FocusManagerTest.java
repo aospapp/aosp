@@ -16,18 +16,18 @@
 
 package com.android.documentsui;
 
-import android.support.v7.widget.RecyclerView;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import com.android.documentsui.base.Features;
+import androidx.recyclerview.selection.SelectionTracker;
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.android.documentsui.dirlist.TestData;
-import com.android.documentsui.selection.SelectionHelper;
-import com.android.documentsui.testing.TestModel;
-import com.android.documentsui.testing.SelectionHelpers;
 import com.android.documentsui.testing.TestFeatures;
 import com.android.documentsui.testing.TestGridLayoutManager;
+import com.android.documentsui.testing.TestModel;
 import com.android.documentsui.testing.TestRecyclerView;
+import com.android.documentsui.testing.Views;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +42,7 @@ public class FocusManagerTest extends AndroidTestCase {
     private FocusManager mManager;
     private TestRecyclerView mView;
     private TestGridLayoutManager mTestGridLayoutManager;
-    private SelectionHelper mSelectionMgr;
+    private SelectionTracker<String> mSelectionMgr;
     private TestFeatures mFeatures;
 
     @Override
@@ -87,5 +87,33 @@ public class FocusManagerTest extends AndroidTestCase {
     public void testFocusDirectoryList_hasSelection() {
         mSelectionMgr.select("0");
         assertFalse(mManager.focusDirectoryList());
+    }
+
+    public void testFocusDirectoryList_invalidContentScope() {
+        mManager = new FocusManager(
+                mFeatures, SelectionHelpers.createTestInstance(), null, null, 0);
+        // pass if no exception is thrown.
+        mManager.focusDirectoryList();
+    }
+
+    public void testOnFocusChange_invalidContentScope() {
+        mManager = new FocusManager(
+                mFeatures, SelectionHelpers.createTestInstance(), null, null, 0);
+        // pass if no exception is thrown.
+        mManager.onFocusChange(Views.createTestView(), true);
+    }
+
+    public void testClearFocus_invalidContentScope() {
+        mManager = new FocusManager(
+                mFeatures, SelectionHelpers.createTestInstance(), null, null, 0);
+        // pass if no exception is thrown.
+        mManager.clearFocus();
+    }
+
+    public void testFocusDocument_invalidContentScope() {
+        mManager = new FocusManager(
+                mFeatures, SelectionHelpers.createTestInstance(), null, null, 0);
+        // pass if no exception is thrown.
+        mManager.focusDocument(Integer.toString(0));
     }
 }

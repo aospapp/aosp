@@ -26,8 +26,6 @@ import android.os.RemoteException;
 
 import com.android.cts.net.hostside.IMyService;
 
-import java.io.FileDescriptor;
-
 public class MyServiceClient {
     private static final int TIMEOUT_MS = 5000;
     private static final String PACKAGE = MyServiceClient.class.getPackage().getName();
@@ -62,10 +60,10 @@ public class MyServiceClient {
 
         final Intent intent = new Intent();
         intent.setComponent(new ComponentName(APP2_PACKAGE, SERVICE_NAME));
-        // Needs to use BIND_ALLOW_OOM_MANAGEMENT and BIND_NOT_FOREGROUND so app2 does not run in
+        // Needs to use BIND_NOT_FOREGROUND so app2 does not run in
         // the same process state as app
         mContext.bindService(intent, mServiceConnection, Context.BIND_AUTO_CREATE
-                | Context.BIND_ALLOW_OOM_MANAGEMENT | Context.BIND_NOT_FOREGROUND);
+                | Context.BIND_NOT_FOREGROUND);
         cv.block(TIMEOUT_MS);
         if (mService == null) {
             throw new IllegalStateException(
@@ -97,5 +95,9 @@ public class MyServiceClient {
 
     public void sendNotification(int notificationId, String notificationType) throws RemoteException {
         mService.sendNotification(notificationId, notificationType);
+    }
+
+    public void registerNetworkCallback(INetworkCallback cb) throws RemoteException {
+        mService.registerNetworkCallback(cb);
     }
 }

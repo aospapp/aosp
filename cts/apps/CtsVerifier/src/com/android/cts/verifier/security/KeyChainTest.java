@@ -46,9 +46,11 @@ import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
@@ -63,6 +65,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509ExtendedKeyManager;
+import javax.net.ssl.X509TrustManager;
 
 import libcore.java.security.TestKeyStore;
 import libcore.javax.net.ssl.TestSSLContext;
@@ -282,6 +285,44 @@ public class KeyChainTest extends PassFailButtons.Activity implements View.OnCli
         }
     }
 
+    static class CustomTrustManager implements X509TrustManager {
+        private final X509TrustManager mOther;
+        private final X509Certificate mDesiredIssuer;
+
+        CustomTrustManager(X509TrustManager other, X509Certificate desiredIssuer) {
+            mOther = other;
+            mDesiredIssuer = desiredIssuer;
+        }
+
+        public void checkClientTrusted(X509Certificate[] chain, String authType)
+                throws CertificateException {
+            mOther.checkClientTrusted(chain, authType);
+        }
+
+        public void checkServerTrusted(X509Certificate[] chain, String authType)
+                throws CertificateException {
+            mOther.checkServerTrusted(chain, authType);
+        }
+
+        public X509Certificate[] getAcceptedIssuers() {
+            // The issuers specified by the default X509TrustManager do not match the
+            // client certificate installed into KeyChain.
+            // Supply an issuers array that is guaranteed to match the issuer of the
+            // client certificate by using the issuer of the client certificate.
+            if (mDesiredIssuer != null) {
+                Log.w(TAG, "Returning certificate with subject "
+                        + mDesiredIssuer.getSubjectDN().getName());
+                return new X509Certificate[] { mDesiredIssuer };
+            }
+
+            X509Certificate[] issuers = mOther.getAcceptedIssuers();
+            for (X509Certificate issuer: issuers) {
+                Log.w(TAG, "From other: " + issuer.getSubjectDN().getName());
+            }
+            return issuers;
+        }
+    };
+
     private class TestHttpsRequestTask extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void... params) {
@@ -315,8 +356,19 @@ public class KeyChainTest extends PassFailButtons.Activity implements View.OnCli
                     KeyManagerFactory.getDefaultAlgorithm());
             kmf.init(mKeyStore, EMPTY_PASSWORD);
             SSLContext serverContext = SSLContext.getInstance("TLS");
+
+            X509Certificate desiredIssuer = null;
+            try {
+                desiredIssuer = (X509Certificate) mKeyStore.getCertificateChain(ALIAS)[1];
+            } catch (KeyStoreException e) {
+                log("Error getting client cert: " + e);
+            }
+            CustomTrustManager ctm = new CustomTrustManager(
+                    (X509TrustManager) mTrustManagerFactory.getTrustManagers()[0],
+                    desiredIssuer);
+
             serverContext.init(kmf.getKeyManagers(),
-                    mTrustManagerFactory.getTrustManagers(),
+                    new X509TrustManager[] { ctm },
                     null /* SecureRandom */);
             SSLSocketFactory sf = serverContext.getSocketFactory();
             SSLSocketFactory needsClientAuth = TestSSLContext.clientAuth(sf,

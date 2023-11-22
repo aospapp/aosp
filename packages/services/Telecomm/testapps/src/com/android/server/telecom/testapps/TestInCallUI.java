@@ -18,6 +18,7 @@ package com.android.server.telecom.testapps;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothDevice;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.telecom.Call;
@@ -209,11 +210,8 @@ public class TestInCallUI extends Activity {
 
         handoverButton.setOnClickListener((v) -> {
             Call call = mCallList.getCall(0);
-            Bundle extras = new Bundle();
-            extras.putParcelable(Call.EXTRA_HANDOVER_PHONE_ACCOUNT_HANDLE,
-                    getHandoverToPhoneAccountHandle());
-            extras.putInt(Call.EXTRA_HANDOVER_VIDEO_STATE, VideoProfile.STATE_BIDIRECTIONAL);
-            call.sendCallEvent(Call.EVENT_REQUEST_HANDOVER, extras);
+            call.handoverTo(getHandoverToPhoneAccountHandle(), VideoProfile.STATE_BIDIRECTIONAL,
+                    null);
         });
     }
 
@@ -263,17 +261,8 @@ public class TestInCallUI extends Activity {
     }
 
     private PhoneAccountHandle getHandoverToPhoneAccountHandle() {
-        TelecomManager tm = TelecomManager.from(this);
-
-        List<PhoneAccountHandle> handles = tm.getAllPhoneAccountHandles();
-        Optional<PhoneAccountHandle> found = handles.stream().filter(h -> {
-            PhoneAccount account = tm.getPhoneAccount(h);
-            Bundle extras = account.getExtras();
-            return extras != null && extras.getBoolean(PhoneAccount.EXTRA_SUPPORTS_HANDOVER_TO);
-        }).findFirst();
-        PhoneAccountHandle foundHandle = found.orElse(null);
-        Log.i(TestInCallUI.class.getSimpleName(), "getHandoverToPhoneAccountHandle() = " +
-            foundHandle);
-        return foundHandle;
+        return new PhoneAccountHandle(new ComponentName(
+                SelfManagedCallList.class.getPackage().getName(),
+                SelfManagedConnectionService.class.getName()), "1");
     }
 }

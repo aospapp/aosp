@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"正在執行 USSD 碼…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"MMI 碼已取消"</string>
     <string name="cancel" msgid="5044513931633602634">"取消"</string>
-    <string name="enter_input" msgid="1810529547726803893">"USSD 訊息字元數必須在 <xliff:g id="MIN_LEN">%d</xliff:g> 到 <xliff:g id="MAX_LEN">%d</xliff:g> 之間，請再試一次。"</string>
+    <string name="enter_input" msgid="1810529547726803893">"USSD 訊息字元數必須在 <xliff:g id="MIN_LEN">%1$d</xliff:g> 到 <xliff:g id="MAX_LEN">%2$d</xliff:g> 之間，請再試一次。"</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"管理會議通話"</string>
     <string name="ok" msgid="3811371167865772377">"確定"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"喇叭"</string>
@@ -77,6 +77,9 @@
     <string name="voicemail" msgid="8693759337917898954">"語音信箱"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"語音信箱 (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"語音信箱："</string>
+    <string name="make_and_receive_calls" msgid="1258596928285972166">"撥打及接聽電話"</string>
+    <string name="smart_forwarding_settings_menu" msgid="3874243342391798449">"智慧轉寄"</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="8962247659470565059">"如果某組電話號碼無法使用，系統會一律將來電轉接到其他號碼"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"通知"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"緊急廣播"</string>
     <string name="call_settings" msgid="6112441768261754562">"通話設定"</string>
@@ -148,7 +151,7 @@
     <string name="fw_get_in_vm_failed" msgid="8862896836093833973">"無法擷取及儲存目前的轉接號碼設定。\n您仍要轉換至新的供應商嗎？"</string>
     <string name="no_change" msgid="3186040086622435212">"未變更設定。"</string>
     <string name="sum_voicemail_choose_provider" msgid="59911196126278922">"選擇語音信箱服務"</string>
-    <string name="voicemail_default" msgid="2001233554889016880">"您的電信業者"</string>
+    <string name="voicemail_default" msgid="2001233554889016880">"你的電信業者"</string>
     <string name="vm_change_pin_old_pin" msgid="7295220109886682573">"舊的 PIN 碼"</string>
     <string name="vm_change_pin_new_pin" msgid="5412922262839438097">"新的 PIN 碼"</string>
     <string name="vm_change_pin_progress_message" msgid="3977357361934350336">"請稍候。"</string>
@@ -165,11 +168,12 @@
     <string name="empty_networks_list" msgid="4249426905018815316">"找不到網路。"</string>
     <string name="network_query_error" msgid="8466081377231178298">"找不到網路，請再試一次。"</string>
     <string name="register_on_network" msgid="9055203954040805084">"正在註冊 <xliff:g id="NETWORK">%s</xliff:g>…"</string>
-    <string name="not_allowed" msgid="5613353860205691579">"您的 SIM 卡無法連上這個網路。"</string>
+    <string name="not_allowed" msgid="5613353860205691579">"你的 SIM 卡無法連上這個網路。"</string>
     <string name="connect_later" msgid="2308119155752343975">"目前無法連上這個網路，請稍後再試。"</string>
     <string name="registration_done" msgid="495135664535876612">"註冊網路成功。"</string>
     <string name="already_auto" msgid="6067116884321285507">"已自動選取。"</string>
     <string name="select_automatically" msgid="1046727200631770962">"自動選取網路"</string>
+    <string name="manual_mode_disallowed_summary" msgid="70662262085937277">"無法在連線到「%1$s」時使用"</string>
     <string name="network_select_title" msgid="7733107364757544558">"網路"</string>
     <string name="register_automatically" msgid="6017849844573519637">"自動註冊…"</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"偏好的網路類型"</string>
@@ -235,8 +239,12 @@
     <string name="call_category" msgid="5863978196309462052">"通話"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"網路"</string>
     <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"加強型 4G LTE 模式"</string>
-    <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"進階通話功能"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
     <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"使用 LTE 服務提升語音通訊和其他通訊的效能 (建議)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"使用 4G 服務改善語音和其他通訊的品質 (建議)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"啟用行動數據服務"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"允許使用行動數據"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"敬請注意"</string>
@@ -245,7 +253,7 @@
     <string name="roaming_disable" msgid="1843417228755568110">"漫遊時連線到數據傳輸服務"</string>
     <string name="roaming_reenable_message" msgid="6843814381576397939">"漫遊服務已關閉，輕觸即可開啟。"</string>
     <string name="roaming_notification_title" msgid="4749053220884743110">"行動數據連線中斷"</string>
-    <string name="roaming_warning" msgid="1603164667540144353">"您可能需要支付可觀的費用。"</string>
+    <string name="roaming_warning" msgid="1603164667540144353">"你可能需要支付可觀的費用。"</string>
     <string name="roaming_check_price_warning" msgid="7497570906830902550">"請向你的網路供應商洽詢定價。"</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"允許漫遊服務？"</string>
     <string name="data_usage_title" msgid="4042209259808900283">"應用程式數據用量"</string>
@@ -272,13 +280,9 @@
     <!-- String.format failed for translation -->
     <!-- no translation found for throttle_status_subtext (1657318943142085170) -->
     <skip />
-    <!-- String.format failed for translation -->
-    <!-- no translation found for throttle_data_usage_subtext (6029276011123694701) -->
-    <skip />
+    <string name="throttle_data_usage_subtext" msgid="6029276011123694701">"<xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g> ٪)，週期上限為 <xliff:g id="USED_2">%3$s</xliff:g>"</string>
     <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"已達 <xliff:g id="USED_0">%1$s</xliff:g> 上限\n資料速率降低至 <xliff:g id="USED_1">%2$d</xliff:g> Kb/s"</string>
-    <!-- String.format failed for translation -->
-    <!-- no translation found for throttle_time_frame_subtext (7732763021560399960) -->
-    <skip />
+    <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"已經過 <xliff:g id="USED_0">%1$d</xliff:g> ٪ 的循環週期\n下一週期會在 <xliff:g id="USED_1">%2$d</xliff:g> 天內開始 (<xliff:g id="USED_2">%3$s</xliff:g>)"</string>
     <string name="throttle_rate_subtext" msgid="2149102656120726855">"若已達數據用量上限，數據傳輸速率會降低至 <xliff:g id="USED">%1$d</xliff:g> Kb/秒"</string>
     <string name="throttle_help_subtext" msgid="5217706521499010816">"更多有關行動業者行動網路資料使用政策的資訊"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"區域廣播簡訊"</string>
@@ -297,7 +301,7 @@
     <string name="maintenance_disable" msgid="7340189100885066077">"已停用維護資訊"</string>
     <string name="general_news_settings" msgid="4968779723948432978">"一般新聞"</string>
     <string name="bf_news_settings" msgid="3935593091894685267">"財經新聞"</string>
-    <string name="sports_news_settings" msgid="7649399631270052835">"運動新聞"</string>
+    <string name="sports_news_settings" msgid="7649399631270052835">"體育新聞"</string>
     <string name="entertainment_news_settings" msgid="5051153952959405035">"娛樂新聞"</string>
     <string name="enable_disable_local" msgid="7890281063123416120">"當地"</string>
     <string name="local_enable" msgid="6370463247609136359">"已啟用當地新聞"</string>
@@ -401,7 +405,7 @@
     <string name="fdn_disabled" msgid="4700049736675368279">"已停用固定撥號"</string>
     <string name="enable_fdn" msgid="3740191529180493851">"啟用固定撥號"</string>
     <string name="disable_fdn" msgid="7944020890722540616">"停用固定撥號"</string>
-    <string name="change_pin2" msgid="2153563695382176676">"更改 PIN2"</string>
+    <string name="change_pin2" msgid="2153563695382176676">"變更 PIN2"</string>
     <string name="enable_fdn_ok" msgid="7215588870329688132">"停用固定撥號"</string>
     <string name="disable_fdn_ok" msgid="5727046928930740173">"啟用固定撥號"</string>
     <string name="sum_fdn" msgid="1959399454900272878">"管理固定撥號"</string>
@@ -436,7 +440,7 @@
     <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"未更新 FDN。可能是因為 PIN2 碼不正確或電話號碼遭拒。"</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN 操作失敗。"</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"正在從 SIM 卡讀取…"</string>
-    <string name="simContacts_empty" msgid="5270660846489561932">"您的 SIM 卡上沒有聯絡人。"</string>
+    <string name="simContacts_empty" msgid="5270660846489561932">"你的 SIM 卡上沒有聯絡人。"</string>
     <string name="simContacts_title" msgid="1861472842524839921">"選取要匯入的聯絡人"</string>
     <string name="simContacts_airplaneMode" msgid="5254946758982621072">"關閉飛航模式即可從 SIM 卡匯入聯絡人資訊。"</string>
     <string name="enable_pin" msgid="5422767284133234860">"啟用/停用 SIM PIN"</string>
@@ -488,7 +492,7 @@
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"撥打 <xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g>"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"無語音信箱號碼"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"沒有服務"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"您所選取的網路 (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) 無法使用"</string>
+    <string name="notification_network_selection_text" msgid="7550380440576731104">"所選網路 (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) 無法使用"</string>
     <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"如要撥打電話，請開啟行動網路，並關閉飛航模式或節約耗電量模式。"</string>
     <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"關閉飛航模式即可撥打電話。"</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"關閉飛航模式或連上無線網路即可撥打電話。"</string>
@@ -501,21 +505,32 @@
     <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"目前無法新增通話，你可以試著傳送簡訊聯絡對方。"</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"不支援的服務"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"無法切換通話。"</string>
+    <string name="incall_error_supp_service_resume" msgid="7147983409782027448">"無法恢復通話。"</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"無法分割通話。"</string>
     <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"無法轉接。"</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"無法進行多方通話。"</string>
+    <string name="incall_error_supp_service_conference" msgid="2530955482970678150">"無法合併通話。"</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"無法拒接來電。"</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"無法掛斷電話。"</string>
     <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"無法保留通話。"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"連上無線網路即可撥打電話。"</string>
     <string name="incall_error_promote_wfc" msgid="106510757624022064">"請啟用 Wi-Fi 通話功能以撥打電話。"</string>
+    <string name="emergency_information_hint" msgid="399011533038204351">"緊急救援資訊"</string>
+    <string name="emergency_information_owner_hint" msgid="688331472291637149">"擁有者"</string>
+    <string name="emergency_information_confirm_hint" msgid="4039012670779853030">"再次輕觸即可查看資訊"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"緊急電話"</string>
+    <string name="single_emergency_number_title" msgid="4959203129714396515">"緊急電話號碼"</string>
+    <string name="numerous_emergency_numbers_title" msgid="754158099451343898">"緊急電話號碼"</string>
+    <string name="emergency_call_shortcut_hint" msgid="6506167229097004348">"再次輕觸即可撥打 <xliff:g id="EMERGENCY_NUMBER">%s</xliff:g>"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"開啟無線通訊中…"</string>
     <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"找不到服務訊號，正在重試…"</string>
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"撥打緊急電話時無法開啟飛航模式。"</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"無法通話。<xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> 不是緊急號碼。"</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"無法通話。只能撥打緊急號碼。"</string>
     <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"無法撥打緊急電話"</string>
+    <string name="police_type_description" msgid="5324410799919829693">"警察局"</string>
+    <string name="ambulance_type_description" msgid="4114815025408089866">"救護車"</string>
+    <string name="fire_type_description" msgid="7145996705197064710">"火警"</string>
+    <string name="description_concat_format" msgid="7141070875487870177">"%1$s、%2$s"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"使用鍵盤撥號"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"保留"</string>
     <string name="onscreenEndCallText" msgid="4403855834875398585">"結束"</string>
@@ -601,6 +616,8 @@
     <string name="selectContact" msgid="781975788478987237">"選取聯絡人"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"不支援語音通話"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"撥號"</string>
+    <string name="description_dialpad_button" msgid="5220006811894230590">"顯示撥號鍵盤"</string>
+    <string name="pane_title_emergency_dialpad" msgid="1148505414688493134">"緊急撥號鍵盤"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"具有畫面的語音信箱"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"設定語音信箱密碼"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"變更 PIN 碼"</string>
@@ -613,7 +630,7 @@
     <string name="sim_label_emergency_calls" msgid="4847699229529306397">"緊急電話"</string>
     <string name="sim_description_emergency_calls" msgid="7535215397212301562">"僅限撥打緊急電話"</string>
     <string name="sim_description_default" msgid="4778679519938775515">"SIM 卡，插槽：<xliff:g id="SLOT_ID">%s</xliff:g>"</string>
-    <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"協助工具"</string>
+    <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"無障礙設定"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"Wi-Fi 通話來電："</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"Wi-Fi 通話"</string>
     <string name="emergency_action_launch_hint" msgid="4906759256275562674">"再次輕觸即可開啟"</string>
@@ -651,58 +668,58 @@
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"新增數據方案"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"取消"</string>
     <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"通話已結束"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"無線電已關閉"</string>
-    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"沒有 SIM 卡或 SIM 卡錯誤"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="1049579267090569308">"飛航模式已開啟"</string>
+    <string name="clh_callFailed_simError_txt" msgid="7273306159809203315">"無法存取 SIM 卡"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"無法使用行動網路"</string>
-    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"未指派 (未分配) 的號碼"</string>
-    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"沒有通往受話方的路由"</string>
-    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"不接受的頻道"</string>
-    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"電信業者判定的限制"</string>
-    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"正在清除一般通話"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="4722164461846838251">"你嘗試撥打的電話號碼有問題，錯誤代碼 1。"</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="2259464183880140671">"無法完成通話，錯誤代碼 3。"</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="3159336281525222855">"無法完成通話，錯誤代碼 6。"</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="1831977101604817389">"無法完成通話，錯誤代碼 8。"</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="7369313431310446847">"無法完成通話，錯誤代碼 16。"</string>
     <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"使用者忙線"</string>
-    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"使用者未回應"</string>
-    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"使用者響鈴中，沒有回應"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="3675206502567252162">"使用者沒有回應"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="363445537769733281">"無法完成通話，錯誤代碼 19。"</string>
     <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"通話遭拒"</string>
     <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"號碼已變更"</string>
-    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"預防性措施"</string>
-    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"正在清除未選取的使用者"</string>
-    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"受話方無法正常運作"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="1100414016302714854">"無法完成通話，錯誤代碼 25。"</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="6248192300127702626">"無法完成通話，錯誤代碼 26。"</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="4879936907430554772">"無法完成通話，錯誤代碼 27。"</string>
     <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"數字格式無效 (數字不完整)"</string>
-    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"附加服務遭拒"</string>
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"針對「狀態查詢」的回應"</string>
-    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"一般，原因不明"</string>
-    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"無法取得可用的電路/頻道"</string>
-    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"網路無法正常運作"</string>
-    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"暫時失敗"</string>
-    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"交換設備壅塞"</string>
-    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"已捨棄存取資訊"</string>
-    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"無法取得要求的電路/頻道"</string>
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"無法使用資源，原因不明"</string>
-    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"無法提供服務品質"</string>
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"未訂閱要求的附加服務"</string>
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"來電在 CUG 內遭禁"</string>
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"承載系統功能未獲授權"</string>
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"目前尚未提供承載系統功能"</string>
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"無法使用服務或選項，原因不明"</string>
-    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"承載系統服務未導入"</string>
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM 等於或大於 ACMmax"</string>
-    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"要求的附加服務未導入"</string>
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"只能使用受限制的數位資訊承載系統功能"</string>
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"服務或選項未導入，原因不明"</string>
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"交易 ID 值無效"</string>
-    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"使用者不是 CUG 成員"</string>
-    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"不相容的受話方設定"</string>
-    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"轉接網路選項無效"</string>
-    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"語意不正確的訊息"</string>
-    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"必要資訊無效"</string>
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"訊息類型不存在或未導入"</string>
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"訊息類型與通訊協定狀態不相容"</string>
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"資訊元素不存在或未導入"</string>
-    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"條件式 IE 錯誤"</string>
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"訊息與通訊協定狀態不相容"</string>
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"在計時器到期時復原"</string>
-    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"通訊協定錯誤，原因不明"</string>
-    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"互通，原因不明"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="1028912823639389563">"無法完成通話，錯誤代碼 29。"</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="1250833944238081212">"無法完成通話，錯誤代碼 30。"</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="8765640093649364786">"無法完成通話，錯誤代碼 31。"</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="6884477141997665736">"無法完成通話，錯誤代碼 34。"</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="76447023032000125">"無法完成通話，錯誤代碼 38。"</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="5057716306945664356">"無法完成通話，錯誤代碼 41。"</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="4958831706265227632">"無法完成通話，錯誤代碼 42。"</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="5033636666434831179">"無法完成通話，錯誤代碼 43。"</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="3221429183862933558">"無法完成通話，錯誤代碼 44。"</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="1385943395137055442">"無法完成通話，錯誤代碼 47。"</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="8464132603057397297">"無法完成通話，錯誤代碼 49。"</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="3853815238079666882">"無法完成通話，錯誤代碼 50。"</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="6791665425652545510">"無法完成通話，錯誤代碼 55。"</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="2975453855928450909">"無法完成通話，錯誤代碼 57。"</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="753763978405557873">"無法完成通話，錯誤代碼 58。"</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="1714515856150546668">"無法完成通話，錯誤代碼 63。"</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="5433179845809692163">"無法完成通話，錯誤代碼 65。"</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="4339523227014428123">"無法完成通話，錯誤代碼 68。"</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="5217500914101821728">"無法完成通話，錯誤代碼 69。"</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="2423146296631060723">"無法完成通話，錯誤代碼 70。"</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="873208782556277597">"無法完成通話，錯誤代碼 79。"</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3926779129494281620">"無法完成通話，錯誤代碼 81。"</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="2517559636224367413">"無法完成通話，錯誤代碼 87。"</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="7994154962189949306">"無法完成通話，錯誤代碼 88。"</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="5847046471813330674">"無法完成通話，錯誤代碼 91。"</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="5419940790658960361">"無法完成通話，錯誤代碼 95。"</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="3350178645665420102">"無法完成通話，錯誤代碼 96。"</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="7080310506268713895">"無法完成通話，錯誤代碼 97。"</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="5251558113020693277">"無法完成通話，錯誤代碼 98。"</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="1643642065908165846">"無法完成通話，錯誤代碼 99。"</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="1622467860490603665">"無法完成通話，錯誤代碼 100。"</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="3776039646804248109">"無法完成通話，錯誤代碼 101。"</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="4529313282997136028">"無法完成通話，錯誤代碼 102。"</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="4900075501687505296">"無法完成通話，錯誤代碼 111。"</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="6701560054199411045">"無法完成通話，錯誤代碼 127。"</string>
     <string name="labelCallBarring" msgid="3452870940716226978">"通話限制"</string>
     <string name="sum_call_barring_enabled" msgid="6804489690436703488">"啟用"</string>
     <string name="sum_call_barring_disabled" msgid="5900772179198857783">"停用"</string>
@@ -736,6 +753,8 @@
     <string name="messageCallBarring" msgid="2412123220272136055">"輸入密碼"</string>
     <string name="call_barring_settings" msgid="80766145008623645">"通話限制設定"</string>
     <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"要停用所有通話限制設定嗎？"</string>
+    <string name="callFailed_NetworkBusy" msgid="1068322087736565421">"目前忙線中，請稍後再撥號。"</string>
+    <string name="callFailed_NetworkCongested" msgid="3313449239735315125">"目前網路壅塞，請與你的行動電信業者聯絡以尋求協助。"</string>
     <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"通話已自動轉接。"</string>
     <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"來電轉駁。"</string>
     <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"正在等待對方接聽電話。"</string>
@@ -753,4 +772,14 @@
     <string name="supp_service_forwarded_call" msgid="4509980341645679803">"來電轉駁。"</string>
     <string name="supp_service_conference_call" msgid="4448616364004466832">"正在加入會議通話。"</string>
     <string name="supp_service_held_call_released" msgid="2030677825038709779">"保留中的通話已斷線。"</string>
+    <string name="callFailed_otasp_provisioning_in_process" msgid="6361786376484384454">"裝置目前正在佈建服務，因此無法撥打電話。"</string>
+    <string name="callFailed_already_dialing" msgid="4652915396769232226">"你正在撥出其他電話，因此無法再撥號。"</string>
+    <string name="callFailed_already_ringing" msgid="7747655701540586943">"你尚未接聽來電，因此無法撥打電話。你必須先決定接聽或拒接來電，才能再撥打電話。"</string>
+    <string name="callFailed_calling_disabled" msgid="7257184079619449933">"通話功能已透過 ro.telephony.disable-call system 屬性停用，因此無法撥打電話。"</string>
+    <string name="callFailed_too_many_calls" msgid="3023051919216926990">"你目前有兩場正在進行的通話，因此無法撥打電話。你必須掛斷其中一場通話或將通話合併成會議，才能再撥打電話。"</string>
+    <string name="supp_service_over_ut_precautions" msgid="2565837355815074278">"如要使用<xliff:g id="SUPP_SERVICE">%s</xliff:g>，請確認行動數據功能已開啟。你可以前往行動網路設定進行變更。"</string>
+    <string name="supp_service_over_ut_precautions_roaming" msgid="1597142936802114092">"如要使用<xliff:g id="SUPP_SERVICE">%s</xliff:g>，請確認行動數據功能和漫遊服務已開啟。你可以前往行動網路設定進行變更。"</string>
+    <string name="supp_service_over_ut_precautions_dual_sim" msgid="1682814794340311300">"如要使用<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>，請確認 SIM 卡 <xliff:g id="SIM_NUMBER">%2$d</xliff:g> 的行動數據功能已開啟。你可以前往行動網路設定進行變更。"</string>
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim" msgid="8062345092837168385">"如要使用<xliff:g id="SUPP_SERVICE">%1$s</xliff:g>，請確認 SIM 卡 <xliff:g id="SIM_NUMBER">%2$d</xliff:g> 的行動數據功能和漫遊服務已開啟。你可以前往行動網路設定進行變更。"</string>
+    <string name="supp_service_over_ut_precautions_dialog_dismiss" msgid="5061044213859557398">"關閉"</string>
 </resources>

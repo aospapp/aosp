@@ -30,38 +30,38 @@
         <activity
             android:label="@string/accessibility_end_to_end_test_activity"
             android:name=".activities.AccessibilityEndToEndActivity"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="locked"/>
 
         <activity
             android:label="@string/accessibility_query_window_test_activity"
             android:name=".activities.AccessibilityWindowQueryActivity"
             android:supportsPictureInPicture="true"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="locked"/>
 
         <activity
             android:label="@string/accessibility_view_tree_reporting_test_activity"
             android:name=".activities.AccessibilityViewTreeReportingActivity"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="locked"/>
 
         <activity
             android:label="@string/accessibility_focus_and_input_focus_sync_test_activity"
             android:name=".activities.AccessibilityFocusAndInputFocusSyncActivity"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="locked"/>
 
         <activity
             android:label="@string/accessibility_text_traversal_test_activity"
             android:name=".activities.AccessibilityTextTraversalActivity"
-            android:screenOrientation="portrait"/>
+            android:screenOrientation="locked"/>
 
         <activity android:label="Activity for testing window accessibility reporting"
              android:name=".activities.AccessibilityWindowReportingActivity"
              android:supportsPictureInPicture="true"
-             android:screenOrientation="portrait"/>
+             android:screenOrientation="locked"/>
 
         <activity
             android:label="Full screen activity for gesture dispatch testing"
             android:name=".AccessibilityGestureDispatchTest$GestureDispatchActivity"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="locked" />
 
         <activity
             android:label="@string/accessibility_soft_keyboard_modes_activity"
@@ -81,7 +81,7 @@
         </service>
 
         <service
-                android:name=".AccessibilityGestureDetectorTest$StubService"
+                android:name=".GestureDetectionStubAccessibilityService"
                 android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -93,7 +93,7 @@
         </service>
 
         <service
-            android:name=".InstrumentedAccessibilityService"
+            android:name="android.accessibility.cts.common.InstrumentedAccessibilityService"
             android:label="@string/title_soft_keyboard_modes_accessibility_service"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
@@ -147,7 +147,7 @@
     </application>
 
     <instrumentation
-        android:name="android.support.test.runner.AndroidJUnitRunner"
+        android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="android.accessibilityservice.cts"
         android:label="Tests for the accessibility APIs.">
         <meta-data

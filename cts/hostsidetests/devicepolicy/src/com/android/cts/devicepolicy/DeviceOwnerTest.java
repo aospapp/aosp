@@ -16,14 +16,24 @@
 
 package com.android.cts.devicepolicy;
 
+import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
+
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
 import com.android.tradefed.device.DeviceNotAvailableException;
 
+import com.google.common.io.ByteStreams;
+
 import java.io.File;
-import java.util.Arrays;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import android.stats.devicepolicy.EventId;
 
 /**
  * Set of tests for Device Owner use cases.
@@ -60,17 +70,41 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     private static final int SECURITY_EVENTS_BATCH_SIZE = 100;
 
     private static final String ARG_NETWORK_LOGGING_BATCH_COUNT = "batchCount";
+    private static final String TEST_UPDATE_LOCATION = "/data/local/tmp/cts/deviceowner";
 
-    private final List<String> NO_SETUP_WIZARD_PROVISIONING_MODE =
-            Arrays.asList("DISABLED", "EMULATOR");
+    private static final String LAUNCHER_TESTS_NO_LAUNCHABLE_ACTIVITY_APK =
+            "CtsNoLaunchableActivityApp.apk";
+
+    /**
+     * Copied from {@link android.app.admin.DevicePolicyManager
+     * .InstallSystemUpdateCallback#UPDATE_ERROR_UPDATE_FILE_INVALID}
+     */
+    private static final int UPDATE_ERROR_UPDATE_FILE_INVALID = 3;
+
+    /**
+     * Copied from {@link android.app.admin.DevicePolicyManager
+     * .InstallSystemUpdateCallback#UPDATE_ERROR_UNKNOWN}
+     */
+    private static final int UPDATE_ERROR_UNKNOWN = 1;
+
+    private static final int TYPE_NONE = 0;
+
+    /**
+     * Copied from {@link android.app.admin.SystemUpdatePolicy}
+     */
+    private static final int TYPE_INSTALL_AUTOMATIC = 1;
+    private static final int TYPE_INSTALL_WINDOWED = 2;
+    private static final int TYPE_POSTPONE = 3;
+
+    /**
+     * Copied from {@link android.provider.Settings}
+     */
+    private static final String SETTINGS_SECURE = "secure";
+    private static final String LOCATION_MODE = "location_mode";
+    private static final String LOCATION_MODE_HIGH_ACCURACY = "3";
 
     /** CreateAndManageUser is available and an additional user can be created. */
     private boolean mHasCreateAndManageUserFeature;
-
-    /**
-     * Whether Setup Wizard is disabled.
-     */
-    private boolean mSetupWizardDisabled;
 
     @Override
     protected void setUp() throws Exception {
@@ -83,11 +117,11 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
                 getDevice().uninstallPackage(DEVICE_OWNER_PKG);
                 fail("Failed to set device owner");
             }
+
+            getDevice().executeShellCommand(" mkdir " + TEST_UPDATE_LOCATION);
         }
         mHasCreateAndManageUserFeature = mHasFeature && canCreateAdditionalUsers(1)
                 && hasDeviceFeature("android.software.managed_users");
-        mSetupWizardDisabled = NO_SETUP_WIZARD_PROVISIONING_MODE.contains(
-                getDevice().getProperty("ro.setupwizard.mode"));
     }
 
     @Override
@@ -98,6 +132,7 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
             getDevice().uninstallPackage(DEVICE_OWNER_PKG);
             switchUser(USER_SYSTEM);
             removeTestUsers();
+            getDevice().executeShellCommand(" rm -r " + TEST_UPDATE_LOCATION);
         }
 
         super.tearDown();
@@ -108,14 +143,27 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     }
 
     public void testLockScreenInfo() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
         executeDeviceOwnerTest("LockScreenInfoTest");
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".LockScreenInfoTest", "testSetAndGetLockInfo");
+        }, new DevicePolicyEventWrapper.Builder(EventId.SET_DEVICE_OWNER_LOCK_SCREEN_INFO_VALUE)
+                .setAdminPackageName(DEVICE_OWNER_PKG)
+                .build());
     }
 
     public void testWifi() throws Exception {
-        if (!hasDeviceFeature("android.hardware.wifi")) {
+        if (!mHasFeature || !hasDeviceFeature("android.hardware.wifi")) {
             return;
         }
         executeDeviceOwnerTest("WifiTest");
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".WifiTest", "testGetWifiMacAddress");
+        }, new DevicePolicyEventWrapper.Builder(EventId.GET_WIFI_MAC_ADDRESS_VALUE)
+                .setAdminPackageName(DEVICE_OWNER_PKG)
+                .build());
     }
 
     public void testRemoteBugreportWithTwoUsers() throws Exception {
@@ -341,19 +389,10 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     }
 
     public void testCreateAndManageUser_SkipSetupWizard() throws Exception {
-        if (mSetupWizardDisabled || !mHasCreateAndManageUserFeature) {
-            return;
-        }
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_SkipSetupWizard");
-    }
-
-    public void testCreateAndManageUser_DontSkipSetupWizard() throws Exception {
-        if (mSetupWizardDisabled || !mHasCreateAndManageUserFeature) {
-            return;
-        }
-        executeDeviceTestMethod(".CreateAndManageUserTest",
-                "testCreateAndManageUser_DontSkipSetupWizard");
+        if (mHasCreateAndManageUserFeature) {
+            executeDeviceTestMethod(".CreateAndManageUserTest",
+                    "testCreateAndManageUser_SkipSetupWizard");
+       }
     }
 
     public void testCreateAndManageUser_AddRestrictionSet() throws Exception {
@@ -408,34 +447,60 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         if (!mHasFeature) {
             return;
         }
+        // Backup stay awake setting because testGenerateLogs() will turn it off.
+        final String stayAwake = getDevice().getSetting("global", "stay_on_while_plugged_in");
+        try {
+            // Turn logging on.
+            executeDeviceTestMethod(".SecurityLoggingTest", "testEnablingSecurityLogging");
+            // Reboot to ensure ro.device_owner is set to true in logd and logging is on.
+            rebootAndWaitUntilReady();
 
-        // Turn logging on.
-        executeDeviceTestMethod(".SecurityLoggingTest", "testEnablingSecurityLogging");
-        // Reboot to ensure ro.device_owner is set to true in logd and logging is on.
-        rebootAndWaitUntilReady();
-
-        // Generate various types of events on device side and check that they are logged.
-        executeDeviceTestMethod(".SecurityLoggingTest", "testGenerateLogs");
-        getDevice().executeShellCommand("dpm force-security-logs");
-        executeDeviceTestMethod(".SecurityLoggingTest", "testVerifyGeneratedLogs");
-
-        // Reboot the device, so the security event ids are reset.
-        rebootAndWaitUntilReady();
-
-        // Verify event ids are consistent across a consecutive batch.
-        for (int batchNumber = 0; batchNumber < 3; batchNumber++) {
-            generateDummySecurityLogs();
+            // Generate various types of events on device side and check that they are logged.
+            executeDeviceTestMethod(".SecurityLoggingTest", "testGenerateLogs");
             getDevice().executeShellCommand("dpm force-security-logs");
-            executeDeviceTestMethod(".SecurityLoggingTest", "testVerifyLogIds",
-                    Collections.singletonMap(ARG_SECURITY_LOGGING_BATCH_NUMBER,
-                            Integer.toString(batchNumber)));
-        }
+            executeDeviceTestMethod(".SecurityLoggingTest", "testVerifyGeneratedLogs");
 
-        // Immediately attempting to fetch events again should fail.
-        executeDeviceTestMethod(".SecurityLoggingTest",
-                "testSecurityLoggingRetrievalRateLimited");
-        // Turn logging off.
-        executeDeviceTestMethod(".SecurityLoggingTest", "testDisablingSecurityLogging");
+            // Reboot the device, so the security event ids are reset.
+            rebootAndWaitUntilReady();
+
+            // Verify event ids are consistent across a consecutive batch.
+            for (int batchNumber = 0; batchNumber < 3; batchNumber++) {
+                generateDummySecurityLogs();
+                getDevice().executeShellCommand("dpm force-security-logs");
+                executeDeviceTestMethod(".SecurityLoggingTest", "testVerifyLogIds",
+                        Collections.singletonMap(ARG_SECURITY_LOGGING_BATCH_NUMBER,
+                                Integer.toString(batchNumber)));
+            }
+
+            // Immediately attempting to fetch events again should fail.
+            executeDeviceTestMethod(".SecurityLoggingTest",
+                    "testSecurityLoggingRetrievalRateLimited");
+            // Turn logging off.
+            executeDeviceTestMethod(".SecurityLoggingTest", "testDisablingSecurityLogging");
+        } finally {
+            // Restore stay awake setting.
+            if (stayAwake != null) {
+                getDevice().setSetting("global", "stay_on_while_plugged_in", stayAwake);
+            }
+        }
+    }
+
+    public void testSecurityLoggingEnabledLogged() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".SecurityLoggingTest", "testEnablingSecurityLogging");
+            executeDeviceTestMethod(".SecurityLoggingTest", "testDisablingSecurityLogging");
+        }, new DevicePolicyEventWrapper.Builder(EventId.SET_SECURITY_LOGGING_ENABLED_VALUE)
+                .setAdminPackageName(DEVICE_OWNER_PKG)
+                .setBoolean(true)
+                .build(),
+            new DevicePolicyEventWrapper.Builder(EventId.SET_SECURITY_LOGGING_ENABLED_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setBoolean(false)
+                    .build());
+
     }
 
     private void generateDummySecurityLogs() throws DeviceNotAvailableException {
@@ -487,6 +552,8 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
                 Collections.singletonMap(ARG_NETWORK_LOGGING_BATCH_COUNT, Integer.toString(1)));
         // Reboot the device, so the security event IDs are re-set.
         rebootAndWaitUntilReady();
+        // Make sure BOOT_COMPLETED is completed before proceeding.
+        waitForBroadcastIdle();
         // First batch after reboot: retrieve and verify the events.
         executeDeviceTestMethod(".NetworkLoggingTest", "testNetworkLoggingAndRetrieval",
                 Collections.singletonMap(ARG_NETWORK_LOGGING_BATCH_COUNT, Integer.toString(1)));
@@ -508,6 +575,14 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         try {
             installAppAsUser(INTENT_RECEIVER_APK, mPrimaryUserId);
             executeDeviceOwnerTest("LockTaskTest");
+            assertMetricsLogged(getDevice(), () -> {
+                runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".LockTaskTest", "testStartLockTask",
+                        mPrimaryUserId);
+            }, new DevicePolicyEventWrapper.Builder(EventId.SET_LOCKTASK_MODE_ENABLED_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setBoolean(true)
+                    .setStrings(DEVICE_OWNER_PKG)
+                    .build());
         } catch (AssertionError ex) {
             // STOPSHIP(b/32771855), remove this once we fixed the bug.
             executeShellCommand("dumpsys activity activities");
@@ -530,11 +605,29 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
                     mPrimaryUserId);
 
             // Reboot while in kiosk mode and then unlock the device
-            getDevice().reboot();
+            rebootAndWaitUntilReady();
 
             // Check that kiosk mode is working and can't be interrupted
             runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".LockTaskHostDrivenTest",
                     "testLockTaskIsActiveAndCantBeInterrupted", mPrimaryUserId);
+        } finally {
+            runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".LockTaskHostDrivenTest",
+                    "clearDefaultHomeIntentReceiver", mPrimaryUserId);
+        }
+    }
+
+    public void testLockTaskAfterReboot_tryOpeningSettings_deviceOwnerUser() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        try {
+            // Just start kiosk mode
+            runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".LockTaskHostDrivenTest", "startLockTask",
+                    mPrimaryUserId);
+
+            // Reboot while in kiosk mode and then unlock the device
+            rebootAndWaitUntilReady();
 
             // Try to open settings via adb
             executeShellCommand("am start -a android.settings.SETTINGS");
@@ -589,14 +682,47 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         executeDeviceOwnerTest("SystemUpdatePolicyTest");
     }
 
+    public void testSetSystemUpdatePolicyLogged() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".SystemUpdatePolicyTest", "testSetAutomaticInstallPolicy");
+        }, new DevicePolicyEventWrapper.Builder(EventId.SET_SYSTEM_UPDATE_POLICY_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setInt(TYPE_INSTALL_AUTOMATIC)
+                    .build());
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".SystemUpdatePolicyTest", "testSetWindowedInstallPolicy");
+        }, new DevicePolicyEventWrapper.Builder(EventId.SET_SYSTEM_UPDATE_POLICY_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setInt(TYPE_INSTALL_WINDOWED)
+                    .build());
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".SystemUpdatePolicyTest", "testSetPostponeInstallPolicy");
+        }, new DevicePolicyEventWrapper.Builder(EventId.SET_SYSTEM_UPDATE_POLICY_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setInt(TYPE_POSTPONE)
+                    .build());
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".SystemUpdatePolicyTest", "testSetEmptytInstallPolicy");
+        }, new DevicePolicyEventWrapper.Builder(EventId.SET_SYSTEM_UPDATE_POLICY_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setInt(TYPE_NONE)
+                    .build());
+    }
+
     public void testWifiConfigLockdown() throws Exception {
         final boolean hasWifi = hasDeviceFeature("android.hardware.wifi");
         if (hasWifi && mHasFeature) {
+            String oldLocationSetting = getDevice().getSetting(SETTINGS_SECURE, LOCATION_MODE);
             try {
                 installAppAsUser(WIFI_CONFIG_CREATOR_APK, mPrimaryUserId);
+                getDevice().setSetting(SETTINGS_SECURE, LOCATION_MODE, LOCATION_MODE_HIGH_ACCURACY);
                 executeDeviceOwnerTest("WifiConfigLockdownTest");
             } finally {
                 getDevice().uninstallPackage(WIFI_CONFIG_CREATOR_PKG);
+                getDevice().setSetting(SETTINGS_SECURE, LOCATION_MODE, oldLocationSetting);
             }
         }
     }
@@ -678,8 +804,32 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
         if (!mHasFeature) {
             return;
         }
-
         executeDeviceOwnerTest("AdminActionBookkeepingTest");
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".AdminActionBookkeepingTest", "testRetrieveSecurityLogs");
+        }, new DevicePolicyEventWrapper.Builder(EventId.RETRIEVE_SECURITY_LOGS_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .build(),
+            new DevicePolicyEventWrapper.Builder(EventId.RETRIEVE_PRE_REBOOT_SECURITY_LOGS_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .build());
+
+        // Requesting a bug report (in AdminActionBookkeepingTest#testRequestBugreport) leaves a
+        // state where future bug report requests will fail
+        // TODO(b/130210665): replace this with use of NotificationListenerService to dismiss the
+        // bug report request
+        rebootAndWaitUntilReady();
+
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".AdminActionBookkeepingTest", "testRequestBugreport");
+        }, new DevicePolicyEventWrapper.Builder(EventId.REQUEST_BUGREPORT_VALUE)
+                .setAdminPackageName(DEVICE_OWNER_PKG)
+                .build());
+        // Requesting a bug report (in AdminActionBookkeepingTest#testRequestBugreport) leaves a
+        // state where future bug report requests will fail
+        // TODO(b/130210665): replace this with use of NotificationListenerService to dismiss the
+        // bug report request
+        rebootAndWaitUntilReady();
     }
 
     public void testBluetoothRestriction() throws Exception {
@@ -735,6 +885,29 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
                 "testEnablingAndDisablingBackupService");
     }
 
+    public void testDeviceOwnerCanGetDeviceIdentifiers() throws Exception {
+        // The Device Owner should have access to all device identifiers.
+        if (!mHasFeature) {
+            return;
+        }
+        executeDeviceTestMethod(".DeviceIdentifiersTest",
+                "testDeviceOwnerCanGetDeviceIdentifiersWithPermission");
+    }
+
+    public void testDeviceOwnerCannotGetDeviceIdentifiersWithoutPermission() throws Exception {
+        // The Device Owner must have the READ_PHONE_STATE permission to get access to the device
+        // identifiers.
+        if (!mHasFeature) {
+            return;
+        }
+        // Revoke the READ_PHONE_STATE permission to ensure the device owner cannot access device
+        // identifiers without consent.
+        getDevice().executeShellCommand(
+                "pm revoke " + DEVICE_OWNER_PKG + " android.permission.READ_PHONE_STATE");
+        executeDeviceTestMethod(".DeviceIdentifiersTest",
+                "testDeviceOwnerCannotGetDeviceIdentifiersWithoutPermission");
+    }
+
     public void testPackageInstallCache() throws Exception {
         if (!mHasFeature) {
             return;
@@ -749,16 +922,28 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
             runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".PackageInstallTest",
                     "testPackageInstall", mPrimaryUserId);
 
-            runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".PackageInstallTest",
-                    "testKeepPackageCache", mPrimaryUserId);
+            assertMetricsLogged(getDevice(), () -> {
+                runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".PackageInstallTest",
+                        "testKeepPackageCache", mPrimaryUserId);
+            }, new DevicePolicyEventWrapper.Builder(EventId.SET_KEEP_UNINSTALLED_PACKAGES_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setBoolean(false)
+                    .setStrings(TEST_APP_PKG)
+                    .build());
 
             // Remove the package in primary user
             runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".PackageInstallTest",
                     "testPackageUninstall", mPrimaryUserId);
 
-            // Should be able to enable the cached package in primary user
-            runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".PackageInstallTest",
-                    "testInstallExistingPackage", mPrimaryUserId);
+            assertMetricsLogged(getDevice(), () -> {
+                // Should be able to enable the cached package in primary user
+                runDeviceTestsAsUser(DEVICE_OWNER_PKG, ".PackageInstallTest",
+                        "testInstallExistingPackage", mPrimaryUserId);
+            }, new DevicePolicyEventWrapper.Builder(EventId.INSTALL_EXISTING_PACKAGE_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setBoolean(false)
+                    .setStrings(TEST_APP_PKG)
+                    .build());
         } finally {
             String command = "rm " + TEST_APP_LOCATION + apk.getName();
             getDevice().executeShellCommand(command);
@@ -829,10 +1014,117 @@ public class DeviceOwnerTest extends BaseDevicePolicyTest {
     }
 
     public void testOverrideApn() throws Exception {
-        if (!mHasFeature) {
+        if (!mHasFeature || !hasDeviceFeature("android.hardware.telephony")) {
             return;
         }
         executeDeviceOwnerTest("OverrideApnTest");
+    }
+
+    public void testPrivateDnsPolicy() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        executeDeviceOwnerTest("PrivateDnsPolicyTest");
+    }
+
+    public void testInstallUpdate() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        pushUpdateFileToDevice("notZip.zi");
+        pushUpdateFileToDevice("empty.zip");
+        pushUpdateFileToDevice("wrongPayload.zip");
+        pushUpdateFileToDevice("wrongHash.zip");
+        pushUpdateFileToDevice("wrongSize.zip");
+        executeDeviceOwnerTest("InstallUpdateTest");
+    }
+
+    public void testInstallUpdateLogged() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        pushUpdateFileToDevice("wrongHash.zip");
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".InstallUpdateTest", "testInstallUpdate_failWrongHash");
+        }, new DevicePolicyEventWrapper.Builder(EventId.INSTALL_SYSTEM_UPDATE_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setBoolean(isDeviceAb())
+                    .build(),
+            new DevicePolicyEventWrapper.Builder(EventId.INSTALL_SYSTEM_UPDATE_ERROR_VALUE)
+                    .setInt(isDeviceAb()
+                            ? UPDATE_ERROR_UPDATE_FILE_INVALID
+                            : UPDATE_ERROR_UNKNOWN)
+                    .build());
+    }
+
+    private boolean isDeviceAb() throws DeviceNotAvailableException {
+        final String result = getDevice().executeShellCommand("getprop ro.build.ab_update").trim();
+        return "true".equalsIgnoreCase(result);
+    }
+
+    private void pushUpdateFileToDevice(String fileName)
+            throws IOException, DeviceNotAvailableException {
+        File file = File.createTempFile(
+                fileName.split("\\.")[0], "." + fileName.split("\\.")[1]);
+        try (OutputStream outputStream = new FileOutputStream(file)) {
+            InputStream inputStream = getClass().getResourceAsStream("/" + fileName);
+            ByteStreams.copy(inputStream, outputStream);
+        }
+
+        getDevice().pushFile(file, TEST_UPDATE_LOCATION + "/" + fileName);
+        file.delete();
+    }
+
+    public void testSetKeyguardDisabledLogged() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".DevicePolicyLoggingTest", "testSetKeyguardDisabledLogged");
+        }, new DevicePolicyEventWrapper.Builder(EventId.SET_KEYGUARD_DISABLED_VALUE)
+                .setAdminPackageName(DEVICE_OWNER_PKG)
+                .build());
+    }
+
+    public void testSetStatusBarDisabledLogged() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        assertMetricsLogged(getDevice(), () -> {
+            executeDeviceTestMethod(".DevicePolicyLoggingTest", "testSetStatusBarDisabledLogged");
+        }, new DevicePolicyEventWrapper.Builder(EventId.SET_STATUS_BAR_DISABLED_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setBoolean(true)
+                    .build(),
+            new DevicePolicyEventWrapper.Builder(EventId.SET_STATUS_BAR_DISABLED_VALUE)
+                    .setAdminPackageName(DEVICE_OWNER_PKG)
+                    .setBoolean(true)
+                    .build());
+    }
+
+    public void testNoHiddenActivityFoundTest() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+        try {
+            // Install app to primary user
+            installAppAsUser(BaseLauncherAppsTest.LAUNCHER_TESTS_APK, mPrimaryUserId);
+            installAppAsUser(BaseLauncherAppsTest.LAUNCHER_TESTS_SUPPORT_APK, mPrimaryUserId);
+            installAppAsUser(LAUNCHER_TESTS_NO_LAUNCHABLE_ACTIVITY_APK, mPrimaryUserId);
+
+            // Run test to check if launcher api shows hidden app
+            String mSerialNumber = Integer.toString(getUserSerialNumber(USER_SYSTEM));
+            runDeviceTestsAsUser(BaseLauncherAppsTest.LAUNCHER_TESTS_PKG,
+                    BaseLauncherAppsTest.LAUNCHER_TESTS_CLASS,
+                    "testDoPoNoTestAppInjectedActivityFound",
+                    mPrimaryUserId, Collections.singletonMap(BaseLauncherAppsTest.PARAM_TEST_USER,
+                            mSerialNumber));
+        } finally {
+            getDevice().uninstallPackage(LAUNCHER_TESTS_NO_LAUNCHABLE_ACTIVITY_APK);
+            getDevice().uninstallPackage(BaseLauncherAppsTest.LAUNCHER_TESTS_SUPPORT_APK);
+            getDevice().uninstallPackage(BaseLauncherAppsTest.LAUNCHER_TESTS_APK);
+        }
     }
 
     private void executeDeviceOwnerTest(String testClassName) throws Exception {

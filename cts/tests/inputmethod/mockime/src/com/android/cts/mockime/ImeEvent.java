@@ -18,9 +18,12 @@ package com.android.cts.mockime;
 
 import android.inputmethodservice.AbstractInputMethodService;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Parcelable;
+import android.view.View;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import android.view.View;
 
 /**
  * An immutable object that stores event happened in the {@link MockIme}.
@@ -29,13 +32,26 @@ public final class ImeEvent {
 
     private enum ReturnType {
         Null,
+        Unavailable,
         KnownUnsupportedType,
         Boolean,
+        Integer,
+        String,
+        CharSequence,
+        Parcelable,
     }
+
+    /**
+     * A special placeholder object that represents that return value information is not available.
+     */
+    static final Object RETURN_VALUE_UNAVAILABLE = new Object();
 
     private static ReturnType getReturnTypeFromObject(@Nullable Object object) {
         if (object == null) {
             return ReturnType.Null;
+        }
+        if (object == RETURN_VALUE_UNAVAILABLE) {
+            return ReturnType.Unavailable;
         }
         if (object instanceof AbstractInputMethodService.AbstractInputMethodImpl) {
             return ReturnType.KnownUnsupportedType;
@@ -43,8 +59,23 @@ public final class ImeEvent {
         if (object instanceof View) {
             return ReturnType.KnownUnsupportedType;
         }
+        if (object instanceof Handler) {
+            return ReturnType.KnownUnsupportedType;
+        }
         if (object instanceof Boolean) {
             return ReturnType.Boolean;
+        }
+        if (object instanceof Integer) {
+            return ReturnType.Integer;
+        }
+        if (object instanceof String) {
+            return ReturnType.String;
+        }
+        if (object instanceof CharSequence) {
+            return ReturnType.CharSequence;
+        }
+        if (object instanceof Parcelable) {
+            return ReturnType.Parcelable;
         }
         throw new UnsupportedOperationException("Unsupported return type=" + object);
     }
@@ -97,10 +128,23 @@ public final class ImeEvent {
         bundle.putString("mReturnType", mReturnType.name());
         switch (mReturnType) {
             case Null:
+            case Unavailable:
             case KnownUnsupportedType:
                 break;
             case Boolean:
                 bundle.putBoolean("mReturnValue", getReturnBooleanValue());
+                break;
+            case Integer:
+                bundle.putInt("mReturnValue", getReturnIntegerValue());
+                break;
+            case String:
+                bundle.putString("mReturnValue", getReturnStringValue());
+                break;
+            case CharSequence:
+                bundle.putCharSequence("mReturnValue", getReturnCharSequenceValue());
+                break;
+            case Parcelable:
+                bundle.putParcelable("mReturnValue", getReturnParcelableValue());
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported type=" + mReturnType);
@@ -126,11 +170,24 @@ public final class ImeEvent {
         final ReturnType returnType = ReturnType.valueOf(bundle.getString("mReturnType"));
         switch (returnType) {
             case Null:
+            case Unavailable:
             case KnownUnsupportedType:
                 result = null;
                 break;
             case Boolean:
                 result = bundle.getBoolean("mReturnValue");
+                break;
+            case Integer:
+                result = bundle.getInt("mReturnValue");
+                break;
+            case String:
+                result = bundle.getString("mReturnValue");
+                break;
+            case CharSequence:
+                result = bundle.getCharSequence("mReturnValue");
+                break;
+            case Parcelable:
+                result = bundle.getParcelable("mReturnValue");
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported type=" + returnType);
@@ -256,6 +313,78 @@ public final class ImeEvent {
             throw new ClassCastException();
         }
         return (Boolean) mReturnValue;
+    }
+
+    /**
+     * @return result value of this event.
+     * @throws NullPointerException if the return value is {@code null}
+     * @throws ClassCastException if the return value is non-{@code null} object that is different
+     *                            from {@link Integer}
+     */
+    public int getReturnIntegerValue() {
+        if (mReturnType == ReturnType.Null) {
+            throw new NullPointerException();
+        }
+        if (mReturnType != ReturnType.Integer) {
+            throw new ClassCastException();
+        }
+        return (Integer) mReturnValue;
+    }
+
+    /**
+     * @return result value of this event.
+     * @throws NullPointerException if the return value is {@code null}
+     * @throws ClassCastException if the return value is non-{@code null} object that is different
+     *                            from {@link CharSequence}
+     */
+    public CharSequence getReturnCharSequenceValue() {
+        if (mReturnType == ReturnType.Null) {
+            throw new NullPointerException();
+        }
+        if (mReturnType != ReturnType.CharSequence) {
+            throw new ClassCastException();
+        }
+        return (CharSequence) mReturnValue;
+    }
+
+    /**
+     * @return result value of this event.
+     * @throws NullPointerException if the return value is {@code null}
+     * @throws ClassCastException if the return value is non-{@code null} object that is different
+     *                            from {@link String}
+     */
+    public String getReturnStringValue() {
+        if (mReturnType == ReturnType.Null) {
+            throw new NullPointerException();
+        }
+        if (mReturnType != ReturnType.String) {
+            throw new ClassCastException();
+        }
+        return (String) mReturnValue;
+    }
+
+    /**
+     * @return result value of this event.
+     * @throws NullPointerException if the return value is {@code null}
+     * @throws ClassCastException if the return value is non-{@code null} object that is different
+     *                            from {@link Parcelable}
+     */
+    public <T extends Parcelable> T getReturnParcelableValue() {
+        if (mReturnType == ReturnType.Null) {
+            throw new NullPointerException();
+        }
+        if (mReturnType != ReturnType.Parcelable) {
+            throw new ClassCastException();
+        }
+        return (T) mReturnValue;
+    }
+
+
+    /**
+     * @return {@code true} when the result value is {@code null}.
+     */
+    boolean isNullReturnValue() {
+        return mReturnType == ReturnType.Null;
     }
 
     /**

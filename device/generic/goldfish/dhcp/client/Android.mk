@@ -12,10 +12,9 @@ LOCAL_SRC_FILES := \
 	../common/socket.cpp \
 
 
-LOCAL_CPPFLAGS += -Werror
+LOCAL_CPPFLAGS += -Werror -Wno-error=implicit-fallthrough
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../common
 LOCAL_SHARED_LIBRARIES := libcutils liblog
-LOCAL_MODULE_TAGS := debug
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE := dhcpclient
 

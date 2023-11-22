@@ -53,6 +53,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.xmlpull.v1.XmlPullParser;
@@ -109,6 +110,7 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
 
     private BitstreamPackage mPackage = BitstreamPackage.FULL;
     private BitstreamPackage mPackageToRun = BitstreamPackage.STANDARD;
+    private boolean mEnforce = false;
 
     static class ConformanceEntry {
         final String mPath, mCodecName, mStatus;
@@ -177,6 +179,7 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
                 String format = parser.getText();
                 String[] kvPairs = format.split(",");
                 BitstreamPackage curPackage = BitstreamPackage.FULL;
+                boolean enforce = false;
                 for (String kvPair : kvPairs) {
                     String[] kv = kvPair.split("=");
                     if (MediaBitstreams.DYNAMIC_CONFIG_PACKAGE.equals(kv[0])) {
@@ -186,10 +189,12 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
                         } catch (Exception e) {
                             CLog.w(e);
                         }
+                    } else if (MediaBitstreams.DYNAMIC_CONFIG_ENFORCE.equals(kv[0])) {
+                        enforce = "true".equals(kv[1]);
                     }
                 }
                 if (curPackage.compareTo(packageToRun) <= 0) {
-                    entries.add(new Object[] {prefix, bitstream, curPackage, packageToRun});
+                    entries.add(new Object[] {prefix, bitstream, curPackage, packageToRun, enforce});
                 }
             }
             return entries;
@@ -201,10 +206,16 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
 
     public MediaBitstreamsTest(String prefix, String path, BitstreamPackage pkg, BitstreamPackage packageToRun
             ) {
+        this(prefix, path, pkg, packageToRun, false);
+    }
+
+    public MediaBitstreamsTest(String prefix, String path, BitstreamPackage pkg, BitstreamPackage packageToRun,
+            boolean enforce) {
         mPrefix = prefix;
         mPath = path;
         mPackage = pkg;
         mPackageToRun = packageToRun;
+        mEnforce = enforce;
     }
 
     @Override
@@ -464,7 +475,19 @@ public abstract class MediaBitstreamsTest implements IDeviceTest, IBuildReceiver
                 addConformanceEntry(curMethod, mPath, MediaBitstreams.K_UNAVAILABLE, e.toString());
             }
         }
-        // todo(robertshih): lookup conformance entry; pass/fail based on lookup result
+
+        if (mEnforce) {
+            if (!mResults.containsKey(mPath)) {
+                Assert.fail("no results captured for " + mPath);
+            }
+            List<ConformanceEntry> entries = mResults.get(mPath);
+            for (ConformanceEntry ce : entries) {
+                if (!"true".equals(ce.mStatus) && !"unsupported".equals(ce.mStatus)) {
+                    Assert.fail(ce.toString());
+                }
+            }
+        }
+
     }
 
     private void testBitstreamsConformance(String prefix)

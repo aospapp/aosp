@@ -28,11 +28,6 @@ import android.renderscript.ScriptIntrinsicHistogram;
 public class BitmapUtils {
     private static final String TAG = "BitmapUtils";
     private static final int COLOR_BIT_DEPTH = 256;
-
-    public static int A = 3;
-    public static int R = 0;
-    public static int G = 1;
-    public static int B = 2;
     public static int NUM_CHANNELS = 4;
 
     /**
@@ -57,14 +52,28 @@ public class BitmapUtils {
         return output;
     }
 
+    // Some stats output from comparing two Bitmap using calcDifferenceMetric
+    public static class BitmapCompareResult {
+        // difference between two bitmaps using average of per-pixel differences.
+        public double mDiff;
+        // If the LHS Bitmap has same RGB values for all pixels
+        public boolean mLhsFlat;
+        // If the RHS Bitmap has same RGB values for all pixels
+        public boolean mRhsFlat;
+        // The R/G/B average pixel value of LHS Bitmap
+        public double[] mLhsAverage = new double[3];
+        // The R/G/B average pixel value of RHS Bitmap
+        public double[] mRhsAverage = new double[3];
+    }
+
     /**
-     * Find the difference between two bitmaps using average of per-pixel differences.
+     * Compare two bitmaps and also return some statistics about the two Bitmap.
      *
      * @param a first {@link android.graphics.Bitmap}.
      * @param b second {@link android.graphics.Bitmap}.
-     * @return the difference.
+     * @return the results in a BitmapCompareResult
      */
-    public static double calcDifferenceMetric(Bitmap a, Bitmap b) {
+    public static BitmapCompareResult compareBitmap(Bitmap a, Bitmap b) {
         if (a.getWidth() != b.getWidth() || a.getHeight() != b.getHeight()) {
             throw new IllegalArgumentException("Bitmap dimensions for arguments do not match a=" +
                     a.getWidth() + "x" + a.getHeight() + ", b=" + b.getWidth() + "x" +
@@ -78,16 +87,68 @@ public class BitmapUtils {
         b.getPixels(bPixels, /*offset*/0, /*stride*/b.getWidth(), /*x*/0, /*y*/0, b.getWidth(),
                 b.getHeight());
         double diff = 0;
+        double[] aSum = new double[3];
+        double[] bSum = new double[3];
+        int[] aFirstPix = new int[3];
+        int[] bFirstPix = new int[3];
+        aFirstPix[0] = Color.red(aPixels[0]);
+        aFirstPix[1] = Color.green(aPixels[1]);
+        aFirstPix[2] = Color.blue(aPixels[2]);
+        bFirstPix[0] = Color.red(bPixels[0]);
+        bFirstPix[1] = Color.green(bPixels[1]);
+        bFirstPix[2] = Color.blue(bPixels[2]);
+        boolean isAFlat = true, isBFlat = true;
+
         for (int i = 0; i < aPixels.length; i++) {
             int aPix = aPixels[i];
             int bPix = bPixels[i];
+            int aR = Color.red(aPix);
+            int aG = Color.green(aPix);
+            int aB = Color.blue(aPix);
+            int bR = Color.red(bPix);
+            int bG = Color.green(bPix);
+            int bB = Color.blue(bPix);
+            aSum[0] += aR;
+            aSum[1] += aG;
+            aSum[2] += aB;
+            bSum[0] += bR;
+            bSum[1] += bG;
+            bSum[2] += bB;
 
-            diff += Math.abs(Color.red(aPix) - Color.red(bPix)); // red
-            diff += Math.abs(Color.green(aPix) - Color.green(bPix)); // green
-            diff += Math.abs(Color.blue(aPix) - Color.blue(bPix)); // blue
+            if (isAFlat && (aR != aFirstPix[0] || aG != aFirstPix[1] || aB != aFirstPix[2])) {
+                isAFlat = false;
+            }
+
+            if (isBFlat && (bR != bFirstPix[0] || bG != bFirstPix[1] || bB != bFirstPix[2])) {
+                isBFlat = false;
+            }
+
+            diff += Math.abs(aR - bR); // red
+            diff += Math.abs(aG - bG); // green
+            diff += Math.abs(aB - bB); // blue
         }
         diff /= (aPixels.length * 3);
-        return diff;
+        BitmapCompareResult result = new BitmapCompareResult();
+        result.mDiff = diff;
+        result.mLhsFlat = isAFlat;
+        result.mRhsFlat = isBFlat;
+        for (int i = 0; i < 3; i++) {
+            result.mLhsAverage[i] = aSum[i] / aPixels.length;
+            result.mRhsAverage[i] = bSum[i] / bPixels.length;
+        }
+        return result;
+    }
+
+    /**
+     * Find the difference between two bitmaps using average of per-pixel differences.
+     *
+     * @param a first {@link android.graphics.Bitmap}.
+     * @param b second {@link android.graphics.Bitmap}.
+     * @return the difference.
+     */
+    public static double calcDifferenceMetric(Bitmap a, Bitmap b) {
+        BitmapCompareResult result = compareBitmap(a, b);
+        return result.mDiff;
     }
 
 }

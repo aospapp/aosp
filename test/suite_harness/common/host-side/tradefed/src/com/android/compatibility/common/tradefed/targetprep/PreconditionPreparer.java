@@ -16,7 +16,6 @@
 
 package com.android.compatibility.common.tradefed.targetprep;
 
-import com.android.compatibility.common.tradefed.testtype.CompatibilityTest;
 import com.android.ddmlib.Log;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
@@ -26,6 +25,7 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.targetprep.BaseTargetPreparer;
 import com.android.tradefed.targetprep.BuildError;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TargetSetupError;
@@ -34,19 +34,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * An {@link ITargetPreparer} that performs checks and/or tasks to ensure the
- * the device is ready to run the test suite.
+ * An {@link ITargetPreparer} that performs checks and/or tasks to ensure the the device is ready to
+ * run the test suite.
  */
-public abstract class PreconditionPreparer implements ITargetPreparer {
+public abstract class PreconditionPreparer extends BaseTargetPreparer {
 
-    @Option(name = CompatibilityTest.SKIP_PRECONDITIONS_OPTION,
-            shortName = 'o',
-            description = "Whether preconditions should be skipped")
+    public static final String SKIP_PRECONDITIONS_OPTION = "skip-preconditions";
+    public static final String PRECONDITION_ARG_OPTION = "precondition-arg";
+
+    @Option(
+        name = SKIP_PRECONDITIONS_OPTION,
+        shortName = 'o',
+        description = "Whether preconditions should be skipped"
+    )
     private boolean mSkipPreconditions = false;
 
-    @Option(name = CompatibilityTest.PRECONDITION_ARG_OPTION,
-            description = "the arguments to pass to a precondition. The expected format is"
-                    + "\"<arg-name>:<arg-value>\"")
+    @Option(
+        name = PRECONDITION_ARG_OPTION,
+        description =
+                "the arguments to pass to a precondition. The expected format is"
+                        + "\"<arg-name>:<arg-value>\""
+    )
     private List<String> mPreconditionArgs = new ArrayList<>();
 
     protected final String mLogTag = getClass().getSimpleName();
@@ -54,16 +62,17 @@ public abstract class PreconditionPreparer implements ITargetPreparer {
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo) throws TargetSetupError,
             BuildError, DeviceNotAvailableException {
-        if (!mSkipPreconditions) {
-            for (String preconditionArg : mPreconditionArgs) {
-                String[] parts = preconditionArg.split(":");
-                String argName = parts[0];
-                // If arg-value is not supplied, set to "true"
-                String argValue = (parts.length > 1) ? parts[1] : Boolean.toString(true);
-                setOption(argName, argValue);
-            }
-            run(device, buildInfo);
+        if (mSkipPreconditions) {
+            return;
         }
+        for (String preconditionArg : mPreconditionArgs) {
+            String[] parts = preconditionArg.split(":");
+            String argName = parts[0];
+            // If arg-value is not supplied, set to "true"
+            String argValue = (parts.length > 1) ? parts[1] : Boolean.toString(true);
+            setOption(argName, argValue);
+        }
+        run(device, buildInfo);
     }
 
     private void setOption(String option, String value) {
@@ -76,37 +85,54 @@ public abstract class PreconditionPreparer implements ITargetPreparer {
         }
     }
 
+    /**
+     * All PreconditionPreparer implementations share a base setup and can implement their own
+     * specific run logic.
+     */
     public abstract void run(ITestDevice device, IBuildInfo buildInfo)
             throws TargetSetupError, BuildError, DeviceNotAvailableException;
 
+    /** @deprecated Use {@link CLog} instead. */
+    @Deprecated
     protected void logInfo(String info) {
         LogUtil.printLog(Log.LogLevel.INFO, mLogTag, info);
     }
 
+    /** @deprecated Use {@link CLog} instead. */
+    @Deprecated
     protected void logInfo(String infoFormat, Object... args) {
         LogUtil.printLog(Log.LogLevel.INFO, mLogTag, String.format(infoFormat, args));
     }
 
+    /** @deprecated Use {@link CLog} instead. */
+    @Deprecated
     protected void logWarning(String warning) {
         LogUtil.printLog(Log.LogLevel.WARN, mLogTag, warning);
     }
 
+    /** @deprecated Use {@link CLog} instead. */
+    @Deprecated
     protected void logWarning(String warningFormat, Object... args) {
         LogUtil.printLog(Log.LogLevel.WARN, mLogTag, String.format(warningFormat, args));
     }
 
+    /** @deprecated Use {@link CLog} instead. */
+    @Deprecated
     protected void logError(String error) {
         LogUtil.printLog(Log.LogLevel.ERROR, mLogTag, error);
     }
 
+    /** @deprecated Use {@link CLog} instead. */
+    @Deprecated
     protected void logError(String errorFormat, Object... args) {
         LogUtil.printLog(Log.LogLevel.ERROR, mLogTag, String.format(errorFormat, args));
     }
 
+    /** @deprecated Use {@link CLog} instead. */
+    @Deprecated
     protected void logError(Throwable t) {
         if (t != null) {
             Log.e(mLogTag, t);
         }
     }
-
 }

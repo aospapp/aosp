@@ -39,7 +39,10 @@ import android.telephony.TelephonyManager;
 import android.util.ArraySet;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Toast;
 import com.android.contacts.common.compat.CallCompat;
+import com.android.dialer.CallConfiguration;
+import com.android.dialer.Mode;
 import com.android.dialer.blocking.FilteredNumberAsyncQueryHandler;
 import com.android.dialer.blocking.FilteredNumberAsyncQueryHandler.OnCheckBlockedListener;
 import com.android.dialer.blocking.FilteredNumberCompat;
@@ -49,6 +52,7 @@ import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.DialerExecutorComponent;
 import com.android.dialer.enrichedcall.EnrichedCallComponent;
 import com.android.dialer.location.GeoUtil;
+import com.android.dialer.logging.DialerImpression;
 import com.android.dialer.logging.InteractionEvent;
 import com.android.dialer.logging.Logger;
 import com.android.dialer.postcall.PostCall;
@@ -62,14 +66,19 @@ import com.android.incallui.call.CallList;
 import com.android.incallui.call.DialerCall;
 import com.android.incallui.call.ExternalCallList;
 import com.android.incallui.call.TelecomAdapter;
+import com.android.incallui.call.state.DialerCallState;
 import com.android.incallui.disconnectdialog.DisconnectMessage;
 import com.android.incallui.incalluilock.InCallUiLock;
 import com.android.incallui.latencyreport.LatencyReport;
 import com.android.incallui.legacyblocking.BlockedNumberContentObserver;
 import com.android.incallui.spam.SpamCallListListener;
+import com.android.incallui.speakeasy.SpeakEasyCallManager;
+import com.android.incallui.telecomeventui.InternationalCallOnWifiDialogActivity;
+import com.android.incallui.telecomeventui.InternationalCallOnWifiDialogFragment;
 import com.android.incallui.videosurface.bindings.VideoSurfaceBindings;
 import com.android.incallui.videosurface.protocol.VideoSurfaceTexture;
 import com.android.incallui.videotech.utils.VideoUtils;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -88,6 +97,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class InCallPresenter implements CallList.Listener, AudioModeProvider.AudioModeListener {
   private static final String PIXEL2017_SYSTEM_FEATURE =
       "com.google.android.feature.PIXEL_2017_EXPERIENCE";
+  private static final String CALL_CONFIGURATION_EXTRA = "call_configuration";
 
   private static final long BLOCK_QUERY_TIMEOUT_MS = 1000;
 
@@ -191,6 +201,7 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
   private InCallCameraManager inCallCameraManager;
   private FilteredNumberAsyncQueryHandler filteredQueryHandler;
   private CallList.Listener spamCallListListener;
+  private CallList.Listener activeCallsListener;
   /** Whether or not we are currently bound and waiting for Telecom to send us a new call. */
   private boolean boundAndWaitingForOutgoingCall;
   /** Determines if the InCall UI is in fullscreen mode or not. */
@@ -260,7 +271,7 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
   private VideoSurfaceTexture localVideoSurfaceTexture;
   private VideoSurfaceTexture remoteVideoSurfaceTexture;
 
-  private MotorolaInCallUiNotifier motorolaInCallUiNotifier;
+  private SpeakEasyCallManager speakEasyCallManager;
 
   /** Inaccessible constructor. Must use getRunningInstance() to get this singleton. */
   @VisibleForTesting
@@ -326,7 +337,8 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
       ExternalCallNotifier externalCallNotifier,
       ContactInfoCache contactInfoCache,
       ProximitySensor proximitySensor,
-      FilteredNumberAsyncQueryHandler filteredNumberQueryHandler) {
+      FilteredNumberAsyncQueryHandler filteredNumberQueryHandler,
+      @NonNull SpeakEasyCallManager speakEasyCallManager) {
     Trace.beginSection("InCallPresenter.setUp");
     if (serviceConnected) {
       LogUtil.i("InCallPresenter.setUp", "New service connection replacing existing one.");
@@ -353,8 +365,7 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
     addListener(this.proximitySensor);
 
     if (themeColorManager == null) {
-      themeColorManager =
-          new ThemeColorManager(new InCallUIMaterialColorMapUtils(this.context.getResources()));
+      themeColorManager = new ThemeColorManager(new InCallUIMaterialColorMapUtils(this.context));
     }
 
     this.callList = callList;
@@ -374,27 +385,88 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
         new SpamCallListListener(
             context, DialerExecutorComponent.get(context).dialerExecutorFactory());
     this.callList.addListener(spamCallListListener);
+    activeCallsListener = new ActiveCallsCallListListener(context);
+    this.callList.addListener(activeCallsListener);
 
     VideoPauseController.getInstance().setUp(this);
 
     filteredQueryHandler = filteredNumberQueryHandler;
+    this.speakEasyCallManager = speakEasyCallManager;
     this.context
         .getSystemService(TelephonyManager.class)
         .listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
 
     AudioModeProvider.getInstance().addListener(this);
 
-    if (motorolaInCallUiNotifier == null) {
-      // Add listener to notify Telephony process when the incoming call screen is started or
-      // finished. This is for hiding USSD dialog because the incoming call screen should have
-      // higher precedence over this dialog.
-      motorolaInCallUiNotifier = new MotorolaInCallUiNotifier(context);
-      addInCallUiListener(motorolaInCallUiNotifier);
-      addListener(motorolaInCallUiNotifier);
-    }
+    // Add listener to notify Telephony process when the incoming call screen is started or
+    // finished. This is for hiding USSD dialog because the incoming call screen should have
+    // higher precedence over this dialog.
+    MotorolaInCallUiNotifier motorolaInCallUiNotifier = new MotorolaInCallUiNotifier(context);
+    addInCallUiListener(motorolaInCallUiNotifier);
+    addListener(motorolaInCallUiNotifier);
 
     LogUtil.d("InCallPresenter.setUp", "Finished InCallPresenter.setUp");
     Trace.endSection();
+  }
+
+  /**
+   * Return whether we should start call in bubble mode and not show InCallActivity. The call mode
+   * should be set in CallConfiguration in EXTRA_OUTGOING_CALL_EXTRAS when starting a call intent.
+   */
+  public boolean shouldStartInBubbleMode() {
+    if (!ReturnToCallController.isEnabled(context)) {
+      return false;
+    }
+
+    // We only start in Bubble mode for outgoing call
+    DialerCall dialerCall = callList.getPendingOutgoingCall();
+    if (dialerCall == null) {
+      dialerCall = callList.getOutgoingCall();
+    }
+    // Outgoing call can be disconnected and reason will be shown in toast
+    if (dialerCall == null) {
+      dialerCall = callList.getDisconnectedCall();
+    }
+    if (dialerCall == null) {
+      return false;
+    }
+    if (dialerCall.isEmergencyCall()) {
+      return false;
+    }
+
+    Bundle extras = dialerCall.getIntentExtras();
+    boolean result = shouldStartInBubbleModeWithExtras(extras);
+    if (result) {
+      Logger.get(context)
+          .logCallImpression(
+              DialerImpression.Type.START_CALL_IN_BUBBLE_MODE,
+              dialerCall.getUniqueCallId(),
+              dialerCall.getTimeAddedMs());
+    }
+    return result;
+  }
+
+  private boolean shouldStartInBubbleModeWithExtras(Bundle outgoingExtras) {
+    if (!ReturnToCallController.isEnabled(context)) {
+      return false;
+    }
+
+    if (outgoingExtras == null) {
+      return false;
+    }
+    byte[] callConfigurationByteArray = outgoingExtras.getByteArray(CALL_CONFIGURATION_EXTRA);
+    if (callConfigurationByteArray == null) {
+      return false;
+    }
+    try {
+      CallConfiguration callConfiguration = CallConfiguration.parseFrom(callConfigurationByteArray);
+      LogUtil.i(
+          "InCallPresenter.shouldStartInBubbleMode",
+          "call mode: " + callConfiguration.getCallMode());
+      return callConfiguration.getCallMode() == Mode.BUBBLE;
+    } catch (InvalidProtocolBufferException e) {
+      return false;
+    }
   }
 
   /**
@@ -527,6 +599,10 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
       attemptCleanup();
     }
     Trace.endSection();
+  }
+
+  public SpeakEasyCallManager getSpeakEasyCallManager() {
+    return this.speakEasyCallManager;
   }
 
   public void setManageConferenceActivity(
@@ -693,23 +769,44 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
 
   @Override
   public void onWiFiToLteHandover(DialerCall call) {
-    if (inCallActivity != null) {
-      inCallActivity.showToastForWiFiToLteHandover(call);
+    if (call.hasShownWiFiToLteHandoverToast()) {
+      return;
     }
+
+    Toast.makeText(context, R.string.video_call_wifi_to_lte_handover_toast, Toast.LENGTH_LONG)
+        .show();
+    call.setHasShownWiFiToLteHandoverToast();
   }
 
   @Override
   public void onHandoverToWifiFailed(DialerCall call) {
     if (inCallActivity != null) {
       inCallActivity.showDialogOrToastForWifiHandoverFailure(call);
+    } else {
+      Toast.makeText(context, R.string.video_call_lte_to_wifi_failed_message, Toast.LENGTH_SHORT)
+          .show();
     }
   }
 
   @Override
   public void onInternationalCallOnWifi(@NonNull DialerCall call) {
     LogUtil.enterBlock("InCallPresenter.onInternationalCallOnWifi");
+
+    if (!InternationalCallOnWifiDialogFragment.shouldShow(context)) {
+      LogUtil.i(
+          "InCallPresenter.onInternationalCallOnWifi",
+          "InternationalCallOnWifiDialogFragment.shouldShow returned false");
+      return;
+    }
+
     if (inCallActivity != null) {
       inCallActivity.showDialogForInternationalCallOnWifi(call);
+    } else {
+      Intent intent = new Intent(context, InternationalCallOnWifiDialogActivity.class);
+      // Prevent showing MainActivity with InternationalCallOnWifiDialogActivity on above
+      intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+      intent.putExtra(InternationalCallOnWifiDialogActivity.EXTRA_CALL_ID, call.getId());
+      context.startActivity(intent);
     }
   }
 
@@ -765,6 +862,22 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
         "Phone switching state: " + oldState + " -> " + newState);
     inCallState = newState;
 
+    // Foreground call changed
+    DialerCall primary = null;
+    if (newState == InCallState.INCOMING) {
+      primary = callList.getIncomingCall();
+    } else if (newState == InCallState.PENDING_OUTGOING || newState == InCallState.OUTGOING) {
+      primary = callList.getOutgoingCall();
+      if (primary == null) {
+        primary = callList.getPendingOutgoingCall();
+      }
+    } else if (newState == InCallState.INCALL) {
+      primary = getCallToDisplay(callList, null, false);
+    }
+    if (primary != null) {
+      onForegroundCallChanged(primary);
+    }
+
     // notify listeners of new state
     for (InCallStateListener listener : listeners) {
       LogUtil.d(
@@ -778,7 +891,56 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
           callList.getActiveOrBackgroundCall() != null || callList.getOutgoingCall() != null;
       inCallActivity.dismissKeyguard(hasCall);
     }
+
     Trace.endSection();
+  }
+
+  /**
+   * Get the highest priority call to display. Goes through the calls and chooses which to return
+   * based on priority of which type of call to display to the user. Callers can use the "ignore"
+   * feature to get the second best call by passing a previously found primary call as ignore.
+   *
+   * @param ignore A call to ignore if found.
+   */
+  static DialerCall getCallToDisplay(
+      CallList callList, DialerCall ignore, boolean skipDisconnected) {
+    // Active calls come second.  An active call always gets precedent.
+    DialerCall retval = callList.getActiveCall();
+    if (retval != null && retval != ignore) {
+      return retval;
+    }
+
+    // Sometimes there is intemediate state that two calls are in active even one is about
+    // to be on hold.
+    retval = callList.getSecondActiveCall();
+    if (retval != null && retval != ignore) {
+      return retval;
+    }
+
+    // Disconnected calls get primary position if there are no active calls
+    // to let user know quickly what call has disconnected. Disconnected
+    // calls are very short lived.
+    if (!skipDisconnected) {
+      retval = callList.getDisconnectingCall();
+      if (retval != null && retval != ignore) {
+        return retval;
+      }
+      retval = callList.getDisconnectedCall();
+      if (retval != null && retval != ignore) {
+        return retval;
+      }
+    }
+
+    // Then we go to background call (calls on hold)
+    retval = callList.getBackgroundCall();
+    if (retval != null && retval != ignore) {
+      return retval;
+    }
+
+    // Lastly, we go to a second background call.
+    retval = callList.getSecondBackgroundCall();
+
+    return retval;
   }
 
   /** Called when there is a new incoming call. */
@@ -819,6 +981,20 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
 
     if (inCallActivity != null) {
       // Re-evaluate which fragment is being shown.
+      inCallActivity.onPrimaryCallStateChanged();
+    }
+  }
+
+  @Override
+  public void onUpgradeToRtt(DialerCall call, int rttRequestId) {
+    if (inCallActivity != null) {
+      inCallActivity.showDialogForRttRequest(call, rttRequestId);
+    }
+  }
+
+  @Override
+  public void onSpeakEasyStateChange() {
+    if (inCallActivity != null) {
       inCallActivity.onPrimaryCallStateChanged();
     }
   }
@@ -1044,14 +1220,6 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
         "updateIsChangingConfigurations = " + isChangingConfigurations);
   }
 
-  void updateNotification() {
-    // We need to update the notification bar when we leave the UI because that
-    // could trigger it to show again.
-    if (statusBarNotifier != null) {
-      statusBarNotifier.updateNotification();
-    }
-  }
-
   /** Called when the activity goes in/out of the foreground. */
   public void onUiShowing(boolean showing) {
     if (proximitySensor != null) {
@@ -1124,8 +1292,22 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
   }
 
   public void onPostDialCharWait(String callId, String chars) {
-    if (isActivityStarted()) {
+    // If not visible, inCallActivity is stopped. Starting from P, calling recreate() will destroy
+    // the old activity instance and create a new instance immediately. Previously, the old activity
+    // went through its lifecycle from create to destroy before creating a new instance.
+    // So this case doesn't work now: make a call with char WAIT, leave in call UI, call gets
+    // connected, and go back to in call UI to see the dialog.
+    // So we should show dialog in an empty activity if inCallActivity is not visible. And it also
+    // helps with background calling.
+    if (isActivityStarted() && inCallActivity.isVisible()) {
       inCallActivity.showDialogForPostCharWait(callId, chars);
+    } else {
+      Intent intent = new Intent(context, PostCharDialogActivity.class);
+      // Prevent showing MainActivity with PostCharDialogActivity on above
+      intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+      intent.putExtra(PostCharDialogActivity.EXTRA_CALL_ID, callId);
+      intent.putExtra(PostCharDialogActivity.EXTRA_POST_DIAL_STRING, chars);
+      context.startActivity(intent);
     }
   }
 
@@ -1186,7 +1368,7 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
       LogUtil.v("InCallPresenter.handleCallKey", "heldCall: " + heldCall + ", canHold: " + canHold);
 
       // (4) unhold call
-      if (heldCall.getState() == DialerCall.State.ONHOLD && canHold) {
+      if (heldCall.getState() == DialerCallState.ONHOLD && canHold) {
         heldCall.unhold();
         return true;
       }
@@ -1258,7 +1440,7 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
 
   /** Instruct the in-call activity to show an error dialog or toast for a disconnected call. */
   private void showDialogOrToastForDisconnectedCall(DialerCall call) {
-    if (!isActivityStarted() || call.getState() != DialerCall.State.DISCONNECTED) {
+    if (call.getState() != DialerCallState.DISCONNECTED) {
       return;
     }
 
@@ -1267,8 +1449,15 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
       setDisconnectCauseForMissingAccounts(call);
     }
 
-    inCallActivity.showDialogOrToastForDisconnectedCall(
-        new DisconnectMessage(inCallActivity, call));
+    if (isActivityStarted()) {
+      inCallActivity.showDialogOrToastForDisconnectedCall(
+          new DisconnectMessage(inCallActivity, call));
+    } else {
+      CharSequence message = new DisconnectMessage(context, call).toastMessage;
+      if (message != null) {
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show();
+      }
+    }
   }
 
   /**
@@ -1310,11 +1499,6 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
     //                        know that start-up is complete.
     //
     //          [ AND NOW YOU'RE IN THE CALL. voila! ]
-    //
-    // Our app is started using a fullScreen notification.  We need to do this whenever
-    // we get an incoming call. Depending on the current context of the device, either a
-    // incoming call HUN or the actual InCallActivity will be shown.
-    final boolean startIncomingCallSequence = (InCallState.INCOMING == newState);
 
     // A dialog to show on top of the InCallUI to select a PhoneAccount
     final boolean showAccountPicker = (InCallState.WAITING_FOR_ACCOUNT == newState);
@@ -1378,15 +1562,12 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
       inCallActivity.dismissPendingDialogs();
     }
 
-    if (showCallUi || showAccountPicker) {
+    if ((showCallUi || showAccountPicker) && !shouldStartInBubbleMode()) {
       LogUtil.i("InCallPresenter.startOrFinishUi", "Start in call UI");
       showInCall(false /* showDialpad */, !showAccountPicker /* newOutgoingCall */);
-    } else if (startIncomingCallSequence) {
-      LogUtil.i("InCallPresenter.startOrFinishUi", "Start Full Screen in call UI");
-
-      statusBarNotifier.updateNotification();
     } else if (newState == InCallState.NO_CALLS) {
       // The new state is the no calls state.  Tear everything down.
+      inCallState = newState;
       attemptFinishActivity();
       attemptCleanup();
     }
@@ -1530,7 +1711,13 @@ public class InCallPresenter implements CallList.Listener, AudioModeProvider.Aud
         intent.getParcelableExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE);
     final Point touchPoint = extras.getParcelable(TouchPointManager.TOUCH_POINT);
 
-    InCallPresenter.getInstance().setBoundAndWaitingForOutgoingCall(true, accountHandle);
+    setBoundAndWaitingForOutgoingCall(true, accountHandle);
+
+    if (shouldStartInBubbleModeWithExtras(extras)) {
+      LogUtil.i("InCallPresenter.maybeStartRevealAnimation", "shouldStartInBubbleMode");
+      // Show bubble instead of in call UI
+      return;
+    }
 
     final Intent activityIntent =
         InCallActivity.getIntent(context, false, true, false /* forFullScreen */);

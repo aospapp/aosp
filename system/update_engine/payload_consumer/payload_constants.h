@@ -31,6 +31,10 @@ extern const uint64_t kChromeOSMajorPayloadVersion;
 // The major version used by Brillo.
 extern const uint64_t kBrilloMajorPayloadVersion;
 
+// The minimum and maximum supported major version.
+extern const uint64_t kMinSupportedMajorPayloadVersion;
+extern const uint64_t kMaxSupportedMajorPayloadVersion;
+
 // The minor version used for all full payloads.
 extern const uint32_t kFullPayloadMinorVersion;
 
@@ -49,14 +53,21 @@ extern const uint32_t kBrotliBsdiffMinorPayloadVersion;
 // The minor version that allows PUFFDIFF operation.
 extern const uint32_t kPuffdiffMinorPayloadVersion;
 
+// The minor version that allows Verity hash tree and FEC generation.
+extern const uint32_t kVerityMinorPayloadVersion;
+
+// The minimum and maximum supported minor version.
+extern const uint32_t kMinSupportedMinorPayloadVersion;
+extern const uint32_t kMaxSupportedMinorPayloadVersion;
+
 // The maximum size of the payload header (anything before the protobuf).
 extern const uint64_t kMaxPayloadHeaderSize;
 
 // The kernel and rootfs partition names used by the BootControlInterface when
 // handling update payloads with a major version 1. The names of the updated
 // partitions are include in the payload itself for major version 2.
-extern const char kLegacyPartitionNameKernel[];
-extern const char kLegacyPartitionNameRoot[];
+extern const char kPartitionNameKernel[];
+extern const char kPartitionNameRoot[];
 
 extern const char kBspatchPath[];
 extern const char kDeltaMagic[4];
@@ -66,7 +77,7 @@ extern const char kDeltaMagic[4];
 const uint64_t kSparseHole = std::numeric_limits<uint64_t>::max();
 
 // Return the name of the operation type.
-const char* InstallOperationTypeName(InstallOperation_Type op_type);
+const char* InstallOperationTypeName(InstallOperation::Type op_type);
 
 }  // namespace chromeos_update_engine
 

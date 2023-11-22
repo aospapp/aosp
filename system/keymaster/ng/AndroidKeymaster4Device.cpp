@@ -72,7 +72,7 @@ inline keymaster_tag_type_t typeFromTag(const keymaster_tag_t tag) {
 
 class KmParamSet : public keymaster_key_param_set_t {
   public:
-    KmParamSet(const hidl_vec<KeyParameter>& keyParams) {
+    explicit KmParamSet(const hidl_vec<KeyParameter>& keyParams) {
         params = new keymaster_key_param_t[keyParams.size()];
         length = keyParams.size();
         for (size_t i = 0; i < keyParams.size(); ++i) {

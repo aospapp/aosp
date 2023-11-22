@@ -35,33 +35,11 @@ public class NoExecutePermissionTest extends TestCase {
     }
 
     public void testNoExecuteStack() {
-        if (!cpuHasNxSupport()) {
-            return;
-        }
         assertFalse(isStackExecutable());
     }
 
     public void testNoExecuteHeap() {
-        if (!cpuHasNxSupport()) {
-            return;
-        }
         assertFalse(isHeapExecutable());
-    }
-
-    private static boolean cpuHasNxSupport() {
-        if (CpuFeatures.isArmCpu() && !CpuFeatures.isArm7Compatible()) {
-            // ARM processors before v7 do not have NX support.
-            // http://code.google.com/p/android/issues/detail?id=17328
-            return false;
-        }
-        if (CpuFeatures.isMipsCpu()) {
-            // MIPS processors do not have NX support.
-            return false;
-        }
-
-        // TODO: handle other processors.  For now, assume those processors
-        // have NX support.
-        return true;
     }
 
     private static native boolean isStackExecutable();

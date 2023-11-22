@@ -37,7 +37,6 @@
 #include "common.h"
 #include "cpp_bindings.h"
 #include "wifihal_vendorcommand.h"
-#include "vendor_definitions.h"
 
 //Singleton Static Instance
 NUDStatsCommand* NUDStatsCommand::mNUDStatsCommandInstance  = NULL;

@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef KERNEL_ARGUMENT_BLOCK_H
-#define KERNEL_ARGUMENT_BLOCK_H
+#pragma once
 
 #include <elf.h>
 #include <link.h>
@@ -23,8 +22,6 @@
 #include <sys/auxv.h>
 
 #include "private/bionic_macros.h"
-
-struct abort_msg_t;
 
 // When the kernel starts the dynamic linker, it passes a pointer to a block
 // of memory containing argc, the argv array, the environment variable array,
@@ -41,7 +38,7 @@ class KernelArgumentBlock {
     // Skip over all environment variable definitions to find the aux vector.
     // The end of the environment block is marked by a NULL pointer.
     char** p = envp;
-    while (*p != NULL) {
+    while (*p != nullptr) {
       ++p;
     }
     ++p; // Skip the NULL itself.
@@ -65,10 +62,6 @@ class KernelArgumentBlock {
   char** envp;
   ElfW(auxv_t)* auxv;
 
-  abort_msg_t** abort_message_ptr;
-
  private:
-  DISALLOW_COPY_AND_ASSIGN(KernelArgumentBlock);
+  BIONIC_DISALLOW_COPY_AND_ASSIGN(KernelArgumentBlock);
 };
-
-#endif // KERNEL_ARGUMENT_BLOCK_H

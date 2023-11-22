@@ -17,6 +17,7 @@
 #ifndef ART_TOOLS_VERIDEX_FLOW_ANALYSIS_H_
 #define ART_TOOLS_VERIDEX_FLOW_ANALYSIS_H_
 
+#include "dex/class_accessor.h"
 #include "dex/code_item_accessors.h"
 #include "dex/dex_file_reference.h"
 #include "dex/method_reference.h"
@@ -108,12 +109,7 @@ struct InstructionInfo {
 
 class VeriFlowAnalysis {
  public:
-  VeriFlowAnalysis(VeridexResolver* resolver, const ClassDataItemIterator& it)
-      : resolver_(resolver),
-        method_id_(it.GetMemberIndex()),
-        code_item_accessor_(resolver->GetDexFile(), it.GetMethodCodeItem()),
-        dex_registers_(code_item_accessor_.InsnsSizeInCodeUnits()),
-        instruction_infos_(code_item_accessor_.InsnsSizeInCodeUnits()) {}
+  VeriFlowAnalysis(VeridexResolver* resolver, const ClassAccessor::Method& method);
 
   void Run();
 
@@ -178,7 +174,8 @@ struct ReflectAccessInfo {
   RegisterValue name;
   bool is_method;
 
-  ReflectAccessInfo(RegisterValue c, RegisterValue n, bool m) : cls(c), name(n), is_method(m) {}
+  ReflectAccessInfo(RegisterValue c, RegisterValue n, bool is_method)
+      : cls(c), name(n), is_method(is_method) {}
 
   bool IsConcrete() const {
     // We capture RegisterSource::kString for the class, for example in Class.forName.
@@ -189,15 +186,15 @@ struct ReflectAccessInfo {
 // Collects all reflection uses.
 class FlowAnalysisCollector : public VeriFlowAnalysis {
  public:
-  FlowAnalysisCollector(VeridexResolver* resolver, const ClassDataItemIterator& it)
-      : VeriFlowAnalysis(resolver, it) {}
+  FlowAnalysisCollector(VeridexResolver* resolver, const ClassAccessor::Method& method)
+      : VeriFlowAnalysis(resolver, method) {}
 
   const std::vector<ReflectAccessInfo>& GetUses() const {
     return uses_;
   }
 
-  RegisterValue AnalyzeInvoke(const Instruction& instruction, bool is_range) OVERRIDE;
-  void AnalyzeFieldSet(const Instruction& instruction) OVERRIDE;
+  RegisterValue AnalyzeInvoke(const Instruction& instruction, bool is_range) override;
+  void AnalyzeFieldSet(const Instruction& instruction) override;
 
  private:
   // List of reflection uses found, concrete and abstract.
@@ -208,16 +205,16 @@ class FlowAnalysisCollector : public VeriFlowAnalysis {
 class FlowAnalysisSubstitutor : public VeriFlowAnalysis {
  public:
   FlowAnalysisSubstitutor(VeridexResolver* resolver,
-                          const ClassDataItemIterator& it,
+                          const ClassAccessor::Method& method,
                           const std::map<MethodReference, std::vector<ReflectAccessInfo>>& accesses)
-      : VeriFlowAnalysis(resolver, it), accesses_(accesses) {}
+      : VeriFlowAnalysis(resolver, method), accesses_(accesses) {}
 
   const std::vector<ReflectAccessInfo>& GetUses() const {
     return uses_;
   }
 
-  RegisterValue AnalyzeInvoke(const Instruction& instruction, bool is_range) OVERRIDE;
-  void AnalyzeFieldSet(const Instruction& instruction) OVERRIDE;
+  RegisterValue AnalyzeInvoke(const Instruction& instruction, bool is_range) override;
+  void AnalyzeFieldSet(const Instruction& instruction) override;
 
  private:
   // List of reflection uses found, concrete and abstract.

@@ -41,6 +41,9 @@ struct ExtentLess {
 };
 
 Extent ExtentForRange(uint64_t start_block, uint64_t num_blocks);
+Extent ExtentForBytes(uint64_t block_size,
+                      uint64_t start_bytes,
+                      uint64_t size_bytes);
 
 class ExtentRanges {
  public:
@@ -54,9 +57,9 @@ class ExtentRanges {
   void AddExtents(const std::vector<Extent>& extents);
   void SubtractExtents(const std::vector<Extent>& extents);
   void AddRepeatedExtents(
-      const ::google::protobuf::RepeatedPtrField<Extent> &exts);
+      const ::google::protobuf::RepeatedPtrField<Extent>& exts);
   void SubtractRepeatedExtents(
-      const ::google::protobuf::RepeatedPtrField<Extent> &exts);
+      const ::google::protobuf::RepeatedPtrField<Extent>& exts);
   void AddRanges(const ExtentRanges& ranges);
   void SubtractRanges(const ExtentRanges& ranges);
 

@@ -26,6 +26,8 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.REGISTER_CALL_PROVIDER" />
     <uses-permission android:name="android.permission.ACCEPT_HANDOVER" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />
 
     <uses-permission android:name="com.android.voicemail.permission.ADD_VOICEMAIL" />
 
@@ -70,6 +72,23 @@
             </intent-filter>
         </service>
 
+        <service android:name="android.telecom.cts.CtsPhoneAccountSuggestionService"
+                 android:permission="android.permission.BIND_PHONE_ACCOUNT_SUGGESTION_SERVICE"
+                 android:enabled="false" >
+            <intent-filter>
+                <action android:name="android.telecom.PhoneAccountSuggestionService"/>
+            </intent-filter>
+        </service>
+
+        <service android:name="com.android.compatibility.common.util.BlockedNumberService"
+            android:exported="true"
+            android:singleUser="true" >
+            <intent-filter>
+                <action android:name="android.telecom.cts.InsertBlockedNumber"/>
+                <action android:name="android.telecom.cts.DeleteBlockedNumber"/>
+            </intent-filter>
+        </service>
+
         <receiver android:name="android.telecom.cts.MockMissedCallNotificationReceiver">
             <intent-filter>
                 <action android:name="android.telecom.action.SHOW_MISSED_CALLS_NOTIFICATION" />
@@ -80,6 +99,12 @@
             <intent-filter>
                 <action android:name="android.telecom.action.PHONE_ACCOUNT_REGISTERED"/>
                 <action android:name="android.telecom.action.PHONE_ACCOUNT_UNREGISTERED"/>
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name="android.telecom.cts.NewOutgoingCallBroadcastReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.NEW_OUTGOING_CALL"/>
             </intent-filter>
         </receiver>
 
@@ -116,7 +141,7 @@
         </activity>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.telecom.cts"
                      android:label="CTS tests for android.telecom package">
         <meta-data android:name="listener"

@@ -19,10 +19,13 @@ package com.android.managedprovisioning.analytics;
 import static com.android.internal.logging.nano.MetricsProto.MetricsEvent.PROVISIONING_NETWORK_TYPE;
 import static com.android.internal.util.Preconditions.checkNotNull;
 
+import android.app.admin.DevicePolicyEventLogger;
 import android.content.Context;
 import android.net.NetworkInfo;
-
+import android.stats.devicepolicy.DevicePolicyEnums;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 
 /**
@@ -35,19 +38,27 @@ public class NetworkTypeLogger {
     private final Context mContext;
     private final MetricsLoggerWrapper mMetricsLoggerWrapper;
     private final Utils mUtils;
+    private final MetricsWriter mMetricsWriter;
+    private final ManagedProvisioningSharedPreferences mSharedPreferences;
 
     public NetworkTypeLogger(Context context) {
-        this(context, new Utils(), new MetricsLoggerWrapper());
+        this(context, new Utils(), new MetricsLoggerWrapper(),
+                MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                new ManagedProvisioningSharedPreferences(context));
     }
 
     @VisibleForTesting
     NetworkTypeLogger(
             Context context,
             Utils utils,
-            MetricsLoggerWrapper metricsLoggerWrapper) {
+            MetricsLoggerWrapper metricsLoggerWrapper,
+            MetricsWriter metricsWriter,
+            ManagedProvisioningSharedPreferences sharedPreferences) {
         mContext = checkNotNull(context);
         mUtils = checkNotNull(utils);
         mMetricsLoggerWrapper = checkNotNull(metricsLoggerWrapper);
+        mMetricsWriter = checkNotNull(metricsWriter);
+        mSharedPreferences = checkNotNull(sharedPreferences);
     }
 
     /**
@@ -58,9 +69,17 @@ public class NetworkTypeLogger {
         if (mUtils.isConnectedToNetwork(mContext)) {
             final int networkType = networkInfo.getType();
             mMetricsLoggerWrapper.logAction(mContext, PROVISIONING_NETWORK_TYPE, networkType);
+            mMetricsWriter.write(DevicePolicyEventLogger
+                    .createEvent(DevicePolicyEnums.PROVISIONING_NETWORK_TYPE)
+                    .setStrings(String.valueOf(networkType))
+            .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
         } else {
             mMetricsLoggerWrapper.logAction(mContext, PROVISIONING_NETWORK_TYPE,
                     NETWORK_TYPE_NOT_CONNECTED);
+            mMetricsWriter.write(DevicePolicyEventLogger
+                    .createEvent(DevicePolicyEnums.PROVISIONING_NETWORK_TYPE)
+                    .setStrings(NETWORK_TYPE_NOT_CONNECTED)
+                    .setTimePeriod(AnalyticsUtils.getProvisioningTime(mSharedPreferences)));
         }
     }
 }

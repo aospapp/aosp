@@ -17,12 +17,17 @@ package com.android.tradefed.testtype.suite;
 
 import com.android.tradefed.util.AbiUtils;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /** Represents a filter for including and excluding tests. */
 public class SuiteTestFilter {
 
     private final String mAbi;
     private final String mName;
     private final String mTest;
+
+    private static final Pattern PARAMETERIZED_TEST_REGEX = Pattern.compile("(.*)?\\[(.*)\\]$");
 
     /**
      * Builds a new {@link SuiteTestFilter} from the given string. Filters can be in one of four
@@ -112,6 +117,19 @@ public class SuiteTestFilter {
 
     /** @return the module name of this filter, or null if not specified. */
     public String getName() {
+        return mName;
+    }
+
+    /**
+     * Returns the base name of the module without any parameterization. If not parameterized, it
+     * will return {@link #getName()};
+     */
+    public String getBaseName() {
+        // If the module looks parameterized, return the base non-parameterized name.
+        Matcher m = PARAMETERIZED_TEST_REGEX.matcher(mName);
+        if (m.find()) {
+            return m.group(1);
+        }
         return mName;
     }
 

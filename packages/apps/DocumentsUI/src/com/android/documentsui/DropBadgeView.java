@@ -17,6 +17,7 @@
 package com.android.documentsui;
 
 import com.android.documentsui.DragAndDropManager.State;
+import com.android.documentsui.base.MimeTypes;
 
 import android.content.Context;
 import android.graphics.drawable.Drawable;
@@ -45,8 +46,7 @@ public final class DropBadgeView extends ImageView {
         final int iconSize = context.getResources().getDimensionPixelSize(R.dimen.root_icon_size);
 
         Drawable okBadge = context.getResources().getDrawable(R.drawable.drop_badge_states, null);
-        Drawable defaultIcon = context.getResources()
-                .getDrawable(R.drawable.ic_doc_generic, null);
+        Drawable defaultIcon = IconUtils.loadMimeIcon(context, MimeTypes.GENERIC_TYPE);
 
         Drawable[] list = {defaultIcon, okBadge};
         mBackground = new LayerDrawable(list);

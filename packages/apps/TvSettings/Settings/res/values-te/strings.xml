@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"క్రమాంకనం"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"ఫార్మాట్‌లను ఎంచుకోండి"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"సరౌండ్ సౌండ్"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (డాల్బీ డిజిటల్)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (డాల్బీ డిజిటల్ ప్లస్/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"డాల్బీ డిజిటల్"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"డాల్బీ డిజిటల్ ప్లస్"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"డ్రైవ్‌ను మళ్లీ కనెక్ట్ చేసే వరకు కొన్ని అనువర్తనాలు అందుబాటులో ఉండవు లేదా సరిగ్గా పని చేయవు."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"తగినంత నిల్వ స్థలం లేదు."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"అనువర్తనం ఉనికిలో లేదు."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"అనువర్తనం కాపీ-రక్షితమైనది."</string>
     <string name="invalid_location" msgid="5269044848535157307">"ఇన్‌స్టాల్ స్థానం చెల్లదు."</string>
     <string name="system_package" msgid="9200255718634512790">"సిస్టమ్ నవీకరణలను బాహ్య మీడియాలో ఇన్‌స్టాల్ చేయడం సాధ్యపడదు."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"పరికర నిర్వాహకుడిని బాహ్య మీడియాలో ఇన్‌స్టాల్ చేయలేరు."</string>
@@ -452,7 +451,7 @@
     <string name="system_accessibility_config" msgid="3216531917536720277">"కాన్ఫిగరేషన్"</string>
     <string name="system_accessibility_service_on_confirm_title" msgid="8200707259067035823">"<xliff:g id="SERVICE">%1$s</xliff:g>ని ఉపయోగించాలా?"</string>
     <string name="system_accessibility_service_on_confirm_desc" msgid="1102358356500113060">"<xliff:g id="SERVICE">%1$s</xliff:g> పాస్‌వర్డ్‌లు మినహా మీరు టైప్ చేసిన మొత్తం వచనాన్ని సేకరించగలదు. ఇందులో క్రెడిట్ కార్డ్ నంబర్‌ల వంటి వ్యక్తిగత డేటా ఉంటుంది."</string>
-    <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"<xliff:g id="SERVICE">%1$s</xliff:g>ను ఆపివేయాలా?"</string>
+    <string name="system_accessibility_service_off_confirm_title" msgid="963297812889694832">"\'<xliff:g id="SERVICE">%1$s</xliff:g>\'ను ఆపివేయాలా?"</string>
     <string name="system_accessibility_service_off_confirm_desc" msgid="6714782635926048678">"సరే ఎంచుకోవడం వలన <xliff:g id="SERVICE">%1$s</xliff:g> ఆపివేయబడుతుంది."</string>
     <string name="system_accessibility_tts_output" msgid="8905477795536714590">"టెక్స్ట్ టు స్పీచ్"</string>
     <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"ఇంజిన్ కాన్ఫిగరేషన్"</string>
@@ -683,7 +682,7 @@
     <string name="backup_erase_dialog_message" msgid="2608496013975068701">"మీ Wi-Fi పాస్‌వర్డ్‌లు, బుక్‌మార్క్‌లు, ఇతర సెట్టింగ్‌లు మరియు అనువర్తన డేటాను బ్యాకప్ చేయడాన్ని ఆపివేసి, Google సర్వర్‌ల్లోని అన్ని కాపీలను తొలగించాలా?"</string>
     <string name="privacy_backup_data" msgid="1796662583830120812">"నా డేటాను బ్యాకప్ చేయి"</string>
     <string name="privacy_backup_account" msgid="9059939814827165020">"బ్యాకప్ చేయాల్సిన ఖాతా"</string>
-    <string name="privacy_automatic_restore" msgid="1409885318093199628">"స్వీయ పునరుద్ధరణ"</string>
+    <string name="privacy_automatic_restore" msgid="1409885318093199628">"ఆటోమేటిక్ పున‌రుద్ధ‌ర‌ణ‌"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"పరికరాన్ని రీసెట్ చేయి"</string>
     <string name="factory_reset_description" msgid="5381170999141355891">"దీని వలన మీ Google ఖాతా, సిస్టమ్ మరియు అనువర్తనం డేటా మరియు సెట్టింగ్‌లు మరియు డౌన్‌లోడ్ చేసిన అనువర్తనాలతో సహా మీ పరికరం అంతర్గత నిల్వలోని మొత్తం డేటా తొలగించబడుతుంది"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"మీ మొత్తం వ్యక్తిగత సమాచారాన్ని మరియు అన్ని డౌన్‌లోడ్ చేయబడిన అనువర్తనాలను తొలగించాలా? మీరు ఈ చర్యను తిరిగి రద్దు చేయలేరు!"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"నోటిఫికేషన్ యాక్సెస్"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"ఇన్‌స్టాల్ చేసిన యాప్‌లేవీ నోటిఫికేషన్ యాక్సెస్‌ను అభ్యర్థించలేదు."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"ఈ యాప్‌లు పరిచయ పేర్లు మరియు మీరు స్వీకరించే వచన సందేశాల వంటి వ్యక్తిగత సమాచారంతో సహా అన్ని నోటిఫికేషన్‌లను చదవగలవు. ఇవి నోటిఫికేషన్‌లను తీసివేయగలవు లేదా అవి కలిగి ఉండే చర్య బటన్‌లను సక్రియం చేయగలవు."</string>
+    <string name="directory_access" msgid="7439168599298598101">"డైరెక్టరీ యాక్సెస్"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"నిర్దిష్ట డైరెక్టరీలను యాక్సెస్ చేయడానికి ఈ యాప్‌లు అనుమతిని కలిగి ఉన్నాయి."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"ఇతర యాప్‌ల ఎగువన ప్రదర్శన"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"ఇతర యాప్‌ల ఎగువన కనిపించడానికి అనుమతించండి"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"మీరు ఉపయోగించే ఇతర యాప్‌లలో ఎగువ భాగంలో కనిపించడం కోసం ఒక యాప్‌ని అనుమతించండి. మీరు ఆ యాప్‌లను ఉపయోగించే సమయంలో ఇది అంతరాయం కలిగించవచ్చు లేదా అవి కనిపించే లేదా ప్రవర్తించే తీరును మార్చవచ్చు."</string>

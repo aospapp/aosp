@@ -28,16 +28,18 @@ import android.os.SELinux;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserManager;
-import android.support.annotation.Nullable;
-import android.support.v17.preference.LeanbackSettingsFragment;
-import android.support.v4.content.LocalBroadcastManager;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.telephony.CarrierConfigManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.widget.Toast;
+
+import androidx.annotation.Keep;
+import androidx.annotation.Nullable;
+import androidx.leanback.preference.LeanbackSettingsFragment;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
 import com.android.internal.telephony.TelephonyProperties;
@@ -54,6 +56,7 @@ import com.android.tv.settings.name.DeviceManager;
 /**
  * The "About" screen in TV settings.
  */
+@Keep
 public class AboutFragment extends SettingsPreferenceFragment implements
         LongClickPreference.OnLongClickListener {
     private static final String TAG = "AboutFragment";

@@ -21,6 +21,8 @@ cc_library_shared {
         "-Wall",
         "-Werror",
         "-Wextra",
+        // Allow implicit fallthroughs in phDnldNfc_Internal.cc and phNxpConfig.cpp until they are fixed.
+        "-Wno-error=implicit-fallthrough",
     ],
 
     srcs: [
@@ -44,6 +46,7 @@ cc_library_shared {
         "halimpl/utils/phNxpConfig.cpp",
         "halimpl/utils/phNxpNciHal_utils.cc",
         "halimpl/utils/sparse_crc32.cc",
+        "halimpl/utils/NfccPowerTracker.cpp",
     ],
 
     local_include_dirs: [
@@ -65,6 +68,7 @@ cc_library_shared {
     shared_libs: [
         "android.hardware.nfc@1.0",
         "android.hardware.nfc@1.1",
+        "android.hardware.nfc@1.2",
         "android.hardware.secure_element@1.0",
         "libbase",
         "libcutils",
@@ -79,15 +83,12 @@ cc_library_shared {
     ],
 }
 
-cc_binary {
-    name: "android.hardware.nfc@1.1-service",
-    defaults: ["hidl_defaults"],
-    proprietary: true,
-    init_rc: ["1.1/android.hardware.nfc@1.1-service.rc"],
+cc_defaults {
+    name: "nxp_nfc_defaults",
     relative_install_path: "hw",
+    proprietary: true,
+    defaults: ["hidl_defaults"],
     srcs: [
-        "1.1/NxpNfcService.cpp",
-        "1.1/Nfc.cpp",
         "extns/impl/NxpNfc.cpp",
     ],
 
@@ -100,11 +101,32 @@ cc_binary {
         "libutils",
         "android.hardware.nfc@1.0",
         "android.hardware.nfc@1.1",
+        "android.hardware.nfc@1.2",
         "libhidlbase",
         "libhidltransport",
         "libhwbinder",
         "vendor.nxp.nxpese@1.0",
         "ese_spi_nxp",
         "vendor.nxp.nxpnfc@1.0",
+    ],
+}
+
+cc_binary {
+    name: "android.hardware.nfc@1.1-service",
+    init_rc: ["1.1/android.hardware.nfc@1.1-service.rc"],
+    defaults: ["nxp_nfc_defaults"],
+    srcs: [
+        "1.1/NxpNfcService.cpp",
+        "1.1/Nfc.cpp",
+    ],
+}
+
+cc_binary {
+    name: "android.hardware.nfc@1.2-service",
+    init_rc: ["1.2/android.hardware.nfc@1.2-service.rc"],
+    defaults: ["nxp_nfc_defaults"],
+    srcs: [
+        "1.2/NxpNfcService.cpp",
+        "1.2/Nfc.cpp",
     ],
 }

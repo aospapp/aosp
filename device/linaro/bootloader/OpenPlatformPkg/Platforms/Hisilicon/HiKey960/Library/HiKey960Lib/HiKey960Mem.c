@@ -18,6 +18,7 @@
 #include <Library/PcdLib.h>
 #include <Library/IoLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Hi3660.h>
 
 // The total number of descriptors, including the final "end-of-table" descriptor.
 #define MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS 12
@@ -26,13 +27,19 @@
 #define DDR_ATTRIBUTES_CACHED           ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK
 #define DDR_ATTRIBUTES_UNCACHED         ARM_MEMORY_REGION_ATTRIBUTE_UNCACHED_UNBUFFERED
 
+// SOC map 3.5G~4G
 #define HI3660_PERIPH_BASE              0xE0000000
-#define HI3660_PERIPH_SZ                0x20000000
+#define HI3660_PERIPH_SIZE              0x20000000
 
-#define HIKEY960_EXTRA_SYSTEM_MEMORY_BASE  0x0000000100000000
-#define HIKEY960_EXTRA_SYSTEM_MEMORY_SIZE  0x0000000020000000
+// for 4G DDR 0~3G 3G~3.5G 8~8.5G
+#define HIKEY960_DDR4G_EXTRA1_SYSTEM_MEMORY_BASE  0x00000000C0000000
+#define HIKEY960_DDR4G_EXTRA1_SYSTEM_MEMORY_SIZE  0x0000000020000000
+#define HIKEY960_DDR4G_EXTRA2_SYSTEM_MEMORY_BASE  0x0000000200000000
+#define HIKEY960_DDR4G_EXTRA2_SYSTEM_MEMORY_SIZE  0x0000000020000000
 
-#define HIKEY960_MEMORY_SIZE               0x0000000100000000
+// for 6G DDR 0~3G 4~7G
+#define HIKEY960_DDR6G_EXTRA_SYSTEM_MEMORY_BASE   0x0000000100000000
+#define HIKEY960_DDR6G_EXTRA_SYSTEM_MEMORY_SIZE   0x00000000C0000000
 
 #define HIKEY960_RESERVED_MEMORY
 
@@ -47,6 +54,16 @@ STATIC struct HiKey960ReservedMemory {
   { 0x89B80000, 0x00100000 },    // MCU Code reserved
   { 0x89C80000, 0x00040000 }     // MCU reserved
 };
+
+STATIC UINT64 EFIAPI HiKeyInitMemorySize(IN VOID)
+{
+  UINT32               Data;
+  UINT64               MemorySize;
+
+  Data = MmioRead32 (SCTRL_SCBAKDATA7);
+  MemorySize = HIKEY_REGION_SIZE((UINT64)Data);
+  return MemorySize;
+}
 
 /**
   Return the Virtual Memory Map of your platform
@@ -72,6 +89,14 @@ ArmPlatformGetVirtualMemoryMap (
   UINT64                        ResourceLength;
   EFI_PHYSICAL_ADDRESS          ResourceTop;
 #endif
+
+
+  UINT64                        MemorySize, AdditionalMemorySize;
+
+  MemorySize = HiKeyInitMemorySize ();
+  if (MemorySize == 0) {
+    MemorySize = PcdGet64 (PcdSystemMemorySize);
+  }
 
   ResourceAttributes = (
     EFI_RESOURCE_ATTRIBUTE_PRESENT |
@@ -132,6 +157,46 @@ ArmPlatformGetVirtualMemoryMap (
   }
 #endif
 
+  AdditionalMemorySize = MemorySize - PcdGet64 (PcdSystemMemorySize);
+  //6G
+  if (AdditionalMemorySize >= SIZE_2GB) {
+    // for 6G,declared the additional memory
+    ResourceAttributes =
+      EFI_RESOURCE_ATTRIBUTE_PRESENT |
+      EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
+      EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
+      EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
+      EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE |
+      EFI_RESOURCE_ATTRIBUTE_TESTED;
+
+    BuildResourceDescriptorHob (
+      EFI_RESOURCE_SYSTEM_MEMORY,
+      ResourceAttributes,
+      HIKEY960_DDR6G_EXTRA_SYSTEM_MEMORY_BASE,
+      HIKEY960_DDR6G_EXTRA_SYSTEM_MEMORY_SIZE);
+  } else if (AdditionalMemorySize >= SIZE_1GB) {
+    // for 4G,declared the additional memory
+    ResourceAttributes =
+      EFI_RESOURCE_ATTRIBUTE_PRESENT |
+      EFI_RESOURCE_ATTRIBUTE_INITIALIZED |
+      EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE |
+      EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE |
+      EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE |
+      EFI_RESOURCE_ATTRIBUTE_TESTED;
+
+    BuildResourceDescriptorHob (
+      EFI_RESOURCE_SYSTEM_MEMORY,
+      ResourceAttributes,
+      HIKEY960_DDR4G_EXTRA1_SYSTEM_MEMORY_BASE,
+      HIKEY960_DDR4G_EXTRA1_SYSTEM_MEMORY_SIZE);
+
+    BuildResourceDescriptorHob (
+      EFI_RESOURCE_SYSTEM_MEMORY,
+      ResourceAttributes,
+      HIKEY960_DDR4G_EXTRA2_SYSTEM_MEMORY_BASE,
+      HIKEY960_DDR4G_EXTRA2_SYSTEM_MEMORY_SIZE);
+  }
+
   ASSERT (VirtualMemoryMap != NULL);
 
   VirtualMemoryTable = (ARM_MEMORY_REGION_DESCRIPTOR*)AllocatePages (
@@ -158,8 +223,26 @@ ArmPlatformGetVirtualMemoryMap (
   // Hi3660 SOC peripherals
   VirtualMemoryTable[++Index].PhysicalBase  = HI3660_PERIPH_BASE;
   VirtualMemoryTable[Index].VirtualBase     = HI3660_PERIPH_BASE;
-  VirtualMemoryTable[Index].Length          = HI3660_PERIPH_SZ;
+  VirtualMemoryTable[Index].Length          = HI3660_PERIPH_SIZE;
   VirtualMemoryTable[Index].Attributes      = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
+
+  // If DDR capacity is &gt;3G size, append a new entry to fill the gap.
+  if (AdditionalMemorySize >= SIZE_2GB) {
+    VirtualMemoryTable[++Index].PhysicalBase = HIKEY960_DDR6G_EXTRA_SYSTEM_MEMORY_BASE;
+    VirtualMemoryTable[Index].VirtualBase    = HIKEY960_DDR6G_EXTRA_SYSTEM_MEMORY_BASE;
+    VirtualMemoryTable[Index].Length         = HIKEY960_DDR6G_EXTRA_SYSTEM_MEMORY_SIZE;
+    VirtualMemoryTable[Index].Attributes     = CacheAttributes;
+  } else if (AdditionalMemorySize >= SIZE_1GB) {
+    VirtualMemoryTable[++Index].PhysicalBase = HIKEY960_DDR4G_EXTRA1_SYSTEM_MEMORY_BASE;
+    VirtualMemoryTable[Index].VirtualBase    = HIKEY960_DDR4G_EXTRA1_SYSTEM_MEMORY_BASE;
+    VirtualMemoryTable[Index].Length         = HIKEY960_DDR4G_EXTRA1_SYSTEM_MEMORY_SIZE;
+    VirtualMemoryTable[Index].Attributes     = CacheAttributes;
+
+    VirtualMemoryTable[++Index].PhysicalBase = HIKEY960_DDR4G_EXTRA2_SYSTEM_MEMORY_BASE;
+    VirtualMemoryTable[Index].VirtualBase    = HIKEY960_DDR4G_EXTRA2_SYSTEM_MEMORY_BASE;
+    VirtualMemoryTable[Index].Length         = HIKEY960_DDR4G_EXTRA2_SYSTEM_MEMORY_SIZE;
+    VirtualMemoryTable[Index].Attributes     = CacheAttributes;
+  }
 
   // End of Table
   VirtualMemoryTable[++Index].PhysicalBase  = 0;

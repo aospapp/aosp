@@ -107,6 +107,22 @@ public class SubPlan extends AbstractXmlParser implements ISubPlan {
      * {@inheritDoc}
      */
     @Override
+    public void clearExcludeFilters() {
+        mExcludes.clear();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clearIncludeFilters() {
+        mIncludes.clear();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void serialize(OutputStream stream) throws IOException {
         KXmlSerializer serializer = new KXmlSerializer();
         serializer.setOutput(stream, ENCODING);

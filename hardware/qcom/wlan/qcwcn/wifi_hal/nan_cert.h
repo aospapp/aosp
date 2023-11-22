@@ -36,7 +36,10 @@ extern "C"
 {
 #endif /* __cplusplus */
 
-#define NAN_CERT_VERSION                        4
+#ifndef PACKED
+#define PACKED  __attribute__((packed))
+#endif
+#define NAN_CERT_VERSION                        5
 #define NAN_MAX_DEBUG_MESSAGE_DATA_LEN          100
 #define NAN_MAX_ALLOWED_DW_AWAKE_INTERVAL       16
 
@@ -97,6 +100,18 @@ typedef enum {
     NAN_DEVICE_TYPE_DUT = 2
 } NanDeviceType;
 
+/* NAN NDPE absent or present */
+typedef enum {
+    NAN_NDPE_ATTR_PRESENT = 0,
+    NAN_NDPE_ATTR_ABSENT = 1
+} NanNdpeAttrType;
+
+/* NAN NDP absent or present */
+typedef enum {
+    NAN_NDP_ATTR_ABSENT = 0,
+    NAN_NDP_ATTR_PRESENT = 1
+} NanNdpAttrType;
+
  /*
   * Definitions of debug subcommand type for the
   * generic debug command.
@@ -115,7 +130,9 @@ typedef enum {
     NAN_TEST_MODE_CMD_NAN_SCHED_UPDATE_NDL_NOTIFY = 11,
     NAN_TEST_MODE_CMD_NAN_AVAILABILITY_MAP_ORDER = 12,
     NAN_TEST_MODE_CMD_CONFIG_QOS = 13,
-    NAN_TEST_MODE_CMD_DEVICE_TYPE = 14
+    NAN_TEST_MODE_CMD_DEVICE_TYPE = 14,
+    NAN_TEST_MODE_CMD_DISABLE_NDPE = 15,
+    NAN_TEST_MODE_CMD_ENABLE_NDP = 16,
 } NanDebugModeCmd;
 
 /*

@@ -18,7 +18,6 @@
 
 #include "common.h"
 #include "roamcommand.h"
-#include "vendor_definitions.h"
 
 RoamCommand::RoamCommand(wifi_handle handle, int id, u32 vendor_id, u32 subcmd)
         : WifiVendorCommand(handle, id, vendor_id, subcmd)

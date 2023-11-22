@@ -34,12 +34,12 @@ import com.android.tv.data.api.Channel;
 import com.android.tv.search.LocalSearchProvider.SearchResult;
 import com.android.tv.util.MainThreadExecutor;
 import com.android.tv.util.Utils;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -68,13 +68,7 @@ public class DataManagerSearch implements SearchInterface {
     public List<SearchResult> search(final String query, final int limit, final int action) {
         Future<List<SearchResult>> future =
                 MainThreadExecutor.getInstance()
-                        .submit(
-                                new Callable<List<SearchResult>>() {
-                                    @Override
-                                    public List<SearchResult> call() throws Exception {
-                                        return searchFromDataManagers(query, limit, action);
-                                    }
-                                });
+                        .submit(() -> searchFromDataManagers(query, limit, action));
 
         try {
             return future.get();
@@ -255,7 +249,7 @@ public class DataManagerSearch implements SearchInterface {
             result.setIntentData(buildIntentData(channelId));
             result.setContentType(Programs.CONTENT_ITEM_TYPE);
             result.setIsLive(true);
-            result.setProgressPercentage(LocalSearchProvider.PROGRESS_PERCENTAGE_HIDE);
+            result.setProgressPercentage(SearchInterface.PROGRESS_PERCENTAGE_HIDE);
         } else {
             result.setTitle(program.getTitle());
             result.setDescription(
@@ -299,7 +293,7 @@ public class DataManagerSearch implements SearchInterface {
     private int getProgressPercentage(long startUtcMillis, long endUtcMillis) {
         long current = System.currentTimeMillis();
         if (startUtcMillis > current || endUtcMillis <= current) {
-            return LocalSearchProvider.PROGRESS_PERCENTAGE_HIDE;
+            return SearchInterface.PROGRESS_PERCENTAGE_HIDE;
         }
         return (int) (100 * (current - startUtcMillis) / (endUtcMillis - startUtcMillis));
     }
@@ -308,10 +302,8 @@ public class DataManagerSearch implements SearchInterface {
         return TvContract.buildChannelUri(channelId).toString();
     }
 
-    private boolean isRatingBlocked(TvContentRating[] ratings) {
-        if (ratings == null
-                || ratings.length == 0
-                || !mTvInputManager.isParentalControlsEnabled()) {
+    private boolean isRatingBlocked(ImmutableList<TvContentRating> ratings) {
+        if (ratings == null || ratings.isEmpty() || !mTvInputManager.isParentalControlsEnabled()) {
             return false;
         }
         for (TvContentRating rating : ratings) {

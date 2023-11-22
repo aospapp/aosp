@@ -28,7 +28,7 @@
         <uses-library android:name="android.test.runner" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.animation.cts"
                      android:label="CTS tests for android.animation package">
         <meta-data android:name="listener"

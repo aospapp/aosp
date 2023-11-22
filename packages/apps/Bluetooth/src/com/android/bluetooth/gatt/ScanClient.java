@@ -20,6 +20,7 @@ import android.bluetooth.le.ResultStorageDescriptor;
 import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanSettings;
 import android.os.Binder;
+import android.os.UserHandle;
 
 import java.util.List;
 import java.util.Objects;
@@ -41,9 +42,10 @@ import java.util.UUID;
     // App associated with the scan client died.
     public boolean appDied;
     public boolean hasLocationPermission;
-    public boolean hasPeersMacAddressPermission;
-    // Pre-M apps are allowed to get scan results even if location is disabled
-    public boolean legacyForegroundApp;
+    public UserHandle userHandle;
+    public boolean isQApp;
+    public boolean hasNetworkSettingsPermission;
+    public boolean hasNetworkSetupWizardPermission;
 
     public AppScanStats stats = null;
 

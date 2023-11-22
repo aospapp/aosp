@@ -21,8 +21,10 @@ import static org.junit.Assert.assertTrue;
 
 import com.android.ddmlib.IDevice;
 import com.android.tradefed.config.ArgsOptionParser;
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.device.DeviceManager.FastbootDevice;
+import com.android.tradefed.device.DeviceSelectionOptions.DeviceRequestedType;
 
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -42,6 +44,7 @@ public class DeviceSelectionOptionsTest {
 
     private IDevice mMockDevice;
     private IDevice mMockEmulatorDevice;
+    private DeviceSelectionOptions mDeviceSelection;
 
     // DEVICE_TYPE and OTHER_DEVICE_TYPE should be different
     private static final String DEVICE_TYPE = "charm";
@@ -67,6 +70,14 @@ public class DeviceSelectionOptionsTest {
 
     @Before
     public void setUp() throws Exception {
+        // Avoid any issue related to env. variable.
+        mDeviceSelection =
+                new DeviceSelectionOptions() {
+                    @Override
+                    public String fetchEnvironmentVariable(String name) {
+                        return null;
+                    }
+                };
         mMockDevice = EasyMock.createMock(IDevice.class);
         EasyMock.expect(mMockDevice.getSerialNumber()).andStubReturn(DEVICE_SERIAL);
         EasyMock.expect(mMockDevice.isEmulator()).andStubReturn(Boolean.FALSE);
@@ -94,6 +105,26 @@ public class DeviceSelectionOptionsTest {
         IDevice device = new NullDevice("serial");
         assertEquals(0, options.getSerials(device).size());
         assertTrue(options.matches(device));
+    }
+
+    /** Test matching a FastbootDevice when ANDROID_SERIAL is set. */
+    @Test
+    public void testGetSerials_envVariable_FastbootDevice() {
+        DeviceSelectionOptions options = getDeviceSelectionOptionsWithEnvVar(DEVICE_ENV_SERIAL);
+        // If no serial is available, the environment variable will be used instead.
+        IDevice device = new FastbootDevice(DEVICE_ENV_SERIAL);
+        assertEquals(1, options.getSerials(device).size());
+        assertTrue(options.matches(device));
+    }
+
+    /** Test not matching a FastbootDevice when ANDROID_SERIAL is set. */
+    @Test
+    public void testGetSerials_envVariable_FastbootDevice_noMatch() {
+        DeviceSelectionOptions options = getDeviceSelectionOptionsWithEnvVar(DEVICE_ENV_SERIAL);
+        // If no serial is available, the environment variable will be used instead.
+        IDevice device = new FastbootDevice("serial");
+        assertEquals(1, options.getSerials(device).size());
+        assertFalse(options.matches(device));
     }
 
     /**
@@ -140,7 +171,7 @@ public class DeviceSelectionOptionsTest {
         return new DeviceSelectionOptions() {
             // We don't have the environment variable set, return null.
             @Override
-            String fetchEnvironmentVariable(String name) {
+            public String fetchEnvironmentVariable(String name) {
                 return value;
             }
         };
@@ -148,50 +179,63 @@ public class DeviceSelectionOptionsTest {
 
     @Test
     public void testGetProductVariant_legacy() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-
         EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT)).andReturn(null);
-        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY))
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_O_MR1))
+                .andReturn(null);
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_LESS_EQUAL_O))
                 .andReturn("legacy");
         EasyMock.replay(mMockDevice);
 
-        assertEquals("legacy", options.getDeviceProductVariant(mMockDevice));
+        assertEquals("legacy", mDeviceSelection.getDeviceProductVariant(mMockDevice));
+    }
+
+    @Test
+    public void testGetProductVariant_legacyOmr1() throws Exception {
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT)).andReturn(null);
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_O_MR1))
+                .andReturn("legacy_omr1");
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_LESS_EQUAL_O))
+                .andReturn("legacy");
+        EasyMock.replay(mMockDevice);
+
+        assertEquals("legacy_omr1", mDeviceSelection.getDeviceProductVariant(mMockDevice));
     }
 
     @Test
     public void testGetProductVariant_vendor() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-
         EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT)).andReturn("variant");
-        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY))
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_O_MR1))
+                .andReturn("legacy_mr1");
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_LESS_EQUAL_O))
                 .andReturn("legacy");
         EasyMock.replay(mMockDevice);
 
-        assertEquals("variant", options.getDeviceProductVariant(mMockDevice));
+        assertEquals("variant", mDeviceSelection.getDeviceProductVariant(mMockDevice));
     }
 
     @Test
     public void testGetProductType_mismatch() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.addProductType(OTHER_DEVICE_TYPE);
+        mDeviceSelection.addProductType(OTHER_DEVICE_TYPE);
 
         EasyMock.expect(mMockDevice.getProperty(DeviceProperties.BOARD)).andReturn(DEVICE_TYPE);
         EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT)).andReturn(null);
         EasyMock.replay(mMockDevice);
 
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
     @Test
     public void testGetProductType_match() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.addProductType(DEVICE_TYPE);
+        mDeviceSelection.addProductType(DEVICE_TYPE);
 
         EasyMock.expect(mMockDevice.getProperty(DeviceProperties.BOARD)).andReturn(DEVICE_TYPE);
         EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT)).andReturn(null);
-        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY)).andReturn(null);
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_O_MR1))
+                .andReturn(null);
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_LESS_EQUAL_O))
+                .andReturn(null);
         EasyMock.replay(mMockDevice);
-        assertTrue(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
     }
 
     /**
@@ -200,65 +244,63 @@ public class DeviceSelectionOptionsTest {
      */
     @Test
     public void testGetProductType_missingProduct() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.addProductType(DEVICE_TYPE);
+        mDeviceSelection.addProductType(DEVICE_TYPE);
 
         EasyMock.expect(mMockDevice.getProperty(DeviceProperties.BOARD)).andReturn(DEVICE_TYPE);
         EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT)).andReturn(null);
-        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY)).andReturn(null);
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_O_MR1))
+                .andReturn(null);
+        EasyMock.expect(mMockDevice.getProperty(DeviceProperties.VARIANT_LEGACY_LESS_EQUAL_O))
+                .andReturn(null);
         EasyMock.replay(mMockDevice);
-        assertTrue(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test matching by property */
     @Test
     public void testMatches_property() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.addProperty("prop1", "propvalue");
+        mDeviceSelection.addProperty("prop1", "propvalue");
 
         EasyMock.expect(mMockDevice.getProperty("prop1")).andReturn("propvalue");
         EasyMock.replay(mMockDevice);
 
-        assertTrue(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test negative case for matching by property */
     @Test
     public void testMatches_propertyNotMatch() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.addProperty("prop1", "propvalue");
+        mDeviceSelection.addProperty("prop1", "propvalue");
 
         EasyMock.expect(mMockDevice.getProperty("prop1")).andReturn("wrongvalue");
         EasyMock.replay(mMockDevice);
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
         EasyMock.verify(mMockDevice);
     }
 
     /** Test for matching by multiple properties */
     @Test
     public void testMatches_multipleProperty() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.addProperty("prop1", "propvalue");
-        options.addProperty("prop2", "propvalue2");
+        mDeviceSelection.addProperty("prop1", "propvalue");
+        mDeviceSelection.addProperty("prop2", "propvalue2");
 
         EasyMock.expect(mMockDevice.getProperty("prop1")).andReturn("propvalue");
         EasyMock.expect(mMockDevice.getProperty("prop2")).andReturn("propvalue2");
         EasyMock.replay(mMockDevice);
-        assertTrue(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
         EasyMock.verify(mMockDevice);
     }
 
     /** Test for matching by multiple properties, when one property does not match */
     @Test
     public void testMatches_notMultipleProperty() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.addProperty("prop1", "propvalue");
-        options.addProperty("prop2", "propvalue2");
+        mDeviceSelection.addProperty("prop1", "propvalue");
+        mDeviceSelection.addProperty("prop2", "propvalue2");
 
         EasyMock.expect(mMockDevice.getProperty("prop1")).andReturn("propvalue");
         EasyMock.expect(mMockDevice.getProperty("prop2")).andReturn("wrongpropvalue");
         EasyMock.replay(mMockDevice);
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
         // don't verify in this case, because order of property checks is not deterministic
         // EasyMock.verify(mMockDevice);
     }
@@ -266,118 +308,111 @@ public class DeviceSelectionOptionsTest {
     /** Test for matching with an srtub emulator */
     @Test
     public void testMatches_stubEmulator() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setStubEmulatorRequested(true);
+        mDeviceSelection.setStubEmulatorRequested(true);
         IDevice emulatorDevice = new StubDevice("emulator", true);
-        assertTrue(options.matches(emulatorDevice));
+        assertTrue(mDeviceSelection.matches(emulatorDevice));
     }
 
     /** Test that an stub emulator is not matched by default */
     @Test
     public void testMatches_stubEmulatorNotDefault() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
         IDevice emulatorDevice = new StubDevice("emulator", true);
-        assertFalse(options.matches(emulatorDevice));
+        assertFalse(mDeviceSelection.matches(emulatorDevice));
     }
 
     /** Test for matching with null device requested flag */
     @Test
     public void testMatches_nullDevice() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setNullDeviceRequested(true);
+        mDeviceSelection.setNullDeviceRequested(true);
         IDevice stubDevice = new NullDevice("null device");
-        assertTrue(options.matches(stubDevice));
+        assertTrue(mDeviceSelection.matches(stubDevice));
     }
 
 
     /** Test for matching with tcp device requested flag */
     @Test
     public void testMatches_tcpDevice() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setTcpDeviceRequested(true);
+        mDeviceSelection.setTcpDeviceRequested(true);
         IDevice stubDevice = new TcpDevice("tcp device");
-        assertTrue(options.matches(stubDevice));
+        assertTrue(mDeviceSelection.matches(stubDevice));
     }
 
     /** Test that a real device is not matched if the 'null device requested' flag is set */
     @Test
     public void testMatches_notNullDevice() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setNullDeviceRequested(true);
+        mDeviceSelection.setNullDeviceRequested(true);
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that a real device is matched when requested */
     @Test
     public void testMatches_device() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setDeviceRequested(true);
-        EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertTrue(options.matches(mMockDevice));
-        assertFalse(options.matches(mMockEmulatorDevice));
+        IDevice mockIpDevice = EasyMock.createMock(IDevice.class);
+        EasyMock.expect(mockIpDevice.getSerialNumber()).andStubReturn("127.0.0.1:5555");
+        EasyMock.expect(mockIpDevice.isEmulator()).andStubReturn(Boolean.FALSE);
+
+        mDeviceSelection.setDeviceRequested(true);
+        EasyMock.replay(mMockDevice, mMockEmulatorDevice, mockIpDevice);
+        assertTrue(mDeviceSelection.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockEmulatorDevice));
+        assertFalse(mDeviceSelection.matches(mockIpDevice));
     }
 
     /** Test that a emulator is matched when requested */
     @Test
     public void testMatches_emulator() {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setEmulatorRequested(true);
+        mDeviceSelection.setEmulatorRequested(true);
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertFalse(options.matches(mMockDevice));
-        assertTrue(options.matches(mMockEmulatorDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockEmulatorDevice));
     }
 
     /** Test that battery checking works */
     @Test
     public void testMatches_minBatteryPass() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setMinBatteryLevel(25);
+        mDeviceSelection.setMinBatteryLevel(25);
         mockBatteryCheck(50);
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertTrue(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that battery checking works */
     @Test
     public void testMatches_minBatteryFail() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setMinBatteryLevel(75);
+        mDeviceSelection.setMinBatteryLevel(75);
         mockBatteryCheck(50);
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that battery checking works */
     @Test
     public void testMatches_maxBatteryPass() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setMaxBatteryLevel(75);
+        mDeviceSelection.setMaxBatteryLevel(75);
         mockBatteryCheck(50);
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertTrue(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that battery checking works */
     @Test
     public void testMatches_maxBatteryFail() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setMaxBatteryLevel(25);
+        mDeviceSelection.setMaxBatteryLevel(25);
         mockBatteryCheck(50);
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that battery checking works */
     @Test
     public void testMatches_forceBatteryCheckTrue() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setRequireBatteryCheck(true);
+        mDeviceSelection.setRequireBatteryCheck(true);
         mockBatteryCheck(null);
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertTrue(options.matches(mMockDevice));
-        options.setMinBatteryLevel(25);
-        assertFalse(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
+        mDeviceSelection.setMinBatteryLevel(25);
+        assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
     /**
@@ -386,13 +421,12 @@ public class DeviceSelectionOptionsTest {
      */
     @Test
     public void testMatches_forceBatteryCheckFalse() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setRequireBatteryCheck(false);
+        mDeviceSelection.setRequireBatteryCheck(false);
         mockBatteryCheck(12);
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertTrue(options.matches(mMockDevice));
-        options.setMinBatteryLevel(25);
-        assertTrue(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
+        mDeviceSelection.setMinBatteryLevel(25);
+        assertTrue(mDeviceSelection.matches(mMockDevice));
         EasyMock.verify(mMockDevice, mMockEmulatorDevice);
     }
 
@@ -435,79 +469,73 @@ public class DeviceSelectionOptionsTest {
     /** Test that min sdk checking works for negative case */
     @Test
     public void testMatches_minSdkFail() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        ArgsOptionParser p = new ArgsOptionParser(options);
+        ArgsOptionParser p = new ArgsOptionParser(mDeviceSelection);
         p.parse("--min-sdk-level", "15");
         EasyMock.expect(
                 mMockDevice.getProperty(DeviceProperties.SDK_VERSION))
                 .andStubReturn("10");
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that min sdk checking works for positive case */
     @Test
     public void testMatches_minSdkPass() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        ArgsOptionParser p = new ArgsOptionParser(options);
+        ArgsOptionParser p = new ArgsOptionParser(mDeviceSelection);
         p.parse("--min-sdk-level", "10");
         EasyMock.expect(
                 mMockDevice.getProperty(DeviceProperties.SDK_VERSION))
                 .andStubReturn("10");
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertTrue(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that device is not matched if device api cannot be determined */
     @Test
     public void testMatches_minSdkNull() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        ArgsOptionParser p = new ArgsOptionParser(options);
+        ArgsOptionParser p = new ArgsOptionParser(mDeviceSelection);
         p.parse("--min-sdk-level", "10");
         EasyMock.expect(
                 mMockDevice.getProperty(DeviceProperties.SDK_VERSION))
                 .andStubReturn("blargh");
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that max sdk checking works for negative case */
     @Test
     public void testMatches_maxSdkFail() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        ArgsOptionParser p = new ArgsOptionParser(options);
+        ArgsOptionParser p = new ArgsOptionParser(mDeviceSelection);
         p.parse("--max-sdk-level", "15");
         EasyMock.expect(
                 mMockDevice.getProperty(DeviceProperties.SDK_VERSION))
                 .andStubReturn("25");
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that max sdk checking works for positive case */
     @Test
     public void testMatches_maxSdkPass() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        ArgsOptionParser p = new ArgsOptionParser(options);
+        ArgsOptionParser p = new ArgsOptionParser(mDeviceSelection);
         p.parse("--max-sdk-level", "15");
         EasyMock.expect(
                 mMockDevice.getProperty(DeviceProperties.SDK_VERSION))
                 .andStubReturn("10");
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertTrue(options.matches(mMockDevice));
+        assertTrue(mDeviceSelection.matches(mMockDevice));
     }
 
     /** Test that device is not matched if device api cannot be determined */
     @Test
     public void testMatches_maxSdkNull() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        ArgsOptionParser p = new ArgsOptionParser(options);
+        ArgsOptionParser p = new ArgsOptionParser(mDeviceSelection);
         p.parse("--max-sdk-level", "15");
         EasyMock.expect(
                 mMockDevice.getProperty(DeviceProperties.SDK_VERSION))
                 .andStubReturn("blargh");
         EasyMock.replay(mMockDevice, mMockEmulatorDevice);
-        assertFalse(options.matches(mMockDevice));
+        assertFalse(mDeviceSelection.matches(mMockDevice));
     }
 
     /**
@@ -516,11 +544,10 @@ public class DeviceSelectionOptionsTest {
      */
     @Test
     public void testStubDevice_minBattery() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        OptionSetter setter = new OptionSetter(options);
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
         setter.setOptionValue("min-battery", "20");
         setter.setOptionValue("null-device", "true");
-        assertTrue(options.matches(new NullDevice("test")));
+        assertTrue(mDeviceSelection.matches(new NullDevice("test")));
     }
 
     /**
@@ -529,10 +556,9 @@ public class DeviceSelectionOptionsTest {
      */
     @Test
     public void testFastbootDevice_minBattery() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        OptionSetter setter = new OptionSetter(options);
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
         setter.setOptionValue("min-battery", "20");
-        assertFalse(options.matches(new FastbootDevice("serial")));
+        assertFalse(mDeviceSelection.matches(new FastbootDevice("serial")));
     }
 
     /**
@@ -540,8 +566,84 @@ public class DeviceSelectionOptionsTest {
      */
     @Test
     public void testFastbootDevice() throws Exception {
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        assertTrue(options.matches(new FastbootDevice("serial")));
+        assertTrue(mDeviceSelection.matches(new FastbootDevice("serial")));
+    }
+
+    /** When a gce-device is requested, it can be matched. */
+    @Test
+    public void testAllocateGceDevice() throws ConfigurationException {
+        IDevice gceDevice = new RemoteAvdIDevice("gce-device:0");
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
+        setter.setOptionValue("gce-device", "true");
+        assertTrue(mDeviceSelection.matches(gceDevice));
+    }
+
+    /** When a gce-device is presented but no --gce-device flag, it can't be matched. */
+    @Test
+    public void testAllocateGceDevice_default() {
+        IDevice gceDevice = new RemoteAvdIDevice("gce-device:0");
+        assertFalse(mDeviceSelection.matches(gceDevice));
+    }
+
+    /** When a gce-device is requested by serial. other gce-device serial should be rejected. */
+    @Test
+    public void testAllocateGceDevice_bySerial() throws ConfigurationException {
+        IDevice gceDevice = new RemoteAvdIDevice("gce-device:1");
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
+        setter.setOptionValue("gce-device", "true");
+        setter.setOptionValue("serial", "gce-device:0");
+        assertFalse(mDeviceSelection.matches(gceDevice));
+    }
+
+    /** When a tcp-device is requested, a gce-device cannot be allocated for it. */
+    @Test
+    public void testAllocateGceDevice_whenTcpRequested() throws ConfigurationException {
+        IDevice gceDevice = new RemoteAvdIDevice("gce-device:0");
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
+        setter.setOptionValue("tcp-device", "true");
+        assertFalse(mDeviceSelection.matches(gceDevice));
+    }
+
+    /** When a tcp-device is requested, a tcp-device can be allocated for it. */
+    @Test
+    public void testAllocateTcpDevice_whenTcpRequested() throws ConfigurationException {
+        IDevice gceDevice = new TcpDevice("tcp-device:0");
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
+        setter.setOptionValue("tcp-device", "true");
+        assertTrue(mDeviceSelection.matches(gceDevice));
+    }
+
+    /** When a tcp-device is requested, and device-type is also requested, it has precedence */
+    @Test
+    public void testAllocateTcpDevice_whenDeviceRequestIsSet() throws ConfigurationException {
+        IDevice gceDevice = new TcpDevice("tcp-device:0");
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
+        setter.setOptionValue("tcp-device", "true");
+        // Device type takes precedence.
+        setter.setOptionValue("device-type", DeviceRequestedType.GCE_DEVICE.toString());
+        assertFalse(mDeviceSelection.matches(gceDevice));
+    }
+
+    /** When a gce-device is requested, a serial is provided that match a non gce-device. */
+    @Test
+    public void testAllocateDeviceMatch_gceRequested() throws ConfigurationException {
+        IDevice gceDevice = new StubDevice("stub-device:0");
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
+        // mis-match of expectation: request gce-device with a serial of a device that is not one.
+        setter.setOptionValue("gce-device", "true");
+        setter.setOptionValue("serial", "stub-device:0");
+        assertFalse(mDeviceSelection.matches(gceDevice));
+    }
+
+    /** When a gce-device is requested, a serial is provided that doens't match a non gce-device. */
+    @Test
+    public void testAllocateDevice_NoMatch_gceRequested() throws ConfigurationException {
+        IDevice gceDevice = new StubDevice("stub-device:0");
+        OptionSetter setter = new OptionSetter(mDeviceSelection);
+        // mis-match of expectation: request gce-device with a serial of a device that is not one.
+        setter.setOptionValue("gce-device", "true");
+        setter.setOptionValue("serial", "stub-device:1");
+        assertFalse(mDeviceSelection.matches(gceDevice));
     }
 
     private void mockBatteryCheck(Integer battery) {
@@ -552,7 +654,6 @@ public class DeviceSelectionOptionsTest {
 
     private DeviceSelectionOptions mockBatteryTemperatureCheck(
             Integer batteryTemp, Integer maxBatteryTemp, Boolean required) throws Exception {
-
         // Mock out the execution of executeShellCommand
         String dumpsysOutput = "";
 
@@ -563,9 +664,9 @@ public class DeviceSelectionOptionsTest {
         MockDeviceHelper.injectShellResponse(mMockDevice, "dumpsys battery", dumpsysOutput, false);
 
         // Create the actual selection options, and set the parameters
-        DeviceSelectionOptions options = new DeviceSelectionOptions();
-        options.setMaxBatteryTemperature(maxBatteryTemp);
-        options.setRequireBatteryTemperatureCheck(required);
-        return options;
+
+        mDeviceSelection.setMaxBatteryTemperature(maxBatteryTemp);
+        mDeviceSelection.setRequireBatteryTemperatureCheck(required);
+        return mDeviceSelection;
     }
 }

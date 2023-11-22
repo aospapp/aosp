@@ -1,8 +1,7 @@
-# Overview
+# Android Platform Testing docs - deprecated
 
-Welcome to Android Platform Testing!
+The contents of this directory have been updated and migrated to
+source.android.com.
 
-This site is geared toward Android platform developers, and provides:
-
-*   [Introduction to Android platform testing](basics/index.md)
-*   [Development workflow](development/index.md)
+See:
+[Android Platform Testing](https://source.android.com/compatibility/tests)

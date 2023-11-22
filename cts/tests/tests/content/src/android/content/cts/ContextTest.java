@@ -16,21 +16,46 @@
 
 package android.content.cts;
 
+import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.ServiceConnection;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.content.res.Resources.NotFoundException;
 import android.content.res.Resources.Theme;
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteCursorDriver;
 import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteQuery;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.os.Binder;
+import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
+import android.os.Process;
+import android.os.UserHandle;
+import android.platform.test.annotations.AppModeFull;
+import android.preference.PreferenceManager;
 import android.test.AndroidTestCase;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Xml;
 import android.view.WindowManager;
+
+import com.android.compatibility.common.util.PollingCheck;
+import com.android.cts.IBinderPermissionTestService;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -38,17 +63,87 @@ import org.xmlpull.v1.XmlPullParserException;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class ContextTest extends AndroidTestCase {
     private static final String TAG = "ContextTest";
+    private static final String ACTUAL_RESULT = "ResultSetByReceiver";
 
-    private Context mContext;
+    private static final String INTIAL_RESULT = "IntialResult";
+
+    private static final String VALUE_ADDED = "ValueAdded";
+    private static final String KEY_ADDED = "AddedByReceiver";
+
+    private static final String VALUE_REMOVED = "ValueWillBeRemove";
+    private static final String KEY_REMOVED = "ToBeRemoved";
+
+    private static final String VALUE_KEPT = "ValueKept";
+    private static final String KEY_KEPT = "ToBeKept";
+
+    private static final String MOCK_STICKY_ACTION = "android.content.cts.ContextTest."
+            + "STICKY_BROADCAST_RESULT";
+
+    private static final String ACTION_BROADCAST_TESTORDER =
+            "android.content.cts.ContextTest.BROADCAST_TESTORDER";
+    private final static String MOCK_ACTION1 = ACTION_BROADCAST_TESTORDER + "1";
+    private final static String MOCK_ACTION2 = ACTION_BROADCAST_TESTORDER + "2";
+
+    // Note: keep these constants in sync with the permissions used by BinderPermissionTestService.
+    //
+    // A permission that's granted to this test package.
+    public static final String GRANTED_PERMISSION = "android.permission.USE_CREDENTIALS";
+    // A permission that's not granted to this test package.
+    public static final String NOT_GRANTED_PERMISSION = "android.permission.HARDWARE_TEST";
+
+    private static final int BROADCAST_TIMEOUT = 10000;
+    private static final int ROOT_UID = 0;
+
+    private Object mLockObj;
+
+    private ArrayList<BroadcastReceiver> mRegisteredReceiverList;
+
+    private boolean mWallpaperChanged;
+    private BitmapDrawable mOriginalWallpaper;
+    private volatile IBinderPermissionTestService mBinderPermissionTestService;
+    private ServiceConnection mBinderPermissionTestConnection;
+
+    protected Context mContext;
+
+    /**
+     * Returns the Context object that's being tested.
+     */
+    protected Context getContextUnderTest() {
+        return getContext();
+    }
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        mContext = getContext();
+        mContext = getContextUnderTest();
         mContext.setTheme(R.style.Test_Theme);
+
+        mLockObj = new Object();
+
+        mRegisteredReceiverList = new ArrayList<BroadcastReceiver>();
+
+        mOriginalWallpaper = (BitmapDrawable) mContext.getWallpaper();
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        if (mWallpaperChanged) {
+            mContext.setWallpaper(mOriginalWallpaper.getBitmap());
+        }
+
+        for (BroadcastReceiver receiver : mRegisteredReceiverList) {
+            mContext.unregisterReceiver(receiver);
+        }
+
+        super.tearDown();
     }
 
     public void testGetString() {
@@ -354,6 +449,10 @@ public class ContextTest extends AndroidTestCase {
 
     private void assertValidFile(File file) throws Exception {
         Log.d(TAG, "Checking " + file);
+        if (file.exists()) {
+            assertTrue("File already exists and couldn't be deleted before test: " + file,
+                    file.delete());
+        }
         assertTrue("Failed to create " + file, file.createNewFile());
         assertTrue("Doesn't exist after create " + file, file.exists());
         assertTrue("Failed to delete after create " + file, file.delete());
@@ -382,7 +481,7 @@ public class ContextTest extends AndroidTestCase {
     }
 
     private AttributeSet getAttributeSet(int resourceId) {
-        final XmlResourceParser parser = getContext().getResources().getXml(
+        final XmlResourceParser parser = mContext.getResources().getXml(
                 resourceId);
 
         try {
@@ -397,4 +496,886 @@ public class ContextTest extends AndroidTestCase {
         assertNotNull(attr);
         return attr;
     }
+
+    private void registerBroadcastReceiver(BroadcastReceiver receiver, IntentFilter filter) {
+        mContext.registerReceiver(receiver, filter);
+
+        mRegisteredReceiverList.add(receiver);
+    }
+
+    public void testSendOrderedBroadcast1() throws InterruptedException {
+        final HighPriorityBroadcastReceiver highPriorityReceiver =
+                new HighPriorityBroadcastReceiver();
+        final LowPriorityBroadcastReceiver lowPriorityReceiver =
+                new LowPriorityBroadcastReceiver();
+
+        final IntentFilter filterHighPriority = new IntentFilter(ResultReceiver.MOCK_ACTION);
+        filterHighPriority.setPriority(1);
+        final IntentFilter filterLowPriority = new IntentFilter(ResultReceiver.MOCK_ACTION);
+        registerBroadcastReceiver(highPriorityReceiver, filterHighPriority);
+        registerBroadcastReceiver(lowPriorityReceiver, filterLowPriority);
+
+        final Intent broadcastIntent = new Intent(ResultReceiver.MOCK_ACTION);
+        broadcastIntent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        mContext.sendOrderedBroadcast(broadcastIntent, null);
+        new PollingCheck(BROADCAST_TIMEOUT) {
+            @Override
+            protected boolean check() {
+                return highPriorityReceiver.hasReceivedBroadCast()
+                        && !lowPriorityReceiver.hasReceivedBroadCast();
+            }
+        }.run();
+
+        synchronized (highPriorityReceiver) {
+            highPriorityReceiver.notify();
+        }
+
+        new PollingCheck(BROADCAST_TIMEOUT) {
+            @Override
+            protected boolean check() {
+                return highPriorityReceiver.hasReceivedBroadCast()
+                        && lowPriorityReceiver.hasReceivedBroadCast();
+            }
+        }.run();
+    }
+
+    public void testSendOrderedBroadcast2() throws InterruptedException {
+        final TestBroadcastReceiver broadcastReceiver = new TestBroadcastReceiver();
+        broadcastReceiver.mIsOrderedBroadcasts = true;
+
+        Bundle bundle = new Bundle();
+        bundle.putString(KEY_KEPT, VALUE_KEPT);
+        bundle.putString(KEY_REMOVED, VALUE_REMOVED);
+        Intent intent = new Intent(ResultReceiver.MOCK_ACTION);
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        mContext.sendOrderedBroadcast(intent, null, broadcastReceiver, null, 1,
+                INTIAL_RESULT, bundle);
+
+        synchronized (mLockObj) {
+            try {
+                mLockObj.wait(BROADCAST_TIMEOUT);
+            } catch (InterruptedException e) {
+                fail("unexpected InterruptedException.");
+            }
+        }
+
+        assertTrue("Receiver didn't make any response.", broadcastReceiver.hadReceivedBroadCast());
+        assertEquals("Incorrect code: " + broadcastReceiver.getResultCode(), 3,
+                broadcastReceiver.getResultCode());
+        assertEquals(ACTUAL_RESULT, broadcastReceiver.getResultData());
+        Bundle resultExtras = broadcastReceiver.getResultExtras(false);
+        assertEquals(VALUE_ADDED, resultExtras.getString(KEY_ADDED));
+        assertEquals(VALUE_KEPT, resultExtras.getString(KEY_KEPT));
+        assertNull(resultExtras.getString(KEY_REMOVED));
+    }
+
+    public void testRegisterReceiver1() throws InterruptedException {
+        final FilteredReceiver broadcastReceiver = new FilteredReceiver();
+        final IntentFilter filter = new IntentFilter(MOCK_ACTION1);
+
+        // Test registerReceiver
+        mContext.registerReceiver(broadcastReceiver, filter);
+
+        // Test unwanted intent(action = MOCK_ACTION2)
+        broadcastReceiver.reset();
+        waitForFilteredIntent(mContext, MOCK_ACTION2);
+        assertFalse(broadcastReceiver.hadReceivedBroadCast1());
+        assertFalse(broadcastReceiver.hadReceivedBroadCast2());
+
+        // Send wanted intent(action = MOCK_ACTION1)
+        broadcastReceiver.reset();
+        waitForFilteredIntent(mContext, MOCK_ACTION1);
+        assertTrue(broadcastReceiver.hadReceivedBroadCast1());
+        assertFalse(broadcastReceiver.hadReceivedBroadCast2());
+
+        mContext.unregisterReceiver(broadcastReceiver);
+
+        // Test unregisterReceiver
+        FilteredReceiver broadcastReceiver2 = new FilteredReceiver();
+        mContext.registerReceiver(broadcastReceiver2, filter);
+        mContext.unregisterReceiver(broadcastReceiver2);
+
+        // Test unwanted intent(action = MOCK_ACTION2)
+        broadcastReceiver2.reset();
+        waitForFilteredIntent(mContext, MOCK_ACTION2);
+        assertFalse(broadcastReceiver2.hadReceivedBroadCast1());
+        assertFalse(broadcastReceiver2.hadReceivedBroadCast2());
+
+        // Send wanted intent(action = MOCK_ACTION1), but the receiver is unregistered.
+        broadcastReceiver2.reset();
+        waitForFilteredIntent(mContext, MOCK_ACTION1);
+        assertFalse(broadcastReceiver2.hadReceivedBroadCast1());
+        assertFalse(broadcastReceiver2.hadReceivedBroadCast2());
+    }
+
+    public void testRegisterReceiver2() throws InterruptedException {
+        FilteredReceiver broadcastReceiver = new FilteredReceiver();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(MOCK_ACTION1);
+
+        // Test registerReceiver
+        mContext.registerReceiver(broadcastReceiver, filter, null, null);
+
+        // Test unwanted intent(action = MOCK_ACTION2)
+        broadcastReceiver.reset();
+        waitForFilteredIntent(mContext, MOCK_ACTION2);
+        assertFalse(broadcastReceiver.hadReceivedBroadCast1());
+        assertFalse(broadcastReceiver.hadReceivedBroadCast2());
+
+        // Send wanted intent(action = MOCK_ACTION1)
+        broadcastReceiver.reset();
+        waitForFilteredIntent(mContext, MOCK_ACTION1);
+        assertTrue(broadcastReceiver.hadReceivedBroadCast1());
+        assertFalse(broadcastReceiver.hadReceivedBroadCast2());
+
+        mContext.unregisterReceiver(broadcastReceiver);
+    }
+
+    public void testAccessWallpaper() throws IOException, InterruptedException {
+        // set Wallpaper by context#setWallpaper(Bitmap)
+        Bitmap bitmap = Bitmap.createBitmap(20, 30, Bitmap.Config.RGB_565);
+        // Test getWallpaper
+        Drawable testDrawable = mContext.getWallpaper();
+        // Test peekWallpaper
+        Drawable testDrawable2 = mContext.peekWallpaper();
+
+        mContext.setWallpaper(bitmap);
+        mWallpaperChanged = true;
+        synchronized(this) {
+            wait(500);
+        }
+
+        assertNotSame(testDrawable, mContext.peekWallpaper());
+        assertNotNull(mContext.getWallpaper());
+        assertNotSame(testDrawable2, mContext.peekWallpaper());
+        assertNotNull(mContext.peekWallpaper());
+
+        // set Wallpaper by context#setWallpaper(InputStream)
+        mContext.clearWallpaper();
+
+        testDrawable = mContext.getWallpaper();
+        InputStream stream = mContext.getResources().openRawResource(R.drawable.scenery);
+
+        mContext.setWallpaper(stream);
+        synchronized (this) {
+            wait(1000);
+        }
+
+        assertNotSame(testDrawable, mContext.peekWallpaper());
+    }
+
+    public void testAccessDatabase() {
+        String DATABASE_NAME = "databasetest";
+        String DATABASE_NAME1 = DATABASE_NAME + "1";
+        String DATABASE_NAME2 = DATABASE_NAME + "2";
+        SQLiteDatabase mDatabase;
+        File mDatabaseFile;
+
+        SQLiteDatabase.CursorFactory factory = new SQLiteDatabase.CursorFactory() {
+            public Cursor newCursor(SQLiteDatabase db, SQLiteCursorDriver masterQuery,
+                                    String editTable, SQLiteQuery query) {
+                return new android.database.sqlite.SQLiteCursor(db, masterQuery, editTable, query) {
+                    @Override
+                    public boolean requery() {
+                        setSelectionArguments(new String[] { "2" });
+                        return super.requery();
+                    }
+                };
+            }
+        };
+
+        // FIXME: Move cleanup into tearDown()
+        for (String db : mContext.databaseList()) {
+            File f = mContext.getDatabasePath(db);
+            if (f.exists()) {
+                mContext.deleteDatabase(db);
+            }
+        }
+
+        // Test openOrCreateDatabase with null and actual factory
+        mDatabase = mContext.openOrCreateDatabase(DATABASE_NAME1,
+                Context.MODE_ENABLE_WRITE_AHEAD_LOGGING, factory);
+        assertNotNull(mDatabase);
+        mDatabase.close();
+        mDatabase = mContext.openOrCreateDatabase(DATABASE_NAME2,
+                Context.MODE_ENABLE_WRITE_AHEAD_LOGGING, factory);
+        assertNotNull(mDatabase);
+        mDatabase.close();
+
+        // Test getDatabasePath
+        File actualDBPath = mContext.getDatabasePath(DATABASE_NAME1);
+
+        // Test databaseList()
+        List<String> list = Arrays.asList(mContext.databaseList());
+        assertTrue("1) database list: " + list, list.contains(DATABASE_NAME1));
+        assertTrue("2) database list: " + list, list.contains(DATABASE_NAME2));
+
+        // Test deleteDatabase()
+        for (int i = 1; i < 3; i++) {
+            mDatabaseFile = mContext.getDatabasePath(DATABASE_NAME + i);
+            assertTrue(mDatabaseFile.exists());
+            mContext.deleteDatabase(DATABASE_NAME + i);
+            mDatabaseFile = new File(actualDBPath, DATABASE_NAME + i);
+            assertFalse(mDatabaseFile.exists());
+        }
+    }
+
+    public void testEnforceUriPermission1() {
+        try {
+            Uri uri = Uri.parse("content://ctstest");
+            mContext.enforceUriPermission(uri, Binder.getCallingPid(),
+                    Binder.getCallingUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    "enforceUriPermission is not working without possessing an IPC.");
+            fail("enforceUriPermission is not working without possessing an IPC.");
+        } catch (SecurityException e) {
+            // If the function is OK, it should throw a SecurityException here because currently no
+            // IPC is handled by this process.
+        }
+    }
+
+    public void testEnforceUriPermission2() {
+        Uri uri = Uri.parse("content://ctstest");
+        try {
+            mContext.enforceUriPermission(uri, NOT_GRANTED_PERMISSION,
+                    NOT_GRANTED_PERMISSION, Binder.getCallingPid(), Binder.getCallingUid(),
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    "enforceUriPermission is not working without possessing an IPC.");
+            fail("enforceUriPermission is not working without possessing an IPC.");
+        } catch (SecurityException e) {
+            // If the function is ok, it should throw a SecurityException here because currently no
+            // IPC is handled by this process.
+        }
+    }
+
+    public void testGetPackageResourcePath() {
+        assertNotNull(mContext.getPackageResourcePath());
+    }
+
+    public void testStartActivity() {
+        Intent intent = new Intent(mContext, ContextCtsActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            mContext.startActivity(intent);
+            fail("Test startActivity should thow a ActivityNotFoundException here.");
+        } catch (ActivityNotFoundException e) {
+            // Because ContextWrapper is a wrapper class, so no need to test
+            // the details of the function's performance. Getting a result
+            // from the wrapped class is enough for testing.
+        }
+    }
+
+    public void testCreatePackageContext() throws PackageManager.NameNotFoundException {
+        Context actualContext = mContext.createPackageContext(getValidPackageName(),
+                Context.CONTEXT_IGNORE_SECURITY);
+
+        assertNotNull(actualContext);
+    }
+
+    public void testCreatePackageContextAsUser() throws Exception {
+        for (UserHandle user : new UserHandle[] {
+                android.os.Process.myUserHandle(),
+                UserHandle.ALL, UserHandle.CURRENT, UserHandle.SYSTEM
+        }) {
+            assertEquals(user, mContext
+                    .createPackageContextAsUser(getValidPackageName(), 0, user).getUser());
+        }
+    }
+
+    /**
+     * Helper method to retrieve a valid application package name to use for tests.
+     */
+    protected String getValidPackageName() {
+        List<PackageInfo> packages = mContext.getPackageManager().getInstalledPackages(
+                PackageManager.GET_ACTIVITIES);
+        assertTrue(packages.size() >= 1);
+        return packages.get(0).packageName;
+    }
+
+    public void testGetMainLooper() {
+        assertNotNull(mContext.getMainLooper());
+    }
+
+    public void testGetApplicationContext() {
+        assertSame(mContext.getApplicationContext(), mContext.getApplicationContext());
+    }
+
+    public void testGetSharedPreferences() {
+        SharedPreferences sp;
+        SharedPreferences localSP;
+
+        sp = PreferenceManager.getDefaultSharedPreferences(mContext);
+        String packageName = mContext.getPackageName();
+        localSP = mContext.getSharedPreferences(packageName + "_preferences",
+                Context.MODE_PRIVATE);
+        assertSame(sp, localSP);
+    }
+
+    public void testRevokeUriPermission() {
+        Uri uri = Uri.parse("contents://ctstest");
+        mContext.revokeUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+    }
+
+    public void testAccessService() throws InterruptedException {
+        MockContextService.reset();
+        bindExpectResult(mContext, new Intent(mContext, MockContextService.class));
+
+        // Check startService
+        assertTrue(MockContextService.hadCalledOnStart());
+        // Check bindService
+        assertTrue(MockContextService.hadCalledOnBind());
+
+        assertTrue(MockContextService.hadCalledOnDestory());
+        // Check unbinService
+        assertTrue(MockContextService.hadCalledOnUnbind());
+    }
+
+    public void testGetPackageCodePath() {
+        assertNotNull(mContext.getPackageCodePath());
+    }
+
+    public void testGetPackageName() {
+        assertEquals("android.content.cts", mContext.getPackageName());
+    }
+
+    public void testGetCacheDir() {
+        assertNotNull(mContext.getCacheDir());
+    }
+
+    public void testGetContentResolver() {
+        assertSame(mContext.getContentResolver(), mContext.getContentResolver());
+    }
+
+    public void testGetFileStreamPath() {
+        String TEST_FILENAME = "TestGetFileStreamPath";
+
+        // Test the path including the input filename
+        String fileStreamPath = mContext.getFileStreamPath(TEST_FILENAME).toString();
+        assertTrue(fileStreamPath.indexOf(TEST_FILENAME) >= 0);
+    }
+
+    public void testGetClassLoader() {
+        assertSame(mContext.getClassLoader(), mContext.getClassLoader());
+    }
+
+    public void testGetWallpaperDesiredMinimumHeightAndWidth() {
+        int height = mContext.getWallpaperDesiredMinimumHeight();
+        int width = mContext.getWallpaperDesiredMinimumWidth();
+
+        // returned value is <= 0, the caller should use the height of the
+        // default display instead.
+        // That is to say, the return values of desired minimumHeight and
+        // minimunWidth are at the same side of 0-dividing line.
+        assertTrue((height > 0 && width > 0) || (height <= 0 && width <= 0));
+    }
+
+    public void testAccessStickyBroadcast() throws InterruptedException {
+        ResultReceiver resultReceiver = new ResultReceiver();
+
+        Intent intent = new Intent(MOCK_STICKY_ACTION);
+        TestBroadcastReceiver stickyReceiver = new TestBroadcastReceiver();
+
+        mContext.sendStickyBroadcast(intent);
+
+        waitForReceiveBroadCast(resultReceiver);
+
+        assertEquals(intent.getAction(), mContext.registerReceiver(stickyReceiver,
+                new IntentFilter(MOCK_STICKY_ACTION)).getAction());
+
+        synchronized (mLockObj) {
+            mLockObj.wait(BROADCAST_TIMEOUT);
+        }
+
+        assertTrue("Receiver didn't make any response.", stickyReceiver.hadReceivedBroadCast());
+
+        mContext.unregisterReceiver(stickyReceiver);
+        mContext.removeStickyBroadcast(intent);
+
+        assertNull(mContext.registerReceiver(stickyReceiver,
+                new IntentFilter(MOCK_STICKY_ACTION)));
+        mContext.unregisterReceiver(stickyReceiver);
+    }
+
+    public void testCheckCallingOrSelfUriPermission() {
+        Uri uri = Uri.parse("content://ctstest");
+
+        int retValue = mContext.checkCallingOrSelfUriPermission(uri,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_DENIED, retValue);
+    }
+
+    public void testGrantUriPermission() {
+        mContext.grantUriPermission("com.android.mms", Uri.parse("contents://ctstest"),
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+    }
+
+    public void testCheckPermissionGranted() {
+        int returnValue = mContext.checkPermission(
+                GRANTED_PERMISSION, Process.myPid(), Process.myUid());
+        assertEquals(PackageManager.PERMISSION_GRANTED, returnValue);
+    }
+
+    public void testCheckPermissionNotGranted() {
+        int returnValue = mContext.checkPermission(
+                NOT_GRANTED_PERMISSION, Process.myPid(), Process.myUid());
+        assertEquals(PackageManager.PERMISSION_DENIED, returnValue);
+    }
+
+    public void testCheckPermissionRootUser() {
+        // Test with root user, everything will be granted.
+        int returnValue = mContext.checkPermission(NOT_GRANTED_PERMISSION, 1, ROOT_UID);
+        assertEquals(PackageManager.PERMISSION_GRANTED, returnValue);
+    }
+
+    public void testCheckPermissionInvalidRequest() {
+        // Test with null permission.
+        try {
+            int returnValue = mContext.checkPermission(null, 0, ROOT_UID);
+            fail("checkPermission should not accept null permission");
+        } catch (IllegalArgumentException e) {
+        }
+
+        // Test with invalid uid and included granted permission.
+        int returnValue = mContext.checkPermission(GRANTED_PERMISSION, 1, -11);
+        assertEquals(PackageManager.PERMISSION_DENIED, returnValue);
+    }
+
+    public void testCheckSelfPermissionGranted() {
+        int returnValue = mContext.checkSelfPermission(GRANTED_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_GRANTED, returnValue);
+    }
+
+    public void testCheckSelfPermissionNotGranted() {
+        int returnValue = mContext.checkSelfPermission(NOT_GRANTED_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_DENIED, returnValue);
+    }
+
+    public void testEnforcePermissionGranted() {
+        mContext.enforcePermission(
+                GRANTED_PERMISSION, Process.myPid(), Process.myUid(),
+                "permission isn't granted");
+    }
+
+    public void testEnforcePermissionNotGranted() {
+        try {
+            mContext.enforcePermission(
+                    NOT_GRANTED_PERMISSION, Process.myPid(), Process.myUid(),
+                    "permission isn't granted");
+            fail("Permission shouldn't be granted.");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    public void testCheckCallingOrSelfPermission_noIpc() {
+        // There's no ongoing Binder call, so this package's permissions are checked.
+        int retValue = mContext.checkCallingOrSelfPermission(GRANTED_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_GRANTED, retValue);
+
+        retValue = mContext.checkCallingOrSelfPermission(NOT_GRANTED_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_DENIED, retValue);
+    }
+
+    public void testCheckCallingOrSelfPermission_ipc() throws Exception {
+        bindBinderPermissionTestService();
+        try {
+            int retValue = mBinderPermissionTestService.doCheckCallingOrSelfPermission(
+                    GRANTED_PERMISSION);
+            assertEquals(PackageManager.PERMISSION_GRANTED, retValue);
+
+            retValue = mBinderPermissionTestService.doCheckCallingOrSelfPermission(
+                    NOT_GRANTED_PERMISSION);
+            assertEquals(PackageManager.PERMISSION_DENIED, retValue);
+        } finally {
+            mContext.unbindService(mBinderPermissionTestConnection);
+        }
+    }
+
+    public void testEnforceCallingOrSelfPermission_noIpc() {
+        // There's no ongoing Binder call, so this package's permissions are checked.
+        mContext.enforceCallingOrSelfPermission(
+                GRANTED_PERMISSION, "permission isn't granted");
+
+        try {
+            mContext.enforceCallingOrSelfPermission(
+                    NOT_GRANTED_PERMISSION, "permission isn't granted");
+            fail("Permission shouldn't be granted.");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    public void testEnforceCallingOrSelfPermission_ipc() throws Exception {
+        bindBinderPermissionTestService();
+        try {
+            mBinderPermissionTestService.doEnforceCallingOrSelfPermission(GRANTED_PERMISSION);
+
+            try {
+                mBinderPermissionTestService.doEnforceCallingOrSelfPermission(
+                        NOT_GRANTED_PERMISSION);
+                fail("Permission shouldn't be granted.");
+            } catch (SecurityException expected) {
+            }
+        } finally {
+            mContext.unbindService(mBinderPermissionTestConnection);
+        }
+    }
+
+    public void testCheckCallingPermission_noIpc() {
+        // Denied because no IPC is active.
+        int retValue = mContext.checkCallingPermission(GRANTED_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_DENIED, retValue);
+    }
+
+    public void testEnforceCallingPermission_noIpc() {
+        try {
+            mContext.enforceCallingPermission(
+                    GRANTED_PERMISSION,
+                    "enforceCallingPermission is not working without possessing an IPC.");
+            fail("enforceCallingPermission is not working without possessing an IPC.");
+        } catch (SecurityException e) {
+            // Currently no IPC is handled by this process, this exception is expected
+        }
+    }
+
+    public void testEnforceCallingPermission_ipc() throws Exception {
+        bindBinderPermissionTestService();
+        try {
+            mBinderPermissionTestService.doEnforceCallingPermission(GRANTED_PERMISSION);
+
+            try {
+                mBinderPermissionTestService.doEnforceCallingPermission(NOT_GRANTED_PERMISSION);
+                fail("Permission shouldn't be granted.");
+            } catch (SecurityException expected) {
+            }
+        } finally {
+            mContext.unbindService(mBinderPermissionTestConnection);
+        }
+    }
+
+    public void testCheckCallingPermission_ipc() throws Exception {
+        bindBinderPermissionTestService();
+        try {
+            int returnValue = mBinderPermissionTestService.doCheckCallingPermission(
+                    GRANTED_PERMISSION);
+            assertEquals(PackageManager.PERMISSION_GRANTED, returnValue);
+
+            returnValue = mBinderPermissionTestService.doCheckCallingPermission(
+                    NOT_GRANTED_PERMISSION);
+            assertEquals(PackageManager.PERMISSION_DENIED, returnValue);
+        } finally {
+            mContext.unbindService(mBinderPermissionTestConnection);
+        }
+    }
+
+    private void bindBinderPermissionTestService() {
+        Intent intent = new Intent(mContext, IBinderPermissionTestService.class);
+        intent.setComponent(new ComponentName(
+                "com.android.cts", "com.android.cts.BinderPermissionTestService"));
+
+        mBinderPermissionTestConnection = new ServiceConnection() {
+            @Override
+            public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+                mBinderPermissionTestService =
+                        IBinderPermissionTestService.Stub.asInterface(iBinder);
+            }
+
+            @Override
+            public void onServiceDisconnected(ComponentName componentName) {
+            }
+        };
+
+        assertTrue("Service not bound", mContext.bindService(
+                intent, mBinderPermissionTestConnection, Context.BIND_AUTO_CREATE));
+
+        new PollingCheck(15 * 1000) {
+            protected boolean check() {
+                return mBinderPermissionTestService != null; // Service was bound.
+            }
+        }.run();
+    }
+
+    public void testCheckUriPermission1() {
+        Uri uri = Uri.parse("content://ctstest");
+
+        int retValue = mContext.checkUriPermission(uri, Binder.getCallingPid(), 0,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_GRANTED, retValue);
+
+        retValue = mContext.checkUriPermission(uri, Binder.getCallingPid(),
+                Binder.getCallingUid(), Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_DENIED, retValue);
+    }
+
+    public void testCheckUriPermission2() {
+        Uri uri = Uri.parse("content://ctstest");
+
+        int retValue = mContext.checkUriPermission(uri, NOT_GRANTED_PERMISSION,
+                NOT_GRANTED_PERMISSION, Binder.getCallingPid(), 0,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_GRANTED, retValue);
+
+        retValue = mContext.checkUriPermission(uri, NOT_GRANTED_PERMISSION,
+                NOT_GRANTED_PERMISSION, Binder.getCallingPid(), Binder.getCallingUid(),
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_DENIED, retValue);
+    }
+
+    public void testCheckCallingUriPermission() {
+        Uri uri = Uri.parse("content://ctstest");
+
+        int retValue = mContext.checkCallingUriPermission(uri,
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        assertEquals(PackageManager.PERMISSION_DENIED, retValue);
+    }
+
+    public void testEnforceCallingUriPermission() {
+        try {
+            Uri uri = Uri.parse("content://ctstest");
+            mContext.enforceCallingUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    "enforceCallingUriPermission is not working without possessing an IPC.");
+            fail("enforceCallingUriPermission is not working without possessing an IPC.");
+        } catch (SecurityException e) {
+            // If the function is OK, it should throw a SecurityException here because currently no
+            // IPC is handled by this process.
+        }
+    }
+
+    public void testGetDir() {
+        File dir = mContext.getDir("testpath", Context.MODE_PRIVATE);
+        assertNotNull(dir);
+        dir.delete();
+    }
+
+    public void testGetPackageManager() {
+        assertSame(mContext.getPackageManager(), mContext.getPackageManager());
+    }
+
+    public void testSendBroadcast1() throws InterruptedException {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+
+        mContext.sendBroadcast(new Intent(ResultReceiver.MOCK_ACTION));
+
+        new PollingCheck(BROADCAST_TIMEOUT){
+            @Override
+            protected boolean check() {
+                return receiver.hasReceivedBroadCast();
+            }
+        }.run();
+    }
+
+    public void testSendBroadcast2() throws InterruptedException {
+        final ResultReceiver receiver = new ResultReceiver();
+
+        registerBroadcastReceiver(receiver, new IntentFilter(ResultReceiver.MOCK_ACTION));
+
+        mContext.sendBroadcast(new Intent(ResultReceiver.MOCK_ACTION), null);
+
+        new PollingCheck(BROADCAST_TIMEOUT){
+            @Override
+            protected boolean check() {
+                return receiver.hasReceivedBroadCast();
+            }
+        }.run();
+    }
+
+    public void testEnforceCallingOrSelfUriPermission() {
+        try {
+            Uri uri = Uri.parse("content://ctstest");
+            mContext.enforceCallingOrSelfUriPermission(uri,
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                    "enforceCallingOrSelfUriPermission is not working without possessing an IPC.");
+            fail("enforceCallingOrSelfUriPermission is not working without possessing an IPC.");
+        } catch (SecurityException e) {
+            // If the function is OK, it should throw a SecurityException here because currently no
+            // IPC is handled by this process.
+        }
+    }
+
+    public void testGetAssets() {
+        assertSame(mContext.getAssets(), mContext.getAssets());
+    }
+
+    public void testGetResources() {
+        assertSame(mContext.getResources(), mContext.getResources());
+    }
+
+    public void testStartInstrumentation() {
+        // Use wrong name
+        ComponentName cn = new ComponentName("com.android",
+                "com.android.content.FalseLocalSampleInstrumentation");
+        assertNotNull(cn);
+        assertNotNull(mContext);
+        // If the target instrumentation is wrong, the function should return false.
+        assertFalse(mContext.startInstrumentation(cn, null, null));
+    }
+
+    private void bindExpectResult(Context context, Intent service)
+            throws InterruptedException {
+        if (service == null) {
+            fail("No service created!");
+        }
+        TestConnection conn = new TestConnection(true, false);
+
+        context.bindService(service, conn, Context.BIND_AUTO_CREATE);
+        context.startService(service);
+
+        // Wait for a short time, so the service related operations could be
+        // working.
+        synchronized (this) {
+            wait(2500);
+        }
+        // Test stop Service
+        assertTrue(context.stopService(service));
+        context.unbindService(conn);
+
+        synchronized (this) {
+            wait(1000);
+        }
+    }
+
+    private interface Condition {
+        public boolean onCondition();
+    }
+
+    private synchronized void waitForCondition(Condition con) throws InterruptedException {
+        // check the condition every 1 second until the condition is fulfilled
+        // and wait for 3 seconds at most
+        for (int i = 0; !con.onCondition() && i <= 3; i++) {
+            wait(1000);
+        }
+    }
+
+    private void waitForReceiveBroadCast(final ResultReceiver receiver)
+            throws InterruptedException {
+        Condition con = new Condition() {
+            public boolean onCondition() {
+                return receiver.hasReceivedBroadCast();
+            }
+        };
+        waitForCondition(con);
+    }
+
+    private void waitForFilteredIntent(Context context, final String action)
+            throws InterruptedException {
+        context.sendBroadcast(new Intent(action), null);
+
+        synchronized (mLockObj) {
+            mLockObj.wait(BROADCAST_TIMEOUT);
+        }
+    }
+
+    private final class TestBroadcastReceiver extends BroadcastReceiver {
+        boolean mHadReceivedBroadCast;
+        boolean mIsOrderedBroadcasts;
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            synchronized (this) {
+                if (mIsOrderedBroadcasts) {
+                    setResultCode(3);
+                    setResultData(ACTUAL_RESULT);
+                }
+
+                Bundle map = getResultExtras(false);
+                if (map != null) {
+                    map.remove(KEY_REMOVED);
+                    map.putString(KEY_ADDED, VALUE_ADDED);
+                }
+                mHadReceivedBroadCast = true;
+                this.notifyAll();
+            }
+
+            synchronized (mLockObj) {
+                mLockObj.notify();
+            }
+        }
+
+        boolean hadReceivedBroadCast() {
+            return mHadReceivedBroadCast;
+        }
+
+        void reset(){
+            mHadReceivedBroadCast = false;
+        }
+    }
+
+    private class FilteredReceiver extends BroadcastReceiver {
+        private boolean mHadReceivedBroadCast1 = false;
+        private boolean mHadReceivedBroadCast2 = false;
+
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (MOCK_ACTION1.equals(action)) {
+                mHadReceivedBroadCast1 = true;
+            } else if (MOCK_ACTION2.equals(action)) {
+                mHadReceivedBroadCast2 = true;
+            }
+
+            synchronized (mLockObj) {
+                mLockObj.notify();
+            }
+        }
+
+        public boolean hadReceivedBroadCast1() {
+            return mHadReceivedBroadCast1;
+        }
+
+        public boolean hadReceivedBroadCast2() {
+            return mHadReceivedBroadCast2;
+        }
+
+        public void reset(){
+            mHadReceivedBroadCast1 = false;
+            mHadReceivedBroadCast2 = false;
+        }
+    }
+
+    private class TestConnection implements ServiceConnection {
+        public TestConnection(boolean expectDisconnect, boolean setReporter) {
+        }
+
+        void setMonitor(boolean v) {
+        }
+
+        public void onServiceConnected(ComponentName name, IBinder service) {
+        }
+
+        public void onServiceDisconnected(ComponentName name) {
+        }
+    }
+
+    public void testOpenFileOutput_mustNotCreateWorldReadableFile() throws Exception {
+        try {
+            mContext.openFileOutput("test.txt", Context.MODE_WORLD_READABLE);
+            fail("Exception expected");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    public void testOpenFileOutput_mustNotCreateWorldWriteableFile() throws Exception {
+        try {
+            mContext.openFileOutput("test.txt", Context.MODE_WORLD_WRITEABLE);
+            fail("Exception expected");
+        } catch (SecurityException expected) {
+        }
+    }
+
+    public void testOpenFileOutput_mustNotWriteToParentDirectory() throws Exception {
+        try {
+            // Created files must be under the application's private directory.
+            mContext.openFileOutput("../test.txt", Context.MODE_PRIVATE);
+            fail("Exception expected");
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
+    public void testOpenFileOutput_mustNotUseAbsolutePath() throws Exception {
+        try {
+            // Created files must be under the application's private directory.
+            mContext.openFileOutput("/tmp/test.txt", Context.MODE_PRIVATE);
+            fail("Exception expected");
+        } catch (IllegalArgumentException expected) {
+        }
+    }
+
 }

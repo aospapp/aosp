@@ -58,8 +58,19 @@
 #include "dump_type.h"
 #include "protocol.h"
 
+#include "handler/fallback.h"
+
 using android::base::Pipe;
-using android::base::unique_fd;
+
+// We muck with our fds in a 'thread' that doesn't share the same fd table.
+// Close fds in that thread with a raw close syscall instead of going through libc.
+struct FdsanBypassCloser {
+  static void Close(int fd) {
+    syscall(__NR_close, fd);
+  }
+};
+
+using unique_fd = android::base::unique_fd_impl<FdsanBypassCloser>;
 
 // see man(2) prctl, specifically the section about PR_GET_NAME
 #define MAX_TASK_NAME_LEN (16)
@@ -99,6 +110,7 @@ class ErrnoRestorer {
   int saved_errno_;
 };
 
+extern "C" void* android_fdsan_get_fd_table();
 extern "C" void debuggerd_fallback_handler(siginfo_t*, ucontext_t*, void*);
 
 static debuggerd_callbacks_t g_callbacks;
@@ -169,13 +181,15 @@ static void log_signal_summary(const siginfo_t* info) {
     return;
   }
 
-  const char* signal_name = get_signame(info->si_signo);
-  bool has_address = signal_has_si_addr(info->si_signo, info->si_code);
-
-  // Many signals don't have an address.
+  // Many signals don't have an address or sender.
   char addr_desc[32] = "";  // ", fault addr 0x1234"
-  if (has_address) {
+  if (signal_has_si_addr(info)) {
     async_safe_format_buffer(addr_desc, sizeof(addr_desc), ", fault addr %p", info->si_addr);
+  }
+  pid_t self_pid = __getpid();
+  char sender_desc[32] = {};  // " from pid 1234, uid 666"
+  if (signal_has_sender(info, self_pid)) {
+    get_signal_sender(sender_desc, sizeof(sender_desc), info);
   }
 
   char main_thread_name[MAX_TASK_NAME_LEN + 1];
@@ -183,10 +197,10 @@ static void log_signal_summary(const siginfo_t* info) {
     strncpy(main_thread_name, "<unknown>", sizeof(main_thread_name));
   }
 
-  async_safe_format_log(
-      ANDROID_LOG_FATAL, "libc", "Fatal signal %d (%s), code %d (%s)%s in tid %d (%s), pid %d (%s)",
-      info->si_signo, signal_name, info->si_code, get_sigcode(info->si_signo, info->si_code),
-      addr_desc, __gettid(), thread_name, __getpid(), main_thread_name);
+  async_safe_format_log(ANDROID_LOG_FATAL, "libc",
+                        "Fatal signal %d (%s), code %d (%s%s)%s in tid %d (%s), pid %d (%s)",
+                        info->si_signo, get_signame(info), info->si_code, get_sigcode(info),
+                        sender_desc, addr_desc, __gettid(), thread_name, self_pid, main_thread_name);
 }
 
 /*
@@ -254,8 +268,15 @@ static void create_vm_process() {
       _exit(errno);
     }
 
-    // Exit immediately on both sides of the fork.
-    // crash_dump is ptracing us, so it'll get to do whatever it wants in between.
+    // crash_dump is ptracing both sides of the fork; it'll let the parent exit,
+    // but keep the orphan stopped to peek at its memory.
+
+    // There appears to be a bug in the kernel where our death causes SIGHUP to
+    // be sent to our process group if we exit while it has stopped jobs (e.g.
+    // because of wait_for_gdb). Use setsid to create a new process group to
+    // avoid hitting this.
+    setsid();
+
     _exit(0);
   }
 
@@ -275,6 +296,7 @@ struct debugger_thread_info {
   siginfo_t* siginfo;
   void* ucontext;
   uintptr_t abort_msg;
+  uintptr_t fdsan_table;
 };
 
 // Logging and contacting debuggerd requires free file descriptors, which we might not have.
@@ -297,7 +319,8 @@ static int debuggerd_dispatch_pseudothread(void* arg) {
   debugger_thread_info* thread_info = static_cast<debugger_thread_info*>(arg);
 
   for (int i = 0; i < 1024; ++i) {
-    close(i);
+    // Don't use close to avoid bionic's file descriptor ownership checks.
+    syscall(__NR_close, i);
   }
 
   int devnull = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR));
@@ -318,23 +341,23 @@ static int debuggerd_dispatch_pseudothread(void* arg) {
   }
 
   // ucontext_t is absurdly large on AArch64, so piece it together manually with writev.
-  uint32_t version = 1;
-  constexpr size_t expected =
-      sizeof(version) + sizeof(siginfo_t) + sizeof(ucontext_t) + sizeof(uintptr_t);
+  uint32_t version = 2;
+  constexpr size_t expected = sizeof(CrashInfoHeader) + sizeof(CrashInfoDataV2);
 
   errno = 0;
   if (fcntl(output_write.get(), F_SETPIPE_SZ, expected) < static_cast<int>(expected)) {
-    fatal_errno("failed to set pipe bufer size");
+    fatal_errno("failed to set pipe buffer size");
   }
 
-  struct iovec iovs[4] = {
+  struct iovec iovs[5] = {
       {.iov_base = &version, .iov_len = sizeof(version)},
       {.iov_base = thread_info->siginfo, .iov_len = sizeof(siginfo_t)},
       {.iov_base = thread_info->ucontext, .iov_len = sizeof(ucontext_t)},
       {.iov_base = &thread_info->abort_msg, .iov_len = sizeof(uintptr_t)},
+      {.iov_base = &thread_info->fdsan_table, .iov_len = sizeof(uintptr_t)},
   };
 
-  ssize_t rc = TEMP_FAILURE_RETRY(writev(output_write.get(), iovs, 4));
+  ssize_t rc = TEMP_FAILURE_RETRY(writev(output_write.get(), iovs, 5));
   if (rc == -1) {
     fatal_errno("failed to write crash info");
   } else if (rc != expected) {
@@ -367,7 +390,9 @@ static int debuggerd_dispatch_pseudothread(void* arg) {
 
     execle(CRASH_DUMP_PATH, CRASH_DUMP_NAME, main_tid, pseudothread_tid, debuggerd_dump_type,
            nullptr, nullptr);
-    fatal_errno("exec failed");
+    async_safe_format_log(ANDROID_LOG_FATAL, "libc", "failed to exec crash_dump helper: %s",
+                          strerror(errno));
+    return 1;
   }
 
   input_write.reset();
@@ -443,14 +468,14 @@ static void debuggerd_signal_handler(int signal_number, siginfo_t* info, void* c
     info = nullptr;
   }
 
-  struct siginfo si = {};
+  struct siginfo dummy_info = {};
   if (!info) {
-    memset(&si, 0, sizeof(si));
-    si.si_signo = signal_number;
-    si.si_code = SI_USER;
-    si.si_pid = __getpid();
-    si.si_uid = getuid();
-    info = &si;
+    memset(&dummy_info, 0, sizeof(dummy_info));
+    dummy_info.si_signo = signal_number;
+    dummy_info.si_code = SI_USER;
+    dummy_info.si_pid = __getpid();
+    dummy_info.si_uid = getuid();
+    info = &dummy_info;
   } else if (info->si_code >= 0 || info->si_code == SI_TKILL) {
     // rt_tgsigqueueinfo(2)'s documentation appears to be incorrect on kernels
     // that contain commit 66dd34a (3.9+). The manpage claims to only allow
@@ -459,8 +484,20 @@ static void debuggerd_signal_handler(int signal_number, siginfo_t* info, void* c
   }
 
   void* abort_message = nullptr;
-  if (signal_number != DEBUGGER_SIGNAL && g_callbacks.get_abort_message) {
-    abort_message = g_callbacks.get_abort_message();
+  uintptr_t si_val = reinterpret_cast<uintptr_t>(info->si_ptr);
+  if (signal_number == DEBUGGER_SIGNAL) {
+    if (info->si_code == SI_QUEUE && info->si_pid == __getpid()) {
+      // Allow for the abort message to be explicitly specified via the sigqueue value.
+      // Keep the bottom bit intact for representing whether we want a backtrace or a tombstone.
+      if (si_val != kDebuggerdFallbackSivalUintptrRequestDump) {
+        abort_message = reinterpret_cast<void*>(si_val & ~1);
+        info->si_ptr = reinterpret_cast<void*>(si_val & 1);
+      }
+    }
+  } else {
+    if (g_callbacks.get_abort_message) {
+      abort_message = g_callbacks.get_abort_message();
+    }
   }
 
   // If sival_int is ~0, it means that the fallback handler has been called
@@ -468,7 +505,8 @@ static void debuggerd_signal_handler(int signal_number, siginfo_t* info, void* c
   // of a specific thread. It is possible that the prctl call might return 1,
   // then return 0 in subsequent calls, so check the sival_int to determine if
   // the fallback handler should be called first.
-  if (info->si_value.sival_int == ~0 || prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) == 1) {
+  if (si_val == kDebuggerdFallbackSivalUintptrRequestDump ||
+      prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) == 1) {
     // This check might be racy if another thread sets NO_NEW_PRIVS, but this should be unlikely,
     // you can only set NO_NEW_PRIVS to 1, and the effect should be at worst a single missing
     // ANR trace.
@@ -492,6 +530,7 @@ static void debuggerd_signal_handler(int signal_number, siginfo_t* info, void* c
       .siginfo = info,
       .ucontext = context,
       .abort_msg = reinterpret_cast<uintptr_t>(abort_message),
+      .fdsan_table = reinterpret_cast<uintptr_t>(android_fdsan_get_fd_table()),
   };
 
   // Set PR_SET_DUMPABLE to 1, so that crash_dump can ptrace us.

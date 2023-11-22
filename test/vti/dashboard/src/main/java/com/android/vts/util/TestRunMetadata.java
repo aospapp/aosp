@@ -78,8 +78,8 @@ public class TestRunMetadata {
 
         for (DeviceInfoEntity device : this.devices) {
             String abi = "";
-            String abiName = device.abiName;
-            String abiBitness = device.abiBitness;
+            String abiName = device.getAbiName();
+            String abiBitness = device.getAbiBitness();
             if (abiName.length() > 0) {
                 abi += abiName;
                 if (abiBitness.length() > 0) {

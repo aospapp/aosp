@@ -17,16 +17,25 @@ Aggregates test runners, groups tests by test runners and kicks off tests.
 """
 
 import itertools
+import time
+import traceback
 
 import atest_error
+import constants
+import result_reporter
+
+from metrics import metrics
+from metrics import metrics_utils
 from test_runners import atest_tf_test_runner
 from test_runners import robolectric_test_runner
+from test_runners import suite_plan_test_runner
 from test_runners import vts_tf_test_runner
 
 # pylint: disable=line-too-long
 _TEST_RUNNERS = {
     atest_tf_test_runner.AtestTradefedTestRunner.NAME: atest_tf_test_runner.AtestTradefedTestRunner,
     robolectric_test_runner.RobolectricTestRunner.NAME: robolectric_test_runner.RobolectricTestRunner,
+    suite_plan_test_runner.SuitePlanTestRunner.NAME: suite_plan_test_runner.SuitePlanTestRunner,
     vts_tf_test_runner.VtsTradefedTestRunner.NAME: vts_tf_test_runner.VtsTradefedTestRunner,
 }
 
@@ -51,7 +60,7 @@ def _get_test_runners():
     return test_runners_dict
 
 
-def _group_tests_by_test_runners(test_infos):
+def group_tests_by_test_runners(test_infos):
     """Group the test_infos by test runners
 
     Args:
@@ -87,19 +96,51 @@ def get_test_runner_reqs(module_info, test_infos):
     """
     dummy_result_dir = ''
     test_runner_build_req = set()
-    for test_runner, _ in _group_tests_by_test_runners(test_infos):
+    for test_runner, _ in group_tests_by_test_runners(test_infos):
         test_runner_build_req |= test_runner(
             dummy_result_dir,
             module_info=module_info).get_test_runner_build_reqs()
     return test_runner_build_req
 
 
-def run_all_tests(results_dir, test_infos, extra_args):
+def run_all_tests(results_dir, test_infos, extra_args,
+                  delay_print_summary=False):
     """Run the given tests.
 
     Args:
+        results_dir: String directory to store atest results.
         test_infos: List of TestInfo.
         extra_args: Dict of extra args for test runners to use.
+
+    Returns:
+        0 if tests succeed, non-zero otherwise.
     """
-    for test_runner, tests in _group_tests_by_test_runners(test_infos):
-        test_runner(results_dir).run_tests(tests, extra_args)
+    reporter = result_reporter.ResultReporter()
+    reporter.print_starting_text()
+    tests_ret_code = constants.EXIT_CODE_SUCCESS
+    for test_runner, tests in group_tests_by_test_runners(test_infos):
+        test_name = ' '.join([test.test_name for test in tests])
+        test_start = time.time()
+        is_success = True
+        ret_code = constants.EXIT_CODE_TEST_FAILURE
+        stacktrace = ''
+        try:
+            test_runner = test_runner(results_dir)
+            ret_code = test_runner.run_tests(tests, extra_args, reporter)
+            tests_ret_code |= ret_code
+        # pylint: disable=broad-except
+        except Exception:
+            stacktrace = traceback.format_exc()
+            reporter.runner_failure(test_runner.NAME, stacktrace)
+            tests_ret_code = constants.EXIT_CODE_TEST_FAILURE
+            is_success = False
+        metrics.RunnerFinishEvent(
+            duration=metrics_utils.convert_duration(time.time() - test_start),
+            success=is_success,
+            runner_name=test_runner.NAME,
+            test=[{'name': test_name,
+                   'result': ret_code,
+                   'stacktrace': stacktrace}])
+    if delay_print_summary:
+        return tests_ret_code, reporter
+    return reporter.print_summary() or tests_ret_code, reporter

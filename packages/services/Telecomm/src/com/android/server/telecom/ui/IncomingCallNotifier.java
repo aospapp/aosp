@@ -58,8 +58,8 @@ public class IncomingCallNotifier extends CallsManagerListenerBase {
      * Eliminates strict dependency between this class and CallsManager.
      */
     public interface CallsManagerProxy {
-        boolean hasCallsForOtherPhoneAccount(PhoneAccountHandle phoneAccountHandle);
-        int getNumCallsForOtherPhoneAccount(PhoneAccountHandle phoneAccountHandle);
+        boolean hasUnholdableCallsForOtherConnectionService(PhoneAccountHandle phoneAccountHandle);
+        int getNumUnholdableCallsForOtherConnectionService(PhoneAccountHandle phoneAccountHandle);
         Call getActiveCall();
     }
 
@@ -137,7 +137,7 @@ public class IncomingCallNotifier extends CallsManagerListenerBase {
                 .findFirst();
         Call incomingCall = incomingCallOp.orElse(null);
         if (incomingCall != null && mCallsManagerProxy != null &&
-                !mCallsManagerProxy.hasCallsForOtherPhoneAccount(
+                !mCallsManagerProxy.hasUnholdableCallsForOtherConnectionService(
                         incomingCallOp.get().getTargetPhoneAccount())) {
             // If there is no calls in any other ConnectionService, we can rely on the
             // third-party app to display its own incoming call UI.
@@ -210,7 +210,7 @@ public class IncomingCallNotifier extends CallsManagerListenerBase {
         boolean isOngoingVideo = ongoingCall != null ?
                 VideoProfile.isVideo(ongoingCall.getVideoState()) : false;
         int numOtherCalls = ongoingCall != null ?
-                mCallsManagerProxy.getNumCallsForOtherPhoneAccount(
+                mCallsManagerProxy.getNumUnholdableCallsForOtherConnectionService(
                         incomingCall.getTargetPhoneAccount()) : 1;
 
         // Build the "IncomingApp call from John Smith" message.

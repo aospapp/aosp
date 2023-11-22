@@ -24,7 +24,7 @@
 
 class UtfLocale {
  public:
-  UtfLocale() : l(newlocale(LC_ALL, "C.UTF-8", 0)) {}
+  UtfLocale() : l(newlocale(LC_ALL, "C.UTF-8", nullptr)) {}
   ~UtfLocale() { freelocale(l); }
   locale_t l;
 };
@@ -111,7 +111,7 @@ TEST(wctype, towlower) {
     EXPECT_EQ(wint_t(L'δ'), towlower(L'δ'));
     EXPECT_EQ(wint_t(L'δ'), towlower(L'Δ'));
   } else {
-    GTEST_LOG_(INFO) << "skipping unicode towlower tests";
+    GTEST_SKIP() << "icu not available";
   }
 }
 
@@ -127,7 +127,7 @@ TEST(wctype, towlower_l) {
     EXPECT_EQ(wint_t(L'δ'), towlower_l(L'δ', l.l));
     EXPECT_EQ(wint_t(L'δ'), towlower_l(L'Δ', l.l));
   } else {
-    GTEST_LOG_(INFO) << "skipping unicode towlower_l tests";
+    GTEST_SKIP() << "icu not available";
   }
 }
 
@@ -142,7 +142,7 @@ TEST(wctype, towupper) {
     EXPECT_EQ(wint_t(L'Δ'), towupper(L'δ'));
     EXPECT_EQ(wint_t(L'Δ'), towupper(L'Δ'));
   } else {
-    GTEST_LOG_(INFO) << "skipping unicode towupper tests";
+    GTEST_SKIP() << "icu not available";
   }
 }
 
@@ -158,7 +158,7 @@ TEST(wctype, towupper_l) {
     EXPECT_EQ(wint_t(L'Δ'), towupper_l(L'δ', l.l));
     EXPECT_EQ(wint_t(L'Δ'), towupper_l(L'Δ', l.l));
   } else {
-    GTEST_LOG_(INFO) << "skipping unicode towupper_l tests";
+    GTEST_SKIP() << "icu not available";
   }
 }
 
@@ -215,18 +215,18 @@ TEST(wctype, iswctype_l) {
 }
 
 TEST(wctype, towctrans) {
-  EXPECT_TRUE(wctrans("tolower") != 0);
-  EXPECT_TRUE(wctrans("toupper") != 0);
+  EXPECT_TRUE(wctrans("tolower") != nullptr);
+  EXPECT_TRUE(wctrans("toupper") != nullptr);
 
-  EXPECT_TRUE(wctrans("monkeys") == 0);
+  EXPECT_TRUE(wctrans("monkeys") == nullptr);
 }
 
 TEST(wctype, towctrans_l) {
   UtfLocale l;
-  EXPECT_TRUE(wctrans_l("tolower", l.l) != 0);
-  EXPECT_TRUE(wctrans_l("toupper", l.l) != 0);
+  EXPECT_TRUE(wctrans_l("tolower", l.l) != nullptr);
+  EXPECT_TRUE(wctrans_l("toupper", l.l) != nullptr);
 
-  EXPECT_TRUE(wctrans_l("monkeys", l.l) == 0);
+  EXPECT_TRUE(wctrans_l("monkeys", l.l) == nullptr);
 }
 
 TEST(wctype, wctrans) {

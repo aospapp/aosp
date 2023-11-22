@@ -17,36 +17,44 @@
 #ifndef NETD_SERVER_EVENT_REPORTER_H
 #define NETD_SERVER_EVENT_REPORTER_H
 
-#include <atomic>
-#include <binder/IServiceManager.h>
+#include <map>
 #include <mutex>
 
+#include <android-base/thread_annotations.h>
+#include <binder/IServiceManager.h>
+#include "android/net/INetd.h"
+#include "android/net/INetdUnsolicitedEventListener.h"
 #include "android/net/metrics/INetdEventListener.h"
 
 /*
- * This class stores the reporting level and can be used to get the event listener service.
+ * This class can be used to get the event listener service.
  */
 class EventReporter {
-public:
-    int setMetricsReportingLevel(const int level);
-    int getMetricsReportingLevel() const;
+  public:
+    using UnsolListenerMap =
+            std::map<const android::sp<android::net::INetdUnsolicitedEventListener>,
+                     const android::sp<android::IBinder::DeathRecipient>>;
 
     // Returns the binder reference to the netd events listener service, attempting to fetch it if
     // we do not have it already. This method is threadsafe.
     android::sp<android::net::metrics::INetdEventListener> getNetdEventListener();
 
-private:
-    std::atomic_int mReportingLevel{
-            android::net::metrics::INetdEventListener::REPORTING_LEVEL_FULL};
-    // TODO: consider changing this into an atomic type such as
-    // std::atomic<android::net::metrics::INetdEventListener> and deleting the mutex.
-    //
-    // Alternatively, if this locking causes a performance penalty, have each single-threaded
-    // caller (DnsProxyListener, FwmarkServer) keep their own per-thread copy of NetdEventListener
-    // and remove mNetdEventListener entirely.
-    android::sp<android::net::metrics::INetdEventListener> mNetdEventListener;
-    std::mutex mutex;
+    // Returns a copy of the registered listeners.
+    UnsolListenerMap getNetdUnsolicitedEventListenerMap() const EXCLUDES(mUnsolicitedMutex);
 
+    void registerUnsolEventListener(
+            const android::sp<android::net::INetdUnsolicitedEventListener>& listener)
+            EXCLUDES(mUnsolicitedMutex);
+    void unregisterUnsolEventListener(
+            const android::sp<android::net::INetdUnsolicitedEventListener>& listener)
+            EXCLUDES(mUnsolicitedMutex);
+
+  private:
+    std::mutex mEventMutex;
+    mutable std::mutex mUnsolicitedMutex;
+    android::sp<android::net::metrics::INetdEventListener> mNetdEventListener
+            GUARDED_BY(mEventMutex);
+    UnsolListenerMap mUnsolListenerMap GUARDED_BY(mUnsolicitedMutex);
 };
 
 #endif  // NETD_SERVER_EVENT_REPORTER_H

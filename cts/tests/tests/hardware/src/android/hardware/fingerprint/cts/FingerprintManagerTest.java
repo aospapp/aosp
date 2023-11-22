@@ -67,6 +67,18 @@ public class FingerprintManagerTest extends AndroidTestCase {
     }
 
     @Presubmit
+    public void test_managerAndFeature() {
+        final boolean hasFingerprintFeature = getContext().getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_FINGERPRINT);
+        final FingerprintManager fpm = getContext().getSystemService(FingerprintManager.class);
+
+        if (hasFingerprintFeature || fpm != null) {
+            assertTrue(hasFingerprintFeature);
+            assertTrue(fpm != null);
+        }
+    }
+
+    @Presubmit
     public void test_hasFingerprintHardware() {
         if (!mHasFingerprintManager) {
             return; // skip test if no fingerprint feature

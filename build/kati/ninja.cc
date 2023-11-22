@@ -200,7 +200,7 @@ class NinjaGenerator {
       delete nn;
   }
 
-  void Generate(const vector<DepNode*>& nodes, const string& orig_args) {
+  void Generate(const vector<NamedDepNode>& nodes, const string& orig_args) {
     unlink(GetNinjaStampFilename().c_str());
     PopulateNinjaNodes(nodes);
     GenerateNinja();
@@ -220,17 +220,18 @@ class NinjaGenerator {
   }
 
  private:
-  void PopulateNinjaNodes(const vector<DepNode*>& nodes) {
+  void PopulateNinjaNodes(const vector<NamedDepNode>& nodes) {
     ScopedTimeReporter tr("ninja gen (eval)");
-    for (DepNode* node : nodes) {
-      PopulateNinjaNode(node);
+    for (auto const& node : nodes) {
+      PopulateNinjaNode(node.second);
     }
   }
 
   void PopulateNinjaNode(DepNode* node) {
-    auto p = done_.insert(node->output);
-    if (!p.second)
+    if (done_.exists(node->output)) {
       return;
+    }
+    done_.insert(node->output);
 
     // A hack to exclude out phony target in Android. If this exists,
     // "ninja -t clean" tries to remove this directory and fails.
@@ -248,11 +249,11 @@ class NinjaGenerator {
     nn->rule_id = nn->commands.empty() ? -1 : rule_id_++;
     nodes_.push_back(nn);
 
-    for (DepNode* d : node->deps) {
-      PopulateNinjaNode(d);
+    for (auto const& d : node->deps) {
+      PopulateNinjaNode(d.second);
     }
-    for (DepNode* d : node->order_onlys) {
-      PopulateNinjaNode(d);
+    for (auto const& d : node->order_onlys) {
+      PopulateNinjaNode(d.second);
     }
   }
 
@@ -529,7 +530,9 @@ class NinjaGenerator {
         case ':':
         case ' ':
           r += '$';
-        // fall through.
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(clang::fallthrough)
+          [[clang::fallthrough]];
+#endif
         default:
           r += c;
       }
@@ -557,13 +560,13 @@ class NinjaGenerator {
     if (node->is_phony) {
       *o << " _kati_always_build_";
     }
-    for (DepNode* d : node->deps) {
-      *o << " " << EscapeBuildTarget(d->output).c_str();
+    for (auto const& d : node->deps) {
+      *o << " " << EscapeBuildTarget(d.first).c_str();
     }
     if (!node->order_onlys.empty()) {
       *o << " ||";
-      for (DepNode* d : node->order_onlys) {
-        *o << " " << EscapeBuildTarget(d->output).c_str();
+      for (auto const& d : node->order_onlys) {
+        *o << " " << EscapeBuildTarget(d.first).c_str();
       }
     }
     *o << "\n";
@@ -599,14 +602,16 @@ class NinjaGenerator {
       fprintf(fp_, "\n");
     }
 
-    if (g_flags.ninja_dir) {
-      fprintf(fp_, "builddir = %s\n\n", g_flags.ninja_dir);
+    if (!g_flags.no_ninja_prelude) {
+      if (g_flags.ninja_dir) {
+        fprintf(fp_, "builddir = %s\n\n", g_flags.ninja_dir);
+      }
+
+      fprintf(fp_, "pool local_pool\n");
+      fprintf(fp_, " depth = %d\n\n", g_flags.num_jobs);
+
+      fprintf(fp_, "build _kati_always_build_: phony\n\n");
     }
-
-    fprintf(fp_, "pool local_pool\n");
-    fprintf(fp_, " depth = %d\n\n", g_flags.num_jobs);
-
-    fprintf(fp_, "build _kati_always_build_: phony\n\n");
 
     unique_ptr<ThreadPool> tp(NewThreadPool(g_flags.num_jobs));
     CHECK(g_flags.num_jobs);
@@ -624,11 +629,13 @@ class NinjaGenerator {
     }
     tp->Wait();
 
-    for (const ostringstream& buf : bufs) {
-      fprintf(fp_, "%s", buf.str().c_str());
+    if (!g_flags.generate_empty_ninja) {
+      for (const ostringstream& buf : bufs) {
+        fprintf(fp_, "%s", buf.str().c_str());
+      }
     }
 
-    unordered_set<Symbol> used_env_vars(Vars::used_env_vars());
+    SymbolSet used_env_vars(Vars::used_env_vars());
     // PATH changes $(shell).
     used_env_vars.insert(Intern("PATH"));
     for (Symbol e : used_env_vars) {
@@ -647,8 +654,10 @@ class NinjaGenerator {
         default_targets += EscapeBuildTarget(s);
       }
     }
-    fprintf(fp_, "\n");
-    fprintf(fp_, "default %s\n", default_targets.c_str());
+    if (!g_flags.generate_empty_ninja) {
+      fprintf(fp_, "\n");
+      fprintf(fp_, "default %s\n", default_targets.c_str());
+    }
 
     fclose(fp_);
   }
@@ -716,7 +725,6 @@ class NinjaGenerator {
     for (Symbol v : Evaluator::used_undefined_vars()) {
       DumpString(fp, v.str());
     }
-
     DumpInt(fp, used_envs_.size());
     for (const auto& p : used_envs_) {
       DumpString(fp, p.first);
@@ -785,7 +793,7 @@ class NinjaGenerator {
   CommandEvaluator ce_;
   Evaluator* ev_;
   FILE* fp_;
-  unordered_set<Symbol> done_;
+  SymbolSet done_;
   int rule_id_;
   bool use_goma_;
   string gomacc_;
@@ -812,7 +820,7 @@ string GetNinjaStampFilename() {
   return NinjaGenerator::GetFilename(".kati_stamp%s");
 }
 
-void GenerateNinja(const vector<DepNode*>& nodes,
+void GenerateNinja(const vector<NamedDepNode>& nodes,
                    Evaluator* ev,
                    const string& orig_args,
                    double start_time) {

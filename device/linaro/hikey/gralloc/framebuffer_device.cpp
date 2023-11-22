@@ -22,6 +22,7 @@
 #include <sys/ioctl.h>
 #include <linux/fb.h>
 #include <stdlib.h>
+
 #include <cutils/log.h>
 #include <cutils/atomic.h>
 #include <hardware/hardware.h>
@@ -85,20 +86,17 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 		m->base.lock(&m->base, buffer, private_module_t::PRIV_USAGE_LOCKED_FOR_POST,
 		             0, 0, m->info.xres, m->info.yres, NULL);
 
-		const size_t offset = (uintptr_t)hnd->base - (uintptr_t)m->framebuffer->base;
 		int interrupt;
 		m->info.activate = FB_ACTIVATE_VBL;
-		m->info.yoffset = offset / m->finfo.line_length;
+		m->info.yoffset = hnd->offset / m->finfo.line_length;
 
 #ifdef STANDARD_LINUX_SCREEN
 #define FBIO_WAITFORVSYNC       _IOW('F', 0x20, __u32)
 #define S3CFB_SET_VSYNC_INT _IOW('F', 206, unsigned int)
 
-		int fbdev_fd = m->framebuffer->shallow_fbdev_fd;
-
-		if (ioctl(fbdev_fd, FBIOPAN_DISPLAY, &m->info) == -1)
+		if (ioctl(m->framebuffer->fd, FBIOPAN_DISPLAY, &m->info) == -1)
 		{
-			AERR("FBIOPAN_DISPLAY failed for fd: %d", fbdev_fd);
+			AERR("FBIOPAN_DISPLAY failed for fd: %d", m->framebuffer->fd);
 			m->base.unlock(&m->base, buffer);
 			return 0;
 		}
@@ -108,9 +106,9 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 			// enable VSYNC
 			interrupt = 1;
 
-			if (ioctl(fbdev_fd, S3CFB_SET_VSYNC_INT, &interrupt) < 0)
+			if (ioctl(m->framebuffer->fd, S3CFB_SET_VSYNC_INT, &interrupt) < 0)
 			{
-				//      AERR("S3CFB_SET_VSYNC_INT enable failed for fd: %d", fbdev_fd);
+				//      AERR("S3CFB_SET_VSYNC_INT enable failed for fd: %d", m->framebuffer->fd);
 				return 0;
 			}
 
@@ -120,9 +118,9 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 #endif
 			int crtc = 0;
 
-			if (ioctl(fbdev_fd, FBIO_WAITFORVSYNC, &crtc) < 0)
+			if (ioctl(m->framebuffer->fd, FBIO_WAITFORVSYNC, &crtc) < 0)
 			{
-				AERR("FBIO_WAITFORVSYNC failed for fd: %d", fbdev_fd);
+				AERR("FBIO_WAITFORVSYNC failed for fd: %d", m->framebuffer->fd);
 #ifdef MALI_VSYNC_EVENT_REPORT_ENABLE
 				gralloc_mali_vsync_report(MALI_VSYNC_EVENT_END_WAIT);
 #endif
@@ -135,9 +133,9 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 			// disable VSYNC
 			interrupt = 0;
 
-			if (ioctl(fbdev_fd, S3CFB_SET_VSYNC_INT, &interrupt) < 0)
+			if (ioctl(m->framebuffer->fd, S3CFB_SET_VSYNC_INT, &interrupt) < 0)
 			{
-				AERR("S3CFB_SET_VSYNC_INT disable failed for fd: %d", fbdev_fd);
+				AERR("S3CFB_SET_VSYNC_INT disable failed for fd: %d", m->framebuffer->fd);
 				return 0;
 			}
 		}
@@ -148,9 +146,9 @@ static int fb_post(struct framebuffer_device_t *dev, buffer_handle_t buffer)
 		gralloc_mali_vsync_report(MALI_VSYNC_EVENT_BEGIN_WAIT);
 #endif
 
-		if (ioctl(fbdev_fd, FBIOPUT_VSCREENINFO, &m->info) == -1)
+		if (ioctl(m->framebuffer->fd, FBIOPUT_VSCREENINFO, &m->info) == -1)
 		{
-			AERR("FBIOPUT_VSCREENINFO failed for fd: %d", fbdev_fd);
+			AERR("FBIOPUT_VSCREENINFO failed for fd: %d", m->framebuffer->fd);
 #ifdef MALI_VSYNC_EVENT_REPORT_ENABLE
 			gralloc_mali_vsync_report(MALI_VSYNC_EVENT_END_WAIT);
 #endif
@@ -254,14 +252,14 @@ int init_frame_buffer_locked(struct private_module_t *module)
 	 * Explicitly request 8/8/8
 	 */
 	info.bits_per_pixel = 32;
-	info.red.offset     = 0;
+	info.red.offset     = 16;
 	info.red.length     = 8;
 	info.green.offset   = 8;
 	info.green.length   = 8;
-	info.blue.offset    = 16;
+	info.blue.offset    = 0;
 	info.blue.length    = 8;
-	info.transp.offset  = 24;
-	info.transp.length  = 8;
+	info.transp.offset  = 0;
+	info.transp.length  = 0;
 #endif
 
 	/*
@@ -385,7 +383,11 @@ int init_frame_buffer_locked(struct private_module_t *module)
 
 	// Create a "fake" buffer object for the entire frame buffer memory, and store it in the module
 	module->framebuffer = new private_handle_t(private_handle_t::PRIV_FLAGS_FRAMEBUFFER, 0, fbSize, vaddr,
-	        0, fd, 0);
+	        0, fd, 0, (void *)finfo.smem_start);
+
+	/* There is no share_fd in framebuffer handle, correct numFds/numInts */
+	module->framebuffer->numFds--;
+	module->framebuffer->numInts++;
 
 	module->numBuffers = info.yres_virtual / info.yres;
 	module->bufferMask = 0;
@@ -471,12 +473,6 @@ int framebuffer_device_open(hw_module_t const *module, const char *name, hw_devi
 
 	/* initialize our state here */
 	framebuffer_device_t *dev = (framebuffer_device_t *)malloc(sizeof(framebuffer_device_t));
-	if (dev == NULL)
-	{
-		AERR("Error to malloc the framebuffer (%s)", strerror(errno));
-		gralloc_close(gralloc_device);
-		return -ENOMEM;
-	}
 	memset(dev, 0, sizeof(*dev));
 
 	/* initialize the procs */
@@ -497,7 +493,7 @@ int framebuffer_device_open(hw_module_t const *module, const char *name, hw_devi
 #ifdef GRALLOC_16_BITS
 	const_cast<int &>(dev->format) = HAL_PIXEL_FORMAT_RGB_565;
 #else
-	const_cast<int &>(dev->format) = HAL_PIXEL_FORMAT_RGBA_8888;
+	const_cast<int &>(dev->format) = HAL_PIXEL_FORMAT_BGRA_8888;
 #endif
 	const_cast<float &>(dev->xdpi) = m->xdpi;
 	const_cast<float &>(dev->ydpi) = m->ydpi;

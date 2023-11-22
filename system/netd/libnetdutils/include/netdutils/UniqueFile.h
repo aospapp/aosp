@@ -20,13 +20,11 @@
 #include <stdio.h>
 #include <memory>
 
-#include "netdutils/Fd.h"
-
 namespace android {
 namespace netdutils {
 
 struct UniqueFileDtor {
-    void operator()(FILE* file);
+    void operator()(FILE* file) const;
 };
 
 using UniqueFile = std::unique_ptr<FILE, UniqueFileDtor>;

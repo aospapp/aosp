@@ -30,6 +30,7 @@
 #include "bt_target.h"
 #include "btm_int.h"
 #include "btu.h"
+#include "common/time_util.h"
 #include "hcidefs.h"
 #include "hcimsgs.h"
 #include "l2c_int.h"
@@ -238,8 +239,19 @@ static void l2c_csm_closed(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
 
       if (p_ccb->p_lcb->transport == BT_TRANSPORT_LE) {
         p_ccb->chnl_state = CST_TERM_W4_SEC_COMP;
-        l2ble_sec_access_req(p_ccb->p_lcb->remote_bd_addr, p_ccb->p_rcb->psm,
-                             false, &l2c_link_sec_comp2, p_ccb);
+        tL2CAP_LE_RESULT_CODE result = l2ble_sec_access_req(
+            p_ccb->p_lcb->remote_bd_addr, p_ccb->p_rcb->psm, false,
+            &l2c_link_sec_comp2, p_ccb);
+
+        switch (result) {
+          case L2CAP_LE_RESULT_INSUFFICIENT_AUTHENTICATION:
+          case L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP_KEY_SIZE:
+          case L2CAP_LE_RESULT_INSUFFICIENT_ENCRYP:
+            l2cu_reject_ble_connection(p_ccb->p_lcb, p_ccb->remote_id, result);
+            l2cu_release_ccb(p_ccb);
+            break;
+            // TODO: Handle the other return codes
+        }
       } else {
         /* Cancel sniff mode if needed */
         {
@@ -442,8 +454,9 @@ static void l2c_csm_term_w4_sec_comp(tL2C_CCB* p_ccb, uint16_t event,
                            l2c_ccb_timer_timeout, p_ccb);
       } else {
         if (p_ccb->p_lcb->transport == BT_TRANSPORT_LE)
-          l2cu_reject_ble_connection(p_ccb->p_lcb, p_ccb->remote_id,
-                                     L2CAP_LE_INSUFFICIENT_AUTHENTICATION);
+          l2cu_reject_ble_connection(
+              p_ccb->p_lcb, p_ccb->remote_id,
+              L2CAP_LE_RESULT_INSUFFICIENT_AUTHENTICATION);
         else
           l2cu_send_peer_connect_rsp(p_ccb, L2CAP_CONN_SECURITY_BLOCK, 0);
         l2cu_release_ccb(p_ccb);
@@ -804,7 +817,8 @@ static void l2c_csm_config(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
           }
 
 #if (L2CAP_ERTM_STATS == TRUE)
-          p_ccb->fcrb.connect_tick_count = time_get_os_boottime_ms();
+          p_ccb->fcrb.connect_tick_count =
+              bluetooth::common::time_get_os_boottime_ms();
 #endif
           /* See if we can forward anything on the hold queue */
           if (!fixed_queue_is_empty(p_ccb->xmit_hold_q)) {
@@ -892,7 +906,8 @@ static void l2c_csm_config(tL2C_CCB* p_ccb, uint16_t event, void* p_data) {
       if (p_ccb->fcrb.wait_ack) l2c_fcr_start_timer(p_ccb);
 
 #if (L2CAP_ERTM_STATS == TRUE)
-      p_ccb->fcrb.connect_tick_count = time_get_os_boottime_ms();
+      p_ccb->fcrb.connect_tick_count =
+          bluetooth::common::time_get_os_boottime_ms();
 #endif
 
       /* See if we can forward anything on the hold queue */

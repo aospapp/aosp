@@ -19,5 +19,4 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := VtsHalWifiNanV1_2Target
-VTS_CONFIG_SRC_DIR := testcases/hal/wifi/V1_2/target/nan
 include test/vts/tools/build/Android.host_config.mk

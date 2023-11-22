@@ -49,9 +49,8 @@ public class SeriesRecording implements Parcelable {
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(
-        flag = true,
-        value = {OPTION_CHANNEL_ONE, OPTION_CHANNEL_ALL}
-    )
+            flag = true,
+            value = {OPTION_CHANNEL_ONE, OPTION_CHANNEL_ALL})
     public @interface ChannelOption {}
     /** An option which indicates that the episodes in one channel are recorded. */
     public static final int OPTION_CHANNEL_ONE = 0;
@@ -60,9 +59,8 @@ public class SeriesRecording implements Parcelable {
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(
-        flag = true,
-        value = {STATE_SERIES_NORMAL, STATE_SERIES_STOPPED}
-    )
+            flag = true,
+            value = {STATE_SERIES_NORMAL, STATE_SERIES_STOPPED})
     public @interface SeriesState {}
 
     /** The state indicates that the series recording is a normal one. */
@@ -73,26 +71,18 @@ public class SeriesRecording implements Parcelable {
 
     /** Compare priority in descending order. */
     public static final Comparator<SeriesRecording> PRIORITY_COMPARATOR =
-            new Comparator<SeriesRecording>() {
-                @Override
-                public int compare(SeriesRecording lhs, SeriesRecording rhs) {
-                    int value = Long.compare(rhs.mPriority, lhs.mPriority);
-                    if (value == 0) {
-                        // New recording has the higher priority.
-                        value = Long.compare(rhs.mId, lhs.mId);
-                    }
-                    return value;
+            (SeriesRecording lhs, SeriesRecording rhs) -> {
+                int value = Long.compare(rhs.mPriority, lhs.mPriority);
+                if (value == 0) {
+                    // New recording has the higher priority.
+                    value = Long.compare(rhs.mId, lhs.mId);
                 }
+                return value;
             };
 
     /** Compare ID in ascending order. */
     public static final Comparator<SeriesRecording> ID_COMPARATOR =
-            new Comparator<SeriesRecording>() {
-                @Override
-                public int compare(SeriesRecording lhs, SeriesRecording rhs) {
-                    return Long.compare(lhs.mId, rhs.mId);
-                }
-            };
+            (SeriesRecording lhs, SeriesRecording rhs) -> Long.compare(lhs.mId, rhs.mId);
 
     /**
      * Creates a new Builder with the values set from the series information of {@link BaseProgram}.

@@ -303,6 +303,9 @@ public class PropertyHalService extends HalServiceBase {
         }
         if (listener != null) {
             for (VehiclePropValue v : values) {
+                if (v == null) {
+                    continue;
+                }
                 int mgrPropId = halToManagerPropId(v.prop);
                 if (mgrPropId == NOT_SUPPORTED_PROPERTY) {
                     Log.e(TAG, "Property is not supported: 0x" + toHexString(v.prop));

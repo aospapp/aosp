@@ -29,11 +29,7 @@
 
     <strings>
         <intro>
-            <![CDATA[
-This sample shows how to implement an audio media app that provides
-media library metadata and playback controls through a standard
-service. It exposes a simple music library through the new
-MediaBrowserService and provides MediaSession callbacks.]]>
+            <![CDATA[ This sample is DEPRECATED. ]]>
         </intro>
     </strings>
 
@@ -42,7 +38,7 @@ MediaBrowserService and provides MediaSession callbacks.]]>
     <template src="base-application" />
 
     <metadata>
-    <status>PUBLISHED</status>
+    <status>DEPRECATED</status>
     <categories>Media</categories>
     <technologies>Android</technologies>
     <languages>Java</languages>
@@ -62,6 +58,10 @@ MediaBrowserService and provides MediaSession callbacks.]]>
     </api_refs>
     <description>
 <![CDATA[
+This sample is deprecated. See the
+[Universal Android Music Player](https://github.com/googlesamples/android-UniversalMusicPlayer)
+sample for a more complete solution for using a MediaSession and MediaBrowserService.
+
 This sample shows how to implement a media app that allows
 background playback of audio, and provide a media library
 that is exposed to other apps.

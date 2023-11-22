@@ -39,8 +39,8 @@ namespace android {
 namespace vintf {
 
 static const std::string gConfigPrefix = "android-base-";
-static const std::string gConfigSuffix = ".cfg";
-static const std::string gBaseConfig = "android-base.cfg";
+static const std::string gConfigSuffix = ".config";
+static const std::string gBaseConfig = "android-base.config";
 
 // An input stream with a name.
 // The input stream may be an actual file, or a stringstream for testing.
@@ -89,11 +89,13 @@ class AssembleVintfImpl : public AssembleVintf {
     }
 
     template <typename T>
-    bool getFlag(const std::string& key, T* value) const {
+    bool getFlag(const std::string& key, T* value, bool log = true) const {
         std::string envValue = getEnv(key);
         if (envValue.empty()) {
-            std::cerr << "Warning: " << key << " is missing, defaulted to " << (*value) << "."
-                      << std::endl;
+            if (log) {
+                std::cerr << "Warning: " << key << " is missing, defaulted to " << (*value) << "."
+                          << std::endl;
+            }
             return true;
         }
 
@@ -193,7 +195,8 @@ class AssembleVintfImpl : public AssembleVintf {
             }
             std::cerr << "'" << fname << "' (in " << path
                       << ") is not a valid kernel config file name. Must match regex: "
-                      << "android-base(-[0-9a-zA-Z-]+)?\\.cfg" << std::endl;
+                      << "android-base(-[0-9a-zA-Z-]+)?\\" << gConfigSuffix
+                      << std::endl;
             return nullptr;
         }
         sub.insert(0, "CONFIG_");
@@ -203,13 +206,7 @@ class AssembleVintfImpl : public AssembleVintf {
     static bool parseFileForKernelConfigs(std::basic_istream<char>& stream,
                                           std::vector<KernelConfig>* out) {
         KernelConfigParser parser(true /* processComments */, true /* relaxedFormat */);
-        std::string content = read(stream);
-        status_t err = parser.process(content.c_str(), content.size());
-        if (err != OK) {
-            std::cerr << parser.error();
-            return false;
-        }
-        err = parser.finish();
+        status_t err = parser.processAndFinish(read(stream));
         if (err != OK) {
             std::cerr << parser.error();
             return false;
@@ -250,7 +247,7 @@ class AssembleVintfImpl : public AssembleVintf {
         }
 
         if (!foundCommonConfig) {
-            std::cerr << "No android-base.cfg is found in these paths:" << std::endl;
+            std::cerr << "No " << gBaseConfig << " is found in these paths:" << std::endl;
             for (auto& namedStream : *streams) {
                 std::cerr << "    " << namedStream.name() << std::endl;
             }
@@ -285,8 +282,8 @@ class AssembleVintfImpl : public AssembleVintf {
                           << "matrices with FCM version >= " << matrix.level() << "." << std::endl
                           << "2. Add them to any framework compatibility matrix with FCM "
                           << "version >= " << matrix.level() << " where applicable." << std::endl
-                          << "3. Add them to DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE."
-                          << std::endl;
+                          << "3. Add them to DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE "
+                          << "or DEVICE_PRODUCT_COMPATIBILITY_MATRIX_FILE." << std::endl;
 
                 return false;
             }
@@ -299,40 +296,82 @@ class AssembleVintfImpl : public AssembleVintf {
     using HalManifests = Schemas<HalManifest>;
     using CompatibilityMatrices = Schemas<CompatibilityMatrix>;
 
+    template <typename M>
+    void outputInputs(const Schemas<M>& inputs) {
+        out() << "<!--" << std::endl;
+        out() << "    Input:" << std::endl;
+        for (const auto& e : inputs) {
+            if (!e.name.empty()) {
+                out() << "        " << base::Basename(e.name) << std::endl;
+            }
+        }
+        out() << "-->" << std::endl;
+    }
+
+    // Parse --kernel arguments and write to output manifest.
+    bool setDeviceManifestKernel(HalManifest* manifest) {
+        if (mKernels.empty()) {
+            return true;
+        }
+        if (mKernels.size() > 1) {
+            std::cerr << "Warning: multiple --kernel is specified when building device manifest. "
+                      << "Only the first one will be used." << std::endl;
+        }
+        auto& kernelArg = *mKernels.begin();
+        const auto& kernelVer = kernelArg.first;
+        auto& kernelConfigFiles = kernelArg.second;
+        // addKernel() guarantees that !kernelConfigFiles.empty().
+        if (kernelConfigFiles.size() > 1) {
+            std::cerr << "Warning: multiple config files are specified in --kernel when building "
+                      << "device manfiest. Only the first one will be used." << std::endl;
+        }
+
+        KernelConfigParser parser(true /* processComments */, false /* relaxedFormat */);
+        status_t err = parser.processAndFinish(read(kernelConfigFiles[0].stream()));
+        if (err != OK) {
+            std::cerr << parser.error();
+            return false;
+        }
+        manifest->device.mKernel = std::make_optional<KernelInfo>();
+        manifest->device.mKernel->mVersion = kernelVer;
+        manifest->device.mKernel->mConfigs = parser.configs();
+        return true;
+    }
+
     bool assembleHalManifest(HalManifests* halManifests) {
         std::string error;
         HalManifest* halManifest = &halManifests->front().object;
         for (auto it = halManifests->begin() + 1; it != halManifests->end(); ++it) {
             const std::string& path = it->name;
-            HalManifest& halToAdd = it->object;
+            HalManifest& manifestToAdd = it->object;
 
-            if (halToAdd.level() != Level::UNSPECIFIED) {
+            if (manifestToAdd.level() != Level::UNSPECIFIED) {
                 if (halManifest->level() == Level::UNSPECIFIED) {
-                    halManifest->mLevel = halToAdd.level();
-                } else if (halManifest->level() != halToAdd.level()) {
+                    halManifest->mLevel = manifestToAdd.level();
+                } else if (halManifest->level() != manifestToAdd.level()) {
                     std::cerr << "Inconsistent FCM Version in HAL manifests:" << std::endl
                               << "    File '" << halManifests->front().name << "' has level "
                               << halManifest->level() << std::endl
-                              << "    File '" << path << "' has level " << halToAdd.level()
+                              << "    File '" << path << "' has level " << manifestToAdd.level()
                               << std::endl;
                     return false;
                 }
             }
 
-            if (!halManifest->addAllHals(&halToAdd, &error)) {
-                std::cerr << "File \"" << path << "\" cannot be added: conflict on HAL \"" << error
-                          << "\" with an existing HAL. See <hal> with the same name "
-                          << "in previously parsed files or previously declared in this file."
-                          << std::endl;
+            if (!halManifest->addAll(&manifestToAdd, &error)) {
+                std::cerr << "File \"" << path << "\" cannot be added: " << error << std::endl;
                 return false;
             }
         }
 
         if (halManifest->mType == SchemaType::DEVICE) {
-            if (!getFlag("BOARD_SEPOLICY_VERS", &halManifest->device.mSepolicyVersion)) {
+            (void)getFlagIfUnset("BOARD_SEPOLICY_VERS", &halManifest->device.mSepolicyVersion);
+
+            if (!setDeviceFcmVersion(halManifest)) {
                 return false;
             }
-            if (!setDeviceFcmVersion(halManifest)) {
+
+            if (!setDeviceManifestKernel(halManifest)) {
                 return false;
             }
         }
@@ -346,6 +385,8 @@ class AssembleVintfImpl : public AssembleVintf {
                 halManifest->framework.mSystemSdk.mVersions.emplace(std::move(v));
             }
         }
+
+        outputInputs(*halManifests);
 
         if (mOutputMatrix) {
             CompatibilityMatrix generatedMatrix = halManifest->generateCompatibleMatrix();
@@ -381,6 +422,7 @@ class AssembleVintfImpl : public AssembleVintf {
         return true;
     }
 
+    // Parse --kernel arguments and write to output matrix.
     bool assembleFrameworkCompatibilityMatrixKernels(CompatibilityMatrix* matrix) {
         for (auto& pair : mKernels) {
             std::vector<ConditionedConfig> conditionedConfigs;
@@ -391,7 +433,11 @@ class AssembleVintfImpl : public AssembleVintf {
                 MatrixKernel kernel(KernelVersion{pair.first}, std::move(conditionedConfig.second));
                 if (conditionedConfig.first != nullptr)
                     kernel.mConditions.push_back(std::move(*conditionedConfig.first));
-                matrix->framework.mKernels.push_back(std::move(kernel));
+                std::string error;
+                if (!matrix->addKernel(std::move(kernel), &error)) {
+                    std::cerr << "Error:" << error << std::endl;
+                    return false;
+                };
             }
         }
         return true;
@@ -453,8 +499,24 @@ class AssembleVintfImpl : public AssembleVintf {
         std::string error;
         CompatibilityMatrix* matrix = nullptr;
         std::unique_ptr<HalManifest> checkManifest;
+        std::unique_ptr<CompatibilityMatrix> builtMatrix;
+
+        if (mCheckFile != nullptr) {
+            checkManifest = std::make_unique<HalManifest>();
+            if (!gHalManifestConverter(checkManifest.get(), read(*mCheckFile), &error)) {
+                std::cerr << "Cannot parse check file as a HAL manifest: " << error << std::endl;
+                return false;
+            }
+        }
+
         if (matrices->front().object.mType == SchemaType::DEVICE) {
-            matrix = &matrices->front().object;
+            builtMatrix = CompatibilityMatrix::combineDeviceMatrices(matrices, &error);
+            matrix = builtMatrix.get();
+
+            if (matrix == nullptr) {
+                std::cerr << error << std::endl;
+                return false;
+            }
 
             auto vndkVersion = base::Trim(getEnv("REQUIRED_VNDK_VERSION"));
             if (!vndkVersion.empty()) {
@@ -475,24 +537,20 @@ class AssembleVintfImpl : public AssembleVintf {
         }
 
         if (matrices->front().object.mType == SchemaType::FRAMEWORK) {
-            Level deviceLevel = Level::UNSPECIFIED;
-            if (mCheckFile != nullptr) {
-                checkManifest = std::make_unique<HalManifest>();
-                if (!gHalManifestConverter(checkManifest.get(), read(*mCheckFile), &error)) {
-                    std::cerr << "Cannot parse check file as a HAL manifest: " << error
-                              << std::endl;
-                    return false;
-                }
-                deviceLevel = checkManifest->level();
-            }
-
+            Level deviceLevel =
+                checkManifest != nullptr ? checkManifest->level() : Level::UNSPECIFIED;
             if (deviceLevel == Level::UNSPECIFIED) {
-                // For GSI build, legacy devices that do not have a HAL manifest,
-                // and devices in development, merge all compatibility matrices.
                 deviceLevel = getLowestFcmVersion(*matrices);
+                if (checkManifest != nullptr && deviceLevel != Level::UNSPECIFIED) {
+                    std::cerr << "Warning: No Target FCM Version for device. Assuming \""
+                              << to_string(deviceLevel)
+                              << "\" when building final framework compatibility matrix."
+                              << std::endl;
+                }
             }
+            builtMatrix = CompatibilityMatrix::combine(deviceLevel, matrices, &error);
+            matrix = builtMatrix.get();
 
-            matrix = CompatibilityMatrix::combine(deviceLevel, matrices, &error);
             if (matrix == nullptr) {
                 std::cerr << error << std::endl;
                 return false;
@@ -527,19 +585,14 @@ class AssembleVintfImpl : public AssembleVintf {
             }
 
             getFlagIfUnset("POLICYVERS", &matrix->framework.mSepolicy.mKernelSepolicyVersion,
-                           deviceLevel == Level::UNSPECIFIED /* log */);
+                           false /* log */);
             getFlagIfUnset("FRAMEWORK_VBMETA_VERSION", &matrix->framework.mAvbMetaVersion,
-                           deviceLevel == Level::UNSPECIFIED /* log */);
-
-            out() << "<!--" << std::endl;
-            out() << "    Input:" << std::endl;
-            for (const auto& e : *matrices) {
-                if (!e.name.empty()) {
-                    out() << "        " << base::Basename(e.name) << std::endl;
-                }
-            }
-            out() << "-->" << std::endl;
+                           false /* log */);
+            // Hard-override existing AVB version
+            getFlag("FRAMEWORK_VBMETA_VERSION_OVERRIDE", &matrix->framework.mAvbMetaVersion,
+                    false /* log */);
         }
+        outputInputs(*matrices);
         out() << gCompatibilityMatrixConverter(*matrix, mSerializeFlags);
         out().flush();
 
@@ -649,14 +702,29 @@ class AssembleVintfImpl : public AssembleVintf {
     void setOutputMatrix() override { mOutputMatrix = true; }
 
     bool setHalsOnly() override {
-        if (mSerializeFlags) return false;
-        mSerializeFlags |= SerializeFlag::HALS_ONLY;
+        if (mHasSetHalsOnlyFlag) {
+            std::cerr << "Error: Cannot set --hals-only with --no-hals." << std::endl;
+            return false;
+        }
+        // Just override it with HALS_ONLY because other flags that modify mSerializeFlags
+        // does not interfere with this (except --no-hals).
+        mSerializeFlags = SerializeFlags::HALS_ONLY;
+        mHasSetHalsOnlyFlag = true;
         return true;
     }
 
     bool setNoHals() override {
-        if (mSerializeFlags) return false;
-        mSerializeFlags |= SerializeFlag::NO_HALS;
+        if (mHasSetHalsOnlyFlag) {
+            std::cerr << "Error: Cannot set --hals-only with --no-hals." << std::endl;
+            return false;
+        }
+        mSerializeFlags = mSerializeFlags.disableHals();
+        mHasSetHalsOnlyFlag = true;
+        return true;
+    }
+
+    bool setNoKernelRequirements() override {
+        mSerializeFlags = mSerializeFlags.disableKernelConfigs().disableKernelMinorRevision();
         return true;
     }
 
@@ -665,7 +733,8 @@ class AssembleVintfImpl : public AssembleVintf {
     Ostream mOutRef;
     Istream mCheckFile;
     bool mOutputMatrix = false;
-    SerializeFlags mSerializeFlags = SerializeFlag::EVERYTHING;
+    bool mHasSetHalsOnlyFlag = false;
+    SerializeFlags::Type mSerializeFlags = SerializeFlags::EVERYTHING;
     std::map<KernelVersion, std::vector<NamedIstream>> mKernels;
     std::map<std::string, std::string> mFakeEnv;
 };

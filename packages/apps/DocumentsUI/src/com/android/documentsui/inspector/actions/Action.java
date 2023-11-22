@@ -16,8 +16,8 @@
 
 package com.android.documentsui.inspector.actions;
 
-import android.annotation.Nullable;
-import android.annotation.StringRes;
+import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;

@@ -3,7 +3,3 @@ soong_namespace {
         "hardware/google/interfaces",
     ],
 }
-
-subdirs = [
-    "media",
-]

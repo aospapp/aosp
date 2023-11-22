@@ -16,7 +16,6 @@
 package android.car;
 
 import android.annotation.IntDef;
-import android.annotation.SystemApi;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -25,22 +24,24 @@ import java.lang.annotation.RetentionPolicy;
  * Represents vehicle area such as window, door, seat, etc.
  * See also {@link VehicleAreaDoor}, {@link VehicleAreaSeat},
  * {@link VehicleAreaWindow},
- *
- * @hide
  */
-@SystemApi
 public final class VehicleAreaType {
     /** Used for global properties */
     public static final int VEHICLE_AREA_TYPE_GLOBAL = 0;
+    /** Area type is Window */
     public static final int VEHICLE_AREA_TYPE_WINDOW = 2;
+    /** Area type is Seat */
     public static final int VEHICLE_AREA_TYPE_SEAT = 3;
+    /** Area type is Door */
     public static final int VEHICLE_AREA_TYPE_DOOR = 4;
+    /** Area type is Mirror */
     public static final int VEHICLE_AREA_TYPE_MIRROR = 5;
+    /** Area type is Wheel */
     public static final int VEHICLE_AREA_TYPE_WHEEL = 6;
     private VehicleAreaType() {}
 
     /** @hide */
-    @IntDef({
+    @IntDef(prefix = {"VEHICLE_AREA_TYPE_"}, value = {
         VEHICLE_AREA_TYPE_GLOBAL,
         VEHICLE_AREA_TYPE_WINDOW,
         VEHICLE_AREA_TYPE_SEAT,

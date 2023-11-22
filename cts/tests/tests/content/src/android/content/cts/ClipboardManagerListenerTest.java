@@ -23,6 +23,7 @@ import android.test.ActivityInstrumentationTestCase2;
 
 import com.android.compatibility.common.util.PollingCheck;
 
+//@AppModeFull // TODO(Instant) Should clip board data be visible?
 public class ClipboardManagerListenerTest
         extends ActivityInstrumentationTestCase2<ClipboardManagerListenerActivity> {
 

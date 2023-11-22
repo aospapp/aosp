@@ -39,8 +39,9 @@ public class MetadataTestCase extends AtomTestCase {
 
     protected final StatsdConfig.Builder getBaseConfig() throws Exception {
         StatsdConfig.Builder builder =  StatsdConfig.newBuilder().setId(CONFIG_ID)
-                .addAllowedLogSource("AID_SYSTEM");
-        addAtomEvent(builder, Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER);
+                .addAllowedLogSource("AID_SHELL")
+                .addAllowedLogSource("AID_ROOT");
+        addAtomEvent(builder, Atom.APP_BREADCRUMB_REPORTED_FIELD_NUMBER);
         return builder;
     }
 }

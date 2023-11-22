@@ -15,17 +15,21 @@
   -->
 
 <resources>
+    <!--follows the dialer theme color-->
     <color name="theme_color">#2a56c6</color>
+    <color name="background_color">#fafafa</color>
 
-    <color name="dialer_settings_actionbar_text_color">#ffffff</color>
-    <color name="dialer_settings_actionbar_background_color">@color/theme_color</color>
-    <color name="dialer_settings_color_dark">#1c3aa9</color>
+    <!--Use the one consistence with dialer-->
+    <color name="blocked_numbers_divider_color">#d8d8d8</color>
+    <color name="blocked_numbers_primary_text_color">#202124</color>
+    <color name="blocked_numbers_secondary_text_color">#5f6368</color>
 
-    <color name="blocked_numbers_divider_color">#e5e5e5</color>
-    <color name="blocked_numbers_butter_bar_color">#f5f5f5</color>
-    <color name="blocked_numbers_title_text_color">#ba000000</color>
-    <color name="blocked_numbers_secondary_text_color">#89000000</color>
-
+    <!--follows dialer color-->
     <color name="notification_action_answer">#097138</color>
     <color name="notification_action_decline">#A52714</color>
+
+    <color name="call_redirection_dialog_icon_tint_color">#4089F4</color>
+    <color name="call_redirection_dialog_text_color">#212121</color>
+    <color name="call_redirection_dialog_view_divider_color">#B8B8B8</color>
+
 </resources>

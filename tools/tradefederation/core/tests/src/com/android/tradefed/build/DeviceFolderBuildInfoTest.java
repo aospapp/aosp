@@ -16,8 +16,12 @@
 package com.android.tradefed.build;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
+import com.android.tradefed.build.IBuildInfo.BuildInfoProperties;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.SerializationUtil;
 
@@ -111,5 +115,49 @@ public class DeviceFolderBuildInfoTest {
         // Both sub-build properties have been copied.
         assertEquals("version 32", mDeviceFolderBuildInfo.getDeviceBuildId());
         assertEquals("version 32", test.getDeviceBuildId());
+    }
+
+    /** Ensure that the property to skip device image copying is working. */
+    @Test
+    public void testProperty_skipCopy() throws Exception {
+        File fakeDeviceImage = null;
+        IBuildInfo info = null;
+        try {
+            fakeDeviceImage = FileUtil.createTempFile("fake_image", ".img");
+            mDeviceFolderBuildInfo.setDeviceImageFile(fakeDeviceImage, "image");
+            assertNotNull(mDeviceFolderBuildInfo.getDeviceImageFile());
+            mDeviceFolderBuildInfo.setProperties(BuildInfoProperties.DO_NOT_COPY_IMAGE_FILE);
+            info = mDeviceFolderBuildInfo.clone();
+            assertNull(info.getFile(BuildInfoFileKey.DEVICE_IMAGE));
+        } finally {
+            FileUtil.deleteFile(fakeDeviceImage);
+            if (info != null) {
+                info.cleanUp();
+            }
+        }
+    }
+
+    /**
+     * Test that when setting the device and folger build, the DeviceFolderBuildInfo gets all their
+     * file.
+     */
+    @Test
+    public void testSettingBuilds() {
+        IFolderBuildInfo folderBuilder = new FolderBuildInfo("5555", "build_target2");
+        folderBuilder.setRootDir(new File("package"));
+        assertNotNull(folderBuilder.getRootDir());
+        // Original build doesn't have the root dir yet.
+        assertNull(mDeviceFolderBuildInfo.getRootDir());
+        mDeviceFolderBuildInfo.setFolderBuild(folderBuilder);
+        // folderBuild gave its file to the main build
+        assertNotNull(mDeviceFolderBuildInfo.getRootDir());
+
+        IDeviceBuildInfo deviceBuild = new DeviceBuildInfo("3333", "build_target3");
+        deviceBuild.setBootloaderImageFile(new File("bootloader"), "v2");
+        assertNull(mDeviceFolderBuildInfo.getBootloaderImageFile());
+
+        mDeviceFolderBuildInfo.setDeviceBuild(deviceBuild);
+        // deviceBuild gave its file to the main build
+        assertNotNull(mDeviceFolderBuildInfo.getBootloaderImageFile());
     }
 }

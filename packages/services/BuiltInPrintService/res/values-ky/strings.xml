@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"Капкагы ачык"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"Кагаз чайналды"</string>
     <string name="printer_offline" msgid="9196864753298645066">"Оффлайн"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"Начар тастыктама"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"Шифрленген эмес"</string>
     <string name="printer_check" msgid="6428369671197132828">"Принтерди текшерүү"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"Жөнөтүлгөнү жатат"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Документ окулбай койду"</string>
@@ -38,7 +40,7 @@
     <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 дюйм"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"Принтерди кошуу"</string>
-    <string name="add_printer_by_ip" msgid="562864787592910327">"IP дареги аркылуу принтерди кошуу"</string>
+    <string name="add_printer_by_ip" msgid="562864787592910327">"IP дареги аркылуу принтер кошуу"</string>
     <string name="hostname_or_ip" msgid="3460546103553992915">"Түйүндүн аталышы же IP дареги"</string>
     <string name="ip_hint" msgid="7939777481941979799">"192.168.0.4"</string>
     <string name="add" msgid="1950342261671100906">"Кошуу"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"Принтер колдоого алынбайт"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi Direct"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"Wi-Fi Direct принтерлерин табуу"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct аркылуу басып чыгаруу"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"Wi-Fi Direct принтерлери"</string>
     <string name="searching" msgid="2114018057619514587">"Издөөдө…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"Бул туташууга принтериңиздин алдыңкы панелинен уруксат беришиңиз мүмкүн"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"Унутулсун"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Wi-Fi Direct аркылуу туташат"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> IP дарегиндеги учурдагы тармак аркылуу туташат"</string>
+    <string name="security" msgid="2279008326210305401">"Коопсуздук"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"Бул принтердин жаңы коопсуздук тастыктамасы бар же анын ордуна башка түзмөк иштеп жатат. Жаңы тастыктама кабыл алынсынбы?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"Бул принтер мындан ары шифрленген тапшырмаларды кабыл албайт. Бастыра бересизби?"</string>
+    <string name="accept" msgid="4426153292469698134">"Макул"</string>
+    <string name="reject" msgid="24751635160440693">"Четке кагуу"</string>
+    <string name="connections" msgid="8895413761760117180">"Туташуулар"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"Жакын жердеги түзмөктөрдү табуу үчүн демейки басып чыгаруу кызматына жайгашкан жерди көрүүгө уруксат керек."</string>
+    <string name="fix" msgid="7784394272611365393">"Уруксатты карап чыгуу"</string>
 </resources>

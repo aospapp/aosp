@@ -279,7 +279,8 @@ public class InputTaskScheduler {
             if (schedule.getEndTimeMs() - currentTimeMs
                     <= MIN_REMAIN_DURATION_PERCENT * schedule.getDuration()) {
                 Log.e(TAG, "Error! Program ended before recording started:" + schedule);
-                fail(schedule,
+                fail(
+                        schedule,
                         ScheduledRecording.FAILED_REASON_PROGRAM_ENDED_BEFORE_RECORDING_STARTED);
                 iter.remove();
             }
@@ -394,19 +395,16 @@ public class InputTaskScheduler {
     private void fail(ScheduledRecording schedule, int reason) {
         // It's called when the scheduling has been failed without creating RecordingTask.
         runOnMainHandler(
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        ScheduledRecording scheduleInManager =
-                                mDataManager.getScheduledRecording(schedule.getId());
-                        if (scheduleInManager != null) {
-                            // The schedule should be updated based on the object from DataManager
-                            // in case when it has been updated.
-                            mDataManager.changeState(
-                                    scheduleInManager,
-                                    ScheduledRecording.STATE_RECORDING_FAILED,
-                                    reason);
-                        }
+                () -> {
+                    ScheduledRecording scheduleInManager =
+                            mDataManager.getScheduledRecording(schedule.getId());
+                    if (scheduleInManager != null) {
+                        // The schedule should be updated based on the object from DataManager
+                        // in case when it has been updated.
+                        mDataManager.changeState(
+                                scheduleInManager,
+                                ScheduledRecording.STATE_RECORDING_FAILED,
+                                reason);
                     }
                 });
     }

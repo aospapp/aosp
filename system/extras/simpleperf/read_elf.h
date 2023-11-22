@@ -65,10 +65,21 @@ ElfStatus ParseSymbolsFromElfFile(const std::string& filename,
 ElfStatus ParseSymbolsFromEmbeddedElfFile(const std::string& filename, uint64_t file_offset,
                                           uint32_t file_size, const BuildId& expected_build_id,
                                           const std::function<void(const ElfFileSymbol&)>& callback);
+ElfStatus ParseSymbolsFromElfFileInMemory(const char* data, size_t size,
+                                          const std::function<void(const ElfFileSymbol&)>& callback);
+ElfStatus ParseDynamicSymbolsFromElfFile(const std::string& filename,
+                                         const std::function<void(const ElfFileSymbol&)>& callback);
 
 ElfStatus ReadMinExecutableVirtualAddressFromElfFile(const std::string& filename,
                                                      const BuildId& expected_build_id,
-                                                     uint64_t* min_addr);
+                                                     uint64_t* min_addr,
+                                                     uint64_t* file_offset_of_min_vaddr);
+ElfStatus ReadMinExecutableVirtualAddressFromEmbeddedElfFile(const std::string& filename,
+                                                             uint64_t file_offset,
+                                                             uint32_t file_size,
+                                                             const BuildId& expected_build_id,
+                                                             uint64_t* min_vaddr,
+                                                             uint64_t* file_offset_of_min_vaddr);
 
 ElfStatus ReadSectionFromElfFile(const std::string& filename, const std::string& section_name,
                                  std::string* content);
@@ -76,6 +87,7 @@ ElfStatus ReadSectionFromElfFile(const std::string& filename, const std::string&
 // Expose the following functions for unit tests.
 bool IsArmMappingSymbol(const char* name);
 ElfStatus IsValidElfFile(int fd);
+bool IsValidElfFileMagic(const char* buf, size_t buf_size);
 ElfStatus IsValidElfPath(const std::string& filename);
 bool GetBuildIdFromNoteSection(const char* section, size_t section_size, BuildId* build_id);
 

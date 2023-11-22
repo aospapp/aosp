@@ -17,8 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "BionicDeathTest.h"
-#include "ScopedSignalHandler.h"
-#include "TemporaryFile.h"
+#include "SignalUtils.h"
 #include "utils.h"
 
 #include <errno.h>
@@ -166,20 +165,20 @@ TEST(UNISTD_TEST, sbrk_ENOMEM) {
 TEST(UNISTD_TEST, truncate) {
   TemporaryFile tf;
   ASSERT_EQ(0, close(tf.fd));
-  ASSERT_EQ(0, truncate(tf.filename, 123));
+  ASSERT_EQ(0, truncate(tf.path, 123));
 
   struct stat sb;
-  ASSERT_EQ(0, stat(tf.filename, &sb));
+  ASSERT_EQ(0, stat(tf.path, &sb));
   ASSERT_EQ(123, sb.st_size);
 }
 
 TEST(UNISTD_TEST, truncate64) {
   TemporaryFile tf;
   ASSERT_EQ(0, close(tf.fd));
-  ASSERT_EQ(0, truncate64(tf.filename, 123));
+  ASSERT_EQ(0, truncate64(tf.path, 123));
 
   struct stat sb;
-  ASSERT_EQ(0, stat(tf.filename, &sb));
+  ASSERT_EQ(0, stat(tf.path, &sb));
   ASSERT_EQ(123, sb.st_size);
 }
 
@@ -189,7 +188,7 @@ TEST(UNISTD_TEST, ftruncate) {
   ASSERT_EQ(0, close(tf.fd));
 
   struct stat sb;
-  ASSERT_EQ(0, stat(tf.filename, &sb));
+  ASSERT_EQ(0, stat(tf.path, &sb));
   ASSERT_EQ(123, sb.st_size);
 }
 
@@ -199,7 +198,7 @@ TEST(UNISTD_TEST, ftruncate64) {
   ASSERT_EQ(0, close(tf.fd));
 
   struct stat sb;
-  ASSERT_EQ(0, stat(tf.filename, &sb));
+  ASSERT_EQ(0, stat(tf.path, &sb));
   ASSERT_EQ(123, sb.st_size);
 }
 
@@ -273,7 +272,7 @@ TEST(UNISTD_TEST, getenv_unsetenv) {
   ASSERT_EQ(0, setenv("test-variable", "hello", 1));
   ASSERT_STREQ("hello", getenv("test-variable"));
   ASSERT_EQ(0, unsetenv("test-variable"));
-  ASSERT_TRUE(getenv("test-variable") == NULL);
+  ASSERT_TRUE(getenv("test-variable") == nullptr);
 }
 
 TEST(UNISTD_TEST, unsetenv_EINVAL) {
@@ -284,9 +283,9 @@ TEST(UNISTD_TEST, unsetenv_EINVAL) {
 }
 
 TEST(UNISTD_TEST, setenv_EINVAL) {
-  EXPECT_EQ(-1, setenv(NULL, "value", 0));
+  EXPECT_EQ(-1, setenv(nullptr, "value", 0));
   EXPECT_EQ(EINVAL, errno);
-  EXPECT_EQ(-1, setenv(NULL, "value", 1));
+  EXPECT_EQ(-1, setenv(nullptr, "value", 1));
   EXPECT_EQ(EINVAL, errno);
   EXPECT_EQ(-1, setenv("", "value", 0));
   EXPECT_EQ(EINVAL, errno);
@@ -353,14 +352,14 @@ TEST(UNISTD_TEST, clearenv) {
 
   // Stash a copy.
   std::vector<char*> old_environ;
-  for (size_t i = 0; environ[i] != NULL; ++i) {
+  for (size_t i = 0; environ[i] != nullptr; ++i) {
     old_environ.push_back(strdup(environ[i]));
   }
 
   ASSERT_EQ(0, clearenv());
 
-  EXPECT_TRUE(environ == NULL || environ[0] == NULL);
-  EXPECT_EQ(NULL, getenv("test-variable"));
+  EXPECT_TRUE(environ == nullptr || environ[0] == nullptr);
+  EXPECT_EQ(nullptr, getenv("test-variable"));
   EXPECT_EQ(0, setenv("test-variable", "post-clear", 1));
   EXPECT_STREQ("post-clear", getenv("test-variable"));
 
@@ -389,11 +388,11 @@ static void TestSyncFunction(int (*fn)(int)) {
 
   EXPECT_EQ(0, fn(tf.fd));
 
-  ASSERT_NE(-1, fd = open(tf.filename, O_RDONLY));
+  ASSERT_NE(-1, fd = open(tf.path, O_RDONLY));
   EXPECT_EQ(0, fn(fd));
   close(fd);
 
-  ASSERT_NE(-1, fd = open(tf.filename, O_RDWR));
+  ASSERT_NE(-1, fd = open(tf.path, O_RDWR));
   EXPECT_EQ(0, fn(fd));
   close(fd);
 
@@ -539,7 +538,7 @@ TEST(UNISTD_TEST, gettid_caching_and_clone_process_settid) {
 
 static int CloneStartRoutine(int (*start_routine)(void*)) {
   void* child_stack[1024];
-  return clone(start_routine, &child_stack[1024], SIGCHLD, NULL);
+  return clone(start_routine, untag_address(&child_stack[1024]), SIGCHLD, nullptr);
 }
 
 static int GetPidCachingCloneStartRoutine(void*) {
@@ -594,20 +593,20 @@ TEST(UNISTD_TEST, clone_fn_and_exit) {
 
 static void* GetPidCachingPthreadStartRoutine(void*) {
   AssertGetPidCorrect();
-  return NULL;
+  return nullptr;
 }
 
 TEST(UNISTD_TEST, getpid_caching_and_pthread_create) {
   pid_t parent_pid = getpid();
 
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, NULL, GetPidCachingPthreadStartRoutine, NULL));
+  ASSERT_EQ(0, pthread_create(&t, nullptr, GetPidCachingPthreadStartRoutine, nullptr));
 
   ASSERT_EQ(parent_pid, getpid());
 
   void* result;
   ASSERT_EQ(0, pthread_join(t, &result));
-  ASSERT_EQ(NULL, result);
+  ASSERT_EQ(nullptr, result);
 }
 
 static void* GetTidCachingPthreadStartRoutine(void*) {
@@ -620,13 +619,52 @@ TEST(UNISTD_TEST, gettid_caching_and_pthread_create) {
   pid_t parent_tid = GetTidForTest();
 
   pthread_t t;
-  ASSERT_EQ(0, pthread_create(&t, NULL, GetTidCachingPthreadStartRoutine, &parent_tid));
+  ASSERT_EQ(0, pthread_create(&t, nullptr, GetTidCachingPthreadStartRoutine, &parent_tid));
 
   ASSERT_EQ(parent_tid, GetTidForTest());
 
   void* result;
   ASSERT_EQ(0, pthread_join(t, &result));
   ASSERT_NE(static_cast<uint64_t>(parent_tid), reinterpret_cast<uint64_t>(result));
+}
+
+static void optimization_barrier(void* arg) {
+  asm volatile("" : : "r"(arg) : "memory");
+}
+
+__attribute__((noinline)) static void HwasanVforkTestChild() {
+  // Allocate a tagged region on stack and leave it there.
+  char x[10000];
+  optimization_barrier(x);
+  _exit(0);
+}
+
+__attribute__((noinline)) static void HwasanReadMemory(const char* p, size_t size) {
+  // Read memory byte-by-byte. This will blow up if the pointer tag in p does not match any memory
+  // tag in [p, p+size).
+  volatile char z;
+  for (size_t i = 0; i < size; ++i) {
+    z = p[i];
+  }
+}
+
+__attribute__((noinline, no_sanitize("hwaddress"))) static void HwasanVforkTestParent() {
+  // Allocate a region on stack, but don't tag it (see the function attribute).
+  // This depends on unallocated stack space at current function entry being untagged.
+  char x[10000];
+  optimization_barrier(x);
+  // Verify that contents of x[] are untagged.
+  HwasanReadMemory(x, sizeof(x));
+}
+
+TEST(UNISTD_TEST, hwasan_vfork) {
+  // Test hwasan annotation in vfork. This test is only interesting when built with hwasan, but it
+  // is supposed to work correctly either way.
+  if (vfork()) {
+    HwasanVforkTestParent();
+  } else {
+    HwasanVforkTestChild();
+  }
 }
 
 class UNISTD_DEATHTEST : public BionicDeathTest {};
@@ -671,11 +709,11 @@ TEST(UNISTD_TEST, pathconf_fpathconf) {
   long rc = 0L;
   // As a file system's block size is always power of 2, the configure values
   // for ALLOC and XFER should be power of 2 as well.
-  rc = pathconf(tf.filename, _PC_ALLOC_SIZE_MIN);
+  rc = pathconf(tf.path, _PC_ALLOC_SIZE_MIN);
   ASSERT_TRUE(rc > 0 && powerof2(rc));
-  rc = pathconf(tf.filename, _PC_REC_MIN_XFER_SIZE);
+  rc = pathconf(tf.path, _PC_REC_MIN_XFER_SIZE);
   ASSERT_TRUE(rc > 0 && powerof2(rc));
-  rc = pathconf(tf.filename, _PC_REC_XFER_ALIGN);
+  rc = pathconf(tf.path, _PC_REC_XFER_ALIGN);
   ASSERT_TRUE(rc > 0 && powerof2(rc));
 
   rc = fpathconf(tf.fd, _PC_ALLOC_SIZE_MIN);
@@ -836,19 +874,23 @@ TEST(UNISTD_TEST, _POSIX_options) {
 #endif // defined(__BIONIC__)
 }
 
-#define VERIFY_SYSCONF_UNSUPPORTED(name) VerifySysconf(name, #name, [](long v){return v == -1;})
+#define VERIFY_SYSCONF_UNKNOWN(name) \
+  VerifySysconf(name, #name, [](long v){return v == -1 && errno == EINVAL;})
+
+#define VERIFY_SYSCONF_UNSUPPORTED(name) \
+  VerifySysconf(name, #name, [](long v){return v == -1 && errno == 0;})
 
 // sysconf() means unlimited when it returns -1 with errno unchanged.
 #define VERIFY_SYSCONF_POSITIVE(name) \
-  VerifySysconf(name, #name, [](long v){return (v > 0 || v == -1);})
+  VerifySysconf(name, #name, [](long v){return (v > 0 || v == -1) && errno == 0;})
 
 #define VERIFY_SYSCONF_POSIX_VERSION(name) \
-  VerifySysconf(name, #name, [](long v){return v == _POSIX_VERSION;})
+  VerifySysconf(name, #name, [](long v){return v == _POSIX_VERSION && errno == 0;})
 
 static void VerifySysconf(int option, const char *option_name, bool (*verify)(long)) {
   errno = 0;
   long ret = sysconf(option);
-  EXPECT_TRUE(0 == errno && verify(ret)) << "name = " << option_name << ", ret = "
+  EXPECT_TRUE(verify(ret)) << "name = " << option_name << ", ret = "
       << ret <<", Error Message: " << strerror(errno);
 }
 
@@ -879,17 +921,19 @@ TEST(UNISTD_TEST, sysconf) {
   VERIFY_SYSCONF_POSITIVE(_SC_RE_DUP_MAX);
   VERIFY_SYSCONF_POSITIVE(_SC_STREAM_MAX);
   VERIFY_SYSCONF_POSITIVE(_SC_TZNAME_MAX);
-  VerifySysconf(_SC_XOPEN_VERSION, "_SC_XOPEN_VERSION", [](long v){return v == _XOPEN_VERSION;});
+  VerifySysconf(_SC_XOPEN_VERSION, "_SC_XOPEN_VERSION", [](long v){return v == _XOPEN_VERSION && errno == 0;});
   VERIFY_SYSCONF_POSITIVE(_SC_ATEXIT_MAX);
   VERIFY_SYSCONF_POSITIVE(_SC_IOV_MAX);
+  VERIFY_SYSCONF_POSITIVE(_SC_UIO_MAXIOV);
+  EXPECT_EQ(sysconf(_SC_IOV_MAX), sysconf(_SC_UIO_MAXIOV));
   VERIFY_SYSCONF_POSITIVE(_SC_PAGESIZE);
   VERIFY_SYSCONF_POSITIVE(_SC_PAGE_SIZE);
   VerifySysconf(_SC_PAGE_SIZE, "_SC_PAGE_SIZE",
-                [](long v){return v == sysconf(_SC_PAGESIZE) && v == getpagesize();});
+                [](long v){return v == sysconf(_SC_PAGESIZE) && errno == 0 && v == getpagesize();});
   VERIFY_SYSCONF_POSITIVE(_SC_XOPEN_UNIX);
   VERIFY_SYSCONF_POSITIVE(_SC_AIO_LISTIO_MAX);
   VERIFY_SYSCONF_POSITIVE(_SC_AIO_MAX);
-  VerifySysconf(_SC_AIO_PRIO_DELTA_MAX, "_SC_AIO_PRIO_DELTA_MAX", [](long v){return v >= 0;});
+  VerifySysconf(_SC_AIO_PRIO_DELTA_MAX, "_SC_AIO_PRIO_DELTA_MAX", [](long v){return v >= 0 && errno == 0;});
   VERIFY_SYSCONF_POSITIVE(_SC_DELAYTIMER_MAX);
   VERIFY_SYSCONF_POSITIVE(_SC_MQ_OPEN_MAX);
   VERIFY_SYSCONF_POSITIVE(_SC_MQ_PRIO_MAX);
@@ -1022,6 +1066,11 @@ TEST(UNISTD_TEST, sysconf_SC_ARG_MAX) {
 #define ARG_MAX 131072
 #endif
   ASSERT_EQ(ARG_MAX, sysconf(_SC_ARG_MAX));
+}
+
+TEST(UNISTD_TEST, sysconf_unknown) {
+  VERIFY_SYSCONF_UNKNOWN(-1);
+  VERIFY_SYSCONF_UNKNOWN(666);
 }
 
 TEST(UNISTD_TEST, dup2_same) {
@@ -1332,38 +1381,38 @@ TEST(UNISTD_TEST, execvpe) {
 TEST(UNISTD_TEST, execvpe_ENOEXEC) {
   // Create a shell script with #!.
   TemporaryFile tf;
-  ASSERT_TRUE(android::base::WriteStringToFile("#!" BIN_DIR "sh\necho script\n", tf.filename));
+  ASSERT_TRUE(android::base::WriteStringToFile("#!" BIN_DIR "sh\necho script\n", tf.path));
 
   // Set $PATH so we can find it.
-  setenv("PATH", dirname(tf.filename), 1);
+  setenv("PATH", dirname(tf.path), 1);
 
   ExecTestHelper eth;
-  eth.SetArgs({basename(tf.filename), nullptr});
+  eth.SetArgs({basename(tf.path), nullptr});
 
   // It's not inherently executable.
   errno = 0;
-  ASSERT_EQ(-1, execvpe(basename(tf.filename), eth.GetArgs(), eth.GetEnv()));
+  ASSERT_EQ(-1, execvpe(basename(tf.path), eth.GetArgs(), eth.GetEnv()));
   ASSERT_EQ(EACCES, errno);
 
   // Make it executable (and keep it writable because we're going to rewrite it below).
-  ASSERT_EQ(0, chmod(tf.filename, 0777));
+  ASSERT_EQ(0, chmod(tf.path, 0777));
 
   // TemporaryFile will have a writable fd, so we can test ETXTBSY while we're here...
   errno = 0;
-  ASSERT_EQ(-1, execvpe(basename(tf.filename), eth.GetArgs(), eth.GetEnv()));
+  ASSERT_EQ(-1, execvpe(basename(tf.path), eth.GetArgs(), eth.GetEnv()));
   ASSERT_EQ(ETXTBSY, errno);
 
   // 1. The simplest test: the kernel should handle this.
   ASSERT_EQ(0, close(tf.fd));
-  eth.Run([&]() { execvpe(basename(tf.filename), eth.GetArgs(), eth.GetEnv()); }, 0, "script\n");
+  eth.Run([&]() { execvpe(basename(tf.path), eth.GetArgs(), eth.GetEnv()); }, 0, "script\n");
 
   // 2. Try again without a #!. We should have to handle this ourselves.
-  ASSERT_TRUE(android::base::WriteStringToFile("echo script\n", tf.filename));
-  eth.Run([&]() { execvpe(basename(tf.filename), eth.GetArgs(), eth.GetEnv()); }, 0, "script\n");
+  ASSERT_TRUE(android::base::WriteStringToFile("echo script\n", tf.path));
+  eth.Run([&]() { execvpe(basename(tf.path), eth.GetArgs(), eth.GetEnv()); }, 0, "script\n");
 
   // 3. Again without a #!, but also with a leading '/', since that's a special case in the
   // implementation.
-  eth.Run([&]() { execvpe(tf.filename, eth.GetArgs(), eth.GetEnv()); }, 0, "script\n");
+  eth.Run([&]() { execvpe(tf.path, eth.GetArgs(), eth.GetEnv()); }, 0, "script\n");
 }
 
 TEST(UNISTD_TEST, execvp_libcore_test_55017) {

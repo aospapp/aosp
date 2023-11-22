@@ -24,8 +24,6 @@ import android.os.Environment;
 import android.test.AndroidTestCase;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.AsynchronousFileChannel;
 import java.nio.channels.FileChannel;
@@ -432,11 +430,11 @@ public class FileChannelInterProcessLockTest extends AndroidTestCase {
         // Try to acquire the local lock in all cases and check whether it could be acquired or
         // not as expected.
         if (expectToGetLock) {
-            FileLock fileLock = acquire(localLockType, localChannelType);
+            FileLock fileLock = acquire(getContext(), localLockType, localChannelType);
             assertNotNull(fileLock);
             assertTrue(fileLock.isValid());
         } else {
-            assertNull(acquire(localLockType, localChannelType));
+            assertNull(acquire(getContext(), localLockType, localChannelType));
         }
         // Release the remote lock.
         stopService();
@@ -482,7 +480,7 @@ public class FileChannelInterProcessLockTest extends AndroidTestCase {
         long localLockNotObtainedTime = System.currentTimeMillis();
 
         // Acquire the lock locally.
-        FileLock fileLock = acquire(localLockType, localChannelType);
+        FileLock fileLock = acquire(getContext(), localLockType, localChannelType);
         long localLockObtainedTime = System.currentTimeMillis();
 
         // Wait until the remote lock has definitely been released.
@@ -538,7 +536,7 @@ public class FileChannelInterProcessLockTest extends AndroidTestCase {
             assertTrue(IntentReceiver.onStopLatch.await(MAX_WAIT_TIME, SECONDS));
         }
 
-        deleteDir();
+        deleteDir(getContext());
     }
 
     static enum LockType {
@@ -614,9 +612,9 @@ public class FileChannelInterProcessLockTest extends AndroidTestCase {
      * @throws UnsupportedOperationException
      *         If the {@code lockType} is of non recognized type.
      */
-    static FileLock acquire(LockType lockType, ChannelType channelType) throws
+    static FileLock acquire(Context context, LockType lockType, ChannelType channelType) throws
             IOException, InterruptedException, ExecutionException {
-        File file = createFileInDir();
+        File file = createFileInDir(context);
         file.createNewFile();
 
         FileChannel fc = null;
@@ -699,8 +697,8 @@ public class FileChannelInterProcessLockTest extends AndroidTestCase {
      * Creates a file named {@link #FILE_NAME} inside a directory named {@link #DIR_NAME} on
      * the external storage directory.
      */
-    static File createFileInDir() throws IOException {
-        File dir = new File(Environment.getExternalStorageDirectory(), DIR_NAME);
+    static File createFileInDir(Context context) throws IOException {
+        File dir = new File(context.getExternalFilesDir(null), DIR_NAME);
         if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
             throw new IOException("External storage is not mounted");
         } else if (!dir.mkdirs() && !dir.isDirectory()) {
@@ -714,8 +712,8 @@ public class FileChannelInterProcessLockTest extends AndroidTestCase {
      * Deletes the folder {@link #DIR_NAME} on the external storage directory along with all the
      * files inside it.
      */
-    static void deleteDir() {
-        File dir = new File(Environment.getExternalStorageDirectory(), DIR_NAME);
+    static void deleteDir(Context context) {
+        File dir = new File(context.getExternalFilesDir(null), DIR_NAME);
         if (dir.isDirectory()) {
             String[] children = dir.list();
             for (String child : children) {

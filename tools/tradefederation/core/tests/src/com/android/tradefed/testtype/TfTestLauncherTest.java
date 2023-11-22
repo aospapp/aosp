@@ -18,6 +18,8 @@ package com.android.tradefed.testtype;
 import static org.junit.Assert.assertTrue;
 
 import com.android.tradefed.build.IFolderBuildInfo;
+import com.android.tradefed.command.CommandOptions;
+import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
@@ -73,6 +75,8 @@ public class TfTestLauncherTest {
         mTfTestLauncher.setEventStreaming(false);
         mTfTestLauncher.setConfiguration(mMockConfig);
 
+        EasyMock.expect(mMockConfig.getCommandOptions()).andStubReturn(new CommandOptions());
+
         OptionSetter setter = new OptionSetter(mTfTestLauncher);
         setter.setOptionValue("config-name", CONFIG_NAME);
         setter.setOptionValue("sub-global-config", SUB_GLOBAL_CONFIG);
@@ -103,22 +107,29 @@ public class TfTestLauncherTest {
                                 EasyMock.eq(BUILD_BRANCH),
                                 EasyMock.eq("--build-flavor"),
                                 EasyMock.eq(BUILD_FLAVOR),
+                                EasyMock.eq("--" + CommandOptions.INVOCATION_DATA),
+                                EasyMock.eq(SubprocessTfLauncher.SUBPROCESS_TAG_NAME),
+                                EasyMock.eq("true"),
                                 EasyMock.eq("--subprocess-report-file"),
                                 (String) EasyMock.anyObject()))
                 .andReturn(cr);
 
-        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.ANDROID_SERIAL_VAR);
         mMockRunUtil.unsetEnvVariable(EnvVariable.ANDROID_HOST_OUT_TESTCASES.name());
         mMockRunUtil.unsetEnvVariable(EnvVariable.ANDROID_TARGET_OUT_TESTCASES.name());
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
-        mMockRunUtil.setEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG, SUB_GLOBAL_CONFIG);
+        mMockRunUtil.setEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE, SUB_GLOBAL_CONFIG);
 
         EasyMock.expect(mMockBuildInfo.getTestTag()).andReturn(TEST_TAG);
-        EasyMock.expect(mMockBuildInfo.getBuildBranch()).andReturn(BUILD_BRANCH).times(2);
+        EasyMock.expect(mMockBuildInfo.getBuildBranch()).andReturn(BUILD_BRANCH).times(3);
         EasyMock.expect(mMockBuildInfo.getBuildFlavor()).andReturn(BUILD_FLAVOR).times(2);
 
         EasyMock.expect(mMockBuildInfo.getRootDir()).andReturn(new File(""));
         EasyMock.expect(mMockBuildInfo.getBuildId()).andReturn(BUILD_ID).times(3);
+        mMockBuildInfo.addBuildAttribute(SubprocessTfLauncher.PARENT_PROC_TAG_NAME, "true");
+
         mMockListener.testLog((String)EasyMock.anyObject(), (LogDataType)EasyMock.anyObject(),
                 (FileInputStreamSource)EasyMock.anyObject());
         EasyMock.expectLastCall().times(3);
@@ -135,9 +146,9 @@ public class TfTestLauncherTest {
         mMockListener.testRunStarted("elapsed-time", 1);
         mMockListener.testStarted(EasyMock.anyObject());
         mMockListener.testEnded(
-                EasyMock.anyObject(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyObject(), EasyMock.<HashMap<String, Metric>>anyObject());
         mMockListener.testRunEnded(
-                EasyMock.anyLong(), (HashMap<String, Metric>) EasyMock.anyObject());
+                EasyMock.anyLong(), EasyMock.<HashMap<String, Metric>>anyObject());
 
         EasyMock.replay(mMockBuildInfo, mMockRunUtil, mMockListener, mMockConfig);
         mTfTestLauncher.run(mMockListener);
@@ -170,6 +181,8 @@ public class TfTestLauncherTest {
      */
     @Test
     public void testTestTmpDirClean_failExtraFile() {
+        mTfTestLauncher.setBuild(mMockBuildInfo);
+        EasyMock.expect(mMockBuildInfo.getBuildBranch()).andReturn(BUILD_BRANCH).times(1);
         mMockListener.testRunStarted("temporaryFiles", 1);
         mMockListener.testStarted((TestDescription) EasyMock.anyObject());
         mMockListener.testFailed(
@@ -179,9 +192,9 @@ public class TfTestLauncherTest {
         mMockListener.testRunEnded(0, new HashMap<String, Metric>());
         File tmpDir = Mockito.mock(File.class);
         Mockito.when(tmpDir.list()).thenReturn(new String[] {"extra_file"});
-        EasyMock.replay(mMockListener);
+        EasyMock.replay(mMockListener, mMockBuildInfo);
         mTfTestLauncher.testTmpDirClean(tmpDir, mMockListener);
-        EasyMock.verify(mMockListener);
+        EasyMock.verify(mMockListener, mMockBuildInfo);
     }
 
     /**
@@ -191,6 +204,8 @@ public class TfTestLauncherTest {
      */
     @Test
     public void testTestTmpDirClean_failMultipleFiles() {
+        mTfTestLauncher.setBuild(mMockBuildInfo);
+        EasyMock.expect(mMockBuildInfo.getBuildBranch()).andReturn(BUILD_BRANCH).times(1);
         mMockListener.testRunStarted("temporaryFiles", 1);
         mMockListener.testStarted((TestDescription) EasyMock.anyObject());
         mMockListener.testFailed(
@@ -200,9 +215,9 @@ public class TfTestLauncherTest {
         mMockListener.testRunEnded(0, new HashMap<String, Metric>());
         File tmpDir = Mockito.mock(File.class);
         Mockito.when(tmpDir.list()).thenReturn(new String[] {"inv_1", "inv_2"});
-        EasyMock.replay(mMockListener);
+        EasyMock.replay(mMockListener, mMockBuildInfo);
         mTfTestLauncher.testTmpDirClean(tmpDir, mMockListener);
-        EasyMock.verify(mMockListener);
+        EasyMock.verify(mMockListener, mMockBuildInfo);
     }
 
     /** Test that when code coverage option is on, we add the javaagent to the java arguments. */
@@ -215,11 +230,13 @@ public class TfTestLauncherTest {
         EasyMock.expect(mMockBuildInfo.getBuildBranch()).andReturn(BUILD_BRANCH).times(2);
         EasyMock.expect(mMockBuildInfo.getBuildFlavor()).andReturn(BUILD_FLAVOR).times(2);
         EasyMock.expect(mMockBuildInfo.getBuildId()).andReturn(BUILD_ID).times(2);
-        mMockRunUtil.unsetEnvVariable(TfTestLauncher.TF_GLOBAL_CONFIG);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_SERVER_CONFIG_VARIABLE);
+        mMockRunUtil.unsetEnvVariable(SubprocessTfLauncher.ANDROID_SERIAL_VAR);
         mMockRunUtil.unsetEnvVariable(EnvVariable.ANDROID_HOST_OUT_TESTCASES.name());
         mMockRunUtil.unsetEnvVariable(EnvVariable.ANDROID_TARGET_OUT_TESTCASES.name());
         mMockRunUtil.setEnvVariablePriority(EnvPriority.SET);
-        mMockRunUtil.setEnvVariable(SubprocessTfLauncher.TF_GLOBAL_CONFIG, SUB_GLOBAL_CONFIG);
+        mMockRunUtil.setEnvVariable(GlobalConfiguration.GLOBAL_CONFIG_VARIABLE, SUB_GLOBAL_CONFIG);
         EasyMock.replay(mMockBuildInfo, mMockRunUtil, mMockListener);
         try {
             mTfTestLauncher.preRun();

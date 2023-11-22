@@ -19,11 +19,18 @@ package android.provider.cts;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.net.Uri;
-import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Audio.Media;
 
+import androidx.test.runner.AndroidJUnit4;
+
 import junit.framework.Assert;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.io.File;
+import java.io.IOException;
 
 /**
  * This class contains fake data and convenient methods for testing:
@@ -45,20 +52,21 @@ import junit.framework.Assert;
  * @see MediaStore_Audio_Artists_AlbumsTest
  * @see MediaStore_Audio_AlbumsTest
  */
+@RunWith(AndroidJUnit4.class)
 public class MediaStoreAudioTestHelper {
     public static abstract class MockAudioMediaInfo {
-        public abstract ContentValues getContentValues(boolean isInternal);
+        public abstract ContentValues getContentValues(String volumeName);
 
-        public Uri insertToInternal(ContentResolver contentResolver) {
-            Uri uri = contentResolver.insert(Media.INTERNAL_CONTENT_URI, getContentValues(true));
-            Assert.assertNotNull(uri);
-            return uri;
-        }
+        public Uri insert(ContentResolver contentResolver, String volumeName) {
+            final Uri dirUri = MediaStore.Audio.Media.getContentUri(volumeName);
+            final ContentValues values = getContentValues(volumeName);
+            contentResolver.delete(dirUri, MediaStore.Audio.Media.DATA + "=?", new String[] {
+                    values.getAsString(MediaStore.Audio.Media.DATA)
+            });
 
-        public Uri insertToExternal(ContentResolver contentResolver) {
-            Uri uri = contentResolver.insert(Media.EXTERNAL_CONTENT_URI, getContentValues(false));
-            Assert.assertNotNull(uri);
-            return uri;
+            final Uri itemUri = contentResolver.insert(dirUri, values);
+            Assert.assertNotNull(itemUri);
+            return itemUri;
         }
 
         public int delete(ContentResolver contentResolver, Uri uri) {
@@ -77,50 +85,37 @@ public class MediaStoreAudioTestHelper {
         }
 
         public static final int IS_RINGTONE = 0;
-
         public static final int IS_NOTIFICATION = 0;
-
         public static final int IS_ALARM = 0;
-
         public static final int IS_MUSIC = 1;
-
-        public static final int IS_DRM = 0;
-
         public static final int YEAR = 1992;
-
         public static final int TRACK = 1;
-
         public static final int DURATION = 340000;
-
         public static final String COMPOSER = "Bruce Swedien";
-
         public static final String ARTIST = "Michael Jackson";
-
         public static final String ALBUM = "Dangerous";
-
         public static final String TITLE = "Jam";
-
         public static final int SIZE = 2737870;
-
         public static final String MIME_TYPE = "audio/x-mpeg";
-
-        public static final String DISPLAY_NAME = "Jam -Michael Jackson";
-
-        public static final String INTERNAL_DATA =
-            "/data/data/android.provider.cts/files/Jam.mp3";
-
         public static final String FILE_NAME = "Jam.mp3";
-
-        public static final String EXTERNAL_DATA = Environment.getExternalStorageDirectory() +
-                "/" + FILE_NAME;
-
+        public static final String DISPLAY_NAME = FILE_NAME;
         public static final long DATE_MODIFIED = System.currentTimeMillis() / 1000;
-
         public static final String GENRE = "POP";
+
         @Override
-        public ContentValues getContentValues(boolean isInternal) {
+        public ContentValues getContentValues(String volumeName) {
             ContentValues values = new ContentValues();
-            values.put(Media.DATA, isInternal ? INTERNAL_DATA : EXTERNAL_DATA);
+            try {
+                final File data;
+                if (MediaStore.VOLUME_INTERNAL.equals(volumeName)) {
+                    data = new File("/data/data/android.provider.cts/files/", FILE_NAME);
+                } else {
+                    data = new File(ProviderTestUtils.stageDir(volumeName), FILE_NAME);
+                }
+                values.put(Media.DATA, data.getAbsolutePath());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
             values.put(Media.DATE_MODIFIED, DATE_MODIFIED);
             values.put(Media.DISPLAY_NAME, DISPLAY_NAME);
             values.put(Media.MIME_TYPE, MIME_TYPE);
@@ -136,8 +131,6 @@ public class MediaStoreAudioTestHelper {
             values.put(Media.IS_ALARM, IS_ALARM);
             values.put(Media.IS_NOTIFICATION, IS_NOTIFICATION);
             values.put(Media.IS_RINGTONE, IS_RINGTONE);
-            values.put(Media.IS_DRM, IS_DRM);
-
             return values;
         }
     }
@@ -153,53 +146,38 @@ public class MediaStoreAudioTestHelper {
         }
 
         public static final int IS_RINGTONE = 1;
-
         public static final int IS_NOTIFICATION = 0;
-
         public static final int IS_ALARM = 0;
-
         public static final int IS_MUSIC = 0;
-
-        public static final int IS_DRM = 0;
-
         public static final int YEAR = 1992;
-
         public static final int TRACK = 1001;
-
         public static final int DURATION = 338000;
-
         public static final String COMPOSER = "Bruce Swedien";
-
         public static final String ARTIST =
             "Michael Jackson - Live And Dangerous - National Stadium Bucharest";
-
         public static final String ALBUM =
             "Michael Jackson - Live And Dangerous - National Stadium Bucharest";
-
         public static final String TITLE = "Jam";
-
         public static final int SIZE = 2737321;
-
         public static final String MIME_TYPE = "audio/x-mpeg";
-
-        public static final String DISPLAY_NAME = "Jam(Live)-Michael Jackson";
-
         public static final String FILE_NAME = "Jam_live.mp3";
-
-        public static final String EXTERNAL_DATA =
-            Environment.getExternalStorageDirectory().getPath() + "/" + FILE_NAME;
-
-        public static final String INTERNAL_DATA =
-            "/data/data/android.provider.cts/files/Jam_live.mp3";
-
-
-
-        public static final long DATE_MODIFIED = System.currentTimeMillis();
+        public static final String DISPLAY_NAME = FILE_NAME;
+        public static final long DATE_MODIFIED = System.currentTimeMillis() / 1000;
 
         @Override
-        public ContentValues getContentValues(boolean isInternal) {
+        public ContentValues getContentValues(String volumeName) {
             ContentValues values = new ContentValues();
-            values.put(Media.DATA, isInternal ? INTERNAL_DATA : EXTERNAL_DATA);
+            try {
+                final File data;
+                if (MediaStore.VOLUME_INTERNAL.equals(volumeName)) {
+                    data = new File("/data/data/android.provider.cts/files/", FILE_NAME);
+                } else {
+                    data = new File(ProviderTestUtils.stageDir(volumeName), FILE_NAME);
+                }
+                values.put(Media.DATA, data.getAbsolutePath());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
             values.put(Media.DATE_MODIFIED, DATE_MODIFIED);
             values.put(Media.DISPLAY_NAME, DISPLAY_NAME);
             values.put(Media.MIME_TYPE, MIME_TYPE);
@@ -215,8 +193,6 @@ public class MediaStoreAudioTestHelper {
             values.put(Media.IS_ALARM, IS_ALARM);
             values.put(Media.IS_NOTIFICATION, IS_NOTIFICATION);
             values.put(Media.IS_RINGTONE, IS_RINGTONE);
-            values.put(Media.IS_DRM, IS_DRM);
-
             return values;
         }
     }
@@ -232,8 +208,8 @@ public class MediaStoreAudioTestHelper {
         }
 
         @Override
-        public ContentValues getContentValues(boolean isInternal) {
-            ContentValues values = super.getContentValues(isInternal);
+        public ContentValues getContentValues(String volumeName) {
+            ContentValues values = super.getContentValues(volumeName);
             values.put(Media.DATA, values.getAsString(Media.DATA) + "_3");
             return values;
         }
@@ -250,8 +226,8 @@ public class MediaStoreAudioTestHelper {
         }
 
         @Override
-        public ContentValues getContentValues(boolean isInternal) {
-            ContentValues values = super.getContentValues(isInternal);
+        public ContentValues getContentValues(String volumeName) {
+            ContentValues values = super.getContentValues(volumeName);
             values.put(Media.DATA, values.getAsString(Media.DATA) + "_4");
             return values;
         }
@@ -268,11 +244,16 @@ public class MediaStoreAudioTestHelper {
         }
 
         @Override
-        public ContentValues getContentValues(boolean isInternal) {
-            ContentValues values = super.getContentValues(isInternal);
+        public ContentValues getContentValues(String volumeName) {
+            ContentValues values = super.getContentValues(volumeName);
             values.put(Media.DATA, values.getAsString(Media.DATA) + "_5");
             return values;
         }
+    }
+
+    @Test
+    public void testStub() {
+        // No-op test here to keep atest happy
     }
 
     // These constants are not part of the public API

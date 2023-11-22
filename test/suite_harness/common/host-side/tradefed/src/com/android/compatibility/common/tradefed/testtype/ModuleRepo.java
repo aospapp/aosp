@@ -28,9 +28,7 @@ import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.config.IConfigurationFactory;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.IAbi;
-import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.testtype.IRemoteTest;
-import com.android.tradefed.testtype.IStrictShardableTest;
 import com.android.tradefed.testtype.ITestFileFilterReceiver;
 import com.android.tradefed.testtype.ITestFilterReceiver;
 import com.android.tradefed.util.AbiUtils;
@@ -253,9 +251,6 @@ public class ModuleRepo implements IModuleRepo {
                         prepareTestClass(name, abi, config, test);
                     }
                     List<IRemoteTest> shardedTests = tests;
-                    if (mTotalShards > 1) {
-                         shardedTests = splitShardableTests(tests, buildInfo);
-                    }
                     if (shardedTests.size() > 1) {
                         shardedTestCounts.put(id, shardedTests.size());
                     }
@@ -312,23 +307,6 @@ public class ModuleRepo implements IModuleRepo {
                 }
             }
         }
-    }
-
-    private List<IRemoteTest> splitShardableTests(List<IRemoteTest> tests, IBuildInfo buildInfo) {
-        ArrayList<IRemoteTest> shardedList = new ArrayList<>(tests.size());
-        for (IRemoteTest test : tests) {
-            if (test instanceof IBuildReceiver) {
-                ((IBuildReceiver)test).setBuild(buildInfo);
-            }
-            if (mShardIndex != null && test instanceof IStrictShardableTest) {
-                for (int i = 0; i < mTotalShards; i++) {
-                    shardedList.add(((IStrictShardableTest)test).getTestShard(mTotalShards, i));
-                }
-            } else {
-                shardedList.add(test);
-            }
-        }
-        return shardedList;
     }
 
     private void addFilters(Set<String> stringFilters,

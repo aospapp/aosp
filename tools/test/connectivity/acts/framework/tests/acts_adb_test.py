@@ -17,6 +17,7 @@
 import unittest
 import mock
 from acts.controllers import adb
+from acts.controllers.adb import AdbError
 
 
 class MockJob(object):
@@ -66,6 +67,32 @@ class ADBTest(unittest.TestCase):
         cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"SOME_SHELL_CMD"']
         with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
             MockAdbProxy()._exec_cmd(cmd)
+
+    def test__exec_cmd_raises_on_bind_error(self):
+        """Tests _exec_cmd raises an AdbError on port forwarding failure."""
+        mock_job = MockJob(exit_status=1,
+                           stderr='error: cannot bind listener: '
+                                  'Address already in use',
+                           stdout='')
+        cmd = ['adb', '-s', '"SOME_SERIAL"', 'shell', '"SOME_SHELL_CMD"']
+        with mock.patch('acts.libs.proc.job.run', return_value=mock_job):
+            with self.assertRaises(AdbError):
+                MockAdbProxy()._exec_cmd(cmd)
+
+    def test__get_version_number_gets_version_number(self):
+        """Tests the positive case for AdbProxy.get_version_number()."""
+        proxy = MockAdbProxy()
+        expected_version_number = 39
+        proxy.version = lambda: ('Android Debug Bridge version 1.0.%s\nblah' %
+                                 expected_version_number)
+        self.assertEqual(expected_version_number, proxy.get_version_number())
+
+    def test__get_version_number_raises_upon_parse_failure(self):
+        """Tests the failure case for AdbProxy.get_version_number()."""
+        proxy = MockAdbProxy()
+        proxy.version = lambda: 'Bad format'
+        with self.assertRaises(AdbError):
+            proxy.get_version_number()
 
 
 if __name__ == "__main__":

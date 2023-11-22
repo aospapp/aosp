@@ -29,7 +29,6 @@ cc_library {
         "HeapWalker.cpp",
         "LeakFolding.cpp",
         "LeakPipe.cpp",
-        "LineBuffer.cpp",
         "MemUnreachable.cpp",
         "ProcessMappings.cpp",
         "PtracerThread.cpp",
@@ -38,6 +37,7 @@ cc_library {
 
     static_libs: [
         "libc_malloc_debug_backtrace",
+        "libprocinfo",
     ],
     // Only need this for arm since libc++ uses its own unwind code that
     // doesn't mix with the other default unwind code.
@@ -83,6 +83,8 @@ cc_test {
             enabled: false,
         },
     },
+
+    test_suites: ["device-tests"],
 }
 
 cc_test {
@@ -94,7 +96,8 @@ cc_test {
     static_libs: ["libmemunreachable"],
     shared_libs: [
         "libbinder",
-        "libhwbinder",
+        "libhidlbase",
         "libutils",
     ],
+    test_suites: ["device-tests"],
 }

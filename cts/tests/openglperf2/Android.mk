@@ -21,7 +21,7 @@ LOCAL_MODULE_TAGS := tests
 # Include both the 32 and 64 bit versions
 LOCAL_MULTILIB := both
 
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt ctstestrunner-axt
 
 LOCAL_JNI_SHARED_LIBRARIES := libctsopengl_jni
 
@@ -33,7 +33,6 @@ LOCAL_PACKAGE_NAME := CtsOpenGlPerf2TestCases
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_SDK_VERSION := 16
+#LOCAL_MIN_SDK_VERSION := 16
 
 include $(BUILD_CTS_PACKAGE)
-
-include $(call all-makefiles-under,$(LOCAL_PATH))

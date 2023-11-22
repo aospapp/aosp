@@ -17,10 +17,7 @@
 #ifndef ART_RUNTIME_ART_FIELD_H_
 #define ART_RUNTIME_ART_FIELD_H_
 
-#include <jni.h>
-
 #include "dex/dex_file_types.h"
-#include "dex/hidden_api_access_flags.h"
 #include "dex/modifiers.h"
 #include "dex/primitive.h"
 #include "gc_root.h"
@@ -35,15 +32,18 @@ class ScopedObjectAccessAlreadyRunnable;
 
 namespace mirror {
 class Class;
+class ClassLoader;
 class DexCache;
 class Object;
 class String;
 }  // namespace mirror
 
-class ArtField FINAL {
+class ArtField final {
  public:
   template<ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
   ObjPtr<mirror::Class> GetDeclaringClass() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  ObjPtr<mirror::ClassLoader> GetClassLoader() REQUIRES_SHARED(Locks::mutator_lock_);
 
   void SetDeclaringClass(ObjPtr<mirror::Class> new_declaring_class)
       REQUIRES_SHARED(Locks::mutator_lock_);
@@ -180,10 +180,6 @@ class ArtField FINAL {
     return (GetAccessFlags() & kAccVolatile) != 0;
   }
 
-  HiddenApiAccessFlags::ApiList GetHiddenApiAccessFlags() REQUIRES_SHARED(Locks::mutator_lock_) {
-    return HiddenApiAccessFlags::DecodeFromRuntime(GetAccessFlags());
-  }
-
   // Returns an instance field with this offset in the given class or null if not found.
   // If kExactOffset is true then we only find the matching offset, not the field containing the
   // offset.
@@ -201,8 +197,7 @@ class ArtField FINAL {
   const char* GetName() REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Resolves / returns the name from the dex cache.
-  ObjPtr<mirror::String> GetStringName(Thread* self, bool resolve)
-      REQUIRES_SHARED(Locks::mutator_lock_);
+  ObjPtr<mirror::String> ResolveNameString() REQUIRES_SHARED(Locks::mutator_lock_);
 
   const char* GetTypeDescriptor() REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -215,6 +210,7 @@ class ArtField FINAL {
 
   size_t FieldSize() REQUIRES_SHARED(Locks::mutator_lock_);
 
+  template <ReadBarrierOption kReadBarrierOption = kWithReadBarrier>
   ObjPtr<mirror::DexCache> GetDexCache() REQUIRES_SHARED(Locks::mutator_lock_);
 
   const DexFile* GetDexFile() REQUIRES_SHARED(Locks::mutator_lock_);
@@ -236,11 +232,9 @@ class ArtField FINAL {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
+  bool IsProxyField() REQUIRES_SHARED(Locks::mutator_lock_);
+
   ObjPtr<mirror::Class> ProxyFindSystemClass(const char* descriptor)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-  ObjPtr<mirror::String> ResolveGetStringName(Thread* self,
-                                              dex::StringIndex string_idx,
-                                              ObjPtr<mirror::DexCache> dex_cache)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void GetAccessFlagsDCheck() REQUIRES_SHARED(Locks::mutator_lock_);

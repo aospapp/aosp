@@ -29,9 +29,8 @@ import java.nio.IntBuffer;
 import java.util.Arrays;
 import java.util.function.Function;
 import libcore.io.BufferIterator;
-import libcore.io.IoUtils;
 import libcore.io.MemoryMappedFile;
-import libcore.io.SizeOf;
+import libcore.testing.io.TestIoUtils;
 
 public class MemoryMappedFileTest extends TestCase {
 
@@ -40,7 +39,7 @@ public class MemoryMappedFileTest extends TestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        tempDir = IoUtils.createTemporaryDirectory("MemoryMappedFileTest");
+        tempDir = TestIoUtils.createTemporaryDirectory("MemoryMappedFileTest");
     }
 
     public void testMmapRo_missingFile() throws Exception {
@@ -594,7 +593,7 @@ public class MemoryMappedFileTest extends TestCase {
         iterator.readIntArray(dst, 1, intCount);
 
         assertArrayEquals(expectedInts, dst);
-        assertEquals(posBefore + (intCount * SizeOf.INT), iterator.pos());
+        assertEquals(posBefore + (intCount * Integer.BYTES), iterator.pos());
     }
 
     private static void assertReadIntFails(BufferIterator iterator) {
@@ -610,7 +609,7 @@ public class MemoryMappedFileTest extends TestCase {
     private static void assertReadIntSucceeds(BufferIterator iterator, int expectedValue) {
         int posBefore = iterator.pos();
         assertEquals(expectedValue, iterator.readInt());
-        assertEquals(posBefore + SizeOf.INT, iterator.pos());
+        assertEquals(posBefore + Integer.BYTES, iterator.pos());
     }
 
     private static void assertReadShortFails(BufferIterator iterator) {
@@ -626,7 +625,7 @@ public class MemoryMappedFileTest extends TestCase {
     private static void assertReadShortSucceeds(BufferIterator iterator, short expectedValue) {
         int posBefore = iterator.pos();
         assertEquals(expectedValue, iterator.readShort());
-        assertEquals(posBefore + SizeOf.SHORT, iterator.pos());
+        assertEquals(posBefore + Short.BYTES, iterator.pos());
     }
 
     private static void assertReadByteFails(BufferIterator iterator) {

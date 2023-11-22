@@ -16,11 +16,5 @@
   -->
 
 <resources>
-    <integer name="emoji_thumb_up">0x1F44D</integer>
-    <integer name="emoji_thumb_down">0x1F44E</integer>
-    <integer name="emoji_ok_hand_sign">0x1F44C</integer>
-    <integer name="emoji_heart">0x1F49B</integer>
-    <integer name="emoji_smiling_face">0x1F642</integer>
-
     <integer name="anim_time">1000</integer>
 </resources>

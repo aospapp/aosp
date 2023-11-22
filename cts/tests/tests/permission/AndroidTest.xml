@@ -16,6 +16,8 @@
 <configuration description="Config for CTS Permission test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
 
     <!-- Install main test suite apk -->
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
@@ -33,16 +35,31 @@
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="push" value="CtsAppThatRequestsPermissionAandB.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsPermissionAandB.apk" />
         <option name="push" value="CtsAppThatRequestsPermissionAandC.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsPermissionAandC.apk" />
+        <option name="push" value="CtsAppThatRequestsContactsPermission16.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsContactsPermission16.apk" />
+        <option name="push" value="CtsAppThatRequestsContactsPermission15.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsContactsPermission15.apk" />
+        <option name="push" value="CtsAppThatRequestsContactsAndCallLogPermission16.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsContactsAndCallLogPermission16.apk" />
+        <option name="push" value="CtsAppThatRequestsLocationPermission29.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsLocationPermission29.apk" />
+        <option name="push" value="CtsAppThatRequestsLocationPermission29v4.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsLocationPermission29v4.apk" />
+        <option name="push" value="CtsAppThatRequestsLocationPermission28.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsLocationPermission28.apk" />
+        <option name="push" value="CtsAppThatRequestsLocationPermission22.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsLocationPermission22.apk" />
+        <option name="push" value="CtsAppThatRequestsLocationAndBackgroundPermission29.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsLocationAndBackgroundPermission29.apk" />
+        <option name="push" value="CtsAppThatAccessesLocationOnCommand.apk->/data/local/tmp/cts/permissions/CtsAppThatAccessesLocationOnCommand.apk" />
+        <option name="push" value="AppThatDoesNotHaveBgLocationAccess.apk->/data/local/tmp/cts/permissions/AppThatDoesNotHaveBgLocationAccess.apk" />
+        <option name="push" value="CtsAppWithSharedUidThatRequestsPermissions.apk->/data/local/tmp/cts/permissions/CtsAppWithSharedUidThatRequestsPermissions.apk" />
+        <option name="push" value="CtsAppWithSharedUidThatRequestsNoPermissions.apk->/data/local/tmp/cts/permissions/CtsAppWithSharedUidThatRequestsNoPermissions.apk" />
+        <option name="push" value="CtsAppWithSharedUidThatRequestsLocationPermission28.apk->/data/local/tmp/cts/permissions/CtsAppWithSharedUidThatRequestsLocationPermission28.apk" />
+        <option name="push" value="CtsAppWithSharedUidThatRequestsLocationPermission29.apk->/data/local/tmp/cts/permissions/CtsAppWithSharedUidThatRequestsLocationPermission29.apk" />
+        <option name="push" value="CtsAppThatRequestsCalendarContactsBodySensorCustomPermission.apk->/data/local/tmp/cts/permissions/CtsAppThatRequestsCalendarContactsBodySensorCustomPermission.apk" />
     </target_preparer>
 
     <!-- Remove additional apps if installed -->
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="teardown-command" value="pm uninstall android.permission.cts.appthatrequestpermission" />
+        <option name="teardown-command" value="pm uninstall android.permission.cts.appthatrequestnopermission" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.permission.cts" />
         <option name="runtime-hint" value="13m" />
-        <option name="hidden-api-checks" value="false" />
     </test>
 </configuration>

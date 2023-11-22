@@ -52,9 +52,11 @@ import javax.crypto.spec.SecretKeySpec;
 abstract class BlockCipherTestBase extends AndroidTestCase {
 
     private static final String EXPECTED_PROVIDER_NAME = TestUtils.EXPECTED_CRYPTO_OP_PROVIDER_NAME;
+    private static final int LARGE_MESSAGE_SIZE = 100 * 1024;
 
     private KeyStore mAndroidKeyStore;
     private int mNextKeyId;
+    private SecureRandom mRand = new SecureRandom();
 
     @Override
     protected void setUp() throws Exception {
@@ -1249,6 +1251,20 @@ abstract class BlockCipherTestBase extends AndroidTestCase {
                 subarray(buffer, outputOffsetInBuffer, outputEndIndexInBuffer));
     }
 
+    public void testVeryLargeBlock() throws Exception {
+        createCipher();
+        Key key = importKey(getKatKey());
+        init(Cipher.ENCRYPT_MODE, key, getKatAlgorithmParameterSpec());
+        byte[] largeMessage = new byte[LARGE_MESSAGE_SIZE];
+        mRand.nextBytes(largeMessage);
+        byte[] ciphertext = doFinal(largeMessage);
+        assertEquals(getExpectedCiphertextLength(LARGE_MESSAGE_SIZE), ciphertext.length);
+
+        init(Cipher.DECRYPT_MODE, key, getKatAlgorithmParameterSpec());
+        byte[] plaintext = doFinal(ciphertext);
+        assertTrue(Arrays.equals(largeMessage, plaintext));
+    }
+
     protected void createCipher() throws NoSuchAlgorithmException,
             NoSuchPaddingException, NoSuchProviderException  {
         mCipher = Cipher.getInstance(getTransformation(), EXPECTED_PROVIDER_NAME);
@@ -1318,16 +1334,21 @@ abstract class BlockCipherTestBase extends AndroidTestCase {
     }
 
     private int getExpectedCiphertextLength(int plaintextLength) {
+        int authTagLength = 0;
+        if (isAuthenticatedCipher()) {
+            authTagLength = getKatAuthenticationTagLengthBytes();
+        }
+
         int blockSize = getBlockSize();
         if (isStreamCipher()) {
             // Padding not supported for stream ciphers
             assertFalse(isPaddingEnabled());
-            return plaintextLength;
+            return plaintextLength + authTagLength;
         } else {
             if (isPaddingEnabled()) {
-                return ((plaintextLength / blockSize) + 1) * blockSize;
+                return ((plaintextLength / blockSize) + 1) * blockSize + authTagLength;
             } else {
-                return ((plaintextLength + blockSize - 1) / blockSize) * blockSize;
+                return ((plaintextLength + blockSize - 1) / blockSize) * blockSize + authTagLength;
             }
         }
     }

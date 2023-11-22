@@ -1,0 +1,6 @@
+binder_call(mediacodec, hiavplayer)
+allow mediacodec hi_omxvdec_device:chr_file { read write open ioctl };
+allow mediacodec hi_vfmw_device:chr_file { read write open };
+allow mediacodec mmz_userdev_device:chr_file { read write ioctl open };
+allow mediacodec system_file:dir { open read };
+allow mediacodec hiavplayer_service:service_manager { find };

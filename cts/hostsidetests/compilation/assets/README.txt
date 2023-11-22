@@ -6,6 +6,6 @@ $ cp ${ANDROID_BUILD_TOP}/out/target/product/${TARGET_PRODUCT}/data/app/CtsCompi
 $ adb install CtsCompilationApp.apk
 
   # Now run the app manually for a couple of minutes, look for the profile:
-$ adb shell ls -l /data/misc/profiles/cur/0/android.cts.compilation/primary.prof
+$ adb shell ls -l /data/misc/profiles/cur/0/android.compilation.cts/primary.prof
   # once the profile appears and is nonempty, grab it:
-$ adb pull /data/misc/profiles/cur/0/android.cts.compilation/primary.prof ./
+$ adb pull /data/misc/profiles/cur/0/android.compilation.cts/primary.prof ./

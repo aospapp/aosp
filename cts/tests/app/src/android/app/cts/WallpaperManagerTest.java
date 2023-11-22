@@ -18,7 +18,6 @@ package android.app.cts;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
@@ -28,6 +27,7 @@ import static org.mockito.Mockito.verify;
 
 import android.app.WallpaperColors;
 import android.app.WallpaperManager;
+import android.app.stubs.R;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -39,19 +39,18 @@ import android.graphics.Point;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Log;
 import android.view.Display;
 import android.view.WindowManager;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
-
-import android.app.stubs.R;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -226,31 +225,88 @@ public class WallpaperManagerTest {
      * Suggesting desired dimensions is only a hint to the system that can be ignored.
      *
      * Test if the desired minimum width or height the WallpaperManager returns
-     * is greater than 0. If so, then we check whether that the size is at least the
-     * as big as the screen.
+     * is greater than 0. If so, then we check whether that the size is the dimension
+     * that was suggested.
      */
     @Test
     public void suggestDesiredDimensionsTest() {
         final Point min = getScreenSize();
         final int w = min.x * 3;
         final int h = min.y * 2;
-        assertDesiredMinimum(new Point(min.x / 2, min.y / 2), min);
+        assertDesiredDimension(new Point(min.x / 2, min.y / 2), new Point(min.x / 2, min.y / 2));
 
-        assertDesiredMinimum(new Point(w, h), min);
+        assertDesiredDimension(new Point(w, h), new Point(w, h));
 
-        assertDesiredMinimum(new Point(min.x / 2, h), min);
+        assertDesiredDimension(new Point(min.x / 2, h), new Point(min.x / 2, h));
 
-        assertDesiredMinimum(new Point(w, min.y / 2), min);
+        assertDesiredDimension(new Point(w, min.y / 2), new Point(w, min.y / 2));
     }
 
-    private void assertDesiredMinimum(Point suggestedSize, Point minSize) {
+    @Test
+    public void wallpaperColors_primary() {
+        Bitmap tmpWallpaper = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(tmpWallpaper);
+        canvas.drawColor(Color.RED);
+
+        try {
+            mWallpaperManager.setBitmap(tmpWallpaper);
+            WallpaperColors colors = mWallpaperManager.getWallpaperColors(
+                    WallpaperManager.FLAG_SYSTEM);
+
+            // Check that primary color is almost red
+            Color primary = colors.getPrimaryColor();
+            final float delta = 0.1f;
+            Assert.assertEquals("red", 1f, primary.red(), delta);
+            Assert.assertEquals("green", 0f, primary.green(), delta);
+            Assert.assertEquals("blue", 0f, primary.blue(), delta);
+
+            Assert.assertNull(colors.getSecondaryColor());
+            Assert.assertNull(colors.getTertiaryColor());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            tmpWallpaper.recycle();
+        }
+    }
+
+
+    @Test
+    public void wallpaperColors_secondary() {
+        Bitmap tmpWallpaper = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(tmpWallpaper);
+        canvas.drawColor(Color.RED);
+        // Make 20% of the wallpaper BLUE so that secondary color is BLUE
+        canvas.clipRect(0, 0, 100, 20);
+        canvas.drawColor(Color.BLUE);
+
+        try {
+            mWallpaperManager.setBitmap(tmpWallpaper);
+            WallpaperColors colors = mWallpaperManager.getWallpaperColors(
+                    WallpaperManager.FLAG_SYSTEM);
+
+            // Check that the secondary color is almost blue
+            Color secondary = colors.getSecondaryColor();
+            final float delta = 0.1f;
+            Assert.assertEquals("red", 0f, secondary.red(), delta);
+            Assert.assertEquals("green", 0f, secondary.green(), delta);
+            Assert.assertEquals("blue", 1f, secondary.blue(), delta);
+
+            Assert.assertNull(colors.getTertiaryColor());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            tmpWallpaper.recycle();
+        }
+    }
+
+    private void assertDesiredDimension(Point suggestedSize, Point expectedSize) {
         mWallpaperManager.suggestDesiredDimensions(suggestedSize.x, suggestedSize.y);
         Point actualSize = new Point(mWallpaperManager.getDesiredMinimumWidth(),
                 mWallpaperManager.getDesiredMinimumHeight());
         if (actualSize.x > 0 || actualSize.y > 0) {
-            if ((actualSize.x < minSize.x || actualSize.y < minSize.y)) {
-                throw new AssertionError("Expected at least x: " + minSize.x + " y: "
-                        + minSize.y + ", got x: " + actualSize.x +
+            if ((actualSize.x != expectedSize.x || actualSize.y != expectedSize.y)) {
+                throw new AssertionError("Expected x: " + expectedSize.x + " y: "
+                        + expectedSize.y + ", got x: " + actualSize.x +
                         " y: " + actualSize.y);
             }
         }

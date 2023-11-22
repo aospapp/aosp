@@ -18,10 +18,10 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="permlab_bluetoothShareManager" msgid="311492132450338925">"ダウンロードマネージャーにアクセスします。"</string>
     <string name="permdesc_bluetoothShareManager" msgid="8930572979123190223">"BluetoothShareマネージャーへのアクセスとそれを利用したファイル転送をアプリに許可します。"</string>
-    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Bluetooth端末によるアクセスを許可します。"</string>
-    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Bluetooth端末によるアクセスを一時的に許可して、ユーザーの確認を受けずにその端末からこの端末にファイルを送信することをアプリに許可します。"</string>
+    <string name="permlab_bluetoothWhitelist" msgid="7091552898592306386">"Bluetoothデバイスによるアクセスを許可します。"</string>
+    <string name="permdesc_bluetoothWhitelist" msgid="5494513855192170109">"Bluetoothデバイスによるアクセスを一時的に許可して、ユーザーの確認を受けずにそのデバイスからこのデバイスにファイルを送信することをアプリに許可します。"</string>
     <string name="bt_share_picker_label" msgid="6268100924487046932">"Bluetooth"</string>
-    <string name="unknown_device" msgid="9221903979877041009">"不明なモバイル端末"</string>
+    <string name="unknown_device" msgid="9221903979877041009">"不明なモバイルデバイス"</string>
     <string name="unknownNumber" msgid="4994750948072751566">"不明"</string>
     <string name="airplane_error_title" msgid="2683839635115739939">"機内モード"</string>
     <string name="airplane_error_msg" msgid="8698965595254137230">"機内モードではBluetoothを使用できません。"</string>
@@ -84,19 +84,19 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"「<xliff:g id="RECIPIENT">%1$s</xliff:g>」にファイルを送信中"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"<xliff:g id="NUMBER">%1$s</xliff:g>個のファイルを「<xliff:g id="RECIPIENT">%2$s</xliff:g>」に送信中"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"「<xliff:g id="RECIPIENT">%1$s</xliff:g>」へのファイルの送信を停止しました"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"「<xliff:g id="SENDER">%1$s</xliff:g>」からのファイルを保存するのに十分な空き領域がUSBストレージにありません"</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"「<xliff:g id="SENDER">%1$s</xliff:g>」からのファイルを保存するのに十分な空き領域がSDカードにありません"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"「<xliff:g id="SENDER">%1$s</xliff:g>」からのファイルを保存するのに十分な空き領域が USB ストレージにありません"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"「<xliff:g id="SENDER">%1$s</xliff:g>」からのファイルを保存するのに十分な空き領域が SD カードにありません"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"必要な空き領域: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"処理中のリクエストが多すぎるため、しばらくしてからもう一度お試しください。"</string>
     <string name="status_pending" msgid="2503691772030877944">"ファイル転送はまだ開始されていません。"</string>
     <string name="status_running" msgid="6562808920311008696">"ファイルを転送中です。"</string>
     <string name="status_success" msgid="239573225847565868">"ファイル転送が完了しました。"</string>
     <string name="status_not_accept" msgid="1695082417193780738">"コンテンツはサポートされていません。"</string>
-    <string name="status_forbidden" msgid="613956401054050725">"転送先の端末で転送が禁止されています。"</string>
+    <string name="status_forbidden" msgid="613956401054050725">"転送先のデバイスで転送が禁止されています。"</string>
     <string name="status_canceled" msgid="6664490318773098285">"ユーザーが転送をキャンセルしました。"</string>
     <string name="status_file_error" msgid="3671917770630165299">"ストレージのエラーです。"</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"USBストレージがありません。"</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"SDカードが見つかりません。転送ファイルを保存するSDカードを挿入してください。"</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"USB ストレージがありません。"</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"SD カードが見つかりません。転送ファイルを保存する SD カードを挿入してください。"</string>
     <string name="status_connection_error" msgid="947681831523219891">"接続できませんでした。"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"リクエストを正しく処理できません。"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"不明なエラーです。"</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"開く"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"リストから消去"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"消去"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"この曲なに？"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"保存"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"キャンセル"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Bluetooth を介して共有するアカウントを選択してください。接続中はアカウントへのアクセスをすべて承認する必要があります。"</string>

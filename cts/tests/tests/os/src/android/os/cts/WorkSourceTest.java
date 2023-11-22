@@ -15,45 +15,17 @@
  */
 package android.os.cts;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
-import java.util.Arrays;
-
 import android.os.WorkSource;
 import android.test.AndroidTestCase;
 
+import java.util.Arrays;
+
 public class WorkSourceTest extends AndroidTestCase {
-    private Constructor<WorkSource> mConstructWS;
-    private Object[] mConstructWSArgs = new Object[1];
-    private Method mAddUid;
-    private Object[] mAddUidArgs = new Object[1];
-    private Method mAddUidName;
-    private Object[] mAddUidNameArgs = new Object[2];
-    private Method mAddReturningNewbs;
-    private Object[] mAddReturningNewbsArgs = new Object[1];
-    private Method mSetReturningDiffs;
-    private Object[] mSetReturningDiffsArgs = new Object[1];
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mConstructWS = WorkSource.class.getConstructor(new Class[] { int.class });
-        mAddUid = WorkSource.class.getMethod("add", new Class[] { int.class });
-        mAddUidName = WorkSource.class.getMethod("add", new Class[] { int.class, String.class });
-        mAddReturningNewbs = WorkSource.class.getMethod("addReturningNewbs", new Class[] { WorkSource.class });
-        mSetReturningDiffs = WorkSource.class.getMethod("setReturningDiffs", new Class[] { WorkSource.class });
+    private WorkSource wsNew(int uid) {
+        return new WorkSource(uid);
     }
 
-    private WorkSource wsNew(int uid) throws IllegalArgumentException,
-            InstantiationException, IllegalAccessException, InvocationTargetException {
-        mConstructWSArgs[0] = uid;
-        return mConstructWS.newInstance(mConstructWSArgs);
-    }
-
-    private WorkSource wsNew(int[] uids) throws IllegalArgumentException,
-            InstantiationException, IllegalAccessException, InvocationTargetException {
+    private WorkSource wsNew(int[] uids) {
         WorkSource ws = new WorkSource();
         for (int i=0; i<uids.length; i++) {
             wsAdd(ws, uids[i]);
@@ -62,8 +34,7 @@ public class WorkSourceTest extends AndroidTestCase {
         return ws;
     }
 
-    private WorkSource wsNew(int[] uids, String[] names) throws IllegalArgumentException,
-            InstantiationException, IllegalAccessException, InvocationTargetException {
+    private WorkSource wsNew(int[] uids, String[] names) {
         WorkSource ws = new WorkSource();
         for (int i=0; i<uids.length; i++) {
             wsAdd(ws, uids[i], names[i]);
@@ -72,29 +43,20 @@ public class WorkSourceTest extends AndroidTestCase {
         return ws;
     }
 
-    private boolean wsAdd(WorkSource ws, int uid) throws IllegalArgumentException,
-            InstantiationException, IllegalAccessException, InvocationTargetException {
-        mAddUidArgs[0] = uid;
-        return (Boolean)mAddUid.invoke(ws, mAddUidArgs);
+    private boolean wsAdd(WorkSource ws, int uid) {
+        return ws.add(uid);
     }
 
-    private boolean wsAdd(WorkSource ws, int uid, String name) throws IllegalArgumentException,
-            InstantiationException, IllegalAccessException, InvocationTargetException {
-        mAddUidNameArgs[0] = uid;
-        mAddUidNameArgs[1] = name;
-        return (Boolean)mAddUidName.invoke(ws, mAddUidNameArgs);
+    private boolean wsAdd(WorkSource ws, int uid, String name) {
+        return ws.add(uid, name);
     }
 
-    private WorkSource wsAddReturningNewbs(WorkSource ws, WorkSource other) throws IllegalArgumentException,
-            InstantiationException, IllegalAccessException, InvocationTargetException {
-        mAddReturningNewbsArgs[0] = other;
-        return (WorkSource)mAddReturningNewbs.invoke(ws, mAddReturningNewbsArgs);
+    private WorkSource wsAddReturningNewbs(WorkSource ws, WorkSource other) {
+        return ws.addReturningNewbs(other);
     }
 
-    private WorkSource[] wsSetReturningDiffs(WorkSource ws, WorkSource other) throws IllegalArgumentException,
-            InstantiationException, IllegalAccessException, InvocationTargetException {
-        mSetReturningDiffsArgs[0] = other;
-        return (WorkSource[])mSetReturningDiffs.invoke(ws, mSetReturningDiffsArgs);
+    private WorkSource[] wsSetReturningDiffs(WorkSource ws, WorkSource other) {
+        return ws.setReturningDiffs(other);
     }
 
     private void printArrays(StringBuilder sb, int[] uids, String[] names) {

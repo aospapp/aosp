@@ -72,10 +72,9 @@ class BinderPerformanceTest(base_test.BaseTestClass):
     }
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.shell.InvokeTerminal("one")
-        self.dut.shell.one.Execute("stop")
-        self.dut.shell.one.Execute("setprop sys.boot_completed 0")
+        self.dut = self.android_devices[0]
+        self.dut.shell.Execute("stop")
+        self.dut.shell.Execute("setprop sys.boot_completed 0")
         self._cpu_freq = cpu_frequency_scaling.CpuFrequencyScalingController(self.dut)
         self._cpu_freq.DisableCpuScaling()
 
@@ -87,7 +86,7 @@ class BinderPerformanceTest(base_test.BaseTestClass):
 
     def tearDownClass(self):
         self._cpu_freq.EnableCpuScaling()
-        self.dut.shell.one.Execute("start")
+        self.dut.shell.Execute("start")
         self.dut.waitForBootCompletion()
 
     def testRunBenchmark32Bit(self):
@@ -109,7 +108,7 @@ class BinderPerformanceTest(base_test.BaseTestClass):
         logging.info("Start to run the benchmark (%s bit mode)", bits)
         binary = "/data/local/tmp/%s/libbinder_benchmark%s" % (bits, bits)
 
-        results = self.dut.shell.one.Execute([
+        results = self.dut.shell.Execute([
             "chmod 755 %s" % binary, "LD_LIBRARY_PATH=/data/local/tmp/%s/hw:"
             "/data/local/tmp/%s:$LD_LIBRARY_PATH "
             "%s --benchmark_format=json" % (bits, bits, binary)

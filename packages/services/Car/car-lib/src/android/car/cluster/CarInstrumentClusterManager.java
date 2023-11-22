@@ -18,34 +18,29 @@ package android.car.cluster;
 
 import android.annotation.SystemApi;
 import android.car.CarManagerBase;
-import android.car.CarNotConnectedException;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
-import android.os.Message;
-import android.os.RemoteException;
-import android.util.Log;
-import android.util.Pair;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * API to work with instrument cluster.
  *
+ * @deprecated use {@link android.car.CarAppFocusManager} with focus type
+ * {@link android.car.CarAppFocusManager#APP_FOCUS_TYPE_NAVIGATION} instead.
+ * InstrumentClusterService will automatically launch a "android.car.cluster.NAVIGATION" activity
+ * from the package holding navigation focus.
+ *
  * @hide
  */
+@Deprecated
 @SystemApi
 public class CarInstrumentClusterManager implements CarManagerBase {
-    private static final String TAG = CarInstrumentClusterManager.class.getSimpleName();
-
-    /** @hide */
+    /**
+     * @deprecated use {@link android.car.Car#CATEGORY_NAVIGATION} instead
+     *
+     * @hide
+     */
     @SystemApi
     public static final String CATEGORY_NAVIGATION = "android.car.cluster.NAVIGATION";
 
@@ -54,33 +49,24 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      * intent's extra thus activity will know information about unobscured area, etc. upon activity
      * creation.
      *
+     * @deprecated use {@link android.car.Car#CATEGORY_NAVIGATION} instead
+     *
      * @hide
      */
     @SystemApi
     public static final String KEY_EXTRA_ACTIVITY_STATE =
             "android.car.cluster.ClusterActivityState";
 
-    private final EventHandler mHandler;
-    private final Map<String, Set<Callback>> mCallbacksByCategory = new HashMap<>(0);
-    private final Object mLock = new Object();
-    private final Map<String, Bundle> mActivityStatesByCategory = new HashMap<>(0);
-
-    private final IInstrumentClusterManagerService mService;
-
-    private ClusterManagerCallback mServiceToManagerCallback;
-
     /**
      * Starts activity in the instrument cluster.
+     *
+     * @deprecated see {@link CarInstrumentClusterManager} deprecation message
      *
      * @hide
      */
     @SystemApi
-    public void startActivity(Intent intent) throws CarNotConnectedException {
-        try {
-            mService.startClusterActivity(intent);
-        } catch (RemoteException e) {
-            throw new CarNotConnectedException(e);
-        }
+    public void startActivity(Intent intent) {
+        // No-op
     }
 
     /**
@@ -91,42 +77,13 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      *                         see {@link #CATEGORY_NAVIGATION}
      * @param callback instance of {@link Callback} class to receive events.
      *
+     * @deprecated see {@link CarInstrumentClusterManager} deprecation message
+     *
      * @hide
      */
     @SystemApi
-    public void registerCallback(String category, Callback callback)
-            throws CarNotConnectedException {
-        Log.i(TAG, "registerCallback, category: " + category + ", callback: " + callback);
-        ClusterManagerCallback callbackToCarService = null;
-        synchronized (mLock) {
-            Set<Callback> callbacks = mCallbacksByCategory.get(category);
-            if (callbacks == null) {
-                callbacks = new HashSet<>(1);
-                mCallbacksByCategory.put(category, callbacks);
-            }
-            if (!callbacks.add(callback)) {
-                Log.w(TAG, "registerCallback: already registered");
-                return;  // already registered
-            }
-
-            if (mActivityStatesByCategory.containsKey(category)) {
-                Log.i(TAG, "registerCallback: sending activity state...");
-                callback.onClusterActivityStateChanged(
-                        category, mActivityStatesByCategory.get(category));
-            }
-
-            if (mServiceToManagerCallback == null) {
-                Log.i(TAG, "registerCallback: registering callback with car service...");
-                mServiceToManagerCallback = new ClusterManagerCallback();
-                callbackToCarService = mServiceToManagerCallback;
-            }
-        }
-        try {
-            mService.registerCallback(callbackToCarService);
-            Log.i(TAG, "registerCallback: done");
-        } catch (RemoteException e) {
-            throw new CarNotConnectedException(e);
-        }
+    public void registerCallback(String category, Callback callback) {
+        // No-op
     }
 
     /**
@@ -134,46 +91,29 @@ public class CarInstrumentClusterManager implements CarManagerBase {
      *
      * @param callback previously registered callback
      *
+     * @deprecated see {@link CarInstrumentClusterManager} deprecation message
+     *
      * @hide
      */
     @SystemApi
-    public void unregisterCallback(Callback callback) throws CarNotConnectedException {
-        List<String> keysToRemove = new ArrayList<>(1);
-        synchronized (mLock) {
-            for (Map.Entry<String, Set<Callback>> entry : mCallbacksByCategory.entrySet()) {
-                Set<Callback> callbacks = entry.getValue();
-                if (callbacks.remove(callback) && callbacks.isEmpty()) {
-                    keysToRemove.add(entry.getKey());
-                }
-
-            }
-
-            for (String key: keysToRemove) {
-                mCallbacksByCategory.remove(key);
-            }
-
-            if (mCallbacksByCategory.isEmpty()) {
-                try {
-                    mService.unregisterCallback(mServiceToManagerCallback);
-                } catch (RemoteException e) {
-                    throw new CarNotConnectedException(e);
-                }
-                mServiceToManagerCallback = null;
-            }
-        }
+    public void unregisterCallback(Callback callback) {
+        // No-op
     }
 
     /** @hide */
     public CarInstrumentClusterManager(IBinder service, Handler handler) {
-        mService = IInstrumentClusterManagerService.Stub.asInterface(service);
-
-        mHandler = new EventHandler(handler.getLooper());
+        // No-op
     }
 
-    /** @hide */
+    /**
+     * @deprecated activity state is not longer being reported. See
+     * {@link CarInstrumentClusterManager} deprecation message for more details.
+     *
+     * @hide
+     */
+    @Deprecated
     @SystemApi
     public interface Callback {
-
         /**
          * Notify client that activity state was changed.
          *
@@ -186,55 +126,5 @@ public class CarInstrumentClusterManager implements CarManagerBase {
     /** @hide */
     @Override
     public void onCarDisconnected() {
-    }
-
-    private class EventHandler extends Handler {
-
-        final static int MSG_ACTIVITY_STATE = 1;
-
-        EventHandler(Looper looper) {
-            super(looper);
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            Log.i(TAG, "handleMessage, message: " + msg);
-            switch (msg.what) {
-                case MSG_ACTIVITY_STATE:
-                    Pair<String, Bundle> info = (Pair<String, Bundle>) msg.obj;
-                    String category = info.first;
-                    Bundle state = info.second;
-                    List<CarInstrumentClusterManager.Callback> callbacks = null;
-                    synchronized (mLock) {
-                        if (mCallbacksByCategory.containsKey(category)) {
-                            callbacks = new ArrayList<>(mCallbacksByCategory.get(category));
-                        }
-                    }
-                    Log.i(TAG, "handleMessage, callbacks: " + callbacks);
-                    if (callbacks != null) {
-                        for (CarInstrumentClusterManager.Callback cb : callbacks) {
-                            cb.onClusterActivityStateChanged(category, state);
-                        }
-                    }
-                    break;
-                default:
-                    Log.e(TAG, "Unexpected message: " + msg.what);
-            }
-        }
-    }
-
-    private class ClusterManagerCallback extends IInstrumentClusterManagerCallback.Stub {
-
-        @Override
-        public void setClusterActivityState(String category, Bundle clusterActivityState)
-                throws RemoteException {
-            Log.i(TAG, "setClusterActivityState, category: " + category);
-            synchronized (mLock) {
-                mActivityStatesByCategory.put(category, clusterActivityState);
-            }
-
-            mHandler.sendMessage(mHandler.obtainMessage(EventHandler.MSG_ACTIVITY_STATE,
-                    new Pair<>(category, clusterActivityState)));
-        }
     }
 }

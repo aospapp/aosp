@@ -26,6 +26,8 @@ import android.util.JsonWriter;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /** Represents a network-visible printer */
@@ -42,8 +44,27 @@ public class DiscoveredPrinter {
     /** Resource path at which the print service can be reached */
     public final Uri path;
 
+    /** All paths at which this this printer can be reached. Includes "path". */
+    public final List<Uri> paths;
+
     /** Lazily-created printer id. */
     private PrinterId mPrinterId;
+
+    /**
+     * Construct minimal information about a network printer
+     *
+     * @param uuid     Unique identification of the network printer, if known
+     * @param name     Self-identified printer or service name
+     * @param paths    One or more network paths at which the printer is currently available
+     * @param location Self-advertised location of the printer, if known
+     */
+    public DiscoveredPrinter(Uri uuid, String name, List<Uri> paths, String location) {
+        this.uuid = uuid;
+        this.name = name;
+        this.path = paths.get(0);
+        this.paths = Collections.unmodifiableList(paths);
+        this.location = location;
+    }
 
     /**
      * Construct minimal information about a network printer
@@ -54,10 +75,7 @@ public class DiscoveredPrinter {
      * @param location Self-advertised location of the printer, if known
      */
     public DiscoveredPrinter(Uri uuid, String name, Uri path, String location) {
-        this.uuid = uuid;
-        this.name = name;
-        this.path = path;
-        this.location = location;
+        this(uuid, name, Collections.singletonList(path), location);
     }
 
     /** Construct an object based on field values of an JSON object found next in the JsonReader */
@@ -91,6 +109,7 @@ public class DiscoveredPrinter {
         this.uuid = uuid;
         this.name = printerName;
         this.path = path;
+        this.paths = Collections.singletonList(path);
         this.location = location;
     }
 
@@ -100,6 +119,18 @@ public class DiscoveredPrinter {
      */
     public Uri getUri() {
         return uuid != null ? uuid : path;
+    }
+
+    /**
+     * Return true if this printer has a secure (encrypted) path.
+     */
+    public boolean isSecure() {
+        for (Uri path : paths) {
+            if (path.getScheme().equals("ipps")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -139,7 +170,7 @@ public class DiscoveredPrinter {
         DiscoveredPrinter other = (DiscoveredPrinter) obj;
         return Objects.equals(uuid, other.uuid)
                 && Objects.equals(name, other.name)
-                && Objects.equals(path, other.path)
+                && Objects.equals(paths, other.paths)
                 && Objects.equals(location, other.location);
     }
 
@@ -148,7 +179,7 @@ public class DiscoveredPrinter {
         int result = 17;
         result = 31 * result + name.hashCode();
         result = 31 * result + (uuid != null ? uuid.hashCode() : 0);
-        result = 31 * result + path.hashCode();
+        result = 31 * result + paths.hashCode();
         result = 31 * result + (location != null ? location.hashCode() : 0);
         return result;
     }

@@ -21,95 +21,58 @@ import android.content.Context;
 import android.media.PlaybackParams;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvInputManager;
-import android.media.tv.TvInputService;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Message;
 import android.os.SystemClock;
-import android.text.Html;
 import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
-import android.widget.Toast;
 import com.android.tv.common.CommonPreferences.CommonPreferencesChangedListener;
-import com.android.tv.common.util.SystemPropertiesProxy;
-import com.android.tv.tuner.R;
-import com.android.tv.tuner.TunerPreferences;
-import com.android.tv.tuner.cc.CaptionLayout;
-import com.android.tv.tuner.cc.CaptionTrackRenderer;
-import com.android.tv.tuner.data.Cea708Data.CaptionEvent;
-import com.android.tv.tuner.data.nano.Track.AtscCaptionTrack;
-import com.android.tv.tuner.util.GlobalSettingsUtils;
-import com.android.tv.tuner.util.StatusTextUtils;
-import com.google.android.exoplayer.audio.AudioCapabilities;
+import com.android.tv.common.compat.TisSessionCompat;
+import com.android.tv.tuner.prefs.TunerPreferences;
+import com.android.tv.tuner.source.TsDataSourceManager;
+import com.android.tv.tuner.tvinput.datamanager.ChannelDataManager;
+import com.android.tv.tuner.tvinput.factory.TunerSessionFactory.SessionReleasedCallback;
+import com.android.tv.common.flags.ConcurrentDvrPlaybackFlags;
 
 /**
- * Provides a tuner TV input session. It handles Overlay UI works. Main tuner input functions are
- * implemented in {@link TunerSessionWorker}.
+ * Provides a tuner TV input session. Main tuner input functions are implemented in {@link
+ * TunerSessionWorker}.
  */
-public class TunerSession extends TvInputService.Session
-        implements Handler.Callback, CommonPreferencesChangedListener {
+public class TunerSession extends TisSessionCompat implements CommonPreferencesChangedListener {
+
     private static final String TAG = "TunerSession";
     private static final boolean DEBUG = false;
-    private static final String USBTUNER_SHOW_DEBUG = "persist.tv.tuner.show_debug";
 
-    public static final int MSG_UI_SHOW_MESSAGE = 1;
-    public static final int MSG_UI_HIDE_MESSAGE = 2;
-    public static final int MSG_UI_SHOW_AUDIO_UNPLAYABLE = 3;
-    public static final int MSG_UI_HIDE_AUDIO_UNPLAYABLE = 4;
-    public static final int MSG_UI_PROCESS_CAPTION_TRACK = 5;
-    public static final int MSG_UI_START_CAPTION_TRACK = 6;
-    public static final int MSG_UI_STOP_CAPTION_TRACK = 7;
-    public static final int MSG_UI_RESET_CAPTION_TRACK = 8;
-    public static final int MSG_UI_CLEAR_CAPTION_RENDERER = 9;
-    public static final int MSG_UI_SET_STATUS_TEXT = 10;
-    public static final int MSG_UI_TOAST_RESCAN_NEEDED = 11;
-
-    private final Context mContext;
-    private final Handler mUiHandler;
-    private final View mOverlayView;
-    private final TextView mMessageView;
-    private final TextView mStatusView;
-    private final TextView mAudioStatusView;
-    private final ViewGroup mMessageLayout;
-    private final CaptionTrackRenderer mCaptionTrackRenderer;
+    private final TunerSessionOverlay mTunerSessionOverlay;
     private final TunerSessionWorker mSessionWorker;
-    private boolean mReleased = false;
+    private final SessionReleasedCallback mReleasedCallback;
     private boolean mPlayPaused;
     private long mTuneStartTimestamp;
 
-    public TunerSession(Context context, ChannelDataManager channelDataManager) {
+    public TunerSession(
+            Context context,
+            ChannelDataManager channelDataManager,
+            SessionReleasedCallback releasedCallback,
+            ConcurrentDvrPlaybackFlags concurrentDvrPlaybackFlags,
+            TsDataSourceManager.Factory tsDataSourceManagerFactory) {
         super(context);
-        mContext = context;
-        mUiHandler = new Handler(this);
-        LayoutInflater inflater =
-                (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        mOverlayView = inflater.inflate(R.layout.ut_overlay_view, null);
-        mMessageLayout = (ViewGroup) mOverlayView.findViewById(R.id.message_layout);
-        mMessageLayout.setVisibility(View.INVISIBLE);
-        mMessageView = (TextView) mOverlayView.findViewById(R.id.message);
-        mStatusView = (TextView) mOverlayView.findViewById(R.id.tuner_status);
-        boolean showDebug = SystemPropertiesProxy.getBoolean(USBTUNER_SHOW_DEBUG, false);
-        mStatusView.setVisibility(showDebug ? View.VISIBLE : View.INVISIBLE);
-        mAudioStatusView = (TextView) mOverlayView.findViewById(R.id.audio_status);
-        mAudioStatusView.setVisibility(View.INVISIBLE);
-        CaptionLayout captionLayout = (CaptionLayout) mOverlayView.findViewById(R.id.caption);
-        mCaptionTrackRenderer = new CaptionTrackRenderer(captionLayout);
-        mSessionWorker = new TunerSessionWorker(context, channelDataManager, this);
+        mReleasedCallback = releasedCallback;
+        mTunerSessionOverlay = new TunerSessionOverlay(context);
+        mSessionWorker =
+                new TunerSessionWorker(
+                        context,
+                        channelDataManager,
+                        this,
+                        mTunerSessionOverlay,
+                        concurrentDvrPlaybackFlags,
+                        tsDataSourceManagerFactory);
         TunerPreferences.setCommonPreferencesChangedListener(this);
-    }
-
-    public boolean isReleased() {
-        return mReleased;
     }
 
     @Override
     public View onCreateOverlayView() {
-        return mOverlayView;
+        return mTunerSessionOverlay.getOverlayView();
     }
 
     @Override
@@ -207,16 +170,12 @@ public class TunerSession extends TvInputService.Session
         if (DEBUG) {
             Log.d(TAG, "onRelease");
         }
-        mReleased = true;
+        // The session worker needs to be released before the overlay to ensure no messages are
+        // added by the worker after releasing the overlay.
         mSessionWorker.release();
-        mUiHandler.removeCallbacksAndMessages(null);
+        mTunerSessionOverlay.release();
         TunerPreferences.setCommonPreferencesChangedListener(null);
-    }
-
-    /** Sets {@link AudioCapabilities}. */
-    public void setAudioCapabilities(AudioCapabilities audioCapabilities) {
-        mSessionWorker.sendMessage(
-                TunerSessionWorker.MSG_AUDIO_CAPABILITIES_CHANGED, audioCapabilities);
+        mReleasedCallback.onReleased(this);
     }
 
     @Override
@@ -239,99 +198,6 @@ public class TunerSession extends TvInputService.Session
                 && reason != TvInputManager.VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL) {
             notifyTimeShiftStatusChanged(TvInputManager.TIME_SHIFT_STATUS_UNAVAILABLE);
         }
-    }
-
-    public void sendUiMessage(int message) {
-        mUiHandler.sendEmptyMessage(message);
-    }
-
-    public void sendUiMessage(int message, Object object) {
-        mUiHandler.obtainMessage(message, object).sendToTarget();
-    }
-
-    public void sendUiMessage(int message, int arg1, int arg2, Object object) {
-        mUiHandler.obtainMessage(message, arg1, arg2, object).sendToTarget();
-    }
-
-    @Override
-    public boolean handleMessage(Message msg) {
-        switch (msg.what) {
-            case MSG_UI_SHOW_MESSAGE:
-                {
-                    mMessageView.setText((String) msg.obj);
-                    mMessageLayout.setVisibility(View.VISIBLE);
-                    return true;
-                }
-            case MSG_UI_HIDE_MESSAGE:
-                {
-                    mMessageLayout.setVisibility(View.INVISIBLE);
-                    return true;
-                }
-            case MSG_UI_SHOW_AUDIO_UNPLAYABLE:
-                {
-                    // Showing message of enabling surround sound only when global surround sound
-                    // setting is "never".
-                    final int value =
-                            GlobalSettingsUtils.getEncodedSurroundOutputSettings(mContext);
-                    if (value == GlobalSettingsUtils.ENCODED_SURROUND_OUTPUT_NEVER) {
-                        mAudioStatusView.setText(
-                                Html.fromHtml(
-                                        StatusTextUtils.getAudioWarningInHTML(
-                                                mContext.getString(
-                                                        R.string.ut_surround_sound_disabled))));
-                    } else {
-                        mAudioStatusView.setText(
-                                Html.fromHtml(
-                                        StatusTextUtils.getAudioWarningInHTML(
-                                                mContext.getString(
-                                                        R.string
-                                                                .audio_passthrough_not_supported))));
-                    }
-                    mAudioStatusView.setVisibility(View.VISIBLE);
-                    return true;
-                }
-            case MSG_UI_HIDE_AUDIO_UNPLAYABLE:
-                {
-                    mAudioStatusView.setVisibility(View.INVISIBLE);
-                    return true;
-                }
-            case MSG_UI_PROCESS_CAPTION_TRACK:
-                {
-                    mCaptionTrackRenderer.processCaptionEvent((CaptionEvent) msg.obj);
-                    return true;
-                }
-            case MSG_UI_START_CAPTION_TRACK:
-                {
-                    mCaptionTrackRenderer.start((AtscCaptionTrack) msg.obj);
-                    return true;
-                }
-            case MSG_UI_STOP_CAPTION_TRACK:
-                {
-                    mCaptionTrackRenderer.stop();
-                    return true;
-                }
-            case MSG_UI_RESET_CAPTION_TRACK:
-                {
-                    mCaptionTrackRenderer.reset();
-                    return true;
-                }
-            case MSG_UI_CLEAR_CAPTION_RENDERER:
-                {
-                    mCaptionTrackRenderer.clear();
-                    return true;
-                }
-            case MSG_UI_SET_STATUS_TEXT:
-                {
-                    mStatusView.setText((CharSequence) msg.obj);
-                    return true;
-                }
-            case MSG_UI_TOAST_RESCAN_NEEDED:
-                {
-                    Toast.makeText(mContext, R.string.ut_rescan_needed, Toast.LENGTH_LONG).show();
-                    return true;
-                }
-        }
-        return false;
     }
 
     @Override

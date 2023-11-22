@@ -16,9 +16,6 @@
 
 package android.provider.cts.contacts;
 
-import com.google.android.collect.Lists;
-import com.google.android.collect.Sets;
-
 import android.content.ContentProviderClient;
 import android.content.ContentUris;
 import android.content.ContentValues;
@@ -32,22 +29,22 @@ import android.provider.ContactsContract.Groups;
 import android.provider.ContactsContract.RawContacts;
 import android.text.TextUtils;
 
+import junit.framework.Assert;
+import junit.framework.ComparisonFailure;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import junit.framework.Assert;
-import junit.framework.ComparisonFailure;
-
 /**
  * A test data builder for ContactsContract tests.
  */
 public class ContactsContract_TestDataBuilder {
     private ContentProviderClient mProvider;
-    private ArrayList<Builder<?>> mCreatedRows = Lists.newArrayList();
-    private HashSet<Builder<?>> mLoadedRows = Sets.newHashSet();
+    private ArrayList<Builder<?>> mCreatedRows = new ArrayList<>();
+    private HashSet<Builder<?>> mLoadedRows = new HashSet<>();
 
     private interface IdQuery {
         String[] COLUMNS = new String[] {
@@ -170,7 +167,7 @@ public class ContactsContract_TestDataBuilder {
             mLoadedRows.add(this);
 
             StringBuilder selection = new StringBuilder();
-            ArrayList<String> selectionArgs = Lists.newArrayList();
+            ArrayList<String> selectionArgs = new ArrayList<>();
             Set<Map.Entry<String, Object>> entries = mValues.valueSet();
             for (Map.Entry<String, Object> entry : entries) {
                 String column = entry.getKey();

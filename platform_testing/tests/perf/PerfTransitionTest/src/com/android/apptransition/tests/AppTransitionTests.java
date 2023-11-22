@@ -16,10 +16,6 @@
 
 package com.android.apptransition.tests;
 
-import static android.system.helpers.OverviewHelper.isRecentsInLauncher;
-
-import android.app.ActivityManager;
-import android.app.IActivityManager;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
@@ -32,13 +28,11 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.rule.logging.AtraceLogger;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.Until;
 import android.util.Log;
+
+import com.android.launcher3.tapl.LauncherInstrumentation;
+import com.android.launcher3.tapl.Workspace;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -58,7 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class AppTransitionTests {
+public class AppTransitionTests extends Instrumentation {
 
     private static final String TAG = AppTransitionTests.class.getSimpleName();
     private static final int JOIN_TIMEOUT = 10000;
@@ -66,8 +60,8 @@ public class AppTransitionTests {
     private static final String DEFAULT_POST_LAUNCH_TIMEOUT = "5000";
     private static final String DEFAULT_LAUNCH_COUNT = "10";
     private static final String SUCCESS_MESSAGE = "Status: ok";
-    private static final String HOT_LAUNCH_MESSAGE = "Warning: Activity not started, its current"
-            + " task has been brought to the front";
+    private static final String HOT_LAUNCH_MESSAGE = "LaunchState: HOT";
+    private static final String TOTAL_TIME_MESSAGE = "TotalTime:";
     private static final String DROP_CACHE_SCRIPT = "/data/local/tmp/dropCache.sh";
     private static final String APP_LAUNCH_CMD = "am start -W -n";
     private static final String FORCE_STOP = "am force-stop ";
@@ -78,7 +72,7 @@ public class AppTransitionTests {
     private static final String COLD_LAUNCH = "cold_launch";
     private static final String HOT_LAUNCH = "hot_launch";
     private static final String NOT_SURE = "not_sure";
-    private static final String ACTIVITY = "Activity";
+    private static final String ACTIVITY = "Activity:";
     private static final String KEY_TRACE_DIRECTORY = "trace_directory";
     private static final String KEY_TRACE_CATEGORY = "trace_categories";
     private static final String KEY_TRACE_BUFFERSIZE = "trace_bufferSize";
@@ -88,13 +82,8 @@ public class AppTransitionTests {
     private static final String DEFAULT_TRACE_BUFFER_SIZE = "20000";
     private static final String DEFAULT_TRACE_DUMP_INTERVAL = "10";
     private static final String DELIMITER = ",";
-    private static final String SYSTEMUI_PACKAGE = "com.android.systemui";
-    private static final BySelector RECENTS = By.res(SYSTEMUI_PACKAGE, "recents_view");
-    private static final int TASK_SWITCH_SWIPE_SPEED = 500;
-    private Context mContext;
     private UiDevice mDevice;
-    private PackageManager mPackageManager;
-    private IActivityManager mActivityManager;
+    private LauncherInstrumentation mLauncher;
     private ILauncherStrategy mLauncherStrategy = null;
     private Map<String, Intent> mAppLaunchIntentsMapping = null;
     private String mTraceDirectoryStr = null;
@@ -113,18 +102,16 @@ public class AppTransitionTests {
     private AtraceLogger mAtraceLogger = null;
     private String mComponentName = null;
     private Map<String,String> mPreAppsComponentName = new HashMap<String, String>();
-    private float mDisplayDensity;
     private boolean mHasLeanback = false;
 
     @Before
     public void setUp() throws Exception {
-        mPackageManager = getInstrumentation().getContext().getPackageManager();
-        mContext = getInstrumentation().getContext();
+        androidx.test.InstrumentationRegistry.registerInstance(this, new Bundle());
         mArgs = InstrumentationRegistry.getArguments();
-        mActivityManager = ActivityManager.getService();
         mDevice = UiDevice.getInstance(getInstrumentation());
         LauncherStrategyFactory factory = LauncherStrategyFactory.getInstance(mDevice);
         mLauncherStrategy = factory.getLauncherStrategy();
+        mLauncher = new LauncherInstrumentation(getInstrumentation());
         mHasLeanback = hasLeanback(getInstrumentation().getTargetContext());
 
         // Inject an instance of instrumentation only if leanback. This enables to launch any app
@@ -146,7 +133,6 @@ public class AppTransitionTests {
         }
         mAppsList = mAppsList.replaceAll("%"," ");
         mAppListArray = mAppsList.split(DELIMITER);
-        mDisplayDensity = mContext.getResources().getDisplayMetrics().density;
 
         // Parse the trace parameters
         mTraceDirectoryStr = mArgs.getString(KEY_TRACE_DIRECTORY);
@@ -300,7 +286,7 @@ public class AppTransitionTests {
                             mTraceDumpInterval, mRootTraceSubDir,
                             String.format("%s-%d", appName, launchCount - 1));
                 }
-                pressUiRecentApps();
+                mLauncher.getBackground().switchToOverview();
                 sleep(mPostLaunchTimeout);
                 if (null != mAtraceLogger && launchCount > 0) {
                     mAtraceLogger.atraceStop();
@@ -338,20 +324,19 @@ public class AppTransitionTests {
             // To bring the app to launch as first item from recents task.
             mLauncherStrategy.launch(appName, mPreAppsComponentName.get(appName).split(
                     "\\/")[0]);
-            sleep(mPostLaunchTimeout);
             for (int launchCount = 0; launchCount <= mLaunchIterations; launchCount++) {
+                sleep(mPostLaunchTimeout);
+                final Workspace workspace = mLauncher.pressHome();
                 if (null != mAtraceLogger) {
                     mAtraceLogger.atraceStart(mTraceCategoriesSet, mTraceBufferSize,
                             mTraceDumpInterval, mRootTraceSubDir,
                             String.format("%s-%d", appName, (launchCount)));
                 }
-                openMostRecentTask();
+                workspace.switchToOverview().getCurrentTask().open();
                 sleep(mPostLaunchTimeout);
                 if (null != mAtraceLogger) {
                     mAtraceLogger.atraceStop();
                 }
-                mDevice.pressHome();
-                sleep(mPostLaunchTimeout);
             }
             updateResult(appName);
         }
@@ -373,77 +358,6 @@ public class AppTransitionTests {
         mDevice.pressHome();
         sleep(mPostLaunchTimeout);
         return appLaunchTime;
-    }
-
-    private BySelector getLauncherOverviewSelector() {
-        return By.res(mDevice.getLauncherPackageName(), "overview_panel");
-    }
-
-    /**
-     * Shows and returns the recents view.
-     *
-     * @throws RemoteException if press recents is not successful
-     */
-    private UiObject2 pressUiRecentApps() throws RemoteException {
-        final UiObject2 recentsButton = mDevice.findObject(By.res(SYSTEMUI_PACKAGE, "recent_apps"));
-        if (recentsButton == null) {
-            int height = mDevice.getDisplayHeight();
-            UiObject2 navBar = mDevice.findObject(By.res(SYSTEMUI_PACKAGE, "navigation_bar_frame"));
-
-            // Swipe from nav bar to 2/3rd down the screen.
-            mDevice.swipe(
-                    navBar.getVisibleBounds().centerX(), navBar.getVisibleBounds().centerY(),
-                    navBar.getVisibleBounds().centerX(), height * 2 / 3,
-                    (navBar.getVisibleBounds().centerY() - height * 2 / 3) / 100); // 100 px/step
-        } else {
-            recentsButton.click();
-        }
-
-        final UiObject2 recentsView = mDevice.wait(
-                Until.findObject(isRecentsInLauncher() ? getLauncherOverviewSelector() : RECENTS),
-                5000);
-
-        if (recentsView == null) {
-            throw new RuntimeException("Recents didn't appear");
-        }
-        mDevice.waitForIdle();
-        return recentsView;
-    }
-
-    /**
-     * To open the home screen.
-     * @throws RemoteException if press home is not successful
-     */
-    private void pressUiHome() throws RemoteException {
-        mDevice.findObject(By.res(SYSTEMUI_PACKAGE, "home")).click();
-    }
-
-    /**
-     * Open recents view and click on the most recent task.
-     * @throws RemoteException if press recents is not successful
-     */
-    public void openMostRecentTask() throws RemoteException {
-        final UiObject2 recentsView = pressUiRecentApps();
-
-        if (isRecentsInLauncher()) {
-            final List<UiObject2> taskViews = mDevice.findObjects(
-                    By.res(mDevice.getLauncherPackageName(), "snapshot"));
-
-            if (taskViews.size() != 2) {
-                // We expect to see in the overview: the active task in the middle (#0), the next
-                // task on the right (#1).
-                throw new RuntimeException(
-                        "Unexpected number of visible tasks: " + taskViews.size());
-            }
-
-            // Click at the first task.
-            taskViews.get(0).click();
-        } else {
-            List<UiObject2> recentsTasks = recentsView.getChildren().get(0)
-                    .getChildren();
-            UiObject2 mostRecentTask = recentsTasks.get(recentsTasks.size() - 1);
-            mostRecentTask.click();
-        }
     }
 
     /**
@@ -593,38 +507,52 @@ public class AppTransitionTests {
             mCmpName = null;
             try {
                 InputStream inputStream = new FileInputStream(parcelDesc.getFileDescriptor());
+                /* SAMPLE OUTPUT : Cold launch
+                Starting: Intent { cmp=com.google.android.calculator/com.android.calculator2.Calculator }
+                Status: ok
+                LaunchState: COLD
+                Activity: com.google.android.calculator/com.android.calculator2.Calculator
+                TotalTime: 357
+                WaitTime: 377
+                Complete*/
+                /* SAMPLE OUTPUT : Hot launch
+                Starting: Intent { cmp=com.google.android.calculator/com.android.calculator2.Calculator }
+                Warning: Activity not started, its current task has been brought to the front
+                Status: ok
+                LaunchState: HOT
+                Activity: com.google.android.calculator/com.android.calculator2.CalculatorGoogle
+                TotalTime: 60
+                WaitTime: 67
+                Complete*/
                 StringBuilder appLaunchOuput = new StringBuilder();
                 BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(
                         inputStream));
                 String line = null;
-                int lineCount = 1;
+                final boolean maybeHotLaunch = mLaunchMode.contains(HOT_LAUNCH) ||
+                        mLaunchMode.contains(NOT_SURE);
                 while ((line = bufferedReader.readLine()) != null) {
-                    if (lineCount == 2) {
-                        if ((mLaunchMode.contains(COLD_LAUNCH) || mLaunchMode.contains(NOT_SURE))
-                                && line.contains(SUCCESS_MESSAGE)) {
-                            launchSuccess = true;
-                        } else if ((mLaunchMode.contains(HOT_LAUNCH) || mLaunchMode
-                                .contains(NOT_SURE)) && line.contains(HOT_LAUNCH_MESSAGE)) {
-                            launchSuccess = true;
-                        }
+                    if (line.startsWith(SUCCESS_MESSAGE)) {
+                        launchSuccess = true;
                     }
-                    if ((launchSuccess && (mLaunchMode.contains(COLD_LAUNCH)
-                            || mLaunchMode.contains(NOT_SURE)) && lineCount == 4) ||
-                            (launchSuccess && (mLaunchMode.contains(HOT_LAUNCH) ||
-                                    mLaunchMode.contains(NOT_SURE)) && lineCount == 5)) {
+                    if (!launchSuccess) {
+                        continue;
+                    }
+
+                    if (line.startsWith(HOT_LAUNCH_MESSAGE) && (!maybeHotLaunch)){
+                        Log.w(TAG, "Error did not expect a hot launch");
+                        break;
+                    }
+
+                    if (line.startsWith(TOTAL_TIME_MESSAGE)) {
                         String launchSplit[] = line.split(":");
                         launchTime = launchSplit[1].trim();
                     }
                     // Needed to update the component name if the very first launch activity
                     // is different from hot launch activity (i.e YouTube)
-                    if ((launchSuccess && (mLaunchMode.contains(HOT_LAUNCH) ||
-                            mLaunchMode.contains(NOT_SURE)) && lineCount == 3)) {
+                    if (maybeHotLaunch && line.startsWith(ACTIVITY)) {
                         String activitySplit[] = line.split(":");
-                        if (activitySplit[0].contains(ACTIVITY)) {
-                            mCmpName = activitySplit[1].trim();
-                        }
+                        mCmpName = activitySplit[1].trim();
                     }
-                    lineCount++;
                 }
                 inputStream.close();
             } catch (IOException e) {

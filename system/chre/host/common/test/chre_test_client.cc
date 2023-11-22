@@ -24,6 +24,7 @@
 #include <sys/types.h>
 
 #include <fstream>
+#include <sstream>
 #include <thread>
 
 #include <cutils/sockets.h>
@@ -33,6 +34,11 @@
  * @file
  * A test utility that connects to the CHRE daemon that runs on the apps
  * processor of MSM chipsets, which is used to help test basic functionality.
+ *
+ * Usage:
+ *  chre_test_client load <nanoapp-id> <nanoapp-path> \
+ *      [app-version] [api-version]
+ *  chre_test_client unload <nanoapp-id>
  */
 
 using android::sp;
@@ -54,6 +60,9 @@ namespace {
 //! messaging (currently requires internal coordination to avoid conflict;
 //! in the future these should be assigned by the daemon).
 constexpr uint16_t kHostEndpoint = 0xfffe;
+
+constexpr uint32_t kDefaultAppVersion = 1;
+constexpr uint32_t kDefaultApiVersion = 0x01000000;
 
 class SocketCallbacks : public SocketClient::ICallbacks,
                         public IChreMessageHandlers {
@@ -156,7 +165,9 @@ void sendMessageToNanoapp(SocketClient& client) {
   }
 }
 
-void sendLoadNanoappRequest(SocketClient& client, const char *filename) {
+void sendLoadNanoappRequest(SocketClient& client, const char *filename,
+                            uint64_t appId, uint32_t appVersion,
+                            uint32_t apiVersion) {
   std::ifstream file(filename, std::ios::binary | std::ios::ate);
   if (!file) {
     LOGE("Couldn't open file '%s': %s", filename, strerror(errno));
@@ -174,9 +185,8 @@ void sendLoadNanoappRequest(SocketClient& client, const char *filename) {
   // Perform loading with 1 fragment for simplicity
   FlatBufferBuilder builder(size + 128);
   FragmentedLoadTransaction transaction = FragmentedLoadTransaction(
-      1 /* transactionId */, 0x476f6f676c00100b /* appId */, 0 /* appVersion */,
-      0x01000000 /* targetApiVersion */, buffer,
-      buffer.size() /* fragmentSize */);
+      1 /* transactionId */, appId, appVersion, apiVersion,
+      buffer, buffer.size() /* fragmentSize */);
   HostProtocolHost::encodeFragmentedLoadNanoappRequest(
       builder, transaction.getNextRequest());
 
@@ -202,22 +212,78 @@ void sendUnloadNanoappRequest(SocketClient& client, uint64_t appId) {
 
 }  // anonymous namespace
 
-int main() {
+static void usage(const std::string &name) {
+  std::string output;
+
+  output =
+    "\n"
+    "Usage:\n  " + name + " load <nanoapp-id> <nanoapp-path> "
+    "[app-version] [api-version]\n  " + name + " unload <nanoapp-id>\n";
+
+  LOGI("%s", output.c_str());
+}
+
+int main(int argc, char *argv[]) {
+  int argi = 0;
+  const std::string name{argv[argi++]};
+  const std::string cmd{argi < argc ? argv[argi++] : ""};
+  const std::string idstr{argi < argc ? argv[argi++] : ""};
+  const std::string path{argi < argc ? argv[argi++] : ""};
+  const std::string appVerStr{argi < argc ? argv[argi++] : ""};
+  const std::string apiVerStr{argi < argc ? argv[argi++] : ""};
+
   SocketClient client;
   sp<SocketCallbacks> callbacks = new SocketCallbacks();
 
   if (!client.connect("chre", callbacks)) {
     LOGE("Couldn't connect to socket");
-  } else {
+    return -1;
+  }
+
+  if (cmd.empty()) {
     requestHubInfo(client);
     requestNanoappList(client);
     sendMessageToNanoapp(client);
-    sendLoadNanoappRequest(client, "/data/activity.so");
-    sendUnloadNanoappRequest(client, chre::kSpammerAppId);
+    sendLoadNanoappRequest(client, "/data/activity.so",
+        0x476f6f676c00100b /* appId */, 0 /* appVersion */,
+        0x01000000 /* targetApiVersion */);
+    sendUnloadNanoappRequest(client, 0x476f6f676c00100b /* appId */);
 
     LOGI("Sleeping, waiting on responses");
     std::this_thread::sleep_for(std::chrono::seconds(5));
+  } else if (cmd == "load") {
+    uint64_t id = 0;
+    uint32_t appVersion = kDefaultAppVersion;
+    uint32_t apiVersion = kDefaultApiVersion;
+
+    if (idstr.empty() || path.empty()) {
+      LOGE("Arguments not provided!");
+      usage(name);
+      return -1;
+    }
+    std::istringstream(idstr) >> std::setbase(0) >> id;
+    if (!appVerStr.empty()) {
+        std::istringstream(appVerStr) >> std::setbase(0) >> appVersion;
+    }
+    if (!apiVerStr.empty()) {
+        std::istringstream(apiVerStr) >> std::setbase(0) >> apiVersion;
+    }
+    sendLoadNanoappRequest(client, path.c_str(), id, appVersion, apiVersion);
+  } else if (cmd == "unload") {
+    uint64_t id = 0;
+
+    if (idstr.empty()) {
+      LOGE("Arguments not provided!");
+      usage(name);
+      return -1;
+    }
+    std::istringstream(idstr) >> std::setbase(0) >> id;
+    sendUnloadNanoappRequest(client, id);
+  } else {
+    LOGE("Invalid command provided!");
+    usage(name);
+    return -1;
   }
 
- return 0;
+  return 0;
 }

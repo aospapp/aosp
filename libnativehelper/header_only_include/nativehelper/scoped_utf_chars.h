@@ -42,7 +42,7 @@ class ScopedUtfChars {
     }
   }
 
-  ScopedUtfChars(ScopedUtfChars&& rhs) :
+  ScopedUtfChars(ScopedUtfChars&& rhs) noexcept :
       env_(rhs.env_), string_(rhs.string_), utf_chars_(rhs.utf_chars_) {
     rhs.env_ = nullptr;
     rhs.string_ = nullptr;
@@ -55,7 +55,7 @@ class ScopedUtfChars {
     }
   }
 
-  ScopedUtfChars& operator=(ScopedUtfChars&& rhs) {
+  ScopedUtfChars& operator=(ScopedUtfChars&& rhs) noexcept {
     if (this != &rhs) {
       // Delete the currently owned UTF chars.
       this->~ScopedUtfChars();

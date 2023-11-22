@@ -21,6 +21,7 @@ message LabConfigMessage {
   // Lab name where format is labtype-location-instance (e.g., vtslab-mtv32-main).
   optional bytes name = 1;
   optional bytes owner = 2;
+  repeated bytes admin = 3;
 
   // For the IP address.
   repeated HostConfigMessage host = 11;
@@ -35,6 +36,9 @@ message HostConfigMessage {
   optional bytes script = 3;
   optional bytes setup_script = 4;
 
+  // list of equipment installed on this host.
+  repeated bytes host_equipment = 5;
+
   repeated DeviceConfigMessage device = 11;
 }
 
@@ -48,5 +52,8 @@ message DeviceConfigMessage {
 
   // device product type (e.g., taimen or walleye).
   optional bytes product = 11;
+
+  // list of equipment installed on this device.
+  repeated bytes device_equipment = 21;
 }
 

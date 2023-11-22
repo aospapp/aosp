@@ -6,6 +6,9 @@
 
 
 #include "gl_types.h"
+#ifdef _MSC_VER
+#include <stdint.h>
+#endif
 #ifndef gl_APIENTRY
 #define gl_APIENTRY 
 #endif
@@ -300,6 +303,8 @@ typedef GLboolean (gl_APIENTRY *glExtIsProgramBinaryQCOM_client_proc_t) (void * 
 typedef void (gl_APIENTRY *glExtGetProgramBinarySourceQCOM_client_proc_t) (void * ctx, GLuint, GLenum, GLchar*, GLint*);
 typedef void (gl_APIENTRY *glStartTilingQCOM_client_proc_t) (void * ctx, GLuint, GLuint, GLuint, GLuint, GLbitfield);
 typedef void (gl_APIENTRY *glEndTilingQCOM_client_proc_t) (void * ctx, GLbitfield);
+typedef GLenum (gl_APIENTRY *glGetGraphicsResetStatusEXT_client_proc_t) (void * ctx);
+typedef void (gl_APIENTRY *glReadnPixelsEXT_client_proc_t) (void * ctx, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, GLsizei, GLvoid*);
 
 
 #endif

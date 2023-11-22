@@ -12,21 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.image
+import os.path
 import its.caps
 import its.device
+import its.image
 import its.objects
 import its.target
 import numpy
-import os.path
+
+CROP_FULL_ERROR_THRESHOLD = 3  # pixels
+CROP_REGION_ERROR_THRESHOLD = 0.01  # reltol
+DIFF_THRESH = 0.05  # reltol
+NAME = os.path.basename(__file__).split(".")[0]
+
 
 def main():
-    """Test that raw streams are not croppable.
-    """
-    NAME = os.path.basename(__file__).split(".")[0]
-
-    DIFF_THRESH = 0.05
-    CROP_REGION_ERROR_THRESHOLD = 0.01
+    """Test that raw streams are not croppable."""
 
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
@@ -36,7 +37,7 @@ def main():
                              not its.caps.mono_camera(props))
 
         # Calculate the active sensor region for a full (non-cropped) image.
-        a = props['android.sensor.info.activeArraySize']
+        a = props["android.sensor.info.activeArraySize"]
         ax, ay = a["left"], a["top"]
         aw, ah = a["right"] - a["left"], a["bottom"] - a["top"]
         print "Active sensor region: (%d,%d %dx%d)" % (ax, ay, aw, ah)
@@ -79,10 +80,10 @@ def main():
         # need to perfectly match the one that was requested.
         imgs = {}
         for s, cap, cr_expected, err_delta in [
-                ("yuv_full",cap1_yuv,full_region,0),
-                ("raw_full",cap1_raw,full_region,0),
-                ("yuv_crop",cap2_yuv,crop_region,CROP_REGION_ERROR_THRESHOLD),
-                ("raw_crop",cap2_raw,crop_region,CROP_REGION_ERROR_THRESHOLD)]:
+                ("yuv_full", cap1_yuv, full_region, CROP_FULL_ERROR_THRESHOLD),
+                ("raw_full", cap1_raw, full_region, CROP_FULL_ERROR_THRESHOLD),
+                ("yuv_crop", cap2_yuv, crop_region, CROP_REGION_ERROR_THRESHOLD),
+                ("raw_crop", cap2_raw, crop_region, CROP_REGION_ERROR_THRESHOLD)]:
 
             # Convert the capture to RGB and dump to a file.
             img = its.image.convert_capture_to_rgb_image(cap, props=props)

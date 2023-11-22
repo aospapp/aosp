@@ -164,6 +164,9 @@ private:
     static void s_glFramebufferTexture2DOES(void* self, GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
     static void s_glFramebufferTexture2DMultisampleIMG(void* self, GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level, GLsizei samples);
     static void s_glGetFramebufferAttachmentParameterivOES(void* self, GLenum target, GLenum attachment, GLenum pname, GLint* params);
+    static void s_glReadnPixelsEXT(void* self, GLint x, GLint y, GLsizei width,
+            GLsizei height, GLenum format, GLenum type, GLsizei bufSize,
+            GLvoid* pixels);
 
 public:
     glEGLImageTargetTexture2DOES_client_proc_t m_glEGLImageTargetTexture2DOES_enc;

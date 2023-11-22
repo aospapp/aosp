@@ -25,39 +25,40 @@ class ReportTest(unittest.TestCase):
 
     def testAddData(self):
         """test AddData."""
-        r = report.Report("create")
-        r.AddData("devices", {"instance_name": "instance_1"})
-        r.AddData("devices", {"instance_name": "instance_2"})
+        test_report = report.Report("create")
+        test_report.AddData("devices", {"instance_name": "instance_1"})
+        test_report.AddData("devices", {"instance_name": "instance_2"})
         expected = {
-            "devices": [
-                {"instance_name": "instance_1"},
-                {"instance_name": "instance_2"}
-            ]
+            "devices": [{
+                "instance_name": "instance_1"
+            }, {
+                "instance_name": "instance_2"
+            }]
         }
-        self.assertEqual(r.data, expected)
+        self.assertEqual(test_report.data, expected)
 
     def testAddError(self):
         """test AddError."""
-        r = report.Report("create")
-        r.errors.append("some errors")
-        r.errors.append("some errors")
-        self.assertEqual(r.errors, ["some errors", "some errors"])
+        test_report = report.Report("create")
+        test_report.errors.append("some errors")
+        test_report.errors.append("some errors")
+        self.assertEqual(test_report.errors, ["some errors", "some errors"])
 
     def testSetStatus(self):
         """test SetStatus."""
-        r = report.Report("create")
-        r.SetStatus(report.Status.SUCCESS)
-        self.assertEqual(r.status, "SUCCESS")
+        test_report = report.Report("create")
+        test_report.SetStatus(report.Status.SUCCESS)
+        self.assertEqual(test_report.status, "SUCCESS")
 
-        r.SetStatus(report.Status.FAIL)
-        self.assertEqual(r.status, "FAIL")
+        test_report.SetStatus(report.Status.FAIL)
+        self.assertEqual(test_report.status, "FAIL")
 
-        r.SetStatus(report.Status.BOOT_FAIL)
-        self.assertEqual(r.status, "BOOT_FAIL")
+        test_report.SetStatus(report.Status.BOOT_FAIL)
+        self.assertEqual(test_report.status, "BOOT_FAIL")
 
         # Test that more severe status won't get overriden.
-        r.SetStatus(report.Status.FAIL)
-        self.assertEqual(r.status, "BOOT_FAIL")
+        test_report.SetStatus(report.Status.FAIL)
+        self.assertEqual(test_report.status, "BOOT_FAIL")
 
 
 if __name__ == "__main__":

@@ -16,11 +16,21 @@
 
 package android.media.cts;
 
+import static androidx.heifwriter.HeifWriter.INPUT_MODE_BITMAP;
+import static androidx.heifwriter.HeifWriter.INPUT_MODE_BUFFER;
+import static androidx.heifwriter.HeifWriter.INPUT_MODE_SURFACE;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
@@ -30,28 +40,14 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
 import android.platform.test.annotations.AppModeFull;
-import android.support.test.filters.LargeTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.AndroidTestCase;
 import android.util.Log;
-
-import static androidx.heifwriter.HeifWriter.INPUT_MODE_BITMAP;
-import static androidx.heifwriter.HeifWriter.INPUT_MODE_BUFFER;
-import static androidx.heifwriter.HeifWriter.INPUT_MODE_SURFACE;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.heifwriter.HeifWriter;
 
 import com.android.compatibility.common.util.MediaUtils;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import java.io.Closeable;
 import java.io.File;
@@ -67,6 +63,8 @@ public class HeifWriterTest extends AndroidTestCase {
     private static final String TAG = HeifWriterTest.class.getSimpleName();
     private static final boolean DEBUG = false;
     private static final boolean DUMP_YUV_INPUT = false;
+    private static final int GRID_WIDTH = 512;
+    private static final int GRID_HEIGHT = 512;
 
     private static byte[][] TEST_YUV_COLORS = {
             {(byte) 255, (byte) 0, (byte) 0},
@@ -211,6 +209,45 @@ public class HeifWriterTest extends AndroidTestCase {
                     IMAGE_FILENAMES[i]).getAbsolutePath();
             doTestForVariousNumberImages(builder.setInputPath(inputPath));
         }
+    }
+
+    /**
+     * This test is to ensure that if the device advertises support for {@link
+     * MediaFormat#MIMETYPE_IMAGE_ANDROID_HEIC} (which encodes full-frame image
+     * with tiling), it must also support {@link MediaFormat#MIMETYPE_VIDEO_HEVC}
+     * at a specific tile size (512x512) with bitrate control mode {@link
+     * MediaCodecInfo.EncoderCapabilities#BITRATE_MODE_CQ}, so that a fallback
+     * could be implemented for image resolutions that's not supported by the
+     * {@link MediaFormat#MIMETYPE_IMAGE_ANDROID_HEIC} encoder.
+     */
+    public void testHeicFallbackAvailable() throws Throwable {
+        if (!MediaUtils.hasEncoder(MediaFormat.MIMETYPE_IMAGE_ANDROID_HEIC)) {
+            MediaUtils.skipTest("HEIC full-frame image encoder is not supported on this device");
+            return;
+        }
+
+        final MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+
+        boolean fallbackFound = false;
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
+            if (!info.isEncoder() || !info.isHardwareAccelerated()) {
+                continue;
+            }
+            MediaCodecInfo.CodecCapabilities caps = null;
+            try {
+                caps = info.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_HEVC);
+            } catch (IllegalArgumentException e) { // mime is not supported
+                continue;
+            }
+            if (caps.getVideoCapabilities().isSizeSupported(GRID_WIDTH, GRID_HEIGHT) &&
+                    caps.getEncoderCapabilities().isBitrateModeSupported(
+                            MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CQ)) {
+                fallbackFound = true;
+                Log.d(TAG, "found fallback on " + info.getName());
+                // not breaking here so that we can log what's available by running this test
+            }
+        }
+        assertTrue("HEIC full-frame image encoder without HEVC fallback", fallbackFound);
     }
 
     private static boolean canEncodeHeic() {

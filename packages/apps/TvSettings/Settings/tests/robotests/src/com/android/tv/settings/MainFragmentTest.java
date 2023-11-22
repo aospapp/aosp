@@ -31,23 +31,23 @@ import android.accounts.AccountManager;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.service.settings.suggestions.Suggestion;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceManager;
 import android.telephony.SignalStrength;
+
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceManager;
 
 import com.android.settingslib.utils.IconCache;
 import com.android.tv.settings.connectivity.ConnectivityListener;
 import com.android.tv.settings.suggestions.SuggestionPreference;
-import com.android.tv.settings.testutils.ShadowUserManager;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
 import org.mockito.Spy;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowAccountManager;
 
 import java.util.Arrays;
@@ -55,8 +55,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-@RunWith(TvSettingsRobolectricTestRunner.class)
-@Config(shadows = {ShadowUserManager.class})
+@RunWith(RobolectricTestRunner.class)
 public class MainFragmentTest {
 
     @Spy

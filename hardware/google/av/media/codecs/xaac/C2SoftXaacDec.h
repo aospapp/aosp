@@ -16,7 +16,7 @@
 
 #ifndef ANDROID_C2_SOFT_XAAC_DEC_H_
 #define ANDROID_C2_SOFT_XAAC_DEC_H_
-
+#include <utils/Vector.h>
 #include <SimpleC2Component.h>
 
 #include "ixheaacd_type_def.h"
@@ -26,12 +26,21 @@
 #include "ixheaacd_memory_standards.h"
 #include "ixheaacd_aac_config.h"
 
-#define MAX_MEM_ALLOCS              100
+#include "impd_apicmd_standards.h"
+#include "impd_drc_config_params.h"
+
 #define MAX_CHANNEL_COUNT           8  /* maximum number of audio channels that can be decoded */
 #define MAX_NUM_BLOCKS              8  /* maximum number of audio blocks that can be decoded */
 
 extern "C" IA_ERRORCODE ixheaacd_dec_api(pVOID p_ia_module_obj,
                         WORD32 i_cmd, WORD32 i_idx, pVOID pv_value);
+extern "C" IA_ERRORCODE ia_drc_dec_api(pVOID p_ia_module_obj,
+                        WORD32 i_cmd, WORD32 i_idx, pVOID pv_value);
+extern "C"  IA_ERRORCODE ixheaacd_get_config_param(pVOID p_ia_process_api_obj,
+                                       pWORD32 pi_samp_freq,
+                                       pWORD32 pi_num_chan,
+                                       pWORD32 pi_pcm_wd_sz,
+                                       pWORD32 pi_channel_mask);
 
 namespace android {
 
@@ -62,6 +71,7 @@ private:
 
     std::shared_ptr<IntfImpl> mIntf;
     void* mXheaacCodecHandle;
+    void* mMpegDDrcHandle;
     uint32_t mInputBufferSize;
     uint32_t mOutputFrameLength;
     int8_t* mInputBuffer;
@@ -75,33 +85,43 @@ private:
     uint64_t mCurTimestamp;
     bool mIsCodecInitialized;
     bool mIsCodecConfigFlushRequired;
+    int8_t* mDrcInBuf;
+    int8_t* mDrcOutBuf;
+    int32_t mMpegDDRCPresent;
+    int32_t mDRCFlag;
 
-    void* mMemoryArray[MAX_MEM_ALLOCS];
-    int32_t mMallocCount;
+    Vector<void*> mMemoryVec;
+    Vector<void*> mDrcMemoryVec;
 
     size_t mInputBufferCount __unused;
     size_t mOutputBufferCount __unused;
     bool mSignalledOutputEos;
     bool mSignalledError;
-    short* mOutputDrainBuffer;
+    char* mOutputDrainBuffer;
     uint32_t mOutputDrainBufferWritePos;
 
-    status_t initDecoder();
-    void configflushDecode();
-    int drainDecoder();
-
+    IA_ERRORCODE initDecoder();
+    IA_ERRORCODE setDrcParameter();
+    IA_ERRORCODE configflushDecode();
+    IA_ERRORCODE drainDecoder();
     void finishWork(const std::unique_ptr<C2Work>& work,
                     const std::shared_ptr<C2BlockPool>& pool);
 
-    status_t initXAACDrc();
-    int initXAACDecoder();
-    int deInitXAACDecoder();
-    int configXAACDecoder(uint8_t* inBuffer, uint32_t inBufferLength);
-    int decodeXAACStream(uint8_t* inBuffer,
+    IA_ERRORCODE initXAACDrc();
+    IA_ERRORCODE initXAACDecoder();
+    IA_ERRORCODE deInitXAACDecoder();
+    IA_ERRORCODE initMPEGDDDrc();
+    IA_ERRORCODE deInitMPEGDDDrc();
+    IA_ERRORCODE configXAACDecoder(uint8_t* inBuffer, uint32_t inBufferLength);
+    int configMPEGDDrc();
+    IA_ERRORCODE decodeXAACStream(uint8_t* inBuffer,
                          uint32_t inBufferLength,
                          int32_t* bytesConsumed,
                          int32_t* outBytes);
     IA_ERRORCODE getXAACStreamInfo();
+    IA_ERRORCODE setXAACDRCInfo(int32_t drcCut, int32_t drcBoost,
+                                int32_t drcRefLevel, int32_t drcHeavyCompression,
+                                int32_t drEffectType);
 
     C2_DO_NOT_COPY(C2SoftXaacDec);
 };

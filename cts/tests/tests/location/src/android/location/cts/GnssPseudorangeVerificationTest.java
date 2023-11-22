@@ -41,20 +41,24 @@ public class GnssPseudorangeVerificationTest extends GnssTestCase {
   private static final int MIN_SATELLITES_REQUIREMENT = 4;
   private static final double SECONDS_PER_NANO = 1.0e-9;
 
-  // GPS/GLONASS: according to http://cdn.intechopen.com/pdfs-wm/27712.pdf, the pseudorange in time
-  // is 65-83 ms, which is 18 ms range.
-  // GLONASS: orbit is a bit closer than GPS, so we add 0.003ms to the range, hence deltaiSeconds
-  // should be in the range of [0.0, 0.021] seconds.
-  // QZSS and BEIDOU: they have higher orbit, which will result in a small svTime, the deltai can be
-  // calculated as follows:
-  // assume a = QZSS/BEIDOU orbit Semi-Major Axis(42,164km for QZSS);
-  // b = GLONASS orbit Semi-Major Axis (25,508km);
-  // c = Speed of light (299,792km/s);
-  // e = earth radius (6,378km);
-  // in the extremely case of QZSS is on the horizon and GLONASS is on the 90 degree top
-  // max difference should be (sqrt(a^2-e^2) - (b-e))/c,
-  // which is around 0.076s.
-  private static final double PSEUDORANGE_THRESHOLD_IN_SEC = 0.021;
+    // GPS/GLONASS: according to http://cdn.intechopen.com/pdfs-wm/27712.pdf, the pseudorange in
+    // time
+    // is 65-83 ms, which is 18 ms range.
+    // GLONASS: orbit is a bit closer than GPS, so we add 0.003ms to the range, hence deltaiSeconds
+    // should be in the range of [0.0, 0.021] seconds.
+    // QZSS and BEIDOU: they have higher orbit, which will result in a small svTime, the deltai
+    // can be
+    // calculated as follows:
+    // assume a = QZSS/BEIDOU orbit Semi-Major Axis(42,164km for QZSS);
+    // b = GLONASS orbit Semi-Major Axis (25,508km);
+    // c = Speed of light (299,792km/s);
+    // e = earth radius (6,378km);
+    // in the extremely case of QZSS is on the horizon and GLONASS is on the 90 degree top
+    // max difference should be (sqrt(a^2-e^2) - (b-e))/c,
+    // which is around 0.076s.
+    // 2 Galileo satellites (E14 & E18) have elliptical orbits, so Galileo can have up-to 48ms of
+    // spread.
+    private static final double PSEUDORANGE_THRESHOLD_IN_SEC = 0.048;
   // Geosync constellations have a longer range vs typical MEO orbits
   // that are the short end of the range.
   private static final double PSEUDORANGE_THRESHOLD_BEIDOU_QZSS_IN_SEC = 0.076;
@@ -97,8 +101,7 @@ public class GnssPseudorangeVerificationTest extends GnssTestCase {
     // Checks if Gnss hardware feature is present, skips test (pass) if not,
     // and hard asserts that Location/Gnss (Provider) is turned on if is Cts Verifier.
     // From android O, CTS tests should run in the lab with GPS signal.
-    if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager,
-        TAG, MIN_HARDWARE_YEAR_MEASUREMENTS_REQUIRED, true)) {
+    if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, true)) {
       return;
     }
 
@@ -111,7 +114,8 @@ public class GnssPseudorangeVerificationTest extends GnssTestCase {
 
     boolean success = mLocationListener.await();
     success &= mMeasurementListener.await();
-    SoftAssert.failOrWarning(isMeasurementTestStrict(),
+    SoftAssert softAssert = new SoftAssert(TAG);
+    softAssert.assertTrue(
         "Time elapsed without getting enough location fixes."
             + " Possibly, the test has been run deep indoors."
             + " Consider retrying test outdoors.",
@@ -119,20 +123,17 @@ public class GnssPseudorangeVerificationTest extends GnssTestCase {
 
     Log.i(TAG, "Location status received = " + mLocationListener.isLocationReceived());
 
-    if (!mMeasurementListener.verifyStatus(isMeasurementTestStrict())) {
-      // If test is strict and verifyStatus reutrns false, an assert exception happens and
-      // test fails.   If test is not strict, we arrive here, and:
+    if (!mMeasurementListener.verifyStatus()) {
+      // If verifyStatus returns false, an assert exception happens and test fails.
       return; // exit (with pass)
     }
 
     List<GnssMeasurementsEvent> events = mMeasurementListener.getEvents();
     int eventCount = events.size();
     Log.i(TAG, "Number of GNSS measurement events received = " + eventCount);
-    SoftAssert.failOrWarning(isMeasurementTestStrict(),
+    softAssert.assertTrue(
         "GnssMeasurementEvent count: expected > 0, received = " + eventCount,
         eventCount > 0);
-
-    SoftAssert softAssert = new SoftAssert(TAG);
 
     boolean hasEventWithEnoughMeasurements = false;
     // we received events, so perform a quick sanity check on mandatory fields
@@ -156,7 +157,7 @@ public class GnssPseudorangeVerificationTest extends GnssTestCase {
       }
     }
 
-    SoftAssert.failOrWarning(isMeasurementTestStrict(),
+    softAssert.assertTrue(
         "Should have at least one GnssMeasurementEvent with at least 4"
             + "GnssMeasurement. If failed, retry near window or outdoors?",
         hasEventWithEnoughMeasurements);
@@ -177,23 +178,27 @@ public class GnssPseudorangeVerificationTest extends GnssTestCase {
     return measurementConstellationMap;
   }
 
-  private ArrayList<GnssMeasurement> filterMeasurements(Collection<GnssMeasurement> measurements) {
-    ArrayList<GnssMeasurement> filteredMeasurement = new ArrayList<>();
-    for (GnssMeasurement measurement: measurements){
-      int constellationType = measurement.getConstellationType();
-      if (constellationType == GnssStatus.CONSTELLATION_GLONASS) {
-        if ((measurement.getState()
-            & (measurement.STATE_GLO_TOD_DECODED | measurement.STATE_GLO_TOD_KNOWN)) != 0) {
-          filteredMeasurement.add(measurement);
+    private static ArrayList<GnssMeasurement> filterMeasurements(
+            Collection<GnssMeasurement> measurements) {
+        ArrayList<GnssMeasurement> filteredMeasurement = new ArrayList<>();
+        for (GnssMeasurement measurement : measurements) {
+            int constellationType = measurement.getConstellationType();
+            if ((measurement.getState() & GnssMeasurement.STATE_CODE_LOCK) == 0) {
+                continue;
+            }
+            if (constellationType == GnssStatus.CONSTELLATION_GLONASS) {
+                if ((measurement.getState()
+                        & (GnssMeasurement.STATE_GLO_TOD_DECODED
+                        | GnssMeasurement.STATE_GLO_TOD_KNOWN)) != 0) {
+                    filteredMeasurement.add(measurement);
+                }
+            } else if ((measurement.getState() & (GnssMeasurement.STATE_TOW_DECODED
+                    | GnssMeasurement.STATE_TOW_KNOWN)) != 0) {
+                filteredMeasurement.add(measurement);
+            }
         }
-      }
-      else if ((measurement.getState()
-            & (measurement.STATE_TOW_DECODED | measurement.STATE_TOW_KNOWN)) != 0) {
-          filteredMeasurement.add(measurement);
-        }
+        return filteredMeasurement;
     }
-    return filteredMeasurement;
-  }
 
   /**
    * Uses the common reception time approach to calculate pseudorange time
@@ -241,8 +246,7 @@ public class GnssPseudorangeVerificationTest extends GnssTestCase {
         // Checks if Gnss hardware feature is present, skips test (pass) if not,
         // and hard asserts that Location/Gnss (Provider) is turned on if is Cts Verifier.
         // From android O, CTS tests should run in the lab with GPS signal.
-        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager,
-                TAG, MIN_HARDWARE_YEAR_MEASUREMENTS_REQUIRED, true)) {
+        if (!TestMeasurementUtil.canTestRunOnCurrentDevice(mTestLocationManager, true)) {
             return;
         }
 
@@ -269,12 +273,7 @@ public class GnssPseudorangeVerificationTest extends GnssTestCase {
         List<GnssMeasurementsEvent> events = mMeasurementListener.getEvents();
         int eventCount = events.size();
         Log.i(TAG, "Number of Gps Event received = " + eventCount);
-        int gnssYearOfHardware = mTestLocationManager.getLocationManager().getGnssYearOfHardware();
-        if (eventCount == 0 && gnssYearOfHardware < MIN_HARDWARE_YEAR_MEASUREMENTS_REQUIRED) {
-            return;
-        }
 
-        Log.i(TAG, "This is a device from 2016 or later.");
         assertTrue("GnssMeasurementEvent count: expected > 0, received = " + eventCount,
                 eventCount > 0);
 

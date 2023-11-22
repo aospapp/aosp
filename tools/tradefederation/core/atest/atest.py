@@ -23,251 +23,46 @@ code base and executing the tests via the TradeFederation test harness.
 atest is designed to support any test types that can be ran by TradeFederation.
 """
 
+from __future__ import print_function
+
 import logging
 import os
-import subprocess
 import sys
 import tempfile
 import time
+import platform
 
-import atest_error
+import atest_arg_parser
+import atest_execution_info
+import atest_metrics
 import atest_utils
 import cli_translator
 # pylint: disable=import-error
 import constants
 import module_info
+import result_reporter
 import test_runner_handler
+
+from metrics import metrics
+from metrics import metrics_base
+from metrics import metrics_utils
 from test_runners import regression_test_runner
 
 EXPECTED_VARS = frozenset([
     constants.ANDROID_BUILD_TOP,
     'ANDROID_TARGET_OUT_TESTCASES',
     constants.ANDROID_OUT])
-BUILD_STEP = 'build'
-INSTALL_STEP = 'install'
-TEST_STEP = 'test'
-ALL_STEPS = [BUILD_STEP, INSTALL_STEP, TEST_STEP]
 TEST_RUN_DIR_PREFIX = 'atest_run_%s_'
-HELP_DESC = '''Build, install and run Android tests locally.'''
-REBUILD_MODULE_INFO_FLAG = '--rebuild-module-info'
 CUSTOM_ARG_FLAG = '--'
-
-EPILOG_TEXT = '''
-
-
-- - - - - - - - -
-IDENTIFYING TESTS
-- - - - - - - - -
-
-    The positional argument <tests> should be a reference to one or more
-    of the tests you'd like to run. Multiple tests can be run in one command by
-    separating test references with spaces.
-
-    Usage template: atest <reference_to_test_1> <reference_to_test_2>
-
-    A <reference_to_test> can be satisfied by the test's MODULE NAME,
-    MODULE:CLASS, CLASS NAME, TF INTEGRATION TEST, FILE PATH or PACKAGE NAME.
-    Explanations and examples of each follow.
-
-
-    < MODULE NAME >
-
-        Identifying a test by its module name will run the entire module. Input
-        the name as it appears in the LOCAL_MODULE or LOCAL_PACKAGE_NAME
-        variables in that test's Android.mk or Android.bp file.
-
-        Note: Use < TF INTEGRATION TEST > to run non-module tests integrated
-        directly into TradeFed.
-
-        Examples:
-            atest FrameworksServicesTests
-            atest CtsJankDeviceTestCases
-
-
-    < MODULE:CLASS >
-
-        Identifying a test by its class name will run just the tests in that
-        class and not the whole module. MODULE:CLASS is the preferred way to run
-        a single class. MODULE is the same as described above. CLASS is the
-        name of the test class in the .java file. It can either be the fully
-        qualified class name or just the basic name.
-
-        Examples:
-            atest FrameworksServicesTests:ScreenDecorWindowTests
-            atest FrameworksServicesTests:com.android.server.wm.ScreenDecorWindowTests
-            atest CtsJankDeviceTestCases:CtsDeviceJankUi
-
-
-    < CLASS NAME >
-
-        A single class can also be run by referencing the class name without
-        the module name.
-
-        Examples:
-            atest ScreenDecorWindowTests
-            atest CtsDeviceJankUi
-
-        However, this will take more time than the equivalent MODULE:CLASS
-        reference, so we suggest using a MODULE:CLASS reference whenever
-        possible. Examples below are ordered by performance from the fastest
-        to the slowest:
-
-        Examples:
-            atest FrameworksServicesTests:com.android.server.wm.ScreenDecorWindowTests
-            atest FrameworksServicesTests:ScreenDecorWindowTests
-            atest ScreenDecorWindowTests
-
-    < TF INTEGRATION TEST >
-
-        To run tests that are integrated directly into TradeFed (non-modules),
-        input the name as it appears in the output of the "tradefed.sh list
-        configs" cmd.
-
-        Examples:
-           atest example/reboot
-           atest native-benchmark
-
-
-    < FILE PATH >
-
-        Both module-based tests and integration-based tests can be run by
-        inputting the path to their test file or dir as appropriate. A single
-        class can also be run by inputting the path to the class's java file.
-        Both relative and absolute paths are supported.
-
-        Example - 2 ways to run the `CtsJankDeviceTestCases` module via path:
-        1. run module from android <repo root>:
-            atest cts/tests/jank/jank
-
-        2. from <android root>/cts/tests/jank:
-            atest .
-
-        Example - run a specific class within CtsJankDeviceTestCases module
-        from <android repo> root via path:
-           atest cts/tests/jank/src/android/jank/cts/ui/CtsDeviceJankUi.java
-
-        Example - run an integration test from <android repo> root via path:
-           atest tools/tradefederation/contrib/res/config/example/reboot.xml
-
-
-    < PACKAGE NAME >
-
-        Atest supports searching tests from package name as well.
-
-        Examples:
-           atest com.android.server.wm
-           atest android.jank.cts
-
-
-- - - - - - - - - - - - - - - - - - - - - - - - - -
-SPECIFYING INDIVIDUAL STEPS: BUILD, INSTALL OR RUN
-- - - - - - - - - - - - - - - - - - - - - - - - - -
-
-    The -b, -i and -t options allow you to specify which steps you want to run.
-    If none of those options are given, then all steps are run. If any of these
-    options are provided then only the listed steps are run.
-
-    Note: -i alone is not currently support and can only be included with -t.
-    Both -b and -t can be run alone.
-
-    Examples:
-        atest -b <test>    (just build targets)
-        atest -t <test>    (run tests only)
-        atest -it <test>   (install apk and run tests)
-        atest -bt <test>   (build targets, run tests, but skip installing apk)
-
-
-    Atest now has the ability to force a test to skip its cleanup/teardown step.
-    Many tests, e.g. CTS, cleanup the device after the test is run, so trying to
-    rerun your test with -t will fail without having the --disable-teardown
-    parameter. Use -d before -t to skip the test clean up step and test iteratively.
-
-        atest -d <test>    (disable installing apk and cleanning up device)
-        atest -t <test>
-
-    Note that -t disables both setup/install and teardown/cleanup of the
-    device. So you can continue to rerun your test with just
-
-        atest -t <test>
-
-    as many times as you want.
-
-
-- - - - - - - - - - - - -
-RUNNING SPECIFIC METHODS
-- - - - - - - - - - - - -
-
-    It is possible to run only specific methods within a test class. To run
-    only specific methods, identify the class in any of the ways supported for
-    identifying a class (MODULE:CLASS, FILE PATH, etc) and then append the
-    name of the method or method using the following template:
-
-      <reference_to_class>#<method1>
-
-    Multiple methods can be specified with commas:
-
-      <reference_to_class>#<method1>,<method2>,<method3>...
-
-    Examples:
-      atest com.android.server.wm.ScreenDecorWindowTests#testMultipleDecors
-
-      atest FrameworksServicesTests:ScreenDecorWindowTests#testFlagChange,testRemoval
-
-
-- - - - - - - - - - - - -
-RUNNING MULTIPLE CLASSES
-- - - - - - - - - - - - -
-
-    To run multiple classes, deliminate them with spaces just like you would
-    when running multiple tests.  Atest will handle building and running
-    classes in the most efficient way possible, so specifying a subset of
-    classes in a module will improve performance over running the whole module.
-
-
-    Examples:
-    - two classes in same module:
-      atest FrameworksServicesTests:ScreenDecorWindowTests FrameworksServicesTests:DimmerTests
-
-    - two classes, different modules:
-      atest FrameworksServicesTests:ScreenDecorWindowTests CtsJankDeviceTestCases:CtsDeviceJankUi
-
-
-- - - - - - - - - - -
-REGRESSION DETECTION
-- - - - - - - - - - -
-
-    Generate pre-patch or post-patch metrics without running regression detection:
-
-    Example:
-        atest <test> --generate-baseline <optional iter>
-        atest <test> --generate-new-metrics <optional iter>
-
-    Local regression detection can be run in three options:
-
-    1) Provide a folder containing baseline (pre-patch) metrics (generated
-       previously). Atest will run the tests n (default 5) iterations, generate
-       a new set of post-patch metrics, and compare those against existing metrics.
-
-    Example:
-        atest <test> --detect-regression </path/to/baseline> --generate-new-metrics <optional iter>
-
-    2) Provide a folder containing post-patch metrics (generated previously).
-       Atest will run the tests n (default 5) iterations, generate a new set of
-       pre-patch metrics, and compare those against those provided. Note: the
-       developer needs to revert the device/tests to pre-patch state to generate
-       baseline metrics.
-
-    Example:
-        atest <test> --detect-regression </path/to/new> --generate-baseline <optional iter>
-
-    3) Provide 2 folders containing both pre-patch and post-patch metrics. Atest
-       will run no tests but the regression detection algorithm.
-
-    Example:
-        atest --detect-regression </path/to/baseline> </path/to/new>
-
-
-'''
+OPTION_NOT_FOR_TEST_MAPPING = (
+    'Option `%s` does not work for running tests in TEST_MAPPING files')
+
+DEVICE_TESTS = 'tests that require device'
+HOST_TESTS = 'tests that do NOT require device'
+RESULT_HEADER_FMT = '\nResults from %(test_type)s:'
+RUN_HEADER_FMT = '\nRunning %(test_count)d %(test_type)s.'
+TEST_COUNT = 'test_count'
+TEST_TYPE = 'test_type'
 
 
 def _parse_args(argv):
@@ -279,56 +74,14 @@ def _parse_args(argv):
     Returns:
         An argspace.Namespace class instance holding parsed args.
     """
-    import argparse
-    parser = argparse.ArgumentParser(
-        description=HELP_DESC,
-        epilog=EPILOG_TEXT,
-        formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('tests', nargs='*', help='Tests to build and/or run.')
-    parser.add_argument('-b', '--build', action='append_const', dest='steps',
-                        const=BUILD_STEP, help='Run a build.')
-    parser.add_argument('-i', '--install', action='append_const', dest='steps',
-                        const=INSTALL_STEP, help='Install an APK.')
-    parser.add_argument('-t', '--test', action='append_const', dest='steps',
-                        const=TEST_STEP,
-                        help='Run the tests. WARNING: Many test configs force cleanup '
-                        'of device after test run. In this case, -d must be used in previous '
-                        'test run to disable cleanup, for -t to work. Otherwise, '
-                        'device will need to be setup again with -i.')
-    parser.add_argument('-s', '--serial',
-                        help='The device to run the test on.')
-    parser.add_argument('-d', '--disable-teardown', action='store_true',
-                        help='Disables test teardown and cleanup.')
-    parser.add_argument('-m', REBUILD_MODULE_INFO_FLAG, action='store_true',
-                        help='Forces a rebuild of the module-info.json file. '
-                             'This may be necessary following a repo sync or '
-                             'when writing a new test.')
-    parser.add_argument('-w', '--wait-for-debugger', action='store_true',
-                        help='Only for instrumentation tests. Waits for '
-                             'debugger prior to execution.')
-    parser.add_argument('-v', '--verbose', action='store_true',
-                        help='Display DEBUG level logging.')
-    parser.add_argument('--generate-baseline', nargs='?', type=int, const=5, default=0,
-                        help='Generate baseline metrics, run 5 iterations by default. '
-                             'Provide an int argument to specify # iterations.')
-    parser.add_argument('--generate-new-metrics', nargs='?', type=int, const=5, default=0,
-                        help='Generate new metrics, run 5 iterations by default. '
-                             'Provide an int argument to specify # iterations.')
-    parser.add_argument('--detect-regression', nargs='*',
-                        help='Run regression detection algorithm. Supply '
-                             'path to baseline and/or new metrics folders.')
-    # This arg actually doesn't consume anything, it's primarily used for the
-    # help description and creating custom_args in the NameSpace object.
-    parser.add_argument('--', dest='custom_args', nargs='*',
-                        help='Specify custom args for the test runners. '
-                             'Everything after -- will be consumed as custom '
-                             'args.')
     # Store everything after '--' in custom_args.
     pruned_argv = argv
     custom_args_index = None
     if CUSTOM_ARG_FLAG in argv:
         custom_args_index = argv.index(CUSTOM_ARG_FLAG)
         pruned_argv = argv[:custom_args_index]
+    parser = atest_arg_parser.AtestArgParser()
+    parser.add_atest_args()
     args = parser.parse_args(pruned_argv)
     args.custom_args = []
     if custom_args_index is not None:
@@ -342,10 +95,12 @@ def _configure_logging(verbose):
     Args:
         verbose: A boolean. If true display DEBUG level logs.
     """
+    log_format = '%(asctime)s %(filename)s:%(lineno)s:%(levelname)s: %(message)s'
+    datefmt = '%Y-%m-%d %H:%M:%S'
     if verbose:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, format=log_format, datefmt=datefmt)
     else:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO, format=log_format, datefmt=datefmt)
 
 
 def _missing_environment_variables():
@@ -373,19 +128,6 @@ def make_test_run_dir():
     return tempfile.mkdtemp(prefix=prefix)
 
 
-def run_tests(run_commands):
-    """Shell out and execute tradefed run commands.
-
-    Args:
-        run_commands: A list of strings of Tradefed run commands.
-    """
-    logging.info('Running tests')
-    # TODO: Build result parser for run command. Until then display raw stdout.
-    for run_command in run_commands:
-        logging.debug('Executing command: %s', run_command)
-        subprocess.check_call(run_command, shell=True, stderr=subprocess.STDOUT)
-
-
 def get_extra_args(args):
     """Get extra args for test runners.
 
@@ -398,8 +140,8 @@ def get_extra_args(args):
     extra_args = {}
     if args.wait_for_debugger:
         extra_args[constants.WAIT_FOR_DEBUGGER] = None
-    steps = args.steps or ALL_STEPS
-    if INSTALL_STEP not in steps:
+    steps = args.steps or constants.ALL_STEPS
+    if constants.INSTALL_STEP not in steps:
         extra_args[constants.DISABLE_INSTALL] = None
     if args.disable_teardown:
         extra_args[constants.DISABLE_TEARDOWN] = args.disable_teardown
@@ -407,8 +149,16 @@ def get_extra_args(args):
         extra_args[constants.PRE_PATCH_ITERATIONS] = args.generate_baseline
     if args.serial:
         extra_args[constants.SERIAL] = args.serial
+    if args.all_abi:
+        extra_args[constants.ALL_ABI] = args.all_abi
     if args.generate_new_metrics:
         extra_args[constants.POST_PATCH_ITERATIONS] = args.generate_new_metrics
+    if args.instant:
+        extra_args[constants.INSTANT] = args.instant
+    if args.host:
+        extra_args[constants.HOST] = args.host
+    if args.dry_run:
+        extra_args[constants.DRY_RUN] = args.dry_run
     if args.custom_args:
         extra_args[constants.CUSTOM_ARGS] = args.custom_args
     return extra_args
@@ -432,6 +182,64 @@ def _get_regression_detection_args(args, results_dir):
     regression_args[constants.PRE_PATCH_FOLDER] = pre_patch_folder
     regression_args[constants.POST_PATCH_FOLDER] = post_patch_folder
     return regression_args
+
+
+def _validate_exec_mode(args, test_infos, host_tests=None):
+    """Validate all test execution modes are not in conflict.
+
+    Exit the program with error code if have device-only and host-only.
+    If no conflict and host side, add args.host=True.
+
+    Args:
+        args: parsed args object.
+        test_info: TestInfo object.
+        host_tests: True if all tests should be deviceless, False if all tests
+            should be device tests. Default is set to None, which means
+            tests can be either deviceless or device tests.
+    """
+    all_device_modes = [x.get_supported_exec_mode() for x in test_infos]
+    err_msg = None
+    # In the case of '$atest <device-only> --host', exit.
+    if (host_tests or args.host) and constants.DEVICE_TEST in all_device_modes:
+        err_msg = ('Test side and option(--host) conflict. Please remove '
+                   '--host if the test run on device side.')
+    # In the case of '$atest <host-only> <device-only> --host' or
+    # '$atest <host-only> <device-only>', exit.
+    if (constants.DEVICELESS_TEST in all_device_modes and
+            constants.DEVICE_TEST in all_device_modes):
+        err_msg = 'There are host-only and device-only tests in command.'
+    if host_tests is False and constants.DEVICELESS_TEST in all_device_modes:
+        err_msg = 'There are host-only tests in command.'
+    if err_msg:
+        logging.error(err_msg)
+        metrics_utils.send_exit_event(constants.EXIT_CODE_ERROR, logs=err_msg)
+        sys.exit(constants.EXIT_CODE_ERROR)
+    # In the case of '$atest <host-only>', we add --host to run on host-side.
+    # The option should only be overriden if `host_tests` is not set.
+    if not args.host and host_tests is None:
+        args.host = bool(constants.DEVICELESS_TEST in all_device_modes)
+
+
+def _validate_tm_tests_exec_mode(args, test_infos):
+    """Validate all test execution modes are not in conflict.
+
+    Split the tests in Test Mapping files into two groups, device tests and
+    deviceless tests running on host. Validate the tests' host setting.
+    For device tests, exit the program if any test is found for host-only.
+    For deviceless tests, exit the program if any test is found for device-only.
+
+    Args:
+        args: parsed args object.
+        test_info: TestInfo object.
+    """
+    device_test_infos, host_test_infos = _split_test_mapping_tests(
+        test_infos)
+    # No need to verify device tests if atest command is set to only run host
+    # tests.
+    if device_test_infos and not args.host:
+        _validate_exec_mode(args, device_test_infos, host_tests=False)
+    if host_test_infos:
+        _validate_exec_mode(args, host_test_infos, host_tests=True)
 
 
 def _will_run_tests(args):
@@ -485,63 +293,315 @@ def _has_valid_regression_detection_args(args):
     return True
 
 
-def main(argv):
+def _has_valid_test_mapping_args(args):
+    """Validate test mapping args.
+
+    Not all args work when running tests in TEST_MAPPING files. Validate the
+    args before running the tests.
+
+    Args:
+        args: parsed args object.
+
+    Returns:
+        True if args are valid
+    """
+    is_test_mapping = atest_utils.is_test_mapping(args)
+    if not is_test_mapping:
+        return True
+    options_to_validate = [
+        (args.generate_baseline, '--generate-baseline'),
+        (args.detect_regression, '--detect-regression'),
+        (args.generate_new_metrics, '--generate-new-metrics'),
+    ]
+    for arg_value, arg in options_to_validate:
+        if arg_value:
+            logging.error(OPTION_NOT_FOR_TEST_MAPPING, arg)
+            return False
+    return True
+
+
+def _validate_args(args):
+    """Validate setups and args.
+
+    Exit the program with error code if any setup or arg is invalid.
+
+    Args:
+        args: parsed args object.
+    """
+    if _missing_environment_variables():
+        sys.exit(constants.EXIT_CODE_ENV_NOT_SETUP)
+    if args.generate_baseline and args.generate_new_metrics:
+        logging.error(
+            'Cannot collect both baseline and new metrics at the same time.')
+        sys.exit(constants.EXIT_CODE_ERROR)
+    if not _has_valid_regression_detection_args(args):
+        sys.exit(constants.EXIT_CODE_ERROR)
+    if not _has_valid_test_mapping_args(args):
+        sys.exit(constants.EXIT_CODE_ERROR)
+
+
+def _print_module_info_from_module_name(mod_info, module_name):
+    """print out the related module_info for a module_name.
+
+    Args:
+        mod_info: ModuleInfo object.
+        module_name: A string of module.
+
+    Returns:
+        True if the module_info is found.
+    """
+    title_mapping = {
+        constants.MODULE_PATH: "Source code path",
+        constants.MODULE_INSTALLED: "Installed path",
+        constants.MODULE_COMPATIBILITY_SUITES: "Compatibility suite"}
+    target_module_info = mod_info.get_module_info(module_name)
+    is_module_found = False
+    if target_module_info:
+        atest_utils.colorful_print(module_name, constants.GREEN)
+        for title_key in title_mapping.iterkeys():
+            atest_utils.colorful_print("\t%s" % title_mapping[title_key],
+                                       constants.CYAN)
+            for info_value in target_module_info[title_key]:
+                print("\t\t{}".format(info_value))
+        is_module_found = True
+    return is_module_found
+
+
+def _print_test_info(mod_info, test_infos):
+    """Print the module information from TestInfos.
+
+    Args:
+        mod_info: ModuleInfo object.
+        test_infos: A list of TestInfos.
+
+    Returns:
+        Always return EXIT_CODE_SUCCESS
+    """
+    for test_info in test_infos:
+        _print_module_info_from_module_name(mod_info, test_info.test_name)
+        atest_utils.colorful_print("\tRelated build targets", constants.MAGENTA)
+        print("\t\t{}".format(", ".join(test_info.build_targets)))
+        for build_target in test_info.build_targets:
+            if build_target != test_info.test_name:
+                _print_module_info_from_module_name(mod_info, build_target)
+        atest_utils.colorful_print("", constants.WHITE)
+    return constants.EXIT_CODE_SUCCESS
+
+
+def is_from_test_mapping(test_infos):
+    """Check that the test_infos came from TEST_MAPPING files.
+
+    Args:
+        test_infos: A set of TestInfos.
+
+    Retruns:
+        True if the test infos are from TEST_MAPPING files.
+    """
+    return list(test_infos)[0].from_test_mapping
+
+
+def _split_test_mapping_tests(test_infos):
+    """Split Test Mapping tests into 2 groups: device tests and host tests.
+
+    Args:
+        test_infos: A set of TestInfos.
+
+    Retruns:
+        A tuple of (device_test_infos, host_test_infos), where
+        device_test_infos: A set of TestInfos for tests that require device.
+        host_test_infos: A set of TestInfos for tests that do NOT require
+            device.
+    """
+    assert is_from_test_mapping(test_infos)
+    host_test_infos = set([info for info in test_infos if info.host])
+    device_test_infos = set([info for info in test_infos if not info.host])
+    return device_test_infos, host_test_infos
+
+
+# pylint: disable=too-many-locals
+def _run_test_mapping_tests(results_dir, test_infos, extra_args):
+    """Run all tests in TEST_MAPPING files.
+
+    Args:
+        results_dir: String directory to store atest results.
+        test_infos: A set of TestInfos.
+        extra_args: Dict of extra args to add to test run.
+
+    Returns:
+        Exit code.
+    """
+    device_test_infos, host_test_infos = _split_test_mapping_tests(test_infos)
+    # `host` option needs to be set to True to run host side tests.
+    host_extra_args = extra_args.copy()
+    host_extra_args[constants.HOST] = True
+    test_runs = [(host_test_infos, host_extra_args, HOST_TESTS)]
+    if extra_args.get(constants.HOST):
+        atest_utils.colorful_print(
+            'Option `--host` specified. Skip running device tests.',
+            constants.MAGENTA)
+    else:
+        test_runs.append((device_test_infos, extra_args, DEVICE_TESTS))
+
+    test_results = []
+    for tests, args, test_type in test_runs:
+        if not tests:
+            continue
+        header = RUN_HEADER_FMT % {TEST_COUNT: len(tests), TEST_TYPE: test_type}
+        atest_utils.colorful_print(header, constants.MAGENTA)
+        logging.debug('\n'.join([str(info) for info in tests]))
+        tests_exit_code, reporter = test_runner_handler.run_all_tests(
+            results_dir, tests, args, delay_print_summary=True)
+        atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
+        test_results.append((tests_exit_code, reporter, test_type))
+
+    all_tests_exit_code = constants.EXIT_CODE_SUCCESS
+    failed_tests = []
+    for tests_exit_code, reporter, test_type in test_results:
+        atest_utils.colorful_print(
+            RESULT_HEADER_FMT % {TEST_TYPE: test_type}, constants.MAGENTA)
+        result = tests_exit_code | reporter.print_summary()
+        if result:
+            failed_tests.append(test_type)
+        all_tests_exit_code |= result
+
+    # List failed tests at the end as a reminder.
+    if failed_tests:
+        atest_utils.colorful_print(
+            '\n==============================', constants.YELLOW)
+        atest_utils.colorful_print(
+            '\nFollowing tests failed:', constants.MAGENTA)
+        for failure in failed_tests:
+            atest_utils.colorful_print(failure, constants.RED)
+
+    return all_tests_exit_code
+
+
+def _dry_run(results_dir, extra_args, test_infos):
+    """Only print the commands of the target tests rather than running them in actual.
+
+    Args:
+        results_dir: Path for saving atest logs.
+        extra_args: Dict of extra args for test runners to utilize.
+        test_infos: A list of TestInfos.
+    """
+    for test_runner, tests in test_runner_handler.group_tests_by_test_runners(test_infos):
+        runner = test_runner(results_dir)
+        run_cmds = runner.generate_run_commands(tests, extra_args)
+        for run_cmd in run_cmds:
+            print('Would run test via command: %s'
+                  % (atest_utils.colorize(run_cmd, constants.GREEN)))
+
+def _print_testable_modules(mod_info, suite):
+    """Print the testable modules for a given suite.
+
+    Args:
+        mod_info: ModuleInfo object.
+        suite: A string of suite name.
+    """
+    testable_modules = mod_info.get_testable_modules(suite)
+    print('\n%s' % atest_utils.colorize('%s Testable %s modules' % (
+        len(testable_modules), suite), constants.CYAN))
+    print('-------')
+    for module in sorted(testable_modules):
+        print('\t%s' % module)
+
+# pylint: disable=too-many-statements
+# pylint: disable=too-many-branches
+def main(argv, results_dir):
     """Entry point of atest script.
 
     Args:
         argv: A list of arguments.
+        results_dir: A directory which stores the ATest execution information.
 
     Returns:
         Exit code.
     """
     args = _parse_args(argv)
     _configure_logging(args.verbose)
-    if _missing_environment_variables():
-        return constants.EXIT_CODE_ENV_NOT_SETUP
-    if args.generate_baseline and args.generate_new_metrics:
-        logging.error('Cannot collect both baseline and new metrics at the same time.')
-        return constants.EXIT_CODE_ERROR
-    if not _has_valid_regression_detection_args(args):
-        return constants.EXIT_CODE_ERROR
-    results_dir = make_test_run_dir()
+    _validate_args(args)
+    atest_metrics.log_start_event()
+    metrics_utils.get_start_time()
+    metrics.AtestStartEvent(
+        command_line=' '.join(argv),
+        test_references=args.tests,
+        cwd=os.getcwd(),
+        os=platform.platform())
     mod_info = module_info.ModuleInfo(force_build=args.rebuild_module_info)
     translator = cli_translator.CLITranslator(module_info=mod_info)
+    if args.list_modules:
+        _print_testable_modules(mod_info, args.list_modules)
+        return constants.EXIT_CODE_SUCCESS
     build_targets = set()
     test_infos = set()
     if _will_run_tests(args):
-        try:
-            build_targets, test_infos = translator.translate(args.tests)
-        except atest_error.TestDiscoveryException:
-            logging.exception('Error occured in test discovery:')
-            logging.info('This can happen after a repo sync or if the test is '
-                         'new. Running: with "%s"  may resolve the issue.',
-                         REBUILD_MODULE_INFO_FLAG)
+        build_targets, test_infos = translator.translate(args)
+        if not test_infos:
             return constants.EXIT_CODE_TEST_NOT_FOUND
+        if not is_from_test_mapping(test_infos):
+            _validate_exec_mode(args, test_infos)
+        else:
+            _validate_tm_tests_exec_mode(args, test_infos)
+    if args.info:
+        return _print_test_info(mod_info, test_infos)
     build_targets |= test_runner_handler.get_test_runner_reqs(mod_info,
                                                               test_infos)
     extra_args = get_extra_args(args)
+    if args.dry_run:
+        _dry_run(results_dir, extra_args, test_infos)
+        return constants.EXIT_CODE_SUCCESS
     if args.detect_regression:
         build_targets |= (regression_test_runner.RegressionTestRunner('')
                           .get_test_runner_build_reqs())
     # args.steps will be None if none of -bit set, else list of params set.
-    steps = args.steps if args.steps else ALL_STEPS
-    if build_targets and BUILD_STEP in steps:
+    steps = args.steps if args.steps else constants.ALL_STEPS
+    if build_targets and constants.BUILD_STEP in steps:
         # Add module-info.json target to the list of build targets to keep the
         # file up to date.
         build_targets.add(mod_info.module_info_target)
+        build_start = time.time()
         success = atest_utils.build(build_targets, args.verbose)
+        metrics.BuildFinishEvent(
+            duration=metrics_utils.convert_duration(time.time() - build_start),
+            success=success,
+            targets=build_targets)
         if not success:
             return constants.EXIT_CODE_BUILD_FAILURE
-    elif TEST_STEP not in steps:
+    elif constants.TEST_STEP not in steps:
         logging.warn('Install step without test step currently not '
                      'supported, installing AND testing instead.')
-        steps.append(TEST_STEP)
-    if TEST_STEP in steps:
-        test_runner_handler.run_all_tests(results_dir, test_infos, extra_args)
+        steps.append(constants.TEST_STEP)
+    tests_exit_code = constants.EXIT_CODE_SUCCESS
+    test_start = time.time()
+    if constants.TEST_STEP in steps:
+        if not is_from_test_mapping(test_infos):
+            tests_exit_code, reporter = test_runner_handler.run_all_tests(
+                results_dir, test_infos, extra_args)
+            atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
+        else:
+            tests_exit_code = _run_test_mapping_tests(
+                results_dir, test_infos, extra_args)
     if args.detect_regression:
         regression_args = _get_regression_detection_args(args, results_dir)
-        regression_test_runner.RegressionTestRunner('').run_tests(None, regression_args)
-    return constants.EXIT_CODE_SUCCESS
+        # TODO(b/110485713): Should not call run_tests here.
+        reporter = result_reporter.ResultReporter()
+        atest_execution_info.AtestExecutionInfo.result_reporters.append(reporter)
+        tests_exit_code |= regression_test_runner.RegressionTestRunner(
+            '').run_tests(
+                None, regression_args, reporter)
+    metrics.RunTestsFinishEvent(
+        duration=metrics_utils.convert_duration(time.time() - test_start))
+    if tests_exit_code != constants.EXIT_CODE_SUCCESS:
+        tests_exit_code = constants.EXIT_CODE_TEST_FAILURE
+    return tests_exit_code
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    RESULTS_DIR = make_test_run_dir()
+    with atest_execution_info.AtestExecutionInfo(sys.argv[1:],
+                                                 RESULTS_DIR) as result_file:
+        metrics_base.MetricsBase.tool_name = constants.TOOL_NAME
+        EXIT_CODE = main(sys.argv[1:], RESULTS_DIR)
+        metrics_utils.send_exit_event(EXIT_CODE)
+        if result_file:
+            print('Execution detail has saved in %s' % result_file.name)
+    sys.exit(EXIT_CODE)

@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"በር ክፍት ነው"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"ወረቀት ታጭቋል"</string>
     <string name="printer_offline" msgid="9196864753298645066">"ከመስመር ውጪ"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"መጥፎ የእውቅና ማረጋገጫ"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"አልተመሰጠረም"</string>
     <string name="printer_check" msgid="6428369671197132828">"አታሚን ይፈትሹ"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"ለመላክ በመጠበቅ ላይ"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"ሰነዱን ማነበብ አልተቻለም"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"አታሚ አይደገፍም"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"Wi-Fi ቀጥታ አገናኝ"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"የWi-Fi Direct አታሚዎችን አግኝ"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"Wi-Fi Direct ሕትመት"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"የWi-Fi ቀጥታ አገናኝ አታሚዎች"</string>
     <string name="searching" msgid="2114018057619514587">"በመፈለግ ላይ…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"በእርስዎ አታሚ የፊት ፓናል ላይ ይህን ግንኙነት ማጽደቅ ያስፈልግዎት ይሆናል"</string>
@@ -57,4 +60,14 @@
     <string name="forget" msgid="892068061425802502">"እርሳ"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"በWi-Fi Direct በኩል ያገናኛል"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"አሁን ባለ አውታረ መረብ በኩል በ<xliff:g id="IP_ADDRESS">%1$s</xliff:g> ላይ ያገናኛል"</string>
+    <string name="security" msgid="2279008326210305401">"ደኅንነት"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"ይህ አታሚ አዲስ የደህንነት እውቅና ማረጋገጫ አቅርቧል፣ ወይም ሌላ መሣሪያ እያስመሰለው ነው። አዲሱ የእውቅና ማረጋገጫ ይቀበሉ?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"ይህ አታሚ ከእንግዲህ የተመሰጠሩ ስራዎችን አይቀበልም። ማተም ይቀጥሉ?"</string>
+    <string name="accept" msgid="4426153292469698134">"ተቀበል"</string>
+    <string name="reject" msgid="24751635160440693">"አትቀበል"</string>
+    <string name="connections" msgid="8895413761760117180">"ግንኙነቶች"</string>
+    <!-- no translation found for wifi_direct_permission_rationale (3599186620970379218) -->
+    <skip />
+    <!-- no translation found for fix (7784394272611365393) -->
+    <skip />
 </resources>

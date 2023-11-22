@@ -22,10 +22,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Message;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -505,7 +503,6 @@ public class LaunchpadActivity extends Activity {
     @SuppressWarnings("deprecation")
     private Intent makeBroadcastIntent(String action) {
         final Intent intent = new Intent(action, null);
-        intent.putExtra("caller", mCallTarget);
         return intent;
     }
 
@@ -549,26 +546,6 @@ public class LaunchpadActivity extends Activity {
     private final Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
-        }
-    };
-
-    static final int GOT_RECEIVE_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION;
-    static final int ERROR_TRANSACTION = IBinder.FIRST_CALL_TRANSACTION + 1;
-
-    private final Binder mCallTarget = new Binder() {
-        @Override
-        public boolean onTransact(int code, Parcel data, Parcel reply, int flags) {
-            data.setDataPosition(0);
-            data.enforceInterface(LaunchpadActivity.LAUNCH);
-            if (code == GOT_RECEIVE_TRANSACTION) {
-                final String name = data.readString();
-                gotReceive(name, null);
-                return true;
-            } else if (code == ERROR_TRANSACTION) {
-                finishBad(data.readString());
-                return true;
-            }
-            return false;
         }
     };
 

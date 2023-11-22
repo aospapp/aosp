@@ -416,6 +416,19 @@ extern "C" {
 	void glGetFramebufferParameteriv(GLenum target, GLenum pname, GLint* params);
 	void glGetTexLevelParameterfv(GLenum target, GLint level, GLenum pname, GLfloat* params);
 	void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint* params);
+	void glMapBufferRangeDMA(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr);
+	void glUnmapBufferDMA(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr, GLboolean* out_res);
+	uint64_t glMapBufferRangeDirect(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr);
+	void glUnmapBufferDirect(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr, uint64_t guest_ptr, GLboolean* out_res);
+	void glFlushMappedBufferRangeDirect(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access);
+	GLenum glGetGraphicsResetStatusEXT();
+	void glReadnPixelsEXT(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLsizei bufSize, GLvoid* data);
+	void glGetnUniformfvEXT(GLuint program, GLint location, GLsizei bufSize, GLfloat* params);
+	void glGetnUniformivEXT(GLuint program, GLint location, GLsizei bufSize, GLint* params);
+	void glDrawArraysNullAEMU(GLenum mode, GLint first, GLsizei count);
+	void glDrawElementsNullAEMU(GLenum mode, GLsizei count, GLenum type, const GLvoid* indices);
+	void glDrawElementsOffsetNullAEMU(GLenum mode, GLsizei count, GLenum type, GLuint offset);
+	void glDrawElementsDataNullAEMU(GLenum mode, GLsizei count, GLenum type, void* data, GLuint datalen);
 };
 
 #ifndef GET_CONTEXT
@@ -2925,5 +2938,83 @@ void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint* p
 {
 	GET_CONTEXT;
 	ctx->glGetTexLevelParameteriv(ctx, target, level, pname, params);
+}
+
+void glMapBufferRangeDMA(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr)
+{
+	GET_CONTEXT;
+	ctx->glMapBufferRangeDMA(ctx, target, offset, length, access, paddr);
+}
+
+void glUnmapBufferDMA(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr, GLboolean* out_res)
+{
+	GET_CONTEXT;
+	ctx->glUnmapBufferDMA(ctx, target, offset, length, access, paddr, out_res);
+}
+
+uint64_t glMapBufferRangeDirect(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr)
+{
+	GET_CONTEXT;
+	return ctx->glMapBufferRangeDirect(ctx, target, offset, length, access, paddr);
+}
+
+void glUnmapBufferDirect(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access, uint64_t paddr, uint64_t guest_ptr, GLboolean* out_res)
+{
+	GET_CONTEXT;
+	ctx->glUnmapBufferDirect(ctx, target, offset, length, access, paddr, guest_ptr, out_res);
+}
+
+void glFlushMappedBufferRangeDirect(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access)
+{
+	GET_CONTEXT;
+	ctx->glFlushMappedBufferRangeDirect(ctx, target, offset, length, access);
+}
+
+GLenum glGetGraphicsResetStatusEXT()
+{
+	GET_CONTEXT;
+	return ctx->glGetGraphicsResetStatusEXT(ctx);
+}
+
+void glReadnPixelsEXT(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLsizei bufSize, GLvoid* data)
+{
+	GET_CONTEXT;
+	ctx->glReadnPixelsEXT(ctx, x, y, width, height, format, type, bufSize, data);
+}
+
+void glGetnUniformfvEXT(GLuint program, GLint location, GLsizei bufSize, GLfloat* params)
+{
+	GET_CONTEXT;
+	ctx->glGetnUniformfvEXT(ctx, program, location, bufSize, params);
+}
+
+void glGetnUniformivEXT(GLuint program, GLint location, GLsizei bufSize, GLint* params)
+{
+	GET_CONTEXT;
+	ctx->glGetnUniformivEXT(ctx, program, location, bufSize, params);
+}
+
+void glDrawArraysNullAEMU(GLenum mode, GLint first, GLsizei count)
+{
+	GET_CONTEXT;
+	ctx->glDrawArraysNullAEMU(ctx, mode, first, count);
+}
+
+void glDrawElementsNullAEMU(GLenum mode, GLsizei count, GLenum type, const GLvoid* indices)
+{
+	GET_CONTEXT;
+	ctx->glDrawElementsNullAEMU(ctx, mode, count, type, indices);
+}
+
+void glDrawElementsOffsetNullAEMU(GLenum mode, GLsizei count, GLenum type, GLuint offset)
+{
+	GET_CONTEXT;
+	ctx->glDrawElementsOffsetNullAEMU(ctx, mode, count, type, offset);
+}
+
+void glDrawElementsDataNullAEMU(GLenum mode, GLsizei count, GLenum type, void* data, GLuint datalen)
+{
+	GET_CONTEXT;
+	ctx->glDrawElementsDataNullAEMU(ctx, mode, count, type, data, datalen);
 }
 

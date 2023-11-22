@@ -51,7 +51,7 @@ using ScalarData = ScalarDataValueMessage;
 // 64-bit random number generator.
 class Random {
  public:
-  Random(uint64_t seed) : rand_(seed) {}
+  explicit Random(uint64_t seed) : rand_(seed) {}
   virtual ~Random() {}
 
   // Generates a 64-bit random number.

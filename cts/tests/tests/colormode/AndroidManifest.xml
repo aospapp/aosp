@@ -28,7 +28,7 @@
         <activity android:name="android.colormode.AttributeWideColorModeActivity" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
             android:targetPackage="android.colormode.cts"
             android:label="Tests for the Color Mode APIs." >
         <meta-data android:name="listener"

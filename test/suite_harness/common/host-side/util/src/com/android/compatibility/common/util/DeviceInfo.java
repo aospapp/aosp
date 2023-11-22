@@ -17,7 +17,6 @@ package com.android.compatibility.common.util;
 
 import static org.junit.Assert.fail;
 
-import com.android.compatibility.common.util.HostInfoStore;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.LogDataType;
@@ -55,9 +54,8 @@ public abstract class DeviceInfo extends BaseHostJUnit4Test {
         FileInputStreamSource source = null;
         try {
             jsonFile = FileUtil.createTempFile(getClass().getSimpleName(), FILE_SUFFIX);
-            try (HostInfoStore store = new HostInfoStore(jsonFile)) {
-                store.open();
-                collectDeviceInfo(store);
+            try {
+                collectDeviceInfo(jsonFile);
             } finally {
                 // If file is empty throw exception so it is not copied to the results.
                 if (jsonFile != null && jsonFile.exists() &&
@@ -81,4 +79,15 @@ public abstract class DeviceInfo extends BaseHostJUnit4Test {
      * Method to collect device information.
      */
     protected abstract void collectDeviceInfo(HostInfoStore store) throws Exception;
+
+    /**
+     * Method to collect device information; this method should write JSON to the specified file
+     * directly.
+     */
+    protected void collectDeviceInfo(File jsonFile) throws Exception {
+        try (HostInfoStore store = new HostInfoStore(jsonFile)) {
+            store.open();
+            collectDeviceInfo(store);
+        }
+    }
 }

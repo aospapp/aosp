@@ -103,12 +103,9 @@ public class ProgramItemView extends TextView {
                             tvActivity.getChannelDataManager().getChannel(entry.channelId);
                     if (entry.isCurrentProgram()) {
                         view.postDelayed(
-                                new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        tvActivity.tuneToChannel(channel);
-                                        tvActivity.hideOverlaysForTune();
-                                    }
+                                () -> {
+                                    tvActivity.tuneToChannel(channel);
+                                    tvActivity.hideOverlaysForTune();
                                 },
                                 entry.getWidth() > ((ProgramItemView) view).mMaxWidthForRipple
                                         ? 0
@@ -125,13 +122,9 @@ public class ProgramItemView extends TextView {
                                 DvrUiHelper.checkStorageStatusAndShowErrorMessage(
                                         tvActivity,
                                         channel.getInputId(),
-                                        new Runnable() {
-                                            @Override
-                                            public void run() {
+                                        () ->
                                                 DvrUiHelper.requestRecordingFutureProgram(
-                                                        tvActivity, entry.program, false);
-                                            }
-                                        });
+                                                        tvActivity, entry.program, false));
                             } else {
                                 dvrManager.removeScheduledRecording(entry.scheduledRecording);
                                 String msg =
@@ -378,7 +371,7 @@ public class ProgramItemView extends TextView {
         int iconResId = 0;
         if (isEntryWideEnough() && mTableEntry.scheduledRecording != null) {
             if (mDvrManager.isConflicting(mTableEntry.scheduledRecording)) {
-                iconResId = R.drawable.ic_warning_white_18dp;
+                iconResId = R.drawable.quantum_ic_warning_white_18;
             } else {
                 switch (mTableEntry.scheduledRecording.getState()) {
                     case ScheduledRecording.STATE_RECORDING_NOT_STARTED:
@@ -405,20 +398,22 @@ public class ProgramItemView extends TextView {
         if (channel != null) {
             description = channel.getDisplayNumber() + " " + description;
         }
-        description +=
-                " "
-                        + Utils.getDurationString(
-                                getContext(),
-                                mClock,
-                                mTableEntry.entryStartUtcMillis,
-                                mTableEntry.entryEndUtcMillis,
-                                true);
         Program program = mTableEntry.program;
         if (program != null) {
+            description += " " + program.getDurationString(getContext());
             String episodeDescription = program.getEpisodeContentDescription(getContext());
             if (!TextUtils.isEmpty(episodeDescription)) {
                 description += " " + episodeDescription;
             }
+        } else {
+            description +=
+                    " "
+                            + Utils.getDurationString(
+                                    getContext(),
+                                    mClock,
+                                    mTableEntry.entryStartUtcMillis,
+                                    mTableEntry.entryEndUtcMillis,
+                                    true);
         }
         if (mTableEntry.scheduledRecording != null) {
             if (mDvrManager.isConflicting(mTableEntry.scheduledRecording)) {

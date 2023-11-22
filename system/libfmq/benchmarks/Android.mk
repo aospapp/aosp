@@ -30,9 +30,11 @@ LOCAL_SHARED_LIBRARIES := \
     libhidlbase \
     libhidltransport
 
-LOCAL_REQUIRED_MODULES := \
-    android.hardware.tests.msgq@1.0-impl_32 \
-    android.hardware.tests.msgq@1.0-impl
+LOCAL_REQUIRED_MODULES := android.hardware.tests.msgq@1.0-impl
+
+ifneq ($(TARGET_2ND_ARCH),)
+LOCAL_REQUIRED_MODULES += android.hardware.tests.msgq@1.0-impl$(TARGET_2ND_ARCH_MODULE_SUFFIX)
+endif
 
 LOCAL_SHARED_LIBRARIES += android.hardware.tests.msgq@1.0 libfmq
 LOCAL_MODULE := mq_benchmark_client

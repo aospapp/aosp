@@ -15,11 +15,9 @@
  */
 package com.android.tradefed.build;
 
-import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
 
 import java.io.File;
-import java.io.IOException;
 
 /**
  * Concrete implementation of a {@link IFolderBuildInfo}.
@@ -27,7 +25,11 @@ import java.io.IOException;
 public class FolderBuildInfo extends BuildInfo implements IFolderBuildInfo {
 
     private static final long serialVersionUID = BuildSerializedVersion.VERSION;
-    private File mRootDir;
+
+    /** @see BuildInfo#BuildInfo() */
+    public FolderBuildInfo() {
+        super();
+    }
 
     /**
      * @see BuildInfo#BuildInfo(String, String)
@@ -48,7 +50,7 @@ public class FolderBuildInfo extends BuildInfo implements IFolderBuildInfo {
      */
     @Override
     public File getRootDir() {
-        return mRootDir;
+        return getFile(BuildInfoFileKey.ROOT_DIRECTORY);
     }
 
     /**
@@ -56,46 +58,9 @@ public class FolderBuildInfo extends BuildInfo implements IFolderBuildInfo {
      */
     @Override
     public void setRootDir(File rootDir) {
-        mRootDir = rootDir;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void cleanUp() {
-        if (mRootDir != null) {
-            FileUtil.recursiveDelete(mRootDir);
-        }
-        mRootDir = null;
-        super.cleanUp();
-    }
-
-    @Override
-    public IBuildInfo clone() {
-        FolderBuildInfo copy = new FolderBuildInfo(getBuildId(), getBuildTargetName());
-        copy.addAllBuildAttributes(this);
-        try {
-            File copyDir = FileUtil.createTempDir("foldercopy");
-            linkOrCopy(mRootDir, copyDir);
-            copy.setRootDir(copyDir);
-            return copy;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    static void linkOrCopy(File orig, File dest) throws IOException {
-        try {
-            FileUtil.recursiveHardlink(orig, dest);
-            return;
-        } catch (IOException e) {
-            // fall through
-            CLog.w("hardlink of %s %s failed: " + e.toString(), orig.getAbsolutePath(),
-                    dest.getAbsolutePath());
-            // Clean up after failure.
-            FileUtil.recursiveDelete(dest);
-        }
-        FileUtil.recursiveCopy(orig, dest);
+        setFile(
+                BuildInfoFileKey.ROOT_DIRECTORY,
+                rootDir,
+                BuildInfoFileKey.ROOT_DIRECTORY.getFileKey());
     }
 }

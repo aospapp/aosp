@@ -43,3 +43,30 @@ TEST(command, GetAllCommands) {
   UnRegisterCommand("mock1");
   ASSERT_EQ(command_count, GetAllCommandNames().size());
 }
+
+TEST(command, GetValueForOption) {
+  MockCommand command;
+  uint64_t value;
+  size_t i;
+  for (bool allow_suffixes : {true, false}) {
+    i = 0;
+    ASSERT_TRUE(command.GetUintOption({"-s", "156"}, &i, &value, 0,
+                                      std::numeric_limits<uint64_t>::max(), allow_suffixes));
+    ASSERT_EQ(i, 1u);
+    ASSERT_EQ(value, 156u);
+  }
+  i = 0;
+  ASSERT_TRUE(command.GetUintOption({"-s", "156k"}, &i, &value, 0,
+                                    std::numeric_limits<uint64_t>::max(), true));
+  ASSERT_EQ(value, 156 * (1ULL << 10));
+  i = 0;
+  ASSERT_FALSE(command.GetUintOption({"-s"}, &i, &value));
+  i = 0;
+  ASSERT_FALSE(command.GetUintOption({"-s", "0"}, &i, &value, 1));
+  i = 0;
+  ASSERT_FALSE(command.GetUintOption({"-s", "156"}, &i, &value, 0, 155));
+  i = 0;
+  double double_value;
+  ASSERT_TRUE(command.GetDoubleOption({"-s", "3.2"}, &i, &double_value, 0, 4));
+  ASSERT_DOUBLE_EQ(double_value, 3.2);
+}

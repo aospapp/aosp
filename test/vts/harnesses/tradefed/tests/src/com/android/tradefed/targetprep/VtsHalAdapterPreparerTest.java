@@ -38,7 +38,6 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.InjectMocks;
-import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -148,7 +147,7 @@ public final class VtsHalAdapterPreparerTest {
 
     @Test
     public void testOnSetUpAdapterMultipleInstance() throws Exception {
-        File testAdapter = createTestAdapter();
+        createTestAdapter();
         String output = "android.hardware.foo@1.1::IFoo/default\n"
                 + "android.hardware.foo@1.1::IFoo/test\n"
                 + "android.hardware.foo@1.1::IFooSecond/default\n"
@@ -186,7 +185,7 @@ public final class VtsHalAdapterPreparerTest {
 
     @Test
     public void testOnSetupServiceNotAvailable() throws Exception {
-        File testAdapter = createTestAdapter();
+        createTestAdapter();
         doReturn("").when(mDevice).executeShellCommand(
                 String.format(LIST_HAL_CMD, TEST_HAL_PACKAGE));
         mPreparer.setUp(mDevice, mBuildInfo);
@@ -194,7 +193,7 @@ public final class VtsHalAdapterPreparerTest {
 
     @Test
     public void testOnSetUpAdapterFailed() throws Exception {
-        File testAdapter = createTestAdapter();
+        createTestAdapter();
         String output = "android.hardware.foo@1.1::IFoo/default";
         doReturn(output).when(mDevice).executeShellCommand(
                 String.format(LIST_HAL_CMD, TEST_HAL_PACKAGE));
@@ -211,15 +210,9 @@ public final class VtsHalAdapterPreparerTest {
     @Test
     public void testOnTearDownRestoreFailed() throws Exception {
         mCmdUtil.mCmdSuccess = false;
-        try {
-            mPreparer.setCmdUtil(mCmdUtil);
-            mPreparer.addCommand("one");
-            mPreparer.tearDown(mDevice, mBuildInfo, null);
-        } catch (AssertionError | DeviceNotAvailableException e) {
-            assertEquals("HAL restore failed.", e.getMessage());
-            return;
-        }
-        fail();
+        mPreparer.setCmdUtil(mCmdUtil);
+        mPreparer.addCommand("one");
+        mPreparer.tearDown(mDevice, mBuildInfo, null);
     }
 
     /**

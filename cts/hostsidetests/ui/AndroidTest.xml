@@ -16,6 +16,7 @@
 <configuration description="Config for CTS UI host test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="misc" />
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <test class="com.android.compatibility.common.tradefed.testtype.JarHostTest" >
         <option name="jar" value="CtsUiHostTestCases.jar" />
         <option name="runtime-hint" value="2m" />

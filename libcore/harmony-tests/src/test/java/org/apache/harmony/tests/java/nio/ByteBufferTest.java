@@ -55,6 +55,32 @@ public class ByteBufferTest extends AbstractBufferTest {
         super.tearDown();
     }
 
+    public void testAllocateDirect() {
+        try {
+            ByteBuffer.allocateDirect(-1);
+            fail();
+        } catch (IllegalArgumentException expected) {
+        }
+        checkAllocateDirect(0);
+        checkAllocateDirect(1);
+        checkAllocateDirect(2);
+        checkAllocateDirect(1 << 16);
+        checkAllocateDirect(123456);
+    }
+
+    private void checkAllocateDirect(int capacity) {
+        ByteBuffer b = ByteBuffer.allocateDirect(capacity);
+        assertEquals(capacity, b.capacity());
+        assertEquals(0, b.position());
+        assertEquals(capacity, b.limit());
+        assertContentEquals(b, new byte[capacity], 0, capacity);
+        try {
+            b.reset();
+            fail();
+        } catch (InvalidMarkException expected) {
+        }
+    }
+
     public void testArray() {
         if (buf.hasArray()) {
             byte array[] = buf.array();
@@ -2085,21 +2111,21 @@ public class ByteBufferTest extends AbstractBufferTest {
         }
     }
 
-    private void assertContentEquals(ByteBuffer buf, byte array[],
+    private static void assertContentEquals(ByteBuffer buf, byte array[],
             int offset, int length) {
         for (int i = 0; i < length; i++) {
             assertEquals(buf.get(i), array[offset + i]);
         }
     }
 
-    private void assertContentEquals(ByteBuffer buf, ByteBuffer other) {
+    private static void assertContentEquals(ByteBuffer buf, ByteBuffer other) {
         assertEquals(buf.capacity(), other.capacity());
         for (int i = 0; i < buf.capacity(); i++) {
             assertEquals(buf.get(i), other.get(i));
         }
     }
 
-    private void assertContentLikeTestData1(ByteBuffer buf,
+    private static void assertContentLikeTestData1(ByteBuffer buf,
             int startIndex, byte startValue, int length) {
         byte value = startValue;
         for (int i = 0; i < length; i++) {

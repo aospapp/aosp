@@ -21,12 +21,15 @@
     <package>com.example.android.wearable.wear.weardrawers</package>
 
     <minSdkVersionWear>23</minSdkVersionWear>
-    <compileSdkVersionWear>26</compileSdkVersionWear>
-    <targetSdkVersionWear>26</targetSdkVersionWear>
+    <targetSdkVersionWear>28</targetSdkVersionWear>
 
     <multiDexEnabled>true</multiDexEnabled>
 
-    <dependency_wearable>com.android.support:wear:27.1.0</dependency_wearable>
+    <androidX>true</androidX>
+
+    <dependency_wearable>androidx.wear:wear:1.0.0</dependency_wearable>
+
+    <dependency_wearable>androidx.legacy:legacy-support-v13:1.0.0</dependency_wearable>
 
     <strings>
         <intro>

@@ -45,7 +45,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /** Servlet for handling requests to add or remove subscriptions. */
-public class UserFavoriteRestServlet extends HttpServlet {
+public class UserFavoriteRestServlet extends BaseApiServlet {
     protected static final Logger logger =
             Logger.getLogger(UserFavoriteRestServlet.class.getName());
 

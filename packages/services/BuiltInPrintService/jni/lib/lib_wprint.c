@@ -154,6 +154,10 @@ typedef struct {
     char printer_uri[1024];
     int job_debug_fd;
     int page_debug_fd;
+
+    /* A buffer of bytes containing the certificate received while setting up this job, if any. */
+    uint8 *certificate;
+    int certificate_len;
 } _job_queue_t;
 
 /*
@@ -480,7 +484,10 @@ static int _recycle_handle(wJob_t job_handle) {
         }
         jq->page_debug_fd = -1;
         jq->debug_path[0] = 0;
-
+        if (jq->certificate) {
+            free(jq->certificate);
+            jq->certificate = NULL;
+        }
         return OK;
     } else {
         return ERROR;
@@ -516,6 +523,8 @@ static void _job_status_callback(const printer_state_dyn_t *new_status,
 
     statusnew = new_status->printer_status & ~PRINTER_IDLE_BIT;
     statusold = old_status->printer_status & ~PRINTER_IDLE_BIT;
+    cb_param.certificate = jq->certificate;
+    cb_param.certificate_len = jq->certificate_len;
 
     LOGD("_job_status_callback(): current printer state: %d", statusnew);
     blocked_reasons = 0;
@@ -689,10 +698,86 @@ static int _start_status_thread(_job_queue_t *jq) {
 }
 
 /*
+ * Return true unless the server gave an unexpected certificate
+ */
+static bool _is_certificate_allowed(_job_queue_t *jq) {
+    int result = true;
+
+    // Compare certificates if both are known
+    if (jq->job_params.certificate && jq->certificate) {
+        if (jq->job_params.certificate_len != jq->certificate_len) {
+            LOGD("_is_certificate_allowed: certificate length mismatch allowed=%d, received=%d",
+                jq->job_params.certificate_len, jq->certificate_len);
+            result = false;
+        } else if (0 != memcmp(jq->job_params.certificate, jq->certificate, jq->certificate_len)) {
+            LOGD("_is_certificate_allowed: certificate content mismatch");
+            result = false;
+        } else {
+            LOGD("_is_certificate_allowed: certificate match, len=%d",
+                jq->job_params.certificate_len);
+        }
+    }
+
+    return result;
+}
+
+/*
+ * Callback from lower layers containing certificate data, if any.
+ */
+static int _validate_certificate(wprint_connect_info_t *connect_info, uint8 *data, int data_len) {
+    _job_queue_t *jq = connect_info->user;
+    LOGD("_validate_certificate: %s://%s:%d%s handling server cert len=%d for job %ld",
+        connect_info->uri_scheme, connect_info->printer_addr, connect_info->port_num,
+        connect_info->uri_path, data_len, jq->job_handle);
+
+    // Free any old certificate we have and save new certificate data
+    if (jq->certificate) {
+        free(jq->certificate);
+        jq->certificate = NULL;
+    }
+    jq->certificate = (uint8 *)malloc(data_len);
+    int error = 0;
+    if (jq->certificate == NULL) {
+        LOGD("_validate_certificate: malloc failed");
+        error = -1;
+    } else {
+        memcpy(jq->certificate, data, data_len);
+        jq->certificate_len = data_len;
+        if (!_is_certificate_allowed(jq)) {
+            LOGD("_validate_certificate: received certificate disallowed.");
+            error = -1;
+        }
+    }
+    return error;
+}
+
+/*
+ * Initialize the status interface (so we can use it to query for printer status.
+ */
+static void _initialize_status_ifc(_job_queue_t *jq) {
+    wprint_connect_info_t connect_info;
+    connect_info.printer_addr = jq->printer_addr;
+    connect_info.uri_path = jq->printer_uri;
+    connect_info.port_num = jq->port_num;
+    if (jq->use_secure_uri) {
+        connect_info.uri_scheme = IPPS_PREFIX;
+        connect_info.user = jq;
+        connect_info.validate_certificate = _validate_certificate;
+    } else {
+        connect_info.uri_scheme = IPP_PREFIX;
+        connect_info.validate_certificate = NULL;
+    }
+    connect_info.timeout = DEFAULT_IPP_TIMEOUT;
+
+    // Initialize the status interface with this connection info
+    jq->status_ifc->init(jq->status_ifc, &connect_info);
+}
+
+/*
  * Runs a print job. Contains logic for what to do given different printer statuses.
  */
 static void *_job_thread(void *param) {
-    wprint_job_callback_params_t cb_param;
+    wprint_job_callback_params_t cb_param = { 0 };
     _msg_t msg;
     wJob_t job_handle;
     _job_queue_t *jq;
@@ -737,17 +822,7 @@ static void *_job_thread(void *param) {
 
             // initialize the status ifc
             if (jq->status_ifc != NULL) {
-                wprint_connect_info_t connect_info;
-                connect_info.printer_addr = jq->printer_addr;
-                connect_info.uri_path = jq->printer_uri;
-                connect_info.port_num = jq->port_num;
-                if (jq->use_secure_uri) {
-                    connect_info.uri_scheme = IPPS_PREFIX;
-                } else {
-                    connect_info.uri_scheme = IPP_PREFIX;
-                }
-                connect_info.timeout = DEFAULT_IPP_TIMEOUT;
-                jq->status_ifc->init(jq->status_ifc, &connect_info);
+                _initialize_status_ifc(jq);
             }
             // wait for the printer to be idle
             if ((jq->status_ifc != NULL) && (jq->status_ifc->get_status != NULL)) {
@@ -758,6 +833,10 @@ static void *_job_thread(void *param) {
                     print_status_t status;
                     jq->status_ifc->get_status(jq->status_ifc, &printer_state);
                     status = printer_state.printer_status & ~PRINTER_IDLE_BIT;
+
+                    // Pass along any certificate received in future callbacks
+                    cb_param.certificate = jq->certificate;
+                    cb_param.certificate_len = jq->certificate_len;
 
                     switch (status) {
                         case PRINT_STATUS_IDLE:
@@ -776,8 +855,13 @@ static void *_job_thread(void *param) {
                         case PRINT_STATUS_SVC_REQUEST:
                             if ((printer_state.printer_reasons[0] == PRINT_STATUS_UNABLE_TO_CONNECT)
                                     || (printer_state.printer_reasons[0] == PRINT_STATUS_OFFLINE)) {
-                                LOGD("_job_thread: Received an Unable to Connect message");
-                                jq->blocked_reasons = BLOCKED_REASON_UNABLE_TO_CONNECT;
+                                if (_is_certificate_allowed(jq)) {
+                                    LOGD("_job_thread: Received an Unable to Connect message");
+                                    jq->blocked_reasons = BLOCKED_REASON_UNABLE_TO_CONNECT;
+                                } else {
+                                    LOGD("_job_thread: Bad certificate");
+                                    jq->blocked_reasons = BLOCKED_REASON_BAD_CERTIFICATE;
+                                }
                                 loop = 0;
                                 break;
                             }
@@ -1371,6 +1455,16 @@ static bool is_supported(media_size_t media_size) {
 }
 
 /*
+ * Return true if the specified int array of the supplied length contains a value.
+ */
+static bool int_array_contains(const int *array, int length, int value) {
+    for (int i = 0; i < length; i++) {
+        if (array[i] == value) return true;
+    }
+    return false;
+}
+
+/*
  * Checks printers reported media sizes and validates that wprint supports them
  */
 static void _validate_supported_media_sizes(printer_capabilities_t *printer_cap) {
@@ -1637,6 +1731,12 @@ status_t wprintGetFinalJobParams(wprint_job_params_t *job_params,
     // make sure the number of copies is valid
     if (job_params->num_copies <= 0) {
         job_params->num_copies = 1;
+    }
+
+    // If printing photo and HIGH quality is supported, specify it.
+    if (strcasecmp(job_params->docCategory, "photo") == 0 && int_array_contains(
+            printer_cap->supportedQuality, printer_cap->numSupportedQuality, IPP_QUALITY_HIGH)) {
+        job_params->print_quality = IPP_QUALITY_HIGH;
     }
 
     // confirm that the media size is supported
@@ -2047,6 +2147,8 @@ status_t wprintCancelJob(wJob_t job_handle) {
                 cb_param.state = JOB_DONE;
                 cb_param.blocked_reasons = BLOCKED_REASONS_CANCELLED;
                 cb_param.job_done_result = CANCELLED;
+                cb_param.certificate = jq->certificate;
+                cb_param.certificate_len = jq->certificate_len;
 
                 jq->cb_fn(job_handle, (void *) &cb_param);
             }

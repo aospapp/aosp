@@ -27,6 +27,8 @@
     <string name="printer_door_open" msgid="2446302931916940874">"প্ৰিণ্টাৰৰ দুৱাৰ খোল খাই আছে"</string>
     <string name="printer_jammed" msgid="5104099859384749499">"প্ৰিণ্টাৰত জাম লাগিছে"</string>
     <string name="printer_offline" msgid="9196864753298645066">"প্ৰিণ্টাৰ অফলাইন হৈ আছে"</string>
+    <string name="printer_bad_certificate" msgid="1366180387095466268">"বেয়া প্ৰমাণপত্ৰ"</string>
+    <string name="printer_not_encrypted" msgid="1913051469275483673">"এনক্ৰিপ্ট নকৰা"</string>
     <string name="printer_check" msgid="6428369671197132828">"প্ৰিণ্টাৰ পৰীক্ষা কৰক"</string>
     <string name="waiting_to_send" msgid="2022115199902822180">"পঠাবলৈ ৰৈ থকা হৈছে"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"দস্তাবেজ পঢ়িবপৰা নগ\'ল"</string>
@@ -47,6 +49,7 @@
     <string name="printer_not_supported" msgid="281955849350938408">"এই প্ৰিণ্টাৰটো নচলে"</string>
     <string name="wifi_direct" msgid="4629404342852294985">"ৱাই-ফাই ডাইৰেক্ট"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"ৱাই-ফাই ডাইৰেক্ট প্ৰিণ্টাৰ বিচাৰক"</string>
+    <string name="wifi_direct_printing" msgid="8423811041563144048">"ৱাই-ফাই ডাইৰেক্ট প্ৰিণ্টিং"</string>
     <string name="wifi_direct_printers" msgid="541168032444693191">"ৱাই-ফাই ডাইৰেক্ট প্ৰিণ্টাৰ"</string>
     <string name="searching" msgid="2114018057619514587">"সন্ধান কৰি থকা হৈছে…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"আপোনাৰ প্ৰিণ্টাৰৰ সন্মুখৰ পেনেলত আপুনি এই সংযোগটো অনুমোদন কৰিবলগীয়া হ\'ব পাৰে"</string>
@@ -57,4 +60,12 @@
     <string name="forget" msgid="892068061425802502">"পাহৰক"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"ৱাই-ফাই ডাইৰেক্টৰ জৰিয়তে সংযোগ কৰে"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"<xliff:g id="IP_ADDRESS">%1$s</xliff:g> ঠিকনাত চলিত নেটৱৰ্কৰ জৰিয়তে সংযোগ কৰে"</string>
+    <string name="security" msgid="2279008326210305401">"সুৰক্ষা"</string>
+    <string name="certificate_update_request" msgid="1314796413107139475">"এই প্ৰিণ্টাৰটোৱে এখন নতুন সুৰক্ষা প্ৰমাণপত্ৰ যোগান ধৰিছে বা আন এটা ডিভাইচে সেইটোৰ ভাও ধৰিছে। নতুন প্ৰমাণপত্ৰখন গ্ৰহণ কৰিবনে?"</string>
+    <string name="not_encrypted_request" msgid="4871472176807381642">"প্ৰিণ্টাৰটোৱে আৰু এনক্ৰিপ্ট কৰা কার্য সমথর্ন নকৰে প্ৰিণ্ট কৰা কার্য অব্যাহত ৰাখিবনে?"</string>
+    <string name="accept" msgid="4426153292469698134">"গ্ৰহণ কৰক"</string>
+    <string name="reject" msgid="24751635160440693">"প্ৰত্যাখ্যান কৰক"</string>
+    <string name="connections" msgid="8895413761760117180">"সংযোগসমূহ"</string>
+    <string name="wifi_direct_permission_rationale" msgid="3599186620970379218">"ডিফ\'ল্ট প্ৰিণ্ট সেৱাক নিকটৱৰ্তী ডিভাইচসমূহ বিচাৰিবলৈ অৱস্থানৰ অনুমতিৰ আৱশ্যক।"</string>
+    <string name="fix" msgid="7784394272611365393">"পর্যালোচনাৰ অনুমতি"</string>
 </resources>

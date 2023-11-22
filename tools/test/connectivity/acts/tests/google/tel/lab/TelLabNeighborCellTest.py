@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -159,6 +159,7 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         self.mg3710a_ip_address = self.user_params[
             "anritsu_mg3710a_ip_address"]
         self.wlan_option = self.user_params.get("anritsu_wlan_option", False)
+        self.md8475_version = self.user_params.get("md8475", "A")
 
         if "lte_rssi_offset" in self.user_params:
             self._LTE_RSSI_OFFSET = int(self.user_params["lte_rssi_offset"])
@@ -172,7 +173,8 @@ class TelLabNeighborCellTest(TelephonyBaseTest):
         self.md8475a = None
         self.mg3710a = None
         try:
-            self.md8475a = MD8475A(self.md8475a_ip_address, self.log)
+            self.md8475a = MD8475A(self.md8475a_ip_address, self.log,
+                                   self.wlan_option, self.md8475_version)
         except AnritsuError as e:
             self.log.error("Error in connecting to Anritsu MD8475A:{}".format(
                 e))

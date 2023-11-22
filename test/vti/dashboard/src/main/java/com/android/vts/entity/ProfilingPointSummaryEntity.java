@@ -21,13 +21,25 @@ import com.android.vts.util.StatSummary;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.datastore.KeyFactory;
+import com.googlecode.objectify.annotation.Cache;
+import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Ignore;
+import com.googlecode.objectify.annotation.Index;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
+@com.googlecode.objectify.annotation.Entity(name = "ProfilingPointSummary")
+@Cache
+@Data
+@NoArgsConstructor
 /** Entity describing a profiling point summary. */
 public class ProfilingPointSummaryEntity implements DashboardEntity {
     protected static final Logger logger =
@@ -54,8 +66,62 @@ public class ProfilingPointSummaryEntity implements DashboardEntity {
     public static final String BUILD_FLAVOR = "buildFlavor";
     public static final String SERIES = "series";
 
-    private final Key key;
+    @Ignore
+    private Key key;
 
+    /** ID field */
+    @Id private String name;
+
+    /** branch field */
+    @Index private String branch;
+
+    /** build field */
+    @Index private String buildFlavor;
+
+    /** total count */
+    @Index private int count;
+
+    /** For each label count field */
+    @Index private List<String> labelCounts;
+
+    /** Maximum value for each label */
+    private List<Integer> labelMaxes;
+
+    /** Mean value for each label */
+    private List<Integer> labelMeans;
+
+    /** Minimum value for each label */
+    private List<Integer> labelMins;
+
+    /** Label name for each label point */
+    private List<String> labels;
+
+    /** Summation for sequence for each label */
+    private List<Integer> labelSumSqs;
+
+    /** Maximum value for total */
+    private Long max;
+
+    /** Mean value for total */
+    private Long mean;
+
+    /** Minimum value for total */
+    private Long min;
+
+    /** The list of series */
+    private String series;
+
+    /** The start time field of the test */
+    private Long startTime;
+
+    /** The summation of sequences */
+    private Long sumSq;
+
+    @Ignore private StatSummary globalStats;
+
+    @Ignore private Map<String, StatSummary> labelStats;
+
+    /*
     public final StatSummary globalStats;
     public final List<String> labels;
     public final Map<String, StatSummary> labelStats;
@@ -63,6 +129,7 @@ public class ProfilingPointSummaryEntity implements DashboardEntity {
     public final String buildFlavor;
     public final String series;
     public final long startTime;
+    */
 
     /**
      * Create a ProfilingPointSummaryEntity object.
@@ -147,26 +214,34 @@ public class ProfilingPointSummaryEntity implements DashboardEntity {
      * @param profilingRun The profiling point run entity object containing profiling data.
      */
     public void update(ProfilingPointRunEntity profilingRun) {
-        if (profilingRun.labels != null
-                && profilingRun.labels.size() == profilingRun.values.size()) {
-            for (int i = 0; i < profilingRun.labels.size(); i++) {
-                String label = profilingRun.labels.get(i);
+        if (profilingRun.getLabels() != null
+                && profilingRun.getLabels().size() == profilingRun.getValues().size()) {
+            for (int i = 0; i < profilingRun.getLabels().size(); i++) {
+                String label = profilingRun.getLabels().get(i);
                 if (!this.labelStats.containsKey(label)) {
-                    StatSummary summary = new StatSummary(label, profilingRun.regressionMode);
+                    VtsProfilingRegressionMode vtsProfilingRegressionMode =
+                            profilingRun.getVtsProfilingRegressionMode(
+                                    profilingRun.getRegressionMode());
+                    StatSummary summary = new StatSummary(label, vtsProfilingRegressionMode);
                     this.labelStats.put(label, summary);
                 }
                 StatSummary summary = this.labelStats.get(label);
-                summary.updateStats(profilingRun.values.get(i));
+                summary.updateStats(profilingRun.getValues().get(i));
             }
             this.labels.clear();
-            this.labels.addAll(profilingRun.labels);
+            this.labels.addAll(profilingRun.getLabels());
         }
-        for (long value : profilingRun.values) {
+        for (long value : profilingRun.getValues()) {
             this.globalStats.updateStats(value);
         }
     }
 
+    /** Saving function for the instance of this class */
     @Override
+    public com.googlecode.objectify.Key<ProfilingPointSummaryEntity> save() {
+        return ofy().save().entity(this).now();
+    }
+
     public Entity toEntity() {
         Entity profilingSummary;
         profilingSummary = new Entity(this.key);

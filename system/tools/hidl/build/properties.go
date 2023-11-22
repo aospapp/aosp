@@ -24,21 +24,12 @@ type fileGroupProperties struct {
 	Srcs  []string
 }
 
-type genruleProperties struct {
-	Name    *string
-	Owner   *string
-	Tools   []string
-	Cmd     *string
-	Srcs    []string
-	Out     []string
-	Depfile *bool
-}
-
 type ccProperties struct {
 	Name                      *string
 	Owner                     *string
 	Defaults                  []string
 	Vendor_available          *bool
+	Recovery_available        *bool
 	Generated_sources         []string
 	Generated_headers         []string
 	Group_static_libs         *bool
@@ -47,6 +38,8 @@ type ccProperties struct {
 	Export_shared_lib_headers []string
 	Export_static_lib_headers []string
 	Export_generated_headers  []string
+	Double_loadable           *bool
+	Cflags                    []string
 }
 
 type javaProperties struct {
@@ -54,6 +47,7 @@ type javaProperties struct {
 	Owner             *string
 	Defaults          []string
 	No_framework_libs *bool
+	Installable       *bool
 	Sdk_version       *string
 	Srcs              []string
 	Libs              []string

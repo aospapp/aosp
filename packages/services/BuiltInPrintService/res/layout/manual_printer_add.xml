@@ -14,44 +14,49 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="?android:dialogPreferredPadding">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:id="@+id/connect_hint"
+    <LinearLayout
+        android:orientation="vertical"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dip"
-        android:textAppearance="?android:attr/textAppearanceSmall"
-        android:visibility="gone"
-        android:text="@string/connect_hint_text"/>
+        android:layout_height="match_parent"
+        android:padding="?android:dialogPreferredPadding">
 
-    <TextView
-        android:id="@+id/labelHostname"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/hostname_or_ip"
-        android:textDirection="locale" />
+        <TextView
+            android:id="@+id/connect_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dip"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:visibility="gone"
+            android:text="@string/connect_hint_text" />
 
-    <EditText
-        android:id="@+id/hostname"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/ip_hint"
-        android:maxLength="128"
-        android:maxLines="1"
-        android:inputType="textNoSuggestions" />
+        <TextView
+            android:id="@+id/labelHostname"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/hostname_or_ip"
+            android:textDirection="locale" />
 
-    <ProgressBar
-        android:id="@+id/progress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:visibility="gone"
-        android:indeterminate="true"
-        android:layout_gravity="center"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-</LinearLayout>
+        <EditText
+            android:id="@+id/hostname"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/ip_hint"
+            android:maxLength="128"
+            android:maxLines="1"
+            android:inputType="textNoSuggestions" />
+
+        <ProgressBar
+            android:id="@+id/progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:visibility="gone"
+            android:indeterminate="true"
+            android:layout_gravity="center"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+</ScrollView>

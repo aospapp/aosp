@@ -16,19 +16,9 @@
   <threadsafe>true</threadsafe>
   <sessions-enabled>true</sessions-enabled>
   <runtime>java8</runtime>
+  <instance-class>F4_1G</instance-class>
 
   <system-properties>
-    <property name="EMAIL_DOMAIN" value="${appengine.emailDomain}" />
-    <property name="SENDER_EMAIL" value="${appengine.senderEmail}" />
-    <property name="DEFAULT_EMAIL" value="${appengine.defaultEmail}" />
-    <property name="SERVICE_CLIENT_ID" value="${appengine.serviceClientID}" />
-    <property name="CLIENT_ID" value="${appengine.clientID}" />
-    <property name="GERRIT_URI" value="${gerrit.uri}" />
-    <property name="GERRIT_SCOPE" value="${gerrit.scope}" />
-    <property name="ANALYTICS_ID" value="${analytics.id}" />
-    <property name="GCS_PROJECT_ID" value="${gcs.projectID}" />
-    <property name="GCS_KEY_FILE" value="${gcs.keyFile}" />
-    <property name="GCS_BUCKET_NAME" value="${gcs.bucketName}" />
   </system-properties>
 
 </appengine-web-app>

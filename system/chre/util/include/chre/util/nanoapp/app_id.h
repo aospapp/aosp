@@ -65,19 +65,20 @@ constexpr uint64_t makeGoogleNanoappId(uint32_t appNumber) {
   return makeNanoappId(CHRE_VENDOR_ID_GOOGLE, appNumber);
 }
 
-constexpr uint64_t kHelloWorldAppId     = makeExampleNanoappId(1);
-constexpr uint64_t kMessageWorldAppId   = makeExampleNanoappId(2);
-constexpr uint64_t kTimerWorldAppId     = makeExampleNanoappId(3);
-constexpr uint64_t kSensorWorldAppId    = makeExampleNanoappId(4);
-constexpr uint64_t kGnssWorldAppId      = makeExampleNanoappId(5);
-constexpr uint64_t kWifiWorldAppId      = makeExampleNanoappId(6);
-constexpr uint64_t kWwanWorldAppId      = makeExampleNanoappId(7);
+constexpr uint64_t kHelloWorldAppId       = makeExampleNanoappId(1);
+constexpr uint64_t kMessageWorldAppId     = makeExampleNanoappId(2);
+constexpr uint64_t kTimerWorldAppId       = makeExampleNanoappId(3);
+constexpr uint64_t kSensorWorldAppId      = makeExampleNanoappId(4);
+constexpr uint64_t kGnssWorldAppId        = makeExampleNanoappId(5);
+constexpr uint64_t kWifiWorldAppId        = makeExampleNanoappId(6);
+constexpr uint64_t kWwanWorldAppId        = makeExampleNanoappId(7);
 // 8 = reserved (previously used by ImuCal)
-constexpr uint64_t kSpammerAppId        = makeExampleNanoappId(9);
-constexpr uint64_t kUnloadTesterAppId   = makeExampleNanoappId(10);
-constexpr uint64_t kAshWorldAppId       = makeExampleNanoappId(11);
-constexpr uint64_t kAudioWorldAppId     = makeExampleNanoappId(12);
-constexpr uint64_t kHostAwakeWorldAppId = makeExampleNanoappId(13);
+constexpr uint64_t kSpammerAppId          = makeExampleNanoappId(9);
+constexpr uint64_t kUnloadTesterAppId     = makeExampleNanoappId(10);
+constexpr uint64_t kAshWorldAppId         = makeExampleNanoappId(11);
+constexpr uint64_t kAudioWorldAppId       = makeExampleNanoappId(12);
+constexpr uint64_t kHostAwakeWorldAppId   = makeExampleNanoappId(13);
+constexpr uint64_t kAudioStressTestAppId  = makeExampleNanoappId(14);
 
 }  // namespace chre
 

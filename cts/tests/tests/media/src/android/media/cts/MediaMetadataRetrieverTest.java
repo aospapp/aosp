@@ -16,35 +16,33 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
-
-import android.content.pm.PackageManager;
-import android.content.res.AssetFileDescriptor;
-import android.content.res.Resources;
-import android.media.MediaDataSource;
-import android.media.MediaExtractor;
-import android.media.MediaFormat;
-import android.media.MediaMetadataRetriever;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.graphics.Rect;
-import android.platform.test.annotations.AppModeFull;
-import android.support.test.filters.SmallTest;
-import android.platform.test.annotations.RequiresDevice;
-import android.test.AndroidTestCase;
-import android.util.Log;
-
-import com.android.compatibility.common.util.MediaUtils;
-
-import static android.content.pm.PackageManager.FEATURE_WATCH;
 import static android.media.MediaMetadataRetriever.OPTION_CLOSEST;
 import static android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC;
 import static android.media.MediaMetadataRetriever.OPTION_NEXT_SYNC;
 import static android.media.MediaMetadataRetriever.OPTION_PREVIOUS_SYNC;
 
-import java.io.InputStream;
+import android.content.pm.PackageManager;
+import android.content.res.AssetFileDescriptor;
+import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.media.MediaDataSource;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
+import android.media.MediaMetadataRetriever;
+import android.media.cts.R;
+import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.RequiresDevice;
+import android.test.AndroidTestCase;
+
+import androidx.test.filters.SmallTest;
+
+import com.android.compatibility.common.util.MediaUtils;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -183,6 +181,19 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_WRITER));
     }
 
+    public void testBitsPerSampleAndSampleRate() {
+        setDataSourceFd(R.raw.testwav_16bit_44100hz);
+
+        assertEquals("Bits per sample was other than expected",
+                "16",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE));
+
+        assertEquals("Sample rate was other than expected",
+                "44100",
+                mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE));
+
+    }
+
     public void testLargeAlbumArt() {
         setDataSourceFd(R.raw.largealbumart);
 
@@ -319,8 +330,42 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testGetFrameAtTime(OPTION_CLOSEST, testCases);
     }
 
+    public void testGetFrameAtTimePreviousSyncEditList() {
+        int[][] testCases = {
+                { 2000000, 60 }, { 2433334, 60 }, { 2533334, 60 }, { 2933334, 60 }, { 3133334, 90}};
+        testGetFrameAtTimeEditList(OPTION_PREVIOUS_SYNC, testCases);
+    }
+
+    public void testGetFrameAtTimeNextSyncEditList() {
+        int[][] testCases = {
+                { 2000000, 60 }, { 2433334, 90 }, { 2533334, 90 }, { 2933334, 90 }, { 3133334, 120}};
+        testGetFrameAtTimeEditList(OPTION_NEXT_SYNC, testCases);
+    }
+
+    public void testGetFrameAtTimeClosestSyncEditList() {
+        int[][] testCases = {
+                { 2000000, 60 }, { 2433334, 60 }, { 2533334, 90 }, { 2933334, 90 }, { 3133334, 90}};
+        testGetFrameAtTimeEditList(OPTION_CLOSEST_SYNC, testCases);
+    }
+
+    public void testGetFrameAtTimeClosestEditList() {
+        int[][] testCases = {
+                { 2000000, 60 }, { 2433335, 73 }, { 2533333, 76 }, { 2949334, 88 }, { 3117334, 94}};
+        testGetFrameAtTimeEditList(OPTION_CLOSEST, testCases);
+    }
+
     private void testGetFrameAtTime(int option, int[][] testCases) {
         testGetFrameAt(testCases, (r) -> {
+            List<Bitmap> bitmaps = new ArrayList<>();
+            for (int i = 0; i < testCases.length; i++) {
+                bitmaps.add(r.getFrameAtTime(testCases[i][0], option));
+            }
+            return bitmaps;
+        });
+    }
+
+    private void testGetFrameAtTimeEditList(int option, int[][] testCases) {
+        testGetFrameAtEditList(testCases, (r) -> {
             List<Bitmap> bitmaps = new ArrayList<>();
             for (int i = 0; i < testCases.length; i++) {
                 bitmaps.add(r.getFrameAtTime(testCases[i][0], option));
@@ -397,6 +442,32 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
         List<Bitmap> bitmaps = bitmapRetriever.apply(retriever);
 
+        for (int i = 0; i < testCases.length; i++) {
+            verifyVideoFrame(bitmaps.get(i), testCases[i]);
+        }
+        retriever.release();
+    }
+
+    private void testGetFrameAtEditList(int[][] testCases,
+            Function<MediaMetadataRetriever, List<Bitmap> > bitmapRetriever) {
+        int resId = R.raw.binary_counter_320x240_30fps_600frames_editlist;
+        if (!MediaUtils.hasCodecForResourceAndDomain(getContext(), resId, "video/")
+            && mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            MediaUtils.skipTest("no video codecs for resource on watch");
+            return;
+        }
+
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        Resources resources = getContext().getResources();
+        AssetFileDescriptor afd = resources.openRawResourceFd(resId);
+        retriever.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+        try {
+            afd.close();
+        } catch (IOException e) {
+            fail("Unable to close file");
+        }
+
+        List<Bitmap> bitmaps = bitmapRetriever.apply(retriever);
         for (int i = 0; i < testCases.length; i++) {
             verifyVideoFrame(bitmaps.get(i), testCases[i]);
         }
@@ -600,11 +671,6 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
     }
 
     public void testGetImageAtIndex() throws Exception {
-        if (!MediaUtils.hasDecoder(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
-            MediaUtils.skipTest("no video decoders for resource");
-            return;
-        }
-
         testGetImage(R.raw.heifwriter_input, 1920, 1080, 0 /*rotation*/,
                 4 /*imageCount*/, 3 /*primary*/, true /*useGrid*/, true /*checkColor*/);
     }

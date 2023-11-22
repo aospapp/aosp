@@ -89,8 +89,6 @@ import javax.net.ssl.X509TrustManager;
 import libcore.java.security.TestKeyStore;
 import libcore.javax.net.ssl.TestSSLContext;
 
-import tests.net.DelegatingSocketFactory;
-
 import static com.google.mockwebserver.SocketPolicy.DISCONNECT_AT_END;
 import static com.google.mockwebserver.SocketPolicy.DISCONNECT_AT_START;
 import static com.google.mockwebserver.SocketPolicy.FAIL_HANDSHAKE;
@@ -854,6 +852,55 @@ public final class URLConnectionTest extends TestCase {
         // Check the client did not cache.
         RecordedRequest request = server.takeRequest();
         assertNull(request.getHeader("If-None-Match"));
+    }
+
+    /**
+     * Checks that paths ending in '/' (directory listings) are identified as HTML.
+     */
+    public void testGetFileNameMap_directory() {
+        checkFileNameMap("text/html", "/directory/path/");
+        checkFileNameMap("text/html", "http://example.com/path/");
+    }
+
+    public void testGetFileNameMap_simple() {
+        checkFileNameMap("text/plain", "example.txt");
+        checkFileNameMap("text/plain", "example.com/file.txt");
+    }
+
+    /**
+     * Checks that the *last* dot is considered for determining a file extension.
+     */
+    public void testGetFileNameMap_multipleDots() {
+        checkFileNameMap("text/html", "example.com/foo.txt/bar.html");
+        checkFileNameMap("text/plain", "example.com/foo.html/bar.txt");
+        checkFileNameMap("text/plain", "example.html.txt");
+    }
+
+    /**
+     * Checks that fragments are stripped when determining file extension.
+     */
+    public void testGetFileNameMap_fragment() {
+        checkFileNameMap("text/plain", "example.txt#fragment");
+        checkFileNameMap("text/plain", "example.com/path/example.txt#fragment");
+    }
+
+    /**
+     * Checks that fragments are NOT stripped and therefore break recognition
+     * of file type.
+     * This matches RI behavior, but it'd be reasonable to change behavior here.
+     */
+    public void testGetFileNameMap_queryParameter() {
+        checkFileNameMap(null, "example.txt?key=value");
+        checkFileNameMap(null, "example.txt?key=value#fragment");
+    }
+
+    private static void checkFileNameMap(String expected, String fileName) {
+        String actual = URLConnection.getFileNameMap().getContentTypeFor(fileName);
+        assertEquals(fileName, expected, actual);
+
+        // The documentation doesn't guarantee that these two do exactly the same thing,
+        // but it is one reasonable way to implement it.
+        assertEquals(fileName, expected, URLConnection.guessContentTypeFromName(fileName));
     }
 
     /**
@@ -2066,6 +2113,16 @@ public final class URLConnectionTest extends TestCase {
         } finally {
             HttpsURLConnection.setDefaultHostnameVerifier(defaultHostnameVerifier);
             HttpsURLConnection.setDefaultSSLSocketFactory(defaultSSLSocketFactory);
+        }
+    }
+
+    public void testSetSSLSocketFactory_null() throws Exception {
+        URL url = new URL("https://google.com");
+        HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
+        try {
+            connection.setSSLSocketFactory(null);
+            fail();
+        } catch (IllegalArgumentException expected) {
         }
     }
 

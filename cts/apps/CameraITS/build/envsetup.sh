@@ -63,6 +63,4 @@ do
         echo ">> Unit test for $M failed" >&2
 done
 
-alias gpylint='gpylint --disable=F0401 --disable=C6304 --rcfile=$CAMERA_ITS_TOP"/build/scripts/gpylint_rcfile"'
-# F0401 ignores import errors since gpylint does not have the python paths
-# C6304 ignore Copyright line errors.
+alias gpylint='gpylint --rcfile=$CAMERA_ITS_TOP"/build/scripts/gpylint_rcfile"'

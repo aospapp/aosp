@@ -26,7 +26,6 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.cts.CameraCtsActivity;
 import android.os.Handler;
-import android.platform.test.annotations.AppModeFull;
 import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 
@@ -41,7 +40,6 @@ import static org.mockito.Mockito.*;
 /**
  * Tests for multi-process camera usage behavior.
  */
-@AppModeFull
 public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraCtsActivity> {
 
     public static final String TAG = "CameraEvictionTest";
@@ -60,6 +58,15 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
     private final Object mLock = new Object();
     private boolean mCompleted = false;
     private int mProcessPid = -1;
+
+    /** Load jni on initialization */
+    static {
+        System.loadLibrary("ctscamera2_jni");
+    }
+
+    private static native long initializeAvailabilityCallbacksNative();
+    private static native int getAccessCallbacksCountAndResetNative(long context);
+    private static native long releaseAvailabilityCallbacksNative(long context);
 
     public CameraEvictionTest() {
         super(CameraCtsActivity.class);
@@ -255,6 +262,80 @@ public class CameraEvictionTest extends ActivityInstrumentationTestCase2<CameraC
         forceCtsActivityToTop();
     }
 
+    /**
+     * Test camera availability access callback.
+     */
+    public void testCamera2AccessCallback() throws Throwable {
+        int PERMISSION_CALLBACK_TIMEOUT_MS = 2000;
+        CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+        assertNotNull(manager);
+        String[] cameraIds = manager.getCameraIdList();
+
+        if (cameraIds.length == 0) {
+            Log.i(TAG, "Skipping testCamera2AccessCallback, device has no cameras.");
+            return;
+        }
+
+        assertTrue(mContext.getMainLooper() != null);
+
+        // Setup camera manager
+        Handler cameraHandler = new Handler(mContext.getMainLooper());
+
+        final CameraManager.AvailabilityCallback mockAvailCb =
+                mock(CameraManager.AvailabilityCallback.class);
+        manager.registerAvailabilityCallback(mockAvailCb, cameraHandler);
+
+        // Remove current task from top of stack. This will impact the camera access
+        // pririorties.
+        getActivity().moveTaskToBack(/*nonRoot*/true);
+
+        verify(mockAvailCb, timeout(
+                PERMISSION_CALLBACK_TIMEOUT_MS).atLeastOnce()).onCameraAccessPrioritiesChanged();
+
+        forceCtsActivityToTop();
+
+        verify(mockAvailCb, timeout(
+                PERMISSION_CALLBACK_TIMEOUT_MS).atLeastOnce()).onCameraAccessPrioritiesChanged();
+    }
+
+    /**
+     * Test native camera availability access callback.
+     */
+    public void testCamera2NativeAccessCallback() throws Throwable {
+        int PERMISSION_CALLBACK_TIMEOUT_MS = 2000;
+        CameraManager manager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+        assertNotNull(manager);
+        String[] cameraIds = manager.getCameraIdList();
+
+        if (cameraIds.length == 0) {
+            Log.i(TAG, "Skipping testBasicCamera2AccessCallback, device has no cameras.");
+            return;
+        }
+
+        // Setup camera manager
+        long context = 0;
+        try {
+            context = initializeAvailabilityCallbacksNative();
+            assertTrue("Failed to initialize native availability callbacks", (context != 0));
+
+            // Remove current task from top of stack. This will impact the camera access
+            // pririorties.
+            getActivity().moveTaskToBack(/*nonRoot*/true);
+
+            Thread.sleep(PERMISSION_CALLBACK_TIMEOUT_MS);
+            assertTrue("No camera permission access changed callback received",
+                    (getAccessCallbacksCountAndResetNative(context) > 0));
+
+            forceCtsActivityToTop();
+
+            assertTrue("No camera permission access changed callback received",
+                    (getAccessCallbacksCountAndResetNative(context) > 0));
+        } finally {
+            if (context != 0) {
+                releaseAvailabilityCallbacksNative(context);
+            }
+        }
+    }
 
     /**
      * Test basic eviction scenarios for camera used in MediaRecoder

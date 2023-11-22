@@ -20,7 +20,7 @@
 #include "debug/method_debug_info.h"
 #include "gtest/gtest.h"
 #include "linker/linker_patch.h"
-#include "linker/vector_output_stream.h"
+#include "stream/vector_output_stream.h"
 
 namespace art {
 namespace linker {
@@ -35,7 +35,7 @@ class MultiOatRelativePatcherTest : public testing::Test {
 
     uint32_t ReserveSpace(uint32_t offset,
                           const CompiledMethod* compiled_method ATTRIBUTE_UNUSED,
-                          MethodReference method_ref) OVERRIDE {
+                          MethodReference method_ref) override {
       last_reserve_offset_ = offset;
       last_reserve_method_ = method_ref;
       offset += next_reserve_adjustment_;
@@ -43,7 +43,7 @@ class MultiOatRelativePatcherTest : public testing::Test {
       return offset;
     }
 
-    uint32_t ReserveSpaceEnd(uint32_t offset) OVERRIDE {
+    uint32_t ReserveSpaceEnd(uint32_t offset) override {
       last_reserve_offset_ = offset;
       last_reserve_method_ = kNullMethodRef;
       offset += next_reserve_adjustment_;
@@ -51,7 +51,7 @@ class MultiOatRelativePatcherTest : public testing::Test {
       return offset;
     }
 
-    uint32_t WriteThunks(OutputStream* out, uint32_t offset) OVERRIDE {
+    uint32_t WriteThunks(OutputStream* out, uint32_t offset) override {
       last_write_offset_ = offset;
       if (next_write_alignment_ != 0u) {
         offset += next_write_alignment_;
@@ -79,7 +79,7 @@ class MultiOatRelativePatcherTest : public testing::Test {
     void PatchCall(std::vector<uint8_t>* code ATTRIBUTE_UNUSED,
                    uint32_t literal_offset,
                    uint32_t patch_offset,
-                   uint32_t target_offset) OVERRIDE {
+                   uint32_t target_offset) override {
       last_literal_offset_ = literal_offset;
       last_patch_offset_ = patch_offset;
       last_target_offset_ = target_offset;
@@ -88,7 +88,7 @@ class MultiOatRelativePatcherTest : public testing::Test {
     void PatchPcRelativeReference(std::vector<uint8_t>* code ATTRIBUTE_UNUSED,
                                   const LinkerPatch& patch,
                                   uint32_t patch_offset,
-                                  uint32_t target_offset) OVERRIDE {
+                                  uint32_t target_offset) override {
       last_literal_offset_ = patch.LiteralOffset();
       last_patch_offset_ = patch_offset;
       last_target_offset_ = target_offset;
@@ -96,12 +96,12 @@ class MultiOatRelativePatcherTest : public testing::Test {
 
     void PatchBakerReadBarrierBranch(std::vector<uint8_t>* code ATTRIBUTE_UNUSED,
                                      const LinkerPatch& patch ATTRIBUTE_UNUSED,
-                                     uint32_t patch_offset ATTRIBUTE_UNUSED) {
+                                     uint32_t patch_offset ATTRIBUTE_UNUSED) override {
       LOG(FATAL) << "UNIMPLEMENTED";
     }
 
     std::vector<debug::MethodDebugInfo> GenerateThunkDebugInfo(
-        uint32_t executable_offset ATTRIBUTE_UNUSED) {
+        uint32_t executable_offset ATTRIBUTE_UNUSED) override {
       LOG(FATAL) << "UNIMPLEMENTED";
       UNREACHABLE();
     }
@@ -122,7 +122,7 @@ class MultiOatRelativePatcherTest : public testing::Test {
 
   MultiOatRelativePatcherTest()
       : instruction_set_features_(InstructionSetFeatures::FromCppDefines()),
-        patcher_(kRuntimeISA, instruction_set_features_.get()) {
+        patcher_(kRuntimeISA, instruction_set_features_.get(), /* storage */ nullptr) {
     std::unique_ptr<MockPatcher> mock(new MockPatcher());
     mock_ = mock.get();
     patcher_.relative_patcher_ = std::move(mock);

@@ -16,38 +16,51 @@
 
 package android.media.cts;
 
-import android.media.cts.R;
+import static org.testng.Assert.assertThrows;
+
 import android.content.res.AssetFileDescriptor;
-import android.content.res.Resources;
+import android.media.AudioFormat;
+import android.media.AudioPresentation;
 import android.media.MediaCodec;
 import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.CodecException;
 import android.media.MediaCodec.CryptoInfo;
 import android.media.MediaCodec.CryptoInfo.Pattern;
 import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.AudioCapabilities;
+import android.media.MediaCodecInfo.CodecCapabilities;
+import android.media.MediaCodecInfo.CodecProfileLevel;
+import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaCrypto;
 import android.media.MediaDrm;
+import android.media.MediaDrm.MediaDrmStateException;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.media.MediaCodecInfo.CodecCapabilities;
-import android.media.MediaCodecInfo.CodecProfileLevel;
+import android.media.cts.R;
 import android.opengl.GLES20;
+import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.PersistableBundle;
-import android.support.test.filters.SmallTest;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.AndroidTestCase;
 import android.util.Log;
+import android.util.Range;
 import android.view.Surface;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.BufferedInputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -978,6 +991,9 @@ public class MediaCodecTest extends AndroidTestCase {
             // re-configure, this time without an input surface
             if (VERBOSE) Log.d(TAG, "reconfiguring");
             encoder.stop();
+            // Use non-opaque color format for byte buffer mode.
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
+                    MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
             encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             encoder.start();
             if (VERBOSE) Log.d(TAG, "reconfigured");
@@ -1734,10 +1750,7 @@ public class MediaCodecTest extends AndroidTestCase {
     private static boolean supportsCodec(String mimeType, boolean encoder) {
         MediaCodecList list = new MediaCodecList(MediaCodecList.ALL_CODECS);
         for (MediaCodecInfo info : list.getCodecInfos()) {
-            if (encoder && !info.isEncoder()) {
-                continue;
-            }
-            if (!encoder && info.isEncoder()) {
+            if (encoder != info.isEncoder()) {
                 continue;
             }
 
@@ -1804,14 +1817,206 @@ public class MediaCodecTest extends AndroidTestCase {
         }
     }
 
-    abstract class ByteBufferStream {
+    /**
+     * PCM encoding configuration test.
+     *
+     * If not specified in configure(), PCM encoding if it exists must be 16 bit.
+     * If specified float in configure(), PCM encoding if it exists must be 16 bit, or float.
+     *
+     * As of Q, any codec of type "audio/raw" must support PCM encoding float.
+     */
+    @MediumTest
+    public void testPCMEncoding() throws Exception {
+        final MediaCodecList mcl = new MediaCodecList(MediaCodecList.ALL_CODECS);
+        for (MediaCodecInfo codecInfo : mcl.getCodecInfos()) {
+            final boolean isEncoder = codecInfo.isEncoder();
+            final String name = codecInfo.getName();
+
+            for (String type : codecInfo.getSupportedTypes()) {
+                final MediaCodecInfo.CodecCapabilities ccaps =
+                        codecInfo.getCapabilitiesForType(type);
+                final MediaCodecInfo.AudioCapabilities acaps =
+                        ccaps.getAudioCapabilities();
+                if (acaps == null) {
+                    break; // not an audio codec
+                }
+
+                // Deduce the minimum channel count (though prefer stereo over mono).
+                final int channelCount = Math.min(acaps.getMaxInputChannelCount(), 2);
+
+                // Deduce the minimum sample rate.
+                final int[] sampleRates = acaps.getSupportedSampleRates();
+                final Range<Integer>[] sampleRateRanges = acaps.getSupportedSampleRateRanges();
+                assertNotNull("supported sample rate ranges must be non-null", sampleRateRanges);
+                final int sampleRate = sampleRateRanges[0].getLower();
+
+                // If sample rate array exists (it may not),
+                // the minimum value must be equal with the minimum from the sample rate range.
+                if (sampleRates != null) {
+                    assertEquals("sample rate range and array should have equal minimum",
+                            sampleRate, sampleRates[0]);
+                    Log.d(TAG, "codec: " + name + " type: " + type
+                            + " has both sampleRate array and ranges");
+                } else {
+                    Log.d(TAG, "codec: " + name + " type: " + type
+                            + " returns null getSupportedSampleRates()");
+                }
+
+                // We create one format here for both tests below.
+                final MediaFormat format = MediaFormat.createAudioFormat(
+                    type, sampleRate, channelCount);
+
+                // Bitrate field is mandatory for encoders (except FLAC).
+                if (isEncoder) {
+                    final int bitRate = acaps.getBitrateRange().getLower();
+                    format.setInteger(MediaFormat.KEY_BIT_RATE, bitRate);
+                }
+
+                // First test: An audio codec must be createable from a format
+                // with the minimum sample rate and channel count.
+                // The PCM encoding must be null (doesn't exist) or 16 bit.
+                {
+                    // Check encoding of codec.
+                    final Integer actualEncoding = encodingOfAudioCodec(name, format, isEncoder);
+                    if (actualEncoding != null) {
+                        assertEquals("returned audio encoding must be 16 bit for codec: "
+                                + name + " type: " + type + " encoding: " + actualEncoding,
+                                AudioFormat.ENCODING_PCM_16BIT, actualEncoding.intValue());
+                    }
+                }
+
+                // Second test: An audio codec configured with PCM encoding float must return
+                // either an encoding of null (doesn't exist), 16 bit, or float.
+                {
+                    // Reuse the original format, and add float specifier.
+                    format.setInteger(
+                            MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT);
+
+                    // Check encoding of codec.
+                    // The KEY_PCM_ENCODING key is advisory, so should not cause configuration
+                    // failure.  The actual PCM encoding is returned from
+                    // the input format (encoder) or output format (decoder).
+                    final Integer actualEncoding = encodingOfAudioCodec(name, format, isEncoder);
+                    if (actualEncoding != null) {
+                        assertTrue(
+                                "returned audio encoding must be 16 bit or float for codec: "
+                                + name + " type: " + type + " encoding: " + actualEncoding,
+                                actualEncoding == AudioFormat.ENCODING_PCM_16BIT
+                                || actualEncoding == AudioFormat.ENCODING_PCM_FLOAT);
+                        if (actualEncoding == AudioFormat.ENCODING_PCM_FLOAT) {
+                            Log.d(TAG, "codec: " + name + " type: " + type + " supports float");
+                        }
+                    }
+
+                    // As of Q, all codecs of type "audio/raw" must support float.
+                    if (type.equals("audio/raw")) {
+                        assertTrue(type + " must support float",
+                                actualEncoding != null &&
+                                actualEncoding.intValue() == AudioFormat.ENCODING_PCM_FLOAT);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns the PCM encoding of an audio codec, or null if codec doesn't exist,
+     * or not an audio codec, or PCM encoding key doesn't exist.
+     */
+    private Integer encodingOfAudioCodec(String name, MediaFormat format, boolean encode)
+            throws IOException {
+        final int flagEncoder = encode ? MediaCodec.CONFIGURE_FLAG_ENCODE : 0;
+        final MediaCodec codec = MediaCodec.createByCodecName(name);
+        Integer actualEncoding = null;
+
+        try {
+            codec.configure(format, null /* surface */, null /* crypto */, flagEncoder);
+
+            // Check input/output format - this must exist.
+            final MediaFormat actualFormat =
+                    encode ? codec.getInputFormat() : codec.getOutputFormat();
+            assertNotNull("cannot get format for " + name, actualFormat);
+
+            // Check actual encoding - this may or may not exist
+            try {
+                actualEncoding = actualFormat.getInteger(MediaFormat.KEY_PCM_ENCODING);
+            } catch (Exception e) {
+                ; // trying to get a non-existent key throws exception
+            }
+        } finally {
+            codec.release();
+        }
+        return actualEncoding;
+    }
+
+    /*
+     * Simulate ERROR_LOST_STATE error during decryption, expected
+     * result is MediaCodec.CryptoException with errorCode == ERROR_LOST_STATE
+     */
+    public void testCryptoErrorLostSessionState() throws Exception {
+        if (!supportsCodec(MIME_TYPE, true)) {
+            Log.i(TAG, "No encoder found for mimeType= " + MIME_TYPE);
+            return;
+        }
+
+        MediaDrm drm = new MediaDrm(CLEARKEY_SCHEME_UUID);
+        drm.setPropertyString("drmErrorTest", "lostState");
+
+        byte[] sessionId = drm.openSession();
+        MediaCrypto crypto = new MediaCrypto(CLEARKEY_SCHEME_UUID, new byte[0]);
+        MediaCodec codec = MediaCodec.createDecoderByType(MIME_TYPE);
+
+        try {
+            crypto.setMediaDrmSession(sessionId);
+
+            MediaCodec.CryptoInfo cryptoInfo = new MediaCodec.CryptoInfo();
+            MediaFormat format = createMediaFormat();
+
+            codec.configure(format, null, crypto, 0);
+            codec.start();
+            int index = codec.dequeueInputBuffer(-1);
+            assertTrue(index >= 0);
+            ByteBuffer buffer = codec.getInputBuffer(index);
+            cryptoInfo.set(
+                    1,
+                    new int[] { 0 },
+                    new int[] { buffer.capacity() },
+                            new byte[16],
+                    new byte[16],
+                    MediaCodec.CRYPTO_MODE_AES_CTR);
+            try {
+                codec.queueSecureInputBuffer(index, 0, cryptoInfo, 0, 0);
+                fail("queueSecureInputBuffer should fail when trying to decrypt " +
+                        "after session lost state error.");
+            } catch (MediaCodec.CryptoException e) {
+                if (e.getErrorCode() != MediaCodec.CryptoException.ERROR_LOST_STATE) {
+                    fail("expected MediaCodec.CryptoException.ERROR_LOST_STATE: " +
+                            e.getErrorCode() + ": " + e.getMessage());
+                }
+                // received expected lost state exception
+            }
+            buffer = codec.getInputBuffer(index);
+            codec.stop();
+        } finally {
+            codec.release();
+            crypto.release();
+            try {
+                drm.closeSession(sessionId);
+            } catch (MediaDrmStateException e) {
+                // expected since session lost state
+            }
+        }
+    }
+
+    /* package */ static abstract class ByteBufferStream {
         public abstract ByteBuffer read() throws IOException;
     }
 
-    class MediaCodecStream extends ByteBufferStream {
+    /* package */ static class MediaCodecStream extends ByteBufferStream implements Closeable {
         private ByteBufferStream mBufferInputStream;
         private InputStream mInputStream;
         private MediaCodec mCodec;
+        public boolean mIsFloat;
         BufferInfo mInfo = new BufferInfo();
         boolean mSawOutputEOS;
         boolean mSawInputEOS;
@@ -1825,6 +2030,7 @@ public class MediaCodecTest extends AndroidTestCase {
         private int mBufOut = 0;
         private int mBufCounter = 0;
 
+        private MediaExtractor mExtractor; // Read from Extractor instead of InputStream
         // helper for bytewise read()
         private byte[] mOneByte = new byte[1];
 
@@ -1839,6 +2045,15 @@ public class MediaCodecTest extends AndroidTestCase {
                 mCodec = MediaCodec.createDecoderByType(mime);
             }
             mCodec.configure(format,null, null, encode ? MediaCodec.CONFIGURE_FLAG_ENCODE : 0);
+
+            // check if float
+            final MediaFormat actualFormat =
+                    encode ? mCodec.getInputFormat() : mCodec.getOutputFormat();
+
+            mIsFloat = actualFormat.getInteger(
+                    MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
+                            == AudioFormat.ENCODING_PCM_FLOAT;
+
             mCodec.start();
         }
 
@@ -1858,6 +2073,13 @@ public class MediaCodecTest extends AndroidTestCase {
             mBufferInputStream = input;
         }
 
+        MediaCodecStream(MediaExtractor mediaExtractor,
+                MediaFormat format) throws Exception {
+            this(format, false /* encode */);
+            mExtractor = mediaExtractor;
+        }
+
+        @Override
         public ByteBuffer read() throws IOException {
 
             if (mSawOutputEOS) {
@@ -1876,16 +2098,27 @@ public class MediaCodecTest extends AndroidTestCase {
                     buf.clear();
                     int inBufLen = buf.limit();
                     int numRead = 0;
-
-                    if (mBufferInputStream != null) {
+                    long timestampUs = 0; // non-zero for MediaExtractor mode
+                    if (mExtractor != null) {
+                        numRead = mExtractor.readSampleData(buf, 0 /* offset */);
+                        timestampUs = mExtractor.getSampleTime();
+                        Log.v(TAG, "MediaCodecStream.read using Extractor, numRead "
+                                + numRead +" timestamp " + timestampUs);
+                        mExtractor.advance();
+                        if(numRead < 0) {
+                           mSawInputEOS = true;
+                           timestampUs = 0;
+                           numRead =0;
+                        }
+                    } else if (mBufferInputStream != null) {
                         ByteBuffer in = null;
                         do {
                             in = mBufferInputStream.read();
-                        } while (in != null && in.limit() == 0);
+                        } while (in != null && in.limit() - in.position() == 0);
                         if (in == null) {
                             mSawInputEOS = true;
                         } else {
-                            int n = in.limit();
+                            final int n = in.limit() - in.position();
                             numRead += n;
                             buf.put(in);
                         }
@@ -1907,7 +2140,7 @@ public class MediaCodecTest extends AndroidTestCase {
                     }
 
                     int flags = mSawInputEOS ? MediaCodec.BUFFER_FLAG_END_OF_STREAM : 0;
-                    if (!mEncode && !mSentConfig) {
+                    if (!mEncode && !mSentConfig && mExtractor == null) {
                         flags |= MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
                         mSentConfig = true;
                     }
@@ -1917,7 +2150,7 @@ public class MediaCodecTest extends AndroidTestCase {
                     mCodec.queueInputBuffer(index,
                             0 /* offset */,
                             numRead,
-                            0 /* presentationTimeUs */,
+                            timestampUs /* presentationTimeUs */,
                             flags);
                     Log.i(TAG, "queued input buffer " + index + ", size " + numRead);
                 }
@@ -1948,6 +2181,7 @@ public class MediaCodecTest extends AndroidTestCase {
             return ByteBuffer.allocate(0);
         }
 
+        @Override
         public void close() throws IOException {
             try {
                 if (mInputStream != null) {
@@ -1974,7 +2208,7 @@ public class MediaCodecTest extends AndroidTestCase {
         }
     };
 
-    class ByteBufferInputStream extends InputStream {
+    /* package */ static class ByteBufferInputStream extends InputStream {
         ByteBufferStream mInput;
         ByteBuffer mBuffer;
 
@@ -1998,7 +2232,55 @@ public class MediaCodecTest extends AndroidTestCase {
         }
     };
 
-    private int compareStreams(InputStream test, InputStream reference) {
+    /* package */ static class PcmAudioBufferStream extends ByteBufferStream {
+
+        public int mCount;         // either 0 or 1 if the buffer has been delivered
+        public ByteBuffer mBuffer; // the audio buffer (furnished duplicated, read only).
+
+        public PcmAudioBufferStream(
+            int samples, int sampleRate, double frequency, double sweep, boolean useFloat) {
+            final int sampleSize = useFloat ? 4 : 2;
+            final int sizeInBytes = samples * sampleSize;
+            mBuffer = ByteBuffer.allocate(sizeInBytes);
+            mBuffer.order(java.nio.ByteOrder.nativeOrder());
+            if (useFloat) {
+                FloatBuffer fb = mBuffer.asFloatBuffer();
+                float[] fa = AudioHelper.createSoundDataInFloatArray(
+                    samples, sampleRate, frequency, sweep);
+                for (int i = 0; i < fa.length; ++i) {
+                    // quantize to a Q.23 integer so that identity is preserved
+                    fa[i] = (float)((int)(fa[i] * ((1 << 23) - 1))) / (1 << 23);
+                }
+                fb.put(fa);
+            } else {
+                ShortBuffer sb = mBuffer.asShortBuffer();
+                sb.put(AudioHelper.createSoundDataInShortArray(
+                    samples, sampleRate, frequency, sweep));
+            }
+            mBuffer.limit(sizeInBytes);
+        }
+
+        // duplicating constructor
+        public PcmAudioBufferStream(PcmAudioBufferStream other) {
+            mCount = 0;
+            mBuffer = other.mBuffer; // ok to copy, furnished read-only
+        }
+
+        public int sizeInBytes() {
+            return mBuffer.capacity();
+        }
+
+        @Override
+        public ByteBuffer read() throws IOException {
+            if (mCount < 1 /* only one buffer */) {
+                ++mCount;
+                return mBuffer.asReadOnlyBuffer();
+            }
+            return null;
+        }
+    }
+
+    /* package */ static int compareStreams(InputStream test, InputStream reference) {
         Log.i(TAG, "compareStreams");
         BufferedInputStream buffered_test = new BufferedInputStream(test);
         BufferedInputStream buffered_reference = new BufferedInputStream(reference);
@@ -2025,35 +2307,214 @@ public class MediaCodecTest extends AndroidTestCase {
         return numread;
     }
 
+    @SmallTest
     public void testFlacIdentity() throws Exception {
-        Resources res = mContext.getResources();
-        InputStream pcmStream1 = res.openRawResource(R.raw.sinesweepraw);
+        final int PCM_FRAMES = 1152 * 4; // FIXME: requires 4 flac frames to work with OMX codecs.
+        final int SAMPLES = PCM_FRAMES * AUDIO_CHANNEL_COUNT;
+        final int[] SAMPLE_RATES = {AUDIO_SAMPLE_RATE, 192000}; // ensure 192kHz supported.
 
-        MediaFormat encodeFormat = new MediaFormat();
-        encodeFormat.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_FLAC);
-        encodeFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);
-        encodeFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
-        encodeFormat.setInteger(MediaFormat.KEY_FLAC_COMPRESSION_LEVEL, 5);
+        for (int sampleRate : SAMPLE_RATES) {
+            final MediaFormat format = new MediaFormat();
+            format.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_FLAC);
+            format.setInteger(MediaFormat.KEY_SAMPLE_RATE, sampleRate);
+            format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, AUDIO_CHANNEL_COUNT);
 
-        MediaFormat decodeFormat = new MediaFormat();
-        decodeFormat.setString(MediaFormat.KEY_MIME, MediaFormat.MIMETYPE_AUDIO_FLAC);
-        decodeFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, 44100);
-        decodeFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, 2);
+            Log.d(TAG, "Trying sample rate: " + sampleRate
+                    + " channel count: " + AUDIO_CHANNEL_COUNT);
+            // this key is only needed for encode, ignored for decode
+            format.setInteger(MediaFormat.KEY_FLAC_COMPRESSION_LEVEL, 5);
 
-        MediaCodecStream rawToAmr = new MediaCodecStream(pcmStream1, encodeFormat, true);
-        MediaCodecStream amrToRaw = new MediaCodecStream(rawToAmr, decodeFormat, false);
+            for (int i = 0; i < 2; ++i) {
+                final boolean useFloat = (i == 1);
+                final PcmAudioBufferStream audioStream = new PcmAudioBufferStream(
+                    SAMPLES, sampleRate, 1000 /* frequency */, 100 /* sweep */, useFloat);
 
-        AssetFileDescriptor masterFd = res.openRawResourceFd(R.raw.sinesweepraw);
-        long masterLength = masterFd.getLength();
-        Log.i(TAG, "source length: " + masterLength);
-        masterFd.close();
+                if (useFloat) {
+                    format.setInteger(
+                        MediaFormat.KEY_PCM_ENCODING, AudioFormat.ENCODING_PCM_FLOAT);
+                }
 
-        InputStream pcmStream2 = res.openRawResource(R.raw.sinesweepraw);
+                final MediaCodecStream rawToFlac = new MediaCodecStream(
+                    new ByteBufferInputStream(audioStream), format, true /* encode */);
+                final MediaCodecStream flacToRaw = new MediaCodecStream(
+                    rawToFlac, format, false /* encode */);
 
-        assertEquals("not identical after compression",
-                masterLength,
-                compareStreams(new ByteBufferInputStream(amrToRaw), pcmStream2));
-        pcmStream1.close();
-        pcmStream2.close();
+                if (useFloat) { // ensure float precision supported at the sample rate.
+                    assertTrue("No float FLAC encoder at " + sampleRate,
+                            rawToFlac.mIsFloat);
+                    assertTrue("No float FLAC decoder at " + sampleRate,
+                            flacToRaw.mIsFloat);
+                }
+
+                // Note: the existence of signed zero (as well as NAN) may make byte
+                // comparisons invalid for floating point output. In our case, since the
+                // floats come through integer to float conversion, it does not matter.
+                assertEquals("Audio data not identical after compression",
+                    audioStream.sizeInBytes(),
+                    compareStreams(new ByteBufferInputStream(flacToRaw),
+                        new ByteBufferInputStream(new PcmAudioBufferStream(audioStream))));
+            }
+        }
+    }
+
+    public void testAsyncRelease() throws Exception {
+        OutputSurface outputSurface = new OutputSurface(1, 1);
+        MediaExtractor mediaExtractor = getMediaExtractorForMimeType(INPUT_RESOURCE_ID, "video/");
+        MediaFormat mediaFormat =
+                mediaExtractor.getTrackFormat(mediaExtractor.getSampleTrackIndex());
+        String mimeType = mediaFormat.getString(MediaFormat.KEY_MIME);
+        for (int i = 0; i < 100; ++i) {
+            final MediaCodec codec = MediaCodec.createDecoderByType(mimeType);
+
+            try {
+                final ConditionVariable cv = new ConditionVariable();
+                Runnable first = null;
+                switch (i % 5) {
+                    case 0:  // release
+                        codec.configure(mediaFormat, outputSurface.getSurface(), null, 0);
+                        codec.start();
+                        first = () -> { cv.block(); codec.release(); };
+                        break;
+                    case 1:  // start
+                        codec.configure(mediaFormat, outputSurface.getSurface(), null, 0);
+                        first = () -> {
+                            cv.block();
+                            try {
+                                codec.start();
+                            } catch (Exception e) {
+                                Log.i(TAG, "start failed", e);
+                            }
+                        };
+                        break;
+                    case 2:  // configure
+                        first = () -> {
+                            cv.block();
+                            try {
+                                codec.configure(mediaFormat, outputSurface.getSurface(), null, 0);
+                            } catch (Exception e) {
+                                Log.i(TAG, "configure failed", e);
+                            }
+                        };
+                        break;
+                    case 3:  // stop
+                        codec.configure(mediaFormat, outputSurface.getSurface(), null, 0);
+                        codec.start();
+                        first = () -> {
+                            cv.block();
+                            try {
+                                codec.stop();
+                            } catch (Exception e) {
+                                Log.i(TAG, "stop failed", e);
+                            }
+                        };
+                        break;
+                    case 4:  // flush
+                        codec.configure(mediaFormat, outputSurface.getSurface(), null, 0);
+                        codec.start();
+                        codec.dequeueInputBuffer(0);
+                        first = () -> {
+                            cv.block();
+                            try {
+                                codec.flush();
+                            } catch (Exception e) {
+                                Log.i(TAG, "flush failed", e);
+                            }
+                        };
+                        break;
+                }
+
+                Thread[] threads = new Thread[10];
+                threads[0] = new Thread(first);
+                for (int j = 1; j < threads.length; ++j) {
+                    threads[j] = new Thread(() -> { cv.block(); codec.release(); });
+                }
+                for (Thread thread : threads) {
+                    thread.start();
+                }
+                // Wait a little bit so that threads may reach block() call.
+                Thread.sleep(50);
+                cv.open();
+                for (Thread thread : threads) {
+                    thread.join();
+                }
+            } finally {
+                codec.release();
+            }
+        }
+    }
+
+    public void testSetAudioPresentation() throws Exception {
+        MediaFormat format = MediaFormat.createAudioFormat(
+                MediaFormat.MIMETYPE_AUDIO_MPEG, 44100 /* sampleRate */, 2 /* channelCount */);
+        String mimeType = format.getString(MediaFormat.KEY_MIME);
+        MediaCodec codec = createCodecByType(
+                format.getString(MediaFormat.KEY_MIME), false /* isEncoder */);
+        assertNotNull(codec);
+        assertThrows(NullPointerException.class, () -> {
+            codec.setAudioPresentation(null);
+        });
+        codec.setAudioPresentation(
+                (new AudioPresentation.Builder(42 /* presentationId */)).build());
+    }
+
+    public void testPrependHeadersToSyncFrames() throws IOException {
+        MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+        for (MediaCodecInfo info : mcl.getCodecInfos()) {
+            boolean isEncoder = info.isEncoder();
+            for (String mime: info.getSupportedTypes()) {
+                CodecCapabilities caps = info.getCapabilitiesForType(mime);
+                boolean isVideo = (caps.getVideoCapabilities() != null);
+
+                MediaCodec codec = null;
+                MediaFormat format = null;
+                try {
+                    codec = MediaCodec.createByCodecName(info.getName());
+                    if (isVideo) {
+                        VideoCapabilities vcaps = caps.getVideoCapabilities();
+                        int minWidth = vcaps.getSupportedWidths().getLower();
+                        int minHeight = vcaps.getSupportedHeightsFor(minWidth).getLower();
+                        int minBitrate = vcaps.getBitrateRange().getLower();
+                        int minFrameRate = Math.max(vcaps.getSupportedFrameRatesFor(
+                                minWidth, minHeight) .getLower().intValue(), 1);
+                        format = MediaFormat.createVideoFormat(mime, minWidth, minHeight);
+                        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, caps.colorFormats[0]);
+                        format.setInteger(MediaFormat.KEY_BIT_RATE, minBitrate);
+                        format.setInteger(MediaFormat.KEY_FRAME_RATE, minFrameRate);
+                        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+                    } else {
+                        AudioCapabilities acaps = caps.getAudioCapabilities();
+                        int minSampleRate = acaps.getSupportedSampleRateRanges()[0].getLower();
+                        int minChannelCount = 1;
+                        int minBitrate = acaps.getBitrateRange().getLower();
+                        format = MediaFormat.createAudioFormat(mime, minSampleRate, minChannelCount);
+                        format.setInteger(MediaFormat.KEY_BIT_RATE, minBitrate);
+                    }
+                    format.setInteger(MediaFormat.KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 1);
+
+                    codec.configure(format, null /* surface */, null /* crypto */,
+                            isEncoder ? codec.CONFIGURE_FLAG_ENCODE : 0);
+
+                    if (isVideo && isEncoder) {
+                        Log.i(TAG, info.getName() + " supports KEY_PREPEND_HEADER_TO_SYNC_FRAMES");
+                    } else {
+                        Log.i(TAG, info.getName() + " is not a video encoder, so" +
+                                " KEY_PREPEND_HEADER_TO_SYNC_FRAMES is no-op, as expected");
+                    }
+                    // TODO: actually test encoders prepend the headers to sync frames.
+                } catch (IllegalArgumentException | CodecException e) {
+                    if (isVideo && isEncoder) {
+                        Log.i(TAG, info.getName() + " does not support" +
+                                " KEY_PREPEND_HEADER_TO_SYNC_FRAMES");
+                    } else {
+                        fail(info.getName() + " is not a video encoder," +
+                                " so it should not fail to configure.\n" + e.toString());
+                    }
+                } finally {
+                    if (codec != null) {
+                        codec.release();
+                    }
+                }
+            }
+        }
     }
 }

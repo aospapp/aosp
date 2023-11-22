@@ -16,15 +16,17 @@
 """Tests acloud.public.acloud_kernel.kernel_swapper."""
 
 import subprocess
-import mock
 
 import unittest
+import mock
+
 from acloud.internal.lib import android_compute_client
 from acloud.internal.lib import auth
 from acloud.internal.lib import driver_test_lib
 from acloud.public.acloud_kernel import kernel_swapper
 
 
+#pylint: disable=too-many-instance-attributes
 class KernelSwapperTest(driver_test_lib.BaseDriverTest):
     """Test kernel_swapper."""
 
@@ -47,16 +49,18 @@ class KernelSwapperTest(driver_test_lib.BaseDriverTest):
 
         self.kswapper = kernel_swapper.KernelSwapper(self.cfg,
                                                      self.fake_instance)
-        self.ssh_cmd_prefix = 'ssh %s root@%s' % (
-            ' '.join(kernel_swapper.SSH_FLAGS), self.fake_ip)
+        self.ssh_cmd_prefix = 'ssh %s root@%s' % (' '.join(
+            kernel_swapper.SSH_FLAGS), self.fake_ip)
         self.scp_cmd_prefix = 'scp %s' % ' '.join(kernel_swapper.SSH_FLAGS)
 
     def testPushFile(self):
         """Test RebootTarget."""
         fake_src_path = 'fake-src'
         fake_dest_path = 'fake-dest'
-        scp_cmd = ' '.join([self.scp_cmd_prefix, '%s root@%s:%s' %
-                            (fake_src_path, self.fake_ip, fake_dest_path)])
+        scp_cmd = ' '.join([
+            self.scp_cmd_prefix,
+            '%s root@%s:%s' % (fake_src_path, self.fake_ip, fake_dest_path)
+        ])
 
         self.kswapper.PushFile(fake_src_path, fake_dest_path)
         self.subprocess_call.assert_called_once_with(scp_cmd, shell=True)
@@ -64,9 +68,9 @@ class KernelSwapperTest(driver_test_lib.BaseDriverTest):
     def testRebootTarget(self):
         """Test RebootTarget."""
         self.kswapper.RebootTarget()
-        reboot_cmd = ' '.join([
-            self.ssh_cmd_prefix, '"%s"' % kernel_swapper.REBOOT_CMD
-        ])
+        reboot_cmd = ' '.join(
+            [self.ssh_cmd_prefix,
+             '"%s"' % kernel_swapper.REBOOT_CMD])
 
         self.subprocess_call.assert_called_once_with(reboot_cmd, shell=True)
         self.compute_client.WaitForBoot.assert_called_once_with(
@@ -75,21 +79,22 @@ class KernelSwapperTest(driver_test_lib.BaseDriverTest):
     def testSwapKernel(self):
         """Test SwapKernel."""
         fake_local_kernel_image = 'fake-kernel'
-        mount_cmd = ' '.join([
-            self.ssh_cmd_prefix, '"%s"' % kernel_swapper.MOUNT_CMD
+        mount_cmd = ' '.join(
+            [self.ssh_cmd_prefix,
+             '"%s"' % kernel_swapper.MOUNT_CMD])
+        scp_cmd = ' '.join([
+            self.scp_cmd_prefix,
+            '%s root@%s:%s' % (fake_local_kernel_image, self.fake_ip, '/boot')
         ])
-        scp_cmd = ' '.join([self.scp_cmd_prefix, '%s root@%s:%s' %
-                            (fake_local_kernel_image, self.fake_ip, '/boot')])
-        reboot_cmd = ' '.join([
-            self.ssh_cmd_prefix, '"%s"' % kernel_swapper.REBOOT_CMD
-        ])
+        reboot_cmd = ' '.join(
+            [self.ssh_cmd_prefix,
+             '"%s"' % kernel_swapper.REBOOT_CMD])
 
         self.kswapper.SwapKernel(fake_local_kernel_image)
         self.subprocess_call.assert_has_calls([
-            mock.call(
-                mount_cmd, shell=True), mock.call(
-                    scp_cmd, shell=True), mock.call(
-                        reboot_cmd, shell=True)
+            mock.call(mount_cmd, shell=True),
+            mock.call(scp_cmd, shell=True),
+            mock.call(reboot_cmd, shell=True)
         ])
 
 

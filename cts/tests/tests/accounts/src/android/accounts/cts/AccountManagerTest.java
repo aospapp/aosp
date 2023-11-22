@@ -28,11 +28,9 @@ import android.accounts.cts.common.Fixtures;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.IBinder;
 import android.os.Looper;
 import android.os.StrictMode;
 import android.platform.test.annotations.AppModeFull;
@@ -55,7 +53,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *  adb shell am instrument
  *   -e debug false -w
  *   -e class android.accounts.cts.AccountManagerTest
- * android.accounts.cts/android.support.test.runner.AndroidJUnitRunner
+ * android.accounts.cts/androidx.test.runner.AndroidJUnitRunner
  */
 public class AccountManagerTest extends ActivityInstrumentationTestCase2<AccountDummyActivity> {
 

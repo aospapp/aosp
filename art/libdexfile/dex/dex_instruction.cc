@@ -85,7 +85,7 @@ int32_t Instruction::GetTargetOffset() const {
     default: LOG(FATAL) << "Tried to access the branch offset of an instruction " << Name() <<
         " which does not have a target operand.";
   }
-  return 0;
+  UNREACHABLE();
 }
 
 bool Instruction::CanFlowThrough() const {
@@ -402,9 +402,9 @@ std::string Instruction::DumpString(const DexFile* file) const {
         case INVOKE_VIRTUAL_QUICK:
           if (file != nullptr) {
             os << opcode << " {";
-            uint32_t method_idx = VRegB_35c();
+            uint32_t vtable_offset = VRegB_35c();
             DumpArgs(VRegA_35c());
-            os << "},  // vtable@" << method_idx;
+            os << "},  // vtable@" << vtable_offset;
             break;
           }
           FALLTHROUGH_INTENDED;
@@ -467,10 +467,10 @@ std::string Instruction::DumpString(const DexFile* file) const {
     case k45cc: {
       uint32_t arg[kMaxVarArgRegs];
       GetVarArgs(arg);
-      uint32_t method_idx = VRegB_45cc();
-      uint32_t proto_idx = VRegH_45cc();
+      uint16_t method_idx = VRegB_45cc();
+      dex::ProtoIndex proto_idx(VRegH_45cc());
       os << opcode << " {";
-      for (int i = 0; i < VRegA_45cc(); ++i) {
+      for (uint32_t i = 0; i < VRegA_45cc(); ++i) {
         if (i != 0) {
           os << ", ";
         }
@@ -478,7 +478,8 @@ std::string Instruction::DumpString(const DexFile* file) const {
       }
       os << "}";
       if (file != nullptr) {
-        os << ", " << file->PrettyMethod(method_idx) << ", " << file->GetShorty(proto_idx)
+        os << ", " << file->PrettyMethod(method_idx)
+           << ", " << file->GetShorty(proto_idx)
            << " // ";
       } else {
         os << ", ";
@@ -490,18 +491,19 @@ std::string Instruction::DumpString(const DexFile* file) const {
       switch (Opcode()) {
         case INVOKE_POLYMORPHIC_RANGE: {
           if (file != nullptr) {
-            uint32_t method_idx = VRegB_4rcc();
-            uint32_t proto_idx = VRegH_4rcc();
+            uint16_t method_idx = VRegB_4rcc();
+            dex::ProtoIndex proto_idx(VRegH_4rcc());
             os << opcode << ", {v" << VRegC_4rcc() << " .. v" << (VRegC_4rcc() + VRegA_4rcc())
-               << "}, " << file->PrettyMethod(method_idx) << ", " << file->GetShorty(proto_idx)
+               << "}, " << file->PrettyMethod(method_idx)
+               << ", " << file->GetShorty(dex::ProtoIndex(proto_idx))
                << " // method@" << method_idx << ", proto@" << proto_idx;
             break;
           }
         }
         FALLTHROUGH_INTENDED;
         default: {
-          uint32_t method_idx = VRegB_4rcc();
-          uint32_t proto_idx = VRegH_4rcc();
+          uint16_t method_idx = VRegB_4rcc();
+          dex::ProtoIndex proto_idx(VRegH_4rcc());
           os << opcode << ", {v" << VRegC_4rcc() << " .. v" << (VRegC_4rcc() + VRegA_4rcc())
              << "}, method@" << method_idx << ", proto@" << proto_idx;
         }

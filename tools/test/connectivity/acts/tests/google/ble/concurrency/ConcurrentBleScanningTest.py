@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2016 The Android Open Source Project
 #
@@ -30,7 +30,7 @@ from acts.test_utils.bt.bt_constants import ble_scan_settings_modes
 from acts.test_utils.bt.bt_constants import adv_succ
 from acts.test_utils.bt.bt_test_utils import generate_ble_advertise_objects
 from acts.test_utils.bt.bt_test_utils import reset_bluetooth
-from acts.test_utils.bt.bt_test_utils import scan_failed
+from acts.test_utils.bt.bt_constants import scan_failed
 from acts.test_utils.bt.bt_constants import scan_result
 from acts.test_utils.bt.bt_test_utils import take_btsnoop_logs
 
@@ -205,13 +205,13 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         for callback in scan_callback_list:
             try:
                 self.scn_ad.ed.pop_event(
-                    scan_result.format(scan_callback), self.default_timeout)
+                    scan_result.format(callback), self.default_timeout)
                 self.log.info(
                     "Found scan event successfully. Iteration {} successful."
                     .format(i))
             except Exception:
                 self.log.info("Failed to find a scan result for callback {}"
-                              .format(scan_callback))
+                              .format(callback))
                 return False
             i += 1
         for callback in scan_callback_list:
@@ -244,12 +244,7 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
         Priority: 1
         """
         test_result = True
-        self.scn_ad.droid.bleSetScanSettingsCallbackType(
-            ble_scan_settings_callback_types['all_matches'])
-        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
-            'low_latency'])
         filter_list = self.scn_ad.droid.bleGenFilterList()
-        self.scn_ad.droid.bleBuildScanFilter(filter_list)
         scan_settings = self.scn_ad.droid.bleBuildScanSetting()
         scan_callback_list = []
         for i in range(self.max_concurrent_scans):
@@ -266,10 +261,10 @@ class ConcurrentBleScanningTest(BluetoothBaseTest):
                 scan_failed.format(scan_callback), self.default_timeout)
             self.log.info(
                 "Found scan event successfully. Iteration {} successful."
-                .format(i))
+                .format(self.max_concurrent_scans + 1))
         except Exception:
-            self.log.info("Failed to find a onScanFailed event for callback {}"
-                          .format(scan_callback))
+            self.log.error("Failed to find a onScanFailed event for callback {}"
+                           .format(scan_callback))
             test_result = False
         for callback in scan_callback_list:
             self.scn_ad.droid.bleStopBleScan(callback)

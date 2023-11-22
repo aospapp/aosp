@@ -24,12 +24,11 @@
 #include "wificond/logging_utils.h"
 
 using android::net::wifi::IApInterface;
-using android::wifi_system::HostapdManager;
 using android::wifi_system::InterfaceTool;
+using std::array;
 using std::endl;
 using std::string;
 using std::unique_ptr;
-using std::vector;
 
 using namespace std::placeholders;
 
@@ -39,13 +38,11 @@ namespace wificond {
 ApInterfaceImpl::ApInterfaceImpl(const string& interface_name,
                                  uint32_t interface_index,
                                  NetlinkUtils* netlink_utils,
-                                 InterfaceTool* if_tool,
-                                 HostapdManager* hostapd_manager)
+                                 InterfaceTool* if_tool)
     : interface_name_(interface_name),
       interface_index_(interface_index),
       netlink_utils_(netlink_utils),
       if_tool_(if_tool),
-      hostapd_manager_(hostapd_manager),
       binder_(new ApInterfaceBinder(this)),
       number_of_associated_stations_(0) {
   // This log keeps compiler happy.
@@ -83,38 +80,9 @@ void ApInterfaceImpl::Dump(std::stringstream* ss) const {
   *ss << "------- Dump End -------" << endl;
 }
 
-bool ApInterfaceImpl::StartHostapd() {
-  return hostapd_manager_->StartHostapd();
-}
-
-bool ApInterfaceImpl::StopHostapd() {
-  // Drop SIGKILL on hostapd.
-  if (!hostapd_manager_->StopHostapd()) {
-    // Logging was done internally.
-    return false;
-  }
-
-  // Take down the interface.
-  if (!if_tool_->SetUpState(interface_name_.c_str(), false)) {
-    // Logging was done internally.
-    return false;
-  }
-
-  // Since wificond SIGKILLs hostapd, hostapd has no chance to handle
-  // the cleanup.
-  // Besides taking down the interface, we also need to set the interface mode
-  // back to station mode for the cleanup.
-  if (!netlink_utils_->SetInterfaceMode(interface_index_,
-                                        NetlinkUtils::STATION_MODE)) {
-    LOG(ERROR) << "Failed to set interface back to station mode";
-    return false;
-  }
-
-  return true;
-}
-
-void ApInterfaceImpl::OnStationEvent(StationEvent event,
-                                     const vector<uint8_t>& mac_address) {
+void ApInterfaceImpl::OnStationEvent(
+    StationEvent event,
+    const array<uint8_t, ETH_ALEN>& mac_address) {
   if (event == NEW_STATION) {
     LOG(INFO) << "New station "
               << LoggingUtils::GetMacString(mac_address)

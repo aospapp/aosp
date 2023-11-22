@@ -9,12 +9,50 @@ import sys
 # get the text in the next matching parens
 
 class MiniCilParser:
-    types = set() # types declared in mapping
-    pubtypes = set()
-    typeattributes = set() # attributes declared in mapping
-    typeattributesets = {} # sets defined in mapping
-    rTypeattributesets = {} # reverse mapping of above sets
-    apiLevel = None
+    def __init__(self, policyFile):
+        self.types = set() # types declared in mapping
+        self.pubtypes = set()
+        self.expandtypeattributes = {}
+        self.typeattributes = set() # attributes declared in mapping
+        self.typeattributesets = {} # sets defined in mapping
+        self.rTypeattributesets = {} # reverse mapping of above sets
+        self.apiLevel = None
+
+        with open(policyFile, 'r') as infile:
+            s = self._getNextStmt(infile)
+            while s:
+                self._parseStmt(s)
+                s = self._getNextStmt(infile)
+        fn = basename(policyFile)
+        m = re.match(r"(\d+\.\d+).+\.cil", fn)
+        if m:
+            self.apiLevel = m.group(1)
+
+    def unparse(self):
+        def wrapParens(stmt):
+            return "(" + stmt + ")"
+
+        def joinWrapParens(entries):
+            return wrapParens(" ".join(entries))
+
+        result = ""
+        for ty in sorted(self.types):
+            result += joinWrapParens(["type", ty]) + "\n"
+
+        for ta in sorted(self.typeattributes):
+            result += joinWrapParens(["typeattribute", ta]) + "\n"
+
+        for eta in sorted(self.expandtypeattributes.items(),
+                          key=lambda x: x[0]):
+            result += joinWrapParens(
+                    ["expandtypeattribute", wrapParens(eta[0]), eta[1]]) + "\n"
+
+        for tas in sorted(self.typeattributesets.items(), key=lambda x: x[0]):
+            result += joinWrapParens(
+                    ["typeattributeset", tas[0],
+                     joinWrapParens(sorted(tas[1]))]) + "\n"
+
+        return result
 
     def _getNextStmt(self, infile):
         parens = 0
@@ -44,6 +82,11 @@ class MiniCilParser:
         self.types.add(m.group(1))
         return
 
+    def _parseExpandtypeattribute(self, stmt):
+        m = re.match(r"expandtypeattribute\s+\((.+)\)\s+(true|false)", stmt)
+        self.expandtypeattributes[m.group(1)] = m.group(2)
+        return
+
     def _parseTypeattribute(self, stmt):
         m = re.match(r"typeattribute\s+(.+)", stmt)
         self.typeattributes.add(m.group(1))
@@ -62,7 +105,7 @@ class MiniCilParser:
         for t in tas:
             if self.rTypeattributesets.get(t) is None:
                 self.rTypeattributesets[t] = set()
-            self.rTypeattributesets[t].update(set(ta))
+            self.rTypeattributesets[t].update([ta])
 
         # check to see if this typeattributeset is a versioned public type
         pub = re.match(r"(\w+)_\d+_\d+", ta)
@@ -78,25 +121,8 @@ class MiniCilParser:
         elif re.match(r"typeattributeset\s+.+", stmt):
             self._parseTypeattributeset(stmt)
         elif re.match(r"expandtypeattribute\s+.+", stmt):
-            # To silence the build warnings.
-            pass
-        else:
-            m = re.match(r"(\w+)\s+.+", stmt)
-            ret = "Warning: Unknown statement type (" + m.group(1) + ") in "
-            ret += "mapping file, perhaps consider adding support for it in "
-            ret += "system/sepolicy/tests/mini_parser.py!\n"
-            print ret
+            self._parseExpandtypeattribute(stmt)
         return
-
-    def __init__(self, policyFile):
-        with open(policyFile, 'r') as infile:
-            s = self._getNextStmt(infile)
-            while s:
-                self._parseStmt(s)
-                s = self._getNextStmt(infile)
-        fn = basename(policyFile)
-        m = re.match(r"(\d+\.\d+).+\.cil", fn)
-        self.apiLevel = m.group(1)
 
 if __name__ == '__main__':
     f = sys.argv[1]

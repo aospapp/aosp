@@ -20,49 +20,67 @@
 #   2. PREUPLOAD hook invokes this script.
 
 ATEST_DIR=`dirname $0`/
-PREUPLOAD_FILES=$@
+[ "$(uname -s)" == "Darwin" ] && { realpath(){ echo "$(cd $(dirname $1);pwd -P)/$(basename $1)"; }; }
+ATEST_REAL_PATH=`realpath $ATEST_DIR`
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
+COVERAGE=false
 
 function set_pythonpath() {
-  local path_to_check=`realpath $ATEST_DIR`
-  if ! echo $PYTHONPATH | grep -q $path_to_check; then
-    PYTHONPATH=$path_to_check:$PYTHONPATH
-  fi
+    if ! echo $PYTHONPATH | grep -q $ATEST_REAL_PATH; then
+        PYTHONPATH=$ATEST_REAL_PATH:$PYTHONPATH
+    fi
+}
+
+function print_summary() {
+    local test_results=$1
+    if [[ $COVERAGE == true ]]; then
+        coverage report -m
+        coverage html
+    fi
+    if [[ $test_results -eq 0 ]]; then
+        echo -e "${GREEN}All unittests pass${NC}!"
+    else
+        echo -e "${RED}There was a unittest failure${NC}"
+    fi
 }
 
 function run_atest_unittests() {
-  set_pythonpath
-  local rc=0
-  for test_file in $(find $ATEST_DIR -name "*_unittest.py");
-  do
-    if ! $test_file; then
-      rc=1
+    echo "Running tests..."
+    local run_cmd="python"
+    local rc=0
+    set_pythonpath
+    if [[ $COVERAGE == true ]]; then
+        # Clear previously coverage data.
+        python -m coverage erase
+        # Collect coverage data.
+        run_cmd="coverage run --source $ATEST_REAL_PATH --append"
     fi
-  done
 
-  echo
-  if [[ $rc -eq 0 ]]; then
-    echo -e "${GREEN}All unittests pass${NC}!"
-  else
-    echo -e "${RED}There was a unittest failure${NC}"
-  fi
-  return $rc
+    for test_file in $(find $ATEST_DIR -name "*_unittest.py"); do
+        if ! $run_cmd $test_file; then
+          rc=1
+          echo -e "${RED}$t failed${NC}"
+        fi
+    done
+    echo
+    print_summary $rc
+    return $rc
 }
 
 # Let's check if anything is passed in, if not we assume the user is invoking
 # script, but if we get a list of files, assume it's the PREUPLOAD hook.
-if [[ -z $PREUPLOAD_FILES ]]; then
-  run_atest_unittests
-  exit $?
+read -ra PREUPLOAD_FILES <<< "$@"
+if [[ ${#PREUPLOAD_FILES[@]} -eq 0 ]]; then
+    run_atest_unittests; exit $?
+elif [[ "${#PREUPLOAD_FILES[@]}" -eq 1 && "${PREUPLOAD_FILES}" == "coverage" ]]; then
+    COVERAGE=true run_atest_unittests; exit $?
 else
-  for f in $PREUPLOAD_FILES;
-  do
-    # We only want to run this unittest if atest files have been touched.
-    if [[ $f == atest/* ]]; then
-      run_atest_unittests
-      exit $?
-    fi
-  done
+    for f in ${PREUPLOAD_FILES[@]}; do
+        # We only want to run this unittest if atest files have been touched.
+        if [[ $f == atest/* ]]; then
+            run_atest_unittests; exit $?
+        fi
+    done
 fi

@@ -116,8 +116,13 @@ bool OperationFactory::GetAndValidateDigest(const AuthorizationSet& begin_params
                                             keymaster_error_t* error) const {
     *error = KM_ERROR_UNSUPPORTED_DIGEST;
     if (!begin_params.GetTagValue(TAG_DIGEST, digest)) {
-        LOG_E("%d digests specified in begin params", begin_params.GetTagCount(TAG_DIGEST));
-        return false;
+        if (key.authorizations().Contains(TAG_DIGEST, KM_DIGEST_NONE)) {
+            *digest = KM_DIGEST_NONE;
+        } else {
+            LOG_E("%d digests specified in begin params and NONE not authorized",
+                    begin_params.GetTagCount(TAG_DIGEST));
+            return false;
+        }
     } else if (!supported(*digest)) {
         LOG_E("Digest %d not supported", *digest);
         return false;

@@ -20,6 +20,10 @@ import android.icu.util.Calendar;
 import android.icu.util.TimeZone;
 import android.icu.util.ULocale;
 
+import java.util.function.BiFunction;
+
+import static android.icu.util.TimeZone.GMT_ZONE;
+import static android.icu.util.ULocale.ENGLISH;
 import static libcore.icu.DateIntervalFormat.formatDateRange;
 import static libcore.icu.DateUtilsBridge.*;
 
@@ -83,8 +87,8 @@ public class DateIntervalFormatTest extends junit.framework.TestCase {
     assertEquals("1/19/2009 – 2/9/2012", formatDateRange(en_US, tz, fixedTime, fixedTime + 3 * YEAR, FORMAT_SHOW_YEAR | FORMAT_NUMERIC_DATE));
 
     assertEquals("19.1.2009", formatDateRange(de_DE, tz, fixedTime, fixedTime + HOUR, FORMAT_SHOW_YEAR | FORMAT_NUMERIC_DATE));
-    assertEquals("19.01.2009 – 22.01.2009", formatDateRange(de_DE, tz, fixedTime, fixedTime + 3 * DAY, FORMAT_SHOW_YEAR | FORMAT_NUMERIC_DATE));
-    assertEquals("19.01.2009 – 22.04.2009", formatDateRange(de_DE, tz, fixedTime, fixedTime + 3 * MONTH, FORMAT_SHOW_YEAR | FORMAT_NUMERIC_DATE));
+    assertEquals("19.–22.01.2009", formatDateRange(de_DE, tz, fixedTime, fixedTime + 3 * DAY, FORMAT_SHOW_YEAR | FORMAT_NUMERIC_DATE));
+    assertEquals("19.01. – 22.04.2009", formatDateRange(de_DE, tz, fixedTime, fixedTime + 3 * MONTH, FORMAT_SHOW_YEAR | FORMAT_NUMERIC_DATE));
     assertEquals("19.01.2009 – 09.02.2012", formatDateRange(de_DE, tz, fixedTime, fixedTime + 3 * YEAR, FORMAT_SHOW_YEAR | FORMAT_NUMERIC_DATE));
 
     assertEquals("19/1/2009", formatDateRange(es_US, tz, fixedTime, fixedTime + HOUR, FORMAT_SHOW_YEAR | FORMAT_NUMERIC_DATE));
@@ -433,40 +437,45 @@ public class DateIntervalFormatTest extends junit.framework.TestCase {
   }
 
   // http://b/68847519
-  public void testEndAtMidnight() {
-    ULocale locale = new ULocale("en");
-    TimeZone timeZone = TimeZone.getTimeZone("UTC");
-    int dateTimeFlags = FORMAT_SHOW_DATE | FORMAT_SHOW_TIME | FORMAT_24HOUR;
+  public void testEndAtMidnight_dateAndTime() {
+    BiFunction<Long, Long, String> fmt = (from, to) -> formatDateRange(
+            ENGLISH, GMT_ZONE, from, to, FORMAT_SHOW_DATE | FORMAT_SHOW_TIME | FORMAT_24HOUR);
     // If we're showing times and the end-point is midnight the following day, we want the
     // behaviour of suppressing the date for the end...
-    assertEquals("February 27, 04:00 – 00:00",
-        formatDateRange(locale, timeZone, 1519704000000L, 1519776000000L, dateTimeFlags));
+    assertEquals("February 27, 2007, 04:00 – 00:00", fmt.apply(1172548800000L, 1172620800000L));
     // ...unless the start-point is also midnight, in which case we need dates to disambiguate.
-    assertEquals("February 27, 00:00 – February 28, 00:00",
-        formatDateRange(locale, timeZone, 1519689600000L, 1519776000000L, dateTimeFlags));
+    assertEquals("February 27, 2007, 00:00 – February 28, 2007, 00:00",
+            fmt.apply(1172534400000L, 1172620800000L));
     // We want to show the date if the end-point is a millisecond after midnight the following
     // day, or if it is exactly midnight the day after that.
-    assertEquals("February 27, 04:00 – February 28, 00:00",
-        formatDateRange(locale, timeZone, 1519704000000L, 1519776000001L, dateTimeFlags));
-    assertEquals("February 27, 04:00 – March 1, 00:00",
-        formatDateRange(locale, timeZone, 1519704000000L, 1519862400000L, dateTimeFlags));
+    assertEquals("February 27, 2007, 04:00 – February 28, 2007, 00:00",
+            fmt.apply(1172548800000L, 1172620800001L));
+    assertEquals("February 27, 2007, 04:00 – March 1, 2007, 00:00",
+            fmt.apply(1172548800000L, 1172707200000L));
     // We want to show the date if the start-point is anything less than a minute after midnight,
     // since that gets displayed as midnight...
-    assertEquals("February 27, 00:00 – February 28, 00:00",
-        formatDateRange(locale, timeZone, 1519689659999L, 1519776000000L, dateTimeFlags));
+    assertEquals("February 27, 2007, 00:00 – February 28, 2007, 00:00",
+            fmt.apply(1172534459999L, 1172620800000L));
     // ...but not if it is exactly one minute after midnight.
-    assertEquals("February 27, 00:01 – 00:00",
-        formatDateRange(locale, timeZone, 1519689660000L, 1519776000000L, dateTimeFlags));
-    int dateOnlyFlags = FORMAT_SHOW_DATE;
+    assertEquals("February 27, 2007, 00:01 – 00:00", fmt.apply(1172534460000L, 1172620800000L));
+  }
+
+  // http://b/68847519
+  public void testEndAtMidnight_dateOnly() {
+    BiFunction<Long, Long, String> fmt = (from, to) -> formatDateRange(
+            ENGLISH, GMT_ZONE, from, to, FORMAT_SHOW_DATE);
     // If we're only showing dates and the end-point is midnight of any day, we want the
-    // behaviour of showing an end date one earlier. So if the end-point is March 2, 00:00, show
-    // March 1 instead (whether the start-point is midnight or not).
-    assertEquals("February 27 – March 1",
-        formatDateRange(locale, timeZone, 1519689600000L, 1519948800000L, dateOnlyFlags));
-    assertEquals("February 27 – March 1",
-        formatDateRange(locale, timeZone, 1519704000000L, 1519948800000L, dateOnlyFlags));
+    // behaviour of showing an end date one earlier. So if the end-point is March 2, 2007 00:00,
+    // show March 1, 2007 instead (whether the start-point is midnight or not).
+    assertEquals("February 27 – March 1, 2007", fmt.apply(1172534400000L, 1172793600000L));
+    assertEquals("February 27 – March 1, 2007", fmt.apply(1172548800000L, 1172793600000L));
     // We want to show the true date if the end-point is a millisecond after midnight.
-    assertEquals("February 27 – March 2",
-        formatDateRange(locale, timeZone, 1519689600000L, 1519948800001L, dateOnlyFlags));
+    assertEquals("February 27 – March 2, 2007", fmt.apply(1172534400000L, 1172793600001L));
+
+    // 2006-02-27 00:00:00.000 GMT - 2007-03-02 00:00:00.000 GMT
+    assertEquals("February 27, 2006 – March 1, 2007", fmt.apply(1140998400000L, 1172793600000L));
+
+    // Spans a leap year's Feb 29th.
+    assertEquals("February 27 – March 1, 2004", fmt.apply(1077840000000L, 1078185600000L));
   }
 }

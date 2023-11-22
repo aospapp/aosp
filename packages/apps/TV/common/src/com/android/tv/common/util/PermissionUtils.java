@@ -65,4 +65,9 @@ public class PermissionUtils {
         return context.checkSelfPermission("android.permission.INTERNET")
                 == PackageManager.PERMISSION_GRANTED;
     }
+
+    public static boolean hasWriteExternalStorage(Context context) {
+        return context.checkSelfPermission("android.permission.WRITE_EXTERNAL_STORAGE")
+                == PackageManager.PERMISSION_GRANTED;
+    }
 }

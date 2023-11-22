@@ -18,6 +18,8 @@
 import io
 import struct
 import unittest
+import sys
+import os
 
 import parser
 import sancov_parser
@@ -30,7 +32,7 @@ class SancovParserTest(unittest.TestCase):
     parsing of offsets in the file..
     """
 
-    GOLDEN_SANCOV_PATH = 'testdata/sample.sancov'
+    GOLDEN_SANCOV_PATH = os.path.join(sys.path[0], 'testdata/sample.sancov')
     GOLDEN_EXPECTED_BITNESS = 64
     GOLDEN_EXPECTED_OFFSETS = (
         12115, 12219, 12463, 12527, 17123, 17311, 17507, 17771, 17975, 17987, 18107, 18167,

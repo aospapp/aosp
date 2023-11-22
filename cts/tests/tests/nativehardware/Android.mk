@@ -28,7 +28,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests
 
 LOCAL_JAVA_LIBRARIES := platform-test-annotations android.test.base.stubs
-LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util ctstestrunner nativetesthelper
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt ctstestrunner-axt nativetesthelper
 LOCAL_JNI_SHARED_LIBRARIES := libahardwarebuffertest
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)

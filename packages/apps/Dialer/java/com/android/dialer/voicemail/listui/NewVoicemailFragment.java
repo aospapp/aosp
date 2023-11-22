@@ -36,7 +36,6 @@ import com.android.dialer.calllog.RefreshAnnotatedCallLogReceiver;
 import com.android.dialer.common.LogUtil;
 import com.android.dialer.common.concurrent.DialerExecutorComponent;
 import com.android.dialer.common.concurrent.UiListener;
-import com.android.dialer.glidephotomanager.GlidePhotoManagerComponent;
 import com.android.dialer.voicemail.listui.error.VoicemailStatus;
 import com.android.dialer.voicemailstatus.VoicemailStatusQuery;
 import com.android.dialer.widget.EmptyContentView;
@@ -184,10 +183,7 @@ public final class NewVoicemailFragment extends Fragment implements LoaderCallba
       // TODO(uabdullah): Replace getActivity().getFragmentManager() with getChildFragment()
       recyclerView.setAdapter(
           new NewVoicemailAdapter(
-              data,
-              System::currentTimeMillis,
-              getActivity().getFragmentManager(),
-              GlidePhotoManagerComponent.get(getContext()).glidePhotoManager()));
+              data, System::currentTimeMillis, getActivity().getFragmentManager()));
     } else {
       // This would only be called in cases such as when voicemail has been fetched from the server
       // or a changed occurred in the annotated table changed (e.g deletes). To check if the change
@@ -205,17 +201,16 @@ public final class NewVoicemailFragment extends Fragment implements LoaderCallba
 
   /** Shows the view when there are no voicemails to be displayed * */
   private void showEmptyVoicemailFragmentView() {
-    LogUtil.enterBlock("NewVoicemailFragmentListener.showEmptyVoicemailFragmentView");
+    LogUtil.enterBlock("NewVoicemailFragment.showEmptyVoicemailFragmentView");
 
     showView(emptyContentView);
 
     emptyContentView.setDescription((R.string.empty_voicemail_tab_text));
     emptyContentView.setImage(R.drawable.quantum_ic_voicemail_vd_theme_24);
-    emptyContentView.setImageTint(R.color.empty_voicemail_icon_tint_color, null);
   }
 
   private void showView(View view) {
-    LogUtil.i("NewVoicemailFragmentListener.showView", "Showing view: " + view);
+    LogUtil.i("NewVoicemailFragment.showView", "Showing view: " + view);
     emptyContentView.setVisibility(view == emptyContentView ? View.VISIBLE : View.GONE);
     recyclerView.setVisibility(view == recyclerView ? View.VISIBLE : View.GONE);
   }
@@ -284,7 +279,9 @@ public final class NewVoicemailFragment extends Fragment implements LoaderCallba
 
                 while (cursor.moveToNext()) {
                   VoicemailStatus status = new VoicemailStatus(context, cursor);
-                  if (status.isActive()) {
+                  if (status.isActive(context)) {
+                    LogUtil.i(
+                        "NewVoicemailFragment.queryVoicemailStatus", "inactive source ignored");
                     statuses.add(status);
                     // TODO(a bug): Handle Service State Listeners
                   }

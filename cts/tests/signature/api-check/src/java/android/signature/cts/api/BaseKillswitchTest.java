@@ -16,9 +16,10 @@
 
 package android.signature.cts.api;
 
+import java.util.function.Predicate;
+
 import android.os.Bundle;
 import android.provider.Settings;
-import android.signature.cts.DexApiDocumentParser;
 import android.signature.cts.DexField;
 import android.signature.cts.DexMember;
 import android.signature.cts.DexMemberChecker;
@@ -42,8 +43,33 @@ public abstract class BaseKillswitchTest extends AbstractApiTest {
           Settings.Global.HIDDEN_API_BLACKLIST_EXEMPTIONS);
     }
 
-    // Test shared by all the subclasses.
-    public void testKillswitchMechanism() {
+    // We have four methods to split up the load, keeping individual test runs small.
+    // Tests shared by all the subclasses.
+
+    private final static Predicate<DexMember> METHOD_FILTER =
+            dexMember -> (dexMember instanceof DexMethod);
+
+    private final static Predicate<DexMember> FIELD_FILTER =
+            dexMember -> (dexMember instanceof DexField);
+
+    public void testKillswitchMechanismMethodsThroughReflection() {
+        doTestKillswitchMechanism(METHOD_FILTER, /* reflection= */ true, /* jni= */ false);
+    }
+
+    public void testKillswitchMechanismMethodsThroughJni() {
+        doTestKillswitchMechanism(METHOD_FILTER, /* reflection= */ false, /* jni= */ true);
+    }
+
+    public void testKillswitchMechanismFieldsThroughReflection() {
+        doTestKillswitchMechanism(FIELD_FILTER, /* reflection= */ true, /* jni= */ false);
+    }
+
+    public void testKillswitchMechanismFieldsThroughJni() {
+        doTestKillswitchMechanism(FIELD_FILTER, /* reflection= */ false, /* jni= */ true);
+    }
+
+    private void doTestKillswitchMechanism(Predicate<DexMember> memberFilter, boolean reflection,
+            boolean jni) {
         runWithTestResultObserver(resultObserver -> {
             DexMemberChecker.Observer observer = new DexMemberChecker.Observer() {
                 @Override
@@ -108,9 +134,11 @@ public abstract class BaseKillswitchTest extends AbstractApiTest {
 
             };
             classProvider.getAllClasses().forEach(klass -> {
-                classProvider.getAllMembers(klass).forEach(member -> {
-                    DexMemberChecker.checkSingleMember(member, observer);
-                });
+                classProvider.getAllMembers(klass)
+                        .filter(memberFilter)
+                        .forEach(member -> {
+                            DexMemberChecker.checkSingleMember(member, reflection, jni, observer);
+                        });
             });
         });
     }

@@ -426,6 +426,8 @@ bool platSleepClockRequest(uint64_t wakeupTime, uint32_t maxJitterPpm, uint32_t 
     return true;
 }
 
+#if !(defined(STM32F4xx_DISABLE_LPLV_SLEEP) && defined(STM32F4xx_DISABLE_LPFD_SLEEP) \
+    && defined(STM32F4xx_DISABLE_MRFPD_SLEEP) && defined(STM32F4xx_DISABLE_MR_SLEEP))
 static bool sleepClockRtcPrepare(uint64_t delay, uint32_t acceptableJitter, uint32_t acceptableDrift, uint32_t maxAcceptableError, void *userData, uint64_t *savedData)
 {
     pwrSetSleepType((uint32_t)userData);
@@ -446,7 +448,7 @@ static void sleepClockRtcWake(void *userData, uint64_t *savedData)
 
     mTimeAccumulated += rtcGetTime() - *savedData;
 }
-
+#endif
 
 static bool sleepClockTmrPrepare(uint64_t delay, uint32_t acceptableJitter, uint32_t acceptableDrift, uint32_t maxAcceptableError, void *userData, uint64_t *savedData)
 {

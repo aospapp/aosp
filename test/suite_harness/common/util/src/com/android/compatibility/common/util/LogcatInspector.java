@@ -100,12 +100,11 @@ public abstract class LogcatInspector {
             InputStream logcatStream = executeShellCommand("logcat -v brief -d " + filterSpec);
             BufferedReader logcat = new BufferedReader(new InputStreamReader(logcatStream));
             String line;
-            stringIndex = 0;
             while ((line = logcat.readLine()) != null) {
                 if (line.contains(logcatStrings[stringIndex])) {
                     stringIndex++;
                     if (stringIndex >= logcatStrings.length) {
-                        drainAndClose(logcat);
+                        StreamUtil.drainAndClose(logcat);
                         return stringIndex;
                     }
                 }
@@ -116,15 +115,5 @@ public abstract class LogcatInspector {
             Thread.sleep(SMALL_LOGCAT_DELAY);
         }
         return stringIndex;
-    }
-
-    private static void drainAndClose(BufferedReader reader) {
-        try {
-            while (reader.read() >= 0) {
-                // do nothing.
-            }
-        } catch (IOException ignored) {
-        }
-        Closeables.closeQuietly(reader);
     }
 }

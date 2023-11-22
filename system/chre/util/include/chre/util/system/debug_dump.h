@@ -23,16 +23,16 @@
 namespace chre {
 
 /**
- * Prints a formatted string into a string buffer.
+ * Prints a formatted string into a string buffer. If the log message does not
+ * fit into the remaining space of the buffer, the error is logged and the
+ * buffer is null-terminated. Subsequent calls to this function will do nothing.
  *
  * @param buffer Pointer to the start of the buffer.
  * @param bufferPos Pointer to buffer position to start the print (in-out).
  * @param bufferSize Size of the buffer in bytes.
  * @param formatStr Formatted string.
- *
- * @return true if entire log printed, false if overflow or error.
  */
-bool debugDumpPrint(char *buffer, size_t *bufferPos, size_t bufferSize,
+void debugDumpPrint(char *buffer, size_t *bufferPos, size_t bufferSize,
                     const char *formatStr, ...);
 
 }  // namespace chre

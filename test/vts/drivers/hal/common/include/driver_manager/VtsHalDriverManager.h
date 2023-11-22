@@ -20,6 +20,7 @@
 #include <map>
 #include <string>
 
+#include <resource_manager/VtsResourceManager.h>
 #include "component_loader/HalDriverLoader.h"
 #include "driver_base/DriverBase.h"
 #include "test/vts/proto/ComponentSpecificationMessage.pb.h"
@@ -35,16 +36,22 @@ class VtsHalDriverManager {
   // Constructor where the first argument is the path of a dir which contains
   // all available interface specification files.
   VtsHalDriverManager(const string& spec_dir, const int epoch_count,
-                      const string& callback_socket_name);
+                      const string& callback_socket_name,
+                      VtsResourceManager* resource_manager);
 
   // Loads the driver library for the target HAL, creates the corresponding
   // driver instance, assign it a driver id and registers the created driver
   // instance in hal_driver_map_.
   // Returns the generated driver id.
+  // Args:
+  //   version_major: int, hal major version, e.g. 1.0 -> 1.
+  //   version_minor: int, hal minor version, e.g. 1.0 -> 0.
+  //
   DriverId LoadTargetComponent(const string& dll_file_name,
                                const string& spec_lib_file_path,
                                const int component_class,
-                               const int component_type, const float version,
+                               const int component_type,
+                               const int version_major, const int version_minor,
                                const string& package_name,
                                const string& component_name,
                                const string& hw_binder_service_name);
@@ -66,8 +73,13 @@ class VtsHalDriverManager {
   // the correponding driver instance, otherwise, creates a new driver instance
   // with the given info, registers it in hal_driver_map_ and returns the
   // generated driver instance. This is used by VTS replay test.
+  // Args:
+  //   version_major: int, hal major version, e.g. 1.0 -> 1.
+  //   version_minor: int, hal minor version, e.g. 1.0 -> 0.
+  //
   DriverId GetDriverIdForHidlHalInterface(const string& package_name,
-                                          const float version,
+                                          const int version_major,
+                                          const int version_minor,
                                           const string& interface_name,
                                           const string& hal_service_name);
 
@@ -81,8 +93,14 @@ class VtsHalDriverManager {
   // such as component_class etc. Used to server the ReadSpecification request
   // from host.
   // Returns true if load successfully, false otherwise.
+  // Args:
+  //   version_major: int, hal major version, e.g. 1.0 -> 1.
+  //   version_minor: int, hal minor version, e.g. 1.0 -> 0.
+  //
   bool FindComponentSpecification(const int component_class,
-                                  const int component_type, const float version,
+                                  const int component_type,
+                                  const int version_major,
+                                  const int version_minor,
                                   const string& package_name,
                                   const string& component_name,
                                   ComponentSpecificationMessage* spec_msg);
@@ -130,6 +148,25 @@ class VtsHalDriverManager {
                               const int component_type, const string& version,
                               const string& package_name,
                               const string& component_name);
+
+  // Recursively preprocess HAL function call arguments that have special types
+  // such as TYPE_HIDL_INTERFACE, TYPE_FMQ_SYNC, TYPE_FMQ_UNSYNC,
+  // TYPE_HIDL_MEMORY, TYPE_HANDLE.
+  //
+  // @param arg argument for a HAL function call.
+  //
+  // @return true if preprocessing succeeds, false otherwise.
+  bool PreprocessHidlHalFunctionCallArgs(VariableSpecificationMessage* arg);
+
+  // Recursively set HAL function call return values that have special types
+  // such as TYPE_HIDL_INTERFACE, TYPE_FMQ_SYNC, TYPE_FMQ_UNSYNC,
+  // TYPE_HIDL_MEMORY, TYPE_HANDLE.
+  //
+  // @param return_val return value for a HAL function call.
+  //
+  // @return true if setting results succeeds, false otherwise.
+  bool SetHidlHalFunctionCallResults(VariableSpecificationMessage* return_val);
+
   // ============== attributes ===================
 
   // The server socket port # of the agent.
@@ -159,6 +196,13 @@ class VtsHalDriverManager {
   // TODO(zhuoyao): consider to use unordered_map for performance optimization.
   map<DriverId, HalDriverInfo> hal_driver_map_;
   // TODO(zhuoyao): use mutex to protect hal_driver_map_;
+
+  // Hold onto a resource_manager because some function calls need to reference
+  // resources allocated on the target side.
+  // driver_manager doesn't own resource_manager because driver_manager and
+  // resource_manager are both started by the agent. driver_manager only holds
+  // this pointer because it is easy to call functions in resource_manager.
+  VtsResourceManager* resource_manager_;
 };
 
 }  // namespace vts

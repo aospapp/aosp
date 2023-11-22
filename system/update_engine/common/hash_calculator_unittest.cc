@@ -26,6 +26,7 @@
 #include <brillo/secure_blob.h>
 #include <gtest/gtest.h>
 
+#include "update_engine/common/test_utils.h"
 #include "update_engine/common/utils.h"
 
 using std::string;
@@ -37,16 +38,11 @@ namespace chromeos_update_engine {
 // $ echo -n hi | openssl dgst -sha256 -binary |
 //   hexdump -v -e '"    " 12/1 "0x%02x, " "\n"'
 static const uint8_t kExpectedRawHash[] = {
-  0x8f, 0x43, 0x43, 0x46, 0x64, 0x8f, 0x6b, 0x96,
-  0xdf, 0x89, 0xdd, 0xa9, 0x01, 0xc5, 0x17, 0x6b,
-  0x10, 0xa6, 0xd8, 0x39, 0x61, 0xdd, 0x3c, 0x1a,
-  0xc8, 0x8b, 0x59, 0xb2, 0xdc, 0x32, 0x7a, 0xa4
-};
+    0x8f, 0x43, 0x43, 0x46, 0x64, 0x8f, 0x6b, 0x96, 0xdf, 0x89, 0xdd,
+    0xa9, 0x01, 0xc5, 0x17, 0x6b, 0x10, 0xa6, 0xd8, 0x39, 0x61, 0xdd,
+    0x3c, 0x1a, 0xc8, 0x8b, 0x59, 0xb2, 0xdc, 0x32, 0x7a, 0xa4};
 
-class HashCalculatorTest : public ::testing::Test {
- public:
-  HashCalculatorTest() {}
-};
+class HashCalculatorTest : public ::testing::Test {};
 
 TEST_F(HashCalculatorTest, SimpleTest) {
   HashCalculator calc;
@@ -54,7 +50,7 @@ TEST_F(HashCalculatorTest, SimpleTest) {
   calc.Finalize();
   brillo::Blob raw_hash(std::begin(kExpectedRawHash),
                         std::end(kExpectedRawHash));
-  EXPECT_TRUE(raw_hash == calc.raw_hash());
+  EXPECT_EQ(raw_hash, calc.raw_hash());
 }
 
 TEST_F(HashCalculatorTest, MultiUpdateTest) {
@@ -64,7 +60,7 @@ TEST_F(HashCalculatorTest, MultiUpdateTest) {
   calc.Finalize();
   brillo::Blob raw_hash(std::begin(kExpectedRawHash),
                         std::end(kExpectedRawHash));
-  EXPECT_TRUE(raw_hash == calc.raw_hash());
+  EXPECT_EQ(raw_hash, calc.raw_hash());
 }
 
 TEST_F(HashCalculatorTest, ContextTest) {
@@ -78,7 +74,7 @@ TEST_F(HashCalculatorTest, ContextTest) {
   calc_next.Finalize();
   brillo::Blob raw_hash(std::begin(kExpectedRawHash),
                         std::end(kExpectedRawHash));
-  EXPECT_TRUE(raw_hash == calc_next.raw_hash());
+  EXPECT_EQ(raw_hash, calc_next.raw_hash());
 }
 
 TEST_F(HashCalculatorTest, BigTest) {
@@ -108,25 +104,21 @@ TEST_F(HashCalculatorTest, BigTest) {
 }
 
 TEST_F(HashCalculatorTest, UpdateFileSimpleTest) {
-  string data_path;
-  ASSERT_TRUE(
-      utils::MakeTempFile("data.XXXXXX", &data_path, nullptr));
-  ScopedPathUnlinker data_path_unlinker(data_path);
-  ASSERT_TRUE(utils::WriteFile(data_path.c_str(), "hi", 2));
+  test_utils::ScopedTempFile data_file("data.XXXXXX");
+  ASSERT_TRUE(test_utils::WriteFileString(data_file.path(), "hi"));
 
-  static const int kLengths[] = { -1, 2, 10 };
-  for (size_t i = 0; i < arraysize(kLengths); i++) {
+  for (const int length : {-1, 2, 10}) {
     HashCalculator calc;
-    EXPECT_EQ(2, calc.UpdateFile(data_path, kLengths[i]));
+    EXPECT_EQ(2, calc.UpdateFile(data_file.path(), length));
     EXPECT_TRUE(calc.Finalize());
     brillo::Blob raw_hash(std::begin(kExpectedRawHash),
                           std::end(kExpectedRawHash));
-    EXPECT_TRUE(raw_hash == calc.raw_hash());
+    EXPECT_EQ(raw_hash, calc.raw_hash());
   }
 
   HashCalculator calc;
-  EXPECT_EQ(0, calc.UpdateFile(data_path, 0));
-  EXPECT_EQ(1, calc.UpdateFile(data_path, 1));
+  EXPECT_EQ(0, calc.UpdateFile(data_file.path(), 0));
+  EXPECT_EQ(1, calc.UpdateFile(data_file.path(), 1));
   EXPECT_TRUE(calc.Finalize());
   // echo -n h | openssl dgst -sha256 -binary | openssl base64
   EXPECT_EQ("qqlAJmTxpB9A67xSyZk+tmrrNmYClY/fqig7ceZNsSM=",
@@ -134,21 +126,16 @@ TEST_F(HashCalculatorTest, UpdateFileSimpleTest) {
 }
 
 TEST_F(HashCalculatorTest, RawHashOfFileSimpleTest) {
-  string data_path;
-  ASSERT_TRUE(
-      utils::MakeTempFile("data.XXXXXX", &data_path, nullptr));
-  ScopedPathUnlinker data_path_unlinker(data_path);
-  ASSERT_TRUE(utils::WriteFile(data_path.c_str(), "hi", 2));
+  test_utils::ScopedTempFile data_file("data.XXXXXX");
+  ASSERT_TRUE(test_utils::WriteFileString(data_file.path(), "hi"));
 
-  static const int kLengths[] = { -1, 2, 10 };
-  for (size_t i = 0; i < arraysize(kLengths); i++) {
+  for (const int length : {-1, 2, 10}) {
     brillo::Blob exp_raw_hash(std::begin(kExpectedRawHash),
                               std::end(kExpectedRawHash));
     brillo::Blob raw_hash;
-    EXPECT_EQ(2, HashCalculator::RawHashOfFile(data_path,
-                                               kLengths[i],
-                                               &raw_hash));
-    EXPECT_TRUE(exp_raw_hash == raw_hash);
+    EXPECT_EQ(
+        2, HashCalculator::RawHashOfFile(data_file.path(), length, &raw_hash));
+    EXPECT_EQ(exp_raw_hash, raw_hash);
   }
 }
 
@@ -159,9 +146,7 @@ TEST_F(HashCalculatorTest, UpdateFileNonexistentTest) {
 
 TEST_F(HashCalculatorTest, AbortTest) {
   // Just make sure we don't crash and valgrind doesn't detect memory leaks
-  {
-    HashCalculator calc;
-  }
+  { HashCalculator calc; }
   {
     HashCalculator calc;
     calc.Update("h", 1);

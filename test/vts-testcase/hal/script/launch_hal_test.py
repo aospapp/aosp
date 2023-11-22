@@ -40,12 +40,10 @@ Usage:
   --test_binary_file: Test binary file for target-side HAL test.
   --test_script_file: Test script file for host-side HAL test.
   --test_config_dir: Directory path to store the test configure files.
-  --enable_profiling: Whether this is a profiling test.
   --replay: Whether this is a replay test.
   --disable_stop_runtime: Whether to stop framework before the test.
 Example:
   python launch_hal_test.py android.hardware.nfc@1.0
-  python launch_hal_test.py --enable_profiling android.hardware.nfc@1.0
   python launch_hal_test.py --test_type=host --time_out=5m android.hardware.nfc@1.0
   python launch_hal_test.py --package_root com.qualcomm.qti
   --path_root vendor/qcom/proprietary/interfaces/com/qualcomm/qti/
@@ -67,12 +65,6 @@ def main():
         required=False,
         default='1m',
         help='Timeout for the test, default is 1m.')
-    parser.add_argument(
-        '--enable_profiling',
-        dest='enable_profiling',
-        action='store_true',
-        required=False,
-        help='Whether to create profiling test.')
     parser.add_argument(
         '--replay',
         dest='is_replay',
@@ -158,7 +150,6 @@ def main():
             args.test_type,
             args.time_out,
             is_replay=args.is_replay,
-            is_profiling=args.enable_profiling,
             stop_runtime=stop_runtime,
             test_binary_file=args.test_binary_file,
             test_script_file=args.test_script_file,
@@ -168,13 +159,6 @@ def main():
         print('Error: Failed to launch test for %s. Exiting...' %
               args.hal_package_name)
         sys.exit(1)
-
-    if args.test_type == "host" or args.enable_profiling:
-        build_rule_gen = BuildRuleGen(
-            Constant.BP_WARNING_HEADER, args.package_root, args.path_root)
-        name_version = args.hal_package_name[len(args.package_root) + 1:]
-        build_rule_gen.UpdateHalDirBuildRule(
-            [name_version.split('@')], args.test_config_dir)
 
 if __name__ == '__main__':
     main()

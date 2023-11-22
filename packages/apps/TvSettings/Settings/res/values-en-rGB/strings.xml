@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Calibration"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Select formats"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Surround Sound"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Some apps will be unavailable or will not function correctly until the drive is reconnected."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Not enough storage space."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"App doesn\'t exist."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"App is copy-protected."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Install location isn\'t valid."</string>
     <string name="system_package" msgid="9200255718634512790">"System updates cannot be installed on external media."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Device Administrator can’t be installed on external media."</string>
@@ -685,7 +684,7 @@
     <string name="privacy_backup_account" msgid="9059939814827165020">"Backup account"</string>
     <string name="privacy_automatic_restore" msgid="1409885318093199628">"Automatic restore"</string>
     <string name="factory_reset_device" msgid="7422459553658815011">"Reset device"</string>
-    <string name="factory_reset_description" msgid="5381170999141355891">"This will erase all data from your device\'s internal storage, including: your Google account, system and app data and settings and downloaded apps"</string>
+    <string name="factory_reset_description" msgid="5381170999141355891">"This will erase all data from your device\'s internal storage, including: your Google Account, system and app data and settings and downloaded apps"</string>
     <string name="confirm_factory_reset_description" msgid="1049842658625287303">"Erase all your personal information and downloaded apps? You can\'t reverse this action!"</string>
     <string name="confirm_factory_reset_device" msgid="8923287482399582268">"Erase everything"</string>
     <string name="select_device_name_title" msgid="5165800500130943604">"Choose a name for your <xliff:g id="DEVICEMODEL">%1$s</xliff:g>"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Notification access"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"No installed apps have requested notification access."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"These apps will be able to read all notifications, including personal information, such as contact names and the text of messages that you receive. They will also be able to dismiss notifications or trigger action buttons that they contain."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Directory access"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"These apps have permission to access certain directories."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Display over other apps"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Allow display over other apps"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Allow an app to display on top of other apps that you’re using. It may interfere with your use of those apps or change the way they seem to appear or behave."</string>

@@ -1,0 +1,6 @@
+#allow hal_audio_default hiavplayer:binder { call };
+vndbinder_use(hal_audio_default);
+binder_call(hal_audio_default, hiavplayer);
+allow hal_audio_default vndbinder_device:chr_file { read write ioctl open };
+allow hal_audio_default vndservicemanager:binder { call };
+allow hal_audio_default hiavplayer_service:service_manager { find };

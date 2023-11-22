@@ -96,6 +96,7 @@ enum effect_command_e {
    EFFECT_CMD_SET_AUDIO_SOURCE,     // set the audio source (see audio.h, audio_source_t)
    EFFECT_CMD_OFFLOAD,              // set if effect thread is an offload one,
                                     // send the ioHandle of the effect thread
+   EFFECT_CMD_DUMP,                 // dump effect current state, for debugging
    EFFECT_CMD_FIRST_PROPRIETARY = 0x10000 // first proprietary command code
 };
 
@@ -415,6 +416,20 @@ enum effect_command_e {
 // reply format:
 //  size: sizeof(uint32_t)
 //  data: uint32_t
+//==================================================================================================
+// command: EFFECT_CMD_DUMP
+//--------------------------------------------------------------------------------------------------
+// description:
+//  Output the current state description into the provided file descriptor for inclusion
+//  into the audio service dump
+//--------------------------------------------------------------------------------------------------
+// command format:
+//  size: sizeof(uint32_t)
+//  data: uint32_t (which is in fact a file descriptor, int)
+//--------------------------------------------------------------------------------------------------
+// reply format:
+//  size: 0
+//  data: N/A
 //--------------------------------------------------------------------------------------------------
 // command: EFFECT_CMD_FIRST_PROPRIETARY
 //--------------------------------------------------------------------------------------------------

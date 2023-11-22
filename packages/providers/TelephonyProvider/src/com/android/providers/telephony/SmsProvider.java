@@ -317,7 +317,7 @@ public class SmsProvider extends ContentProvider {
     private Cursor getSingleMessageFromIcc(String messageIndexString) {
         int messageIndex = -1;
         try {
-            Integer.parseInt(messageIndexString);
+            messageIndex = Integer.parseInt(messageIndexString);
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException("Bad SMS ICC ID: " + messageIndexString);
         }
@@ -464,7 +464,6 @@ public class SmsProvider extends ContentProvider {
 
         int match = sURLMatcher.match(url);
         String table = TABLE_SMS;
-        boolean notifyIfNotDefault = true;
 
         switch (match) {
             case SMS_ALL:
@@ -503,10 +502,6 @@ public class SmsProvider extends ContentProvider {
 
             case SMS_RAW_MESSAGE:
                 table = "raw";
-                // The raw table is used by the telephony layer for storing an sms before
-                // sending out a notification that an sms has arrived. We don't want to notify
-                // the default sms app of changes to this table.
-                notifyIfNotDefault = false;
                 break;
 
             case SMS_STATUS_PENDING:

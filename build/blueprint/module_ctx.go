@@ -123,6 +123,7 @@ type DynamicDependerModule interface {
 type BaseModuleContext interface {
 	ModuleName() string
 	ModuleDir() string
+	ModuleType() string
 	Config() interface{}
 
 	ContainsProperty(name string) bool
@@ -154,6 +155,9 @@ type ModuleContext interface {
 	BaseModuleContext
 
 	OtherModuleName(m Module) string
+	OtherModuleDir(m Module) string
+	OtherModuleSubDir(m Module) string
+	OtherModuleType(m Module) string
 	OtherModuleErrorf(m Module, fmt string, args ...interface{})
 	OtherModuleDependencyTag(m Module) DependencyTag
 
@@ -164,7 +168,7 @@ type ModuleContext interface {
 	VisitDirectDepsIf(pred func(Module) bool, visit func(Module))
 	VisitDepsDepthFirst(visit func(Module))
 	VisitDepsDepthFirstIf(pred func(Module) bool, visit func(Module))
-	WalkDeps(visit func(Module, Module) bool)
+	WalkDeps(visit func(child, parent Module) bool)
 
 	ModuleSubDir() string
 
@@ -197,6 +201,10 @@ func (d *baseModuleContext) moduleInfo() *moduleInfo {
 
 func (d *baseModuleContext) ModuleName() string {
 	return d.module.Name()
+}
+
+func (d *baseModuleContext) ModuleType() string {
+	return d.module.typeName
 }
 
 func (d *baseModuleContext) ContainsProperty(name string) bool {
@@ -291,6 +299,21 @@ func (m *baseModuleContext) OtherModuleName(logicModule Module) string {
 	return module.Name()
 }
 
+func (m *baseModuleContext) OtherModuleDir(logicModule Module) string {
+	module := m.context.moduleInfo[logicModule]
+	return filepath.Dir(module.relBlueprintsFile)
+}
+
+func (m *baseModuleContext) OtherModuleSubDir(logicModule Module) string {
+	module := m.context.moduleInfo[logicModule]
+	return module.variantName
+}
+
+func (m *baseModuleContext) OtherModuleType(logicModule Module) string {
+	module := m.context.moduleInfo[logicModule]
+	return module.typeName
+}
+
 func (m *baseModuleContext) OtherModuleErrorf(logicModule Module, format string,
 	args ...interface{}) {
 
@@ -304,6 +327,9 @@ func (m *baseModuleContext) OtherModuleErrorf(logicModule Module, format string,
 	})
 }
 
+// OtherModuleDependencyTag returns the dependency tag used to depend on a module, or nil if there is no dependency
+// on the module.  When called inside a Visit* method with current module being visited, and there are multiple
+// dependencies on the module being visited, it returns the dependency tag used for the current dependency.
 func (m *baseModuleContext) OtherModuleDependencyTag(logicModule Module) DependencyTag {
 	// fast path for calling OtherModuleDependencyTag from inside VisitDirectDeps
 	if logicModule == m.visitingDep.module.logicModule {
@@ -319,8 +345,9 @@ func (m *baseModuleContext) OtherModuleDependencyTag(logicModule Module) Depende
 	return nil
 }
 
-// GetDirectDep returns the Module and DependencyTag for the direct dependency with the specified
-// name, or nil if none exists.
+// GetDirectDep returns the Module and DependencyTag for the  direct dependency with the specified
+// name, or nil if none exists.  If there are multiple dependencies on the same module it returns
+// the first DependencyTag.
 func (m *baseModuleContext) GetDirectDep(name string) (Module, DependencyTag) {
 	for _, dep := range m.module.directDeps {
 		if dep.module.Name() == name {
@@ -334,19 +361,25 @@ func (m *baseModuleContext) GetDirectDep(name string) (Module, DependencyTag) {
 // GetDirectDepWithTag returns the Module the direct dependency with the specified name, or nil if
 // none exists.  It panics if the dependency does not have the specified tag.
 func (m *baseModuleContext) GetDirectDepWithTag(name string, tag DependencyTag) Module {
+	var deps []depInfo
 	for _, dep := range m.module.directDeps {
 		if dep.module.Name() == name {
-			if dep.tag != tag {
-				panic(fmt.Errorf("found dependency %q with tag %#v, expected tag %#v",
-					dep.module, dep.tag, tag))
+			if dep.tag == tag {
+				return dep.module.logicModule
 			}
-			return dep.module.logicModule
+			deps = append(deps, dep)
 		}
+	}
+
+	if len(deps) != 0 {
+		panic(fmt.Errorf("Unable to find dependency %q with requested tag %#v. Found: %#v", deps[0].module, tag, deps))
 	}
 
 	return nil
 }
 
+// VisitDirectDeps calls visit for each direct dependency.  If there are multiple direct dependencies on the same module
+// visit will be called multiple times on that module and OtherModuleDependencyTag will return a different tag for each.
 func (m *baseModuleContext) VisitDirectDeps(visit func(Module)) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -366,6 +399,9 @@ func (m *baseModuleContext) VisitDirectDeps(visit func(Module)) {
 	m.visitingDep = depInfo{}
 }
 
+// VisitDirectDepsIf calls pred for each direct dependency, and if pred returns true calls visit.  If there are multiple
+// direct dependencies on the same module pred and visit will be called multiple times on that module and
+// OtherModuleDependencyTag will return a different tag for each.
 func (m *baseModuleContext) VisitDirectDepsIf(pred func(Module) bool, visit func(Module)) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -387,6 +423,10 @@ func (m *baseModuleContext) VisitDirectDepsIf(pred func(Module) bool, visit func
 	m.visitingDep = depInfo{}
 }
 
+// VisitDepsDepthFirst calls visit for each transitive dependency, traversing the dependency tree in depth first order.
+// visit will only be called once for any given module, even if there are multiple paths through the dependency tree
+// to the module or multiple direct dependencies with different tags.  OtherModuleDependencyTag will return the tag for
+// the first path found to the module.
 func (m *baseModuleContext) VisitDepsDepthFirst(visit func(Module)) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -395,7 +435,7 @@ func (m *baseModuleContext) VisitDepsDepthFirst(visit func(Module)) {
 		}
 	}()
 
-	m.context.walkDeps(m.module, nil, func(dep depInfo, parent *moduleInfo) {
+	m.context.walkDeps(m.module, false, nil, func(dep depInfo, parent *moduleInfo) {
 		m.visitingParent = parent
 		m.visitingDep = dep
 		visit(dep.module.logicModule)
@@ -405,6 +445,11 @@ func (m *baseModuleContext) VisitDepsDepthFirst(visit func(Module)) {
 	m.visitingDep = depInfo{}
 }
 
+// VisitDepsDepthFirst calls pred for each transitive dependency, and if pred returns true calls visit, traversing the
+// dependency tree in depth first order.  visit will only be called once for any given module, even if there are
+// multiple paths through the dependency tree to the module or multiple direct dependencies with different tags.
+// OtherModuleDependencyTag will return the tag for the first path found to the module.  The return value of pred does
+// not affect which branches of the tree are traversed.
 func (m *baseModuleContext) VisitDepsDepthFirstIf(pred func(Module) bool,
 	visit func(Module)) {
 
@@ -415,7 +460,7 @@ func (m *baseModuleContext) VisitDepsDepthFirstIf(pred func(Module) bool,
 		}
 	}()
 
-	m.context.walkDeps(m.module, nil, func(dep depInfo, parent *moduleInfo) {
+	m.context.walkDeps(m.module, false, nil, func(dep depInfo, parent *moduleInfo) {
 		if pred(dep.module.logicModule) {
 			m.visitingParent = parent
 			m.visitingDep = dep
@@ -427,8 +472,12 @@ func (m *baseModuleContext) VisitDepsDepthFirstIf(pred func(Module) bool,
 	m.visitingDep = depInfo{}
 }
 
-func (m *baseModuleContext) WalkDeps(visit func(Module, Module) bool) {
-	m.context.walkDeps(m.module, func(dep depInfo, parent *moduleInfo) bool {
+// WalkDeps calls visit for each transitive dependency, traversing the dependency tree in top down order.  visit may be
+// called multiple times for the same (child, parent) pair if there are multiple direct dependencies between the
+// child and parent with different tags.  OtherModuleDependencyTag will return the tag for the currently visited
+// (child, parent) pair.  If visit returns false WalkDeps will not continue recursing down to child.
+func (m *baseModuleContext) WalkDeps(visit func(child, parent Module) bool) {
+	m.context.walkDeps(m.module, true, func(dep depInfo, parent *moduleInfo) bool {
 		m.visitingParent = parent
 		m.visitingDep = dep
 		return visit(dep.module.logicModule, parent.logicModule)
@@ -533,6 +582,9 @@ type TopDownMutatorContext interface {
 	baseMutatorContext
 
 	OtherModuleName(m Module) string
+	OtherModuleDir(m Module) string
+	OtherModuleSubDir(m Module) string
+	OtherModuleType(m Module) string
 	OtherModuleErrorf(m Module, fmt string, args ...interface{})
 	OtherModuleDependencyTag(m Module) DependencyTag
 

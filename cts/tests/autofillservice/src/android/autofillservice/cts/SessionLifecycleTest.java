@@ -22,28 +22,36 @@ import static android.autofillservice.cts.Helper.ID_USERNAME;
 import static android.autofillservice.cts.Helper.assertTextAndValue;
 import static android.autofillservice.cts.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.Helper.getContext;
+import static android.autofillservice.cts.OutOfProcessLoginActivity.getDestroyedMarker;
 import static android.autofillservice.cts.OutOfProcessLoginActivity.getStartedMarker;
 import static android.autofillservice.cts.OutOfProcessLoginActivity.getStoppedMarker;
 import static android.autofillservice.cts.UiBot.LANDSCAPE;
 import static android.autofillservice.cts.UiBot.PORTRAIT;
-import static android.autofillservice.cts.common.ShellHelper.runShellCommand;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_USERNAME;
+
+import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+import android.app.ActivityManager;
 import android.app.PendingIntent;
 import android.app.assist.AssistStructure;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.support.test.uiautomator.UiObject2;
+import android.util.Log;
 import android.view.autofill.AutofillValue;
+
+import com.android.compatibility.common.util.Timeout;
 
 import org.junit.After;
 import org.junit.Before;
@@ -54,8 +62,10 @@ import java.util.concurrent.Callable;
 /**
  * Test the lifecycle of a autofill session
  */
-@AppModeFull // This test requires android.permission.WRITE_EXTERNAL_STORAGE
-public class SessionLifecycleTest extends AutoFillServiceTestCase {
+@AppModeFull(reason = "This test requires android.permission.WRITE_EXTERNAL_STORAGE")
+public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivityLaunch {
+    private static final String TAG = "SessionLifecycleTest";
+
     private static final String ID_BUTTON = "button";
     private static final String ID_CANCEL = "cancel";
 
@@ -66,7 +76,7 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase {
     private static final long WAIT_ACTIVITY_MS = 1000;
 
     private static final Timeout SESSION_LIFECYCLE_TIMEOUT = new Timeout(
-            "SESSION_LIFECYCLE_TIMEOUT", 2000, 2F, 5000);
+            "SESSION_LIFECYCLE_TIMEOUT", 5000, 2F, 5000);
 
     /**
      * Runs an {@code assertion}, retrying until {@code timeout} is reached.
@@ -94,6 +104,22 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase {
     @After
     public void allowAutoRotation() {
         Helper.allowAutoRotation();
+    }
+
+    @After
+    public void finishLoginActivityOnAnotherProcess() throws Exception {
+        runShellCommand("am broadcast --receiver-foreground "
+                + "-n android.autofillservice.cts/.OutOfProcessLoginActivityFinisherReceiver");
+        mUiBot.assertGoneByRelativeId(ID_USERNAME, Timeouts.ACTIVITY_RESURRECTION);
+
+        if (!OutOfProcessLoginActivity.hasInstance()) {
+            Log.v(TAG, "@After: Not waiting for oop activity to be destroyed");
+            return;
+        }
+        // Waiting for activity to be destroyed (destroy marker appears)
+        eventually("getDestroyedMarker()", () -> {
+            return getDestroyedMarker(getContext()).exists();
+        });
     }
 
     private void killOfProcessLoginActivityProcess() throws Exception {
@@ -128,115 +154,123 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase {
     @Test
     public void testDatasetAuthResponseWhileAutofilledAppIsLifecycled() throws Exception {
         assumeTrue("Rotation is supported", Helper.isRotationSupported(mContext));
+        final ActivityManager activityManager = (ActivityManager) getContext()
+                .getSystemService(Context.ACTIVITY_SERVICE);
+        assumeFalse(activityManager.isLowRamDevice());
 
         // Set service.
         enableService();
 
-        // Start activity that is autofilled in a separate process so it can be killed
-        startAndWaitExternalActivity();
+        try {
 
-        // Set expectations.
-        final Bundle extras = new Bundle();
-        extras.putString("numbers", "4815162342");
+            // Start activity that is autofilled in a separate process so it can be killed
+            startAndWaitExternalActivity();
 
-        // Create the authentication intent (launching a full screen activity)
-        IntentSender authentication = PendingIntent.getActivity(getContext(), 0,
-                new Intent(getContext(), ManualAuthenticationActivity.class),
-                0).getIntentSender();
+            // Set expectations.
+            final Bundle extras = new Bundle();
+            extras.putString("numbers", "4815162342");
 
-        // Prepare the authenticated response
-        ManualAuthenticationActivity.setResponse(new CannedFillResponse.Builder()
-                .addDataset(new CannedFillResponse.CannedDataset.Builder()
-                        .setField(ID_USERNAME, AutofillValue.forText("autofilled username"))
-                        .setPresentation(createPresentation("dataset")).build())
-                .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
-                .setExtras(extras).build());
+            // Create the authentication intent (launching a full screen activity)
+            IntentSender authentication = PendingIntent.getActivity(getContext(), 0,
+                    new Intent(getContext(), ManualAuthenticationActivity.class),
+                    0).getIntentSender();
 
-        CannedFillResponse response = new CannedFillResponse.Builder()
-                .setAuthentication(authentication, ID_USERNAME, ID_PASSWORD)
-                .setPresentation(createPresentation("authenticate"))
-                .build();
-        sReplier.addResponse(response);
+            // Prepare the authenticated response
+            ManualAuthenticationActivity.setResponse(new CannedFillResponse.Builder()
+                    .addDataset(new CannedFillResponse.CannedDataset.Builder()
+                            .setField(ID_USERNAME, AutofillValue.forText("autofilled username"))
+                            .setPresentation(createPresentation("dataset")).build())
+                    .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
+                    .setExtras(extras).build());
 
-        // Trigger autofill on username
-        mUiBot.selectByRelativeId(ID_USERNAME);
+            CannedFillResponse response = new CannedFillResponse.Builder()
+                    .setAuthentication(authentication, ID_USERNAME, ID_PASSWORD)
+                    .setPresentation(createPresentation("authenticate"))
+                    .build();
+            sReplier.addResponse(response);
 
-        // Wait for fill request to be processed
-        sReplier.getNextFillRequest();
+            // Trigger autofill on username
+            mUiBot.selectByRelativeId(ID_USERNAME);
 
-        // Wait until authentication is shown
-        mUiBot.assertDatasets("authenticate");
+            // Wait for fill request to be processed
+            sReplier.getNextFillRequest();
 
-        // Change orientation which triggers a destroy -> create in the app as the activity
-        // cannot deal with such situations
-        mUiBot.setScreenOrientation(LANDSCAPE);
-        mUiBot.setScreenOrientation(PORTRAIT);
+            // Wait until authentication is shown
+            mUiBot.assertDatasets("authenticate");
 
-        // Wait context and Views being recreated in rotation
-        mUiBot.assertShownByRelativeId(ID_USERNAME);
+            // Change orientation which triggers a destroy -> create in the app as the activity
+            // cannot deal with such situations
+            mUiBot.setScreenOrientation(LANDSCAPE);
+            mUiBot.setScreenOrientation(PORTRAIT);
 
-        // Delete stopped marker
-        getStoppedMarker(getContext()).delete();
+            // Wait context and Views being recreated in rotation
+            mUiBot.assertShownByRelativeId(ID_USERNAME);
 
-        // Authenticate
-        mUiBot.selectDataset("authenticate");
+            // Delete stopped marker
+            getStoppedMarker(getContext()).delete();
 
-        // Kill activity that is in the background
-        killOfProcessLoginActivityProcess();
+            // Authenticate
+            mUiBot.selectDataset("authenticate");
 
-        // Change orientation which triggers a destroy -> create in the app as the activity
-        // cannot deal with such situations
-        mUiBot.setScreenOrientation(PORTRAIT);
+            // Kill activity that is in the background
+            killOfProcessLoginActivityProcess();
 
-        // Approve authentication
-        mUiBot.selectByRelativeId(ID_BUTTON);
+            // Change orientation which triggers a destroy -> create in the app as the activity
+            // cannot deal with such situations
+            mUiBot.setScreenOrientation(PORTRAIT);
 
-        // Wait for dataset to be shown
-        mUiBot.assertDatasets("dataset");
+            // Approve authentication
+            mUiBot.selectByRelativeId(ID_BUTTON);
 
-        // Change orientation which triggers a destroy -> create in the app as the activity
-        // cannot deal with such situations
-        mUiBot.setScreenOrientation(LANDSCAPE);
+            // Wait for dataset to be shown
+            mUiBot.assertDatasets("dataset");
 
-        // Select dataset
-        mUiBot.selectDataset("dataset");
+            // Change orientation which triggers a destroy -> create in the app as the activity
+            // cannot deal with such situations
+            mUiBot.setScreenOrientation(LANDSCAPE);
 
-        // Check the results.
-        eventually("getTextById(" + ID_USERNAME + ")", () -> {
-            return mUiBot.getTextByRelativeId(ID_USERNAME).equals("autofilled username");
-        });
+            // Select dataset
+            mUiBot.selectDataset("dataset");
 
-        // Set password
-        mUiBot.setTextByRelativeId(ID_PASSWORD, "new password");
+            // Check the results.
+            eventually("getTextById(" + ID_USERNAME + ")", () -> {
+                return mUiBot.getTextByRelativeId(ID_USERNAME).equals("autofilled username");
+            });
 
-        // Login
-        mUiBot.selectByRelativeId(ID_LOGIN);
+            // Set password
+            mUiBot.setTextByRelativeId(ID_PASSWORD, "new password");
 
-        // Wait for save UI to be shown
-        mUiBot.assertSaveShowing(SAVE_DATA_TYPE_PASSWORD);
+            // Login
+            mUiBot.selectByRelativeId(ID_LOGIN);
 
-        // Change orientation to make sure save UI can handle this
-        mUiBot.setScreenOrientation(PORTRAIT);
+            // Wait for save UI to be shown
+            mUiBot.assertSaveShowing(SAVE_DATA_TYPE_PASSWORD);
 
-        // Tap "Save".
-        mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
+            // Change orientation to make sure save UI can handle this
+            mUiBot.setScreenOrientation(PORTRAIT);
 
-        // Get save request
-        InstrumentedAutoFillService.SaveRequest saveRequest = sReplier.getNextSaveRequest();
-        assertWithMessage("onSave() not called").that(saveRequest).isNotNull();
+            // Tap "Save".
+            mUiBot.saveForAutofill(true, SAVE_DATA_TYPE_PASSWORD);
 
-        // Make sure data is correctly saved
-        final AssistStructure.ViewNode username = findNodeByResourceId(saveRequest.structure,
-                ID_USERNAME);
-        assertTextAndValue(username, "autofilled username");
-        final AssistStructure.ViewNode password = findNodeByResourceId(saveRequest.structure,
-                ID_PASSWORD);
-        assertTextAndValue(password, "new password");
+            // Get save request
+            InstrumentedAutoFillService.SaveRequest saveRequest = sReplier.getNextSaveRequest();
+            assertWithMessage("onSave() not called").that(saveRequest).isNotNull();
 
-        // Make sure extras were passed back on onSave()
-        assertThat(saveRequest.data).isNotNull();
-        final String extraValue = saveRequest.data.getString("numbers");
-        assertWithMessage("extras not passed on save").that(extraValue).isEqualTo("4815162342");
+            // Make sure data is correctly saved
+            final AssistStructure.ViewNode username = findNodeByResourceId(saveRequest.structure,
+                    ID_USERNAME);
+            assertTextAndValue(username, "autofilled username");
+            final AssistStructure.ViewNode password = findNodeByResourceId(saveRequest.structure,
+                    ID_PASSWORD);
+            assertTextAndValue(password, "new password");
+
+            // Make sure extras were passed back on onSave()
+            assertThat(saveRequest.data).isNotNull();
+            final String extraValue = saveRequest.data.getString("numbers");
+            assertWithMessage("extras not passed on save").that(extraValue).isEqualTo("4815162342");
+        } finally {
+            mUiBot.resetScreenResolution();
+        }
     }
 
     @Test

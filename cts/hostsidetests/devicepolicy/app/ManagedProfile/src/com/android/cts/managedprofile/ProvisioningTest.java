@@ -21,6 +21,7 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ADMIN_EXT
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -35,11 +36,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.PersistableBundle;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.SmallTest;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
+
 import com.android.compatibility.common.util.devicepolicy.provisioning.SilentProvisioningTestManager;
+
 import org.junit.Before;
 import org.junit.Test;
 

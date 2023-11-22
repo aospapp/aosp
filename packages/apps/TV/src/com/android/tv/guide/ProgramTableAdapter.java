@@ -110,6 +110,8 @@ class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapter.Progr
     private final int mDvrPaddingStartWithTrack;
     private final int mDvrPaddingStartWithOutTrack;
 
+    private RecyclerView mRecyclerView;
+
     ProgramTableAdapter(Context context, ProgramGuide programGuide) {
         mContext = context;
         mAccessibilityManager =
@@ -198,7 +200,15 @@ class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapter.Progr
             mProgramManager.addTableEntriesUpdatedListener(listAdapter);
             mProgramListAdapters.add(listAdapter);
         }
-        notifyDataSetChanged();
+        if (mRecyclerView != null && mRecyclerView.isComputingLayout()) {
+            // it means that RecyclerView is in a lockdown state and any attempt to update adapter
+            // contents will result in an exception because adapter contents cannot be changed while
+            // RecyclerView is trying to compute the layout
+            // postpone the change using a Handler
+            mHandler.post(this::notifyDataSetChanged);
+        } else {
+            notifyDataSetChanged();
+        }
     }
 
     @Override
@@ -238,8 +248,22 @@ class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapter.Progr
         int channelIndex = mProgramManager.getChannelIndex(tableEntry.channelId);
         int pos = mProgramManager.getProgramIdIndex(tableEntry.channelId, tableEntry.getId());
         if (DEBUG) Log.d(TAG, "update(" + channelIndex + ", " + pos + ")");
-        mProgramListAdapters.get(channelIndex).notifyItemChanged(pos, tableEntry);
-        notifyItemChanged(channelIndex, true);
+        if (channelIndex >= 0 && channelIndex < mProgramListAdapters.size()) {
+            mProgramListAdapters.get(channelIndex).notifyItemChanged(pos, tableEntry);
+            notifyItemChanged(channelIndex, true);
+        }
+    }
+
+    @Override
+    public void onAttachedToRecyclerView(RecyclerView recyclerView) {
+        mRecyclerView = recyclerView;
+        super.onAttachedToRecyclerView(recyclerView);
+    }
+
+    @Override
+    public void onDetachedFromRecyclerView(RecyclerView recyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView);
+        mRecyclerView = null;
     }
 
     class ProgramRowViewHolder extends RecyclerView.ViewHolder
@@ -260,13 +284,7 @@ class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapter.Progr
                         }
                     }
                 };
-        private final Runnable mUpdateDetailViewRunnable =
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        updateDetailView();
-                    }
-                };
+        private final Runnable mUpdateDetailViewRunnable = this::updateDetailView;
 
         private final RecyclerView.OnScrollListener mOnScrollListener =
                 new RecyclerView.OnScrollListener() {
@@ -420,12 +438,14 @@ class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapter.Progr
                 mChannelNumberView.setText(displayNumber);
                 mChannelNumberView.setVisibility(View.VISIBLE);
             }
+
+            boolean isChannelLocked = isChannelLocked(channel);
             mChannelNumberView.setTextColor(
-                    isChannelLocked(channel) ? mChannelBlockedTextColor : mChannelTextColor);
+                    isChannelLocked ? mChannelBlockedTextColor : mChannelTextColor);
 
             mChannelLogoView.setImageBitmap(null);
             mChannelLogoView.setVisibility(View.GONE);
-            if (isChannelLocked(channel)) {
+            if (isChannelLocked) {
                 mChannelNameView.setVisibility(View.GONE);
                 mChannelBlockView.setVisibility(View.VISIBLE);
             } else {
@@ -573,13 +593,7 @@ class ProgramTableAdapter extends RecyclerView.Adapter<ProgramTableAdapter.Progr
                     mTitleView.setText(text);
                 }
 
-                updateTextView(
-                        mTimeView,
-                        Utils.getDurationString(
-                                context,
-                                program.getStartTimeUtcMillis(),
-                                program.getEndTimeUtcMillis(),
-                                false));
+                updateTextView(mTimeView, program.getDurationString(context));
 
                 boolean trackMetaDataVisible =
                         updateTextView(

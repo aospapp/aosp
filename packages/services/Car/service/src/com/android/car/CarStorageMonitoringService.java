@@ -120,9 +120,9 @@ public class CarStorageMonitoringService extends ICarStorageMonitoring.Stub
         }
 
         mUidIoStatsProvider = systemInterface.getUidIoStatsProvider();
-        mUptimeTrackerFile = new File(systemInterface.getFilesDir(), UPTIME_TRACKER_FILENAME);
-        mWearInfoFile = new File(systemInterface.getFilesDir(), WEAR_INFO_FILENAME);
-        mLifetimeWriteFile = new File(systemInterface.getFilesDir(), LIFETIME_WRITES_FILENAME);
+        mUptimeTrackerFile = new File(systemInterface.getSystemCarDir(), UPTIME_TRACKER_FILENAME);
+        mWearInfoFile = new File(systemInterface.getSystemCarDir(), WEAR_INFO_FILENAME);
+        mLifetimeWriteFile = new File(systemInterface.getSystemCarDir(), LIFETIME_WRITES_FILENAME);
         mOnShutdownReboot = new OnShutdownReboot(mContext);
         mSystemInterface = systemInterface;
         mWearInformationProviders = systemInterface.getFlashWearInformationProviders();

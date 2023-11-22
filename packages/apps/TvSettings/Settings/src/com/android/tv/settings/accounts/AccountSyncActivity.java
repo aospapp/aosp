@@ -22,14 +22,15 @@ import android.app.Fragment;
 import android.os.Bundle;
 import android.text.TextUtils;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 /**
  * Displays the sync settings for a given account.
  */
 public class AccountSyncActivity extends TvSettingsActivity {
 
+    private static final String ARG_ACCOUNT = "account";
     public static final String EXTRA_ACCOUNT = "account_name";
 
     @Override
@@ -45,25 +46,13 @@ public class AccountSyncActivity extends TvSettingsActivity {
                 }
             }
         }
-
-        return SettingsFragment.newInstance(account);
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+            .newSettingsFragment(AccountSyncFragment.class.getName(), getArguments(account));
     }
 
-    public static class SettingsFragment extends BaseSettingsFragment {
-        private static final String ARG_ACCOUNT = "account";
-
-        public static SettingsFragment newInstance(Account account) {
-            final Bundle b = new Bundle(1);
-            b.putParcelable(ARG_ACCOUNT, account);
-            final SettingsFragment f = new SettingsFragment();
-            f.setArguments(b);
-            return f;
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final Account account = getArguments().getParcelable(ARG_ACCOUNT);
-            startPreferenceFragment(AccountSyncFragment.newInstance(account));
-        }
+    private Bundle getArguments(Account account) {
+        final Bundle b = new Bundle(1);
+        b.putParcelable(ARG_ACCOUNT, account);
+        return b;
     }
 }

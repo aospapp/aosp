@@ -37,7 +37,10 @@ import android.test.InstrumentationTestCase;
 /**
  * CTS tests for {@link android.provider.ContactsContract.Contacts#CONTENT_FREQUENT_URI},
  * {@link android.provider.ContactsContract.Contacts#CONTENT_STREQUENT_URI} and
- * {@link android.provider.ContactsContract.Contacts#CONTENT_STREQUENT_FILTER_URI} apis.
+ * {@link android.provider.ContactsContract.Contacts#CONTENT_STREQUENT_FILTER_URI} APIs.
+ *
+ * Note we no longer support contact affinity as of Q, so times_contacted and
+ * last_time_contacted are always 0, and "frequent" is always empty.
  */
 public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTestCase {
     private ContentResolver mResolver;
@@ -180,11 +183,6 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
                 false, sContentValues[1], sContentValues[0]);
     }
 
-    /**
-     * Tests that {@link android.provider.ContactsContract.Contacts#CONTENT_STREQUENT_URI} returns
-     * frequent contacts in the correct order if there are only frequent contacts in the user's
-     * contacts.
-     */
     public void testStrequents_frequentsOnlyInCorrectOrder() throws Exception {
         long[] ids = setupTestData();
 
@@ -200,14 +198,9 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
         // The strequents uri should now return contact 2, 3, 1 in order due to ranking by
         // data usage.
         assertCursorStoredValuesWithContactsFilter(Contacts.CONTENT_STREQUENT_URI, ids,
-                false, sContentValues[1], sContentValues[2], sContentValues[0]);
+                false);
     }
 
-    /**
-     * Tests that {@link android.provider.ContactsContract.Contacts#CONTENT_STREQUENT_URI} returns
-     * first starred, then frequent contacts in their respective correct orders if there are both
-     * starred and frequent contacts in the user's contacts.
-     */
     public void testStrequents_starredAndFrequentsInCorrectOrder() throws Exception {
         long[] ids = setupTestData();
 
@@ -226,7 +219,7 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
         // Note that contact 3 is only returned once (as a starred contact) even though it is also
         // a frequently contacted contact.
         assertCursorStoredValuesWithContactsFilter(Contacts.CONTENT_STREQUENT_URI, ids,
-                false, sContentValues[2], sContentValues[1], sContentValues[0]);
+                false, sContentValues[2]);
     }
 
     /**
@@ -246,19 +239,20 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
 
         // Only contact 1 and 2 should be returned (sorted in alphabetical order) due to the
         // filtered query.
-        assertCursorStoredValuesWithContactsFilter(uri, ids, false, sContentValues[1], sContentValues[0]);
+        assertCursorStoredValuesWithContactsFilter(uri, ids, false,
+                sContentValues[1], sContentValues[0]);
     }
 
     public void testStrequents_projection() throws Exception {
         long[] ids = setupTestData();
 
-        // Start contact 0 and mark contact 2 as frequent
+        // Star contact 0 and mark contact 2 as frequent
         starContact(ids[0]);
         markDataAsUsed(mDataIds[2], 1);
 
         DatabaseAsserts.checkProjection(mResolver, Contacts.CONTENT_STREQUENT_URI,
                 STREQUENT_PROJECTION,
-                new long[]{ids[0], ids[2]}
+                new long[]{ids[0]}
         );
 
         // Strequent filter.
@@ -305,8 +299,7 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
                 appendQueryParameter(ContactsContract.STREQUENT_PHONE_ONLY, "true").build();
 
         // Only the contacts with phone numbers are returned, in frequency ranking order.
-        assertCursorStoredValuesWithContactsFilter(uri, mDataIds, false,
-                sContentValues[2], sContentValues[0]);
+        assertCursorStoredValuesWithContactsFilter(uri, mDataIds, false);
     }
 
     public void testStrequents_phoneOnly_projection() throws Exception {
@@ -322,7 +315,7 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
 
         DatabaseAsserts.checkProjection(mResolver, uri,
                 STREQUENT_PHONE_ONLY_PROJECTION,
-                new long[]{mDataIds[0], mDataIds[2]} // Note _id from phone_only is data._id
+                new long[]{mDataIds[0]}
         );
     }
 
@@ -346,7 +339,7 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
         // The frequents uri should now return contact 2, 3, 1 in order due to ranking by
         // data usage.
         assertCursorStoredValuesWithContactsFilter(Contacts.CONTENT_FREQUENT_URI, ids,
-                true /* inOrder */, sContentValues[1], sContentValues[2], sContentValues[0]);
+                true);
     }
 
     public void testFrequent_projection() throws Exception {
@@ -356,7 +349,7 @@ public class ContactsContract_FrequentsStrequentsTest extends InstrumentationTes
 
         DatabaseAsserts.checkProjection(mResolver, Contacts.CONTENT_FREQUENT_URI,
                 STREQUENT_PROJECTION,
-                new long[]{ids[0]}
+                new long[]{}
         );
     }
 

@@ -16,13 +16,14 @@
 <configuration description="Config for CTS Hidden API Signature test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="systems" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/signature-test" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/signature-test" />
     </target_preparer>
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
-        <option name="push" value="blacklist.api->/data/local/tmp/signature-test/blacklist.api" />
-        <option name="push" value="dark_greylist.api->/data/local/tmp/signature-test/dark_greylist.api" />
+        <option name="push" value="hiddenapi_flags.csv->/data/local/tmp/signature-test/hiddenapi_flags.csv" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -32,7 +33,8 @@
         <option name="package" value="android.signature.cts.api.hiddenapi_blacklist_debug_class" />
         <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
         <option name="class" value="android.signature.cts.api.DebugClassHiddenApiTest" />
-        <option name="instrumentation-arg" key="hidden-api-files" value="blacklist.api,dark_greylist.api" />
+        <option name="instrumentation-arg" key="hiddenapi-files" value="hiddenapi_flags.csv" />
+        <option name="instrumentation-arg" key="hiddenapi-test-flags" value="blacklist,greylist-max-o,greylist-max-p" />
         <option name="runtime-hint" value="30s" />
     </test>
 </configuration>

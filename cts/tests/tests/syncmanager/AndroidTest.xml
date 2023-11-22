@@ -15,7 +15,11 @@
 -->
 <configuration description="Config for ShortcutManager CTS test cases">
     <option name="test-suite-tag" value="cts" />
+
     <option name="config-descriptor:metadata" key="component" value="framework" />
+    <!-- Instant apps can't have a sync adapter. -->
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <!-- Disable keyguard -->
@@ -35,6 +39,8 @@
         <option name="run-command" value="am set-standby-bucket android.content.syncmanager.cts.app1 10" />
         <option name="run-command" value="am set-standby-bucket android.content.syncmanager.cts.app2 10" />
         <option name="run-command" value="setprop log.tag.SyncManager VERBOSE" />
+        <option name="run-command" value="cmd thermalservice override-status 0" />
+        <option name="teardown-command" value="cmd thermalservice reset" />
         <option name="teardown-command" value="setprop log.tag.SyncManager INFO" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

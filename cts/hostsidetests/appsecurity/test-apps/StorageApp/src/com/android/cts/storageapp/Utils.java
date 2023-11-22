@@ -137,7 +137,9 @@ public class Utils {
         for (File f : dir.listFiles()) {
             if (f.isDirectory()) {
                 if (excludeObb && f.getName().equalsIgnoreCase("obb")
-                        && f.getParentFile().getName().equalsIgnoreCase("Android")) {
+                        && f.getParentFile().getName().equalsIgnoreCase("Android")
+                        && !f.getParentFile().getParentFile().getParentFile().getName()
+                                .equalsIgnoreCase("sandbox")) {
                     Log.d(TAG, "Ignoring OBB directory " + f);
                 } else {
                     size += getSizeManual(f, excludeObb);
@@ -150,7 +152,9 @@ public class Utils {
     }
 
     private static long getAllocatedSize(File f) throws Exception {
-        return Os.lstat(f.getAbsolutePath()).st_blocks * 512;
+        return Os.lstat(f.getAbsolutePath()).st_blocks * 512 /
+               Os.lstat(f.getAbsolutePath()).st_blksize *
+               Os.lstat(f.getAbsolutePath()).st_blksize ;
     }
 
     public static boolean deleteContents(File dir) {

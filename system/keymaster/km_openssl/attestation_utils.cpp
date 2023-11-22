@@ -39,7 +39,7 @@ constexpr int kDataEnciphermentKeyUsageBit = 3;
 constexpr int kMaxKeyUsageBit = 8;
 
 template <typename T> T && min(T && a, T && b) {
-    return (a < b) ? std::forward<T>(a) : std::forward<T>(b);
+    return (a < b) ? forward<T>(a) : forward<T>(b);
 }
 
 struct emptyCert {};
@@ -100,7 +100,7 @@ inline bool certCopier(keymaster_blob_t** out, const keymaster_cert_chain_t& cha
 __attribute__((__unused__))
 inline bool certCopier(keymaster_blob_t** out, keymaster_cert_chain_t&& chain, bool* fail) {
     for (size_t i = 0; i < chain.entry_count; ++i) {
-        *(*out)++ = certBlobifier(std::move(chain.entries[i]), fail);
+        *(*out)++ = certBlobifier(move(chain.entries[i]), fail);
     }
     delete[] chain.entries;
     chain.entries = nullptr;
@@ -109,7 +109,7 @@ inline bool certCopier(keymaster_blob_t** out, keymaster_cert_chain_t&& chain, b
 }
 template <typename CERT>
 inline bool certCopier(keymaster_blob_t** out, CERT&& cert, bool* fail) {
-    *(*out)++ = certBlobifier(std::forward<CERT>(cert), fail);
+    *(*out)++ = certBlobifier(forward<CERT>(cert), fail);
     return *fail;
 }
 
@@ -119,8 +119,8 @@ inline bool certCopyHelper(keymaster_blob_t**, bool* fail) {
 
 template <typename CERT, typename... CERTS>
 inline bool certCopyHelper(keymaster_blob_t** out, bool* fail, CERT&& cert, CERTS&&... certs) {
-    certCopier(out, std::forward<CERT>(cert), fail);
-    return certCopyHelper(out, fail, std::forward<CERTS>(certs)...);
+    certCopier(out, forward<CERT>(cert), fail);
+    return certCopyHelper(out, fail, forward<CERTS>(certs)...);
 }
 
 
@@ -132,7 +132,7 @@ inline size_t noOfCert(const keymaster_cert_chain_t& cert_chain) { return cert_c
 inline size_t certCount() { return 0; }
 template <typename CERT, typename... CERTS>
 inline size_t certCount(CERT&& cert, CERTS&&... certs) {
-    return noOfCert(std::forward<CERT>(cert)) + certCount(std::forward<CERTS>(certs)...);
+    return noOfCert(forward<CERT>(cert)) + certCount(forward<CERTS>(certs)...);
 }
 
 /*
@@ -155,12 +155,12 @@ template <typename... CERTS>
 CertChainPtr makeCertChain(CERTS&&... certs) {
     CertChainPtr result(new (std::nothrow) keymaster_cert_chain_t);
     if (!result.get()) return {};
-    result->entries = new (std::nothrow) keymaster_blob_t[certCount(std::forward<CERTS>(certs)...)];
+    result->entries = new (std::nothrow) keymaster_blob_t[certCount(forward<CERTS>(certs)...)];
     if (!result->entries) return {};
-    result->entry_count = certCount(std::forward<CERTS>(certs)...);
+    result->entry_count = certCount(forward<CERTS>(certs)...);
     bool allocation_failed = false;
     keymaster_blob_t* entries = result->entries;
-    certCopyHelper(&entries, &allocation_failed, std::forward<CERTS>(certs)...);
+    certCopyHelper(&entries, &allocation_failed, forward<CERTS>(certs)...);
     if (allocation_failed) return {};
     return result;
 }
@@ -201,6 +201,7 @@ keymaster_error_t add_key_usage_extension(const AuthorizationSet& tee_enforced,
                                                  X509* certificate) {
     // Build BIT_STRING with correct contents.
     ASN1_BIT_STRING_Ptr key_usage(ASN1_BIT_STRING_new());
+    if (!key_usage) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     for (size_t i = 0; i <= kMaxKeyUsageBit; ++i) {
         if (!ASN1_BIT_STRING_set_bit(key_usage.get(), i, 0)) {

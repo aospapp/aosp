@@ -33,7 +33,9 @@
 #define NATIVE_METHOD(className, functionName, signature) \
 { #functionName, signature, (void*)(className ## _ ## functionName) }
 
-#ifdef _ALLBSD_SOURCE
+// Android-changed: Alias *64 on Fuchsia builds. http://b/119496969
+// #ifdef _ALLBSD_SOURCE
+#if defined(_ALLBSD_SOURCE) || defined(__Fuchsia__)
 #define stat64 stat
 
 #define fstat64 fstat

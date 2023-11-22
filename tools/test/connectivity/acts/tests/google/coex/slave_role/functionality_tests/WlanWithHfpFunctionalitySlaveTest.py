@@ -1,4 +1,4 @@
-# /usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 # Copyright (C) 2018 The Android Open Source Project
 #
@@ -17,56 +17,56 @@
 import time
 
 from acts.test_utils.bt.bt_test_utils import clear_bonded_devices
-from acts.test_utils.coex.bluez_test_utils import BluezUtils
-from acts.test_utils.coex.CoexBaseTest import CoexBaseTest
-from acts.test_utils.coex.coex_constants import WAIT_TIME
+from acts.test_utils.coex.bluez_test_utils import connect_bluetooth_device
+from acts.test_utils.coex.bluez_test_utils import disconnect_bluetooth_profile
+from acts.test_utils.coex.CoexBluezBaseTest import CoexBluezBaseTest
 from acts.test_utils.coex.coex_constants import bluetooth_profiles
+from acts.test_utils.coex.coex_constants import HFP_TEST
+from acts.test_utils.coex.coex_constants import WAIT_TIME
 
 
-class WlanWithHfpFunctionalitySlaveTest(CoexBaseTest):
+class WlanWithHfpFunctionalitySlaveTest(CoexBluezBaseTest):
 
     def __init__(self, controllers):
-        CoexBaseTest.__init__(self, controllers)
+        super().__init__(controllers, HFP_TEST)
 
     def setup_class(self):
-        CoexBaseTest.setup_class(self)
+        super().setup_class()
+        if not self.bluez_flag:
+            return False
         req_params = ["iterations"]
         self.unpack_userparams(req_params)
-        self.device_id = str(self.pri_ad.droid.bluetoothGetLocalAddress())
-        self.dbus = BluezUtils()
-        self.adapter_mac_address = self.dbus.get_bluetooth_adapter_address()
 
     def setup_test(self):
-        CoexBaseTest.setup_test(self)
-        self.pri_ad.droid.bluetoothMakeDiscoverable()
-        if not self.dbus.find_device(self.device_id):
-            self.log.info("Device is not discoverable")
+        super().setup_test()
+        if not self.device_interface or not self.paired:
             return False
-        self.pri_ad.droid.bluetoothStartPairingHelper(True)
-        if not self.dbus.pair_bluetooth_device():
-            self.log.info("Pairing failed")
-            return False
-        if not self.dbus.connect_bluetooth_device(bluetooth_profiles["HFP_AG"]):
-            self.log.info("Connection Failed")
+        if not connect_bluetooth_device(self.device_interface, self.bus,
+                                        bluetooth_profiles["HFP_AG"]):
+            self.log.error("Connection Failed")
             return False
 
     def teardown_test(self):
         clear_bonded_devices(self.pri_ad)
-        CoexBaseTest.teardown_test(self)
-        self.dbus.remove_bluetooth_device(self.device_id)
+        super().teardown_test()
+
+    def teardown_class(self):
+        super().teardown_class()
 
     def connect_disconnect_hfp_headset(self):
         """Connect and disconnect headset for multiple iterations."""
         for i in range(self.iterations):
-            if not self.dbus.disconnect_bluetooth_profile(
-                    bluetooth_profiles["HFP_AG"], self.pri_ad):
-                self.log.info("Disconnection Failed")
+            if not disconnect_bluetooth_profile(bluetooth_profiles["HFP_AG"],
+                                                self.pri_ad,
+                                                self.device_interface):
+                self.log.error("Disconnection Failed")
                 return False
             time.sleep(WAIT_TIME)
-            if not self.dbus.connect_bluetooth_device(
-                    bluetooth_profiles["HFP_AG"]):
-                self.log.info("Connection Failed")
+            if not connect_bluetooth_device(self.device_interface, self.bus,
+                                            bluetooth_profiles["HFP_AG"]):
+                self.log.error("Connection Failed")
                 return False
+            time.sleep(WAIT_TIME)
         return True
 
     def connect_disconnect_hfp_headset_with_iperf(self):

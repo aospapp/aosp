@@ -15,7 +15,7 @@ LOCAL_SRC_FILES := \
 LOCAL_CFLAGS += -DLOG_TAG=\"emuglGLESv2_enc\"
 
 $(call emugl-export,C_INCLUDES,$(LOCAL_PATH))
-$(call emugl-import,libOpenglCodecCommon)
+$(call emugl-import,libOpenglCodecCommon$(GOLDFISH_OPENGL_LIB_SUFFIX))
 
 $(call emugl-end-module)
 

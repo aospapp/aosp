@@ -49,8 +49,7 @@ namespace internal {
 
 class UpdateEngineClientAndroid : public brillo::Daemon {
  public:
-  UpdateEngineClientAndroid(int argc, char** argv) : argc_(argc), argv_(argv) {
-  }
+  UpdateEngineClientAndroid(int argc, char** argv) : argc_(argc), argv_(argv) {}
 
   int ExitWhenIdle(const Status& status);
   int ExitWhenIdle(int return_code);
@@ -83,8 +82,8 @@ class UpdateEngineClientAndroid : public brillo::Daemon {
   brillo::BinderWatcher binder_watcher_;
 };
 
-Status UpdateEngineClientAndroid::UECallback::onStatusUpdate(
-    int status_code, float progress) {
+Status UpdateEngineClientAndroid::UECallback::onStatusUpdate(int status_code,
+                                                             float progress) {
   update_engine::UpdateStatus status =
       static_cast<update_engine::UpdateStatus>(status_code);
   LOG(INFO) << "onStatusUpdate(" << UpdateStatusToString(status) << " ("
@@ -113,16 +112,26 @@ int UpdateEngineClientAndroid::OnInit() {
   DEFINE_string(payload,
                 "http://127.0.0.1:8080/payload",
                 "The URI to the update payload to use.");
-  DEFINE_int64(offset, 0,
+  DEFINE_int64(offset,
+               0,
                "The offset in the payload where the CrAU update starts. "
                "Used when --update is passed.");
-  DEFINE_int64(size, 0,
+  DEFINE_int64(size,
+               0,
                "The size of the CrAU part of the payload. If 0 is passed, it "
                "will be autodetected. Used when --update is passed.");
   DEFINE_string(headers,
                 "",
                 "A list of key-value pairs, one element of the list per line. "
                 "Used when --update is passed.");
+
+  DEFINE_bool(verify,
+              false,
+              "Given payload metadata, verify if the payload is applicable.");
+  DEFINE_string(metadata,
+                "/data/ota_package/metadata",
+                "The path to the update payload metadata. "
+                "Used when --verify is passed.");
 
   DEFINE_bool(suspend, false, "Suspend an ongoing update and exit.");
   DEFINE_bool(resume, false, "Resume a suspended update.");
@@ -180,6 +189,15 @@ int UpdateEngineClientAndroid::OnInit() {
 
   if (FLAGS_reset_status) {
     return ExitWhenIdle(service_->resetStatus());
+  }
+
+  if (FLAGS_verify) {
+    bool applicable = false;
+    Status status = service_->verifyPayloadApplicable(
+        android::String16{FLAGS_metadata.data(), FLAGS_metadata.size()},
+        &applicable);
+    LOG(INFO) << "Payload is " << (applicable ? "" : "not ") << "applicable.";
+    return ExitWhenIdle(status);
   }
 
   if (FLAGS_follow) {
@@ -247,7 +265,7 @@ void UpdateEngineClientAndroid::UpdateEngineServiceDied() {
 }  // namespace chromeos_update_engine
 
 int main(int argc, char** argv) {
-  chromeos_update_engine::internal::UpdateEngineClientAndroid client(
-      argc, argv);
+  chromeos_update_engine::internal::UpdateEngineClientAndroid client(argc,
+                                                                     argv);
   return client.Run();
 }

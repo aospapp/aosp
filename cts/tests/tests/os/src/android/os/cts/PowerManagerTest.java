@@ -16,16 +16,28 @@
 
 package android.os.cts;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.os.PowerManager;
-import android.os.SystemClock;
 import android.os.PowerManager.WakeLock;
+import android.platform.test.annotations.AppModeFull;
+import android.provider.Settings.Global;
 import android.test.AndroidTestCase;
+import com.android.compatibility.common.util.BatteryUtils;
+import com.android.compatibility.common.util.SystemUtil;
+import org.junit.After;
+import org.junit.Before;
 
+@AppModeFull(reason = "Instant Apps don't have the WRITE_SECURE_SETTINGS permission "
+        + "required in tearDown for Global#putInt")
 public class PowerManagerTest extends AndroidTestCase {
     private static final String TAG = "PowerManagerTest";
     public static final long TIME = 3000;
     public static final int MORE_TIME = 300;
+
+    private int mInitialPowerSaverMode;
+    private int mInitialDynamicPowerSavingsEnabled;
+    private int mInitialThreshold;
 
     /**
      * test points:
@@ -43,35 +55,73 @@ public class PowerManagerTest extends AndroidTestCase {
         assertFalse(wl.isHeld());
 
         try {
-            pm.goToSleep(SystemClock.uptimeMillis());
-            fail("goToSleep should throw SecurityException");
-        } catch (SecurityException e) {
-            // expected
-        }
-
-        try {
-            pm.wakeUp(SystemClock.uptimeMillis());
-            fail("wakeUp should throw SecurityException");
-        } catch (SecurityException e) {
-            // expected
-        }
-
-        try {
-            pm.nap(SystemClock.uptimeMillis());
-            fail("nap should throw SecurityException");
-        } catch (SecurityException e) {
-            // expected
-        }
-
-        try {
             pm.reboot("Testing");
             fail("reboot should throw SecurityException");
         } catch (SecurityException e) {
             // expected
         }
+    }
 
-        // This method requires DEVICE_POWER but does not throw a SecurityException
-        // for historical reasons.  So this call should be a no-op.
-        pm.userActivity(SystemClock.uptimeMillis(), false);
+    @Before
+    public void setUp() {
+        // store the current value so we can restore it
+        ContentResolver resolver = getContext().getContentResolver();
+        mInitialPowerSaverMode = Global.getInt(resolver, Global.AUTOMATIC_POWER_SAVE_MODE, 0);
+        mInitialDynamicPowerSavingsEnabled =
+                Global.getInt(resolver, Global.DYNAMIC_POWER_SAVINGS_ENABLED, 0);
+        mInitialThreshold =
+                Global.getInt(resolver, Global.DYNAMIC_POWER_SAVINGS_DISABLE_THRESHOLD, 0);
+
+    }
+
+    @After
+    public void tearDown() {
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            ContentResolver resolver = getContext().getContentResolver();
+
+            // Verify we can change it to dynamic.
+            Global.putInt(resolver, Global.AUTOMATIC_POWER_SAVE_MODE, mInitialPowerSaverMode);
+            Global.putInt(resolver,
+                    Global.DYNAMIC_POWER_SAVINGS_ENABLED, mInitialDynamicPowerSavingsEnabled);
+            Global.putInt(resolver,
+                    Global.DYNAMIC_POWER_SAVINGS_DISABLE_THRESHOLD, mInitialThreshold);
+        });
+    }
+
+    public void testPowerManager_getPowerSaveMode() {
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            PowerManager manager = BatteryUtils.getPowerManager();
+            ContentResolver resolver = getContext().getContentResolver();
+
+            // Verify we can change it to percentage.
+            Global.putInt(resolver, Global.AUTOMATIC_POWER_SAVE_MODE, 0);
+            assertEquals(
+                    PowerManager.POWER_SAVE_MODE_TRIGGER_PERCENTAGE,
+                    manager.getPowerSaveModeTrigger());
+
+            // Verify we can change it to dynamic.
+            Global.putInt(resolver, Global.AUTOMATIC_POWER_SAVE_MODE, 1);
+            assertEquals(
+                    PowerManager.POWER_SAVE_MODE_TRIGGER_DYNAMIC,
+                    manager.getPowerSaveModeTrigger());
+        });
+    }
+
+    public void testPowerManager_setDynamicPowerSavings() {
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            PowerManager manager = BatteryUtils.getPowerManager();
+            ContentResolver resolver = getContext().getContentResolver();
+
+            // Verify settings are actually updated.
+            manager.setDynamicPowerSaveHint(true, 80);
+            assertEquals(1, Global.getInt(resolver, Global.DYNAMIC_POWER_SAVINGS_ENABLED, 0));
+            assertEquals(80, Global.getInt(resolver,
+                    Global.DYNAMIC_POWER_SAVINGS_DISABLE_THRESHOLD, 0));
+
+            manager.setDynamicPowerSaveHint(false, 20);
+            assertEquals(0, Global.getInt(resolver, Global.DYNAMIC_POWER_SAVINGS_ENABLED, 1));
+            assertEquals(20, Global.getInt(resolver,
+                    Global.DYNAMIC_POWER_SAVINGS_DISABLE_THRESHOLD, 0));
+        });
     }
 }

@@ -94,9 +94,9 @@ public class ShowGraphServlet extends BaseServlet {
         if (pt == null) return;
         String name = PerformanceUtil.getOptionAlias(pt, splitKeySet);
         Graph g = null;
-        if (pt.labels != null && pt.labels.size() == pt.values.size()) {
+        if (pt.getLabels() != null && pt.getLabels().size() == pt.getValues().size()) {
             g = new LineGraph(name);
-        } else if (pt.labels == null && pt.values.size() > 0) {
+        } else if (pt.getLabels() == null && pt.getValues().size() > 0) {
             g = new Histogram(name);
         } else {
             return;
@@ -117,7 +117,7 @@ public class ShowGraphServlet extends BaseServlet {
         if (devices == null) return null;
         List<String> buildInfos = new ArrayList<>();
         for (DeviceInfoEntity device : devices) {
-            buildInfos.add(device.product + " (" + device.buildId + ")");
+            buildInfos.add(device.getProduct() + " (" + device.getBuildId() + ")");
         }
         return StringUtils.join(buildInfos, ", ");
     }

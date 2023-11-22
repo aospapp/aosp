@@ -19,26 +19,35 @@
 #ifndef LSCLIENT_H_
 #define LSCLIENT_H_
 
-#include <android/hardware/secure_element/1.0/ISecureElementHalCallback.h>
+#include <string>
 
 typedef enum {
   LSCSTATUS_SUCCESS = (0x0000),
   LSCSTATUS_FAILED = (0x0003),
-  LSCSTATUS_FILE_NOT_FOUND = (0x0005)
+  LSCSTATUS_SELF_UPDATE_DONE = (0x0005),
+  LSCSTATUS_HASH_SLOT_EMPTY = (0x0006),
+  LSCSTATUS_HASH_SLOT_INVALID = (0x0007)
 } LSCSTATUS;
-
-using ::android::hardware::secure_element::V1_0::ISecureElementHalCallback;
 
 /*******************************************************************************
 **
-** Function:        LSC_doDownload
+** Function:        LSC_onCompletedCallback
 **
-** Description:     Perform LS during hal init
-**
-** Returns:         SUCCESS of ok
+** Description:     callback function when Loader Service Scripts thread is done
 **
 *******************************************************************************/
-LSCSTATUS LSC_doDownload(
-    const android::sp<ISecureElementHalCallback>& clientCallback);
+typedef void (*LSC_onCompletedCallback)(bool result, std::string reason,
+                                        void* args);
+
+/*******************************************************************************
+ **
+ ** Function:        LSC_doDownload
+ **
+ ** Description:     Start LS download process
+ **
+ ** Returns:         SUCCESS if ok
+ **
+ *******************************************************************************/
+LSCSTATUS LSC_doDownload(LSC_onCompletedCallback callback, void* arg);
 
 #endif /* LSCLIENT_H_ */

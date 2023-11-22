@@ -148,10 +148,7 @@ struct RuleMerger {
   bool is_double_colon;
 
   RuleMerger()
-      : primary_rule(nullptr),
-        parent(nullptr),
-        parent_sym(Symbol::IsUninitialized()),
-        is_double_colon(false) {}
+      : primary_rule(nullptr), parent(nullptr), is_double_colon(false) {}
 
   void AddImplicitOutput(Symbol output, RuleMerger* merger) {
     implicit_outputs.push_back(make_pair(output, merger));
@@ -167,7 +164,7 @@ struct RuleMerger {
                 "*** implicit output `%s' of `%s' was already defined by `%s' "
                 "at %s:%d",
                 output.c_str(), p.c_str(), parent_sym.c_str(),
-                parent->primary_rule->cmd_loc());
+                LOCF(parent->primary_rule->cmd_loc()));
     }
     if (primary_rule) {
       ERROR_LOC(primary_rule->cmd_loc(),
@@ -268,8 +265,7 @@ DepNode::DepNode(Symbol o, bool p, bool r)
       is_restat(r),
       rule_vars(NULL),
       depfile_var(NULL),
-      ninja_pool_var(NULL),
-      output_pattern(Symbol::IsUninitialized()) {
+      ninja_pool_var(NULL) {
   g_dep_node_pool->push_back(this);
 }
 
@@ -281,7 +277,6 @@ class DepBuilder {
       : ev_(ev),
         rule_vars_(rule_vars),
         implicit_rules_(new RuleTrie()),
-        first_rule_(Symbol::IsUninitialized{}),
         depfile_var_name_(Intern(".KATI_DEPFILE")),
         implicit_outputs_var_name_(Intern(".KATI_IMPLICIT_OUTPUTS")),
         ninja_pool_var_name_(Intern(".KATI_NINJA_POOL")) {
@@ -338,7 +333,7 @@ class DepBuilder {
 
   ~DepBuilder() {}
 
-  void Build(vector<Symbol> targets, vector<DepNode*>* nodes) {
+  void Build(vector<Symbol> targets, vector<NamedDepNode>* nodes) {
     if (!first_rule_.IsValid()) {
       ERROR("*** No targets.");
     }
@@ -347,8 +342,10 @@ class DepBuilder {
       targets.push_back(first_rule_);
     }
     if (g_flags.gen_all_targets) {
-      unordered_set<Symbol> non_root_targets;
+      SymbolSet non_root_targets;
       for (const auto& p : rules_) {
+        if (p.first.get(0) == '.')
+          continue;
         for (const Rule* r : p.second.rules) {
           for (Symbol t : r->inputs)
             non_root_targets.insert(t);
@@ -359,7 +356,7 @@ class DepBuilder {
 
       for (const auto& p : rules_) {
         Symbol t = p.first;
-        if (!non_root_targets.count(t)) {
+        if (!non_root_targets.exists(t) && t.get(0) != '.') {
           targets.push_back(p.first);
         }
       }
@@ -371,7 +368,7 @@ class DepBuilder {
       cur_rule_vars_.reset(new Vars);
       ev_->set_current_scope(cur_rule_vars_.get());
       DepNode* n = BuildPlan(target, Intern(""));
-      nodes->push_back(n);
+      nodes->push_back({target, n});
       ev_->set_current_scope(NULL);
       cur_rule_vars_.reset(NULL);
     }
@@ -379,12 +376,8 @@ class DepBuilder {
 
  private:
   bool Exists(Symbol target) {
-    auto found = rules_.find(target);
-    if (found != rules_.end())
-      return true;
-    if (phony_.count(target))
-      return true;
-    return ::Exists(target.str());
+    return (rules_.find(target) != rules_.end()) || phony_.exists(target) ||
+           ::Exists(target.str());
   }
 
   bool GetRuleInputs(Symbol s, vector<Symbol>* o, Loc* l) {
@@ -438,6 +431,13 @@ class DepBuilder {
     if (!IsSuffixRule(output))
       return false;
 
+    if (g_flags.werror_suffix_rules) {
+      ERROR_LOC(rule->loc, "*** suffix rules are obsolete: %s", output.c_str());
+    } else if (g_flags.warn_suffix_rules) {
+      WARN_LOC(rule->loc, "warning: suffix rules are deprecated: %s",
+               output.c_str());
+    }
+
     const StringPiece rest = StringPiece(output.str()).substr(1);
     size_t dot_index = rest.find('.');
 
@@ -477,8 +477,17 @@ class DepBuilder {
 
   void PopulateImplicitRule(const Rule* rule) {
     for (Symbol output_pattern : rule->output_patterns) {
-      if (output_pattern.str() != "%" || !IsIgnorableImplicitRule(rule))
+      if (output_pattern.str() != "%" || !IsIgnorableImplicitRule(rule)) {
+        if (g_flags.werror_implicit_rules) {
+          ERROR_LOC(rule->loc, "*** implicit rules are obsolete: %s",
+                    output_pattern.c_str());
+        } else if (g_flags.warn_implicit_rules) {
+          WARN_LOC(rule->loc, "warning: implicit rules are deprecated: %s",
+                   output_pattern.c_str());
+        }
+
         implicit_rules_->Add(output_pattern.str(), rule);
+      }
     }
   }
 
@@ -501,7 +510,7 @@ class DepBuilder {
                            Symbol output,
                            DepNode* n,
                            shared_ptr<Rule>* out_rule) {
-    Symbol matched(Symbol::IsUninitialized{});
+    Symbol matched;
     for (Symbol output_pattern : rule->output_patterns) {
       Pattern pat(output_pattern.str());
       if (pat.Match(output.str())) {
@@ -625,7 +634,7 @@ class DepBuilder {
     }
 
     DepNode* n =
-        new DepNode(output, phony_.count(output), restat_.count(output));
+        new DepNode(output, phony_.exists(output), restat_.exists(output));
     done_[output] = n;
 
     const RuleMerger* rule_merger = nullptr;
@@ -651,9 +660,9 @@ class DepBuilder {
     if (vars) {
       for (const auto& p : *vars) {
         Symbol name = p.first;
-        RuleVar* var = reinterpret_cast<RuleVar*>(p.second);
+        Var* var = p.second;
         CHECK(var);
-        Var* new_var = var->v();
+        Var* new_var = var;
         if (var->op() == AssignOp::PLUS_EQ) {
           Var* old_var = ev_->LookupVar(name);
           if (old_var->IsDefined()) {
@@ -683,18 +692,102 @@ class DepBuilder {
       }
     }
 
+    if (g_flags.warn_phony_looks_real && n->is_phony &&
+        output.str().find("/") != string::npos) {
+      if (g_flags.werror_phony_looks_real) {
+        ERROR_LOC(
+            n->loc,
+            "*** PHONY target \"%s\" looks like a real file (contains a \"/\")",
+            output.c_str());
+      } else {
+        WARN_LOC(n->loc,
+                 "warning: PHONY target \"%s\" looks like a real file "
+                 "(contains a \"/\")",
+                 output.c_str());
+      }
+    }
+
+    if (!g_flags.writable.empty() && !n->is_phony) {
+      bool found = false;
+      for (const auto& w : g_flags.writable) {
+        if (StringPiece(output.str()).starts_with(w)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        if (g_flags.werror_writable) {
+          ERROR_LOC(n->loc, "*** writing to readonly directory: \"%s\"",
+                    output.c_str());
+        } else {
+          WARN_LOC(n->loc, "warning: writing to readonly directory: \"%s\"",
+                   output.c_str());
+        }
+      }
+    }
+
     for (Symbol output : n->implicit_outputs) {
       done_[output] = n;
+
+      if (g_flags.warn_phony_looks_real && n->is_phony &&
+          output.str().find("/") != string::npos) {
+        if (g_flags.werror_phony_looks_real) {
+          ERROR_LOC(n->loc,
+                    "*** PHONY target \"%s\" looks like a real file (contains "
+                    "a \"/\")",
+                    output.c_str());
+        } else {
+          WARN_LOC(n->loc,
+                   "warning: PHONY target \"%s\" looks like a real file "
+                   "(contains a \"/\")",
+                   output.c_str());
+        }
+      }
+
+      if (!g_flags.writable.empty() && !n->is_phony) {
+        bool found = false;
+        for (const auto& w : g_flags.writable) {
+          if (StringPiece(output.str()).starts_with(w)) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          if (g_flags.werror_writable) {
+            ERROR_LOC(n->loc, "*** writing to readonly directory: \"%s\"",
+                      output.c_str());
+          } else {
+            WARN_LOC(n->loc, "warning: writing to readonly directory: \"%s\"",
+                     output.c_str());
+          }
+        }
+      }
     }
 
     for (Symbol input : n->actual_inputs) {
       DepNode* c = BuildPlan(input, output);
-      n->deps.push_back(c);
+      n->deps.push_back({input, c});
+
+      bool is_phony = c->is_phony;
+      if (!is_phony && !c->has_rule && g_flags.top_level_phony) {
+        is_phony = input.str().find("/") == string::npos;
+      }
+      if (!n->is_phony && is_phony) {
+        if (g_flags.werror_real_to_phony) {
+          ERROR_LOC(n->loc,
+                    "*** real file \"%s\" depends on PHONY target \"%s\"",
+                    output.c_str(), input.c_str());
+        } else if (g_flags.warn_real_to_phony) {
+          WARN_LOC(n->loc,
+                   "warning: real file \"%s\" depends on PHONY target \"%s\"",
+                   output.c_str(), input.c_str());
+        }
+      }
     }
 
     for (Symbol input : n->actual_order_only_inputs) {
       DepNode* c = BuildPlan(input, output);
-      n->order_onlys.push_back(c);
+      n->order_onlys.push_back({input, c});
     }
 
     n->has_rule = true;
@@ -722,8 +815,8 @@ class DepBuilder {
 
   Symbol first_rule_;
   unordered_map<Symbol, DepNode*> done_;
-  unordered_set<Symbol> phony_;
-  unordered_set<Symbol> restat_;
+  SymbolSet phony_;
+  SymbolSet restat_;
   Symbol depfile_var_name_;
   Symbol implicit_outputs_var_name_;
   Symbol ninja_pool_var_name_;
@@ -733,7 +826,7 @@ void MakeDep(Evaluator* ev,
              const vector<const Rule*>& rules,
              const unordered_map<Symbol, Vars*>& rule_vars,
              const vector<Symbol>& targets,
-             vector<DepNode*>* nodes) {
+             vector<NamedDepNode>* nodes) {
   DepBuilder db(ev, rules, rule_vars);
   ScopedTimeReporter tr("make dep (build)");
   db.Build(targets, nodes);

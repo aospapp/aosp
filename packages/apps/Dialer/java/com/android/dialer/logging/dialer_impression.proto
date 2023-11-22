@@ -12,7 +12,7 @@ message DialerImpression {
   // Event enums to be used for Impression Logging in Dialer.
   // It's perfectly acceptable for this enum to be large
   // Values should be from 1000 to 100000.
-  // Next Tag: 1346
+  // Next Tag: 1409
   enum Type {
     UNKNOWN_AOSP_EVENT_TYPE = 1000;
 
@@ -78,8 +78,16 @@ message DialerImpression {
 
         ;
 
+    // User made it to the last step but blocking failed because user is
+    // secondary or dialer is not default
+    USER_ACTION_BLOCK_NUMBER_FAILED = 1369;
+
     // User made it to the last step and actually unblocked the number
     USER_ACTION_UNBLOCKED_NUMBER = 1013;
+
+    // User made it to the last step but unblocking failed because user is
+    // secondary or dialer is not default
+    USER_ACTION_UNBLOCK_NUMBER_FAILED = 1370;
 
     // User blocked a number, does not guarantee if the number was reported as
     // spam or not To compute the number of blocked numbers that were reported
@@ -372,7 +380,7 @@ message DialerImpression {
     VVM_SETTINGS_VIEWED = 1148;
     VVM_CHANGE_PIN_CLICKED = 1149;
     VVM_CHANGE_PIN_COMPLETED = 1150;
-    VVM_CHANGE_RINGTONE_CLICKED = 1151;
+    VVM_CHANGE_RINGTONE_CLICKED = 1151 [deprecated = true];
     VVM_CHANGE_VIBRATION_CLICKED = 1152;
     VVM_USER_ENABLED_IN_SETTINGS = 1153;
     VVM_USER_DISABLED_IN_SETTINGS = 1154;
@@ -594,14 +602,12 @@ message DialerImpression {
     ASSISTED_DIALING_FEATURE_DISABLED_BY_USER = 1292;
 
     // User reports a same prefix call as spam from call history
-    REPORT_SAME_PREFIX_CALL_AS_SPAM_VIA_CALL_HISTORY =
-        1290
+    REPORT_SAME_PREFIX_CALL_AS_SPAM_VIA_CALL_HISTORY = 1290
 
         ;
 
     // User reports a same prefix call as not spam from call history
-    REPORT_SAME_PREFIX_CALL_AS_NOT_SPAM_VIA_CALL_HISTORY =
-        1291
+    REPORT_SAME_PREFIX_CALL_AS_NOT_SPAM_VIA_CALL_HISTORY = 1291
 
         ;
 
@@ -620,7 +626,11 @@ message DialerImpression {
     DUAL_SIM_SELECTION_NON_SUGGESTED_SIM_SELECTED = 1304;
     DUAL_SIM_SELECTION_PREFERRED_SET = 1305;
     DUAL_SIM_SELECTION_PREFERRED_USED = 1306;
+    DUAL_SIM_SELECTION_PREFERRED_NOT_SELECTABLE = 1389;
     DUAL_SIM_SELECTION_GLOBAL_USED = 1307;
+    DUAL_SIM_SELECTION_GLOBAL_NOT_SELECTABLE = 1390;
+    DUAL_SIM_SELECTION_SUGGESTION_AUTO_SELECTED = 1322;
+    DUAL_SIM_SELECTION_SUGGESTION_AUTO_NOT_SELECTABLE = 1391;
 
     DUO_CALL_LOG_SET_UP_INSTALL = 1308;
     DUO_CALL_LOG_SET_UP_ACTIVATE = 1309;
@@ -649,8 +659,6 @@ message DialerImpression {
     // Drag bubble to bottom and end call
     BUBBLE_V2_BOTTOM_ACTION_END_CALL = 1321;
 
-    DUAL_SIM_SELECTION_SUGGESTION_AUTO_SELECTED = 1322;
-
     // Bubble appears
     BUBBLE_V2_SHOW = 1323;
 
@@ -658,7 +666,7 @@ message DialerImpression {
     DUO_CALL_LOG_SET_UP_ACTIVATE_SHOWN = 1325;
     DUO_CALL_LOG_INVITE_SHOWN = 1326;
 
-    // NUI bottom navigation bar
+    // NUI bottom navigation bar user actions
     MAIN_SWITCH_TAB_TO_FAVORITE = 1327;
     MAIN_SWITCH_TAB_TO_CALL_LOG = 1328;
     MAIN_SWITCH_TAB_TO_CONTACTS = 1329;
@@ -686,5 +694,108 @@ message DialerImpression {
     ANNOTATED_CALL_LOG_CHANGES_NEEDED = 1344;
     // The call log was force refreshed and changes were needed.
     ANNOTATED_CALL_LOG_FORCE_REFRESH_CHANGES_NEEDED = 1345;
+
+    MAIN_VVM_TAB_VISIBLE = 1346;
+
+    // Main bottom navigation bar non user actions
+    MAIN_OPEN_WITH_TAB_FAVORITE = 1347;
+    MAIN_OPEN_WITH_TAB_CALL_LOG = 1348;
+    MAIN_OPEN_WITH_TAB_CONTACTS = 1349;
+    MAIN_OPEN_WITH_TAB_VOICEMAIL = 1350;
+    MAIN_OPEN_WITH_DIALPAD = 1351;
+
+    // Incoming call screened for spam auto blocking
+    INCOMING_CALL_SCREENED = 1352;
+    // Incoming call auto blocked as spam
+    INCOMING_CALL_AUTO_BLOCKED_AS_SPAM = 1353;
+    // Incoming voicemail screened for spam auto blocking
+    INCOMING_VOICEMAIL_SCREENED = 1354;
+    // Incoming voicemail auto blocked as spam
+    INCOMING_VOICEMAIL_AUTO_BLOCKED_AS_SPAM = 1355;
+    // User reported auto blocked spam call as spam
+    AUTO_BLOCKED_SPAM_CALL_REPORTED_AS_SPAM = 1356;
+    // User reported auto blocked spam call as not spam
+    AUTO_BLOCKED_SPAM_CALL_REPORTED_AS_NOT_SPAM = 1357;
+
+    // User enabled spam blocking through setting page.
+    SPAM_BLOCKING_ENABLED_THROUGH_SETTING = 1358;
+    // User disabled spam blocking through setting page.
+    SPAM_BLOCKING_DISABLED_THROUGH_SETTING = 1359;
+    // Failure happened while modifying spam blocking setting.
+    SPAM_BLOCKING_MODIFY_FAILURE_THROUGH_SETTING = 1360;
+
+    VVM_NOTIFICATIONS_SETTING_CLICKED = 1361;
+    VVM_USER_TURNED_TRANSCRIBE_ON_FROM_SETTINGS = 1362;
+    VVM_USER_TURNED_TRANSCRIBE_OFF_FROM_SETTINGS = 1363;
+    VVM_USER_TURNED_DONATION_ON_FROM_SETTINGS = 1364;
+    VVM_USER_TURNED_DONATION_OFF_FROM_SETTINGS = 1365;
+
+    // Spam blocking call log promo shown for user.
+    SPAM_BLOCKING_CALL_LOG_PROMO_SHOWN = 1366;
+    // User enabled spam blocking through call log promo.
+    SPAM_BLOCKING_ENABLED_THROUGH_CALL_LOG_PROMO = 1367;
+    // Failure happened while enabling spam blocking through call log promo.
+    SPAM_BLOCKING_MODIFY_FAILURE_THROUGH_CALL_LOG_PROMO = 1368;
+
+    TOKEN_FETCHER_NEED_USER_APPROVAL = 1371;
+    TOKEN_FETCHER_IO_EXCEPTION = 1372;
+    TOKEN_FETCHER_AUTH_EXCEPTION = 1373;
+    TOKEN_FETCHER_CLEAR_EXCEPTION = 1374;
+
+    PEOPLE_API_LOOKUP_FAILED = 1375;
+
+    // New Speed Dial impressions
+    LIGHTBRINGER_VIDEO_REQUESTED_FOR_FAVORITE_CONTACT = 1376;
+    LIGHTBRINGER_VIDEO_REQUESTED_FOR_SUGGESTED_CONTACT = 1377;
+    LIGHTBRINGER_VIDEO_REQUESTED_FOR_FAVORITE_CONTACT_DISAMBIG = 1378;
+
+    // Spam blocking after call notification promo shown for user.
+    SPAM_BLOCKING_AFTER_CALL_NOTIFICATION_PROMO_SHOWN = 1379;
+    // User enabled spam blocking through after call notification promo.
+    SPAM_BLOCKING_ENABLED_THROUGH_AFTER_CALL_NOTIFICATION_PROMO = 1380;
+    // Failure happened while enabling spam blocking through after call
+    // notification promo.
+    SPAM_BLOCKING_MODIFY_FAILURE_THROUGH_AFTER_CALL_NOTIFICATION_PROMO = 1381;
+
+    // RTT call impressions
+    OUTGOING_RTT_CALL = 1382;
+    INCOMING_RTT_CALL = 1383;
+    // The call turns into RTT call mid call.
+    RTT_MID_CALL_ENABLED = 1384;
+    // Mid call RTT request accepted.
+    RTT_MID_CALL_ACCEPTED = 1385;
+    // Mid call RTT request rejected.
+    RTT_MID_CALL_REJECTED = 1386;
+
+    // Send button clicked in RTT call, this includes send button on keyboard.
+    RTT_SEND_BUTTON_CLICKED = 1387;
+    RTT_KEYBOARD_SEND_BUTTON_CLICKED = 1388;
+
+    // For background calling
+    START_CALL_IN_BUBBLE_MODE = 1392;
+
+    // Switch audio route
+    IN_CALL_SWITCH_AUDIO_ROUTE_SPEAKER = 1393;
+    IN_CALL_SWITCH_AUDIO_ROUTE_WIRED_HEADSET = 1394;
+    IN_CALL_SWITCH_AUDIO_ROUTE_EARPIECE = 1395;
+    IN_CALL_SWITCH_AUDIO_ROUTE_BLUETOOTH = 1396;
+
+    // Impressions for PhoneLookup
+    PEOPLE_API_PHONE_LOOKUP_TIMEOUT = 1397;
+    CP2_EXTENDED_DIRECTORY_PHONE_LOOKUP_TIMEOUT = 1398;
+
+    // Favorite general
+    FAVORITE_ADD_FAVORITE = 1399;
+    FAVORITE_OPEN_DISAMBIG_DIALOG = 1400;
+    FAVORITE_REMOVE_FAVORITE_BY_DRAG_AND_DROP = 1401;
+    FAVORITE_MOVE_FAVORITE_BY_DRAG_AND_DROP = 1402;
+    // Favorite menu
+    FAVORITE_OPEN_FAVORITE_MENU = 1403;
+    FAVORITE_SEND_MESSAGE = 1404;
+    FAVORITE_OPEN_CONTACT_CARD = 1405;
+    FAVORITE_REMOVE_FAVORITE = 1406;  // Include drag and drop
+    // Favorite disambig
+    FAVORITE_SET_VIDEO_DEFAULT = 1407;
+    FAVORITE_SET_VOICE_DEFAULT = 1408;
   }
 }

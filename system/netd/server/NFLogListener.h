@@ -20,6 +20,7 @@
 #include <netdutils/Netfilter.h>
 
 #include "NetlinkListener.h"
+#include "netdutils/StatusOr.h"
 
 namespace android {
 namespace net {

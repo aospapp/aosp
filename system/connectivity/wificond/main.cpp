@@ -39,9 +39,7 @@
 #include "wificond/server.h"
 
 using android::net::wifi::IWificond;
-using android::wifi_system::HostapdManager;
 using android::wifi_system::InterfaceTool;
-using android::wifi_system::SupplicantManager;
 using android::wificond::ipc_constants::kServiceName;
 using std::unique_ptr;
 
@@ -144,8 +142,6 @@ int main(int argc, char** argv) {
 
   unique_ptr<android::wificond::Server> server(new android::wificond::Server(
       unique_ptr<InterfaceTool>(new InterfaceTool),
-      unique_ptr<SupplicantManager>(new SupplicantManager()),
-      unique_ptr<HostapdManager>(new HostapdManager()),
       &netlink_utils,
       &scan_utils));
   RegisterServiceOrCrash(server.get());

@@ -15,7 +15,7 @@
   ~ limitations under the License
    -->
 
-<resources xmlns:android="http://schemas.android.com/apk/res/android"
+<resources
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assisted_dialing_setting_title" msgid="3397624434500805193">"Numérotation assistée"</string>
     <string name="assisted_dialing_setting_summary" msgid="2121165095086134903">"Depuis l\'étranger, détecter le pays de destination de l\'appel et ajouter l\'indicatif correspondant"</string>

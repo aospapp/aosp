@@ -21,13 +21,26 @@ import csocket
 import cstruct
 import net_test
 import socket
+import platform
 
 # __NR_bpf syscall numbers for various architectures.
+# NOTE: If python inherited COMPAT_UTS_MACHINE, uname's 'machine' field will
+# return the 32-bit architecture name, even if python itself is 64-bit. To work
+# around this problem and pick the right syscall nr, we can additionally check
+# the bitness of the python interpreter. Assume that the 64-bit architectures
+# are not running with COMPAT_UTS_MACHINE and must be 64-bit at all times.
 # TODO: is there a better way of doing this?
 __NR_bpf = {
-    "aarch64": 280,
-    "armv8l": 386,
-    "x86_64": 321}[os.uname()[4]]
+    "aarch64-32bit": 386,
+    "aarch64-64bit": 280,
+    "armv7l-32bit": 386,
+    "armv8l-32bit": 386,
+    "armv8l-64bit": 280,
+    "i686-32bit": 357,
+    "i686-64bit": 321,
+    "x86_64-32bit": 357,
+    "x86_64-64bit": 321,
+}[os.uname()[4] + "-" + platform.architecture()[0]]
 
 LOG_LEVEL = 1
 LOG_SIZE = 65536
@@ -141,6 +154,7 @@ BPF_FUNC_unspec = 0
 BPF_FUNC_map_lookup_elem = 1
 BPF_FUNC_map_update_elem = 2
 BPF_FUNC_map_delete_elem = 3
+BPF_FUNC_get_current_uid_gid = 15
 BPF_FUNC_get_socket_cookie = 46
 BPF_FUNC_get_socket_uid = 47
 

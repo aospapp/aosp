@@ -38,6 +38,7 @@ public class IndexData {
      * @see SearchIndexableData#iconResId
      */
     public final String packageName;
+    public final String authority;
     public final String locale;
     public final String updatedTitle;
     public final String normalizedTitle;
@@ -87,6 +88,7 @@ public class IndexData {
         spaceDelimitedKeywords = normalizeKeywords(builder.mKeywords);
         intentAction = builder.mIntentAction;
         packageName = builder.mPackageName;
+        authority = builder.mAuthority;
         intentTargetPackage = builder.mIntentTargetPackage;
         intentTargetClass = builder.mIntentTargetClass;
         enabled = builder.mEnabled;
@@ -155,6 +157,7 @@ public class IndexData {
         private String mChildClassName;
         private String mScreenTitle;
         private String mPackageName;
+        private String mAuthority;
         private int mIconResId;
         private String mKeywords;
         private String mIntentAction;
@@ -210,6 +213,11 @@ public class IndexData {
 
         public Builder setPackageName(String packageName) {
             mPackageName = packageName;
+            return this;
+        }
+
+        public Builder setAuthority(String authority) {
+            mAuthority = authority;
             return this;
         }
 

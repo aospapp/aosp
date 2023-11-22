@@ -18,6 +18,7 @@
 
 #include <inttypes.h>
 
+#include <limits>
 #include <map>
 #include <sstream>
 #include <string>
@@ -35,6 +36,7 @@
 #include <brillo/key_value_store.h>
 #include <expat.h>
 #include <metrics/metrics_library.h>
+#include <policy/libpolicy.h>
 
 #include "update_engine/common/action_pipe.h"
 #include "update_engine/common/constants.h"
@@ -52,40 +54,70 @@
 
 using base::Time;
 using base::TimeDelta;
+using chromeos_update_manager::kRollforwardInfinity;
 using std::map;
+using std::numeric_limits;
 using std::string;
 using std::vector;
 
 namespace chromeos_update_engine {
 
-// List of custom pair tags that we interpret in the Omaha Response:
-static const char* kTagDeadline = "deadline";
-static const char* kTagDisablePayloadBackoff = "DisablePayloadBackoff";
-static const char* kTagVersion = "version";
+// List of custom attributes that we interpret in the Omaha response:
+constexpr char kAttrDeadline[] = "deadline";
+constexpr char kAttrDisableP2PForDownloading[] = "DisableP2PForDownloading";
+constexpr char kAttrDisableP2PForSharing[] = "DisableP2PForSharing";
+constexpr char kAttrDisablePayloadBackoff[] = "DisablePayloadBackoff";
+constexpr char kAttrVersion[] = "version";
 // Deprecated: "IsDelta"
-static const char* kTagIsDeltaPayload = "IsDeltaPayload";
-static const char* kTagMaxFailureCountPerUrl = "MaxFailureCountPerUrl";
-static const char* kTagMaxDaysToScatter = "MaxDaysToScatter";
+constexpr char kAttrIsDeltaPayload[] = "IsDeltaPayload";
+constexpr char kAttrMaxFailureCountPerUrl[] = "MaxFailureCountPerUrl";
+constexpr char kAttrMaxDaysToScatter[] = "MaxDaysToScatter";
 // Deprecated: "ManifestSignatureRsa"
 // Deprecated: "ManifestSize"
-static const char* kTagMetadataSignatureRsa = "MetadataSignatureRsa";
-static const char* kTagMetadataSize = "MetadataSize";
-static const char* kTagMoreInfo = "MoreInfo";
+constexpr char kAttrMetadataSignatureRsa[] = "MetadataSignatureRsa";
+constexpr char kAttrMetadataSize[] = "MetadataSize";
+constexpr char kAttrMoreInfo[] = "MoreInfo";
+constexpr char kAttrNoUpdate[] = "noupdate";
 // Deprecated: "NeedsAdmin"
-static const char* kTagPrompt = "Prompt";
-static const char* kTagDisableP2PForDownloading = "DisableP2PForDownloading";
-static const char* kTagDisableP2PForSharing = "DisableP2PForSharing";
-static const char* kTagPublicKeyRsa = "PublicKeyRsa";
+constexpr char kAttrPollInterval[] = "PollInterval";
+constexpr char kAttrPowerwash[] = "Powerwash";
+constexpr char kAttrPrompt[] = "Prompt";
+constexpr char kAttrPublicKeyRsa[] = "PublicKeyRsa";
 
-static const char* kOmahaUpdaterVersion = "0.1.0.0";
+// List of attributes that we interpret in the Omaha response:
+constexpr char kAttrAppId[] = "appid";
+constexpr char kAttrCodeBase[] = "codebase";
+constexpr char kAttrCohort[] = "cohort";
+constexpr char kAttrCohortHint[] = "cohorthint";
+constexpr char kAttrCohortName[] = "cohortname";
+constexpr char kAttrElapsedDays[] = "elapsed_days";
+constexpr char kAttrElapsedSeconds[] = "elapsed_seconds";
+constexpr char kAttrEvent[] = "event";
+constexpr char kAttrHashSha256[] = "hash_sha256";
+// Deprecated: "hash"; Although we still need to pass it from the server for
+// backward compatibility.
+constexpr char kAttrName[] = "name";
+// Deprecated: "sha256"; Although we still need to pass it from the server for
+// backward compatibility.
+constexpr char kAttrSize[] = "size";
+constexpr char kAttrStatus[] = "status";
 
-// X-GoogleUpdate headers.
-static const char* kXGoogleUpdateInteractivity = "X-GoogleUpdate-Interactivity";
-static const char* kXGoogleUpdateAppId = "X-GoogleUpdate-AppId";
-static const char* kXGoogleUpdateUpdater = "X-GoogleUpdate-Updater";
+// List of values that we interpret in the Omaha response:
+constexpr char kValPostInstall[] = "postinstall";
+constexpr char kValNoUpdate[] = "noupdate";
+
+constexpr char kOmahaUpdaterVersion[] = "0.1.0.0";
+
+// X-Goog-Update headers.
+constexpr char kXGoogleUpdateInteractivity[] = "X-Goog-Update-Interactivity";
+constexpr char kXGoogleUpdateAppId[] = "X-Goog-Update-AppId";
+constexpr char kXGoogleUpdateUpdater[] = "X-Goog-Update-Updater";
 
 // updatecheck attributes (without the underscore prefix).
-static const char* kEolAttr = "eol";
+constexpr char kAttrEol[] = "eol";
+constexpr char kAttrRollback[] = "rollback";
+constexpr char kAttrFirmwareVersion[] = "firmware_version";
+constexpr char kAttrKernelVersion[] = "kernel_version";
 
 namespace {
 
@@ -117,18 +149,29 @@ string GetAppBody(const OmahaEvent* event,
                   OmahaRequestParams* params,
                   bool ping_only,
                   bool include_ping,
+                  bool skip_updatecheck,
                   int ping_active_days,
                   int ping_roll_call_days,
                   PrefsInterface* prefs) {
   string app_body;
   if (event == nullptr) {
     if (include_ping)
-        app_body = GetPingXml(ping_active_days, ping_roll_call_days);
+      app_body = GetPingXml(ping_active_days, ping_roll_call_days);
     if (!ping_only) {
-      app_body += base::StringPrintf(
-          "        <updatecheck targetversionprefix=\"%s\""
-          "></updatecheck>\n",
-          XmlEncodeWithDefault(params->target_version_prefix(), "").c_str());
+      if (!skip_updatecheck) {
+        app_body += "        <updatecheck";
+        if (!params->target_version_prefix().empty()) {
+          app_body += base::StringPrintf(
+              " targetversionprefix=\"%s\"",
+              XmlEncodeWithDefault(params->target_version_prefix(), "")
+                  .c_str());
+          // Rollback requires target_version_prefix set.
+          if (params->rollback_allowed()) {
+            app_body += " rollback_allowed=\"true\"";
+          }
+        }
+        app_body += "></updatecheck>\n";
+      }
 
       // If this is the first update check after a reboot following a previous
       // update, generate an event containing the previous version number. If
@@ -166,7 +209,9 @@ string GetAppBody(const OmahaEvent* event,
     }
     app_body = base::StringPrintf(
         "        <event eventtype=\"%d\" eventresult=\"%d\"%s></event>\n",
-        event->type, event->result, error_code.c_str());
+        event->type,
+        event->result,
+        error_code.c_str());
   }
 
   return app_body;
@@ -179,7 +224,7 @@ string GetCohortArgXml(PrefsInterface* prefs,
                        const string arg_name,
                        const string prefs_key) {
   // There's nothing wrong with not having a given cohort setting, so we check
-  // existance first to avoid the warning log message.
+  // existence first to avoid the warning log message.
   if (!prefs->Exists(prefs_key))
     return "";
   string cohort_value;
@@ -202,8 +247,8 @@ string GetCohortArgXml(PrefsInterface* prefs,
     return "";
   }
 
-  return base::StringPrintf("%s=\"%s\" ",
-                            arg_name.c_str(), escaped_xml_value.c_str());
+  return base::StringPrintf(
+      "%s=\"%s\" ", arg_name.c_str(), escaped_xml_value.c_str());
 }
 
 struct OmahaAppData {
@@ -227,12 +272,18 @@ string GetAppXml(const OmahaEvent* event,
                  const OmahaAppData& app_data,
                  bool ping_only,
                  bool include_ping,
+                 bool skip_updatecheck,
                  int ping_active_days,
                  int ping_roll_call_days,
                  int install_date_in_days,
                  SystemState* system_state) {
-  string app_body = GetAppBody(event, params, ping_only, include_ping,
-                               ping_active_days, ping_roll_call_days,
+  string app_body = GetAppBody(event,
+                               params,
+                               ping_only,
+                               include_ping,
+                               skip_updatecheck,
+                               ping_active_days,
+                               ping_roll_call_days,
                                system_state->prefs());
   string app_versions;
 
@@ -253,8 +304,8 @@ string GetAppXml(const OmahaEvent* event,
   string app_channels =
       "track=\"" + XmlEncodeWithDefault(download_channel, "") + "\" ";
   if (params->current_channel() != download_channel) {
-    app_channels += "from_track=\"" + XmlEncodeWithDefault(
-        params->current_channel(), "") + "\" ";
+    app_channels += "from_track=\"" +
+                    XmlEncodeWithDefault(params->current_channel(), "") + "\" ";
   }
 
   string delta_okay_str = params->delta_okay() ? "true" : "false";
@@ -263,17 +314,17 @@ string GetAppXml(const OmahaEvent* event,
   // include the attribute.
   string install_date_in_days_str = "";
   if (install_date_in_days >= 0) {
-    install_date_in_days_str = base::StringPrintf("installdate=\"%d\" ",
-                                                  install_date_in_days);
+    install_date_in_days_str =
+        base::StringPrintf("installdate=\"%d\" ", install_date_in_days);
   }
 
   string app_cohort_args;
-  app_cohort_args += GetCohortArgXml(system_state->prefs(),
-                                     "cohort", kPrefsOmahaCohort);
-  app_cohort_args += GetCohortArgXml(system_state->prefs(),
-                                     "cohorthint", kPrefsOmahaCohortHint);
-  app_cohort_args += GetCohortArgXml(system_state->prefs(),
-                                     "cohortname", kPrefsOmahaCohortName);
+  app_cohort_args +=
+      GetCohortArgXml(system_state->prefs(), "cohort", kPrefsOmahaCohort);
+  app_cohort_args += GetCohortArgXml(
+      system_state->prefs(), "cohorthint", kPrefsOmahaCohortHint);
+  app_cohort_args += GetCohortArgXml(
+      system_state->prefs(), "cohortname", kPrefsOmahaCohortName);
 
   string fingerprint_arg;
   if (!params->os_build_fingerprint().empty()) {
@@ -340,10 +391,13 @@ string GetAppXml(const OmahaEvent* event,
 // Returns an XML that corresponds to the entire <os> node of the Omaha
 // request based on the given parameters.
 string GetOsXml(OmahaRequestParams* params) {
-  string os_xml ="    <os "
-      "version=\"" + XmlEncodeWithDefault(params->os_version(), "") + "\" " +
-      "platform=\"" + XmlEncodeWithDefault(params->os_platform(), "") + "\" " +
-      "sp=\"" + XmlEncodeWithDefault(params->os_sp(), "") + "\">"
+  string os_xml =
+      "    <os "
+      "version=\"" +
+      XmlEncodeWithDefault(params->os_version(), "") + "\" " + "platform=\"" +
+      XmlEncodeWithDefault(params->os_platform(), "") + "\" " + "sp=\"" +
+      XmlEncodeWithDefault(params->os_sp(), "") +
+      "\">"
       "</os>\n";
   return os_xml;
 }
@@ -363,11 +417,13 @@ string GetRequestXml(const OmahaEvent* event,
       .id = params->GetAppId(),
       .version = params->app_version(),
       .product_components = params->product_components()};
+  // Skips updatecheck for platform app in case of an install operation.
   string app_xml = GetAppXml(event,
                              params,
                              product_app,
                              ping_only,
                              include_ping,
+                             params->is_install(), /* skip_updatecheck */
                              ping_active_days,
                              ping_roll_call_days,
                              install_date_in_days,
@@ -380,29 +436,46 @@ string GetRequestXml(const OmahaEvent* event,
                          system_app,
                          ping_only,
                          include_ping,
+                         false, /* skip_updatecheck */
+                         ping_active_days,
+                         ping_roll_call_days,
+                         install_date_in_days,
+                         system_state);
+  }
+  // Create APP ID according to |dlc_module_id| (sticking the current AppID to
+  // the DLC module ID with an underscode).
+  for (const auto& dlc_module_id : params->dlc_module_ids()) {
+    OmahaAppData dlc_module_app = {
+        .id = params->GetAppId() + "_" + dlc_module_id,
+        .version = params->app_version()};
+    app_xml += GetAppXml(event,
+                         params,
+                         dlc_module_app,
+                         ping_only,
+                         include_ping,
+                         false, /* skip_updatecheck */
                          ping_active_days,
                          ping_roll_call_days,
                          install_date_in_days,
                          system_state);
   }
 
-  string install_source = base::StringPrintf("installsource=\"%s\" ",
+  string install_source = base::StringPrintf(
+      "installsource=\"%s\" ",
       (params->interactive() ? "ondemandupdate" : "scheduler"));
 
   string updater_version = XmlEncodeWithDefault(
-      base::StringPrintf("%s-%s",
-                         constants::kOmahaUpdaterID,
-                         kOmahaUpdaterVersion), "");
+      base::StringPrintf(
+          "%s-%s", constants::kOmahaUpdaterID, kOmahaUpdaterVersion),
+      "");
   string request_xml =
       "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-      "<request protocol=\"3.0\" " + (
-          "version=\"" + updater_version + "\" "
-          "updaterversion=\"" + updater_version + "\" " +
-          install_source +
-          "ismachine=\"1\">\n") +
-      os_xml +
-      app_xml +
-      "</request>\n";
+      "<request protocol=\"3.0\" " +
+      ("version=\"" + updater_version +
+       "\" "
+       "updaterversion=\"" +
+       updater_version + "\" " + install_source + "ismachine=\"1\">\n") +
+      os_xml + app_xml + "</request>\n";
 
   return request_xml;
 }
@@ -453,7 +526,8 @@ struct OmahaParserData {
 namespace {
 
 // Callback function invoked by expat.
-void ParserHandlerStart(void* user_data, const XML_Char* element,
+void ParserHandlerStart(void* user_data,
+                        const XML_Char* element,
                         const XML_Char** attr) {
   OmahaParserData* data = reinterpret_cast<OmahaParserData*>(user_data);
 
@@ -464,7 +538,7 @@ void ParserHandlerStart(void* user_data, const XML_Char* element,
 
   map<string, string> attrs;
   if (attr != nullptr) {
-    for (int n = 0; attr[n] != nullptr && attr[n+1] != nullptr; n += 2) {
+    for (int n = 0; attr[n] != nullptr && attr[n + 1] != nullptr; n += 2) {
       string key = attr[n];
       string value = attr[n + 1];
       attrs[key] = value;
@@ -473,27 +547,27 @@ void ParserHandlerStart(void* user_data, const XML_Char* element,
 
   if (data->current_path == "/response/app") {
     OmahaParserData::App app;
-    if (attrs.find("appid") != attrs.end()) {
-      app.id = attrs["appid"];
+    if (attrs.find(kAttrAppId) != attrs.end()) {
+      app.id = attrs[kAttrAppId];
     }
-    if (attrs.find("cohort") != attrs.end()) {
+    if (attrs.find(kAttrCohort) != attrs.end()) {
       app.cohort_set = true;
-      app.cohort = attrs["cohort"];
+      app.cohort = attrs[kAttrCohort];
     }
-    if (attrs.find("cohorthint") != attrs.end()) {
+    if (attrs.find(kAttrCohortHint) != attrs.end()) {
       app.cohorthint_set = true;
-      app.cohorthint = attrs["cohorthint"];
+      app.cohorthint = attrs[kAttrCohortHint];
     }
-    if (attrs.find("cohortname") != attrs.end()) {
+    if (attrs.find(kAttrCohortName) != attrs.end()) {
       app.cohortname_set = true;
-      app.cohortname = attrs["cohortname"];
+      app.cohortname = attrs[kAttrCohortName];
     }
     data->apps.push_back(std::move(app));
   } else if (data->current_path == "/response/app/updatecheck") {
     if (!data->apps.empty())
-      data->apps.back().updatecheck_status = attrs["status"];
+      data->apps.back().updatecheck_status = attrs[kAttrStatus];
     if (data->updatecheck_poll_interval.empty())
-      data->updatecheck_poll_interval = attrs["PollInterval"];
+      data->updatecheck_poll_interval = attrs[kAttrPollInterval];
     // Omaha sends arbitrary key-value pairs as extra attributes starting with
     // an underscore.
     for (const auto& attr : attrs) {
@@ -502,27 +576,27 @@ void ParserHandlerStart(void* user_data, const XML_Char* element,
     }
   } else if (data->current_path == "/response/daystart") {
     // Get the install-date.
-    data->daystart_elapsed_days = attrs["elapsed_days"];
-    data->daystart_elapsed_seconds = attrs["elapsed_seconds"];
+    data->daystart_elapsed_days = attrs[kAttrElapsedDays];
+    data->daystart_elapsed_seconds = attrs[kAttrElapsedSeconds];
   } else if (data->current_path == "/response/app/updatecheck/urls/url") {
     // Look at all <url> elements.
     if (!data->apps.empty())
-      data->apps.back().url_codebase.push_back(attrs["codebase"]);
+      data->apps.back().url_codebase.push_back(attrs[kAttrCodeBase]);
   } else if (data->current_path ==
              "/response/app/updatecheck/manifest/packages/package") {
     // Look at all <package> elements.
     if (!data->apps.empty())
-      data->apps.back().packages.push_back({.name = attrs["name"],
-                                            .size = attrs["size"],
-                                            .hash = attrs["hash_sha256"]});
+      data->apps.back().packages.push_back({.name = attrs[kAttrName],
+                                            .size = attrs[kAttrSize],
+                                            .hash = attrs[kAttrHashSha256]});
   } else if (data->current_path == "/response/app/updatecheck/manifest") {
     // Get the version.
     if (!data->apps.empty())
-      data->apps.back().manifest_version = attrs[kTagVersion];
+      data->apps.back().manifest_version = attrs[kAttrVersion];
   } else if (data->current_path ==
              "/response/app/updatecheck/manifest/actions/action") {
     // We only care about the postinstall action.
-    if (attrs["event"] == "postinstall" && !data->apps.empty()) {
+    if (attrs[kAttrEvent] == kValPostInstall && !data->apps.empty()) {
       data->apps.back().action_postinstall_attrs = std::move(attrs);
     }
   }
@@ -536,8 +610,8 @@ void ParserHandlerEnd(void* user_data, const XML_Char* element) {
 
   const string path_suffix = string("/") + element;
 
-  if (!base::EndsWith(data->current_path, path_suffix,
-                      base::CompareCase::SENSITIVE)) {
+  if (!base::EndsWith(
+          data->current_path, path_suffix, base::CompareCase::SENSITIVE)) {
     LOG(ERROR) << "Unexpected end element '" << element
                << "' with current_path='" << data->current_path << "'";
     data->failed = true;
@@ -552,15 +626,15 @@ void ParserHandlerEnd(void* user_data, const XML_Char* element) {
 // to never return any XML with entities our course of action is to
 // just stop parsing. This avoids potential resource exhaustion
 // problems AKA the "billion laughs". CVE-2013-0340.
-void ParserHandlerEntityDecl(void *user_data,
-                             const XML_Char *entity_name,
+void ParserHandlerEntityDecl(void* user_data,
+                             const XML_Char* entity_name,
                              int is_parameter_entity,
-                             const XML_Char *value,
+                             const XML_Char* value,
                              int value_length,
-                             const XML_Char *base,
-                             const XML_Char *system_id,
-                             const XML_Char *public_id,
-                             const XML_Char *notation_name) {
+                             const XML_Char* base,
+                             const XML_Char* system_id,
+                             const XML_Char* public_id,
+                             const XML_Char* notation_name) {
   OmahaParserData* data = reinterpret_cast<OmahaParserData*>(user_data);
 
   LOG(ERROR) << "XML entities are not supported. Aborting parsing.";
@@ -572,8 +646,9 @@ void ParserHandlerEntityDecl(void *user_data,
 }  // namespace
 
 bool XmlEncode(const string& input, string* output) {
-  if (std::find_if(input.begin(), input.end(),
-                   [](const char c){return c & 0x80;}) != input.end()) {
+  if (std::find_if(input.begin(), input.end(), [](const char c) {
+        return c & 0x80;
+      }) != input.end()) {
     LOG(WARNING) << "Invalid ASCII-7 string passed to the XML encoder:";
     utils::HexDumpString(input);
     return false;
@@ -619,12 +694,14 @@ OmahaRequestAction::OmahaRequestAction(
     std::unique_ptr<HttpFetcher> http_fetcher,
     bool ping_only)
     : system_state_(system_state),
+      params_(system_state->request_params()),
       event_(event),
       http_fetcher_(std::move(http_fetcher)),
+      policy_provider_(std::make_unique<policy::PolicyProvider>()),
       ping_only_(ping_only),
       ping_active_days_(0),
       ping_roll_call_days_(0) {
-  params_ = system_state->request_params();
+  policy_provider_->Reload();
 }
 
 OmahaRequestAction::~OmahaRequestAction() {}
@@ -642,8 +719,8 @@ int OmahaRequestAction::CalculatePingDays(const string& key) {
       // last ping daystart preference. This way the next ping time
       // will be correct, hopefully.
       days = kPingTimeJump;
-      LOG(WARNING) <<
-          "System clock jumped back in time. Resetting ping daystarts.";
+      LOG(WARNING)
+          << "System clock jumped back in time. Resetting ping daystarts.";
     }
   }
   return days;
@@ -734,13 +811,12 @@ int OmahaRequestAction::GetInstallDate(SystemState* system_state) {
   }
 
   // Persist this to disk, for future use.
-  if (!OmahaRequestAction::PersistInstallDate(system_state,
-                                              num_days,
-                                              kProvisionedFromOOBEMarker))
+  if (!OmahaRequestAction::PersistInstallDate(
+          system_state, num_days, kProvisionedFromOOBEMarker))
     return -1;
 
-  LOG(INFO) << "Set the Omaha InstallDate from OOBE time-stamp to "
-            << num_days << " days";
+  LOG(INFO) << "Set the Omaha InstallDate from OOBE time-stamp to " << num_days
+            << " days";
 
   return num_days;
 }
@@ -762,7 +838,7 @@ void OmahaRequestAction::PerformAction() {
                                     GetInstallDate(system_state_),
                                     system_state_));
 
-  // Set X-GoogleUpdate headers.
+  // Set X-Goog-Update headers.
   http_fetcher_->SetHeader(kXGoogleUpdateInteractivity,
                            params_->interactive() ? "fg" : "bg");
   http_fetcher_->SetHeader(kXGoogleUpdateAppId, params_->GetAppId());
@@ -771,8 +847,8 @@ void OmahaRequestAction::PerformAction() {
       base::StringPrintf(
           "%s-%s", constants::kOmahaUpdaterID, kOmahaUpdaterVersion));
 
-  http_fetcher_->SetPostData(request_post.data(), request_post.size(),
-                             kHttpContentTypeTextXml);
+  http_fetcher_->SetPostData(
+      request_post.data(), request_post.size(), kHttpContentTypeTextXml);
   LOG(INFO) << "Posting an Omaha request to " << params_->update_url();
   LOG(INFO) << "Request: " << request_post;
   http_fetcher_->BeginTransfer(params_->update_url());
@@ -784,11 +860,12 @@ void OmahaRequestAction::TerminateProcessing() {
 
 // We just store the response in the buffer. Once we've received all bytes,
 // we'll look in the buffer and decide what to do.
-void OmahaRequestAction::ReceivedBytes(HttpFetcher *fetcher,
+bool OmahaRequestAction::ReceivedBytes(HttpFetcher* fetcher,
                                        const void* bytes,
                                        size_t length) {
   const uint8_t* byte_ptr = reinterpret_cast<const uint8_t*>(bytes);
   response_buffer_.insert(response_buffer_.end(), byte_ptr, byte_ptr + length);
+  return true;
 }
 
 namespace {
@@ -813,11 +890,10 @@ bool ParseBool(const string& str) {
 
 // Update the last ping day preferences based on the server daystart
 // response. Returns true on success, false otherwise.
-bool UpdateLastPingDays(OmahaParserData *parser_data, PrefsInterface* prefs) {
+bool UpdateLastPingDays(OmahaParserData* parser_data, PrefsInterface* prefs) {
   int64_t elapsed_seconds = 0;
-  TEST_AND_RETURN_FALSE(
-      base::StringToInt64(parser_data->daystart_elapsed_seconds,
-                          &elapsed_seconds));
+  TEST_AND_RETURN_FALSE(base::StringToInt64(
+      parser_data->daystart_elapsed_seconds, &elapsed_seconds));
   TEST_AND_RETURN_FALSE(elapsed_seconds >= 0);
 
   // Remember the local time that matches the server's last midnight
@@ -834,7 +910,8 @@ bool UpdateLastPingDays(OmahaParserData *parser_data, PrefsInterface* prefs) {
 bool ParsePackage(OmahaParserData::App* app,
                   OmahaResponse* output_object,
                   ScopedActionCompleter* completer) {
-  if (app->updatecheck_status == "noupdate") {
+  if (app->updatecheck_status.empty() ||
+      app->updatecheck_status == kValNoUpdate) {
     if (!app->packages.empty()) {
       LOG(ERROR) << "No update in this <app> but <package> is not empty.";
       completer->set_code(ErrorCode::kOmahaResponseInvalid);
@@ -854,17 +931,17 @@ bool ParsePackage(OmahaParserData::App* app,
   }
   LOG(INFO) << "Found " << app->url_codebase.size() << " url(s)";
   vector<string> metadata_sizes =
-      base::SplitString(app->action_postinstall_attrs[kTagMetadataSize],
+      base::SplitString(app->action_postinstall_attrs[kAttrMetadataSize],
                         ":",
                         base::TRIM_WHITESPACE,
                         base::SPLIT_WANT_ALL);
-  vector<string> metadata_signatures =
-      base::SplitString(app->action_postinstall_attrs[kTagMetadataSignatureRsa],
-                        ":",
-                        base::TRIM_WHITESPACE,
-                        base::SPLIT_WANT_ALL);
+  vector<string> metadata_signatures = base::SplitString(
+      app->action_postinstall_attrs[kAttrMetadataSignatureRsa],
+      ":",
+      base::TRIM_WHITESPACE,
+      base::SPLIT_WANT_ALL);
   vector<string> is_delta_payloads =
-      base::SplitString(app->action_postinstall_attrs[kTagIsDeltaPayload],
+      base::SplitString(app->action_postinstall_attrs[kAttrIsDeltaPayload],
                         ":",
                         base::TRIM_WHITESPACE,
                         base::SPLIT_WANT_ALL);
@@ -921,6 +998,20 @@ bool ParsePackage(OmahaParserData::App* app,
   }
 
   return true;
+}
+
+// Parses the 2 key version strings kernel_version and firmware_version. If the
+// field is not present, or cannot be parsed the values default to 0xffff.
+void ParseRollbackVersions(OmahaParserData* parser_data,
+                           OmahaResponse* output_object) {
+  utils::ParseRollbackKeyVersion(
+      parser_data->updatecheck_attrs[kAttrFirmwareVersion],
+      &output_object->rollback_key_version.firmware_key,
+      &output_object->rollback_key_version.firmware);
+  utils::ParseRollbackKeyVersion(
+      parser_data->updatecheck_attrs[kAttrKernelVersion],
+      &output_object->rollback_key_version.kernel_key,
+      &output_object->rollback_key_version.kernel);
 }
 
 }  // namespace
@@ -985,6 +1076,14 @@ bool OmahaRequestAction::ParseResponse(OmahaParserData* parser_data,
 
   // Parse the updatecheck attributes.
   PersistEolStatus(parser_data->updatecheck_attrs);
+  // Rollback-related updatecheck attributes.
+  // Defaults to false if attribute is not present.
+  output_object->is_rollback =
+      ParseBool(parser_data->updatecheck_attrs[kAttrRollback]);
+
+  // Parses the rollback versions of the current image. If the fields do not
+  // exist they default to 0xffff for the 4 key versions.
+  ParseRollbackVersions(parser_data, output_object);
 
   if (!ParseStatus(parser_data, output_object, completer))
     return false;
@@ -1005,22 +1104,29 @@ bool OmahaRequestAction::ParseStatus(OmahaParserData* parser_data,
                                      OmahaResponse* output_object,
                                      ScopedActionCompleter* completer) {
   output_object->update_exists = false;
-  for (size_t i = 0; i < parser_data->apps.size(); i++) {
-    const string& status = parser_data->apps[i].updatecheck_status;
-    if (status == "noupdate") {
+  for (const auto& app : parser_data->apps) {
+    const string& status = app.updatecheck_status;
+    if (status == kValNoUpdate) {
       // Don't update if any app has status="noupdate".
-      LOG(INFO) << "No update for <app> " << i;
+      LOG(INFO) << "No update for <app> " << app.id;
       output_object->update_exists = false;
       break;
     } else if (status == "ok") {
-      if (parser_data->apps[i].action_postinstall_attrs["noupdate"] == "true") {
+      auto const& attr_no_update =
+          app.action_postinstall_attrs.find(kAttrNoUpdate);
+      if (attr_no_update != app.action_postinstall_attrs.end() &&
+          attr_no_update->second == "true") {
         // noupdate="true" in postinstall attributes means it's an update to
         // self, only update if there's at least one app really have update.
-        LOG(INFO) << "Update to self for <app> " << i;
+        LOG(INFO) << "Update to self for <app> " << app.id;
       } else {
-        LOG(INFO) << "Update for <app> " << i;
+        LOG(INFO) << "Update for <app> " << app.id;
         output_object->update_exists = true;
       }
+    } else if (status.empty() && params_->is_install() &&
+               params_->GetAppId() == app.id) {
+      // Skips the platform app for install operation.
+      LOG(INFO) << "No payload (and ignore) for <app> " << app.id;
     } else {
       LOG(ERROR) << "Unknown Omaha response status: " << status;
       completer->set_code(ErrorCode::kOmahaResponseInvalid);
@@ -1048,10 +1154,19 @@ bool OmahaRequestAction::ParseParams(OmahaParserData* parser_data,
       // this is the system app (this check is intentionally skipped if there is
       // no system_app_id set)
       output_object->system_version = app.manifest_version;
+    } else if (params_->is_install() &&
+               app.manifest_version != params_->app_version()) {
+      LOG(WARNING) << "An app has a different version (" << app.manifest_version
+                   << ") that is different than platform app version ("
+                   << params_->app_version() << ")";
     }
     if (!app.action_postinstall_attrs.empty() && attrs.empty()) {
       attrs = app.action_postinstall_attrs;
     }
+  }
+  if (params_->is_install()) {
+    LOG(INFO) << "Use request version for Install operation.";
+    output_object->version = params_->app_version();
   }
   if (output_object->version.empty()) {
     LOG(ERROR) << "Omaha Response does not have version in manifest!";
@@ -1069,22 +1184,23 @@ bool OmahaRequestAction::ParseParams(OmahaParserData* parser_data,
   }
 
   // Get the optional properties one by one.
-  output_object->more_info_url = attrs[kTagMoreInfo];
-  output_object->prompt = ParseBool(attrs[kTagPrompt]);
-  output_object->deadline = attrs[kTagDeadline];
-  output_object->max_days_to_scatter = ParseInt(attrs[kTagMaxDaysToScatter]);
+  output_object->more_info_url = attrs[kAttrMoreInfo];
+  output_object->prompt = ParseBool(attrs[kAttrPrompt]);
+  output_object->deadline = attrs[kAttrDeadline];
+  output_object->max_days_to_scatter = ParseInt(attrs[kAttrMaxDaysToScatter]);
   output_object->disable_p2p_for_downloading =
-      ParseBool(attrs[kTagDisableP2PForDownloading]);
+      ParseBool(attrs[kAttrDisableP2PForDownloading]);
   output_object->disable_p2p_for_sharing =
-      ParseBool(attrs[kTagDisableP2PForSharing]);
-  output_object->public_key_rsa = attrs[kTagPublicKeyRsa];
+      ParseBool(attrs[kAttrDisableP2PForSharing]);
+  output_object->public_key_rsa = attrs[kAttrPublicKeyRsa];
 
-  string max = attrs[kTagMaxFailureCountPerUrl];
+  string max = attrs[kAttrMaxFailureCountPerUrl];
   if (!base::StringToUint(max, &output_object->max_failure_count_per_url))
     output_object->max_failure_count_per_url = kDefaultMaxFailureCountPerUrl;
 
   output_object->disable_payload_backoff =
-      ParseBool(attrs[kTagDisablePayloadBackoff]);
+      ParseBool(attrs[kAttrDisablePayloadBackoff]);
+  output_object->powerwash_required = ParseBool(attrs[kAttrPowerwash]);
 
   return true;
 }
@@ -1092,13 +1208,16 @@ bool OmahaRequestAction::ParseParams(OmahaParserData* parser_data,
 // If the transfer was successful, this uses expat to parse the response
 // and fill in the appropriate fields of the output object. Also, notifies
 // the processor that we're done.
-void OmahaRequestAction::TransferComplete(HttpFetcher *fetcher,
+void OmahaRequestAction::TransferComplete(HttpFetcher* fetcher,
                                           bool successful) {
   ScopedActionCompleter completer(processor_, this);
   string current_response(response_buffer_.begin(), response_buffer_.end());
   LOG(INFO) << "Omaha request response: " << current_response;
 
   PayloadStateInterface* const payload_state = system_state_->payload_state();
+
+  // Set the max kernel key version based on whether rollback is allowed.
+  SetMaxKernelKeyVersionForRollback();
 
   // Events are best effort transactions -- assume they always succeed.
   if (IsEvent()) {
@@ -1124,18 +1243,18 @@ void OmahaRequestAction::TransferComplete(HttpFetcher *fetcher,
   XML_SetUserData(parser, &parser_data);
   XML_SetElementHandler(parser, ParserHandlerStart, ParserHandlerEnd);
   XML_SetEntityDeclHandler(parser, ParserHandlerEntityDecl);
-  XML_Status res = XML_Parse(
-      parser,
-      reinterpret_cast<const char*>(response_buffer_.data()),
-      response_buffer_.size(),
-      XML_TRUE);
-  XML_ParserFree(parser);
+  XML_Status res =
+      XML_Parse(parser,
+                reinterpret_cast<const char*>(response_buffer_.data()),
+                response_buffer_.size(),
+                XML_TRUE);
 
   if (res != XML_STATUS_OK || parser_data.failed) {
     LOG(ERROR) << "Omaha response not valid XML: "
-               << XML_ErrorString(XML_GetErrorCode(parser))
-               << " at line " << XML_GetCurrentLineNumber(parser)
-               << " col " << XML_GetCurrentColumnNumber(parser);
+               << XML_ErrorString(XML_GetErrorCode(parser)) << " at line "
+               << XML_GetCurrentLineNumber(parser) << " col "
+               << XML_GetCurrentColumnNumber(parser);
+    XML_ParserFree(parser);
     ErrorCode error_code = ErrorCode::kOmahaRequestXMLParseError;
     if (response_buffer_.empty()) {
       error_code = ErrorCode::kOmahaRequestEmptyResponseError;
@@ -1145,6 +1264,7 @@ void OmahaRequestAction::TransferComplete(HttpFetcher *fetcher,
     completer.set_code(error_code);
     return;
   }
+  XML_ParserFree(parser);
 
   // Update the last ping day preferences based on the server daystart response
   // even if we didn't send a ping. Omaha always includes the daystart in the
@@ -1159,7 +1279,10 @@ void OmahaRequestAction::TransferComplete(HttpFetcher *fetcher,
   // their a=-1 in the past and we have to set first_active_omaha_ping_sent for
   // future checks.
   if (!system_state_->hardware()->GetFirstActiveOmahaPingSent()) {
-    system_state_->hardware()->SetFirstActiveOmahaPingSent();
+    if (!system_state_->hardware()->SetFirstActiveOmahaPingSent()) {
+      system_state_->metrics_reporter()->ReportInternalErrorCode(
+          ErrorCode::kFirstActiveOmahaPingSentPersistenceError);
+    }
   }
 
   if (!HasOutputPipe()) {
@@ -1175,9 +1298,13 @@ void OmahaRequestAction::TransferComplete(HttpFetcher *fetcher,
   output_object.update_exists = true;
   SetOutputObject(output_object);
 
-  if (ShouldIgnoreUpdate(output_object)) {
-    output_object.update_exists = false;
-    completer.set_code(ErrorCode::kOmahaUpdateIgnoredPerPolicy);
+  LoadOrPersistUpdateFirstSeenAtPref();
+
+  ErrorCode error = ErrorCode::kSuccess;
+  if (ShouldIgnoreUpdate(output_object, &error)) {
+    // No need to change output_object.update_exists here, since the value
+    // has been output to the pipe.
+    completer.set_code(error);
     return;
   }
 
@@ -1232,16 +1359,6 @@ void OmahaRequestAction::CompleteProcessing() {
   ScopedActionCompleter completer(processor_, this);
   OmahaResponse& output_object = const_cast<OmahaResponse&>(GetOutputObject());
   PayloadStateInterface* payload_state = system_state_->payload_state();
-
-  if (system_state_->hardware()->IsOOBEEnabled() &&
-      !system_state_->hardware()->IsOOBEComplete(nullptr) &&
-      output_object.deadline.empty() &&
-      params_->app_version() != "ForcedUpdate") {
-    output_object.update_exists = false;
-    LOG(INFO) << "Ignoring non-critical Omaha updates until OOBE is done.";
-    completer.set_code(ErrorCode::kNonCriticalUpdateInOOBE);
-    return;
-  }
 
   if (ShouldDeferDownload(&output_object)) {
     output_object.update_exists = false;
@@ -1384,60 +1501,29 @@ bool OmahaRequestAction::ShouldDeferDownload(OmahaResponse* output_object) {
 OmahaRequestAction::WallClockWaitResult
 OmahaRequestAction::IsWallClockBasedWaitingSatisfied(
     OmahaResponse* output_object) {
-  Time update_first_seen_at;
-  int64_t update_first_seen_at_int;
-
-  if (system_state_->prefs()->Exists(kPrefsUpdateFirstSeenAt)) {
-    if (system_state_->prefs()->GetInt64(kPrefsUpdateFirstSeenAt,
-                                         &update_first_seen_at_int)) {
-      // Note: This timestamp could be that of ANY update we saw in the past
-      // (not necessarily this particular update we're considering to apply)
-      // but never got to apply because of some reason (e.g. stop AU policy,
-      // updates being pulled out from Omaha, changes in target version prefix,
-      // new update being rolled out, etc.). But for the purposes of scattering
-      // it doesn't matter which update the timestamp corresponds to. i.e.
-      // the clock starts ticking the first time we see an update and we're
-      // ready to apply when the random wait period is satisfied relative to
-      // that first seen timestamp.
-      update_first_seen_at = Time::FromInternalValue(update_first_seen_at_int);
-      LOG(INFO) << "Using persisted value of UpdateFirstSeenAt: "
-                << utils::ToString(update_first_seen_at);
-    } else {
-      // This seems like an unexpected error where the persisted value exists
-      // but it's not readable for some reason. Just skip scattering in this
-      // case to be safe.
-     LOG(INFO) << "Not scattering as UpdateFirstSeenAt value cannot be read";
-     return kWallClockWaitDoneAndUpdateCheckWaitNotRequired;
-    }
-  } else {
-    update_first_seen_at = system_state_->clock()->GetWallclockTime();
-    update_first_seen_at_int = update_first_seen_at.ToInternalValue();
-    if (system_state_->prefs()->SetInt64(kPrefsUpdateFirstSeenAt,
-                                         update_first_seen_at_int)) {
-      LOG(INFO) << "Persisted the new value for UpdateFirstSeenAt: "
-                << utils::ToString(update_first_seen_at);
-    } else {
-      // This seems like an unexpected error where the value cannot be
-      // persisted for some reason. Just skip scattering in this
-      // case to be safe.
-      LOG(INFO) << "Not scattering as UpdateFirstSeenAt value "
-                << utils::ToString(update_first_seen_at)
-                << " cannot be persisted";
-     return kWallClockWaitDoneAndUpdateCheckWaitNotRequired;
-    }
+  Time update_first_seen_at = LoadOrPersistUpdateFirstSeenAtPref();
+  if (update_first_seen_at == base::Time()) {
+    LOG(INFO) << "Not scattering as UpdateFirstSeenAt value cannot be read or "
+                 "persisted";
+    return kWallClockWaitDoneAndUpdateCheckWaitNotRequired;
   }
 
   TimeDelta elapsed_time =
       system_state_->clock()->GetWallclockTime() - update_first_seen_at;
   TimeDelta max_scatter_period =
       TimeDelta::FromDays(output_object->max_days_to_scatter);
+  int64_t staging_wait_time_in_days = 0;
+  // Use staging and its default max value if staging is on.
+  if (system_state_->prefs()->GetInt64(kPrefsWallClockStagingWaitPeriod,
+                                       &staging_wait_time_in_days) &&
+      staging_wait_time_in_days > 0)
+    max_scatter_period = TimeDelta::FromDays(kMaxWaitTimeStagingInDays);
 
   LOG(INFO) << "Waiting Period = "
             << utils::FormatSecs(params_->waiting_period().InSeconds())
             << ", Time Elapsed = "
             << utils::FormatSecs(elapsed_time.InSeconds())
-            << ", MaxDaysToScatter = "
-            << max_scatter_period.InDays();
+            << ", MaxDaysToScatter = " << max_scatter_period.InDays();
 
   if (!output_object->deadline.empty()) {
     // The deadline is set for all rules which serve a delta update from a
@@ -1472,9 +1558,9 @@ OmahaRequestAction::IsWallClockBasedWaitingSatisfied(
 
     // But we can't download until the update-check-count-based wait is also
     // satisfied, so mark it as required now if update checks are enabled.
-    return params_->update_check_count_wait_enabled() ?
-              kWallClockWaitDoneButUpdateCheckWaitRequired :
-              kWallClockWaitDoneAndUpdateCheckWaitNotRequired;
+    return params_->update_check_count_wait_enabled()
+               ? kWallClockWaitDoneButUpdateCheckWaitRequired
+               : kWallClockWaitDoneAndUpdateCheckWaitNotRequired;
   }
 
   // Not our turn yet, so we have to wait until our turn to
@@ -1500,9 +1586,9 @@ bool OmahaRequestAction::IsUpdateCheckCountBasedWaitingSatisfied() {
   } else {
     // This file does not exist. This means we haven't started our update
     // check count down yet, so this is the right time to start the count down.
-    update_check_count_value = base::RandInt(
-      params_->min_update_checks_needed(),
-      params_->max_update_checks_allowed());
+    update_check_count_value =
+        base::RandInt(params_->min_update_checks_needed(),
+                      params_->max_update_checks_allowed());
 
     LOG(INFO) << "Randomly picked update check count value = "
               << update_check_count_value;
@@ -1535,8 +1621,7 @@ bool OmahaRequestAction::IsUpdateCheckCountBasedWaitingSatisfied() {
   // Legal value, we need to wait for more update checks to happen
   // until this becomes 0.
   LOG(INFO) << "Deferring Omaha updates for another "
-            << update_check_count_value
-            << " update checks per policy";
+            << update_check_count_value << " update checks per policy";
   return false;
 }
 
@@ -1544,8 +1629,7 @@ bool OmahaRequestAction::IsUpdateCheckCountBasedWaitingSatisfied() {
 bool OmahaRequestAction::ParseInstallDate(OmahaParserData* parser_data,
                                           OmahaResponse* output_object) {
   int64_t elapsed_days = 0;
-  if (!base::StringToInt64(parser_data->daystart_elapsed_days,
-                           &elapsed_days))
+  if (!base::StringToInt64(parser_data->daystart_elapsed_days, &elapsed_days))
     return false;
 
   if (elapsed_days < 0)
@@ -1556,7 +1640,7 @@ bool OmahaRequestAction::ParseInstallDate(OmahaParserData* parser_data,
 }
 
 // static
-bool OmahaRequestAction::HasInstallDate(SystemState *system_state) {
+bool OmahaRequestAction::HasInstallDate(SystemState* system_state) {
   PrefsInterface* prefs = system_state->prefs();
   if (prefs == nullptr)
     return false;
@@ -1566,7 +1650,7 @@ bool OmahaRequestAction::HasInstallDate(SystemState *system_state) {
 
 // static
 bool OmahaRequestAction::PersistInstallDate(
-    SystemState *system_state,
+    SystemState* system_state,
     int install_date_days,
     InstallDateProvisioningSource source) {
   TEST_AND_RETURN_FALSE(install_date_days >= 0);
@@ -1584,9 +1668,8 @@ bool OmahaRequestAction::PersistInstallDate(
   return true;
 }
 
-bool OmahaRequestAction::PersistCohortData(
-    const string& prefs_key,
-    const string& new_value) {
+bool OmahaRequestAction::PersistCohortData(const string& prefs_key,
+                                           const string& new_value) {
   if (new_value.empty() && system_state_->prefs()->Exists(prefs_key)) {
     LOG(INFO) << "Removing stored " << prefs_key << " value.";
     return system_state_->prefs()->Delete(prefs_key);
@@ -1598,7 +1681,7 @@ bool OmahaRequestAction::PersistCohortData(
 }
 
 bool OmahaRequestAction::PersistEolStatus(const map<string, string>& attrs) {
-  auto eol_attr = attrs.find(kEolAttr);
+  auto eol_attr = attrs.find(kAttrEol);
   if (eol_attr != attrs.end()) {
     return system_state_->prefs()->SetString(kPrefsOmahaEolStatus,
                                              eol_attr->second);
@@ -1620,58 +1703,59 @@ void OmahaRequestAction::ActionCompleted(ErrorCode code) {
 
   // Regular update attempt.
   switch (code) {
-  case ErrorCode::kSuccess:
-    // OK, we parsed the response successfully but that does
-    // necessarily mean that an update is available.
-    if (HasOutputPipe()) {
-      const OmahaResponse& response = GetOutputObject();
-      if (response.update_exists) {
-        result = metrics::CheckResult::kUpdateAvailable;
-        reaction = metrics::CheckReaction::kUpdating;
+    case ErrorCode::kSuccess:
+      // OK, we parsed the response successfully but that does
+      // necessarily mean that an update is available.
+      if (HasOutputPipe()) {
+        const OmahaResponse& response = GetOutputObject();
+        if (response.update_exists) {
+          result = metrics::CheckResult::kUpdateAvailable;
+          reaction = metrics::CheckReaction::kUpdating;
+        } else {
+          result = metrics::CheckResult::kNoUpdateAvailable;
+        }
       } else {
         result = metrics::CheckResult::kNoUpdateAvailable;
       }
-    } else {
-      result = metrics::CheckResult::kNoUpdateAvailable;
-    }
-    break;
+      break;
 
-  case ErrorCode::kOmahaUpdateIgnoredPerPolicy:
-    result = metrics::CheckResult::kUpdateAvailable;
-    reaction = metrics::CheckReaction::kIgnored;
-    break;
+    case ErrorCode::kOmahaUpdateIgnoredPerPolicy:
+    case ErrorCode::kOmahaUpdateIgnoredOverCellular:
+      result = metrics::CheckResult::kUpdateAvailable;
+      reaction = metrics::CheckReaction::kIgnored;
+      break;
 
-  case ErrorCode::kOmahaUpdateDeferredPerPolicy:
-    result = metrics::CheckResult::kUpdateAvailable;
-    reaction = metrics::CheckReaction::kDeferring;
-    break;
+    case ErrorCode::kOmahaUpdateDeferredPerPolicy:
+      result = metrics::CheckResult::kUpdateAvailable;
+      reaction = metrics::CheckReaction::kDeferring;
+      break;
 
-  case ErrorCode::kOmahaUpdateDeferredForBackoff:
-    result = metrics::CheckResult::kUpdateAvailable;
-    reaction = metrics::CheckReaction::kBackingOff;
-    break;
+    case ErrorCode::kOmahaUpdateDeferredForBackoff:
+      result = metrics::CheckResult::kUpdateAvailable;
+      reaction = metrics::CheckReaction::kBackingOff;
+      break;
 
-  default:
-    // We report two flavors of errors, "Download errors" and "Parsing
-    // error". Try to convert to the former and if that doesn't work
-    // we know it's the latter.
-    metrics::DownloadErrorCode tmp_error =
-        metrics_utils::GetDownloadErrorCode(code);
-    if (tmp_error != metrics::DownloadErrorCode::kInputMalformed) {
-      result = metrics::CheckResult::kDownloadError;
-      download_error_code = tmp_error;
-    } else {
-      result = metrics::CheckResult::kParsingError;
-    }
-    break;
+    default:
+      // We report two flavors of errors, "Download errors" and "Parsing
+      // error". Try to convert to the former and if that doesn't work
+      // we know it's the latter.
+      metrics::DownloadErrorCode tmp_error =
+          metrics_utils::GetDownloadErrorCode(code);
+      if (tmp_error != metrics::DownloadErrorCode::kInputMalformed) {
+        result = metrics::CheckResult::kDownloadError;
+        download_error_code = tmp_error;
+      } else {
+        result = metrics::CheckResult::kParsingError;
+      }
+      break;
   }
 
   system_state_->metrics_reporter()->ReportUpdateCheckMetrics(
       system_state_, result, reaction, download_error_code);
 }
 
-bool OmahaRequestAction::ShouldIgnoreUpdate(
-    const OmahaResponse& response) const {
+bool OmahaRequestAction::ShouldIgnoreUpdate(const OmahaResponse& response,
+                                            ErrorCode* error) const {
   // Note: policy decision to not update to a version we rolled back from.
   string rollback_version =
       system_state_->payload_state()->GetRollbackVersion();
@@ -1679,11 +1763,22 @@ bool OmahaRequestAction::ShouldIgnoreUpdate(
     LOG(INFO) << "Detected previous rollback from version " << rollback_version;
     if (rollback_version == response.version) {
       LOG(INFO) << "Received version that we rolled back from. Ignoring.";
+      *error = ErrorCode::kOmahaUpdateIgnoredPerPolicy;
       return true;
     }
   }
 
-  if (!IsUpdateAllowedOverCurrentConnection()) {
+  if (system_state_->hardware()->IsOOBEEnabled() &&
+      !system_state_->hardware()->IsOOBEComplete(nullptr) &&
+      (response.deadline.empty() ||
+       system_state_->payload_state()->GetRollbackHappened()) &&
+      params_->app_version() != "ForcedUpdate") {
+    LOG(INFO) << "Ignoring a non-critical Omaha update before OOBE completion.";
+    *error = ErrorCode::kNonCriticalUpdateInOOBE;
+    return true;
+  }
+
+  if (!IsUpdateAllowedOverCurrentConnection(error, response)) {
     LOG(INFO) << "Update is not allowed over current connection.";
     return true;
   }
@@ -1698,7 +1793,62 @@ bool OmahaRequestAction::ShouldIgnoreUpdate(
   return false;
 }
 
-bool OmahaRequestAction::IsUpdateAllowedOverCurrentConnection() const {
+bool OmahaRequestAction::IsUpdateAllowedOverCellularByPrefs(
+    const OmahaResponse& response) const {
+  PrefsInterface* prefs = system_state_->prefs();
+
+  if (!prefs) {
+    LOG(INFO) << "Disabling updates over cellular as the preferences are "
+                 "not available.";
+    return false;
+  }
+
+  bool is_allowed;
+
+  if (prefs->Exists(kPrefsUpdateOverCellularPermission) &&
+      prefs->GetBoolean(kPrefsUpdateOverCellularPermission, &is_allowed) &&
+      is_allowed) {
+    LOG(INFO) << "Allowing updates over cellular as permission preference is "
+                 "set to true.";
+    return true;
+  }
+
+  if (!prefs->Exists(kPrefsUpdateOverCellularTargetVersion) ||
+      !prefs->Exists(kPrefsUpdateOverCellularTargetSize)) {
+    LOG(INFO) << "Disabling updates over cellular as permission preference is "
+                 "set to false or does not exist while target does not exist.";
+    return false;
+  }
+
+  std::string target_version;
+  int64_t target_size;
+
+  if (!prefs->GetString(kPrefsUpdateOverCellularTargetVersion,
+                        &target_version) ||
+      !prefs->GetInt64(kPrefsUpdateOverCellularTargetSize, &target_size)) {
+    LOG(INFO) << "Disabling updates over cellular as the target version or "
+                 "size is not accessible.";
+    return false;
+  }
+
+  uint64_t total_packages_size = 0;
+  for (const auto& package : response.packages) {
+    total_packages_size += package.size;
+  }
+  if (target_version == response.version &&
+      static_cast<uint64_t>(target_size) == total_packages_size) {
+    LOG(INFO) << "Allowing updates over cellular as the target matches the"
+                 "omaha response.";
+    return true;
+  } else {
+    LOG(INFO) << "Disabling updates over cellular as the target does not"
+                 "match the omaha response.";
+    return false;
+  }
+}
+
+bool OmahaRequestAction::IsUpdateAllowedOverCurrentConnection(
+    ErrorCode* error, const OmahaResponse& response) const {
   ConnectionType type;
   ConnectionTethering tethering;
   ConnectionManagerInterface* connection_manager =
@@ -1708,11 +1858,140 @@ bool OmahaRequestAction::IsUpdateAllowedOverCurrentConnection() const {
               << "Defaulting to allow updates.";
     return true;
   }
+
   bool is_allowed = connection_manager->IsUpdateAllowedOver(type, tethering);
+  bool is_device_policy_set =
+      connection_manager->IsAllowedConnectionTypesForUpdateSet();
+  // Treats tethered connection as if it is cellular connection.
+  bool is_over_cellular = type == ConnectionType::kCellular ||
+                          tethering == ConnectionTethering::kConfirmed;
+
+  if (!is_over_cellular) {
+    // There's no need to further check user preferences as we are not over
+    // cellular connection.
+    if (!is_allowed)
+      *error = ErrorCode::kOmahaUpdateIgnoredPerPolicy;
+  } else if (is_device_policy_set) {
+    // There's no need to further check user preferences as the device policy
+    // is set regarding updates over cellular.
+    if (!is_allowed)
+      *error = ErrorCode::kOmahaUpdateIgnoredPerPolicy;
+  } else {
+    // Deivce policy is not set, so user preferences overwrite whether to
+    // allow updates over cellular.
+    is_allowed = IsUpdateAllowedOverCellularByPrefs(response);
+    if (!is_allowed)
+      *error = ErrorCode::kOmahaUpdateIgnoredOverCellular;
+  }
+
   LOG(INFO) << "We are connected via "
             << connection_utils::StringForConnectionType(type)
             << ", Updates allowed: " << (is_allowed ? "Yes" : "No");
   return is_allowed;
+}
+
+bool OmahaRequestAction::IsRollbackEnabled() const {
+  if (policy_provider_->IsConsumerDevice()) {
+    LOG(INFO) << "Rollback is not enabled for consumer devices.";
+    return false;
+  }
+
+  if (!policy_provider_->device_policy_is_loaded()) {
+    LOG(INFO) << "No device policy is loaded. Assuming rollback enabled.";
+    return true;
+  }
+
+  int allowed_milestones;
+  if (!policy_provider_->GetDevicePolicy().GetRollbackAllowedMilestones(
+          &allowed_milestones)) {
+    LOG(INFO) << "RollbackAllowedMilestones policy can't be read. "
+                 "Defaulting to rollback enabled.";
+    return true;
+  }
+
+  LOG(INFO) << "Rollback allows " << allowed_milestones << " milestones.";
+  return allowed_milestones > 0;
+}
+
+void OmahaRequestAction::SetMaxKernelKeyVersionForRollback() const {
+  int max_kernel_rollforward;
+  int min_kernel_version = system_state_->hardware()->GetMinKernelKeyVersion();
+  if (IsRollbackEnabled()) {
+    // If rollback is enabled, set the max kernel key version to the current
+    // kernel key version. This has the effect of freezing kernel key roll
+    // forwards.
+    //
+    // TODO(zentaro): This behavior is temporary, and ensures that no kernel
+    // key roll forward happens until the server side components of rollback
+    // are implemented. Future changes will allow the Omaha server to return
+    // the kernel key version from max_rollback_versions in the past. At that
+    // point the max kernel key version will be set to that value, creating a
+    // sliding window of versions that can be rolled back to.
+    LOG(INFO) << "Rollback is enabled. Setting kernel_max_rollforward to "
+              << min_kernel_version;
+    max_kernel_rollforward = min_kernel_version;
+  } else {
+    // For devices that are not rollback enabled (ie. consumer devices), the
+    // max kernel key version is set to 0xfffffffe, which is logically
+    // infinity. This maintains the previous behavior that that kernel key
+    // versions roll forward each time they are incremented.
+    LOG(INFO) << "Rollback is disabled. Setting kernel_max_rollforward to "
+              << kRollforwardInfinity;
+    max_kernel_rollforward = kRollforwardInfinity;
+  }
+
+  bool max_rollforward_set =
+      system_state_->hardware()->SetMaxKernelKeyRollforward(
+          max_kernel_rollforward);
+  if (!max_rollforward_set) {
+    LOG(ERROR) << "Failed to set kernel_max_rollforward";
+  }
+  // Report metrics
+  system_state_->metrics_reporter()->ReportKeyVersionMetrics(
+      min_kernel_version, max_kernel_rollforward, max_rollforward_set);
+}
+
+base::Time OmahaRequestAction::LoadOrPersistUpdateFirstSeenAtPref() const {
+  Time update_first_seen_at;
+  int64_t update_first_seen_at_int;
+  if (system_state_->prefs()->Exists(kPrefsUpdateFirstSeenAt)) {
+    if (system_state_->prefs()->GetInt64(kPrefsUpdateFirstSeenAt,
+                                         &update_first_seen_at_int)) {
+      // Note: This timestamp could be that of ANY update we saw in the past
+      // (not necessarily this particular update we're considering to apply)
+      // but never got to apply because of some reason (e.g. stop AU policy,
+      // updates being pulled out from Omaha, changes in target version prefix,
+      // new update being rolled out, etc.). But for the purposes of scattering
+      // it doesn't matter which update the timestamp corresponds to. i.e.
+      // the clock starts ticking the first time we see an update and we're
+      // ready to apply when the random wait period is satisfied relative to
+      // that first seen timestamp.
+      update_first_seen_at = Time::FromInternalValue(update_first_seen_at_int);
+      LOG(INFO) << "Using persisted value of UpdateFirstSeenAt: "
+                << utils::ToString(update_first_seen_at);
+    } else {
+      // This seems like an unexpected error where the persisted value exists
+      // but it's not readable for some reason.
+      LOG(INFO) << "UpdateFirstSeenAt value cannot be read";
+      return base::Time();
+    }
+  } else {
+    update_first_seen_at = system_state_->clock()->GetWallclockTime();
+    update_first_seen_at_int = update_first_seen_at.ToInternalValue();
+    if (system_state_->prefs()->SetInt64(kPrefsUpdateFirstSeenAt,
+                                         update_first_seen_at_int)) {
+      LOG(INFO) << "Persisted the new value for UpdateFirstSeenAt: "
+                << utils::ToString(update_first_seen_at);
+    } else {
+      // This seems like an unexpected error where the value cannot be
+      // persisted for some reason.
+      LOG(INFO) << "UpdateFirstSeenAt value "
+                << utils::ToString(update_first_seen_at)
+                << " cannot be persisted";
+      return base::Time();
+    }
+  }
+  return update_first_seen_at;
 }
 
 }  // namespace chromeos_update_engine

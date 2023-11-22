@@ -62,7 +62,7 @@ public class MixedManagedProfileOwnerTestApi25 extends DeviceAndProfileOwnerTest
      */
     @Override
     public void testResetPassword() throws Exception {
-        if (!mHasFeature) {
+        if (!mHasFeature || !mHasSecureLockScreen) {
             return;
         }
 
@@ -75,9 +75,12 @@ public class MixedManagedProfileOwnerTestApi25 extends DeviceAndProfileOwnerTest
      */
     @Override
     public void testResetPasswordFbe() throws Exception {
-        if (!mHasFeature || !mSupportsFbe) {
+        if (!mHasFeature || !mSupportsFbe || !mHasSecureLockScreen) {
             return;
         }
+
+        // Make sure user initialization is complete before proceeding.
+        waitForBroadcastIdle();
 
         // Lock FBE and verify resetPassword is disabled
         executeDeviceTestMethod(FBE_HELPER_CLASS, "testSetPassword");

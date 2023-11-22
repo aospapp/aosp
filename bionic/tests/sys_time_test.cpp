@@ -17,15 +17,16 @@
 #include <gtest/gtest.h>
 
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 
-#include "TemporaryFile.h"
+#include <android-base/file.h>
 
 // http://b/11383777
 TEST(sys_time, utimes_nullptr) {
   TemporaryFile tf;
-  ASSERT_EQ(0, utimes(tf.filename, nullptr));
+  ASSERT_EQ(0, utimes(tf.path, nullptr));
 }
 
 TEST(sys_time, utimes_EINVAL) {
@@ -34,19 +35,19 @@ TEST(sys_time, utimes_EINVAL) {
   timeval tv[2] = {};
 
   tv[0].tv_usec = -123;
-  ASSERT_EQ(-1, utimes(tf.filename, tv));
+  ASSERT_EQ(-1, utimes(tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
   tv[0].tv_usec = 1234567;
-  ASSERT_EQ(-1, utimes(tf.filename, tv));
+  ASSERT_EQ(-1, utimes(tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
 
   tv[0].tv_usec = 0;
 
   tv[1].tv_usec = -123;
-  ASSERT_EQ(-1, utimes(tf.filename, tv));
+  ASSERT_EQ(-1, utimes(tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
   tv[1].tv_usec = 1234567;
-  ASSERT_EQ(-1, utimes(tf.filename, tv));
+  ASSERT_EQ(-1, utimes(tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
 }
 
@@ -79,7 +80,7 @@ TEST(sys_time, futimes_EINVAL) {
 
 TEST(sys_time, futimesat_nullptr) {
   TemporaryFile tf;
-  ASSERT_EQ(0, futimesat(AT_FDCWD, tf.filename, nullptr));
+  ASSERT_EQ(0, futimesat(AT_FDCWD, tf.path, nullptr));
 }
 
 TEST(sys_time, futimesat_EINVAL) {
@@ -88,25 +89,25 @@ TEST(sys_time, futimesat_EINVAL) {
   timeval tv[2] = {};
 
   tv[0].tv_usec = -123;
-  ASSERT_EQ(-1, futimesat(AT_FDCWD, tf.filename, tv));
+  ASSERT_EQ(-1, futimesat(AT_FDCWD, tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
   tv[0].tv_usec = 1234567;
-  ASSERT_EQ(-1, futimesat(AT_FDCWD, tf.filename, tv));
+  ASSERT_EQ(-1, futimesat(AT_FDCWD, tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
 
   tv[0].tv_usec = 0;
 
   tv[1].tv_usec = -123;
-  ASSERT_EQ(-1, futimesat(AT_FDCWD, tf.filename, tv));
+  ASSERT_EQ(-1, futimesat(AT_FDCWD, tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
   tv[1].tv_usec = 1234567;
-  ASSERT_EQ(-1, futimesat(AT_FDCWD, tf.filename, tv));
+  ASSERT_EQ(-1, futimesat(AT_FDCWD, tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
 }
 
 TEST(sys_time, lutimes_nullptr) {
   TemporaryFile tf;
-  ASSERT_EQ(0, lutimes(tf.filename, nullptr));
+  ASSERT_EQ(0, lutimes(tf.path, nullptr));
 }
 
 TEST(sys_time, lutimes_EINVAL) {
@@ -115,28 +116,28 @@ TEST(sys_time, lutimes_EINVAL) {
   timeval tv[2] = {};
 
   tv[0].tv_usec = -123;
-  ASSERT_EQ(-1, lutimes(tf.filename, tv));
+  ASSERT_EQ(-1, lutimes(tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
   tv[0].tv_usec = 1234567;
-  ASSERT_EQ(-1, lutimes(tf.filename, tv));
+  ASSERT_EQ(-1, lutimes(tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
 
   tv[0].tv_usec = 0;
 
   tv[1].tv_usec = -123;
-  ASSERT_EQ(-1, lutimes(tf.filename, tv));
+  ASSERT_EQ(-1, lutimes(tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
   tv[1].tv_usec = 1234567;
-  ASSERT_EQ(-1, lutimes(tf.filename, tv));
+  ASSERT_EQ(-1, lutimes(tf.path, tv));
   ASSERT_EQ(EINVAL, errno);
 }
 
 TEST(sys_time, gettimeofday) {
   // Try to ensure that our vdso gettimeofday is working.
   timeval tv1;
-  ASSERT_EQ(0, gettimeofday(&tv1, NULL));
+  ASSERT_EQ(0, gettimeofday(&tv1, nullptr));
   timeval tv2;
-  ASSERT_EQ(0, syscall(__NR_gettimeofday, &tv2, NULL));
+  ASSERT_EQ(0, syscall(__NR_gettimeofday, &tv2, nullptr));
 
   // What's the difference between the two?
   tv2.tv_sec -= tv1.tv_sec;
@@ -146,7 +147,7 @@ TEST(sys_time, gettimeofday) {
     tv2.tv_usec += 1000000;
   }
 
-  // Should be less than (a very generous, to try to avoid flakiness) 2ms (2000us).
+  // To try to avoid flakiness we'll accept answers within 10,000us (0.01s).
   ASSERT_EQ(0, tv2.tv_sec);
-  ASSERT_LT(tv2.tv_usec, 2000);
+  ASSERT_LT(tv2.tv_usec, 10'000);
 }

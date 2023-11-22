@@ -20,13 +20,14 @@ import android.annotation.Nullable;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.os.Bundle;
-import android.support.v17.leanback.app.GuidedStepSupportFragment;
-import android.support.v17.leanback.widget.GuidanceStylist;
-import android.support.v17.leanback.widget.GuidedActionsStylist;
-import android.support.v17.leanback.widget.VerticalGridView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.leanback.app.GuidedStepSupportFragment;
+import androidx.leanback.widget.GuidanceStylist;
+import androidx.leanback.widget.GuidedActionsStylist;
+import androidx.leanback.widget.VerticalGridView;
 
 import com.android.tv.settings.R;
 import com.android.tv.settings.connectivity.util.GuidedActionsAlignUtil;

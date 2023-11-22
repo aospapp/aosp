@@ -68,11 +68,6 @@ static std::string gCurrentComment;
 
 #define YY_USER_ACTION yylloc->step(); yylloc->columns(yyleng);
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#pragma clang diagnostic ignored "-Wdeprecated-register"
-#pragma clang diagnostic ignored "-Wregister"
-
 %}
 
 %option yylineno
@@ -111,6 +106,7 @@ static std::string gCurrentComment;
 "import"            { return token::IMPORT; }
 "interface"         { return token::INTERFACE; }
 "package"           { return token::PACKAGE; }
+"safe_union"        { return token::SAFE_UNION; }
 "struct"            { return token::STRUCT; }
 "typedef"           { return token::TYPEDEF; }
 "union"             { return token::UNION; }
@@ -173,6 +169,7 @@ static std::string gCurrentComment;
 "!="                { return(token::NEQ); }
 "?"                 { return('?'); }
 "@"                 { return('@'); }
+"#"                 { return('#'); }
 
 {COMPONENT}         { yylval->str = strdup(yytext); return token::IDENTIFIER; }
 {FQNAME}            { yylval->str = strdup(yytext); return token::FQNAME; }
@@ -192,8 +189,6 @@ L?\"(\\.|[^\\"])*\" { yylval->str = strdup(yytext); return token::STRING_LITERAL
 .                   { yylval->str = strdup(yytext); return token::UNKNOWN; }
 
 %%
-
-#pragma clang diagnostic pop
 
 namespace android {
 

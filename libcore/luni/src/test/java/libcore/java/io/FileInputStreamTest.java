@@ -30,12 +30,13 @@ import android.system.Int32Ref;
 import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStatVfs;
-import android.system.Int32Ref;
 
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
 import libcore.junit.junit3.TestCaseWithRules;
 import libcore.junit.util.ResourceLeakageDetector;
+import libcore.testing.io.TestIoUtils;
+
 import org.junit.Rule;
 import org.junit.rules.TestRule;
 
@@ -64,7 +65,7 @@ public final class FileInputStreamTest extends TestCaseWithRules {
                     }
                     fos.write(buffer);
                 } finally {
-                    IoUtils.closeQuietly(fos);
+                    TestIoUtils.closeQuietly(fos);
                     IoUtils.close(mOutFd);
                 }
             } catch (IOException e) {
@@ -234,7 +235,7 @@ public final class FileInputStreamTest extends TestCaseWithRules {
 
     // http://b/25695227
     public void testFdLeakWhenOpeningDirectory() throws Exception {
-        File phile = IoUtils.createTemporaryDirectory("test_bug_25695227");
+        File phile = TestIoUtils.createTemporaryDirectory("test_bug_25695227");
 
         try {
             new FileInputStream(phile);

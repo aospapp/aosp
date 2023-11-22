@@ -23,7 +23,7 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 # Tag this module as a cts test artifact
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner ub-uiautomator
+LOCAL_STATIC_JAVA_LIBRARIES := compatibility-device-util-axt ctstestrunner-axt ub-uiautomator
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 

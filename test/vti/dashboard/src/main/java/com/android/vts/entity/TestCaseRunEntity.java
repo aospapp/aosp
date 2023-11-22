@@ -18,14 +18,23 @@ package com.android.vts.entity;
 
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.KeyFactory;
+import com.googlecode.objectify.annotation.Cache;
+import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Ignore;
+import com.googlecode.objectify.annotation.OnLoad;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
+@com.googlecode.objectify.annotation.Entity(name = "TestCaseRun")
+@Cache
+@Data
+@Slf4j
 /** Entity describing the execution of a test case. */
 public class TestCaseRunEntity implements DashboardEntity {
-    protected static final Logger logger = Logger.getLogger(TestCaseRunEntity.class.getName());
 
     public static final String KIND = "TestCaseRun";
 
@@ -39,8 +48,17 @@ public class TestCaseRunEntity implements DashboardEntity {
     // Maximum number of test cases in the entity.
     private static final int SIZE_LIMIT = 500;
 
-    public final long id;
+    @Id
+    private Long id;
+
+    private List<Integer> results;
+
+    private List<String> testCaseNames;
+
+    @Ignore
     public final List<TestCase> testCases;
+
+    @Ignore
     private String systraceUrl;
 
     /**
@@ -71,7 +89,8 @@ public class TestCaseRunEntity implements DashboardEntity {
      * Create a TestCaseRunEntity.
      */
     public TestCaseRunEntity() {
-        this.id = -1;
+        this.results = new ArrayList<>();
+        this.testCaseNames = new ArrayList<>();
         this.testCases = new ArrayList<>();
         this.systraceUrl = null;
     }
@@ -82,6 +101,8 @@ public class TestCaseRunEntity implements DashboardEntity {
      */
     public TestCaseRunEntity(long id) {
         this.id = id;
+        this.results = new ArrayList<>();
+        this.testCaseNames = new ArrayList<>();
         this.testCases = new ArrayList<>();
         this.systraceUrl = null;
     }
@@ -111,19 +132,41 @@ public class TestCaseRunEntity implements DashboardEntity {
     }
 
     /**
+     * Called after the POJO is populated with data through objecitfy library
+     */
+    @OnLoad
+    private void onLoad() {
+        if (testCaseNames.size() == results.size()) {
+            for (int index = 0; index < testCaseNames.size(); index++) {
+                String name = testCaseNames.get(index);
+                int result = results.get(index).intValue();
+                this.testCases.add(new TestCase(this.id, this.testCases.size(), name, result));
+            }
+        }
+    }
+
+    /**
      * Add a test case to the test case run entity.
      * @param name The name of the test case.
      * @param result The result of the test case.
      * @return true if added, false otherwise.
      */
     public boolean addTestCase(String name, int result) {
-        if (isFull())
+        if (this.isFull()) {
             return false;
-        this.testCases.add(new TestCase(this.id, this.testCases.size(), name, result));
-        return true;
+        } else {
+            this.testCaseNames.add(name);
+            this.results.add(result);
+            return true;
+        }
     }
 
+    /** Saving function for the instance of this class */
     @Override
+    public com.googlecode.objectify.Key<TestCaseRunEntity> save() {
+        return ofy().save().entity(this).now();
+    }
+
     public Entity toEntity() {
         Entity testCaseRunEntity;
         if (this.id >= 0) {
@@ -158,7 +201,7 @@ public class TestCaseRunEntity implements DashboardEntity {
     @SuppressWarnings("unchecked")
     public static TestCaseRunEntity fromEntity(Entity e) {
         if (!e.getKind().equals(KIND)) {
-            logger.log(Level.WARNING, "Wrong kind: " + e.getKey());
+            log.warn("Wrong kind: " + e.getKey());
             return null;
         }
         try {
@@ -183,7 +226,7 @@ public class TestCaseRunEntity implements DashboardEntity {
             return testCaseRun;
         } catch (ClassCastException exception) {
             // Invalid cast
-            logger.log(Level.WARNING, "Error parsing test case run entity.", exception);
+            log.warn("Error parsing test case run entity.", exception);
         }
         return null;
     }

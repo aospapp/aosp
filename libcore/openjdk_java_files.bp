@@ -1,7 +1,7 @@
+// Classes which are part of the public API, except where classes and
+// members are hidden using @hide javadoc tags.
 filegroup {
     name: "openjdk_javadoc_files",
-    export_to_make_var: "openjdk_javadoc_files",
-    path: "ojluni/src/lambda/java",
     srcs: [
         "ojluni/src/main/java/java/awt/font/NumericShaper.java",
         "ojluni/src/main/java/java/awt/font/TextAttribute.java",
@@ -249,6 +249,7 @@ filegroup {
         "ojluni/src/main/java/java/lang/invoke/MethodHandles.java",
         "ojluni/src/main/java/java/lang/invoke/MethodHandleImpl.java",
         "ojluni/src/main/java/java/lang/invoke/MethodHandleInfo.java",
+        "ojluni/src/main/java/java/lang/invoke/MethodHandleNatives.java",
         "ojluni/src/main/java/java/lang/invoke/MethodHandleStatics.java",
         "ojluni/src/main/java/java/lang/invoke/MethodType.java",
         "ojluni/src/main/java/java/lang/invoke/MethodTypeForm.java",
@@ -381,7 +382,6 @@ filegroup {
         "ojluni/src/main/java/java/nio/channels/package-info.java",
         "ojluni/src/main/java/java/nio/CharBuffer.java",
         "ojluni/src/main/java/java/nio/CharBufferSpliterator.java",
-        "ojluni/src/main/java/java/nio/DirectByteBuffer.java",
         "ojluni/src/main/java/java/nio/DoubleBuffer.java",
         "ojluni/src/main/java/java/nio/FloatBuffer.java",
         "ojluni/src/main/java/java/nio/HeapByteBuffer.java",
@@ -1345,8 +1345,8 @@ filegroup {
         "ojluni/src/main/java/javax/sql/StatementEventListener.java",
         "ojluni/src/main/java/sun/reflect/CallerSensitive.java",
     ],
-
 }
+
 // Stubs needed to satisfy javac's dependencies when compiling lambda code. These are
 // not used on Android devices or required by the Jack compiler.
 //
@@ -1358,18 +1358,13 @@ filegroup {
 // any of these classes.
 filegroup {
     name: "openjdk_lambda_stub_files",
-    export_to_make_var: "openjdk_lambda_stub_files",
-    path: "ojluni/src/lambda/java",
     srcs: [
         "ojluni/src/lambda/java/java/lang/invoke/LambdaMetafactory.java",
         "ojluni/src/lambda/java/java/lang/invoke/SerializedLambda.java",
     ],
 }
-
 filegroup {
     name: "openjdk_lambda_duplicate_stub_files",
-    export_to_make_var: "openjdk_lambda_duplicate_stub_files",
-    path: "ojluni/src/lambda/java",
     srcs: [
         "ojluni/src/lambda/java/java/lang/invoke/CallSite.java",
         "ojluni/src/lambda/java/java/lang/invoke/MethodHandles.java",
@@ -1379,12 +1374,36 @@ filegroup {
     ],
 }
 
-// NOTE: Files in java/lang/invoke are listed here because they're not being made public
-// until the entire package is available for use.
+// Classes which are exposed in the intra-core or core-platform APIs but not in
+// the public APIs. Unless they are annotated, these classes and all their
+// members will be exposed in all such APIs. To avoid patching the main ojluni
+// sources, these API annotations can be placed in .annotated.java stub files
+// under ojluni/annotations/mmodule. Classes must be hidden using the
+// libcore.api.Hide annotation, and then the class and the members to be exposed
+// must be annotated with libcore.api.CorePlatformApi and/or
+// libcore.api.IntraCoreApi.
 filegroup {
-    name: "openjdk_java_files",
-    export_to_make_var: "openjdk_java_files",
-    path: "ojluni/src/lambda/java",
+    name: "openjdk_mmodule_extra_files",
+    srcs: [
+        "ojluni/src/main/java/java/nio/DirectByteBuffer.java",
+        "ojluni/src/main/java/sun/misc/Cleaner.java",
+        "ojluni/src/main/java/sun/misc/Unsafe.java",
+        "ojluni/src/main/java/sun/nio/ch/DirectBuffer.java",
+        "ojluni/src/main/java/sun/security/jca/Providers.java",
+        "ojluni/src/main/java/sun/security/pkcs/ContentInfo.java",
+        "ojluni/src/main/java/sun/security/pkcs/ParsingException.java",
+        "ojluni/src/main/java/sun/security/pkcs/PKCS7.java",
+        "ojluni/src/main/java/sun/security/pkcs/SignerInfo.java",
+        "ojluni/src/main/java/sun/security/util/DerEncoder.java",
+        "ojluni/src/main/java/sun/security/util/ObjectIdentifier.java",
+        "ojluni/src/main/java/sun/security/x509/AlgorithmId.java",
+        "ojluni/src/main/java/sun/util/locale/LanguageTag.java",
+    ],
+}
+
+// Classes not exposed in any API (either public or mmodule).
+filegroup {
+    name: "openjdk_internal_files",
     srcs: [
         "ojluni/src/main/java/com/sun/net/ssl/internal/ssl/X509ExtendedTrustManager.java",
         "ojluni/src/main/java/com/sun/security/cert/internal/x509/X509V1CertImpl.java",
@@ -1433,7 +1452,6 @@ filegroup {
         "ojluni/src/main/java/sun/misc/Resource.java",
         "ojluni/src/main/java/sun/misc/SharedSecrets.java",
         "ojluni/src/main/java/sun/misc/URLClassPath.java",
-        "ojluni/src/main/java/sun/misc/Unsafe.java",
         "ojluni/src/main/java/sun/misc/Version.java",
         "ojluni/src/main/java/sun/misc/VM.java",
         "ojluni/src/main/java/sun/net/ApplicationProxy.java",
@@ -1605,8 +1623,6 @@ filegroup {
         "ojluni/src/main/java/sun/security/jca/ProviderList.java",
         "ojluni/src/main/java/sun/security/jca/Providers.java",
         "ojluni/src/main/java/sun/security/jca/ServiceId.java",
-        "ojluni/src/main/java/sun/security/pkcs/ContentInfo.java",
-        "ojluni/src/main/java/sun/security/pkcs/ParsingException.java",
         "ojluni/src/main/java/sun/security/pkcs/PKCS7.java",
         "ojluni/src/main/java/sun/security/pkcs/PKCS8Key.java",
         "ojluni/src/main/java/sun/security/pkcs/PKCS9Attribute.java",
@@ -1656,7 +1672,6 @@ filegroup {
         "ojluni/src/main/java/sun/security/util/ByteArrayTagOrder.java",
         "ojluni/src/main/java/sun/security/util/Cache.java",
         "ojluni/src/main/java/sun/security/util/Debug.java",
-        "ojluni/src/main/java/sun/security/util/DerEncoder.java",
         "ojluni/src/main/java/sun/security/util/DerIndefLenConverter.java",
         "ojluni/src/main/java/sun/security/util/DerInputBuffer.java",
         "ojluni/src/main/java/sun/security/util/DerInputStream.java",
@@ -1667,14 +1682,12 @@ filegroup {
         "ojluni/src/main/java/sun/security/util/Length.java",
         "ojluni/src/main/java/sun/security/util/ManifestDigester.java",
         "ojluni/src/main/java/sun/security/util/ManifestEntryVerifier.java",
-        "ojluni/src/main/java/sun/security/util/ObjectIdentifier.java",
         "ojluni/src/main/java/sun/security/util/PropertyExpander.java",
         "ojluni/src/main/java/sun/security/util/Resources.java",
         "ojluni/src/main/java/sun/security/util/ResourcesMgr.java",
         "ojluni/src/main/java/sun/security/util/SecurityConstants.java",
         "ojluni/src/main/java/sun/security/util/SignatureFileVerifier.java",
         "ojluni/src/main/java/sun/security/x509/AccessDescription.java",
-        "ojluni/src/main/java/sun/security/x509/AlgorithmId.java",
         "ojluni/src/main/java/sun/security/x509/AttributeNameEnumeration.java",
         "ojluni/src/main/java/sun/security/x509/AuthorityInfoAccessExtension.java",
         "ojluni/src/main/java/sun/security/x509/AuthorityKeyIdentifierExtension.java",
@@ -1759,7 +1772,6 @@ filegroup {
         "ojluni/src/main/java/sun/util/locale/BaseLocale.java",
         "ojluni/src/main/java/sun/util/locale/Extension.java",
         "ojluni/src/main/java/sun/util/locale/InternalLocaleBuilder.java",
-        "ojluni/src/main/java/sun/util/locale/LanguageTag.java",
         "ojluni/src/main/java/sun/util/locale/LocaleEquivalentMaps.java",
         "ojluni/src/main/java/sun/util/locale/LocaleExtensions.java",
         "ojluni/src/main/java/sun/util/locale/LocaleMatcher.java",
@@ -1775,7 +1787,50 @@ filegroup {
         "ojluni/src/main/java/sun/util/logging/PlatformLogger.java",
         "ojluni/src/main/java/sun/util/ResourceBundleEnumeration.java",
         "ojluni/src/main/java/sun/util/resources/OpenListResourceBundle.java",
+    ],
+}
+
+// All classes, whether exposed in any API or not.
+filegroup {
+    name: "openjdk_java_files",
+    srcs: [
         ":openjdk_javadoc_files",
+        ":openjdk_mmodule_extra_files",
+        ":openjdk_internal_files",
         ":openjdk_lambda_stub_files",
     ],
+}
+
+// Classes that provide information about hidden APIs.
+filegroup {
+    name: "openjdk_hiddenapi_javadoc_files",
+    srcs: ["ojluni/annotations/hiddenapi/**/*.java"],
+}
+
+// Generates stub files for the classes exposed in the public API, without
+// javadoc. This can be used as a starting point for adding a new file to
+// libcore/ojluni/annotations/sdk. See libcore/ojluni/annotations/README.
+droidstubs {
+    name: "openjdk-sdk-stubs-no-javadoc",
+    srcs: [":openjdk_javadoc_files"],
+    installable: false,
+    no_framework_libs: true,
+    args: "--exclude-documentation-from-stubs"
+}
+
+// Generates stub files for the classes exposed in the intra-core or
+// core-platform APIs, without javadoc. This can be used as a starting point
+// for adding a new file to libcore/ojluni/annotations/mmodule.
+// See libcore/ojluni/annotations/README.
+droidstubs {
+    name: "openjdk-mmodule-stubs-no-javadoc",
+    srcs: [
+        ":openjdk_javadoc_files",
+        ":openjdk_mmodule_extra_files",
+    ],
+    installable: false,
+    no_framework_libs: true,
+    args: "--exclude-documentation-from-stubs "
+        + "--hide-annotation libcore.api.Hide ",
+    merge_inclusion_annotations_dirs: ["ojluni-annotated-mmodule-stubs"],
 }

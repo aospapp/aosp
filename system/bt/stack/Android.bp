@@ -1,3 +1,9 @@
+crypto_toolbox_srcs = [
+    "crypto_toolbox/aes.cc",
+    "crypto_toolbox/aes_cmac.cc",
+    "crypto_toolbox/crypto_toolbox.cc",
+]
+
 // Bluetooth stack static library for target
 // ========================================================
 cc_library_static {
@@ -40,7 +46,8 @@ cc_library_static {
         "system/bt/bta/sys",
         "system/bt/utils/include",
     ],
-    srcs: [
+    cflags: ["-Wno-implicit-fallthrough"],
+    srcs: crypto_toolbox_srcs + [
         "a2dp/a2dp_aac.cc",
         "a2dp/a2dp_aac_decoder.cc",
         "a2dp/a2dp_aac_encoder.cc",
@@ -57,6 +64,7 @@ cc_library_static {
         "a2dp/a2dp_vendor_aptx_hd_encoder.cc",
         "a2dp/a2dp_vendor_ldac.cc",
         "a2dp/a2dp_vendor_ldac_abr.cc",
+        "a2dp/a2dp_vendor_ldac_decoder.cc",
         "a2dp/a2dp_vendor_ldac_encoder.cc",
         "avct/avct_api.cc",
         "avct/avct_bcb_act.cc",
@@ -91,6 +99,7 @@ cc_library_static {
         "btm/btm_ble_adv_filter.cc",
         "btm/btm_ble_batchscan.cc",
         "btm/btm_ble_bgconn.cc",
+        "btm/btm_ble_connection_establishment.cc",
         "btm/btm_ble_cont_energy.cc",
         "btm/btm_ble_gap.cc",
         "btm/btm_ble_multi_adv.cc",
@@ -108,6 +117,7 @@ cc_library_static {
         "gap/gap_ble.cc",
         "gap/gap_conn.cc",
         "gatt/att_protocol.cc",
+        "gatt/connection_manager.cc",
         "gatt/gatt_api.cc",
         "gatt/gatt_attr.cc",
         "gatt/gatt_auth.cc",
@@ -130,13 +140,6 @@ cc_library_static {
         "l2cap/l2c_main.cc",
         "l2cap/l2c_utils.cc",
         "l2cap/l2cap_client.cc",
-        "mcap/mca_api.cc",
-        "mcap/mca_cact.cc",
-        "mcap/mca_csm.cc",
-        "mcap/mca_dact.cc",
-        "mcap/mca_dsm.cc",
-        "mcap/mca_l2c.cc",
-        "mcap/mca_main.cc",
         "pan/pan_api.cc",
         "pan/pan_main.cc",
         "pan/pan_utils.cc",
@@ -155,19 +158,16 @@ cc_library_static {
         "sdp/sdp_main.cc",
         "sdp/sdp_server.cc",
         "sdp/sdp_utils.cc",
-        "smp/aes.cc",
         "smp/p_256_curvepara.cc",
         "smp/p_256_ecc_pp.cc",
         "smp/p_256_multprecision.cc",
         "smp/smp_act.cc",
         "smp/smp_api.cc",
         "smp/smp_br_main.cc",
-        "smp/smp_cmac.cc",
         "smp/smp_keys.cc",
         "smp/smp_l2c.cc",
         "smp/smp_main.cc",
         "smp/smp_utils.cc",
-        "srvc/srvc_battery.cc",
         "srvc/srvc_dis.cc",
         "srvc/srvc_eng.cc",
     ],
@@ -182,7 +182,7 @@ cc_library_static {
     required: [
         "libldacBT_enc",
         "libldacBT_abr",
-    ]
+    ],
 }
 
 // Bluetooth stack unit tests for target
@@ -190,6 +190,7 @@ cc_library_static {
 cc_test {
     name: "net_test_stack",
     defaults: ["fluoride_defaults"],
+    test_suites: ["device-tests"],
     local_include_dirs: [
         "include",
     ],
@@ -201,6 +202,7 @@ cc_test {
         "test/stack_a2dp_test.cc",
     ],
     shared_libs: [
+        "libcrypto",
         "libhidlbase",
         "liblog",
         "libprotobuf-cpp-lite",
@@ -210,6 +212,7 @@ cc_test {
     static_libs: [
         "libbt-bta",
         "libbt-stack",
+        "libbt-common",
         "libbt-sbc-decoder",
         "libbt-sbc-encoder",
         "libFraunhoferAAC",
@@ -224,53 +227,60 @@ cc_test {
 }
 
 cc_test {
-  name: "net_test_stack_rfcomm",
-  defaults: ["fluoride_defaults"],
-  host_supported: true,
-  local_include_dirs: [
-      "include",
-      "btm",
-      "l2cap",
-      "smp",
-      "rfcomm",
-      "test/common",
-  ],
-  include_dirs: [
-      "system/bt",
-      "system/bt/internal_include",
-      "system/bt/btcore/include",
-      "system/bt/hci/include",
-      "system/bt/utils/include",
-  ],
-  srcs: [
-      "rfcomm/port_api.cc",
-      "rfcomm/port_rfc.cc",
-      "rfcomm/port_utils.cc",
-      "rfcomm/rfc_l2cap_if.cc",
-      "rfcomm/rfc_mx_fsm.cc",
-      "rfcomm/rfc_port_fsm.cc",
-      "rfcomm/rfc_port_if.cc",
-      "rfcomm/rfc_ts_frames.cc",
-      "rfcomm/rfc_utils.cc",
-      "test/common/mock_btm_layer.cc",
-      "test/common/mock_btu_layer.cc",
-      "test/common/mock_l2cap_layer.cc",
-      "test/common/stack_test_packet_utils.cc",
-      "test/rfcomm/stack_rfcomm_test.cc",
-      "test/rfcomm/stack_rfcomm_test_main.cc",
-      "test/rfcomm/stack_rfcomm_test_utils.cc",
-      "test/rfcomm/stack_rfcomm_test_utils_test.cc",
-  ],
-  shared_libs: [
-      "libcutils",
-      "libprotobuf-cpp-lite",
-  ],
-  static_libs: [
-      "liblog",
-      "libgmock",
-      "libosi",
-      "libbt-protos-lite",
-  ],
+    name: "net_test_stack_rfcomm",
+    defaults: ["fluoride_defaults"],
+    test_suites: ["device-tests"],
+    host_supported: true,
+    local_include_dirs: [
+        "include",
+        "btm",
+        "l2cap",
+        "smp",
+        "rfcomm",
+        "test/common",
+    ],
+    include_dirs: [
+        "system/bt",
+        "system/bt/internal_include",
+        "system/bt/btcore/include",
+        "system/bt/hci/include",
+        "system/bt/utils/include",
+    ],
+    srcs: [
+        "rfcomm/port_api.cc",
+        "rfcomm/port_rfc.cc",
+        "rfcomm/port_utils.cc",
+        "rfcomm/rfc_l2cap_if.cc",
+        "rfcomm/rfc_mx_fsm.cc",
+        "rfcomm/rfc_port_fsm.cc",
+        "rfcomm/rfc_port_if.cc",
+        "rfcomm/rfc_ts_frames.cc",
+        "rfcomm/rfc_utils.cc",
+        "test/common/mock_btm_layer.cc",
+        "test/common/mock_btsnoop_module.cc",
+        "test/common/mock_btu_layer.cc",
+        "test/common/mock_l2cap_layer.cc",
+        "test/common/stack_test_packet_utils.cc",
+        "test/rfcomm/stack_rfcomm_test.cc",
+        "test/rfcomm/stack_rfcomm_test_main.cc",
+        "test/rfcomm/stack_rfcomm_test_utils.cc",
+        "test/rfcomm/stack_rfcomm_test_utils_test.cc",
+    ],
+    shared_libs: [
+        "libcutils",
+        "libprotobuf-cpp-lite",
+        "libcrypto",
+    ],
+    static_libs: [
+        "liblog",
+        "libgmock",
+        "libosi",
+        "libbt-common",
+        "libbt-protos-lite",
+    ],
+    sanitize: {
+        cfi: false,
+    },
 }
 
 // Bluetooth stack smp unit tests for target
@@ -278,6 +288,7 @@ cc_test {
 cc_test {
     name: "net_test_stack_smp",
     defaults: ["fluoride_defaults"],
+    test_suites: ["device-tests"],
     local_include_dirs: [
         "include",
         "btm",
@@ -291,15 +302,15 @@ cc_test {
         "system/bt/hci/include",
         "system/bt/utils/include",
     ],
-    srcs: [
+    srcs: crypto_toolbox_srcs + [
         "smp/smp_keys.cc",
-        "smp/aes.cc",
         "smp/p_256_curvepara.cc",
         "smp/p_256_ecc_pp.cc",
         "smp/p_256_multprecision.cc",
         "smp/smp_api.cc",
         "smp/smp_main.cc",
         "smp/smp_utils.cc",
+        "test/crypto_toolbox_test.cc",
         "test/stack_smp_test.cc",
     ],
     shared_libs: [
@@ -312,12 +323,12 @@ cc_test {
     ],
 }
 
-
 // Bluetooth stack multi-advertising unit tests for target
 // ========================================================
 cc_test {
     name: "net_test_stack_multi_adv",
     defaults: ["fluoride_defaults"],
+    test_suites: ["device-tests"],
     local_include_dirs: [
         "include",
         "btm",
@@ -352,6 +363,7 @@ cc_test {
 cc_test {
     name: "net_test_stack_ad_parser",
     defaults: ["fluoride_defaults"],
+    test_suites: ["device-tests"],
     local_include_dirs: [
         "include",
     ],
@@ -390,10 +402,45 @@ cc_test {
         "libprotobuf-cpp-lite",
     ],
     static_libs: [
+        "libbt-common",
         "libbluetooth-types",
         "libgmock",
         "libosi",
         "libbt-protos-lite",
+    ],
+    sanitize: {
+        cfi: false,
+    },
+}
+
+// Bluetooth stack connection multiplexing
+// ========================================================
+cc_test {
+    name: "net_test_gatt_conn_multiplexing",
+    defaults: ["fluoride_defaults"],
+    local_include_dirs: [
+        "include",
+        "btm",
+    ],
+    include_dirs: [
+        "system/bt",
+        "system/bt/internal_include",
+        "system/bt/btcore/include",
+        "system/bt/hci/include",
+        "system/bt/internal_include",
+        "system/bt/utils/include",
+    ],
+    srcs: [
+        "gatt/connection_manager.cc",
+        "test/gatt_connection_manager_test.cc",
+    ],
+    shared_libs: [
+        "libcutils",
+    ],
+    static_libs: [
+        "libbluetooth-types",
+        "liblog",
+        "libgmock",
     ],
     sanitize: {
         cfi: false,

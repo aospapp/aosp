@@ -29,6 +29,8 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -69,12 +71,38 @@ public class ConfigurationUtil {
      * @param excludeClassFilter list of object configuration type or fully qualified class names to
      *     be excluded from the dump. for example: {@link Configuration#TARGET_PREPARER_TYPE_NAME}.
      *     com.android.tradefed.testtype.StubTest
+     * @param printDeprecatedOptions whether or not to print deprecated options
      */
     static void dumpClassToXml(
             KXmlSerializer serializer,
             String classTypeName,
             Object obj,
-            List<String> excludeClassFilter)
+            List<String> excludeClassFilter,
+            boolean printDeprecatedOptions)
+            throws IOException {
+        dumpClassToXml(
+                serializer, classTypeName, obj, false, excludeClassFilter, printDeprecatedOptions);
+    }
+
+    /**
+     * Add a class to the configuration XML dump.
+     *
+     * @param serializer a {@link KXmlSerializer} to create the XML dump
+     * @param classTypeName a {@link String} of the class type's name
+     * @param obj {@link Object} to be added to the XML dump
+     * @param isGenericObject Whether or not the object is specified as <object> in the xml
+     * @param excludeClassFilter list of object configuration type or fully qualified class names to
+     *     be excluded from the dump. for example: {@link Configuration#TARGET_PREPARER_TYPE_NAME}.
+     *     com.android.tradefed.testtype.StubTest
+     * @param printDeprecatedOptions whether or not to print deprecated options
+     */
+    static void dumpClassToXml(
+            KXmlSerializer serializer,
+            String classTypeName,
+            Object obj,
+            boolean isGenericObject,
+            List<String> excludeClassFilter,
+            boolean printDeprecatedOptions)
             throws IOException {
         if (excludeClassFilter.contains(classTypeName)) {
             return;
@@ -82,10 +110,18 @@ public class ConfigurationUtil {
         if (excludeClassFilter.contains(obj.getClass().getName())) {
             return;
         }
-        serializer.startTag(null, classTypeName);
-        serializer.attribute(null, CLASS_NAME, obj.getClass().getName());
-        dumpOptionsToXml(serializer, obj);
-        serializer.endTag(null, classTypeName);
+        if (isGenericObject) {
+            serializer.startTag(null, "object");
+            serializer.attribute(null, "type", classTypeName);
+            serializer.attribute(null, CLASS_NAME, obj.getClass().getName());
+            dumpOptionsToXml(serializer, obj, printDeprecatedOptions);
+            serializer.endTag(null, "object");
+        } else {
+            serializer.startTag(null, classTypeName);
+            serializer.attribute(null, CLASS_NAME, obj.getClass().getName());
+            dumpOptionsToXml(serializer, obj, printDeprecatedOptions);
+            serializer.endTag(null, classTypeName);
+        }
     }
 
     /**
@@ -93,11 +129,19 @@ public class ConfigurationUtil {
      *
      * @param serializer a {@link KXmlSerializer} to create the XML dump
      * @param obj {@link Object} to be added to the XML dump
+     * @param printDeprecatedOptions whether or not to skip the deprecated options
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void dumpOptionsToXml(KXmlSerializer serializer, Object obj) throws IOException {
+    private static void dumpOptionsToXml(
+            KXmlSerializer serializer, Object obj, boolean printDeprecatedOptions)
+            throws IOException {
         for (Field field : OptionSetter.getOptionFieldsForClass(obj.getClass())) {
             Option option = field.getAnnotation(Option.class);
+            Deprecated deprecatedAnnotation = field.getAnnotation(Deprecated.class);
+            // If enabled, skip @Deprecated options
+            if (!printDeprecatedOptions && deprecatedAnnotation != null) {
+                continue;
+            }
             Object fieldVal = OptionSetter.getFieldValue(field, obj);
             if (fieldVal == null) {
                 continue;
@@ -173,8 +217,8 @@ public class ConfigurationUtil {
      */
     public static Set<File> getConfigNamesFileFromDirs(String subPath, List<File> dirs) {
         List<String> patterns = new ArrayList<>();
-        patterns.add(".*.config");
-        patterns.add(".*.xml");
+        patterns.add(".*\\.config$");
+        patterns.add(".*\\.xml$");
         return getConfigNamesFileFromDirs(subPath, dirs, patterns);
     }
 
@@ -188,7 +232,7 @@ public class ConfigurationUtil {
      */
     public static Set<File> getConfigNamesFileFromDirs(
             String subPath, List<File> dirs, List<String> configNamePatterns) {
-        Set<File> configNames = new HashSet<>();
+        Set<File> configNames = new LinkedHashSet<>();
         for (File dir : dirs) {
             if (subPath != null) {
                 dir = new File(dir, subPath);
@@ -213,14 +257,13 @@ public class ConfigurationUtil {
      * if that happens.
      */
     private static Set<File> dedupFiles(Set<File> origSet) {
-        Set<String> tracker = new HashSet<>();
-        Set<File> newSet = new HashSet<>();
+        Map<String, File> newMap = new LinkedHashMap<>();
         for (File f : origSet) {
-            if (!tracker.contains(f.getName())) {
-                tracker.add(f.getName());
-                newSet.add(f);
+            // Always keep the first found
+            if (!newMap.keySet().contains(f.getName())) {
+                newMap.put(f.getName(), f);
             }
         }
-        return newSet;
+        return new LinkedHashSet<>(newMap.values());
     }
 }

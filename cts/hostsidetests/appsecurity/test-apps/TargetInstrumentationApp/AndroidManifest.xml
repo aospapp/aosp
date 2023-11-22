@@ -14,7 +14,8 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-       package="com.android.cts.targetinstrumentationapp">
+       package="com.android.cts.targetinstrumentationapp"
+       android:targetSandboxVersion="2">
 
     <!--
     A simple app used to test that instrumentation cannot target an app signed with a different

@@ -20,6 +20,11 @@
 
 #include <unistd.h>
 
+#if !ADB_HOST
+#include <sys/socket.h>
+#include <sys/un.h>
+#endif
+
 #include <thread>
 
 #include <android-base/stringprintf.h>
@@ -29,7 +34,7 @@
 #include "adb_utils.h"
 #include "sysdeps.h"
 
-bool SendProtocolString(int fd, const std::string& s) {
+bool SendProtocolString(int fd, std::string_view s) {
     unsigned int length = s.size();
     if (length > MAX_PAYLOAD - 4) {
         errno = EMSGSIZE;
@@ -38,7 +43,8 @@ bool SendProtocolString(int fd, const std::string& s) {
 
     // The cost of sending two strings outweighs the cost of formatting.
     // "adb sync" performance is affected by this.
-    return WriteFdFmt(fd, "%04x%.*s", length, length, s.c_str());
+    auto str = android::base::StringPrintf("%04x", length).append(s);
+    return WriteFdExactly(fd, str);
 }
 
 bool ReadProtocolString(int fd, std::string* s, std::string* error) {
@@ -49,7 +55,7 @@ bool ReadProtocolString(int fd, std::string* s, std::string* error) {
     }
     buf[4] = 0;
 
-    unsigned long len = strtoul(buf, 0, 16);
+    unsigned long len = strtoul(buf, nullptr, 16);
     s->resize(len, '\0');
     if (!ReadFdExactly(fd, &(*s)[0], len)) {
         *error = perror_str("protocol fault (couldn't read status message)");
@@ -63,7 +69,7 @@ bool SendOkay(int fd) {
     return WriteFdExactly(fd, "OKAY", 4);
 }
 
-bool SendFail(int fd, const std::string& reason) {
+bool SendFail(int fd, std::string_view reason) {
     return WriteFdExactly(fd, "FAIL", 4) && SendProtocolString(fd, reason);
 }
 

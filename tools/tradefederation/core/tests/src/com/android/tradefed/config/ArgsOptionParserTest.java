@@ -373,6 +373,21 @@ public class ArgsOptionParserTest extends TestCase {
     }
 
     /**
+     * Test passing an single argument for an object that has one option specified, which is the
+     * empty string.
+     */
+    public void testParse_oneMapArg_emptyString() throws ConfigurationException {
+        MapStringOptionSource object = new MapStringOptionSource();
+        ArgsOptionParser parser = new ArgsOptionParser(object);
+        final String expectedKey = "abc";
+        final String expectedValue = "";
+        parser.parse(new String[] {"--my_option", expectedKey + "="});
+        assertNotNull(object.mMyOption);
+        assertEquals(1, object.mMyOption.size());
+        assertEquals(expectedValue, object.mMyOption.get(expectedKey));
+    }
+
+    /**
      * Test passing an single argument for an object that has one option specified.
      */
     public void testParseMapArg_mismatchKeyType() throws ConfigurationException {

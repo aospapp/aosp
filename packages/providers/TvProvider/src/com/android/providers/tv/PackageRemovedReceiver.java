@@ -24,11 +24,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.OperationApplicationException;
 import android.media.tv.TvContract;
+import android.os.AsyncTask;
 import android.os.RemoteException;
 import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.Executor;
 
 /**
  * This will be launched when PACKAGE_FULLY_REMOVED intent is broadcast.
@@ -37,44 +39,66 @@ public class PackageRemovedReceiver extends BroadcastReceiver {
     private static final boolean DEBUG = false;
     private static final String TAG = "PackageRemovedReceiver";
 
+    private final Executor mExecutor;
+
+    public PackageRemovedReceiver() {
+        this(AsyncTask.SERIAL_EXECUTOR);
+    }
+
+    public PackageRemovedReceiver(Executor executor) {
+        super();
+        mExecutor = executor;
+    }
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (Intent.ACTION_PACKAGE_FULLY_REMOVED.equals(intent.getAction())
                 && intent.getData() != null) {
-            String packageName = intent.getData().getSchemeSpecificPart();
-            ArrayList<ContentProviderOperation> operations = new ArrayList<>();
-            int uid = intent.getIntExtra(Intent.EXTRA_UID, 0);
+            final PendingResult pendingResult = goAsync();
+            new AsyncTask<Void, Void, Void>() {
+                @Override
+                protected Void doInBackground(Void... params) {
 
-            String selection = TvContract.BaseTvColumns.COLUMN_PACKAGE_NAME + "=?";
-            String[] selectionArgs = {packageName};
+                    String packageName = intent.getData().getSchemeSpecificPart();
+                    ArrayList<ContentProviderOperation> operations = new ArrayList<>();
+                    int uid = intent.getIntExtra(Intent.EXTRA_UID, 0);
 
-            operations.add(ContentProviderOperation.newDelete(TvContract.Channels.CONTENT_URI)
-                    .withSelection(selection, selectionArgs).build());
-            operations.add(ContentProviderOperation.newDelete(TvContract.Programs.CONTENT_URI)
-                    .withSelection(selection, selectionArgs).build());
-            operations.add(ContentProviderOperation
-                    .newDelete(TvContract.WatchedPrograms.CONTENT_URI)
-                    .withSelection(selection, selectionArgs).build());
-            operations.add(ContentProviderOperation
-                    .newDelete(TvContract.RecordedPrograms.CONTENT_URI)
-                    .withSelection(selection, selectionArgs).build());
-            operations.add(ContentProviderOperation
-                    .newDelete(TvContract.WatchNextPrograms.CONTENT_URI)
-                    .withSelection(selection, selectionArgs).build());
+                    String selection = TvContract.BaseTvColumns.COLUMN_PACKAGE_NAME + "=?";
+                    String[] selectionArgs = {packageName};
 
-            ContentProviderResult[] results = null;
-            try {
-                ContentResolver cr = context.getContentResolver();
-                results = cr.applyBatch(TvContract.AUTHORITY, operations);
-            } catch (RemoteException | OperationApplicationException e) {
-                Log.e(TAG, "error in applyBatch", e);
-            }
+                    operations.add(
+                            ContentProviderOperation
+                                    .newDelete(TvContract.Channels.CONTENT_URI)
+                                    .withSelection(selection, selectionArgs)
+                                    .build());
+                    operations.add(
+                            ContentProviderOperation
+                                    .newDelete(TvContract.RecordedPrograms.CONTENT_URI)
+                                    .withSelection(selection, selectionArgs)
+                                    .build());
+                    operations.add(
+                            ContentProviderOperation
+                                    .newDelete(TvContract.WatchNextPrograms.CONTENT_URI)
+                                    .withSelection(selection, selectionArgs)
+                                    .build());
 
-            if (DEBUG) {
-                Log.d(TAG, "onPackageFullyRemoved(packageName=" + packageName + ", uid=" + uid
-                        + ")");
-                Log.d(TAG, "results=" + Arrays.toString(results));
-            }
+                    ContentProviderResult[] results = null;
+                    try {
+                        ContentResolver cr = context.getContentResolver();
+                        results = cr.applyBatch(TvContract.AUTHORITY, operations);
+                    } catch (RemoteException | OperationApplicationException e) {
+                        Log.e(TAG, "error in applyBatch", e);
+                    }
+
+                    if (DEBUG) {
+                        Log.d(TAG, "onPackageFullyRemoved(packageName=" + packageName
+                                + ", uid=" + uid + ")");
+                        Log.d(TAG, "results=" + Arrays.toString(results));
+                    }
+                    pendingResult.finish();
+                    return null;
+                }
+            }.executeOnExecutor(mExecutor);
         }
     }
 }

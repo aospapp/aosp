@@ -31,12 +31,12 @@
 #endif
 
 int __poll_chk(struct pollfd*, nfds_t, int, size_t) __INTRODUCED_IN(23);
-int __ppoll_chk(struct pollfd*, nfds_t, const struct timespec*, const sigset_t*, size_t)
-  __INTRODUCED_IN(23);
+int __ppoll_chk(struct pollfd*, nfds_t, const struct timespec*, const sigset_t*, size_t) __INTRODUCED_IN(23);
+int __ppoll64_chk(struct pollfd*, nfds_t, const struct timespec*, const sigset64_t*, size_t) __INTRODUCED_IN(28);
 
 #if defined(__BIONIC_FORTIFY)
 #if __ANDROID_API__ >= __ANDROID_API_M__
-#if defined(__clang__)
+
 __BIONIC_FORTIFY_INLINE
 int poll(struct pollfd* const fds __pass_object_size, nfds_t fd_count, int timeout)
     __overloadable
@@ -64,39 +64,22 @@ int ppoll(struct pollfd* const fds __pass_object_size, nfds_t fd_count, const st
   }
   return __ppoll_chk(fds, fd_count, timeout, mask, bos_fds);
 }
-#else /* defined(__clang__) */
-int __poll_real(struct pollfd*, nfds_t, int) __RENAME(poll);
-__errordecl(__poll_too_small_error, "poll: pollfd array smaller than fd count");
 
-int __ppoll_real(struct pollfd*, nfds_t, const struct timespec*, const sigset_t*) __RENAME(ppoll)
-  __INTRODUCED_IN(21);
-__errordecl(__ppoll_too_small_error, "ppoll: pollfd array smaller than fd count");
-
+#if __ANDROID_API__ >= __ANDROID_API_P__
 __BIONIC_FORTIFY_INLINE
-int poll(struct pollfd* fds, nfds_t fd_count, int timeout) {
-  if (__bos(fds) != __BIONIC_FORTIFY_UNKNOWN_SIZE) {
-    if (!__builtin_constant_p(fd_count)) {
-      return __poll_chk(fds, fd_count, timeout, __bos(fds));
-    } else if (__bos(fds) / sizeof(*fds) < fd_count) {
-      __poll_too_small_error();
-    }
-  }
-  return __poll_real(fds, fd_count, timeout);
-}
+int ppoll64(struct pollfd* const fds __pass_object_size, nfds_t fd_count, const struct timespec* timeout, const sigset64_t* mask)
+    __overloadable
+    __clang_error_if(__bos(fds) != __BIONIC_FORTIFY_UNKNOWN_SIZE &&
+                       __bos(fds) < sizeof(*fds) * fd_count,
+                     "in call to 'ppoll64', fd_count is larger than the given buffer") {
+  size_t bos_fds = __bos(fds);
 
-__BIONIC_FORTIFY_INLINE
-int ppoll(struct pollfd* fds, nfds_t fd_count, const struct timespec* timeout,
-          const sigset_t* mask) {
-  if (__bos(fds) != __BIONIC_FORTIFY_UNKNOWN_SIZE) {
-    if (!__builtin_constant_p(fd_count)) {
-      return __ppoll_chk(fds, fd_count, timeout, mask, __bos(fds));
-    } else if (__bos(fds) / sizeof(*fds) < fd_count) {
-      __ppoll_too_small_error();
-    }
+  if (bos_fds == __BIONIC_FORTIFY_UNKNOWN_SIZE) {
+    return __call_bypassing_fortify(ppoll64)(fds, fd_count, timeout, mask);
   }
-  return __ppoll_real(fds, fd_count, timeout, mask);
+  return __ppoll64_chk(fds, fd_count, timeout, mask, bos_fds);
 }
+#endif
 
-#endif /* defined(__clang__) */
 #endif /* __ANDROID_API__ >= __ANDROID_API_M__ */
 #endif /* defined(__BIONIC_FORTIFY) */

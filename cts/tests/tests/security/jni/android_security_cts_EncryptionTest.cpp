@@ -33,43 +33,6 @@
 #define TEST_ITERATIONS     100 /* MiB */
 #define TEST_THRESHOLD      2000 /* ms */
 
-/*
- * Detect if filesystem is already encrypted looking at the file
- * system type. It should be possible to check this first but fall
- * back to checking a property value if this is not possible to
- * verify.
- */
-static jboolean checkEncryptedFileSystem() {
-    struct statfs buf;
-    if ((-1 != statfs("/data", &buf)) &&
-        (buf.f_type == 0xf15f /* ecryptfs */)) {
-        return true;
-    }
-    return false;
-}
-
-/*
- * Function: deviceIsEncrypted
- * Purpose: Check the device is encrypted
- * Parameters: none
- * Returns: boolean: (true) if encrypted, (false) otherwise
- * Exceptions: none
- */
-static jboolean android_security_cts_EncryptionTest_deviceIsEncrypted(JNIEnv *, jobject)
-{
-    if (checkEncryptedFileSystem()) {
-        return true;
-    }
-
-    char prop_value[PROP_VALUE_MAX];
-    property_get("ro.crypto.state", prop_value, "");
-
-    jboolean rc = !strcmp(prop_value, "encrypted");
-    ALOGE("EncryptionTest::deviceIsEncrypted: %d", rc);
-
-    return rc;
-}
-
 static inline uint64_t ns()
 {
     struct timespec ts;
@@ -78,12 +41,7 @@ static inline uint64_t ns()
 }
 
 /*
- * Function: aesIsFast
- * Purpose: Test if AES performance is sufficient to require encryption
- * Parameters: none
- * Returns: boolean: (true) if AES performance is acceptable, (false) otherwise
- * Exceptions: InvalidKeyException if EVP_DecryptInit fails, OutOfMemoryError
- *             if memory allocation fails.
+ * Test if AES performance is sufficient to require encryption
  */
 static jboolean android_security_cts_EncryptionTest_aesIsFast(JNIEnv *env, jobject)
 {
@@ -136,8 +94,6 @@ static jboolean android_security_cts_EncryptionTest_aesIsFast(JNIEnv *env, jobje
 }
 
 static JNINativeMethod gMethods[] = {
-    { "deviceIsEncrypted", "()Z",
-            (void *) android_security_cts_EncryptionTest_deviceIsEncrypted },
     { "aesIsFast", "()Z",
             (void *) android_security_cts_EncryptionTest_aesIsFast }
 };

@@ -23,8 +23,10 @@ import android.content.pm.PackageItemInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageItemInfo.DisplayNameComparator;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class PackageItemInfo_DisplayNameComparatorTest extends AndroidTestCase {
     private static final String PACKAGE_NAME = "android.content.cts";
     private static final String ACTIVITY_NAME = "android.content.pm.cts.TestPmActivity";

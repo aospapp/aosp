@@ -19,7 +19,7 @@
         xmlns:app="http://schemas.android.com/apk/res-auto"
         android:layout_height="wrap_content"
         android:layout_width="match_parent"
-        android:background="@color/ime_background_letters" >
+        android:background="?android:attr/colorBackground" >
     <FrameLayout
             android:id="@+id/keyboard_wrapper"
             android:layout_width="match_parent"
@@ -30,7 +30,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:focusable="true"
-                app:keyTextColorPrimary="@color/ime_foreground_numbers"
+                app:keyTextColorPrimary="?android:attr/textColorPrimary"
                 android:layout_gravity="center_horizontal"
                 style="@style/Keyboard" />
         <com.android.inputmethod.latin.car.KeyboardView
@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/keyboard_popup_offset"
                 android:visibility="gone"
-                app:keyTextColorPrimary="@color/ime_foreground_numbers"
+                app:keyTextColorPrimary="?android:attr/textColorPrimary"
                 android:layout_gravity="top|center"
                 style="@style/Keyboard" />
     </FrameLayout>
@@ -53,9 +53,9 @@
                 android:id="@+id/lockout_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-condensed"
+                android:fontFamily="sans-serif"
                 android:layout_gravity="center"
-                android:textColor="@color/ime_foreground_letters"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="@dimen/keyboard_lockout_text_size"
                 android:text="@string/park_to_use_keyboard" />
     </FrameLayout>

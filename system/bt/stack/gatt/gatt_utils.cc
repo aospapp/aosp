@@ -30,11 +30,13 @@
 #include "stdio.h"
 
 #include "btm_int.h"
+#include "connection_manager.h"
 #include "gatt_api.h"
 #include "gatt_int.h"
 #include "gattdefs.h"
 #include "l2cdefs.h"
 #include "sdp_api.h"
+#include "stack/gatt/connection_manager.h"
 
 using base::StringPrintf;
 using bluetooth::Uuid;
@@ -155,25 +157,13 @@ void gatt_set_srv_chg(void) {
   }
 }
 
-/*******************************************************************************
- *
- * Function     gatt_add_pending_ind
- *
- * Description  Add a pending indication
- *
- * Returns    Pointer to the current pending indication buffer, NULL no buffer
- *            available
- *
- ******************************************************************************/
-tGATT_VALUE* gatt_add_pending_ind(tGATT_TCB* p_tcb, tGATT_VALUE* p_ind) {
-  tGATT_VALUE* p_buf = (tGATT_VALUE*)osi_malloc(sizeof(tGATT_VALUE));
-
+/** Add a pending indication */
+void gatt_add_pending_ind(tGATT_TCB* p_tcb, tGATT_VALUE* p_ind) {
   VLOG(1) << __func__ << "enqueue a pending indication";
 
+  tGATT_VALUE* p_buf = (tGATT_VALUE*)osi_malloc(sizeof(tGATT_VALUE));
   memcpy(p_buf, p_ind, sizeof(tGATT_VALUE));
   fixed_queue_enqueue(p_tcb->pending_ind_q, p_buf);
-
-  return p_buf;
 }
 
 /*******************************************************************************
@@ -318,7 +308,6 @@ bool gatt_is_srv_chg_ind_pending(tGATT_TCB* p_tcb) {
  *
  ******************************************************************************/
 tGATTS_SRV_CHG* gatt_is_bda_in_the_srv_chg_clt_list(const RawAddress& bda) {
-  tGATTS_SRV_CHG* p_buf = NULL;
 
   VLOG(1) << __func__ << ": " << bda;
 
@@ -330,11 +319,11 @@ tGATTS_SRV_CHG* gatt_is_bda_in_the_srv_chg_clt_list(const RawAddress& bda) {
     tGATTS_SRV_CHG* p_buf = (tGATTS_SRV_CHG*)list_node(node);
     if (bda == p_buf->bda) {
       VLOG(1) << "bda is in the srv chg clt list";
-      break;
+      return p_buf;
     }
   }
 
-  return p_buf;
+  return NULL;
 }
 
 /*******************************************************************************
@@ -529,7 +518,7 @@ bool gatt_parse_uuid_from_cmd(Uuid* p_uuid_rec, uint16_t uuid_size,
  *
  ******************************************************************************/
 void gatt_start_rsp_timer(tGATT_CLCB* p_clcb) {
-  period_ms_t timeout_ms = GATT_WAIT_FOR_RSP_TIMEOUT_MS;
+  uint64_t timeout_ms = GATT_WAIT_FOR_RSP_TIMEOUT_MS;
 
   if (p_clcb->operation == GATTC_OPTYPE_DISCOVERY &&
       p_clcb->op_subtype == GATT_DISC_SRVC_ALL) {
@@ -608,6 +597,8 @@ void gatt_rsp_timeout(void* data) {
   gatt_disconnect(p_clcb->p_tcb);
 }
 
+extern void gatts_proc_srv_chg_ind_ack(tGATT_TCB tcb);
+
 /*******************************************************************************
  *
  * Function         gatt_indication_confirmation_timeout
@@ -619,6 +610,26 @@ void gatt_rsp_timeout(void* data) {
  ******************************************************************************/
 void gatt_indication_confirmation_timeout(void* data) {
   tGATT_TCB* p_tcb = (tGATT_TCB*)data;
+
+  if (p_tcb->indicate_handle == gatt_cb.handle_of_h_r) {
+    /* There are some GATT Server only devices, that don't implement GATT client
+     * functionalities, and ignore "Service Changed" indication. Android does
+     * not have CCC in "Service Changed" characteristic, and sends it to all
+     * bonded devices. This leads to situation where remote can ignore the
+     * indication, and trigger 30s timeout, then reconnection in a loop.
+     *
+     * Since chances of healthy Client device keeping connection for 30 seconds
+     * and not responding to "Service Changed" indication are very low, assume
+     * we are dealing with Server only device, and don't trigger disconnection.
+     *
+     * TODO: In future, we should properly expose CCC, and send indication only
+     * to devices that register for it.
+     */
+    LOG(WARNING) << " Service Changed notification timed out in 30 "
+                    "seconds, assuming server-only remote, not disconnecting";
+    gatts_proc_srv_chg_ind_ack(*p_tcb);
+    return;
+  }
 
   LOG(WARNING) << __func__ << " disconnecting...";
   gatt_disconnect(p_tcb);
@@ -1095,15 +1106,8 @@ void gatt_sr_update_prep_cnt(tGATT_TCB& tcb, tGATT_IF gatt_if, bool is_inc,
     }
   }
 }
-/*******************************************************************************
- *
- * Function         gatt_cancel_open
- *
- * Description      Cancel open request
- *
- * Returns         Boolean
- *
- ******************************************************************************/
+
+/** Cancel LE Create Connection request */
 bool gatt_cancel_open(tGATT_IF gatt_if, const RawAddress& bda) {
   tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bda, BT_TRANSPORT_LE);
   if (!p_tcb) return true;
@@ -1117,6 +1121,7 @@ bool gatt_cancel_open(tGATT_IF gatt_if, const RawAddress& bda) {
 
   if (p_tcb->app_hold_link.empty()) gatt_disconnect(p_tcb);
 
+  connection_manager::direct_connect_remove(gatt_if, bda);
   return true;
 }
 
@@ -1307,156 +1312,9 @@ uint8_t* gatt_dbg_op_name(uint8_t op_code) {
     return (uint8_t*)"Op Code Exceed Max";
 }
 
-/** Returns true if this is one of the background devices for the application,
- * false otherwise */
-bool gatt_is_bg_dev_for_app(tGATT_BG_CONN_DEV* p_dev, tGATT_IF gatt_if) {
-  return p_dev->gatt_if.count(gatt_if);
-}
-
-/** background connection device from the list. Returns pointer to the device
- * record, or nullptr if not found */
-tGATT_BG_CONN_DEV* gatt_find_bg_dev(const RawAddress& remote_bda) {
-  for (tGATT_BG_CONN_DEV& dev : gatt_cb.bgconn_dev) {
-    if (dev.remote_bda == remote_bda) {
-      return &dev;
-    }
-  }
-  return nullptr;
-}
-
-std::list<tGATT_BG_CONN_DEV>::iterator gatt_find_bg_dev_it(
-    const RawAddress& remote_bda) {
-  auto& list = gatt_cb.bgconn_dev;
-  for (auto it = list.begin(); it != list.end(); it++) {
-    if (it->remote_bda == remote_bda) {
-      return it;
-    }
-  }
-  return list.end();
-}
-
-/** Add a device from the background connection list.  Returns true if device
- * added to the list, or already in list, false otherwise */
-bool gatt_add_bg_dev_list(tGATT_REG* p_reg, const RawAddress& bd_addr) {
-  tGATT_IF gatt_if = p_reg->gatt_if;
-
-  tGATT_BG_CONN_DEV* p_dev = gatt_find_bg_dev(bd_addr);
-  if (p_dev) {
-    // device already in the whitelist, just add interested app to the list
-    if (!p_dev->gatt_if.insert(gatt_if).second) {
-      LOG(ERROR) << "device already in iniator white list";
-    }
-
-    return true;
-  }
-  // the device is not in the whitelist
-
-  if (!BTM_BleUpdateBgConnDev(true, bd_addr)) return false;
-
-  gatt_cb.bgconn_dev.emplace_back();
-  tGATT_BG_CONN_DEV& dev = gatt_cb.bgconn_dev.back();
-  dev.remote_bda = bd_addr;
-  dev.gatt_if.insert(gatt_if);
-  return true;
-}
-
 /** Remove the application interface for the specified background device */
-bool gatt_remove_bg_dev_for_app(tGATT_IF gatt_if, const RawAddress& bd_addr) {
+bool gatt_auto_connect_dev_remove(tGATT_IF gatt_if, const RawAddress& bd_addr) {
   tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, BT_TRANSPORT_LE);
-  bool status;
-
   if (p_tcb) gatt_update_app_use_link_flag(gatt_if, p_tcb, false, false);
-  status = gatt_update_auto_connect_dev(gatt_if, false, bd_addr);
-  return status;
-}
-
-/** Removes all registrations for background connection for given device.
- * Returns true if anything was removed, false otherwise */
-uint8_t gatt_clear_bg_dev_for_addr(const RawAddress& bd_addr) {
-  auto dev_it = gatt_find_bg_dev_it(bd_addr);
-  if (dev_it == gatt_cb.bgconn_dev.end()) return false;
-
-  CHECK(BTM_BleUpdateBgConnDev(false, dev_it->remote_bda));
-  gatt_cb.bgconn_dev.erase(dev_it);
-  return true;
-}
-
-/** Remove device from the background connection device list or listening to
- * advertising list.  Returns true if device was on the list and was succesfully
- * removed */
-bool gatt_remove_bg_dev_from_list(tGATT_REG* p_reg, const RawAddress& bd_addr) {
-  tGATT_IF gatt_if = p_reg->gatt_if;
-  auto dev_it = gatt_find_bg_dev_it(bd_addr);
-  if (dev_it == gatt_cb.bgconn_dev.end()) return false;
-
-  if (!dev_it->gatt_if.erase(gatt_if)) return false;
-
-  if (!dev_it->gatt_if.empty()) return true;
-
-  // no more apps interested - remove from whitelist and delete record
-  CHECK(BTM_BleUpdateBgConnDev(false, dev_it->remote_bda));
-  gatt_cb.bgconn_dev.erase(dev_it);
-  return true;
-}
-/** deregister all related back ground connetion device. */
-void gatt_deregister_bgdev_list(tGATT_IF gatt_if) {
-  auto it = gatt_cb.bgconn_dev.begin();
-  auto end = gatt_cb.bgconn_dev.end();
-  /* update the BG conn device list */
-  while (it != end) {
-    it->gatt_if.erase(gatt_if);
-    if (it->gatt_if.size()) {
-      it++;
-      continue;
-    }
-
-    BTM_BleUpdateBgConnDev(false, it->remote_bda);
-    it = gatt_cb.bgconn_dev.erase(it);
-  }
-}
-
-/*******************************************************************************
- *
- * Function         gatt_reset_bgdev_list
- *
- * Description      reset bg device list
- *
- * Returns          pointer to the device record
- *
- ******************************************************************************/
-void gatt_reset_bgdev_list(void) { gatt_cb.bgconn_dev.clear(); }
-/*******************************************************************************
- *
- * Function         gatt_update_auto_connect_dev
- *
- * Description      This function add or remove a device for background
- *                  connection procedure.
- *
- * Parameters       gatt_if: Application ID.
- *                  add: add peer device
- *                  bd_addr: peer device address.
- *
- * Returns          true if connection started; false otherwise.
- *
- ******************************************************************************/
-bool gatt_update_auto_connect_dev(tGATT_IF gatt_if, bool add,
-                                  const RawAddress& bd_addr) {
-  tGATT_TCB* p_tcb = gatt_find_tcb_by_addr(bd_addr, BT_TRANSPORT_LE);
-
-  VLOG(1) << __func__;
-  /* Make sure app is registered */
-  tGATT_REG* p_reg = gatt_get_regcb(gatt_if);
-  if (!p_reg) {
-    LOG(ERROR) << __func__ << " gatt_if is not registered " << +gatt_if;
-    return false;
-  }
-
-  if (!add) return gatt_remove_bg_dev_from_list(p_reg, bd_addr);
-
-  bool ret = gatt_add_bg_dev_list(p_reg, bd_addr);
-  if (ret && p_tcb != NULL) {
-    /* if a connected device, update the link holding number */
-    gatt_update_app_use_link_flag(gatt_if, p_tcb, true, true);
-  }
-  return ret;
+  return connection_manager::background_connect_remove(gatt_if, bd_addr);
 }

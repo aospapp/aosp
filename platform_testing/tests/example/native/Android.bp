@@ -21,6 +21,6 @@ cc_test {
         "-Werror",
     ],
 
-    tags: ["tests"],
     test_suites: ["device-tests"],
+    host_supported: true,
 }

@@ -16,8 +16,12 @@ COMMON_CFLAGS += -DCHRE_VERSION_STRING='"$(VERSION_STRING)"'
 # nanoapp list.
 COMMON_CFLAGS += -DCHRE_VARIANT_SUPPLIES_STATIC_NANOAPP_LIST
 
-# Enable audio support.
+# Optional Features ############################################################
+
 CHRE_AUDIO_SUPPORT_ENABLED = true
+CHRE_GNSS_SUPPORT_ENABLED = true
+CHRE_WIFI_SUPPORT_ENABLED = true
+CHRE_WWAN_SUPPORT_ENABLED = true
 
 # Common Source Files ##########################################################
 

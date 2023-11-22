@@ -16,9 +16,14 @@
 <configuration description="Config for CTS Android Test Runner Current API Signature test cases">
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="systems" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/signature-test" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/signature-test" />
+    </target_preparer>
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="push" value="android-test-base-current.api->/data/local/tmp/signature-test/android-test-base-current.api" />
     </target_preparer>
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="push" value="android-test-mock-current.api->/data/local/tmp/signature-test/android-test-mock-current.api" />
@@ -33,8 +38,8 @@
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.signature.cts.api.android_test_runner_current" />
         <option name="runner" value="repackaged.android.test.InstrumentationTestRunner" />
-        <option name="class" value="android.signature.cts.api.SignatureTest" />
-        <option name="instrumentation-arg" key="expected-api-files" value="android-test-mock-current.api,android-test-runner-current.api" />
+        <option name="class" value="android.signature.cts.api.current.runner.SignatureTest" />
+        <option name="instrumentation-arg" key="expected-api-files" value="android-test-base-current.api,android-test-mock-current.api,android-test-runner-current.api" />
         <option name="runtime-hint" value="5s" />
     </test>
 </configuration>

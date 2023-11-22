@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#ifndef AIDL_LOGGING_H_
-#define AIDL_LOGGING_H_
+#pragma once
 
 // We must include windows.h before android-base/logging.h on Windows.
 #ifdef _WIN32
@@ -23,5 +22,3 @@
 #endif
 
 #include <android-base/logging.h>
-
-#endif // AIDL_LOGGING_H_

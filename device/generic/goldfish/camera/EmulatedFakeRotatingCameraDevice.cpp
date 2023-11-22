@@ -23,7 +23,7 @@
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera_FakeDevice"
 #define FAKE_CAMERA_SENSOR "FakeRotatingCameraSensor"
-#include <cutils/log.h>
+#include <log/log.h>
 #include "EmulatedFakeCamera.h"
 #include "EmulatedFakeRotatingCameraDevice.h"
 #include "qemud.h"
@@ -94,7 +94,6 @@ static void rgba8888_to_nv21(uint8_t* input, uint8_t* output, int width, int hei
 
 static void nv21_to_rgba8888(uint8_t* input, uint32_t * output, int width, int height) {
     int align = 16;
-    uint32_t* output0 = output;
     int yStride = (width + (align -1)) & ~(align-1);
     uint8_t* inputVU = input + height*yStride;
     uint8_t Y, U, V;
@@ -117,8 +116,6 @@ void EmulatedFakeRotatingCameraDevice::render(int width, int height)
 {
     update_scene((float)width, (float)height);
     create_texture_dotx(1280, 720);
-    int i, j;
-    int quads = 1;
 
     int w= 992/2;
     int h = 1280/2;
@@ -402,7 +399,6 @@ int EmulatedFakeRotatingCameraDevice::init_gl_surface(int width, int height)
     checkEglError("eglQuerySurface");
     eglQuerySurface(mEglDisplay, mEglSurface, EGL_HEIGHT, &h);
     checkEglError("eglQuerySurface");
-    GLint dim = w < h ? w : h;
 
     ALOGD("Window dimensions: %d x %d\n", w, h);
 

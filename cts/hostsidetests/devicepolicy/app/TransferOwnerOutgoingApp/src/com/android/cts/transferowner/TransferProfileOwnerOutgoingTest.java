@@ -22,7 +22,8 @@ import static org.testng.Assert.assertThrows;
 
 import android.app.admin.DevicePolicyManager;
 import android.os.PersistableBundle;
-import android.support.test.filters.SmallTest;
+
+import androidx.test.filters.SmallTest;
 
 import org.junit.Test;
 

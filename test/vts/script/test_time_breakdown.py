@@ -72,10 +72,10 @@ def AnalyzePythonLog(line):
         except ValueError as e:
             timestamp = -1
         if tokens[4] == "[Test" and tokens[5] == "Case]":
-            test_case_name = tokens[6]
-            if len(tokens) == 8 and tokens[7] in ["PASS", "FAIL", "SKIP", "ERROR"]:
+            test_case_name = tokens[7]
+            if len(tokens) == 9 and tokens[8] in ["PASS", "FAIL", "SKIP", "ERROR"]:
                 return True, test_module_name, test_case_name, "end", timestamp
-            elif len(tokens) == 7:
+            elif len(tokens) == 8:
                 return True, test_module_name, test_case_name, "begin", timestamp
             else:
                 assert False, "Error at '%s'" % line

@@ -16,12 +16,13 @@
 
 package android.appsecurity.cts;
 
+import static android.appsecurity.cts.Utils.waitForBootCompleted;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-import android.platform.test.annotations.AppModeFull;
-import com.android.ddmlib.AdbCommandRejectedException;
-import com.android.ddmlib.CollectingOutputReceiver;
+import android.platform.test.annotations.RequiresDevice;
+
 import com.android.ddmlib.Log;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -58,11 +59,9 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
 
     private static final long SHUTDOWN_TIME_MS = 30 * 1000;
 
-    private int[] mUsers;
-
     @Before
     public void setUp() throws Exception {
-        mUsers = Utils.prepareSingleUser(getDevice());
+        Utils.prepareSingleUser(getDevice());
         assertNotNull(getAbi());
         assertNotNull(getBuild());
 
@@ -80,7 +79,6 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
      * Automotive devices MUST support native FBE.
      */
     @Test
-    @AppModeFull // TODO: Needs porting to instant
     public void testAutomotiveNativeFbe() throws Exception {
         if (!isSupportedDevice()) {
             Log.v(TAG, "Device not supported; skipping test");
@@ -98,7 +96,6 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
      * If device has native FBE, verify lifecycle.
      */
     @Test
-    @AppModeFull // TODO: Needs porting to instant
     public void testDirectBootNative() throws Exception {
         if (!isSupportedDevice()) {
             Log.v(TAG, "Device not supported; skipping test");
@@ -115,7 +112,7 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
      * If device doesn't have native FBE, enable emulation and verify lifecycle.
      */
     @Test
-    @AppModeFull // TODO: Needs porting to instant
+    @RequiresDevice
     public void testDirectBootEmulated() throws Exception {
         if (!isSupportedDevice()) {
             Log.v(TAG, "Device not supported; skipping test");
@@ -132,7 +129,6 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
      * If device doesn't have native FBE, verify normal lifecycle.
      */
     @Test
-    @AppModeFull // TODO: Needs porting to instant
     public void testDirectBootNone() throws Exception {
         if (!isSupportedDevice()) {
             Log.v(TAG, "Device not supported; skipping test");
@@ -154,12 +150,13 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
 
             // To receive boot broadcasts, kick our other app out of stopped state
             getDevice().executeShellCommand("am start -a android.intent.action.MAIN"
+                    + " --user current"
                     + " -c android.intent.category.LAUNCHER com.android.cts.splitapp/.MyActivity");
 
             // Give enough time for PackageManager to persist stopped state
             Thread.sleep(15000);
 
-            runDeviceTests(PKG, CLASS, "testSetUp", mUsers);
+            runDeviceTestsAsCurrentUser(PKG, CLASS, "testSetUp");
 
             // Give enough time for vold to update keys
             Thread.sleep(15000);
@@ -171,24 +168,24 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
                     doTest = false;
                 }
                 getDevice().waitForDeviceNotAvailable(SHUTDOWN_TIME_MS);
-                getDevice().waitForDeviceOnline();
+                getDevice().waitForDeviceOnline(120000);
             } else {
                 getDevice().rebootUntilOnline();
             }
-            waitForBootCompleted();
+            waitForBootCompleted(getDevice());
 
             if (doTest) {
                 if (MODE_NONE.equals(mode)) {
-                    runDeviceTests(PKG, CLASS, "testVerifyUnlockedAndDismiss", mUsers);
+                    runDeviceTestsAsCurrentUser(PKG, CLASS, "testVerifyUnlockedAndDismiss");
                 } else {
-                    runDeviceTests(PKG, CLASS, "testVerifyLockedAndDismiss", mUsers);
+                    runDeviceTestsAsCurrentUser(PKG, CLASS, "testVerifyLockedAndDismiss");
                 }
             }
 
         } finally {
             try {
                 // Remove secure lock screens and tear down test app
-                runDeviceTests(PKG, CLASS, "testTearDown", mUsers);
+                runDeviceTestsAsCurrentUser(PKG, CLASS, "testTearDown");
             } finally {
                 getDevice().uninstallPackage(PKG);
 
@@ -205,31 +202,14 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
         }
     }
 
-    private void runDeviceTests(String packageName, String testClassName, String testMethodName,
-            int... users) throws DeviceNotAvailableException {
-        for (int user : users) {
-            Log.d(TAG, "runDeviceTests " + testMethodName + " u" + user);
-            runDeviceTests(getDevice(), packageName, testClassName, testMethodName, user, null);
-        }
+    private void runDeviceTestsAsCurrentUser(
+            String packageName, String testClassName, String testMethodName)
+                throws DeviceNotAvailableException {
+        Utils.runDeviceTestsAsCurrentUser(getDevice(), packageName, testClassName, testMethodName);
     }
 
     private String getFbeMode() throws Exception {
         return getDevice().executeShellCommand("sm get-fbe-mode").trim();
-    }
-
-    private boolean isBootCompleted() throws Exception {
-        CollectingOutputReceiver receiver = new CollectingOutputReceiver();
-        try {
-            getDevice().getIDevice().executeShellCommand("getprop sys.boot_completed", receiver);
-        } catch (AdbCommandRejectedException e) {
-            // do nothing: device might be temporarily disconnected
-            Log.d(TAG, "Ignored AdbCommandRejectedException while `getprop sys.boot_completed`");
-        }
-        String output = receiver.getOutput();
-        if (output != null) {
-            output = output.trim();
-        }
-        return "1".equals(output);
     }
 
     private boolean isSupportedDevice() throws Exception {
@@ -238,21 +218,6 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
 
     private boolean isAutomotiveDevice() throws Exception {
         return getDevice().hasFeature(FEATURE_AUTOMOTIVE);
-    }
-
-    private void waitForBootCompleted() throws Exception {
-        for (int i = 0; i < 45; i++) {
-            if (isBootCompleted()) {
-                Log.d(TAG, "Yay, system is ready!");
-                // or is it really ready?
-                // guard against potential USB mode switch weirdness at boot
-                Thread.sleep(10 * 1000);
-                return;
-            }
-            Log.d(TAG, "Waiting for system ready...");
-            Thread.sleep(1000);
-        }
-        throw new AssertionError("System failed to become ready!");
     }
 
     private class InstallMultiple extends BaseInstallMultiple<InstallMultiple> {

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -70,7 +70,7 @@ class SainSmartBoard(RelayBoard):
         Properly opens and closes the web page.
 
         Args:
-            relative_url: The string appended to the base_url
+            relative_url: The string appended to the base_url.
 
         Returns:
             the contents of the web page.
@@ -81,9 +81,9 @@ class SainSmartBoard(RelayBoard):
         """
         try:
             page = urlopen(self.base_url + relative_url)
-            result = page.read().decode("utf-8")
+            result = page.read().decode('utf-8')
             page.close()
-        except:
+        except IOError:
             raise RelayDeviceConnectionError(
                 'Unable to connect to board "{}" through {}'.format(
                     self.name, self.base_url + relative_url))
@@ -101,10 +101,10 @@ class SainSmartBoard(RelayBoard):
                 (self.base_url, self.base_url, self.HIDDEN_STATUS_PAGE))
         status_string = re.search(r'">([01]*)TUX', result).group(1)
 
-        self.status_dict = dict()
+        self.status_dict = {}
         for index, char in enumerate(status_string):
-            self.status_dict[index] = \
-                RelayState.NC if char == '1' else RelayState.NO
+            self.status_dict[index] = (
+                RelayState.NC if char == '1' else RelayState.NO)
 
     def _print_status(self):
         """Prints out the list of relays and their current state."""

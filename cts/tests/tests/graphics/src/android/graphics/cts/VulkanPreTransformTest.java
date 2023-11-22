@@ -19,16 +19,20 @@ package android.graphics.cts;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.SystemClock;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
 import android.view.PixelCopy;
 import android.view.SurfaceView;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SynchronousPixelCopy;
 
@@ -38,33 +42,61 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /*
- * This test case runs in landscape mode
- *
  * testVulkanPreTransformSetToMatchCurrentTransform()
  *
- *      Buffer          ExpectedScreen
- *      ---------       ---------------
- *      | R | G |       | GGGG | YYYY |
- *      ---------       ---------------
- *      | B | Y |       | RRRR | BBBB |
- *      ---------       ---------------
+ *   For devices rotating 90 degrees.
+ *
+ *      Buffer          Screen
+ *      ---------       ---------
+ *      | R | G |       | G | Y |
+ *      ---------       ---------
+ *      | B | Y |       | R | B |
+ *      ---------       ---------
+ *
+ *   For devices rotating 180 degrees.
+ *
+ *      Buffer          Screen
+ *      ---------       ---------
+ *      | R | G |       | Y | B |
+ *      ---------       ---------
+ *      | B | Y |       | G | R |
+ *      ---------       ---------
+ *
+ *   For devices rotating 270 degrees.
+ *
+ *      Buffer          Screen
+ *      ---------       ---------
+ *      | R | G |       | B | R |
+ *      ---------       ---------
+ *      | B | Y |       | Y | G |
+ *      ---------       ---------
+ *
+ *   For devices not rotating.
+ *
+ *      Buffer          Screen
+ *      ---------       ---------
+ *      | R | G |       | R | G |
+ *      ---------       ---------
+ *      | B | Y |       | B | Y |
+ *      ---------       ---------
  *
  * testVulkanPreTransformNotSetToMatchCurrentTransform()
  *
- *      Buffer          ExpectedScreen
- *      ---------       ---------------
- *      | R | G |       | RRRR | GGGG |
- *      ---------       ---------------
- *      | B | Y |       | BBBB | YYYY |
- *      ---------       ---------------
+ *      Buffer          Screen
+ *      ---------       ---------
+ *      | R | G |       | R | G |
+ *      ---------       ---------
+ *      | B | Y |       | B | Y |
+ *      ---------       ---------
  */
 
 @LargeTest
 @RunWith(AndroidJUnit4.class)
 public class VulkanPreTransformTest {
-    private static final String TAG = "vulkan";
+    private static final String TAG = VulkanPreTransformTest.class.getSimpleName();
     private static final boolean DEBUG = false;
     private static VulkanPreTransformCtsActivity sActivity = null;
+    private Context mContext;
 
     @Rule
     public ActivityTestRule<VulkanPreTransformCtsActivity> mActivityRule =
@@ -76,11 +108,17 @@ public class VulkanPreTransformTest {
         // Work around for b/77148807
         // Activity was falsely created before ActivityManager set config change to landscape
         SystemClock.sleep(2000);
+        mContext = InstrumentationRegistry.getContext();
     }
 
     @Test
     public void testVulkanPreTransformSetToMatchCurrentTransform() throws Throwable {
         Log.d(TAG, "testVulkanPreTransformSetToMatchCurrentTransform start");
+        if (!hasDeviceFeature(PackageManager.FEATURE_SCREEN_PORTRAIT)
+                || !hasDeviceFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE)) {
+            Log.d(TAG, "Rotation is not supported on this device.");
+            return;
+        }
         sActivity = mActivityRule.launchActivity(null);
         sActivity.testVulkanPreTransform(true);
         sActivity.finish();
@@ -90,10 +128,19 @@ public class VulkanPreTransformTest {
     @Test
     public void testVulkanPreTransformNotSetToMatchCurrentTransform() throws Throwable {
         Log.d(TAG, "testVulkanPreTransformNotSetToMatchCurrentTransform start");
+        if (!hasDeviceFeature(PackageManager.FEATURE_SCREEN_PORTRAIT)
+                || !hasDeviceFeature(PackageManager.FEATURE_SCREEN_LANDSCAPE)) {
+            Log.d(TAG, "Rotation is not supported on this device.");
+            return;
+        }
         sActivity = mActivityRule.launchActivity(null);
         sActivity.testVulkanPreTransform(false);
         sActivity.finish();
         sActivity = null;
+    }
+
+    private boolean hasDeviceFeature(final String requiredFeature) {
+        return mContext.getPackageManager().hasSystemFeature(requiredFeature);
     }
 
     private static Bitmap takeScreenshot() {
@@ -120,22 +167,33 @@ public class VulkanPreTransformTest {
                 + Math.abs(actualB - expectedB);
     }
 
-    private static boolean validatePixelValuesAfterRotation(boolean setPreTransform) {
+    private static boolean validatePixelValuesAfterRotation(
+            boolean setPreTransform, int preTransformHint) {
         Bitmap bitmap = takeScreenshot();
 
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
         int diff = 0;
-        if (setPreTransform) {
-            diff += pixelDiff(bitmap.getPixel(0, 0), 0, 255, 0);
-            diff += pixelDiff(bitmap.getPixel(width - 1, 0), 255, 255, 0);
-            diff += pixelDiff(bitmap.getPixel(0, height - 1), 255, 0, 0);
-            diff += pixelDiff(bitmap.getPixel(width - 1, height - 1), 0, 0, 255);
-        } else {
+        if (!setPreTransform || preTransformHint == 0x1 /*VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR*/) {
             diff += pixelDiff(bitmap.getPixel(0, 0), 255, 0, 0);
             diff += pixelDiff(bitmap.getPixel(width - 1, 0), 0, 255, 0);
             diff += pixelDiff(bitmap.getPixel(0, height - 1), 0, 0, 255);
             diff += pixelDiff(bitmap.getPixel(width - 1, height - 1), 255, 255, 0);
+        } else if (preTransformHint == 0x2 /*VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR*/) {
+            diff += pixelDiff(bitmap.getPixel(0, 0), 0, 255, 0);
+            diff += pixelDiff(bitmap.getPixel(width - 1, 0), 255, 255, 0);
+            diff += pixelDiff(bitmap.getPixel(0, height - 1), 255, 0, 0);
+            diff += pixelDiff(bitmap.getPixel(width - 1, height - 1), 0, 0, 255);
+        } else if (preTransformHint == 0x4 /*VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR*/) {
+            diff += pixelDiff(bitmap.getPixel(0, 0), 255, 255, 0);
+            diff += pixelDiff(bitmap.getPixel(width - 1, 0), 0, 0, 255);
+            diff += pixelDiff(bitmap.getPixel(0, height - 1), 0, 255, 0);
+            diff += pixelDiff(bitmap.getPixel(width - 1, height - 1), 255, 0, 0);
+        } else { /* 0x8 : VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR*/
+            diff += pixelDiff(bitmap.getPixel(0, 0), 0, 0, 255);
+            diff += pixelDiff(bitmap.getPixel(width - 1, 0), 255, 0, 0);
+            diff += pixelDiff(bitmap.getPixel(0, height - 1), 255, 255, 0);
+            diff += pixelDiff(bitmap.getPixel(width - 1, height - 1), 0, 255, 0);
         }
 
         return diff < 10;

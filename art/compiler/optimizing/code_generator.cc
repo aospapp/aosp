@@ -49,8 +49,9 @@
 #include "dex/bytecode_utils.h"
 #include "dex/code_item_accessors-inl.h"
 #include "dex/verified_method.h"
-#include "driver/compiler_driver.h"
 #include "graph_visualizer.h"
+#include "image.h"
+#include "gc/space/image_space.h"
 #include "intern_table.h"
 #include "intrinsics.h"
 #include "mirror/array-inl.h"
@@ -61,14 +62,12 @@
 #include "parallel_move_resolver.h"
 #include "scoped_thread_state_change-inl.h"
 #include "ssa_liveness_analysis.h"
+#include "stack_map.h"
 #include "stack_map_stream.h"
 #include "thread-current-inl.h"
 #include "utils/assembler.h"
 
 namespace art {
-
-// If true, we record the static and direct invokes in the invoke infos.
-static constexpr bool kEnableDexLayoutOptimizations = false;
 
 // Return whether a location is consistent with a type.
 static bool CheckType(DataType::Type type, Location location) {
@@ -197,7 +196,7 @@ class CodeGenerator::CodeGenerationData : public DeletableArenaObject<kArenaAllo
     return GetNumberOfJitStringRoots() + GetNumberOfJitClassRoots();
   }
 
-  void EmitJitRoots(Handle<mirror::ObjectArray<mirror::Object>> roots)
+  void EmitJitRoots(/*out*/std::vector<Handle<mirror::Object>>* roots)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
  private:
@@ -230,29 +229,31 @@ class CodeGenerator::CodeGenerationData : public DeletableArenaObject<kArenaAllo
 };
 
 void CodeGenerator::CodeGenerationData::EmitJitRoots(
-    Handle<mirror::ObjectArray<mirror::Object>> roots) {
-  DCHECK_EQ(static_cast<size_t>(roots->GetLength()), GetNumberOfJitRoots());
+    /*out*/std::vector<Handle<mirror::Object>>* roots) {
+  DCHECK(roots->empty());
+  roots->reserve(GetNumberOfJitRoots());
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
   size_t index = 0;
   for (auto& entry : jit_string_roots_) {
     // Update the `roots` with the string, and replace the address temporarily
     // stored to the index in the table.
     uint64_t address = entry.second;
-    roots->Set(index, reinterpret_cast<StackReference<mirror::String>*>(address)->AsMirrorPtr());
-    DCHECK(roots->Get(index) != nullptr);
+    roots->emplace_back(reinterpret_cast<StackReference<mirror::Object>*>(address));
+    DCHECK(roots->back() != nullptr);
+    DCHECK(roots->back()->IsString());
     entry.second = index;
     // Ensure the string is strongly interned. This is a requirement on how the JIT
     // handles strings. b/32995596
-    class_linker->GetInternTable()->InternStrong(
-        reinterpret_cast<mirror::String*>(roots->Get(index)));
+    class_linker->GetInternTable()->InternStrong(roots->back()->AsString());
     ++index;
   }
   for (auto& entry : jit_class_roots_) {
     // Update the `roots` with the class, and replace the address temporarily
     // stored to the index in the table.
     uint64_t address = entry.second;
-    roots->Set(index, reinterpret_cast<StackReference<mirror::Class>*>(address)->AsMirrorPtr());
-    DCHECK(roots->Get(index) != nullptr);
+    roots->emplace_back(reinterpret_cast<StackReference<mirror::Object>*>(address));
+    DCHECK(roots->back() != nullptr);
+    DCHECK(roots->back()->IsClass());
     entry.second = index;
     ++index;
   }
@@ -390,6 +391,11 @@ void CodeGenerator::Compile(CodeAllocator* allocator) {
   HGraphVisitor* instruction_visitor = GetInstructionVisitor();
   DCHECK_EQ(current_block_index_, 0u);
 
+  GetStackMapStream()->BeginMethod(HasEmptyFrame() ? 0 : frame_size_,
+                                   core_spill_mask_,
+                                   fpu_spill_mask_,
+                                   GetGraph()->GetNumberOfVRegs());
+
   size_t frame_start = GetAssembler()->CodeSize();
   GenerateFrameEntry();
   DCHECK_EQ(GetAssembler()->cfi().GetCurrentCFAOffset(), static_cast<int>(frame_size_));
@@ -407,7 +413,7 @@ void CodeGenerator::Compile(CodeAllocator* allocator) {
     // This ensures that we have correct native line mapping for all native instructions.
     // It is necessary to make stepping over a statement work. Otherwise, any initial
     // instructions (e.g. moves) would be assumed to be the start of next statement.
-    MaybeRecordNativeDebugInfo(nullptr /* instruction */, block->GetDexPc());
+    MaybeRecordNativeDebugInfo(/* instruction= */ nullptr, block->GetDexPc());
     for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
       HInstruction* current = it.Current();
       if (current->HasEnvironment()) {
@@ -432,6 +438,8 @@ void CodeGenerator::Compile(CodeAllocator* allocator) {
 
   // Finalize instructions in assember;
   Finalize(allocator);
+
+  GetStackMapStream()->EndMethod();
 }
 
 void CodeGenerator::Finalize(CodeAllocator* allocator) {
@@ -445,6 +453,18 @@ void CodeGenerator::Finalize(CodeAllocator* allocator) {
 void CodeGenerator::EmitLinkerPatches(
     ArenaVector<linker::LinkerPatch>* linker_patches ATTRIBUTE_UNUSED) {
   // No linker patches by default.
+}
+
+bool CodeGenerator::NeedsThunkCode(const linker::LinkerPatch& patch ATTRIBUTE_UNUSED) const {
+  // Code generators that create patches requiring thunk compilation should override this function.
+  return false;
+}
+
+void CodeGenerator::EmitThunkCode(const linker::LinkerPatch& patch ATTRIBUTE_UNUSED,
+                                  /*out*/ ArenaVector<uint8_t>* code ATTRIBUTE_UNUSED,
+                                  /*out*/ std::string* debug_name ATTRIBUTE_UNUSED) {
+  // Code generators that create patches requiring thunk compilation should override this function.
+  LOG(FATAL) << "Unexpected call to EmitThunkCode().";
 }
 
 void CodeGenerator::InitializeCodeGeneration(size_t number_of_spill_slots,
@@ -501,7 +521,7 @@ void CodeGenerator::CreateCommonInvokeLocationSummary(
         locations->AddTemp(visitor->GetMethodLocation());
         break;
     }
-  } else {
+  } else if (!invoke->IsInvokePolymorphic()) {
     locations->AddTemp(visitor->GetMethodLocation());
   }
 }
@@ -529,6 +549,7 @@ void CodeGenerator::GenerateInvokeStaticOrDirectRuntimeCall(
     case kVirtual:
     case kInterface:
     case kPolymorphic:
+    case kCustom:
       LOG(FATAL) << "Unexpected invoke type: " << invoke->GetInvokeType();
       UNREACHABLE();
   }
@@ -557,6 +578,7 @@ void CodeGenerator::GenerateInvokeUnresolvedRuntimeCall(HInvokeUnresolved* invok
       entrypoint = kQuickInvokeInterfaceTrampolineWithAccessCheck;
       break;
     case kPolymorphic:
+    case kCustom:
       LOG(FATAL) << "Unexpected invoke type: " << invoke->GetInvokeType();
       UNREACHABLE();
   }
@@ -564,8 +586,16 @@ void CodeGenerator::GenerateInvokeUnresolvedRuntimeCall(HInvokeUnresolved* invok
 }
 
 void CodeGenerator::GenerateInvokePolymorphicCall(HInvokePolymorphic* invoke) {
-  MoveConstant(invoke->GetLocations()->GetTemp(0), static_cast<int32_t>(invoke->GetType()));
+  // invoke-polymorphic does not use a temporary to convey any additional information (e.g. a
+  // method index) since it requires multiple info from the instruction (registers A, B, H). Not
+  // using the reservation has no effect on the registers used in the runtime call.
   QuickEntrypointEnum entrypoint = kQuickInvokePolymorphic;
+  InvokeRuntime(entrypoint, invoke, invoke->GetDexPc(), nullptr);
+}
+
+void CodeGenerator::GenerateInvokeCustomCall(HInvokeCustom* invoke) {
+  MoveConstant(invoke->GetLocations()->GetTemp(0), invoke->GetCallSiteIndex());
+  QuickEntrypointEnum entrypoint = kQuickInvokeCustom;
   InvokeRuntime(entrypoint, invoke, invoke->GetDexPc(), nullptr);
 }
 
@@ -708,18 +738,97 @@ void CodeGenerator::CreateLoadClassRuntimeCallLocationSummary(HLoadClass* cls,
 
 void CodeGenerator::GenerateLoadClassRuntimeCall(HLoadClass* cls) {
   DCHECK_EQ(cls->GetLoadKind(), HLoadClass::LoadKind::kRuntimeCall);
+  DCHECK(!cls->MustGenerateClinitCheck());
   LocationSummary* locations = cls->GetLocations();
   MoveConstant(locations->GetTemp(0), cls->GetTypeIndex().index_);
   if (cls->NeedsAccessCheck()) {
-    CheckEntrypointTypes<kQuickInitializeTypeAndVerifyAccess, void*, uint32_t>();
-    InvokeRuntime(kQuickInitializeTypeAndVerifyAccess, cls, cls->GetDexPc());
-  } else if (cls->MustGenerateClinitCheck()) {
-    CheckEntrypointTypes<kQuickInitializeStaticStorage, void*, uint32_t>();
-    InvokeRuntime(kQuickInitializeStaticStorage, cls, cls->GetDexPc());
+    CheckEntrypointTypes<kQuickResolveTypeAndVerifyAccess, void*, uint32_t>();
+    InvokeRuntime(kQuickResolveTypeAndVerifyAccess, cls, cls->GetDexPc());
   } else {
-    CheckEntrypointTypes<kQuickInitializeType, void*, uint32_t>();
-    InvokeRuntime(kQuickInitializeType, cls, cls->GetDexPc());
+    CheckEntrypointTypes<kQuickResolveType, void*, uint32_t>();
+    InvokeRuntime(kQuickResolveType, cls, cls->GetDexPc());
   }
+}
+
+void CodeGenerator::CreateLoadMethodHandleRuntimeCallLocationSummary(
+    HLoadMethodHandle* method_handle,
+    Location runtime_proto_index_location,
+    Location runtime_return_location) {
+  DCHECK_EQ(method_handle->InputCount(), 1u);
+  LocationSummary* locations =
+      new (method_handle->GetBlock()->GetGraph()->GetAllocator()) LocationSummary(
+          method_handle, LocationSummary::kCallOnMainOnly);
+  locations->SetInAt(0, Location::NoLocation());
+  locations->AddTemp(runtime_proto_index_location);
+  locations->SetOut(runtime_return_location);
+}
+
+void CodeGenerator::GenerateLoadMethodHandleRuntimeCall(HLoadMethodHandle* method_handle) {
+  LocationSummary* locations = method_handle->GetLocations();
+  MoveConstant(locations->GetTemp(0), method_handle->GetMethodHandleIndex());
+  CheckEntrypointTypes<kQuickResolveMethodHandle, void*, uint32_t>();
+  InvokeRuntime(kQuickResolveMethodHandle, method_handle, method_handle->GetDexPc());
+}
+
+void CodeGenerator::CreateLoadMethodTypeRuntimeCallLocationSummary(
+    HLoadMethodType* method_type,
+    Location runtime_proto_index_location,
+    Location runtime_return_location) {
+  DCHECK_EQ(method_type->InputCount(), 1u);
+  LocationSummary* locations =
+      new (method_type->GetBlock()->GetGraph()->GetAllocator()) LocationSummary(
+          method_type, LocationSummary::kCallOnMainOnly);
+  locations->SetInAt(0, Location::NoLocation());
+  locations->AddTemp(runtime_proto_index_location);
+  locations->SetOut(runtime_return_location);
+}
+
+void CodeGenerator::GenerateLoadMethodTypeRuntimeCall(HLoadMethodType* method_type) {
+  LocationSummary* locations = method_type->GetLocations();
+  MoveConstant(locations->GetTemp(0), method_type->GetProtoIndex().index_);
+  CheckEntrypointTypes<kQuickResolveMethodType, void*, uint32_t>();
+  InvokeRuntime(kQuickResolveMethodType, method_type, method_type->GetDexPc());
+}
+
+static uint32_t GetBootImageOffsetImpl(const void* object, ImageHeader::ImageSections section) {
+  Runtime* runtime = Runtime::Current();
+  DCHECK(runtime->IsAotCompiler());
+  const std::vector<gc::space::ImageSpace*>& boot_image_spaces =
+      runtime->GetHeap()->GetBootImageSpaces();
+  // Check that the `object` is in the expected section of one of the boot image files.
+  DCHECK(std::any_of(boot_image_spaces.begin(),
+                     boot_image_spaces.end(),
+                     [object, section](gc::space::ImageSpace* space) {
+                       uintptr_t begin = reinterpret_cast<uintptr_t>(space->Begin());
+                       uintptr_t offset = reinterpret_cast<uintptr_t>(object) - begin;
+                       return space->GetImageHeader().GetImageSection(section).Contains(offset);
+                     }));
+  uintptr_t begin = reinterpret_cast<uintptr_t>(boot_image_spaces.front()->Begin());
+  uintptr_t offset = reinterpret_cast<uintptr_t>(object) - begin;
+  return dchecked_integral_cast<uint32_t>(offset);
+}
+
+// NO_THREAD_SAFETY_ANALYSIS: Avoid taking the mutator lock, boot image classes are non-moveable.
+uint32_t CodeGenerator::GetBootImageOffset(HLoadClass* load_class) NO_THREAD_SAFETY_ANALYSIS {
+  DCHECK_EQ(load_class->GetLoadKind(), HLoadClass::LoadKind::kBootImageRelRo);
+  ObjPtr<mirror::Class> klass = load_class->GetClass().Get();
+  DCHECK(klass != nullptr);
+  return GetBootImageOffsetImpl(klass.Ptr(), ImageHeader::kSectionObjects);
+}
+
+// NO_THREAD_SAFETY_ANALYSIS: Avoid taking the mutator lock, boot image strings are non-moveable.
+uint32_t CodeGenerator::GetBootImageOffset(HLoadString* load_string) NO_THREAD_SAFETY_ANALYSIS {
+  DCHECK_EQ(load_string->GetLoadKind(), HLoadString::LoadKind::kBootImageRelRo);
+  ObjPtr<mirror::String> string = load_string->GetString().Get();
+  DCHECK(string != nullptr);
+  return GetBootImageOffsetImpl(string.Ptr(), ImageHeader::kSectionObjects);
+}
+
+uint32_t CodeGenerator::GetBootImageOffset(HInvokeStaticOrDirect* invoke) {
+  DCHECK_EQ(invoke->GetMethodLoadKind(), HInvokeStaticOrDirect::MethodLoadKind::kBootImageRelRo);
+  ArtMethod* method = invoke->GetResolvedMethod();
+  DCHECK(method != nullptr);
+  return GetBootImageOffsetImpl(method, ImageHeader::kSectionArtMethods);
 }
 
 void CodeGenerator::BlockIfInRegister(Location location, bool is_out) const {
@@ -771,53 +880,45 @@ void CodeGenerator::AllocateLocations(HInstruction* instruction) {
 }
 
 std::unique_ptr<CodeGenerator> CodeGenerator::Create(HGraph* graph,
-                                                     InstructionSet instruction_set,
-                                                     const InstructionSetFeatures& isa_features,
                                                      const CompilerOptions& compiler_options,
                                                      OptimizingCompilerStats* stats) {
   ArenaAllocator* allocator = graph->GetAllocator();
-  switch (instruction_set) {
+  switch (compiler_options.GetInstructionSet()) {
 #ifdef ART_ENABLE_CODEGEN_arm
     case InstructionSet::kArm:
     case InstructionSet::kThumb2: {
       return std::unique_ptr<CodeGenerator>(
-          new (allocator) arm::CodeGeneratorARMVIXL(
-              graph, *isa_features.AsArmInstructionSetFeatures(), compiler_options, stats));
+          new (allocator) arm::CodeGeneratorARMVIXL(graph, compiler_options, stats));
     }
 #endif
 #ifdef ART_ENABLE_CODEGEN_arm64
     case InstructionSet::kArm64: {
       return std::unique_ptr<CodeGenerator>(
-          new (allocator) arm64::CodeGeneratorARM64(
-              graph, *isa_features.AsArm64InstructionSetFeatures(), compiler_options, stats));
+          new (allocator) arm64::CodeGeneratorARM64(graph, compiler_options, stats));
     }
 #endif
 #ifdef ART_ENABLE_CODEGEN_mips
     case InstructionSet::kMips: {
       return std::unique_ptr<CodeGenerator>(
-          new (allocator) mips::CodeGeneratorMIPS(
-              graph, *isa_features.AsMipsInstructionSetFeatures(), compiler_options, stats));
+          new (allocator) mips::CodeGeneratorMIPS(graph, compiler_options, stats));
     }
 #endif
 #ifdef ART_ENABLE_CODEGEN_mips64
     case InstructionSet::kMips64: {
       return std::unique_ptr<CodeGenerator>(
-          new (allocator) mips64::CodeGeneratorMIPS64(
-              graph, *isa_features.AsMips64InstructionSetFeatures(), compiler_options, stats));
+          new (allocator) mips64::CodeGeneratorMIPS64(graph, compiler_options, stats));
     }
 #endif
 #ifdef ART_ENABLE_CODEGEN_x86
     case InstructionSet::kX86: {
       return std::unique_ptr<CodeGenerator>(
-          new (allocator) x86::CodeGeneratorX86(
-              graph, *isa_features.AsX86InstructionSetFeatures(), compiler_options, stats));
+          new (allocator) x86::CodeGeneratorX86(graph, compiler_options, stats));
     }
 #endif
 #ifdef ART_ENABLE_CODEGEN_x86_64
     case InstructionSet::kX86_64: {
       return std::unique_ptr<CodeGenerator>(
-          new (allocator) x86_64::CodeGeneratorX86_64(
-              graph, *isa_features.AsX86_64InstructionSetFeatures(), compiler_options, stats));
+          new (allocator) x86_64::CodeGeneratorX86_64(graph, compiler_options, stats));
     }
 #endif
     default:
@@ -861,15 +962,6 @@ CodeGenerator::CodeGenerator(HGraph* graph,
 
 CodeGenerator::~CodeGenerator() {}
 
-void CodeGenerator::ComputeStackMapAndMethodInfoSize(size_t* stack_map_size,
-                                                     size_t* method_info_size) {
-  DCHECK(stack_map_size != nullptr);
-  DCHECK(method_info_size != nullptr);
-  StackMapStream* stack_map_stream = GetStackMapStream();
-  *stack_map_size = stack_map_stream->PrepareForFillIn();
-  *method_info_size = stack_map_stream->ComputeMethodInfoSize();
-}
-
 size_t CodeGenerator::GetNumberOfJitRoots() const {
   DCHECK(code_generation_data_ != nullptr);
   return code_generation_data_->GetNumberOfJitRoots();
@@ -880,11 +972,10 @@ static void CheckCovers(uint32_t dex_pc,
                         const CodeInfo& code_info,
                         const ArenaVector<HSuspendCheck*>& loop_headers,
                         ArenaVector<size_t>* covered) {
-  CodeInfoEncoding encoding = code_info.ExtractEncoding();
   for (size_t i = 0; i < loop_headers.size(); ++i) {
     if (loop_headers[i]->GetDexPc() == dex_pc) {
       if (graph.IsCompilingOsr()) {
-        DCHECK(code_info.GetOsrStackMapForDexPc(dex_pc, encoding).IsValid());
+        DCHECK(code_info.GetOsrStackMapForDexPc(dex_pc).IsValid());
       }
       ++(*covered)[i];
     }
@@ -895,7 +986,7 @@ static void CheckCovers(uint32_t dex_pc,
 // dex branch instructions.
 static void CheckLoopEntriesCanBeUsedForOsr(const HGraph& graph,
                                             const CodeInfo& code_info,
-                                            const DexFile::CodeItem& code_item) {
+                                            const dex::CodeItem& code_item) {
   if (graph.HasTryCatch()) {
     // One can write loops through try/catch, which we do not support for OSR anyway.
     return;
@@ -937,20 +1028,18 @@ static void CheckLoopEntriesCanBeUsedForOsr(const HGraph& graph,
   }
 }
 
-void CodeGenerator::BuildStackMaps(MemoryRegion stack_map_region,
-                                   MemoryRegion method_info_region,
-                                   const DexFile::CodeItem* code_item_for_osr_check) {
-  StackMapStream* stack_map_stream = GetStackMapStream();
-  stack_map_stream->FillInCodeInfo(stack_map_region);
-  stack_map_stream->FillInMethodInfo(method_info_region);
-  if (kIsDebugBuild && code_item_for_osr_check != nullptr) {
-    CheckLoopEntriesCanBeUsedForOsr(*graph_, CodeInfo(stack_map_region), *code_item_for_osr_check);
+ScopedArenaVector<uint8_t> CodeGenerator::BuildStackMaps(const dex::CodeItem* code_item) {
+  ScopedArenaVector<uint8_t> stack_map = GetStackMapStream()->Encode();
+  if (kIsDebugBuild && code_item != nullptr) {
+    CheckLoopEntriesCanBeUsedForOsr(*graph_, CodeInfo(stack_map.data()), *code_item);
   }
+  return stack_map;
 }
 
 void CodeGenerator::RecordPcInfo(HInstruction* instruction,
                                  uint32_t dex_pc,
-                                 SlowPathCode* slow_path) {
+                                 SlowPathCode* slow_path,
+                                 bool native_debug_info) {
   if (instruction != nullptr) {
     // The code generated for some type conversions
     // may call the runtime, thus normally requiring a subsequent
@@ -981,7 +1070,7 @@ void CodeGenerator::RecordPcInfo(HInstruction* instruction,
   if (instruction == nullptr) {
     // For stack overflow checks and native-debug-info entries without dex register
     // mapping (i.e. start of basic block or start of slow path).
-    stack_map_stream->BeginStackMapEntry(dex_pc, native_pc, 0, 0, 0, 0);
+    stack_map_stream->BeginStackMapEntry(dex_pc, native_pc);
     stack_map_stream->EndStackMapEntry();
     return;
   }
@@ -995,7 +1084,7 @@ void CodeGenerator::RecordPcInfo(HInstruction* instruction,
     // call). Therefore register_mask contains both callee-save and caller-save
     // registers that hold objects. We must remove the spilled caller-save from the
     // mask, since they will be overwritten by the callee.
-    uint32_t spills = GetSlowPathSpills(locations, /* core_registers */ true);
+    uint32_t spills = GetSlowPathSpills(locations, /* core_registers= */ true);
     register_mask &= ~spills;
   } else {
     // The register mask must be a subset of callee-save registers.
@@ -1015,37 +1104,28 @@ void CodeGenerator::RecordPcInfo(HInstruction* instruction,
     outer_dex_pc = outer_environment->GetDexPc();
     outer_environment_size = outer_environment->Size();
   }
+
+  HLoopInformation* info = instruction->GetBlock()->GetLoopInformation();
+  bool osr =
+      instruction->IsSuspendCheck() &&
+      (info != nullptr) &&
+      graph_->IsCompilingOsr() &&
+      (inlining_depth == 0);
+  StackMap::Kind kind = native_debug_info
+      ? StackMap::Kind::Debug
+      : (osr ? StackMap::Kind::OSR : StackMap::Kind::Default);
   stack_map_stream->BeginStackMapEntry(outer_dex_pc,
                                        native_pc,
                                        register_mask,
                                        locations->GetStackMask(),
-                                       outer_environment_size,
-                                       inlining_depth);
+                                       kind);
   EmitEnvironment(environment, slow_path);
-  // Record invoke info, the common case for the trampoline is super and static invokes. Only
-  // record these to reduce oat file size.
-  if (kEnableDexLayoutOptimizations) {
-    if (instruction->IsInvokeStaticOrDirect()) {
-      HInvoke* const invoke = instruction->AsInvokeStaticOrDirect();
-      DCHECK(environment != nullptr);
-      stack_map_stream->AddInvoke(invoke->GetInvokeType(), invoke->GetDexMethodIndex());
-    }
-  }
   stack_map_stream->EndStackMapEntry();
 
-  HLoopInformation* info = instruction->GetBlock()->GetLoopInformation();
-  if (instruction->IsSuspendCheck() &&
-      (info != nullptr) &&
-      graph_->IsCompilingOsr() &&
-      (inlining_depth == 0)) {
+  if (osr) {
     DCHECK_EQ(info->GetSuspendCheck(), instruction);
-    // We duplicate the stack map as a marker that this stack map can be an OSR entry.
-    // Duplicating it avoids having the runtime recognize and skip an OSR stack map.
     DCHECK(info->IsIrreducible());
-    stack_map_stream->BeginStackMapEntry(
-        dex_pc, native_pc, register_mask, locations->GetStackMask(), outer_environment_size, 0);
-    EmitEnvironment(instruction->GetEnvironment(), slow_path);
-    stack_map_stream->EndStackMapEntry();
+    DCHECK(environment != nullptr);
     if (kIsDebugBuild) {
       for (size_t i = 0, environment_size = environment->Size(); i < environment_size; ++i) {
         HInstruction* in_environment = environment->GetInstructionAt(i);
@@ -1062,14 +1142,6 @@ void CodeGenerator::RecordPcInfo(HInstruction* instruction,
         }
       }
     }
-  } else if (kIsDebugBuild) {
-    // Ensure stack maps are unique, by checking that the native pc in the stack map
-    // last emitted is different than the native pc of the stack map just emitted.
-    size_t number_of_stack_maps = stack_map_stream->GetNumberOfStackMaps();
-    if (number_of_stack_maps > 1) {
-      DCHECK_NE(stack_map_stream->GetStackMap(number_of_stack_maps - 1).native_pc_code_offset,
-                stack_map_stream->GetStackMap(number_of_stack_maps - 2).native_pc_code_offset);
-    }
   }
 }
 
@@ -1080,8 +1152,7 @@ bool CodeGenerator::HasStackMapAtCurrentPc() {
   if (count == 0) {
     return false;
   }
-  CodeOffset native_pc_offset = stack_map_stream->GetStackMap(count - 1).native_pc_code_offset;
-  return (native_pc_offset.Uint32Value(GetInstructionSet()) == pc);
+  return stack_map_stream->GetStackMapNativePcOffset(count - 1) == pc;
 }
 
 void CodeGenerator::MaybeRecordNativeDebugInfo(HInstruction* instruction,
@@ -1092,12 +1163,11 @@ void CodeGenerator::MaybeRecordNativeDebugInfo(HInstruction* instruction,
       // Ensure that we do not collide with the stack map of the previous instruction.
       GenerateNop();
     }
-    RecordPcInfo(instruction, dex_pc, slow_path);
+    RecordPcInfo(instruction, dex_pc, slow_path, /* native_debug_info= */ true);
   }
 }
 
 void CodeGenerator::RecordCatchBlockInfo() {
-  ArenaAllocator* allocator = graph_->GetAllocator();
   StackMapStream* stack_map_stream = GetStackMapStream();
 
   for (HBasicBlock* block : *block_order_) {
@@ -1107,30 +1177,23 @@ void CodeGenerator::RecordCatchBlockInfo() {
 
     uint32_t dex_pc = block->GetDexPc();
     uint32_t num_vregs = graph_->GetNumberOfVRegs();
-    uint32_t inlining_depth = 0;  // Inlining of catch blocks is not supported at the moment.
     uint32_t native_pc = GetAddressOf(block);
-    uint32_t register_mask = 0;   // Not used.
-
-    // The stack mask is not used, so we leave it empty.
-    ArenaBitVector* stack_mask =
-        ArenaBitVector::Create(allocator, 0, /* expandable */ true, kArenaAllocCodeGenerator);
 
     stack_map_stream->BeginStackMapEntry(dex_pc,
                                          native_pc,
-                                         register_mask,
-                                         stack_mask,
-                                         num_vregs,
-                                         inlining_depth);
+                                         /* register_mask= */ 0,
+                                         /* sp_mask= */ nullptr,
+                                         StackMap::Kind::Catch);
 
     HInstruction* current_phi = block->GetFirstPhi();
     for (size_t vreg = 0; vreg < num_vregs; ++vreg) {
-    while (current_phi != nullptr && current_phi->AsPhi()->GetRegNumber() < vreg) {
-      HInstruction* next_phi = current_phi->GetNext();
-      DCHECK(next_phi == nullptr ||
-             current_phi->AsPhi()->GetRegNumber() <= next_phi->AsPhi()->GetRegNumber())
-          << "Phis need to be sorted by vreg number to keep this a linear-time loop.";
-      current_phi = next_phi;
-    }
+      while (current_phi != nullptr && current_phi->AsPhi()->GetRegNumber() < vreg) {
+        HInstruction* next_phi = current_phi->GetNext();
+        DCHECK(next_phi == nullptr ||
+               current_phi->AsPhi()->GetRegNumber() <= next_phi->AsPhi()->GetRegNumber())
+            << "Phis need to be sorted by vreg number to keep this a linear-time loop.";
+        current_phi = next_phi;
+      }
 
       if (current_phi == nullptr || current_phi->AsPhi()->GetRegNumber() != vreg) {
         stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kNone, 0);
@@ -1190,50 +1253,45 @@ void CodeGenerator::EmitEnvironment(HEnvironment* environment, SlowPathCode* slo
       continue;
     }
 
+    using Kind = DexRegisterLocation::Kind;
     Location location = environment->GetLocationAt(i);
     switch (location.GetKind()) {
       case Location::kConstant: {
         DCHECK_EQ(current, location.GetConstant());
         if (current->IsLongConstant()) {
           int64_t value = current->AsLongConstant()->GetValue();
-          stack_map_stream->AddDexRegisterEntry(
-              DexRegisterLocation::Kind::kConstant, Low32Bits(value));
-          stack_map_stream->AddDexRegisterEntry(
-              DexRegisterLocation::Kind::kConstant, High32Bits(value));
+          stack_map_stream->AddDexRegisterEntry(Kind::kConstant, Low32Bits(value));
+          stack_map_stream->AddDexRegisterEntry(Kind::kConstant, High32Bits(value));
           ++i;
           DCHECK_LT(i, environment_size);
         } else if (current->IsDoubleConstant()) {
           int64_t value = bit_cast<int64_t, double>(current->AsDoubleConstant()->GetValue());
-          stack_map_stream->AddDexRegisterEntry(
-              DexRegisterLocation::Kind::kConstant, Low32Bits(value));
-          stack_map_stream->AddDexRegisterEntry(
-              DexRegisterLocation::Kind::kConstant, High32Bits(value));
+          stack_map_stream->AddDexRegisterEntry(Kind::kConstant, Low32Bits(value));
+          stack_map_stream->AddDexRegisterEntry(Kind::kConstant, High32Bits(value));
           ++i;
           DCHECK_LT(i, environment_size);
         } else if (current->IsIntConstant()) {
           int32_t value = current->AsIntConstant()->GetValue();
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kConstant, value);
+          stack_map_stream->AddDexRegisterEntry(Kind::kConstant, value);
         } else if (current->IsNullConstant()) {
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kConstant, 0);
+          stack_map_stream->AddDexRegisterEntry(Kind::kConstant, 0);
         } else {
           DCHECK(current->IsFloatConstant()) << current->DebugName();
           int32_t value = bit_cast<int32_t, float>(current->AsFloatConstant()->GetValue());
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kConstant, value);
+          stack_map_stream->AddDexRegisterEntry(Kind::kConstant, value);
         }
         break;
       }
 
       case Location::kStackSlot: {
-        stack_map_stream->AddDexRegisterEntry(
-            DexRegisterLocation::Kind::kInStack, location.GetStackIndex());
+        stack_map_stream->AddDexRegisterEntry(Kind::kInStack, location.GetStackIndex());
         break;
       }
 
       case Location::kDoubleStackSlot: {
+        stack_map_stream->AddDexRegisterEntry(Kind::kInStack, location.GetStackIndex());
         stack_map_stream->AddDexRegisterEntry(
-            DexRegisterLocation::Kind::kInStack, location.GetStackIndex());
-        stack_map_stream->AddDexRegisterEntry(
-            DexRegisterLocation::Kind::kInStack, location.GetHighStackIndex(kVRegSize));
+            Kind::kInStack, location.GetHighStackIndex(kVRegSize));
         ++i;
         DCHECK_LT(i, environment_size);
         break;
@@ -1243,17 +1301,16 @@ void CodeGenerator::EmitEnvironment(HEnvironment* environment, SlowPathCode* slo
         int id = location.reg();
         if (slow_path != nullptr && slow_path->IsCoreRegisterSaved(id)) {
           uint32_t offset = slow_path->GetStackOffsetOfCoreRegister(id);
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInStack, offset);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInStack, offset);
           if (current->GetType() == DataType::Type::kInt64) {
-            stack_map_stream->AddDexRegisterEntry(
-                DexRegisterLocation::Kind::kInStack, offset + kVRegSize);
+            stack_map_stream->AddDexRegisterEntry(Kind::kInStack, offset + kVRegSize);
             ++i;
             DCHECK_LT(i, environment_size);
           }
         } else {
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInRegister, id);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInRegister, id);
           if (current->GetType() == DataType::Type::kInt64) {
-            stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInRegisterHigh, id);
+            stack_map_stream->AddDexRegisterEntry(Kind::kInRegisterHigh, id);
             ++i;
             DCHECK_LT(i, environment_size);
           }
@@ -1265,18 +1322,16 @@ void CodeGenerator::EmitEnvironment(HEnvironment* environment, SlowPathCode* slo
         int id = location.reg();
         if (slow_path != nullptr && slow_path->IsFpuRegisterSaved(id)) {
           uint32_t offset = slow_path->GetStackOffsetOfFpuRegister(id);
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInStack, offset);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInStack, offset);
           if (current->GetType() == DataType::Type::kFloat64) {
-            stack_map_stream->AddDexRegisterEntry(
-                DexRegisterLocation::Kind::kInStack, offset + kVRegSize);
+            stack_map_stream->AddDexRegisterEntry(Kind::kInStack, offset + kVRegSize);
             ++i;
             DCHECK_LT(i, environment_size);
           }
         } else {
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInFpuRegister, id);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInFpuRegister, id);
           if (current->GetType() == DataType::Type::kFloat64) {
-            stack_map_stream->AddDexRegisterEntry(
-                DexRegisterLocation::Kind::kInFpuRegisterHigh, id);
+            stack_map_stream->AddDexRegisterEntry(Kind::kInFpuRegisterHigh, id);
             ++i;
             DCHECK_LT(i, environment_size);
           }
@@ -1289,16 +1344,16 @@ void CodeGenerator::EmitEnvironment(HEnvironment* environment, SlowPathCode* slo
         int high = location.high();
         if (slow_path != nullptr && slow_path->IsFpuRegisterSaved(low)) {
           uint32_t offset = slow_path->GetStackOffsetOfFpuRegister(low);
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInStack, offset);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInStack, offset);
         } else {
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInFpuRegister, low);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInFpuRegister, low);
         }
         if (slow_path != nullptr && slow_path->IsFpuRegisterSaved(high)) {
           uint32_t offset = slow_path->GetStackOffsetOfFpuRegister(high);
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInStack, offset);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInStack, offset);
           ++i;
         } else {
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInFpuRegister, high);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInFpuRegister, high);
           ++i;
         }
         DCHECK_LT(i, environment_size);
@@ -1310,15 +1365,15 @@ void CodeGenerator::EmitEnvironment(HEnvironment* environment, SlowPathCode* slo
         int high = location.high();
         if (slow_path != nullptr && slow_path->IsCoreRegisterSaved(low)) {
           uint32_t offset = slow_path->GetStackOffsetOfCoreRegister(low);
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInStack, offset);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInStack, offset);
         } else {
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInRegister, low);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInRegister, low);
         }
         if (slow_path != nullptr && slow_path->IsCoreRegisterSaved(high)) {
           uint32_t offset = slow_path->GetStackOffsetOfCoreRegister(high);
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInStack, offset);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInStack, offset);
         } else {
-          stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kInRegister, high);
+          stack_map_stream->AddDexRegisterEntry(Kind::kInRegister, high);
         }
         ++i;
         DCHECK_LT(i, environment_size);
@@ -1326,7 +1381,7 @@ void CodeGenerator::EmitEnvironment(HEnvironment* environment, SlowPathCode* slo
       }
 
       case Location::kInvalid: {
-        stack_map_stream->AddDexRegisterEntry(DexRegisterLocation::Kind::kNone, 0);
+        stack_map_stream->AddDexRegisterEntry(Kind::kNone, 0);
         break;
       }
 
@@ -1341,37 +1396,12 @@ void CodeGenerator::EmitEnvironment(HEnvironment* environment, SlowPathCode* slo
 }
 
 bool CodeGenerator::CanMoveNullCheckToUser(HNullCheck* null_check) {
-  HInstruction* first_next_not_move = null_check->GetNextDisregardingMoves();
-
-  return (first_next_not_move != nullptr)
-      && first_next_not_move->CanDoImplicitNullCheckOn(null_check->InputAt(0));
+  return null_check->IsEmittedAtUseSite();
 }
 
 void CodeGenerator::MaybeRecordImplicitNullCheck(HInstruction* instr) {
-  if (!compiler_options_.GetImplicitNullChecks()) {
-    return;
-  }
-
-  // If we are from a static path don't record the pc as we can't throw NPE.
-  // NB: having the checks here makes the code much less verbose in the arch
-  // specific code generators.
-  if (instr->IsStaticFieldSet() || instr->IsStaticFieldGet()) {
-    return;
-  }
-
-  if (!instr->CanDoImplicitNullCheckOn(instr->InputAt(0))) {
-    return;
-  }
-
-  // Find the first previous instruction which is not a move.
-  HInstruction* first_prev_not_move = instr->GetPreviousDisregardingMoves();
-
-  // If the instruction is a null check it means that `instr` is the first user
-  // and needs to record the pc.
-  if (first_prev_not_move != nullptr && first_prev_not_move->IsNullCheck()) {
-    HNullCheck* null_check = first_prev_not_move->AsNullCheck();
-    // TODO: The parallel moves modify the environment. Their changes need to be
-    // reverted otherwise the stack maps at the throw point will not be correct.
+  HNullCheck* null_check = instr->GetImplicitNullCheck();
+  if (null_check != nullptr) {
     RecordPcInfo(null_check, null_check->GetDexPc());
   }
 }
@@ -1461,7 +1491,12 @@ void CodeGenerator::ValidateInvokeRuntime(QuickEntrypointEnum entrypoint,
           << " instruction->GetSideEffects().ToString()="
           << instruction->GetSideEffects().ToString();
     } else {
-      DCHECK(instruction->GetSideEffects().Includes(SideEffects::CanTriggerGC()) ||
+      // 'CanTriggerGC' side effect is used to restrict optimization of instructions which depend
+      // on GC (e.g. IntermediateAddress) - to ensure they are not alive across GC points. However
+      // if execution never returns to the compiled code from a GC point this restriction is
+      // unnecessary - in particular for fatal slow paths which might trigger GC.
+      DCHECK((slow_path->IsFatal() && !instruction->GetLocations()->WillCall()) ||
+             instruction->GetSideEffects().Includes(SideEffects::CanTriggerGC()) ||
              // When (non-Baker) read barriers are enabled, some instructions
              // use a slow path to emit a read barrier, which does not trigger
              // GC.
@@ -1519,7 +1554,7 @@ void CodeGenerator::ValidateInvokeRuntimeWithoutRecordingPcInfo(HInstruction* in
 void SlowPathCode::SaveLiveRegisters(CodeGenerator* codegen, LocationSummary* locations) {
   size_t stack_offset = codegen->GetFirstRegisterSlotInSlowPath();
 
-  const uint32_t core_spills = codegen->GetSlowPathSpills(locations, /* core_registers */ true);
+  const uint32_t core_spills = codegen->GetSlowPathSpills(locations, /* core_registers= */ true);
   for (uint32_t i : LowToHighBits(core_spills)) {
     // If the register holds an object, update the stack mask.
     if (locations->RegisterContainsObject(i)) {
@@ -1531,7 +1566,7 @@ void SlowPathCode::SaveLiveRegisters(CodeGenerator* codegen, LocationSummary* lo
     stack_offset += codegen->SaveCoreRegister(stack_offset, i);
   }
 
-  const uint32_t fp_spills = codegen->GetSlowPathSpills(locations, /* core_registers */ false);
+  const uint32_t fp_spills = codegen->GetSlowPathSpills(locations, /* core_registers= */ false);
   for (uint32_t i : LowToHighBits(fp_spills)) {
     DCHECK_LT(stack_offset, codegen->GetFrameSize() - codegen->FrameEntrySpillSize());
     DCHECK_LT(i, kMaximumNumberOfExpectedRegisters);
@@ -1543,14 +1578,14 @@ void SlowPathCode::SaveLiveRegisters(CodeGenerator* codegen, LocationSummary* lo
 void SlowPathCode::RestoreLiveRegisters(CodeGenerator* codegen, LocationSummary* locations) {
   size_t stack_offset = codegen->GetFirstRegisterSlotInSlowPath();
 
-  const uint32_t core_spills = codegen->GetSlowPathSpills(locations, /* core_registers */ true);
+  const uint32_t core_spills = codegen->GetSlowPathSpills(locations, /* core_registers= */ true);
   for (uint32_t i : LowToHighBits(core_spills)) {
     DCHECK_LT(stack_offset, codegen->GetFrameSize() - codegen->FrameEntrySpillSize());
     DCHECK_LT(i, kMaximumNumberOfExpectedRegisters);
     stack_offset += codegen->RestoreCoreRegister(stack_offset, i);
   }
 
-  const uint32_t fp_spills = codegen->GetSlowPathSpills(locations, /* core_registers */ false);
+  const uint32_t fp_spills = codegen->GetSlowPathSpills(locations, /* core_registers= */ false);
   for (uint32_t i : LowToHighBits(fp_spills)) {
     DCHECK_LT(stack_offset, codegen->GetFrameSize() - codegen->FrameEntrySpillSize());
     DCHECK_LT(i, kMaximumNumberOfExpectedRegisters);
@@ -1612,28 +1647,21 @@ void CodeGenerator::CreateSystemArrayCopyLocationSummary(HInvoke* invoke) {
 }
 
 void CodeGenerator::EmitJitRoots(uint8_t* code,
-                                 Handle<mirror::ObjectArray<mirror::Object>> roots,
-                                 const uint8_t* roots_data) {
+                                 const uint8_t* roots_data,
+                                 /*out*/std::vector<Handle<mirror::Object>>* roots) {
   code_generation_data_->EmitJitRoots(roots);
   EmitJitRootPatches(code, roots_data);
 }
 
-QuickEntrypointEnum CodeGenerator::GetArrayAllocationEntrypoint(Handle<mirror::Class> array_klass) {
-  ScopedObjectAccess soa(Thread::Current());
-  if (array_klass == nullptr) {
-    // This can only happen for non-primitive arrays, as primitive arrays can always
-    // be resolved.
-    return kQuickAllocArrayResolved32;
-  }
-
-  switch (array_klass->GetComponentSize()) {
-    case 1: return kQuickAllocArrayResolved8;
-    case 2: return kQuickAllocArrayResolved16;
-    case 4: return kQuickAllocArrayResolved32;
-    case 8: return kQuickAllocArrayResolved64;
+QuickEntrypointEnum CodeGenerator::GetArrayAllocationEntrypoint(HNewArray* new_array) {
+  switch (new_array->GetComponentSizeShift()) {
+    case 0: return kQuickAllocArrayResolved8;
+    case 1: return kQuickAllocArrayResolved16;
+    case 2: return kQuickAllocArrayResolved32;
+    case 3: return kQuickAllocArrayResolved64;
   }
   LOG(FATAL) << "Unreachable";
-  return kQuickAllocArrayResolved;
+  UNREACHABLE();
 }
 
 }  // namespace art

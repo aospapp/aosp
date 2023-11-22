@@ -472,53 +472,6 @@ TEST(DynamicVector, Clear) {
   }
 }
 
-// Make sure that a vector wrapping an array doesn't call the destructor when
-// the vector is destructed
-TEST(DynamicVector, WrapDoesntCallDestructor) {
-  resetDestructorCounts();
-
-  Dummy array[4];
-  for (size_t i = 0; i < 4; ++i) {
-    array[i].setValue(i);
-  }
-
-  {
-    DynamicVector<Dummy> vector;
-    vector.wrap(array, ARRAY_SIZE(array));
-  }
-
-  for (size_t i = 0; i < 4; ++i) {
-    EXPECT_EQ(gDestructorCount[i], 0);
-  }
-}
-
-// Make sure that a wrapped vector does call the destructor when it's expected
-// as part of an API call
-TEST(DynamicVector, WrapExplicitlyCallsDestructor) {
-  resetDestructorCounts();
-
-  Dummy array[4];
-  constexpr size_t kSize = ARRAY_SIZE(array);
-  static_assert(ARRAY_SIZE(array) <= ARRAY_SIZE(gDestructorCount),
-                "gDestructorCount array must fit test array");
-  for (size_t i = 0; i < kSize; ++i) {
-    array[i].setValue(i);
-  }
-  DynamicVector<Dummy> vector;
-  vector.wrap(array, ARRAY_SIZE(array));
-
-  vector.erase(kSize - 1);
-  for (size_t i = 0; i < kSize - 1; i++) {
-    EXPECT_EQ(gDestructorCount[i], 0);
-  }
-  EXPECT_EQ(gDestructorCount[kSize - 1], 1);
-
-  vector.clear();
-  for (size_t i = 0; i < kSize; ++i) {
-    EXPECT_EQ(gDestructorCount[i], 1);
-  }
-}
-
 TEST(DynamicVectorDeathTest, SwapWithInvalidIndex) {
   DynamicVector<int> vector;
   vector.push_back(0x1337);
@@ -737,147 +690,6 @@ TEST(DynamicVector, MoveAssignmentConstruct) {
   EXPECT_EQ(movedVector.capacity(), 4);
 }
 
-// Tests basic functionality of a vector wrapping an array
-TEST(DynamicVector, Wrap) {
-  constexpr size_t kSize = 4;
-  int buf[kSize];
-  for (size_t i = 0; i < kSize; i++) {
-    buf[i] = i;
-  }
-
-  DynamicVector<int> vector;
-  EXPECT_TRUE(vector.owns_data());
-  vector.wrap(buf, kSize);
-  EXPECT_FALSE(vector.owns_data());
-  EXPECT_EQ(vector.size(), kSize);
-  EXPECT_EQ(vector.capacity(), kSize);
-  EXPECT_EQ(vector.data(), buf);
-
-  EXPECT_CHRE_ASSERT(EXPECT_FALSE(vector.reserve(8)));
-  EXPECT_CHRE_ASSERT(EXPECT_FALSE(vector.push_back(-1)));
-  EXPECT_CHRE_ASSERT(EXPECT_FALSE(vector.emplace_back(-1)));
-  EXPECT_CHRE_ASSERT(EXPECT_FALSE(vector.insert(1, -1)));
-  EXPECT_CHRE_ASSERT(EXPECT_FALSE(vector.copy_array(buf, kSize)));
-
-  for (size_t i = 0; i < kSize; i++) {
-    EXPECT_EQ(vector[i], i);
-  }
-
-  vector.erase(0);
-  for (size_t i = 0; i < kSize - 1; i++) {
-    EXPECT_EQ(vector[i], i + 1);
-  }
-
-  EXPECT_TRUE(vector.push_back(kSize + 1));
-  EXPECT_EQ(vector.back(), kSize + 1);
-}
-
-TEST(DynamicVector, MoveWrappedVector) {
-  constexpr size_t kSize = 4;
-  int buf[kSize];
-  for (size_t i = 0; i < kSize; i++) {
-    buf[i] = i;
-  }
-
-  DynamicVector<int> vector1;
-  vector1.wrap(buf, kSize);
-
-  DynamicVector<int> vector2 = std::move(vector1);
-  EXPECT_TRUE(vector1.owns_data());
-  EXPECT_EQ(vector1.size(), 0);
-  EXPECT_EQ(vector1.capacity(), 0);
-  EXPECT_EQ(vector1.data(), nullptr);
-
-  EXPECT_FALSE(vector2.owns_data());
-  EXPECT_EQ(vector2.size(), kSize);
-  EXPECT_EQ(vector2.capacity(), kSize);
-  EXPECT_EQ(vector2.data(), buf);
-}
-
-TEST(DynamicVector, Unwrap) {
-  constexpr size_t kSize = 4;
-  int buf[kSize];
-  for (size_t i = 0; i < kSize; i++) {
-    buf[i] = i;
-  }
-
-  DynamicVector<int> vec;
-  vec.wrap(buf, kSize);
-  ASSERT_FALSE(vec.owns_data());
-
-  vec.unwrap();
-  EXPECT_TRUE(vec.owns_data());
-  EXPECT_EQ(vec.size(), 0);
-  EXPECT_EQ(vec.capacity(), 0);
-  EXPECT_EQ(vec.data(), nullptr);
-
-  EXPECT_TRUE(vec.push_back(1));
-}
-
-TEST(DynamicVector, CopyArray) {
-  constexpr size_t kSize = 4;
-  int buf[kSize];
-  for (size_t i = 0; i < kSize; i++) {
-    buf[i] = i;
-  }
-
-  DynamicVector<int> vec;
-  ASSERT_TRUE(vec.copy_array(buf, kSize));
-  EXPECT_TRUE(vec.owns_data());
-
-  EXPECT_EQ(vec.size(), kSize);
-  EXPECT_EQ(vec.capacity(), kSize);
-  EXPECT_NE(vec.data(), buf);
-
-  EXPECT_TRUE(vec.push_back(kSize));
-  EXPECT_EQ(vec.size(), kSize + 1);
-  EXPECT_GE(vec.capacity(), kSize + 1);
-
-  for (size_t i = 0; i < kSize + 1; i++) {
-    EXPECT_EQ(vec[i], i);
-  }
-}
-
-TEST(DynamicVector, CopyArrayHandlesDestructor) {
-  resetDestructorCounts();
-  constexpr size_t kSize = 4;
-
-  {
-    DynamicVector<Dummy> vec;
-    {
-      Dummy array[kSize];
-      for (size_t i = 0; i < kSize; i++) {
-        array[i].setValue(i);
-      }
-
-      ASSERT_TRUE(vec.copy_array(array, kSize));
-    }
-
-    for (size_t i = 0; i < kSize; i++) {
-      EXPECT_EQ(gDestructorCount[i], 1);
-    }
-
-    for (size_t i = 0; i < kSize; i++) {
-      ASSERT_TRUE(vec[i].getValue() == i);
-    }
-  }
-
-  for (size_t i = 0; i < kSize; i++) {
-    EXPECT_EQ(gDestructorCount[i], 2);
-  }
-}
-
-TEST(DynamicVector, CopyEmptyArray) {
-  DynamicVector<int> vec;
-
-  EXPECT_TRUE(vec.copy_array(nullptr, 0));
-  EXPECT_EQ(vec.size(), 0);
-
-  vec.emplace_back(1);
-  EXPECT_TRUE(vec.copy_array(nullptr, 0));
-  EXPECT_EQ(vec.size(), 0);
-}
-
 TEST(DynamicVector, PrepareForPush) {
   DynamicVector<int> vector;
   EXPECT_EQ(vector.size(), 0);
@@ -904,10 +716,7 @@ TEST(DynamicVector, PrepareForPush) {
   EXPECT_EQ(vector.capacity(), 2);
 }
 
-TEST(DynamicVector, RidiculouslyHugeReserveFails) {
-  DynamicVector<int> vector;
-  ASSERT_FALSE(vector.reserve(SIZE_MAX));
-}
+// TODO: Add a test for when memory allocation returns nullptr.
 
 TEST(DynamicVector, PopBack) {
   DynamicVector<int> vector;

@@ -25,9 +25,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <string>
+#include <vector>
+
 #include <libminijail.h>
 #include <scoped_minijail.h>
 
+#include <android-base/properties.h>
 #include <packagelistparser/packagelistparser.h>
 #include <private/android_filesystem_config.h>
 #include <selinux/android.h>
@@ -40,6 +44,7 @@
 //  The 'run-as' binary is installed with CAP_SETUID and CAP_SETGID file
 //  capabilities, but will check the following:
 //
+//  - that the ro.boot.disable_runas property is not set
 //  - that it is invoked from the 'shell' or 'root' user (abort otherwise)
 //  - that '<package-name>' is the name of an installed and debuggable package
 //  - that the package's data directory is well-formed
@@ -65,32 +70,40 @@ static bool packagelist_parse_callback(pkg_info* this_package, void* userdata) {
   return true; // Keep searching.
 }
 
-static bool check_directory(const char* path, uid_t uid) {
+static void check_directory(const char* path, uid_t uid) {
   struct stat st;
-  if (TEMP_FAILURE_RETRY(lstat(path, &st)) == -1) return false;
+  if (TEMP_FAILURE_RETRY(lstat(path, &st)) == -1) {
+    error(1, errno, "couldn't stat %s", path);
+  }
 
   // /data/user/0 is a known safe symlink.
-  if (strcmp("/data/user/0", path) == 0) return true;
+  if (strcmp("/data/user/0", path) == 0) return;
 
   // Must be a real directory, not a symlink.
-  if (!S_ISDIR(st.st_mode)) return false;
+  if (!S_ISDIR(st.st_mode)) {
+    error(1, 0, "%s not a directory: %o", path, st.st_mode);
+  }
 
   // Must be owned by specific uid/gid.
-  if (st.st_uid != uid || st.st_gid != uid) return false;
+  if (st.st_uid != uid || st.st_gid != uid) {
+    error(1, 0, "%s has wrong owner: %d/%d, not %d", path, st.st_uid, st.st_gid, uid);
+  }
 
   // Must not be readable or writable by others.
-  if ((st.st_mode & (S_IROTH|S_IWOTH)) != 0) return false;
-
-  return true;
+  if ((st.st_mode & (S_IROTH | S_IWOTH)) != 0) {
+    error(1, 0, "%s readable or writable by others: %o", path, st.st_mode);
+  }
 }
 
 // This function is used to check the data directory path for safety.
 // We check that every sub-directory is owned by the 'system' user
 // and exists and is not a symlink. We also check that the full directory
 // path is properly owned by the user ID.
-static bool check_data_path(const char* data_path, uid_t uid) {
+static void check_data_path(const char* package_name, const char* data_path, uid_t uid) {
   // The path should be absolute.
-  if (data_path[0] != '/') return false;
+  if (data_path[0] != '/') {
+    error(1, 0, "%s data path not absolute: %s", package_name, data_path);
+  }
 
   // Look for all sub-paths, we do that by finding
   // directory separators in the input path and
@@ -105,26 +118,47 @@ static bool check_data_path(const char* data_path, uid_t uid) {
     if (data_path[nn+1] == '\0') break;
 
     /* found a separator, check that data_path is not too long. */
-    if (nn >= (int)(sizeof subpath)) return false;
+    if (nn >= (int)(sizeof subpath)) {
+      error(1, 0, "%s data path too long: %s", package_name, data_path);
+    }
 
     /* reject any '..' subpath */
     if (nn >= 3               &&
         data_path[nn-3] == '/' &&
         data_path[nn-2] == '.' &&
         data_path[nn-1] == '.') {
-      return false;
+      error(1, 0, "%s contains '..': %s", package_name, data_path);
     }
 
     /* copy to 'subpath', then check ownership */
     memcpy(subpath, data_path, nn);
     subpath[nn] = '\0';
 
-    if (!check_directory(subpath, AID_SYSTEM)) return false;
+    check_directory(subpath, AID_SYSTEM);
   }
 
   // All sub-paths were checked, now verify that the full data
   // directory is owned by the application uid.
-  return check_directory(data_path, uid);
+  check_directory(data_path, uid);
+}
+
+std::vector<gid_t> get_supplementary_gids(uid_t userAppId) {
+  std::vector<gid_t> gids;
+  int size = getgroups(0, &gids[0]);
+  if (size < 0) {
+    error(1, errno, "getgroups failed");
+  }
+  gids.resize(size);
+  size = getgroups(size, &gids[0]);
+  if (size != static_cast<int>(gids.size())) {
+    error(1, errno, "getgroups failed");
+  }
+  // Profile guide compiled oat files (like /data/app/xxx/oat/arm64/base.odex) are not readable
+  // worldwide (DEXOPT_PUBLIC flag isn't set). To support reading them (needed by simpleperf for
+  // profiling), add shared app gid to supplementary groups.
+  gid_t shared_app_gid = userAppId % AID_USER_OFFSET - AID_APP_START + AID_SHARED_GID_START;
+  gids.push_back(shared_app_gid);
+  return gids;
 }
 
 int main(int argc, char* argv[]) {
@@ -137,6 +171,12 @@ int main(int argc, char* argv[]) {
   // production devices. Check user id of caller --- must be 'shell' or 'root'.
   if (getuid() != AID_SHELL && getuid() != AID_ROOT) {
     error(1, 0, "only 'shell' or 'root' users can run this program");
+  }
+
+  // Some devices can disable running run-as, such as Chrome OS when running in
+  // non-developer mode.
+  if (android::base::GetBoolProperty("ro.boot.disable_runas", false)) {
+    error(1, 0, "run-as is disabled from the kernel commandline");
   }
 
   char* pkgname = argv[1];
@@ -159,6 +199,15 @@ int main(int argc, char* argv[]) {
   if (!packagelist_parse(packagelist_parse_callback, &info)) {
     error(1, errno, "packagelist_parse failed");
   }
+
+  // Handle a multi-user data path
+  if (userId > 0) {
+    free(info.data_dir);
+    if (asprintf(&info.data_dir, "/data/user/%d/%s", userId, pkgname) == -1) {
+      error(1, errno, "asprintf failed");
+    }
+  }
+
   if (info.uid == 0) {
     error(1, 0, "unknown package: %s", pkgname);
   }
@@ -183,21 +232,21 @@ int main(int argc, char* argv[]) {
   }
 
   // Check that the data directory path is valid.
-  if (!check_data_path(info.data_dir, userAppId)) {
-    error(1, 0, "package has corrupt installation: %s", pkgname);
-  }
+  check_data_path(pkgname, info.data_dir, userAppId);
 
   // Ensure that we change all real/effective/saved IDs at the
   // same time to avoid nasty surprises.
   uid_t uid = userAppId;
   uid_t gid = userAppId;
+  std::vector<gid_t> supplementary_gids = get_supplementary_gids(userAppId);
   ScopedMinijail j(minijail_new());
   minijail_change_uid(j.get(), uid);
   minijail_change_gid(j.get(), gid);
-  minijail_keep_supplementary_gids(j.get());
+  minijail_set_supplementary_gids(j.get(), supplementary_gids.size(), supplementary_gids.data());
   minijail_enter(j.get());
 
-  if (selinux_android_setcontext(uid, 0, info.seinfo, pkgname) < 0) {
+  std::string seinfo = std::string(info.seinfo) + ":fromRunAs";
+  if (selinux_android_setcontext(uid, 0, seinfo.c_str(), pkgname) < 0) {
     error(1, errno, "couldn't set SELinux security context");
   }
 

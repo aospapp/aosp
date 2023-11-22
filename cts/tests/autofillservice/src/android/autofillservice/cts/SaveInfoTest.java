@@ -16,6 +16,12 @@
 
 package android.autofillservice.cts;
 
+import static android.service.autofill.SaveInfo.FLAG_DELAY_SAVE;
+import static android.service.autofill.SaveInfo.FLAG_DONT_SAVE_ON_FINISH;
+import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
+
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertThrows;
 
@@ -23,71 +29,73 @@ import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.InternalSanitizer;
 import android.service.autofill.Sanitizer;
 import android.service.autofill.SaveInfo;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.autofill.AutofillId;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class SaveInfoTest {
 
-    private  final AutofillId mId = new AutofillId(42);
+    private final AutofillId mId = new AutofillId(42);
+    private final AutofillId[] mIdArray = { mId };
     private final InternalSanitizer mSanitizer = mock(InternalSanitizer.class);
 
     @Test
     public void testRequiredIdsBuilder_null() {
         assertThrows(IllegalArgumentException.class,
-                () -> new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_GENERIC, null));
+                () -> new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC, null));
     }
 
     @Test
     public void testRequiredIdsBuilder_empty() {
         assertThrows(IllegalArgumentException.class,
-                () -> new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_GENERIC, new AutofillId[] {}));
+                () -> new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC, new AutofillId[] {}));
     }
 
     @Test
     public void testRequiredIdsBuilder_nullEntry() {
         assertThrows(IllegalArgumentException.class,
-                () -> new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_GENERIC,
+                () -> new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC,
                         new AutofillId[] { null }));
     }
 
     @Test
     public void testBuild_noOptionalIds() {
-        final SaveInfo.Builder builder = new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_GENERIC);
+        final SaveInfo.Builder builder = new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC);
         assertThrows(IllegalStateException.class, ()-> builder.build());
     }
 
     @Test
     public void testSetOptionalIds_null() {
-        final SaveInfo.Builder builder = new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_GENERIC,
-                new AutofillId[] { mId });
+        final SaveInfo.Builder builder = new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC,
+                mIdArray);
         assertThrows(IllegalArgumentException.class, ()-> builder.setOptionalIds(null));
     }
 
     @Test
     public void testSetOptional_empty() {
-        final SaveInfo.Builder builder = new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_GENERIC,
-                new AutofillId[] { mId });
+        final SaveInfo.Builder builder = new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC,
+                mIdArray);
         assertThrows(IllegalArgumentException.class,
                 () -> builder.setOptionalIds(new AutofillId[] {}));
     }
 
     @Test
     public void testSetOptional_nullEntry() {
-        final SaveInfo.Builder builder = new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_GENERIC,
-                new AutofillId[] { mId });
+        final SaveInfo.Builder builder = new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC,
+                mIdArray);
         assertThrows(IllegalArgumentException.class,
                 () -> builder.setOptionalIds(new AutofillId[] { null }));
     }
 
     @Test
     public void testAddSanitizer_illegalArgs() {
-        final SaveInfo.Builder builder = new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_GENERIC,
-                new AutofillId[] { mId });
+        final SaveInfo.Builder builder = new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC,
+                mIdArray);
         // Null sanitizer
         assertThrows(IllegalArgumentException.class,
                 () -> builder.addSanitizer(null, mId));
@@ -107,10 +115,35 @@ public class SaveInfoTest {
 
     @Test
     public void testAddSanitizer_sameIdOnDifferentCalls() {
-        final SaveInfo.Builder builder = new SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_GENERIC,
-                new AutofillId[] { mId });
+        final SaveInfo.Builder builder = new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC,
+                mIdArray);
         builder.addSanitizer(mSanitizer, mId);
         assertThrows(IllegalArgumentException.class, () -> builder.addSanitizer(mSanitizer, mId));
+    }
+
+    @Test
+    public void testBuild_invalid() {
+        // No nothing
+        assertThrows(IllegalStateException.class, () -> new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC)
+                .build());
+        // Flag only, but invalid flag
+        assertThrows(IllegalStateException.class, () -> new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC)
+                .setFlags(FLAG_DONT_SAVE_ON_FINISH).build());
+    }
+
+    @Test
+    public void testBuild_valid() {
+        // Required ids
+        assertThat(new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC, mIdArray)
+                .build()).isNotNull();
+
+        // Optional ids
+        assertThat(new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC).setOptionalIds(mIdArray)
+                .build()).isNotNull();
+
+        // Delayed save
+        assertThat(new SaveInfo.Builder(SAVE_DATA_TYPE_GENERIC).setFlags(FLAG_DELAY_SAVE)
+                .build()).isNotNull();
     }
 
 }

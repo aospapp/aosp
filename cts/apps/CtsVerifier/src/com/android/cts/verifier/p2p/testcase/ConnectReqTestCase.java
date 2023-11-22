@@ -20,6 +20,7 @@ import android.content.Context;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
+import android.net.wifi.p2p.WifiP2pGroup;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 
@@ -145,6 +146,90 @@ public abstract class ConnectReqTestCase extends ReqTestCase {
          */
         notifyTestMsg(R.string.p2p_waiting_for_peer_to_connect);
         if (mReceiverTest.waitPeerConnected(mTargetAddress, TIMEOUT) != true) {
+            mReason = mContext.getString(R.string.p2p_connection_error);
+            return false;
+        }
+
+        /*
+         * Remove the p2p group manualy.
+         */
+        mP2pMgr.removeGroup(mChannel, actionListener);
+        if (!actionListener.check(ActionListenerTest.SUCCESS, TIMEOUT)) {
+            mReason = mContext.getString(R.string.p2p_remove_group_error);
+            return false;
+        }
+
+        notifyTestMsg(R.string.p2p_waiting_for_peer_to_disconnect);
+
+        /*
+         * Check if p2p disconnection broadcast is received
+         */
+        p2pInfo = mReceiverTest.waitDisconnectionNotice(TIMEOUT);
+        if (p2pInfo == null) {
+            mReason = mContext.getString(R.string.p2p_connection_error);
+            return false;
+        }
+
+        /* Wait until peer gets marked disconnected */
+
+        if (mReceiverTest.waitPeerDisconnected(mTargetAddress, TIMEOUT) != true) {
+            mReason = mContext.getString(R.string.p2p_detect_disconnection_error);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Tries to connect the target devices with config.
+     * @param config config for connecting a group.
+     * @return true if succeeded.
+     * @throws InterruptedException
+     */
+    protected boolean connectTest(WifiP2pConfig config) throws InterruptedException {
+        notifyTestMsg(R.string.p2p_searching_target);
+
+        /*
+         * Search target device and check its capability.
+         */
+        ActionListenerTest actionListener = new ActionListenerTest();
+        mP2pMgr.discoverPeers(mChannel, actionListener);
+        if (!actionListener.check(ActionListenerTest.SUCCESS, TIMEOUT)) {
+            mReason = mContext.getString(R.string.p2p_discover_peers_error);
+            return false;
+        }
+
+        /*
+         * Try to connect the target device.
+         */
+        mP2pMgr.connect(mChannel, config, actionListener);
+        if (!actionListener.check(ActionListenerTest.SUCCESS, TIMEOUT)) {
+            mReason = mContext.getString(R.string.p2p_connect_error);
+            return false;
+        }
+
+        /*
+         * Check if the connection broadcast is received.
+         */
+        notifyTestMsg(R.string.p2p_waiting_for_peer_to_connect);
+        WifiP2pInfo p2pInfo = mReceiverTest.waitConnectionNotice(TIMEOUT_FOR_USER_ACTION);
+        if (p2pInfo == null) {
+            mReason = mContext.getString(R.string.p2p_connection_error);
+            return false;
+        }
+
+        /*
+         * target MAC address is known until group is formed
+         */
+        WifiP2pGroup group = mReceiverTest.getWifiP2pGroup();
+        if (group != null) {
+            if (!group.isGroupOwner()) {
+                setTargetAddress(group.getOwner().deviceAddress);
+            } else {
+                mReason = mContext.getString(R.string.p2p_connection_error);
+                return false;
+            }
+        } else {
             mReason = mContext.getString(R.string.p2p_connection_error);
             return false;
         }

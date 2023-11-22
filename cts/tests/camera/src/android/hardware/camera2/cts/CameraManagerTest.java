@@ -20,6 +20,10 @@ import static org.mockito.Mockito.*;
 import static org.mockito.AdditionalMatchers.not;
 import static org.mockito.AdditionalMatchers.and;
 
+import android.app.ActivityManager;
+import android.app.Instrumentation;
+import android.app.NotificationManager;
+import android.app.UiAutomation;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.camera2.CameraAccessException;
@@ -30,17 +34,23 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.cts.CameraTestUtils.HandlerExecutor;
 import android.hardware.camera2.cts.CameraTestUtils.MockStateCallback;
 import android.hardware.camera2.cts.helpers.CameraErrorCollector;
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.platform.test.annotations.AppModeFull;
+import android.os.ParcelFileDescriptor;
 import android.test.AndroidTestCase;
 import android.util.Log;
+import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.PropertyUtil;
 import com.android.ex.camera2.blocking.BlockingStateCallback;
 
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -51,7 +61,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 /**
  * <p>Basic test for CameraManager class.</p>
  */
-@AppModeFull
 public class CameraManagerTest extends AndroidTestCase {
     private static final String TAG = "CameraManagerTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -672,5 +681,101 @@ public class CameraManagerTest extends AndroidTestCase {
         }
 
     } // testCameraManagerListenerCallbacks
+
+    // Verify no LEGACY-level devices appear on devices first launched in the Q release or newer
+    public void testNoLegacyOnQ() throws Exception {
+        if(PropertyUtil.getFirstApiLevel() < Build.VERSION_CODES.Q){
+            // LEGACY still allowed for devices upgrading to Q
+            return;
+        }
+        String[] ids = mCameraManager.getCameraIdList();
+        for (int i = 0; i < ids.length; i++) {
+            CameraCharacteristics props = mCameraManager.getCameraCharacteristics(ids[i]);
+            assertNotNull(
+                    String.format("Can't get camera characteristics from: ID %s", ids[i]), props);
+            Integer hardwareLevel = props.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL);
+            assertNotNull(
+                    String.format("Can't get hardware level from: ID %s", ids[i]), hardwareLevel);
+            assertTrue(String.format(
+                            "Camera device %s cannot be LEGACY level for devices launching on Q",
+                            ids[i]),
+                    hardwareLevel != CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY);
+        }
+    }
+
+    public void testCameraManagerWithDnD() throws Exception {
+        String[] cameras = mCameraManager.getCameraIdList();
+        if (cameras.length == 0) {
+            Log.i(TAG, "No cameras present, skipping test");
+            return;
+        }
+
+        ActivityManager am = getContext().getSystemService(ActivityManager.class);
+
+        // Go devices do not support all interrupt filtering functionality
+        if (am.isLowRamDevice()) {
+            return;
+        }
+
+        // Allow the test package to adjust notification policy
+        toggleNotificationPolicyAccess(getContext().getPackageName(),
+                InstrumentationRegistry.getInstrumentation(), true);
+
+        // Enable DnD filtering
+
+        NotificationManager nm = getContext().getSystemService(NotificationManager.class);
+        try {
+            nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE);
+
+            // Try to use the camera API
+
+            for (String cameraId : cameras) {
+                try {
+                    CameraCharacteristics c = mCameraManager.getCameraCharacteristics(cameraId);
+                    assertTrue("Unable to get camera characteristics when DnD is enabled",
+                            c != null);
+                } catch (RuntimeException e) {
+                    fail("RuntimeException thrown when attempting to access camera " +
+                            "characteristics with DnD enabled. " +
+                            "https://android-review.googlesource.com/c/platform/frameworks/base/+" +
+                            "/747089/ may be missing.");
+                }
+            }
+        } finally {
+            // Restore notifications to normal
+
+            nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL);
+        }
+    }
+
+    private void toggleNotificationPolicyAccess(String packageName,
+            Instrumentation instrumentation, boolean on) throws IOException {
+
+        String command = " cmd notification " + (on ? "allow_dnd " : "disallow_dnd ") + packageName;
+
+        runCommand(command, instrumentation);
+
+        NotificationManager nm = getContext().getSystemService(NotificationManager.class);
+        assertEquals("Notification Policy Access Grant is " +
+                nm.isNotificationPolicyAccessGranted() + " not " + on, on,
+                nm.isNotificationPolicyAccessGranted());
+    }
+
+    private void runCommand(String command, Instrumentation instrumentation) throws IOException {
+        UiAutomation uiAutomation = instrumentation.getUiAutomation();
+        // Execute command
+        try (ParcelFileDescriptor fd = uiAutomation.executeShellCommand(command)) {
+            assertNotNull("Failed to execute shell command: " + command, fd);
+            // Wait for the command to finish by reading until EOF
+            try (InputStream in = new FileInputStream(fd.getFileDescriptor())) {
+                byte[] buffer = new byte[4096];
+                while (in.read(buffer) > 0) {}
+            } catch (IOException e) {
+                throw new IOException("Could not read stdout of command: " + command, e);
+            }
+        } finally {
+            uiAutomation.destroy();
+        }
+    }
 
 }

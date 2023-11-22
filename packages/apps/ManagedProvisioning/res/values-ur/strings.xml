@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"دفتری پروفائل کا سیٹ اپ"</string>
+    <string name="app_label" msgid="1527793174155125990">"دفتر کی ترتیب"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"افوہ!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"دفتری پروفائل سیٹ اپ کریں"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"آپ کی تنظیم اس پروفائل کو کنٹرول کرتی ہے اور اسے محفوظ رکھتی ہے۔ آپ اپنے آلہ پر باقی ہر چیز کنٹرول کرتے ہیں۔"</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"مندرجہ ذیل ایپ آپ کے آلہ کا نظم کرے گی:"</string>
     <string name="next" msgid="1004321437324424398">"اگلا"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"دفتری پروفائل ترتیب دیا جا رہا ہے…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"آپ کا منتظم آپ کے نیٹ ورک کی سرگرمی اور اس کے ساتھ ساتھ آپ کے آلے کے مقام، کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت سمیت ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں اور اس پروفائل کے ساتھ وابستہ ڈیٹا کو مانیٹر کرنے اور ان کا نظم کرنے کا اہل ہے۔<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>اپنی تنظیم کی رازداری پالیسی سمیت مزید معلومات کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"آپ کا منتظم آپ کے نیٹ ورک کی سرگرمی اور اس کے ساتھ ساتھ آپ کے آلے کے مقام، کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت سمیت ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں اور اس آلے کے ساتھ وابستہ ڈیٹا کو مانیٹر کرنے اور ان کا نظم کرنے کا اہل ہے۔<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>اپنی تنظیم کی رازداری پالیسی سمیت مزید معلومات کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"‏آپ کا IT منتظم آپ کے نیٹ ورک کی سرگرمی اور اسی کے ساتھ آپ کے آلے کے مقام، کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت سمیت ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں اور اس دفتری پروفائل کے ساتھ وابستہ ڈیٹا کو مانیٹر کرنے اور ان کا نظم کرنے کا اہل ہے۔<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>اپنی تنظیم کی رازداری پالیسیوں سمیت مزید معلومات کے لیے اپنے IT منتظم سے رابطہ کریں۔"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"‏آپ کا IT منتظم آپ کے نیٹ ورک کی سرگرمی اور اسی کے ساتھ آپ کے آلے کے مقام، کال کی سرگزشت اور رابطے کی تلاش کی سرگزشت سمیت ترتیبات، کارپوریٹ رسائی، ایپس، اجازتوں اور اس آلہ کے ساتھ وابستہ ڈیٹا کو مانیٹر کرنے اور ان کا نظم کرنے کا اہل ہے۔<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>اپنی تنظیم کی رازداری پالیسیوں سمیت مزید معلومات کے لیے اپنے IT منتظم سے رابطہ کریں۔"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"چوری سے تحٖفظ کی خصوصیات استعمال کرنے کیلئے آپ کے پاس آپ کے آلہ کیلئے پاسورڈ کے ذریعے تحفظ یافتہ ایک اسکرین قفل ہونا چاہیئیے۔"</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"اپنی تنظیم کی رازداری کی پالیسیوں سمیت مزید معلومات کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"‏اپنی تنظیم کی رازداری کی پالیسیوں سمیت مزید معلومات کے لیے اپنے IT منتظم سے رابطہ کریں۔"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"مزید جانیں"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"منسوخ کریں"</string>
     <string name="ok_setup" msgid="4593707675416137504">"ٹھیک ہے"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"‏آپ کے دفتر کے پروفائل کو ترتیب نہیں دیا جا سکا۔ اپنے IT ڈیپارٹمنٹ سے رابطہ کریں یا بعد میں دوبارہ کوشش کریں۔"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"دفتری پروفائل شامل نہیں کر سکتا"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"دفتری پروفائل کو بدلا یا ہٹایا نہیں جا سکتا"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"دفتری پروفائل اس آلہ میں شامل نہیں کیا جا سکتا۔ اگر آپ کے پاس سوالات ہیں، تو اپنے منتظم سے رابطہ کریں۔"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"‏دفتری پروفائل کو اس آلہ میں شامل نہیں کیا جا سکتا۔ اگر آپ کے پاس سوالات ہیں تو اپنے IT منتظم سے رابطہ کریں۔"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"آلہ لانچر تبدیل کریں"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"یہ لانچر ایپ آپ کے دفتری پروفائل کے ذریعے استعمال نہیں کی جا سکتی"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"منسوخ کریں"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"حتمی شکل دی جا رہی ہے…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"آلہ کا مالک سیٹ کیا جا رہا ہے…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"آلہ شروع ہو رہا ہے…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"یہ آلہ سیٹ اپ کیلئے درکار مرموز کاری کی اجازت نہیں دیتا ہے۔ مدد کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"‏یہ آلہ سیٹ اپ کے لیے درکار مرموز کاری کی اجازت نہیں دیتا ہے۔ مدد کے لیے، اپنے IT منتظم سے رابطہ کریں۔"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"سیٹ اپ روکیں اور آلہ کو ری سیٹ کریں؟"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"یہ آپ کے آلے کو ری سیٹ کر دے گا اور آپ واپس پہلی اسکرین پر چلے جائیں گے"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"سیٹ اپ کرنا روک دیں اور آپ کے آلہ کا ڈیٹا مٹا دیں؟"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"ری سیٹ کریں"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"پروفائل سیٹ اپ نہیں ہو سکتا"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"آلہ سیٹ اپ نہیں ہو سکتا"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"آلہ کو ترتیب نہیں دیا جا سکا۔ مدد کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"مدد کیلئے اپنے منتظم سے رابطہ کریں"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"‏آلہ کو سیٹ اپ نہیں کیا جا سکا۔ مدد کے لیے، اپنے IT منتظم سے رابطہ کریں۔"</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"‏مدد کے لیے اپنے IT منتظم سے رابطہ کریں"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"آلہ پہلے ہی ترتیب دیا جا چکا ہے"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"‏Wi-Fi سے منسلک نہیں کیا جا سکا"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"آپ کے آلہ پر ری سیٹ کا تحفظ آن ہو گیا ہے۔ مدد کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
+    <string name="error_wifi" msgid="1850288843966836571">"‏Wi-Fi سے منسلک نہیں کیا جا سکا"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"‏آپ کے آلہ میں ری سیٹ کا تحفظ آن ہو گیا ہے۔ مدد کے لیے، اپنے IT منتظم سے رابطہ کریں۔"</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"صاف کیا جا رہا ہے"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"براہ کرم انتظار کریں…"</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"‏checksum کی خرابی کی وجہ سے منتظم کی ایپ کا استعمال نہیں کیا جا سکا۔ مدد کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"منتظم کی ایپ کو ڈاؤن لوڈ نہیں کیا جا سکا"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"منتظم کی ایپ کا استعمال نہیں کر سکتے۔ اس میں اجزاء غائب ہیں یا یہ خراب ہوگئی ہے۔ مدد کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"منتظم کی ایپ کو انسٹال نہیں کیا جا سکا"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"‏checksum کی خرابی کی وجہ سے منتظم کی ایپ کا استعمال نہیں کیا جا سکا۔ مدد کے لیے، اپنے IT منتظم سے رابطہ کریں۔"</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"منتظم کی ایپ کو ڈاؤن لوڈ نہیں کیا جا سکا"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"‏منتظم کی ایپ کا استعمال نہیں کیا جا سکتا۔ اس کے اجزاء غائب ہیں یا یہ خراب ہو گئی ہے۔ مدد کے لیے، اپنے IT منتظم سے رابطہ کریں۔"</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"منتظم کی ایپ کو انسٹال نہیں کیا جا سکا"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"ترتیب دینا بند کریں؟"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"نہیں"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"ہاں"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"اس آلہ کا نظم، نگرانی اور تحفظ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> کے ذریعے کیا جائے گا۔ شرائط لاگو ہوں گی۔ <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"اس آلہ کا نظم، نگرانی اور تحفظ <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> کے ذریعے کیا جائے گا۔ <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> کی شرائط لاگو ہوں گی۔ <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"یہ لنک محفوظ نہیں ہے اور آلے کا سیٹ اپ مکمل ہونے تک اسے نہیں کھولا جا سکتا: <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"اگر آپ کے پاس سوالات ہیں تو آپ اپنے <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> سے رابطہ کریں۔"</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"اگر آپ کے پاس سوالات ہیں، تو اپنی تنظیم کے منتظم سے رابطہ کریں"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"سیٹ اپ ختم نہیں ہوا۔ مدد کیلئے اپنے منتظم سے رابطہ کریں۔"</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"مدد کیلئے، اپنے منتظم سے رابطہ کریں"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"تنظیم کا منتظم"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"مزید جاننے کے لیے، اپنے <xliff:g id="IT_ADMIN">%1$s</xliff:g> سے رابطہ کریں۔"</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"‏اگر آپ کے پاس سوالات ہیں تو اپنے IT منتظم سے رابطہ کریں"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"‏سیٹ اپ مکمل نہیں ہوا ہے۔ مدد کے لیے، اپنے IT منتظم سے رابطہ کریں۔"</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"‏مدد کے لیے، اپنے IT منتظم سے رابطہ کریں"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"‏IT منتظم"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"درج ذیل ایپ کا استعمال کرکے <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> اس آلہ کا نظم اور اسے مانیٹر کرے گی:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"آپ کی تنظیم"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"آپ کی تنظیم"</string>
     <string name="view_terms" msgid="7230493092383341605">"شرائط دیکھیں"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"قبول کریں اور جاری"</string>
-    <string name="close" msgid="7208600934846389439">"بند کریں"</string>
+    <string name="back" msgid="6455622465896147127">"پیچھے"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"اپنے آلہ کو ترتیب دیں"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"اپنا کام کرنے کا طریقہ بدلیں"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"دفتری کام کو ذاتی کام سے علیحدہ کریں"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"اس میں کچھ منٹ لگ سکتے ہیں"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"آپ کی دفتری ایپس کو اس پروفائل میں رکھا جائے گا اور اس کا نظم آپ کی تنظیم کرے گی"</string>
     <string name="device_owner_description" msgid="168013145812679664">"یہ آلہ محفوظ رکھا جائے گا اور آپ کی تنظیم کے زیر نظم ہوگا"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"دفتری آلہ ترتیب دینے کی تیاری جاری ہے…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"ڈومین ایپ ترتیب دی جا رہی ہے"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"باقی تمام چیزیں ترتیب دیں"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"اب، آئیے باقی تمام چیزیں ترتیب دیں"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"یہ آلہ آپ کی تنظیم کا ہے"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"اس فون کا نظم اور نگرانی کرنے کیلئے مندرجہ ذیل ایپ کا استعمال کیا جائے گا"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"آلہ برائے دفتر کے سیٹ اپ کے لیے تیاری ہو رہی ہے…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"پہلے، آئیے آپ کا دفتری پروفائل ترتیب دیں"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"آئیے آپ کا دفتری پروفائل ترتیب دیں"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"دفتری ایپس کو آپ کے دفتری پروفائل میں رکھا جاتا ہے"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"دن کا کام مکمل کر لینے کے بعد دفتری ایپس کو موقوف کریں"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"‏صرف آپ کے دفتری پروفائل میں دستیاب ڈیٹا آپ کے IT منتظم کو دکھائی دے سکتا ہے"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"آپ کے دفتری پروفائل کو سیٹ اپ کیا جا رہا ہے…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"‏دفتری ایپس کو آپ کے دفتری پروفائل میں رکھا جاتا ہے۔ دن کا اپنا کام مکمل کرنے کے بعد آپ اپنی دفتری ایپس کو موقوف کر سکتے ہیں۔ آپ کا IT منتظم صرف آپ کے دفتری پروفائل میں دستیاب ڈیٹا ہی دیکھ سکتا ہے۔"</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"آئیے آپ کا دفتری آلہ سیٹ اپ کریں"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"اپنی دفتری ایپس کو اپنے لیے بآسانی قابل رسائی بنائيں"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"یہ آلہ نجی نہیں ہے"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"‏آپ کا IT منتظم اس آلہ پر آپ کا ڈیٹا اور سرگرمی دیکھنے کا اہل ہو سکتا ہے۔"</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"آپ کا آلہ سیٹ اپ کیا جا رہا ہے…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"‏اپنی دفتری ایپس تک آسانی سے رسائی حاصل کرنے کے لیے یہ آلہ استعمال کریں۔ یہ آلہ نجی نہیں ہے، اس لیے آپ کا IT منتظم آپ کا ڈیٹا اور سرگرمی دیکھنے کا اہل ہو سکتا ہے۔ مزید جاننے کے لیے، اپنے IT منتظم سے رابطہ کریں۔"</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"رازداری کی یاد دہانی"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"‏آپ کا IT منتظم اس آلہ پر آپ کا ڈیٹا اور سرگرمی دیکھنے کا اہل ہو سکتا ہے"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"آپ کا آلہ استعمال کرنے کے لیے تیار ہے!"</string>
+    <string name="done" msgid="7755227776955952318">"ہو گیا"</string>
 </resources>

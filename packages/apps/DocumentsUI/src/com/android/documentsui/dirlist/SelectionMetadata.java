@@ -23,11 +23,12 @@ import android.database.Cursor;
 import android.provider.DocumentsContract.Document;
 import android.util.Log;
 
+import androidx.recyclerview.selection.SelectionTracker.SelectionObserver;
+
 import com.android.documentsui.MenuManager;
 import com.android.documentsui.archives.ArchivesProvider;
 import com.android.documentsui.base.MimeTypes;
 import com.android.documentsui.roots.RootCursorWrapper;
-import com.android.documentsui.selection.SelectionHelper.SelectionObserver;
 
 import java.util.function.Function;
 
@@ -38,7 +39,7 @@ import java.util.function.Function;
  * <p>By collecting information in real-time as the selection changes the need to
  * traverse the entire selection in order to answer questions is eliminated.
  */
-public class SelectionMetadata extends SelectionObserver
+public class SelectionMetadata extends SelectionObserver<String>
         implements MenuManager.SelectionDetails {
 
     private static final String TAG = "SelectionMetadata";
@@ -107,7 +108,7 @@ public class SelectionMetadata extends SelectionObserver
     }
 
     @Override
-    public void onSelectionReset() {
+    public void onSelectionRefresh() {
         mFileCount = 0;
         mDirectoryCount = 0;
         mPartialCount = 0;

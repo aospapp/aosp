@@ -31,4 +31,9 @@ public final class StringUtils {
         }
         return a.compareTo(b);
     }
+
+    /** Returns {@code s} or {@code ""} if {@code s} is {@code null} */
+    public static final String nullToEmpty(String s) {
+        return s == null ? "" : s;
+    }
 }

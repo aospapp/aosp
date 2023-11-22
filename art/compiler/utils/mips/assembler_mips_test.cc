@@ -37,27 +37,37 @@ class AssemblerMIPSTest : public AssemblerTest<mips::MipsAssembler,
                                                mips::FRegister,
                                                uint32_t> {
  public:
-  typedef AssemblerTest<mips::MipsAssembler,
-                        mips::MipsLabel,
-                        mips::Register,
-                        mips::FRegister,
-                        uint32_t> Base;
+  using Base = AssemblerTest<mips::MipsAssembler,
+                             mips::MipsLabel,
+                             mips::Register,
+                             mips::FRegister,
+                             uint32_t>;
+
+  // These tests were taking too long, so we hide the DriverStr() from AssemblerTest<>
+  // and reimplement it without the verification against `assembly_string`. b/73903608
+  void DriverStr(const std::string& assembly_string ATTRIBUTE_UNUSED,
+                 const std::string& test_name ATTRIBUTE_UNUSED) {
+    GetAssembler()->FinalizeCode();
+    std::vector<uint8_t> data(GetAssembler()->CodeSize());
+    MemoryRegion code(data.data(), data.size());
+    GetAssembler()->FinalizeInstructions(code);
+  }
 
  protected:
   // Get the typically used name for this architecture, e.g., aarch64, x86-64, ...
-  std::string GetArchitectureString() OVERRIDE {
+  std::string GetArchitectureString() override {
     return "mips";
   }
 
-  std::string GetAssemblerParameters() OVERRIDE {
+  std::string GetAssemblerParameters() override {
     return " --no-warn -32 -march=mips32r2";
   }
 
-  std::string GetDisassembleParameters() OVERRIDE {
+  std::string GetDisassembleParameters() override {
     return " -D -bbinary -mmips:isa32r2";
   }
 
-  void SetUpHelpers() OVERRIDE {
+  void SetUpHelpers() override {
     if (registers_.size() == 0) {
       registers_.push_back(new mips::Register(mips::ZERO));
       registers_.push_back(new mips::Register(mips::AT));
@@ -160,30 +170,30 @@ class AssemblerMIPSTest : public AssemblerTest<mips::MipsAssembler,
     }
   }
 
-  void TearDown() OVERRIDE {
+  void TearDown() override {
     AssemblerTest::TearDown();
     STLDeleteElements(&registers_);
     STLDeleteElements(&fp_registers_);
   }
 
-  std::vector<mips::MipsLabel> GetAddresses() {
+  std::vector<mips::MipsLabel> GetAddresses() override {
     UNIMPLEMENTED(FATAL) << "Feature not implemented yet";
     UNREACHABLE();
   }
 
-  std::vector<mips::Register*> GetRegisters() OVERRIDE {
+  std::vector<mips::Register*> GetRegisters() override {
     return registers_;
   }
 
-  std::vector<mips::FRegister*> GetFPRegisters() OVERRIDE {
+  std::vector<mips::FRegister*> GetFPRegisters() override {
     return fp_registers_;
   }
 
-  uint32_t CreateImmediate(int64_t imm_value) OVERRIDE {
+  uint32_t CreateImmediate(int64_t imm_value) override {
     return imm_value;
   }
 
-  std::string GetSecondaryRegisterName(const mips::Register& reg) OVERRIDE {
+  std::string GetSecondaryRegisterName(const mips::Register& reg) override {
     CHECK(secondary_register_names_.find(reg) != secondary_register_names_.end());
     return secondary_register_names_[reg];
   }
@@ -2231,67 +2241,67 @@ TEST_F(AssemblerMIPSTest, Bc1t) {
 }
 
 TEST_F(AssemblerMIPSTest, BareB) {
-  BranchHelper(&mips::MipsAssembler::B, "B", /* is_bare */ true);
+  BranchHelper(&mips::MipsAssembler::B, "B", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBal) {
-  BranchHelper(&mips::MipsAssembler::Bal, "Bal", /* is_bare */ true);
+  BranchHelper(&mips::MipsAssembler::Bal, "Bal", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBeq) {
-  BranchCondTwoRegsHelper(&mips::MipsAssembler::Beq, "Beq", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips::MipsAssembler::Beq, "Beq", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBne) {
-  BranchCondTwoRegsHelper(&mips::MipsAssembler::Bne, "Bne", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips::MipsAssembler::Bne, "Bne", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBeqz) {
-  BranchCondOneRegHelper(&mips::MipsAssembler::Beqz, "Beqz", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips::MipsAssembler::Beqz, "Beqz", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBnez) {
-  BranchCondOneRegHelper(&mips::MipsAssembler::Bnez, "Bnez", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips::MipsAssembler::Bnez, "Bnez", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBltz) {
-  BranchCondOneRegHelper(&mips::MipsAssembler::Bltz, "Bltz", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips::MipsAssembler::Bltz, "Bltz", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBgez) {
-  BranchCondOneRegHelper(&mips::MipsAssembler::Bgez, "Bgez", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips::MipsAssembler::Bgez, "Bgez", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBlez) {
-  BranchCondOneRegHelper(&mips::MipsAssembler::Blez, "Blez", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips::MipsAssembler::Blez, "Blez", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBgtz) {
-  BranchCondOneRegHelper(&mips::MipsAssembler::Bgtz, "Bgtz", /* is_bare */ true);
+  BranchCondOneRegHelper(&mips::MipsAssembler::Bgtz, "Bgtz", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBlt) {
-  BranchCondTwoRegsHelper(&mips::MipsAssembler::Blt, "Blt", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips::MipsAssembler::Blt, "Blt", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBge) {
-  BranchCondTwoRegsHelper(&mips::MipsAssembler::Bge, "Bge", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips::MipsAssembler::Bge, "Bge", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBltu) {
-  BranchCondTwoRegsHelper(&mips::MipsAssembler::Bltu, "Bltu", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips::MipsAssembler::Bltu, "Bltu", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBgeu) {
-  BranchCondTwoRegsHelper(&mips::MipsAssembler::Bgeu, "Bgeu", /* is_bare */ true);
+  BranchCondTwoRegsHelper(&mips::MipsAssembler::Bgeu, "Bgeu", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBc1f) {
-  BranchFpuCondCodeHelper(&mips::MipsAssembler::Bc1f, "Bc1f", /* is_bare */ true);
+  BranchFpuCondCodeHelper(&mips::MipsAssembler::Bc1f, "Bc1f", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, BareBc1t) {
-  BranchFpuCondCodeHelper(&mips::MipsAssembler::Bc1t, "Bc1t", /* is_bare */ true);
+  BranchFpuCondCodeHelper(&mips::MipsAssembler::Bc1t, "Bc1t", /* is_bare= */ true);
 }
 
 TEST_F(AssemblerMIPSTest, ImpossibleReordering) {

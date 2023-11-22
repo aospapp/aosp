@@ -17,9 +17,10 @@
 package com.android.settings.accessibility;
 
 import android.content.Context;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceViewHolder;
 import android.util.AttributeSet;
+
+import androidx.preference.Preference;
+import androidx.preference.PreferenceViewHolder;
 
 /*
  * Preference that always has a divider below. Used for SUW Accessibility Settings Summary text.

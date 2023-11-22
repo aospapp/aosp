@@ -35,16 +35,7 @@
 
 static const int kMaxDnsServers = 4;
 
-DhcpServer::DhcpServer(in_addr_t dhcpRangeStart,
-                       in_addr_t dhcpRangeEnd,
-                       in_addr_t netmask,
-                       in_addr_t gateway,
-                       unsigned int excludeInterface) :
-    mNextAddressOffset(0),
-    mDhcpRangeStart(dhcpRangeStart),
-    mDhcpRangeEnd(dhcpRangeEnd),
-    mNetmask(netmask),
-    mGateway(gateway),
+DhcpServer::DhcpServer(unsigned int excludeInterface) :
     mExcludeInterface(excludeInterface)
 {
 }
@@ -147,9 +138,13 @@ void DhcpServer::sendDhcpOffer(const Message& message,
                                unsigned int interfaceIndex ) {
     updateDnsServers();
     in_addr_t offerAddress;
+    in_addr_t netmask;
+    in_addr_t gateway;
     Result res = getOfferAddress(interfaceIndex,
                                  message.dhcpData.chaddr,
-                                 &offerAddress);
+                                 &offerAddress,
+                                 &netmask,
+                                 &gateway);
     if (!res) {
         ALOGE("Failed to get address for offer: %s", res.c_str());
         return;
@@ -165,8 +160,8 @@ void DhcpServer::sendDhcpOffer(const Message& message,
     Message offer = Message::offer(message,
                                    serverAddress,
                                    offerAddress,
-                                   mNetmask,
-                                   mGateway,
+                                   netmask,
+                                   gateway,
                                    mDnsServers.data(),
                                    mDnsServers.size());
     res = sendMessage(interfaceIndex, serverAddress, offer);
@@ -177,10 +172,15 @@ void DhcpServer::sendDhcpOffer(const Message& message,
 
 void DhcpServer::sendAck(const Message& message, unsigned int interfaceIndex) {
     updateDnsServers();
-    in_addr_t offerAddress, serverAddress;
+    in_addr_t offerAddress;
+    in_addr_t netmask;
+    in_addr_t gateway;
+    in_addr_t serverAddress;
     Result res = getOfferAddress(interfaceIndex,
                                  message.dhcpData.chaddr,
-                                 &offerAddress);
+                                 &offerAddress,
+                                 &netmask,
+                                 &gateway);
     if (!res) {
         ALOGE("Failed to get address for offer: %s", res.c_str());
         return;
@@ -194,8 +194,8 @@ void DhcpServer::sendAck(const Message& message, unsigned int interfaceIndex) {
     Message ack = Message::ack(message,
                                serverAddress,
                                offerAddress,
-                               mNetmask,
-                               mGateway,
+                               netmask,
+                               gateway,
                                mDnsServers.data(),
                                mDnsServers.size());
     res = sendMessage(interfaceIndex, serverAddress, ack);
@@ -222,9 +222,13 @@ void DhcpServer::sendNack(const Message& message, unsigned int interfaceIndex) {
 bool DhcpServer::isValidDhcpRequest(const Message& message,
                                     unsigned int interfaceIndex) {
     in_addr_t offerAddress;
+    in_addr_t netmask;
+    in_addr_t gateway;
     Result res = getOfferAddress(interfaceIndex,
                                  message.dhcpData.chaddr,
-                                 &offerAddress);
+                                 &offerAddress,
+                                 &netmask,
+                                 &gateway);
     if (!res) {
         ALOGE("Failed to get address for offer: %s", res.c_str());
         return false;
@@ -251,32 +255,99 @@ void DhcpServer::updateDnsServers() {
     }
 }
 
-Result DhcpServer::getInterfaceAddress(unsigned int interfaceIndex,
-                                       in_addr_t* address) {
+Result DhcpServer::getInterfaceData(unsigned int interfaceIndex,
+                                    unsigned long type,
+                                    struct ifreq* response) {
     char interfaceName[IF_NAMESIZE + 1];
     if (if_indextoname(interfaceIndex, interfaceName) == nullptr) {
         return Result::error("Failed to get interface name for index %u: %s",
                              interfaceIndex, strerror(errno));
     }
-    struct ifreq request;
-    memset(&request, 0, sizeof(request));
-    request.ifr_addr.sa_family = AF_INET;
-    strncpy(request.ifr_name, interfaceName, IFNAMSIZ - 1);
+    memset(response, 0, sizeof(*response));
+    response->ifr_addr.sa_family = AF_INET;
+    strncpy(response->ifr_name, interfaceName, IFNAMSIZ - 1);
 
-    if (::ioctl(mSocket.get(), SIOCGIFADDR, &request) == -1) {
-        return Result::error("Failed to get address for interface %s: %s",
+    if (::ioctl(mSocket.get(), type, response) == -1) {
+        return Result::error("Failed to get data for interface %s: %s",
                              interfaceName, strerror(errno));
     }
-
-    auto inAddr = reinterpret_cast<struct sockaddr_in*>(&request.ifr_addr);
-    *address = inAddr->sin_addr.s_addr;
 
     return Result::success();
 }
 
+Result DhcpServer::getInterfaceAddress(unsigned int interfaceIndex,
+                                       in_addr_t* address) {
+    struct ifreq data;
+    Result res = getInterfaceData(interfaceIndex, SIOCGIFADDR, &data);
+    if (res.isSuccess()) {
+        auto inAddr = reinterpret_cast<struct sockaddr_in*>(&data.ifr_addr);
+        *address = inAddr->sin_addr.s_addr;
+    }
+    return res;
+}
+
+Result DhcpServer::getInterfaceNetmask(unsigned int interfaceIndex,
+                                       in_addr_t* address) {
+    struct ifreq data;
+    Result res = getInterfaceData(interfaceIndex, SIOCGIFNETMASK, &data);
+    if (res.isSuccess()) {
+        auto inAddr = reinterpret_cast<struct sockaddr_in*>(&data.ifr_addr);
+        *address = inAddr->sin_addr.s_addr;
+    }
+    return res;
+}
+
+static bool isValidHost(const in_addr_t address,
+                        const in_addr_t interfaceAddress,
+                        const in_addr_t netmask) {
+    // If the bits outside of the netmask are all zero it's a network address,
+    // don't use this.
+    bool isNetworkAddress = (address & ~netmask) == 0;
+    // If all bits outside of the netmask are set then it's a broadcast address,
+    // don't use this either.
+    bool isBroadcastAddress = (address & ~netmask) == ~netmask;
+    // Don't assign the interface address to a host
+    bool isInterfaceAddress = address == interfaceAddress;
+
+    return !isNetworkAddress && !isBroadcastAddress && !isInterfaceAddress;
+}
+
+static bool addressInRange(const in_addr_t address,
+                           const in_addr_t interfaceAddress,
+                           const in_addr_t netmask) {
+    if (address <= (interfaceAddress & netmask)) {
+        return false;
+    }
+    if (address >= (interfaceAddress | ~netmask)) {
+        return false;
+    }
+    return true;
+}
+
 Result DhcpServer::getOfferAddress(unsigned int interfaceIndex,
                                    const uint8_t* macAddress,
-                                   in_addr_t* address) {
+                                   in_addr_t* address,
+                                   in_addr_t* netmask,
+                                   in_addr_t* gateway) {
+    // The interface address will be the gateway and will be used to determine
+    // the range of valid addresses (along with the netmask) for the client.
+    in_addr_t interfaceAddress = 0;
+    Result res = getInterfaceAddress(interfaceIndex, &interfaceAddress);
+    if (!res) {
+        return res;
+    }
+    // The netmask of the interface will be the netmask for the client as well
+    // as used to determine network range.
+    in_addr_t mask = 0;
+    res = getInterfaceNetmask(interfaceIndex, &mask);
+    if (!res) {
+        return res;
+    }
+
+    // Assign these values now before they are modified below
+    *gateway = interfaceAddress;
+    *netmask = mask;
+
     Lease key(interfaceIndex, macAddress);
 
     // Find or create entry, if it's created it will be zero and we update it
@@ -284,18 +355,30 @@ Result DhcpServer::getOfferAddress(unsigned int interfaceIndex,
     if (value == 0) {
         // Addresses are stored in network byte order so when doing math on them
         // they have to be converted to host byte order
-        in_addr_t nextAddress = ntohl(mDhcpRangeStart) + mNextAddressOffset;
-        uint8_t lastAddressByte = nextAddress & 0xFF;
-        while (lastAddressByte == 0xFF || lastAddressByte == 0) {
-            // The address ends in .255 or .0 which means it's a broadcast or
-            // network address respectively. Increase it further to avoid this.
-            ++nextAddress;
-            ++mNextAddressOffset;
+        interfaceAddress = ntohl(interfaceAddress);
+        mask = ntohl(mask);
+        // Get a reference to the offset so we can use it and increase it at the
+        // same time. If the entry does not exist it will be created with a
+        // value of zero.
+        in_addr_t& offset = mNextAddressOffsets[interfaceIndex];
+        if (offset == 0) {
+            // Increase if zero to avoid assigning network address
+            ++offset;
         }
-        if (nextAddress <= ntohl(mDhcpRangeEnd)) {
-            // And then converted back again
+        // Start out at the first address in the range as determined by netmask
+        in_addr_t nextAddress = (interfaceAddress & mask) + offset;
+
+        // Ensure the address is valid
+        while (!isValidHost(nextAddress, interfaceAddress, mask) &&
+               addressInRange(nextAddress, interfaceAddress, mask)) {
+            ++nextAddress;
+            ++offset;
+        }
+
+        if (addressInRange(nextAddress, interfaceAddress, mask)) {
+            // Convert back to network byte order
             value = htonl(nextAddress);
-            ++mNextAddressOffset;
+            ++offset;
         } else {
             // Ran out of addresses
             return Result::error("DHCP server is out of addresses");

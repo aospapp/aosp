@@ -1423,6 +1423,10 @@ END art_quick_unlock_object_no_inline
     .extern artInstanceOfFromCode
     .extern artThrowClassCastExceptionForObject
 ENTRY art_quick_check_instance_of
+    // Type check using the bit string passes null as the target class. In that case just throw.
+    beqz   $a1, .Lthrow_class_cast_exception_for_bitstring_check
+    nop
+
     addiu  $sp, $sp, -32
     .cfi_adjust_cfa_offset 32
     sw     $gp, 16($sp)
@@ -1441,12 +1445,15 @@ ENTRY art_quick_check_instance_of
     jalr   $zero, $ra
     addiu  $sp, $sp, 32
     .cfi_adjust_cfa_offset -32
+
 .Lthrow_class_cast_exception:
     lw     $t9, 8($sp)
     lw     $a1, 4($sp)
     lw     $a0, 0($sp)
     addiu  $sp, $sp, 32
     .cfi_adjust_cfa_offset -32
+
+.Lthrow_class_cast_exception_for_bitstring_check:
     SETUP_SAVE_ALL_CALLEE_SAVES_FRAME
     la   $t9, artThrowClassCastExceptionForObject
     jalr $zero, $t9                 # artThrowClassCastException (Object*, Class*, Thread*)
@@ -1717,6 +1724,7 @@ GENERATE_ALLOC_ENTRYPOINTS_FOR_NON_TLAB_ALLOCATORS
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_region_tlab, RegionTLAB)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_region_tlab, RegionTLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_OBJECT(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED8(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED16(_region_tlab, RegionTLAB)
@@ -1729,6 +1737,7 @@ GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_FROM_STRING(_region_tlab, RegionTLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_RESOLVED(_tlab, TLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_INITIALIZED(_tlab, TLAB)
 GENERATE_ALLOC_ENTRYPOINTS_ALLOC_OBJECT_WITH_ACCESS_CHECK(_tlab, TLAB)
+GENERATE_ALLOC_ENTRYPOINTS_ALLOC_STRING_OBJECT(_tlab, TLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED(_tlab, TLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED8(_tlab, TLAB)
 // GENERATE_ALLOC_ENTRYPOINTS_ALLOC_ARRAY_RESOLVED16(_tlab, TLAB)
@@ -2020,8 +2029,11 @@ GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved16_tlab, artAllocArrayFr
 GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved32_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_32
 GENERATE_ALLOC_ARRAY_TLAB art_quick_alloc_array_resolved64_tlab, artAllocArrayFromCodeResolvedTLAB, COMPUTE_ARRAY_SIZE_64
 
-// Macro for string and type resolution and initialization.
-// $a0 is both input and output.
+    /*
+     * Macro for resolution and initialization of indexed DEX file
+     * constants such as classes and strings. $a0 is both input and
+     * output.
+     */
 .macro ONE_ARG_SAVE_EVERYTHING_DOWNCALL name, entrypoint, runtime_method_offset = RUNTIME_SAVE_EVERYTHING_METHOD_OFFSET
     .extern \entrypoint
 ENTRY_NO_GP \name
@@ -2046,6 +2058,18 @@ END \name
 .endm
 
     /*
+     * Entry from managed code to resolve a method handle. On entry, A0 holds the method handle
+     * index. On success the MethodHandle is returned, otherwise an exception is raised.
+     */
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_method_handle, artResolveMethodHandleFromCode
+
+    /*
+     * Entry from managed code to resolve a method type. On entry, A0 holds the method type index.
+     * On success the MethodType is returned, otherwise an exception is raised.
+     */
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_method_type, artResolveMethodTypeFromCode
+
+    /*
      * Entry from managed code to resolve a string, this stub will allocate a String and deliver an
      * exception on error. On success the String is returned. A0 holds the string index. The fast
      * path check for hit in strings cache has already been performed.
@@ -2062,13 +2086,13 @@ ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT art_quick_initialize_static_storage,
     /*
      * Entry from managed code when dex cache misses for a type_idx.
      */
-ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT art_quick_initialize_type, artInitializeTypeFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT art_quick_resolve_type, artResolveTypeFromCode
 
     /*
      * Entry from managed code when type_idx needs to be checked for access and dex cache may also
      * miss.
      */
-ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_initialize_type_and_verify_access, artInitializeTypeAndVerifyAccessFromCode
+ONE_ARG_SAVE_EVERYTHING_DOWNCALL art_quick_resolve_type_and_verify_access, artResolveTypeAndVerifyAccessFromCode
 
     /*
      * Called by managed code when the value in rSUSPEND has been decremented to 0.
@@ -3224,59 +3248,48 @@ art_quick_read_barrier_mark_introspection_end_of_entries:
     BRB_FIELD_EXIT_BREAK
 END art_quick_read_barrier_mark_introspection
 
+    /*
+     * Polymorphic method invocation.
+     * On entry:
+     *   a0 = unused
+     *   a1 = receiver
+     */
 .extern artInvokePolymorphic
 ENTRY art_quick_invoke_polymorphic
     SETUP_SAVE_REFS_AND_ARGS_FRAME
-    move  $a2, rSELF                          # Make $a2 an alias for the current Thread.
-    addiu $a3, $sp, ARG_SLOT_SIZE             # Make $a3 a pointer to the saved frame context.
-    sw    $zero, 20($sp)                      # Initialize JValue result.
-    sw    $zero, 16($sp)
-    la    $t9, artInvokePolymorphic
-    jalr  $t9                                 # artInvokePolymorphic(result, receiver, Thread*, context)
-    addiu $a0, $sp, 16                        # Make $a0 a pointer to the JValue result
-.macro MATCH_RETURN_TYPE c, handler
-    li    $t0, \c
-    beq   $v0, $t0, \handler
-.endm
-    MATCH_RETURN_TYPE 'V', .Lcleanup_and_return
-    MATCH_RETURN_TYPE 'L', .Lstore_int_result
-    MATCH_RETURN_TYPE 'I', .Lstore_int_result
-    MATCH_RETURN_TYPE 'J', .Lstore_long_result
-    MATCH_RETURN_TYPE 'B', .Lstore_int_result
-    MATCH_RETURN_TYPE 'C', .Lstore_char_result
-    MATCH_RETURN_TYPE 'D', .Lstore_double_result
-    MATCH_RETURN_TYPE 'F', .Lstore_float_result
-    MATCH_RETURN_TYPE 'S', .Lstore_int_result
-    MATCH_RETURN_TYPE 'Z', .Lstore_boolean_result
-.purgem MATCH_RETURN_TYPE
-    nop
-    b .Lcleanup_and_return
-    nop
-.Lstore_boolean_result:
-    b .Lcleanup_and_return
-    lbu   $v0, 16($sp)                        # Move byte from JValue result to return value register.
-.Lstore_char_result:
-    b .Lcleanup_and_return
-    lhu   $v0, 16($sp)                        # Move char from JValue result to return value register.
-.Lstore_double_result:
-.Lstore_float_result:
-    CHECK_ALIGNMENT $sp, $t0
-    ldc1  $f0, 16($sp)                        # Move double/float from JValue result to return value register.
-    b .Lcleanup_and_return
-    nop
-.Lstore_long_result:
-    lw    $v1, 20($sp)                        # Move upper bits from JValue result to return value register.
-    // Fall-through for lower bits.
-.Lstore_int_result:
-    lw    $v0, 16($sp)                        # Move lower bits from JValue result to return value register.
-    // Fall-through to clean up and return.
-.Lcleanup_and_return:
-    lw    $t7, THREAD_EXCEPTION_OFFSET(rSELF) # Load Thread::Current()->exception_
+    move    $a0, $a1                            # Make $a0 the receiver.
+    move    $a1, rSELF                          # Make $a1 an alias for the current Thread.
+    la      $t9, artInvokePolymorphic           # Invoke artInvokePolymorphic
+    jalr    $t9                                 # with args (receiver, Thread*, context).
+    addiu   $a2, $sp, ARG_SLOT_SIZE             # Make $a2 a pointer to the saved frame context.
+    lw      $t7, THREAD_EXCEPTION_OFFSET(rSELF) # load Thread::Current()->exception_
     RESTORE_SAVE_REFS_AND_ARGS_FRAME
-    bnez  $t7, 1f                             # Success if no exception is pending.
-    nop
-    jalr  $zero, $ra
+    bnez    $t7, 1f
+    # don't care if $v0 and/or $v1 are modified, when exception branch taken
+    MTD     $v0, $v1, $f0, $f1                  # move float value to return value
+    jalr    $zero, $ra
     nop
 1:
     DELIVER_PENDING_EXCEPTION
 END art_quick_invoke_polymorphic
+
+    /*
+     * InvokeCustom invocation.
+     * On entry:
+     *   a0 = call_site_idx
+     */
+.extern artInvokeCustom
+ENTRY art_quick_invoke_custom
+    SETUP_SAVE_REFS_AND_ARGS_FRAME
+    move    $a1, rSELF                          # Make $a1 an alias for the current Thread.
+    la      $t9, artInvokeCustom                # Invoke artInvokeCustom
+    jalr    $t9                                 # with args (call_site_idx, Thread*, context).
+    addiu   $a2, $sp, ARG_SLOT_SIZE             # Make $a2 a pointer to the saved frame context.
+    lw      $t7, THREAD_EXCEPTION_OFFSET(rSELF) # load Thread::Current()->exception_
+    RESTORE_SAVE_REFS_AND_ARGS_FRAME
+    bnez    $t7, 1f
+    # don't care if $v0 and/or $v1 are modified, when exception branch taken
+    MTD     $v0, $v1, $f0, $f1                  # move float value to return value
+    jalr    $zero, $ra
+    nop
+END art_quick_invoke_custom

@@ -22,8 +22,6 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.media.RingtoneManager;
 import android.net.Uri;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
 import android.os.SystemClock;
 import android.os.Trace;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
@@ -140,8 +138,7 @@ public class ContactInfoCache implements OnImageLoadCompleteListener {
     return cache;
   }
 
-  static ContactCacheEntry buildCacheEntryFromCall(
-      Context context, DialerCall call, boolean isIncoming) {
+  static ContactCacheEntry buildCacheEntryFromCall(Context context, DialerCall call) {
     final ContactCacheEntry entry = new ContactCacheEntry();
 
     // TODO: get rid of caller info.
@@ -276,7 +273,7 @@ public class ContactInfoCache implements OnImageLoadCompleteListener {
     cce.isVoicemailNumber = info.isVoiceMailNumber();
 
     if (info.contactExists) {
-      cce.contactLookupResult = ContactLookupResult.Type.LOCAL_CONTACT;
+      cce.contactLookupResult = info.contactLookupResultType;
     }
   }
 
@@ -516,7 +513,7 @@ public class ContactInfoCache implements OnImageLoadCompleteListener {
       return;
     }
     CequintCallerIdContact cequintCallerIdContact =
-        CequintCallerIdManager.getCequintCallerIdContactForInCall(
+        CequintCallerIdManager.getCequintCallerIdContactForCall(
             context, callerInfo.phoneNumber, cnapName, isIncoming);
 
     if (cequintCallerIdContact == null) {
@@ -524,25 +521,26 @@ public class ContactInfoCache implements OnImageLoadCompleteListener {
     }
     boolean hasUpdate = false;
 
-    if (TextUtils.isEmpty(callerInfo.name) && !TextUtils.isEmpty(cequintCallerIdContact.name)) {
-      callerInfo.name = cequintCallerIdContact.name;
+    if (TextUtils.isEmpty(callerInfo.name) && !TextUtils.isEmpty(cequintCallerIdContact.name())) {
+      callerInfo.name = cequintCallerIdContact.name();
       hasUpdate = true;
     }
-    if (!TextUtils.isEmpty(cequintCallerIdContact.geoDescription)) {
-      callerInfo.geoDescription = cequintCallerIdContact.geoDescription;
+    if (!TextUtils.isEmpty(cequintCallerIdContact.geolocation())) {
+      callerInfo.geoDescription = cequintCallerIdContact.geolocation();
       callerInfo.shouldShowGeoDescription = true;
       hasUpdate = true;
     }
     // Don't overwrite photo in local contacts.
     if (!callerInfo.contactExists
         && callerInfo.contactDisplayPhotoUri == null
-        && cequintCallerIdContact.imageUrl != null) {
-      callerInfo.contactDisplayPhotoUri = Uri.parse(cequintCallerIdContact.imageUrl);
+        && cequintCallerIdContact.photoUri() != null) {
+      callerInfo.contactDisplayPhotoUri = Uri.parse(cequintCallerIdContact.photoUri());
       hasUpdate = true;
     }
     // Set contact to exist to avoid phone number service lookup.
     if (hasUpdate) {
       callerInfo.contactExists = true;
+      callerInfo.contactLookupResultType = ContactLookupResult.Type.CEQUINT;
     }
   }
 
@@ -640,10 +638,7 @@ public class ContactInfoCache implements OnImageLoadCompleteListener {
       cce.photo = null;
     }
 
-    // Support any contact id in N because QuickContacts in N starts supporting enterprise
-    // contact id
-    if (info.lookupKeyOrNull != null
-        && (VERSION.SDK_INT >= VERSION_CODES.N || info.contactIdOrZero != 0)) {
+    if (info.lookupKeyOrNull != null && info.contactIdOrZero != 0) {
       cce.lookupUri = Contacts.getLookupUri(info.contactIdOrZero, info.lookupKeyOrNull);
     } else {
       Log.v(TAG, "lookup key is null or contact ID is 0 on M. Don't create a lookup uri.");
@@ -841,7 +836,7 @@ public class ContactInfoCache implements OnImageLoadCompleteListener {
         final PhoneNumberServiceListener listener =
             new PhoneNumberServiceListener(callId, queryToken.queryId);
         cacheEntry.hasPendingQuery = true;
-        phoneNumberService.getPhoneNumberInfo(cacheEntry.number, listener, listener, isIncoming);
+        phoneNumberService.getPhoneNumberInfo(cacheEntry.number, listener);
       }
       sendInfoNotifications(callId, cacheEntry);
       if (!cacheEntry.hasPendingQuery) {
@@ -859,8 +854,7 @@ public class ContactInfoCache implements OnImageLoadCompleteListener {
     }
   }
 
-  class PhoneNumberServiceListener
-      implements PhoneNumberService.NumberLookupListener, PhoneNumberService.ImageLookupListener {
+  class PhoneNumberServiceListener implements PhoneNumberService.NumberLookupListener {
 
     private final String callId;
     private final int queryIdOfRemoteLookup;
@@ -927,17 +921,6 @@ public class ContactInfoCache implements OnImageLoadCompleteListener {
         // We're done, so clear callbacks
         clearCallbacks(callId);
       }
-    }
-
-    @Override
-    public void onImageFetchComplete(Bitmap bitmap) {
-      Log.d(TAG, "PhoneNumberServiceListener.onImageFetchComplete");
-      if (!isWaitingForThisQuery(callId, queryIdOfRemoteLookup)) {
-        return;
-      }
-      CallerInfoQueryToken queryToken = new CallerInfoQueryToken(queryIdOfRemoteLookup, callId);
-      loadImage(null, bitmap, queryToken);
-      onImageLoadComplete(TOKEN_UPDATE_PHOTO_FOR_CALL_STATE, null, bitmap, queryToken);
     }
   }
 

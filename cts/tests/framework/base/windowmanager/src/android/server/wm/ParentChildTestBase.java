@@ -17,15 +17,15 @@
 package android.server.wm;
 
 import static android.app.WindowConfiguration.WINDOWING_MODE_SPLIT_SCREEN_PRIMARY;
-import static android.server.am.StateLogger.log;
+import static android.server.wm.StateLogger.log;
 import static android.server.wm.DialogFrameTestActivity.EXTRA_TEST_CASE;
 
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
-import android.server.am.ActivityManagerTestBase;
-import android.server.am.WindowManagerState.WindowState;
-import android.support.test.rule.ActivityTestRule;
+import android.server.wm.WindowManagerState.WindowState;
+
+import androidx.test.rule.ActivityTestRule;
 
 abstract class ParentChildTestBase<T extends Activity> extends ActivityManagerTestBase {
 

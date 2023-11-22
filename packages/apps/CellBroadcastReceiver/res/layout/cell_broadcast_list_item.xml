@@ -20,7 +20,7 @@
 <com.android.cellbroadcastreceiver.CellBroadcastListItem xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/list_item_background_unread"
+    android:background="?android:attr/colorBackground"
     android:paddingStart="16dp"
     android:paddingEnd="16dp"
     android:paddingTop="16dp"

@@ -44,7 +44,9 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <ctype.h>
-#ifdef _ALLBSD_SOURCE
+// Android-changed: Fuchsia: Point to correct location of header. http://b/119426171
+// #ifdef _ALLBSD_SOURCE
+#if defined(_ALLBSD_SOURCE) && !defined(__Fuchsia__)
 #include <wait.h>
 #else
 #include <sys/wait.h>
@@ -117,7 +119,8 @@
 #ifndef START_CHILD_USE_VFORK
 // Android-changed: disable vfork under AddressSanitizer.
 //  #ifdef __linux__
-  #if defined(__linux__) && !__has_feature(address_sanitizer)
+  #if defined(__linux__) && !__has_feature(address_sanitizer) && \
+      !__has_feature(hwaddress_sanitizer)
     #define START_CHILD_USE_VFORK 1
   #else
     #define START_CHILD_USE_VFORK 0
@@ -384,7 +387,17 @@ static int
 restartableClose(int fd)
 {
     int err;
-    RESTARTABLE(close(fd), err);
+    // Android-changed: do not retry EINTR close() failures. b/20501816
+    // Note: This code was removed upstream in OpenJDK 7u50,
+    // commit http://hg.openjdk.java.net/jdk/jdk/rev/e2e5122cd62e
+    // relating to upstream bug JDK-5049299. The entire file was
+    // then dropped in favor of .java code in upstream OpenJDK 9,
+    // commit http://hg.openjdk.java.net/jdk/jdk/rev/fe8344cf6496
+    //
+    // If we integrate OpenJDK 7u50+, this Android patch can be dropped.
+    //
+    // RESTARTABLE(close(fd), err);
+    err = close(fd);
     return err;
 }
 
@@ -400,7 +413,9 @@ isAsciiDigit(char c)
   return c >= '0' && c <= '9';
 }
 
-#ifdef _ALLBSD_SOURCE
+// Android-changed: Fuchsia: Alias *64 on Fuchsia builds. http://b/119496969
+// #ifdef _ALLBSD_SOURCE
+#if defined(_ALLBSD_SOURCE) || defined(__Fuchsia__)
 #define FD_DIR "/dev/fd"
 #define dirent64 dirent
 #define readdir64 readdir
@@ -491,7 +506,9 @@ throwIOException(JNIEnv *env, int errnum, const char *defaultDetail)
 
     if (errnum != 0) {
         const char *s = strerror(errnum);
-        if (strcmp(s, "Unknown error") != 0)
+        // Android-changed: Fix logic for recognizing error strings. http://b/110019823
+        // if (strcmp(s, "Unknown error") != 0)
+        if (strstr(s, "Unknown error") == 0)
             detail = s;
     }
     /* ASCII Decimal representation uses 2.4 times as many bits as binary. */

@@ -69,6 +69,6 @@ public class CpuFeatures {
         int deviceMajor = Integer.parseInt(kernelVersion[0]);
         int deviceMinor = Integer.parseInt(kernelVersion[1]);
 
-        return (major < deviceMajor) || ((major == deviceMajor) && (minor < deviceMinor));
+        return (major > deviceMajor) || ((major == deviceMajor) && (minor > deviceMinor));
     }
 }

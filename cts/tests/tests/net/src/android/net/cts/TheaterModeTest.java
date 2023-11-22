@@ -18,11 +18,10 @@ package android.net.cts;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
 import android.test.AndroidTestCase;
 import android.util.Log;
-
-import java.lang.Thread;
 
 public class TheaterModeTest extends AndroidTestCase {
     private static final String TAG = "TheaterModeTest";
@@ -40,6 +39,7 @@ public class TheaterModeTest extends AndroidTestCase {
                        || mContext.getPackageManager().hasSystemFeature(FEATURE_WIFI));
     }
 
+    @AppModeFull(reason = "WRITE_SECURE_SETTINGS permission can't be granted to instant apps")
     public void testTheaterMode() {
         setup();
         if (!mHasFeature) {

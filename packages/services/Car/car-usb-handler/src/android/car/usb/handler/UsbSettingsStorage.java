@@ -24,6 +24,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.hardware.usb.UsbDevice;
 import android.util.Log;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -51,25 +52,23 @@ public final class UsbSettingsStorage {
     private Cursor queryFor(SQLiteDatabase db, UsbDevice device) {
         String serial = device.getSerialNumber();
         String selection;
-        String[] selectionArgs;
+        List<String> selectionArgs = new ArrayList<>();
         if (AoapInterface.isDeviceInAoapMode(device)) {
             selection = COLUMN_SERIAL + " = ? AND " + COLUMN_AOAP + " = 1";
-            selectionArgs = new String[] {serial};
+            selectionArgs.add(serial);
         } else if (serial == null) {
-            selection = COLUMN_SERIAL + " IS NULL AND "
-                    + COLUMN_VID + " = ? AND " + COLUMN_PID + " = ?";
-            selectionArgs = new String[] {
-                    Integer.toString(device.getVendorId()),
-                    Integer.toString(device.getProductId())};
+            selection = COLUMN_SERIAL + " IS NULL";
         } else {
-            selection =
-                    COLUMN_SERIAL + " = ? AND " + COLUMN_VID + " = ? AND " + COLUMN_PID + " = ?";
-            selectionArgs = new String[] {
-                    device.getSerialNumber(),
-                    Integer.toString(device.getVendorId()),
-                    Integer.toString(device.getProductId())};
+            selection = COLUMN_SERIAL + " = ?";
+            selectionArgs.add(serial);
         }
-        return db.query(TABLE_USB_SETTINGS, null, selection, selectionArgs, null, null, null);
+
+        selection += " AND " + COLUMN_VID + " = ? AND " + COLUMN_PID + " = ?";
+        selectionArgs.add(String.valueOf(device.getVendorId()));
+        selectionArgs.add(String.valueOf(device.getProductId()));
+
+        return db.query(TABLE_USB_SETTINGS, null, selection,
+                selectionArgs.toArray(new String[0]), null, null, null);
     }
 
     /**
@@ -184,13 +183,18 @@ public final class UsbSettingsStorage {
         return contentValues;
     }
 
-
     private static class UsbSettingsDbHelper extends SQLiteOpenHelper {
         private static final int DATABASE_VERSION = 2;
         private static final String DATABASE_NAME = "usb_devices.db";
 
+        // we are using device protected storage because we may need to access the db before the
+        // user has authenticated
         UsbSettingsDbHelper(Context context) {
-            super(context, DATABASE_NAME, null, DATABASE_VERSION);
+            super(
+                    context.createDeviceProtectedStorageContext(),
+                    DATABASE_NAME,
+                    null,
+                    DATABASE_VERSION);
         }
 
         @Override

@@ -22,11 +22,7 @@ import android.annotation.Nullable;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.text.Layout;
 import android.text.TextUtils;
@@ -125,15 +121,13 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
         mPendingTouchEvent = null;
     }
 
-
-
     private void setupAssistActions() {
         int[] buttonIds = new int[] {R.id.action1, R.id.action2, R.id.action3};
 
         List<ResolveInfo> infos;
 
         if (TelephonyManager.EMERGENCY_ASSISTANCE_ENABLED) {
-            infos = resolveAssistPackageAndQueryActivites();
+            infos = EmergencyAssistanceHelper.resolveAssistPackageAndQueryActivities(getContext());
         } else {
             infos = null;
         }
@@ -146,10 +140,10 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
 
             if (infos != null && infos.size() > i && infos.get(i) != null) {
                 ResolveInfo info = infos.get(i);
-                ComponentName name = getComponentName(info);
+                ComponentName name = EmergencyAssistanceHelper.getComponentName(info);
 
                 button.setTag(R.id.tag_intent,
-                        new Intent(TelephonyManager.ACTION_EMERGENCY_ASSISTANCE)
+                        new Intent(EmergencyAssistanceHelper.getIntentAction())
                                 .setComponent(name));
                 button.setText(info.loadLabel(getContext().getPackageManager()));
                 visible = true;
@@ -157,69 +151,6 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
 
             button.setVisibility(visible ? View.VISIBLE : View.GONE);
         }
-    }
-
-    private List<ResolveInfo> resolveAssistPackageAndQueryActivites() {
-        List<ResolveInfo> infos = queryAssistActivities();
-
-        if (infos == null || infos.isEmpty()) {
-            PackageManager packageManager = getContext().getPackageManager();
-            Intent queryIntent = new Intent(TelephonyManager.ACTION_EMERGENCY_ASSISTANCE);
-            infos = packageManager.queryIntentActivities(queryIntent, 0);
-
-            PackageInfo bestMatch = null;
-            for (int i = 0; i < infos.size(); i++) {
-                if (infos.get(i).activityInfo == null) continue;
-                String packageName = infos.get(i).activityInfo.packageName;
-                PackageInfo packageInfo;
-                try {
-                    packageInfo = packageManager.getPackageInfo(packageName, 0);
-                } catch (PackageManager.NameNotFoundException e) {
-                    continue;
-                }
-                // Get earliest installed system app.
-                if (isSystemApp(packageInfo) && (bestMatch == null ||
-                        bestMatch.firstInstallTime > packageInfo.firstInstallTime)) {
-                    bestMatch = packageInfo;
-                }
-            }
-
-            if (bestMatch != null) {
-                Settings.Secure.putString(getContext().getContentResolver(),
-                        Settings.Secure.EMERGENCY_ASSISTANCE_APPLICATION,
-                        bestMatch.packageName);
-                return queryAssistActivities();
-            } else {
-                return null;
-            }
-        } else {
-            return infos;
-        }
-    }
-
-    private List<ResolveInfo> queryAssistActivities() {
-        String assistPackage = Settings.Secure.getString(
-                getContext().getContentResolver(),
-                Settings.Secure.EMERGENCY_ASSISTANCE_APPLICATION);
-        List<ResolveInfo> infos = null;
-
-        if (!TextUtils.isEmpty(assistPackage)) {
-            Intent queryIntent = new Intent(TelephonyManager.ACTION_EMERGENCY_ASSISTANCE)
-                    .setPackage(assistPackage);
-            infos = getContext().getPackageManager().queryIntentActivities(queryIntent, 0);
-        }
-        return infos;
-    }
-
-    private boolean isSystemApp(PackageInfo info) {
-        return info.applicationInfo != null
-                && (info.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
-    }
-
-    private ComponentName getComponentName(ResolveInfo resolveInfo) {
-        if (resolveInfo == null || resolveInfo.activityInfo == null) return null;
-        return new ComponentName(resolveInfo.activityInfo.packageName,
-                resolveInfo.activityInfo.name);
     }
 
     @Override
@@ -405,6 +336,4 @@ public class EmergencyActionGroup extends FrameLayout implements View.OnClickLis
             startRipple();
         }
     };
-
-
 }

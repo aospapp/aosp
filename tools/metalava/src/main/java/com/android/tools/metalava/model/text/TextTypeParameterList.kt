@@ -19,8 +19,13 @@ package com.android.tools.metalava.model.text
 import com.android.tools.metalava.doclava1.TextCodebase
 import com.android.tools.metalava.model.TypeParameterItem
 import com.android.tools.metalava.model.TypeParameterList
+import com.android.tools.metalava.model.TypeParameterListOwner
 
-class TextTypeParameterList(val codebase: TextCodebase, private val typeListString: String) : TypeParameterList {
+class TextTypeParameterList(
+    val codebase: TextCodebase,
+    var owner: TypeParameterListOwner?,
+    private val typeListString: String
+) : TypeParameterList {
     private var typeParameters: List<TypeParameterItem>? = null
     private var typeParameterNames: List<String>? = null
 
@@ -43,15 +48,15 @@ class TextTypeParameterList(val codebase: TextCodebase, private val typeListStri
         if (typeParameters == null) {
             val strings = typeParameterStrings(typeListString)
             val list = ArrayList<TypeParameterItem>(strings.size)
-            strings.mapTo(list) { TextTypeParameterItem.create(codebase, it) }
+            strings.mapTo(list) { TextTypeParameterItem.create(codebase, owner, it) }
             typeParameters = list
         }
         return typeParameters!!
     }
 
     companion object {
-        fun create(codebase: TextCodebase, typeListString: String): TypeParameterList {
-            return TextTypeParameterList(codebase, typeListString)
+        fun create(codebase: TextCodebase, owner: TypeParameterListOwner?, typeListString: String): TypeParameterList {
+            return TextTypeParameterList(codebase, owner, typeListString)
         }
 
         fun typeParameterStrings(typeString: String?): List<String> {

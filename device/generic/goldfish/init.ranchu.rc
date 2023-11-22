@@ -3,11 +3,17 @@ on fs
 
 on early-init
     mount debugfs debugfs /sys/kernel/debug mode=755
+    mount proc proc /proc remount hidepid=2,gid=3009
 
 on init
+    # set RLIMIT_MEMLOCK to 8MB for BPF network statistics
+    setrlimit memlock 8388608 8388608
 
     symlink /dev/goldfish_pipe /dev/android_pipe
     symlink /dev/goldfish_pipe /dev/qemu_pipe
+
+    write /sys/block/zram0/comp_algorithm lz4
+    write /proc/sys/vm/page-cluster 0
 
 on post-fs-data
     setprop vold.post_fs_data_done 1
@@ -15,10 +21,18 @@ on post-fs-data
     mkdir /data/vendor/var/run 0755 root root
     mkdir /data/vendor/var/run/netns 0755 root root
 
+on zygote-start
+    # Create the directories used by the Wireless subsystem
+    mkdir /data/vendor/wifi 0771 wifi wifi
+    mkdir /data/vendor/wifi/wpa 0770 wifi wifi
+    mkdir /data/vendor/wifi/wpa/sockets 0770 wifi wifi
+
 on boot
+    setprop ro.hardware.egl emulation
     setprop debug.hwui.renderer opengl
     setprop debug.hwui.renderer ${ro.kernel.qemu.uirenderer}
     setprop ro.opengles.version ${ro.kernel.qemu.opengles.version}
+    setprop ro.zygote.disable_gl_preload 1
     setprop dalvik.vm.heapsize 192m
     setprop dalvik.vm.heapsize ${ro.kernel.qemu.dalvik.vm.heapsize}
     chown root system /sys/power/wake_lock
@@ -26,9 +40,12 @@ on boot
     setprop ro.hardware.audio.primary goldfish
 
     setprop wifi.interface wlan0
+    setprop wifi.direct.interface p2p-dev-wlan0
 
     start goldfish-logcat
 
+    # Create a dummy USB gadget to allow sysfs testing
+    mkdir /config/usb_gadget/g1 0770 root root
 
 service ranchu-setup /vendor/bin/init.ranchu-core.sh
     class core
@@ -48,7 +65,7 @@ on property:dev.bootcomplete=1
 service ranchu-net /vendor/bin/init.ranchu-net.sh
     class late_start
     user root
-    group root wakelock
+    group root wakelock wifi
     oneshot
 
 service ipv6proxy /vendor/bin/execns router /vendor/bin/ipv6proxy -o eth0 -i wlan1,radio0-peer
@@ -56,14 +73,19 @@ service ipv6proxy /vendor/bin/execns router /vendor/bin/ipv6proxy -o eth0 -i wla
     group root
     disabled
 
-service emu_hostapd /vendor/bin/execns router /vendor/bin/hw/hostapd /vendor/etc/simulated_hostapd.conf
+service emu_hostapd /vendor/bin/execns router /vendor/bin/hostapd_nohidl /data/vendor/wifi/hostapd/hostapd.conf
     user root
-    group root wifi
+    group root wifi net_raw net_admin
     disabled
 
-service dhcpserver /vendor/bin/execns router /vendor/bin/dhcpserver --range 192.168.232.2,192.168.239.254 --gateway 192.168.232.1 --netmask 255.255.248.0 --exclude-interface eth0
+service dhcpserver /vendor/bin/execns router /vendor/bin/dhcpserver --exclude-interface eth0
     user root
     group root
+    disabled
+
+service netmgr /vendor/bin/execns router /vendor/bin/netmgr --if-prefix wlan1_ --network 192.168.232.9/29
+    user root
+    group root wifi
     disabled
 
 service dhcpclient_rtr /vendor/bin/execns router /vendor/bin/dhcpclient -i eth0
@@ -112,3 +134,16 @@ service wpa_supplicant /vendor/bin/hw/wpa_supplicant -Dnl80211 -iwlan0 -c/vendor
     group system wifi inet
     oneshot
     disabled
+
+# Enable zram only once per boot. From:
+
+# We want one opportunity per boot to enable zram, so we
+# use a trigger we fire from the above stanza. If
+# persist.sys.zram_enabled becomes true after boot,
+# we don't want to run swapon_all at that time.
+
+on property:sys.boot_completed=1
+    trigger sys-boot-completed-set
+
+on sys-boot-completed-set && property:persist.sys.zram_enabled=1
+    swapon_all /vendor/etc/fstab.${ro.hardware}

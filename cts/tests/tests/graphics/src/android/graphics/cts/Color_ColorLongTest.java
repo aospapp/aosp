@@ -15,14 +15,6 @@
  */
 package android.graphics.cts;
 
-import android.graphics.Color;
-import android.graphics.ColorSpace;
-import android.graphics.ColorSpace.Named;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
 import static android.graphics.Color.alpha;
 import static android.graphics.Color.blue;
 import static android.graphics.Color.colorSpace;
@@ -33,12 +25,23 @@ import static android.graphics.Color.pack;
 import static android.graphics.Color.red;
 import static android.graphics.Color.toArgb;
 import static android.graphics.Color.valueOf;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
+
+import android.graphics.Color;
+import android.graphics.ColorSpace;
+import android.graphics.ColorSpace.Named;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -87,6 +90,11 @@ public class Color_ColorLongTest {
     @Test(expected = IllegalArgumentException.class)
     public void testInvalidColorSpace() {
         colorSpace(0xffffffffffffffffL);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testInvalidColorSpace2() {
+        colorSpace((long) ColorSpace.Named.values().length);
     }
 
     @Test
@@ -361,6 +369,14 @@ public class Color_ColorLongTest {
     }
 
     @Test
+    public void testConvertToBT709() {
+        int sRgb = Color.argb(1.0f, 0.5f, 0.5f, 0.5f);
+        long bt709 = Color.convert(sRgb, ColorSpace.get(Named.BT709));
+
+        assertEquals(ColorSpace.get(Named.BT709), Color.colorSpace(bt709));
+    }
+
+    @Test
     public void testConvertColorInt() {
         long color = convert(0xffff8000, ColorSpace.get(Named.ADOBE_RGB));
 
@@ -405,5 +421,12 @@ public class Color_ColorLongTest {
         assertEquals(0.9499f, red(color), 0.01f);
         assertEquals(0.4597f, green(color), 0.01f);
         assertEquals(0.0000f, blue(color), 0.01f);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testConvertFailureUnnamedColorSpace() {
+        float[] primaries = new float[]{ .7f, .6f, .5f, .4f, .3f, .2f };
+        ColorSpace cs = new ColorSpace.Rgb("mock", primaries, ColorSpace.ILLUMINANT_A, .7);
+        Color.convert(Color.BLUE, cs);
     }
 }

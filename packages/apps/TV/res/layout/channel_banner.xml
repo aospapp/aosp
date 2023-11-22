@@ -83,13 +83,22 @@
             android:layout_toEndOf="@id/anchor"
             android:visibility="gone" />
 
+        <ImageView android:id="@+id/channel_signal_strength"
+            android:layout_width="@dimen/channel_banner_input_logo_size"
+            android:layout_height="@dimen/channel_banner_input_logo_size"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="-2dp"
+            android:layout_alignBottom="@id/anchor"
+            android:layout_toEndOf="@id/tvinput_logo"
+            android:visibility="gone" />
+
         <TextView android:id="@+id/channel_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="12dp"
             android:layout_marginBottom="-4sp"
             android:layout_alignBottom="@id/anchor"
-            android:layout_toEndOf="@id/tvinput_logo"
+            android:layout_toEndOf="@id/channel_signal_strength"
             android:singleLine="true"
             android:ellipsize="end"
             android:maxWidth="@dimen/channel_name_max_width"

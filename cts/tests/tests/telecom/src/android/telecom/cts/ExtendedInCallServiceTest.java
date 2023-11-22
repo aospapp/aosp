@@ -17,13 +17,14 @@
 package android.telecom.cts;
 
 import static android.telecom.cts.TestUtils.*;
+import static com.android.compatibility.common.util.BlockedNumberUtil.deleteBlockedNumber;
+import static com.android.compatibility.common.util.BlockedNumberUtil.insertBlockedNumber;
 
 import android.app.UiModeManager;
 import android.content.ContentValues;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.BlockedNumberContract;
 import android.telecom.CallAudioState;
 import android.telecom.Call;
 import android.telecom.Connection;
@@ -393,17 +394,17 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
             assertNull(mInCallCallbacks.getService());
         } finally {
             if (blockedUri != null) {
-                mContext.getContentResolver().delete(blockedUri, null, null);
+                unblockNumber(blockedUri);
             }
         }
     }
 
     private Uri blockNumber(Uri phoneNumberUri) {
-        ContentValues cv = new ContentValues();
-        cv.put(BlockedNumberContract.BlockedNumbers.COLUMN_ORIGINAL_NUMBER,
-                phoneNumberUri.getSchemeSpecificPart());
-        return mContext.getContentResolver().insert(
-                BlockedNumberContract.BlockedNumbers.CONTENT_URI, cv);
+        return insertBlockedNumber(mContext, phoneNumberUri.getSchemeSpecificPart());
+    }
+
+    private int unblockNumber(Uri uri) {
+        return deleteBlockedNumber(mContext, uri);
     }
 
     public void testAnswerIncomingCallAsVideo_SendsCorrectVideoState() {
@@ -582,15 +583,18 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
         if (!mShouldTestTelecom) {
             return;
         }
-
         addAndVerifyNewIncomingCall(createTestNumber(), null);
         final MockConnection connection = verifyConnectionForIncomingCall();
+        final InvokeCounter counter = connection.getInvokeCounter(MockConnection.ON_SILENCE);
         final MockInCallService inCallService = mInCallCallbacks.getService();
 
         final TelecomManager telecomManager =
             (TelecomManager) mContext.getSystemService(Context.TELECOM_SERVICE);
         telecomManager.silenceRinger();
+
+        // Both the InCallService and Connection will be notified of a request to silence:
         mOnSilenceRingerCounter.waitForCount(1);
+        counter.waitForCount(1);
     }
 
     public void testOnPostDialWaitAndContinue() {

@@ -145,6 +145,26 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
         }
 
         @Override
+        public void resetConnectionTime(String callId, Session.Info sessionInfo) {
+            Log.startSession(sessionInfo, "CSW.rCCT");
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    logIncoming("resetConnectionTime %s", callId);
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        mCallsManager.resetConnectionTime(call);
+                    } else {
+                        // Log.w(this, "resetConnectionTime, unknown call id: %s", msg.obj);
+                    }
+                }
+            } finally {
+                Binder.restoreCallingIdentity(token);
+                Log.endSession();
+            }
+        }
+
+        @Override
         public void setVideoProvider(String callId, IVideoProvider videoProvider,
                 Session.Info sessionInfo) {
             Log.startSession(sessionInfo, "CSW.sVP");
@@ -552,15 +572,16 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
 
         @Override
         public void queryRemoteConnectionServices(RemoteServiceCallback callback,
-                Session.Info sessionInfo) {
+                String callingPackage, Session.Info sessionInfo) {
             final UserHandle callingUserHandle = Binder.getCallingUserHandle();
             Log.startSession(sessionInfo, "CSW.qRCS");
             long token = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
-                    logIncoming("queryRemoteConnectionServices %s", callback);
+                    logIncoming("queryRemoteConnectionServices callingPackage=" + callingPackage);
                     ConnectionServiceWrapper.this
-                            .queryRemoteConnectionServices(callingUserHandle, callback);
+                            .queryRemoteConnectionServices(callingUserHandle, callingPackage,
+                                    callback);
                 }
             } catch (Throwable t) {
                 Log.e(ConnectionServiceWrapper.this, t, "");
@@ -802,9 +823,18 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
                     }
                     // Allow the Sim call manager account as well, even if its disabled.
                     if (phoneAccountHandle == null && callingPhoneAccountHandle != null) {
-                        if (callingPhoneAccountHandle.equals(
-                                mPhoneAccountRegistrar.getSimCallManager(userHandle))) {
-                            phoneAccountHandle = callingPhoneAccountHandle;
+                        // Search all SIM PhoneAccounts to see if there is a SIM call manager
+                        // associated with any of them and verify that the calling handle matches.
+                        for (PhoneAccountHandle handle :
+                                mPhoneAccountRegistrar.getSimPhoneAccounts(userHandle)) {
+                            int subId = mPhoneAccountRegistrar.getSubscriptionIdForPhoneAccount(
+                                    handle);
+                            PhoneAccountHandle connectionMgrHandle =
+                                    mPhoneAccountRegistrar.getSimCallManager(subId, userHandle);
+                            if (callingPhoneAccountHandle.equals(connectionMgrHandle)) {
+                                phoneAccountHandle = connectionMgrHandle;
+                                break;
+                            }
                         }
                     }
                     if (phoneAccountHandle != null) {
@@ -961,6 +991,27 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
                 synchronized (mLock) {
                     mConnSvrFocusListener.onConnectionServiceReleased(
                             ConnectionServiceWrapper.this);
+                }
+            } catch (Throwable t) {
+                Log.e(ConnectionServiceWrapper.this, t, "");
+                throw t;
+            } finally {
+                Binder.restoreCallingIdentity(token);
+                Log.endSession();
+            }
+        }
+
+        @Override
+        public void setConferenceState(String callId, boolean isConference,
+                Session.Info sessionInfo) throws RemoteException {
+            Log.startSession(sessionInfo, "CSW.sCS");
+            long token = Binder.clearCallingIdentity();
+            try {
+                synchronized (mLock) {
+                    Call call = mCallIdMapper.getCall(callId);
+                    if (call != null) {
+                        call.setConferenceState(isConference);
+                    }
                 }
             } catch (Throwable t) {
                 Log.e(ConnectionServiceWrapper.this, t, "");
@@ -1621,6 +1672,14 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
         if (connection.getState() == Connection.STATE_DISCONNECTED) {
             // A connection that begins in the DISCONNECTED state is an indication of
             // failure to connect; we handle all failures uniformly
+            Call foundCall = mCallIdMapper.getCall(callId);
+            if (foundCall != null) {
+                // The post-dial digits are created when the call is first created.  Normally
+                // the ConnectionService is responsible for stripping them from the address, but
+                // since a failed connection will not have done this, we could end up with duplicate
+                // post-dial digits.
+                foundCall.clearPostDialDigits();
+            }
             removeCall(callId, connection.getDisconnectCause());
         } else {
             // Successful connection
@@ -1662,21 +1721,26 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
     }
 
     private void queryRemoteConnectionServices(final UserHandle userHandle,
-            final RemoteServiceCallback callback) {
-        // Only give remote connection services to this connection service if it is listed as
-        // the connection manager.
-        PhoneAccountHandle simCallManager = mPhoneAccountRegistrar.getSimCallManager(userHandle);
-        Log.d(this, "queryRemoteConnectionServices finds simCallManager = %s", simCallManager);
-        if (simCallManager == null ||
-                !simCallManager.getComponentName().equals(getComponentName())) {
-            noRemoteServices(callback);
-            return;
-        }
-
-        // Make a list of ConnectionServices that are listed as being associated with SIM accounts
+            final String callingPackage, final RemoteServiceCallback callback) {
+        boolean isCallerConnectionManager = false;
+        // For each Sim ConnectionService, use its subid to find the correct connection manager for
+        // that ConnectionService; return those Sim ConnectionServices which match the connection
+        // manager.
         final Set<ConnectionServiceWrapper> simServices = Collections.newSetFromMap(
                 new ConcurrentHashMap<ConnectionServiceWrapper, Boolean>(8, 0.9f, 1));
         for (PhoneAccountHandle handle : mPhoneAccountRegistrar.getSimPhoneAccounts(userHandle)) {
+            int subId = mPhoneAccountRegistrar.getSubscriptionIdForPhoneAccount(handle);
+            PhoneAccountHandle connectionMgrHandle = mPhoneAccountRegistrar.getSimCallManager(subId,
+                    userHandle);
+            if (connectionMgrHandle == null
+                    || !connectionMgrHandle.getComponentName().getPackageName().equals(
+                            callingPackage)) {
+                Log.v(this, "queryRemoteConnectionServices: callingPackage=%s skipped; "
+                                + "doesn't match mgr %s for tfa %s",
+                        callingPackage, connectionMgrHandle, handle);
+            } else {
+                isCallerConnectionManager = true;
+            }
             ConnectionServiceWrapper service = mConnectionServiceRepository.getService(
                     handle.getComponentName(), handle.getUserHandle());
             if (service != null) {
@@ -1684,10 +1748,17 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
             }
         }
 
+        // Bail early if the caller isn't the sim connection mgr.
+        if (!isCallerConnectionManager) {
+            Log.d(this, "queryRemoteConnectionServices: none; not sim call mgr.");
+            noRemoteServices(callback);
+            return;
+        }
+
         final List<ComponentName> simServiceComponentNames = new ArrayList<>();
         final List<IBinder> simServiceBinders = new ArrayList<>();
 
-        Log.v(this, "queryRemoteConnectionServices, simServices = %s", simServices);
+        Log.i(this, "queryRemoteConnectionServices, simServices = %s", simServices);
 
         for (ConnectionServiceWrapper simService : simServices) {
             if (simService == this) {
@@ -1700,7 +1771,8 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
             currentSimService.mBinder.bind(new BindCallback() {
                 @Override
                 public void onSuccess() {
-                    Log.d(this, "Adding simService %s", currentSimService.getComponentName());
+                    Log.d(this, "queryRemoteConnectionServices: Adding simService %s",
+                            currentSimService.getComponentName());
                     if (currentSimService.mServiceInterface == null) {
                         // The remote ConnectionService died, so do not add it.
                         // We will still perform maybeComplete() and notify the caller with an empty
@@ -1716,7 +1788,8 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
 
                 @Override
                 public void onFailure() {
-                    Log.d(this, "Failed simService %s", currentSimService.getComponentName());
+                    Log.d(this, "queryRemoteConnectionServices: Failed simService %s",
+                            currentSimService.getComponentName());
                     // We know maybeComplete() will always be a no-op from now on, so go ahead and
                     // signal failure of the entire request
                     noRemoteServices(callback);
@@ -1738,12 +1811,21 @@ public class ConnectionServiceWrapper extends ServiceBinder implements
         try {
             callback.onResult(componentNames, binders);
         } catch (RemoteException e) {
-            Log.e(this, e, "Contacting ConnectionService %s",
+            Log.e(this, e, "setRemoteServices: Contacting ConnectionService %s",
                     ConnectionServiceWrapper.this.getComponentName());
         }
     }
 
     private void noRemoteServices(RemoteServiceCallback callback) {
         setRemoteServices(callback, Collections.EMPTY_LIST, Collections.EMPTY_LIST);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[ConnectionServiceWrapper componentName=");
+        sb.append(mComponentName);
+        sb.append("]");
+        return sb.toString();
     }
 }

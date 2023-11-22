@@ -24,7 +24,7 @@
 
 #define LOG_NDEBUG 0
 #define LOG_TAG "EmulatedCamera3_Camera"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include "EmulatedCamera3.h"
 #include "system/camera_metadata.h"
@@ -243,6 +243,10 @@ camera3_device_ops_t EmulatedCamera3::sDeviceOps = {
     /* DEPRECATED: get_metadata_vendor_tag_ops */ nullptr,
     EmulatedCamera3::dump,
     EmulatedCamera3::flush,
+#ifdef CAMERA_DEVICE_API_VERSION_3_6
+    /*UNUSED: signal_stream_flush*/nullptr,
+    /*UNUSED: is_reconfiguration_required*/nullptr,
+#endif
     {0}};
 
 const char* EmulatedCamera3::sAvailableCapabilitiesStrings[NUM_CAPABILITIES] = {

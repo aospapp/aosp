@@ -1,4 +1,0 @@
-run the following to build and install:
-./autogen.sh
-./configure
-make

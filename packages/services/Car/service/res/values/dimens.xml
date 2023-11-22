@@ -19,18 +19,14 @@
 <resources>
     <!-- Text size in ActivityBlockingActivity. -->
     <dimen name="blocking_text_size">32sp</dimen>
-    <!-- Padding of ActivityBlockingActivity. -->
-    <dimen name="blocking_activity_padding">20dp</dimen>
-
-    <!-- Minimum height of exit button in ActivityBlockingActivity. -->
-    <dimen name="exit_button_min_height">56dp</dimen>
-    <!-- Minimum width of exit button in ActivityBlockingActivity. -->
-    <dimen name="exit_button_min_width">156dp</dimen>
-    <!-- Padding of exit button in ActivityBlockingActivity. -->
-    <dimen name="exit_button_padding">16dp</dimen>
-    <!-- Radius of exit button in ActivityBlockingActivity. -->
-    <dimen name="exit_button_radius">4dp</dimen>
-    <!-- Top margin of exit button. It should be half the height of
-         button (exit_button_min_height). -->
-    <dimen name="exit_button_top_margin">28dp</dimen>
+    <!-- Widget margin. It should be half the height of button. -->
+    <dimen name="common_margin">28dp</dimen>
+    <!-- Minimum height of button in ActivityBlockingActivity. -->
+    <dimen name="button_min_height">56dp</dimen>
+    <!-- Minimum width of button in ActivityBlockingActivity. -->
+    <dimen name="button_min_width">156dp</dimen>
+    <!-- Padding of button in ActivityBlockingActivity. -->
+    <dimen name="button_padding">16dp</dimen>
+    <!-- Radius of button in ActivityBlockingActivity. -->
+    <dimen name="button_radius">4dp</dimen>
 </resources>

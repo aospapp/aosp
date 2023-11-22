@@ -19,7 +19,8 @@ import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.test.rule.ActivityTestRule;
+
+import androidx.test.rule.ActivityTestRule;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;

@@ -1,4 +1,4 @@
-#/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -15,9 +15,9 @@
 #   limitations under the License.
 
 import time
+
 from queue import Empty
 from datetime import datetime
-
 from acts.controllers.anritsu_lib._anritsu_utils import AnritsuUtils
 from acts.controllers.anritsu_lib.md8475a import BtsNumber
 from acts.controllers.anritsu_lib.md8475a import BtsNwNameEnable
@@ -70,6 +70,9 @@ WAIT_TIME_IN_ALERT = 5
 P0250Ax = "P0250Ax"
 VzW12349 = "VzW12349"
 P0135Ax = "P0135Ax"
+FiTMO = "FiTMO"
+FiSPR = "FiSPR"
+FiUSCC = "FiUSCC"
 
 # Test PLMN information
 TEST_PLMN_LTE_NAME = "MD8475A_LTE"
@@ -86,6 +89,12 @@ VzW_MCC = "311"
 VzW_MNC = "480"
 TMO_MCC = "310"
 TMO_MNC = "260"
+Fi_TMO_MCC = "310"
+Fi_TMO_MNC = "260"
+Fi_SPR_MCC = "310"
+Fi_SPR_MNC = "120"
+Fi_USCC_MCC = "311"
+Fi_USCC_MNC = "580"
 
 # IP address information for internet sharing
 #GATEWAY_IPV4_ADDR = "192.168.137.1"
@@ -111,6 +120,31 @@ CSCF_IPV6_ADDR = "2001:0:0:1::2"
 CSCF_IPV6_ADDR_2 = "2001:0:0:2::2"
 CSCF_IPV6_ADDR_3 = "2001:0:0:3::2"
 
+# Google Fi IP Config:
+
+Fi_GATEWAY_IPV4_ADDR_Data = "100.107.235.94"
+Fi_GATEWAY_IPV6_ADDR_Data = "fe80::aef2:c5ff:fe71:4b9"
+Fi_GATEWAY_IPV4_ADDR_IMS_911 = "192.168.1.2"
+Fi_GATEWAY_IPV6_ADDR_IMS_911 = "2001:0:0:1::2"
+
+Fi_UE_IPV4_ADDR_Data = "100.107.235.81"
+Fi_UE_IPV4_ADDR_IMS = "192.168.1.1"
+Fi_UE_IPV4_ADDR_911 = "192.168.1.11"
+Fi_UE_IPV6_ADDR_Data = "2620::1000:1551:1140:c0f9:d6a8:44eb"
+Fi_UE_IPV6_ADDR_IMS = "2001:0:0:1::1"
+Fi_UE_IPV6_ADDR_911 = "2001:0:0:2::1"
+
+Fi_DNS_IPV4_ADDR_Pri = "8.8.8.8"
+Fi_DNS_IPV4_ADDR_Sec = "8.8.8.4"
+Fi_DNS_IPV6_ADDR = "2001:4860:4860::8888"
+
+Fi_CSCF_IPV4_ADDR_Data = "192.168.1.2"
+Fi_CSCF_IPV6_ADDR_Data = "2001:0:0:1::2"
+Fi_CSCF_IPV4_ADDR_IMS = "192.168.1.2"
+Fi_CSCF_IPV6_ADDR_IMS = "2001:0:0:1::3"
+Fi_CSCF_IPV4_ADDR_911 = "192.168.1.12"
+Fi_CSCF_IPV6_ADDR_911 = "2001:0:0:2::2"
+
 # GSM BAND constants
 GSM_BAND_GSM450 = "GSM450"
 GSM_BAND_GSM480 = "GSM480"
@@ -128,13 +162,36 @@ WCDMA_BAND_1 = 1
 WCDMA_BAND_2 = 2
 
 # Default Cell Parameters
-DEFAULT_OUTPUT_LEVEL = -20
+DEFAULT_OUTPUT_LEVEL = -30
 DEFAULT_1X_OUTPUT_LEVEL = -35
 DEFAULT_INPUT_LEVEL = 0
 DEFAULT_LTE_BAND = [2, 4]
+Fi_LTE_TMO_BAND = [4]
+Fi_LTE_SPR_BAND = [25]
+Fi_LTE_USCC_BAND = [12]
+Fi_GSM_TMO_BAND = GSM_BAND_PGSM900
 DEFAULT_WCDMA_BAND = 1
 DEFAULT_WCDMA_PACKET_RATE = BtsPacketRate.WCDMA_DLHSAUTO_REL7_ULHSAUTO
 DEFAULT_GSM_BAND = GSM_BAND_GSM850
+
+#Google Fi CDMA Bands
+
+Fi_USCC1X_MCC = 209
+Fi_USCC1X_BAND = 1
+Fi_USCC1X_CH = 600
+Fi_USCC1X_SID = 5
+Fi_USCC1X_NID = 21
+
+Fi_SPR1X_MCC = 320
+Fi_SPR1X_BAND = 1
+Fi_SPR1X_CH = 600
+Fi_SPR1X_SID = 4183
+Fi_SPR1X_NID = 233
+
+Fi_EVDO_BAND = 1
+Fi_EVDO_CH = 625
+Fi_EVDO_SECTOR_ID = "00000000,00000000,00000000,00000000"
+
 DEFAULT_CDMA1X_BAND = 0
 DEFAULT_CDMA1X_CH = 356
 DEFAULT_CDMA1X_SID = 0
@@ -207,6 +264,8 @@ CMAS_C2K_CERTIANTY_LIKELY = "Likely"
 PDN_NO_1 = 1
 PDN_NO_2 = 2
 PDN_NO_3 = 3
+PDN_NO_4 = 4
+PDN_NO_5 = 5
 
 # IMS Services parameters
 DEFAULT_VNID = 1
@@ -219,13 +278,18 @@ CSCF_HOSTNAME = '"ims.mnc01.mcc001.3gppnetwork.org"'
 TMO_USERLIST_NAME = "310260123456789@msg.lab.t-mobile.com"
 VZW_USERLIST_NAME = "001010123456789@test.3gpp.com"
 
+# Google Fi IMS Services parameters
+Fi_CSCF_Monitoring_UA_URI = '"sip:310260971239432@ims.mnc260.mcc310.3gppnetwork.org"'
+Fi_CSCF_Virtual_UA_URI = '"sip:0123456789@msg.pc.t-mobile.com"'
+Fi_CSCF_HOSTNAME = '"ims.mnc260.mcc310.3gppnetwork.org"'
+Fi_USERLIST_NAME = "310260971239432@msg.pc.t-mobile.com"
+
 #Cell Numbers
 CELL_1 = 1
 CELL_2 = 2
 
 # default ims virtual network id for Anritsu ims call test.
 DEFAULT_IMS_VIRTUAL_NETWORK_ID = 1
-
 
 def cb_serial_number():
     """ CMAS/ETWS serial number generator """
@@ -255,6 +319,8 @@ def set_usim_parameters(anritsu_handle, sim_card):
         anritsu_handle.send_command("SECURITY3G MILENAGE")
         anritsu_handle.send_command(
             "MILENAGEOP 5F1D289C5D354D0A140C2548F5F3E3BA")
+    elif sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        anritsu_handle.usim_key = "000102030405060708090A0B0C0D0E0F"
 
 
 def save_anritsu_log_files(anritsu_handle, test_name, user_params):
@@ -312,7 +378,7 @@ def _init_lte_bts(bts, user_params, cell_no, sim_card):
     bts.nw_fullname = TEST_PLMN_LTE_NAME
     bts.mcc = get_lte_mcc(user_params, cell_no, sim_card)
     bts.mnc = get_lte_mnc(user_params, cell_no, sim_card)
-    bts.band = get_lte_band(user_params, cell_no)
+    bts.band = get_lte_band(user_params, cell_no, sim_card)
     bts.transmode = get_transmission_mode(user_params, cell_no)
     bts.dl_antenna = get_dl_antenna(user_params, cell_no)
     bts.output_level = DEFAULT_OUTPUT_LEVEL
@@ -361,7 +427,7 @@ def _init_gsm_bts(bts, user_params, cell_no, sim_card):
     bts.nw_fullname = TEST_PLMN_GSM_NAME
     bts.mcc = get_gsm_mcc(user_params, cell_no, sim_card)
     bts.mnc = get_gsm_mnc(user_params, cell_no, sim_card)
-    bts.band = get_gsm_band(user_params, cell_no)
+    bts.band = get_gsm_band(user_params, cell_no, sim_card)
     bts.rac = get_gsm_rac(user_params, cell_no)
     bts.lac = get_gsm_lac(user_params, cell_no)
     bts.output_level = DEFAULT_OUTPUT_LEVEL
@@ -409,6 +475,7 @@ def _init_evdo_bts(bts, user_params, cell_no, sim_card):
 
 
 def _init_PDN(anritsu_handle,
+              sim_card,
               pdn,
               ipv4,
               ipv6,
@@ -427,21 +494,43 @@ def _init_PDN(anritsu_handle,
         None
     """
     # Setting IP address for internet connection sharing
-    anritsu_handle.gateway_ipv4addr = GATEWAY_IPV4_ADDR
-    pdn.ue_address_ipv4 = ipv4
-    pdn.ue_address_ipv6 = ipv6
-    if ims_binding:
-        pdn.pdn_ims = Switch.ENABLE
-        pdn.pdn_vnid = vnid_number
-    else:
-        pdn.primary_dns_address_ipv4 = DNS_IPV4_ADDR
-        pdn.secondary_dns_address_ipv4 = DNS_IPV4_ADDR
-        pdn.cscf_address_ipv4 = CSCF_IPV4_ADDR
+    # Google Fi _init_PDN 
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        pdn.ue_address_ipv4 = ipv4
+        pdn.ue_address_ipv6 = ipv6
+        if ims_binding:
+            pdn.pdn_ims = Switch.ENABLE
+            pdn.pdn_vnid = vnid_number
+            pdn.pdn_DG_selection = 'USER'
+            pdn.pdn_gateway_ipv4addr = Fi_GATEWAY_IPV4_ADDR_IMS_911
+            pdn.pdn_gateway_ipv6addr = Fi_GATEWAY_IPV6_ADDR_IMS_911
+
+        else:
+            anritsu_handle.gateway_ipv4addr = Fi_GATEWAY_IPV4_ADDR_Data
+            anritsu_handle.gateway_ipv6addr = Fi_GATEWAY_IPV6_ADDR_Data
+            pdn.primary_dns_address_ipv4 = Fi_DNS_IPV4_ADDR_Pri
+            pdn.secondary_dns_address_ipv4 = Fi_DNS_IPV4_ADDR_Sec
+            pdn.dns_address_ipv6 = Fi_DNS_IPV6_ADDR
+            pdn.cscf_address_ipv4 = Fi_CSCF_IPV4_ADDR_Data
+            pdn.cscf_address_ipv6 = Fi_CSCF_IPV6_ADDR_Data    
+    # Pixel Lab _init_PDN_
+    else:  
+        anritsu_handle.gateway_ipv4addr = GATEWAY_IPV4_ADDR
+        pdn.ue_address_ipv4 = ipv4
+        pdn.ue_address_ipv6 = ipv6
+        if ims_binding:
+            pdn.pdn_ims = Switch.ENABLE
+            pdn.pdn_vnid = vnid_number
+        else:
+            pdn.primary_dns_address_ipv4 = DNS_IPV4_ADDR
+            pdn.secondary_dns_address_ipv4 = DNS_IPV4_ADDR
+            pdn.cscf_address_ipv4 = CSCF_IPV4_ADDR
 
 
 def _init_IMS(anritsu_handle,
               vnid,
               sim_card=None,
+              ipv4_address=CSCF_IPV4_ADDR,
               ipv6_address=CSCF_IPV6_ADDR,
               ip_type="IPV4V6",
               auth=False):
@@ -456,31 +545,52 @@ def _init_IMS(anritsu_handle,
         None
     """
     # vnid.sync = Switch.ENABLE # supported in 6.40a release
-    vnid.cscf_address_ipv4 = CSCF_IPV4_ADDR
-    vnid.cscf_address_ipv6 = ipv6_address
-    vnid.imscscf_iptype = ip_type
-    vnid.dns = Switch.DISABLE
-    vnid.ndp_nic = NDP_NIC_NAME
-    vnid.ndp_prefix = ipv6_address
-    if sim_card == P0135Ax:
-        vnid.cscf_monitoring_ua = TMO_CSCF_Monitoring_UA_URI
-        vnid.cscf_virtual_ua = TMO_CSCF_Virtual_UA_URI
-        vnid.cscf_host_name = CSCF_HOSTNAME
-        vnid.cscf_ims_authentication = "DISABLE"
-        if auth:
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        vnid.cscf_address_ipv4 = ipv4_address
+        vnid.cscf_address_ipv6 = ipv6_address
+        vnid.imscscf_iptype = ip_type
+        vnid.dns = Switch.DISABLE
+        vnid.ndp_nic = NDP_NIC_NAME
+        vnid.ndp_prefix = ipv6_address
+        if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+            vnid.cscf_monitoring_ua = Fi_CSCF_Monitoring_UA_URI
+            vnid.cscf_virtual_ua = Fi_CSCF_Virtual_UA_URI
+            vnid.cscf_host_name = Fi_CSCF_HOSTNAME
             vnid.cscf_ims_authentication = "ENABLE"
-            vnid.tmo_cscf_userslist_add = TMO_USERLIST_NAME
-    elif sim_card == VzW12349:
-        vnid.cscf_monitoring_ua = CSCF_Monitoring_UA_URI
-        vnid.cscf_virtual_ua = CSCF_Virtual_UA_URI
-        vnid.cscf_ims_authentication = "DISABLE"
-        if auth:
-            vnid.cscf_ims_authentication = "ENABLE"
-            vnid.vzw_cscf_userslist_add = VZW_USERLIST_NAME
-    else:
-        vnid.cscf_monitoring_ua = CSCF_Monitoring_UA_URI
-    vnid.psap = Switch.ENABLE
-    vnid.psap_auto_answer = Switch.ENABLE
+            if auth:
+                vnid.cscf_ims_authentication = "ENABLE"
+                vnid.fi_cscf_userslist_add = Fi_USERLIST_NAME
+        else:
+            vnid.cscf_monitoring_ua = CSCF_Monitoring_UA_URI
+        vnid.psap = Switch.ENABLE
+        vnid.psap_auto_answer = Switch.ENABLE
+    else:   
+        vnid.cscf_address_ipv4 = CSCF_IPV4_ADDR
+        vnid.cscf_address_ipv6 = ipv6_address
+        vnid.imscscf_iptype = ip_type
+        vnid.dns = Switch.DISABLE
+        vnid.ndp_nic = NDP_NIC_NAME
+        vnid.ndp_prefix = ipv6_address
+        if sim_card == P0135Ax:
+            vnid.cscf_monitoring_ua = TMO_CSCF_Monitoring_UA_URI
+            vnid.cscf_virtual_ua = TMO_CSCF_Virtual_UA_URI
+            vnid.cscf_host_name = CSCF_HOSTNAME
+            vnid.cscf_precondition = "ENABLE"
+            vnid.cscf_ims_authentication = "DISABLE"
+            if auth:
+                vnid.cscf_ims_authentication = "ENABLE"
+                vnid.tmo_cscf_userslist_add = TMO_USERLIST_NAME
+        elif sim_card == VzW12349:
+            vnid.cscf_monitoring_ua = CSCF_Monitoring_UA_URI
+            vnid.cscf_virtual_ua = CSCF_Virtual_UA_URI
+            vnid.cscf_ims_authentication = "DISABLE"
+            if auth:
+                vnid.cscf_ims_authentication = "ENABLE"
+                vnid.vzw_cscf_userslist_add = VZW_USERLIST_NAME
+        else:
+            vnid.cscf_monitoring_ua = CSCF_Monitoring_UA_URI
+        vnid.psap = Switch.ENABLE
+        vnid.psap_auto_answer = Switch.ENABLE
 
 
 def set_system_model_lte_lte(anritsu_handle, user_params, sim_card):
@@ -493,46 +603,93 @@ def set_system_model_lte_lte(anritsu_handle, user_params, sim_card):
     Returns:
         Lte and Wcdma BTS objects
     """
-    anritsu_handle.set_simulation_model(BtsTechnology.LTE, BtsTechnology.LTE)
+    anritsu_handle.set_simulation_model(BtsTechnology.LTE,
+                                        BtsTechnology.LTE)
     # setting BTS parameters
     lte1_bts = anritsu_handle.get_BTS(BtsNumber.BTS1)
     lte2_bts = anritsu_handle.get_BTS(BtsNumber.BTS2)
     _init_lte_bts(lte1_bts, user_params, CELL_1, sim_card)
     _init_lte_bts(lte2_bts, user_params, CELL_2, sim_card)
-    pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
-    pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
-    pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
-    # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
-    _init_PDN(anritsu_handle, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
-    _init_PDN(anritsu_handle, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
-    vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
-    if sim_card == P0135Ax:
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        pdn4 = anritsu_handle.get_PDN(PDN_NO_4)
+        pdn5 = anritsu_handle.get_PDN(PDN_NO_5)
+
+        # Initialize PDN IP address for internet connection sharing
+        _init_PDN(anritsu_handle, sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn2, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn4, Fi_UE_IPV4_ADDR_IMS,
+                  Fi_UE_IPV6_ADDR_IMS,
+                  True)
+        _init_PDN(anritsu_handle, sim_card, pdn5, Fi_UE_IPV4_ADDR_911,
+                  Fi_UE_IPV6_ADDR_911,
+                  True)
+        vnid1 = anritsu_handle.get_IMS(1)
         vnid2 = anritsu_handle.get_IMS(2)
-        vnid3 = anritsu_handle.get_IMS(3)
+        # _init_IMS(
+        #     anritsu_handle,
+        #     vnid1,
+        #     sim_card,
+        #     ipv4_address=CSCF_IPV4_ADDR,
+        #     ipv6_address=CSCF_IPV6_ADDR,
+        #     auth=False)
         _init_IMS(
             anritsu_handle,
             vnid1,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR,
+            ipv4_address=Fi_CSCF_IPV4_ADDR_IMS,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_IMS,
             auth=True)
         _init_IMS(
             anritsu_handle,
             vnid2,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_2,
-            ip_type="IPV6")
-        _init_IMS(
-            anritsu_handle,
-            vnid3,
-            sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_3,
-            ip_type="IPV6")
-    elif sim_card == VzW12349:
-        _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+            ipv4_address=Fi_CSCF_IPV4_ADDR_911,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_911,
+            auth=False)
     else:
-        _init_IMS(anritsu_handle, vnid1, sim_card)
-    return [lte1_bts, lte2_bts]
+        _init_lte_bts(lte1_bts, user_params, CELL_1, sim_card)
+        _init_lte_bts(lte2_bts, user_params, CELL_2, sim_card)
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        # Initialize PDN IP address for internet connection sharing
+        _init_PDN(anritsu_handle, sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
+        _init_PDN(anritsu_handle, sim_card, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
+        vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
+        if sim_card == P0135Ax:
+            vnid2 = anritsu_handle.get_IMS(2)
+            vnid3 = anritsu_handle.get_IMS(3)
+            _init_IMS(
+                anritsu_handle,
+                vnid1,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR,
+                auth=True)
+            _init_IMS(
+                anritsu_handle,
+                vnid2,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_2,
+                ip_type="IPV6")
+            _init_IMS(
+                anritsu_handle,
+                vnid3,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_3,
+                ip_type="IPV6")
+        elif sim_card == VzW12349:
+            _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+        else:
+            _init_IMS(anritsu_handle, vnid1, sim_card)
+        return [lte1_bts, lte2_bts]
 
 
 def set_system_model_wcdma_wcdma(anritsu_handle, user_params, sim_card):
@@ -554,7 +711,11 @@ def set_system_model_wcdma_wcdma(anritsu_handle, user_params, sim_card):
     _init_wcdma_bts(wcdma2_bts, user_params, CELL_2, sim_card)
     pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
     # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        _init_PDN(anritsu_handle, sim_card, pdn1, Fi_UE_IPV4_ADDR_Data, Fi_UE_IPV6_ADDR_Data,
+                  False)
+    else:
+        _init_PDN(anritsu_handle, sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
     return [wcdma1_bts, wcdma2_bts]
 
 
@@ -578,35 +739,72 @@ def set_system_model_lte_wcdma(anritsu_handle, user_params, sim_card):
     pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
     pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
     # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
-    _init_PDN(anritsu_handle, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
-    _init_PDN(anritsu_handle, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
-    vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
-    if sim_card == P0135Ax:
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        pdn4 = anritsu_handle.get_PDN(PDN_NO_4)
+        pdn5 = anritsu_handle.get_PDN(PDN_NO_5)
+        # Initialize PDN IP address.
+        _init_PDN(anritsu_handle, sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn2, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn4, Fi_UE_IPV4_ADDR_IMS,
+                  Fi_UE_IPV6_ADDR_IMS,
+                  True)
+        _init_PDN(anritsu_handle, sim_card, pdn5, Fi_UE_IPV4_ADDR_911,
+                  Fi_UE_IPV6_ADDR_911,
+                  True)
+        vnid1 = anritsu_handle.get_IMS(1)
         vnid2 = anritsu_handle.get_IMS(2)
-        vnid3 = anritsu_handle.get_IMS(3)
         _init_IMS(
             anritsu_handle,
             vnid1,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR,
+            ipv4_address=Fi_CSCF_IPV4_ADDR_IMS,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_IMS,
             auth=True)
         _init_IMS(
             anritsu_handle,
             vnid2,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_2,
-            ip_type="IPV6")
-        _init_IMS(
-            anritsu_handle,
-            vnid3,
-            sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_3,
-            ip_type="IPV6")
-    elif sim_card == VzW12349:
-        _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+            ipv4_address=Fi_CSCF_IPV4_ADDR_911,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_911,
+            auth=False)
+        return [lte_bts, wcdma_bts]
     else:
-        _init_IMS(anritsu_handle, vnid1, sim_card)
+        _init_PDN(anritsu_handle, sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
+        _init_PDN(anritsu_handle, sim_card, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
+        vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
+        if sim_card == P0135Ax:
+            vnid2 = anritsu_handle.get_IMS(2)
+            vnid3 = anritsu_handle.get_IMS(3)
+            _init_IMS(
+                anritsu_handle,
+                vnid1,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR,
+                auth=True)
+            _init_IMS(
+                anritsu_handle,
+                vnid2,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_2,
+                ip_type="IPV6")
+            _init_IMS(
+                anritsu_handle,
+                vnid3,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_3,
+                ip_type="IPV6")
+        elif sim_card == VzW12349:
+            _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+        else:
+            _init_IMS(anritsu_handle, vnid1, sim_card)
     return [lte_bts, wcdma_bts]
 
 
@@ -626,39 +824,76 @@ def set_system_model_lte_gsm(anritsu_handle, user_params, sim_card):
     gsm_bts = anritsu_handle.get_BTS(BtsNumber.BTS2)
     _init_lte_bts(lte_bts, user_params, CELL_1, sim_card)
     _init_gsm_bts(gsm_bts, user_params, CELL_2, sim_card)
-    pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
-    pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
-    pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
-    # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
-    _init_PDN(anritsu_handle, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
-    _init_PDN(anritsu_handle, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
-    vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
-    if sim_card == P0135Ax:
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        pdn4 = anritsu_handle.get_PDN(PDN_NO_4)
+        pdn5 = anritsu_handle.get_PDN(PDN_NO_5)
+        # Initialize PDN IP address.
+        _init_PDN(anritsu_handle, sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn2, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn4, Fi_UE_IPV4_ADDR_IMS,
+                  Fi_UE_IPV6_ADDR_IMS,
+                  True)
+        _init_PDN(anritsu_handle, sim_card, pdn5, Fi_UE_IPV4_ADDR_911,
+                  Fi_UE_IPV6_ADDR_911,
+                  True)
+        vnid1 = anritsu_handle.get_IMS(1)
         vnid2 = anritsu_handle.get_IMS(2)
-        vnid3 = anritsu_handle.get_IMS(3)
         _init_IMS(
             anritsu_handle,
             vnid1,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR,
+            ipv4_address=Fi_CSCF_IPV4_ADDR_IMS,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_IMS,
             auth=True)
         _init_IMS(
             anritsu_handle,
             vnid2,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_2,
-            ip_type="IPV6")
-        _init_IMS(
-            anritsu_handle,
-            vnid3,
-            sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_3,
-            ip_type="IPV6")
-    elif sim_card == VzW12349:
-        _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+            ipv4_address=Fi_CSCF_IPV4_ADDR_911,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_911,
+            auth=False)
+        return [lte_bts, gsm_bts]
     else:
-        _init_IMS(anritsu_handle, vnid1, sim_card)
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        # Initialize PDN IP address for internet connection sharing
+        _init_PDN(anritsu_handle, sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
+        _init_PDN(anritsu_handle, sim_card, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
+        vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
+        if sim_card == P0135Ax:
+            vnid2 = anritsu_handle.get_IMS(2)
+            vnid3 = anritsu_handle.get_IMS(3)
+            _init_IMS(
+                anritsu_handle,
+                vnid1,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR,
+                auth=True)
+            _init_IMS(
+                anritsu_handle,
+                vnid2,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_2,
+                ip_type="IPV6")
+            _init_IMS(
+                anritsu_handle,
+                vnid3,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_3,
+                ip_type="IPV6")
+        elif sim_card == VzW12349:
+            _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+        else:
+            _init_IMS(anritsu_handle, vnid1, sim_card)
     return [lte_bts, gsm_bts]
 
 
@@ -679,39 +914,76 @@ def set_system_model_lte_1x(anritsu_handle, user_params, sim_card):
     cdma1x_bts = anritsu_handle.get_BTS(BtsNumber.BTS2)
     _init_lte_bts(lte_bts, user_params, CELL_1, sim_card)
     _init_1x_bts(cdma1x_bts, user_params, CELL_2, sim_card)
-    pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
-    pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
-    pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
-    # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
-    _init_PDN(anritsu_handle, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
-    _init_PDN(anritsu_handle, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
-    vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
-    if sim_card == P0135Ax:
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        pdn4 = anritsu_handle.get_PDN(PDN_NO_4)
+        pdn5 = anritsu_handle.get_PDN(PDN_NO_5)
+        # Initialize PDN IP address.
+        _init_PDN(anritsu_handle, sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn2, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn4, Fi_UE_IPV4_ADDR_IMS,
+                  Fi_UE_IPV6_ADDR_IMS,
+                  True)
+        _init_PDN(anritsu_handle, sim_card, pdn5, Fi_UE_IPV4_ADDR_911,
+                  Fi_UE_IPV6_ADDR_911,
+                  True)
+        vnid1 = anritsu_handle.get_IMS(1)
         vnid2 = anritsu_handle.get_IMS(2)
-        vnid3 = anritsu_handle.get_IMS(3)
         _init_IMS(
             anritsu_handle,
             vnid1,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR,
+            ipv4_address=Fi_CSCF_IPV4_ADDR_IMS,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_IMS,
             auth=True)
         _init_IMS(
             anritsu_handle,
             vnid2,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_2,
-            ip_type="IPV6")
-        _init_IMS(
-            anritsu_handle,
-            vnid3,
-            sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_3,
-            ip_type="IPV6")
-    elif sim_card == VzW12349:
-        _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+            ipv4_address=Fi_CSCF_IPV4_ADDR_911,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_911,
+            auth=False)
+        return [lte_bts, cdma1x_bts]
     else:
-        _init_IMS(anritsu_handle, vnid1, sim_card)
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        # Initialize PDN IP address for internet connection sharing
+        _init_PDN(anritsu_handle, sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
+        _init_PDN(anritsu_handle, sim_card, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
+        vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
+        if sim_card == P0135Ax:
+            vnid2 = anritsu_handle.get_IMS(2)
+            vnid3 = anritsu_handle.get_IMS(3)
+            _init_IMS(
+                anritsu_handle,
+                vnid1,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR,
+                auth=True)
+            _init_IMS(
+                anritsu_handle,
+                vnid2,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_2,
+                ip_type="IPV6")
+            _init_IMS(
+                anritsu_handle,
+                vnid3,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_3,
+                ip_type="IPV6")
+        elif sim_card == VzW12349:
+            _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+        else:
+            _init_IMS(anritsu_handle, vnid1, sim_card)
     return [lte_bts, cdma1x_bts]
 
 
@@ -731,39 +1003,76 @@ def set_system_model_lte_evdo(anritsu_handle, user_params, sim_card):
     evdo_bts = anritsu_handle.get_BTS(BtsNumber.BTS2)
     _init_lte_bts(lte_bts, user_params, CELL_1, sim_card)
     _init_evdo_bts(evdo_bts, user_params, CELL_2, sim_card)
-    pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
-    pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
-    pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
-    # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
-    _init_PDN(anritsu_handle, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
-    _init_PDN(anritsu_handle, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
-    vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
-    if sim_card == P0135Ax:
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        pdn4 = anritsu_handle.get_PDN(PDN_NO_4)
+        pdn5 = anritsu_handle.get_PDN(PDN_NO_5)
+        # Initialize PDN IP address.
+        _init_PDN(anritsu_handle, sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn2, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn4, Fi_UE_IPV4_ADDR_IMS,
+                  Fi_UE_IPV6_ADDR_IMS,
+                  True)
+        _init_PDN(anritsu_handle, sim_card, pdn5, Fi_UE_IPV4_ADDR_911,
+                  Fi_UE_IPV6_ADDR_911,
+                  True)
+        vnid1 = anritsu_handle.get_IMS(1)
         vnid2 = anritsu_handle.get_IMS(2)
-        vnid3 = anritsu_handle.get_IMS(3)
         _init_IMS(
             anritsu_handle,
             vnid1,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR,
+            ipv4_address=Fi_CSCF_IPV4_ADDR_IMS,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_IMS,
             auth=True)
         _init_IMS(
             anritsu_handle,
             vnid2,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_2,
-            ip_type="IPV6")
-        _init_IMS(
-            anritsu_handle,
-            vnid3,
-            sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_3,
-            ip_type="IPV6")
-    elif sim_card == VzW12349:
-        _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+            ipv4_address=Fi_CSCF_IPV4_ADDR_911,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_911,
+            auth=False)
+        return [lte_bts, evdo_bts]
     else:
-        _init_IMS(anritsu_handle, vnid1, sim_card)
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        # Initialize PDN IP address for internet connection sharing
+        _init_PDN(anritsu_handle, sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
+        _init_PDN(anritsu_handle, sim_card, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
+        _init_PDN(anritsu_handle, sim_card, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
+        vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
+        if sim_card == P0135Ax:
+            vnid2 = anritsu_handle.get_IMS(2)
+            vnid3 = anritsu_handle.get_IMS(3)
+            _init_IMS(
+                anritsu_handle,
+                vnid1,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR,
+                auth=True)
+            _init_IMS(
+                anritsu_handle,
+                vnid2,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_2,
+                ip_type="IPV6")
+            _init_IMS(
+                anritsu_handle,
+                vnid3,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_3,
+                ip_type="IPV6")
+        elif sim_card == VzW12349:
+            _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+        else:
+            _init_IMS(anritsu_handle, vnid1, sim_card)
     return [lte_bts, evdo_bts]
 
 
@@ -785,7 +1094,11 @@ def set_system_model_wcdma_gsm(anritsu_handle, user_params, sim_card):
     _init_gsm_bts(gsm_bts, user_params, CELL_2, sim_card)
     pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
     # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        _init_PDN(anritsu_handle, sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+    else:
+        _init_PDN(anritsu_handle, sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
     return [wcdma_bts, gsm_bts]
 
 
@@ -807,7 +1120,11 @@ def set_system_model_gsm_gsm(anritsu_handle, user_params, sim_card):
     _init_gsm_bts(gsm2_bts, user_params, CELL_2, sim_card)
     pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
     # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        _init_PDN(anritsu_handle,sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+    else:
+        _init_PDN(anritsu_handle,sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
     return [gsm1_bts, gsm2_bts]
 
 
@@ -822,43 +1139,82 @@ def set_system_model_lte(anritsu_handle, user_params, sim_card):
         Lte BTS object
     """
     anritsu_handle.set_simulation_model(BtsTechnology.LTE)
-    # setting BTS parameters
+    # setting Fi BTS parameters
     lte_bts = anritsu_handle.get_BTS(BtsNumber.BTS1)
     _init_lte_bts(lte_bts, user_params, CELL_1, sim_card)
-    pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
-    pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
-    pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
-    # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
-    _init_PDN(anritsu_handle, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
-    _init_PDN(anritsu_handle, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
-    vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
-    if sim_card == P0135Ax:
+
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        pdn4 = anritsu_handle.get_PDN(PDN_NO_4)
+        pdn5 = anritsu_handle.get_PDN(PDN_NO_5)
+    # Initialize PDN IP address.
+        _init_PDN(anritsu_handle,sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle,sim_card, pdn2, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle,sim_card, pdn3, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+        _init_PDN(anritsu_handle, sim_card, pdn4, Fi_UE_IPV4_ADDR_IMS,
+                  Fi_UE_IPV6_ADDR_IMS,
+                  True)
+        _init_PDN(anritsu_handle, sim_card, pdn5, Fi_UE_IPV4_ADDR_911,
+                  Fi_UE_IPV6_ADDR_911,
+                  True)
+        vnid1 = anritsu_handle.get_IMS(1)
         vnid2 = anritsu_handle.get_IMS(2)
-        vnid3 = anritsu_handle.get_IMS(3)
         _init_IMS(
             anritsu_handle,
             vnid1,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR,
+            ipv4_address=Fi_CSCF_IPV4_ADDR_IMS,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_IMS,
             auth=True)
         _init_IMS(
             anritsu_handle,
             vnid2,
             sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_2,
-            ip_type="IPV6")
-        _init_IMS(
-            anritsu_handle,
-            vnid3,
-            sim_card,
-            ipv6_address=CSCF_IPV6_ADDR_3,
-            ip_type="IPV6")
-    elif sim_card == VzW12349:
-        _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+            ipv4_address=Fi_CSCF_IPV4_ADDR_911,
+            ipv6_address=Fi_CSCF_IPV6_ADDR_911,
+            auth=False)
+        return [lte_bts]
     else:
-        _init_IMS(anritsu_handle, vnid1, sim_card)
-    return [lte_bts]
+        # setting BTS parameters
+        pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
+        pdn2 = anritsu_handle.get_PDN(PDN_NO_2)
+        pdn3 = anritsu_handle.get_PDN(PDN_NO_3)
+        # Initialize PDN IP address for internet connection sharing
+        _init_PDN(anritsu_handle,sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, True)
+        _init_PDN(anritsu_handle,sim_card, pdn2, UE_IPV4_ADDR_2, UE_IPV6_ADDR_2, False)
+        _init_PDN(anritsu_handle,sim_card, pdn3, UE_IPV4_ADDR_3, UE_IPV6_ADDR_3, True)
+        vnid1 = anritsu_handle.get_IMS(DEFAULT_VNID)
+        if sim_card == P0135Ax:
+            vnid2 = anritsu_handle.get_IMS(2)
+            vnid3 = anritsu_handle.get_IMS(3)
+            _init_IMS(
+                anritsu_handle,
+                vnid1,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR,
+                auth=True)
+            _init_IMS(
+                anritsu_handle,
+                vnid2,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_2,
+                ip_type="IPV6")
+            _init_IMS(
+                anritsu_handle,
+                vnid3,
+                sim_card,
+                ipv6_address=CSCF_IPV6_ADDR_3,
+                ip_type="IPV6")
+        elif sim_card == VzW12349:
+            _init_IMS(anritsu_handle, vnid1, sim_card, auth=True)
+        else:
+            _init_IMS(anritsu_handle, vnid1, sim_card)
+        return [lte_bts]
 
 
 def set_system_model_wcdma(anritsu_handle, user_params, sim_card):
@@ -877,7 +1233,11 @@ def set_system_model_wcdma(anritsu_handle, user_params, sim_card):
     _init_wcdma_bts(wcdma_bts, user_params, CELL_1, sim_card)
     pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
     # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        _init_PDN(anritsu_handle,sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+    else:
+        _init_PDN(anritsu_handle,sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
     return [wcdma_bts]
 
 
@@ -897,7 +1257,11 @@ def set_system_model_gsm(anritsu_handle, user_params, sim_card):
     _init_gsm_bts(gsm_bts, user_params, CELL_1, sim_card)
     pdn1 = anritsu_handle.get_PDN(PDN_NO_1)
     # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        _init_PDN(anritsu_handle,sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+    else:
+        _init_PDN(anritsu_handle,sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
     return [gsm_bts]
 
 
@@ -918,7 +1282,11 @@ def set_system_model_1x(anritsu_handle, user_params, sim_card):
     _init_1x_bts(cdma1x_bts, user_params, CELL_1, sim_card)
     pdn1 = anritsu_handle.get_PDN(PDN_ONE)
     # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        _init_PDN(anritsu_handle,sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+    else:
+        _init_PDN(anritsu_handle,sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
     return [cdma1x_bts]
 
 
@@ -942,7 +1310,11 @@ def set_system_model_1x_evdo(anritsu_handle, user_params, sim_card):
     _init_evdo_bts(evdo_bts, user_params, CELL_2, sim_card)
     pdn1 = anritsu_handle.get_PDN(PDN_ONE)
     # Initialize PDN IP address for internet connection sharing
-    _init_PDN(anritsu_handle, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        _init_PDN(anritsu_handle,sim_card, pdn1, Fi_UE_IPV4_ADDR_Data,
+                  Fi_UE_IPV6_ADDR_Data, False)
+    else:
+        _init_PDN(anritsu_handle,sim_card, pdn1, UE_IPV4_ADDR_1, UE_IPV6_ADDR_1, False)
     return [cdma1x_bts]
 
 
@@ -1791,7 +2163,7 @@ def cmas_receive_verify_message_cdma1x(
             status = False
 
         if event['data']['cmasSeverity'].lower() != severity.lower():
-            Log.info("Wrong cmasSeverity received")
+            log.info("Wrong cmasSeverity received")
             status = False
     except Empty:
         log.info("Timeout: Expected event is not received.")
@@ -1913,7 +2285,7 @@ def get_dl_antenna(user_params, cell_no):
     return dl_antenna
 
 
-def get_lte_band(user_params, cell_no):
+def get_lte_band(user_params, cell_no, sim_card):
     """ Returns the LTE BAND to be used from the user specified parameters
         or default value
 
@@ -1926,7 +2298,14 @@ def get_lte_band(user_params, cell_no):
         LTE BAND to be used
     """
     key = "cell{}_lte_band".format(cell_no)
-    band = DEFAULT_LTE_BAND[cell_no - 1]
+    if sim_card == FiTMO:
+        band = Fi_LTE_TMO_BAND[cell_no - 1]
+    elif sim_card == FiSPR:
+        band = Fi_LTE_SPR_BAND[cell_no - 1]
+    elif sim_card == FiUSCC:
+        band = Fi_LTE_USCC_BAND[cell_no - 1]
+    else:
+        band = DEFAULT_LTE_BAND[cell_no - 1]
     return user_params.get(key, band)
 
 
@@ -1947,7 +2326,7 @@ def get_wcdma_band(user_params, cell_no):
     return wcdma_band
 
 
-def get_gsm_band(user_params, cell_no):
+def get_gsm_band(user_params, cell_no, sim_card):
     """ Returns the GSM BAND to be used from the user specified parameters
         or default value
 
@@ -1960,7 +2339,10 @@ def get_gsm_band(user_params, cell_no):
         GSM BAND to be used
     """
     key = "cell{}_gsm_band".format(cell_no)
-    gsm_band = user_params.get(key, DEFAULT_GSM_BAND)
+    if sim_card == FiTMO:
+        gsm_band = Fi_GSM_TMO_BAND
+    else:
+        gsm_band = user_params.get(key, DEFAULT_GSM_BAND)
     return gsm_band
 
 
@@ -1977,7 +2359,14 @@ def get_1x_band(user_params, cell_no, sim_card):
         1X BAND to be used
     """
     key = "cell{}_1x_band".format(cell_no)
-    band = VzW_CDMA1x_BAND if sim_card == VzW12349 else DEFAULT_CDMA1X_BAND
+    if sim_card == FiSPR:
+        band = Fi_SPR1X_BAND
+    elif sim_card == FiUSCC:
+        band = Fi_USCC1X_BAND
+    elif sim_card == VzW12349:
+        band = VzW_CDMA1x_BAND
+    else:
+        band = DEFAULT_CDMA1X_BAND
     return user_params.get(key, band)
 
 
@@ -1994,7 +2383,12 @@ def get_evdo_band(user_params, cell_no, sim_card):
         EVDO BAND to be used
     """
     key = "cell{}_evdo_band".format(cell_no)
-    band = VzW_EVDO_BAND if sim_card == VzW12349 else DEFAULT_EVDO_BAND
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        band = Fi_EVDO_BAND
+    elif sim_card == VzW12349:
+        band = VzW_EVDO_BAND
+    else:
+         band = DEFAULT_EVDO_BAND
     return user_params.get(key, band)
 
 
@@ -2092,7 +2486,16 @@ def get_lte_mcc(user_params, cell_no, sim_card):
     """
 
     key = "cell{}_lte_mcc".format(cell_no)
-    mcc = VzW_MCC if sim_card == VzW12349 else DEFAULT_MCC
+    if sim_card == FiTMO:
+        mcc = Fi_TMO_MCC
+    elif sim_card == FiSPR:
+        mcc = Fi_SPR_MCC
+    elif sim_card == FiUSCC:
+        mcc = Fi_USCC_MCC
+    elif sim_card == VzW12349:
+        mcc = VzW_MCC
+    else:
+        mcc = DEFAULT_MCC
     return user_params.get(key, mcc)
 
 
@@ -2109,7 +2512,16 @@ def get_lte_mnc(user_params, cell_no, sim_card):
         LTE MNC to be used
     """
     key = "cell{}_lte_mnc".format(cell_no)
-    mnc = VzW_MNC if sim_card == VzW12349 else DEFAULT_MNC
+    if sim_card == FiTMO:
+        mnc = Fi_TMO_MNC
+    elif sim_card == FiSPR:
+        mnc = Fi_SPR_MNC
+    elif sim_card == FiUSCC:
+        mnc = Fi_USCC_MNC
+    elif sim_card == VzW12349:
+        mnc = VzW_MNC
+    else:
+        mnc = DEFAULT_MNC
     return user_params.get(key, mnc)
 
 
@@ -2194,7 +2606,14 @@ def get_1x_mcc(user_params, cell_no, sim_card):
         1X MCC to be used
     """
     key = "cell{}_1x_mcc".format(cell_no)
-    mcc = VzW_MCC if sim_card == VzW12349 else DEFAULT_MCC
+    if sim_card == FiSPR:
+        mcc = Fi_SPR1X_MCC
+    elif sim_card == FiUSCC:
+        mcc = Fi_USCC1X_MCC
+    elif sim_card == VzW12349:
+        mcc = VzW_MCC
+    else:
+        mcc = DEFAULT_MCC
     return user_params.get(key, mcc)
 
 
@@ -2211,7 +2630,14 @@ def get_1x_channel(user_params, cell_no, sim_card):
         1X Channel to be used
     """
     key = "cell{}_1x_channel".format(cell_no)
-    ch = VzW_CDMA1x_CH if sim_card == VzW12349 else DEFAULT_CDMA1X_CH
+    if sim_card == FiSPR:
+        ch = Fi_SPR1X_CH
+    elif sim_card == FiUSCC:
+        ch = Fi_USCC1X_CH
+    elif sim_card == VzW12349:
+        ch = VzW_CDMA1x_CH
+    else:
+        ch = DEFAULT_CDMA1X_CH
     return user_params.get(key, ch)
 
 
@@ -2228,7 +2654,14 @@ def get_1x_sid(user_params, cell_no, sim_card):
         1X SID to be used
     """
     key = "cell{}_1x_sid".format(cell_no)
-    sid = VzW_CDMA1X_SID if sim_card == VzW12349 else DEFAULT_CDMA1X_SID
+    if sim_card == FiSPR:
+        sid = Fi_SPR1X_SID
+    elif sim_card == FiUSCC:
+        sid = Fi_USCC1X_SID
+    elif sim_card == VzW12349:
+        sid = VzW_CDMA1X_SID
+    else:
+        sid = DEFAULT_CDMA1X_SID
     return user_params.get(key, sid)
 
 
@@ -2245,7 +2678,14 @@ def get_1x_nid(user_params, cell_no, sim_card):
         1X NID to be used
     """
     key = "cell{}_1x_nid".format(cell_no)
-    nid = VzW_CDMA1X_NID if sim_card == VzW12349 else DEFAULT_CDMA1X_NID
+    if sim_card == FiSPR:
+        nid = Fi_SPR1X_NID
+    elif sim_card == FiUSCC:
+        nid = Fi_USCC1X_NID
+    elif sim_card == VzW12349:
+        nid = VzW_CDMA1X_NID
+    else:
+        nid = DEFAULT_CDMA1X_NID
     return user_params.get(key, nid)
 
 
@@ -2262,7 +2702,12 @@ def get_evdo_channel(user_params, cell_no, sim_card):
         EVDO Channel to be used
     """
     key = "cell{}_evdo_channel".format(cell_no)
-    ch = VzW_EVDO_CH if sim_card == VzW12349 else DEFAULT_EVDO_CH
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        ch = Fi_EVDO_CH
+    elif sim_card == VzW12349:
+        ch = VzW_EVDO_CH
+    else:
+        ch = DEFAULT_EVDO_CH
     return user_params.get(key, ch)
 
 
@@ -2279,8 +2724,12 @@ def get_evdo_sid(user_params, cell_no, sim_card):
         EVDO SID to be used
     """
     key = "cell{}_evdo_sid".format(cell_no)
-    return user_params.get(key, DEFAULT_EVDO_SECTOR_ID)
-    sid = VzW_EVDO_SECTOR_ID if sim_card == VzW12349 else DEFAULT_EVDO_SECTOR_ID
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        sid = Fi_EVDO_SECTOR_ID
+    elif sim_card == VzW12349:
+        sid = VzW_EVDO_SECTOR_ID
+    else:
+        sid = DEFAULT_EVDO_SECTOR_ID
     return user_params.get(key, sid)
 
 
@@ -2304,6 +2753,19 @@ def get_csfb_type(user_params):
 
 
 def set_post_sim_params(anritsu_handle, user_params, sim_card):
+    if sim_card == FiTMO or sim_card == FiSPR or sim_card == FiUSCC:
+        anritsu_handle.send_command("PDNCHECKAPN 1,h2g2")
+        anritsu_handle.send_command("PDNCHECKAPN 2,n.nv.ispsn")
+        anritsu_handle.send_command("PDNCHECKAPN 3,fast.t-mobile.com")
+        anritsu_handle.send_command("PDNCHECKAPN 4,ims")
+        anritsu_handle.send_command("PDNCHECKAPN 5,*")
+        anritsu_handle.send_command("PDNIMS 1,DISABLE")
+        anritsu_handle.send_command("PDNIMS 2,DISABLE")
+        anritsu_handle.send_command("PDNIMS 3,DISABLE")
+        anritsu_handle.send_command("PDNIMS 4,ENABLE")
+        anritsu_handle.send_command("PDNVNID 4,1")
+        anritsu_handle.send_command("PDNIMS 5,ENABLE")
+        anritsu_handle.send_command("PDNVNID 5,2")
     if sim_card == P0135Ax:
         anritsu_handle.send_command("PDNCHECKAPN 1,ims")
         anritsu_handle.send_command("PDNCHECKAPN 2,fast.t-mobile.com")

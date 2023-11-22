@@ -141,12 +141,6 @@ protected:
     virtual ~C2SoftAvcEnc();
 
 private:
-    enum {
-        kUpdateBitrate            = 1 << 0,
-        kRequestKeyFrame          = 1 << 1,
-        kUpdateAIRMode            = 1 << 2,
-    };
-
     // OMX input buffer's timestamp and flags
     typedef struct {
         int64_t mTimeUs;
@@ -159,8 +153,6 @@ private:
 
     struct timeval mTimeStart;   // Time at the start of decode()
     struct timeval mTimeEnd;     // Time at the end of decode()
-
-    int mUpdateFlag;
 
 #ifdef FILE_DUMP_ENABLE
     char mInFile[200];
@@ -191,10 +183,14 @@ private:
     size_t mNumMemRecords;       // Number of memory records requested by codec
     size_t mNumCores;            // Number of cores used by the codec
 
-    uint32_t mWidth __unused;
-    uint32_t mHeight __unused;
-    uint32_t mFramerate __unused;
-    uint32_t mBitrate __unused;
+    // configurations used by component in process
+    // (TODO: keep this in intf but make them internal only)
+    std::shared_ptr<C2StreamPictureSizeInfo::input> mSize;
+    std::shared_ptr<C2StreamIntraRefreshTuning::output> mIntraRefresh;
+    std::shared_ptr<C2StreamFrameRateInfo::output> mFrameRate;
+    std::shared_ptr<C2StreamBitrateInfo::output> mBitrate;
+    std::shared_ptr<C2StreamRequestSyncFrameTuning::output> mRequestSync;
+
     uint32_t mOutBufferSize;
     UWORD32 mHeaderGenerated;
     UWORD32 mBframes;
@@ -205,8 +201,6 @@ private:
     UWORD32 mIInterval;
     UWORD32 mIDRInterval;
     UWORD32 mDisableDeblkLevel;
-    IVE_AIR_MODE_T mAIRMode;
-    UWORD32 mAIRRefreshPeriod;
     std::map<const void *, std::shared_ptr<C2Buffer>> mBuffers;
     MemoryBlockPool mConversionBuffers;
     std::map<const void *, MemoryBlock> mConversionBuffersInUse;

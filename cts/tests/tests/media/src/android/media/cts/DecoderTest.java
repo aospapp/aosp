@@ -59,6 +59,7 @@ import java.util.regex.Pattern;
 
 import static android.media.MediaCodecInfo.CodecProfileLevel.*;
 
+@MediaHeavyPresubmitTest
 @AppModeFull(reason = "There should be no instant apps specific behavior related to decoders")
 public class DecoderTest extends MediaPlayerTestBase {
     private static final String TAG = "DecoderTest";
@@ -155,13 +156,29 @@ public class DecoderTest extends MediaPlayerTestBase {
         decode(R.raw.sinesweepogg, 168.f);
         testTimeStampOrdering(R.raw.sinesweepogg);
     }
+    public void testDecodeOggMkv() throws Exception {
+        decode(R.raw.sinesweepoggmkv, 168.f);
+        testTimeStampOrdering(R.raw.sinesweepoggmkv);
+    }
+    public void testDecodeOggMp4() throws Exception {
+        decode(R.raw.sinesweepoggmp4, 168.f);
+        testTimeStampOrdering(R.raw.sinesweepoggmp4);
+    }
     public void testDecodeWav() throws Exception {
         decode(R.raw.sinesweepwav, 0.0f);
         testTimeStampOrdering(R.raw.sinesweepwav);
     }
+    public void testDecodeFlacMkv() throws Exception {
+        decode(R.raw.sinesweepflacmkv, 0.0f);
+        testTimeStampOrdering(R.raw.sinesweepflacmkv);
+    }
     public void testDecodeFlac() throws Exception {
         decode(R.raw.sinesweepflac, 0.0f);
         testTimeStampOrdering(R.raw.sinesweepflac);
+    }
+    public void testDecodeFlacMp4() throws Exception {
+        decode(R.raw.sinesweepflacmp4, 0.0f);
+        testTimeStampOrdering(R.raw.sinesweepflacmp4);
     }
 
     public void testDecodeMonoMp3() throws Exception {
@@ -177,6 +194,14 @@ public class DecoderTest extends MediaPlayerTestBase {
     public void testDecodeMonoOgg() throws Exception {
         monoTest(R.raw.monotestogg, 44100);
         testTimeStampOrdering(R.raw.monotestogg);
+    }
+    public void testDecodeMonoOggMkv() throws Exception {
+        monoTest(R.raw.monotestoggmkv, 44100);
+        testTimeStampOrdering(R.raw.monotestoggmkv);
+    }
+    public void testDecodeMonoOggMp4() throws Exception {
+        monoTest(R.raw.monotestoggmp4, 44100);
+        testTimeStampOrdering(R.raw.monotestoggmp4);
     }
 
     public void testDecodeMonoGsm() throws Exception {
@@ -195,9 +220,15 @@ public class DecoderTest extends MediaPlayerTestBase {
     public void testDecodeVorbis() throws Exception {
         testTimeStampOrdering(R.raw.sinesweepvorbis);
     }
+    public void testDecodeVorbisMp4() throws Exception {
+        testTimeStampOrdering(R.raw.sinesweepvorbismp4);
+    }
 
     public void testDecodeOpus() throws Exception {
         testTimeStampOrdering(R.raw.sinesweepopus);
+    }
+    public void testDecodeOpusMp4() throws Exception {
+        testTimeStampOrdering(R.raw.sinesweepopusmp4);
     }
 
     public void testDecode51M4a() throws Exception {
@@ -221,6 +252,18 @@ public class DecoderTest extends MediaPlayerTestBase {
                 R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_128kbps_44100hz_fragmented);
         testTrackSelection(
                 R.raw.video_480x360_mp4_h264_1350kbps_30fps_aac_stereo_128kbps_44100hz_dash);
+    }
+
+    public void testTrackSelectionMkv() throws Exception {
+        Log.d(TAG, "testTrackSelectionMkv!!!!!! ");
+        testTrackSelection(R.raw.mkv_avc_adpcm_ima);
+        Log.d(TAG, "mkv_avc_adpcm_ima finished!!!!!! ");
+        testTrackSelection(R.raw.mkv_avc_adpcm_ms);
+        Log.d(TAG, "mkv_avc_adpcm_ms finished!!!!!! ");
+        testTrackSelection(R.raw.mkv_avc_wma);
+        Log.d(TAG, "mkv_avc_wma finished!!!!!! ");
+        testTrackSelection(R.raw.mkv_avc_mp2);
+        Log.d(TAG, "mkv_avc_mp2 finished!!!!!! ");
     }
 
     public void testBFrames() throws Exception {
@@ -708,9 +751,23 @@ public class DecoderTest extends MediaPlayerTestBase {
                 staticInfo, true /*metadataInContainer*/);
     }
 
-    public void testH265HDR10StaticMetadata() throws Exception {
+    public void testAV1HdrStaticMetadata() throws Exception {
         final String staticInfo =
-                "00 c2 33 c4 86 4c 1d b8  0b d0 84 80 3e 13 3d 42" +
+                "00 d0 84 80 3e c2 33 c4  86 4c 1d b8 0b 13 3d 42" +
+                "40 e8 03 64 00 e8 03 2c  01                     " ;
+        testHdrStaticMetadata(R.raw.video_1280x720_av1_hdr_static_3mbps,
+                staticInfo, false /*metadataInContainer*/);
+    }
+
+    public void testH265HDR10StaticMetadata() throws Exception {
+        // Expected value of MediaFormat.KEY_HDR_STATIC_INFO key.
+        // The associated value is a ByteBuffer. This buffer contains the raw contents of the
+        // Static Metadata Descriptor (including the descriptor ID) of an HDMI Dynamic Range and
+        // Mastering InfoFrame as defined by CTA-861.3.
+        // Media frameworks puts the display primaries in RGB order, here we verify the three
+        // primaries are indeed in this order and fail otherwise.
+        final String staticInfo =
+                "00 d0 84 80 3e c2 33 c4  86 4c 1d b8 0b 13 3d 42" +
                 "40 e8 03 00 00 e8 03 90  01                     " ;
         testHdrStaticMetadata(R.raw.video_1280x720_hevc_hdr10_static_3mbps,
                 staticInfo, false /*metadataInContainer*/);
@@ -757,6 +814,11 @@ public class DecoderTest extends MediaPlayerTestBase {
                 // it here so that we only test HDR when decoder supports it.
                 format.setInteger(MediaFormat.KEY_PROFILE,
                         MediaCodecInfo.CodecProfileLevel.VP9Profile2HDR);
+            } else if (MediaFormat.MIMETYPE_VIDEO_AV1.equals(mime)) {
+                // The muxer might not have put AV1 CSD in the webm, we manually patch
+                // it here so that we only test HDR when decoder supports it.
+                format.setInteger(MediaFormat.KEY_PROFILE,
+                        MediaCodecInfo.CodecProfileLevel.AV1ProfileMain10HDR10);
             } else {
                 fail("Codec " + mime + " shouldn't be tested with this test!");
             }
@@ -1738,9 +1800,15 @@ public class DecoderTest extends MediaPlayerTestBase {
         testDecodeWithEOSOnLastBuffer(R.raw.sinesweepm4a);
         testDecodeWithEOSOnLastBuffer(R.raw.sinesweepmp3lame);
         testDecodeWithEOSOnLastBuffer(R.raw.sinesweepmp3smpb);
+        testDecodeWithEOSOnLastBuffer(R.raw.sinesweepopus);
+        testDecodeWithEOSOnLastBuffer(R.raw.sinesweepopusmp4);
         testDecodeWithEOSOnLastBuffer(R.raw.sinesweepwav);
+        testDecodeWithEOSOnLastBuffer(R.raw.sinesweepflacmkv);
         testDecodeWithEOSOnLastBuffer(R.raw.sinesweepflac);
+        testDecodeWithEOSOnLastBuffer(R.raw.sinesweepflacmp4);
         testDecodeWithEOSOnLastBuffer(R.raw.sinesweepogg);
+        testDecodeWithEOSOnLastBuffer(R.raw.sinesweepoggmkv);
+        testDecodeWithEOSOnLastBuffer(R.raw.sinesweepoggmp4);
     }
 
     /* setting EOS on the last full input buffer should be equivalent to setting EOS on an empty
@@ -1795,7 +1863,7 @@ public class DecoderTest extends MediaPlayerTestBase {
                 testFd.getLength());
         testFd.close();
         extractor.selectTrack(0);
-        int numsamples = 0;
+        int numsamples = extractor.getSampleTime() < 0 ? 0 : 1;
         while (extractor.advance()) {
             numsamples++;
         }
@@ -1830,6 +1898,10 @@ public class DecoderTest extends MediaPlayerTestBase {
         testDecode(R.raw.video_176x144_3gp_h263_300kbps_12fps_aac_stereo_128kbps_22050hz, 122);
     }
 
+    public void testCodecBasicMpeg2() throws Exception {
+        testDecode(R.raw.video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz, 300);
+    }
+
     public void testCodecBasicMpeg4() throws Exception {
         testDecode(R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz, 249);
     }
@@ -1840,6 +1912,10 @@ public class DecoderTest extends MediaPlayerTestBase {
 
     public void testCodecBasicVP9() throws Exception {
         testDecode(R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz, 240);
+    }
+
+    public void testCodecBasicAV1() throws Exception {
+        testDecode(R.raw.video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz, 300);
     }
 
     public void testH264Decode320x240() throws Exception {
@@ -1942,6 +2018,14 @@ public class DecoderTest extends MediaPlayerTestBase {
         testDecode(
                 R.raw.bbb_s2_1920x1080_mp4_h264_mp42_20mbps_60fps_aac_he_v2_5ch_160kbps_48000hz,
                 300);
+        testDecode(
+                R.raw.bbb_s2_1920x1080_mkv_h264_mp42_20mbps_60fps_aac_he_v2_5ch_160kbps_48000hz,
+                300);
+    }
+
+    public void testH265Decode25fps1280x720() throws Exception {
+        testDecode(
+                R.raw.video_1280x720_mkv_h265_500kbps_25fps_aac_stereo_128kbps_44100hz, 240);
     }
 
     public void testVP8Decode320x180() throws Exception {
@@ -2029,6 +2113,36 @@ public class DecoderTest extends MediaPlayerTestBase {
                 R.raw.bbb_s2_3840x2160_webm_vp9_0p51_20mbps_60fps_vorbis_6ch_384kbps_32000hz, 300);
     }
 
+    public void testAV1Decode320x180() throws Exception {
+        testDecode(R.raw.video_320x180_webm_av1_200kbps_30fps_vorbis_stereo_128kbps_48000hz, 300);
+    }
+
+    public void testAV1Decode640x360() throws Exception {
+        testDecode(
+                R.raw.video_640x360_webm_av1_470kbps_30fps_vorbis_stereo_128kbps_48000hz,
+                300);
+    }
+
+    public void testAV1Decode30fps1280x720() throws Exception {
+        testDecode(
+                R.raw.video_1280x720_webm_av1_2000kbps_30fps_vorbis_stereo_128kbps_48000hz, 300);
+    }
+
+    public void testAV1Decode60fps1920x1080() throws Exception {
+        testDecode(
+                R.raw.video_1920x1080_webm_av1_7000kbps_60fps_vorbis_stereo_128kbps_48000hz, 300);
+    }
+
+    public void testAV1Decode30fps3840x2160() throws Exception {
+        testDecode(
+                R.raw.video_3840x2160_webm_av1_11000kbps_30fps_vorbis_stereo_128kbps_48000hz, 150);
+    }
+
+    public void testAV1Decode60fps3840x2160() throws Exception {
+        testDecode(
+                R.raw.video_3840x2160_webm_av1_18000kbps_60fps_vorbis_stereo_128kbps_48000hz, 300);
+    }
+
     public void testHEVCDecode352x288() throws Exception {
         testDecode(
                 R.raw.bbb_s1_352x288_mp4_hevc_mp2_600kbps_30fps_aac_he_stereo_96kbps_48000hz, 300);
@@ -2075,6 +2189,38 @@ public class DecoderTest extends MediaPlayerTestBase {
                 R.raw.bbb_s2_3840x2160_mp4_hevc_mp51_20mbps_60fps_aac_lc_6ch_384kbps_32000hz, 300);
     }
 
+    public void testMpeg2Decode352x288() throws Exception {
+        testDecode(R.raw.video_352x288_mp4_mpeg2_1000kbps_30fps_aac_stereo_128kbps_48000hz, 300);
+    }
+
+    public void testMpeg2Decode720x480() throws Exception {
+        testDecode(R.raw.video_720x480_mp4_mpeg2_2000kbps_30fps_aac_stereo_128kbps_48000hz, 300);
+    }
+
+    public void testMpeg2Decode30fps1280x720Tv() throws Exception {
+        if (checkTv()) {
+            assertTrue(MediaUtils.canDecodeVideo(MediaFormat.MIMETYPE_VIDEO_MPEG2, 1280, 720, 30));
+        }
+    }
+
+    public void testMpeg2Decode30fps1280x720() throws Exception {
+        testDecode(R.raw.video_1280x720_mp4_mpeg2_6000kbps_30fps_aac_stereo_128kbps_48000hz, 150);
+    }
+
+    public void testMpeg2Decode30fps1920x1080Tv() throws Exception {
+        if (checkTv()) {
+            assertTrue(MediaUtils.canDecodeVideo(MediaFormat.MIMETYPE_VIDEO_MPEG2, 1920, 1080, 30));
+        }
+    }
+
+    public void testMpeg2Decode30fps1920x1080() throws Exception {
+        testDecode(R.raw.video_1920x1080_mp4_mpeg2_12000kbps_30fps_aac_stereo_128kbps_48000hz, 150);
+    }
+
+    public void testMpeg2Decode30fps3840x2160() throws Exception {
+        testDecode(R.raw.video_3840x2160_mp4_mpeg2_20000kbps_30fps_aac_stereo_128kbps_48000hz, 150);
+    }
+
     private void testCodecEarlyEOS(int resid, int eosFrame) throws Exception {
         if (!MediaUtils.checkCodecForResource(mContext, resid, 0 /* track */)) {
             return; // skip
@@ -2102,6 +2248,12 @@ public class DecoderTest extends MediaPlayerTestBase {
                 120 /* eosframe */);
     }
 
+    public void testCodecEarlyEOSMpeg2() throws Exception {
+        testCodecEarlyEOS(
+                R.raw.video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz,
+                120 /* eosframe */);
+    }
+
     public void testCodecEarlyEOSMpeg4() throws Exception {
         testCodecEarlyEOS(
                 R.raw.video_480x360_mp4_mpeg4_860kbps_25fps_aac_stereo_128kbps_44100hz,
@@ -2117,6 +2269,12 @@ public class DecoderTest extends MediaPlayerTestBase {
     public void testCodecEarlyEOSVP9() throws Exception {
         testCodecEarlyEOS(
                 R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz,
+                120 /* eosframe */);
+    }
+
+    public void testCodecEarlyEOSAV1() throws Exception {
+        testCodecEarlyEOS(
+                R.raw.video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz,
                 120 /* eosframe */);
     }
 
@@ -2140,6 +2298,17 @@ public class DecoderTest extends MediaPlayerTestBase {
         Surface s = getActivity().getSurfaceHolder().getSurface();
         testCodecResets(
                 R.raw.bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz, s);
+    }
+
+    public void testCodecResetsMpeg2WithoutSurface() throws Exception {
+        testCodecResets(
+                R.raw.video_1280x720_mp4_mpeg2_6000kbps_30fps_aac_stereo_128kbps_48000hz, null);
+    }
+
+    public void testCodecResetsMpeg2WithSurface() throws Exception {
+        Surface s = getActivity().getSurfaceHolder().getSurface();
+        testCodecResets(
+                R.raw.video_176x144_mp4_mpeg2_105kbps_25fps_aac_stereo_128kbps_44100hz, s);
     }
 
     public void testCodecResetsH263WithoutSurface() throws Exception {
@@ -2180,10 +2349,21 @@ public class DecoderTest extends MediaPlayerTestBase {
                 R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz, null);
     }
 
+    public void testCodecResetsAV1WithoutSurface() throws Exception {
+        testCodecResets(
+                R.raw.video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz, null);
+    }
+
     public void testCodecResetsVP9WithSurface() throws Exception {
         Surface s = getActivity().getSurfaceHolder().getSurface();
         testCodecResets(
                 R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz, s);
+    }
+
+    public void testCodecResetsAV1WithSurface() throws Exception {
+        Surface s = getActivity().getSurfaceHolder().getSurface();
+        testCodecResets(
+                R.raw.video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz, s);
     }
 
 //    public void testCodecResetsOgg() throws Exception {
@@ -2415,7 +2595,19 @@ public class DecoderTest extends MediaPlayerTestBase {
         // start decode loop
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
 
-        final long kTimeOutUs = 5000; // 5ms timeout
+        MediaFormat outFormat = codec.getOutputFormat();
+        long kTimeOutUs = 5000; // 5ms timeout
+        String outMime = format.getString(MediaFormat.KEY_MIME);
+        if ((surface == null) && (outMime != null) && outMime.startsWith("video/")) {
+            int outWidth = outFormat.getInteger(MediaFormat.KEY_WIDTH);
+            int outHeight = outFormat.getInteger(MediaFormat.KEY_HEIGHT);
+            // in the 4K decoding case in byte buffer mode, set kTimeOutUs to 10ms as decode may
+            // involve a memcpy
+            if (outWidth * outHeight >= 8000000) {
+                kTimeOutUs = 10000;
+            }
+        }
+
         boolean sawInputEOS = false;
         boolean sawOutputEOS = false;
         int deadDecoderCounter = 0;
@@ -2432,6 +2624,7 @@ public class DecoderTest extends MediaPlayerTestBase {
         if ((checkFlags & CHECKFLAG_SETCHECKSUM) != 0) {
             outputChecksums.clear();
         }
+        boolean advanceDone = true;
         while (!sawOutputEOS && deadDecoderCounter < 100) {
             // handle input
             if (!sawInputEOS) {
@@ -2442,17 +2635,18 @@ public class DecoderTest extends MediaPlayerTestBase {
 
                     int sampleSize =
                             extractor.readSampleData(dstBuf, 0 /* offset */);
+                    assertEquals("end of stream should match extractor.advance()", sampleSize >= 0,
+                            advanceDone);
                     long presentationTimeUs = extractor.getSampleTime();
-                    boolean advanceDone = extractor.advance();
+                    advanceDone = extractor.advance();
                     // int flags = extractor.getSampleFlags();
                     // Log.i("@@@@", "read sample " + samplenum + ":" +
                     // extractor.getSampleFlags()
                     // + " @ " + extractor.getSampleTime() + " size " +
                     // sampleSize);
-                    assertEquals("extractor.advance() should match end of stream", sampleSize >= 0,
-                            advanceDone);
 
                     if (sampleSize < 0) {
+                        assertFalse("advance succeeded after failed read", advanceDone);
                         Log.d(TAG, "saw input EOS.");
                         sawInputEOS = true;
                         assertEquals("extractor.readSampleData() must return -1 at end of stream",
@@ -2625,6 +2819,12 @@ public class DecoderTest extends MediaPlayerTestBase {
             new int[] {1, 17, 23, 49});
     }
 
+    public void testEOSBehaviorMpeg2() throws Exception {
+        testEOSBehavior(R.raw.video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz, 17);
+        testEOSBehavior(R.raw.video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz, 23);
+        testEOSBehavior(R.raw.video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz, 49);
+    }
+
     public void testEOSBehaviorH263() throws Exception {
         // this video has an I frame every 12 frames.
         testEOSBehavior(
@@ -2650,6 +2850,13 @@ public class DecoderTest extends MediaPlayerTestBase {
         // this video has an I frame at 44
         testEOSBehavior(
                 R.raw.video_480x360_webm_vp9_333kbps_25fps_vorbis_stereo_128kbps_48000hz,
+                new int[] {1, 44, 45, 55, 43});
+    }
+
+    public void testEOSBehaviorAV1() throws Exception {
+        // this video has an I frame at 44
+        testEOSBehavior(
+                R.raw.video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz,
                 new int[] {1, 44, 45, 55, 43});
     }
 
@@ -2813,6 +3020,8 @@ public class DecoderTest extends MediaPlayerTestBase {
     public void testFlush() throws Exception {
         testFlush(R.raw.loudsoftwav);
         testFlush(R.raw.loudsoftogg);
+        testFlush(R.raw.loudsoftoggmkv);
+        testFlush(R.raw.loudsoftoggmp4);
         testFlush(R.raw.loudsoftmp3);
         testFlush(R.raw.loudsoftaac);
         testFlush(R.raw.loudsoftfaac);
@@ -3007,6 +3216,9 @@ public class DecoderTest extends MediaPlayerTestBase {
         List<CodecCapabilities> caps = new ArrayList<CodecCapabilities>();
         for (int i = 0; i < numCodecs; i++) {
             MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
+            if (codecInfo.isAlias()) {
+                continue;
+            }
             if (codecInfo.isEncoder()) {
                 continue;
             }

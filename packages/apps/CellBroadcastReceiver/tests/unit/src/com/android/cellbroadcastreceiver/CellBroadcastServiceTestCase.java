@@ -17,6 +17,7 @@
 package com.android.cellbroadcastreceiver;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 
 import android.app.Service;
@@ -26,9 +27,13 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.telephony.CarrierConfigManager;
+import android.telephony.SubscriptionManager;
 import android.test.ServiceTestCase;
 import android.util.Log;
 
+import com.android.internal.telephony.ISub;
+
+import org.junit.After;
 import org.junit.Before;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -39,6 +44,10 @@ public abstract class CellBroadcastServiceTestCase<T extends Service> extends Se
     protected CarrierConfigManager mMockedCarrierConfigManager;
     @Mock
     Resources mResources;
+    @Mock
+    protected ISub.Stub mSubService;
+
+    MockedServiceManager mMockedServiceManager;
 
     Intent mServiceIntentToVerify;
 
@@ -98,12 +107,23 @@ public abstract class CellBroadcastServiceTestCase<T extends Service> extends Se
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
+        // A hack to return mResources from static method
+        // CellBroadcastSettings.getResourcesForDefaultSmsSubscriptionId(context).
+        doReturn(mSubService).when(mSubService).queryLocalInterface(anyString());
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubService).getDefaultSubId();
+        doReturn(SubscriptionManager.INVALID_SUBSCRIPTION_ID).when(mSubService).getDefaultSmsSubId();
+        mMockedServiceManager = new MockedServiceManager();
+        mMockedServiceManager.replaceService("isub", mSubService);
         mContext = new TestContextWrapper(getContext());
         setContext(mContext);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        mMockedServiceManager.restoreAllServices();
     }
 
     void putResources(int id, String[] values) {
         doReturn(values).when(mResources).getStringArray(eq(id));
     }
 }
-

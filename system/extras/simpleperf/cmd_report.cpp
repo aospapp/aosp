@@ -26,7 +26,6 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
-#include <android-base/parsedouble.h>
 #include <android-base/parseint.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
@@ -509,7 +508,6 @@ bool ReportCommand::Run(const std::vector<std::string>& args) {
 bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
   bool demangle = true;
   bool show_ip_for_unknown_symbol = true;
-  std::string symfs_dir;
   std::string vmlinux;
   bool print_sample_count = false;
   std::vector<std::string> sort_keys = {"comm", "pid", "tid", "dso", "symbol"};
@@ -561,11 +559,7 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
       }
       Dso::SetKallsyms(kallsyms);
     } else if (args[i] == "--max-stack") {
-      if (!NextArgumentOrError(args, &i)) {
-        return false;
-      }
-      if (!android::base::ParseUint(args[i].c_str(), &callgraph_max_stack_)) {
-        LOG(ERROR) << "invalid arg for --max-stack: " << args[i];
+      if (!GetUintOption(args, &i, &callgraph_max_stack_)) {
         return false;
       }
     } else if (args[i] == "-n") {
@@ -581,12 +575,8 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
       }
       report_filename_ = args[i];
     } else if (args[i] == "--percent-limit") {
-      if (!NextArgumentOrError(args, &i)) {
+      if (!GetDoubleOption(args, &i, &callgraph_percent_limit_)) {
         return false;
-      }
-      if (!android::base::ParseDouble(args[i].c_str(),
-                                      &callgraph_percent_limit_, 0.0)) {
-        LOG(ERROR) << "invalid arg for --percent-limit: " << args[i];
       }
     } else if (args[i] == "--pids" || args[i] == "--tids") {
       const std::string& option = args[i];
@@ -622,8 +612,9 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
       if (!NextArgumentOrError(args, &i)) {
         return false;
       }
-      symfs_dir = args[i];
-
+      if (!Dso::SetSymFsDir(args[i])) {
+        return false;
+      }
     } else if (args[i] == "--vmlinux") {
       if (!NextArgumentOrError(args, &i)) {
         return false;
@@ -636,9 +627,6 @@ bool ReportCommand::ParseOptions(const std::vector<std::string>& args) {
   }
 
   Dso::SetDemangle(demangle);
-  if (!Dso::SetSymFsDir(symfs_dir)) {
-    return false;
-  }
   if (!vmlinux.empty()) {
     Dso::SetVmlinux(vmlinux);
   }
@@ -882,7 +870,8 @@ bool ReportCommand::ProcessRecord(std::unique_ptr<Record> record) {
     } else {
       ProcessSampleRecordInTraceOffCpuMode(std::move(record), attr_id);
     }
-  } else if (record->type() == PERF_RECORD_TRACING_DATA) {
+  } else if (record->type() == PERF_RECORD_TRACING_DATA ||
+             record->type() == SIMPLE_PERF_RECORD_TRACING_DATA) {
     const auto& r = *static_cast<TracingDataRecord*>(record.get());
     if (!ProcessTracingData(std::vector<char>(r.data, r.data + r.data_size))) {
       return false;

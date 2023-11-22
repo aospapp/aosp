@@ -11,9 +11,10 @@ import android.content.Intent;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.os.TestLooperManager;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.Utils;
 import com.android.bluetooth.hfp.HeadsetHalConstants;
@@ -274,6 +275,7 @@ public class RemoteDevicesTest {
         // Verify ACTION_ACL_DISCONNECTED and BATTERY_LEVEL_CHANGED intent are sent
         verify(mAdapterService, times(3)).sendBroadcast(mIntentArgument.capture(),
                 mStringArgument.capture());
+        verify(mAdapterService, times(2)).obfuscateAddress(mDevice1);
         verifyBatteryLevelChangedIntent(mDevice1, BluetoothDevice.BATTERY_LEVEL_UNKNOWN,
                 mIntentArgument.getAllValues().get(mIntentArgument.getAllValues().size() - 2));
         Assert.assertEquals(AdapterService.BLUETOOTH_PERM,
@@ -336,7 +338,7 @@ public class RemoteDevicesTest {
                 BluetoothAssignedNumbers.PLANTRONICS, BluetoothHeadset.AT_CMD_TYPE_SET,
                 getXEventArray(3, 8), mDevice1));
         verify(mAdapterService).sendBroadcast(mIntentArgument.capture(), mStringArgument.capture());
-        verifyBatteryLevelChangedIntent(mDevice1, 37, mIntentArgument);
+        verifyBatteryLevelChangedIntent(mDevice1, 42, mIntentArgument);
         Assert.assertEquals(AdapterService.BLUETOOTH_PERM, mStringArgument.getValue());
     }
 
@@ -364,8 +366,11 @@ public class RemoteDevicesTest {
 
     @Test
     public void testGetBatteryLevelFromXEventVsc() {
-        Assert.assertEquals(37, RemoteDevices.getBatteryLevelFromXEventVsc(getXEventArray(3, 8)));
-        Assert.assertEquals(100, RemoteDevices.getBatteryLevelFromXEventVsc(getXEventArray(1, 1)));
+        Assert.assertEquals(42, RemoteDevices.getBatteryLevelFromXEventVsc(getXEventArray(3, 8)));
+        Assert.assertEquals(100,
+                RemoteDevices.getBatteryLevelFromXEventVsc(getXEventArray(10, 11)));
+        Assert.assertEquals(BluetoothDevice.BATTERY_LEVEL_UNKNOWN,
+                RemoteDevices.getBatteryLevelFromXEventVsc(getXEventArray(1, 1)));
         Assert.assertEquals(BluetoothDevice.BATTERY_LEVEL_UNKNOWN,
                 RemoteDevices.getBatteryLevelFromXEventVsc(getXEventArray(3, 1)));
         Assert.assertEquals(BluetoothDevice.BATTERY_LEVEL_UNKNOWN,
@@ -436,7 +441,8 @@ public class RemoteDevicesTest {
         Assert.assertEquals(device, intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
         Assert.assertEquals(batteryLevel,
                 intent.getIntExtra(BluetoothDevice.EXTRA_BATTERY_LEVEL, -15));
-        Assert.assertEquals(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT, intent.getFlags());
+        Assert.assertEquals(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT
+                        | Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND, intent.getFlags());
     }
 
     private static Intent getHeadsetConnectionStateChangedIntent(BluetoothDevice device,

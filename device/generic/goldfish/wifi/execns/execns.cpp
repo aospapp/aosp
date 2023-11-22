@@ -19,6 +19,8 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
+#include <pwd.h>
 #include <sched.h>
 #include <stdio.h>
 #include <string.h>
@@ -77,7 +79,7 @@ private:
 };
 
 static void printUsage(const char* program) {
-    LOGE("%s <namespace> <program> [options...]", program);
+    LOGE("%s [-u user] [-g group] <namespace> <program> [options...]", program);
 }
 
 static bool isNumericString(const char* str) {
@@ -142,6 +144,34 @@ static bool setNetworkNamespace(const char* ns) {
     if (setns(nsFd.get(), CLONE_NEWNET) == -1) {
         LOGE("Cannot set network namespace '%s': %s",
              ns, strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+static bool changeUser(const char* user) {
+    struct passwd* pwd = ::getpwnam(user);
+    if (pwd == nullptr) {
+        LOGE("Could not find user '%s'", user);
+        return false;
+    }
+
+    if (::setuid(pwd->pw_uid) != 0) {
+        LOGE("Cannot switch to user '%s': %s", user, strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+static bool changeGroup(const char* group) {
+    struct group* grp = ::getgrnam(group);
+    if (grp == nullptr) {
+        LOGE("Could not find group '%s'", group);
+        return false;
+    }
+
+    if (::setgid(grp->gr_gid) != 0) {
+        LOGE("Cannot switch to group '%s': %s", group, strerror(errno));
         return false;
     }
     return true;
@@ -220,17 +250,61 @@ static int execCommand( int argc, char** argv) {
  */
 int main(int argc, char* argv[]) {
     isTerminal = isatty(STDOUT_FILENO) != 0;
-    if (argc < 3) {
+
+    // Parse parameters
+    const char* user = nullptr;
+    const char* group = nullptr;
+    int nsArg = -1;
+    int execArg = -1;
+    for (int i = 1; i < argc; ++i) {
+        if (::strcmp(argv[i], "-u") == 0) {
+            if (user || i + 1 >= argc) {
+                LOGE("Missing argument to option -u");
+                return 1;
+            }
+            user = argv[++i];
+        } else if (::strcmp(argv[i], "-g") == 0) {
+            if (group || i + 1 >= argc) {
+                LOGE("Missing argument to option -g");
+                return 1;
+            }
+            group = argv[++i];
+        } else {
+            // Break on the first non-option and treat it as the namespace name
+            nsArg = i;
+            if (i + 1 < argc) {
+                execArg = i + 1;
+            }
+            break;
+        }
+    }
+
+    if (nsArg < 0 || execArg < 0) {
+        // Missing namespace and/or exec arguments
         printUsage(argv[0]);
         return 1;
     }
 
     // First set the new network namespace for this process
-    if (!setNetworkNamespace(argv[1])) {
+    if (!setNetworkNamespace(argv[nsArg])) {
+        return 1;
+    }
+
+    // Changing namespace is the privileged operation, so now we can drop
+    // privileges by changing user and/or group if the user requested it. Note
+    // that it's important to change group first because it must be done as a
+    // privileged user. Otherwise an attacker might be able to restore group
+    // privileges by using the group ID that is saved by setgid when running
+    // as a non-privileged user.
+    if (group && !changeGroup(group)) {
+        return 1;
+    }
+
+    if (user && !changeUser(user)) {
         return 1;
     }
 
     // Now run the command with all the remaining parameters
-    return execCommand(argc - 2, &argv[2]);
+    return execCommand(argc - execArg, &argv[execArg]);
 }
 

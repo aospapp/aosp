@@ -18,7 +18,9 @@
 #define ANDROID_LIBPERFMGR_NODELOOPERTHREAD_H_
 
 #include <cstddef>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <utils/Thread.h>
@@ -51,7 +53,7 @@ struct NodeAction {
 // powerhint requests and when the timeout expires for an in-progress powerhint.
 class NodeLooperThread : public ::android::Thread {
   public:
-    NodeLooperThread(std::vector<std::unique_ptr<Node>> nodes)
+    explicit NodeLooperThread(std::vector<std::unique_ptr<Node>> nodes)
         : Thread(false), nodes_(std::move(nodes)) {}
     virtual ~NodeLooperThread() { Stop(); }
 

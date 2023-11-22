@@ -42,8 +42,13 @@ cc_test {
     target: {
         android: {
             cflags: ["-DLIBVINTF_TARGET"],
+            test_config: "libvintf_test.xml",
         },
-    }
+    },
+
+    test_suites: [
+        "general-tests",
+    ],
 }
 
 cc_test {
@@ -53,7 +58,6 @@ cc_test {
     native_coverage: true,
     srcs: [
         "RuntimeInfo-fake.cpp",
-        "utils-fake.cpp",
         "vintf_object_tests.cpp",
     ],
     shared_libs: [
@@ -66,7 +70,7 @@ cc_test {
     static_libs: [
         "libgtest",
         "libgmock",
-        "libvintf_common",
+        "libvintf",
         "libhidl-gen-utils",
         "libz",
     ],
@@ -79,6 +83,44 @@ cc_test {
     target: {
         android: {
             cflags: ["-DLIBVINTF_TARGET"],
+            test_config: "vintf_object_test.xml",
         },
-    }
+    },
+
+    test_suites: [
+        "general-tests",
+    ],
+}
+
+// run this with: ./vintf_object_recovery_test.sh
+cc_test {
+    name: "vintf_object_recovery_test",
+    defaults: ["libvintf-defaults"],
+
+    static_libs: [
+        "libvintf_recovery",
+        "libvintf",
+        "libhidl-gen-utils",
+        "libfs_mgr",
+        "liblp",
+        "libcrypto",
+        "libcrypto_utils",
+        "libext4_utils",
+        "libcutils",
+        "libgtest",
+        "libbase",
+        "liblog",
+        "libselinux",
+        "libtinyxml2",
+        "libz",
+    ],
+
+    cflags: [
+        "-O0",
+        "-g",
+    ],
+
+    srcs: [
+        "VintfObjectRecoveryTest.cpp",
+    ],
 }

@@ -95,7 +95,7 @@ public class CameraPerformanceTest extends CameraTestBase {
         // from commands.
         setTestPackage("android.camera.cts");
         setTestClass("android.hardware.camera2.cts.PerformanceTest");
-        setTestRunner("android.support.test.runner.AndroidJUnitRunner");
+        setTestRunner("androidx.test.runner.AndroidJUnitRunner");
         setRuKey("camera_framework_performance");
         setTestTimeoutMs(10 * 60 * 1000); // 10 mins
     }

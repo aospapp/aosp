@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2017 - The Android Open Source Project
 #
@@ -15,12 +15,22 @@
 #   limitations under the License.
 
 import time
+from zipfile import ZipFile
 
+"""The setup time in seconds."""
 SL4A_SERVICE_SETUP_TIME = 5
+
+
+"""The path to the metadata found within the OTA package."""
+OTA_PACKAGE_METADATA_PATH = 'META-INF/com/android/metadata'
 
 
 class OtaError(Exception):
     """Raised when an error in the OTA Update process occurs."""
+
+
+class InvalidOtaUpdateError(OtaError):
+    """Raised when the update from one version to another is not valid."""
 
 
 class OtaRunner(object):
@@ -32,6 +42,7 @@ class OtaRunner(object):
         self.serial = self.android_device.serial
 
     def _update(self):
+        post_build_id = self.get_post_build_id()
         log = self.android_device.log
         old_info = self.android_device.adb.getprop('ro.build.fingerprint')
         log.info('Starting Update. Beginning build info: %s', old_info)
@@ -44,8 +55,9 @@ class OtaRunner(object):
         new_info = self.android_device.adb.getprop('ro.build.fingerprint')
         if not old_info or old_info == new_info:
             raise OtaError('The device was not updated to a new build. '
-                           'Previous build: %s. New build: %s' % (old_info,
-                                                                  new_info))
+                           'Previous build: %s. Current build: %s. '
+                           'Expected build: %s' % (old_info, new_info,
+                                                   post_build_id))
         log.info('Boot completed. Rooting adb.')
         self.android_device.root_adb()
         log.info('Root complete.')
@@ -62,9 +74,68 @@ class OtaRunner(object):
                     break
         log.info('Starting services.')
         self.android_device.start_services()
+        self.android_device.update_sdk_api_level()
         log.info('Services started. Running ota tool cleanup.')
         self.ota_tool.cleanup(self)
         log.info('Cleanup complete.')
+
+    def get_ota_package_metadata(self, requested_field):
+        """Returns a variable found within the OTA package's metadata.
+
+        Args:
+            requested_field: the name of the metadata field
+
+        Will return None if the variable cannot be found.
+        """
+        ota_zip = ZipFile(self.get_ota_package(), 'r')
+        if OTA_PACKAGE_METADATA_PATH in ota_zip.namelist():
+            with ota_zip.open(OTA_PACKAGE_METADATA_PATH) as metadata:
+                timestamp_line = requested_field.encode('utf-8')
+                timestamp_offset = len(timestamp_line) + 1
+
+                for line in metadata.readlines():
+                    if line.startswith(timestamp_line):
+                        return line[timestamp_offset:].decode('utf-8').strip()
+        return None
+
+    def validate_update(self):
+        """Raises an error if updating to the next build is not valid.
+
+        Raises:
+            InvalidOtaUpdateError if the ota version is not valid, or cannot be
+                validated.
+        """
+        # The timestamp the current device build was created at.
+        cur_img_timestamp = self.android_device.adb.getprop('ro.build.date.utc')
+        ota_img_timestamp = self.get_ota_package_metadata('post-timestamp')
+
+        if ota_img_timestamp is None:
+            raise InvalidOtaUpdateError('Unable to find the timestamp '
+                                        'for the OTA build.')
+
+        try:
+            if int(ota_img_timestamp) <= int(cur_img_timestamp):
+                cur_fingerprint = self.android_device.adb.getprop(
+                    'ro.bootimage.build.fingerprint')
+                ota_fingerprint = self.get_post_build_id()
+                raise InvalidOtaUpdateError(
+                    'The OTA image comes from an earlier build than the '
+                    'source build. Current build: Time: %s -- %s, '
+                    'OTA build: Time: %s -- %s' %
+                    (cur_img_timestamp, cur_fingerprint,
+                     ota_img_timestamp, ota_fingerprint))
+        except ValueError:
+            raise InvalidOtaUpdateError(
+                'Unable to parse timestamps. Current timestamp: %s, OTA '
+                'timestamp: %s' % (ota_img_timestamp, cur_img_timestamp))
+
+    def get_post_build_id(self):
+        """Returns the post-build ID found within the OTA package metadata.
+
+        Raises:
+            InvalidOtaUpdateError if the post-build ID cannot be found.
+        """
+        return self.get_ota_package_metadata('post-build')
 
     def can_update(self):
         """Whether or not an update package is available for the device."""
@@ -97,7 +168,7 @@ class SingleUseOtaRunner(OtaRunner):
     def update(self):
         """Starts the update process."""
         if not self.can_update():
-            raise OtaError('A SingleUseOtaTool instance cannot update a phone '
+            raise OtaError('A SingleUseOtaTool instance cannot update a device '
                            'multiple times.')
         self._called = True
         self._update()

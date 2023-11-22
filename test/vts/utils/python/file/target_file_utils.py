@@ -85,7 +85,7 @@ def FindFiles(shell, path, name_pattern, options=None):
     if options is not None:
         cmd += " " + options
     results = shell.Execute(cmd)
-    logging.info("%s: Shell command '%s' results: %s", path, cmd, results)
+    logging.debug("%s: Shell command '%s' results: %s", path, cmd, results)
 
     if results[const.EXIT_CODE][0] != 0:
         raise IOError(results[const.STDERR][0])
@@ -110,7 +110,7 @@ def ReadFileContent(filepath, shell):
     """
     cmd = "cat %s" % filepath
     results = shell.Execute(cmd)
-    logging.info("%s: Shell command '%s' results: %s", filepath, cmd, results)
+    logging.debug("%s: Shell command '%s' results: %s", filepath, cmd, results)
 
     # checks the exit code
     if results[const.EXIT_CODE][0] != 0:
@@ -134,7 +134,7 @@ def GetPermission(path, shell):
     """
     cmd = "stat -c %%a %s" % path
     results = shell.Execute(cmd)
-    logging.info("%s: Shell command '%s' results: %s", path, cmd, results)
+    logging.debug("%s: Shell command '%s' results: %s", path, cmd, results)
 
     # checks the exit code
     if results[const.EXIT_CODE][0] != 0:

@@ -19,6 +19,7 @@ package com.android.tools.metalava
 import com.android.tools.metalava.doclava1.ApiPredicate
 import com.android.tools.metalava.doclava1.Errors
 import com.android.tools.metalava.doclava1.FilterPredicate
+import com.android.tools.metalava.model.AnnotationTarget
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
 import com.android.tools.metalava.model.ConstructorItem
@@ -29,23 +30,22 @@ import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.ModifierList
 import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.TypeParameterList
+import com.android.tools.metalava.model.psi.EXPAND_DOCUMENTATION
 import com.android.tools.metalava.model.psi.PsiClassItem
 import com.android.tools.metalava.model.psi.trimDocIndent
 import com.android.tools.metalava.model.visitors.ApiVisitor
-import com.google.common.io.Files
 import java.io.BufferedWriter
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
 import java.io.PrintWriter
-import kotlin.text.Charsets.UTF_8
 
 class StubWriter(
     private val codebase: Codebase,
     private val stubsDir: File,
     private val generateAnnotations: Boolean = false,
     private val preFiltered: Boolean = true,
-    docStubs: Boolean
+    private val docStubs: Boolean
 ) : ApiVisitor(
     visitConstructorsAsMethods = false,
     nestInnerClasses = true,
@@ -54,31 +54,28 @@ class StubWriter(
     // Methods are by default sorted in source order in stubs, to encourage methods
     // that are near each other in the source to show up near each other in the documentation
     methodComparator = MethodItem.sourceOrderComparator,
-    filterEmit = FilterPredicate(ApiPredicate(codebase, ignoreShown = true, includeDocOnly = docStubs)),
-    filterReference = ApiPredicate(codebase, ignoreShown = true, includeDocOnly = docStubs),
+    filterEmit = FilterPredicate(ApiPredicate(ignoreShown = true, includeDocOnly = docStubs))
+        // In stubs we have to include non-strippable things too. This is an error in the API,
+        // and we've removed all of it from the framework, but there are libraries which still
+        // have reference errors.
+        .or { it is ClassItem && it.notStrippable },
+    filterReference = ApiPredicate(ignoreShown = true, includeDocOnly = docStubs),
     includeEmptyOuterClasses = true
 ) {
+    private val annotationTarget = if (docStubs) AnnotationTarget.DOC_STUBS_FILE else AnnotationTarget.SDK_STUBS_FILE
 
     private val sourceList = StringBuilder(20000)
-
-    override fun include(cls: ClassItem): Boolean {
-        val filter = options.stubPackages
-        if (filter != null && !filter.matches(cls.containingPackage())) {
-            return false
-        }
-        return super.include(cls)
-    }
 
     /** Writes a source file list of the generated stubs */
     fun writeSourceList(target: File, root: File?) {
         target.parentFile?.mkdirs()
         val contents = if (root != null) {
-            val path = root.path.replace('\\', '/')
+            val path = root.path.replace('\\', '/') + "/"
             sourceList.toString().replace(path, "")
         } else {
             sourceList.toString()
         }
-        Files.asCharSink(target, UTF_8).write(contents)
+        target.writeText(contents)
     }
 
     private fun startFile(sourceFile: File) {
@@ -93,10 +90,14 @@ class StubWriter(
 
         writePackageInfo(pkg)
 
-        codebase.getPackageDocs()?.getDocs(pkg)?.let { writeDocOverview(pkg, it) }
+        if (docStubs) {
+            codebase.getPackageDocs()?.let { packageDocs ->
+                packageDocs.getOverviewDocumentation(pkg)?.let { writeDocOverview(pkg, it) }
+            }
+        }
     }
 
-    private fun writeDocOverview(pkg: PackageItem, content: String) {
+    fun writeDocOverview(pkg: PackageItem, content: String) {
         if (content.isBlank()) {
             return
         }
@@ -118,13 +119,8 @@ class StubWriter(
     }
 
     private fun writePackageInfo(pkg: PackageItem) {
-        if (!generateAnnotations) {
-            // package-info,java is only needed to record annotations
-            return
-        }
-
         val annotations = pkg.modifiers.annotations()
-        if (annotations.isNotEmpty()) {
+        if (annotations.isNotEmpty() && generateAnnotations || !pkg.documentation.isBlank()) {
             val sourceFile = File(getPackageDir(pkg), "package-info.java")
             val writer = try {
                 PrintWriter(BufferedWriter(FileWriter(sourceFile)))
@@ -134,15 +130,19 @@ class StubWriter(
             }
             startFile(sourceFile)
 
-            ModifierList.writeAnnotations(
-                list = pkg.modifiers,
-                separateLines = true,
-                // Some bug in UAST triggers duplicate nullability annotations
-                // here; make sure the are filtered out
-                filterDuplicates = true,
-                onlyIncludeSignatureAnnotations = true,
-                writer = writer
-            )
+            appendDocumentation(pkg, writer)
+
+            if (annotations.isNotEmpty()) {
+                ModifierList.writeAnnotations(
+                    list = pkg.modifiers,
+                    separateLines = true,
+                    // Some bug in UAST triggers duplicate nullability annotations
+                    // here; make sure the are filtered out
+                    filterDuplicates = true,
+                    target = annotationTarget,
+                    writer = writer
+                )
+            }
             writer.println("package ${pkg.qualifiedName()};")
 
             writer.flush()
@@ -201,16 +201,21 @@ class StubWriter(
                 writer.println()
             }
 
-            compilationUnit?.getImportStatements(filterReference)?.let {
-                for (item in it) {
-                    when (item) {
-                        is ClassItem ->
-                            writer.println("import ${item.qualifiedName()};")
-                        is MemberItem ->
-                            writer.println("import static ${item.containingClass().qualifiedName()}.${item.name()};")
+            @Suppress("ConstantConditionIf")
+            if (EXPAND_DOCUMENTATION) {
+                compilationUnit?.getImportStatements(filterReference)?.let {
+                    for (item in it) {
+                        when (item) {
+                            is PackageItem ->
+                                writer.println("import ${item.qualifiedName()}.*;")
+                            is ClassItem ->
+                                writer.println("import ${item.qualifiedName()};")
+                            is MemberItem ->
+                                writer.println("import static ${item.containingClass().qualifiedName()}.${item.name()};")
+                        }
                     }
+                    writer.println()
                 }
-                writer.println()
             }
         }
 
@@ -237,20 +242,37 @@ class StubWriter(
 
         generateTypeParameterList(typeList = cls.typeParameterList(), addSpace = false)
         generateSuperClassStatement(cls)
-        generateInterfaceList(cls)
-
+        if (!cls.notStrippable) {
+            generateInterfaceList(cls)
+        }
         writer.print(" {\n")
 
         if (cls.isEnum()) {
             var first = true
             // Enums should preserve the original source order, not alphabetical etc sort
-            for (field in cls.fields().sortedBy { it.sortingRank }) {
+            for (field in cls.filteredFields(filterReference, true).sortedBy { it.sortingRank }) {
                 if (field.isEnumConstant()) {
                     if (first) {
                         first = false
                     } else {
-                        writer.write(", ")
+                        writer.write(",\n")
                     }
+                    appendDocumentation(field, writer)
+
+                    // Can't just appendModifiers(field, true, true): enum constants
+                    // don't take modifier lists, only annotations
+                    ModifierList.writeAnnotations(
+                        item = field,
+                        target = annotationTarget,
+                        runtimeAnnotationsOnly = !generateAnnotations,
+                        includeDeprecated = true,
+                        writer = writer,
+                        separateLines = true,
+                        list = field.modifiers,
+                        skipNullnessAnnotations = false,
+                        omitCommonPackages = false
+                    )
+
                     writer.write(field.name())
                 }
             }
@@ -261,11 +283,17 @@ class StubWriter(
     }
 
     private fun appendDocumentation(item: Item, writer: PrintWriter) {
-        val documentation = item.documentation
-        if (documentation.isNotBlank()) {
-            val trimmed = trimDocIndent(documentation)
-            writer.println(trimmed)
-            writer.println()
+        if (options.includeDocumentationInStubs || docStubs) {
+            val documentation = if (docStubs && EXPAND_DOCUMENTATION) {
+                item.fullyQualifiedDocumentation()
+            } else {
+                item.documentation
+            }
+            if (documentation.isNotBlank()) {
+                val trimmed = trimDocIndent(documentation)
+                writer.println(trimmed)
+                writer.println()
+            }
         }
     }
 
@@ -295,14 +323,18 @@ class StubWriter(
         removeFinal: Boolean = false,
         addPublic: Boolean = false
     ) {
-        if (item.deprecated && generateAnnotations) {
-            writer.write("@Deprecated ")
-        }
+        val separateLines = item is ClassItem || item is MethodItem
 
         ModifierList.write(
-            writer, modifiers, item, removeAbstract = removeAbstract, removeFinal = removeFinal,
-            addPublic = addPublic, includeAnnotations = generateAnnotations,
-            onlyIncludeSignatureAnnotations = true
+            writer, modifiers, item,
+            target = annotationTarget,
+            includeAnnotations = true,
+            includeDeprecated = true,
+            runtimeAnnotationsOnly = !generateAnnotations,
+            removeAbstract = removeAbstract,
+            removeFinal = removeFinal,
+            addPublic = addPublic,
+            separateLines = separateLines
         )
     }
 
@@ -379,6 +411,9 @@ class StubWriter(
     }
 
     override fun visitConstructor(constructor: ConstructorItem) {
+        if (constructor.containingClass().notStrippable) {
+            return
+        }
         writeConstructor(constructor, constructor.superConstructor)
     }
 
@@ -422,14 +457,17 @@ class StubWriter(
                         writer.write(", ")
                     }
                     val type = parameter.type()
-                    val typeString = type.toErasedTypeString()
                     if (!type.primitive) {
                         if (includeCasts) {
-                            writer.write("(")
-
                             // Types with varargs can't appear as varargs when used as an argument
-                            if (typeString.contains("...")) {
-                                writer.write(typeString.replace("...", "[]"))
+                            val typeString = type.toErasedTypeString(it).replace("...", "[]")
+                            writer.write("(")
+                            if (type.asTypeParameter(superConstructor) != null) {
+                                // It's a type parameter: see if we should map the type back to the concrete
+                                // type in this class
+                                val map = constructor?.containingClass()?.mapTypeVariables(it.containingClass())
+                                val cast = map?.get(type.toTypeString(context = it)) ?: typeString
+                                writer.write(cast)
                             } else {
                                 writer.write(typeString)
                             }
@@ -437,6 +475,8 @@ class StubWriter(
                         }
                         writer.write("null")
                     } else {
+                        // Add cast for things like shorts and bytes
+                        val typeString = type.toTypeString(context = it)
                         if (typeString != "boolean" && typeString != "int" && typeString != "long") {
                             writer.write("(")
                             writer.write(typeString)
@@ -463,6 +503,9 @@ class StubWriter(
     }
 
     override fun visitMethod(method: MethodItem) {
+        if (method.containingClass().notStrippable) {
+            return
+        }
         writeMethod(method.containingClass(), method, false)
     }
 
@@ -492,12 +535,26 @@ class StubWriter(
         generateTypeParameterList(typeList = method.typeParameterList(), addSpace = true)
 
         val returnType = method.returnType()
-        writer.print(returnType?.toTypeString(outerAnnotations = false, innerAnnotations = generateAnnotations))
+        writer.print(
+            returnType?.toTypeString(
+                outerAnnotations = false,
+                innerAnnotations = generateAnnotations,
+                filter = filterReference
+            )
+        )
 
         writer.print(' ')
         writer.print(method.name())
         generateParameterList(method)
         generateThrowsList(method)
+
+        if (isAnnotation) {
+            val default = method.defaultValue()
+            if (default.isNotEmpty()) {
+                writer.print(" default ")
+                writer.print(default)
+            }
+        }
 
         if (modifiers.isAbstract() && !removeAbstract && !isEnum || isAnnotation || modifiers.isNative()) {
             writer.println(";")
@@ -514,11 +571,21 @@ class StubWriter(
             return
         }
 
+        if (field.containingClass().notStrippable) {
+            return
+        }
+
         writer.println()
 
         appendDocumentation(field, writer)
         appendModifiers(field, false, false)
-        writer.print(field.type().toTypeString(outerAnnotations = false, innerAnnotations = generateAnnotations))
+        writer.print(
+            field.type().toTypeString(
+                outerAnnotations = false,
+                innerAnnotations = generateAnnotations,
+                filter = filterReference
+            )
+        )
         writer.print(' ')
         writer.print(field.name())
         val needsInitialization =
@@ -552,7 +619,8 @@ class StubWriter(
             writer.print(
                 parameter.type().toTypeString(
                     outerAnnotations = false,
-                    innerAnnotations = generateAnnotations
+                    innerAnnotations = generateAnnotations,
+                    filter = filterReference
                 )
             )
             writer.print(' ')

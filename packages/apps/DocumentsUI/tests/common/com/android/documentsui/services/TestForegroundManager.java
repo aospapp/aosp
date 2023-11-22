@@ -23,17 +23,25 @@ import android.app.Notification;
 
 class TestForegroundManager implements FileOperationService.ForegroundManager {
 
+    private final TestNotificationManager mNotificationManager;
     private int mForegroundId = -1;
     private Notification mForegroundNotification;
+
+    TestForegroundManager(TestNotificationManager notificationManager) {
+        assert(notificationManager != null);
+        mNotificationManager = notificationManager;
+    }
 
     @Override
     public void startForeground(int id, Notification notification) {
         mForegroundId = id;
         mForegroundNotification = notification;
+        mNotificationManager.notify(null, mForegroundId, mForegroundNotification);
     }
 
     @Override
     public void stopForeground(boolean cancelNotification) {
+        mNotificationManager.cancel(null, mForegroundId);
         mForegroundId = -1;
         mForegroundNotification = null;
     }
@@ -44,13 +52,5 @@ class TestForegroundManager implements FileOperationService.ForegroundManager {
 
     void assertInBackground() {
         assertNull(mForegroundNotification);
-    }
-
-    int getForegroundId() {
-        return mForegroundId;
-    }
-
-    Notification getForegroundNotification() {
-        return mForegroundNotification;
     }
 }

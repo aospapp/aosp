@@ -21,18 +21,16 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
-import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 
-import com.example.android.wearable.runtimepermissions.common.Constants;
+import androidx.core.app.ActivityCompat;
 
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.wearable.CapabilityApi;
+import com.example.android.wearable.runtimepermissions.common.Constants;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.wearable.CapabilityClient;
 import com.google.android.gms.wearable.CapabilityInfo;
 import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.MessageApi;
 import com.google.android.gms.wearable.MessageEvent;
 import com.google.android.gms.wearable.Node;
 import com.google.android.gms.wearable.Wearable;
@@ -40,7 +38,6 @@ import com.google.android.gms.wearable.WearableListenerService;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Handles all incoming requests for wear data (and permissions) from phone devices.
@@ -129,60 +126,52 @@ public class IncomingRequestWearService extends WearableListenerService {
         }
     }
 
-    private void sendMessage(DataMap dataMap) {
+    private void sendMessage(final DataMap dataMap) {
 
         Log.d(TAG, "sendMessage(): " + dataMap);
 
-        GoogleApiClient googleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(Wearable.API)
-                .build();
-        ConnectionResult connectionResult =
-                googleApiClient.blockingConnect(
-                        Constants.CONNECTION_TIME_OUT_MS,
-                        TimeUnit.MILLISECONDS);
+        // Initial check of capabilities to find the phone.
+        Task<CapabilityInfo> capabilityInfoTask = Wearable.getCapabilityClient(this)
+                .getCapability(Constants.CAPABILITY_PHONE_APP, CapabilityClient.FILTER_REACHABLE);
 
-        if (!connectionResult.isSuccess()) {
-            Log.d(TAG, "Google API Client failed to connect.");
-            return;
-        }
+        capabilityInfoTask.addOnCompleteListener(new OnCompleteListener<CapabilityInfo>() {
+             @Override
+             public void onComplete(Task<CapabilityInfo> task) {
 
-        PendingResult<CapabilityApi.GetCapabilityResult> pendingCapabilityResult =
-                Wearable.CapabilityApi.getCapability(
-                        googleApiClient,
-                        Constants.CAPABILITY_PHONE_APP,
-                        CapabilityApi.FILTER_REACHABLE);
+                 if (task.isSuccessful()) {
+                     Log.d(TAG, "Capability request succeeded.");
 
-        CapabilityApi.GetCapabilityResult getCapabilityResult =
-                pendingCapabilityResult.await(
-                        Constants.CONNECTION_TIME_OUT_MS,
-                        TimeUnit.MILLISECONDS);
+                     CapabilityInfo capabilityInfo = task.getResult();
+                     String phoneNodeId = pickBestNodeId(capabilityInfo.getNodes());
 
-        if (!getCapabilityResult.getStatus().isSuccess()) {
-            Log.d(TAG, "CapabilityApi failed to return any results.");
-            googleApiClient.disconnect();
-            return;
-        }
+                     if (phoneNodeId != null) {
+                         // Instantiates clients without member variables, as clients are inexpensive to
+                         // create. (They are cached and shared between GoogleApi instances.)
+                         Task<Integer> sendMessageTask =
+                                 Wearable.getMessageClient(
+                                         getApplicationContext()).sendMessage(
+                                         phoneNodeId,
+                                         Constants.MESSAGE_PATH_PHONE,
+                                         dataMap.toByteArray());
 
-        CapabilityInfo capabilityInfo = getCapabilityResult.getCapability();
-        String phoneNodeId = pickBestNodeId(capabilityInfo.getNodes());
-
-        PendingResult<MessageApi.SendMessageResult> pendingMessageResult =
-                Wearable.MessageApi.sendMessage(
-                        googleApiClient,
-                        phoneNodeId,
-                        Constants.MESSAGE_PATH_PHONE,
-                        dataMap.toByteArray());
-
-        MessageApi.SendMessageResult sendMessageResult =
-                pendingMessageResult.await(Constants.CONNECTION_TIME_OUT_MS, TimeUnit.MILLISECONDS);
-
-        if (!sendMessageResult.getStatus().isSuccess()) {
-            Log.d(TAG, "Sending message failed, onResult: " + sendMessageResult.getStatus());
-        } else {
-            Log.d(TAG, "Message sent successfully");
-        }
-
-        googleApiClient.disconnect();
+                         sendMessageTask.addOnCompleteListener(new OnCompleteListener<Integer>() {
+                             @Override
+                             public void onComplete(Task<Integer> task) {
+                                 if (task.isSuccessful()) {
+                                     Log.d(TAG, "Message sent successfully");
+                                 } else {
+                                     Log.d(TAG, "Message failed.");
+                                 }
+                             }
+                         });
+                     } else {
+                         Log.d(TAG, "No phone node available.");
+                     }
+                 } else {
+                     Log.d(TAG, "Capability request failed to return any results.");
+                 }
+             }
+         });
     }
 
     /*

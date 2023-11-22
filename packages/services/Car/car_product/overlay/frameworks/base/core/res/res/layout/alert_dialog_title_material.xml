@@ -16,7 +16,7 @@
 -->
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:id="@+id/topPanel"
+              android:id="@*android:id/topPanel"
               android:layout_width="match_parent"
               android:layout_height="wrap_content"
               android:gravity="center_vertical"
@@ -25,37 +25,37 @@
     <!-- If the client uses a customTitle, it will be added here. -->
 
     <RelativeLayout
-        android:id="@+id/title_template"
+        android:id="@*android:id/title_template"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/car_card_header_height"
+        android:layout_height="@*android:dimen/car_card_header_height"
         android:orientation="horizontal">
 
         <ImageView
-            android:id="@+id/icon"
-            android:layout_width="@dimen/car_icon_size"
-            android:layout_height="@dimen/car_icon_size"
-            android:layout_marginStart="@dimen/car_keyline_1"
+            android:id="@*android:id/icon"
+            android:layout_width="@*android:dimen/image_size"
+            android:layout_height="@*android:dimen/image_size"
+            android:layout_marginStart="@*android:dimen/image_margin_start"
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
             android:scaleType="fitCenter"
             android:src="@null" />
 
         <com.android.internal.widget.DialogTitle
-            android:id="@+id/alertTitle"
+            android:id="@*android:id/alertTitle"
             android:maxLines="1"
             android:ellipsize="none"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_toEndOf="@+id/icon"
+            android:layout_toEndOf="@*android:id/icon"
             android:textAlignment="viewStart"
             android:layout_centerVertical="true"
-            android:layout_marginStart="@dimen/car_keyline_1"
-            android:layout_marginEnd="@dimen/car_keyline_1"
-            style="@style/CarTitle"/>
+            android:layout_marginStart="@*android:dimen/text_view_start_margin"
+            android:layout_marginEnd="@*android:dimen/text_view_end_margin"
+            style="?android:attr/windowTitleStyle" />
     </RelativeLayout>
 
     <Space
-        android:id="@+id/titleDividerNoCustom"
+        android:id="@*android:id/titleDividerNoCustom"
         android:visibility="gone"
         android:layout_width="match_parent"
         android:layout_height="0dp" />

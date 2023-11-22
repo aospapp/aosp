@@ -17,7 +17,6 @@ package com.android.settings.datetime.timezone;
 
 import android.content.Context;
 import android.icu.text.LocaleDisplayNames;
-import android.support.v7.preference.Preference;
 
 import java.util.Locale;
 

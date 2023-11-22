@@ -20,11 +20,10 @@ import java.nio.ByteOrder;
 import java.nio.DirectByteBuffer;
 import java.nio.NIOAccess;
 import java.nio.ShortBuffer;
-import libcore.io.SizeOf;
 
 public class DirectShortBufferTest extends ShortBufferTest {
     public void setUp(){
-        buf = ByteBuffer.allocateDirect(BUFFER_LENGTH*2).asShortBuffer();
+        buf = ByteBuffer.allocateDirect(BUFFER_LENGTH*Short.BYTES).asShortBuffer();
         loadTestData1(buf);
         baseBuf = buf;
     }
@@ -56,7 +55,7 @@ public class DirectShortBufferTest extends ShortBufferTest {
     }
 
     // http://b/28964300
-    public void testJNIAccessByAddress() throws Exception {
+    public void testJNIAccessByAddress() {
         DirectByteBuffer directByteBuffer = (DirectByteBuffer) ByteBuffer.allocateDirect(10);
         directByteBuffer.put((byte)'a');
         ShortBuffer shortBuffer = directByteBuffer.asShortBuffer();
@@ -66,7 +65,7 @@ public class DirectShortBufferTest extends ShortBufferTest {
 
         // Check if the NIOAccess method adds up the current position value.
         shortBuffer.put((short)1);
-        assertEquals(shortBufferBasePointer + SizeOf.SHORT, NIOAccess.getBasePointer(shortBuffer));
+        assertEquals(shortBufferBasePointer + Short.BYTES, NIOAccess.getBasePointer(shortBuffer));
     }
 
     public void testIsDirect() {

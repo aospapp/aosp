@@ -93,4 +93,8 @@
     <!-- Label for the button which causes the URL to be opened -->
     <string name="action_confirm_url_open">Open link</string>
 
+    <!-- Toast string informing the user that NFC tag read failure occurs -->
+    <string name="tag_read_error">NFC read error. Try again.</string>
+    <!-- Toast string informing the user that no application can handle the NFC tag -->
+    <string name="tag_dispatch_failed">No supported application for this NFC Tag</string>
 </resources>

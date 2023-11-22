@@ -17,6 +17,7 @@
 package dot.junit.opcodes.sput_byte.d;
 
 class StubInitError {
+    @SuppressWarnings("ConstantOverflow")
     static byte value = (byte)(5 / 0); 
 }
 

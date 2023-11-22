@@ -16,6 +16,8 @@
 
 package com.android.tradefed.command;
 
+import com.android.tradefed.clearcut.ClearcutClient;
+import com.android.tradefed.clearcut.TerminateClearcutClient;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.device.NoDeviceException;
@@ -48,6 +50,7 @@ public class CommandRunner {
     @VisibleForTesting
     void initGlobalConfig(String[] args) throws ConfigurationException {
         GlobalConfiguration.createGlobalConfiguration(args);
+        GlobalConfiguration.getInstance().setup();
     }
 
     /** Get the {@link ICommandScheduler} instance from the global configuration. */
@@ -76,7 +79,13 @@ public class CommandRunner {
     public void run(String[] args) {
         try {
             initGlobalConfig(args);
+
+            ClearcutClient client = new ClearcutClient();
+            Runtime.getRuntime().addShutdownHook(new TerminateClearcutClient(client));
+            client.notifyTradefedStartEvent();
+
             mScheduler = getCommandScheduler();
+            mScheduler.setClearcutClient(client);
             mScheduler.start();
             mScheduler.addCommand(args);
         } catch (ConfigurationException e) {
@@ -104,6 +113,8 @@ public class CommandRunner {
         } catch (InterruptedException e) {
             e.printStackTrace();
             mErrorCode = ExitCode.THROWABLE_EXCEPTION;
+        } finally {
+            GlobalConfiguration.getInstance().cleanup();
         }
         if (!ExitCode.NO_ERROR.equals(mErrorCode)
                 && mScheduler.getLastInvocationThrowable() != null) {
@@ -129,7 +140,8 @@ public class CommandRunner {
         DEVICE_UNAVAILABLE(4),
         FATAL_HOST_ERROR(5),
         THROWABLE_EXCEPTION(6),
-        NO_DEVICE_ALLOCATED(7);
+        NO_DEVICE_ALLOCATED(7),
+        WRONG_JAVA_VERSION(8);
 
         private final int mCodeValue;
 

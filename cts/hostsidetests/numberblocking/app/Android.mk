@@ -27,7 +27,7 @@ LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt androidx.test.rules
 
 LOCAL_JAVA_LIBRARIES := android.test.base.stubs
 

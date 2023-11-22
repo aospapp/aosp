@@ -14,8 +14,11 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS Carrier APIs test cases">
-    <option name="test-suite-tag" value="cts" />
+  <option name="test-suite-tag" value="cts" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="component" value="telecom" />
+    <option name="config-descriptor:metadata" key="token" value="UICC_SIM_CARD" />
     <option name="not-shardable" value="true" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.TokenRequirement">
         <option name="token" value="sim-card-with-certs" />
@@ -26,6 +29,5 @@
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.carrierapi.cts" />
-        <option name="hidden-api-checks" value="false"/>
     </test>
 </configuration>

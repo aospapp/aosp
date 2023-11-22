@@ -95,4 +95,82 @@
     <property name="buildFlavor" direction="asc"/>
     <property name="startTime" direction="asc"/>
   </datastore-index>
+
+  <datastore-index kind="DeviceInfo" ancestor="true" source="manual">
+    <property name="branch" direction="asc"/>
+    <property name="buildFlavor" direction="asc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteFileEntity" ancestor="false" source="manual">
+    <property name="day" direction="asc"/>
+    <property name="month" direction="asc"/>
+    <property name="year" direction="asc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="branch" direction="asc"/>
+    <property name="__key__" direction="desc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="hostName" direction="asc"/>
+    <property name="__key__" direction="desc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="buildId" direction="asc"/>
+    <property name="__key__" direction="desc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="deviceName" direction="asc"/>
+    <property name="__key__" direction="desc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="testType" direction="asc"/>
+    <property name="suitePlan" direction="asc"/>
+    <property name="__key__" direction="desc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="suitePlan" direction="asc"/>
+    <property name="testTypeIndex.TOT" direction="asc"/>
+    <property name="__key__" direction="desc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="suitePlan" direction="asc"/>
+    <property name="testTypeIndex.OTA" direction="asc"/>
+    <property name="__key__" direction="desc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="suitePlan" direction="asc"/>
+    <property name="testTypeIndex.SIGNED" direction="asc"/>
+    <property name="__key__" direction="desc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="suitePlan" direction="asc"/>
+    <property name="branch" direction="asc"/>
+    <property name="target" direction="asc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="branch" direction="asc"/>
+    <property name="failedTestCaseCount" direction="asc"/>
+    <property name="suitePlan" direction="asc"/>
+    <property name="target" direction="asc"/>
+    <property name="__key__" direction="asc"/>
+    <property name="buildId" direction="asc"/>
+  </datastore-index>
+
+  <datastore-index kind="TestSuiteResultEntity" ancestor="false" source="manual">
+    <property name="branch" direction="asc"/>
+    <property name="suitePlan" direction="asc"/>
+    <property name="target" direction="asc"/>
+    <property name="__key__" direction="asc"/>
+    <property name="buildId" direction="asc"/>
+  </datastore-index>
 </datastore-indexes>

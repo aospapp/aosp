@@ -19,7 +19,7 @@
 
     <uses-sdk
         android:minSdkVersion="23"
-        android:targetSdkVersion="26" />
+        android:targetSdkVersion="27" />
 
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -50,12 +50,10 @@
 
     <application
         android:name="com.android.tv.tuner.sample.dvb.app.SampleDvbTuner"
+        android:appComponentFactory="android.support.v4.app.CoreComponentFactory"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/sample_dvb_tuner_app_name" >
-        <activity
-            android:name="com.google.android.gms.common.api.GoogleApiActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
 
         <activity
             android:name="com.android.tv.tuner.sample.dvb.setup.SampleDvbTunerSetupActivity"
@@ -73,7 +71,7 @@
             android:name="com.android.tv.tuner.sample.dvb.tvinput.SampleDvbTunerTvInputService"
             android:label="@string/sample_dvb_tuner_app_name"
             android:permission="android.permission.BIND_TV_INPUT"
-            android:process="com.google.android.tv.tuner.sample.dvb.tvinput" >
+            android:process="com.android.tv.tuner.sample.dvb.tvinput" >
             <intent-filter>
                 <action android:name="android.media.tv.TvInputService" />
             </intent-filter>

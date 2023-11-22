@@ -32,7 +32,7 @@ public interface PreferenceKeys {
     /** Key for the add emergency contact preference */
     public static final String KEY_ADD_EMERGENCY_CONTACT = "add_emergency_contact";
 
-    /** Key to store and read the name of the user. */
+    /** Key for emergency name preference */
     public static final String KEY_NAME = "name";
 
     /** Key to store and read the address of the user. */
@@ -58,7 +58,7 @@ public interface PreferenceKeys {
      *
      * <p>Note: Do not change the order of these keys, since the order is used to collect TRON stats
      */
-    public static final String[] KEYS_EDIT_EMERGENCY_INFO = {KEY_NAME, KEY_ADDRESS,
+    public static final String[] KEYS_EDIT_EMERGENCY_INFO = {KEY_ADDRESS,
             KEY_BLOOD_TYPE, KEY_ALLERGIES, KEY_MEDICATIONS,
             KEY_MEDICAL_CONDITIONS, KEY_ORGAN_DONOR};
 

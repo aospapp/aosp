@@ -20,9 +20,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Intent;
 import android.os.Build;
-import android.support.test.filters.SdkSuppress;
-import android.support.test.filters.SmallTest;
 import android.test.ServiceTestCase;
+import androidx.test.filters.SdkSuppress;
+import androidx.test.filters.SmallTest;
 import com.android.tv.common.feature.CommonFeatures;
 import com.android.tv.common.feature.TestableFeature;
 import org.mockito.MockitoAnnotations;

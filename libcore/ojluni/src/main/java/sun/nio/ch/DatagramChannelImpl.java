@@ -28,36 +28,17 @@ package sun.nio.ch;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
-import java.net.DatagramSocket;
-import java.net.Inet4Address;
-import java.net.Inet6Address;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.NetworkInterface;
-import java.net.PortUnreachableException;
-import java.net.ProtocolFamily;
-import java.net.SocketAddress;
-import java.net.SocketOption;
-import java.net.StandardProtocolFamily;
-import java.net.StandardSocketOptions;
+import java.net.*;
 import java.nio.ByteBuffer;
-import java.nio.channels.AlreadyBoundException;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.DatagramChannel;
-import java.nio.channels.MembershipKey;
-import java.nio.channels.NotYetConnectedException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.UnsupportedAddressTypeException;
-import java.nio.channels.spi.SelectorProvider;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.nio.channels.*;
+import java.nio.channels.spi.*;
+import java.util.*;
 
 import dalvik.annotation.optimization.ReachabilitySensitive;
 import dalvik.system.BlockGuard;
 import dalvik.system.CloseGuard;
-import sun.net.ExtendedOptionsImpl;
 import sun.net.ResourceManager;
+import sun.net.ExtendedOptionsImpl;
 
 /**
  * An implementation of DatagramChannels.
@@ -72,9 +53,10 @@ class DatagramChannelImpl
     private static NativeDispatcher nd = new DatagramDispatcher();
 
     // Our file descriptor
-    // Android-changed: Make the fd package visible so that we can expose it through DatagramSocketAdaptor.
     // Android-added: @ReachabilitySensitive.
     @ReachabilitySensitive
+    // Android-changed: Make the fd visible for DatagramSocketAdaptor.
+    // private final FileDescriptor fd;
     final FileDescriptor fd;
 
     // fd value needed for dev/poll. This value will remain valid
@@ -146,7 +128,6 @@ class DatagramChannelImpl
             this.fdVal = IOUtil.fdVal(fd);
             this.state = ST_UNCONNECTED;
             // Android-added: CloseGuard support.
-            // Net#socket will set |fd| if it succeeds.
             if (fd != null && fd.valid()) {
                 guard.open("close");
             }
@@ -178,7 +159,6 @@ class DatagramChannelImpl
         this.fdVal = IOUtil.fdVal(fd);
         this.state = ST_UNCONNECTED;
         // Android-added: CloseGuard support.
-        // Net#socket will set |fd| if it succeeds.
         if (fd != null && fd.valid()) {
             guard.open("close");
         }
@@ -371,15 +351,13 @@ class DatagramChannelImpl
             throw new IllegalArgumentException("Read-only buffer");
         if (dst == null)
             throw new NullPointerException();
-        // Android-changed: Do not attempt to bind to 0 (or 0.0.0.0) if there hasn't been
-        // an explicit call to bind() yet. Fail fast and return null.
-        if (localAddress == null)
-            return null;
         synchronized (readLock) {
             ensureOpen();
             // Socket was not bound before attempting receive
-            // if (localAddress() == null)
+            // Android-changed: Do not implicitly to bind to 0 (or 0.0.0.0), return null instead.
+            if (localAddress() == null)
             //     bind(null);
+                return null;
             int n = 0;
             ByteBuffer bb = null;
             try {
@@ -445,6 +423,7 @@ class DatagramChannelImpl
         int newSize = Math.max(rem, 1);
         ByteBuffer bb = Util.getTemporaryDirectBuffer(newSize);
         try {
+            // Android-added: BlockGuard support.
             BlockGuard.getThreadPolicy().onNetwork();
 
             int n = receiveIntoNativeBuffer(fd, bb, newSize, 0);
@@ -508,6 +487,7 @@ class DatagramChannelImpl
                 if (!isOpen())
                     return 0;
                 writerThread = NativeThread.current();
+                // Android-added: BlockGuard support.
                 BlockGuard.getThreadPolicy().onNetwork();
 
                 do {
@@ -1090,9 +1070,15 @@ class DatagramChannelImpl
         }
     }
 
+    // BEGIN Android-changed: Add CloseGuard support and call superclass finalizer.
+    /*
+    protected void finalize() throws IOException {
+        // fd is null if constructor threw exception
+        if (fd != null)
+            close();
+    */
     protected void finalize() throws Throwable {
         try {
-            // Android-added: CloseGuard support.
             if (guard != null) {
                 guard.warnIfOpen();
             }
@@ -1102,6 +1088,7 @@ class DatagramChannelImpl
         } finally {
             super.finalize();
         }
+        // END Android-changed: Add CloseGuard support and call superclass finalizer.
     }
 
     /**
@@ -1208,6 +1195,8 @@ class DatagramChannelImpl
         throws IOException;
 
     static {
+        // Android removed: Native code initialization not required.
+        // IOUtil.load();
         initIDs();
     }
 

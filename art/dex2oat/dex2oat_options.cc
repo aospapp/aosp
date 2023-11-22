@@ -98,6 +98,8 @@ static void AddGeneratedArtifactMappings(Builder& builder) {
       .Define("--oat-symbols=_")
           .WithType<std::vector<std::string>>().AppendValues()
           .IntoKey(M::OatSymbols)
+      .Define("--strip")
+          .IntoKey(M::Strip)
       .Define("--oat-fd=_")
           .WithType<int>()
           .IntoKey(M::OatFd)
@@ -157,19 +159,7 @@ static void AddSwapMappings(Builder& builder) {
 
 static void AddCompilerMappings(Builder& builder) {
   builder.
-      Define("--compiled-classes=_")
-          .WithType<std::string>()
-          .IntoKey(M::CompiledClasses)
-      .Define("--compiled-classes-zip=_")
-          .WithType<std::string>()
-          .IntoKey(M::CompiledClassesZip)
-      .Define("--compiled-methods=_")
-          .WithType<std::string>()
-          .IntoKey(M::CompiledMethods)
-      .Define("--compiled-methods-zip=_")
-          .WithType<std::string>()
-          .IntoKey(M::CompiledMethodsZip)
-      .Define("--run-passes=_")
+      Define("--run-passes=_")
           .WithType<std::string>()
           .IntoKey(M::Passes)
       .Define("--profile-file=_")
@@ -197,7 +187,7 @@ static void AddTargetMappings(Builder& builder) {
 }
 
 static Parser CreateArgumentParser() {
-  std::unique_ptr<Builder> parser_builder = std::unique_ptr<Builder>(new Builder());
+  std::unique_ptr<Builder> parser_builder = std::make_unique<Builder>();
 
   AddInputMappings(*parser_builder);
   AddGeneratedArtifactMappings(*parser_builder);
@@ -234,17 +224,23 @@ static Parser CreateArgumentParser() {
       .Define("--force-determinism")
           .IntoKey(M::ForceDeterminism)
       .Define("--copy-dex-files=_")
-          .WithType<CopyOption>()
-          .WithValueMap({{"true", CopyOption::kOnlyIfCompressed},
-                         {"false", CopyOption::kNever},
-                         {"always", CopyOption::kAlways}})
+          .WithType<linker::CopyOption>()
+          .WithValueMap({{"true", linker::CopyOption::kOnlyIfCompressed},
+                         {"false", linker::CopyOption::kNever},
+                         {"always", linker::CopyOption::kAlways}})
           .IntoKey(M::CopyDexFiles)
+      .Define("--write-invocation-to=_")
+          .WithType<std::string>()
+          .IntoKey(M::InvocationFile)
       .Define("--classpath-dir=_")
           .WithType<std::string>()
           .IntoKey(M::ClasspathDir)
       .Define("--class-loader-context=_")
           .WithType<std::string>()
           .IntoKey(M::ClassLoaderContext)
+      .Define("--class-loader-context-fds=_")
+          .WithType<std::string>()
+          .IntoKey(M::ClassLoaderContextFds)
       .Define("--stored-class-loader-context=_")
           .WithType<std::string>()
           .IntoKey(M::StoredClassLoaderContext)
@@ -277,7 +273,7 @@ std::unique_ptr<Dex2oatArgumentMap> Dex2oatArgumentMap::Parse(int argc,
     return nullptr;
   }
 
-  return std::unique_ptr<Dex2oatArgumentMap>(new Dex2oatArgumentMap(parser.ReleaseArgumentsMap()));
+  return std::make_unique<Dex2oatArgumentMap>(parser.ReleaseArgumentsMap());
 }
 
 #pragma GCC diagnostic pop

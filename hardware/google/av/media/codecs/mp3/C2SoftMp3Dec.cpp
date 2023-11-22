@@ -82,6 +82,11 @@ public:
                 .withFields({C2F(mBitrate, value).inRange(8000, 320000)})
                 .withSetter(Setter<decltype(*mBitrate)>::NonStrictValueWithNoDeps)
                 .build());
+
+        addParameter(
+                DefineParam(mInputMaxBufSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
+                .withConstValue(new C2StreamMaxBufferSizeInfo::input(0u, 8192))
+                .build());
     }
 
 private:
@@ -92,6 +97,7 @@ private:
     std::shared_ptr<C2StreamSampleRateInfo::output> mSampleRate;
     std::shared_ptr<C2StreamChannelCountInfo::output> mChannelCount;
     std::shared_ptr<C2BitrateTuning::input> mBitrate;
+    std::shared_ptr<C2StreamMaxBufferSizeInfo::input> mInputMaxBufSize;
 };
 
 C2SoftMP3::C2SoftMP3(const char *name, c2_node_id_t id,
@@ -129,6 +135,7 @@ void C2SoftMP3::onReset() {
 }
 
 void C2SoftMP3::onRelease() {
+    mGaplessBytes = false;
     if (mDecoderBuf) {
         free(mDecoderBuf);
         mDecoderBuf = nullptr;
@@ -153,6 +160,7 @@ status_t C2SoftMP3::initDecoder() {
     pvmp3_InitDecoder(mConfig, mDecoderBuf);
 
     mIsFirst = true;
+    mGaplessBytes = false;
     mSignalledError = false;
     mSignalledOutputEos = false;
     mAnchorTimeStamp = 0;
@@ -328,9 +336,12 @@ c2_status_t C2SoftMP3::drain(
 void C2SoftMP3::process(
         const std::unique_ptr<C2Work> &work,
         const std::shared_ptr<C2BlockPool> &pool) {
+    // Initialize output work
     work->result = C2_OK;
-    work->workletsProcessed = 0u;
+    work->workletsProcessed = 1u;
     work->worklets.front()->output.configUpdate.clear();
+    work->worklets.front()->output.flags = work->input.flags;
+
     if (mSignalledError || mSignalledOutputEos) {
         work->result = C2_BAD_VALUE;
         return;
@@ -349,11 +360,10 @@ void C2SoftMP3::process(
         }
     }
 
-    if (inSize == 0 && !eos) {
+    if (inSize == 0 && (!mGaplessBytes || !eos)) {
         work->worklets.front()->output.flags = work->input.flags;
         work->worklets.front()->output.buffers.clear();
         work->worklets.front()->output.ordinal = work->input.ordinal;
-        work->workletsProcessed = 1u;
         return;
     }
     ALOGV("in buffer attr. size %zu timestamp %d frameindex %d", inSize,
@@ -460,6 +470,7 @@ void C2SoftMP3::process(
     }
     if (mIsFirst) {
         mIsFirst = false;
+        mGaplessBytes = true;
         // The decoder delay is 529 samples, so trim that many samples off
         // the start of the first output buffer. This essentially makes this
         // decoder have zero delay, which the rest of the pipeline assumes.
@@ -476,6 +487,7 @@ void C2SoftMP3::process(
                 return;
              }
             ALOGV("Adding 529 samples at end");
+            mGaplessBytes = false;
             outSize += kPVMP3DecoderDelay * numChannels * sizeof(int16_t);
         }
     }
@@ -484,7 +496,6 @@ void C2SoftMP3::process(
     mProcessedSamples += ((outSize - outOffset) / (numChannels * sizeof(int16_t)));
     ALOGV("out buffer attr. offset %d size %d timestamp %u", outOffset, outSize - outOffset,
           (uint32_t)(mAnchorTimeStamp + outTimeStamp));
-
     decodedSizes.clear();
     work->worklets.front()->output.flags = work->input.flags;
     work->worklets.front()->output.buffers.clear();
@@ -492,7 +503,6 @@ void C2SoftMP3::process(
             createLinearBuffer(block, outOffset, outSize - outOffset));
     work->worklets.front()->output.ordinal = work->input.ordinal;
     work->worklets.front()->output.ordinal.timestamp = mAnchorTimeStamp + outTimeStamp;
-    work->workletsProcessed = 1u;
     if (eos) {
         mSignalledOutputEos = true;
         ALOGV("signalled EOS");

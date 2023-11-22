@@ -29,6 +29,7 @@ import android.provider.VoicemailContract.Voicemails;
 import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.support.annotation.WorkerThread;
+import android.support.design.widget.Snackbar;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerView.ViewHolder;
 import android.util.ArrayMap;
@@ -36,14 +37,13 @@ import android.util.ArraySet;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import com.android.dialer.calllogutils.CallLogDates;
 import com.android.dialer.common.Assert;
 import com.android.dialer.common.LogUtil;
-import com.android.dialer.common.concurrent.DialerExecutor.Worker;
 import com.android.dialer.common.concurrent.DialerExecutorComponent;
 import com.android.dialer.common.concurrent.ThreadUtil;
-import com.android.dialer.glidephotomanager.GlidePhotoManager;
 import com.android.dialer.time.Clock;
 import com.android.dialer.voicemail.listui.NewVoicemailViewHolder.NewVoicemailViewHolderListener;
 import com.android.dialer.voicemail.listui.error.VoicemailErrorMessage;
@@ -62,6 +62,8 @@ import java.util.Set;
 final class NewVoicemailAdapter extends RecyclerView.Adapter<ViewHolder>
     implements NewVoicemailViewHolderListener {
 
+  private static final int VOICEMAIL_DELETE_DELAY_MS = 3000;
+
   /** IntDef for the different types of rows that can be shown in the call log. */
   @Retention(RetentionPolicy.SOURCE)
   @IntDef({RowType.HEADER, RowType.VOICEMAIL_ENTRY, RowType.VOICEMAIL_ALERT})
@@ -76,7 +78,6 @@ final class NewVoicemailAdapter extends RecyclerView.Adapter<ViewHolder>
 
   private Cursor cursor;
   private final Clock clock;
-  private final GlidePhotoManager glidePhotoManager;
 
   /** {@link Integer#MAX_VALUE} when the "Today" header should not be displayed. */
   private int todayHeaderPosition = Integer.MAX_VALUE;
@@ -89,7 +90,7 @@ final class NewVoicemailAdapter extends RecyclerView.Adapter<ViewHolder>
 
   private final FragmentManager fragmentManager;
   /** A valid id for {@link VoicemailEntry} is greater than 0 */
-  private int currentlyExpandedViewHolderId = -1;
+  private long currentlyExpandedViewHolderId = -1;
 
   private VoicemailErrorMessage voicemailErrorMessage;
 
@@ -111,7 +112,7 @@ final class NewVoicemailAdapter extends RecyclerView.Adapter<ViewHolder>
    * will always ensure there is only (up-to-date) view holder corresponding to a view holder id,
    * unlike the newVoicemailViewHolderSet.
    */
-  private final ArrayMap<Integer, NewVoicemailViewHolder> newVoicemailViewHolderArrayMap =
+  private final ArrayMap<Long, NewVoicemailViewHolder> newVoicemailViewHolderArrayMap =
       new ArrayMap<>();
 
   // A single instance of a media player re-used across the expanded view holders.
@@ -119,16 +120,11 @@ final class NewVoicemailAdapter extends RecyclerView.Adapter<ViewHolder>
       new NewVoicemailMediaPlayer(new MediaPlayer());
 
   /** @param cursor whose projection is {@link VoicemailCursorLoader#VOICEMAIL_COLUMNS} */
-  NewVoicemailAdapter(
-      Cursor cursor,
-      Clock clock,
-      FragmentManager fragmentManager,
-      GlidePhotoManager glidePhotoManager) {
+  NewVoicemailAdapter(Cursor cursor, Clock clock, FragmentManager fragmentManager) {
     LogUtil.enterBlock("NewVoicemailAdapter");
     this.cursor = cursor;
     this.clock = clock;
     this.fragmentManager = fragmentManager;
-    this.glidePhotoManager = glidePhotoManager;
     initializeMediaPlayerListeners();
     updateHeaderPositions();
   }
@@ -230,7 +226,7 @@ final class NewVoicemailAdapter extends RecyclerView.Adapter<ViewHolder>
       case NewVoicemailAdapter.RowType.VOICEMAIL_ENTRY:
         view = inflater.inflate(R.layout.new_voicemail_entry, viewGroup, false);
         NewVoicemailViewHolder newVoicemailViewHolder =
-            new NewVoicemailViewHolder(view, clock, this, glidePhotoManager);
+            new NewVoicemailViewHolder(view, clock, this);
         newVoicemailViewHolderSet.add(newVoicemailViewHolder);
         return newVoicemailViewHolder;
       default:
@@ -437,7 +433,7 @@ final class NewVoicemailAdapter extends RecyclerView.Adapter<ViewHolder>
 
     if (!newVoicemailViewHolderArrayMap.isEmpty()) {
       String ids = "";
-      for (int id : newVoicemailViewHolderArrayMap.keySet()) {
+      for (long id : newVoicemailViewHolderArrayMap.keySet()) {
         ids = ids + id + " ";
       }
       LogUtil.i("NewVoicemailAdapter.printArrayMap", "ids are " + ids);
@@ -640,37 +636,107 @@ final class NewVoicemailAdapter extends RecyclerView.Adapter<ViewHolder>
 
     collapseExpandedViewHolder(expandedViewHolder);
 
-    Worker<Pair<Context, Uri>, Void> deleteVoicemail = this::deleteVoicemail;
-
-    DialerExecutorComponent.get(context)
-        .dialerExecutorFactory()
-        .createNonUiTaskBuilder(deleteVoicemail)
-        .build()
-        .executeSerial(new Pair<>(context, voicemailUri));
-
-    notifyItemRemoved(expandedViewHolder.getAdapterPosition());
+    showUndoSnackbar(
+        context,
+        expandedViewHolder.getMediaPlayerView(),
+        expandedViewHolder.getAdapterPosition(),
+        voicemailUri);
   }
 
-  @WorkerThread
-  private Void deleteVoicemail(Pair<Context, Uri> contextUriPair) {
-    Assert.isWorkerThread();
-    LogUtil.enterBlock("NewVoicemailAdapter.deleteVoicemail");
+  private void showUndoSnackbar(
+      Context context, View newVoicemailMediaPlayerView, int position, Uri voicemailUri) {
+    LogUtil.i(
+        "NewVoicemailAdapter.showUndoSnackbar",
+        "position:%d and uri:%s",
+        position,
+        String.valueOf(voicemailUri));
+    Snackbar undoSnackbar =
+        Snackbar.make(
+            newVoicemailMediaPlayerView,
+            R.string.snackbar_voicemail_deleted,
+            VOICEMAIL_DELETE_DELAY_MS);
+    undoSnackbar.addCallback(
+        new Snackbar.Callback() {
+          @Override
+          public void onShown(Snackbar sb) {
+            notifyItemRemoved(position);
+            LogUtil.i(
+                "NewVoicemailAdapter.showUndoSnackbar",
+                "onShown for position:%d and uri:%s",
+                position,
+                voicemailUri);
+            super.onShown(sb);
+          }
 
-    Context context = contextUriPair.first;
-    Uri uri = contextUriPair.second;
-    LogUtil.i("NewVoicemailAdapter.deleteVoicemail", "deleting uri:%s", String.valueOf(uri));
-    ContentValues values = new ContentValues();
-    values.put(Voicemails.DELETED, "1");
+          @Override
+          public void onDismissed(Snackbar transientBottomBar, int event) {
+            LogUtil.i(
+                "NewVoicemailAdapter.showUndoSnackbar",
+                "onDismissed for event:%d, position:%d and uri:%s",
+                event,
+                position,
+                String.valueOf(voicemailUri));
 
-    int numRowsUpdated = context.getContentResolver().update(uri, values, null, null);
+            switch (event) {
+              case DISMISS_EVENT_SWIPE:
+              case DISMISS_EVENT_ACTION:
+              case DISMISS_EVENT_MANUAL:
+                LogUtil.i(
+                    "NewVoicemailAdapter.showUndoSnackbar",
+                    "Not proceeding with deleting the voicemail");
+                deletedVoicemailPosition.remove(position);
+                notifyItemChanged(position);
+                break;
+              case DISMISS_EVENT_TIMEOUT:
+              case DISMISS_EVENT_CONSECUTIVE:
+                LogUtil.i(
+                    "NewVoicemailAdapter.showUndoSnackbar", "Proceeding with deleting voicemail");
 
-    LogUtil.i("NewVoicemailAdapter.onVoicemailDeleted", "return value:%d", numRowsUpdated);
-    Assert.checkArgument(numRowsUpdated == 1, "voicemail delete was not successful");
+                DialerExecutorComponent.get(context)
+                    .dialerExecutorFactory()
+                    .createNonUiTaskBuilder(this::deleteVoicemail)
+                    .build()
+                    .executeSerial(new Pair<>(context, voicemailUri));
+                break;
+              default:
+                Assert.checkArgument(event <= 4 && event >= 0, "unknown event");
+            }
+          }
 
-    Intent intent = new Intent(VoicemailClient.ACTION_UPLOAD);
-    intent.setPackage(context.getPackageName());
-    context.sendBroadcast(intent);
-    return null;
+          @WorkerThread
+          private Void deleteVoicemail(Pair<Context, Uri> contextUriPair) {
+            Assert.isWorkerThread();
+            Context context = contextUriPair.first;
+            Uri uri = contextUriPair.second;
+            LogUtil.i(
+                "NewVoicemailAdapter.deleteVoicemail", "deleting uri:%s", String.valueOf(uri));
+            ContentValues values = new ContentValues();
+            values.put(Voicemails.DELETED, "1");
+
+            int numRowsUpdated = context.getContentResolver().update(uri, values, null, null);
+
+            LogUtil.i("NewVoicemailAdapter.deleteVoicemail", "return value:%d", numRowsUpdated);
+            Assert.checkArgument(numRowsUpdated == 1, "voicemail delete was not successful");
+
+            Intent intent = new Intent(VoicemailClient.ACTION_UPLOAD);
+            intent.setPackage(context.getPackageName());
+            context.sendBroadcast(intent);
+            return null;
+          }
+        });
+
+    undoSnackbar
+        .setAction(
+            R.string.snackbar_undo,
+            new OnClickListener() {
+              @Override
+              public void onClick(View v) {
+                // does nothing, but needed for the undo button to show
+              }
+            })
+        .setActionTextColor(
+            context.getResources().getColor(R.color.dialer_snackbar_action_text_color))
+        .show();
   }
 
   /**

@@ -15,6 +15,12 @@
  *
  */
 
+#define LOG_TAG "VulkanPreTransformTestHelpers"
+
+#ifndef VK_USE_PLATFORM_ANDROID_KHR
+#define VK_USE_PLATFORM_ANDROID_KHR
+#endif
+
 #include <android/log.h>
 #include <cstring>
 
@@ -25,7 +31,7 @@
 #define ASSERT(a)                                              \
     if (!(a)) {                                                \
         ALOGE("Failure: " #a " at " __FILE__ ":%d", __LINE__); \
-        return -1;                                             \
+        return VK_TEST_ERROR;                                  \
     }
 #define VK_CALL(a) ASSERT(VK_SUCCESS == (a))
 
@@ -124,7 +130,7 @@ DeviceInfo::~DeviceInfo() {
     }
 }
 
-int32_t DeviceInfo::init(JNIEnv* env, jobject jSurface) {
+VkTestResult DeviceInfo::init(JNIEnv* env, jobject jSurface) {
     ASSERT(jSurface);
 
     mWindow = ANativeWindow_fromSurface(env, jSurface);
@@ -164,7 +170,7 @@ int32_t DeviceInfo::init(JNIEnv* env, jobject jSurface) {
     VK_CALL(vkEnumeratePhysicalDevices(mInstance, &gpuCount, nullptr));
     if (gpuCount == 0) {
         ALOGD("No physical device available");
-        return 1;
+        return VK_TEST_PHYSICAL_DEVICE_NOT_EXISTED;
     }
 
     std::vector<VkPhysicalDevice> gpus(gpuCount, VK_NULL_HANDLE);
@@ -205,6 +211,13 @@ int32_t DeviceInfo::init(JNIEnv* env, jobject jSurface) {
     ASSERT(queueFamilyIndex < queueFamilyCount);
     mQueueFamilyIndex = queueFamilyIndex;
 
+    VkBool32 supported = VK_FALSE;
+    VK_CALL(vkGetPhysicalDeviceSurfaceSupportKHR(mGpu, mQueueFamilyIndex, mSurface, &supported));
+    if (supported == VK_FALSE) {
+        ALOGD("Surface format not supported");
+        return VK_TEST_SURFACE_FORMAT_NOT_SUPPORTED;
+    }
+
     const float priority = 1.0f;
     const VkDeviceQueueCreateInfo queueCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -229,7 +242,7 @@ int32_t DeviceInfo::init(JNIEnv* env, jobject jSurface) {
 
     vkGetDeviceQueue(mDevice, mQueueFamilyIndex, 0, &mQueue);
 
-    return 0;
+    return VK_TEST_SUCCESS;
 }
 
 SwapchainInfo::SwapchainInfo(const DeviceInfo* const deviceInfo)
@@ -246,7 +259,7 @@ SwapchainInfo::~SwapchainInfo() {
     }
 }
 
-int32_t SwapchainInfo::init(bool setPreTransform) {
+VkTestResult SwapchainInfo::init(bool setPreTransform, int* outPreTransformHint) {
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
     VK_CALL(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mDeviceInfo->gpu(), mDeviceInfo->surface(),
                                                       &surfaceCapabilities));
@@ -290,6 +303,17 @@ int32_t SwapchainInfo::init(bool setPreTransform) {
           static_cast<uint32_t>(surfaceCapabilities.currentTransform),
           static_cast<uint32_t>(preTransform));
 
+    if ((preTransform &
+         (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR |
+          VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90_BIT_KHR |
+          VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR)) != 0) {
+        std::swap(mDisplaySize.width, mDisplaySize.height);
+    }
+
+    if (outPreTransformHint) {
+        *outPreTransformHint = surfaceCapabilities.currentTransform;
+    }
+
     const uint32_t queueFamilyIndex = mDeviceInfo->queueFamilyIndex();
     const VkSwapchainCreateInfoKHR swapchainCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -316,7 +340,7 @@ int32_t SwapchainInfo::init(bool setPreTransform) {
     VK_CALL(vkGetSwapchainImagesKHR(mDeviceInfo->device(), mSwapchain, &mSwapchainLength, nullptr));
     ALOGD("Swapchain length = %u", mSwapchainLength);
 
-    return 0;
+    return VK_TEST_SUCCESS;
 }
 
 Renderer::Renderer(const DeviceInfo* const deviceInfo, const SwapchainInfo* const swapchainInfo)
@@ -359,7 +383,7 @@ Renderer::~Renderer() {
     }
 }
 
-int32_t Renderer::createRenderPass() {
+VkTestResult Renderer::createRenderPass() {
     const VkAttachmentDescription attachmentDescription = {
             .flags = 0,
             .format = mSwapchainInfo->format(),
@@ -401,10 +425,10 @@ int32_t Renderer::createRenderPass() {
     VK_CALL(vkCreateRenderPass(mDeviceInfo->device(), &renderPassCreateInfo, nullptr,
                                &mRenderPass));
 
-    return 0;
+    return VK_TEST_SUCCESS;
 }
 
-int32_t Renderer::createFrameBuffers() {
+VkTestResult Renderer::createFrameBuffers() {
     uint32_t swapchainLength = mSwapchainInfo->swapchainLength();
     std::vector<VkImage> images(swapchainLength, VK_NULL_HANDLE);
     VK_CALL(vkGetSwapchainImagesKHR(mDeviceInfo->device(), mSwapchainInfo->swapchain(),
@@ -456,10 +480,10 @@ int32_t Renderer::createFrameBuffers() {
                                     &mFramebuffers[i]));
     }
 
-    return 0;
+    return VK_TEST_SUCCESS;
 }
 
-int32_t Renderer::createVertexBuffers() {
+VkTestResult Renderer::createVertexBuffers() {
     const uint32_t queueFamilyIndex = mDeviceInfo->queueFamilyIndex();
     const VkBufferCreateInfo bufferCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -508,17 +532,15 @@ int32_t Renderer::createVertexBuffers() {
 
     VK_CALL(vkBindBufferMemory(mDeviceInfo->device(), mVertexBuffer, mDeviceMemory, 0));
 
-    return 0;
+    return VK_TEST_SUCCESS;
 }
 
-int32_t Renderer::loadShaderFromFile(const char* filePath, VkShaderModule* const outShader) {
+VkTestResult Renderer::loadShaderFromFile(const char* filePath, VkShaderModule* const outShader) {
     ASSERT(filePath);
 
     AAsset* file = AAssetManager_open(mAssetManager, filePath, AASSET_MODE_BUFFER);
-    if (!file) {
-        ALOGE("Failed to open shader file");
-        return -1;
-    }
+    ASSERT(file);
+
     size_t fileLength = AAsset_getLength(file);
     std::vector<char> fileContent(fileLength);
     AAsset_read(file, fileContent.data(), fileLength);
@@ -534,10 +556,10 @@ int32_t Renderer::loadShaderFromFile(const char* filePath, VkShaderModule* const
     VK_CALL(vkCreateShaderModule(mDeviceInfo->device(), &shaderModuleCreateInfo, nullptr,
                                  outShader));
 
-    return 0;
+    return VK_TEST_SUCCESS;
 }
 
-int32_t Renderer::createGraphicsPipeline() {
+VkTestResult Renderer::createGraphicsPipeline() {
     const VkPushConstantRange pushConstantRange = {
             .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
             .offset = 0,
@@ -706,10 +728,10 @@ int32_t Renderer::createGraphicsPipeline() {
     mVertexShader = VK_NULL_HANDLE;
     mFragmentShader = VK_NULL_HANDLE;
 
-    return 0;
+    return VK_TEST_SUCCESS;
 }
 
-int32_t Renderer::init(JNIEnv* env, jobject jAssetManager) {
+VkTestResult Renderer::init(JNIEnv* env, jobject jAssetManager) {
     mAssetManager = AAssetManager_fromJava(env, jAssetManager);
     ASSERT(mAssetManager);
 
@@ -816,10 +838,10 @@ int32_t Renderer::init(JNIEnv* env, jobject jAssetManager) {
     };
     VK_CALL(vkCreateSemaphore(mDeviceInfo->device(), &semaphoreCreateInfo, nullptr, &mSemaphore));
 
-    return 0;
+    return VK_TEST_SUCCESS;
 }
 
-int32_t Renderer::drawFrame() {
+VkTestResult Renderer::drawFrame() {
     uint32_t nextIndex;
     VK_CALL(vkAcquireNextImageKHR(mDeviceInfo->device(), mSwapchainInfo->swapchain(), UINT64_MAX,
                                   mSemaphore, VK_NULL_HANDLE, &nextIndex));
@@ -853,7 +875,10 @@ int32_t Renderer::drawFrame() {
             .pImageIndices = &nextIndex,
             .pResults = nullptr,
     };
-    VK_CALL(vkQueuePresentKHR(mDeviceInfo->queue(), &presentInfo));
+    VkResult ret = vkQueuePresentKHR(mDeviceInfo->queue(), &presentInfo);
+    if (ret == VK_SUBOPTIMAL_KHR) {
+        return VK_TEST_SUCCESS_SUBOPTIMAL;
+    }
 
-    return 0;
+    return ret == VK_SUCCESS ? VK_TEST_SUCCESS : VK_TEST_ERROR;
 }

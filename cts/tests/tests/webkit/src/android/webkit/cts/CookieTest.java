@@ -68,11 +68,11 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
         // basic
         mCookieManager.setCookie(url, "a=b");
         String cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie.equals("a=b"));
+        assertEquals("a=b", cookie);
 
         // no cross domain cookie
         cookie = mCookieManager.getCookie("http://bar.com");
-        assertTrue(cookie == null);
+        assertNull(cookie);
 
         // more than one cookie
         mCookieManager.setCookie(url, "c=d; domain=.foo.com");
@@ -82,7 +82,7 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
 
         // host cookie should not be accessible from a sub-domain.
         cookie = mCookieManager.getCookie("http://bar.www.foo.com");
-        assertTrue(cookie.equals("c=d"));
+        assertEquals("c=d", cookie);
 
         // test setting a domain= that doesn't start w/ a dot, should
         // treat it as a domain cookie, as if there was a pre-pended dot.
@@ -97,7 +97,7 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
         assertTrue(cookie.contains("e=f"));
 
         cookie = mCookieManager.getCookie("http://foo.com");
-        assertTrue(cookie.equals("c=d"));
+        assertEquals("c=d", cookie);
     }
 
     public void testSubDomain() {
@@ -127,7 +127,7 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
         assertTrue(cookie.contains("c=3"));
         assertTrue(cookie.contains("d=4"));
         cookie = mCookieManager.getCookie(url_d);
-        assertTrue(cookie.equals("d=4"));
+        assertEquals("d=4", cookie);
 
         // check that the same cookie can exist on different sub-domains.
         mCookieManager.setCookie(url_bcd, "x=bcd; domain=.b.c.d.com");
@@ -152,35 +152,35 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
 
         mCookieManager.setCookie(url, "a=1; domain=.yo.foo.bar.com");
         String cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie == null);
+        assertNull(cookie);
 
         mCookieManager.setCookie(url, "b=2; domain=.foo.com");
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie == null);
+        assertNull(cookie);
 
         mCookieManager.setCookie(url, "c=3; domain=.bar.foo.com");
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie == null);
+        assertNull(cookie);
 
         mCookieManager.setCookie(url, "d=4; domain=.foo.bar.com.net");
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie == null);
+        assertNull(cookie);
 
         mCookieManager.setCookie(url, "e=5; domain=.ar.com");
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie == null);
+        assertNull(cookie);
 
         mCookieManager.setCookie(url, "f=6; domain=.com");
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie == null);
+        assertNull(cookie);
 
         mCookieManager.setCookie(url, "g=7; domain=.co.uk");
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie == null);
+        assertNull(cookie);
 
         mCookieManager.setCookie(url, "h=8; domain=.foo.bar.com.com");
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie == null);
+        assertNull(cookie);
     }
 
     public void testPath() {
@@ -191,28 +191,28 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
 
         mCookieManager.setCookie(url, "a=b; path=/wee");
         String cookie = mCookieManager.getCookie(url + "/wee");
-        assertTrue(cookie.equals("a=b"));
+        assertEquals("a=b", cookie);
         cookie = mCookieManager.getCookie(url + "/wee/");
-        assertTrue(cookie.equals("a=b"));
+        assertEquals("a=b", cookie);
         cookie = mCookieManager.getCookie(url + "/wee/hee");
-        assertTrue(cookie.equals("a=b"));
+        assertEquals("a=b", cookie);
         cookie = mCookieManager.getCookie(url + "/wee/hee/more");
-        assertTrue(cookie.equals("a=b"));
+        assertEquals("a=b", cookie);
         cookie = mCookieManager.getCookie(url + "/weehee");
-        assertTrue(cookie == null);
+        assertNull(cookie);
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie == null);
+        assertNull(cookie);
 
         mCookieManager.setCookie(url, "a=c; path=");
         cookie = mCookieManager.getCookie(url + "/wee");
         // order of contents matters in this case, per spec
-        assertTrue(cookie.equals("a=b; a=c"));
+        assertEquals("a=b; a=c", cookie);
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie.equals("a=c"));
+        assertEquals("a=c", cookie);
 
         mCookieManager.setCookie(url, "a=d");
         cookie = mCookieManager.getCookie(url + "/wee");
-        assertTrue(cookie.equals("a=b; a=d"));
+        assertEquals("a=b; a=d", cookie);
     }
 
     public void testEmptyValue() {
@@ -223,14 +223,14 @@ public class CookieTest extends ActivityInstrumentationTestCase2<CookieSyncManag
 
         mCookieManager.setCookie(url, "bar=");
         String cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie.equals("bar="));
+        assertEquals("bar=", cookie);
 
         mCookieManager.setCookie(url, "foobar=;");
         cookie = mCookieManager.getCookie(url);
-        assertTrue(cookie.equals("bar=; foobar="));
+        assertEquals("bar=; foobar=", cookie);
 
         mCookieManager.setCookie(url, "baz=; path=/wee");
         cookie = mCookieManager.getCookie(url + "/wee");
-        assertTrue(cookie.equals("baz=; bar=; foobar="));
+        assertEquals("baz=; bar=; foobar=", cookie);
     }
 }

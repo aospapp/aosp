@@ -49,8 +49,6 @@
         <item name="wifi_signal_color">?android:attr/colorAccent</item>
         <item name="wifi_friction">@drawable/wifi_friction</item>
         <item name="wps_color">@color/normal</item>
-        <item name="android:colorPrimary">@color/settings_screen_title_color</item>
-        <item name="android:colorAccent">@color/settings_category_text_color</item>
     </style>
 
     <!-- Settings theme for connectivity -->

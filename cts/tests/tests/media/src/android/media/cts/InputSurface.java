@@ -24,6 +24,7 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
+import android.opengl.GLES20;
 import android.util.Log;
 import android.view.Surface;
 
@@ -43,6 +44,7 @@ class InputSurface implements InputSurfaceInterface {
     private EGLSurface mEGLSurface = EGL14.EGL_NO_SURFACE;
     private EGLConfig[] mConfigs = new EGLConfig[1];
 
+    private boolean mReleaseSurface;
     private Surface mSurface;
     private int mWidth;
     private int mHeight;
@@ -50,13 +52,21 @@ class InputSurface implements InputSurfaceInterface {
     /**
      * Creates an InputSurface from a Surface.
      */
-    public InputSurface(Surface surface) {
+    public InputSurface(Surface surface, boolean releaseSurface) {
         if (surface == null) {
             throw new NullPointerException();
         }
         mSurface = surface;
+        mReleaseSurface = releaseSurface;
 
         eglSetup();
+    }
+
+    /**
+     * Creates an InputSurface from a Surface.
+     */
+    public InputSurface(Surface surface) {
+        this(surface, true);
     }
 
     /**
@@ -150,7 +160,9 @@ class InputSurface implements InputSurfaceInterface {
             EGL14.eglTerminate(mEGLDisplay);
         }
 
-        mSurface.release();
+        if (mReleaseSurface) {
+            mSurface.release();
+        }
 
         mEGLDisplay = EGL14.EGL_NO_DISPLAY;
         mEGLContext = EGL14.EGL_NO_CONTEXT;
@@ -237,4 +249,24 @@ class InputSurface implements InputSurfaceInterface {
         codec.setInputSurface(mSurface);
     }
 
+    /**
+     * Clears the surface to black.
+     * <p>
+     * Ported from https://github.com/google/grafika
+     */
+    public static void clearSurface(Surface surface) {
+        // We need to do this with OpenGL ES (*not* Canvas -- the "software render" bits
+        // are sticky).  We can't stay connected to the Surface after we're done because
+        // that'd prevent the video encoder from attaching.
+        //
+        // If the Surface is resized to be larger, the new portions will be black, so
+        // clearing to something other than black may look weird unless we do the clear
+        // post-resize.
+        InputSurface win = new InputSurface(surface, false /* release */);
+        win.makeCurrent();
+        GLES20.glClearColor(0, 0, 0, 0);
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+        win.swapBuffers();
+        win.release();
+    }
 }

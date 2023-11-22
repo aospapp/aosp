@@ -23,9 +23,6 @@
 #include "android-base/macros.h"
 #include "android-base/thread_annotations.h"
 
-#define OVERRIDE override
-#define FINAL final
-
 // Declare a friend relationship in a class with a test. Used rather that FRIEND_TEST to avoid
 // globally importing gtest/gtest.h into the main ART header files.
 #define ART_FRIEND_TEST(test_set_name, individual_test)\
@@ -45,14 +42,21 @@ template<typename T> ART_FRIEND_TEST(test_set_name, individual_test)
   private: \
     void* operator new(size_t) = delete  // NOLINT
 
-#define SIZEOF_MEMBER(t, f) sizeof((reinterpret_cast<t*>(4096))->f)  // NOLINT
-
-#define OFFSETOF_MEMBER(t, f) \
-  (reinterpret_cast<uintptr_t>(&reinterpret_cast<t*>(16)->f) - static_cast<uintptr_t>(16u))  // NOLINT
+// offsetof is not defined by the spec on types with non-standard layout,
+// however it is implemented by compilers in practice.
+// (note that reinterpret_cast is not valid constexpr)
+//
+// Alternative approach would be something like:
+// #define OFFSETOF_HELPER(t, f) \
+//   (reinterpret_cast<uintptr_t>(&reinterpret_cast<t*>(16)->f) - static_cast<uintptr_t>(16u))
+// #define OFFSETOF_MEMBER(t, f) \
+//   (__builtin_constant_p(OFFSETOF_HELPER(t,f)) ? OFFSETOF_HELPER(t,f) : OFFSETOF_HELPER(t,f))
+#define OFFSETOF_MEMBER(t, f) offsetof(t, f)
 
 #define OFFSETOF_MEMBERPTR(t, f) \
   (reinterpret_cast<uintptr_t>(&(reinterpret_cast<t*>(16)->*f)) - static_cast<uintptr_t>(16))  // NOLINT
 
+#define ALIGNED(x) __attribute__ ((__aligned__(x)))
 #define PACKED(x) __attribute__ ((__aligned__(x), __packed__))
 
 // Stringify the argument.

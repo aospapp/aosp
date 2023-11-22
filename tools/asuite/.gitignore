@@ -1,0 +1,10 @@
+**/*.pyc
+**/*.class
+**/.idea
+**/*.iml
+**/*.uml~
+**/yapfrc
+
+# Exceptions
+!aidegen/test_data/*.iml
+!aidegen/test_data/.idea

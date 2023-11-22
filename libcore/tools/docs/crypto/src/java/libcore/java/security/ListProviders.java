@@ -16,17 +16,20 @@
 
 package libcore.java.security;
 
-import android.net.PskKeyManager;
+import com.android.org.conscrypt.PSKKeyManager;
 
+import java.net.Socket;
 import java.security.NoSuchAlgorithmException;
 import java.security.Provider;
 import java.security.Security;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -132,14 +135,16 @@ public class ListProviders {
         }
         // SSLEngine and SSLSocket algorithms are handled outside the default provider system
         SSLContext defaultContext = SSLContext.getDefault();
+        SSLContext tls13Context = SSLContext.getInstance("TLSv1.3");
+        tls13Context.init(null, null, null);
         // PSK cipher suites are only enabled when a PskKeyManager is available, but some other
         // suites are disabled in that case, so check for both
         SSLContext pskContext = SSLContext.getInstance("TLS");
         pskContext.init(
-                new KeyManager[] {new PskKeyManager(){}},
+                new KeyManager[] {new DummyKeyManager()},
                 new TrustManager[0],
                 null);
-        for (SSLContext sslContext : new SSLContext[] {defaultContext, pskContext}) {
+        for (SSLContext sslContext : new SSLContext[] {defaultContext, tls13Context, pskContext}) {
             SSLEngine engine = sslContext.createSSLEngine();
             for (String suite : engine.getSupportedCipherSuites()) {
                 print(sslContext.getProvider(), "SSLEngine.Supported", suite);
@@ -156,5 +161,14 @@ public class ListProviders {
             }
         }
         System.out.println("END ALGORITHM LIST");
+    }
+
+    private static class DummyKeyManager implements PSKKeyManager {
+        @Override public String chooseServerKeyIdentityHint(Socket socket) { return null; }
+        @Override public String chooseServerKeyIdentityHint(SSLEngine engine) { return null; }
+        @Override public String chooseClientKeyIdentity(String identityHint, Socket socket) { return null; }
+        @Override public String chooseClientKeyIdentity(String identityHint, SSLEngine engine) { return null; }
+        @Override public SecretKey getKey(String identityHint, String identity, Socket socket) { return null; }
+        @Override public SecretKey getKey(String identityHint, String identity, SSLEngine engine) { return null; }
     }
 }

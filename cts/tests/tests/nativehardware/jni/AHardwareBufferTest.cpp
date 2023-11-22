@@ -20,18 +20,28 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <limits>
 #include <sstream>
 #include <string>
 
 #include <android/hardware_buffer.h>
+#include <android/log.h>
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 //#define LOG_NDEBUG 0
 
 #define BAD_VALUE -EINVAL
+#define INVALID_OPERATION -ENOSYS
 #define NO_ERROR 0
 
+#define LOG_TAG "AHBTest"
+#define ALOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+
 namespace {
+
+using testing::AnyOf;
+using testing::Eq;
 
 #define FORMAT_CASE(x) case AHARDWAREBUFFER_FORMAT_ ## x: os << #x ; break
 
@@ -201,6 +211,23 @@ TEST(AHardwareBufferTest, AllocateSucceeds) {
     AHardwareBuffer_release(buffer);
 }
 
+// Test that allocate can create YUV AHardwareBuffers correctly.
+TEST(AHardwareBufferTest, YuvAllocateSucceeds) {
+    AHardwareBuffer* buffer = NULL;
+    AHardwareBuffer_Desc desc = {};
+
+    desc.width = 16;
+    desc.height = 16;
+    desc.layers = 1;
+    desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE;
+    desc.format = AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420;
+    int res = AHardwareBuffer_allocate(&desc, &buffer);
+    EXPECT_EQ(NO_ERROR, res);
+    EXPECT_EQ(desc, GetDescription(buffer));
+    AHardwareBuffer_release(buffer);
+    buffer = NULL;
+}
+
 TEST(AHardwareBufferTest, DescribeSucceeds) {
     AHardwareBuffer* buffer = NULL;
     AHardwareBuffer_Desc desc = {};
@@ -291,6 +318,48 @@ TEST(AHardwareBufferTest, SendAndRecvSucceeds) {
     AHardwareBuffer_release(received);
 }
 
+TEST(AHardwareBufferTest, LockAndGetInfoAndUnlockSucceed) {
+    AHardwareBuffer* buffer = nullptr;
+    AHardwareBuffer_Desc desc = {};
+
+    desc.width = 2;
+    desc.height = 4;
+    desc.layers = 1;
+    desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE | AHARDWAREBUFFER_USAGE_CPU_READ_RARELY;
+    desc.format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+
+    int32_t bytesPerPixel = std::numeric_limits<int32_t>::min();
+    int32_t bytesPerStride = std::numeric_limits<int32_t>::min();
+
+    // Test that an invalid buffer fails.
+    int err = AHardwareBuffer_lockAndGetInfo(NULL, 0, -1, NULL, NULL, &bytesPerPixel, &bytesPerStride);
+    EXPECT_EQ(BAD_VALUE, err);
+
+    err = AHardwareBuffer_allocate(&desc, &buffer);
+    EXPECT_EQ(NO_ERROR, err);
+    void* bufferData = NULL;
+
+    // Test invalid usage flag
+    err = AHardwareBuffer_lockAndGetInfo(buffer, ~(AHARDWAREBUFFER_USAGE_CPU_WRITE_MASK | AHARDWAREBUFFER_USAGE_CPU_READ_MASK), -1, NULL, &bufferData, &bytesPerPixel, &bytesPerStride);
+    EXPECT_EQ(BAD_VALUE, err);
+
+    err = AHardwareBuffer_lockAndGetInfo(buffer, AHARDWAREBUFFER_USAGE_CPU_READ_RARELY, -1, NULL, &bufferData, &bytesPerPixel, &bytesPerStride);
+
+    if (bytesPerPixel == -1 || bytesPerStride == -1) {
+        EXPECT_EQ(INVALID_OPERATION, err);
+    } else {
+        EXPECT_EQ(NO_ERROR, err);
+        EXPECT_LE(0, bytesPerPixel);
+        EXPECT_LE(0, bytesPerStride);
+        EXPECT_TRUE(bufferData != NULL);
+
+        int32_t fence = -1;
+        err = AHardwareBuffer_unlock(buffer, &fence);
+        EXPECT_EQ(NO_ERROR, err);
+    }
+    AHardwareBuffer_release(buffer);
+}
+
 TEST(AHardwareBufferTest, LockAndUnlockSucceed) {
     AHardwareBuffer* buffer = NULL;
     AHardwareBuffer_Desc desc = {};
@@ -320,11 +389,99 @@ TEST(AHardwareBufferTest, LockAndUnlockSucceed) {
     AHardwareBuffer_release(buffer);
 }
 
+TEST(AHardwareBufferTest, PlanarLockAndUnlockYuvSucceed) {
+    AHardwareBuffer* buffer = NULL;
+    AHardwareBuffer_Desc desc = {};
+
+    desc.width = 16;
+    desc.height = 32;
+    desc.layers = 1;
+    desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE | AHARDWAREBUFFER_USAGE_CPU_READ_RARELY;
+    desc.format = AHARDWAREBUFFER_FORMAT_Y8Cb8Cr8_420;
+
+    // Test that an invalid buffer fails.
+    int err = AHardwareBuffer_lock(NULL, 0, -1, NULL, NULL);
+    EXPECT_EQ(BAD_VALUE, err);
+    err = 0;
+
+    // Allocate the buffer.
+    err = AHardwareBuffer_allocate(&desc, &buffer);
+    EXPECT_EQ(NO_ERROR, err);
+
+    // Lock its planes
+    AHardwareBuffer_Planes planes;
+    err = AHardwareBuffer_lockPlanes(buffer, AHARDWAREBUFFER_USAGE_CPU_READ_RARELY, -1, NULL,
+        &planes);
+
+    // Make sure everything looks right
+    EXPECT_EQ(NO_ERROR, err);
+    EXPECT_EQ(3U, planes.planeCount);
+
+    EXPECT_TRUE(planes.planes[0].data != NULL);
+    EXPECT_EQ(1U, planes.planes[0].pixelStride);
+    EXPECT_TRUE(planes.planes[0].rowStride >= 16);
+
+    EXPECT_TRUE(planes.planes[1].data != NULL);
+    EXPECT_THAT(planes.planes[1].pixelStride, AnyOf(Eq(1U), Eq(2U)));
+    EXPECT_TRUE(planes.planes[1].rowStride >= 8);
+
+    EXPECT_TRUE(planes.planes[2].data != NULL);
+    EXPECT_THAT(planes.planes[2].pixelStride, AnyOf(Eq(1U), Eq(2U)));
+    EXPECT_TRUE(planes.planes[2].rowStride >= 8);
+
+    // Unlock
+    int32_t fence = -1;
+    err = AHardwareBuffer_unlock(buffer, &fence);
+    EXPECT_EQ(NO_ERROR, err);
+
+    AHardwareBuffer_release(buffer);
+}
+
+TEST(AHardwareBufferTest, PlanarLockAndUnlockRgbaSucceed) {
+    AHardwareBuffer* buffer = NULL;
+    AHardwareBuffer_Desc desc = {};
+
+    desc.width = 16;
+    desc.height = 32;
+    desc.layers = 1;
+    desc.usage = AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE | AHARDWAREBUFFER_USAGE_CPU_READ_RARELY;
+    desc.format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+
+    // Test that an invalid buffer fails.
+    int err = AHardwareBuffer_lock(NULL, 0, -1, NULL, NULL);
+    EXPECT_EQ(BAD_VALUE, err);
+    err = 0;
+
+    // Allocate the buffer.
+    err = AHardwareBuffer_allocate(&desc, &buffer);
+    EXPECT_EQ(NO_ERROR, err);
+
+    // Lock its planes
+    AHardwareBuffer_Planes planes;
+    err = AHardwareBuffer_lockPlanes(buffer, AHARDWAREBUFFER_USAGE_CPU_READ_RARELY, -1, NULL,
+        &planes);
+
+    // Make sure everything looks right
+    EXPECT_EQ(NO_ERROR, err);
+    EXPECT_EQ(1U, planes.planeCount);
+
+    EXPECT_TRUE(planes.planes[0].data != NULL);
+    EXPECT_EQ(4U, planes.planes[0].pixelStride);
+    EXPECT_TRUE(planes.planes[0].rowStride >= 64);
+
+    // Unlock
+    int32_t fence = -1;
+    err = AHardwareBuffer_unlock(buffer, &fence);
+    EXPECT_EQ(NO_ERROR, err);
+
+    AHardwareBuffer_release(buffer);
+}
+
 TEST(AHardwareBufferTest, ProtectedContentAndCpuReadIncompatible) {
     AHardwareBuffer* buffer = NULL;
     AHardwareBuffer_Desc desc = {};
     desc.width = 120;
-    desc.width = 240;
+    desc.height = 240;
     desc.layers = 1;
     desc.usage = AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT | AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN;
     desc.format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;

@@ -22,21 +22,51 @@
 
 #define LOG_TAG "Netd"
 
-#include <cutils/log.h>
+#include <log/log.h>
 
+#include <android-base/parseint.h>
+#include <android-base/strings.h>
 #include <netutils/ifc.h>
 #include <sysutils/NetlinkEvent.h>
+#include "Controllers.h"
 #include "NetlinkHandler.h"
 #include "NetlinkManager.h"
-#include "ResponseCode.h"
 #include "SockDiag.h"
-#include "Controllers.h"
 
-static const char *kUpdated = "updated";
-static const char *kRemoved = "removed";
+#include <charconv>
+
+#define BINDER_RETRY(exp)                                                       \
+    ({                                                                          \
+        bool res = true;                                                        \
+        for (int attempt = 0; /*nop*/; ++attempt) {                             \
+            auto _rc = (exp);                                                   \
+            if (_rc.exceptionCode() == binder::Status::EX_TRANSACTION_FAILED && \
+                attempt < RETRY_ATTEMPTS) {                                     \
+                usleep(RETRY_INTERVAL_MICRO_S);                                 \
+            } else {                                                            \
+                res = _rc.isOk();                                               \
+                break;                                                          \
+            }                                                                   \
+        }                                                                       \
+        res;                                                                    \
+    })
+
+#define LOG_EVENT_FUNC(retry, func, ...)                                                    \
+    do {                                                                                    \
+        const auto listenerMap = gCtls->eventReporter.getNetdUnsolicitedEventListenerMap(); \
+        for (auto& listener : listenerMap) {                                                \
+            auto entry = gUnsolicitedLog.newEntry().function(#func).args(__VA_ARGS__);      \
+            if (retry(listener.first->func(__VA_ARGS__))) {                                 \
+                gUnsolicitedLog.log(entry.withAutomaticDuration());                         \
+            }                                                                               \
+        }                                                                                   \
+    } while (0)
 
 namespace android {
 namespace net {
+
+constexpr int RETRY_ATTEMPTS = 2;
+constexpr int RETRY_INTERVAL_MICRO_S = 100000;
 
 NetlinkHandler::NetlinkHandler(NetlinkManager *nm, int listenerSocket,
                                int format) :
@@ -59,7 +89,7 @@ static long parseIfIndex(const char* ifIndex) {
     if (ifIndex == nullptr) {
         return 0;
     }
-    long ifaceIndex = strtol(ifIndex, NULL, 10);
+    long ifaceIndex = strtol(ifIndex, nullptr, 10);
     // strtol returns 0 on error, which is fine because 0 is not a valid ifindex.
     if (errno == ERANGE && (ifaceIndex == LONG_MAX || ifaceIndex == LONG_MIN)) {
         return 0;
@@ -117,7 +147,8 @@ void NetlinkHandler::onEvent(NetlinkEvent *evt) {
             if (!ifaceIndex) {
                 ALOGE("invalid interface index: %s(%s)", iface, ifIndex);
             }
-            if (action == NetlinkEvent::Action::kAddressUpdated) {
+            const bool addrUpdated = (action == NetlinkEvent::Action::kAddressUpdated);
+            if (addrUpdated) {
                 gCtls->netCtrl.addInterfaceAddress(ifaceIndex, address);
             } else {  // action == NetlinkEvent::Action::kAddressRemoved
                 bool shouldDestroy = gCtls->netCtrl.removeInterfaceAddress(ifaceIndex, address);
@@ -135,13 +166,18 @@ void NetlinkHandler::onEvent(NetlinkEvent *evt) {
             }
             // Note: if this interface was deleted, iface is "" and we don't notify.
             if (iface && iface[0] && address && flags && scope) {
-                notifyAddressChanged(action, address, iface, flags, scope);
+                if (addrUpdated) {
+                    notifyAddressUpdated(address, iface, std::stoi(flags), std::stoi(scope));
+                } else {
+                    notifyAddressRemoved(address, iface, std::stoi(flags), std::stoi(scope));
+                }
             }
         } else if (action == NetlinkEvent::Action::kRdnss) {
             const char *lifetime = evt->findParam("LIFETIME");
             const char *servers = evt->findParam("SERVERS");
             if (lifetime && servers) {
-                notifyInterfaceDnsServers(iface, lifetime, servers);
+                notifyInterfaceDnsServers(iface, strtol(lifetime, nullptr, 10),
+                                          android::base::Split(servers, ","));
             }
         } else if (action == NetlinkEvent::Action::kRouteUpdated ||
                    action == NetlinkEvent::Action::kRouteRemoved) {
@@ -149,28 +185,44 @@ void NetlinkHandler::onEvent(NetlinkEvent *evt) {
             const char *gateway = evt->findParam("GATEWAY");
             const char *iface = evt->findParam("INTERFACE");
             if (route && (gateway || iface)) {
-                notifyRouteChange(action, route, gateway, iface);
+                notifyRouteChange((action == NetlinkEvent::Action::kRouteUpdated) ? true : false,
+                                  route, (gateway == nullptr) ? "" : gateway,
+                                  (iface == nullptr) ? "" : iface);
             }
         }
 
     } else if (!strcmp(subsys, "qlog") || !strcmp(subsys, "xt_quota2")) {
         const char *alertName = evt->findParam("ALERT_NAME");
         const char *iface = evt->findParam("INTERFACE");
-        notifyQuotaLimitReached(alertName, iface);
+        if (alertName && iface) {
+            notifyQuotaLimitReached(alertName, iface);
+        }
 
     } else if (!strcmp(subsys, "strict")) {
         const char *uid = evt->findParam("UID");
         const char *hex = evt->findParam("HEX");
-        notifyStrictCleartext(uid, hex);
+        if (uid && hex) {
+            notifyStrictCleartext(strtol(uid, nullptr, 10), hex);
+        }
 
     } else if (!strcmp(subsys, "xt_idletimer")) {
         const char *label = evt->findParam("INTERFACE");
         const char *state = evt->findParam("STATE");
         const char *timestamp = evt->findParam("TIME_NS");
         const char *uid = evt->findParam("UID");
-        if (state)
-            notifyInterfaceClassActivity(label, !strcmp("active", state),
-                                         timestamp, uid);
+        if (state) {
+            bool isActive = !strcmp("active", state);
+            int64_t processTimestamp = (timestamp == nullptr) ? 0 : strtoll(timestamp, nullptr, 10);
+            int intLabel;
+            // NMS only accepts interface class activity changes with integer labels, and only ever
+            // creates idletimers with integer labels.
+            if (android::base::ParseInt(label, &intLabel)) {
+                const long reportedUid =
+                        (uid != nullptr && isActive) ? strtol(uid, nullptr, 10) : -1;
+                notifyInterfaceClassActivityChanged(intLabel, isActive, processTimestamp,
+                                                    reportedUid);
+            }
+        }
 
 #if !LOG_NDEBUG
     } else if (strcmp(subsys, "platform") && strcmp(subsys, "backlight")) {
@@ -180,86 +232,54 @@ void NetlinkHandler::onEvent(NetlinkEvent *evt) {
     }
 }
 
-void NetlinkHandler::notify(int code, const char *format, ...) {
-    char *msg;
-    va_list args;
-    va_start(args, format);
-    if (vasprintf(&msg, format, args) >= 0) {
-        mNm->getBroadcaster()->sendBroadcast(code, msg, false);
-        free(msg);
-    } else {
-        SLOGE("Failed to send notification: vasprintf: %s", strerror(errno));
-    }
-    va_end(args);
+void NetlinkHandler::notifyInterfaceAdded(const std::string& ifName) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onInterfaceAdded, ifName);
 }
 
-void NetlinkHandler::notifyInterfaceAdded(const char *name) {
-    notify(ResponseCode::InterfaceChange, "Iface added %s", name);
+void NetlinkHandler::notifyInterfaceRemoved(const std::string& ifName) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onInterfaceRemoved, ifName);
 }
 
-void NetlinkHandler::notifyInterfaceRemoved(const char *name) {
-    notify(ResponseCode::InterfaceChange, "Iface removed %s", name);
+void NetlinkHandler::notifyInterfaceChanged(const std::string& ifName, bool up) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onInterfaceChanged, ifName, up);
 }
 
-void NetlinkHandler::notifyInterfaceChanged(const char *name, bool isUp) {
-    notify(ResponseCode::InterfaceChange,
-           "Iface changed %s %s", name, (isUp ? "up" : "down"));
+void NetlinkHandler::notifyInterfaceLinkChanged(const std::string& ifName, bool up) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onInterfaceLinkStateChanged, ifName, up);
 }
 
-void NetlinkHandler::notifyInterfaceLinkChanged(const char *name, bool isUp) {
-    notify(ResponseCode::InterfaceChange,
-           "Iface linkstate %s %s", name, (isUp ? "up" : "down"));
+void NetlinkHandler::notifyQuotaLimitReached(const std::string& labelName,
+                                             const std::string& ifName) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onQuotaLimitReached, labelName, ifName);
 }
 
-void NetlinkHandler::notifyQuotaLimitReached(const char *name, const char *iface) {
-    notify(ResponseCode::BandwidthControl, "limit alert %s %s", name, iface);
+void NetlinkHandler::notifyInterfaceClassActivityChanged(int label, bool isActive,
+                                                         int64_t timestamp, int uid) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onInterfaceClassActivityChanged, isActive, label, timestamp, uid);
 }
 
-void NetlinkHandler::notifyInterfaceClassActivity(const char *name,
-                                                  bool isActive,
-                                                  const char *timestamp,
-                                                  const char *uid) {
-    if (timestamp == NULL)
-        notify(ResponseCode::InterfaceClassActivity,
-           "IfaceClass %s %s", isActive ? "active" : "idle", name);
-    else if (uid != NULL && isActive)
-        notify(ResponseCode::InterfaceClassActivity,
-           "IfaceClass active %s %s %s", name, timestamp, uid);
-    else
-        notify(ResponseCode::InterfaceClassActivity,
-           "IfaceClass %s %s %s", isActive ? "active" : "idle", name, timestamp);
+void NetlinkHandler::notifyAddressUpdated(const std::string& addr, const std::string& ifName,
+                                          int flags, int scope) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onInterfaceAddressUpdated, addr, ifName, flags, scope);
 }
 
-void NetlinkHandler::notifyAddressChanged(NetlinkEvent::Action action, const char *addr,
-                                          const char *iface, const char *flags,
-                                          const char *scope) {
-    notify(ResponseCode::InterfaceAddressChange,
-           "Address %s %s %s %s %s",
-           (action == NetlinkEvent::Action::kAddressUpdated) ? kUpdated : kRemoved,
-           addr, iface, flags, scope);
+void NetlinkHandler::notifyAddressRemoved(const std::string& addr, const std::string& ifName,
+                                          int flags, int scope) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onInterfaceAddressRemoved, addr, ifName, flags, scope);
 }
 
-void NetlinkHandler::notifyInterfaceDnsServers(const char *iface,
-                                               const char *lifetime,
-                                               const char *servers) {
-    notify(ResponseCode::InterfaceDnsInfo, "DnsInfo servers %s %s %s",
-           iface, lifetime, servers);
+void NetlinkHandler::notifyInterfaceDnsServers(const std::string& ifName, int64_t lifetime,
+                                               const std::vector<std::string>& servers) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onInterfaceDnsServerInfo, ifName, lifetime, servers);
 }
 
-void NetlinkHandler::notifyRouteChange(NetlinkEvent::Action action, const char *route,
-                                       const char *gateway, const char *iface) {
-    notify(ResponseCode::RouteChange,
-           "Route %s %s%s%s%s%s",
-           (action == NetlinkEvent::Action::kRouteUpdated) ? kUpdated : kRemoved,
-           route,
-           (gateway && *gateway) ? " via " : "",
-           gateway,
-           (iface && *iface) ? " dev " : "",
-           iface);
+void NetlinkHandler::notifyRouteChange(bool updated, const std::string& route,
+                                       const std::string& gateway, const std::string& ifName) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onRouteChanged, updated, route, gateway, ifName);
 }
 
-void NetlinkHandler::notifyStrictCleartext(const char* uid, const char* hex) {
-    notify(ResponseCode::StrictCleartext, "%s %s", uid, hex);
+void NetlinkHandler::notifyStrictCleartext(uid_t uid, const std::string& hex) {
+    LOG_EVENT_FUNC(BINDER_RETRY, onStrictCleartextDetected, uid, hex);
 }
 
 }  // namespace net

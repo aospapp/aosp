@@ -23,6 +23,7 @@ import static com.android.documentsui.testing.IntentAsserts.assertHasExtraIntent
 import static com.android.documentsui.testing.IntentAsserts.assertHasExtraList;
 import static com.android.documentsui.testing.IntentAsserts.assertHasExtraUri;
 import static com.android.documentsui.testing.IntentAsserts.assertTargetsComponent;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -31,6 +32,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.app.PendingIntent;
 import android.content.ClipData;
 import android.content.Intent;
@@ -38,13 +40,16 @@ import android.net.Uri;
 import android.os.Parcelable;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Path;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.Pair;
 import android.view.DragEvent;
 
+import androidx.core.util.Preconditions;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.documentsui.AbstractActionHandler;
+import com.android.documentsui.ModelId;
 import com.android.documentsui.R;
 import com.android.documentsui.TestActionModeAddons;
 import com.android.documentsui.archives.ArchivesProvider;
@@ -63,7 +68,6 @@ import com.android.documentsui.testing.TestEnv;
 import com.android.documentsui.testing.TestFeatures;
 import com.android.documentsui.testing.TestProvidersAccess;
 import com.android.documentsui.ui.TestDialogController;
-import com.android.internal.util.Preconditions;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -356,18 +360,20 @@ public class ActionHandlerTest {
         mActivity.currentRoot = TestProvidersAccess.HOME;
         mEnv.docs.nextDocument = TestEnv.FILE_ARCHIVE;
 
-        mHandler.openDocument(TestEnv.FILE_ARCHIVE, ActionHandler.VIEW_TYPE_PREVIEW,
-                ActionHandler.VIEW_TYPE_REGULAR);
+        final boolean result = mHandler.openDocument(TestEnv.FILE_ARCHIVE,
+                ActionHandler.VIEW_TYPE_PREVIEW, ActionHandler.VIEW_TYPE_REGULAR);
         assertEquals(TestEnv.FILE_ARCHIVE, mEnv.state.stack.peek());
+        assertEquals(false, result);
     }
 
     @Test
     public void testDocumentPicked_OpensDirectories() throws Exception {
         mActivity.currentRoot = TestProvidersAccess.HOME;
 
-        mHandler.openDocument(TestEnv.FOLDER_1, ActionHandler.VIEW_TYPE_PREVIEW,
-                ActionHandler.VIEW_TYPE_REGULAR);
+        final boolean result = mHandler.openDocument(TestEnv.FOLDER_1,
+                ActionHandler.VIEW_TYPE_PREVIEW, ActionHandler.VIEW_TYPE_REGULAR);
         assertEquals(TestEnv.FOLDER_1, mEnv.state.stack.peek());
+        assertEquals(false, result);
     }
 
     @Test
@@ -376,6 +382,17 @@ public class ActionHandlerTest {
 
         mHandler.showChooserForDoc(TestEnv.FILE_PDF);
         mActivity.assertActivityStarted(Intent.ACTION_CHOOSER);
+    }
+
+    @Test
+    public void testInitLocation_LaunchToStackLocation() {
+        DocumentStack path = new DocumentStack(Roots.create("123"), mEnv.model.getDocument("1"));
+
+        Intent intent = LauncherActivity.createLaunchIntent(mActivity);
+        intent.putExtra(Shared.EXTRA_STACK, (Parcelable) path);
+
+        mHandler.initLocation(intent);
+        mActivity.refreshCurrentRootAndDirectory.assertCalled();
     }
 
     @Test
@@ -396,8 +413,20 @@ public class ActionHandlerTest {
     }
 
     @Test
-    public void testInitLocation_DefaultsToDownloads() throws Exception {
+    public void testInitLocation_DefaultsToRecent() throws Exception {
         mActivity.resources.bools.put(R.bool.show_documents_root, false);
+        mFeatures.forceDefaultRoot = false;
+
+        mHandler.initLocation(mActivity.getIntent());
+        assertRecentPicked();
+    }
+
+    @Test
+    public void testInitLocation_forceDefaultsToRoot() throws Exception {
+        mActivity.resources.bools.put(R.bool.show_documents_root, false);
+        mFeatures.forceDefaultRoot = true;
+        mActivity.resources.strings.put(R.string.default_root_uri,
+                TestProvidersAccess.DOWNLOADS.getUri().toString());
 
         mHandler.initLocation(mActivity.getIntent());
         assertRootPicked(TestProvidersAccess.DOWNLOADS.getUri());
@@ -406,10 +435,35 @@ public class ActionHandlerTest {
     @Test
     public void testInitLocation_DocumentsRootEnabled() throws Exception {
         mActivity.resources.bools.put(R.bool.show_documents_root, true);
-        mActivity.resources.strings.put(R.string.default_root_uri, TestProvidersAccess.HOME.getUri().toString());
+        mFeatures.forceDefaultRoot = true;
+        mActivity.resources.strings.put(R.string.default_root_uri,
+                TestProvidersAccess.HOME.getUri().toString());
 
         mHandler.initLocation(mActivity.getIntent());
         assertRootPicked(TestProvidersAccess.HOME.getUri());
+    }
+
+    @Test
+    public void testInitLocation_BrowseRootWithoutRootId() throws Exception {
+        Intent intent = mActivity.getIntent();
+        intent.setAction(Intent.ACTION_VIEW);
+        intent.setData(DocumentsContract.buildRootsUri(TestProvidersAccess.HAMMY.authority));
+
+        mHandler.initLocation(intent);
+        assertRootPicked(TestProvidersAccess.HAMMY.getUri());
+    }
+
+    @Test
+    public void testInitLocation_BrowseRootWrongAuthority_ShowDefault() throws Exception {
+        Intent intent = mActivity.getIntent();
+        intent.setAction(Intent.ACTION_VIEW);
+        intent.setData(DocumentsContract.buildRootsUri("com.test.wrongauthority"));
+        mActivity.resources.strings.put(R.string.default_root_uri,
+                TestProvidersAccess.HOME.getUri().toString());
+        mFeatures.forceDefaultRoot = false;
+
+        mHandler.initLocation(intent);
+        assertRecentPicked();
     }
 
     @Test
@@ -448,6 +502,15 @@ public class ActionHandlerTest {
         DocumentStackAsserts.assertEqualsTo(mEnv.state.stack, TestProvidersAccess.HOME,
                 Arrays.asList(TestEnv.FOLDER_0, TestEnv.FOLDER_1));
         mActivity.refreshCurrentRootAndDirectory.assertCalled();
+    }
+
+    @Test
+    public void testInitLocation_LaunchToDownloads() throws Exception {
+        Intent intent = mActivity.getIntent();
+        intent.setAction(DownloadManager.ACTION_VIEW_DOWNLOADS);
+
+        mHandler.initLocation(intent);
+        assertRootPicked(TestProvidersAccess.DOWNLOADS.getUri());
     }
 
     @Test
@@ -510,7 +573,8 @@ public class ActionHandlerTest {
     public void testRefresh() throws Exception {
         refreshAnswer = false;
         mEnv.populateStack();
-        mHandler.refreshDocument(mEnv.model.getDocument("1"), (boolean answer) -> {
+        mHandler.refreshDocument(mEnv.model.getDocument(
+                ModelId.build(TestProvidersAccess.HOME.authority, "1")), (boolean answer) -> {
             refreshAnswer = answer;
         });
 
@@ -630,6 +694,12 @@ public class ActionHandlerTest {
         RootInfo root = mActivity.rootPicked.getLastValue();
         assertNotNull(root);
         assertEquals(expectedUri, root.getUri());
+    }
+
+    private void assertRecentPicked() throws Exception{
+        mEnv.beforeAsserts();
+        assertEquals(TestProvidersAccess.RECENTS, mEnv.state.stack.getRoot());
+        mActivity.refreshCurrentRootAndDirectory.assertCalled();
     }
 
     private ActionHandler<TestActivity> createHandler() {

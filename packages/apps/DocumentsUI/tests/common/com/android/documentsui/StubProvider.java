@@ -31,11 +31,11 @@ import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
 import android.provider.DocumentsProvider;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.text.TextUtils;
 import android.util.Log;
 
-import libcore.io.IoUtils;
+import android.os.FileUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -472,8 +472,8 @@ public class StubProvider extends DocumentsProvider {
                 Log.e(TAG, "Error on close", e);
                 closePipeWithErrorSilently(readPipe, e.getMessage());
             } finally {
-                IoUtils.closeQuietly(inputStream);
-                IoUtils.closeQuietly(outputStream);
+                FileUtils.closeQuietly(inputStream);
+                FileUtils.closeQuietly(outputStream);
                 Log.d(TAG, "Closing write stream on file " + document.documentId);
                 notifyParentChanged(document.parentId);
                 getContext().getContentResolver().notifyChange(

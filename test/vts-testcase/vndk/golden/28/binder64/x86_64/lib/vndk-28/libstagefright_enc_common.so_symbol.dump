@@ -1,7 +1,0 @@
-cmnMemAlloc
-cmnMemCheck
-cmnMemCompare
-cmnMemCopy
-cmnMemFree
-cmnMemMove
-cmnMemSet

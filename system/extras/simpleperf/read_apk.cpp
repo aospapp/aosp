@@ -28,147 +28,102 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/strings.h>
 #include <ziparchive/zip_archive.h>
 #include "read_elf.h"
 #include "utils.h"
 
-std::map<ApkInspector::ApkOffset, std::unique_ptr<EmbeddedElf>> ApkInspector::embedded_elf_cache_;
+std::unordered_map<std::string, ApkInspector::ApkNode> ApkInspector::embedded_elf_cache_;
 
 EmbeddedElf* ApkInspector::FindElfInApkByOffset(const std::string& apk_path, uint64_t file_offset) {
   // Already in cache?
-  ApkOffset ami(apk_path, file_offset);
-  auto it = embedded_elf_cache_.find(ami);
-  if (it != embedded_elf_cache_.end()) {
+  ApkNode& node = embedded_elf_cache_[apk_path];
+  auto it = node.offset_map.find(file_offset);
+  if (it != node.offset_map.end()) {
     return it->second.get();
   }
   std::unique_ptr<EmbeddedElf> elf = FindElfInApkByOffsetWithoutCache(apk_path, file_offset);
   EmbeddedElf* result = elf.get();
-  embedded_elf_cache_[ami] = std::move(elf);
+  node.offset_map[file_offset] = std::move(elf);
+  if (result != nullptr) {
+    node.name_map[result->entry_name()] = result;
+  }
   return result;
 }
 
-std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByOffsetWithoutCache(const std::string& apk_path,
-                                                                            uint64_t file_offset) {
-  // Crack open the apk(zip) file and take a look.
-  if (!IsValidApkPath(apk_path)) {
-    return nullptr;
+EmbeddedElf* ApkInspector::FindElfInApkByName(const std::string& apk_path,
+                                              const std::string& entry_name) {
+  ApkNode& node = embedded_elf_cache_[apk_path];
+  auto it = node.name_map.find(entry_name);
+  if (it != node.name_map.end()) {
+    return it->second;
   }
-
-  FileHelper fhelper = FileHelper::OpenReadOnly(apk_path);
-  if (!fhelper) {
-    return nullptr;
+  std::unique_ptr<EmbeddedElf> elf = FindElfInApkByNameWithoutCache(apk_path, entry_name);
+  EmbeddedElf* result = elf.get();
+  node.name_map[entry_name] = result;
+  if (result != nullptr) {
+    node.offset_map[result->entry_offset()] = std::move(elf);
   }
+  return result;
+}
 
-  ArchiveHelper ahelper(fhelper.fd(), apk_path);
+std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByOffsetWithoutCache(
+    const std::string& apk_path, uint64_t file_offset) {
+  std::unique_ptr<ArchiveHelper> ahelper = ArchiveHelper::CreateInstance(apk_path);
   if (!ahelper) {
     return nullptr;
   }
-  ZipArchiveHandle &handle = ahelper.archive_handle();
 
   // Iterate through the zip file. Look for a zip entry corresponding
   // to an uncompressed blob whose range intersects with the mmap
   // offset we're interested in.
-  void* iteration_cookie;
-  if (StartIteration(handle, &iteration_cookie, nullptr, nullptr) < 0) {
-    return nullptr;
-  }
-  ZipEntry zentry;
-  ZipString zname;
   bool found = false;
-  int zrc;
-  while ((zrc = Next(iteration_cookie, &zentry, &zname)) == 0) {
-    if (zentry.method == kCompressStored &&
-        file_offset >= static_cast<uint64_t>(zentry.offset) &&
-        file_offset < static_cast<uint64_t>(zentry.offset + zentry.uncompressed_length)) {
-      // Found.
+  ZipEntry found_entry;
+  std::string found_entry_name;
+  bool result = ahelper->IterateEntries([&](ZipEntry& entry, const std::string& name) {
+    if (entry.method == kCompressStored &&
+        file_offset >= static_cast<uint64_t>(entry.offset) &&
+        file_offset < static_cast<uint64_t>(entry.offset) + entry.uncompressed_length) {
       found = true;
-      break;
+      found_entry = entry;
+      found_entry_name = name;
+      return false;
     }
-  }
-  EndIteration(iteration_cookie);
-  if (!found) {
+    return true;
+  });
+  if (!result || !found) {
     return nullptr;
   }
 
   // We found something in the zip file at the right spot. Is it an ELF?
-  if (lseek(fhelper.fd(), zentry.offset, SEEK_SET) != zentry.offset) {
-    PLOG(ERROR) << "lseek() failed in " << apk_path << " offset " << zentry.offset;
+  if (lseek(ahelper->GetFd(), found_entry.offset, SEEK_SET) != found_entry.offset) {
+    PLOG(ERROR) << "lseek() failed in " << apk_path << " offset " << found_entry.offset;
     return nullptr;
   }
-  std::string entry_name;
-  entry_name.resize(zname.name_length,'\0');
-  memcpy(&entry_name[0], zname.name, zname.name_length);
-  ElfStatus result = IsValidElfFile(fhelper.fd());
-  if (result != ElfStatus::NO_ERROR) {
-    LOG(ERROR) << "problems reading ELF from " << apk_path << " entry '"
-               << entry_name << "': " << result;
+  if (IsValidElfFile(ahelper->GetFd()) != ElfStatus::NO_ERROR) {
+    // Omit files that are not ELF files.
     return nullptr;
   }
-
-  // Elf found: add EmbeddedElf to vector, update cache.
-  return std::unique_ptr<EmbeddedElf>(new EmbeddedElf(apk_path, entry_name, zentry.offset,
-                                                      zentry.uncompressed_length));
+  return std::unique_ptr<EmbeddedElf>(new EmbeddedElf(apk_path, found_entry_name,
+                                                      found_entry.offset,
+                                                      found_entry.uncompressed_length));
 }
 
-bool ApkInspector::FindOffsetInApkByName(const std::string& apk_path,
-                                         const std::string& elf_filename, uint64_t* offset,
-                                         uint32_t* uncompressed_length) {
-  if (!IsValidApkPath(apk_path)) {
-    return false;
-  }
-  FileHelper fhelper = FileHelper::OpenReadOnly(apk_path);
-  if (!fhelper) {
-    return false;
-  }
-  ArchiveHelper ahelper(fhelper.fd(), apk_path);
+std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByNameWithoutCache(
+    const std::string& apk_path, const std::string& entry_name) {
+  std::unique_ptr<ArchiveHelper> ahelper = ArchiveHelper::CreateInstance(apk_path);
   if (!ahelper) {
-    return false;
+    return nullptr;
   }
-  ZipArchiveHandle& handle = ahelper.archive_handle();
   ZipEntry zentry;
-  int32_t rc = FindEntry(handle, ZipString(elf_filename.c_str()), &zentry);
-  if (rc != false) {
-    LOG(ERROR) << "failed to find " << elf_filename << " in " << apk_path
-        << ": " << ErrorCodeString(rc);
-    return false;
+  if (!ahelper->FindEntry(entry_name, &zentry)) {
+    return nullptr;
   }
   if (zentry.method != kCompressStored || zentry.compressed_length != zentry.uncompressed_length) {
-    LOG(ERROR) << "shared library " << elf_filename << " in " << apk_path << " is compressed";
-    return false;
-  }
-  *offset = zentry.offset;
-  *uncompressed_length = zentry.uncompressed_length;
-  return true;
-}
-
-std::unique_ptr<EmbeddedElf> ApkInspector::FindElfInApkByName(const std::string& apk_path,
-                                                              const std::string& elf_filename) {
-  uint64_t offset;
-  uint32_t uncompressed_length;
-  if (!FindOffsetInApkByName(apk_path, elf_filename, &offset, &uncompressed_length)) {
     return nullptr;
   }
-  return std::unique_ptr<EmbeddedElf>(new EmbeddedElf(apk_path, elf_filename, offset,
-                                                      uncompressed_length));
-}
-
-bool IsValidApkPath(const std::string& apk_path) {
-  static const char zip_preamble[] = {0x50, 0x4b, 0x03, 0x04 };
-  if (!IsRegularFile(apk_path)) {
-    return false;
-  }
-  std::string mode = std::string("rb") + CLOSE_ON_EXEC_MODE;
-  FILE* fp = fopen(apk_path.c_str(), mode.c_str());
-  if (fp == nullptr) {
-    return false;
-  }
-  char buf[4];
-  if (fread(buf, 4, 1, fp) != 1) {
-    fclose(fp);
-    return false;
-  }
-  fclose(fp);
-  return memcmp(buf, zip_preamble, 4) == 0;
+  return std::unique_ptr<EmbeddedElf>(new EmbeddedElf(apk_path, entry_name, zentry.offset,
+                                                      zentry.uncompressed_length));
 }
 
 // Refer file in apk in compliance with http://developer.android.com/reference/java/net/JarURLConnection.html.
@@ -184,22 +139,34 @@ std::tuple<bool, std::string, std::string> SplitUrlInApk(const std::string& path
   return std::make_tuple(true, path.substr(0, pos), path.substr(pos + 2));
 }
 
-ElfStatus GetBuildIdFromApkFile(const std::string& apk_path, const std::string& elf_filename,
-                           BuildId* build_id) {
-  std::unique_ptr<EmbeddedElf> ee = ApkInspector::FindElfInApkByName(apk_path, elf_filename);
-  if (ee == nullptr) {
-    return ElfStatus::FILE_NOT_FOUND;
+// Parse path like "[anon:dalvik-classes.dex extracted in memory from /..base.apk] (deleted)",
+// or "/dev/ashmem/dalvik-classes.dex extracted in memory from /..base.apk (deleted)" on Android P.
+bool ParseExtractedInMemoryPath(const std::string& path, std::string* zip_path,
+                                std::string* entry_name) {
+  const char* prefixes[2] = {"[anon:dalvik-", "/dev/ashmem/dalvik-"};
+  const char* key = " extracted in memory from ";
+  size_t pos = path.find(key);
+  if (pos != std::string::npos) {
+    for (const char* prefix : prefixes) {
+      if (android::base::StartsWith(path, prefix)) {
+        size_t entry_name_start = strlen(prefix);
+        size_t entry_name_end = pos;
+        size_t zip_path_start = pos + strlen(key);
+        size_t zip_path_end = path.find_first_of(" ]", zip_path_start);
+        if (zip_path_end == std::string::npos) {
+          zip_path_end = path.size();
+        }
+        if (entry_name_start < entry_name_end && zip_path_start < zip_path_end) {
+          *entry_name = path.substr(entry_name_start, entry_name_end - entry_name_start);
+          *zip_path = path.substr(zip_path_start, zip_path_end - zip_path_start);
+          size_t multidex_separator_pos = zip_path->find('!');
+          if (multidex_separator_pos != std::string::npos) {
+            zip_path->resize(multidex_separator_pos);
+          }
+          return true;
+        }
+      }
+    }
   }
-  return GetBuildIdFromEmbeddedElfFile(apk_path, ee->entry_offset(), ee->entry_size(), build_id);
-}
-
-ElfStatus ParseSymbolsFromApkFile(const std::string& apk_path, const std::string& elf_filename,
-                             const BuildId& expected_build_id,
-                             const std::function<void(const ElfFileSymbol&)>& callback) {
-  std::unique_ptr<EmbeddedElf> ee = ApkInspector::FindElfInApkByName(apk_path, elf_filename);
-  if (ee == nullptr) {
-    return ElfStatus::FILE_NOT_FOUND;
-  }
-  return ParseSymbolsFromEmbeddedElfFile(apk_path, ee->entry_offset(), ee->entry_size(),
-                                         expected_build_id, callback);
+  return false;
 }

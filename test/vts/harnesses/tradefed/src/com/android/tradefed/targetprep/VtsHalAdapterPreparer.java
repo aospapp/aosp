@@ -32,8 +32,6 @@ import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.util.CmdUtil;
 import com.android.tradefed.util.FileUtil;
 
-import org.junit.Assert;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.NoSuchElementException;
@@ -42,10 +40,11 @@ import java.util.function.Predicate;
 
 /**
  * Starts and stops a HAL (Hardware Abstraction Layer) adapter.
+ * Only used for single-device testing or the primary device in multi-device
+ * testing.
  */
 @OptionClass(alias = "vts-hal-adapter-preparer")
-public class VtsHalAdapterPreparer
-        implements ITargetPreparer, ITargetCleaner, IMultiTargetPreparer, IAbiReceiver {
+public class VtsHalAdapterPreparer implements ITargetCleaner, IAbiReceiver {
     static final int THREAD_COUNT_DEFAULT = 1;
 
     static final String HAL_INTERFACE_SEP = "::";
@@ -60,7 +59,7 @@ public class VtsHalAdapterPreparer
     static final String SCRIPT_PATH = "/data/local/tmp/vts_adapter.sh";
     // Command to list the registered instance for the given hal@version.
     static final String LIST_HAL_CMD =
-            "lshal -ti --neat | grep -E '^hwbinder' | awk '{print $2}' | grep %s";
+            "lshal -ti --neat 2>/dev/null | grep -e '^hwbinder' | awk '{print $2}' | grep %s";
 
     @Option(name = "adapter-binary-name",
             description = "Adapter binary file name (typically under /data/nativetest*/)")
@@ -91,7 +90,9 @@ public class VtsHalAdapterPreparer
      */
     @Override
     public void setUp(ITestDevice device, IBuildInfo buildInfo)
-            throws TargetSetupError, BuildError, DeviceNotAvailableException, RuntimeException {
+            throws TargetSetupError, BuildError, DeviceNotAvailableException {
+        // adb root.
+        device.enableAdbRoot();
         String bitness =
                 (mAbi != null) ? ((mAbi.getBitness() == "32") ? "" : mAbi.getBitness()) : "";
         try {
@@ -108,11 +109,11 @@ public class VtsHalAdapterPreparer
         for (String line : out.split("\n")) {
             if (!line.isEmpty()) {
                 if (!line.contains(HAL_INTERFACE_SEP)) {
-                    throw new RuntimeException("HAL instance with wrong format.");
+                    throw new TargetSetupError("HAL instance with wrong format.");
                 }
                 String interfaceInstance = line.split(HAL_INTERFACE_SEP, 2)[1];
                 if (!interfaceInstance.contains(HAL_INSTANCE_SEP)) {
-                    throw new RuntimeException("HAL instance with wrong format.");
+                    throw new TargetSetupError("HAL instance with wrong format.");
                 }
                 String interfaceName = interfaceInstance.split(HAL_INSTANCE_SEP, 2)[0];
                 String instanceName = interfaceInstance.split(HAL_INSTANCE_SEP, 2)[1];
@@ -121,7 +122,7 @@ public class VtsHalAdapterPreparer
                 mCommands.add(command);
                 command = String.format("%s /data/nativetest%s/%s %s %s %d", SCRIPT_PATH, bitness,
                         mAdapterBinaryName, interfaceName, instanceName, mThreadCount);
-                CLog.i("Trying to adapter for %s",
+                CLog.d("Trying to adapter for %s",
                         mPackageName + "::" + interfaceName + "/" + instanceName);
                 mCommands.add(command);
             }
@@ -146,37 +147,19 @@ public class VtsHalAdapterPreparer
      * {@inheritDoc}
      */
     @Override
-    public void setUp(IInvocationContext context)
-            throws TargetSetupError, BuildError, DeviceNotAvailableException {
-        setUp(context.getDevices().get(0), context.getBuildInfos().get(0));
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public void tearDown(ITestDevice device, IBuildInfo buildInfo, Throwable e)
             throws DeviceNotAvailableException {
         if (!mCommands.isEmpty()) {
             // stops adapter(s)
             String command = String.format("setprop %s %s", ADAPTER_SYSPROP, "true");
             mCmdUtil = mCmdUtil != null ? mCmdUtil : new CmdUtil();
-            Assert.assertTrue("HAL restore failed.",
-                    mCmdUtil.retry(device, command, String.format(LIST_HAL_CMD, mPackageName),
-                            mCheckNonEmpty, mCommands.size() + mCmdUtil.MAX_RETRY_COUNT));
-
+            if (!mCmdUtil.retry(device, command, String.format(LIST_HAL_CMD, mPackageName),
+                        mCheckNonEmpty, mCommands.size() + mCmdUtil.MAX_RETRY_COUNT)) {
+                CLog.e("HAL restore failed.");
+            }
             // TODO: cleanup the pushed adapter files.
             mCmdUtil.restartFramework(device);
         }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void tearDown(IInvocationContext context, Throwable e)
-            throws DeviceNotAvailableException {
-        tearDown(context.getDevices().get(0), context.getBuildInfos().get(0), e);
     }
 
     /**
@@ -211,7 +194,7 @@ public class VtsHalAdapterPreparer
                 invocationHelper.getTestsDir(), String.format(VTS_NATIVE_TEST_DIR, bitness));
         File adapter = FileUtil.findFile(adapterDir, mAdapterBinaryName);
         if (adapter != null) {
-            CLog.i("Pushing %s", mAdapterBinaryName);
+            CLog.d("Pushing %s", mAdapterBinaryName);
             device.pushFile(
                     adapter, String.format(TARGET_NATIVE_TEST_DIR, bitness) + mAdapterBinaryName);
         } else {

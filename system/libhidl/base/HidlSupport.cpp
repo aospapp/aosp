@@ -36,27 +36,28 @@ bool debuggable() {
 }  // namespace details
 
 hidl_handle::hidl_handle() {
-    mHandle = nullptr;
-    mOwnsHandle = false;
+    memset(this, 0, sizeof(*this));
+    // mHandle = nullptr;
+    // mOwnsHandle = false;
 }
 
 hidl_handle::~hidl_handle() {
     freeHandle();
 }
 
-hidl_handle::hidl_handle(const native_handle_t *handle) {
+hidl_handle::hidl_handle(const native_handle_t* handle) : hidl_handle() {
     mHandle = handle;
     mOwnsHandle = false;
 }
 
 // copy constructor.
-hidl_handle::hidl_handle(const hidl_handle &other) {
+hidl_handle::hidl_handle(const hidl_handle& other) : hidl_handle() {
     mOwnsHandle = false;
     *this = other;
 }
 
 // move constructor.
-hidl_handle::hidl_handle(hidl_handle &&other) {
+hidl_handle::hidl_handle(hidl_handle&& other) noexcept : hidl_handle() {
     mOwnsHandle = false;
     *this = std::move(other);
 }
@@ -87,7 +88,7 @@ hidl_handle &hidl_handle::operator=(const native_handle_t *native_handle) {
     return *this;
 }
 
-hidl_handle &hidl_handle::operator=(hidl_handle &&other) {
+hidl_handle& hidl_handle::operator=(hidl_handle&& other) noexcept {
     if (this != &other) {
         freeHandle();
         mHandle = other.mHandle;
@@ -137,10 +138,11 @@ void hidl_handle::freeHandle() {
 
 static const char *const kEmptyString = "";
 
-hidl_string::hidl_string()
-    : mBuffer(kEmptyString),
-      mSize(0),
-      mOwnsBuffer(false) {
+hidl_string::hidl_string() {
+    memset(this, 0, sizeof(*this));
+    // mSize is zero
+    // mOwnsBuffer is false
+    mBuffer = kEmptyString;
 }
 
 hidl_string::~hidl_string() {
@@ -167,11 +169,11 @@ hidl_string::hidl_string(const std::string &s) : hidl_string() {
     copyFrom(s.c_str(), s.size());
 }
 
-hidl_string::hidl_string(hidl_string &&other): hidl_string() {
+hidl_string::hidl_string(hidl_string&& other) noexcept : hidl_string() {
     moveFrom(std::forward<hidl_string>(other));
 }
 
-hidl_string &hidl_string::operator=(hidl_string &&other) {
+hidl_string& hidl_string::operator=(hidl_string&& other) noexcept {
     if (this != &other) {
         clear();
         moveFrom(std::forward<hidl_string>(other));
@@ -254,6 +256,14 @@ void hidl_string::setToExternal(const char *data, size_t size) {
     if (size > UINT32_MAX) {
         LOG(FATAL) << "string size can't exceed 2^32 bytes: " << size;
     }
+
+    // When the binder driver copies this data into its buffer, it must
+    // have a zero byte there because the remote process will have a pointer
+    // directly into the read-only binder buffer. If we manually copy the
+    // data now to add a zero, then we lose the efficiency of this method.
+    // Checking here (it's also checked in the parceling code later).
+    CHECK(data[size] == '\0');
+
     clear();
 
     mBuffer = data;
@@ -307,9 +317,7 @@ HidlMemory::HidlMemory(const hidl_string& name, hidl_handle&& handle, size_t siz
         : hidl_memory(name, std::move(handle), size) {}
 
 // it's required to have at least one out-of-line method to avoid weak vtable
-HidlMemory::~HidlMemory() {
-    hidl_memory::~hidl_memory();
-}
+HidlMemory::~HidlMemory() {}
 
 }  // namespace hardware
 }  // namespace android

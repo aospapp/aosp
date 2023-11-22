@@ -32,6 +32,9 @@ interface IVold {
     void onUserStarted(int userId);
     void onUserStopped(int userId);
 
+    void addAppIds(in @utf8InCpp String[] packageNames, in int[] appIds);
+    void addSandboxIds(in int[] appIds, in @utf8InCpp String[] sandboxIds);
+
     void onSecureKeyguardStateChanged(boolean isShowing);
 
     void partition(@utf8InCpp String diskId, int partitionType, int ratio);
@@ -44,22 +47,22 @@ interface IVold {
     void checkEncryption(@utf8InCpp String volId);
 
     void moveStorage(@utf8InCpp String fromVolId, @utf8InCpp String toVolId,
-            IVoldTaskListener listener);
+                     IVoldTaskListener listener);
 
     void remountUid(int uid, int remountMode);
 
     void mkdirs(@utf8InCpp String path);
 
-    @utf8InCpp String createObb(@utf8InCpp String sourcePath,
-            @utf8InCpp String sourceKey, int ownerGid);
+    @utf8InCpp String createObb(@utf8InCpp String sourcePath, @utf8InCpp String sourceKey,
+                                int ownerGid);
     void destroyObb(@utf8InCpp String volId);
 
     void fstrim(int fstrimFlags, IVoldTaskListener listener);
     void runIdleMaint(IVoldTaskListener listener);
     void abortIdleMaint(IVoldTaskListener listener);
 
-    FileDescriptor mountAppFuse(int uid, int pid, int mountId);
-    void unmountAppFuse(int uid, int pid, int mountId);
+    FileDescriptor mountAppFuse(int uid, int mountId);
+    void unmountAppFuse(int uid, int mountId);
 
     void fdeCheckPassword(@utf8InCpp String password);
     void fdeRestart();
@@ -78,20 +81,48 @@ interface IVold {
     void mountDefaultEncrypted();
     void initUser0();
     boolean isConvertibleToFbe();
-    void mountFstab(@utf8InCpp String mountPoint);
-    void encryptFstab(@utf8InCpp String mountPoint);
+    void mountFstab(@utf8InCpp String blkDevice, @utf8InCpp String mountPoint);
+    void encryptFstab(@utf8InCpp String blkDevice, @utf8InCpp String mountPoint);
 
     void createUserKey(int userId, int userSerial, boolean ephemeral);
     void destroyUserKey(int userId);
 
-    void addUserKeyAuth(int userId, int userSerial, @utf8InCpp String token, @utf8InCpp String secret);
+    void addUserKeyAuth(int userId, int userSerial, @utf8InCpp String token,
+                        @utf8InCpp String secret);
     void fixateNewestUserKeyAuth(int userId);
 
-    void unlockUserKey(int userId, int userSerial, @utf8InCpp String token, @utf8InCpp String secret);
+    void unlockUserKey(int userId, int userSerial, @utf8InCpp String token,
+                       @utf8InCpp String secret);
     void lockUserKey(int userId);
 
-    void prepareUserStorage(@nullable @utf8InCpp String uuid, int userId, int userSerial, int storageFlags);
+    void prepareUserStorage(@nullable @utf8InCpp String uuid, int userId, int userSerial,
+                            int storageFlags);
     void destroyUserStorage(@nullable @utf8InCpp String uuid, int userId, int storageFlags);
+
+    void prepareSandboxForApp(in @utf8InCpp String packageName, int appId,
+                              in @utf8InCpp String sandboxId, int userId);
+    void destroySandboxForApp(in @utf8InCpp String packageName,
+                              in @utf8InCpp String sandboxId, int userId);
+
+    void startCheckpoint(int retry);
+    boolean needsCheckpoint();
+    boolean needsRollback();
+    void abortChanges(in @utf8InCpp String device, boolean retry);
+    void commitChanges();
+    void prepareCheckpoint();
+    void restoreCheckpoint(@utf8InCpp String device);
+    void restoreCheckpointPart(@utf8InCpp String device, int count);
+    void markBootAttempt();
+    boolean supportsCheckpoint();
+    boolean supportsBlockCheckpoint();
+    boolean supportsFileCheckpoint();
+
+    @utf8InCpp String createStubVolume(@utf8InCpp String sourcePath,
+            @utf8InCpp String mountPath, @utf8InCpp String fsType,
+            @utf8InCpp String fsUuid, @utf8InCpp String fsLabel);
+    void destroyStubVolume(@utf8InCpp String volId);
+
+    FileDescriptor openAppFuseFile(int uid, int mountId, int fileId, int flags);
 
     const int ENCRYPTION_FLAG_NO_UI = 4;
 
@@ -113,8 +144,8 @@ interface IVold {
 
     const int PASSWORD_TYPE_PASSWORD = 0;
     const int PASSWORD_TYPE_DEFAULT = 1;
-    const int PASSWORD_TYPE_PIN = 2;
-    const int PASSWORD_TYPE_PATTERN = 3;
+    const int PASSWORD_TYPE_PATTERN = 2;
+    const int PASSWORD_TYPE_PIN = 3;
 
     const int STORAGE_FLAG_DE = 1;
     const int STORAGE_FLAG_CE = 2;
@@ -123,6 +154,9 @@ interface IVold {
     const int REMOUNT_MODE_DEFAULT = 1;
     const int REMOUNT_MODE_READ = 2;
     const int REMOUNT_MODE_WRITE = 3;
+    const int REMOUNT_MODE_LEGACY = 4;
+    const int REMOUNT_MODE_INSTALLER = 5;
+    const int REMOUNT_MODE_FULL = 6;
 
     const int VOLUME_STATE_UNMOUNTED = 0;
     const int VOLUME_STATE_CHECKING = 1;
@@ -139,4 +173,5 @@ interface IVold {
     const int VOLUME_TYPE_EMULATED = 2;
     const int VOLUME_TYPE_ASEC = 3;
     const int VOLUME_TYPE_OBB = 4;
+    const int VOLUME_TYPE_STUB = 5;
 }

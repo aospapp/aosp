@@ -1,0 +1,130 @@
+/*
+ * Copyright (C) 2018 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto2";
+
+// C++ namespace: android::hardware::google::pixel::PixelAtoms
+package android.hardware.google.pixel.PixelAtoms;
+
+option java_package = "android.hardware.google.pixel";
+option java_outer_classname = "PixelAtoms";
+
+/*
+ * Please note that the following features are not currently supported by
+ * the IStats->reportVendorAtom implementation:
+ *   - types outside of int, long, float, and string (ex. uint)
+ *   - submessages within an atom
+ *   - repeated fields - arrays must be unrolled
+ *   - field # 1 - this will be occupied by the vendor namespace
+ */
+
+/* Allocated Westworld atom IDs. */
+enum Ids {
+    // AOSP atom ID range starts at 105000
+    CHARGE_STATS = 105000;
+    VOLTAGE_TIER_STATS = 105001;
+    BATTERY_CAPACITY = 105002;
+    // AOSP atom ID range ends at 109999
+}
+
+/* Westworld-supported reverse domain names. */
+message ReverseDomainNames {
+    optional string pixel = 1 [default = "com.google.pixel"];
+}
+
+/* A message containing detailed statistics and debug information about a charge session. */
+message ChargeStats {
+    /* Charge Adapter stats. */
+    enum AdapterType {
+        ADAPTER_TYPE_UNKNOWN = 0;
+        ADAPTER_TYPE_USB = 1;
+        ADAPTER_TYPE_USB_SDP = 2;
+        ADAPTER_TYPE_USB_DCP = 3;
+        ADAPTER_TYPE_USB_CDP = 4;
+        ADAPTER_TYPE_USB_ACA = 5;
+        ADAPTER_TYPE_USB_C = 6;
+        ADAPTER_TYPE_USB_PD = 7;
+        ADAPTER_TYPE_USB_PD_DRP = 8;
+        ADAPTER_TYPE_USB_PD_PPS = 9;
+        ADAPTER_TYPE_USB_PD_BRICKID = 10;
+        ADAPTER_TYPE_HVDCP = 11;
+        ADAPTER_TYPE_HVDCP3 = 12;
+        ADAPTER_TYPE_WLC  = 13;
+        ADAPTER_TYPE_WLC_EPP = 14;
+        ADAPTER_TYPE_WLC_SPP = 15;
+        ADAPTER_TYPE_FLOAT = 16;
+    }
+    /* Type of charge adapter, enumerated above. */
+    optional AdapterType adapter_type = 2;
+    /* Max negotiated voltage by charge adapter, in mV. */
+    optional int32 adapter_voltage = 3;
+    /* Max negotiated current by charge adapter current, in mA. */
+    optional int32 adapter_amperage = 4;
+
+    /* Stats at beginning of charge session. */
+    /* System State of Charge, in percent. */
+    optional int32 ssoc_in = 5;
+    /* Voltage in mV. */
+    optional int32 voltage_in = 6;
+
+    /* Stats at end of charge session. */
+    /* System State of Charge, in percent. */
+    optional int32 ssoc_out = 7;
+    /* Voltage in mV. */
+    optional int32 voltage_out = 8;
+}
+
+/* A message containing stats from each charge voltage tier. */
+message VoltageTierStats {
+    /* Voltage tier number, custom to implementation, should be <= 3. */
+    optional int32 voltage_tier = 2;
+
+    /* Stats when entering voltage tier. */
+    /* State of charge, in percent. */
+    optional float soc_in = 3;
+    /* Coulomb count, in mAh. */
+    optional int32 cc_in = 4;
+    /* Battery temperature, in deciC. */
+    optional int32 temp_in = 5;
+
+    /* Time spent at various charge speeds, in seconds. */
+    optional int32 time_fast_secs = 6;
+    optional int32 time_taper_secs = 7;
+    optional int32 time_other_secs = 8;
+
+    /* Battery temperature stats, in deciC. */
+    optional int32 temp_min = 9;
+    optional int32 temp_avg = 10;
+    optional int32 temp_max = 11;
+
+    /* Battery current stats, in mA. */
+    optional int32 ibatt_min = 12;
+    optional int32 ibatt_avg = 13;
+    optional int32 ibatt_max = 14;
+
+    /* Input current limit stats, in mA. */
+    optional int32 icl_min = 15;
+    optional int32 icl_avg = 16;
+    optional int32 icl_max = 17;
+}
+
+/* A message containing an alternate proprietary full battery capacity estimate. */
+message BatteryCapacity {
+    /* Sum of the change in coulomb count. */
+    optional int32 delta_cc_sum = 2;
+    /* Sum of the change in state of charge (battery level). */
+    optional int32 delta_vfsoc_sum = 3;
+}

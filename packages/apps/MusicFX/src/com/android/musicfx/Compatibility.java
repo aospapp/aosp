@@ -69,12 +69,19 @@ public class Compatibility {
             log("read " + defPackage + "/" + defName + " as default");
             if (defPackage == null || defName == null) {
                 Log.e(TAG, "no default set!");
+                ResolveInfo defPanel = Service.searchControlPanel(this, null);
+                if (defPanel == null) {
+                    finish();
+                    return;
+                }
+                defPackage = defPanel.activityInfo.packageName;
+                defName = defPanel.activityInfo.name;
                 // use the built-in panel
-                i.setComponent(new ComponentName(this, ActivityMusic.class));
+                i.setComponent(new ComponentName(defPackage, defName));
                 // also save it as the default
                 Intent updateIntent = new Intent(this, Service.class);
-                updateIntent.putExtra("defPackage", getPackageName());
-                updateIntent.putExtra("defName", ActivityMusic.class.getName());
+                updateIntent.putExtra("defPackage", defPackage);
+                updateIntent.putExtra("defName", defName);
                 startService(updateIntent);
             } else {
                 i.setComponent(new ComponentName(defPackage, defName));
@@ -141,15 +148,16 @@ public class Compatibility {
             }
         }
 
-        private void pickDefaultControlPanel(String updatedPackage) {
+        private static final ResolveInfo searchControlPanel(Context context, String updatedPackage) {
 
             ResolveInfo defPanel = null;
             ResolveInfo otherPanel = null;
             ResolveInfo thisPanel = null;
             Intent i = new Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL);
-            List<ResolveInfo> ris = mPackageManager.queryIntentActivities(i, PackageManager.GET_DISABLED_COMPONENTS);
+            List<ResolveInfo> ris = context.getPackageManager().queryIntentActivities(
+                                    i, PackageManager.GET_DISABLED_COMPONENTS);
             log("found: " + ris.size());
-            SharedPreferences pref = getSharedPreferences("musicfx", MODE_PRIVATE);
+            SharedPreferences pref = context.getSharedPreferences("musicfx", Context.MODE_PRIVATE);
             String savedDefPackage = pref.getString("defaultpanelpackage", null);
             String savedDefName = pref.getString("defaultpanelname", null);
             log("saved default: " + savedDefName);
@@ -168,7 +176,8 @@ public class Compatibility {
                 } else if (foo.activityInfo.packageName.equals(updatedPackage)) {
                     log("choosing newly installed package " + updatedPackage);
                     otherPanel = foo;
-                } else if (otherPanel == null && !foo.activityInfo.packageName.equals(getPackageName())) {
+                } else if (otherPanel == null &&
+                        !foo.activityInfo.packageName.equals(context.getPackageName())) {
                     otherPanel = foo;
                 } else {
                     thisPanel = foo;
@@ -180,13 +189,20 @@ public class Compatibility {
                 if (otherPanel == null) {
                     if (thisPanel == null) {
                         Log.e(TAG, "No control panels found!");
-                        return;
+                        return null;
                     }
                     otherPanel = thisPanel;
                 }
                 defPanel = otherPanel;
             }
+            return defPanel;
+        }
 
+        private void pickDefaultControlPanel(String updatedPackage) {
+            ResolveInfo defPanel = searchControlPanel(this, updatedPackage);
+            if (defPanel == null) {
+                return;
+            }
             // Now that we have selected a default control panel activity, ensure
             // that the broadcast receiver(s) in that same package are enabled,
             // and the ones in the other packages are disabled.

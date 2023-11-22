@@ -34,6 +34,9 @@
 #include "sysdeps.h"
 #include "sysdeps/chrono.h"
 
+using namespace std::string_literals;
+using namespace std::string_view_literals;
+
 struct ThreadArg {
     int first_read_fd;
     int last_write_fd;
@@ -41,8 +44,6 @@ struct ThreadArg {
 };
 
 class LocalSocketTest : public FdeventTest {};
-
-constexpr auto SLEEP_FOR_FDEVENT = 100ms;
 
 TEST_F(LocalSocketTest, smoke) {
     // Join two socketpairs with a chain of intermediate socketpairs.
@@ -57,7 +58,7 @@ TEST_F(LocalSocketTest, smoke) {
     intermediates.resize(INTERMEDIATE_COUNT);
     ASSERT_EQ(0, adb_socketpair(first)) << strerror(errno);
     ASSERT_EQ(0, adb_socketpair(last)) << strerror(errno);
-    asocket* prev_tail = create_local_socket(first[1]);
+    asocket* prev_tail = create_local_socket(unique_fd(first[1]));
     ASSERT_NE(nullptr, prev_tail);
 
     auto connect = [](asocket* tail, asocket* head) {
@@ -69,22 +70,21 @@ TEST_F(LocalSocketTest, smoke) {
     for (auto& intermediate : intermediates) {
         ASSERT_EQ(0, adb_socketpair(intermediate.data())) << strerror(errno);
 
-        asocket* head = create_local_socket(intermediate[0]);
+        asocket* head = create_local_socket(unique_fd(intermediate[0]));
         ASSERT_NE(nullptr, head);
 
-        asocket* tail = create_local_socket(intermediate[1]);
+        asocket* tail = create_local_socket(unique_fd(intermediate[1]));
         ASSERT_NE(nullptr, tail);
 
         connect(prev_tail, head);
         prev_tail = tail;
     }
 
-    asocket* end = create_local_socket(last[0]);
+    asocket* end = create_local_socket(unique_fd(last[0]));
     ASSERT_NE(nullptr, end);
     connect(prev_tail, end);
 
     PrepareThread();
-    std::thread thread(fdevent_loop);
 
     for (size_t i = 0; i < MESSAGE_LOOP_COUNT; ++i) {
         std::string read_buffer = MESSAGE;
@@ -98,35 +98,50 @@ TEST_F(LocalSocketTest, smoke) {
     ASSERT_EQ(0, adb_close(last[1]));
 
     // Wait until the local sockets are closed.
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    WaitForFdeventLoop();
     ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
-    TerminateThread(thread);
+    TerminateThread();
 }
 
 struct CloseWithPacketArg {
-    int socket_fd;
+    unique_fd socket_fd;
     size_t bytes_written;
-    int cause_close_fd;
+    unique_fd cause_close_fd;
 };
 
-static void CloseWithPacketThreadFunc(CloseWithPacketArg* arg) {
-    asocket* s = create_local_socket(arg->socket_fd);
-    ASSERT_TRUE(s != nullptr);
-    arg->bytes_written = 0;
+static void CreateCloser(CloseWithPacketArg* arg) {
+    fdevent_run_on_main_thread([arg]() {
+        asocket* s = create_local_socket(std::move(arg->socket_fd));
+        ASSERT_TRUE(s != nullptr);
+        arg->bytes_written = 0;
 
-    std::string data;
-    data.resize(MAX_PAYLOAD);
-    arg->bytes_written += data.size();
-    int ret = s->enqueue(s, std::move(data));
-    ASSERT_EQ(1, ret);
+        // On platforms that implement sockets via underlying sockets (e.g. Wine),
+        // a socket can appear to be full, and then become available for writes
+        // again without read being called on the other end. Loop and sleep after
+        // each write to give the underlying implementation time to flush.
+        bool socket_filled = false;
+        for (int i = 0; i < 128; ++i) {
+            apacket::payload_type data;
+            data.resize(MAX_PAYLOAD);
+            arg->bytes_written += data.size();
+            int ret = s->enqueue(s, std::move(data));
+            if (ret == 1) {
+                socket_filled = true;
+                break;
+            }
+            ASSERT_NE(-1, ret);
 
-    asocket* cause_close_s = create_local_socket(arg->cause_close_fd);
-    ASSERT_TRUE(cause_close_s != nullptr);
-    cause_close_s->peer = s;
-    s->peer = cause_close_s;
-    cause_close_s->ready(cause_close_s);
+            std::this_thread::sleep_for(250ms);
+        }
+        ASSERT_TRUE(socket_filled);
 
-    fdevent_loop();
+        asocket* cause_close_s = create_local_socket(std::move(arg->cause_close_fd));
+        ASSERT_TRUE(cause_close_s != nullptr);
+        cause_close_s->peer = s;
+        s->peer = cause_close_s;
+        cause_close_s->ready(cause_close_s);
+    });
+    WaitForFdeventLoop();
 }
 
 // This test checks if we can close local socket in the following situation:
@@ -139,20 +154,21 @@ TEST_F(LocalSocketTest, close_socket_with_packet) {
     int cause_close_fd[2];
     ASSERT_EQ(0, adb_socketpair(cause_close_fd));
     CloseWithPacketArg arg;
-    arg.socket_fd = socket_fd[1];
-    arg.cause_close_fd = cause_close_fd[1];
+    arg.socket_fd.reset(socket_fd[1]);
+    arg.cause_close_fd.reset(cause_close_fd[1]);
 
     PrepareThread();
-    std::thread thread(CloseWithPacketThreadFunc, &arg);
-    // Wait until the fdevent_loop() starts.
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    CreateCloser(&arg);
+
     ASSERT_EQ(0, adb_close(cause_close_fd[0]));
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+
+    WaitForFdeventLoop();
     EXPECT_EQ(1u + GetAdditionalLocalSocketCount(), fdevent_installed_count());
     ASSERT_EQ(0, adb_close(socket_fd[0]));
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+
+    WaitForFdeventLoop();
     ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
-    TerminateThread(thread);
+    TerminateThread();
 }
 
 // This test checks if we can read packets from a closing local socket.
@@ -162,15 +178,16 @@ TEST_F(LocalSocketTest, read_from_closing_socket) {
     int cause_close_fd[2];
     ASSERT_EQ(0, adb_socketpair(cause_close_fd));
     CloseWithPacketArg arg;
-    arg.socket_fd = socket_fd[1];
-    arg.cause_close_fd = cause_close_fd[1];
+    arg.socket_fd.reset(socket_fd[1]);
+    arg.cause_close_fd.reset(cause_close_fd[1]);
 
     PrepareThread();
-    std::thread thread(CloseWithPacketThreadFunc, &arg);
-    // Wait until the fdevent_loop() starts.
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    CreateCloser(&arg);
+
+    WaitForFdeventLoop();
     ASSERT_EQ(0, adb_close(cause_close_fd[0]));
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+
+    WaitForFdeventLoop();
     EXPECT_EQ(1u + GetAdditionalLocalSocketCount(), fdevent_installed_count());
 
     // Verify if we can read successfully.
@@ -179,9 +196,9 @@ TEST_F(LocalSocketTest, read_from_closing_socket) {
     ASSERT_EQ(true, ReadFdExactly(socket_fd[0], buf.data(), buf.size()));
     ASSERT_EQ(0, adb_close(socket_fd[0]));
 
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    WaitForFdeventLoop();
     ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
-    TerminateThread(thread);
+    TerminateThread();
 }
 
 // This test checks if we can close local socket in the following situation:
@@ -194,19 +211,21 @@ TEST_F(LocalSocketTest, write_error_when_having_packets) {
     int cause_close_fd[2];
     ASSERT_EQ(0, adb_socketpair(cause_close_fd));
     CloseWithPacketArg arg;
-    arg.socket_fd = socket_fd[1];
-    arg.cause_close_fd = cause_close_fd[1];
+    arg.socket_fd.reset(socket_fd[1]);
+    arg.cause_close_fd.reset(cause_close_fd[1]);
 
     PrepareThread();
-    std::thread thread(CloseWithPacketThreadFunc, &arg);
-    // Wait until the fdevent_loop() starts.
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    CreateCloser(&arg);
+
+    WaitForFdeventLoop();
     EXPECT_EQ(2u + GetAdditionalLocalSocketCount(), fdevent_installed_count());
     ASSERT_EQ(0, adb_close(socket_fd[0]));
 
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    std::this_thread::sleep_for(2s);
+
+    WaitForFdeventLoop();
     ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
-    TerminateThread(thread);
+    TerminateThread();
 }
 
 // Ensure that if we fail to write output to an fd, we will still flush data coming from it.
@@ -216,8 +235,8 @@ TEST_F(LocalSocketTest, flush_after_shutdown) {
     ASSERT_EQ(0, adb_socketpair(head_fd));
     ASSERT_EQ(0, adb_socketpair(tail_fd));
 
-    asocket* head = create_local_socket(head_fd[1]);
-    asocket* tail = create_local_socket(tail_fd[1]);
+    asocket* head = create_local_socket(unique_fd(head_fd[1]));
+    asocket* tail = create_local_socket(unique_fd(tail_fd[1]));
 
     head->peer = tail;
     head->ready(head);
@@ -226,7 +245,6 @@ TEST_F(LocalSocketTest, flush_after_shutdown) {
     tail->ready(tail);
 
     PrepareThread();
-    std::thread thread(fdevent_loop);
 
     EXPECT_TRUE(WriteFdExactly(head_fd[0], "foo", 3));
 
@@ -242,10 +260,9 @@ TEST_F(LocalSocketTest, flush_after_shutdown) {
     adb_close(head_fd[0]);
     adb_close(tail_fd[0]);
 
-    // Wait until the local sockets are closed.
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    WaitForFdeventLoop();
     ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
-    TerminateThread(thread);
+    TerminateThread();
 }
 
 #if defined(__linux__)
@@ -254,19 +271,8 @@ static void ClientThreadFunc() {
     std::string error;
     int fd = network_loopback_client(5038, SOCK_STREAM, &error);
     ASSERT_GE(fd, 0) << error;
-    std::this_thread::sleep_for(200ms);
+    std::this_thread::sleep_for(1s);
     ASSERT_EQ(0, adb_close(fd));
-}
-
-struct CloseRdHupSocketArg {
-    int socket_fd;
-};
-
-static void CloseRdHupSocketThreadFunc(CloseRdHupSocketArg* arg) {
-    asocket* s = create_local_socket(arg->socket_fd);
-    ASSERT_TRUE(s != nullptr);
-
-    fdevent_loop();
 }
 
 // This test checks if we can close sockets in CLOSE_WAIT state.
@@ -279,78 +285,101 @@ TEST_F(LocalSocketTest, close_socket_in_CLOSE_WAIT_state) {
 
     int accept_fd = adb_socket_accept(listen_fd, nullptr, nullptr);
     ASSERT_GE(accept_fd, 0);
-    CloseRdHupSocketArg arg;
-    arg.socket_fd = accept_fd;
 
     PrepareThread();
-    std::thread thread(CloseRdHupSocketThreadFunc, &arg);
 
-    // Wait until the fdevent_loop() starts.
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    fdevent_run_on_main_thread([accept_fd]() {
+        asocket* s = create_local_socket(unique_fd(accept_fd));
+        ASSERT_TRUE(s != nullptr);
+    });
+
+    WaitForFdeventLoop();
     EXPECT_EQ(1u + GetAdditionalLocalSocketCount(), fdevent_installed_count());
 
     // Wait until the client closes its socket.
     client_thread.join();
 
-    std::this_thread::sleep_for(SLEEP_FOR_FDEVENT);
+    WaitForFdeventLoop();
     ASSERT_EQ(GetAdditionalLocalSocketCount(), fdevent_installed_count());
-    TerminateThread(thread);
+    TerminateThread();
 }
 
 #endif  // defined(__linux__)
 
 #if ADB_HOST
 
-// Checks that skip_host_serial(serial) returns a pointer to the part of |serial| which matches
-// |expected|, otherwise logs the failure to gtest.
-void VerifySkipHostSerial(std::string serial, const char* expected) {
-    char* result = internal::skip_host_serial(&serial[0]);
-    if (expected == nullptr) {
-        EXPECT_EQ(nullptr, result);
-    } else {
-        EXPECT_STREQ(expected, result);
-    }
-}
+#define VerifyParseHostServiceFailed(s)                                         \
+    do {                                                                        \
+        std::string service(s);                                                 \
+        std::string_view serial, command;                                       \
+        bool result = internal::parse_host_service(&serial, &command, service); \
+        EXPECT_FALSE(result);                                                   \
+    } while (0)
+
+#define VerifyParseHostService(s, expected_serial, expected_command)            \
+    do {                                                                        \
+        std::string service(s);                                                 \
+        std::string_view serial, command;                                       \
+        bool result = internal::parse_host_service(&serial, &command, service); \
+        EXPECT_TRUE(result);                                                    \
+        EXPECT_EQ(std::string(expected_serial), std::string(serial));           \
+        EXPECT_EQ(std::string(expected_command), std::string(command));         \
+    } while (0);
 
 // Check [tcp:|udp:]<serial>[:<port>]:<command> format.
-TEST(socket_test, test_skip_host_serial) {
+TEST(socket_test, test_parse_host_service) {
     for (const std::string& protocol : {"", "tcp:", "udp:"}) {
-        VerifySkipHostSerial(protocol, nullptr);
-        VerifySkipHostSerial(protocol + "foo", nullptr);
+        VerifyParseHostServiceFailed(protocol);
+        VerifyParseHostServiceFailed(protocol + "foo");
 
-        VerifySkipHostSerial(protocol + "foo:bar", ":bar");
-        VerifySkipHostSerial(protocol + "foo:bar:baz", ":bar:baz");
+        {
+            std::string serial = protocol + "foo";
+            VerifyParseHostService(serial + ":bar", serial, "bar");
+            VerifyParseHostService(serial + " :bar:baz", serial, "bar:baz");
+        }
 
-        VerifySkipHostSerial(protocol + "foo:123:bar", ":bar");
-        VerifySkipHostSerial(protocol + "foo:123:456", ":456");
-        VerifySkipHostSerial(protocol + "foo:123:bar:baz", ":bar:baz");
+        {
+            // With port.
+            std::string serial = protocol + "foo:123";
+            VerifyParseHostService(serial + ":bar", serial, "bar");
+            VerifyParseHostService(serial + ":456", serial, "456");
+            VerifyParseHostService(serial + ":bar:baz", serial, "bar:baz");
+        }
 
         // Don't register a port unless it's all numbers and ends with ':'.
-        VerifySkipHostSerial(protocol + "foo:123", ":123");
-        VerifySkipHostSerial(protocol + "foo:123bar:baz", ":123bar:baz");
+        VerifyParseHostService(protocol + "foo:123", protocol + "foo", "123");
+        VerifyParseHostService(protocol + "foo:123bar:baz", protocol + "foo", "123bar:baz");
 
-        VerifySkipHostSerial(protocol + "100.100.100.100:5555:foo", ":foo");
-        VerifySkipHostSerial(protocol + "[0123:4567:89ab:CDEF:0:9:a:f]:5555:foo", ":foo");
-        VerifySkipHostSerial(protocol + "[::1]:5555:foo", ":foo");
+        std::string addresses[] = {"100.100.100.100", "[0123:4567:89ab:CDEF:0:9:a:f]", "[::1]"};
+        for (const std::string& address : addresses) {
+            std::string serial = protocol + address;
+            std::string serial_with_port = protocol + address + ":5555";
+            VerifyParseHostService(serial + ":foo", serial, "foo");
+            VerifyParseHostService(serial_with_port + ":foo", serial_with_port, "foo");
+        }
 
         // If we can't find both [] then treat it as a normal serial with [ in it.
-        VerifySkipHostSerial(protocol + "[0123:foo", ":foo");
+        VerifyParseHostService(protocol + "[0123:foo", protocol + "[0123", "foo");
 
         // Don't be fooled by random IPv6 addresses in the command string.
-        VerifySkipHostSerial(protocol + "foo:ping [0123:4567:89ab:CDEF:0:9:a:f]:5555",
-                             ":ping [0123:4567:89ab:CDEF:0:9:a:f]:5555");
+        VerifyParseHostService(protocol + "foo:ping [0123:4567:89ab:CDEF:0:9:a:f]:5555",
+                               protocol + "foo", "ping [0123:4567:89ab:CDEF:0:9:a:f]:5555");
+
+        // Handle embedded NULs properly.
+        VerifyParseHostService(protocol + "foo:echo foo\0bar"s, protocol + "foo",
+                               "echo foo\0bar"sv);
     }
 }
 
 // Check <prefix>:<serial>:<command> format.
-TEST(socket_test, test_skip_host_serial_prefix) {
+TEST(socket_test, test_parse_host_service_prefix) {
     for (const std::string& prefix : {"usb:", "product:", "model:", "device:"}) {
-        VerifySkipHostSerial(prefix, nullptr);
-        VerifySkipHostSerial(prefix + "foo", nullptr);
+        VerifyParseHostServiceFailed(prefix);
+        VerifyParseHostServiceFailed(prefix + "foo");
 
-        VerifySkipHostSerial(prefix + "foo:bar", ":bar");
-        VerifySkipHostSerial(prefix + "foo:bar:baz", ":bar:baz");
-        VerifySkipHostSerial(prefix + "foo:123:bar", ":123:bar");
+        VerifyParseHostService(prefix + "foo:bar", prefix + "foo", "bar");
+        VerifyParseHostService(prefix + "foo:bar:baz", prefix + "foo", "bar:baz");
+        VerifyParseHostService(prefix + "foo:123:bar", prefix + "foo", "123:bar");
     }
 }
 

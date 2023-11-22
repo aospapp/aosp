@@ -37,19 +37,6 @@ LOCAL_SDK_VERSION := current
 
 include $(BUILD_JAVA_LIBRARY)
 
-# the documentation
-# ============================================================
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES := $(call all-subdir-java-files) $(call all-subdir-html-files)
-
-LOCAL_MODULE:= platform_library
-LOCAL_DROIDDOC_OPTIONS :=
-LOCAL_MODULE_CLASS := JAVA_LIBRARIES
-LOCAL_DROIDDOC_USE_STANDARD_DOCLET := true
-
-include $(BUILD_DROIDDOC)
-
 # The JNI component
 # ============================================================
 # Also build all of the sub-targets under this one: the library's

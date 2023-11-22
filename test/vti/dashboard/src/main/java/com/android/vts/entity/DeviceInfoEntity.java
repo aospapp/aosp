@@ -19,12 +19,35 @@ package com.android.vts.entity;
 import com.android.vts.proto.VtsReportMessage.AndroidDeviceInfoMessage;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.memcache.MemcacheService;
+import com.google.appengine.api.memcache.MemcacheServiceFactory;
+import com.google.apphosting.api.ApiProxy;
+import com.googlecode.objectify.annotation.Cache;
+import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Ignore;
+import com.googlecode.objectify.annotation.Index;
+import com.googlecode.objectify.annotation.Parent;
+import java.util.List;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
+@com.googlecode.objectify.annotation.Entity(name = "DeviceInfo")
+@Cache
+@Data
+@NoArgsConstructor
 /** Class describing a device used for a test run. */
 public class DeviceInfoEntity implements DashboardEntity {
     protected static final Logger logger = Logger.getLogger(DeviceInfoEntity.class.getName());
+
+    /** This is the instance of App Engine memcache service java library */
+    private static MemcacheService syncCache = MemcacheServiceFactory.getMemcacheService();
 
     public static final String KIND = "DeviceInfo";
 
@@ -36,14 +59,31 @@ public class DeviceInfoEntity implements DashboardEntity {
     public static final String ABI_BITNESS = "abiBitness";
     public static final String ABI_NAME = "abiName";
 
-    private final Key parentKey;
+    @Ignore
+    private Key parentKey;
 
-    public final String branch;
-    public final String product;
-    public final String buildFlavor;
-    public final String buildId;
-    public final String abiBitness;
-    public final String abiName;
+    /** ID field using start timestamp */
+    @Id private Long id;
+
+    /** parent field based on Test and TestRun key */
+    @Parent
+    private com.googlecode.objectify.Key<?> parent;
+
+    @Index
+    private String branch;
+
+    @Index
+    private String product;
+
+    @Index
+    private String buildFlavor;
+
+    @Index
+    private String buildId;
+
+    private String abiBitness;
+
+    private String abiName;
 
     /**
      * Create a DeviceInfoEntity object.
@@ -56,8 +96,14 @@ public class DeviceInfoEntity implements DashboardEntity {
      * @param abiBitness The abi bitness of the device.
      * @param abiName The name of the abi.
      */
-    public DeviceInfoEntity(Key parentKey, String branch, String product, String buildFlavor,
-            String buildID, String abiBitness, String abiName) {
+    public DeviceInfoEntity(
+            Key parentKey,
+            String branch,
+            String product,
+            String buildFlavor,
+            String buildID,
+            String abiBitness,
+            String abiName) {
         this.parentKey = parentKey;
         this.branch = branch;
         this.product = product;
@@ -67,7 +113,101 @@ public class DeviceInfoEntity implements DashboardEntity {
         this.abiName = abiName;
     }
 
-    @Override
+    /**
+     * Create a DeviceInfoEntity object with objectify Key
+     *
+     * @param parent The objectify key for the parent entity in the database.
+     * @param branch The build branch.
+     * @param product The device product.
+     * @param buildFlavor The device build flavor.
+     * @param buildID The device build ID.
+     * @param abiBitness The abi bitness of the device.
+     * @param abiName The name of the abi.
+     */
+    public DeviceInfoEntity(
+            com.googlecode.objectify.Key parent,
+            String branch,
+            String product,
+            String buildFlavor,
+            String buildID,
+            String abiBitness,
+            String abiName) {
+        this.parent = parent;
+        this.branch = branch;
+        this.product = product;
+        this.buildFlavor = buildFlavor;
+        this.buildId = buildID;
+        this.abiBitness = abiBitness;
+        this.abiName = abiName;
+    }
+
+    /**
+     * Get All Branch List from DeviceInfoEntity
+     */
+    public static List<String> getAllBranches() {
+        try {
+            List<String> branchList = (List<String>) syncCache.get("branchList");
+            if (Objects.isNull(branchList)) {
+                branchList =
+                        ofy().load()
+                                .type(DeviceInfoEntity.class)
+                                .project("branch")
+                                .distinct(true)
+                                .list()
+                                .stream()
+                                .map(device -> device.branch)
+                                .collect(Collectors.toList());
+                syncCache.put("branchList", branchList);
+            }
+            return branchList;
+        } catch (ApiProxy.CallNotFoundException e) {
+            return ofy().load()
+                    .type(DeviceInfoEntity.class)
+                    .project("branch")
+                    .distinct(true)
+                    .list()
+                    .stream()
+                    .map(device -> device.branch)
+                    .collect(Collectors.toList());
+        }
+    }
+
+    /**
+     * Get All BuildFlavors List from DeviceInfoEntity
+     */
+    public static List<String> getAllBuildFlavors() {
+        try {
+            List<String> buildFlavorList = (List<String>) syncCache.get("buildFlavorList");
+            if (Objects.isNull(buildFlavorList)) {
+                buildFlavorList =
+                        ofy().load()
+                                .type(DeviceInfoEntity.class)
+                                .project("buildFlavor")
+                                .distinct(true)
+                                .list()
+                                .stream()
+                                .map(device -> device.buildFlavor)
+                                .collect(Collectors.toList());
+                syncCache.put("buildFlavorList", buildFlavorList);
+            }
+            return buildFlavorList;
+        } catch (ApiProxy.CallNotFoundException e) {
+            return ofy().load()
+                    .type(DeviceInfoEntity.class)
+                    .project("buildFlavor")
+                    .distinct(true)
+                    .list()
+                    .stream()
+                    .map(device -> device.buildFlavor)
+                    .collect(Collectors.toList());
+        }
+    }
+
+    /** Saving function for the instance of this class */
+    public com.googlecode.objectify.Key<DeviceInfoEntity> save() {
+        return ofy().save().entity(this).now();
+    }
+
     public Entity toEntity() {
         Entity deviceEntity = new Entity(KIND, this.parentKey);
         deviceEntity.setProperty(BRANCH, this.branch.toLowerCase());
@@ -119,12 +259,12 @@ public class DeviceInfoEntity implements DashboardEntity {
     /**
      * Convert a device info message to a DeviceInfoEntity.
      *
-     * @param parentKey The ancestor key for the device entity.
+     * @param parent The ancestor key for the device entity.
      * @param device The device info report describing the target Android device.
      * @return The DeviceInfoEntity for the target device, or null if incompatible
      */
     public static DeviceInfoEntity fromDeviceInfoMessage(
-            Key parentKey, AndroidDeviceInfoMessage device) {
+            com.googlecode.objectify.Key parent, AndroidDeviceInfoMessage device) {
         if (!device.hasBuildAlias() || !device.hasBuildFlavor() || !device.hasProductVariant()
                 || !device.hasBuildId()) {
             return null;
@@ -136,7 +276,7 @@ public class DeviceInfoEntity implements DashboardEntity {
         String abiBitness = device.getAbiBitness().toStringUtf8();
         String abiName = device.getAbiName().toStringUtf8();
         return new DeviceInfoEntity(
-                parentKey, branch, product, buildFlavor, buildId, abiBitness, abiName);
+                parent, branch, product, buildFlavor, buildId, abiBitness, abiName);
     }
 
     @Override
@@ -161,10 +301,11 @@ public class DeviceInfoEntity implements DashboardEntity {
 
     /**
      * Create a copy of the device info under a near parent.
+     *
      * @param parentKey The new parent key.
      * @return A copy of the DeviceInfoEntity with the specified parent.
      */
-    public DeviceInfoEntity copyWithParent(Key parentKey) {
+    public DeviceInfoEntity copyWithParent(com.googlecode.objectify.Key parentKey) {
         return new DeviceInfoEntity(parentKey, this.branch, this.product, this.buildFlavor,
                 this.buildId, this.abiBitness, this.abiName);
     }

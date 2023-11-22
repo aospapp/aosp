@@ -16,63 +16,78 @@
 
 package android.provider.cts;
 
-import android.provider.cts.R;
+import static android.provider.cts.MediaStoreTest.TAG;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.ContentValues;
-import android.content.res.AssetFileDescriptor;
+import android.content.Context;
 import android.database.Cursor;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.Environment;
+import android.platform.test.annotations.Presubmit;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Audio.Albums;
 import android.provider.MediaStore.Audio.Media;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio1;
 import android.provider.cts.MediaStoreAudioTestHelper.Audio2;
-import android.test.AndroidTestCase;
+import android.util.Log;
+import android.util.Size;
 
-import com.android.compatibility.common.util.FileCopyHelper;
+import androidx.test.InstrumentationRegistry;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 
-public class MediaStore_Audio_AlbumsTest extends AndroidTestCase {
+@Presubmit
+@RunWith(Parameterized.class)
+public class MediaStore_Audio_AlbumsTest {
+    private Context mContext;
     private ContentResolver mContentResolver;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Parameter(0)
+    public String mVolumeName;
 
-        mContentResolver = mContext.getContentResolver();
+    @Parameters
+    public static Iterable<? extends Object> data() {
+        return ProviderTestUtils.getSharedVolumeNames();
     }
 
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getTargetContext();
+        mContentResolver = mContext.getContentResolver();
+
+        Log.d(TAG, "Using volume " + mVolumeName);
+    }
+
+    @Test
     public void testGetContentUri() {
         Cursor c = null;
         assertNotNull(c = mContentResolver.query(
-                Albums.getContentUri(MediaStoreAudioTestHelper.INTERNAL_VOLUME_NAME), null, null,
+                Albums.getContentUri(mVolumeName), null, null,
                 null, null));
         c.close();
-        assertNotNull(c = mContentResolver.query(
-                Albums.getContentUri(MediaStoreAudioTestHelper.EXTERNAL_VOLUME_NAME), null, null,
-                null, null));
-        c.close();
-
-        // can not accept any other volume names
-        String volume = "fakeVolume";
-        assertNull(mContentResolver.query(Albums.getContentUri(volume), null, null, null, null));
     }
 
-    public void testStoreAudioAlbumsInternal() {
-        testStoreAudioAlbums(true);
-    }
-
-    public void testStoreAudioAlbumsExternal() {
-        testStoreAudioAlbums(false);
-    }
-
-    private void testStoreAudioAlbums(boolean isInternal) {
+    @Test
+    public void testStoreAudioAlbums() {
         // do not support direct insert operation of the albums
-        Uri audioAlbumsUri = isInternal? Albums.INTERNAL_CONTENT_URI : Albums.EXTERNAL_CONTENT_URI;
+        Uri audioAlbumsUri = Albums.getContentUri(mVolumeName);
         try {
             mContentResolver.insert(audioAlbumsUri, new ContentValues());
             fail("Should throw UnsupportedOperationException!");
@@ -82,8 +97,7 @@ public class MediaStore_Audio_AlbumsTest extends AndroidTestCase {
 
         // the album item is inserted when inserting audio media
         Audio1 audio1 = Audio1.getInstance();
-        Uri audioMediaUri = isInternal ? audio1.insertToInternal(mContentResolver)
-                : audio1.insertToExternal(mContentResolver);
+        Uri audioMediaUri = audio1.insert(mContentResolver, mVolumeName);
 
         String selection = Albums.ALBUM +"=?";
         String[] selectionArgs = new String[] { Audio1.ALBUM };
@@ -95,29 +109,15 @@ public class MediaStore_Audio_AlbumsTest extends AndroidTestCase {
             c.moveToFirst();
             long id = c.getLong(c.getColumnIndex(Albums._ID));
             assertTrue(id > 0);
+            assertFalse(c.isNull(c.getColumnIndex(Albums.ALBUM_ID)));
             assertEquals(Audio1.ALBUM, c.getString(c.getColumnIndex(Albums.ALBUM)));
             assertNull(c.getString(c.getColumnIndex(Albums.ALBUM_ART)));
             assertNotNull(c.getString(c.getColumnIndex(Albums.ALBUM_KEY)));
+            assertFalse(c.isNull(c.getColumnIndex(Albums.ARTIST_ID)));
             assertEquals(Audio1.ARTIST, c.getString(c.getColumnIndex(Albums.ARTIST)));
             assertEquals(Audio1.YEAR, c.getInt(c.getColumnIndex(Albums.FIRST_YEAR)));
             assertEquals(Audio1.YEAR, c.getInt(c.getColumnIndex(Albums.LAST_YEAR)));
             assertEquals(1, c.getInt(c.getColumnIndex(Albums.NUMBER_OF_SONGS)));
-            // the ALBUM_ID column does not exist
-            try {
-                c.getColumnIndexOrThrow(Albums.ALBUM_ID);
-                fail("Should throw IllegalArgumentException because there is no column with name "
-                        + "\"Albums.ALBUM_ID\" in the table");
-            } catch (IllegalArgumentException e) {
-                // expected
-            }
-            // the NUMBER_OF_SONGS_FOR_ARTIST column does not exist
-            try {
-                c.getColumnIndexOrThrow(Albums.NUMBER_OF_SONGS_FOR_ARTIST);
-                fail("Should throw IllegalArgumentException because there is no column with name "
-                        + "\"Albums.NUMBER_OF_SONGS_FOR_ARTIST\" in the table");
-            } catch (IllegalArgumentException e) {
-                // expected
-            }
             c.close();
 
             // do not support update operation of the albums
@@ -161,58 +161,71 @@ public class MediaStore_Audio_AlbumsTest extends AndroidTestCase {
         c.close();
     }
 
-    public void testAlbumArt() {
-        File path = new File(Environment.getExternalStorageDirectory()
-                + "/test" + System.currentTimeMillis() + ".mp3");
-        Uri uri = null;
+    @Test
+    public void testAlbumArt() throws Exception {
+        final File dir = ProviderTestUtils.stageDir(mVolumeName);
+        final File path = new File(dir, "test" + System.currentTimeMillis() + ".mp3");
         try {
-            FileCopyHelper copier = new FileCopyHelper(mContext);
-            File dir = path.getParentFile();
-            dir.mkdirs();
-            copier.copyToExternalStorage(R.raw.testmp3, path);
+            ProviderTestUtils.stageFile(R.raw.testmp3, path);
 
             ContentValues v = new ContentValues();
             v.put(Media.DATA, path.getAbsolutePath());
             v.put(Media.TITLE, "testing");
             v.put(Albums.ALBUM, "test" + System.currentTimeMillis());
-            uri = mContentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, v);
-            AssetFileDescriptor afd = mContentResolver.openAssetFileDescriptor(
-                    uri.buildUpon().appendPath("albumart").build(), "r");
-            assertNotNull(afd);
-            afd.close();
 
-            Cursor c = mContentResolver.query(uri, null, null, null, null);
-            c.moveToFirst();
-            long aid = c.getLong(c.getColumnIndex(Albums.ALBUM_ID));
-            c.close();
+            final Uri mediaUri = mContentResolver
+                    .insert(MediaStore.Audio.Media.getContentUri(mVolumeName), v);
+            final long mediaId = ContentUris.parseId(mediaUri);
 
-            Uri albumart = Uri.parse("content://media/external/audio/albumart/" + aid);
-            try {
-                mContentResolver.delete(albumart, null, null);
-                afd = mContentResolver.openAssetFileDescriptor(albumart, "r");
-            } catch (FileNotFoundException e) {
-                fail("no album art");
+            final long albumId;
+            try (Cursor c = mContentResolver.query(mediaUri, null, null, null, null)) {
+                assertTrue(c.moveToFirst());
+                albumId = c.getLong(c.getColumnIndex(Albums.ALBUM_ID));
             }
 
-            c = mContentResolver.query(albumart, null, null, null, null);
-            c.moveToFirst();
-            String albumartfile = c.getString(c.getColumnIndex("_data"));
-            c.close();
-            new File(albumartfile).delete();
+            final Uri albumUri = ContentUris
+                    .withAppendedId(MediaStore.Audio.Albums.getContentUri(mVolumeName), albumId);
+
+            // Verify that normal thumbnails work
+            assertNotNull(mContentResolver.loadThumbnail(mediaUri, new Size(32, 32), null));
+            assertNotNull(mContentResolver.loadThumbnail(albumUri, new Size(32, 32), null));
+
+            // Verify that hidden APIs still work to obtain album art
+            final Uri byMedia = MediaStore.AUTHORITY_URI.buildUpon().appendPath(mVolumeName)
+                    .appendPath("audio").appendPath("media")
+                    .appendPath(Long.toString(mediaId)).appendPath("albumart").build();
+            final Uri byAlbum = MediaStore.AUTHORITY_URI.buildUpon().appendPath(mVolumeName)
+                    .appendPath("audio").appendPath("albumart")
+                    .appendPath(Long.toString(albumId)).build();
+            assertNotNull(BitmapFactory.decodeStream(mContentResolver.openInputStream(byMedia)));
+            assertNotNull(BitmapFactory.decodeStream(mContentResolver.openInputStream(byAlbum)));
+
+            // Delete item and confirm art is cleaned up
+            mContentResolver.delete(mediaUri, null, null);
+
             try {
-                afd = mContentResolver.openAssetFileDescriptor(albumart, "r");
-            } catch (FileNotFoundException e) {
-                fail("no album art");
+                mContentResolver.loadThumbnail(mediaUri, new Size(32, 32), null);
+                fail();
+            } catch (IOException expected) {
+            }
+            try {
+                mContentResolver.loadThumbnail(albumUri, new Size(32, 32), null);
+                fail();
+            } catch (IOException expected) {
+            }
+            try {
+                BitmapFactory.decodeStream(mContentResolver.openInputStream(byMedia));
+                fail();
+            } catch (IOException expected) {
+            }
+            try {
+                BitmapFactory.decodeStream(mContentResolver.openInputStream(byAlbum));
+                fail();
+            } catch (IOException expected) {
             }
 
-        } catch (Exception e) {
-            fail("album art failed " + e);
         } finally {
             path.delete();
-            if (uri != null) {
-                mContentResolver.delete(uri, null, null);
-            }
         }
     }
-
 }

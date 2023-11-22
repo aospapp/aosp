@@ -16,6 +16,7 @@
 
 package com.android.cts.net.hostside;
 
+import android.text.TextUtils;
 import android.util.Log;
 
 /**
@@ -52,12 +53,19 @@ abstract class AbstractBatterySaverModeTestCase extends AbstractRestrictBackgrou
 
     @Override
     protected boolean isSupported() throws Exception {
-        boolean supported = isDozeModeEnabled();
-        if (!supported) {
-            Log.i(TAG, "Skipping " + getClass() + "." + getName()
-                    + "() because device does not support Doze Mode");
+        String unSupported = "";
+        if (!isDozeModeEnabled()) {
+            unSupported += "Doze mode,";
         }
-        return supported;
+        if (!isBatterySaverSupported()) {
+            unSupported += "Battery saver mode,";
+        }
+        if (!TextUtils.isEmpty(unSupported)) {
+            Log.i(TAG, "Skipping " + getClass() + "." + getName()
+                    + "() because device does not support " + unSupported);
+            return false;
+        }
+        return true;
     }
 
     /**

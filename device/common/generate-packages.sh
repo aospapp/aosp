@@ -42,7 +42,7 @@ do
   FILEDIR_ROOT=tmp/vendor/$MANUFACTURER/$ROOTDEVICE
 
   case ${ROOTDEVICE} in
-    dragon|marlin|sailfish|taimen|walleye)
+    dragon|marlin|sailfish|taimen|walleye|crosshatch|blueline|bonito|sargo)
       FILEDIR_ROOT=tmp/vendor/${MANUFACTURER}_devices/$ROOTDEVICE ;;
     hikey960)
       FILEDIR=tmp/vendor/linaro/$DEVICE/$COMPANY/proprietary
@@ -55,14 +55,6 @@ do
 
   TO_EXTRACT=`sed -n -e '/'"  $COMPANY"'/,/;;/ p' $EXTRACT_LIST_FILENAME | tail -n+3 | head -n-2 | sed -e 's/\\\//g'`
 
-  # Check if TO_EXTRACT list has any APK files
-  if [[ ${TO_EXTRACT} == *.apk* ]]
-  then
-    APK_MAKEFILE=${FILEDIR}/Android.mk
-    echo "LOCAL_PATH := \$(call my-dir)" > ${APK_MAKEFILE}
-    echo "" >> ${APK_MAKEFILE}
-  fi
-
   echo \ \ Extracting files from OTA package
   for ONE_FILE in $TO_EXTRACT
   do
@@ -74,41 +66,14 @@ do
     if [[ $ONE_FILE == */lib64/* ]]
     then
       FILEDIR_NEW=$FILEDIR/lib64
+    elif [[ $ONE_FILE == */arm64/* ]]
+    then
+      FILEDIR_NEW=$FILEDIR/arm64
     elif [[ $ONE_FILE == */arm/nb/* ]]
     then
       FILEDIR_NEW=$FILEDIR/armnb
     else
       FILEDIR_NEW=$FILEDIR
-    fi
-
-    # apk makefile
-    if [[ ${ONE_FILE} == *.apk ]]
-    then
-      TMP_ONE_FILE_NAME=$(basename ${ONE_FILE} | sed 's/.apk//g')
-
-      echo "include \$(CLEAR_VARS)" >> ${APK_MAKEFILE}
-
-      echo "LOCAL_MODULE_SUFFIX := \$(COMMON_ANDROID_PACKAGE_SUFFIX)" >> ${APK_MAKEFILE}
-      echo "LOCAL_MODULE := ${TMP_ONE_FILE_NAME}" >> ${APK_MAKEFILE}
-      echo "LOCAL_MODULE_TAGS := optional" >> ${APK_MAKEFILE}
-      echo "LOCAL_BUILT_MODULE_STEM := package.apk" >> ${APK_MAKEFILE}
-      echo "LOCAL_MODULE_OWNER := ${COMPANY}" >> ${APK_MAKEFILE}
-      echo "LOCAL_MODULE_CLASS := APPS" >> ${APK_MAKEFILE}
-      echo "LOCAL_SRC_FILES := \$(LOCAL_MODULE).apk" >> ${APK_MAKEFILE}
-      echo "LOCAL_CERTIFICATE := PRESIGNED" >> ${APK_MAKEFILE}
-
-      if [[ ${ONE_FILE} == *priv-app/* ]]
-      then
-        echo "LOCAL_PRIVILEGED_MODULE := true" >> ${APK_MAKEFILE}
-      fi
-
-      if [[ ${TMP_ONE_FILE_NAME} == "LeanbackLauncher" ]]
-      then
-        echo "LOCAL_OVERRIDES_PACKAGES := Launcher2" >> ${APK_MAKEFILE}
-      fi
-
-      echo "include \$(BUILD_PREBUILT)" >> ${APK_MAKEFILE}
-      echo "" >> ${APK_MAKEFILE}
     fi
 
     echo \ \ \ \ Extracting $ONE_FILE
@@ -119,15 +84,6 @@ do
     fi
 
     ONE_FILE_BASE=$(basename $ONE_FILE)
-    if [[ $ONE_FILE_BASE == *atmel-a432-*-shamu-p1.tdat ]]
-    then
-      ATMEL_FILE=$(ls $FILEDIR_NEW/$ONE_FILE_BASE | cut -f6 -d'/')
-      sed -i "s/$ONE_FILE_BASE/$ATMEL_FILE/" moto/staging/device-partial.mk
-    elif [[ $ONE_FILE_BASE == *atmel-a432-*-shamu.tdat ]]
-    then
-      ATMEL_FILE=$(ls $FILEDIR_NEW/$ONE_FILE_BASE | cut -f6 -d'/')
-      sed -i "s/$ONE_FILE_BASE/$ATMEL_FILE/" moto/staging/device-partial.mk
-    fi
 
     # Sanity check to make sure apk or jar files are not stripped
     if [[ ${ONE_FILE_BASE} == *.apk ]] || [[ ${ONE_FILE_BASE} == *.jar ]]
@@ -166,6 +122,39 @@ do
     # Move device-vendor-walleye.mk under muskie directory so that it can be
     # inherited by device/google/muskie/aosp_walleye.mk
     mv ${FILEDIR_ROOT}/proprietary/device-vendor-walleye.mk ${FILEDIR_ROOT_SHARE}
+  elif [[ ${ROOTDEVICE} == blueline ]]
+  then
+    FILEDIR_ROOT_SHARE=tmp/vendor/${MANUFACTURER}_devices/crosshatch/proprietary
+    mkdir -p ${FILEDIR_ROOT_SHARE}
+
+    # blueline shares BoardConfigVendor.mk with its neph' crosshatch
+    mv ${FILEDIR_ROOT}/proprietary/BoardConfigVendor.mk ${FILEDIR_ROOT_SHARE}
+    # Move device-vendor-blueline.mk under crosshatch directory so that it can
+    # be inherited by device/google/crosshatch/aosp_blueline.mk
+    mv ${FILEDIR_ROOT}/proprietary/device-vendor.mk ${FILEDIR_ROOT_SHARE}
+  elif [[ ${ROOTDEVICE} == sargo ]]
+  then
+    FILEDIR_ROOT_SHARE=tmp/vendor/${MANUFACTURER}_devices/bonito/proprietary
+    mkdir -p ${FILEDIR_ROOT_SHARE}
+
+    # sargo shares BoardConfigVendor.mk with its bro-in-law' bonito
+    mv ${FILEDIR_ROOT}/proprietary/BoardConfigVendor.mk ${FILEDIR_ROOT_SHARE}
+    # Move device-vendor-sargo.mk under bonito directory so that it can
+    # be inherited by device/google/bonito/aosp_sargo.mk
+    mv ${FILEDIR_ROOT}/proprietary/device-vendor.mk ${FILEDIR_ROOT_SHARE}
+  fi
+
+  if [[ ${COMPANY} == qcom ]]
+  then
+    case ${ROOTDEVICE} in
+      marlin|sailfish|taimen|walleye|crosshatch|blueline|bonito|sargo)
+        if [[ -e "${MAKEFILEDIR}/Android.mk" ]]
+        then
+          mv ${MAKEFILEDIR}/Android.mk ${FILEDIR}/
+        fi
+         ;;
+      *) ;;
+    esac
   fi
 
   echo \ \ Generating self-extracting script

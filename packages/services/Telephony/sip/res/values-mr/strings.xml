@@ -19,7 +19,7 @@
     <string name="sip_settings" msgid="3768482698061677257">"SIP सेटिंग्ज"</string>
     <string name="sip_accounts" msgid="85559497282185405">"SIP खाती"</string>
     <string name="sip_accounts_title" msgid="2082527045326874519">"खाती"</string>
-    <string name="sip_receive_calls" msgid="426678617137462173">"येणारे कॉल प्राप्त करा"</string>
+    <string name="sip_receive_calls" msgid="426678617137462173">"येणारे कॉल घ्या"</string>
     <string name="sip_receive_calls_summary" msgid="946161517528227523">"अधिक बॅटरी वापरते"</string>
     <string name="sip_call_options_title" msgid="8421210494703869806">"SIP कॉलिंग वापरा"</string>
     <string name="sip_call_options_wifi_only_title" msgid="5112579243580893890">"SIP कॉलिंग वापरा (वाय-फाय केवळ)"</string>
@@ -71,8 +71,8 @@
     <string name="all_empty_alert" msgid="4087734950375192387">"नवीन SIP खात्याचा तपशील एंटर करा."</string>
     <string name="empty_alert" msgid="6659484914371384024">"<xliff:g id="INPUT_FIELD_NAME">%s</xliff:g> आवश्‍यक आहे आणि रिक्त सोडले जाऊ शकत नाही."</string>
     <string name="not_a_valid_port" msgid="7931422555587011830">"पोर्ट नंबर 1000 आणि 65534 मध्‍ये असावा."</string>
-    <string name="no_internet_available" msgid="5523747991760017298">"एक SIP कॉल करण्‍यासाठी, प्रथम आपले इंटरनेट कनेक्‍शन तपासा."</string>
-    <string name="no_wifi_available" msgid="1955023904229673488">"SIP कॉलसाठी आपण वाय-फाय नेटवर्कशी कनेक्‍ट केलेले असणे आवश्‍यक आहे (वायरलेस &amp; नेटवर्क सेटिंग्ज वापरा)."</string>
+    <string name="no_internet_available" msgid="5523747991760017298">"एक SIP कॉल करण्‍यासाठी, प्रथम तुमचे इंटरनेट कनेक्‍शन तपासा."</string>
+    <string name="no_wifi_available" msgid="1955023904229673488">"SIP कॉलसाठी तुम्ही वाय-फाय नेटवर्कशी कनेक्‍ट केलेले असणे आवश्‍यक आहे (वायरलेस &amp; नेटवर्क सेटिंग्ज वापरा)."</string>
     <string name="no_voip" msgid="3038021971231952704">"SIP कॉल करणे समर्थित नाही"</string>
     <string name="sip_system_decide" msgid="5577696249416700671">"स्वयंचलित"</string>
     <string name="sip_always_send_keepalive" msgid="4773022409239823318">"नेहमी पाठवा"</string>

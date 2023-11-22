@@ -53,13 +53,15 @@ public class TestTileService extends TileService {
 
     @Override
     public void onTileAdded() {
+        super.onTileAdded();
         Log.i(TAG, TEST_PREFIX + "onTileAdded");
+        super.onTileAdded();
     }
 
     @Override
     public void onTileRemoved() {
-        Log.i(TAG, TEST_PREFIX + "onTileRemoved");
         super.onTileRemoved();
+        Log.i(TAG, TEST_PREFIX + "onTileRemoved");
     }
 
     @Override
@@ -71,11 +73,11 @@ public class TestTileService extends TileService {
         registerReceiver(mReceiver, filter);
 
         // Set up some initial good state.
-        getQsTile().setLabel(TAG);
-        getQsTile().setContentDescription("CTS Test Tile");
-        getQsTile().setIcon(Icon.createWithResource(this, android.R.drawable.ic_secure));
-        getQsTile().setState(Tile.STATE_ACTIVE);
-        getQsTile().updateTile();
+        super.getQsTile().setLabel(TAG);
+        super.getQsTile().setContentDescription("CTS Test Tile");
+        super.getQsTile().setIcon(Icon.createWithResource(this, android.R.drawable.ic_secure));
+        super.getQsTile().setState(Tile.STATE_ACTIVE);
+        super.getQsTile().updateTile();
     }
 
     @Override
@@ -89,9 +91,9 @@ public class TestTileService extends TileService {
     public void onClick() {
         super.onClick();
         Log.i(TAG, TEST_PREFIX + "onClick");
-        Log.i(TAG, TEST_PREFIX + "is_secure_" + isSecure());
-        Log.i(TAG, TEST_PREFIX + "is_locked_" + isLocked());
-        unlockAndRun(new Runnable() {
+        Log.i(TAG, TEST_PREFIX + "is_secure_" + super.isSecure());
+        Log.i(TAG, TEST_PREFIX + "is_locked_" + super.isLocked());
+        super.unlockAndRun(new Runnable() {
             @Override
             public void run() {
                 Log.i(TAG, TEST_PREFIX + "unlockAndRunRun");
@@ -100,7 +102,7 @@ public class TestTileService extends TileService {
     }
 
     private void handleStartActivity() {
-        startActivityAndCollapse(new Intent(Settings.ACTION_SETTINGS)
+        super.startActivityAndCollapse(new Intent(Settings.ACTION_SETTINGS)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
@@ -109,7 +111,7 @@ public class TestTileService extends TileService {
         final Dialog dialog = new Dialog(this);
         dialog.setContentView(new FocusView(this, dialog));
         try {
-            showDialog(dialog);
+            super.showDialog(dialog);
         } catch (Exception e) {
             Log.i(TAG, TEST_PREFIX + "onWindowAddFailed", e);
         }

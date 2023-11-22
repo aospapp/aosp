@@ -26,7 +26,6 @@
 namespace art {
 
 using android::base::StringAppendF;
-using android::base::StringPrintf;
 
 // This is used only from debugger and test code.
 size_t CountModifiedUtf8Chars(const char* utf8) {
@@ -195,9 +194,10 @@ int32_t ComputeUtf16HashFromModifiedUtf8(const char* utf8, size_t utf16_length) 
 uint32_t ComputeModifiedUtf8Hash(const char* chars) {
   uint32_t hash = 0;
   while (*chars != '\0') {
-    hash = hash * 31 + *chars++;
+    hash = hash * 31 + static_cast<uint8_t>(*chars);
+    ++chars;
   }
-  return static_cast<int32_t>(hash);
+  return hash;
 }
 
 int CompareModifiedUtf8ToUtf16AsCodePointValues(const char* utf8, const uint16_t* utf16,
@@ -283,10 +283,10 @@ std::string PrintableChar(uint16_t ch) {
   return result;
 }
 
-std::string PrintableString(const char* utf) {
+std::string PrintableString(const char* utf8) {
   std::string result;
   result += '"';
-  const char* p = utf;
+  const char* p = utf8;
   size_t char_count = CountModifiedUtf8Chars(p);
   for (size_t i = 0; i < char_count; ++i) {
     uint32_t ch = GetUtf16FromUtf8(&p);
@@ -311,6 +311,9 @@ std::string PrintableString(const char* utf) {
       if (trailing != 0) {
         // All high surrogates will need escaping.
         StringAppendF(&result, "\\u%04x", trailing);
+        // Account for the surrogate pair.
+        ++i;
+        DCHECK_LT(i, char_count);
       }
     }
   }

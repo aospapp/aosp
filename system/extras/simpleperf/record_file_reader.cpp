@@ -206,9 +206,9 @@ bool RecordFileReader::ReadIdsForAttr(const FileAttr& attr, std::vector<uint64_t
 }
 
 bool RecordFileReader::ReadDataSection(
-    const std::function<bool(std::unique_ptr<Record>)>& callback, bool sorted) {
+    const std::function<bool(std::unique_ptr<Record>)>& callback) {
   std::unique_ptr<Record> record;
-  while (ReadRecord(record, sorted)) {
+  while (ReadRecord(record)) {
     if (record == nullptr) {
       return true;
     }
@@ -219,52 +219,22 @@ bool RecordFileReader::ReadDataSection(
   return false;
 }
 
-bool RecordFileReader::ReadRecord(std::unique_ptr<Record>& record,
-                                  bool sorted) {
+bool RecordFileReader::ReadRecord(std::unique_ptr<Record>& record) {
   if (read_record_size_ == 0) {
     if (fseek(record_fp_, header_.data.offset, SEEK_SET) != 0) {
       PLOG(ERROR) << "fseek() failed";
       return false;
     }
-    bool has_timestamp = true;
-    for (const auto& attr : file_attrs_) {
-      if (!IsTimestampSupported(attr.attr)) {
-        has_timestamp = false;
-        break;
-      }
-    }
-    record_cache_.reset(new RecordCache(has_timestamp));
   }
   record = nullptr;
-  while (read_record_size_ < header_.data.size && record == nullptr) {
+  if (read_record_size_ < header_.data.size) {
     record = ReadRecord(&read_record_size_);
     if (record == nullptr) {
       return false;
     }
     if (record->type() == SIMPLE_PERF_RECORD_EVENT_ID) {
       ProcessEventIdRecord(*static_cast<EventIdRecord*>(record.get()));
-    } else if (record->type() == PERF_RECORD_SAMPLE) {
-      SampleRecord* r = static_cast<SampleRecord*>(record.get());
-      // Although we have removed ip == 0 callchains when recording dwarf based callgraph,
-      // stack frame based callgraph can also generate ip == 0 callchains. Remove them here
-      // to avoid caller's effort.
-      if (r->sample_type & PERF_SAMPLE_CALLCHAIN) {
-        size_t i;
-        for (i = 0; i < r->callchain_data.ip_nr; ++i) {
-          if (r->callchain_data.ips[i] == 0) {
-            break;
-          }
-        }
-        r->callchain_data.ip_nr = i;
-      }
     }
-    if (sorted) {
-      record_cache_->Push(std::move(record));
-      record = record_cache_->Pop();
-    }
-  }
-  if (record == nullptr) {
-    record = record_cache_->ForcedPop();
   }
   return true;
 }
@@ -443,7 +413,9 @@ bool RecordFileReader::ReadFileFeature(size_t& read_pos,
                                        std::string* file_path,
                                        uint32_t* file_type,
                                        uint64_t* min_vaddr,
-                                       std::vector<Symbol>* symbols) {
+                                       uint64_t* file_offset_of_min_vaddr,
+                                       std::vector<Symbol>* symbols,
+                                       std::vector<uint64_t>* dex_file_offsets) {
   auto it = feature_section_descriptors_.find(FEAT_FILE);
   if (it == feature_section_descriptors_.end()) {
     return false;
@@ -484,6 +456,17 @@ bool RecordFileReader::ReadFileFeature(size_t& read_pos,
     p += name.size() + 1;
     symbols->emplace_back(name, start_vaddr, len);
   }
+  dex_file_offsets->clear();
+  if (*file_type == static_cast<uint32_t>(DSO_DEX_FILE)) {
+    uint32_t offset_count;
+    MoveFromBinaryFormat(offset_count, p);
+    dex_file_offsets->resize(offset_count);
+    MoveFromBinaryFormat(dex_file_offsets->data(), offset_count, p);
+  }
+  *file_offset_of_min_vaddr = std::numeric_limits<uint64_t>::max();
+  if (*file_type == DSO_ELF_FILE && static_cast<size_t>(p - buf.data()) < size) {
+    MoveFromBinaryFormat(*file_offset_of_min_vaddr, p);
+  }
   CHECK_EQ(size, static_cast<size_t>(p - buf.data()));
   return true;
 }
@@ -517,11 +500,14 @@ void RecordFileReader::LoadBuildIdAndFileFeatures(ThreadTree& thread_tree) {
     std::string file_path;
     uint32_t file_type;
     uint64_t min_vaddr;
+    uint64_t file_offset_of_min_vaddr;
     std::vector<Symbol> symbols;
+    std::vector<uint64_t> dex_file_offsets;
     size_t read_pos = 0;
-    while (ReadFileFeature(
-        read_pos, &file_path, &file_type, &min_vaddr, &symbols)) {
-      thread_tree.AddDsoInfo(file_path, file_type, min_vaddr, &symbols);
+    while (ReadFileFeature(read_pos, &file_path, &file_type, &min_vaddr, &file_offset_of_min_vaddr,
+                           &symbols, &dex_file_offsets)) {
+      thread_tree.AddDsoInfo(file_path, file_type, min_vaddr, file_offset_of_min_vaddr, &symbols,
+                             dex_file_offsets);
     }
   }
 }

@@ -27,7 +27,7 @@ class NetlinkMessage;
 class Interface {
 public:
     Interface(Netlink& netlink, const char* name);
-    Interface(Interface&& other);
+    Interface(Interface&& other) noexcept;
 
     bool init();
 

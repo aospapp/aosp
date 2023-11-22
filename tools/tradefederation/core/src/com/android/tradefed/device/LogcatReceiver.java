@@ -84,6 +84,11 @@ public class LogcatReceiver implements ILogcatReceiver {
     }
 
     @Override
+    public InputStreamSource getLogcatData(int maxBytes, int offset) {
+        return mReceiver.getData(maxBytes, offset);
+    }
+
+    @Override
     public void clear() {
         mReceiver.clear();
     }

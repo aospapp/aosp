@@ -18,64 +18,62 @@
 #define __FDEVENT_H
 
 #include <stddef.h>
-#include <stdint.h>  /* for int64_t */
+#include <stdint.h>
 
+#include <chrono>
 #include <functional>
+#include <optional>
+#include <variant>
 
-/* events that may be observed */
-#define FDE_READ              0x0001
-#define FDE_WRITE             0x0002
-#define FDE_ERROR             0x0004
+#include "adb_unique_fd.h"
 
-/* features that may be set (via the events set/add/del interface) */
-#define FDE_DONT_CLOSE        0x0080
+// Events that may be observed
+#define FDE_READ 0x0001
+#define FDE_WRITE 0x0002
+#define FDE_ERROR 0x0004
+#define FDE_TIMEOUT 0x0008
 
 typedef void (*fd_func)(int fd, unsigned events, void *userdata);
+typedef void (*fd_func2)(struct fdevent* fde, unsigned events, void* userdata);
 
 struct fdevent {
-    fdevent *next;
-    fdevent *prev;
+    uint64_t id;
 
-    int fd;
-    int force_eof;
+    unique_fd fd;
+    int force_eof = 0;
 
-    uint16_t state;
-    uint16_t events;
+    uint16_t state = 0;
+    uint16_t events = 0;
+    std::optional<std::chrono::milliseconds> timeout;
+    std::chrono::steady_clock::time_point last_active;
 
-    fd_func func;
-    void *arg;
+    std::variant<fd_func, fd_func2> func;
+    void* arg = nullptr;
 };
 
-/* Allocate and initialize a new fdevent object
- * Note: use FD_TIMER as 'fd' to create a fd-less object
- * (used to implement timers).
-*/
+// Allocate and initialize a new fdevent object
+// TODO: Switch these to unique_fd.
 fdevent *fdevent_create(int fd, fd_func func, void *arg);
+fdevent* fdevent_create(int fd, fd_func2 func, void* arg);
 
-/* Uninitialize and deallocate an fdevent object that was
-** created by fdevent_create()
-*/
+// Deallocate an fdevent object that was created by fdevent_create.
 void fdevent_destroy(fdevent *fde);
 
-/* Initialize an fdevent object that was externally allocated
-*/
-void fdevent_install(fdevent *fde, int fd, fd_func func, void *arg);
+// fdevent_destroy, except releasing the file descriptor previously owned by the fdevent.
+unique_fd fdevent_release(fdevent* fde);
 
-/* Uninitialize an fdevent object that was initialized by
-** fdevent_install()
-*/
-void fdevent_remove(fdevent *item);
-
-/* Change which events should cause notifications
-*/
+// Change which events should cause notifications
 void fdevent_set(fdevent *fde, unsigned events);
 void fdevent_add(fdevent *fde, unsigned events);
 void fdevent_del(fdevent *fde, unsigned events);
 
-void fdevent_set_timeout(fdevent *fde, int64_t  timeout_ms);
+// Set a timeout on an fdevent.
+// If no events are triggered by the timeout, an FDE_TIMEOUT will be generated.
+// Note timeouts are not defused automatically; if a timeout is set on an fdevent, it will
+// trigger repeatedly every |timeout| ms.
+void fdevent_set_timeout(fdevent* fde, std::optional<std::chrono::milliseconds> timeout);
 
-/* loop forever, handling events.
-*/
+// Loop forever, handling events.
 void fdevent_loop();
 
 void check_main_thread();

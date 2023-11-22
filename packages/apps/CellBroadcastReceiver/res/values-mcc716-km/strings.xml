@@ -18,4 +18,6 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="public_safety_message" msgid="7237115648380675159">"សារ​ដែលផ្តល់ព័ត៌មាន​ជាប្រយោជន៍"</string>
     <string name="enable_public_safety_messages_title" msgid="4037404034274507696">"សារ​ដែលផ្តល់ព័ត៌មាន​ជាប្រយោជន៍"</string>
+    <string name="cmas_required_monthly_test" msgid="9061179556831144678">"ការ​ជូន​ដំណឹង​ពេល​អាសន្ន៖ សារសាកល្បង"</string>
+    <string name="cmas_exercise_alert" msgid="996644454768618214">"ការ​ជូន​ដំណឹង​ពេល​អាសន្ន៖ សារនៃការអនុវត្ត​ត្រាប់តាម/ការហ្វឹកហាត់"</string>
 </resources>

@@ -15,9 +15,6 @@
 -->
 
 <resources>
-    <!-- Known ATV devices do not support rotation, force no rotation by default. -->
-    <bool name="config_forceDefaultOrientation">true</bool>
-
     <!-- Flag indicating that the media framework should support playing of sounds on volume
          key usage.  This adds noticeable additional overhead to volume key processing, so
          is disableable for products for which it is irrelevant. -->
@@ -106,4 +103,8 @@
     <string-array translatable="false" name="config_allowedManagedServicesOnLowRamDevices">
         <item>com.google.android.tvrecommendations</item>
     </string-array>
+
+    <!-- Enable doze mode -->
+    <bool name="config_enableAutoPowerModes">true</bool>
+    <bool name="config_autoPowerModeUseMotionSensor">false</bool>
 </resources>

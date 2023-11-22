@@ -15,6 +15,8 @@
  */
 package android.transition.cts;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -24,11 +26,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.transition.Scene;
 import android.view.View;
 import android.view.ViewGroup;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,6 +94,13 @@ public class SceneTest extends BaseTransitionTest {
     public void testFactory() throws Throwable {
         Scene scene = loadScene(R.layout.scene1);
         constructorTest(scene);
+    }
+
+    @Test
+    public void testGetCurrentScene() throws Throwable {
+        Scene scene = Scene.getSceneForLayout(mSceneRoot, R.layout.scene1, mActivity);
+        enterScene(scene);
+        assertThat(Scene.getCurrentScene(mSceneRoot), is(scene));
     }
 
     /**

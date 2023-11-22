@@ -38,7 +38,7 @@ final class SequenceMatcher {
         private final boolean mMatched;
         private final List<E> mMatchedSequence;
 
-        MatchResult(final boolean matched, final List<E> matchedSequence) {
+        MatchResult(boolean matched, List<E> matchedSequence) {
             mMatched = matched;
             mMatchedSequence = matchedSequence;
         }
@@ -61,11 +61,11 @@ final class SequenceMatcher {
         private final Predicate<E>[] mPredicates;
         private final List<E> mSequence = new ArrayList<>();
 
-        SequenceAccumulator(final Predicate<E>... predicates) {
+        SequenceAccumulator(Predicate<E>... predicates) {
             mPredicates = predicates;
         }
 
-        void accumulate(final E element) {
+        void accumulate(E element) {
             if (mSequence.isEmpty()) {
                 // Search for the first element of sequence.
                 if (mPredicates[0].test(element)) {
@@ -124,7 +124,7 @@ final class SequenceMatcher {
      * @param <E> type of stream element
      * @return {@link MatchResult<E>} of matcher sequence.
      */
-    static <E> Collector<E, ?, MatchResult<E>> of(final E... elements) {
+    static <E> Collector<E, ?, MatchResult<E>> of(E... elements) {
         if (elements == null || elements.length == 0) {
             throw new IllegalArgumentException("At least one element.");
         }
@@ -141,7 +141,7 @@ final class SequenceMatcher {
      * @param <E> type of stream element.
      * @return {@link MatchResult<E>} of matched sequence.
      */
-    static <E> Collector<E, ?, MatchResult<E>> of(final Predicate<E>... predicates) {
+    static <E> Collector<E, ?, MatchResult<E>> of(Predicate<E>... predicates) {
         if (predicates == null || predicates.length == 0) {
             throw new IllegalArgumentException("At least one Predicate.");
         }

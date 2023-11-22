@@ -22,6 +22,7 @@
 
 #include <hidl-hash/Hash.h>
 
+#include "ConstantExpression.h"
 #include "Reference.h"
 #include "Scope.h"
 
@@ -31,10 +32,7 @@ struct Method;
 struct InterfaceAndMethod;
 
 struct Interface : public Scope {
-    enum {
-        /////////////////// Flag(s) - DO NOT CHANGE
-        FLAG_ONEWAY = 0x00000001,
-    };
+    const static std::unique_ptr<ConstantExpression> FLAG_ONE_WAY;
 
     Interface(const char* localName, const FQName& fullName, const Location& location,
               Scope* parent, const Reference<Type>& superType, const Hash* fileHash);
@@ -46,7 +44,6 @@ struct Interface : public Scope {
 
     bool isElidableType() const override;
     bool isInterface() const override;
-    bool isBinder() const override;
     bool isIBase() const { return fqName() == gIBaseFqName; }
     std::string typeName() const override;
 
@@ -115,6 +112,7 @@ struct Interface : public Scope {
             ErrorMode mode) const override;
 
     void emitPackageTypeDeclarations(Formatter& out) const override;
+    void emitPackageTypeHeaderDefinitions(Formatter& out) const override;
     void emitTypeDefinitions(Formatter& out, const std::string& prefix) const override;
 
     void getAlignmentAndSize(size_t* align, size_t* size) const override;
@@ -127,7 +125,7 @@ struct Interface : public Scope {
     void emitVtsAttributeType(Formatter& out) const override;
 
     void emitVtsAttributeDeclaration(Formatter& out) const;
-    void emitVtsMethodDeclaration(Formatter& out) const;
+    void emitVtsMethodDeclaration(Formatter& out, bool isInherited) const;
 
     bool hasOnewayMethods() const;
 

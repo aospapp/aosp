@@ -37,19 +37,19 @@ bool VtsDriverSocketClient::Exit() {
   return true;
 }
 
-int32_t VtsDriverSocketClient::LoadHal(const string& file_path,
-                                       int target_class, int target_type,
-                                       float target_version,
-                                       const string& target_package,
-                                       const string& target_component_name,
-                                       const string& hw_binder_service_name,
-                                       const string& module_name) {
+int32_t VtsDriverSocketClient::LoadHal(
+    const string& file_path, int target_class, int target_type,
+    int target_version_major, int target_version_minor,
+    const string& target_package, const string& target_component_name,
+    const string& hw_binder_service_name, const string& module_name) {
   VtsDriverControlCommandMessage command_message;
+
   command_message.set_command_type(LOAD_HAL);
   command_message.set_file_path(file_path);
   command_message.set_target_class(target_class);
   command_message.set_target_type(target_type);
-  command_message.set_target_version(target_version);
+  command_message.set_target_version_major(target_version_major);
+  command_message.set_target_version_minor(target_version_minor);
   command_message.set_target_package(target_package);
   command_message.set_target_component_name(target_component_name);
   command_message.set_module_name(module_name);
@@ -84,15 +84,18 @@ string VtsDriverSocketClient::GetFunctions() {
 string VtsDriverSocketClient::ReadSpecification(const string& component_name,
                                                 int target_class,
                                                 int target_type,
-                                                float target_version,
+                                                int target_version_major,
+                                                int target_version_minor,
                                                 const string& target_package) {
   VtsDriverControlCommandMessage command_message;
+
   command_message.set_command_type(
       VTS_DRIVER_COMMAND_READ_SPECIFICATION);
   command_message.set_module_name(component_name);
   command_message.set_target_class(target_class);
   command_message.set_target_type(target_type);
-  command_message.set_target_version(target_version);
+  command_message.set_target_version_major(target_version_major);
+  command_message.set_target_version_minor(target_version_minor);
   command_message.set_target_package(target_package);
 
   if (!VtsSocketSendMessage(command_message)) {
@@ -155,6 +158,58 @@ VtsDriverSocketClient::ExecuteShellCommand(
   if (!VtsSocketRecvMessage(response_message.get())) return nullptr;
 
   return response_message;
+}
+
+bool VtsDriverSocketClient::ProcessFmqCommand(
+    const FmqRequestMessage& fmq_request, FmqResponseMessage* fmq_response) {
+  VtsDriverControlCommandMessage command_message;
+  VtsDriverControlResponseMessage response_message;
+  command_message.set_command_type(FMQ_OPERATION);
+  (command_message.mutable_fmq_request())->CopyFrom(fmq_request);
+
+  if (!VtsSocketSendMessage(command_message)) return false;
+  if (!VtsSocketRecvMessage(&response_message)) return false;
+
+  fmq_response->CopyFrom(response_message.fmq_response());
+  return true;
+}
+
+bool VtsDriverSocketClient::ProcessHidlMemoryCommand(
+    const HidlMemoryRequestMessage& hidl_memory_request,
+    HidlMemoryResponseMessage* hidl_memory_response) {
+  VtsDriverControlCommandMessage command_message;
+  VtsDriverControlResponseMessage response_message;
+  command_message.set_command_type(HIDL_MEMORY_OPERATION);
+  (command_message.mutable_hidl_memory_request())
+      ->CopyFrom(hidl_memory_request);
+
+  if (!VtsSocketSendMessage(command_message)) return false;
+  if (!VtsSocketRecvMessage(&response_message)) return false;
+
+  hidl_memory_response->CopyFrom(response_message.hidl_memory_response());
+  return true;
+}
+
+bool VtsDriverSocketClient::ProcessHidlHandleCommand(
+    const HidlHandleRequestMessage& hidl_handle_request,
+    HidlHandleResponseMessage* hidl_handle_response) {
+  VtsDriverControlCommandMessage command_message;
+  VtsDriverControlResponseMessage response_message;
+  command_message.set_command_type(HIDL_HANDLE_OPERATION);
+  (command_message.mutable_hidl_handle_request())
+      ->CopyFrom(hidl_handle_request);
+
+  if (!VtsSocketSendMessage(command_message)) {
+    LOG(ERROR) << "Unable to send hidl_handle command from agent to driver.";
+    return false;
+  }
+  if (!VtsSocketRecvMessage(&response_message)) {
+    LOG(ERROR) << "Unable to receive hidl_handle message from driver to agent";
+    return false;
+  }
+
+  hidl_handle_response->CopyFrom(response_message.hidl_handle_response());
+  return true;
 }
 
 int32_t VtsDriverSocketClient::Status(int32_t type) {

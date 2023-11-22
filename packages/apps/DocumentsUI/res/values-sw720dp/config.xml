@@ -17,4 +17,6 @@
 <resources>
     <!-- Indicates if search view is taking the whole toolbar space -->
     <bool name="full_bar_search_view">false</bool>
+
+    <string name="scrolling_behavior" translatable="false">@string/appbar_scrolling_view_behavior</string>
 </resources>

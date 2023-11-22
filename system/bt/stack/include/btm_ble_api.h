@@ -77,22 +77,6 @@ extern bool BTM_SecAddBleKey(const RawAddress& bd_addr,
 
 /*******************************************************************************
  *
- * Function         BTM_BleSetAdvParams
- *
- * Description      This function is called to set advertising parameters.
- *
- * Parameters:       None.
- *
- * Returns          void
- *
- ******************************************************************************/
-extern tBTM_STATUS BTM_BleSetAdvParams(uint16_t adv_int_min,
-                                       uint16_t adv_int_max,
-                                       tBLE_BD_ADDR* p_dir_bda,
-                                       tBTM_BLE_ADV_CHNL_MAP chnl_map);
-
-/*******************************************************************************
- *
  * Function         BTM_BleObtainVendorCapabilities
  *
  * Description      This function is called to obatin vendor capabilties
@@ -196,43 +180,14 @@ extern tBTM_STATUS BTM_BleObserve(bool start, uint8_t duration,
                                   tBTM_INQ_RESULTS_CB* p_results_cb,
                                   tBTM_CMPL_CB* p_cmpl_cb);
 
-/*******************************************************************************
- *
- * Function         BTM_GetDeviceIDRoot
- *
- * Description      This function is called to read the local device identity
- *                  root.
- *
- * Returns          void
- *                  the local device ER is copied into er
- *
- ******************************************************************************/
-extern void BTM_GetDeviceIDRoot(BT_OCTET16 ir);
+/** Returns local device encryption root (ER) */
+const Octet16& BTM_GetDeviceEncRoot();
 
-/*******************************************************************************
- *
- * Function         BTM_GetDeviceEncRoot
- *
- * Description      This function is called to read the local device encryption
- *                  root.
- *
- * Returns          void
- *                  the local device ER is copied into er
- *
- ******************************************************************************/
-extern void BTM_GetDeviceEncRoot(BT_OCTET16 er);
+/** Returns local device identity root (IR) */
+extern const Octet16& BTM_GetDeviceIDRoot();
 
-/*******************************************************************************
- *
- * Function         BTM_GetDeviceDHK
- *
- * Description      This function is called to read the local device DHK.
- *
- * Returns          void
- *                  the local device DHK is copied into dhk
- *
- ******************************************************************************/
-extern void BTM_GetDeviceDHK(BT_OCTET16 dhk);
+/** Return local device DHK. */
+extern const Octet16& BTM_GetDeviceDHK();
 
 /*******************************************************************************
  *
@@ -366,6 +321,18 @@ extern void BTM_ReadConnectionAddr(const RawAddress& remote_bda,
 
 /*******************************************************************************
  *
+ * Function         BTM_IsBleConnection
+ *
+ * Description      This function is called to check if the connection handle
+ *                  for an LE link
+ *
+ * Returns          true if connection is LE link, otherwise false.
+ *
+ ******************************************************************************/
+extern bool BTM_IsBleConnection(uint16_t conn_handle);
+
+/*******************************************************************************
+ *
  * Function         BTM_ReadRemoteConnectionAddr
  *
  * Description      Read the remote device address currently used.
@@ -393,44 +360,7 @@ extern bool BTM_ReadRemoteConnectionAddr(const RawAddress& pseudo_addr,
  ******************************************************************************/
 extern void BTM_BleLoadLocalKeys(uint8_t key_type, tBTM_BLE_LOCAL_KEYS* p_key);
 
-/**
- * Set BLE connectable mode to auto connect
- */
-extern void BTM_BleStartAutoConn();
-
-/*******************************************************************************
- *
- * Function         BTM_BleUpdateBgConnDev
- *
- * Description      This function is called to add or remove a device into/from
- *                  background connection procedure. The background connection
-*                   procedure is decided by the background connection type, it
-*can be
-*                   auto connection, or selective connection.
- *
- * Parameters       add_remove: true to add; false to remove.
- *                  remote_bda: device address to add/remove.
- *
- * Returns          void
- *
- ******************************************************************************/
-extern bool BTM_BleUpdateBgConnDev(bool add_remove,
-                                   const RawAddress& remote_bda);
-
-/*******************************************************************************
- *
- * Function         BTM_BleClearBgConnDev
- *
- * Description      This function is called to clear the whitelist,
- *                  end any pending whitelist connections,
- *                  and reset the local bg device list.
- *
- * Parameters       void
- *
- * Returns          void
- *
- ******************************************************************************/
-extern void BTM_BleClearBgConnDev(void);
+#include "stack/btm/btm_ble_bgconn.h"
 
 /********************************************************
  *

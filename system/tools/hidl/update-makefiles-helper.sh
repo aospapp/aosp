@@ -20,11 +20,11 @@ function check_dirs() {
   shift 1
 
   for package_root in "$@"; do
-      dir=$(package_root_to_root $package_root)
-      if [ ! -d $root_or_cwd$dir ] ; then
-        echo "Where is $dir?";
-        return 1;
-      fi
+    dir=$(package_root_to_root $package_root)
+    if [ ! -d $root_or_cwd$dir ] ; then
+      echo "Where is $dir?";
+      return 1;
+    fi
   done
 }
 
@@ -47,7 +47,7 @@ function get_packages() {
 # Usage: get_root_arguments [package:root ...]
 function get_root_arguments() {
   for package_root in "$@"; do
-      echo "-r $package_root"
+    printf "%s" "-r$package_root "
   done
 }
 
@@ -61,6 +61,18 @@ function get_package_dir() {
 }
 
 ##
+# Returns the number of processors to run on, on this machine
+function get_num_processors() {
+  if command -v nproc >/dev/null 2>&1; then
+    PROCS=$(nproc --all 2>/dev/null) && echo $PROCS && return 0
+  elif command -v sysctl >/dev/null 2>&1; then
+    PROCS=$(sysctl -n hw.logicalcpu 2>/dev/null) && echo $PROCS && return 0
+  fi
+
+  echo 1
+}
+
+##
 # Helps manage the package root of a HAL directory.
 # Should be called from the android root directory.
 #
@@ -68,10 +80,15 @@ function get_package_dir() {
 # Where the first package root is the current one.
 #
 function do_makefiles_update() {
+  if ! command -v hidl-gen 1>/dev/null; then
+    echo "Cannot find hidl-gen, try lunching or making it ('m hidl-gen')?"
+    exit 1
+  fi
+
   local owner=
   if [[ "$1" = "-O" ]]; then
-      owner="$2"
-      shift 2
+    owner="$2"
+    shift 2
   fi
 
   local root_or_cwd=${ANDROID_BUILD_TOP%%/}${ANDROID_BUILD_TOP:+/}
@@ -86,9 +103,19 @@ function do_makefiles_update() {
   local packages=$(get_packages $current_dir $current_package) || return 1
   local root_arguments=$(get_root_arguments $@) || return 1
 
-  for p in $packages; do
-    echo "Updating $p";
-    hidl-gen -O "$owner" -Landroidbp $root_arguments $p;
-    rc=$?; if [[ $rc != 0 ]]; then return $rc; fi
-  done
+  function __update_internal() {
+    local owner="$1"
+    local root_arguments="$2"
+    local package="$3"
+    echo "Updating $package"
+    hidl-gen -O "$owner" -Landroidbp $root_arguments $package || {
+      echo "Command failed: hidl-gen -O \"$owner\" -Landroidbp $root_arguments $package";
+      return 1;
+    }
+  }
+  export -f __update_internal
+
+  echo "$packages" |\
+      xargs -P $(get_num_processors) -I {} \
+      bash -c "__update_internal \"$owner\" \"$root_arguments\" \"{}\"" || return 1
 }

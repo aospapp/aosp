@@ -41,8 +41,10 @@ public class InspectorBot extends Bots.BaseBot {
     }
 
     public void assertTitle(String expected) throws Exception {
-        UiSelector textView
-                = new UiSelector().resourceId("com.android.documentsui:id/inspector_file_title");
+        UiSelector detailView =
+                new UiSelector().resourceId(mTargetPackage + ":id/inspector_details_view");
+        UiSelector textView =
+                detailView.resourceId(mTargetPackage + ":id/inspector_header_title");
         String text = mDevice.findObject(textView).getText();
         assertEquals(expected, text);
     }

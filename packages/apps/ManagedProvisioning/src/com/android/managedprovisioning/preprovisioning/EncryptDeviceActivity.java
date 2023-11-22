@@ -86,8 +86,7 @@ public class EncryptDeviceActivity extends SetupGlifLayoutActivity {
     private void initializeUi(int headerRes, int titleRes, int mainTextRes) {
         CustomizationParams customizationParams =
                 CustomizationParams.createInstance(mParams, this, mUtils);
-        initializeLayoutParams(R.layout.encrypt_device, headerRes, customizationParams.mainColor,
-                customizationParams.statusBarColor);
+        initializeLayoutParams(R.layout.encrypt_device, headerRes, customizationParams);
         setTitle(titleRes);
         ((TextView) findViewById(R.id.encrypt_main_text)).setText(mainTextRes);
     }

@@ -19,7 +19,7 @@
     <style name="LightBarTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:navigationBarColor">@android:color/white</item>
+        <item name="android:navigationBarColor">@color/navigationBarColor</item>
         <item name="android:navigationBarDividerColor">@color/navigationBarDividerColor</item>
     </style>
 </resources>

@@ -14,9 +14,14 @@
 # limitations under the License.
 #
 
+import argparse
 import logging
+import re
 
 from host_controller import console_argument_parser
+
+# tmp_dir variable name.
+TMP_DIR_VAR ="{tmp_dir}"
 
 
 class BaseCommandProcessor(object):
@@ -24,6 +29,7 @@ class BaseCommandProcessor(object):
 
     Attributes:
         arg_parser: ConsoleArgumentParser object, argument parser.
+        arg_buffer: dict, stores last parsed argument, value pairs.
         console: cmd.Cmd console object.
         command: string, command name which this processor will handle.
         command_detail: string, detailed explanation for the command.
@@ -39,6 +45,7 @@ class BaseCommandProcessor(object):
             console: Console object.
         '''
         self.console = console
+        self.arg_buffer = {}
         self.arg_parser = console_argument_parser.ConsoleArgumentParser(
             self.command, self.command_detail)
         self.SetUp()
@@ -54,6 +61,11 @@ class BaseCommandProcessor(object):
             arg_line: string, line of command arguments
         '''
         ret = self.Run(arg_line)
+        args = self.arg_parser.ParseLine(arg_line)
+        for arg_tuple in args._get_kwargs():
+            key = arg_tuple[0]
+            value = arg_tuple[1]
+            self.arg_buffer[key] = value
 
         if ret is not None:
             if ret == True:  # exit command executed.
@@ -88,3 +100,36 @@ class BaseCommandProcessor(object):
     def TearDown(self):
         '''TearDown tasks to be called when console is shutting down.'''
         pass
+
+    def ReplaceVars(self, message_list):
+        """Replaces vars in a 'messsag_list' to their values."""
+        new_message_list = []
+        for message in message_list:
+            new_message = message
+
+            vars = re.findall(r"{device-image\[[^]]+\]}", message)
+            if vars:
+                for var in vars:
+                    var_name = var[len("{device-image")+1:-2]
+                    if var_name and var_name in self.console.device_image_info:
+                        new_message = new_message.replace(
+                                var, self.console.device_image_info[var_name])
+                    else:
+                        new_message = new_message.replace(var, "{undefined}")
+
+            vars = re.findall(r"{tools\[[^]]+\]}", message)
+            if vars:
+                for var in vars:
+                    var_name = var[len("{tools")+1:-2]
+                    if var_name and var_name in self.console.tools_info:
+                        new_message = new_message.replace(
+                            var, self.console.tools_info[var_name])
+                    else:
+                        new_message = new_message.replace(var, "{undefined}")
+
+            if TMP_DIR_VAR in new_message:
+                new_message = new_message.replace(
+                    TMP_DIR_VAR, self.console.tmpdir_default)
+
+            new_message_list.append(new_message)
+        return new_message_list

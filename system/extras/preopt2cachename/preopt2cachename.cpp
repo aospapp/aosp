@@ -28,16 +28,16 @@ static const char* kOdexCacheSuffix = "@classes.dex";
 static const char* kVdexCacheSuffix = "@classes.vdex";
 static const char* kArtCacheSuffix = "@classes.art";
 
-// Returns the ISA extracted from the file_location.
-// file_location is formatted like /system/app/<app_name>/oat/<isa>/<app_name>.{odex,vdex}
-// for all functions. We return an empty string "" in error cases.
+// Returns the ISA extracted from the file_location. file_location is formatted like
+// /system{/product,}/{priv-,}app/<app_name>/oat/<isa>/<app_name>.{odex,vdex} for all functions. We
+// return an empty string "" in error cases.
 static std::string ExtractISA(const std::string& file_location) {
   std::vector<std::string> split_file_location = android::base::Split(file_location, "/");
   if (split_file_location.size() <= 1) {
     return "";
-  } else if (split_file_location.size() != 7) {
-    LOG(WARNING) << "Unexpected length for file-location. We expected 7 segments but found "
-                 << split_file_location.size();
+  } else if (split_file_location.size() != 7 && split_file_location.size() != 8) {
+    LOG(WARNING) << "Unexpected length for file-location. We expected 7 or 8 segments but found "
+                 << split_file_location.size() << " for " << file_location;
   }
   return split_file_location[split_file_location.size() - 2];
 }
@@ -89,7 +89,7 @@ static bool SystemBFilenameToCacheFile(const std::string& file_location,
     LOG(ERROR) << "Unable to determine apk name from file name '" << file_location << "'";
     return false;
   }
-  std::string::size_type pos = file_location.find_last_of(".");
+  std::string::size_type pos = file_location.find_last_of('.');
   if (pos == std::string::npos) {
     LOG(ERROR) << "Invalid file location '" << file_location << "'";
     return false;

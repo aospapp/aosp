@@ -25,29 +25,36 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Picture;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.LargeTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.View;
+import android.webkit.WebView.VisualStateCallback;
 import android.webkit.cts.WebViewOnUiThread;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.LargeTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
+
 import com.android.compatibility.common.util.NullWebViewUtils;
+
+import com.google.common.util.concurrent.SettableFuture;
 
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.concurrent.TimeUnit;
+
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class EmojiTest {
+    private static final long TEST_TIMEOUT_MS = 20000L; // 20s
     private Context mContext;
     private EditText mEditText;
 
@@ -90,62 +97,79 @@ public class EmojiTest {
         return sb.toString();
     }
 
+    // These emojis should have different characters
+    private static final int sComparedCodePoints[][] = {
+        {0x1F436, 0x1F435},      // Dog(U+1F436) and Monkey(U+1F435)
+        {0x26BD, 0x26BE},        // Soccer ball(U+26BD) and Baseball(U+26BE)
+        {0x1F47B, 0x1F381},      // Ghost(U+1F47B) and wrapped present(U+1F381)
+        {0x2764, 0x1F494},       // Heavy black heart(U+2764) and broken heart(U+1F494)
+        {0x1F603, 0x1F33B}       // Smiling face with open mouth(U+1F603) and sunflower(U+1F33B)
+    };
+
     /**
      * Tests Emoji has different glyph for different meaning characters.
-     * Test on Canvas, TextView, EditText and WebView
+     * Test on Canvas, TextView and EditText
      */
     @UiThreadTest
     @Test
     public void testEmojiGlyph() {
         CaptureCanvas ccanvas = new CaptureCanvas(mContext);
 
-        Bitmap mBitmapA, mBitmapB;  // Emoji displayed Bitmaps to compare
+        Bitmap bitmapA, bitmapB;  // Emoji displayed Bitmaps to compare
 
-        int comparedCodePoints[][] = {   // Emojis should have different characters
-            {0x1F436, 0x1F435},      // Dog(U+1F436) and Monkey(U+1F435)
-            {0x26BD, 0x26BE},        // Soccer ball(U+26BD) and Baseball(U+26BE)
-            {0x1F47B, 0x1F381},      // Ghost(U+1F47B) and wrapped present(U+1F381)
-            {0x2764, 0x1F494},       // Heavy black heart(U+2764) and broken heart(U+1F494)
-            {0x1F603, 0x1F33B}       // Smiling face with open mouth(U+1F603) and sunflower(U+1F33B)
-        };
+        for (int i = 0; i < sComparedCodePoints.length; i++) {
+            String baseMessage = "Glyph for U+" + Integer.toHexString(sComparedCodePoints[i][0])
+                    + " should be different from glyph for U+"
+                    + Integer.toHexString(sComparedCodePoints[i][1]) + ". ";
 
-        for (int i = 0; i < comparedCodePoints.length; i++) {
-            String baseMessage = "Glyph for U+" + Integer.toHexString(comparedCodePoints[i][0]) +
-                " should be different from glyph for U+" +
-                Integer.toHexString(comparedCodePoints[i][1]) + ". ";
+            bitmapA = ccanvas.capture(Character.toChars(sComparedCodePoints[i][0]));
+            bitmapB = ccanvas.capture(Character.toChars(sComparedCodePoints[i][1]));
 
-            mBitmapA = ccanvas.capture(Character.toChars(comparedCodePoints[i][0]));
-            mBitmapB = ccanvas.capture(Character.toChars(comparedCodePoints[i][1]));
-
-            String bmpDiffMessage = describeBitmap(mBitmapA) + "vs" + describeBitmap(mBitmapB);
-            assertFalse(baseMessage + bmpDiffMessage, mBitmapA.sameAs(mBitmapB));
+            String bmpDiffMessage = describeBitmap(bitmapA) + "vs" + describeBitmap(bitmapB);
+            assertFalse(baseMessage + bmpDiffMessage, bitmapA.sameAs(bitmapB));
 
             // cannot reuse CaptureTextView as 2nd setText call throws NullPointerException
             CaptureTextView cviewA = new CaptureTextView(mContext);
-            mBitmapA = cviewA.capture(Character.toChars(comparedCodePoints[i][0]));
+            bitmapA = cviewA.capture(Character.toChars(sComparedCodePoints[i][0]));
             CaptureTextView cviewB = new CaptureTextView(mContext);
-            mBitmapB = cviewB.capture(Character.toChars(comparedCodePoints[i][1]));
+            bitmapB = cviewB.capture(Character.toChars(sComparedCodePoints[i][1]));
 
-            bmpDiffMessage = describeBitmap(mBitmapA) + "vs" + describeBitmap(mBitmapB);
-            assertFalse(baseMessage + bmpDiffMessage, mBitmapA.sameAs(mBitmapB));
+            bmpDiffMessage = describeBitmap(bitmapA) + "vs" + describeBitmap(bitmapB);
+            assertFalse(baseMessage + bmpDiffMessage, bitmapA.sameAs(bitmapB));
 
             CaptureEditText cedittextA = new CaptureEditText(mContext);
-            mBitmapA = cedittextA.capture(Character.toChars(comparedCodePoints[i][0]));
+            bitmapA = cedittextA.capture(Character.toChars(sComparedCodePoints[i][0]));
             CaptureEditText cedittextB = new CaptureEditText(mContext);
-            mBitmapB = cedittextB.capture(Character.toChars(comparedCodePoints[i][1]));
+            bitmapB = cedittextB.capture(Character.toChars(sComparedCodePoints[i][1]));
 
-            bmpDiffMessage = describeBitmap(mBitmapA) + "vs" + describeBitmap(mBitmapB);
-            assertFalse(baseMessage + bmpDiffMessage, mBitmapA.sameAs(mBitmapB));
+            bmpDiffMessage = describeBitmap(bitmapA) + "vs" + describeBitmap(bitmapB);
+            assertFalse(baseMessage + bmpDiffMessage, bitmapA.sameAs(bitmapB));
+        }
+    }
 
-            // Trigger activity bringup so we can determine if a WebView is available on this
-            // device.
-            if (NullWebViewUtils.isWebViewAvailable()) {
-                CaptureWebView cwebview = new CaptureWebView();
-                mBitmapA = cwebview.capture(Character.toChars(comparedCodePoints[i][0]));
-                mBitmapB = cwebview.capture(Character.toChars(comparedCodePoints[i][1]));
-                bmpDiffMessage = describeBitmap(mBitmapA) + "vs" + describeBitmap(mBitmapB);
-                assertFalse(baseMessage + bmpDiffMessage, mBitmapA.sameAs(mBitmapB));
-            }
+    /**
+     * Tests Emoji has different glyph for different meaning characters.
+     * Test on WebView
+     */
+    @Test
+    public void testEmojiGlyphWebView() {
+        if (!NullWebViewUtils.isWebViewAvailable()) {
+            return;
+        }
+
+        Bitmap bitmapA, bitmapB;  // Emoji displayed Bitmaps to compare
+
+        CaptureWebView cwebview = new CaptureWebView();
+        for (int i = 0; i < sComparedCodePoints.length; i++) {
+            String baseMessage = "Glyph for U+" + Integer.toHexString(sComparedCodePoints[i][0])
+                    + " should be different from glyph for U+"
+                    + Integer.toHexString(sComparedCodePoints[i][1]) + ". ";
+
+            bitmapA = cwebview.capture(Character.toChars(sComparedCodePoints[i][0]));
+            bitmapB = cwebview.capture(Character.toChars(sComparedCodePoints[i][1]));
+
+            String bmpDiffMessage = describeBitmap(bitmapA) + "vs" + describeBitmap(bitmapB);
+            assertFalse(baseMessage + bmpDiffMessage, bitmapA.sameAs(bitmapB));
         }
     }
 
@@ -265,38 +289,46 @@ public class EmojiTest {
     }
 
 
-    private class CaptureWebView {
+    private static long sRequestId = 0;
 
+    private class CaptureWebView {
         WebViewOnUiThread webViewOnUiThread;
-        Bitmap bitmap;
+
         CaptureWebView() {
-            webViewOnUiThread = new WebViewOnUiThread(mActivityRule,
-                    mActivityRule.getActivity().getWebView());
+            webViewOnUiThread = new WebViewOnUiThread(mActivityRule.getActivity().getWebView());
+            // Offscreen pre-raster ensures that visibile region of the WebView is not used to
+            // determine which tiles to render, and instead the full WebView size is treated
+            // as the visible region.
+            webViewOnUiThread.getSettings().setOffscreenPreRaster(true);
         }
 
         Bitmap capture(char c[]) {
-
             webViewOnUiThread.loadDataAndWaitForCompletion(
                     "<html><body>" + String.valueOf(c) + "</body></html>",
                     "text/html; charset=utf-8", "utf-8");
-            // The Chromium-powered WebView renders asynchronously and there's nothing reliable
-            // we can easily wait for to be sure that capturePicture will return a fresh frame.
-            // So, just sleep for a sufficient time.
+
+            // Wait for the loaded DOM state to be ready to draw.
+            final SettableFuture<Void> future = SettableFuture.create();
+            webViewOnUiThread.postVisualStateCallback(sRequestId++, new VisualStateCallback() {
+                @Override
+                public void onComplete(long requestId) {
+                    future.set(null);
+                }
+            });
             try {
-                Thread.sleep(250);
-            } catch (InterruptedException e) {
+                future.get(TEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
                 return null;
             }
 
             Picture picture = webViewOnUiThread.capturePicture();
             if (picture == null || picture.getHeight() <= 0 || picture.getWidth() <= 0) {
                 return null;
-            } else {
-                bitmap = Bitmap.createBitmap(picture.getWidth(), picture.getHeight(),
-                        Bitmap.Config.ARGB_8888);
-                Canvas canvas = new Canvas(bitmap);
-                picture.draw(canvas);
             }
+            Bitmap bitmap = Bitmap.createBitmap(picture.getWidth(), picture.getHeight(),
+                    Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            picture.draw(canvas);
 
             return bitmap;
         }

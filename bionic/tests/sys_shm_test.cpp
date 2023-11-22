@@ -26,22 +26,20 @@
  * SUCH DAMAGE.
  */
 
-#include <gtest/gtest.h>
-
 #include <errno.h>
 #include <sys/shm.h>
 
-#include "TemporaryFile.h"
+#include <android-base/file.h>
+#include <gtest/gtest.h>
 
 TEST(sys_shm, smoke) {
   if (shmctl(-1, IPC_STAT, nullptr) == -1 && errno == ENOSYS) {
-    GTEST_LOG_(INFO) << "no <sys/shm.h> support in this kernel\n";
-    return;
+    GTEST_SKIP() << "no <sys/shm.h> support in this kernel";
   }
 
   // Create a segment.
   TemporaryDir dir;
-  key_t key = ftok(dir.dirname, 1);
+  key_t key = ftok(dir.path, 1);
   int id = shmget(key, 1234, IPC_CREAT|0666);
   ASSERT_NE(id, -1);
 
@@ -52,19 +50,19 @@ TEST(sys_shm, smoke) {
   ASSERT_EQ(1234U, ds.shm_segsz);
 
   // Attach.
-  void* p = shmat(id, 0, SHM_RDONLY);
+  void* p = shmat(id, nullptr, SHM_RDONLY);
   ASSERT_NE(p, nullptr);
 
   // Detach.
   ASSERT_EQ(0, shmdt(p));
 
   // Destroy the segment.
-  ASSERT_EQ(0, shmctl(id, IPC_RMID, 0));
+  ASSERT_EQ(0, shmctl(id, IPC_RMID, nullptr));
 }
 
 TEST(sys_shm, shmat_failure) {
   errno = 0;
-  ASSERT_EQ(reinterpret_cast<void*>(-1), shmat(-1, 0, SHM_RDONLY));
+  ASSERT_EQ(reinterpret_cast<void*>(-1), shmat(-1, nullptr, SHM_RDONLY));
   ASSERT_TRUE(errno == EINVAL || errno == ENOSYS);
 }
 

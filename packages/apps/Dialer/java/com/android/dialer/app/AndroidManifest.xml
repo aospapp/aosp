@@ -55,12 +55,12 @@
   <uses-permission android:name="android.permission.STOP_APP_SWITCHES"/>
 
   <uses-sdk
-    android:minSdkVersion="23"
-    android:targetSdkVersion="27"/>
+    android:minSdkVersion="24"
+    android:targetSdkVersion="28"/>
 
-  <application android:theme="@style/Theme.AppCompat">
+  <application>
 
-    <activity
+  <activity
       android:exported="false"
       android:label="@string/manage_blocked_numbers_label"
       android:name="com.android.dialer.app.filterednumber.BlockedNumbersSettingsActivity"
@@ -75,7 +75,7 @@
     <activity
       android:label="@string/call_log_activity_title"
       android:name="com.android.dialer.app.calllog.CallLogActivity"
-      android:theme="@style/DialtactsThemeWithoutActionBarOverlay">
+      android:theme="@style/DialtactsTheme">
     </activity>
 
     <receiver android:name="com.android.dialer.app.calllog.CallLogReceiver">

@@ -18,10 +18,12 @@
 
 #include <shared/abort.h>
 #include <shared/send_message.h>
+#include <shared/time_util.h>
 
 #include <chre.h>
 
 using nanoapp_testing::sendFatalFailureToHost;
+using nanoapp_testing::sendFatalFailureToHostUint8;
 
 namespace general_test {
 
@@ -48,6 +50,38 @@ void Test::testHandleEvent(uint32_t senderInstanceId, uint16_t eventType,
 void Test::unexpectedEvent(uint16_t eventType) {
   uint32_t localEvent = eventType;
   sendFatalFailureToHost("Test received unexpected event:", &localEvent);
+}
+
+void Test::validateChreAsyncResult(const chreAsyncResult *result,
+                                   const chreAsyncRequest& request) {
+  if (!result->success) {
+    sendFatalFailureToHostUint8(
+        "chre async result error: %d", result->errorCode);
+  }
+  if (result->success && result->errorCode != CHRE_ERROR_NONE) {
+    sendFatalFailureToHostUint8(
+        "Request was successfully processed, but got errorCode: %d",
+        result->errorCode);
+  }
+  if (result->reserved != 0) {
+    sendFatalFailureToHostUint8(
+        "reserved should be 0, got: %d", result->reserved);
+  }
+  if (result->cookie != request.cookie) {
+    chreLog(CHRE_LOG_ERROR, "Request cookie is %p, got %p",
+            request.cookie, result->cookie);
+    sendFatalFailureToHost("Request cookie mismatch");
+  }
+  if (result->requestType != request.requestType) {
+    chreLog(CHRE_LOG_ERROR, "Request requestType is %d, got %d",
+            request.requestType, result->requestType);
+    sendFatalFailureToHost("Request requestType mismatch");
+  }
+  if (chreGetTime() - request.requestTimeNs > request.timeoutNs) {
+    nanoapp_testing::sendFatalFailureToHostUint8(
+        "Did not receive chreWifiAsyncEvent within %d seconds.",
+        request.timeoutNs / nanoapp_testing::kOneSecondInNanoseconds);
+  }
 }
 
 const void *Test::getMessageDataFromHostEvent(uint32_t senderInstanceId,

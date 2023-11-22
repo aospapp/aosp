@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-     xmlns:phone="http://schemas.android.com/apk/res/com.android.phone"
-     android:title="@string/additional_gsm_call_settings">
+                  android:title="@string/additional_gsm_call_settings">
 
     <com.android.phone.CLIRListPreference
         android:key="button_clir_key"

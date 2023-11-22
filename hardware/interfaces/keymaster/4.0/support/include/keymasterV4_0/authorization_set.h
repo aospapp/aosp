@@ -46,7 +46,7 @@ class AuthorizationSet {
     AuthorizationSet(const AuthorizationSet& other) : data_(other.data_) {}
 
     // Move constructor.
-    AuthorizationSet(AuthorizationSet&& other) : data_(std::move(other.data_)) {}
+    AuthorizationSet(AuthorizationSet&& other) noexcept : data_(std::move(other.data_)) {}
 
     // Constructor from hidl_vec<KeyParameter>
     AuthorizationSet(const hidl_vec<KeyParameter>& other) { *this = other; }
@@ -58,7 +58,7 @@ class AuthorizationSet {
     }
 
     // Move assignment.
-    AuthorizationSet& operator=(AuthorizationSet&& other) {
+    AuthorizationSet& operator=(AuthorizationSet&& other) noexcept {
         data_ = std::move(other.data_);
         return *this;
     }
@@ -142,6 +142,11 @@ class AuthorizationSet {
     std::vector<KeyParameter>::const_iterator end() const { return data_.end(); }
 
     /**
+     * Modifies this Authorization set such that it only keeps the entries for which doKeep
+     * returns true.
+     */
+    void Filter(std::function<bool(const KeyParameter&)> doKeep);
+    /**
      * Returns the nth element of the set.
      * Like for std::vector::operator[] there is no range check performed. Use of out of range
      * indices is undefined.
@@ -210,8 +215,7 @@ class AuthorizationSet {
     }
 
     hidl_vec<KeyParameter> hidl_data() const {
-        hidl_vec<KeyParameter> result;
-        result.setToExternal(const_cast<KeyParameter*>(data()), size());
+        hidl_vec<KeyParameter> result(begin(), end());
         return result;
     }
 
@@ -237,12 +241,18 @@ class AuthorizationSetBuilder : public AuthorizationSet {
                                            size_t data_length) {
         hidl_vec<uint8_t> new_blob;
         new_blob.setToExternal(const_cast<uint8_t*>(data), data_length);
-        push_back(ttag, std::move(new_blob));
+        push_back(ttag, new_blob);
         return *this;
     }
 
     template <Tag tag>
     AuthorizationSetBuilder& Authorization(TypedTag<TagType::BYTES, tag> ttag, const char* data,
+                                           size_t data_length) {
+        return Authorization(ttag, reinterpret_cast<const uint8_t*>(data), data_length);
+    }
+
+    template <Tag tag>
+    AuthorizationSetBuilder& Authorization(TypedTag<TagType::BYTES, tag> ttag, char* data,
                                            size_t data_length) {
         return Authorization(ttag, reinterpret_cast<const uint8_t*>(data), data_length);
     }
@@ -278,7 +288,7 @@ class AuthorizationSetBuilder : public AuthorizationSet {
     AuthorizationSetBuilder& GcmModeMacLen(uint32_t macLength);
 
     AuthorizationSetBuilder& BlockMode(std::initializer_list<BlockMode> blockModes);
-    AuthorizationSetBuilder& Digest(std::initializer_list<Digest> digests);
+    AuthorizationSetBuilder& Digest(std::vector<Digest> digests);
     AuthorizationSetBuilder& Padding(std::initializer_list<PaddingMode> paddings);
 
     template <typename... T>

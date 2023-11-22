@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"緊急時情報"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"医療に関する情報"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"情報の編集"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"情報を追加する"</string>
     <string name="edit_info" msgid="5973929805855224805">"緊急時情報を編集します"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"情報"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"連絡先"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"医療に関する情報と緊急連絡先を追加すると、緊急時の初期対応に役立ちます。\n\nこの情報はスマートフォンをロック解除しなくても、誰でもロック画面から閲覧でき、連絡先の名前をタップしてダイヤルできます。"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"緊急時情報を追加する"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"緊急時の初期対応に役立つ情報が表示されます"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"写真を撮る"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"画像を選択"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"写真を選択"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"ニックネーム"</string>
 </resources>

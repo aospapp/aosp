@@ -7,6 +7,30 @@
           "instrumentation-arg": "annotation:=android.support.test.filters.SmallTest"
         }
       ]
+    },
+    {
+      "name": "hello_world_test",
+      "host": true
+    },
+    {
+      "name": "CtsPerfettoTestCases"
+    },
+    {
+      "name": "CtsApacheHttpLegacy27ApiSignatureTestCases"
+    },
+    {
+      "name": "ziparchive-tests"
+    },
+    {
+      "name": "CtsDpiTestCases",
+      "options": [
+        {
+          "include-filter": "android.dpi.cts.ConfigurationScreenLayoutTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsSampleHostTestCases"
     }
   ]
 }

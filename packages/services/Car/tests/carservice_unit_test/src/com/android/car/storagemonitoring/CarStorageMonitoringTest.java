@@ -16,20 +16,32 @@
 
 package com.android.car.storagemonitoring;
 
-import android.car.storagemonitoring.IoStatsEntry;
+import static org.mockito.Mockito.*;
+
 import android.car.storagemonitoring.IoStats;
+import android.car.storagemonitoring.IoStatsEntry;
 import android.car.storagemonitoring.LifetimeWriteInfo;
 import android.car.storagemonitoring.UidIoRecord;
 import android.car.storagemonitoring.WearEstimate;
 import android.car.storagemonitoring.WearEstimateChange;
+import android.hardware.health.V2_0.IHealth;
+import android.hardware.health.V2_0.IHealth.getStorageInfoCallback;
+import android.hardware.health.V2_0.Result;
+import android.hardware.health.V2_0.StorageInfo;
 import android.os.Parcel;
 import android.test.suitebuilder.annotation.MediumTest;
-
-import android.util.SparseArray;
-import com.android.car.test.utils.TemporaryDirectory;
-import com.android.car.test.utils.TemporaryFile;
 import android.util.JsonReader;
 import android.util.JsonWriter;
+import android.util.SparseArray;
+
+import com.android.car.test.utils.TemporaryDirectory;
+import com.android.car.test.utils.TemporaryFile;
+
+import junit.framework.TestCase;
+
+import org.json.JSONObject;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import java.io.FileWriter;
 import java.io.StringReader;
@@ -40,8 +52,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import junit.framework.TestCase;
-import org.json.JSONObject;
+
 
 /**
  * Tests the storage monitoring API in CarService.
@@ -49,6 +60,14 @@ import org.json.JSONObject;
 @MediumTest
 public class CarStorageMonitoringTest extends TestCase {
     static final String TAG = CarStorageMonitoringTest.class.getSimpleName();
+
+    @Mock private IHealth mMockedHal;
+    @Mock private HealthServiceWearInfoProvider.IHealthSupplier mHealthServiceSupplier;
+
+    @Override
+    public void setUp() {
+        MockitoAnnotations.initMocks(this);
+    }
 
     public void testEMmcWearInformationProvider() throws Exception {
         try (TemporaryFile lifetimeFile = new TemporaryFile(TAG)) {
@@ -91,6 +110,32 @@ public class CarStorageMonitoringTest extends TestCase {
             assertEquals(WearInformation.UNKNOWN_LIFETIME_ESTIMATE,
                     wearInformation.lifetimeEstimateA);
         }
+    }
+
+    public void testHealthServiceWearInformationProvider() throws Exception {
+        StorageInfo storageInfo = new StorageInfo();
+        storageInfo.eol = WearInformation.PRE_EOL_INFO_NORMAL;
+        storageInfo.lifetimeA = 3;
+        storageInfo.lifetimeB = WearInformation.UNKNOWN_LIFETIME_ESTIMATE;
+        storageInfo.attr.isInternal = true;
+        HealthServiceWearInfoProvider wearInfoProvider = new HealthServiceWearInfoProvider();
+        wearInfoProvider.setHealthSupplier(mHealthServiceSupplier);
+
+        doReturn(mMockedHal)
+            .when(mHealthServiceSupplier).get(anyString());
+        doAnswer((invocation) -> {
+            ArrayList<StorageInfo> list = new ArrayList<StorageInfo>();
+            list.add(storageInfo);
+            ((IHealth.getStorageInfoCallback) invocation.getArguments()[0])
+                .onValues(Result.SUCCESS, list);
+            return null;
+        }).when(mMockedHal).getStorageInfo(any(getStorageInfoCallback.class));
+        WearInformation wearInformation = wearInfoProvider.load();
+
+        assertNotNull(wearInformation);
+        assertEquals(storageInfo.lifetimeA, wearInformation.lifetimeEstimateA);
+        assertEquals(storageInfo.lifetimeB, wearInformation.lifetimeEstimateB);
+        assertEquals(storageInfo.eol, wearInformation.preEolInfo);
     }
 
     public void testWearEstimateEquality() {

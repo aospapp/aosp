@@ -1,2 +1,2 @@
 Manifest-Version: 1.0
-Implementation-Version: %BUILD_NUMBER%
+Implementation-Version: default

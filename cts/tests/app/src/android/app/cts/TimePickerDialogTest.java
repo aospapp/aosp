@@ -26,15 +26,17 @@ import android.app.TimePickerDialog.OnTimeSetListener;
 import android.app.stubs.R;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
 import android.test.UiThreadTest;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.TimePicker;
 
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
 /**
  * Test {@link TimePickerDialog}.
  */

@@ -27,7 +27,7 @@
     <minSdk>23</minSdk>
 
     <dependency>com.squareup.dagger:dagger:1.2.2</dependency>
-    <dependency>com.squareup.dagger:dagger-compiler:1.2.2</dependency>
+    <annotationProcessor>com.squareup.dagger:dagger-compiler:1.2.2</annotationProcessor>
 
     <!-- TODO(thagikura) These dependencies should be created as testCompile instead of compile but
          the template system doesn't allow androidTestCompile dependencies. Change it once fixed.

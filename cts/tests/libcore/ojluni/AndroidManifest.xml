@@ -19,7 +19,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!-- important: instrument another package which actually contains AJUR -->
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.libcore.runner"
                      android:label="CTS Libcore OJ test cases">
         <meta-data android:name="listener"

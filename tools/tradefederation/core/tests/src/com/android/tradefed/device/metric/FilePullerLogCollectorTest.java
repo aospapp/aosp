@@ -75,8 +75,7 @@ public class FilePullerLogCollectorTest {
         mMockListener.testStarted(test, 0L);
         EasyMock.expect(mMockDevice.pullFile("/data/local/tmp/log1.txt"))
                 .andReturn(new File("file"));
-        EasyMock.expect(mMockDevice.executeShellCommand("rm -f /data/local/tmp/log1.txt"))
-                .andReturn("");
+        mMockDevice.deleteFile("/data/local/tmp/log1.txt");
         mMockListener.testLog(
                 EasyMock.eq("file"), EasyMock.eq(LogDataType.TEXT), EasyMock.anyObject());
         mMockListener.testEnded(EasyMock.eq(test), EasyMock.eq(50L), EasyMock.capture(capture));
@@ -121,5 +120,49 @@ public class FilePullerLogCollectorTest {
         assertEquals(
                 "/data/local/tmp/log1.txt",
                 metricCaptured.get("log1").getMeasurements().getSingleString());
+    }
+
+    /** Test that the post processor is called on any pulled files. */
+    @Test
+    public void testPostProcessFiles() throws Exception {
+        PostProcessingFilePullerLogCollector collector = new PostProcessingFilePullerLogCollector();
+        OptionSetter setter = new OptionSetter(collector);
+        setter.setOptionValue("pull-pattern-keys", "log.*");
+
+        ITestInvocationListener listener = collector.init(mContext, mMockListener);
+        TestDescription test = new TestDescription("class", "test");
+        Map<String, String> metrics = new HashMap<>();
+        metrics.put("log1", "/data/local/tmp/log1.txt");
+
+        Capture<HashMap<String, Metric>> capture = new Capture<>();
+        mMockListener.testStarted(test, 0L);
+        EasyMock.expect(mMockDevice.pullFile("/data/local/tmp/log1.txt"))
+                .andReturn(new File("file"));
+        mMockDevice.deleteFile("/data/local/tmp/log1.txt");
+        mMockListener.testLog(
+                EasyMock.eq("file"), EasyMock.eq(LogDataType.TEXT), EasyMock.anyObject());
+        mMockListener.testEnded(EasyMock.eq(test), EasyMock.eq(50L), EasyMock.capture(capture));
+
+        EasyMock.replay(mMockDevice, mMockListener);
+        listener.testStarted(test, 0L);
+        listener.testEnded(test, 50L, TfMetricProtoUtil.upgradeConvert(metrics));
+        EasyMock.verify(mMockDevice, mMockListener);
+
+        // Assert the post processor was called and completed.
+        assertTrue(collector.isPostProcessed());
+    }
+
+    private static class PostProcessingFilePullerLogCollector extends FilePullerLogCollector {
+        private boolean mIsPostProcessed = false;
+
+        @Override
+        protected void postProcessMetricFile(
+                String key, File metricFile, DeviceMetricData runData) {
+            mIsPostProcessed = true;
+        }
+
+        public boolean isPostProcessed() {
+            return mIsPostProcessed;
+        }
     }
 }

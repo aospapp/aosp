@@ -29,8 +29,7 @@ namespace vts {
 // Basic I/O methods for a GCOV file.
 class GcdaFile {
  public:
-  GcdaFile(const string& filename) :
-    filename_(filename) {}
+  explicit GcdaFile(const string& filename) : filename_(filename) {}
   virtual ~GcdaFile() {};
 
   // Opens a file.

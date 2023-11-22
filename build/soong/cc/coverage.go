@@ -15,13 +15,19 @@
 package cc
 
 import (
+	"strconv"
+
 	"android/soong/android"
 )
 
 type CoverageProperties struct {
 	Native_coverage *bool
 
-	CoverageEnabled bool `blueprint:"mutated"`
+	NeedCoverageVariant bool `blueprint:"mutated"`
+	NeedCoverageBuild   bool `blueprint:"mutated"`
+
+	CoverageEnabled   bool `blueprint:"mutated"`
+	IsCoverageVariant bool `blueprint:"mutated"`
 }
 
 type coverage struct {
@@ -35,9 +41,24 @@ func (cov *coverage) props() []interface{} {
 	return []interface{}{&cov.Properties}
 }
 
-func (cov *coverage) begin(ctx BaseModuleContext) {}
-
 func (cov *coverage) deps(ctx BaseModuleContext, deps Deps) Deps {
+	if cov.Properties.NeedCoverageBuild {
+		// Link libprofile-extras/libprofile-extras_ndk when coverage
+		// variant is required.  This is a no-op unless coverage is
+		// actually enabled during linking, when
+		// '-uinit_profile_extras' is added (in flags()) to force the
+		// setup code in libprofile-extras be linked into the
+		// binary/library.
+		//
+		// We cannot narrow it further to only the 'cov' variant since
+		// the mutator hasn't run (and we don't have the 'cov' variant
+		// yet).
+		if !ctx.useSdk() {
+			deps.LateStaticLibs = append(deps.LateStaticLibs, "libprofile-extras")
+		} else {
+			deps.LateStaticLibs = append(deps.LateStaticLibs, "libprofile-extras_ndk")
+		}
+	}
 	return deps
 }
 
@@ -50,6 +71,10 @@ func (cov *coverage) flags(ctx ModuleContext, flags Flags) Flags {
 		flags.Coverage = true
 		flags.GlobalFlags = append(flags.GlobalFlags, "--coverage", "-O0")
 		cov.linkCoverage = true
+
+		// Override -Wframe-larger-than and non-default optimization
+		// flags that the module may use.
+		flags.CFlags = append(flags.CFlags, "-Wno-frame-larger-than=", "-O0")
 	}
 
 	// Even if we don't have coverage enabled, if any of our object files were compiled
@@ -88,32 +113,67 @@ func (cov *coverage) flags(ctx ModuleContext, flags Flags) Flags {
 
 	if cov.linkCoverage {
 		flags.LdFlags = append(flags.LdFlags, "--coverage")
+
+		// Force linking of constructor/setup code in libprofile-extras
+		flags.LdFlags = append(flags.LdFlags, "-uinit_profile_extras")
 	}
 
 	return flags
 }
 
-func coverageLinkingMutator(mctx android.BottomUpMutatorContext) {
-	if c, ok := mctx.Module().(*Module); ok && c.coverage != nil {
-		var enabled bool
+func (cov *coverage) begin(ctx BaseModuleContext) {
+	// Coverage is disabled globally
+	if !ctx.DeviceConfig().NativeCoverageEnabled() {
+		return
+	}
 
-		if !mctx.DeviceConfig().NativeCoverageEnabled() {
-			// Coverage is disabled globally
-		} else if mctx.Host() {
-			// TODO(dwillemsen): because of -nodefaultlibs, we must depend on libclang_rt.profile-*.a
-			// Just turn off for now.
-		} else if c.coverage.Properties.Native_coverage != nil {
-			enabled = *c.coverage.Properties.Native_coverage
-		} else {
-			enabled = mctx.DeviceConfig().CoverageEnabledForPath(mctx.ModuleDir())
+	var needCoverageVariant bool
+	var needCoverageBuild bool
+
+	if ctx.Host() {
+		// TODO(dwillemsen): because of -nodefaultlibs, we must depend on libclang_rt.profile-*.a
+		// Just turn off for now.
+	} else if !ctx.nativeCoverage() {
+		// Native coverage is not supported for this module type.
+	} else {
+		// Check if Native_coverage is set to false.  This property defaults to true.
+		needCoverageVariant = BoolDefault(cov.Properties.Native_coverage, true)
+
+		if sdk_version := ctx.sdkVersion(); ctx.useSdk() && sdk_version != "current" {
+			// Native coverage is not supported for SDK versions < 23
+			if fromApi, err := strconv.Atoi(sdk_version); err == nil && fromApi < 23 {
+				needCoverageVariant = false
+			}
 		}
 
-		if enabled {
-			// Create a variation so that we don't need to recompile objects
-			// when turning on or off coverage. We'll still relink the necessary
-			// binaries, since we don't know which ones those are until later.
-			m := mctx.CreateLocalVariations("cov")
-			m[0].(*Module).coverage.Properties.CoverageEnabled = true
+		if needCoverageVariant {
+			// Coverage variant is actually built with coverage if enabled for its module path
+			needCoverageBuild = ctx.DeviceConfig().CoverageEnabledForPath(ctx.ModuleDir())
+		}
+	}
+
+	cov.Properties.NeedCoverageBuild = needCoverageBuild
+	cov.Properties.NeedCoverageVariant = needCoverageVariant
+}
+
+func coverageMutator(mctx android.BottomUpMutatorContext) {
+	if c, ok := mctx.Module().(*Module); ok && c.coverage != nil {
+		needCoverageVariant := c.coverage.Properties.NeedCoverageVariant
+		needCoverageBuild := c.coverage.Properties.NeedCoverageBuild
+		if needCoverageVariant {
+			m := mctx.CreateVariations("", "cov")
+
+			// Setup the non-coverage version and set HideFromMake and
+			// PreventInstall to true.
+			m[0].(*Module).coverage.Properties.CoverageEnabled = false
+			m[0].(*Module).coverage.Properties.IsCoverageVariant = false
+			m[0].(*Module).Properties.HideFromMake = true
+			m[0].(*Module).Properties.PreventInstall = true
+
+			// The coverage-enabled version inherits HideFromMake,
+			// PreventInstall from the original module.
+			m[1].(*Module).coverage.Properties.CoverageEnabled = needCoverageBuild
+			m[1].(*Module).coverage.Properties.IsCoverageVariant = true
 		}
 	}
 }

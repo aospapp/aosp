@@ -45,33 +45,108 @@ func registerNeverallowMutator(ctx RegisterMutatorsContext) {
 	ctx.BottomUp("neverallow", neverallowMutator).Parallel()
 }
 
-var neverallows = []*rule{
-	neverallow().
-		in("vendor", "device").
-		with("vndk.enabled", "true").
-		without("vendor", "true").
-		because("the VNDK can never contain a library that is device dependent."),
-	neverallow().
-		with("vndk.enabled", "true").
-		without("vendor", "true").
-		without("owner", "").
-		because("a VNDK module can never have an owner."),
-	neverallow().notIn("libcore").with("no_standard_libs", "true"),
+var neverallows = createNeverAllows()
 
-	// TODO(b/67974785): always enforce the manifest
-	neverallow().
-		without("name", "libhidltransport").
-		with("product_variables.enforce_vintf_manifest.cflags", "*").
-		because("manifest enforcement should be independent of ."),
+func createNeverAllows() []*rule {
+	rules := []*rule{}
+	rules = append(rules, createTrebleRules()...)
+	rules = append(rules, createLibcoreRules()...)
+	rules = append(rules, createMediaRules()...)
+	rules = append(rules, createJavaDeviceForHostRules()...)
+	return rules
+}
 
-	// TODO(b/67975799): vendor code should always use /vendor/bin/sh
-	neverallow().
-		without("name", "libc_bionic_ndk").
-		with("product_variables.treble_linker_namespaces.cflags", "*").
-		because("nothing should care if linker namespaces are enabled or not"),
+func createTrebleRules() []*rule {
+	return []*rule{
+		neverallow().
+			in("vendor", "device").
+			with("vndk.enabled", "true").
+			without("vendor", "true").
+			because("the VNDK can never contain a library that is device dependent."),
+		neverallow().
+			with("vndk.enabled", "true").
+			without("vendor", "true").
+			without("owner", "").
+			because("a VNDK module can never have an owner."),
 
-	// Example:
-	// *neverallow().with("Srcs", "main.cpp"),
+		// TODO(b/67974785): always enforce the manifest
+		neverallow().
+			without("name", "libhidltransport-impl-internal").
+			with("product_variables.enforce_vintf_manifest.cflags", "*").
+			because("manifest enforcement should be independent of ."),
+
+		// TODO(b/67975799): vendor code should always use /vendor/bin/sh
+		neverallow().
+			without("name", "libc_bionic_ndk").
+			with("product_variables.treble_linker_namespaces.cflags", "*").
+			because("nothing should care if linker namespaces are enabled or not"),
+
+		// Example:
+		// *neverallow().with("Srcs", "main.cpp"))
+	}
+}
+
+func createLibcoreRules() []*rule {
+	var coreLibraryProjects = []string{
+		"libcore",
+		"external/apache-harmony",
+		"external/apache-xml",
+		"external/bouncycastle",
+		"external/conscrypt",
+		"external/icu",
+		"external/okhttp",
+		"external/wycheproof",
+	}
+
+	var coreModules = []string{
+		"core-all",
+		"core-oj",
+		"core-libart",
+		"okhttp",
+		"bouncycastle",
+		"conscrypt",
+		"apache-xml",
+	}
+
+	// Core library constraints. Prevent targets adding dependencies on core
+	// library internals, which could lead to compatibility issues with the ART
+	// mainline module. They should use core.platform.api.stubs instead.
+	rules := []*rule{
+		neverallow().
+			notIn(append(coreLibraryProjects, "development")...).
+			with("no_standard_libs", "true"),
+	}
+
+	for _, m := range coreModules {
+		r := neverallow().
+			notIn(coreLibraryProjects...).
+			with("libs", m).
+			because("Only core libraries projects can depend on " + m)
+		rules = append(rules, r)
+	}
+	return rules
+}
+
+func createMediaRules() []*rule {
+	return []*rule{
+		neverallow().
+			with("libs", "updatable-media").
+			because("updatable-media includes private APIs. Use updatable_media_stubs instead."),
+	}
+}
+
+func createJavaDeviceForHostRules() []*rule {
+	javaDeviceForHostProjectsWhitelist := []string{
+		"external/robolectric-shadows",
+		"framework/layoutlib",
+	}
+
+	return []*rule{
+		neverallow().
+			notIn(javaDeviceForHostProjectsWhitelist...).
+			moduleType("java_device_for_host", "java_host_for_device").
+			because("java_device_for_host can only be used in whitelisted projects"),
+	}
 }
 
 func neverallowMutator(ctx BottomUpMutatorContext) {
@@ -85,6 +160,10 @@ func neverallowMutator(ctx BottomUpMutatorContext) {
 
 	for _, n := range neverallows {
 		if !n.appliesToPath(dir) {
+			continue
+		}
+
+		if !n.appliesToModuleType(ctx.ModuleType()) {
 			continue
 		}
 
@@ -108,6 +187,9 @@ type rule struct {
 	paths       []string
 	unlessPaths []string
 
+	moduleTypes       []string
+	unlessModuleTypes []string
+
 	props       []ruleProperty
 	unlessProps []ruleProperty
 }
@@ -115,14 +197,27 @@ type rule struct {
 func neverallow() *rule {
 	return &rule{}
 }
+
 func (r *rule) in(path ...string) *rule {
 	r.paths = append(r.paths, cleanPaths(path)...)
 	return r
 }
+
 func (r *rule) notIn(path ...string) *rule {
 	r.unlessPaths = append(r.unlessPaths, cleanPaths(path)...)
 	return r
 }
+
+func (r *rule) moduleType(types ...string) *rule {
+	r.moduleTypes = append(r.moduleTypes, types...)
+	return r
+}
+
+func (r *rule) notModuleType(types ...string) *rule {
+	r.unlessModuleTypes = append(r.unlessModuleTypes, types...)
+	return r
+}
+
 func (r *rule) with(properties, value string) *rule {
 	r.props = append(r.props, ruleProperty{
 		fields: fieldNamesForProperties(properties),
@@ -130,6 +225,7 @@ func (r *rule) with(properties, value string) *rule {
 	})
 	return r
 }
+
 func (r *rule) without(properties, value string) *rule {
 	r.unlessProps = append(r.unlessProps, ruleProperty{
 		fields: fieldNamesForProperties(properties),
@@ -137,6 +233,7 @@ func (r *rule) without(properties, value string) *rule {
 	})
 	return r
 }
+
 func (r *rule) because(reason string) *rule {
 	r.reason = reason
 	return r
@@ -149,6 +246,12 @@ func (r *rule) String() string {
 	}
 	for _, v := range r.unlessPaths {
 		s += " -dir:" + v + "*"
+	}
+	for _, v := range r.moduleTypes {
+		s += " type:" + v
+	}
+	for _, v := range r.unlessModuleTypes {
+		s += " -type:" + v
 	}
 	for _, v := range r.props {
 		s += " " + strings.Join(v.fields, ".") + "=" + v.value
@@ -166,6 +269,10 @@ func (r *rule) appliesToPath(dir string) bool {
 	includePath := len(r.paths) == 0 || hasAnyPrefix(dir, r.paths)
 	excludePath := hasAnyPrefix(dir, r.unlessPaths)
 	return includePath && !excludePath
+}
+
+func (r *rule) appliesToModuleType(moduleType string) bool {
+	return (len(r.moduleTypes) == 0 || InList(moduleType, r.moduleTypes)) && !InList(moduleType, r.unlessModuleTypes)
 }
 
 func (r *rule) appliesToProperties(properties []interface{}) bool {

@@ -26,45 +26,58 @@ import androidx.annotation.Nullable;
  * Represents a message obtained via MAP service from a connected Bluetooth device.
  */
 class MapMessage {
-    private BluetoothDevice mDevice;
+    private String mDeviceAddress;
     private String mHandle;
-    private long mReceivedTimeMs;
     private String mSenderName;
     @Nullable
     private String mSenderContactUri;
-    private String mText;
+    private String mMessageText;
+    private long mReceiveTime;
+    private boolean mIsRead;
 
     /**
-     * Constructs Message from {@code intent} that was received from MAP service via
+     * Constructs a {@link MapMessage} from {@code intent} that was received from MAP service via
      * {@link BluetoothMapClient#ACTION_MESSAGE_RECEIVED} broadcast.
      *
-     * @param intent Intent received from MAP service.
-     * @return Message constructed from extras in {@code intent}.
-     * @throws IllegalArgumentException If {@code intent} is missing any required fields.
+     * @param intent intent received from MAP service
+     * @return message constructed from extras in {@code intent}
+     * @throws NullPointerException if {@code intent} is missing the device extra
+     * @throws IllegalArgumentException if {@code intent} is missing any other required extras
      */
     public static MapMessage parseFrom(Intent intent) {
         BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
         String handle = intent.getStringExtra(BluetoothMapClient.EXTRA_MESSAGE_HANDLE);
-        String senderContactUri = intent.getStringExtra(
-                BluetoothMapClient.EXTRA_SENDER_CONTACT_URI);
-        String senderContactName = intent.getStringExtra(
-                BluetoothMapClient.EXTRA_SENDER_CONTACT_NAME);
-        String text = intent.getStringExtra(android.content.Intent.EXTRA_TEXT);
-        return new MapMessage(device, handle, System.currentTimeMillis(), senderContactName,
-                senderContactUri, text);
+        String senderUri = intent.getStringExtra(BluetoothMapClient.EXTRA_SENDER_CONTACT_URI);
+        String senderName = intent.getStringExtra(BluetoothMapClient.EXTRA_SENDER_CONTACT_NAME);
+        String messageText = intent.getStringExtra(android.content.Intent.EXTRA_TEXT);
+        long receiveTime = intent.getLongExtra(BluetoothMapClient.EXTRA_MESSAGE_TIMESTAMP,
+                System.currentTimeMillis());
+        boolean isRead = intent.getBooleanExtra(BluetoothMapClient.EXTRA_MESSAGE_READ_STATUS,
+                false);
+
+        return new MapMessage(
+                device.getAddress(),
+                handle,
+                senderName,
+                senderUri,
+                messageText,
+                receiveTime,
+                isRead
+        );
     }
 
-    private MapMessage(BluetoothDevice device,
+    private MapMessage(String deviceAddress,
             String handle,
-            long receivedTimeMs,
             String senderName,
             @Nullable String senderContactUri,
-            String text) {
-        boolean missingDevice = (device == null);
+            String messageText,
+            long receiveTime,
+            boolean isRead) {
+        boolean missingDevice = (deviceAddress == null);
         boolean missingHandle = (handle == null);
         boolean missingSenderName = (senderName == null);
-        boolean missingText = (text == null);
-        if (missingDevice || missingHandle || missingText) {
+        boolean missingText = (messageText == null);
+        if (missingDevice || missingHandle || missingSenderName || missingText) {
             StringBuilder builder = new StringBuilder("Missing required fields:");
             if (missingDevice) {
                 builder.append(" device");
@@ -76,48 +89,54 @@ class MapMessage {
                 builder.append(" senderName");
             }
             if (missingText) {
-                builder.append(" text");
+                builder.append(" messageText");
             }
             throw new IllegalArgumentException(builder.toString());
         }
-        mDevice = device;
+        mDeviceAddress = deviceAddress;
         mHandle = handle;
-        mReceivedTimeMs = receivedTimeMs;
-        mText = text;
+        mMessageText = messageText;
         mSenderContactUri = senderContactUri;
         mSenderName = senderName;
-    }
-
-    public BluetoothDevice getDevice() {
-        return mDevice;
+        mReceiveTime = receiveTime;
+        mIsRead = isRead;
     }
 
     /**
-     * @return Unique handle for this message. NOTE: The handle is only required to be unique for
-     *      the lifetime of a single MAP session.
+     * Returns the bluetooth address of the device from which this message was received.
+     */
+    public String getDeviceAddress() {
+        return mDeviceAddress;
+    }
+
+    /**
+     * Returns a unique handle for this message.
+     * Note: The handle is only required to be unique for the lifetime of a single MAP session.
      */
     public String getHandle() {
         return mHandle;
     }
 
     /**
-     * @return Milliseconds since epoch at which this message notification was received on the head-
-     *      unit.
+     * Returns the milliseconds since epoch at which this message notification was received on the
+     * head-unit.
      */
-    public long getReceivedTimeMs() {
-        return mReceivedTimeMs;
+    public long getReceiveTime() {
+        return mReceiveTime;
     }
 
     /**
-     * @return Contact name as obtained from the device. If contact is in the device's address-book,
-     *       this is typically the contact name. Otherwise it will be the phone number.
+     * Returns the contact name as obtained from the device.
+     * If contact is in the device's address-book, this is typically the contact name.
+     * Otherwise it will be the phone number.
      */
     public String getSenderName() {
         return mSenderName;
     }
 
     /**
-     * @return Sender phone number available as a URI string. iPhone's don't provide these.
+     * Returns the sender's phone number available as a URI string.
+     * Note: iPhone's don't provide these.
      */
     @Nullable
     public String getSenderContactUri() {
@@ -125,21 +144,33 @@ class MapMessage {
     }
 
     /**
-     * @return Actual content of the message.
+     * Returns the actual content of the message.
      */
-    public String getText() {
-        return mText;
+    public String getMessageText() {
+        return mMessageText;
+    }
+
+    public void markMessageAsRead() {
+        mIsRead = true;
+    }
+
+    /**
+     * Returns the read status of the message.
+     */
+    public boolean isRead() {
+        return mIsRead;
     }
 
     @Override
     public String toString() {
         return "MapMessage{" +
-                "mDevice=" + mDevice +
+                "mDeviceAddress=" + mDeviceAddress +
                 ", mHandle='" + mHandle + '\'' +
-                ", mReceivedTimeMs=" + mReceivedTimeMs +
-                ", mText='" + mText + '\'' +
+                ", mMessageText='" + mMessageText + '\'' +
                 ", mSenderContactUri='" + mSenderContactUri + '\'' +
                 ", mSenderName='" + mSenderName + '\'' +
-                '}';
+                ", mReceiveTime=" + mReceiveTime +
+                ", mIsRead= " + mIsRead +
+                "}";
     }
 }

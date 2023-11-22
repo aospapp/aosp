@@ -158,4 +158,6 @@
     <color name="dvr_guided_step_action_text_color_selected">#111111</color>
     <color name="dvr_detail_default_background">#FF01579B</color>
     <color name="dvr_detail_default_background_scrim">#CC000000</color>
+    <color name="dvr_recording_failed_text_color">#FFCDD2</color>
+    <color name="dvr_recording_conflict_text_color">#FFE082</color>
 </resources>

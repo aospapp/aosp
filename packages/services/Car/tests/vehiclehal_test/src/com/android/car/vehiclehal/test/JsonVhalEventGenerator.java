@@ -28,6 +28,9 @@ import java.io.File;
 
 class JsonVhalEventGenerator implements VhalEventGenerator {
 
+    // Exactly one iteration is required for JSON-based end-to-end test
+    private static final int NUM_OF_ITERATION = 1;
+
     private IVehicle mVehicle;
     private File mFile;
 
@@ -47,7 +50,7 @@ class JsonVhalEventGenerator implements VhalEventGenerator {
     public void start() throws RemoteException {
         VehiclePropValue request =
                 VehiclePropValueBuilder.newBuilder(GENERATE_FAKE_DATA_CONTROLLING_PROPERTY)
-                    .addIntValue(CMD_START_JSON)
+                    .addIntValue(CMD_START_JSON, NUM_OF_ITERATION)
                     .setStringValue(mFile.getAbsolutePath())
                     .build();
         assertEquals(StatusCode.OK, mVehicle.set(request));
@@ -58,6 +61,7 @@ class JsonVhalEventGenerator implements VhalEventGenerator {
         VehiclePropValue request =
                 VehiclePropValueBuilder.newBuilder(GENERATE_FAKE_DATA_CONTROLLING_PROPERTY)
                     .addIntValue(CMD_STOP_JSON)
+                    .setStringValue(mFile.getAbsolutePath())
                     .build();
         assertEquals(StatusCode.OK, mVehicle.set(request));
     }

@@ -4,4 +4,6 @@
 *.iml
 gen/
 *.pyc
+*.swp
 __pycache__
+.idea

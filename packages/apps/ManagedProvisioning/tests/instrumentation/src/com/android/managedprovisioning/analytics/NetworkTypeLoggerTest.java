@@ -31,6 +31,7 @@ import android.test.suitebuilder.annotation.SmallTest;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.Utils;
 
 import org.mockito.Mock;
@@ -47,6 +48,8 @@ public class NetworkTypeLoggerTest extends AndroidTestCase {
 
     @Mock private Context mContext;
     @Mock private MetricsLoggerWrapper mMetricsLoggerWrapper;
+    @Mock private MetricsWriter mMetricsWriter;
+    @Mock private ManagedProvisioningSharedPreferences mSharedPreferences;
     @Mock private Utils mUtils;
 
     private NetworkTypeLogger mNetworkTypeLogger;
@@ -58,7 +61,8 @@ public class NetworkTypeLoggerTest extends AndroidTestCase {
 
         MockitoAnnotations.initMocks(this);
 
-        mNetworkTypeLogger = new NetworkTypeLogger(mContext, mUtils, mMetricsLoggerWrapper);
+        mNetworkTypeLogger = new NetworkTypeLogger(
+                mContext, mUtils, mMetricsLoggerWrapper, mMetricsWriter, mSharedPreferences);
     }
 
     @SmallTest

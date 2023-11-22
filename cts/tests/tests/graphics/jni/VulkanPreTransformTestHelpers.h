@@ -17,23 +17,25 @@
 #ifndef VULKAN_PRE_TRANSFORM_TEST_HELPERS_H
 #define VULKAN_PRE_TRANSFORM_TEST_HELPERS_H
 
-#define LOG_TAG "vulkan"
-
-#ifndef VK_USE_PLATFORM_ANDROID_KHR
-#define VK_USE_PLATFORM_ANDROID_KHR
-#endif
-
 #include <android/asset_manager_jni.h>
 #include <android/native_window_jni.h>
 #include <jni.h>
 #include <vulkan/vulkan.h>
 #include <vector>
 
+typedef enum VkTestResult {
+    VK_TEST_ERROR = -1,
+    VK_TEST_SUCCESS = 0,
+    VK_TEST_PHYSICAL_DEVICE_NOT_EXISTED = 1,
+    VK_TEST_SURFACE_FORMAT_NOT_SUPPORTED = 2,
+    VK_TEST_SUCCESS_SUBOPTIMAL = 3,
+} VkTestResult;
+
 class DeviceInfo {
 public:
     DeviceInfo();
     ~DeviceInfo();
-    int32_t init(JNIEnv* env, jobject jSurface);
+    VkTestResult init(JNIEnv* env, jobject jSurface);
     VkPhysicalDevice gpu() const { return mGpu; }
     VkSurfaceKHR surface() const { return mSurface; }
     uint32_t queueFamilyIndex() const { return mQueueFamilyIndex; }
@@ -54,7 +56,7 @@ class SwapchainInfo {
 public:
     SwapchainInfo(const DeviceInfo* const deviceInfo);
     ~SwapchainInfo();
-    int32_t init(bool setPreTransform);
+    VkTestResult init(bool setPreTransform, int* outPreTransformHint);
     VkFormat format() const { return mFormat; }
     VkExtent2D displaySize() const { return mDisplaySize; }
     VkSwapchainKHR swapchain() const { return mSwapchain; }
@@ -73,15 +75,15 @@ class Renderer {
 public:
     Renderer(const DeviceInfo* const deviceInfo, const SwapchainInfo* const swapchainInfo);
     ~Renderer();
-    int32_t init(JNIEnv* env, jobject assetManager);
-    int32_t drawFrame();
+    VkTestResult init(JNIEnv* env, jobject assetManager);
+    VkTestResult drawFrame();
 
 private:
-    int32_t createRenderPass();
-    int32_t createFrameBuffers();
-    int32_t createVertexBuffers();
-    int32_t loadShaderFromFile(const char* filePath, VkShaderModule* const outShader);
-    int32_t createGraphicsPipeline();
+    VkTestResult createRenderPass();
+    VkTestResult createFrameBuffers();
+    VkTestResult createVertexBuffers();
+    VkTestResult loadShaderFromFile(const char* filePath, VkShaderModule* const outShader);
+    VkTestResult createGraphicsPipeline();
 
     const DeviceInfo* const mDeviceInfo;
     const SwapchainInfo* const mSwapchainInfo;

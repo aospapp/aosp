@@ -20,11 +20,12 @@ import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.DatePickerDialog;
 import android.content.Context;
-import android.support.annotation.VisibleForTesting;
-import android.support.v7.preference.Preference;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.widget.DatePicker;
+
+import androidx.annotation.VisibleForTesting;
+import androidx.preference.Preference;
 
 import com.android.settings.core.PreferenceControllerMixin;
 import com.android.settingslib.RestrictedPreference;

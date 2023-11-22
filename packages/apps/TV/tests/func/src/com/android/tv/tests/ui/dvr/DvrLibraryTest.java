@@ -19,11 +19,11 @@ package com.android.tv.tests.ui.dvr;
 import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitUntilFocused;
 
 import android.os.Build;
-import android.support.test.filters.MediumTest;
-import android.support.test.filters.SdkSuppress;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
 import android.support.test.uiautomator.Until;
+import androidx.test.filters.MediumTest;
+import androidx.test.filters.SdkSuppress;
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.ByResource;
 import com.android.tv.testing.uihelper.Constants;

@@ -20,6 +20,16 @@
 
 #include "apf.h"
 
+// User hook for interpreter debug tracing.
+#ifdef APF_TRACE_HOOK
+extern void APF_TRACE_HOOK(uint32_t pc, const uint32_t* regs, const uint8_t* program,
+                           const uint8_t* packet, const uint32_t* memory);
+#else
+#define APF_TRACE_HOOK(pc, regs, program, packet, memory) \
+    do { /* nop*/                                         \
+    } while (0)
+#endif
+
 // Return code indicating "packet" should accepted.
 #define PASS_PACKET 1
 // Return code indicating "packet" should be dropped.
@@ -76,6 +86,7 @@ int accept_packet(uint8_t* program, uint32_t program_len, uint32_t ram_len,
   uint32_t instructions_remaining = program_len;
 
   do {
+      APF_TRACE_HOOK(pc, registers, program, packet, memory);
       if (pc == program_len) {
           return PASS_PACKET;
       } else if (pc == (program_len + 1)) {
@@ -101,6 +112,7 @@ int accept_packet(uint8_t* program, uint32_t program_len, uint32_t ram_len,
           signed_imm = imm << ((4 - imm_len) * 8);
           signed_imm >>= (4 - imm_len) * 8;
       }
+
       switch (opcode) {
           case LDB_OPCODE:
           case LDH_OPCODE:

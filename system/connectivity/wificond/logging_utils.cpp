@@ -16,19 +16,19 @@
 
 #include "wificond/logging_utils.h"
 
+#include <array>
 #include <iomanip>
-#include <vector>
 
 #include <android-base/macros.h>
 
+using std::array;
 using std::string;
 using std::stringstream;
-using std::vector;
 
 namespace android {
 namespace wificond {
 
-string LoggingUtils::GetMacString(const vector<uint8_t>& mac_address) {
+string LoggingUtils::GetMacString(const array<uint8_t, ETH_ALEN>& mac_address) {
   stringstream ss;
   for (const uint8_t& b : mac_address) {
     ss << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(b);

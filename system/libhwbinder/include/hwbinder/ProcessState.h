@@ -70,11 +70,29 @@ public:
             void                giveThreadPoolName();
 
             ssize_t             getKernelReferences(size_t count, uintptr_t* buf);
+                                // This refcount includes:
+                                // 1. Strong references to the node by this  and other processes
+                                // 2. Temporary strong references held by the kernel during a
+                                //    transaction on the node.
+                                // It does NOT include local strong references to the node
+            ssize_t             getStrongRefCountForNodeByHandle(int32_t handle);
             size_t              getMmapSize();
+
+            enum class CallRestriction {
+                // all calls okay
+                NONE,
+                // log when calls are blocking
+                ERROR_IF_NOT_ONEWAY,
+                // abort process on blocking calls
+                FATAL_IF_NOT_ONEWAY,
+            };
+            // Sets calling restrictions for all transactions in this process. This must be called
+            // before any threads are spawned.
+            void setCallRestriction(CallRestriction restriction);
+
 private:
     friend class IPCThreadState;
-
-                                ProcessState(size_t mmap_size);
+            explicit            ProcessState(size_t mmap_size);
                                 ~ProcessState();
 
                                 ProcessState(const ProcessState& o);
@@ -117,7 +135,9 @@ private:
             bool                mThreadPoolStarted;
             bool                mSpawnThreadOnStart;
     volatile int32_t            mThreadPoolSeq;
-            size_t              mMmapSize;
+            const size_t        mMmapSize;
+
+            CallRestriction     mCallRestriction;
 };
 
 }; // namespace hardware

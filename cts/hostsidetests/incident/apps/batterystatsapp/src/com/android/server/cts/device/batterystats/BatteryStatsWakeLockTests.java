@@ -15,11 +15,10 @@
  */
 package com.android.server.cts.device.batterystats;
 
-import android.content.Context;
 import android.os.PowerManager;
-import android.support.test.runner.AndroidJUnit4;
 
-import org.junit.Before;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 

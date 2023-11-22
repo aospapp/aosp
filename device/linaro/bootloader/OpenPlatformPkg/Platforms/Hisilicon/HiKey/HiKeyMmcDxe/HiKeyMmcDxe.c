@@ -79,6 +79,7 @@ HiKeyGetCapability (
 BOOLEAN
 EFIAPI
 HiKeyCardDetect (
+  IN EFI_HANDLE               Controller,
   IN UINT8                    Slot
   )
 {
@@ -86,9 +87,9 @@ HiKeyCardDetect (
   EMBEDDED_GPIO         *Gpio;
   UINTN                 Value;
 
-  if (Slot == 0) {
+  if (DwMmcCapability[0].Controller == Controller) {
     return TRUE;
-  } else if (Slot == 1) {
+  } else if (DwMmcCapability[1].Controller == Controller) {
     Status = gBS->LocateProtocol (&gEmbeddedGpioProtocolGuid, NULL, (VOID **)&Gpio);
     if (EFI_ERROR (Status)) {
       DEBUG ((DEBUG_ERROR, "Failed to get GPIO protocol: %r\n", Status));
@@ -108,9 +109,8 @@ HiKeyCardDetect (
       return TRUE;
     }
     return FALSE;
-  } else {
-    return FALSE;
   }
+  return FALSE;
 }
 
 PLATFORM_DW_MMC_PROTOCOL mDwMmcDevice = {

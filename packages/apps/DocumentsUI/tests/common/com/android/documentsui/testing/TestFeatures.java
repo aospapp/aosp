@@ -15,7 +15,7 @@
  */
 package com.android.documentsui.testing;
 
-import android.annotation.BoolRes;
+import androidx.annotation.BoolRes;
 
 import com.android.documentsui.base.Features;
 
@@ -36,6 +36,7 @@ public class TestFeatures implements Features {
     public boolean remoteActions = true;
     public boolean systemKeyboardNavigation = true;
     public boolean virtualFilesSharing = true;
+    public boolean forceDefaultRoot = false;
 
     @Override
     public boolean isArchiveCreationEnabled() {
@@ -110,6 +111,11 @@ public class TestFeatures implements Features {
     @Override
     public boolean isVirtualFilesSharingEnabled() {
         return virtualFilesSharing;
+    }
+
+    @Override
+    public boolean isDefaultRootInBrowseEnabled() {
+        return forceDefaultRoot;
     }
 
     @Override

@@ -204,11 +204,7 @@ public final class DvrDataManagerInMemoryImpl extends BaseDvrDataManager {
                     recordedProgram.getId() == RecordedProgram.ID_NOT_SET,
                     TAG,
                     "expected id of " + RecordedProgram.ID_NOT_SET + " but was " + recordedProgram);
-            recordedProgram =
-                    RecordedProgram
-                            .buildFrom(recordedProgram)
-                            .setId(mNextId.incrementAndGet())
-                            .build();
+            recordedProgram = recordedProgram.withId(mNextId.incrementAndGet());
         }
         mRecordedPrograms.put(recordedProgram.getId(), recordedProgram);
         notifyRecordedProgramsAdded(recordedProgram);

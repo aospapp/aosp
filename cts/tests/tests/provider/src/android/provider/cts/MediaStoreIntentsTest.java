@@ -16,11 +16,25 @@
 
 package android.provider.cts;
 
+import static android.provider.cts.MediaStoreTest.TAG;
+
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.provider.MediaStore;
-import android.test.AndroidTestCase;
+import android.util.Log;
+
+import androidx.test.InstrumentationRegistry;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 import java.util.List;
 
@@ -28,45 +42,72 @@ import java.util.List;
  * Tests to verify that common actions on {@link MediaStore} content are
  * available.
  */
-public class MediaStoreIntentsTest extends AndroidTestCase {
+@RunWith(Parameterized.class)
+public class MediaStoreIntentsTest {
+    private Uri mExternalAudio;
+    private Uri mExternalVideo;
+    private Uri mExternalImages;
+
+    @Parameter(0)
+    public String mVolumeName;
+
+    @Parameters
+    public static Iterable<? extends Object> data() {
+        return ProviderTestUtils.getSharedVolumeNames();
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        Log.d(TAG, "Using volume " + mVolumeName);
+        mExternalAudio = MediaStore.Audio.Media.getContentUri(mVolumeName);
+        mExternalVideo = MediaStore.Video.Media.getContentUri(mVolumeName);
+        mExternalImages = MediaStore.Images.Media.getContentUri(mVolumeName);
+    }
+
     public void assertCanBeHandled(Intent intent) {
-        List<ResolveInfo> resolveInfoList = getContext()
+        List<ResolveInfo> resolveInfoList = InstrumentationRegistry.getTargetContext()
                 .getPackageManager().queryIntentActivities(intent, 0);
         assertNotNull("Missing ResolveInfo", resolveInfoList);
         assertTrue("No ResolveInfo found for " + intent.toString(),
                 resolveInfoList.size() > 0);
     }
 
+    @Test
     public void testPickImageDir() {
         Intent intent = new Intent(Intent.ACTION_PICK);
-        intent.setData(MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        intent.setData(mExternalImages);
         assertCanBeHandled(intent);
     }
 
+    @Test
     public void testPickVideoDir() {
         Intent intent = new Intent(Intent.ACTION_PICK);
-        intent.setData(MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
+        intent.setData(mExternalVideo);
         assertCanBeHandled(intent);
     }
 
+    @Test
     public void testPickAudioDir() {
         Intent intent = new Intent(Intent.ACTION_PICK);
-        intent.setData(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI);
+        intent.setData(mExternalAudio);
         assertCanBeHandled(intent);
     }
 
+    @Test
     public void testViewImageDir() {
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setData(MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        intent.setData(mExternalImages);
         assertCanBeHandled(intent);
     }
 
+    @Test
     public void testViewVideoDir() {
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setData(MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
+        intent.setData(mExternalVideo);
         assertCanBeHandled(intent);
     }
 
+    @Test
     public void testViewImageFile() {
         final String[] schemes = new String[] {
                 "file", "http", "https", "content" };
@@ -87,6 +128,7 @@ public class MediaStoreIntentsTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testViewVideoFile() {
         final String[] schemes = new String[] {
                 "file", "http", "https", "content" };
@@ -105,6 +147,7 @@ public class MediaStoreIntentsTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testViewAudioFile() {
         final String[] schemes = new String[] {
                 "file", "http", "content" };

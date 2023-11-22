@@ -22,20 +22,26 @@ LOCAL_MODULE_TAGS := tests optional
 LOCAL_SRC_FILES := \
     $(call all-java-files-under, src) \
     $(call all-java-files-under, alertwindowservice/src) \
-    $(call all-named-files-under,Components.java, alertwindowapp) \
-    $(call all-named-files-under,Components.java, alertwindowappsdk25)
+    $(call all-named-files-under,Components.java, *) \
+    ../../../../apps/CtsVerifier/src/com/android/cts/verifier/vr/MockVrListenerService.java \
 
 LOCAL_RESOURCE_DIR := $(LOCAL_PATH)/res
+
+LOCAL_ASSET_DIR := $(LOCAL_PATH)/intent_tests
 
 LOCAL_PACKAGE_NAME := CtsWindowManagerDeviceTestCases
 
 LOCAL_JAVA_LIBRARIES := android.test.runner.stubs
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    compatibility-device-util \
-    android-support-test \
+    compatibility-device-util-axt \
+    androidx.test.rules \
+    hamcrest-library \
     platform-test-annotations \
-    cts-amwm-util
+    cts-wm-util \
+    CtsSurfaceValidatorLib \
+    CtsMockInputMethodLib \
+    metrics-helper-lib \
 
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 

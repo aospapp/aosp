@@ -20,11 +20,11 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 import android.media.MediaDrm;
-import android.media.MediaDrm.MediaDrmStateException;
 import android.os.PersistableBundle;
 import android.test.AndroidTestCase;
 import android.util.Log;
 import com.google.common.io.BaseEncoding;
+import java.lang.IllegalArgumentException;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.StringJoiner;
@@ -144,7 +144,7 @@ public class MediaDrmMetricsTest extends AndroidTestCase {
 
         try {
           drm.getKeyRequest(sid, null, "", 2, null);
-        } catch (MediaDrmStateException e) {
+        } catch (IllegalArgumentException e) {
           // Exception expected.
         }
 

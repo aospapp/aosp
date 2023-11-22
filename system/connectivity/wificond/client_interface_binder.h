@@ -21,6 +21,7 @@
 #include <binder/Status.h>
 
 #include "android/net/wifi/BnClientInterface.h"
+#include "android/net/wifi/ISendMgmtFrameEvent.h"
 
 namespace android {
 namespace wificond {
@@ -48,6 +49,10 @@ class ClientInterfaceBinder : public android::net::wifi::BnClientInterface {
       ::android::sp<::android::net::wifi::IWifiScannerImpl>* out_wifi_scanner_impl) override;
   ::android::binder::Status setMacAddress(
       const ::std::vector<uint8_t>& mac, bool* success) override;
+  ::android::binder::Status SendMgmtFrame(
+      const ::std::vector<uint8_t>& frame,
+      const sp<::android::net::wifi::ISendMgmtFrameEvent>& callback,
+      int32_t mcs) override;
  private:
   ClientInterfaceImpl* impl_;
 

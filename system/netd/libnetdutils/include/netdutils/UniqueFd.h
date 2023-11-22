@@ -57,7 +57,7 @@ class UniqueFd {
     void reset(Fd fd = Fd());
 
     // Implict cast to Fd
-    const operator Fd() const { return mFd; }
+    operator const Fd &() const { return mFd; }
 
   private:
     Fd mFd;

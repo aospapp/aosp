@@ -45,7 +45,7 @@
   <string-array name="captioning_font_size_selector_titles">
     <item msgid="4304493614734189861">"最小"</item>
     <item msgid="1694402928400844023">"小"</item>
-    <item msgid="1235495470844109970">"中"</item>
+    <item msgid="1235495470844109970">"一般"</item>
     <item msgid="481223375568095790">"大"</item>
     <item msgid="8614563351231073075">"最大"</item>
   </string-array>

@@ -16,7 +16,7 @@
 #include <stdio.h>
 
 #define LOG_TAG "VtsTestBinary"
-#include <utils/Log.h>
+#include <log/log.h>
 
 int main() {
   char* pt = 0;

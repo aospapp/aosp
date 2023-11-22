@@ -15,23 +15,37 @@
  */
 package com.android.tradefed.invoker;
 
-import static org.mockito.Mockito.any;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 
+import com.android.tradefed.build.BuildInfo;
+import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IBuildProvider;
 import com.android.tradefed.command.CommandRunner.ExitCode;
 import com.android.tradefed.config.Configuration;
+import com.android.tradefed.config.ConfigurationDef;
 import com.android.tradefed.config.ConfigurationDescriptor;
 import com.android.tradefed.config.GlobalConfiguration;
 import com.android.tradefed.config.IConfiguration;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.guice.InvocationScope;
 import com.android.tradefed.invoker.sandbox.SandboxedInvocationExecution;
 import com.android.tradefed.log.ILogRegistry;
+import com.android.tradefed.result.ByteArrayInputStreamSource;
 import com.android.tradefed.result.ILogSaver;
 import com.android.tradefed.result.ITestInvocationListener;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.result.LogFile;
+import com.android.tradefed.sandbox.ISandbox;
+import com.android.tradefed.targetprep.ITargetCleaner;
+import com.android.tradefed.targetprep.ITargetPreparer;
+import com.android.tradefed.testtype.IInvocationContextReceiver;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -40,6 +54,8 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+
+import java.util.Arrays;
 
 /** Unit tests for {@link SandboxedInvocationExecution}. */
 @RunWith(JUnit4.class)
@@ -50,10 +66,16 @@ public class SandboxedInvocationExecutionTest {
     @Mock IRescheduler mMockRescheduler;
     @Mock ITestInvocationListener mMockListener;
     @Mock ILogSaver mMockLogSaver;
-    @Mock IBuildProvider mMockProvider;
+    @Mock TestBuildProviderInterface mMockProvider;
+    @Mock ITargetPreparer mMockPreparer;
+    @Mock ITargetCleaner mMockCleaner;
+    @Mock ITestDevice mMockDevice;
+
+    @Mock ISandbox mMockSandbox;
 
     private IConfiguration mConfig;
     private IInvocationContext mContext;
+    private InvocationExecution mSpyExec;
 
     @Before
     public void setUp() throws Exception {
@@ -82,10 +104,26 @@ public class SandboxedInvocationExecutionTest {
                         // Avoid re-entry in the current TF invocation scope for unit tests.
                         return new InvocationScope();
                     }
+
+                    @Override
+                    public IInvocationExecution createInvocationExec(RunMode mode) {
+                        mSpyExec =
+                                (InvocationExecution) Mockito.spy(super.createInvocationExec(mode));
+                        doReturn("version 123").when(mSpyExec).getAdbVersion();
+                        return mSpyExec;
+                    }
                 };
         mConfig = new Configuration("test", "test");
         mContext = new InvocationContext();
+        mContext.addAllocatedDevice(ConfigurationDef.DEFAULT_DEVICE_NAME, mMockDevice);
+        mContext.addDeviceBuildInfo(ConfigurationDef.DEFAULT_DEVICE_NAME, new BuildInfo());
+
+        doReturn(new ByteArrayInputStreamSource("".getBytes())).when(mMockDevice).getLogcat();
     }
+
+    /** Interface to test the build provider receiving the context */
+    private interface TestBuildProviderInterface
+            extends IBuildProvider, IInvocationContextReceiver {}
 
     /** Basic test to go through the flow of a sandbox invocation. */
     @Test
@@ -106,5 +144,240 @@ public class SandboxedInvocationExecutionTest {
 
         // Ensure that in sandbox we don't download again.
         Mockito.verify(mMockProvider, times(0)).getBuild();
+        // Ensure that the context is still set.
+        Mockito.verify(mMockProvider, times(1)).setInvocationContext(mContext);
+    }
+
+    /**
+     * Test that the parent invocation of sandboxing does not call shardConfig. Sharding should
+     * happen in the subprocess.
+     */
+    @Test
+    public void testParentSandboxInvocation_sharding() throws Throwable {
+        mInvocation =
+                new TestInvocation() {
+                    @Override
+                    ILogRegistry getLogRegistry() {
+                        return mMockLogRegistry;
+                    }
+
+                    @Override
+                    protected void setExitCode(ExitCode code, Throwable stack) {
+                        // empty on purpose
+                    }
+
+                    @Override
+                    InvocationScope getInvocationScope() {
+                        // Avoid re-entry in the current TF invocation scope for unit tests.
+                        return new InvocationScope();
+                    }
+
+                    @Override
+                    public IInvocationExecution createInvocationExec(RunMode mode) {
+                        return new InvocationExecution() {
+                            @Override
+                            public boolean shardConfig(
+                                    IConfiguration config,
+                                    IInvocationContext context,
+                                    IRescheduler rescheduler) {
+                                // Ensure that sharding is not called against a sandbox
+                                // configuration run
+                                throw new RuntimeException("Should not be called.");
+                            }
+
+                            @Override
+                            protected String getAdbVersion() {
+                                return "version 123";
+                            }
+                        };
+                    }
+                };
+
+        ConfigurationDescriptor descriptor = new ConfigurationDescriptor();
+        // We are the parent kick off the sandbox
+        mConfig.getCommandOptions().setShouldUseSandboxing(true);
+        mConfig.getCommandOptions().setShardCount(5);
+        mConfig.getCommandOptions().setShardIndex(1);
+        mConfig.setConfigurationObject(
+                Configuration.CONFIGURATION_DESCRIPTION_TYPE_NAME, descriptor);
+        mConfig.setConfigurationObject(Configuration.SANDBOX_TYPE_NAME, mMockSandbox);
+
+        mConfig.setLogSaver(mMockLogSaver);
+        mConfig.setBuildProvider(mMockProvider);
+
+        doReturn(new BuildInfo()).when(mMockProvider).getBuild();
+
+        doReturn(new LogFile("file", "url", LogDataType.TEXT))
+                .when(mMockLogSaver)
+                .saveLogData(any(), any(), any());
+
+        CommandResult result = new CommandResult(CommandStatus.SUCCESS);
+        doReturn(result).when(mMockSandbox).run(any(), any());
+
+        mInvocation.invoke(mContext, mConfig, mMockRescheduler, mMockListener);
+    }
+
+    /**
+     * Test that the parent sandbox process does not call clean up when target prep was not called.
+     */
+    @Test
+    public void testParentSandboxInvocation() throws Throwable {
+        ConfigurationDescriptor descriptor = new ConfigurationDescriptor();
+        // We are the parent kick off the sandbox
+        mConfig.getCommandOptions().setShouldUseSandboxing(true);
+        mConfig.setConfigurationObject(
+                Configuration.CONFIGURATION_DESCRIPTION_TYPE_NAME, descriptor);
+        mConfig.setLogSaver(mMockLogSaver);
+        mConfig.setBuildProvider(mMockProvider);
+        mConfig.setTargetPreparers(Arrays.asList(mMockPreparer, mMockCleaner));
+        mConfig.setConfigurationObject(Configuration.SANDBOX_TYPE_NAME, mMockSandbox);
+
+        doReturn(new LogFile("file", "url", LogDataType.TEXT))
+                .when(mMockLogSaver)
+                .saveLogData(any(), any(), any());
+
+        CommandResult result = new CommandResult(CommandStatus.SUCCESS);
+        doReturn(result).when(mMockSandbox).run(any(), any());
+
+        doReturn(new BuildInfo()).when(mMockProvider).getBuild();
+
+        mInvocation.invoke(mContext, mConfig, mMockRescheduler, mMockListener);
+
+        // Ensure no preparer and cleaner are called in parent process
+        Mockito.verify(mMockPreparer, times(0)).setUp(any(), any());
+        Mockito.verify(mMockCleaner, times(0)).tearDown(any(), any(), any());
+    }
+
+    /**
+     * Test that when sharding does not return any tests for a shard, we still report start and stop
+     * of the invocation.
+     */
+    @Test
+    public void testInvocation_sharding_notTests() throws Throwable {
+        mInvocation =
+                new TestInvocation() {
+                    @Override
+                    ILogRegistry getLogRegistry() {
+                        return mMockLogRegistry;
+                    }
+
+                    @Override
+                    protected void setExitCode(ExitCode code, Throwable stack) {
+                        // empty on purpose
+                    }
+
+                    @Override
+                    InvocationScope getInvocationScope() {
+                        // Avoid re-entry in the current TF invocation scope for unit tests.
+                        return new InvocationScope();
+                    }
+
+                    @Override
+                    public IInvocationExecution createInvocationExec(RunMode mode) {
+                        mSpyExec =
+                                (InvocationExecution) Mockito.spy(super.createInvocationExec(mode));
+                        doReturn("version 123").when(mSpyExec).getAdbVersion();
+                        return mSpyExec;
+                    }
+                };
+
+        ConfigurationDescriptor descriptor = new ConfigurationDescriptor();
+        mConfig.getCommandOptions().setShardCount(5);
+        mConfig.getCommandOptions().setShardIndex(1);
+        mConfig.setConfigurationObject(
+                Configuration.CONFIGURATION_DESCRIPTION_TYPE_NAME, descriptor);
+
+        mConfig.setLogSaver(mMockLogSaver);
+        mConfig.setBuildProvider(mMockProvider);
+
+        doReturn(new LogFile("file", "url", LogDataType.TEXT))
+                .when(mMockLogSaver)
+                .saveLogData(any(), any(), any());
+
+        CommandResult result = new CommandResult(CommandStatus.SUCCESS);
+        doReturn(result).when(mMockSandbox).run(any(), any());
+
+        doReturn(new BuildInfo()).when(mMockProvider).getBuild();
+
+        mInvocation.invoke(mContext, mConfig, mMockRescheduler, mMockListener);
+        // No tests to run but we still call start/end
+        Mockito.verify(mMockListener).invocationStarted(mContext);
+        Mockito.verify(mMockListener).invocationEnded(0L);
+        // Invocation did not start for real so context is not locked.
+        mContext.addInvocationAttribute("test", "test");
+        // Device early preInvocationSetup was called and even if no tests run we still call tear
+        // down
+        Mockito.verify(mMockDevice).preInvocationSetup(any(), any());
+        Mockito.verify(mMockDevice).postInvocationTearDown();
+    }
+
+    /**
+     * Ensure that in case of preInvocationSetup failure, we still report the invocation failure and
+     * the logs.
+     */
+    @Test
+    public void testInvocation_preInvocationFailing() throws Throwable {
+        mInvocation =
+                new TestInvocation() {
+                    @Override
+                    ILogRegistry getLogRegistry() {
+                        return mMockLogRegistry;
+                    }
+
+                    @Override
+                    protected void setExitCode(ExitCode code, Throwable stack) {
+                        // empty on purpose
+                    }
+
+                    @Override
+                    InvocationScope getInvocationScope() {
+                        // Avoid re-entry in the current TF invocation scope for unit tests.
+                        return new InvocationScope();
+                    }
+
+                    @Override
+                    public IInvocationExecution createInvocationExec(RunMode mode) {
+                        mSpyExec =
+                                (InvocationExecution) Mockito.spy(super.createInvocationExec(mode));
+                        doReturn("version 123").when(mSpyExec).getAdbVersion();
+                        return mSpyExec;
+                    }
+                };
+
+        ConfigurationDescriptor descriptor = new ConfigurationDescriptor();
+        mConfig.getCommandOptions().setShardCount(5);
+        mConfig.getCommandOptions().setShardIndex(1);
+        mConfig.setConfigurationObject(
+                Configuration.CONFIGURATION_DESCRIPTION_TYPE_NAME, descriptor);
+
+        mConfig.setLogSaver(mMockLogSaver);
+        mConfig.setBuildProvider(mMockProvider);
+
+        doReturn(new LogFile("file", "url", LogDataType.TEXT))
+                .when(mMockLogSaver)
+                .saveLogData(any(), any(), any());
+
+        CommandResult result = new CommandResult(CommandStatus.SUCCESS);
+        doReturn(result).when(mMockSandbox).run(any(), any());
+
+        IBuildInfo info = new BuildInfo();
+        doReturn(info).when(mMockProvider).getBuild();
+
+        DeviceNotAvailableException exception = new DeviceNotAvailableException("reason", "serial");
+        doThrow(exception).when(mMockDevice).preInvocationSetup(eq(info), any());
+
+        mInvocation.invoke(mContext, mConfig, mMockRescheduler, mMockListener);
+        // No tests to run but we still call start/end
+        Mockito.verify(mMockListener).invocationStarted(mContext);
+        Mockito.verify(mMockListener).invocationFailed(exception);
+        Mockito.verify(mMockListener)
+                .testLog(eq(TestInvocation.TRADEFED_LOG_NAME), eq(LogDataType.TEXT), any());
+        Mockito.verify(mMockListener).invocationEnded(0L);
+        // Invocation did not start for real so context is not locked.
+        mContext.addInvocationAttribute("test", "test");
+        // Device early preInvocationSetup was called and even if no tests run we still call tear
+        // down
+        Mockito.verify(mMockDevice).preInvocationSetup(any(), any());
+        Mockito.verify(mMockDevice).postInvocationTearDown();
     }
 }

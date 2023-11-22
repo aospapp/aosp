@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-        android:width="36dp"
-        android:height="36dp"
+        android:width="@dimen/ic_equalizer_width"
+        android:height="@dimen/ic_equalizer_height"
         android:viewportWidth="48.0"
         android:viewportHeight="48.0">
     <path
         android:pathData="M20,40h8L28,8h-8v32zM8,40h8L16,24L8,24v16zM32,18v22h8L40,18h-8z"
-        android:fillColor="@color/car_radio_equalizer"/>
+        android:fillColor="@color/control_button_color" />
 </vector>

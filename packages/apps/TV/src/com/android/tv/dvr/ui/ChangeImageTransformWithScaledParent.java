@@ -27,13 +27,15 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 import com.android.tv.R;
+import com.android.tv.ui.DetailsActivity;
+
 import java.util.Map;
 
 /**
  * TODO: Remove this class once b/32405620 is fixed. This class is for the workaround of b/32405620
  * and only for the shared element transition between {@link
  * com.android.tv.dvr.ui.browse.RecordingCardView} and {@link
- * com.android.tv.dvr.ui.browse.DvrDetailsActivity}.
+ * DetailsActivity}.
  */
 public class ChangeImageTransformWithScaledParent extends ChangeImageTransform {
     private static final String PROPNAME_MATRIX = "android:changeImageTransform:matrix";

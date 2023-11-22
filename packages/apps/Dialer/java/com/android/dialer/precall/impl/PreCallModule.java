@@ -16,16 +16,36 @@
 
 package com.android.dialer.precall.impl;
 
+import com.android.dialer.inject.DialerVariant;
+import com.android.dialer.inject.InstallIn;
 import com.android.dialer.precall.PreCall;
+import com.android.dialer.precall.PreCallAction;
+import com.google.common.collect.ImmutableList;
 import dagger.Binds;
 import dagger.Module;
+import dagger.Provides;
 import javax.inject.Singleton;
 
 /** Dagger module for {@link PreCall}. */
+@InstallIn(variants = {DialerVariant.DIALER_TEST})
 @Module
 public abstract class PreCallModule {
 
+  private PreCallModule() {}
+
   @Binds
   @Singleton
-  public abstract PreCall bindPreCall(PreCallImpl simulator);
+  public abstract PreCall to(PreCallImpl impl);
+
+  @Provides
+  public static ImmutableList<PreCallAction> provideActions(
+      DuoAction duoAction, CallingAccountSelector callingAccountSelector) {
+    return ImmutableList.of(
+        new PermissionCheckAction(),
+        new MalformedNumberRectifier(
+            ImmutableList.of(new UkRegionPrefixInInternationalFormatHandler())),
+        callingAccountSelector,
+        duoAction,
+        new AssistedDialAction());
+  }
 }

@@ -18,12 +18,14 @@
 
 #include "android-base/stringprintf.h"
 
+#include "class_root.h"
 #include "common_dex_operations.h"
+#include "interpreter/shadow_frame-inl.h"
 #include "jvalue-inl.h"
-#include "jvalue.h"
-#include "mirror/emulated_stack_frame.h"
+#include "mirror/class-inl.h"
+#include "mirror/emulated_stack_frame-inl.h"
 #include "mirror/method_handle_impl-inl.h"
-#include "mirror/method_type.h"
+#include "mirror/method_type-inl.h"
 #include "mirror/var_handle.h"
 #include "reflection-inl.h"
 #include "reflection.h"
@@ -267,7 +269,7 @@ bool ConvertJValueCommon(
 
     // Then perform the actual boxing, and then set the reference.
     ObjPtr<mirror::Object> boxed = BoxPrimitive(type, src_value);
-    value->SetL(boxed.Ptr());
+    value->SetL(boxed);
     return true;
   } else {
     // The source type is a reference and the target type is a primitive, so we must unbox.
@@ -322,7 +324,7 @@ inline void CopyArgumentsFromCallerFrame(const ShadowFrame& caller_frame,
     // Note: As an optimization, non-moving collectors leave a stale reference value
     // in the references array even after the original vreg was overwritten to a non-reference.
     if (src_value == reinterpret_cast<uintptr_t>(o.Ptr())) {
-      callee_frame->SetVRegReference(dst_reg, o.Ptr());
+      callee_frame->SetVRegReference(dst_reg, o);
     } else {
       callee_frame->SetVReg(dst_reg, src_value);
     }
@@ -476,14 +478,14 @@ static inline bool MethodHandleInvokeMethod(ArtMethod* called_method,
         // through from a transformer.
         size_t first_arg_register = operands->GetOperand(0);
         ObjPtr<mirror::EmulatedStackFrame> emulated_stack_frame(
-            reinterpret_cast<mirror::EmulatedStackFrame*>(
+            ObjPtr<mirror::EmulatedStackFrame>::DownCast(
                 shadow_frame.GetVRegReference(first_arg_register)));
         if (!emulated_stack_frame->WriteToShadowFrame(self,
                                                       target_type,
                                                       first_dest_reg,
                                                       new_shadow_frame)) {
           DCHECK(self->IsExceptionPending());
-          result->SetL(0);
+          result->SetL(nullptr);
           return false;
         }
       } else {
@@ -499,7 +501,7 @@ static inline bool MethodHandleInvokeMethod(ArtMethod* called_method,
                                                     operands,
                                                     new_shadow_frame)) {
           DCHECK(self->IsExceptionPending());
-          result->SetL(0);
+          result->SetL(nullptr);
           return false;
         }
       }
@@ -525,7 +527,7 @@ static inline bool MethodHandleInvokeMethod(ArtMethod* called_method,
     StackHandleScope<2> hs(self);
     size_t first_callee_register = operands->GetOperand(0);
     Handle<mirror::EmulatedStackFrame> emulated_stack_frame(
-        hs.NewHandle(reinterpret_cast<mirror::EmulatedStackFrame*>(
+        hs.NewHandle(ObjPtr<mirror::EmulatedStackFrame>::DownCast(
             shadow_frame.GetVRegReference(first_callee_register))));
     Handle<mirror::MethodType> emulated_stack_type(hs.NewHandle(emulated_stack_frame->GetType()));
     JValue local_result;
@@ -578,7 +580,7 @@ static inline bool MethodHandleInvokeTransform(ArtMethod* called_method,
     // through the handle directly to the callee, instead of having to
     // instantiate a new stack frame based on the shadow frame.
     size_t first_callee_register = operands->GetOperand(0);
-    sf.Assign(reinterpret_cast<mirror::EmulatedStackFrame*>(
+    sf.Assign(ObjPtr<mirror::EmulatedStackFrame>::DownCast(
         shadow_frame.GetVRegReference(first_callee_register)));
   } else {
     sf.Assign(mirror::EmulatedStackFrame::CreateFromShadowFrameAndArgs(self,
@@ -744,7 +746,7 @@ bool DoInvokePolymorphicMethod(Thread* self,
                                        callee_type,
                                        self,
                                        shadow_frame,
-                                       method_handle /* receiver */,
+                                       /* receiver= */ method_handle,
                                        operands,
                                        result);
   } else {
@@ -1022,21 +1024,21 @@ bool DoVarHandleInvokeTranslation(Thread* self,
   // Check that the first parameter is a VarHandle
   if (callsite_ptypes->GetLength() < 1 ||
       !mh_ptypes->Get(0)->IsAssignableFrom(callsite_ptypes->Get(0)) ||
-      mh_ptypes->Get(0) != mirror::VarHandle::StaticClass()) {
+      mh_ptypes->Get(0) != GetClassRoot<mirror::VarHandle>()) {
     ThrowWrongMethodTypeException(method_handle->GetMethodType(), callsite_type.Get());
     return false;
   }
 
   // Get the receiver
-  mirror::Object* receiver = shadow_frame.GetVRegReference(operands->GetOperand(0));
+  ObjPtr<mirror::Object> receiver = shadow_frame.GetVRegReference(operands->GetOperand(0));
   if (receiver == nullptr) {
     ThrowNullPointerException("Expected argument 1 to be a non-null VarHandle");
     return false;
   }
 
   // Cast to VarHandle instance
-  Handle<mirror::VarHandle> vh(hs.NewHandle(down_cast<mirror::VarHandle*>(receiver)));
-  DCHECK(mirror::VarHandle::StaticClass()->IsAssignableFrom(vh->GetClass()));
+  Handle<mirror::VarHandle> vh(hs.NewHandle(ObjPtr<mirror::VarHandle>::DownCast(receiver)));
+  DCHECK(GetClassRoot<mirror::VarHandle>()->IsAssignableFrom(vh->GetClass()));
 
   // Determine the accessor kind to dispatch
   ArtMethod* target_method = method_handle->GetTargetMethod();
@@ -1102,7 +1104,7 @@ static inline bool MethodHandleInvokeInternal(Thread* self,
   if (IsInvokeVarHandle(handle_kind)) {
     return DoVarHandleInvokeTranslation(self,
                                         shadow_frame,
-                                        /*invokeExact*/ false,
+                                        /*invokeExact=*/ false,
                                         method_handle,
                                         callsite_type,
                                         operands,
@@ -1154,7 +1156,7 @@ static inline bool MethodHandleInvokeExactInternal(
   } else if (IsInvokeVarHandle(handle_kind)) {
     return DoVarHandleInvokeTranslation(self,
                                         shadow_frame,
-                                        /*invokeExact*/ true,
+                                        /*invokeExact=*/ true,
                                         method_handle,
                                         callsite_type,
                                         operands,

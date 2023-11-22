@@ -42,6 +42,7 @@
 #include <unistd.h>
 
 #include <async_safe/log.h>
+#include <async_safe/CHECK.h>
 
 #include "private/bionic_defs.h"
 #include "private/bionic_macros.h"
@@ -170,7 +171,7 @@ class SocketWriter {
   uint32_t uint_buf_[kUintBufSize];
   size_t uint_buf_index_;
 
-  DISALLOW_IMPLICIT_CONSTRUCTORS(SocketWriter);
+  BIONIC_DISALLOW_IMPLICIT_CONSTRUCTORS(SocketWriter);
 };
 
 struct prop_msg {

@@ -24,7 +24,15 @@ source "${shdir}/script_help.sh"
 # installation.
 # Include any host-side dependency jars.
 if [ ! -z "${ANDROID_HOST_OUT}" ]; then
-    deps="compatibility-host-util.jar hosttestlib.jar cts-tradefed.jar vts-tradefed.jar host-libprotobuf-java-full.jar"
+    # TF will load the first test-suite-info.properties in those jar files it loaded.
+    # In current cases that only those *ts suite jars have built in that file.
+    # If user tested testcases which using those jar files with suite-info properties
+    # but change the lunch target to different arch and continue testing other tests without the
+    # need of those *ts jars then TF will not testing with below error message:
+    # "None of the abi supported by this tests suite build".
+    # Create atest-tradefed.jar with test-suite-info.properties and make sure it's priroty is higher
+    # then other *ts-tradefed.jar.
+    deps="atest-tradefed.jar compatibility-host-util.jar hosttestlib.jar cts-tradefed.jar vts-tradefed.jar host-libprotobuf-java-full.jar cts-dalvik-host-test-runner.jar"
     for dep in $deps; do
         if [ -f "${ANDROID_HOST_OUT}"/framework/$dep ]; then
             TF_PATH=${TF_PATH}:"${ANDROID_HOST_OUT}"/framework/$dep
@@ -42,4 +50,4 @@ fi
 
 # Note: must leave $RDBG_FLAG and $TRADEFED_OPTS unquoted so that they go away when unset
 java $RDBG_FLAG -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow $TRADEFED_OPTS \
-  -cp "${TF_PATH}" -DTF_JAR_DIR=${TF_JAR_DIR} ${java_tmp_dir_opt} com.android.tradefed.command.Console "$@"
+  -cp "${TF_PATH}" -DTF_JAR_DIR=${TF_JAR_DIR} ${java_tmp_dir_opt} com.android.tradefed.command.CommandRunner "$@"

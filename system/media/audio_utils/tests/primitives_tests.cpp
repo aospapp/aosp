@@ -341,10 +341,16 @@ TEST(audio_utils_primitives, memcpy) {
     }
 
     constexpr size_t testsize = std::min(u8size, size);
+    zeroFill(fary);
     memcpy_to_float_from_u8(fary.data(), u8ref.data(), testsize);
     memcpy_to_u8_from_float(u8ary.data(), fary.data(), testsize);
 
     EXPECT_EQ(0, memcmp(u8ary.data(), u8ref.data(), u8ary.size() * sizeof(u8ary[0])));
+
+    // test conversion from u8 to i32
+    zeroFill(i32ary);
+    memcpy_to_i32_from_u8(i32ary.data(), u8ref.data(), testsize);
+    checkMonotone(i32ary.data(), testsize);
 }
 
 template<typename T>

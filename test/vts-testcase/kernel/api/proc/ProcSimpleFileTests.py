@@ -111,7 +111,7 @@ class ProcHungTaskTimeoutSecs(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_permission_checker(self):
         return target_file_utils.IsReadWrite
 
-    def file_optional(self):
+    def file_optional(self, shell=None, dut=None):
         return True
 
 class ProcKptrRestrictTest(KernelProcFileTestBase.KernelProcFileTestBase):
@@ -412,6 +412,21 @@ class ProcDirtyBackgroundRatio(KernelProcFileTestBase.KernelProcFileTestBase):
         return target_file_utils.IsReadWrite
 
 
+class ProcDirtyExpireCentisecs(KernelProcFileTestBase.KernelProcFileTestBase):
+    '''/proc/sys/vm/dirty_expire_centisecs is used to define when dirty data is
+    old enough to be eligible for writeout by the kernel flusher threads.
+    '''
+
+    def parse_contents(self, contents):
+        return self.parse_line("{:d}\n", contents)[0]
+
+    def get_path(self):
+        return "/proc/sys/vm/dirty_expire_centisecs"
+
+    def get_permission_checker(self):
+        return target_file_utils.IsReadWrite
+
+
 class ProcDropCaches(KernelProcFileTestBase.KernelProcFileTestBase):
     '''Writing to /proc/sys/vm/drop_caches will cause the kernel to drop clean
     caches.
@@ -443,7 +458,7 @@ class ProcExtraFreeKbytes(KernelProcFileTestBase.KernelProcFileTestBase):
     def get_permission_checker(self):
         return target_file_utils.IsReadWrite
 
-    def file_optional(self):
+    def file_optional(self, shell=None, dut=None):
         # This file isn't in Android common kernel.
         return True
 

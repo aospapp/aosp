@@ -17,73 +17,118 @@
     Test Script for Telephony Pre Flight check.
 """
 
-import time
-from queue import Empty
-
 from acts import signals
 from acts import utils
+
 from acts.controllers.android_device import get_info
 from acts.libs.ota import ota_updater
 from acts.test_decorators import test_tracker_info
 from acts.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
-from acts.test_utils.tel.tel_defines import AOSP_PREFIX
-from acts.test_utils.tel.tel_defines import CAPABILITY_PHONE
-from acts.test_utils.tel.tel_defines import CAPABILITY_VOLTE
-from acts.test_utils.tel.tel_defines import CAPABILITY_VT
-from acts.test_utils.tel.tel_defines import CAPABILITY_WFC
-from acts.test_utils.tel.tel_defines import CAPABILITY_MSIM
-from acts.test_utils.tel.tel_defines import CAPABILITY_OMADM
-from acts.test_utils.tel.tel_defines import INVALID_SUB_ID
-from acts.test_utils.tel.tel_defines import MAX_WAIT_TIME_NW_SELECTION
-from acts.test_utils.tel.tel_defines import PRECISE_CALL_STATE_LISTEN_LEVEL_BACKGROUND
-from acts.test_utils.tel.tel_defines import PRECISE_CALL_STATE_LISTEN_LEVEL_FOREGROUND
-from acts.test_utils.tel.tel_defines import PRECISE_CALL_STATE_LISTEN_LEVEL_RINGING
-from acts.test_utils.tel.tel_defines import WAIT_TIME_AFTER_REBOOT
-from acts.test_utils.tel.tel_lookup_tables import device_capabilities
-from acts.test_utils.tel.tel_lookup_tables import operator_capabilities
+from acts.test_utils.tel.tel_defines import NETWORK_SERVICE_DATA
+from acts.test_utils.tel.tel_defines import RAT_FAMILY_WLAN
+from acts.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
+from acts.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
 from acts.test_utils.tel.tel_test_utils import abort_all_tests
+from acts.test_utils.tel.tel_test_utils import call_setup_teardown
 from acts.test_utils.tel.tel_test_utils import ensure_phones_default_state
 from acts.test_utils.tel.tel_test_utils import ensure_phone_subscription
 from acts.test_utils.tel.tel_test_utils import ensure_wifi_connected
-from acts.test_utils.tel.tel_test_utils import get_operator_name
+from acts.test_utils.tel.tel_test_utils import get_user_config_profile
 from acts.test_utils.tel.tel_test_utils import is_sim_locked
-from acts.test_utils.tel.tel_test_utils import run_multithread_func
-from acts.test_utils.tel.tel_test_utils import setup_droid_properties
-from acts.test_utils.tel.tel_test_utils import set_phone_screen_on
-from acts.test_utils.tel.tel_test_utils import set_phone_silent_mode
-from acts.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
+from acts.test_utils.tel.tel_test_utils import multithread_func
 from acts.test_utils.tel.tel_test_utils import unlock_sim
-from acts.test_utils.tel.tel_test_utils import verify_http_connection
-from acts.test_utils.tel.tel_test_utils import wait_for_voice_attach_for_subscription
+from acts.test_utils.tel.tel_test_utils import verify_internet_connection
+from acts.test_utils.tel.tel_test_utils import wait_for_network_rat
+from acts.test_utils.tel.tel_test_utils import wait_for_wfc_enabled
 from acts.test_utils.tel.tel_test_utils import wait_for_wifi_data_connection
 from acts.test_utils.tel.tel_test_utils import wifi_toggle_state
-from acts.test_utils.tel.tel_voice_utils import phone_setup_volte
-from acts.asserts import abort_all
-from acts.asserts import fail
+from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_iwlan
+from acts.test_utils.tel.tel_voice_utils import is_phone_in_call_volte
+from acts.test_utils.tel.tel_voice_utils import phone_setup_iwlan
+from acts.test_utils.tel.tel_voice_utils import phone_setup_iwlan_cellular_preferred
 
 
 class TelLivePreflightTest(TelephonyBaseTest):
     def __init__(self, controllers):
         TelephonyBaseTest.__init__(self, controllers)
+        self.user_params["telephony_auto_rerun"] = 0
 
-        self.wifi_network_ssid = self.user_params.get(
-            "wifi_network_ssid") or self.user_params.get(
-                "wifi_network_ssid_2g") or self.user_params.get(
-                    "wifi_network_ssid_5g")
-        self.wifi_network_pass = self.user_params.get(
-            "wifi_network_pass") or self.user_params.get(
-                "wifi_network_pass_2g") or self.user_params.get(
-                    "wifi_network_ssid_5g")
+    def _check_wfc_enabled(self, ad):
+        if not wait_for_wifi_data_connection(self.log, ad, True):
+            ad.log.error("Failed to connect to WIFI")
+            return False
+        if not wait_for_wfc_enabled(self.log, ad):
+            ad.log.error("WFC is not enabled")
+            return False
+        if not wait_for_network_rat(
+                self.log, ad, RAT_FAMILY_WLAN,
+                voice_or_data=NETWORK_SERVICE_DATA):
+            ad.log.info("Data rat can not go to iwlan mode successfully")
+            return False
+        return True
 
-    def setup_class(self):
-        for ad in self.android_devices:
-            toggle_airplane_mode_by_adb(self.log, ad, False)
+    def _get_call_verification_function(self, ad):
+        user_profile = get_user_config_profile(ad)
+        if user_profile.get("WFC Enabled", False):
+            return is_phone_in_call_iwlan
+        if user_profile.get("VoLTE Enabled", False):
+            return is_phone_in_call_volte
+        return None
 
-    def teardown_class(self):
-        pass
+    def _set_user_profile_before_ota(self):
+        ad = self.android_devices[0]
+        if not phone_setup_iwlan_cellular_preferred(
+                self.log, ad, self.wifi_network_ssid, self.wifi_network_pass):
+            ad.log.error("Failed to setup WFC to %s.",
+                         WFC_MODE_CELLULAR_PREFERRED)
+        if len(self.android_devices) > 1:
+            ad = self.android_devices[1]
+            if not phone_setup_iwlan(
+                    self.log, ad, True, WFC_MODE_WIFI_PREFERRED,
+                    self.wifi_network_ssid, self.wifi_network_pass):
+                ad.log.error("Failed to setup WFC to %s.",
+                             WFC_MODE_WIFI_PREFERRED)
 
-    def setup_test(self):
-        pass
+        if ad.droid.imsIsEnhanced4gLteModeSettingEnabledByPlatform():
+            ad.droid.imsSetEnhanced4gMode(False)
+            state = ad.droid.imsIsEnhanced4gLteModeSettingEnabledByUser()
+            ad.log.info("Enhanced 4G LTE Setting is %s", "on"
+                        if state else "off")
+            if state:
+                ad.log.error("Expecting Enhanced 4G LTE Setting off")
+
+    def _ota_upgrade(self, ad):
+        result = True
+        self._set_user_profile_before_ota()
+        config_profile_before = get_user_config_profile(ad)
+        ad.log.info("Before OTA user config is: %s", config_profile_before)
+        try:
+            ota_updater.update(ad)
+        except Exception as e:
+            ad.log.error("OTA upgrade failed with %s", e)
+            raise
+        if is_sim_locked(ad):
+            ad.log.info("After OTA, SIM keeps the locked state")
+        elif getattr(ad, "is_sim_locked", False):
+            ad.log.error("After OTA, SIM loses the locked state")
+            result = False
+        if not unlock_sim(ad):
+            ad.log.error(ad.log, "unable to unlock SIM")
+        if not ad.droid.connectivityCheckAirplaneMode():
+            if not ensure_phone_subscription(self.log, ad):
+                ad.log.error("Subscription check failed")
+                result = False
+        if config_profile_before.get("WFC Enabled", False):
+            self._check_wfc_enabled(ad)
+            result = False
+        config_profile_after = get_user_config_profile(ad)
+        ad.log.info("After OTA user config is: %s", config_profile_after)
+        if config_profile_before != config_profile_after:
+            ad.log.error("Before: %s, After: %s", config_profile_before,
+                         config_profile_after)
+            ad.log.error("User config profile changed after OTA")
+            result = False
+        return result
 
     """ Tests Begin """
 
@@ -112,22 +157,22 @@ class TelLivePreflightTest(TelephonyBaseTest):
         self.log.info("OTA upgrade with %s by %s", ota_package,
                       self.user_params["ota_tool"])
         ota_updater.initialize(self.user_params, self.android_devices)
-        tasks = [(ota_updater.update, [ad]) for ad in self.android_devices]
+        tasks = [(self._ota_upgrade, [ad]) for ad in self.android_devices]
         try:
-            run_multithread_func(self.log, tasks)
+            result = multithread_func(self.log, tasks)
         except Exception as err:
             abort_all_tests(self.log, "Unable to do ota upgrade: %s" % err)
         device_info = get_info(self.android_devices)
         self.log.info("After OTA upgrade: %s", device_info)
         self.results.add_controller_info("AndroidDevice", device_info)
-        for ad in self.android_devices:
-            if is_sim_locked(ad):
-                ad.log.info("After OTA, SIM keeps the locked state")
-            elif getattr(ad, "is_sim_locked", False):
-                ad.log.error("After OTA, SIM loses the locked state")
-            if not unlock_sim(ad):
-                abort_all_tests(ad.log, "unable to unlock SIM")
-        return True
+        if len(self.android_devices) > 1:
+            caller = self.android_devices[0]
+            callee = self.android_devices[1]
+            return call_setup_teardown(
+                self.log, caller, callee, caller,
+                self._get_call_verification_function(caller),
+                self._get_call_verification_function(callee)) and result
+        return result
 
     @test_tracker_info(uuid="8390a2eb-a744-4cda-bade-f94a2cc83f02")
     @TelephonyBaseTest.tel_test_wrap
@@ -136,13 +181,12 @@ class TelLivePreflightTest(TelephonyBaseTest):
         # Check WiFi environment.
         # 1. Connect to WiFi.
         # 2. Check WiFi have Internet access.
-        toggle_airplane_mode(self.log, ad, False, strict_checking=False)
         try:
             if not ensure_wifi_connected(self.log, ad, self.wifi_network_ssid,
                                          self.wifi_network_pass):
                 abort_all_tests(ad.log, "WiFi connect fail")
-            if (not wait_for_wifi_data_connection(self.log, ad, True) or
-                    not verify_http_connection(self.log, ad)):
+            if (not wait_for_wifi_data_connection(self.log, ad, True)
+                    or not verify_internet_connection(self.log, ad)):
                 abort_all_tests(ad.log, "Data not available on WiFi")
         finally:
             wifi_toggle_state(self.log, ad, False)
@@ -152,11 +196,7 @@ class TelLivePreflightTest(TelephonyBaseTest):
     @test_tracker_info(uuid="7bb23ac7-6b7b-4d5e-b8d6-9dd10032b9ad")
     @TelephonyBaseTest.tel_test_wrap
     def test_pre_flight_check(self):
-        for ad in self.android_devices:
-            #check for sim and service
-            if not ensure_phone_subscription(self.log, ad):
-                abort_all_tests(ad.log, "Unable to find a valid subscription!")
-        return True
+        return ensure_phones_default_state(self.log, self.android_devices)
 
     @test_tracker_info(uuid="1070b160-902b-43bf-92a0-92cc2d05bb13")
     @TelephonyBaseTest.tel_test_wrap

@@ -26,11 +26,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
 import android.text.format.DateUtils;
 import android.util.ArrayMap;
 import android.util.Log;
+
+import androidx.annotation.Keep;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.dream.DreamBackend;
@@ -44,6 +46,7 @@ import java.util.Objects;
 /**
  * The screen saver screen in TV settings.
  */
+@Keep
 public class DaydreamFragment extends SettingsPreferenceFragment
         implements Preference.OnPreferenceChangeListener {
 

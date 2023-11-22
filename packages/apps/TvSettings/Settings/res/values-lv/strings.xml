@@ -94,8 +94,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Kalibrēšana"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Formātu atlase"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Ieskaujošā skaņa"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -363,7 +363,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Dažas lietotnes nebūs pieejamas vai nedarbosies pareizi, kamēr ierīce netiks atkārtoti pievienota."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Atmiņā nepietiek vietas."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Lietotne nepastāv."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Lietotne ir aizsargāta pret kopēšanu."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Instalēšanas vieta nav derīga."</string>
     <string name="system_package" msgid="9200255718634512790">"Sistēmas atjauninājumus nevar instalēt ārējā datu nesējā."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Ierīces administratoru nevar instalēt ārējā datu nesējā."</string>
@@ -736,6 +735,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Piekļuve paziņojumiem"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Nevienā instalētajā lietotnē nav pieprasīta piekļuve paziņojumiem."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Šīs lietotnes varēs lasīt visus paziņojumus, tostarp personas informāciju, piemēram, kontaktpersonu vārdus un saņemtās īsziņas. Lietotnes varēs arī noraidīt paziņojumus vai aktivizēt tajos esošās darbību pogas."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Direktoriju piekļuve"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Šīm lietotnēm ir atļauja piekļūt noteiktiem direktorijiem."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Rādīt pāri citām lietotnēm"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Atļaut rādīt pāri citām lietotnēm"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Atļaut rādīt lietotni pāri citām jūsu izmantotajām lietotnēm. Šī lietotne var traucēt izmantot citas lietotnes vai mainīt šo lietotņu attēlojumu vai darbību."</string>

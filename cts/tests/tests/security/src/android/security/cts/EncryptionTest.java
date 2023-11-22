@@ -18,43 +18,73 @@ package android.security.cts;
 
 import com.android.compatibility.common.util.PropertyUtil;
 
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.SecurityTest;
 import android.test.AndroidTestCase;
 import junit.framework.TestCase;
 
-import android.content.Context;
+import android.os.Build;
 import android.util.Log;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @SecurityTest
 public class EncryptionTest extends AndroidTestCase {
-
     static {
         System.loadLibrary("ctssecurity_jni");
     }
 
-    private static final int MIN_API_LEVEL = 23;
+    private static final int MIN_ENCRYPTION_REQUIRED_API_LEVEL = 23;
+
+    // First API level where there are no speed exemptions.
+    private static final int MIN_ALL_SPEEDS_API_LEVEL = Build.VERSION_CODES.Q;
+
+    // First API level at which file based encryption must be used.
+    private static final int MIN_FBE_REQUIRED_API_LEVEL = Build.VERSION_CODES.Q;
 
     private static final String TAG = "EncryptionTest";
 
-    private static native boolean deviceIsEncrypted();
-
     private static native boolean aesIsFast();
 
-    private boolean isRequired() {
-        // Optional before MIN_API_LEVEL
-        return PropertyUtil.getFirstApiLevel() >= MIN_API_LEVEL;
-    }
-
-    public void testEncryption() throws Exception {
-        if (!isRequired() || deviceIsEncrypted()) {
+    private void handleUnencryptedDevice() {
+        if (PropertyUtil.getFirstApiLevel() < MIN_ENCRYPTION_REQUIRED_API_LEVEL) {
+            Log.d(TAG, "Exempt from encryption due to an old starting API level.");
             return;
         }
+        // In older API levels, we grant an exemption if AES is not fast enough.
+        if (PropertyUtil.getFirstApiLevel() < MIN_ALL_SPEEDS_API_LEVEL) {
+            // Note: aesIsFast() takes ~2 second to run, so it's worth rearranging
+            //     test logic to delay calling this.
+            if (!aesIsFast()) {
+                Log.d(TAG, "Exempt from encryption because AES performance is too low.");
+                return;
+            }
+        }
+        fail("Device encryption is required");
+    }
 
-        // Required if performance is sufficient
-        assertFalse("Device encryption is required", aesIsFast());
+    private void handleEncryptedDevice() {
+        if ("file".equals(PropertyUtil.getProperty("ro.crypto.type"))) {
+            Log.d(TAG, "Device is encrypted with file-based encryption.");
+            // TODO(b/111311698): If we're able to determine if the hardware
+            //     has AES instructions, confirm that AES, and only AES,
+            //     is in use.  If the hardware does not have AES instructions,
+            //     confirm that either AES or Adiantum is in use.
+            return;
+        }
+        if (PropertyUtil.getFirstApiLevel() < MIN_FBE_REQUIRED_API_LEVEL) {
+            Log.d(TAG, "Device is encrypted.");
+            return;
+        }
+        fail("File-based encryption is required");
+    }
+
+    // "getprop", used by PropertyUtil.getProperty(), is not executable
+    // to instant apps
+    @AppModeFull
+    public void testEncryption() throws Exception {
+        if ("encrypted".equals(PropertyUtil.getProperty("ro.crypto.state"))) {
+            handleEncryptedDevice();
+        } else {
+            handleUnencryptedDevice();
+        }
     }
 }

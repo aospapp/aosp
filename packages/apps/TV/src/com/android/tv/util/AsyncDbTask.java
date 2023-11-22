@@ -17,6 +17,7 @@
 package com.android.tv.util;
 
 import android.content.ContentResolver;
+import android.content.Context;
 import android.database.Cursor;
 import android.media.tv.TvContract;
 import android.media.tv.TvContract.Programs;
@@ -34,9 +35,12 @@ import com.android.tv.data.ChannelImpl;
 import com.android.tv.data.Program;
 import com.android.tv.data.api.Channel;
 import com.android.tv.dvr.data.RecordedProgram;
+import com.google.common.base.Predicate;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import javax.inject.Qualifier;
 
 /**
  * {@link AsyncTask} that defaults to executing on its own single threaded Executor Service.
@@ -49,6 +53,10 @@ public abstract class AsyncDbTask<Params, Progress, Result>
         extends AsyncTask<Params, Progress, Result> {
     private static final String TAG = "AsyncDbTask";
     private static final boolean DEBUG = false;
+
+    /** Annotation for requesting the {@link Executor} for data base access. */
+    @Qualifier
+    public @interface DbExecutor {}
 
     private final Executor mExecutor;
     boolean mCalledExecuteOnDbThread;
@@ -67,23 +75,23 @@ public abstract class AsyncDbTask<Params, Progress, Result>
      * @param <Result> the type of result returned by {@link #onQuery(Cursor)}
      */
     public abstract static class AsyncQueryTask<Result> extends AsyncDbTask<Void, Void, Result> {
-        private final ContentResolver mContentResolver;
+        private final WeakReference<Context> mContextReference;
         private final Uri mUri;
-        private final String[] mProjection;
         private final String mSelection;
         private final String[] mSelectionArgs;
         private final String mOrderBy;
+        private String[] mProjection;
 
         public AsyncQueryTask(
-                Executor executor,
-                ContentResolver contentResolver,
+                @DbExecutor Executor executor,
+                Context context,
                 Uri uri,
                 String[] projection,
                 String selection,
                 String[] selectionArgs,
                 String orderBy) {
             super(executor);
-            mContentResolver = contentResolver;
+            mContextReference = new WeakReference<>(context);
             mUri = uri;
             mProjection = projection;
             mSelection = selection;
@@ -110,12 +118,35 @@ public abstract class AsyncDbTask<Params, Progress, Result>
                 // This is guaranteed to never call onPostExecute because the task is canceled.
                 return null;
             }
+            Context context = mContextReference.get();
+            if (context == null) {
+                return null;
+            }
+            if (Utils.isProgramsUri(mUri)
+                            && TvProviderUtils.checkSeriesIdColumn(context, Programs.CONTENT_URI)) {
+                mProjection =
+                        TvProviderUtils.addExtraColumnsToProjection(
+                                mProjection, TvProviderUtils.EXTRA_PROGRAM_COLUMN_SERIES_ID);
+            } else if (Utils.isRecordedProgramsUri(mUri)) {
+                if (TvProviderUtils.checkSeriesIdColumn(
+                        context, TvContract.RecordedPrograms.CONTENT_URI)) {
+                    mProjection =
+                            TvProviderUtils.addExtraColumnsToProjection(
+                                    mProjection, TvProviderUtils.EXTRA_PROGRAM_COLUMN_SERIES_ID);
+                }
+                if (TvProviderUtils.checkStateColumn(
+                        context, TvContract.RecordedPrograms.CONTENT_URI)) {
+                    mProjection =
+                            TvProviderUtils.addExtraColumnsToProjection(
+                                    mProjection, TvProviderUtils.EXTRA_PROGRAM_COLUMN_STATE);
+                }
+            }
             if (DEBUG) {
                 Log.v(TAG, "Starting query for " + this);
             }
             try (Cursor c =
-                    mContentResolver.query(
-                            mUri, mProjection, mSelection, mSelectionArgs, mOrderBy)) {
+                    context.getContentResolver()
+                            .query(mUri, mProjection, mSelection, mSelectionArgs, mOrderBy)) {
                 if (c != null && !isCancelled()) {
                     Result result = onQuery(c);
                     if (DEBUG) {
@@ -164,33 +195,25 @@ public abstract class AsyncDbTask<Params, Progress, Result>
 
         public AsyncQueryListTask(
                 Executor executor,
-                ContentResolver contentResolver,
+                Context context,
                 Uri uri,
                 String[] projection,
                 String selection,
                 String[] selectionArgs,
                 String orderBy) {
-            this(
-                    executor,
-                    contentResolver,
-                    uri,
-                    projection,
-                    selection,
-                    selectionArgs,
-                    orderBy,
-                    null);
+            this(executor, context, uri, projection, selection, selectionArgs, orderBy, null);
         }
 
         public AsyncQueryListTask(
                 Executor executor,
-                ContentResolver contentResolver,
+                Context context,
                 Uri uri,
                 String[] projection,
                 String selection,
                 String[] selectionArgs,
                 String orderBy,
                 CursorFilter filter) {
-            super(executor, contentResolver, uri, projection, selection, selectionArgs, orderBy);
+            super(executor, context, uri, projection, selection, selectionArgs, orderBy);
             mFilter = filter;
         }
 
@@ -202,7 +225,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
                     // This is guaranteed to never call onPostExecute because the task is canceled.
                     return null;
                 }
-                if (mFilter != null && !mFilter.filter(c)) {
+                if (mFilter != null && !mFilter.apply(c)) {
                     continue;
                 }
                 T t = fromCursor(c);
@@ -237,13 +260,13 @@ public abstract class AsyncDbTask<Params, Progress, Result>
 
         public AsyncQueryItemTask(
                 Executor executor,
-                ContentResolver contentResolver,
+                Context context,
                 Uri uri,
                 String[] projection,
                 String selection,
                 String[] selectionArgs,
                 String orderBy) {
-            super(executor, contentResolver, uri, projection, selection, selectionArgs, orderBy);
+            super(executor, context, uri, projection, selection, selectionArgs, orderBy);
         }
 
         @Override
@@ -283,10 +306,10 @@ public abstract class AsyncDbTask<Params, Progress, Result>
     /** Gets an {@link List} of {@link Channel}s from {@link TvContract.Channels#CONTENT_URI}. */
     public abstract static class AsyncChannelQueryTask extends AsyncQueryListTask<Channel> {
 
-        public AsyncChannelQueryTask(Executor executor, ContentResolver contentResolver) {
+        public AsyncChannelQueryTask(Executor executor, Context context) {
             super(
                     executor,
-                    contentResolver,
+                    context,
                     TvContract.Channels.CONTENT_URI,
                     ChannelImpl.PROJECTION,
                     null,
@@ -302,20 +325,13 @@ public abstract class AsyncDbTask<Params, Progress, Result>
 
     /** Gets an {@link List} of {@link Program}s from {@link TvContract.Programs#CONTENT_URI}. */
     public abstract static class AsyncProgramQueryTask extends AsyncQueryListTask<Program> {
-        public AsyncProgramQueryTask(Executor executor, ContentResolver contentResolver) {
-            super(
-                    executor,
-                    contentResolver,
-                    Programs.CONTENT_URI,
-                    Program.PROJECTION,
-                    null,
-                    null,
-                    null);
+        public AsyncProgramQueryTask(Executor executor, Context context) {
+            super(executor, context, Programs.CONTENT_URI, Program.PROJECTION, null, null, null);
         }
 
         public AsyncProgramQueryTask(
                 Executor executor,
-                ContentResolver contentResolver,
+                Context context,
                 Uri uri,
                 String selection,
                 String[] selectionArgs,
@@ -323,7 +339,7 @@ public abstract class AsyncDbTask<Params, Progress, Result>
                 CursorFilter filter) {
             super(
                     executor,
-                    contentResolver,
+                    context,
                     uri,
                     Program.PROJECTION,
                     selection,
@@ -341,9 +357,8 @@ public abstract class AsyncDbTask<Params, Progress, Result>
     /** Gets an {@link List} of {@link TvContract.RecordedPrograms}s. */
     public abstract static class AsyncRecordedProgramQueryTask
             extends AsyncQueryListTask<RecordedProgram> {
-        public AsyncRecordedProgramQueryTask(
-                Executor executor, ContentResolver contentResolver, Uri uri) {
-            super(executor, contentResolver, uri, RecordedProgram.PROJECTION, null, null, null);
+        public AsyncRecordedProgramQueryTask(Executor executor, Context context, Uri uri) {
+            super(executor, context, uri, RecordedProgram.PROJECTION, null, null, null);
         }
 
         @Override
@@ -370,13 +385,10 @@ public abstract class AsyncDbTask<Params, Progress, Result>
         protected final long mChannelId;
 
         public LoadProgramsForChannelTask(
-                Executor executor,
-                ContentResolver contentResolver,
-                long channelId,
-                @Nullable Range<Long> period) {
+                Executor executor, Context context, long channelId, @Nullable Range<Long> period) {
             super(
                     executor,
-                    contentResolver,
+                    context,
                     period == null
                             ? TvContract.buildProgramsUriForChannel(channelId)
                             : TvContract.buildProgramsUriForChannel(
@@ -401,11 +413,10 @@ public abstract class AsyncDbTask<Params, Progress, Result>
     /** Gets a single {@link Program} from {@link TvContract.Programs#CONTENT_URI}. */
     public static class AsyncQueryProgramTask extends AsyncQueryItemTask<Program> {
 
-        public AsyncQueryProgramTask(
-                Executor executor, ContentResolver contentResolver, long programId) {
+        public AsyncQueryProgramTask(Executor executor, Context context, long programId) {
             super(
                     executor,
-                    contentResolver,
+                    context,
                     TvContract.buildProgramUri(programId),
                     Program.PROJECTION,
                     null,
@@ -420,5 +431,5 @@ public abstract class AsyncDbTask<Params, Progress, Result>
     }
 
     /** An interface which filters the row. */
-    public interface CursorFilter extends Filter<Cursor> {}
+    public interface CursorFilter extends Predicate<Cursor> {}
 }

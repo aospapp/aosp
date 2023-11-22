@@ -46,37 +46,39 @@ func makeVarsProvider(ctx android.MakeVarsContext) {
 	ctx.Strict("JAVADOC", "${JavadocCmd}")
 	ctx.Strict("COMMON_JDK_FLAGS", "${CommonJdkFlags}")
 
-	if ctx.Config().UseD8Desugar() {
-		ctx.Strict("DX", "${D8Cmd}")
-		ctx.Strict("DX_COMMAND", "${D8Cmd} -JXms16M -JXmx2048M")
-		ctx.Strict("USE_D8_DESUGAR", "true")
-	} else {
-		ctx.Strict("DX", "${DxCmd}")
-		ctx.Strict("DX_COMMAND", "${DxCmd} -JXms16M -JXmx2048M")
-		ctx.Strict("USE_D8_DESUGAR", "false")
-	}
+	ctx.Strict("DX", "${D8Cmd}")
+	ctx.Strict("DX_COMMAND", "${D8Cmd} -JXms16M -JXmx2048M")
 	ctx.Strict("R8_COMPAT_PROGUARD", "${R8Cmd}")
 
 	ctx.Strict("TURBINE", "${TurbineJar}")
 
-	if ctx.Config().IsEnvTrue("RUN_ERROR_PRONE") {
-		ctx.Strict("TARGET_JAVAC", "${ErrorProneCmd}")
-		ctx.Strict("HOST_JAVAC", "${ErrorProneCmd}")
-	} else {
-		ctx.Strict("TARGET_JAVAC", "${JavacCmd} ${CommonJdkFlags}")
-		ctx.Strict("HOST_JAVAC", "${JavacCmd} ${CommonJdkFlags}")
+	if ctx.Config().RunErrorProne() {
+		ctx.Strict("ERROR_PRONE_JARS", strings.Join(ErrorProneClasspath, " "))
+		ctx.Strict("ERROR_PRONE_FLAGS", "${ErrorProneFlags}")
+		ctx.Strict("ERROR_PRONE_CHECKS", "${ErrorProneChecks}")
 	}
 
-	if ctx.Config().UseOpenJDK9() {
-		ctx.Strict("JLINK", "${JlinkCmd}")
-		ctx.Strict("JMOD", "${JmodCmd}")
-	}
+	ctx.Strict("TARGET_JAVAC", "${JavacCmd} ${CommonJdkFlags}")
+	ctx.Strict("HOST_JAVAC", "${JavacCmd} ${CommonJdkFlags}")
+
+	ctx.Strict("JLINK", "${JlinkCmd}")
+	ctx.Strict("JMOD", "${JmodCmd}")
 
 	ctx.Strict("SOONG_JAVAC_WRAPPER", "${SoongJavacWrapper}")
+	ctx.Strict("DEXPREOPT_GEN", "${DexpreoptGen}")
 	ctx.Strict("ZIPSYNC", "${ZipSyncCmd}")
 
 	ctx.Strict("JACOCO_CLI_JAR", "${JacocoCLIJar}")
 	ctx.Strict("DEFAULT_JACOCO_EXCLUDE_FILTER", strings.Join(DefaultJacocoExcludeFilter, ","))
 
 	ctx.Strict("EXTRACT_JAR_PACKAGES", "${ExtractJarPackagesCmd}")
+
+	ctx.Strict("MANIFEST_FIXER", "${ManifestFixerCmd}")
+
+	ctx.Strict("ANDROID_MANIFEST_MERGER", "${ManifestMergerCmd}")
+
+	ctx.Strict("CLASS2GREYLIST", "${Class2Greylist}")
+	ctx.Strict("HIDDENAPI", "${HiddenAPI}")
+
+	ctx.Strict("DEX_FLAGS", "${DexFlags}")
 }

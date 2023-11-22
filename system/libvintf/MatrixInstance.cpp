@@ -27,11 +27,11 @@ MatrixInstance::MatrixInstance() = default;
 
 MatrixInstance::MatrixInstance(const MatrixInstance&) = default;
 
-MatrixInstance::MatrixInstance(MatrixInstance&&) = default;
+MatrixInstance::MatrixInstance(MatrixInstance&&) noexcept = default;
 
 MatrixInstance& MatrixInstance::operator=(const MatrixInstance&) = default;
 
-MatrixInstance& MatrixInstance::operator=(MatrixInstance&&) = default;
+MatrixInstance& MatrixInstance::operator=(MatrixInstance&&) noexcept = default;
 
 MatrixInstance::MatrixInstance(FqInstance&& fqInstance, VersionRange&& range, bool optional,
                                bool isRegex)

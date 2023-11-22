@@ -17,12 +17,15 @@
 package com.android.documentsui.dirlist;
 
 import android.os.Bundle;
-import android.support.v4.view.AccessibilityDelegateCompat;
-import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat;
-import android.support.v4.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat;
-import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.RecyclerViewAccessibilityDelegate;
 import android.view.View;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.view.AccessibilityDelegateCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat.AccessibilityActionCompat;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerViewAccessibilityDelegate;
 
 import java.util.function.Function;
 
@@ -44,17 +47,29 @@ public class AccessibilityEventRouter extends RecyclerViewAccessibilityDelegate 
 
     private final ItemDelegate mItemDelegate;
     private final Function<View, Boolean> mClickCallback;
+    private final Function<View, Boolean> mLongClickCallback;
 
     public AccessibilityEventRouter(
-            RecyclerView recyclerView, Function<View, Boolean> clickCallback) {
+            RecyclerView recyclerView, @NonNull Function<View, Boolean> clickCallback,
+            @Nullable Function<View, Boolean> longClickCallback) {
         super(recyclerView);
         mClickCallback = clickCallback;
+        mLongClickCallback = longClickCallback;
         mItemDelegate = new ItemDelegate(this) {
             @Override
             public void onInitializeAccessibilityNodeInfo(View host,
                     AccessibilityNodeInfoCompat info) {
                 super.onInitializeAccessibilityNodeInfo(host, info);
-                info.addAction(AccessibilityActionCompat.ACTION_CLICK);
+                final RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(host);
+                // if the viewHolder is a DocumentsHolder instance and the ItemDetails
+                // is null, it can't be clicked
+                if (holder instanceof DocumentHolder) {
+                    if (((DocumentHolder)holder).getItemDetails() != null) {
+                        addAction(info);
+                    }
+                } else {
+                    addAction(info);
+                }
                 info.setSelected(host.isActivated());
             }
 
@@ -63,6 +78,9 @@ public class AccessibilityEventRouter extends RecyclerViewAccessibilityDelegate 
                 // We are only handling click events; route all other to default implementation
                 if (action == AccessibilityNodeInfoCompat.ACTION_CLICK) {
                     return mClickCallback.apply(host);
+                } else if (action == AccessibilityNodeInfoCompat.ACTION_LONG_CLICK
+                        && mLongClickCallback != null) {
+                    return mLongClickCallback.apply(host);
                 }
                 return super.performAccessibilityAction(host, action, args);
             }
@@ -72,5 +90,12 @@ public class AccessibilityEventRouter extends RecyclerViewAccessibilityDelegate 
     @Override
     public AccessibilityDelegateCompat getItemDelegate() {
         return mItemDelegate;
+    }
+
+    private void addAction(AccessibilityNodeInfoCompat info) {
+        info.addAction(AccessibilityActionCompat.ACTION_CLICK);
+        if (mLongClickCallback != null) {
+            info.addAction(AccessibilityNodeInfoCompat.ACTION_LONG_CLICK);
+        }
     }
 }

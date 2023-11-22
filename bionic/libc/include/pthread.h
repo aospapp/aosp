@@ -97,7 +97,7 @@ int pthread_atfork(void (*__prepare)(void), void (*__parent)(void), void (*__chi
 int pthread_attr_destroy(pthread_attr_t* __attr);
 int pthread_attr_getdetachstate(const pthread_attr_t* __attr, int* __state);
 int pthread_attr_getguardsize(const pthread_attr_t* __attr, size_t* __size);
-int pthread_attr_getinheritsched(const pthread_attr_t* __attr, int* __flag);
+int pthread_attr_getinheritsched(const pthread_attr_t* __attr, int* __flag) __INTRODUCED_IN(28);
 int pthread_attr_getschedparam(const pthread_attr_t* __attr, struct sched_param* __param);
 int pthread_attr_getschedpolicy(const pthread_attr_t* __attr, int* __policy);
 int pthread_attr_getscope(const pthread_attr_t* __attr, int* __scope);
@@ -106,7 +106,7 @@ int pthread_attr_getstacksize(const pthread_attr_t* __attr, size_t* __size);
 int pthread_attr_init(pthread_attr_t* __attr);
 int pthread_attr_setdetachstate(pthread_attr_t* __attr, int __state);
 int pthread_attr_setguardsize(pthread_attr_t* __attr, size_t __size);
-int pthread_attr_setinheritsched(pthread_attr_t* __attr, int __flag);
+int pthread_attr_setinheritsched(pthread_attr_t* __attr, int __flag) __INTRODUCED_IN(28);
 int pthread_attr_setschedparam(pthread_attr_t* __attr, const struct sched_param* __param);
 int pthread_attr_setschedpolicy(pthread_attr_t* __attr, int __policy);
 int pthread_attr_setscope(pthread_attr_t* __attr, int __scope);
@@ -137,7 +137,21 @@ int pthread_cond_timedwait_monotonic_np(pthread_cond_t* __cond, pthread_mutex_t*
                                         const struct timespec* __timeout) __INTRODUCED_IN_64(28);
 int pthread_cond_wait(pthread_cond_t* __cond, pthread_mutex_t* __mutex);
 
+#if defined(__clang__)
+/*
+ * Disable -Wbuiltin-requires-header because clang confuses this declaration with the one defined in
+ * "llvm/tools/clang/include/clang/Basic/Builtins.def", which did not define any formal arguments.
+ * It seems to be an upstream bug and the fix (https://reviews.llvm.org/D58531) is still under
+ * review. Thus, let's disable the warning for this function declaration.
+ */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wbuiltin-requires-header"
+#endif
 int pthread_create(pthread_t* __pthread_ptr, pthread_attr_t const* __attr, void* (*__start_routine)(void*), void*);
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
 int pthread_detach(pthread_t __pthread);
 void pthread_exit(void* __return_value) __noreturn;
 

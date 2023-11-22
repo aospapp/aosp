@@ -19,10 +19,13 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.ConfigurationFactory;
 import com.android.tradefed.config.IConfiguration;
 import com.android.tradefed.targetprep.ITargetPreparer;
 import com.android.tradefed.targetprep.TestAppInstallSetup;
+import com.android.tradefed.testtype.IRemoteTest;
+import com.android.tradefed.testtype.InstrumentationTest;
 import com.android.tradefed.util.AaptParser;
 
 import org.junit.Test;
@@ -81,6 +84,7 @@ public class ApkPackageNameCheck {
                     .createConfigurationFromArgs(new String[] {config.getAbsolutePath()});
             // For each config, we check all the apk it's going to install
             List<String> apkNames = new ArrayList<>();
+            List<String> packageListNames = new ArrayList<>();
             for (ITargetPreparer prep : c.getTargetPreparers()) {
                 if (prep instanceof TestAppInstallSetup) {
                     apkNames.addAll(((TestAppInstallSetup) prep).getTestsFileName());
@@ -97,11 +101,28 @@ public class ApkPackageNameCheck {
                 assertNotNull(res);
                 String packageName = res.getPackageName();
                 String put = packageNames.put(packageName, apkName);
+                packageListNames.add(packageName);
                 // The package already exists and it's a different apk
                 if (put != null && !apkName.equals(put) && !EXCEPTION_LIST.contains(packageName)) {
                     fail(String.format("Module %s: Package name '%s' from apk '%s' was already "
                             + "added by previous apk '%s'.",
                             config.getName(), packageName, apkName, put));
+                }
+            }
+
+            // Catch a test trying to run something it doesn't install.
+            List<IRemoteTest> tests = c.getTests();
+            for (IRemoteTest test : tests) {
+                if (test instanceof InstrumentationTest) {
+                    InstrumentationTest instrumentationTest = (InstrumentationTest) test;
+                    if (instrumentationTest.getPackageName() != null) {
+                        if (!packageListNames.contains(instrumentationTest.getPackageName())) {
+                            throw new ConfigurationException(
+                                    String.format("Module %s requests to run '%s' but it's not "
+                                        + "part of any apks.",
+                                        config.getName(), instrumentationTest.getPackageName()));
+                        }
+                    }
                 }
             }
         }

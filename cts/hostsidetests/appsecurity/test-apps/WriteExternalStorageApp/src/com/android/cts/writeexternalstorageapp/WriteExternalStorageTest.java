@@ -35,6 +35,7 @@ import static com.android.cts.externalstorageapp.CommonExternalStorageTest.write
 
 import android.os.Environment;
 import android.os.SystemClock;
+import android.provider.MediaStore;
 import android.system.Os;
 import android.test.AndroidTestCase;
 import android.text.format.DateUtils;
@@ -43,6 +44,8 @@ import android.util.Log;
 import com.android.cts.externalstorageapp.CommonExternalStorageTest;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.util.List;
 import java.util.Random;
 
@@ -257,6 +260,10 @@ public class WriteExternalStorageTest extends AndroidTestCase {
         }
         final List<File> paths = getAllPackageSpecificPathsExceptMedia(getContext());
 
+        for (File path : paths) {
+            MediaStore.scanFile(getContext(), path);
+        }
+
         // Require that .nomedia was created somewhere above each dir
         for (File path : paths) {
             assertNotNull("Valid media must be inserted during CTS", path);
@@ -327,7 +334,9 @@ public class WriteExternalStorageTest extends AndroidTestCase {
 
         final File after = new File(before.getAbsolutePath()
                 .replace(getContext().getPackageName(), "com.example.does.not.exist"));
-        after.getParentFile().mkdirs();
+        final File afterParent = after.getParentFile();
+        afterParent.mkdirs();
+        deleteContents(afterParent);
 
         Os.rename(before.getAbsolutePath(), after.getAbsolutePath());
 
@@ -337,5 +346,38 @@ public class WriteExternalStorageTest extends AndroidTestCase {
         final File afterFile = new File(after, "test.probe");
         assertNotEqual(Os.getuid(), Os.stat(after.getAbsolutePath()).st_uid);
         assertNotEqual(Os.getuid(), Os.stat(afterFile.getAbsolutePath()).st_uid);
+    }
+
+    public void testExternalStorageRename() throws Exception {
+        final String name = "cts_" + System.nanoTime();
+
+        // Stage some contents to move around
+        File cur = Environment.getExternalStorageDirectory();
+        try (FileOutputStream fos = new FileOutputStream(new File(cur, name))) {
+            fos.write(42);
+        }
+
+        for (File next : new File[] {
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                getContext().getExternalCacheDir(),
+                getContext().getExternalFilesDir(null),
+                getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                getContext().getExternalMediaDirs()[0],
+        }) {
+            next.mkdirs();
+
+            final File before = new File(cur, name);
+            final File after = new File(next, name);
+
+            Log.v(TAG, "Moving " + before + " to " + after);
+            Os.rename(before.getAbsolutePath(), after.getAbsolutePath());
+
+            cur = next;
+        }
+
+        // Make sure the data made the journey
+        try (FileInputStream fis = new FileInputStream(new File(cur, name))) {
+            assertEquals(42, fis.read());
+        }
     }
 }

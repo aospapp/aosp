@@ -22,14 +22,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
-import android.os.Process;
-import android.os.UserHandle;
 import android.os.UserManager;
+
 import com.android.compatibility.common.util.BitmapUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +45,7 @@ public class CustomizationRestrictionsTest extends BaseDeviceAdminTest {
     // Class sets/resets restriction in try-with-resources statement.
     private class RestrictionApplicator implements Closeable {
         private final String mRestriction;
+
         RestrictionApplicator(String restriction) {
             mRestriction = restriction;
             mDevicePolicyManager.addUserRestriction(ADMIN_RECEIVER_COMPONENT, mRestriction);
@@ -61,6 +60,7 @@ public class CustomizationRestrictionsTest extends BaseDeviceAdminTest {
     // Class subscribes/unsubscribe for broadcast notification in try-with-resources statement.
     private class BroadcastReceiverRegistrator implements Closeable {
         private final BlockingBroadcastReceiver mReceiver;
+
         public BroadcastReceiverRegistrator(String action) {
             final IntentFilter filter = new IntentFilter();
             filter.addAction(action);
@@ -79,7 +79,7 @@ public class CustomizationRestrictionsTest extends BaseDeviceAdminTest {
     }
 
     private class BlockingBroadcastReceiver extends BroadcastReceiver {
-        private BlockingQueue<Integer> mQueue = new ArrayBlockingQueue<Integer> (1);
+        private BlockingQueue<Integer> mQueue = new ArrayBlockingQueue<Integer>(1);
 
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -90,22 +90,6 @@ public class CustomizationRestrictionsTest extends BaseDeviceAdminTest {
             Integer result = mQueue.poll(BROADCAST_TIMEOUT_SEC, TimeUnit.SECONDS);
             assertNotNull(result);
         }
-    }
-
-    private static int getUserId() throws Exception {
-        UserHandle userHandle = Process.myUserHandle();
-        Class<?>[] noParam = {};
-        Class<?> userHandleClass = userHandle.getClass();
-        Method methodGetIdentifier = userHandleClass.getDeclaredMethod("getIdentifier", noParam);
-        return (Integer) methodGetIdentifier.invoke(userHandle, null);
-    }
-
-    private Bitmap getUserIcon() throws Exception {
-        Class<?>[] paramInt = new Class[1];
-        paramInt[0] = Integer.TYPE;
-        Class<?> umClass = mUserManager.getClass();
-        Method methodGetUserIcon = umClass.getDeclaredMethod("getUserIcon", paramInt);
-        return (Bitmap) methodGetUserIcon.invoke(mUserManager, getUserId());
     }
 
     // The idea of testing is check if a DO/PO can set a wallpapper despite the
@@ -122,11 +106,11 @@ public class CustomizationRestrictionsTest extends BaseDeviceAdminTest {
                 originalWallpaper.copy(originalWallpaper.getConfig(), false);
 
         try (
-            // Set restriction and subscribe for the broadcast.
-            final RestrictionApplicator restr =
-                    new RestrictionApplicator(UserManager.DISALLOW_SET_WALLPAPER);
-            final BroadcastReceiverRegistrator bcast =
-                    new BroadcastReceiverRegistrator(Intent.ACTION_WALLPAPER_CHANGED);
+                // Set restriction and subscribe for the broadcast.
+                final RestrictionApplicator restr =
+                        new RestrictionApplicator(UserManager.DISALLOW_SET_WALLPAPER);
+                final BroadcastReceiverRegistrator bcast =
+                        new BroadcastReceiverRegistrator(Intent.ACTION_WALLPAPER_CHANGED);
         ) {
             assertTrue(mUserManager.hasUserRestriction(UserManager.DISALLOW_SET_WALLPAPER));
 
@@ -155,33 +139,5 @@ public class CustomizationRestrictionsTest extends BaseDeviceAdminTest {
             wallpaperManager.setBitmap(originalWallpaperCopy);
         }
         assertFalse(mUserManager.hasUserRestriction(UserManager.DISALLOW_SET_WALLPAPER));
-    }
-
-    // The idea behind this test is similar to testDisallowSetWallpaper_allowed
-    public void testDisallowSetUserIcon_allowed() throws Exception {
-        final Bitmap originalIcon = getUserIcon();
-
-        try (
-            // Apply restriction.
-            final RestrictionApplicator restr =
-                    new RestrictionApplicator(UserManager.DISALLOW_SET_USER_ICON);
-        ) {
-            assertTrue(mUserManager.hasUserRestriction(UserManager.DISALLOW_SET_USER_ICON));
-            final Bitmap randomBmp = BitmapUtils.generateRandomBitmap(17, 31);
-            mDevicePolicyManager.setUserIcon(ADMIN_RECEIVER_COMPONENT, randomBmp);
-            final Bitmap currentIcon = getUserIcon();
-            assertNotSame(randomBmp, currentIcon);
-            assertFalse(BitmapUtils.compareBitmaps(originalIcon, currentIcon));
-        } finally {
-            if (originalIcon == null) {
-                // There is no way to restore absence of an icon. Thus set white
-                // icon for esthetic reasons.
-                mDevicePolicyManager.setUserIcon(ADMIN_RECEIVER_COMPONENT,
-                        BitmapUtils.generateWhiteBitmap(20, 20));
-            } else {
-                mDevicePolicyManager.setUserIcon(ADMIN_RECEIVER_COMPONENT, originalIcon);
-            }
-        }
-        assertFalse(mUserManager.hasUserRestriction(UserManager.DISALLOW_SET_USER_ICON));
     }
 }

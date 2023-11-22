@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -62,6 +62,9 @@ MAX_WAIT_TIME_CALL_INITIATION = 90
 # Time to wait after change Mode Pref for Stress Test
 WAIT_TIME_AFTER_MODE_CHANGE = 60
 
+# Max time to wait for Carrier Config Version to Update in mins
+WAIT_TIME_FOR_CARRIERCONFIG_CHANGE = 20
+
 # Max time to wait after toggle airplane mode and before
 # get expected event
 MAX_WAIT_TIME_AIRPLANEMODE_EVENT = 90
@@ -116,7 +119,7 @@ MAX_WAIT_TIME_PROVISIONING = 300
 
 # Time to wait after call setup before declaring
 # that the call is actually successful
-WAIT_TIME_IN_CALL = 15
+WAIT_TIME_IN_CALL = 30
 
 # (For IMS, e.g. VoLTE-VoLTE, WFC-WFC, VoLTE-WFC test only)
 # Time to wait after call setup before declaring
@@ -161,13 +164,37 @@ WAIT_TIME_VOICE_MAIL_SERVER_RESPONSE = 10
 WAIT_TIME_AFTER_REBOOT = 10
 
 # Time to wait for radio to up and running after force crash
-WAIT_TIME_AFTER_CRASH = 30
+WAIT_TIME_AFTER_CRASH = 60
+
+# Time to wait for boot complete after reboot
+WAIT_TIME_FOR_BOOT_COMPLETE = 75
 
 # Time to wait for tethering test after reboot
 WAIT_TIME_TETHERING_AFTER_REBOOT = 10
 
 # Time to wait after changing data sub id
 WAIT_TIME_CHANGE_DATA_SUB_ID = 30
+
+# Time to wait after changing voice sub id
+WAIT_TIME_CHANGE_VOICE_SUB_ID = 5
+
+# Time to wait after changing message sub id
+WAIT_TIME_CHANGE_MESSAGE_SUB_ID = 5
+
+# Wait time for Data Stall to detect
+WAIT_TIME_FOR_DATA_STALL = 300
+
+# Wait time for Network Validation Failed detection
+WAIT_TIME_FOR_NW_VALID_FAIL = 300
+
+# Wait time for Data Stall to recover
+WAIT_TIME_FOR_DATA_STALL_RECOVERY = 360
+
+# Callbox Power level which will cause no service on device
+POWER_LEVEL_OUT_OF_SERVICE = -100
+
+# Callbox Power level which will ensure full service on device
+POWER_LEVEL_FULL_SERVICE = -20
 
 # These are used in phone_number_formatter
 PHONE_NUMBER_STRING_FORMAT_7_DIGIT = 7
@@ -257,6 +284,13 @@ CARRIER_ORG = 'org'
 CARRIER_TEL = 'tel'
 CARRIER_TSA = 'tsa'
 CARRIER_USCC = 'uscc'
+CARRIER_ROGERS = 'ROGERS'
+CARRIER_TELUS = 'tls'
+CARRIER_KOODO = 'kdo'
+CARRIER_VIDEOTRON = 'vtrn'
+CARRIER_BELL = 'bell'
+CARRIER_FRE = 'fre'
+CARRIER_FI = 'fi'
 
 RAT_FAMILY_CDMA = 'cdma'
 RAT_FAMILY_CDMA2000 = 'cdma2000'
@@ -275,6 +309,14 @@ CAPABILITY_VT = 'vt'
 CAPABILITY_WFC = 'wfc'
 CAPABILITY_MSIM = 'msim'
 CAPABILITY_OMADM = 'omadm'
+CAPABILITY_WFC_MODE_CHANGE = 'wfc_mode_change'
+CAPABILITY_CONFERENCE = 'conference'
+CAPABILITY_VOLTE_PROVISIONING = 'volte_provisioning'
+CAPABILITY_VOLTE_OVERRIDE_WFC_PROVISIONING = 'volte_override_wfc_provisioning'
+
+# Carrier Config Versions
+VZW_CARRIER_CONFIG_VERSION = "29999999999.1"
+ATT_CARRIER_CONFIG_VERSION = "28888888888.1"
 
 # Constant for operation direction
 DIRECTION_MOBILE_ORIGINATED = "MO"
@@ -447,6 +489,9 @@ SIM_STATE_PERM_DISABLED = "PERM_DISABLED"
 SIM_STATE_CARD_IO_ERROR = "CARD_IO_ERROR"
 SIM_STATE_LOADED = "LOADED"
 
+SINGLE_SIM_CONFIG = "ssss"
+MULTI_SIM_CONFIG = "dsds"
+
 # Constant for Data Connection State
 DATA_STATE_CONNECTED = "CONNECTED"
 DATA_STATE_DISCONNECTED = "DISCONNECTED"
@@ -549,6 +594,21 @@ NETWORK_MODE_LTE_TDSCDMA_GSM_WCDMA = "NETWORK_MODE_LTE_TDSCDMA_GSM_WCDMA"
 NETWORK_MODE_TDSCDMA_CDMA_EVDO_WCDMA = "NETWORK_MODE_TDSCDMA_CDMA_EVDO_WCDMA"
 NETWORK_MODE_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA = "NETWORK_MODE_LTE_TDSCDMA_CDMA_EVDO_GSM_WCDMA"
 
+# Carrier Config Update
+CARRIER_ID_VERSION = "3"
+WAIT_TIME_FOR_CARRIERID_CHANGE = 6
+CARRIER_ID_METADATA_URL = "am broadcast -a com.google.android.gms." \
+     "phenotype.FLAG_OVERRIDE --es package 'com.google.android.configupdater'" \
+     " --es user '\*' --esa flags 'CarrierIdentification__metadata_url' " \
+     "--esa values 'https://www.gstatic.com/android/config_update/110618-" \
+     "carrier-id-metadata.txt' --esa types 'string' com.google.android.gms"
+
+CARRIER_ID_CONTENT_URL = "am broadcast -a com.google.android.gms." \
+     "phenotype.FLAG_OVERRIDE --es package 'com.google.android.configupdater'" \
+     " --es user '\*' --esa flags 'CarrierIdentification__content_url' " \
+     "--esa values 'https://www.gstatic.com/android/config_update/110618-" \
+     "carrier-id.pb' --esa types 'string' com.google.android.gms"
+
 # Constant for Messaging Event Name
 EventSmsDeliverSuccess = "SmsDeliverSuccess"
 EventSmsDeliverFailure = "SmsDeliverFailure"
@@ -617,7 +677,6 @@ NetworkCallbackSuspended = "Suspended"
 NetworkCallbackResumed = "Resumed"
 NetworkCallbackLinkPropertiesChanged = "LinkPropertiesChanged"
 NetworkCallbackInvalid = "Invalid"
-
 
 class SignalStrengthContainer:
     SIGNAL_STRENGTH_GSM = "gsmSignalStrength"
@@ -698,6 +757,28 @@ class NetworkCallbackContainer:
     NETWORK_CALLBACK_EVENT = "networkCallbackEvent"
     MAX_MS_TO_LIVE = "maxMsToLive"
     RSSI = "rssi"
+
+
+class CarrierConfigs:
+    NAME_STRING = "carrier_name_string"
+    SUPPORT_CONFERENCE_CALL_BOOL = "support_conference_call_bool"
+    VOLTE_AVAILABLE_BOOL = "carrier_volte_available_bool"
+    VOLTE_PROVISIONED_BOOL = "carrier_volte_provisioned_bool"
+    VOLTE_PROVISIONING_REQUIRED_BOOL = "carrier_volte_provisioning_required_bool"
+    VOLTE_OVERRIDE_WFC_BOOL = "carrier_volte_override_wfc_provisioning_bool"
+    VT_AVAILABLE_BOOL = "carrier_vt_available_bool"
+    ENHANCED_4G_LTE_ON_BY_DEFAULT_BOOL = "enhanced_4g_lte_on_by_default_bool"
+    WFC_IMS_AVAILABLE_BOOL = "carrier_wfc_ims_available_bool"
+    WFC_SUPPORTS_WIFI_ONLY_BOOL = "carrier_wfc_supports_wifi_only_bool"
+    EDITABLE_ENHANCED_4G_LTE_BOOL = "editable_enhanced_4g_lte_bool"
+    EDITABLE_WFC_MODE_BOOL = "editable_wfc_mode_bool"
+    EDITABLE_WFC_ROAMING_MODE_BOOL = "editable_wfc_roaming_mode_bool"
+    DEFAULT_DATA_ROAMING_ENABLED_BOOL = "carrier_default_data_roaming_enabled_bool"
+    DEFAULT_WFC_IMS_ROAMING_ENABLED_BOOL = "carrier_default_wfc_ims_roaming_enabled_bool"
+    DEFAULT_WFC_IMS_ENABLED_BOOL = "carrier_default_wfc_ims_enabled_bool"
+    DEFAULT_WFC_IMS_MODE_INT = "carrier_default_wfc_ims_mode_int"
+    DEFAULT_WFC_IMS_ROAMING_ENABLED_BOOL = "carrier_default_wfc_ims_roaming_enabled_bool"
+    DEFAULT_WFC_IMS_ROAMING_MODE_INT = "carrier_default_wfc_ims_roaming_mode_int"
 
 
 """

@@ -58,14 +58,14 @@
     <string name="port_title" msgid="6693965912656593862">"ਪੋਰਟ ਨੰਬਰ"</string>
     <string name="transport_title" msgid="889155457465372527">"ਟ੍ਰਾਂਸਪੋਰਟ ਦੀ ਕਿਸਮ"</string>
     <string name="send_keepalive_title" msgid="599627072150501159">"ਕੀਪ-ਅਲਾਈਵ ਭੇਜੋ"</string>
-    <string name="advanced_settings" msgid="6622996380747040711">"ਵਿਕਲਪਕ ਸੈਟਿੰਗਾਂ"</string>
+    <string name="advanced_settings" msgid="6622996380747040711">"ਵਿਕਲਪਿਕ ਸੈਟਿੰਗਾਂ"</string>
     <string name="auth_username_title" msgid="8262491689004708265">"ਪ੍ਰਮਾਣੀਕਰਨ ਵਰਤੋਂਕਾਰ ਨਾਮ"</string>
     <string name="auth_username_summary" msgid="941160241371436473">"ਪ੍ਰਮਾਣੀਕਰਨ ਲਈ ਵਰਤਿਆ ਗਿਆ ਵਰਤੋਂਕਾਰ ਨਾਮ"</string>
     <string name="default_preference_summary_username" msgid="8404717434312826082">"&lt;ਸੈੱਟ ਨਹੀਂ&gt;"</string>
     <string name="default_preference_summary_password" msgid="4464464672997027904">"&lt;ਸੈੱਟ ਨਹੀਂ&gt;"</string>
     <string name="default_preference_summary_domain_address" msgid="4871971710197441673">"&lt;ਸੈੱਟ ਨਹੀਂ&gt;"</string>
     <string name="display_name_summary" msgid="7155076491675565407">"&lt;ਉਹੀ ਹੈ ਜੋ ਵਰਤੋਂਕਾਰ ਨਾਮ ਹੈ&gt;"</string>
-    <string name="optional_summary" msgid="2363105560396317624">"&lt;ਵਿਕਲਪਕ&gt;"</string>
+    <string name="optional_summary" msgid="2363105560396317624">"&lt;ਵਿਕਲਪਿਕ&gt;"</string>
     <string name="advanced_settings_show" msgid="7838761602853998622">"▷ ਸਾਰੇ ਦਿਖਾਉਣ ਲਈ ਸਪੱਰਸ਼ ਕਰੋ"</string>
     <string name="advanced_settings_hide" msgid="3480554978705290228">"▽ ਸਾਰੇ ਲੁਕਾਉਣ ਲਈ ਸਪੱਰਸ਼ ਕਰੋ"</string>
     <string name="all_empty_alert" msgid="4087734950375192387">"ਨਵੇਂ SIP ਖਾਤੇ ਦੇ ਵੇਰਵੇ ਦਾਖ਼ਲ ਕਰੋ।"</string>

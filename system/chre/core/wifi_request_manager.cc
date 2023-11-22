@@ -109,7 +109,7 @@ bool WifiRequestManager::requestRanging(
       success = req.targetList.copy_array(params->targetList,
                                           params->targetListLen);
       if (!success) {
-        LOGE("Couldn't make copy of target list");
+        LOG_OOM();
         mPendingRangingRequests.pop_back();
       }
     }
@@ -168,7 +168,7 @@ void WifiRequestManager::handleScanMonitorStateChange(bool enabled,
 
   auto *cbState = memoryAlloc<CallbackState>();
   if (cbState == nullptr) {
-    LOGE("Failed to allocate callback state for scan monitor state change");
+    LOG_OOM();
   } else {
     cbState->enabled = enabled;
     cbState->errorCode = errorCode;
@@ -194,7 +194,7 @@ void WifiRequestManager::handleScanResponse(bool pending,
 
   auto *cbState = memoryAlloc<CallbackState>();
   if (cbState == nullptr) {
-    LOGE("Failed to allocate callback state for wifi scan response");
+    LOG_OOM();
   } else {
     cbState->pending = pending;
     cbState->errorCode = errorCode;
@@ -257,35 +257,32 @@ void WifiRequestManager::handleScanEvent(chreWifiScanEvent *event) {
       SystemCallbackType::WifiHandleScanEvent, event, callback);
 }
 
-bool WifiRequestManager::logStateToBuffer(char *buffer, size_t *bufferPos,
+void WifiRequestManager::logStateToBuffer(char *buffer, size_t *bufferPos,
                                           size_t bufferSize) const {
-  bool success = debugDumpPrint(buffer, bufferPos, bufferSize, "\nWifi: "
-                                "scan monitor %s\n", scanMonitorIsEnabled() ?
-                                "enabled" : "disabled");
-
-  success &= debugDumpPrint(buffer, bufferPos, bufferSize,
-                            " Wifi scan monitor enabled nanoapps:\n");
+  debugDumpPrint(buffer, bufferPos, bufferSize,
+                 "\nWifi: scan monitor %s\n",
+                 scanMonitorIsEnabled() ? "enabled" : "disabled");
+  debugDumpPrint(buffer, bufferPos, bufferSize,
+                 " Wifi scan monitor enabled nanoapps:\n");
   for (const auto& instanceId : mScanMonitorNanoapps) {
-    success &= debugDumpPrint(buffer, bufferPos, bufferSize,
-                              "  nanoappId=%" PRIu32 "\n", instanceId);
+    debugDumpPrint(buffer, bufferPos, bufferSize,
+                   "  nanoappId=%" PRIu32 "\n", instanceId);
   }
 
   if (mScanRequestingNanoappInstanceId.has_value()) {
-    success &= debugDumpPrint(buffer, bufferPos, bufferSize,
-                              " Wifi request pending nanoappId=%" PRIu32 "\n",
-                              mScanRequestingNanoappInstanceId.value());
+    debugDumpPrint(buffer, bufferPos, bufferSize,
+                   " Wifi request pending nanoappId=%" PRIu32 "\n",
+                   mScanRequestingNanoappInstanceId.value());
   }
 
-  success &= debugDumpPrint(buffer, bufferPos, bufferSize,
-                            " Wifi transition queue:\n");
+  debugDumpPrint(buffer, bufferPos, bufferSize,
+                 " Wifi transition queue:\n");
   for (const auto& transition : mPendingScanMonitorRequests) {
-    success &= debugDumpPrint(buffer, bufferPos, bufferSize,
-                              "  enable=%s nanoappId=%" PRIu32 "\n",
-                              transition.enable ? "true" : "false",
-                              transition.nanoappInstanceId);
+    debugDumpPrint(buffer, bufferPos, bufferSize,
+                   "  enable=%s nanoappId=%" PRIu32 "\n",
+                   transition.enable ? "true" : "false",
+                   transition.nanoappInstanceId);
   }
-
-  return success;
 }
 
 bool WifiRequestManager::scanMonitorIsEnabled() const {
@@ -350,23 +347,17 @@ bool WifiRequestManager::updateNanoappScanMonitoringList(bool enable,
         // nanoapps.
         success = mScanMonitorNanoapps.push_back(instanceId);
         if (!success) {
-          LOGE("Failed to add nanoapp to the list of scan monitoring "
-               "nanoapps");
+          LOG_OOM();
         } else {
           nanoapp->registerForBroadcastEvent(CHRE_EVENT_WIFI_SCAN_RESULT);
         }
       }
-    } else {
-      if (!hasExistingRequest) {
-        success = false;
-        LOGE("Received a scan monitor state change for a non-existent nanoapp");
-      } else {
-        // The scan monitor was successfully disabled for a previously enabled
-        // nanoapp. Remove it from the list of scan monitoring nanoapps.
-        mScanMonitorNanoapps.erase(nanoappIndex);
-        nanoapp->unregisterForBroadcastEvent(CHRE_EVENT_WIFI_SCAN_RESULT);
-      }
-    }
+    } else if (hasExistingRequest) {
+      // The scan monitor was successfully disabled for a previously enabled
+      // nanoapp. Remove it from the list of scan monitoring nanoapps.
+      mScanMonitorNanoapps.erase(nanoappIndex);
+      nanoapp->unregisterForBroadcastEvent(CHRE_EVENT_WIFI_SCAN_RESULT);
+    } // else disabling an inactive request, treat as success per the CHRE API.
   }
 
   return success;
@@ -380,7 +371,7 @@ bool WifiRequestManager::postScanMonitorAsyncResultEvent(
   if (!success || updateNanoappScanMonitoringList(enable, nanoappInstanceId)) {
     chreAsyncResult *event = memoryAlloc<chreAsyncResult>();
     if (event == nullptr) {
-      LOGE("Failed to allocate wifi scan monitor async result event");
+      LOG_OOM();
     } else {
       event->requestType = CHRE_WIFI_REQUEST_TYPE_CONFIGURE_SCAN_MONITOR;
       event->success = success;
@@ -416,7 +407,7 @@ bool WifiRequestManager::postScanRequestAsyncResultEvent(
   bool eventPosted = false;
   chreAsyncResult *event = memoryAlloc<chreAsyncResult>();
   if (event == nullptr) {
-    LOGE("Failed to allocate wifi scan request async result event");
+    LOG_OOM();
   } else {
     event->requestType = CHRE_WIFI_REQUEST_TYPE_REQUEST_SCAN;
     event->success = success;
@@ -479,8 +470,10 @@ void WifiRequestManager::handleScanMonitorStateChangeSync(bool enabled,
       // We are already in the target state so just post an event indicating
       // success
       postScanMonitorAsyncResultEventFatal(stateTransition.nanoappInstanceId,
-                                           success, stateTransition.enable,
-                                           errorCode, stateTransition.cookie);
+                                           true /* success */,
+                                           stateTransition.enable,
+                                           CHRE_ERROR_NONE,
+                                           stateTransition.cookie);
     } else if (scanMonitorStateTransitionIsRequired(
         stateTransition.enable, hasScanMonitorRequest)) {
       if (mPlatformWifi.configureScanMonitor(stateTransition.enable)) {
@@ -553,7 +546,7 @@ bool WifiRequestManager::postRangingAsyncResult(uint8_t errorCode) {
   } else {
     auto *event = memoryAlloc<struct chreAsyncResult>();
     if (event == nullptr) {
-      LOGE("Couldn't allocate ranging async result");
+      LOG_OOM();
     } else {
       const PendingRangingRequest& req = mPendingRangingRequests.front();
 

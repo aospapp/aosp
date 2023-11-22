@@ -25,9 +25,6 @@ import static org.mockito.Mockito.when;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.SurfaceTexture;
-import androidx.annotation.ColorInt;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
@@ -38,6 +35,10 @@ import android.view.TextureView;
 import android.view.TextureView.SurfaceTextureListener;
 import android.view.ViewGroup;
 
+import androidx.annotation.ColorInt;
+import androidx.test.filters.LargeTest;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -47,7 +48,8 @@ import org.junit.runner.RunWith;
 
 import java.util.concurrent.CountDownLatch;
 
-@MediumTest
+// Temporarily mark @LargeTest to surpress it from presubmit b/37773896
+@LargeTest
 @RunWith(AndroidJUnit4.class)
 public class TextureViewTests extends ActivityTestBase {
 

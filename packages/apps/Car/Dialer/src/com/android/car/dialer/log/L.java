@@ -13,58 +13,78 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.car.dialer.log;
 
+import android.os.Build;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 /**
  * Util class for logging.
  */
 public class L {
 
-    private String mTag;
-
-    public L(String tag) {
-        mTag = tag;
-    }
-
-    public void v(String msg) {
-        if (Log.isLoggable(mTag, Log.VERBOSE)) {
-            Log.v(mTag, msg);
+    /**
+     * Logs verbose level logs if loggable.
+     *
+     * <p>@see String#format(String, Object...) for formatting log string.
+     */
+    public static void v(String tag, @NonNull String msg, Object... args) {
+        if (Log.isLoggable(tag, Log.VERBOSE) || Build.IS_DEBUGGABLE) {
+            Log.v(tag, String.format(msg, args));
         }
     }
 
-    public void d(String msg) {
-        if (Log.isLoggable(mTag, Log.DEBUG)) {
-            Log.d(mTag, msg);
+    /**
+     * Logs debug level logs if loggable.
+     *
+     * <p>@see String#format(String, Object...) for formatting log string.
+     */
+    public static void d(String tag, @NonNull String msg, Object... args) {
+        if (Log.isLoggable(tag, Log.DEBUG) || Build.IS_DEBUGGABLE) {
+            Log.d(tag, String.format(msg, args));
         }
     }
 
-    public void w(String msg) {
-        Log.w(mTag, msg);
-    }
-
-    public static L logger(String tag) {
-        return new L(tag);
-    }
-
-    public static void v(String tag, String msg) {
-        if (Log.isLoggable(tag, Log.VERBOSE)) {
-            Log.v(tag, msg);
+    /**
+     * Logs info level logs if loggable.
+     *
+     * <p>@see String#format(String, Object...) for formatting log string.
+     */
+    public static void i(String tag, @NonNull String msg, Object... args) {
+        if (Log.isLoggable(tag, Log.INFO) || Build.IS_DEBUGGABLE) {
+            Log.i(tag, String.format(msg, args));
         }
     }
 
-    public static void d(String tag, String msg) {
-        if (Log.isLoggable(tag, Log.DEBUG)) {
-            Log.d(tag, msg);
+    /**
+     * Logs warning level logs if loggable.
+     *
+     * <p>@see String#format(String, Object...) for formatting log string.
+     */
+    public static void w(String tag, @NonNull String msg, Object... args) {
+        if (Log.isLoggable(tag, Log.WARN) || Build.IS_DEBUGGABLE) {
+            Log.w(tag, String.format(msg, args));
         }
     }
 
-    public static void w(String tag, String msg) {
-        Log.w(tag, msg);
+    /**
+     * Logs error level logs.
+     *
+     * <p>@see String#format(String, Object...) for formatting log string.
+     */
+    public static void e(String tag, @NonNull String msg, Object... args) {
+        Log.e(tag, String.format(msg, args));
     }
 
-    public static void i(String tag, String msg) {
-        Log.i(tag, msg);
+    /**
+     * Logs warning level logs.
+     *
+     * <p>@see String#format(String, Object...) for formatting log string.
+     */
+    public static void e(String tag, Exception e, @NonNull String msg, Object... args) {
+        Log.e(tag, String.format(msg, args), e);
     }
 }

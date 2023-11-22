@@ -15,15 +15,16 @@
  */
 package com.android.cts.managedprofile;
 
+import static com.android.cts.managedprofile.BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT;
+
 import android.app.admin.DevicePolicyManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.support.test.InstrumentationRegistry;
 import android.test.ActivityInstrumentationTestCase2;
 
-import static com.android.cts.managedprofile.BaseManagedProfileTest.ADMIN_RECEIVER_COMPONENT;
+import androidx.test.InstrumentationRegistry;
 
 /**
  * Test for {@link DevicePolicyManager#addCrossProfileIntentFilter} API.

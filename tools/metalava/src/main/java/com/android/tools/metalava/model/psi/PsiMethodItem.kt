@@ -17,12 +17,15 @@
 package com.android.tools.metalava.model.psi
 
 import com.android.tools.metalava.compatibility
+import com.android.tools.metalava.model.AnnotationTarget
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.ModifierList
 import com.android.tools.metalava.model.ParameterItem
 import com.android.tools.metalava.model.TypeItem
 import com.android.tools.metalava.model.TypeParameterList
+import com.intellij.openapi.components.ServiceManager
+import com.intellij.psi.PsiAnnotationMethod
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.util.PsiTypesUtil
@@ -32,9 +35,11 @@ import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtProperty
 import org.jetbrains.uast.UClass
 import org.jetbrains.uast.UElement
+import org.jetbrains.uast.UExpression
 import org.jetbrains.uast.UMethod
 import org.jetbrains.uast.UThrowExpression
 import org.jetbrains.uast.UTryExpression
+import org.jetbrains.uast.UastContext
 import org.jetbrains.uast.getParentOfType
 import org.jetbrains.uast.kotlin.declarations.KotlinUMethod
 import org.jetbrains.uast.visitor.AbstractUastVisitor
@@ -73,6 +78,7 @@ open class PsiMethodItem(
     internal var source: PsiMethodItem? = null
 
     override var inheritedMethod: Boolean = false
+    override var inheritedFrom: ClassItem? = null
 
     override fun name(): String = name
     override fun containingClass(): PsiClassItem = containingClass
@@ -110,10 +116,6 @@ open class PsiMethodItem(
         }
 
         return superMethods!!
-    }
-
-    fun setSuperMethods(superMethods: List<MethodItem>) {
-        this.superMethods = superMethods
     }
 
     override fun typeParameterList(): TypeParameterList {
@@ -211,10 +213,40 @@ open class PsiMethodItem(
         return exceptions
     }
 
+    override fun defaultValue(): String {
+        if (psiMethod is PsiAnnotationMethod) {
+            val value = psiMethod.defaultValue
+            if (value != null) {
+                if (PsiItem.isKotlin(value)) {
+                    val uastContext = ServiceManager.getService(value.project, UastContext::class.java)
+                        ?: error("UastContext not found")
+                    val defaultExpression: UExpression = uastContext.convertElement(
+                        value, null,
+                        UExpression::class.java
+                    ) as? UExpression ?: return ""
+                    val constant = defaultExpression.evaluate()
+                    return if (constant != null) {
+                        CodePrinter.constantToSource(constant)
+                    } else {
+                        // Expression: Compute from UAST rather than just using the source text
+                        // such that we can ensure references are fully qualified etc.
+                        codebase.printer.toSourceString(defaultExpression) ?: ""
+                    }
+                } else {
+                    return codebase.printer.toSourceExpression(value, this)
+                }
+            }
+        }
+
+        return super.defaultValue()
+    }
+
     override fun duplicate(targetContainingClass: ClassItem): PsiMethodItem {
         val duplicated = create(codebase, targetContainingClass as PsiClassItem, psiMethod)
 
-        // Preserve flags that may have been inherited (propagated) fro surrounding packages
+        duplicated.inheritedFrom = containingClass
+
+        // Preserve flags that may have been inherited (propagated) from surrounding packages
         if (targetContainingClass.hidden) {
             duplicated.hidden = true
         }
@@ -224,7 +256,9 @@ open class PsiMethodItem(
         if (targetContainingClass.docOnly) {
             duplicated.docOnly = true
         }
-
+        if (targetContainingClass.deprecated && compatibility.propagateDeprecatedMembers) {
+            duplicated.deprecated = true
+        }
         duplicated.throwsTypes = throwsTypes
         return duplicated
     }
@@ -248,9 +282,11 @@ open class PsiMethodItem(
 
         val modifierString = StringWriter()
         ModifierList.write(
-            modifierString, method.modifiers, method, removeAbstract = false,
-            removeFinal = false, addPublic = true,
-            onlyIncludeSignatureAnnotations = true
+            modifierString, method.modifiers, method,
+            target = AnnotationTarget.SDK_STUBS_FILE,
+            removeAbstract = false,
+            removeFinal = false,
+            addPublic = true
         )
         sb.append(modifierString.toString())
 
@@ -321,9 +357,16 @@ open class PsiMethodItem(
                 // methods with super methods also consider this method non-final.)
                 modifiers.setFinal(false)
             }
-            val parameters = psiMethod.parameterList.parameters.mapIndexed { index, parameter ->
-                PsiParameterItem.create(codebase, parameter, index)
-            }
+            val parameters =
+                if (psiMethod is UMethod) {
+                    psiMethod.uastParameters.mapIndexed { index, parameter ->
+                        PsiParameterItem.create(codebase, parameter, index)
+                    }
+                } else {
+                    psiMethod.parameterList.parameters.mapIndexed { index, parameter ->
+                        PsiParameterItem.create(codebase, parameter, index)
+                    }
+                }
             val returnType = codebase.getType(psiMethod.returnType!!)
             val method = PsiMethodItem(
                 codebase = codebase,

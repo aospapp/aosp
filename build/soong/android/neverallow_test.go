@@ -91,21 +91,6 @@ var neverallowTests = []struct {
 		},
 		expectedError: "manifest enforcement should be independent",
 	},
-	{
-		name: "libhidltransport enforce_vintf_manifest.cflags",
-		fs: map[string][]byte{
-			"Blueprints": []byte(`
-				cc_library {
-					name: "libhidltransport",
-					product_variables: {
-						enforce_vintf_manifest: {
-							cflags: ["-DSHOULD_NOT_EXIST"],
-						},
-					},
-				}`),
-		},
-		expectedError: "",
-	},
 
 	{
 		name: "no treble_linker_namespaces.cflags",
@@ -137,6 +122,39 @@ var neverallowTests = []struct {
 		},
 		expectedError: "",
 	},
+	{
+		name: "dependency on core-libart",
+		fs: map[string][]byte{
+			"Blueprints": []byte(`
+				java_library {
+					name: "needs_core_libart",
+					libs: ["core-libart"],
+				}`),
+		},
+		expectedError: "Only core libraries projects can depend on core-libart",
+	},
+	{
+		name: "dependency on updatable-media",
+		fs: map[string][]byte{
+			"Blueprints": []byte(`
+				java_library {
+					name: "needs_updatable_media",
+					libs: ["updatable-media"],
+				}`),
+		},
+		expectedError: "updatable-media includes private APIs. Use updatable_media_stubs instead.",
+	},
+	{
+		name: "java_device_for_host",
+		fs: map[string][]byte{
+			"Blueprints": []byte(`
+				java_device_for_host {
+					name: "device_for_host",
+					libs: ["core-libart"],
+				}`),
+		},
+		expectedError: "java_device_for_host can only be used in whitelisted projects",
+	},
 }
 
 func TestNeverallow(t *testing.T) {
@@ -164,6 +182,8 @@ func TestNeverallow(t *testing.T) {
 func testNeverallow(t *testing.T, config Config, fs map[string][]byte) (*TestContext, []error) {
 	ctx := NewTestContext()
 	ctx.RegisterModuleType("cc_library", ModuleFactoryAdaptor(newMockCcLibraryModule))
+	ctx.RegisterModuleType("java_library", ModuleFactoryAdaptor(newMockJavaLibraryModule))
+	ctx.RegisterModuleType("java_device_for_host", ModuleFactoryAdaptor(newMockJavaLibraryModule))
 	ctx.PostDepsMutators(registerNeverallowMutator)
 	ctx.Register()
 
@@ -178,7 +198,7 @@ func testNeverallow(t *testing.T, config Config, fs map[string][]byte) (*TestCon
 	return ctx, errs
 }
 
-type mockProperties struct {
+type mockCcLibraryProperties struct {
 	Vendor_available *bool
 
 	Vndk struct {
@@ -200,7 +220,7 @@ type mockProperties struct {
 
 type mockCcLibraryModule struct {
 	ModuleBase
-	properties mockProperties
+	properties mockCcLibraryProperties
 }
 
 func newMockCcLibraryModule() Module {
@@ -210,8 +230,24 @@ func newMockCcLibraryModule() Module {
 	return m
 }
 
-func (p *mockCcLibraryModule) DepsMutator(ctx BottomUpMutatorContext) {
+func (p *mockCcLibraryModule) GenerateAndroidBuildActions(ModuleContext) {
 }
 
-func (p *mockCcLibraryModule) GenerateAndroidBuildActions(ModuleContext) {
+type mockJavaLibraryProperties struct {
+	Libs []string
+}
+
+type mockJavaLibraryModule struct {
+	ModuleBase
+	properties mockJavaLibraryProperties
+}
+
+func newMockJavaLibraryModule() Module {
+	m := &mockJavaLibraryModule{}
+	m.AddProperties(&m.properties)
+	InitAndroidModule(m)
+	return m
+}
+
+func (p *mockJavaLibraryModule) GenerateAndroidBuildActions(ModuleContext) {
 }

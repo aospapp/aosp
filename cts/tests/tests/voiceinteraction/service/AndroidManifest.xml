@@ -24,21 +24,26 @@
               android:label="CTS test voice interaction service"
               android:permission="android.permission.BIND_VOICE_INTERACTION"
               android:process=":interactor"
-              android:exported="true">
+              android:exported="true"
+              android:visibleToInstantApps="true">
           <meta-data android:name="android.voice_interaction"
                      android:resource="@xml/interaction_service" />
           <intent-filter>
               <action android:name="android.service.voice.VoiceInteractionService" />
           </intent-filter>
       </service>
-      <activity android:name=".VoiceInteractionMain" >
+      <activity android:name=".VoiceInteractionMain"
+                android:exported="true"
+                android:visibleToInstantApps="true">
           <intent-filter>
               <action android:name="android.intent.action.START_TEST" />
               <category android:name="android.intent.category.DEFAULT" />
           </intent-filter>
       </activity>
       <activity android:name=".SettingsActivity"
-                android:label="Voice Interaction Settings">
+                android:label="Voice Interaction Settings"
+                android:exported="true"
+                android:visibleToInstantApps="true">
           <intent-filter>
               <action android:name="android.intent.action.MAIN" />
               <category android:name="android.intent.category.DEFAULT" />
@@ -46,10 +51,14 @@
       </activity>
       <service android:name=".MainInteractionSessionService"
               android:permission="android.permission.BIND_VOICE_INTERACTION"
-              android:process=":session">
+              android:process=":session"
+              android:exported="true"
+              android:visibleToInstantApps="true">
       </service>
       <service android:name=".MainRecognitionService"
-              android:label="CTS Voice Recognition Service">
+              android:label="CTS Voice Recognition Service"
+              android:exported="true"
+              android:visibleToInstantApps="true">
           <intent-filter>
               <action android:name="android.speech.RecognitionService" />
               <category android:name="android.intent.category.DEFAULT" />

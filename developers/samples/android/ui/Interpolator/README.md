@@ -23,15 +23,14 @@ can also define the duration of the animation.
 Pre-requisites
 --------------
 
-- Android SDK 24
-- Android Build Tools v24.0.2
+- Android SDK 28
+- Android Build Tools v28.0.3
 - Android Support Repository
 
 Screenshots
 -------------
 
-<img src="screenshots/before.png" height="400" alt="Screenshot"/>
-<img src="screenshots/after.png" height="400" alt="Screenshot"/>
+<img src="screenshots/before.png" height="400" alt="Screenshot"/> <img src="screenshots/after.png" height="400" alt="Screenshot"/> 
 
 Getting Started
 ---------------
@@ -46,7 +45,7 @@ Support
 - Stack Overflow: http://stackoverflow.com/questions/tagged/android
 
 If you've found an error in this sample, please file an issue:
-https://github.com/googlesamples/android-interpolator
+https://github.com/googlesamples/android-Interpolator
 
 Patches are encouraged, and may be submitted by forking this project and
 submitting a pull request through GitHub. Please see CONTRIBUTING.md for more details.
@@ -54,7 +53,7 @@ submitting a pull request through GitHub. Please see CONTRIBUTING.md for more de
 License
 -------
 
-Copyright 2016 The Android Open Source Project, Inc.
+Copyright 2019 The Android Open Source Project, Inc.
 
 Licensed to the Apache Software Foundation (ASF) under one or more contributor
 license agreements.  See the NOTICE file distributed with this work for

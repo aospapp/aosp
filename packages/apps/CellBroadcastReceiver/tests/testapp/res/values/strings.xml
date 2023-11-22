@@ -33,6 +33,7 @@
     <string name="button_gsm_cmas_amber_alert" translatable="false">Send GSM CMAS AMBER Alert</string>
     <string name="button_gsm_cmas_monthly_test" translatable="false">Send GSM CMAS Monthly Test Alert</string>
     <string name="button_gsm_public_safety_message" translatable="false">Send GSM Public Safety Message</string>
+    <string name="button_gsm_state_local_test_alert" translatable="false">Send State/Local Test Alert</string>
     <string name="button_gsm_7bit_type" translatable="false">Send GSM 7 Bit Test Broadcast</string>
     <string name="button_gsm_7bit_umts_type" translatable="false">Send UMTS 7 Bit Test Broadcast</string>
     <string name="button_gsm_7bit_nopadding_type" translatable="false">Send GSM 7 Bit Full Length Broadcast</string>

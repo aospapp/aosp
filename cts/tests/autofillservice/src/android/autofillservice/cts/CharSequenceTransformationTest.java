@@ -28,9 +28,10 @@ import static org.testng.Assert.assertThrows;
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.CharSequenceTransformation;
 import android.service.autofill.ValueFinder;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.autofill.AutofillId;
 import android.widget.RemoteViews;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,7 +39,7 @@ import org.junit.runner.RunWith;
 import java.util.regex.Pattern;
 
 @RunWith(AndroidJUnit4.class)
-@AppModeFull // Unit test
+@AppModeFull(reason = "Unit test")
 public class CharSequenceTransformationTest {
 
     @Test
@@ -94,7 +95,7 @@ public class CharSequenceTransformationTest {
         when(finder.findByAutofillId(id3)).thenReturn("c");
         when(finder.findByAutofillId(id4)).thenReturn("d");
 
-        assertThrows(ArrayIndexOutOfBoundsException.class, () -> trans.apply(finder, template, 0));
+        assertThrows(IndexOutOfBoundsException.class, () -> trans.apply(finder, template, 0));
 
         // fail one, fail all
         verify(template, never()).setCharSequence(eq(0), any(), any());

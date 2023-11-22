@@ -103,18 +103,21 @@ uint32_t GateKeeperMessage::Serialize(uint8_t *buffer, const uint8_t *end) const
 }
 
 gatekeeper_error_t GateKeeperMessage::Deserialize(const uint8_t *payload, const uint8_t *end) {
-    if (payload + sizeof(uint32_t) > end) return ERROR_INVALID;
+    if (payload + sizeof(serial_header_t) > end) return ERROR_INVALID;
     const serial_header_t *header = reinterpret_cast<const serial_header_t *>(payload);
+    payload += sizeof(serial_header_t);
+    user_id = header->user_id;
     if (header->error == ERROR_NONE) {
-        if (payload == end) return ERROR_INVALID;
-        user_id = header->user_id;
-        error = nonErrorDeserialize(payload + sizeof(*header), end);
+        error = nonErrorDeserialize(payload, end);
     } else {
         error = static_cast<gatekeeper_error_t>(header->error);
-        user_id = header->user_id;
         if (error == ERROR_RETRY) {
-            if (payload + sizeof(serial_header_t) < end) {
-                memcpy(&retry_timeout, payload + sizeof(serial_header_t), sizeof(retry_timeout));
+            if (payload < end) {
+                if (payload + sizeof(retry_timeout) <= end) {
+                    memcpy(&retry_timeout, payload, sizeof(retry_timeout));
+                } else {
+                    error = ERROR_INVALID;
+                }
             } else {
                 retry_timeout = 0;
             }
@@ -179,6 +182,9 @@ gatekeeper_error_t VerifyRequest::nonErrorDeserialize(const uint8_t *payload, co
         provided_password.buffer.reset();
     }
 
+    if (payload + sizeof(challenge) > end) {
+        return ERROR_INVALID;
+    }
     memcpy(&challenge, payload, sizeof(challenge));
     payload += sizeof(challenge);
 
@@ -229,6 +235,10 @@ gatekeeper_error_t VerifyResponse::nonErrorDeserialize(const uint8_t *payload, c
     gatekeeper_error_t err = read_from_buffer(&payload, end, &auth_token);
     if (err != ERROR_NONE) {
         return err;
+    }
+
+    if (payload + sizeof(request_reenroll) > end) {
+        return ERROR_INVALID;
     }
 
     memcpy(&request_reenroll, payload, sizeof(request_reenroll));

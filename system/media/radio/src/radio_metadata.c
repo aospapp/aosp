@@ -87,6 +87,9 @@ int check_size(radio_metadata_buffer_t **metadata_ptr, const uint32_t size_int)
 
     ALOGV("%s growing from %u to %u", __func__, metadata->size_int, new_size_int);
     metadata = realloc(metadata, new_size_int * sizeof(uint32_t));
+    if (metadata == NULL) {
+        return -ENOMEM;
+    }
     /* move index table */
     memmove((uint32_t *)metadata + new_size_int - (metadata->count + 1),
             (uint32_t *)metadata + metadata->size_int - (metadata->count + 1),

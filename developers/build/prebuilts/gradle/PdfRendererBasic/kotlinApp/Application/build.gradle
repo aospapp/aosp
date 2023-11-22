@@ -8,7 +8,7 @@ android {
         applicationId "com.example.android.pdfrendererbasic"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         versionCode 1
         versionName "1.0"
     }
@@ -26,8 +26,8 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$rootProject.ext.kotlinVersion"
 
     // Testing dependencies
-    androidTestImplementation "com.android.support.test.espresso:espresso-contrib:$rootProject.ext.espressoVersion"
-    androidTestImplementation "com.android.support.test.espresso:espresso-core:$rootProject.ext.espressoVersion"
+    androidTestImplementation "com.androidx.test.espresso:espresso-contrib:$rootProject.ext.espressoVersion"
+    androidTestImplementation "com.androidx.test.espresso:espresso-core:$rootProject.ext.espressoVersion"
     androidTestCompile "com.android.support:support-annotations:$rootProject.ext.supportLibVersion"
     androidTestCompile "com.android.support.test:runner:$rootProject.ext.supportTestVersion"
     androidTestCompile "com.android.support.test:rules:$rootProject.ext.supportTestVersion"

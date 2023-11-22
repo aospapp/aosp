@@ -22,6 +22,7 @@
 
 #include <C2Debug.h>
 #include <C2PlatformSupport.h>
+#include <Codec2Mapper.h>
 #include <SimpleC2Interface.h>
 
 #include "C2SoftMpeg2Dec.h"
@@ -80,6 +81,25 @@ public:
                 .withSetter(ProfileLevelSetter, mSize)
                 .build());
 
+        addParameter(
+                DefineParam(mMaxSize, C2_PARAMKEY_MAX_PICTURE_SIZE)
+                .withDefault(new C2StreamMaxPictureSizeTuning::output(0u, 320, 240))
+                .withFields({
+                    C2F(mSize, width).inRange(2, 1920, 2),
+                    C2F(mSize, height).inRange(2, 1088, 2),
+                })
+                .withSetter(MaxPictureSizeSetter, mSize)
+                .build());
+
+        addParameter(
+                DefineParam(mMaxInputSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
+                .withDefault(new C2StreamMaxBufferSizeInfo::input(0u, 320 * 240 * 3 / 2))
+                .withFields({
+                    C2F(mMaxInputSize, value).any(),
+                })
+                .calculatedAs(MaxInputSizeSetter, mMaxSize)
+                .build());
+
         C2ChromaOffsetStruct locations[1] = { C2ChromaOffsetStruct::ITU_YUV_420_0() };
         std::shared_ptr<C2StreamColorInfo::output> defaultColorInfo =
             C2StreamColorInfo::output::AllocShared(
@@ -99,7 +119,7 @@ public:
 
         addParameter(
                 DefineParam(mDefaultColorAspects, C2_PARAMKEY_DEFAULT_COLOR_ASPECTS)
-                .withDefault(new C2StreamColorAspectsTuning::input(
+                .withDefault(new C2StreamColorAspectsTuning::output(
                         0u, C2Color::RANGE_UNSPECIFIED, C2Color::PRIMARIES_UNSPECIFIED,
                         C2Color::TRANSFER_UNSPECIFIED, C2Color::MATRIX_UNSPECIFIED))
                 .withFields({
@@ -116,9 +136,9 @@ public:
                 .build());
 
         addParameter(
-                DefineParam(mCodedColorAspects, C2_PARAMKEY_DEFAULT_COLOR_ASPECTS)
+                DefineParam(mCodedColorAspects, C2_PARAMKEY_VUI_COLOR_ASPECTS)
                 .withDefault(new C2StreamColorAspectsInfo::input(
-                        0u, C2Color::RANGE_UNSPECIFIED, C2Color::PRIMARIES_UNSPECIFIED,
+                        0u, C2Color::RANGE_LIMITED, C2Color::PRIMARIES_UNSPECIFIED,
                         C2Color::TRANSFER_UNSPECIFIED, C2Color::MATRIX_UNSPECIFIED))
                 .withFields({
                     C2F(mCodedColorAspects, range).inRange(
@@ -159,7 +179,7 @@ public:
                 .build());
     }
 
-    static C2R SizeSetter(bool mayBlock, const C2P<C2VideoSizeStreamInfo::output> &oldMe,
+    static C2R SizeSetter(bool mayBlock, const C2P<C2StreamPictureSizeInfo::output> &oldMe,
                           C2P<C2VideoSizeStreamInfo::output> &me) {
         (void)mayBlock;
         C2R res = C2R::Ok();
@@ -174,6 +194,23 @@ public:
         return res;
     }
 
+    static C2R MaxPictureSizeSetter(bool mayBlock, C2P<C2StreamMaxPictureSizeTuning::output> &me,
+                                    const C2P<C2StreamPictureSizeInfo::output> &size) {
+        (void)mayBlock;
+        // TODO: get max width/height from the size's field helpers vs. hardcoding
+        me.set().width = c2_min(c2_max(me.v.width, size.v.width), 1920u);
+        me.set().height = c2_min(c2_max(me.v.height, size.v.height), 1088u);
+        return C2R::Ok();
+    }
+
+    static C2R MaxInputSizeSetter(bool mayBlock, C2P<C2StreamMaxBufferSizeInfo::input> &me,
+                                  const C2P<C2StreamMaxPictureSizeTuning::output> &maxSize) {
+        (void)mayBlock;
+        // assume compression ratio of 1
+        me.set().value = (((maxSize.v.width + 15) / 16) * ((maxSize.v.height + 15) / 16) * 384);
+        return C2R::Ok();
+    }
+
     static C2R ProfileLevelSetter(bool mayBlock, C2P<C2StreamProfileLevelInfo::input> &me,
                                   const C2P<C2StreamPictureSizeInfo::output> &size) {
         (void)mayBlock;
@@ -182,39 +219,66 @@ public:
         return C2R::Ok();
     }
 
-    static C2R DefaultColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsTuning::input> &me) {
+    static C2R DefaultColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsTuning::output> &me) {
         (void)mayBlock;
-        (void)me;
-        // take all values
+        if (me.v.range > C2Color::RANGE_OTHER) {
+                me.set().range = C2Color::RANGE_OTHER;
+        }
+        if (me.v.primaries > C2Color::PRIMARIES_OTHER) {
+                me.set().primaries = C2Color::PRIMARIES_OTHER;
+        }
+        if (me.v.transfer > C2Color::TRANSFER_OTHER) {
+                me.set().transfer = C2Color::TRANSFER_OTHER;
+        }
+        if (me.v.matrix > C2Color::MATRIX_OTHER) {
+                me.set().matrix = C2Color::MATRIX_OTHER;
+        }
         return C2R::Ok();
     }
 
     static C2R CodedColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsInfo::input> &me) {
         (void)mayBlock;
-        (void)me;
-        // take all values
+        if (me.v.range > C2Color::RANGE_OTHER) {
+                me.set().range = C2Color::RANGE_OTHER;
+        }
+        if (me.v.primaries > C2Color::PRIMARIES_OTHER) {
+                me.set().primaries = C2Color::PRIMARIES_OTHER;
+        }
+        if (me.v.transfer > C2Color::TRANSFER_OTHER) {
+                me.set().transfer = C2Color::TRANSFER_OTHER;
+        }
+        if (me.v.matrix > C2Color::MATRIX_OTHER) {
+                me.set().matrix = C2Color::MATRIX_OTHER;
+        }
         return C2R::Ok();
     }
 
     static C2R ColorAspectsSetter(bool mayBlock, C2P<C2StreamColorAspectsInfo::output> &me,
-                                  const C2P<C2StreamColorAspectsTuning::input> &def,
+                                  const C2P<C2StreamColorAspectsTuning::output> &def,
                                   const C2P<C2StreamColorAspectsInfo::input> &coded) {
         (void)mayBlock;
         // take default values for all unspecified fields, and coded values for specified ones
         me.set().range = coded.v.range == RANGE_UNSPECIFIED ? def.v.range : coded.v.range;
-        me.set().primaries = coded.v.primaries == PRIMARIES_UNSPECIFIED ? def.v.primaries : coded.v.primaries;
-        me.set().transfer = coded.v.transfer == TRANSFER_UNSPECIFIED ? def.v.transfer : coded.v.transfer;
+        me.set().primaries = coded.v.primaries == PRIMARIES_UNSPECIFIED
+                ? def.v.primaries : coded.v.primaries;
+        me.set().transfer = coded.v.transfer == TRANSFER_UNSPECIFIED
+                ? def.v.transfer : coded.v.transfer;
         me.set().matrix = coded.v.matrix == MATRIX_UNSPECIFIED ? def.v.matrix : coded.v.matrix;
-        // TODO: validate
         return C2R::Ok();
+    }
+
+    std::shared_ptr<C2StreamColorAspectsInfo::output> getColorAspects_l() {
+        return mColorAspects;
     }
 
 private:
     std::shared_ptr<C2StreamProfileLevelInfo::input> mProfileLevel;
-    std::shared_ptr<C2VideoSizeStreamInfo::output> mSize;
+    std::shared_ptr<C2StreamPictureSizeInfo::output> mSize;
+    std::shared_ptr<C2StreamMaxPictureSizeTuning::output> mMaxSize;
+    std::shared_ptr<C2StreamMaxBufferSizeInfo::input> mMaxInputSize;
     std::shared_ptr<C2StreamColorInfo::output> mColorInfo;
-    std::shared_ptr<C2StreamColorAspectsTuning::input> mDefaultColorAspects;
     std::shared_ptr<C2StreamColorAspectsInfo::input> mCodedColorAspects;
+    std::shared_ptr<C2StreamColorAspectsTuning::output> mDefaultColorAspects;
     std::shared_ptr<C2StreamColorAspectsInfo::output> mColorAspects;
     std::shared_ptr<C2StreamPixelFormatInfo::output> mPixelFormat;
 };
@@ -315,8 +379,10 @@ c2_status_t C2SoftMpeg2Dec::onFlush_sm() {
         }
     }
 
-    ivd_aligned_free(mOutBufferDrain);
-    mOutBufferDrain = nullptr;
+    if (mOutBufferDrain) {
+        ivd_aligned_free(mOutBufferDrain);
+        mOutBufferDrain = nullptr;
+    }
 
     return C2_OK;
 }
@@ -499,11 +565,6 @@ status_t C2SoftMpeg2Dec::initDecoder() {
     mNumCores = MIN(getCpuCoreCount(), MAX_NUM_CORES);
     mStride = ALIGN64(mWidth);
     mSignalledError = false;
-    mPreference = kPreferBitstream;
-    memset(&mDefaultColorAspects, 0, sizeof(ColorAspects));
-    memset(&mBitstreamColorAspects, 0, sizeof(ColorAspects));
-    memset(&mFinalColorAspects, 0, sizeof(ColorAspects));
-    mUpdateColorAspects = false;
     resetPlugin();
     (void) setNumCores();
     if (OK != setParams(mStride)) return UNKNOWN_ERROR;
@@ -558,47 +619,6 @@ bool C2SoftMpeg2Dec::setDecodeArgs(ivd_video_decode_ip_t *ps_decode_ip,
     return true;
 }
 
-bool C2SoftMpeg2Dec::colorAspectsDiffer(
-        const ColorAspects &a, const ColorAspects &b) {
-    if (a.mRange != b.mRange
-        || a.mPrimaries != b.mPrimaries
-        || a.mTransfer != b.mTransfer
-        || a.mMatrixCoeffs != b.mMatrixCoeffs) {
-        return true;
-    }
-    return false;
-}
-
-void C2SoftMpeg2Dec::updateFinalColorAspects(
-        const ColorAspects &otherAspects, const ColorAspects &preferredAspects) {
-    Mutex::Autolock autoLock(mColorAspectsLock);
-    ColorAspects newAspects;
-    newAspects.mRange = preferredAspects.mRange != ColorAspects::RangeUnspecified ?
-        preferredAspects.mRange : otherAspects.mRange;
-    newAspects.mPrimaries = preferredAspects.mPrimaries != ColorAspects::PrimariesUnspecified ?
-        preferredAspects.mPrimaries : otherAspects.mPrimaries;
-    newAspects.mTransfer = preferredAspects.mTransfer != ColorAspects::TransferUnspecified ?
-        preferredAspects.mTransfer : otherAspects.mTransfer;
-    newAspects.mMatrixCoeffs = preferredAspects.mMatrixCoeffs != ColorAspects::MatrixUnspecified ?
-        preferredAspects.mMatrixCoeffs : otherAspects.mMatrixCoeffs;
-
-    // Check to see if need update mFinalColorAspects.
-    if (colorAspectsDiffer(mFinalColorAspects, newAspects)) {
-        mFinalColorAspects = newAspects;
-        mUpdateColorAspects = true;
-    }
-}
-
-status_t C2SoftMpeg2Dec::handleColorAspectsChange() {
-    if (mPreference == kPreferBitstream) {
-        updateFinalColorAspects(mDefaultColorAspects, mBitstreamColorAspects);
-    } else if (mPreference == kPreferContainer) {
-        updateFinalColorAspects(mBitstreamColorAspects, mDefaultColorAspects);
-    } else {
-        return C2_CORRUPTED;
-    }
-    return C2_OK;
-}
 
 bool C2SoftMpeg2Dec::getSeqInfo() {
     ivdext_ctl_get_seq_info_ip_t s_ctl_get_seq_info_ip;
@@ -617,21 +637,35 @@ bool C2SoftMpeg2Dec::getSeqInfo() {
         return false;
     }
 
-    int32_t primaries = s_ctl_get_seq_info_op.u1_colour_primaries;
-    int32_t transfer = s_ctl_get_seq_info_op.u1_transfer_characteristics;
-    int32_t coeffs = s_ctl_get_seq_info_op.u1_matrix_coefficients;
-    bool full_range =  false;  // mpeg2 video has limited range.
+    VuiColorAspects vuiColorAspects;
+    vuiColorAspects.primaries = s_ctl_get_seq_info_op.u1_colour_primaries;
+    vuiColorAspects.transfer = s_ctl_get_seq_info_op.u1_transfer_characteristics;
+    vuiColorAspects.coeffs = s_ctl_get_seq_info_op.u1_matrix_coefficients;
+    vuiColorAspects.fullRange =  false;  // mpeg2 video has limited range.
 
-    ColorAspects colorAspects;
-    ColorUtils::convertIsoColorAspectsToCodecAspects(
-            primaries, transfer, coeffs, full_range, colorAspects);
-    // Update color aspects if necessary.
-    if (colorAspectsDiffer(colorAspects, mBitstreamColorAspects)) {
-        mBitstreamColorAspects = colorAspects;
-        status_t err = handleColorAspectsChange();
-        CHECK(err == OK);
+    // convert vui aspects to C2 values if changed
+    if (!(vuiColorAspects == mBitstreamColorAspects)) {
+        mBitstreamColorAspects = vuiColorAspects;
+        ColorAspects sfAspects;
+        C2StreamColorAspectsInfo::input codedAspects = { 0u };
+        ColorUtils::convertIsoColorAspectsToCodecAspects(
+                vuiColorAspects.primaries, vuiColorAspects.transfer, vuiColorAspects.coeffs,
+                vuiColorAspects.fullRange, sfAspects);
+        if (!C2Mapper::map(sfAspects.mPrimaries, &codedAspects.primaries)) {
+            codedAspects.primaries = C2Color::PRIMARIES_UNSPECIFIED;
+        }
+        if (!C2Mapper::map(sfAspects.mRange, &codedAspects.range)) {
+            codedAspects.range = C2Color::RANGE_UNSPECIFIED;
+        }
+        if (!C2Mapper::map(sfAspects.mMatrixCoeffs, &codedAspects.matrix)) {
+            codedAspects.matrix = C2Color::MATRIX_UNSPECIFIED;
+        }
+        if (!C2Mapper::map(sfAspects.mTransfer, &codedAspects.transfer)) {
+            codedAspects.transfer = C2Color::TRANSFER_UNSPECIFIED;
+        }
+        std::vector<std::unique_ptr<C2SettingResult>> failures;
+        (void)mIntf->config({&codedAspects}, C2_MAY_BLOCK, &failures);
     }
-
     return true;
 }
 
@@ -727,14 +761,13 @@ void C2SoftMpeg2Dec::finishWork(uint64_t index, const std::unique_ptr<C2Work> &w
     std::shared_ptr<C2Buffer> buffer = createGraphicBuffer(std::move(mOutBlock),
                                                            C2Rect(mWidth, mHeight));
     mOutBlock = nullptr;
-    auto fillWork = [buffer, index](const std::unique_ptr<C2Work> &work) {
-        uint32_t flags = 0;
-        if ((work->input.flags & C2FrameData::FLAG_END_OF_STREAM) &&
-                (c2_cntr64_t(index) == work->input.ordinal.frameIndex)) {
-            flags |= C2FrameData::FLAG_END_OF_STREAM;
-            ALOGV("signalling eos");
-        }
-        work->worklets.front()->output.flags = (C2FrameData::flags_t)flags;
+    {
+        IntfImpl::Lock lock = mIntf->lock();
+        buffer->setInfo(mIntf->getColorAspects_l());
+    }
+
+    auto fillWork = [buffer](const std::unique_ptr<C2Work> &work) {
+        work->worklets.front()->output.flags = (C2FrameData::flags_t)0;
         work->worklets.front()->output.buffers.clear();
         work->worklets.front()->output.buffers.push_back(buffer);
         work->worklets.front()->output.ordinal = work->input.ordinal;
@@ -784,9 +817,12 @@ c2_status_t C2SoftMpeg2Dec::ensureDecoderState(const std::shared_ptr<C2BlockPool
 void C2SoftMpeg2Dec::process(
         const std::unique_ptr<C2Work> &work,
         const std::shared_ptr<C2BlockPool> &pool) {
+    // Initialize output work
     work->result = C2_OK;
     work->workletsProcessed = 0u;
     work->worklets.front()->output.configUpdate.clear();
+    work->worklets.front()->output.flags = work->input.flags;
+
     if (mSignalledError || mSignalledOutputEos) {
         work->result = C2_BAD_VALUE;
         return;
@@ -796,7 +832,7 @@ void C2SoftMpeg2Dec::process(
     size_t inSize = 0u;
     uint32_t workIndex = work->input.ordinal.frameIndex.peeku() & 0xFFFFFFFF;
     C2ReadView rView = mDummyReadView;
-    if (work->input.buffers.empty()) {
+    if (!work->input.buffers.empty()) {
         rView = work->input.buffers[0]->data().linearBlocks().front().map().get();
         inSize = rView.capacity();
         if (inSize && rView.error()) {
@@ -815,6 +851,7 @@ void C2SoftMpeg2Dec::process(
     while (inPos < inSize) {
         if (C2_OK != ensureDecoderState(pool)) {
             mSignalledError = true;
+            work->workletsProcessed = 1u;
             work->result = C2_CORRUPTED;
             return;
         }
@@ -830,13 +867,14 @@ void C2SoftMpeg2Dec::process(
         if (!setDecodeArgs(&s_decode_ip, &s_decode_op, &rView, &wView,
                            inOffset + inPos, inSize - inPos, workIndex)) {
             mSignalledError = true;
+            work->workletsProcessed = 1u;
             work->result = C2_CORRUPTED;
             return;
         }
         // If input dump is enabled, then write to file
         DUMP_TO_FILE(mInFile, s_decode_ip.pv_stream_buffer, s_decode_ip.u4_num_Bytes);
         WORD32 delay;
-        GETTIME(&mTimeStart, NULL);
+        GETTIME(&mTimeStart, nullptr);
         TIME_DIFF(mTimeEnd, mTimeStart, delay);
         (void) ivdec_api_function(mDecHandle, &s_decode_ip, &s_decode_op);
         WORD32 decodeTime;
@@ -848,6 +886,7 @@ void C2SoftMpeg2Dec::process(
             ALOGV("unsupported resolution : %dx%d", s_decode_op.u4_pic_wd, s_decode_op.u4_pic_ht);
             drainInternal(DRAIN_COMPONENT_NO_EOS, pool, work);
             resetPlugin();
+            work->workletsProcessed = 0u;
             mWidth = s_decode_op.u4_pic_wd;
             mHeight = s_decode_op.u4_pic_ht;
 
@@ -863,6 +902,7 @@ void C2SoftMpeg2Dec::process(
             } else {
                 ALOGE("Cannot set width and height");
                 mSignalledError = true;
+                work->workletsProcessed = 1u;
                 work->result = C2_CORRUPTED;
                 return;
             }
@@ -870,6 +910,7 @@ void C2SoftMpeg2Dec::process(
             if (OK != reInitDecoder()) {
                 ALOGE("Failed to reinitialize decoder");
                 mSignalledError = true;
+                work->workletsProcessed = 1u;
                 work->result = C2_CORRUPTED;
                 return;
             }
@@ -879,6 +920,7 @@ void C2SoftMpeg2Dec::process(
             drainInternal(DRAIN_COMPONENT_NO_EOS, pool, work);
             resetDecoder();
             resetPlugin();
+            work->workletsProcessed = 0u;
             continue;
         }
         if (0 < s_decode_op.u4_pic_wd && 0 < s_decode_op.u4_pic_ht) {
@@ -899,6 +941,7 @@ void C2SoftMpeg2Dec::process(
                 } else {
                     ALOGE("Cannot set width and height");
                     mSignalledError = true;
+                    work->workletsProcessed = 1u;
                     work->result = C2_CORRUPTED;
                     return;
                 }
@@ -906,13 +949,11 @@ void C2SoftMpeg2Dec::process(
         }
 
         (void) getSeqInfo();
-        if (mUpdateColorAspects) {
-            mUpdateColorAspects = false;
-        }
         hasPicture |= (1 == s_decode_op.u4_frame_decoded_flag);
         if (s_decode_op.u4_output_present) {
             finishWork(s_decode_op.u4_ts, work);
         }
+
         inPos += s_decode_op.u4_num_bytes_consumed;
         if (hasPicture && (inSize - inPos) != 0) {
             ALOGD("decoded frame in current access nal, ignoring further trailing bytes %d",
@@ -946,6 +987,7 @@ c2_status_t C2SoftMpeg2Dec::drainInternal(
     while (true) {
         if (C2_OK != ensureDecoderState(pool)) {
             mSignalledError = true;
+            work->workletsProcessed = 1u;
             work->result = C2_CORRUPTED;
             return C2_CORRUPTED;
         }
@@ -958,18 +1000,16 @@ c2_status_t C2SoftMpeg2Dec::drainInternal(
         ivd_video_decode_op_t s_decode_op;
         if (!setDecodeArgs(&s_decode_ip, &s_decode_op, nullptr, &wView, 0, 0, 0)) {
             mSignalledError = true;
+            work->workletsProcessed = 1u;
             return C2_CORRUPTED;
         }
         (void) ivdec_api_function(mDecHandle, &s_decode_ip, &s_decode_op);
         if (s_decode_op.u4_output_present) {
             finishWork(s_decode_op.u4_ts, work);
         } else {
+            fillEmptyWork(work);
             break;
         }
-    }
-    if (drainMode == DRAIN_COMPONENT_WITH_EOS &&
-            work && work->workletsProcessed == 0u) {
-        fillEmptyWork(work);
     }
 
     return C2_OK;

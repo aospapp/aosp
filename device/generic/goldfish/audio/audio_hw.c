@@ -60,6 +60,10 @@ static struct audio_module*  sFallback;
 static pthread_once_t sFallbackOnce = PTHREAD_ONCE_INIT;
 static void fallback_init(void);
 static int adev_get_mic_mute(const struct audio_hw_device *dev, bool *state);
+static int adev_get_microphones(const audio_hw_device_t *dev,
+                                struct audio_microphone_characteristic_t *mic_array,
+                                size_t *mic_count);
+
 
 typedef struct audio_vbuffer {
     pthread_mutex_t lock;
@@ -265,6 +269,7 @@ static audio_channel_mask_t out_get_channels(const struct audio_stream *stream)
 static audio_format_t out_get_format(const struct audio_stream *stream)
 {
     struct generic_stream_out *out = (struct generic_stream_out *)stream;
+
     return out->req_config.format;
 }
 
@@ -299,7 +304,7 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct generic_stream_out *out = (struct generic_stream_out *)stream;
     struct str_parms *parms;
     char value[32];
-    int ret;
+    int ret = -ENOSYS;
     int success;
     long val;
     char *end;
@@ -308,11 +313,7 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
         return 0;
     }
     pthread_mutex_lock(&out->lock);
-    if (!out->standby) {
-        //Do not support changing params while stream running
-        ret = -ENOSYS;
-    } else {
-        ret = -EINVAL;
+    if (out->standby) {
         parms = str_parms_create_str(kvpairs);
         success = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING,
                                 value, sizeof(value));
@@ -338,7 +339,7 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
         }
 
         if (ret != 0) {
-            ALOGD("Unsupported parameter %s", kvpairs);
+            ALOGD("%s Unsupported parameter %s", __FUNCTION__, kvpairs);
         }
 
         str_parms_destroy(parms);
@@ -355,13 +356,35 @@ static char * out_get_parameters(const struct audio_stream *stream, const char *
     char value[256];
     struct str_parms *reply = str_parms_create();
     int ret;
+    bool get = false;
 
     ret = str_parms_get_str(query, AUDIO_PARAMETER_STREAM_ROUTING, value, sizeof(value));
     if (ret >= 0) {
         pthread_mutex_lock(&out->lock);
         str_parms_add_int(reply, AUDIO_PARAMETER_STREAM_ROUTING, out->device);
         pthread_mutex_unlock(&out->lock);
+        get = true;
+    }
+
+    if (str_parms_has_key(query, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
+        value[0] = 0;
+        strcat(value, "AUDIO_FORMAT_PCM_16_BIT");
+        str_parms_add_str(reply, AUDIO_PARAMETER_STREAM_SUP_FORMATS, value);
+        get = true;
+    }
+
+    if (str_parms_has_key(query, AUDIO_PARAMETER_STREAM_FORMAT)) {
+        value[0] = 0;
+        strcat(value, "AUDIO_FORMAT_PCM_16_BIT");
+        str_parms_add_str(reply, AUDIO_PARAMETER_STREAM_FORMAT, value);
+        get = true;
+    }
+
+    if (get) {
         str = strdup(str_parms_to_str(reply));
+    }
+    else {
+        ALOGD("%s Unsupported paramter: %s", __FUNCTION__, keys);
     }
 
     str_parms_destroy(query);
@@ -818,7 +841,7 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct generic_stream_in *in = (struct generic_stream_in *)stream;
     struct str_parms *parms;
     char value[32];
-    int ret;
+    int ret = -ENOSYS;
     int success;
     long val;
     char *end;
@@ -827,10 +850,7 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
         return 0;
     }
     pthread_mutex_lock(&in->lock);
-    if (!in->standby) {
-        ret = -ENOSYS;
-    } else {
-        ret = -EINVAL;
+    if (in->standby) {
         parms = str_parms_create_str(kvpairs);
 
         success = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING,
@@ -856,7 +876,7 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
         }
 
         if (ret != 0) {
-            ALOGD("Unsupported parameter %s", kvpairs);
+            ALOGD("%s: Unsupported parameter %s", __FUNCTION__, kvpairs);
         }
 
         str_parms_destroy(parms);
@@ -874,11 +894,33 @@ static char * in_get_parameters(const struct audio_stream *stream,
     char value[256];
     struct str_parms *reply = str_parms_create();
     int ret;
+    bool get = false;
 
     ret = str_parms_get_str(query, AUDIO_PARAMETER_STREAM_ROUTING, value, sizeof(value));
     if (ret >= 0) {
         str_parms_add_int(reply, AUDIO_PARAMETER_STREAM_ROUTING, in->device);
+        get = true;
+    }
+
+    if (str_parms_has_key(query, AUDIO_PARAMETER_STREAM_SUP_FORMATS)) {
+        value[0] = 0;
+        strcat(value, "AUDIO_FORMAT_PCM_16_BIT");
+        str_parms_add_str(reply, AUDIO_PARAMETER_STREAM_SUP_FORMATS, value);
+        get = true;
+    }
+
+    if (str_parms_has_key(query, AUDIO_PARAMETER_STREAM_FORMAT)) {
+        value[0] = 0;
+        strcat(value, "AUDIO_FORMAT_PCM_16_BIT");
+        str_parms_add_str(reply, AUDIO_PARAMETER_STREAM_FORMAT, value);
+        get = true;
+    }
+
+    if (get) {
         str = strdup(str_parms_to_str(reply));
+    }
+    else {
+        ALOGD("%s Unsupported paramter: %s", __FUNCTION__, keys);
     }
 
     str_parms_destroy(query);
@@ -1001,6 +1043,7 @@ static void *in_read_worker(void * args)
         if (ret != 0) {
             ALOGW("pcm_read failed %s", pcm_get_error(pcm));
             restart = true;
+            continue;
         }
 
         pthread_mutex_lock(&in->lock);
@@ -1126,6 +1169,13 @@ static int in_get_capture_position(const struct audio_stream_in *stream,
     *time = (current_time.tv_sec * 1000000000LL + current_time.tv_nsec);
     pthread_mutex_unlock(&in->lock);
     return 0;
+}
+
+static int in_get_active_microphones(const struct audio_stream_in *stream,
+                                     struct audio_microphone_characteristic_t *mic_array,
+                                     size_t *mic_count)
+{
+    return adev_get_microphones(NULL, mic_array, mic_count);
 }
 
 static int in_add_audio_effect(const struct audio_stream *stream, effect_handle_t effect)
@@ -1374,6 +1424,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     in->stream.read = in_read;
     in->stream.get_input_frames_lost = in_get_input_frames_lost;    // no op
     in->stream.get_capture_position = in_get_capture_position;
+    in->stream.get_active_microphones = in_get_active_microphones;
 
     pthread_mutex_init(&in->lock, (const pthread_mutexattr_t *) NULL);
     in->dev = adev;
@@ -1412,6 +1463,48 @@ error:
 
 static int adev_dump(const audio_hw_device_t *dev, int fd)
 {
+    return 0;
+}
+
+static int adev_get_microphones(const audio_hw_device_t *dev,
+                                struct audio_microphone_characteristic_t *mic_array,
+                                size_t *mic_count)
+{
+    if (mic_count == NULL) {
+        return -ENOSYS;
+    }
+
+    if (*mic_count == 0) {
+        *mic_count = 1;
+        return 0;
+    }
+
+    if (mic_array == NULL) {
+        return -ENOSYS;
+    }
+
+    strncpy(mic_array->device_id, "mic_goldfish", AUDIO_MICROPHONE_ID_MAX_LEN - 1);
+    mic_array->device = AUDIO_DEVICE_IN_BUILTIN_MIC;
+    strncpy(mic_array->address, AUDIO_BOTTOM_MICROPHONE_ADDRESS,
+            AUDIO_DEVICE_MAX_ADDRESS_LEN - 1);
+    memset(mic_array->channel_mapping, AUDIO_MICROPHONE_CHANNEL_MAPPING_UNUSED,
+           sizeof(mic_array->channel_mapping));
+    mic_array->location = AUDIO_MICROPHONE_LOCATION_UNKNOWN;
+    mic_array->group = 0;
+    mic_array->index_in_the_group = 0;
+    mic_array->sensitivity = AUDIO_MICROPHONE_SENSITIVITY_UNKNOWN;
+    mic_array->max_spl = AUDIO_MICROPHONE_SPL_UNKNOWN;
+    mic_array->min_spl = AUDIO_MICROPHONE_SPL_UNKNOWN;
+    mic_array->directionality = AUDIO_MICROPHONE_DIRECTIONALITY_UNKNOWN;
+    mic_array->num_frequency_responses = 0;
+    mic_array->geometric_location.x = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
+    mic_array->geometric_location.y = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
+    mic_array->geometric_location.z = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
+    mic_array->orientation.x = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
+    mic_array->orientation.y = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
+    mic_array->orientation.z = AUDIO_MICROPHONE_COORDINATE_UNKNOWN;
+
+    *mic_count = 1;
     return 0;
 }
 
@@ -1489,6 +1582,7 @@ static int adev_open(const hw_module_t* module, const char* name,
     adev->device.open_input_stream = adev_open_input_stream;
     adev->device.close_input_stream = adev_close_input_stream;
     adev->device.dump = adev_dump;
+    adev->device.get_microphones = adev_get_microphones;
 
     *device = &adev->device.common;
 

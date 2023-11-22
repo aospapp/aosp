@@ -77,7 +77,7 @@
         </activity>
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.telecom3.cts"
                      android:label="CTS tests for android.telecom package">
         <meta-data android:name="listener"

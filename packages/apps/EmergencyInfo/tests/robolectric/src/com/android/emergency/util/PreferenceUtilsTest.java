@@ -33,7 +33,6 @@ import android.net.Uri;
 
 import com.android.emergency.ContactTestUtils;
 import com.android.emergency.PreferenceKeys;
-import com.android.emergency.TestConfig;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -42,11 +41,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 
 /** Unit tests for {@link PreferenceUtils}. */
 @RunWith(RobolectricTestRunner.class)
-@Config(manifest = TestConfig.MANIFEST_PATH, sdk = TestConfig.SDK_VERSION)
 public final class PreferenceUtilsTest {
     private static final String PACKAGE_NAME = "com.android.emergency";
     private static final String NAME = "Jane";

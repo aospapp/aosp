@@ -21,10 +21,12 @@ import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.util.ArrayMap;
 import android.util.Log;
+
+import androidx.annotation.Keep;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.internal.app.LocalePicker;
 import com.android.internal.logging.nano.MetricsProto;
@@ -40,6 +42,7 @@ import java.util.Map;
 /**
  * The language settings screen in TV Settings.
  */
+@Keep
 public class LanguageFragment extends SettingsPreferenceFragment {
     private static final String TAG = "LanguageFragment";
 

@@ -27,9 +27,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
-// This class is adapted from Leanback's library, which does not support action icon with one-line
-// label. This class modified its getPresenter method to support the above situation.
-class ActionPresenterSelector extends PresenterSelector {
+/**
+ * This class is adapted from Leanback's library, which does not support action icon with one-line
+ * label. This class modified its getPresenter method to support the above situation.
+ */
+public class ActionPresenterSelector extends PresenterSelector {
     private final Presenter mOneLineActionPresenter = new OneLineActionPresenter();
     private final Presenter mTwoLineActionPresenter = new TwoLineActionPresenter();
     private final Presenter[] mPresenters =

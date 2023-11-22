@@ -20,8 +20,9 @@ import its.objects
 import its.target
 
 NAME = os.path.basename(__file__).split('.')[0]
-Y_DELTA = 0.1
 GRADIENT_DELTA = 0.1
+Y_RELATIVE_DELTA_FLASH = 0.1  # 10%
+Y_RELATIVE_DELTA_TORCH = 0.05  # 5%
 
 
 def main():
@@ -30,8 +31,8 @@ def main():
     with its.device.ItsSession() as cam:
         props = cam.get_camera_properties()
         its.caps.skip_unless(its.caps.compute_target_exposure(props) and
-                             its.caps.flash(props) and
-                             its.caps.per_frame_control(props))
+                             its.caps.flash(props))
+        sync_latency = its.caps.sync_latency(props)
 
         flash_modes_reported = []
         flash_states_reported = []
@@ -50,12 +51,13 @@ def main():
             fmt = its.objects.get_smallest_yuv_format(props, match_ar=match_ar)
 
         e, s = its.target.get_target_exposure_combos(cam)['midExposureTime']
-        e /= 4
+        e /= 2
         req = its.objects.manual_capture_request(s, e, 0.0, True, props)
 
         for f in [0, 1, 2]:
             req['android.flash.mode'] = f
-            cap = cam.do_capture(req, fmt)
+            cap = its.device.do_capture_with_latency(
+                    cam, req, sync_latency, fmt)
             flash_modes_reported.append(cap['metadata']['android.flash.mode'])
             flash_states_reported.append(cap['metadata']['android.flash.state'])
             y, _, _ = its.image.convert_capture_to_planes(cap, props)
@@ -72,8 +74,10 @@ def main():
 
         print 'Brightnesses:', means
         print 'Max gradients: ', grads
-        assert means[1]-means[0] > Y_DELTA or grads[1]-grads[0] > GRADIENT_DELTA
-        assert means[2]-means[0] > Y_DELTA or grads[2]-grads[0] > GRADIENT_DELTA
+        assert (grads[1]-grads[0] > GRADIENT_DELTA or
+                (means[1]-means[0]) / means[0] > Y_RELATIVE_DELTA_FLASH)
+        assert (grads[2]-grads[0] > GRADIENT_DELTA or
+                (means[2]-means[0]) / means[0] > Y_RELATIVE_DELTA_TORCH)
 
 if __name__ == '__main__':
     main()

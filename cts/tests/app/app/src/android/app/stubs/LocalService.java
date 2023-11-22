@@ -17,10 +17,12 @@
 package android.app.stubs;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.os.Parcel;
+import android.os.Process;
 import android.os.RemoteException;
 
 import com.android.compatibility.common.util.IBinderParcelable;
@@ -40,24 +42,57 @@ public class LocalService extends Service {
     public static final int SET_REPORTER_CODE = 3;
     public static final int UNBIND_CODE = 4;
     public static final int REBIND_CODE = 5;
+    public static final int GET_VALUE_CODE = 6;
+    public static final int SET_VALUE_CODE = 7;
+    public static final int GET_PID_CODE = 8;
+    public static final int GET_UID_CODE = 9;
+    public static final int GET_PPID_CODE = 10;
+    public static final int GET_ZYGOTE_PRELOAD_CALLED = 11;
+
+    public static Context sServiceContext = null;
 
     private IBinder mReportObject;
     private int mStartCount = 1;
+    private int mValue = 0;
 
     private final IBinder mBinder = new Binder() {
         @Override
         protected boolean onTransact(int code, Parcel data, Parcel reply,
                 int flags) throws RemoteException {
-            if (code == SET_REPORTER_CODE) {
-                data.enforceInterface(SERVICE_LOCAL);
-                mReportObject = data.readStrongBinder();
-                return true;
-            } else {
-                return super.onTransact(code, data, reply, flags);
+            switch (code) {
+                case SET_REPORTER_CODE:
+                    data.enforceInterface(SERVICE_LOCAL);
+                    mReportObject = data.readStrongBinder();
+                    return true;
+                case GET_VALUE_CODE:
+                    data.enforceInterface(SERVICE_LOCAL);
+                    reply.writeInt(mValue);
+                    return true;
+                case SET_VALUE_CODE:
+                    data.enforceInterface(SERVICE_LOCAL);
+                    mValue = data.readInt();
+                    return true;
+                case GET_PID_CODE:
+                    data.enforceInterface(SERVICE_LOCAL);
+                    reply.writeInt(Process.myPid());
+                    return true;
+                case GET_UID_CODE:
+                    data.enforceInterface(SERVICE_LOCAL);
+                    reply.writeInt(Process.myUid());
+                    return true;
+                case GET_PPID_CODE:
+                    data.enforceInterface(SERVICE_LOCAL);
+                    reply.writeInt(Process.myPpid());
+                    return true;
+                case GET_ZYGOTE_PRELOAD_CALLED:
+                    data.enforceInterface(SERVICE_LOCAL);
+                    reply.writeBoolean(ZygotePreload.preloadCalled());
+                    return true;
+                default:
+                    return super.onTransact(code, data, reply, flags);
             }
         }
     };
-
 
     public LocalService() {
     }
@@ -72,6 +107,9 @@ public class LocalService extends Service {
                 bindAction(STARTED_CODE);
             }
         }
+        if (sServiceContext == null) {
+            sServiceContext = this;
+        }
     }
 
     @Override
@@ -83,6 +121,9 @@ public class LocalService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
+        if (sServiceContext == null) {
+            sServiceContext = this;
+        }
         return mBinder;
     }
 

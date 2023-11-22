@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - Google
 #
@@ -197,6 +197,8 @@ def set_subid_for_message(ad, sub_id):
         None
     """
     ad.droid.subscriptionSetDefaultSmsSubId(sub_id)
+    if hasattr(ad, "outgoing_message_sub_id"):
+        ad.outgoing_message_sub_id = sub_id
 
 
 def set_subid_for_outgoing_call(ad, sub_id):
@@ -210,3 +212,39 @@ def set_subid_for_outgoing_call(ad, sub_id):
         None
     """
     ad.droid.telecomSetUserSelectedOutgoingPhoneAccountBySubId(sub_id)
+    if hasattr(ad, "outgoing_voice_sub_id"):
+        ad.outgoing_voice_sub_id = sub_id
+
+
+def set_incoming_voice_sub_id(ad, sub_id):
+    """Set default subId for voice calls
+
+    Args:
+        ad: android device object.
+        sub_id: subscription id (integer)
+
+    Returns:
+        None
+    """
+    ad.droid.subscriptionSetDefaultVoiceSubId(sub_id)
+    if hasattr(ad, "incoming_voice_sub_id"):
+        ad.incoming_voice_sub_id = sub_id
+
+
+def set_default_sub_for_all_services(ad, slot_id=0):
+    """Set subId for all services
+
+    Args:
+        ad: android device object.
+        slot_id: 0 or 1 (integer)
+
+    Returns:
+        None
+    """
+    sub_id = get_subid_from_slot_index(ad.log, ad, slot_id)
+    ad.log.info("Subid is %s", sub_id)
+    set_subid_for_outgoing_call(ad, sub_id)
+    set_incoming_voice_sub_id(ad, sub_id)
+    set_subid_for_data(ad, sub_id)
+    set_subid_for_message(ad, sub_id)
+    ad.droid.telephonyToggleDataConnection(True)

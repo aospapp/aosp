@@ -104,19 +104,15 @@ public class GoogleBenchmarkTestTest extends TestCase {
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
         mMockITestDevice.executeShellCommand(EasyMock.contains(test2), EasyMock.same(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
-        EasyMock.expect(
-                        mMockITestDevice.executeShellCommand(
-                                String.format("file %s/test1", nativeTestPath)))
-                .andReturn("ELF whatever, BuildID=blabla\n");
+
+        EasyMock.expect(mMockITestDevice.isExecutable(nativeTestPath + "/test1")).andReturn(true);
         EasyMock.expect(
                         mMockITestDevice.executeShellCommand(
                                 String.format(
                                         "%s/test1 --benchmark_list_tests=true", nativeTestPath)))
                 .andReturn("method1\nmethod2\nmethod3");
-        EasyMock.expect(
-                        mMockITestDevice.executeShellCommand(
-                                String.format("file %s/test2", nativeTestPath)))
-                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(mMockITestDevice.isExecutable(nativeTestPath + "/test2")).andReturn(true);
+
         EasyMock.expect(
                         mMockITestDevice.executeShellCommand(
                                 String.format(
@@ -186,19 +182,13 @@ public class GoogleBenchmarkTestTest extends TestCase {
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
         mMockITestDevice.executeShellCommand(EasyMock.contains(test2), EasyMock.same(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
-        EasyMock.expect(
-                        mMockITestDevice.executeShellCommand(
-                                String.format("file %s/test1", nativeTestPath)))
-                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(mMockITestDevice.isExecutable(nativeTestPath + "/test1")).andReturn(true);
         EasyMock.expect(
                         mMockITestDevice.executeShellCommand(
                                 String.format(
                                         "%s/test1 --benchmark_list_tests=true", nativeTestPath)))
                 .andReturn("\nmethod1\nmethod2\nmethod3\n\n");
-        EasyMock.expect(
-                        mMockITestDevice.executeShellCommand(
-                                String.format("file %s/test2", nativeTestPath)))
-                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(mMockITestDevice.isExecutable(nativeTestPath + "/test2")).andReturn(true);
         EasyMock.expect(
                         mMockITestDevice.executeShellCommand(
                                 String.format(
@@ -233,10 +223,7 @@ public class GoogleBenchmarkTestTest extends TestCase {
                 .andReturn("");
         mMockITestDevice.executeShellCommand(EasyMock.contains(test1), EasyMock.same(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
-        EasyMock.expect(
-                        mMockITestDevice.executeShellCommand(
-                                String.format("file %s/test1", nativeTestPath)))
-                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(mMockITestDevice.isExecutable(nativeTestPath + "/test1")).andReturn(true);
         EasyMock.expect(
                         mMockITestDevice.executeShellCommand(
                                 String.format(
@@ -270,10 +257,7 @@ public class GoogleBenchmarkTestTest extends TestCase {
         mMockITestDevice.executeShellCommand(EasyMock.contains(test1), EasyMock.same(mMockReceiver),
                 EasyMock.anyLong(), (TimeUnit)EasyMock.anyObject(), EasyMock.anyInt());
         EasyMock.expectLastCall().andThrow(new DeviceNotAvailableException("dnae", "serial"));
-        EasyMock.expect(
-                        mMockITestDevice.executeShellCommand(
-                                String.format("file %s/test1", nativeTestPath)))
-                .andReturn("ELF whatever, BuildID=blabla\n");
+        EasyMock.expect(mMockITestDevice.isExecutable(nativeTestPath + "/test1")).andReturn(true);
         EasyMock.expect(
                         mMockITestDevice.executeShellCommand(
                                 String.format(
@@ -305,6 +289,8 @@ public class GoogleBenchmarkTestTest extends TestCase {
         assertFalse(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/binary"));
         assertFalse(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/random.dat"));
         assertTrue(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/test.txt"));
+        // Always skip files ending in .config
+        assertTrue(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/random.config"));
     }
 
     /**
@@ -318,5 +304,19 @@ public class GoogleBenchmarkTestTest extends TestCase {
         assertFalse(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/binary"));
         assertTrue(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/random.dat"));
         assertTrue(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/test.txt"));
+        // Always skip files ending in .config
+        assertTrue(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/random.config"));
+    }
+
+    /** File exclusion regex filter should always skip .config file. */
+    public void testFileExclusionRegexFilter_skipDefaultMatched() {
+        // Always skip files ending in .config
+        assertTrue(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/random.config"));
+        // Other file should not be skipped
+        assertFalse(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/random.configs"));
+        assertFalse(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/binary"));
+        assertFalse(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/random.dat"));
+        assertFalse(mGoogleBenchmarkTest.shouldSkipFile("/some/path/file/test.txt"));
+
     }
 }

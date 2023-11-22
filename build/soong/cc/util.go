@@ -16,6 +16,7 @@ package cc
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -58,34 +59,34 @@ func moduleToLibName(module string) (string, error) {
 
 func flagsToBuilderFlags(in Flags) builderFlags {
 	return builderFlags{
-		globalFlags:    strings.Join(in.GlobalFlags, " "),
-		arFlags:        strings.Join(in.ArFlags, " "),
-		asFlags:        strings.Join(in.AsFlags, " "),
-		cFlags:         strings.Join(in.CFlags, " "),
-		toolingCFlags:  strings.Join(in.ToolingCFlags, " "),
-		conlyFlags:     strings.Join(in.ConlyFlags, " "),
-		cppFlags:       strings.Join(in.CppFlags, " "),
-		yaccFlags:      strings.Join(in.YaccFlags, " "),
-		protoFlags:     strings.Join(in.protoFlags, " "),
-		protoOutParams: strings.Join(in.protoOutParams, ","),
-		aidlFlags:      strings.Join(in.aidlFlags, " "),
-		rsFlags:        strings.Join(in.rsFlags, " "),
-		ldFlags:        strings.Join(in.LdFlags, " "),
-		libFlags:       strings.Join(in.libFlags, " "),
-		tidyFlags:      strings.Join(in.TidyFlags, " "),
-		sAbiFlags:      strings.Join(in.SAbiFlags, " "),
-		yasmFlags:      strings.Join(in.YasmFlags, " "),
-		toolchain:      in.Toolchain,
-		clang:          in.Clang,
-		coverage:       in.Coverage,
-		tidy:           in.Tidy,
-		sAbiDump:       in.SAbiDump,
-		protoRoot:      in.ProtoRoot,
+		globalFlags:     strings.Join(in.GlobalFlags, " "),
+		arFlags:         strings.Join(in.ArFlags, " "),
+		asFlags:         strings.Join(in.AsFlags, " "),
+		cFlags:          strings.Join(in.CFlags, " "),
+		toolingCFlags:   strings.Join(in.ToolingCFlags, " "),
+		toolingCppFlags: strings.Join(in.ToolingCppFlags, " "),
+		conlyFlags:      strings.Join(in.ConlyFlags, " "),
+		cppFlags:        strings.Join(in.CppFlags, " "),
+		yaccFlags:       strings.Join(in.YaccFlags, " "),
+		aidlFlags:       strings.Join(in.aidlFlags, " "),
+		rsFlags:         strings.Join(in.rsFlags, " "),
+		ldFlags:         strings.Join(in.LdFlags, " "),
+		libFlags:        strings.Join(in.libFlags, " "),
+		tidyFlags:       strings.Join(in.TidyFlags, " "),
+		sAbiFlags:       strings.Join(in.SAbiFlags, " "),
+		yasmFlags:       strings.Join(in.YasmFlags, " "),
+		toolchain:       in.Toolchain,
+		coverage:        in.Coverage,
+		tidy:            in.Tidy,
+		sAbiDump:        in.SAbiDump,
 
 		systemIncludeFlags: strings.Join(in.SystemIncludeFlags, " "),
 
 		groupStaticLibs: in.GroupStaticLibs,
-		arGoldPlugin:    in.ArGoldPlugin,
+
+		proto:            in.proto,
+		protoC:           in.protoC,
+		protoOptionsFile: in.protoOptionsFile,
 	}
 }
 
@@ -101,4 +102,37 @@ func addSuffix(list []string, suffix string) []string {
 		list[i] = list[i] + suffix
 	}
 	return list
+}
+
+var shlibVersionPattern = regexp.MustCompile("(?:\\.\\d+(?:svn)?)+")
+
+// splitFileExt splits a file name into root, suffix and ext. root stands for the file name without
+// the file extension and the version number (e.g. "libexample"). suffix stands for the
+// concatenation of the file extension and the version number (e.g. ".so.1.0"). ext stands for the
+// file extension after the version numbers are trimmed (e.g. ".so").
+func splitFileExt(name string) (string, string, string) {
+	// Extract and trim the shared lib version number if the file name ends with dot digits.
+	suffix := ""
+	matches := shlibVersionPattern.FindAllStringIndex(name, -1)
+	if len(matches) > 0 {
+		lastMatch := matches[len(matches)-1]
+		if lastMatch[1] == len(name) {
+			suffix = name[lastMatch[0]:lastMatch[1]]
+			name = name[0:lastMatch[0]]
+		}
+	}
+
+	// Extract the file name root and the file extension.
+	ext := filepath.Ext(name)
+	root := strings.TrimSuffix(name, ext)
+	suffix = ext + suffix
+
+	return root, suffix, ext
+}
+
+// linkDirOnDevice/linkName -> target
+func makeSymlinkCmd(linkDirOnDevice string, linkName string, target string) string {
+	dir := filepath.Join("$(PRODUCT_OUT)", linkDirOnDevice)
+	return "mkdir -p " + dir + " && " +
+		"ln -sf " + target + " " + filepath.Join(dir, linkName)
 }

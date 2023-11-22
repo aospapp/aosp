@@ -14,6 +14,7 @@
 
 package android.accessibilityservice.cts;
 
+import android.accessibility.cts.common.InstrumentedAccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.app.Instrumentation;
 import android.os.Handler;

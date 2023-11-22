@@ -87,7 +87,6 @@ public class HistoryLogger extends FileLogger {
         FileLogger logger = new HistoryLogger();
         logger.setLogLevelDisplay(getLogLevelDisplay());
         logger.setLogLevel(getLogLevel());
-        logger.addLogTagsDisplay(getLogTagsDisplay());
         return logger;
     }
 }

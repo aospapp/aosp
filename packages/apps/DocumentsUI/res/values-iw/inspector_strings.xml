@@ -44,6 +44,4 @@
     <string name="metadata_composer" msgid="4696926808308256056">"מלחין"</string>
     <string name="metadata_album" msgid="1661699531214720236">"אלבום"</string>
     <string name="metadata_address" msgid="1849921023707744640">"מיקום"</string>
-    <string name="debug_stream_types" msgid="2088565280360139333">"Stream types"</string>
-    <string name="debug_raw_size" msgid="7487139640175650185">"‏גודל קובץ RAW (בייט)"</string>
 </resources>

@@ -14,8 +14,8 @@
 
 package android.keystore.cts;
 
-import com.android.org.bouncycastle.asn1.ASN1Encodable;
-import com.android.org.bouncycastle.asn1.ASN1Sequence;
+import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1Sequence;
 
 import java.security.cert.CertificateParsingException;
 

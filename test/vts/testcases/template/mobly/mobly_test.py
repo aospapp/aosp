@@ -82,16 +82,16 @@ class MoblyTest(base_test.BaseTestClass):
         )
 
         for ad in self.android_devices:
-            logging.info('Android device serial: %s' % ad.serial)
+            logging.debug('Android device serial: %s' % ad.serial)
 
-        logging.info('Test cases: %s' % self.ListTestCases())
+        logging.debug('Test cases: %s' % self.ListTestCases())
 
         self.mobly_dir = os.path.join(logging.log_path, TEMP_DIR_NAME,
                                       'mobly', str(time.time()))
 
         file_util.Makedirs(self.mobly_dir)
 
-        logging.info('mobly log path: %s' % self.mobly_dir)
+        logging.debug('mobly log path: %s' % self.mobly_dir)
 
         self.result_handlers = {
             RESULT_TYPE_SUMMARY: self.HandleSimplePrint,
@@ -170,7 +170,7 @@ class MoblyTest(base_test.BaseTestClass):
             file_path = file_util.FindFile(self.mobly_dir, pair[0])
 
             if file_path:
-                logging.info('Mobly test yaml result path: %s', file_path)
+                logging.debug('Mobly test yaml result path: %s', file_path)
                 pair[1](file_path)
                 return
 
@@ -196,7 +196,7 @@ class MoblyTest(base_test.BaseTestClass):
 
         mobly_results = mobly_summary['Results']
         for result in mobly_results:
-            logging.info('Adding result for %s' % result[records.TestResultEnums.RECORD_NAME])
+            logging.debug('Adding result for %s' % result[records.TestResultEnums.RECORD_NAME])
             record = records.TestResultRecord(result[records.TestResultEnums.RECORD_NAME])
             record.test_class = result[records.TestResultEnums.RECORD_CLASS]
             record.begin_time = result[records.TestResultEnums.RECORD_BEGIN_TIME]
@@ -225,11 +225,11 @@ class MoblyTest(base_test.BaseTestClass):
                             'Mobly result document type unrecognized: %s', doc)
                         continue
 
-                    logging.info('Parsing result type: %s', type)
+                    logging.debug('Parsing result type: %s', type)
 
                     handler = self.result_handlers.get(type)
                     if handler is None:
-                        logging.info('Unknown result type: %s', type)
+                        logging.debug('Unknown result type: %s', type)
                         handler = self.HandleSimplePrint
 
                     handler(doc)
@@ -242,7 +242,7 @@ class MoblyTest(base_test.BaseTestClass):
         Args:
             doc: dict, result document item
         '''
-        logging.info('Adding result for %s' % doc.get(records.TestResultEnums.RECORD_NAME))
+        logging.debug('Adding result for %s' % doc.get(records.TestResultEnums.RECORD_NAME))
         record = records.TestResultRecord(doc.get(records.TestResultEnums.RECORD_NAME))
         record.test_class = doc.get(records.TestResultEnums.RECORD_CLASS)
         record.begin_time = doc.get(records.TestResultEnums.RECORD_BEGIN_TIME)
@@ -265,7 +265,7 @@ class MoblyTest(base_test.BaseTestClass):
             doc: dict, result document item
         '''
         for k, v in doc.items():
-            logging.info(str(k) + ": " + str(v))
+            logging.debug(str(k) + ": " + str(v))
 
 def GetTestModuleNames():
     '''Returns a list of mobly test module specified in test configuration.'''

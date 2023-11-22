@@ -481,6 +481,12 @@ int get_local_camera_metadata_tag_type(uint32_t tag,
         const camera_metadata_t *meta);
 
 /**
+ * Retrieve all tags that need permission.
+ */
+ANDROID_API
+const int32_t *get_camera_metadata_permission_needed(uint32_t *tag_count);
+
+/**
  * Set up vendor-specific tag query methods. These are needed to properly add
  * entries with vendor-specified tags and to use the
  * get_camera_metadata_section_name, _tag_name, and _tag_type methods with

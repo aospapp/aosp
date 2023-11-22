@@ -51,12 +51,19 @@ static void ObjectStreamClass_initNative(JNIEnv *env)
  * otherwise.
  */
 JNIEXPORT jboolean JNICALL
+// Android-changed: Added inheritStaticInitializer parameter.
+// The inheritStaticInitializer parameter is set to JNI_TRUE when behavior compatible with
+// Android version 23 is required.
 ObjectStreamClass_hasStaticInitializer(JNIEnv *env, jclass this,
                                        jclass clazz,
-                                       jboolean checkSuperclass)
+                                       jboolean inheritStaticInitializer)
 {
     jclass superCl = NULL;
     jmethodID superClinitId = NULL;
+
+    // Android-changed: Added comment to explain behavior.
+    // Search for a static initializer method in this class and up through its
+    // ancestor super classes, returning the id of the first method found.
     jmethodID clinitId =
         (*env)->GetStaticMethodID(env, clazz, "<clinit>", "()V");
     if (clinitId == NULL) {     /* error thrown */
@@ -68,13 +75,15 @@ ObjectStreamClass_hasStaticInitializer(JNIEnv *env, jclass this,
         return JNI_FALSE;
     }
 
-    // Android-changed, if checkSuperclass == true, remove check for
-    // superclass clinitId != child clinitId.
-    // We're returning true to enable deserializing classes without explicit serialVersionID
-    // that would fail in this check (b/29064453).
-    if (checkSuperclass == JNI_FALSE) {
+    // BEGIN Android-changed: Exit immediately if version 23 behavior is required.
+    // At this point the class or one of its ancestor super classes has a
+    // static initializer. If inheritStaticInitializer is true then this method
+    // can simply return true. Otherwise, it needs to check that the static
+    // initializer was not inherited (b/29064453).
+    if (inheritStaticInitializer == JNI_TRUE) {
         return JNI_TRUE;
     }
+    // END Android-changed: Exit immediately if version 23 behavior is required.
 
     /*
      * Check superclass for static initializer as well--if the same method ID
@@ -83,6 +92,7 @@ ObjectStreamClass_hasStaticInitializer(JNIEnv *env, jclass this,
      * JNI spec makes no guarantee that GetStaticMethodID will not return the
      * ID for a superclass initializer.
      */
+
     if ((superCl = (*env)->GetSuperclass(env, clazz)) == NULL) {
         return JNI_TRUE;
     }

@@ -233,28 +233,8 @@ void handleTimerEvent(const void *eventData) {
 bool nanoappStart() {
   LOGI("App started as instance %" PRIu32, chreGetInstanceId());
 
-  const char *gWifiCapabilitiesStr;
   gWifiCapabilities = chreWifiGetCapabilities();
-  switch (gWifiCapabilities) {
-    case CHRE_WIFI_CAPABILITIES_ON_DEMAND_SCAN
-        | CHRE_WIFI_CAPABILITIES_SCAN_MONITORING:
-      gWifiCapabilitiesStr = "ON_DEMAND_SCAN | SCAN_MONITORING";
-      break;
-    case CHRE_WIFI_CAPABILITIES_ON_DEMAND_SCAN:
-      gWifiCapabilitiesStr = "ON_DEMAND_SCAN";
-      break;
-    case CHRE_WIFI_CAPABILITIES_SCAN_MONITORING:
-      gWifiCapabilitiesStr = "SCAN_MONITORING";
-      break;
-    case CHRE_WIFI_CAPABILITIES_NONE:
-      gWifiCapabilitiesStr = "NONE";
-      break;
-    default:
-      gWifiCapabilitiesStr = "INVALID";
-  }
-
-  LOGI("Detected WiFi support as: %s (%" PRIu32 ")",
-       gWifiCapabilitiesStr, gWifiCapabilities);
+  LOGI("Detected WiFi support as: 0x%" PRIx32, gWifiCapabilities);
 
   if (gWifiCapabilities & CHRE_WIFI_CAPABILITIES_SCAN_MONITORING) {
     if (chreWifiConfigureScanMonitorAsync(true, &kScanMonitoringCookie)) {

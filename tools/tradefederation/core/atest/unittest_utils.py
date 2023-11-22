@@ -80,9 +80,17 @@ def assert_equal_testinfo_sets(test_class, test_info_set_a, test_info_set_b):
 
 def isfile_side_effect(value):
     """Mock return values for os.path.isfile."""
+    if value == '/%s/%s' % (uc.CC_MODULE_DIR, constants.MODULE_CONFIG):
+        return True
     if value == '/%s/%s' % (uc.MODULE_DIR, constants.MODULE_CONFIG):
         return True
+    if value.endswith('.cc'):
+        return True
+    if value.endswith('.cpp'):
+        return True
     if value.endswith('.java'):
+        return True
+    if value.endswith('.kt'):
         return True
     if value.endswith(uc.INT_NAME + '.xml'):
         return True

@@ -321,7 +321,7 @@ static int open_device(const char *device, int print_flags)
     char idstr[80];
     struct input_id id;
 
-    fd = open(device, O_RDWR);
+    fd = open(device, O_RDONLY | O_CLOEXEC);
     if(fd < 0) {
         if(print_flags & PRINT_DEVICE_ERRORS)
             fprintf(stderr, "could not open %s, %s\n", device, strerror(errno));
@@ -529,6 +529,9 @@ int getevent_main(int argc, char *argv[])
     int64_t last_sync_time = 0;
     const char *device = NULL;
     const char *device_path = "/dev/input";
+
+    /* disable buffering on stdout */
+    setbuf(stdout, NULL);
 
     opterr = 0;
     do {

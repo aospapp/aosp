@@ -29,10 +29,10 @@
 #include "base/array_ref.h"
 #include "base/enums.h"
 #include "base/macros.h"
-#include "debug/dwarf/debug_frame_opcode_writer.h"
+#include "base/memory_region.h"
+#include "dwarf/debug_frame_opcode_writer.h"
 #include "label.h"
 #include "managed_register.h"
-#include "memory_region.h"
 #include "mips/constants_mips.h"
 #include "offsets.h"
 #include "x86/constants_x86.h"
@@ -283,7 +283,7 @@ class AssemblerBuffer {
 
 // The purpose of this class is to ensure that we do not have to explicitly
 // call the AdvancePC method (which is good for convenience and correctness).
-class DebugFrameOpCodeWriterForAssembler FINAL
+class DebugFrameOpCodeWriterForAssembler final
     : public dwarf::DebugFrameOpCodeWriter<> {
  public:
   struct DelayedAdvancePC {
@@ -292,10 +292,10 @@ class DebugFrameOpCodeWriterForAssembler FINAL
   };
 
   // This method is called the by the opcode writers.
-  virtual void ImplicitlyAdvancePC() FINAL;
+  void ImplicitlyAdvancePC() final;
 
   explicit DebugFrameOpCodeWriterForAssembler(Assembler* buffer)
-      : dwarf::DebugFrameOpCodeWriter<>(false /* enabled */),
+      : dwarf::DebugFrameOpCodeWriter<>(/* enabled= */ false),
         assembler_(buffer),
         delay_emitting_advance_pc_(false),
         delayed_advance_pcs_() {

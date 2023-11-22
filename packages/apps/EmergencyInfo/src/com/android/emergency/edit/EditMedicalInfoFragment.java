@@ -18,23 +18,31 @@ package com.android.emergency.edit;
 import android.app.DialogFragment;
 import android.app.Fragment;
 import android.os.Bundle;
-import android.support.v14.preference.PreferenceFragment;
-import android.support.v7.preference.Preference;
-import android.text.TextUtils;
+
+import androidx.preference.Preference;
+import androidx.preference.PreferenceFragment;
 
 import com.android.emergency.PreferenceKeys;
 import com.android.emergency.R;
 import com.android.emergency.ReloadablePreferenceInterface;
-import com.android.emergency.preferences.AutoCompleteEditTextPreference;
+import com.android.emergency.preferences.EmergencyNamePreference;
 import com.android.emergency.util.PreferenceUtils;
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.settingslib.CustomDialogPreference;
 import com.android.settingslib.CustomEditTextPreference;
+
+import android.text.TextUtils;
 
 /**
  * Fragment that displays personal and medical information.
  */
 public class EditMedicalInfoFragment extends PreferenceFragment {
+
+    private EmergencyNamePreference mEmergencyNamePreference;
+
+    private static final String DIALOG_PREFERENCE_TAG = "dialog_preference";
+
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
         setPreferencesFromResource(R.xml.edit_medical_info, rootKey);
@@ -67,12 +75,16 @@ public class EditMedicalInfoFragment extends PreferenceFragment {
                 }
             });
         }
+
+        mEmergencyNamePreference = (EmergencyNamePreference) findPreference(
+                PreferenceKeys.KEY_NAME);
     }
 
     @Override
     public void onResume() {
         super.onResume();
         reloadFromPreference();
+        mEmergencyNamePreference.reloadFromUserManager();
     }
 
     @Override
@@ -81,13 +93,13 @@ public class EditMedicalInfoFragment extends PreferenceFragment {
         if (preference instanceof CustomEditTextPreference) {
             fragment = CustomEditTextPreference.CustomPreferenceDialogFragment
                     .newInstance(preference.getKey());
-        } else if (preference instanceof AutoCompleteEditTextPreference) {
-            fragment = AutoCompleteEditTextPreference.AutoCompleteEditTextPreferenceDialogFragment
+        } else if (preference instanceof CustomDialogPreference) {
+            fragment = EmergencyNamePreference.EmergencyNamePreferenceDialogFragment
                     .newInstance(preference.getKey());
         }
         if (fragment != null) {
             fragment.setTargetFragment(this, 0);
-            fragment.show(getFragmentManager(), "dialog_preference");
+            fragment.show(getFragmentManager(), DIALOG_PREFERENCE_TAG);
         } else {
             super.onDisplayPreferenceDialog(preference);
         }

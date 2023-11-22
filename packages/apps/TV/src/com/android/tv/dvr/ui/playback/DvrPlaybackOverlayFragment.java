@@ -25,7 +25,6 @@ import android.media.session.PlaybackState;
 import android.media.tv.TvContentRating;
 import android.media.tv.TvInputManager;
 import android.media.tv.TvTrackInfo;
-import android.media.tv.TvView;
 import android.os.Bundle;
 import android.support.v17.leanback.app.PlaybackFragment;
 import android.support.v17.leanback.app.PlaybackFragmentGlueHost;
@@ -52,7 +51,7 @@ import com.android.tv.dvr.data.SeriesRecording;
 import com.android.tv.dvr.ui.SortedArrayAdapter;
 import com.android.tv.dvr.ui.browse.DvrListRowPresenter;
 import com.android.tv.dvr.ui.browse.RecordingCardView;
-import com.android.tv.parental.ContentRatingsManager;
+import com.android.tv.ui.AppLayerTvView;
 import com.android.tv.util.TvSettings;
 import com.android.tv.util.TvTrackInfoUtils;
 import com.android.tv.util.Utils;
@@ -66,6 +65,7 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
 
     private static final String MEDIA_SESSION_TAG = "com.android.tv.dvr.mediasession";
     private static final float DISPLAY_ASPECT_RATIO_EPSILON = 0.01f;
+    private static final long INVALID_TIME = -1;
 
     // mProgram is only used to store program from intent. Don't use it elsewhere.
     private RecordedProgram mProgram;
@@ -76,8 +76,7 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     private SortedArrayAdapter<BaseProgram> mRelatedRecordingsRowAdapter;
     private DvrPlaybackCardPresenter mRelatedRecordingCardPresenter;
     private DvrDataManager mDvrDataManager;
-    private ContentRatingsManager mContentRatingsManager;
-    private TvView mTvView;
+    private AppLayerTvView mTvView;
     private View mBlockScreenView;
     private ListRow mRelatedRecordingsRow;
     private int mVerticalPaddingBase;
@@ -117,10 +116,6 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
                         .getDimensionPixelOffset(
                                 R.dimen.dvr_playback_overlay_padding_top_no_secondary_row);
         mDvrDataManager = TvSingletons.getSingletons(getActivity()).getDvrDataManager();
-        mContentRatingsManager =
-                TvSingletons.getSingletons(getContext())
-                        .getTvInputManagerHelper()
-                        .getContentRatingsManager();
         if (!mDvrDataManager.isRecordedProgramLoadFinished()) {
             mDvrDataManager.addRecordedProgramLoadFinishedListener(
                     new DvrDataManager.OnRecordedProgramLoadFinishedListener() {
@@ -157,9 +152,9 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        mTvView = (TvView) getActivity().findViewById(R.id.dvr_tv_view);
+        mTvView = getActivity().findViewById(R.id.dvr_tv_view);
         mBlockScreenView = getActivity().findViewById(R.id.block_screen);
-        mDvrPlayer = new DvrPlayer(mTvView);
+        mDvrPlayer = new DvrPlayer(mTvView, getActivity());
         mMediaSessionHelper =
                 new DvrPlaybackMediaSessionHelper(
                         getActivity(), MEDIA_SESSION_TAG, mDvrPlayer, this);
@@ -279,6 +274,7 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
         mPlaybackControlHelper.unregisterCallback();
         mMediaSessionHelper.release();
         mRelatedRecordingCardPresenter.unbindAllViewHolders();
+        mDvrPlayer.release();
         super.onDestroy();
     }
 
@@ -501,6 +497,20 @@ public class DvrPlaybackOverlayFragment extends PlaybackFragment {
         if (view != null) {
             view.setTranslationY(verticalPadding);
         }
+    }
+
+    public void onPlaybackResume() {
+        mPlaybackControlHelper.onPlaybackResume();
+    }
+
+    public long getProgramStartTimeMs() {
+        return (mProgram != null && mProgram.isPartial())
+                ? mProgram.getStartTimeUtcMillis()
+                : INVALID_TIME;
+    }
+
+    public void updateProgress() {
+        mPlaybackControlHelper.updateProgress();
     }
 
     private class RelatedRecordingsAdapter extends SortedArrayAdapter<BaseProgram> {

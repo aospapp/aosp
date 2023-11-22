@@ -28,15 +28,16 @@ import android.content.pm.PackageManager;
 import android.content.pm.UserInfo;
 import android.os.UserHandle;
 import android.os.UserManager;
-import android.support.test.filters.SmallTest;
 
-import java.util.Arrays;
-import java.util.Collections;
+import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.Arrays;
+import java.util.Collections;
 
 /**
  * Unit tests for {@link CrossProfileIntentFiltersSetter}

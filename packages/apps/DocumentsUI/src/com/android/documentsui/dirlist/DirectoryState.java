@@ -22,8 +22,8 @@ import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.Shared;
 import com.android.documentsui.services.FileOperation;
 import com.android.documentsui.services.FileOperationService;
-import com.android.documentsui.sorting.SortModel;
 import com.android.documentsui.sorting.SortDimension.SortDirection;
+import com.android.documentsui.sorting.SortModel;
 
 import javax.annotation.Nullable;
 
@@ -31,6 +31,7 @@ final class DirectoryState {
 
     private static final String EXTRA_SORT_DIMENSION_ID = "sortDimensionId";
     private static final String EXTRA_SORT_DIRECTION = "sortDirection";
+    private static final String EXTRA_SELECTION_ID = "selectionId";
 
     // Null when viewing Recents directory.
     @Nullable DocumentInfo mDocument;
@@ -39,6 +40,10 @@ final class DirectoryState {
     @Nullable FileOperation mPendingOperation;
     int mLastSortDimensionId = SortModel.SORT_DIMENSION_ID_UNKNOWN;
     @SortDirection int mLastSortDirection;
+
+    // The unique id to identify the selection. It is null when the corresponding
+    // container (fragment/activity) is the first launch.
+    @Nullable String mSelectionId;
 
     private RootInfo mRoot;
     private String mConfigKey;
@@ -49,6 +54,7 @@ final class DirectoryState {
         mPendingOperation = bundle.getParcelable(FileOperationService.EXTRA_OPERATION);
         mLastSortDimensionId = bundle.getInt(EXTRA_SORT_DIMENSION_ID);
         mLastSortDirection = bundle.getInt(EXTRA_SORT_DIRECTION);
+        mSelectionId = bundle.getString(EXTRA_SELECTION_ID);
     }
 
     public void save(Bundle bundle) {
@@ -57,17 +63,13 @@ final class DirectoryState {
         bundle.putParcelable(FileOperationService.EXTRA_OPERATION, mPendingOperation);
         bundle.putInt(EXTRA_SORT_DIMENSION_ID, mLastSortDimensionId);
         bundle.putInt(EXTRA_SORT_DIRECTION, mLastSortDirection);
+        bundle.putString(EXTRA_SELECTION_ID, mSelectionId);
     }
 
     public FileOperation claimPendingOperation() {
         FileOperation op = mPendingOperation;
         mPendingOperation = null;
         return op;
-    }
-
-    public void update(RootInfo root, DocumentInfo doc) {
-        mRoot = root;
-        mDocument = doc;
     }
 
     String getConfigKey() {

@@ -252,7 +252,7 @@ void RegisterAllocatorLinearScan::ProcessInstruction(HInstruction* instruction) 
           temp_intervals_.push_back(interval);
           interval->AddTempUse(instruction, i);
           if (codegen_->NeedsTwoRegisters(DataType::Type::kFloat64)) {
-            interval->AddHighInterval(/* is_temp */ true);
+            interval->AddHighInterval(/* is_temp= */ true);
             LiveInterval* high = interval->GetHighInterval();
             temp_intervals_.push_back(high);
             unhandled_fp_intervals_.push_back(high);
@@ -284,7 +284,7 @@ void RegisterAllocatorLinearScan::ProcessInstruction(HInstruction* instruction) 
   }
 
   if (locations->WillCall()) {
-    BlockRegisters(position, position + 1, /* caller_save_only */ true);
+    BlockRegisters(position, position + 1, /* caller_save_only= */ true);
   }
 
   for (size_t i = 0; i < locations->GetInputCount(); ++i) {
@@ -312,7 +312,7 @@ void RegisterAllocatorLinearScan::ProcessInstruction(HInstruction* instruction) 
 
   for (size_t safepoint_index = safepoints_.size(); safepoint_index > 0; --safepoint_index) {
     HInstruction* safepoint = safepoints_[safepoint_index - 1u];
-    size_t safepoint_position = safepoint->GetLifetimePosition();
+    size_t safepoint_position = SafepointPosition::ComputePosition(safepoint);
 
     // Test that safepoints are ordered in the optimal way.
     DCHECK(safepoint_index == safepoints_.size() ||

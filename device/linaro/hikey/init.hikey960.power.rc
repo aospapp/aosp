@@ -16,8 +16,6 @@ on post-fs
     chown system system /dev/stune/foreground/schedtune.boost
     chown system system /dev/stune/foreground/schedtune.prefer_idle
     chown system system /dev/stune/schedtune.boost
-    chown system system /sys/class/devfreq/ddr_devfreq/min_freq
-    chown system system /sys/class/devfreq/e82c0000.mali/min_freq
 
     write /dev/stune/top-app/schedtune.boost 20
     write /dev/stune/top-app/schedtune.prefer_idle 1

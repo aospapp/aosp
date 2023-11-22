@@ -15,9 +15,10 @@
 package bootstrap
 
 import (
-	"bytes"
+	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ import (
 
 var (
 	outFile        string
+	globFile       string
 	depFile        string
 	docFile        string
 	cpuprofile     string
@@ -40,6 +42,7 @@ var (
 	runGoTests     bool
 	noGC           bool
 	moduleListFile string
+	emptyNinjaFile bool
 
 	BuildDir      string
 	NinjaBuildDir string
@@ -48,6 +51,7 @@ var (
 
 func init() {
 	flag.StringVar(&outFile, "o", "build.ninja", "the Ninja file to output")
+	flag.StringVar(&globFile, "globFile", "build-globs.ninja", "the Ninja file of globs to output")
 	flag.StringVar(&BuildDir, "b", ".", "the build output directory")
 	flag.StringVar(&NinjaBuildDir, "n", "", "the ninja builddir directory")
 	flag.StringVar(&depFile, "d", "", "the dependency file to output")
@@ -58,6 +62,7 @@ func init() {
 	flag.BoolVar(&noGC, "nogc", false, "turn off GC for debugging")
 	flag.BoolVar(&runGoTests, "t", false, "build and run go tests during bootstrap")
 	flag.StringVar(&moduleListFile, "l", "", "file that lists filepaths to parse")
+	flag.BoolVar(&emptyNinjaFile, "empty-ninja-file", false, "write out a 0-byte ninja file")
 }
 
 func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...string) {
@@ -120,7 +125,9 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 
 	bootstrapConfig := &Config{
 		stage: stage,
+
 		topLevelBlueprintsFile: flag.Arg(0),
+		emptyNinjaFile:         emptyNinjaFile,
 		runGoTests:             runGoTests,
 		moduleListFile:         moduleListFile,
 	}
@@ -167,16 +174,51 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 	}
 	deps = append(deps, extraDeps...)
 
-	buf := bytes.NewBuffer(nil)
-	err = ctx.WriteBuildFile(buf)
-	if err != nil {
-		fatalf("error generating Ninja file contents: %s", err)
+	const outFilePermissions = 0666
+	var out io.Writer
+	var f *os.File
+	var buf *bufio.Writer
+
+	if stage != StageMain || !emptyNinjaFile {
+		f, err = os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, outFilePermissions)
+		if err != nil {
+			fatalf("error opening Ninja file: %s", err)
+		}
+		buf = bufio.NewWriter(f)
+		out = buf
+	} else {
+		out = ioutil.Discard
 	}
 
-	const outFilePermissions = 0666
-	err = ioutil.WriteFile(outFile, buf.Bytes(), outFilePermissions)
+	err = ctx.WriteBuildFile(out)
 	if err != nil {
-		fatalf("error writing %s: %s", outFile, err)
+		fatalf("error writing Ninja file contents: %s", err)
+	}
+
+	if buf != nil {
+		err = buf.Flush()
+		if err != nil {
+			fatalf("error flushing Ninja file contents: %s", err)
+		}
+	}
+
+	if f != nil {
+		err = f.Close()
+		if err != nil {
+			fatalf("error closing Ninja file: %s", err)
+		}
+	}
+
+	if globFile != "" {
+		buffer, errs := generateGlobNinjaFile(ctx.Globs)
+		if len(errs) > 0 {
+			fatalErrors(errs)
+		}
+
+		err = ioutil.WriteFile(globFile, buffer, outFilePermissions)
+		if err != nil {
+			fatalf("error writing %s: %s", outFile, err)
+		}
 	}
 
 	if depFile != "" {
@@ -187,8 +229,8 @@ func Main(ctx *blueprint.Context, config interface{}, extraNinjaFileDeps ...stri
 	}
 
 	if c, ok := config.(ConfigRemoveAbandonedFilesUnder); ok {
-		under := c.RemoveAbandonedFilesUnder()
-		err := removeAbandonedFilesUnder(ctx, bootstrapConfig, SrcDir, under)
+		under, except := c.RemoveAbandonedFilesUnder()
+		err := removeAbandonedFilesUnder(ctx, bootstrapConfig, SrcDir, under, except)
 		if err != nil {
 			fatalf("error removing abandoned files: %s", err)
 		}

@@ -92,8 +92,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"കാലിബ്രേഷൻ"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"ഫോർമാറ്റുകൾ തിരഞ്ഞെടുക്കുക"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"സറൗണ്ട് ശബ്‌ദം"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (ഡോൾബി ഡിജിറ്റൽ)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (ഡോൾബി ഡിജിറ്റൽ പ്ലസ്/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"ഡോൾബി ഡിജിറ്റൽ"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"ഡോൾബി ഡിജിറ്റൽ പ്ലസ്"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -360,7 +360,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"ഡ്രൈവ് വീണ്ടും കണക്റ്റുചെയ്യുന്നത് വരെ, ചില ആപ്‌സ് ലഭ്യമാവുകയോ ശരിയായി പ്രവർത്തിക്കുകയോ ചെയ്യില്ല."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"ആവശ്യമായ സംഭരണ ഇടമില്ല."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"ആപ്പ് നിലവിലില്ല."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"പകർത്തുന്നതിൽ നിന്ന് ആപ്പിനെ പരിരക്ഷിച്ചിരിക്കുന്നു."</string>
     <string name="invalid_location" msgid="5269044848535157307">"ഇൻസ്റ്റാൾ ചെയ്ത ലൊക്കേഷൻ അസാധുവാണ്."</string>
     <string name="system_package" msgid="9200255718634512790">"ബാഹ്യ മീഡിയയിൽ സി‌സ്റ്റം അപ്ഡേറ്റുകൾ ഇൻസ്റ്റാൾ ചെയ്യാനാകില്ല."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"ബാഹ്യ മീഡിയയിൽ ഉപകരണ അഡ്മിനിസ്ട്രേറ്റർ ഇൻസ്റ്റാൾ ചെയ്യാനാകില്ല."</string>
@@ -458,7 +457,7 @@
     <string name="system_accessibility_tts_engine_config" msgid="5331139536083054552">"എഞ്ചിൻ കോൺഫിഗറേഷൻ"</string>
     <string name="system_speak_passwords" msgid="5264650214879185873">"പാസ്‌വേഡുകൾ പറയുക"</string>
     <string name="system_preferred_engine" msgid="8258210139854655567">"തിരഞ്ഞെടുത്ത എഞ്ചിൻ"</string>
-    <string name="system_speech_rate" msgid="8099856582088545576">"വായന നിരക്ക്"</string>
+    <string name="system_speech_rate" msgid="8099856582088545576">"വായനാ നിരക്ക്"</string>
     <string name="system_play_sample" msgid="7187293932891811148">"സാമ്പിൾ പ്ലേ ചെയ്യുക"</string>
     <string name="system_install_voice_data" msgid="8920883886563714355">"വോയ്‌സ് ഡാറ്റ ഇൻസ്റ്റാളുചെയ്യുക"</string>
     <string name="system_general" msgid="3535958631591158282">"പൊതുവായത്"</string>
@@ -729,6 +728,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"അറിയിപ്പ് ആക്സസ്"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"ഇൻസ്‌റ്റാൾ ചെയ്ത ആപ്പുകളൊന്നും അറിയിപ്പ് ആക്‌സസ് അഭ്യർത്ഥിച്ചിട്ടില്ല."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"കോൺടാക്റ്റ് പേരുകളും നിങ്ങൾ സ്വീകരിക്കുന്ന സന്ദേശ ടെക്സ്റ്റുകളും പോലുള്ള വ്യക്തിഗത വിവരങ്ങൾ ഉൾപ്പെടെ, എല്ലാ അറിയിപ്പുകളും ഈ ആപ്പുകൾക്ക് വായിക്കാനാകും. കൂടാതെ അറിയിപ്പുകൾ ഒഴിവാക്കാനോ അവയിലടങ്ങിയിരിക്കുന്ന പ്രവർത്തന ബട്ടണുകൾ ട്രിഗർ ചെയ്യാനോ ഇവയ്ക്ക് കഴിയും."</string>
+    <string name="directory_access" msgid="7439168599298598101">"ഡയറക്റ്ററി ആക്‌സസ്"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"ഈ ആപ്പുകൾക്ക് ചില ഡയറക്റ്ററികൾ ആക്‌സസ് ചെയ്യാൻ അനുമതിയുണ്ട്."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"മറ്റ് ആപ്പുകൾക്ക് മുകളിൽ പ്രദർശിപ്പിക്കുക"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"മറ്റ് ആപ്പുകൾക്ക് മുകളിൽ പ്രദർശിപ്പിക്കാൻ അനുവദിക്കുക"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"നിങ്ങൾ ഉപയോഗിക്കുന്ന മറ്റ് ആപ്പുകൾക്ക് മുകളിൽ ഒരു ആപ്പിനെ ദൃശ്യമാക്കാൻ അനുവദിക്കുക. ആ ആപ്പുകളുടെ ഉപയോഗത്തെ ഇത് തടസ്സപ്പെടുത്തുകയോ അവ കാണപ്പെടുന്ന അല്ലെങ്കിൽ പെരുമാറുന്ന രീതിയെ മാറ്റുകയോ ചെയ്തേക്കാം."</string>

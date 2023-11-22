@@ -17,8 +17,6 @@
 #ifndef _CONTROLLERS_H__
 #define _CONTROLLERS_H__
 
-#include <sysutils/FrameworkListener.h>
-
 #include "BandwidthController.h"
 #include "ClatdController.h"
 #include "EventReporter.h"
@@ -28,19 +26,19 @@
 #include "IptablesRestoreController.h"
 #include "NetworkController.h"
 #include "PppController.h"
-#include "ResolverController.h"
 #include "StrictController.h"
+#include "TcpSocketMonitor.h"
 #include "TetherController.h"
 #include "TrafficController.h"
 #include "WakeupController.h"
 #include "XfrmController.h"
-#include "TcpSocketMonitor.h"
+#include "netdutils/Log.h"
 
 namespace android {
 namespace net {
 
 class Controllers {
-public:
+  public:
     Controllers();
 
     NetworkController netCtrl;
@@ -48,7 +46,6 @@ public:
     PppController pppCtrl;
     BandwidthController bandwidthCtrl;
     IdletimerController idletimerCtrl;
-    ResolverController resolverCtrl;
     FirewallController firewallCtrl;
     ClatdController clatdCtrl;
     StrictController strictCtrl;
@@ -61,7 +58,7 @@ public:
 
     void init();
 
-private:
+  private:
     friend class ControllersTest;
     void initIptablesRules();
     static void initChildChains();
@@ -74,6 +71,8 @@ private:
     static int (*execIptablesRestoreWithOutput)(IptablesTarget, const std::string&, std::string *);
 };
 
+extern netdutils::Log gLog;
+extern netdutils::Log gUnsolicitedLog;
 extern Controllers* gCtls;
 
 }  // namespace net

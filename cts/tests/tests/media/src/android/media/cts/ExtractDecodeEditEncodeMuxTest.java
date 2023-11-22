@@ -809,9 +809,15 @@ public class ExtractDecodeEditEncodeMuxTest
                 ByteBuffer decoderInputBuffer = videoDecoderInputBuffers[decoderInputBufferIndex];
                 int size = videoExtractor.readSampleData(decoderInputBuffer, 0);
                 long presentationTime = videoExtractor.getSampleTime();
+                int flags = videoExtractor.getSampleFlags();
                 if (VERBOSE) {
                     Log.d(TAG, "video extractor: returned buffer of size " + size);
                     Log.d(TAG, "video extractor: returned buffer for time " + presentationTime);
+                }
+                videoExtractorDone = !videoExtractor.advance();
+                if (videoExtractorDone) {
+                    if (VERBOSE) Log.d(TAG, "video extractor: EOS");
+                    flags = flags | MediaCodec.BUFFER_FLAG_END_OF_STREAM;
                 }
                 if (size >= 0) {
                     videoDecoder.queueInputBuffer(
@@ -820,18 +826,8 @@ public class ExtractDecodeEditEncodeMuxTest
                             size,
                             presentationTime,
                             videoExtractor.getSampleFlags());
+                    videoExtractedFrameCount++;
                 }
-                videoExtractorDone = !videoExtractor.advance();
-                if (videoExtractorDone) {
-                    if (VERBOSE) Log.d(TAG, "video extractor: EOS");
-                    videoDecoder.queueInputBuffer(
-                            decoderInputBufferIndex,
-                            0,
-                            0,
-                            0,
-                            MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                }
-                videoExtractedFrameCount++;
                 // We extracted a frame, let's try something else next.
                 break;
             }
@@ -933,6 +929,7 @@ public class ExtractDecodeEditEncodeMuxTest
                     if (VERBOSE) Log.d(TAG, "input surface: swap buffers");
                     inputSurface.swapBuffers();
                     if (VERBOSE) Log.d(TAG, "video encoder: notified of new frame");
+                    videoDecodedFrameCount++;
                 }
                 if ((videoDecoderOutputBufferInfo.flags
                         & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
@@ -940,7 +937,6 @@ public class ExtractDecodeEditEncodeMuxTest
                     videoDecoderDone = true;
                     videoEncoder.signalEndOfInputStream();
                 }
-                videoDecodedFrameCount++;
                 // We extracted a pending frame, let's try something else next.
                 break;
             }
@@ -1096,6 +1092,7 @@ public class ExtractDecodeEditEncodeMuxTest
                 if (videoEncoderOutputBufferInfo.size != 0) {
                     muxer.writeSampleData(
                             outputVideoTrack, encoderOutputBuffer, videoEncoderOutputBufferInfo);
+                    videoEncodedFrameCount++;
                 }
                 if ((videoEncoderOutputBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                         != 0) {
@@ -1103,7 +1100,6 @@ public class ExtractDecodeEditEncodeMuxTest
                     videoEncoderDone = true;
                 }
                 videoEncoder.releaseOutputBuffer(encoderOutputBufferIndex, false);
-                videoEncodedFrameCount++;
                 // We enqueued an encoded frame, let's try something else next.
                 break;
             }
@@ -1216,6 +1212,9 @@ public class ExtractDecodeEditEncodeMuxTest
         for (int i = 0; i < numCodecs; i++) {
             MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
 
+            if (codecInfo.isAlias()) {
+                continue;
+            }
             if (!codecInfo.isEncoder()) {
                 continue;
             }

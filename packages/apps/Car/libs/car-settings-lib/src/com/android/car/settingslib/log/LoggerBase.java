@@ -16,9 +16,10 @@
 
 package com.android.car.settingslib.log;
 
-import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 /**
  * Helper class that wraps {@link Log} to log messages to logcat. The intended use for a Logger is
@@ -61,6 +62,13 @@ public abstract class LoggerBase {
      */
     @NonNull
     protected abstract String getTag();
+
+    /**
+     * Returns true when it is desired to force log all messages.
+     */
+    protected boolean forceAllLogging() {
+        return false;
+    }
 
     /**
      * Logs a {@link Log#VERBOSE} log message. Will only be logged if {@link Log#VERBOSE} is
@@ -199,14 +207,14 @@ public abstract class LoggerBase {
     }
 
     private boolean isV() {
-        return Log.isLoggable(mTag, Log.VERBOSE);
+        return Log.isLoggable(mTag, Log.VERBOSE) || forceAllLogging();
     }
 
     private boolean isD() {
-        return Log.isLoggable(mTag, Log.DEBUG);
+        return Log.isLoggable(mTag, Log.DEBUG) || forceAllLogging();
     }
 
     private boolean isI() {
-        return Log.isLoggable(mTag, Log.INFO);
+        return Log.isLoggable(mTag, Log.INFO) || forceAllLogging();
     }
 }

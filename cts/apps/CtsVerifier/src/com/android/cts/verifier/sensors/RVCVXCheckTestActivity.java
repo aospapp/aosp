@@ -167,7 +167,7 @@ public class RVCVXCheckTestActivity
 
             // acquire a partial wake lock just in case CPU fall asleep
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+            PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK,
                     "RVCVXCheckAnalyzer");
 
             wl.acquire();
@@ -301,10 +301,8 @@ public class RVCVXCheckTestActivity
 
         String message = "Test Roll Axis Accuracy";
 
-        Assert.assertEquals("Roll RMS error", 0.0, mReport.roll_rms_error,
-                Criterion.roll_rms_error);
-        Assert.assertEquals("Roll max error", 0.0, mReport.roll_max_error,
-                Criterion.roll_max_error);
+        assertLessThan("Roll RMS error", mReport.roll_rms_error, Criterion.roll_rms_error);
+        assertLessThan("Roll max error", mReport.roll_max_error, Criterion.roll_max_error);
         return message;
     }
 
@@ -316,10 +314,8 @@ public class RVCVXCheckTestActivity
 
         String message = "Test Pitch Axis Accuracy";
 
-        Assert.assertEquals("Pitch RMS error", 0.0, mReport.pitch_rms_error,
-                Criterion.pitch_rms_error);
-        Assert.assertEquals("Pitch max error", 0.0, mReport.pitch_max_error,
-                Criterion.pitch_max_error);
+        assertLessThan("Pitch RMS error", mReport.pitch_rms_error, Criterion.pitch_rms_error);
+        assertLessThan("Pitch max error", mReport.pitch_max_error, Criterion.pitch_max_error);
         return message;
     }
 
@@ -331,11 +327,14 @@ public class RVCVXCheckTestActivity
 
         String message = "Test Yaw Axis Accuracy";
 
-        Assert.assertEquals("Yaw RMS error", 0.0, mReport.yaw_rms_error,
-                Criterion.yaw_rms_error);
-        Assert.assertEquals("Yaw max error", 0.0, mReport.yaw_max_error,
-                Criterion.yaw_max_error);
+        assertLessThan("Yaw RMS error", mReport.yaw_rms_error, Criterion.yaw_rms_error);
+        assertLessThan("Yaw max error", mReport.yaw_max_error, Criterion.yaw_max_error);
         return message;
+    }
+
+    private void assertLessThan(String message, double lhs, double rhs) {
+        Assert.assertTrue(String.format("%s - expected %.4f < %.4f", message, lhs, rhs),
+                lhs < rhs);
     }
 
     private void loadOpenCVSuccessfulOrSkip() throws SensorTestStateNotSupportedException {

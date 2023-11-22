@@ -25,8 +25,12 @@ import android.content.pm.Signature;
 import android.text.TextUtils;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.managedprovisioning.analytics.MetricsWriterFactory;
+import com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker;
+import com.android.managedprovisioning.common.ManagedProvisioningSharedPreferences;
 import com.android.managedprovisioning.common.ProvisionLogger;
 import com.android.managedprovisioning.R;
+import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.StoreUtils;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.PackageDownloadInfo;
@@ -61,7 +65,10 @@ public class VerifyPackageTask extends AbstractProvisioningTask {
             Context context,
             ProvisioningParams params,
             Callback callback) {
-        this(new Utils(), downloadPackageTask, context, params, callback);
+        this(new Utils(), downloadPackageTask, context, params, callback,
+                new ProvisioningAnalyticsTracker(
+                        MetricsWriterFactory.getMetricsWriter(context, new SettingsFacade()),
+                        new ManagedProvisioningSharedPreferences(context)));
     }
 
     @VisibleForTesting
@@ -70,8 +77,9 @@ public class VerifyPackageTask extends AbstractProvisioningTask {
             DownloadPackageTask downloadPackageTask,
             Context context,
             ProvisioningParams params,
-            Callback callback) {
-        super(context, params, callback);
+            Callback callback,
+            ProvisioningAnalyticsTracker provisioningAnalyticsTracker) {
+        super(context, params, callback, provisioningAnalyticsTracker);
 
         mUtils = checkNotNull(utils);
         mDownloadPackageTask = checkNotNull(downloadPackageTask);
@@ -105,8 +113,7 @@ public class VerifyPackageTask extends AbstractProvisioningTask {
         }
 
         if (mDownloadInfo.packageChecksum.length > 0) {
-            if (!doesPackageHashMatch(downloadLocation, mDownloadInfo.packageChecksum,
-                    mDownloadInfo.packageChecksumSupportsSha1)) {
+            if (!doesPackageHashMatch(downloadLocation, mDownloadInfo.packageChecksum)) {
                 error(ERROR_HASH_MISMATCH);
                 return;
             }
@@ -170,25 +177,14 @@ public class VerifyPackageTask extends AbstractProvisioningTask {
     /**
      * Check whether package hash of downloaded file matches the hash given in PackageDownloadInfo.
      * By default, SHA-256 is used to verify the file hash.
-     * If mPackageDownloadInfo.packageChecksumSupportsSha1 == true, SHA-1 hash is also supported for
-     * backwards compatibility.
      */
-    private boolean doesPackageHashMatch(String downloadLocation, byte[] packageChecksum,
-            boolean supportsSha1) {
-        byte[] packageSha256Hash, packageSha1Hash = null;
+    private boolean doesPackageHashMatch(String downloadLocation, byte[] packageChecksum) {
+        byte[] packageSha256Hash = null;
 
         ProvisionLogger.logd("Checking file hash of entire apk file.");
         packageSha256Hash = mUtils.computeHashOfFile(downloadLocation, Utils.SHA256_TYPE);
         if (Arrays.equals(packageChecksum, packageSha256Hash)) {
             return true;
-        }
-
-        // Fall back to SHA-1
-        if (supportsSha1) {
-            packageSha1Hash = mUtils.computeHashOfFile(downloadLocation, Utils.SHA1_TYPE);
-            if (Arrays.equals(packageChecksum, packageSha1Hash)) {
-                return true;
-            }
         }
 
         ProvisionLogger.loge("Provided hash does not match file hash.");
@@ -197,10 +193,6 @@ public class VerifyPackageTask extends AbstractProvisioningTask {
         if (packageSha256Hash != null) {
             ProvisionLogger.loge("SHA-256 Hash computed from file: "
                     + StoreUtils.byteArrayToString(packageSha256Hash));
-        }
-        if (packageSha1Hash != null) {
-            ProvisionLogger.loge("SHA-1 Hash computed from file: "
-                    + StoreUtils.byteArrayToString(packageSha1Hash));
         }
         return false;
     }

@@ -53,12 +53,12 @@ void AST::generateVts(Formatter& out) const {
     const Interface *iface = AST::getInterface();
 
     out << "component_class: HAL_HIDL\n";
-    out << "component_type_version: " << mPackage.version()
-        << "\n";
     out << "component_name: \""
         << (iface ? iface->localName() : "types")
         << "\"\n\n";
 
+    out << "component_type_version_major: " << mPackage.getPackageMajorVersion() << "\n";
+    out << "component_type_version_minor: " << mPackage.getPackageMinorVersion() << "\n";
     out << "package: \"" << mPackage.package() << "\"\n\n";
 
     // Generate import statement for all imported interface/types.
@@ -78,17 +78,15 @@ void AST::generateVts(Formatter& out) const {
         out << "interface: {\n";
         out.indent();
 
-        std::vector<const Interface *> chain = iface->typeChain();
-
         // Generate all the attribute declarations first.
         emitVtsTypeDeclarations(out);
 
         // Generate all the method declarations.
-        for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
-            const Interface *superInterface = *it;
-            superInterface->emitVtsMethodDeclaration(out);
+        for (const Interface* superInterface : iface->superTypeChain()) {
+            superInterface->emitVtsMethodDeclaration(out, true /*isInhereted*/);
         }
 
+        iface->emitVtsMethodDeclaration(out, false /*isInhereted*/);
         out.unindent();
         out << "}\n";
     } else {

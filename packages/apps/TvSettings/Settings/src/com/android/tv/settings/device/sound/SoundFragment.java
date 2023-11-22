@@ -22,13 +22,15 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.ListPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceCategory;
-import android.support.v7.preference.PreferenceViewHolder;
-import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
+
+import androidx.annotation.Keep;
+import androidx.preference.ListPreference;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceCategory;
+import androidx.preference.PreferenceViewHolder;
+import androidx.preference.SwitchPreference;
+import androidx.preference.TwoStatePreference;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.core.AbstractPreferenceController;
@@ -42,6 +44,7 @@ import java.util.Map;
 /**
  * The "Sound" screen in TV Settings.
  */
+@Keep
 public class SoundFragment extends PreferenceControllerFragment implements
         Preference.OnPreferenceChangeListener {
 
@@ -57,6 +60,7 @@ public class SoundFragment extends PreferenceControllerFragment implements
 
     private AudioManager mAudioManager;
     private Map<Integer, Boolean> mFormats;
+    private Map<Integer, Boolean> mReportedFormats;
     private List<AbstractPreferenceController> mPreferenceControllers;
     private PreferenceCategory mSurroundSoundCategoryPref;
 
@@ -68,6 +72,7 @@ public class SoundFragment extends PreferenceControllerFragment implements
     public void onAttach(Context context) {
         mAudioManager = context.getSystemService(AudioManager.class);
         mFormats = mAudioManager.getSurroundFormats();
+        mReportedFormats = mAudioManager.getReportedSurroundFormats();
         super.onAttach(context);
     }
 
@@ -99,7 +104,7 @@ public class SoundFragment extends PreferenceControllerFragment implements
         mPreferenceControllers = new ArrayList<>(mFormats.size());
         for (Map.Entry<Integer, Boolean> format : mFormats.entrySet()) {
             mPreferenceControllers.add(new SoundFormatPreferenceController(context,
-                    format.getKey() /*formatId*/));
+                    format.getKey() /*formatId*/, mFormats, mReportedFormats));
         }
         return mPreferenceControllers;
     }

@@ -76,7 +76,11 @@ public class InCallServiceFixture implements TestFixture<IInCallService> {
         @Override
         public void updateCall(ParcelableCall call) throws RemoteException {
             if (!mCallById.containsKey(call.getId())) {
-                throw new RuntimeException("Call " + call.getId() + " not added yet");
+                // This used to throw an exception, however the actual InCallService implementation
+                // ignores updates for calls which don't yet exist.  This is not a problem as when
+                // a call is added to an InCallService its entire state is parceled and sent to the
+                // InCallService.
+                return;
             }
             mLatestCallId = call.getId();
             mCallById.put(call.getId(), call);

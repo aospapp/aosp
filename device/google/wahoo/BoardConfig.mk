@@ -28,6 +28,8 @@ TARGET_2ND_CPU_ABI := armeabi-v7a
 TARGET_2ND_CPU_ABI2 := armeabi
 TARGET_2ND_CPU_VARIANT := cortex-a73
 
+BUILD_BROKEN_DUP_RULES := true
+
 BOARD_KERNEL_CMDLINE += androidboot.hardware=$(TARGET_BOOTLOADER_BOARD_NAME) androidboot.console=ttyMSM0 lpm_levels.sleep_disabled=1
 BOARD_KERNEL_CMDLINE += user_debug=31 msm_rtb.filter=0x37 ehci-hcd.park=3
 BOARD_KERNEL_CMDLINE += service_locator.enable=1
@@ -54,6 +56,7 @@ TARGET_NO_KERNEL := false
 TARGET_NO_RECOVERY := true
 BOARD_USES_RECOVERY_AS_BOOT := true
 BOARD_BUILD_SYSTEM_ROOT_IMAGE := true
+BOARD_USES_METADATA_PARTITION := true
 
 # Partitions (listed in the file) to be wiped under recovery.
 TARGET_RECOVERY_WIPE := device/google/wahoo/recovery.wipe
@@ -63,7 +66,11 @@ BOARD_AVB_ENABLE := true
 
 BOARD_SYSTEMIMAGE_PARTITION_SIZE := 2684354560
 BOARD_SYSTEMIMAGE_JOURNAL_SIZE := 0
+ifneq ($(PRODUCT_INCREASE_INODE_COUNT),true)
 BOARD_SYSTEMIMAGE_EXTFS_INODE_COUNT := 4096
+else
+BOARD_SYSTEMIMAGE_EXTFS_INODE_COUNT := 8192
+endif
 TARGET_USERIMAGES_USE_EXT4 := true
 BOARD_USERDATAIMAGE_PARTITION_SIZE := 26503790080
 BOARD_PERSISTIMAGE_PARTITION_SIZE := 33554432
@@ -79,14 +86,14 @@ TARGET_COPY_OUT_VENDOR := vendor
 # Install odex files into the other system image
 BOARD_USES_SYSTEM_OTHER_ODEX := true
 
-BOARD_ROOT_EXTRA_FOLDERS := persist firmware
+BOARD_ROOT_EXTRA_FOLDERS := persist firmware metadata
 
 BOARD_SEPOLICY_DIRS += device/google/wahoo/sepolicy/vendor
 BOARD_PLAT_PUBLIC_SEPOLICY_DIR := device/google/wahoo/sepolicy/public
 BOARD_PLAT_PRIVATE_SEPOLICY_DIR := device/google/wahoo/sepolicy/private
 BOARD_SEPOLICY_DIRS += device/google/wahoo/sepolicy/verizon
 
-TARGET_ANDROID_FILESYSTEM_CONFIG_H := device/google/wahoo/android_filesystem_config.h
+TARGET_FS_CONFIG_GEN := device/google/wahoo/config.fs
 
 QCOM_BOARD_PLATFORMS += msm8998
 BOARD_HAVE_BLUETOOTH_QCOM := true
@@ -141,7 +148,7 @@ VSYNC_EVENT_PHASE_OFFSET_NS := 2000000
 SF_VSYNC_EVENT_PHASE_OFFSET_NS := 6000000
 
 # Display
-TARGET_HAS_WIDE_COLOR_DISPLAY := true
+TARGET_HAS_WIDE_COLOR_DISPLAY := false
 TARGET_HAS_HDR_DISPLAY := false
 TARGET_USES_COLOR_METADATA := true
 
@@ -159,3 +166,6 @@ BOARD_PROPERTY_OVERRIDES_SPLIT_ENABLED := true
 TARGET_USES_MKE2FS := true
 
 BOARD_VNDK_VERSION := current
+
+# Generate an APEX image for experiment b/119800099.
+DEXPREOPT_GENERATE_APEX_IMAGE := true

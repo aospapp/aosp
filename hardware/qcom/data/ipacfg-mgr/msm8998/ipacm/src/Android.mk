@@ -28,7 +28,6 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 endif
 
-LOCAL_CFLAGS := -v
 LOCAL_CFLAGS += -DFEATURE_IPA_ANDROID
 LOCAL_CFLAGS += -DFEATURE_IPACM_HAL -Wall -Werror
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
@@ -51,6 +50,9 @@ LOCAL_CFLAGS += \
         -Wno-unused-value \
         -Wno-unused-variable \
         -Wno-writable-strings \
+
+# Allow implicit fallthroughs in IPACM_Main.cpp until they are fixed.
+LOCAL_CFLAGS += -Wno-error=implicit-fallthrough
 
 LOCAL_SRC_FILES := IPACM_Main.cpp \
 		IPACM_EvtDispatcher.cpp \

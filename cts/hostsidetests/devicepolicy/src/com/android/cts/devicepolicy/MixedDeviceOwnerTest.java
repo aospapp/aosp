@@ -16,19 +16,27 @@
 
 package com.android.cts.devicepolicy;
 
-import android.platform.test.annotations.RequiresDevice;
+import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
 
-import com.android.ddmlib.Log.LogLevel;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.log.LogUtil.CLog;
+import android.stats.devicepolicy.EventId;
 
-import junit.framework.AssertionFailedError;
+import com.android.cts.devicepolicy.metrics.DevicePolicyEventWrapper;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Set of tests for device owner use cases that also apply to profile owners.
  * Tests that should be run identically in both cases are added in DeviceAndProfileOwnerTest.
  */
 public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
+
+    private static final String DELEGATION_NETWORK_LOGGING = "delegation-network-logging";
 
     @Override
     protected void setUp() throws Exception {
@@ -57,5 +65,44 @@ public class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
         super.tearDown();
     }
 
-    // All tests for this class are defined in DeviceAndProfileOwnerTest
+    public void testDelegatedCertInstallerDeviceIdAttestation() throws Exception {
+        if (!mHasFeature) {
+            return;
+        }
+
+        setUpDelegatedCertInstallerAndRunTests(() ->
+                runDeviceTestsAsUser("com.android.cts.certinstaller",
+                        ".DelegatedDeviceIdAttestationTest",
+                        "testGenerateKeyPairWithDeviceIdAttestationExpectingSuccess", mUserId));
+    }
+
+    @Override
+    Map<String, DevicePolicyEventWrapper[]> getAdditionalDelegationTests() {
+        final Map<String, DevicePolicyEventWrapper[]> result = new HashMap<>();
+        DevicePolicyEventWrapper[] expectedMetrics = new DevicePolicyEventWrapper[] {
+                new DevicePolicyEventWrapper.Builder(EventId.SET_NETWORK_LOGGING_ENABLED_VALUE)
+                        .setAdminPackageName(DELEGATE_APP_PKG)
+                        .setBoolean(true)
+                        .setInt(1)
+                        .build(),
+                new DevicePolicyEventWrapper.Builder(EventId.RETRIEVE_NETWORK_LOGS_VALUE)
+                        .setAdminPackageName(DELEGATE_APP_PKG)
+                        .setBoolean(true)
+                        .build(),
+                new DevicePolicyEventWrapper.Builder(EventId.SET_NETWORK_LOGGING_ENABLED_VALUE)
+                        .setAdminPackageName(DELEGATE_APP_PKG)
+                        .setBoolean(true)
+                        .setInt(0)
+                        .build(),
+        };
+        result.put(".NetworkLoggingDelegateTest", expectedMetrics);
+        return result;
+    }
+
+    @Override
+    List<String> getAdditionalDelegationScopes() {
+        final List<String> result = new ArrayList<>();
+        result.add(DELEGATION_NETWORK_LOGGING);
+        return result;
+    }
 }

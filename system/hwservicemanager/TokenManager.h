@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #ifndef ANDROID_HIDL_TOKEN_V1_0_TOKENMANAGER_H
 #define ANDROID_HIDL_TOKEN_V1_0_TOKENMANAGER_H
 
@@ -32,20 +48,20 @@ struct TokenManager : public ITokenManager {
     Return<sp<IBase>> get(const hidl_vec<uint8_t> &token) override;
 
 private:
-    static constexpr uint64_t ID_SIZE = sizeof(uint64_t) / sizeof(uint8_t);
     static constexpr uint64_t KEY_SIZE = 16;
 
     static constexpr uint64_t TOKEN_ID_NONE = 0;
 
     static bool constantTimeCompare(const hidl_vec<uint8_t> &t1, const hidl_vec<uint8_t> &t2);
 
-    static hidl_vec<uint8_t> getToken(const uint64_t id, const uint8_t *hmac, uint64_t hmacSize);
+    static hidl_vec<uint8_t> makeToken(const uint64_t id, const uint8_t *hmac, uint64_t hmacSize);
     static uint64_t getTokenId(const hidl_vec<uint8_t> &token);
 
     std::array<uint8_t, KEY_SIZE> mKey;
 
     struct TokenInterface {
         sp<IBase> interface;
+        uint64_t id;
         hidl_vec<uint8_t> token; // First eight bytes are tokenId. Remaining bytes are hmac.
     };
 

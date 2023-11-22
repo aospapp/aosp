@@ -25,12 +25,12 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import com.android.tv.testing.TestSingletonApp;
 import com.android.tv.testing.constants.ConfigConstants;
-import com.google.thirdparty.robolectric.GoogleRobolectricTestRunner;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
@@ -38,15 +38,8 @@ import org.robolectric.annotation.Config;
 
 // TODO: move to partner-support
 
-@RunWith(GoogleRobolectricTestRunner.class)
-@Config(
-    manifest =
-            "//third_party/java_src/android_app/live_channels/common/src"
-                    + "/com/android/tv/common"
-                    + ":common/AndroidManifest.xml",
-    sdk = ConfigConstants.SDK,
-    application = TestSingletonApp.class
-)
+@RunWith(RobolectricTestRunner.class)
+@Config(sdk = ConfigConstants.SDK, application = TestSingletonApp.class)
 public class BaseCustomizationTest {
 
     private static final String[] PERMISSIONS = {"com.example.permission"};

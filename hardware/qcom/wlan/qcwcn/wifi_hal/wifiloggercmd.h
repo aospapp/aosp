@@ -33,7 +33,6 @@
 #include "cpp_bindings.h"
 #include "wifi_logger.h"
 #include "wifilogger_diag.h"
-#include "vendor_definitions.h"
 
 #ifdef __cplusplus
 extern "C"

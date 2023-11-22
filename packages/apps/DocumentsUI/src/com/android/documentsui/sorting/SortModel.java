@@ -18,18 +18,19 @@ package com.android.documentsui.sorting;
 
 import static com.android.documentsui.base.SharedMinimal.DEBUG;
 
-import android.annotation.IntDef;
-import android.annotation.Nullable;
 import android.content.ContentResolver;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.provider.DocumentsContract.Document;
-import android.support.annotation.VisibleForTesting;
 import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
+
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.documentsui.R;
 import com.android.documentsui.base.Lookup;
@@ -356,7 +357,9 @@ public class SortModel implements Parcelable {
         if (!mIsUserSpecified) {
             SortDimension dimension = mDimensions.get(mDefaultDimensionId);
             if (dimension == null) {
-                if (DEBUG) Log.d(TAG, "No default sort dimension.");
+                if (DEBUG) {
+                    Log.d(TAG, "No default sort dimension.");
+                }
                 return;
             }
 
@@ -418,7 +421,8 @@ public class SortModel implements Parcelable {
         out.writeInt(getSortedDimensionId());
     }
 
-    public static Parcelable.Creator<SortModel> CREATOR = new Parcelable.Creator<SortModel>() {
+    public static final Parcelable.Creator<SortModel> CREATOR =
+            new Parcelable.Creator<SortModel>() {
 
         @Override
         public SortModel createFromParcel(Parcel in) {

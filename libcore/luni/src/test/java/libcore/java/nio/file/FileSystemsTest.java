@@ -35,9 +35,10 @@ import java.nio.file.ProviderNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 
+import libcore.io.Streams;
+
 import dalvik.system.PathClassLoader;
 import junitparams.JUnitParamsRunner;
-import sun.misc.IOUtils;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -178,11 +179,13 @@ public class FileSystemsTest {
      * MockFileSystemProvider and MockFileSystem classes.
      * @throws Exception
      */
-    ClassLoader createClassLoaderForTestFileSystems() throws Exception {
-        File jarFile = new File(filesSetup.getTestDir().toString(), "filesystemstset.jar");
-        InputStream jis = getClass().getResource("/filesystemstest.jar").openStream();
-        OutputStream jos = new FileOutputStream(jarFile);
-        jos.write(IOUtils.readFully(jis, -1, true));
+    ClassLoader createClassLoaderForTestFileSystems() throws IOException {
+        File jarFile = new File(filesSetup.getTestDir(), "filesystemstest.jar");
+        try (InputStream in = getClass().getResource("/filesystemstest.jar").openStream();
+             OutputStream out = new FileOutputStream(jarFile))
+        {
+            Streams.copy(in, out);
+        }
 
         return new PathClassLoader(jarFile.getAbsolutePath(), getClass().getClassLoader());
     }

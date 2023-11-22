@@ -49,7 +49,6 @@
             android:layout_alignParentBottom="true"
             android:layout_alignParentLeft="true"
             android:padding="10sp"
-            android:popupBackground="#ffffff"
             android:textSize="18sp" />
     </RelativeLayout>
 

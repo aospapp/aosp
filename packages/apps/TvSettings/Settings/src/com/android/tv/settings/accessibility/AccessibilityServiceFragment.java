@@ -20,12 +20,13 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v14.preference.SwitchPreference;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
-import android.support.v7.preference.TwoStatePreference;
 import android.text.TextUtils;
+
+import androidx.annotation.NonNull;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
+import androidx.preference.SwitchPreference;
+import androidx.preference.TwoStatePreference;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.accessibility.AccessibilityUtils;
@@ -90,17 +91,25 @@ public class AccessibilityServiceFragment extends SettingsPreferenceFragment imp
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
+    public boolean onPreferenceTreeClick(Preference preference) {
+        if (preference == mEnablePref) {
+            // Prepare confirmation dialog and reverts switch until result comes back.
+            updateEnablePref();
+            // Pass to super to launch confirmation dialog.
+            super.onPreferenceTreeClick(preference);
+            return true;
+        } else {
+            return super.onPreferenceTreeClick(preference);
+        }
+    }
 
+    private void updateEnablePref() {
         final String packageName = getArguments().getString(ARG_PACKAGE_NAME);
         final String serviceName = getArguments().getString(ARG_SERVICE_NAME);
-
         final ComponentName serviceComponent = new ComponentName(packageName, serviceName);
         final Set<ComponentName> enabledServices =
                 AccessibilityUtils.getEnabledServicesFromSettings(getActivity());
         final boolean enabled = enabledServices.contains(serviceComponent);
-
         mEnablePref.setChecked(enabled);
         AccessibilityServiceConfirmationFragment.prepareArgs(mEnablePref.getExtras(),
                 new ComponentName(packageName, serviceName),
@@ -108,9 +117,18 @@ public class AccessibilityServiceFragment extends SettingsPreferenceFragment imp
     }
 
     @Override
+    public void onResume() {
+        super.onResume();
+        updateEnablePref();
+    }
+
+    @Override
     public void onAccessibilityServiceConfirmed(ComponentName componentName, boolean enabling) {
         AccessibilityUtils.setAccessibilityServiceState(getActivity(),
                 componentName, enabling);
+        if (mEnablePref != null) {
+            mEnablePref.setChecked(enabling);
+        }
     }
 
     @Override

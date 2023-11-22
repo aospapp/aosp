@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"জৰুৰীকালীন তথ্য"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"স্বাস্থ্য সম্পৰ্কীয় তথ্য"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"তথ্য সম্পাদনা কৰক"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"তথ্য যোগ কৰক"</string>
     <string name="edit_info" msgid="5973929805855224805">"জৰুৰীকালীন তথ্য সম্পাদনা কৰক"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"তথ্য"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"সম্পৰ্কসমূহ"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"আপোনাৰ স্বাস্থ্য সম্পৰ্কীয় বিশেষ তথ্য আৰু জৰুৰীকালীন সম্পৰ্ক যোগ কৰিলে জৰুৰীকালীন পৰিস্থিতিত প্ৰথম সঁহাৰিদাতাজনৰ বাবে সহায়ক হয়।\n\nআপোনাৰ বন্ধ স্ক্ৰীণতেই যিকোনো লোকে এই তথ্য পঢ়িব পাৰে আৰু আপোনাৰ ফ\'নটো আনলক নকৰাকৈয়ে তেওঁলোকে জৰুৰীকালীন সম্পৰ্কসমূহৰ নাম টিপি তেওঁলোকক ফ\'ন কৰিব পাৰে।"</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"জৰুৰীকালীন তথ্য যোগ কৰক"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"প্ৰথমে সঁহাৰি দিয়া লোকসকলক আপোনাৰ তথ্য চাবলৈ দিয়ক"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"এখন ফট’ তোলক"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"এখন প্ৰতিচ্ছবি বাছনি কৰক"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"ফট\' বাছনি কৰক"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"উপনাম"</string>
 </resources>

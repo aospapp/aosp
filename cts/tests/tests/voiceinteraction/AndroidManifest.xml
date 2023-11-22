@@ -36,14 +36,13 @@
                 android:label="Local Interaction Activity">
           <intent-filter>
               <action android:name="android.intent.action.TEST_LOCAL_INTERACTION_ACTIVITY" />
-              <category android:name="android.intent.category.DEFAULT" />
           </intent-filter>
       </activity>
       <receiver android:name="VoiceInteractionTestReceiver"
               android:exported="true" />
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.voiceinteraction.cts"
                      android:label="CTS tests of android.voiceinteraction">
         <meta-data android:name="listener"

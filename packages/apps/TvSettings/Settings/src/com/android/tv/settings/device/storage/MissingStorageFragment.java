@@ -19,11 +19,12 @@ package com.android.tv.settings.device.storage;
 import android.os.Bundle;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeRecord;
-import android.support.v17.preference.LeanbackPreferenceFragment;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceScreen;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.leanback.preference.LeanbackPreferenceFragment;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceScreen;
 
 import com.android.tv.settings.R;
 

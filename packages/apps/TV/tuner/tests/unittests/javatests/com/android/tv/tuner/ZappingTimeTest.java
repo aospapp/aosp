@@ -21,10 +21,11 @@ import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
-import android.support.test.filters.LargeTest;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 import android.view.Surface;
+import androidx.test.filters.LargeTest;
+import com.android.tv.common.flags.impl.DefaultConcurrentDvrPlaybackFlags;
 import com.android.tv.tuner.data.Cea708Data;
 import com.android.tv.tuner.data.PsiData;
 import com.android.tv.tuner.data.PsipData;
@@ -33,10 +34,10 @@ import com.android.tv.tuner.data.nano.Channel;
 import com.android.tv.tuner.exoplayer.MpegTsPlayer;
 import com.android.tv.tuner.exoplayer.MpegTsRendererBuilder;
 import com.android.tv.tuner.exoplayer.buffer.BufferManager;
+import com.android.tv.tuner.exoplayer.buffer.PlaybackBufferListener;
 import com.android.tv.tuner.exoplayer.buffer.TrickplayStorageManager;
 import com.android.tv.tuner.source.TsDataSourceManager;
-import com.android.tv.tuner.tvinput.EventDetector;
-import com.android.tv.tuner.tvinput.PlaybackBufferListener;
+import com.android.tv.tuner.ts.EventDetector.EventListener;
 import com.google.android.exoplayer.ExoPlayer;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -86,7 +87,9 @@ public class ZappingTimeTest extends InstrumentationTestCase {
     private AtomicLong mOnDrawnToSurfaceTimeMs = new AtomicLong(0);
     private MockMpegTsPlayerListener mMpegTsPlayerListener = new MockMpegTsPlayerListener();
     private MockPlaybackBufferListener mPlaybackBufferListener = new MockPlaybackBufferListener();
-    private MockEventListener mEventListener = new MockEventListener();
+    private MockChannelScanListener mEventListener = new MockChannelScanListener();
+    private DefaultConcurrentDvrPlaybackFlags mConcurrentDvrPlaybackFlags =
+            new DefaultConcurrentDvrPlaybackFlags();
 
     @Override
     protected void setUp() throws Exception {
@@ -152,7 +155,8 @@ public class ZappingTimeTest extends InstrumentationTestCase {
                                                             new MpegTsRendererBuilder(
                                                                     mTargetContext,
                                                                     bufferManager,
-                                                                    mPlaybackBufferListener),
+                                                                    mPlaybackBufferListener,
+                                                                    mConcurrentDvrPlaybackFlags),
                                                             mHandler,
                                                             mSourceManager,
                                                             null,
@@ -388,7 +392,7 @@ public class ZappingTimeTest extends InstrumentationTestCase {
         }
     }
 
-    private static class MockEventListener implements EventDetector.EventListener {
+    private static class MockChannelScanListener implements EventListener {
         @Override
         public void onChannelDetected(TunerChannel channel, boolean channelArrivedAtFirstTime) {
             if (DEBUG) {

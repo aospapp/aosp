@@ -26,13 +26,14 @@ import static org.mockito.Mockito.verifyZeroInteractions;
 
 import android.app.Activity;
 import android.app.Instrumentation;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.TextUtils;
 import android.widget.RadioButton;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsTouchUtils;
 
@@ -168,12 +169,12 @@ public class RadioButtonTest {
         assertFalse(mRadioButton.isChecked());
 
         // tap to checked
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mRadioButton);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mRadioButton);
         verify(mockCheckedChangeListener, times(1)).onCheckedChanged(mRadioButton, true);
         assertTrue(mRadioButton.isChecked());
 
         // tap to not checked - this should leave the radio button in checked state
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mRadioButton);
+        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mRadioButton);
         assertTrue(mRadioButton.isChecked());
 
         verifyNoMoreInteractions(mockCheckedChangeListener);

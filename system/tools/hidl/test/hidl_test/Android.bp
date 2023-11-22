@@ -23,6 +23,7 @@ cc_defaults {
     // libs should be used on device.
     static_libs: [
         "libfootest",
+        "libhidl-gen-utils",
         "libpointertest",
         "android.hardware.tests.expression@1.0",
         "android.hardware.tests.foo@1.0",
@@ -34,6 +35,8 @@ cc_defaults {
         "android.hardware.tests.memory@1.0",
         "android.hardware.tests.multithread@1.0",
         "android.hardware.tests.trie@1.0",
+        "android.hardware.tests.safeunion.cpp@1.0",
+        "android.hardware.tests.safeunion@1.0",
     ],
 
     // impls should never be static, these are used only for testing purposes
@@ -49,6 +52,8 @@ cc_defaults {
         "android.hardware.tests.memory@1.0-impl",
         "android.hardware.tests.multithread@1.0-impl",
         "android.hardware.tests.trie@1.0-impl",
+        "android.hardware.tests.safeunion.cpp@1.0-impl",
+        "android.hardware.tests.safeunion@1.0-impl",
     ],
 
     group_static_libs: true,

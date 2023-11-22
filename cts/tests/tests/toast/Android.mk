@@ -23,12 +23,13 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_DATA_APPS)
 
 LOCAL_COMPATIBILITY_SUITE := cts vts general-tests cts_instant
 
-LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner android-support-test
+LOCAL_STATIC_JAVA_LIBRARIES := ctstestrunner-axt androidx.test.rules
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_PACKAGE_NAME := CtsToastTestCases
 LOCAL_SDK_VERSION := current
+LOCAL_MIN_SDK_VERSION := 25
 
 include $(BUILD_CTS_PACKAGE)
 

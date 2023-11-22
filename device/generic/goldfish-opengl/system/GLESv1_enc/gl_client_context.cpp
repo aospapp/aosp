@@ -301,6 +301,8 @@ int gl_client_context_t::initDispatchByName(void *(*getProc)(const char *, void 
 	glExtGetProgramBinarySourceQCOM = (glExtGetProgramBinarySourceQCOM_client_proc_t) getProc("glExtGetProgramBinarySourceQCOM", userData);
 	glStartTilingQCOM = (glStartTilingQCOM_client_proc_t) getProc("glStartTilingQCOM", userData);
 	glEndTilingQCOM = (glEndTilingQCOM_client_proc_t) getProc("glEndTilingQCOM", userData);
+	glGetGraphicsResetStatusEXT = (glGetGraphicsResetStatusEXT_client_proc_t) getProc("glGetGraphicsResetStatusEXT", userData);
+	glReadnPixelsEXT = (glReadnPixelsEXT_client_proc_t) getProc("glReadnPixelsEXT", userData);
 	return 0;
 }
 

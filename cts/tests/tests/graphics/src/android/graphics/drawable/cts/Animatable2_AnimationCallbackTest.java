@@ -17,8 +17,9 @@
 package android.graphics.drawable.cts;
 
 import android.graphics.drawable.Animatable2.AnimationCallback;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

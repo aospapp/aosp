@@ -1,6 +1,18 @@
-  arm)
+  hisilicon)
     TO_EXTRACT="\
-            SYSTEM/lib/egl/libGLES_mali.so \
-            SYSTEM/lib64/egl/libGLES_mali.so \
+            SYSTEM/lib/libc_secshared.so \
+            SYSTEM/lib/libhiion.so \
+            SYSTEM/lib/libhilog.so \
+            SYSTEM/lib/libOMX.hisi.vdec.core.so \
+            SYSTEM/lib/libOMX.hisi.video.decoder.so \
+            SYSTEM/lib/libOMX_Core.so \
+            SYSTEM/lib/libstagefrighthw.so \
+            SYSTEM/lib64/libc_secshared.so \
+            SYSTEM/lib64/libhiion.so \
+            SYSTEM/lib64/libhilog.so \
+            SYSTEM/lib64/libOMX.hisi.vdec.core.so \
+            SYSTEM/lib64/libOMX.hisi.video.decoder.so \
+            SYSTEM/lib64/libOMX_Core.so \
+            SYSTEM/lib64/libstagefrighthw.so \
             "
             ;;

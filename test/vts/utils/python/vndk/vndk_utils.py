@@ -86,6 +86,19 @@ def GetVndkSpDirectory(bitness, version):
     return FormatVndkPath("/system/{LIB}/vndk-sp{VER}", bitness, version)
 
 
+def GetVndkExtDirectories(bitness):
+    """Returns the paths to VNDK extension directories on device.
+
+    Args:
+        bitness: A string or an integer, 32 or 64.
+
+    Returns:
+        A list of strings, the paths to VNDK extension directories.
+    """
+    return [FormatVndkPath("/odm/{LIB}/vndk", bitness),
+            FormatVndkPath("/vendor/{LIB}/vndk", bitness)]
+
+
 def GetVndkSpExtDirectories(bitness):
     """Returns the paths to VNDK-SP extension directories on device.
 

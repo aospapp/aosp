@@ -44,8 +44,6 @@ bool PowerControlManagerBase::voteBigImage(bool bigImage) {
   sns_pm_img_mode_e mode = bigImage ? SNS_IMG_MODE_BIG : SNS_IMG_MODE_NOCLIENT;
   sns_pm_err_code_e result = sns_pm_vote_img_mode(mClientHandle, mode);
   if (result != SNS_PM_SUCCESS) {
-    // Note that FATAL_ERROR must not be used here, because this can be called
-    // from preFatalError() (not that we should use it here regardless)
     LOGE("Failed to vote for power mode %d with result %d", mode, result);
   }
 

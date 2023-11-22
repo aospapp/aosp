@@ -45,8 +45,8 @@ struct FragmentedLoadRequest {
 
   FragmentedLoadRequest(
       size_t fragmentId, uint32_t transactionId, uint64_t appId,
-      uint32_t appVersion, uint32_t targetApiVersion,
-      size_t appTotalSizeBytes, const std::vector<uint8_t>& binary)
+      uint32_t appVersion, uint32_t targetApiVersion, size_t appTotalSizeBytes,
+      const std::vector<uint8_t>& binary)
       : fragmentId(fragmentId),
         transactionId(transactionId),
         appId(appId),

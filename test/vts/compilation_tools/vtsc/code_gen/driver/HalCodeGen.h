@@ -30,7 +30,7 @@ namespace vts {
 
 class HalCodeGen : public DriverCodeGenBase {
  public:
-  HalCodeGen(const char* input_vts_file_path)
+  explicit HalCodeGen(const char* input_vts_file_path)
       : DriverCodeGenBase(input_vts_file_path) {}
 
  protected:

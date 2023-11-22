@@ -34,6 +34,8 @@ import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.Iterator;
 import java.util.List;
 
@@ -174,7 +176,7 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
             assertEquals(AudioRecord.STATE_INITIALIZED, mAudioRecord.getState());
             mAudioRecord.startRecording();
             assertEquals(AudioRecord.RECORDSTATE_RECORDING, mAudioRecord.getRecordingState());
-            Thread.sleep(TEST_TIMING_TOLERANCE_MS);
+            callback.await(TEST_TIMING_TOLERANCE_MS);
 
             assertTrue("AudioRecordingCallback not called after start", callback.mCalled);
             Thread.sleep(TEST_TIMING_TOLERANCE_MS);
@@ -193,16 +195,17 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
             // stopping recording: callback is called with no match
             callback.reset();
             mAudioRecord.stop();
-            Thread.sleep(SLEEP_AFTER_STOP_FOR_INACTIVITY_MS);
+            callback.await(TEST_TIMING_TOLERANCE_MS);
             assertTrue("AudioRecordingCallback not called after stop", callback.mCalled);
             assertEquals("Should not have found record configurations", callback.mConfigs.size(),
                     0);
+            Thread.sleep(SLEEP_AFTER_STOP_FOR_INACTIVITY_MS);
 
             // unregister callback and start recording again
             am.unregisterAudioRecordingCallback(callback);
             callback.reset();
             mAudioRecord.startRecording();
-            Thread.sleep(TEST_TIMING_TOLERANCE_MS);
+            callback.await(TEST_TIMING_TOLERANCE_MS);
             assertFalse("Unregistered callback was called", callback.mCalled);
 
             // just call the callback once directly so it's marked as tested
@@ -248,28 +251,37 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
                 configs.get(0), unmarshalledConf);
     }
 
-    class MyAudioRecordingCallback extends AudioManager.AudioRecordingCallback {
-        boolean mCalled = false;
+    static class MyAudioRecordingCallback extends AudioManager.AudioRecordingCallback {
+        boolean mCalled;
         List<AudioRecordingConfiguration> mConfigs;
-        final AudioManager mAM;
-        final int mTestSource;
-        final int mTestSession;
+        private final int mTestSource;
+        private final int mTestSession;
+        private CountDownLatch mCountDownLatch;
 
         void reset() {
+            mCountDownLatch = new CountDownLatch(1);
             mCalled = false;
-            mConfigs = null;
+            mConfigs = new ArrayList<AudioRecordingConfiguration>();
         }
 
         MyAudioRecordingCallback(int session, int source) {
-            mAM = new AudioManager(getContext());
             mTestSource = source;
             mTestSession = session;
+            reset();
         }
 
         @Override
         public void onRecordingConfigChanged(List<AudioRecordingConfiguration> configs) {
             mCalled = true;
             mConfigs = configs;
+            mCountDownLatch.countDown();
+        }
+
+        void await(long timeoutMs) {
+            try {
+                mCountDownLatch.await(timeoutMs, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+            }
         }
     }
 

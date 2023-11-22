@@ -16,17 +16,21 @@
 
 package com.android.tradefed.util;
 
-import com.android.tradefed.device.ITestDevice;
-import junit.framework.TestCase;
-import org.easymock.EasyMock;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
-/**
- * Unit tests for the {@link AbiFormatter} utility class
- */
-public class AbiFormatterTest extends TestCase {
-    /**
-     * Verify that {@link AbiFormatter#formatCmdForAbi} works as expected.
-     */
+import com.android.tradefed.device.ITestDevice;
+
+import org.easymock.EasyMock;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/** Unit tests for the {@link AbiFormatter} utility class */
+@RunWith(JUnit4.class)
+public class AbiFormatterTest {
+    /** Verify that {@link AbiFormatter#formatCmdForAbi} works as expected. */
+    @Test
     public void testFormatCmdForAbi() throws Exception {
         String a = "test foo|#ABI#| bar|#ABI32#| foobar|#ABI64#|";
         // if abi is null, remove all place holders.
@@ -41,9 +45,8 @@ public class AbiFormatterTest extends TestCase {
         assertNull(AbiFormatter.formatCmdForAbi(null, "32"));
     }
 
-    /**
-     * Verify that {@link AbiFormatter#getDefaultAbi} works as expected.
-     */
+    /** Verify that {@link AbiFormatter#getDefaultAbi} works as expected. */
+    @Test
     public void testGetDefaultAbi() throws Exception {
         ITestDevice device = EasyMock.createMock(ITestDevice.class);
 
@@ -65,9 +68,8 @@ public class AbiFormatterTest extends TestCase {
         assertEquals(null, AbiFormatter.getDefaultAbi(device, "64"));
     }
 
-    /**
-     * Verify that {@link AbiFormatter#getSupportedAbis} works as expected.
-     */
+    /** Verify that {@link AbiFormatter#getSupportedAbis} works as expected. */
+    @Test
     public void testGetSupportedAbis() throws Exception {
         ITestDevice device = EasyMock.createMock(ITestDevice.class);
 
@@ -90,5 +92,17 @@ public class AbiFormatterTest extends TestCase {
         EasyMock.replay(device);
         supportedAbiArray = AbiFormatter.getSupportedAbis(device, "");
         assertEquals("abi", supportedAbiArray[0]);
+    }
+
+    /** Verify that {@link AbiFormatter#getSupportedAbis} works as expected. */
+    @Test
+    public void testGetSupportedAbis_null() throws Exception {
+        ITestDevice device = EasyMock.createMock(ITestDevice.class);
+        EasyMock.expect(device.getProperty("ro.product.cpu.abilist")).andReturn(null);
+        EasyMock.expect(device.getProperty("ro.product.cpu.abi")).andReturn(null);
+        EasyMock.replay(device);
+        String[] supportedAbiArray = AbiFormatter.getSupportedAbis(device, "");
+        EasyMock.verify(device);
+        assertEquals(0, supportedAbiArray.length);
     }
 }

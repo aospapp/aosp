@@ -17,7 +17,7 @@
 #define LOG_TAG "lights"
 #define DEBUG 1
 
-#include <cutils/log.h>
+#include <log/log.h>
 
 #include <malloc.h>
 #include <stdint.h>

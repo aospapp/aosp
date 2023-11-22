@@ -23,8 +23,17 @@ STDOUT = 'stdouts'
 STDERR = 'stderrs'
 EXIT_CODE = 'return_codes'
 
+# Exit code returned from the sub-process when timed out on Linux systems.
+EXIT_CODE_TIMEOUT_ON_LINUX = -15
 
-def _ExecuteOneShellCommandWithTimeout(cmd, timeout):
+# Same as EXIT_CODE_TIMEOUT_ON_LINUX but on Windows systems.
+EXIT_CODE_TIMEOUT_ON_WINDOWS = -1073741510
+
+
+def _ExecuteOneShellCommandWithTimeout(cmd,
+                                       timeout,
+                                       callback_on_timeout=None,
+                                       *args):
     """Executes a command with timeout.
 
     If the process times out, this function terminates it and continues
@@ -33,6 +42,9 @@ def _ExecuteOneShellCommandWithTimeout(cmd, timeout):
     Args:
         proc: Popen object, the process to wait for.
         timeout: float, timeout in seconds.
+        callback_on_timeout: callable, callback function for the case
+                             when the command times out.
+        args: arguments for the callback_on_timeout.
 
     Returns:
         tuple(string, string, int) which are stdout, stderr and return code.
@@ -56,6 +68,11 @@ def _ExecuteOneShellCommandWithTimeout(cmd, timeout):
     finally:
         if proc.poll() is None:
             utils.kill_process_group(proc)
+        if callback_on_timeout is not None:
+            if ((utils.is_on_windows()
+                 and proc.returncode == EXIT_CODE_TIMEOUT_ON_WINDOWS)
+                    or proc.returncode == EXIT_CODE_TIMEOUT_ON_LINUX):
+                callback_on_timeout(*args)
     wait_thread.join()
 
     if len(result) != 1:
@@ -83,12 +100,15 @@ def RunCommand(command):
     return proc.returncode
 
 
-def ExecuteOneShellCommand(cmd, timeout=None):
+def ExecuteOneShellCommand(cmd, timeout=None, callback_on_timeout=None, *args):
     """Executes one shell command and returns (stdout, stderr, exit_code).
 
     Args:
         cmd: string, a shell command.
         timeout: float, timeout in seconds.
+        callback_on_timeout: callable, callback function for the case
+                             when the command times out.
+        args: arguments for the callback_on_timeout.
 
     Returns:
         tuple(string, string, int), containing stdout, stderr, exit_code of
@@ -97,12 +117,15 @@ def ExecuteOneShellCommand(cmd, timeout=None):
     """
     if timeout is None:
         p = subprocess.Popen(
-            str(cmd), shell=True,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            str(cmd),
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
         stdout, stderr = p.communicate()
         return (stdout, stderr, p.returncode)
     else:
-        return _ExecuteOneShellCommandWithTimeout(str(cmd), timeout)
+        return _ExecuteOneShellCommandWithTimeout(
+            str(cmd), timeout, callback_on_timeout, *args)
 
 
 def ExecuteShellCommand(cmd):

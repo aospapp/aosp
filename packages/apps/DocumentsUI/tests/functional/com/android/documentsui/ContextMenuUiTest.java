@@ -20,7 +20,8 @@ import android.graphics.Point;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.RemoteException;
-import android.support.test.filters.LargeTest;
+
+import androidx.test.filters.LargeTest;
 
 import com.android.documentsui.files.FilesActivity;
 
@@ -71,7 +72,7 @@ public class ContextMenuUiTest extends ActivityTest<FilesActivity> {
 
     public void testContextMenu_onFile() throws Exception {
         menuItems.put("Share", true);
-        menuItems.put("Open", true);
+        menuItems.put("Open", false);
         menuItems.put("Open with", true);
         menuItems.put("Cut", true);
         menuItems.put("Copy", true);
@@ -108,8 +109,11 @@ public class ContextMenuUiTest extends ActivityTest<FilesActivity> {
         menuItems.put("Paste", true);
         menuItems.put("New folder", true);
         Rect dirListBounds = bots.directory.findDocumentsList().getBounds();
-        bots.directory.rightClickDocument(
-                new Point(dirListBounds.right - 1, dirListBounds.bottom - 1)); //bottom right corner
+        Rect dirBounds = bots.directory.findDocument(dirName1).getBounds();
+
+        bots.main.switchToGridMode();
+        // right side of dir1 area
+        bots.directory.rightClickDocument(new Point(dirListBounds.right - 1, dirBounds.centerY()));
         bots.menu.assertPresentMenuItems(menuItems);
     }
 }

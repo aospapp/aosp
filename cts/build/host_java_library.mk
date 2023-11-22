@@ -17,6 +17,8 @@
 # Replace "include $(BUILD_HOST_JAVA_LIBRARY) with "include $(BUILD_CTS_HOST_JAVA_LIBRARY)
 #
 
+# !!! Any changes to this file need to be reflected in cts/Android.bp "cts_defaults"
+
 -include cts/error_prone_rules_tests.mk
 
 include $(BUILD_HOST_JAVA_LIBRARY)

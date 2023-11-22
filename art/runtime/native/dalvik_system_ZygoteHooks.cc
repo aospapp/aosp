@@ -28,9 +28,10 @@
 #include "base/runtime_debug.h"
 #include "debugger.h"
 #include "hidden_api.h"
-#include "java_vm_ext.h"
 #include "jit/jit.h"
-#include "jni_internal.h"
+#include "jit/jit_code_cache.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_internal.h"
 #include "native_util.h"
 #include "nativehelper/jni_macros.h"
 #include "nativehelper/scoped_utf_chars.h"
@@ -43,10 +44,6 @@
 #include "thread_list.h"
 #include "trace.h"
 
-#if defined(__linux__)
-#include <sys/prctl.h>
-#endif
-
 #include <sys/resource.h>
 
 namespace art {
@@ -57,33 +54,6 @@ static bool kAlwaysCollectNonDebuggableClasses =
     RegisterRuntimeDebugFlag(&kAlwaysCollectNonDebuggableClasses);
 
 using android::base::StringPrintf;
-
-static void EnableDebugger() {
-#if defined(__linux__)
-  // To let a non-privileged gdbserver attach to this
-  // process, we must set our dumpable flag.
-  if (prctl(PR_SET_DUMPABLE, 1, 0, 0, 0) == -1) {
-    PLOG(ERROR) << "prctl(PR_SET_DUMPABLE) failed for pid " << getpid();
-  }
-
-  // Even if Yama is on a non-privileged native debugger should
-  // be able to attach to the debuggable app.
-  if (prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0) == -1) {
-    // if Yama is off prctl(PR_SET_PTRACER) returns EINVAL - don't log in this
-    // case since it's expected behaviour.
-    if (errno != EINVAL) {
-      PLOG(ERROR) << "prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY) failed for pid " << getpid();
-    }
-  }
-#endif
-  // We don't want core dumps, though, so set the core dump size to 0.
-  rlimit rl;
-  rl.rlim_cur = 0;
-  rl.rlim_max = RLIM_INFINITY;
-  if (setrlimit(RLIMIT_CORE, &rl) == -1) {
-    PLOG(ERROR) << "setrlimit(RLIMIT_CORE) failed for pid " << getpid();
-  }
-}
 
 class ClassSet {
  public:
@@ -100,7 +70,7 @@ class ClassSet {
   }
 
   void AddClass(ObjPtr<mirror::Class> klass) REQUIRES(Locks::mutator_lock_) {
-    class_set_.insert(self_->GetJniEnv()->AddLocalReference<jclass>(klass.Ptr()));
+    class_set_.insert(self_->GetJniEnv()->AddLocalReference<jclass>(klass));
   }
 
   const std::unordered_set<jclass>& GetClasses() const {
@@ -120,9 +90,9 @@ static void DoCollectNonDebuggableCallback(Thread* thread, void* data)
         : StackVisitor(t, nullptr, StackVisitor::StackWalkKind::kIncludeInlinedFrames),
           class_set_(class_set) {}
 
-    ~NonDebuggableStacksVisitor() OVERRIDE {}
+    ~NonDebuggableStacksVisitor() override {}
 
-    bool VisitFrame() OVERRIDE REQUIRES(Locks::mutator_lock_) {
+    bool VisitFrame() override REQUIRES(Locks::mutator_lock_) {
       if (GetMethod()->IsRuntimeMethod()) {
         return true;
       }
@@ -152,7 +122,8 @@ static void CollectNonDebuggableClasses() REQUIRES(!Locks::mutator_lock_) {
     // Drop the shared mutator lock.
     ScopedThreadSuspension sts(self, art::ThreadState::kNative);
     // Get exclusive mutator lock with suspend all.
-    ScopedSuspendAll suspend("Checking stacks for non-obsoletable methods!", /*long_suspend*/false);
+    ScopedSuspendAll suspend("Checking stacks for non-obsoletable methods!",
+                             /*long_suspend=*/false);
     MutexLock mu(Thread::Current(), *Locks::thread_list_lock_);
     runtime->GetThreadList()->ForEach(DoCollectNonDebuggableCallback, &classes);
   }
@@ -178,6 +149,7 @@ enum {
   HIDDEN_API_ENFORCEMENT_POLICY_MASK = (1 << 12)
                                      | (1 << 13),
   PROFILE_SYSTEM_SERVER              = 1 << 14,
+  USE_APP_IMAGE_STARTUP_CACHE        = 1 << 16,
 
   // bits to shift (flags & HIDDEN_API_ENFORCEMENT_POLICY_MASK) by to get a value
   // corresponding to hiddenapi::EnforcementPolicy
@@ -205,9 +177,6 @@ static uint32_t EnableDebugFeatures(uint32_t runtime_flags) {
   }
 
   Dbg::SetJdwpAllowed((runtime_flags & DEBUG_ENABLE_JDWP) != 0);
-  if ((runtime_flags & DEBUG_ENABLE_JDWP) != 0) {
-    EnableDebugger();
-  }
   runtime_flags &= ~DEBUG_ENABLE_JDWP;
 
   const bool safe_mode = (runtime_flags & DEBUG_ENABLE_SAFEMODE) != 0;
@@ -224,7 +193,9 @@ static uint32_t EnableDebugFeatures(uint32_t runtime_flags) {
   if ((runtime_flags & DEBUG_ALWAYS_JIT) != 0) {
     jit::JitOptions* jit_options = runtime->GetJITOptions();
     CHECK(jit_options != nullptr);
-    jit_options->SetJitAtFirstUse();
+    Runtime::Current()->DoAndMaybeSwitchInterpreter([=]() {
+        jit_options->SetJitAtFirstUse();
+    });
     runtime_flags &= ~DEBUG_ALWAYS_JIT;
   }
 
@@ -233,8 +204,11 @@ static uint32_t EnableDebugFeatures(uint32_t runtime_flags) {
     runtime->AddCompilerOption("--debuggable");
     runtime_flags |= DEBUG_GENERATE_MINI_DEBUG_INFO;
     runtime->SetJavaDebuggable(true);
-    // Deoptimize the boot image as it may be non-debuggable.
-    runtime->DeoptimizeBootImage();
+    {
+      // Deoptimize the boot image as it may be non-debuggable.
+      ScopedSuspendAll ssa(__FUNCTION__);
+      runtime->DeoptimizeBootImage();
+    }
     runtime_flags &= ~DEBUG_JAVA_DEBUGGABLE;
     needs_non_debuggable_classes = true;
   }
@@ -270,13 +244,32 @@ static jlong ZygoteHooks_nativePreFork(JNIEnv* env, jclass) {
 
   runtime->PreZygoteFork();
 
-  if (Trace::GetMethodTracingMode() != TracingMode::kTracingInactive) {
-    // Tracing active, pause it.
-    Trace::Pause();
-  }
-
   // Grab thread before fork potentially makes Thread::pthread_key_self_ unusable.
   return reinterpret_cast<jlong>(ThreadForEnv(env));
+}
+
+static void ZygoteHooks_nativePostZygoteFork(JNIEnv*, jclass) {
+  Runtime* runtime = Runtime::Current();
+  if (runtime->IsZygote()) {
+    runtime->PostZygoteFork();
+  }
+}
+
+static void ZygoteHooks_nativePostForkSystemServer(JNIEnv* env ATTRIBUTE_UNUSED,
+                                                   jclass klass ATTRIBUTE_UNUSED) {
+  Runtime::Current()->SetSystemServer(true);
+  // This JIT code cache for system server is created whilst the runtime is still single threaded.
+  // System server has a window where it can create executable pages for this purpose, but this is
+  // turned off after this hook. Consequently, the only JIT mode supported is the dual-view JIT
+  // where one mapping is R->RW and the other is RX. Single view requires RX->RWX->RX.
+  if (Runtime::Current()->GetJit() != nullptr) {
+    Runtime::Current()->GetJit()->GetCodeCache()->PostForkChildAction(
+        /* is_system_server= */ true, /* is_zygote= */ false);
+  }
+  // Allow picking up verity-protected files from the dalvik cache for pre-caching. This window will
+  // be closed in the common nativePostForkChild below.
+  Runtime::Current()->GetOatFileManager().SetOnlyUseSystemOatFiles(
+      /*enforce=*/false, /*assert_no_files_loaded=*/false);
 }
 
 static void ZygoteHooks_nativePostForkChild(JNIEnv* env,
@@ -292,18 +285,22 @@ static void ZygoteHooks_nativePostForkChild(JNIEnv* env,
   // Our system thread ID, etc, has changed so reset Thread state.
   thread->InitAfterFork();
   runtime_flags = EnableDebugFeatures(runtime_flags);
-  hiddenapi::EnforcementPolicy api_enforcement_policy = hiddenapi::EnforcementPolicy::kNoChecks;
-  bool dedupe_hidden_api_warnings = true;
+  hiddenapi::EnforcementPolicy api_enforcement_policy = hiddenapi::EnforcementPolicy::kDisabled;
+
+  Runtime* runtime = Runtime::Current();
 
   if ((runtime_flags & DISABLE_VERIFIER) != 0) {
-    Runtime::Current()->DisableVerifier();
+    runtime->DisableVerifier();
     runtime_flags &= ~DISABLE_VERIFIER;
   }
 
-  if ((runtime_flags & ONLY_USE_SYSTEM_OAT_FILES) != 0) {
-    Runtime::Current()->GetOatFileManager().SetOnlyUseSystemOatFiles();
+  bool only_use_system_oat_files = false;
+  if ((runtime_flags & ONLY_USE_SYSTEM_OAT_FILES) != 0 || is_system_server) {
+    only_use_system_oat_files = true;
     runtime_flags &= ~ONLY_USE_SYSTEM_OAT_FILES;
   }
+  runtime->GetOatFileManager().SetOnlyUseSystemOatFiles(only_use_system_oat_files,
+                                                        !is_system_server);
 
   api_enforcement_policy = hiddenapi::EnforcementPolicyFromInt(
       (runtime_flags & HIDDEN_API_ENFORCEMENT_POLICY_MASK) >> API_ENFORCEMENT_POLICY_SHIFT);
@@ -312,8 +309,23 @@ static void ZygoteHooks_nativePostForkChild(JNIEnv* env,
   bool profile_system_server = (runtime_flags & PROFILE_SYSTEM_SERVER) == PROFILE_SYSTEM_SERVER;
   runtime_flags &= ~PROFILE_SYSTEM_SERVER;
 
+  runtime->SetLoadAppImageStartupCacheEnabled(
+      (runtime_flags & USE_APP_IMAGE_STARTUP_CACHE) != 0u);
+  runtime_flags &= ~USE_APP_IMAGE_STARTUP_CACHE;
+
   if (runtime_flags != 0) {
     LOG(ERROR) << StringPrintf("Unknown bits set in runtime_flags: %#x", runtime_flags);
+  }
+
+  runtime->GetHeap()->PostForkChildAction(thread);
+  if (runtime->GetJit() != nullptr) {
+    if (!is_system_server) {
+      // System server already called the JIT cache post fork action in `nativePostForkSystemServer`.
+      runtime->GetJit()->GetCodeCache()->PostForkChildAction(
+          /* is_system_server= */ false, is_zygote);
+    }
+    // This must be called after EnableDebugFeatures.
+    runtime->GetJit()->PostForkChildAction(is_system_server, is_zygote);
   }
 
   // Update tracing.
@@ -346,7 +358,6 @@ static void ZygoteHooks_nativePostForkChild(JNIEnv* env,
 
       std::string trace_file = StringPrintf("/data/misc/trace/%s.trace.bin", proc_name.c_str());
       Trace::Start(trace_file.c_str(),
-                   -1,
                    buffer_size,
                    0,   // TODO: Expose flags.
                    output_mode,
@@ -359,23 +370,20 @@ static void ZygoteHooks_nativePostForkChild(JNIEnv* env,
     }
   }
 
-  bool do_hidden_api_checks = api_enforcement_policy != hiddenapi::EnforcementPolicy::kNoChecks;
+  bool do_hidden_api_checks = api_enforcement_policy != hiddenapi::EnforcementPolicy::kDisabled;
   DCHECK(!(is_system_server && do_hidden_api_checks))
       << "SystemServer should be forked with EnforcementPolicy::kDisable";
   DCHECK(!(is_zygote && do_hidden_api_checks))
       << "Child zygote processes should be forked with EnforcementPolicy::kDisable";
-  Runtime::Current()->SetHiddenApiEnforcementPolicy(api_enforcement_policy);
-  Runtime::Current()->SetDedupeHiddenApiWarnings(dedupe_hidden_api_warnings);
-  if (api_enforcement_policy != hiddenapi::EnforcementPolicy::kNoChecks &&
-      Runtime::Current()->GetHiddenApiEventLogSampleRate() != 0) {
+  runtime->SetHiddenApiEnforcementPolicy(api_enforcement_policy);
+  runtime->SetDedupeHiddenApiWarnings(true);
+  if (api_enforcement_policy != hiddenapi::EnforcementPolicy::kDisabled &&
+      runtime->GetHiddenApiEventLogSampleRate() != 0) {
     // Hidden API checks are enabled, and we are sampling access for the event log. Initialize the
     // random seed, to ensure the sampling is actually random. We do this post-fork, as doing it
     // pre-fork would result in the same sequence for every forked process.
     std::srand(static_cast<uint32_t>(NanoTime()));
   }
-
-  // Clear the hidden API warning flag, in case it was set.
-  Runtime::Current()->SetPendingHiddenApiWarning(false);
 
   if (is_zygote) {
     // If creating a child-zygote, do not call into the runtime's post-fork logic.
@@ -391,14 +399,13 @@ static void ZygoteHooks_nativePostForkChild(JNIEnv* env,
     if (isa != InstructionSet::kNone && isa != kRuntimeISA) {
       action = Runtime::NativeBridgeAction::kInitialize;
     }
-    Runtime::Current()->InitNonZygoteOrPostFork(
-        env, is_system_server, action, isa_string.c_str());
+    runtime->InitNonZygoteOrPostFork(env, is_system_server, action, isa_string.c_str());
   } else {
-    Runtime::Current()->InitNonZygoteOrPostFork(
+    runtime->InitNonZygoteOrPostFork(
         env,
         is_system_server,
         Runtime::NativeBridgeAction::kUnload,
-        /*isa*/ nullptr,
+        /*isa=*/ nullptr,
         profile_system_server);
   }
 }
@@ -415,6 +422,8 @@ static void ZygoteHooks_stopZygoteNoThreadCreation(JNIEnv* env ATTRIBUTE_UNUSED,
 
 static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(ZygoteHooks, nativePreFork, "()J"),
+  NATIVE_METHOD(ZygoteHooks, nativePostZygoteFork, "()V"),
+  NATIVE_METHOD(ZygoteHooks, nativePostForkSystemServer, "()V"),
   NATIVE_METHOD(ZygoteHooks, nativePostForkChild, "(JIZZLjava/lang/String;)V"),
   NATIVE_METHOD(ZygoteHooks, startZygoteNoThreadCreation, "()V"),
   NATIVE_METHOD(ZygoteHooks, stopZygoteNoThreadCreation, "()V"),

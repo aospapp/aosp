@@ -73,6 +73,9 @@ public class BluetoothChatService {
     private ConnectThread mConnectThread;
     private ConnectedThread mConnectedThread;
     private int mState;
+    private boolean mBleTransport;
+    private int mLePsm;
+    private int mSocketConnectionType = -1;
 
     // Constants that indicate the current connection state
     public static final int STATE_NONE = 0;       // we're doing nothing
@@ -90,6 +93,22 @@ public class BluetoothChatService {
         mState = STATE_NONE;
         mHandler = handler;
         mUuid = uuid;
+        mBleTransport = false;
+    }
+
+    /**
+     * Constructor. Prepares a new BluetoothChat session.
+     * @param context  The UI Activity Context
+     * @param handler  A Handler to send messages back to the UI Activity
+     * @param useBle   A flag to use the BLE transport
+     */
+    public BluetoothChatService(Context context, Handler handler, boolean useBle) {
+        mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mState = STATE_NONE;
+        mHandler = handler;
+        mUuid = null;
+        mBleTransport = useBle;
+        if (D) Log.d(TAG, "Construct BluetoothChatService: useBle=" + useBle);
     }
 
     /**
@@ -136,12 +155,47 @@ public class BluetoothChatService {
     }
 
     /**
+     * Return the assigned PSM value.
+     */
+    public synchronized int getPsm(boolean secure) {
+        if (secure && mSecureAcceptThread != null) {
+            return mSecureAcceptThread.getPsm();
+        }
+        else if (!secure && mInsecureAcceptThread != null) {
+            return mInsecureAcceptThread.getPsm();
+        }
+        Log.e(TAG, "getPsm: Invalid PSM value");
+        return 0;
+    }
+
+    /**
+     * Return the socket Connection Type.
+     */
+    public synchronized int getSocketConnectionType() {
+        return mSocketConnectionType;
+    }
+
+    /**
      * Start the ConnectThread to initiate a connection to a remote device.
-     * @param device  The BluetoothDevice to connect
+     * @param device  The BluetoothDevice to connect to
      * @param secure Socket Security type - Secure (true) , Insecure (false)
      */
     public synchronized void connect(BluetoothDevice device, boolean secure) {
-        if (D) Log.d(TAG, "connect to: " + device);
+        if (!mBleTransport) {
+            connect(device, secure, 0);
+        } else {
+            Log.e(TAG, "connect: Error: LE cannot call this method!");
+        }
+    }
+
+    /**
+     * Start the ConnectThread to initiate a connection to a remote device.
+     * @param device  The BluetoothDevice to connect to
+     * @param secure Socket Security type - Secure (true) , Insecure (false)
+     * @param psm Assigned PSM value
+     */
+    public synchronized void connect(BluetoothDevice device, boolean secure, int psm) {
+        if (D) Log.d(TAG, "connect to: " + device + ", psm: " + psm + ", ble: " + mBleTransport);
 
         // Cancel any thread attempting to make a connection
         if (mState == STATE_CONNECTING) {
@@ -152,7 +206,7 @@ public class BluetoothChatService {
         if (mConnectedThread != null) {mConnectedThread.cancel(); mConnectedThread = null;}
 
         // Start the thread to connect with the given device
-        mConnectThread = new ConnectThread(device, secure);
+        mConnectThread = new ConnectThread(device, secure, psm);
         mConnectThread.start();
         setState(STATE_CONNECTING);
     }
@@ -281,15 +335,31 @@ public class BluetoothChatService {
 
             // Create a new listening server socket
             try {
-                if (secure) {
-                    tmp = mAdapter.listenUsingRfcommWithServiceRecord(NAME_SECURE, mUuid);
+                if (mBleTransport) {
+                    if (secure) {
+                        tmp = mAdapter.listenUsingL2capChannel();
+                    } else {
+                        tmp = mAdapter.listenUsingInsecureL2capChannel();
+                    }
                 } else {
-                    tmp = mAdapter.listenUsingInsecureRfcommWithServiceRecord(NAME_INSECURE, mUuid);
+                    if (secure) {
+                        tmp = mAdapter.listenUsingRfcommWithServiceRecord(NAME_SECURE, mUuid);
+                    } else {
+                        tmp = mAdapter.listenUsingInsecureRfcommWithServiceRecord(NAME_INSECURE, mUuid);
+                    }
                 }
             } catch (IOException e) {
-                Log.e(TAG, "Socket Type: " + mSocketType + " listen() failed", e);
+                Log.e(TAG, "Socket Type: " + mSocketType + ", le: " + mBleTransport + " listen() failed", e);
             }
             mmServerSocket = tmp;
+            if (mBleTransport) {
+                // Get the assigned PSM value
+                mLePsm = mmServerSocket.getPsm();
+            }
+        }
+
+        public int getPsm() {
+            return mLePsm;
         }
 
         public void run() {
@@ -317,6 +387,7 @@ public class BluetoothChatService {
                         case STATE_LISTEN:
                         case STATE_CONNECTING:
                             // Situation normal. Start the connected thread.
+                            mSocketConnectionType = socket.getConnectionType();
                             connected(socket, socket.getRemoteDevice(),
                                     mSocketType);
                             break;
@@ -335,8 +406,10 @@ public class BluetoothChatService {
                     Log.i(TAG, "Got null socket");
                 }
             }
-            if (D) Log.i(TAG, "END mAcceptThread, socket Type: " + mSocketType);
-
+            if (D) {
+                Log.i(TAG, "END mAcceptThread, socket Type: " + mSocketType
+                         + ", SocketConnectionType: " + mSocketConnectionType);
+            }
         }
 
         public void cancel() {
@@ -361,26 +434,50 @@ public class BluetoothChatService {
         private String mSocketType;
 
         public ConnectThread(BluetoothDevice device, boolean secure) {
+            if (mBleTransport) {
+                Log.e(TAG, "ConnectThread: Error: LE should not call this constructor");
+            }
             mmDevice = device;
+            mmSocket = connectThreadCommon(device, secure, 0);
+        }
+
+        public ConnectThread(BluetoothDevice device, boolean secure, int psm) {
+            mmDevice = device;
+            mmSocket = connectThreadCommon(device, secure, psm);
+        }
+
+        private BluetoothSocket connectThreadCommon(BluetoothDevice device, boolean secure, int psm) {
             BluetoothSocket tmp = null;
             mSocketType = secure ? "Secure" : "Insecure";
 
             // Get a BluetoothSocket for a connection with the
             // given BluetoothDevice
             try {
-                if (secure) {
-                    tmp = device.createRfcommSocketToServiceRecord(mUuid);
+                if (mBleTransport) {
+                    if (secure) {
+                        tmp = device.createL2capChannel(psm);
+                    } else {
+                        tmp = device.createInsecureL2capChannel(psm);
+                    }
                 } else {
-                    tmp = device.createInsecureRfcommSocketToServiceRecord(mUuid);
+                    if (secure) {
+                        tmp = device.createRfcommSocketToServiceRecord(mUuid);
+                    } else {
+                        tmp = device.createInsecureRfcommSocketToServiceRecord(mUuid);
+                    }
                 }
             } catch (IOException e) {
                 Log.e(TAG, "Socket Type: " + mSocketType + "create() failed", e);
             }
-            mmSocket = tmp;
+
+            mSocketConnectionType = tmp.getConnectionType();
+
+            return tmp;
         }
 
         public void run() {
-            Log.i(TAG, "BEGIN mConnectThread SocketType:" + mSocketType);
+            Log.i(TAG, "BEGIN mConnectThread SocketType:" + mSocketType
+                  + ", mSocketConnectionType: " + mSocketConnectionType);
             setName("ConnectThread" + mSocketType);
 
             // Always cancel discovery because it will slow down a connection

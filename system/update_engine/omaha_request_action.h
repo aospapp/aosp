@@ -39,6 +39,10 @@
 // The Omaha Request action makes a request to Omaha and can output
 // the response on the output ActionPipe.
 
+namespace policy {
+class PolicyProvider;
+}
+
 namespace chromeos_update_engine {
 
 // Encodes XML entities in a given string. Input must be ASCII-7 valid. If
@@ -84,9 +88,7 @@ struct OmahaEvent {
         result(kResultSuccess),
         error_code(ErrorCode::kSuccess) {}
   OmahaEvent(Type in_type, Result in_result, ErrorCode in_error_code)
-      : type(in_type),
-        result(in_result),
-        error_code(in_error_code) {}
+      : type(in_type), result(in_result), error_code(in_error_code) {}
 
   Type type;
   Result result;
@@ -101,7 +103,7 @@ class PrefsInterface;
 // This struct is declared in the .cc file.
 struct OmahaParserData;
 
-template<>
+template <>
 class ActionTraits<OmahaRequestAction> {
  public:
   // Takes parameters on the input pipe.
@@ -122,6 +124,10 @@ class OmahaRequestAction : public Action<OmahaRequestAction>,
   // URLs that appear earlier in list too quickly before moving on to the
   // fallback ones.
   static const int kDefaultMaxFailureCountPerUrl = 10;
+
+  // If staging is enabled, set the maximum wait time to 28 days, since that is
+  // the predetermined wait time for staging.
+  static const int kMaxWaitTimeStagingInDays = 28;
 
   // These are the possible outcome upon checking whether we satisfied
   // the wall-clock-based-wait.
@@ -163,15 +169,18 @@ class OmahaRequestAction : public Action<OmahaRequestAction>,
   std::string Type() const override { return StaticType(); }
 
   // Delegate methods (see http_fetcher.h)
-  void ReceivedBytes(HttpFetcher *fetcher,
-                     const void* bytes, size_t length) override;
+  bool ReceivedBytes(HttpFetcher* fetcher,
+                     const void* bytes,
+                     size_t length) override;
 
-  void TransferComplete(HttpFetcher *fetcher, bool successful) override;
+  void TransferComplete(HttpFetcher* fetcher, bool successful) override;
 
   // Returns true if this is an Event request, false if it's an UpdateCheck.
   bool IsEvent() const { return event_.get() != nullptr; }
 
  private:
+  friend class OmahaRequestActionTest;
+  friend class OmahaRequestActionTestProcessorDelegate;
   FRIEND_TEST(OmahaRequestActionTest, GetInstallDateWhenNoPrefsNorOOBE);
   FRIEND_TEST(OmahaRequestActionTest,
               GetInstallDateWhenOOBECompletedWithInvalidDate);
@@ -204,12 +213,12 @@ class OmahaRequestAction : public Action<OmahaRequestAction>,
 
   // Returns True if the kPrefsInstallDateDays state variable is set,
   // False otherwise.
-  static bool HasInstallDate(SystemState *system_state);
+  static bool HasInstallDate(SystemState* system_state);
 
   // Writes |install_date_days| into the kPrefsInstallDateDays state
   // variable and emits an UMA stat for the |source| used. Returns
   // True if the value was written, False if an error occurred.
-  static bool PersistInstallDate(SystemState *system_state,
+  static bool PersistInstallDate(SystemState* system_state,
                                  int install_date_days,
                                  InstallDateProvisioningSource source);
 
@@ -292,11 +301,29 @@ class OmahaRequestAction : public Action<OmahaRequestAction>,
   void OnLookupPayloadViaP2PCompleted(const std::string& url);
 
   // Returns true if the current update should be ignored.
-  bool ShouldIgnoreUpdate(const OmahaResponse& response) const;
+  bool ShouldIgnoreUpdate(const OmahaResponse& response,
+                          ErrorCode* error) const;
+
+  // Return true if updates are allowed by user preferences.
+  bool IsUpdateAllowedOverCellularByPrefs(const OmahaResponse& response) const;
 
   // Returns true if updates are allowed over the current type of connection.
   // False otherwise.
-  bool IsUpdateAllowedOverCurrentConnection() const;
+  bool IsUpdateAllowedOverCurrentConnection(
+      ErrorCode* error, const OmahaResponse& response) const;
+
+  // Returns true if rollback is enabled. Always returns false for consumer
+  // devices.
+  bool IsRollbackEnabled() const;
+
+  // Sets the appropriate max kernel key version based on whether rollback is
+  // enabled.
+  void SetMaxKernelKeyVersionForRollback() const;
+
+  // Reads and returns the kPrefsUpdateFirstSeenAt pref if the pref currently
+  // exists. Otherwise saves the current wallclock time to the
+  // kPrefsUpdateFirstSeenAt pref and returns it as a base::Time object.
+  base::Time LoadOrPersistUpdateFirstSeenAtPref() const;
 
   // Global system context.
   SystemState* system_state_;
@@ -309,6 +336,9 @@ class OmahaRequestAction : public Action<OmahaRequestAction>,
 
   // pointer to the HttpFetcher that does the http work
   std::unique_ptr<HttpFetcher> http_fetcher_;
+
+  // Used for fetching information about the device policy.
+  std::unique_ptr<policy::PolicyProvider> policy_provider_;
 
   // If true, only include the <ping> element in the request.
   bool ping_only_;

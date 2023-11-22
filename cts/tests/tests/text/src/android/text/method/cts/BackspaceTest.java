@@ -18,12 +18,13 @@ package android.text.method.cts;
 
 import static org.junit.Assert.assertTrue;
 
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.text.InputType;
 import android.text.method.BaseKeyListener;
 import android.view.KeyEvent;
 import android.widget.TextView.BufferType;
+
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

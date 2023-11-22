@@ -31,6 +31,7 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import java.lang.ref.WeakReference;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -60,7 +61,7 @@ public class MainActivity extends Activity  {
     private ConnectivityManager.NetworkCallback mNetworkCallback;
 
     // Handler for dealing with network connection timeouts.
-    private Handler mHandler;
+    private final TimeOutHandler mTimeOutHandler = new TimeOutHandler(this);
 
     private ImageView mConnectivityIcon;
     private TextView mConnectivityText;
@@ -93,32 +94,19 @@ public class MainActivity extends Activity  {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        mConnectivityIcon = (ImageView) findViewById(R.id.connectivity_icon);
-        mConnectivityText = (TextView) findViewById(R.id.connectivity_text);
+        mConnectivityIcon = findViewById(R.id.connectivity_icon);
+        mConnectivityText = findViewById(R.id.connectivity_text);
 
         mProgressBar = findViewById(R.id.progress_bar);
 
         mButton = findViewById(R.id.button);
         mButton.setTag(TAG_REQUEST_NETWORK);
-        mButtonIcon = (ImageView) findViewById(R.id.button_icon);
-        mButtonText = (TextView) findViewById(R.id.button_label);
+        mButtonIcon = findViewById(R.id.button_icon);
+        mButtonText = findViewById(R.id.button_label);
 
-        mInfoText = (TextView) findViewById(R.id.info_text);
+        mInfoText = findViewById(R.id.info_text);
 
         mConnectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-
-        mHandler = new Handler() {
-            @Override
-            public void handleMessage(Message msg) {
-                switch (msg.what) {
-                    case MESSAGE_CONNECTIVITY_TIMEOUT:
-                        Log.d(LOG_TAG, "Network connection timeout");
-                        setUiState(UI_STATE_CONNECTION_TIMEOUT);
-                        unregisterNetworkCallback();
-                        break;
-                }
-            }
-        };
     }
 
     @Override
@@ -159,11 +147,8 @@ public class MainActivity extends Activity  {
         int bandwidth = mConnectivityManager
                 .getNetworkCapabilities(network).getLinkDownstreamBandwidthKbps();
 
-        if (bandwidth >= MIN_NETWORK_BANDWIDTH_KBPS) {
-            return true;
-        }
+        return bandwidth >= MIN_NETWORK_BANDWIDTH_KBPS;
 
-        return false;
     }
 
     private void requestHighBandwidthNetwork() {
@@ -185,7 +170,7 @@ public class MainActivity extends Activity  {
         mNetworkCallback = new ConnectivityManager.NetworkCallback() {
             @Override
             public void onAvailable(final Network network) {
-                mHandler.removeMessages(MESSAGE_CONNECTIVITY_TIMEOUT);
+                mTimeOutHandler.removeMessages(MESSAGE_CONNECTIVITY_TIMEOUT);
 
                 runOnUiThread(new Runnable() {
                     @Override
@@ -230,8 +215,8 @@ public class MainActivity extends Activity  {
         // requires android.permission.CHANGE_NETWORK_STATE
         mConnectivityManager.requestNetwork(request, mNetworkCallback);
 
-        mHandler.sendMessageDelayed(
-                mHandler.obtainMessage(MESSAGE_CONNECTIVITY_TIMEOUT),
+        mTimeOutHandler.sendMessageDelayed(
+                mTimeOutHandler.obtainMessage(MESSAGE_CONNECTIVITY_TIMEOUT),
                 NETWORK_CONNECTIVITY_TIMEOUT_MS);
     }
 
@@ -335,6 +320,28 @@ public class MainActivity extends Activity  {
                 mInfoText.setText(R.string.info_add_wifi);
 
                 break;
+        }
+    }
+
+    private static class TimeOutHandler extends Handler {
+        private final WeakReference<MainActivity> mMainActivityWeakReference;
+
+        TimeOutHandler(MainActivity mainActivity) {
+            mMainActivityWeakReference = new WeakReference<>(mainActivity);
+        }
+        @Override
+        public void handleMessage(Message msg) {
+            MainActivity mainActivity = mMainActivityWeakReference.get();
+
+            if (mainActivity != null) {
+                switch (msg.what) {
+                    case MESSAGE_CONNECTIVITY_TIMEOUT:
+                        Log.d(LOG_TAG, "Network connection timeout");
+                        mainActivity.setUiState(UI_STATE_CONNECTION_TIMEOUT);
+                        mainActivity.unregisterNetworkCallback();
+                        break;
+                }
+            }
         }
     }
 }

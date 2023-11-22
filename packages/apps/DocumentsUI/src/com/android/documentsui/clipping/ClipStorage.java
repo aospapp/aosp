@@ -19,7 +19,7 @@ package com.android.documentsui.clipping;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
@@ -164,7 +164,9 @@ public final class ClipStorage implements ClipStore {
         try {
             Os.symlink(primary.getAbsolutePath(), link.getAbsolutePath());
         } catch (ErrnoException e) {
-            e.rethrowAsIOException();
+            IOException newException = new IOException(e.getMessage());
+            newException.initCause(e);
+            throw newException;
         }
         return link;
     }

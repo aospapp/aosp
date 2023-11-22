@@ -39,8 +39,9 @@ extern "C" {
 //! Special magic value to uniquely identify the nanoapp info structure
 #define CHRE_NSL_NANOAPP_INFO_MAGIC  UINT32_C(0x50e69977)
 
-//! The minor version in the nanoapp info structure helps identify whether
-#define CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION  UINT8_C(1)
+//! The minor version in the nanoapp info structure to determine which fields
+//! are available to support backwards compatibility.
+#define CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION  UINT8_C(2)
 
 //! The symbol name expected from the nanoapp's definition of its info struct
 #define CHRE_NSL_DSO_NANOAPP_INFO_SYMBOL_NAME  "_chreNslDsoNanoappInfo"
@@ -99,6 +100,12 @@ struct chreNslNanoappInfo {
     chreNanoappHandleEventFunction *handleEvent;
     chreNanoappEndFunction *end;
   } entryPoints;
+
+  //! Application-specific verison string. This might contain a commit hash at
+  //! which the app was built, but is up to the app itself.
+  //!
+  //! @since minor version 2
+  const char *appVersionString;
 };
 
 /**

@@ -25,9 +25,10 @@
         <option name="binary-test-source" value="_64bit::DATA/nativetest64/VtsHalNfcV1_0TargetTest/VtsHalNfcV1_0TargetTest"/>
         <option name="binary-test-type" value="hal_hidl_gtest"/>
         <option name="binary-test-disable-framework" value="true"/>
-        <option name="binary-test-stop-native-servers" value="true"/>
         <option name="exclude-coverage-path" value="frameworks/av/media"/>
         <option name="exclude-coverage-path" value="frameworks/rs"/>
+        <!-- b/77998208: Flaky test; requires a fix in vendor code -->
+        <option name="exclude-filter" value="NfcHidlTest.CoreInitialized" />
         <option name="test-timeout" value="15m"/>
         <option name="runtime-hint" value="5m"/>
     </test>

@@ -18,6 +18,8 @@
 # Replace "include $(BUILD_PACKAGE)" with "include $(BUILD_CTS_PACKAGE)"
 #
 
+# !!! Any changes to this file need to be reflected in cts/Android.bp "cts_defaults"
+
 LOCAL_STATIC_JAVA_LIBRARIES += platform-test-annotations
 
 -include cts/error_prone_rules_tests.mk

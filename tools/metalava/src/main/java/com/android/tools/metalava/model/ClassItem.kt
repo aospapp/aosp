@@ -16,15 +16,14 @@
 
 package com.android.tools.metalava.model
 
+import com.android.SdkConstants
 import com.android.tools.metalava.ApiAnalyzer
 import com.android.tools.metalava.JAVA_LANG_ANNOTATION
 import com.android.tools.metalava.JAVA_LANG_ENUM
 import com.android.tools.metalava.JAVA_LANG_OBJECT
-import com.android.tools.metalava.compatibility
 import com.android.tools.metalava.model.visitors.ApiVisitor
 import com.android.tools.metalava.model.visitors.ItemVisitor
 import com.android.tools.metalava.model.visitors.TypeVisitor
-import com.android.tools.metalava.options
 import com.google.common.base.Splitter
 import java.util.ArrayList
 import java.util.LinkedHashSet
@@ -161,6 +160,9 @@ interface ClassItem : Item {
     /** The non-constructor methods in this class */
     fun methods(): List<MethodItem>
 
+    /** The properties in this class */
+    fun properties(): List<PropertyItem>
+
     /** The fields in this class */
     fun fields(): List<FieldItem>
 
@@ -178,7 +180,7 @@ interface ClassItem : Item {
     /** Whether this class is an enum */
     fun isEnum(): Boolean
 
-    /** Whether this class is an interface */
+    /** Whether this class is a regular class (not an interface, not an enum, etc) */
     fun isClass(): Boolean = !isInterface() && !isAnnotationType() && !isEnum()
 
     /** The containing class, for inner classes */
@@ -187,8 +189,16 @@ interface ClassItem : Item {
     /** The containing package */
     fun containingPackage(): PackageItem
 
+    override fun containingPackage(strict: Boolean): PackageItem = containingPackage()
+
+    override fun containingClass(strict: Boolean): ClassItem? {
+        return if (strict) containingClass() else this
+    }
+
     /** Gets the type for this class */
     fun toType(): TypeItem
+
+    override fun type(): TypeItem? = null
 
     /** Returns true if this class has type parameters */
     fun hasTypeVariables(): Boolean
@@ -216,6 +226,9 @@ interface ClassItem : Item {
 
     var hasPrivateConstructor: Boolean
 
+    /** If true, this is an invisible element that was referenced by a public API. */
+    var notStrippable: Boolean
+
     /**
      * Maven artifact of this class, if any. (Not used for the Android SDK, but used in
      * for example support libraries.
@@ -241,6 +254,10 @@ interface ClassItem : Item {
 
         for (method in methods()) {
             method.accept(visitor)
+        }
+
+        for (property in properties()) {
+            property.accept(visitor)
         }
 
         if (isEnum()) {
@@ -333,6 +350,21 @@ interface ClassItem : Item {
     }
 
     companion object {
+        /** Looks up the retention policy for the given class */
+        fun findRetention(cls: ClassItem): AnnotationRetention {
+            val modifiers = cls.modifiers
+            val annotation = modifiers.findAnnotation("java.lang.annotation.Retention")
+                ?: modifiers.findAnnotation("kotlin.annotation.Retention")
+            val value = annotation?.findAttribute(SdkConstants.ATTR_VALUE)
+            val source = value?.value?.toSource()
+            return when {
+                source == null -> AnnotationRetention.CLASS // default
+                source.contains("RUNTIME") -> AnnotationRetention.RUNTIME
+                source.contains("SOURCE") -> AnnotationRetention.SOURCE
+                else -> AnnotationRetention.CLASS // default
+            }
+        }
+
         // Same as doclava1 (modulo the new handling when class names match)
         val comparator: Comparator<in ClassItem> = Comparator { o1, o2 ->
             val delta = o1.fullName().compareTo(o2.fullName())
@@ -353,12 +385,7 @@ interface ClassItem : Item {
             a.qualifiedName().compareTo(b.qualifiedName())
         }
 
-        fun classNameSorter(): Comparator<in ClassItem> =
-            if (compatibility.sortClassesBySimpleName) {
-                ClassItem.comparator
-            } else {
-                ClassItem.qualifiedComparator
-            }
+        fun classNameSorter(): Comparator<in ClassItem> = ClassItem.qualifiedComparator
     }
 
     fun findMethod(
@@ -475,7 +502,7 @@ interface ClassItem : Item {
             if (index != -1) {
                 parameterString = parameterString.substring(0, index)
             }
-            val parameter = parameters[i].type().toErasedTypeString()
+            val parameter = parameters[i].type().toErasedTypeString(method)
             if (parameter != parameterString) {
                 return false
             }
@@ -486,6 +513,9 @@ interface ClassItem : Item {
 
     /** Returns the corresponding compilation unit, if any */
     fun getCompilationUnit(): CompilationUnit? = null
+
+    /** If this class is an annotation type, returns the retention of this class */
+    fun getRetention(): AnnotationRetention
 
     /**
      * Return superclass matching the given predicate. When a superclass doesn't
@@ -551,18 +581,36 @@ interface ClassItem : Item {
      * Return fields matching the given predicate. Also clones fields from
      * ancestors that would match had they been defined in this class.
      */
-    fun filteredFields(predicate: Predicate<Item>): List<FieldItem> {
+    fun filteredFields(predicate: Predicate<Item>, showUnannotated: Boolean): List<FieldItem> {
         val fields = LinkedHashSet<FieldItem>()
-        if (options.showUnannotated) {
+        if (showUnannotated) {
             for (clazz in allInterfaces()) {
                 if (!clazz.isInterface()) {
                     continue
                 }
                 for (field in clazz.fields()) {
                     if (!predicate.test(field)) {
-                        val clz = this
-                        val duplicated = field.duplicate(clz)
+                        val duplicated = field.duplicate(this)
                         if (predicate.test(duplicated)) {
+                            fields.remove(duplicated)
+                            fields.add(duplicated)
+                        }
+                    }
+                }
+            }
+
+            val superClass = superClass()
+            if (superClass != null && !predicate.test(superClass) && predicate.test(this)) {
+                // Include constants from hidden super classes.
+                for (field in superClass.fields()) {
+                    val fieldModifiers = field.modifiers
+                    if (!fieldModifiers.isStatic() || !fieldModifiers.isFinal() || !fieldModifiers.isPublic()) {
+                        continue
+                    }
+                    if (!field.originallyHidden) {
+                        val duplicated = field.duplicate(this)
+                        if (predicate.test(duplicated)) {
+                            duplicated.inheritedField = true
                             fields.remove(duplicated)
                             fields.add(duplicated)
                         }
@@ -622,6 +670,18 @@ interface ClassItem : Item {
                 if (!predicate.test(superClass)) {
                     superClass.filteredInterfaceTypes(predicate, types, true, includeParents, target)
                 } else if (includeSelf && superClass.isInterface()) {
+                    // Special case: Arguably, IInterface should be included in the system API by the
+                    // general rules. However, this was just added to the system API in 28 at the same
+                    // time as metalava, which did not include some hidden super classes in its analysis.
+                    // This is now marked as an incompatible API change, so treat this the same way as in
+                    // API 28 until this is clarified.
+                    if (superClass.simpleName() == "IInterface" &&
+                        (target.qualifiedName() == "android.telephony.mbms.vendor.MbmsDownloadServiceBase" ||
+                            target.qualifiedName() == "android.telephony.mbms.vendor.MbmsStreamingServiceBase")
+                    ) {
+                        return types
+                    }
+
                     types.add(superClassType)
                     if (includeParents) {
                         superClass.filteredInterfaceTypes(predicate, types, true, includeParents, target)
@@ -691,7 +751,7 @@ interface ClassItem : Item {
      * If [reverse] is true, compute the reverse map: keys are the variables in
      * the target and the values are the variables in the source.
      */
-    fun mapTypeVariables(target: ClassItem, reverse: Boolean = false): Map<String, String> = codebase.unsupported()
+    fun mapTypeVariables(target: ClassItem): Map<String, String> = codebase.unsupported()
 
     /**
      * Creates a constructor in this class
@@ -712,6 +772,7 @@ class VisitCandidate(private val cls: ClassItem, private val visitor: ApiVisitor
     private val methods: Sequence<MethodItem>
     private val fields: Sequence<FieldItem>
     private val enums: Sequence<FieldItem>
+    private val properties: Sequence<PropertyItem>
 
     init {
         val filterEmit = visitor.filterEmit
@@ -726,7 +787,7 @@ class VisitCandidate(private val cls: ClassItem, private val visitor: ApiVisitor
 
         val fieldSequence =
             if (visitor.inlineInheritedFields) {
-                cls.filteredFields(filterEmit).asSequence()
+                cls.filteredFields(filterEmit, visitor.showUnannotated).asSequence()
             } else {
                 cls.fields().asSequence()
                     .filter { filterEmit.test(it) }
@@ -744,6 +805,14 @@ class VisitCandidate(private val cls: ClassItem, private val visitor: ApiVisitor
             enums = emptySequence()
         }
 
+        properties = if (cls.properties().isEmpty()) {
+            emptySequence()
+        } else {
+            cls.properties().asSequence()
+                .filter { filterEmit.test(it) }
+                .sortedWith(PropertyItem.comparator)
+        }
+
         innerClasses = cls.innerClasses()
             .asSequence()
             .sortedWith(ClassItem.classNameSorter())
@@ -757,12 +826,16 @@ class VisitCandidate(private val cls: ClassItem, private val visitor: ApiVisitor
             return true
         }
 
+        return emitInner()
+    }
+
+    private fun emitInner(): Boolean {
         return innerClasses.any { it.emit() }
     }
 
     /** Does the body of this class (everything other than the inner classes) emit anything? */
     private fun emitClass(): Boolean {
-        val classEmpty = (constructors.none() && methods.none() && enums.none() && fields.none())
+        val classEmpty = (constructors.none() && methods.none() && enums.none() && fields.none() && properties.none())
         return if (visitor.filterEmit.test(cls)) {
             true
         } else if (!classEmpty) {
@@ -781,12 +854,14 @@ class VisitCandidate(private val cls: ClassItem, private val visitor: ApiVisitor
             return
         }
 
-        if (!emit()) {
+        val emitClass = emitClass()
+        val emit = emitClass || emitInner()
+        if (!emit) {
             return
         }
 
-        val emitClass = if (visitor.includeEmptyOuterClasses) emit() else emitClass()
-        if (emitClass) {
+        val emitThis = cls.emit && if (visitor.includeEmptyOuterClasses) emit else emitClass
+        if (emitThis) {
             if (!visitor.visitingPackage) {
                 visitor.visitingPackage = true
                 val pkg = cls.containingPackage()
@@ -821,6 +896,9 @@ class VisitCandidate(private val cls: ClassItem, private val visitor: ApiVisitor
                 method.accept(visitor)
             }
 
+            for (property in properties) {
+                property.accept(visitor)
+            }
             for (enumConstant in enums) {
                 enumConstant.accept(visitor)
             }
@@ -833,7 +911,7 @@ class VisitCandidate(private val cls: ClassItem, private val visitor: ApiVisitor
             innerClasses.forEach { it.accept() }
         }
 
-        if (emitClass) {
+        if (emitThis) {
             visitor.afterVisitClass(cls)
             visitor.afterVisitItem(cls)
         }

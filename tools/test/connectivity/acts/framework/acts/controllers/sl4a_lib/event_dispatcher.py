@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016- The Android Open Source Project
 #
@@ -80,7 +80,8 @@ class EventDispatcher:
         """
         while self._started:
             try:
-                event_obj = self._rpc_client.eventWait(50000)
+                # 60000 in ms, timeout in second
+                event_obj = self._rpc_client.eventWait(60000, timeout=120)
             except rpc_client.Sl4aConnectionError as e:
                 if self._rpc_client.is_alive:
                     self.log.warning('Closing due to closed session.')

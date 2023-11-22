@@ -77,6 +77,11 @@ class C2SoftGsmDec::IntfImpl : public C2InterfaceHelper {
                 .withFields({C2F(mBitrate, value).equalTo(13200)})
                 .withSetter(Setter<decltype(*mBitrate)>::NonStrictValueWithNoDeps)
                 .build());
+
+        addParameter(
+                DefineParam(mInputMaxBufSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
+                .withConstValue(new C2StreamMaxBufferSizeInfo::input(0u, 1024 / MSGSM_IN_FRM_SZ * MSGSM_IN_FRM_SZ))
+                .build());
     }
 
    private:
@@ -87,6 +92,7 @@ class C2SoftGsmDec::IntfImpl : public C2InterfaceHelper {
     std::shared_ptr<C2StreamSampleRateInfo::output> mSampleRate;
     std::shared_ptr<C2StreamChannelCountInfo::output> mChannelCount;
     std::shared_ptr<C2BitrateTuning::input> mBitrate;
+    std::shared_ptr<C2StreamMaxBufferSizeInfo::input> mInputMaxBufSize;
 };
 
 C2SoftGsmDec::C2SoftGsmDec(const char *name, c2_node_id_t id,
@@ -168,8 +174,11 @@ static size_t decodeGSM(gsm handle, int16_t *out, size_t outCapacity,
 void C2SoftGsmDec::process(
         const std::unique_ptr<C2Work> &work,
         const std::shared_ptr<C2BlockPool> &pool) {
+    // Initialize output work
     work->result = C2_OK;
-    work->workletsProcessed = 0u;
+    work->workletsProcessed = 1u;
+    work->worklets.front()->output.flags = work->input.flags;
+
     if (mSignalledError || mSignalledEos) {
         work->result = C2_BAD_VALUE;
         return;
@@ -179,7 +188,7 @@ void C2SoftGsmDec::process(
     C2ReadView rView = mDummyReadView;
     size_t inOffset = 0u;
     size_t inSize = 0u;
-    if (work->input.buffers.empty()) {
+    if (!work->input.buffers.empty()) {
         rView = work->input.buffers[0]->data().linearBlocks().front().map().get();
         inSize = rView.capacity();
         if (inSize && rView.error()) {
@@ -193,7 +202,6 @@ void C2SoftGsmDec::process(
         work->worklets.front()->output.flags = work->input.flags;
         work->worklets.front()->output.buffers.clear();
         work->worklets.front()->output.ordinal = work->input.ordinal;
-        work->workletsProcessed = 1u;
         if (eos) {
             mSignalledEos = true;
             ALOGV("signalled EOS");
@@ -233,7 +241,6 @@ void C2SoftGsmDec::process(
     work->worklets.front()->output.buffers.clear();
     work->worklets.front()->output.buffers.push_back(createLinearBuffer(block, 0, outSize));
     work->worklets.front()->output.ordinal = work->input.ordinal;
-    work->workletsProcessed = 1u;
     if (eos) {
         mSignalledEos = true;
         ALOGV("signalled EOS");

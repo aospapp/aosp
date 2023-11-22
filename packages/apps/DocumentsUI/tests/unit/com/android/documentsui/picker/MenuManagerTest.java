@@ -17,19 +17,28 @@
 package com.android.documentsui.picker;
 
 import static com.android.documentsui.base.State.ACTION_CREATE;
+import static com.android.documentsui.base.State.ACTION_GET_CONTENT;
 import static com.android.documentsui.base.State.ACTION_OPEN;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import android.database.MatrixCursor;
+import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.documentsui.DirectoryResult;
+import com.android.documentsui.Model;
 import com.android.documentsui.R;
 import com.android.documentsui.base.DocumentInfo;
 import com.android.documentsui.base.RootInfo;
 import com.android.documentsui.base.State;
+import com.android.documentsui.roots.RootCursorWrapper;
 import com.android.documentsui.testing.TestDirectoryDetails;
+import com.android.documentsui.testing.TestFeatures;
 import com.android.documentsui.testing.TestMenu;
 import com.android.documentsui.testing.TestMenuItem;
 import com.android.documentsui.testing.TestSearchViewManager;
@@ -69,6 +78,7 @@ public final class MenuManagerTest {
     /* Action Mode menu items */
     private TestMenuItem actionModeOpen;
     private TestMenuItem actionModeOpenWith;
+    private TestMenuItem actionModeSelect;
     private TestMenuItem actionModeShare;
     private TestMenuItem actionModeDelete;
     private TestMenuItem actionModeSelectAll;
@@ -78,17 +88,20 @@ public final class MenuManagerTest {
     private TestMenuItem actionModeCompress;
     private TestMenuItem actionModeRename;
     private TestMenuItem actionModeViewInOwner;
+    private TestMenuItem actionModeSort;
 
     /* Option Menu items */
     private TestMenuItem optionSearch;
     private TestMenuItem optionDebug;
-    private TestMenuItem optionGrid;
-    private TestMenuItem optionList;
     private TestMenuItem optionNewWindow;
     private TestMenuItem optionCreateDir;
     private TestMenuItem optionSelectAll;
     private TestMenuItem optionAdvanced;
     private TestMenuItem optionSettings;
+    private TestMenuItem optionSort;
+
+    private TestMenuItem subOptionGrid;
+    private TestMenuItem subOptionList;
 
     private TestSelectionDetails selectionDetails;
     private TestDirectoryDetails dirDetails;
@@ -120,8 +133,8 @@ public final class MenuManagerTest {
         rootPasteIntoFolder = testMenu.findItem(R.id.root_menu_paste_into_folder);
         rootSettings = testMenu.findItem(R.id.root_menu_settings);
 
-        actionModeOpen = testMenu.findItem(R.id.action_menu_open);
         actionModeOpenWith = testMenu.findItem(R.id.action_menu_open_with);
+        actionModeSelect = testMenu.findItem(R.id.action_menu_select);
         actionModeShare = testMenu.findItem(R.id.action_menu_share);
         actionModeDelete = testMenu.findItem(R.id.action_menu_delete);
         actionModeSelectAll = testMenu.findItem(R.id.action_menu_select_all);
@@ -131,16 +144,20 @@ public final class MenuManagerTest {
         actionModeCompress = testMenu.findItem(R.id.action_menu_compress);
         actionModeRename = testMenu.findItem(R.id.action_menu_rename);
         actionModeViewInOwner = testMenu.findItem(R.id.action_menu_view_in_owner);
+        actionModeSort = testMenu.findItem(R.id.action_menu_sort);
 
         optionSearch = testMenu.findItem(R.id.option_menu_search);
         optionDebug = testMenu.findItem(R.id.option_menu_debug);
-        optionGrid = testMenu.findItem(R.id.option_menu_grid);
-        optionList = testMenu.findItem(R.id.option_menu_list);
         optionNewWindow = testMenu.findItem(R.id.option_menu_new_window);
         optionCreateDir = testMenu.findItem(R.id.option_menu_create_dir);
         optionSelectAll = testMenu.findItem(R.id.option_menu_select_all);
         optionAdvanced = testMenu.findItem(R.id.option_menu_advanced);
         optionSettings = testMenu.findItem(R.id.option_menu_settings);
+        optionSort = testMenu.findItem(R.id.option_menu_sort);
+
+        // Menu actions on root title row.
+        subOptionGrid = testMenu.findItem(R.id.sub_menu_grid);
+        subOptionList = testMenu.findItem(R.id.sub_menu_list);
 
         selectionDetails = new TestSelectionDetails();
         dirDetails = new TestDirectoryDetails();
@@ -156,23 +173,47 @@ public final class MenuManagerTest {
     @Test
     public void testActionMenu() {
         mgr.updateActionMenu(testMenu, selectionDetails);
-
-        actionModeOpen.assertInvisible();
+        actionModeSelect.assertInvisible();
         actionModeDelete.assertInvisible();
         actionModeShare.assertInvisible();
         actionModeRename.assertInvisible();
         actionModeSelectAll.assertVisible();
         actionModeViewInOwner.assertInvisible();
+        actionModeSort.assertVisible();
+        actionModeSort.assertEnabled();
     }
 
     @Test
-    public void testActionMenu_openAction() {
+    public void testActionMenu_selectAction() {
         state.action = ACTION_OPEN;
         mgr.updateActionMenu(testMenu, selectionDetails);
 
-        actionModeOpen.assertVisible();
+        actionModeSelect.assertVisible();
     }
 
+    @Test
+    public void testActionMenu_selectActionTitle() {
+        state.action = ACTION_OPEN;
+        mgr.updateActionMenu(testMenu, selectionDetails);
+
+        actionModeSelect.assertTitle(R.string.menu_select);
+    }
+
+    @Test
+    public void testActionMenu_getContentAction() {
+        state.action = ACTION_GET_CONTENT;
+        mgr.updateActionMenu(testMenu, selectionDetails);
+
+        actionModeSelect.assertVisible();
+    }
+
+    @Test
+    public void testActionMenu_getContentActionTitle() {
+        state.action = ACTION_GET_CONTENT;
+        mgr.updateActionMenu(testMenu, selectionDetails);
+
+        actionModeSelect.assertTitle(R.string.menu_select);
+    }
 
     @Test
     public void testActionMenu_notAllowMultiple() {
@@ -183,12 +224,22 @@ public final class MenuManagerTest {
     }
 
     @Test
+    public void testActionMenu_AllowMultiple() {
+        state.allowMultiple = true;
+        mgr.updateActionMenu(testMenu, selectionDetails);
+
+        actionModeSelectAll.assertVisible();
+    }
+
+    @Test
     public void testOptionMenu() {
         mgr.updateOptionMenu(testMenu);
 
         optionAdvanced.assertInvisible();
         optionAdvanced.assertTitle(R.string.menu_advanced_show);
         optionCreateDir.assertDisabled();
+        optionSort.assertEnabled();
+        optionSort.assertVisible();
         assertTrue(testSearchManager.showMenuCalled());
     }
 
@@ -197,10 +248,11 @@ public final class MenuManagerTest {
         state.action = ACTION_OPEN;
         state.derivedMode = State.MODE_LIST;
         mgr.updateOptionMenu(testMenu);
+        mgr.updateSubMenu(testMenu);
 
         optionCreateDir.assertInvisible();
-        optionGrid.assertVisible();
-        optionList.assertInvisible();
+        subOptionGrid.assertVisible();
+        subOptionList.assertInvisible();
         assertFalse(testSearchManager.showMenuCalled());
     }
 
@@ -226,9 +278,31 @@ public final class MenuManagerTest {
     public void testOptionMenu_inRecents() {
         dirDetails.isInRecents = true;
         mgr.updateOptionMenu(testMenu);
+        mgr.updateSubMenu(testMenu);
 
-        optionGrid.assertInvisible();
-        optionList.assertInvisible();
+        subOptionGrid.assertInvisible();
+        subOptionList.assertInvisible();
+    }
+
+
+    @Test
+    public void testOptionMenu_onlyContainer() {
+        state.allowMultiple = true;
+        mgr.updateModel(getTestModel(true));
+        mgr.updateOptionMenu(testMenu);
+
+        optionSelectAll.assertVisible();
+        optionSelectAll.assertDisabled();
+    }
+
+    @Test
+    public void testOptionMenu_containerAndFile() {
+        state.allowMultiple = true;
+        mgr.updateModel(getTestModel(false));
+        mgr.updateOptionMenu(testMenu);
+
+        optionSelectAll.assertVisible();
+        optionSelectAll.assertEnabled();
     }
 
     @Test
@@ -417,5 +491,36 @@ public final class MenuManagerTest {
         mgr.updateRootContextMenu(testMenu, testRootInfo, testDocInfo);
 
         rootEjectRoot.assertInvisible();
+    }
+
+    private Model getTestModel(boolean onlyDirectory) {
+        String[] COLUMNS = new String[]{
+                RootCursorWrapper.COLUMN_AUTHORITY,
+                Document.COLUMN_DOCUMENT_ID,
+                Document.COLUMN_FLAGS,
+                Document.COLUMN_DISPLAY_NAME,
+                Document.COLUMN_SIZE,
+                Document.COLUMN_LAST_MODIFIED,
+                Document.COLUMN_MIME_TYPE
+        };
+        MatrixCursor c = new MatrixCursor(COLUMNS);
+        for (int i = 0; i < 3; ++i) {
+            MatrixCursor.RowBuilder row = c.newRow();
+            row.add(Document.COLUMN_DOCUMENT_ID, Integer.toString(i));
+            row.add(Document.COLUMN_MIME_TYPE, Document.MIME_TYPE_DIR);
+        }
+
+        if (!onlyDirectory) {
+            MatrixCursor.RowBuilder row = c.newRow();
+            row.add(Document.COLUMN_DOCUMENT_ID, "4");
+            row.add(Document.COLUMN_MIME_TYPE, "image/jpg");
+        }
+
+        DirectoryResult r = new DirectoryResult();
+        r.cursor = c;
+        Model model = new Model(new TestFeatures());
+        model.update(r);
+
+        return model;
     }
 }

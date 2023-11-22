@@ -70,7 +70,7 @@ static bool IsExempt(const FQName &fq_iface_name) {
   string hal_name = fq_iface_name.package();
   // Radio-releated and non-Google HAL interfaces are given exemptions.
   return exempt_hals_.find(hal_name) != exempt_hals_.end() ||
-         !IsGoogleDefinedIface(fq_iface_name);
+         !IsAndroidPlatformInterface(fq_iface_name);
 }
 
 class VtsTrebleVintfTest : public ::testing::Test {
@@ -230,7 +230,7 @@ TEST_F(VtsTrebleVintfTest, InterfacesAreReleased) {
       }
       string hash = hash_chain[i];
 
-      if (IsGoogleDefinedIface(fq_iface_name)) {
+      if (IsAndroidPlatformInterface(fq_iface_name)) {
         set<string> released_hashes = ReleasedHashes(fq_iface_name);
         EXPECT_NE(released_hashes.find(hash), released_hashes.end())
             << "Hash not found. This interface was not released." << endl

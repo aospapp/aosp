@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 #
 #   Copyright 2016 - The Android Open Source Project
 #
@@ -17,8 +17,8 @@
 import base64
 import concurrent.futures
 import datetime
-import json
 import functools
+import json
 import logging
 import os
 import random
@@ -29,14 +29,14 @@ import subprocess
 import time
 import traceback
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 
+from acts import signals
 from acts.controllers import adb
-from acts import tracelogger
+from acts.libs.proc import job
 
 # File name length is limited to 255 chars on some OS, so we need to make sure
 # the file names we output fits within the limit.
-from acts.libs.proc import job
-
 MAX_FILENAME_LEN = 255
 
 
@@ -58,16 +58,6 @@ class NexusModelNames:
 class DozeModeStatus:
     ACTIVE = "ACTIVE"
     IDLE = "IDLE"
-
-
-class CapablityPerDevice:
-    energy_info_models = [
-        "shamu", "volantis", "volantisg", "angler", "bullhead", "ryu",
-        "marlin", "sailfish"
-    ]
-    tdls_models = [
-        "shamu", "hammerhead", "angler", "bullhead", "marlin", "sailfish"
-    ]
 
 
 ascii_letters_and_digits = string.ascii_letters + string.digits
@@ -132,9 +122,7 @@ def create_dir(path):
     Args:
         path: The path of the directory to create.
     """
-    full_path = abs_path(path)
-    if not os.path.exists(full_path):
-        os.makedirs(full_path)
+    os.makedirs(path, exist_ok=True)
 
 
 def get_current_epoch_time():
@@ -217,7 +205,7 @@ def find_files(paths, file_predicate):
     return file_list
 
 
-def load_config(file_full_path):
+def load_config(file_full_path, log_errors=True):
     """Loads a JSON config file.
 
     Returns:
@@ -225,11 +213,11 @@ def load_config(file_full_path):
     """
     with open(file_full_path, 'r') as f:
         try:
-            conf = json.load(f)
+            return json.load(f)
         except Exception as e:
-            logging.error("Exception error to load %s: %s", f, e)
+            if log_errors:
+                logging.error("Exception error to load %s: %s", f, e)
             raise
-        return conf
 
 
 def load_file_to_base64_str(f_path):
@@ -260,6 +248,37 @@ def dump_string_to_file(content, file_path, mode='w'):
     full_path = abs_path(file_path)
     with open(full_path, mode) as f:
         f.write(content)
+
+
+def list_of_dict_to_dict_of_dict(list_of_dicts, dict_key):
+    """Transforms a list of dicts to a dict of dicts.
+
+    For instance:
+    >>> list_of_dict_to_dict_of_dict([{'a': '1', 'b':'2'},
+    >>>                               {'a': '3', 'b':'4'}],
+    >>>                              'b')
+
+    returns:
+
+    >>> {'2': {'a': '1', 'b':'2'},
+    >>>  '4': {'a': '3', 'b':'4'}}
+
+    Args:
+        list_of_dicts: A list of dictionaries.
+        dict_key: The key in the inner dict to be used as the key for the
+                  outer dict.
+    Returns:
+        A dict of dicts.
+    """
+    return {d[dict_key]: d for d in list_of_dicts}
+
+
+def dict_purge_key_if_value_is_none(dictionary):
+    """Removes all pairs with value None from dictionary."""
+    for k, v in dict(dictionary).items():
+        if v is None:
+            del dictionary[k]
+    return dictionary
 
 
 def find_field(item_list, cond, comparator, target_field):
@@ -293,6 +312,19 @@ def rand_ascii_str(length):
         The random string generated.
     """
     letters = [random.choice(ascii_letters_and_digits) for i in range(length)]
+    return ''.join(letters)
+
+
+def rand_hex_str(length):
+    """Generates a random string of specified length, composed of hex digits
+
+    Args:
+        length: The number of characters in the string.
+
+    Returns:
+        The random string generated.
+    """
+    letters = [random.choice(string.hexdigits) for i in range(length)]
     return ''.join(letters)
 
 
@@ -382,7 +414,7 @@ def _assert_subprocess_running(proc):
                              " stdout: %s" % (proc.pid, ret, err, out))
 
 
-def start_standing_subprocess(cmd, check_health_delay=0):
+def start_standing_subprocess(cmd, check_health_delay=0, shell=True):
     """Starts a long-running subprocess.
 
     This is not a blocking call and the subprocess started by it should be
@@ -406,7 +438,7 @@ def start_standing_subprocess(cmd, check_health_delay=0):
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        shell=True,
+        shell=shell,
         preexec_fn=os.setpgrp)
     logging.debug("Start standing subprocess with cmd: %s", cmd)
     if check_health_delay > 0:
@@ -466,6 +498,8 @@ def sync_device_time(ad):
     Args:
         ad: The android device to sync time on.
     """
+    ad.adb.shell("settings global put auto_time 0", ignore_status=True)
+    ad.adb.shell("settings global put auto_time_zone 0", ignore_status=True)
     droid = ad.droid
     droid.setTimeZone(get_timezone_olson_id())
     droid.setTime(get_current_epoch_time())
@@ -561,6 +595,7 @@ def force_airplane_mode(ad, new_state, timeout_value=60):
         True if success.
         False if timeout.
     """
+
     # Using timeout decorator.
     # Wait for device with timeout. If after <timeout_value> seconds, adb
     # is still waiting for device, throw TimeoutError exception.
@@ -577,6 +612,57 @@ def force_airplane_mode(ad, new_state, timeout_value=60):
         # adb wait for device timeout
         return False
     return True
+
+
+def get_device_usb_charging_status(ad):
+    """ Returns the usb charging status of the device.
+
+    Args:
+        ad: android device object
+
+    Returns:
+        True if charging
+        False if not charging
+     """
+    adb_shell_result = ad.adb.shell("dumpsys deviceidle get charging")
+    ad.log.info("Device Charging State: {}".format(adb_shell_result))
+    return adb_shell_result == 'true'
+
+
+def disable_usb_charging(ad):
+    """ Unplug device from usb charging.
+
+    Args:
+        ad: android device object
+
+    Returns:
+        True if device is unplugged
+        False otherwise
+    """
+    ad.adb.shell("dumpsys battery unplug")
+    if not get_device_usb_charging_status(ad):
+        return True
+    else:
+        ad.log.info("Could not disable USB charging")
+        return False
+
+
+def enable_usb_charging(ad):
+    """ Plug device to usb charging.
+
+    Args:
+        ad: android device object
+
+    Returns:
+        True if device is Plugged
+        False otherwise
+    """
+    ad.adb.shell("dumpsys battery reset")
+    if get_device_usb_charging_status(ad):
+        return True
+    else:
+        ad.log.info("Could not enable USB charging")
+        return False
 
 
 def enable_doze(ad):
@@ -714,11 +800,9 @@ def set_location_service(ad, new_state):
                  " content://com.google.settings/partner --bind "
                  "name:s:use_location_for_services --bind value:s:1")
     if new_state:
-        ad.adb.shell("settings put secure location_providers_allowed +gps")
-        ad.adb.shell("settings put secure location_providers_allowed +network")
+        ad.adb.shell("settings put secure location_mode 3")
     else:
-        ad.adb.shell("settings put secure location_providers_allowed -gps")
-        ad.adb.shell("settings put secure location_providers_allowed -network")
+        ad.adb.shell("settings put secure location_mode 0")
 
 
 def set_mobile_data_always_on(ad, new_state):
@@ -734,16 +818,14 @@ def set_mobile_data_always_on(ad, new_state):
         1 if new_state else 0))
 
 
-def bypass_setup_wizard(ad, bypass_wait_time=3):
+def bypass_setup_wizard(ad):
     """Bypass the setup wizard on an input Android device
 
     Args:
         ad: android device object.
-        bypass_wait_time: Do not set this variable. Only modified for framework
-        tests.
 
     Returns:
-        True if Andorid device successfully bypassed the setup wizard.
+        True if Android device successfully bypassed the setup wizard.
         False if failed.
     """
     try:
@@ -779,7 +861,7 @@ def bypass_setup_wizard(ad, bypass_wait_time=3):
                         "error 3: No setup to bypass.")
 
     # magical sleep to wait for the gservices override broadcast to complete
-    time.sleep(bypass_wait_time)
+    time.sleep(3)
 
     provisioned_state = int(
         ad.adb.shell("settings get global device_provisioned"))
@@ -802,26 +884,23 @@ def parse_ping_ouput(ad, count, out, loss_tolerance=20):
         False: if packet loss is more than loss_tolerance%
         True: if all good
     """
-    out = out.split('\n')[-3:]
-    stats = out[1].split(',')
-    # For failure case, line of interest becomes the last line
-    if len(stats) != 4:
-        stats = out[2].split(',')
-    packet_loss = float(stats[2].split('%')[0])
-    packet_xmit = int(stats[0].split()[0])
-    packet_rcvd = int(stats[1].split()[0])
-    min_packet_xmit_rcvd = (100 - loss_tolerance) * 0.01
+    result = re.search(
+        r"(\d+) packets transmitted, (\d+) received, (\d+)% packet loss", out)
+    if not result:
+        ad.log.info("Ping failed with %s", out)
+        return False
 
-    if (packet_loss >= loss_tolerance
+    packet_loss = int(result.group(3))
+    packet_xmit = int(result.group(1))
+    packet_rcvd = int(result.group(2))
+    min_packet_xmit_rcvd = (100 - loss_tolerance) * 0.01
+    if (packet_loss > loss_tolerance
             or packet_xmit < count * min_packet_xmit_rcvd
             or packet_rcvd < count * min_packet_xmit_rcvd):
-        ad.log.error(
-            "More than %d %% packet loss seen, Expected Packet_count %d \
-            Packet loss %.2f%% Packets_xmitted %d Packets_rcvd %d",
-            loss_tolerance, count, packet_loss, packet_xmit, packet_rcvd)
+        ad.log.error("%s, ping failed with loss more than tolerance %s%%",
+                     result.group(0), loss_tolerance)
         return False
-    ad.log.info("Pkt_count %d Pkt_loss %.2f%% Pkt_xmit %d Pkt_rcvd %d", count,
-                packet_loss, packet_xmit, packet_rcvd)
+    ad.log.info("Ping succeed with %s", result.group(0))
     return True
 
 
@@ -843,19 +922,17 @@ def adb_shell_ping(ad,
     if count:
         ping_cmd += " -c %d" % count
     if dest_ip:
-        ping_cmd += " %s | tee /data/ping.txt" % dest_ip
+        ping_cmd += " %s" % dest_ip
     try:
         ad.log.info("Starting ping test to %s using adb command %s", dest_ip,
                     ping_cmd)
-        out = ad.adb.shell(ping_cmd, timeout=timeout)
+        out = ad.adb.shell(ping_cmd, timeout=timeout, ignore_status=True)
         if not parse_ping_ouput(ad, count, out, loss_tolerance):
             return False
         return True
     except Exception as e:
         ad.log.warning("Ping Test to %s failed with exception %s", dest_ip, e)
         return False
-    finally:
-        ad.adb.shell("rm /data/ping.txt", timeout=10, ignore_status=True)
 
 
 def unzip_maintain_permissions(zip_path, extract_location):
@@ -914,3 +991,243 @@ def get_device_process_uptime(adb, process):
     if pid:
         runtime = adb.shell('ps -o etime= -p "%s"' % pid)
     return runtime
+
+
+def wait_until(func, timeout_s, condition=True, sleep_s=1.0):
+    """Executes a function repeatedly until condition is met.
+
+    Args:
+      func: The function pointer to execute.
+      timeout_s: Amount of time (in seconds) to wait before raising an
+                 exception.
+      condition: The ending condition of the WaitUntil loop.
+      sleep_s: The amount of time (in seconds) to sleep between each function
+               execution.
+
+    Returns:
+      The time in seconds before detecting a successful condition.
+
+    Raises:
+      TimeoutError: If the condition was never met and timeout is hit.
+    """
+    start_time = time.time()
+    end_time = start_time + timeout_s
+    count = 0
+    while True:
+        count += 1
+        if func() == condition:
+            return time.time() - start_time
+        if time.time() > end_time:
+            break
+        time.sleep(sleep_s)
+    raise TimeoutError('Failed to complete function %s in %d seconds having '
+                       'attempted %d times.' % (str(func), timeout_s, count))
+
+
+# Adapted from
+# https://en.wikibooks.org/wiki/Algorithm_Implementation/Strings/Levenshtein_distance#Python
+# Available under the Creative Commons Attribution-ShareAlike License
+def levenshtein(string1, string2):
+    """Returns the Levenshtein distance of two strings.
+    Uses Dynamic Programming approach, only keeping track of
+    two rows of the DP table at a time.
+
+    Args:
+      string1: String to compare to string2
+      string2: String to compare to string1
+
+    Returns:
+      distance: the Levenshtein distance between string1 and string2
+    """
+
+    if len(string1) < len(string2):
+        return levenshtein(string2, string1)
+
+    if len(string2) == 0:
+        return len(string1)
+
+    previous_row = range(len(string2) + 1)
+    for i, char1 in enumerate(string1):
+        current_row = [i + 1]
+        for j, char2 in enumerate(string2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (char1 != char2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+
+    return previous_row[-1]
+
+
+def string_similarity(s1, s2):
+    """Returns a similarity measurement based on Levenshtein distance.
+
+    Args:
+      s1: the string to compare to s2
+      s2: the string to compare to s1
+
+    Returns:
+      result: the similarity metric
+    """
+    lev = levenshtein(s1, s2)
+    try:
+        lev_ratio = float(lev) / max(len(s1), len(s2))
+        result = (1.0 - lev_ratio) * 100
+    except ZeroDivisionError:
+        result = 100 if not s2 else 0
+    return float(result)
+
+
+def run_concurrent_actions_no_raise(*calls):
+    """Concurrently runs all callables passed in using multithreading.
+
+    Example:
+
+    >>> def test_function_1(arg1, arg2):
+    >>>     return arg1, arg2
+    >>>
+    >>> def test_function_2(arg1, kwarg='kwarg'):
+    >>>     raise arg1(kwarg)
+    >>>
+    >>> run_concurrent_actions_no_raise(
+    >>>     lambda: test_function_1('arg1', 'arg2'),
+    >>>     lambda: test_function_2(IndexError, kwarg='kwarg'),
+    >>> )
+    >>> # Output:
+    >>> [('arg1', 'arg2'), IndexError('kwarg')]
+
+    Args:
+        *calls: A *args list of argumentless callable objects to be called. Note
+            that if a function has arguments it can be turned into an
+            argumentless function via the lambda keyword or functools.partial.
+
+    Returns:
+        An array of the returned values or exceptions received from calls,
+        respective of the order given.
+    """
+    with ThreadPoolExecutor(max_workers=len(calls)) as executor:
+        futures = [executor.submit(call) for call in calls]
+
+    results = []
+    for future in futures:
+        try:
+            results.append(future.result())
+        except Exception as e:
+            results.append(e)
+    return results
+
+
+def run_concurrent_actions(*calls):
+    """Runs all callables passed in concurrently using multithreading.
+
+    Examples:
+
+    >>> def test_function_1(arg1, arg2):
+    >>>     print(arg1, arg2)
+    >>>
+    >>> def test_function_2(arg1, kwarg='kwarg'):
+    >>>     raise arg1(kwarg)
+    >>>
+    >>> run_concurrent_actions(
+    >>>     lambda: test_function_1('arg1', 'arg2'),
+    >>>     lambda: test_function_2(IndexError, kwarg='kwarg'),
+    >>> )
+    >>> 'The above line raises IndexError("kwarg")'
+
+    Args:
+        *calls: A *args list of argumentless callable objects to be called. Note
+            that if a function has arguments it can be turned into an
+            argumentless function via the lambda keyword or functools.partial.
+
+    Returns:
+        An array of the returned values respective of the order of the calls
+        argument.
+
+    Raises:
+        If an exception is raised in any of the calls, the first exception
+        caught will be raised.
+    """
+    first_exception = None
+
+    class WrappedException(Exception):
+        """Raised when a passed-in callable raises an exception."""
+
+    def call_wrapper(call):
+        nonlocal first_exception
+
+        try:
+            return call()
+        except Exception as e:
+            logging.exception(e)
+            # Note that there is a potential race condition between two
+            # exceptions setting first_exception. Even if a locking mechanism
+            # was added to prevent this from happening, it is still possible
+            # that we capture the second exception as the first exception, as
+            # the active thread can swap to the thread that raises the second
+            # exception. There is no way to solve this with the tools we have
+            # here, so we do not bother. The effects this issue has on the
+            # system as a whole are negligible.
+            if first_exception is None:
+                first_exception = e
+            raise WrappedException(e)
+
+    with ThreadPoolExecutor(max_workers=len(calls)) as executor:
+        futures = [executor.submit(call_wrapper, call) for call in calls]
+
+    results = []
+    for future in futures:
+        try:
+            results.append(future.result())
+        except WrappedException:
+            # We do not need to raise here, since first_exception will already
+            # be set to the first exception raised by these callables.
+            break
+
+    if first_exception:
+        raise first_exception
+
+    return results
+
+
+def test_concurrent_actions(*calls, failure_exceptions=(Exception,)):
+    """Concurrently runs all passed in calls using multithreading.
+
+    If any callable raises an Exception found within failure_exceptions, the
+    test case is marked as a failure.
+
+    Example:
+    >>> def test_function_1(arg1, arg2):
+    >>>     print(arg1, arg2)
+    >>>
+    >>> def test_function_2(kwarg='kwarg'):
+    >>>     raise IndexError(kwarg)
+    >>>
+    >>> test_concurrent_actions(
+    >>>     lambda: test_function_1('arg1', 'arg2'),
+    >>>     lambda: test_function_2(kwarg='kwarg'),
+    >>>     failure_exceptions=IndexError
+    >>> )
+    >>> 'raises signals.TestFailure due to IndexError being raised.'
+
+    Args:
+        *calls: A *args list of argumentless callable objects to be called. Note
+            that if a function has arguments it can be turned into an
+            argumentless function via the lambda keyword or functools.partial.
+        failure_exceptions: A tuple of all possible Exceptions that will mark
+            the test as a FAILURE. Any exception that is not in this list will
+            mark the tests as UNKNOWN.
+
+    Returns:
+        An array of the returned values respective of the order of the calls
+        argument.
+
+    Raises:
+        signals.TestFailure if any call raises an Exception.
+    """
+    try:
+        return run_concurrent_actions(*calls)
+    except signals.TestFailure:
+        # Do not modify incoming test failures
+        raise
+    except failure_exceptions as e:
+        raise signals.TestFailure(e)

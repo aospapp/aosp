@@ -47,8 +47,12 @@ file feature section:
     struct {
       uint64_t start_vaddr;
       uint32_t len;
-      char symbol_name[];
-    } symbol_table;
+      char symbol_name[len+1];
+    } symbol_table[symbol_count];
+
+    uint32_t dex_file_offset_count;  // Only when file_type = DSO_DEX_FILE
+    uint64_t dex_file_offsets[dex_file_offset_count];  // Only when file_type = DSO_DEX_FILE
+    uint64_t file_offset_of_min_vaddr;  // Only when file_type = DSO_ELF_FILE
   };
 
 meta_info feature section:

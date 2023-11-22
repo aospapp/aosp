@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" adlı istifadəçiyə fayl göndərilir"</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"\"<xliff:g id="RECIPIENT">%2$s</xliff:g>\" adlı istifadəçiyə <xliff:g id="NUMBER">%1$s</xliff:g> fayl göndərilir"</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"\"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" adlı istifadəçiyə faylın göndərilməsi dayandırıldı"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" tərəfindən göndərilən faylı saxlamaq üçün USB yaddaşında kifayət qədər yer yoxdur."</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" tərəfindən göndərilən faylı saxlamaq üçün SD kartda kifayət qədər yer yoxdur."</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" tərəfindən göndərilən faylı yadda saxlamaq üçün USB yaddaşında kifayət qədər yer yoxdur"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"\"<xliff:g id="SENDER">%1$s</xliff:g>\" tərəfindən göndərilən faylı yadda saxlamaq üçün SD kartda kifayət qədər yer yoxdur"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Gərəkli: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Həddindən çox sorğu işlənilir. Sonra bir daha cəhd edin."</string>
     <string name="status_pending" msgid="2503691772030877944">"Fayl transferi hələ başlamayıb."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"Transfer hədəf cihaz tərəfindən qadağan edilib."</string>
     <string name="status_canceled" msgid="6664490318773098285">"Transfer istifadəçi tərəfindən ləğv edildi."</string>
     <string name="status_file_error" msgid="3671917770630165299">"Yaddaş problemi."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"USB yaddaş yoxdur."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"SD kart yoxdur. Transfer edilən faylları saxlamaq üçün SD kart daxil edin."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"USB yaddaş yoxdur."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"SD kart yoxdur. Köçürülən faylları yadda saxlamaq üçün SD kart daxil edin."</string>
     <string name="status_connection_error" msgid="947681831523219891">"Uğursuz bağlantı."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Sorğu düzgün idarə edilə bilməz."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Naməlum xəta."</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Açın"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Siyahıdan silin"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Silin"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"İndi Efirdə"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Yadda saxlayın"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Ləğv edin"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Bluetooth vasitəsilə paylaşmaq istədiyiniz hesabları seçin. Qoşulma zamanı hesablara olan istənilən girişi qəbul etməlisiniz."</string>

@@ -19,6 +19,7 @@ package com.android.server.telecom;
 import android.app.AppOpsManager;
 
 import android.app.Activity;
+import android.app.BroadcastOptions;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -37,6 +38,7 @@ import android.telephony.DisconnectCause;
 import android.text.TextUtils;
 
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.telecom.callredirection.CallRedirectionProcessor;
 
 // TODO: Needed for move to system service: import com.android.internal.R;
 
@@ -80,6 +82,19 @@ public class NewOutgoingCallIntentBroadcaster {
      * so, it will be allowed to make emergency calls, even with the ACTION_CALL intent.
      */
     private final boolean mIsDefaultOrSystemPhoneApp;
+
+    public static class CallDisposition {
+        // True for certain types of numbers that are not intended to be intercepted or modified
+        // by third parties (e.g. emergency numbers).
+        public boolean callImmediately = false;
+        // True for all managed calls, false for self-managed calls.
+        public boolean sendBroadcast = true;
+        // True for requesting call redirection, false for not requesting it.
+        public boolean requestRedirection = true;
+        public int disconnectCause = DisconnectCause.NOT_DISCONNECTED;
+        String number;
+        Uri callingAddress;
+    }
 
     @VisibleForTesting
     public NewOutgoingCallIntentBroadcaster(Context context, CallsManager callsManager, Call call,
@@ -192,8 +207,8 @@ public class NewOutgoingCallIntentBroadcaster {
      *         {@link DisconnectCause} if the call did not, describing why it failed.
      */
     @VisibleForTesting
-    public int processIntent() {
-        Log.v(this, "Processing call intent in OutgoingCallIntentBroadcaster.");
+    public CallDisposition evaluateCall() {
+        CallDisposition result = new CallDisposition();
 
         Intent intent = mIntent;
         String action = intent.getAction();
@@ -201,7 +216,8 @@ public class NewOutgoingCallIntentBroadcaster {
 
         if (handle == null) {
             Log.w(this, "Empty handle obtained from the call intent.");
-            return DisconnectCause.INVALID_NUMBER;
+            result.disconnectCause = DisconnectCause.INVALID_NUMBER;
+            return result;
         }
 
         boolean isVoicemailNumber = PhoneAccount.SCHEME_VOICEMAIL.equals(handle.getScheme());
@@ -209,16 +225,18 @@ public class NewOutgoingCallIntentBroadcaster {
             if (Intent.ACTION_CALL.equals(action)
                     || Intent.ACTION_CALL_PRIVILEGED.equals(action)) {
                 // Voicemail calls will be handled directly by the telephony connection manager
-
-                boolean speakerphoneOn = mIntent.getBooleanExtra(
-                        TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, false);
-                placeOutgoingCallImmediately(mCall, handle, null, speakerphoneOn,
+                Log.i(this, "Voicemail number dialed. Skipping redirection and broadcast", intent);
+                mIntent.putExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
                         VideoProfile.STATE_AUDIO_ONLY);
-
-                return DisconnectCause.NOT_DISCONNECTED;
+                result.callImmediately = true;
+                result.requestRedirection = false;
+                result.sendBroadcast = false;
+                result.callingAddress = handle;
+                return result;
             } else {
                 Log.i(this, "Unhandled intent %s. Ignoring and not placing call.", intent);
-                return DisconnectCause.OUTGOING_CANCELED;
+                result.disconnectCause = DisconnectCause.OUTGOING_CANCELED;
+                return result;
             }
         }
 
@@ -234,76 +252,90 @@ public class NewOutgoingCallIntentBroadcaster {
             }
         }
 
-        String number = "";
-        // True for certain types of numbers that are not intended to be intercepted or modified
-        // by third parties (e.g. emergency numbers).
-        boolean callImmediately = false;
-        // True for all managed calls, false for self-managed calls.
-        boolean sendNewOutgoingCallBroadcast = true;
-        Uri callingAddress = handle;
+        result.number = "";
+        result.callingAddress = handle;
 
-        if (!isSelfManaged) {
-            // Placing a managed call
-            number = mPhoneNumberUtilsAdapter.getNumberFromIntent(intent, mContext);
-            if (TextUtils.isEmpty(number)) {
-                Log.w(this, "Empty number obtained from the call intent.");
-                return DisconnectCause.NO_PHONE_NUMBER_SUPPLIED;
-            }
-
-            // TODO: Cleanup this dialing code; it makes the assumption that we're dialing with a
-            // SIP or TEL URI.
-            boolean isUriNumber = mPhoneNumberUtilsAdapter.isUriNumber(number);
-            if (!isUriNumber) {
-                number = mPhoneNumberUtilsAdapter.convertKeypadLettersToDigits(number);
-                number = mPhoneNumberUtilsAdapter.stripSeparators(number);
-            }
-
-            final boolean isPotentialEmergencyNumber = isPotentialEmergencyNumber(number);
-            Log.v(this, "isPotentialEmergencyNumber = %s", isPotentialEmergencyNumber);
-
-            rewriteCallIntentAction(intent, isPotentialEmergencyNumber);
-            action = intent.getAction();
-
-            if (Intent.ACTION_CALL.equals(action)) {
-                if (isPotentialEmergencyNumber) {
-                    if (!mIsDefaultOrSystemPhoneApp) {
-                        Log.w(this, "Cannot call potential emergency number %s with CALL Intent %s "
-                                + "unless caller is system or default dialer.", number, intent);
-                        launchSystemDialer(intent.getData());
-                        return DisconnectCause.OUTGOING_CANCELED;
-                    } else {
-                        callImmediately = true;
-                    }
-                }
-            } else if (Intent.ACTION_CALL_EMERGENCY.equals(action)) {
-                if (!isPotentialEmergencyNumber) {
-                    Log.w(this, "Cannot call non-potential-emergency number %s with EMERGENCY_CALL "
-                            + "Intent %s.", number, intent);
-                    return DisconnectCause.OUTGOING_CANCELED;
-                }
-                callImmediately = true;
-            } else {
-                Log.w(this, "Unhandled Intent %s. Ignoring and not placing call.", intent);
-                return DisconnectCause.INVALID_NUMBER;
-            }
-
-            // TODO: Support dialing using URIs instead of just assuming SIP or TEL.
-            String scheme = isUriNumber ? PhoneAccount.SCHEME_SIP : PhoneAccount.SCHEME_TEL;
-            callingAddress = Uri.fromParts(scheme, number, null);
-        } else {
+        if (isSelfManaged) {
             // Self-managed call.
-            callImmediately = true;
-            sendNewOutgoingCallBroadcast = false;
+            result.callImmediately = true;
+            result.sendBroadcast = false;
+            result.requestRedirection = false;
             Log.i(this, "Skipping NewOutgoingCallBroadcast for self-managed call.");
+            return result;
         }
 
-        if (callImmediately) {
+        // Placing a managed call
+        String number = getNumberFromCallIntent(intent);
+        result.number = number;
+        if (number == null) {
+            result.disconnectCause = DisconnectCause.NO_PHONE_NUMBER_SUPPLIED;
+            return result;
+        }
+
+        final boolean isPotentialEmergencyNumber = isPotentialEmergencyNumber(number);
+        Log.v(this, "isPotentialEmergencyNumber = %s", isPotentialEmergencyNumber);
+
+        action = calculateCallIntentAction(intent, isPotentialEmergencyNumber);
+        intent.setAction(action);
+
+        if (Intent.ACTION_CALL.equals(action)) {
+            if (isPotentialEmergencyNumber) {
+                if (!mIsDefaultOrSystemPhoneApp) {
+                    Log.w(this, "Cannot call potential emergency number %s with CALL Intent %s "
+                            + "unless caller is system or default dialer.", number, intent);
+                    launchSystemDialer(intent.getData());
+                    result.disconnectCause = DisconnectCause.OUTGOING_CANCELED;
+                    return result;
+                } else {
+                    result.callImmediately = true;
+                    result.requestRedirection = false;
+                }
+            }
+        } else if (Intent.ACTION_CALL_EMERGENCY.equals(action)) {
+            if (!isPotentialEmergencyNumber) {
+                Log.w(this, "Cannot call non-potential-emergency number %s with EMERGENCY_CALL "
+                        + "Intent %s.", number, intent);
+                result.disconnectCause = DisconnectCause.OUTGOING_CANCELED;
+                return result;
+            }
+            result.callImmediately = true;
+            result.requestRedirection = false;
+        } else {
+            Log.w(this, "Unhandled Intent %s. Ignoring and not placing call.", intent);
+            result.disconnectCause = DisconnectCause.INVALID_NUMBER;
+            return result;
+        }
+
+        String scheme = mPhoneNumberUtilsAdapter.isUriNumber(number)
+                ? PhoneAccount.SCHEME_SIP : PhoneAccount.SCHEME_TEL;
+        result.callingAddress = Uri.fromParts(scheme, number, null);
+        return result;
+    }
+
+    private String getNumberFromCallIntent(Intent intent) {
+        String number;
+        number = mPhoneNumberUtilsAdapter.getNumberFromIntent(intent, mContext);
+        if (TextUtils.isEmpty(number)) {
+            Log.w(this, "Empty number obtained from the call intent.");
+            return null;
+        }
+
+        boolean isUriNumber = mPhoneNumberUtilsAdapter.isUriNumber(number);
+        if (!isUriNumber) {
+            number = mPhoneNumberUtilsAdapter.convertKeypadLettersToDigits(number);
+            number = mPhoneNumberUtilsAdapter.stripSeparators(number);
+        }
+        return number;
+    }
+
+    public void processCall(CallDisposition disposition) {
+        if (disposition.callImmediately) {
             boolean speakerphoneOn = mIntent.getBooleanExtra(
                     TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, false);
             int videoState = mIntent.getIntExtra(
                     TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
                     VideoProfile.STATE_AUDIO_ONLY);
-            placeOutgoingCallImmediately(mCall, callingAddress, null,
+            placeOutgoingCallImmediately(mCall, disposition.callingAddress, null,
                     speakerphoneOn, videoState);
 
             // Don't return but instead continue and send the ACTION_NEW_OUTGOING_CALL broadcast
@@ -312,12 +344,34 @@ public class NewOutgoingCallIntentBroadcaster {
             // initiate the call again because of the presence of the EXTRA_ALREADY_CALLED extra.
         }
 
-        if (sendNewOutgoingCallBroadcast) {
+        boolean callRedirectionWithService = false;
+        if (disposition.requestRedirection) {
+            CallRedirectionProcessor callRedirectionProcessor = new CallRedirectionProcessor(
+                    mContext, mCallsManager, mCall, disposition.callingAddress,
+                    mCallsManager.getPhoneAccountRegistrar(),
+                    getGateWayInfoFromIntent(mIntent, mIntent.getData()),
+                    mIntent.getBooleanExtra(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE,
+                            false),
+                    mIntent.getIntExtra(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE,
+                            VideoProfile.STATE_AUDIO_ONLY));
+            /**
+             * If there is an available {@link android.telecom.CallRedirectionService}, use the
+             * {@link CallRedirectionProcessor} to perform call redirection instead of using
+             * broadcasting.
+             */
+            callRedirectionWithService = callRedirectionProcessor
+                    .canMakeCallRedirectionWithService();
+            if (callRedirectionWithService) {
+                callRedirectionProcessor.performCallRedirection();
+            }
+        }
+
+        if (disposition.sendBroadcast) {
             UserHandle targetUser = mCall.getInitiatingUser();
             Log.i(this, "Sending NewOutgoingCallBroadcast for %s to %s", mCall, targetUser);
-            broadcastIntent(intent, number, !callImmediately, targetUser);
+            broadcastIntent(mIntent, disposition.number,
+                    !disposition.callImmediately && !callRedirectionWithService, targetUser);
         }
-        return DisconnectCause.NOT_DISCONNECTED;
     }
 
     /**
@@ -348,11 +402,14 @@ public class NewOutgoingCallIntentBroadcaster {
 
         checkAndCopyProviderExtras(originalCallIntent, broadcastIntent);
 
+        final BroadcastOptions options = BroadcastOptions.makeBasic();
+        options.setBackgroundActivityStartsAllowed(true);
         mContext.sendOrderedBroadcastAsUser(
                 broadcastIntent,
                 targetUser,
                 android.Manifest.permission.PROCESS_OUTGOING_CALLS,
                 AppOpsManager.OP_PROCESS_OUTGOING_CALLS,
+                options.toBundle(),
                 receiverRequired ? new NewOutgoingCallBroadcastIntentReceiver() : null,
                 null,  // scheduler
                 Activity.RESULT_OK,  // initialCode
@@ -437,7 +494,7 @@ public class NewOutgoingCallIntentBroadcaster {
         Intent systemDialerIntent = new Intent();
         final Resources resources = mContext.getResources();
         systemDialerIntent.setClassName(
-                resources.getString(R.string.ui_default_package),
+                TelecomServiceImpl.getSystemDialerPackage(mContext),
                 resources.getString(R.string.dialer_default_class));
         systemDialerIntent.setAction(Intent.ACTION_DIAL);
         systemDialerIntent.setData(handle);
@@ -467,14 +524,15 @@ public class NewOutgoingCallIntentBroadcaster {
     }
 
     /**
-     * Given a call intent and whether or not the number to dial is an emergency number, rewrite
-     * the call intent action to an appropriate one.
+     * Given a call intent and whether or not the number to dial is an emergency number, determine
+     * the appropriate call intent action.
      *
-     * @param intent Intent to rewrite the action for
+     * @param intent Intent to evaluate
      * @param isPotentialEmergencyNumber Whether or not the number is potentially an emergency
      * number.
+     * @return The appropriate action.
      */
-    private void rewriteCallIntentAction(Intent intent, boolean isPotentialEmergencyNumber) {
+    private String calculateCallIntentAction(Intent intent, boolean isPotentialEmergencyNumber) {
         String action = intent.getAction();
 
         /* Change CALL_PRIVILEGED into CALL or CALL_EMERGENCY as needed. */
@@ -487,8 +545,8 @@ public class NewOutgoingCallIntentBroadcaster {
                 action = Intent.ACTION_CALL;
             }
             Log.v(this, " - updating action from CALL_PRIVILEGED to %s", action);
-            intent.setAction(action);
         }
+        return action;
     }
 
     private long getDisconnectTimeoutFromApp(Bundle resultExtras, long defaultTimeout) {

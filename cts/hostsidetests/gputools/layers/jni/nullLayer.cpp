@@ -43,9 +43,9 @@ namespace {
 
 // Minimal dispatch table for this simple layer
 struct {
+    PFN_vkGetDeviceProcAddr GetDeviceProcAddr;
     PFN_vkGetInstanceProcAddr GetInstanceProcAddr;
 } g_VulkanDispatchTable;
-
 
 template<class T>
 VkResult getProperties(const uint32_t count, const T *properties, uint32_t *pCount,
@@ -90,6 +90,44 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceExtensionProperties(VkPhysicalDevi
     return getProperties<VkExtensionProperties>(0, NULL, pCount, pProperties);
 }
 
+VKAPI_ATTR VkResult VKAPI_CALL nullCreateDevice(VkPhysicalDevice physicalDevice,
+                                                const VkDeviceCreateInfo* pCreateInfo,
+                                                const VkAllocationCallbacks* pAllocator,
+                                                VkDevice* pDevice) {
+
+    VkLayerDeviceCreateInfo *layerCreateInfo = (VkLayerDeviceCreateInfo*)pCreateInfo->pNext;
+
+    const char* msg = "nullCreateDevice called in nullLayer" xstr(LAYERNAME);
+    ALOGI("%s", msg);
+
+    // Step through the pNext chain until we get to the link function
+    while(layerCreateInfo && (layerCreateInfo->sType != VK_STRUCTURE_TYPE_LOADER_DEVICE_CREATE_INFO ||
+                              layerCreateInfo->function != VK_LAYER_FUNCTION_LINK)) {
+
+      layerCreateInfo = (VkLayerDeviceCreateInfo *)layerCreateInfo->pNext;
+    }
+
+    if(layerCreateInfo == NULL)
+      return VK_ERROR_INITIALIZATION_FAILED;
+
+    // Grab GDPA and GIPA for the next layer
+    PFN_vkGetDeviceProcAddr gdpa = layerCreateInfo->u.pLayerInfo->pfnNextGetDeviceProcAddr;
+    PFN_vkGetInstanceProcAddr gipa = layerCreateInfo->u.pLayerInfo->pfnNextGetInstanceProcAddr;
+
+    // Track them in our dispatch table
+    g_VulkanDispatchTable.GetDeviceProcAddr = gdpa;
+    g_VulkanDispatchTable.GetInstanceProcAddr = gipa;
+
+    // Advance the chain for next layer
+    layerCreateInfo->u.pLayerInfo = layerCreateInfo->u.pLayerInfo->pNext;
+
+    // Call the next layer
+    PFN_vkCreateDevice createFunc = (PFN_vkCreateDevice)gipa(VK_NULL_HANDLE, "vkCreateDevice");
+    VkResult ret = createFunc(physicalDevice, pCreateInfo, pAllocator, pDevice);
+
+    return ret;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL nullCreateInstance(const VkInstanceCreateInfo* pCreateInfo,
                                                   const VkAllocationCallbacks* pAllocator,
                                                   VkInstance* pInstance) {
@@ -112,7 +150,7 @@ VKAPI_ATTR VkResult VKAPI_CALL nullCreateInstance(const VkInstanceCreateInfo* pC
     // Grab GIPA for the next layer
     PFN_vkGetInstanceProcAddr gpa = layerCreateInfo->u.pLayerInfo->pfnNextGetInstanceProcAddr;
 
-    // Track is in our dispatch table
+    // Track it in our dispatch table
     g_VulkanDispatchTable.GetInstanceProcAddr = gpa;
 
     // Advance the chain for next layer
@@ -125,16 +163,22 @@ VKAPI_ATTR VkResult VKAPI_CALL nullCreateInstance(const VkInstanceCreateInfo* pC
     return ret;
 }
 
-VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice /* dev */, const char* /* funcName */) {
-    return nullptr;
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice dev, const char* funcName) {
+
+    const char* targetFunc = "vkCreateDevice";
+    if (!strncmp(targetFunc, funcName, sizeof("vkCreateDevice"))) {
+        return (PFN_vkVoidFunction)nullCreateDevice;
+    }
+
+    return (PFN_vkVoidFunction)g_VulkanDispatchTable.GetDeviceProcAddr(dev, funcName);
 }
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance, const char* funcName) {
 
-    // Our simple layer only intercepts vkCreateInstance
     const char* targetFunc = "vkCreateInstance";
-    if (!strncmp(targetFunc, funcName, sizeof(&targetFunc)))
+    if (!strncmp(targetFunc, funcName, sizeof("vkCreateInstance"))) {
         return (PFN_vkVoidFunction)nullCreateInstance;
+    }
 
     return (PFN_vkVoidFunction)g_VulkanDispatchTable.GetInstanceProcAddr(instance, funcName);
 }

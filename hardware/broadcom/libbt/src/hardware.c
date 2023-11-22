@@ -739,29 +739,39 @@ void hw_config_cback(void *p_mem)
                 hw_cfg_cb.state = HW_CFG_DL_FW_PATCH;
                 /* fall through intentionally */
             case HW_CFG_DL_FW_PATCH:
-                p_buf->len = read(hw_cfg_cb.fw_fd, p, HCI_CMD_PREAMBLE_SIZE);
-                if (p_buf->len > 0)
+                if (hw_cfg_cb.fw_fd >= 0)
                 {
-                    if ((p_buf->len < HCI_CMD_PREAMBLE_SIZE) || \
-                        (opcode == HCI_VSC_LAUNCH_RAM))
+                    int ret = read(hw_cfg_cb.fw_fd, p, HCI_CMD_PREAMBLE_SIZE);
+                    if (ret > 0)
                     {
-                        ALOGW("firmware patch file might be altered!");
+                        if ((ret < HCI_CMD_PREAMBLE_SIZE) || \
+                            (opcode == HCI_VSC_LAUNCH_RAM))
+                        {
+                            ALOGW("firmware patch file might be altered!");
+                        }
+                        else
+                        {
+                            p_buf->len = ret;
+                            ret = read(hw_cfg_cb.fw_fd, \
+                                       p+HCI_CMD_PREAMBLE_SIZE,\
+                                       *(p+HCD_REC_PAYLOAD_LEN_BYTE));
+                            if (ret >= 0)
+                            {
+                                p_buf->len += ret;
+                                STREAM_TO_UINT16(opcode,p);
+                                is_proceeding = bt_vendor_cbacks->xmit_cb(opcode, \
+                                                        p_buf, hw_config_cback);
+                                break;
+                            }
+                        }
                     }
-                    else
+                    if (ret < 0)
                     {
-                        p_buf->len += read(hw_cfg_cb.fw_fd, \
-                                           p+HCI_CMD_PREAMBLE_SIZE,\
-                                           *(p+HCD_REC_PAYLOAD_LEN_BYTE));
-                        STREAM_TO_UINT16(opcode,p);
-                        is_proceeding = bt_vendor_cbacks->xmit_cb(opcode, \
-                                                p_buf, hw_config_cback);
-                        break;
+                        ALOGE("firmware patch file read failed (%s)", strerror(errno));
                     }
+                    close(hw_cfg_cb.fw_fd);
+                    hw_cfg_cb.fw_fd = -1;
                 }
-
-                close(hw_cfg_cb.fw_fd);
-                hw_cfg_cb.fw_fd = -1;
-
                 /* Normally the firmware patch configuration file
                  * sets the new starting baud rate at 115200.
                  * So, we need update host's baud rate accordingly.

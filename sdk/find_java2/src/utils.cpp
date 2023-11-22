@@ -219,7 +219,7 @@ int execWait(const TCHAR *cmd) {
 
 bool getModuleDir(CPath *outDir) {
     TCHAR programDir[MAX_PATH];
-    int ret = GetModuleFileName(NULL, programDir, sizeof(programDir) * sizeof(TCHAR));
+    int ret = GetModuleFileName(NULL, programDir, sizeof(programDir) / sizeof(programDir[0]));
     if (ret != 0) {
         CPath dir(programDir);
         dir.RemoveFileSpec();

@@ -166,9 +166,10 @@ bool DumpRecordCommand::DumpDataSection() {
   record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree);
 
   auto get_symbol_function = [&](uint32_t pid, uint32_t tid, uint64_t ip, std::string& dso_name,
-                                 std::string& symbol_name, uint64_t& vaddr_in_file) {
+                                 std::string& symbol_name, uint64_t& vaddr_in_file,
+                                 bool in_kernel) {
     ThreadEntry* thread = thread_tree.FindThreadOrNew(pid, tid);
-    const MapEntry* map = thread_tree.FindMap(thread, ip);
+    const MapEntry* map = thread_tree.FindMap(thread, ip, in_kernel);
     Dso* dso;
     const Symbol* symbol = thread_tree.FindSymbol(map, ip, &vaddr_in_file, &dso);
     dso_name = dso->Path();
@@ -180,14 +181,21 @@ bool DumpRecordCommand::DumpDataSection() {
     thread_tree.Update(*r);
     if (r->type() == PERF_RECORD_SAMPLE) {
       SampleRecord& sr = *static_cast<SampleRecord*>(r.get());
+      bool in_kernel = sr.InKernel();
       if (sr.sample_type & PERF_SAMPLE_CALLCHAIN) {
         PrintIndented(1, "callchain:\n");
         for (size_t i = 0; i < sr.callchain_data.ip_nr; ++i) {
+          if (sr.callchain_data.ips[i] >= PERF_CONTEXT_MAX) {
+            if (sr.callchain_data.ips[i] == PERF_CONTEXT_USER) {
+              in_kernel = false;
+            }
+            continue;
+          }
           std::string dso_name;
           std::string symbol_name;
           uint64_t vaddr_in_file;
           get_symbol_function(sr.tid_data.pid, sr.tid_data.tid, sr.callchain_data.ips[i],
-                              dso_name, symbol_name, vaddr_in_file);
+                              dso_name, symbol_name, vaddr_in_file, in_kernel);
           PrintIndented(2, "%s (%s[+%" PRIx64 "])\n", symbol_name.c_str(), dso_name.c_str(),
                         vaddr_in_file);
         }
@@ -199,14 +207,15 @@ bool DumpRecordCommand::DumpDataSection() {
         std::string dso_name;
         std::string symbol_name;
         uint64_t vaddr_in_file;
-        get_symbol_function(cr.pid, cr.tid, cr.ips[i], dso_name, symbol_name, vaddr_in_file);
+        get_symbol_function(cr.pid, cr.tid, cr.ips[i], dso_name, symbol_name, vaddr_in_file,
+                            false);
         PrintIndented(2, "%s (%s[+%" PRIx64 "])\n", symbol_name.c_str(), dso_name.c_str(),
                       vaddr_in_file);
       }
     }
     return true;
   };
-  return record_file_reader_->ReadDataSection(record_callback, false);
+  return record_file_reader_->ReadDataSection(record_callback);
 }
 
 bool DumpRecordCommand::DumpFeatureSection() {
@@ -234,19 +243,28 @@ bool DumpRecordCommand::DumpFeatureSection() {
       std::string file_path;
       uint32_t file_type;
       uint64_t min_vaddr;
+      uint64_t file_offset_of_min_vaddr;
       std::vector<Symbol> symbols;
+      std::vector<uint64_t> dex_file_offsets;
       size_t read_pos = 0;
       PrintIndented(1, "file:\n");
-      while (record_file_reader_->ReadFileFeature(read_pos, &file_path,
-                                                  &file_type, &min_vaddr,
-                                                  &symbols)) {
+      while (record_file_reader_->ReadFileFeature(read_pos, &file_path, &file_type,
+                                                  &min_vaddr, &file_offset_of_min_vaddr,
+                                                  &symbols, &dex_file_offsets)) {
         PrintIndented(2, "file_path %s\n", file_path.c_str());
         PrintIndented(2, "file_type %s\n", DsoTypeToString(static_cast<DsoType>(file_type)));
         PrintIndented(2, "min_vaddr 0x%" PRIx64 "\n", min_vaddr);
+        PrintIndented(2, "file_offset_of_min_vaddr 0x%" PRIx64 "\n", file_offset_of_min_vaddr);
         PrintIndented(2, "symbols:\n");
         for (const auto& symbol : symbols) {
           PrintIndented(3, "%s [0x%" PRIx64 "-0x%" PRIx64 "]\n", symbol.DemangledName(),
                         symbol.addr, symbol.addr + symbol.len);
+        }
+        if (file_type == static_cast<uint32_t>(DSO_DEX_FILE)) {
+          PrintIndented(2, "dex_file_offsets:\n");
+          for (uint64_t offset : dex_file_offsets) {
+            PrintIndented(3, "0x%" PRIx64 "\n", offset);
+          }
         }
       }
     } else if (feature == FEAT_META_INFO) {

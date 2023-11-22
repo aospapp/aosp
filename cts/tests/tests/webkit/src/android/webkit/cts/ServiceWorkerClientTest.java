@@ -25,7 +25,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.webkit.cts.WebViewOnUiThread.WaitForLoadedClient;
+import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
@@ -129,7 +129,7 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
         super.setUp();
         WebView webview = getActivity().getWebView();
         if (webview == null) return;
-        mOnUiThread = new WebViewOnUiThread(this, webview);
+        mOnUiThread = new WebViewOnUiThread(webview);
         mOnUiThread.getSettings().setJavaScriptEnabled(true);
 
         mJavascriptStatusReceiver = new JavascriptStatusReceiver();
@@ -145,6 +145,12 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
         super.tearDown();
     }
 
+    /**
+     * This should remain functionally equivalent to
+     * androidx.webkit.ServiceWorkerClientCompatTest#testServiceWorkerClientInterceptCallback.
+     * Modifications to this test should be reflected in that test as necessary. See
+     * http://go/modifying-webview-cts.
+     */
     // Test correct invocation of shouldInterceptRequest for Service Workers.
     public void testServiceWorkerClientInterceptCallback() throws Exception {
         if (!NullWebViewUtils.isWebViewAvailable()) {

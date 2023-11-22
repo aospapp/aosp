@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"Адпраўка файла атрымальніку \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"Адпраўка файлаў (<xliff:g id="NUMBER">%1$s</xliff:g>) атрымальніку \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"Адпраўка файла атрымальніку \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" спыненая"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"Не хапае месца на USB-назапашвальнiку, каб захаваць файл ад адпраўнiка \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"На SD-карце недастаткова месца, каб захаваць файл ад адпраўніка \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"У USB-сховішчы не хапае месца, каб захаваць файл ад адпраўшчыка \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"На SD-карце не хапае месца, каб захаваць файл ад адпраўшчыка \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"Спатрэбіцца месца: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"Апрацоўваецца занадта шмат запытаў. Паспрабуйце пазней."</string>
     <string name="status_pending" msgid="2503691772030877944">"Перадача файла яшчэ не пачалася"</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"Перадача забаронена мэтавай прыладай."</string>
     <string name="status_canceled" msgid="6664490318773098285">"Перадача адменена карыстальнiкам."</string>
     <string name="status_file_error" msgid="3671917770630165299">"Праблема ўнутранага сховiшча"</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"Няма USB-назапашвальнiка."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"Няма SD-карты. Устаўце яе, каб захаваць перададзеныя  файлы."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"Няма USB-сховішча."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"Няма SD-карты. Устаўце яе, каб захаваць перададзеныя файлы."</string>
     <string name="status_connection_error" msgid="947681831523219891">"Няўдалая спроба падключэння."</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"Запыт не можа быць правільна апрацаваны"</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"Невядомая памылка."</string>
@@ -126,6 +126,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"Адкрыць"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"Выдаліць са спісу"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"Ачысціць"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Цяпер іграе"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"Захаваць"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"Скасаваць"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"Выберыце ўліковыя запісы, якія вы хочаце абагульваць па Bluetooth. Тым не менш, вам давядзецца асобна даваць кожны доступ пры падлучэнні."</string>

@@ -10,11 +10,11 @@ on late-fs
 
 on property:sys.boot_completed=1
     # end boot time fs tune
-    write /sys/block/sda/queue/read_ahead_kb 1024
+    write /sys/block/sda/queue/read_ahead_kb 128
     write /sys/block/sda/queue/nr_requests 128
     write /sys/block/sda/queue/iostats 1
-    write /sys/block/dm-0/queue/read_ahead_kb 512
-    write /sys/block/dm-1/queue/read_ahead_kb 512
+    write /sys/block/dm-0/queue/read_ahead_kb 128
+    write /sys/block/dm-1/queue/read_ahead_kb 128
 
 on property:sys.boot_completed=1 && property:ro.build.type=user
     write /proc/sys/kernel/modules_disabled 1
@@ -48,3 +48,28 @@ on property:persist.vendor.charge.stop.level=* && property:sys.all.modules.ready
 
 on property:persist.vendor.charge.start.level=* && property:sys.all.modules.ready=1
     write /sys/module/htc_battery/parameters/charge_start_level ${persist.vendor.charge.start.level}
+
+# Write the dark theme magic (`theme-dark`, or 0x7468656d652d6461726b in hex string) to /misc
+# partition. Offset 12360 (0x3048) in vendor space is effectively offset 14408 (0x3848) in /misc
+# partition.
+service vendor.darkboot /vendor/bin/misc_writer --vendor-space-offset 12360 --hex-string 0x7468656d652d6461726b
+    disabled
+    oneshot
+
+# Clear the 10-byte dark theme magic in /misc partition. Offset 0 in vendor space is effectively
+# offset 2048 in /misc partition.
+service vendor.darkboot_clear /vendor/bin/misc_writer --vendor-space-offset 12360 --hex-string 0x00000000000000000000
+    disabled
+    oneshot
+
+# Set the dark boot flag on dark mode (UiModeManager.MODE_NIGHT_YES == 2).
+on property:persist.sys.theme=2
+    start vendor.darkboot
+
+# Clear the dark theme flag on light mode (UiModeManager.MODE_NIGHT_NO == 1) or auto mode
+# (UiModeManager.MODE_NIGHT_AUTO == 0).
+on property:persist.sys.theme=1
+    start vendor.darkboot_clear
+
+on property:persist.sys.theme=0
+    start vendor.darkboot_clear

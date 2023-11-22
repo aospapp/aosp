@@ -20,18 +20,18 @@
     android:id="@+id/app_item"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:minHeight="@dimen/car_single_line_list_item_height"
-    android:background="@color/car_card"
+    android:background="?android:attr/selectableItemBackground"
+    android:minHeight="@*android:dimen/car_single_line_list_item_height"
     android:orientation="horizontal">
 
     <ImageView
         android:id="@+id/app_icon"
-        android:layout_width="@dimen/car_primary_icon_size"
-        android:layout_height="@dimen/car_primary_icon_size"
+        android:layout_width="@dimen/icon_size"
+        android:layout_height="@dimen/icon_size"
         android:layout_alignParentStart="true"
         android:layout_centerVertical="true"
-        android:layout_marginStart="@dimen/car_keyline_1"
-        android:layout_marginEnd="@dimen/car_keyline_1" />
+        android:layout_marginStart="@dimen/search_bar_margin"
+        android:layout_marginEnd="@dimen/search_bar_margin" />
 
     <TextView
         android:id="@+id/app_name"
@@ -39,9 +39,9 @@
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
         android:layout_centerVertical="true"
-        android:layout_marginStart="@dimen/car_keyline_3"
-        android:layout_marginEnd="@dimen/car_keyline_3"
-        android:textAppearance="@style/TextAppearance.Car.Body1"
+        android:layout_marginStart="@dimen/search_result_text_margin"
+        android:layout_marginEnd="@dimen/search_result_text_margin"
+        android:textAppearance="?android:attr/textAppearanceLarge"
         android:ellipsize="end"
         android:maxLines="1" />
 </RelativeLayout>

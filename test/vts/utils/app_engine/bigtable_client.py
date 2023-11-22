@@ -1,4 +1,3 @@
-
 # Copyright 2016 Google Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -53,7 +52,8 @@ class BigTableClient(object):
             self._client.start()
         self._client_instance = self._client.instance(instance_id)
         if self._table_instance is None:
-            self._table_instance = self._client_instance.table(self._table_name)
+            self._table_instance = self._client_instance.table(
+                self._table_name)
 
     def StopClient(self):
         """Stop client to close all the open gRPC clients."""
@@ -88,14 +88,14 @@ class BigTableClient(object):
         """
 
         # Start writing rows
-        logging.debug('Writing to the table : %s, column : %s', self._table_name,
-                      column_id)
+        logging.debug('Writing to the table : %s, column : %s',
+                      self._table_name, column_id)
         for value in messages:
             row_key = str(self._end_index)
             self._end_index = self._end_index + 1
             row = self._table_instance.row(row_key)
-            row.set_cell(self._column_family_id, column_id.encode('utf-8'),
-                         value.encode('utf-8'))
+            row.set_cell(self._column_family_id,
+                         column_id.encode('utf-8'), value.encode('utf-8'))
             row.commit()
         # End writing rows
 
@@ -109,7 +109,7 @@ class BigTableClient(object):
         if self._end_index < self._start_index:
             return
 
-        logging.info('Getting a single row by row key.')
+        logging.debug('Getting a single row by row key.')
         key = str(self._start_index)
         row_cond = self._table_instance.row(key)
         top_row = row_cond

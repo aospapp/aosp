@@ -484,28 +484,16 @@ public abstract class AbstractZipFileTest extends TestCaseWithRules {
     }
 
     /**
-     * RI does not allow reading of an empty zip using a {@link ZipFile}.
+     * RI does allow reading of an empty zip using a {@link ZipFile}.
      */
-    public void testConstructorFailsWhenReadingEmptyZipArchive() throws IOException {
+    public void testConstructorWorksWhenReadingEmptyZipArchive() throws IOException {
 
         File resources = Support_Resources.createTempFolder();
         File emptyZip = Support_Resources.copyFile(
                 resources, "java/util/zip", "EmptyArchive.zip");
 
-        try {
-            // The following should fail with an exception but if it doesn't then we need to clean
-            // up the resource so we need a reference to it.
-            ZipFile zipFile = new ZipFile(emptyZip);
-
-            // Clean up the resource.
-            try {
-                zipFile.close();
-            } catch (Exception e) {
-                // Ignore
-            }
-            fail();
-        } catch (ZipException expected) {
-            // expected
+        try (ZipFile zipFile = new ZipFile(emptyZip)) {
+            assertEquals(0, zipFile.size());
         }
     }
 
@@ -632,5 +620,20 @@ public abstract class AbstractZipFileTest extends TestCaseWithRules {
 
         is.close();
         zipFile.close();
+    }
+
+    public void testReadTruncatedZipFile() throws IOException {
+        final File f = createTemporaryZipFile();
+        try (FileOutputStream fos = new FileOutputStream(f)) {
+            // Byte representation of lower 4 bytes of ZipConstants.LOCSIG in little endian order.
+            byte[] bytes = new byte[] {0x50, 0x4b, 0x03, 0x04};
+            fos.write(bytes);
+        }
+
+        try (ZipFile zipFile = new ZipFile(f)) {
+            fail("Should not be possible to open the ZipFile as it is too short");
+        } catch (ZipException e) {
+            // expected
+        }
     }
 }

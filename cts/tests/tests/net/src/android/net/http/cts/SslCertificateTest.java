@@ -230,6 +230,19 @@ public class SslCertificateTest extends TestCase {
         final String EXPECTED = "Issued to: c=ccc,o=testOName,ou=testUName,cn=testCName;\n"
             + "Issued by: e=aeei,c=adb,o=testOName,ou=testUName,cn=testCName;\n";
         assertEquals(EXPECTED, ssl.toString());
+        assertNull(ssl.getX509Certificate());
     }
 
+    public void testGetX509Certificate() {
+        final String TO = "c=ccc,o=testOName,ou=testUName,cn=testCName";
+        final String BY = "e=aeei,c=adb,o=testOName,ou=testUName,cn=testCName";
+        Date validNotBefore = new Date(System.currentTimeMillis() - 1000);
+        Date validNotAfter = new Date(System.currentTimeMillis());
+        SslCertificate ssl = new SslCertificate(TO, BY, validNotBefore, validNotAfter);
+        assertNull(ssl.getX509Certificate());
+
+        X509Certificate cert = new MockX509Certificate();
+        ssl = new SslCertificate(cert);
+        assertSame(cert, ssl.getX509Certificate());
+    }
 }

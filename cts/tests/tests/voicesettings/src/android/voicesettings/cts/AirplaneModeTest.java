@@ -40,6 +40,7 @@ public class AirplaneModeTest extends BroadcastTestBase {
         super.setUp();
         mContext = getInstrumentation().getTargetContext();
         mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
+        Log.v(TAG, "setUp(): mHasFeature=" + mHasFeature);
     }
 
     public AirplaneModeTest() {
@@ -84,6 +85,7 @@ public class AirplaneModeTest extends BroadcastTestBase {
             }
             runTest(BroadcastUtils.TestcaseType.AIRPLANE_MODE_ON, AIRPLANE_MODE_IS_ON);
         }
+        Log.i(TAG, "All done!");
     }
 
     private boolean runTest(BroadcastUtils.TestcaseType test, int expectedMode) throws Exception {

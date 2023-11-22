@@ -30,13 +30,11 @@
 #include "netdutils/StatusOr.h"
 #include "netdutils/Syscalls.h"
 
+using testing::_;
 using testing::ByMove;
-using testing::DoAll;
 using testing::Invoke;
-using testing::Mock;
 using testing::Return;
 using testing::StrictMock;
-using testing::_;
 
 namespace android {
 namespace netdutils {
@@ -62,6 +60,7 @@ TEST_F(SyscallsTest, open) {
     constexpr mode_t kMode = 37373;
     const auto& sys = sSyscalls.get();
     EXPECT_CALL(mSyscalls, open(kPath, kFlags, kMode)).WillOnce(Return(ByMove(UniqueFd(kFd))));
+    EXPECT_CALL(mSyscalls, close(kFd)).WillOnce(Return(status::ok));
     auto result = sys.open(kPath, kFlags, kMode);
     EXPECT_EQ(status::ok, result.status());
     EXPECT_EQ(kFd, result.value());
@@ -187,11 +186,12 @@ TEST_F(SyscallsTest, recvfrom) {
 
     // Success
     EXPECT_CALL(mSyscalls, recvfrom(kFd, dst, kFlags, _, _))
-        .WillOnce(Invoke([expected, used](Fd, const Slice, int, sockaddr* src, socklen_t* srclen) {
-            memcpy(src, &expected, sizeof(src));
-            *srclen = sizeof(expected);
-            return used;
-        }));
+            .WillOnce(Invoke(
+                    [expected, used](Fd, const Slice, int, sockaddr* src, socklen_t* srclen) {
+                        *srclen = sizeof(expected);
+                        memcpy(src, &expected, *srclen);
+                        return used;
+                    }));
     auto result = sys.recvfrom<sockaddr_nl>(kFd, dst, kFlags);
     EXPECT_EQ(status::ok, result.status());
     EXPECT_EQ(used, result.value().first);

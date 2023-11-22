@@ -15,20 +15,20 @@
 -->
 buildscript {
     repositories {
-        jcenter()
         google()
+        jcenter()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.0.1'
+        classpath 'com.android.tools.build:gradle:3.3.2'
     }
 }
 
 apply plugin: 'com.android.application'
 
 repositories {
-    jcenter()
     google()
+    jcenter()
 <#if sample.repository?has_content>
 <#list sample.repository as rep>
     ${rep}
@@ -37,35 +37,54 @@ repositories {
 }
 
 dependencies {
-<#if !sample.auto_add_support_lib?has_content || sample.auto_add_support_lib == "true">
-  <#if sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 7>
-    compile "com.android.support:support-v4:27.1.0"
-    compile "com.android.support:appcompat-v7:27.1.0"
-  <#elseif sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 13>
-    compile "com.android.support:support-v4:27.1.0"
-    compile "com.android.support:gridlayout-v7:27.1.0"
-    compile "com.android.support:cardview-v7:27.1.0"
-    compile "com.android.support:appcompat-v7:27.1.0"
-  <#else>
-    compile "com.android.support:support-v4:27.1.0"
-    compile "com.android.support:support-v13:27.1.0"
-    compile "com.android.support:cardview-v7:27.1.0"
-    compile "com.android.support:appcompat-v7:27.1.0"
+
+  <#-- TODO (jewalker): Revise once androidX is released to production. -->
+  <#if !sample.androidX?? || !sample.androidX?has_content || sample.androidX == "false">
+
+    <#if !sample.auto_add_support_lib?has_content || sample.auto_add_support_lib == "true">
+      <#if sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 7>
+        implementation "com.android.support:support-v4:28.0.0"
+        implementation "com.android.support:appcompat-v7:28.0.0"
+      <#elseif sample.minSdk?matches(r'^\d+$') && sample.minSdk?number < 13>
+        implementation "com.android.support:support-v4:28.0.0"
+        implementation "com.android.support:gridlayout-v7:28.0.0"
+        implementation "com.android.support:cardview-v7:28.0.0"
+        implementation "com.android.support:appcompat-v7:28.0.0"
+      <#else>
+        implementation "com.android.support:support-v4:28.0.0"
+        implementation "com.android.support:support-v13:28.0.0"
+        implementation "com.android.support:cardview-v7:28.0.0"
+        implementation "com.android.support:appcompat-v7:28.0.0"
+      </#if>
+    </#if>
+
   </#if>
-</#if>
+
 <#list sample.dependency as dep>
     <#-- Output dependency after checking if it is a play services depdency and
     needs the latest version number attached. -->
     <@update_play_services_dependency dep="${dep}" />
 </#list>
+
 <#list sample.dependency_external as dep>
-    compile files(${dep})
+    implementation files(${dep})
 </#list>
+
+<#list sample.annotationProcessor as ap>
+    annotationProcessor "${ap}"
+</#list>
+
 <#if sample.wearable.has_handheld_app?has_content && sample.wearable.has_handheld_app?lower_case == "true">
-    compile ${play_services_wearable_dependency}
-    compile ${android_support_v13_dependency}
+    implementation ${play_services_wearable_dependency}
+
+  <#-- TODO (jewalker): Revise once androidX is released to production. -->
+  <#if !sample.androidX?? || !sample.androidX?has_content || sample.androidX == "false">
+    implementation ${android_support_v13_dependency}
+  </#if>
+
     wearApp project(':Wearable')
 </#if>
+
 }
 
 // The sample build uses multiple directories to
@@ -85,8 +104,6 @@ android {
     compileSdkVersion ${compile_sdk}
   </#if>
 
-    buildToolsVersion ${build_tools_version}
-
     defaultConfig {
         minSdkVersion ${min_sdk}
       <#if sample.targetSdkVersion?? && sample.targetSdkVersion?has_content>
@@ -94,6 +111,9 @@ android {
       <#else>
         targetSdkVersion ${compile_sdk}
       </#if>
+<#if sample.defaultConfig?has_content>
+        ${sample.defaultConfig}
+<#else>
     }
 
     compileOptions {
@@ -113,11 +133,6 @@ android {
         androidTest.setRoot('tests')
         androidTest.java.srcDirs = ['tests/src']
 
-<#if sample.defaultConfig?has_content>
-        defaultConfig {
-        ${sample.defaultConfig}
-        }
-<#else>
 </#if>
     }
 

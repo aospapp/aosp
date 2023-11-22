@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+#include <chrono>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <errno.h>
 #include <string.h>
+#include <mutex>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -28,16 +30,14 @@
 
 #define LOG_TAG "Netd"
 
-#include "cutils/log.h"
-#include "utils/RWLock.h"
+#include "log/log.h"
 
+#include <android-base/properties.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
-#include <binder/ProcessState.h>
+#include <netdutils/Stopwatch.h>
 
-#include "CommandListener.h"
 #include "Controllers.h"
-#include "DnsProxyListener.h"
 #include "FwmarkServer.h"
 #include "MDnsSdListener.h"
 #include "NFLogListener.h"
@@ -45,48 +45,76 @@
 #include "NetdHwService.h"
 #include "NetdNativeService.h"
 #include "NetlinkManager.h"
-#include "Stopwatch.h"
+#include "Process.h"
 
-using android::status_t;
-using android::sp;
+#include "netd_resolv/resolv.h"
+#include "netd_resolv/resolv_stub.h"
+
 using android::IPCThreadState;
-using android::ProcessState;
-using android::defaultServiceManager;
-using android::net::CommandListener;
-using android::net::DnsProxyListener;
+using android::status_t;
+using android::String16;
 using android::net::FwmarkServer;
+using android::net::gCtls;
+using android::net::gLog;
+using android::net::makeNFLogListener;
 using android::net::NetdHwService;
 using android::net::NetdNativeService;
 using android::net::NetlinkManager;
 using android::net::NFLogListener;
-using android::net::makeNFLogListener;
-
-static void remove_pid_file();
-static bool write_pid_file();
+using android::netdutils::Stopwatch;
 
 const char* const PID_FILE_PATH = "/data/misc/net/netd_pid";
-const int PID_FILE_FLAGS = O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW | O_CLOEXEC;
-const mode_t PID_FILE_MODE = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;  // mode 0644, rw-r--r--
+constexpr const char DNSPROXYLISTENER_SOCKET_NAME[] = "dnsproxyd";
 
-android::RWLock android::net::gBigNetdLock;
+std::mutex android::net::gBigNetdLock;
+
+namespace {
+
+void getNetworkContextCallback(uint32_t netId, uint32_t uid, android_net_context* netcontext) {
+    gCtls->netCtrl.getNetworkContext(netId, uid, netcontext);
+}
+
+bool checkCallingPermissionCallback(const char* permission) {
+    return checkCallingPermission(String16(permission));
+}
+
+void logCallback(const char* msg) {
+    gLog.info(std::string(msg));
+}
+
+bool initDnsResolver() {
+    ResolverNetdCallbacks callbacks = {
+            .get_network_context = &getNetworkContextCallback,
+            .log = &logCallback,
+            .check_calling_permission = &checkCallingPermissionCallback,
+    };
+    return RESOLV_STUB.resolv_init(callbacks);
+}
+
+}  // namespace
 
 int main() {
-    using android::net::gCtls;
     Stopwatch s;
+    gLog.info("netd 1.0 starting");
 
-    ALOGI("Netd 1.0 starting");
-    remove_pid_file();
-
-    blockSigpipe();
+    android::net::process::removePidFile(PID_FILE_PATH);
+    android::net::process::blockSigPipe();
 
     // Before we do anything that could fork, mark CLOEXEC the UNIX sockets that we get from init.
     // FrameworkListener does this on initialization as well, but we only initialize these
     // components after having initialized other subsystems that can fork.
-    for (const auto& sock : { CommandListener::SOCKET_NAME,
-                              DnsProxyListener::SOCKET_NAME,
-                              FwmarkServer::SOCKET_NAME,
-                              MDnsSdListener::SOCKET_NAME }) {
+    for (const auto& sock :
+         {DNSPROXYLISTENER_SOCKET_NAME, FwmarkServer::SOCKET_NAME, MDnsSdListener::SOCKET_NAME}) {
         setCloseOnExec(sock);
+    }
+
+    // Before we start any threads, populate the resolver stub pointers.
+    resolv_stub_init();
+
+    // Make sure BPF programs are loaded before doing anything
+    while (!android::base::WaitForProperty("bpf.progs_loaded", "1",
+           std::chrono::seconds(5))) {
+        ALOGD("netd waited 5s for bpf.progs_loaded, still waiting...");
     }
 
     NetlinkManager *nm = NetlinkManager::Instance();
@@ -97,9 +125,6 @@ int main() {
 
     gCtls = new android::net::Controllers();
     gCtls->init();
-
-    CommandListener cl;
-    nm->setBroadcaster((SocketListener *) &cl);
 
     if (nm->start()) {
         ALOGE("Unable to start NetlinkManager (%s)", strerror(errno));
@@ -116,17 +141,19 @@ int main() {
         logListener = std::move(result.value());
         auto status = gCtls->wakeupCtrl.init(logListener.get());
         if (!isOk(result)) {
-            ALOGE("Unable to init WakeupController: %s", toString(result).c_str());
+            gLog.error("Unable to init WakeupController: %s", toString(result).c_str());
             // We can still continue without wakeup packet logging.
         }
     }
 
     // Set local DNS mode, to prevent bionic from proxying
     // back to this service, recursively.
+    // TODO: Check if we could remove it since resolver cache no loger
+    // checks this environment variable after aosp/838050.
     setenv("ANDROID_DNS_MODE", "local", 1);
-    DnsProxyListener dpl(&gCtls->netCtrl, &gCtls->eventReporter);
-    if (dpl.startListener()) {
-        ALOGE("Unable to start DnsProxyListener (%s)", strerror(errno));
+    // Note that only call initDnsResolver after gCtls initializing.
+    if (!initDnsResolver()) {
+        ALOGE("Unable to init resolver");
         exit(1);
     }
 
@@ -148,19 +175,9 @@ int main() {
         ALOGE("Unable to start NetdNativeService: %d", ret);
         exit(1);
     }
-    ALOGI("Registering NetdNativeService: %.1fms", subTime.getTimeAndReset());
+    gLog.info("Registering NetdNativeService: %.1fms", subTime.getTimeAndReset());
 
-    /*
-     * Now that we're up, we can respond to commands. Starting the listener also tells
-     * NetworkManagementService that we are up and that our binder interface is ready.
-     */
-    if (cl.startListener()) {
-        ALOGE("Unable to start CommandListener (%s)", strerror(errno));
-        exit(1);
-    }
-    ALOGI("Starting CommandListener: %.1fms", subTime.getTimeAndReset());
-
-    write_pid_file();
+    android::net::process::ScopedPidFile pidFile(PID_FILE_PATH);
 
     // Now that netd is ready to process commands, advertise service
     // availability for HAL clients.
@@ -169,47 +186,13 @@ int main() {
         ALOGE("Unable to start NetdHwService: %d", ret);
         exit(1);
     }
-    ALOGI("Registering NetdHwService: %.1fms", subTime.getTimeAndReset());
+    gLog.info("Registering NetdHwService: %.1fms", subTime.getTimeAndReset());
 
-    ALOGI("Netd started in %dms", static_cast<int>(s.timeTaken()));
+    gLog.info("Netd started in %dms", static_cast<int>(s.timeTaken()));
 
     IPCThreadState::self()->joinThreadPool();
 
-    ALOGI("Netd exiting");
-
-    remove_pid_file();
+    gLog.info("netd exiting");
 
     exit(0);
-}
-
-static bool write_pid_file() {
-    char pid_buf[INT32_STRLEN];
-    snprintf(pid_buf, sizeof(pid_buf), "%d\n", (int) getpid());
-
-    int fd = open(PID_FILE_PATH, PID_FILE_FLAGS, PID_FILE_MODE);
-    if (fd == -1) {
-        ALOGE("Unable to create pid file (%s)", strerror(errno));
-        return false;
-    }
-
-    // File creation is affected by umask, so make sure the right mode bits are set.
-    if (fchmod(fd, PID_FILE_MODE) == -1) {
-        ALOGE("failed to set mode 0%o on %s (%s)", PID_FILE_MODE, PID_FILE_PATH, strerror(errno));
-        close(fd);
-        remove_pid_file();
-        return false;
-    }
-
-    if (write(fd, pid_buf, strlen(pid_buf)) != (ssize_t)strlen(pid_buf)) {
-        ALOGE("Unable to write to pid file (%s)", strerror(errno));
-        close(fd);
-        remove_pid_file();
-        return false;
-    }
-    close(fd);
-    return true;
-}
-
-static void remove_pid_file() {
-    unlink(PID_FILE_PATH);
 }

@@ -17,8 +17,9 @@ package com.android.server.cts.storaged;
 
 import android.content.Context;
 import android.content.Intent;
-import android.support.test.runner.AndroidJUnit4;
-import android.support.test.InstrumentationRegistry;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Before;
 import org.junit.Test;

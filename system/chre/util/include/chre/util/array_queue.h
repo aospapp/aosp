@@ -110,6 +110,16 @@ class ArrayQueue : public NonCopyable {
   bool push(ElementType&& element);
 
   /**
+   * Pushes an element onto the back of the array queue via copy or move
+   * construction. If the array queue is full the front element is removed
+   * to make room for the new element.
+   *
+   * @param element The element to push onto the array queue.
+   */
+  void kick_push(const ElementType& element);
+  void kick_push(ElementType&& element);
+
+  /**
    * Removes the front element from the array queue if the array queue is not
    * empty. Only iterators and references to the front of the queue are
    * invalidated.
@@ -144,6 +154,11 @@ class ArrayQueue : public NonCopyable {
    */
   template<typename... Args>
   bool emplace(Args&&... args);
+
+  /**
+   * Removes all the elements of the queue.
+   */
+  void clear();
 
   /**
    * A template class that implements a forward iterator for the array queue.

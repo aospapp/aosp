@@ -31,8 +31,8 @@ import com.android.tv.tuner.exoplayer.audio.MpegTsDefaultAudioTrackRenderer;
 import com.android.tv.tuner.exoplayer.audio.MpegTsMediaCodecAudioTrackRenderer;
 import com.android.tv.tuner.source.TsDataSource;
 import com.android.tv.tuner.source.TsDataSourceManager;
-import com.android.tv.tuner.tvinput.EventDetector;
-import com.android.tv.tuner.tvinput.TunerDebug;
+import com.android.tv.tuner.ts.EventDetector.EventListener;
+import com.android.tv.tuner.tvinput.debug.TunerDebug;
 import com.google.android.exoplayer.DummyTrackRenderer;
 import com.google.android.exoplayer.ExoPlaybackException;
 import com.google.android.exoplayer.ExoPlayer;
@@ -58,10 +58,7 @@ public class MpegTsPlayer
     /** Interface definition for building specific track renderers. */
     public interface RendererBuilder {
         void buildRenderers(
-                MpegTsPlayer mpegTsPlayer,
-                DataSource dataSource,
-                boolean hasSoftwareAudioDecoder,
-                RendererBuilderCallback callback);
+                MpegTsPlayer mpegTsPlayer, DataSource dataSource, RendererBuilderCallback callback);
     }
 
     /** Interface definition for {@link RendererBuilder#buildRenderers} to notify the result. */
@@ -229,7 +226,7 @@ public class MpegTsPlayer
             Context context,
             TunerChannel channel,
             boolean hasSoftwareAudioDecoder,
-            EventDetector.EventListener eventListener) {
+            EventListener eventListener) {
         TsDataSource source = null;
         if (channel != null) {
             source = mSourceManager.createDataSource(context, channel, eventListener);
@@ -246,7 +243,7 @@ public class MpegTsPlayer
         }
         mRendererBuildingState = RENDERER_BUILDING_STATE_BUILDING;
         mBuilderCallback = new InternalRendererBuilderCallback();
-        mRendererBuilder.buildRenderers(this, source, hasSoftwareAudioDecoder, mBuilderCallback);
+        mRendererBuilder.buildRenderers(this, source, mBuilderCallback);
         return true;
     }
 

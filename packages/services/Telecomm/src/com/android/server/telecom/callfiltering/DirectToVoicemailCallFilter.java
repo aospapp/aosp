@@ -17,6 +17,7 @@
 package com.android.server.telecom.callfiltering;
 
 import android.net.Uri;
+import android.provider.CallLog;
 import android.telecom.Log;
 
 import com.android.internal.telephony.CallerInfo;
@@ -49,7 +50,11 @@ public class DirectToVoicemailCallFilter implements IncomingCallFilter.CallFilte
                                         false, // shouldAllowCall
                                         true, // shouldReject
                                         true, // shouldAddToCallLog
-                                        true // shouldShowNotification
+                                        true, // shouldShowNotification
+                                        CallLog.Calls.BLOCK_REASON_DIRECT_TO_VOICEMAIL,
+                                        //callBlockReason
+                                        null, //callScreeningAppName
+                                        null // callScreeningComponentName
                                 );
                             } else {
                                 result = new CallFilteringResult(

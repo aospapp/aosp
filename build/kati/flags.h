@@ -32,6 +32,7 @@ struct Flags {
   bool enable_stat_logs;
   bool gen_all_targets;
   bool generate_ninja;
+  bool generate_empty_ninja;
   bool is_dry_run;
   bool is_silent_mode;
   bool is_syntax_check_only;
@@ -40,8 +41,20 @@ struct Flags {
   bool regen_ignoring_kati_binary;
   bool use_find_emulator;
   bool color_warnings;
+  bool no_builtin_rules;
+  bool no_ninja_prelude;
   bool werror_find_emulator;
   bool werror_overriding_commands;
+  bool warn_implicit_rules;
+  bool werror_implicit_rules;
+  bool warn_suffix_rules;
+  bool werror_suffix_rules;
+  bool top_level_phony;
+  bool warn_real_to_phony;
+  bool werror_real_to_phony;
+  bool warn_phony_looks_real;
+  bool werror_phony_looks_real;
+  bool werror_writable;
   const char* goma_dir;
   const char* ignore_dirty_pattern;
   const char* no_ignore_dirty_pattern;
@@ -55,6 +68,7 @@ struct Flags {
   vector<const char*> subkati_args;
   vector<Symbol> targets;
   vector<StringPiece> cl_vars;
+  vector<string> writable;
 
   void Parse(int argc, char** argv);
 };

@@ -39,6 +39,7 @@ import com.android.tv.ui.sidepanel.RadioButtonItem;
 import com.android.tv.ui.sidepanel.SideFragment;
 import com.android.tv.util.TvSettings;
 import com.android.tv.util.TvSettings.ContentRatingLevel;
+import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -167,7 +168,7 @@ public class RatingsFragment extends SideFragment {
                             super.onUpdate();
                             setChecked(
                                     mParentalControlSettings.isRatingBlocked(
-                                            new TvContentRating[] {TvContentRating.UNRATED}));
+                                            ImmutableList.of(TvContentRating.UNRATED)));
                         }
 
                         @Override
@@ -239,7 +240,7 @@ public class RatingsFragment extends SideFragment {
                 // set checked if UNRATED is blocked, and set unchecked otherwise.
                 mBlockUnratedItem.setChecked(
                         mParentalControlSettings.isRatingBlocked(
-                                new TvContentRating[] {TvContentRating.UNRATED}));
+                                ImmutableList.of(TvContentRating.UNRATED)));
             }
             notifyItemsChanged(mRatingLevelItems.size());
         }

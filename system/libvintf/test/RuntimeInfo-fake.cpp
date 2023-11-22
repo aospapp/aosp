@@ -27,15 +27,15 @@ status_t MockRuntimeInfo::doFetch(RuntimeInfo::FetchFlags) {
     mOsName = "Linux";
     mNodeName = "localhost";
     mOsRelease = "3.18.31-g936f9a479d0f";
-    mKernelVersion = {3, 18, 31};
     mOsVersion = "#4 SMP PREEMPT Wed Feb 1 18:10:52 PST 2017";
     mHardwareId = "aarch64";
     mKernelSepolicyVersion = 30;
-    mKernelConfigs = {{"CONFIG_64BIT", "y"},
-                      {"CONFIG_ANDROID_BINDER_DEVICES", "\"binder,hwbinder\""},
-                      {"CONFIG_ARCH_MMAP_RND_BITS", "24"},
-                      {"CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES", "\"\""},
-                      {"CONFIG_ILLEGAL_POINTER_VALUE", "0xdead000000000000"}};
+    mKernel.mVersion = {3, 18, 31};
+    mKernel.mConfigs = {{"CONFIG_64BIT", "y"},
+                        {"CONFIG_ANDROID_BINDER_DEVICES", "\"binder,hwbinder\""},
+                        {"CONFIG_ARCH_MMAP_RND_BITS", "24"},
+                        {"CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES", "\"\""},
+                        {"CONFIG_ILLEGAL_POINTER_VALUE", "0xdead000000000000"}};
 
     return OK;
 }

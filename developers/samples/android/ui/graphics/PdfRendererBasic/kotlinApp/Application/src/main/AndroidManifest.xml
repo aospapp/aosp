@@ -14,23 +14,26 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.example.android.pdfrendererbasic">
 
-    <application android:allowBackup="false"
-        android:label="@string/app_name"
+    <application
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
-        android:theme="@style/Theme.PdfRendererBasic">
+        android:label="@string/app_name"
+        android:theme="@style/Theme.PdfRendererBasic"
+        tools:ignore="GoogleAppIndexingWarning">
 
-        <activity android:name=".MainActivity"
-                  android:label="@string/app_name">
+        <activity
+            android:name=".MainActivity"
+            android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
     </application>
-
 
 </manifest>

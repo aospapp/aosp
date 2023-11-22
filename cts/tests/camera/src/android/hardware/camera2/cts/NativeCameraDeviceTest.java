@@ -18,15 +18,18 @@ package android.hardware.camera2.cts;
 
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
-import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 
+import org.junit.Test;
+
+import static org.junit.Assert.assertTrue;
+
+
 /**
  * <p>Basic test for CameraManager class.</p>
  */
-@AppModeFull
 public class NativeCameraDeviceTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "NativeCameraDeviceTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -38,16 +41,19 @@ public class NativeCameraDeviceTest extends Camera2SurfaceViewTestCase {
         Log.i("NativeCameraDeviceTest", "after loadlibrary");
     }
 
+    @Test
     public void testCameraDeviceOpenAndClose() {
         assertTrue("testCameraDeviceOpenAndClose fail, see log for details",
                 testCameraDeviceOpenAndCloseNative());
     }
 
+    @Test
     public void testCameraDeviceCreateCaptureRequest() {
         assertTrue("testCameraDeviceCreateCaptureRequest fail, see log for details",
                 testCameraDeviceCreateCaptureRequestNative());
     }
 
+    @Test
     public void testCameraDeviceSessionOpenAndClose() {
         // Init preview surface to a guaranteed working size
         updatePreviewSurface(new Size(640, 480));
@@ -55,6 +61,7 @@ public class NativeCameraDeviceTest extends Camera2SurfaceViewTestCase {
                 testCameraDeviceSessionOpenAndCloseNative(mPreviewSurface));
     }
 
+    @Test
     public void testCameraDeviceSimplePreview() {
         // Init preview surface to a guaranteed working size
         updatePreviewSurface(new Size(640, 480));
@@ -62,13 +69,15 @@ public class NativeCameraDeviceTest extends Camera2SurfaceViewTestCase {
                 testCameraDeviceSimplePreviewNative(mPreviewSurface));
     }
 
+    @Test
     public void testCameraDevicePreviewWithSessionParameters() {
         // Init preview surface to a guaranteed working size
         updatePreviewSurface(new Size(640, 480));
-        assertTrue("testCameraDevicePreviewWithSessionParametersNative fail, see log for details",
+        assertTrue("testCameraDevicePreviewWithSessionParameters fail, see log for details",
                 testCameraDevicePreviewWithSessionParametersNative(mPreviewSurface));
     }
 
+    @Test
     public void testCameraDeviceSharedOutputUpdate() {
         // Init preview surface to a guaranteed working size
         Size previewSize = new Size(640, 480);
@@ -76,8 +85,38 @@ public class NativeCameraDeviceTest extends Camera2SurfaceViewTestCase {
         SurfaceTexture outputTexture = new SurfaceTexture(/* random texture ID*/ 5);
         outputTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
         Surface outputSurface = new Surface(outputTexture);
-        assertTrue("testCameraDeviceSharedWindowAddRemove fail, see log for details",
+        assertTrue("testCameraDeviceSharedOutputUpdate fail, see log for details",
                 testCameraDeviceSharedOutputUpdate(mPreviewSurface, outputSurface));
+    }
+
+    @Test
+    public void testCameraDeviceLogicalPhysicalStreaming() {
+        // Init preview surface to a guaranteed working size
+        Size previewSize = new Size(640, 480);
+        updatePreviewSurface(previewSize);
+        SurfaceTexture outputTexture = new SurfaceTexture(/* random texture ID*/ 5);
+        outputTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+        Surface outputSurface = new Surface(outputTexture);
+        assertTrue("testCameraDeviceLogicalPhysicalStreaming fail, see log for details",
+                testCameraDeviceLogicalPhysicalStreamingNative(mPreviewSurface));
+    }
+
+    @Test
+    public void testCameraDeviceLogicalPhysicalSettings() {
+        // Init preview surface to a guaranteed working size
+        Size previewSize = new Size(640, 480);
+        updatePreviewSurface(previewSize);
+        SurfaceTexture outputTexture = new SurfaceTexture(/* random texture ID*/ 5);
+        outputTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());
+        Surface outputSurface = new Surface(outputTexture);
+        assertTrue("testCameraDeviceLogicalPhysicalSettings fail, see log for details",
+                testCameraDeviceLogicalPhysicalSettingsNative(mPreviewSurface));
+    }
+
+    @Test
+    public void testCameraDeviceCaptureFailure() {
+        assertTrue("testCameraDeviceCaptureFailure fail, see log for details",
+                testCameraDeviceCaptureFailureNative());
     }
 
     private static native boolean testCameraDeviceOpenAndCloseNative();
@@ -87,4 +126,8 @@ public class NativeCameraDeviceTest extends Camera2SurfaceViewTestCase {
     private static native boolean testCameraDevicePreviewWithSessionParametersNative(
             Surface preview);
     private static native boolean testCameraDeviceSharedOutputUpdate(Surface src, Surface dst);
+    private static native boolean testCameraDeviceLogicalPhysicalStreamingNative(Surface preview);
+    private static native boolean testCameraDeviceLogicalPhysicalSettingsNative(Surface preview);
+    private static native boolean testCameraDeviceCaptureFailureNative();
+
 }

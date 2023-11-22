@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.cts.dexmetadata;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -24,9 +25,8 @@ import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.FileUtil;
-
-import java.io.ByteArrayOutputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -37,7 +37,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Before;
@@ -56,15 +55,25 @@ public class InstallDexMetadataHostTest extends BaseHostJUnit4Test {
 
     private static final String APK_BASE = "CtsDexMetadataSplitApp.apk";
     private static final String APK_FEATURE_A = "CtsDexMetadataSplitAppFeatureA.apk";
+    private static final String APK_BASE_WITH_VDEX = "CtsDexMetadataSplitAppWithVdex.apk";
+    private static final String APK_FEATURE_A_WITH_VDEX
+            = "CtsDexMetadataSplitAppFeatureAWithVdex.apk";
 
     private static final String DM_BASE = "CtsDexMetadataSplitApp.dm";
     private static final String DM_FEATURE_A = "CtsDexMetadataSplitAppFeatureA.dm";
+    private static final String DM_BASE_WITH_VDEX = "CtsDexMetadataSplitAppWithVdex.dm";
+    private static final String DM_FEATURE_A_WITH_VDEX
+    = "CtsDexMetadataSplitAppFeatureAWithVdex.dm";
 
     private File mTmpDir;
     private File mApkBaseFile = null;
     private File mApkFeatureAFile = null;
+    private File mApkBaseFileWithVdex = null;
+    private File mApkFeatureAFileWithVdex = null;
     private File mDmBaseFile = null;
     private File mDmFeatureAFile = null;
+    private File mDmBaseFileWithVdex = null;
+    private File mDmFeatureAFileWithVdex = null;
     private boolean mShouldRunTests;
 
     /**
@@ -83,8 +92,12 @@ public class InstallDexMetadataHostTest extends BaseHostJUnit4Test {
             mTmpDir = FileUtil.createTempDir("InstallDexMetadataHostTest");
             mApkBaseFile = extractResource(APK_BASE, mTmpDir);
             mApkFeatureAFile = extractResource(APK_FEATURE_A, mTmpDir);
+            mApkBaseFileWithVdex = extractResource(APK_BASE_WITH_VDEX, mTmpDir);
+            mApkFeatureAFileWithVdex = extractResource(APK_FEATURE_A_WITH_VDEX, mTmpDir);
             mDmBaseFile = extractResource(DM_BASE, mTmpDir);
             mDmFeatureAFile = extractResource(DM_FEATURE_A, mTmpDir);
+            mDmBaseFileWithVdex = extractResource(DM_BASE_WITH_VDEX, mTmpDir);
+            mDmFeatureAFileWithVdex = extractResource(DM_FEATURE_A_WITH_VDEX, mTmpDir);
         }
     }
 
@@ -202,6 +215,29 @@ public class InstallDexMetadataHostTest extends BaseHostJUnit4Test {
         byte[] expectedProfileBytes = extractProfileFromDexMetadata(mDmBaseFile);
 
         assertArrayEquals(expectedProfileBytes, snapshotProfileBytes);
+    }
+
+    /**
+     * Verify .dm installation for stand-alone base (no splits) with vdex file.
+     */
+    @Test
+    public void testInstallDmForBaseWithVdex() throws Exception {
+        new InstallMultiple().addApk(mApkBaseFileWithVdex).addDm(mDmBaseFileWithVdex).run();
+        assertNotNull(getDevice().getAppPackageInfo(INSTALL_PACKAGE));
+
+        assertTrue(runDeviceTests(TEST_PACKAGE, TEST_CLASS, "testDmForBase"));
+    }
+
+    /**
+     * Verify .dm installation for base and splits with vdex files.
+     */
+    @Test
+    public void testInstallDmForBaseAndSplitWithVdex() throws Exception {
+        new InstallMultiple().addApk(mApkBaseFileWithVdex).addDm(mDmBaseFileWithVdex)
+                .addApk(mApkFeatureAFileWithVdex).addDm(mDmFeatureAFileWithVdex).run();
+        assertNotNull(getDevice().getAppPackageInfo(INSTALL_PACKAGE));
+
+        assertTrue(runDeviceTests(TEST_PACKAGE, TEST_CLASS, "testDmForBaseAndSplit"));
     }
 
     /** Verify that the use of profiles is enabled on the device. */

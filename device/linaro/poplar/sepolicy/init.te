@@ -1,0 +1,13 @@
+allow init tmpfs:lnk_file { create };
+allow init nativetest_data_file:dir { getattr open read };
+allow init hi_system_block_device:blk_file { relabelfrom relabelto create setattr };
+allow init hi_vendor_block_device:blk_file { relabelfrom relabelto create setattr };
+allow init hi_cache_block_device:blk_file { relabelfrom relabelto create setattr };
+allow init hi_userdata_block_device:blk_file { relabelfrom relabelto create setattr };
+allow init nativetest_data_file:file { getattr };
+allow init proc_hisi:file { open setattr write };
+allow init debugfs:file { write };
+allow init sysfs:file { setattr };
+allow init self:capability { sys_module };
+allow init proc_slabinfo:file { setattr };
+

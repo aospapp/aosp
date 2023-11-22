@@ -29,17 +29,15 @@
 #include "base/stl_util.h"
 #include "base/unix_file/fd_file.h"
 #include "base/utils.h"
+#include "elf/elf_utils.h"
 #include "elf_file_impl.h"
-#include "elf_utils.h"
 
 namespace art {
 
 using android::base::StringPrintf;
 
 template <typename ElfTypes>
-ElfFileImpl<ElfTypes>::ElfFileImpl(File* file, bool writable,
-                                   bool program_header_only,
-                                   uint8_t* requested_base)
+ElfFileImpl<ElfTypes>::ElfFileImpl(File* file, bool writable, bool program_header_only)
   : writable_(writable),
     program_header_only_(program_header_only),
     header_(nullptr),
@@ -54,8 +52,7 @@ ElfFileImpl<ElfTypes>::ElfFileImpl(File* file, bool writable,
     dynstr_section_start_(nullptr),
     hash_section_start_(nullptr),
     symtab_symbol_table_(nullptr),
-    dynsym_symbol_table_(nullptr),
-    requested_base_(requested_base) {
+    dynsym_symbol_table_(nullptr) {
   CHECK(file != nullptr);
 }
 
@@ -64,10 +61,9 @@ ElfFileImpl<ElfTypes>* ElfFileImpl<ElfTypes>::Open(File* file,
                                                    bool writable,
                                                    bool program_header_only,
                                                    bool low_4gb,
-                                                   std::string* error_msg,
-                                                   uint8_t* requested_base) {
-  std::unique_ptr<ElfFileImpl<ElfTypes>> elf_file(new ElfFileImpl<ElfTypes>
-      (file, writable, program_header_only, requested_base));
+                                                   std::string* error_msg) {
+  std::unique_ptr<ElfFileImpl<ElfTypes>> elf_file(
+      new ElfFileImpl<ElfTypes>(file, writable, program_header_only));
   int prot;
   int flags;
   if (writable) {
@@ -89,9 +85,8 @@ ElfFileImpl<ElfTypes>* ElfFileImpl<ElfTypes>::Open(File* file,
                                                    int flags,
                                                    bool low_4gb,
                                                    std::string* error_msg) {
-  std::unique_ptr<ElfFileImpl<ElfTypes>> elf_file(new ElfFileImpl<ElfTypes>
-      (file, (prot & PROT_WRITE) == PROT_WRITE, /*program_header_only*/false,
-      /*requested_base*/nullptr));
+  std::unique_ptr<ElfFileImpl<ElfTypes>> elf_file(
+      new ElfFileImpl<ElfTypes>(file, (prot & PROT_WRITE) != 0, /* program_header_only= */ false));
   if (!elf_file->Setup(file, prot, flags, low_4gb, error_msg)) {
     return nullptr;
   }
@@ -283,7 +278,6 @@ bool ElfFileImpl<ElfTypes>::Setup(File* file,
 
 template <typename ElfTypes>
 ElfFileImpl<ElfTypes>::~ElfFileImpl() {
-  STLDeleteElements(&segments_);
   delete symtab_symbol_table_;
   delete dynsym_symbol_table_;
 }
@@ -418,17 +412,17 @@ template <typename ElfTypes>
 }
 
 template <typename ElfTypes>
-bool ElfFileImpl<ElfTypes>::SetMap(File* file, MemMap* map, std::string* error_msg) {
-  if (map == nullptr) {
+bool ElfFileImpl<ElfTypes>::SetMap(File* file, MemMap&& map, std::string* error_msg) {
+  if (!map.IsValid()) {
     // MemMap::Open should have already set an error.
     DCHECK(!error_msg->empty());
     return false;
   }
-  map_.reset(map);
-  CHECK(map_.get() != nullptr) << file->GetPath();
-  CHECK(map_->Begin() != nullptr) << file->GetPath();
+  map_ = std::move(map);
+  CHECK(map_.IsValid()) << file->GetPath();
+  CHECK(map_.Begin() != nullptr) << file->GetPath();
 
-  header_ = reinterpret_cast<Elf_Ehdr*>(map_->Begin());
+  header_ = reinterpret_cast<Elf_Ehdr*>(map_.Begin());
   if ((ELFMAG0 != header_->e_ident[EI_MAG0])
       || (ELFMAG1 != header_->e_ident[EI_MAG1])
       || (ELFMAG2 != header_->e_ident[EI_MAG2])
@@ -685,9 +679,7 @@ template <typename ElfTypes>
 typename ElfTypes::Phdr* ElfFileImpl<ElfTypes>::GetProgramHeader(Elf_Word i) const {
   CHECK_LT(i, GetProgramHeaderNum()) << file_path_;  // Sanity check for caller.
   uint8_t* program_header = GetProgramHeadersStart() + (i * GetHeader().e_phentsize);
-  if (program_header >= End()) {
-    return nullptr;  // Failure condition.
-  }
+  CHECK_LT(program_header, End());
   return reinterpret_cast<Elf_Phdr*>(program_header);
 }
 
@@ -1028,9 +1020,17 @@ typename ElfTypes::Rela& ElfFileImpl<ElfTypes>::GetRela(Elf_Shdr& section_header
   return *(GetRelaSectionStart(section_header) + i);
 }
 
-// Base on bionic phdr_table_get_load_size
 template <typename ElfTypes>
 bool ElfFileImpl<ElfTypes>::GetLoadedSize(size_t* size, std::string* error_msg) const {
+  uint8_t* vaddr_begin;
+  return GetLoadedAddressRange(&vaddr_begin, size, error_msg);
+}
+
+// Base on bionic phdr_table_get_load_size
+template <typename ElfTypes>
+bool ElfFileImpl<ElfTypes>::GetLoadedAddressRange(/*out*/uint8_t** vaddr_begin,
+                                                  /*out*/size_t* vaddr_size,
+                                                  /*out*/std::string* error_msg) const {
   Elf_Addr min_vaddr = static_cast<Elf_Addr>(-1);
   Elf_Addr max_vaddr = 0u;
   for (Elf_Word i = 0; i < GetProgramHeaderNum(); i++) {
@@ -1049,7 +1049,8 @@ bool ElfFileImpl<ElfTypes>::GetLoadedSize(size_t* size, std::string* error_msg) 
           << program_header->p_vaddr << "+0x" << program_header->p_memsz << "=0x" << end_vaddr
           << " in ELF file \"" << file_path_ << "\"";
       *error_msg = oss.str();
-      *size = static_cast<size_t>(-1);
+      *vaddr_begin = nullptr;
+      *vaddr_size = static_cast<size_t>(-1);
       return false;
     }
     if (end_vaddr > max_vaddr) {
@@ -1059,25 +1060,51 @@ bool ElfFileImpl<ElfTypes>::GetLoadedSize(size_t* size, std::string* error_msg) 
   min_vaddr = RoundDown(min_vaddr, kPageSize);
   max_vaddr = RoundUp(max_vaddr, kPageSize);
   CHECK_LT(min_vaddr, max_vaddr) << file_path_;
-  Elf_Addr loaded_size = max_vaddr - min_vaddr;
-  // Check that the loaded_size fits in size_t.
-  if (UNLIKELY(loaded_size > std::numeric_limits<size_t>::max())) {
+  // Check that the range fits into the runtime address space.
+  if (UNLIKELY(max_vaddr - 1u > std::numeric_limits<size_t>::max())) {
     std::ostringstream oss;
-    oss << "Loaded size is 0x" << std::hex << loaded_size << " but maximum size_t is 0x"
-        << std::numeric_limits<size_t>::max() << " for ELF file \"" << file_path_ << "\"";
+    oss << "Loaded range is 0x" << std::hex << min_vaddr << "-0x" << max_vaddr
+        << " but maximum size_t is 0x" << std::numeric_limits<size_t>::max()
+        << " for ELF file \"" << file_path_ << "\"";
     *error_msg = oss.str();
-    *size = static_cast<size_t>(-1);
+    *vaddr_begin = nullptr;
+    *vaddr_size = static_cast<size_t>(-1);
     return false;
   }
-  *size = loaded_size;
+  *vaddr_begin = reinterpret_cast<uint8_t*>(min_vaddr);
+  *vaddr_size = dchecked_integral_cast<size_t>(max_vaddr - min_vaddr);
   return true;
+}
+
+static InstructionSet GetInstructionSetFromELF(uint16_t e_machine, uint32_t e_flags) {
+  switch (e_machine) {
+    case EM_ARM:
+      return InstructionSet::kArm;
+    case EM_AARCH64:
+      return InstructionSet::kArm64;
+    case EM_386:
+      return InstructionSet::kX86;
+    case EM_X86_64:
+      return InstructionSet::kX86_64;
+    case EM_MIPS: {
+      if ((e_flags & EF_MIPS_ARCH) == EF_MIPS_ARCH_32R2 ||
+          (e_flags & EF_MIPS_ARCH) == EF_MIPS_ARCH_32R6) {
+        return InstructionSet::kMips;
+      } else if ((e_flags & EF_MIPS_ARCH) == EF_MIPS_ARCH_64R6) {
+        return InstructionSet::kMips64;
+      }
+      break;
+    }
+  }
+  return InstructionSet::kNone;
 }
 
 template <typename ElfTypes>
 bool ElfFileImpl<ElfTypes>::Load(File* file,
                                  bool executable,
                                  bool low_4gb,
-                                 std::string* error_msg) {
+                                 /*inout*/MemMap* reservation,
+                                 /*out*/std::string* error_msg) {
   CHECK(program_header_only_) << file->GetPath();
 
   if (executable) {
@@ -1093,11 +1120,6 @@ bool ElfFileImpl<ElfTypes>::Load(File* file,
   bool reserved = false;
   for (Elf_Word i = 0; i < GetProgramHeaderNum(); i++) {
     Elf_Phdr* program_header = GetProgramHeader(i);
-    if (program_header == nullptr) {
-      *error_msg = StringPrintf("No program header for entry %d in ELF file %s.",
-                                i, file->GetPath().c_str());
-      return false;
-    }
 
     // Record .dynamic header information for later use
     if (program_header->p_type == PT_DYNAMIC) {
@@ -1128,42 +1150,39 @@ bool ElfFileImpl<ElfTypes>::Load(File* file,
     }
     size_t file_length = static_cast<size_t>(temp_file_length);
     if (!reserved) {
-      uint8_t* reserve_base = reinterpret_cast<uint8_t*>(program_header->p_vaddr);
-      uint8_t* reserve_base_override = reserve_base;
-      // Override the base (e.g. when compiling with --compile-pic)
-      if (requested_base_ != nullptr) {
-        reserve_base_override = requested_base_;
-      }
-      std::string reservation_name("ElfFile reservation for ");
-      reservation_name += file->GetPath();
-      size_t loaded_size;
-      if (!GetLoadedSize(&loaded_size, error_msg)) {
+      uint8_t* vaddr_begin;
+      size_t vaddr_size;
+      if (!GetLoadedAddressRange(&vaddr_begin, &vaddr_size, error_msg)) {
         DCHECK(!error_msg->empty());
         return false;
       }
-      std::unique_ptr<MemMap> reserve(MemMap::MapAnonymous(reservation_name.c_str(),
-                                                           reserve_base_override,
-                                                           loaded_size,
-                                                           PROT_NONE,
-                                                           low_4gb,
-                                                           false,
-                                                           error_msg));
-      if (reserve.get() == nullptr) {
+      std::string reservation_name = "ElfFile reservation for " + file->GetPath();
+      MemMap local_reservation = MemMap::MapAnonymous(
+          reservation_name.c_str(),
+          (reservation != nullptr) ? reservation->Begin() : nullptr,
+          vaddr_size,
+          PROT_NONE,
+          low_4gb,
+          /* reuse= */ false,
+          reservation,
+          error_msg);
+      if (!local_reservation.IsValid()) {
         *error_msg = StringPrintf("Failed to allocate %s: %s",
-                                  reservation_name.c_str(), error_msg->c_str());
+                                  reservation_name.c_str(),
+                                  error_msg->c_str());
         return false;
       }
       reserved = true;
 
-      // Base address is the difference of actual mapped location and the p_vaddr
-      base_address_ = reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(reserve->Begin())
-                       - reinterpret_cast<uintptr_t>(reserve_base));
+      // Base address is the difference of actual mapped location and the vaddr_begin.
+      base_address_ = reinterpret_cast<uint8_t*>(
+          static_cast<uintptr_t>(local_reservation.Begin() - vaddr_begin));
       // By adding the p_vaddr of a section/symbol to base_address_ we will always get the
       // dynamic memory address of where that object is actually mapped
       //
       // TODO: base_address_ needs to be calculated in ::Open, otherwise
       // FindDynamicSymbolAddress returns the wrong values until Load is called.
-      segments_.push_back(reserve.release());
+      segments_.push_back(std::move(local_reservation));
     }
     // empty segment, nothing to map
     if (program_header->p_memsz == 0) {
@@ -1211,50 +1230,54 @@ bool ElfFileImpl<ElfTypes>::Load(File* file,
       return false;
     }
     if (program_header->p_filesz != 0u) {
-      std::unique_ptr<MemMap> segment(
+      MemMap segment =
           MemMap::MapFileAtAddress(p_vaddr,
                                    program_header->p_filesz,
                                    prot,
                                    flags,
                                    file->Fd(),
                                    program_header->p_offset,
-                                   /*low4_gb*/false,
-                                   /*reuse*/true,  // implies MAP_FIXED
+                                   /* low_4gb= */ false,
                                    file->GetPath().c_str(),
-                                   error_msg));
-      if (segment.get() == nullptr) {
+                                   /* reuse= */ true,  // implies MAP_FIXED
+                                   /* reservation= */ nullptr,
+                                   error_msg);
+      if (!segment.IsValid()) {
         *error_msg = StringPrintf("Failed to map ELF file segment %d from %s: %s",
                                   i, file->GetPath().c_str(), error_msg->c_str());
         return false;
       }
-      if (segment->Begin() != p_vaddr) {
+      if (segment.Begin() != p_vaddr) {
         *error_msg = StringPrintf("Failed to map ELF file segment %d from %s at expected address %p, "
                                   "instead mapped to %p",
-                                  i, file->GetPath().c_str(), p_vaddr, segment->Begin());
+                                  i, file->GetPath().c_str(), p_vaddr, segment.Begin());
         return false;
       }
-      segments_.push_back(segment.release());
+      segments_.push_back(std::move(segment));
     }
     if (program_header->p_filesz < program_header->p_memsz) {
       std::string name = StringPrintf("Zero-initialized segment %" PRIu64 " of ELF file %s",
                                       static_cast<uint64_t>(i), file->GetPath().c_str());
-      std::unique_ptr<MemMap> segment(
-          MemMap::MapAnonymous(name.c_str(),
-                               p_vaddr + program_header->p_filesz,
-                               program_header->p_memsz - program_header->p_filesz,
-                               prot, false, true /* reuse */, error_msg));
-      if (segment == nullptr) {
+      MemMap segment = MemMap::MapAnonymous(name.c_str(),
+                                            p_vaddr + program_header->p_filesz,
+                                            program_header->p_memsz - program_header->p_filesz,
+                                            prot,
+                                            /* low_4gb= */ false,
+                                            /* reuse= */ true,
+                                            /* reservation= */ nullptr,
+                                            error_msg);
+      if (!segment.IsValid()) {
         *error_msg = StringPrintf("Failed to map zero-initialized ELF file segment %d from %s: %s",
                                   i, file->GetPath().c_str(), error_msg->c_str());
         return false;
       }
-      if (segment->Begin() != p_vaddr) {
+      if (segment.Begin() != p_vaddr) {
         *error_msg = StringPrintf("Failed to map zero-initialized ELF file segment %d from %s "
                                   "at expected address %p, instead mapped to %p",
-                                  i, file->GetPath().c_str(), p_vaddr, segment->Begin());
+                                  i, file->GetPath().c_str(), p_vaddr, segment.Begin());
         return false;
       }
-      segments_.push_back(segment.release());
+      segments_.push_back(std::move(segment));
     }
   }
 
@@ -1320,9 +1343,8 @@ bool ElfFileImpl<ElfTypes>::Load(File* file,
 
 template <typename ElfTypes>
 bool ElfFileImpl<ElfTypes>::ValidPointer(const uint8_t* start) const {
-  for (size_t i = 0; i < segments_.size(); ++i) {
-    const MemMap* segment = segments_[i];
-    if (segment->Begin() <= start && start < segment->End()) {
+  for (const MemMap& segment : segments_) {
+    if (segment.Begin() <= start && start < segment.End()) {
       return true;
     }
   }
@@ -1395,7 +1417,7 @@ template <typename ElfTypes>
 void ElfFileImpl<ElfTypes>::ApplyOatPatches(
     const uint8_t* patches, const uint8_t* patches_end, Elf_Addr delta,
     uint8_t* to_patch, const uint8_t* to_patch_end) {
-  typedef __attribute__((__aligned__(1))) Elf_Addr UnalignedAddress;
+  using UnalignedAddress __attribute__((__aligned__(1))) = Elf_Addr;
   while (patches < patches_end) {
     to_patch += DecodeUnsignedLeb128(&patches);
     DCHECK_LE(patches, patches_end) << "Unexpected end of patch list.";
@@ -1682,32 +1704,30 @@ ElfFile* ElfFile::Open(File* file,
                        bool writable,
                        bool program_header_only,
                        bool low_4gb,
-                       std::string* error_msg,
-                       uint8_t* requested_base) {
+                       /*out*/std::string* error_msg) {
   if (file->GetLength() < EI_NIDENT) {
     *error_msg = StringPrintf("File %s is too short to be a valid ELF file",
                               file->GetPath().c_str());
     return nullptr;
   }
-  std::unique_ptr<MemMap> map(MemMap::MapFile(EI_NIDENT,
-                                              PROT_READ,
-                                              MAP_PRIVATE,
-                                              file->Fd(),
-                                              0,
-                                              low_4gb,
-                                              file->GetPath().c_str(),
-                                              error_msg));
-  if (map == nullptr || map->Size() != EI_NIDENT) {
+  MemMap map = MemMap::MapFile(EI_NIDENT,
+                               PROT_READ,
+                               MAP_PRIVATE,
+                               file->Fd(),
+                               0,
+                               low_4gb,
+                               file->GetPath().c_str(),
+                               error_msg);
+  if (!map.IsValid() || map.Size() != EI_NIDENT) {
     return nullptr;
   }
-  uint8_t* header = map->Begin();
+  uint8_t* header = map.Begin();
   if (header[EI_CLASS] == ELFCLASS64) {
     ElfFileImpl64* elf_file_impl = ElfFileImpl64::Open(file,
                                                        writable,
                                                        program_header_only,
                                                        low_4gb,
-                                                       error_msg,
-                                                       requested_base);
+                                                       error_msg);
     if (elf_file_impl == nullptr) {
       return nullptr;
     }
@@ -1717,8 +1737,7 @@ ElfFile* ElfFile::Open(File* file,
                                                        writable,
                                                        program_header_only,
                                                        low_4gb,
-                                                       error_msg,
-                                                       requested_base);
+                                                       error_msg);
     if (elf_file_impl == nullptr) {
       return nullptr;
     }
@@ -1732,7 +1751,7 @@ ElfFile* ElfFile::Open(File* file,
   }
 }
 
-ElfFile* ElfFile::Open(File* file, int mmap_prot, int mmap_flags, std::string* error_msg) {
+ElfFile* ElfFile::Open(File* file, int mmap_prot, int mmap_flags, /*out*/std::string* error_msg) {
   // low_4gb support not required for this path.
   constexpr bool low_4gb = false;
   if (file->GetLength() < EI_NIDENT) {
@@ -1740,18 +1759,18 @@ ElfFile* ElfFile::Open(File* file, int mmap_prot, int mmap_flags, std::string* e
                               file->GetPath().c_str());
     return nullptr;
   }
-  std::unique_ptr<MemMap> map(MemMap::MapFile(EI_NIDENT,
-                                              PROT_READ,
-                                              MAP_PRIVATE,
-                                              file->Fd(),
-                                              0,
-                                              low_4gb,
-                                              file->GetPath().c_str(),
-                                              error_msg));
-  if (map == nullptr || map->Size() != EI_NIDENT) {
+  MemMap map = MemMap::MapFile(EI_NIDENT,
+                               PROT_READ,
+                               MAP_PRIVATE,
+                               file->Fd(),
+                               /* start= */ 0,
+                               low_4gb,
+                               file->GetPath().c_str(),
+                               error_msg);
+  if (!map.IsValid() || map.Size() != EI_NIDENT) {
     return nullptr;
   }
-  uint8_t* header = map->Begin();
+  uint8_t* header = map.Begin();
   if (header[EI_CLASS] == ELFCLASS64) {
     ElfFileImpl64* elf_file_impl = ElfFileImpl64::Open(file,
                                                        mmap_prot,
@@ -1789,8 +1808,12 @@ ElfFile* ElfFile::Open(File* file, int mmap_prot, int mmap_flags, std::string* e
     return elf32_->func(__VA_ARGS__); \
   }
 
-bool ElfFile::Load(File* file, bool executable, bool low_4gb, std::string* error_msg) {
-  DELEGATE_TO_IMPL(Load, file, executable, low_4gb, error_msg);
+bool ElfFile::Load(File* file,
+                   bool executable,
+                   bool low_4gb,
+                   /*inout*/MemMap* reservation,
+                   /*out*/std::string* error_msg) {
+  DELEGATE_TO_IMPL(Load, file, executable, low_4gb, reservation, error_msg);
 }
 
 const uint8_t* ElfFile::FindDynamicSymbolAddress(const std::string& symbol_name) const {
@@ -1863,7 +1886,7 @@ bool ElfFile::GetLoadedSize(size_t* size, std::string* error_msg) const {
 }
 
 bool ElfFile::Strip(File* file, std::string* error_msg) {
-  std::unique_ptr<ElfFile> elf_file(ElfFile::Open(file, true, false, /*low_4gb*/false, error_msg));
+  std::unique_ptr<ElfFile> elf_file(ElfFile::Open(file, true, false, /*low_4gb=*/false, error_msg));
   if (elf_file.get() == nullptr) {
     return false;
   }

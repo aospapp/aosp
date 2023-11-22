@@ -87,6 +87,7 @@ AUDIO_HARDWARE += audio.primary.msm7630_surf
 AUDIO_HARDWARE += audio.primary.msm7630_fusion
 #AUDIO_HARDWARE += audio.primary.default
 AUDIO_HARDWARE += audio.a2dp.default
+AUDIO_HARDWARE += audio.bluetooth.default
 AUDIO_HARDWARE += audio.usb.default
 AUDIO_HARDWARE += audio.r_submix.default
 AUDIO_HARDWARE += audio.hearing_aid.default
@@ -333,6 +334,8 @@ LIBCAMERA += libqomx_core
 LIBCAMERA += mm-qcamera-app
 LIBCAMERA += camera_test
 LIBCAMERA += org.codeaurora.camera
+LIBCAMERA += libgooglecamerahal
+LIBCAMERA += libgoogle_camera_hal_tests
 
 # Shared by passthrough/binderized camera HAL
 LIBCAMERA += camera.device@3.2-impl
@@ -596,10 +599,12 @@ WPA += wpa_supplicant_wcn.conf
 WPA += wpa_supplicant_ath6kl.conf
 WPA += wpa_supplicant
 WPA += hs20-osu-client
+ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
+WPA += wpa_cli
+endif
 
 #ZLIB
 ZLIB := gzip
-ZLIB += minigzip
 ZLIB += libunz
 
 #Charger
@@ -645,7 +650,6 @@ PRODUCT_PACKAGES := \
     CertInstaller \
     DrmProvider \
     Email \
-	ExactCalculator \
     Gallery2 \
     LatinIME \
     Mms \
@@ -790,6 +794,7 @@ PRODUCT_PACKAGES_DEBUG := init.qcom.testscripts.sh
 PRODUCT_COPY_FILES := \
     frameworks/native/data/etc/android.hardware.telephony.gsm.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.gsm.xml \
     frameworks/native/data/etc/android.hardware.telephony.cdma.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.cdma.xml \
+    frameworks/native/data/etc/android.hardware.telephony.ims.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.telephony.ims.xml \
     frameworks/native/data/etc/android.hardware.location.gps.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.location.gps.xml \
     frameworks/native/data/etc/android.hardware.touchscreen.multitouch.jazzhand.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.touchscreen.multitouch.jazzhand.xml \
     frameworks/native/data/etc/android.hardware.wifi.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.wifi.xml \
@@ -849,9 +854,10 @@ PRODUCT_SYSTEM_VERITY_PARTITION=/dev/block/platform/soc/624000.ufshc/by-name/sys
 $(call inherit-product, build/target/product/verity.mk)
 
 PRODUCT_DEXPREOPT_SPEED_APPS += \
-  SystemUIGoogle \
-  SettingsGoogle \
-  NexusLauncherPrebuilt \
+  SystemUIGoogle
+
+# Save space by disabling dexpreopt of GMS modules.
+DEXPREOPT.$(TARGET_PRODUCT).PrebuiltGmsCorePi_extract.CONFIG=disable
 
 PRODUCT_LOADED_BY_PRIVILEGED_MODULES += \
   qti-vzw-ims-internal \

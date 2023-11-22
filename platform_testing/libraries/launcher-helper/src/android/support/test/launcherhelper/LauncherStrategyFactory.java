@@ -34,6 +34,7 @@ public class LauncherStrategyFactory {
     private UiDevice mUiDevice;
     private Map<String, ILauncherStrategy> mInstanceMap;
     private Set<Class <? extends ILauncherStrategy>> mKnownLauncherStrategies;
+    private boolean mIsDeviceSet;
 
     private LauncherStrategyFactory(UiDevice uiDevice) {
         mUiDevice = uiDevice;
@@ -73,7 +74,6 @@ public class LauncherStrategyFactory {
         if (!mKnownLauncherStrategies.contains(launcherStrategy)) {
             try {
                 ILauncherStrategy strategy = launcherStrategy.newInstance();
-                strategy.setUiDevice(mUiDevice);
                 mInstanceMap.put(strategy.getSupportedLauncherPackage(), strategy);
             } catch (InstantiationException | IllegalAccessException e) {
                 Log.e(LOG_TAG, "exception while creating instance: "
@@ -94,7 +94,12 @@ public class LauncherStrategyFactory {
     public ILauncherStrategy getLauncherStrategy() {
         String launcherPkg = mUiDevice.getLauncherPackageName();
         if (mInstanceMap.containsKey(launcherPkg)) {
-            return mInstanceMap.get(launcherPkg);
+            ILauncherStrategy strategy = mInstanceMap.get(launcherPkg);
+            if (!mIsDeviceSet) {
+                strategy.setUiDevice(mUiDevice);
+                mIsDeviceSet = true;
+            }
+            return strategy;
         } else {
             throw new RuntimeException(String.format(
                     "Could not find a launcher strategy for package, %s", launcherPkg));

@@ -31,10 +31,12 @@
 //#define LOG_NDEBUG 0
 
 #define LOG_TAG "HiKeyPowerHAL"
-#include <utils/Log.h>
+#include <log/log.h>
 
 #include <hardware/hardware.h>
 #include <hardware/power.h>
+
+#include "power-helper.h"
 
 #define SCHEDTUNE_BOOST_PATH "/dev/stune/top-app/schedtune.boost"
 #define SCHEDTUNE_BOOST_VAL_PROP "ro.config.schetune.touchboost.value"
@@ -78,6 +80,8 @@ struct hikey_power_module {
     long long deboost_time;
     sem_t signal_lock;
 };
+
+struct hikey_power_module this_power_module;
 
 
 static bool low_power_mode = false;
@@ -248,7 +252,7 @@ static void hikey_devfreq_init(struct hikey_power_module __unused *hikey)
 
 /*[schedtune functions]*******************************************************/
 
-int schedtune_sysfs_boost(struct hikey_power_module *hikey, char* booststr)
+static int schedtune_sysfs_boost(struct hikey_power_module *hikey, char* booststr)
 {
     char buf[80];
     int len;
@@ -348,7 +352,7 @@ static void schedtune_power_init(struct hikey_power_module *hikey)
 
 /*[generic functions]*********************************************************/
 
-static void hikey_cpufreq_set_interactive(struct power_module __unused *module, int on)
+void power_set_interactive(int on)
 {
     int i;
 
@@ -396,10 +400,14 @@ static void hikey_cpufreq_init(struct hikey_power_module __unused *hikey)
     max_clusters = i;
 }
 
-static void hikey_power_init(struct power_module __unused *module)
+void power_init(void)
 {
-    struct hikey_power_module *hikey = container_of(module,
-                                              struct hikey_power_module, base);
+    struct hikey_power_module *hikey = &this_power_module;
+    memset(hikey, 0, sizeof(struct hikey_power_module));
+    pthread_mutex_init(&hikey->lock, NULL);
+    hikey->boostpulse_fd = -1;
+    hikey->boostpulse_warned = 0;
+
     hikey_cpufreq_init(hikey);
     hikey_devfreq_init(hikey);
     interactive_power_init(hikey);
@@ -416,11 +424,9 @@ static void hikey_hint_interaction(struct hikey_power_module *mod)
         return;
 }
 
-static void hikey_power_hint(struct power_module *module, power_hint_t hint,
-                                void *data)
+void power_hint(power_hint_t hint, void *data)
 {
-    struct hikey_power_module *hikey = container_of(module,
-                                              struct hikey_power_module, base);
+    struct hikey_power_module *hikey = &this_power_module;
 
     pthread_mutex_lock(&hikey->lock);
     switch (hint) {
@@ -433,7 +439,7 @@ static void hikey_power_hint(struct power_module *module, power_hint_t hint,
 
     case POWER_HINT_LOW_POWER:
         low_power_mode = data;
-        hikey_cpufreq_set_interactive(module, 1);
+        power_set_interactive(1);
         break;
 
     default:
@@ -441,68 +447,3 @@ static void hikey_power_hint(struct power_module *module, power_hint_t hint,
     }
     pthread_mutex_unlock(&hikey->lock);
 }
-
-static void set_feature(struct power_module __unused *module,
-                        feature_t feature, int state)
-{
-    switch (feature) {
-    default:
-        ALOGW("Error setting the feature %d and state %d, it doesn't exist\n",
-              feature, state);
-        break;
-    }
-}
-
-static int power_open(const hw_module_t* __unused module, const char* name,
-                    hw_device_t** device)
-{
-    int retval = 0; /* 0 is ok; -1 is error */
-    ALOGD("%s: enter; name=%s", __FUNCTION__, name);
-
-    if (strcmp(name, POWER_HARDWARE_MODULE_ID) == 0) {
-        struct hikey_power_module *dev = (struct hikey_power_module *)calloc(1,
-                sizeof(struct hikey_power_module));
-
-        if (dev) {
-            /* Common hw_device_t fields */
-            dev->base.common.tag = HARDWARE_DEVICE_TAG;
-            dev->base.common.module_api_version = POWER_MODULE_API_VERSION_0_5;
-            dev->base.common.hal_api_version = HARDWARE_HAL_API_VERSION;
-
-            dev->base.init = hikey_power_init;
-            dev->base.powerHint = hikey_power_hint;
-            dev->base.setInteractive = hikey_cpufreq_set_interactive;
-            dev->base.setFeature = set_feature;
-
-            pthread_mutex_init(&dev->lock, NULL);
-            dev->boostpulse_fd = -1;
-            dev->boostpulse_warned = 0;
-
-            *device = (hw_device_t*)&dev->base;
-        } else
-            retval = -ENOMEM;
-    } else {
-        retval = -EINVAL;
-    }
-
-    ALOGD("%s: exit %d", __FUNCTION__, retval);
-    return retval;
-}
-
-static struct hw_module_methods_t power_module_methods = {
-    .open = power_open,
-};
-
-struct hikey_power_module HAL_MODULE_INFO_SYM = {
-    .base = {
-        .common = {
-            .tag = HARDWARE_MODULE_TAG,
-            .module_api_version = POWER_MODULE_API_VERSION_0_2,
-            .hal_api_version = HARDWARE_HAL_API_VERSION,
-            .id = POWER_HARDWARE_MODULE_ID,
-            .name = "HiKey Power HAL",
-            .author = "The Android Open Source Project",
-            .methods = &power_module_methods,
-        },
-    },
-};

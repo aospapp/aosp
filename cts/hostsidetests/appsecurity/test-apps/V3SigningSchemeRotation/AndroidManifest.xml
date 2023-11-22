@@ -21,5 +21,5 @@
 
     <instrumentation
         android:targetPackage="android.appsecurity.cts.v3rotationtests"
-        android:name="android.support.test.runner.AndroidJUnitRunner" />
+        android:name="androidx.test.runner.AndroidJUnitRunner" />
 </manifest>

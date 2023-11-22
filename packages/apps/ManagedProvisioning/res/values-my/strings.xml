@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"အလုပ်ပရိုဖိုင် စနစ်ထည့်သွင်းမှု"</string>
+    <string name="app_label" msgid="1527793174155125990">"အလုပ် စီစဉ်သတ်မှတ်ခြင်း"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"အူးပ်စ်!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"အလုပ်ပရိုဖိုင်ကို စနစ်ထည့်သွင်းမှုပြုလုပ်ပါ"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"သင်၏ အဖွဲ့အစည်းက ဒီပရိုဖိုင်ကို ထိန်းချုပ်လျက် လုံခြုံအောင် ထားရှိပါသည်။ သင်သည် သင့် ကိရိယာ ထဲက ကျန်အရာများကို ထိန်းချုပ်ပါသည်။"</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"အောက်ပါအပ်ဖ်မှ သင့်ကိရိယာကို စီမံခန့်ခွဲလိမ့်မည်။"</string>
     <string name="next" msgid="1004321437324424398">"ရှေ့သို့"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"အလုပ်ပရိုဖိုင်ကို ပြင်ဆင်သတ်မှတ်နေပါသည်…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"စီမံခန့်ခွဲသူသည် စက်ပစ္စည်း၏တည်နေရာ၊ ခေါ်ဆိုမှုမှတ်တမ်းနှင့် အဆက်အသွယ်ရှာဖွေမှု မှတ်တမ်းများအပြင် သင်၏ ကွန်ရက်လုပ်ဆောင်ချက်များ အပါအဝင် ဆက်တင်များ၊ ပူးပေါင်းအသုံးပြုမှု၊ အက်ပ်များ၊ ခွင့်ပြုချက်များနှင့် သင့်ပရိုဖိုင်နှင့် ဆက်စပ်လျက်ရှိသည့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ မူဝါဒများ အပါအဝင် ထပ်မံသိရှိလိုပါက စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"စီမံခန့်ခွဲသူသည် စက်ပစ္စည်း၏တည်နေရာ၊ ခေါ်ဆိုမှုမှတ်တမ်းနှင့် အဆက်အသွယ်ရှာဖွေမှု မှတ်တမ်းများအပြင် သင်၏ ကွန်ရက်လုပ်ဆောင်ချက်များ အပါအဝင် ဆက်တင်များ၊ ပူးပေါင်းအသုံးပြုမှု၊ အက်ပ်များ၊ ခွင့်ပြုချက်များနှင့် ဤစက်ပစ္စည်းနှင့် ဆက်စပ်လျက်ရှိသည့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ မူဝါဒများ အပါအဝင် ထပ်မံသိရှိလိုပါက သင်၏စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"သင်၏ IT စီမံခန့်ခွဲသူသည် စက်ပစ္စည်း၏တည်နေရာ၊ ယခင်ခေါ်ဆိုမှုများနှင့် အဆက်အသွယ်ရှာဖွေမှု မှတ်တမ်းများအပြင် သင်၏ ကွန်ရက်လုပ်ဆောင်ချက်များ အပါအဝင် ဆက်တင်များ၊ ပူးပေါင်းအသုံးပြုမှု၊ အက်ပ်များ၊ ခွင့်ပြုချက်များနှင့် ဤပရိုဖိုင်နှင့် ဆက်စပ်လျက်ရှိသည့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ မူဝါဒများ အပါအဝင် ထပ်မံသိရှိလိုပါက သင့် IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"သင်၏ IT စီမံခန့်ခွဲသူသည် စက်ပစ္စည်း၏တည်နေရာ၊ ယခင်ခေါ်ဆိုမှုများနှင့် အဆက်အသွယ်ရှာဖွေမှု မှတ်တမ်းများအပြင် သင်၏ ကွန်ရက်လုပ်ဆောင်ချက်များ အပါအဝင် ဆက်တင်များ၊ ပူးပေါင်းအသုံးပြုမှု၊ အက်ပ်များ၊ ခွင့်ပြုချက်များနှင့် ဤစက်ပစ္စည်းနှင့် ဆက်စပ်လျက်ရှိသည့် ဒေတာများကို စောင့်ကြည့်စီမံနိုင်ပါသည်။<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ မူဝါဒများ အပါအဝင် ထပ်မံသိရှိလိုပါက သင့် IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"သူခိုးရန်မှကာကွယ်ခြင်း ဝန်ဆောင်မှုများကိုအသုံးပြုရန်၊ သင့်စက်ပစ္စည်းတွင် စကားဝှက်ဖြင့်ကာကွယ်ထားသည့် ဖန်သားပြင်လော့ခ်ချခြင်း ရှိရပါမည်။"</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ လုံခြုံရေးမူဝါဒများအပါအဝင်၊ နောက်ထပ်အချက်အလက်များအတွက် သင့်စီမံခန့်ခွဲသူကိုဆက်သွယ်ပါ။"</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"သင့်အဖွဲ့အစည်း၏ ပုဂ္ဂိုလ်ရေးဆိုင်ရာ လုံခြုံရေးမူဝါဒများအပါအဝင်၊ နောက်ထပ်အချက်အလက်များအတွက် သင့် IT စီမံခန့်ခွဲသူကိုဆက်သွယ်ပါ။"</string>
     <string name="learn_more_link" msgid="3012495805919550043">"ပိုမိုသိလိုလျှင်"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"မလုပ်တော့"</string>
     <string name="ok_setup" msgid="4593707675416137504">"OK"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"သင်၏ အလုပ် ပရိုဖိုင်ကို စဖွင့်စီစဉ် မရခဲ့ပါ။ သင်၏ IT ဌာနကို ဆက်သွယ်ပါ သို့မဟုတ် နောက်မှာ ထပ်စမ်းပါ။"</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"အလုပ်ပရိုဖိုင်ကို ထည့်၍မရပါ"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"အလုပ်ပရိုဖိုင်ကို အစားထိုး သို့မဟုတ် ဖယ်ရှား ၍မရပါ"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"အလုပ်ပရိုဖိုင်ကို ဤစက်ပစ္စည်းသို့ ထည့်သွင်း၍မရပါ။ မေးမြန်းစရာများရှိပါက စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"ဤစက်ပစ္စည်းသို့ အလုပ်ပရိုဖိုင်ကို ထည့်၍မရပါ။ မေးစရာများရှိလျှင် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"စက်ပစ္စည်း launcher ကို ပြောင်းပါ"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"ဤ launcher အက်ပ်ကို သင်၏ အလုပ်ပရိုဖိုင်အတွက် အသုံးပြု၍မရပါ"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"မလုပ်တော့"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"အပြီးသတ်ပြင်ဆင်မှုများ ပြုလုပ်နေသည်…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"စက်ပစ္စည်းပိုင်ရှင်ကို အသင့်သုံးနိုင်ရန်စီစဉ်နေသည်..."</string>
     <string name="progress_initialize" msgid="1104643492713424939">"စက်ပစ္စည်းကို စတင်နေသည်…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"ဤစက်ပစ္စည်းသည် စနစ်ထည့်သွင်းမှုအတွက် လိုအပ်သည့် အသွင်ဝှက်ခြင်းကို ခွင့်မပြုပါ။ အကူအညီရယူရန် သင်၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"ဤစက်ပစ္စည်းသည် စနစ်ထည့်သွင်းမှုအတွက် လိုအပ်သည့် အသွင်ဝှက်ခြင်းကို ခွင့်မပြုပါ။ အကူအညီရယူရန် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"စနစ်ထည့်သွင်းမှုကိုရပ်ပြီး စက်ပစ္စည်းကို ပြင်ဆင်သတ်မှတ် လိုပါသလား။"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"၎င်းသည် သင်၏ စက်ပစ္စည်းကို ပြင်ဆင်သတ်မှတ်ပြီး ပထမဆုံးစာမျက်နှာသို့ ပြန်ပို့ပေးပါမည်"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"စဖွင့်စီစဉ်မှုအား ရပ်စဲကာ သင့် ကိရိယာ၏ဒေတာကို ဖျက်ပစ်မည်လား?"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"ပြန်သတ်မှတ်ရန်"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"ပရိုဖိုင်ကို စနစ်ထည့်သွင်း၍ မရပါ"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"စက်ပစ္စည်းကို စနစ်ထည့်သွင်း၍ မရပါ"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"စက်ပစ္စည်းကို စနစ်ထည့်သွင်း၍ မရပါ။ အကူအညီရယူရန် သင်၏စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"အကူအညီလိုပါက သင်၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"စက်ပစ္စည်းကို စနစ်ထည့်သွင်း၍ မရပါ။ အကူအညီရယူရန် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"အကူအညီအတွက် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"စက်ပစ္စည်းကို စနစ်ထည့်သွင်းပြီးသား ဖြစ်သည်"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"ဝိုင်−ဖိုင်ကို ချိတ်ဆက်မရပါ"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"သင်၏ စက်ပစ္စည်းတွင် ပြင်ဆင်သတ်မှတ်မှုအား ကာကွယ်ခြင်းစနစ်ကို ဖွင့်ထားပါသည်။ အကူအညီရယူရန် သင်၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="error_wifi" msgid="1850288843966836571">"Wi-Fi သို့ ချိတ်ဆက်၍ မရပါ"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"သင်၏ စက်ပစ္စည်းတွင် ပြင်ဆင်သတ်မှတ်မှုအား ကာကွယ်ခြင်းစနစ်ကို ဖွင့်ထားပါသည်။ အကူအညီရယူရန် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"ဖျက်နေသည်"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"ခဏစောင့်ပါ..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Checksum အမှားတစ်ခုကြောင့် စီမံခန့်ခွဲရန်အက်ပ်ကို သုံး၍မရပါ။ အကူအညီရယူရန် သင်၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"အက်ဒမင် အက်ပ်ကို ဒေါင်းလုဒ် မလုပ်နိုင်ခဲ့ပါ။"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"စီမံခန့်ခွဲရန် အက်ပ်ကို သုံး၍မရပါ။ ၎င်းသည် ပျက်စီးနေသည် သို့မဟုတ် အစိတ်အပိုင်းအချို့ လိုအပ်နေသည်။ အကူအညီရယူရန် သင်၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"အက်ဒမင် အက်ပ်ကို မတပ်ဆင်နိုင်ပါ။"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"ပေါင်းလဒ်စစ်ဆေးမှု အမှားကြောင့် စီမံခန့်ခွဲသူအက်ပ်ကို အသုံးပြု၍မရပါ။ အကူအညီရယူရန် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"စီမံခန့်ခွဲသူအက်ပ်ကို ဒေါင်းလုဒ်လုပ်၍မရပါ"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"စီမံခန့်ခွဲသူအက်ပ်ကို သုံး၍မရပါ။ ၎င်းသည် အစိတ်အပိုင်းအချို့ လိုအပ်နေသည် သို့မဟုတ် ပျက်စီးနေသည်။ အကူအညီရယူရန် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"စီမံခန့်ခွဲသူအက်ပ်ကို ထည့်သွင်း၍မရပါ"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"စဖွင့်သတ်မှတ်ခြင်း ရပ်စဲမလား?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"No"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Yes"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"ဤစက်ကို <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> က စီမံခန့်ခွဲ၍ စောင့်ကြည့်ပြီး လုံခြုံအောင်ပြုလုပ်သွားပါမည်။ စည်းကမ်းသတ်မှတ်ချက်များ ရှိပါသည်။ <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"ဤစက်ကို <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> က စီမံခန့်ခွဲ၍ စောင့်ကြည့်ပြီး လုံခြုံအောင်ပြုလုပ်သွားပါမည်။ <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> မှ စည်းကမ်းသတ်မှတ်ချက်များကို လိုက်နာရန် လိုအပ်ပါသည်။ <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"ဤလင့်ခ်က လုံခြုံမှုမရှိသောကြောင့် စက်ပစ္စည်း စနစ်ထည့်သွင်းမှု မပြီးမချင်း ဖွင့်၍ရမည် မဟုတ်ပါ− <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"မေးမြန်းစရာများရှိပါက သင်၏ <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> ကို ဆက်သွယ်ပါ။"</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"မေးမြန်းစရာများရှိပါက အဖွဲ့အစည်း၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"စနစ်ထည့်သွင်းခြင်း မပြီးဆုံးသေးပါ။ အကူအညီရယူရန် သင်၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"အကူအညီရယူရန် သင်၏ စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"အဖွဲ့အစည်း၏ စီမံခန့်ခွဲသူ"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"ပိုမိုလေ့လာရန် သင့် <xliff:g id="IT_ADMIN">%1$s</xliff:g> ကို ဆက်သွယ်ပါ။"</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"မေးစရာများရှိလျှင် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"စနစ်ထည့်သွင်းခြင်း မပြီးသေးပါ။ အကူအညီရယူရန် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"အကူအညီရယူရန် သင်၏ IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"IT စီမံခန့်ခွဲသူ"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> သည် အောက်ပါအက်ပ်ကို သုံးပြီး ဤစက်ပစ္စည်းကို စောင့်ကြည့်စီမံခန့်ခွဲသွားပါမည်−"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"သင်၏အဖွဲ့အစည်း"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"သင်၏အဖွဲ့အစည်း"</string>
     <string name="view_terms" msgid="7230493092383341605">"စည်းကမ်းချက်များ ကြည့်ရန်"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"လက်ခံပြီး ရှေ့ဆက်ရန်"</string>
-    <string name="close" msgid="7208600934846389439">"ပိတ်ရန်"</string>
+    <string name="back" msgid="6455622465896147127">"နောက်သို့"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"သင့်စက်ပစ္စည်းကို စနစ်ထည့်သွင်းပါ"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"သင်အလုပ်လုပ်နည်းကို ပြောင်းလဲစေပါသည်"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"အလုပ်နှင့် ကိုယ်ရေးကိုယ်တာကို ခွဲခြားပါ"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"မိနစ်အနည်းငယ် ကြာနိုင်ပါသည်"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"အလုပ်အက်ပ်များကို ဤပရိုဖိုင်တွင် ထားရှိမည်ဖြစ်ပြီး သင်၏အဖွဲ့အစည်းက စီမံခန့်ခွဲပါမည်"</string>
     <string name="device_owner_description" msgid="168013145812679664">"ဤစက်ပစ္စည်းကို သင်၏ အဖွဲ့အစည်းက လုံခြုံအောင်ထားပြီး စီမံခန့်ခွဲသွားပါမည်"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"အလုပ်သုံးကိရိယာ စနစ်ထည့်သွင်းရန် ပြင်ဆင်နေသည်…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"စီမံခန့်ခွဲသူအက်ပ် စနစ်ထည့်သွင်းနေသည်"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"အားလုံးကို စနစ်ထည့်သွင်းရန်"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"အားလုံးကို စနစ်ထည့်သွင်းလိုက်ရအောင်"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"ဤစက်ကို သင့်အဖွဲ့အစည်းက ပိုင်ဆိုင်သည်"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"အောက်ပါအက်ပ် အသုံးပြု၍ ဤဖုန်းကို စီမံခန့်ခွဲခြင်း၊ စောင့်ကြည့်ခြင်းတို့ ပြုလုပ်ပါမည်"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"အလုပ်ဆိုင်ရာ စနစ်ထည့်သွင်းမှုအတွက် အသင့်ပြင်နေသည်…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"သင့်အလုပ်ပရိုဖိုင်ကို အရင် စနစ်ထည့်သွင်းရအောင်"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"သင့်အလုပ်ပရိုဖိုင်ကို စနစ်ထည့်သွင်းကြပါစို့"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"အလုပ်သုံးအက်ပ်များကို သင့်အလုပ်ပရိုဖိုင်တွင် သိမ်းထားသည်"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"တစ်နေ့တာအပြီးတွင် အလုပ်သုံးအက်ပ်များကို ခဏရပ်နိုင်သည်"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"သင့်အလုပ်ပရိုဖိုင်အတွင်းရှိ ဒေတာများကိုသာ သင်၏ IT စီမံခန့်ခွဲသူက မြင်ရပါသည်"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"သင်၏အလုပ်ပရိုဖိုင်ကို ထည့်သွင်းနေသည်…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"အလုပ်သုံးအက်ပ်များကို သင့်အလုပ်ပရိုဖိုင်တွင် သိမ်းထားသည်/ တစ်နေ့တာအပြီးတွင် သင့်အလုပ်သုံးအက်ပ်များကို ခဏရပ်နိုင်သည်။ သင့်အလုပ်ပရိုဖိုင်အတွင်းရှိ ဒေတာများကိုသာ သင်၏ IT စီမံခန့်ခွဲသူက မြင်ရပါသည်။"</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"သင့်အလုပ်သုံး စက်ပစ္စည်းကို စနစ်ထည့်သွင်းရအောင်"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"သင့်အလုပ်သုံးအက်ပ်များကို အလွယ်တကူသုံးနိုင်အောင် ပြုလုပ်ပါ"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"ဤစက်ပစ္စည်းသည် သီးသန့်မဟုတ်ပါ"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"သင်၏ IT စီမံခန့်ခွဲသူက ဤစက်ပစ္စည်းပေါ်ရှိ သင့်ဒေတာနှင့် လုပ်ဆောင်ချက်ကို မြင်နိုင်ပါသည်။"</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"သင့်စက်ပစ္စည်း စနစ်ထည့်သွင်းနေသည်…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"သင့်အလုပ်သုံးအက်ပ်များကို အလွယ်တကူ ဝင်သုံးရန် ဤစက်ပစ္စည်းကို အသုံးပြုပါ။ ဤစက်ပစ္စည်းသည် သီးသန့်မဟုတ်သဖြင့် သင့် IT စီမံခန့်ခွဲသူက သင့်ဒေတာနှင့် လုပ်ဆောင်ချက်ကို မြင်နိုင်ပါသည်။ ပိုမိုလေ့လာရန် သင့် IT စီမံခန့်ခွဲသူကို ဆက်သွယ်ပါ။"</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"ပုဂ္ဂိုလ်ရေးလုံခြုံမှု သတိပေးချက်"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"သင်၏ IT စီမံခန့်ခွဲသူက ဤစက်ပစ္စည်းပေါ်ရှိ သင့်ဒေတာနှင့် လုပ်ဆောင်ချက်ကို မြင်နိုင်ပါသည်"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"သင့်စက်ပစ္စည်းကို စတင်အသုံးပြုနိုင်ပါပြီ။"</string>
+    <string name="done" msgid="7755227776955952318">"ပြီးပြီ"</string>
 </resources>

@@ -53,6 +53,8 @@ struct pkg_info {
     char *seinfo;
     gid_list gids;
     void *private_data;
+    bool profileable_from_shell;
+    long version_code;
 };
 
 /**

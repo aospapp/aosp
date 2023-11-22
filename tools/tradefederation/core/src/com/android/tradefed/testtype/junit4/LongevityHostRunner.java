@@ -16,7 +16,8 @@
 
 package com.android.tradefed.testtype.junit4;
 
-import android.longevity.core.LongevitySuite;
+import android.host.test.longevity.LongevitySuite;
+import android.host.test.longevity.listener.TimeoutTerminator;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.config.ConfigurationException;
 import com.android.tradefed.config.Option;
@@ -164,7 +165,7 @@ public class LongevityHostRunner extends Runner
         // Construct runner option map from TF options.
         Map<String, String> options = new HashMap<>();
         options.put(ITERATIONS_OPTION, String.valueOf(mIterations));
-        options.put(TOTAL_TIMEOUT_OPTION, String.valueOf(mTotalTimeoutMsec));
+        options.put(TimeoutTerminator.OPTION, String.valueOf(mTotalTimeoutMsec));
         return options;
     }
 

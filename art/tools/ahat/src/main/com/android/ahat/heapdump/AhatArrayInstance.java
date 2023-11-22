@@ -39,9 +39,11 @@ public class AhatArrayInstance extends AhatInstance {
   private List<Value> mValues;
   private byte[] mByteArray;    // null if not a byte array.
   private char[] mCharArray;    // null if not a char array.
+  private final int mRefSize;
 
-  AhatArrayInstance(long id) {
+  AhatArrayInstance(long id, int refSize) {
     super(id);
+    mRefSize = refSize;
   }
 
   /**
@@ -188,7 +190,7 @@ public class AhatArrayInstance extends AhatInstance {
       return 0;
     }
 
-    return Value.getType(mValues.get(0)).size * getLength();
+    return Value.getType(mValues.get(0)).size(mRefSize) * getLength();
   }
 
   /**
@@ -240,7 +242,10 @@ public class AhatArrayInstance extends AhatInstance {
             if (value != null) {
               assert value.isAhatInstance();
               String field = "[" + Integer.toString(index) + "]";
-              return new Reference(AhatArrayInstance.this, field, value.asAhatInstance(), true);
+              return new Reference(AhatArrayInstance.this,
+                                   field,
+                                   value.asAhatInstance(),
+                                   Reachability.STRONG);
             }
             return null;
           }
@@ -324,10 +329,30 @@ public class AhatArrayInstance extends AhatInstance {
 
   @Override public AhatInstance getAssociatedBitmapInstance() {
     if (mByteArray != null) {
-      List<AhatInstance> refs = getHardReverseReferences();
+      List<AhatInstance> refs = getReverseReferences();
       if (refs.size() == 1) {
         AhatInstance ref = refs.get(0);
         return ref.getAssociatedBitmapInstance();
+      }
+    }
+    return null;
+  }
+
+  @Override public AhatClassObj getAssociatedClassForOverhead() {
+    if (mByteArray != null) {
+      List<AhatInstance> refs = getHardReverseReferences();
+      if (refs.size() == 1) {
+        AhatClassObj ref = refs.get(0).asClassObj();
+        if (ref != null) {
+          for (FieldValue field : ref.getStaticFieldValues()) {
+            if (field.name.equals("$classOverhead")) {
+              if (field.value.asAhatInstance() == this) {
+                return ref;
+              }
+              return null;
+            }
+          }
+        }
       }
     }
     return null;

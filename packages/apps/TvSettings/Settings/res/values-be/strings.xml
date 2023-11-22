@@ -96,8 +96,8 @@
     <string name="device_calibration" msgid="8632962533376605191">"Каліброўка"</string>
     <string name="surround_sound_select_formats" msgid="6329868407147678259">"Выбар фарматаў"</string>
     <string name="surround_sound_category_title" msgid="1331285587464316534">"Аб\'ёмны гук"</string>
-    <string name="surround_sound_format_ac3" msgid="1482464022424295698">"AC3 (Dolby Digital)"</string>
-    <string name="surround_sound_format_e_ac3" msgid="4406523828595644068">"E-AC3 (Dolby Digital Plus/DD+)"</string>
+    <string name="surround_sound_format_ac3" msgid="1724977459494885356">"Dolby Digital"</string>
+    <string name="surround_sound_format_e_ac3" msgid="4307389628668099135">"Dolby Digital Plus"</string>
     <string name="surround_sound_format_dts" msgid="1730946367570023539">"DTS"</string>
     <string name="surround_sound_format_dts_hd" msgid="3324695734675414927">"DTS-HD"</string>
     <string name="surround_sound_format_iec61937" msgid="1610948713240264858">"IEC61937"</string>
@@ -185,7 +185,7 @@
     <string name="regulatory_information" msgid="5448865708097003189">"Нарматыўная інфармацыя"</string>
     <string name="device_feedback" msgid="209146642122579479">"Адправіць водгук пра гэту прыладу"</string>
     <string name="fcc_equipment_id" msgid="8295142996591094301">"Ідэнтыфікатар абсталявання"</string>
-    <string name="baseband_version" msgid="2229081246529676107">"Версія дыяпазону"</string>
+    <string name="baseband_version" msgid="2229081246529676107">"Версія модуля сувязі"</string>
     <string name="kernel_version" msgid="2418845475938044903">"Версія ядра"</string>
     <string name="status_unavailable" msgid="831018565485085059">"Недаступна"</string>
     <string name="device_status_title" msgid="1629253652287243543">"Стан"</string>
@@ -366,7 +366,6 @@
     <string name="storage_missing_description" msgid="8400374014342069781">"Некаторыя праграмы будуць недаступныя або будуць працаваць няправільна, пакуль дыск не будзе падключаны зноў."</string>
     <string name="insufficient_storage" msgid="5670157010939153746">"Не хапае месца ў сховішчы."</string>
     <string name="does_not_exist" msgid="4553235698171937217">"Праграма не існуе."</string>
-    <string name="app_forward_locked" msgid="6078781450044847966">"Праграма абаронена ад капіравання."</string>
     <string name="invalid_location" msgid="5269044848535157307">"Несапраўднае месца ўсталёўкі."</string>
     <string name="system_package" msgid="9200255718634512790">"Абнаўленні сістэмы нельга ўсталёўваць на знешнія носьбіты."</string>
     <string name="move_error_device_admin" msgid="2060627704270836951">"Адміністратара прылады нельга ўсталяваць на знешнія носьбіты."</string>
@@ -399,7 +398,7 @@
     <string name="location_low_battery_use" msgid="5756040390248358148">"Нізкі ўзровень выкарыст. акум."</string>
     <string name="location_mode_wifi_description" msgid="2778774510654527264">"Выкарыстоўваць Wi-Fi для вызначэння месцазнаходжання"</string>
     <string name="location_status" msgid="3456414279428237558">"Стан вызначэння месцазнаходжання"</string>
-    <string name="location_services" msgid="5441085185119797200">"Сэрвісы вызначэння месцазнаходжання"</string>
+    <string name="location_services" msgid="5441085185119797200">"Службы геалакацыі"</string>
     <string name="on" msgid="6683600681314500652">"Уключаны"</string>
     <string name="off" msgid="5264189545064767245">"Выключаны"</string>
     <string name="google_location_services_title" msgid="3382840371861269146">"Сэрвісы вызначэння месцазнаходжання Google"</string>
@@ -485,7 +484,7 @@
     <string name="system_email_address" msgid="8669468986250302378">"Адрас электроннай пошты"</string>
     <string name="system_usb_debugging" msgid="3777895294421924323">"Адладка USB"</string>
     <string name="system_allow_mock_locations" msgid="3635672039775772910">"Дазволіць несапраўдныя месцы"</string>
-    <string name="system_select_debug_app" msgid="8592021815119618485">"Выберыце прыкладанне для адладкi"</string>
+    <string name="system_select_debug_app" msgid="8592021815119618485">"Выбраць праграму для адладкі"</string>
     <string name="system_wait_for_debugger" msgid="4007354935701089555">"Пачакайце адладчык"</string>
     <string name="system_verify_apps_over_usb" msgid="7340861918835270609">"Праверце прыкладаннi па USB"</string>
     <string name="system_desc_verify_apps_over_usb" msgid="6722973410408262393">"Праверце прыкладаннi, усталяваныя з дапамогай ADB/ADT, на шкодныя паводзiны."</string>
@@ -743,6 +742,9 @@
     <string name="manage_notification_access_title" msgid="2051765294087620434">"Доступ да апавяшчэнняў"</string>
     <string name="no_notification_listeners" msgid="4583789599075326886">"Няма праграм з доступам да SMS."</string>
     <string name="notification_listener_security_warning_summary" msgid="3647205635922300578">"Гэтыя праграмы атрымаюць доступ да ўсіх апавяшчэнняў, у тым ліку асабістай інфармацыі, такой як кантакты і тэкст паведамленняў, якія вы атрымліваеце. Таксама яны змогуць адхіляць апавяшчэнні і націскаць у іх кнопкі дзеянняў."</string>
+    <string name="directory_access" msgid="7439168599298598101">"Доступ да каталога"</string>
+    <string name="directory_access_description" msgid="878500352290246580">"Гэтыя праграмы маюць дазвол на доступ да пэўных каталогаў."</string>
+    <string name="directory_on_volume" msgid="7169474174968288852">"<xliff:g id="VOLUME">%1$s</xliff:g> (<xliff:g id="DIRECTORY">%2$s</xliff:g>)"</string>
     <string name="system_alert_window_settings" msgid="2069031369694448339">"Паказваць паверх іншых праграм"</string>
     <string name="permit_draw_overlay" msgid="2400084757761408906">"Дазволіць паказ паверх іншых праграм"</string>
     <string name="allow_overlay_description" msgid="1946279120428813474">"Дазволіць паказ праграмы паверх іншых праграм, якія вы выкарыстоўваеце. Гэта можа перашкаджаць працы з праграмамі або скажаць іх інтэрфейс."</string>

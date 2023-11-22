@@ -20,20 +20,24 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothDevicePicker;
 import android.bluetooth.BluetoothHeadsetClient;
+import android.bluetooth.BluetoothHeadsetClientCall;
 import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
 import com.google.android.car.kitchensink.R;
 
@@ -52,8 +56,12 @@ public class BluetoothHeadsetFragment extends Fragment {
     Button mHoldCall;
     Button mEnableBVRA;
     Button mDisableBVRA;
+    Button mStartOutgoingCall;
+    Button mEndOutgoingCall;
+    EditText mOutgoingPhoneNumber;
 
     BluetoothHeadsetClient mHfpClientProfile;
+    BluetoothHeadsetClientCall mOutgoingCall;
 
     // Intent for picking a Bluetooth device
     public static final String DEVICE_PICKER_ACTION =
@@ -74,6 +82,9 @@ public class BluetoothHeadsetFragment extends Fragment {
         mHoldCall = (Button) v.findViewById(R.id.bluetooth_hold_call);
         mEnableBVRA = (Button) v.findViewById(R.id.bluetooth_voice_recognition_enable);
         mDisableBVRA = (Button) v.findViewById(R.id.bluetooth_voice_recognition_disable);
+        mStartOutgoingCall = (Button) v.findViewById(R.id.bluetooth_start_outgoing_call);
+        mEndOutgoingCall = (Button) v.findViewById(R.id.bluetooth_end_outgoing_call);
+        mOutgoingPhoneNumber = (EditText) v.findViewById(R.id.bluetooth_outgoing_phone_number);
 
         // Pick a bluetooth device
         mDevicePicker.setOnClickListener(new View.OnClickListener() {
@@ -146,6 +157,23 @@ public class BluetoothHeadsetFragment extends Fragment {
                 stopBVRA();
             }
         });
+
+        // Start a outgoing call
+        mStartOutgoingCall.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startCall();
+            }
+        });
+
+        // Stop a outgoing call
+        mEndOutgoingCall.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                stopCall();
+            }
+        });
+
         return v;
     }
 
@@ -259,6 +287,57 @@ public class BluetoothHeadsetFragment extends Fragment {
         mHfpClientProfile.stopVoiceRecognition(mPickedDevice);
     }
 
+    void startCall() {
+        if (mPickedDevice == null) {
+            Log.w(TAG, "Device null when trying to start voice call!");
+            return;
+        }
+
+        // Check if we have the proxy and connect the device.
+        if (mHfpClientProfile == null) {
+            Log.w(TAG, "HFP Profile proxy not available, cannot start voice call to "
+                    + mPickedDevice);
+            return;
+        }
+
+        if (mOutgoingCall != null) {
+            Log.w(TAG, "Potential on-going call or a stale call " + mOutgoingCall);
+        }
+
+        String number = mOutgoingPhoneNumber.getText().toString();
+        mOutgoingCall = mHfpClientProfile.dial(mPickedDevice, number);
+        if (mOutgoingCall == null) {
+            Log.w(TAG, "Fail to dial number " + number + ". Make sure profile connect first.");
+        } else {
+            Log.d(TAG, "Succeed in creating outgoing call " + mOutgoingCall + " for number "
+                    + number);
+        }
+    }
+
+    void stopCall() {
+        if (mPickedDevice == null) {
+            Log.w(TAG, "Device null when trying to stop voice call!");
+            return;
+        }
+
+        // Check if we have the proxy and connect the device.
+        if (mHfpClientProfile == null) {
+            Log.w(TAG, "HFP Profile proxy not available, cannot stop voice call to "
+                    + mPickedDevice);
+            return;
+        }
+
+        if (mOutgoingCall != null) {
+            if (mHfpClientProfile.terminateCall(mPickedDevice, mOutgoingCall)) {
+                Log.d(TAG, "Succeed in terminating outgoing call " + mOutgoingCall);
+                mOutgoingCall = null;
+            } else {
+                Log.d(TAG, "Fail to terminate outgoing call " + mOutgoingCall);
+            }
+        } else {
+            Log.w(TAG, "No outgoing call to terminate");
+        }
+    }
 
 
     private final BroadcastReceiver mPickerReceiver = new BroadcastReceiver() {
@@ -270,6 +349,10 @@ public class BluetoothHeadsetFragment extends Fragment {
 
             if (BluetoothDevicePicker.ACTION_DEVICE_SELECTED.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                if (device == null) {
+                    Toast.makeText(getContext(), "No device selected", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 mPickedDevice = device;
                 String text = device.getName() == null ?
                     device.getAddress() : device.getName() + " " + device.getAddress();

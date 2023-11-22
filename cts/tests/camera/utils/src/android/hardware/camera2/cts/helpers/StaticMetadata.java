@@ -73,6 +73,10 @@ public class StaticMetadata {
     private final CheckLevel mLevel;
     private final CameraErrorCollector mCollector;
 
+    // Last defined capability enum, for iterating over all of them
+    public static final int LAST_CAPABILITY_ENUM =
+            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_SECURE_IMAGE_DATA;
+
     // Access via getAeModeName() to account for vendor extensions
     public static final String[] AE_MODE_NAMES = new String[] {
         "AE_MODE_OFF",
@@ -111,6 +115,20 @@ public class StaticMetadata {
         "AF_STATE_FOCUSED_LOCKED",
         "AF_STATE_NOT_FOCUSED_LOCKED",
         "AF_STATE_PASSIVE_UNFOCUSED"
+    };
+
+    // Index with android.control.aePrecaptureTrigger
+    public static final String[] AE_TRIGGER_NAMES = new String[] {
+        "AE_TRIGGER_IDLE",
+        "AE_TRIGGER_START",
+        "AE_TRIGGER_CANCEL"
+    };
+
+    // Index with android.control.afTrigger
+    public static final String[] AF_TRIGGER_NAMES = new String[] {
+        "AF_TRIGGER_IDLE",
+        "AF_TRIGGER_START",
+        "AF_TRIGGER_CANCEL"
     };
 
     public enum CheckLevel {
@@ -299,6 +317,29 @@ public class StaticMetadata {
     }
 
     /**
+     * Get the color filter arrangement for this camera device.
+     *
+     * @return Color Filter arrangement of this camera device
+     */
+    public int getCFAChecked() {
+        Integer cfa = getValueFromKeyNonNull(
+                CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT);
+        if (cfa == null) {
+            Assert.fail("No color filter array (CFA) reported.");
+        }
+        return cfa;
+    }
+
+    public boolean isNIRColorFilter() {
+        Integer cfa = mCharacteristics.get(
+                CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT);
+        if (cfa == null) {
+            return false;
+        }
+        return cfa == CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_NIR;
+    }
+
+    /**
      * Whether or not the hardware level reported by android.info.supportedHardwareLevel
      * is {@value CameraMetadata#INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED}.
      *
@@ -357,7 +398,8 @@ public class StaticMetadata {
                     minExposure, SENSOR_INFO_EXPOSURE_TIME_RANGE_MIN_AT_MOST));
             minExposure = SENSOR_INFO_EXPOSURE_TIME_RANGE_MIN_AT_MOST;
         }
-        if (maxExposure < SENSOR_INFO_EXPOSURE_TIME_RANGE_MAX_AT_LEAST) {
+        if (isHardwareLevelAtLeastFull() &&
+                maxExposure < SENSOR_INFO_EXPOSURE_TIME_RANGE_MAX_AT_LEAST) {
             failKeyCheck(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE,
                     String.format(
                     "Max value %d is too small, set to minimal legal value %d",
@@ -1319,6 +1361,16 @@ public class StaticMetadata {
     }
 
     /**
+     * Get supported heic output sizes and do the check.
+     *
+     * @return Empty size array if heic output is not supported
+     */
+    public Size[] getHeicOutputSizesChecked() {
+        return getAvailableSizesForFormatChecked(ImageFormat.HEIC,
+                StreamDirection.Output);
+    }
+
+    /**
      * Used to determine the stream direction for various helpers that look up
      * format or size information.
      */
@@ -1920,7 +1972,7 @@ public class StaticMetadata {
 
         checkArrayValuesInRange(key, availableCaps,
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE,
-                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME);
+                LAST_CAPABILITY_ENUM);
         capList = Arrays.asList(CameraTestUtils.toObject(availableCaps));
         return capList;
     }
@@ -2254,6 +2306,20 @@ public class StaticMetadata {
     }
 
     /**
+     * Check if this camera device is a monochrome camera with Y8 support.
+     *
+     * @return true if this is a monochrome camera with Y8 support.
+     */
+    public boolean isMonochromeWithY8() {
+        int[] supportedFormats = getAvailableFormats(
+                StaticMetadata.StreamDirection.Output);
+        return (isColorOutputSupported()
+                && isCapabilitySupported(
+                        CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME)
+                && CameraTestUtils.contains(supportedFormats, ImageFormat.Y8));
+    }
+
+    /**
      * Check if high speed video is supported (HIGH_SPEED_VIDEO scene mode is
      * supported, supported high speed fps ranges and sizes are valid).
      *
@@ -2304,10 +2370,26 @@ public class StaticMetadata {
     }
 
     /**
+     * Check if this camera is a MONOCHROME camera.
+     */
+    public boolean isMonochromeCamera() {
+        return isCapabilitySupported(
+                CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME);
+    }
+
+    /**
      * Check if optical black regions key is supported.
      */
     public boolean isOpticalBlackRegionSupported() {
         return areKeysAvailable(CameraCharacteristics.SENSOR_OPTICAL_BLACK_REGIONS);
+    }
+
+    /**
+     * Check if HEIC format is supported
+     */
+    public boolean isHeicSupported() {
+        int[] formats = getAvailableFormats(StaticMetadata.StreamDirection.Output);
+        return CameraTestUtils.contains(formats, ImageFormat.HEIC);
     }
 
     /**
@@ -2354,6 +2436,33 @@ public class StaticMetadata {
         }
 
         return false;
+    }
+
+    /**
+     * Check if distortion correction is supported.
+     */
+    public boolean isDistortionCorrectionSupported() {
+        boolean distortionCorrectionSupported = false;
+        int[] distortionModes = mCharacteristics.get(
+                CameraCharacteristics.DISTORTION_CORRECTION_AVAILABLE_MODES);
+        if (distortionModes == null) {
+            return false;
+        }
+
+        for (int mode : distortionModes) {
+            if (mode != CaptureRequest.DISTORTION_CORRECTION_MODE_OFF) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if active physical camera Id metadata is supported.
+     */
+    public boolean isActivePhysicalCameraIdSupported() {
+        return areKeysAvailable(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID);
     }
 
     /**

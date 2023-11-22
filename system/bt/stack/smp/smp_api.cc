@@ -328,7 +328,7 @@ void SMP_PasskeyReply(const RawAddress& bd_addr, uint8_t res,
     smp_int_data.passkey = passkey;
     smp_sm_event(&smp_cb, SMP_SC_KEY_READY_EVT, &smp_int_data);
   } else {
-    smp_convert_string_to_tk(p_cb->tk, passkey);
+    smp_convert_string_to_tk(&p_cb->tk, passkey);
   }
 
   return;
@@ -406,12 +406,12 @@ void SMP_OobDataReply(const RawAddress& bd_addr, tSMP_STATUS res, uint8_t len,
     smp_int_data.status = SMP_OOB_FAIL;
     smp_sm_event(p_cb, SMP_AUTH_CMPL_EVT, &smp_int_data);
   } else {
-    if (len > BT_OCTET16_LEN) len = BT_OCTET16_LEN;
+    if (len > OCTET16_LEN) len = OCTET16_LEN;
 
-    memcpy(p_cb->tk, p_data, len);
+    memcpy(p_cb->tk.data(), p_data, len);
 
     key.key_type = SMP_KEY_TYPE_TK;
-    key.p_data = p_cb->tk;
+    key.p_data = p_cb->tk.data();
 
     tSMP_INT_DATA smp_int_data;
     smp_int_data.key = key;
@@ -480,31 +480,6 @@ void SMP_SecureConnectionOobDataReply(uint8_t* p_data) {
 
   smp_int_data.p_data = p_data;
   smp_sm_event(&smp_cb, SMP_SC_OOB_DATA_EVT, &smp_int_data);
-}
-
-/*******************************************************************************
- *
- * Function         SMP_Encrypt
- *
- * Description      This function is called to encrypt the data with the
- *                  specified key
- *
- * Parameters:      key                 - Pointer to key key[0] conatins the MSB
- *                  key_len             - key length
- *                  plain_text          - Pointer to data to be encrypted
- *                                        plain_text[0] conatins the MSB
- *                  pt_len              - plain text length
- *                  p_out                - output of the encrypted texts
- *
- *  Returns         Boolean - request is successful
- ******************************************************************************/
-bool SMP_Encrypt(uint8_t* key, uint8_t key_len, uint8_t* plain_text,
-                 uint8_t pt_len, tSMP_ENC* p_out)
-
-{
-  bool status = false;
-  status = smp_encrypt_data(key, key_len, plain_text, pt_len, p_out);
-  return status;
 }
 
 /*******************************************************************************

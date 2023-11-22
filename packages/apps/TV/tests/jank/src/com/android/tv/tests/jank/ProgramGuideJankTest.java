@@ -17,10 +17,10 @@ package com.android.tv.tests.jank;
 
 import static com.android.tv.testing.uihelper.UiDeviceAsserts.assertWaitForCondition;
 
-import android.support.test.filters.MediumTest;
 import android.support.test.jank.GfxMonitor;
 import android.support.test.jank.JankTest;
 import android.support.test.uiautomator.Until;
+import androidx.test.filters.MediumTest;
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.ByResource;
 import com.android.tv.testing.uihelper.Constants;

@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_label" msgid="2400883737290705700">"Persediaan profil kerja"</string>
+    <string name="app_label" msgid="1527793174155125990">"Persediaan Kerja"</string>
     <string name="provisioning_error_title" msgid="6320515739861578118">"Op!"</string>
     <string name="setup_work_profile" msgid="1468934631731845267">"Sediakan profil kerja"</string>
     <string name="company_controls_workspace" msgid="2808025277267917221">"Organisasi anda mengawal profil ini dan memastikan profil selamat. Anda mengawal segala perkara lain pada peranti anda."</string>
@@ -28,10 +28,10 @@
     <string name="the_following_is_your_mdm_for_device" msgid="6717973404364414816">"Apl berikut akan mengurus peranti anda:"</string>
     <string name="next" msgid="1004321437324424398">"Seterusnya"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Menyediakan profil kerja…"</string>
-    <string name="admin_has_ability_to_monitor_profile" msgid="4552308842716093826">"Pentadbir anda berupaya memantau dan mengurus tetapan, akses korporat, apl, kebenaran dan data yang berkaitan dengan profil ini, termasuk aktiviti rangkaian anda serta lokasi, sejarah panggilan dan sejarah carian kenalan peranti anda.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi pentadbir anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="8598573866079474861">"Pentadbir anda berupaya memantau dan mengurus tetapan, akses korporat, apl, kebenaran dan data yang berkaitan dengan peranti ini, termasuk aktiviti rangkaian anda serta lokasi, sejarah panggilan dan sejarah carian kenalan peranti anda.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi pentadbir anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
+    <string name="admin_has_ability_to_monitor_profile" msgid="7051310668406162979">"Pentadbir IT anda berupaya memantau dan mengurus tetapan, akses korporat, apl, kebenaran dan data yang berkaitan dengan profil ini, termasuk aktiviti rangkaian anda serta lokasi, sejarah panggilan dan sejarah carian kenalan peranti anda.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi pentadbir anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
+    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Pentadbir IT anda berupaya memantau dan mengurus tetapan, akses korporat, apl, kebenaran dan data yang berkaitan dengan peranti ini, termasuk aktiviti rangkaian anda serta lokasi, sejarah panggilan dan sejarah carian kenalan peranti anda.<xliff:g id="LINE_BREAK">&lt;br&gt;&lt;br&gt;</xliff:g>Hubungi pentadbir IT anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Untuk menggunakan ciri perlindungan kecurian, anda mesti mempunyai kunci skrin yang dilindungi kata laluan untuk peranti anda."</string>
-    <string name="contact_your_admin_for_more_info" msgid="5959191345827902911">"Hubungi pentadbir anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
+    <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Hubungi pentadbir IT anda untuk mendapatkan maklumat lanjut, termasuk dasar privasi organisasi anda."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Ketahui lebih lanjut"</string>
     <string name="cancel_setup" msgid="2949928239276274745">"Batal"</string>
     <string name="ok_setup" msgid="4593707675416137504">"Ok"</string>
@@ -57,7 +57,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Tidak dapat menyediakan profil kerja anda. Hubungi jabatan IT anda atau cuba sebentar lagi."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Tidak dapat menambahkan profil kerja"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Tidak dapat menggantikan atau mengalih keluar profil kerja"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="4740182491195894659">"Profil kerja tidak dapat ditambahkan pada peranti ini. Jika anda ingin mengemukakan pertanyaan, hubungi pentadbir anda."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Profil kerja tidak dapat ditambahkan pada peranti ini. Jika anda ingin mengemukakan pertanyaan, hubungi pentadbir IT anda."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Tukar pelancar peranti"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Apl pelancar ini tidak dapat digunakan oleh profil kerja anda"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Batal"</string>
@@ -74,7 +74,7 @@
     <string name="progress_finishing_touches" msgid="9037776404089697198">"Melaksanakan kemasan akhir…"</string>
     <string name="progress_set_owner" msgid="8214062820093757961">"Menetapkan pemilik peranti…"</string>
     <string name="progress_initialize" msgid="1104643492713424939">"Memulakan peranti..."</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="8297141458771829628">"Peranti ini tidak membenarkan penyulitan, yang diperlukan untuk persediaan. Untuk mendapatkan bantuan, hubungi pentadbir anda."</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Peranti ini tidak membenarkan penyulitan, yang diperlukan untuk persediaan. Untuk mendapatkan bantuan, hubungi pentadbir IT anda."</string>
     <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Hentikan persediaan &amp; tetapkan semula peranti?"</string>
     <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Tindakan ini akan menetapkan semula peranti dan membawa anda ke skrin yang pertama."</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Berhenti membuat persediaan dan padamkan data peranti anda?"</string>
@@ -83,17 +83,17 @@
     <string name="reset" msgid="6467204151306265796">"Tetapkan semula"</string>
     <string name="cant_set_up_profile" msgid="4341825293970158436">"Tidak dapat menyediakan profil"</string>
     <string name="cant_set_up_device" msgid="4120090138983350714">"Tidak dapat menyediakan peranti"</string>
-    <string name="couldnt_set_up_device" msgid="60699158233724802">"Tidak dapat menyediakan peranti. Untuk mendapatkan bantuan, hubungi pentadbir anda."</string>
-    <string name="contact_your_admin_for_help" msgid="8045606258802719235">"Hubungi pentadbir anda untuk mendapatkan bantuan"</string>
+    <string name="couldnt_set_up_device" msgid="5137950404283642302">"Tidak dapat menyediakan peranti. Untuk mendapatkan bantuan, hubungi pentadbir IT anda."</string>
+    <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Hubungi pentadbir IT anda untuk mendapatkan bantuan"</string>
     <string name="device_already_set_up" msgid="507881934487140294">"Peranti sudah disediakan"</string>
-    <string name="device_owner_error_wifi" msgid="4256310285761332378">"Tidak boleh menyambung kepada Wi-Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="1221351721899290155">"Perlindungan tetapan semula peranti anda dihidupkan. Untuk mendapatkan bantuan, hubungi pentadbir anda."</string>
+    <string name="error_wifi" msgid="1850288843966836571">"Tidak dapat menyambung ke Wi-Fi"</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Perlindungan tetapan semula peranti anda dihidupkan. Untuk mendapatkan bantuan, hubungi pentadbir IT anda."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Memadam"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Sila tunggu..."</string>
-    <string name="device_owner_error_hash_mismatch" msgid="7256273143549784838">"Tidak dapat menggunakan apl pentadbir kerana ralat hasil tambah semak. Untuk mendapatkan bantuan, hubungi pentadbir anda."</string>
-    <string name="device_owner_error_download_failed" msgid="4520111971592657116">"Tidak dapat memuat turun apl pentadbir"</string>
-    <string name="device_owner_error_package_invalid" msgid="1096901016820157695">"Tidak dapat menggunakan apl pentadbir. Apl ketiadaan komponen atau rosak. Untuk mendapatkan bantuan, hubungi pentadbir anda."</string>
-    <string name="device_owner_error_installation_failed" msgid="684566845601079360">"Tidak dapat memasang apl pentadbir"</string>
+    <string name="error_hash_mismatch" msgid="1145488923243178454">"Tidak dapat menggunakan apl pentadbir kerana ralat hasil tambah semak. Untuk mendapatkan bantuan, hubungi pentadbir IT anda."</string>
+    <string name="error_download_failed" msgid="3274283629837019452">"Tidak dapat memuat turun apl pentadbir"</string>
+    <string name="error_package_invalid" msgid="555402554502033988">"Tidak dapat menggunakan apl pentadbir. Apl ketiadaan komponen atau rosak. Untuk mendapatkan bantuan, hubungi pentadbir IT anda."</string>
+    <string name="error_installation_failed" msgid="2282903750318407285">"Tidak dapat memasang apl pentadbir"</string>
     <string name="profile_owner_cancel_message" msgid="6868736915633023477">"Berhenti membuat persediaan?"</string>
     <string name="profile_owner_cancel_cancel" msgid="4408725524311574891">"Tidak"</string>
     <string name="profile_owner_cancel_ok" msgid="5951679183850766029">"Ya"</string>
@@ -110,17 +110,17 @@
     <string name="device_owner_info" msgid="3716661456037934467">"Peranti ini akan diurus, dipantau dan dilindungi oleh <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Syarat dikenakan. <xliff:g id="VIEW_TERMS">%2$s</xliff:g>"</string>
     <string name="device_owner_info_with_terms_headers" msgid="1254243288669282977">"Peranti ini akan diurus, dipantau dan dilindungi oleh <xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g>. Syarat daripada <xliff:g id="TERMS_HEADERS">%2$s</xliff:g> akan dikenakan. <xliff:g id="VIEW_TERMS">%3$s</xliff:g>"</string>
     <string name="link_isnt_secure_and_cant_be_opened_until_device_setup_finished" msgid="1604497932637832657">"Pautan ini tidak selamat dan tidak dapat dibuka sehingga persediaan peranti selesai. <xliff:g id="LINK_RAW_TEST">%1$s</xliff:g>"</string>
-    <string name="contact_device_provider" msgid="9100405424740726066">"Jika anda ingin mengemukakan soalan, hubungi <xliff:g id="ORGANIZATIONS_ADMIN">%1$s</xliff:g> anda."</string>
-    <string name="if_questions_contact_admin" msgid="6147462485780267795">"Jika anda ingin mengemukakan soalan, hubungi pentadbir organisasi anda"</string>
-    <string name="setup_isnt_finished_contact_admin" msgid="235011880559615998">"Persediaan belum selesai. Untuk mendapatkan bantuan, hubungi pentadbir anda."</string>
-    <string name="for_help_contact_admin" msgid="8687037236275184653">"Untuk mendapatkan bantuan, hubungi pentadbir anda"</string>
-    <string name="organization_admin" msgid="1595001081906025683">"pentadbir organisasi"</string>
+    <string name="contact_device_provider" msgid="2843488903902493030">"Untuk mengetahui lebih lanjut, hubungi <xliff:g id="IT_ADMIN">%1$s</xliff:g> anda."</string>
+    <string name="if_questions_contact_admin" msgid="3509427015901582047">"Jika anda ingin mengemukakan soalan, hubungi pentadbir IT anda"</string>
+    <string name="setup_isnt_finished_contact_admin" msgid="8849644190723875952">"Persediaan belum selesai. Untuk mendapatkan bantuan, hubungi pentadbir IT anda."</string>
+    <string name="for_help_contact_admin" msgid="5922538077702487859">"Untuk mendapatkan bantuan, hubungi pentadbir IT anda"</string>
+    <string name="organization_admin" msgid="5975914478148511290">"Pentadbir IT"</string>
     <string name="your_org_app_used" msgid="5336414768293540831">"<xliff:g id="YOUR_ORGANIZATION">%1$s</xliff:g> akan mengurus dan memantau peranti ini menggunakan apl berikut:"</string>
     <string name="your_organization_beginning" msgid="5952561489910967255">"Organisasi anda"</string>
     <string name="your_organization_middle" msgid="8288538158061644733">"organisasi anda"</string>
     <string name="view_terms" msgid="7230493092383341605">"Lihat syarat"</string>
     <string name="accept_and_continue" msgid="1632679734918410653">"Terima &amp; teruskan"</string>
-    <string name="close" msgid="7208600934846389439">"Tutup"</string>
+    <string name="back" msgid="6455622465896147127">"Kembali"</string>
     <string name="set_up_your_device" msgid="1896651520959894681">"Sediakan peranti anda"</string>
     <string name="info_anim_title_0" msgid="3285414600215959704">"Ubah cara anda bekerja"</string>
     <string name="info_anim_title_1" msgid="2657512519467714760">"Asingkan kerja daripada peribadi"</string>
@@ -158,4 +158,28 @@
     <string name="take_a_few_minutes" msgid="6282806501305322838">"Proses ini mengambil masa beberapa minit"</string>
     <string name="work_profile_description" msgid="8524116010729569213">"Apl kerja anda akan disimpan dalam profil ini dan diurus oleh organisasi anda"</string>
     <string name="device_owner_description" msgid="168013145812679664">"Peranti ini akan dilindungi dan diurus oleh organisasi anda"</string>
+    <string name="setup_provisioning_header" msgid="4282483198266806271">"Bersedia untuk menyediakan peranti kerja…"</string>
+    <string name="setup_provisioning_header_description" msgid="2567041263563823566">"Menyediakan apl pentadbir"</string>
+    <string name="set_up_everything_else" msgid="4407706086957916501">"Sediakan semua perkara lain"</string>
+    <string name="now_lets_set_up_everything_else" msgid="2905102208584231894">"Sekarang mari sediakan semua perkara lain"</string>
+    <string name="brand_screen_header" msgid="8865808542690116648">"Peranti ini milik organisasi anda"</string>
+    <string name="brand_screen_subheader" msgid="7664792208784456436">"Apl berikut akan digunakan untuk mengurus dan memantau telefon ini"</string>
+    <string name="downloading_administrator_header" msgid="8660294318893902915">"Bersedia untuk persediaan kerja…"</string>
+    <string name="work_profile_provisioning_accept_header" msgid="462916780311392444">"Mula-mula, mari sediakan profil kerja anda"</string>
+    <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Mari sediakan profil kerja anda"</string>
+    <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Apl kerja disimpan dalam profil kerja anda"</string>
+    <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"Jeda apl kerja setelah anda selesai bekerja untuk hari itu"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="7495564624887776704">"Hanya data dalam profil kerja anda yang kelihatan kepada pentadbir IT anda"</string>
+    <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"Menyediakan profil kerja anda…"</string>
+    <string name="work_profile_provisioning_summary" msgid="3917907344897144246">"Apl kerja disimpan dalam profil kerja anda. Ada boleh menjeda apl kerja setelah anda selesai bekerja pada hari itu. Hanya data dalam profil kerja anda yang kelihatan kepada pentadbir IT anda."</string>
+    <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Mari sediakan peranti kerja anda"</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Pastikan apl kerja di hujung jari anda"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Peranti ini bukan peribadi"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Pentadbir IT anda mungkin dapat melihat data dan aktiviti anda pada peranti ini."</string>
+    <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Menyediakan peranti anda…"</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="1176062866187662479">"Gunakan peranti ini untuk mengakses apl kerja anda dengan mudah. Peranti ini bukan peribadi, maka pentadbir IT anda mungkin dapat melihat data dan aktiviti anda. Untuk mengetahui lebih lanjut, hubungi pentadbir IT anda."</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Peringatan privasi"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Pentadbir IT anda mungkin dapat melihat data dan aktiviti anda pada peranti ini"</string>
+    <string name="device_provisioning_finished" msgid="3981783240592092906">"Peranti anda sudah sedia untuk digunakan!"</string>
+    <string name="done" msgid="7755227776955952318">"Selesai"</string>
 </resources>

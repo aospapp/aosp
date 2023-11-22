@@ -15,11 +15,9 @@
  */
 package com.android.documentsui.dirlist;
 
-import static android.support.v4.util.Preconditions.checkArgument;
+import static androidx.core.util.Preconditions.checkArgument;
 
-import com.android.documentsui.selection.SelectionHelper.StableIdProvider;
-
-import java.util.List;
+import com.android.documentsui.DocsSelectionHelper.StableIdProvider;
 
 /**
  * Provides RecyclerView selection code access to stable ids backed
@@ -35,17 +33,12 @@ public final class DocsStableIdProvider extends StableIdProvider {
     }
 
     @Override
-    public String getStableId(int position) {
+    public String getKey(int position) {
         return mAdapter.getStableId(position);
     }
 
     @Override
     public int getPosition(String id) {
         return mAdapter.getPosition(id);
-    }
-
-    @Override
-    public List<String> getStableIds() {
-        return mAdapter.getStableIds();
     }
 }

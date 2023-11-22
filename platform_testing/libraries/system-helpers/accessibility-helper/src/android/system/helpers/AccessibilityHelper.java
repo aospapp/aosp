@@ -172,7 +172,7 @@ public class AccessibilityHelper {
     private UiObject2 getSettingFromList(String settingName)
             throws UiObjectNotFoundException {
         UiScrollable listScrollable = new UiScrollable(
-                new UiSelector().resourceId(SETTINGS_PACKAGE+":id/list"));
+                new UiSelector().resourceId(SETTINGS_PACKAGE + ":id/recycler_view"));
         if (listScrollable != null) {
             listScrollable.scrollToBeginning(100);
             listScrollable.scrollIntoView(

@@ -20,7 +20,6 @@
 #include "arch/instruction_set.h"
 #include "base/macros.h"
 #include "base/utils.h"
-#include "method_info.h"
 #include "quick/quick_method_frame_info.h"
 #include "stack_map.h"
 
@@ -32,14 +31,11 @@ class ArtMethod;
 class PACKED(4) OatQuickMethodHeader {
  public:
   OatQuickMethodHeader() = default;
-  explicit OatQuickMethodHeader(uint32_t vmap_table_offset,
-                                uint32_t method_info_offset,
-                                uint32_t frame_size_in_bytes,
-                                uint32_t core_spill_mask,
-                                uint32_t fp_spill_mask,
-                                uint32_t code_size);
-
-  ~OatQuickMethodHeader();
+  OatQuickMethodHeader(uint32_t vmap_table_offset,
+                       uint32_t code_size)
+      : vmap_table_offset_(vmap_table_offset),
+        code_size_(code_size) {
+  }
 
   static OatQuickMethodHeader* FromCodePointer(const void* code_ptr) {
     uintptr_t code = reinterpret_cast<uintptr_t>(code_ptr);
@@ -65,32 +61,14 @@ class PACKED(4) OatQuickMethodHeader {
     return GetCodeSize() != 0 && vmap_table_offset_ != 0;
   }
 
-  const void* GetOptimizedCodeInfoPtr() const {
+  const uint8_t* GetOptimizedCodeInfoPtr() const {
     DCHECK(IsOptimized());
-    return reinterpret_cast<const void*>(code_ - vmap_table_offset_);
+    return code_ - vmap_table_offset_;
   }
 
   uint8_t* GetOptimizedCodeInfoPtr() {
     DCHECK(IsOptimized());
     return code_ - vmap_table_offset_;
-  }
-
-  CodeInfo GetOptimizedCodeInfo() const {
-    return CodeInfo(GetOptimizedCodeInfoPtr());
-  }
-
-  const void* GetOptimizedMethodInfoPtr() const {
-    DCHECK(IsOptimized());
-    return reinterpret_cast<const void*>(code_ - method_info_offset_);
-  }
-
-  uint8_t* GetOptimizedMethodInfoPtr() {
-    DCHECK(IsOptimized());
-    return code_ - method_info_offset_;
-  }
-
-  MethodInfo GetOptimizedMethodInfo() const {
-    return MethodInfo(reinterpret_cast<const uint8_t*>(GetOptimizedMethodInfoPtr()));
   }
 
   const uint8_t* GetCode() const {
@@ -115,18 +93,6 @@ class PACKED(4) OatQuickMethodHeader {
 
   const uint32_t* GetVmapTableOffsetAddr() const {
     return &vmap_table_offset_;
-  }
-
-  uint32_t GetMethodInfoOffset() const {
-    return method_info_offset_;
-  }
-
-  void SetMethodInfoOffset(uint32_t offset) {
-    method_info_offset_ = offset;
-  }
-
-  const uint32_t* GetMethodInfoOffsetAddr() const {
-    return &method_info_offset_;
   }
 
   const uint8_t* GetVmapTable() const {
@@ -157,7 +123,7 @@ class PACKED(4) OatQuickMethodHeader {
 
   template <bool kCheckFrameSize = true>
   uint32_t GetFrameSizeInBytes() const {
-    uint32_t result = frame_info_.FrameSizeInBytes();
+    uint32_t result = GetFrameInfo().FrameSizeInBytes();
     if (kCheckFrameSize) {
       DCHECK_ALIGNED(result, kStackAlignment);
     }
@@ -165,7 +131,8 @@ class PACKED(4) OatQuickMethodHeader {
   }
 
   QuickMethodFrameInfo GetFrameInfo() const {
-    return frame_info_;
+    DCHECK(IsOptimized());
+    return CodeInfo::DecodeFrameInfo(GetOptimizedCodeInfoPtr());
   }
 
   uintptr_t ToNativeQuickPc(ArtMethod* method,
@@ -190,13 +157,6 @@ class PACKED(4) OatQuickMethodHeader {
 
   // The offset in bytes from the start of the vmap table to the end of the header.
   uint32_t vmap_table_offset_ = 0u;
-  // The offset in bytes from the start of the method info to the end of the header.
-  // The method info offset is not in the CodeInfo since CodeInfo has good dedupe properties that
-  // would be lost from doing so. The method info memory region contains method indices since they
-  // are hard to dedupe.
-  uint32_t method_info_offset_ = 0u;
-  // The stack frame information.
-  QuickMethodFrameInfo frame_info_;
   // The code size in bytes. The highest bit is used to signify if the compiled
   // code with the method header has should_deoptimize flag.
   uint32_t code_size_ = 0u;

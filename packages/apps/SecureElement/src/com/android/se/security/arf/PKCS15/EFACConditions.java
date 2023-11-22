@@ -149,8 +149,9 @@ public class EFACConditions extends EF {
                     certificateHash = derRule.getTLVData();
 
                     if (certificateHash.length != Hash_REF_DO.SHA1_LEN
+                            && certificateHash.length != Hash_REF_DO.SHA256_LEN
                             && certificateHash.length != 0) {
-                        // other hash than SHA-1 hash values are not supported.
+                        // other hash than SHA-1 and SHA-256 hash values are not supported.
                         throw new PKCS15Exception("Invalid hash found!");
                     } else {
                         hash_ref_do = new Hash_REF_DO(certificateHash);

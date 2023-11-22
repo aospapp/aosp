@@ -22,11 +22,13 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.metrics.proto.MetricMeasurement.Metric;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.FilteredResultForwarder;
 import com.android.tradefed.result.ITestInvocationListener;
-import com.android.tradefed.result.ResultForwarder;
+import com.android.tradefed.result.RetryResultForwarder;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.TestRunResult;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 
@@ -75,6 +77,7 @@ class InstrumentationSerialTest implements IRemoteTest {
         runner.setReRunUsingTestFile(false);
         // no need to rerun when executing tests one by one
         runner.setRerunMode(false);
+        runner.setIsRerun(true);
         return runner;
     }
 
@@ -91,7 +94,11 @@ class InstrumentationSerialTest implements IRemoteTest {
             for (TestDescription testToRun : mTests) {
                 InstrumentationTest runner = createInstrumentationTest(mInstrumentationTest);
                 runner.setClassName(testToRun.getClassName());
-                runner.setMethodName(testToRun.getTestName());
+                // We use getTestNameNoParams to avoid attempting re-running individual
+                // parameterized tests. Instead ask the base method to re-run them all.
+                runner.setMethodName(testToRun.getTestNameWithoutParams());
+                // Unset package name if any just in case to avoid conflict with classname.
+                runner.setTestPackageName(null);
                 runTest(runner, listener, testToRun);
             }
         } catch (ConfigurationException e) {
@@ -103,9 +110,32 @@ class InstrumentationSerialTest implements IRemoteTest {
             InstrumentationTest runner, ITestInvocationListener listener, TestDescription testToRun)
             throws DeviceNotAvailableException {
         // use a listener filter, to track if the test failed to run
-        CollectingTestListener trackingListener = new CollectingTestListener();
+        CollectingTestListener trackingListener =
+                new CollectingTestListener() {
+                    @Override
+                    public void testRunStarted(String name, int numTests, int attemptNumber) {
+                        // Make the tracker unaware of attempts to track the current retry attempt
+                        super.testRunStarted(name, 0, 0);
+                    }
+                };
         for (int i=1; i <= FAILED_RUN_TEST_ATTEMPTS; i++) {
-            runner.run(new ResultForwarder(trackingListener, listener));
+            runner.run(
+                    new RetryResultForwarder(
+                            i,
+                            trackingListener,
+                            new FilteredResultForwarder(Arrays.asList(testToRun), listener)) {
+                        // Avoid any test count to avoid recounting the tests.
+                        @Override
+                        public void testRunStarted(String runName, int testCount) {
+                            super.testRunStarted(runName, 0);
+                        }
+
+                        @Override
+                        public void testRunStarted(
+                                String runName, int testCount, int attemptNumber) {
+                            super.testRunStarted(runName, 0, attemptNumber);
+                        }
+                    });
             if (trackingListener.getCurrentRunResults().getTestResults().containsKey(testToRun)) {
                 return;
             }
@@ -118,7 +148,8 @@ class InstrumentationSerialTest implements IRemoteTest {
 
     private void markTestAsFailed(
             TestDescription test, TestRunResult testRun, ITestInvocationListener listener) {
-        listener.testRunStarted(testRun.getName(), 1);
+        // Set test count at 0 to avoid re-counting the number of tests.
+        listener.testRunStarted(testRun.getName(), 0);
         listener.testStarted(test);
 
         String message =
@@ -127,10 +158,6 @@ class InstrumentationSerialTest implements IRemoteTest {
                         : "The test was not initialized by the test runner.";
         listener.testFailed(
                 test, String.format("Test failed to run. Test run failed due to : %s", message));
-
-        if (testRun.isRunFailure()) {
-            listener.testRunFailed(message);
-        }
         listener.testEnded(test, new HashMap<String, Metric>());
         listener.testRunEnded(0, new HashMap<String, Metric>());
     }

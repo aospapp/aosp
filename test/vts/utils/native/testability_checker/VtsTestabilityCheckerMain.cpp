@@ -84,8 +84,8 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  android::FQName hal_fq_name = android::FQName(argv[optind]);
-  if (!hal_fq_name.isValid()) {
+  android::FQName hal_fq_name;
+  if (!android::FQName::parse(argv[optind], &hal_fq_name)) {
     cerr << "Invalid hal name: " << argv[optind] << endl;
     return -1;
   }

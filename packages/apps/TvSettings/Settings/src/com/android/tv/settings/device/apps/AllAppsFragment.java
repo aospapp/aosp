@@ -19,13 +19,15 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.SystemClock;
-import android.support.annotation.NonNull;
-import android.support.v7.preference.Preference;
-import android.support.v7.preference.PreferenceGroup;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
+
+import androidx.annotation.Keep;
+import androidx.annotation.NonNull;
+import androidx.preference.Preference;
+import androidx.preference.PreferenceGroup;
 
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.applications.ApplicationsState;
@@ -39,6 +41,7 @@ import java.util.Set;
 /**
  * Fragment for listing and managing all apps on the device.
  */
+@Keep
 public class AllAppsFragment extends SettingsPreferenceFragment implements
         Preference.OnPreferenceClickListener {
 

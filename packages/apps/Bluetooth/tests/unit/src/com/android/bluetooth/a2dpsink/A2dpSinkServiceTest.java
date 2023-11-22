@@ -15,16 +15,22 @@
  */
 package com.android.bluetooth.a2dpsink;
 
+import static org.mockito.Mockito.*;
+
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothProfile;
 import android.content.Context;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ServiceTestRule;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ServiceTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.btservice.storage.DatabaseManager;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -46,6 +52,7 @@ public class A2dpSinkServiceTest {
     @Rule public final ServiceTestRule mServiceRule = new ServiceTestRule();
 
     @Mock private AdapterService mAdapterService;
+    @Mock private DatabaseManager mDatabaseManager;
 
     @Before
     public void setUp() throws Exception {
@@ -60,6 +67,7 @@ public class A2dpSinkServiceTest {
         // Try getting the Bluetooth adapter
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         Assert.assertNotNull(mAdapter);
+        when(mAdapterService.getDatabase()).thenReturn(mDatabaseManager);
     }
 
     @After
@@ -73,8 +81,43 @@ public class A2dpSinkServiceTest {
         TestUtils.clearAdapterService(mAdapterService);
     }
 
+    private BluetoothDevice makeBluetoothDevice(String address) {
+        return mAdapter.getRemoteDevice(address);
+    }
+
+    /**
+     * Mock the priority of a bluetooth device
+     *
+     * @param device - The bluetooth device you wish to mock the priority of
+     * @param priority - The priority value you want the device to have
+     */
+    private void mockDevicePriority(BluetoothDevice device, int priority) {
+        when(mDatabaseManager.getProfilePriority(device, BluetoothProfile.A2DP_SINK))
+                .thenReturn(priority);
+    }
+
     @Test
     public void testInitialize() {
         Assert.assertNotNull(A2dpSinkService.getA2dpSinkService());
+    }
+
+    /**
+     * Test that a PRIORITY_ON device is connected to
+     */
+    @Test
+    public void testConnect() {
+        BluetoothDevice device = makeBluetoothDevice("11:11:11:11:11:11");
+        mockDevicePriority(device, BluetoothProfile.PRIORITY_ON);
+        Assert.assertTrue(mService.connect(device));
+    }
+
+    /**
+     * Test that a PRIORITY_OFF device is not connected to
+     */
+    @Test
+    public void testConnectPriorityOffDevice() {
+        BluetoothDevice device = makeBluetoothDevice("11:11:11:11:11:11");
+        mockDevicePriority(device, BluetoothProfile.PRIORITY_OFF);
+        Assert.assertFalse(mService.connect(device));
     }
 }

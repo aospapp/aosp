@@ -67,6 +67,8 @@
     <feature name="android.software.input_methods" />
     <feature name="android.software.midi" />
     <feature name="android.software.print" />
+    <feature name="android.software.cant_save_state" />
+    <feature name="android.software.secure_lock_screen" />
 
     <!-- Feature to specify if the device supports adding device admins. -->
     <feature name="android.software.device_admin" />
@@ -75,6 +77,7 @@
     <feature name="android.software.managed_users" />
 
     <feature name="android.software.picture_in_picture" />
+    <feature name="android.software.activities_on_secondary_displays" />
 
     <feature name="android.software.cts" />
     <!-- devices with GPS must include android.hardware.location.gps.xml -->

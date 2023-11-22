@@ -70,15 +70,19 @@ else
     exit
 fi
 
+if [ "$VTF_BUILD_TARGET_NAME" != "vtf" ]; then
+    VTF_BUILD_TARGET_NAME="vts"
+fi
+
 # check if in Android build env
 if [ ! -z "${ANDROID_BUILD_TOP}" ]; then
     if [ ! -z "${ANDROID_HOST_OUT}" ]; then
-      VTS_ROOT=${ANDROID_HOST_OUT}/vts
+      VTS_ROOT=${ANDROID_HOST_OUT}/${VTF_BUILD_TARGET_NAME}
     else
-      VTS_ROOT=${ANDROID_BUILD_TOP}/${OUT_DIR:-out}/host/${OS}/vts
+      VTS_ROOT=${ANDROID_BUILD_TOP}/${OUT_DIR:-out}/host/${OS}/${VTF_BUILD_TARGET_NAME}
     fi
     if [ ! -d ${VTS_ROOT} ]; then
-        echo "Could not find $VTS_ROOT in Android build environment. Try 'make vts'"
+        echo "Could not find $VTS_ROOT in Android build environment. Try 'make ${VTF_BUILD_TARGET_NAME}'"
         exit
     fi;
 fi;
@@ -88,7 +92,7 @@ if [ -z ${VTS_ROOT} ]; then
     VTS_ROOT="$(dirname $(readlink -e $0))/../.."
 fi;
 
-VTS_JAR_DIR=${VTS_ROOT}/android-vts/tools
+VTS_JAR_DIR=${VTS_ROOT}/android-${VTF_BUILD_TARGET_NAME}/tools
 STANDALONE_JAR_DIR=${ANDROID_HOST_OUT}/framework
 JAR_DIRS="$VTS_JAR_DIR
   $STANDALONE_JAR_DIR"
@@ -123,7 +127,7 @@ done
 
 # to run in the lab.
 OPTIONAL_JARS="
-  android-vts/tools/google-tradefed-vts-prebuilt
+  android-${VTF_BUILD_TARGET_NAME}/tools/google-tradefed-vts-prebuilt
   google-tradefed-prebuilt
   google-tradefed-tests
   google-tf-prod-tests
@@ -140,7 +144,7 @@ for JAR in $OPTIONAL_JARS; do
 done
 
 # load any shared libraries for host-side executables
-LIB_DIR=${VTS_ROOT}/android-vts/lib
+LIB_DIR=${VTS_ROOT}/android-${VTF_BUILD_TARGET_NAME}/lib
 if [ "$HOST" == "Linux" ]; then
     LD_LIBRARY_PATH=${LIB_DIR}:${LIB_DIR}64:${LD_LIBRARY_PATH}
     export LD_LIBRARY_PATH
@@ -150,7 +154,7 @@ elif [ "$HOST" == "Darwin" ]; then
 fi
 
 # include any host-side test jars
-for j in ${VTS_ROOT}/android-vts/testcases/*.jar; do
+for j in ${VTS_ROOT}/android-${VTF_BUILD_TARGET_NAME}/testcases/*.jar; do
     JAR_PATH=${JAR_PATH}:$j
 done
 
@@ -175,9 +179,9 @@ esac
 done
 
 if [ -z "${VENDOR}" ]; then
-    VTS_TESTCASES=${VTS_ROOT}/android-vts/testcases/
+    VTS_TESTCASES=${VTS_ROOT}/android-${VTF_BUILD_TARGET_NAME}/testcases/
 else
-    VTS_TESTCASES=${VTS_ROOT}/android-vts/${VENDOR}/testcases/
+    VTS_TESTCASES=${VTS_ROOT}/android-${VTF_BUILD_TARGET_NAME}/${VENDOR}/testcases/
 fi
 
-cd ${VTS_TESTCASES}; VTS_TESTCASES=${VTS_TESTCASES} java $RDBG_FLAG -cp ${JAR_PATH} -DVTS_ROOT=${VTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "${ARGS[@]}"
+cd ${VTS_TESTCASES}; VTS_TESTCASES=${VTS_TESTCASES} java -Xmx2048m $RDBG_FLAG -cp ${JAR_PATH} -DVTS_ROOT=${VTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "${ARGS[@]}"

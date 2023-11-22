@@ -18,49 +18,58 @@ package com.android.tv.tuner.source;
 
 import android.content.Context;
 import android.support.annotation.VisibleForTesting;
-import com.android.tv.tuner.TunerHal;
+import com.android.tv.tuner.api.Tuner;
 import com.android.tv.tuner.data.TunerChannel;
 import com.android.tv.tuner.data.nano.Channel;
-import com.android.tv.tuner.tvinput.EventDetector;
+import com.android.tv.tuner.ts.EventDetector.EventListener;
+import com.google.auto.factory.AutoFactory;
+import com.google.auto.factory.Provided;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.inject.Inject;
+import javax.inject.Provider;
 
 /**
- * Manages {@link DataSource} for playback and recording. The class hides handling of {@link
- * TunerHal} and {@link TsStreamer} from other classes. One TsDataSourceManager should be created
- * for per session.
+ * Manages {@link TsDataSource} for playback and recording. The class hides handling of {@link
+ * Tuner} and {@link TsStreamer} from other classes. One TsDataSourceManager should be created for
+ * per session.
  */
+@AutoFactory
 public class TsDataSourceManager {
-    private static final Object sLock = new Object();
     private static final Map<TsDataSource, TsStreamer> sTsStreamers = new ConcurrentHashMap<>();
 
-    private static int sSequenceId;
+    private static final AtomicInteger sSequenceId = new AtomicInteger();
 
-    private final int mId;
+    private final int mId = sSequenceId.incrementAndGet();
     private final boolean mIsRecording;
-    private final TunerTsStreamerManager mTunerStreamerManager =
-            TunerTsStreamerManager.getInstance();
+    private final TunerTsStreamerManager mTunerStreamerManager;
 
     private boolean mKeepTuneStatus;
 
     /**
-     * Creates TsDataSourceManager to create and release {@link DataSource} which will be used for
-     * playing and recording.
+     * Factory for {@link }TsDataSourceManager}.
      *
-     * @param isRecording {@code true} when for recording, {@code false} otherwise
-     * @return {@link TsDataSourceManager}
+     * <p>This wrapper class keeps other classes from needing to reference the {@link AutoFactory}
+     * generated class.
      */
-    public static TsDataSourceManager createSourceManager(boolean isRecording) {
-        int id;
-        synchronized (sLock) {
-            id = ++sSequenceId;
+    public static final class Factory {
+        private final TsDataSourceManagerFactory mDelegate;
+
+        @Inject
+        public Factory(Provider<TunerTsStreamerManager> tunerStreamerManagerProvider) {
+            mDelegate = new TsDataSourceManagerFactory(tunerStreamerManagerProvider);
         }
-        return new TsDataSourceManager(id, isRecording);
+
+        public TsDataSourceManager create(boolean isRecording) {
+            return mDelegate.create(isRecording);
+        }
     }
 
-    private TsDataSourceManager(int id, boolean isRecording) {
-        mId = id;
+    TsDataSourceManager(
+            boolean isRecording, @Provided TunerTsStreamerManager tunerStreamerManager) {
         mIsRecording = isRecording;
+        this.mTunerStreamerManager = tunerStreamerManager;
         mKeepTuneStatus = true;
     }
 
@@ -73,7 +82,7 @@ public class TsDataSourceManager {
      * @return {@link TsDataSource} which will provide the specified channel stream
      */
     public TsDataSource createDataSource(
-            Context context, TunerChannel channel, EventDetector.EventListener eventListener) {
+            Context context, TunerChannel channel, EventListener eventListener) {
         if (channel.getType() == Channel.TunerType.TYPE_FILE) {
             // MPEG2 TS captured stream file recording is not supported.
             if (mIsRecording) {
@@ -92,7 +101,7 @@ public class TsDataSourceManager {
     }
 
     /**
-     * Releases the specified {@link TsDataSource} and underlying {@link TunerHal}.
+     * Releases the specified {@link TsDataSource} and underlying {@link Tuner}.
      *
      * @param source to release
      */
@@ -114,10 +123,10 @@ public class TsDataSourceManager {
     }
 
     /**
-     * Indicates whether the underlying {@link TunerHal} should be kept or not when data source is
+     * Indicates whether the underlying {@link Tuner} should be kept or not when data source is
      * being released. TODO: If b/30750953 is fixed, we can remove this function.
      *
-     * @param keepTuneStatus underlying {@link TunerHal} will be reused when data source releasing.
+     * @param keepTuneStatus underlying {@link Tuner} will be reused when data source releasing.
      */
     public void setKeepTuneStatus(boolean keepTuneStatus) {
         mKeepTuneStatus = keepTuneStatus;
@@ -125,7 +134,7 @@ public class TsDataSourceManager {
 
     /** Add tuner hal into TunerTsStreamerManager for test. */
     @VisibleForTesting
-    public void addTunerHalForTest(TunerHal tunerHal) {
+    public void addTunerHalForTest(Tuner tunerHal) {
         mTunerStreamerManager.addTunerHal(tunerHal, mId);
     }
 

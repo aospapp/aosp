@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 parseoptions() {
     verbose=false
@@ -23,7 +23,7 @@ parseoptions() {
                 usage
                 ;;
             -s)
-                if [ -z $2 ]; then
+                if [ -z "$2" ]; then
                     usage
                 fi
                 adb="adb -s $2"
@@ -43,7 +43,7 @@ parseoptions() {
     done
 
     iterations=$1
-    if [ $iterations -lt 100 ]; then
+    if [ "$iterations" -lt 100 ]; then
         usage
     fi
 }
@@ -59,47 +59,47 @@ getstats () {
 
     # From Activity Manager
     echo "Launch Time (TotalTime) :"
-    fgrep TotalTime $infile | awk '{print $2}' | computestats
+    grep -F TotalTime "$infile" | awk '{print $2}' | computestats
 
     # Data from simpleperf
     echo "cpu-cycles :"
-    fgrep cpu-cycles $infile | awk '{print $1}' | sed s/,//g | computestats
+    grep -F cpu-cycles "$infile" | awk '{print $1}' | sed s/,//g | computestats
 
     # CPU util% Data from /proc/stat
     echo "cpu-util% :"
-    fgrep 'Total CPU util' $infile | awk '{print $5}' | computestatsf
+    grep -F 'Total CPU util' "$infile" | awk '{print $5}' | computestatsf
     echo "user-cpu-util% :"
-    fgrep 'User CPU util' $infile | awk '{print $5}' | computestatsf
+    grep -F 'User CPU util' "$infile" | awk '{print $5}' | computestatsf
     echo "sys-cpu-util% (incl hardirq/softirq) :"
-    fgrep 'Sys CPU util' $infile | awk '{print $5}' | computestatsf
+    grep -F 'Sys CPU util' "$infile" | awk '{print $5}' | computestatsf
 
     if [ $verbose == true ]; then
         echo "instructions : "
-        fgrep instructions $infile | awk '{print $1}' | sed s/,//g | computestats
+        grep -F instructions "$infile" | awk '{print $1}' | sed s/,//g | computestats
 
         echo "cycles per instruction : "
-        fgrep instructions $infile | awk '{print $4}' | sed s/,//g | computestatsf
+        grep -F instructions "$infile" | awk '{print $4}' | sed s/,//g | computestatsf
 
         echo "branch-misses : "
-        fgrep branch-misses $infile | awk '{print $1}' | sed s/,//g | computestats
+        grep -F branch-misses "$infile" | awk '{print $1}' | sed s/,//g | computestats
 
         echo "context-switches : "
-        fgrep context-switches $infile | awk '{print $1}' | sed s/,//g | computestats
+        grep -F context-switches "$infile" | awk '{print $1}' | sed s/,//g | computestats
 
         echo "page-faults : "
-        fgrep page-faults $infile | awk '{print $1}' | sed s/,//g | computestats
+        grep -F page-faults "$infile" | awk '{print $1}' | sed s/,//g | computestats
     fi
 
-    if [ $system_bdev_set == true ]; then
+    if [ "$system_bdev_set" == true ]; then
         # (Storage) Data from /proc we've collected
         echo "KB read for $system_block_device blkdev :"
-        fgrep KB $infile | grep system | awk '{print $5}' | computestats
+        grep -F KB "$infile" | grep system | awk '{print $5}' | computestats
 
         echo "iowait% :"
-        fgrep IOwait $infile | awk '{print $3}' | computestatsf
+        grep -F IOwait "$infile" | awk '{print $3}' | computestatsf
 
         echo "Device util% for $system_block_device blkdev :"
-        fgrep 'Device util' $infile | awk '{print $4}' | computestatsf
+        grep -F 'Device util' "$infile" | awk '{print $4}' | computestatsf
     fi
 }
 
@@ -117,7 +117,7 @@ cpufreq_volantis() {
 overnor"
         $adb shell "echo 2499000 > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_max_fr\
 eq"
-        i=`expr $i + 1`
+        i=$((i + 1))
     done
     # Lock the GPU frequencies
     echo -n 852000000 > /d/clock/override.gbus/rate
@@ -136,7 +136,7 @@ cpufreq_fugu() {
     do
         $adb shell "echo performance  > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor"
         $adb shell "echo 1833000 > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_max_freq"
-        i=`expr $i + 1`
+        i=$((i + 1))
     done
 }
 
@@ -210,7 +210,7 @@ cpufreq_angler () {
         while [ $i -lt $num_cores ]
         do
             $adb shell "echo 0 > /sys/devices/system/cpu/cpu$i/online"
-            i=`expr $i + 1`
+            i=$((i + 1))
         done
     else
         echo "Enabling All Cores"
@@ -224,7 +224,7 @@ cpufreq_angler () {
             $adb shell "echo performance > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor"
             # Lock frequency of little cores
             $adb shell "echo 1555200 > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_max_freq"
-            i=`expr $i + 1`
+            i=$((i + 1))
         done
     fi
     i=4
@@ -234,7 +234,7 @@ cpufreq_angler () {
         $adb shell "echo performance > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor"
         # Lock frequency of big cores
         $adb shell "echo 1958400 > /sys/devices/system/cpu/cpu$i/cpufreq/scaling_max_freq"
-        i=`expr $i + 1`
+        i=$((i + 1))
     done
 }
 
@@ -291,20 +291,20 @@ get_marlin_sailfish_devnames () {
 
 get_angler_devnames () {
     # Get the underlying bdev from the "by-name" mapping
-    system_block_device=`$adb shell 'find /dev/block/platform -name by-name | xargs ls -l' | grep system | awk '{ print $10 }' `
+    system_block_device=$($adb shell 'find /dev/block/platform -name by-name | xargs ls -l' | grep system | awk '{ print $10 }')
     # extract the last component of the absolute device pathname we got above
-    system_block_device=`echo $system_block_device | awk 'BEGIN { FS ="/" } ; { print $4 }' `
+    system_block_device=$(echo "$system_block_device" | awk 'BEGIN { FS ="/" } ; { print $4 }')
     # vendor is unused right now, but get the bdev anyway in case we decide to use it
     # Get the underlying bdev from the "by-name" mapping
-    vendor_block_device=`$adb shell 'find /dev/block/platform -name by-name | xargs ls -l' | grep vendor | awk '{ print $10 }' `
+    vendor_block_device=$($adb shell 'find /dev/block/platform -name by-name | xargs ls -l' | grep vendor | awk '{ print $10 }')
     # extract the last component of the absolute device pathname we got above
-   vendor_block_device=`echo $vendor_block_device | awk 'BEGIN { FS ="/" } ; { print $4 }' `
-   system_bdev_set=true
+    vendor_block_device=$(echo "$vendor_block_device" | awk 'BEGIN { FS ="/" } ; { print $4 }')
+    system_bdev_set=true
 }
 
 get_fugu_devnames () {
-    system_block_device=`$adb shell ls -l /dev/block/by-name/system | awk '{ print $10 }' `
-    system_block_device=`echo $system_block_device | awk 'BEGIN { FS ="/" } ; { print $4 }' `
+    system_block_device=$($adb shell ls -l /dev/block/by-name/system | awk '{ print $10 }')
+    system_block_device=$(echo "$system_block_device" | awk 'BEGIN { FS ="/" } ; { print $4 }')
     system_bdev_set=true
 }
 
@@ -324,55 +324,55 @@ get_go_devnames () {
 system_stats_before() {
     if [ $system_bdev_set == true ]; then
         # Get BEFORE read stats for /system
-        system=`$adb shell 'cat /proc/diskstats' | grep -w $system_block_device`
-        BEFORE_RD_IOS_SYSTEM=`echo $system | awk '{ print $4 }'`
-        BEFORE_RD_SECTORS_SYSTEM=`echo $system | awk '{ print $6 }'`
+        system=$($adb shell 'cat /proc/diskstats' | grep -w $system_block_device)
+        BEFORE_RD_IOS_SYSTEM=$(echo "$system" | awk '{ print $4 }')
+        BEFORE_RD_SECTORS_SYSTEM=$(echo "$system" | awk '{ print $6 }')
         # iowait% computation
-        procstat=`$adb shell 'cat /proc/stat' | grep -w cpu`
-        user_ticks_before=`echo $procstat | awk '{ print ($2 + $3) }'`
-        sys_ticks_before=`echo $procstat | awk '{ print ($4 + $7 + $8) }'`
-        cpubusy_ticks_before=`echo $procstat | awk '{ print ($2 + $3 + $4 + $7 + $8) }'`
-        iowait_ticks_before=`echo $procstat | awk '{ print $6 }'`
-        total_ticks_before=`echo $procstat | awk '{ print ($2 + $3 + $4 + $5 + $7 + $8) }'`
+        procstat=$($adb shell 'cat /proc/stat' | grep -w cpu)
+        user_ticks_before=$(echo "$procstat" | awk '{ print ($2 + $3) }')
+        sys_ticks_before=$(echo "$procstat" | awk '{ print ($4 + $7 + $8) }')
+        cpubusy_ticks_before=$(echo "$procstat" | awk '{ print ($2 + $3 + $4 + $7 + $8) }')
+        iowait_ticks_before=$(echo "$procstat" | awk '{ print $6 }')
+        total_ticks_before=$(echo "$procstat" | awk '{ print ($2 + $3 + $4 + $5 + $7 + $8) }')
         # Device util% computation
-        uptime=`$adb shell 'cat /proc/uptime'`
-        uptime_before_ms=`echo $uptime | awk '{ print ($1 * 1000) }'`
-        device_util_before_ms=`echo $system | awk '{ print ($13) }'`
+        uptime=$($adb shell 'cat /proc/uptime')
+        uptime_before_ms=$(echo "$uptime" | awk '{ print ($1 * 1000) }')
+        device_util_before_ms=$(echo "$system" | awk '{ print ($13) }')
     fi
 }
 
 system_stats_after() {
     if [ $system_bdev_set == true ]; then
         # Get AFTER read stats for /system
-        system=`$adb shell 'cat /proc/diskstats' | grep -w $system_block_device`
-        AFTER_RD_IOS_SYSTEM=`echo $system | awk '{ print $4 }'`
-        AFTER_RD_SECTORS_SYSTEM=`echo $system | awk '{ print $6 }'`
+        system=$($adb shell 'cat /proc/diskstats' | grep -w $system_block_device)
+        AFTER_RD_IOS_SYSTEM=$(echo "$system" | awk '{ print $4 }')
+        AFTER_RD_SECTORS_SYSTEM=$(echo "$system" | awk '{ print $6 }')
         # iowait% computation
-        procstat=`$adb shell 'cat /proc/stat' | grep -w cpu`
-        user_ticks_after=`echo $procstat | awk '{ print ($2 + $3) }'`
-        sys_ticks_after=`echo $procstat | awk '{ print ($4 + $7 + $8) }'`
-        cpubusy_ticks_after=`echo $procstat | awk '{ print ($2 + $3 + $4 + $7 + $8) }'`
-        iowait_ticks_after=`echo $procstat | awk '{ print $6 }'`
-        total_ticks_after=`echo $procstat | awk '{ print ($2 + $3 + $4 + $5 + $7 + $8) }'`
+        procstat=$($adb shell 'cat /proc/stat' | grep -w cpu)
+        user_ticks_after=$(echo "$procstat" | awk '{ print ($2 + $3) }')
+        sys_ticks_after=$(echo "$procstat" | awk '{ print ($4 + $7 + $8) }')
+        cpubusy_ticks_after=$(echo "$procstat" | awk '{ print ($2 + $3 + $4 + $7 + $8) }')
+        iowait_ticks_after=$(echo "$procstat" | awk '{ print $6 }')
+        total_ticks_after=$(echo "$procstat" | awk '{ print ($2 + $3 + $4 + $5 + $7 + $8) }')
         # Device util% computation
-        uptime=`$adb shell 'cat /proc/uptime'`
-        uptime_after_ms=`echo $uptime | awk '{ print ($1 * 1000) }'`
-        device_util_after_ms=`echo $system | awk '{ print ($13) }'`
+        uptime=$($adb shell 'cat /proc/uptime')
+        uptime_after_ms=$(echo "$uptime" | awk '{ print ($1 * 1000) }')
+        device_util_after_ms=$(echo "$system" | awk '{ print ($13) }')
     fi
 }
 
 system_stats_delta() {
     if [ $system_bdev_set == true ]; then
         # Sectors to KB
-        READ_KB_SYSTEM=`expr $AFTER_RD_SECTORS_SYSTEM - $BEFORE_RD_SECTORS_SYSTEM`
-        READ_KB_SYSTEM=`expr $READ_KB_SYSTEM / 2`
-        echo Read IOs /system = `expr $AFTER_RD_IOS_SYSTEM - $BEFORE_RD_IOS_SYSTEM`
+        READ_KB_SYSTEM=$((AFTER_RD_SECTORS_SYSTEM - BEFORE_RD_SECTORS_SYSTEM))
+        READ_KB_SYSTEM=$((READ_KB_SYSTEM / 2))
+        echo Read IOs /system = $((AFTER_RD_IOS_SYSTEM - BEFORE_RD_IOS_SYSTEM))
         echo Read KB /system = $READ_KB_SYSTEM
-        echo $iowait_ticks_before $iowait_ticks_after $total_ticks_before $total_ticks_after | awk '{ printf "IOwait = %.2f\n", (($2 - $1) * 100.0) / ($4 - $3) }'
-        echo $device_util_before_ms $device_util_after_ms $uptime_before_ms $uptime_after_ms | awk '{ printf "Device util% = %.2f\n", (($2 - $1) * 100.0) / ($4 - $3) }'
-        echo $user_ticks_after $user_ticks_before $total_ticks_after $total_ticks_before | awk '{ printf "User CPU util% = %.2f\n", (($1 - $2) * 100.0) / ($3 - $4) }'
-        echo $sys_ticks_after $sys_ticks_before $total_ticks_after $total_ticks_before | awk '{ printf "Sys CPU util% = %.2f\n", (($1 - $2) * 100.0) / ($3 - $4) }'
-        echo $cpubusy_ticks_after $cpubusy_ticks_before $total_ticks_after $total_ticks_before | awk '{ printf "Total CPU util% = %.2f\n", (($1 - $2) * 100.0) / ($3 - $4) }'
+        echo "$iowait_ticks_before" "$iowait_ticks_after" "$total_ticks_before" "$total_ticks_after" | awk '{ printf "IOwait = %.2f\n", (($2 - $1) * 100.0) / ($4 - $3) }'
+        echo "$device_util_before_ms" "$device_util_after_ms" "$uptime_before_ms" "$uptime_after_ms" | awk '{ printf "Device util% = %.2f\n", (($2 - $1) * 100.0) / ($4 - $3) }'
+        echo "$user_ticks_after" "$user_ticks_before" "$total_ticks_after" "$total_ticks_before" | awk '{ printf "User CPU util% = %.2f\n", (($1 - $2) * 100.0) / ($3 - $4) }'
+        echo "$sys_ticks_after" "$sys_ticks_before" "$total_ticks_after" "$total_ticks_before" | awk '{ printf "Sys CPU util% = %.2f\n", (($1 - $2) * 100.0) / ($3 - $4) }'
+        echo "$cpubusy_ticks_after" "$cpubusy_ticks_before" "$total_ticks_after" "$total_ticks_before" | awk '{ printf "Total CPU util% = %.2f\n", (($1 - $2) * 100.0) / ($3 - $4) }'
     fi
 }
 
@@ -384,12 +384,12 @@ launch_app() {
 
     printf "Testing %s: \n" "$package" 1>&2
     i=0
-    while [ $i -lt $iterations ]
+    while [ $i -lt "$iterations" ]
     do
         if [ $pagecached == false ]; then
             $adb shell 'echo 3 > /proc/sys/vm/drop_caches'
         fi
-        printf '[ %d%% ]\r' "$(($i * 100 / $iterations))" 1>&2
+        printf '[ %d%% ]\r' "$((i * 100 / iterations))" 1>&2
         # The -W argument to am start forces am start to wait till the launch completes.
         # The -S argument forces it to kill any existing app that is running first
         # eg. adb shell 'am start -W -S -n com.android.chrome/com.google.android.apps.chrome.Main'
@@ -400,40 +400,42 @@ launch_app() {
         sleep 1
         $adb shell "am force-stop $package"
         sleep 1
-        i=`expr $i + 1`
+        i=$((i + 1))
     done
     printf "\n" 1>&2
 }
 
 launch_fugu_apps() {
-    launch_app com.google.android.youtube.tv com.google.android.apps.youtube.tv.activity.TvGuideActivity > $BASHPID-youtube-$model
-    getstats $BASHPID-youtube-$model YouTube
-    launch_app com.google.android.play.games com.google.android.gms.games.pano.activity.PanoGamesOnboardHostActivity > $BASHPID-games-$model
-    getstats $BASHPID-games-$model Games
-    launch_app com.google.android.music com.android.music.activitymanagement.TopLevelActivity > $BASHPID-music-$model
-    getstats $BASHPID-music-$model Music
+    launch_app com.google.android.youtube.tv com.google.android.apps.youtube.tv.activity.TvGuideActivity > "$BASHPID-youtube-$model"
+    getstats "$BASHPID-youtube-$model" YouTube
+    launch_app com.google.android.play.games com.google.android.gms.games.pano.activity.PanoGamesOnboardHostActivity > "$BASHPID-games-$model"
+    getstats "$BASHPID-games-$model" Games
+    launch_app com.google.android.music com.android.music.activitymanagement.TopLevelActivity > "$BASHPID-music-$model"
+    getstats "$BASHPID-music-$model" Music
 }
 
 launch_phone_apps() {
-    launch_app com.android.chrome com.google.android.apps.chrome.Main > $BASHPID-chrome-$model
-    getstats $BASHPID-chrome-$model Chrome
-    launch_app com.google.android.GoogleCamera com.android.camera.CameraActivity > $BASHPID-camera-$model
-    getstats $BASHPID-camera-$model Camera
-    launch_app com.google.android.apps.maps com.google.android.maps.MapsActivity > $BASHPID-maps-$model
-    getstats $BASHPID-maps-$model Maps
-    launch_app com.google.android.youtube com.google.android.apps.youtube.app.WatchWhileActivity > $BASHPID-youtube-$model
-    getstats $BASHPID-youtube-$model YouTube
+    launch_app com.android.chrome com.google.android.apps.chrome.Main > "$BASHPID-chrome-$model"
+    getstats "$BASHPID-chrome-$model" Chrome
+    launch_app com.google.android.GoogleCamera com.android.camera.CameraActivity > "$BASHPID-camera-$model"
+    getstats "$BASHPID-camera-$model" Camera
+    launch_app com.google.android.apps.maps com.google.android.maps.MapsActivity > "$BASHPID-maps-$model"
+    getstats "$BASHPID-maps-$model" Maps
+    launch_app com.google.android.youtube com.google.android.apps.youtube.app.WatchWhileActivity > "$BASHPID-youtube-$model"
+    getstats "$BASHPID-youtube-$model" YouTube
 }
 
 launch_go_apps() {
-    launch_app com.android.chrome com.google.android.apps.chrome.Main > $BASHPID-chrome-$model
-    getstats $BASHPID-chrome-$model Chrome
-    launch_app com.google.android.gm .ConversationListActivityGmail > $BASHPID-gmail-$model
-    getstats $BASHPID-gmail-$model Gmail
-    launch_app com.google.android.videos .mobile.usecase.home.RootActivity > $BASHPID-movies-$model
-    getstats $BASHPID-movies-$model Movies
-    launch_app com.android.vending com.google.android.finsky.activities.MainActivity > $BASHPID-play-$model
-    getstats $BASHPID-play-$model Play
+    launch_app com.android.chrome com.google.android.apps.chrome.Main > "$BASHPID-chrome-$model"
+    getstats "$BASHPID-chrome-$model" Chrome
+    launch_app com.google.android.gm.lite com.google.android.gm.ConversationListActivityGmail > "$BASHPID-gmailgo-$model"
+    getstats "$BASHPID-gmailgo-$model" GmailGo
+    launch_app com.google.android.apps.youtube.mango com.google.android.apps.youtube.lite.frontend.activities.SplashActivity > "$BASHPID-youtubego-$model"
+    getstats "$BASHPID-youtubego-$model" YouTubeGo
+    launch_app com.android.vending com.google.android.finsky.activities.MainActivity > "$BASHPID-play-$model"
+    getstats "$BASHPID-play-$model" Play
+    launch_app com.android.settings com.android.settings.Settings > "$BASHPID-settings-$model"
+    getstats "$BASHPID-settings-$model" Settings
 }
 
 usage() {
@@ -485,19 +487,17 @@ if [ $# -lt 2 ]; then
     usage
 fi
 
-which computestats > /dev/null
-if [ $? != 0 ]; then
+if ! which computestats > /dev/null ; then
     echo "ERROR: Please add computestats utiliy to your PATH"
     exit 1
 fi
 
-which computestatsf > /dev/null
-if [ $? != 0 ]; then
+if ! which computestatsf > /dev/null ; then
     echo "Error: Please add computestatsf utility to your PATH"
     exit 1
 fi
 
-parseoptions $@
+parseoptions "$@"
 
 $adb root && $adb wait-for-device
 
@@ -510,11 +510,10 @@ else
     echo "User Experience: Default Configs. No changes to cpufreq settings"
 fi
 
-model=`$adb shell getprop ro.product.name`
 # Releases are inconsistent with various trailing characters, remove them all
-model=`echo $model | sed 's/[ \t\r\n]*$//' `
+model=$($adb shell getprop ro.product.name | sed 's/[ \t\r\n]*$//')
 
-echo Found $model Device
+echo "Found $model Device"
 
 system_bdev_set=false
 case $model in
@@ -556,7 +555,7 @@ case $model in
         get_volantis_devnames
         ;;
     *)
-        echo Unknown Device $model
+        echo "Unknown Device $model"
         exit 1
         ;;
 esac

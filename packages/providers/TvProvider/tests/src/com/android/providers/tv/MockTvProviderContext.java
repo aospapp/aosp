@@ -29,17 +29,14 @@ import android.test.RenamingDelegatingContext;
 import android.test.mock.MockContext;
 import android.test.mock.MockPackageManager;
 
+import java.util.Arrays;
 import java.util.Set;
 import java.util.HashSet;
 
 class MockTvProviderContext extends IsolatedContext {
     private final Context mBase;
-    private final MockPackageManager mMockPackageManager = new MockPackageManager() {
-        @Override
-        public ServiceInfo getServiceInfo(ComponentName className, int flags) {
-            return null;
-        }
-    };
+    private final MockPackageManagerForTesting mMockPackageManager =
+            new MockPackageManagerForTesting();
 
     private final Set<String> rejectedPermissions = new HashSet<>();
 
@@ -84,6 +81,31 @@ class MockTvProviderContext extends IsolatedContext {
             rejectedPermissions.remove(permission);
         } else {
             rejectedPermissions.add(permission);
+        }
+    }
+
+    public void setExistingPackages(String... packages) {
+        mMockPackageManager.setExistingPackages(new HashSet<>(Arrays.asList(packages)));
+    }
+
+    private static class MockPackageManagerForTesting extends MockPackageManager {
+        private Set<String> mExistingPackages;
+        @Override
+        public ServiceInfo getServiceInfo(ComponentName className, int flags) {
+            return null;
+        }
+
+        @Override
+        public ApplicationInfo getApplicationInfo(String packageName, int flags)
+                throws NameNotFoundException {
+            if (mExistingPackages != null && mExistingPackages.contains(packageName)) {
+                return new ApplicationInfo();
+            }
+            throw new NameNotFoundException();
+        }
+
+        public void setExistingPackages(Set<String> existingPackages) {
+            mExistingPackages = existingPackages;
         }
     }
 }

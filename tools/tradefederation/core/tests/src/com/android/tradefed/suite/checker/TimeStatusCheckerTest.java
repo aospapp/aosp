@@ -59,9 +59,32 @@ public class TimeStatusCheckerTest {
     @Test
     public void testCheckTimeDiff_large() throws DeviceNotAvailableException {
         EasyMock.expect(mMockDevice.getDeviceTimeOffset(EasyMock.anyObject())).andReturn(15000L);
+        mMockDevice.logOnDevice(
+                EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.contains("reset the time."));
         mMockDevice.setDate(EasyMock.anyObject());
         EasyMock.replay(mMockDevice);
         assertEquals(CheckStatus.FAILED, mChecker.postExecutionCheck(mMockDevice).getStatus());
+        EasyMock.verify(mMockDevice);
+    }
+
+    /**
+     * Test that the second failure in a row is not reported, just logged to avoid capturing
+     * bugreport constantly.
+     */
+    @Test
+    public void testCheckTimeDiff_multiFailure() throws DeviceNotAvailableException {
+        EasyMock.expect(mMockDevice.getDeviceTimeOffset(EasyMock.anyObject()))
+                .andReturn(15000L)
+                .times(2);
+        mMockDevice.logOnDevice(
+                EasyMock.anyObject(), EasyMock.anyObject(), EasyMock.contains("reset the time."));
+        EasyMock.expectLastCall().times(2);
+        mMockDevice.setDate(EasyMock.anyObject());
+        EasyMock.expectLastCall().times(2);
+        EasyMock.expect(mMockDevice.getSerialNumber()).andReturn("serial");
+        EasyMock.replay(mMockDevice);
+        assertEquals(CheckStatus.FAILED, mChecker.postExecutionCheck(mMockDevice).getStatus());
+        assertEquals(CheckStatus.SUCCESS, mChecker.postExecutionCheck(mMockDevice).getStatus());
         EasyMock.verify(mMockDevice);
     }
 }

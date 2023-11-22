@@ -22,11 +22,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Bundle;
-import androidx.annotation.Nullable;
 import android.support.test.uiautomator.UiObject2;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.TextView;
+
+import androidx.annotation.Nullable;
 
 /**
  * Activity that displays a "Welcome USER" message after login.
@@ -75,14 +76,20 @@ public class WelcomeActivity extends AbstractAutoFillActivity {
         sInstance = null;
     }
 
-    static void finishIt(UiBot uiBot) {
-        if (sInstance != null) {
-            Log.d(TAG, "So long and thanks for all the fish!");
-            sInstance.finish();
-            uiBot.assertGoneByRelativeId(ID_WELCOME, Timeouts.ACTIVITY_RESURRECTION);
-        }
+    @Override
+    public void finish() {
+        super.finish();
+        Log.d(TAG, "So long and thanks for all the finish!");
+
         if (sPendingIntent != null) {
+            Log.v(TAG, " canceling pending intent on finish(): " + sPendingIntent);
             sPendingIntent.cancel();
+        }
+    }
+
+    static void finishIt() {
+        if (sInstance != null) {
+            sInstance.finish();
         }
     }
 

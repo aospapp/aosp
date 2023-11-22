@@ -20,12 +20,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+
 import com.android.internal.annotations.GuardedBy;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,7 +46,7 @@ public final class UsbHostController
         /** Host controller ready for shutdown */
         void shutdown();
         /** Change of processing state */
-        void processingStateChanged(boolean processing);
+        void processingStarted();
         /** Title of processing changed */
         void titleChanged(String title);
         /** Options for USB device changed */
@@ -54,6 +57,8 @@ public final class UsbHostController
     private static final boolean LOCAL_LOGD = true;
     private static final boolean LOCAL_LOGV = true;
 
+    private static final int DISPATCH_RETRY_DELAY_MS = 1000;
+    private static final int DISPATCH_RETRY_ATTEMPTS = 5;
 
     private final List<UsbDeviceSettings> mEmptyList = new ArrayList<>();
     private final Context mContext;
@@ -90,7 +95,6 @@ public final class UsbHostController
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         context.registerReceiver(mUsbBroadcastReceiver, filter);
-
     }
 
     private synchronized void setActiveDeviceIfMatch(UsbDevice device) {
@@ -129,11 +133,11 @@ public final class UsbHostController
         return activeDevice != null && UsbUtil.isDevicesMatching(activeDevice, device);
     }
 
-    private String generateTitle() {
-        String manufacturer = mActiveDevice.getManufacturerName();
-        String product = mActiveDevice.getProductName();
+    private static String generateTitle(Context context, UsbDevice usbDevice) {
+        String manufacturer = usbDevice.getManufacturerName();
+        String product = usbDevice.getProductName();
         if (manufacturer == null && product == null) {
-            return mContext.getString(R.string.usb_unknown_device);
+            return context.getString(R.string.usb_unknown_device);
         }
         if (manufacturer != null && product != null) {
             return manufacturer + " " + product;
@@ -154,19 +158,19 @@ public final class UsbHostController
             Log.w(TAG, "Currently, other device is being processed");
         }
         mCallback.optionsUpdated(mEmptyList);
-        mCallback.processingStateChanged(true);
+        mCallback.processingStarted();
 
         UsbDeviceSettings settings = mUsbSettingsStorage.getSettings(device);
-        if (settings != null && mUsbResolver.dispatch(
-                    mActiveDevice, settings.getHandler(), settings.getAoap())) {
-            if (LOCAL_LOGV) {
-                Log.v(TAG, "Usb Device: " + device + " was sent to component: "
-                        + settings.getHandler());
-            }
-            return;
+
+        if (settings == null) {
+            resolveDevice(device);
+        } else {
+            Object obj =
+                    new UsbHostControllerHandlerDispatchData(
+                            device, settings, DISPATCH_RETRY_ATTEMPTS, true);
+            Message.obtain(mHandler, UsbHostControllerHandler.MSG_DEVICE_DISPATCH, obj)
+                    .sendToTarget();
         }
-        mCallback.titleChanged(generateTitle());
-        mUsbResolver.resolve(device);
     }
 
     /**
@@ -174,7 +178,17 @@ public final class UsbHostController
      */
     public void applyDeviceSettings(UsbDeviceSettings settings) {
         mUsbSettingsStorage.saveSettings(settings);
-        mUsbResolver.dispatch(getActiveDevice(), settings.getHandler(), settings.getAoap());
+        Message msg = mHandler.obtainMessage();
+        msg.obj =
+                new UsbHostControllerHandlerDispatchData(
+                        getActiveDevice(), settings, DISPATCH_RETRY_ATTEMPTS, false);
+        msg.what = UsbHostControllerHandler.MSG_DEVICE_DISPATCH;
+        msg.sendToTarget();
+    }
+
+    private void resolveDevice(UsbDevice device) {
+        mCallback.titleChanged(generateTitle(mContext, device));
+        mUsbResolver.resolve(device);
     }
 
     /**
@@ -185,6 +199,19 @@ public final class UsbHostController
         mUsbResolver.release();
     }
 
+    private boolean isDeviceAoapPossible(UsbDevice device) {
+        if (AoapInterface.isDeviceInAoapMode(device)) {
+            return true;
+        }
+
+        UsbManager usbManager = mContext.getSystemService(UsbManager.class);
+        UsbDeviceConnection connection = UsbUtil.openConnection(usbManager, device);
+        boolean aoapSupported = AoapInterface.isSupported(mContext, device, connection);
+        connection.close();
+
+        return aoapSupported;
+    }
+
     @Override
     public void onHandlersResolveCompleted(
             UsbDevice device, List<UsbDeviceSettings> handlers) {
@@ -192,17 +219,38 @@ public final class UsbHostController
             Log.d(TAG, "onHandlersResolveComplete: " + device);
         }
         if (deviceMatchedActiveDevice(device)) {
-            mCallback.processingStateChanged(false);
             if (handlers.isEmpty()) {
                 onDeviceDispatched();
             } else if (handlers.size() == 1) {
                 applyDeviceSettings(handlers.get(0));
             } else {
+                if (isDeviceAoapPossible(device)) {
+                    // Device supports AOAP mode, if we have just single AOAP handler then use it
+                    // instead of showing disambiguation dialog to the user.
+                    UsbDeviceSettings aoapHandler = getSingleAoapDeviceHandlerOrNull(handlers);
+                    if (aoapHandler != null) {
+                        applyDeviceSettings(aoapHandler);
+                        return;
+                    }
+                }
                 mCallback.optionsUpdated(handlers);
             }
         } else {
             Log.w(TAG, "Handlers ignored as they came for inactive device");
         }
+    }
+
+    private UsbDeviceSettings getSingleAoapDeviceHandlerOrNull(List<UsbDeviceSettings> handlers) {
+        UsbDeviceSettings aoapHandler = null;
+        for (UsbDeviceSettings handler : handlers) {
+            if (handler.getAoap()) {
+                if (aoapHandler != null) { // Found multiple AOAP handlers.
+                    return null;
+                }
+                aoapHandler = handler;
+            }
+        }
+        return aoapHandler;
     }
 
     @Override
@@ -221,8 +269,34 @@ public final class UsbHostController
         }
     }
 
+    private class UsbHostControllerHandlerDispatchData {
+        private final UsbDevice mUsbDevice;
+        private final UsbDeviceSettings mUsbDeviceSettings;
+
+        public int mRetries = 0;
+        public boolean mCanResolve = true;
+
+        public UsbHostControllerHandlerDispatchData(
+                UsbDevice usbDevice, UsbDeviceSettings usbDeviceSettings,
+                int retries, boolean canResolve) {
+            mUsbDevice = usbDevice;
+            mUsbDeviceSettings = usbDeviceSettings;
+            mRetries = retries;
+            mCanResolve = canResolve;
+        }
+
+        public UsbDevice getUsbDevice() {
+            return mUsbDevice;
+        }
+
+        public UsbDeviceSettings getUsbDeviceSettings() {
+            return mUsbDeviceSettings;
+        }
+    }
+
     private class UsbHostControllerHandler extends Handler {
         private static final int MSG_DEVICE_REMOVED = 1;
+        private static final int MSG_DEVICE_DISPATCH = 2;
 
         private static final int DEVICE_REMOVE_TIMEOUT_MS = 500;
 
@@ -239,6 +313,24 @@ public final class UsbHostController
             switch (msg.what) {
                 case MSG_DEVICE_REMOVED:
                     doHandleDeviceRemoved();
+                    break;
+                case MSG_DEVICE_DISPATCH:
+                    UsbHostControllerHandlerDispatchData data =
+                            (UsbHostControllerHandlerDispatchData) msg.obj;
+                    UsbDevice device = data.getUsbDevice();
+                    UsbDeviceSettings settings = data.getUsbDeviceSettings();
+                    if (!mUsbResolver.dispatch(device, settings.getHandler(), settings.getAoap())) {
+                        if (data.mRetries > 0) {
+                            --data.mRetries;
+                            Message nextMessage = Message.obtain(msg);
+                            mHandler.sendMessageDelayed(nextMessage, DISPATCH_RETRY_DELAY_MS);
+                        } else if (data.mCanResolve) {
+                            resolveDevice(device);
+                        }
+                    } else if (LOCAL_LOGV) {
+                        Log.v(TAG, "Usb Device: " + data.getUsbDevice() + " was sent to component: "
+                                + settings.getHandler());
+                    }
                     break;
                 default:
                     Log.w(TAG, "Unhandled message: " + msg);

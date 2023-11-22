@@ -1,0 +1,2 @@
+/dev/block/by-name/system /system ext4 ro,errors=panic wait,first_stage_mount
+/dev/block/by-name/vendor /vendor ext4 ro,errors=panic wait,first_stage_mount

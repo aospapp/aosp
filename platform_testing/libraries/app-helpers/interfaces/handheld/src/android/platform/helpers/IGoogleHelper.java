@@ -16,6 +16,8 @@
 
 package android.platform.helpers;
 
+import android.support.test.uiautomator.Direction;
+
 public interface IGoogleHelper extends IAppHelper {
 
     /**
@@ -34,4 +36,77 @@ public interface IGoogleHelper extends IAppHelper {
      */
     public String getSearchQuery();
 
+    /**
+     * Setup expectations: In home and with search bar.
+     *
+     * This method starts search from the search bar in home.
+     *
+     */
+    default public void startSearch() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Google app open.
+     *
+     * This method inputs keyword in search box.
+     *
+     * @param query The keyword to search.
+     *
+     */
+    default public void inputSearch(String query) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Google app open and a search keyword input.
+     *
+     * This method clicks the search button and waits for the results.
+     *
+     */
+    default public void clickSearchButtonAndWaitForResults() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Google app open to a search result.
+     *
+     * This method flings the search results.
+     *
+     * @param dir The direction of the fling, must be UP or DOWN.
+     *
+     */
+    default public void flingSearchResults(Direction dir) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: In home.
+     *
+     * This method flings right to Google Feed.
+     *
+     */
+    default public void openFeed() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: Feed open.
+     *
+     * This method flings the feed.
+     *
+     * @param dir The direction of the fling, must be UP or DOWN.
+     */
+    default public void flingFeed(Direction dir) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup expectations: In home.
+     *
+     * <p>This method clear search result.
+     */
+    public default boolean clearSearchResult() {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

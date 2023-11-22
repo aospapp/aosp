@@ -41,16 +41,25 @@ func androidResourceGlob(ctx android.ModuleContext, dir android.Path) android.Pa
 	return ctx.GlobFiles(filepath.Join(dir.String(), "**/*"), androidResourceIgnoreFilenames)
 }
 
-type overlayGlobResult struct {
-	dir   string
-	paths android.DirectorySortedPaths
+type overlayType int
 
-	// Set to true of the product has selected that values in this overlay should not be moved to
-	// Runtime Resource Overlay (RRO) packages.
-	excludeFromRRO bool
+const (
+	device overlayType = iota + 1
+	product
+)
+
+type rroDir struct {
+	path        android.Path
+	overlayType overlayType
 }
 
-const overlayDataKey = "overlayDataKey"
+type overlayGlobResult struct {
+	dir         string
+	paths       android.DirectorySortedPaths
+	overlayType overlayType
+}
+
+var overlayDataKey = android.NewOnceKey("overlayDataKey")
 
 type globbedResourceDir struct {
 	dir   android.Path
@@ -58,7 +67,7 @@ type globbedResourceDir struct {
 }
 
 func overlayResourceGlob(ctx android.ModuleContext, dir android.Path) (res []globbedResourceDir,
-	rroDirs android.Paths) {
+	rroDirs []rroDir) {
 
 	overlayData := ctx.Config().Get(overlayDataKey).([]overlayGlobResult)
 
@@ -69,11 +78,12 @@ func overlayResourceGlob(ctx android.ModuleContext, dir android.Path) (res []glo
 		files := data.paths.PathsInDirectory(filepath.Join(data.dir, dir.String()))
 		if len(files) > 0 {
 			overlayModuleDir := android.PathForSource(ctx, data.dir, dir.String())
+
 			// If enforce RRO is enabled for this module and this overlay is not in the
 			// exclusion list, ignore the overlay.  The list of ignored overlays will be
 			// passed to Make to be turned into an RRO package.
-			if rroEnabled && !data.excludeFromRRO {
-				rroDirs = append(rroDirs, overlayModuleDir)
+			if rroEnabled && !ctx.Config().EnforceRROExcludedOverlay(overlayModuleDir.String()) {
+				rroDirs = append(rroDirs, rroDir{overlayModuleDir, data.overlayType})
 			} else {
 				res = append(res, globbedResourceDir{
 					dir:   overlayModuleDir,
@@ -94,33 +104,34 @@ type overlaySingleton struct{}
 
 func (overlaySingleton) GenerateBuildActions(ctx android.SingletonContext) {
 	var overlayData []overlayGlobResult
-	overlayDirs := ctx.Config().ResourceOverlays()
-	for i := range overlayDirs {
-		// Iterate backwards through the list of overlay directories so that the later, lower-priority
-		// directories in the list show up earlier in the command line to aapt2.
-		overlay := overlayDirs[len(overlayDirs)-1-i]
-		var result overlayGlobResult
-		result.dir = overlay
 
-		// Mark overlays that will not have Runtime Resource Overlays enforced on them
-		// based on the product config
-		result.excludeFromRRO = ctx.Config().EnforceRROExcludedOverlay(overlay)
+	appendOverlayData := func(overlayDirs []string, t overlayType) {
+		for i := range overlayDirs {
+			// Iterate backwards through the list of overlay directories so that the later, lower-priority
+			// directories in the list show up earlier in the command line to aapt2.
+			overlay := overlayDirs[len(overlayDirs)-1-i]
+			var result overlayGlobResult
+			result.dir = overlay
+			result.overlayType = t
 
-		files, err := ctx.GlobWithDeps(filepath.Join(overlay, "**/*"), androidResourceIgnoreFilenames)
-		if err != nil {
-			ctx.Errorf("failed to glob resource dir %q: %s", overlay, err.Error())
-			continue
-		}
-		var paths android.Paths
-		for _, f := range files {
-			if !strings.HasSuffix(f, "/") {
-				paths = append(paths, android.PathForSource(ctx, f))
+			files, err := ctx.GlobWithDeps(filepath.Join(overlay, "**/*"), androidResourceIgnoreFilenames)
+			if err != nil {
+				ctx.Errorf("failed to glob resource dir %q: %s", overlay, err.Error())
+				continue
 			}
+			var paths android.Paths
+			for _, f := range files {
+				if !strings.HasSuffix(f, "/") {
+					paths = append(paths, android.PathForSource(ctx, f))
+				}
+			}
+			result.paths = android.PathsToDirectorySortedPaths(paths)
+			overlayData = append(overlayData, result)
 		}
-		result.paths = android.PathsToDirectorySortedPaths(paths)
-		overlayData = append(overlayData, result)
 	}
 
+	appendOverlayData(ctx.Config().DeviceResourceOverlays(), device)
+	appendOverlayData(ctx.Config().ProductResourceOverlays(), product)
 	ctx.Config().Once(overlayDataKey, func() interface{} {
 		return overlayData
 	})

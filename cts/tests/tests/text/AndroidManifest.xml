@@ -74,9 +74,11 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="android.text.cts.MockActivity" />
+
     </application>
 
-    <instrumentation android:name="android.support.test.runner.AndroidJUnitRunner"
+    <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="android.text.cts"
                      android:label="CTS tests of android.text">
         <meta-data android:name="listener"

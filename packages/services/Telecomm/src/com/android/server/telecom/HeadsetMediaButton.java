@@ -26,14 +26,18 @@ import android.os.Message;
 import android.telecom.Log;
 import android.view.KeyEvent;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 /**
  * Static class to handle listening to the headset media buttons.
  */
 public class HeadsetMediaButton extends CallsManagerListenerBase {
 
     // Types of media button presses
-    static final int SHORT_PRESS = 1;
-    static final int LONG_PRESS = 2;
+    @VisibleForTesting
+    public static final int SHORT_PRESS = 1;
+    @VisibleForTesting
+    public static final int LONG_PRESS = 2;
 
     private static final AudioAttributes AUDIO_ATTRIBUTES = new AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)

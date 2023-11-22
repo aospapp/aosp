@@ -12,21 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import its.error
-import os
-import os.path
-import sys
-import re
 import json
-import time
-import unittest
+import os
 import socket
-import subprocess
-import hashlib
-import numpy
 import string
+import subprocess
+import sys
+import time
 import unicodedata
+import unittest
 
+import its.error
+import numpy
+
+from collections import namedtuple
 
 class ItsSession(object):
     """Controls a device over adb to run ITS scripts.
@@ -71,10 +70,14 @@ class ItsSession(object):
     INTENT_START = 'com.android.cts.verifier.camera.its.START'
     ACTION_ITS_RESULT = 'com.android.cts.verifier.camera.its.ACTION_ITS_RESULT'
     EXTRA_VERSION = 'camera.its.extra.VERSION'
-    CURRENT_ITS_VERSION = '1.0' # version number to sync with CtsVerifier
+    CURRENT_ITS_VERSION = '1.0'  # version number to sync with CtsVerifier
     EXTRA_CAMERA_ID = 'camera.its.extra.CAMERA_ID'
     EXTRA_RESULTS = 'camera.its.extra.RESULTS'
     ITS_TEST_ACTIVITY = 'com.android.cts.verifier/.camera.its.ItsTestActivity'
+
+    # This string must be in sync with ItsService. Updated when interface
+    # between script and ItsService is changed.
+    ITS_SERVICE_VERSION = "1.0"
 
     RESULT_PASS = 'PASS'
     RESULT_FAIL = 'FAIL'
@@ -143,7 +146,7 @@ class ItsSession(object):
                 if forward_info[0] == self.device_id and \
                    remote_p == ItsSession.REMOTE_PORT:
                     port = local_p
-                    break;
+                    break
                 else:
                     used_ports.append(local_p)
 
@@ -216,6 +219,10 @@ class ItsSession(object):
                 break
         proc.kill()
 
+    def __init__(self, camera_id=None, hidden_physical_id=None):
+        self._camera_id = camera_id
+        self._hidden_physical_id = hidden_physical_id
+
     def __enter__(self):
         # Initialize device id and adb command.
         self.device_id = get_device_id()
@@ -259,12 +266,25 @@ class ItsSession(object):
         return jobj, buf
 
     def __open_camera(self):
-        # Get the camera ID to open as an argument.
-        camera_id = 0
-        for s in sys.argv[1:]:
-            if s[:7] == "camera=" and len(s) > 7:
-                camera_id = int(s[7:])
-        cmd = {"cmdName":"open", "cameraId":camera_id}
+        # Get the camera ID to open if it is an argument as a single camera.
+        # This allows passing camera=# to individual tests at command line
+        # and camera=#,#,# or an no camera argv with tools/run_all_tests.py.
+        #
+        # In case the camera is a logical multi-camera, to run ITS on the
+        # hidden physical sub-camera, pass camera=[logical ID]:[physical ID]
+        # to an individual test at the command line, and same applies to multiple
+        # camera IDs for tools/run_all_tests.py: camera=#,#:#,#:#,#
+        if not self._camera_id:
+            self._camera_id = 0
+            for s in sys.argv[1:]:
+                if s[:7] == "camera=" and len(s) > 7:
+                    camera_ids = s[7:].split(',')
+                    camera_id_combos = parse_camera_ids(camera_ids)
+                    if len(camera_id_combos) == 1:
+                        self._camera_id = camera_id_combos[0].id
+                        self._hidden_physical_id = camera_id_combos[0].sub_id
+
+        cmd = {"cmdName":"open", "cameraId":self._camera_id}
         self.sock.send(json.dumps(cmd) + "\n")
         data,_ = self.__read_response_from_socket()
         if data['tag'] != 'cameraOpened':
@@ -375,6 +395,40 @@ class ItsSession(object):
             raise its.error.Error('Invalid command response')
         return data['objValue']['cameraIdArray']
 
+    def check_its_version_compatible(self):
+        """Check the java side ItsService is compatible with current host script.
+           Raise ItsException if versions are incompatible
+
+        Returns: None
+        """
+        cmd = {}
+        cmd["cmdName"] = "getItsVersion"
+        self.sock.send(json.dumps(cmd) + "\n")
+        data,_ = self.__read_response_from_socket()
+        if data['tag'] != 'ItsVersion':
+            raise its.error.Error('ItsService is incompatible with host python script')
+        server_version = data['strValue']
+        if self.ITS_SERVICE_VERSION != server_version:
+            raise its.error.Error('Version mismatch ItsService(%s) vs host script(%s)' % (
+                    server_version, ITS_SERVICE_VERSION))
+
+    def override_with_hidden_physical_camera_props(self, props):
+        """If current session is for a hidden physical camera, check that it is a valid
+           sub-camera backing the logical camera, and return the
+           characteristics of sub-camera. Otherwise, return "props" directly.
+
+        Returns: The properties of the hidden physical camera if possible
+        """
+        if self._hidden_physical_id:
+            e_msg = 'Camera %s is not a logical multi-camera' % self._camera_id
+            assert its.caps.logical_multi_camera(props), e_msg
+            physical_ids = its.caps.logical_multi_camera_physical_ids(props)
+            e_msg = 'Camera %s is not a hidden sub-camera of camera %s' % (
+                self._hidden_physical_id, self._camera_id)
+            assert self._hidden_physical_id in physical_ids, e_msg
+            props = self.get_camera_properties_by_id(self._hidden_physical_id)
+        return props
+
     def get_camera_properties(self):
         """Get the camera properties object for the device.
 
@@ -468,6 +522,8 @@ class ItsSession(object):
             cmd["awbLock"] = True
         if ev_comp != 0:
             cmd["evComp"] = ev_comp
+        if self._hidden_physical_id:
+            cmd["physicalId"] = self._hidden_physical_id
         self.sock.send(json.dumps(cmd) + "\n")
 
         # Wait for each specified 3A to converge.
@@ -503,6 +559,33 @@ class ItsSession(object):
             raise its.error.Error('3A failed to converge')
         return ae_sens, ae_exp, awb_gains, awb_transform, af_dist
 
+    def is_stream_combination_supported(self, out_surfaces):
+        """Query whether a output surfaces combination is supported by the camera device.
+
+        This function hooks up to the isSessionConfigurationSupported() camera API
+        to query whether a particular stream combination is supported.
+
+        Refer to do_capture function for specification of out_surfaces field.
+        """
+        cmd = {}
+        cmd['cmdName'] = 'isStreamCombinationSupported'
+
+        if not isinstance(out_surfaces, list):
+            cmd['outputSurfaces'] = [out_surfaces]
+        else:
+            cmd['outputSurfaces'] = out_surfaces
+        formats = [c['format'] if 'format' in c else 'yuv'
+                   for c in cmd['outputSurfaces']]
+        formats = [s if s != 'jpg' else 'jpeg' for s in formats]
+
+        self.sock.send(json.dumps(cmd) + '\n')
+
+        data,_ = self.__read_response_from_socket()
+        if data['tag'] != 'streamCombinationSupport':
+            its.error.Error('Failed to query stream combination')
+
+        return data['strValue'] == 'supportedCombination'
+
     def do_capture(self, cap_request,
             out_surfaces=None, reprocess_format=None, repeat_request=None):
         """Issue capture request(s), and read back the image(s) and metadata.
@@ -521,19 +604,12 @@ class ItsSession(object):
 
         The out_surfaces field can specify the width(s), height(s), and
         format(s) of the captured image. The formats may be "yuv", "jpeg",
-        "dng", "raw", "raw10", "raw12", or "rawStats". The default is a YUV420
+        "dng", "raw", "raw10", "raw12", "rawStats" or "y8". The default is a YUV420
         frame ("yuv") corresponding to a full sensor frame.
 
         Optionally the out_surfaces field can specify physical camera id(s) if the
         current camera device is a logical multi-camera. The physical camera id
-        must refer to a physical camera backing this logical camera device. And
-        only "yuv", "raw", "raw10", "raw12" support the physical camera id field.
-
-        Currently only 2 physical streams with the same format are supported, one
-        from each physical camera:
-        - yuv physical streams of the same size.
-        - raw physical streams with the same or different sizes, depending on
-          device capability. (Different physical cameras may have different raw sizes).
+        must refer to a physical camera backing this logical camera device.
 
         Note that one or more surfaces can be specified, allowing a capture to
         request images back in multiple formats (e.g.) raw+yuv, raw+jpeg,
@@ -697,54 +773,64 @@ class ItsSession(object):
                                       "width" : max_yuv_size[0],
                                       "height": max_yuv_size[1]}]
 
-        # Figure out requested physical camera ids, physical and logical
-        # streams.
-        physical_cam_ids = {}
-        physical_buffers = {}
-        physical_cam_format = None
-        logical_cam_formats = []
-        for i,s in enumerate(cmd["outputSurfaces"]):
-            if "format" in s and s["format"] in ["yuv", "raw", "raw10", "raw12"]:
-                if "physicalCamera" in s:
-                    if physical_cam_format is not None and s["format"] != physical_cam_format:
-                        raise its.error.Error('ITS does not support capturing multiple ' +
-                                              'physical formats yet')
-                    physical_cam_ids[i] = s["physicalCamera"]
-                    physical_buffers[s["physicalCamera"]] = []
-                    physical_cam_format = s["format"]
-                else:
-                    logical_cam_formats.append(s["format"])
-            else:
-                logical_cam_formats.append(s["format"])
-
         ncap = len(cmd["captureRequests"])
         nsurf = 1 if out_surfaces is None else len(cmd["outputSurfaces"])
-        # Only allow yuv output to multiple targets
-        logical_yuv_surfaces = [s for s in cmd["outputSurfaces"] if s["format"]=="yuv"\
-                        and "physicalCamera" not in s]
-        n_yuv = len(logical_yuv_surfaces)
-        # Compute the buffer size of YUV targets
-        yuv_maxsize_1d = 0
-        for s in logical_yuv_surfaces:
-            if not ("width" in s and "height" in s):
-                if self.props is None:
-                    raise its.error.Error('Camera props are unavailable')
-                yuv_maxsize_2d = its.objects.get_available_output_sizes(
-                    "yuv", self.props)[0]
-                yuv_maxsize_1d = yuv_maxsize_2d[0] * yuv_maxsize_2d[1] * 3 / 2
-                break
-        yuv_sizes = [c["width"]*c["height"]*3/2
-                     if "width" in c and "height" in c
-                     else yuv_maxsize_1d
-                     for c in logical_yuv_surfaces]
-        # Currently we don't pass enough metadta from ItsService to distinguish
-        # different yuv stream of same buffer size
-        if len(yuv_sizes) != len(set(yuv_sizes)):
-            raise its.error.Error(
-                    'ITS does not support yuv outputs of same buffer size')
-        if len(logical_cam_formats) > len(set(logical_cam_formats)):
-          if n_yuv != len(logical_cam_formats) - len(set(logical_cam_formats)) + 1:
-                raise its.error.Error('Duplicate format requested')
+
+        cam_ids = []
+        bufs = {}
+        yuv_bufs = {}
+        for i,s in enumerate(cmd["outputSurfaces"]):
+            if self._hidden_physical_id:
+                s['physicalCamera'] = self._hidden_physical_id
+
+            if 'physicalCamera' in s:
+                cam_id = s['physicalCamera']
+            else:
+                cam_id = self._camera_id
+
+            if cam_id not in cam_ids:
+                cam_ids.append(cam_id)
+                bufs[cam_id] = {"raw":[], "raw10":[], "raw12":[],
+                        "rawStats":[], "dng":[], "jpeg":[], "y8":[]}
+
+        for cam_id in cam_ids:
+            # Only allow yuv output to multiple targets
+            if cam_id == self._camera_id:
+                yuv_surfaces = [s for s in cmd["outputSurfaces"] if s["format"]=="yuv"\
+                                and "physicalCamera" not in s]
+                formats_for_id = [s["format"] for s in cmd["outputSurfaces"] if \
+                                 "physicalCamera" not in s]
+            else:
+                yuv_surfaces = [s for s in cmd["outputSurfaces"] if s["format"]=="yuv"\
+                                and "physicalCamera" in s and s["physicalCamera"] == cam_id]
+                formats_for_id = [s["format"] for s in cmd["outputSurfaces"] if \
+                                 "physicalCamera" in s and s["physicalCamera"] == cam_id]
+
+            n_yuv = len(yuv_surfaces)
+            # Compute the buffer size of YUV targets
+            yuv_maxsize_1d = 0
+            for s in yuv_surfaces:
+                if not ("width" in s and "height" in s):
+                    if self.props is None:
+                        raise its.error.Error('Camera props are unavailable')
+                    yuv_maxsize_2d = its.objects.get_available_output_sizes(
+                        "yuv", self.props)[0]
+                    yuv_maxsize_1d = yuv_maxsize_2d[0] * yuv_maxsize_2d[1] * 3 / 2
+                    break
+            yuv_sizes = [c["width"]*c["height"]*3/2
+                         if "width" in c and "height" in c
+                         else yuv_maxsize_1d
+                         for c in yuv_surfaces]
+            # Currently we don't pass enough metadta from ItsService to distinguish
+            # different yuv stream of same buffer size
+            if len(yuv_sizes) != len(set(yuv_sizes)):
+                raise its.error.Error(
+                        'ITS does not support yuv outputs of same buffer size')
+            if len(formats_for_id) > len(set(formats_for_id)):
+                if n_yuv != len(formats_for_id) - len(set(formats_for_id)) + 1:
+                    raise its.error.Error('Duplicate format requested')
+
+            yuv_bufs[cam_id] = {size:[] for size in yuv_sizes}
 
         raw_formats = 0;
         raw_formats += 1 if "dng" in formats else 0
@@ -778,9 +864,6 @@ class ItsSession(object):
         # the burst, however individual images of different formats can come
         # out in any order for that capture.
         nbufs = 0
-        bufs = {"raw":[], "raw10":[], "raw12":[],
-                "rawStats":[], "dng":[], "jpeg":[]}
-        yuv_bufs = {size:[] for size in yuv_sizes}
         mds = []
         physical_mds = []
         widths = None
@@ -788,14 +871,14 @@ class ItsSession(object):
         while nbufs < ncap*nsurf or len(mds) < ncap:
             jsonObj,buf = self.__read_response_from_socket()
             if jsonObj['tag'] in ['jpegImage', 'rawImage', \
-                    'raw10Image', 'raw12Image', 'rawStatsImage', 'dngImage'] \
+                    'raw10Image', 'raw12Image', 'rawStatsImage', 'dngImage', 'y8Image'] \
                     and buf is not None:
                 fmt = jsonObj['tag'][:-5]
-                bufs[fmt].append(buf)
+                bufs[self._camera_id][fmt].append(buf)
                 nbufs += 1
             elif jsonObj['tag'] == 'yuvImage':
                 buf_size = numpy.product(buf.shape)
-                yuv_bufs[buf_size].append(buf)
+                yuv_bufs[self._camera_id][buf_size].append(buf)
                 nbufs += 1
             elif jsonObj['tag'] == 'captureResults':
                 mds.append(jsonObj['objValue']['captureResult'])
@@ -805,42 +888,73 @@ class ItsSession(object):
                 heights = [out['height'] for out in outputs]
             else:
                 tagString = unicodedata.normalize('NFKD', jsonObj['tag']).encode('ascii', 'ignore');
-                for x in ['rawImage', 'raw10Image', 'raw12Image', 'yuvImage']:
-                    if (tagString.startswith(x)):
-                        physicalId = jsonObj['tag'][len(x):];
-                        if physicalId in physical_cam_ids.values():
-                            physical_buffers[physicalId].append(buf)
-                            nbufs += 1
+                for x in ['jpegImage', 'rawImage', \
+                        'raw10Image', 'raw12Image', 'rawStatsImage', 'yuvImage']:
+                    if tagString.startswith(x):
+                        if x == 'yuvImage':
+                            physicalId = jsonObj['tag'][len(x):]
+                            if physicalId in cam_ids:
+                                buf_size = numpy.product(buf.shape)
+                                yuv_bufs[physicalId][buf_size].append(buf)
+                                nbufs += 1
+                        else:
+                            physicalId = jsonObj['tag'][len(x):]
+                            if physicalId in cam_ids:
+                                fmt = x[:-5]
+                                bufs[physicalId][fmt].append(buf)
+                                nbufs += 1
         rets = []
         for j,fmt in enumerate(formats):
             objs = []
+            if "physicalCamera" in cmd["outputSurfaces"][j]:
+                cam_id = cmd["outputSurfaces"][j]["physicalCamera"]
+            else:
+                cam_id = self._camera_id
+
             for i in range(ncap):
                 obj = {}
                 obj["width"] = widths[j]
                 obj["height"] = heights[j]
                 obj["format"] = fmt
-                if j in physical_cam_ids:
-                    for physical_md in physical_mds[i]:
-                        if physical_cam_ids[j] in physical_md:
-                            obj["metadata"] = physical_md[physical_cam_ids[j]]
-                            break
-                else:
+                if cam_id == self._camera_id:
                     obj["metadata"] = mds[i]
-
-                if j in physical_cam_ids:
-                    obj["data"] = physical_buffers[physical_cam_ids[j]][i]
-                elif fmt == 'yuv':
-                    buf_size = widths[j] * heights[j] * 3 / 2
-                    obj["data"] = yuv_bufs[buf_size][i]
                 else:
-                    obj["data"] = bufs[fmt][i]
+                    for physical_md in physical_mds[i]:
+                        if cam_id in physical_md:
+                            obj["metadata"] = physical_md[cam_id]
+                            break
+
+                if fmt == "yuv":
+                    buf_size = widths[j] * heights[j] * 3 / 2
+                    obj["data"] = yuv_bufs[cam_id][buf_size][i]
+                else:
+                    obj["data"] = bufs[cam_id][fmt][i]
                 objs.append(obj)
-            rets.append(objs if ncap>1 else objs[0])
+            rets.append(objs if ncap > 1 else objs[0])
         self.sock.settimeout(self.SOCK_TIMEOUT)
-        return rets if len(rets)>1 else rets[0]
+        if len(rets) > 1 or (isinstance(rets[0], dict) and
+                             isinstance(cap_request, list)):
+            return rets
+        else:
+            return rets[0]
+
+def do_capture_with_latency(cam, req, sync_latency, fmt=None):
+    """Helper function to take enough frames with do_capture to allow sync latency.
+
+    Args:
+        cam:            camera object
+        req:            request for camera
+        sync_latency:   integer number of frames
+        fmt:            format for the capture
+    Returns:
+        single capture with the unsettled frames discarded
+    """
+    caps = cam.do_capture([req]*(sync_latency+1), fmt)
+    return caps[-1]
+
 
 def get_device_id():
-    """ Return the ID of the device that the test is running on.
+    """Return the ID of the device that the test is running on.
 
     Return the device ID provided in the command line if it's connected. If no
     device ID is provided in the command line and there is only one device
@@ -976,12 +1090,28 @@ def get_device_fingerprint(device_id):
 
     return device_bfp
 
+def parse_camera_ids(ids):
+    """ Parse the string of camera IDs into array of CameraIdCombo tuples.
+    """
+    CameraIdCombo = namedtuple('CameraIdCombo', ['id', 'sub_id'])
+    id_combos = []
+    for one_id in ids:
+        one_combo = one_id.split(':')
+        if len(one_combo) == 1:
+            id_combos.append(CameraIdCombo(one_combo[0], None))
+        elif len(one_combo) == 2:
+            id_combos.append(CameraIdCombo(one_combo[0], one_combo[1]))
+        else:
+            assert(False), 'Camera id parameters must be either ID, or ID:SUB_ID'
+    return id_combos
+
 def _run(cmd):
     """Replacement for os.system, with hiding of stdout+stderr messages.
     """
     with open(os.devnull, 'wb') as devnull:
         subprocess.check_call(
                 cmd.split(), stdout=devnull, stderr=subprocess.STDOUT)
+
 
 class __UnitTest(unittest.TestCase):
     """Run a suite of unit tests on this module.

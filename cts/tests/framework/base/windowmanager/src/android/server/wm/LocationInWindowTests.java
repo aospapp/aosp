@@ -23,6 +23,8 @@ import static android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
 
+import static androidx.test.InstrumentationRegistry.getInstrumentation;
+
 import static org.hamcrest.Matchers.is;
 
 import android.app.Activity;
@@ -31,17 +33,16 @@ import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.filters.FlakyTest;
-import android.support.test.filters.SmallTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager.LayoutParams;
 import android.widget.FrameLayout;
+
+import androidx.test.filters.FlakyTest;
+import androidx.test.filters.SmallTest;
+import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
 
@@ -50,14 +51,11 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
-import org.junit.runner.RunWith;
 
 import java.util.function.Supplier;
 
-@RunWith(AndroidJUnit4.class)
 @SmallTest
 @Presubmit
-@FlakyTest(detail = "until proven non-flaky")
 public class LocationInWindowTests {
 
     @Rule
@@ -157,7 +155,7 @@ public class LocationInWindowTests {
     }
 
     private void runOnMainSync(Runnable runnable) {
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(runnable);
+        getInstrumentation().runOnMainSync(runnable);
     }
 
     private <T extends Activity> T launchAndWait(ActivityTestRule<T> rule,

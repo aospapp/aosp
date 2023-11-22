@@ -16,39 +16,6 @@
 
 import unittest
 
-from acts import utils
-from acts.test_utils.bt import BleEnum
-from acts.test_utils.bt import BluetoothBaseTest
-from acts.test_utils.bt import BluetoothCarHfpBaseTest
-from acts.test_utils.bt import BtEnum
-from acts.test_utils.bt import GattConnectedBaseTest
-from acts.test_utils.bt import GattEnum
-from acts.test_utils.bt import bt_contacts_utils
-from acts.test_utils.bt import bt_gatt_utils
-from acts.test_utils.bt import bt_test_utils
-from acts.test_utils.bt import native_bt_test_utils
-
-from acts.test_utils.car import car_bt_utils
-from acts.test_utils.car import car_media_utils
-from acts.test_utils.car import car_telecom_utils
-from acts.test_utils.car import tel_telecom_utils
-
-from acts.test_utils.net import connectivity_const
-from acts.test_utils.net import connectivity_const
-
-from acts.test_utils.tel import TelephonyBaseTest
-from acts.test_utils.tel import tel_atten_utils
-from acts.test_utils.tel import tel_data_utils
-from acts.test_utils.tel import tel_defines
-from acts.test_utils.tel import tel_lookup_tables
-from acts.test_utils.tel import tel_subscription_utils
-from acts.test_utils.tel import tel_test_utils
-from acts.test_utils.tel import tel_video_utils
-from acts.test_utils.tel import tel_voice_utils
-
-from acts.test_utils.wifi import wifi_constants
-from acts.test_utils.wifi import wifi_test_utils
-
 
 class ActsImportTestUtilsTest(unittest.TestCase):
     """This test class has unit tests for the implementation of everything
@@ -60,8 +27,44 @@ class ActsImportTestUtilsTest(unittest.TestCase):
 
         This test will fail if any import was unsuccessful.
         """
-        self.assertTrue(True)
+        try:
+            from acts import utils
+
+            from acts.test_utils.bt import BleEnum
+            from acts.test_utils.bt import BluetoothBaseTest
+            from acts.test_utils.bt import BluetoothCarHfpBaseTest
+            from acts.test_utils.bt import BtEnum
+            from acts.test_utils.bt import GattConnectedBaseTest
+            from acts.test_utils.bt import GattEnum
+            from acts.test_utils.bt import bt_contacts_utils
+            from acts.test_utils.bt import bt_gatt_utils
+            from acts.test_utils.bt import bt_test_utils
+            from acts.test_utils.bt import native_bt_test_utils
+
+            from acts.test_utils.car import car_bt_utils
+            from acts.test_utils.car import car_media_utils
+            from acts.test_utils.car import car_telecom_utils
+            from acts.test_utils.car import tel_telecom_utils
+
+            from acts.test_utils.net import connectivity_const
+            from acts.test_utils.net import connectivity_const
+
+            from acts.test_utils.tel import TelephonyBaseTest
+            from acts.test_utils.tel import tel_atten_utils
+            from acts.test_utils.tel import tel_data_utils
+            from acts.test_utils.tel import tel_defines
+            from acts.test_utils.tel import tel_lookup_tables
+            from acts.test_utils.tel import tel_subscription_utils
+            from acts.test_utils.tel import tel_test_utils
+            from acts.test_utils.tel import tel_video_utils
+            from acts.test_utils.tel import tel_voice_utils
+
+            from acts.test_utils.wifi import wifi_constants
+            from acts.test_utils.wifi import wifi_test_utils
+
+        except Exception:
+            self.fail('Unable to import all supported test_utils')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

@@ -17,18 +17,17 @@ LOCAL_PATH:= $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES:= \
-  vsoc_ril.cpp
+  cuttlefish_ril.cpp
 
 LOCAL_SHARED_LIBRARIES := \
   liblog \
   libcutils \
   libutils \
-  libril \
+  ${CUTTLEFISH_LIBRIL_NAME} \
   libcuttlefish_fs \
   cuttlefish_net \
   cuttlefish_auto_resources \
   libbase \
-  vsoc_lib
 
 LOCAL_C_INCLUDES := \
     device/google/cuttlefish_common \
@@ -39,7 +38,7 @@ LOCAL_CFLAGS += \
   -Werror \
   $(VSOC_VERSION_CFLAGS)
 
-LOCAL_MODULE:= libvsoc-ril
+LOCAL_MODULE:= libcuttlefish-ril
 LOCAL_MODULE_TAGS := optional
 LOCAL_VENDOR_MODULE := true
 
@@ -49,3 +48,5 @@ LOCAL_MULTILIB := first
 endif
 
 include $(BUILD_SHARED_LIBRARY)
+
+include $(call first-makefiles-under,$(LOCAL_PATH))

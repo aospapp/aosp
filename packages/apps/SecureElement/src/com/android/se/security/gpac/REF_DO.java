@@ -121,6 +121,12 @@ public class REF_DO extends BerTlv {
             index = temp.getValueIndex() + temp.getValueLength();
         } while (getValueIndex() + getValueLength() > index);
 
+        // A rule without AID is a Carrier Privilege Rule.
+        // Enforces the AID to be the Carrier Privilege AID to avoid a null AID.
+        if (mAidDo == null && mHashDo != null) {
+            mAidDo = AID_REF_DO.createCarrierPrivilegeAid();
+        }
+
         // check if there is a AID-REF-DO
         if (mAidDo == null) {
             throw new ParserException("Missing AID-REF-DO in REF-DO!");
@@ -178,5 +184,9 @@ public class REF_DO extends BerTlv {
         int hash = Arrays.hashCode(data);
         // int hash = data.hashCode();
         return hash;
+    }
+
+    public boolean isCarrierPrivilegeRefDo() {
+        return (mAidDo != null && mAidDo.isCarrierPrivilege());
     }
 }

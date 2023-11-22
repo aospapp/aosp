@@ -186,7 +186,7 @@ public abstract class EpisodicProgramLoadTask {
         SqlParams sqlParams = createSqlParams();
         return new AsyncProgramQueryTask(
                 TvSingletons.getSingletons(mContext).getDbExecutor(),
-                mContext.getContentResolver(),
+                mContext,
                 sqlParams.uri,
                 sqlParams.selection,
                 sqlParams.selectionArgs,
@@ -284,7 +284,7 @@ public abstract class EpisodicProgramLoadTask {
 
         @Override
         @WorkerThread
-        public boolean filter(Cursor c) {
+        public boolean apply(Cursor c) {
             if (!mLoadDisallowedProgram
                     && mDisallowedProgramIds.contains(c.getLong(PROGRAM_ID_INDEX))) {
                 return false;
@@ -318,10 +318,10 @@ public abstract class EpisodicProgramLoadTask {
         }
 
         @Override
-        public boolean filter(Cursor c) {
+        public boolean apply(Cursor c) {
             return (mLoadCurrentProgram || c.getLong(START_TIME_INDEX) > System.currentTimeMillis())
                     && c.getInt(RECORDING_PROHIBITED_INDEX) != 0
-                    && super.filter(c);
+                    && super.apply(c);
         }
     }
 

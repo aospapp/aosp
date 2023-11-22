@@ -73,7 +73,7 @@ if [ -z $SIZE ]; then
   exit 2
 fi
 
-MAKE_F2FS_CMD="make_f2fs -S $SIZE -f -O encrypt -O quota -O verity $MKFS_OPTS $OUTPUT_FILE"
+MAKE_F2FS_CMD="make_f2fs -S $SIZE -g android $MKFS_OPTS $OUTPUT_FILE"
 echo $MAKE_F2FS_CMD
 $MAKE_F2FS_CMD
 if [ $? -ne 0 ]; then

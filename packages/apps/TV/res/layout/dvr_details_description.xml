@@ -42,6 +42,27 @@
         android:orientation="vertical"
         android:background="?android:attr/selectableItemBackground">
 
+        <LinearLayout android:id="@+id/dvr_details_description_error_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageView android:layout_width="30dp"
+                android:layout_height="27dp"
+                android:paddingTop="9dp"
+                android:paddingLeft="12dp"
+                android:src="@drawable/ic_error_outline_pink_24dp"/>
+
+            <TextView android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="9dp"
+                android:paddingRight="12dp"
+                android:textColor="@color/dvr_recording_failed_text_color"
+                android:text="@string/dvr_recording_failed"
+                style="?attr/detailsDescriptionBodyStyle" />
+        </LinearLayout>
+
         <TextView android:id="@+id/dvr_details_description_body"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

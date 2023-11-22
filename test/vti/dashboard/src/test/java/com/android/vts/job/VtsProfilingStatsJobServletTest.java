@@ -28,6 +28,7 @@ import com.android.vts.entity.ProfilingPointSummaryEntity;
 import com.android.vts.entity.TestEntity;
 import com.android.vts.entity.TestRunEntity;
 import com.android.vts.proto.VtsReportMessage;
+import com.android.vts.util.ObjectifyTestBase;
 import com.android.vts.util.StatSummary;
 import com.android.vts.util.TimeUtil;
 import com.google.appengine.api.datastore.DatastoreService;
@@ -55,11 +56,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
-public class VtsProfilingStatsJobServletTest {
+public class VtsProfilingStatsJobServletTest extends ObjectifyTestBase {
     private final LocalServiceTestHelper helper =
             new LocalServiceTestHelper(
                     new LocalDatastoreServiceTestConfig(),
@@ -67,12 +68,12 @@ public class VtsProfilingStatsJobServletTest {
                             .setQueueXmlPath("src/main/webapp/WEB-INF/queue.xml"));
     private static final double THRESHOLD = 1e-10;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         helper.setUp();
     }
 
-    @After
+    @AfterEach
     public void tearDown() {
         helper.tearDown();
     }
@@ -254,7 +255,7 @@ public class VtsProfilingStatsJobServletTest {
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
         // Check profiling point entity
-        Key profilingPointKey = ProfilingPointEntity.createKey(test, profilingPointRunEntity.name);
+        Key profilingPointKey = ProfilingPointEntity.createKey(test, profilingPointRunEntity.getName());
         ProfilingPointEntity profilingPointEntity = null;
         try {
             Entity profilingPoint = datastore.get(profilingPointKey);
@@ -263,11 +264,11 @@ public class VtsProfilingStatsJobServletTest {
             fail();
         }
         assertNotNull(profilingPointEntity);
-        assertEquals(profilingPointRunEntity.name, profilingPointEntity.profilingPointName);
-        assertEquals(profilingPointRunEntity.xLabel, profilingPointEntity.xLabel);
-        assertEquals(profilingPointRunEntity.yLabel, profilingPointEntity.yLabel);
-        assertEquals(profilingPointRunEntity.type, profilingPointEntity.type);
-        assertEquals(profilingPointRunEntity.regressionMode, profilingPointEntity.regressionMode);
+        assertEquals(profilingPointRunEntity.getName(), profilingPointEntity.getProfilingPointName());
+        assertEquals(profilingPointRunEntity.getXLabel(), profilingPointEntity.getXLabel());
+        assertEquals(profilingPointRunEntity.getYLabel(), profilingPointEntity.getYLabel());
+        assertEquals(profilingPointRunEntity.getType(), profilingPointEntity.getType());
+        assertEquals(profilingPointRunEntity.getRegressionMode(), profilingPointEntity.getRegressionMode());
 
         // Check all summary entities
         Query q = new Query(ProfilingPointSummaryEntity.KIND).setAncestor(profilingPointKey);
@@ -275,16 +276,16 @@ public class VtsProfilingStatsJobServletTest {
             ProfilingPointSummaryEntity pps = ProfilingPointSummaryEntity.fromEntity(e);
             assertNotNull(pps);
             assertTrue(
-                    pps.branch.equals(device.branch)
-                            || pps.branch.equals(ProfilingPointSummaryEntity.ALL));
+                    pps.getBranch().equals(device.getBranch())
+                            || pps.getBranch().equals(ProfilingPointSummaryEntity.ALL));
             assertTrue(
-                    pps.buildFlavor.equals(ProfilingPointSummaryEntity.ALL)
-                            || pps.buildFlavor.equals(device.buildFlavor));
-            assertEquals(expected.getCount(), pps.globalStats.getCount());
-            assertEquals(expected.getMax(), pps.globalStats.getMax(), THRESHOLD);
-            assertEquals(expected.getMin(), pps.globalStats.getMin(), THRESHOLD);
-            assertEquals(expected.getMean(), pps.globalStats.getMean(), THRESHOLD);
-            assertEquals(expected.getSumSq(), pps.globalStats.getSumSq(), THRESHOLD);
+                    pps.getBuildFlavor().equals(ProfilingPointSummaryEntity.ALL)
+                            || pps.getBuildFlavor().equals(device.getBuildFlavor()));
+            assertEquals(expected.getCount(), pps.getGlobalStats().getCount());
+            assertEquals(expected.getMax(), pps.getGlobalStats().getMax(), THRESHOLD);
+            assertEquals(expected.getMin(), pps.getGlobalStats().getMin(), THRESHOLD);
+            assertEquals(expected.getMean(), pps.getGlobalStats().getMean(), THRESHOLD);
+            assertEquals(expected.getSumSq(), pps.getGlobalStats().getSumSq(), THRESHOLD);
         }
     }
 
@@ -324,7 +325,7 @@ public class VtsProfilingStatsJobServletTest {
         devices.add(device);
 
         // Create the existing stats
-        Key profilingPointKey = ProfilingPointEntity.createKey(test, profilingPointRunEntity.name);
+        Key profilingPointKey = ProfilingPointEntity.createKey(test, profilingPointRunEntity.getName());
         StatSummary expected =
                 new StatSummary(
                         "label",
@@ -340,8 +341,8 @@ public class VtsProfilingStatsJobServletTest {
                         expected,
                         new ArrayList<>(),
                         new HashMap<>(),
-                        device.branch,
-                        device.buildFlavor,
+                        device.getBranch(),
+                        device.getBuildFlavor(),
                         series,
                         time);
 
@@ -360,7 +361,7 @@ public class VtsProfilingStatsJobServletTest {
         // Get the summary and check the values match what is expected
         Key summaryKey =
                 ProfilingPointSummaryEntity.createKey(
-                        profilingPointKey, device.branch, device.buildFlavor, series, time);
+                        profilingPointKey, device.getBranch(), device.getBuildFlavor(), series, time);
         ProfilingPointSummaryEntity pps = null;
         try {
             Entity e = datastore.get(summaryKey);
@@ -369,12 +370,12 @@ public class VtsProfilingStatsJobServletTest {
             fail();
         }
         assertNotNull(pps);
-        assertTrue(pps.branch.equals(device.branch));
-        assertTrue(pps.buildFlavor.equals(device.buildFlavor));
-        assertEquals(expected.getCount(), pps.globalStats.getCount());
-        assertEquals(expected.getMax(), pps.globalStats.getMax(), THRESHOLD);
-        assertEquals(expected.getMin(), pps.globalStats.getMin(), THRESHOLD);
-        assertEquals(expected.getMean(), pps.globalStats.getMean(), THRESHOLD);
-        assertEquals(expected.getSumSq(), pps.globalStats.getSumSq(), THRESHOLD);
+        assertTrue(pps.getBranch().equals(device.getBranch()));
+        assertTrue(pps.getBuildFlavor().equals(device.getBuildFlavor()));
+        assertEquals(expected.getCount(), pps.getGlobalStats().getCount());
+        assertEquals(expected.getMax(), pps.getGlobalStats().getMax(), THRESHOLD);
+        assertEquals(expected.getMin(), pps.getGlobalStats().getMin(), THRESHOLD);
+        assertEquals(expected.getMean(), pps.getGlobalStats().getMean(), THRESHOLD);
+        assertEquals(expected.getSumSq(), pps.getGlobalStats().getSumSq(), THRESHOLD);
     }
 }

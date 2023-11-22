@@ -23,7 +23,7 @@ namespace {
 
 FakeBluetoothInterface::Manager g_hal_manager;
 
-int FakeHALEnable(bool start_restricted) {
+int FakeHALEnable() {
   return g_hal_manager.enable_succeed ? BT_STATUS_SUCCESS : BT_STATUS_FAIL;
 }
 
@@ -74,6 +74,7 @@ bt_interface_t fake_bt_iface = {
     nullptr, /* interop_database_clear */
     nullptr, /* interop_database_add */
     nullptr, /* get_avrcp_service */
+    nullptr, /* obfuscate_address */
 };
 
 }  // namespace

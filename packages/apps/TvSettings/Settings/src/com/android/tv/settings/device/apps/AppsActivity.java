@@ -19,8 +19,8 @@ package com.android.tv.settings.device.apps;
 import android.app.Fragment;
 import android.os.Bundle;
 
-import com.android.tv.settings.BaseSettingsFragment;
 import com.android.tv.settings.TvSettingsActivity;
+import com.android.tv.settings.overlay.FeatureFactory;
 
 /**
  * Activity allowing the management of apps settings.
@@ -40,25 +40,15 @@ public class AppsActivity extends TvSettingsActivity {
             volumeUuid = args.getString(EXTRA_VOLUME_UUID);
             volumeName = args.getString(EXTRA_VOLUME_NAME);
         }
-        return SettingsFragment.newInstance(volumeUuid, volumeName);
+        return FeatureFactory.getFactory(this).getSettingsFragmentProvider()
+                .newSettingsFragment(AppsFragment.class.getName(),
+                        getArguments(volumeUuid, volumeName));
     }
 
-    public static class SettingsFragment extends BaseSettingsFragment {
-
-        public static SettingsFragment newInstance(String volumeUuid, String volumeName) {
-            final Bundle b = new Bundle(2);
-            b.putString(EXTRA_VOLUME_UUID, volumeUuid);
-            b.putString(EXTRA_VOLUME_NAME, volumeName);
-            final SettingsFragment f = new SettingsFragment();
-            f.setArguments(b);
-            return f;
-        }
-
-        @Override
-        public void onPreferenceStartInitialScreen() {
-            final String volumeUuid = getArguments().getString(EXTRA_VOLUME_UUID);
-            final String volumeName = getArguments().getString(EXTRA_VOLUME_NAME);
-            startPreferenceFragment(AppsFragment.newInstance(volumeUuid, volumeName));
-        }
+    private Bundle getArguments(String volumeUuid, String volumeName) {
+        final Bundle b = new Bundle(2);
+        b.putString(EXTRA_VOLUME_UUID, volumeUuid);
+        b.putString(EXTRA_VOLUME_NAME, volumeName);
+        return b;
     }
 }

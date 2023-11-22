@@ -22,7 +22,6 @@
     <string name="requesting_application" msgid="1589142627467598421">"Aplikacja %s prosi o certyfikat. Wybranie certyfikatu umożliwi aplikacji używanie tej tożsamości na serwerach zarówno teraz, jak i w przyszłości."</string>
     <string name="requesting_server" msgid="5832565605998634370">"Aplikacja zidentyfikowała serwer żądający jako %s, ale dostęp do certyfikatu należy przyznać tylko zaufanej aplikacji."</string>
     <string name="install_new_cert_message" msgid="4451971501142085495">"Możesz zainstalować certyfikaty z pliku PKCS#12 z rozszerzeniem %1$s lub %2$s, który znajduje się w pamięci zewnętrznej."</string>
-    <string name="install_new_cert_button_label" msgid="903474285774077171">"Zainstaluj certyfikat"</string>
     <string name="allow_button" msgid="3030990695030371561">"Wybierz"</string>
     <string name="deny_button" msgid="3766539809121892584">"Odmów"</string>
 </resources>

@@ -20,8 +20,9 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.graphics.drawable.Drawable;
-import android.provider.DocumentsContract.Document;
 import android.util.TypedValue;
+
+import com.android.documentsui.base.MimeTypes;
 
 public class IconUtils {
     public static Drawable loadPackageIcon(Context context, String authority, int icon) {
@@ -41,19 +42,26 @@ public class IconUtils {
 
     public static Drawable loadMimeIcon(
             Context context, String mimeType, String authority, String docId, int mode) {
-        if (Document.MIME_TYPE_DIR.equals(mimeType)) {
-            return context.getDrawable(R.drawable.ic_doc_folder);
-        }
-
         return loadMimeIcon(context, mimeType);
     }
 
+    /**
+     * Load mime type drawable from system MimeIconUtils.
+     * @param context activity context to obtain resource
+     * @param mimeType specific mime type string of file
+     * @return drawable of mime type files from system default
+     */
     public static Drawable loadMimeIcon(Context context, String mimeType) {
-        return context.getContentResolver().getTypeDrawable(mimeType);
+        if (mimeType == null) return null;
+        return context.getContentResolver().getTypeInfo(mimeType).getIcon().loadDrawable(context);
     }
 
     public static Drawable applyTintColor(Context context, int drawableId, int tintColorId) {
         final Drawable icon = context.getDrawable(drawableId);
+        return applyTintColor(context, icon, tintColorId);
+    }
+
+    public static Drawable applyTintColor(Context context, Drawable icon, int tintColorId) {
         icon.mutate();
         icon.setTintList(context.getColorStateList(tintColorId));
         return icon;

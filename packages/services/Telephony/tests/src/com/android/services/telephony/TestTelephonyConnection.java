@@ -17,10 +17,12 @@
 package com.android.services.telephony;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.telecom.PhoneAccountHandle;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -28,6 +30,7 @@ import static org.mockito.Mockito.when;
 import com.android.internal.telephony.Call;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneConstants;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -50,6 +53,9 @@ public class TestTelephonyConnection extends TelephonyConnection {
     @Mock
     Context mMockContext;
 
+    @Mock
+    Resources mMockResources;
+
     private Phone mMockPhone;
     private int mNotifyPhoneAccountChangedCount = 0;
     private List<String> mLastConnectionEvents = new ArrayList<>();
@@ -66,14 +72,21 @@ public class TestTelephonyConnection extends TelephonyConnection {
 
         mMockPhone = mock(Phone.class);
         mMockContext = mock(Context.class);
+        mOriginalConnection = mock(Connection.class);
         // Set up mMockRadioConnection and mMockPhone to contain an active call
         when(mMockRadioConnection.getState()).thenReturn(Call.State.ACTIVE);
         when(mMockRadioConnection.getCall()).thenReturn(mMockCall);
+        when(mMockRadioConnection.getPhoneType()).thenReturn(PhoneConstants.PHONE_TYPE_IMS);
         doNothing().when(mMockRadioConnection).addListener(any(Connection.Listener.class));
         doNothing().when(mMockRadioConnection).addPostDialListener(
                 any(Connection.PostDialListener.class));
         when(mMockPhone.getRingingCall()).thenReturn(mMockCall);
-        when(mMockPhone.getContext()).thenReturn(null);
+        when(mMockPhone.getContext()).thenReturn(mMockContext);
+        when(mMockPhone.getCurrentSubscriberUris()).thenReturn(null);
+        when(mMockContext.getResources()).thenReturn(mMockResources);
+        when(mMockResources.getBoolean(anyInt())).thenReturn(false);
+        when(mMockPhone.getDefaultPhone()).thenReturn(mMockPhone);
+        when(mMockPhone.getPhoneType()).thenReturn(PhoneConstants.PHONE_TYPE_IMS);
         when(mMockCall.getState()).thenReturn(Call.State.ACTIVE);
         when(mMockCall.getPhone()).thenReturn(mMockPhone);
     }
@@ -105,6 +118,11 @@ public class TestTelephonyConnection extends TelephonyConnection {
     public void sendConnectionEvent(String event, Bundle extras) {
         mLastConnectionEvents.add(event);
         mLastConnectionEventExtras.add(extras);
+    }
+
+    @Override
+    void clearOriginalConnection() {
+        // Do nothing since the original connection is mock object
     }
 
     public int getNotifyPhoneAccountChangedCount() {

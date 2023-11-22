@@ -20,7 +20,7 @@ import android.device.collectors.annotations.OptionClass;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
-import android.support.annotation.VisibleForTesting;
+import androidx.annotation.VisibleForTesting;
 import android.util.Log;
 
 import org.junit.runner.Description;

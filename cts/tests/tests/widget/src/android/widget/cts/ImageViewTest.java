@@ -33,31 +33,42 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.annotation.Nullable;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.BlendMode;
+import android.graphics.BlendModeColorFilter;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.Matrix;
+import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
+import android.graphics.PorterDuff.Mode;
+import android.graphics.PorterDuffColorFilter;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.Rect;
+import android.graphics.Xfermode;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Icon;
 import android.graphics.drawable.PaintDrawable;
 import android.net.Uri;
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.rule.ActivityTestRule;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.AttributeSet;
 import android.util.Xml;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 import android.widget.cts.util.TestUtils;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.rule.ActivityTestRule;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.WidgetTestUtils;
 
@@ -396,6 +407,20 @@ public class ImageViewTest {
 
     @UiThreadTest
     @Test
+    public void testSetColorFilterTintBlendMode() {
+        final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
+        mImageViewRegular.setImageDrawable(drawable);
+
+        mImageViewRegular.setColorFilter(null);
+        assertNull(drawable.getColorFilter());
+
+        mImageViewRegular.setColorFilter(new BlendModeColorFilter(0, BlendMode.CLEAR));
+        assertNotNull(drawable.getColorFilter());
+        assertNotNull(mImageViewRegular.getColorFilter());
+    }
+
+    @UiThreadTest
+    @Test
     public void testClearColorFilter() {
         final Drawable drawable = mActivity.getDrawable(R.drawable.testimage);
         mImageViewRegular.setImageDrawable(drawable);
@@ -500,6 +525,62 @@ public class ImageViewTest {
         verify(mockImageView, times(1)).onSizeChanged(anyInt(), anyInt(), anyInt(), anyInt());
     }
 
+    @Test
+    public void testSetColorFilterPreservesDrawableProperties() {
+        ImageView imageView = new ImageView(InstrumentationRegistry.getTargetContext());
+
+        int colorAlpha = 128;
+        MockDrawable mockDrawable = new MockDrawable();
+        mockDrawable.setAlpha(colorAlpha);
+        mockDrawable.setXfermode(new PorterDuffXfermode(Mode.SRC_IN));
+
+        imageView.setImageDrawable(mockDrawable);
+
+        imageView.setColorFilter(Color.RED);
+        assertEquals(colorAlpha, mockDrawable.getAlpha());
+        assertNotNull(mockDrawable.getXfermode());
+    }
+
+    @Test
+    public void testSetColorFilterPreservesDrawablePropertiesTintBlendMode() {
+        ImageView imageView = new ImageView(InstrumentationRegistry.getTargetContext());
+
+        int colorAlpha = 128;
+        MockDrawable mockDrawable = new MockDrawable();
+        mockDrawable.setAlpha(colorAlpha);
+        mockDrawable.setTintBlendMode(BlendMode.SRC_IN);
+
+        imageView.setImageDrawable(mockDrawable);
+
+        imageView.setColorFilter(Color.RED);
+        assertEquals(colorAlpha, mockDrawable.getAlpha());
+        assertNotNull(mockDrawable.getBlendMode());
+    }
+
+    @Test
+    public void testImageViewSetColorFilterPropagatedToDrawable() {
+        ImageView imageView = new ImageView(InstrumentationRegistry.getTargetContext());
+
+        MockDrawable mockDrawable = new MockDrawable();
+        imageView.setImageDrawable(mockDrawable);
+        imageView.setColorFilter(Color.RED);
+
+        ColorFilter imageViewColorFilter = imageView.getColorFilter();
+        assertTrue(imageViewColorFilter instanceof PorterDuffColorFilter);
+
+        PorterDuffColorFilter imageViewPorterDuffFilter =
+                (PorterDuffColorFilter) imageViewColorFilter;
+        assertEquals(Color.RED, imageViewPorterDuffFilter.getColor());
+        assertEquals(Mode.SRC_ATOP, imageViewPorterDuffFilter.getMode());
+
+        ColorFilter colorFilter = mockDrawable.getColorFilter();
+        assertTrue(colorFilter instanceof PorterDuffColorFilter);
+
+        PorterDuffColorFilter porterDuffColorFilter = (PorterDuffColorFilter) colorFilter;
+        assertEquals(Color.RED, porterDuffColorFilter.getColor());
+        assertEquals(PorterDuff.Mode.SRC_ATOP, porterDuffColorFilter.getMode());
+    }
+
     @UiThreadTest
     @Test
     public void testVerifyDrawable() {
@@ -527,6 +608,20 @@ public class ImageViewTest {
 
         imageViewTinted.setImageTintMode(PorterDuff.Mode.SRC_IN);
         assertEquals(PorterDuff.Mode.SRC_IN, imageViewTinted.getImageTintMode());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testImageTintBlendModeBasics() {
+        ImageView imageViewTinted = (ImageView) mActivity.findViewById(R.id.imageview_tint);
+
+        assertEquals("Image tint inflated correctly",
+                Color.WHITE, imageViewTinted.getImageTintList().getDefaultColor());
+        assertEquals("Image tint mode inflated correctly",
+                BlendMode.SRC_OVER, imageViewTinted.getImageTintBlendMode());
+
+        imageViewTinted.setImageTintMode(PorterDuff.Mode.SRC_IN);
+        assertEquals(BlendMode.SRC_IN, imageViewTinted.getImageTintBlendMode());
     }
 
     @UiThreadTest
@@ -579,6 +674,35 @@ public class ImageViewTest {
 
     @UiThreadTest
     @Test
+    public void testImageTintBlendModeVisuals() {
+        ImageView imageViewTinted = (ImageView) mActivity.findViewById(
+                R.id.imageview_tint_with_source);
+
+        TestUtils.assertAllPixelsOfColor("All pixels should be white", imageViewTinted,
+                0xFFFFFFFF, 1, false);
+
+        // Use translucent white tint. Together with SRC_OVER mode (defined in XML) the end
+        // result should be a fully opaque image view with solid fill color in between red
+        // and white.
+        imageViewTinted.setImageTintList(ColorStateList.valueOf(0x80FFFFFF));
+        TestUtils.assertAllPixelsOfColor("All pixels should be light red", imageViewTinted,
+                0xFFFF8080, 1, false);
+
+        // Switch to SRC_IN mode. This should completely ignore the original drawable set on
+        // the image view and use the last set tint color (50% alpha white).
+        imageViewTinted.setImageTintBlendMode(BlendMode.SRC_IN);
+        TestUtils.assertAllPixelsOfColor("All pixels should be 50% alpha white", imageViewTinted,
+                0x80FFFFFF, 1, false);
+
+        // Switch to DST mode. This should completely ignore the last set tint color and use the
+        // the original drawable set on the image view.
+        imageViewTinted.setImageTintBlendMode(BlendMode.DST);
+        TestUtils.assertAllPixelsOfColor("All pixels should be red", imageViewTinted,
+                0xFFFF0000, 1, false);
+    }
+
+    @UiThreadTest
+    @Test
     public void testAlpha() {
         mImageViewRegular.setImageResource(R.drawable.blue_fill);
 
@@ -621,6 +745,55 @@ public class ImageViewTest {
         assertEquals(255, mImageViewRegular.getImageAlpha());
         TestUtils.assertAllPixelsOfColor("All pixels should be blue", mImageViewRegular,
                 0xFF0000FF, 1, false);
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAnimateTransform() {
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ALPHA_8);
+        mImageViewRegular.setScaleType(ScaleType.FIT_XY);
+        mImageViewRegular.setImageBitmap(bitmap);
+        Rect viewRect = new Rect(0, 0, mImageViewRegular.getWidth(), mImageViewRegular.getHeight());
+        Rect bitmapRect = new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
+
+        assertEquals(viewRect, mImageViewRegular.getDrawable().getBounds());
+        assertTrue(mImageViewRegular.getImageMatrix().isIdentity());
+
+        Matrix matrix = new Matrix();
+        mImageViewRegular.animateTransform(matrix);
+
+        assertEquals(bitmapRect, mImageViewRegular.getDrawable().getBounds());
+        assertEquals(matrix, mImageViewRegular.getImageMatrix());
+
+        // clear temporary transformation
+        mImageViewRegular.setImageBitmap(bitmap);
+
+        assertEquals(viewRect, mImageViewRegular.getDrawable().getBounds());
+        assertTrue(mImageViewRegular.getImageMatrix().isIdentity());
+    }
+
+    @UiThreadTest
+    @Test
+    public void testAnimateTransformWithNullPassed() {
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ALPHA_8);
+        mImageViewRegular.setScaleType(ScaleType.CENTER);
+        mImageViewRegular.setImageBitmap(bitmap);
+        Rect viewRect = new Rect(0, 0, mImageViewRegular.getWidth(), mImageViewRegular.getHeight());
+        Rect bitmapRect = new Rect(0, 0, bitmap.getWidth(), bitmap.getHeight());
+
+        assertEquals(bitmapRect, mImageViewRegular.getDrawable().getBounds());
+        assertFalse(mImageViewRegular.getImageMatrix().isIdentity());
+
+        mImageViewRegular.animateTransform(null);
+
+        assertEquals(viewRect, mImageViewRegular.getDrawable().getBounds());
+        assertTrue(mImageViewRegular.getImageMatrix().isIdentity());
+
+        // clear temporary transformation
+        mImageViewRegular.setImageBitmap(bitmap);
+
+        assertEquals(bitmapRect, mImageViewRegular.getDrawable().getBounds());
+        assertFalse(mImageViewRegular.getImageMatrix().isIdentity());
     }
 
     public static class MockImageView extends ImageView {
@@ -672,6 +845,61 @@ public class ImageViewTest {
 
         protected void onSizeChanged(int w, int h, int oldw, int oldh) {
             super.onSizeChanged(w, h, oldw, oldh);
+        }
+    }
+
+    public static class MockDrawable extends Drawable {
+
+        private ColorFilter mFilter;
+        private int mAlpha;
+        private Xfermode mXfermode;
+        private BlendMode mBlendMode;
+
+        @Override
+        public void draw(Canvas canvas) {
+            // NO-OP
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            mAlpha = alpha;
+        }
+
+        public int getAlpha() {
+            return mAlpha;
+        }
+
+        @Override
+        public void setColorFilter(ColorFilter colorFilter) {
+            mFilter = colorFilter;
+        }
+
+        @Override
+        public void setXfermode(Xfermode mode) {
+            mXfermode = mode;
+        }
+
+        @Override
+        public void setTintBlendMode(BlendMode mode) {
+            mBlendMode = mode;
+        }
+
+        public @Nullable Xfermode getXfermode() {
+            return mXfermode;
+        }
+
+        public @Nullable BlendMode getBlendMode() {
+            return mBlendMode;
+        }
+
+        @Override
+        public @Nullable ColorFilter getColorFilter() {
+            return mFilter;
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
         }
     }
 }

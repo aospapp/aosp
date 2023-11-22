@@ -86,12 +86,12 @@ public class GnssTtffTests extends GnssTestCase {
    */
   private void ensureNetworkStatus(){
     assertTrue("Device has to connect to Wifi or Cellular to complete this test.",
-        isConnectedToWifiOrCellular(getContext()));
+        TestUtils.isConnectedToWifiOrCellular(getContext()));
 
   }
 
   private boolean hasCellularData() {
-    ConnectivityManager connManager = getConnectivityManager(getContext());
+    ConnectivityManager connManager = TestUtils.getConnectivityManager(getContext());
     NetworkInfo cellularNetworkInfo = connManager.getNetworkInfo(ConnectivityManager.TYPE_MOBILE);
     // check whether the cellular data is ON if the device has cellular capability
     if (cellularNetworkInfo == null) {
@@ -132,7 +132,7 @@ public class GnssTtffTests extends GnssTestCase {
     boolean success = testGnssStatusCallback.awaitTtff();
     long ttffTimeMillis = SystemClock.elapsedRealtime() - startTimeMillis;
 
-    SoftAssert.failOrWarning(isMeasurementTestStrict(),
+    softAssert.assertTrue(
             "Test case:" + testName
             + ". Threshold exceeded without getting a location."
             + " Possibly, the test has been run deep indoors."
@@ -143,44 +143,4 @@ public class GnssTtffTests extends GnssTestCase {
     softAssert.assertTrue("Test case: " + testName +", TTFF should be less than " + threshold
         + " . In current test, TTFF value is: " + ttffTimeMillis, ttffTimeMillis < threshold);
   }
-
-  /**
-   * Returns whether the device is currently connected to a wifi or cellular.
-   *
-   * @param context {@link Context} object
-   * @return {@code true} if connected to Wifi or Cellular; {@code false} otherwise
-   */
-  public static boolean isConnectedToWifiOrCellular(Context context) {
-    NetworkInfo info = getActiveNetworkInfo(context);
-    return info != null
-        && info.isConnected()
-        && (info.getType() == ConnectivityManager.TYPE_WIFI
-                 || info.getType() == ConnectivityManager.TYPE_MOBILE);
-  }
-
-  /**
-   * Gets the active network info.
-   *
-   * @param context {@link Context} object
-   * @return {@link NetworkInfo}
-   */
-  private static NetworkInfo getActiveNetworkInfo(Context context) {
-    ConnectivityManager cm = getConnectivityManager(context);
-    if (cm != null) {
-      return cm.getActiveNetworkInfo();
-    }
-    return null;
-  }
-
-  /**
-   * Gets the connectivity manager.
-   *
-   * @param context {@link Context} object
-   * @return {@link ConnectivityManager}
-   */
-  private static ConnectivityManager getConnectivityManager(Context context) {
-    return (ConnectivityManager) context.getApplicationContext()
-        .getSystemService(Context.CONNECTIVITY_SERVICE);
-  }
-
 }

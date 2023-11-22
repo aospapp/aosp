@@ -23,6 +23,8 @@
     <permission android:name="com.android.cts.permissionWithSignature"
         android:protectionLevel="signature" />
     <uses-permission android:name="com.android.cts.permissionWithSignature" />
+    <!-- To enable the app to start activities from the background. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- A permission this app will not hold. -->
     <permission android:name="com.android.cts.permissionNotUsedWithSignature"

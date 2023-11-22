@@ -32,5 +32,10 @@ bool SystemSdk::operator==(const SystemSdk& other) const {
     return versions() == other.versions();
 }
 
+void SystemSdk::addAll(SystemSdk* other) {
+    mVersions.insert(other->mVersions.begin(), other->mVersions.end());
+    other->mVersions.clear();
+}
+
 }  // namespace vintf
 }  // namespace android

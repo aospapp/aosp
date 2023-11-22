@@ -20,7 +20,7 @@
     <group>Notification</group>
     <package>com.example.android.basicnotifications</package>
     <!-- change minSdk if needed-->
-    <minSdk>8</minSdk>
+    <minSdk>14</minSdk>
 
     <strings>
         <intro>

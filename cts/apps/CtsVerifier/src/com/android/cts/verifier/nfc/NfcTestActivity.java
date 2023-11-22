@@ -53,19 +53,22 @@ public class NfcTestActivity extends PassFailButtons.TestListActivity {
 
         ArrayTestListAdapter adapter = new ArrayTestListAdapter(this);
 
-        adapter.add(TestListItem.newCategory(this, R.string.nfc_pee_2_pee));
-        adapter.add(TestListItem.newTest(this, R.string.nfc_ndef_push_sender,
-                NdefPushSenderActivity.class.getName(),
-                new Intent(this, NdefPushSenderActivity.class), null));
-        adapter.add(TestListItem.newTest(this, R.string.nfc_ndef_push_receiver,
-                NdefPushReceiverActivity.class.getName(),
-                new Intent(this, NdefPushReceiverActivity.class), null));
+        if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_NFC_BEAM)) {
+            adapter.add(TestListItem.newCategory(this, R.string.nfc_pee_2_pee));
+            adapter.add(TestListItem.newTest(this, R.string.nfc_ndef_push_sender,
+                    NdefPushSenderActivity.class.getName(),
+                    new Intent(this, NdefPushSenderActivity.class), null));
+            adapter.add(TestListItem.newTest(this, R.string.nfc_ndef_push_receiver,
+                    NdefPushReceiverActivity.class.getName(),
+                    new Intent(this, NdefPushReceiverActivity.class), null));
 
-        if ("MNC".equals(Build.VERSION.CODENAME) || Build.VERSION.SDK_INT >= 23) {
-            adapter.add(TestListItem.newTest(this, R.string.nfc_llcp_version_check,
-                    LlcpVersionActivity.class.getName(),
-                    new Intent(this, LlcpVersionActivity.class), null));
+            if ("MNC".equals(Build.VERSION.CODENAME) || Build.VERSION.SDK_INT >= 23) {
+                adapter.add(TestListItem.newTest(this, R.string.nfc_llcp_version_check,
+                        LlcpVersionActivity.class.getName(),
+                        new Intent(this, LlcpVersionActivity.class), null));
+            }
         }
+
         adapter.add(TestListItem.newCategory(this, R.string.nfc_tag_verification));
         adapter.add(TestListItem.newTest(this, R.string.nfc_ndef,
                 NDEF_ID, getTagIntent(Ndef.class), null));

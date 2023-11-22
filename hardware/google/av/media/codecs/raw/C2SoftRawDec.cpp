@@ -78,6 +78,23 @@ public:
                 .withFields({C2F(mBitrate, value).inRange(1, 10000000)})
                 .withSetter(Setter<decltype(*mBitrate)>::NonStrictValueWithNoDeps)
                 .build());
+
+        addParameter(
+                DefineParam(mInputMaxBufSize, C2_PARAMKEY_INPUT_MAX_BUFFER_SIZE)
+                .withConstValue(new C2StreamMaxBufferSizeInfo::input(0u, 64 * 1024))
+                .build());
+
+        addParameter(
+                DefineParam(mPcmEncodingInfo, C2_PARAMKEY_PCM_ENCODING)
+                .withDefault(new C2StreamPcmEncodingInfo::output(0u, C2Config::PCM_16))
+                .withFields({C2F(mPcmEncodingInfo, value).oneOf({
+                     C2Config::PCM_16,
+                     C2Config::PCM_8,
+                     C2Config::PCM_FLOAT})
+                })
+                .withSetter((Setter<decltype(*mPcmEncodingInfo)>::StrictValueWithNoDeps))
+                .build());
+
     }
 
 private:
@@ -88,6 +105,8 @@ private:
     std::shared_ptr<C2StreamSampleRateInfo::output> mSampleRate;
     std::shared_ptr<C2StreamChannelCountInfo::output> mChannelCount;
     std::shared_ptr<C2BitrateTuning::input> mBitrate;
+    std::shared_ptr<C2StreamMaxBufferSizeInfo::input> mInputMaxBufSize;
+    std::shared_ptr<C2StreamPcmEncodingInfo::output> mPcmEncodingInfo;
 };
 
 C2SoftRawDec::C2SoftRawDec(
@@ -128,7 +147,8 @@ void C2SoftRawDec::process(
         const std::shared_ptr<C2BlockPool> &pool) {
     (void)pool;
     work->result = C2_OK;
-    work->workletsProcessed = 0u;
+    work->workletsProcessed = 1u;
+
     if (mSignalledEos) {
         work->result = C2_BAD_VALUE;
         return;
@@ -143,7 +163,6 @@ void C2SoftRawDec::process(
     if (!work->input.buffers.empty()) {
         work->worklets.front()->output.buffers.push_back(work->input.buffers[0]);
     }
-    work->workletsProcessed = 1u;
     if (work->input.flags & C2FrameData::FLAG_END_OF_STREAM) {
         mSignalledEos = true;
         ALOGV("signalled EOS");

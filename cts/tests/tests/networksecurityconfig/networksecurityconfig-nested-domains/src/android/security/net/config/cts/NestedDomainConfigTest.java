@@ -18,9 +18,7 @@ package android.security.net.config.cts;
 
 import android.security.NetworkSecurityPolicy;
 
-import junit.framework.TestCase;
-
-public class NestedDomainConfigTest extends TestCase {
+public class NestedDomainConfigTest extends BaseTestCase {
 
     public void testRootDomainConfig() throws Exception {
         TestUtils.assertTlsConnectionFails("android.com", 443);

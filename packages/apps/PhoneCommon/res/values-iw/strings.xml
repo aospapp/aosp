@@ -45,7 +45,7 @@
     <string name="callFailed_dialVideoToUssd" msgid="3075648968404725328">"‏שיחת הווידאו השתנתה לבקשת USSD"</string>
     <string name="callFailed_dialVideoToDial" msgid="7758276428184272770">"היה שינוי לשיחה רגילה"</string>
     <string name="callFailed_dialVideoToDialVideo" msgid="5451053686606499859">"המספר השתנה"</string>
-    <string name="callFailed_cb_enabled" msgid="4745550615395092407">"לא ניתן לבצע שיחות יוצאות בזמן שחסימת שיחות מופעלת."</string>
+    <string name="callFailed_cb_enabled" msgid="4745550615395092407">"לא ניתן להוציא שיחות בזמן שחסימת שיחות מופעלת."</string>
     <string name="callFailed_dsac_restricted" msgid="4087941056515103695">"שיחות מוגבלות באמצעות בקרת גישה."</string>
     <string name="callFailed_dsac_restricted_emergency" msgid="9031535611092828510">"שיחות חירום מוגבלות באמצעות בקרת גישה."</string>
     <string name="callFailed_dsac_restricted_normal" msgid="266947632344387216">"שיחות רגילות מוגבלות באמצעות בקרת גישה."</string>

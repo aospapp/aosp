@@ -170,6 +170,12 @@ class ThreadedHandler  {
     return true;
   }
 
+  template <typename Fn>
+  void RunOnConfig(Fn& fn) {
+    std::lock_guard<std::mutex> guard(lock_);
+    fn(cur_config_->is_profiling, cur_config_.get());
+  }
+
  private:
   // Helper for the handler.
   HandlerFn GetResultHandler() {

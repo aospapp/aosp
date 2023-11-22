@@ -77,7 +77,6 @@
         <item name="guidanceIconStyle">@style/TV.Dvr.GuidanceIconStyle</item>
         <item name="guidedActionsListStyle">@style/TV.Dvr.GuidedActionsListStyle</item>
         <item name="guidedActionItemContainerStyle">@style/TV.Dvr.GuidedActionItemContainerStyle</item>
-        <item name="guidedActionContentWidthWeight">@string/lb_guidedactions_width_weight</item>
     </style>
 
     <style name="Theme.TV.Dvr.GuidedStep.Twoline.Action" parent = "Theme.TV.Dvr.GuidedStep">

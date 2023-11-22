@@ -29,6 +29,8 @@ namespace client {
 
 bool ConfirmFileDescriptors(const sp<ITestService>& s);
 bool ConfirmFileDescriptorArrays(const sp<ITestService>& s);
+bool ConfirmParcelFileDescriptors(const sp<ITestService>& s);
+bool ConfirmParcelFileDescriptorArrays(const sp<ITestService>& s);
 
 }  // namespace client
 }  // namespace tests

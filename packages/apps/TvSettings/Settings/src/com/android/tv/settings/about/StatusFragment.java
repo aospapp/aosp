@@ -18,6 +18,8 @@ package com.android.tv.settings.about;
 
 import android.content.Context;
 
+import androidx.annotation.Keep;
+
 import com.android.internal.logging.nano.MetricsProto;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.settingslib.core.lifecycle.Lifecycle;
@@ -32,6 +34,7 @@ import java.util.List;
 /**
  * Fragment for showing device hardware info, such as MAC addresses and serial numbers
  */
+@Keep
 public class StatusFragment extends PreferenceControllerFragment {
 
     private static final String KEY_BATTERY_STATUS = "battery_status";

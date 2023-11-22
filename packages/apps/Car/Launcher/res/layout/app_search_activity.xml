@@ -21,60 +21,57 @@
     android:id="@+id/container"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/search_activity_background_color"
-    android:orientation="vertical"
-    android:gravity="center_horizontal">
+    android:background="?android:attr/colorPrimary"
+    android:gravity="center_horizontal"
+    android:orientation="vertical">
 
     <RelativeLayout
         android:id="@+id/app_search_header"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/car_app_bar_height">
+        android:layout_height="@dimen/app_bar_height">
 
         <FrameLayout
             android:id="@+id/exit_button_container"
-            android:layout_width="@dimen/car_margin"
-            android:layout_height="@dimen/car_touch_target_size"
-            android:background="@drawable/car_card_ripple_background"
+            android:layout_width="@dimen/panel_margin"
+            android:layout_height="@dimen/app_grid_touch_target_size"
+            android:background="?android:attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true">
             <ImageButton
-                android:layout_width="@dimen/car_primary_icon_size"
-                android:layout_height="@dimen/car_primary_icon_size"
+                android:layout_width="@dimen/icon_size"
+                android:layout_height="@dimen/icon_size"
                 android:layout_gravity="center"
+                android:adjustViewBounds="true"
                 android:background="@null"
+                android:clickable="false"
+                android:focusable="false"
                 android:gravity="center"
                 android:src="@drawable/ic_arrow_back_black"
-                android:tint="@color/car_tint"
-                android:adjustViewBounds="true"
-                android:clickable="false"
-                android:focusable="false" />
+                android:tint="@color/icon_tint"/>
         </FrameLayout>
 
         <EditText
             android:id="@+id/app_search_bar"
             android:layout_width="@dimen/search_item_width"
             android:layout_height="@dimen/search_box_height"
-            android:layout_gravity="center_vertical"
             android:layout_centerInParent="true"
-            android:drawableStart="@drawable/ic_search_black"
+            android:layout_gravity="center_vertical"
+            android:background="?android:attr/colorPrimary"
             android:drawablePadding="@dimen/search_bar_drawable_text_padding"
-            android:drawableTint="@color/car_tint"
-            android:background="@drawable/car_card_rounded_background"
+            android:drawableStart="@drawable/ic_search_black"
+            android:drawableTint="@color/icon_tint"
             android:inputType="text|textNoSuggestions"
             android:maxLines="1"
-            android:paddingStart="@dimen/car_keyline_1"
-            android:paddingEnd="@dimen/car_keyline_1"
-            android:textAppearance="@style/TextAppearance.Car.Body1" />
+            android:paddingEnd="@dimen/search_bar_margin"
+            android:paddingStart="@dimen/search_bar_margin"
+            android:textAppearance="?android:attr/textAppearanceLarge"/>
     </RelativeLayout>
 
-    <androidx.car.widget.PagedListView
+    <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/search_result"
         android:layout_width="@dimen/search_item_width"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/car_padding_1"
-        android:background="@drawable/car_card_rounded_background"
-        app:scrollBarEnabled="false"
-        app:gutter="none" />
+        android:layout_marginTop="@dimen/search_result_margin"/>
 
 </LinearLayout>
 

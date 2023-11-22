@@ -17,28 +17,30 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
-    <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:id="@+id/input_buttons">
-        <!-- Filled at runtime. -->
-    </LinearLayout>
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:layout_marginLeft="15dp"
-        android:layout_marginRight="15dp"
-        android:layout_marginTop="20dp"
         android:fillViewport="true">
-        <TextView
-                android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <LinearLayout
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="bottom"
-                android:scrollbars="vertical"
-                android:textSize="24px"
-                android:typeface="monospace"
-                android:id="@+id/events_list"/>
+                android:orientation="vertical"
+                android:id="@+id/input_buttons">
+                <!-- Filled at runtime. -->
+            </LinearLayout>
+            <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="bottom"
+                    android:scrollbars="vertical"
+                    android:textSize="24px"
+                    android:typeface="monospace"
+                    android:id="@+id/events_list"/>
+        </LinearLayout>
     </ScrollView>
 </LinearLayout>

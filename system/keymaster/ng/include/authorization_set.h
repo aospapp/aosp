@@ -44,9 +44,7 @@ class AuthorizationSet {
     AuthorizationSet(AuthorizationSet&& other) : data_(std::move(other.data_)) {}
 
     // Constructor from hidl_vec<KeyParameter>
-    AuthorizationSet(const hidl_vec<KeyParameter>& other) {
-        *this = other;
-    }
+    explicit AuthorizationSet(const hidl_vec<KeyParameter>& other) { *this = other; }
 
     // Copy assignment.
     AuthorizationSet& operator=(const AuthorizationSet& other) {

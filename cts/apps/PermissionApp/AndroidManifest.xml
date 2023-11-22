@@ -20,6 +20,23 @@
 
     <uses-sdk android:minSdkVersion="23"/>
 
+    <permission android:name="com.android.cts.permissionapp.permA"
+                android:protectionLevel="dangerous"
+                android:label="@string/permA"
+                android:permissionGroup="com.android.cts.permissionapp.groupAB"
+                android:description="@string/permA" />
+    <permission android:name="com.android.cts.permissionapp.permB"
+                android:protectionLevel="dangerous"
+                android:label="@string/permB"
+                android:permissionGroup="com.android.cts.permissionapp.groupAB"
+                android:description="@string/permB" />
+
+    <permission-group android:description="@string/groupAB"
+                      android:label="@string/groupAB"
+                      android:name="com.android.cts.permissionapp.groupAB" />
+
+    <uses-permission android:name="com.android.cts.permissionapp.permA"/>
+    <uses-permission android:name="com.android.cts.permissionapp.permB"/>
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
 

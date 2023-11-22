@@ -87,7 +87,7 @@ public class OptionHelperTest extends TestCase {
             "--" + TEST_LOGPATH, "path/to/log-directory/");
 
         List<String> validQuoteSubset = Arrays.asList("-" + TEST_CLASS_SHORTNAME, fakeTestClass,
-            "--" + TEST_NAME + " " + fakeTestMethod, "--" + TEST_FILTER, fakeTestClass + " "
+            "--" + TEST_NAME, fakeTestMethod, "--" + TEST_FILTER, fakeTestClass + " "
             + fakeTestMethod);
         String[] inputArray = {"foocts ", "-", TEST_CLASS_SHORTNAME, " ", fakeTestClass, " \"--",
             TEST_NAME, "=", fakeTestMethod, "\" -z \"FAKE1 FAKE2\" --", TEST_FILTER, " \"",
@@ -105,6 +105,16 @@ public class OptionHelperTest extends TestCase {
                 + " path/to/log-directory/", this));
         assertEquals("Expected matching arrays", validQuoteSubset,
             OptionHelper.getValidCliArgs(inputString, this));
+    }
+
+    public void testGetValidCliArgs_surroundingQuotes() throws Exception {
+      List<String> expectedTokens = Arrays.asList("--" + TEST_FILTER, "a b c");
+      String[] inputArray = {"\"--", TEST_FILTER, "=a b c\""};
+      String inputString = String.join("", inputArray);
+
+      assertEquals("Expected matching arrays", expectedTokens,
+          OptionHelper.getValidCliArgs(inputString, this));
+
     }
 
 }

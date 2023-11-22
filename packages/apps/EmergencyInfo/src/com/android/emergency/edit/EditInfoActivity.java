@@ -27,8 +27,8 @@ import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.support.v14.preference.PreferenceFragment;
-import android.support.v7.preference.PreferenceManager;
+import androidx.preference.PreferenceFragment;
+import androidx.preference.PreferenceManager;
 import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -92,16 +92,15 @@ public class EditInfoActivity extends Activity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case android.R.id.home:
-                // The user asked to navigate up, which, in this case, can easily be accomplished
-                // by finishing the activity.
-                finish();
-                return true;
-
-            case R.id.action_clear_all:
-                showClearAllDialog();
-                return true;
+        int itemId = item.getItemId();
+        if (itemId == android.R.id.home) {
+            // The user asked to navigate up, which, in this case, can easily be accomplished
+            // by finishing the activity.
+            finish();
+            return true;
+        } else if (itemId == R.id.action_clear_all) {
+            showClearAllDialog();
+            return true;
         }
         return super.onOptionsItemSelected(item);
     }

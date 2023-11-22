@@ -47,7 +47,7 @@ import android.provider.ContactsContract.Groups;
 import android.provider.ContactsContract.Profile;
 import android.provider.ContactsContract.RawContacts;
 import android.provider.ContactsContract.RawContactsEntity;
-import android.support.v4.content.LocalBroadcastManager;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import android.support.v4.os.ResultReceiver;
 import android.text.TextUtils;
 import android.util.Log;
@@ -1218,13 +1218,13 @@ public class ContactSaveService extends IntentService {
                     R.plurals.contacts_deleted_toast, contactIds.length);
         } else if (names.length == 1) {
             deleteToastMessage = getResources().getString(
-                    R.string.contacts_deleted_one_named_toast, names);
+                    R.string.contacts_deleted_one_named_toast, (Object[]) names);
         } else if (names.length == 2) {
             deleteToastMessage = getResources().getString(
-                    R.string.contacts_deleted_two_named_toast, names);
+                    R.string.contacts_deleted_two_named_toast, (Object[]) names);
         } else {
             deleteToastMessage = getResources().getString(
-                    R.string.contacts_deleted_many_named_toast, names);
+                    R.string.contacts_deleted_many_named_toast, (Object[]) names);
         }
 
         mMainHandler.post(new Runnable() {

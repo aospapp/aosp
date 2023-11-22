@@ -29,6 +29,6 @@ LOCAL_JAVA_LIBRARIES := \
     tradefed
 
 # tag this module as test artifact for cts
-LOCAL_COMPATIBILITY_SUITE := cts
+LOCAL_COMPATIBILITY_SUITE := cts general-tests
 
 include $(BUILD_CTS_HOST_JAVA_LIBRARY)

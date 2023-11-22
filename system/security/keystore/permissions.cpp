@@ -18,8 +18,8 @@
 
 #include "permissions.h"
 
-#include <cutils/log.h>
 #include <cutils/sockets.h>
+#include <log/log.h>
 #include <private/android_filesystem_config.h>
 
 #include <selinux/android.h>
@@ -54,9 +54,16 @@ struct user_euid {
     uid_t euid;
 };
 
-user_euid user_euids[] = {
-    {AID_VPN, AID_SYSTEM}, {AID_WIFI, AID_SYSTEM}, {AID_ROOT, AID_SYSTEM},
-    {AID_WIFI, AID_KEYSTORE}, {AID_KEYSTORE, AID_WIFI}
+user_euid user_euids[] = {{AID_VPN, AID_SYSTEM},
+                          {AID_WIFI, AID_SYSTEM},
+                          {AID_ROOT, AID_SYSTEM},
+                          {AID_WIFI, AID_KEYSTORE},
+                          {AID_KEYSTORE, AID_WIFI},
+
+#ifdef GRANT_ROOT_ALL_PERMISSIONS
+                          // Allow VTS tests to act on behalf of the wifi user
+                          {AID_WIFI, AID_ROOT}
+#endif
 };
 
 struct user_perm {
@@ -68,7 +75,14 @@ static user_perm user_perms[] = {
     {AID_SYSTEM, static_cast<perm_t>((uint32_t)(~0))},
     {AID_VPN, static_cast<perm_t>(P_GET | P_SIGN | P_VERIFY)},
     {AID_WIFI, static_cast<perm_t>(P_GET | P_SIGN | P_VERIFY)},
+    {AID_BLUETOOTH, static_cast<perm_t>(P_GET | P_INSERT | P_DELETE | P_EXIST | P_SIGN | P_VERIFY)},
+
+#ifdef GRANT_ROOT_ALL_PERMISSIONS
+    // Allow VTS tests running as root to perform all operations
+    {AID_ROOT, static_cast<perm_t>((uint32_t)(~0))},
+#else
     {AID_ROOT, static_cast<perm_t>(P_GET)},
+#endif
 };
 
 static const perm_t DEFAULT_PERMS = static_cast<perm_t>(
@@ -78,6 +92,7 @@ static const perm_t DEFAULT_PERMS = static_cast<perm_t>(
 struct audit_data {
     pid_t pid;
     uid_t uid;
+    const char* sid;
 };
 
 const char* get_perm_label(perm_t perm) {
@@ -97,7 +112,8 @@ static int audit_callback(void* data, security_class_t /* cls */, char* buf, siz
         return 0;
     }
 
-    snprintf(buf, len, "pid=%d uid=%d", ad->pid, ad->uid);
+    const char* sid = ad->sid ? ad->sid : "N/A";
+    snprintf(buf, len, "pid=%d uid=%d sid=%s", ad->pid, ad->uid, sid);
     return 0;
 }
 
@@ -117,9 +133,9 @@ int configure_selinux() {
     return 0;
 }
 
-static bool keystore_selinux_check_access(uid_t uid, perm_t perm, pid_t spid) {
+static bool keystore_selinux_check_access(uid_t uid, perm_t perm, pid_t spid, const char* ssid) {
     audit_data ad;
-    char* sctx = NULL;
+    char* sctx = nullptr;
     const char* selinux_class = "keystore_key";
     const char* str_perm = get_perm_label(perm);
 
@@ -127,15 +143,18 @@ static bool keystore_selinux_check_access(uid_t uid, perm_t perm, pid_t spid) {
         return false;
     }
 
-    if (getpidcon(spid, &sctx) != 0) {
+    if (ssid == nullptr && getpidcon(spid, &sctx) != 0) {
         ALOGE("SELinux: Failed to get source pid context.\n");
         return false;
     }
 
+    const char* use_sid = ssid ? ssid : sctx;
+
     ad.pid = spid;
     ad.uid = uid;
+    ad.sid = use_sid;
 
-    bool allowed = selinux_check_access(sctx, tctx, selinux_class, str_perm,
+    bool allowed = selinux_check_access(use_sid, tctx, selinux_class, str_perm,
                                         reinterpret_cast<void*>(&ad)) == 0;
     freecon(sctx);
     return allowed;
@@ -157,20 +176,24 @@ uid_t get_keystore_euid(uid_t uid) {
     return uid;
 }
 
-bool has_permission(uid_t uid, perm_t perm, pid_t spid) {
+bool has_permission(uid_t uid, perm_t perm, pid_t spid, const char* sid) {
     // All system users are equivalent for multi-user support.
     if (get_app_id(uid) == AID_SYSTEM) {
         uid = AID_SYSTEM;
     }
 
+    if (sid == nullptr) {
+        android_errorWriteLog(0x534e4554, "121035042");
+    }
+
     for (size_t i = 0; i < sizeof(user_perms) / sizeof(user_perms[0]); i++) {
         struct user_perm user = user_perms[i];
         if (user.uid == uid) {
-            return (user.perms & perm) && keystore_selinux_check_access(uid, perm, spid);
+            return (user.perms & perm) && keystore_selinux_check_access(uid, perm, spid, sid);
         }
     }
 
-    return (DEFAULT_PERMS & perm) && keystore_selinux_check_access(uid, perm, spid);
+    return (DEFAULT_PERMS & perm) && keystore_selinux_check_access(uid, perm, spid, sid);
 }
 
 /**

@@ -26,7 +26,7 @@ namespace keymaster {
 
 bool EcKey::EvpToInternal(const EVP_PKEY* pkey) {
     ec_key_.reset(EVP_PKEY_get1_EC_KEY(const_cast<EVP_PKEY*>(pkey)));
-    return ec_key_.get() != NULL;
+    return ec_key_.get() != nullptr;
 }
 
 bool EcKey::InternalToEvp(EVP_PKEY* pkey) const {

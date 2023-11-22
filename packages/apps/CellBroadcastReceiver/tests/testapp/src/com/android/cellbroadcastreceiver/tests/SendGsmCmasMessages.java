@@ -53,6 +53,8 @@ public class SendGsmCmasMessages {
 
     private static final String PUBLIC_SAFETY_MESSAGE = "This is a public safety message.";
 
+    private static final String STATE_LOCAL_ALERT = "This is a state/local test message.";
+
     private static void sendBroadcast(Activity activity, SmsCbMessage cbMessage) {
         Intent intent = new Intent(Telephony.Sms.Intents.SMS_EMERGENCY_CB_RECEIVED_ACTION);
         intent.putExtra("message", cbMessage);
@@ -114,7 +116,7 @@ public class SendGsmCmasMessages {
 
     public static void testSendPublicSafetyMessagesAlert(Activity activity, int serialNumber) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                911, serialNumber, "en",
+                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PUBLIC_SAFETY, serialNumber, "en",
                 PUBLIC_SAFETY_MESSAGE, SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN, SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
                 SmsCbMessage.MESSAGE_PRIORITY_NORMAL);
@@ -122,6 +124,15 @@ public class SendGsmCmasMessages {
         sendBroadcast(activity, cbMessage);
     }
 
+    public static void testSendStateLocalTestAlert(Activity activity, int serialNumber) {
+        SmsCbMessage cbMessage = createCmasSmsMessage(
+                SmsCbConstants.MESSAGE_ID_CMAS_ALERT_STATE_LOCAL_TEST, serialNumber, "en",
+                STATE_LOCAL_ALERT, SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
+                SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN, SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
+                SmsCbMessage.MESSAGE_PRIORITY_NORMAL);
+
+        sendBroadcast(activity, cbMessage);
+    }
 
     /**
      * Create a new SmsCbMessage for testing GSM CMAS support.

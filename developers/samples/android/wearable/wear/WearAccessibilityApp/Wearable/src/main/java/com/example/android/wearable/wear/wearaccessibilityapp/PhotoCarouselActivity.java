@@ -15,23 +15,24 @@
  */
 package com.example.android.wearable.wear.wearaccessibilityapp;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.wear.ambient.AmbientMode;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.ImageView;
 
-public class PhotoCarouselActivity extends Activity
-        implements AmbientMode.AmbientCallbackProvider, OnClickListener {
+import androidx.fragment.app.FragmentActivity;
+import androidx.wear.ambient.AmbientModeSupport;
+
+public class PhotoCarouselActivity extends FragmentActivity implements
+        AmbientModeSupport.AmbientCallbackProvider, OnClickListener {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_photo_carousel);
 
-        AmbientMode.attachAmbientSupport(this);
+        AmbientModeSupport.attach(this);
 
         // Grab reference to each image in activity_photo_carousel.
         ImageView catImage = findViewById(R.id.cat_image);
@@ -59,9 +60,9 @@ public class PhotoCarouselActivity extends Activity
     }
 
     @Override
-    public AmbientMode.AmbientCallback getAmbientCallback() {
+    public AmbientModeSupport.AmbientCallback getAmbientCallback() {
         return new MyAmbientCallback();
     }
 
-    private class MyAmbientCallback extends AmbientMode.AmbientCallback {}
+    private class MyAmbientCallback extends AmbientModeSupport.AmbientCallback {}
 }

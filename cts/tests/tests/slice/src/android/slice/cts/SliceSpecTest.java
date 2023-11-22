@@ -20,7 +20,8 @@ import static org.junit.Assert.assertTrue;
 
 import android.app.slice.SliceSpec;
 import android.os.Parcel;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

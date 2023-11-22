@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"اطلاعات اضطراری"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"اطلاعات پزشکی"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"ویرایش اطلاعات"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"افزودن اطلاعات"</string>
     <string name="edit_info" msgid="5973929805855224805">"ویرایش اطلاعات اضطراری"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"اطلاعات"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"تماس‌های اضطراری"</string>
@@ -103,7 +103,11 @@
     <string name="clear_all" msgid="8899013032870561633">"پاک کردن همه"</string>
     <string name="clear" msgid="3648880442502887163">"پاک کردن"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"همه اطلاعات و مخاطبین پاک شوند؟"</string>
-    <string name="emergency_info_footer" msgid="8751758742506410146">"افزودن اطلاعات پزشکی و شماره‌های تماس اضطراری می‌تواند به اولین افرادی که در شرایط اضطراری در صحنه حاضر می‌شوند کمک کنند.\n \nهر کسی می‌تواند این اطلاعات را از صفحه در حالت قفل بخواند و بدون باز کردن قفل تلفن و فقط با ضربه زدن روی نام مخاطبین شما با آن‌ها تماس بگیرد."</string>
+    <string name="emergency_info_footer" msgid="8751758742506410146">"افزودن اطلاعات پزشکی و شماره‌های تماس اضطراری می‌تواند به اولین افرادی که در شرایط اضطراری در صحنه حاضر می‌شوند کمک کنند.\n \nهر کسی می‌تواند این اطلاعات را از صفحه قفل بخواند و بدون باز کردن قفل تلفن و فقط با ضربه زدن روی نام مخاطبین شما با آن‌ها تماس بگیرد."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"افزودن اطلاعات اضطراری"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"بگذارید اولین پاسخ‌دهندگان، اطلاعات شما را ببینند"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"عکس گرفتن"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"انتخاب تصویر"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"انتخاب عکس"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"نام مستعار"</string>
 </resources>

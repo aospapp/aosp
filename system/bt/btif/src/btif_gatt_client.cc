@@ -41,7 +41,6 @@
 #include <hardware/bt_gatt.h>
 
 #include "bta_api.h"
-#include "bta_closure_api.h"
 #include "bta_gatt_api.h"
 #include "btif_config.h"
 #include "btif_dm.h"
@@ -49,6 +48,7 @@
 #include "btif_gatt_util.h"
 #include "btif_storage.h"
 #include "osi/include/log.h"
+#include "stack/include/btu.h"
 #include "vendor_api.h"
 
 using base::Bind;
@@ -161,6 +161,9 @@ void btif_gattc_upstreams_evt(uint16_t event, char* p_param) {
     case BTA_GATTC_ACL_EVT:
       LOG_DEBUG(LOG_TAG, "BTA_GATTC_ACL_EVT: status = %d", p_data->status);
       /* Ignore for now */
+      break;
+
+    case BTA_GATTC_SEARCH_RES_EVT:
       break;
 
     case BTA_GATTC_CANCEL_OPEN_EVT:
@@ -276,7 +279,6 @@ void btif_gattc_open_impl(int client_if, RawAddress address, bool is_direct,
         return;
       }
     }
-    BTA_DmBleStartAutoConn();
   }
 
   // Determine transport
@@ -562,8 +564,8 @@ bt_status_t btif_gattc_set_preferred_phy(const RawAddress& bd_addr,
                                          uint8_t tx_phy, uint8_t rx_phy,
                                          uint16_t phy_options) {
   CHECK_BTGATT_INIT();
-  do_in_bta_thread(FROM_HERE,
-                   Bind(&BTM_BleSetPhy, bd_addr, tx_phy, rx_phy, phy_options));
+  do_in_main_thread(FROM_HERE,
+                    Bind(&BTM_BleSetPhy, bd_addr, tx_phy, rx_phy, phy_options));
   return BT_STATUS_SUCCESS;
 }
 
@@ -571,8 +573,8 @@ bt_status_t btif_gattc_read_phy(
     const RawAddress& bd_addr,
     base::Callback<void(uint8_t tx_phy, uint8_t rx_phy, uint8_t status)> cb) {
   CHECK_BTGATT_INIT();
-  do_in_bta_thread(FROM_HERE, Bind(&BTM_BleReadPhy, bd_addr,
-                                   jni_thread_wrapper(FROM_HERE, cb)));
+  do_in_main_thread(FROM_HERE, Bind(&BTM_BleReadPhy, bd_addr,
+                                    jni_thread_wrapper(FROM_HERE, cb)));
   return BT_STATUS_SUCCESS;
 }
 

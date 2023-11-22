@@ -65,12 +65,12 @@ extern "C" JNIEXPORT jboolean JNICALL Java_android_cts_rscpp_RSScriptTest_testSe
     script->set_charTest(-16);  // charTest
     script->set_shortTest(-32);  // shortTest
     script->set_intTest(-64);  // intTest
-    script->set_longTest(17179869185l);  // longTest
+    script->set_longTest(17179869185L);  // longTest
     script->set_longlongTest(68719476735L); //longlongTest
     script->set_ulongTest(4611686018427387903L);  // boolTest
-    script->set_uint64_tTest(117179869185l); //uint64_tTest
+    script->set_uint64_tTest(117179869185L); //uint64_tTest
     script->set_allocationTest(alloc);  // allocationTest
-    
+
     script->invoke_test_primitive_types();
     mRS->finish();
     if (result == RS_MSG_TEST_FAILED) {

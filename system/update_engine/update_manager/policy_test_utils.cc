@@ -48,6 +48,17 @@ void UmPolicyTestBase::SetUpDefaultClock() {
   fake_clock_.SetWallclockTime(Time::FromInternalValue(12345678901234L));
 }
 
+void UmPolicyTestBase::SetUpDefaultTimeProvider() {
+  Time current_time = fake_clock_.GetWallclockTime();
+  base::Time::Exploded exploded;
+  current_time.LocalExplode(&exploded);
+  fake_state_.time_provider()->var_curr_hour()->reset(new int(exploded.hour));
+  fake_state_.time_provider()->var_curr_minute()->reset(
+      new int(exploded.minute));
+  fake_state_.time_provider()->var_curr_date()->reset(
+      new Time(current_time.LocalMidnight()));
+}
+
 void UmPolicyTestBase::SetUpDefaultState() {
   fake_state_.updater_provider()->var_updater_started_time()->reset(
       new Time(fake_clock_.GetWallclockTime()));
@@ -73,7 +84,7 @@ UpdateState UmPolicyTestBase::GetDefaultUpdateState(
   // This is a non-interactive check returning a delta payload, seen for the
   // first time (|first_seen_period| ago). Clearly, there were no failed
   // attempts so far.
-  update_state.is_interactive = false;
+  update_state.interactive = false;
   update_state.is_delta_payload = false;
   update_state.first_seen = first_seen_time;
   update_state.num_checks = 1;

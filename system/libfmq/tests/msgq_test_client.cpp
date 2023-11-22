@@ -72,17 +72,19 @@ protected:
     }
 
     virtual void SetUp() {
+        static constexpr size_t kNumElementsInQueue = 1024;
         mService = waitGetTestService();
         ASSERT_NE(mService, nullptr);
         ASSERT_TRUE(mService->isRemote());
-        mService->configureFmqSyncReadWrite([this](
-                bool ret, const MQDescriptorSync<uint16_t>& in) {
-            ASSERT_TRUE(ret);
-            mQueue = new (std::nothrow) MessageQueueSync(in);
-        });
+        // create a queue on the client side
+        mQueue = new (std::nothrow)
+            MessageQueueSync(kNumElementsInQueue, true /* configure event flag word */);
         ASSERT_NE(nullptr, mQueue);
         ASSERT_TRUE(mQueue->isValid());
         mNumMessagesMax = mQueue->getQuantumCount();
+
+        // tell server to set up the queue on its end
+        ASSERT_TRUE(mService->configureFmqSyncReadWrite(*mQueue->getDesc()));
     }
 
     sp<ITestMsgQ> mService;

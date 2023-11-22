@@ -58,12 +58,12 @@ _lite_test_general() {
       build_dir="packages/services/Telecomm/tests"
       apk_loc="data/app/TelecomUnitTests/TelecomUnitTests.apk"
       package_prefix="com.android.server.telecom.tests"
-      instrumentation="android.support.test.runner.AndroidJUnitRunner";;
+      instrumentation="androidx.test.runner.AndroidJUnitRunner";;
     "telephony")
       build_dir="frameworks/opt/telephony/tests/"
       apk_loc="data/app/FrameworksTelephonyTests/FrameworksTelephonyTests.apk"
       package_prefix="com.android.frameworks.telephonytests"
-      instrumentation="android.support.test.runner.AndroidJUnitRunner";;
+      instrumentation="androidx.test.runner.AndroidJUnitRunner";;
   esac
 
   local T=$(gettop)
@@ -121,7 +121,7 @@ _lite_test_general() {
   if [ $coverage = true ] && [ $project =~ "telecom" ] ; then
     e_options="${e_options} -e coverage 'true'"
   fi
-  adb shell am instrument ${e_options} -w "$package_prefix/$instrumentation"
+  adb shell am instrument --no-hidden-api-checks ${e_options} -w "$package_prefix/$instrumentation"
 
   # Code coverage only enabled for Telecom.
   if [ $coverage = true ] && [ $project =~ "telecom" ] ; then

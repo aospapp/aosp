@@ -28,12 +28,12 @@ namespace hardware {
 using IMemoryToken = ::android::hidl::memory::token::V1_0::IMemoryToken;
 using IMemory = ::android::hidl::memory::V1_0::IMemory;
 
-class IMemoryDecorator : public virtual IMemory {
+class MemoryDecorator : public virtual IMemory {
    public:
-    IMemoryDecorator(sp<IMemory> heap) : mHeap(heap) {}
-    virtual ~IMemoryDecorator(){};
+    MemoryDecorator(const sp<IMemory>& heap) : mHeap(heap) {}
+    virtual ~MemoryDecorator() {}
     Return<void> update() override { return mHeap->update(); }
-    Return<void> read() override { return mHeap->read(); };
+    Return<void> read() override { return mHeap->read(); }
     Return<void> updateRange(uint64_t start, uint64_t length) override {
         return mHeap->updateRange(start, length);
     }
@@ -49,29 +49,28 @@ class IMemoryDecorator : public virtual IMemory {
     sp<IMemory> mHeap;
 };
 
-class IMemoryCacheable : public virtual IMemoryDecorator {
+class MemoryCacheable : public virtual MemoryDecorator {
    public:
-    IMemoryCacheable(sp<IMemory> heap, sp<IMemoryToken> key) : IMemoryDecorator(heap), mKey(key) {}
-    virtual ~IMemoryCacheable() { HidlMemoryCache::getInstance()->flush(mKey); }
+    MemoryCacheable(const sp<IMemory>& heap, sp<IMemoryToken> key)
+        : MemoryDecorator(heap), mKey(key) {}
+    virtual ~MemoryCacheable() { HidlMemoryCache::getInstance()->flush(mKey); }
 
    protected:
     sp<IMemoryToken> mKey;
 };
 
-class IMemoryBlock : public virtual IMemoryDecorator {
+class MemoryBlockImpl : public virtual IMemory {
    public:
-    IMemoryBlock(sp<IMemory> heap, uint64_t size, uint64_t offset)
-        : IMemoryDecorator(heap), mSize(size), mOffset(offset), mHeapSize(heap->getSize()) {}
+    MemoryBlockImpl(const sp<IMemory>& heap, uint64_t size, uint64_t offset)
+        : mHeap(heap), mSize(size), mOffset(offset), mHeapSize(heap->getSize()) {}
     bool validRange(uint64_t start, uint64_t length) {
-        return (start + length < mSize) && (start + length >= start) &&
-               (mOffset + mSize < mHeapSize);
+        return (start + length <= mSize) && (start + length >= start) &&
+               (mOffset + mSize <= mHeapSize);
     }
-    Return<void> readRange(uint64_t start, uint64_t length) {
+    Return<void> readRange(uint64_t start, uint64_t length) override {
         if (!validRange(start, length)) {
             ALOGE("IMemoryBlock::readRange: out of range");
-            Status status;
-            status.setException(Status::EX_ILLEGAL_ARGUMENT, "out of range");
-            return Return<void>(status);
+            return Void();
         }
         return mHeap->readRange(mOffset + start, length);
     }
@@ -82,6 +81,9 @@ class IMemoryBlock : public virtual IMemoryDecorator {
         }
         return mHeap->updateRange(mOffset + start, length);
     }
+    Return<void> read() override { return this->readRange(0, mSize); }
+    Return<void> update() override { return this->updateRange(0, mSize); }
+    Return<void> commit() override { return mHeap->commit(); }
     Return<uint64_t> getSize() override { return mSize; }
     Return<void*> getPointer() override {
         void* p = mHeap->getPointer();
@@ -89,6 +91,7 @@ class IMemoryBlock : public virtual IMemoryDecorator {
     }
 
    protected:
+    sp<IMemory> mHeap;
     uint64_t mSize;
     uint64_t mOffset;
     uint64_t mHeapSize;
@@ -102,7 +105,7 @@ sp<HidlMemoryCache> HidlMemoryCache::getInstance() {
 sp<IMemory> HidlMemoryCache::fillLocked(const sp<IMemoryToken>& key) {
     sp<IMemory> memory = nullptr;
     Return<void> ret = key->get(
-        [&](const hidl_memory& mem) { memory = new IMemoryCacheable(mapMemory(mem), key); });
+        [&](const hidl_memory& mem) { memory = new MemoryCacheable(mapMemory(mem), key); });
     if (!ret.isOk()) {
         ALOGE("HidlMemoryCache::fill: cannot IMemoryToken::get.");
         return nullptr;
@@ -117,7 +120,7 @@ sp<IMemory> HidlMemoryCache::map(const MemoryBlock& memblk) {
     if (heap == nullptr) {
         return nullptr;
     }
-    return new IMemoryBlock(heap, memblk.size, memblk.offset);
+    return new MemoryBlockImpl(heap, memblk.size, memblk.offset);
 }
 
 }  // namespace hardware

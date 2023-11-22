@@ -1,0 +1,18 @@
+{
+  "presubmit": [
+    {
+      "name": "CtsOsTestCases",
+      "options": [
+        {
+          "exclude-filter": "android.os.cts.UsbDebuggingTest#testUsbDebugging"
+        },
+        {
+          "exclude-filter": "android.os.cts.StrictModeTest#testNonSdkApiUsage"
+        },
+        {
+          "exclude-filter": "android.os.cts.BuildTest#testSdkInt"
+        }
+      ]
+    }
+  ]
+}

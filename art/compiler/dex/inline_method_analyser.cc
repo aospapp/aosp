@@ -41,7 +41,7 @@ namespace {  // anonymous namespace
 class Matcher {
  public:
   // Match function type.
-  typedef bool MatchFn(Matcher* matcher);
+  using MatchFn = bool(Matcher*);
 
   template <size_t size>
   static bool Match(const CodeItemDataAccessor* code_item, MatchFn* const (&pattern)[size]);
@@ -216,7 +216,7 @@ bool RecordConstructorIPut(ArtMethod* method,
   DCHECK(IsInstructionIPut(new_iput->Opcode()));
   uint32_t field_index = new_iput->VRegC_22c();
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-  ArtField* field = class_linker->LookupResolvedField(field_index, method, /* is_static */ false);
+  ArtField* field = class_linker->LookupResolvedField(field_index, method, /* is_static= */ false);
   if (UNLIKELY(field == nullptr)) {
     return false;
   }
@@ -228,7 +228,7 @@ bool RecordConstructorIPut(ArtMethod* method,
     }
     ArtField* f = class_linker->LookupResolvedField(iputs[old_pos].field_index,
                                                     method,
-                                                    /* is_static */ false);
+                                                    /* is_static= */ false);
     DCHECK(f != nullptr);
     if (f == field) {
       auto back_it = std::copy(iputs + old_pos + 1, iputs + arraysize(iputs), iputs + old_pos);
@@ -511,7 +511,7 @@ bool InlineMethodAnalyser::AnalyseMethodCode(const CodeItemDataAccessor* code_it
 }
 
 bool InlineMethodAnalyser::IsSyntheticAccessor(MethodReference ref) {
-  const DexFile::MethodId& method_id = ref.dex_file->GetMethodId(ref.index);
+  const dex::MethodId& method_id = ref.dex_file->GetMethodId(ref.index);
   const char* method_name = ref.dex_file->GetMethodName(method_id);
   // javac names synthetic accessors "access$nnn",
   // jack names them "-getN", "-putN", "-wrapN".
@@ -713,7 +713,7 @@ bool InlineMethodAnalyser::ComputeSpecialAccessorInfo(ArtMethod* method,
   }
   ObjPtr<mirror::DexCache> dex_cache = method->GetDexCache();
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-  ArtField* field = class_linker->LookupResolvedField(field_idx, method, /* is_static */ false);
+  ArtField* field = class_linker->LookupResolvedField(field_idx, method, /* is_static= */ false);
   if (field == nullptr || field->IsStatic()) {
     return false;
   }
@@ -724,7 +724,8 @@ bool InlineMethodAnalyser::ComputeSpecialAccessorInfo(ArtMethod* method,
     return false;
   }
   DCHECK_GE(field->GetOffset().Int32Value(), 0);
-  // Do not interleave function calls with bit field writes to placate valgrind. Bug: 27552451.
+  // Historical note: We made sure not to interleave function calls with bit field writes to
+  // placate Valgrind. Bug: 27552451.
   uint32_t field_offset = field->GetOffset().Uint32Value();
   bool is_volatile = field->IsVolatile();
   result->field_idx = field_idx;

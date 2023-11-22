@@ -66,7 +66,13 @@
             android:spinnerMode="dropdown"
             android:prompt="@string/camera_id_spinner_prompt"
             />
-
+        <Spinner
+            android:id="@+id/still_format_spinner"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown"
+            android:prompt="@string/still_format_spinner_prompt"
+            />
         <Button
             android:id="@+id/info_button"
             android:text="@string/info_button_label"

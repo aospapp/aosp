@@ -42,9 +42,12 @@ import android.support.test.uiautomator.UiDevice;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 public class ActivityManagerTest extends InstrumentationTestCase {
     private static final String TAG = ActivityManagerTest.class.getSimpleName();
@@ -437,11 +440,13 @@ public class ActivityManagerTest extends InstrumentationTestCase {
      * lifetime tests.
      */
     private void launchHome() throws Exception {
-        Intent intent = new Intent(Intent.ACTION_MAIN);
-        intent.addCategory(Intent.CATEGORY_HOME);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        mContext.startActivity(intent);
-        Thread.sleep(WAIT_TIME);
+        if (!noHomeScreen()) {
+            Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.addCategory(Intent.CATEGORY_HOME);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            mContext.startActivity(intent);
+            Thread.sleep(WAIT_TIME);
+        }
     }
 
    /**
@@ -619,5 +624,65 @@ public class ActivityManagerTest extends InstrumentationTestCase {
         assertEquals(RESULT_PASS, timeReceiver.waitForActivity());
         timeReceiver.close();
         assertTrue(timeReceiver.mTimeUsed != 0);
+    }
+
+    /**
+     * Verify that after force-stopping a package which has a foreground task contains multiple
+     * activities, the process of the package should not be alive (restarted).
+     */
+    public void testForceStopPackageWontRestartProcess() throws Exception {
+        ActivityReceiverFilter appStartedReceiver = new ActivityReceiverFilter(
+                ACTIVITY_LAUNCHED_ACTION);
+        // Start an activity of another APK.
+        Intent intent = new Intent();
+        intent.setClassName(SIMPLE_PACKAGE_NAME, SIMPLE_PACKAGE_NAME + SIMPLE_ACTIVITY);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mContext.startActivity(intent);
+        assertEquals(RESULT_PASS, appStartedReceiver.waitForActivity());
+
+        // Start a new activity in the same task. Here adds an action to make a different to intent
+        // filter comparison so another same activity will be created.
+        intent.setAction(Intent.ACTION_MAIN);
+        mContext.startActivity(intent);
+        assertEquals(RESULT_PASS, appStartedReceiver.waitForActivity());
+        appStartedReceiver.close();
+
+        // Wait for the first activity to stop so its ActivityRecord.haveState will be true. The
+        // condition is required to keep the activity record when its process is died.
+        Thread.sleep(WAIT_TIME);
+
+        // The package name is also the default name for the activity process.
+        final String testProcess = SIMPLE_PACKAGE_NAME;
+        Predicate<RunningAppProcessInfo> processNamePredicate =
+                runningApp -> testProcess.equals(runningApp.processName);
+
+        List<RunningAppProcessInfo> runningApps = SystemUtil.callWithShellPermissionIdentity(
+                () -> mActivityManager.getRunningAppProcesses());
+        assertTrue("Process " + testProcess + " should be found in running process list",
+                runningApps.stream().anyMatch(processNamePredicate));
+
+        runningApps = SystemUtil.callWithShellPermissionIdentity(() -> {
+            mActivityManager.forceStopPackage(SIMPLE_PACKAGE_NAME);
+            // Wait awhile (process starting may be asynchronous) to verify if the process is
+            // started again unexpectedly.
+            Thread.sleep(WAIT_TIME);
+            return mActivityManager.getRunningAppProcesses();
+        });
+
+        assertFalse("Process " + testProcess + " should not be alive after force-stop",
+                runningApps.stream().anyMatch(processNamePredicate));
+    }
+
+    /**
+     * This test is to verify that devices are patched with the fix in b/119327603 for b/115384617.
+     */
+    public void testIsAppForegroundRemoved() throws ClassNotFoundException {
+       try {
+           Class.forName("android.app.IActivityManager").getDeclaredMethod(
+                   "isAppForeground", int.class);
+           fail("IActivityManager.isAppForeground() API should not be available.");
+       } catch (NoSuchMethodException e) {
+           // Patched devices should throw this exception since isAppForeground is removed.
+       }
     }
 }

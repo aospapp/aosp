@@ -26,10 +26,10 @@ LOCAL_SRC_FILES := $(call all-java-files-under, src)
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
     CtsSyncManagerCommon \
-    android-support-test \
+    androidx.test.rules \
     androidx.legacy_legacy-support-v4 \
     mockito-target-minus-junit4 \
-    compatibility-device-util \
+    compatibility-device-util-axt \
     ub-uiautomator
 
 LOCAL_SDK_VERSION := test_current

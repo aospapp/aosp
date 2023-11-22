@@ -17,11 +17,12 @@
 #ifndef WIFICOND_AP_INTERFACE_IMPL_H_
 #define WIFICOND_AP_INTERFACE_IMPL_H_
 
+#include <array>
 #include <string>
-#include <vector>
+
+#include <linux/if_ether.h>
 
 #include <android-base/macros.h>
-#include <wifi_system/hostapd_manager.h>
 #include <wifi_system/interface_tool.h>
 
 #include "wificond/net/netlink_manager.h"
@@ -43,15 +44,12 @@ class ApInterfaceImpl {
   ApInterfaceImpl(const std::string& interface_name,
                   uint32_t interface_index,
                   NetlinkUtils* netlink_utils,
-                  wifi_system::InterfaceTool* if_tool,
-                  wifi_system::HostapdManager* hostapd_manager);
+                  wifi_system::InterfaceTool* if_tool);
   ~ApInterfaceImpl();
 
   // Get a pointer to the binder representing this ApInterfaceImpl.
   android::sp<android::net::wifi::IApInterface> GetBinder() const;
 
-  bool StartHostapd();
-  bool StopHostapd();
   std::string GetInterfaceName() { return interface_name_; }
   int GetNumberOfAssociatedStations() const;
   void Dump(std::stringstream* ss) const;
@@ -61,14 +59,13 @@ class ApInterfaceImpl {
   const uint32_t interface_index_;
   NetlinkUtils* const netlink_utils_;
   wifi_system::InterfaceTool* const if_tool_;
-  wifi_system::HostapdManager* const hostapd_manager_;
   const android::sp<ApInterfaceBinder> binder_;
 
   // Number of associated stations.
   int number_of_associated_stations_;
 
   void OnStationEvent(StationEvent event,
-                      const std::vector<uint8_t>& mac_address);
+                      const std::array<uint8_t, ETH_ALEN>& mac_address);
 
   void OnChannelSwitchEvent(uint32_t frequency, ChannelBandwidth bandwidth);
 

@@ -19,28 +19,28 @@
 
 #include <list>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/array_ref.h"
 #include "base/mutex.h"
 #include "base/os.h"
 #include "base/safe_map.h"
-#include "base/stringpiece.h"
 #include "base/tracking_safe_map.h"
-#include "base/utils.h"
 #include "class_status.h"
 #include "compiler_filter.h"
-#include "dex/dex_file.h"
 #include "dex/dex_file_layout.h"
+#include "dex/type_lookup_table.h"
 #include "dex/utf.h"
 #include "index_bss_mapping.h"
 #include "mirror/object.h"
 #include "oat.h"
-#include "type_lookup_table.h"
+#include "runtime.h"
 
 namespace art {
 
 class BitVector;
+class DexFile;
 class ElfFile;
 class DexLayoutSections;
 template <class MirrorType> class GcRoot;
@@ -50,6 +50,10 @@ class OatHeader;
 class OatMethodOffsets;
 class OatQuickMethodHeader;
 class VdexFile;
+
+namespace dex {
+struct ClassDef;
+}  // namespace dex
 
 namespace gc {
 namespace collector {
@@ -70,8 +74,6 @@ class OatFile {
   // Special classpath that skips shared library check.
   static constexpr const char* kSpecialSharedLibrary = "&";
 
-  typedef art::OatDexFile OatDexFile;
-
   // Opens an oat file contained within the given elf file. This is always opened as
   // non-executable at the moment.
   static OatFile* OpenWithElfFile(int zip_fd,
@@ -87,12 +89,11 @@ class OatFile {
   static OatFile* Open(int zip_fd,
                        const std::string& filename,
                        const std::string& location,
-                       uint8_t* requested_base,
-                       uint8_t* oat_file_begin,
                        bool executable,
                        bool low_4gb,
                        const char* abs_dex_location,
-                       std::string* error_msg);
+                       /*inout*/MemMap* reservation,  // Where to load if not null.
+                       /*out*/std::string* error_msg);
 
   // Similar to OatFile::Open(const std::string...), but accepts input vdex and
   // odex files as file descriptors. We also take zip_fd in case the vdex does not
@@ -101,12 +102,11 @@ class OatFile {
                        int vdex_fd,
                        int oat_fd,
                        const std::string& oat_location,
-                       uint8_t* requested_base,
-                       uint8_t* oat_file_begin,
                        bool executable,
                        bool low_4gb,
                        const char* abs_dex_location,
-                       std::string* error_msg);
+                       /*inout*/MemMap* reservation,  // Where to load if not null.
+                       /*out*/std::string* error_msg);
 
   // Open an oat file from an already opened File.
   // Does not use dlopen underneath so cannot be used for runtime use
@@ -125,13 +125,17 @@ class OatFile {
                                const char* abs_dex_location,
                                std::string* error_msg);
 
+  // Initialize OatFile instance from an already loaded VdexFile. This assumes
+  // the vdex does not have a dex section and accepts a vector of DexFiles separately.
+  static OatFile* OpenFromVdex(const std::vector<const DexFile*>& dex_files,
+                               std::unique_ptr<VdexFile>&& vdex_file,
+                               const std::string& location);
+
   virtual ~OatFile();
 
   bool IsExecutable() const {
     return is_executable_;
   }
-
-  bool IsPic() const;
 
   // Indicates whether the oat file was compiled with full debugging capability.
   bool IsDebuggable() const;
@@ -148,7 +152,7 @@ class OatFile {
 
   const OatHeader& GetOatHeader() const;
 
-  class OatMethod FINAL {
+  class OatMethod final {
    public:
     void LinkMethod(ArtMethod* method) const;
 
@@ -203,7 +207,7 @@ class OatFile {
     friend class OatClass;
   };
 
-  class OatClass FINAL {
+  class OatClass final {
    public:
     ClassStatus GetStatus() const {
       return status_;
@@ -232,12 +236,12 @@ class OatFile {
     // A representation of an invalid OatClass, used when an OatClass can't be found.
     // See FindOatClass().
     static OatClass Invalid() {
-      return OatClass(/* oat_file */ nullptr,
+      return OatClass(/* oat_file= */ nullptr,
                       ClassStatus::kErrorUnresolved,
                       kOatClassNoneCompiled,
-                      /* bitmap_size */ 0,
-                      /* bitmap_pointer */ nullptr,
-                      /* methods_pointer */ nullptr);
+                      /* bitmap_size= */ 0,
+                      /* bitmap_pointer= */ nullptr,
+                      /* methods_pointer= */ nullptr);
     }
 
    private:
@@ -283,6 +287,10 @@ class OatFile {
     return p >= Begin() && p < End();
   }
 
+  size_t DataBimgRelRoSize() const {
+    return DataBimgRelRoEnd() - DataBimgRelRoBegin();
+  }
+
   size_t BssSize() const {
     return BssEnd() - BssBegin();
   }
@@ -308,19 +316,31 @@ class OatFile {
   const uint8_t* Begin() const;
   const uint8_t* End() const;
 
-  const uint8_t* BssBegin() const;
-  const uint8_t* BssEnd() const;
+  const uint8_t* DataBimgRelRoBegin() const { return data_bimg_rel_ro_begin_; }
+  const uint8_t* DataBimgRelRoEnd() const { return data_bimg_rel_ro_end_; }
 
-  const uint8_t* VdexBegin() const;
-  const uint8_t* VdexEnd() const;
+  const uint8_t* BssBegin() const { return bss_begin_; }
+  const uint8_t* BssEnd() const { return bss_end_; }
+
+  const uint8_t* VdexBegin() const { return vdex_begin_; }
+  const uint8_t* VdexEnd() const { return vdex_end_; }
 
   const uint8_t* DexBegin() const;
   const uint8_t* DexEnd() const;
 
+  ArrayRef<const uint32_t> GetBootImageRelocations() const;
   ArrayRef<ArtMethod*> GetBssMethods() const;
   ArrayRef<GcRoot<mirror::Object>> GetBssGcRoots() const;
 
-  // Returns the absolute dex location for the encoded relative dex location.
+  // Initialize relocation sections (.data.bimg.rel.ro and .bss).
+  void InitializeRelocations() const;
+
+  // Constructs the absolute dex location and/or dex file name for the relative dex
+  // location (`rel_dex_location`) in the oat file, using the `abs_dex_location` of
+  // the dex file this oat belongs to.
+  //
+  // The dex file name and dex location differ when cross compiling where the dex file
+  // name is the host path (for opening files) and dex location is the future path on target.
   //
   // If not null, abs_dex_location is used to resolve the absolute dex
   // location of relative dex locations encoded in the oat file.
@@ -329,8 +349,13 @@ class OatFile {
   // to "/data/app/foo/base.apk", "/data/app/foo/base.apk!classes2.dex", etc.
   // Relative encoded dex locations that don't match the given abs_dex_location
   // are left unchanged.
-  static std::string ResolveRelativeEncodedDexLocation(
-      const char* abs_dex_location, const std::string& rel_dex_location);
+  //
+  // Computation of both `dex_file_location` and `dex_file_name` can be skipped
+  // by setting the corresponding out parameter to `nullptr`.
+  static void ResolveRelativeEncodedDexLocation(const char* abs_dex_location,
+                                                const std::string& rel_dex_location,
+                                                /* out */ std::string* dex_file_location,
+                                                /* out */ std::string* dex_file_name = nullptr);
 
   // Finds the associated oat class for a dex_file and descriptor. Returns an invalid OatClass on
   // error and sets found to false.
@@ -363,6 +388,12 @@ class OatFile {
   // Pointer to end of oat region for bounds checking.
   const uint8_t* end_;
 
+  // Pointer to the .data.bimg.rel.ro section, if present, otherwise null.
+  const uint8_t* data_bimg_rel_ro_begin_;
+
+  // Pointer to the end of the .data.bimg.rel.ro section, if present, otherwise null.
+  const uint8_t* data_bimg_rel_ro_end_;
+
   // Pointer to the .bss section, if present, otherwise null.
   uint8_t* bss_begin_;
 
@@ -387,12 +418,13 @@ class OatFile {
   // Owning storage for the OatDexFile objects.
   std::vector<const OatDexFile*> oat_dex_files_storage_;
 
-  // NOTE: We use a StringPiece as the key type to avoid a memory allocation on every
-  // lookup with a const char* key. The StringPiece doesn't own its backing storage,
-  // therefore we're using the OatDexFile::dex_file_location_ as the backing storage
+  // NOTE: We use a std::string_view as the key type to avoid a memory allocation on every
+  // lookup with a const char* key. The std::string_view doesn't own its backing storage,
+  // therefore we're using the OatFile's stored dex location as the backing storage
   // for keys in oat_dex_files_ and the string_cache_ entries for the backing storage
   // of keys in secondary_oat_dex_files_ and oat_dex_files_by_canonical_location_.
-  typedef AllocationTrackingSafeMap<StringPiece, const OatDexFile*, kAllocatorTagOatFile> Table;
+  using Table =
+      AllocationTrackingSafeMap<std::string_view, const OatDexFile*, kAllocatorTagOatFile>;
 
   // Map each location and canonical location (if different) retrieved from the
   // oat file to its OatDexFile. This map doesn't change after it's constructed in Setup()
@@ -411,7 +443,7 @@ class OatFile {
 
   // Cache of strings. Contains the backing storage for keys in the secondary_oat_dex_files_
   // and the lazily initialized oat_dex_files_by_canonical_location_.
-  // NOTE: We're keeping references to contained strings in form of StringPiece and adding
+  // NOTE: We're keeping references to contained strings in form of std::string_view and adding
   // new strings to the end. The adding of a new element must not touch any previously stored
   // elements. std::list<> and std::deque<> satisfy this requirement, std::vector<> doesn't.
   mutable std::list<std::string> string_cache_ GUARDED_BY(secondary_lookup_lock_);
@@ -432,17 +464,19 @@ class OatFile {
 // support forward declarations of inner classes, and we want to
 // forward-declare OatDexFile so that we can store an opaque pointer to an
 // OatDexFile in DexFile.
-class OatDexFile FINAL {
+class OatDexFile final {
  public:
   // Opens the DexFile referred to by this OatDexFile from within the containing OatFile.
   std::unique_ptr<const DexFile> OpenDexFile(std::string* error_msg) const;
 
   // May return null if the OatDexFile only contains a type lookup table. This case only happens
-  // for the compiler to speed up compilation.
+  // for the compiler to speed up compilation, or in jitzygote.
   const OatFile* GetOatFile() const {
     // Avoid pulling in runtime.h in the header file.
     if (kIsDebugBuild && oat_file_ == nullptr) {
-      AssertAotCompiler();
+      if (!Runtime::Current()->IsUsingApexBootImageLocation()) {
+        AssertAotCompiler();
+      }
     }
     return oat_file_;
   }
@@ -491,23 +525,26 @@ class OatDexFile FINAL {
     return dex_file_pointer_;
   }
 
+  ArrayRef<const uint8_t> GetQuickenedInfoOf(const DexFile& dex_file,
+                                             uint32_t dex_method_idx) const;
+
   // Looks up a class definition by its class descriptor. Hash must be
   // ComputeModifiedUtf8Hash(descriptor).
-  static const DexFile::ClassDef* FindClassDef(const DexFile& dex_file,
-                                               const char* descriptor,
-                                               size_t hash);
+  static const dex::ClassDef* FindClassDef(const DexFile& dex_file,
+                                           const char* descriptor,
+                                           size_t hash);
 
   // Madvise the dex file based on the state we are moving to.
   static void MadviseDexFile(const DexFile& dex_file, MadviseState state);
 
-  TypeLookupTable* GetTypeLookupTable() const {
-    return lookup_table_.get();
+  const TypeLookupTable& GetTypeLookupTable() const {
+    return lookup_table_;
   }
 
   ~OatDexFile();
 
   // Create only with a type lookup table, used by the compiler to speed up compilation.
-  explicit OatDexFile(std::unique_ptr<TypeLookupTable>&& lookup_table);
+  explicit OatDexFile(TypeLookupTable&& lookup_table);
 
   // Return the dex layout sections.
   const DexLayoutSections* GetDexLayoutSections() const {
@@ -527,6 +564,15 @@ class OatDexFile FINAL {
              const uint32_t* oat_class_offsets_pointer,
              const DexLayoutSections* dex_layout_sections);
 
+  // Create an OatDexFile wrapping an existing DexFile. Will set the OatDexFile
+  // pointer in the DexFile.
+  OatDexFile(const OatFile* oat_file,
+             const DexFile* dex_file,
+             const std::string& dex_file_location,
+             const std::string& canonical_dex_file_location);
+
+  bool IsBackedByVdexOnly() const;
+
   static void AssertAotCompiler();
 
   const OatFile* const oat_file_ = nullptr;
@@ -538,8 +584,8 @@ class OatDexFile FINAL {
   const IndexBssMapping* const method_bss_mapping_ = nullptr;
   const IndexBssMapping* const type_bss_mapping_ = nullptr;
   const IndexBssMapping* const string_bss_mapping_ = nullptr;
-  const uint32_t* const oat_class_offsets_pointer_ = 0u;
-  mutable std::unique_ptr<TypeLookupTable> lookup_table_;
+  const uint32_t* const oat_class_offsets_pointer_ = nullptr;
+  TypeLookupTable lookup_table_;
   const DexLayoutSections* const dex_layout_sections_ = nullptr;
 
   friend class OatFile;

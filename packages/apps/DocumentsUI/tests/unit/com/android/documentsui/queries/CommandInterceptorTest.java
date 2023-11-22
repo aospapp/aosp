@@ -18,8 +18,8 @@ package com.android.documentsui.queries;
 
 import static com.android.documentsui.queries.CommandInterceptor.COMMAND_PREFIX;
 
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import com.android.documentsui.testing.TestEventHandler;
 import com.android.documentsui.testing.TestFeatures;

@@ -37,6 +37,7 @@
     <string name="respond_via_sms_setting_summary" msgid="9150281183930613065"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="20379890418289778">"Përgjigje e shpejtë"</string>
     <string name="respond_via_sms_confirmation_format" msgid="7229149977515784269">"Mesazhi u dërgua te <xliff:g id="PHONE_NUMBER">%s</xliff:g>."</string>
+    <string name="respond_via_sms_failure_format" msgid="90791421289769504">"Dërgimi i mesazhit te <xliff:g id="PHONE_NUMBER">%s</xliff:g> dështoi."</string>
     <string name="enable_account_preference_title" msgid="2021848090086481720">"Llogaritë e telefonatave"</string>
     <string name="outgoing_call_not_allowed_user_restriction" msgid="6872406278300131364">"Lejohen vetëm telefonatat e urgjencës."</string>
     <string name="outgoing_call_not_allowed_no_permission" msgid="1996571596464271228">"Ky aplikacion nuk mund të kryejë telefonata dalëse pa lejen e Telefonit."</string>
@@ -49,6 +50,11 @@
     <string name="change_default_dialer_dialog_affirmative" msgid="8606546663509166276">"Vendos të parazgjedhurën"</string>
     <string name="change_default_dialer_dialog_negative" msgid="9078144617060173845">"Anulo"</string>
     <string name="change_default_dialer_warning_message" msgid="1417671460801684999">"<xliff:g id="NEW_APP">%s</xliff:g> do të mund të bëjë dhe kontrollojë të gjitha aspektet e telefonatave. Vetëm aplikacionet të cilave u beson duhet të caktohen si aplikacioni Telefon i parazgjedhur."</string>
+    <string name="change_default_call_screening_dialog_title" msgid="8714534302859934164">"Të bëhet <xliff:g id="NEW_APP">%s</xliff:g> aplikacioni i parazgjedhur për filtrimin?"</string>
+    <string name="change_default_call_screening_warning_message_for_disable_old_app" msgid="5128397581530600941">"<xliff:g id="OLD_APP">%s</xliff:g> nuk do të mund të filtrojë më telefonatat."</string>
+    <string name="change_default_call_screening_warning_message" msgid="3881131132588596837">"<xliff:g id="NEW_APP">%s</xliff:g> do të mund të shikojë informacione për telefonuesit që nuk janë në kontaktet e tua dhe do të mund t\'i bllokojë këto telefonata. Vetëm aplikacionet që i beson duhet të caktohen si aplikacioni i parazgjedhur për filtrimin e telefonatave."</string>
+    <string name="change_default_call_screening_dialog_affirmative" msgid="5503888845998386856">"Cakto parazgjedhjen"</string>
+    <string name="change_default_call_screening_dialog_negative" msgid="3420459312464019224">"Anulo"</string>
     <string name="blocked_numbers" msgid="2751843139572970579">"Numrat e bllokuar"</string>
     <string name="blocked_numbers_msg" msgid="1045015186124965643">"Nuk do të marrësh telefonata ose mesazhe me tekst nga numrat e bllokuar."</string>
     <string name="block_number" msgid="1101252256321306179">"Shto një numër"</string>
@@ -77,6 +83,7 @@
     <string name="answering_ends_other_managed_video_call" msgid="1585423762458248435">"Përgjigjja do ta mbyllë telefonatën me video në vazhdim"</string>
     <string name="answer_incoming_call" msgid="4140530013111794587">"Përgjigju"</string>
     <string name="decline_incoming_call" msgid="806026168661598368">"Refuzo"</string>
+    <string name="cant_call_due_to_no_supported_service" msgid="5128162419227548372">"Telefonata nuk mund të kryhet pasi nuk ka asnjë llogari telefonatash që i mbështet telefonatat e këtij lloji."</string>
     <string name="cant_call_due_to_ongoing_call" msgid="4952615196237854748">"Telefonata nuk mund të kryhet për shkak të telefonatës tënde të <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
     <string name="cant_call_due_to_ongoing_calls" msgid="1380804892363503856">"Telefonata nuk mund të kryhet për shkak të telefonatave të tua të <xliff:g id="OTHER_CALL">%1$s</xliff:g>."</string>
     <string name="cant_call_due_to_ongoing_unknown_call" msgid="149091978697302211">"Telefonata nuk mund të kryhet për shkak të një telefonate në një aplikacion tjetër."</string>
@@ -84,6 +91,10 @@
     <string name="notification_channel_missed_call" msgid="8727062678632713146">"Telefonatat e humbura"</string>
     <string name="notification_channel_call_blocking" msgid="2943358779746676070">"Bllokimi i telefonatave"</string>
     <string name="alert_outgoing_call" msgid="982908156825958001">"Kryerja e kësaj telefonate do të mbyllë telefonatën tënde në <xliff:g id="OTHER_APP">%1$s</xliff:g>."</string>
+    <string name="alert_redirect_outgoing_call_or_not" msgid="7419614878375226644">"Zgjidh se si do ta kryesh këtë telefonatë"</string>
+    <string name="alert_place_outgoing_call_with_redirection" msgid="3728173638697188636">"Ridrejtoje telefonatën duke përdorur <xliff:g id="OTHER_APP">%1$s</xliff:g>"</string>
+    <string name="alert_place_unredirect_outgoing_call" msgid="3066499005445865910">"Telefono duke përdorur numrin tim të telefonit"</string>
+    <string name="alert_redirect_outgoing_call_timeout" msgid="7268954889515301158">"Telefonata nuk mund të kryhet nga <xliff:g id="OTHER_APP">%1$s</xliff:g>. Provo të përdorësh një aplikacion tjetër për ridrejtimin e telefonatave ose kontakto me zhvilluesin për ndihmë."</string>
     <string name="phone_settings_call_blocking_txt" msgid="3976004073043846733">"Bllokimi i telefonatave"</string>
     <string name="phone_settings_number_not_in_contact_txt" msgid="3126829421867168652">"Numrat që nuk janë te \"Kontaktet\""</string>
     <string name="phone_settings_number_not_in_contact_summary_txt" msgid="9043147855140079119">"Blloko numrat që nuk janë të listuar te \"Kontaktet\" e tua"</string>
@@ -97,4 +108,5 @@
     <string name="phone_strings_call_blocking_turned_off_notification_text_txt" msgid="6264230048947693941">"Bllokimi i telefonatave u çaktivizua"</string>
     <string name="phone_strings_emergency_call_made_dialog_title_txt" msgid="7421611725400166580">"Telefonata e urgjencës u krye"</string>
     <string name="phone_strings_emergency_call_made_dialog_call_blocking_text_txt" msgid="4083285098613193052">"Bllokimi i telefonatave është çaktivizuar për të lejuar që personat që përgjigjen në rast urgjence të kontaktojnë me ty."</string>
+    <string name="developer_title" msgid="1816273446906554627">"Menyja e zhvilluesit të telekomunikimit"</string>
 </resources>

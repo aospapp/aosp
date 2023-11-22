@@ -33,9 +33,10 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.util.Size;
 import android.hardware.camera2.cts.CameraTestUtils.SimpleCaptureCallback;
+import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.testcases.Camera2SurfaceViewTestCase;
 import android.hardware.camera2.params.OutputConfiguration;
-import android.platform.test.annotations.AppModeFull;
+import android.hardware.camera2.params.SessionConfiguration;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Range;
@@ -51,10 +52,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.junit.Test;
+
 /**
  * CameraDevice preview test by using SurfaceView.
  */
-@AppModeFull
 public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
     private static final String TAG = "SurfaceViewPreviewTest";
     private static final boolean VERBOSE = Log.isLoggable(TAG, Log.VERBOSE);
@@ -65,12 +67,12 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
     private static final int PREPARE_TIMEOUT_MS = 10000; // 10 s
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         super.tearDown();
     }
 
@@ -82,16 +84,17 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
      * (monotonically increasing) ordering are verified.
      * </p>
      */
+    @Test
     public void testCameraPreview() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
                 Log.i(TAG, "Testing preview for Camera " + mCameraIds[i]);
-                openDevice(mCameraIds[i]);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i]);
                 previewTestByCamera();
             } finally {
                 closeDevice();
@@ -106,16 +109,17 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
      * is not validated.
      * </p>
      */
+    @Test
     public void testBasicTestPatternPreview() throws Exception{
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
                 Log.i(TAG, "Testing preview for Camera " + mCameraIds[i]);
-                openDevice(mCameraIds[i]);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i]);
                 previewTestPatternTestByCamera();
             } finally {
                 closeDevice();
@@ -127,14 +131,15 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
      * Test {@link CaptureRequest#CONTROL_AE_TARGET_FPS_RANGE} for preview, validate the preview
      * frame duration and exposure time.
      */
+    @Test
     public void testPreviewFpsRange() throws Exception {
         for (String id : mCameraIds) {
             try {
-                openDevice(id);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(id).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(id);
                 previewFpsRangeTestByCamera();
             } finally {
                 closeDevice();
@@ -152,14 +157,15 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
      * also exercises the prepare API.
      * </p>
      */
+    @Test
     public void testSurfaceSet() throws Exception {
         for (String id : mCameraIds) {
             try {
-                openDevice(id);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(id).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + id + " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(id);
                 surfaceSetTestByCamera(id);
             } finally {
                 closeDevice();
@@ -176,15 +182,16 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
      * - Ensure that starting to use a newly-prepared output does not cause additional
      *   preview glitches to occur
      */
+    @Test
     public void testPreparePerformance() throws Throwable {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                openDevice(mCameraIds[i]);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i]);
                 preparePerformanceTestByCamera(mCameraIds[i]);
             }
             finally {
@@ -335,15 +342,16 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
      * Test to verify correct behavior with the same Surface object being used repeatedly with
      * different native internals, and multiple Surfaces pointing to the same actual consumer object
      */
+    @Test
     public void testSurfaceEquality() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                openDevice(mCameraIds[i]);
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!mAllStaticInfo.get(mCameraIds[i]).isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
+                openDevice(mCameraIds[i]);
                 surfaceEqualityTestByCamera(mCameraIds[i]);
             }
             finally {
@@ -425,20 +433,22 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
     /*
      * Verify creation of deferred surface capture sessions
      */
+    @Test
     public void testDeferredSurfaces() throws Exception {
         for (int i = 0; i < mCameraIds.length; i++) {
             try {
-                openDevice(mCameraIds[i]);
-                if (mStaticInfo.isHardwareLevelLegacy()) {
+                StaticMetadata staticInfo = mAllStaticInfo.get(mCameraIds[i]);
+                if (staticInfo.isHardwareLevelLegacy()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] + " is legacy, skipping");
                     continue;
                 }
-                if (!mStaticInfo.isColorOutputSupported()) {
+                if (!staticInfo.isColorOutputSupported()) {
                     Log.i(TAG, "Camera " + mCameraIds[i] +
                             " does not support color outputs, skipping");
                     continue;
                 }
 
+                openDevice(mCameraIds[i]);
                 testDeferredSurfacesByCamera(mCameraIds[i]);
             }
             finally {
@@ -515,6 +525,11 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
                 //expected
             }
         }
+
+        // Check whether session configuration is supported
+        CameraTestUtils.checkSessionConfigurationSupported(mCamera, mHandler, outputSurfaces,
+                /*inputConfig*/ null, SessionConfiguration.SESSION_REGULAR,
+                /*defaultSupport*/ true, "Deferred session configuration query failed");
 
         // Create session
 

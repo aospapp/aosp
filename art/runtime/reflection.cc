@@ -23,8 +23,9 @@
 #include "common_throws.h"
 #include "dex/dex_file-inl.h"
 #include "indirect_reference_table-inl.h"
-#include "java_vm_ext.h"
-#include "jni_internal.h"
+#include "jni/java_vm_ext.h"
+#include "jni/jni_internal.h"
+#include "jvalue-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/executable.h"
 #include "mirror/object_array-inl.h"
@@ -32,6 +33,7 @@
 #include "nth_caller_visitor.h"
 #include "scoped_thread_state_change-inl.h"
 #include "stack_reference.h"
+#include "thread-inl.h"
 #include "well_known_classes.h"
 
 namespace art {
@@ -137,7 +139,7 @@ class ArgArray {
   }
 
   void BuildArgArrayFromJValues(const ScopedObjectAccessAlreadyRunnable& soa,
-                                ObjPtr<mirror::Object> receiver, jvalue* args)
+                                ObjPtr<mirror::Object> receiver, const jvalue* args)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     // Set receiver if non-null (method is not static)
     if (receiver != nullptr) {
@@ -225,7 +227,7 @@ class ArgArray {
                                     ArtMethod* m,
                                     Thread* self)
       REQUIRES_SHARED(Locks::mutator_lock_) {
-    const DexFile::TypeList* classes = m->GetParameterTypeList();
+    const dex::TypeList* classes = m->GetParameterTypeList();
     // Set receiver if non-null (method is not static)
     if (receiver != nullptr) {
       Append(receiver);
@@ -242,7 +244,7 @@ class ArgArray {
         // we've seen cases where it's not b/34440020.
         ObjPtr<mirror::Class> dst_class(
             m->ResolveClassFromTypeIndex(classes->GetTypeItem(args_offset).type_idx_));
-        if (dst_class.Ptr() == nullptr) {
+        if (dst_class == nullptr) {
           CHECK(self->IsExceptionPending());
           return false;
         }
@@ -366,7 +368,7 @@ class ArgArray {
 
 void CheckMethodArguments(JavaVMExt* vm, ArtMethod* m, uint32_t* args)
     REQUIRES_SHARED(Locks::mutator_lock_) {
-  const DexFile::TypeList* params = m->GetParameterTypeList();
+  const dex::TypeList* params = m->GetParameterTypeList();
   if (params == nullptr) {
     return;  // No arguments so nothing to check.
   }
@@ -456,6 +458,64 @@ void InvokeWithArgArray(const ScopedObjectAccessAlreadyRunnable& soa,
   method->Invoke(soa.Self(), args, arg_array->GetNumBytes(), result, shorty);
 }
 
+ALWAYS_INLINE
+bool CheckArgsForInvokeMethod(ArtMethod* np_method,
+                              ObjPtr<mirror::ObjectArray<mirror::Object>> objects)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  const dex::TypeList* classes = np_method->GetParameterTypeList();
+  uint32_t classes_size = (classes == nullptr) ? 0 : classes->Size();
+  uint32_t arg_count = (objects == nullptr) ? 0 : objects->GetLength();
+  if (UNLIKELY(arg_count != classes_size)) {
+    ThrowIllegalArgumentException(StringPrintf("Wrong number of arguments; expected %d, got %d",
+                                               classes_size, arg_count).c_str());
+    return false;
+  }
+  return true;
+}
+
+ALWAYS_INLINE
+bool InvokeMethodImpl(const ScopedObjectAccessAlreadyRunnable& soa,
+                      ArtMethod* m,
+                      ArtMethod* np_method,
+                      ObjPtr<mirror::Object> receiver,
+                      ObjPtr<mirror::ObjectArray<mirror::Object>> objects,
+                      const char** shorty,
+                      JValue* result) REQUIRES_SHARED(Locks::mutator_lock_) {
+  // Invoke the method.
+  uint32_t shorty_len = 0;
+  *shorty = np_method->GetShorty(&shorty_len);
+  ArgArray arg_array(*shorty, shorty_len);
+  if (!arg_array.BuildArgArrayFromObjectArray(receiver, objects, np_method, soa.Self())) {
+    CHECK(soa.Self()->IsExceptionPending());
+    return false;
+  }
+
+  InvokeWithArgArray(soa, m, &arg_array, result, *shorty);
+
+  // Wrap any exception with "Ljava/lang/reflect/InvocationTargetException;" and return early.
+  if (soa.Self()->IsExceptionPending()) {
+    // If we get another exception when we are trying to wrap, then just use that instead.
+    ScopedLocalRef<jthrowable> th(soa.Env(), soa.Env()->ExceptionOccurred());
+    soa.Self()->ClearException();
+    jclass exception_class = soa.Env()->FindClass("java/lang/reflect/InvocationTargetException");
+    if (exception_class == nullptr) {
+      soa.Self()->AssertPendingException();
+      return false;
+    }
+    jmethodID mid = soa.Env()->GetMethodID(exception_class, "<init>", "(Ljava/lang/Throwable;)V");
+    CHECK(mid != nullptr);
+    jobject exception_instance = soa.Env()->NewObject(exception_class, mid, th.get());
+    if (exception_instance == nullptr) {
+      soa.Self()->AssertPendingException();
+      return false;
+    }
+    soa.Env()->Throw(reinterpret_cast<jthrowable>(exception_instance));
+    return false;
+  }
+
+  return true;
+}
+
 }  // anonymous namespace
 
 JValue InvokeWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa, jobject obj, jmethodID mid,
@@ -491,7 +551,7 @@ JValue InvokeWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa, jobject o
 }
 
 JValue InvokeWithJValues(const ScopedObjectAccessAlreadyRunnable& soa, jobject obj, jmethodID mid,
-                         jvalue* args) {
+                         const jvalue* args) {
   // We want to make sure that the stack is not within a small distance from the
   // protected region in case we are calling into a leaf function whose stack
   // check has been elided.
@@ -522,7 +582,7 @@ JValue InvokeWithJValues(const ScopedObjectAccessAlreadyRunnable& soa, jobject o
 }
 
 JValue InvokeVirtualOrInterfaceWithJValues(const ScopedObjectAccessAlreadyRunnable& soa,
-                                           jobject obj, jmethodID mid, jvalue* args) {
+                                           jobject obj, jmethodID mid, const jvalue* args) {
   // We want to make sure that the stack is not within a small distance from the
   // protected region in case we are calling into a leaf function whose stack
   // check has been elided.
@@ -631,12 +691,7 @@ jobject InvokeMethod(const ScopedObjectAccessAlreadyRunnable& soa, jobject javaM
   ObjPtr<mirror::ObjectArray<mirror::Object>> objects =
       soa.Decode<mirror::ObjectArray<mirror::Object>>(javaArgs);
   auto* np_method = m->GetInterfaceMethodIfProxy(kRuntimePointerSize);
-  const DexFile::TypeList* classes = np_method->GetParameterTypeList();
-  uint32_t classes_size = (classes == nullptr) ? 0 : classes->Size();
-  uint32_t arg_count = (objects != nullptr) ? objects->GetLength() : 0;
-  if (arg_count != classes_size) {
-    ThrowIllegalArgumentException(StringPrintf("Wrong number of arguments; expected %d, got %d",
-                                               classes_size, arg_count).c_str());
+  if (!CheckArgsForInvokeMethod(np_method, objects)) {
     return nullptr;
   }
 
@@ -660,44 +715,59 @@ jobject InvokeMethod(const ScopedObjectAccessAlreadyRunnable& soa, jobject javaM
 
   // Invoke the method.
   JValue result;
-  uint32_t shorty_len = 0;
-  const char* shorty = np_method->GetShorty(&shorty_len);
-  ArgArray arg_array(shorty, shorty_len);
-  if (!arg_array.BuildArgArrayFromObjectArray(receiver, objects, np_method, soa.Self())) {
-    CHECK(soa.Self()->IsExceptionPending());
+  const char* shorty;
+  if (!InvokeMethodImpl(soa, m, np_method, receiver, objects, &shorty, &result)) {
     return nullptr;
   }
-
-  InvokeWithArgArray(soa, m, &arg_array, &result, shorty);
-
-  // Wrap any exception with "Ljava/lang/reflect/InvocationTargetException;" and return early.
-  if (soa.Self()->IsExceptionPending()) {
-    // If we get another exception when we are trying to wrap, then just use that instead.
-    ScopedLocalRef<jthrowable> th(soa.Env(), soa.Env()->ExceptionOccurred());
-    soa.Self()->ClearException();
-    jclass exception_class = soa.Env()->FindClass("java/lang/reflect/InvocationTargetException");
-    if (exception_class == nullptr) {
-      soa.Self()->AssertPendingException();
-      return nullptr;
-    }
-    jmethodID mid = soa.Env()->GetMethodID(exception_class, "<init>", "(Ljava/lang/Throwable;)V");
-    CHECK(mid != nullptr);
-    jobject exception_instance = soa.Env()->NewObject(exception_class, mid, th.get());
-    if (exception_instance == nullptr) {
-      soa.Self()->AssertPendingException();
-      return nullptr;
-    }
-    soa.Env()->Throw(reinterpret_cast<jthrowable>(exception_instance));
-    return nullptr;
-  }
-
-  // Box if necessary and return.
   return soa.AddLocalReference<jobject>(BoxPrimitive(Primitive::GetType(shorty[0]), result));
+}
+
+void InvokeConstructor(const ScopedObjectAccessAlreadyRunnable& soa,
+                       ArtMethod* constructor,
+                       ObjPtr<mirror::Object> receiver,
+                       jobject javaArgs) {
+  // We want to make sure that the stack is not within a small distance from the
+  // protected region in case we are calling into a leaf function whose stack
+  // check has been elided.
+  if (UNLIKELY(__builtin_frame_address(0) < soa.Self()->GetStackEndForInterpreter(true))) {
+    ThrowStackOverflowError(soa.Self());
+    return;
+  }
+
+  if (kIsDebugBuild) {
+    CHECK(constructor->IsConstructor());
+
+    ObjPtr<mirror::Class> declaring_class = constructor->GetDeclaringClass();
+    CHECK(declaring_class->IsInitialized());
+
+    // Calls to String.<init> should have been repplaced with with equivalent StringFactory calls.
+    CHECK(!declaring_class->IsStringClass());
+
+    // Check that the receiver is non-null and an instance of the field's declaring class.
+    CHECK(receiver != nullptr);
+    CHECK(VerifyObjectIsClass(receiver, declaring_class));
+    CHECK_EQ(constructor,
+             receiver->GetClass()->FindVirtualMethodForVirtualOrInterface(constructor,
+                                                                          kRuntimePointerSize));
+  }
+
+  // Get our arrays of arguments and their types, and check they're the same size.
+  ObjPtr<mirror::ObjectArray<mirror::Object>> objects =
+      soa.Decode<mirror::ObjectArray<mirror::Object>>(javaArgs);
+  ArtMethod* np_method = constructor->GetInterfaceMethodIfProxy(kRuntimePointerSize);
+  if (!CheckArgsForInvokeMethod(np_method, objects)) {
+    return;
+  }
+
+  // Invoke the constructor.
+  JValue result;
+  const char* shorty;
+  InvokeMethodImpl(soa, constructor, np_method, receiver, objects, &shorty, &result);
 }
 
 ObjPtr<mirror::Object> BoxPrimitive(Primitive::Type src_class, const JValue& value) {
   if (src_class == Primitive::kPrimNot) {
-    return MakeObjPtr(value.GetL());
+    return value.GetL();
   }
   if (src_class == Primitive::kPrimVoid) {
     // There's no such thing as a void field, and void methods invoked via reflection return null.
@@ -817,32 +887,31 @@ static bool UnboxPrimitive(ObjPtr<mirror::Object> o,
 
   JValue boxed_value;
   ObjPtr<mirror::Class> klass = o->GetClass();
-  ObjPtr<mirror::Class> src_class = nullptr;
-  ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
+  Primitive::Type primitive_type;
   ArtField* primitive_field = &klass->GetIFieldsPtr()->At(0);
   if (klass->DescriptorEquals("Ljava/lang/Boolean;")) {
-    src_class = class_linker->FindPrimitiveClass('Z');
+    primitive_type = Primitive::kPrimBoolean;
     boxed_value.SetZ(primitive_field->GetBoolean(o));
   } else if (klass->DescriptorEquals("Ljava/lang/Byte;")) {
-    src_class = class_linker->FindPrimitiveClass('B');
+    primitive_type = Primitive::kPrimByte;
     boxed_value.SetB(primitive_field->GetByte(o));
   } else if (klass->DescriptorEquals("Ljava/lang/Character;")) {
-    src_class = class_linker->FindPrimitiveClass('C');
+    primitive_type = Primitive::kPrimChar;
     boxed_value.SetC(primitive_field->GetChar(o));
   } else if (klass->DescriptorEquals("Ljava/lang/Float;")) {
-    src_class = class_linker->FindPrimitiveClass('F');
+    primitive_type = Primitive::kPrimFloat;
     boxed_value.SetF(primitive_field->GetFloat(o));
   } else if (klass->DescriptorEquals("Ljava/lang/Double;")) {
-    src_class = class_linker->FindPrimitiveClass('D');
+    primitive_type = Primitive::kPrimDouble;
     boxed_value.SetD(primitive_field->GetDouble(o));
   } else if (klass->DescriptorEquals("Ljava/lang/Integer;")) {
-    src_class = class_linker->FindPrimitiveClass('I');
+    primitive_type = Primitive::kPrimInt;
     boxed_value.SetI(primitive_field->GetInt(o));
   } else if (klass->DescriptorEquals("Ljava/lang/Long;")) {
-    src_class = class_linker->FindPrimitiveClass('J');
+    primitive_type = Primitive::kPrimLong;
     boxed_value.SetJ(primitive_field->GetLong(o));
   } else if (klass->DescriptorEquals("Ljava/lang/Short;")) {
-    src_class = class_linker->FindPrimitiveClass('S');
+    primitive_type = Primitive::kPrimShort;
     boxed_value.SetS(primitive_field->GetShort(o));
   } else {
     std::string temp;
@@ -854,7 +923,8 @@ static bool UnboxPrimitive(ObjPtr<mirror::Object> o,
   }
 
   return ConvertPrimitiveValue(unbox_for_result,
-                               src_class->GetPrimitiveType(), dst_class->GetPrimitiveType(),
+                               primitive_type,
+                               dst_class->GetPrimitiveType(),
                                boxed_value, unboxed_value);
 }
 

@@ -199,3 +199,27 @@ API_ENTRY(glDrawTexfvOES,
 API_ENTRY(glDrawTexxvOES,
           (const GLfixed *coords),
           (coords))
+
+API_ENTRY(glBindVertexArrayOES,
+          (GLuint array),
+          (array))
+
+API_ENTRY(glDeleteVertexArraysOES,
+          (GLsizei n, const GLuint* arrays),
+          (n, arrays))
+
+API_ENTRY(glGenVertexArraysOES,
+          (GLsizei n, GLuint* arrays),
+          (n, arrays))
+
+API_ENTRY(glIsVertexArrayOES,
+          (GLuint array),
+          (array))
+
+API_ENTRY(glMapBufferOES,
+          (GLenum target, GLenum access),
+          (target, access))
+
+API_ENTRY(glUnmapBufferOES,
+          (GLenum target),
+          (target))

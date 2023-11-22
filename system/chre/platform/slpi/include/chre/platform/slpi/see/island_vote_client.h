@@ -67,6 +67,10 @@ class IslandVoteClient : public NonCopyable {
   void decrementBigImageRefCount();
 
  private:
+  //! The maximum allowed duration to be voted into big image by
+  //! incrementBigImageRefCount before a FATAL_ERROR is triggered.
+  static constexpr Seconds kSeeMaxBigImageDuration = Seconds(300);
+
   //! Last big image request made through voteBigImage().
   bool mLastBigImageRequest = false;
 
@@ -93,11 +97,23 @@ class IslandVoteClient : public NonCopyable {
    * @return true if the vote returned success.
    */
   bool voteSnsPowerMode(bool bigImage);
+
+  /**
+   * Check how long the system has been voted into big image due to
+   * incrementBigImageRefCount. If longer than kSeeMaxBigImageDuration, trigger
+   * a crash.
+   *
+   * @return the duration in milliseconds since the system has been voted into
+   *         big image due to incrementBigImageRefCount.
+   */
+  uint64_t checkBigImageDuration() const;
 #endif  // CHRE_SLPI_UIMG_ENABLED
 };
 
 //! Provides an alias to the IslandVoteClient singleton
 typedef Singleton<IslandVoteClient> IslandVoteClientSingleton;
+
+extern template class Singleton<IslandVoteClient>;
 
 } // namespace chre
 

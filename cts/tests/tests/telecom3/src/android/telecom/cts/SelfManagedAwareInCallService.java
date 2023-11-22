@@ -65,6 +65,15 @@ public class SelfManagedAwareInCallService extends InCallService {
                 return INVALID_STATE;
             }
         }
+
+        public int waitDialingState() {
+            while (true) {
+                int state = waitOnStateChanged();
+                if (state == Call.STATE_DIALING || state == INVALID_STATE) {
+                    return state;
+                }
+            }
+        }
     }
 
     private static final String LOG_TAG="SelfMgAwareICS";

@@ -37,7 +37,7 @@ bool ClassTable::Contains(ObjPtr<mirror::Class> klass) {
   ReaderMutexLock mu(Thread::Current(), lock_);
   TableSlot slot(klass);
   for (ClassSet& class_set : classes_) {
-    auto it = class_set.Find(slot);
+    auto it = class_set.find(slot);
     if (it != class_set.end()) {
       return it->Read() == klass;
     }
@@ -49,19 +49,13 @@ mirror::Class* ClassTable::LookupByDescriptor(ObjPtr<mirror::Class> klass) {
   ReaderMutexLock mu(Thread::Current(), lock_);
   TableSlot slot(klass);
   for (ClassSet& class_set : classes_) {
-    auto it = class_set.Find(slot);
+    auto it = class_set.find(slot);
     if (it != class_set.end()) {
       return it->Read();
     }
   }
   return nullptr;
 }
-
-// To take into account http://b/35845221
-#pragma clang diagnostic push
-#if __clang_major__ < 4
-#pragma clang diagnostic ignored "-Wunreachable-code"
-#endif
 
 mirror::Class* ClassTable::UpdateClass(const char* descriptor, mirror::Class* klass, size_t hash) {
   WriterMutexLock mu(Thread::Current(), lock_);
@@ -87,8 +81,6 @@ mirror::Class* ClassTable::UpdateClass(const char* descriptor, mirror::Class* kl
   *existing_it = TableSlot(klass, hash);
   return existing;
 }
-
-#pragma clang diagnostic pop
 
 size_t ClassTable::CountDefiningLoaderClasses(ObjPtr<mirror::ClassLoader> defining_loader,
                                               const ClassSet& set) const {
@@ -119,14 +111,14 @@ size_t ClassTable::NumReferencedZygoteClasses() const {
   ReaderMutexLock mu(Thread::Current(), lock_);
   size_t sum = 0;
   for (size_t i = 0; i < classes_.size() - 1; ++i) {
-    sum += classes_[i].Size();
+    sum += classes_[i].size();
   }
   return sum;
 }
 
 size_t ClassTable::NumReferencedNonZygoteClasses() const {
   ReaderMutexLock mu(Thread::Current(), lock_);
-  return classes_.back().Size();
+  return classes_.back().size();
 }
 
 mirror::Class* ClassTable::Lookup(const char* descriptor, size_t hash) {
@@ -145,12 +137,12 @@ ObjPtr<mirror::Class> ClassTable::TryInsert(ObjPtr<mirror::Class> klass) {
   TableSlot slot(klass);
   WriterMutexLock mu(Thread::Current(), lock_);
   for (ClassSet& class_set : classes_) {
-    auto it = class_set.Find(slot);
+    auto it = class_set.find(slot);
     if (it != class_set.end()) {
       return it->Read();
     }
   }
-  classes_.back().Insert(slot);
+  classes_.back().insert(slot);
   return klass;
 }
 
@@ -163,12 +155,12 @@ void ClassTable::Insert(ObjPtr<mirror::Class> klass) {
 void ClassTable::CopyWithoutLocks(const ClassTable& source_table) {
   if (kIsDebugBuild) {
     for (ClassSet& class_set : classes_) {
-      CHECK(class_set.Empty());
+      CHECK(class_set.empty());
     }
   }
   for (const ClassSet& class_set : source_table.classes_) {
     for (const TableSlot& slot : class_set) {
-      classes_.back().Insert(slot);
+      classes_.back().insert(slot);
     }
   }
 }
@@ -187,9 +179,9 @@ bool ClassTable::Remove(const char* descriptor) {
   DescriptorHashPair pair(descriptor, ComputeModifiedUtf8Hash(descriptor));
   WriterMutexLock mu(Thread::Current(), lock_);
   for (ClassSet& class_set : classes_) {
-    auto it = class_set.Find(pair);
+    auto it = class_set.find(pair);
     if (it != class_set.end()) {
-      class_set.Erase(it);
+      class_set.erase(it);
       return true;
     }
   }
@@ -268,7 +260,7 @@ size_t ClassTable::WriteToMemory(uint8_t* ptr) const {
   // default in case classes were pruned.
   for (const ClassSet& class_set : classes_) {
     for (const TableSlot& root : class_set) {
-      combined.Insert(root);
+      combined.insert(root);
     }
   }
   const size_t ret = combined.WriteToMemory(ptr);

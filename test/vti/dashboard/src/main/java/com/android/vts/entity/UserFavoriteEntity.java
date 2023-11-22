@@ -19,9 +19,22 @@ package com.android.vts.entity;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.Key;
 import com.google.appengine.api.users.User;
+import com.googlecode.objectify.annotation.Cache;
+import com.googlecode.objectify.annotation.Ignore;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
+@Cache
+@com.googlecode.objectify.annotation.Entity(name = "UserFavorite")
+@EqualsAndHashCode(of = "email")
+@NoArgsConstructor
 /** Entity describing subscriptions between a user and a test. */
 public class UserFavoriteEntity implements DashboardEntity {
     protected static final Logger logger = Logger.getLogger(UserFavoriteEntity.class.getName());
@@ -33,10 +46,17 @@ public class UserFavoriteEntity implements DashboardEntity {
     public static final String TEST_KEY = "testKey";
     public static final String MUTE_NOTIFICATIONS = "muteNotifications";
 
-    private final Key key;
-    public final User user;
-    public final Key testKey;
-    public boolean muteNotifications;
+    @Ignore private Key key = null;
+
+    @Ignore public User user = null;
+
+    @Ignore public Key testKey = null;
+
+    @Getter @Setter private com.googlecode.objectify.Key<TestEntity> test;
+
+    @Getter @Setter private String userEmail;
+
+    @Getter @Setter public boolean muteNotifications;
 
     /**
      * Create a user favorite relationship.
@@ -64,7 +84,12 @@ public class UserFavoriteEntity implements DashboardEntity {
         this(null, user, testKey, muteNotifications);
     }
 
+    /** Saving function for the instance of this class */
     @Override
+    public com.googlecode.objectify.Key<UserFavoriteEntity> save() {
+        return ofy().save().entity(this).now();
+    }
+
     public Entity toEntity() {
         Entity favoriteEntity;
         if (this.key != null) {

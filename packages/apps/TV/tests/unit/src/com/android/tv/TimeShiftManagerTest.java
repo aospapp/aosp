@@ -24,8 +24,8 @@ import static com.android.tv.TimeShiftManager.TIME_SHIFT_ACTION_ID_PLAY;
 import static com.android.tv.TimeShiftManager.TIME_SHIFT_ACTION_ID_REWIND;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.testing.activities.BaseMainActivityTestCase;
 import org.junit.Before;
 import org.junit.Test;

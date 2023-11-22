@@ -116,7 +116,7 @@ class TestMethods(unittest.TestCase):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         host = self._callback_server.ip
         port = self._callback_server.port
-        logging.info('Sending Request to host %s using port %s', host, port)
+        logging.debug('Sending Request to host %s using port %s', host, port)
 
         try:
             # Connect to server and send request_message
@@ -124,12 +124,12 @@ class TestMethods(unittest.TestCase):
 
             message = request_message.SerializeToString()
             sock.sendall(str(len(message)) + "\n" + message)
-            logging.info("Sent: %s", message)
+            logging.debug("Sent: %s", message)
 
             # Receive request_message from the server and shut down
             received_message = sock.recv(1024)
             response_message.ParseFromString(received_message)
-            logging.info('Received: %s', received_message)
+            logging.debug('Received: %s', received_message)
         except socket_error as e:
             logging.error(e)
             raise errors.TcpServerConnectionError('Exception occurred.')
@@ -193,7 +193,6 @@ class TestMethods(unittest.TestCase):
 
         # Function should be registered with RegisterCallback
         func_id = self._callback_server.RegisterCallback(callback_func)
-
         found_func_id = self._callback_server.GetCallbackId(callback_func)
         self.assertEqual(func_id, found_func_id)
 

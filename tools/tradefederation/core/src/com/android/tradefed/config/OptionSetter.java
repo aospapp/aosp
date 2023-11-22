@@ -16,6 +16,7 @@
 
 package com.android.tradefed.config;
 
+import com.android.annotations.VisibleForTesting;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.util.ArrayUtil;
 import com.android.tradefed.util.MultiMap;
@@ -38,7 +39,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Populates {@link Option} fields.
@@ -91,6 +94,7 @@ public class OptionSetter {
         handlers.put(String.class, new StringHandler());
         handlers.put(File.class, new FileHandler());
         handlers.put(TimeVal.class, new TimeValHandler());
+        handlers.put(Pattern.class, new PatternHandler());
     }
 
 
@@ -242,11 +246,11 @@ public class OptionSetter {
 
     /**
      * Container for the list of option fields with given name.
-     * <p/>
-     * Used to enforce constraint that fields with same name can exist in different option sources,
-     * but not the same option source
+     *
+     * <p>Used to enforce constraint that fields with same name can exist in different option
+     * sources, but not the same option source
      */
-    private class OptionFieldsForName implements Iterable<Map.Entry<Object, Field>> {
+    protected class OptionFieldsForName implements Iterable<Map.Entry<Object, Field>> {
 
         private Map<Object, Field> mSourceFieldMap = new HashMap<Object, Field>();
 
@@ -750,6 +754,26 @@ public class OptionSetter {
     }
 
     /**
+     * Runs through all the {@link File} option type and check if their path should be resolved.
+     *
+     * @return The list of {@link File} that was resolved that way.
+     * @throws ConfigurationException
+     */
+    public final Set<File> validateRemoteFilePath() throws ConfigurationException {
+        DynamicRemoteFileResolver resolver = createResolver();
+        resolver.setOptionMap(mOptionMap);
+        return resolver.validateRemoteFilePath();
+    }
+
+    /**
+     * Create a {@link DynamicRemoteFileResolver} that will resolved {@link File} of remote file.
+     */
+    @VisibleForTesting
+    protected DynamicRemoteFileResolver createResolver() {
+        return new DynamicRemoteFileResolver();
+    }
+
+    /**
      * Gets a list of all {@link Option} fields (both declared and inherited) for given class.
      *
      * @param optionClass the {@link Class} to search
@@ -1065,6 +1089,20 @@ public class OptionSetter {
                 return new TimeVal(valueText);
 
             } catch (NumberFormatException ex) {
+                return null;
+            }
+        }
+    }
+
+    private static class PatternHandler extends Handler {
+        /**
+         * We parse the string as a regex pattern, and return a {@code Pattern}
+         */
+        @Override
+        Object translate(String valueText) {
+            try {
+                return Pattern.compile(valueText);
+            } catch (PatternSyntaxException ex) {
                 return null;
             }
         }

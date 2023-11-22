@@ -26,7 +26,6 @@ import android.content.IntentFilter;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.SystemClock;
-import android.test.AndroidTestCase;
 import android.text.format.DateUtils;
 import android.util.Log;
 
@@ -59,7 +58,7 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
-public class DownloadManagerTest extends AndroidTestCase {
+public class DownloadManagerTest extends BaseTestCase {
 
     private static final String HTTP_RESPONSE =
             "HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\nContent-length: 5\r\n\r\nhello";

@@ -16,8 +16,12 @@
 
 package android.telecom.cts;
 
+import android.content.Context;
+import android.database.Cursor;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.CallLog;
 import android.telecom.Call;
 import android.telecom.CallAudioState;
 import android.telecom.Connection;
@@ -29,10 +33,14 @@ import android.telecom.VideoProfile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.Predicate;
 
+import static android.media.AudioManager.MODE_IN_COMMUNICATION;
 import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 import static android.telecom.cts.TestUtils.waitOnAllHandlers;
+
+import static org.junit.Assert.assertNotEquals;
 
 /**
  * CTS tests for the self-managed {@link android.telecom.ConnectionService} APIs.
@@ -49,6 +57,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
     @Override
     protected void setUp() throws Exception {
         super.setUp();
+        NewOutgoingCallBroadcastReceiver.reset();
         mContext = getInstrumentation().getContext();
         if (mShouldTestTelecom) {
             // Register and enable the CTS ConnectionService; we want to be able to test a managed
@@ -231,16 +240,23 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         }
 
         SelfManagedConnection connection = TestUtils.waitForAndGetConnection(address);
+        // Setup content observer to notify us when we call log entry is added.
+        CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
 
         // Expect callback indicating that UI should be shown.
         connection.getOnShowIncomingUiInvokeCounter().waitForCount(1);
         setActiveAndVerify(connection);
 
+        // Ensure that the connection defaulted to voip audio mode.
+        assertTrue(connection.getAudioModeIsVoip());
+        // Ensure AudioManager has correct voip mode.
+        verifyAudioMode();
+
         // Expect there to be no managed calls at the moment.
         assertFalse(mTelecomManager.isInManagedCall());
         assertTrue(mTelecomManager.isInCall());
 
-        setDisconnectedAndVerify(connection);
+        setDisconnectedAndVerify(connection, isLoggedCall(handle), callLogEntryLatch);
     }
 
     /**
@@ -273,6 +289,8 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         CtsSelfManagedConnectionService.waitForBinding();
         assertTrue(CtsSelfManagedConnectionService.getConnectionService().waitForUpdate(
                 CtsSelfManagedConnectionService.CREATE_OUTGOING_CONNECTION_FAILED_LOCK));
+
+        assertFalse(mTelecomManager.isOutgoingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
     }
 
     /**
@@ -285,9 +303,67 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         if (!mShouldTestTelecom) {
             return;
         }
+        assertTrue(mTelecomManager.isOutgoingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
         placeAndVerifyOutgoingCall(TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_1);
+
+        assertTrue(mTelecomManager.isOutgoingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_2));
         placeAndVerifyOutgoingCall(TestUtils.TEST_SELF_MANAGED_HANDLE_2, TEST_ADDRESS_3);
+
+        assertTrue(mTelecomManager.isOutgoingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_3));
         placeAndVerifyOutgoingCall(TestUtils.TEST_SELF_MANAGED_HANDLE_3, TEST_ADDRESS_4);
+    }
+
+    /**
+     * Ensure that a self-managed call which does not declare
+     * {@link PhoneAccount#EXTRA_LOG_SELF_MANAGED_CALLS} will NOT be logged in the call log.
+     * We do this as a separate case because we don't want on the logging latch used in the other
+     * tests if we don't expect a call to be logged (it would make the CTS mighty slow).
+     * @throws Exception
+     */
+    public void testSelfManagedCallNotLogged() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        // First, complete the call which should not be logged.
+        Uri unloggedAddress = getTestNumber();
+        placeAndVerifyOutgoingCall(TestUtils.TEST_SELF_MANAGED_HANDLE_1, unloggedAddress);
+
+        // Next, place a call which we DO expect to be logged.
+        Uri loggedAddress = getTestNumber();
+        placeAndVerifyOutgoingCall(TestUtils.TEST_SELF_MANAGED_HANDLE_2, loggedAddress);
+
+        // The verification code for un-logged numbers doesn't actually wait on the call log latch
+        // since it would cause the tests to all run slow.  However, since we just logged two calls
+        // and the second one would have triggered the call log latch, we can assume that the last
+        // two entries in the call log should:
+        // 1. NOT contain the un-logged call.
+        // 2. CONTAIN the logged call.
+
+        // Lets get the last two entries in the log in descending order by ID.  This means that the
+        // logged call will be first.
+        Cursor callsCursor = mContext.getContentResolver().query(CallLog.Calls.CONTENT_URI, null,
+                null, null, CallLog.Calls._ID + " DESC limit 2;");
+        int numberIndex = callsCursor.getColumnIndex(CallLog.Calls.NUMBER);
+
+        // Check that we see the expected log call.
+        if (callsCursor.moveToNext()) {
+            String number = callsCursor.getString(numberIndex);
+            assertEquals(loggedAddress.getSchemeSpecificPart(), number);
+        } else {
+            fail("Expected a logged call.");
+        }
+
+        // Now check to ensure the call we DID NOT want to have logged is indeed not logged.
+        if (callsCursor.moveToNext()) {
+            // Something else was logged; make sure we did not log the call where the PhoneAccount
+            // does not indicate calls should be logged.
+            String number = callsCursor.getString(numberIndex);
+            assertNotEquals(unloggedAddress.getSchemeSpecificPart(), number);
+        } else {
+            // This is great; there was nothing else in the call log!
+        }
+
     }
 
     private void placeAndVerifyOutgoingCall(PhoneAccountHandle handle, Uri address) throws Exception {
@@ -307,14 +383,25 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         // UI for an outgoing call.
         assertEquals(connection.getOnShowIncomingUiInvokeCounter().getInvokeCount(), 0);
 
+        // Setup content observer to notify us when we call log entry is added.
+        CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
+
         setActiveAndVerify(connection);
+
+        // Ensure that the connection defaulted to voip audio mode.
+        assertTrue(connection.getAudioModeIsVoip());
+        // Ensure AudioManager has correct voip mode.
+        verifyAudioMode();
 
         // Expect there to be no managed calls at the moment.
         assertFalse(mTelecomManager.isInManagedCall());
         // But there should be a call (including self-managed).
         assertTrue(mTelecomManager.isInCall());
 
-        setDisconnectedAndVerify(connection);
+        // Expect that the new outgoing call broadcast did not fire for the self-managed calls.
+        assertFalse(NewOutgoingCallBroadcastReceiver.isNewOutgoingCallBroadcastReceived());
+
+        setDisconnectedAndVerify(connection, isLoggedCall(handle), callLogEntryLatch);
     }
 
     /**
@@ -329,6 +416,9 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
                 TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_1);
         SelfManagedConnection connection = TestUtils.waitForAndGetConnection(TEST_ADDRESS_1);
         setActiveAndVerify(connection);
+
+        // Setup content observer to notify us when we call log entry is added.
+        CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
 
         TestUtils.InvokeCounter counter = connection.getCallAudioStateChangedInvokeCounter();
         counter.waitForCount(WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
@@ -347,6 +437,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
                 ? CallAudioState.ROUTE_WIRED_HEADSET
                 : CallAudioState.ROUTE_EARPIECE;
 
+        counter.clearArgs();
         connection.setAudioRoute(CallAudioState.ROUTE_SPEAKER);
         counter.waitForPredicate(new Predicate<CallAudioState>() {
                 @Override
@@ -355,6 +446,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
                 }
             }, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
 
+        counter.clearArgs();
         connection.setAudioRoute(secondRoute);
         counter.waitForPredicate(new Predicate<CallAudioState>() {
             @Override
@@ -367,7 +459,8 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
             // connected.
             connection.requestBluetoothAudio(TestUtils.BLUETOOTH_DEVICE1);
         }
-        setDisconnectedAndVerify(connection);
+        setDisconnectedAndVerify(connection, isLoggedCall(TestUtils.TEST_SELF_MANAGED_HANDLE_1),
+                callLogEntryLatch);
     }
     /**
      * Tests that Telecom will allow the incoming call while the number of self-managed call is not
@@ -385,13 +478,18 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         SelfManagedConnection connection = TestUtils.waitForAndGetConnection(TEST_ADDRESS_1);
         setActiveAndVerify(connection);
 
+        // Setup content observer to notify us when we call log entry is added.
+        CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
+
+        assertTrue(mTelecomManager.isIncomingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_2));
         // Attempt to create a new incoming call for the other PhoneAccount; it should succeed.
         TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager,
                 TestUtils.TEST_SELF_MANAGED_HANDLE_2, TEST_ADDRESS_2);
         SelfManagedConnection connection2 = TestUtils.waitForAndGetConnection(TEST_ADDRESS_2);
 
         connection2.disconnectAndDestroy();
-        setDisconnectedAndVerify(connection);
+        setDisconnectedAndVerify(connection, isLoggedCall(TestUtils.TEST_SELF_MANAGED_HANDLE_1),
+                callLogEntryLatch);
     }
 
     /**
@@ -402,17 +500,23 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
             return;
         }
 
+        assertTrue(mTelecomManager.isIncomingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
         // Attempt to create a new Incoming self-managed call
         TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager,
                 TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_1);
         SelfManagedConnection connection = TestUtils.waitForAndGetConnection(TEST_ADDRESS_1);
+
+        // Setup content observer to notify us when we call log entry is added.
+        CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
+
         setActiveAndVerify(connection);
 
         // The ConnectionService has gained the focus
         assertTrue(CtsSelfManagedConnectionService.getConnectionService().waitForUpdate(
                 CtsSelfManagedConnectionService.FOCUS_GAINED_LOCK));
 
-        setDisconnectedAndVerify(connection);
+        setDisconnectedAndVerify(connection, isLoggedCall(TestUtils.TEST_SELF_MANAGED_HANDLE_1),
+                callLogEntryLatch);
     }
 
     public void testSelfManagedConnectionServiceLostFocus() throws Exception {
@@ -455,6 +559,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         SelfManagedConnection connection = TestUtils.waitForAndGetConnection(TEST_ADDRESS_1);
         connection.setRinging();
 
+        assertFalse(mTelecomManager.isIncomingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
         // WHEN create a new incoming call for the the same PhoneAccount
         TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager,
                 TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_1);
@@ -479,6 +584,8 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         for (int ix = 0; ix < 10; ix++) {
             Uri address = Uri.fromParts("sip", "test" + ix + "@test.com", null);
             // Create an ongoing call in the first self-managed PhoneAccount.
+            assertTrue(mTelecomManager.isOutgoingCallPermitted(
+                    TestUtils.TEST_SELF_MANAGED_HANDLE_1));
             TestUtils.placeOutgoingCall(getInstrumentation(), mTelecomManager,
                     TestUtils.TEST_SELF_MANAGED_HANDLE_1, address);
             SelfManagedConnection connection = TestUtils.waitForAndGetConnection(address);
@@ -487,6 +594,7 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
         }
 
         // Try adding an 11th.  It should fail to be created.
+        assertFalse(mTelecomManager.isIncomingCallPermitted(TestUtils.TEST_SELF_MANAGED_HANDLE_1));
         TestUtils.addIncomingCall(getInstrumentation(), mTelecomManager,
                 TestUtils.TEST_SELF_MANAGED_HANDLE_1, TEST_ADDRESS_2);
         assertTrue("Expected onCreateIncomingConnectionFailed callback",
@@ -550,14 +658,38 @@ public class SelfManagedConnectionServiceTest extends BaseTelecomTestWithMockSer
     /**
      * Sets a connection to be disconnected, and then waits until the TelecomManager reports it is
      * no longer in a call.
-     *
      * @param connection The connection to disconnect/destroy.
+     * @param shouldCallBeLogged When {@code true} verify the call was logged; when {@code false}
+     * @param callLogLatch
      */
-    private void setDisconnectedAndVerify(SelfManagedConnection connection) {
+    private void setDisconnectedAndVerify(SelfManagedConnection connection,
+            boolean shouldCallBeLogged, CountDownLatch callLogLatch) {
         // Now, disconnect call and clean it up.
         connection.disconnectAndDestroy();
 
         assertIsInCall(false);
         assertIsInManagedCall(false);
+
+        // Verify that an entry was written to the call log for the call if applicable.
+        verifyCallLogging(callLogLatch, shouldCallBeLogged, connection.getAddress());
+    }
+
+    private void verifyAudioMode() {
+        AudioManager am = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return MODE_IN_COMMUNICATION;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        return am.getMode();
+                    }
+                },
+                WAIT_FOR_STATE_CHANGE_TIMEOUT_MS,
+                "Expected audio mode to be " + MODE_IN_COMMUNICATION
+        );
     }
 }

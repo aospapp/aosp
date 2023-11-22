@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Notfallinformationen"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Medizinische Informationen"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Informationen bearbeiten"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Informationen hinzufügen"</string>
     <string name="edit_info" msgid="5973929805855224805">"Notfallinformationen bearbeiten"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Info"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Kontakte"</string>
@@ -82,7 +82,7 @@
     <string name="medical_conditions_hint" msgid="6959152183029062882">"Beispiel: Asthma"</string>
     <string name="organ_donor" msgid="5953509460007124827">"Organspender"</string>
     <string name="unknown_organ_donor" msgid="2780515342875494225">"Unbekannt"</string>
-    <string name="yes" msgid="5829765567799916128">"\"Ja\""</string>
+    <string name="yes" msgid="5829765567799916128">"Ja"</string>
     <string name="no" msgid="1681689233660683509">"Nein"</string>
     <!-- no translation found for organ_donor_entries:0 (4680498266537823362) -->
     <!-- no translation found for organ_donor_entries:1 (4906312680266515592) -->
@@ -96,7 +96,7 @@
     <string name="fail_add_contact" msgid="6511490846952942291">"Kontaktdaten können nicht richtig gelesen werden"</string>
     <string name="remove" msgid="1243949503772376064">"Entfernen"</string>
     <string name="cancel" msgid="7401575239009060939">"Abbrechen"</string>
-    <string name="ok" msgid="163967937451981024">"OK"</string>
+    <string name="ok" msgid="163967937451981024">"Ok"</string>
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Keine Informationen über den Eigentümer des Smartphones verfügbar"</string>
     <string name="tap_pencil" msgid="2723698054265296934">"Wenn du der Eigentümer dieses Smartphones bist, tippe auf das Stiftsymbol, um Informationen hinzuzufügen, die im Notfall eingeblendet werden"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Medizinische Informationen und Kontaktangaben können Ersthelfern im Notfall sehr helfen.\n\nDiese Angaben sind für alle auf dem Sperrbildschirm sichtbar und die Kontakte können durch einfaches Tippen auf den Namen angerufen werden, ohne dass dein Smartphone entsperrt werden muss."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Notfallinformationen hinzufügen"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Deine Informationen für Ersthelfer"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Foto aufnehmen"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Bild auswählen"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Foto auswählen"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Alias"</string>
 </resources>

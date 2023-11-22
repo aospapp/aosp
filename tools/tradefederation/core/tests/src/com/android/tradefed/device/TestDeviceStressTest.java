@@ -120,7 +120,7 @@ public class TestDeviceStressTest extends DeviceTestCase {
             // device before the test start.
             tmpDir = createTempTestFiles();
             for (int i = 0; i < mIterations; i++) {
-                mTestDevice.executeShellCommand(String.format("rm -r %s", deviceFilePath));
+                mTestDevice.deleteFile(deviceFilePath);
                 assertFalse(String.format("%s exists", deviceFilePath),
                         mTestDevice.doesFileExist(deviceFilePath));
                 assertTrue(mTestDevice.pushDir(tmpDir, deviceFilePath));
@@ -130,7 +130,7 @@ public class TestDeviceStressTest extends DeviceTestCase {
             if (tmpDir != null) {
                 FileUtil.recursiveDelete(tmpDir);
             }
-            mTestDevice.executeShellCommand(String.format("rm -r %s", deviceFilePath));
+            mTestDevice.deleteFile(deviceFilePath);
             assertFalse(String.format("%s exists", deviceFilePath),
                     mTestDevice.doesFileExist(deviceFilePath));
         }
@@ -159,7 +159,7 @@ public class TestDeviceStressTest extends DeviceTestCase {
             if (tmpDir != null) {
                 FileUtil.recursiveDelete(tmpDir);
             }
-            mTestDevice.executeShellCommand(String.format("rm -r %s", deviceFilePath));
+            mTestDevice.deleteFile(deviceFilePath);
             assertFalse(String.format("%s exists", deviceFilePath),
                     mTestDevice.doesFileExist(deviceFilePath));
         }

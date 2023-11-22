@@ -39,8 +39,7 @@ class BinderThroughputBenchmark(base_test.BaseTestClass):
     """A test case for the binder throughput benchmarking."""
 
     def setUpClass(self):
-        self.dut = self.registerController(android_device)[0]
-        self.dut.shell.InvokeTerminal("one")
+        self.dut = self.android_devices[0]
         self._cpu_freq = cpu_frequency_scaling.CpuFrequencyScalingController(self.dut)
         self._cpu_freq.DisableCpuScaling()
 
@@ -150,7 +149,7 @@ class BinderThroughputBenchmark(base_test.BaseTestClass):
         logging.info("Start to run the benchmark (%s bit mode)", bits)
         binary = "/data/local/tmp/%s/binderThroughputTest%s" % (bits, bits)
 
-        results = self.dut.shell.one.Execute(
+        results = self.dut.shell.Execute(
             ["chmod 755 %s" % binary,
              "LD_LIBRARY_PATH=/data/local/tmp/%s/hw:"
              "/data/local/tmp/%s:"

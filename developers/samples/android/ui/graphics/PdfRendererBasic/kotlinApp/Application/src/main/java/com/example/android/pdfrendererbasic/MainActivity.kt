@@ -16,24 +16,27 @@
 
 package com.example.android.pdfrendererbasic
 
-import android.app.AlertDialog
+import android.app.Dialog
 import android.os.Bundle
-import android.support.v7.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
-
-val FRAGMENT_PDF_RENDERER_BASIC = "pdf_renderer_basic"
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.DialogFragment
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        const val FRAGMENT_INFO = "info"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main_real)
+        setContentView(R.layout.main_activity)
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
-                    .add(R.id.container, PdfRendererBasicFragment(), FRAGMENT_PDF_RENDERER_BASIC)
-                    .commit()
+                    .replace(R.id.container, PdfRendererBasicFragment())
+                    .commitNow()
         }
     }
 
@@ -45,13 +48,19 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_info -> {
-                AlertDialog.Builder(this)
-                        .setMessage(R.string.intro_message)
-                        .setPositiveButton(android.R.string.ok, null)
-                        .show()
+                InfoFragment().show(supportFragmentManager, FRAGMENT_INFO)
                 return true
             }
             else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    class InfoFragment : DialogFragment() {
+        override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+            return AlertDialog.Builder(requireContext())
+                    .setMessage(R.string.intro_message)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
         }
     }
 

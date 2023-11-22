@@ -18,10 +18,10 @@ package com.android.settings.notification;
 
 import static android.provider.Settings.Secure.NOTIFICATION_BADGING;
 
-import android.app.NotificationChannel;
 import android.content.Context;
 import android.provider.Settings;
-import android.support.v7.preference.Preference;
+
+import androidx.preference.Preference;
 
 import com.android.settings.core.PreferenceControllerMixin;
 import com.android.settingslib.RestrictedSwitchPreference;
@@ -60,7 +60,7 @@ public class BadgePreferenceController extends NotificationPreferenceController
             if (isDefaultChannel()) {
                 return true;
             } else {
-                return mAppRow.showBadge;
+                return mAppRow == null ? false : mAppRow.showBadge;
             }
         }
         return true;
@@ -72,7 +72,7 @@ public class BadgePreferenceController extends NotificationPreferenceController
             pref.setDisabledByAdmin(mAdmin);
             if (mChannel != null) {
                 pref.setChecked(mChannel.canShowBadge());
-                pref.setEnabled(isChannelConfigurable() && !pref.isDisabledByAdmin());
+                pref.setEnabled(!pref.isDisabledByAdmin());
             } else {
                 pref.setChecked(mAppRow.showBadge);
             }

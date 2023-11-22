@@ -268,23 +268,26 @@ AllocateRamdisk (
 
   ASSERT (IS_POWER_OF_2 (Header->PageSize));
 
-  Address = (EFI_PHYSICAL_ADDRESS)(UINTN)Header->RamdiskAddress;
-  Status = gBS->AllocatePages (
-                  AllocateAddress, EfiBootServicesData,
-                  EFI_SIZE_TO_PAGES (Header->RamdiskSize), &Address);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-  Source = (VOID *) (BootImgBytePtr + Header->PageSize +
-                     ALIGN_VALUE (Header->KernelSize, Header->PageSize));
-  CopyMem ((VOID *)(UINTN)Address, Source, Header->RamdiskSize);
-  // Set the ramdisk in command line arguments
-  if (KernelArgs != NULL) {
-    UnicodeSPrint (
-      (CHAR16 *)KernelArgs + StrLen (KernelArgs), BOOTIMG_KERNEL_ARGS_SIZE,
-      L" initrd=0x%x,0x%x",
-      (UINTN)Address, Header->RamdiskSize
-      );
+  Status = EFI_SUCCESS;
+  if (Header->RamdiskAddress && Header->RamdiskSize) {
+    Address = (EFI_PHYSICAL_ADDRESS)(UINTN)Header->RamdiskAddress;
+    Status = gBS->AllocatePages (
+                    AllocateAddress, EfiBootServicesData,
+                    EFI_SIZE_TO_PAGES (Header->RamdiskSize), &Address);
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+    Source = (VOID *) (BootImgBytePtr + Header->PageSize +
+                       ALIGN_VALUE (Header->KernelSize, Header->PageSize));
+    CopyMem ((VOID *)(UINTN)Address, Source, Header->RamdiskSize);
+    // Set the ramdisk in command line arguments
+    if (KernelArgs != NULL) {
+      UnicodeSPrint (
+        (CHAR16 *)KernelArgs + StrLen (KernelArgs), BOOTIMG_KERNEL_ARGS_SIZE,
+        L" initrd=0x%x,0x%x",
+        (UINTN)Address, Header->RamdiskSize
+        );
+    }
   }
   return Status;
 }

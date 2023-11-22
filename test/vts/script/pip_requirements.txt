@@ -1,11 +1,15 @@
 # Required packages for VTS Runner
+pip>=9.0.0
 enum
 future
 futures
 google-api-python-client
-google-cloud-pubsub
+google-auth>=1.4.2
+google-cloud-storage
 httplib2
+oauth2client
 protobuf
+pyserial
 requests
 setuptools
 
@@ -21,3 +25,6 @@ ply
 
 # Required packages for USB gadget tests
 libusb1
+
+# Required packages for unit tests
+mock

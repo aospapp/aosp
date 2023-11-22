@@ -17,7 +17,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
   <string-array name="recents_tv_blacklist_array">
-    <item msgid="9050240242608018713">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‏‏‏‏‎‏‎‎‏‎‏‏‏‏‏‏‏‏‏‏‏‎‏‏‎‎‏‏‎‎‎‏‏‏‎‏‎‎‏‏‎‎‎‏‏‎‎‏‏‏‎‏‎‎‎‏‎‎‏‏‎‎‎‏‎‎‏‎‏‎‏‎‎‎‏‏‎‎‏‎com.google.android.tv.remote.service‎‏‎‎‏‎"</item>
-    <item msgid="8901636675968723687">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‏‏‏‏‎‏‎‎‏‎‏‏‏‏‏‏‏‏‏‏‎‏‏‏‎‎‎‏‎‎‎‏‏‏‏‎‏‏‏‎‏‏‎‎‏‎‎‏‏‎‏‎‏‏‎‏‎‏‏‎‏‎‎‎‏‏‎‏‎‏‎‏‏‏‎‎‏‏‏‎com.google.android.apps.mediashell‎‏‎‎‏‎"</item>
+    <item msgid="9050240242608018713">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‏‏‏‏‎‏‎‎‏‎‏‏‏‏‏‏‏‏‏‏‏‎‏‏‎‎‏‏‎‎‎‏‏‏‎‏‎‎‏‏‎‎‎‏‏‎‎‏‏‏‎‏‎‎‎‏‎‎‏‏‎‎‎‏‎‎‏‎‏‎‏‎‎‎‏‏‎‎‏‎com.google.android.tv.remote.service‎‏‎‎‏‎"</item>
+    <item msgid="8901636675968723687">"‎‏‎‎‎‎‎‏‎‏‏‏‎‎‎‎‎‏‏‏‏‎‏‎‎‏‎‏‏‏‏‏‏‏‏‏‏‎‏‏‏‎‎‎‏‎‎‎‏‏‏‏‎‏‏‏‎‏‏‎‎‏‎‎‏‏‎‏‎‏‏‎‏‎‏‏‎‏‎‎‎‏‏‎‏‎‏‎‏‏‏‎‎‏‏‏‎com.google.android.apps.mediashell‎‏‎‎‏‎"</item>
   </string-array>
 </resources>

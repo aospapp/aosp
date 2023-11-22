@@ -18,9 +18,10 @@ package com.android.tv.settings.device.apps;
 
 import android.content.Context;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.v17.leanback.widget.GuidanceStylist;
 import android.text.format.Formatter;
+
+import androidx.annotation.NonNull;
+import androidx.leanback.widget.GuidanceStylist;
 
 import com.android.settingslib.applications.ApplicationsState;
 import com.android.tv.settings.R;

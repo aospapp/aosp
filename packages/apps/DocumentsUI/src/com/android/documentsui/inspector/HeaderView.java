@@ -20,16 +20,14 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.graphics.drawable.Drawable;
-import android.text.Selection;
-import android.text.Spannable;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 import android.widget.RelativeLayout;
-import android.widget.TextView;
 
+import com.android.documentsui.IconUtils;
 import com.android.documentsui.ProviderExecutor;
 import com.android.documentsui.R;
 import com.android.documentsui.ThumbnailLoader;
@@ -49,7 +47,6 @@ public final class HeaderView extends RelativeLayout implements HeaderDisplay {
     private final Context mContext;
     private final View mHeader;
     private ImageView mThumbnail;
-    private final TextView mTitle;
     private Point mImageDimensions;
 
     public HeaderView(Context context) {
@@ -67,7 +64,6 @@ public final class HeaderView extends RelativeLayout implements HeaderDisplay {
         mContext = context;
         mHeader = inflater.inflate(R.layout.inspector_header, null);
         mThumbnail = (ImageView) mHeader.findViewById(R.id.inspector_thumbnail);
-        mTitle = (TextView) mHeader.findViewById(R.id.inspector_file_title);
 
         int width = (int) Display.screenWidth((Activity)context);
         int height = mContext.getResources().getDimensionPixelSize(R.dimen.inspector_header_height);
@@ -76,15 +72,8 @@ public final class HeaderView extends RelativeLayout implements HeaderDisplay {
     }
 
     @Override
-    public void accept(DocumentInfo info, String displayName) {
+    public void accept(DocumentInfo info) {
         loadHeaderImage(info);
-        mTitle.setText(displayName);
-        mTitle.setCustomSelectionActionModeCallback(
-                new HeaderTextSelector(mTitle, this::selectText));
-    }
-
-    private void selectText(Spannable text, int start, int stop) {
-        Selection.setSelection(text, start, stop);
     }
 
     private void loadHeaderImage(DocumentInfo doc) {
@@ -110,14 +99,10 @@ public final class HeaderView extends RelativeLayout implements HeaderDisplay {
      */
     private void showImage(DocumentInfo info, @Nullable Bitmap thumbnail) {
         if (thumbnail != null) {
-            mThumbnail.resetPaddingToInitialValues();
             mThumbnail.setScaleType(ScaleType.CENTER_CROP);
             mThumbnail.setImageBitmap(thumbnail);
         } else {
-            mThumbnail.setPadding(0, 0, 0, mTitle.getHeight());
-
-            Drawable mimeIcon =
-                    mContext.getContentResolver().getTypeDrawable(info.mimeType);
+            Drawable mimeIcon = IconUtils.loadMimeIcon(mContext, info.mimeType);
             mThumbnail.setScaleType(ScaleType.FIT_CENTER);
             mThumbnail.setImageDrawable(mimeIcon);
         }

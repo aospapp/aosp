@@ -26,7 +26,7 @@
     <string name="deletion_helper_app_summary_never_used" msgid="2695210890063792461">"കഴിഞ്ഞ വർഷം ഉപയോഗിച്ചിട്ടില്ല"</string>
     <string name="deletion_helper_app_summary_unknown_used" msgid="8576377054665785558">"അവസാനം ഉപയോഗിച്ചതെപ്പോഴെന്ന് അറിയില്ല"</string>
     <string name="deletion_helper_free_button" msgid="1760529213407548661">"<xliff:g id="FREEABLE">%1$s</xliff:g> ഇടം സൃഷ്ടിക്കുക"</string>
-    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"ബാക്കപ്പുചെയ്ത ഫോട്ടോകളും വീഡിയോകളും"</string>
+    <string name="deletion_helper_photos_title" msgid="2602723121486729972">"ബാക്കപ്പ് ചെയ്ത ഫോട്ടോകളും വീഡിയോകളും"</string>
     <string name="deletion_helper_photos_age_summary" msgid="1820871709448371984">"30 ദിവസത്തിലധികം പഴയത്"</string>
     <!-- no translation found for deletion_helper_photos_summary (3194825464552700889) -->
     <skip />

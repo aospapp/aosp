@@ -14,7 +14,8 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-       package="com.android.cts.simpleappinstall">
+       package="com.android.cts.simpleappinstall"
+       android:targetSandboxVersion="2">
 
     <!--
     A simple app to test that apps cannot be installed over existing app with

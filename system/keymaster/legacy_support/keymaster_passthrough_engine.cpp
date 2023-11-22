@@ -28,7 +28,7 @@
 #include <type_traits>
 
 #define LOG_TAG "Keymaster2Engine"
-#include <cutils/log.h>
+#include <android/log.h>
 
 using std::shared_ptr;
 using std::unique_ptr;

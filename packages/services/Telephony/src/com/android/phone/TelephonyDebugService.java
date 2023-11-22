@@ -16,12 +16,12 @@
 
 package com.android.phone;
 
-import com.android.internal.telephony.DebugService;
-
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
+
+import com.android.internal.telephony.DebugService;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;

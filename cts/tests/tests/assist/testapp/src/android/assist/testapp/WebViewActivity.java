@@ -16,32 +16,26 @@
 
 package android.assist.testapp;
 
-import android.app.Activity;
 import android.assist.common.MyWebView;
 import android.assist.common.Utils;
-import android.content.Context;
-import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-public class WebViewActivity extends Activity {
+public class WebViewActivity extends BaseThirdPartyActivity {
     static final String TAG = "WebViewActivity";
-
-    private String mTestCaseName;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Log.i(TAG, "TestApp created");
-        mTestCaseName = getIntent().getStringExtra(Utils.TESTCASE_TYPE);
         setContentView(R.layout.webview);
-        MyWebView webview = (MyWebView) findViewById(R.id.webview);
+        MyWebView webview = findViewById(R.id.webview);
         webview.setWebViewClient(new WebViewClient() {
             @Override
-            public void onPageFinished(WebView view, String url){
-                sendBroadcast(new Intent(Utils.APP_3P_HASRESUMED));
+            public void onPageFinished(WebView view, String url) {
+                WebViewActivity.this.notify(Utils.APP_3P_HASRESUMED);
             }
         });
         webview.myLoadData(Utils.WEBVIEW_HTML_URL, Utils.WEBVIEW_HTML, "text/html", "UTF-8");

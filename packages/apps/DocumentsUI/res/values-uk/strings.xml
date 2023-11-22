@@ -36,6 +36,8 @@
     <string name="menu_share" msgid="4307140947108068356">"Надіслати"</string>
     <string name="menu_delete" msgid="1022254131543256626">"Видалити"</string>
     <string name="menu_select_all" msgid="7600576812185570403">"Вибрати все"</string>
+    <string name="menu_select" msgid="1366061076507142387">"Вибрати"</string>
+    <string name="menu_sort" msgid="3362419226163725275">"Сортувати за…"</string>
     <string name="menu_copy" msgid="7404820171352314754">"Копіювати в…"</string>
     <string name="menu_move" msgid="2310760789561129882">"Перемістити в…"</string>
     <string name="menu_compress" msgid="37539111904724188">"Стиснути"</string>
@@ -65,9 +67,20 @@
     <string name="sort_dimension_file_type" msgid="5779709622922085381">"Тип"</string>
     <string name="sort_dimension_size" msgid="2190547351159472884">"Розмір"</string>
     <string name="sort_dimension_date" msgid="4231005651895254033">"Змінено"</string>
+    <string name="sort_dimension_name_ascending" msgid="3715725253270614742">"назвою файлу (А–Я)"</string>
+    <string name="sort_dimension_file_type_ascending" msgid="3466973933402894292">"типом (А–Я)"</string>
+    <string name="sort_dimension_size_ascending" msgid="2617359017800057762">"розміром (спершу менші)"</string>
+    <string name="sort_dimension_date_ascending" msgid="7920068979386920559">"змінами (спершу старіші)"</string>
+    <string name="sort_dimension_name_descending" msgid="1514525521100423342">"назвою файлу (Я–А)"</string>
+    <string name="sort_dimension_file_type_descending" msgid="3344796059784511100">"типом (Я–А)"</string>
+    <string name="sort_dimension_size_descending" msgid="2367030017597348938">"розміром (спершу більші)"</string>
+    <string name="sort_dimension_date_descending" msgid="5466839955763127113">"змінами (спершу новіші)"</string>
+    <string name="sort_dimension_dialog_title" msgid="3048641573962982157">"Сортувати за"</string>
+    <string name="sort_dimension_button_title" msgid="1898606989130896126">"Посортовано за <xliff:g id="LABEL">%s</xliff:g>"</string>
     <string name="directory_items" msgid="6645621978998614003">"Кількість елементів"</string>
     <string name="sort_direction_ascending" msgid="5882787683763248102">"За зростанням"</string>
     <string name="sort_direction_descending" msgid="1729187589765894076">"За спаданням"</string>
+    <string name="open_external_app" msgid="7107920381038980086">"Відкрити додаток <xliff:g id="APPNAME">%1$s</xliff:g>"</string>
     <string name="drawer_open" msgid="8071673398187261741">"Показати кореневі каталоги"</string>
     <string name="drawer_close" msgid="4263880768630848848">"Сховати кореневі каталоги"</string>
     <string name="save_error" msgid="8631128801982095782">"Не вдалося зберегти документ"</string>
@@ -204,7 +217,6 @@
     <string name="open_external_dialog_request" msgid="8173558471322861268">"Надати додатку <xliff:g id="APPNAME"><b>^1</b></xliff:g> доступ до каталогу \"<xliff:g id="DIRECTORY"><i>^2</i></xliff:g>\" на пристрої пам’яті <xliff:g id="STORAGE"><i>^3</i></xliff:g>?"</string>
     <string name="open_external_dialog_request_primary_volume" msgid="2240992164087948176">"Надати додатку <xliff:g id="APPNAME"><b>^1</b></xliff:g> доступ до каталогу \"<xliff:g id="DIRECTORY"><i>^2</i></xliff:g>\"?"</string>
     <string name="open_external_dialog_root_request" msgid="6776729293982633">"Надати додатку <xliff:g id="APPNAME"><b>^1</b></xliff:g> доступ до ваших даних, зокрема до фотографій і відео на пристрої пам’яті <xliff:g id="STORAGE"><i>^2</i></xliff:g>?"</string>
-    <string name="never_ask_again" msgid="525908236522201138">"Не запитувати знову"</string>
     <string name="allow" msgid="1275746941353040309">"Дозволити"</string>
     <string name="deny" msgid="5127201668078153379">"Відхилити"</string>
     <plurals name="elements_selected" formatted="false" msgid="4448165978637163692">
@@ -248,4 +260,35 @@
     <string name="new_archive_file_name" msgid="1604650338077249838">"archive<xliff:g id="EXTENSION">%s</xliff:g>"</string>
     <string name="overwrite_file_confirmation_message" msgid="2496109652768222716">"Замінити назву \"<xliff:g id="NAME">%1$s</xliff:g>\"?"</string>
     <string name="continue_in_background" msgid="1974214559047793331">"Продовжити у фоновому режимі"</string>
+    <plurals name="selected_count" formatted="false" msgid="7555250236512981129">
+      <item quantity="one">Вибрано <xliff:g id="COUNT_1">%1$d</xliff:g></item>
+      <item quantity="few">Вибрано <xliff:g id="COUNT_1">%1$d</xliff:g></item>
+      <item quantity="many">Вибрано <xliff:g id="COUNT_1">%1$d</xliff:g></item>
+      <item quantity="other">Вибрано <xliff:g id="COUNT_1">%1$d</xliff:g></item>
+    </plurals>
+    <string name="root_info_header_recent" msgid="8754386597210017725">"Останні файли на телефоні"</string>
+    <string name="root_info_header_global_search" msgid="9099308729787003373">"Файли на телефоні"</string>
+    <string name="root_info_header_media" msgid="2774453755906260852">"<xliff:g id="LABEL">%1$s</xliff:g> на телефоні"</string>
+    <string name="root_info_header_storage" msgid="2989014130584927442">"Файли на пристрої <xliff:g id="DEVICE">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app" msgid="2125422047558420885">"Файли зі сховища даних <xliff:g id="LABEL">%1$s</xliff:g>"</string>
+    <string name="root_info_header_app_with_summary" msgid="3223302581236069702">"Файли зі сховища даних <xliff:g id="LABEL">%1$s</xliff:g>/<xliff:g id="SUMMARY">%2$s</xliff:g>"</string>
+    <string name="root_info_header_image_recent" msgid="6252335619444758201">"Нещодавні зображення на телефоні"</string>
+    <string name="root_info_header_image_global_search" msgid="7945533325610533016">"Зображення на телефоні"</string>
+    <string name="root_info_header_image_storage" msgid="5086740886360075930">"<xliff:g id="DEVICE">%1$s</xliff:g>: зображення"</string>
+    <string name="root_info_header_image_app" msgid="4858114210851525359">"<xliff:g id="LABEL">%1$s</xliff:g>: зображення"</string>
+    <string name="root_info_header_image_app_with_summary" msgid="6404842960923224778">"<xliff:g id="LABEL">%1$s</xliff:g>: зображення (<xliff:g id="SUMMARY">%2$s</xliff:g>)"</string>
+    <string name="chip_title_images" msgid="7838299046109841015">"Зображення"</string>
+    <string name="chip_title_audio" msgid="1032801828748235436">"Аудіо"</string>
+    <string name="chip_title_videos" msgid="7011260091979776447">"Відео"</string>
+    <string name="chip_title_documents" msgid="7432457563000753983">"Документи"</string>
+    <string name="input_hint_new_folder" msgid="479672411219725677">"Назва папки"</string>
+    <string name="input_hint_rename" msgid="8390711744270994452">"Нова назва"</string>
+    <string name="preview_file" msgid="4056622696305432343">"Переглянути файл \"<xliff:g id="FILENAME">%1$s</xliff:g>\""</string>
+    <string name="apps_row_title" msgid="3340490016663092925">"Переглянути файли в інших додатках"</string>
+    <string name="anonymous_application" msgid="7633027057951625862">"Анонімно"</string>
+    <string name="open_tree_button" msgid="19992834788135845">"Дозволити доступ до каталогу \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\""</string>
+    <string name="open_tree_dialog_title" msgid="8429465292253532274">"<xliff:g id="ROOT">%2$s</xliff:g>: дозволити доступ до каталогу \"<xliff:g id="DIRECTORY">%1$s</xliff:g>\"?"</string>
+    <string name="open_tree_dialog_message" msgid="8545093618524340168">"Додаток <xliff:g id="APPNAME">%1$s</xliff:g> матиме повний доступ до файлів, які зараз зберігаються в цьому каталозі, і до вмісту, який буде зберігатися тут у майбутньому."</string>
+    <string name="search_bar_hint" msgid="4517366509897977321">"Пошук на цьому телефоні"</string>
+    <string name="delete_search_history" msgid="2202015025607694515">"Видалити історію пошуку (<xliff:g id="TEXT">%1$s</xliff:g>)"</string>
 </resources>

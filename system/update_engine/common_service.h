@@ -20,6 +20,7 @@
 #include <inttypes.h>
 
 #include <string>
+#include <vector>
 
 #include <base/memory/ref_counted.h>
 #include <brillo/errors/error.h>
@@ -51,6 +52,13 @@ class UpdateEngineService {
                      const std::string& in_omaha_url,
                      int32_t in_flags_as_int,
                      bool* out_result);
+
+  // Attempts a DLC module install operation.
+  // |omaha_url|: the URL to query for update.
+  // |dlc_module_ids|: a list of DLC module IDs.
+  bool AttemptInstall(brillo::ErrorPtr* error,
+                      const std::string& omaha_url,
+                      const std::vector<std::string>& dlc_module_ids);
 
   bool AttemptRollback(brillo::ErrorPtr* error, bool in_powerwash);
 
@@ -113,6 +121,12 @@ class UpdateEngineService {
   // with an error since this setting is overridden by the applied policy.
   bool SetUpdateOverCellularPermission(brillo::ErrorPtr* error,
                                        bool in_allowed);
+
+  // If there's no device policy installed, sets the update over cellular
+  // target. Otherwise, this method returns with an error.
+  bool SetUpdateOverCellularTarget(brillo::ErrorPtr* error,
+                                   const std::string& target_version,
+                                   int64_t target_size);
 
   // Returns the current value of the update over cellular network setting,
   // either forced by the device policy if the device is enrolled or the current

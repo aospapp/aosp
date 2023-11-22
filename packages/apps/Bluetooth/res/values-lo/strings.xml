@@ -84,8 +84,8 @@
     <string name="bt_toast_4" msgid="4678812947604395649">"ກຳລັງສົ່ງໄຟລ໌ໄປຫາ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\""</string>
     <string name="bt_toast_5" msgid="2846870992823019494">"ກຳລັງສົ່ງ <xliff:g id="NUMBER">%1$s</xliff:g> ໄຟລ​໌​ໄປຫາ \"<xliff:g id="RECIPIENT">%2$s</xliff:g>\""</string>
     <string name="bt_toast_6" msgid="1855266596936622458">"ຢຸດການສົ່ງໄຟລ໌ໄປຫາ \"<xliff:g id="RECIPIENT">%1$s</xliff:g>\" ແລ້ວ"</string>
-    <string name="bt_sm_2_1" product="nosdcard" msgid="352165168004521000">"ບ່ອນຈັດເກັບຂໍ້ມູນ USB  ບໍ່ພຽງພໍທີ່ຈະບັນທຶກໄຟລ໌ດັ່ງກ່າວຈາກ \"<xliff:g id="SENDER">%1$s</xliff:g>\""</string>
-    <string name="bt_sm_2_1" product="default" msgid="1989018443456803630">"ບ່ອນຈັດເກັບຂໍ້ມູນ SD card ບໍ່ພຽງພໍທີ່ຈະບັນທຶກໄຟລ໌ດັ່ງກ່າວຈາກ \"<xliff:g id="SENDER">%1$s</xliff:g>\" ໄດ້"</string>
+    <string name="bt_sm_2_1_nosdcard" msgid="1791835163301501637">"ບ່ອນຈັດເກັບຂໍ້ມູນ USB ບໍ່ພຽງພໍທີ່ຈະບັນທຶກໄຟລ໌ດັ່ງກ່າວຈາກ \"<xliff:g id="SENDER">%1$s</xliff:g>\" ໄດ້"</string>
+    <string name="bt_sm_2_1_default" msgid="9115512207909504071">"ບ່ອນຈັດເກັບຂໍ້ມູນ SD ກາດບໍ່ພຽງພໍທີ່ຈະບັນທຶກໄຟລ໌ດັ່ງກ່າວຈາກ \"<xliff:g id="SENDER">%1$s</xliff:g>\" ໄດ້"</string>
     <string name="bt_sm_2_2" msgid="2965243265852680543">"ພື້ນທີ່ທີ່ຕ້ອງການ​: <xliff:g id="SIZE">%1$s</xliff:g>"</string>
     <string name="ErrorTooManyRequests" msgid="8578277541472944529">"ມີການຮ້ອງຂໍຫຼາຍເກີນໄປ, ກະລຸນາລອງໃໝ່ພາຍຫຼັງ."</string>
     <string name="status_pending" msgid="2503691772030877944">"ການໂອນໄຟລ໌ຍັງບໍ່ທັນໄດ້ເລີ່ມເທື່ອ."</string>
@@ -95,8 +95,8 @@
     <string name="status_forbidden" msgid="613956401054050725">"ການໂອນໄຟລ໌ຖືກປິດກັ້ນໂດຍອຸປະກອນປາຍທາງ."</string>
     <string name="status_canceled" msgid="6664490318773098285">"ການໂອນຖືກຍົກເລີກໂດຍຜູ່ໃຊ້."</string>
     <string name="status_file_error" msgid="3671917770630165299">"ປັນຫາພື້ນທີ່ເກັບຂໍ້ມູນ."</string>
-    <string name="status_no_sd_card" product="nosdcard" msgid="1112125377088421469">"ບໍ່ມີບ່ອນຈັດເກັບຂໍ້ມູນ USB."</string>
-    <string name="status_no_sd_card" product="default" msgid="5760944071743325592">"ບໍ່ມີ SD card. ໃສ່ SD card ເພື່ອບັນທຶກໄຟລ໌ທີ່ໂອນມາ."</string>
+    <string name="status_no_sd_card_nosdcard" msgid="573631036356922221">"ບໍ່ມີບ່ອນຈັດເກັບຂໍ້ມູນ USB."</string>
+    <string name="status_no_sd_card_default" msgid="396564893716701954">"ບໍ່ມີ SD ກາດ. ໃສ່ SD ກາດເພື່ອບັນທຶກໄຟລ໌ທີ່ໂອນມາ."</string>
     <string name="status_connection_error" msgid="947681831523219891">"ການເຊື່ອມຕໍ່ບໍ່ສຳເລັດຜົນ"</string>
     <string name="status_protocol_error" msgid="3245444473429269539">"ການຮ້ອງຂໍບໍ່ສາມາດຖືກຈັດການໄດ້ຢ່າງຖືກຕ້ອງ."</string>
     <string name="status_unknown_error" msgid="8156660554237824912">"ຄວາມຜິດພາດທີ່ບໍ່ຮູ້ຈັກ."</string>
@@ -122,6 +122,7 @@
     <string name="transfer_menu_open" msgid="3368984869083107200">"ເປີດ"</string>
     <string name="transfer_menu_clear" msgid="5854038118831427492">"ລຶບອອກຈາກລາຍການ"</string>
     <string name="transfer_clear_dlg_title" msgid="2953444575556460386">"ລຶບ"</string>
+    <string name="bluetooth_a2dp_sink_queue_name" msgid="6864149958708669766">"Now Playing"</string>
     <string name="bluetooth_map_settings_save" msgid="7635491847388074606">"ບັນທຶກ"</string>
     <string name="bluetooth_map_settings_cancel" msgid="9205350798049865699">"ຍົກເລີກ"</string>
     <string name="bluetooth_map_settings_intro" msgid="6482369468223987562">"ເລືອກ​ບັນ​ຊີ​​ທີ່​ທ່ານ​ຕ້ອງ​ການ​​ແບ່ງ​ປັນ​ຜ່ານ Bluetooth. ​ທ່ານ​ຍັງ​ຈຳເປັນຕ້ອງຍອມ​ຮັບທຸກ​ການ​ເຂົ້າ​ເຖິງ​ບັນ​ຊີ​ຕ່າງໆ​ໃນເວລາ​ເຊື່ອມ​ຕໍ່."</string>

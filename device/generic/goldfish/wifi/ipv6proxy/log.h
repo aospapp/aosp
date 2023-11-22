@@ -18,7 +18,7 @@
 #ifdef ANDROID
 
 #define LOG_TAG "ipv6proxy"
-#include <cutils/log.h>
+#include <log/log.h>
 
 #define loge(...) ALOGE(__VA_ARGS__)
 #define logd(...) ALOGD(__VA_ARGS__)

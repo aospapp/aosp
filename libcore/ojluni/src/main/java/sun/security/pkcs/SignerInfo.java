@@ -96,6 +96,9 @@ public class SignerInfo implements DerEncoder {
     PKCS9Attributes authenticatedAttributes;
     PKCS9Attributes unauthenticatedAttributes;
 
+    // Android-added: No-arg constructor to use in @libcore.api.CorePlatformApi
+    public SignerInfo() {}
+
     public SignerInfo(X500Name  issuerName,
                       BigInteger serial,
                       AlgorithmId digestAlgorithmId,

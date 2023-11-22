@@ -16,34 +16,47 @@
 
 package com.android.tools.metalava.doclava1
 
+import com.android.tools.metalava.ApiType
 import com.android.tools.metalava.CodebaseComparator
 import com.android.tools.metalava.ComparisonVisitor
+import com.android.tools.metalava.FileFormat
 import com.android.tools.metalava.JAVA_LANG_ANNOTATION
 import com.android.tools.metalava.JAVA_LANG_ENUM
 import com.android.tools.metalava.JAVA_LANG_OBJECT
+import com.android.tools.metalava.JAVA_LANG_THROWABLE
+import com.android.tools.metalava.compatibility
 import com.android.tools.metalava.model.AnnotationItem
 import com.android.tools.metalava.model.ClassItem
 import com.android.tools.metalava.model.Codebase
+import com.android.tools.metalava.model.ConstructorItem
 import com.android.tools.metalava.model.DefaultCodebase
+import com.android.tools.metalava.model.DefaultModifierList
+import com.android.tools.metalava.model.FieldItem
 import com.android.tools.metalava.model.Item
 import com.android.tools.metalava.model.MethodItem
 import com.android.tools.metalava.model.PackageItem
 import com.android.tools.metalava.model.PackageList
+import com.android.tools.metalava.model.PropertyItem
 import com.android.tools.metalava.model.TypeParameterList
 import com.android.tools.metalava.model.text.TextBackedAnnotationItem
 import com.android.tools.metalava.model.text.TextClassItem
+import com.android.tools.metalava.model.text.TextConstructorItem
+import com.android.tools.metalava.model.text.TextFieldItem
 import com.android.tools.metalava.model.text.TextMethodItem
+import com.android.tools.metalava.model.text.TextModifiers
 import com.android.tools.metalava.model.text.TextPackageItem
+import com.android.tools.metalava.model.text.TextPropertyItem
 import com.android.tools.metalava.model.text.TextTypeItem
 import com.android.tools.metalava.model.visitors.ItemVisitor
 import com.android.tools.metalava.model.visitors.TypeVisitor
+import java.io.File
 import java.util.ArrayList
 import java.util.HashMap
 import java.util.function.Predicate
 
 // Copy of ApiInfo in doclava1 (converted to Kotlin + some cleanup to make it work with metalava's data structures.
 // (Converted to Kotlin such that I can inherit behavior via interfaces, in particular Codebase.)
-class TextCodebase : DefaultCodebase() {
+class TextCodebase(location: File) : DefaultCodebase(location) {
     /**
      * Whether types should be interpreted to be in Kotlin format (e.g. ? suffix means nullable,
      * ! suffix means unknown, and absence of a suffix means not nullable.
@@ -56,13 +69,20 @@ class TextCodebase : DefaultCodebase() {
     private val mClassToInterface = HashMap<TextClassItem, ArrayList<String>>(10000)
 
     override var description = "Codebase"
+    override var preFiltered: Boolean = true
 
     override fun trustedApi(): Boolean = true
+
+    /**
+     * Signature file format version, if found. Type "GradleVersion" is misleading; it's just a convenient
+     * version class.
+     */
+    var format: FileFormat = FileFormat.V1 // not specifying format: assumed to be doclava, 1.0
 
     override fun getPackages(): PackageList {
         val list = ArrayList<PackageItem>(mPackages.values)
         list.sortWith(PackageItem.comparator)
-        return PackageList(list)
+        return PackageList(this, list)
     }
 
     override fun size(): Int {
@@ -73,16 +93,12 @@ class TextCodebase : DefaultCodebase() {
         return mAllClasses[className]
     }
 
-    private fun resolveInterfaces() {
-        for (cl in mAllClasses.values) {
+    private fun resolveInterfaces(all: List<TextClassItem>) {
+        for (cl in all) {
             val interfaces = mClassToInterface[cl] ?: continue
-            for (iface in interfaces) {
-                var ci: TextClassItem? = mAllClasses[iface]
-                if (ci == null) {
-                    // Interface not provided by this codebase. Inject a stub.
-                    ci = TextClassItem.createInterfaceStub(this, iface)
-                }
-                cl.addInterface(ci)
+            for (interfaceName in interfaces) {
+                getOrCreateClass(interfaceName, isInterface = true)
+                cl.addInterface(obtainTypeFromString(interfaceName))
             }
         }
     }
@@ -114,8 +130,8 @@ class TextCodebase : DefaultCodebase() {
         }
     }
 
-    private fun resolveSuperclasses() {
-        for (cl in mAllClasses.values) {
+    private fun resolveSuperclasses(allClasses: List<TextClassItem>) {
+        for (cl in allClasses) {
             // java.lang.Object has no superclass
             if (cl.isJavaLangObject()) {
                 continue
@@ -125,42 +141,27 @@ class TextCodebase : DefaultCodebase() {
                 scName = when {
                     cl.isEnum() -> JAVA_LANG_ENUM
                     cl.isAnnotationType() -> JAVA_LANG_ANNOTATION
-                    else -> JAVA_LANG_OBJECT
+                    else -> {
+                        val existing = cl.superClassType()?.toTypeString()
+                        val s = existing ?: JAVA_LANG_OBJECT
+                        s // unnecessary variable, works around current compiler believing the expression to be nullable
+                    }
                 }
             }
-            var superclass: TextClassItem? = mAllClasses[scName]
-            if (superclass == null) {
-                // Superclass not provided by this codebase. Inject a stub.
-                superclass = TextClassItem.createClassStub(this, scName)
-            }
-            cl.setSuperClass(superclass)
+
+            val superclass = getOrCreateClass(scName)
+            cl.setSuperClass(superclass, obtainTypeFromString(scName))
         }
     }
 
-    private fun resolveThrowsClasses() {
-        for (cl in mAllClasses.values) {
+    private fun resolveThrowsClasses(all: List<TextClassItem>) {
+        for (cl in all) {
             for (methodItem in cl.constructors()) {
                 resolveThrowsClasses(methodItem)
             }
             for (methodItem in cl.methods()) {
                 resolveThrowsClasses(methodItem)
             }
-
-            // java.lang.Object has no superclass
-            var scName: String? = mClassToSuper[cl]
-            if (scName == null) {
-                // Make sure we don't set java.lang.Object's super class to itself
-                if (cl.qualifiedName == JAVA_LANG_OBJECT) {
-                    continue
-                }
-                scName = JAVA_LANG_OBJECT
-            }
-            var superclass: TextClassItem? = mAllClasses[scName]
-            if (superclass == null) {
-                // Superclass not provided by this codebase. Inject a stub.
-                superclass = TextClassItem.createClassStub(this, scName)
-            }
-            cl.setSuperClass(superclass)
         }
     }
 
@@ -173,9 +174,14 @@ class TextCodebase : DefaultCodebase() {
                 var exceptionClass: TextClassItem? = mAllClasses[exception]
                 if (exceptionClass == null) {
                     // Exception not provided by this codebase. Inject a stub.
-                    exceptionClass = TextClassItem.createClassStub(
-                        this, exception
-                    )
+                    exceptionClass = getOrCreateClass(exception)
+                    // Set super class to throwable?
+                    if (exception != JAVA_LANG_THROWABLE) {
+                        exceptionClass.setSuperClass(
+                            getOrCreateClass(JAVA_LANG_THROWABLE),
+                            TextTypeItem(this, JAVA_LANG_THROWABLE)
+                        )
+                    }
                 }
                 result.add(exceptionClass)
             }
@@ -183,41 +189,91 @@ class TextCodebase : DefaultCodebase() {
         }
     }
 
-    private fun resolveInnerClasses() {
-        mPackages.values
-            .asSequence()
-            .map { it.classList().listIterator() as MutableListIterator<ClassItem> }
-            .forEach {
-                while (it.hasNext()) {
-                    val cl = it.next() as TextClassItem
-                    val name = cl.name
-                    var index = name.lastIndexOf('.')
-                    if (index != -1) {
-                        cl.name = name.substring(index + 1)
-                        val qualifiedName = cl.qualifiedName
-                        index = qualifiedName.lastIndexOf('.')
-                        assert(index != -1) { qualifiedName }
-                        val outerClassName = qualifiedName.substring(0, index)
-                        val outerClass = mAllClasses[outerClassName]!!
-                        cl.containingClass = outerClass
-                        outerClass.addInnerClass(cl)
-
-                        // Should no longer be listed as top level
-                        it.remove()
-                    }
+    private fun resolveInnerClasses(packages: List<TextPackageItem>) {
+        for (pkg in packages) {
+            // make copy: we'll be removing non-top level classes during iteration
+            val classes = ArrayList(pkg.classList())
+            for (cls in classes) {
+                val cl = cls as TextClassItem
+                val name = cl.name
+                var index = name.lastIndexOf('.')
+                if (index != -1) {
+                    cl.name = name.substring(index + 1)
+                    val qualifiedName = cl.qualifiedName
+                    index = qualifiedName.lastIndexOf('.')
+                    assert(index != -1) { qualifiedName }
+                    val outerClassName = qualifiedName.substring(0, index)
+                    val outerClass = getOrCreateClass(outerClassName)
+                    cl.containingClass = outerClass
+                    outerClass.addInnerClass(cl)
                 }
             }
+        }
+
+        for (pkg in packages) {
+            pkg.pruneClassList()
+        }
+    }
+
+    fun registerClass(cls: TextClassItem) {
+        mAllClasses[cls.qualifiedName] = cls
+    }
+
+    fun getOrCreateClass(name: String, isInterface: Boolean = false): TextClassItem {
+        val erased = TextTypeItem.eraseTypeArguments(name)
+        val cls = mAllClasses[erased]
+        if (cls != null) {
+            return cls
+        }
+        val newClass = if (isInterface) {
+            TextClassItem.createInterfaceStub(this, name)
+        } else {
+            TextClassItem.createClassStub(this, name)
+        }
+        mAllClasses[erased] = newClass
+        newClass.emit = false
+
+        val fullName = newClass.fullName()
+        if (fullName.contains('.')) {
+            // We created a new inner class stub. We need to fully initialize it with outer classes, themselves
+            // possibly stubs
+            val outerName = erased.substring(0, erased.lastIndexOf('.'))
+            val outerClass = getOrCreateClass(outerName, false)
+            newClass.containingClass = outerClass
+            outerClass.addInnerClass(newClass)
+        } else {
+            // Add to package
+            val endIndex = erased.lastIndexOf('.')
+            val pkgPath = if (endIndex != -1) erased.substring(0, endIndex) else ""
+            val pkg = findPackage(pkgPath) as? TextPackageItem ?: run {
+                val newPkg = TextPackageItem(
+                    this,
+                    pkgPath,
+                    TextModifiers(this, DefaultModifierList.PUBLIC),
+                    SourcePositionInfo.UNKNOWN
+                )
+                addPackage(newPkg)
+                newPkg.emit = false
+                newPkg
+            }
+            newClass.setContainingPackage(pkg)
+            pkg.addClass(newClass)
+        }
+
+        return newClass
     }
 
     fun postProcess() {
-        resolveSuperclasses()
-        resolveInterfaces()
-        resolveThrowsClasses()
-        resolveInnerClasses()
+        val classes = mAllClasses.values.toList()
+        val packages = mPackages.values.toList()
+        resolveSuperclasses(classes)
+        resolveInterfaces(classes)
+        resolveThrowsClasses(classes)
+        resolveInnerClasses(packages)
     }
 
     override fun findPackage(pkgName: String): PackageItem? {
-        return mPackages.values.firstOrNull { pkgName == it.qualifiedName() }
+        return mPackages[pkgName]
     }
 
     override fun accept(visitor: ItemVisitor) {
@@ -242,10 +298,6 @@ class TextCodebase : DefaultCodebase() {
 
     override fun unsupported(desc: String?): Nothing {
         error(desc ?: "Not supported for a signature-file based codebase")
-    }
-
-    override fun filter(filterEmit: Predicate<Item>, filterReference: Predicate<Item>): Codebase {
-        unsupported()
     }
 
     fun obtainTypeFromString(
@@ -282,6 +334,96 @@ class TextCodebase : DefaultCodebase() {
         }
 
         return obtainTypeFromString(type)
+    }
+
+    companion object {
+        fun computeDelta(
+            baseFile: File,
+            baseApi: Codebase,
+            signatureApi: Codebase,
+            includeFieldsInApiDiff: Boolean = compatibility.includeFieldsInApiDiff
+        ): TextCodebase {
+            // Compute just the delta
+            val delta = TextCodebase(baseFile)
+            delta.description = "Delta between $baseApi and $signatureApi"
+
+            CodebaseComparator().compare(object : ComparisonVisitor() {
+                override fun added(new: PackageItem) {
+                    delta.addPackage(new as TextPackageItem)
+                }
+
+                override fun added(new: ClassItem) {
+                    val pkg = getOrAddPackage(new.containingPackage().qualifiedName())
+                    pkg.addClass(new as TextClassItem)
+                }
+
+                override fun added(new: ConstructorItem) {
+                    val cls = getOrAddClass(new.containingClass())
+                    cls.addConstructor(new as TextConstructorItem)
+                }
+
+                override fun added(new: MethodItem) {
+                    val cls = getOrAddClass(new.containingClass())
+                    cls.addMethod(new as TextMethodItem)
+                }
+
+                override fun added(new: FieldItem) {
+                    if (!includeFieldsInApiDiff) {
+                        return
+                    }
+                    val cls = getOrAddClass(new.containingClass())
+                    cls.addField(new as TextFieldItem)
+                }
+
+                override fun added(new: PropertyItem) {
+                    val cls = getOrAddClass(new.containingClass())
+                    cls.addProperty(new as TextPropertyItem)
+                }
+
+                private fun getOrAddClass(fullClass: ClassItem): TextClassItem {
+                    val cls = delta.findClass(fullClass.qualifiedName())
+                    if (cls != null) {
+                        return cls
+                    }
+                    val textClass = fullClass as TextClassItem
+                    val newClass = TextClassItem(
+                        delta,
+                        SourcePositionInfo.UNKNOWN,
+                        textClass.modifiers,
+                        textClass.isInterface(),
+                        textClass.isEnum(),
+                        textClass.isAnnotationType(),
+                        textClass.qualifiedName,
+                        textClass.qualifiedName,
+                        textClass.name,
+                        textClass.annotations
+                    )
+                    val pkg = getOrAddPackage(fullClass.containingPackage().qualifiedName())
+                    pkg.addClass(newClass)
+                    newClass.setContainingPackage(pkg)
+                    delta.registerClass(newClass)
+                    return newClass
+                }
+
+                private fun getOrAddPackage(pkgName: String): TextPackageItem {
+                    val pkg = delta.findPackage(pkgName) as? TextPackageItem
+                    if (pkg != null) {
+                        return pkg
+                    }
+                    val newPkg = TextPackageItem(
+                        delta,
+                        pkgName,
+                        TextModifiers(delta, DefaultModifierList.PUBLIC),
+                        SourcePositionInfo.UNKNOWN
+                    )
+                    delta.addPackage(newPkg)
+                    return newPkg
+                }
+            }, baseApi, signatureApi, ApiType.ALL.getReferenceFilter())
+
+            delta.postProcess()
+            return delta
+        }
     }
 
     // Copied from Converter:

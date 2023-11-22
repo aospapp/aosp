@@ -342,7 +342,7 @@ public class SensorBatchingTests extends SensorTestCase {
                     sensorRate,
                     batching,
                     flush);
-            stats.logToFile(fileName);
+            stats.logToFile(environment.getContext(), fileName);
         }
     }
 }

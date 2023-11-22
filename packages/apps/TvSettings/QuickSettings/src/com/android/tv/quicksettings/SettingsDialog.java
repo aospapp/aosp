@@ -13,16 +13,13 @@
  */
 package com.android.tv.quicksettings;
 
-import android.content.SharedPreferences;
-import android.preference.PreferenceManager;
-import android.support.annotation.NonNull;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.support.v17.leanback.widget.OnChildSelectedListener;
-import android.support.v17.leanback.widget.VerticalGridView;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -31,6 +28,10 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.SeekBar;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.leanback.widget.OnChildSelectedListener;
+import androidx.leanback.widget.VerticalGridView;
 
 import java.util.ArrayList;
 import java.util.Arrays;

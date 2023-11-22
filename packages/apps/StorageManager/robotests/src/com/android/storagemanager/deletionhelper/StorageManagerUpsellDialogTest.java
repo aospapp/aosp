@@ -17,15 +17,12 @@
 package com.android.storagemanager.deletionhelper;
 
 import android.content.Context;
-import com.android.storagemanager.testing.StorageManagerRobolectricTestRunner;
-import com.android.storagemanager.testing.TestingConstants;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowApplication;
-
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.RuntimeEnvironment;
 
 import java.util.concurrent.TimeUnit;
 
@@ -34,16 +31,14 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
 import static org.robolectric.util.FragmentTestUtil.startFragment;
 
-@RunWith(StorageManagerRobolectricTestRunner.class)
-@Config(manifest= TestingConstants.MANIFEST, sdk=TestingConstants.SDK_VERSION)
+@RunWith(RobolectricTestRunner.class)
 public class StorageManagerUpsellDialogTest {
-    @Mock
-    StorageManagerUpsellDialog.Clock mClock;
+    @Mock private StorageManagerUpsellDialog.Clock mClock;
 
     @Test
     public void testNoThanksMaximumShownTimes() {
         MockitoAnnotations.initMocks(this);
-        final Context context = ShadowApplication.getInstance().getApplicationContext();
+        final Context context = RuntimeEnvironment.application;
         StorageManagerUpsellDialog fragment = StorageManagerUpsellDialog.newInstance(0);
         fragment.setClock(mClock);
 

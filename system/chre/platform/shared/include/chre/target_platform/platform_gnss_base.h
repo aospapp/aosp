@@ -28,12 +28,12 @@ namespace chre {
  */
 class PlatformGnssBase : public PlatformPal {
  protected:
+  //! The instance of callbacks that are provided to the CHRE PAL.
+  static const chrePalGnssCallbacks sGnssCallbacks;
+
   //! The instance of the CHRE PAL API. This will be set to nullptr if the
   //! platform does not supply an implementation.
   const chrePalGnssApi *mGnssApi;
-
-  //! The instance of callbacks that are provided to the CHRE PAL.
-  chrePalGnssCallbacks mGnssCallbacks;
 
   //! Event handlers for the CHRE GNSS PAL. Refer to chre/pal/gnss.h for futher
   //! information.

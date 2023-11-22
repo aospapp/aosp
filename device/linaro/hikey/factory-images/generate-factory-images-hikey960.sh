@@ -32,13 +32,13 @@ rm -rf tmp
 mkdir -p tmp/$PRODUCT-$VERSION
 
 # copy over bootloader binaries
-cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/bl31.bin tmp/$PRODUCT-$VERSION/
+cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/hisi-bl31.bin tmp/$PRODUCT-$VERSION/
 cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/hisi-fastboot.img tmp/$PRODUCT-$VERSION/
-cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/lpm3.img tmp/$PRODUCT-$VERSION/
-cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/nvme.img tmp/$PRODUCT-$VERSION/
+cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/hisi-lpm3.img tmp/$PRODUCT-$VERSION/
+cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/hisi-nvme.img tmp/$PRODUCT-$VERSION/
 cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/hisi-ptable.img tmp/$PRODUCT-$VERSION/
-cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/README tmp/$PRODUCT-$VERSION/
 cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/hisi-sec_xloader.img tmp/$PRODUCT-$VERSION/
+cp $ANDROID_BUILD_TOP/$DEVICE_DIR/installer/hikey960/README tmp/$PRODUCT-$VERSION/
 
 # copy over dts.img
 cp $ANDROID_BUILD_TOP/out/target/product/hikey960/dt.img tmp/$PRODUCT-$VERSION/
@@ -72,13 +72,13 @@ cat > tmp/$PRODUCT-$VERSION/flash-all.sh << EOF
 
 
 
-fastboot flash xloader		sec_xloader.img
-fastboot flash ptable		ptable.img
-fastboot flash fastboot		fastboot.img
+fastboot flash xloader		hisi-sec_xloader.img
+fastboot flash ptable		hisi-ptable.img
+fastboot flash fastboot		hisi-fastboot.img
 fastboot reboot-bootloader
-fastboot flash nvme		nvme.img
-fastboot flash fw_lpm3		lpm3.img
-fastboot flash trustfirmware	bl31.bin
+fastboot flash nvme		hisi-nvme.img
+fastboot flash fw_lpm3		hisi-lpm3.img
+fastboot flash trustfirmware	hisi-bl31.bin
 fastboot flash dts		dt.img
 
 # XXX fastboot update doesn't format cache and userdata

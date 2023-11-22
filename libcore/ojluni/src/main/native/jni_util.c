@@ -839,6 +839,8 @@ JNU_ReleaseStringPlatformChars(JNIEnv *env, jstring jstr, const char *str)
  * VM can find it when loading system classes.
  *
  */
+// Android-changed: hidden to avoid conflict with libm (b/135018555)
+__attribute__((visibility("hidden")))
 extern int canonicalize(char *path, const char *out, int len);
 
 JNIEXPORT int

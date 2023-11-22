@@ -18,7 +18,6 @@
 #define ART_RUNTIME_MIRROR_EXECUTABLE_H_
 
 #include "accessible_object.h"
-#include "gc_root.h"
 #include "object.h"
 #include "read_barrier_option.h"
 
@@ -37,11 +36,21 @@ class MANAGED Executable : public AccessibleObject {
   bool CreateFromArtMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_)
       REQUIRES(!Roles::uninterruptible_);
 
-  ArtMethod* GetArtMethod() REQUIRES_SHARED(Locks::mutator_lock_);
-  // Only used by the image writer.
-  template <bool kTransactionActive = false>
+  template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
+  ArtMethod* GetArtMethod() REQUIRES_SHARED(Locks::mutator_lock_) {
+    return reinterpret_cast64<ArtMethod*>(GetField64<kVerifyFlags>(ArtMethodOffset()));
+  }
+
+  template <bool kTransactionActive = false,
+            bool kCheckTransaction = true,
+            VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>
   void SetArtMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
-  mirror::Class* GetDeclaringClass() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  ObjPtr<mirror::Class> GetDeclaringClass() REQUIRES_SHARED(Locks::mutator_lock_);
+
+  static MemberOffset ArtMethodOffset() {
+    return MemberOffset(OFFSETOF_MEMBER(Executable, art_method_));
+  }
 
  private:
   uint16_t has_real_parameter_data_;
@@ -52,9 +61,6 @@ class MANAGED Executable : public AccessibleObject {
   uint32_t access_flags_;
   uint32_t dex_method_index_;
 
-  static MemberOffset ArtMethodOffset() {
-    return MemberOffset(OFFSETOF_MEMBER(Executable, art_method_));
-  }
   static MemberOffset DeclaringClassOffset() {
     return MemberOffset(OFFSETOF_MEMBER(Executable, declaring_class_));
   }

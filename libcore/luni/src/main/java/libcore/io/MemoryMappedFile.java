@@ -17,6 +17,7 @@
 package libcore.io;
 
 import android.system.ErrnoException;
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -50,6 +51,7 @@ public final class MemoryMappedFile implements AutoCloseable {
     /**
      * Use this to mmap the whole file read-only.
      */
+    @UnsupportedAppUsage
     public static MemoryMappedFile mmapRO(String path) throws ErrnoException {
         FileDescriptor fd = Libcore.os.open(path, O_RDONLY, 0);
         try {
@@ -83,6 +85,7 @@ public final class MemoryMappedFile implements AutoCloseable {
     /**
      * Returns a new iterator that treats the mapped data as big-endian.
      */
+    @UnsupportedAppUsage
     public BufferIterator bigEndianIterator() {
         return new NioBufferIterator(
                 this, address, size, ByteOrder.nativeOrder() != ByteOrder.BIG_ENDIAN);

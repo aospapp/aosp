@@ -18,9 +18,10 @@ package android.transition.cts;
 import static org.junit.Assert.assertSame;
 
 import android.graphics.Path;
-import android.support.test.filters.SmallTest;
-import android.support.test.runner.AndroidJUnit4;
 import android.transition.PatternPathMotion;
+
+import androidx.test.filters.SmallTest;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

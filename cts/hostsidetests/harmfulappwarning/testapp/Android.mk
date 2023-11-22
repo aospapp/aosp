@@ -26,8 +26,8 @@ LOCAL_DEX_PREOPT := false
 LOCAL_PROGUARD_ENABLED := disabled
 
 LOCAL_STATIC_JAVA_LIBRARIES := \
-    android-support-test \
-    compatibility-device-util \
+    androidx.test.rules \
+    compatibility-device-util-axt \
     ub-uiautomator
 
 LOCAL_SRC_FILES := $(call all-java-files-under, src)

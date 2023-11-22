@@ -51,7 +51,7 @@
                 android:id="@+id/tvGetPropertyValue"
                 android:gravity="center"
                 android:layout_height="wrap_content"
-                android:layout_weight="2"
+                android:layout_weight="3"
                 android:layout_width="0dp"
                 android:textSize="@dimen/propertyValueTextSize"/>
         </LinearLayout>
@@ -71,7 +71,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="2"
                 android:layout_width="0dp"
-                android:inputType="phone" />
+                android:inputType="text" />
             <Button
                 android:id="@+id/bSetProperty"
                 android:layout_height="wrap_content"

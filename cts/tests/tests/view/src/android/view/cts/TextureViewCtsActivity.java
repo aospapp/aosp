@@ -355,11 +355,23 @@ public class TextureViewCtsActivity extends Activity implements SurfaceTextureLi
                     case TextureViewTest.EGL_GL_COLORSPACE_DISPLAY_P3_EXT:
                         eglColorSpaceString = "EGL_EXT_gl_colorspace_display_p3";
                         break;
+                    case TextureViewTest.EGL_GL_COLORSPACE_DISPLAY_P3_LINEAR_EXT:
+                        eglColorSpaceString = "EGL_EXT_gl_colorspace_display_p3_linear";
+                        break;
+                    case TextureViewTest.EGL_GL_COLORSPACE_DISPLAY_P3_PASSTHROUGH_EXT:
+                        eglColorSpaceString = "EGL_EXT_gl_colorspace_display_p3_passthrough";
+                        break;
                     case TextureViewTest.EGL_GL_COLORSPACE_SRGB_KHR:
                         eglColorSpaceString = "EGL_KHR_gl_colorspace";
                         break;
+                    case TextureViewTest.EGL_GL_COLORSPACE_SCRGB_EXT:
+                        eglColorSpaceString = "EGL_EXT_gl_colorspace_scrgb";
+                        break;
                     case TextureViewTest.EGL_GL_COLORSPACE_SCRGB_LINEAR_EXT:
                         eglColorSpaceString = "EGL_EXT_gl_colorspace_scrgb_linear";
+                        break;
+                    case TextureViewTest.EGL_GL_COLORSPACE_LINEAR_KHR:
+                        eglColorSpaceString = "EGL_KHR_gl_colorspace";
                         break;
                     default:
                         throw new RuntimeException("Unknown eglColorSpace: " + mEglColorSpace);
@@ -369,6 +381,12 @@ public class TextureViewCtsActivity extends Activity implements SurfaceTextureLi
                 }
             }
             if (mIsEGLWideGamut && !extensions.contains("EXT_pixel_format_float")) {
+                mEGLExtensionUnsupported = true;
+            }
+            // If the extension is present but the device doesn't claim to have a wide color gamut
+            // display then it might not return any actual float formats.
+            if (mIsEGLWideGamut && !mEGLExtensionUnsupported
+                    && !getWindowManager().getDefaultDisplay().isWideColorGamut()) {
                 mEGLExtensionUnsupported = true;
             }
 
@@ -425,6 +443,7 @@ public class TextureViewCtsActivity extends Activity implements SurfaceTextureLi
                     EGL10.EGL_ALPHA_SIZE, 16,
                     EGL10.EGL_DEPTH_SIZE, 0,
                     EGL10.EGL_STENCIL_SIZE, 0,
+                    EGL10.EGL_SURFACE_TYPE, EGL10.EGL_WINDOW_BIT,
                     EGL10.EGL_NONE
             };
         } else {
@@ -436,6 +455,7 @@ public class TextureViewCtsActivity extends Activity implements SurfaceTextureLi
                     EGL10.EGL_ALPHA_SIZE, 8,
                     EGL10.EGL_DEPTH_SIZE, 0,
                     EGL10.EGL_STENCIL_SIZE, 0,
+                    EGL10.EGL_SURFACE_TYPE, EGL10.EGL_WINDOW_BIT,
                     EGL10.EGL_NONE
             };
         }

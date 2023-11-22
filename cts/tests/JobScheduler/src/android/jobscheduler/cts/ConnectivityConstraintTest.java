@@ -66,6 +66,8 @@ public class ConnectivityConstraintTest extends ConstraintTest {
 
     private JobInfo.Builder mBuilder;
 
+    private TestAppInterface mTestAppInterface;
+
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -88,32 +90,20 @@ public class ConnectivityConstraintTest extends ConstraintTest {
 
     @Override
     public void tearDown() throws Exception {
+        if (mTestAppInterface != null) {
+            mTestAppInterface.cleanup();
+        }
         mJobScheduler.cancel(CONNECTIVITY_JOB_ID);
 
         // Restore initial restrict background data usage policy
-        if (mInitialRestrictBackground) {
-            SystemUtil.runShellCommand(getInstrumentation(), RESTRICT_BACKGROUND_ON_CMD);
-        }
+        setDataSaverEnabled(mInitialRestrictBackground);
 
         // Ensure that we leave WiFi in its previous state.
-        if (mWifiManager.isWifiEnabled() == mInitialWiFiState) {
-            return;
+        if (mWifiManager.isWifiEnabled() != mInitialWiFiState) {
+            setWifiState(mInitialWiFiState, mContext, mCm, mWifiManager);
         }
-        NetworkInfo.State expectedState = mInitialWiFiState ?
-                NetworkInfo.State.CONNECTED : NetworkInfo.State.DISCONNECTED;
-        ConnectivityActionReceiver receiver =
-                new ConnectivityActionReceiver(ConnectivityManager.TYPE_WIFI,
-                        expectedState);
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-        mContext.registerReceiver(receiver, filter);
 
-        assertTrue(mWifiManager.setWifiEnabled(mInitialWiFiState));
-        receiver.waitForStateChange();
-        assertTrue("Failure to restore previous WiFi state",
-                mWifiManager.isWifiEnabled() == mInitialWiFiState);
-
-        mContext.unregisterReceiver(receiver);
+        super.tearDown();
     }
 
     // --------------------------------------------------------------------------------------------
@@ -129,7 +119,7 @@ public class ConnectivityConstraintTest extends ConstraintTest {
             Log.d(TAG, "Skipping test that requires the device be WiFi enabled.");
             return;
         }
-        connectToWiFi();
+        connectToWifi();
 
         kTestEnvironment.setExpectedExecutions(1);
         mJobScheduler.schedule(
@@ -150,7 +140,30 @@ public class ConnectivityConstraintTest extends ConstraintTest {
             Log.d(TAG, "Skipping test that requires the device be WiFi enabled.");
             return;
         }
-        connectToWiFi();
+        connectToWifi();
+
+        kTestEnvironment.setExpectedExecutions(1);
+        mJobScheduler.schedule(
+                mBuilder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .build());
+
+        sendExpediteStableChargingBroadcast();
+
+        assertTrue("Job with connectivity constraint did not fire on WiFi.",
+                kTestEnvironment.awaitExecution());
+    }
+
+    /**
+     * Schedule a job with a generic connectivity constraint, and ensure that it executes on WiFi,
+     * even with Data Saver on.
+     */
+    public void testConnectivityConstraintExecutes_withWifi_DataSaverOn() throws Exception {
+        if (!mHasWifi) {
+            Log.d(TAG, "Skipping test that requires the device be WiFi enabled.");
+            return;
+        }
+        connectToWifi();
+        setDataSaverEnabled(true);
 
         kTestEnvironment.setExpectedExecutions(1);
         mJobScheduler.schedule(
@@ -185,6 +198,38 @@ public class ConnectivityConstraintTest extends ConstraintTest {
     }
 
     /**
+     * Schedule a job with a generic connectivity constraint, and ensure that it isn't stopped when
+     * the device transitions to WiFi.
+     */
+    public void testConnectivityConstraintExecutes_transitionNetworks() throws Exception {
+        if (!mHasWifi) {
+            Log.d(TAG, "Skipping test that requires the device be WiFi enabled.");
+            return;
+        }
+        if (!checkDeviceSupportsMobileData()) {
+            return;
+        }
+        setDataSaverEnabled(false);
+        disconnectWifiToConnectToMobile();
+
+        kTestEnvironment.setExpectedExecutions(1);
+        kTestEnvironment.setExpectedStopped();
+        mJobScheduler.schedule(
+                mBuilder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .build());
+
+        sendExpediteStableChargingBroadcast();
+
+        assertTrue("Job with connectivity constraint did not fire on mobile.",
+                kTestEnvironment.awaitExecution());
+
+        connectToWifi();
+        assertFalse(
+                "Job with connectivity constraint was stopped when network transitioned to WiFi.",
+                kTestEnvironment.awaitStopped());
+    }
+
+    /**
      * Schedule a job with a metered connectivity constraint, and ensure that it executes
      * on a mobile data connection.
      */
@@ -192,7 +237,7 @@ public class ConnectivityConstraintTest extends ConstraintTest {
         if (!checkDeviceSupportsMobileData()) {
             return;
         }
-        ensureRestrictBackgroundPolicyOff();
+        setDataSaverEnabled(false);
         disconnectWifiToConnectToMobile();
 
         kTestEnvironment.setExpectedExecutions(1);
@@ -203,6 +248,67 @@ public class ConnectivityConstraintTest extends ConstraintTest {
         sendExpediteStableChargingBroadcast();
         assertTrue("Job with metered connectivity constraint did not fire on mobile.",
                 kTestEnvironment.awaitExecution());
+    }
+
+    /**
+     * Schedule a job with a cellular connectivity constraint, and ensure that it executes
+     * on a mobile data connection and is not stopped when Data Saver is turned on because the app
+     * is in the foreground.
+     */
+    public void testCellularConstraintExecutedAndStopped_Foreground() throws Exception {
+        if (!checkDeviceSupportsMobileData()) {
+            return;
+        }
+        setDataSaverEnabled(false);
+        disconnectWifiToConnectToMobile();
+        mTestAppInterface = new TestAppInterface(mContext, CONNECTIVITY_JOB_ID);
+        mTestAppInterface.startAndKeepTestActivity();
+
+        mTestAppInterface.scheduleJob(false, true);
+
+        sendExpediteStableChargingBroadcast();
+        assertTrue("Job with metered connectivity constraint did not fire on mobile.",
+                mTestAppInterface.awaitJobStart(30_000));
+
+        setDataSaverEnabled(true);
+        assertFalse(
+                "Job with metered connectivity constraint for foreground app was stopped when"
+                        + " Data Saver was turned on.",
+                mTestAppInterface.awaitJobStop(30_000));
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // Positives & Negatives - schedule jobs under conditions that require that pass initially and
+    // then fail with a constraint change.
+    // --------------------------------------------------------------------------------------------
+
+    /**
+     * Schedule a job with a cellular connectivity constraint, and ensure that it executes
+     * on a mobile data connection and is stopped when Data Saver is turned on.
+     */
+    public void testCellularConstraintExecutedAndStopped() throws Exception {
+        if (!checkDeviceSupportsMobileData()) {
+            return;
+        }
+        setDataSaverEnabled(false);
+        disconnectWifiToConnectToMobile();
+
+        kTestEnvironment.setExpectedExecutions(1);
+        kTestEnvironment.setContinueAfterStart();
+        kTestEnvironment.setExpectedStopped();
+        mJobScheduler.schedule(
+                mBuilder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_CELLULAR)
+                        .build());
+
+        sendExpediteStableChargingBroadcast();
+        assertTrue("Job with metered connectivity constraint did not fire on mobile.",
+                kTestEnvironment.awaitExecution());
+
+        setDataSaverEnabled(true);
+        assertTrue(
+                "Job with metered connectivity constraint was not stopped when Data Saver was "
+                        + "turned on.",
+                kTestEnvironment.awaitStopped());
     }
 
     // --------------------------------------------------------------------------------------------
@@ -233,6 +339,28 @@ public class ConnectivityConstraintTest extends ConstraintTest {
 
     /**
      * Schedule a job that requires a metered connection, and verify that it does not run when
+     * the device is not connected to WiFi and Data Saver is on.
+     */
+    public void testMeteredConstraintFails_withMobile_DataSaverOn() throws Exception {
+        if (!checkDeviceSupportsMobileData()) {
+            Log.d(TAG, "Skipping test that requires the device be mobile data enabled.");
+            return;
+        }
+        disconnectWifiToConnectToMobile();
+        setDataSaverEnabled(true);
+
+        kTestEnvironment.setExpectedExecutions(0);
+        mJobScheduler.schedule(
+                mBuilder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_CELLULAR)
+                        .build());
+        sendExpediteStableChargingBroadcast();
+
+        assertTrue("Job requiring metered connectivity still executed on WiFi.",
+                kTestEnvironment.awaitTimeout());
+    }
+
+    /**
+     * Schedule a job that requires a metered connection, and verify that it does not run when
      * the device is connected to a WiFi provider.
      * This test assumes that if the device supports a mobile data connection, then this connection
      * will be available.
@@ -246,7 +374,7 @@ public class ConnectivityConstraintTest extends ConstraintTest {
             Log.d(TAG, "Skipping test that requires the device be mobile data enabled.");
             return;
         }
-        connectToWiFi();
+        connectToWifi();
 
         kTestEnvironment.setExpectedExecutions(0);
         mJobScheduler.schedule(
@@ -282,22 +410,47 @@ public class ConnectivityConstraintTest extends ConstraintTest {
 
     /**
      * Ensure WiFi is enabled, and block until we've verified that we are in fact connected.
+     */
+    private void connectToWifi()
+            throws InterruptedException {
+        setWifiState(true, mContext, mCm, mWifiManager);
+    }
+
+    /**
+     * Ensure WiFi is disabled, and block until we've verified that we are in fact disconnected.
+     */
+    private void disconnectFromWifi()
+            throws InterruptedException {
+        setWifiState(false, mContext, mCm, mWifiManager);
+    }
+
+    /**
+     * Set Wifi connection to specific state , and block until we've verified
+     * that we are in the state.
      * Taken from {@link android.net.http.cts.ApacheHttpClientTest}.
      */
-    private void connectToWiFi() throws InterruptedException {
-        if (!mWifiManager.isWifiEnabled()) {
+    static void setWifiState(boolean enable, Context context, ConnectivityManager cm,
+            WifiManager wm) throws InterruptedException  {
+        if (enable != wm.isWifiEnabled()) {
+            NetworkInfo.State expectedState = enable ?
+                    NetworkInfo.State.CONNECTED : NetworkInfo.State.DISCONNECTED;
             ConnectivityActionReceiver receiver =
                     new ConnectivityActionReceiver(ConnectivityManager.TYPE_WIFI,
-                            NetworkInfo.State.CONNECTED);
+                            expectedState, cm);
             IntentFilter filter = new IntentFilter();
             filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
-            mContext.registerReceiver(receiver, filter);
+            context.registerReceiver(receiver, filter);
 
-            assertTrue(mWifiManager.setWifiEnabled(true));
-            assertTrue("Wifi must be configured to connect to an access point for this test.",
+            if (enable) {
+                SystemUtil.runShellCommand("svc wifi enable");
+            } else {
+                SystemUtil.runShellCommand("svc wifi disable");
+            }
+            assertTrue("Wifi must be configured to " + (enable ? "connect" : "disconnect")
+                            + " to an access point for this test.",
                     receiver.waitForStateChange());
 
-            mContext.unregisterReceiver(receiver);
+            context.unregisterReceiver(receiver);
         }
     }
 
@@ -311,24 +464,18 @@ public class ConnectivityConstraintTest extends ConstraintTest {
      */
     private void disconnectWifiToConnectToMobile() throws InterruptedException {
         if (mHasWifi && mWifiManager.isWifiEnabled()) {
+            disconnectFromWifi();
             ConnectivityActionReceiver connectMobileReceiver =
                     new ConnectivityActionReceiver(ConnectivityManager.TYPE_MOBILE,
-                            NetworkInfo.State.CONNECTED);
-            ConnectivityActionReceiver disconnectWifiReceiver =
-                    new ConnectivityActionReceiver(ConnectivityManager.TYPE_WIFI,
-                            NetworkInfo.State.DISCONNECTED);
+                            NetworkInfo.State.CONNECTED, mCm);
             IntentFilter filter = new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION);
             mContext.registerReceiver(connectMobileReceiver, filter);
-            mContext.registerReceiver(disconnectWifiReceiver, filter);
 
-            assertTrue(mWifiManager.setWifiEnabled(false));
-            assertTrue("Failure disconnecting from WiFi.",
-                    disconnectWifiReceiver.waitForStateChange());
+
             assertTrue("Device must have access to a metered network for this test.",
                     connectMobileReceiver.waitForStateChange());
 
             mContext.unregisterReceiver(connectMobileReceiver);
-            mContext.unregisterReceiver(disconnectWifiReceiver);
         }
     }
 
@@ -336,14 +483,13 @@ public class ConnectivityConstraintTest extends ConstraintTest {
      * Ensures that restrict background data usage policy is turned off.
      * If the policy is on, it interferes with tests that relies on metered connection.
      */
-    private void ensureRestrictBackgroundPolicyOff() throws Exception {
-        if (mInitialRestrictBackground) {
-            SystemUtil.runShellCommand(getInstrumentation(), RESTRICT_BACKGROUND_OFF_CMD);
-        }
+    private void setDataSaverEnabled(boolean enabled) throws Exception {
+        SystemUtil.runShellCommand(getInstrumentation(),
+                enabled ? RESTRICT_BACKGROUND_ON_CMD : RESTRICT_BACKGROUND_OFF_CMD);
     }
 
     /** Capture the last connectivity change's network type and state. */
-    private class ConnectivityActionReceiver extends BroadcastReceiver {
+    private static class ConnectivityActionReceiver extends BroadcastReceiver {
 
         private final CountDownLatch mReceiveLatch = new CountDownLatch(1);
 
@@ -351,9 +497,13 @@ public class ConnectivityConstraintTest extends ConstraintTest {
 
         private final NetworkInfo.State mExpectedState;
 
-        ConnectivityActionReceiver(int networkType, NetworkInfo.State expectedState) {
+        private final ConnectivityManager mCm;
+
+        ConnectivityActionReceiver(int networkType, NetworkInfo.State expectedState,
+                ConnectivityManager cm) {
             mNetworkType = networkType;
             mExpectedState = expectedState;
+            mCm = cm;
         }
 
         public void onReceive(Context context, Intent intent) {

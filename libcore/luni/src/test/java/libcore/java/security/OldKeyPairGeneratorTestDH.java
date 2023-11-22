@@ -17,9 +17,7 @@ package libcore.java.security;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
 import junit.framework.TestCase;
-import tests.security.KeyAgreementHelper;
 
 public class OldKeyPairGeneratorTestDH extends TestCase {
 

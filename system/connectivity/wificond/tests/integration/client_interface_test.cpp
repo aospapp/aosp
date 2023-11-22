@@ -29,9 +29,6 @@ using android::net::wifi::IClientInterface;
 using android::net::wifi::IWificond;
 using android::wifi_system::InterfaceTool;
 using android::wificond::tests::integration::ScopedDevModeWificond;
-using android::wificond::tests::integration::SupplicantIsDead;
-using android::wificond::tests::integration::SupplicantIsRunning;
-using android::wificond::tests::integration::WaitForTrue;
 using std::string;
 using std::vector;
 

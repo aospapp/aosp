@@ -18,6 +18,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,8 +28,11 @@ import (
 	"syscall"
 	"time"
 
+	"android/soong/finder"
 	"android/soong/ui/build"
 	"android/soong/ui/logger"
+	"android/soong/ui/status"
+	"android/soong/ui/terminal"
 	"android/soong/ui/tracer"
 	"android/soong/zip"
 )
@@ -47,6 +51,7 @@ func detectNumJobs() int {
 var numJobs = flag.Int("j", detectNumJobs(), "number of parallel kati jobs")
 
 var keepArtifacts = flag.Bool("keep", false, "keep archives of artifacts")
+var incremental = flag.Bool("incremental", false, "run in incremental mode (saving intermediates)")
 
 var outDir = flag.String("out", "", "path to store output directories (defaults to tmpdir under $OUT when empty)")
 var alternateResultDir = flag.Bool("dist", false, "write select results to $DIST_DIR (or <out>/dist when empty)")
@@ -62,102 +67,31 @@ var includeProducts = flag.String("products", "", "comma-separated list of produ
 const errorLeadingLines = 20
 const errorTrailingLines = 20
 
-type Product struct {
-	ctx     build.Context
-	config  build.Config
-	logFile string
-}
-
-type Status struct {
-	cur    int
-	total  int
-	failed int
-
-	ctx           build.Context
-	haveBlankLine bool
-	smartTerminal bool
-
-	lock sync.Mutex
-}
-
-func NewStatus(ctx build.Context) *Status {
-	return &Status{
-		ctx:           ctx,
-		haveBlankLine: true,
-		smartTerminal: ctx.IsTerminal(),
-	}
-}
-
-func (s *Status) SetTotal(total int) {
-	s.total = total
-}
-
-func (s *Status) Fail(product string, err error, logFile string) {
-	s.Finish(product)
-
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if s.smartTerminal && !s.haveBlankLine {
-		fmt.Fprintln(s.ctx.Stdout())
-		s.haveBlankLine = true
+func errMsgFromLog(filename string) string {
+	if filename == "" {
+		return ""
 	}
 
-	s.failed++
-	fmt.Fprintln(s.ctx.Stderr(), "FAILED:", product)
-	s.ctx.Verboseln("FAILED:", product)
-
-	if logFile != "" {
-		data, err := ioutil.ReadFile(logFile)
-		if err == nil {
-			lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-			if len(lines) > errorLeadingLines+errorTrailingLines+1 {
-				lines[errorLeadingLines] = fmt.Sprintf("... skipping %d lines ...",
-					len(lines)-errorLeadingLines-errorTrailingLines)
-
-				lines = append(lines[:errorLeadingLines+1],
-					lines[len(lines)-errorTrailingLines:]...)
-			}
-			for _, line := range lines {
-				fmt.Fprintln(s.ctx.Stderr(), "> ", line)
-				s.ctx.Verboseln(line)
-			}
-		}
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return ""
 	}
 
-	s.ctx.Print(err)
-}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) > errorLeadingLines+errorTrailingLines+1 {
+		lines[errorLeadingLines] = fmt.Sprintf("... skipping %d lines ...",
+			len(lines)-errorLeadingLines-errorTrailingLines)
 
-func (s *Status) Finish(product string) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	s.cur++
-	line := fmt.Sprintf("[%d/%d] %s", s.cur, s.total, product)
-
-	if s.smartTerminal {
-		if max, ok := s.ctx.TermWidth(); ok {
-			if len(line) > max {
-				line = line[:max]
-			}
-		}
-
-		fmt.Fprint(s.ctx.Stdout(), "\r", line, "\x1b[K")
-		s.haveBlankLine = false
-	} else {
-		s.ctx.Println(line)
+		lines = append(lines[:errorLeadingLines+1],
+			lines[len(lines)-errorTrailingLines:]...)
 	}
-}
-
-func (s *Status) Finished() int {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if !s.haveBlankLine {
-		fmt.Fprintln(s.ctx.Stdout())
-		s.haveBlankLine = true
+	var buf strings.Builder
+	for _, line := range lines {
+		buf.WriteString("> ")
+		buf.WriteString(line)
+		buf.WriteString("\n")
 	}
-	return s.failed
+	return buf.String()
 }
 
 // TODO(b/70370883): This tool uses a lot of open files -- over the default
@@ -193,8 +127,39 @@ func inList(str string, list []string) bool {
 	return false
 }
 
+func copyFile(from, to string) error {
+	fromFile, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	defer fromFile.Close()
+
+	toFile, err := os.Create(to)
+	if err != nil {
+		return err
+	}
+	defer toFile.Close()
+
+	_, err = io.Copy(toFile, fromFile)
+	return err
+}
+
+type mpContext struct {
+	Context context.Context
+	Logger  logger.Logger
+	Status  status.ToolStatus
+	Tracer  tracer.Tracer
+	Finder  *finder.Finder
+	Config  build.Config
+
+	LogsDir string
+}
+
 func main() {
-	log := logger.New(os.Stderr)
+	writer := terminal.NewWriter(terminal.StdioImpl{})
+	defer writer.Finish()
+
+	log := logger.New(writer)
 	defer log.Cleanup()
 
 	flag.Parse()
@@ -205,23 +170,34 @@ func main() {
 	trace := tracer.New(log)
 	defer trace.Close()
 
+	stat := &status.Status{}
+	defer stat.Finish()
+	stat.AddOutput(terminal.NewStatusOutput(writer, "",
+		build.OsEnvironment().IsEnvTrue("ANDROID_QUIET_BUILD")))
+
+	var failures failureCount
+	stat.AddOutput(&failures)
+
 	build.SetupSignals(log, cancel, func() {
 		trace.Close()
 		log.Cleanup()
+		stat.Finish()
 	})
 
-	buildCtx := build.Context{&build.ContextImpl{
-		Context:        ctx,
-		Logger:         log,
-		Tracer:         trace,
-		StdioInterface: build.StdioImpl{},
+	buildCtx := build.Context{ContextImpl: &build.ContextImpl{
+		Context: ctx,
+		Logger:  log,
+		Tracer:  trace,
+		Writer:  writer,
+		Status:  stat,
 	}}
-
-	status := NewStatus(buildCtx)
 
 	config := build.NewConfig(buildCtx)
 	if *outDir == "" {
-		name := "multiproduct-" + time.Now().Format("20060102150405")
+		name := "multiproduct"
+		if !*incremental {
+			name += "-" + time.Now().Format("20060102150405")
+		}
 
 		*outDir = filepath.Join(config.OutDir(), name)
 
@@ -255,6 +231,11 @@ func main() {
 
 	setMaxFiles(log)
 
+	finder := build.NewSourceFinder(buildCtx, config)
+	defer finder.Shutdown()
+
+	build.FindSources(buildCtx, config, finder)
+
 	vars, err := build.DumpMakeVars(buildCtx, config, nil, []string{"all_named_products"})
 	if err != nil {
 		log.Fatal(err)
@@ -278,7 +259,7 @@ func main() {
 		productsList = allProducts
 	}
 
-	products := make([]string, 0, len(productsList))
+	finalProductsList := make([]string, 0, len(productsList))
 	skipList := strings.Split(*skipProducts, ",")
 	skipProduct := func(p string) bool {
 		for _, s := range skipList {
@@ -290,120 +271,54 @@ func main() {
 	}
 	for _, product := range productsList {
 		if !skipProduct(product) {
-			products = append(products, product)
+			finalProductsList = append(finalProductsList, product)
 		} else {
 			log.Verbose("Skipping: ", product)
 		}
 	}
 
-	log.Verbose("Got product list: ", products)
+	log.Verbose("Got product list: ", finalProductsList)
 
-	status.SetTotal(len(products))
+	s := buildCtx.Status.StartTool()
+	s.SetTotalActions(len(finalProductsList))
 
-	var wg sync.WaitGroup
-	productConfigs := make(chan Product, len(products))
+	mpCtx := &mpContext{
+		Context: ctx,
+		Logger:  log,
+		Status:  s,
+		Tracer:  trace,
 
-	finder := build.NewSourceFinder(buildCtx, config)
-	defer finder.Shutdown()
+		Finder: finder,
+		Config: config,
 
-	// Run the product config for every product in parallel
-	for _, product := range products {
-		wg.Add(1)
-		go func(product string) {
-			var stdLog string
-
-			defer wg.Done()
-			defer logger.Recover(func(err error) {
-				status.Fail(product, err, stdLog)
-			})
-
-			productOutDir := filepath.Join(config.OutDir(), product)
-			productLogDir := filepath.Join(logsDir, product)
-
-			if err := os.MkdirAll(productOutDir, 0777); err != nil {
-				log.Fatalf("Error creating out directory: %v", err)
-			}
-			if err := os.MkdirAll(productLogDir, 0777); err != nil {
-				log.Fatalf("Error creating log directory: %v", err)
-			}
-
-			stdLog = filepath.Join(productLogDir, "std.log")
-			f, err := os.Create(stdLog)
-			if err != nil {
-				log.Fatalf("Error creating std.log: %v", err)
-			}
-
-			productLog := logger.New(f)
-			productLog.SetOutput(filepath.Join(productLogDir, "soong.log"))
-
-			productCtx := build.Context{&build.ContextImpl{
-				Context:        ctx,
-				Logger:         productLog,
-				Tracer:         trace,
-				StdioInterface: build.NewCustomStdio(nil, f, f),
-				Thread:         trace.NewThread(product),
-			}}
-
-			productConfig := build.NewConfig(productCtx)
-			productConfig.Environment().Set("OUT_DIR", productOutDir)
-			build.FindSources(productCtx, productConfig, finder)
-			productConfig.Lunch(productCtx, product, *buildVariant)
-
-			build.Build(productCtx, productConfig, build.BuildProductConfig)
-			productConfigs <- Product{productCtx, productConfig, stdLog}
-		}(product)
+		LogsDir: logsDir,
 	}
+
+	products := make(chan string, len(productsList))
 	go func() {
-		defer close(productConfigs)
-		wg.Wait()
+		defer close(products)
+		for _, product := range finalProductsList {
+			products <- product
+		}
 	}()
 
-	var wg2 sync.WaitGroup
-	// Then run up to numJobs worth of Soong and Kati
+	var wg sync.WaitGroup
 	for i := 0; i < *numJobs; i++ {
-		wg2.Add(1)
+		wg.Add(1)
 		go func() {
-			defer wg2.Done()
-			for product := range productConfigs {
-				func() {
-					defer logger.Recover(func(err error) {
-						status.Fail(product.config.TargetProduct(), err, product.logFile)
-					})
-
-					defer func() {
-						if *keepArtifacts {
-							args := zip.ZipArgs{
-								FileArgs: []zip.FileArg{
-									{
-										GlobDir:             product.config.OutDir(),
-										SourcePrefixToStrip: product.config.OutDir(),
-									},
-								},
-								OutputFilePath:   filepath.Join(config.OutDir(), product.config.TargetProduct()+".zip"),
-								NumParallelJobs:  runtime.NumCPU(),
-								CompressionLevel: 5,
-							}
-							if err := zip.Run(args); err != nil {
-								log.Fatalf("Error zipping artifacts: %v", err)
-							}
-						}
-						os.RemoveAll(product.config.OutDir())
-					}()
-
-					buildWhat := 0
-					if !*onlyConfig {
-						buildWhat |= build.BuildSoong
-						if !*onlySoong {
-							buildWhat |= build.BuildKati
-						}
+			defer wg.Done()
+			for {
+				select {
+				case product := <-products:
+					if product == "" {
+						return
 					}
-					build.Build(product.ctx, product.config, buildWhat)
-					status.Finish(product.config.TargetProduct())
-				}()
+					buildProduct(mpCtx, product)
+				}
 			}
 		}()
 	}
-	wg2.Wait()
+	wg.Wait()
 
 	if *alternateResultDir {
 		args := zip.ZipArgs{
@@ -414,12 +329,140 @@ func main() {
 			NumParallelJobs:  runtime.NumCPU(),
 			CompressionLevel: 5,
 		}
-		if err := zip.Run(args); err != nil {
+		if err := zip.Zip(args); err != nil {
 			log.Fatalf("Error zipping logs: %v", err)
 		}
 	}
 
-	if count := status.Finished(); count > 0 {
-		log.Fatalln(count, "products failed")
+	s.Finish()
+
+	if failures == 1 {
+		log.Fatal("1 failure")
+	} else if failures > 1 {
+		log.Fatalf("%d failures", failures)
+	} else {
+		writer.Print("Success")
 	}
 }
+
+func buildProduct(mpctx *mpContext, product string) {
+	var stdLog string
+
+	outDir := filepath.Join(mpctx.Config.OutDir(), product)
+	logsDir := filepath.Join(mpctx.LogsDir, product)
+
+	if err := os.MkdirAll(outDir, 0777); err != nil {
+		mpctx.Logger.Fatalf("Error creating out directory: %v", err)
+	}
+	if err := os.MkdirAll(logsDir, 0777); err != nil {
+		mpctx.Logger.Fatalf("Error creating log directory: %v", err)
+	}
+
+	stdLog = filepath.Join(logsDir, "std.log")
+	f, err := os.Create(stdLog)
+	if err != nil {
+		mpctx.Logger.Fatalf("Error creating std.log: %v", err)
+	}
+	defer f.Close()
+
+	log := logger.New(f)
+	defer log.Cleanup()
+	log.SetOutput(filepath.Join(logsDir, "soong.log"))
+
+	action := &status.Action{
+		Description: product,
+		Outputs:     []string{product},
+	}
+	mpctx.Status.StartAction(action)
+	defer logger.Recover(func(err error) {
+		mpctx.Status.FinishAction(status.ActionResult{
+			Action: action,
+			Error:  err,
+			Output: errMsgFromLog(stdLog),
+		})
+	})
+
+	ctx := build.Context{ContextImpl: &build.ContextImpl{
+		Context: mpctx.Context,
+		Logger:  log,
+		Tracer:  mpctx.Tracer,
+		Writer:  terminal.NewWriter(terminal.NewCustomStdio(nil, f, f)),
+		Thread:  mpctx.Tracer.NewThread(product),
+		Status:  &status.Status{},
+	}}
+	ctx.Status.AddOutput(terminal.NewStatusOutput(ctx.Writer, "",
+		build.OsEnvironment().IsEnvTrue("ANDROID_QUIET_BUILD")))
+
+	config := build.NewConfig(ctx, flag.Args()...)
+	config.Environment().Set("OUT_DIR", outDir)
+	if !*keepArtifacts {
+		config.Environment().Set("EMPTY_NINJA_FILE", "true")
+	}
+	build.FindSources(ctx, config, mpctx.Finder)
+	config.Lunch(ctx, product, *buildVariant)
+
+	defer func() {
+		if *keepArtifacts {
+			args := zip.ZipArgs{
+				FileArgs: []zip.FileArg{
+					{
+						GlobDir:             outDir,
+						SourcePrefixToStrip: outDir,
+					},
+				},
+				OutputFilePath:   filepath.Join(mpctx.Config.OutDir(), product+".zip"),
+				NumParallelJobs:  runtime.NumCPU(),
+				CompressionLevel: 5,
+			}
+			if err := zip.Zip(args); err != nil {
+				log.Fatalf("Error zipping artifacts: %v", err)
+			}
+		}
+		if !*incremental {
+			os.RemoveAll(outDir)
+		}
+	}()
+
+	buildWhat := build.BuildProductConfig
+	if !*onlyConfig {
+		buildWhat |= build.BuildSoong
+		if !*onlySoong {
+			buildWhat |= build.BuildKati
+		}
+	}
+
+	before := time.Now()
+	build.Build(ctx, config, buildWhat)
+
+	// Save std_full.log if Kati re-read the makefiles
+	if buildWhat&build.BuildKati != 0 {
+		if after, err := os.Stat(config.KatiBuildNinjaFile()); err == nil && after.ModTime().After(before) {
+			err := copyFile(stdLog, filepath.Join(filepath.Dir(stdLog), "std_full.log"))
+			if err != nil {
+				log.Fatalf("Error copying log file: %s", err)
+			}
+		}
+	}
+
+	mpctx.Status.FinishAction(status.ActionResult{
+		Action: action,
+	})
+}
+
+type failureCount int
+
+func (f *failureCount) StartAction(action *status.Action, counts status.Counts) {}
+
+func (f *failureCount) FinishAction(result status.ActionResult, counts status.Counts) {
+	if result.Error != nil {
+		*f += 1
+	}
+}
+
+func (f *failureCount) Message(level status.MsgLevel, message string) {
+	if level >= status.ErrorLvl {
+		*f += 1
+	}
+}
+
+func (f *failureCount) Flush() {}

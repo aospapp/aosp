@@ -22,361 +22,302 @@ import android.car.vms.IVmsSubscriberClient;
 import android.car.vms.VmsLayer;
 import android.car.vms.VmsLayersOffering;
 import android.car.vms.VmsSubscriptionState;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.ServiceConnection;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
 import android.os.Binder;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Message;
 import android.os.RemoteException;
-import android.os.UserHandle;
-import android.text.TextUtils;
 import android.util.ArrayMap;
-import android.util.ArraySet;
 import android.util.Log;
 
-import com.android.car.hal.VmsHalService;
-import com.android.car.hal.VmsHalService.VmsHalPublisherListener;
+import com.android.car.vms.VmsBrokerService;
+import com.android.car.vms.VmsClientManager;
+import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.io.PrintWriter;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+
 
 /**
  * Receives HAL updates by implementing VmsHalService.VmsHalListener.
  * Binds to publishers and configures them to use this service.
  * Notifies publishers of subscription changes.
  */
-public class VmsPublisherService extends IVmsPublisherService.Stub implements CarServiceBase {
+public class VmsPublisherService implements CarServiceBase, VmsClientManager.ConnectionListener {
     private static final boolean DBG = true;
     private static final String TAG = "VmsPublisherService";
 
-    private static final int MSG_HAL_SUBSCRIPTION_CHANGED = 1;
+    @VisibleForTesting
+    static final String PACKET_COUNT_FORMAT = "Packet count for layer %s: %d\n";
+
+    @VisibleForTesting
+    static final String PACKET_SIZE_FORMAT = "Total packet size for layer %s: %d (bytes)\n";
+
+    @VisibleForTesting
+    static final String PACKET_FAILURE_COUNT_FORMAT =
+            "Total packet failure count for layer %s from %s to %s: %d\n";
+
+    @VisibleForTesting
+    static final String PACKET_FAILURE_SIZE_FORMAT =
+            "Total packet failure size for layer %s from %s to %s: %d (bytes)\n";
 
     private final Context mContext;
-    private final VmsHalService mHal;
-    private final Map<String, PublisherConnection> mPublisherConnectionMap = new ArrayMap<>();
-    private final Map<String, IVmsPublisherClient> mPublisherMap = new ArrayMap<>();
-    private final Set<String> mSafePermissions;
-    private final Handler mHandler = new EventHandler();
-    private final VmsHalPublisherListener mHalPublisherListener;
+    private final VmsClientManager mClientManager;
+    private final VmsBrokerService mBrokerService;
+    private final Map<String, PublisherProxy> mPublisherProxies = Collections.synchronizedMap(
+            new ArrayMap<>());
 
-    private BroadcastReceiver mBootCompleteReceiver;
+    @GuardedBy("mPacketCounts")
+    private final Map<VmsLayer, PacketCountAndSize> mPacketCounts = new ArrayMap<>();
+    @GuardedBy("mPacketFailureCounts")
+    private final Map<PacketFailureKey, PacketCountAndSize> mPacketFailureCounts = new ArrayMap<>();
 
-    public VmsPublisherService(Context context, VmsHalService hal) {
+    // PacketCountAndSize keeps track of the cumulative size and number of packets of a specific
+    // VmsLayer that we have seen.
+    private class PacketCountAndSize {
+        long mCount;
+        long mSize;
+    }
+
+    // PacketFailureKey is a triple of the VmsLayer, the publisher and subscriber for which a packet
+    // failed to be sent.
+    private class PacketFailureKey {
+        VmsLayer mVmsLayer;
+        String mPublisher;
+        String mSubscriber;
+
+        PacketFailureKey(VmsLayer vmsLayer, String publisher, String subscriber) {
+            mVmsLayer = vmsLayer;
+            mPublisher = publisher;
+            mSubscriber = subscriber;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof PacketFailureKey)) {
+                return false;
+            }
+
+            PacketFailureKey otherKey = (PacketFailureKey) o;
+            return Objects.equals(mVmsLayer, otherKey.mVmsLayer) && Objects.equals(mPublisher,
+                    otherKey.mPublisher) && Objects.equals(mSubscriber, otherKey.mSubscriber);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(mVmsLayer, mPublisher, mSubscriber);
+        }
+    }
+
+    public VmsPublisherService(
+            Context context,
+            VmsBrokerService brokerService,
+            VmsClientManager clientManager) {
         mContext = context;
-        mHal = hal;
-
-        mHalPublisherListener = subscriptionState -> mHandler.sendMessage(
-                mHandler.obtainMessage(MSG_HAL_SUBSCRIPTION_CHANGED, subscriptionState));
-
-        // Load permissions that can be granted to publishers.
-        mSafePermissions = new ArraySet<>(
-                Arrays.asList(mContext.getResources().getStringArray(R.array.vmsSafePermissions)));
+        mClientManager = clientManager;
+        mBrokerService = brokerService;
+        mClientManager.registerConnectionListener(this);
     }
 
-    // Implements CarServiceBase interface.
     @Override
-    public void init() {
-        mHal.addPublisherListener(mHalPublisherListener);
-
-        if (isTestEnvironment()) {
-            Log.d(TAG, "Running under test environment");
-            bindToAllPublishers();
-        } else {
-            mBootCompleteReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    if (Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(intent.getAction())) {
-                        onLockedBootCompleted();
-                    } else {
-                        Log.e(TAG, "Unexpected action received: " + intent);
-                    }
-                }
-            };
-
-            mContext.registerReceiver(mBootCompleteReceiver,
-                    new IntentFilter(Intent.ACTION_LOCKED_BOOT_COMPLETED));
-        }
-    }
-
-    private void bindToAllPublishers() {
-        String[] publisherNames = mContext.getResources().getStringArray(
-                R.array.vmsPublisherClients);
-        if (DBG) Log.d(TAG, "Publishers found: " + publisherNames.length);
-
-        for (String publisherName : publisherNames) {
-            if (TextUtils.isEmpty(publisherName)) {
-                Log.e(TAG, "empty publisher name");
-                continue;
-            }
-            ComponentName name = ComponentName.unflattenFromString(publisherName);
-            if (name == null) {
-                Log.e(TAG, "invalid publisher name: " + publisherName);
-                continue;
-            }
-
-            if (!mContext.getPackageManager().isPackageAvailable(name.getPackageName())) {
-                Log.w(TAG, "VMS publisher not installed: " + publisherName);
-                continue;
-            }
-
-            bind(name);
-        }
-    }
+    public void init() {}
 
     @Override
     public void release() {
-        if (mBootCompleteReceiver != null) {
-            mContext.unregisterReceiver(mBootCompleteReceiver);
-            mBootCompleteReceiver = null;
-        }
-        mHal.removePublisherListener(mHalPublisherListener);
-
-        for (PublisherConnection connection : mPublisherConnectionMap.values()) {
-            mContext.unbindService(connection);
-        }
-        mPublisherConnectionMap.clear();
-        mPublisherMap.clear();
+        mPublisherProxies.values().forEach(PublisherProxy::unregister);
+        mPublisherProxies.clear();
     }
 
     @Override
     public void dump(PrintWriter writer) {
+        dumpMetrics(writer);
+    }
+
+    @Override
+    public void dumpMetrics(PrintWriter writer) {
         writer.println("*" + getClass().getSimpleName() + "*");
-        writer.println("mSafePermissions: " + mSafePermissions);
-        writer.println("mPublisherMap:" + mPublisherMap);
-        writer.println("mPublisherConnectionMap:" + mPublisherConnectionMap);
-    }
-
-    /* Called in arbitrary binder thread */
-    @Override
-    public void setLayersOffering(IBinder token, VmsLayersOffering offering) {
-        mHal.setPublisherLayersOffering(token, offering);
-    }
-
-    /* Called in arbitrary binder thread */
-    @Override
-    public void publish(IBinder token, VmsLayer layer, int publisherId, byte[] payload) {
-        if (DBG) {
-            Log.d(TAG, "Publishing for layer: " + layer);
-        }
-        ICarImpl.assertVmsPublisherPermission(mContext);
-
-        // Send the message to application listeners.
-        Set<IVmsSubscriberClient> listeners =
-                mHal.getSubscribersForLayerFromPublisher(layer, publisherId);
-
-        if (DBG) {
-            Log.d(TAG, "Number of subscribed apps: " + listeners.size());
-        }
-        for (IVmsSubscriberClient listener : listeners) {
-            try {
-                listener.onVmsMessageReceived(layer, payload);
-            } catch (RemoteException ex) {
-                Log.e(TAG, "unable to publish to listener: " + listener);
+        writer.println("mPublisherProxies: " + mPublisherProxies.size());
+        synchronized (mPacketCounts) {
+            for (Map.Entry<VmsLayer, PacketCountAndSize> entry : mPacketCounts.entrySet()) {
+                VmsLayer layer = entry.getKey();
+                PacketCountAndSize countAndSize = entry.getValue();
+                writer.format(PACKET_COUNT_FORMAT, layer, countAndSize.mCount);
+                writer.format(PACKET_SIZE_FORMAT, layer, countAndSize.mSize);
             }
         }
-
-        // Send the message to HAL
-        if (mHal.isHalSubscribed(layer)) {
-            Log.d(TAG, "HAL is subscribed");
-            mHal.setDataMessage(layer, payload);
-        } else {
-            Log.d(TAG, "HAL is NOT subscribed");
-        }
-    }
-
-    /* Called in arbitrary binder thread */
-    @Override
-    public VmsSubscriptionState getSubscriptions() {
-        ICarImpl.assertVmsPublisherPermission(mContext);
-        return mHal.getSubscriptionState();
-    }
-
-    /* Called in arbitrary binder thread */
-    @Override
-    public int getPublisherId(byte[] publisherInfo) {
-        ICarImpl.assertVmsPublisherPermission(mContext);
-        return mHal.getPublisherId(publisherInfo);
-    }
-
-    private void onLockedBootCompleted() {
-        if (DBG) Log.i(TAG, "onLockedBootCompleted");
-
-        bindToAllPublishers();
-    }
-
-    /**
-     * This method is only invoked by VmsHalService.notifyPublishers which is synchronized.
-     * Therefore this method only sees a non-decreasing sequence.
-     */
-    private void handleHalSubscriptionChanged(VmsSubscriptionState subscriptionState) {
-        // Send the message to application listeners.
-        for (IVmsPublisherClient client : mPublisherMap.values()) {
-            try {
-                client.onVmsSubscriptionChange(subscriptionState);
-            } catch (RemoteException ex) {
-                Log.e(TAG, "unable to send notification to: " + client, ex);
+        synchronized (mPacketFailureCounts) {
+            for (Map.Entry<PacketFailureKey, PacketCountAndSize> entry :
+                    mPacketFailureCounts.entrySet()) {
+                PacketFailureKey key = entry.getKey();
+                PacketCountAndSize countAndSize = entry.getValue();
+                VmsLayer layer = key.mVmsLayer;
+                String publisher = key.mPublisher;
+                String subscriber = key.mSubscriber;
+                writer.format(PACKET_FAILURE_COUNT_FORMAT, layer, publisher, subscriber,
+                        countAndSize.mCount);
+                writer.format(PACKET_FAILURE_SIZE_FORMAT, layer, publisher, subscriber,
+                        countAndSize.mSize);
             }
         }
     }
 
-    /**
-     * Tries to bind to a publisher.
-     *
-     * @param name publisher component name (e.g. android.car.vms.logger/.LoggingService).
-     */
-    private void bind(ComponentName name) {
-        String publisherName = name.flattenToString();
-        if (DBG) {
-            Log.d(TAG, "binding to: " + publisherName);
-        }
+    @Override
+    public void onClientConnected(String publisherName, IBinder binder) {
+        if (DBG) Log.d(TAG, "onClientConnected: " + publisherName);
+        IBinder publisherToken = new Binder();
+        IVmsPublisherClient publisherClient = IVmsPublisherClient.Stub.asInterface(binder);
 
-        if (mPublisherConnectionMap.containsKey(publisherName)) {
-            // Already registered, nothing to do.
-            return;
-        }
-        grantPermissions(name);
-        Intent intent = new Intent();
-        intent.setComponent(name);
-        PublisherConnection connection = new PublisherConnection(name);
-        if (mContext.bindServiceAsUser(intent, connection,
-                Context.BIND_AUTO_CREATE, UserHandle.SYSTEM)) {
-            mPublisherConnectionMap.put(publisherName, connection);
-        } else {
-            Log.e(TAG, "unable to bind to: " + publisherName);
-        }
-    }
-
-    /**
-     * Removes the publisher and associated connection.
-     *
-     * @param name publisher component name (e.g. android.car.vms.Logger).
-     */
-    private void unbind(ComponentName name) {
-        String publisherName = name.flattenToString();
-        if (DBG) {
-            Log.d(TAG, "unbinding from: " + publisherName);
-        }
-
-        boolean found = mPublisherMap.remove(publisherName) != null;
-        if (found) {
-            PublisherConnection connection = mPublisherConnectionMap.get(publisherName);
-            mContext.unbindService(connection);
-            mPublisherConnectionMap.remove(publisherName);
-        } else {
-            Log.e(TAG, "unbind: unknown publisher." + publisherName);
-        }
-    }
-
-    private void grantPermissions(ComponentName component) {
-        final PackageManager packageManager = mContext.getPackageManager();
-        final String packageName = component.getPackageName();
-        PackageInfo packageInfo;
+        PublisherProxy publisherProxy = new PublisherProxy(publisherName, publisherToken,
+                publisherClient);
+        publisherProxy.register();
         try {
-            packageInfo = packageManager.getPackageInfo(packageName,
-                    PackageManager.GET_PERMISSIONS);
-        } catch (PackageManager.NameNotFoundException e) {
-            Log.e(TAG, "Error getting package info for " + packageName, e);
+            publisherClient.setVmsPublisherService(publisherToken, publisherProxy);
+        } catch (Throwable e) {
+            Log.e(TAG, "unable to configure publisher: " + publisherName, e);
             return;
         }
-        if (packageInfo.requestedPermissions == null) return;
-        for (String permission : packageInfo.requestedPermissions) {
-            if (!mSafePermissions.contains(permission)) {
-                continue;
-            }
-            if (packageManager.checkPermission(permission, packageName)
-                    == PackageManager.PERMISSION_GRANTED) {
-                continue;
-            }
-            try {
-                packageManager.grantRuntimePermission(packageName, permission,
-                        UserHandle.SYSTEM);
-                Log.d(TAG, "Permission " + permission + " granted to " + packageName);
-            } catch (SecurityException | IllegalArgumentException e) {
-                Log.e(TAG, "Error while trying to grant " + permission + " to " + packageName,
-                        e);
-            }
+
+        PublisherProxy existingProxy = mPublisherProxies.put(publisherName, publisherProxy);
+        if (existingProxy != null) {
+            existingProxy.unregister();
         }
     }
 
-    private boolean isTestEnvironment() {
-        // If the context is derived from other package it means we're running under
-        // environment.
-        return !TextUtils.equals(mContext.getBasePackageName(), mContext.getPackageName());
+    @Override
+    public void onClientDisconnected(String publisherName) {
+        if (DBG) Log.d(TAG, "onClientDisconnected: " + publisherName);
+        PublisherProxy proxy = mPublisherProxies.remove(publisherName);
+        if (proxy != null) {
+            proxy.unregister();
+        }
     }
 
-    class PublisherConnection implements ServiceConnection {
-        private final IBinder mToken = new Binder();
-        private final ComponentName mName;
+    private class PublisherProxy extends IVmsPublisherService.Stub implements
+            VmsBrokerService.PublisherListener {
+        private final String mName;
+        private final IBinder mToken;
+        private final IVmsPublisherClient mPublisherClient;
+        private boolean mConnected;
 
-        PublisherConnection(ComponentName name) {
-            mName = name;
+        PublisherProxy(String name, IBinder token,
+                IVmsPublisherClient publisherClient) {
+            this.mName = name;
+            this.mToken = token;
+            this.mPublisherClient = publisherClient;
         }
 
-        private final Runnable mBindRunnable = new Runnable() {
-            @Override
-            public void run() {
-                Log.d(TAG, "delayed binding for: " + mName);
-                bind(mName);
-            }
-        };
+        void register() {
+            if (DBG) Log.d(TAG, "register: " + mName);
+            mConnected = true;
+            mBrokerService.addPublisherListener(this);
+        }
 
-        /**
-         * Once the service binds to a publisher service, the publisher binder is added to
-         * mPublisherMap
-         * and the publisher is configured to use this service.
-         */
+        void unregister() {
+            if (DBG) Log.d(TAG, "unregister: " + mName);
+            mConnected = false;
+            mBrokerService.removePublisherListener(this);
+            mBrokerService.removeDeadPublisher(mToken);
+        }
+
         @Override
-        public void onServiceConnected(ComponentName name, IBinder binder) {
+        public void setLayersOffering(IBinder token, VmsLayersOffering offering) {
+            assertPermission(token);
+            mBrokerService.setPublisherLayersOffering(token, offering);
+        }
+
+        private void incrementPacketCount(VmsLayer layer, long size) {
+            synchronized (mPacketCounts) {
+                PacketCountAndSize countAndSize = mPacketCounts.computeIfAbsent(layer,
+                        i -> new PacketCountAndSize());
+                countAndSize.mCount++;
+                countAndSize.mSize += size;
+            }
+        }
+
+        private void incrementPacketFailure(VmsLayer layer, String publisher, String subscriber,
+                long size) {
+            synchronized (mPacketFailureCounts) {
+                PacketFailureKey key = new PacketFailureKey(layer, publisher, subscriber);
+                PacketCountAndSize countAndSize = mPacketFailureCounts.computeIfAbsent(key,
+                        i -> new PacketCountAndSize());
+                countAndSize.mCount++;
+                countAndSize.mSize += size;
+            }
+        }
+
+        @Override
+        public void publish(IBinder token, VmsLayer layer, int publisherId, byte[] payload) {
+            assertPermission(token);
             if (DBG) {
-                Log.d(TAG, "onServiceConnected, name: " + name + ", binder: " + binder);
+                Log.d(TAG, String.format("Publishing to %s as %d (%s)", layer, publisherId, mName));
             }
-            IVmsPublisherClient service = IVmsPublisherClient.Stub.asInterface(binder);
-            mPublisherMap.put(name.flattenToString(), service);
+
+            if (layer == null) {
+                return;
+            }
+
+            int payloadLength = payload != null ? payload.length : 0;
+            incrementPacketCount(layer, payloadLength);
+
+            // Send the message to subscribers
+            Set<IVmsSubscriberClient> listeners =
+                    mBrokerService.getSubscribersForLayerFromPublisher(layer, publisherId);
+
+            if (DBG) Log.d(TAG, String.format("Number of subscribers: %d", listeners.size()));
+
+            if (listeners.size() == 0) {
+                // An empty string for the last argument is a special value signalizing zero
+                // subscribers for the VMS_PACKET_FAILURE_REPORTED atom.
+                incrementPacketFailure(layer, mName, "", payloadLength);
+            }
+
+            for (IVmsSubscriberClient listener : listeners) {
+                try {
+                    listener.onVmsMessageReceived(layer, payload);
+                } catch (RemoteException ex) {
+                    String subscriberName = mBrokerService.getPackageName(listener);
+                    incrementPacketFailure(layer, mName, subscriberName, payloadLength);
+                    Log.e(TAG, String.format("Unable to publish to listener: %s", subscriberName));
+                }
+            }
+        }
+
+        @Override
+        public VmsSubscriptionState getSubscriptions() {
+            assertPermission();
+            return mBrokerService.getSubscriptionState();
+        }
+
+        @Override
+        public int getPublisherId(byte[] publisherInfo) {
+            assertPermission();
+            return mBrokerService.getPublisherId(publisherInfo);
+        }
+
+        @Override
+        public void onSubscriptionChange(VmsSubscriptionState subscriptionState) {
             try {
-                service.setVmsPublisherService(mToken, VmsPublisherService.this);
-            } catch (RemoteException e) {
-                Log.e(TAG, "unable to configure publisher: " + name, e);
+                mPublisherClient.onVmsSubscriptionChange(subscriptionState);
+            } catch (Throwable e) {
+                Log.e(TAG, String.format("Unable to send subscription state to: %s", mName), e);
             }
         }
 
-        /**
-         * Tries to rebind to the publisher service.
-         */
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            String publisherName = name.flattenToString();
-            Log.d(TAG, "onServiceDisconnected, name: " + publisherName);
-
-            int millisecondsToWait = mContext.getResources().getInteger(
-                    com.android.car.R.integer.millisecondsBeforeRebindToVmsPublisher);
-            if (!mName.flattenToString().equals(name.flattenToString())) {
-                throw new IllegalArgumentException(
-                    "Mismatch on publisherConnection. Expected: " + mName + " Got: " + name);
+        private void assertPermission(IBinder publisherToken) {
+            if (mToken != publisherToken) {
+                throw new SecurityException("Invalid publisher token");
             }
-            mHandler.postDelayed(mBindRunnable, millisecondsToWait);
-
-            unbind(name);
+            assertPermission();
         }
-    }
 
-    private class EventHandler extends Handler {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case MSG_HAL_SUBSCRIPTION_CHANGED:
-                    handleHalSubscriptionChanged((VmsSubscriptionState) msg.obj);
-                    return;
+        private void assertPermission() {
+            if (!mConnected) {
+                throw new SecurityException("Publisher has been disconnected");
             }
-            super.handleMessage(msg);
+            ICarImpl.assertVmsPublisherPermission(mContext);
         }
     }
 }

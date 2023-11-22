@@ -23,6 +23,7 @@ import android.content.pm.ProviderInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.XmlResourceParser;
 import android.os.Parcel;
+import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
 import libcore.io.IoUtils;
@@ -30,6 +31,7 @@ import libcore.io.IoUtils;
 import java.util.Iterator;
 import java.util.List;
 
+@AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class ProviderInfoTest extends AndroidTestCase {
     private static final String PACKAGE_NAME = "android.content.cts";
     private static final String PROVIDER_NAME = "android.content.cts.MockContentProvider";

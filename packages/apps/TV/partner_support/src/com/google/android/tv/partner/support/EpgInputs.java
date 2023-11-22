@@ -59,6 +59,8 @@ public final class EpgInputs {
                 result.add(EpgInput.createEpgChannel(contentValues));
             }
             return result;
+        } catch (Exception e) {
+            return Collections.emptySet();
         }
     }
 

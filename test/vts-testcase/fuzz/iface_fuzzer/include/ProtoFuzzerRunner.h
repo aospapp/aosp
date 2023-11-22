@@ -40,7 +40,7 @@ using IfaceDescTbl = std::unordered_map<std::string, IfaceDesc>;
 // HAL-related information, e.g. which interfaces has been opened so far.
 class ProtoFuzzerRunner {
  public:
-  ProtoFuzzerRunner(const std::vector<CompSpec> &comp_specs);
+  explicit ProtoFuzzerRunner(const std::vector<CompSpec> &comp_specs);
 
   // Initializes interface descriptor table by opening the root interface.
   void Init(const std::string &, bool);

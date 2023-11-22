@@ -277,6 +277,7 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
         boolean hasTelephony = false;
         boolean hasBluetooth = false;
         boolean hasIllegalFeature = false;
+        boolean hasTelevision = false;
 
         // get list of all features device thinks it has, & store in a HashMap
         // for fast lookups
@@ -343,6 +344,8 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
         if (apiVersion >= Build.VERSION_CODES.ECLAIR_MR1) {
             Collections.addAll(features, ALL_ECLAIR_FEATURES);
         }
+
+        hasTelevision = getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEVISION);
         for (Feature f : features) {
             HashMap<String, Object> row = new HashMap<String, Object>();
             listViewData.add(row);
@@ -358,6 +361,9 @@ public class FeatureSummaryActivity extends PassFailButtons.ListActivity {
                 // it's required, but device doesn't report it. Boo, set the
                 // bogus icon
                 statusIcon = R.drawable.fs_error;
+                if (hasTelevision && PackageManager.FEATURE_LOCATION.equals(f.name)) {
+                    statusIcon = R.drawable.fs_indeterminate;
+                }
             } else {
                 // device doesn't report it, but it's not req'd, so can't tell
                 // if there's a problem

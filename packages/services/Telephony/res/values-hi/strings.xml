@@ -29,7 +29,7 @@
     <string name="ussdRunning" msgid="485588686340541690">"USSD कोड चल रहा है…"</string>
     <string name="mmiCancelled" msgid="2771923949751842276">"MMI कोड रद्द किया गया"</string>
     <string name="cancel" msgid="5044513931633602634">"अभी नहीं"</string>
-    <string name="enter_input" msgid="1810529547726803893">"USSD संदेश <xliff:g id="MIN_LEN">%d</xliff:g> और <xliff:g id="MAX_LEN">%d</xliff:g> वर्णों के बीच होना चाहिए. कृपया पुन: प्रयास करें."</string>
+    <string name="enter_input" msgid="1810529547726803893">"USSD संदेश <xliff:g id="MIN_LEN">%1$d</xliff:g> और <xliff:g id="MAX_LEN">%2$d</xliff:g> वर्णों के बीच होना चाहिए. कृपया फिर से प्रयास करें."</string>
     <string name="manageConferenceLabel" msgid="4691922394301969053">"कॉन्फ़्रेंस कॉल प्रबंधित करें"</string>
     <string name="ok" msgid="3811371167865772377">"ठीक है"</string>
     <string name="audio_mode_speaker" msgid="27649582100085266">"स्‍पीकर"</string>
@@ -77,6 +77,9 @@
     <string name="voicemail" msgid="8693759337917898954">"वॉयस मेल"</string>
     <string name="voicemail_settings_with_label" msgid="152724978380748296">"वॉइसमेल (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="voicemail_abbreviated" msgid="2215592488517217448">"VM:"</string>
+    <string name="make_and_receive_calls" msgid="1258596928285972166">"कॉल लगाएं और कॉल उठाएं"</string>
+    <string name="smart_forwarding_settings_menu" msgid="3874243342391798449">"स्मार्ट फ़ॉरवर्डिंग"</string>
+    <string name="smart_forwarding_settings_menu_summary" msgid="8962247659470565059">"अगर एक नंबर पर कॉल न लग रही हो, तो उसे हमेशा आपके दूसरे नंबर पर भेज दें"</string>
     <string name="voicemail_notifications_preference_title" msgid="4019728578955102213">"सूचनाएं"</string>
     <string name="cell_broadcast_settings" msgid="8740238216690502563">"आपातकालीन प्रसारण"</string>
     <string name="call_settings" msgid="6112441768261754562">"कॉल सेटिंग"</string>
@@ -131,7 +134,7 @@
     <string name="stk_cc_ss_to_ussd_error" msgid="6095812685884176176">"SS अनुरोध को USSD अनुरोध में बदला गया"</string>
     <string name="stk_cc_ss_to_ss_error" msgid="7920654012697945858">"नए SS अनुरोध में बदला गया"</string>
     <string name="stk_cc_ss_to_dial_video_error" msgid="3873905132181743781">"SS अनुरोध को वीडियो कॉल में बदला गया"</string>
-    <string name="fdn_check_failure" msgid="18200614306525434">"आपके फ़ोन ऐप्स की फ़िक्‍स्‍ड डायलिंग नंबर सेटिंग चालू है. इसके परिणामस्‍वरूप, कॉल से संबंधित कुछ सुविधाएं कार्य नहीं कर रही हैं."</string>
+    <string name="fdn_check_failure" msgid="18200614306525434">"आपके फ़ोन ऐप्स की फ़िक्‍स्‍ड डायलिंग नंबर सेटिंग चालू है. इसके परिणामस्‍वरूप, कॉल से संबंधित कुछ सुविधाएं काम नहीं कर रही हैं."</string>
     <string name="radio_off_error" msgid="2304459933248513376">"इन सेटिंग को देखने के पहले रेडियो चालू करें."</string>
     <string name="close_dialog" msgid="2365884406356986917">"ठीक है"</string>
     <string name="enable" msgid="7248657275000173526">"चालू करें"</string>
@@ -143,8 +146,8 @@
     <item msgid="1108394741608734023">"नंबर दिखाएं"</item>
   </string-array>
     <string name="vm_changed" msgid="380744030726254139">"वॉयस मेल नंबर बदला गया."</string>
-    <string name="vm_change_failed" msgid="3352934863246208918">"वॉयस मेल नंबर बदला नहीं जा सका.\nयदि यह समस्या बनी रहती है, तो अपने कैरियर से संपर्क करें."</string>
-    <string name="fw_change_failed" msgid="5298103228470214665">"अग्रेषण नंबर बदला नहीं जा सका.\nयदि यह समस्या बनी रहती है, तो अपने कैरियर से संपर्क करें."</string>
+    <string name="vm_change_failed" msgid="3352934863246208918">"वॉयस मेल नंबर बदला नहीं जा सका.\nअगर यह समस्या बनी रहती है, तो अपने कैरियर से संपर्क करें."</string>
+    <string name="fw_change_failed" msgid="5298103228470214665">"अग्रेषण नंबर बदला नहीं जा सका.\nअगर यह समस्या बनी रहती है, तो अपने कैरियर से संपर्क करें."</string>
     <string name="fw_get_in_vm_failed" msgid="8862896836093833973">"वर्तमान अग्रेषण संख्‍या सेटिंग पुनर्प्राप्त नही की जा सकी और सहेजी नहीं जा सकी.\nकिसी भी तरह नए प्रदाता पर स्विच करें?"</string>
     <string name="no_change" msgid="3186040086622435212">"कोई परिवर्तन नहीं किए गए."</string>
     <string name="sum_voicemail_choose_provider" msgid="59911196126278922">"वॉयस मेल सेवा चुनें"</string>
@@ -166,10 +169,11 @@
     <string name="network_query_error" msgid="8466081377231178298">"नेटवर्क नहीं मिले. फिर से कोशिश करें."</string>
     <string name="register_on_network" msgid="9055203954040805084">"<xliff:g id="NETWORK">%s</xliff:g> पर पंजीकरण कर रहा है…"</string>
     <string name="not_allowed" msgid="5613353860205691579">"आपका सिम कार्ड इस नेटवर्क पर कनेक्शन की अनुमति नहीं देता है."</string>
-    <string name="connect_later" msgid="2308119155752343975">"अभी इस नेटवर्क से कनेक्ट नहीं कर सकते. बाद में पुन: प्रयास करें."</string>
+    <string name="connect_later" msgid="2308119155752343975">"अभी इस नेटवर्क से कनेक्ट नहीं कर सकते. बाद में फिर से प्रयास करें."</string>
     <string name="registration_done" msgid="495135664535876612">"नेटवर्क पर पंजीकृत."</string>
     <string name="already_auto" msgid="6067116884321285507">"पहले से ऑटोमैटिक चयन में है."</string>
     <string name="select_automatically" msgid="1046727200631770962">"अपने आप नेटवर्क चुनें"</string>
+    <string name="manual_mode_disallowed_summary" msgid="70662262085937277">"%1$s से कनेक्ट किए जाने पर उपलब्ध नहीं है"</string>
     <string name="network_select_title" msgid="7733107364757544558">"नेटवर्क"</string>
     <string name="register_automatically" msgid="6017849844573519637">"स्वचालित पंजीकरण..."</string>
     <string name="preferred_network_mode_title" msgid="2336624679902659306">"पसंदीदा नेटवर्क प्रकार"</string>
@@ -234,9 +238,13 @@
     <string name="preferred_network_mode_lte_tdscdma_cdma_evdo_gsm_wcdma_summary" msgid="5596733053095592791">"पसंदीदा नेटवर्क मोड: LTE/TDSCDMA/CDMA/EvDo/GSM/WCDMA"</string>
     <string name="call_category" msgid="5863978196309462052">"कॉलिंग"</string>
     <string name="network_operator_category" msgid="4830701959205735636">"नेटवर्क"</string>
-    <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"उन्नत 4G LTE मोड"</string>
-    <string name="enhanced_4g_lte_mode_title_variant" msgid="4871126028907265406">"उन्नत कॉलिंग"</string>
-    <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"ध्‍वनि और अन्‍य संचारों को बेहतर बनाने हेतु LTE सेवाओं का उपयोग करें (अनुशंसित)"</string>
+    <string name="enhanced_4g_lte_mode_title" msgid="522191650223239171">"बेहतर 4G LTE मोड"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_title_variant:0 (4447454259719947406) -->
+    <string name="enhanced_4g_lte_mode_summary" msgid="2332175070522125850">"ध्‍वनि और अन्‍य संचारों को बेहतर बनाने के लिए LTE सेवाओं का उपयोग करें (अनुशंसित)"</string>
+    <string name="enhanced_4g_lte_mode_summary_o2" msgid="2467813449068614988">"ध्वनि और दूसरे संचारों को बेहतर बनाने के लिए 4G सेवाओं का इस्तेमाल करें (सुझाया गया)"</string>
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:0 (2602242047481988063) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:1 (989876442920201921) -->
+    <!-- no translation found for enhanced_4g_lte_mode_sumary_variant:2 (8852017734075358040) -->
     <string name="data_enabled" msgid="5972538663568715366">"डेटा सक्षम किया गया"</string>
     <string name="data_enable_summary" msgid="2382798156640007971">"डेटा उपयोग करने दें"</string>
     <string name="dialog_alert_title" msgid="6751344986194435476">"ध्यान दें"</string>
@@ -245,7 +253,7 @@
     <string name="roaming_disable" msgid="1843417228755568110">"रोमिंग के समय डेटा सेवाएं कनेक्ट करें"</string>
     <string name="roaming_reenable_message" msgid="6843814381576397939">"डेटा रोमिंग बंद है. चालू करने के लिए टैप करें."</string>
     <string name="roaming_notification_title" msgid="4749053220884743110">"मोबाइल डेटा कनेक्शन उपलब्ध नहीं है"</string>
-    <string name="roaming_warning" msgid="1603164667540144353">"आपको बहुत अधिक शुल्‍क देना पड़ सकता है."</string>
+    <string name="roaming_warning" msgid="1603164667540144353">"आपको बहुत ज़्यादा शुल्‍क देना पड़ सकता है."</string>
     <string name="roaming_check_price_warning" msgid="7497570906830902550">"कीमतों की जानकारी के लिए आपको नेटवर्क सेवा देने वाली कंपनी से संपर्क करें."</string>
     <string name="roaming_alert_title" msgid="3654815360303826008">"डेटा रोमिंग की अनुमति दें?"</string>
     <string name="data_usage_title" msgid="4042209259808900283">"ऐप्लिकेशन का डेटा खर्च"</string>
@@ -268,13 +276,13 @@
     <string name="throttle_current_usage" msgid="8762280193043815361">"वर्तमान अवधि में उपयोग किया गया डेटा"</string>
     <string name="throttle_time_frame" msgid="1915198770363734685">"डेटा उपयोग अवधि"</string>
     <string name="throttle_rate" msgid="4710388992676803508">"डेटा दर नीति"</string>
-    <string name="throttle_help" msgid="243651091785169900">"अधिक जानें"</string>
+    <string name="throttle_help" msgid="243651091785169900">"ज़्यादा जानें"</string>
     <string name="throttle_status_subtext" msgid="1657318943142085170">"<xliff:g id="USED_2">%3$s</xliff:g> में से <xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) अवधि अधिकतम\nअगली अवधि <xliff:g id="USED_3">%4$d</xliff:g> दिनों (<xliff:g id="USED_4">%5$s</xliff:g>) में प्रारंभ होगी"</string>
     <string name="throttle_data_usage_subtext" msgid="6029276011123694701">"<xliff:g id="USED_2">%3$s</xliff:g> में से <xliff:g id="USED_0">%1$s</xliff:g> (<xliff:g id="USED_1">%2$d</xliff:g>٪) अवधि अधिकतम"</string>
     <string name="throttle_data_rate_reduced_subtext" msgid="7492763592720107737">"<xliff:g id="USED_0">%1$s</xliff:g> अधिकतम सीमा पार हो गई\nडेटा दर <xliff:g id="USED_1">%2$d</xliff:g> Kb/s तक कम हो गई है"</string>
     <string name="throttle_time_frame_subtext" msgid="7732763021560399960">"चक्र का <xliff:g id="USED_0">%1$d</xliff:g>٪ बीत चुका है\nअगली अवधि <xliff:g id="USED_1">%2$d</xliff:g> दिन में आरंभ होगी (<xliff:g id="USED_2">%3$s</xliff:g>)"</string>
-    <string name="throttle_rate_subtext" msgid="2149102656120726855">"यदि डेटा उपयोग की सीमा पार होती है, तो डेटा दर <xliff:g id="USED">%1$d</xliff:g> Kb/s तक कम हो जाती है."</string>
-    <string name="throttle_help_subtext" msgid="5217706521499010816">"आपके कैरियर की मोबाइल नेटवर्क डेटा उपयोग नीति के बारे में अधिक जानकारी"</string>
+    <string name="throttle_rate_subtext" msgid="2149102656120726855">"अगर डेटा उपयोग की सीमा पार होती है, तो डेटा दर <xliff:g id="USED">%1$d</xliff:g> Kb/s तक कम हो जाती है."</string>
+    <string name="throttle_help_subtext" msgid="5217706521499010816">"आपके कैरियर की मोबाइल नेटवर्क डेटा उपयोग नीति के बारे में ज़्यादा जानकारी"</string>
     <string name="cell_broadcast_sms" msgid="5584192824053625842">"सेल प्रसारण SMS"</string>
     <string name="enable_disable_cell_bc_sms" msgid="4851147873691392255">"सेल प्रसारण SMS"</string>
     <string name="cell_bc_sms_enable" msgid="6441688565738921084">"सेल प्रसारण SMS सक्षम किया गया"</string>
@@ -397,16 +405,16 @@
     <string name="disable_fdn" msgid="7944020890722540616">"FDN अक्षम करें"</string>
     <string name="change_pin2" msgid="2153563695382176676">"पिन2 बदलें"</string>
     <string name="enable_fdn_ok" msgid="7215588870329688132">"FDN अक्षम करें"</string>
-    <string name="disable_fdn_ok" msgid="5727046928930740173">"FDN सक्षम करें"</string>
+    <string name="disable_fdn_ok" msgid="5727046928930740173">"एफ़डीएन चालू करें"</string>
     <string name="sum_fdn" msgid="1959399454900272878">"फ़िक्स्ड डायलिंग नंबर प्रबंधित करें"</string>
     <string name="sum_fdn_change_pin" msgid="6666549734792827932">"एफ़डीएन एक्सेस के लिए पिन बदलें"</string>
     <string name="sum_fdn_manage_list" msgid="8431088265332628316">"फ़ोन नंबर सूची प्रबंधित करें"</string>
     <string name="voice_privacy" msgid="3776841382844614716">"ध्वनि निजता"</string>
-    <string name="voice_privacy_summary" msgid="3159383389833516214">"उन्नत निजता मोड सक्षम करें"</string>
-    <string name="tty_mode_option_title" msgid="9033098925144434669">"TTY मोड"</string>
+    <string name="voice_privacy_summary" msgid="3159383389833516214">"बेहतर निजता मोड सक्षम करें"</string>
+    <string name="tty_mode_option_title" msgid="9033098925144434669">"टेलीटाइपराइटर (TTY) मोड"</string>
     <string name="tty_mode_option_summary" msgid="1073835131534808732">"TTY मोड सेट करें"</string>
-    <string name="auto_retry_mode_title" msgid="4073265511427813322">"स्वतः पुन: प्रयास"</string>
-    <string name="auto_retry_mode_summary" msgid="4973886004067532288">"स्वतः पुन: प्रयास मोड सक्षम करें"</string>
+    <string name="auto_retry_mode_title" msgid="4073265511427813322">"अपने आप फिर से प्रयास"</string>
+    <string name="auto_retry_mode_summary" msgid="4973886004067532288">"अपने आप फिर से प्रयास मोड सक्षम करें"</string>
     <string name="tty_mode_not_allowed_video_call" msgid="3795846787901909176">"वीडियो कॉल के दौरान TTY मोड में बदलाव की अनुमति नहीं है"</string>
     <string name="menu_add" msgid="1882023737425114762">"संपर्क जोड़ें"</string>
     <string name="menu_edit" msgid="7143003705504672374">"संपर्क संपादित करें"</string>
@@ -415,7 +423,7 @@
     <string name="get_pin2" msgid="8204677063922225311">"पिन2 लिखें"</string>
     <string name="name" msgid="7329028332786872378">"नाम"</string>
     <string name="number" msgid="7905950798349903858">"नंबर"</string>
-    <string name="save" msgid="4094274636321939086">"सहेजें"</string>
+    <string name="save" msgid="4094274636321939086">"सेव करें"</string>
     <string name="add_fdn_contact" msgid="2481915899633353976">"फ़िक्स्ड डायलिंग नंबर जोड़ें"</string>
     <string name="adding_fdn_contact" msgid="7627379633721940991">"फ़िक्स्ड डायलिंग नंबर जोड़ रहा है..."</string>
     <string name="fdn_contact_added" msgid="7458335758501736665">"फ़िक्स्ड डायलिंग नंबर जोड़ा गया."</string>
@@ -426,8 +434,8 @@
     <string name="deleting_fdn_contact" msgid="5669163206349319969">"फ़िक्स्ड डायलिंग नंबर हटा रहा है..."</string>
     <string name="fdn_contact_deleted" msgid="7154162327112259569">"फ़िक्स्ड डायलिंग नंबर हटाया गया."</string>
     <string name="pin2_invalid" msgid="5470854099230755944">"FDN पे नई जानकारी नहीं है क्योंकि आपने गलत पिन लिखा है."</string>
-    <string name="fdn_invalid_number" msgid="2062898833049589309">"FDN अपडेट नहीं किया जा सका, क्योंकि नंबर में 20 से अधिक अंक हैं."</string>
-    <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN पे नई जानकारी नहीं है. PIN2 गलत था, या फ़ोन नंबर अस्वीकृत था."</string>
+    <string name="fdn_invalid_number" msgid="2062898833049589309">"FDN अपडेट नहीं किया जा सका, क्योंकि नंबर में 20 से ज़्यादा अंक हैं."</string>
+    <string name="pin2_or_fdn_invalid" msgid="6025144083384701197">"FDN पे नई जानकारी नहीं है. PIN2 गलत था, या फ़ोन नंबर नामंजूर था."</string>
     <string name="fdn_failed" msgid="540018079008319747">"FDN की कार्यवाही विफल रही."</string>
     <string name="simContacts_emptyLoading" msgid="2203331234764498011">"सिम कार्ड से पढ़ रहा है…"</string>
     <string name="simContacts_empty" msgid="5270660846489561932">"आपके सिम कार्ड पर कोई संपर्क नहीं है."</string>
@@ -439,8 +447,8 @@
     <string name="oldPinLabel" msgid="5287773661246368314">"पुराना पिन"</string>
     <string name="newPinLabel" msgid="207488227285336897">"नया पिन"</string>
     <string name="confirmPinLabel" msgid="257597715098070206">"नए पिन की दुबारा पूछें"</string>
-    <string name="badPin" msgid="8955102849303984935">"आपके द्वारा लिखा गया पुराना पिन सही नहीं है. फिर से प्रयास करें."</string>
-    <string name="mismatchPin" msgid="5923253370683071889">"आपके द्वारा लिखे गए पिन का मिलान नहीं होता. फिर से प्रयास करें."</string>
+    <string name="badPin" msgid="8955102849303984935">"  लिखा गया पुराना पिन सही नहीं है. फिर से प्रयास करें."</string>
+    <string name="mismatchPin" msgid="5923253370683071889">"  लिखे गए पिन का मिलान नहीं होता. फिर से प्रयास करें."</string>
     <string name="invalidPin" msgid="5981171102258684792">"कोई ऐसा पिन लिखें, जिसमें 4 से 8 अंक हों."</string>
     <string name="disable_sim_pin" msgid="3419351358300716472">"सिम पिन साफ़ करें"</string>
     <string name="enable_sim_pin" msgid="4845145659651484248">"सिम पिन सेट करें"</string>
@@ -454,35 +462,35 @@
     <string name="oldPin2Label" msgid="8559146795026261502">"पुराना पिन2"</string>
     <string name="newPin2Label" msgid="4573956902204349054">"नया पिन2"</string>
     <string name="confirmPin2Label" msgid="8100319484454787708">"नए पिन2 की दुबारा पूछें"</string>
-    <string name="badPuk2" msgid="7910064009531541708">"PUK2 गलत है. पुन: प्रयास करें."</string>
-    <string name="badPin2" msgid="6646896629970023109">"पुराना PIN2  गलत है. पुन: प्रयास करें."</string>
-    <string name="mismatchPin2" msgid="4177967478551851117">"PIN2 का मिलान नहीं हो रहा. पुन: प्रयास करें."</string>
+    <string name="badPuk2" msgid="7910064009531541708">"PUK2 गलत है. फिर से प्रयास करें."</string>
+    <string name="badPin2" msgid="6646896629970023109">"पुराना PIN2  गलत है. फिर से प्रयास करें."</string>
+    <string name="mismatchPin2" msgid="4177967478551851117">"PIN2 का मिलान नहीं हो रहा. फिर से प्रयास करें."</string>
     <string name="invalidPin2" msgid="1757045131429105595">"4 से 8 संख्‍याओं वाला PIN2 डालें."</string>
     <string name="invalidPuk2" msgid="7059081153334815973">"8 संख्‍याओं वाला PUK2 डालें."</string>
     <string name="pin2_changed" msgid="3724522579945610956">"PIN2 अपडेट किया गया"</string>
     <string name="label_puk2_code" msgid="4688069961795341948">"PUK2 कोड डालें"</string>
-    <string name="fdn_enable_puk2_requested" msgid="4991074891459554705">"पासवर्ड गलत है. PIN2 अब अवरोधित है. पुन: प्रयास करने के लिए, PIN 2 को बदलें."</string>
+    <string name="fdn_enable_puk2_requested" msgid="4991074891459554705">"पासवर्ड गलत है. PIN2 अब अवरोधित है. फिर से प्रयास करने के लिए, PIN 2 को बदलें."</string>
     <string name="puk2_requested" msgid="5831015200030161434">"पासवर्ड गलत है. सिम अब लॉक हो गई है. PUK2 डालें."</string>
     <string name="puk2_blocked" msgid="3150263853077280049">"PUK2 स्थायी रूप से अवरोधित है."</string>
     <string name="pin2_attempts" msgid="720736232885011507">\n"आपके पास <xliff:g id="NUMBER">%d</xliff:g> प्रयास शेष हैं."</string>
     <string name="pin2_unblocked" msgid="7791600368153469078">"PIN2 अब अवरोधित नहीं है"</string>
     <string name="pin2_error_exception" msgid="1088689322248996699">"नेटवर्क या SIM कार्ड गड़बड़ी"</string>
-    <string name="doneButton" msgid="2859593360997984240">"पूर्ण"</string>
-    <string name="voicemail_settings_number_label" msgid="8524164258691887790">"वॉइसमेल नबंर"</string>
+    <string name="doneButton" msgid="2859593360997984240">"पूरा हो गया"</string>
+    <string name="voicemail_settings_number_label" msgid="8524164258691887790">"वॉइसमेल नंबर"</string>
     <string name="card_title_dialing" msgid="5769417478498348054">"डायल हो रहा है"</string>
-    <string name="card_title_redialing" msgid="8253487008234167266">"पुन: डायल हो रहा है"</string>
+    <string name="card_title_redialing" msgid="8253487008234167266">"फिर से डायल हो रहा है"</string>
     <string name="card_title_conf_call" msgid="1162980346189744501">"कॉन्फ़्रेंस कॉल"</string>
     <string name="card_title_incoming_call" msgid="7364539451234646909">"इनकमिंग कॉल"</string>
-    <string name="card_title_call_ended" msgid="5544730338889702298">"कॉल समाप्त"</string>
+    <string name="card_title_call_ended" msgid="5544730338889702298">"कॉल खत्म"</string>
     <string name="card_title_on_hold" msgid="821463117892339942">"होल्ड पर"</string>
-    <string name="card_title_hanging_up" msgid="3999101620995182450">"कॉल समाप्त हो रहा है"</string>
+    <string name="card_title_hanging_up" msgid="3999101620995182450">"कॉल खत्म हो रहा है"</string>
     <string name="card_title_in_call" msgid="6346543933068225205">"कॉल में"</string>
     <string name="notification_voicemail_title" msgid="8933468752045550523">"नया वॉयस मेल"</string>
     <string name="notification_voicemail_title_count" msgid="4366360747660929916">"नई वॉयस मेल (<xliff:g id="COUNT">%d</xliff:g>)"</string>
     <string name="notification_voicemail_text_format" msgid="4447323569453981685">"<xliff:g id="VOICEMAIL_NUMBER">%s</xliff:g> डायल करें"</string>
     <string name="notification_voicemail_no_vm_number" msgid="760963466895609716">"वॉयस मेल नंबर अज्ञात"</string>
     <string name="notification_network_selection_title" msgid="4224455487793492772">"कोई सेवा नहीं"</string>
-    <string name="notification_network_selection_text" msgid="2607085729661923269">"चयनित नेटवर्क (<xliff:g id="OPERATOR_NAME">%s</xliff:g>) अनुपलब्ध"</string>
+    <string name="notification_network_selection_text" msgid="7550380440576731104">"चुना गया नेटवर्क<xliff:g id="OPERATOR_NAME">%s</xliff:g> मौजूद नहीं है"</string>
     <string name="incall_error_power_off" product="watch" msgid="2007450435656211658">"कॉल करने के लिए मोबाइल नेटवर्क चालू करें, हवाई जहाज़ मोड या बैटरी सेवर मोड बंद करें."</string>
     <string name="incall_error_power_off" product="default" msgid="2947938060513306698">"कॉल करने के लिए हवाई जहाज़ मोड बंद करें."</string>
     <string name="incall_error_power_off_wfc" msgid="8711428920632416575">"कॉल करने के लिए हवाई जहाज़ मोड बंद करें या किसी वायरलेस नेटवर्क से कनेक्‍ट करें."</string>
@@ -495,24 +503,35 @@
     <string name="incall_error_cannot_add_call" msgid="8878159278947023326">"अभी कॉल जोड़ा नहीं जा सकता. आप संदेश भेजकर संपर्क करने की कोशिश कर सकते हैं."</string>
     <string name="incall_error_supp_service_unknown" msgid="655570339115407698">"सेवा समर्थित नहीं है"</string>
     <string name="incall_error_supp_service_switch" msgid="5237002176899962862">"कॉल स्‍विच नहीं किए जा सकते."</string>
+    <string name="incall_error_supp_service_resume" msgid="7147983409782027448">"कॉल फिर से शुरू नहीं की जा सकती."</string>
     <string name="incall_error_supp_service_separate" msgid="7224393405134545246">"कॉल अलग नहीं किया जा सकता."</string>
     <string name="incall_error_supp_service_transfer" msgid="7235952238189391438">"ट्रांसफर नहीं किया जा सकता."</string>
-    <string name="incall_error_supp_service_conference" msgid="2505727299596357312">"कॉंन्फ़्रेंस कॉल करने में असमर्थ."</string>
+    <string name="incall_error_supp_service_conference" msgid="2530955482970678150">"कॉल मर्ज नहीं किए जा सकते."</string>
     <string name="incall_error_supp_service_reject" msgid="8998568661508655638">"कॉल अस्‍वीकार नहीं किया जा सकता."</string>
     <string name="incall_error_supp_service_hangup" msgid="7434513517153834426">"कॉल रिलीज़ नहीं किया जा सकता (किए जा सकते)."</string>
     <string name="incall_error_supp_service_hold" msgid="7967020511232222078">"कॉल होल्ड नहीं किए जा सकते."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="1782466780452640089">"कॉल करने के लिए किसी वायरलेस नेटवर्क से कनेक्‍ट करें."</string>
     <string name="incall_error_promote_wfc" msgid="106510757624022064">"कॉल करने के लिए वाई-फ़ाई कॉलिंग सक्षम करें."</string>
+    <string name="emergency_information_hint" msgid="399011533038204351">"आपातकालीन जानकारी"</string>
+    <string name="emergency_information_owner_hint" msgid="688331472291637149">"मालिक"</string>
+    <string name="emergency_information_confirm_hint" msgid="4039012670779853030">"जानकारी देखने के लिए फिर से टैप करें"</string>
     <string name="emergency_enable_radio_dialog_title" msgid="4627849966634578257">"आपातकालीन कॉल"</string>
+    <string name="single_emergency_number_title" msgid="4959203129714396515">"आपातकालीन नंबर"</string>
+    <string name="numerous_emergency_numbers_title" msgid="754158099451343898">"आपातकालीन नंबर"</string>
+    <string name="emergency_call_shortcut_hint" msgid="6506167229097004348">"<xliff:g id="EMERGENCY_NUMBER">%s</xliff:g> पर कॉल करने के लिए दोबारा टैप करें"</string>
     <string name="emergency_enable_radio_dialog_message" msgid="207613549344420291">"रेडियो चालू कर रहा है..."</string>
-    <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"कोई सेवा नहीं. पुन: प्रयास किया जा रहा है…"</string>
+    <string name="emergency_enable_radio_dialog_retry" msgid="5960061579996526883">"कोई सेवा नहीं. फिर से प्रयास किया जा रहा है…"</string>
     <string name="radio_off_during_emergency_call" msgid="2535800034010306830">"आपातकालीन कॉल के दौरान हवाई जहाज़ मोड चालू नहीं किया जा सकता."</string>
     <string name="dial_emergency_error" msgid="1509085166367420355">"कॉल नहीं किया जा सकता. <xliff:g id="NON_EMERGENCY_NUMBER">%s</xliff:g> एक आपातकालीन नंबर नहीं है."</string>
     <string name="dial_emergency_empty_error" msgid="9130194953830414638">"कॉल नहीं किया जा सकता. आपातकालीन नबर डायल करें."</string>
     <string name="dial_emergency_calling_not_available" msgid="5675557523782491826">"आपातकालीन कॉल करने की सुविधा उपलब्ध नहीं है"</string>
+    <string name="police_type_description" msgid="5324410799919829693">"पुलिस"</string>
+    <string name="ambulance_type_description" msgid="4114815025408089866">"एम्बुलेंस"</string>
+    <string name="fire_type_description" msgid="7145996705197064710">"आग"</string>
+    <string name="description_concat_format" msgid="7141070875487870177">"%1$s, %2$s"</string>
     <string name="dialerKeyboardHintText" msgid="9192914825413747792">"डायल करने के लिए कीबोर्ड का उपयोग करें"</string>
     <string name="onscreenHoldText" msgid="2285258239691145872">"होल्ड करें"</string>
-    <string name="onscreenEndCallText" msgid="4403855834875398585">"समाप्त"</string>
+    <string name="onscreenEndCallText" msgid="4403855834875398585">"खत्म"</string>
     <string name="onscreenShowDialpadText" msgid="8561805492659639893">"डायलपैड"</string>
     <string name="onscreenMuteText" msgid="5011369181754261374">"म्यूट करें"</string>
     <string name="onscreenAddCallText" msgid="5140385634712287403">"कॉल जोड़ें"</string>
@@ -528,14 +547,14 @@
     <string name="importToFDNfromContacts" msgid="2130620207013368580">"संपर्कों से आयात करें"</string>
     <string name="singleContactImportedMsg" msgid="6868483416182599206">"संपर्क आयात किया गया"</string>
     <string name="failedToImportSingleContactMsg" msgid="415399285420353917">"संपर्क आयात करने में विफल"</string>
-    <string name="hac_mode_title" msgid="8740268574688743289">"श्रवण सहायक साधन"</string>
-    <string name="hac_mode_summary" msgid="6833851160514929341">"श्रवण सहायक साधन संगतता चालू करें"</string>
+    <string name="hac_mode_title" msgid="8740268574688743289">"कान की मशीन"</string>
+    <string name="hac_mode_summary" msgid="6833851160514929341">"कान की मशीन के साथ संगतता चालू करें"</string>
     <string name="rtt_mode_title" msgid="6954652435543570121">"(आरटीटी) कॉल से रीयल-टाइम में मैसेज भेजें"</string>
     <string name="rtt_mode_summary" msgid="5146344277246544580">"वॉइस कॉल में मैसेज भेजने की अनुमति दें"</string>
-    <string name="rtt_mode_more_information" msgid="6080420780730383030">"आरटीटी उन कॉल करने वालों की मदद करता है, जो बधिर हैं, ऊंचा सुनते हैं, जिन्हें बोलने में दिक्कत है या जिनके लिए सिर्फ़ आवाज़ काफ़ी नहीं होती.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;अधिक जानें&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - आरटीटी कॉल, मैसेज लेख के रूप में सेव किए जाते हैं\n       &lt;br&gt; - वीडियो कॉल के लिए आरटीटी उपलब्ध नहीं है"</string>
+    <string name="rtt_mode_more_information" msgid="6080420780730383030">"आरटीटी उन कॉल करने वालों की मदद करता है, जो सुन नहीं सकते हैं, ऊंचा सुनते हैं, जिन्हें बोलने में दिक्कत है या जिनके लिए सिर्फ़ आवाज़ काफ़ी नहीं होती.&lt;br&gt; &lt;a href=<xliff:g id="URL">http://support.google.com/mobile?p=telephony_rtt</xliff:g>&gt;ज़्यादा  जानें&lt;/a&gt;\n       &lt;br&gt;&lt;br&gt; - आरटीटी कॉल, मैसेज लेख के रूप में सेव किए जाते हैं\n       &lt;br&gt; - वीडियो कॉल के लिए आरटीटी उपलब्ध नहीं है"</string>
   <string-array name="tty_mode_entries">
     <item msgid="512950011423868021">"TTY बंद"</item>
-    <item msgid="3971695875449640648">"TTY पूर्ण"</item>
+    <item msgid="3971695875449640648">"TTY पूरा हुआ"</item>
     <item msgid="1937509904407445684">"TTY HCO"</item>
     <item msgid="5644925873488772224">"TTY VCO"</item>
   </string-array>
@@ -552,17 +571,17 @@
     <string name="ota_hfa_activation_title" msgid="2234246934160473981">"सक्रिय हो रहा है..."</string>
     <string name="ota_hfa_activation_dialog_message" msgid="8092479227918463415">"फ़ोन आपकी मोबाइल डेटा सेवा सक्रिय कर रहा है.\n\nइसमें 5 मिनट तक लग सकते हैं."</string>
     <string name="ota_skip_activation_dialog_title" msgid="2943366608272261306">"सक्रियण छोड़ें?"</string>
-    <string name="ota_skip_activation_dialog_message" msgid="2440770373498870550">"यदि आप सक्रियण छोड़ देते हैं, तो आप कॉल नहीं कर सकते या मोबाइल डेटा नेटवर्क से कनेक्ट (हालांकि आप वाई-फ़ाई  नेटवर्क से कनेक्ट हो सकते हैं) नहीं हो सकते हैं. जब तक आप अपने फ़ोन को सक्रिय नहीं करते, आपको प्रत्येक बार उसे चालू करने पर उसे सक्रिय करने के लिए कहा जाएगा."</string>
+    <string name="ota_skip_activation_dialog_message" msgid="2440770373498870550">"अगर आप सक्रियण छोड़ देते हैं, तो आप कॉल नहीं कर सकते या मोबाइल डेटा नेटवर्क से कनेक्ट (हालांकि आप वाई-फ़ाई  नेटवर्क से कनेक्ट हो सकते हैं) नहीं हो सकते हैं. जब तक आप अपने फ़ोन को सक्रिय नहीं करते, आपको प्रत्येक बार उसे चालू करने पर उसे सक्रिय करने के लिए कहा जाएगा."</string>
     <string name="ota_skip_activation_dialog_skip_label" msgid="3458532775091563208">"अभी नहीं"</string>
     <string name="ota_activate" msgid="1368528132525626264">"सक्रिय करें"</string>
     <string name="ota_title_activate_success" msgid="6570240212263372046">"फ़ोन सक्रिय हो गया."</string>
     <string name="ota_title_problem_with_activation" msgid="7095824491970084367">"सक्रियण में समस्या"</string>
-    <string name="ota_listen" msgid="162923839877584937">"जब तक आप यह न सुनें कि सक्रियण पूर्ण हो गया है, कहे गए निर्देशों का पालन करें."</string>
+    <string name="ota_listen" msgid="162923839877584937">"जब तक आप यह न सुनें कि चालू करना पूरा हो गया है, कहे गए निर्देशों का पालन करें."</string>
     <string name="ota_speaker" msgid="6904589278542719647">"स्‍पीकर"</string>
     <string name="ota_progress" msgid="460876637828044519">"आपका फ़ोन प्रोग्राम किया जा रहा है…"</string>
     <string name="ota_failure" msgid="7713756181204620397">"आपके फ़ोन को प्रोग्राम नहीं किया जा सका"</string>
     <string name="ota_successful" msgid="1880780692887077407">"आपका फ़ोन अब सक्रिय कर दिया गया है. सेवा को आरंभ होने में 15 मिनट तक लग सकते हैं."</string>
-    <string name="ota_unsuccessful" msgid="8072141612635635357">"आपका फ़ोन सक्रिय नहीं हुआ. \nआपको बेहतर कवरेज वाले किसी क्षेत्र (खिड़की के पास या बाहर) में जाने की आवश्यकता हो सकती है. \n\nफिर से प्रयास करें या अधिक विकल्पों के लिए ग्राहक सेवा को कॉल करें."</string>
+    <string name="ota_unsuccessful" msgid="8072141612635635357">"आपका फ़ोन सक्रिय नहीं हुआ. \nआपको बेहतर कवरेज वाले किसी क्षेत्र (खिड़की के पास या बाहर) में जाने की आवश्यकता हो सकती है. \n\nफिर से प्रयास करें या ज़्यादा विकल्पों के लिए ग्राहक सेवा को कॉल करें."</string>
     <string name="ota_spc_failure" msgid="3909983542575030796">"अतिरिक्त SPC विफलताएं"</string>
     <string name="ota_call_end" msgid="4537279738134612388">"वापस जाएं"</string>
     <string name="ota_try_again" msgid="7685477206465902290">"फिर से कोशिश करें"</string>
@@ -595,13 +614,15 @@
     <string name="selectContact" msgid="781975788478987237">"संपर्क को चुनें"</string>
     <string name="not_voice_capable" msgid="2739898841461577811">"ध्वनि कॉल करना समर्थित नहीं है"</string>
     <string name="description_dial_button" msgid="7459705245418435351">"डायल करें"</string>
+    <string name="description_dialpad_button" msgid="5220006811894230590">"डायलपैड देखें"</string>
+    <string name="pane_title_emergency_dialpad" msgid="1148505414688493134">"आपातकालीन डायलपैड"</string>
     <string name="voicemail_visual_voicemail_switch_title" msgid="5012622186976275457">"विज़ुअल वॉइसमेल"</string>
     <string name="voicemail_set_pin_dialog_title" msgid="2797924461029093837">"पिन सेट करें"</string>
     <string name="voicemail_change_pin_dialog_title" msgid="6035421908626121564">"पिन बदलें"</string>
     <string name="preference_category_ringtone" msgid="5197960752529332721">"रिंगटोन और कंपन"</string>
     <string name="pstn_connection_service_label" msgid="1743245930577325900">"अंतर्निहित सिम कार्ड"</string>
     <string name="enable_video_calling_title" msgid="7237253660669000899">"वीडियो कॉलिंग चालू करें"</string>
-    <string name="enable_video_calling_dialog_msg" msgid="8948186136957417948">"वीडियो कॉलिंग चालू करने के लिए, आपको नेटवर्क सेटिंग में उन्‍नत 4G LTE मोड सक्षम करना होगा."</string>
+    <string name="enable_video_calling_dialog_msg" msgid="8948186136957417948">"वीडियो कॉलिंग चालू करने के लिए, आपको नेटवर्क सेटिंग में बेहतर 4G LTE मोड सक्षम करना होगा."</string>
     <string name="enable_video_calling_dialog_settings" msgid="576528473599603249">"नेटवर्क सेटिंग"</string>
     <string name="enable_video_calling_dialog_close" msgid="7411471282167927991">"बंद करें"</string>
     <string name="sim_label_emergency_calls" msgid="4847699229529306397">"आपातकालीन कॉल"</string>
@@ -610,14 +631,14 @@
     <string name="accessibility_settings_activity_title" msgid="8562004288733103868">"सुलभता"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="5932176406432044638">"इससे वाई-फ़ाई कॉल"</string>
     <string name="status_hint_label_wifi_call" msgid="8900805254974653903">"वाई-फ़ाई कॉल"</string>
-    <string name="emergency_action_launch_hint" msgid="4906759256275562674">"खोलने के लिए पुन: टैप करें"</string>
+    <string name="emergency_action_launch_hint" msgid="4906759256275562674">"खोलने के लिए फिर से टैप करें"</string>
     <string name="message_decode_error" msgid="3456481534066924855">"संदेश डीकोड करते समय कोई गड़बड़ी हुई थी."</string>
     <string name="callFailed_cdma_activation" msgid="2307989779233262164">"सिम कार्ड द्वारा आपकी सेवा को सक्रिय किया गया है और आपके फ़ोन की रोमिंग क्षमताओं को अपडेट किया गया है."</string>
-    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"बहुत अधिक कॉल सक्रिय हैं. नया कॉल करने से पहले कृपया मौजूदा कॉल समाप्त करें या उन्हें मिला दें."</string>
+    <string name="callFailed_cdma_call_limit" msgid="1556916577171457086">"बहुत ज़्यादा कॉल सक्रिय हैं. नया कॉल करने से पहले कृपया मौजूदा कॉल खत्म करें या उन्हें मिला दें."</string>
     <string name="callFailed_imei_not_accepted" msgid="132192626901238542">"कनेक्ट नहीं हो पा रहा है, कृपया कोई मान्य SIM कार्ड डालें."</string>
-    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"वाई-फ़ाई कनेक्शन चला गया. कॉल समाप्त हो गया."</string>
+    <string name="callFailed_wifi_lost" msgid="5968076625137297184">"वाई-फ़ाई कनेक्शन चला गया. कॉल खत्म हो गया."</string>
     <string name="dialFailed_low_battery" msgid="8760548177088774268">"बैटरी कम होने के कारण आप वीडियो कॉल नहीं कर सकते."</string>
-    <string name="callFailed_low_battery" msgid="4913582435905872616">"बैटरी कम होने के कारण वीडियो कॉल समाप्त हो गया."</string>
+    <string name="callFailed_low_battery" msgid="4913582435905872616">"बैटरी कम होने के कारण वीडियो कॉल खत्म हो गया."</string>
     <string name="change_pin_title" msgid="7790232089699034029">"वॉइसमेल पिन बदलें"</string>
     <string name="change_pin_continue_label" msgid="2135088662420163447">"जारी रखें"</string>
     <string name="change_pin_cancel_label" msgid="353535488390948596">"अभी नहीं"</string>
@@ -644,59 +665,59 @@
     <string name="mobile_data_activate_diag_message" msgid="8216154678758451453">"हो सकता है कि आपको <xliff:g id="PROVIDER_NAME">%s</xliff:g> के ज़रिए डेटा जोड़ना पड़े"</string>
     <string name="mobile_data_activate_button" msgid="3682400969184405446">"डेटा जोड़ें"</string>
     <string name="mobile_data_activate_cancel_button" msgid="1708022171547398765">"रद्द करें"</string>
-    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"कॉल समाप्त"</string>
-    <string name="clh_callFailed_powerOff_txt" msgid="3773036949107147708">"रेडियो बंद"</string>
-    <string name="clh_callFailed_simError_txt" msgid="757650590524277969">"सिम कार्ड मौजूद नहीं है या सिम कार्ड में गड़बड़ी है"</string>
+    <string name="clh_card_title_call_ended_txt" msgid="4072101334811753823">"कॉल खत्म"</string>
+    <string name="clh_callFailed_powerOff_txt" msgid="1049579267090569308">"हवाई जहाज़ मोड चालू है"</string>
+    <string name="clh_callFailed_simError_txt" msgid="7273306159809203315">"SIM कार्ड एक्सेस नहीं किया जा सकता"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="3974373603657193827">"मोबाइल नेटवर्क उपलब्ध नहीं है"</string>
-    <string name="clh_callFailed_unassigned_number_txt" msgid="7635996793232604064">"असाइन नहीं किया गया (आवंटित नहीं किया गया) नंबर"</string>
-    <string name="clh_callFailed_no_route_to_destination_txt" msgid="8561586745288855167">"गंतव्य तक पहुंचने का कोई रास्ता नहीं है"</string>
-    <string name="clh_callFailed_channel_unacceptable_txt" msgid="8048626924246611459">"चैनल स्वीकार्य नहीं है"</string>
-    <string name="clh_callFailed_operator_determined_barring_txt" msgid="6889705714244076823">"ऑपरेटर निर्धारित प्रतिबंध"</string>
-    <string name="clh_callFailed_normal_call_clearing_txt" msgid="2810975267106345820">"सामान्य कॉल क्लियरिंग"</string>
+    <string name="clh_callFailed_unassigned_number_txt" msgid="4722164461846838251">"आप जिस फ़ोन नंबर को डायल करने की कोशिश कर रहे हैं, उसमें समस्या है. गड़बड़ी कोड 1."</string>
+    <string name="clh_callFailed_no_route_to_destination_txt" msgid="2259464183880140671">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 3."</string>
+    <string name="clh_callFailed_channel_unacceptable_txt" msgid="3159336281525222855">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 6."</string>
+    <string name="clh_callFailed_operator_determined_barring_txt" msgid="1831977101604817389">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 8."</string>
+    <string name="clh_callFailed_normal_call_clearing_txt" msgid="7369313431310446847">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 16."</string>
     <string name="clh_callFailed_user_busy_txt" msgid="2736095995784746915">"उपयोगकर्ता व्यस्त है"</string>
-    <string name="clh_callFailed_no_user_responding_txt" msgid="1421543095873040084">"उपयोगकर्ता की ओर से कोई जवाब नहीं मिल रहा है"</string>
-    <string name="clh_callFailed_user_alerting_txt" msgid="6606245970376797447">"उपयोगकर्ता अलर्ट भेज रहा है, कोई जवाब नहीं"</string>
+    <string name="clh_callFailed_no_user_responding_txt" msgid="3675206502567252162">"उपयोगकर्ता की ओर से कोई जवाब नहीं मिल रहा है"</string>
+    <string name="clh_callFailed_user_alerting_txt" msgid="363445537769733281">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 19."</string>
     <string name="clh_callFailed_call_rejected_txt" msgid="8001665478195793223">"कॉल अस्वीकार किया गया"</string>
     <string name="clh_callFailed_number_changed_txt" msgid="5127909898925154242">"नंबर बदल गया"</string>
-    <string name="clh_callFailed_pre_emption_txt" msgid="6864702416751338567">"पूर्वानुमान"</string>
-    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="8725898326616836656">"गैर चयनित उपयोगकर्ता क्लियरिंग"</string>
-    <string name="clh_callFailed_destination_out_of_order_txt" msgid="6626355413556362437">"गंतव्य में खराबी है"</string>
+    <string name="clh_callFailed_pre_emption_txt" msgid="1100414016302714854">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 25."</string>
+    <string name="clh_callFailed_non_selected_user_clearing_txt" msgid="6248192300127702626">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 26."</string>
+    <string name="clh_callFailed_destination_out_of_order_txt" msgid="4879936907430554772">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 27."</string>
     <string name="clh_callFailed_invalid_number_format_txt" msgid="6987646655639655370">"नंबर का फ़ॉर्मैट गलत है (नंबर अधूरा है)"</string>
-    <string name="clh_callFailed_facility_rejected_txt" msgid="4539787567476563415">"सुविधा अस्वीकार की गई"</string>
-    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="178503536263624366">"स्थिति पूछताछ का जवाब"</string>
-    <string name="clh_callFailed_normal_unspecified_txt" msgid="2777574148560245427">"सामान्य, जानकारी नहीं दी गई है"</string>
-    <string name="clh_callFailed_no_circuit_available_txt" msgid="2894749820848784700">"कोई भी सर्किट/चैनल उपलब्ध नहीं है"</string>
-    <string name="clh_callFailed_network_out_of_order_txt" msgid="807472585030492179">"नेटवर्क में खराबी है"</string>
-    <string name="clh_callFailed_temporary_failure_txt" msgid="1985847623937655151">"अस्थायी खराबी"</string>
-    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="465517139462928431">"स्विचिंग उपकरण भर गया है"</string>
-    <string name="clh_callFailed_access_information_discarded_txt" msgid="132851305339579892">"पहुंच जानकारी खारिज की गई"</string>
-    <string name="clh_callFailed_requested_circuit_txt" msgid="2316345471851443847">"अनुरोध किया गया सर्किट/चैनल उपलब्ध नहीं है"</string>
-    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="4460267429142724322">"संसाधन उपलब्ध नहीं है, जानकारी नहीं दी गई है"</string>
-    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="7315823047206338755">"सेवा की क्वालिटी उपलब्ध नहीं है"</string>
-    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="1688438372518949530">"अनुरोध की गई सुविधा की सदस्यता नहीं ली गई है"</string>
-    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="3922231620226043342">"आने वाले कॉल CUG के अंदर प्रतिबंधित किए गए"</string>
-    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="6515594235334537340">"बेयरर क्षमता की अनुमति नहीं दी गई है"</string>
-    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="8013567156449692135">"इस समय बेयरर क्षमता उपलब्ध नहीं है"</string>
-    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="8663374141880847414">"सेवा या विकल्प उपलब्ध नहीं है, जानकारी नहीं दी गई है"</string>
-    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="2772484977847973583">"बेयरर सेवा लागू नहीं की गई है"</string>
-    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="2192709279981159761">"ACM या तो ACMmax के बराबर है या इससे अधिक है"</string>
-    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="406404292085779118">"अनुरोध की गई सुविधा लागू नहीं की गई है"</string>
-    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="4817899794531157207">"सिर्फ़ प्रतिबंधित डिजिटल जानकारी बेयरर क्षमता उपलब्ध है"</string>
-    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="2968655784896862505">"सेवा या विकल्प लागू नहीं किया गया है, जानकारी नहीं दी गई है"</string>
-    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3843478518660918642">"ट्रांज़ैक्शन पहचानकर्ता का मान गलत है"</string>
-    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="8462852903153938988">"उपयोगकर्ता CUG का सदस्य नहीं है"</string>
-    <string name="clh_callFailed_incompatible_destination_txt" msgid="2580750652910253219">"गंतव्य सही नहीं है"</string>
-    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="6589916900457111005">"चुना गया ट्रांज़िट नेटवर्क गलत है"</string>
-    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="2329284157442218683">"संदेश का मतलब गलत है"</string>
-    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="9081556111928912676">"ज़रूरी जानकारी गलत है"</string>
-    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="2641350895896546715">"संदेश प्रकार या तो मौजूद नहीं है या फिर लागू नहीं किया गया है"</string>
-    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="6598180735494982466">"संदेश का प्रकार प्रोटोकॉल की स्थिति के मुताबिक नहीं है"</string>
-    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="4725610801664706983">"जानकारी एलीमेंट या तो मौजूद नहीं है या फिर लागू नहीं किया गया है"</string>
-    <string name="clh_callFailed_conditional_IE_error_txt" msgid="9140031076499566143">"सशर्त IE गड़बड़ी"</string>
-    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="6586005128633024271">"संदेश प्रोटोकॉल की स्थिति के मुताबिक नहीं है"</string>
-    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="3680765722923600294">"टाइमर समाप्ति पर बहाली"</string>
-    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="8294907817156524790">"प्रोटोकॉल गड़बड़ी, जानकारी नहीं दी गई है"</string>
-    <string name="clh_callFailed_interworking_unspecified_txt" msgid="8838850798491763729">"इंटरनेटवर्किंग, जानकारी नहीं दी गई है"</string>
+    <string name="clh_callFailed_facility_rejected_txt" msgid="1028912823639389563">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 29."</string>
+    <string name="clh_callFailed_response_to_STATUS_ENQUIRY_txt" msgid="1250833944238081212">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 30."</string>
+    <string name="clh_callFailed_normal_unspecified_txt" msgid="8765640093649364786">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 31."</string>
+    <string name="clh_callFailed_no_circuit_available_txt" msgid="6884477141997665736">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 34."</string>
+    <string name="clh_callFailed_network_out_of_order_txt" msgid="76447023032000125">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 38."</string>
+    <string name="clh_callFailed_temporary_failure_txt" msgid="5057716306945664356">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 41."</string>
+    <string name="clh_callFailed_switching_equipment_congestion_txt" msgid="4958831706265227632">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 42."</string>
+    <string name="clh_callFailed_access_information_discarded_txt" msgid="5033636666434831179">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 43."</string>
+    <string name="clh_callFailed_requested_circuit_txt" msgid="3221429183862933558">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 44."</string>
+    <string name="clh_callFailed_resources_unavailable_unspecified_txt" msgid="1385943395137055442">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 47."</string>
+    <string name="clh_callFailed_quality_of_service_unavailable_txt" msgid="8464132603057397297">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 49."</string>
+    <string name="clh_callFailed_requested_facility_not_subscribed_txt" msgid="3853815238079666882">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 50."</string>
+    <string name="clh_callFailed_incoming_calls_barred_within_the_CUG_txt" msgid="6791665425652545510">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 55."</string>
+    <string name="clh_callFailed_bearer_capability_not_authorized_txt" msgid="2975453855928450909">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 57."</string>
+    <string name="clh_callFailed_bearer_capability_not_presently_available_txt" msgid="753763978405557873">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 58."</string>
+    <string name="clh_callFailed_service_or_option_not_available_unspecified_txt" msgid="1714515856150546668">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 63."</string>
+    <string name="clh_callFailed_bearer_service_not_implemented_txt" msgid="5433179845809692163">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 65."</string>
+    <string name="clh_callFailed_ACM_equal_to_or_greater_than_ACMmax_txt" msgid="4339523227014428123">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 68."</string>
+    <string name="clh_callFailed_requested_facility_not_implemented_txt" msgid="5217500914101821728">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 69."</string>
+    <string name="clh_callFailed_only_restricted_digital_information_bearer_capability_is_available_txt" msgid="2423146296631060723">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 70."</string>
+    <string name="clh_callFailed_service_or_option_not_implemented_unspecified_txt" msgid="873208782556277597">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 79."</string>
+    <string name="clh_callFailed_invalid_transaction_identifier_value_txt" msgid="3926779129494281620">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 81."</string>
+    <string name="clh_callFailed_user_not_member_of_CUG_txt" msgid="2517559636224367413">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 87."</string>
+    <string name="clh_callFailed_incompatible_destination_txt" msgid="7994154962189949306">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 88."</string>
+    <string name="clh_callFailed_invalid_transit_network_selection_txt" msgid="5847046471813330674">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 91."</string>
+    <string name="clh_callFailed_semantically_incorrect_message_txt" msgid="5419940790658960361">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 95."</string>
+    <string name="clh_callFailed_invalid_mandatory_information_txt" msgid="3350178645665420102">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 96."</string>
+    <string name="clh_callFailed_message_type_non_existent_or_not_implemented_txt" msgid="7080310506268713895">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 97."</string>
+    <string name="clh_callFailed_message_type_not_compatible_with_protocol_state_txt" msgid="5251558113020693277">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 98."</string>
+    <string name="clh_callFailed_information_element_non_existent_or_not_implemented_txt" msgid="1643642065908165846">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 99."</string>
+    <string name="clh_callFailed_conditional_IE_error_txt" msgid="1622467860490603665">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 100."</string>
+    <string name="clh_callFailed_message_not_compatible_with_protocol_state_txt" msgid="3776039646804248109">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 101."</string>
+    <string name="clh_callFailed_recovery_on_timer_expiry_txt" msgid="4529313282997136028">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 102."</string>
+    <string name="clh_callFailed_protocol_Error_unspecified_txt" msgid="4900075501687505296">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 111."</string>
+    <string name="clh_callFailed_interworking_unspecified_txt" msgid="6701560054199411045">"कॉल पूरा नहीं हो सका. गड़बड़ी कोड 127."</string>
     <string name="labelCallBarring" msgid="3452870940716226978">"कॉल रोकें"</string>
     <string name="sum_call_barring_enabled" msgid="6804489690436703488">"चालू"</string>
     <string name="sum_call_barring_disabled" msgid="5900772179198857783">"बंद"</string>
@@ -730,6 +751,8 @@
     <string name="messageCallBarring" msgid="2412123220272136055">"पासवर्ड डालें"</string>
     <string name="call_barring_settings" msgid="80766145008623645">"कॉल रोकें सुविधा की सेटिंग"</string>
     <string name="call_barring_deactivate_all_no_password" msgid="920902774366557311">"कॉल रोकें सुविधा की सभी सेटिंग निष्क्रिय करें?"</string>
+    <string name="callFailed_NetworkBusy" msgid="1068322087736565421">"नेटवर्क व्यस्त है. कृपया बाद में दोबारा कॉल करें."</string>
+    <string name="callFailed_NetworkCongested" msgid="3313449239735315125">"नेटवर्क व्यस्त है. मदद के लिए अपने मोबाइल ऑपरेटर से संपर्क करें."</string>
     <string name="supp_service_notification_call_deflected" msgid="9195460512875330926">"कॉल दूसरे नंबर पर भेजे जाने के बजाय खुद को आ गया."</string>
     <string name="supp_service_notification_call_forwarded" msgid="7818548630812124053">"कॉल दूसरे नंबर पर भेजा गया."</string>
     <string name="supp_service_notification_call_waiting" msgid="789154111899572489">"कॉल प्रतीक्षा में है."</string>
@@ -747,4 +770,14 @@
     <string name="supp_service_forwarded_call" msgid="4509980341645679803">"दूसरे नंबर पर भेजा गया कॉल."</string>
     <string name="supp_service_conference_call" msgid="4448616364004466832">"कॉन्फ़्रेंस कॉल में शामिल हो रहे/रही हैं."</string>
     <string name="supp_service_held_call_released" msgid="2030677825038709779">"होल्ड किए गए कॉल को होल्ड से हटा दिया गया है."</string>
+    <string name="callFailed_otasp_provisioning_in_process" msgid="6361786376484384454">"कॉल नहीं किया जा सकता क्योंकि इस समय डिवाइस का प्रावधान किया जा रहा है."</string>
+    <string name="callFailed_already_dialing" msgid="4652915396769232226">"कॉल नहीं किया जा सकता, क्योंकि कोई दूसरा किया गया कॉल (आउटगोइंग) पहले से ही डायल हो रहा है."</string>
+    <string name="callFailed_already_ringing" msgid="7747655701540586943">"कॉल नहीं किया जा सकता, क्योंकि एक आने वाले कॉल (इनकमिंग) का जवाब नहीं दिया जा रहा है. नया कॉल करने से पहले आने वाले कॉल (इनकमिंग) का जवाब दें या उसे अस्वीकार करें."</string>
+    <string name="callFailed_calling_disabled" msgid="7257184079619449933">"कॉल नहीं किया जा सकता क्योंकि कॉलिंग की सुविधा को ROS.टेलीफ़ोनी की कॉल बंद करें सिस्टम प्रॉपर्टी का उपयोग करके बंद कर दिया गया है."</string>
+    <string name="callFailed_too_many_calls" msgid="3023051919216926990">"कॉल नहीं किया जा सकता, क्योंकि पहले से ही दो कॉल जारी हैं. नया कॉल करने से पहले उनमें से किसी एक कॉल को बंद करें या उन्हें कॉन्फ़्रेंस में मर्ज करें."</string>
+    <string name="supp_service_over_ut_precautions" msgid="2565837355815074278">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> का उपयोग करने के लिए, पक्का करें कि मोबाइल डेटा चालू है. आप मोबाइल नेटवर्क सेटिंग में जाकर इसे बदल सकते हैं."</string>
+    <string name="supp_service_over_ut_precautions_roaming" msgid="1597142936802114092">"<xliff:g id="SUPP_SERVICE">%s</xliff:g> का उपयोग करने के लिए पक्का करें कि मोबाइल डेटा और डेटा रोमिंग चालू हैं. आप मोबाइल नेटवर्क सेटिंग में जाकर इन्हें बदल सकते हैं."</string>
+    <string name="supp_service_over_ut_precautions_dual_sim" msgid="1682814794340311300">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> का उपयोग करने के लिए पक्का करें कि सिम <xliff:g id="SIM_NUMBER">%2$d</xliff:g> का डेटा चालू है. आप मोबाइल नेटवर्क सेटिंग में जाकर इसे बदल सकते हैं."</string>
+    <string name="supp_service_over_ut_precautions_roaming_dual_sim" msgid="8062345092837168385">"<xliff:g id="SUPP_SERVICE">%1$s</xliff:g> का उपयोग करने के लिए पक्का करें कि सिम <xliff:g id="SIM_NUMBER">%2$d</xliff:g> का मोबाइल डेटा और डेटा रोमिंग चालू हैं. आप मोबाइल नेटवर्क सेटिंग में जाकर इन्हें बदल सकते हैं."</string>
+    <string name="supp_service_over_ut_precautions_dialog_dismiss" msgid="5061044213859557398">"खारिज करें"</string>
 </resources>

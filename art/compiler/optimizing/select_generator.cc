@@ -16,6 +16,7 @@
 
 #include "select_generator.h"
 
+#include "base/scoped_arena_containers.h"
 #include "reference_type_propagation.h"
 
 namespace art {
@@ -43,12 +44,18 @@ static bool IsSimpleBlock(HBasicBlock* block) {
   for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
     HInstruction* instruction = it.Current();
     if (instruction->IsControlFlow()) {
-      if (num_instructions > kMaxInstructionsInBranch) {
-        return false;
-      }
       return instruction->IsGoto() || instruction->IsReturn();
-    } else if (instruction->CanBeMoved() && !instruction->HasSideEffects()) {
-      num_instructions++;
+    } else if (instruction->CanBeMoved() &&
+               !instruction->HasSideEffects() &&
+               !instruction->CanThrow()) {
+      if (instruction->IsSelect() &&
+          instruction->AsSelect()->GetCondition()->GetBlock() == block) {
+        // Count one HCondition and HSelect in the same block as a single instruction.
+        // This enables finding nested selects.
+        continue;
+      } else if (++num_instructions > kMaxInstructionsInBranch) {
+        return false;  // bail as soon as we exceed number of allowed instructions
+      }
     } else {
       return false;
     }
@@ -85,10 +92,15 @@ static HPhi* GetSingleChangedPhi(HBasicBlock* block, size_t index1, size_t index
   return select_phi;
 }
 
-void HSelectGenerator::Run() {
+bool HSelectGenerator::Run() {
+  bool didSelect = false;
+  // Select cache with local allocator.
+  ScopedArenaAllocator allocator(graph_->GetArenaStack());
+  ScopedArenaSafeMap<HInstruction*, HSelect*> cache(
+      std::less<HInstruction*>(), allocator.Adapter(kArenaAllocSelectGenerator));
+
   // Iterate in post order in the unlikely case that removing one occurrence of
   // the selection pattern empties a branch block of another occurrence.
-  // Otherwise the order does not matter.
   for (HBasicBlock* block : graph_->GetPostOrder()) {
     if (!block->EndsWithIf()) continue;
 
@@ -97,6 +109,7 @@ void HSelectGenerator::Run() {
     HBasicBlock* true_block = if_instruction->IfTrueSuccessor();
     HBasicBlock* false_block = if_instruction->IfFalseSuccessor();
     DCHECK_NE(true_block, false_block);
+
     if (!IsSimpleBlock(true_block) ||
         !IsSimpleBlock(false_block) ||
         !BlocksMergeTogether(true_block, false_block)) {
@@ -107,11 +120,15 @@ void HSelectGenerator::Run() {
     // If the branches are not empty, move instructions in front of the If.
     // TODO(dbrazdil): This puts an instruction between If and its condition.
     //                 Implement moving of conditions to first users if possible.
-    if (!true_block->IsSingleGoto() && !true_block->IsSingleReturn()) {
-      true_block->GetFirstInstruction()->MoveBefore(if_instruction);
+    while (!true_block->IsSingleGoto() && !true_block->IsSingleReturn()) {
+      HInstruction* instr = true_block->GetFirstInstruction();
+      DCHECK(!instr->CanThrow());
+      instr->MoveBefore(if_instruction);
     }
-    if (!false_block->IsSingleGoto() && !false_block->IsSingleReturn()) {
-      false_block->GetFirstInstruction()->MoveBefore(if_instruction);
+    while (!false_block->IsSingleGoto() && !false_block->IsSingleReturn()) {
+      HInstruction* instr = false_block->GetFirstInstruction();
+      DCHECK(!instr->CanThrow());
+      instr->MoveBefore(if_instruction);
     }
     DCHECK(true_block->IsSingleGoto() || true_block->IsSingleReturn());
     DCHECK(false_block->IsSingleGoto() || false_block->IsSingleReturn());
@@ -138,7 +155,8 @@ void HSelectGenerator::Run() {
     DCHECK(both_successors_return || phi != nullptr);
 
     // Create the Select instruction and insert it in front of the If.
-    HSelect* select = new (graph_->GetAllocator()) HSelect(if_instruction->InputAt(0),
+    HInstruction* condition = if_instruction->InputAt(0);
+    HSelect* select = new (graph_->GetAllocator()) HSelect(condition,
                                                            true_value,
                                                            false_value,
                                                            if_instruction->GetDexPc());
@@ -175,12 +193,34 @@ void HSelectGenerator::Run() {
 
     MaybeRecordStat(stats_, MethodCompilationStat::kSelectGenerated);
 
+    // Very simple way of finding common subexpressions in the generated HSelect statements
+    // (since this runs after GVN). Lookup by condition, and reuse latest one if possible
+    // (due to post order, latest select is most likely replacement). If needed, we could
+    // improve this by e.g. using the operands in the map as well.
+    auto it = cache.find(condition);
+    if (it == cache.end()) {
+      cache.Put(condition, select);
+    } else {
+      // Found cached value. See if latest can replace cached in the HIR.
+      HSelect* cached = it->second;
+      DCHECK_EQ(cached->GetCondition(), select->GetCondition());
+      if (cached->GetTrueValue() == select->GetTrueValue() &&
+          cached->GetFalseValue() == select->GetFalseValue() &&
+          select->StrictlyDominates(cached)) {
+       cached->ReplaceWith(select);
+       cached->GetBlock()->RemoveInstruction(cached);
+      }
+      it->second = select;  // always cache latest
+    }
+
     // No need to update dominance information, as we are simplifying
     // a simple diamond shape, where the join block is merged with the
     // entry block. Any following blocks would have had the join block
     // as a dominator, and `MergeWith` handles changing that to the
     // entry block.
+    didSelect = true;
   }
+  return didSelect;
 }
 
 }  // namespace art

@@ -16,13 +16,15 @@
 
 package android.os.lib.consumer2;
 
+import static org.junit.Assert.assertSame;
+
 import android.os.lib.provider.StaticSharedLib;
-import android.support.test.InstrumentationRegistry;
-import android.support.test.runner.AndroidJUnit4;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static org.junit.Assert.assertSame;
 
 @RunWith(AndroidJUnit4.class)
 public class UseSharedLibraryTest {

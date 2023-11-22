@@ -17,7 +17,7 @@
 #include <stdio.h>
 
 #define LOG_TAG "VtsSegFaultTestBinary"
-#include <utils/Log.h>
+#include <log/log.h>
 
 int main() {
   printf("seg_fault_bin: start");

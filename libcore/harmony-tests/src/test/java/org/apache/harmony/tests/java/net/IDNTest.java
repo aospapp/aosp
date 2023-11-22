@@ -153,4 +153,12 @@ public class IDNTest extends TestCase {
                 "www\uFF0Exn--gwtq9nb2a\uFF61jp", IDN.USE_STD3_ASCII_RULES));
 
     }
+
+    // b/113787610: "." is a valid IDN, as are absolute domain names with a trailing dot.
+    public void test_TrailingDots() {
+        assertEquals("google.com.", IDN.toASCII("google.com."));
+        assertEquals(".", IDN.toASCII("."));
+        assertEquals("google.com.", IDN.toUnicode("google.com."));
+        assertEquals(".", IDN.toUnicode("."));
+    }
 }

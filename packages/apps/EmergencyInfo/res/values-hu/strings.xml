@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_label" msgid="1090682794607161063">"Segélyhívási információk"</string>
     <string name="medical_info_title" msgid="3000192781136934887">"Egészségügyi adatok"</string>
-    <string name="edit_medical_info" msgid="6733720353375319476">"Adatok szerkesztése"</string>
+    <string name="add_medical_info" msgid="483921612415907139">"Adatok megadása"</string>
     <string name="edit_info" msgid="5973929805855224805">"Segélyhívási információk szerkesztése"</string>
     <string name="tab_title_info" msgid="1402033103294855812">"Információ"</string>
     <string name="tab_title_contacts" msgid="4298341166404791209">"Névjegyek"</string>
@@ -106,4 +106,8 @@
     <string name="emergency_info_footer" msgid="8751758742506410146">"Egészségügyi információk és vészhelyzetben hívható névjegyek hozzáadásával segítheti az elsősegélynyújtók munkáját vészhelyzet esetén.\n\nEzeket az információkat bárki elolvashatja a lezárási képernyőn, valamint a nevekre koppintva felhívhatja névjegyeit a telefon feloldása nélkül."</string>
     <string name="settings_suggestion_title" msgid="2503369576806243476">"Segélyhívási információk megadása"</string>
     <string name="settings_suggestion_body" msgid="5559349261345837716">"Adatok megjelenítése az elsősegélynyújtók számára"</string>
+    <string name="user_image_take_photo" msgid="2779924488370750102">"Fotó készítése"</string>
+    <string name="user_image_choose_photo" msgid="2442095378052415700">"Kép kiválasztása"</string>
+    <string name="user_image_photo_selector" msgid="8941966433899876760">"Fotó kiválasztása"</string>
+    <string name="user_nickname" msgid="7956055372443961161">"Becenév"</string>
 </resources>

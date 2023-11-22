@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2019 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,29 +19,28 @@ package android.car.trust;
 import android.bluetooth.BluetoothDevice;
 
 /**
- * Callback interface for BLE connection state changes.
+ * Callback interface for BLE connection state changes during trusted device enrollment.
  *
  * @hide
  */
 oneway interface ICarTrustAgentBleCallback {
     /**
-     * Called when the GATT server is started and BLE is successfully advertising.
+     * Called when the GATT server is started and BLE is successfully advertising for enrollment.
      */
-    void onBleServerStartSuccess();
+    void onEnrollmentAdvertisingStarted();
 
     /**
-     * Called when the BLE advertisement fails to start.
-     * see AdvertiseCallback#ADVERTISE_FAILED_* for possible error codes.
+     * Called when the BLE enrollment advertisement fails to start.
      */
-    void onBleServerStartFailure(int errorCode);
+    void onEnrollmentAdvertisingFailed();
 
     /**
-     * Called when a device is connected.
+     * Called when a remote device is connected on BLE.
      */
-    void onBleDeviceConnected(in BluetoothDevice device);
+    void onBleEnrollmentDeviceConnected(in BluetoothDevice device);
 
     /**
-     * Called when a device is disconnected.
+     * Called when a remote device is disconnected on BLE.
      */
-    void onBleDeviceDisconnected(in BluetoothDevice device);
+    void onBleEnrollmentDeviceDisconnected(in BluetoothDevice device);
 }

@@ -20,9 +20,9 @@ import static com.android.tv.TimeShiftManager.INVALID_TIME;
 import static com.android.tv.TimeShiftManager.REQUEST_TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import android.support.test.annotation.UiThreadTest;
-import android.support.test.filters.MediumTest;
-import android.support.test.runner.AndroidJUnit4;
+import androidx.test.annotation.UiThreadTest;
+import androidx.test.filters.MediumTest;
+import androidx.test.runner.AndroidJUnit4;
 import com.android.tv.testing.activities.BaseMainActivityTestCase;
 import org.junit.Before;
 import org.junit.Test;

@@ -16,6 +16,7 @@
   -->
 
 <resources>
+  <!-- TODO(a bug): remove these? -->
   <color name="feature_icon_read_color">#9E9E9E</color>
   <color name="feature_icon_unread_color">#474747</color>
 

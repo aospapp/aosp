@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/google/blueprint"
+	"github.com/google/blueprint/proptools"
 )
 
 // This file implements common functionality for handling modules that may exist as prebuilts,
@@ -42,6 +43,7 @@ type Prebuilt struct {
 	properties PrebuiltProperties
 	module     Module
 	srcs       *[]string
+	src        *string
 }
 
 func (p *Prebuilt) Name(name string) string {
@@ -49,17 +51,31 @@ func (p *Prebuilt) Name(name string) string {
 }
 
 func (p *Prebuilt) SingleSourcePath(ctx ModuleContext) Path {
-	if len(*p.srcs) == 0 {
-		ctx.PropertyErrorf("srcs", "missing prebuilt source file")
-		return nil
-	}
+	if p.srcs != nil {
+		if len(*p.srcs) == 0 {
+			ctx.PropertyErrorf("srcs", "missing prebuilt source file")
+			return nil
+		}
 
-	if len(*p.srcs) > 1 {
-		ctx.PropertyErrorf("srcs", "multiple prebuilt source files")
-		return nil
-	}
+		if len(*p.srcs) > 1 {
+			ctx.PropertyErrorf("srcs", "multiple prebuilt source files")
+			return nil
+		}
 
-	return PathForModuleSrc(ctx, (*p.srcs)[0])
+		// Return the singleton source after expanding any filegroup in the
+		// sources.
+		return PathForModuleSrc(ctx, (*p.srcs)[0])
+	} else {
+		if proptools.String(p.src) == "" {
+			ctx.PropertyErrorf("src", "missing prebuilt source file")
+			return nil
+		}
+		return PathForModuleSrc(ctx, *p.src)
+	}
+}
+
+func (p *Prebuilt) UsePrebuilt() bool {
+	return p.properties.UsePrebuilt
 }
 
 func InitPrebuiltModule(module PrebuiltInterface, srcs *[]string) {
@@ -68,23 +84,29 @@ func InitPrebuiltModule(module PrebuiltInterface, srcs *[]string) {
 	p.srcs = srcs
 }
 
+func InitSingleSourcePrebuiltModule(module PrebuiltInterface, src *string) {
+	p := module.Prebuilt()
+	module.AddProperties(&p.properties)
+	p.src = src
+}
+
 type PrebuiltInterface interface {
 	Module
 	Prebuilt() *Prebuilt
 }
 
 func RegisterPrebuiltsPreArchMutators(ctx RegisterMutatorsContext) {
-	ctx.BottomUp("prebuilts", prebuiltMutator).Parallel()
+	ctx.BottomUp("prebuilts", PrebuiltMutator).Parallel()
 }
 
 func RegisterPrebuiltsPostDepsMutators(ctx RegisterMutatorsContext) {
 	ctx.TopDown("prebuilt_select", PrebuiltSelectModuleMutator).Parallel()
-	ctx.BottomUp("prebuilt_replace", PrebuiltReplaceMutator).Parallel()
+	ctx.BottomUp("prebuilt_postdeps", PrebuiltPostDepsMutator).Parallel()
 }
 
-// prebuiltMutator ensures that there is always a module with an undecorated name, and marks
+// PrebuiltMutator ensures that there is always a module with an undecorated name, and marks
 // prebuilt modules that have both a prebuilt and a source module.
-func prebuiltMutator(ctx BottomUpMutatorContext) {
+func PrebuiltMutator(ctx BottomUpMutatorContext) {
 	if m, ok := ctx.Module().(PrebuiltInterface); ok && m.Prebuilt() != nil {
 		p := m.Prebuilt()
 		name := m.base().BaseModuleName()
@@ -102,7 +124,7 @@ func prebuiltMutator(ctx BottomUpMutatorContext) {
 func PrebuiltSelectModuleMutator(ctx TopDownMutatorContext) {
 	if m, ok := ctx.Module().(PrebuiltInterface); ok && m.Prebuilt() != nil {
 		p := m.Prebuilt()
-		if p.srcs == nil {
+		if p.srcs == nil && p.src == nil {
 			panic(fmt.Errorf("prebuilt module did not have InitPrebuiltModule called on it"))
 		}
 		if !p.properties.SourceExists {
@@ -119,10 +141,12 @@ func PrebuiltSelectModuleMutator(ctx TopDownMutatorContext) {
 	}
 }
 
-// PrebuiltReplaceMutator replaces dependencies on the source module with dependencies on the
-// prebuilt when both modules exist and the prebuilt should be used.  When the prebuilt should not
-// be used, disable installing it.
-func PrebuiltReplaceMutator(ctx BottomUpMutatorContext) {
+// PrebuiltPostDepsMutator does two operations.  It replace dependencies on the
+// source module with dependencies on the prebuilt when both modules exist and
+// the prebuilt should be used.  When the prebuilt should not be used, disable
+// installing it.  Secondly, it also adds a sourcegroup to any filegroups found
+// in the prebuilt's 'Srcs' property.
+func PrebuiltPostDepsMutator(ctx BottomUpMutatorContext) {
 	if m, ok := ctx.Module().(PrebuiltInterface); ok && m.Prebuilt() != nil {
 		p := m.Prebuilt()
 		name := m.base().BaseModuleName()
@@ -139,7 +163,11 @@ func PrebuiltReplaceMutator(ctx BottomUpMutatorContext) {
 // usePrebuilt returns true if a prebuilt should be used instead of the source module.  The prebuilt
 // will be used if it is marked "prefer" or if the source module is disabled.
 func (p *Prebuilt) usePrebuilt(ctx TopDownMutatorContext, source Module) bool {
-	if len(*p.srcs) == 0 {
+	if p.srcs != nil && len(*p.srcs) == 0 {
+		return false
+	}
+
+	if p.src != nil && *p.src == "" {
 		return false
 	}
 
@@ -149,4 +177,8 @@ func (p *Prebuilt) usePrebuilt(ctx TopDownMutatorContext, source Module) bool {
 	}
 
 	return source == nil || !source.Enabled()
+}
+
+func (p *Prebuilt) SourceExists() bool {
+	return p.properties.SourceExists
 }

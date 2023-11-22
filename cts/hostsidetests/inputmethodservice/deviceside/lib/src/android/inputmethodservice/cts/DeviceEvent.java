@@ -11,15 +11,15 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package android.inputmethodservice.cts;
 
 import static android.inputmethodservice.cts.common.DeviceEventConstants.ACTION_DEVICE_EVENT;
+import static android.inputmethodservice.cts.common.DeviceEventConstants.EXTRA_EVENT_SENDER;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.EXTRA_EVENT_TIME;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.EXTRA_EVENT_TYPE;
-import static android.inputmethodservice.cts.common.DeviceEventConstants.EXTRA_EVENT_SENDER;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.RECEIVER_CLASS;
 import static android.inputmethodservice.cts.common.DeviceEventConstants.RECEIVER_PACKAGE;
 
@@ -34,8 +34,9 @@ import android.inputmethodservice.cts.db.Entity;
 import android.inputmethodservice.cts.db.Field;
 import android.inputmethodservice.cts.db.Table;
 import android.os.SystemClock;
-import androidx.annotation.NonNull;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -58,8 +59,8 @@ public final class DeviceEvent {
      * @return an intent that has event {@code sender}, {@code type}, time from
      *         {@link SystemClock#uptimeMillis()}, and target component of event receiver.
      */
-    public static Intent newDeviceEventIntent(@NonNull final String sender,
-            @NonNull final DeviceEventType type) {
+    public static Intent newDeviceEventIntent(@NonNull String sender,
+            @NonNull DeviceEventType type) {
         return new Intent()
                 .setAction(ACTION_DEVICE_EVENT)
                 .setClassName(RECEIVER_PACKAGE, RECEIVER_CLASS)
@@ -74,7 +75,7 @@ public final class DeviceEvent {
      * @return {@link DeviceEvent} object that has event sender, type, and time form an
      *         {@code intent}.
      */
-    public static DeviceEvent newEvent(final Intent intent) {
+    public static DeviceEvent newEvent(Intent intent) {
         final String sender = intent.getStringExtra(EXTRA_EVENT_SENDER);
         if (sender == null) {
             throw new IllegalArgumentException(
@@ -101,7 +102,7 @@ public final class DeviceEvent {
      * @param event a {@link DeviceEvent} object to be converted.
      * @return a converted {@link ContentValues} object.
      */
-    public static ContentValues buildContentValues(final DeviceEvent event) {
+    public static ContentValues buildContentValues(DeviceEvent event) {
         return TABLE.buildContentValues(event);
     }
 
@@ -110,7 +111,7 @@ public final class DeviceEvent {
      * @param cursor a {@link Cursor} object to be converted.
      * @return a converted {@link Stream<DeviceEvent>} object.
      */
-    public static Stream<DeviceEvent> buildStream(final Cursor cursor) {
+    public static Stream<DeviceEvent> buildStream(Cursor cursor) {
         return TABLE.buildStream(cursor);
     }
 
@@ -120,7 +121,7 @@ public final class DeviceEvent {
      * @param sender event sender.
      * @return {@link Predicate<DeviceEvent>} object.
      */
-    public static Predicate<DeviceEvent> isFrom(final String sender) {
+    public static Predicate<DeviceEvent> isFrom(String sender) {
         return e -> e.sender.equals(sender);
     }
 
@@ -130,7 +131,7 @@ public final class DeviceEvent {
      * @param type a event type defined in {@link DeviceEventType}.
      * @return {@link Predicate<DeviceEvent>} object.
      */
-    public static Predicate<DeviceEvent> isType(final DeviceEventType type) {
+    public static Predicate<DeviceEvent> isType(DeviceEventType type) {
         return e -> e.type == type;
     }
 
@@ -141,7 +142,7 @@ public final class DeviceEvent {
      * @param time a time to compare against.
      * @return {@link Predicate<DeviceEvent>} object.
      */
-    public static Predicate<DeviceEvent> isNewerThan(final long time) {
+    public static Predicate<DeviceEvent> isNewerThan(long time) {
         return e -> e.time >= time;
     }
 
@@ -162,7 +163,7 @@ public final class DeviceEvent {
      */
     public final long time;
 
-    private DeviceEvent(final String sender, final DeviceEventType type, final long time) {
+    private DeviceEvent(String sender, DeviceEventType type, long time) {
         this.sender = sender;
         this.type = type;
         this.time = time;
@@ -180,27 +181,27 @@ public final class DeviceEvent {
 
         private static final String LOG_TAG = DeviceEventTable.class.getSimpleName();
 
-        private final Field SENDER;
-        private final Field TYPE;
-        private final Field TIME;
+        private final Field mSender;
+        private final Field mType;
+        private final Field mTime;
 
-        private DeviceEventTable(final String name) {
+        private DeviceEventTable(String name) {
             super(name, new Entity.Builder<DeviceEvent>()
                     .addField(EventTableConstants.SENDER, Cursor.FIELD_TYPE_STRING)
                     .addField(EventTableConstants.TYPE, Cursor.FIELD_TYPE_STRING)
                     .addField(EventTableConstants.TIME, Cursor.FIELD_TYPE_INTEGER)
                     .build());
-            SENDER = getField(EventTableConstants.SENDER);
-            TYPE = getField(EventTableConstants.TYPE);
-            TIME = getField(EventTableConstants.TIME);
+            mSender = getField(EventTableConstants.SENDER);
+            mType = getField(EventTableConstants.TYPE);
+            mTime = getField(EventTableConstants.TIME);
         }
 
         @Override
-        public ContentValues buildContentValues(final DeviceEvent event) {
+        public ContentValues buildContentValues(DeviceEvent event) {
             final ContentValues values = new ContentValues();
-            SENDER.putString(values, event.sender);
-            TYPE.putString(values, event.type.name());
-            TIME.putLong(values, event.time);
+            mSender.putString(values, event.sender);
+            mType.putString(values, event.type.name());
+            mTime.putLong(values, event.time);
             return values;
         }
 
@@ -212,12 +213,12 @@ public final class DeviceEvent {
             final Stream.Builder<DeviceEvent> builder = Stream.builder();
             for (cursor.moveToFirst(); !cursor.isAfterLast(); cursor.moveToNext()) {
                 final DeviceEvent event = new DeviceEvent(
-                        SENDER.getString(cursor),
-                        DeviceEventType.valueOf(TYPE.getString(cursor)),
-                        TIME.getLong(cursor));
+                        mSender.getString(cursor),
+                        DeviceEventType.valueOf(mType.getString(cursor)),
+                        mTime.getLong(cursor));
                 builder.accept(event);
                 if (DEBUG_STREAM) {
-                    Log.d(LOG_TAG, " event=" +event);
+                    Log.d(LOG_TAG, " event=" + event);
                 }
             }
             return builder.build();

@@ -16,9 +16,9 @@
 -->
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical"
               android:layout_width="match_parent"
-              android:layout_height="wrap_content">
+              android:layout_height="wrap_content"
+              android:orientation="vertical">
 
     <LinearLayout
         android:id="@+id/recent_apps_row"
@@ -29,8 +29,7 @@
     <View
         android:id="@+id/divider"
         android:layout_width="match_parent"
-        android:layout_height="@dimen/car_list_divider_height"
-        android:layout_marginTop="@dimen/recent_apps_divider_margin"
-        android:layout_marginBottom="@dimen/recent_apps_divider_margin"
-        android:background="@color/car_list_divider"/>
+        android:layout_height="@dimen/recent_apps_row_height"
+        android:layout_marginTop="@dimen/app_grid_row_margin"
+        android:background="@color/recent_apps_line_divider_color"/>
 </LinearLayout>

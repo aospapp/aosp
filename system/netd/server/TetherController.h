@@ -26,13 +26,12 @@
 
 #include "NetdConstants.h"
 
+
 namespace android {
 namespace net {
 
-using android::netdutils::StatusOr;
-
 class TetherController {
-private:
+  private:
     struct ForwardingDownstream {
         std::string iface;
         bool active;
@@ -46,27 +45,42 @@ private:
 
     // NetId to use for forwarded DNS queries. This may not be the default
     // network, e.g., in the case where we are tethering to a DUN APN.
-    unsigned               mDnsNetId;
+    unsigned               mDnsNetId = 0;
     std::list<std::string> mDnsForwarders;
-    pid_t                  mDaemonPid;
-    int                    mDaemonFd;
+    pid_t                  mDaemonPid = 0;
+    int                    mDaemonFd = -1;
     std::set<std::string>  mForwardingRequests;
 
-public:
+    struct DnsmasqState {
+        static int sendCmd(int daemonFd, const std::string& cmd);
 
+        // List of downstream interfaces on which to serve. The format used is:
+        //     update_ifaces|<ifname1>|<ifname2>|...
+        std::string update_ifaces_cmd;
+        // Forwarding (upstream) DNS configuration to use. The format used is:
+        //     update_dns|<hex_socket_mark>|<ip1>|<ip2>|...
+        std::string update_dns_cmd;
+
+        void clear();
+        int sendAllState(int daemonFd) const;
+    } mDnsmasqState{};
+
+  public:
     TetherController();
-    virtual ~TetherController();
+    ~TetherController() = default;
 
     bool enableForwarding(const char* requester);
     bool disableForwarding(const char* requester);
-    size_t forwardingRequestCount();
+    const std::set<std::string>& getIpfwdRequesterList() const;
 
     int startTethering(int num_addrs, char **dhcp_ranges);
+    int startTethering(const std::vector<std::string>& dhcpRanges);
     int stopTethering();
     bool isTetheringStarted();
 
     unsigned getDnsNetId();
     int setDnsForwarders(unsigned netId, char **servers, int numServers);
+    int setDnsForwarders(unsigned netId, const std::vector<std::string>& servers);
     const std::list<std::string> &getDnsForwarders() const;
 
     int tetherInterface(const char *interface);
@@ -79,7 +93,7 @@ public:
     int setupIptablesHooks();
 
     class TetherStats {
-    public:
+      public:
         TetherStats() = default;
         TetherStats(std::string intIfn, std::string extIfn,
                 int64_t rxB, int64_t rxP,
@@ -108,7 +122,7 @@ public:
 
     typedef std::vector<TetherStats> TetherStatsList;
 
-    StatusOr<TetherStatsList> getTetherStats();
+    netdutils::StatusOr<TetherStatsList> getTetherStats();
 
     /*
      * extraProcessingInfo: contains raw parsed data, and error info.
@@ -126,11 +140,11 @@ public:
     static constexpr const char* LOCAL_RAW_PREROUTING        = "tetherctrl_raw_PREROUTING";
     static constexpr const char* LOCAL_TETHER_COUNTERS_CHAIN = "tetherctrl_counters";
 
-    android::RWLock lock;
+    std::mutex lock;
 
-private:
+  private:
     bool setIpFwdEnabled();
-
+    std::vector<char*> toCstrVec(const std::vector<std::string>& addrs);
     int setupIPv6CountersChain();
     static std::string makeTetherCountingRule(const char *if1, const char *if2);
     ForwardingDownstream* findForwardingDownstream(const std::string& intIface,
@@ -144,6 +158,7 @@ private:
     bool tetherCountingRuleExists(const std::string& iface1, const std::string& iface2);
 
     int setDefaults();
+    int setTetherGlobalAlertRule();
     int setForwardRules(bool set, const char *intIface, const char *extIface);
     int setTetherCountingRules(bool add, const char *intIface, const char *extIface);
 

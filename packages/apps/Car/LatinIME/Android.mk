@@ -36,8 +36,6 @@ LOCAL_JAVA_LIBRARIES += android.car
 LOCAL_STATIC_JAVA_LIBRARIES := \
         android-common jsr305
 
-LOCAL_STATIC_ANDROID_LIBRARIES += androidx.car_car
-
 # Include all the resources regardless of system supported locales
 LOCAL_AAPT_INCLUDE_ALL_RESOURCES := true
 

@@ -145,6 +145,8 @@ canned hooks already included geared towards AOSP style guidelines.
   `file`.
 * `commit_msg_bug_field`: Require a valid `Bug:` line.
 * `commit_msg_changeid_field`: Require a valid `Change-Id:` Gerrit line.
+* `commit_msg_prebuilt_apk_fields`: Require badging and build information for
+  prebuilt APKs.
 * `commit_msg_test_field`: Require a `Test:` line.
 * `cpplint`: Run through the cpplint tool (for C++ code).
 * `gofmt`: Run Go code through `gofmt`.
@@ -153,6 +155,8 @@ canned hooks already included geared towards AOSP style guidelines.
 * `jsonlint`: Verify JSON code is sane.
 * `pylint`: Run Python code through `pylint`.
 * `xmllint`: Run XML code through `xmllint`.
+* `android_test_mapping_format`: Validate TEST_MAPPING files in Android source
+  code. Refer to go/test-mapping for more details.
 
 Note: Builtin hooks tend to match specific filenames (e.g. `.json`).  If no
 files match in a specific commit, then the hook will be skipped for that commit.
@@ -198,6 +202,8 @@ distros/versions.  The following tools are recognized:
 * `google-java-format`: used for the `google_java_format` builtin hook.
 * `google-java-format-diff`: used for the `google_java_format` builtin hook.
 * `pylint`: used for the `pylint` builtin hook.
+* `android-test-mapping-format`: used for the `android_test_mapping_format`
+  builtin hook.
 
 See [Placeholders](#Placeholders) for variables you can expand automatically.
 

@@ -42,7 +42,7 @@ public class SettingsJankTests extends JankTestBase {
     private static final int TIMEOUT = 5000;
     private static final String SETTINGS_PACKAGE = "com.android.settings";
     private static final BySelector SETTINGS_DASHBOARD = By.res(SETTINGS_PACKAGE,
-            "dashboard_container");
+            "main_content_scrollable_container");
     // short transitions should be repeated within the test function, otherwise frame stats
     // captured are not really meaningful in a statistical sense
     private static final int INNER_LOOP = 2;
@@ -50,10 +50,13 @@ public class SettingsJankTests extends JankTestBase {
             .getAbsolutePath(), "autotester.log");
     private static final File RESULTS_FILE = new File(Environment.getExternalStorageDirectory()
             .getAbsolutePath(), "results.log");
+    // Note: Margin of 150 selected arbitrarily
+    private static final int VIEW_MARGIN = 150;
 
     private UiDevice mDevice;
 
     public void setUp() {
+        androidx.test.InstrumentationRegistry.registerInstance(getInstrumentation(), new Bundle());
         mDevice = UiDevice.getInstance(getInstrumentation());
 
         try {
@@ -82,6 +85,7 @@ public class SettingsJankTests extends JankTestBase {
 
     public void flingSettingsToStart() throws IOException {
         UiObject2 list = mDevice.wait(Until.findObject(SETTINGS_DASHBOARD), TIMEOUT);
+        list.setGestureMargin(VIEW_MARGIN);
         int count = 0;
         while (!list.isScrollable() && count <= 5) {
             mDevice.wait(Until.findObject(By.text("SEE ALL")), TIMEOUT).click();
@@ -108,6 +112,7 @@ public class SettingsJankTests extends JankTestBase {
     @GfxMonitor(processName=SETTINGS_PACKAGE)
     public void testSettingsFling() {
         UiObject2 list = mDevice.findObject(SETTINGS_DASHBOARD);
+        list.setGestureMargin(VIEW_MARGIN);
         for (int i = 0; i < INNER_LOOP; i++) {
             list.fling(Direction.DOWN);
             mDevice.waitForIdle();

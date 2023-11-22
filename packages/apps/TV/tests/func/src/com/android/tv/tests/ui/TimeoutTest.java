@@ -15,8 +15,8 @@
  */
 package com.android.tv.tests.ui;
 
-import android.support.test.filters.LargeTest;
 import android.support.test.uiautomator.Until;
+import androidx.test.filters.LargeTest;
 import com.android.tv.R;
 import com.android.tv.testing.uihelper.Constants;
 import org.junit.Ignore;

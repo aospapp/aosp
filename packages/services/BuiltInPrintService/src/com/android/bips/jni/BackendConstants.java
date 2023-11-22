@@ -67,5 +67,6 @@ public class BackendConstants {
     public static final String BLOCKED_REASON__LOW_ON_INK = "marker-ink-almost-empty";
     public static final String BLOCKED_REASON__LOW_ON_TONER = "marker-toner-almost-empty";
     public static final String BLOCKED_REASON__REALLY_LOW_ON_INK = "marker-ink-really-low";
+    public static final String BLOCKED_REASON__BAD_CERTIFICATE = "bad-certificate";
     public static final String BLOCKED_REASON__UNKNOWN = "unknown";
 }

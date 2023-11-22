@@ -34,6 +34,13 @@ public class ApiClass extends ApiElement {
     private final List<ApiElement> mSuperClasses = new ArrayList<>();
     private final List<ApiElement> mInterfaces = new ArrayList<>();
 
+    /**
+     * If negative, never seen as public. The absolute value is the last api level it is seen as hidden in.
+     * E.g. "-5" means a class that was hidden in api levels 1-5, then it was deleted, and "8"
+     * means a class that was hidden in api levels 1-8 then made public in 9.
+     */
+    private int mPrivateUntil; // Package private class?
+
     private final Map<String, ApiElement> mFields = new HashMap<>();
     private final Map<String, ApiElement> mMethods = new HashMap<>();
 
@@ -46,11 +53,23 @@ public class ApiClass extends ApiElement {
     }
 
     public void addMethod(String name, int version, boolean deprecated) {
+        // Correct historical mistake in android.jar files
+        if (name.endsWith(")Ljava/lang/AbstractStringBuilder;")) {
+            name = name.substring(0, name.length() - ")Ljava/lang/AbstractStringBuilder;".length()) + ")L" + getName() + ";";
+        }
         addToMap(mMethods, name, version, deprecated);
     }
 
-    public void addSuperClass(String superClass, int since) {
-        addToArray(mSuperClasses, superClass, since);
+    public ApiElement addSuperClass(String superClass, int since) {
+        return addToArray(mSuperClasses, superClass, since);
+    }
+
+    public ApiElement removeSuperClass(String superClass) {
+        ApiElement entry = findByName(mSuperClasses, superClass);
+        if (entry != null) {
+            mSuperClasses.remove(entry);
+        }
+        return entry;
     }
 
     @NotNull
@@ -58,8 +77,32 @@ public class ApiClass extends ApiElement {
         return mSuperClasses;
     }
 
+    public void updateHidden(int api, boolean hidden) {
+        if (hidden) {
+            mPrivateUntil = -api;
+        } else {
+            mPrivateUntil = Math.abs(api);
+        }
+    }
+
+    public boolean alwaysHidden() {
+        return mPrivateUntil < 0;
+    }
+
+    public int getHiddenUntil() {
+        return mPrivateUntil;
+    }
+
+    public void setHiddenUntil(int api) {
+        mPrivateUntil = api;
+    }
+
     public void addInterface(String interfaceClass, int since) {
         addToArray(mInterfaces, interfaceClass, since);
+    }
+
+    public List<ApiElement> getInterfaces() {
+        return mInterfaces;
     }
 
     private void addToMap(Map<String, ApiElement> elements, String name, int version, boolean deprecated) {
@@ -72,7 +115,7 @@ public class ApiClass extends ApiElement {
         }
     }
 
-    private void addToArray(Collection<ApiElement> elements, String name, int version) {
+    private ApiElement addToArray(Collection<ApiElement> elements, String name, int version) {
         ApiElement element = findByName(elements, name);
         if (element == null) {
             element = new ApiElement(name, version);
@@ -80,6 +123,7 @@ public class ApiClass extends ApiElement {
         } else {
             element.update(version);
         }
+        return element;
     }
 
     private ApiElement findByName(Collection<ApiElement> collection, String name) {
@@ -93,6 +137,9 @@ public class ApiClass extends ApiElement {
 
     @Override
     public void print(String tag, ApiElement parentElement, String indent, PrintStream stream) {
+        if (mPrivateUntil < 0) {
+            return;
+        }
         super.print(tag, false, parentElement, indent, stream);
         String innerIndent = indent + '\t';
         print(mSuperClasses, "extends", innerIndent, stream);
@@ -177,7 +224,8 @@ public class ApiClass extends ApiElement {
      * @return true if the method is an override
      */
     private boolean isOverride(ApiElement method, Map<String, ApiClass> allClasses) {
-        ApiElement localMethod = mMethods.get(method.getName());
+        String name = method.getName();
+        ApiElement localMethod = mMethods.get(name);
         if (localMethod != null && localMethod.introducedNotLaterThan(method)) {
             // This class has the method and it was introduced in at the same api level
             // as the child method, or before.
@@ -207,5 +255,36 @@ public class ApiClass extends ApiElement {
     @Override
     public String toString() {
         return getName();
+    }
+
+    private boolean haveInlined = false;
+
+    public void inlineFromHiddenSuperClasses(Map<String, ApiClass> hidden) {
+        if (haveInlined) {
+            return;
+        }
+        haveInlined = true;
+        for (ApiElement superClass : getSuperClasses()) {
+            ApiClass hiddenSuper = hidden.get(superClass.getName());
+            if (hiddenSuper != null) {
+                hiddenSuper.inlineFromHiddenSuperClasses(hidden);
+                Map<String, ApiElement> myMethods = this.mMethods;
+                Map<String, ApiElement> myFields = this.mFields;
+                for (Map.Entry<String, ApiElement> entry : hiddenSuper.mMethods.entrySet()) {
+                    String name = entry.getKey();
+                    ApiElement value = entry.getValue();
+                    if (!myMethods.containsKey(name)) {
+                        myMethods.put(name, value);
+                    }
+                }
+                for (Map.Entry<String, ApiElement> entry : hiddenSuper.mFields.entrySet()) {
+                    String name = entry.getKey();
+                    ApiElement value = entry.getValue();
+                    if (!myFields.containsKey(name)) {
+                        myFields.put(name, value);
+                    }
+                }
+            }
+        }
     }
 }

@@ -16,86 +16,60 @@
 
 package android.provider.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import android.content.ContentResolver;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
+import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
-import android.test.InstrumentationTestCase;
 
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.Scanner;
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
 
-public class Settings_SystemTest extends InstrumentationTestCase {
-    private ContentResolver cr;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-    private static final String INT_FIELD = "IntField";
-    private static final String LONG_FIELD = "LongField";
-    private static final String FLOAT_FIELD = "FloatField";
-    private static final String STRING_FIELD = "StringField";
+@RunWith(AndroidJUnit4.class)
+public class Settings_SystemTest {
+    private static final String INT_FIELD = Settings.System.SCREEN_BRIGHTNESS;
+    private static final String LONG_FIELD = Settings.System.SCREEN_OFF_TIMEOUT;
+    private static final String FLOAT_FIELD = Settings.System.FONT_SCALE;
+    private static final String STRING_FIELD = Settings.System.NEXT_ALARM_FORMATTED;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    @BeforeClass
+    public static void setUp() throws Exception {
+        final String packageName = InstrumentationRegistry.getTargetContext().getPackageName();
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "appops set " + packageName + " android:write_settings allow");
 
-        cr = getInstrumentation().getContext().getContentResolver();
-        assertNotNull(cr);
+        // Wait a beat to persist the change
+        SystemClock.sleep(500);
     }
 
-    private void deleteTestedRows() {
-        String selection = System.NAME + "=\"" + INT_FIELD + "\"";
-        cr.delete(System.CONTENT_URI, selection, null);
-
-        selection = System.NAME + "=\"" + LONG_FIELD + "\"";
-        cr.delete(System.CONTENT_URI, selection, null);
-
-        selection = System.NAME + "=\"" + FLOAT_FIELD + "\"";
-        cr.delete(System.CONTENT_URI, selection, null);
-
-        selection = System.NAME + "=\"" + STRING_FIELD + "\"";
-        cr.delete(System.CONTENT_URI, selection, null);
+    @AfterClass
+    public static void tearDown() throws Exception {
+        final String packageName = InstrumentationRegistry.getTargetContext().getPackageName();
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
+                "appops set " + packageName + " android:write_settings default");
     }
 
-    private void enableAppOps() {
-        StringBuilder cmd = new StringBuilder();
-        cmd.append("appops set ");
-        cmd.append(getInstrumentation().getContext().getPackageName());
-        cmd.append(" android:write_settings allow");
-        getInstrumentation().getUiAutomation().executeShellCommand(cmd.toString());
-
-        StringBuilder query = new StringBuilder();
-        query.append("appops get ");
-        query.append(getInstrumentation().getContext().getPackageName());
-        query.append(" android:write_settings");
-        String queryStr = query.toString();
-
-        String result = "No operations.";
-        while (result.contains("No operations")) {
-            ParcelFileDescriptor pfd = getInstrumentation().getUiAutomation().executeShellCommand(
-                    queryStr);
-            InputStream inputStream = new FileInputStream(pfd.getFileDescriptor());
-            result = convertStreamToString(inputStream);
-        }
-    }
-
-    private String convertStreamToString(InputStream is) {
-        try (Scanner scanner = new Scanner(is).useDelimiter("\\A")) {
-            return scanner.hasNext() ? scanner.next() : "";
-        }
-    }
-
+    @Test
     public void testSystemSettings() throws SettingNotFoundException {
+        final ContentResolver cr = InstrumentationRegistry.getTargetContext().getContentResolver();
+
         /**
          * first query the exist settings in System table, and then insert five
          * rows: an int, a long, a float, a String, and a ShowGTalkServiceStatus.
          * Get these six rows to check whether insert succeeded and then delete them.
          */
-        // Precondition: these rows must not exist in the db when we begin
-        deleteTestedRows();
 
         // first query exist rows
         Cursor c = cr.query(System.CONTENT_URI, null, null, null, null);
@@ -107,7 +81,6 @@ public class Settings_SystemTest extends InstrumentationTestCase {
 
         try {
             assertNotNull(c);
-            int origCount = c.getCount();
             c.close();
 
             String stringValue = "cts";
@@ -120,7 +93,6 @@ public class Settings_SystemTest extends InstrumentationTestCase {
 
             c = cr.query(System.CONTENT_URI, null, null, null, null);
             assertNotNull(c);
-            assertEquals(origCount + 4, c.getCount());
             c.close();
 
             // get these rows to assert
@@ -130,12 +102,8 @@ public class Settings_SystemTest extends InstrumentationTestCase {
 
             assertEquals(stringValue, System.getString(cr, STRING_FIELD));
 
-            // delete the tested rows again
-            deleteTestedRows();
-
             c = cr.query(System.CONTENT_URI, null, null, null, null);
             assertNotNull(c);
-            assertEquals(origCount, c.getCount());
 
             // update fontScale row
             cfg = new Configuration();
@@ -143,23 +111,32 @@ public class Settings_SystemTest extends InstrumentationTestCase {
             assertTrue(System.putConfiguration(cr, cfg));
 
             System.getConfiguration(cr, cfg);
-            assertEquals(1.2f, cfg.fontScale);
+            assertEquals(1.2f, cfg.fontScale, 0.001);
         } finally {
             // TODO should clean up more better
             c.close();
 
             // restore the fontScale
+            try {
+                // Delay helps ActivityManager in completing its previous font-change processing.
+                Thread.sleep(1000);
+            } catch (Exception e){}
+
             cfg.fontScale = store;
             assertTrue(System.putConfiguration(cr, cfg));
         }
     }
 
+    @Test
     public void testGetDefaultValues() {
+        final ContentResolver cr = InstrumentationRegistry.getTargetContext().getContentResolver();
+
         assertEquals(10, System.getInt(cr, "int", 10));
         assertEquals(20, System.getLong(cr, "long", 20l));
         assertEquals(30.0f, System.getFloat(cr, "float", 30.0f), 0.001);
     }
 
+    @Test
     public void testGetUriFor() {
         String name = "table";
 

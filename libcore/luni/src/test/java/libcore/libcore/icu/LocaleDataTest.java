@@ -138,4 +138,12 @@ public class LocaleDataTest extends junit.framework.TestCase {
     LocaleData haw = LocaleData.get(new Locale("haw"));
     assertFalse(haw.shortDateFormat.isEmpty());
   }
+
+  /**
+   * Check that LocaleData.get() does not throw when the input locale is invalid.
+   * http://b/129070579
+   */
+  public void testInvalidLocale() {
+    LocaleData.get(new Locale("invalidLocale"));
+  }
 }

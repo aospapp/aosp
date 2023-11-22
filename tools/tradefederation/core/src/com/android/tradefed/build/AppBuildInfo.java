@@ -16,10 +16,9 @@
 
 package com.android.tradefed.build;
 
-import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.build.BuildInfoKey.BuildInfoFileKey;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,7 +28,6 @@ import java.util.List;
 public class AppBuildInfo extends BuildInfo implements IAppBuildInfo {
 
     private static final long serialVersionUID = BuildSerializedVersion.VERSION;
-    private List<VersionedFile> mAppPackageFiles = new ArrayList<VersionedFile>();
 
     /**
      * Creates a {@link AppBuildInfo}.
@@ -53,8 +51,11 @@ public class AppBuildInfo extends BuildInfo implements IAppBuildInfo {
      */
     @Override
     public List<VersionedFile> getAppPackageFiles() {
-        List<VersionedFile> listCopy = new ArrayList<VersionedFile>(mAppPackageFiles.size());
-        listCopy.addAll(mAppPackageFiles);
+        List<VersionedFile> origList = getVersionedFiles(BuildInfoFileKey.PACKAGE_FILES);
+        List<VersionedFile> listCopy = new ArrayList<VersionedFile>();
+        if (origList != null) {
+            listCopy.addAll(origList);
+        }
         return listCopy;
     }
 
@@ -63,43 +64,6 @@ public class AppBuildInfo extends BuildInfo implements IAppBuildInfo {
      */
     @Override
     public void addAppPackageFile(File appPackageFile, String version) {
-        mAppPackageFiles.add(new VersionedFile(appPackageFile, version));
-    }
-
-    /**
-     * Removes all temporary files
-     */
-    @Override
-    public void cleanUp() {
-        for (VersionedFile appPackageFile : mAppPackageFiles) {
-            appPackageFile.getFile().delete();
-        }
-        mAppPackageFiles.clear();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public IBuildInfo clone() {
-        AppBuildInfo copy = new AppBuildInfo(getBuildId(), getBuildTargetName());
-        copy.addAllBuildAttributes(this);
-        try {
-            for (VersionedFile origVerFile : mAppPackageFiles) {
-                // Only using createTempFile to create a unique dest filename
-                File origFile = origVerFile.getFile();
-                File copyFile = FileUtil.createTempFile(FileUtil.getBaseName(origFile.getName()),
-                        FileUtil.getExtension(origFile.getName()));
-                copyFile.delete();
-                FileUtil.hardlinkFile(origFile, copyFile);
-                copy.addAppPackageFile(copyFile, origVerFile.getVersion());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        copy.setBuildBranch(getBuildBranch());
-        copy.setBuildFlavor(getBuildFlavor());
-
-        return copy;
+        setFile(BuildInfoFileKey.PACKAGE_FILES, appPackageFile, version);
     }
 }
